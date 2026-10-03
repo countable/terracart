@@ -959,3 +959,72 @@ test('giant mushroom harvest awards wood and mushroom once through axe work', ()
     assert.eq(save.picked.filter(id=>id===plant.id).length,1,'one persistent picked identity');
   } finally {globalThis.WorldGen=original;}
 });
+
+test('barricade: T4 tree work, weaker-tool gate and selected disarm kit', () => {
+  const original = globalThis.WorldGen;
+  const plant = {kind:'wildplant', crop:'barricade', id:'barricade_harvest_test', x:2.5, y:2.5};
+  const handler = TAP_HANDLERS.find(h => h.name === 'wildplant');
+  try {
+    globalThis.WorldGen = {...original, forEachItem:(layer, cb) => { if (layer === 'wildplants') cb(plant); }};
+    for (const tier of [2, 3, 4]) {
+      let award, duration, cost, offer;
+      const save = {picked:[], energy:100, relics:{axe:{tier}}};
+      const scene = makeGridScene({save,
+        startWorkProgress:(x,y,cb,ms,energy) => { award=cb; duration=ms; cost=energy; },
+        showOfferModal: o => { offer=o; },
+      });
+      assert.eq(handler.try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}), true);
+      if (tier === 2) { assert.falsy(award); assert.falsy(offer); continue; }
+      if (tier === 3) {
+        assert.truthy(offer, 'one tier short offers the shared slow grind');
+        offer.onAccept();
+        assert.eq(duration, SLOW_GRIND_MS);
+        assert.eq(cost, SLOW_GRIND_ENERGY);
+      } else {
+        assert.eq(duration, toolDurationMs(save.relics, 'axe'));
+        const expected = toolEnergyExpected(tier, ENERGY_COST.chop) * 4;
+        assert.inRange(cost, Math.floor(expected), Math.ceil(expected));
+      }
+      assert.eq(scene.invCount('wood'), 0);
+      award();
+      const wood = scene.invCount('wood');
+      assert.truthy(wood === 8 || wood === 12, 'full hardwood yield');
+      award();
+      assert.eq(scene.invCount('wood'), wood, 'completion cannot duplicate wood');
+      assert.eq(save.picked.filter(id => id === plant.id).length, 1);
+      assert.falsy(save.chopped, 'wildplant removal uses its picked ledger');
+    }
+    const save = {picked:[], energy:100, inv:[{id:'trap_kit',count:1}], selSlot:0};
+    let worked = false;
+    const scene = makeGridScene({save, buildInventoryDOM() {},
+      startWorkProgress() { worked=true; }, spendEnergy() { throw Error('kit work is free'); }});
+    assert.eq(handler.try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}), true);
+    assert.falsy(worked);
+    assert.includes(save.picked, plant.id);
+    assert.eq(scene.invCount('wood'), 0, 'dismantling does not harvest wood');
+  } finally { globalThis.WorldGen=original; }
+});
+
+
+test('spike bushes: minimum T1 axe, while ordinary bushes remain barehand work', () => {
+  const original = globalThis.WorldGen;
+  const handler = TAP_HANDLERS.find(h => h.name === 'wildplant');
+  try {
+    for (const art of [null, '_plantArt', '_streetArt']) {
+      for (const tier of [0, 1]) {
+        const plant = {kind:'wildplant',crop:'shrub',id:'thorn_gate_test',x:2.5,y:2.5};
+        if (art) plant[art] = 'bramble';
+        globalThis.WorldGen = {...original, forEachItem:(layer,cb) => { if (layer === 'wildplants') cb(plant); }};
+        let worked = false, spent = false, offer = false;
+        const save = {picked:[],energy:100,relics:{axe:{tier}}};
+        const scene = makeGridScene({save, startWorkProgress() { worked=true; },
+          spendEnergy() { spent=true; return true; }, showOfferModal() { offer=true; }});
+        assert.eq(handler.try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}),true);
+        assert.eq(worked, !art || tier >= 1);
+        assert.eq(spent, worked);
+        assert.falsy(offer, 'bare hands cannot slow-grind thorny bushes');
+        assert.eq(save.picked.length,0,'starting or refusing work never removes the bush');
+      }
+    }
+  } finally { globalThis.WorldGen=original; }
+});

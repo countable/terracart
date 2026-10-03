@@ -1001,7 +1001,7 @@ function isPest(c) {
 // Nobody's hunter takes a tamed (released_) animal. The caller still skips
 // what is already caught.
 function huntsPrey(hunterKind, cr) {
-  if (!cr || Combat.isCharmed(cr) || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
+  if (!cr || Combat.isConcealed(cr) || Combat.isCharmed(cr) || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
   if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPest(cr);
   const prey = SpriteLayout.creaturePrey(hunterKind);
   return !!prey && prey.has(cr.kind);
@@ -1141,6 +1141,7 @@ function enemyWalkHazardTick(scene, c, now) {
   const previous = c._walkHazardPrevious;
   c._walkHazardPrevious = { x: c.x, y: c.y, now };
   if (!previous || !Combat.isEnemy(c) || !scene._walkHazardExposure) return false;
+  if (previous.x === c.x && previous.y === c.y) return false;
   const dt = Math.min(0.1, Math.max(0, (now - previous.now) / 1000));
   const rate = scene._walkHazardExposure(previous.x, previous.y, c.x, c.y);
   c._walkHazardAccum = (c._walkHazardAccum || 0) + rate * dt;
@@ -1196,6 +1197,7 @@ function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = fal
     const nx = sx + dx * i / n, ny = sy + dy * i / n;
     if (!enemyCanStep(scene, c, row, nx, ny, escaping)) { clear = false; break; }
     c.x = nx; c.y = ny;
+    if (row.trail && c._laySlimeTrail) enemyLaySlimeTrail(scene, c, row);
   }
   // A blocked sweep can still advance partway. Face only its accepted motion.
   SpriteLayout.updateCreatureFacing(c, c.x - sx, c.y - sy, now);
@@ -1390,9 +1392,23 @@ function enemyAreaContains(c, row, px, py, cellM) {
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
-  if (Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
-  if (creatureTarget && Combat.isCharmed(c) === Combat.isCharmed(creatureTarget)) return;
+  if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
+  if (creatureTarget && (Combat.isConcealed(creatureTarget)
+      || Combat.isCharmed(c) === Combat.isCharmed(creatureTarget))) return;
   if (row.attackType === 'none') return;
+  if (row.meleeWhenCondition) {
+    const melee = !npcTarget && !creatureTarget && Conditions.active(scene.save, row.meleeWhenCondition.id);
+    const mode = melee ? 'condition_melee' : 'primary';
+    // Each attack retains its cooldown when the target enters/leaves the
+    // condition; switching also cancels the old attack's unfinished wind-up.
+    if (c._conditionalAttackMode && c._conditionalAttackMode !== mode) {
+      (c._attackModeNext ||= {})[c._conditionalAttackMode] = c._attackNextT || 0;
+      c._attackNextT = c._attackModeNext[mode] || 0;
+      c._attackWindupUntil = null; c._attackAim = null;
+    }
+    c._conditionalAttackMode = mode;
+    if (melee) row = {...row, ...row.meleeWhenCondition, id: row.id, attackType:'melee'};
+  }
   const targetKey = creatureTarget?.id || npcTarget?.id || 'player';
   if (c._attackTargetKey != null && c._attackTargetKey !== targetKey) {
     c._attackWindupUntil = null; c._attackAim = null;
@@ -1488,6 +1504,8 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     if (shot) {
       shot.projectile = row.projectile || (row.id === 'goblin_archer' ? 'arrow' : 'enemy_magic');
       shot.enemyKind = row.id;
+      if (row.projectileCondition) shot.condition = row.projectileCondition;
+      if (row.projectileSpeedMetersPerSecond) shot.speedMps = row.projectileSpeedMetersPerSecond;
       shot._sourceGuard = c;
       shot.hostile = !Combat.isCharmed(c);
       (scene._shots ||= []).push(shot);
@@ -1542,15 +1560,116 @@ function foeSpacingPush(scene, c) {
   return len > 1 ? { x: x / len, y: y / len } : { x, y };
 }
 
+// A camouflaged foe holds its authored seat until the player gets close.
+// The same predicate keeps weapons and the renderer on the disguised state.
+function enemyDisguiseTick(scene, c, px, py) {
+  if (!Combat.isDisguised(c)) return false;
+  const disguise = EnemyRoster.get(c.kind).disguise;
+  if (Math.hypot(px - c.x, py - c.y) > disguise.revealCells * scene.cellM) return true;
+  c._disguiseRevealed = true;
+  c._hunting = true;
+  scene._burstAtWorld?.('timber', c.x, c.y);
+  return false;
+}
+
+function enemyStartEmerging(scene, c, row, now) {
+  c._emergeT0 = now;
+  c._emergeUntil = now + (row.movement.emergeSeconds || 0.8) * 1000;
+  scene._burstAtWorld?.('stone', c.x, c.y);
+}
+// Burrowing foes alternate between hidden travel and a visible attack window.
+// Candidate emergence cells are authored by the strip mine, never the player.
+function enemyBurrowTick(scene, c, row, now) {
+  if (!row) return false;
+  const m = row.movement;
+  if (c._emergeUntil > now) return true;
+  if (c.emergeFromGround && !c._hasEmerged) {
+    c._burrowed = true;
+    const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+    if (scene.isUnnoticed(c) || !Combat.seesPlayer(c.kind, Math.hypot(px - c.x, py - c.y), scene.cellM, scene.save)) return true;
+    c._burrowed = false; c._hasEmerged = true;
+    enemyStartEmerging(scene, c, row, now);
+    return true;
+  }
+  if (m.pattern !== 'burrow') return false;
+  const duration = range => (range[0] + Math.random() * (range[1] - range[0])) * 1000;
+  if (c._burrowNextT == null || (!c._burrowed && now >= c._burrowNextT)) {
+    c._burrowed = true;
+    c._burrowNextT = now + duration(m.burrowSeconds);
+    c._attackWindupUntil = null;
+    c._walkHazardPrevious = null;
+  }
+  if (!c._burrowed) return false;
+  if (now < c._burrowNextT) return true;
+  const cells = c.burrowCells;
+  for (let attempt = 0; attempt < 16; attempt++) {
+    let x = c.homeX ?? c.x, y = c.homeY ?? c.y;
+    if (cells?.length) {
+      const point = cells[Math.floor(Math.random() * cells.length)];
+      x = point.x; y = point.y;
+    }
+    if (!enemyCanStep(scene, c, row, x, y)) continue;
+    c.x = x; c.y = y;
+    c._burrowed = false;
+    enemyStartEmerging(scene, c, row, now);
+    c._burrowNextT = c._emergeUntil + duration(m.surfacedSeconds);
+    c._attackNextT = c._emergeUntil;
+    return true;
+  }
+  c._burrowNextT = now + 1000;
+  return true;
+}
+
+// Trails belong to the ground, so they survive their maker and expire on the
+// wall clock, including time spent away or on another dungeon level.
+function enemyLaySlimeTrail(scene, c, row) {
+  const trail = row.trail, now = Date.now();
+  const spacing = trail.spacingCells * scene.cellM;
+  const key = `${scene.depth || 0}:${Math.round(c.x / spacing)}:${Math.round(c.y / spacing)}`;
+  const patches = scene.save.slimeTrails ||= {};
+  const previous = patches[key];
+  if (previous && now - previous.createdAt < 1000) return;
+  patches[key] = { x: c.x, y: c.y, depth: scene.depth || 0, createdAt: now,
+    expiresAt: now + trail.durationSeconds * 1000,
+    radius: trail.radiusCells * scene.cellM, rawDps: trail.rawDps * Combat.powerMul(c) };
+  if (typeof persistSave === 'function') persistSave(scene.save);
+}
+function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
+  const patches = scene.save.slimeTrails;
+  if (!patches) return;
+  let rawDps = 0, expired = false;
+  for (const [key, patch] of Object.entries(patches)) {
+    if (patch.expiresAt <= now) { delete patches[key]; expired = true; continue; }
+    if (patch.depth === (scene.depth || 0)
+        && Math.hypot(px - patch.x, py - patch.y) <= patch.radius) {
+      // Overlapping marks form one puddle rather than multiplying damage.
+      rawDps = Math.max(rawDps, patch.rawDps);
+    }
+  }
+  if (expired && typeof persistSave === 'function') persistSave(scene.save);
+  if (!rawDps || Combat.playerDowned(scene.save.energy)) { scene._slimeTrailFraction = 0; return; }
+  const damage = Combat.playerDamageRate(rawDps * PotionEffects.damageMul(scene.save),
+    scene.save.armor, dt, { packetSeconds: 1 });
+  scene._slimeTrailFraction = (scene._slimeTrailFraction || 0) + damage;
+  const whole = Math.floor(scene._slimeTrailFraction + 1e-9);
+  if (whole > 0) {
+    scene._slimeTrailFraction -= whole;
+    scene._monsterDmgAccum = (scene._monsterDmgAccum || 0)
+      + scene._losePlayerEnergy(whole, { closeShop: true });
+  }
+}
+
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
-  if (Combat.isSleeping(c)) return;
+  if (Combat.isConcealed(c) || Combat.isSleeping(c)) return;
   if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
     c._hp = Combat.maxHp(c); c._lastDamagedT = null;
   }
-  const m = row.movement;
+  const m = row.meleeWhenCondition && c._attackTargetKey === 'player'
+      && Conditions.active(scene.save, row.meleeWhenCondition.id)
+    ? {...row.movement, pattern:'pursue'} : row.movement;
   // Roots cannot wander, pursue, flee from wards or shuffle back to a seat.
   // Attack suppression still uses the ordinary ward/hidden/downed gates.
-  if (c.stationary || m.pattern === 'anchor_spit') return;
+  if (c.stationary || m.pattern === 'anchor_spit' || m.pattern === 'burrow') return;
   if (c._abilityWindupUntil > now || c._reloadUntil > now) return;
   const dist = Math.hypot(px - c.x, py - c.y);
   let sees = !inactive && (creatureTarget
@@ -1572,7 +1691,8 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   }
   let angle = Math.atan2(py - c.y, px - c.x);
   let speed = m.speedMetersPerSecond;
-  let maxDistance = Math.max(0, dist - scene.cellM * 0.35);
+  let maxDistance = m.pattern === 'engulf' ? dist : Math.max(0, dist - scene.cellM * 0.35);
+  c._laySlimeTrail = !!row.trail && sees && !routed && lairState !== 'return' && !Combat.isCharmed(c);
   if (routed) {
     const from = c._wardFrom || { x: px, y: py };
     angle = Math.atan2(c.y - from.y, c.x - from.x);
@@ -1605,6 +1725,13 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   } else if (m.pattern === 'orbit_swoop') {
     enemyBatMove(scene, c, row, now, px, py);
     return;
+  } else if (m.pattern === 'orbit_trail') {
+    const radius = m.orbitRadiusCells * scene.cellM;
+    // A tangent plus radial correction produces a continuous circle, while
+    // allowing the ring to follow a moving player.
+    const radial = Math.max(-1, Math.min(1, (dist - radius) / radius));
+    angle += Math.atan2(1, radial * 2);
+    maxDistance = Infinity;
   } else if (m.pattern === 'scuttle_pause') {
     if (c._scuttleStart == null) c._scuttleStart = now;
     const cycle = m.scuttleSeconds + m.pauseSeconds;
@@ -1654,7 +1781,8 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   // Foes keep a little room between them (FOE_SPACING_CELLS): the spacing
   // push joins the approach inside the same per-frame budget, so a crowd
   // spreads round the player rather than stacking, and never moves faster.
-  const push = lairState === 'return' ? null : foeSpacingPush(scene, c);
+  const push = lairState === 'return' || m.pattern === 'engulf' || m.pattern === 'orbit_trail'
+    ? null : foeSpacingPush(scene, c);
   if (push) {
     const vx = Math.cos(angle) * step + push.x * pace, vy = Math.sin(angle) * step + push.y * pace;
     const len = Math.hypot(vx, vy);
@@ -1723,7 +1851,7 @@ function flowerOpponent(scene, c, px, py, caught, wall = Date.now()) {
   const sight = Combat.sightCells(c.kind) * scene.cellM;
   let best = null, distance = charmed || scene.isUnnoticed(c) ? sight : Math.min(sight, Math.hypot(px - c.x, py - c.y));
   const consider = other => {
-    if (other === c || caught.has(other.id) || other._surfaceInactive) return;
+    if (other === c || caught.has(other.id) || other._surfaceInactive || Combat.isConcealed(other)) return;
     const opponent = charmed ? Combat.isEnemy(other, wall) : Combat.isCharmed(other, wall);
     if (!opponent || Combat.hp(other) <= 0) return;
     const d = Math.hypot(other.x - c.x, other.y - c.y);

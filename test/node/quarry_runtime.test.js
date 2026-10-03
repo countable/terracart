@@ -39,7 +39,7 @@
     }
   });
   test('quarry runtime: all four compositions ship their finite site budgets and stable identities', () => {
-    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 2], ['quarry-stronghold', 3, 3]]) {
+    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 3], ['quarry-stronghold', 3, 3]]) {
       const a = ZoneDressing.dress(context(id)), b = ZoneDressing.dress(context(id));
       assert.eq(records(a).filter(o => o.zoneLayer === 'find').length, finds, id);
       assert.eq(a.guards.length, guards, id);
@@ -51,12 +51,20 @@
       assert.eq(observer.guards.length, 0, 'observer cannot multiply guards');
     }
   });
-  test('quarry runtime: strip mine inhabitants split and respect enemy-only exclusions', () => {
+  test('quarry runtime: strip mine slimes and burrowing wurms respect enemy-only exclusions', () => {
     const out = ZoneDressing.dress(context('quarry-strip-mine'));
-    assert.eq(out.guards.length, 2);
+    assert.eq(out.guards.length, 3);
+    assert.eq(out.guards.filter(g => g.kind === 'split_slime').length, 2);
+    assert.eq(out.guards.filter(g => g.kind === 'wurm').length, 1);
     for (const guard of out.guards) {
-      assert.eq(guard.kind, 'split_slime');
-      assert.eq(EnemyRoster.get(guard.kind).ability.type, 'split');
+      if (guard.kind === 'split_slime') assert.eq(EnemyRoster.get(guard.kind).ability.type, 'split');
+      else {
+        assert.gt(guard.burrowCells.length, 0, 'wurms retain their strip mine region');
+        for (const p of guard.burrowCells) {
+          const ix = Math.floor(p.x / C), iy = Math.floor(p.y / C);
+          assert.eq(context('quarry-strip-mine').field.coverage[iy * N + ix], 1);
+        }
+      }
     }
     const ctx = context('quarry-strip-mine');
     ctx.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
@@ -69,7 +77,7 @@
       const inhabited = ZoneDressing.dress(clipped);
       assert.gt(inhabited.guards.length, 0, 'clipped sites retain sparse splitting slimes');
       for (const guard of inhabited.guards) {
-        assert.eq(guard.kind, 'split_slime');
+        assert.includes(['split_slime', 'wurm'], guard.kind);
         assert.eq(guard.zoneLayer, 'background', 'clipped cells do not acquire a finite guard budget');
       }
       const movedAnchor = context('quarry-strip-mine', owned);
@@ -88,6 +96,37 @@
     const out=ZoneDressing.dress(context('quarry-abandoned')), spikes=out.objects.filter(o=>o.kind==='stakes');
     assert.gt(spikes.length,0);assert.lte(spikes.length,6);
     for(const o of spikes) assert.eq(out.slowCells.get(o._iy*N+o._ix),'stakes');
+  });
+  test('quarry runtime: authored wurms respect Home bands and starter amnesty before emerging', () => {
+    const was = window.__TEST_MODE; window.__TEST_MODE = false;
+    const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
+    const generate = spawnPassFn(body + '\nreturn creatures;');
+    try {
+      for (const [distance, amnesty, active] of [[0, false, false], [749, false, false],
+        [750, false, true], [1000, true, false]]) {
+        const ctx = context('quarry-strip-mine'), dress = ZoneDressing.dress(ctx);
+        const guard = dress.guards.find(c => c.kind === 'wurm');
+        const anchor = { x: guard.x - distance, y: guard.y };
+        const entry = { grid: ctx.grid, baseGrid: ctx.grid.slice(), cellsPerEdge: N,
+          genObjects: [], objects: [], wildplants: [], zoneDress: dress, depth: 0 };
+        const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * C, cellM: C, depth: 0,
+          save: { caught: [] }, startWorldM: anchor, _starterTrailAnchor: () => anchor,
+          _pestFreeZone: () => amnesty ? { has: () => true } : null,
+          _provisionStarterHome() {}, _carveStarterPond() {} });
+        const creatures = generate.call(scene, entry, 0, 0);
+        const c = creatures.find(c => c.id === guard.id);
+        assert.truthy(c, 'authored identity is retained');
+        assert.eq(c._surfaceInactive, !active, `distance ${distance}, amnesty ${amnesty}`);
+        assert.truthy(c._burrowed, 'initial draw remains underground');
+        assert.falsy(c.immobile);
+        assert.falsy(c.lair, 'burrowing does not acquire garrison chase restrictions');
+        assert.eq(c._surfaceSpawn.x, guard.x);
+        c.x = anchor.x; c.y = anchor.y;
+        assert.eq(EnemySpawns.surfaceActive(scene, c), active, 'the original seat owns eligibility');
+      }
+      for (const biome of ['ROCK', 'SAND', 'GRASS', 'PARK', 'FARMLAND', 'INDUSTRIAL', 'WETLAND'])
+        assert.falsy(EnemySpawns.surfaceRows(biome).some(c => c.id === 'wurm'), 'wurms stay authored mine inhabitants');
+    } finally { window.__TEST_MODE = was; }
   });
   test('quarry runtime: abandoned finds are fixed-loot persistent crates, not daily POIs', () => {
     const out = ZoneDressing.dress(context('quarry-abandoned'));

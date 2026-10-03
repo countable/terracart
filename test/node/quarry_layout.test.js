@@ -127,7 +127,7 @@
           if ((axis === 'x' ? x : y) === middle) assert.falsy(p.background.has(y * N + x), 'cross-cut stays open');
         }
       }
-      assert.eq(p.guards.length, 2, 'narrow modules do not multiply inhabitants');
+      assert.eq(p.guards.length, 3, 'narrow modules do not multiply inhabitants');
       assert.eq(p.finds.length, 0, 'buried finds roll beneath actual stones after layout placement');
     }
   });
@@ -167,11 +167,13 @@
     const cells = rect(48, 48);
     assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
     const strip = plan('quarry-strip-mine', cells);
+    assert.eq(strip.guards.length, 3, 'inhabitant budget does not grow with the number of benches');
+    assert.eq(strip.guards.filter(g => g.material === 'split_slime').length, 2);
+    assert.eq(strip.guards.filter(g => g.material === 'wurm').length, 1);
     assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
-    assert.eq(strip.guards.length, 2, 'slime budget does not grow with the number of benches');
     for (const guard of strip.guards) {
-      assert.eq(guard.material, 'split_slime');
-      assert.falsy(strip.background.has(guard.i), 'slimes occupy open cuts');
+      assert.includes(['split_slime', 'wurm'], guard.material);
+      assert.falsy(strip.background.has(guard.i), 'inhabitants occupy open cuts');
     }
     const stronghold = plan('quarry-stronghold', cells);
     assert.eq(stronghold.finds.length, 3); assert.eq(stronghold.guards.length, 3);
@@ -243,11 +245,12 @@
     const make = list => run(QuarryLayout.planSteps({ a: { owned: false, clipped: true },
       variant: ZoneVariants.byId('quarry-strip-mine'), cells: list }, { N, tx: 4, ty: 5 }));
     const whole = make(cells), left = make(cells.filter(i => i % N < 24)), right = make(cells.filter(i => i % N >= 24));
-    const slimes = [...whole.background].filter(([, material]) => material === 'split_slime');
-    assert.gt(slimes.length, 0);
+    const inhabitants = [...whole.background].filter(([, material]) => ['split_slime', 'wurm'].includes(material));
+    assert.gt(inhabitants.filter(([, material]) => material === 'split_slime').length, 0);
+    assert.gt(inhabitants.filter(([, material]) => material === 'wurm').length, 0);
     const spacing = ZoneVariantData.quarryLayouts.clippedInhabitantSpacingCells;
-    const blocks = slimes.map(([i]) => `${Math.floor((4 * N + i % N) / spacing)},${Math.floor((5 * N + Math.floor(i / N)) / spacing)}`);
-    assert.eq(new Set(blocks).size, slimes.length, 'no block grants two inhabitants');
+    const blocks = inhabitants.map(([i]) => `${Math.floor((4 * N + i % N) / spacing)},${Math.floor((5 * N + Math.floor(i / N)) / spacing)}`);
+    assert.eq(new Set(blocks).size, inhabitants.length, 'no block grants two inhabitants');
     for (const [i, material] of whole.background) assert.eq((i % N < 24 ? left : right).background.get(i), material);
     assert.eq(whole.guards.length, 0, 'no finite budget is minted');
     assert.eq(whole.finds.length, 0);

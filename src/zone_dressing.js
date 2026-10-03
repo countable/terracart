@@ -85,6 +85,16 @@
         // Pattern enemies share the ordinary guard/caught pipeline, but each
         // repeated seat owns its stable cell id rather than a finite-find id.
         record = { kind: m.kind, id, x, y, homeX: x, homeY: y, stationary: m.kind === 'plant', ...extra };
+        if (m.kind === 'wurm') {
+          // Share the site's candidate seats; the live AI checks clearance
+          // again before emerging because placed objects can change later.
+          s.burrowCells ||= s.cells.filter(i => allowed(s, i % N, Math.floor(i / N), material))
+            .map(i => { const [x, y] = position(i % N, Math.floor(i / N)); return { x, y }; });
+          record.burrowCells = s.burrowCells;
+          // Authored roaming enemies use the same Home and starter-amnesty
+          // gate as ambient surface foes, measured from their original seat.
+          record._surfaceSpawn = { x, y, tx, ty, cx: ix, cy: iy };
+        }
         out.guards.push(record);
       }
       else if (m.kind === 'wildplant') { record = WG.makeWildplant(m.crop, x, y, id, extra); out.wildplants.push(record); }

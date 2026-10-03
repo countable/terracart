@@ -4,12 +4,12 @@
   'use strict';
   const EXT = 4096, REGION = 1024;
   const FAMILIES = {
-    natural: ['slime', 'cave_slime', 'bat', 'spider', 'purple_slime'],
+    natural: ['slime', 'cave_slime', 'bat', 'spider', 'purple_slime', 'gelatinous_cube'],
     roots: ['plant', 'spider', 'poison_spider', 'dryad', 'bone_plant'],
     warren: ['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper', 'bomb_goblin', 'orc'],
-    crypt: ['zombie', 'skeleton', 'skeleton_soldier', 'necromancer', 'lich', 'bone_plant', 'vampire_bat'],
+    crypt: ['zombie', 'skeleton', 'skeleton_soldier', 'necromancer', 'lich', 'bone_plant', 'vampire_bat', 'sword_spirit'],
     stronghold: ['orc', 'orc_mage', 'orc_shaman', 'minotaur', 'spear_goblin', 'brute'],
-    infernal: ['red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'],
+    infernal: ['fire_elemental', 'red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'],
     roost: ['red_demon', 'armoured_demon'],
   };
   const THEME_BANDS = [
@@ -19,24 +19,28 @@
     { max: 8, themes: ['crypt', 'stronghold', 'infernal', 'infernal', 'roots'] },
     { max: Infinity, themes: ['crypt', 'stronghold', 'infernal', 'infernal', 'roost'] },
   ];
+  const GRAVEYARD_THEMES = ['ordered_graves', 'overgrown_graves'];
+  function emergesFromGround(kind, theme) {
+    return kind === 'zombie' && GRAVEYARD_THEMES.includes(theme);
+  }
   const BUILDING_FAMILIES = {
     pirate_cove: ['pirate_grunt', 'pirate_gunner', 'pirate_captain'],
-    mystic_reef: ['giant_crab'],
+    mystic_reef: ['giant_crab', 'jellyfish'],
     orchard: ['farmer_goblin', 'club_goblin'],
-    hedge_garden: ['plant', 'spider'], ancient_grove: ['plant', 'spider'],
-    overgrown: ['plant', 'spider'], ordered_graves: ['skeleton', 'skeleton_soldier'],
-    silent_circle: ['skeleton', 'skeleton_soldier'], overgrown_graves: ['spider', 'skeleton'],
+    hedge_garden: ['plant', 'spider'], ancient_grove: ['treant', 'spider'],
+    overgrown: ['plant', 'spider'], ordered_graves: ['zombie', 'skeleton', 'skeleton_soldier'],
+    silent_circle: ['skeleton', 'skeleton_soldier'], overgrown_graves: ['zombie', 'spider', 'skeleton'],
     broken_masonry: ['club_goblin', 'spear_goblin', 'archer_goblin'],
     barricade: ['spear_goblin', 'archer_goblin'],
     hungry_marsh: ['plant', 'slime'], orc_stronghold: ['orc', 'orc_shaman', 'orc_mage'],
   };
   const SURFACE_FAMILIES = {
     ...BUILDING_FAMILIES,
-    meadow: ['slime', 'plant'], mushroom_grove: ['spider', 'slime'],
+    meadow: ['slime', 'plant'], mushroom_grove: ['mushroom_monster', 'spider', 'slime'],
     formal_garden: ['slime', 'plant'], stone_garden: ['slime', 'skeleton'],
     flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
-    seep: ['slime', 'plant'], work_yard: ['club_goblin', 'archer_goblin'],
-    black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'slime'],
+    seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin', 'archer_goblin'],
+    black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'slime', 'jellyfish'],
   };
   // One encounter roll per ~84 m square at the usual 7 m cell size.
   // Most are solitary; 25% are pairs and 10% are trios. No per-kind budget.
@@ -114,7 +118,10 @@
           occupied.add(cy * N + cx);
           anchor ||= { cx, cy, slot };
           out.push(WG.makeCreature(kind, x, y, `${id}_${n}`, {
-            habitat: theme, zoneVariant: theme, shiny: false, _surfaceSpawn: { x, y, tx, ty, cx, cy },
+            habitat: theme, zoneVariant: theme, shiny: false,
+            ...(emergesFromGround(kind, theme)
+              ? { emergeFromGround: true, _burrowed: true } : {}),
+            _surfaceSpawn: { x, y, tx, ty, cx, cy },
           }));
           break;
         }
@@ -235,6 +242,6 @@
     return out;
   }
   root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS,
-    unit, caveAt, surfaceAt, surfaceEncounters, variantAt, buildingKinds, surfaceSites, caveSites };
+    unit, caveAt, surfaceAt, surfaceEncounters, variantAt, emergesFromGround, buildingKinds, surfaceSites, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);

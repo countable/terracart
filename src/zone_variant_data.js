@@ -383,6 +383,18 @@
       "tierSeed": 2,
       "spawnClass": "attractor",
       "color": "#b29d6b"
+    },
+    "wurm": {
+      "kind": "wurm",
+      "recordType": "enemy",
+      "spawnClass": "enemy",
+      "color": "#ba8959"
+    },
+    "treant": {
+      "kind": "treant",
+      "recordType": "enemy",
+      "spawnClass": "enemy",
+      "color": "#99754b"
     }
   },
   "variants": [
@@ -2314,7 +2326,7 @@
               3,
               2
             ],
-            "material": "carnivorous_plant"
+            "material": "treant"
           },
           {
             "at": [
@@ -2430,7 +2442,7 @@
           "tree": 0.027777777777777776,
           "shrub": 0.5,
           "grass": 0.04444444444444444,
-          "carnivorous_plant": 0.027777777777777776
+          "treant": 0.027777777777777776
         },
         "type": "repeat_motif",
         "cluster": {
@@ -2614,9 +2626,9 @@
       },
       "guards": {
         "mode": "guard_find",
-        "kind": "plant",
+        "kind": "treant",
         "kinds": [
-          "plant",
+          "treant",
           "spider"
         ],
         "count": 2,
@@ -2633,7 +2645,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded tree-centered clusters repeat six cells apart, with brambles covering half the background cells and light grass in the gaps. Stone markers lead to the guarded starflower. One stationary carnivorous plant stands beside each repeated central tree.",
+      "atmosphere": "Rounded tree-centered clusters repeat six cells apart, with brambles covering half the background cells and light grass in the gaps. Stone markers lead to the guarded starflower. A bramble beside each central tree twitches, hiding a treant that wakes when approached.",
       "attracts": {
         "deer": 0.6
       },
@@ -7674,9 +7686,14 @@
       "guards": {
         "mode": "quarry_layout",
         "kind": "split_slime",
-        "count": 2
+        "count": 3,
+        "kinds": [
+          "split_slime",
+          "wurm",
+          "split_slime"
+        ]
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Blue slimes divide and gather in the open cuts.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Blue slimes divide and gather in the open cuts. Beneath them, wurms tunnel through the loose earth.",
       "attracts": {},
       "quarryLayout": "strip_mine",
       "affinities": [

@@ -78,6 +78,35 @@ const FAUNA_ATTRACT_TRIES = 12;
 const LAIR_POINT_SLACK_CELLS = 1;
 
 class SceneCreatures {
+  _revealMimic(o) {
+    if (this.depth > 0 || !(this.tileEdgeM > 0)) return false;
+    const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry?.creatures) return false;
+    const id = 'mimic:' + o.id;
+    const revealed = (this.save.revealedMimics ||= []);
+    if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, x: o.x, y: o.y });
+    if (!entry.creatures.some(c => c.id === id)) {
+      entry.creatures.push(WorldGen.makeCreature('mimic', o.x, o.y, id, {
+        depth: 0, shiny: false, _hunting: true,
+      }));
+    }
+    return true;
+  }
+  _restoreMimics(entry, tx, ty) {
+    if (this.depth > 0 || !(this.tileEdgeM > 0)) return;
+    const caught = new Set(this.save.caught || []);
+    const liveIds = new Set(entry.creatures.map(c => c.id));
+    for (const c of this.save.revealedMimics || []) {
+      if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !c.id
+          || Math.floor(c.x / this.tileEdgeM) !== tx || Math.floor(c.y / this.tileEdgeM) !== ty
+          || caught.has(c.id) || liveIds.has(c.id)) continue;
+      entry.creatures.push(WorldGen.makeCreature('mimic', c.x, c.y, c.id, {
+        depth: 0, shiny: false, _hunting: true,
+      }));
+      liveIds.add(c.id);
+    }
+  }
   // THE SPAWN PASS, run straight through — the centre tile (the ground the
   // player stands on appears whole) and every caller that cannot await. The
   // pass itself is spawnInTileSteps; the neighbour ring drives it sliced
@@ -549,12 +578,15 @@ class SceneCreatures {
     // them into an unrelated enemy. Their kills use the usual caught ledger.
     for (const guard of zoneGuards) {
       if (caughtSet.has(guard.id)) continue;
-      creatures.push(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
-        ...guard, shiny: false, immobile: true,
-        lair: guard.lair || guard.id,
+      const creature = WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
+        ...guard, shiny: false, immobile: !guard.burrowCells,
+        ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
+        lair: guard.burrowCells ? null : (guard.lair || guard.id),
         lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
         lairR: 0, seatX: guard.x, seatY: guard.y,
-      }));
+      });
+      if (creature._surfaceSpawn) EnemySpawns.surfaceActive(this, creature);
+      creatures.push(creature);
     }
     for (const c of habitatGuards) {
       if (caughtSet.has(c.id)) continue;
@@ -570,6 +602,9 @@ class SceneCreatures {
         if (caughtSet.has(r.id)) continue;
         // A raised pet carries its birth (SpriteLayout.isBabyPet) back too.
         creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, {
+          ...(r.hp != null ? {_hp:r.hp} : {}), _lastDamagedT:r.lastDamagedAt ?? null,
+          ...(r.stayHome == null ? Companions.releasePolicy(this, r.x, r.y)
+            : {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY}),
           shiny: !!r.shiny, ...(r.raised ? { raised: true, born: r.born, favouriteFeeds: r.favouriteFeeds || 0 } : {}),
         }));
       }
@@ -631,6 +666,7 @@ class SceneCreatures {
       entry.creatures.push(guard);
       liveIds.add(guard.id);
     }
+    this._restoreMimics(entry, tx, ty);
     NPC.shrineResidents(this, entry, tx, ty);
     NPC.arrivals(this, entry, tx, ty);
 
@@ -1615,6 +1651,7 @@ class SceneCreatures {
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
     const kerbLeash = inKerbAt(this, px, py);
+    enemySlimeTrailTick(this, px, py, npcDt);
     // The nearest hostile TAKING AN INTEREST this tick (not standing down, the
     // player not unnoticed) — handed to app.js _foeHeadsUp after the loop,
     // which buzzes the phone when it is close (SAFETY_FOE_BUZZ_CELLS).
@@ -1812,6 +1849,8 @@ class SceneCreatures {
         if (c.kind === 'npc') c._moving = false;
         return;
       }
+      if (enemyDisguiseTick(this, c, px, py)) return;
+      if (enemyBurrowTick(this, c, EnemyRoster.get(c.kind), now)) return;
       if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;
       if (this._tickUnitFire?.(c, now)) return;
       if (!caughtSet.has(c.id) && enemyWalkHazardTick(this, c, now)) return;
@@ -2270,6 +2309,8 @@ class SceneCreatures {
           // the pet, so the player's 3×3 tile ring covers the search box.
           WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (cr) => {
             if (!huntsPrey(c.kind, cr)) return;
+            if (Companions.follows(c, now) && Math.hypot(cr.x - px, cr.y - py) > 4 * this.cellM) return;
+            if (c.stayHome && Math.hypot(cr.x - c.petHomeX, cr.y - c.petHomeY) > Companions.HOME_PET_CELLS * this.cellM) return;
             if (caughtSet.has(cr.id)) return;
             const d2 = (cr.x - c.x) ** 2 + (cr.y - c.y) ** 2;
             if (d2 < nearestD2) { nearestD2 = d2; nearest = cr; }
@@ -2315,8 +2356,8 @@ class SceneCreatures {
 
         // Movement target — modes checked in order:
         //   (a) Pet chasing prey (_chaseTarget set above)
-        //   (b) Following (_followUntilT > now): a petted cat homes in on the
-        //       player. Which kinds follow is the table's `follows`.
+        //   (b) Released followers and active hired/summoned companions
+        //       keep beside their owner through the shared follow predicate.
         //   (c) Slime — lazily drawn toward the player.
         //   (d) Tame pets — home-bias keeps them near release point.
         //   (e) Default — wild farm animals random-wander around home.
@@ -2324,17 +2365,14 @@ class SceneCreatures {
         //   walks at it (raidStep, below) ahead of (d) and (e).
         // Wild crows take a separate path (_wildCrowTick) above.
         const FOLLOW_GAP = 1.5 * this.cellM;
-        const isFollowing = SpriteLayout.creatureFollows(c.kind)
-          && c._followUntilT && c._followUntilT > now;
-        // A SUMMONED follower's home is its summoner: re-anchored on the
-        // player every step, so between hunts it hovers at your side instead
-        // of the home-bias below dragging it back to where it was conjured.
-        // (A cat keeps its own release point — it goes home after its five
-        // minutes.)
-        if (isFollowing && summoned) { c._homeX = px; c._homeY = py; }
+        const isFollowing = Companions.follows(c, now);
+        // Travelling allies regroup beside their owner between hunts.
+        // Pets assigned to Home keep the anchor saved when released.
+        if (isFollowing) { c._homeX = px; c._homeY = py; }
+        else if (c.stayHome) { c._homeX = c.petHomeX ?? c._homeX; c._homeY = c.petHomeY ?? c._homeY; }
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
         const retreating = c._retreatUntilT && c._retreatUntilT > now;
-        const homeRadius = retreating ? 0 : isTame ? 5 * this.cellM : 3 * this.cellM;
+        const homeRadius = retreating ? 0 : c.stayHome ? Companions.HOME_PET_CELLS * this.cellM : isTame ? 5 * this.cellM : 3 * this.cellM;
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
@@ -2435,11 +2473,17 @@ class SceneCreatures {
           // (a guard walking home stops ON its seat rather than overshooting);
           // everything else takes the kind's full stride.
           let stepLen = stepM;
-          if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
+          if (isFollowing && distToPlayer > 3 * this.cellM) {
+            c._chaseTarget = null;
+            angle = Math.atan2(dyp, dxp);
+            stepLen = Math.min(stepM, distToPlayer - FOLLOW_GAP);
+          } else if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
             const tgt = c._chaseTarget;
             angle = Math.atan2(tgt.y - c.y, tgt.x - c.x) + (Math.random() - 0.5) * 0.3;
           } else if (isFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
+          } else if (isFollowing) {
+            stepLen = 0;
           } else if (gameCharge) {
             // A HUNTED DEER turns on you: every stride at the player, on the
             // monsters' stalk jitter, until it is close enough to butt.
@@ -2555,6 +2599,8 @@ class SceneCreatures {
           }
           tx = c.x + Math.cos(angle) * stepLen;
           ty = c.y + Math.sin(angle) * stepLen;
+          if (c.stayHome && Math.hypot(tx - c.petHomeX, ty - c.petHomeY) > homeRadius
+              && Math.hypot(tx - c.petHomeX, ty - c.petHomeY) >= Math.hypot(dxh, dyh)) continue;
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           if (Combat.isEnemy(c) && !fireStepAllowed(this, c, tx, ty)) continue;

@@ -152,7 +152,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // blow (see the melee-reach test below) — a swing must be both due and in
   // range — so the pin allows it and still refuses a blow that lands without
   // spending the clock.
-  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\)\) \* Combat\.trainingIntervalMul\(this\.save\);/.test(wheel),
+  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\)(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -771,7 +771,7 @@ test('combat: melee reaches exactly as far as a melee monster does', () => {
   assert.gt(melee.length, 3, 'found the melee monsters');
   // Only a declared long reach (a swooping pass, a big body's arms) may
   // out-reach the player's fist; nothing reaches less.
-  const LONG = new Set(['bat', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'brute', 'hell_brute', 'obsidian_brute',
+  const LONG = new Set(['bat', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'sword_spirit', 'brute', 'hell_brute', 'obsidian_brute',
     'orc', 'minotaur', 'giant_slime', 'giant_spider', 'giant_skeleton', 'giant_cave_slime', 'giant_crab',
     'red_demon', 'armoured_demon']);
   for (const [kind, m] of melee) {
@@ -916,8 +916,8 @@ test('staff range: the trigger and the flight are the same number', () => {
 
 test('combat: the staff\'s next bolt charges by the hand between shots', () => {
   const app = SCENE_SRC;
-  assert.truthy(/1 - \(due - now\) \/ \(Combat\.fireIntervalMs\(slot\) \* Combat\.trainingIntervalMul\(this\.save\)\)/.test(app)
-    && /this\._nextShotT\[slot\] = now \+ Combat\.fireIntervalMs\(slot\) \* Combat\.trainingIntervalMul\(this\.save\);/.test(app),
+  assert.truthy(/1 - \(due - now\) \/ \(Combat\.fireIntervalMs\(slot\) \* Combat\.playerAttackIntervalMul\(this\.save\)\)/.test(app)
+    && /this\._nextShotT\[slot\] = now \+ Combat\.fireIntervalMs\(slot\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(app),
     'the charge is read off the same clock that fires the bolt');
   assert.truthy(/if \(slot === 'staff'\) this\._staffCharge = 0;/.test(app), 'a loosed bolt empties the charge');
   const body = app.slice(app.indexOf('\n  _drawStaffCharge(g) {'), app.indexOf('\n  }\n', app.indexOf('\n  _drawStaffCharge(g) {')));
@@ -1036,4 +1036,32 @@ test('musket: every material fires gold bow damage with one coin and a round bal
   assert.eq(Combat.TRAINING_SLOT_KIND.musket, 'ranged');
   assert.truthy(/if \(shot && ammo\?\.currency\) \{[\s\S]*?addMoney\(this\.save, -1\);[\s\S]*?else if \(shot && ammo\)/.test(SCENE_SRC),
     'coins are charged only after firing and do not alter the bow ammo tally');
+});
+
+
+test('burrowed creatures: untargetable and immune until they surface', () => {
+  const foe = { id: 'buried', kind: 'zombie', x: 2, y: 0, _burrowed: true };
+  const hp = Combat.hp(foe);
+  assert.truthy(Combat.isBurrowed(foe));
+  assert.falsy(Combat.isEnemy(foe));
+  assert.falsy(Combat.anyEnemyWithin(0, 0, [foe], 10));
+  assert.eq(Combat.aimAtNearest(0, 0, [foe], 10), null);
+  assert.falsy(Combat.applySleep(foe));
+  assert.falsy(Combat.applyCharm(foe));
+  assert.falsy(Combat.ignite(foe));
+  assert.eq(Combat.damageDealt(foe, 100), 0);
+  assert.eq(Combat.damage(foe, 100), hp);
+  for (const slot of ['bow', 'staff']) {
+    let live = [Combat.spawnShot(slot, 0, 0, { x: 1, y: 0 }, 1, 3)];
+    let hits = 0;
+    for (let i = 0; i < 180 && live.length; i++) {
+      live = Combat.stepShots(live, 1 / 60, [foe], 0.3, () => hits++);
+    }
+    assert.eq(hits, 0, slot + ' flies over buried creatures');
+  }
+  foe._burrowed = false;
+  assert.truthy(Combat.isEnemy(foe));
+  assert.truthy(Combat.anyEnemyWithin(0, 0, [foe], 10));
+  assert.truthy(Combat.aimAtNearest(0, 0, [foe], 10));
+  assert.gt(Combat.damageDealt(foe, 100), 0);
 });

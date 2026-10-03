@@ -1398,11 +1398,52 @@ Render.rampartPiece = function (scene, groundY, rank = 1) {
   return sprite;
 };
 
+// Camouflage uses the same art and scale as its neighbouring wildplants.
+Render.drawCreatureDisguise = function (sprite, creature, sx, sy, now) {
+  if (!Combat.isDisguised(creature)) return false;
+  const disguise = EnemyRoster.get(creature.kind).disguise;
+  const look = wildplantSprite({ crop: disguise.crop, _plantArt: disguise.look });
+  sprite.anims?.stop();
+  sprite.setTexture(look.sheet, look.frame || 0);
+  sprite.setCrop();
+  sprite.setOrigin(0.5, 0.5).setScale(look.scale || 2).setPosition(Math.round(sx), Math.round(sy));
+  const phase = (now + strHash31(creature.id || '')) / disguise.wigglePeriodMs * Math.PI * 2;
+  sprite.setRotation(Math.sin(phase) * disguise.wiggleRadians).setFlipX(false).setTint(0xffffff).setAlpha(1);
+  Render.setShine(sprite, false, creature.id);
+  return true;
+};
+
+// A reusable crop animation needs no additional frames in the source sheet.
+Render.applyEmergence = function (sprite, creature, now) {
+  sprite.setCrop();
+  if (!(creature._emergeUntil > now)) return;
+  const progress = Math.max(0, Math.min(1,
+    (now - creature._emergeT0) / (creature._emergeUntil - creature._emergeT0)));
+  const height = sprite.frame.realHeight, width = sprite.frame.realWidth;
+  sprite.setCrop(0, 0, width, Math.max(1, height * progress));
+  sprite.y += height * sprite.scaleY * (1 - progress);
+};
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
   scene._groundFireGfx?.clear();
   const fireNow = Date.now();
+  scene._slimeTrailGfx?.clear();
+  for (const patch of Object.values(scene.save.slimeTrails || {})) {
+    if (patch.depth !== (scene.depth || 0) || patch.expiresAt <= fireNow) continue;
+    const at = worldMetersToScreen(scene, patch.x, patch.y);
+    const radius = patch.radius / scene.cellM * CELL_PX;
+    if (!scene._slimeTrailGfx) {
+      scene._slimeTrailGfx = scene.add.graphics();
+      scene.cobbleContainer.add(scene._slimeTrailGfx);
+    }
+    const fade = Math.min(1, (patch.expiresAt - fireNow) / 10000);
+    scene._slimeTrailGfx.fillStyle(0xd6a523, 0.65 * fade);
+    scene._slimeTrailGfx.fillCircle(at.x, at.y, radius);
+    scene._slimeTrailGfx.fillStyle(0xffe071, 0.5 * fade);
+    scene._slimeTrailGfx.fillCircle(at.x - radius * 0.2, at.y - radius * 0.2, radius * 0.4);
+  }
   // One read per pass — every building-art decision below asks it, and a
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
@@ -3039,7 +3080,7 @@ Render.drawObjects = function drawObjects(scene) {
           if (caughtSet.has(c.id)) continue;
           if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
           if (c._surfaceInactive) continue;
-          creatureList.push({ c, dx, dy });
+          if (!c._burrowed) creatureList.push({ c, dx, dy });
           _boot_kept++;
         }
       }
@@ -4165,6 +4206,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { c, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    if (Render.drawCreatureDisguise(s, c, sx, sy, performance.now())) return;
     // ONE BRANCH FOR EVERY CREATURE. This was a seven-way if-else on the kind
     // (cow / cat|dog / deer / rabbit / crow / butterfly / monster / slime)
     // whose branches differed in nothing but the sheet, how the frames are
@@ -4208,6 +4250,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
+    Render.applyEmergence(s, c, performance.now());
     // Reset every pooled body: the next creature may reuse a resting NPC sprite.
     s.setRotation(npcArt && NPC.isDormant(c) ? Math.PI / 2 : 0);
     if (npcArt && NPC.isDormant(c)) s.setOrigin(0.5, 0.5);

@@ -16,7 +16,7 @@ test('elite: every shiny row doubles HP and damage; armour remains the same', ()
   assert.eq(Combat.ELITE_MUL, 2);
   for (const row of EnemyRoster.ROWS) {
     const plain = { kind: row.id, shiny: false };
-    const elite = { kind: row.id, shiny: true };
+    const elite = { kind: row.id, shiny: true, _disguiseRevealed: true };
     const multiplier = 2;
     assert.eq(Combat.isElite(elite), row.eliteEligible);
     assert.eq(Combat.maxHp(plain), row.hp);

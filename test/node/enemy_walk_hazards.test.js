@@ -1,6 +1,6 @@
 (function () {
-const exposure = new Function('x0', 'y0', 'x1', 'y1',
-  SCENE_SRC.match(/\n  _walkHazardExposure\(x0, y0, x1, y1\) \{([\s\S]*?)\n  \}\n/)[1]);
+const exposure = new Function('x0', 'y0', 'x1', 'y1', 'visit',
+  SCENE_SRC.match(/\n  _walkHazardExposure\(x0, y0, x1, y1, visit\) \{([\s\S]*?)\n  \}\n/)[1]);
 const occupied = new Function('tx', 'ty', 'cx', 'cy',
   SCENE_SRC.match(/\n  _walkHazardCell\(tx, ty, cx, cy\) \{([\s\S]*?)\n  \}\n/)[1]);
 function scene(rate = () => 0) {
