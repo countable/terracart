@@ -466,6 +466,8 @@ const MINERAL_ICON_SHEET = {
   // weak T1 powder, used from the Use button like the sleep dust
   // (usePsychosisPowder in app.js).
   psychosis_powder: { sheet: 'icon_potions', frame: 1 },
+  // Potion of Hardworking — the sparkling blue round flask (row 2, frame 14).
+  hardworking_potion: { sheet: 'icon_potions', frame: 14 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -652,6 +654,9 @@ const BASE_TIER = {
   // way, the weak cousin of Fear (T3): the first Magic shop sells it beside
   // the Antidote, so the first cave trip has one trick to get clear with.
   psychosis_powder: 1,
+  // Hardworking is the T1 farm potion: the Harvest Idol's boon (work at
+  // Shrines.WORK_SPEED_MUL) for a third of the idol's time, bottled.
+  hardworking_potion: 1,
   // Unique jewelry is intrinsically magical, never a metal rung.
   stealth_ring: 2, invisibility_ring: 4, ember_ring: 3, regen_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
@@ -828,6 +833,8 @@ const ITEMS = [
   { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
   { id: 'sleep_powder', name: 'Sleep Powder', kind: 'magic' },
   { id: 'psychosis_powder', name: 'Powder of Psychosis', kind: 'magic' },
+  // Drunk, never thrown (no `potion` flag): a creature has no work to hurry.
+  { id: 'hardworking_potion', name: 'Potion of Hardworking', kind: 'magic' },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
@@ -1143,6 +1150,15 @@ const CONSUMABLE_SPEC = {
     verb: 'Use', method: 'usePsychosisPowder', title: 'Scatter the Powder of Psychosis?',
     get: 'A giddy haze takes every foe in sight, and they run every which way.',
   },
+  // Potion of Hardworking: the Harvest Idol's boon (shrines.js `work` lever,
+  // Shrines.WORK_SPEED_MUL on every work wheel — gear.js workDurationMs) for
+  // durationMs, pulled through the same lever (Shrines.extend), so a potion
+  // on top of the idol's visit extends the one countdown and never stacks.
+  hardworking_potion: {
+    durationMs: 5 * _CONSUMABLE_MINUTE_MS,
+    verb: 'Drink', method: 'drinkHardworkingPotion', title: 'Drink the Potion of Hardworking?',
+    get: 'Your weariness lifts, and your hands move swiftly through their work.',
+  },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.
   // The rainberry's soak is a WATERING CAN'S: every crop in reach is watered
@@ -1420,6 +1436,7 @@ const PRICES = {
   magic_hammer: 220,   // T4 — a standing discount at one building, forever
   sleep_powder: 100,
   psychosis_powder: 15, // T1 — ten seconds of foes running every which way
+  hardworking_potion: 15, // T1 — the Harvest Idol's quick hands for five minutes
   reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
@@ -1650,6 +1667,7 @@ const ITEM_EFFECTS = {
   magic_hammer: 'Masons say a wall raised under this hammer never stops gleaming, and the folk inside deal kindly with whoever swung it.',
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
   psychosis_powder: CONSUMABLE_SPEC.psychosis_powder.get,
+  hardworking_potion: CONSUMABLE_SPEC.hardworking_potion.get,
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',

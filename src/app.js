@@ -10165,6 +10165,18 @@ class MapScene extends Phaser.Scene {
       CONSUMABLE_SPEC.protection_potion.get);
   }
 
+  // Potion of Hardworking: pulls the Harvest Idol's `work` lever
+  // (Shrines.extend — the one writer, so it extends the idol's countdown
+  // rather than keeping a clock of its own; the `work` row of Buffs.KINDS
+  // shows it as "Hardworking" either way).
+  drinkHardworkingPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'hardworking_potion' || (sel.count ?? 0) <= 0) return false;
+    Shrines.extend(this.save, 'work', CONSUMABLE_SPEC.hardworking_potion.durationMs, Date.now(), this);
+    return this._finishConsumable(`You drink the Potion of Hardworking`,
+      CONSUMABLE_SPEC.hardworking_potion.get);
+  }
+
   drinkImmortalPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'immortal_potion' || (sel.count ?? 0) <= 0) return false;
