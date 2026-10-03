@@ -31,7 +31,7 @@
 // coin-positive taps left.
 //
 // Depends on (call time): items.js (PRICES, ITEMS, ITEM_BY_ID,
-// VIGOR_POTION_ENERGY), util.js (fnv1a, makeRng32), delivery.js (Delivery),
+// HEALING_POTION_ENERGY), util.js (fnv1a, makeRng32), delivery.js (Delivery),
 // shops.js (Shops.THEME_POOL), shops_math.js (ShopsMath.standPrice),
 // combat.js (Combat.enemyBounty — the bounty's wage),
 // loot.js (chestTier), combat.js (Combat.training*), energy.js (Energy),
@@ -232,12 +232,12 @@
 
   // ── INN: rest to full for money, once a day per inn ───────────────────────
   // The price per point of energy is the Potion of Healing's own
-  // (PRICES.vigor_potion / VIGOR_POTION_ENERGY) × INN_RATE: cheaper than
+  // (PRICES.healing_potion / HEALING_POTION_ENERGY) × INN_RATE: cheaper than
   // carrying a potion, but you walk to it and it is once a day. Not Home's
   // passive rest (free, on HOME_R, gated on `working`): a one-shot purchase.
   const INN_RATE = 0.5;
   function innCoinsPerEnergy() {
-    return PRICES.healing_potion / VIGOR_POTION_ENERGY * INN_RATE;
+    return PRICES.healing_potion / HEALING_POTION_ENERGY * INN_RATE;
   }
   function innPrice(missing) {
     const m = Math.max(0, Math.floor(missing || 0));
@@ -272,7 +272,7 @@
   }
 
   // ── APOTHECARY: a potion counter, and the cure ────────────────────────────
-  // One remedy per apothecary (a dentist is always Vigor), plus the
+  // One remedy per apothecary (a dentist is always Healing), plus the
   // Antidote (T1 — the poison cure, src/conditions.js) at every counter.
   // Counter remedies stay available independently of their loot tiers.
   const APOTHECARY_POTIONS = ['healing_potion', 'revival_potion', 'protection_potion', 'reach_potion'];

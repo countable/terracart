@@ -1,19 +1,21 @@
 // THEMED SHOPS. A shop (role key 'market') sells one LINE, chosen by its place
-// in the save's restore order of shops: seed, supply, potion, ore, relic, pet,
-// then round again a tier up (shops.js themeAt / shopOrder). Each visit sells
+// in the save's restore order of shops: seed, supply, potion, ore, relic,
+// then round again a tier up (shops.js themeAt / shopOrder; the Book and Pet
+// lines are one-off stamps outside it, Shops.SOLO_LINES). Each visit sells
 // one random item from the line at the shop's tier, priced above list, with a
 // re-roll that starts at $2 and grows ×1.5 rounded down.
 
 test('themed shops: the lines come in order, then round again a tier up', () => {
-  assert.eq(Shops.THEMES.join(), 'seed,supply,potion,ore,relic,pet');
-  const want = ['seed', 'supply', 'potion', 'ore', 'relic', 'pet'];
-  for (let i = 0; i < 6; i++) {
+  assert.eq(Shops.THEMES.join(), 'seed,supply,potion,ore,relic');
+  assert.falsy(Shops.THEMES.includes('pet'), 'pets are a one-off shop, not a line of the cycle');
+  const want = ['seed', 'supply', 'potion', 'ore', 'relic'];
+  for (let i = 0; i < 5; i++) {
     assert.eq(Shops.themeAt(i).theme, want[i], 'shop #' + (i + 1));
     assert.eq(Shops.themeAt(i).tier, 1, 'the first round is tier 1');
   }
-  assert.eq(Shops.themeAt(6).theme, 'seed', 'the seventh shop starts round two');
-  assert.eq(Shops.themeAt(6).tier, 2, 'one tier higher');
-  assert.eq(Shops.themeAt(17).tier, 3);
+  assert.eq(Shops.themeAt(5).theme, 'seed', 'the sixth shop starts round two');
+  assert.eq(Shops.themeAt(5).tier, 2, 'one tier higher');
+  assert.eq(Shops.themeAt(14).tier, 3);
 });
 
 test('themed shops: the order is the save\'s restore order of SHOPS — old markets convert in place', () => {
@@ -27,7 +29,7 @@ test('themed shops: the order is the save\'s restore order of SHOPS — old mark
   // A market the record doesn't name still gets a stable first-round line.
   const a = Shops.shopOrder(save, { id: 'legacy_x' });
   assert.eq(Shops.shopOrder(save, { id: 'legacy_x' }), a, 'stable');
-  assert.inRange(a, 0, 5, 'within the first round');
+  assert.inRange(a, 0, Shops.THEMES.length - 1, 'within the first round');
 });
 
 test('themed shops: stock is the line at the nearest tier it carries (ties lower)', () => {

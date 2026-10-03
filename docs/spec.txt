@@ -668,14 +668,15 @@ ECONOMY (buying & selling)
    (`houses.js` `buildCost`). The dialog's quote is exactly what is charged.
  - WHAT A WRECK BECOMES IS THE PLAYER'S PICK (Oct 2026): cards from ONE table,
    `Houses.BUILD_OPTIONS`, unlocked by restore count (`STORY_RESTORES`): house,
-   blacksmith, shop, trader, turret, the book shop, the wizard tower and his
-   second tower. Nothing is forced and nothing is read off the OSM address;
+   blacksmith, shop, trader, turret, the pet shop, the book shop, the wizard
+   tower and his second tower. Nothing is forced and nothing is read off the OSM address;
    the Blacksmith card is SUGGESTED while the lane has no smithy, since the
    wooden tools come from nowhere else. `Houses.restoreAs` freezes the pick
    and is the ledger's one writer (CLAUDE.md).
-   A SHOP is a THEMED market (seed, supply, potion, ore, relic, pet), also
-   the player's pick (`shops.js` `marketOffers`); a repeated line comes at the
-   next rank. THE MAGIC HAMMER (`houses.js` `HAMMER_ID`): spent on a restore,
+   A SHOP is a THEMED market (seed, supply, potion, ore, relic), also the
+   player's pick (`shops.js` `marketOffers`); a repeated line comes at the
+   next rank. The PET SHOP and the BOOK SHOP are one-offs (`shops.js`
+   `SOLO_LINES`): built once per save, outside that cycle. THE MAGIC HAMMER (`houses.js` `HAMMER_ID`): spent on a restore,
    the building comes up SHINY and sells at a standing discount for good
    (`Houses.priceMul` — the one standing discount a building carries); a
    shiny turret fights harder instead. A plain house takes no hammer
@@ -733,7 +734,6 @@ ECONOMY (buying & selling)
    satisfied for the rest of the UTC day. The wanted tier ramps with your
    lifetime tally (`Delivery.tierCap`): early neighbours ask for potatoes, a
    veteran courier for coconuts. The first houses walk a fixed opening list.
-
 ================================================================================
 GEAR: RELICS & ARMOR
 ================================================================================
@@ -804,24 +804,12 @@ CRAFTING: THE BLACKSMITH
 ================================================================================
 CONSUMABLES
 ================================================================================
-<<<<<<< HEAD
- - Self-targeted consumables (honey / potions / powders / sapphire portal) are
-   used via a dedicated USE button (Use / Drink / Portal) that appears
-   below the inventory bar while one is selected — same spot and behaviour as
-   the Eat CTA for food. No foot-tapping: tapping your own cell with one
-   selected falls through to the normal cell handlers (till / plant / etc.).
- - POTION OF TAMING: select it and tap Use — sets out a jar that lures wandering farm
-   animals (chickens / cows) within ~6 cells (30m) toward you (the modal
-   reports how many respond). Consumed on use — the animals eat it. (Was the
-   Flute until Sep 2026, then Honey; the save id stays `taming_potion`.)
-=======
  - Self-targeted consumables (potions, powders, the sapphire portal)
    are used via a USE button below the inventory bar while one is selected —
    the same spot as Eat. Tapping your own cell never uses one. Timed effects
    are rows of `Buffs.KINDS`.
  - POTION OF TAMING (`taming_potion`): lures nearby farm animals toward you and
    is consumed.
->>>>>>> docs-lighten
  - BOOK: read on pickup (it never sits in the bag). Each Book is the next page
    of `PLAY_TIPS` in curriculum order (`save.tipsRead`); after the course, a
    random tip or a bearing to the nearest unopened chest.
@@ -851,9 +839,8 @@ ITEMS & RARITY
    (`TIER_BADGE_NAMES`), never "T4".
  - the catalogue is the `ITEMS` table in `items.js` (prices in `PRICES`;
    browsable in `tools/items.html`). Kinds: seed, produce (crops, fruit, fish,
-   wild pickups — and the Old Boot), animal, mineral (ores, bars, gems, coal,
+   wild pickups — and the Old Boot), animal, mineral (ores, bars, gems, flint,
    wood), magic, supply, unique_relic.
-
 ================================================================================
 SHINY VARIANTS & DISCOVERY
 ================================================================================
