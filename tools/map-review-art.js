@@ -77,9 +77,11 @@ const MapReviewArt = (() => {
     onAdd(map) {
       this._map=map;
       const pane=map.getPane('gameArt')||map.createPane('gameArt'); pane.style.zIndex=250; pane.style.pointerEvents='none';
-      this._canvas=L.DomUtil.create('canvas','leaflet-layer',pane);
+      this._canvas=L.DomUtil.create('canvas','leaflet-layer leaflet-zoom-animated',pane);
+      this._canvasTopLeft=null;
       this._canvas.style.pointerEvents='none'; this._canvas.style.imageRendering='pixelated';
       map.on('moveend zoomend resize',this._requestRedraw,this);
+      map.on('zoomanim',this._animateZoom,this);
       this.redraw();
       this._load();
     },
@@ -89,14 +91,26 @@ const MapReviewArt = (() => {
       assets().then(data=>{this._assets=data;this._prepare();this.redraw();})
         .catch(error=>{console.error('Game art could not load',error);this.options.onStatus?.('Game art could not load: '+error.message);});
     },
-    onRemove(map) { map.off('moveend zoomend resize',this._requestRedraw,this);cancelAnimationFrame(this._redrawFrame);this._redrawFrame=null;this._canvas.remove();this._canvas=null;this._map=null; },
+    onRemove(map) { map.off('moveend zoomend resize',this._requestRedraw,this);map.off('zoomanim',this._animateZoom,this);clearTimeout(this._groundTimer);this._groundJob=null;cancelAnimationFrame(this._redrawFrame);this._redrawFrame=null;this._canvas.remove();this._canvas=null;this._map=null; },
+    _animateZoom(event) {
+      if(!this._canvasTopLeft)return;
+      const scale=this._map.getZoomScale(event.zoom,this._canvasZoom);
+      L.DomUtil.setTransform(this._canvas,this._map._latLngToNewLayerPoint(this._canvasTopLeft,event.zoom,event.center),scale);
+    },
+    _invalidateGround() {
+      clearTimeout(this._groundTimer);this._groundJob=null;
+      this._groundCache.clear();this._groundBytes=0;
+      // A changed world or lamp mode must never retain previous art.
+      this._canvasTopLeft=null;
+      if(this._canvas)this._canvas.getContext('2d').clearRect(0,0,this._canvas.width,this._canvas.height);
+    },
     _requestRedraw() {
       if(this._redrawFrame==null)this._redrawFrame=requestAnimationFrame(()=>{this._redrawFrame=null;this.redraw();});
     },
     bringToBack() { return this; },
-    setWorld(world) { this._groundCache.clear();this._groundBytes=0;this._roadGeometry=new WeakMap();this._world=world;if(this._map)this._load();this._prepare();this.redraw();return this; },
+    setWorld(world) { this._invalidateGround();this._roadGeometry=new WeakMap();this._world=world;if(this._map)this._load();this._prepare();this.redraw();return this; },
     setRestoredLamps(restored) {
-      this._groundCache.clear();this._groundBytes=0;this._restoredLamps=!!restored;this._prepare();this.redraw();return this;
+      this._invalidateGround();this._restoredLamps=!!restored;this._prepare();this.redraw();return this;
     },
     _prepare() {
       if(!this._world||!this._assets)return;
@@ -255,34 +269,61 @@ const MapReviewArt = (() => {
         }
       }
     },
-    _drawGround(g,size,project,dpr) {
-      // Fixed world anchors let panning reuse already painted pixels. Keep
-      // chunks small even at close zoom, and bound retained canvas memory.
+    _groundChunks(size,project,dpr) {
       const edge=this.options.getEdge(),first=this._world.tiles[0];
-      if(!first)return;
-      const anchor=project(first.tx*edge,first.ty*edge),chunkSize=512;
+      if(!first)return [];
+      const anchor=project(first.tx*edge,first.ty*edge),chunkSize=256;
       const x0=Math.floor(-anchor.x/chunkSize),y0=Math.floor(-anchor.y/chunkSize);
       const x1=Math.ceil((size.x-anchor.x)/chunkSize),y1=Math.ceil((size.y-anchor.y)/chunkSize);
-      const byteLimit=64*1024*1024;
-      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++) {
-        const key=[this._map.getZoom(),dpr,x,y].join(',');
-        let chunk=this._groundCache.get(key);
-        if(chunk)this._groundCache.delete(key);
-        else {
-          chunk=document.createElement('canvas');chunk.width=chunk.height=chunkSize*dpr;
-          this._groundBytes+=chunk.width*chunk.height*4;
-          const cg=chunk.getContext('2d');cg.scale(dpr,dpr);cg.imageSmoothingEnabled=false;
-          const ox=anchor.x+x*chunkSize,oy=anchor.y+y*chunkSize;
-          this._paintGround(cg,{x:chunkSize,y:chunkSize},(wx,wy)=>{
-            const p=project(wx,wy);return {x:p.x-ox,y:p.y-oy};
-          });
-        }
-        this._groundCache.set(key,chunk);
-        while(this._groundBytes>byteLimit) {
-          const oldest=this._groundCache.keys().next().value,cached=this._groundCache.get(oldest);
-          this._groundBytes-=cached.width*cached.height*4;this._groundCache.delete(oldest);
-        }
-        g.drawImage(chunk,anchor.x+x*chunkSize,anchor.y+y*chunkSize,chunkSize,chunkSize);
+      const chunks=[];
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++)chunks.push({
+        key:[this._map.getZoom(),dpr,x,y].join(','),
+        x:anchor.x+x*chunkSize,y:anchor.y+y*chunkSize,size:chunkSize,
+      });
+      return chunks;
+    },
+    _paintChunk(chunk,project,dpr) {
+      const canvas=document.createElement('canvas');canvas.width=canvas.height=chunk.size*dpr;
+      const cg=canvas.getContext('2d');cg.scale(dpr,dpr);cg.imageSmoothingEnabled=false;
+      this._paintGround(cg,{x:chunk.size,y:chunk.size},(wx,wy)=>{
+        const p=project(wx,wy);return {x:p.x-chunk.x,y:p.y-chunk.y};
+      });
+      this._groundCache.set(chunk.key,canvas);this._groundBytes+=canvas.width*canvas.height*4;
+    },
+    _prepareGround(chunks,project,dpr) {
+      const missing=chunks.filter(chunk=>!this._groundCache.has(chunk.key));
+      if(!missing.length)return true;
+      // First paint has no previous image to retain. Subsequent cold views
+      // yield between small chunks so navigation and zoom stay responsive.
+      if(!this._canvasTopLeft) {
+        for(const chunk of missing)this._paintChunk(chunk,project,dpr);
+        return true;
+      }
+      const key=chunks.map(chunk=>chunk.key).join(';');
+      if(this._groundJob?.key===key)return false;
+      clearTimeout(this._groundTimer);
+      const job=this._groundJob={key};
+      const next=()=>{
+        if(this._groundJob!==job||!this._map)return;
+        this._paintChunk(missing.shift(),project,dpr);
+        if(missing.length)this._groundTimer=setTimeout(next,0);
+        else {this._groundJob=null;this._requestRedraw();}
+      };
+      this._groundTimer=setTimeout(next,0);
+      return false;
+    },
+    _drawGround(g,chunks) {
+      for(const chunk of chunks) {
+        const canvas=this._groundCache.get(chunk.key);
+        this._groundCache.delete(chunk.key);this._groundCache.set(chunk.key,canvas);
+        g.drawImage(canvas,chunk.x,chunk.y,chunk.size,chunk.size);
+      }
+      // Keep the viewport even when it exceeds the usual memory budget.
+      const needed=new Set(chunks.map(chunk=>chunk.key));
+      for(const [key,canvas] of this._groundCache) {
+        if(this._groundBytes<=64*1024*1024)break;
+        if(needed.has(key))continue;
+        this._groundBytes-=canvas.width*canvas.height*4;this._groundCache.delete(key);
       }
     },
     _visibleSprites(size,project) {
@@ -316,15 +357,22 @@ const MapReviewArt = (() => {
       cancelAnimationFrame(this._redrawFrame);this._redrawFrame=null;
       if(!this._map||!this._canvas)return this;
       const map=this._map,size=map.getSize(),c=this._canvas,dpr=Math.min(devicePixelRatio||1,2);
+      if(!this._world||!this._assets)return this;
+      const edge=this.options.getEdge(),textures=this._assets.textures,zoom=map.getZoom();
+      // Deferred chunks use the captured projection, even if the map moves.
+      const origin=map.getPixelOrigin().add(map.containerPointToLayerPoint([0,0]));
+      const project=(x,y)=>map.project(this.options.toLL(x,y,edge),zoom).round().subtract(origin);
+      const chunks=this._groundChunks(size,project,dpr);
+      this._animateZoom({zoom,center:map.getCenter()});
+      if(!this._prepareGround(chunks,project,dpr))return this;
+      clearTimeout(this._groundTimer);this._groundJob=null;
       c.width=size.x*dpr;c.height=size.y*dpr;c.style.width=size.x+'px';c.style.height=size.y+'px';
       L.DomUtil.setPosition(c,map.containerPointToLayerPoint([0,0]));
+      this._canvasTopLeft=map.containerPointToLatLng([0,0]);this._canvasZoom=zoom;
       const g=c.getContext('2d');g.scale(dpr,dpr);g.imageSmoothingEnabled=false;
       g.fillStyle='#24332b';g.fillRect(0,0,size.x,size.y);
-      if(!this._world||!this._assets)return this;
-      const edge=this.options.getEdge(),textures=this._assets.textures;
-      const project=(x,y)=>map.latLngToContainerPoint(this.options.toLL(x,y,edge));
       let detailed=false,drawn=0;
-      this._drawGround(g,size,project,dpr);
+      this._drawGround(g,chunks);
       const first=this._world.tiles[0];
       if(first)detailed=(project((first.tx+1)*edge,first.ty*edge).x-project(first.tx*edge,first.ty*edge).x)/first.cellsPerEdge>=4;
       for(const item of this._visibleSprites(size,project)) {

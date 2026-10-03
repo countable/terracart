@@ -205,32 +205,40 @@ function reviewScene(home) {
   return s;
 }
 
-function buildWorld(home) {
+async function buildWorld(home, onPreview) {
   HomeArea.setOrigin(home.x, home.y);
   WorldGen.tileCache.clear();
   const scene = reviewScene(home);
   const tiles = [];
   for (const { tx, ty, layers, bin } of raw) {
     const N = WorldGen.cellsPerEdgeForTile(ty);
-    const r = WorldGen.rasterizeTile(layers, N, tx, ty, EDGE);
+    $('status').textContent = `Building terrain… ${tiles.length + 1}/${raw.length}`;
+    const r = await WorldGen.runStepsSliced(() => WorldGen.rasterizeTileSteps(layers, N, tx, ty, EDGE));
     const entry = Object.assign({ tx, ty, cellsPerEdge: N, tileEdgeM: EDGE, layers }, r);
     entry.objects = r.objects.slice();
     // Match loadTile: keep the generated layer stable, then seat real-world
     // trees before authored dressing is replayed by spawnInTile. Cached bin
     // rows are cloned by injectTileBin, so rerolls and moving Home reuse them.
-    WorldGen.maybePlaceCaveEntrance(entry, tx, ty, EDGE, r.objects, r.wildplants);
+    await WorldGen.runStepsSliced(() => WorldGen.maybePlaceCaveEntranceSteps(entry, tx, ty, EDGE, r.objects, r.wildplants));
     entry.baseGrid = entry.grid.slice();
     entry.genObjects = entry.objects.slice();
     entry.hadBin = !!bin;
-    WorldGen.injectTileBin(entry, bin, tx, ty);
+    await WorldGen.runStepsSliced(() => WorldGen.injectTileBinSteps(entry, bin, tx, ty));
     WorldGen.stampPoiDensity(entry.objects);
     ZoneReview.capture(entry);
     WorldGen.tileCache.set(WorldGen.tileKey(tx, ty), entry);
     tiles.push(entry);
+    // Keep generation order unchanged. Publish a terrain preview once the
+    // centre exists; creatures and the remaining tiles are still being built.
+    if (onPreview && tiles.length === Math.floor(raw.length / 2) + 1) {
+      onPreview({ tiles: tiles.slice(), guards: [], errors: [], scene });
+      await reviewPaint();
+    }
   }
   const errors = [];
   for (const e of tiles) {
-    try { scene.spawnInTile(e, e.tx, e.ty); } catch (err) { errors.push(`spawnInTile ${e.tx}/${e.ty}: ${err.stack}`); }
+    $('status').textContent = `Placing creatures and treasure… ${tiles.indexOf(e) + 1}/${tiles.length}`;
+    try { await WorldGen.runStepsSliced(() => scene.spawnInTileSteps(e, e.tx, e.ty)); } catch (err) { errors.push(`spawnInTile ${e.tx}/${e.ty}: ${err.stack}`); }
   }
   // Ruin garrisons, with Home as their homeM — held ruins are a HARD-mode
   // rule, so on easy there are none.
@@ -577,23 +585,23 @@ function draw(world, home) {
       const tier = (o.kind === 'chest' && typeof chestTier === 'function')
         ? ' · T' + chestTier(o) : '';
       const label = [o.kind, o.species, o.poiClass, o.name].filter(Boolean).join(' · ') + tier;
-      add(k, toLL(o.x, o.y, EDGE), label, o.id, o.x, o.y, popupHTML(e, o, label), ZoneReview.source(e,o));
+      add(k, toLL(o.x, o.y, EDGE), label, o.id, o.x, o.y, () => popupHTML(e, o, label), ZoneReview.source(e,o));
     }
     for (const coin of e.coinDrops || []) {
       const label = `${coin.amount || 1} coin${(coin.amount || 1) === 1 ? '' : 's'}${coin._street === 'golden' ? ' · Golden Road' : ''}`;
       add('coindrop', toLL(coin.x, coin.y, EDGE), label, coin.id, coin.x, coin.y,
-        popupHTML(e, coin, label), ZoneReview.source(e, coin));
+        () => popupHTML(e, coin, label), ZoneReview.source(e, coin));
     }
     for (const candidate of e.wildplants || []) {
       const w = ZoneReview.livePlant(candidate);
-      if (w) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop), ZoneReview.source(e,w));
+      if (w) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, () => popupHTML(e, w, w.crop), ZoneReview.source(e,w));
     }
-    for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'trap', t.id, t.x, t.y, popupHTML(e,t,'trap'), ZoneReview.source(e,t));
+    for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'trap', t.id, t.x, t.y, () => popupHTML(e,t,'trap'), ZoneReview.source(e,t));
     // Buried X marks: the tile's own mark, spawned and rasterized marks in
     // extraTreasures, and parking-lot marks.
-    if (treasureExposed(e.treasure, world.scene) && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
-    for (const t of e.extraTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
-    for (const t of e.parkingTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
+    if (treasureExposed(e.treasure, world.scene) && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, () => popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
+    for (const t of e.extraTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, () => popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
+    for (const t of e.parkingTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, () => popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
     for (const c of e.creatures || []) {
       const hostile = typeof Combat !== 'undefined' && Combat.isEnemy && Combat.isEnemy(c);
       add(c.kind === 'npc' ? 'resident: npc' : hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), (c.name || c.kind) + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y, () => popupHTML(e,c,c.kind), ZoneReview.source(e,c,'creature'));
@@ -611,13 +619,24 @@ function draw(world, home) {
   state.layers = {};
   kinds.forEach((k, i) => {
     const lg = L.layerGroup();
-    const big = k === 'Home' || k.startsWith('enemy') || k === 'X mark' || k === 'chest';
-    for (const p of groups[k]) {
-      new ShapeMarker(p.ll, { shape: shapeOf(k), pixelOffset: markerOffset(k), radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3.5 : 5,
-        color: '#000', weight: k === 'Home' ? 3 : 1, fillColor: $('sourceColors').checked && k !== 'Home' ? ZoneReview.SOURCES[p.source].color : colour(k, i), fillOpacity: 0.9 })
-        .bindTooltip(p.label, { direction: 'top', offset: [0, -4], opacity: 0.92 })
-        .bindPopup(p.popup || `<b>${esc(p.label)}</b><br><code>${esc(p.id || '')}</code>`).addTo(lg);
-    }
+    let markersBuilt = false;
+    const addTo = lg.addTo;
+    lg.addTo = function(target) {
+      if (!markersBuilt) {
+        markersBuilt = true;
+        buildMarkers();
+      }
+      return addTo.call(this, target);
+    };
+    const buildMarkers = () => {
+      const big = k === 'Home' || k.startsWith('enemy') || k === 'X mark' || k === 'chest';
+      for (const p of groups[k]) {
+        new ShapeMarker(p.ll, { shape: shapeOf(k), pixelOffset: markerOffset(k), radius: k === 'Home' ? 9 : big ? 6 : k.startsWith('plant:') ? 3.5 : 5,
+          color: '#000', weight: k === 'Home' ? 3 : 1, fillColor: $('sourceColors').checked && k !== 'Home' ? ZoneReview.SOURCES[p.source].color : colour(k, i), fillOpacity: 0.9 })
+          .bindTooltip(p.label, { direction: 'top', offset: [0, -4], opacity: 0.92 })
+          .bindPopup(p.popup || `<b>${esc(p.label)}</b><br><code>${esc(p.id || '')}</code>`).addTo(lg);
+      }
+    };
     const on = state.shown[k] ?? onByDefault(k);
     if (on && !state.markersOff) lg.addTo(map);
     drawn.push(lg);
@@ -629,7 +648,8 @@ function draw(world, home) {
     state.layers[k] = lg;
   });
   state.groups = groups;
-  gameArt.setWorld(world);
+  if (gameArt._world !== world) gameArt.setWorld(world);
+  else gameArt.redraw();
   density();
   // Home's own ring: the softwood pines. (The chest-tier rings are gone — a
   // chest's tier is its tile's quota seat, WorldGen.seedChestTiers → loot.js chestTier.)
@@ -964,43 +984,65 @@ function overlays(world) {
 }
 
 // ── Go ──────────────────────────────────────────────────────────────────────
-function rebuild(home) {
-  $('status').textContent = 'building the world around Home…';
-  setTimeout(() => {
-    const t0 = performance.now();
-    const world = window.__world = buildWorld(home);
-    terrainReview.update();
-    laneReview.update(world);
-    updateZoneReview(world);
-    draw(world, home);
-    const s = Math.round((performance.now() - t0) / 100) / 10;
-    $('status').textContent = world.errors.length
-      ? `built in ${s}s — ${world.errors.length} error(s), see console` : `built in ${s}s`;
-    if (world.errors.length) console.warn(world.errors.join('\n'));
-    window.__world = world;
-  }, 30);
+// Yield through a painted frame between review-only phases too.
+const reviewPaint = () => new Promise(resolve => requestAnimationFrame(() => setTimeout(resolve, 0)));
+let building = false;
+function setBuilding(value) {
+  building = value;
+  // Global generation state (HomeArea, difficulty, tileCache) must not change
+  // under a sliced build. Map navigation remains available throughout.
+  $('side').inert = value;
+  $('side').setAttribute('aria-busy', String(value));
+}
+async function finishReview(world, home, initial) {
+  window.__world = world;
+  gameArt.setWorld(world);
+  await reviewPaint();
+  $('status').textContent = 'Preparing review overlays…';
+  if (initial) overlays(world);
+  else terrainReview.update();
+  await reviewPaint();
+  laneReview.update(world);
+  await reviewPaint();
+  updateZoneReview(world);
+  await reviewPaint();
+  draw(world, home);
+  if (world.errors.length) console.warn(world.errors.join('\n'));
+}
+async function rebuild(home) {
+  if (building) return;
+  setBuilding(true);
+  const t0 = performance.now();
+  try {
+    const world = await buildWorld(home);
+    await finishReview(world, home, false);
+    const seconds = ((performance.now() - t0) / 1000).toFixed(1);
+    $('status').textContent = `Built in ${seconds}s` + (world.errors.length ? ` — ${world.errors.length} error(s), see console` : '');
+  } catch (error) {
+    $('status').textContent = 'failed: ' + error.message;
+    console.error(error);
+  } finally {
+    setBuilding(false);
+  }
 }
 (async () => {
+  setBuilding(true);
   try {
     await loadGame();
+    gameArt._load();
     $('status').textContent = 'fetching tiles…';
     await fetchTiles();
     if (!raw.length) { $('status').textContent = 'no tiles'; return; }
     const mid = raw[Math.floor(raw.length / 2)];
     const home = window.__home = { x: (mid.tx + 0.5) * EDGE, y: (mid.ty + 0.5) * EDGE };
     map.setView(toLL(home.x, home.y, EDGE), 16);
-    const first = window.__world = buildWorld(home);
-    overlays(first);
-    laneReview.update(first);
-    updateZoneReview(first);
-    draw(first, home);
+    const first = await buildWorld(home, preview => gameArt.setWorld(preview));
+    await finishReview(first, home, true);
     $('status').textContent = first.errors.length ? `${first.errors.length} error(s), see console` : 'ready';
-    if (first.errors.length) console.warn(first.errors.join('\n'));
-    window.__world = first;
     let placing = false;
     $('placeHome').onclick = () => { placing = !placing; $('placeHome').classList.toggle('on', placing); map.getContainer().style.cursor = placing ? 'crosshair' : ''; };
     map.on('click', (ev) => {
-      if (!placing) return;
+      if (!placing || building) return;
       placing = false; $('placeHome').classList.remove('on'); map.getContainer().style.cursor = '';
       rebuild(window.__home = toM(ev.latlng.lat, ev.latlng.lng, EDGE));
     });
@@ -1009,8 +1051,9 @@ function rebuild(home) {
     }
     $('dmin').onchange = $('dmax').onchange = density;
     const setAll = (v) => {
-      Object.entries(state.layers).forEach(([k, l]) => { state.shown[k] = v; v ? l.addTo(map) : map.removeLayer(l); });
+      Object.entries(state.layers).forEach(([k, l]) => { state.shown[k] = v; (v && !state.markersOff) ? l.addTo(map) : map.removeLayer(l); });
       document.querySelectorAll('#kinds input').forEach((i) => { i.checked = v; });
+      gameArt.redraw();
       density();
     };
     $('all').onclick = () => setAll(true);
@@ -1018,6 +1061,8 @@ function rebuild(home) {
   } catch (e) {
     $('status').textContent = 'failed: ' + e.message;
     console.error(e);
+  } finally {
+    setBuilding(false);
   }
 })();
 </script>
