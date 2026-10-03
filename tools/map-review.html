@@ -57,7 +57,8 @@
   #legend button[aria-pressed="true"]{border-color:#fff;background:#3a3a3a;color:#fff}
   #legend button:focus-visible{outline:2px solid #fff;outline-offset:1px}
   .zone-label{background:#122f2be8;border:1px solid #3c8f80;color:#fff;font-weight:600;font-size:11px}
-  .poi-label{background:#211c16e8;border:1px solid #a99878;color:#fff;font-size:11px}
+  .poi-label{background:transparent;border:0;box-shadow:none;padding:1px 3px;color:#eee8dc;font-size:10px;font-weight:400;text-shadow:0 1px 2px #16140f,1px 0 2px #16140f,-1px 0 2px #16140f}
+  .poi-label::before{display:none}
 </style>
 </head>
 <body>
@@ -93,7 +94,7 @@
   <div id="quarrySummary" hidden style="font-size:11px;color:#aaa;line-height:1.5"></div>
 </div></details>
   <details class="review-section" open><summary>Overlays</summary><div class="section-body">
-  <label><input id="poiLabels" type="checkbox" checked> Show POI names</label><div id="ovl"></div>
+  <label title="Visible at zoom level 18 and closer"><input id="poiLabels" type="checkbox" checked> POI names (zoom in)</label><div id="ovl"></div>
 </div></details>
   <details class="review-section" open><summary>Density band</summary><div class="section-body">
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
@@ -452,7 +453,13 @@ function popupHTML(e, o, label) {
 }
 // Zone selection names the actual row, including parks whose chest was clipped.
 const zoneLabels = L.layerGroup().addTo(map), zoneSelection = L.layerGroup().addTo(map);
-const poiLabels = L.layerGroup().addTo(map);
+const poiLabels = L.layerGroup();
+const POI_LABEL_MIN_ZOOM = 18;
+function syncPoiLabels() {
+  if ($('poiLabels').checked && map.getZoom() >= POI_LABEL_MIN_ZOOM) poiLabels.addTo(map);
+  else map.removeLayer(poiLabels);
+}
+map.on('zoomend', syncPoiLabels);
 let zoneReviews = new Map();
 function zoneTitle(z) { return `${z.name || z.anchor.kind} · ${z.variant?.name || 'No variant'}`; }
 function selectZone(id, focus) {
@@ -540,16 +547,17 @@ function updatePoiLabels(world) {
         const key = `${gx},${gy}:${name}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        L.tooltip({permanent:true,direction:'top',className:'poi-label',opacity:.95})
+        L.tooltip({permanent:true,direction:'top',className:'poi-label',opacity:.85})
           .setLatLng(toLL(gx * EDGE / 4096, gy * EDGE / 4096, EDGE))
           .setContent(esc(name)).addTo(poiLabels);
       }
     }
   }
+  syncPoiLabels();
 }
 $('zonePick').onchange=()=>selectZone($('zonePick').value,true);
 $('zoneLabels').onchange=()=> $('zoneLabels').checked ? zoneLabels.addTo(map) : map.removeLayer(zoneLabels);
-$('poiLabels').onchange=()=> $('poiLabels').checked ? poiLabels.addTo(map) : map.removeLayer(poiLabels);
+$('poiLabels').onchange=syncPoiLabels;
 const showSource = source => $('sourceFilter').value === 'all' || source === 'place'
   || ($('sourceFilter').value === 'ground' ? source !== 'fauna'
     : $('sourceFilter').value === 'variant' ? ['variant', 'street'].includes(source) : !['variant', 'street'].includes(source));
