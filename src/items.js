@@ -864,7 +864,7 @@ const ITEMS = [
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
-  { id: 'vigor_amulet',      name: 'Amulet of Vigor',        kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb; its upward trip needs no earlier
@@ -1150,7 +1150,7 @@ const CONSUMABLE_SPEC = {
 
   egg: {
     verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
-    get: 'A small companion stirs inside the shell.',
+    get: 'A small pet stirs inside the shell.',
     label: scene => EggHatch.ready(scene.save) ? 'Hatch' : `Hatch · ${EggHatch.remaining(scene.save)} m left`,
     disabled: scene => !EggHatch.ready(scene.save),
     usable: scene => EggHatch.ready(scene.save),
@@ -1204,7 +1204,7 @@ const CONSUMABLE_SPEC = {
   },
   healing_potion: {
     energy: 65,
-    verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Vigor?',
+    verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Healing?',
     get: 'A little strength returns to your limbs.',
   },
   speed_potion: {
@@ -2447,8 +2447,8 @@ function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
 }
 
 // === Per-crop loot tier config (used by chests + treasure marks) ===
-// T1 common (10 seeds/chest default yield), T2 uncommon (5), T3 rare (2).
-// Sourced from BASE_TIER so rarity stays single-source. The legacy callers
+// Crop seed id → BASE_TIER (1..7); chest yields come from rarity.js, not a
+// per-tier count. Sourced from BASE_TIER so rarity stays single-source. The legacy callers
 // (loot.js pickLoot, REG tests) keep working unchanged.
 const SEED_TIER = Object.fromEntries(
   Object.keys(CROP_ROW).map(c => [`${c}_seed`, BASE_TIER[c] || 1])
@@ -2501,7 +2501,7 @@ const INV_CATS = [
   { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
   { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic', kinds: ['unique_relic'] },
-  { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
+  { key: 'armor',       label: 'Armour',      sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
   { key: 'magic',       label: 'Magic',       sym: '🧪', kinds: ['magic'] },
   { key: 'supplies',    label: 'Supplies',    sym: '🎒', kinds: ['supply'] },

@@ -5,7 +5,7 @@
 // Depends on:
 //   items.js (SEED_TIER — tierInfo's fallback for raw seed ids). The 'flora'
 //   category below is just a POI-category label (florist/garden/garden_centre)
-//   consumed by rarity.js's classBias weighting — magical flower seeds are
+//   that picks the chest's theme (chest_themes.js) — magical flower seeds are
 //   gated by BASE_TIER in items.js, not a dedicated flower-id set here.
 //
 // Exports as globals:
@@ -129,12 +129,14 @@ function rusticifyName(name) {
   return out;
 }
 
-// SEED_TIER (1=common, 2=uncommon, 3=rare) → label + flash color. Used by every
-// loot flash (chest, treasure) so the player gets consistent visual feedback.
+// Loot FLASH colours by rarity bracket: 1 = basic, 2 = common, 3 = uncommon
+// and rarer (baseTier clamped to three colours). Used by every loot flash
+// (chest, treasure) so the player gets consistent visual feedback. The one
+// WORD ladder is items.js TIER_BADGE_NAMES; nothing reads a label here.
 const SEED_TIER_INFO = {
-  1: { label: 'common',   color: '#ffe066' },
-  2: { label: 'uncommon', color: '#7adcff' },
-  3: { label: 'RARE!',    color: '#ff8aff' },
+  1: { color: '#ffe066' },
+  2: { color: '#7adcff' },
+  3: { color: '#ff8aff' },
 };
 function tierInfo(id) {
   // Resolve a 1..3 flash tier for ANY loot id — seed OR produce. pickReward

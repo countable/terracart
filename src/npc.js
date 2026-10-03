@@ -57,7 +57,7 @@ const NPC = (() => {
     return null;
   }
   function isShrine(o) {
-    return o.kind === 'shrine' || o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
+    return o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
   }
   function spawn(scene, entry, tx, ty, opts) {
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;

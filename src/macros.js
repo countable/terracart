@@ -158,7 +158,7 @@
       return true;
     }
     if ((save.money || 0) < row.price) {
-      scene.flash(`Need $${row.price} to hire.`, sx, sy);
+      scene.flash(`Need ${row.price} coins to hire.`, sx, sy);
       visit.finish();
       return true;
     }
@@ -166,8 +166,8 @@
     let settled = false;
     scene._mercenaryHirePending = true;
     scene.showConfirmModal({ id: 'mercenary-hire', title: row.name, art: row.art,
-      body: `Hire a mercenary for $${row.price}? He follows you and fights enemies for ${shortDuration(row.durationMs)}.`,
-      acceptLabel: `Hire · $${row.price}`, cancelLabel: 'Later',
+      body: `Hire a mercenary for ${row.price} coins? He follows you and fights enemies for ${shortDuration(row.durationMs)}.`,
+      acceptLabel: `Hire · ${row.price} coins`, cancelLabel: 'Later',
       onCancel: () => { if (!settled) { settled = true; scene._mercenaryHirePending = false; visit.finish(); } },
       onAccept: () => {
         if (settled) return;

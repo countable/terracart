@@ -2544,8 +2544,9 @@ class SceneCreatures {
           // not wandering fauna: a campfire dropped by the door cannot empty a
           // ruin, and a guard walking home past a fire would freeze in the street (the
           // scarecrow stall above). A goblin garrison is past the depth cap anyway.
-          const fireAverts = !c.lair && (c.kind === 'slime' ||
-            (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH));
+          // creature_ai.js campfireAverts is the one predicate (the swept step
+          // reads the same one).
+          const fireAverts = campfireAverts(c);
           // The ward's ring is FIRE_REST_R — the same ring the fire lights
           // (Lighting.KINDS.fire) and warms (update()'s rest) — never a
           // literal of its own.

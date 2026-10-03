@@ -41,11 +41,12 @@
     // Index 0 is unused; tiers 1..7.
     tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
     // Classes that are inherently single-stack — relic (no qty), animal (one
-    // live catch at a time), consumable (tap-to-use). Fruit-tree seeds also
-    // stay single regardless of bumps. flora maps to the produce 'flowers' item via picker
-    // routing, but we treat it as a small-qty class.
+    // live catch at a time), magic / supply (tap-to-use; `consumable` is the
+    // magic + supply union the cave X marks still route through). Fruit-tree
+    // seeds also stay single regardless of bumps.
     singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'consumable'],
-    // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
+    // Chest tier 1..7 modifiers (1..5 on the surface; 6..7 only underground,
+    // loot.js chestTierMaxFor). Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
     // across different biomes. The tier is the chest's per-tile quota seat
