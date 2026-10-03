@@ -404,14 +404,14 @@ const starterWrapper = (name) => {
                    // Grabbing the stick mid-walk re-anchors target AND offset;
                    // lifted so the takeover is tested against the same scene.
                    '_steerManual(vx, vy, dt) {',
-                   // What pauses the debounce (a wheel, a dialog).
-                   '_walkHomeHeld() {']
+                   // What pauses the debounce (a wheel, a dialog), and the one dialog test.
+                   '_walkHomeHeld() {', '_dialogOpen() {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
   for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
                    '_placeBodyOnFix', '_carveLanding', 'clearPeek', '_teleportCut',
-                   '_steerManual', '_walkHomeHeld']) {
+                   '_steerManual', '_walkHomeHeld', '_dialogOpen']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -509,7 +509,8 @@ const starterWrapper = (name) => {
                    '_roadMetresMul() {', '_offGps() {',
                    '_scenicIntervals(tileKey, lineKey) {',
                    '_scenicWalkStory(kind) {', '_afterRestoreBeat(fn) {',
-                   '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro() {',
+                   '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro(onDone) {',
+                   '_enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {', '_drainCeremonies() {', '_dialogOpen() {',
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
                    '_armTrailIntro(now, st) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
@@ -587,7 +588,7 @@ const starterWrapper = (name) => {
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
                    '_setStreetPreview', '_ripenStreets', '_oneRoadPay', '_roadMetresMul', '_offGps',
                    '_scenicIntervals', '_scenicWalkStory',
-                   '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro',
+                   '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro', '_enqueueCeremony', '_drainCeremonies', '_dialogOpen',
                    '_armTrailIntro', '_openTrailIntroIfDue',
                    '_drawStreetLive', '_blastAt', '_houseMutter']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {

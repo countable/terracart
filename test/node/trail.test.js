@@ -555,8 +555,10 @@ const sweepScene = (over) => Object.assign({
   gpsM: { x: MID_M, y: MID_M },
   toasts: [],
   _toast(text, opts) { this.toasts.push({ text, opts }); },
-  drained: 0,
-  _drainTrailPrizes() { this.drained += 1; },
+  // A prize is a `prize` ceremony (the queue is lifted with the sweep): the
+  // ceremony itself is stubbed and counted.
+  drained: 0, prizes: [],
+  _fireTrailPrize(n, done) { this.drained += 1; this.prizes.push(n); done(); },
   // The one-time first-repair dialog (app.js _showTrailIntro → showMessageModal).
   // Recorded and dismissed straight away, so the sweep's prize queue drains
   // through the same path it does in the game.
@@ -789,14 +791,14 @@ test('streets: the prize fires at two hundred metres, wherever they were restore
     clock.at(0);                   s._sweepStreets();
     clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
     assert.eq(s.save.trail.prizes, 1, 'the first prize is won');
-    assert.eq(s._trailPrizeQueue.length, 1, 'one ceremony queued');
-    assert.eq(s._trailPrizeQueue[0], 1, 'and it is the FIRST prize\'s ordinal');
+    assert.eq(s._ceremonies.filter((c) => c.kind === 'prize').length, 1, 'one ceremony queued');
     // This save has never been greeted, so a greeting is owed and the ceremony
     // waits behind it — through the greeting's own beat (TRAIL_INTRO_DELAY_MS)
     // and out the far side on the dialog's dismiss.
     assert.eq(s.drained, 0, 'nothing drains while the greeting is still owed');
     clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); s._sweepStreets();
     assert.eq(s.drained, 1, 'the queue is drained once, behind the dialog');
+    assert.eq(s.prizes[0], 1, 'and it is the FIRST prize\'s ordinal');
     // The counter on a paying sweep reads the goal it completed, full, so the
     // street and the ceremony beside it print the same rung.
     assert.eq(s.toasts[0].text, Trail.label(Trail.GOAL_STEP_M, Trail.GOAL_STEP_M),
@@ -1133,12 +1135,11 @@ test('streets: the greeting waits for a clear screen, and asks again', () => {
       assert.eq(s.intros.length, 0, 'nothing opens behind the card');
       assert.falsy(s.save.trail.greeted, 'and the greeting is not spent');
       assert.gte(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'though the metres still bank');
+      // Queued, not dropped (the ceremony queue): the modal-gate tick opens
+      // it the moment the screen clears, no fresh metres needed.
       body.classList.has = false;
-      s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
-      clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
-      clock.at(PATH_STONE_DWELL_MS * 4); sweep(s);
-      clock.at(PATH_STONE_DWELL_MS * 4 + TRAIL_INTRO_DELAY_MS); sweep(s);
-      assert.eq(s.intros.length, 1, 'and the next metres banked on a clear screen ask again');
+      s._drainCeremonies();
+      assert.eq(s.intros.length, 1, 'and it opens once the screen is clear');
       assert.truthy(s.save.trail.greeted, 'spending it then');
     } finally { document.body = realBody; }
   });
@@ -1164,7 +1165,7 @@ test('streets: a prize on the greeting sweep waits for the dialog to close', () 
                                    trail: { metres: Trail.GOAL_STEP_M - 1, prizes: 0 } } });
     const order = [];
     s.showMessageModal = (o) => { order.push('intro'); s.intros.push(o); o.onDismiss?.(); };
-    s._drainTrailPrizes = () => { order.push('prize'); s.drained += 1; };
+    s._fireTrailPrize = (n, done) => { order.push('prize'); s.drained += 1; done(); };
     clock.at(0); sweep(s);
     clock.at(PATH_STONE_DWELL_MS); sweep(s);
     assert.eq(s.save.trail.prizes, 1, 'the sweep really did pay a rung');

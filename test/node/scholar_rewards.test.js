@@ -10,7 +10,7 @@
       save, offers: [], messages: [], refreshes: 0,
       _presentScholar: method('_presentScholar'),
       _macroTransaction: method('_macroTransaction'),
-      _drainMacroTransactions: method('_drainMacroTransactions'),
+      _enqueueCeremony: method('_enqueueCeremony'), _drainCeremonies: method('_drainCeremonies'), _dialogOpen: () => false,
       invRoomFor: id => Inventory.roomFor(save, id),
       iconSpanHTML: () => '',
       showOfferModal(o) { this.offers.push(o); },

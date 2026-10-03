@@ -109,6 +109,7 @@ function walkHomeScene(awayM, opts = {}) {
     _busyWheel() { const wp = this._workProgress; return (wp && !wp.auto) ? wp : null; },
     _stickPushed: () => false,
     _walkHomeHeld: __walkHome._walkHomeHeld,
+    _dialogOpen: __walkHome._dialogOpen,   // the one dialog test the hold reads
     _walkRelics: () => [],
     _lastStickT: Date.now() - (opts.idleMs ?? (WALK_HOME_IDLE_MS + WALK_HOME_RAMP_MS + 500)),
     _steerDistAccrue: 0,

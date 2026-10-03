@@ -5303,7 +5303,7 @@ class MapScene extends Phaser.Scene {
     // chip's display, its text, a dialog hiding it, a resize) — a rect read
     // every frame would force a layout every frame.
     const obj = document.getElementById('objective');
-    const shown = obj && obj.style.display !== 'none' && !document.body.classList.contains('modal-open');
+    const shown = obj && obj.style.display !== 'none' && !this._dialogOpen();
     const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
     if (this._statusRowSeat !== seatKey) {
       this._statusRowSeat = seatKey;
@@ -7443,8 +7443,7 @@ class MapScene extends Phaser.Scene {
   // screen (body.modal-open, the same live signal the pads hide on). Held is a
   // PAUSE of the debounce, not a block: see _driftHome.
   _walkHomeHeld() {
-    if (this._busyWheel()) return true;
-    return typeof document !== 'undefined' && !!document.body?.classList?.contains('modal-open');
+    return this._busyWheel() || this._dialogOpen();
   }
   // Let go of the stick and, after a few seconds, the character walks itself
   // back to where you actually are. Stick walking builds up an offset from the
@@ -8801,8 +8800,48 @@ class MapScene extends Phaser.Scene {
   // fanfare fires in the same handler that just mounted the dialog.
   _dialogOpen() {
     if (typeof document === 'undefined') return false;
+    // Headless (no DOM query): the mirrored class is all there is to read.
+    if (typeof document.querySelectorAll !== 'function') return !!document.body?.classList?.contains('modal-open');
     return [...document.querySelectorAll('.game-modal')]
       .some((el) => el.isConnected && el.style.display !== 'none' && el.getClientRects().length > 0);
+  }
+
+  // ── THE CEREMONY QUEUE ────────────────────────────────────────────────────
+  // Every dialog that must wait for a clear screen waits HERE: a booth's
+  // receipt, a Book's read, the road's greeting, a trail prize, a starter
+  // cheer, the first-sale and low-health stories. `_enqueueCeremony(kind,
+  // open)` queues `open(done)`; `_drainCeremonies` — on every enqueue, from
+  // the modal-gate tick and when a ceremony's `done` is called — opens ONE at
+  // a time, the highest kind first (the order below: a receipt before the
+  // memories MemoryStory.drain opens after this queue, a read before the
+  // next prize), oldest first within a kind, with _dialogOpen() the only
+  // busy test. `open` returns false to decline (it opened nothing: the entry
+  // is dropped and the next is tried) and otherwise calls `done` when its
+  // dialog closes. `key` queues a ceremony once; `hold()` keeps an entry
+  // waiting (a prize behind an owed greeting) while later ones may pass;
+  // `defer` leaves the first drain to the gate tick (a cheer fired one line
+  // before the reward card it must wait behind is mounted).
+  _enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {
+    const priority = ['receipt', 'read', 'intro', 'prize', 'cheer', 'story'].indexOf(kind);
+    if (priority < 0) throw new Error(`unknown ceremony ${kind}`);
+    const q = (this._ceremonies ||= []);
+    if (key && q.some((c) => c.key === key)) return this._drainCeremonies();
+    q.push({ kind, key, hold, open, priority, seq: this._ceremonySeq = (this._ceremonySeq || 0) + 1 });
+    return defer ? false : this._drainCeremonies();
+  }
+  _drainCeremonies() {
+    const q = this._ceremonies;
+    if (!q?.length || this._ceremonyOpen || this._dialogOpen()) return false;
+    q.sort((a, b) => a.priority - b.priority || a.seq - b.seq);
+    const i = q.findIndex((c) => !c.hold?.());
+    if (i < 0) return false;
+    const [next] = q.splice(i, 1);
+    this._ceremonyOpen = true;
+    const done = () => { this._ceremonyOpen = false; this._drainCeremonies(); };
+    let opened = false;
+    try { opened = next.open(done) !== false; }
+    finally { if (!opened) this._ceremonyOpen = false; }
+    return opened || this._drainCeremonies();
   }
 
   // The fanfare as HTML, over whatever dialog is open: the canvas toast's
@@ -8968,35 +9007,40 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
+  // Both earned stories queue once (`key`) and open through the story ledger
+  // when the screen clears; the pending flag on the save survives a reload.
   _firstSaleStory() {
     if (!this.save.firstSalePending || this.save.storySeen?.['sale:first']) return;
-    if (this._storySplashOnce('sale:first', {
-      art: 'first_sale', title: 'Fine wares',
-      body: "The neighbours offer to buy your fine wares for some 'green'.",
-    })) {
+    this._enqueueCeremony('story', (done) => {
+      if (!this.save.firstSalePending || !this._storySplashOnce('sale:first', {
+        art: 'first_sale', title: 'Fine wares',
+        body: "The neighbours offer to buy your fine wares for some 'green'.", onDismiss: done,
+      })) return false;
       delete this.save.firstSalePending;
       persistSave(this.save);
-    }
+      return true;
+    }, { key: 'sale:first' });
   }
 
   _lowHealthStory() {
     this._queueLowHealthStory();
-    if (!this.save.healthLowPending || this.save.storySeen?.['health:low']
-        || !(this.save.energy > 0) || this._passingOut) return;
-    if (this._storySplashOnce('health:low', {
-      art: 'health_low', title: 'Running low',
-      body: 'Your hands tremble, and every step feels heavier. You need food or a place to rest.',
-    })) {
+    if (!this.save.healthLowPending || this.save.storySeen?.['health:low']) return;
+    this._enqueueCeremony('story', (done) => {
+      if (!this.save.healthLowPending || !(this.save.energy > 0) || this._passingOut) return false;
+      if (!this._storySplashOnce('health:low', {
+        art: 'health_low', title: 'Running low',
+        body: 'Your hands tremble, and every step feels heavier. You need food or a place to rest.', onDismiss: done,
+      })) return false;
       delete this.save.healthLowPending;
       persistSave(this.save);
-    }
+      return true;
+    }, { key: 'health:low' });
   }
 
-  // Opens the next queued memory story once nothing else is up. Rides the
-  // modal-gate backstop's throttle in update(), right after the sync, so
-  // body.modal-open is fresh when it is read.
+  // Opens the next queued ceremony, else the next queued memory story, once
+  // nothing else is up. Rides the modal-gate backstop's throttle in update().
   _drainBadgeStories() {
-    if (this._drainMacroTransactions()) return;
+    if (this._drainCeremonies()) return;
     MemoryStory.drain(this);
   }
 
@@ -9014,13 +9058,10 @@ class MapScene extends Phaser.Scene {
   _storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen[key]) return false;
-    // The modal-open class lags the DOM by a microtask (it is mirrored off a
-    // MutationObserver), and two of the story moments - a first delivery, a
-    // castle's claim - fire from inside the accept handler of the modal they
-    // just closed, where the class still says busy. Re-sync first so the
-    // guard reads the screen as it is, not as it was a click ago.
-    this._syncModalGate?.();
-    if (document.body?.classList?.contains('modal-open')) return false;
+    // _dialogOpen reads the DOM itself (two of the story moments - a first
+    // delivery, a castle's claim - fire from inside the accept handler of the
+    // modal they just closed, where the mirrored class still says busy).
+    if (this._dialogOpen()) return false;
     seen[key] = 1;
     persistSave(this.save);
     this.showMessageModal({ title, body, art, okLabel, onDismiss });
@@ -9036,8 +9077,7 @@ class MapScene extends Phaser.Scene {
   _reviveStoryboard() {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen.revive) return;
-    this._syncModalGate?.();
-    if (document.body?.classList?.contains('modal-open')) return;
+    if (this._dialogOpen()) return;
     seen.revive = 1;
     persistSave(this.save);
     const PANELS = [
@@ -9047,12 +9087,7 @@ class MapScene extends Phaser.Scene {
       // is the point. What the revival GAVE is the energy pop's to say.
       { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket beside your wagon. A farmhand nods goodbye.' },
     ];
-    const show = (i) => this.showMessageModal({
-      ...PANELS[i], kind: 'story',
-      okLabel: i < PANELS.length - 1 ? 'Next' : 'OK',
-      onDismiss: i < PANELS.length - 1 ? () => show(i + 1) : undefined,
-    });
-    show(0);
+    MemoryStory.showPages(this, PANELS, { kind: 'story' });   // "Next" between them, "OK" on the last
   }
 
   // FIRST-TOOL-ACTION stories: one splash per action, ever, keyed
@@ -9747,26 +9782,28 @@ class MapScene extends Phaser.Scene {
   // restoring a wreck (its own ceremony) and any future step that completes
   // behind a dialog get the same treatment without their call sites knowing.
   _celebrateStarterStep(done) {
-    (this._pendingStarterCheers = this._pendingStarterCheers || []).push(done);
+    this._enqueueCeremony('cheer', (finish) => {
+      // Only the LAST one gets the full ceremony: two cheers racing for the
+      // same chip means the first is overwritten mid-hold anyway, and
+      // stacking their toasts on one frame just makes an unreadable pile.
+      // The rest are already banked; the chip resync at the end of the play
+      // shows where the ladder actually stands.
+      if (this._pendingStarterCheers.length) return false;
+      // Own try/catch: the drain also runs from _installModalPadGate's
+      // MutationObserver callback, outside update()'s guard — a throw
+      // escaping from a microtask there is uncatchable by the game loop.
+      const quiet = !!this._starterCheerBehindDialog;
+      this._starterCheerBehindDialog = false;
+      try { this._playStarterCheer(done, { quiet }); }
+      catch (e) { this._reportLoopError?.(e); }
+      finish();   // a toast and a chip hold, not a dialog: the queue moves on
+      return true;
+    }, { defer: true });
   }
-
-  _flushStarterCheers() {
-    const queued = this._pendingStarterCheers;
-    if (!queued || !queued.length) return;
-    this._pendingStarterCheers = [];
-    // Only the LAST one gets the full ceremony: two cheers racing for the same
-    // chip means the first is overwritten mid-hold anyway, and stacking their
-    // toasts on one frame just makes an unreadable pile. The rest are already
-    // banked; the chip resync at the end of the play shows where the ladder
-    // actually stands.
-    // Own try/catch: this is also called from _installModalPadGate's
-    // MutationObserver callback, which runs outside update()'s guard — a throw
-    // escaping from a microtask there is uncatchable by the game loop.
-    const quiet = !!this._starterCheerBehindDialog;
-    this._starterCheerBehindDialog = false;
-    try { this._playStarterCheer(queued[queued.length - 1], { quiet }); }
-    catch (e) { this._reportLoopError?.(e); }
-  }
+  // The cheers still waiting (modal_shell.js's gate sync reads this to mark
+  // a cheer that waited out a dialog `quiet`), and the gate's flush.
+  get _pendingStarterCheers() { return (this._ceremonies || []).filter((c) => c.kind === 'cheer'); }
+  _flushStarterCheers() { this._drainCeremonies(); }
 
   // `quiet`: the step completed behind a dialog, which was the notice — the
   // chip still holds the green ✓, but no toast repeats it.
@@ -10045,24 +10082,20 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // Fires any book read(s) addToInv deferred (via { deferBookRead: true })
+  // Queues any book read(s) addToInv deferred (via { deferBookRead: true })
   // because the caller was about to show its own "you found a Book" modal
-  // right after — call this from THAT modal's onDismiss so the read shows
-  // once it's closed instead of stacking on top of it. No-op (calls
-  // `onDone` straight away) when nothing is queued — every non-book pickup
-  // never touches _pendingBookReads. Reads run ONE AT A TIME, each waiting
-  // for the last to be dismissed, so a rare multi-book grant can't stack
-  // its own modals either; `onDone` (e.g. draining the next trail prize)
-  // only fires after the last one closes.
+  // right after — call this from THAT modal's onDismiss. Each read is a
+  // `read` ceremony: one at a time, each waiting for the last to close, and
+  // ahead of the next trail prize in the queue (a read outranks a prize), so
+  // a rare multi-book grant can't stack its own modals either. `onDone` (the
+  // caller's own onDismiss — e.g. the prize queue's `done`) runs at once:
+  // what it releases queues behind the reads.
   _revealPendingBookReads(onDone) {
-    let remaining = this._pendingBookReads || 0;
+    const n = this._pendingBookReads || 0;
     this._pendingBookReads = 0;
-    const showNext = () => {
-      if (remaining <= 0) { if (typeof onDone === 'function') onDone(); return; }
-      remaining--;
-      this._presentBookRead(showNext);
-    };
-    showNext();
+    for (let i = 0; i < n; i++) this._enqueueCeremony('read', (done) => { this._presentBookRead(done); return true; }, { defer: true });
+    if (typeof onDone === 'function') onDone();
+    this._drainCeremonies();
   }
 
   // ── The Tomes ─────────────────────────────────────────────────────────────
@@ -11066,21 +11099,17 @@ class MapScene extends Phaser.Scene {
   }
 
   // Successful services share one receipt surface, after the state is committed.
-  // A bounty can complete while a shop or story is open: keep its receipt
-  // until that dialog ends, ahead of queued memories in _drainBadgeStories.
+  // A bounty can complete while a shop or story is open: the ceremony queue
+  // keeps its receipt until that dialog ends, ahead of queued memories
+  // (_drainBadgeStories drains the queue before MemoryStory).
   _macroTransaction(kind, body, onDismiss) {
     const d = Macros.KIND_DIALOG[kind], receipt = Macros.KIND_TRANSACTION[kind];
     if (!d || !receipt) return;
-    (this._macroReceipts ||= []).push({ kind: d.modal, kindLabel: d.label,
-      art: receipt.art, title: receipt.title, body, onDismiss });
-    this._drainMacroTransactions();
-  }
-  _drainMacroTransactions() {
-    if (!this._macroReceipts?.length) return false;
-    this._syncModalGate?.();
-    if (document.body?.classList?.contains('modal-open')) return false;
-    this.showMessageModal(this._macroReceipts.shift());
-    return true;
+    this._enqueueCeremony('receipt', (done) => {
+      this.showMessageModal({ kind: d.modal, kindLabel: d.label, art: receipt.art, title: receipt.title, body,
+        onDismiss: () => { onDismiss?.(); done(); } });
+      return true;
+    });
   }
 
   // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
@@ -12856,9 +12885,12 @@ class MapScene extends Phaser.Scene {
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
     // time rather than stacking modals on top of each other. Each entry is the
     // prize's ORDINAL, which is what decides how good its roll is.
-    this._trailPrizeQueue = this._trailPrizeQueue || [];
-    for (let n = out.prizes - out.owed + 1; n <= out.prizes; n++) this._trailPrizeQueue.push(n);
-    if (!greeting) this._drainTrailPrizes();
+    // Each is a `prize` ceremony; one owed a greeting holds until the greeting
+    // has opened (its beat passes, _openTrailIntroIfDue queues it ahead).
+    const hold = greeting ? () => !!this._trailIntroAt : undefined;
+    for (let n = out.prizes - out.owed + 1; n <= out.prizes; n++) {
+      this._enqueueCeremony('prize', (done) => this._fireTrailPrize(n, done), { hold });
+    }
   }
 
   // ARM the first-repair dialog, and say whether a greeting is owed. A walker
@@ -12883,49 +12915,34 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  // …and the other half: open it once the beat has passed. Read from the top
-  // of _sweepStreets — before that pass's own surface and reach gates, because
-  // a greeting armed by a repair the player then walked away from (into a
-  // cave, onto an empty bar) is still owed.
-  //
-  // The SCREEN is asked here, at the moment it opens, never when it was armed:
-  // two seconds is long enough for a card to have opened in front of it. A
-  // refusal drops the deadline and leaves `greeted` false, so the next sweep
-  // that banks metres arms it again — and the prizes it was holding back are
-  // let go, exactly as they are on a sweep that never armed one.
+  // …and the other half: queue it once the beat has passed. Read from the
+  // top of _sweepStreets — before that pass's own surface and reach gates,
+  // because a greeting armed by a repair the player then walked away from
+  // (into a cave, onto an empty bar) is still owed. The dialog is an `intro`
+  // ceremony: it waits for a clear screen (the first sweep can land seconds
+  // into a brand new session, exactly when the how-to card is up) and opens
+  // ahead of any prize the same sweep paid, never beside it.
   _openTrailIntroIfDue() {
     if (!this._trailIntroAt || Date.now() < this._trailIntroAt) return;
     this._trailIntroAt = 0;
-    if (!this._showTrailIntro()) { this._drainTrailPrizes(); return; }
-    const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
-    st.greeted = true;
-    persistSave(this.save);
+    this._enqueueCeremony('intro', (done) => this._showTrailIntro(done), { key: 'trail:intro' });
   }
 
-  // The one-time "you start repairing roads" dialog. Opened by the wait above,
-  // a beat after the sweep that banks a save's first metres. Returns whether
-  // it actually opened —
-  // the caller only spends the save's one greeting on a dialog the player saw.
-  //
-  // NEVER ON TOP OF ANOTHER. The first sweep can land seconds into a brand new
-  // session, which is exactly when the how-to card is up — so this refuses a
-  // busy screen (body.modal-open, the same live signal _installModalPadGate
-  // keeps for the pads) and the next sweep that banks metres arms it again.
-  //
-  // A prize on this same sweep would need GOAL_STEP_M of street inside one
-  // reach, which no reach is wide enough for — but if it ever happened the
-  // ceremony would open on top of this, so the queue is drained on dismiss
-  // instead of beside it.
-  _showTrailIntro() {
-    if (document.body?.classList?.contains('modal-open')) return false;
+  // The one-time "you start repairing roads" dialog, a beat after the sweep
+  // that banks a save's first metres. The save's one greeting is spent as it
+  // opens — on a dialog the player sees.
+  _showTrailIntro(onDone) {
     this.showMessageModal({
       title: TRAIL_INTRO_TITLE,
       body: trailIntroBody(this.save.playerClass),
       // The banner the promise is made in: survivors watching the repair —
       // the story this dialog tells, drawn rather than described.
       art: 'trail_intro',
-      onDismiss: () => this._drainTrailPrizes(),
+      onDismiss: onDone,
     });
+    const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
+    st.greeted = true;
+    persistSave(this.save);
     return true;
   }
 
@@ -13025,22 +13042,6 @@ class MapScene extends Phaser.Scene {
     return this._worldToastAt(c.x, c.y, liftPx);
   }
 
-  // Hand out queued trail prizes one at a time, each ceremony opening as the
-  // previous one is dismissed. Two showChestRewardModal calls in the same
-  // frame would put one modal on top of the other and the player would never
-  // see the one underneath.
-  _drainTrailPrizes() {
-    if (this._trailPrizeOpen) return;
-    const q = this._trailPrizeQueue;
-    if (!q || !q.length) return;
-    this._trailPrizeOpen = true;
-    const n = q.shift();
-    this._fireTrailPrize(n, () => {
-      this._trailPrizeOpen = false;
-      this._drainTrailPrizes();
-    });
-  }
-
   // Reward fired when the lit-stone count reaches its goal. `n` is the prize's
   // ORDINAL — the 1st, 2nd, 3rd… — which is both what it took to get here
   // (Trail.GOAL_STEP × n stones) and how good the roll is.
@@ -13054,7 +13055,8 @@ class MapScene extends Phaser.Scene {
   // own standard roll, not something the walk inflates (a bonus that fell
   // through to a quantity bracket is what pinned the ceremony at "× 2").
   // Routed through showChestRewardModal so it shares the same fanfare +
-  // sparkles as chest opens. `onDismiss` walks the prize queue on.
+  // sparkles as chest opens. `onDismiss` is the ceremony queue's `done`
+  // (one prize opens as the last is dismissed, never on top of it).
   //
   // PRIZE #1 LEADS WITH THE ONION SEED: Trail.firstPrize is the first card,
   // so the first thing a road ever offers names what roads pay in — and the

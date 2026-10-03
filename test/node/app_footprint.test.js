@@ -95,4 +95,61 @@
     assert.falsy(/— \w+ kept\.'/.test(app.replace(/function kept\([^\n]*/, '')), 'no hand-typed "kept." line beside the formatter');
     assert.truthy(/this\.flashAtPlayer\(kept\(/.test(app), 'and it lands on the player');
   });
+
+  test('footprint: one ceremony queue — priority order, one at a time, _dialogOpen the only busy test', () => {
+    const q = ['_enqueueCeremony', '_drainCeremonies', '_dialogOpen'].map((n) => {
+      const start = SCENE_SRC.indexOf('\n  ' + n + '('), end = SCENE_SRC.indexOf('\n  }\n', start);
+      return SCENE_SRC.slice(start + 1, end + 4);
+    }).join('\n');
+    const K = new Function(`return class { ${q} }`)();
+    const s = new K(), opened = [];
+    let busy = true;
+    s._dialogOpen = () => busy;
+    const ceremony = (kind, label) => (done) => { opened.push(label); s._close = done; return true; };
+    // Queued while a dialog is up: nothing opens, whatever the order of arrival.
+    s._enqueueCeremony('story', ceremony('story', 'story'));
+    s._enqueueCeremony('prize', ceremony('prize', 'prize A'));
+    s._enqueueCeremony('cheer', ceremony('cheer', 'cheer'));
+    s._enqueueCeremony('receipt', ceremony('receipt', 'receipt'));
+    s._enqueueCeremony('prize', ceremony('prize', 'prize B'));
+    s._enqueueCeremony('read', ceremony('read', 'read'));
+    assert.eq(opened.length, 0, 'a busy screen holds every ceremony');
+    s._enqueueCeremony('story', ceremony('story', 'keyed'), { key: 'k' });
+    s._enqueueCeremony('story', () => { opened.push('never'); return true; }, { key: 'k' });   // the key queues once
+    busy = false;
+    assert.truthy(s._drainCeremonies(), 'the gate tick opens the first');
+    assert.eq(opened.join(','), 'receipt', 'a receipt outranks everything (before the memories that follow the queue)');
+    assert.falsy(s._drainCeremonies(), 'one at a time: nothing else opens while it is up');
+    s._close();
+    assert.eq(opened.join(','), 'receipt,read', 'then a Book read, ahead of the prizes');
+    s._close(); s._close();
+    assert.eq(opened.join(','), 'receipt,read,prize A,prize B', 'the prizes in the order they were won');
+    s._close();
+    assert.eq(opened.at(-1), 'cheer');
+    s._close();
+    assert.eq(opened.at(-1), 'story', 'the stories last');
+    s._close();
+    assert.eq(opened.at(-1), 'keyed', 'the key queued one of its two');
+    s._close();
+    assert.falsy(opened.includes('never'));
+    assert.eq(s._ceremonies.length, 0, 'drained');
+    // A declined ceremony (open returns false) is dropped and the next tried;
+    // a held one waits while later ones pass.
+    let hold = true;
+    s._enqueueCeremony('prize', ceremony('prize', 'held'), { hold: () => hold });
+    s._enqueueCeremony('story', () => false);
+    s._enqueueCeremony('story', ceremony('story', 'after'));
+    assert.eq(opened.at(-1), 'after', 'the decliner was skipped, the held prize waited');
+    s._close(); hold = false; s._drainCeremonies();
+    assert.eq(opened.at(-1), 'held', 'and opened once its hold lifted');
+    // Every deferred dialog is an enqueue, and _dialogOpen the only busy test.
+    for (const kind of ['receipt', 'read', 'intro', 'prize', 'cheer', 'story']) {
+      assert.truthy(new RegExp(`_enqueueCeremony\\('${kind}'`).test(app), `${kind}: queued`);
+    }
+    assert.falsy(/_macroReceipts|_drainMacroTransactions|_trailPrizeQueue|_drainTrailPrizes/.test(app), 'no second queue');
+    assert.eq((app.match(/classList\??\.contains\('modal-open'\)/g) || []).length, 1,
+      '_dialogOpen is the one place the class is read (its headless fallback)');
+    assert.truthy(/this\._drainBadgeStories\(\);/.test(app) && /if \(this\._drainCeremonies\(\)\) return;\s*MemoryStory\.drain\(this\);/.test(app),
+      'the modal-gate tick drains the queue before the memories');
+  });
 })();
