@@ -16,7 +16,7 @@ test('tree seeds: park chests can award every tree seed at its reward quality', 
     ['acorn', 2, 2], ['apple_sapling', 1, 4], ['apple_sapling', 4, 4],
     ['peach_sapling', 3, 7], ['peach_sapling', 7, 7],
   ]) {
-    const opts = { tier: chestTier };
+    const opts = { tier: chestTier, depth: chestTier === 7 ? 6 : 0 };
     assert.gt(ChestThemes.weights('park', quality, opts).parkSeeds, 0);
     const rng = makeRng32(1937);
     let found = false;
