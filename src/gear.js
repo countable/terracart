@@ -240,11 +240,12 @@
   //     has empty or holds at a LOWER tier (so never the given slot itself) —
   //     or a unique relic the player does not carry.
   const TRADER_GEAR_CHANCE = 0.2;
-  // The trader's sign asks for this every frame, so the unique-relic list is
-  // read off ITEMS once.
-  let _tradeUniques = null;
-  function tradeUniques() {
-    return _tradeUniques || (_tradeUniques = ITEMS.filter(item =>
+  // Every unique relic that counts as equipment (tomes are books), read off
+  // ITEMS once: the trader's sign asks for it every frame. The X mark's gear
+  // class (rarity.js) draws from the same list.
+  let _uniqueRelics = null;
+  function uniqueRelics() {
+    return _uniqueRelics || (_uniqueRelics = ITEMS.filter(item =>
       item.kind === 'unique_relic' && !item.tome && (item.baseTier | 0) > 0));
   }
   function gearTier(save, kind, slot) {
@@ -260,7 +261,7 @@
       const tier = gearTier(save, 'armor', slot);
       if (tier > 0) out.push({ kind: 'armor', slot, tier });
     }
-    for (const item of tradeUniques()) {
+    for (const item of uniqueRelics()) {
       if (carriesItem(save, item.id)) out.push({ kind: 'item', id: item.id, qty: 1, tier: item.baseTier });
     }
     return out;
@@ -273,7 +274,7 @@
     };
     for (const slot of Object.keys(RELIC_DEFS)) if (fits('relic', slot)) out.push({ kind: 'relic', slot, tier });
     for (const slot of Object.keys(ARMOR_DEFS)) if (fits('armor', slot)) out.push({ kind: 'armor', slot, tier });
-    for (const item of tradeUniques()) {
+    for (const item of uniqueRelics()) {
       if (item.baseTier === tier && item.id !== give?.id && !carriesItem(save, item.id)) {
         out.push({ kind: 'item', id: item.id, qty: 1, tier });
       }
@@ -310,5 +311,5 @@
 
   root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
-                TRADER_GEAR_CHANCE, traderGearSwap, traderSwapValid, surrenderPiece };
+                TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
