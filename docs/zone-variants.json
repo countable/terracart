@@ -6690,7 +6690,7 @@
       },
       "guards": {
         "mode": "guard_find",
-        "kind": "goblin",
+        "kind": "split_slime",
         "count": 2,
         "offsetCells": [
           [
@@ -7836,15 +7836,13 @@
       },
       "guards": {
         "mode": "quarry_layout",
-        "kind": "split_slime",
-        "count": 3,
+        "kind": "wurm",
+        "count": 1,
         "kinds": [
-          "split_slime",
-          "wurm",
-          "split_slime"
+          "wurm"
         ]
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Blue slimes divide and gather in the open cuts. Beneath them, wurms tunnel through the loose earth.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Wurms tunnel through the loose earth beneath the open cuts.",
       "attracts": {},
       "quarryLayout": "strip_mine",
       "affinities": [
