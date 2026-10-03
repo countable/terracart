@@ -54,6 +54,8 @@
   test('Broken Masonry: mostly smashable clay pots, sparse rubble and one guarded ore find', () => {
     const row=ZoneVariants.byId('broken_masonry'),out=ZoneDressing.dress(context(row.id));
     const background=all(out).filter(o=>o.zoneLayer==='background');
+    for(let y=0;y<12;y++)for(let x=0;x<12;x++)
+      assert.eq(ZoneVariants.sample(row,x,y,'checkerboard') != null,(x+y)%2===0,'alternating occupied and empty cells');
     const pots=background.filter(o=>o.kind==='chest' && o.barrelStyle==='clay_pot');
     assert.inRange(pots.length/background.length,.85,.95,'pots dominate the actual layout');
     assert.truthy(background.every(o=>o.barrelStyle==='clay_pot' || o.crop==='rockfruit'));
@@ -566,13 +568,15 @@
     const noGround = context('broken_depot'); noGround.grid.fill(WorldGen.T.GRASS);
     assert.eq(ZoneDressing.dress(noGround).traps.length, 0);
   });
-  test('zone dressing: work-yard copper lines remain continuous and POI slots touch the chest', () => {
+  test('zone dressing: work-yard copper lines have spikes at grid corners and POI slots touch the chest', () => {
     const ctx = context('work_yard'), out = ZoneDressing.dress(ctx), origin = 32;
     const background = new Map(all(out).filter(o => o.zoneLayer === 'background').map(o => [`${o._ix},${o._iy}`, o]));
     // First boundary of the fixed 21 x 21 figure sits 10 cells from its origin.
     for (let x = origin - 10; x <= origin + 10; x++) {
       const o = background.get(`${x},${origin - 10}`);
-      assert.truthy(o, `unbroken copper line ${x}`); assert.eq(o.yieldTier, 2);
+      assert.truthy(o, `unbroken boundary ${x}`);
+      if ((x - origin + 10) % 4 === 0) assert.eq(o.kind, 'stakes');
+      else assert.eq(o.yieldTier, 2);
     }
     for (const o of all(out).filter(o => o.zoneLayer === 'poi')) assert.eq(Math.max(Math.abs(o._ix - origin), Math.abs(o._iy - origin)), 1);
     const chestCtx = context('meadow'), a = chestCtx.field.anchors[0], cell = WorldGen.CELL_M;

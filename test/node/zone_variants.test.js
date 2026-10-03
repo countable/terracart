@@ -117,7 +117,7 @@ test('zone variants: explicit lamp tint follows coverage winner and otherwise le
     else tinted.lampGlow = original;
   }
 });
-test('zone variants: migrated grave and ruin motifs fit small zones and retain open aisles', () => {
+test('zone variants: grave and ruin motifs fit small zones and retain their intended gaps', () => {
   for (const id of ['ordered_graves', 'overgrown_graves', 'broken_masonry', 'broken_depot']) {
     const row = V.byId(id), [w, h] = row.background.repeatCells;
     assert.lte(w, 6, id); assert.lte(h, 6, id);
@@ -132,7 +132,11 @@ test('zone variants: migrated grave and ruin motifs fit small zones and retain o
       assert.eq(V.sample(row, x - w, y - h, 'anchor'), slot.material);
       assert.eq(V.sample(row, x + w, y + h, 'anchor'), slot.material);
     }
-    // Every motif leaves a continuous lane through successive repeat blocks.
+    // The checkerboard leaves alternating gaps; the other motifs have straight aisles.
+    if (id === 'broken_masonry') {
+      assert.eq(occupied.size, w * h / 2);
+      continue;
+    }
     assert.truthy(Array.from({length: w}, (_, x) => x).some(x =>
       Array.from({length: h}, (_, y) => y).every(y => !V.sample(row, x, y, 'anchor'))), id);
   }
@@ -244,6 +248,8 @@ test('zone variants: continuous grids have centered POIs and their declared exte
     for (let i = 0; i <= edge; i++) for (let line = 0; line <= edge; line += b.spacingCells) {
       assert.truthy(V.sample(row, line, i), 'unbroken column');
       assert.truthy(V.sample(row, i, line), 'unbroken row');
+      if (id === 'work_yard' && i % b.spacingCells === 0)
+        assert.eq(V.sample(row, i, line), 'ground_spikes', 'one spike at each shared grid corner');
     }
     for (const [x, y] of [[-1, 0], [0, -1], [edge + 1, 0], [0, edge + 1]]) {
       if (id === 'work_yard') assert.eq(V.sample(row, x, y), null, 'finite work-yard footprint');
