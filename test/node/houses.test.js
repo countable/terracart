@@ -143,6 +143,44 @@ test('buildCost: the House ladder, stones per tier for shops, a flat five for a 
   }
 });
 
+test('buildOptions: a card is NEW when the player has no such building, or none at that rank', () => {
+  const h = (id) => ({ kind: 'house', tier: 9, id });
+  const cards = (save) => Houses.buildOptions(save, plainHouse);
+  const isNew = (save, key) => Houses.isNewPick(save, cards(save).find((r) => r.key === key));
+  const save = { restoredHouses: {}, discovered: {} };
+  assert.truthy(isNew(save, 'plain'), 'the first House is new');
+  Houses.restoreAs(save, h('h0'), 'plain');
+  assert.falsy(isNew(save, 'plain'), 'a second House is not');
+  assert.truthy(isNew(save, 'blacksmith'), 'no smithy yet');
+  Houses.restoreAs(save, h('s1'), 'blacksmith');
+  assert.truthy(isNew(save, 'market:seed'), 'no Seed Shop yet');
+  Houses.restoreAs(save, h('m1'), 'market:seed');
+  for (let i = 3; i < 8; i++) Houses.restoreAs(save, h('h' + i), 'plain');
+  assert.eq(Houses.restoredCount(save), 8);
+  // The ninth: Seed again would be the T2 one — a rank the player lacks.
+  const seed = cards(save).find((r) => r.key === 'market:seed');
+  assert.truthy(seed, 'seed on offer'); assert.eq(seed.tier(save, 8), 2);
+  assert.truthy(Houses.isNewPick(save, seed), 'a T2 Seed Shop is new');
+  assert.truthy(isNew(save, 'market:supply'), 'a line never raised is new');
+  assert.truthy(isNew(save, 'trader'), 'no trader yet');
+  Houses.restoreAs(save, h('t1'), 'trader');            // the ninth: a T1 trader
+  assert.truthy(isNew(save, 'trader'), 'the tenth would raise a T2 trader: new');
+  Houses.restoreAs(save, h('h9'), 'plain');
+  Houses.restoreAs(save, h('t2'), 'trader');            // the eleventh: T2
+  assert.falsy(isNew(save, 'trader'), 'the twelfth trader would be T2 too: not new');
+  for (let i = 12; i < 15; i++) Houses.restoreAs(save, h('h' + i), 'plain');
+  assert.eq(Houses.restoredCount(save), 14);
+  assert.truthy(isNew(save, 'trader'), 'the fifteenth raises a T3 trader: new again');
+  assert.truthy(isNew(save, 'blacksmith'), 'the T2 smithy is new');
+  assert.truthy(isNew(save, 'turret'), 'no turret');
+  Houses.restoreAs(save, h('tw'), 'turret');
+  assert.falsy(isNew(save, 'turret'));
+  assert.truthy(isNew(save, 'petshop') && isNew(save, 'bookshop'), 'the one-offs are new while none stands');
+  assert.falsy(Houses.isNewPick(save, null));
+  assert.truthy(/\+ \(Houses\.isNewPick\(this\.save, row, order\) \? newBadgeHTML\(\) : ''\)/.test(SCENE_SRC), 'the card wears the pill');
+  assert.truthy(/NEW<\/span>/.test(newBadgeHTML()), 'the pill says NEW');
+});
+
 test('buildOptions: the Blacksmith card is suggested until the lane has a smithy', () => {
   const sm = Houses.buildOption('blacksmith');
   assert.truthy(sm.suggested({ restoredHouses: {} }));
