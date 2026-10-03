@@ -416,7 +416,7 @@ function popupHTML(e, o, label) {
   if (o.zoneVariant) rows.push(`Variant: <b>${esc(ZoneVariants.byId(o.zoneVariant)?.name || o.zoneVariant)}</b>${o.zoneLayer ? ' · '+esc(o.zoneLayer) : ''}`);
   if (o.kind === 'npc') {
     rows.push(`Role: <b>${esc(o.roleLabel || o.role)}</b> (${esc(o.role)})`);
-    rows.push(`Home zone: ${esc(o.zone)} · trade theme: ${esc(o.shopTheme || 'none')}`);
+    rows.push(`Culture: ${esc(o.culture)} · trade theme: ${esc(o.shopTheme || 'none')}`);
     rows.push(`Appearance: ${esc((o.npcVariant ?? 0) + 1)} · tint #${(o.tint ?? 0xffffff).toString(16).padStart(6, '0')}`);
     rows.push('Combat stats: noncombatant');
     const talk = NPC.dialogue(window.__world.scene, o);
@@ -434,7 +434,7 @@ function popupHTML(e, o, label) {
     const z = zoneAnchorOf(e, o);
     if (z) {
       rows.push(`zone anchor: <b>${esc(z.kind)}</b>${z.kind === 'stones' ? (z.ghosts ? ' (ghosts)' : ' (quiet)') : ''}`
-        + (z.a ? ` · R ${z.a.R.toFixed(0)} m · q ${z.a.q.toFixed(2)} · ${esc(z.a.variant || z.a.aspect)}` : ' · merged / off-tile')
+        + (z.a ? ` · R ${z.a.R.toFixed(0)} m · q ${z.a.q.toFixed(2)} · ${esc(z.a.variant || z.a.nexusPattern)}` : ' · merged / off-tile')
         + (o.zoneNexus ? ' · nexus +tier' : ''));
       const d = z.a && e.zoneDress && e.zoneDress.diagnostics.find(d => d.anchorKey === z.a.key);
       if (d) rows.push(`${d.placed} placements · ${d.eligible} eligible cells · finds ${d.findsPlaced}/${d.findsRequested}`
@@ -443,7 +443,7 @@ function popupHTML(e, o, label) {
   } else {
     const what = [o.kind === 'wildplant' ? o.crop : o.kind, o.species, o.poiClass].filter(Boolean).join(' · ');
     if (what) rows.push(esc(what));
-    if (o.zone) rows.push(`zone piece: ${esc(o.zone)}`);
+    if (o.zoneKind) rows.push(`zone piece: ${esc(o.zoneKind)}`);
   }
   rows.push(`<code>${esc(o.id || '')}</code>`);
   return rows.join('<br>');
@@ -787,7 +787,7 @@ function overlays(world) {
         L.circle(ll, { radius: a.R, color: ZC[a.kind] || '#fff', weight: 1, fillOpacity: 0.08 })
           .bindTooltip(`${a.kind} · R ${a.R.toFixed(0)} m`)
           .bindPopup(`<b>${esc(a.kind)}</b>${a.kind === 'stones' ? (a.ghosts ? ' (ghosts)' : ' (quiet)') : ''}<br>`
-            + `R ${a.R.toFixed(1)} m · q ${a.q.toFixed(2)} · ${esc(a.variant || a.aspect)}<br><code>${a.gx},${a.gy}</code>`)
+            + `R ${a.R.toFixed(1)} m · q ${a.q.toFixed(2)} · ${esc(a.variant || a.nexusPattern)}<br><code>${a.gx},${a.gy}</code>`)
           .addTo(zg);
       }
     }

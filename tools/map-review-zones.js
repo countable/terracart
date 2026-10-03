@@ -56,7 +56,7 @@
         z.fragments.push({ entry: e, slot: i + 1 });
         const suppressed = f.legacyRemovedByAnchor?.[id];
         if (suppressed) for (const k of ['ambient','street']) z.suppressed[k] += suppressed[k] || 0;
-        const d = e.zoneDress?.diagnostics.find(d => d.anchorKey === a.key && d.variant === a.variant);
+        const d = e.zoneDress?.diagnostics.find(d => d.anchorKey === a.key && d.zoneVariant === a.variant);
         if (d) {
           z.eligible += d.eligible;
           if (d.layout) z.layout = d.layout;
@@ -83,11 +83,12 @@
           z.sources[from] = (z.sources[from] || 0) + 1;
           if (from === 'fauna') z.fauna[o.kind] = (z.fauna[o.kind] || 0) + 1;
           if (category === 'creature' && Combat.isEnemy(o)) {
-            const group = o.habitat ? 'roaming' : o.zoneVariant ? 'authored' : 'other';
+            // Authored pieces carry zoneKind; habitat roamers carry only zoneVariant.
+            const group = o.zoneKind ? 'authored' : o.zoneVariant || o.habitat ? 'roaming' : 'other';
             z.enemies[group]++;
           }
           if (from === 'variant') {
-            const layer = o.zoneLayer || (category === 'creature' ? (o.habitat ? 'roaming' : 'guard') : 'shrine');
+            const layer = o.zoneLayer || (category === 'creature' ? (o.zoneKind ? 'guard' : 'roaming') : 'shrine');
             z.layers[layer] = (z.layers[layer] || 0) + 1;
           }
         }

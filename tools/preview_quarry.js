@@ -56,7 +56,7 @@ for (const o of dress.treasures || []) if (o.zoneVariant === variantId) {
 }
 const terrain = coverage.filter(([x,y]) => tile.grid[(origin+y)*N+origin+x] === WG.T.CAVE_LAVA)
   .map(cell => ({cell,kind:'lava'}));
-const diagnostics = (dress.diagnostics || []).filter(row => row.variant === variantId);
+const diagnostics = (dress.diagnostics || []).filter(row => row.zoneVariant === variantId);
 const landmarks = diagnostics.flatMap(row => row.landmarks || []).map(row => ({...row,
   bounds: row.bounds?.map((n,i) => n-origin),
   centre: row.centre?.map(n => n-origin),

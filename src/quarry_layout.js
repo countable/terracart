@@ -47,7 +47,7 @@
       const step = tileEdgeM / N;
       result.push(WG.makeObject('staircase', (tx*N+ix+.5)*step, (ty*N+iy+.5)*step,
         WG.caveStairId('down', 0, tx, ty, ix, iy), { dir:'down', depth:0,
-          zone:'quarry', zoneVariant:s.variant.id, zoneLayer:'entrance', _ix:ix, _iy:iy }));
+          zoneKind:'quarry', zoneVariant:s.variant.id, zoneLayer:'entrance', _ix:ix, _iy:iy }));
       selected.push(i);
       for (const cell of [i, approach[1]*N+approach[0]]) {
         opts.occupied.add(cell); s.clear.add(cell); ctx.reservedCells?.add(cell);
