@@ -135,6 +135,14 @@
     assert.eq(entry.habitatSites.length, lairs.length, 'and recorded for variantAt');
     assert.eq(EnemyHabitats.variantAt(entry, entry.habitatSites[0].cx, entry.habitatSites[0].cy), 'hungry_marsh');
     assert.eq(EnemyHabitats.surfaceSites, undefined, 'the old seater is gone: habitatLairs is the one entry point');
+    // The scene pushes the habitat candidates BEFORE the attractor filter, so
+    // a marsh in a yard or a field's interior is refused or relocated like a
+    // gate's foe — through the entry's full spawn options.
+    const spawn = SCENE_SRC;
+    const habitatAt = spawn.indexOf('EnemyHabitats.habitatLairs(entry, tx, ty);');
+    const filterAt = spawn.indexOf('const lairOpts = WorldGen.spawnOptsOf(entry);');
+    assert.truthy(habitatAt > 0 && filterAt > habitatAt && filterAt - habitatAt < 200, 'habitat lairs are pushed right ahead of the lair filter, which reads spawnOptsOf');
+    assert.falsy(/habitatGuards|habitatSeats|surfaceSites/.test(spawn), 'no second habitat seater beside it');
     // Wake it: the whole group stands, each guard a lair guard of the site.
     const prev = Difficulty.mode();
     Difficulty.setMode('hard');

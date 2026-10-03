@@ -103,4 +103,18 @@
     assert.falsy(/TimerText|_tickBuffTimers|buffTimerTexts/.test(app), 'nothing is drawn over the player\'s head');
     assert.falsy(/boonRemainingMs|shrineBoon = /.test(app + Object.values(Shrines).join('')), 'the last-boon countdown is gone');
   });
+
+  test('buffs: a thrown potion times its creature on the field its drinker\'s row names', () => {
+    // potion_effects.js TIMERS derive from Buffs.KINDS through the consumable's
+    // `buff` column, so a thrown and a drunk Speed can never disagree on where
+    // the deadline lives.
+    const ids = Object.keys(PotionEffects.TIMERS);
+    assert.eq(ids.length, 9, 'the nine potions a creature can wear');
+    for (const id of ids) {
+      const buff = CONSUMABLE_SPEC[id].buff;
+      assert.truthy(Buffs.KINDS[buff], `${id}: a buff row (${buff})`);
+      assert.eq(PotionEffects.TIMERS[id], Buffs.KINDS[buff].save, `${id}: the row's save field`);
+    }
+    assert.eq(PotionEffects.TIMERS.speed_potion, 'speedPotionUntil');
+  });
 })();

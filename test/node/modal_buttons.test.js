@@ -29,6 +29,17 @@ test('modal buttons: mkBtn is the only button factory, with one ghost and one di
     'the stepper keys toggle through _setEnabled');
 });
 
+test('modal buttons: the delivery menu\'s house rows come from mkBtn too', () => {
+  // scene_shops.js openDeliveryMenu used to build its two-line rows as its
+  // own <button>; they are ghost buttons laid out by a row css now.
+  const start = SCENE_SRC.indexOf('  openDeliveryMenu() {');
+  const menu = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
+  assert.truthy(start > 0 && menu.length > 0, 'openDeliveryMenu is a scene method');
+  assert.falsy(/document\.createElement\('button'\)/.test(menu), 'no hand-built button in the menu');
+  assert.truthy(/const row = mkBtn\(\n[\s\S]*?\{ variant: 'ghost', css: rowCss \}\);/.test(menu), 'each row asks the factory for a ghost with the row css');
+  assert.truthy(/const close = mkBtn\('Close'\);/.test(menu), 'and the Close button');
+});
+
 test('modal buttons: the legacy (label, primary, disabled) spelling still reads', () => {
   // The offer modal's own Cancel / secondary / Buy calls, and the stubs the
   // other tests hand in, use the positional form.
