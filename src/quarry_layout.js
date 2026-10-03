@@ -92,7 +92,8 @@
       }
       // An intact bowl needs room for its rim, ore and an entrance. A sliver
       // should select another quarry form instead of advertising a crater.
-      if (clearance < 3) return plan;
+      const poolRadius = Math.floor(settings.craterPoolSizeCells / 2);
+      if (clearance < poolRadius + 2) return plan;
       const cx = centre % N, cy = Math.floor(centre / N);
       let rx = clearance - 1, ry = clearance - 1;
       const ellipseFits = (ax, ay) => {
@@ -127,18 +128,21 @@
         const rim = d <= 1.04 && [[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy]) =>
           Math.hypot((x + dx - cx) / rx, (y + dy - cy) / ry) > 1.04);
         if (rim) put(x, y, 'stone');
-        if (d < .65 && !rim) bowl.push(i);
+        if (d < 1 && !rim && Math.max(Math.abs(x-cx), Math.abs(y-cy)) > poolRadius) bowl.push(i);
       }
       bowl.sort((a, b) => hash(a % N, Math.floor(a / N), 59) - hash(b % N, Math.floor(b / N), 59) || a - b);
       if (s.a.owned) for (const i of bowl.slice(0, s.variant.finds.count)) { plan.finds.push({ i, material: 'crimson_ore' }); plan.clear.add(i); }
-      const vents = bowl.filter(i => !plan.clear.has(i) && hash(i % N, Math.floor(i / N), 23) < .035);
-      const centreDistance = i => (i % N - cx) ** 2 + (Math.floor(i / N) - cy) ** 2;
-      vents.sort((a, b) => centreDistance(a) - centreDistance(b) || a - b);
-      for (const i of vents.slice(0, settings.craterMaxHazards)) {
-        plan.hazards.push(i); plan.clear.add(i);
+      // A dry altar island sits inside a continuous lava moat. Reserve the
+      // entire square, including the south approach; entrances end at lava.
+      plan.shrineSeat = centre;
+      for (let dy=-poolRadius;dy<=poolRadius;dy++) for (let dx=-poolRadius;dx<=poolRadius;dx++) {
+        const i=(cy+dy)*N+cx+dx;
+        plan.background.delete(i); plan.clear.add(i);
+        if (dx || dy) plan.hazards.push(i);
       }
       return plan;
     }
+    let spikeCount = 0;
     const reserved = new Set();
     const fits = (x, y, width, height = width) => {
       if (x + width > N || y + height > N) return false;
@@ -214,9 +218,10 @@
           for (let yy = y; yy <= b; yy++) for (let xx = x; xx <= r; xx++) {
             if (xx !== cx && (yy === y || xx === x) && hash(xx, yy, 71) < .65) put(xx, yy, 'stone');
           }
-          put(cx, cy, hash(x, y, 41) < .5 ? 'copper_rock' : 'driftwood');
+          if (hash(x, y, 41) < .5) put(cx, cy, 'copper_rock');
+          else if (spikeCount < settings.abandonedMaxSpikes) { put(cx, cy, 'ground_spikes'); spikeCount++; }
           // A barrel at half the patches' far corner (Oct 2026): what the
-          // last shift left beside its timber — smashed for a coin or a tool.
+          // last shift left beside its stone — smashed for a coin or a tool.
           if (hash(x, y, 47) < .5) put(r, b, 'quarry_barrel');
         } else if (id === 'quarry-strip-mine') {
           if (verticalBenches) {
@@ -240,14 +245,28 @@
       if (id === 'quarry-abandoned') for (const centre of centres.slice(0, s.variant.finds.count)) plan.finds.push({ i: centre + N, material: 'tool_crate' });
       if (id === 'quarry-stronghold') for (const seats of foundationSeats.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {
         if (plan.guards.length < s.variant.guards.count) plan.guards.push({ i: seats[0], material: 'goblin' });
-        if (plan.finds.length < s.variant.finds.count) plan.finds.push({ i: seats[1], material: 'treasure_x' });
+        if (plan.finds.length < s.variant.finds.count) plan.finds.push({ i: seats[1], material: 'treasure_chest_t2' });
       }
       for (const entry of [...plan.finds, ...plan.guards]) { plan.background.delete(entry.i); plan.clear.add(entry.i); }
     }
     if (id === 'quarry-stronghold') {
+      // Pot seats are interior, outside doors and finite reward/guard seats.
+      for (const m of plan.landmarks) {
+        const [x,y,r,b]=m.bounds;
+        if (hash(x,y,197) >= settings.foundationPotChance) continue;
+        for (let yy=y+1;yy<b;yy++) {
+          let placed=false;
+          for (let xx=x+1;xx<r;xx++) {
+            const i=yy*N+xx;
+            if (!covered.has(i) || plan.clear.has(i) || plan.background.has(i)) continue;
+            put(xx,yy,'clay_pot'); placed=true; break;
+          }
+          if (placed) break;
+        }
+      }
       // Resolve joins only after doors, buried finds and guard seats have
       // removed their cells, so exposed wall ends receive their matching cap.
-      const walls = new Set(plan.background.keys());
+      const walls = new Set([...plan.background.keys()].filter(i => plan.background.get(i) === 'stone'));
       for (const i of walls) {
         const frame = wallFrameAt(walls, i, N);
         if (frame == null) continue;

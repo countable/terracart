@@ -36,7 +36,7 @@ if (!coverage.length) throw new Error('Parking lanes produced no Quarry coverage
 if ((tile.streetIndex?.lines || []).length) throw new Error('Removed parking lanes survived as roads');
 const position = o => [Math.floor((o.x-tx*tileEdgeM)/WG.CELL_M)-origin,
   Math.floor((o.y-ty*tileEdgeM)/WG.CELL_M)-origin];
-const material = o => o.kind === 'zone_prop' ? 'zone_prop' : o.kind === 'grove_shrine' ? 'shrine' : o.kind === 'stronghold_wall' ? 'stronghold_wall' : o.quarryCrate ? 'tool_crate' : o.barrel ? 'barrel'
+const material = o => o.kind === 'stakes' ? 'stakes' : o.kind === 'zone_prop' ? 'zone_prop' : o.kind === 'grove_shrine' ? 'shrine' : o.kind === 'stronghold_wall' ? 'stronghold_wall' : o.quarryCrate ? 'tool_crate' : o.barrelStyle === 'clay_pot' ? 'clay_pot' : o.barrel ? 'barrel' : o.kind === 'chest' ? 'chest'
   : ['goblin', 'split_slime'].includes(o.kind) ? o.kind : o.kind === 'wildplant' ? o.crop
   : o.kind === 'lava_vent' ? 'lava' : o.deposit === 'crystal' ? 'crystal'
   : o.kind === 'mineralrock' && o.yieldTier === 2 ? 'copper_rock'
@@ -48,7 +48,8 @@ const records = [...(dress.objects || []), ...(dress.wildplants || []), ...(dres
 const objects = records.filter(o => o.kind !== 'lava_vent').map(o => {
   const m = material(o);
   if (!m) throw new Error(`Unmapped runtime quarry object: ${o.kind}`);
-  return { ...o, cell: position(o), material: m };
+  const look = o.kind === 'chest' ? ctx.chestLook(o) : null;
+  return { ...o, cell: position(o), material: m, ...(look ? {previewArt:{sheet:look.texKey,frames:[look.frame]}} : {}) };
 });
 for (const o of dress.treasures || []) if (o.zoneVariant === variantId) {
   objects.push({ ...o, cell: position(o), material: 'treasure_x' });

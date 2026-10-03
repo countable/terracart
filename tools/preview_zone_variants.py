@@ -56,6 +56,7 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff):
 def material_art(material):
     """Resolve the same mature wildplant/object frames as render.js."""
     r = art_registry()
+    if material.get('previewArt'): return material['previewArt']
     if material.get('recordType') == 'surface_trap':
         return {'procedural': 'trap_hidden', 'source': 'src/textures.js · hidden trap scuff', 'alternates': ['trap_open']}
     if material.get('barrelStyle'):
@@ -120,6 +121,8 @@ def material_art(material):
 
 
 def art_image(art, extra='', frame=None):
+    if art.get('sheet') == 'chest':
+        return f'<image data-chest-tier="{art["frames"][0] if frame is None else frame}" href="{sprite_png("chest", 0)}" {extra}/>'
     if art.get('procedural'):
         return f'<image data-procedural="{art["procedural"]}" {extra}/>'
     return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame, art.get("preserveFrame", False), art.get("tint", 0xffffff))}" {extra}/>'
@@ -187,8 +190,15 @@ def art_script():
     code += '\nconst WorldGen={PATH_CLASSES:new Set(' + json.dumps(r['pathClasses']) + '),T:{WATER:' + str(r['waterTerrain']) + '}};'
     code += '\nconst SpriteLayout={CELL_PX:' + str(r['cellPx']) + '};\n'
     code += r['variantSource'] + '\n' + r['roadPainter']
-    code += '\nconst paintQuarryLava = (()=>{\n' + r['biomePainter'] + '\nreturn drawLavaTex;})();\n'
+    code += '\nconst previewChestSheet=(()=>{'+r['chestPainter']+';return makeChestTierSheet;})();\n'
     code += '''
+for(const image of document.querySelectorAll('[data-chest-tier]')) {
+  const source=new Image();source.onload=()=>{
+    const sheet=previewChestSheet(source),c=document.createElement('canvas');c.width=c.height=16;
+    c.getContext('2d').drawImage(sheet,Number(image.dataset.chestTier)*16,0,16,16,0,0,16,16);
+    image.setAttribute('href',c.toDataURL());image.dataset.chestReady='true';
+  };source.src=image.getAttribute('href');
+}
 const baked = new Map();
 const scene = {textures:{exists:key=>baked.has(key),createCanvas:(key,w,h)=>{
   const c=document.createElement('canvas');c.width=w;c.height=h;
@@ -201,14 +211,6 @@ for(const image of document.querySelectorAll('[data-procedural]')){
     const [,variant,state,isPath]=key.split(':');
     const c=document.createElement('canvas');c.width=c.height=RoadOverlay.CLEAN_TILE_PX;
     RoadOverlay.paintPavementTile(c.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,isPath==='true',state==='restored',variant);
-    baked.set(key,c.toDataURL());
-  }
-  if(!baked.has(key)&&key==='quarry-lava'){
-    const marks=document.createElement('canvas');marks.width=marks.height=32;
-    let seed=19;const rng=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-    paintQuarryLava(marks.getContext('2d'),32,rng,0);
-    const c=document.createElement('canvas');c.width=c.height=32;
-    const ctx=c.getContext('2d');ctx.fillStyle='#9a2a10';ctx.fillRect(0,0,32,32);ctx.drawImage(marks,0,0);
     baked.set(key,c.toDataURL());
   }
   if(!baked.has(key)&&key.startsWith('lamp:')){
@@ -624,11 +626,12 @@ def quarry_card(v, d):
     ground = f'url(#{prefix}-ground)'
     for x,y in fixture['coverage']:
         parts.append(f'<rect x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="{ground}"/>')
+    if fixture.get('terrain'):
+        parts.append(ground_pattern('CAVE_LAVA', prefix+'-lava', unit))
     for terrain in fixture.get('terrain', []):
         x,y = terrain['cell']
         if terrain['kind'] == 'lava':
-            parts.append(f'<circle cx="{x*unit+5}" cy="{y*unit+5}" r="9" fill="#dc571b" opacity=".1"/>')
-            parts.append(art_image({'procedural':'quarry-lava'},f'class="sprite-cell" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"'))
+            parts.append(f'<rect class="lava-ground" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="url(#{prefix}-lava)"><title>Lava · hazardous ground</title></rect>')
     for line in fixture['sourceLines']:
         points = ' '.join(f'{x*unit},{y*unit}' for x,y in line)
         parts.append(f'<polyline class="quarry-source" points="{points}" fill="none" stroke="#c3af76" stroke-width="1" stroke-dasharray="3 3"><title>Removed parking-lane source geometry</title></polyline>')
@@ -642,8 +645,8 @@ def quarry_card(v, d):
             parts.append(art_image(material_art(o), f'class="sprite-cell" x="{x*unit+1}" y="{y*unit+1}" width="{unit-2}" height="{unit-2}"'))
     parts.append('</svg>')
     labels = {'stone':'stone', 'crimson_ore':'Crimson ore', 'crystal':'Sapphire crystals',
-              'copper_rock':'copper ore rocks', 'tool_crate':'one-off tool crates',
-              'goblin':'lurking goblins', 'split_slime':'splitting slimes', 'treasure_x':'buried finds (covered marks hidden)', 'driftwood':'driftwood', 'stronghold_wall':'foundation walls', 'shrine':'daily shrine'}
+              'copper_rock':'copper ore rocks', 'tool_crate':'one-off tool crates', 'chest':'T2 chests', 'clay_pot':'clay pots',
+              'goblin':'lurking goblins', 'split_slime':'splitting slimes', 'treasure_x':'buried finds (covered marks hidden)', 'driftwood':'driftwood', 'stronghold_wall':'foundation walls', 'shrine':'daily shrine', 'stakes':'ground spikes (slow movement)'}
     counts = collections.Counter(o['material'] for o in fixture['objects'])
     actual = ' · '.join(f'{n} {labels.get(name,name)}' for name,n in counts.items())
     legend = []
@@ -657,7 +660,7 @@ def quarry_card(v, d):
     metadata = ''.join(f'<dt>{label}</dt><dd>{html.escape(v[key])}</dd>' for label,key in [
         ('Layout','layoutDescription'), ('Hazards','hazardsDescription'),
         ('Lighting','lightingDescription'), ('After a visit','persistenceDescription')])
-    if v.get('shrineChance'): metadata = metadata.replace(html.escape(v['lightingDescription']), 'Ember altar glow when present; nearby street lamps retain their ordinary behavior.')
+    if v.get('shrineChance') and v['layout'] != 'crater': metadata = metadata.replace(html.escape(v['lightingDescription']), 'Ember altar glow when present; nearby street lamps retain their ordinary behavior.')
     metadata += f'<dt>Guards</dt><dd>Up to {v["guards"].get("count", 0)} per complete site.</dd>'
     if v.get('buriedTreasureChance'):
         metadata += f'<dt>Buried finds</dt><dd>{v["buriedTreasureChance"]*100:g}% chance beneath each ordinary stone. Hidden until that stone is mined; each find pays once.</dd>'
@@ -665,14 +668,16 @@ def quarry_card(v, d):
         metadata += f'<dt>Finite finds</dt><dd>Up to {v["finds"]["count"]} per complete site; actual placements counted below.</dd>'
     rules = art_registry()['quarryRockRules']
     metadata += f'<dt>Mining</dt><dd>Ordinary quarry stones cost {rules["energyMul"]:g}× mining energy and yield {rules["stones"]} stone. The first mined rock guarantees a Sapphire; later rocks have an additional {art_registry()["quarrySapphireChance"]*100:g}% Sapphire chance.</dd>'
-    if v.get('shrineChance'):
+    if v['layout'] == 'crater':
+        metadata += '<dt>Shrine</dt><dd>Ember altar on the dry centre of the lava pool. Cross hazardous lava to reach its daily boon.</dd>'
+    elif v.get('shrineChance'):
         metadata += f'<dt>Shrine</dt><dd>{v["shrineChance"]*100:g}% chance of an Ember altar at each complete site, when a safe empty seat exists. Daily boon.</dd>'
 
     story = f'<p><strong>Place in the story.</strong> {html.escape(v["storyConnection"])}</p>'
     note = '<p><small>Copper ore rocks use normal mining; each one-off tool crate contains an iron pick.</small></p>' if v['layout']=='abandoned' else ''
     if v.get('buriedTreasureChance'): note += '<p>Covered treasure is counted below but its X stays hidden in the drawing until the covering rock is mined.</p>'
     if fixture.get('terrain'):
-        actual += f' · {len(fixture["terrain"])} lava vents'
+        actual += f' · {len(fixture["terrain"])} lava cells'
     shortfalls = [reason for row in fixture['diagnostics'] for reason in row.get('shortfalls', [])]
     if shortfalls:
         note += '<p>Placement shortfalls: ' + html.escape(', '.join(shortfalls)) + '</p>'

@@ -13,46 +13,31 @@
   }
   const shrine = out => out.objects.find(o => o.zoneLayer === 'shrine');
   const records = out => [...out.objects, ...out.wildplants, ...out.guards, ...out.treasures];
-  const winner = () => {
-    for (let tx = 0; tx < 100; tx++) if (shrine(ZoneDressing.dress(context(tx)))) return tx;
-    throw new Error('No stronghold shrine found');
-  };
-  test('stronghold altar: half of complete source sites deterministically receive the Ember altar', () => {
-    assert.eq(ZoneVariants.byId('quarry-stronghold').shrineChance, .5);
-    assert.eq(Shrines.kindForZoneVariant('quarry-stronghold'), 'ember_altar');
-    let count = 0;
-    for (let tx = 0; tx < 200; tx++) {
-      const ctx = context(tx), out = ZoneDressing.dress(ctx), altar = shrine(out);
-      const eligible = fnv1a(`zone-shrine|${ZoneVariants.identity(ctx.field.anchors[0])}`) / 4294967296 < .5;
-      assert.eq(!!altar, eligible, 'the source identity owns the half-chance roll');
-      if (!altar) continue;
-      count++;
-      assert.eq(altar.shrineKind, 'ember_altar');
-      assert.eq(altar.kind, 'grove_shrine');
-      assert.eq(records(out).filter(o => o._ix === altar._ix && o._iy === altar._iy).length, 1,
-        'altar never overlaps a wall, finite find or guard');
-      if (tx < 10) assert.eq(JSON.stringify(shrine(ZoneDressing.dress(context(tx)))), JSON.stringify(altar), 'rebuild is stable');
+  test('crater altar: centered dry island within a continuous five-cell lava pool', () => {
+    const ctx=context(); ctx.field.anchors[0].variant='quarry-crater';
+    const out=ZoneDressing.dress(ctx), altar=shrine(out);
+    assert.truthy(altar); assert.eq(altar.shrineKind,'ember_altar');
+    assert.eq(out.objects.filter(o=>o.kind==='lava_vent').length,24);
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++) {
+      const i=(altar._iy+dy)*N+altar._ix+dx;
+      assert.eq(ctx.grid[i],dx||dy?WorldGen.T.CAVE_LAVA:WorldGen.T.ROCK);
     }
-    assert.inRange(count, 80, 120, 'roughly half the sites have an altar');
+    assert.eq(records(out).filter(o=>o._ix===altar._ix&&o._iy===altar._iy).length,1);
+    for(const field of ['owned','clipped']) {
+      const blocked=context();blocked.field.anchors[0].variant='quarry-crater';
+      blocked.field.anchors[0][field]=field==='clipped';
+      assert.falsy(shrine(ZoneDressing.dress(blocked)));
+    }
+    const blocked=context();blocked.field.anchors[0].variant='quarry-crater';
+    blocked.spawnOpts.spawnWhy[altar._iy*N+altar._ix]=WorldGen.SPAWN_WHY.SENSITIVE;
+    assert.falsy(shrine(ZoneDressing.dress(blocked)),'center-only altar cannot move to a safe rim');
   });
-  test('stronghold altar: ownership, clipping, reserved cells and spawn gates never mint an unsafe altar', () => {
-    const tx = winner(), first = shrine(ZoneDressing.dress(context(tx))), i = first._iy * N + first._ix;
-    const unowned = context(tx); unowned.field.anchors[0].owned = false;
-    assert.falsy(shrine(ZoneDressing.dress(unowned)), 'neighbor fragments cannot duplicate the shrine');
-    const clipped = context(tx); clipped.field.anchors[0].clipped = true;
-    assert.falsy(shrine(ZoneDressing.dress(clipped)), 'incomplete sources never get a finite shrine');
-    for (const reason of ['ROAD', 'PRIVATE', 'RESTRICTED', 'SENSITIVE']) {
-      const blocked = context(tx); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY[reason]);
-      assert.falsy(shrine(ZoneDressing.dress(blocked)), reason);
-    }
-    const reserved = context(tx); reserved.spawnOpts.occupied.add(i); reserved.tideSeats = new Set([i]);
-    const moved = shrine(ZoneDressing.dress(reserved));
-    assert.truthy(moved, 'a safe alternative retains the same site reward');
-    assert.falsy(moved._ix === first._ix && moved._iy === first._iy, 'reserved entrance/tide cells stay clear');
-    assert.eq(moved.id, first.id, 'moving its safe seat never changes the shrine ledger identity');
-    const scaled = context(tx); scaled.tileEdgeM *= 1.75;
-    const again = shrine(ZoneDressing.dress(scaled));
-    assert.eq(again.id, first.id, 'a different player metre frame keeps the same site identity');
-    assert.eq(again._ix, first._ix); assert.eq(again._iy, first._iy);
+  test('stronghold rewards: three tier-two chests, some foundation pots and no shrine', () => {
+    const out=ZoneDressing.dress(context()), finds=out.objects.filter(o=>o.zoneLayer==='find');
+    assert.eq(finds.length,3);assert.eq(out.treasures.length,0);assert.falsy(shrine(out));
+    assert.falsy(Shrines.kindForZoneVariant('quarry-stronghold'));
+    for(const o of finds){assert.eq(o.kind,'chest');assert.eq(o.tierSeed,2);assert.eq(chestTier(o),2);assert.falsy(o.zoneNexus);assert.falsy(o.fixedLoot);assert.falsy(o.daily);assert.falsy(o.crate);}
+    assert.gt(out.objects.filter(o=>o.barrelStyle==='clay_pot').length,0);
+    assert.eq(new Set(records(out).map(o=>o._ix+','+o._iy)).size,records(out).length);
   });
 })();

@@ -15,7 +15,7 @@
     const ctx = context('quarry-stronghold'), out = ZoneDressing.dress(ctx);
     const walls = out.objects.filter(o => o.kind === 'stronghold_wall');
     assert.gt(walls.length, 0);
-    const background = new Set(out.objects.filter(o => o.zoneLayer === 'background').map(o => o._iy*N+o._ix));
+    const background = new Set(out.objects.filter(o => o.zoneLayer === 'background' && ['stone','stronghold_wall'].includes(o.kind)).map(o => o._iy*N+o._ix));
     for (const wall of walls) {
       assert.eq(wall.variant, QuarryLayout.wallFrameAt(background, wall._iy*N+wall._ix, N));
       assert.eq(wall.zoneVariant, 'quarry-stronghold');
@@ -33,7 +33,7 @@
     tide.tideSeats = new Set([i]);
     const tidal = ZoneDressing.dress(tide);
     assert.falsy(records(tidal).some(o => o._iy*N+o._ix === i), 'reserved tide seats cannot acquire walls');
-    const tidalBackground = new Set(tidal.objects.filter(o => o.zoneLayer === 'background').map(o => o._iy*N+o._ix));
+    const tidalBackground = new Set(tidal.objects.filter(o => o.zoneLayer === 'background' && ['stone','stronghold_wall'].includes(o.kind)).map(o => o._iy*N+o._ix));
     for (const o of tidal.objects.filter(o => o.kind === 'stronghold_wall')) {
       assert.eq(o.variant, QuarryLayout.wallFrameAt(tidalBackground, o._iy*N+o._ix, N), 'joins follow final placed neighbours');
     }
@@ -83,6 +83,11 @@
       assert.eq(blockedClipped.guards.length, 0, 'typed enemy gate applies to sparse inhabitants');
       assert.gt(blockedClipped.objects.length, 0, 'typed enemy exclusion still allows stones');
     }
+  });
+  test('quarry runtime: abandoned ground spikes visibly slow their own cells', () => {
+    const out=ZoneDressing.dress(context('quarry-abandoned')), spikes=out.objects.filter(o=>o.kind==='stakes');
+    assert.gt(spikes.length,0);assert.lte(spikes.length,6);
+    for(const o of spikes) assert.eq(out.slowCells.get(o._iy*N+o._ix),'stakes');
   });
   test('quarry runtime: abandoned finds are fixed-loot persistent crates, not daily POIs', () => {
     const out = ZoneDressing.dress(context('quarry-abandoned'));
@@ -138,7 +143,7 @@
       }
     } finally { window.__TEST_MODE = was; }
   });
-  test('quarry runtime: stronghold X marks reach the live scene treasure ledger exactly once', () => {
+  test('quarry runtime: stronghold chests reach the live scene exactly once', () => {
     const was = window.__TEST_MODE; window.__TEST_MODE = false;
     try {
       const ctx = context('quarry-stronghold'), dress = ZoneDressing.dress(ctx);
@@ -147,10 +152,11 @@
         _pestFreeZone: () => null, _starterTrailAnchor: () => null,
         _provisionStarterHome() {}, _carveStarterPond() {} });
       scene.spawnInTile(entry, 0, 0);
-      const actual = entry.extraTreasures.filter(o => o.zoneVariant === 'quarry-stronghold');
+      const actual = entry.objects.filter(o => o.zoneVariant === 'quarry-stronghold' && o.zoneLayer === 'find');
       assert.eq(actual.length, 3);
+      for (const o of actual) assert.eq(chestTier(o), 2);
       assert.eq(new Set(actual.map(o => o.id)).size, 3);
-      assert.eq(actual.map(o => o.id).join(','), dress.treasures.map(o => o.id).join(','));
+      assert.eq(actual.map(o => o.id).join(','), dress.objects.filter(o=>o.zoneLayer==='find').map(o => o.id).join(','));
     } finally { window.__TEST_MODE = was; }
   });
 })();

@@ -89,6 +89,7 @@
       }
       else if (m.kind === 'wildplant') { record = WG.makeWildplant(m.crop, x, y, id, extra); out.wildplants.push(record); }
       else {
+        if (m.tierSeed != null) extra.tierSeed = m.tierSeed;
         if (m.fixedLoot) extra.fixedLoot = { ...m.fixedLoot };
         if (m.quarryCrate) extra.quarryCrate = true;
         if (m.barrelStyle) extra.barrelStyle = m.barrelStyle;
@@ -105,7 +106,7 @@
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
         if (m.rockVariant) extra.rockVariant = root.SpriteLayout ? root.SpriteLayout[m.rockVariant] : 3;
         record = WG.makeObject(m.kind, x, y, id, extra); out.objects.push(record);
-        if (m.kind === 'tar') out.slowCells.set(i, 'tar');
+        if (m.kind === 'tar' || m.kind === 'stakes') out.slowCells.set(i, m.kind);
       }
       occ.add(i); s.rec.placed++;
       return record;
@@ -330,7 +331,9 @@
       for (let n = 0; n < s.cells.length; n++) {
         if ((n & 255) === 0) yield 'generated zone shrine';
         const i = s.cells[n], ix = i % N, iy = Math.floor(i / N);
-        if (s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i)
+        const fixed = s.quarryPlan?.shrineSeat;
+        if (v.quarryLayout === 'crater' && (i !== fixed || !s.quarryPlan.hazards.every(j => grid[j] === WG.T.CAVE_LAVA))) continue;
+        if ((s.clear.has(i) && i !== fixed) || s.poiSlots.has(i) || s.connections.has(i)
             || s.quarryPlan?.background.has(i) || ctx.tideSeats?.has(i)
             || ctx.poiPadCells?.has(i) || out.reservedCells?.has(i)
             || !WG.isSpawnCell(grid, N, N, ix, iy, opts, 'attractor')) continue;
@@ -449,7 +452,7 @@
       if (s.variant.id !== 'quarry-stronghold' || !s.quarryPlan?.landmarks.some(m => m.kind === 'foundation')) continue;
       const plan = s.quarryPlan;
       const walls = new Set([...plan.background.keys()].filter(i =>
-        !s.clear.has(i) && !s.poiSlots.has(i) && !s.connections.has(i)
+        ['stone','stronghold_wall'].includes(plan.background.get(i)) && !s.clear.has(i) && !s.poiSlots.has(i) && !s.connections.has(i)
         && !occ.has(i) && allowed(s, i % N, Math.floor(i / N), 'stone')));
       plan.wallFrames.clear();
       for (const i of walls) {

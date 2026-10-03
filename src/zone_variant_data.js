@@ -372,6 +372,17 @@
       "spawnClass": "attractor",
       "color": "#8ccfe3",
       "_zoneObjectFrame": 37
+    },
+    "ground_spikes": {
+      "kind": "stakes",
+      "spawnClass": "minor",
+      "color": "#807567"
+    },
+    "treasure_chest_t2": {
+      "kind": "chest",
+      "tierSeed": 2,
+      "spawnClass": "attractor",
+      "color": "#b29d6b"
     }
   },
   "variants": [
@@ -7115,7 +7126,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "The old road ends at a wound in the earth. Whatever struck here scattered the stone outward; small seams still smoulder beneath the ash. Deep Crimson ore was thrown up with the broken ground.",
+      "atmosphere": "A central lava pool surrounds a dry island bearing an Ember altar.",
       "attracts": {},
       "quarryLayout": "crater",
       "affinities": [
@@ -7125,7 +7136,8 @@
         "crystal": [
           59
         ]
-      }
+      },
+      "shrineChance": 1
     },
     {
       "id": "quarry-abandoned",
@@ -7179,7 +7191,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Weathered timber, copper ore and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
+      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Loose stone, copper ore and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
       "attracts": {},
       "quarryLayout": "abandoned",
       "affinities": [
@@ -7298,16 +7310,19 @@
       },
       "finds": {
         "rarity": "finite",
-        "material": "treasure_x",
+        "material": "treasure_chest_t2",
         "targets": [
           {
-            "id": "0"
+            "id": "0",
+            "material": "treasure_chest_t2"
           },
           {
-            "id": "1"
+            "id": "1",
+            "material": "treasure_chest_t2"
           },
           {
-            "id": "2"
+            "id": "2",
+            "material": "treasure_chest_t2"
           }
         ],
         "count": 3
@@ -7320,7 +7335,7 @@
         "kind": "goblin",
         "count": 3
       },
-      "atmosphere": "Low square foundations are all that remain of the garrison that guarded the stone road. Goblins shelter behind the broken walls. Crosses scratched into the abandoned yards suggest that the defenders buried more than they managed to carry away.",
+      "atmosphere": "Ruined foundations shelter chests, goblins and scattered clay pots.",
       "attracts": {},
       "quarryLayout": "stronghold",
       "affinities": [
@@ -7340,8 +7355,7 @@
           "material": "fallen_column",
           "count": 1
         }
-      ],
-      "shrineChance": 0.5
+      ]
     }
   ],
   "quarryLayouts": {
@@ -7354,7 +7368,6 @@
     "sapphireAbundanceMultiplier": 0.25,
     "clusterGapCells": 3,
     "sourceJoinM": 2,
-    "craterMaxHazards": 3,
     "siteNames": {
       "first": [
         "Ash",
@@ -7433,7 +7446,10 @@
       "stone": 0.395,
       "crystal": 0.005,
       "barrel": 0.004
-    }
+    },
+    "craterPoolSizeCells": 5,
+    "abandonedMaxSpikes": 6,
+    "foundationPotChance": 0.5
   }
 };
 })(typeof window !== "undefined" ? window : globalThis);
