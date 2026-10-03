@@ -309,6 +309,21 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     const restored = Object.keys(save?.restoredHouses || {}).length;
     return { id: 'rockfruit', qty: wreckRestoreQty(restored), material: 'stone' };
   }
+  // WHAT EACH CARD COSTS (owner, Oct 2026). A House — and the wizard's tower,
+  // a story building — keeps the ladder above. A shop is priced by the rank
+  // its card wears (the row's `tier`, the same badge the pick shows): this
+  // many stones PER TIER, one row per role; the Book Shop is a market at
+  // tier 1. A turret is a flat TURRET_ROCKS. `row` is a buildOptions card.
+  const BUILD_ROCKS_PER_TIER = Object.freeze({ trader: 2, market: 3, blacksmith: 4 });
+  const TURRET_ROCKS = 5;
+  function buildCost(save, house, row, order = restoredCount(save)) {
+    if (!row || row.role === 'plain' || row.role === 'wizard') return wreckRestoreCost(save, house);
+    if (row.role === 'turret') return { id: 'rockfruit', qty: TURRET_ROCKS, material: 'stone' };
+    const per = BUILD_ROCKS_PER_TIER[row.role];
+    if (!per) return wreckRestoreCost(save, house);
+    const tier = Math.max(1, (typeof row.tier === 'function' ? row.tier(save, order) : 1) | 0);
+    return { id: 'rockfruit', qty: per * tier, material: 'stone' };
+  }
 
   // Wood this fort demands to unseal, following the per-fort progression
   // (see FORT_UNLOCK_WOOD_START): START + STEP×(forts already unsealed), capped
@@ -433,6 +448,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
+    BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
     HAMMER_ID, HAMMER_PRICE_MUL, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,

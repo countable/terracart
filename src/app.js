@@ -13607,10 +13607,6 @@ class MapScene extends Phaser.Scene {
   _wreckRestoreCost(house) { return Houses.wreckRestoreCost(this.save, house); }
 
   presentWreckRestoreModal(sx, sy, house) {
-    const cost = this._wreckRestoreCost(house);
-    const heldCount = Inventory.count(this.save, cost.id);
-    const canAfford = heldCount >= cost.qty;
-    const item = ITEM_BY_ID[cost.id];
     // WHAT THE WRECK BECOMES IS THE PLAYER'S PICK: the cards on offer are
     // Houses.buildOptions (one owning table, unlocked by how many wrecks
     // already stand), each named the way its sign will be (Shops.roleLabel —
@@ -13618,6 +13614,18 @@ class MapScene extends Phaser.Scene {
     // The single-modal guard keeps the count stable while the modal is open;
     // restoreAs re-checks the offer at accept anyway.
     const options = Houses.buildOptions(this.save, house);
+    const order = Houses.restoredCount(this.save);
+    // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
+    // shop's stones per tier, the turret's flat five): the cost line shows
+    // the selected card's, and the charge at accept is that card's too.
+    const costFor = (row) => Houses.buildCost(this.save, house, row, order);
+    const costLine = (c) => {
+      const held = Inventory.count(this.save, c.id);
+      const it = ITEM_BY_ID[c.id];
+      return `${c.qty}× ${this.iconSpanHTML(c.id)} ${it?.name || c.id}`
+        + (held >= c.qty ? '' : ` <span style="opacity:.7">(have ${held})</span>`);
+    };
+    const affords = (c) => Inventory.count(this.save, c.id) >= c.qty;
     // A Shop card is named for the line it would open (its variant's theme).
     const labelFor = (row, theme) => row.name
       || Shops.roleLabel(row.role, row.role === 'market' ? (row.theme || theme) : null) || 'House';
@@ -13625,41 +13633,48 @@ class MapScene extends Phaser.Scene {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
-      return this.worldIconHTML(texKey, 56, frame);
+      return this.worldIconHTML(texKey, 40, frame);
     };
-    const order = Houses.restoredCount(this.save);
     const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
     // Each card is the building's picture, its name and (when ranked: a shop,
     // a smithy, a trader) its rarity badge — no pitch; the Restored! card
-    // tells what it does.
-    const choices = options.map((row) => ({
-      key: row.key,
-      label: labelFor(row, null)
-        + (tierOf(row) ? `<div style="margin-top:5px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
-      iconHTML: iconFor(row),
-      suggested: !!row.suggested?.(this.save),
-    }));
+    // tells what it does. Its own price rides along for the cost line.
+    const choices = options.map((row) => {
+      const c = costFor(row);
+      return {
+        key: row.key,
+        label: labelFor(row, null)
+          + (tierOf(row) ? `<div style="margin-top:2px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
+        iconHTML: iconFor(row),
+        suggested: !!row.suggested?.(this.save),
+        cost: costLine(c),
+        canAfford: affords(c),
+      };
+    });
+    const single = choices.length === 1 ? costFor(options[0]) : null;
     // Always show the modal — even when the player can't yet afford it,
     // they need to see WHAT to gather. Accept stays disabled (red cost
     // line, greyed button) so the dialog reads as a price tag rather
-    // than a tease. The player will dismiss, go collect, come back.
+    // than a tease. The player will dismiss, go collect, come back. A
+    // regular dialog on the Build painting (Oct 2026 — it was fullscreen).
     this.showOfferModal({
       kind: 'build',
-      fullscreen: true,
       get: options.length > 1 ? 'Restore this wreck as…' : 'Restore this wreck?',
       choices,
       pickHint: 'Tap one to choose',
       costLabel: 'Cost',
       cancelLabel: 'Later',
-      cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`
-        + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
-      canAfford,
+      cost: single ? costLine(single) : null,
+      canAfford: single ? affords(single) : false,
       acceptLabel: 'Restore',
       onAccept: (key) => {
+        const row = options.find((r) => r.key === key);
+        const cost = row ? costFor(row) : null;
+        const item = cost && ITEM_BY_ID[cost.id];
         // Re-check stock at accept time — the player might have spent
         // the materials elsewhere while the modal was open.
-        if (Inventory.count(this.save, cost.id) < cost.qty) {
-          this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
+        if (!cost || Inventory.count(this.save, cost.id) < cost.qty) {
+          if (cost) this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
           return;
         }
         // THE MAGIC HAMMER (Houses.HAMMER_ID): holding one, the player is
@@ -13686,8 +13701,11 @@ class MapScene extends Phaser.Scene {
       },
     });
     const restore = (key, hammer) => {
-      if (Inventory.count(this.save, cost.id) < cost.qty) {
-        this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
+      const picked = options.find((r) => r.key === key);
+      const cost = picked ? costFor(picked) : null;
+      const item = cost && ITEM_BY_ID[cost.id];
+      if (!cost || Inventory.count(this.save, cost.id) < cost.qty) {
+        if (cost) this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
         return;
       }
       if (hammer && Inventory.count(this.save, Houses.HAMMER_ID) < 1) hammer = false;
@@ -13889,12 +13907,41 @@ class MapScene extends Phaser.Scene {
   // A data URL paints instantly, so there is no IconNet hole to cover. Returns
   // '' for a key with no bake, which every caller reads as "use the emoji".
   worldIconHTML(texKey, sizePx = 26, frame = 0) {
+    // The boot bake first; a frame it never baked (a building's) is cut on
+    // demand by _worldIconUrl.
     const urls = window.WORLD_ICON_URLS;
-    const url = urls && (urls[texKey + ':' + frame] || (frame === 0 ? urls[texKey] : null));
+    const url = (urls && (urls[texKey + ':' + frame] || (frame === 0 ? urls[texKey] : null)))
+      || this._worldIconUrl?.(texKey, frame);
     if (!url) return '';
     return `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;`
       + `background:url('${url}') center/contain no-repeat;image-rendering:pixelated;`
       + `vertical-align:middle"></span>`;
+  }
+
+  // The data URL for one frame of a world texture: the boot bake
+  // (WORLD_ICON_URLS, create()) when it has it, else baked NOW from the
+  // texture's own frame — a named sub-rect ('front' of the house tileset), a
+  // sheet index (the castle tower's style) or a whole image — and cached
+  // under the same key. A read-back, but at a tap on a dialog, never on a
+  // cell crossing (CLAUDE.md), and once per key for the session. Null when
+  // the texture is not loaded, so the caller draws no picture rather than a
+  // broken one.
+  _worldIconUrl(texKey, frame = 0) {
+    const urls = window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
+    const k = texKey + ':' + frame;
+    const cached = urls[k] || (frame === 0 ? urls[texKey] : null);
+    if (cached) return cached;
+    if (!this.textures?.exists?.(texKey) || typeof document === 'undefined') return null;
+    try {
+      const tex = this.textures.get(texKey);
+      const fr = tex.get(tex.frameTotal === 1 ? '__BASE' : frame);
+      const src = fr?.source?.image || tex.getSourceImage();
+      if (!fr || !src || !fr.width || !fr.height) return null;
+      const c = document.createElement('canvas');
+      c.width = fr.width; c.height = fr.height;
+      c.getContext('2d').drawImage(src, fr.cutX, fr.cutY, fr.width, fr.height, 0, 0, fr.width, fr.height);
+      return (urls[k] = c.toDataURL());
+    } catch (e) { return null; }
   }
 
   // Every PNG a DOM modal can ask for outside the Phaser preloader: the

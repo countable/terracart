@@ -619,12 +619,15 @@ class SceneModals {
   //                 which read as a second way to SMELT rather than as a way
   //                 to look at the next bar. `showIndex: false` drops the
   //                 "i / n" line (Home's Craft page) and keeps the arrows.
-  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested? }] — the
-  //                 offer is ONE OF several things at the same price (what a
-  //                 wreck is restored as). Laid out as cards between the
-  //                 headline and the cost; a tap SELECTS a card (outlined,
-  //                 its `info` on the line under the row) and only the accept
-  //                 button pays, with the selected `key` as its argument.
+  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested?, cost?, canAfford? }]
+  //                 — the offer is ONE OF several things (what a wreck is
+  //                 restored as). Laid out as cards between the headline and
+  //                 the cost; a tap SELECTS a card (outlined, its `info` on
+  //                 the line under the row) and only the accept button pays,
+  //                 with the selected `key` as its argument. A card with its
+  //                 own `cost` (and `canAfford`) puts THAT on the cost line
+  //                 when it is selected and arms accept by it — the cards
+  //                 need not share a price.
   //                 Until a card is selected `pickHint` sits on that line and
   //                 accept is disabled; `choice` names a card selected from
   //                 the start (a single card is selected on its own, so the
@@ -675,7 +678,7 @@ class SceneModals {
     const mkCaption = (text) => {
       const c = document.createElement('div');
       c.style.cssText = 'font:700 10px ui-monospace,monospace;letter-spacing:.12em;'
-        + 'text-transform:uppercase;opacity:.6;margin:8px 0 2px';
+        + 'text-transform:uppercase;opacity:.6;margin:6px 0 2px';
       c.textContent = text;
       return c;
     };
@@ -722,14 +725,28 @@ class SceneModals {
     const hasChoices = Array.isArray(choices) && choices.length > 0;
     let selected = null;
     let syncAccept = () => {};
+    let liveCanAfford = canAfford;
+    let costDiv = null;
+    // The selected card's own price, if it carries one, onto the cost line.
+    const applyChoiceCost = () => {
+      if (!selected || selected.cost == null) return;
+      liveCanAfford = selected.canAfford !== false;
+      if (costDiv) { costDiv.innerHTML = selected.cost; costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a'; }
+    };
     if (hasChoices) {
       const cardRow = document.createElement('div');
       // Fullscreen: an even grid of larger cards, two or three to a line.
+      // Three to a line in the regular dialog (a six-building pick is two
+      // rows), two in the old fullscreen grid.
       cardRow.style.cssText = fullscreen
         ? 'display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:10px 0 4px;'
-        : 'display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0 2px;';
-      // Cards with no `info` (names and badges only) need just the hint line.
+        : 'display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:4px 0 2px;';
+      // Cards with no `info` (names and badges only) need just the hint line
+      // — and when they price themselves, not even that: the hint sits on
+      // the cost line until a card is picked (the dialog's height is what
+      // a six-card pick spends it on).
       const anyInfo = choices.some((c) => c.info);
+      const priced = choices.some((c) => c.cost != null);
       const infoLine = document.createElement('div');
       infoLine.style.cssText = 'font-size:12px;line-height:1.35;opacity:.9;margin:4px 0 6px;'
         + `min-height:${anyInfo ? 2.7 : 1.4}em;`;
@@ -740,6 +757,7 @@ class SceneModals {
             : (!selected && c.suggested) ? '2px dashed #a7ffb0' : '';
         }
         infoLine.innerHTML = selected ? (selected.info || '') : `<span style="opacity:.6">${pickHint}</span>`;
+        applyChoiceCost();
         syncAccept();
       };
       for (const c of choices) {
@@ -747,14 +765,14 @@ class SceneModals {
         b.innerHTML = (c.iconHTML ? `<div style="font-size:0;margin-bottom:3px">${c.iconHTML}</div>` : '') + c.label;
         b.style.cssText = (fullscreen
           ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
-          : 'flex:1 1 30%;min-width:84px;max-width:46%;padding:8px 4px 7px;font:700 12px ui-monospace,monospace;')
+          : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 4px;font:700 12px ui-monospace,monospace;')
           + 'border-radius:7px;cursor:pointer;background:transparent;color:#ddd;border:2px solid #555;';
         b.addEventListener('click', (e) => { e.stopPropagation(); selected = c; paint(); });
         cardRow.appendChild(b);
         cards.push({ c, b });
       }
       box.appendChild(cardRow);
-      box.appendChild(infoLine);
+      if (anyInfo || !priced) box.appendChild(infoLine);
       selected = choices.length === 1 ? choices[0] : (choices.find((c) => c.key === choice) || null);
       paint();
     }
@@ -764,8 +782,7 @@ class SceneModals {
     // nothing. Those get neither row, rather than a dangling "for" over an
     // empty line — or, as the quest board did, the same sentence printed twice
     // because both halves were handed the same string.
-    const hasCost = cost != null && cost !== '';
-    let costDiv = null;
+    const hasCost = (cost != null && cost !== '') || (hasChoices && choices.some((c) => c.cost != null));
     if (hasCost) {
       if (costLabel) {
         box.appendChild(mkCaption(costLabel));
@@ -776,10 +793,13 @@ class SceneModals {
         box.appendChild(forDiv);
       }
       costDiv = document.createElement('div');
-      costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
+      costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:3px 0 8px;';
       costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
-      costDiv.innerHTML = cost;
+      // No price until a card is picked: the hint sits on the line instead.
+      costDiv.innerHTML = (cost != null && cost !== '') ? cost
+        : `<span style="opacity:.6;font-weight:400;font-size:12px">${pickHint}</span>`;
       box.appendChild(costDiv);
+      applyChoiceCost();
     }
     if (disabledReason) {
       const reason = document.createElement('div');
@@ -791,7 +811,6 @@ class SceneModals {
     // Quantity stepper (only when caller passes `quantity`). Lays out as
     // [ − ]  N / MAX  [ + ] just above the action-button row.
     let qty = 1;
-    let liveCanAfford = canAfford;
     let stepperRefresh = null;
     if (quantity) {
       const minQ = quantity.min ?? 1;

@@ -1403,8 +1403,12 @@ ECONOMY (buying & selling)
    treasure/chests, coin bursts, deliveries and enemy bounties.
  - WRECK-HOUSE RESTORATION: every small house starts as a derelict WRECK with no
    shop function (the starter trailer is exempt — Home works from day one). Tap a
-   wreck to restore it for stone (rockfruit): 2 for the first rebuild, one more
-   per three houses already restored, capped at 20 (items.js wreckRestoreQty).
+   wreck to restore it for stone (rockfruit). A HOUSE (and the wizard's tower)
+   costs the ladder: 2 for the first rebuild, one more per three houses already
+   restored, capped at 20 (items.js wreckRestoreQty). The other cards are priced
+   by the rank they wear (houses.js buildCost): a Trader 2 stones per tier, a
+   Shop 3, a Blacksmith 4; a Turret is a flat 5. The restore dialog shows the
+   selected card's price and charges that one.
    Restoring reveals the house's ROLE, which is frozen into
    save.restoredHouses[id] so it never shifts on later loads.
  - WHAT A WRECK BECOMES IS THE PLAYER'S PICK (Oct 2026): the restore modal
