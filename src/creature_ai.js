@@ -48,16 +48,15 @@ const STRUCK_REACTION_MS = 8000;
 const FLEE_STRIDE_MUL = 2;
 const FLEE_BEAT_MUL = 0.5;
 // IN A HURRY, in metres per second — the ONE retreat pace of every mover
-// that moves in m/s: a roster foe's rout (rosterEnemyMove — Home's ward, a
-// wander-off, fear, madness, the kerb turn, a sated thief), its escape from
-// fire (enemyFireEscapeTick) and a warded ghost's run (ghostTick). The pair
+// that moves in m/s: a roster foe's rout (rosterEnemyMove), its escape from
+// fire (enemyFireEscapeTick), a warded ghost's run (ghostTick). The pair
 // above over `base` (four times the ground), under the kind's own ceiling
-// (SpriteLayout.creatureMaxMps — a row's `maxMps`) and the wild speed ceiling
-// every row's base numbers sit under (WILD_SPEED_CEILING_MPS): a 7 m/s
-// goblin retreats at 10, never slower than it chases. No cap of its own (the
-// old flat 6 m/s is gone); a shiny's 1.5 and the frost's slow ride on top
-// through Combat.paceMul, at the site. The animals' step chain is the same
-// rule in cells and beats (FLEE_STRIDE_MUL / FLEE_BEAT_MUL over the gait).
+// (SpriteLayout.creatureMaxMps) and the wild speed ceiling every row's base
+// numbers sit under (WILD_SPEED_CEILING_MPS): a 7 m/s goblin retreats at
+// 10, never slower than it chases. No cap of its own (the old flat 6 m/s is
+// gone); a shiny's 1.5 and the frost's slow ride on top through
+// Combat.paceMul, at the site. The animals' step chain is the same rule in
+// cells and beats (FLEE_STRIDE_MUL / FLEE_BEAT_MUL over the gait).
 function hurryMps(c, base) {
   return Math.min(SpriteLayout.creatureMaxMps(c.kind), WILD_SPEED_CEILING_MPS,
     base * FLEE_STRIDE_MUL / FLEE_BEAT_MUL);
@@ -1182,17 +1181,15 @@ function enemyWalkHazardTick(scene, c, now) {
 }
 
 // A FOE'S BLOW LANDS ON THE PLAYER — the one writer for every contact in the
-// sim: a roster foe's melee (rosterEnemyAttack), its aura, a slime trail, a
-// ghost's touch, a hunted deer's butt, a thrown Blight's drain
-// (potion_effects.js). `raw` is the attacker's blow after its own power
-// (Combat.meleeBlow, an aura's packet rate); the shield, the armour and the
-// mode have their say through Combat.incomingDamage — or the caller hands
-// over a rate it already mitigated (`mitigated`: Combat.playerDamageRate's
-// packets), fractional, and the scene's one writer banks the pips
-// (_losePlayerEnergy: Energy.set, the flinch, closing a shop). What was lost
-// joins the ONE roll-up (_monsterDmgAccum — popped after the loop as
-// "⚔️ monsters"), never a pop of its own; a row's `condition` (a spider's
-// poison) lands with a blow that cost something. Returns what was lost.
+// sim (a roster foe's melee and aura, a slime trail, a ghost's touch, a
+// hunted deer's butt, a thrown Blight's drain). `raw` is the blow after the
+// attacker's own power (Combat.meleeBlow); the shield, armour and mode have
+// their say through Combat.incomingDamage unless the caller already
+// mitigated a packet rate (`mitigated`: Combat.playerDamageRate, fractional
+// — the scene's writer banks the pips: _losePlayerEnergy, Energy.set, the
+// flinch, a shop shut). What was lost joins the ONE roll-up
+// (_monsterDmgAccum, popped after the loop as "⚔️ monsters"), never a pop of
+// its own; a row's `condition` lands with a blow that cost something.
 function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {}) {
   const dmg = mitigated ? raw : Combat.incomingDamage(scene.save, raw);
   if (!(dmg > 0)) return 0;
@@ -1203,20 +1200,18 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
 }
 
 // ── THE ONE STEP TEST: may `c` step onto (x, y)? ─────────────────────────
-// Both movers ask it — rosterEnemyMove's sweep (enemySweep, every segment of
-// every flight and lunge) through enemyCanStep, and the animals' and pets'
-// step chain (wanderCreatures) directly — so a refused cell is refused to
-// everything alike: a placed rock, water / a building / a major road's
-// terrain (Combat.faunaBlocksCell; a keep's own floor to its garrison), the
-// KERB (above: nothing steps onto a major band, a FAST mover never INTO the
-// buffer from outside it — a pet or a summoned ally goes where it likes),
-// and on a RETREAT (`retreating`: a rout, a bolt, the kerb turn, a flee
-// pattern) never INTO a yard it is not already in (THE ROADSIDE RUN, above
-// — the gate's BEHIND_HOUSE / PRIVATE; a lair guard walks home through its
-// own ruin's yard). A FOE (`row`, its roster row) is also held by ground fire
-// (fireStepAllowed — `escaping` lets it leave a burning cell), an unloaded
-// cell, a cave wall (scene._cellBlocked), a building's wall, and a campfire's
-// ward (fireAverse); a flier (orbit_swoop) crosses low terrain.
+// Both movers ask it — rosterEnemyMove's sweep through enemyCanStep, the
+// animals' and pets' step chain directly — so a refused cell is refused to
+// everything alike: a placed rock; water / a building / a major road
+// (Combat.faunaBlocksCell; a keep's own floor to its garrison); THE KERB
+// (nothing steps onto a major band, a FAST mover never INTO the buffer from
+// outside it — an ally goes where it likes); and on a RETREAT (`retreating`:
+// a rout, a bolt, the kerb turn, a flee pattern) never INTO a yard it is not
+// already in (THE ROADSIDE RUN; a lair guard walks home through its own
+// ruin's). A FOE (`row`) is also held by ground fire (fireStepAllowed;
+// `escaping` lets it leave a burning cell), an unloaded cell, a cave wall
+// (scene._cellBlocked), a building's wall and a campfire's ward
+// (fireAverse); a flier (orbit_swoop) crosses low terrain.
 function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, escaping = false } = {}) {
   if (row && !fireStepAllowed(scene, c, x, y, escaping)) return true;
   const cell = scene.cellAt(x, y);
