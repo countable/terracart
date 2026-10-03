@@ -6,12 +6,13 @@
   }
   const addToInv = method('addToInv');
   const finish = method('_finishInventoryChange');
+  const settle = method('_settleDeal');
 
   test('shop purchase: one inventory refresh observes payment, grant and deal together', () => {
     let modal, deals = 0, refreshes = 0;
     const scene = {
       save: { money: 20, inv: [], relics: {}, selSlot: -1 },
-      addToInv, _finishInventoryChange: finish,
+      addToInv, _finishInventoryChange: finish, _settleDeal: settle,
       _shopBagSpaceReason: method('_shopBagSpaceReason'),
       invDisplayEntriesForCat() { return this.save.inv.map((entry, idx) => ({ entry, idx })); },
       buildInventoryDOM() {
@@ -38,7 +39,7 @@
     let modal, deals = 0, consumed = 0;
     const scene = {
       save: { money: 20, inv: [{ id: 'potato', count: 9 }], relics: {}, selSlot: -1 },
-      addToInv, _finishInventoryChange: finish,
+      addToInv, _finishInventoryChange: finish, _settleDeal: settle,
       _shopBagSpaceReason: method('_shopBagSpaceReason'),
       invRoomFor(id) { return Inventory.roomFor(this.save, id); },
       buildShopOffer() {
@@ -56,7 +57,7 @@
     assert.eq(deals, 0, 'the hourly deal stays');
     assert.eq(scene.save.money, 20, 'money stays');
     assert.eq(Inventory.count(scene.save, 'potato'), 9, 'the stack stays');
-    assert.truthy(/Bag full for Potato/.test(scene.denial || ''), `names the full stack: ${scene.denial}`);
+    assert.truthy(/Bag full for\nPotato/.test(scene.denial || ''), `names the full stack: ${scene.denial}`);
 
     const guards = SCENE_SRC.match(/if \(this\.invRoomFor\(id\) < buyQty\)/g) || [];
     assert.eq(guards.length, 2, 'both cash-item purchase paths recheck room before payment');

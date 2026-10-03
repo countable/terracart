@@ -321,16 +321,22 @@ const COOKED_FOODS = {
 const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3 });
 function mineralDeposit(o) { return o.deposit === 'crystal' ? CRYSTAL_DEPOSIT : null; }
 
+// `smeltFrom` is the flower a T5+ bar is SMELTED from (one flower plus the
+// bar one tier below — Gear.smeltingRecipe); T2..T4 bars are mined, not smelted.
 const MINERAL_TIERS = Object.freeze({
   2: Object.freeze({ barId: 'copper_bar',   rockFrame: 0 }),
   3: Object.freeze({ barId: 'iron_bar',     rockFrame: 1 }),
   4: Object.freeze({ barId: 'gold_bar',     rockFrame: 2 }),
-  5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3 }),
-  6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5 }),
-  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 6 }),
+  5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3, smeltFrom: 'sunflower' }),
+  6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5, smeltFrom: 'fireflower' }),
+  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 6, smeltFrom: 'iceflower' }),
 });
 function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
+// THE BAR LADDER, by gear tier: T1 is plain wood (no ore row), T2..T7 the
+// row's bar. Every forge recipe, ore shelf and bar list reads it here.
+function barForTier(tier) { return tier === 1 ? 'wood' : mineralBarId(tier); }
+const BAR_IDS = Object.freeze([1, 2, 3, 4, 5, 6, 7].map(barForTier));
 
 const MINERAL_ICON_SHEET = {
   telescope: { sheet: 'icon_telescope', frame: 0 },
@@ -1076,7 +1082,16 @@ function fireBurnOutcome(id) {
 // Runtime methods, item copy and the Drink / Use dialog all read these rows,
 // so a balance edit cannot leave one surface behind. Function fields receive
 // the live scene at click time; items.js loads before those scene dependencies.
+//
+// A TIMED BUFF names its row of Buffs.KINDS (`buff`): that row says where the
+// expiry lives (save.<field> / scene.<field> / Shrines' boonUntil), and using
+// the item EXTENDS it by durationMs — max(now, until) + durationMs, the
+// torch's rule, never a reset (owner, Oct 2026). `used` is the dialog the
+// Drink / Use closes on ({ title, body }; either may be a function of the
+// live scene and the row). A TOME (`tome: { of, mul, flash }`) is read, never
+// spent, for `mul` of the potion `of`'s effect (TOME_MUL) and says `flash`.
 const _CONSUMABLE_MINUTE_MS = 60 * 1000;
+const TOME_MUL = 0.5;
 const CONSUMABLE_SPEC = {
   orb: {
     chestRevealMs: 6000,
@@ -1084,43 +1099,31 @@ const CONSUMABLE_SPEC = {
     verb: 'Use', method: 'useOrb', title: 'Gaze into the orb?',
     get: 'Unopened chests gleam, and hidden things stir within view.',
   },
+  // THROWABLES (`throwable: true`): the shared cooldown gates their button —
+  // usable / disabled / label are installed once below, off the scene's
+  // canThrowItem / throwActionLabel, never retyped per row.
   spear: {
-    damage: 20, throwCooldownMs: 3000, projectile: 'spear', immediate: true,
-    usable: scene => scene.canThrowItem('spear'),
-    disabled: scene => !scene.canThrowItem('spear'),
-    label: scene => scene.throwActionLabel(),
+    damage: 20, throwCooldownMs: 3000, projectile: 'spear', immediate: true, throwable: true,
     verb: 'Throw', method: 'useSpear', title: 'Throw the spear?',
     get: 'One sharp throw sends the spear flying toward your foes.',
   },
   javelin: {
-    damage: 40, throwCooldownMs: 3000, projectile: 'javelin', immediate: true,
-    usable: scene => scene.canThrowItem('javelin'),
-    disabled: scene => !scene.canThrowItem('javelin'),
-    label: scene => scene.throwActionLabel(),
+    damage: 40, throwCooldownMs: 3000, projectile: 'javelin', immediate: true, throwable: true,
     verb: 'Throw', method: 'useJavelin', title: 'Throw the javelin?',
     get: 'A heavy steel point flies straight toward your foes.',
   },
   rockfruit: {
-    damage: 2, throwCooldownMs: 1000, projectile: 'rock', immediate: true,
-    usable: scene => scene.canThrowItem('rockfruit'),
-    disabled: scene => !scene.canThrowItem('rockfruit'),
-    label: scene => scene.throwActionLabel(),
+    damage: 2, throwCooldownMs: 1000, projectile: 'rock', immediate: true, throwable: true,
     verb: 'Throw', method: 'useRock', title: 'Throw the rock?',
     get: 'A stone flies toward your foes.',
   },
   forgetmenot: {
-    damage: 0, throwCooldownMs: 1000, projectile: 'forgetmenot', effect: 'sleep', immediate: true,
-    usable: scene => scene.canThrowItem('forgetmenot'),
-    disabled: scene => !scene.canThrowItem('forgetmenot'),
-    label: scene => scene.throwActionLabel(),
+    damage: 0, throwCooldownMs: 1000, projectile: 'forgetmenot', effect: 'sleep', immediate: true, throwable: true,
     verb: 'Throw', method: 'useForgetmenot', title: 'Throw the forget-me-not?',
     get: 'A blue bloom settles a restless foe.',
   },
   wildrose: {
-    damage: 0, throwCooldownMs: 1000, projectile: 'wildrose', effect: 'charm', immediate: true,
-    usable: scene => scene.canThrowItem('wildrose'),
-    disabled: scene => !scene.canThrowItem('wildrose'),
-    label: scene => scene.throwActionLabel(),
+    damage: 0, throwCooldownMs: 1000, projectile: 'wildrose', effect: 'charm', immediate: true, throwable: true,
     verb: 'Throw', method: 'useWildrose', title: 'Throw the wild rose?',
     get: 'A fragrant bloom wins a foe to your side.',
   },
@@ -1164,9 +1167,10 @@ const CONSUMABLE_SPEC = {
   // durationMs, pulled through the same lever (Shrines.extend), so a potion
   // on top of the idol's visit extends the one countdown and never stacks.
   hardworking_potion: {
-    durationMs: 5 * _CONSUMABLE_MINUTE_MS,
+    durationMs: 5 * _CONSUMABLE_MINUTE_MS, buff: 'work',
     verb: 'Drink', method: 'drinkHardworkingPotion', title: 'Drink the Potion of Hardworking?',
     get: 'Your weariness lifts, and your hands move swiftly through their work.',
+    used: { title: 'You drink the Potion of Hardworking', body: (scene, spec) => spec.get },
   },
   // Poison Flask: whoever it touches carries the `poison` row of
   // Conditions.DEFINITIONS for its minute — a struck creature through
@@ -1184,10 +1188,10 @@ const CONSUMABLE_SPEC = {
   // player's own can when that is better (app.js waterCropsWithin). So the
   // jump roll and the shortened hold are a Gold can's, whoever eats it.
   rainberry: { radiusM: 20, canTier: 4 },
-  pairy: { durationMs: 5 * _CONSUMABLE_MINUTE_MS },
-  coffee: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, speedTierBoost: 2 },
-  dawnfruit: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, eatLabel: 'Vision' },
-  miracle_lettuce: { durationMs: 10 * _CONSUMABLE_MINUTE_MS, luckBonus: 1, eatLabel: 'Luck' },
+  pairy: { durationMs: 5 * _CONSUMABLE_MINUTE_MS, buff: 'compass' },
+  coffee: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, speedTierBoost: 2, buff: 'coffee' },
+  dawnfruit: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, eatLabel: 'Vision', buff: 'dawnfruit' },
+  miracle_lettuce: { durationMs: 10 * _CONSUMABLE_MINUTE_MS, luckBonus: 1, eatLabel: 'Luck', buff: 'lettuce' },
 
   egg: {
     verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
@@ -1199,24 +1203,31 @@ const CONSUMABLE_SPEC = {
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
   tome_sight: { verb: 'Read', method: 'readTomeSight', title: 'Read the Tome of Reach?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_sight'),
+    tome: { of: 'reach_potion', mul: TOME_MUL, flash: '✨ The sight tome opens' },
     get: 'The far edge of the world leans closer with every page.' },
   tome_raven: { verb: 'Read', method: 'readTomeRaven', title: 'Read the Tome of the Raven?',
     cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_raven'),
+    tome: { of: 'raven_scroll', mul: TOME_MUL, flash: '✨ A raven leaves the page' },
     get: 'A raven of smoke and starlight waits between the lines.' },
   tome_storm: { verb: 'Read', method: 'readTomeStorm', title: 'Read the Tome of Thunder?',
     cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_storm'),
+    tome: { of: 'thunder_scroll', mul: TOME_MUL, flash: '⚡ The storm tome speaks' },
     get: 'Storm writings. The sky leans in to listen.' },
   tome_speed: { verb: 'Read', method: 'readTomeSpeed', title: 'Read the Tome of Speed?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_speed'),
+    tome: { of: 'speed_potion', mul: TOME_MUL, flash: '✨ The speed tome opens' },
     get: 'Every line quickens. The road unwinds faster beneath you.' },
   tome_shield: { verb: 'Read', method: 'readTomeShield', title: 'Read the Tome of Shielding?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_shield'),
+    tome: { of: 'shield_potion', mul: TOME_MUL, flash: '✨ The shield tome opens' },
     get: 'The words settle around you like layered plates.' },
   tome_healing: { verb: 'Read', method: 'readTomeHealing', title: 'Read the Tome of Healing?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_healing'),
+    tome: { of: 'vigor_potion', mul: TOME_MUL, flash: '✨ The healing tome opens' },
     get: 'A warmth gathers where the page is worn softest.' },
   tome_blight: { verb: 'Read', method: 'readTomeBlight', title: 'Read the Tome of Blight?',
     cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_blight'),
+    tome: { of: 'blight_potion', mul: TOME_MUL, flash: '✨ The blight tome opens' },
     get: 'The margin ink crawls. What it touches sickens.' },
   tome_firewall: { lengthCells: 5,
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
@@ -1228,9 +1239,11 @@ const CONSUMABLE_SPEC = {
     get: 'Sweetness draws curious noses through the grass.',
   },
   reach_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS,
+    durationMs: _CONSUMABLE_MINUTE_MS, buff: 'reach',
     verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?',
     get: 'The far edges of the world draw close enough to touch.',
+    used: { title: '✨ You drink the Potion of Reach',
+      body: 'A shiver runs through your fingers. Even the far edge of the world feels close enough to touch.' },
   },
   antidote: {
     verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?',
@@ -1249,58 +1262,75 @@ const CONSUMABLE_SPEC = {
     get: 'A little strength returns to your limbs.',
   },
   speed_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9,
+    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9, buff: 'speed',
     verb: 'Drink', method: 'drinkSpeedPotion', title: 'Drink the Potion of Speed?',
     get: 'Warmth rushes into your legs. For a little while, your steps are light and swift.',
+    used: { title: '✨ You drink the Potion of Speed',
+      body: 'Warmth races down to your toes. The road slips beneath your feet.' },
   },
   protection_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.75,
+    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.75, buff: 'protection',
     verb: 'Drink', method: 'drinkProtectionPotion', title: 'Drink the Potion of Protection?',
     get: 'A pale ward softens the blows that reach you.',
+    used: { title: 'You drink the Potion of Protection', body: (scene, spec) => spec.get },
   },
   immortal_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS,
+    durationMs: _CONSUMABLE_MINUTE_MS, buff: 'immortal',
     verb: 'Drink', method: 'drinkImmortalPotion', title: 'Drink the Potion of Immortal?',
     get: 'For a brief while, no wound can reach you.',
+    used: { title: 'You drink the Potion of Immortal',
+      body: (scene, spec) => `Immune to all damage for ${shortDuration(spec.durationMs)}.` },
   },
   time_potion: {
     verb: 'Drink', method: 'drinkTimePotion', title: 'Drink the Potion of Time?',
     get: 'Every spell falls away. Your rested belongings are ready once more.',
   },
   fire_resistance_potion: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS,
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, buff: 'fireResistance',
     verb: 'Drink', method: 'drinkFireResistancePotion', title: 'Drink the Potion of Fire Resistance?',
     get: 'Flames curl harmlessly around your skin.',
+    used: { title: 'You drink the Potion of Fire Resistance',
+      body: (scene, spec) => `Immune to fire for ${shortDuration(spec.durationMs)}.` },
   },
   shrinking_potion: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS, scaleMul: 0.5, maxHpMul: 0.5, meleeDamageMul: 0.5, visionCells: 1,
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, scaleMul: 0.5, maxHpMul: 0.5, meleeDamageMul: 0.5, visionCells: 1, buff: 'shrinking',
     verb: 'Drink', method: 'drinkShrinkingPotion', title: 'Drink the Potion of Shrinking?',
     get: 'You dwindle beneath the grass, small and easily overlooked.',
+    used: { title: 'You drink the Potion of Shrinking',
+      body: (scene, spec) => `Half size, maximum HP and melee damage; +${spec.visionCells} stealth for ${shortDuration(spec.durationMs)}.` },
   },
   giant_potion: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS, damageBonus: 5, maxHpBonus: 100, scaleMul: 1.5,
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, damageBonus: 5, maxHpBonus: 100, scaleMul: 1.5, buff: 'giant',
     verb: 'Drink', method: 'drinkGiantPotion', title: 'Drink the Potion of Giant?',
     get: 'Your body rises tall, and strength swells through your limbs.',
+    used: { title: 'You drink the Potion of Giant',
+      body: (scene, spec) => `+${spec.maxHpBonus} maximum HP and +${spec.damageBonus} melee damage for ${shortDuration(spec.durationMs)}.` },
   },
   shield_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5,
+    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5, buff: 'shield',
     verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
     get: 'A shimmering veil softens the blows of beasts.',
+    used: { title: '✨ You drink the Potion of Shielding',
+      body: 'A cool shimmer settles over your skin, taking the sting from claw and fang.' },
   },
   skeleton_scroll: {
-    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_skeleton',
+    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_skeleton', buff: 'skeleton',
     verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of Bones?',
     get: 'A bone-white guardian rises to fight beside you.',
+    used: { title: 'You read the Scroll of Bones', body: (scene, spec) => spec.get },
   },
   wraith_scroll: {
-    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_wraith',
+    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_wraith', buff: 'wraith',
     verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of the Wraith?',
     get: 'A cold shade slips from the ink to hunt your foes.',
+    used: { title: 'You read the Scroll of the Wraith', body: (scene, spec) => spec.get },
   },
   raven_scroll: {
-    durationMs: _CONSUMABLE_MINUTE_MS,
+    durationMs: _CONSUMABLE_MINUTE_MS, buff: 'raven',
     verb: 'Read', method: 'readRavenScroll', title: 'Read the Scroll of the Raven?',
     get: 'A raven of pale smoke takes wing against your foes.',
+    used: { title: 'You read the Scroll of the Raven',
+      body: 'A raven of smoke and starlight shakes itself out of the parchment. It settles beside you, watching the beasts with hungry eyes.' },
   },
   thunder_scroll: {
     damage: 25,
@@ -1308,9 +1338,11 @@ const CONSUMABLE_SPEC = {
     get: 'Thunder breaks over the foes before you.',
   },
   blight_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2,
+    durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2, buff: 'blight',
     verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',
     get: 'A sickly haze clings to you, withering foes that stray too close.',
+    used: { title: '✨ You drink the Potion of Blight',
+      body: 'A crimson haze seeps from your skin. Nearby beasts shudder in its wake.' },
   },
   revive_potion: {
     energyFrac: 0.30,
@@ -1325,9 +1357,11 @@ const CONSUMABLE_SPEC = {
     usable: scene => Combat.playerDowned(scene.save.energy),
   },
   dragon_powder: {
-    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2,
+    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2, buff: 'dragon',
     verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',
     get: 'The powder lets you soar in dragon form, for a short time.',
+    used: { title: '🐉 You toss the Dragon Powder',
+      body: 'Scales ripple across your skin. Heat swells in your chest, and the ground shakes beneath your claws.' },
   },
   growth_powder: {
     get radiusM() { return CONSUMABLE_SPEC.rainberry.radiusM; },
@@ -1335,9 +1369,10 @@ const CONSUMABLE_SPEC = {
     get: 'The crops around you stir as though spring has hurried past.',
   },
   shadow_powder: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS,
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, buff: 'shadow',
     verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',
     get: 'The shadows gather around you, hiding you from hungry eyes — and muffling your own strikes.',
+    used: { title: '🌑 You cast the Shadow Powder', body: 'The dark folds around you. Hungry eyes pass you by.' },
   },
   frost_powder: {
     durationMs: 30 * 1000,
@@ -1345,11 +1380,13 @@ const CONSUMABLE_SPEC = {
     get: 'Frost closes around the foes within your reach.',
   },
   torch: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2,
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'torch',
     verb: 'Light', method: 'useTorch', title: 'Light the Torch?',
     get: scene => scene.isTorchActive()
       ? 'Fresh flame feeds the light already around you.'
       : 'Firelight opens the dark around you.',
+    used: { title: scene => (scene.isTorchActive() ? '🔥 You light another Torch' : '🔥 You light the Torch'),
+      body: 'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps.' },
   },
   // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
   // riding only counts while a horse is in the bag (isRiding). Mounted, the
@@ -1374,6 +1411,14 @@ const CONSUMABLE_SPEC = {
     secondary: { label: 'Up', method: 'useRopeUp', disabled: scene => !(scene.depth > 0) },
   },
 };
+
+// The throwables' button (see the rows): one install, read at click time.
+for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
+  if (!row.throwable) continue;
+  row.usable = scene => scene.canThrowItem(id);
+  row.disabled = scene => !scene.canThrowItem(id);
+  row.label = scene => scene.throwActionLabel();
+}
 
 // Compatibility names keep existing consumers concise while the table remains
 // the only numeric owner.
@@ -1536,6 +1581,13 @@ function itemValue(id) {
   if (PRICES[id] != null) return PRICES[id];
   const t = ITEM_BY_ID[id]?.baseTier || 1;
   return TIER_VALUE[t] || TIER_VALUE[TIER_VALUE.length - 1];
+}
+// Every catalogue item's value by id (the trader's ask map —
+// ShopsMath.traderAsk reads prices[id] and walks the keys as its wishlist).
+// Built once, on first ask: PRICES is finished long before a shop opens.
+let _itemValues = null;
+function itemValues() {
+  return _itemValues || (_itemValues = Object.fromEntries(ITEMS.map((it) => [it.id, itemValue(it.id)])));
 }
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + memory.
@@ -1868,9 +1920,12 @@ const TIER_BADGE_NAMES = {
 // little purple — rarity displays wear this lavender-platinum; the material
 // colour that relics, arrows and bolts read stays MATERIAL_TIERS' own.
 const TIER_BADGE_TINT = { 5: 0xc9a6f2 };
-function itemTierOf(id) {
+// THE tier lookup (1..7) for a catalogue item; `fallback` (0: no badge) for
+// an id with no tier. Every other tier reader (fishTier, Shops.itemTier)
+// is this with a fallback of 1.
+function itemTierOf(id, fallback = 0) {
   const t = ITEM_BY_ID[id]?.baseTier;
-  return t > 0 ? Math.min(7, Math.floor(t)) : 0;
+  return t > 0 ? Math.min(7, Math.floor(t)) : fallback;
 }
 // Shared rarity color for badges, chest art and chest light sources.
 function tierBadgeColor(tier) {
@@ -2180,7 +2235,7 @@ function rollEmptyCast(rng = Math.random, rodTier = 0) {
   if (rng() < FISH_EMPTY_TREASURE_PER_TIER * rodTier) return { kind: 'treasure', tier: rollFoundTreasureTier(rng) };
   if (rng() < FISH_SLIME_CHANCE) return { kind: 'slime' };
   if (rng() < FISH_EMPTY_JUNK_CHANCE) {
-    return { kind: 'junk', id: FISH_EMPTY_JUNK[Math.floor(rng() * FISH_EMPTY_JUNK.length)] };
+    return { kind: 'junk', id: pickFromArray(FISH_EMPTY_JUNK, rng) };
   }
   return null;
 }
@@ -2214,7 +2269,7 @@ for (const { id } of FISH_SPECIES) {
   ITEM_EFFECTS[id] = 'Its nourishment returns your strength little by little.';
   ITEM_EFFECTS[COOKED_FOODS[id].id] = 'Warm from the fire, it restores your strength little by little.';
 }
-function fishTier(id) { return BASE_TIER[id] || 1; }
+function fishTier(id) { return itemTierOf(id, 1); }
 // Shiny fish use the same +3 tier uplift as shiny inventory animals.
 // The uplift stops at T7, matching the item and rod ceiling.
 const SHINY_FISH_TIER_UP = SHINY_TIER_UP;
@@ -2382,7 +2437,7 @@ const UNIQUE_JEWELRY = Object.freeze({
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
 function carriesItem(save, id) {
-  return !!(save?.inv || []).find((st) => st?.id === id && (st.count ?? 0) > 0);
+  return Inventory.count(save, id) > 0;
 }
 // The fraction a carried guild badge takes off deals with `role` (a
 // Houses.houseShopRole key), 0 without one. Read from CARRIED_ITEM_SPEC.

@@ -37,7 +37,7 @@
   const SHOP_CONFIG = {
     blacksmith: { ink: '#d8d8d8' },  // steel
     market:     { ink: '#ff7a6a' },  // red
-    trader:     { ink: '#ffe066' },  // gold
+    trader:     { ink: UI_GOLD },    // gold
   };
 
   // ── What the player calls each shop ───────────────────────────────────────
@@ -78,6 +78,11 @@
     if (role === 'trader' && goods) return `${goods} ${ROLE_LABEL.trader}`;
     return ROLE_LABEL[role] ?? null;
   }
+  // The sign on a building with NO shop role (render.js _houseSignText):
+  // Home, the castle, the fort and the plain house, by the building's
+  // tier, and the story tower by its MemoryStory.towerAccess state.
+  const BUILDING_LABEL = { trailer: 'Home', 12: 'Castle', 11: 'Fort', 9: 'House' };
+  const TOWER_LABEL = { locked: 'Sealed Tower', abandoned: 'Abandoned Tower', empty: 'Empty Tower', open: 'Wizard Tower' };
 
   function shopType(house) {
     if (!house || house.kind !== 'house') return null;
@@ -138,8 +143,8 @@
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
     supply: () => ['wood', 'rockfruit', 'torch', 'rope', 'trap_kit', 'spear', 'javelin', 'scarecrow', 'magic_trap', 'honey'],
     potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry).map(item => item.id),
-    ore:    () => ['coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
-                   'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],
+    // Coal, every bar (the ladder past wood — items.js BAR_IDS) and the gems.
+    ore:    () => ['coal', ...BAR_IDS.slice(1), 'sapphire', 'ruby', 'emerald', 'diamond'],
     pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
     // The bookshop's line: the Book, and only the Book (no other line stocks it), at the price ladder
     // (shops_math.js listPrice — it climbs with every one bought).
@@ -245,10 +250,9 @@
     });
   }
 
-  function itemTier(id) {
-    const it = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
-    return (it && it.baseTier) ?? ((typeof BASE_TIER !== 'undefined' && BASE_TIER[id]) || 1);
-  }
+  // An item's tier for stocking and the trader's lean (items.js itemTierOf,
+  // the one lookup; an unknown id stocks as T1).
+  function itemTier(id) { return itemTierOf(id, 1); }
 
   // ── SMITHY AND TRADER TIERS (owner, Oct 2026) ─────────────────────────────
   // A blacksmith and a trader carry a tier the way a shop carries its line's
@@ -322,12 +326,12 @@
   function pickThemed(theme, tier, rng = Math.random) {
     const stock = themedStock(theme, tier);
     if (!stock.length) return null;
-    return stock[Math.floor(rng() * stock.length) % stock.length];
+    return pickFromArray(stock, rng);
   }
 
   global.Shops = {
     shopType, shopInk,
-    ROLE_LABEL, roleLabel,
+    ROLE_LABEL, roleLabel, BUILDING_LABEL, TOWER_LABEL,
     THEMES, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineTierFor, nextLine, MARKET_PAIR_FROM, marketOffers, themedStock, itemTier,
     SMITH_TIER_EVERY, TRADER_TIER_EVERY, SHOP_TIER_MAX, smithCount, smithTier, nextSmithTier, smithUnlockAt, traderTierAt, traderTier, shopTier, tierAffinity, pickThemed, petItems,
   };

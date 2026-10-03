@@ -194,11 +194,7 @@
     };
   }
 
-  function invCount(itemId) {
-    const s = S();
-    return (s.save.inv || []).reduce((n, e) =>
-      n + (e && e.id === itemId ? (e.count || 1) : 0), 0);
-  }
+  function invCount(itemId) { return Inventory.count(S().save, itemId); }
 
   // ── Verify scenarios ───────────────────────────────────────────────
   // Each returns { name, pass, details } so a driver can collect and report.

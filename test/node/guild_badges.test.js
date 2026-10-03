@@ -71,7 +71,8 @@ const lifted = (...names) => {
   };
   return (0, eval)('({' + names.map(one).join(',') + '})');
 };
-const PROTO = lifted('guildPrice', 'buildShopOffer', 'peekOrBuildTraderOffer', 'presentBlacksmithOffer', 'presentSmeltOffer');
+const PROTO = lifted('guildPrice', 'buildShopOffer', 'peekOrBuildTraderOffer', 'presentBlacksmithOffer', 'presentSmeltOffer',
+  '_presentRecipeOffer', '_gearUpgradeOk', '_settleDeal');
 
 function scene(role, badge) {
   const save = carrying(badge);

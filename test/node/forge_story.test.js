@@ -36,7 +36,7 @@ function forgeOnce({ afford = true } = {}) {
     showChestRewardModal: (o) => calls.ceremony.push(o),
     flashLoot: (...a) => calls.loot.push(a),
     flash: (m) => calls.flash.push(m),
-    _clampSelSlot() {}, markRelicsDirty() {}, updateHUD() {}, buildInventoryDOM() {},
+    _clampSelSlot() {}, markRelicsDirty() {}, updateHUD() {}, buildInventoryDOM() {}, _finishInventoryChange() {},
     _equipGear: (...a) => calls.equipped.push(a),
     shopBucketState: () => null,
     _trailRewardBlurb: () => '',
@@ -52,13 +52,15 @@ function forgeOnce({ afford = true } = {}) {
       count: (_s, id) => held[id] || 0,
       remove: (_s, id, n) => { held[id] -= n; },
     },
-    Gear: { blacksmithRecipe: () => recipe, smeltUnlockedBars: () => [] },
+    Gear: { blacksmithRecipe: () => recipe, smeltUnlockedBars: () => [], canUpgrade: Gear.canUpgrade },
     ShopsMath: { smithyRerollCost: () => 5 },
     persistSave() {},
   };
   const names = Object.keys(env);
-  const proto = new Function(...names, `return { ${methodSrc('presentBlacksmithOffer')} };`)(
-    ...names.map(n => env[n]));
+  // The forge presents through the shared recipe counter and settles through
+  // the shared deal tail (scene_shops.js), so both ride along.
+  const proto = new Function(...names, `return { ${['presentBlacksmithOffer', '_presentRecipeOffer', '_gearUpgradeOk', '_settleDeal']
+    .map(methodSrc).join(',')} };`)(...names.map(n => env[n]));
   Object.setPrototypeOf(scene, proto);
   scene.presentBlacksmithOffer(0, 0, offer, () => {}, null, { noReroll: true });
   assert.truthy(calls.offer, 'the forge offer was presented');

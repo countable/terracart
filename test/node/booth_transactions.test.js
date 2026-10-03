@@ -24,7 +24,7 @@
       ...over,
     };
     for (const name of ['_macroStory', '_storySplashOnce', '_macroTransaction', '_drainMacroTransactions', '_presentInn',
-      '_presentCurio', '_presentTraining', '_presentStallOffer', '_guildBountyDefeat']) s[name] = method(name);
+      '_presentCurio', '_presentTraining', '_presentStallOffer', '_settleDeal', '_guildBountyDefeat']) s[name] = method(name);
     s.invRoomFor = id => Inventory.roomFor(s.save, id);
     s.addToInv = (id, n, flash, opts) => { s.grantOptions = opts; return Inventory.add(s.save, id, n).accepted; };
     return s;

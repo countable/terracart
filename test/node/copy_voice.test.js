@@ -76,8 +76,12 @@ test('copy: the plant flash says the crop by name, and what it needs next', () =
 
 test('copy: "bag full" is one line shared by inventory refusals', () => {
   assert.truthy(/const BAG_FULL_MSG = '[^']+';/.test(SCENE_SRC), 'app.js owns one constant');
-  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 4,
-    'declared once, used for drops, purchases and smelting');
+  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 2,
+    'declared once, used for drops');
+  // The counters (purchases, barter, smelting — scene_shops.js) name the
+  // full stack instead, through the one bagFullFor line.
+  assert.eq((ENERGY_WRITE_SOURCES['scene_shops.js'].match(/Bag full/g) || []).length, 1, 'the counters word it once');
+  assert.gte((ENERGY_WRITE_SOURCES['scene_shops.js'].match(/bagFullFor\(/g) || []).length, 5, 'and every counter reads it');
   assert.falsy(/flash\('bag full'/i.test(SCENE_SRC), 'neither casing survives as a literal');
   const msg = SCENE_SRC.match(/const BAG_FULL_MSG = '([^']+)';/)[1];
   assert.truthy(/bag/i.test(msg) && /\.$/.test(msg), 'it is a sentence about the bag: ' + msg);
@@ -243,6 +247,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'barrelFlash', 'bikeRackFlash',    // the barrel / bike-rack lines, measured below
     'wildplantHarvestLine',           // every guaranteed wildplant reward bundle, measured below
     'Shrines',                         // Shrines.boonFlash — every kind measured in shrines.test.js
+    'purseShort', 'bagFullFor',        // the counters' two refusals, measured in economy_owners.test.js
   ]);
   const seen = new Set();
   for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -361,12 +366,15 @@ test('copy: a shop with nothing to offer says so in a sentence, and promises no 
   }
 });
 
-test('copy: a short smelt names the ingredient and the shortfall', () => {
+test('copy: a short smelt or forge names the ingredient and the shortfall', () => {
   assert.falsy(/flash\('not enough to smelt'/.test(SCENE_SRC), 'the bare fragment is gone');
-  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < need\(r, q\)\);/.test(SCENE_SRC),
-    'it finds which ingredient is short');
-  assert.truthy(/Need \$\{short\} more \$\{name\}`/.test(SCENE_SRC),
+  // The one recipe counter (scene_shops.js _presentRecipeOffer) behind the
+  // crucible and the forge finds which ingredient is short…
+  assert.truthy(/const missing = short\(\);/.test(SCENE_SRC), 'it finds which ingredient is short');
+  // …and says how many more of it are wanted, in the one wording.
+  assert.truthy(/Need \$\{missing\.qty - held\(missing\.id\)\} more \$\{itemName\(missing\.id\)\}`/.test(SCENE_SRC),
     'and says how many more of it are wanted');
+  assert.falsy(/flash\(`need \$\{/.test(ENERGY_WRITE_SOURCES['scene_shops.js']), 'no counter prints a bare total instead of the shortfall');
 });
 
 test('copy: no player-facing refusal is a bare lowercase fragment', () => {

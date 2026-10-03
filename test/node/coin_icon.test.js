@@ -66,9 +66,9 @@ test('coin icon: the three helpers exist beside iconSpanHTML', () => {
 test('coin icon: pure-money flashLoots wear the coin element', () => {
   assert.truthy(/this\.flashLoot\(`Scattered \$\{drops\.length\} coins!`, '#ffe066', 1, null, this\.coinIconEl\(\)\)/.test(app),
     'the coin-burst toast');
-  assert.truthy(/this\.flashLoot\(`\+\$\{CASTLE_TAX_GOLD\} taxes`, '#ffe066', 1, null, this\.coinIconEl\?\.\(\)\)/.test(app),
+  assert.truthy(/this\.flashLoot\(`\+\$\{CASTLE_TAX_GOLD\} taxes`, UI_GOLD, 1, null, this\.coinIconEl\?\.\(\)\)/.test(app),
     'the castle taxes toast');
-  assert.truthy(/this\.flashLoot\(`\+\$\{finished\.reward\}`, '#ffe066', 1, null, this\.coinIconEl\(\)\)/.test(app),
+  assert.truthy(/this\.flashLoot\(`\+\$\{finished\.reward\}`, UI_GOLD, 1, null, this\.coinIconEl\(\)\)/.test(app),
     'the quest-board reward toast');
   assert.truthy(/scene\.flashLoot\(`\$\{mark\} → \$\{reward\.amount\}`, '#ffe066', 1, null, scene\.coinIconEl\?\.\(\)\)/.test(INTERACT_SRC),
     'the treasure gold toast');
