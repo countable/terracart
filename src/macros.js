@@ -285,10 +285,9 @@
 
   // ── SUNDRIES: a supply counter ────────────────────────────────────────────
   // One supply item per shop, from the village Supply Shop's own line
-  // (Shops.THEME_POOL.supply) less the Book, which is the Scriptorium's.
-  const SUNDRIES_SKIP = new Set(['book']);
+  // (Shops.THEME_POOL.supply — the Book is the Bookshop's and the Scriptorium's).
   function sundriesStock(o) {
-    const pool = Shops.THEME_POOL.supply().filter((id) => !SUNDRIES_SKIP.has(id) && ITEM_BY_ID[id]);
+    const pool = Shops.THEME_POOL.supply().filter((id) => ITEM_BY_ID[id]);
     const id = _pick(o, 'sundries', pool);
     return id ? [id] : [];
   }
@@ -550,7 +549,7 @@
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,
     APOTHECARY_POTIONS, APOTHECARY_CURE, apothecaryStock,
-    SUNDRIES_SKIP, sundriesStock,
+    sundriesStock,
     SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, scriptoriumStock,
     BOUNTY_LADDER, BOUNTY_TIERS_PER_RUNG, BOUNTY_TIERS_PER_FOE, BOUNTY_MAX_FOES, BOUNTY_MATCH, BOUNTY_DIST_CELLS,
     bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
