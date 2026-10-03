@@ -352,11 +352,11 @@
   function canvasTarget(scene) {
     if (typeof document === 'undefined' || !scene.textures || !scene.buildingGeomContainer) return null;
     if (scene._buildingGeomTarget) return scene._buildingGeomTarget;
-    const pad = CELL_PX * 2;
-    const size = Math.ceil(scene.viewSize + pad * 2);
-    const originX = scene.viewLeft - pad, originY = scene.viewTop - pad;
+    // The padded viewport layer (render.js Render.viewportCanvas — the grid
+    // and border bakes open theirs the same way). A texture left by an
+    // earlier scene is dropped first, so this canvas is this scene's own.
     if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
-    const tex = scene.textures.createCanvas(TEX_KEY, size, size);
+    const { tex, x: originX, y: originY } = Render.viewportCanvas(scene, TEX_KEY, CELL_PX * 2);
     if (!tex) return null;
     const ctx = tex.getContext();
     ctx.lineJoin = 'round';

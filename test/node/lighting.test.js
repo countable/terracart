@@ -526,11 +526,11 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('    const stamp = (L) => {'));
   // (Both through lightCentrePx — the stamp's whole-px centre is the key's.)
   const lc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightCentrePx('));
-  assert.truthy(/y: Math\.round\(scene\.viewCenterY \+ L\.dy \* k \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
-    'the stamp lifts the cookie by dyPx, on top of the anchored metres');
-  assert.truthy(/const c = lightCentrePx\(scene, L, k\);/.test(st) && /ctx\.drawImage\(ck\.canvas, c\.x - ox - d \/ 2, c\.y - oy - d \/ 2, d, d\);/.test(st),
+  assert.truthy(/const c = deltaMToScreen\(scene, L\.dx, L\.dy\);[\s\S]{0,120}y: Math\.round\(c\.y \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
+    'the stamp lifts the cookie by dyPx, on top of the anchored metres — the sprites\' own projection (coords.js)');
+  assert.truthy(/const c = lightCentrePx\(scene, L\);/.test(st) && /ctx\.drawImage\(ck\.canvas, c\.x - ox - d \/ 2, c\.y - oy - d \/ 2, d, d\);/.test(st),
     'the stamp is placed at that centre');
-  assert.truthy(/const c = lightCentrePx\(scene, L, kPx\); at = `\$\{c\.x\},\$\{c\.y\}`;/.test(LIGHTING_SRC)
+  assert.truthy(/const c = lightCentrePx\(scene, L\); at = `\$\{c\.x\},\$\{c\.y\}`;/.test(LIGHTING_SRC)
     && /\$\{L\.id\},\$\{at\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
     'and frameKey names the lifted centre (and dyPx), so a lift that moves repaints');
   // No list, or an empty one, is a no-op — like collectFires with no fires.
@@ -847,7 +847,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
     'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
   const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
-  const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
+  const cull = body.indexOf('if (!inViewBox(dx, dy, lim)) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
   assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
@@ -859,7 +859,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // before that loop's cull, so its little glow can still show from a cell
   // off-screen.
   const wpOffer = body.indexOf('if (LIGHTS && wildplantLight(wp.crop)) LIGHTS.consider(scene, wp, dx, dy, halfM);');
-  const wpCull = body.indexOf('if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;', wpOffer);
+  const wpCull = body.indexOf('if (!inViewBox(dx, dy, halfM)) return;', wpOffer);
   assert.truthy(wpOffer > 0 && wpCull > wpOffer, 'mushrooms are offered BEFORE the wildplant cull');
   assert.truthy(/LIGHTS\.draw\(scene, pWorldX, pWorldY, halfM\);\s*$/.test(body),
     'the map is drawn last, from the camera anchor drawObjects measures with');
@@ -874,7 +874,7 @@ test('lighting: the map multiplies, the cookies add, and the plateau is per cell
   const L = LIGHTING_SRC;
   assert.truthy(/globalCompositeOperation = 'lighter'/.test(L), 'the cookies ADD');
   assert.falsy(/\brt\.|batchDraw\(|BlendModes\.ADD/.test(L), 'nothing goes through the render-texture batch');
-  assert.truthy(/ctx\.fillStyle = hex\(prof\.ambient\)/.test(L), 'the floor is the derived ambient');
+  assert.truthy(/ctx\.fillStyle = cssOf\(prof\.ambient\)/.test(L), 'the floor is the derived ambient');
   assert.truthy(/scene\.playerScreen\(\)/.test(L), 'the ramp is centred on the feet-on-the-fix point');
   assert.truthy(/tex\.refresh\(\)/.test(L), 'and the texture is refreshed each frame');
   // The plateau uses cellInReach's own expressions (whole cells from the reach

@@ -114,10 +114,11 @@ test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with 
   // whatever row it stood in — which is exactly what a layer of its own buys
   // you. It joins the pass the way the placed campfires and scarecrows do:
   // an item on filteredObj, which the z-order pass ranks by cell row.
-  assert.truthy(/const lampList = \(scene\._streetLamps \|\| \[\]\)\.map\(L => \(\{/.test(lampListSrc),
-    'the list comes off the one app.js keeps (scene._streetLamps)');
-  assert.truthy(/kind: '_streetlamp'/.test(lampListSrc), 'as items of its own RENDER_SPEC kind');
-  assert.truthy(/dx: L\.x - pWorldX, dy: L\.y - pWorldY/.test(lampListSrc),
+  // (placedAs is the pass's one builder for a placed thing drawn as a
+  // synthetic object kind — scarecrows, campfires and the lamps alike.)
+  assert.truthy(/const lampList = placedAs\(scene\._streetLamps \|\| \[\], '_streetlamp', 'lamp',/.test(lampListSrc),
+    'the list comes off the one app.js keeps (scene._streetLamps), as items of its own RENDER_SPEC kind');
+  assert.truthy(/cullToView\(list, pWorldX, pWorldY, halfM, \(p, dx, dy\) => out\.push\(\{/.test(render),
     'measured from the CAMERA ANCHOR the whole pass projects from — a peek carries the lamps with the ground');
   assert.truthy(/for \(const L of lampList\) filteredObj\.push\(L\);/.test(render),
     'and pushed onto filteredObj, which is what the z-order pass ranks');

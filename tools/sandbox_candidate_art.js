@@ -72,11 +72,11 @@ globalThis.applySandboxCandidates = async function (scene, plan) {
     ctx.drawImage(im,8,0,32,32);recolour(c,plan.hedge.palette,{strength:plan.hedge.strength,mode:plan.hedge.mode});
     scene.textures.addCanvas('audit_context_hedge',c);
     const original=Render.renderPool;
-    Render.renderPool=function(s,pool,container,list,configure){
+    Render.renderPool=function(s,pool,container,list,configure,create){
       return original(s,pool,container,list,(sprite,item)=>{
         configure(sprite,item);
         if(pool===s.plantedPool&&item.p?.crop==='shrub'&&[5,16].includes(item.p._biome))sprite.setTexture('audit_context_hedge');
-      });
+      },create);
     };
   }
   return {changed,ground:plan.ground,notes:plan.notes};
