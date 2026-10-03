@@ -81,9 +81,9 @@ Every named group is an explicit, tier-filtered list or a catalog query with cle
 | Farm animals | Chicken, cow, rabbit; equal weights among eligible entries |
 | Companion animals | Cat, dog, rabbit; equal weights among eligible entries |
 | Animal food | Existing cat/dog/rabbit feeding items, resolved from the feeding rules |
-| Recovery magic | Vigor T2; Elixir T6; food fallback at T1 |
+| Recovery magic | Healing potion T2; Elixir T6; food fallback at T1 |
 | Antidote | Antidote T1; one per chest |
-| Healing magic (protective locations) | Vigor weight 3, Revival weight 2, Resurrection weight 1; Elixir from T6; effective odds by tier are below |
+| Healing magic (protective locations) | Healing potion weight 3, Revival weight 2, Resurrection weight 1; Elixir from T6; effective odds by tier are below |
 | Revival magic | Revival weight 3, Resurrection weight 1; effective odds by tier are below |
 | Study magic | Reach weight 2, Raven weight 1, Shielding weight 1; effective odds by tier are below |
 | Raven / Shadow | Raven Potion and Shadow Powder; tier discipline makes them sequential rather than a live 50/50 choice |
@@ -108,8 +108,8 @@ The 14 theme rows in section 2 keep their stated reward-group percentages becaus
 | Saplings / acorns | T1: the theme fallback. T2-T3: Acorn 100%. T4-T6: Apple Sapling 100%. T7: Peach Sapling 100%. |
 | Farm animals | T1-T4: Chicken and rabbit 50% each. T5+: Cow 100%. |
 | Companion animals | T1: Dog and rabbit 50% each. T2+: Cat 100%. |
-| Recovery magic | T1: restorative-food fallback. T2-T5: Vigor 100%. T6+: Elixir 100%. |
-| Healing magic | T1: restorative-food fallback. T2-T4: Vigor 60%, Revival 40%. T5: Resurrection 100%. T6+: Elixir 100%. |
+| Recovery magic | T1: restorative-food fallback. T2-T5: Healing potion 100%. T6+: Elixir 100%. |
+| Healing magic | T1: restorative-food fallback. T2-T4: Healing potion 60%, Revival 40%. T5: Resurrection 100%. T6+: Elixir 100%. |
 | Revival magic | T1: restorative-food fallback. T2-T4: Revival 100%. T5+: Resurrection 100%. |
 | Study magic | T1: Book in schools, Torch elsewhere. T2: Reach 66.7%, Shielding 33.3%. T3+: Raven 100%. |
 | Raven / Shadow | T1: Flowers fallback. T2: Shadow Powder 100%. T3+: Raven 100%. |
@@ -117,7 +117,7 @@ The 14 theme rows in section 2 keep their stated reward-group percentages becaus
 
 Catalog-query groups - food, crop seeds, produce and animal food - apply the same highest-tier rule to their live catalog membership, then use `dropWeight` within that tier. The document does not freeze those changing percentages. Gear groups choose slots rather than item tiers and therefore do not use this filter.
 
-Healthcare gives recovery magic its own 35% group: Vigor at T2-T5, Elixir at T6+. This keeps immediate restoration separate from revival. Antidote has its own 25% group and remains eligible at every tier.
+Healthcare gives recovery magic its own 35% group: Healing potion at T2-T5, Elixir at T6+. This keeps immediate restoration separate from revival. Antidote has its own 25% group and remains eligible at every tier.
 
 Books have an explicit weight through their group; the old additional 70% school-favorite roll is removed for themed chests. The same applies to the old Torch favorite: one table owns its probability. Catalog `dropWeight` remains the default for groups without an explicit item weight.
 
@@ -144,7 +144,7 @@ The existing catalog has no T1 potions or powders; the proposed Antidote adds a 
 
 | Function | Current item tiers | Proposed gap handling |
 |---|---|---|
-| Immediate energy restoration | Food from T1; Vigor T2; proposed Elixir T6 | Food at T1; Vigor at T2–T5; Elixir at T6+ |
+| Immediate energy restoration | Food from T1; Healing potion T2; proposed Elixir T6 | Food at T1; Healing potion at T2–T5; Elixir at T6+ |
 | Revival while downed | Revival T2; Crow Feather T3; Resurrection T5 | Revival through T4; Resurrection from T5. T1 food is only a related fallback, not equivalent revival |
 | Damage protection | Shielding T2 | Food or field supplies at T1; retain Shielding above T2 |
 | Crop growth magic | Growth Powder T2 | Seeds/flowers/farm supplies at T1; retain Growth above T2 |
@@ -152,13 +152,13 @@ The existing catalog has no T1 potions or powders; the proposed Antidote adds a 
 | Magical flower growing | Sunflower seeds T4; Fireflower T5; Iceflower T6 | Ordinary flowers below T4; retain Iceflower at T7 |
 | Gems | Sapphire T4; Ruby T5; Emerald T6; Diamond T7 | Books/flowers/field supplies below T4, depending on theme |
 
-**A real gap remains:** food cannot revive a downed player in hard mode, and Vigor is not a substitute for a revival potion. This proposal does not promise functional revival in a T1 reward. Adding a new T1 revival item would be a separate balance decision; the existing Crow Feather is T3.
+**A real gap remains:** food cannot revive a downed player in hard mode, and a Healing potion is not a substitute for a revival potion. This proposal does not promise functional revival in a T1 reward. Adding a new T1 revival item would be a separate balance decision; the existing Crow Feather is T3.
 
 For a group with no eligible item, transfer that draw to the following fallback. Preserve the original group probability; do not reroll the entire chest or silently turn it into money.
 
 | Missing group | Fallback |
 |---|---|
-| Vigor / healing / revival magic, Honey | Restorative food |
+| Healing / revival magic, Honey | Restorative food |
 | Shielding | Restorative food for healthcare/worship; field supplies elsewhere |
 | Study magic / school gear | Book |
 | Raven / Shadow magic | Flowers |
@@ -209,11 +209,11 @@ Gear keeps its existing chest-tier roll, slot ownership checks and duplicate cas
 Examples, without quantity bonuses:
 
 - Acorns round up to fill the allowance, like magic rewards. At 5 coins each, a T2 Acorn draw pays two from its 8-coin budget; quantity brackets 1–3 pay three, four, and four.
-- A T1 healthcare draw resolves to restorative food; it cannot produce Vigor or Honey.
-- A T2 healing draw can pay one Vigor or Revival potion.
+- A T1 healthcare draw resolves to restorative food; it cannot produce a Healing potion or Honey.
+- A T2 healing draw can pay one Healing potion or Revival potion.
 - A T3 healing draw still pays one of those T2 potions: no unrelated Blight substitution.
-- A T4 Vigor draw pays two (`floor(70 / 35)`); a T4 Revival draw pays one (`floor(70 / 40)`).
-- A T5 revival draw pays one Resurrection potion. A T5 Vigor draw pays three Vigor potions. The separate groups preserve both recovery functions.
+- A T4 Healing potion draw pays two (`floor(70 / 35)`); a T4 Revival draw pays one (`floor(70 / 40)`).
+- A T5 revival draw pays one Resurrection potion. A T5 Healing potion draw pays three Healing potions. The separate groups preserve both recovery functions.
 - A high-tier school still pays one Book on a Book draw. Its other groups provide the tier-driven variety.
 
 The allowance curve and caps are proposed defaults. Simulation must report the resulting value changes before these settings ship; exact economic equivalence is not claimed.
@@ -297,7 +297,7 @@ These are the settings to review before implementation. The simulation report is
 
 ## 11. Poison, Antidote and Elixir
 
-This revision replaces the earlier candidates for extra Vigor potions, Wildflower Seeds and Glimmer Powder. None of those candidates are included.
+This revision replaces the earlier candidates for extra Healing potions, Wildflower Seeds and Glimmer Powder. None of those candidates are included.
 
 ### Poison from Purple Slimes
 
@@ -307,7 +307,7 @@ This revision replaces the earlier candidates for extra Vigor potions, Wildflowe
 - Poison damage bypasses armor and Shielding and does not scale with difficulty. Those still affect the initial bite; a fully prevented bite applies no poison.
 - Energy floors at zero; poison can down the player. While downed, the timer continues but ticks cannot take energy below zero. Reviving does not remove remaining poison.
 - Proposed timer policy: count active gameplay time only. Save remaining duration and the next-tick offset; pause while the app is suspended. No retroactive offline damage on return. Ordinary in-game inventory/dialog use does not pause it.
-- Food, Vigor, Elixir, resting and Home can restore energy under their usual rules but do not cure poison. It ends through expiry or Antidote.
+- Food, Healing potion, Elixir, resting and Home can restore energy under their usual rules but do not cure poison. It ends through expiry or Antidote.
 - Show a poison indicator with remaining time and `−1 energy / 2s`, a clear first-application message, and the normal energy-loss feedback. Keep countdown and tick values derived from the same condition definition.
 
 Implement a small data-driven condition module, initially with poison only. It owns application, refresh, ticking, curing and persisted state; enemy rows reference the condition. Route energy changes through `Energy.set`, not a second damage or energy store.
@@ -325,7 +325,7 @@ Implement a small data-driven condition module, initially with poison only. It o
 - Recommend T6: it gives recovery a new high-tier reward above the existing T5 Resurrection potion. Proposed value 360 gold; one per chest.
 - Instantly set energy to the player's current maximum, including permanent upgrades. No cooldown of its own; usable during the food cooldown without resetting or clearing that cooldown.
 - Proposed scope: use while standing. It does not revive or cure poison; preserve Resurrection's separate purpose. At full energy, keep the Elixir rather than wasting it.
-- Healthcare's recovery group chooses Elixir at rolled T6+, Vigor at T2–T5, and food at T1. Cave magic pools also include it from T6. Existing shop eligibility rules can include it without introducing guaranteed stock.
+- Healthcare's recovery group chooses Elixir at rolled T6+, Healing potion at T2–T5, and food at T1. Cave magic pools also include it from T6. Existing shop eligibility rules can include it without introducing guaranteed stock.
 - Its full refill uses the existing energy/reward/UI paths and a shared maximum-energy calculation.
 
 ## 12. Rarer seeds and slower magical flowers

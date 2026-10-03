@@ -326,12 +326,12 @@ class SceneConsumables {
   }
 
 
-  drinkVigorPotion() {
+  drinkHealingPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'healing_potion' || (sel.count ?? 0) <= 0) return false;
     const max = this.getMaxEnergy();
-    const restored = Math.min(VIGOR_POTION_ENERGY, max - (this.save.energy ?? 0));
-    Energy.set(this.save, (this.save.energy ?? 0) + VIGOR_POTION_ENERGY, max);
+    const restored = Math.min(HEALING_POTION_ENERGY, max - (this.save.energy ?? 0));
+    Energy.set(this.save, (this.save.energy ?? 0) + HEALING_POTION_ENERGY, max);
     if (restored > 0) this._popEnergy(restored);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return this._finishConsumable(

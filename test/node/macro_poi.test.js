@@ -138,13 +138,13 @@
   });
 
   // ── Inn ───────────────────────────────────────────────────────────────────
-  test('inn: the price is the Vigor potion\'s coins per energy × INN_RATE, and it rests once a day', () => {
-    assert.eq(VIGOR_POTION_ENERGY, 65, 'a Vigor restores 65');
-    assert.eq(Macros.innCoinsPerEnergy(), PRICES.healing_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE, 'derived');
+  test('inn: the price is the Healing potion\'s coins per energy × INN_RATE, and it rests once a day', () => {
+    assert.eq(HEALING_POTION_ENERGY, 65, 'a Healing potion restores 65');
+    assert.eq(Macros.innCoinsPerEnergy(), PRICES.healing_potion / HEALING_POTION_ENERGY * Macros.INN_RATE, 'derived');
     assert.eq(Macros.INN_RATE, 0.5, 'half the potion (the Book says "half")');
     assert.eq(Macros.innPrice(0), 0, 'nothing to rest');
     assert.eq(Macros.innPrice(1), 1, 'never under a coin');
-    assert.eq(Macros.innPrice(40), Math.ceil(40 * PRICES.healing_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE), 'a potion\'s worth');
+    assert.eq(Macros.innPrice(40), Math.ceil(40 * PRICES.healing_potion / HEALING_POTION_ENERGY * Macros.INN_RATE), 'a potion\'s worth');
     assert.lt(Macros.innPrice(40), PRICES.healing_potion, 'cheaper than the potion');
     const o = poi('lodging');
     const save = { energy: 30, money: 100 };

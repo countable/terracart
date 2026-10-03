@@ -159,14 +159,14 @@ test('eat cooldown: potions are exempt because they never go through the gate', 
     assert.eq(FOOD_ENERGY[id], undefined,
       `${id} carries no FOOD_ENERGY — it can never reach the Eat button`);
   }
-  const a = app.indexOf('drinkVigorPotion() {');
+  const a = app.indexOf('drinkHealingPotion() {');
   const b = app.indexOf('\n  }\n', a);
-  assert.truthy(a > 0 && b > a, 'found drinkVigorPotion in app.js');
+  assert.truthy(a > 0 && b > a, 'found drinkHealingPotion in app.js');
   const body = app.slice(a, b);
   assert.truthy(!/Energy\.canEat|Energy\.startEatCooldown/.test(body),
     'the energy potion neither checks nor arms the bite cooldown');
-  assert.truthy(/Energy\.set\(this\.save, \(this\.save\.energy \?\? 0\) \+ VIGOR_POTION_ENERGY, max\)/.test(body)
-    && VIGOR_POTION_ENERGY === 65,
+  assert.truthy(/Energy\.set\(this\.save, \(this\.save\.energy \?\? 0\) \+ HEALING_POTION_ENERGY, max\)/.test(body)
+    && HEALING_POTION_ENERGY === 65,
     'and it still restores on the spot');
 });
 // The foods with an extra effect (rainberry, pairy, coffee) keep tuning rows
