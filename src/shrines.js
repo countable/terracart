@@ -138,10 +138,20 @@
       scene._consumeFoodEffects('pairy', false, now);
       return true;
     }
-    const until = Math.max(leverUntil(save, row.lever, scene), now + row.durationMs);
+    return extend(save, row.lever, row.durationMs, now, scene);
+  }
+  // Pull `lever` for durationMs from now: its expiry becomes the later of its
+  // own and now + durationMs (never stacking in strength). The one writer
+  // of every lever — a shrine's grant above, and a potion that lends the
+  // same boon (app.js drinkHardworkingPotion pulls `work` for its own
+  // shorter spell) — so the two can never keep separate clocks.
+  function extend(save, lever, durationMs, now = Date.now(), scene = null) {
+    const L = LEVERS[lever];
+    if (!L || L.instant || !save) return false;
+    const until = Math.max(leverUntil(save, lever, scene), now + durationMs);
     if (L.save) save[L.save] = until;
     else if (L.scene) { if (scene) scene[L.scene] = until; }
-    else (save.boonUntil ||= {})[row.lever] = until;
+    else (save.boonUntil ||= {})[lever] = until;
     return true;
   }
 
@@ -162,6 +172,6 @@
 
   root.Shrines = {
     SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
-    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, boonFlash, normalize,
+    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, extend, boonFlash, normalize,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

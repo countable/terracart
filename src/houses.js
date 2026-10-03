@@ -59,10 +59,11 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // ONE TABLE for every card on the restore modal and for the Restored! card
   // that follows: the role string frozen into save.restoredHouses[id] (the
   // one thing every renderer, shop and story reader consults), the restore
-  // number it unlocks at (`from`), the painting, the card's one-line pitch
-  // (`pick`) and the Restored! card's blurb. The player-facing NAME is
-  // Shops.roleLabel (the sign, the card and the offer modal call it the same
-  // thing); `name` overrides it where the label is a line, not a building.
+  // number it unlocks at (`from`), the painting and the Restored! card's
+  // blurb (the pick card itself shows only the name and rarity badge). The
+  // player-facing NAME is Shops.roleLabel (the sign, the card and the offer
+  // modal call it the same thing); `name` overrides it where the label is a
+  // line, not a building.
   //   bookshop — stored as a 'market' plus save.bookshopId (shops.js lineFor
   //              sells the Book line off that stamp), so old readers of the
   //              role string never meet a new one.
@@ -78,13 +79,11 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // one per line on offer); each variant's fields lie over the row's.
   const BUILD_OPTIONS = Object.freeze([
     { key: 'plain', role: 'plain', from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
-      pick: 'A family moves back in and buys the produce they ask for.',
       blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
     // ONE SMITHY PER TIER (shops.js smithTier): the Nth blacksmith is tier N,
     // and after the first (the ladder's own slot) the next is offered only
     // from restore number N × SMITH_TIER_EVERY — a T2 smith from the tenth.
     { key: 'blacksmith', role: 'blacksmith', from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
-      pick: 'Forges tools and gear of its own rank, give or take one. The first wooden tools come from here.',
       blurb: 'A family returns to the forge. They offer to make the tools you need.',
       tier: (save) => Shops.nextSmithTier(save),
       offered: (save, order) => {
@@ -96,25 +95,20 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     // cycle's next line, then from the ninth rebuild a rotating pair), each a
     // variant with its `theme`; restoreAs stores the pick in save.shopLines.
     { key: 'market', role: 'market', from: STORY_RESTORES.market, art: 'restore_market',
-      pick: 'A shop selling one line of goods, priced at the village markup.',
       blurb: 'A family opens the market shutters again. ',
       variants: (save, order) => Shops.marketOffers(save, order).map(({ theme, tier }) =>
         ({ key: 'market:' + theme, theme, tier: () => tier })) },
     // Traders take the tier of the restore number that raises them (shops.js
     // traderTierAt): any number at a tier, a rank higher every five rebuilds.
     { key: 'trader', role: 'trader', from: STORY_RESTORES.trader, art: 'restore_trader',
-      pick: 'Barters goods for goods, two of theirs for one of yours, leaning toward wares of its rank.',
       blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.',
       tier: (save, order) => Shops.traderTierAt(order + 1) },
     { key: 'turret', role: 'turret', from: STORY_RESTORES.turret, art: 'castle_claim',
-      pick: 'A lone stone tower. Its archer looses arrows at foes that come near.',
       blurb: 'Masons raise a single tower on the old footings. An archer climbs to the battlement and strings a bow.' },
     { key: 'bookshop', role: 'market', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
-      pick: 'The book club’s backup supply. It sells Books, and only Books.',
       blurb: 'A family opens the market shutters again. Shelves of books line the walls.',
       offered: (save) => save.bookshopId == null },
     { key: 'wizard', role: 'wizard', from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
-      pick: 'The tower the old folk speak of. Someone inside may know what your memories mean.',
       blurb: 'You step into the tower. An old wizard asks about your memories.',
       offered: (save, order) => {
         const towers = wizardTowerIds(save);
