@@ -3252,9 +3252,10 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── What holds the BODY back from the fix ─────────────────────────────────
-  // ONE gate, two reasons (the movement block in update() reads it):
+  // ONE gate for movement holds and terrain speed caps (read by update()):
   //   pinned — a trap's jaw holds the body still (the `pinned` row of
   //            Conditions.DEFINITIONS, set by _tickTraps).
+  //   stun   — a jellyfish sting holds the same body gate for five seconds.
   //   capMS  — the feet are on a Burned Row's tar pit or iron stakes
   //            (_tickStreetFeet's `_slowHere`): the body may advance toward
   //            the target at no more than SLOW_BODY_M_S, so it falls behind
@@ -3264,10 +3265,11 @@ class MapScene extends Phaser.Scene {
   //            (A downed body does not walk anyway.)
   _bodyHold() {
     const pinned = Conditions.active(this.save, 'pinned');
+    const slow = this._walkHazardSlow ? this._walkHazardSlow() : this._slowHere;
     // An Ember Altar's boon (src/shrines.js 'surefoot') frees the feet like the dragon.
-    const capMS = (!pinned && this._slowHere && !this._dragonActive
+    const capMS = (!pinned && slow && !this._dragonActive
       && !Shrines.leverActive(this.save, 'surefoot')) ? SLOW_BODY_M_S : null;
-    return { pinned, capMS };
+    return { pinned: pinned || Conditions.active(this.save, 'jellyfish_stun'), capMS };
   }
 
   _tickTraps(dt) {
@@ -3425,9 +3427,9 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // Count only time actually walking through a sharp obstacle's occupied
-  // cell. Exact intervals catch briefly crossed cells and overlapping props
-  // count once. Fractional energy survives pauses without charging idle time.
+  // Sharp obstacles hurt on entry and throughout contact, including pauses.
+  // Exact intervals catch briefly crossed cells; overlapping props count once.
+  // Fractional mitigated damage carries between frames.
   _walkHazardCell(tx, ty, cx, cy) {
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry?._spawned) return 0;
@@ -3447,10 +3449,30 @@ class MapScene extends Phaser.Scene {
     return rate;
   }
 
+  _walkHazardSlow() {
+    if (this._slowHere === 'tar') return true;
+    if (!this.startWorldM) return false;
+    const p = this.playerToWorldCell();
+    if (this._walkHazardCell(p.tx, p.ty, Math.floor(p.cx), Math.floor(p.cy)) >= CHARRED_SPIKE_DAMAGE_PER_S) return true;
+    // Ordinary stakes keep their old slowdown without the charred spikes' damage.
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(p.tx, p.ty));
+    if (!entry?._spawned) return false;
+    const i = Math.floor(p.cy) * entry.cellsPerEdge + Math.floor(p.cx);
+    if (entry.slowCells?.get(i) !== 'stakes') return false;
+    const cleared = new Set([...(this.save.picked || []), ...(this.save.burnedObjects || [])]);
+    return (entry.objects || []).some(o => o.kind === 'stakes' && o._street !== 'burned'
+      && !cleared.has(o.id) && SpawnOwnership.tileCells(this, entry, o, p.tx, p.ty).includes(i));
+  }
+
   // Time-weighted contact damage rate for any moving body, in world metres.
-  _walkHazardExposure(x0, y0, x1, y1) {
+  _walkHazardExposure(x0, y0, x1, y1, visit) {
     if (!this.startWorldM) return 0;
-    if (x0 === x1 && y0 === y1) return 0;
+    if (x0 === x1 && y0 === y1) {
+      const p = worldMetersToTileCell(this, x0, y0);
+      const rate = this._walkHazardCell(p.tx, p.ty, p.ix, p.iy);
+      if (rate > 0) visit?.(`${p.tx},${p.ty},${p.ix},${p.iy}`, 0, 1, rate);
+      return rate;
+    }
     const a = worldMetersToTilePx(this, x0, y0), b = worldMetersToTilePx(this, x1, y1);
     const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
     if (!(length > 0)) return 0;
@@ -3476,6 +3498,15 @@ class MapScene extends Phaser.Scene {
         if (rate > 0) rates.set(`${ix},${iy}`, rate);
         return false;
       });
+      if (visit) {
+        for (const [key, rate] of rates) {
+          const [ix, iy] = key.split(',').map(Number), tx = Math.floor(ix / n);
+          const intervals = Streets.reachIntervals(line, 1, T / n, (x, y) => x === ix && y === iy);
+          for (const [start, end] of intervals) {
+            if (end > start) visit(`${tx},${ty},${ix - tx * n},${iy}`, lo + start / length, lo + end / length, rate);
+          }
+        }
+      }
       for (const rate of new Set(rates.values())) {
         const intervals = Streets.reachIntervals(line, 1, T / n,
           (ix, iy) => rates.get(`${ix},${iy}`) === rate);
@@ -3486,10 +3517,24 @@ class MapScene extends Phaser.Scene {
   }
 
   _tickWalkHazards(dt, x0, y0, x1, y1) {
-    if (!this.startWorldM || !(dt > 0) || Combat.playerDowned(this.save.energy)
-        || Conditions.damageImmune(this.save)) { this._walkHazardAccum = 0; return; }
-    const exposed = this._walkHazardExposure(x0, y0, x1, y1);
-    this._walkHazardAccum = (this._walkHazardAccum || 0) + exposed * dt;
+    if (!this.startWorldM || !(dt > 0)) return;
+    const contacts = [];
+    this._walkHazardExposure(x0, y0, x1, y1, (key, start, end, rate) => contacts.push({ key, start, end, rate }));
+    contacts.sort((a, b) => a.start - b.start);
+    let previous = this._walkHazardHere || null, end = 0, damage = 0;
+    for (const contact of contacts) {
+      if (contact.start > end + 1e-9) previous = null;
+      if (previous !== contact.key) damage += Combat.incomingDamage(this.save, WALK_HAZARD_ENTRY_DAMAGE);
+      damage += Combat.incomingDamage(this.save, contact.rate) * (contact.end - contact.start) * dt;
+      previous = contact.key;
+      end = contact.end;
+    }
+    this._walkHazardHere = end >= 1 - 1e-9 ? previous : null;
+    if (Combat.playerDowned(this.save.energy) || Conditions.damageImmune(this.save)) {
+      this._walkHazardAccum = 0;
+      return;
+    }
+    this._walkHazardAccum = (this._walkHazardAccum || 0) + damage;
     const pips = Math.floor(this._walkHazardAccum + 1e-9);
     if (pips > 0) {
       this._walkHazardAccum = Math.max(0, this._walkHazardAccum - pips);
@@ -4179,7 +4224,9 @@ class MapScene extends Phaser.Scene {
     // second reason — a cap on the follow step rather than a hold.
     const bodyHold = this._bodyHold();
     if (bodyHold.pinned) {
-      // held fast - no movement this frame
+      // Held still, but sharp ground continues hurting.
+      const x = this.startWorldM.x + this.playerM.x, y = this.startWorldM.y + this.playerM.y;
+      this._tickWalkHazards(dt, x, y, x, y);
     } else {
       // Stick → walk yourself off the GPS (costs stamina, boots-scaled).
       if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
@@ -4191,6 +4238,10 @@ class MapScene extends Phaser.Scene {
       const walkSeconds = this._followStep(dt, bodyHold.capMS);
       this._tickWalkHazards(walkSeconds ?? dt, this.startWorldM.x + walkX, this.startWorldM.y + walkY,
         this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y);
+      if (walkSeconds < dt) {
+        const x = this.startWorldM.x + this.playerM.x, y = this.startWorldM.y + this.playerM.y;
+        this._tickWalkHazards(dt - walkSeconds, x, y, x, y);
+      }
     }
     // One throttled flash for the stick-walking drain banked in _steerManual,
     // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
@@ -4801,7 +4852,7 @@ class MapScene extends Phaser.Scene {
         }
         if (slot === 'staff') {
           this._staffCharge = Math.max(0, Math.min(1,
-            1 - (due - now) / (Combat.fireIntervalMs(slot) * Combat.trainingIntervalMul(this.save))));
+            1 - (due - now) / (Combat.fireIntervalMs(slot) * Combat.playerAttackIntervalMul(this.save))));
         }
         if (now < due) continue;
         // Where this shot goes — the compass for the bow, the line to the
@@ -4837,7 +4888,7 @@ class MapScene extends Phaser.Scene {
         if (eCost && !this.spendEnergy(eCost)) continue;
         // A Speed hall shortens the beat (Combat.trainingIntervalMul); the
         // shot keeps its damage, so speed is more shots, not bigger ones.
-        this._nextShotT[slot] = now + Combat.fireIntervalMs(slot) * Combat.trainingIntervalMul(this.save);
+        this._nextShotT[slot] = now + Combat.fireIntervalMs(slot) * Combat.playerAttackIntervalMul(this.save);
         if (slot === 'staff') this._staffCharge = 0;
         // The tier sizes the shot too (a staff bolt grows with it — both its
         // sweep and its drawn dot, stamped on the shot by spawnShot).
@@ -4986,6 +5037,8 @@ class MapScene extends Phaser.Scene {
 
   _applyCondition(id) {
     const fresh = Conditions.apply(this.save, id);
+    this._syncAttackConditionSpeed();
+    if (fresh && id === 'jellyfish_stun') this.flashAtPlayer('Stunned! Attacks slowed.');
     if (fresh && id === 'burning') this.flashAtPlayer('🔥 You catch fire!');
     if (fresh && id === 'poison') {
       this.flashAtPlayer('Poisoned! Find an Antidote.');
@@ -4997,6 +5050,19 @@ class MapScene extends Phaser.Scene {
     }
     persistSave(this.save);
     this._syncStatusRow();
+  }
+
+  // Rescale an in-progress swing/shot when stun starts, expires or is cured.
+  _syncAttackConditionSpeed() {
+    const mul = Conditions.attackIntervalMul(this.save);
+    const ratio = mul / (this._conditionAttackIntervalMul || 1);
+    this._conditionAttackIntervalMul = mul;
+    if (ratio === 1) return;
+    const now = performance.now();
+    if (this._nextBlowT > now) this._nextBlowT = now + (this._nextBlowT - now) * ratio;
+    for (const slot of Object.keys(this._nextShotT || {})) {
+      if (this._nextShotT[slot] > now) this._nextShotT[slot] = now + (this._nextShotT[slot] - now) * ratio;
+    }
   }
 
   _tickConditions() {
@@ -5031,6 +5097,7 @@ class MapScene extends Phaser.Scene {
     if (burningExposure) this._ignitePlayer();
     const wasPinned = Conditions.active(this.save, 'pinned');
     const result = Conditions.tick(this.save, elapsed, { burningExposure });
+    this._syncAttackConditionSpeed();
     // A trap's pin that RUNS OUT (not one an Antidote pried open) tells the
     // "pried free" story once per save (a busy screen returns false
     // unmarked; the splash is lost that once, which is fine).
@@ -5169,6 +5236,7 @@ class MapScene extends Phaser.Scene {
   }
 
   _shotCanHit(target, shot) {
+    if (Combat.isBurrowed(target)) return false;
     if (shot.potionId) return target.id !== 'player';
     // Recheck at impact: an earlier flower in this same frame may have changed
     // the source's or target's allegiance since the target lists were built.
@@ -6284,7 +6352,7 @@ class MapScene extends Phaser.Scene {
       const py = this.startWorldM.y + this.playerM.y;
       const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
       if (inSwing && now >= this._nextBlowT) {
-        this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save)) * Combat.trainingIntervalMul(this.save);
+        this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save)) * Combat.playerAttackIntervalMul(this.save);
         // A blade to actually swing — bare hands (no sword owned) has none, so
         // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
         // The slash rides the blow itself now rather than its own throttle:

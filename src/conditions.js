@@ -17,7 +17,7 @@
   //             gains 5 s per second of exposure, up to 60 s; counts down
   //             away from fire. Each second costs floor(remaining seconds / 10)
   //             (burnTickLoss).
-  //   poison  — a purple slime's bite: 1 energy every 2 s for a minute; an
+  //   poison  — a purple slime or spider's bite: 1 energy every 2 s for a minute; an
   //             Antidote or Elixir draws it out.
   //   pinned  — a sprung trap's jaw (app.js _tickTraps): the body holds still
   //             (_bodyHold) for the row's duration; no drain of its own (the
@@ -27,6 +27,8 @@
       label: 'Burning', tint: 0xff8c42, flicker: true, ink: '#ffb36b', bg: '#2e1a0ee8' }),
     poison: Object.freeze({ durationMs: 60000, intervalMs: 2000, energyLoss: 1,
       label: 'Poison', tint: 0x9fdc8c, flicker: false, ink: '#d9b1ff', bg: '#22132ee8' }),
+    jellyfish_stun: Object.freeze({ durationMs: 5000, attackSpeedMul: 0.5,
+      label: 'Stunned', tint: 0x89d9ff, flicker: false, ink: '#b9eaff', bg: '#102a3ae8' }),
     pinned: Object.freeze({ durationMs: 3000,
       label: 'Pinned', tint: 0xb8bcc8, flicker: false, ink: '#d6dae6', bg: '#1c1f28e8' }),
   });
@@ -44,6 +46,9 @@
     return save.conditions;
   }
   function active(save, id) { return (save?.conditions?.[id]?.remainingMs || 0) > 0; }
+  function attackIntervalMul(save) {
+    return active(save, 'jellyfish_stun') ? 1 / DEFINITIONS.jellyfish_stun.attackSpeedMul : 1;
+  }
   function fireRemainder(save) {
     const value = save.fireDamageRemainder;
     return Number.isFinite(value) && value >= 0 && value < 1 ? value : 0;
@@ -184,5 +189,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, apply, cure, advanceBurn, burnTickLoss, damageImmune, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, attackIntervalMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

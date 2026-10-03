@@ -86,7 +86,13 @@ function tameInPlace(scene, save, target, flashMsg, flashIcon, flashScale) {
   const ty = Math.floor(target.y / scene.tileEdgeM);
   const tameId = releasedId(target.kind);
   save.released = save.released || [];
-  save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny });
+  const policy = Companions.releasePolicy(scene, target.x, target.y);
+  save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny, ...policy });
+  Object.assign(target, policy);
+  // A tame animal no longer belongs to its old hostile spawn or garrison.
+  for (const key of ['_surfaceSpawn', '_surfaceInactive', '_surfaceAskedT', 'lair', 'immobile',
+    'lairX', 'lairY', 'lairR', 'seatX', 'seatY', 'aggroCells', 'proximityCells',
+    '_wardFrom', '_hunting', '_chaseTarget', '_wanderOffUntilT']) delete target[key];
   target.id = tameId;   // convert the in-world creature in place → now tame
   scene.flashLoot(flashMsg, '#a7ffb0', flashScale, flashIcon);
   persistSave(save);
@@ -114,6 +120,7 @@ function petPickupItemId(c) {
   return c.kind;
 }
 function pickUpPet(scene, save, target, sx, sy) {
+  if (SpriteLayout.isSummoned(target.kind)) return false;
   const invId = petPickupItemId(target);
   const item = ITEM_BY_ID[invId];
   if (!item || item.kind !== 'animal') return false;
@@ -126,7 +133,20 @@ function pickUpPet(scene, save, target, sx, sy) {
   save.released = save.released || [];
   const ri = save.released.findIndex(r => r.id === target.id);
   const raised = !!(target.raised || (ri >= 0 && save.released[ri].raised));
+  if (ri >= 0 && raised) {
+    save.released[ri].hp = Combat.hp(target);
+    save.released[ri].lastDamagedAt = target._lastDamagedT ?? null;
+  }
   if (ri >= 0 && !raised) save.released.splice(ri, 1);
+  const tracked = scene._travellingPets?.get(target.id);
+  const entries = new Set([...WorldGen.tileCache.values(), tracked?.entry]);
+  for (const entry of entries) {
+    if (!entry?.creatures) continue;
+    for (let i = entry.creatures.length - 1; i >= 0; i--) {
+      if (entry.creatures[i].id === target.id) entry.creatures.splice(i, 1);
+    }
+  }
+  scene._travellingPets?.delete(target.id);
   scene.addToInv(invId, 1);
   scene.flashLoot(`+1 ${item.name || invId}`, raised || item.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
   persistSave(save);
@@ -729,7 +749,7 @@ const TAP_HANDLERS = [
     // distance to the body CENTRE so the most on-target animal wins overlaps.
     let target = null, bestD2 = Infinity;
     WorldGen.forEachItem('creatures', (c) => {
-      if (save.caught.includes(c.id)) return;
+      if (save.caught.includes(c.id) || Combat.isBurrowed(c)) return;
       // A SUMMONED ally (the spirit raven) is not a tap target: nothing to
       // catch, tame, feed or pet — a tap goes through it to whatever is there.
       if (SpriteLayout.isSummoned(c.kind)) return;
@@ -1117,6 +1137,25 @@ const TAP_HANDLERS = [
     if (bestWp) {
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
+      const rule = wildplantRule(wp.crop);
+      if (rule?.hazardMinTier && isWalkHazard(wp)
+          && (save.relics?.[rule.workRelic]?.tier || 0) < rule.hazardMinTier) {
+        const need = TIER_BY_NUM[rule.hazardMinTier].name;
+        scene.flash(`Need ${tierArticle(need)} ${need} ${rule.workRelic}.`, sx, sy);
+        return true;
+      }
+      const selected = getSelectedSlot(save);
+      if (rule?.disarmWithKit && selected?.id === 'trap_kit' && selected.count > 0) {
+        save.picked = [...(save.picked || []), wp.id];
+        const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
+        if (!kept) consumeSelected(save);
+        persistSave(save);
+        ctx.dirty = true;
+        scene.buildInventoryDOM();
+        scene.flash(`Dismantled. Kit ${kept ? 'kept' : 'used'}.`, sx, sy);
+        return true;
+      }
+      if (rule?.timber) return runWildplantTimber(ctx, wp);
       // What this wild plant DOES — what it drops, whether it hides a bonus,
       // which relic times its wheel and what that wheel costs — is one table
       // in items.js (WILDPLANT_RULES), read through the accessors below. It
@@ -1441,14 +1480,17 @@ const TAP_HANDLERS = [
       ? { raised: true, born: carried.born, favouriteFeeds: carried.favouriteFeeds || 0 }
       : isBaby ? { raised: true, born: Date.now(), favouriteFeeds: 0 } : {};
     const id = carried ? carried.id : releasedId(baseKind);
+    const policy = Companions.releasePolicy(scene, cwmx, cwmy);
     if (carried) {
-      Object.assign(carried, { x: cwmx, y: cwmy, tx, ty });
+      Object.assign(carried, { x: cwmx, y: cwmy, tx, ty, ...policy });
       save.caught = (save.caught || []).filter(cid => cid !== id);
     } else {
-      save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth });
+      save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth, ...policy });
     }
     if (entry && entry.creatures) {
-      entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem, ...birth }));
+      entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem, ...birth, ...policy,
+        ...(carried?.hp != null ? {_hp:carried.hp} : {}),
+        _lastDamagedT:carried?.lastDamagedAt ?? null }));
     }
     consumeSelected(save);
     ctx.dirty = true;

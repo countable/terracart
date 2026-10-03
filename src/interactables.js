@@ -67,6 +67,15 @@ function isBuilding(kind) {
   return kind === 'house' || kind === 'tower';
 }
 
+// Each ordinary surface chest keeps its disguise across reloads and visits.
+// A separate seeded stream leaves its loot and all world placement unchanged.
+function chestHidesMimic(o) {
+  return !!o && o.kind === 'chest' && !!o.id && !(o.depth > 0)
+    && !o.fixedLoot && !o.crate && !restocks(o) && !macroFor(o)
+    && !isPotOfGold(o) && !isBikeRack(o) && !isBarrel(o) && !produceStandFor(o)
+    && chestTier(o) === 2 && makeRng32(fnv1a(o.id + '#mimic'))() < 0.15;
+}
+
 // ---- Slow grind ------------------------------------------------------------
 // A tool job EXACTLY one tier out of reach (bare hands = tier 0 included) is
 // not refused outright: the player can choose to grind it out with what they
@@ -606,6 +615,14 @@ const INTERACTABLES = {
           return true;
         }
       } else if ((save.opened || []).includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
+      if (!held0 && chestHidesMimic(o) && scene._revealMimic?.(o)) {
+        // The disguise is spent before another tap can open it or roll loot.
+        // Defeating the revealed creature pays the ordinary monster reward.
+        (save.opened ||= []).push(o.id);
+        ctx.dirty = true;
+        scene.flash('The chest snaps at you!', sx, sy);
+        return true;
+      }
       // The hero glyph every ceremony below opens with: the sprite this chest
       // was standing as, off the SAME resolver render.js draws it from
       // (loot.js chestLook), so a crate opens under a crate and a trunk under
@@ -1213,10 +1230,10 @@ function toolGatedAlpha(o, save) {
   return isToolGated(o, save) ? TOOL_GATED_ALPHA : 1;
 }
 
-function runInteractable(ctx, o) {
+function runInteractable(ctx, o, definition) {
   if (setOf(ctx.save?.burnedObjects).has(o.id)) return 'skip';
   if (burnedGroundLookup(ctx.scene, ctx.save)?.(o)) return 'skip';
-  const def = INTERACTABLES[o.kind];
+  const def = definition || INTERACTABLES[o.kind];
   if (!def) return false;
   const { scene, save, sx, sy } = ctx;
 
@@ -1275,4 +1292,27 @@ function runInteractable(ctx, o) {
   // cost is passed through as the refund amount if the player cancels mid-work.
   startJob(durMs, cost || 0);
   return true;
+}
+
+
+// A timber wildplant shares tree work, retaining its own spent ledger and loot.
+function runWildplantTimber(ctx, plant) {
+  const timber = { ...plant, ...wildplantRule(plant.crop).timber };
+  const tree = INTERACTABLES.tree;
+  return runInteractable(ctx, plant, {
+    tool: tree.tool,
+    spent: (o, c) => isSpent(o, spentSets(c.scene, c.save)),
+    spentAction: 'skip',
+    gate: (_o, save) => tree.gate(timber, save),
+    tierShort: (_o, save) => tree.tierShort(timber, save),
+    energy: (save) => tree.energy(save, timber),
+    complete: ({ scene, save, sx, sy }, o) => {
+      save.picked = [...(save.picked || []), o.id];
+      const wood = randInt(2, 3) * treeWoodMul(timber);
+      scene.addToInv('wood', wood);
+      persistSave(save);
+      scene.flashLoot(`+${wood} ${itemName('wood')}`, undefined, 1, 'wood');
+      if (isShiny(o.id, SHINY_RATE.flora)) scene.awardShinyBonus('wood', sx, sy);
+    },
+  });
 }

@@ -125,8 +125,21 @@ test('trap pin (behaviour): while pinned, no movement step runs', () => {
   assert.eq(calls.drift, 0, 'no drift home while clamped');
   assert.eq(calls.target, 0, 'no keyboard steer while clamped');
   assert.eq(calls.follow, 0, 'no follow step while clamped');
-  assert.eq(calls.hazards, 0, 'walking hazards cannot charge while clamped');
+  assert.eq(calls.hazards, 10, 'sharp ground still damages the held body');
   assert.eq(calls.splashes.length, 0, 'and no freed splash yet');
+});
+
+test('jellyfish stun: every movement input is held for five seconds', () => {
+  const { scene, calls } = pinScene();
+  Conditions.apply(scene.save, 'jellyfish_stun');
+  Conditions.tick(scene.save, 4999);
+  moveStep.call(scene, { x: 1, y: 0 }, 1, 0, 1, 16);
+  assert.eq(calls.steer + calls.drift + calls.target + calls.follow, 0);
+  Conditions.tick(scene.save, 1);
+  moveStep.call(scene, { x: 1, y: 0 }, 1, 0, 1, 16);
+  assert.eq(calls.steer, 1);
+  assert.eq(calls.follow, 1);
+  assert.eq(calls.splashes.length, 0, 'stun expiry does not tell the trap story');
 });
 
 test('trap pin (behaviour): the row runs out on gameplay time, and movement resumes', () => {
