@@ -1341,7 +1341,7 @@ const PRICES = {
   shield_wood: 40, shield_metal: 160, shield_gold: 500,
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
-  berry_seed: 2, cress_seed: 1, onion_seed: 2, starfruit_seed: 4,
+  berry_seed: 2, cress_seed: 1, onion_seed: 2, starfruit_seed: 5,
   gemfruit_seed: 8, rockfruit_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 100,
   miracle_lettuce_seed: 80,
