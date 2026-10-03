@@ -27,6 +27,60 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   assert.truthy(/_worldIconUrl\(texKey, frame = 0\) \{[\s\S]{0,900}?drawImage\(src, fr\.cutX, fr\.cutY, fr\.width, fr\.height/.test(SCENE_SRC), 'a world icon is cut from the frame\'s rect');
 });
 
+test('build choice: type, tier price, back and final payment are separate steps', () => {
+  const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
+  const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4).trim();
+  const stock = { rubble: 100, magic_hammer: 1 };
+  const inventory = {
+    count: (save, id) => stock[id] || 0,
+    remove: (save, id, qty) => { stock[id] -= qty; },
+  };
+  const present = new Function('Houses', 'Shops', 'Inventory', 'ITEM_BY_ID', 'Render',
+    'CastleStyles', 'tierBadgeHTML', 'persistSave',
+    `return ({${body}}).presentWreckRestoreModal;`)(Houses, Shops, inventory, ITEM_BY_ID,
+      { houseTextureKey: () => 'house' }, { get: () => ({ towerFrame: 0 }) },
+      (tier) => `quality-${tier}`, () => {});
+  let modal;
+  const scene = {
+    save: { restoredHouses: { first: 'plain' } },
+    showOfferModal: (offer) => { modal = offer; },
+    iconSpanHTML: () => '', worldIconHTML: () => '', flash() {},
+    _clampSelSlot() {}, _houseBlastGeometry: () => ({ x: 0, y: 0 }),
+    _blastAt() {}, buildInventoryDOM() {}, questEvent() {}, _afterWreckGather() {},
+  };
+  const house = { kind: 'house', tier: 9, id: 'new' };
+  present.call(scene, 0, 0, house);
+  assert.eq(modal.acceptLabel, 'Next');
+  assert.truthy(modal.choices.every((c) => c.cost == null && !c.label.includes('quality-')));
+  assert.eq(modal.secondary, undefined, 'hammer is only offered at confirmation');
+  modal.onAccept('blacksmith');
+  assert.eq(scene.save.restoredHouses.new, undefined, 'Next does not restore');
+  assert.eq(stock.rubble, 100, 'Next does not charge');
+  assert.eq(modal.acceptLabel, 'Restore');
+  const smith = Houses.buildOptions(scene.save, house).find((r) => r.key === 'blacksmith');
+  const cost = Houses.buildCost(scene.save, house, smith);
+  assert.truthy(modal.choices[0].label.includes('quality-1'));
+  assert.truthy(modal.choices[0].cost.startsWith(`${cost.qty}×`));
+  assert.truthy(modal.secondary.takes('blacksmith'));
+  modal.onCancel();
+  assert.eq(modal.choice, 'blacksmith', 'Back retains the building pick');
+  modal.onAccept('plain');
+  assert.falsy(modal.secondary.takes('plain'));
+  modal.onCancel();
+  stock.rubble = 0;
+  modal.onAccept('blacksmith');
+  assert.falsy(modal.choices[0].canAfford, 'unaffordable rank still displays its price');
+  modal.onAccept('blacksmith');
+  assert.eq(scene.save.restoredHouses.new, undefined, 'unaffordable confirmation never restores');
+  stock.rubble = 100;
+  modal.onCancel();
+  modal.onAccept('blacksmith');
+  modal.onAccept('blacksmith');
+  assert.eq(scene.save.restoredHouses.new, 'blacksmith');
+  assert.eq(stock.rubble, 100 - cost.qty, 'only the confirmed price is charged');
+  assert.eq(stock.magic_hammer, 1, 'normal Restore keeps the hammer');
+});
+
 test('build choice: the offer modal has a choice row that pays only the selected card', () => {
   const sig = /showOfferModal\(\{[^)]*choices, choice = null, pickHint = 'Tap one to see what it does' \}\)/;
   assert.truthy(sig.test(MODAL_SHELL_SRC), 'choices / choice / pickHint are parameters');

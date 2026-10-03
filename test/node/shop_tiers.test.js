@@ -49,6 +49,6 @@ test('shop tiers: the lean halves per rank away, and the trader draws through it
   assert.truthy(/const tier = role === 'market' \? this\.marketTheme\(house\)\.tier : Shops\.shopTier\(this\.save, house, role\);/.test(SCENE_SRC), 'the offer blurb badge');
   assert.truthy(/const tier = role === 'market' \? scene\.marketTheme\(house\)\.tier : Shops\.shopTier\(scene\.save, house, role\);/.test(RENDER_SRC), 'the map badge');
   assert.truthy(/const tier = Shops\.shopTier\(this\.save, house, row\.role\) \|\| 0;/.test(SCENE_SRC), 'the Restored! card');
-  assert.truthy(/tierBadgeHTML\(tierOf\(row\), 11\)/.test(SCENE_SRC), 'and the restore card itself');
+  assert.truthy(/const tier = tierOf\(row\);/.test(SCENE_SRC) && /tierBadgeHTML\(tier, 11\)/.test(SCENE_SRC), 'and the second-step restore card');
 });
 })();
