@@ -902,8 +902,8 @@ const ITEMS = [
   // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
   // from the rod's loot table at small weight; mostly a flavour moment.
   { id: 'boot',         name: 'Old Boot',     kind: 'produce' },
-  // Scarecrow — placeable on tillable cells. Wild deer (the crop raider)
-  // and crows steer around it (4-cell aversion radius in wanderCreatures).
+  // Scarecrow — placeable on tillable cells. Wild deer and crows (the
+  // crop raiders) steer around it (4-cell aversion radius in wanderCreatures).
   // Stack of N can be deployed across the farm.
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'supply' },
   // Wild mushroom (forest debris, pickable)

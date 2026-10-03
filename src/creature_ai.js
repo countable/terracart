@@ -806,13 +806,17 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
 // How long a departing crow keeps flying away (_crowDepart): [base, spread]
 // ms, so ~2.5–4 minutes — once the player starts hunting it.
 const CROW_DEPART_MS = [150000, 90000];
-// How far a CROP RAIDER (the deer — SpriteLayout `raidsCrops`) notices a
+// How far a CROP RAIDER (the deer or the crow — SpriteLayout `raidsCrops`) notices a
 // planted crop it may eat, in cells (wanderCreatures raidStep): the on-screen
 // sim range, so it spots a field from across the viewport but not from the
 // next street. It does not teleport in — every step is its own gait's — so a
 // far deer visibly walks toward the beds. A dispatched pest (isPest) has no
 // limit: it was sent at the field.
 const RAID_NOTICE_CELLS = 8;
+// How many perch cycles a crow sits ON a crop before it is eaten
+// (_wildCrowTick): the first landing starts the count, each landing on the
+// same crop spends one. The player's window to net, scare or set a pet on it.
+const CROW_RAID_PERCHES = 2;
 // THE HUNT IS TIMED, NOT ROLLED (owner, Sep 2026: "a 50/50 chance with a T1
 // net, depending on timing, standing right on it"). A hunted crow does NOT
 // bolt the instant the wheel starts — it keeps its own rhythm, finishes the
