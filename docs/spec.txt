@@ -1439,7 +1439,11 @@ ECONOMY (buying & selling)
    save.shinyHouses) and everything it sells is HAMMER_PRICE_MUL (0.8) of the
    quote for good, the trader's asking stack included (Houses.priceMul; the
    flower charm's hour and a carried guild badge stack on it). It is the one
-   standing discount a building carries. A BLACKSMITH and a TRADER carry a tier too
+   standing discount a building carries. A shiny TURRET fights instead: its
+   arrows deal double (Combat.turretShot through the shiny powerMul) and fly
+   as light (a gold streak with a halo, lit on the bolt lane). A plain HOUSE
+   takes no hammer (Houses.hammerTakes): the With Hammer button greys on its
+   card and restoreAs never stamps it. A BLACKSMITH and a TRADER carry a tier too
    (shops.js smithTier / traderTier, off the ledger): ONE SMITHY PER TIER — the
    Nth raised is tier N, and after the first the card for the next is offered
    only from restore number N × SMITH_TIER_EVERY (5); its anvil forges within

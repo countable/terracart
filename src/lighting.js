@@ -1009,6 +1009,11 @@
   // that radius, not the row's, so a Frost bolt's wider light isn't dropped
   // at the edge of the view.
   //
+  // A SHINY TURRET'S ARROW (Combat.turretShot, `shiny` — no dot, it is a
+  // streak) rides the same lane: the bolt row at the shiny row's radius and
+  // peak, in the arrow's own gold, so the light the tower was raised with
+  // crosses the ground with its shot.
+  //
   // Paint only: brightnessAt does not call this. A bolt is a fleeting thing
   // crossing the view, and what "stands in the light" (the ghost) must not
   // start answering to the player's own gunfire as a side-effect of a look.
@@ -1019,16 +1024,18 @@
     const liftPx = (typeof SHOT_DRAW_LIFT_PX !== 'undefined') ? SHOT_DRAW_LIFT_PX : 0;
     let n = 0;
     for (const s of list) {
-      if (!s || !s.dotPx || s.hostile) continue;
+      if (!s || s.hostile || !(s.dotPx || s.shiny)) continue;
       const dx = s.x - ax, dy = s.y - ay;
       const C = (typeof Combat !== 'undefined') ? Combat : null;
-      const r = radiusCells('bolt') * (C ? C.boltScale(s.slot, s.tier) : 1);
+      const shinyArrow = !s.dotPx && !!s.shiny;
+      const r = shinyArrow ? radiusCells('shiny')
+        : radiusCells('bolt') * (C ? C.boltScale(s.slot, s.tier) : 1);
       const pad = r * scene.cellM;
       if (Math.abs(dx) > halfM + pad || Math.abs(dy) > halfM + pad) continue;
       if (s._lightId == null) s._lightId = `bolt_${++boltSeq}`;
       scene._lights.push({ kind: 'bolt', dx, dy, dyPx: -liftPx, id: s._lightId,
         r, colour: s.color != null ? s.color : undefined,
-        a: C ? C.boltGlow(s.slot, s.tier) : undefined });
+        a: shinyArrow ? KINDS.shiny.peak : (C ? C.boltGlow(s.slot, s.tier) : undefined) });
       n++;
     }
     return n;

@@ -142,8 +142,20 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // discount a BUILDING carries: the relic-tier price bends are gone (items.js
   // buyMarkupRange). The flower charm's hour and a carried guild badge
   // (items.js guildDiscounted) still stack on top.
+  // A SHINY TURRET (owner, Oct 2026) fights harder instead: its arrows deal
+  // double (Combat.turretShot reads the shine through the same powerMul a
+  // shiny creature does) and fly as light (Combat.SHINY_ARROW_COLOR, the
+  // bolt lane in lighting.js collectBolts). A plain HOUSE takes no hammer at
+  // all (hammerTakes): it sells nothing and shoots nothing, so there would
+  // be nothing for the shine to do — the dialog's With Hammer button sits
+  // disabled on that card, and restoreAs will not stamp it.
   const HAMMER_ID = 'magic_hammer';
   const HAMMER_PRICE_MUL = 0.8;
+  // Can this card be raised under the hammer? Every role that trades or
+  // fights; never the plain House.
+  function hammerTakes(row) {
+    return !!row && row.role != null && row.role !== 'plain';
+  }
   function isShinyHouse(save, house) {
     return !!(house && house.id != null && save && save.shinyHouses && save.shinyHouses[house.id]);
   }
@@ -210,7 +222,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (typeof save.restoredHouses[house.id] === 'string') return null;   // never relabel a restored house
     save.restoredHouses[house.id] = row.role;
     if (row.theme) (save.shopLines = save.shopLines || {})[house.id] = row.theme;
-    if (opts.hammer) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
+    if (opts.hammer && hammerTakes(row)) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
     if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
     if (row.key === 'bookshop') registerBookshop(save, house);
     if (row.role === 'wizard') registerWizardTower(save, house);
@@ -449,7 +461,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
     BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
-    HAMMER_ID, HAMMER_PRICE_MUL, isShinyHouse, priceMul,
+    HAMMER_ID, HAMMER_PRICE_MUL, hammerTakes, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,
     shopCharmMul,
