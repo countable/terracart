@@ -270,7 +270,7 @@ function padShapeKeyForPoi(poiClass) {
 // chest colour and receives a roll from that displayed tier.
 //
 // Density no longer sets a chest tier. CHEST_DENSITY_T1_AT survives as the
-// restock unit: it controls how long recurring crates and barrels stay bare.
+// restock unit: it controls how long recurring crates stay bare.
 const CHEST_DENSITY_T1_AT = 25;
 // A chest with no stamp — a hand-placed or scripted one (the sandbox, a test
 // fixture), or an object read before its tile finished building — rolls at
@@ -351,7 +351,7 @@ function chestTier(o) {
   return Math.min(chestTierMaxFor(d), chestBaseTier(o) + chestTierDepthBonus(d) + chestTierZoneBonus(nexus));
 }
 
-// ── Restocking: how long a taken CRATE (or BARREL) stays bare ──────────────
+// ── Restocking: how long a taken CRATE stays bare ──────────────
 // A crate refills (interactables.js restocks) — but a type the tile is FULL
 // of must not be a fountain. It stands bare for crateRestoreDays UTC days
 // after it is taken: floor(count / CRATE_RESTORE_PER), at least one day and
@@ -362,8 +362,7 @@ function chestTier(o) {
 // fewer than 2 × CRATE_RESTORE_PER on the tile restocks daily, and every
 // further CRATE_RESTORE_PER of its kind adds a day: 50-74 every 2 days, …
 // 175+ once a week. So a class hands back at most ~2 × CRATE_RESTORE_PER of
-// its crates a day per tile however many the tile holds. A barrel reads the
-// same rule: a lone bin smashes daily.
+// its crates a day per tile however many the tile holds.
 const CRATE_RESTORE_PER = CHEST_DENSITY_T1_AT;
 const CRATE_RESTORE_MAX_DAYS = 7;
 function crateRestoreDays(o) {
@@ -372,8 +371,8 @@ function crateRestoreDays(o) {
 }
 
 // ── BREAKABLE CONTAINERS ────────────────────────────────────────────────
-// Appearance and loot share a stable identity. Both use the crate restock
-// ledger, but density changes only restock time, never these drop chances.
+// Appearance and loot share a stable identity. Both are smashed permanently;
+// density never changes these drop chances.
 // Generated containers (barrel: true) use the same profiles as bin POIs.
 const BARREL_LOOT = [
   { kind: 'empty', w: 0.7 },
@@ -826,8 +825,7 @@ function macroFor(o) {
 //   coin   → the pot of gold: an ATM (isPotOfGold). A cave-level mirror of
 //            one is a plain chest — the burst is a street thing.
 //   bike   → the bike rack (isBikeRack): a stick-walk speed boost a day
-//   barrel → a bin or recycling point (isBarrel): smashed, restocks like a
-//            crate. The look carries a stable barrel or clay-pot pair;
+//   barrel → a bin or recycling point (isBarrel): smashed permanently. The look carries a stable barrel or clay-pot pair;
 //            render.js swaps texKey for smashedKey while it is spent.
 //   wagon  → the broken wagon: a bus stop on an OLD TRADE ROAD (a MAJOR way —
 //            StreetVariants.markBanditStops stamps `banditStop`). The same

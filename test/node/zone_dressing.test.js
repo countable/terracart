@@ -13,6 +13,20 @@
   }
   const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
   const finds = out => all(out).filter(o => o.zoneLayer === 'find');
+  test('Sacred Grove: ordinary harmless bushes and trees without authored enemies', () => {
+    const out = ZoneDressing.dress(context('sacred_grove'));
+    const bushes = out.wildplants.filter(o => o.crop === 'shrub');
+    assert.gt(bushes.length, 100);
+    assert.truthy(bushes.every(o => wildplantSprite(o) === CROP_SPRITE.shrub));
+    assert.truthy(bushes.every(o => walkHazardDamageRate(o) === 0));
+    assert.gt(out.objects.filter(o => o.kind === 'tree').length, 0);
+    assert.eq(out.guards.length, 0);
+    assert.eq(out.traps.length, 0);
+    assert.falsy(all(out).some(o => o.kind === 'plant' || o._plantArt === 'bramble'));
+    assert.eq(finds(out).length, 1);
+    assert.eq(Shrines.kindForZoneVariant('sacred_grove'), 'moss_cairn');
+    assert.gt(ZoneDressing.dress(context('ancient_grove')).guards.length, 0, 'the dangerous variant remains available');
+  });
   test('selected zone objects: replacements keep their own role and sparse props respect occupancy', () => {
     const garden = ZoneDressing.dress(context('stone_garden'));
     const pillars = garden.objects.filter(o => o._zoneObjectFrame === 1);

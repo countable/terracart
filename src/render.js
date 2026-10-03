@@ -2887,8 +2887,8 @@ Render.drawObjects = function drawObjects(scene) {
   const openedSet = setOf(scene.save.opened);
   // The day ledger (interactables.js dayLedgerAges — id → days since taken):
   // a pot of gold, a courier's post, the chapel's blessing or a grove shrine's gift
-  // taken TODAY, or a crate / barrel inside its restock days — unlit (and a
-  // pot, rack or crate hidden, a barrel smashed) until it comes back.
+  // taken TODAY, or a crate inside its restock days — unlit (and a
+  // pot, rack or crate hidden) until it comes back.
   const burstSet = dayLedgerAges(scene.save);
   // The frame's spent sets, built ONCE and handed to isSpent (the sprite cull
   // below) and poiLit (the POI light) alike.
@@ -3192,7 +3192,7 @@ Render.drawObjects = function drawObjects(scene) {
   // also what a looted trunk chest has always done, so both tiers now behave
   // the same. (The tap target survives either way — interactables.js still
   // flashes "Picked clean already."; the pad + label persist via objList.)
-  // A spent BARREL is not dropped: it stands SMASHED until it restocks (one
+  // A spent BARREL is not dropped: it stays SMASHED permanently (one
   // art per state — the chest spec's key reads the flag stamped here, once
   // per frame, off the same isSpent every other object is culled by).
   const filteredObj = objList.filter(({ o }) => {
@@ -4685,7 +4685,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // opened chest never reaches the renderer (filtered out above), so a
     // crate is either closed or gone. The one exception is the BARREL, which
     // is never dropped: spent, its barrel or clay pot stands smashed (o._smashed,
-    // stamped by the filter) until it restocks — one art per state.
+    // stamped by the filter) permanently — one art per state.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects each tier's recoloured chest frame and
               // the produce stand's awning. Procedural pots of gold have no frame.

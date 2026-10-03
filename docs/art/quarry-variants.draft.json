@@ -52,7 +52,7 @@
       "hazardsDescription": "Surviving doorways stay open; chests and clay pots use free ground inside the foundations.",
       "guardsDescription": "Up to three goblins per complete site, using normal enemy eligibility and defeat persistence.",
       "lightingDescription": "No special light source: a quiet, watchful ruin.",
-      "persistenceDescription": "Looted chests and defeated fixed guards stay cleared. Clay pots use their ordinary rewards and restoration rules. Foundation stones remain harvestable under the usual rock rules."
+      "persistenceDescription": "Looted chests and defeated fixed guards stay cleared. Smashed clay pots stay smashed permanently. Foundation stones remain harvestable under the usual rock rules."
     }
   ],
   "settingsSource": "docs/zone-variants.json:quarryLayouts"

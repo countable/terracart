@@ -88,10 +88,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   now only feeds restock days and the pots of gold. Breakable pots and
   barrels select their loot by stable appearance (`barrelProfile`), not
   density.
-- Chests give ONCE (`save.opened`), except what recurs: crates and barrels
+- Chests give ONCE (`save.opened`), including smashed pots and barrels. Crates
   (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
   to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
-  grove shrines daily. All take the one day ledger (`Macros.markToday` — it
+  grove shrines daily. Recurring sites take the one day ledger (`Macros.markToday` — it
   keeps a week; `usedToday` / `stillBare` / `restockWaitMs` read it) and glow
   while available (`poiLit`); a refusal prints the wait via `shortDuration`. A
   new recurring thing joins that ledger and that glow, never a list of its own.
@@ -146,7 +146,13 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   (creature_ai.js `creatureSpawnClass`: fast = top speed over
   `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
   reason bit plus its column in the table, never a separate check at a
-  spawner. POI chests are the place itself (`landRefused` —
+  spawner. Authored Thorny Path and Barricade Road cross-sections are the
+  narrow exception: `streetObstacle` may occupy explicitly declared cells
+  of its own road band. Thorny paths cross minor roads only; removable
+  barricade/spike lines also cross their own major band and kerb. Both keep
+  private, quiet, restricted, water/building and occupancy exclusions. Ordinary
+  spawn classes cannot use that declaration to cross a road.
+  POI chests are the place itself (`landRefused` —
   land reasons only). The live Overpass fence veto (`privateVetoAt`) is for per-player
   things only and fails open. Road terrain alone misses drawn roads; the mask uses
   `WorldGen.roadOverlayWidthM` and masks cells when the drawn bands cover

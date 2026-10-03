@@ -2645,6 +2645,362 @@
       }
     },
     {
+      "id": "sacred_grove",
+      "zone": "grove",
+      "name": "Sacred Grove",
+      "weight": 1,
+      "background": {
+        "repeatCells": [
+          6,
+          6
+        ],
+        "slots": [
+          {
+            "at": [
+              2,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              3
+            ],
+            "material": "tree"
+          },
+          {
+            "at": [
+              4,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              5
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              5
+            ],
+            "material": "grass"
+          }
+        ],
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "orientation": "quarter_turn_toward_approach",
+        "nominalDensity": 0.6,
+        "materialDensity": {
+          "shrub": 0.5,
+          "grass": 0.07222222222222222,
+          "tree": 0.027777777777777776
+        },
+        "type": "repeat_motif",
+        "cluster": {
+          "centerCell": [
+            3,
+            3
+          ],
+          "shape": "rounded_concentric_rings",
+          "outerRadiusSquaredCells": 6,
+          "layers": [
+            {
+              "radiusCells": 0,
+              "material": "tree"
+            },
+            {
+              "radiusCells": 1,
+              "material": "shrub"
+            },
+            {
+              "outerRadiusSquaredCells": 6,
+              "material": "shrub"
+            }
+          ]
+        },
+        "poiOrigin": {
+          "cell": [
+            3,
+            3
+          ],
+          "role": "cluster_center_replacing_center_tree"
+        },
+        "gapScatter": {
+          "material": "grass",
+          "chance": 0.04,
+          "placement": "empty_motif_cells_only",
+          "seed": "anchor_variant_global_cell"
+        },
+        "densityBasis": "fixed_cluster_plus_expected_gap_scatter"
+      },
+      "poi": {
+        "id": "stone_tree_ring",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "tree"
+          },
+          {
+            "at": [
+              0,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "tree"
+          },
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "tree"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "tree"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "tree"
+            },
+            {
+              "at": [
+                -2,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                2
+              ],
+              "material": "tree"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap",
+        "composition": {
+          "replaceBackgroundAt": "poi_cell_and_declared_slots_only",
+          "preserveUntouchedNeighbors": true
+        }
+      },
+      "finds": {
+        "rarity": "rare",
+        "material": "star",
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              0,
+              0.65
+            ]
+          }
+        ],
+        "spawnClass": "attractor",
+        "owner": "anchor",
+        "relocation": {
+          "unit": "group",
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "count": 1
+      },
+      "connection": {
+        "shape": "stepping_stones",
+        "material": "stone",
+        "spacingCells": 3,
+        "from": "poi",
+        "to": "finds",
+        "withinCoverageBudget": true,
+        "crossMajorRoad": false
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "Old trees shelter soft bushes and patches of grass. Stone markers lead from the quiet shrine to a starflower.",
+      "attracts": {
+        "deer": 0.6
+      }
+    },
+    {
       "id": "stone_garden",
       "zone": "stones",
       "name": "Stone Garden",

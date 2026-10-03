@@ -536,18 +536,15 @@ const INTERACTABLES = {
       if (Macros.visitKindForObject(o) === Macros.DAILY_VISIT_KINDS.wagon) {
         return Macros.hireMercenary(ctx, o);
       }
-      // A BARREL (loot.js isBarrel — a bin or a recycling point): SMASHED,
-      // not opened. It restocks like a crate (crateRestoreDays, the day
-      // ledger) and while it is bare it stands smashed (render.js). What it
-      // holds is its own tiny roll (rollBarrel) — often nothing — told in one
-      // map line, never the chest ceremony.
-      if (isBarrel(o) && typeof Macros !== 'undefined') {
-        const days = crateRestoreDays(o);
-        if (Macros.stillBare(save, o.id, days)) {
-          scene.flash(`Smashed. Back in ${shortDuration(Macros.restockWaitMs(save, o.id, days))}.`, sx, sy);
+      // Pots and barrels smash once. Keep their broken remains and record
+      // the take in the permanent chest ledger, including empty rolls.
+      if (isBarrel(o)) {
+        save.opened ||= [];
+        if (save.opened.includes(o.id)) {
+          scene.flash('Already smashed.', sx, sy);
           return true;
         }
-        Macros.markToday(save, o.id);
+        save.opened.push(o.id);
         ctx.dirty = true;
         const got = rollBarrel(o);
         if (got.kind !== 'empty') Rewards.apply(save, got, scene);
@@ -1013,7 +1010,7 @@ INTERACTABLES.stronghold_wall = INTERACTABLES.mineralrock;
 // was last taken (0 = today), for every take the ledger still keeps. Plain
 // ids cover crates and recurring gifts; `macro:` ids cover services such as
 // the chapel's blessing (macros.js). A pot of gold, a bike rack and a shrine's gift are
-// spent while theirs is 0; a crate or a barrel while it is under its own
+// spent while theirs is 0; a crate while it is under its own
 // crateRestoreDays. Keys are the id plus an 8-digit day, so the id is all
 // but the last eight characters.
 function dayLedgerAges(save) {
@@ -1081,7 +1078,7 @@ function chestNeverSpent(o) {
 // keeps a dense city from being a fountain). What comes back is the CRATE — a
 // surface POI chest wearing the crate look (loot.js chestLook `box`: tier 1,
 // i.e. one the tile's quota pyramid left unseated, with no nexus bonus)
-// — and the BARREL (a bin, loot.js isBarrel), never a starter supply crate
+// — never a starter supply crate
 // (`o.crate`, fixedLoot), never a cave copy (depth / caveOf), never a wagon,
 // stall, macro, pot of gold or bike rack. Taking one is written to the DAY LEDGER
 // (Macros.markToday — save.coinBurstClaimed[id + dayKey], kept a week), the
@@ -1093,13 +1090,13 @@ function chestNeverSpent(o) {
 // Crate availability reads the day ledger, independently of save.opened.
 // X marks, headstones, trunks, nexus chests and cave chests never restock.
 // Wagons and daily visit sites share the day ledger and glow through their
-// own visit predicate, rather than this crate/barrel schedule.
+// own visit predicate, rather than this crate schedule.
 function restocks(o) {
   if (!o || o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) return false;
   if (o.depth > 0 || o.caveOf) return false;
   if (typeof chestLook !== 'function') return false;
   const L = chestLook(o);
-  if (L.barrel) return true;
+  if (L.barrel) return false;
   return !!(L.box && !L.stand && !L.coin && !L.bike && !L.macro && !L.wagon);
 }
 function isSpent(o, sets) {
@@ -1111,10 +1108,11 @@ function isSpent(o, sets) {
     // macroFor) are never spent: a counter is not a chest, and an id a save
     // put in save.opened while that POI was still a crate, or in the day
     // ledger for the inn's rest, leaves the building standing.
-    // A crate or a barrel (restocks) is spent by the day ledger ALONE, for
-    // its crateRestoreDays — a spent barrel still STANDS, smashed (render.js).
+    // A recurring crate uses the day ledger; smashed pots and barrels use
+    // save.opened forever and remain visible as broken art (render.js).
     case 'chest': {
       if (chestNeverSpent(o)) return false;
+      if (isBarrel(o)) return sets.opened.has(o.id);
       if (restocks(o)) {
         const age = sets.burst ? sets.burst.get(o.id) : undefined;
         return age !== undefined && age < crateRestoreDays(o);
@@ -1130,6 +1128,7 @@ function isSpent(o, sets) {
     case 'mineralrock': return sets.broken.has(o.id);
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
+    case 'stakes':
     case 'groundstack': return sets.picked.has(o.id);
     // A message bottle is picked up as it is read (INTERACTABLES.bottle).
     case 'bottle':      return sets.opened.has(o.id);
@@ -1149,7 +1148,7 @@ function isSpent(o, sets) {
 
 // ── Does this glow as "something to take here"? ────────────────────────────
 // The POI light (Lighting.KINDS.poi) is the one mark for it. A chest wears it
-// until it is spent; the RECURRING places — a crate or a barrel (restocks,
+// until it is spent; the RECURRING places — a crate (restocks,
 // dark until it restocks), a pot of gold, a bike rack, the chapel's blessing and
 // a grove shrine's gift — wear it exactly while the take is there (the day
 // ledger), and go dark once it is taken. Every other stall and market stays lit (a counter is always

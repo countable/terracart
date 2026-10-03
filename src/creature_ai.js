@@ -729,6 +729,43 @@ function walkableDestination(scene, px, py, dist, opts) {
   }
   return null;
 }
+// A harvested shaking bush releases an ordinary creature beside its old seat.
+// Placement uses the existing deterministic spawn/road/private-ground gate.
+function spawnNestBushCreature(scene, bush, type) {
+  const terrain = scene.cellAt(bush.x, bush.y).type;
+  const fauna = Object.keys(BIOME_FAUNA).filter(kind => !Combat.isEnemyKind(kind));
+  const primary = fauna.filter(kind => BIOME_FAUNA[kind].primary.includes(terrain));
+  const pool = primary.length ? primary : fauna.filter(kind => BIOME_FAUNA[kind].fallback.includes(terrain));
+  const kind = type === 'slime' ? 'slime' : pool[fnv1a(`${bush.id}|nest-fauna`) % pool.length];
+  if (!kind) return null;
+  const id = `nest_${bush.id}`;
+  if ((scene.save.caught || []).includes(id)) return null;
+  const enemy = Combat.isEnemyKind(kind);
+  const home = scene.homeWorldPos?.(), castles = scene._castleWardPoints?.() || [];
+  const point = walkableDestination(scene, bush.x, bush.y, 1, {
+    seed: id, cls: creatureSpawnClass(kind),
+    accept(x, y) {
+      const t = scene.cellAt(x, y).type;
+      if (!enemy) return BIOME_FAUNA[kind].primary.includes(t) || BIOME_FAUNA[kind].fallback.includes(t);
+      const tx = Math.floor(x / scene.tileEdgeM), ty = Math.floor(y / scene.tileEdgeM);
+      const n = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty)).cellsPerEdge;
+      const cm = scene.tileEdgeM / n;
+      const c = { kind, id, x, y, _surfaceSpawn: { x, y, tx, ty,
+        cx: Math.floor((x - tx * scene.tileEdgeM) / cm), cy: Math.floor((y - ty * scene.tileEdgeM) / cm) } };
+      return EnemySpawns.surfaceActive(scene, c)
+        && !wardTrip(c, home, castles, (HOME_R * scene.cellM) ** 2)
+        && !scene._nearAny?.('fires', x, y, FIRE_REST_R);
+    },
+  });
+  if (!point) return null;
+  const creatures = point.entry.creatures || (point.entry.creatures = []);
+  if (creatures.some(c => c.id === id)) return null;
+  const creature = WorldGen.makeCreature(kind, point.x, point.y, id, { shiny: false,
+    ...(enemy ? { _surfaceSpawn: { x: point.x, y: point.y, tx: point.tx, ty: point.ty, cx: point.ix, cy: point.iy } } : {}) });
+  creatures.push(creature);
+  return creature;
+}
+
 // A CAMPFIRE ROUTS A GHOST — Home's mechanism (the ward latch: turned onto
 // an away-from-the-fire angle and run to the sim bubble's edge), not the
 // fire's own ward on other foes (a refused target cell, which held a ghost

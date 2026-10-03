@@ -156,7 +156,10 @@
   const TOADSTOOL_GIANT_EVERY_GROUPS = 3;
   const BURNED_STEP_M = 8, BURNED_MAX = 100;
   const BURNED_TORCH_STEP_M = 32;
+  // Stop starting new barricade lines at this budget; finish the last line
+  // so a count cutoff cannot leave a gap halfway across its road.
   const BARRICADE_STEP_M = 12, BARRICADE_MAX = 80;
+  const BARRICADE_VERGE_MAX_CELLS = 4;
   // How finely a burned row is walked for its one fire slime per stretch.
   const BURNED_GUARD_STEP_M = 10;
   // Lantern Row: NOT a prop of its own — the street lamps, denser. A lantern
@@ -172,7 +175,7 @@
   const CARPET_WIDTH_CELLS = 0.6;
   const TERRAIN_VERGE_CELLS = 1.5;
   const THORNY_SHRINE_RADIUS_CELLS = 2;
-  const THORNY_BRAMBLE_COVERAGE = 0.5;
+  const THORNY_VERGE_MAX_CELLS = 4;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
@@ -252,7 +255,7 @@
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
       lampGlow: '#ff8c2a',
       story: 'street_barricade', title: 'The barricade',
-      body: 'Rough stakes and stacked crates line the verge. You follow the open road between the barricades.',
+      body: 'Rough barricades cross the road and reach into the verges. Iron spikes stand between the wooden barriers.',
       flash: 'Barricades. Goblins held it.' },
     // Appended LAST so no older row's code (index + 1) moves; the roll walks
     // the minor rows in order, so a street that rolled an older minor row
@@ -1252,6 +1255,27 @@
       }
       return null;
     };
+    // Cross the authored road only, then extend along each normal.
+    // Existing pieces from this pass are transparent to repeated samples;
+    // every unrelated obstacle terminates the ray instead of being skipped.
+    const crossSection = (rec, x, y, nx, ny, depth, owned, emit) => {
+      const roadSeats = new Set(), gate = { ...spawnOpts, roadClass: rc, streetObstacleCells: roadSeats, streetObstacleKind: rec.variant };
+      for (const side of [1, -1]) {
+        const start = 0;
+        for (let distance = start; distance <= rec.halfW + depth(side) * CELL_M - CELL_M / 2; distance += CELL_M / 2) {
+          const ix = cellOfM(x + nx * side * distance), iy = cellOfM(y + ny * side * distance);
+          if (ix < 0 || iy < 0 || ix >= N || iy >= N) break;
+          const i = iy * N + ix;
+          if (owned.has(i)) continue;
+          // Classify the cell center, not the sub-cell sampling point.
+          const normalDistance = Math.abs(((ix + .5) * CELL_M - x) * nx + ((iy + .5) * CELL_M - y) * ny);
+          const road = normalDistance <= rec.halfW;
+          if (road) roadSeats.add(i);
+          if (!(road ? WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle') : cellOk(ix,iy))) break;
+          owned.add(i); emit(ix,iy);
+        }
+      }
+    };
     const seat = (px, py) => {
       const ix = cellOfM(px * gM), iy = cellOfM(py * gM);
       if (ix < -END_SEAT_CELLS || iy < -END_SEAT_CELLS
@@ -1377,7 +1401,9 @@
           }
         });
       } else if (v === 'thorny') {
+        const brambleSeats = new Set();
         const bramble = (ix, iy) => {
+          brambleSeats.add(iy * N + ix);
           claim(ix, iy);
           res.wildplants.push(WG.makeWildplant('shrub', cx(ix), cy(iy),
             WG.cellId('bramble', tx, ty, ix, iy), { _street: v, _streetArt: 'bramble' }));
@@ -1408,14 +1434,12 @@
             }
           });
         }
-        // Half-cell samples consider three rows on each verge. A stable cell
-        // hash keeps half the seats; shrine rings above remain fully enclosed.
+        // Dense irregular thickets grow from the kerb, ending at the first
+        // obstruction. A ray never jumps a building, occupied seat or road.
         sampleLine(rec.line, gM, CELL_M / 2, CELL_M / 4, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
-          for (const side of [1, -1]) for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
-            const c = verge(rec, x, y, nx, ny, side, k);
-            if (c && u01('thorny-coverage|' + WG.cellId('bramble', tx, ty, c.ix, c.iy)) < THORNY_BRAMBLE_COVERAGE) bramble(c.ix, c.iy);
-          }
+          const depth = side => 2 + Math.floor(u01(`thorny-depth|${rec.key}|${Math.floor(s / CELL_M)}|${side}`) * (THORNY_VERGE_MAX_CELLS - 1));
+          crossSection(rec,x,y,nx,ny,depth,brambleSeats,bramble);
         });
       } else if (v === 'overgrown') {
         let placed = 0;
@@ -1489,20 +1513,19 @@
       } else if (v === 'pilgrim' || v === 'barricade') {
         if (v === 'barricade') {
           let placed = 0;
+          const barricadeSeats = new Set();
           sampleLine(rec.line, gM, BARRICADE_STEP_M, BARRICADE_STEP_M / 2, (s, x, y, nx, ny) => {
             if (placed >= BARRICADE_MAX) return false;
             if (!S.covers(spans, s)) return;
-            for (const side of [1, -1]) {
-              const c = verge(rec, x, y, nx, ny, side);
-              if (!c) continue;
-              claim(c.ix, c.iy);
+            crossSection(rec,x,y,nx,ny,()=>BARRICADE_VERGE_MAX_CELLS,barricadeSeats,(ix,iy)=>{
+              claim(ix,iy);
               const extra = { _street: v, _streetScenery: true };
-              if (placed % 3 === 1) res.objects.push(WG.makeObject('stakes', cx(c.ix), cy(c.iy),
-                WG.cellId('stakes_barr', tx, ty, c.ix, c.iy), extra));
-              else res.wildplants.push(WG.makeWildplant('barricade', cx(c.ix), cy(c.iy),
-                WG.cellId('barr_scenery', tx, ty, c.ix, c.iy), extra));
+              if (u01(WG.cellId('barr-kind',tx,ty,ix,iy)) < 1/3) res.objects.push(WG.makeObject('stakes',cx(ix),cy(iy),
+                WG.cellId('stakes_barr',tx,ty,ix,iy),extra));
+              else res.wildplants.push(WG.makeWildplant('barricade',cx(ix),cy(iy),
+                WG.cellId('barr_scenery',tx,ty,ix,iy),extra));
               placed++;
-            }
+            });
           });
         }
         // ONE PER STREET PER TILE: the ends are pooled by street key and
@@ -1760,8 +1783,8 @@
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_BRAMBLE_COVERAGE, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,

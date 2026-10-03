@@ -208,7 +208,7 @@ const WILDPLANT_RULES = {
   // work: the axe relic's ladder times the wheel and `workCharged` puts the
   // shared 9/3/1 tool curve on the bar.
   // `nest`: one shrub in twenty is a NEST BUSH (isNestBush) — it wiggles
-  // now and then and hands over a baby pet when chopped.
+  // now and then and may shelter a baby, slime or local animal.
   shrub:     { output: 'wood', workRelic: 'axe', workCharged: true, nest: true },
   giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
     workRelic: 'axe', workCharged: true },
@@ -239,8 +239,18 @@ function wildplantRule(crop) { return WILDPLANT_RULES[crop] || null; }
 function wildplantNests(crop) { return !!wildplantRule(crop)?.nest; }
 // THE NEST BUSH: a nesting crop whose id hashes under SHINY_RATE.nest — the
 // same bushes for every player. render.js wiggles it (nestBushPhase) and the
-// wildplant harvest (interact.js) pays the baby off this one predicate.
+// wildplant harvest (interact.js) reveals its occupant off this predicate.
 function isNestBush(crop, id) { return id != null && wildplantNests(crop) && isShiny(id, SHINY_RATE.nest); }
+// One stable outcome per shaking bush: 20% baby, 40% slime, 40% local fauna.
+const NEST_BUSH_CONTENTS = Object.freeze({ babyChance: 0.2, slimeChance: 0.4 });
+function nestBushContents(id) {
+  const roll = fnv1a(`${id}|nest-contents`) / 4294967296;
+  if (roll < NEST_BUSH_CONTENTS.babyChance) {
+    const babies = babyItems();
+    return { type: 'baby', item: babies[fnv1a(`${id}|nest-baby`) % babies.length] };
+  }
+  return { type: roll < NEST_BUSH_CONTENTS.babyChance + NEST_BUSH_CONTENTS.slimeChance ? 'slime' : 'fauna' };
+}
 // When a nest bush wiggles: its own BEAT (util.js beatPhase), 10-30 s off its
 // id, the wiggle showing NEST_BUSH_BEAT.showMs once per period. Returns the
 // wiggle's progress 0..1 while it shows, else -1. showMs was 900 until Oct
@@ -670,7 +680,7 @@ const BASE_TIER = {
 // but that's a PNG filename for gearAssetPath — not an emoji.)
 // ── BABY PETS ──────────────────────────────────────────────────────────────
 // The domestic kinds a baby can be. A baby is found in a NEST BUSH (one shrub
-// in twenty, isNestBush — chopped once, it hands the baby over) or HATCHED
+// in twenty, isNestBush — one fifth shelter a baby) or HATCHED
 // from a carried egg (egg_hatch.js). In the bag it is an 'animal' item like
 // any caught creature (`base` names the kind; `baby` marks it); released, it
 // is a tame pet born that moment, half its kind's size until a week old
@@ -867,7 +877,8 @@ const ITEMS = [
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
   { id: 'torch',         name: 'Torch',               kind: 'supply' },
-  // Trap Disarm Kit: hold it and tap a trap (hidden scuff or already-sprung
+  // Trap Disarm Kit also dismantles barricades and iron spikes permanently.
+  // Hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
   // src/traps.js and the 'disarm-trap' tap handler in interact.js. A kit
   // usually SURVIVES the job (TRAP_KIT_KEEP_CHANCE); unlike stepping on a
@@ -1631,7 +1642,7 @@ const ITEM_EFFECTS = {
   frost_powder: 'A pinch chills the air until foes within reach stand still.',
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
-  trap_kit: 'Small iron tools made to ease a snare’s clenched jaw.',
+  trap_kit: 'Iron tools loosen snares, barricades and spikes.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
   spear: CONSUMABLE_SPEC.spear.get,
   javelin: CONSUMABLE_SPEC.javelin.get,
@@ -2524,3 +2535,8 @@ function walkHazardDamageRate(o) {
     && (o._plantArt === 'bramble' || o._streetArt === 'bramble') ? WALK_HAZARD_ENERGY_PER_S : 0;
 }
 function isWalkHazard(o) { return walkHazardDamageRate(o) > 0; }
+
+// The same kit removes authored obstacles; tar and natural thorns stay put.
+function isTrapKitObstacle(o) {
+  return !!o && (o.kind === 'stakes' || (o.kind === 'wildplant' && o.crop === 'barricade'));
+}

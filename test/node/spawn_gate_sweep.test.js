@@ -34,7 +34,7 @@
   // new, unrelated read on the same file.
   const ALLOW = [
     // ── worldgen.js: the gate's own construction and definition ──────────
-    { file: 'worldgen.js', re: /^if \(roadMask && roadMask\[cy \* w \+ cx\]\) return false;/ },
+    { file: 'worldgen.js', re: /^if \(roadMask && roadMask\[cy \* w \+ cx\] && !obstacle\) return false;/ },
     { file: 'worldgen.js', re: /^if \(roadMask\[i\]\) v \|= W_\.ROAD;/ },
     // ── worldgen.js: geometry (a separate isSpawnCell call gates the seat) ─
     { file: 'worldgen.js', re: /isCobbleTerrain\(grid\[y \* N \+ x\]\) \|\| \(roadMask && roadMask\[y \* N \+ x\] === 1\)\)/ },

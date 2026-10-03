@@ -26,6 +26,16 @@
 //   TAP_HANDLERS   — priority-ordered array of { name, try(ctx) }
 //   interactTap(scene, sx, sy)  — top-level dispatcher; MapScene.handleWorldTap forwards to this
 
+// Successful kit work shares the same retain roll for traps and obstacles.
+function finishTrapKit(ctx, action) {
+  const { scene, save, sx, sy } = ctx;
+  const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
+  if (!kept) consumeSelected(save);
+  ctx.dirty = true;
+  scene.buildInventoryDOM();
+  scene.flash(`${action}; kit ${kept ? 'kept' : 'used'}`, sx, sy);
+}
+
 // Decrement the selected inventory stack by `n` (default 1). If it hits zero,
 // splice it out and leave the hand EMPTY (selSlot = -1) — the stack that
 // slides into its index is not something the player chose. Used by every
@@ -1074,6 +1084,25 @@ const TAP_HANDLERS = [
     return true;
   }},
 
+  // A selected kit dismantles one obstacle before its normal axe-work tap.
+  { name: 'disarm-obstacle', try: (ctx) => {
+    const { scene, save, wm } = ctx;
+    const sel = getSelectedSlot(save);
+    if (!(sel?.id === 'trap_kit' && sel.count > 0)) return false;
+    const spent = spentSets(scene, save);
+    const accepts = o => isTrapKitObstacle(o) && !isSpent(o, spent);
+    const o = findItemInTapCell(scene, 'wildplants', wm, accepts)
+      || findItemInTapCell(scene, 'objects', wm, accepts);
+    if (!o) return false;
+    if (tooFar(ctx, o.x, o.y)) return 'far';
+    save.picked = [...(save.picked || []), o.id];
+    // Re-evaluate slowing immediately, including while standing on the piece.
+    scene._streetFeetKey = null;
+    scene._tickStreetFeet?.();
+    finishTrapKit(ctx, o.kind === 'stakes' ? 'Spikes removed' : 'Barricade removed');
+    return true;
+  }},
+
   // 1a) Pick the unpicked wild plant standing in the TAPPED CELL. Tall flora
   // (shrubs, long grass) draw above their cell, but only the cell they're
   // rooted in picks them.
@@ -1108,10 +1137,11 @@ const TAP_HANDLERS = [
         // between handler start and callback fire, awarding again would dupe.
         // A TIDE pickup is written to the DAY LEDGER (Macros.markToday), never
         // save.picked: it is back on the waterline another day.
-        // A NEST BUSH (items.js isNestBush) hides a baby pet. Chosen before
+        // A shaking bush has a stable occupant; only one fifth hide a baby. Before
         // the pick is written: with no room in the bag for it the bush stays
         // standing, unpicked, to be chopped again once there is.
-        const babyId = isNestBush(wp.crop, wp.id) ? pickFromArray(babyItems()) : null;
+        const nest = isNestBush(wp.crop, wp.id) ? nestBushContents(wp.id) : null;
+        const babyId = nest?.type === 'baby' ? nest.item : null;
         if (babyId && Inventory.roomFor(save, babyId) < 1) {
           scene.flash('Make room for a pet first.', sx, sy);
           return;
@@ -1152,6 +1182,8 @@ const TAP_HANDLERS = [
           scene.addToInv(babyId, 1);
           persistSave(save);
           if (typeof scene.showBabyFound === 'function') scene.showBabyFound(babyId, 'bush');
+        } else if (nest) {
+          spawnNestBushCreature(scene, wp, nest.type);
         }
         return true;
       };
@@ -1316,13 +1348,7 @@ const TAP_HANDLERS = [
     // the record, never as a save id (traps.js) — the same kit shuts either.
     if (!trap || Traps.isTrapDisarmed(save, trap)) return false;
     Traps.disarmTrap(save, trap);
-    // The kit usually survives the job (TRAP_KIT_KEEP_CHANCE, items.js).
-    const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
-    if (!kept) consumeSelected(save);
-    ctx.dirty = true;
-    scene.buildInventoryDOM();
-    if (kept) scene.flash('🧰 trap disarmed, kit kept', sx, sy);
-    else scene.flash('🧰 trap disarmed, kit used', sx, sy);
+    finishTrapKit(ctx, 'Trap disarmed');
     return true;
   }},
 
