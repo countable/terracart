@@ -171,6 +171,7 @@
   // hedges stand, so it shows at every garden gate), this many cells wide.
   const CARPET_WIDTH_CELLS = 0.6;
   const THORNY_SHRINE_RADIUS_CELLS = 2;
+  const THORNY_BRAMBLE_COVERAGE = 0.5;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
@@ -1406,13 +1407,13 @@
             }
           });
         }
-        // Half-cell samples fill three continuous rows on each verge. Every
-        // claim uses the shared gate, leaving crossing roads and occupied cells.
+        // Half-cell samples consider three rows on each verge. A stable cell
+        // hash keeps half the seats; shrine rings above remain fully enclosed.
         sampleLine(rec.line, gM, CELL_M / 2, CELL_M / 4, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
             const c = verge(rec, x, y, nx, ny, side, k);
-            if (c) bramble(c.ix, c.iy);
+            if (c && u01('thorny-coverage|' + WG.cellId('bramble', tx, ty, c.ix, c.iy)) < THORNY_BRAMBLE_COVERAGE) bramble(c.ix, c.iy);
           }
         });
       } else if (v === 'overgrown') {
@@ -1759,7 +1760,7 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_BRAMBLE_COVERAGE, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,

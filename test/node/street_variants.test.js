@@ -1058,8 +1058,9 @@ test('thorny path: dense deterministic brambles flank a clear road and enclose s
   const name = nameFor(false), { result, opts } = build(name);
   assert.eq(SV.VARIANT_BY_ID.thorny.title, 'Thorny Path');
   assert.eq(SV.VARIANT_BY_ID.thorny.code, SV.VARIANT_BY_ID.snare.code + 1, 'append preserves existing codes');
-  assert.eq(result.wildplants.length, 198, '33 contiguous cells on each of six verge rows');
-  assert.eq(new Set(result.wildplants.map(p => p.id)).size, 198, 'unique shrubs');
+  assert.eq(SV.THORNY_BRAMBLE_COVERAGE, 0.5);
+  assert.inRange(result.wildplants.length / 198, 0.4, 0.6, 'half the eligible verge cells');
+  assert.eq(new Set(result.wildplants.map(p => p.id)).size, result.wildplants.length, 'unique shrubs');
   assert.eq(JSON.stringify(result), JSON.stringify(build(name, [[line[1],mid],[mid,line[0]]]).result),
     'reversal and fragments keep identical generated content');
   for (const plant of result.wildplants) {
@@ -1070,8 +1071,8 @@ test('thorny path: dense deterministic brambles flank a clear road and enclose s
     assert.eq(plant.id, WorldGen.cellId('bramble',TX,TY,ix,iy));
   }
   const first = result.wildplants[0], occupiedCell = cellOf(first.y,TY)*CPE+cellOf(first.x,TX);
-  assert.eq(build(name,[line],false,new Set([occupiedCell])).result.wildplants.length,197,'occupied cells remain empty');
-  assert.eq(build(name,[line],false,new Set(),true).result.wildplants.length,192,'crossing road removes six brambles');
+  assert.eq(build(name,[line],false,new Set([occupiedCell])).result.wildplants.length,result.wildplants.length-1,'occupied cells remain empty');
+  assert.eq(build(name,[line],false,new Set(),true).result.wildplants.length,result.wildplants.filter(p=>cellOf(p.x,TX)!==26).length,'crossing road removes only selected brambles');
   assert.eq(build(name,[line],true).result.wildplants.length,0,'private land cannot host brambles');
   assert.eq(result.objects.filter(o=>o.kind==='grove_shrine').length,0,'unselected street has no shrine');
 

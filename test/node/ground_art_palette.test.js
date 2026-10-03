@@ -53,7 +53,8 @@
     const e=entry('ancient_grove'),c=art.ZONE_GROUND_ACCENTS.ancient_grove.color;
     assert.eq(art.zoneGroundColor(e,32,32,28),c,'cluster tree');
     assert.eq(art.zoneGroundColor(e,33,33,28),c,'shrub layer');
-    assert.eq(art.zoneGroundColor(e,34,32,28),null,'grass rim stays warmer');
+    assert.eq(art.zoneGroundColor(e,34,32,28),c,'expanded bramble rim is shaded');
+    assert.eq(art.zoneGroundColor(e,33,34,28),null,'remaining grass accent stays warmer');
     assert.eq(art.zoneGroundColor(e,35,32,28),null,'open gap stays warmer');
     assert.eq(art.zoneGroundColor(e,38,32,28),c,'repeat is phased from POI');
     for(const t of [2,7,9,13,14,24,25]) assert.eq(art.zoneGroundColor(e,32,32,t),null,'roads, buildings, sand and caves retain their material');
