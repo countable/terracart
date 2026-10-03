@@ -11,7 +11,7 @@
   }
   function fixture(over = {}) {
     const s = {
-      save: { inv: [], money: 10000, relics: {}, energy: 20, selSlot: 0 },
+      save: SaveState.defaults({ inv: [], money: 10000, relics: {}, energy: 20, selSlot: 0 }),
       offers: [], messages: [], events: [],
       showOfferModal(o) { this.offers.push(o); },
       showMessageModal(o) { this.messages.push(o); },
@@ -107,7 +107,10 @@
     assert.includes(s.messages[0].body, 'permanent');
     s.offers[0].secondary.onClick();
     assert.includes(s.messages[1].body, shortDuration(Combat.TRAINING_BUFF_MS));
-    s.offers[0].secondary.onClick(); assert.eq(s.messages.length, 2);
+    const until = s.save.trainingDrills[kind];
+    // A drill bought while one runs EXTENDS it (Buffs.laterOf) and is receipted again.
+    s.offers[0].secondary.onClick(); assert.eq(s.messages.length, 3);
+    assert.eq(s.save.trainingDrills[kind], until + Combat.TRAINING_BUFF_MS, 'another day on top');
   });
   boothTest('booth curio: milestone is banked before receipt and duplicate donations have no receipt', () => {
     const s = fixture();

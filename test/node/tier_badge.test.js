@@ -37,10 +37,16 @@ test('tier badge: the reward ceremony hangs it under the name', () => {
   assert.truthy(/showChestRewardModal\(\{[^}]*cards = false, tier = 0,/.test(src), 'the ceremony takes a tier');
   assert.truthy(/const badge = \(tier > 0 && typeof tierBadgeHTML === 'function'\) \? tierBadgeHTML\(tier, 11\) : '';/.test(src));
   assert.truthy(/\$\{name\}<\/div>` \+\s*\n\s*tierHtml \+/.test(src), 'right under the name');
+  // The chest's ceremonies take the one card ladder (Rewards.card): the
+  // item's tier, and gear's own tier kept or beaten.
+  const scene = makeScene();
+  assert.eq(Rewards.card(scene, { kind: 'item', id: 'potato', qty: 1 }).tier, itemTierOf('potato'), 'chest loot: the item\'s tier');
+  assert.eq(Rewards.card(scene, { kind: 'relic', slot: 'axe', tier: 3 }).tier, 3, 'gear: its own tier, kept');
+  assert.eq(Rewards.card(scene, { kind: 'gold', amount: 3, slot: 'axe', tier: 2 }).tier, 2, 'gear: its own tier, beaten');
+  assert.eq(Rewards.card(scene, { kind: 'gold', amount: 3 }).tier, undefined, 'plain cash wears none');
   const inter = INTERACTABLES_SRC;
-  assert.truthy(/const lootTier = \(typeof itemTierOf === 'function'\) \? itemTierOf\(lootId\) : 0;/.test(inter), 'chest loot: the item\'s tier');
-  assert.eq((inter.match(/tier: lootTier/g) || []).length, 2, 'both the fits and the bag-full ceremonies');
-  assert.eq((inter.match(/tier: result\.tier/g) || []).length, 2, 'gear: its own tier, kept or discarded');
+  assert.eq((inter.match(/Rewards\.present\(scene, result,/g) || []).length, 2, 'the fits and the gear / cash ceremonies present the card');
+  assert.truthy(/\.\.\.lootCard, kind: rewardKind, kindIcon,/.test(inter), 'the bag-full choice lays the card under its actions');
   assert.truthy(/tier: \(typeof itemTierOf === 'function'\) \? itemTierOf\(reward\.id\) : 0,/.test(app), 'a trail prize item');
   assert.truthy(/sub: 'equipped',\s*\n\s*color: UI_TREASURE,\s*\n\s*tier: reward\.tier,/.test(app), 'a trail prize relic');
 });

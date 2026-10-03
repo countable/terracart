@@ -36,23 +36,43 @@
 
   test('buffs: every boon-only shrine lever is a row named by its boon word, in its light', () => {
     for (const id of Shrines.KIND_IDS) {
-      const row = Shrines.SHRINE_KINDS[id], L = Shrines.LEVERS[row.lever];
-      if (L.instant) { assert.falsy(Buffs.KINDS[row.lever], `${id}: instant — the compass row shows its effect`); continue; }
-      if (L.save || L.scene) {
+      const row = Shrines.SHRINE_KINDS[id], buff = Shrines.LEVERS[row.lever];
+      if (buff === null) { assert.falsy(Buffs.KINDS[row.lever], `${id}: instant — the compass row shows its effect`); continue; }
+      const k = Buffs.KINDS[buff];
+      assert.truthy(k, `${id}: lever ${row.lever} maps to a row`);
+      if (k.save || k.scene) {
         // Shield, reach and light pull a potion's timer: the potion's row
         // (reading the same field) is their countdown, not one of their own.
-        assert.truthy(Object.values(Buffs.KINDS).some(k => (L.save && k.save === L.save) || (L.scene && k.scene === L.scene)),
-          `${id}: shows as the potion / torch row reading ${L.save || L.scene}`);
+        assert.truthy(['shield', 'reach', 'torch'].includes(buff), `${id}: shows as the potion / torch row ${buff}`);
         continue;
       }
-      const k = Buffs.KINDS[row.lever];
-      assert.truthy(k, `${id}: a row for lever ${row.lever}`);
+      assert.eq(buff, row.lever, `${id}: a boon-only lever is its own row`);
+      assert.eq(k.boon, row.lever, `${id}: extend writes save.boonUntil.${row.lever}`);
       assert.eq(k.name, row.boon, `${id}: the kind's boon word`);
       assert.eq(k.color, '#' + row.light.toString(16).padStart(6, '0'), `${id}: inked in the kind's light`);
       const save = {};
       Shrines.grant(save, id, T0);
       assert.eq(Buffs.until(row.lever, save, null), T0 + row.durationMs, `${id}: reads the boon`);
     }
+  });
+
+  test('buffs: extend is the one writer and banks the remainder (owner, Oct 2026)', () => {
+    const save = {}, scene = {};
+    assert.truthy(Buffs.extend(save, scene, 'speed', 1000, T0));
+    assert.eq(save.speedPotionUntil, T0 + 1000, 'a fresh dose runs from now');
+    assert.truthy(Buffs.extend(save, scene, 'speed', 500, T0 + 100));
+    assert.eq(save.speedPotionUntil, T0 + 1500, 'a second dose while one runs is added on, never thrown away');
+    assert.truthy(Buffs.extend(save, scene, 'speed', 100, T0 + 5000));
+    assert.eq(save.speedPotionUntil, T0 + 5100, 'an expired one runs from now again');
+    assert.truthy(Buffs.extend(save, scene, 'torch', 1000, T0));
+    assert.eq(scene._torchUntil, T0 + 1000, 'a scene row writes the scene');
+    assert.truthy(Buffs.extend(save, scene, 'fortune', 1000, T0));
+    assert.eq(save.boonUntil.fortune, T0 + 1000, 'a boon row writes save.boonUntil');
+    assert.falsy(Buffs.extend(save, scene, 'compass', 1000, T0), 'a read-only row has nowhere to write');
+    assert.falsy(Buffs.extend(save, scene, 'nope', 1000, T0));
+    assert.eq(Buffs.laterOf(T0 + 300, 200, T0), T0 + 500, 'the rule: max(now, until) + ms');
+    assert.eq(Buffs.laterOf(0, 200, T0), T0 + 200);
+    assert.eq(Buffs.KINDS.treasure.read({ treasureCompass: { until: T0 + 9 } }), T0 + 9, 'the Treasure Map has a chip');
   });
 
   test('buffs: active() lists the running effects in table order with the time left', () => {

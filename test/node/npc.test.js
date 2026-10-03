@@ -303,7 +303,8 @@
       assert.eq(shown.length, 2);
       assert.truthy(shown[1].body.includes(NPC.WARDEN_LINE), 'the introduction retains the safety explanation');
       assert.eq(shown[1].okLabel, 'OK');
-      assert.eq(shown[1].onDismiss, undefined, 'and ends there');
+      shown[1].onDismiss?.();
+      assert.eq(shown.length, 2, 'and ends there');
       s._dialogOpen = () => true;
       NPC.interact(s, w, 0, 0);
       assert.eq(shown.length, 2, 'but not over an open dialog');

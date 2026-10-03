@@ -131,27 +131,19 @@ function rusticifyName(name) {
   return out;
 }
 
-// SEED_TIER (1=common, 2=uncommon, 3=rare) → label + flash color. Used by every
-// loot flash (chest, treasure) so the player gets consistent visual feedback.
-const SEED_TIER_INFO = {
-  1: { label: 'common',   color: '#ffe066' },
-  2: { label: 'uncommon', color: '#7adcff' },
-  3: { label: 'RARE!',    color: '#ff8aff' },
-};
-function tierInfo(id) {
-  // Resolve a 1..3 flash tier for ANY loot id — seed OR produce. pickReward
-  // returns bare produce ids (e.g. 'gemfruit', 'pairy') which never appear in
-  // SEED_TIER (it's keyed by `${crop}_seed` only), so the old
-  // `SEED_TIER[id] || 1` collapsed every produce reward to tier-1 "common".
-  // ITEM_BY_ID[id].baseTier carries the real rarity for both the seed and its
-  // produce (filled for every catalog entry in items.js), so prefer it and
-  // fall back to SEED_TIER for raw seed ids / unknowns. SEED_TIER_INFO only
-  // defines 1..3, while baseTier climbs to 7 (flowers/bars), so clamp.
-  const raw = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.baseTier)
-    || SEED_TIER[id] || 1;
-  const tier = Math.min(3, Math.max(1, raw));
-  return SEED_TIER_INFO[tier];
+// The colour a loot toast or card wears for item `id`: the rarity badge's
+// own (items.js tierBadgeColor — the seven-rung ladder the badge beside it
+// reads, so a toast and its badge can never disagree), as a CSS colour. A
+// raw seed id falls back to SEED_TIER; an unranked id reads as treasure.
+// (Until Oct 2026 a separate three-rung scale clamped everything over T3 to
+// pink and called T1 "common" where the badge says "basic".)
+function lootFlashColor(id) {
+  const tier = itemTierOf(id) || Math.min(7, Math.max(1, SEED_TIER[id] || 1));
+  const c = tierBadgeColor(tier);
+  return c == null ? UI_TREASURE : '#' + c.toString(16).padStart(6, '0');
 }
+// app.js _trailRewardCard still reads `.color` off this; to go with it.
+function tierInfo(id) { return { color: lootFlashColor(id) }; }
 
 // POI class → category, drives chest loot type (produce vs seed) and tier weights.
 const POI_CATEGORY = {

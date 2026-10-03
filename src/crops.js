@@ -115,6 +115,11 @@
   // Shared by tree art and harvesting. Wild trees start mature; planted trees
   // take four stages (a quarter of the window each), then each pick starts a
   // fresh fruit respawn timer.
+  // The pick: save.fruitPicked[id] = now, a rolling ledger (save.js Ledger)
+  // that drops trees whose respawn has run.
+  function markFruitPicked(save, id, now = Date.now()) {
+    Ledger.stamp(save, 'fruitPicked', id, now, now, FRUIT_RESPAWN_MS);
+  }
   function fruitTreeState(tree, pickedAt, now = Date.now()) {
     const elapsed = now - (tree.planted_t || 0);
     const stage = tree.planted
@@ -268,7 +273,6 @@
     if (!save) return 0;
     const t = Math.max(0, Math.floor(Number(tier) || 0));
     if (!t) { clearBedQuality(save, cellKey); return 0; }
-    save.tilledQuality = save.tilledQuality || {};
     save.tilledQuality[cellKey] = t;
     return t;
   }
@@ -283,7 +287,7 @@
     return q;
   }
 
-  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, markFruitPicked, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex };

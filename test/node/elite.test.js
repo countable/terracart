@@ -117,7 +117,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   // The relic-capable roll has somewhere to land: grantTreasureRoll equips a
   // relic / armor reward and cashes out a beaten one.
   const grant = INTERACT_SRC.slice(INTERACT_SRC.indexOf('function grantTreasureRoll('));
-  assert.truthy(/reward\.kind === 'relic' \|\| reward\.kind === 'armor'/.test(grant), 'gear rewards handled');
+  assert.truthy(/reward\.kind === 'relic' \|\| reward\.kind === 'armor'/.test(Rewards.present.toString()), 'gear rewards handled by the one presenter');
   assert.truthy(/Rewards\.apply\(save, reward, scene\)/.test(grant), 'and equipped');
 });
 

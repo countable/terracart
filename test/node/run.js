@@ -1551,7 +1551,9 @@ vm.runInContext(`
     return Object.assign(s, over);
   };
   // Build a ctx the tap-driver expects (scene + save + screen coords).
-  globalThis.makeCtx = (scene, save) => ({ scene, save, sx: 0, sy: 0, dirty: false });
+  // The live save is seeded by SaveState.normalize at boot (SAVE_DEFAULTS);
+  // a test's bare save is seeded here the same way.
+  globalThis.makeCtx = (scene, save) => ({ scene, save: SaveState.defaults(save), sx: 0, sy: 0, dirty: false });
 `, ctx, { filename: 'framework.js' });
 
 // ── Load every *.test.js in this directory into the same context ──────────

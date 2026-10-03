@@ -100,8 +100,8 @@
   };
   const BUNDLE_THEME_KEYS = Object.keys(BUNDLE_THEMES);
 
-  // Compatibility alias for callers that still reach the general UTC clock
-  // through Delivery. New daily mechanics call util.js's owner directly.
+  // Alias of util.js utcDayKey, kept only for scene_creatures.js and lairs.js
+  // (to be pointed at the owner); nothing here reads it.
   function dayKey(now = new Date()) {
     return utcDayKey(now);
   }

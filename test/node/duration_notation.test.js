@@ -164,8 +164,9 @@ test('the day-gated messages name the wait to the UTC roll', () => {
   // key for its own twelve-hour clock, Houses.CASTLE_SERVICE_MS.)
   const n = (src.match(/msToNextUtcDay\(\)/g) || []).length;
   assert.gte(n, 2, `expected the 2 service day-gated messages, found ${n}`);
-  assert.truthy(/shortDuration\(msToNextUtcDay\(\)\)/.test(Macros.beginDailyVisit.toString()),
+  assert.truthy(/waitLine\(row\?\.spent \|\| SPENT_DEFAULT, msToNextUtcDay\(\)\)/.test(Macros.beginDailyVisit.toString()),
     'shared daily visits show the wait to the UTC roll');
+  assert.eq(Macros.waitLine('Already visited', 90 * 60 * 1000), 'Already visited — 2h', 'the one refusal shape, shortDuration');
   const castle = SCENE_SRC.slice(SCENE_SRC.indexOf('  presentCastleServiceOffer('), SCENE_SRC.indexOf('  showQuestBoard('));
   assert.truthy(/spokenDuration\(this\._castleServiceWaitMs\(house\)\)/.test(castle), 'the castellan says the twelve-hour wait');
   assert.truthy(/shortDuration\(Houses\.CASTLE_SERVICE_MS\)/.test(castle), 'and the blurb its length');

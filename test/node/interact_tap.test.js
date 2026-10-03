@@ -1006,7 +1006,7 @@ test('barricade: T4 tree work, weaker-tool gate and selected disarm kit', () => 
 });
 
 
-test('spike bushes: minimum T1 axe, while ordinary bushes remain barehand work', () => {
+test('spike bushes: minimum T1 axe, the slow grind offered one tier short, ordinary bushes barehand work', () => {
   const original = globalThis.WorldGen;
   const handler = TAP_HANDLERS.find(h => h.name === 'wildplant');
   try {
@@ -1015,15 +1015,23 @@ test('spike bushes: minimum T1 axe, while ordinary bushes remain barehand work',
         const plant = {kind:'wildplant',crop:'shrub',id:'thorn_gate_test',x:2.5,y:2.5};
         if (art) plant[art] = 'bramble';
         globalThis.WorldGen = {...original, forEachItem:(layer,cb) => { if (layer === 'wildplants') cb(plant); }};
-        let worked = false, spent = false, offer = false;
+        let worked = null, spent = 0, offer = null;
         const save = {picked:[],energy:100,relics:{axe:{tier}}};
-        const scene = makeGridScene({save, startWorkProgress() { worked=true; },
-          spendEnergy() { spent=true; return true; }, showOfferModal() { offer=true; }});
+        const scene = makeGridScene({save, startWorkProgress(x, y, cb, ms, energy) { worked = { ms, energy }; },
+          spendEnergy(n) { spent += n; return true; }, showOfferModal(o) { offer = o; }});
         assert.eq(handler.try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}),true);
-        assert.eq(worked, !art || tier >= 1);
-        assert.eq(spent, worked);
-        assert.falsy(offer, 'bare hands cannot slow-grind thorny bushes');
+        const gated = !!art && tier < 1;
+        assert.eq(!!worked, !gated, 'a bramble needs the Wood axe; a plain bush is barehand work');
+        assert.eq(!!offer, gated, 'exactly one tier short: the shared slow grind is offered, like a tree or a rock');
         assert.eq(save.picked.length,0,'starting or refusing work never removes the bush');
+        if (gated) {
+          assert.eq(spent, 0, 'nothing spent on the refusal');
+          offer.onAccept();
+          assert.eq(spent, SLOW_GRIND_ENERGY, 'accepting pays the grind');
+          assert.eq(worked.ms, SLOW_GRIND_MS); assert.eq(worked.energy, SLOW_GRIND_ENERGY);
+        } else {
+          assert.eq(spent, worked.energy, 'the cost is the refund');
+        }
       }
     }
   } finally { globalThis.WorldGen=original; }

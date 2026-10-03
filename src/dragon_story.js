@@ -3,38 +3,32 @@
 const DragonStory = (() => {
   const DEPTH = 9;
   const REWARD = 'fire_breath';
-  const persist = scene => { if (typeof persistSave === 'function') persistSave(scene.save); };
+  const persist = scene => Save.persist(scene.save);
   function unlocked(save) { return save?.dragonStory?.fireBreath === true; }
   function objective(save) {
     return save?.memoryStory?.act3Started && !unlocked(save)
       ? 'Recover your fire breath from a demon on dungeon level 9.' : null;
   }
+  // Credit is the one kill predicate (Macros.slainByPlayer): the victim in
+  // save.caught, felled by the player's side.
   function defeated(scene, victim, source = 'player') {
     if (!scene.save.memoryStory?.act3Started || unlocked(scene.save) || scene.depth !== DEPTH
-        || !Combat.isPlayerKill(source) || EnemyRoster.get(victim?.kind)?.storyReward !== REWARD) return false;
+        || !Macros.slainByPlayer(scene.save, victim?.id, source)
+        || EnemyRoster.get(victim?.kind)?.storyReward !== REWARD) return false;
     const state = scene.save.dragonStory ||= {};
     state.fireBreath = true;
     state.pending = true;
     persist(scene);
     return true;
   }
+  // Shown on a clear screen (MemoryStory.drainPanel — the one busy predicate).
   function drain(scene) {
     const state = scene.save.dragonStory;
-    if (!state?.pending || scene._dragonStoryOpen || scene._dialogOpen?.()
-        || (typeof document !== 'undefined' && document.body?.classList?.contains('modal-open'))) return false;
-    scene._dragonStoryOpen = true;
-    try {
-      scene.showMessageModal({ kind: 'memory', art: 'fire_first', title: 'Your fire breath returns',
-        body: 'You feel heat build in your throat and breathe fire. Your flames can now reach nearby foes.',
-        mustAcknowledge: true,
-        onDismiss: () => {
-          scene._dragonStoryOpen = false;
-          state.pending = false;
-          persist(scene);
-        },
-      });
-    } catch (err) { scene._dragonStoryOpen = false; throw err; }
-    return true;
+    if (!state?.pending) return false;
+    return MemoryStory.drainPanel(scene, '_dragonStoryOpen', { kind: 'memory', art: 'fire_first',
+      title: 'Your fire breath returns',
+      body: 'You feel heat build in your throat and breathe fire. Your flames can now reach nearby foes.' },
+    () => { state.pending = false; persist(scene); });
   }
   // `now` is performance.now(), as for the scene's ordinary shot clocks.
   // No world scan: the caller already collected visible, living hostiles.

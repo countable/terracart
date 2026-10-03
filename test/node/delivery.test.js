@@ -6,9 +6,9 @@
 const JUNE6 = new Date('2026-06-06T12:00:00Z');
 
 test('dayKey: UTC YYYYMMDD, stable within a day, flips on the boundary', () => {
-  assert.eq(Delivery.dayKey(JUNE6), '20260606');
-  assert.eq(Delivery.dayKey(new Date('2026-06-06T23:59:59Z')), '20260606', 'same day');
-  assert.eq(Delivery.dayKey(new Date('2026-06-07T00:00:00Z')), '20260607', 'next day');
+  assert.eq(utcDayKey(JUNE6), '20260606');
+  assert.eq(utcDayKey(new Date('2026-06-06T23:59:59Z')), '20260606', 'same day');
+  assert.eq(utcDayKey(new Date('2026-06-07T00:00:00Z')), '20260607', 'next day');
 });
 
 test('wantedRng: deterministic per house.id, differs across houses, blind to the day', () => {

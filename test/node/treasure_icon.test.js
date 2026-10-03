@@ -169,11 +169,13 @@ test('treasure icon: every chest ceremony carries its chest', () => {
   assert.eq(icon, 'chest-icon', 'ceremony uses the resulting icon');
   assert.eq(args[0], look.texKey, 'ceremony passes the shipping texture');
   assert.eq(args[2], look.frame, 'ceremony passes the shipping tier frame');
-  // Every ceremony the chest handler opens — gear, cash, discarded gear, the
-  // bag-full choice and the plain take — hands it over. A branch that forgot
-  // would open under the diamond again.
-  const calls = src.split('showChestRewardModal(').slice(1);
-  assert.eq(calls.length, 5, 'the chest handler opens five ceremonies');
+  // Every ceremony the chest handler opens — gear / cash / beaten gear and
+  // the plain take through Rewards.present, the bag-full choice on the shell
+  // directly — hands it over. A branch that forgot would open under the
+  // diamond again.
+  const chestSrc = src.slice(src.indexOf('  chest: {'), src.indexOf('  // ---- Well / fountain'));
+  const calls = [...chestSrc.split('showChestRewardModal(').slice(1), ...chestSrc.split('Rewards.present(scene, result,').slice(1)];
+  assert.eq(calls.length, 3, 'the chest handler opens three ceremonies');
   for (const c of calls) {
     assert.truthy(/kindIcon/.test(c.slice(0, 420)),
       'this ceremony carries the chest sprite: ' + c.slice(0, 70));
