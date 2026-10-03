@@ -2175,9 +2175,25 @@
           flushSave();     // app.js reads the save synchronously as it parses
         } catch (_) { return false; }
       }
+      christenSlotFromPlayer(name);
       paintMultiplayerMenu();
       return true;
     };
+    function christenSlotFromPlayer(name) {
+      try {
+        if (typeof listSaves !== 'function' || typeof renameSave !== 'function'
+            || typeof isDefaultSaveName !== 'function') return;
+        const saves = listSaves();
+        const active = saves.find(s => s.active);
+        if (!active || !isDefaultSaveName(active.name)) return;
+        // Two games by the same player: "Ada's game", "Ada's game 2", …
+        const taken = new Set(saves.filter(s => s.id !== active.id).map(s => s.name));
+        let label = name + "'s game";
+        for (let n = 2; taken.has(label); n++) label = name + "'s game " + n;
+        renameSave(active.id, label);
+        buildSavesMenu();   // reflect the new label if the ☰ menu is open
+      } catch {}
+    }
     // Turn multiplayer on or off for this game. Turning it ON asks for a name
     // when the game has none, and stays off if the player won't give one.
     window.__setMultiplayer = function (on) {
@@ -2776,13 +2792,13 @@
   <script src="src/home.js?v=59eddcb1"></script>
   <script src="src/coords.js?v=dea428ec"></script>
   <script src="src/fog.js?v=bdf27172"></script>
-  <script src="src/biome_profiles.js?v=4961981d"></script>
+  <script src="src/biome_profiles.js?v=abada016"></script>
   <script src="src/traps.js?v=17dbf176"></script>
   <script src="src/lairs.js?v=add5d424"></script>
   <script src="src/worldgen.js?v=88d09bef"></script>
   <script src="src/castle_styles.js?v=51966f77"></script>
   <script src="src/textures.js?v=f7edb029"></script>
-  <script src="src/save.js?v=db24d82d"></script>
+  <script src="src/save.js?v=3411bbca"></script>
   <script src="src/items.js?v=f2f93223"></script>
   <script src="src/inventory.js?v=61f97d28"></script>
   <script src="src/energy.js?v=081455ab"></script>

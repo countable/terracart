@@ -202,7 +202,7 @@
     // POLYGON reads its own character's row (flora(T.PARK, character)).
     [T.SCHOOL]: {
       // School grounds are the exclusive source of wild forget-me-nots.
-      flora: [dyn('longgrass', 0.12, S.LONGGRASS),
+      flora: [dyn('longgrass', 0.16, S.LONGGRASS),
               { ...fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT), terrainOnly: true },
               fix('marigold', 0.003, 0.008, S.SCH_MAR)],
     },
@@ -218,7 +218,7 @@
       flora: [fix('shrub', 0.02, 0.05, S.IND_SHRUB)],
     },
     [T.PLAYGROUND]: {
-      flora: [dyn('longgrass', 0.08, S.LONGGRASS),
+      flora: [dyn('longgrass', 0.12, S.LONGGRASS),
               fix('flowers', 0.004, 0.014, S.FORGETMENOT),
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
     },
