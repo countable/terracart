@@ -608,7 +608,18 @@ class SceneModals {
   //                 which read as a second way to SMELT rather than as a way
   //                 to look at the next bar. `showIndex: false` drops the
   //                 "i / n" line (Home's Craft page) and keeps the arrows.
-  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
+  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested? }] — the
+  //                 offer is ONE OF several things at the same price (what a
+  //                 wreck is restored as). Laid out as cards between the
+  //                 headline and the cost; a tap SELECTS a card (outlined,
+  //                 its `info` on the line under the row) and only the accept
+  //                 button pays, with the selected `key` as its argument.
+  //                 Until a card is selected `pickHint` sits on that line and
+  //                 accept is disabled; `choice` names a card selected from
+  //                 the start (a single card is selected on its own, so the
+  //                 dialog reads as the plain price tag it is). A `suggested`
+  //                 card wears a soft outline until something is picked.
+  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { onClose: () => {}, kind, kindLabel, kindIcon, art });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -693,6 +704,41 @@ class SceneModals {
       blurbDiv.style.cssText = 'font-size:11px;opacity:.75;margin-bottom:6px';
       blurbDiv.innerHTML = blurb;
       box.appendChild(blurbDiv);
+    }
+    // The choice cards (see `choices` above). A row that wraps, so six
+    // buildings fit a phone two or three to a line; the accept button below
+    // is armed by `syncAccept` once it exists.
+    const hasChoices = Array.isArray(choices) && choices.length > 0;
+    let selected = null;
+    let syncAccept = () => {};
+    if (hasChoices) {
+      const cardRow = document.createElement('div');
+      cardRow.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0 2px;';
+      const infoLine = document.createElement('div');
+      infoLine.style.cssText = 'font-size:12px;line-height:1.35;opacity:.9;min-height:2.7em;margin:4px 0 6px;';
+      const cards = [];
+      const paint = () => {
+        for (const { c, b } of cards) {
+          b.style.outline = selected === c ? '2px solid #ffe066'
+            : (!selected && c.suggested) ? '2px dashed #a7ffb0' : '';
+        }
+        infoLine.innerHTML = selected ? (selected.info || '') : `<span style="opacity:.6">${pickHint}</span>`;
+        syncAccept();
+      };
+      for (const c of choices) {
+        const b = document.createElement('button');
+        b.innerHTML = (c.iconHTML ? `<div style="font-size:0;margin-bottom:3px">${c.iconHTML}</div>` : '') + c.label;
+        b.style.cssText =
+          'flex:1 1 30%;min-width:84px;max-width:46%;padding:8px 4px 7px;border-radius:7px;cursor:pointer;' +
+          'font:700 12px ui-monospace,monospace;background:transparent;color:#ddd;border:2px solid #555;';
+        b.addEventListener('click', (e) => { e.stopPropagation(); selected = c; paint(); });
+        cardRow.appendChild(b);
+        cards.push({ c, b });
+      }
+      box.appendChild(cardRow);
+      box.appendChild(infoLine);
+      selected = choices.length === 1 ? choices[0] : (choices.find((c) => c.key === choice) || null);
+      paint();
     }
     // `cost` is what the player PAYS — the second half of a "you get X FOR y"
     // trade, and the `forLabel` row is the literal word joining the two. Not
@@ -788,12 +834,18 @@ class SceneModals {
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
-    const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason);
+    const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     accept.addEventListener('click', (e) => {
-      e.stopPropagation(); wrap.remove();
-      onAccept(quantity ? qty : undefined);
+      e.stopPropagation();
+      if (hasChoices && !selected) return;
+      wrap.remove();
+      onAccept(quantity ? qty : hasChoices ? selected.key : undefined);
     });
+    if (hasChoices) {
+      syncAccept = () => accept._setEnabled(liveCanAfford && !disabledReason && !!selected);
+      syncAccept();
+    }
     if (sec) sec.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); secondary.onClick(); });
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);

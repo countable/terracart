@@ -26,16 +26,12 @@
     assert.includes(modalBadge.call(s, house), tierBadgeHTML(7));
   });
 
-  test('shop badge: other buildings and active scarecrow sellers have no map badge', () => {
-    for (const role of ['wreck', 'plain', 'blacksmith', 'trader', 'wizard', 'trailer']) {
+  test('shop badge: other buildings have no map badge', () => {
+    for (const role of ['wreck', 'plain', 'blacksmith', 'trader', 'wizard', 'turret', 'trailer']) {
       const s = scene(4, role);
       assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()), null);
       assert.eq(modalBadge.call(s, house), '');
     }
-    const s = scene(4);
-    s.save.scarecrowShopId = house.id;
-    assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()), null);
-    s.save.scarecrowShopUsed = true;
-    assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()).text, 'RARE');
+    assert.eq(Render.shopTierBadge(scene(4), house, scene(4).houseShopRole()).text, 'RARE');
   });
 })();

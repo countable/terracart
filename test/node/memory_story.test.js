@@ -168,7 +168,7 @@ test('memory copy: no player-facing "Discovery badge" is left', () => {
   for (const it of ITEMS) assert.falsy(/discovery/i.test(it.name), `item named ${it.name}`);
   assert.falsy(ITEMS.some((it) => it.kind === 'badge'), 'no badge kind in the catalog');
   assert.truthy(PLAY_TIPS.some((t) => /wizard/i.test(t) && /memories/.test(t)), 'the wizard tip speaks of memories');
-  assert.truthy(/wizard: +\{ name: 'Wizard Tower', blurb: ['"][^'"\n]*memories/.test(SCENE_SRC), 'and so does the tower blurb');
+  assert.truthy(/memories/.test(Houses.buildOption('wizard').blurb), 'and so does the tower blurb');
   assert.truthy(/🌟 \+1 memory/.test(SCENE_SRC), 'the shiny fanfare line says memory');
 });
 

@@ -1582,6 +1582,18 @@ for (const f of testFiles) {
   }
 }
 
+// ── Restore cards' paintings (houses.js BUILD_OPTIONS) ────────────────────
+// Every card a wreck can be restored as names the painting its Restored!
+// card opens on; a missing file is a blank banner. Files on disk, so node scope.
+{
+  for (const row of (ctx.Houses?.BUILD_OPTIONS || [])) {
+    ctx.__tests.push({ name: `build options: ${row.key} painting ships (${row.art})`, fn: () => {
+      const rel = path.join('assets', 'art', row.art + '.webp');
+      if (!fs.existsSync(path.join(ROOT, rel))) throw new Error(`missing art file: ${rel}`);
+    } });
+  }
+}
+
 // ── Work-wheel tool art (app.js _setWorkProgressIcon / _toolTexture) ─────
 // The wheel draws the equipped tool at its tier, so every tool a wheel can be
 // started with must ship art at every tier — a missing PNG is a wheel with an

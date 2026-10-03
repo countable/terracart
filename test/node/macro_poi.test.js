@@ -706,21 +706,26 @@
     assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');
   });
 
-  test('bookshop: the 15th restoration is a market that sells only the Book, outside the line cycle', () => {
+  test('bookshop: the Book Shop card, from the 15th restoration, is a market that sells only the Book, outside the line cycle', () => {
     assert.eq(Houses.STORY_RESTORES.bookshop, 15);
-    assert.eq(Houses.PRESEED_RESTORE_ROLES[14], 'market', 'the 15th rebuild is a shop');
+    assert.eq(Houses.buildOption('bookshop').from, 15, 'on offer from the 15th rebuild');
+    assert.eq(Houses.buildOption('bookshop').role, 'market', 'stored as a shop');
     assert.eq(Shops.THEME_LABEL.book, 'Book Shop');
     assert.eq(Shops.themedStock('book', 1).join(), 'book', 'the Book and nothing else');
     assert.falsy(Shops.THEMES.includes('book'), 'not a line of the cycle');
-    // Stamped at restore time, once, the first market at or past the slot.
+    // Stamped at restore time, once, on the explicit pick.
     const save = { restoredHouses: {} };
     const rh = save.restoredHouses;
-    for (let i = 0; i < 14; i++) rh['h' + i] = i % 3 === 0 ? 'market' : 'plain';
-    assert.eq(Houses.registerBookshop(save, { id: 'h3' }, 3), null, 'an early market is not it');
-    rh.b = 'market';
-    assert.eq(Houses.registerBookshop(save, { id: 'b' }, 14), 'b', 'the 15th is');
-    rh.m = 'market';
-    assert.eq(Houses.registerBookshop(save, { id: 'm' }, 15), 'b', 'once per save');
+    const h = (id) => ({ kind: 'house', tier: 9, id });
+    assert.eq(Houses.restoreAs(save, h('h0'), 'plain').key, 'plain');
+    assert.eq(Houses.restoreAs(save, h('h1'), 'bookshop'), null, 'not on offer yet');
+    for (let i = 1; i < 14; i++) Houses.restoreAs(save, h('h' + i), i % 3 === 0 ? 'market' : 'plain');
+    assert.eq(save.bookshopId, undefined, 'an ordinary market is not it');
+    assert.eq(Houses.restoreAs(save, h('b'), 'bookshop').key, 'bookshop');
+    assert.eq(save.bookshopId, 'b', 'the pick is');
+    assert.eq(rh.b, 'market');
+    assert.eq(Houses.restoreAs(save, h('m'), 'bookshop'), null, 'once per save');
+    assert.eq(Houses.restoreAs(save, h('m'), 'market').key, 'market');
     assert.eq(Shops.lineFor(save, { id: 'b' }).theme, 'book');
     assert.eq(Shops.lineFor(save, { id: 'b' }).tier, 1);
     // Outside the cycle: the markets before it keep their order, and the one
@@ -728,15 +733,16 @@
     const markets = Object.keys(rh).filter((id) => rh[id] === 'market' && id !== 'b');
     markets.forEach((id, n) => assert.eq(Shops.shopOrder(save, { id }), n, `${id} keeps place ${n}`));
     assert.eq(Shops.lineFor(save, { id: 'm' }).theme, Shops.themeAt(markets.length - 1).theme, 'the next shop is not skipped a line');
-    assert.truthy(/Houses\.registerBookshop\(this\.save, house, order\);/.test(SCENE_SRC), 'the restore path stamps it');
+    assert.eq(Shops.nextLine(save).theme, Shops.themeAt(markets.length).theme, 'and the Shop card promises the line after');
+    assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key\);/.test(SCENE_SRC), 'the restore path freezes the pick');
     assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'marketTheme reads lineFor');
     assert.falsy(/Shops\.themeAt\(Shops\.shopOrder/.test(SCENE_SRC), 'and nothing reads the cycle directly');
-    // A save past the slot before the bookshop existed: its next market is it.
+    // A save past the slot before the bookshop existed: no old shop is re-labelled.
     const old = { restoredHouses: {} };
     for (let i = 0; i < 20; i++) old.restoredHouses['o' + i] = i % 2 ? 'market' : 'plain';
     assert.eq(Shops.lineFor(old, { id: 'o15' }).theme, Shops.themeAt(Shops.shopOrder(old, { id: 'o15' })).theme, 'no old shop is re-labelled');
-    old.restoredHouses.n = 'market';
-    assert.eq(Houses.registerBookshop(old, { id: 'n' }, 20), 'n');
+    assert.eq(Houses.restoreAs(old, h('n'), 'bookshop').key, 'bookshop');
+    assert.eq(old.bookshopId, 'n');
   });
 
   test('chest themes: the Book is in every tier-2 roll at the owner\'s share', () => {

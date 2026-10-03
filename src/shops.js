@@ -1,5 +1,10 @@
 // Shop registry: specialty-shop taxonomy + per-type config (label, tint) for
-// small-house shops. Address ending → role mapping:
+// small-house shops. WHAT A RESTORED HOUSE IS, the player picks at the wreck
+// (houses.js BUILD_OPTIONS / restoreAs — the role string frozen into
+// save.restoredHouses). The address ending → role mapping below is only the
+// LEGACY FALLBACK (Houses.houseShopRole) for a house whose ledger entry is a
+// bare `true` — saves from before roles were frozen, and the sandbox, which
+// stamps `true` so its test street shows every storefront:
 //   9       → blacksmith (sooty tint, gem→relic forge)
 //   2 / 4 / 6 → market  (red tint, a THEMED shop — seed / supply / potion /
 //                        ore / relic / pet, by restore order; see themeAt)
@@ -63,6 +68,7 @@
     market:     'Shop',          // a themed shop with no theme to name (see THEME_LABEL)
     trader:     'Trader',
     wizard:     'Wizard',
+    turret:     'Turret',        // a lone castle tower on a house lot (houses.js BUILD_OPTIONS)
   };
   // Player-facing name for a shop role, or null for a role with no sign.
   // `theme` names a themed shop's line (THEMES); `goods` is the display name of
@@ -113,6 +119,17 @@
     ore: 'Ore Shop', relic: 'Relic Shop', pet: 'Pet Shop',
     book: 'Book Shop',   // the one BOOKSHOP (lineFor) — outside the THEMES cycle
   };
+  // What the Restored! card says a shop of each line looks like inside
+  // (app.js presentWreckRestoreModal) — the line's own sentence, beside its name.
+  const THEME_BLURB = {
+    seed:   'You find packets of seeds on the shelves.',
+    supply: 'You find supplies for the road on the shelves.',
+    potion: 'You watch strange colours swirl in bottles behind the counter.',
+    ore:    'You find ore for the forge piled on the counter.',
+    relic:  'You inspect the tools and armour hanging behind the counter.',
+    pet:    'You hear paws and hooves shuffling nearby.',
+    book:   'Shelves of books line the walls.',
+  };
   // Resolved at CALL time: items.js (BUY_LIST, the catalogue) is read when a
   // shop is opened, not when this file loads.
   const THEME_POOL = {
@@ -156,10 +173,10 @@
     return fnv1a(String(house.id) + '|theme') % THEMES.length;
   }
 
-  // THE BOOKSHOP (Oct 2026): the market the STORY_RESTORES.bookshop-th
-  // restoration reveals (houses.js PRESEED_RESTORE_ROLES / registerBookshop
-  // stamps save.bookshopId at restore time — the book club's hard-won backup
-  // supply). It sells the Book line, and it stands OUTSIDE the cycle above:
+  // THE BOOKSHOP (Oct 2026): the market the player picked the Book Shop card
+  // for, on offer from the STORY_RESTORES.bookshop-th restoration (houses.js
+  // BUILD_OPTIONS / restoreAs stamps save.bookshopId — the book club's
+  // hard-won backup supply). It sells the Book line, and it stands OUTSIDE the cycle above:
   // shopOrder skips it, so the markets after it keep the lines they would
   // have had. Every themed-shop reader goes through lineFor, never themeAt
   // directly, so the one override lives here.
@@ -169,6 +186,15 @@
   function lineFor(save, house) {
     if (house && isBookshop(save, house.id)) return { theme: 'book', tier: 1 };
     return themeAt(shopOrder(save, house));
+  }
+  // The line the NEXT shop restored would sell — what the Shop card on the
+  // restore modal promises (houses.js BUILD_OPTIONS). The same count
+  // shopOrder would hand that shop: every restored market but the bookshop.
+  function nextLine(save) {
+    const rh = (save && save.restoredHouses) || {};
+    let n = 0;
+    for (const id of Object.keys(rh)) if (rh[id] === 'market' && !isBookshop(save, id)) n++;
+    return themeAt(n);
   }
 
   function itemTier(id) {
@@ -202,6 +228,6 @@
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
-    THEMES, THEME_LABEL, THEME_POOL, themeAt, shopOrder, isBookshop, lineFor, themedStock, pickThemed, petItems,
+    THEMES, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, lineFor, nextLine, themedStock, pickThemed, petItems,
   };
 })(window);

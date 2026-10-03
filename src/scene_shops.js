@@ -1,8 +1,8 @@
 // The scene's SHOPS — every door that sells, buys, swaps or serves:
 //   · shopInteract, the one entry a shop tap reaches, and the starter-shop
-//     lookups (isStarterShop / ensureStarterShopId, the starter blacksmith and
-//     scarecrow finders and the smith's two starter slots);
-//   · the offers it opens: the scarecrow and market stalls, deliveries (the
+//     lookups (isStarterShop / ensureStarterShopId and the smith's two
+//     starter slots);
+//   · the offers it opens: the market stalls, deliveries (the
 //     wishlist, knownDeliveryHouses / openDeliveryMenu), relic and themed
 //     shops, the smelter, the wizard, the trader's barter, the castle's daily
 //     service, the quest board, the fort unlock and the blacksmith's forge
@@ -44,8 +44,8 @@ const FORGE_CEREMONY = {
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
-// The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and the pre-seeded restore
-// roles (Houses.PRESEED_RESTORE_ROLES) live in houses.js with the rules that read them.
+// The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and what a wreck can be
+// restored as (Houses.BUILD_OPTIONS) live in houses.js with the rules that read them.
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
 // the tier cap (PRODUCE_TIER_MIN/MAX, TIER_UNLOCK_EVERY) and the wishlist roll
 // now live with the rest of the delivery logic in delivery.js (Delivery.tierCap).
@@ -62,31 +62,6 @@ const CASTLE_TAX_GOLD = 10;
 const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
 
 class SceneShops {
-
-  presentScarecrowOffer(sx, sy, house, recordDeal) {
-    const id = 'scarecrow';
-    const item = ITEM_BY_ID[id];
-    const price = PRICES[id] ?? 30;
-    const canAfford = () => (this.save.money ?? 0) >= price;
-    this.showOfferModal({
-      kind: 'farm',
-      title: 'The farmhand offers a scarecrow:',
-      cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
-      blurb: 'Its ragged sleeves stir in the breeze. Watchful eyes keep their distance.',
-      cost: this.moneyHTML(price),
-      canAfford: canAfford(),
-      onAccept: () => {
-        if (!canAfford()) { this.flash(`need ${price}`, sx, sy); return; }
-        addMoney(this.save, -price);
-        this.addToInv(id, 1, false, { notWild: true, deferRefresh: true });
-        this.save.scarecrowShopUsed = true;
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`${item?.name || id}\n−${price}`, '#ffe066', 1, id);
-      },
-    });
-  }
 
   // Produce stand = a roadside MARKET (not a one-shot chest). It sells the
   // produce its awning advertises (loot.js produceStandFor → { item, frame })
@@ -177,10 +152,10 @@ class SceneShops {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
     if (document.getElementById('offer-modal') || document.getElementById('slots-modal')) return;
-    // Wreck → restoration modal. Every tier-9 small house starts as a
-    // wreck (see save.restoredHouses); the trailer is exempt and forts /
-    // castles never wreck. Plain houses cost 5 wood (tree); themed
-    // tier-9 shops (blacksmith / market / trader) cost 5 rockfruit.
+    // Wreck → restoration modal (the player picks what it becomes —
+    // Houses.BUILD_OPTIONS). Every tier-9 small house starts as a wreck (see
+    // save.restoredHouses); the trailer is exempt and forts / castles never
+    // wreck. Every pick costs the same stone (Houses.wreckRestoreCost).
     if (house && this._isHouseWreck && this._isHouseWreck(house)) {
       this.presentWreckRestoreModal(sx, sy, house);
       return;
@@ -225,20 +200,25 @@ class SceneShops {
     }
     const castle = isCastle(house);
     const isStarterSmith = this.isStarterBlacksmith(house);
-    // Effective shop role from the frozen restore-order assignment (falls back
-    // to the address-derived type for legacy saves). Returns 'blacksmith' for
-    // the first-restored starter smithy too, so the forge branch fires
-    // regardless of the underlying house number.
+    // The role the player picked at the wreck, frozen in the ledger (falls
+    // back to the address-derived type for legacy saves). Returns
+    // 'blacksmith' for the starter smithy too, so the forge branch fires.
     const shopType = this.houseShopRole(house);
     if (shopType === 'wizard' && MemoryStory.towerAccess(this.save, house) !== 'open') {
       MemoryStory.visitWizard(this, () => {}, house);
       return;
     }
+    // A TURRET trades nothing: its archer is the castle turret lane
+    // (app.js _turretFire) and a tap only says so.
+    if (shopType === 'turret') {
+      this.showMessageModal({ kind: 'build', title: 'Turret',
+        body: 'An archer leans over the battlement and nods. Anything hostile that comes within bowshot of these walls is their business.' });
+      return;
+    }
     const isFort = !!house && house.tier === 11;
     // A delivery host (plain house, no shop role) takes ONE delivery ever
     // (Delivery.isSatisfied), and render.js shows its wishlist over the roof.
-    const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
-      && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
+    const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house;
     // There is no per-hour deal cap (shops_math.js header). A deal is still
     // RECORDED against the house — it settles the shop: the shelf turns over
     // (the deal count is in shopRng's seed), the re-roll ladder drops back to
@@ -292,15 +272,6 @@ class SceneShops {
           this.shopInteract(sx, sy, house);
         },
       });
-      return;
-    }
-    // Forced scarecrow shop (the house just past the starter blacksmith).
-    // Sells a single scarecrow for cash, ONCE, then this branch goes quiet
-    // and the house reverts to its normal role (delivery / shop). Checked
-    // before every other small-house branch so it wins regardless of the
-    // underlying address-derived role.
-    if (!castle && !isFort && house && this.isScarecrowShop(house) && !this.save.scarecrowShopUsed) {
-      this.presentScarecrowOffer(sx, sy, house, recordDeal);
       return;
     }
     // Plain houses — small residential without a shop role and not the
@@ -561,7 +532,7 @@ class SceneShops {
   // The line and tier a themed shop (role key 'market') sells: its place in
   // the save's restore order of shops, through Shops.themeAt — seed, supply,
   // potion, ore, relic, pet, then round again a tier up. The tutorial's market
-  // (PRESEED_RESTORE_ROLES order 3) is the first shop, so it is still the
+  // (Houses.BUILD_OPTIONS, from the third rebuild) is the first shop, so it is still the
   // beginner's T1 seed shop. The sign, the offer title, the restoration card
   // and the stock all read this one answer.
   marketTheme(house) {
@@ -667,105 +638,6 @@ class SceneShops {
     mount();
   }
 
-  findStarterBlacksmithId() {
-    // Resolve the starter shop first — needed both to anchor the search and
-    // to exclude it from the candidate list. Goes through the guarded
-    // resolver so a half-streamed map can't anchor the smithy across town.
-    this.ensureStarterShopId();
-    const starterId = this.save.starterShopId;
-    // Anchor the distance search at the starter house's world position when
-    // it's loaded; otherwise fall back to the player's spawn so the choice
-    // converges to the same answer once tiles around home stream in.
-    let fromPos = this.startWorldM;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind === 'house' && o.id === starterId) {
-          fromPos = { x: o.x, y: o.y }; break;
-        }
-      }
-    }
-    // Closest small house (BUILDING tier) to the starter, excluding the
-    // starter itself. Skip forts and castles so a civic building next door
-    // doesn't get re-skinned as a smithy.
-    let bestId = null, bestD2 = Infinity;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id || o.id === starterId) continue;
-        if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
-        const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
-      }
-    }
-    return bestId;
-  }
-
-  // Forced scarecrow shop. The next house out past the starter blacksmith
-  // (so: Home is nearest, smithy is 2nd, this is 3rd) is pinned as a one-time
-  // scarecrow vendor — the player begins with no scarecrow now, so this is
-  // where they buy their first crow/deer ward. Memoized like the blacksmith.
-  // Sells a single scarecrow for cash, then reverts to a normal house (see
-  // save.scarecrowShopUsed).
-  isScarecrowShop(house) {
-    if (!house || !house.id) return false;
-    if (this.save.scarecrowShopId == null) {
-      const id = this.findScarecrowShopId();
-      if (id) this.save.scarecrowShopId = id;
-    }
-    return this.save.scarecrowShopId === house.id;
-  }
-
-  findScarecrowShopId() {
-    // Anchor at the blacksmith (resolving it first) and exclude both Home and
-    // the smithy, so the nearest remaining small house becomes the scarecrow
-    // shop — one house further out than the smithy. Same guarded-resolver +
-    // BUILDING-tier filter as findStarterBlacksmithId.
-    this.ensureStarterShopId();
-    const starterId = this.save.starterShopId;
-    const smithId = this.save.starterBlacksmithId != null
-      ? this.save.starterBlacksmithId : this.findStarterBlacksmithId();
-    // Anchor the search at the smithy when it's loaded, else fall back to spawn
-    // so the choice converges once tiles around home stream in.
-    let fromPos = this.startWorldM;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind === 'house' && o.id === smithId) {
-          fromPos = { x: o.x, y: o.y }; break;
-        }
-      }
-    }
-    let bestId = null, bestD2 = Infinity;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id) continue;
-        if (o.id === starterId || o.id === smithId) continue;
-        if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
-        const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
-      }
-    }
-    return bestId;
-  }
-
-  // The two random wooden relics this smithy offers. Chosen once from
-  // STARTER_SMITH_SLOTS and memoized in save.starterSmithSlots so reloads +
-  // re-taps keep the same pair. starterBlacksmithOffer skips owned slots.
-  starterSmithSlots() {
-    if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
-      // Shuffle the pool, take the first two for a distinct random pair.
-      const pool = shuffleInPlace([...STARTER_SMITH_SLOTS]);
-      this.save.starterSmithSlots = [pool[0], pool[1]];
-      persistSave(this.save);
-    }
-    return this.save.starterSmithSlots;
-  }
-
-  // Recipes the starter blacksmith trades for wooden tools. Every T1 item
-  // costs a flat 5 wood — wood drops from ground stacks sprinkled near the
-  // starting area (no tool needed), from chopping shrubs (bare-handed slow
-  // chop), and from chopping trees (axe). The starter crate seeds the first
-  // 5 wood so the player can forge their first tool immediately.
   starterBlacksmithRecipe(slot) {
     if (STARTER_SMITH_SLOTS.includes(slot)) {
       return [{ id: 'wood', qty: 5 }];
