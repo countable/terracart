@@ -62,8 +62,12 @@ test('hit flash: the aura shows it on BOTH channels, and it wins over the states
   // A status on the body (the first active row of Conditions.DEFINITIONS)
   // joins the states that paint the aura; the hit still wins over all of them.
   assert.truthy(/Object\.keys\(Conditions\.DEFINITIONS\)/.test(body), 'the status tint comes off the table');
-  assert.truthy(/if \(hit \|\| spent \|\| far \|\| status\) \{/.test(body), 'a hit lights the aura on its own');
+  assert.truthy(/if \(hit \|\| flicked \|\| spent \|\| far \|\| status\) \{/.test(body), 'a hit lights the aura on its own');
   assert.truthy(/if \(hit\) \{\s*\n\s*tint = HIT_FLASH_TINT;/.test(body), 'the tint channel, and it wins');
+  // A status landing (_flashPlayerStatus) flicks the body in its own colour
+  // — under the hit, over the empty-bar and far-from-GPS states.
+  assert.truthy(/\} else if \(flicked\) \{\s*\n\s*tint = this\._statusFlashTint;\s*\n\s*\} else if \(spent\) \{/.test(body),
+    'the status flick sits between the hit and the states');
   assert.truthy(/const key = \(hit \|\| spent\) \? 'halo_red' : 'halo_dark';/.test(body),
     'the halo channel — the red texture, which reads without WebGL');
   assert.truthy(/const alpha = hit \? 0\.2 \+ 0\.6 \* \(hitLeft \/ HIT_FLASH_MS\)/.test(body),

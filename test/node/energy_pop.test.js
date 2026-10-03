@@ -154,10 +154,14 @@ test('damage pop: the foe\'s "-N" wears the same dress, from the same table', ()
   // The enemy damage number used to be a hand-set add.text (bold 11px, a
   // stroke, NO drop shadow) beside the toast table; now it is a tier of it.
   assertMapNumberDress(tierRow('damage'), 'damage');
-  const m = app.match(/\n  _popDamageNumber\(c, amount\) \{([\s\S]*?)\n  \}\n/);
-  assert.truthy(m, '_popDamageNumber exists');
+  const d = app.match(/\n  _popDamageNumber\(c, amount\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(d, '_popDamageNumber exists');
+  assert.truthy(/return this\._popCreatureText\(c, `-\$\{amount\}`, UI_DANGER_INK\);/.test(d[1]),
+    'the "-N" is the creature-word pop (the one a landing status also uses) in the danger ink');
+  const m = app.match(/\n  _popCreatureText\(c, text, color\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(m, '_popCreatureText exists');
   const body = m[1];
-  assert.truthy(/this\._toast\(`-\$\{amount\}`, \{\s*\n\s*tier: 'damage'/.test(body), 'a damage toast');
+  assert.truthy(/this\._toast\(text, \{\s*\n\s*tier: 'damage', color/.test(body), 'a damage toast');
   assert.falsy(/this\.add\.text\(/.test(body), 'no bespoke text builder');
   assert.truthy(/this\.worldMetersToScreen\(c\.x, c\.y\)/.test(body), 'still projected off the foe');
   assert.truthy(/stack: false/.test(body), 'does not stack — its own scatter keeps hits apart');

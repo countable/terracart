@@ -47,7 +47,7 @@
   function clearDebuffs(c) {
     extinguish(c);
     c.conditions = {};
-    for (const field of ['_sleepUntil', '_frozenUntil', '_fearUntilT']) c[field] = 0;
+    for (const field of ['_sleepUntil', '_frozenUntil', '_fearUntilT', '_psychosisUntilT']) c[field] = 0;
   }
   function prune(scene, now = Date.now()) {
     const ledger = scene.save.potionEffects;
@@ -123,6 +123,11 @@
       if (id === 'blight_potion') c._potionBlightAt = now + 1000;
       c._hp = Math.min(c._hp, Combat.maxHp(c));
       if (id === 'fire_resistance_potion' || id === 'immortal_potion') extinguish(c);
+      // The buff announces itself on the body (Combat.flagStatus) in the
+      // word and ink of the Buffs.KINDS row that reads this same field —
+      // the chip the player wears for it, so a thrown Speed says "Speed".
+      const row = root.Buffs && Object.values(root.Buffs.KINDS).find(k => k.save === TIMERS[id]);
+      if (row) Combat.flagStatus(c, { label: row.name, color: row.color });
     } else if (id === 'vigor_potion' || id === 'elixir') {
       if (id === 'elixir' && downed(c, now)) return false;
       if (id === 'elixir') clearDebuffs(c);

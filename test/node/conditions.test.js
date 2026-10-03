@@ -42,7 +42,7 @@
     let now = 1000;
     const clock = { now: () => now };
     const scene = { save: { energy: 100 }, _conditionLastT: now, _conditionVisibilityHandler() {},
-      _syncStatusRow() {}, _nextBlowT: 5000, _nextShotT: { staff: 7000 },
+      _syncStatusRow() {}, _announceStatuses() {}, _nextBlowT: 5000, _nextShotT: { staff: 7000 },
       _syncAttackConditionSpeed() { sync.call(this, Conditions, clock); } };
     Conditions.apply(scene.save, 'jellyfish_stun');
     scene._syncAttackConditionSpeed();
@@ -140,7 +140,7 @@
       const fn = new Function('getSelectedSlot', 'Conditions', body);
       const save = { energy: 0, inv: [{ id, count: 2 }] };
       let consumed = 0;
-      const scene = { save, flash() {}, _syncStatusRow() {}, _syncAttackConditionSpeed() {}, _popEnergy() {}, updateEnergyDOM() {},
+      const scene = { save, flash() {}, _syncStatusRow() {}, _announceStatuses() {}, _syncAttackConditionSpeed() {}, _popEnergy() {}, updateEnergyDOM() {},
         _finishConsumable() { consumed++; return true; } };
       const call = () => fn.call(scene, s => s.inv[0], Conditions);
       assert.falsy(call());
@@ -182,7 +182,7 @@
     assert.eq(save.conditions.poison.remainingMs, 1000);
     assert.eq(save.conditions.poison.nextTickMs, 2000);
     let persisted = null;
-    const scene = { save, _conditionLastT: 5000, _conditionVisibilityHandler() {}, _syncStatusRow() {}, _syncAttackConditionSpeed() {} };
+    const scene = { save, _conditionLastT: 5000, _conditionVisibilityHandler() {}, _announceStatuses() {}, _syncStatusRow() {}, _syncAttackConditionSpeed() {} };
     fn.call(scene, Conditions, { hidden: false }, { now: () => 6000 },
       state => { persisted = JSON.parse(JSON.stringify(state)); });
     assert.truthy(persisted, 'expiry saves even though no energy tick happened');
@@ -195,7 +195,7 @@
     const fn = new Function('Conditions', 'document', 'performance', 'persistSave', body);
     let now = 1000;
     const doc = { hidden: false, addEventListener() {} };
-    const scene = { save: { energy: 100 }, _syncStatusRow() {}, _syncAttackConditionSpeed() {}, _flashPlayerHit() {}, _popEnergy() {}, _warnIfTiring() {}, updateEnergyDOM() {} };
+    const scene = { save: { energy: 100 }, _announceStatuses() {}, _syncStatusRow() {}, _syncAttackConditionSpeed() {}, _flashPlayerHit() {}, _popEnergy() {}, _warnIfTiring() {}, updateEnergyDOM() {} };
     Conditions.apply(scene.save, 'poison');
     const call = () => fn.call(scene, Conditions, doc, { now: () => now }, () => {});
     call(); now += 1000; call();
