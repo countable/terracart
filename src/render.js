@@ -434,8 +434,9 @@ Render.TerrainCache = TerrainCache;
 // defaults on). The tiled path below runs only where it is off: the sandbox
 // world (sandbox.js install / tools/sandbox_capture.js turn it off, since its
 // authored buildings are cells with no OSM rings) and headless code that never
-// loads building_overlay.js. Resolved per pass, since the flag can change at
-// runtime.
+// loads building_overlay.js. Generated civic blocks without source rings also
+// keep their tiled art, selected per cell below. Resolved per pass, since the
+// flag can change at runtime.
 const polyBuildings = () =>
   typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
 // Electric light blue — the POI pad's tint. Punchier and more saturated than
@@ -1138,6 +1139,7 @@ let _ringTypes  = null;
 let _ringOwners = null;
 let _ringUnclaimed = null;
 let _ringGroundColor = null;
+let _ringSyntheticBuilding = null;
 // Each ring slot's cell, resolved ONCE per pass: its absolute key (coords.js
 // encoding) and its tile + local cell on that tile's own grid — every per-cell
 // lookup below reads these rather than re-deriving a tile from cellsPerTile
@@ -1545,6 +1547,7 @@ Render.drawCells = function drawCells(scene) {
     // unclaimed, and gets the dark-green wash below.
     _ringUnclaimed = new Uint8Array(RING * RING);
     _ringGroundColor = new Int32Array(RING * RING);
+    _ringSyntheticBuilding = new Uint8Array(RING * RING);
     _ringAX = new Int32Array(RING * RING);
     _ringAY = new Int32Array(RING * RING);
     _ringTX = new Int32Array(RING * RING);
@@ -1614,6 +1617,7 @@ Render.drawCells = function drawCells(scene) {
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
       _ringGroundColor[si] = typeof zoneGroundColor === 'function'
         ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1;
+      _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
@@ -1663,7 +1667,12 @@ Render.drawCells = function drawCells(scene) {
   // is too (see the base fill below), so the wavy biome borders and the
   // rounded-corner fills have to resolve it the same way or a building would
   // be ringed by a seam against the ground it was just painted to match.
-  const lookThrough = (t) => isRoadType(t) || t === T_PATH || (POLY && isBuildingType(t));
+  // Generated civic blocks have no source polygon. Keep their exact-cell
+  // floor and walls visible even while mapped buildings use polygon art.
+  const polygonBuilding = (c, r) => POLY
+    && !_ringSyntheticBuilding[(r + 2) * RING + (c + 2)];
+  const lookThrough = (t, c, r) => isRoadType(t) || t === T_PATH
+    || (polygonBuilding(c, r) && isBuildingType(t));
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
   // (FLAT_ROUNDABLE is module-level — see above.)
@@ -1712,7 +1721,7 @@ Render.drawCells = function drawCells(scene) {
       // sits within the sample (deep inside a big footprint) it stays -1 and
       // the tier colour shows through — which is under the polygon anyway.
       let polyGround = -1;
-      const polyB = POLY && isBuildingType(type);
+      const polyB = polygonBuilding(col, row) && isBuildingType(type);
       if (isRoadType(type) || type === T_PATH || polyB) {
         const wcx = _absIX, wcy = _absIY;
         if (polyB) {
@@ -1797,7 +1806,7 @@ Render.drawCells = function drawCells(scene) {
         if (!sameAs(ts_) && !sameAs(te) && !sameAs(tse)) br = CORNER_R;
         // Paint diagonal-neighbor color in each rounded corner first so the pixels
         // revealed outside the curve are the correct adjacent-zone colour.
-        const cornerColor = (t, dnx, dny) => lookThrough(t)
+        const cornerColor = (t, dnx, dny) => lookThrough(t, col + dnx, row + dny)
           ? (scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR)
           : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
@@ -1859,7 +1868,7 @@ Render.drawCells = function drawCells(scene) {
         // The neighbour's PAINTED colour, which both the needs-a-border test
         // and the blend ramp want — resolved once per side rather than twice.
         const nbrColorOf = (t, dnx, dny) =>
-          lookThrough(t) ? nbrInferred(dnx, dny)
+          lookThrough(t, col + dnx, row + dny) ? nbrInferred(dnx, dny)
             : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
         const cN = nbrColorOf(tN,  0, -1);
         const cS = nbrColorOf(tS,  0, +1);
@@ -2033,7 +2042,7 @@ Render.drawCells = function drawCells(scene) {
           }
         }
         let damageFrame;
-        if (texKey && !POLY && !isTilled && type === 12) {
+        if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
           const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
           if (damaged) {
             texKey = damaged;
@@ -2196,9 +2205,9 @@ Render.drawCells = function drawCells(scene) {
       if (!isB(type)) continue;
       // POLYGONAL mode: the floor, the wash, the pickets, the extrusion, the
       // outline and the ramparts are all drawn from the source ring by
-      // building_overlay.js. Nothing tiled here — leaving even the outline in
-      // would trace the staircase silhouette the polygon exists to replace.
-      if (POLY) continue;
+      // building_overlay.js. Synthetic civic blocks have no polygon and keep
+      // this complete tiled floor/wall path; mapped buildings skip it.
+      if (polygonBuilding(col, row)) continue;
       const ox = col - half, oy = row - half;
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
       // Note it for the unclaimed wash below, with the depth its south wall
@@ -3347,7 +3356,7 @@ Render.drawObjects = function drawObjects(scene) {
         const w = Math.max(8, foot.w * 0.9);
         s.setOrigin(0.5, 0.5)
          .setDisplaySize(w, w * 0.42)
-         .setPosition(Math.round(sx), Math.round(sy + foot.footFromCentre))
+         .setPosition(Math.round(sx), Math.round(sy + foot.footFromCentre - (foot.shadowInsetPx || 0)))
          .setAlpha(0.45).setTint(0xffffff);
         return;
       }
@@ -5008,7 +5017,11 @@ Render.objectAppearance = function (scene, houseRoles) {
     if (!spec) return null;
     // Zone-local appearances retain the existing object behavior and hooks.
     if (Number.isInteger(o._zoneObjectFrame)) spec = { ...spec, key: 'zone_objects',
-      frame: o._zoneObjectFrame, scale: 4 / 3, origin: [0.5, 0.5], seat: true };
+      frame: o._zoneObjectFrame,
+      // The strip-mine's broken stone chunks leave a little space in their cell.
+      scale: o.kind === 'mineralrock' && o._zoneObjectFrame === WILDPLANT_CONTEXT_ART.zone_rock_broken_masonry.frame
+        ? WILDPLANT_CONTEXT_ART.zone_rock_broken_masonry.scale : 4 / 3,
+      origin: [0.5, 0.5], seat: true };
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
@@ -5030,6 +5043,10 @@ Render.objectAppearance = function (scene, houseRoles) {
         const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
         foot = { w: (bb.maxX - bb.minX) * scl,
           footFromCentre: artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
+        // Low rocks rest over their contact ellipse. Centering the ellipse
+        // on the bottom edge makes it protrude below the stone like a gap.
+        // Keep the true art foot for depth sorting; inset only the shadow.
+        if (o.kind === 'mineralrock') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * 0.42 / 2;
       }
     }
     const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;

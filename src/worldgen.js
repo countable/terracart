@@ -3930,6 +3930,8 @@
     // seam between distinct buildings whose footprints rasterized into one
     // contiguous block of building tiles (otherwise they read as one blob).
     const owners = new Uint16Array(w * h);
+    const syntheticBuildingCells = new Uint8Array(w * h);
+    let nextBuildingOwnerId = 0;
     // ownerId → that footprint's stable key (see the mint below). Sparse array,
     // indexed by the same 1-based id `owners` stamps, so a cell resolves to the
     // building it belongs to in two hops and nothing has to search polygons.
@@ -4447,7 +4449,7 @@
     // every road and building is down.
     const cellIdxOf = (ix, iy) => iy * w + ix;
     const inb = (ix, iy) => ix >= 0 && iy >= 0 && ix < w && iy < h;
-    function offsetForPlacement(startIx, startIy) {
+    function offsetForPlacement(startIx, startIy, frontageOwner = 0) {
       const initialOk = inb(startIx, startIy) && !isBuildingTerrain(grid[cellIdxOf(startIx, startIy)]);
       if (initialOk) {
         // Even if not on a building, prefer a tile that's adjacent to a road for reachability.
@@ -4471,18 +4473,29 @@
             if (!inb(ix, iy)) continue;
             const gt = grid[cellIdxOf(ix, iy)];
             if (isBuildingTerrain(gt) || gt === T.WATER) continue;
+            // A synthesized civic booth belongs at its own wall. A road
+            // nearby may choose the frontage, but cannot pull the counter
+            // away from the school into a different part of its grounds.
+            if (frontageOwner && (isCobbleTerrain(gt) || ![[1,0],[-1,0],[0,1],[0,-1]].some(([ax,ay]) =>
+              inb(ix+ax,iy+ay) && owners[cellIdxOf(ix+ax,iy+ay)] === frontageOwner))) continue;
             let nearRoad = false;
             for (let ddy = -2; ddy <= 2 && !nearRoad; ddy++)
               for (let ddx = -2; ddx <= 2 && !nearRoad; ddx++)
                 if (inb(ix + ddx, iy + ddy) && isCobbleTerrain(grid[cellIdxOf(ix + ddx, iy + ddy)]))
                   nearRoad = true;
-            const score = (nearRoad ? 1000 : 0) - r;
+            // Tall corner turrets project north over the cell behind them.
+            // Seat a civic counter on the south face first, then a side;
+            // road proximity only breaks ties between equally visible faces.
+            const owns = (ax, ay) => inb(ix+ax,iy+ay) && owners[cellIdxOf(ix+ax,iy+ay)] === frontageOwner;
+            const face = frontageOwner ? (owns(0,-1) ? 4 : owns(-1,0) || owns(1,0) ? 2 : 0) : 0;
+            const score = face * 1000 + (nearRoad ? 1000 : 0) - r
+              - (frontageOwner ? (dx*dx + dy*dy) / 1000 : 0);
             if (score > bestScore) { bestScore = score; best = { ix, iy }; }
           }
         }
-        if (best && bestScore >= 1000 - r) break; // found a road-adjacent cell, take it
+        if (!frontageOwner && best && bestScore >= 1000 - r) break; // found a road-adjacent cell, take it
       }
-      return best || { ix: startIx, iy: startIy };
+      return best || (frontageOwner ? offsetForPlacement(startIx, startIy) : { ix: startIx, iy: startIy });
     }
 
     for (const name of order) {
@@ -5101,8 +5114,15 @@
               // so offsetForPlacement below pushes the chest off the new block to
               // a reachable, road-facing cell — the facility's entrance. POI_PAD_KEEP
               // cells (roads / water / existing buildings) are never overwritten.
+              let frontageOwner = 0;
               if (POI_CIVIC_BUILDING.has(cls)) {
                 const halfW = 4, halfH = 3;
+                const ownerId = (++nextBuildingOwnerId) & 0xffff;
+                // The source POI owns the identity; clipping or protected
+                // cells cannot move it. Tiled rendering uses the exact mask
+                // because this authored block has no source polygon ring.
+                ownerKeys[ownerId] = `b_${tx * w + poiIX}_${ty * h + poiIY}`;
+                frontageOwner = ownerId;
                 for (let ddy = -halfH; ddy <= halfH; ddy++) {
                   for (let ddx = -halfW; ddx <= halfW; ddx++) {
                     const bx = cellIX + ddx, by = cellIY + ddy;
@@ -5110,11 +5130,13 @@
                     const bidx = by * w + bx;
                     if (POI_PAD_KEEP.has(grid[bidx])) continue;
                     grid[bidx] = T.BUILDING_LARGE;
+                    owners[bidx] = ownerId;
+                    syntheticBuildingCells[bidx] = 1;
                   }
                 }
               }
               // POI is on open ground — apply road-edge offset and synthesize a pad shape.
-              const placement = offsetForPlacement(cellIX, cellIY);
+              const placement = offsetForPlacement(cellIX, cellIY, frontageOwner);
               cellIX = placement.ix;
               cellIY = placement.iy;
             }
@@ -5218,7 +5240,6 @@
           ([fx, fy]) => fx >= 0 && fy >= 0 && fx < w && fy < h));
         enforceBuildingDistribution(_placed);
         yield 'enforceBuildingDistribution';
-        let _bOwnerId = 0;
         for (let _bi = 0; _bi < buildingPolys.length; _bi++) {
           if ((_bi & 15) === 0) yield 'building paint';
           const bp = buildingPolys[_bi];
@@ -5227,7 +5248,7 @@
           // exactly one owner. The renderer strokes a seam wherever two
           // adjacent building cells carry different owners, separating
           // buildings whose footprints abut into one contiguous block.
-          const ownerId = (++_bOwnerId) & 0xffff;
+          const ownerId = (++nextBuildingOwnerId) & 0xffff;
           // Remembered on the poly so the overlay's shape can be resolved to
           // the same ownerKey after the loop (a house's key is minted further
           // down, past two `continue`s, so it can't be read here).
@@ -6119,7 +6140,7 @@
     const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM,
       spawnOpts: { roadMask, spawnWhy, roadClass, occupied: new Set([...dressOcc, ...lampReservations]), pois: dressPois } });
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -6330,7 +6351,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -6347,6 +6368,7 @@
       const filteredObjects = objects.slice();
       entry.grid = grid;
       entry.owners = owners;
+      entry.syntheticBuildingCells = syntheticBuildingCells;
       entry.ownerKeys = ownerKeys;
       entry.objects = filteredObjects;
       entry.depth = 0;
