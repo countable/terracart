@@ -209,16 +209,13 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   // The hits.
   // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),
   // so pin that !unnoticed is IN the gate, not that it is the whole of it.
-  assert.truthy(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/.test(w), 'the slime leech is gated');
-  assert.truthy(/if \(Combat\.isMonster\(c\.kind\) && !isTame && !unnoticed[^)]*\) \{\n\s*const m = Combat\.monster\(c\.kind\);/.test(w),
-    'the monster drain is gated');
-  // The pursuits.
-  // (through `unseen`, which is `unnoticed` plus the foe's own sight).
-  assert.truthy(/const unseen = unnoticed \|\|/.test(w), 'unseen carries unnoticed');
-  assert.truthy(/if \(!unseen && Math\.random\(\) < 0\.5 && distToPlayer > 0\.5 \* this\.cellM\) \{/.test(w),
-    'the slime\'s meander toward the player is gated');
-  assert.truthy(/if \(!unseen && distToPlayer > 0\.5 \* this\.cellM\) \{\n\s*angle = Math\.atan2\(dyp, dxp\)/.test(w),
-    'the monsters\' stalk is gated');
+  assert.truthy(/rosterEnemyAttack\(this, c, rosterRow, now, px, py, unnoticed \|\| standDown, enemyDt\)/.test(w),
+    'every foe\'s leech, blow, arrow and snare is gated');
+  // The pursuits: the roster mover is told the same (`inactive`), and a
+  // foe that is told so neither sees nor stalks.
+  assert.truthy(/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\)/.test(w),
+    'every foe\'s stalk is gated');
+  assert.truthy(/let sees = !inactive && /.test(CREATURE_AI_SRC), 'an inactive foe sees nothing');
   // And the player's own weapons, quiet BOTH ways: the cadence holds its fire
   // (and re-arms, so the first shot flies the instant the shadow lifts), and
   // the ONE lane both swing paths flow through refuses to spin a wheel up.
@@ -253,15 +250,42 @@ test('frost: freezes every Combat.isEnemy in cellInReach for 30 s, refusing BEFO
   assert.truthy(/shortDuration\(FROST_POWDER_MS\)/.test(body), 'the flash prints the freeze with shortDuration');
 });
 
-test('frost: a frozen creature is skipped in the wander step before it can hit or move', () => {
+test('frost: a chilled creature is SLOWED, never pinned — half pace, half cadence, its tell untouched', () => {
+  // FROST IS A SLOW (owner, Oct 2026): the `frozen` row of Combat.STATUS_LOOKS
+  // carries `slow`, Combat.paceMul folds it into every speed site and the
+  // attack / ability cadence stretches by it; nothing skips the foe's tick.
   const m = app.match(/\n  wanderCreatures\(\) \{\n([\s\S]*?)\n  \}\n/);
-  const w = m[1];
-  const gate = w.indexOf('if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;');
-  assert.truthy(gate >= 0, 'the frozen gate');
-  assert.truthy(gate < w.search(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/), 'before the slime leech');
-  assert.truthy(gate < w.search(/if \(Combat\.isMonster\(c\.kind\) && !isTame && !unnoticed[^)]*\) \{/), 'before the monster drain');
-  assert.truthy(gate < w.indexOf('if (now >= c._nextChooseT) {'), 'before the step is chosen');
-  assert.truthy(gate < w.indexOf('const nx = c._startX + (c._targetX - c._startX) * u;'), 'before the hop is interpolated');
+  assert.falsy(/_frozenUntil/.test(m[1]), 'no frozen gate in the sim loop');
+  const row = Combat.STATUS_LOOKS.frozen;
+  assert.eq(row.field, '_frozenUntil'); assert.eq(row.clock, 'wall'); assert.eq(row.slow, 0.5);
+  assert.falsy(row.cancels, 'a slow does not interrupt a wind-up');
+  const until = Date.now() + 60000;
+  const c = { id: 'mon_cold', kind: 'goblin', _frozenUntil: until, _attackWindupUntil: 5000 };
+  assert.truthy(Combat.isChilled(c));
+  assert.eq(Combat.slowMul(c), 0.5);
+  assert.eq(Combat.paceMul(c), 0.5, 'half pace');
+  assert.eq(Combat.paceMul({ ...c, shiny: true }), 0.75, 'a shiny chilled: 1.5 × 0.5');
+  assert.eq(Combat.paceMul({ kind: 'goblin' }), 1);
+  // The cadence: the row's interval over the slow; the wind-up itself as declared.
+  const g = EnemyRoster.get('goblin');
+  const warm = { id: 'w', kind: 'goblin' }, cold = { id: 'c', kind: 'goblin', _frozenUntil: until };
+  enemyAttackReady(warm, g, 10000, true); enemyAttackReady(cold, g, 10000, true);
+  assert.eq(warm._attackNextT, 10000 + g.damageIntervalSeconds * 1000);
+  assert.eq(cold._attackNextT, 10000 + g.damageIntervalSeconds * 1000 / row.slow, 'a chilled foe attacks half as often');
+  assert.eq(cold._attackWindupUntil, warm._attackWindupUntil, 'the tell is as long as ever');
+  // Landing it does not cancel what the foe was winding up, and it EXTENDS.
+  const d = { id: 'mon_tell', kind: 'goblin', _attackWindupUntil: 7000, _frozenUntil: until + 5000 };
+  assert.truthy(Combat.applyFrost(d, 1000));
+  assert.eq(d._attackWindupUntil, 7000, 'the wind-up stands');
+  assert.eq(d._frozenUntil, until + 5000, 'a shorter chill never cuts a longer one short');
+  assert.falsy(Combat.applyFrost({ id: 'released_slime', kind: 'slime' }, 1000), 'never a pet');
+  // The roster mover moves a chilled foe at half its pace.
+  const s = { cellM: 7, depth: 2, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _cellBlocked: () => false,
+    _nearAny: () => false, isUnnoticed: () => false, save: { energy: 100 }, placedRockSet: null };
+  const quick = { id: 'q', kind: 'zombie', x: 0, y: 0 }, slow = { id: 's', kind: 'zombie', x: 0, y: 0, _frozenUntil: until };
+  for (const z of [quick, slow]) rosterEnemyMove(s, z, EnemyRoster.get('zombie'), 10000, 20, 0, false, false, null, 0.1);
+  assert.gt(slow.x, 0, 'it still moves');
+  assert.inRange(slow.x / quick.x, 0.5 - 1e-9, 0.5 + 1e-9, 'at half pace');
   // The ice tint rides the same flag.
   assert.truthy(typeof FROZEN_TINT === 'number' && FROZEN_TINT !== SHINY_TINT, 'FROZEN_TINT is its own colour');
 });

@@ -5,7 +5,12 @@
     return { cellM, depth: 2, save: { energy: 100, armor: {} },
       cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }),
       _cellBlocked: () => false, _nearAny: () => false, _shots: [],
-      _losePlayerEnergy(n) { this.save.energy -= n; return n; } };
+      // The scene's writer banks fractions into whole pips (app.js
+      // _losePlayerEnergy); an aura's rate arrives fractional.
+      _losePlayerEnergy(n) {
+        const whole = bankWhole(this, '_incomingDamageFraction', n);
+        this.save.energy -= whole; return whole;
+      } };
   }
   function foe(kind, x = 0, y = 0) { return { kind, id: `ai_${kind}`, x, y }; }
 

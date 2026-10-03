@@ -1,8 +1,8 @@
 // Creature AI helpers — the scene-free pieces of how wild things move and
-// react: the slime's gait and charge, flee / stalk pacing, the keep-distance
-// angle, monster stride, the ghosts (spawn pass, sun exposure, tick), the
-// fished-up slime, the monster rout and wander-off, and the ward trip that
-// turns a foe out of Home's or a castle's ring.
+// react: the slime's charge, flee / stalk pacing, the roster movers
+// (rosterEnemyMove / rosterEnemyAttack), the ghosts (spawn pass, sun
+// exposure, tick), the fished-up slime, the monster rout and wander-off, and
+// the ward trip that turns a foe out of Home's or a castle's ring.
 //
 // Moved verbatim out of the top of app.js. Everything here is a plain
 // top-level `const` / `function`, so it stays a global exactly as it was:
@@ -16,34 +16,6 @@
 // SceneCreatures mixin on the scene); these are the pieces it calls. See CLAUDE.md "NOTHING HUNTS A BODY" and "Home is a
 // CAMPFIRE YOU OWN" before changing a pace or a ward here.
 
-// ── The wild slime's gait ────────────────────────────────────────────────────
-// The surface slime OOZES. It is the first enemy in the game and the only one
-// above ground, it drifts toward whoever is nearby, and it leeches energy just
-// by sitting on you — so how fast it closes is the whole of how threatening it
-// is. Two numbers over the base wander (STEP_MS / STEP_M in wanderCreatures):
-// how much longer one of its steps takes, and how far that step carries it.
-//
-// It hopped 0.6 of a cell every 5 s once — 0.84 m/s, near enough a stroll, so a
-// slime that noticed you followed you home and there was no leaving it behind
-// on foot. That was cut to 0.45 of a cell (0.42 m/s), which bought the walking
-// away and overshot: at half a metre a second nothing a slime did read as
-// closing on you, and the ooze was a thing you watched rather than a thing you
-// dealt with. It is 0.675 now — the same cut, half of it given back, 0.63 m/s
-// and still comfortably under the stroll that made it inescapable.
-// The ONE number to change is the hop: it is what the amble, the charge and
-// Home's rout are all read off, so raising it lifts every pace a slime has by
-// the same fraction and keeps the relations between them (a charge is the ooze
-// without the lazy beat; a rout is the ooze at the flee pace). The lazy beat
-// is the OTHER half of the threat and is not a speed knob — cutting it to
-// match the charge's cadence would not make a slime quicker, it would delete
-// the charge. Its pursuit is unchanged throughout: half its steps amble your
-// way (see the slime branch in wanderCreatures).
-// The ceiling is a WALK, and combat.test.js is where it is stated: a charging
-// slime is the fastest a slime ever moves, and at 0.945 m/s there is not much
-// of that ceiling left — another 50% would put it past a walking pace and take
-// the "leave it behind on foot" answer away with it.
-const SLIME_STEP_MUL = 1.5;     // × the base wander cadence: a longer, lazier beat
-const SLIME_HOP_CELLS = 0.675;  // cells covered by one ooze
 // ── Struck, a slime CHARGES ──────────────────────────────────────────────────
 // How long a creature keeps reacting to a hit. ONE window, two opposite
 // reactions, because the two kinds of prey are opposite: a crow or a deer that
@@ -52,13 +24,12 @@ const SLIME_HOP_CELLS = 0.675;  // cells covered by one ooze
 // outlasts the wander step it interrupts, which is what the flee's original
 // hand-typed 8000 was picked for.
 //
-// A charge is NOT a new speed. The slime keeps its hop (SLIME_HOP_CELLS) and
-// drops the lazy BEAT it ambles on (SLIME_STEP_MUL), and every hop of the
-// charge goes at the player at the monsters' own stalk jitter instead of half
-// of them meandering off — so it closes several times faster than an
-// unprovoked slime while still, deliberately, being slower than a walk. The
-// gait note above is the thing that must not be undone: you can always walk
-// away from a slime. You just can't stab one and stroll off any more.
+// The surface slime OOZES: its row's movement (enemy_roster.js `slime`,
+// pattern 'ooze') is 1.1 m/s, under a brisk walk, so you can always walk
+// away from one — the first enemy in the game must be left behind on foot.
+// A charge is its row's chargeSpeedMetersPerSecond (1.6, rosterEnemyMove's
+// ooze branch): quicker, still under BRISK_WALK_MPS. You just can't stab one
+// and stroll off any more.
 //
 // Until Sep 2026 nothing at all came of hitting one: the slime went back to
 // its 50/50 meander, and a PET's bite actively pushed it AWAY — the flee
@@ -76,6 +47,21 @@ const STRUCK_REACTION_MS = 8000;
 // kinds that have none, the slime and every cave monster among them.
 const FLEE_STRIDE_MUL = 2;
 const FLEE_BEAT_MUL = 0.5;
+// IN A HURRY, in metres per second — the ONE retreat pace of every mover
+// that moves in m/s: a roster foe's rout (rosterEnemyMove — Home's ward, a
+// wander-off, fear, madness, the kerb turn, a sated thief), its escape from
+// fire (enemyFireEscapeTick) and a warded ghost's run (ghostTick). The pair
+// above over `base` (four times the ground), under the kind's own ceiling
+// (SpriteLayout.creatureMaxMps — a row's `maxMps`) and the wild speed ceiling
+// every row's base numbers sit under (WILD_SPEED_CEILING_MPS): a 7 m/s
+// goblin retreats at 10, never slower than it chases. No cap of its own (the
+// old flat 6 m/s is gone); a shiny's 1.5 and the frost's slow ride on top
+// through Combat.paceMul, at the site. The animals' step chain is the same
+// rule in cells and beats (FLEE_STRIDE_MUL / FLEE_BEAT_MUL over the gait).
+function hurryMps(c, base) {
+  return Math.min(SpriteLayout.creatureMaxMps(c.kind), WILD_SPEED_CEILING_MPS,
+    base * FLEE_STRIDE_MUL / FLEE_BEAT_MUL);
+}
 // How long a mad roster foe (Combat.isPsychotic, rosterEnemyMove) holds one
 // random heading before rolling the next — a stagger, not a spin.
 const PSYCHOSIS_TURN_MS = 700;
@@ -85,22 +71,9 @@ const SHINY_SPEED_MUL = Combat.SHINY_SPEED_MUL;
 // applies afterwards, including to fast bats and crow flights; it is not capped.
 const WILD_SPEED_CEILING_MPS = 10;
 // The spread on a COMMITTED approach, in radians: tight enough to read as a
-// line rather than a meander. The cave monsters stalk on it (a flyer doubles
-// it, which is what makes a bat careen), and a charging slime borrows it —
-// once it has been hit, it moves like the things that hunt you.
+// line rather than a meander. A hunted deer charges on it (wanderCreatures'
+// gameCharge branch).
 const STALK_JITTER = 0.8;
-// A LAYER'S STALK (the goblin trapper — Combat.monsterLays): it wants to be
-// `keepM` off the player, not on top of them. Inside that ring less half a
-// cell it steps AWAY, past it plus half a cell it closes, and on the ring it
-// circles (a quarter turn either way) — so it stays out of sword reach and
-// keeps moving across the line it lays its snares on. The stalk's own jitter.
-function keepDistanceAngle(dist, dxp, dyp, keepM, cellM) {
-  const toward = Math.atan2(dyp, dxp);
-  const j = (Math.random() - 0.5) * STALK_JITTER;
-  if (dist < keepM - 0.5 * cellM) return toward + Math.PI + j;
-  if (dist > keepM + 0.5 * cellM) return toward + j;
-  return toward + (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2 + j;
-}
 // Is this slime still coming for whoever hit it? Derived from `_lastDamagedT`
 // — the stamp BOTH damage paths already set, the player's blows and shots via
 // _damageEnemy and a pet's teeth in wanderCreatures — so "the player or their
@@ -141,11 +114,6 @@ const PEST_SPAWN_CELLS = 10;
 // play since the last window (or since the game opened), not a wall-clock
 // schedule that survives a reload.
 const PEST_DISPATCH_MS = 60 * 60 * 1000;
-// A MONSTER'S STRIDE, in cells: how far one step of the step chain carries it
-// (wanderCreatures' stepM) — a full cell for a flier, 0.6 for everything that
-// walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
-// speed). The ghost does not step — it glides at its row's `mps`.
-function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // ── THE KERB: the major roads' buffer, and who may come near it ─────────────
 // SAFETY (owner, Sep 2026): there must never be a need, or an advantage, to
 // step onto a busy road to get away from something. The worldgen stamps a
@@ -295,29 +263,30 @@ function roadsideRunAngle(scene, c, away) {
   const ty = (near.dy + dy * ROADSIDE_AHEAD_CELLS + ny * ROADSIDE_VERGE_CELLS) * cm;
   return Math.atan2(ty, tx) + (Math.random() - 0.5) * ROADSIDE_JITTER;
 }
-// How fast this creature COMES AT YOU, metres per second, at the quickest the
-// step chain ever moves it toward the player (a flee or a rout is away, and
-// does not count): a ghost's glide (`mps`); the surface slime's charge (its
-// hop at the base beat — the struck slime's quickened pace); a monster's
-// stride over its `speed`-scaled beat; a hunted game animal's charge (its
-// flee stride and beat — `fightsBack`). 0 for a rooted foe or anything that
-// never comes at you. Derived from the same numbers the loop moves by, never
-// a table of its own.
+// The bend for a per-frame mover (rosterEnemyMove runs every frame, the
+// step chain every few hundred ms): the same answer, re-asked at most every
+// ROADSIDE_RECHECK_MS per creature, the plain `away` angle where there is no
+// bend. The (2R+1)² cell reads stay a step-time cost.
+const ROADSIDE_RECHECK_MS = 300;
+function roadsideRunAngleCached(scene, c, away, now) {
+  if (c._roadsideT == null || now - c._roadsideT >= ROADSIDE_RECHECK_MS || now < c._roadsideT) {
+    c._roadsideT = now;
+    c._roadsideAngle = roadsideRunAngle(scene, c, away);
+  }
+  return c._roadsideAngle ?? away;
+}
+// How fast this creature COMES AT YOU, metres per second, at the quickest it
+// ever moves toward the player (a flee or a rout is away, and does not
+// count): a roster foe's quickest declared speed (rosterChaseMps — the base
+// pace, a slime's charge, a fiend's lunge, a bat's peak flight, a ghost's
+// glide); a hunted game animal's charge (its flee stride and beat —
+// `fightsBack`). 0 for anything that never comes at you. Derived from the
+// same numbers the movers move by, never a table of its own.
 function foeChaseMps(c, cellM) {
   if (!c) return 0;
   const cm = cellM > 0 ? cellM : WorldGen.CELL_M;
-  const m = Combat.monster(c.kind);
-  if (m && m.stationary) return 0;
-  // A ROSTER foe (enemy_roster.js — the one table rosterEnemyMove moves it
-  // by): the quickest of its row's own speeds — the base pace, a slime's
-  // charge, a fiend's lunge, a bat's peak flight. A Giant variant row
-  // with no speeds of its own reads its base kind's row.
-  const row = (typeof EnemyRoster !== 'undefined')
-    && (EnemyRoster.get(c.kind) || (m && m.giant && EnemyRoster.get(m.giant)));
+  const row = typeof EnemyRoster !== 'undefined' && EnemyRoster.get(c.kind);
   if (row) return rosterChaseMps(row);
-  if (m && m.mps) return m.mps;
-  if (c.kind === 'slime') return SLIME_HOP_CELLS * cm / (WANDER_STEP_MS / 1000);
-  if (m && m.speed) return monsterStrideCells(m) * cm * m.speed / (WANDER_STEP_MS / 1000);
   const fb = SpriteLayout.creatureFightsBack(c.kind);
   const flee = fb && SpriteLayout.creatureBehaviour(c.kind)?.flee;
   if (flee) return (flee.stepCells ?? 1) * cm / ((flee.stepMs ?? WANDER_STEP_MS) / 1000);
@@ -352,7 +321,7 @@ function faunaTopMps(kind, cellM) {
 // Anything wild — foe or animal — that out-runs a brisk walk.
 function isFastMover(c, cellM) {
   if (!c) return false;
-  const hostileSpecies = Combat.isEnemyKind(c.kind) && !String(c.id).startsWith('released_');
+  const hostileSpecies = Combat.isEnemyKind(c.kind) && !Combat.isTame(c);
   const mps = hostileSpecies ? foeChaseMps(c, cellM) : faunaTopMps(c.kind, cellM);
   return mps > BRISK_WALK_MPS;
 }
@@ -802,7 +771,10 @@ function fireWardTrip(scene, c) {
 // straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
 // Powder) it hovers where it is. Neither touches.
 function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
-  pace *= (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c));
+  // Routed by a ward it RUNS (hurryMps, like every other foe); the pace
+  // multiplier (shiny, a thrown Speed, the frost's slow) rides on top.
+  if (warded) pace = hurryMps(c, pace * 1000) / 1000;
+  pace *= Combat.paceMul(c);
   // A finite memorial guard is visible but dormant until approached. Its
   // lifetime begins at awakening, not while the player passes far away.
   if (c.proximityCells && !c._awakened) {
@@ -1001,7 +973,7 @@ function isPest(c) {
 // Nobody's hunter takes a tamed (released_) animal. The caller still skips
 // what is already caught.
 function huntsPrey(hunterKind, cr) {
-  if (!cr || Combat.isConcealed(cr) || Combat.isCharmed(cr) || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
+  if (!cr || Combat.isConcealed(cr) || Combat.isCharmed(cr) || Combat.isTame(cr)) return false;
   if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPest(cr);
   const prey = SpriteLayout.creaturePrey(hunterKind);
   return !!prey && prey.has(cr.kind);
@@ -1091,8 +1063,8 @@ function enemyFireEscapeTick(scene, c, row, now, dt) {
   c._startX = c._targetX = c.x; c._startY = c._targetY = c.y;
   c._stepT0 = c._nextChooseT = now;
   c._attackWindupUntil = c._lungeUntil = c._batT0 = null;
-  if (c.stationary || Combat.monster(c.kind)?.stationary || row?.movement.pattern === 'anchor_spit') return true;
-  row = row || { tier: Combat.monster(c.kind)?.minDepth || 1, movement: { pattern: 'walk' } };
+  row = row || EnemyRoster.get(c.kind);
+  if (c.stationary || !row || row.movement.pattern === 'anchor_spit') return true;
   if (!c._fireEscapeRoute || now >= (c._fireEscapePlanT || 0)) {
     c._fireEscapeRoute = enemyFireEscapeRoute(scene, c, row);
     c._fireEscapePlanT = now + 250;
@@ -1100,8 +1072,10 @@ function enemyFireEscapeTick(scene, c, row, now, dt) {
   const point = c._fireEscapeRoute[0];
   if (!point) return true;
   const distance = Math.hypot(point.x - c.x, point.y - c.y);
-  const speed = Math.min(SpriteLayout.creatureMaxMps(c.kind), foeChaseMps(c, scene.cellM) / FLEE_BEAT_MUL);
-  const step = Math.min(distance, speed * dt * Combat.shinySpeedMul(c));
+  // Out of the fire at the hurry pace (hurryMps over the row's base speed),
+  // times the one pace multiplier.
+  const speed = hurryMps(c, row.movement.speedMetersPerSecond || foeChaseMps(c, scene.cellM));
+  const step = Math.min(distance, speed * dt * Combat.paceMul(c));
   if (distance > 0 && !enemySweep(scene, c, row, c.x + (point.x - c.x) / distance * step,
       c.y + (point.y - c.y) / distance * step, now, true)) c._fireEscapeRoute = null;
   else if (step >= distance) c._fireEscapeRoute.shift();
@@ -1144,39 +1118,90 @@ function enemyWalkHazardTick(scene, c, now) {
   if (previous.x === c.x && previous.y === c.y) return false;
   const dt = Math.min(0.1, Math.max(0, (now - previous.now) / 1000));
   const rate = scene._walkHazardExposure(previous.x, previous.y, c.x, c.y);
-  c._walkHazardAccum = (c._walkHazardAccum || 0) + rate * dt;
-  const damage = Math.floor(c._walkHazardAccum + 1e-9);
+  const damage = bankWhole(c, '_walkHazardAccum', rate * dt);
   if (!damage) return false;
-  c._walkHazardAccum = Math.max(0, c._walkHazardAccum - damage);
   return !!scene._damageEnemy(c, damage, 'obstacle');
 }
 
-// Every segment is swept, including fast flights and lunges. Flying permits
-// low terrain, never rock walls, buildings, unloaded cells or placed rocks.
-function enemyCanStep(scene, c, row, x, y, escaping = false) {
-  if (!fireStepAllowed(scene, c, x, y, escaping)) return false;
+// A FOE'S BLOW LANDS ON THE PLAYER — the one writer for every contact in the
+// sim: a roster foe's melee (rosterEnemyAttack), its aura, a slime trail, a
+// ghost's touch, a hunted deer's butt, a thrown Blight's drain
+// (potion_effects.js). `raw` is the attacker's blow after its own power
+// (Combat.meleeBlow, an aura's packet rate); the shield, the armour and the
+// mode have their say through Combat.incomingDamage — or the caller hands
+// over a rate it already mitigated (`mitigated`: Combat.playerDamageRate's
+// packets), fractional, and the scene's one writer banks the pips
+// (_losePlayerEnergy: Energy.set, the flinch, closing a shop). What was lost
+// joins the ONE roll-up (_monsterDmgAccum — popped after the loop as
+// "⚔️ monsters"), never a pop of its own; a row's `condition` (a spider's
+// poison) lands with a blow that cost something. Returns what was lost.
+function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {}) {
+  const dmg = mitigated ? raw : Combat.incomingDamage(scene.save, raw);
+  if (!(dmg > 0)) return 0;
+  const lost = scene._losePlayerEnergy(dmg, { closeShop: true });
+  scene._monsterDmgAccum = (scene._monsterDmgAccum || 0) + lost;
+  if (lost > 0 && condition) scene._applyCondition(condition);
+  return lost;
+}
+
+// ── THE ONE STEP TEST: may `c` step onto (x, y)? ─────────────────────────
+// Both movers ask it — rosterEnemyMove's sweep (enemySweep, every segment of
+// every flight and lunge) through enemyCanStep, and the animals' and pets'
+// step chain (wanderCreatures) directly — so a refused cell is refused to
+// everything alike: a placed rock, water / a building / a major road's
+// terrain (Combat.faunaBlocksCell; a keep's own floor to its garrison), the
+// KERB (above: nothing steps onto a major band, a FAST mover never INTO the
+// buffer from outside it — a pet or a summoned ally goes where it likes),
+// and on a RETREAT (`retreating`: a rout, a bolt, the kerb turn, a flee
+// pattern) never INTO a yard it is not already in (THE ROADSIDE RUN, above
+// — the gate's BEHIND_HOUSE / PRIVATE; a lair guard walks home through its
+// own ruin's yard). A FOE (`row`, its roster row) is also held by ground fire
+// (fireStepAllowed — `escaping` lets it leave a burning cell), an unloaded
+// cell, a cave wall (scene._cellBlocked), a building's wall, and a campfire's
+// ward (fireAverse); a flier (orbit_swoop) crosses low terrain.
+function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, escaping = false } = {}) {
+  if (row && !fireStepAllowed(scene, c, x, y, escaping)) return true;
   const cell = scene.cellAt(x, y);
-  if (!cell.loaded) return false;
-  if (scene._cellBlocked(x, y)) return false;
+  if (row) {
+    if (!cell.loaded) return true;
+    if (scene._cellBlocked(x, y)) return true;
+  }
   // A building is solid, except a keep's own floor to its garrison.
-  const ownFloor = WorldGen.isBuildingTerrain(cell.type) && Lairs.inOwnKeep(c, x, y);
-  if (WorldGen.isBuildingTerrain(cell.type) && !ownFloor) return false;
+  const ownFloor = cell.loaded && WorldGen.isBuildingTerrain(cell.type) && Lairs.inOwnKeep(c, x, y);
+  if (row && WorldGen.isBuildingTerrain(cell.type) && !ownFloor) return true;
   if (scene.placedRockSet?.size) {
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, x, y);
-    if (scene.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) return false;
+    if (scene.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) return true;
   }
-  if (row.movement.pattern !== 'orbit_swoop' && !ownFloor && Combat.faunaBlocksCell(cell.type)) return false;
-  // THE KERB (above): nothing hostile — flier or not — steps onto a major
-  // road's band, and a FAST foe never steps INTO the buffer from outside it
-  // (one already inside may leave). The same refused-cell reasons the old
-  // step chain reads, on the roster's swept mover.
-  const road = roadClassBitsAt(scene, x, y);
-  if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return false;
-  if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
-      && isFastMover(c, scene.cellM)) return false;
-  const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
-  return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
+  if (cell.loaded && row?.movement.pattern !== 'orbit_swoop' && !ownFloor && Combat.faunaBlocksCell(cell.type)) return true;
+  if (!Combat.isAlly(c)) {
+    const road = roadClassBitsAt(scene, x, y);
+    if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return true;
+    if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
+        && isFastMover(c, scene.cellM)) return true;
+    if (retreating && !c.lair && yardReasonAt(scene, x, y) && !yardReasonAt(scene, c.x, c.y)) return true;
+  }
+  return !!row && fireAverse(c, row) && !!scene._nearAny?.('fires', x, y, FIRE_REST_R);
 }
+// The roster mover's door to it. Every segment is swept, including fast
+// flights and lunges. `retreating` is stamped on the creature by
+// rosterEnemyMove for the sweep (`c._retreating`), so a routed foe's whole
+// segment keeps out of the yards.
+function enemyCanStep(scene, c, row, x, y, escaping = false) {
+  return !creatureStepRefused(scene, c, x, y, { row, escaping, retreating: !!c._retreating });
+}
+// FIRE AVERSION — the ONE rule for which foe a lit campfire turns back: a
+// WILD foe of the weakest tier (the row's `tier` ≤ FIRE_WARD_MAX_DEPTH — the
+// slimes, bats and spiders; a goblin or its archer is undeterred by
+// firelight). NOT A LAIR GUARD, whatever kind it is: a garrison is a place,
+// not wandering fauna — a campfire dropped by the door cannot empty a ruin,
+// and a guard walking home past a fire would freeze in the street. The
+// ward's ring is FIRE_REST_R, the ring the fire lights and warms, never a
+// literal of its own. (Until Oct 2026 the retired step chain read the row's
+// cave depth instead of its tier and the two movers disagreed on purple
+// slimes, club goblins, spiders, boars, crabs and bats; the tier rule, the
+// live mover's, is the one kept.)
+function fireAverse(c, row) { return !c.lair && row.tier <= FIRE_WARD_MAX_DEPTH; }
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false) {
   let dx = x - c.x, dy = y - c.y;
   const distance = Math.hypot(dx, dy);
@@ -1219,7 +1244,10 @@ function enemySightBlocked(scene, c, x, y) {
 
 // A wind-up is cancellable: leaving range, hiding or a ward cancels it.
 // Cooldowns start when the attack starts, so the declared interval includes
-// the wind-up rather than accidentally extending every attack cycle.
+// the wind-up rather than accidentally extending every attack cycle. A
+// CHILLED foe (Combat.slowMul — the frost) attacks on a longer beat: the
+// interval over its slow; the wind-up itself is untouched (a slow does not
+// interrupt, and does not stretch a tell).
 function enemyAttackReady(c, row, now, eligible) {
   if (!eligible) { c._attackWindupUntil = null; return false; }
   if (c._attackWindupUntil != null) {
@@ -1228,7 +1256,7 @@ function enemyAttackReady(c, row, now, eligible) {
     return true;
   }
   if (now < (c._attackNextT || 0)) return false;
-  c._attackNextT = now + row.damageIntervalSeconds * 1000;
+  c._attackNextT = now + row.damageIntervalSeconds * 1000 / Combat.slowMul(c);
   c._attackWindupUntil = now + row.windupSeconds * 1000;
   if (row.windupSeconds > 0) return false;
   c._attackWindupUntil = null;
@@ -1374,7 +1402,7 @@ function enemySupportTick(scene, c, row, now, eligible) {
     c._abilityNextT = now + 1000;
     return false;
   }
-  c._abilityNextT = now + a.intervalSeconds * 1000;
+  c._abilityNextT = now + a.intervalSeconds * 1000 / Combat.slowMul(c);
   c._abilityWindupUntil = now + a.windupSeconds * 1000;
   c._abilityDamageStamp = c._lastDamagedT;
   return true;
@@ -1441,20 +1469,14 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
       scene._damageEnemy(creatureTarget, row.aura.rawDps * Combat.powerMul(c) * dt,
         Combat.isCharmed(c) ? 'ally' : 'enemy', { bypassArmor: true });
     } else {
+      // Mitigated as one-second PACKETS (Combat.playerDamageRate — never the
+      // one-point floor per frame), then the fractional rate goes to the one
+      // blow writer, which banks whole pips.
       const a = row.aura;
       const raw = a.rawDps * Combat.powerMul(c);
-      const shield = PotionEffects.damageMul(scene.save);
-      // Energy.set stores integers. Bank fractions BEFORE calling the scene's
-      // loss writer so 60 tiny frames cannot each become a minimum-one hit.
-      const loss = Combat.playerDamageRate(raw * shield, scene.save.armor, dt,
+      const loss = Combat.playerDamageRate(raw * PotionEffects.damageMul(scene.save), scene.save.armor, dt,
         { packetSeconds: a.mitigationPacketSeconds });
-      scene._enemyAuraFraction = (scene._enemyAuraFraction || 0) + loss;
-      const whole = Math.floor(scene._enemyAuraFraction + 1e-9);
-      if (whole > 0) {
-        scene._enemyAuraFraction -= whole;
-        scene._monsterDmgAccum = (scene._monsterDmgAccum || 0)
-          + scene._losePlayerEnergy(whole, { closeShop: true });
-      }
+      foeBlowLands(scene, c, loss, { mitigated: true });
     }
   }
   if (row.attackType === 'trap') {
@@ -1489,7 +1511,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   c._attackT0 = now;
   c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
   const raw = row.attackType === 'melee' || row.attackType === 'touch'
-    ? (row.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c)
+    ? Combat.meleeBlow(c, row.dmg)
     : row.dmg * Combat.powerMul(c);
   if (row.movement.stopToReload) c._reloadUntil = now + row.movement.reloadSeconds * 1000;
   if (row.attackType === 'blast') {
@@ -1521,11 +1543,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     const take = Combat.incomingTheft(scene.save, c, Date.now());
     if (take) scene._losePlayerToThief(take, c);
   } else {
-    const damage = Combat.incomingDamage(scene.save, raw);
-    const lost = scene._losePlayerEnergy(damage, { closeShop: true });
-    scene._monsterDmgAccum = (scene._monsterDmgAccum || 0) + lost;
-    const condition = Combat.monster(c.kind)?.condition;
-    if (lost > 0 && condition) scene._applyCondition(condition);
+    foeBlowLands(scene, c, raw, { condition: Combat.monster(c.kind)?.condition });
   }
   if (swoop) c._batHit = true;
   if (lunging) c._lungeHit = true;
@@ -1647,16 +1665,10 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
     }
   }
   if (expired && typeof persistSave === 'function') persistSave(scene.save);
-  if (!rawDps || Combat.playerDowned(scene.save.energy)) { scene._slimeTrailFraction = 0; return; }
-  const damage = Combat.playerDamageRate(rawDps * PotionEffects.damageMul(scene.save),
-    scene.save.armor, dt, { packetSeconds: 1 });
-  scene._slimeTrailFraction = (scene._slimeTrailFraction || 0) + damage;
-  const whole = Math.floor(scene._slimeTrailFraction + 1e-9);
-  if (whole > 0) {
-    scene._slimeTrailFraction -= whole;
-    scene._monsterDmgAccum = (scene._monsterDmgAccum || 0)
-      + scene._losePlayerEnergy(whole, { closeShop: true });
-  }
+  if (!rawDps || Combat.playerDowned(scene.save.energy)) return;
+  // One-second packets through the one blow writer (the aura's shape).
+  foeBlowLands(scene, null, Combat.playerDamageRate(rawDps * PotionEffects.damageMul(scene.save),
+    scene.save.armor, dt, { packetSeconds: 1 }), { mitigated: true });
 }
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
@@ -1671,6 +1683,10 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   // Attack suppression still uses the ordinary ward/hidden/downed gates.
   if (c.stationary || m.pattern === 'anchor_spit' || m.pattern === 'burrow') return;
   if (c._abilityWindupUntil > now || c._reloadUntil > now) return;
+  // A RETREAT (the rout, a flee pattern) runs the ROADSIDE among houses
+  // (roadsideRunAngle, below) and never steps INTO a yard (creatureStepRefused
+  // reads this stamp through enemyCanStep's sweep).
+  c._retreating = routed || m.pattern === 'flee';
   const dist = Math.hypot(px - c.x, py - c.y);
   let sees = !inactive && (creatureTarget
     ? dist <= Combat.sightCells(c.kind) * scene.cellM
@@ -1682,7 +1698,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     if (!sees && !routed) {
       const distance = Math.hypot(c.x - c._territoryX, c.y - c._territoryY);
       if (distance > scene.cellM * 0.2) {
-        const step = Math.min(distance, m.speedMetersPerSecond * dt * (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c)));
+        const step = Math.min(distance, m.speedMetersPerSecond * dt * Combat.paceMul(c));
         enemySweep(scene, c, row, c.x + (c._territoryX - c.x) / distance * step,
           c.y + (c._territoryY - c.y) / distance * step, now);
       }
@@ -1705,9 +1721,9 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       }
       angle = c._madAngle;
     }
+    angle = roadsideRunAngleCached(scene, c, angle, now);
     maxDistance = Infinity;
-    // Retreat is brisk but never exceeds the roster's fastest flight.
-    speed = Math.min(6, speed * FLEE_STRIDE_MUL / FLEE_BEAT_MUL);
+    speed = hurryMps(c, speed);
     c._batFlight = null; c._batSwooping = false;
   } else if (lairState === 'return') {
     angle = Math.atan2(c.seatY - c.y, c.seatX - c.x);
@@ -1717,11 +1733,13 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     c._batFlight = null; c._batSwooping = false;
     c._lungeUntil = null; c._lungeWindupUntil = null;
     if (now >= (c._idleTurnT || 0)) {
-      c._idleAngle = Math.random() * Math.PI * 2; c._idleTurnT = now + 3000;
+      // An idle wander among houses keeps to the street too.
+      const idle = Math.random() * Math.PI * 2;
+      c._idleAngle = roadsideRunAngle(scene, c, idle) ?? idle; c._idleTurnT = now + 3000;
     }
     angle = c._idleAngle; maxDistance = Infinity;
   } else if (m.pattern === 'flee') {
-    angle += Math.PI; maxDistance = Infinity;
+    angle = roadsideRunAngleCached(scene, c, angle + Math.PI, now); maxDistance = Infinity;
   } else if (m.pattern === 'orbit_swoop') {
     enemyBatMove(scene, c, row, now, px, py);
     return;
@@ -1776,7 +1794,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     speed = m.chargeSpeedMetersPerSecond || speed;
   }
   if (c._attackWindupUntil != null && !routed) return;
-  const pace = speed * dt * (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c));
+  const pace = speed * dt * Combat.paceMul(c);
   let step = Math.min(maxDistance, pace);
   // Foes keep a little room between them (FOE_SPACING_CELLS): the spacing
   // push joins the approach inside the same per-frame budget, so a crowd
@@ -1833,9 +1851,10 @@ function enemyBatMove(scene, c, row, now, px, py) {
   const tx = px + Math.cos(a) * radius * scene.cellM;
   const ty = py + Math.sin(a) * radius * scene.cellM;
   const distance = Math.hypot(tx - c.x, ty - c.y);
-  const duration = (m.flightSeconds[0] + Math.random() * (m.flightSeconds[1] - m.flightSeconds[0])) / (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c));
+  const paceMul = Combat.paceMul(c);
+  const duration = (m.flightSeconds[0] + Math.random() * (m.flightSeconds[1] - m.flightSeconds[0])) / paceMul;
   const leg = Math.min(distance, m.maxLegCells * scene.cellM,
-    m.speedMetersPerSecond * (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c)) * duration / 2);
+    m.speedMetersPerSecond * paceMul * duration / 2);
   const scale = distance > 0 ? leg / distance : 0;
   c._batFlight = { start: now, duration: duration * 1000,
     x: c.x, y: c.y, tx: c.x + (tx - c.x) * scale, ty: c.y + (ty - c.y) * scale };
@@ -1903,8 +1922,8 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
   const row = EnemyRoster.get(c.kind);
   if (!row) return true;
   if (SpriteLayout.creatureHaunts(c.kind)) {
-    const fate = ghostTick(scene, c, now, target?.x ?? c.x, target?.y ?? c.y, !target, false, Combat.monster(c.kind).mps / 1000);
-    if (fate === 'touch' && target) scene._damageEnemy(target, row.dmg * Combat.powerMul(c), charmed ? 'ally' : 'enemy');
+    const fate = ghostTick(scene, c, now, target?.x ?? c.x, target?.y ?? c.y, !target, false, row.movement.speedMetersPerSecond / 1000);
+    if (fate === 'touch' && target) scene._damageEnemy(target, Combat.meleeBlow(c, row.dmg), charmed ? 'ally' : 'enemy');
     if (fate === 'touch' || fate === 'faded') {
       (scene.save.caught ||= []).push(c.id);
       if (typeof persistSave === 'function') persistSave(scene.save);

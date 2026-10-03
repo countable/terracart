@@ -981,8 +981,7 @@ Object.assign(ctx, {
                       // The rout's pace, and the slowest gait it has to move:
                       // home_ward.test.js measures how long the ring takes to
                       // clear in seconds a player would recognise.
-                      'FLEE_STRIDE_MUL', 'FLEE_BEAT_MUL',
-                      'SLIME_HOP_CELLS', 'SLIME_STEP_MUL']) {
+                      'FLEE_STRIDE_MUL', 'FLEE_BEAT_MUL']) {
     const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);
@@ -1326,8 +1325,8 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   const preamble = [
     // The numbers the loop reads. Lifted, never retyped: a retune has to move
     // the simulation with it or these tests are measuring last week's game.
-    num('CREATURE_SIM_CELLS'), num('SURFACE_RECHECK_MS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'), num('WANDER_STEP_MS'),
-    num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
+    num('CREATURE_SIM_CELLS'), num('SURFACE_RECHECK_MS'), num('FIRE_WARD_MAX_DEPTH'), num('WANDER_STEP_MS'),
+    num('STALK_JITTER'),
     num('PEST_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
     // What a creature in a hurry costs — the struck-prey flee and Home's rout
     // both run at this pair.
@@ -1335,16 +1334,12 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     // The wander-off schedule, distance and timeout (wander_off.test.js).
     num('WANDER_OFF_MIN_MS'), num('WANDER_OFF_SPREAD_MS'), num('WANDER_OFF_MAX_MUL'),
     num('WANDER_OFF_TIMEOUT_MS'), num('WANDER_OFF_TICK_CAP_MS'),
-    'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
     // The predicates. (faunaBlocksCell is Combat's, already loaded.)
     fn('function slimeCharging(c) {'),
     fn('function monsterRout(c, now, cellM) {'),
     fn('function monsterWanderingOff(c, now, distM, cellM) {'),
     fn('function wardTrip(c, homePos, castleWards, r2) {'),
-    // The goblin trapper's stalk: hold its row's range off the player.
-    fn('function keepDistanceAngle(dist, dxp, dyp, keepM, cellM) {'),
-    // The ghosts: the stride both movers read, the night pump and the mover.
-    fn('function monsterStrideCells(mon) {'),
+    // The ghosts: the night pump and the mover.
     num('GHOST_DARK_DAYLIGHT'),
     'const GHOST_SPAWN_MS = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;',
     'const GHOST_SPAWN_JITTER_MS = EnemyRoster.GHOST_SCALING.jitterSeconds * 1000;',
@@ -1367,7 +1362,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   // land on the context global; that is what the BRIDGE above exists for).
   // The method text is a class method, so it is wrapped as an object literal
   // and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, ghostSunExposure, ghostSpawnDelay };\n})();`,
     ctx, { filename: 'scene_creatures.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');

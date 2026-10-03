@@ -293,12 +293,21 @@ test('armor: downed players reject incoming damage before shield or armour', () 
 });
 
 test('armor: every enemy blow uses shared incoming damage before reaching the bar', () => {
-  assert.truthy(/Combat\.incomingDamage\(this\.save, slimeBite\)/.test(SCENE_SRC),
-    'slime leech uses shared mitigation');
-  assert.eq((SCENE_SRC.match(/Combat\.incomingDamage\(this\.save, raw\)/g) || []).length, 2,
-    'retaliating fauna and ghost touches use shared mitigation');
-  assert.truthy(/Combat\.incomingDamage\(this\.save, dmg\)/.test(SCENE_SRC),
-    'monster melee uses shared mitigation');
+  // ONE blow writer (creature_ai.js foeBlowLands): every contact — a roster
+  // foe's melee, a ghost's touch, a hunted deer's butt, a thrown Blight —
+  // passes Combat.incomingDamage there, or hands over a rate it already
+  // mitigated as packets (the aura, a slime trail: Combat.playerDamageRate).
+  const lands = CREATURE_AI_SRC.match(/\nfunction foeBlowLands\(scene, c, raw, [^)]*\) \{([\s\S]*?)\n\}\n/);
+  assert.truthy(lands, 'foeBlowLands exists');
+  assert.truthy(/const dmg = mitigated \? raw : Combat\.incomingDamage\(scene\.save, raw\);/.test(lands[1]),
+    'the shared mitigation, unless the caller already mitigated by packets');
+  assert.truthy(/foeBlowLands\(scene, c, raw, \{ condition: Combat\.monster\(c\.kind\)\?\.condition \}\)/.test(CREATURE_AI_SRC),
+    'a roster foe\'s melee lands through it');
+  assert.eq((CREATURE_AI_SRC.match(/foeBlowLands\(scene, [^,]+, Combat\.playerDamageRate\(|foeBlowLands\(scene, c, loss, \{ mitigated: true \}\)/g) || []).length, 2,
+    'the aura and the slime trail hand over packet-mitigated rates');
+  assert.eq((SCENE_SRC.match(/foeBlowLands\(this, c, /g) || []).length, 2,
+    'retaliating fauna and ghost touches land through it');
+  assert.falsy(/Combat\.incomingDamage\(this\.save, (?:raw|dmg|slimeBite)\)/.test(SCENE_SRC), 'no second mitigation site in the sim loop');
   assert.truthy(/Combat\.incomingProjectileDamage\(this\.save, shot\.damage, shot\.hits(?: \|\| 1)?\)/.test(SCENE_SRC),
     'arrows pass their bundled hit count through shared mitigation');
 });

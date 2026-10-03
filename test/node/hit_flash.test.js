@@ -28,7 +28,12 @@ test('hit flash: every drain on the body flinches at the instant it lands, with 
   assert.eq(scene.save.energy, 95);
   assert.eq(hits.join(','), '2,3', 'fractional incoming damage flashes exactly the banked pips');
   const sites = app.match(/this\._losePlayerEnergy\(/g) || [];
-  assert.eq(sites.length, 8, 'slime leech, monster melee, arrow, a ghost\'s touch, standing on a sprung trap, a hunted deer\'s butt, standing in lava, walking through thorns or spikes');
+  assert.eq(sites.length, 4, 'the arrow, standing on a sprung trap, standing in lava, walking through thorns or spikes');
+  // Every foe's CONTACT — its melee and aura, a slime trail, a ghost's touch,
+  // a hunted deer's butt, a thrown Blight — lands through the one writer in
+  // creature_ai.js (foeBlowLands), which banks it through the same method.
+  assert.truthy(/const lost = scene\._losePlayerEnergy\(dmg, \{ closeShop: true \}\);/.test(CREATURE_AI_SRC), 'foeBlowLands banks through it');
+  assert.eq((CREATURE_AI_SRC.match(/scene\._losePlayerEnergy\(/g) || []).length, 1, 'once');
   const walking = app.match(/\n  _tickWalkHazards\(dt, x0, y0, x1, y1\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(walking && /this\._losePlayerEnergy\(pips\)/.test(walking[1]),
     'thorns and spikes use the same immediate hit flash');
@@ -89,7 +94,9 @@ test('hit flash: the haptic sits between a pickup and a refusal', () => {
 const app = SCENE_SRC;
 test('hit flash: a FOE\'s blow closes an open shop dialog — a trap\'s does not', () => {
   const sites = app.match(/this\._losePlayerEnergy\([^)]*\{ closeShop: true \}\)/g) || [];
-  assert.eq(sites.length, 5, 'slime leech, retaliating fauna, monster melee, arrows and ghost touches all close it');
+  assert.eq(sites.length, 1, 'the arrow closes it');
+  assert.truthy(/scene\._losePlayerEnergy\(dmg, \{ closeShop: true \}\)/.test(CREATURE_AI_SRC),
+    'and so does every contact through the one blow writer (foeBlowLands: melee, the deer, a ghost, an aura)');
   const lose = app.match(/\n  _losePlayerEnergy\(dmg, [^)]*\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(/if \(closeShop\) this\._closeShopOnHit\(\);/.test(lose[1]), 'only when the caller asks — a trap does not');
   const m = app.match(/\n  _closeShopOnHit\(\) \{([\s\S]*?)\n  \}\n/);

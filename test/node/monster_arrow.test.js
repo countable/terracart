@@ -29,9 +29,8 @@ const flyAll = (shots, enemies, hostile, onHit) => {
   return live;
 };
 
-test('monster arrow: a bow arrow, hostile, at the turret cadence, one hit of the table', () => {
-  assert.eq(Combat.MONSTER_SHOT_INTERVAL_MS, Combat.TURRET.fireIntervalMs,
-    'an archer and a turret trade arrows at the same pace');
+test('monster arrow: a bow arrow, hostile, on the row\'s cadence, one hit of the table', () => {
+  assert.gt(EnemyRoster.get('goblin_archer').damageIntervalSeconds, 0, 'an archer paces its arrows off its row');
   const shot = Combat.monsterShot(0, 0, 3 * CELL, 0, CELL, 6);
   assert.truthy(shot, 'fires');
   assert.eq(shot.slot, 'bow', 'a bow arrow');

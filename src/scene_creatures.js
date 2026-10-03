@@ -11,8 +11,7 @@
 //     the wild crow's own tick (_wildCrowTick) and its retreat (_crowDepart);
 //   · CATCHING: startCatchProgress (the catch wheel the target flees) and
 //     catchCreature (what a catch banks).
-// Plus the constants only they read: MONSTER_HIT_MS, MONSTER_ARROW_HITS,
-// FIRE_WARD_MAX_DEPTH, BEACH_X_PER_CELLS.
+// Plus the constants only they read: FIRE_WARD_MAX_DEPTH, BEACH_X_PER_CELLS.
 //
 // Moved verbatim out of app.js. The methods live on `class SceneCreatures`,
 // a MIXIN: app.js installs them onto MapScene.prototype right after the class
@@ -39,23 +38,11 @@
 // "NOTHING HUNTS A BODY", "Home is a CAMPFIRE YOU OWN", "Nothing spawns on a
 // road" and "A tile can be REBUILT under you" before changing a branch here.
 
-// Seconds between one monster's hits. Per user: monsters were landing a hit a
-// second each, so a pack shredded the energy bar faster than it could be read —
-// halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
-// a crop pest, not a cave enemy.)
-const MONSTER_HIT_MS = 2000;
-// A RANGED monster's arrow carries the hits its leech would have landed in the
-// same time: the arrow's cadence (the castle turret's, Combat) over the leech
-// cadence above — 10 s / 2 s = 5 hits per arrow. Derived, not tuned, so the
-// archer deals per minute exactly what it dealt before its hits became a
-// visible arrow, and a change to either cadence keeps that correspondence.
-const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
-// FIRE WARD DEPTH CAP: a campfire only turns away the WEAKEST cave-dwellers —
-// those introduced at the first cave level (Combat.MONSTERS[kind].minDepth <= 1),
-// the same tier as the surface slime it already deters. A goblin (minDepth 2)
-// or goblin archer (minDepth 3) — and their giants, at their own roster
-// depths — are past what a lit campfire can plausibly hold off; only
-// Home's stronger ward (HOME_R, surface only) turns those around.
+// FIRE WARD TIER CAP: a campfire only turns away the WEAKEST foes — the rows
+// of this tier (enemy_roster.js `tier`; creature_ai.js fireAverse), the
+// slimes, bats and spiders among them. A goblin (tier 3) or its archer is
+// past what a lit campfire can plausibly hold off; only Home's stronger ward
+// (HOME_R, surface only) turns those around.
 const FIRE_WARD_MAX_DEPTH = 1;
 
 // ── Buried X marks: how thick they lie on SAND ────────────────────────────
@@ -1705,14 +1692,16 @@ class SceneCreatures {
     if ((this.depth || 0) === 0 && this.save.caught && this.save.caught.length &&
         now - (this._lastCaughtPruneT || 0) > 90000) {
       this._lastCaughtPruneT = now;
+      // The ghosts (ghostSpawnPass), the fished slime (fishedSlimeSpawn),
+      // every timed ally (Companions.KINDS — Companions.tick mints their
+      // ids) and a guildhall bounty's foes (app.js _spawnGuildBounty) mint
+      // their ids the same way and are pruned by the same rule. (`pest_crow_`
+      // is the pump's old prefix — a marker left by a session before the deer
+      // took the job prunes the same way.)
+      const sessionId = this._sessionIdRe ||= new RegExp(
+        `^(?:pest_deer|pest_crow|ghost|fished_slime|${Object.keys(Companions.KINDS).join('|')}|guildfoe)_(-?\\d+)_(-?\\d+)_`);
       this.save.caught = this.save.caught.filter((id) => {
-        // The ghosts (ghostSpawnPass), the fished slime (fishedSlimeSpawn),
-        // a dismissed spirit raven (app.js _tickSpiritRaven) and a
-        // guildhall bounty's foes (app.js _spawnGuildBounty) mint their ids
-        // the same way and are pruned by the same rule. (`pest_crow_` is the
-        // pump's old prefix — a marker left by a session before the deer
-        // took the job prunes the same way.)
-        const m = typeof id === 'string' && /^(?:pest_deer|pest_crow|ghost|fished_slime|spirit_raven|summoned_skeleton|summoned_wraith|mercenary|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
+        const m = typeof id === 'string' && sessionId.exec(id);
         // A gate's guard (lairs.js DAILY_TIERS) carries its UTC day: one
         // from another day can never rise again, so its marker goes.
         const gateDay = Lairs.dailyGuardDay(id);
@@ -1772,7 +1761,7 @@ class SceneCreatures {
         let wildDeer = 0;
         WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
           if (c.kind !== 'deer') return;
-          if (typeof c.id === 'string' && c.id.startsWith('released_')) return;
+          if (Combat.isTame(c)) return;
           if (caughtSet.has(c.id)) return;
           const dx = c.x - px, dy = c.y - py;
           if (dx * dx + dy * dy <= RANGE_SQ) wildDeer++;
@@ -1860,7 +1849,7 @@ class SceneCreatures {
       if (!caughtSet.has(c.id) && enemyWalkHazardTick(this, c, now)) return;
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const unnoticed = this.isUnnoticed(c);
-      const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
+      const isTame = Combat.isTame(c);
       // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
       // raven, conjured by a scroll — yours without being tame). One flag
       // the pet scan and its fight read; see huntsPrey for what each takes.
@@ -1881,10 +1870,8 @@ class SceneCreatures {
       // Mid-catch: the catch wheel owns this creature's movement (it flees the
       // player), so the generic wander must not also drive it.
       if (c._beingCaught) return;
-      // Frost Powder: a frozen foe (c._frozenUntil, wall-clock ms — set by
-      // useFrostPowder, which also pins its hop in place) takes no step and
-      // lands no hit until the ice thaws. It can still be hit.
-      if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;
+      // (The Frost Powder's chill is a SLOW — Combat.STATUS_LOOKS.frozen,
+      // read by Combat.paceMul and the attack cadence — never a skipped tick.)
       if (flowerCreatureTick(this, c, now, px, py, caughtSet,
         { homePos, castleWards, radiusSq: HOME_WARD_R2 })) return;
       // WARDED BY HOME: this foe crossed into Home's ring (HOME_R), so it turns
@@ -1912,8 +1899,7 @@ class SceneCreatures {
       //   A GHOST has one more ward point: a campfire (fireWardTrip) — the
       // same latch, a third reason, asked only for a haunting kind.
       const haunts = SpriteLayout.creatureHaunts(c.kind);
-      const stationary = !!c.stationary || EnemyRoster.isRooted(c.kind)
-        || !!Combat.monster(c.kind)?.stationary;
+      const stationary = !!c.stationary || EnemyRoster.isRooted(c.kind);
       // An ENRAGED game animal (a hunted deer — `fightsBack`, _rageUntil) is
       // hostile for as long as it is angry, so it takes Home's ward exactly as
       // an enemy does: one lane, another reason. Warded, it is turned away
@@ -2003,24 +1989,19 @@ class SceneCreatures {
         interestedFoeM = Math.min(interestedFoeM, Math.sqrt(ddx * ddx + ddy * ddy));
       }
       // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
-      // blow: ONE touch of its row's dmg, through the mode, the shield and the
-      // armour like every blow, and then it is spent — marked in save.caught
-      // like a kill, but no coin (nobody felled it). Nothing else below runs
-      // for it: it has no leech, no step chain and no crop to eat.
+      // blow: ONE touch of its row's dmg (Combat.meleeBlow), through the mode,
+      // the shield and the armour like every blow (foeBlowLands — the one
+      // writer and the one roll-up), and then it is spent — marked in
+      // save.caught like a kill, but no coin (nobody felled it). Nothing else
+      // below runs for it: it has no leech, no step chain and no crop to eat.
       if (haunts) {
-        const gm = Combat.monster(c.kind);
-        const pace = gm.mps / 1000;
+        const pace = rosterRow.movement.speedMetersPerSecond / 1000;
         const fate = ghostTick(this, c, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
           (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || kerbTurn, warded, pace);
-        if (fate === 'touch' && npcTarget) NPC.hit(this, npcTarget, Date.now(),
-          (gm.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c));
-        if (fate === 'touch' && !npcTarget) {
-          const raw = (gm.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
-          const dmg = Combat.incomingDamage(this.save, raw);
-          if (dmg > 0) {
-            const lost = this._losePlayerEnergy(dmg, { closeShop: true });
-            this._popEnergy(-lost, { label: '👻 ghost' });
-          }
+        if (fate === 'touch') {
+          const raw = Combat.meleeBlow(c, rosterRow.dmg);
+          if (npcTarget) NPC.hit(this, npcTarget, Date.now(), raw);
+          else foeBlowLands(this, c, raw);
         }
         if (fate === 'touch' || fate === 'faded') {
           (this.save.caught = this.save.caught || []).push(c.id);
@@ -2034,7 +2015,7 @@ class SceneCreatures {
       // other blow; a foe it kills is the ground's kill ('lava' is no player
       // source — Combat.isPlayerKill), which pays the bounty coin and nothing
       // past it, the turret's rule. A tamed slime is a pet, never burned.
-      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c) && !Combat.monster(c.kind)?.lavaImmune && (this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH)
+      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c) && !rosterRow?.lavaImmune && (this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH)
           && now >= (c._lavaNextT || 0)) {
         c._lavaNextT = now + 1000;
         const under = this.cellAt(c.x, c.y);
@@ -2043,109 +2024,25 @@ class SceneCreatures {
             && this._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava')) return;
       }
       if (enemyFireEscapeTick(this, c, rosterRow, now, enemyDt)) return;
-      // Slime energy steal: a slime sitting on/near the player drains 1 energy
-      // on a per-slime cooldown. Accumulated across all slimes this frame and
-      // surfaced with one throttled flash after the loop (see below) so a swarm
-      // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
-      // independent of the slime's slow step cadence.
+      // EVERY FOE'S BLOW, ARROW, SNARE AND SPELL: rosterEnemyAttack
+      // (creature_ai.js) on its row — the slime's leech, a goblin's club, the
+      // archer's arrow, the trapper's snare — behind the same `unnoticed` /
+      // `standDown` gates. Runs every frame; the row's own cadence paces it.
+      // What the player loses rolls up into one throttled "-N" after the loop.
       if (rosterRow && !haunts) {
         if (npcTarget) rosterEnemyAttack(this, c, rosterRow, now, npcTarget.x, npcTarget.y,
           standDown, enemyDt, npcTarget);
         else rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt);
       }
-      if (c.kind === 'slime' && !isTame && !unnoticed && !standDown && !rosterRow) {
-        // The same one cell the player now swings at (Combat.MELEE_REACH_CELLS)
-        // — one number for "melee is arm's length", read by both sides.
-        const STEAL_R = Combat.meleeReachM(this.cellM);
-        if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
-            (!c._nextStealT || now >= c._nextStealT)) {
-          c._nextStealT = now + 1000;   // one bite a second
-          const slimeBite = (SLIME_LEECH_ENERGY * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
-          const slimeDmg = Combat.incomingDamage(this.save, slimeBite);
-          if (slimeDmg > 0) {
-            this._slimeStealAccum = (this._slimeStealAccum || 0)
-              + this._losePlayerEnergy(slimeDmg, { closeShop: true });
-          }
-        }
-      }
       // THE HUNTED DEER'S BUTT: at arm's length (Combat.meleeReachM, the reach
-      // the player swings at) every `hitMs`, for its row's `dmg` — through the
-      // mode, the shield and the armour like every blow (Combat.incomingDamage),
-      // banked by _losePlayerEnergy (Energy.set + the hit flash) and popped on
-      // the player's cell with the monsters' roll-up (_monsterDmgAccum).
+      // the player swings at) every `hitMs`, for its row's `dmg` through the
+      // melee formula (Combat.meleeBlow) — the mode, the shield and the armour
+      // like every blow, banked and rolled up by the one writer (foeBlowLands).
       if (gameCharge) {
         const BUTT_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + fightsBack.hitMs;
-          const raw = fightsBack.dmg * Combat.powerMul(c);
-          const dmg = Combat.incomingDamage(this.save, raw);
-          if (dmg > 0) {
-            this._monsterDmgAccum = (this._monsterDmgAccum || 0)
-              + this._losePlayerEnergy(dmg, { closeShop: true });
-          }
-        }
-      }
-      // Underground monster attack: the slime's energy leech, parametrised.
-      // A monster within its RANGE (cells) drains DMG energy on a
-      // MONSTER_HIT_MS per-monster cooldown. Melee kinds use range 1
-      // (adjacent, Combat.MONSTERS[kind].range itself); a RANGED kind (the goblin
-      // archer) instead fires the instant the player is inside the SAME ring
-      // the player's bow range is derived from —
-      // Combat.rangeCellsFor('bow', reachCells(this)), the player's live
-      // reach plus one cell — rather than a flat cell count. So the archer
-      // can never open fire from further off than your own arrow
-      // would answer from, and the ring tightens underground / grows with
-      // Inner Light upgrades exactly as the bow's does. Accumulated +
-      // flashed once per window after the loop, like the slime swarm.
-      if (Combat.isMonster(c.kind) && !isTame && !unnoticed && !standDown && !rosterRow) {
-        const m = Combat.monster(c.kind);
-        // A kind whose row lands no blow (Combat.monsterHits — the trapper,
-        // dmg 0) skips both halves below: it is not a melee drain at strength
-        // zero, which the armour floor would round up to a bite.
-        const hits = Combat.monsterHits(c.kind);
-        const rangeCells = PotionEffects.range(c, m.range > 1 ? Combat.rangeCellsFor('bow', reachCells(this)) : m.range);
-        const R = rangeCells * this.cellM;
-        // A RANGED monster needs a clear line, for the same reason your bow
-        // does: the goblin archer reaches out to the player's own live reach,
-        // and through rock that is a foe you often cannot even see chipping
-        // at your energy from inside a wall. Melee kinds (range 1) are
-        // adjacent by definition, so they skip the walk and the cost of it.
-        const clear = hits && (m.range <= 1 ||
-          Combat.lineOfFire(c.x, c.y, px, py, (x, y) => this._cellBlocked(x, y), this.cellM));
-        if (clear && m.range > 1 && ddx * ddx + ddy * ddy <= R * R
-            && (!c._nextShotT || now >= c._nextShotT)) {
-          // A RANGED kind SHOOTS instead: a visible arrow loosed at the player
-          // at the castle turret's cadence (Combat.MONSTER_SHOT_INTERVAL_MS),
-          // flying as a bow arrow through the one shot list — it can be seen
-          // coming, stops in rock, and lands its hit in _shotHitsPlayer (the
-          // shield potion is applied THERE, at the moment it strikes). One
-          // arrow carries MONSTER_ARROW_HITS hits of the table — the kind's
-          // dmg, doubled for an elite, scaled by the mode — so the slower
-          // cadence costs the archer none of its damage per minute.
-          c._nextShotT = now + Combat.MONSTER_SHOT_INTERVAL_MS;
-          const dmg = m.dmg * MONSTER_ARROW_HITS * Combat.powerMul(c);
-          // The arrow carries its hit COUNT as well as its damage, so armour
-          // can soak the volley one hit at a time when it lands
-          // (_shotHitsPlayer) — mitigating the bundle in one lump would make
-          // the slow archer the one foe armour barely helps against.
-          const shot = Combat.monsterShot(c.x, c.y, px, py, this.cellM, dmg, MONSTER_ARROW_HITS);
-          if (shot) shot._sourceGuard = c;
-          if (shot) this._shots.push(shot);
-        } else if (clear && m.range <= 1 && ddx * ddx + ddy * ddy <= R * R
-                   && (!c._nextStealT || now >= c._nextStealT)) {
-          c._nextStealT = now + MONSTER_HIT_MS;
-          c._attackT0 = now;
-          c._attackUntil = now + 600;
-          // Elite and lair power scale the attack before shield and armour.
-          const dmg = (m.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
-          const monDmg = Combat.incomingDamage(this.save, dmg);
-          if (monDmg > 0) {
-            const lost = this._losePlayerEnergy(monDmg, { closeShop: true });
-            this._monsterDmgAccum = (this._monsterDmgAccum || 0) + lost;
-            if (lost > 0 && !isTame && Combat.isEnemy(c) && m.condition) {
-              this._applyCondition(m.condition);
-            }
-          }
+          foeBlowLands(this, c, Combat.meleeBlow(c, fightsBack.dmg));
         }
       }
       // A LAIR GUARD AT REST DOES NOT MOVE — but it is not switched off.
@@ -2157,28 +2054,20 @@ class SceneCreatures {
       // wandered would not. Placed HERE, below the attack blocks and above
       // every movement branch, because an early return at the top of the loop
       // would have made it harmless furniture instead.
-      //   'hunt' and 'return' fall THROUGH to the movement chain: the chase and
-      // the walk home are ordinary steps, chosen by the two branches added to
-      // the angle chain below rather than by a mover of their own.
+      //   'hunt' and 'return' fall THROUGH to the roster mover: the chase and
+      // the walk home are ordinary steps of rosterEnemyMove's one chain.
       // `immobile` is set by src/lairs.js; nothing else in the game seats an
       // immobile creature, and anything that does must land below the same
       // line.
-      // THE TRAPPER'S "ATTACK": a snare on the line between it and you
-      // (_trapperLay). Gated exactly as the blows above are — `unnoticed` (a
-      // powder, or a body on an empty bar: NOTHING HUNTS A BODY) and
-      // `standDown` (a ward, a wander-off, a garrison at rest) — because laying
-      // a trap for the player is taking an interest in them. Above the lair
-      // guard's hold line like the blows, so a hunting garrison lays too.
-      if (Combat.monsterLays(c.kind) && !isTame && !unnoticed && !standDown && !rosterRow) {
-        this._trapperLay(c, now, px, py);
-      }
       // A declared stationary kind can bite above but never enters a movement
       // lane. Roster plants also remain rooted through their anchor_spit mover.
       if (stationary) return;
       if (c.immobile && !frightened && !psychotic && lairState !== 'hunt' && lairState !== 'return') return;
+      // EVERY FOE MOVES BY ITS ROW (rosterEnemyMove): the stalk, the rout
+      // (Home's ward, a wander-off, fear, madness, a sated thief — `routed`),
+      // the kerb turn, a garrison's hunt and walk home (`lairState`). What
+      // follows below is the animals' and the pets' step chain.
       if (rosterRow) {
-        // Turned back at the kerb is the wander-off's away angle (as in the
-        // step chain below); a lair guard walks home instead (guardState).
         rosterEnemyMove(this, c, rosterRow, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
           (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || standDown,
           routed || (kerbTurn && !c.lair), lairState, enemyDt);
@@ -2217,36 +2106,16 @@ class SceneCreatures {
       // The charge runs at the kind's own flee stride and beat: one pace for
       // "in a hurry", whichever way it is going.
       const sprinting = bolting || (gameCharge && !!bolt);
-      // Underground monsters: cadence scales by SPEED (faster ⇒ shorter step,
-      // moves more often); flyers (bats) dart a full cell, ground monsters
-      // lumber like the slime (0.6 cell).
-      const isMon = Combat.isMonster(c.kind);
-      const mon = isMon ? Combat.monster(c.kind) : null;
-      // Read the same stamped flag as the gold tint, including pets and foes.
-      const shinyFast = 1 / Combat.shinySpeedMul(c);
-      // CHARGING: hit by the player or their pet within STRUCK_REACTION_MS and
-      // not warded off. Resolved once here because both halves of the charge
-      // read it — the quickened beat just below and the committed angle in the
-      // chain — and they must not disagree about whether this is a charge.
-      // A tamed slime is a pet and never charges its owner; `warded` and
-      // `unnoticed` (shadowed, or a player downed on an empty bar) are the two
-      // wards that switch it off (the campfire's is a refused target cell, so
-      // it needs nothing here).
-      const charging = !isTame && !standDown && !unnoticed && slimeCharging(c);
+      // The one pace multiplier (Combat.paceMul — a shiny's 1.5, a thrown
+      // Speed potion's 2, the frost's slow) quickens the beat and lifts the
+      // kind's top speed by the same factor.
+      const paceMul = Combat.paceMul(c);
       // stepMs = animation duration of the hop itself (short burst); stepM is
-      // how far it carries. Two kinds keep their numbers OUT of the table on
-      // purpose: the slime's gait is SLIME_STEP_MUL / SLIME_HOP_CELLS, app.js's
-      // own pair with the note that tunes them beside them, and a monster's
-      // cadence and stride come from the MONSTERS row it is registered in.
-      // Everything else is its gait row, or the loop's own base beat.
-      // A ROUTED FOE RUNS, at the same pace anything else in a hurry runs
-      // (FLEE_*). Without it the rout was the crawl it was fleeing at: an
-      // oozing slime is 0.45 cells every 7.5 s, so being driven off the
-      // doorstep meant a full minute parked in the yard just to clear the
-      // four-cell ring and minutes more to reach the bubble — a ward you had
-      // to take on trust, because nothing you could see was leaving. The
-      // slime's charge quickens the BEAT alone; a rout takes the stride too,
-      // because the thing being asked for is distance, not urgency.
+      // how far it carries: the kind's gait row, or the loop's own base beat.
+      // A ROUTED animal RUNS, at the same pace anything else in a hurry runs
+      // (FLEE_*) — a hunted deer walked out of Home's ring. A rout takes the
+      // stride too, because the thing being asked for is distance, not
+      // urgency.
       //   NOT ON A SPRINT. A kind already at its bolt (sprinting — bolting,
       // or a hunted deer's charge) is already in a hurry: the bolt row IS its
       // hurry pace, tuned under the speed ceiling (WILD_SPEED_CEILING_MPS),
@@ -2254,19 +2123,14 @@ class SceneCreatures {
       // deer at four times its bolt). So the rout quickens what was not
       // already running.
       const hurry = routed && !sprinting;
-      let stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
-                   : isMon ? STEP_MS / mon.speed
-                   : sprinting ? (bolt.stepMs ?? STEP_MS)
-                   : (gait?.stepMs ?? STEP_MS)) * shinyFast * (hurry ? FLEE_BEAT_MUL : 1);
-      stepMs /= PotionEffects.speedMul(c);
-      const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
-                  : isMon ? STEP_M * monsterStrideCells(mon)
-                  : sprinting ? STEP_M * (bolt.stepCells ?? 1)
-                  : STEP_M * (gait?.stepCells ?? 1)) * (hurry ? FLEE_STRIDE_MUL : 1);
+      let stepMs = (sprinting ? (bolt.stepMs ?? STEP_MS) : (gait?.stepMs ?? STEP_MS))
+        / paceMul * (hurry ? FLEE_BEAT_MUL : 1);
+      const stepM = STEP_M * (sprinting ? (bolt.stepCells ?? 1) : (gait?.stepCells ?? 1))
+        * (hurry ? FLEE_STRIDE_MUL : 1);
       // A kind's top speed (SpriteLayout.creatureMaxMps) stretches the glide,
       // never shortens the stride: the step still lands where it was aimed.
       // A shiny's cap rises by the same factor its beat quickens by.
-      const maxMps = SpriteLayout.creatureMaxMps(c.kind) / shinyFast * PotionEffects.speedMul(c);
+      const maxMps = SpriteLayout.creatureMaxMps(c.kind) * paceMul;
       stepMs = Math.max(stepMs, stepM / maxMps * 1000);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
@@ -2337,13 +2201,13 @@ class SceneCreatures {
           const fa = run ?? shove;
           const base = hurry ? { m: stepM / FLEE_STRIDE_MUL, ms: stepMs / FLEE_BEAT_MUL } : { m: stepM, ms: stepMs };
           const hurryM = bolt ? STEP_M * (bolt.stepCells ?? 1) : base.m * FLEE_STRIDE_MUL;
-          const hurryMs = bolt ? (bolt.stepMs ?? STEP_MS) * shinyFast : base.ms * FLEE_BEAT_MUL;
+          const hurryMs = bolt ? (bolt.stepMs ?? STEP_MS) / paceMul : base.ms * FLEE_BEAT_MUL;
           for (let attempt = 0; attempt < 4; attempt++) {
             const fleeAngle = fa + (run != null ? 0 : (Math.random() - 0.5) * 0.6);
             const ftx = c.x + Math.cos(fleeAngle) * hurryM;
             const fty = c.y + Math.sin(fleeAngle) * hurryM;
-            const dest = this.cellAt(ftx, fty);
-            if (dest.loaded && !Combat.faunaBlocksCell(dest.type)) {
+            // The shove is a retreat: the one step test keeps it out of the yards.
+            if (!creatureStepRefused(this, c, ftx, fty, { retreating: true })) {
               c._startX = c.x; c._startY = c.y;
               c._targetX = ftx; c._targetY = fty;
               c._stepT0 = now;
@@ -2402,13 +2266,6 @@ class SceneCreatures {
           });
           raidStep = best;
         }
-        // UNSEEN: `unnoticed` (the player is not there to be hunted) OR this
-        // foe cannot see that far (Combat.seesPlayer — slimes are
-        // short-sighted, goblins see across the bubble). Read by the two
-        // STALK branches only: every attack gate below reaches a cell or
-        // three, well inside any sight, and keeps reading `unnoticed`. A
-        // struck slime's charge is not sight either — it knows who hit it.
-        const unseen = unnoticed || !Combat.seesPlayer(c.kind, distToPlayer, this.cellM, this.save);
         let tx = c.x, ty = c.y, angle = 0;
         let foundValidTarget = false;
         // Fight resolution: if chasing pet is in fight range, deal damage.
@@ -2521,74 +2378,14 @@ class SceneCreatures {
             // Home stands among houses: the rout runs the ROADSIDE
             // (roadsideRunAngle) — along the street, not through the yards.
             angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
-          } else if (psychotic) {
-            // MAD: every hop in a fresh random direction, at the rout's
-            // pace. Below the ward (Home still drives it out), above fear:
-            // a foe that is both runs about rather than away.
-            angle = Math.random() * Math.PI * 2;
-          } else if (frightened || wanderOff || (kerbTurn && !c.lair)) {
-            // WANDERING OFF (or TURNED BACK AT THE KERB — the same away angle,
-            // at its own pace): away from the PLAYER, on the same spread as the
-            // rout above — out of whatever ring it was stalking the edge of.
-            // An angle, not a refused cell, for the same reason as the rout;
-            // the cell tests below still refuse water, rocks and fires.
-            // Among houses it runs the ROADSIDE (roadsideRunAngle) too.
+          } else if (kerbTurn) {
+            // TURNED BACK AT THE KERB (an enraged deer; a foe's kerb turn is
+            // rosterEnemyMove's): away from the PLAYER, on the same spread as
+            // the rout above. An angle, not a refused cell, for the same
+            // reason as the rout; the cell tests below still refuse water
+            // and rocks. Among houses it runs the ROADSIDE (roadsideRunAngle).
             angle = Math.atan2(c.y - py, c.x - px);
             angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
-          } else if (lairState === 'hunt') {
-            // THE GARRISON COMES AT YOU, as a group and with commitment. Its
-            // own branch rather than the kind's idle logic below: a lair slime
-            // would otherwise fall into the lazy half-the-hops meander that
-            // makes a wild one read as a pest, and a garrison that ambles is
-            // not something anybody runs from.
-            // A trapper in the garrison hunts at its own distance: it comes
-            // for you to lay, not to bite (keepDistanceAngle).
-            angle = Combat.monsterLays(c.kind)
-              ? keepDistanceAngle(distToPlayer, dxp, dyp, Combat.monster(c.kind).range * this.cellM, this.cellM)
-              : distToPlayer > 0.5 * this.cellM
-                ? Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER
-                : Math.random() * Math.PI * 2;
-          } else if (lairState === 'return') {
-            // GIVEN UP: straight back to the seat it was spawned on, with only
-            // enough jitter to keep a rank of them from marching in lockstep.
-            // Not "away from the player" — that is the ward's shape and it
-            // would scatter a garrison across the neighbourhood; a guard owes
-            // its ruin a specific spot, and `stepLen` below lands it exactly
-            // there rather than letting it overshoot and orbit forever.
-            angle = Math.atan2(c.seatY - c.y, c.seatX - c.x) + (Math.random() - 0.5) * 0.3;
-            stepLen = Math.min(stepM, Math.hypot(c.seatX - c.x, c.seatY - c.y));
-          } else if (c.kind === 'slime') {
-            // STRUCK: it charges. Every hop at the player, on the monsters'
-            // stalk jitter — no coin flip, no meander. Below the warded
-            // branch above on purpose: a slime being walked out of Home's ring
-            // is warded whether or not you hit it, which is the whole point of
-            // the ring.
-            if (charging && distToPlayer > 0.5 * this.cellM) {
-              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER;
-            // Otherwise lazily drawn to the player: about half its hops amble
-            // toward them (heavy ±0.7 rad jitter so it's a meander, not a
-            // beeline), the rest are aimless. Slimes ignore home-bias — they
-            // roam free and home in on whoever's nearby.
-            } else if (!unseen && Math.random() < 0.5 && distToPlayer > 0.5 * this.cellM) {
-              angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 1.4;
-            } else {
-              angle = Math.random() * Math.PI * 2;
-            }
-          } else if (isMon) {
-            // Monsters HUNT: a committed stalk toward the player (tighter jitter
-            // than the slime's meander), no home-bias. Flyers (bats) careen with
-            // wide jitter so they read as erratic. The archer closes in too —
-            // its range only lets it start draining sooner, not hang back.
-            // The TRAPPER does hang back: it holds its row's `range` off the
-            // player and circles there (keepDistanceAngle), laying as it goes.
-            if (!unnoticed && Combat.monsterLays(c.kind)) {
-              angle = keepDistanceAngle(distToPlayer, dxp, dyp, mon.range * this.cellM, this.cellM);
-            } else if (!unseen && distToPlayer > 0.5 * this.cellM) {
-              angle = Math.atan2(dyp, dxp)
-                    + (Math.random() - 0.5) * (mon.fly ? STALK_JITTER * 2 : STALK_JITTER);
-            } else {
-              angle = Math.random() * Math.PI * 2;
-            }
           } else if (raidStep) {
             // AT THE FIELD: toward the crop it noticed, with a grazer's wander
             // in it, stopping beside the bed (the graze below reaches 1.5
@@ -2605,57 +2402,22 @@ class SceneCreatures {
           ty = c.y + Math.sin(angle) * stepLen;
           if (c.stayHome && Math.hypot(tx - c.petHomeX, ty - c.petHomeY) > homeRadius
               && Math.hypot(tx - c.petHomeX, ty - c.petHomeY) >= Math.hypot(dxh, dyh)) continue;
-          const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
-          if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
-          if (Combat.isEnemy(c) && !fireStepAllowed(this, c, tx, ty)) continue;
-          const dest = this.cellAt(tx, ty);
-          // A keep's garrison may cross its own floor (Lairs.inOwnKeep).
-          if (dest.loaded && Combat.faunaBlocksCell(dest.type)
-              && !(WorldGen.isBuildingTerrain(dest.type) && Lairs.inOwnKeep(c, tx, ty))) continue;
-          // THE KERB (creature_ai.js): nothing wild steps onto a major road's
-          // band, and a FAST mover (isFastMover — a foe or an animal over
-          // BRISK_WALK_MPS) never steps INTO its kerb buffer from outside it — so no chase ever runs
-          // along or across the carriageway. One already inside may move
-          // anywhere off the band (a refused cell for it would freeze it
-          // there — the stall the scarecrow note below warns about). A pet
-          // and a summoned ally go where they like.
-          if (!isTame && !summoned) {
-            const road = roadClassBitsAt(this, tx, ty);
-            if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) continue;
-            if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && isFastMover(c, this.cellM)
-                && !inKerbAt(this, c.x, c.y)) continue;
-            // THE ROADSIDE RUN (creature_ai.js): a retreat never steps INTO a
-            // yard (the spawn gate's BEHIND_HOUSE / PRIVATE) it is not
-            // already in — it runs the street instead. The same shape as the
-            // kerb buffer above: refused from outside, free once inside.
-            if ((bolting || routed || kerbTurn) && !c.lair
-                && yardReasonAt(this, tx, ty) && !yardReasonAt(this, c.x, c.y)) continue;
-          }
+          // THE ONE STEP TEST (creature_ai.js creatureStepRefused — the same
+          // the roster mover sweeps by): a placed rock, water / a building /
+          // a major road, THE KERB (nothing wild steps onto a major band, a
+          // FAST mover never INTO the buffer from outside it; a pet and a
+          // summoned ally go where they like), and on a RETREAT (a bolt, the
+          // rout, the kerb turn) never INTO a yard it is not already in (THE
+          // ROADSIDE RUN). Refused from outside, free once inside — a refused
+          // cell for one already there would freeze it (the stall the
+          // scarecrow note below warns about).
+          if (creatureStepRefused(this, c, tx, ty, { retreating: bolting || routed || kerbTurn })) continue;
           // Scarecrow aversion — refuse any target cell within 4 cells of an
           // active scarecrow to a kind whose row says it keeps clear of one
           // (crow + deer). They get bounced by the attempt loop until they
           // pick a different direction.
           if (SpriteLayout.creatureAvoids(c.kind, 'scarecrow')
               && this._nearAny('scarecrows', tx, ty, 4)) continue;
-          // Fire aversion — a lit campfire repels the surface slime exactly
-          // like a scarecrow repels crows/deer, so it can't ooze into (or
-          // steal energy across) the warm ring around a campfire. Extended to
-          // the cave's own entry-level monsters (FIRE_WARD_MAX_DEPTH): a
-          // goblin or its archer is undeterred by firelight, only the cave
-          // slime and purple slime it's a tier above.
-          //   NOT A LAIR GUARD, whatever kind it is. A garrison is a place,
-          // not wandering fauna: a campfire dropped by the door cannot empty a
-          // ruin, and — the part that would actually have bitten — a guard
-          // walking home past a fire would have all six of its attempts
-          // refused and freeze in the street, which is the same stall the
-          // scarecrow note above warns about. A goblin garrison is past the
-          // depth cap anyway; this is what covers the slimes.
-          const fireAverts = !c.lair && (c.kind === 'slime' ||
-            (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH));
-          // The ward's ring is FIRE_REST_R — the same ring the fire lights
-          // (Lighting.KINDS.fire) and warms (update()'s rest) — never a
-          // literal of its own (it was 4 while light and rest were 3).
-          if (fireAverts && this._nearAny('fires', tx, ty, FIRE_REST_R)) continue;
           foundValidTarget = true;
           break;
         }
@@ -2705,26 +2467,13 @@ class SceneCreatures {
       if (EnemyRoster.get(c.kind) || SpriteLayout.creatureArt(c.kind)?.directions) {
         SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
       }
-      if (Combat.isEnemy(c) && !fireStepAllowed(this, c, nx, ny)) {
-        c._startX = c._targetX = c.x; c._startY = c._targetY = c.y;
-        c._nextChooseT = now;
-        return;
-      }
       c.x = nx; c.y = ny;
     });
     this._foeHeadsUp?.(interestedFoeM, now);
-    // One throttled flash for everything the slimes drained this window, so a
-    // swarm reads as a single "-N⚡" pop rather than 50 of them. Persist here
-    // too (debounced in save.js) so the energy loss survives a reload.
-    if (this._slimeStealAccum > 0 && now - (this._lastSlimeFlashT || 0) > 1200) {
-      this._lastSlimeFlashT = now;
-      const drained = this._slimeStealAccum;
-      this._slimeStealAccum = 0;
-      this._popEnergy(-drained, { label: '🟢 slime' });
-      if (typeof persistSave === 'function') persistSave(this.save);
-    }
-    // Same throttled roll-up for underground monster hits, so a pack reads as a
-    // single "-N⚡" pop rather than one flash per monster.
+    // One throttled roll-up for everything the foes took off the bar this
+    // window, so a pack reads as a single "-N⚡" pop rather than one flash per
+    // blow. Persist here too (debounced in save.js) so the loss survives a
+    // reload.
     if (this._monsterDmgAccum > 0 && now - (this._lastMonsterFlashT || 0) > 1200) {
       this._lastMonsterFlashT = now;
       const hit = this._monsterDmgAccum;
@@ -2802,23 +2551,27 @@ class SceneCreatures {
       // Between dashes (or reacting to the hit for the first time) — launch a
       // new short burst directly away from the hit angle, same ±0.6 rad
       // jitter the generic flee override uses so a fleeing crow reads like
-      // every other fleeing kind.
-      const fa = c._fleeAngle ?? 0;
+      // every other fleeing kind. Among houses the dash runs the ROADSIDE
+      // (creature_ai.js roadsideRunAngle) and never into a yard
+      // (creatureStepRefused, retreating) like every other retreat.
+      const shove = c._fleeAngle ?? 0;
+      const run = roadsideRunAngle(this, c, shove);
+      const fa = run ?? shove;
       for (let attempt = 0; attempt < 4; attempt++) {
-        const fleeAngle = fa + (Math.random() - 0.5) * 0.6;
+        const fleeAngle = fa + (run != null ? 0 : (Math.random() - 0.5) * 0.6);
         const d = 2 * this.cellM;
         const ftx = c.x + Math.cos(fleeAngle) * d;
         const fty = c.y + Math.sin(fleeAngle) * d;
-        const dest = this.cellAt(ftx, fty);
-        if (dest.loaded && !Combat.faunaBlocksCell(dest.type)) {
+        if (!creatureStepRefused(this, c, ftx, fty, { retreating: true })) {
           c._startX = c.x; c._startY = c.y;
           c._targetX = ftx; c._targetY = fty;
           c._flightT0 = now;
           // Twice its distance over the crow's peak flight speed
           // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean): the
           // panic is in the short legs and the turn, not a faster bird (it
-          // used to cross two cells in 350 ms: 40 m/s).
-          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.shinySpeedMul(c);
+          // used to cross two cells in 350 ms: 40 m/s). The one pace
+          // multiplier (Combat.paceMul) quickens it like every flight.
+          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.paceMul(c);
           c._fleeDash = true;
           c._faceFlip = (ftx - c.x) < 0;
           break;
@@ -2986,7 +2739,7 @@ class SceneCreatures {
     // over the roam's 0.4–1-cell hops); a departing leg takes its row's own time
     // — the pace the hunt's odds are tuned on, the one declared exception to
     // the speed ceiling (CROW_DEPART_HOP has the reasoning).
-    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000) / Combat.shinySpeedMul(c);
+    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000) / Combat.paceMul(c);
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
     // This is a normal glide, not a flee dash — clear the marker so a FUTURE

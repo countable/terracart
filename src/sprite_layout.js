@@ -612,9 +612,9 @@
   //   tameSettles  the quick gait above is a WILD animal's wariness; a tame
   //              one drops it and joins the base wander (what `&& !isTame` on
   //              the old isRabbit / isDeer said). A butterfly flits either way.
-  // The surface slime's gait is NOT here: its two numbers (SLIME_STEP_MUL /
-  // SLIME_HOP_CELLS) are app.js's own, beside the note that tunes them, and a
-  // monster's cadence comes from the MONSTERS row it is registered in.
+  // A FOE's gait is NOT here: every enemy_roster.js row moves by its own
+  // `movement` (creature_ai.js rosterEnemyMove); the loop below only gives
+  // each row `wanders` (and `haunts` for a ghost) so the sim thinks for it.
   //
   // Animal feeding and petting read one timing row beside the kind table.
   // The Book derives its lessons from this row, so changing a live interval
@@ -702,36 +702,31 @@
     // numbers).
     butterfly:     { wanders: true, pollinates: true, stepMs: 1400, maxMps: 6,
                      flee: { escapes: true, jitter: 1.2, stepMs: 1350, stepCells: 1.15 } },
-    slime:         { wanders: true },
-    cave_slime:    { wanders: true },
-    purple_slime:  { wanders: true },
     // A fire slime's kill (player or pet) hands over a flint (items.js 'coal')
-    // — the tar yard's thematic prize, on top of its bounty coin.
+    // — the tar yard's thematic prize, on top of its bounty coin. (A Tint
+    // variant of the slime with a row of its own here: the drop is its.)
     fire_slime:    { wanders: true, drop: 'coal' },
-    goblin:        { wanders: true },
-    goblin_archer: { wanders: true },
     // A trapper's kill (by the player or their pet — resolveDefeat pays a
     // drop only then) hands over one of its own snares, tamed: a Magic Trap.
     // The bounty coin still falls beside it; an enemy's drop is ON TOP of the
     // wage, never instead of it.
     goblin_trapper: { wanders: true, drop: 'magic_trap' },
-    // THE GHOST has its own mover (creature_ai.js ghostTick — hover, then a committed
-    // rush at the player, over any terrain; a touch spends it; light burns
-    // it). `haunts` is what hands it there instead of the step chain.
-    ghost:         { wanders: true, haunts: true },
-    plant:         { wanders: true }, // thinks/attacks in the sim bubble; Combat keeps it rooted
   };
   // The sea turtle is the rabbit's row on the beach (seated by
   // biome_profiles.js SHORE_FAUNA): the same hops, bolt and settling, read
   // from the rabbit's row so the two cannot drift.
   CREATURE_BEHAVIOUR.turtle = CREATURE_BEHAVIOUR.rabbit;
-  // The behaviour row for `kind` — the base row for a giant, like its art.
+  // Every roster base kind thinks (`wanders`); a ghost moves by its own mover
+  // (creature_ai.js ghostTick — hover, then a committed rush at the player,
+  // over any terrain; a touch spends it; light burns it): `haunts` is what
+  // hands it there instead of the step chain. A variant reads its base row
+  // unless it has a row of its own above (the fire slime's drop).
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;
     CREATURE_BEHAVIOUR[row.id] = { ...CREATURE_BEHAVIOUR[row.id], wanders: true,
       ...(row.movement.pattern === 'ghost_glide' ? { haunts: true } : {}) };
   }
-  function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
+  function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[kind] || CREATURE_BEHAVIOUR[baseKind(kind)]; }
   // Does this kind think at all? wanderCreatures culls on it before anything
   // else, so a kind with no row is furniture.
   function creatureWanders(kind) { return !!creatureBehaviour(kind)?.wanders; }

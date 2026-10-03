@@ -116,7 +116,9 @@
   test('poison: Purple Slime variants inherit condition; guarded actual damage applies it', () => {
     assert.eq(Combat.monster('purple_slime').condition, 'poison');
     assert.falsy(Combat.monster('cave_slime')?.condition);
-    assert.truthy(/lost > 0 && !isTame && Combat.isEnemy\(c\) && m.condition/.test(SCENE_SRC));
+    // The one blow writer lands the row's condition with a blow that cost something.
+    assert.truthy(/if \(lost > 0 && condition\) scene\._applyCondition\(condition\);/.test(CREATURE_AI_SRC));
+    assert.truthy(/foeBlowLands\(scene, c, raw, \{ condition: Combat\.monster\(c\.kind\)\?\.condition \}\)/.test(CREATURE_AI_SRC));
   });
   test('Elixir: upgraded maximum refill clears debuffs, keeps cooldown; refuses healthy full/downed', () => {
     const save = { energy: 10, vigourUpgrades: 3, eaten: ['potato'], eatReadyAt: 12345 };

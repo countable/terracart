@@ -177,7 +177,7 @@ class SceneFire {
   _damageBurningUnit(c, damage, source, now) {
     // NPCs use their existing wounded/resting state, rather than a health bar.
     if (c.kind === 'npc') { NPC.hit(this, c, Date.now(), damage); return false; }
-    const pet = typeof c.id === 'string' && c.id.startsWith('released_');
+    const pet = Combat.isTame(c);
     const summoned = SpriteLayout.isSummoned(c.kind);
     if (!pet && !summoned) {
       const dead = this._damageEnemy(c, damage, source, { bypassArmor: true });

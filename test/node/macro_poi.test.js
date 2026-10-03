@@ -419,7 +419,7 @@
       });
     } finally { globalThis.persistSave = realPersist; }
     assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(SCENE_SRC), 'resolveDefeat calls it');
-    assert.truthy(/guildfoe\)_\(-\?\\d\+\)_/.test(SCENE_SRC), 'the caught-prune knows the prefix');
+    assert.truthy(/guildfoe\)_\(-\?\\\\d\+\)_/.test(SCENE_SRC), 'the caught-prune knows the prefix');
     assert.truthy(/this\._tickTraps\(dt\);\s*\/\/[^\n]*\n\s*this\._tickGuildBounty\(\);/.test(SCENE_SRC), 'the leash ticks');
   });
 

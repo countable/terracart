@@ -78,7 +78,7 @@ test('lava: the player burns on the surface and lava level, by the feet, through
 
 test('lava: an enemy standing in it burns at the same rate, and the kill is the ground\'s', () => {
   const src = SCENE_SRC;
-  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Conditions\.fireImmune\(c\) && !Combat\.monster\(c\.kind\)\?\.lavaImmune && \(this\.depth === 0 \|\| this\.depth === WorldGen\.LAVA_DEPTH\)/.test(src), 'enemies, surface and lava level');
+  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Conditions\.fireImmune\(c\) && !rosterRow\?\.lavaImmune && \(this\.depth === 0 \|\| this\.depth === WorldGen\.LAVA_DEPTH\)/.test(src), 'enemies, surface and lava level');
   assert.truthy(/under\.type === WorldGen\.T\.CAVE_LAVA\s*\n\s*&& this\._damageEnemy\(c, Combat\.LAVA_DMG_PER_S, 'lava'\)\) return;/.test(src),
     'through _damageEnemy at the shared rate');
   assert.falsy(Combat.isPlayerKill('lava'), 'not a player kill: the bounty coin and nothing else');
@@ -91,7 +91,8 @@ test('lava: demons resist lava while neighbouring mortal enemies still burn', ()
   const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c)');
   assert.truthy(start >= 0, 'shipping lava branch was found');
   const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
-  const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
+  const body = new Function('c', 'isTame', 'now', 'rosterRow', SCENE_SRC.slice(start, end));
+  const tick = { call: (scene, c, isTame, now) => body.call(scene, c, isTame, now, isTame ? null : EnemyRoster.get(c.kind)) };
   const hurt = [];
   const scene = { depth: WorldGen.LAVA_DEPTH, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_LAVA }),
     _damageEnemy: (c, dmg) => { hurt.push([c.kind, dmg]); return false; } };
@@ -129,7 +130,8 @@ test('lava: surface vents respect enemy immunity, pets and the shared burn coold
   const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c)');
   assert.truthy(start >= 0, 'shipping lava branch was found');
   const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
-  const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
+  const body = new Function('c', 'isTame', 'now', 'rosterRow', SCENE_SRC.slice(start, end));
+  const tick = { call: (scene, c, isTame, now) => body.call(scene, c, isTame, now, isTame ? null : EnemyRoster.get(c.kind)) };
   const hurt = [], scene = {depth: 0,
     cellAt: () => ({loaded: true, type: WorldGen.T.CAVE_LAVA}),
     _damageEnemy: (c, damage, source) => { hurt.push({c, damage, source}); return false; }};

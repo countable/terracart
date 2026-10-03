@@ -44,12 +44,14 @@
     c._burnBy = null;
     c.fireDamageRemainder = 0;
   }
+  // Every affliction row of Combat.STATUS_LOOKS (a charm is an allegiance,
+  // `ally`, and stays), the burn and the poison.
   function clearDebuffs(c) {
     extinguish(c);
     delete c._poisonState;
     c._poisonBy = null;
     c.conditions = {};
-    for (const field of ['_sleepUntil', '_frozenUntil', '_fearUntilT', '_psychosisUntilT']) c[field] = 0;
+    for (const row of Object.values(Combat.STATUS_LOOKS)) if (!row.ally) c[row.field] = 0;
   }
   function prune(scene, now = Date.now()) {
     const ledger = scene.save.potionEffects;
@@ -100,7 +102,8 @@
   function clearTime(scene, c) {
     for (const field of Object.values(TIMERS)) c[field] = 0;
     clearDebuffs(c);
-    c._charmUntil = 0; c._potionTamingUntil = 0;
+    for (const row of Object.values(Combat.STATUS_LOOKS)) c[row.field] = 0;
+    c._potionTamingUntil = 0;
     for (const field of ['_attackNextT', '_attackWindupUntil', '_attackUntil', '_abilityNextT',
       '_abilityWindupUntil', '_reloadUntil', '_lungeNextT', '_lungeUntil', '_lungeWindupUntil',
       '_lungeRecoverUntil', '_nextChooseT', '_nextStealT', '_nextShotT', '_npcRestUntil', '_throwReadyAt', '_tomeReadyAt',
@@ -185,10 +188,12 @@
   }
   function damage(scene, c, raw, owner, bypassArmor = false) {
     if (c.id === 'player') {
-      scene._losePlayerEnergy?.(Combat.incomingDamage(scene.save, raw), { closeShop: true });
+      // A foe's blight on the player: the one blow writer and roll-up
+      // (creature_ai.js foeBlowLands), like its melee.
+      if (typeof foeBlowLands === 'function') foeBlowLands(scene, owner, raw);
     } else if (c.kind === 'npc') {
       NPC.hit(scene, c, Date.now(), raw);
-    } else if (Combat.isEnemyKind(c.kind) && !String(c.id).startsWith('released_')) {
+    } else if (Combat.isEnemyKind(c.kind) && !Combat.isTame(c)) {
       scene._damageEnemy?.(c, raw, hostile(owner) ? 'enemy' : 'ally', { bypassArmor });
     } else {
       Combat.damageDealt(c, raw, { bypassArmor });

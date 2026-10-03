@@ -24,7 +24,7 @@
   }
   function follows(c, now = performance.now()) {
     if (SpriteLayout.isSummoned(c.kind)) return !c._spent && c._followUntilT > now;
-    if (String(c.id || '').startsWith('released_')) return !c.stayHome;
+    if (Combat.isTame(c)) return !c.stayHome;
     return SpriteLayout.creatureFollows(c.kind) && c._followUntilT > now;
   }
   function rememberPetHealth(row, creature) {
@@ -45,7 +45,7 @@
     const live = new Map(), owners = new Map();
     const travelling = scene._travellingPets ||= new Map();
     for (const tile of WorldGen.tileCache.values()) for (const c of tile.creatures || []) {
-      if (String(c.id || '').startsWith('released_')) { live.set(c.id, c); owners.set(c.id,tile); }
+      if (Combat.isTame(c)) { live.set(c.id, c); owners.set(c.id,tile); }
     }
     let changed = false;
     for (const r of scene.save.released) {
