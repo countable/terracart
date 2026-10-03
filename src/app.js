@@ -1393,6 +1393,27 @@ const ROAD_CHIP_CSS = `
 #roadchip .road-num { line-height: 1; white-space: nowrap; pointer-events: none; opacity: 0.85; }
 body.modal-open #roadchip { opacity: 0.25; pointer-events: none; }
 `;
+// The BOOKS chip (_buildBookChip): the Book pages read so far, as the memories
+// chip's twin — the Book's icon and a count (play_tips.js bookPagesRead). A
+// tap lists those pages to read again (_showBooksRead); owner's call, Oct
+// 2026, so the course is something you can go back to, not a thing that
+// scrolls past once.
+const BOOK_CHIP_CSS = `
+#bookchip {
+  box-sizing: border-box; position: relative;
+  height: var(--hud-chip-h); padding: 0 6px;
+  border: var(--hud-chip-rim) solid var(--chrome-rim); border-radius: 8px;
+  display: flex; flex-direction: row; align-items: center; gap: 5px;
+  background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
+  font: 700 14px ui-monospace, monospace;
+  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+  text-shadow: 0 1px 0 #000;
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  pointer-events: auto; cursor: pointer; user-select: none;
+}
+#bookchip .book-ico { width: 18px; height: 18px; image-rendering: pixelated; pointer-events: none; }
+body.modal-open #bookchip { opacity: 0.25; pointer-events: none; }
+`;
 // The strip itself: a worn band with a dim broken centre line, and over it the
 // same road repaved (light band, bright dashes, kerb lines) clipped to the
 // fraction done — updateRoadChipDOM moves only the clip rect's width.
@@ -2863,6 +2884,7 @@ class MapScene extends Phaser.Scene {
     this.moneyEl = document.getElementById('money');
     this._buildMemoriesChip();
     this._buildRoadChip();
+    this._buildBookChip();
     this._buildStatusRow();
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
@@ -8888,6 +8910,7 @@ class MapScene extends Phaser.Scene {
     this.updateEnergyDOM();
     this.updateMemoriesDOM();
     this.updateRoadChipDOM();
+    this.updateBookChipDOM();
     this.updateRelicRow();
     // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
     // exception case (desktop/wasd, denied permission, still acquiring).
@@ -9125,6 +9148,97 @@ class MapScene extends Phaser.Scene {
     const st = this.save?.trail || { metres: 0, prizes: 0 };
     const doneM = Trail.restoredMetres(st, this.save?.playerClass);
     this.flash(`${toGoM}m to go · ${Trail.distanceLabel(doneM)} fixed`, this.viewCenterX, 60);
+  }
+
+  // ── The books chip ────────────────────────────────────────────────────
+  // After the road chip: how many pages of the Book's course this save has
+  // read (play_tips.js bookPagesRead — the bookmark save.tipsRead, capped at
+  // the course's length). A tap opens the list of them to read again.
+  _buildBookChip() {
+    if (typeof document === 'undefined' || typeof bookPagesRead !== 'function') return;
+    const row = document.getElementById('hud-row');
+    if (!row) return;
+    if (!document.getElementById('bookchip-style')) {
+      const st = document.createElement('style');
+      st.id = 'bookchip-style';
+      st.textContent = BOOK_CHIP_CSS;
+      document.head.appendChild(st);
+    }
+    let el = document.getElementById('bookchip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'bookchip';
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', 'Books read');
+      const ico = this.renderItemIcon('book', 18, 'block');
+      ico.classList.add('book-ico');
+      const num = document.createElement('span');
+      num.className = 'book-num';
+      num.textContent = '0';
+      el.append(ico, num);
+      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
+        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      el.addEventListener('click', (e) => { e.stopPropagation(); this._showBooksRead(); });
+      const road = document.getElementById('roadchip');
+      if (road && road.parentNode === row) road.after(el);
+      else row.append(el);
+    }
+    this.bookChipEl = el;
+    this._bookChipDOM = null;
+    this.updateBookChipDOM();
+  }
+
+  // Paints the chip. Every frame from updateHUD, guarded on the count.
+  updateBookChipDOM() {
+    const el = this.bookChipEl;
+    if (!el || typeof bookPagesRead !== 'function') return;
+    const n = bookPagesRead(this.save).length;
+    if (this._bookChipDOM === n) return;
+    this._bookChipDOM = n;
+    const num = el.querySelector('.book-num');
+    if (num) num.textContent = String(n);
+    el.title = `Books read: ${n} of ${PLAY_TIPS.length}`;
+  }
+
+  // THE SHELF OF PAGES READ: every page of the course this save has turned,
+  // newest last, each a row that opens the page again (the same panel the
+  // read showed — bookPageHTML on the book painting, no title line) and
+  // comes back to the list when that is tapped away. Rereading moves no
+  // bookmark: save.tipsRead is the course's, not the shelf's.
+  _showBooksRead() {
+    if (typeof document === 'undefined' || typeof bookPagesRead !== 'function') return;
+    const pages = bookPagesRead(this.save);
+    if (!pages.length) {
+      this.showMessageModal({ title: '', body: 'No pages read yet. Every Book you find turns one.', art: 'book_read' });
+      return;
+    }
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('books-modal',
+      { zIndex: 60, kind: 'story', kindLabel: 'Books read', art: 'book_read', textAlign: 'left' });
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:4px 0 12px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain;';
+    for (const page of pages) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'book-row';
+      b.textContent = `${page + 1}. ${bookPageLabel(page)}`;
+      b.style.cssText = 'text-align:left;padding:8px 10px;border-radius:6px;background:transparent;color:#eee;' +
+        'border:1px solid #6b5a2c;font:600 13px ui-monospace,monospace;cursor:pointer;';
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrap.remove();
+        this.showMessageModal({ title: '', body: bookPageHTML(page), art: 'book_read',
+          onDismiss: () => this._showBooksRead() });
+      });
+      list.appendChild(b);
+    }
+    box.appendChild(list);
+    const close = mkBtn('Close');
+    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:center';
+    row.appendChild(close);
+    box.appendChild(row);
+    mount();
   }
 
   // What the memories chip says when tapped.

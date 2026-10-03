@@ -218,7 +218,7 @@
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
       lampGlow: '#ffa6c9', attracts: { deer: 0.5 },
       story: 'street_orchard', title: 'Orchard Lane',
-      body: 'Apples hang from the old orchard trees. You stop beneath the branches to look at the fruit.',
+      body: 'Apples hang from the old orchard trees.',
       flash: 'Old trees, still fruiting.' },
     { id: 'pilgrim', terrain: 'ROCK', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
       stone: { weathered: '#8b8879', restored: '#c5c1aa' }, lampDensity: 1,
