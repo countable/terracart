@@ -2,24 +2,14 @@
 (function (root) {
   'use strict';
   const EXT = 4096;
-  function contains(rings, x, y) {
-    let inside = false;
-    for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const a = ring[i], b = ring[j];
-      if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) inside = !inside;
-    }
-    return inside;
-  }
+  // The ray test and the row crossings are WorldGen's (one spelling for the
+  // flora scatter, the scenic index and this fill).
+  const contains = (rings, x, y) => root.WorldGen.pointInRings(rings, x, y);
   function geometry(park) {
     const edges = [];
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const ring of park.rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const a = ring[i], b = ring[j];
-      x0 = Math.min(x0, a.x); y0 = Math.min(y0, a.y);
-      x1 = Math.max(x1, a.x); y1 = Math.max(y1, a.y);
-      edges.push([a, b]);
-    }
-    return { edges, x0, y0, x1, y1 };
+    for (const ring of park.rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) edges.push([ring[i], ring[j]]);
+    const { minX: x0, minY: y0, maxX: x1, maxY: y1 } = root.WorldGen.bboxOf(park.rings);
+    return { edges, rings: park.rings, x0, y0, x1, y1 };
   }
   // Scanline fill reads each edge once per row, rather than twice per cell.
   // Fringe checks visit only the small strip around an edge, even on long
@@ -28,9 +18,7 @@
     const mask = new Uint8Array(N * N);
     for (let y = Math.max(0, Math.ceil(g.y0 / unit - .5)); y <= Math.min(N - 1, Math.floor(g.y1 / unit - .5)); y++) {
       if ((y & 15) === 0) yield 'zone coverage fill';
-      const py = (y + .5) * unit, crossings = [];
-      for (const [a, b] of g.edges) if ((a.y > py) !== (b.y > py)) crossings.push((b.x - a.x) * (py - a.y) / (b.y - a.y) + a.x);
-      crossings.sort((a, b) => a - b);
+      const py = (y + .5) * unit, crossings = root.WorldGen.rowCrossings(g.rings, py);
       for (let k = 0; k + 1 < crossings.length; k += 2) {
         const from = Math.max(0, Math.ceil(crossings[k] / unit - .5));
         const to = Math.min(N, Math.ceil(crossings[k + 1] / unit - .5));
@@ -459,13 +447,12 @@
         const i = queue[head], x = i % N, y = Math.floor(i / N);
         if (usable[i]) cells.push(i);
         // Diagonal buffers can join, but never across a travel barrier's corner.
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx, ny = y + dy;
-          if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
-          if (dx && dy && (separator[y * N + nx] || separator[ny * N + x])) continue;
-          const next = ny * N + nx;
+        root.WorldGen.boxCells(N, N, x, y, 1, (nx, ny, next) => {
+          const dx = nx - x, dy = ny - y;
+          if (!dx && !dy) return;
+          if (dx && dy && (separator[y * N + nx] || separator[ny * N + x])) return;
           if (mask[next] === 1 && labels[next] === labels[start]) { mask[next] = 2; queue.push(next); }
-        }
+        });
       }
       if (!cells.length) continue;
       if (!result) result = { anchors: [], allAnchors: [], reach: [] };
@@ -488,7 +475,7 @@
       // Border components use reward-free benches until a complete footprint
       // is available; never invent a second crater or duplicate finite finds.
       const variants = root.ZoneVariants.forKind('quarry').map(v => v.id);
-      const variantHash = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
+      const variantHash = root.QuarryLayout.siteHash(tx, ty, first);
       const variantIndex = root.QuarryLayout.weightedIndexForHash(variantHash);
       const requestedVariant = variants[variantIndex];
       const variant = clipped ? 'quarry-strip-mine'

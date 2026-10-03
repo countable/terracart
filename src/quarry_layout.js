@@ -360,10 +360,14 @@
     }
     // Slivers that cannot seat an authored composition remain ordinary ground.
     if (!fitting.length) return null;
-    const siteHash = context.variantHash ?? ((Math.imul(context.tx || 0, 73856093)
-      ^ Math.imul(context.ty || 0, 19349663) ^ Math.imul(sorted[0], 83492791)) >>> 0);
-    const fallbackHash = Math.floor(noise(siteHash, 0, 193) * 4294967296);
+    const fallbackHash = Math.floor(noise(context.variantHash ?? siteHash(context.tx || 0, context.ty || 0, sorted[0]), 0, 193) * 4294967296);
     return fitting[weightedIndexForHash(fallbackHash, fitting)].id;
   }
-  root.QuarryLayout = { entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash };
+  // A quarry site's one hash: its tile and the first (lowest) cell of its
+  // component — what zone_coverage seeds the variant pick with, and what the
+  // fit fallback above reads when a caller hands in none.
+  function siteHash(tx, ty, first) {
+    return (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
+  }
+  root.QuarryLayout = { entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
 })(typeof window !== 'undefined' ? window : globalThis);
