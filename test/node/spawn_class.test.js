@@ -8,8 +8,8 @@
 //
 // What is pinned:
 //   · each reason on a synthetic tile: ROAD = the roadMask exactly, water /
-//     buildings, restricted and kindergarten land (hard), fields (edge open,
-//     interior hard), commercial / industrial ground by its nearest POI
+//     buildings, restricted and kindergarten land (hard), farmland (fully
+//     excluded), orchards (edge open, interior hard), commercial / industrial ground by its nearest POI
 //     (public open, private or none within reach PRIVATE), behind-a-house, private
 //     ways, golf, the kerb (fast movers only), sensitive ground, churchyards,
 //     quiet land;
@@ -20,8 +20,8 @@
 //     paint and keeps RESTRICTED;
 //   · (Sep 2026: HOUSE — the 40 m house buffer — and SCHOOL — school /
 //     college grounds plus its school-hours timing — are both dropped.
-//     KINDERGARTEN stays hard. FARM was inverted: the edge band now carries
-//     no reason at all, only FARM_INTERIOR still refuses.)
+//     KINDERGARTEN stays hard. FARMLAND now excludes whole source footprints;
+//     orchard edges retain their existing access rule.)
 //   · the class table, and the POI lift of PRIVATE;
 //   · every spawner in src/ passes a class (a source sweep);
 //   · cave entrances only ever stand on cave ground (the fixture tiles);
@@ -181,8 +181,8 @@ test('spawn gate: COMMERCIAL ground welcomes visitors — RESTRICTED / KINDERGAR
   assert.eq(at(r, 45, 15), INV, 'a hospital stays off-limits');
 });
 
-test('spawn gate: FIELDS — an orchard / farm EDGE carries no reason at all (every class welcome), its INTERIOR is hard', () => {
-  for (const tags of [{ class: 'farmland', subclass: 'farmland' }, { class: 'farmland', subclass: 'orchard' }]) {
+test('spawn gate: orchard edges remain open while orchard interiors are hard', () => {
+  for (const tags of [{ class: 'farmland', subclass: 'orchard' }]) {
     const r = build([{ name: 'landcover', features: [
       { type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] },
       { type: 3, tags, geom: [box(10, 10, 50, 50)] }] }]);
@@ -202,6 +202,43 @@ test('spawn gate: FIELDS — an orchard / farm EDGE carries no reason at all (ev
       }
     }
     assert.truthy(has(r, x0 + W.FARM_EDGE_CELLS + 1, 30, WHY.FARM_INTERIOR), 'past the edge band: interior');
+  }
+});
+
+test('spawn gate: farmland edges reject every class, even without a generated mask', () => {
+  const r = build([{name:'landcover',features:[
+    {type:3,tags:{class:'grass'},geom:[whole()]},
+    {type:3,tags:{class:'farmland'},geom:[box(10,10,50,50)]},
+  ]}]);
+  for (const x of [11,30,49]) {
+    assert.truthy(has(r,x,30,WHY.FARMLAND),'whole farm, including edges, is excluded');
+    for (const cls of W.SPAWN_CLASSES) {
+      for (const opts of [{},{spawnWhy:r.spawnWhy,pois:[{ix:x,iy:30}]}]) {
+        assert.falsy(W.isSpawnCell(r.grid,CPE,CPE,x,30,opts,cls),`${cls}: farmland never hosts spawns`);
+      }
+    }
+  }
+  assert.falsy(has(r,8,30,WHY.FARMLAND),'adjacent public ground remains available');
+});
+
+test('spawn gate: mapped farmland survives public paint and POI frontage without spawning rewards', () => {
+  for (const layer of ['landcover','landuse']) {
+    const layers=[{name:layer,features:[{type:3,tags:{class:'farmland'},geom:[box(10,10,50,50)]}]},
+      {name:'poi',features:[{type:1,tags:{class:'park',subclass:'park',name:'Farm park'},geom:[[pt(11,30)]]}]}];
+    const r=build(layers), i=30*CPE+11;
+    assert.truthy(has(r,11,30,WHY.FARMLAND),`${layer}: original source blocks POI-painted farm edge`);
+    assert.truthy(W.landRefused(r.spawnWhy,i,[{ix:11,iy:30}],11,30),'POI frontage cannot reopen farmland');
+    for (const terrain of [T.GROVE,T.PATH,T.ORCHARD]) {
+      const grid=r.grid.slice(); grid[i]=terrain;
+      for (const cls of W.SPAWN_CLASSES) assert.falsy(W.isSpawnCell(grid,CPE,CPE,11,30,
+        {spawnWhy:r.spawnWhy,pois:[{ix:11,iy:30}]},cls),'later zone/street/orchard paint stays excluded');
+    }
+    for (const o of [...r.objects,...r.wildplants,...(r.zoneDress?.objects||[]),...(r.zoneDress?.wildplants||[])]) {
+      const x=Math.floor(o.x/7),y=Math.floor(o.y/7);
+      if(x>=0&&y>=0&&x<CPE&&y<CPE) assert.falsy(r.spawnWhy[y*CPE+x]&WHY.FARMLAND,
+        `${layer}: ${o.kind||o.crop} does not spawn on farmland`);
+    }
+    assert.falsy(r.objects.some(o=>o.kind==='chest'&&o.poiName==='Farm park'),'farm POI reward is removed');
   }
 });
 

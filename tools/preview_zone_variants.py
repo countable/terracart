@@ -709,6 +709,67 @@ def quarry_draft_section(d):
     return f'<div id="quarry-drafts"><h3>Parking-lot remnants · four stories</h3><p>Runtime layouts on one shared fixture, with the variant forced for comparison. In live play, narrow lots use compact quarry layouts or readable ruined wall fragments. Craters require at least {q["largeSiteMinCells"]} usable cells and a clear {q["broadPatchSizeCells"]}×{q["broadPatchSizeCells"]}-cell pocket. Ruins use nominal {q["foundationSizeCells"]}×{q["foundationSizeCells"]}-cell foundations; readable wall fragments can stop at buildings or site edges. Short gaps join only with supporting source geometry; roads, paths and water separate sites, while building holes stay clear.</p><label class="art-switch"><input id="show-quarry-source" type="checkbox"> Show original parking lanes</label><style>.quarry-source{{display:none}}body:has(#show-quarry-source:checked) .quarry-source{{display:inline}}</style></div>'
 
 
+@functools.lru_cache(maxsize=1)
+def basic_density_proposals():
+    path = pathlib.Path(__file__).resolve().parents[1] / 'docs/basic-zone-density-proposals.json'
+    data = json.loads(path.read_text())
+    for group in ['zones', 'parkCharacters']:
+        for row in data[group].values():
+            assert all(0 <= value <= 100 for value in row['targetPct'].values())
+            assert sum(row['targetPct'].values()) <= 100
+    return data
+
+
+def basic_density_table(current, proposal):
+    targets = proposal['targetPct']
+    keys = list(dict.fromkeys([*current['elements'], *targets]))
+    labels = {'tree': 'Trees', 'fruittree': 'Fruit trees', 'plain_rock': 'Plain stone',
+              'ore_rock': 'Ore rocks', 'longgrass': 'Long grass', 'shrub': 'Shrubs / hedges',
+              'forgetmenot': 'Forget-me-nots', 'clay_pot': 'Clay pots', 'barrel': 'Salvage barrels'}
+    rows = []
+    for key in keys:
+        now = current['elements'].get(key, {}).get('coveragePct', 0)
+        target = targets.get(key, 0)
+        label = labels.get(key, key.replace('_', ' ').capitalize())
+        rows.append(f'<tr><th scope="row">{html.escape(label)}</th><td>{now:.2f}%</td><td>{target:g}%</td></tr>')
+    now, target = current['coveragePct'], sum(targets.values())
+    rows.append(f'<tr class="density-total"><th scope="row">Occupied cells</th><td>{now:.2f}%</td><td>{target:g}%</td></tr>')
+    rows.append(f'<tr><th scope="row">Open cells</th><td>{100-now:.2f}%</td><td>{100-target:g}%</td></tr>')
+    bars = ''.join(f'<div class="density-bar-row density-{label.lower()}"><span>{label}</span><span class="density-bar" role="img" aria-label="{label}: {value:.2f}% occupied"><i style="width:{value:.3f}%"></i></span></div>' for label, value in [('Current', now), ('Proposed', target)])
+    return bars + '<table class="density-table"><thead><tr><th>Element</th><th>Current</th><th>Proposed</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table>'
+
+
+def basic_density_summary(terrain):
+    registry = art_registry()
+    samples = [r for r in registry['basicCoverage']['rows'] if r['terrain'] == terrain]
+    proposals = basic_density_proposals()
+    if terrain == 'FARMLAND':
+        assert samples and not samples[0]['occupiedCells'] and not samples[0]['eligibleCells']
+        return '<div class="density-block" data-density="FARMLAND"><strong>Excluded · implemented</strong><p>All generated spawns: <b>0%</b>. Farm edges and mapped farm POIs are also excluded. Farm ground stays empty even under a road or nexus overlay.</p></div>'
+    if not samples:
+        note = 'Cave population uses separate level-dependent rules; not measured by these surface samples. No changes proposed.' if terrain.startswith('CAVE_') else 'No ordinary stationary biome fill; no changes proposed. Mapped places and roaming creatures are separate.'
+        return '<div class="density-block"><p>' + note + '</p></div>'
+    row = samples[0]
+    proposal = proposals['zones'][terrain]
+    details = ''
+    if terrain == 'PARK':
+        row = {'elements': {}, 'coveragePct': 0}
+        targets = {}
+        for sample in samples:
+            character = sample['character']
+            weight = registry['parkCharacterShares'][character]
+            plan = proposals['parkCharacters'][character]
+            row['coveragePct'] += sample['coveragePct'] * weight
+            for key, value in sample['elements'].items():
+                row['elements'].setdefault(key, {'coveragePct': 0})['coveragePct'] += value['coveragePct'] * weight
+            for key, value in plan['targetPct'].items():
+                targets[key] = targets.get(key, 0) + value * weight
+            details += f'<details class="park-density" data-park-density="{character}"><summary>{character.title()} park · {weight*100:g}% selection weight</summary><p>{html.escape(plan["intent"])}</p>{basic_density_table(sample, plan)}</details>'
+        proposal = {**proposal, 'targetPct': targets}
+        details = '<p><small>Above: average weighted by park-character selection. Individual characters:</small></p>' + details
+    return f'<div class="density-block" data-density="{terrain}"><h4>Coverage · current vs proposed</h4>{basic_density_table(row, proposal)}<p class="density-intent">{html.escape(proposal["intent"])}</p>{details}</div>'
+
+
 def basic_tile_section():
     cards = []
     for tile in art_registry()['basicTiles']:
@@ -736,8 +797,8 @@ def basic_tile_section():
             note += ' One generated park character; other parks vary.'
         if tile['enemies']:
             note += ' Enemy appearance also depends on distance, time or cave depth.'
-        cards.append(f'<article id="tile-{tile["name"].lower()}"><p data-sandbox="{tile["name"]}"></p><h3>{name}</h3>{"".join(parts)}<p>{html.escape(note)}</p><small>Terrain {tile["type"]} · {tile["variants"]} texture variants</small></article>')
-    return '<section id="basic-zones"><h2>Basic tile zones</h2><p>Shipping ground textures with representative spawned objects. Plants, trees and minerals come from the real world generator on small public-frontage terrain fixtures; wildlife and enemies use the owning spawn tables. Examples are arranged for visibility, not to predict density. Access restrictions, nearby buildings, roads and occupied cells still control live placement. Special nexus and road layouts have their own tabs.</p><div class="tile-grid">' + ''.join(cards) + '</div></section>'
+        cards.append(f'<article id="tile-{tile["name"].lower()}"><p data-sandbox="{tile["name"]}"></p><h3>{name}</h3>{"".join(parts)}<p>{html.escape(note)}</p>{basic_density_summary(tile["name"])}<small>Terrain {tile["type"]} · {tile["variants"]} texture variants</small></article>')
+    return '<section id="basic-zones"><h2>Basic tile zones</h2><p>Shipping ground textures with representative spawned objects. Plants, trees and minerals come from the real world generator on small public-frontage terrain fixtures; wildlife and enemies use the owning spawn tables. Examples are arranged for visibility, not to predict density. Access restrictions, nearby buildings, roads and occupied cells still control live placement. Special nexus and road layouts have their own tabs.</p><p><strong>Current vs proposed coverage:</strong> percentage of eligible 7 m ground cells occupied by stationary plants, trees, rocks or pots. Current values come from eight generated public-frontage plots per terrain or park character, after spawn gates and collisions. They are comparison samples, not measured Kelowna coverage or visual canopy area. Roaming creatures above are not included in these percentages.</p><p><strong>Only the farmland exclusion is implemented.</strong> The other percentages are proposed occupied-cell targets, not active spawn settings. <a href="basic-zone-coverage.json">Measured counts and method</a> · <a href="basic-zone-density-proposals.json">Proposed budgets</a></p><div class="tile-grid">' + ''.join(cards) + '</div></section>'
 
 
 def basic_tile_script():
@@ -881,7 +942,7 @@ def render(d, out):
             reef_note = f'<p>Up to {reef["landOre"]["count"]} scattered pick-gated ore rocks on land; coral extends into nearby water with up to {len(reef["chestTiers"])} one-time T2–T3 chests within dry-shore reach.</p><svg viewBox="0 0 192 48">' + ''.join(f'<g transform="translate({i*48},0)">'+art_image({'sheet':'reef_coral','frames':[i]}, 'width="48" height="48"')+'</g>' for i in range(4)) + '</svg><p><a href="/zone-object-sheets/#live-mystic_reef">See the water treatment at a real site</a></p>'
         cards.append(f'''<article id="{v['id']}"><p data-sandbox="{v['zone']}"></p><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p>{reef_note}<dl><dt>Traits</dt><dd>{html.escape(", ".join(art_registry()["zoneTraits"].get(v["id"], []))) or "Neutral"}</dd><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Shrine</dt><dd>{html.escape(shrine_text)}</dd><dt>Finds</dt><dd>{html.escape(find_text)} · {v['finds']['rarity']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Monsters</dt><dd>{guard_text}</dd><dt>Lighting</dt><dd><span class="swatch" style="background:{light_color}"></span>{light_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
     page = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Zone and street variants · pattern review</title><style>
-*{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}[hidden]{display:none!important}.view-tabs a[aria-current="page"]{background:#95d7d1;color:#101a15;font-weight:700}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
+*{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}[hidden]{display:none!important}.view-tabs a[aria-current="page"]{background:#95d7d1;color:#101a15;font-weight:700}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}.density-block{margin:18px 0;padding-top:12px;border-top:1px solid #405745}.density-block h4{margin:0 0 12px}.density-table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}.density-table th,.density-table td{padding:6px 3px;border-bottom:1px solid #354b3d;text-align:right}.density-table th:first-child{text-align:left;font-weight:400}.density-table td:last-child{color:#e6c779}.density-total{font-weight:700}.density-bar-row{display:flex;gap:8px;align-items:center;font-size:11px;margin:5px 0}.density-bar-row>span:first-child{width:58px}.density-bar{flex:1;height:8px;background:#101a15;border-radius:3px;overflow:hidden}.density-bar i{display:block;height:100%;background:#95d7d1}.density-bar-row.density-proposed i{background:#e6c779}.density-intent{font-size:13px}.park-density{margin:12px 0;font-size:13px}.park-density summary{cursor:pointer}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
     page = page.replace('</style>', art_styles() + '</style>')
     counts = collections.Counter(v['zone'] for v in d['variants'])
     category_names = {'grove': 'Groves and gardens', 'stones': 'Churchyards and stone', 'tar': 'Tar yards', 'beach': 'Beaches', 'quarry': 'Quarries'}
@@ -904,6 +965,8 @@ def render(d, out):
         page += '</div></section>'
     page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + viewer_navigation_script() + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
+    (out/'basic-zone-coverage.json').write_text(json.dumps(art_registry()['basicCoverage'], indent=2)+'\n')
+    (out/'basic-zone-density-proposals.json').write_text(json.dumps(basic_density_proposals(), indent=2)+'\n')
     (out/'street-variants.json').write_text(json.dumps(streets, indent=2)+'\n')
     (out/'zone-variants.json').write_text(json.dumps(d,indent=2)+'\n')
     for variant in d['variants']:

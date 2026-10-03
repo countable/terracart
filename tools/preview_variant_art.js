@@ -65,6 +65,8 @@ data.terrainTiles = vm.runInContext(`Object.entries(BiomeProfiles.T)
 // These ground types exist only as special-zone overlays; rock also occurs naturally.
 data.groundAccents = vm.runInContext('ZONE_GROUND_ACCENTS', ctx);
 const basicExamples = require('./preview_basic_tiles')(ctx);
+data.basicCoverage = require('./preview_basic_coverage')(ctx);
+data.parkCharacterShares = Object.fromEntries(Object.entries(ctx.BiomeProfiles.PARK_CHARACTERS).map(([k,row]) => [k,row.share]));
 data.basicTiles = data.terrainTiles.filter(tile => !['GROVE', 'CHURCHYARD', 'TAR_YARD'].includes(tile.name));
 for (const tile of data.basicTiles) {
   tile.examples = basicExamples[tile.name]?.objects || [];

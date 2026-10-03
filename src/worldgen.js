@@ -464,11 +464,11 @@
   //                   NEAREST_POI_MAX_M counts as private) — lifted by a POI
   //                   within SPAWN_FRONTAGE (opts.pois: a chest is a public
   //                   place)
+  //     FARMLAND      mapped farmland, including its edges and any later paint
   //     FARM_INTERIOR orchard / farmland further than FARM_EDGE_CELLS from
   //                   any other ground: nothing grows or stands in a field.
-  //                   The EDGE band (within FARM_EDGE_CELLS) carries no
-  //                   reason at all — every class may spawn there, same as
-  //                   any other open ground.
+  //                   Orchard edges remain open unless mapped farmland
+  //                   underneath them carries the FARMLAND reason.
   //   TYPED SUPPRESSION — refuse only the classes whose row names them:
   //     KERB          a major way's band touches the cell, or its kerb buffer
   //                   — refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
@@ -480,8 +480,8 @@
   // university grounds, plus the school-hours timing — are both dropped: the
   // owner reviewed the table and decided a house's yard is covered by
   // PRIVATE/BEHIND_HOUSE already and a school field is ordinary public ground.
-  // KINDERGARTEN stays hard. The FARM reason was inverted at the same time —
-  // see FARM_INTERIOR above.)
+  // KINDERGARTEN stays hard. Farmland is fully excluded; orchard edges
+  // retain their existing access rule.)
   // The spawn's class — isSpawnCell's 7th argument, required of every caller
   // (test/node/spawn_class.test.js sweeps the source) — is a ROW of
   // SPAWN_CLASS_BLOCKS: which typed reasons it refuses (hard ones always).
@@ -510,15 +510,15 @@
   // What this is NOT: a movement rule. A fast foe's leash at the kerb reads
   // roadClass (inMajorBuffer) because it is about where a chase may GO.
   // Bit values kept stable across the Sep 2026 drop of HOUSE (512), SCHOOL
-  // (2048) and FARM (8192) — the gaps cost nothing in a Uint16 mask.
+  // (2048). The former FARM bit now blocks all mapped FARMLAND.
   const SPAWN_WHY = {
     TERRAIN: 1, ROAD: 2, RESTRICTED: 4, QUIET: 8, KINDERGARTEN: 16,
     SENSITIVE_SITE: 32, BEHIND_HOUSE: 64, PRIVATE: 128, FARM_INTERIOR: 256,
-    KERB: 1024, SENSITIVE: 4096,
+    KERB: 1024, SENSITIVE: 4096, FARMLAND: 8192,
   };
   const W_ = SPAWN_WHY;
   const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
-    | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR;
+    | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR | W_.FARMLAND;
   const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE;
   // The hard reasons that are about the LAND (not terrain, not the band).
   const SPAWN_WHY_LAND = SPAWN_WHY_HARD & ~(W_.TERRAIN | W_.ROAD);
@@ -570,6 +570,7 @@
   function isSpawnCell(grid, w, h, cx, cy, opts, cls) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     const here = grid[cy * w + cx];
+    if (here === T.FARMLAND) return false;
     // Only authored thorny/barricade cross-sections may occupy their own
     // road band. Declared seats never relax any other spawn class.
     const obstacle = cls === 'streetObstacle' && opts?.streetObstacleCells?.has(cy * w + cx);
@@ -3440,7 +3441,7 @@
     while (!r.done) r = g.next();
     return r.value;
   }
-  // FIELDS (orchard / farmland): only the EDGE hosts — a cell within
+  // ORCHARDS: only the EDGE hosts — a cell within
   // FARM_EDGE_CELLS (Chebyshev) of any other ground carries no reason at all
   // (every class may spawn there, same as any other open ground, since the
   // typed FARM reason was dropped Sep 2026); deeper in is the hard
@@ -3585,6 +3586,13 @@
           if (grid[i] === expect) land[i] |= why;
         });
       }
+    }
+    // Farmland is private across its whole source footprint. Unlike other
+    // land reasons, a POI pad, road, orchard or nexus repaint cannot reopen it.
+    for (const name of ['landcover', 'landuse']) for (const f of feats(name)) {
+      if (f.type !== 3 || !f.geom || !f.tags || classifyPolygon(name, f.tags) !== T.FARMLAND) continue;
+      yield 'spawn gate farmland';
+      yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { land[y * w + x] |= W_.FARMLAND; });
     }
     // ── POI points: sensitive places (the point SENSITIVE_SITE, the ground round it
     // SENSITIVE), and a church on cemetery land.
@@ -3747,8 +3755,7 @@
     // ── The reasons, per cell (every one that applies — the classes decide).
     // BEHIND_HOUSE is about somebody's LOT: it never touches public ground (a
     // park-family polygon's cell, whatever paint won it, or any ground that
-    // is not lot / field). A field's EDGE band (within FARM_EDGE_CELLS)
-    // carries no reason at all — only its INTERIOR is refused.
+    // is not lot / field). Orchard edges remain open; all farmland is refused.
     for (let y = 0; y < h; y++) {
       if ((y & 15) === 15) yield 'spawn gate classify';
       for (let x = 0; x < w; x++) {
@@ -3769,6 +3776,7 @@
         if (lot && !front[i]) v |= W_.PRIVATE;
         // Commercial ground: the nearest POI decides (COMMERCIAL_GROUND).
         if (COMMERCIAL_GROUND.has(t) && (!comField || comField.kind[i] !== POI_PUBLIC)) v |= W_.PRIVATE;
+        if (t === T.FARMLAND) v |= W_.FARMLAND;
         if (FARM_TYPES.has(t) && !farmEdge[i]) v |= W_.FARM_INTERIOR;
         const e = (y + M) * E + (x + M);
         if (roadClass && (roadClass[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_MAJOR_BAND))) v |= W_.KERB;
@@ -5555,10 +5563,10 @@
         const { ix, iy } = paintCellOf(o.x, o.y);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) return false;   // off-tile objects belong to a neighbour pass
         const here = ground[iy * w + ix];
-        // Quiet land hosts nothing at all — not even a POI chest (a café on
-        // railway land, a kiosk on a base): the mask's whole promise is that
+        // Quiet land and farmland host nothing — not even a POI chest
+        // (a farm shop or kiosk): the mask's whole promise is that
         // nothing there asks to be walked to.
-        if (quietMask[iy * w + ix]) return true;
+        if (quietMask[iy * w + ix] || (spawnWhy[iy * w + ix] & W_.FARMLAND)) return true;
         // Blanket cull: nothing but a POI chest may sit on a road tier or a
         // building footprint. A chest is a real-world destination deliberately
         // placed at its coordinates — and a POI inside a building is allowed
