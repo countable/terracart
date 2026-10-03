@@ -96,6 +96,11 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     grid: new Array(N * N).fill(WorldGen.T.PARK), objects: [],
     zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
   const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+  test('surface encounters: Work Yard has no ranged roaming enemies', () => {
+    const creatures = EnemyHabitats.surfaceEncounters(entry('work_yard'), 0, 0, new Set());
+    assert.gt(creatures.length, 0, 'the calm melee habitat remains populated');
+    for (const creature of creatures) assert.eq(EnemyRoster.get(creature.kind).attackType, 'melee');
+  });
   test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
     // Captured from main's unsliced implementation after the zone naming
     // cleanup: include emergence flags, metadata, seeded seats and identities.

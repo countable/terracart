@@ -164,7 +164,7 @@
           if ((axis === 'x' ? x : y) === middle) assert.falsy(p.background.has(y * N + x), 'cross-cut stays open');
         }
       }
-      assert.eq(p.guards.length, 3, 'narrow modules do not multiply inhabitants');
+      assert.eq(p.guards.length, 1, 'narrow modules do not multiply inhabitants');
       assert.eq(p.finds.length, 0, 'buried finds roll beneath actual stones after layout placement');
     }
   });
@@ -205,11 +205,11 @@
     assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
     const strip = plan('quarry-strip-mine', cells);
     assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
-    assert.eq(strip.guards.length, 3, 'inhabitant budget does not grow with the number of benches');
-    assert.eq(strip.guards.filter(g => g.material === 'split_slime').length, 2);
+    assert.eq(strip.guards.length, 1, 'inhabitant budget does not grow with the number of benches');
+    assert.eq(strip.guards.filter(g => g.material === 'split_slime').length, 0);
     assert.eq(strip.guards.filter(g => g.material === 'wurm').length, 1);
     for (const guard of strip.guards) {
-      assert.includes(['split_slime', 'wurm'], guard.material);
+      assert.eq(guard.material, 'wurm');
       assert.falsy(strip.background.has(guard.i), 'inhabitants occupy open cuts');
     }
     const stronghold = plan('quarry-stronghold', cells);
@@ -283,7 +283,7 @@
       variant: ZoneVariants.byId('quarry-strip-mine'), cells: list }, { N, tx: 4, ty: 5 }));
     const whole = make(cells), left = make(cells.filter(i => i % N < 24)), right = make(cells.filter(i => i % N >= 24));
     const inhabitants = [...whole.background].filter(([, material]) => ['split_slime', 'wurm'].includes(material));
-    assert.gt(inhabitants.filter(([, material]) => material === 'split_slime').length, 0);
+    assert.eq(inhabitants.filter(([, material]) => material === 'split_slime').length, 0);
     assert.gt(inhabitants.filter(([, material]) => material === 'wurm').length, 0);
     const spacing = ZoneVariantData.quarryLayouts.clippedInhabitantSpacingCells;
     const blocks = inhabitants.map(([i]) => `${Math.floor((4 * N + i % N) / spacing)},${Math.floor((5 * N + Math.floor(i / N)) / spacing)}`);

@@ -39,7 +39,7 @@
     meadow: ['slime', 'plant'], mushroom_grove: ['mushroom_monster', 'spider', 'slime'],
     formal_garden: ['slime', 'plant'], stone_garden: ['slime', 'skeleton'],
     flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
-    seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin', 'archer_goblin'],
+    seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin'],
     black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'slime', 'jellyfish'],
   };
   // One encounter roll per ~84 m square at the usual 7 m cell size.

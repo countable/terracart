@@ -66,7 +66,7 @@
     for(const o of pots)assert.eq(barrelProfile(o).texKey,'clay_pot','pots retain normal smash rewards');
   });
   test('zone guard additions: finite enemies respect ownership, sensitive ground and distinct seats', () => {
-    for(const [id,kind,count] of [['broken_depot','bat',5],['seep','split_slime',1],['work_yard','goblin',2]]) {
+    for(const [id,kind,count] of [['broken_depot','bat',5],['seep','split_slime',1],['work_yard','split_slime',2]]) {
       const out=ZoneDressing.dress(context(id));
       assert.eq(out.guards.length,count);assert.truthy(out.guards.every(o=>o.kind===kind));
       assert.eq(new Set(all(out).map(o=>`${o._ix},${o._iy}`)).size,all(out).length);
@@ -741,7 +741,7 @@
     assert.eq(kinds('broken_masonry'), 'club_goblin');
     assert.eq(kinds('broken_depot'), 'bat,bat,bat,bat,bat');
     assert.eq(kinds('seep'), 'split_slime');
-    assert.eq(kinds('work_yard'), 'goblin,goblin');
+    assert.eq(kinds('work_yard'), 'split_slime,split_slime');
     assert.eq(kinds('mystic_reef'), 'giant_crab');
     assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
     const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
