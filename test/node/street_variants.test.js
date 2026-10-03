@@ -1305,6 +1305,29 @@ test('street terrain: agreed biome rows paint one and a half cells beyond road g
     assert.eq(painted[5*12+5],1);
   }
 });
+test('street terrain: themed ground fills the roadway footprint without changing road rules', () => {
+  const f=vergeFixture('overgrown'), N=f.N;
+  f.streetGround=new Uint8Array(N*N);
+  // A wide band partly covers ordinary terrain cells; the visible strip
+  // outside the pavement must not keep its original grass.
+  f.index.dressingLines[0].halfW=8;
+  f.roadMask[5*N+5]=1;
+  f.spawnWhy[5*N+5]=WorldGen.SPAWN_WHY.ROAD;
+  f.spawnWhy[6*N+5]=WorldGen.SPAWN_WHY.ROAD | WorldGen.SPAWN_WHY.TERRAIN;
+  const mask=Array.from(f.roadMask), reasons=Array.from(f.spawnWhy);
+  const painted=paintVerge(f);
+  assert.eq(f.grid[5*N+5],T.FOREST,'masked biome cells inherit the theme');
+  assert.eq(painted[5*N+5],1);
+  assert.eq(f.grid[6*N+5],T.ROAD,'road identity remains intact');
+  assert.eq(f.streetGround[6*N+5],T.FOREST+1,'road backdrop is explicit, not neighbour-voted');
+  assert.eq(JSON.stringify(Array.from(f.roadMask)),JSON.stringify(mask));
+  assert.eq(JSON.stringify(Array.from(f.spawnWhy)),JSON.stringify(reasons));
+  const path=vergeFixture('greenway');path.grid[6*N+5]=T.PATH;
+  path.streetGround=new Uint8Array(N*N);paintVerge(path);
+  assert.eq(path.streetGround[6*N+5],T.GRASS+1,'grass zero is distinct from an unset backdrop');
+  assert.eq(path.grid[6*N+5],T.PATH);
+});
+
 test('street terrain: water, buildings, access and special zones take precedence', () => {
   const f=vergeFixture('promenade'), N=f.N;
   f.grid[5*N+2]=T.WATER;f.grid[5*N+3]=T.BUILDING;f.grid[5*N+4]=T.PATH;

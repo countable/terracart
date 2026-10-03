@@ -6539,7 +6539,21 @@ class MapScene extends Phaser.Scene {
   // wear that zone's biome TEXTURE too (see the texture pass in render.js), and
   // a colour can't be turned back into a texture key. The sampling — and the
   // memo — live here so both callers see the same answer for a cell.
+  streetGroundType(wcx, wcy) {
+    // Cave entries may inherit surface metadata; decoration is surface-only.
+    if ((this.depth || 0) !== 0) return null;
+    const cell = absCellToTile(this, Math.floor(wcx), Math.floor(wcy),
+      this._nnScratch || (this._nnScratch = {}));
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    const ground = entry && !(entry.depth > 0) && entry.streetGround
+      && entry.streetGround[cell.iy * cell.n + cell.ix];
+    return ground ? ground - 1 : null;
+  }
+
   neighborNonRoadType(wcx, wcy) {
+    // Explicit ground wins even if a fallback was cached before tile loading.
+    const themed = this.streetGroundType(wcx, wcy);
+    if (themed != null) return themed;
     // Memoise the per-cell result (the TYPE — the colour caller derives its
     // colour from it). Terrain is static after a tile loads, so the mode of a
     // 7×7 sample never changes for a given (wcx, wcy). Without
