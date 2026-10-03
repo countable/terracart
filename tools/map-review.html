@@ -50,7 +50,10 @@
   button.on{background:#c8a64a;color:#1a1612;border-color:#c8a64a}
   #status{color:#c8a64a;margin:6px 0;min-height:1.2em}
   #game{display:none}
-  #zonePick,#sourceFilter,#laneFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
+  #zonePick,#sourceFilter,#laneFilter,#gameplaySite{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
+  #gameplaySummary,#gameplayDetails,.gameplay-policy{font-size:11px;line-height:1.5;margin:7px 0}
+  #gameplaySummary b{float:right} #gameplayDetails{padding:8px;background:#242c2c}
+  .gameplay-policy p,#gameplaySummary p,#gameplayDetails p{margin:6px 0}
   #zoneDetails{font-size:12px;line-height:1.5;margin:8px 0;padding:8px;background:#242c2c}
   #zoneDetails p{margin:6px 0} #sourceLegend{font-size:11px;line-height:1.5}
   #legend button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;margin:2px 0;padding:5px 6px;background:transparent;border:1px solid transparent}
@@ -67,6 +70,21 @@
   <div><b>Map review</b></div>
   <div id="status">loading the game…</div>
   <div><button id="placeHome">Place Home</button></div>
+  <details class="review-section" open><summary>Gameplay tiers (proposed)</summary><div class="section-body">
+  <label><input id="gameplayTiers" type="checkbox"> Show gameplay-tier layer</label>
+  <div id="gameplayLegend"></div>
+  <label>Layer opacity <input id="gameplayOpacity" aria-label="Gameplay tier opacity" type="range" min="0.15" max="0.85" step="0.05" value="0.45"></label>
+  <label for="gameplaySite">Suggested area</label>
+  <select id="gameplaySite"><option value="">Explore a researched site…</option></select>
+  <div id="gameplaySummary" role="status">Enable the layer to classify the loaded area.</div>
+  <div id="gameplayDetails"></div>
+  <details class="gameplay-policy"><summary>Policy and map evidence</summary>
+  <p><b>Tier 1:</b> core daily value, fast/ranged enemies and elites, butterflies, easily extracted resources. Parks/beaches, designated walking paths, plazas, rec grounds and footway areas.</p>
+  <p><b>Tier 2:</b> slow enemies, pets and other animals, basic resources. Grassland/forest, roadside paths, residential through roads, churches and public-facing commercial sites.</p>
+  <p><b>Tier 3:</b> occasional or one-time edge finds, passive/static threats, simple taps and passive walking progress. Parking, residential dead ends and major/medium roads without paths.</p>
+  <p>Three-cell road buffers use current game dimensions. Measured traffic volumes and speeds are not available. Restricted ground remains excluded; missing evidence remains unknown. This layer does not alter gameplay.</p>
+  </details>
+  </div></details>
   <details class="review-section" open><summary>Park / zone variants</summary><div class="section-body">
   <label><input id="zoneLabels" type="checkbox" checked> Show zone names and variants</label>
   <select id="zonePick" aria-label="Park or zone"><option value="">Loading zones…</option></select>
@@ -116,16 +134,20 @@
 <script src="map-review-quarries.js"></script>
 <script src="map-review-art.js"></script>
 <script src="map-review-terrain.js"></script>
+<script src="map-review-gameplay.js"></script>
+<script src="map-review-gameplay-layer.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
 const FIXTURES = !Q.get('lat');
 async function tileBytes(tx, ty) {
-  if (FIXTURES) {
+  if (FIXTURES || Q.get('fixtures') === '1') {
     // The recorded tiles, when the page is served from a checkout (they are
     // git-ignored, so GitHub Pages has none) — else the same tiles, live.
-    const r = await fetch(`../test/fixtures/${tx}_${ty}.pbf`).catch(() => null);
-    if (r && r.ok) return new Uint8Array(await r.arrayBuffer());
+    for (const base of ['../test/fixtures', '../data/report-tiles']) {
+      const r = await fetch(`${base}/${tx}_${ty}.pbf`).catch(() => null);
+      if (r && r.ok) return new Uint8Array(await r.arrayBuffer());
+    }
   }
   // The game's own fetch: IndexedDB-cached (same origin, same store as the
   // game), live TileJSON template, stale records refreshed in the background.
@@ -270,6 +292,10 @@ const laneReview = MapReviewLanes.create({map,toLL,getEdge:()=>EDGE,
 $('quarryClusters').checked = Q.get('quarryClusters') === '1';
 const quarryReview = MapReviewQuarries.create({map,toLL,getEdge:()=>EDGE,toggle:$('quarryClusters'),summary:$('quarrySummary'),
   onSelect:id=>{selectZone(id,false);zoneSelection.clearLayers();}});
+$('gameplayTiers').checked = Q.get('tiers') === '1';
+const gameplayReview = MapReviewGameplay.create({ map, toLL, getEdge: () => EDGE,
+  toggle: $('gameplayTiers'), legend: $('gameplayLegend'), summary: $('gameplaySummary'),
+  details: $('gameplayDetails'), opacity: $('gameplayOpacity'), sitePick: $('gameplaySite') });
 const gameArt = MapReviewArt.layer({
   toLL, getEdge: () => EDGE,
   onStatus: (message) => { $('artStatus').textContent = message; },
@@ -279,7 +305,7 @@ const gameArt = MapReviewArt.layer({
   },
 });
 bases['Game art'] = gameArt;
-const DEFAULT_BASE = Q.get('base') === 'esri' ? 'Satellite (Esri)' : 'Game art';
+const DEFAULT_BASE = Q.get('base') === 'esri' ? 'Satellite (Esri)' : Q.get('base') === 'osm' ? 'Streets (OSM)' : 'Game art';
 bases[DEFAULT_BASE].addTo(map);
 $('artStatus').hidden = $('artOptions').hidden = DEFAULT_BASE !== 'Game art';
 $('restoredLamps').onchange = () => gameArt.setRestoredLamps($('restoredLamps').checked);
@@ -971,6 +997,7 @@ function rebuild(home) {
     const world = window.__world = buildWorld(home);
     terrainReview.update();
     laneReview.update(world);
+    gameplayReview.update(world, raw);
     updateZoneReview(world);
     draw(world, home);
     const s = Math.round((performance.now() - t0) / 100) / 10;
@@ -988,10 +1015,11 @@ function rebuild(home) {
     if (!raw.length) { $('status').textContent = 'no tiles'; return; }
     const mid = raw[Math.floor(raw.length / 2)];
     const home = window.__home = { x: (mid.tx + 0.5) * EDGE, y: (mid.ty + 0.5) * EDGE };
-    map.setView(toLL(home.x, home.y, EDGE), 16);
+    map.setView(Q.get('site') && Q.has('lat') && Q.has('lon') ? [+Q.get('lat'), +Q.get('lon')] : toLL(home.x, home.y, EDGE), 16);
     const first = window.__world = buildWorld(home);
     overlays(first);
     laneReview.update(first);
+    gameplayReview.update(first, raw);
     updateZoneReview(first);
     draw(first, home);
     $('status').textContent = first.errors.length ? `${first.errors.length} error(s), see console` : 'ready';
