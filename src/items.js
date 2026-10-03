@@ -1401,7 +1401,7 @@ const PRICES = {
   spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
-  scarecrow: 20,   // crow/deer ward — sold once at the forced scarecrow shop
+  scarecrow: 20,   // crow/deer ward — crafted at Home (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
   // ── Rock-break minerals ──────────────────────────────────

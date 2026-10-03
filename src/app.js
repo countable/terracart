@@ -5352,6 +5352,16 @@ class MapScene extends Phaser.Scene {
         if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
         list.push(o);
       });
+      // A house the player restored as a TURRET (houses.js BUILD_OPTIONS) is
+      // one more archer on the same lane: same bow, cadence and range. Its
+      // `castle` is its own id — the material family the art picked
+      // (render.js _houseFrame), which is what the arrow's launch height
+      // reads (Render.towerCrownHeight).
+      this._forEachHouseNear(pc, (o) => {
+        if (Houses.displayRole(this.save, o) !== 'turret') return;
+        if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
+        list.push({ id: o.id, x: o.x, y: o.y, castle: o.id });
+      });
       scan = this._turretScan = { t: now, list };
     }
     if (!scan.list.length) return;
@@ -10936,10 +10946,6 @@ class MapScene extends Phaser.Scene {
   //   'buy'      → routine seed/produce/barter buy
   //   'relic'    → a relic offer (non-starter)
   //   'forge'    → blacksmith forge offer
-  // One-time scarecrow sale at the forced scarecrow shop. Cash only; on
-  // accept it deducts the price, grants one scarecrow, and flips
-  // save.scarecrowShopUsed so the house reverts to its normal role. Mirrors
-  // the cash branch of the regular buy modal (loud loot pop, real sprite).
   // Anything held over a campfire that the fire can't MAKE something of
   // (items.js CAMPFIRE_MAKES) is burned — one of it, after this confirm.
   // Tapped from interact.js 'fire-held' with the fire's world point. The
@@ -11849,6 +11855,16 @@ class MapScene extends Phaser.Scene {
       }
     }
   }
+  // The houses of the 3×3 ring, off the same per-tile derived index idiom.
+  _forEachHouseNear(pc, fn) {
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+        if (!e) continue;
+        for (const o of derivedObjects(e, '_houses', (o) => o.kind === 'house')) fn(o);
+      }
+    }
+  }
 
   homeWorldPos() {
     if ((this.depth || 0) !== 0) return null;
@@ -12080,9 +12096,6 @@ class MapScene extends Phaser.Scene {
   isStarterBlacksmith(house) { return Houses.isStarterBlacksmith(this.save, house); }
 
   houseShopRole(house) { return Houses.houseShopRole(this.save, house); }
-
-  // Resolve the role a wreck reveals when restored — see Houses.preseedRestoreRole.
-  _preseedRestoreRole(order, house) { return Houses.preseedRestoreRole(this.save, order, house); }
 
   _hasBlacksmith() { return Houses.hasBlacksmith(this.save); }
 
@@ -13330,53 +13343,63 @@ class MapScene extends Phaser.Scene {
     const heldCount = Inventory.count(this.save, cost.id);
     const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
-    // Role this wreck will reveal, picked from the player's current restore
-    // order (this house isn't in restoredHouses yet, so the live count IS its
-    // 0-based index). Single-modal guard keeps the count stable while the modal
-    // is open, so recomputing the same index on accept lands on the same role.
-    const restoreOrder = Object.keys(this.save.restoredHouses || {}).length;
-    const prospectiveRole = this._preseedRestoreRole(restoreOrder, house);
-    // "shop" if this wreck restores into a themed business, else "house".
-    const isThemed = prospectiveRole !== 'plain';   // blacksmith / market / trader / wizard
+    // WHAT THE WRECK BECOMES IS THE PLAYER'S PICK: the cards on offer are
+    // Houses.buildOptions (one owning table, unlocked by how many wrecks
+    // already stand), each named the way its sign will be (Shops.roleLabel —
+    // the Shop card promises the line the next shop sells, Shops.nextLine).
+    // The single-modal guard keeps the count stable while the modal is open;
+    // restoreAs re-checks the offer at accept anyway.
+    const options = Houses.buildOptions(this.save, house);
+    const labelFor = (row, theme) => row.name
+      || Shops.roleLabel(row.role, row.role === 'market' ? theme : null) || 'House';
+    const iconFor = (row) => {
+      const texKey = Render.houseTextureKey(row.role, house, this);
+      const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
+        : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
+      return this.worldIconHTML(texKey, 28, frame);
+    };
+    const order = Houses.restoredCount(this.save);
+    const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
+    const choices = options.map((row) => ({
+      key: row.key,
+      // A ranked card (a shop, a smithy, a trader) wears its rarity badge.
+      label: labelFor(row, Shops.nextLine(this.save).theme)
+        + (tierOf(row) ? `<div style="margin-top:3px;line-height:0">${tierBadgeHTML(tierOf(row), 10)}</div>` : ''),
+      info: row.pick,
+      iconHTML: iconFor(row),
+      suggested: !!row.suggested?.(this.save),
+    }));
     // Always show the modal — even when the player can't yet afford it,
     // they need to see WHAT to gather. Accept stays disabled (red cost
     // line, greyed button) so the dialog reads as a price tag rather
     // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
       kind: 'build',
-      // The question and the price, nothing else: what the wreck BECOMES is
-      // the Restored card's reveal, not a line to read before it.
-      get: 'Restore this wreck?',
+      get: options.length > 1 ? 'Restore this wreck as…' : 'Restore this wreck?',
+      choices,
       costLabel: 'Cost',
       cancelLabel: 'Later',
       cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`
         + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
       canAfford,
       acceptLabel: 'Restore',
-      onAccept: () => {
+      onAccept: (key) => {
         // Re-check stock at accept time — the player might have spent
         // the materials elsewhere while the modal was open.
         if (Inventory.count(this.save, cost.id) < cost.qty) {
           this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
           return;
         }
+        // Freeze the pick onto the house (the role string, never a bare
+        // `true`) and stamp what it owns — the first smithy, the Book Shop,
+        // a wizard tower. A card no longer on offer (a stale modal) is
+        // refused before anything is charged.
+        const row = Houses.restoreAs(this.save, house, key);
+        if (!row) { this.flash('No longer on offer.', sx, sy); return; }
         Inventory.remove(this.save, cost.id, cost.qty);
         this._clampSelSlot();
-        this.save.restoredHouses = this.save.restoredHouses || {};
-        // Freeze the restore-order role onto this house so it never shifts.
-        // Recompute the index at accept time (still stable behind the modal
-        // guard) so a stale closure can't desync from the live count.
-        const order = Object.keys(this.save.restoredHouses).length;
-        const restoredRole = this._preseedRestoreRole(order, house);
-        this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
-        Houses.registerWizardTower(this.save, house, order);
-        Houses.registerBookshop(this.save, house, order);
-        if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
-        // The first wreck restored becomes the starter blacksmith (wooden-tool
-        // forge). Stamp its id so isStarterBlacksmith picks it up.
-        if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
-          this.save.starterBlacksmithId = house.id;
-        }
+        const order = Houses.restoredCount(this.save) - 1;   // this restore's 0-based index
+        if (row.role === 'wizard') NPC.restoreShrine(this, house);
         persistSave(this.save);
         // THE GATHER FIRST: the road repair's own `stonegather` (the setts
         // pulling back together), thrown off a ring at the walls and drawn in
@@ -13400,45 +13423,27 @@ class MapScene extends Phaser.Scene {
             chips: 'timber', sparks: 'greenspark',
           });
           if (this.showChestRewardModal) {
-            // Name the building, describe what it does, show its sprite, and let
-            // showChestRewardModal's sparkle burst supply the fanfare.
-            // The role a wreck reveals once restored — mirrors render.js
-            // _houseTrueRole (minus fort/trailer, which never wreck). Reads the
-            // frozen restore-order role; 'plain' for a role-less residential house.
-            const role = this.houseShopRole(house) || 'plain';
-            // Names come from Shops.roleLabel so the card, the sign outside and
-            // the offer modal all call the building the same thing. A themed
-            // shop's blurb follows its line (marketTheme).
-            const theme = role === 'market' ? this.marketTheme(house).theme : null;
-            const THEME_BLURB = {
-              seed:   'You find packets of seeds on the shelves.',
-              supply: 'You find supplies for the road on the shelves.',
-              potion: 'You watch strange colours swirl in bottles behind the counter.',
-              ore:    'You find ore for the forge piled on the counter.',
-              relic:  'You inspect the tools and armour hanging behind the counter.',
-              pet:    'You hear paws and hooves shuffling nearby.',
-            };
-            const INFO = {
-              blacksmith: { blurb: 'A family returns to the forge. They offer to make the tools you need.' },
-              market:     { blurb: 'A family opens the market shutters again. ' + (THEME_BLURB[theme] || 'You look over the freshly stocked counter.') },
-              trader:     { blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.' },
-              wizard:     { name: 'Wizard Tower', blurb: "You step into the tower. An old wizard asks about your memories." },
-              plain:      { name: 'House',        blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
-            };
-            const info = INFO[role] || INFO.plain;
-            const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
+            // Name the building, describe what it does, show its painting, and
+            // let showChestRewardModal's sparkle burst supply the fanfare. The
+            // name is the sign's (Shops.roleLabel — a shop is named for the
+            // line it now sells, marketTheme), the blurb and art the row's.
+            const theme = row.role === 'market' ? this.marketTheme(house).theme : null;
+            const name = labelFor(row, theme);
+            const tier = Shops.shopTier(this.save, house, row.role) || 0;
+            const blurb = row.key === 'market' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
             this.showChestRewardModal({
               kind: 'build',
-              // The banner carries the picture now - one art piece per role
-              // (restore_house / restore_blacksmith / …) instead of the
-              // building sprite, so the card shows the story of the restore.
+              // The banner carries the picture - one art piece per card
+              // (restore_house / restore_blacksmith / …), so the card shows
+              // the story of the restore.
               iconHTML: '',
-              art: role === 'plain' ? 'restore_house' : 'restore_' + role,
+              art: row.art,
               header: 'Restored!',
               name: `You restored a ${name}`,
-              sub: order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : info.blurb,
+              tier,
+              sub: order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
-              onDismiss: role === 'wizard'
+              onDismiss: row.role === 'wizard'
                 ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
             });
           } else {
@@ -13448,6 +13453,7 @@ class MapScene extends Phaser.Scene {
       },
     });
   }
+
 
   // Wood this fort demands to unseal — see Houses.fortUnlockCost / FORT_UNLOCK_WOOD*.
   _fortUnlockCost() { return Houses.fortUnlockCost(this.save); }

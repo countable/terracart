@@ -1402,17 +1402,36 @@ ECONOMY (buying & selling)
    per three houses already restored, capped at 20 (items.js wreckRestoreQty).
    Restoring reveals the house's ROLE, which is frozen into
    save.restoredHouses[id] so it never shifts on later loads.
- - SHOP ROLES are assigned by RESTORE ORDER for the opening run:
-   PRESEED_RESTORE_ROLES (houses.js) makes restore 0 the BLACKSMITH, 1 a TRADER,
-   2 plain, 3 a MARKET, and the 30th (order 29) the WIZARD TOWER; a save with
-   no smithy gets one on its next rebuild. Every other restore falls back to
-   the address-derived role (shops.js Shops.shopType): ending 9 = BLACKSMITH
-   (forges gear from bars/gems), 2/4/6 = MARKET, 1/8 = TRADER (barter-only),
-   else PLAIN. A MARKET is a THEMED shop: one line each — seed, supply, potion,
-   ore, relic or pet — by restore order, priced at the village markup, with a
-   cheap re-roll (app.js presentThemedShop / marketTheme). PLAIN houses run
-   deliveries (see DELIVERIES below). These are BUY/trade specialties —
-   selling is home-only, see SELL below.
+ - WHAT A WRECK BECOMES IS THE PLAYER'S PICK (Oct 2026): the restore modal
+   lays out cards from ONE table, houses.js Houses.BUILD_OPTIONS, unlocked by
+   how many wrecks already stand (STORY_RESTORES, 1-based restore numbers):
+   a HOUSE from the 1st, the BLACKSMITH from the 2nd, a SHOP from the 3rd, a
+   TRADER from the 5th, a TURRET from the 8th, the BOOK SHOP from the 15th
+   (once), the WIZARD TOWER from the 30th, and his second tower from the 52nd
+   once the first stands and 21 memories are home. Nothing is forced and
+   nothing is read off the OSM address (shops.js Shops.shopType is only the
+   fallback for a legacy bare-`true` ledger entry): the Blacksmith card is
+   merely SUGGESTED (outlined) while the lane has no smithy, since the wooden
+   tools come from nowhere else. Houses.restoreAs freezes the pick and stamps
+   what it owns (starterBlacksmithId, bookshopId, wizardTowers). A MARKET is a
+   THEMED shop: one line each — seed, supply, potion, ore, relic or pet — by
+   restore order among shops (the Shop card names the line it would open,
+   Shops.nextLine), priced at the village markup, with a cheap re-roll
+   (app.js presentThemedShop / marketTheme). The BOOK SHOP is a market plus
+   its stamp, outside that cycle. A BLACKSMITH and a TRADER carry a tier too
+   (shops.js smithTier / traderTier, off the ledger): ONE SMITHY PER TIER — the
+   Nth raised is tier N, and after the first the card for the next is offered
+   only from restore number N × SMITH_TIER_EVERY (5); its anvil forges within
+   one rank of its own and leans to it (gear.js SMITHY_OWN_TIER_BIAS). A
+   trader takes the rank of the restore number that raised it over
+   TRADER_TIER_EVERY (5), any number per rank, and its barter leans toward
+   goods of that rank (Shops.tierAffinity, halved per rank away). Every
+   ranked door wears its rarity badge on the map and in its offers
+   (Shops.shopTier). A TURRET is a lone castle tower on a house
+   lot: it draws the castle tower sheet in its own material family and its
+   archer fires on the castle turret lane (COMBAT) — nothing to trade. PLAIN
+   houses run deliveries (see DELIVERIES below). These are BUY/trade
+   specialties — selling is home-only, see SELL below.
  - FORTS (BUILDING_MED) start SEALED; pay a one-time stack of wood (tracked in
    save.unlockedForts) to open them. The wood price FOLLOWS A PROGRESSION
    across forts: FORT_UNLOCK_WOOD_START (6) for the first fort,

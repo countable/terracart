@@ -73,8 +73,8 @@ test('story splash: the Restored! card shows the role banner, not the building s
   assert.truthy(!/buildingImgHTML/.test(app),
     'buildingImgHTML is gone - the banners replaced both of its call sites');
   assert.truthy(/iconHTML: '',/.test(WRECK_SRC), 'the icon row is empty');
-  assert.truthy(/art: role === 'plain' \? 'restore_house' : 'restore_' \+ role,/.test(WRECK_SRC),
-    'the banner stem is restore_house for a plain house, restore_<role> for a themed shop');
+  assert.truthy(/art: row\.art,/.test(WRECK_SRC),
+    'the banner stem is the picked card\'s own (Houses.BUILD_OPTIONS)');
 });
 
 test('story splash: the Unsealed! card shows the fort_unseal banner, not the building sprite', () => {
@@ -111,11 +111,10 @@ test('story splash: bow and staff have independent first-use stories and matchin
 test('story splash: every art stem app.js names exists as a WebP in assets/art/', () => {
   const stems = new Set();
   for (const m of app.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
-  // The dynamic restore stems, derived from the INFO role table in
-  // presentWreckRestoreModal so a new role demands its art file here.
-  const roles = [...WRECK_SRC.matchAll(/^ {14}(\w+): *\{/gm)].map((m) => m[1]);
-  assert.includes(roles, 'plain', 'the INFO role table still has the plain house row');
-  for (const role of roles) stems.add(role === 'plain' ? 'restore_house' : 'restore_' + role);
+  // The restore stems come off the build-option table (houses.js), so a new
+  // card demands its art file here.
+  for (const row of Houses.BUILD_OPTIONS) stems.add(row.art);
+  assert.includes([...stems], 'restore_house', 'the house card\'s stem was collected');
   assert.includes([...stems], 'delivery_first', 'the delivery stem was collected');
   assert.includes([...stems], 'shiny_first', 'the shiny stem was collected');
   assert.includes([...stems], 'castle_claim', 'the castle stem was collected');

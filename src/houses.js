@@ -35,56 +35,118 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 (function (root) {
   'use strict';
 
-  // `bookshop`: the restoration that reveals the Book Shop (shops.js lineFor —
-  // the book club's late, dear backup supply of Books), stamped by
-  // registerBookshop. Index 14 is also LEGACY_FIRST_TOWER_INDEX below: an old
-  // unstamped save reads a 'wizard' there, a new save a 'market', so the two
-  // never collide.
-  const STORY_RESTORES = Object.freeze({ firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 2, bookshop: 15 });
-  // Old unstamped saves retain the tower identities their original schedule gave them.
+  // WHAT A WRECK CAN BECOME is the player's pick (Oct 2026, owner's call —
+  // until then a fixed opening run and the OSM address digit decided). The
+  // cards unlock by how many wrecks already stand, in the order a player can
+  // use them: the first rebuild offers only a House, the second adds the
+  // Blacksmith, the third a Shop, the fifth a Trader, the eighth a Turret;
+  // the Book Shop is on offer from the fifteenth (once), the Wizard Tower from
+  // the thirtieth, and his second tower from the fifty-second once the first
+  // stands and 21 memories are home (MemoryStory LEAVE_MEMORIES — the first
+  // tower is abandoned by then). Nothing is forced: a lane with no smithy has
+  // no wooden tools, which is the player's own call (the Blacksmith card is
+  // `suggested` until one stands). Numbers are 1-based RESTORE NUMBERS ("the
+  // 2nd rebuild may be a Blacksmith"); `earlyMending` and `childHome` are the
+  // story's restoration-count gates (memory_story.js).
+  const STORY_RESTORES = Object.freeze({
+    house: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, bookshop: 15,
+    firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 2,
+  });
+  // Old unstamped saves retain the tower identities their original schedule
+  // gave them (wizardTowerIds): restore index 14 was the first tower, 25+ the second.
   const LEGACY_FIRST_TOWER_INDEX = 14, LEGACY_SECOND_TOWER_INDEX = 25;
 
-  // Pre-seeded house roles by RESTORE ORDER (0-based). Rather than skinning the
-  // two nearest houses as blacksmith/trader up front, a wreck reveals its role
-  // from the order the player restores it: the opening stretch is a fixed
-  // tutorial run (blacksmith, trader, house, market) and the 30th
-  // restore reveals the first wizard tower. After 21 lifetime memories, the
-  // next restore at index 51 or later reveals his second location. Other
-  // addresses keep their shop variety without producing extra wizard towers. 'plain' === a plain residential house (no shop). The chosen
-  // role is frozen into save.restoredHouses[id] at restore time so it never
-  // shifts on later loads.
-  const PRESEED_RESTORE_ROLES = {
-    0:  'blacksmith',
-    1:  'trader',
-    2:  'plain',
-    3:  'market',
-    [STORY_RESTORES.bookshop - 1]: 'market',   // the Book Shop (registerBookshop)
-    [STORY_RESTORES.firstTower - 1]: 'wizard',
-  };
+  // ONE TABLE for every card on the restore modal and for the Restored! card
+  // that follows: the role string frozen into save.restoredHouses[id] (the
+  // one thing every renderer, shop and story reader consults), the restore
+  // number it unlocks at (`from`), the painting, the card's one-line pitch
+  // (`pick`) and the Restored! card's blurb. The player-facing NAME is
+  // Shops.roleLabel (the sign, the card and the offer modal call it the same
+  // thing); `name` overrides it where the label is a line, not a building.
+  //   bookshop — stored as a 'market' plus save.bookshopId (shops.js lineFor
+  //              sells the Book line off that stamp), so old readers of the
+  //              role string never meet a new one.
+  //   turret   — a single castle tower on a house lot: it draws the castle
+  //              tower sheet (render.js houseTextureKey) and its archer
+  //              fires through the castle turret lane (app.js _turretFire).
+  //   wizard   — Tim's tower; `offered` reads the tower ledger and the
+  //              memory ledger, never a count of its own.
+  // `tier(save, order)` is the rank the pick would carry (the badge on its
+  // card and on the Restored! card): a shop's line tier, the next smithy's
+  // tier, a trader's by restore number — all shops.js shopTier's arithmetic.
+  const BUILD_OPTIONS = Object.freeze([
+    { key: 'plain', role: 'plain', from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
+      pick: 'A family moves back in and buys the produce they ask for.',
+      blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
+    // ONE SMITHY PER TIER (shops.js smithTier): the Nth blacksmith is tier N,
+    // and after the first (the ladder's own slot) the next is offered only
+    // from restore number N × SMITH_TIER_EVERY — a T2 smith from the tenth.
+    { key: 'blacksmith', role: 'blacksmith', from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
+      pick: 'Forges tools and gear of its own rank, give or take one. The first wooden tools come from here.',
+      blurb: 'A family returns to the forge. They offer to make the tools you need.',
+      tier: (save) => Shops.nextSmithTier(save),
+      offered: (save, order) => {
+        const t = Shops.nextSmithTier(save);
+        return t === 1 ? true : Shops.smithCount(save) < Shops.SHOP_TIER_MAX && order + 1 >= Shops.smithUnlockAt(t);
+      },
+      suggested: (save) => !hasBlacksmith(save) },
+    { key: 'market', role: 'market', from: STORY_RESTORES.market, art: 'restore_market',
+      pick: 'A shop selling one line of goods, priced at the village markup.',
+      blurb: 'A family opens the market shutters again. ',
+      tier: (save) => Shops.nextLine(save).tier },
+    // Traders take the tier of the restore number that raises them (shops.js
+    // traderTierAt): any number at a tier, a rank higher every five rebuilds.
+    { key: 'trader', role: 'trader', from: STORY_RESTORES.trader, art: 'restore_trader',
+      pick: 'Barters goods for goods, two of theirs for one of yours, leaning toward wares of its rank.',
+      blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.',
+      tier: (save, order) => Shops.traderTierAt(order + 1) },
+    { key: 'turret', role: 'turret', from: STORY_RESTORES.turret, art: 'castle_claim',
+      pick: 'A lone stone tower. Its archer looses arrows at foes that come near.',
+      blurb: 'Masons raise a single tower on the old footings. An archer climbs to the battlement and strings a bow.' },
+    { key: 'bookshop', role: 'market', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
+      pick: 'The book club’s backup supply. It sells Books, and only Books.',
+      blurb: 'A family opens the market shutters again. Shelves of books line the walls.',
+      offered: (save) => save.bookshopId == null },
+    { key: 'wizard', role: 'wizard', from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
+      pick: 'The tower the old folk speak of. Someone inside may know what your memories mean.',
+      blurb: 'You step into the tower. An old wizard asks about your memories.',
+      offered: (save, order) => {
+        const towers = wizardTowerIds(save);
+        if (!towers.firstId) return true;
+        return !towers.secondId && order >= STORY_RESTORES.secondTower - 1
+          && Object.keys(save.discovered || {}).length >= 21;
+      } },
+  ]);
+  const buildOption = (key) => BUILD_OPTIONS.find((row) => row.key === key) || null;
+  // How many wrecks already stand: the 0-based restore ORDER of the next one.
+  function restoredCount(save) { return Object.keys(save?.restoredHouses || {}).length; }
+  // The cards on offer for the next restore. Pure: reads the ledgers, never
+  // writes. The first restore offers one card (the House), so the modal
+  // reads as the plain price tag it always was.
+  function buildOptions(save, house, order = restoredCount(save)) {
+    save = save || {};
+    return BUILD_OPTIONS.filter((row) => order >= row.from - 1
+      && (!row.offered || row.offered(save, order, house)));
+  }
 
-  // Wooden-tool blacksmith. The house closest to Home (the starter shop)
-  // is forced to be a Blacksmith that forges T1 pick / axe / hoe out of
-  // a flat 5 wood each (see starterBlacksmithRecipe).
-  // Memoized once like starterShopId so reloads + roaming keep the same shop.
-  // Falls through to the normal random-relic forge once all three wooden
-  // tools have been crafted — the smithy keeps doing useful business.
+  // Wooden-tool blacksmith: the FIRST blacksmith the player raises (stamped
+  // save.starterBlacksmithId by restoreAs) forges T1 tools out of a flat 5
+  // wood each (see starterBlacksmithRecipe), then falls through to the
+  // normal relic forge once the bootstrap pair is owned.
   function isStarterBlacksmith(save, house) {
     if (!house || !house.id) return false;
-    // The starter blacksmith is now whichever wreck is restored FIRST (it gets
-    // the 'blacksmith' role + this id stamped at restore time — see
-    // presentWreckRestoreModal). No longer force-anchored to the nearest house,
-    // so there's no lazy nearest-house resolution here.
     return save.starterBlacksmithId != null
       && save.starterBlacksmithId === house.id;
   }
 
-  // The shop role a (restored) house plays: 'blacksmith' | 'trader' | 'market'
-  // | 'wizard', or null for a plain residential house. Single source of truth
-  // for both the renderer and the interaction handler. Once a wreck is restored
-  // its role is frozen into save.restoredHouses[id] as a role string and read
-  // straight back here. Legacy `true` entries (saved before role-freezing) and
-  // any house consulted before restore fall back to the address-derived
-  // Shops.shopType, plus the first-restored starter blacksmith.
+  // The role a (restored) house plays: 'blacksmith' | 'trader' | 'market'
+  // | 'wizard' | 'turret', or null for a plain residential house. Single
+  // source of truth for both the renderer and the interaction handler. Once a
+  // wreck is restored its role is frozen into save.restoredHouses[id] as a
+  // role string and read straight back here. Legacy `true` entries (saved
+  // before role-freezing, and the sandbox's) and any house consulted before
+  // restore fall back to the address-derived Shops.shopType, plus the
+  // starter blacksmith.
   function houseShopRole(save, house) {
     if (!house || house.kind !== 'house') return null;
     const stored = save.restoredHouses && save.restoredHouses[house.id];
@@ -94,28 +156,28 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
 
   // Does this save have a smithy? The stamped starter smithy, or any restored
-  // house frozen as one (a later address-9 house counts too).
+  // house frozen as one.
   function hasBlacksmith(save) {
     if (save.starterBlacksmithId != null) return true;
     return Object.values(save.restoredHouses || {}).includes('blacksmith');
   }
 
-  // Resolve the role a wreck reveals when restored, given its 0-based restore
-  // order. Fixed tutorial slots (PRESEED_RESTORE_ROLES) win; everything else
-  // defers to the address-derived shop type so the neighbourhood keeps its
-  // variety. Always returns a concrete role string ('plain' for a house).
-  function preseedRestoreRole(save, order, house) {
-    const stored = save.restoredHouses?.[house?.id];
-    if (typeof stored === 'string') return stored;
-    if (!hasBlacksmith(save)) return 'blacksmith';
-    const towers = wizardTowerIds(save);
-    if (!towers.firstId && order >= STORY_RESTORES.firstTower - 1) return 'wizard';
-    if (towers.firstId && !towers.secondId && order >= STORY_RESTORES.secondTower - 1
-      && Object.keys(save.discovered || {}).length >= 21) return 'wizard';
-    if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)
-      && PRESEED_RESTORE_ROLES[order] !== 'wizard') return PRESEED_RESTORE_ROLES[order];
-    const role = (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
-    return role === 'wizard' ? 'plain' : role;
+  // RESTORE THIS WRECK AS THE PICKED CARD. The one writer of the restoration
+  // ledger: freezes the row's role onto the house, then stamps what the pick
+  // owns — the first blacksmith (starterBlacksmithId), the Book Shop
+  // (bookshopId), a wizard tower (wizardTowers). Refuses (null) a card not on
+  // offer, so a stale modal can't raise a tower early. Returns the row.
+  function restoreAs(save, house, key) {
+    if (!house || house.id == null) return null;
+    const row = buildOptions(save, house).find((r) => r.key === key);
+    if (!row) return null;
+    save.restoredHouses = save.restoredHouses || {};
+    if (typeof save.restoredHouses[house.id] === 'string') return null;   // never relabel a restored house
+    save.restoredHouses[house.id] = row.role;
+    if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
+    if (row.key === 'bookshop') registerBookshop(save, house);
+    if (row.role === 'wizard') registerWizardTower(save, house);
+    return row;
   }
 
   // Identity is separate from shop art: old saves can contain extra randomly
@@ -143,22 +205,25 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return null;
   }
 
-  // Stamp the bookshop (save.bookshopId) when a market is frozen at or past
-  // its restoration — once per save, the first such market. Saves already
-  // past that point get one on their next market, never a re-labelled old shop.
-  function registerBookshop(save, house, order) {
+  // Stamp the Book Shop (save.bookshopId): the market the player picked the
+  // Book Shop card for — once per save (the card leaves the offer once it is
+  // stamped). A save that restored a market before the card existed is
+  // never re-labelled; its next pick is the one.
+  function registerBookshop(save, house) {
     if (save.bookshopId != null || house?.id == null) return save.bookshopId ?? null;
-    if (save.restoredHouses?.[house.id] !== 'market' || order < STORY_RESTORES.bookshop - 1) return null;
+    if (save.restoredHouses?.[house.id] !== 'market') return null;
     save.bookshopId = String(house.id);
     return save.bookshopId;
   }
-  function registerWizardTower(save, house, order) {
+  // Stamp a tower the player just raised: the first if none stands, else the
+  // second. Whether a second may be raised at all is the wizard card's
+  // `offered` rule (BUILD_OPTIONS), checked by restoreAs before this runs.
+  function registerWizardTower(save, house) {
     const towers = wizardTowerIds(save);
     if (house?.id != null && save.restoredHouses?.[house.id] === 'wizard') {
       const id = String(house.id);
       if (!towers.firstId) towers.firstId = id;
-      else if (!towers.secondId && id !== towers.firstId && order >= STORY_RESTORES.secondTower - 1
-        && Object.keys(save.discovered || {}).length >= 21) towers.secondId = id;
+      else if (!towers.secondId && id !== towers.firstId) towers.secondId = id;
     }
     save.wizardTowers = towers;
     return towers;
@@ -330,8 +395,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
 
   root.Houses = {
-    PRESEED_RESTORE_ROLES, STORY_RESTORES,
-    isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith, preseedRestoreRole,
+    STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
+    isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,
     shopCharmMul,
     isHouseWreck, wreckRestoreCost,
