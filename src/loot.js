@@ -143,8 +143,6 @@ function lootFlashColor(id) {
   const c = tierBadgeColor(tier);
   return c == null ? UI_TREASURE : '#' + c.toString(16).padStart(6, '0');
 }
-// app.js _trailRewardCard still reads `.color` off this; to go with it.
-function tierInfo(id) { return { color: lootFlashColor(id) }; }
 
 // POI class → category, drives chest loot type (produce vs seed) and tier weights.
 const POI_CATEGORY = {
