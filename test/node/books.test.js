@@ -259,7 +259,7 @@ test('mechanics: enemy health uses a bar', () => {
 });
 
 test('mechanics: main and alternate weapons occupy weapon slots', () => {
-  for (const slot of ['sword', 'bow', 'staff', 'dagger', 'spear', 'musket']) {
+  for (const slot of ['sword', 'bow', 'staff', 'dagger', 'lance', 'musket']) {
     assert.truthy(Gear.WEAPON_SLOTS.includes(slot), `${slot} is a weapon slot`);
   }
   assert.eq(Gear.WEAPON_SLOTS.length, 6);

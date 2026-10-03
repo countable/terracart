@@ -149,10 +149,10 @@ test('chest themes: unrelated gear and items never leak across themes', () => {
           assert.eq(tier, 2);
           assert.eq(r.kind, 'relic');
           assert.eq(r.tier, 1);
-          assert.includes(['dagger', 'spear', 'musket'], r.slot);
+          assert.includes(['dagger', 'lance', 'musket'], r.slot);
         } else if (theme === 'authority') assert.eq(r.kind, 'armor');
         if (['school', 'civic'].includes(theme)) assert.includes(
-          r.resolvedGroup === 'supplies' ? ['dagger', 'spear', 'musket'] : ['bags', 'can', 'hoe', 'rod', 'bugnet'], r.slot);
+          r.resolvedGroup === 'supplies' ? ['dagger', 'lance', 'musket'] : ['bags', 'can', 'hoe', 'rod', 'bugnet'], r.slot);
       }
     }
   }
@@ -160,7 +160,7 @@ test('chest themes: unrelated gear and items never leak across themes', () => {
 
 test('chest themes: alternate weapons use only their three material tiers', () => {
   const rng = makeRng32(1872);
-  for (const slot of ['dagger', 'spear', 'musket']) {
+  for (const slot of ['dagger', 'lance', 'musket']) {
     assert.truthy(ChestThemes.gearSlots('culturalGear').some(row => row.slot === slot));
     const found = new Set();
     for (let chestTier = 2; chestTier <= 5; chestTier++) for (let i = 0; i < 200; i++) {
@@ -178,7 +178,7 @@ test('chest themes: alternate weapons use only their three material tiers', () =
 });
 
 test('chest themes: T2 supplies introduce Rusty weapons only in empty slots', () => {
-  const slots = ['dagger', 'spear', 'musket'];
+  const slots = ['dagger', 'lance', 'musket'];
   const rng = makeRng32(497);
   const found = new Set();
   for (const tier of [1, 2, 3]) for (let i = 0; i < 1500; i++) {

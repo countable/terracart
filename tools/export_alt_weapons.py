@@ -24,9 +24,9 @@ def main():
     muskets = Image.open(DEST / "source/muskets.png").convert("RGBA")
     # Explicit source cells: never infer populated frames from sheet dimensions.
     for tier, cells in {
-        1: {"Dagger": (4, 10), "Spear": (0, 21)},
-        3: {"Dagger": (4, 13), "Spear": (3, 21)},
-        5: {"Dagger": (4, 14), "Spear": (4, 21)},
+        1: {"Dagger": (4, 10), "Lance": (0, 21)},
+        3: {"Dagger": (4, 13), "Lance": (3, 21)},
+        5: {"Dagger": (4, 14), "Lance": (4, 21)},
     }.items():
         for name, (col, row) in cells.items():
             tile = pack.crop((col * 16, row * 16, col * 16 + 16, row * 16 + 16))

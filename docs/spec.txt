@@ -904,7 +904,7 @@ COMBAT
    full after 20 minutes without a hit. HP is in-memory: a foe you softened up
    is whole again next session.
  - ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon`
-   (sword/dagger/spear/bow/staff/musket/null)
+   (sword/dagger/lance/bow/staff/musket/null)
    picks which owned weapon auto-engages or auto-fires; the others sit inert —
    no auto-engage, no auto-fire — until switched to. MELEE IS THE DEFAULT and
    needs no weapon: with no ranged weapon equipped the hands auto-engage the
@@ -932,7 +932,7 @@ COMBAT
                stays safe) or in lava. Armour never soaks a burn; the demons'
                lava immunity covers fire too. A burning body flickers orange.
  - WEAPONS HAVE DISTINCT REACH, CADENCE AND AMMUNITION.
-   Alternate weapons occupy independent relic slots: one dagger, one spear
+   Alternate weapons occupy independent relic slots: one dagger, one lance
    and one musket can be held alongside the main weapons. Higher tiers
    replace the same type. Rusty/Fine/Magic use material tiers 1/3/5
    (Wood/Iron/Platinum). They are chest finds rather than forge recipes.
@@ -940,7 +940,7 @@ COMBAT
    a 25% chance to introduce a Rusty alternate in an empty slot. Owned
    variants are excluded from this starter lane.
      dagger — matching sword damage per hit, half its melee reach.
-     spear  — matching sword damage per hit, double its melee reach,
+     lance  — matching sword damage per hit, double its melee reach,
               half its attack speed.
      musket — gold-bow damage, range and cadence at every material tier.
               A round ball follows the compass; each shot spends one coin

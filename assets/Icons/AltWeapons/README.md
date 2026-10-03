@@ -4,7 +4,7 @@ Each runtime PNG is a transparent 32×16 strip containing two identical 16×16
 frames, matching the equipment icon contract. Directories `1`, `3`, and `5`
 are Rusty, Fine, and Magic, respectively.
 
-Dagger and spear are exported from the existing RPG icon pack at
+Dagger and lance are exported from the existing RPG icon pack at
 `../RPG icons/Extras/16x16_RPG_Pack_v3.0_packed_no_background.png`. Exact
 zero-based source cells are recorded in `tools/export_alt_weapons.py`.
 

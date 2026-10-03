@@ -983,23 +983,23 @@ test('sight: each approved kind uses its declared vision', () => {
 
 test('alternate melee: material-equivalent blows and distinct reach/cadence', () => {
   for (const tier of [1, 3, 5]) {
-    const relics = { sword: { tier: 7 }, dagger: { tier }, spear: { tier } };
+    const relics = { sword: { tier: 7 }, dagger: { tier }, lance: { tier } };
     const sword = { sword: { tier } };
     for (const playerClass of [undefined, 'enforcer']) {
       const blow = Combat.meleeSwingDamage(sword, 1, playerClass);
       assert.eq(Combat.meleeSwingDamage(relics, 1, playerClass, 'dagger'), blow);
-      assert.eq(Combat.meleeSwingDamage(relics, 1, playerClass, 'spear'), blow);
-      assert.eq(Combat.meleeDps(relics, playerClass, 'spear'), Combat.meleeDps(sword, playerClass) / 2);
+      assert.eq(Combat.meleeSwingDamage(relics, 1, playerClass, 'lance'), blow);
+      assert.eq(Combat.meleeDps(relics, playerClass, 'lance'), Combat.meleeDps(sword, playerClass) / 2);
     }
   }
   assert.eq(Combat.meleeIntervalMs('dagger'), Combat.MELEE_INTERVAL_MS);
-  assert.eq(Combat.meleeIntervalMs('spear'), Combat.MELEE_INTERVAL_MS * 2);
+  assert.eq(Combat.meleeIntervalMs('lance'), Combat.MELEE_INTERVAL_MS * 2);
   const fist = Combat.MELEE_REACH_CELLS * 7;
   assert.truthy(Combat.inMeleeReach(fist * 0.75, 0, 0, 0, 7, 'dagger'));
   assert.falsy(Combat.inMeleeReach(fist * 0.75 + 0.01, 0, 0, 0, 7, 'dagger'));
   assert.gt(fist * 0.75, 0.35 * 7, 'a dagger reaches a foe stopped at its closing gap');
-  assert.truthy(Combat.inMeleeReach(fist * 2, 0, 0, 0, 7, 'spear'));
-  assert.falsy(Combat.inMeleeReach(fist * 2 + 0.01, 0, 0, 0, 7, 'spear'));
+  assert.truthy(Combat.inMeleeReach(fist * 2, 0, 0, 0, 7, 'lance'));
+  assert.falsy(Combat.inMeleeReach(fist * 2 + 0.01, 0, 0, 0, 7, 'lance'));
 });
 
 test('musket: every material fires gold bow damage with one coin and a round ball', () => {

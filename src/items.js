@@ -1867,7 +1867,7 @@ const RELIC_DEFS = {
   dagger:  { slot: 'dagger', name: 'Dagger', icon: 'Dagger.png', baseCost: 80,
              tiers: [1, 3, 5], chestOnly: true,
              effectKey: 'melee', blurb: 'Its short blade waits until a foe is close.' },
-  spear:   { slot: 'spear', name: 'Spear', icon: 'Spear.png', baseCost: 80,
+  lance:   { slot: 'lance', name: 'Lance', icon: 'Lance.png', baseCost: 80,
              tiers: [1, 3, 5], chestOnly: true,
              effectKey: 'melee', blurb: 'Its long point holds a foe at a distance.' },
   musket:  { slot: 'musket', name: 'Musket', icon: 'Musket.png', baseCost: 60,

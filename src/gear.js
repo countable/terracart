@@ -17,7 +17,7 @@
   // Shared with app.js (inventory tap-to-activate) and combat.js (what
   // auto-engages / auto-fires); kept here too since equip() is what flips it
   // on a fresh pickup.
-  const WEAPON_SLOTS = ['sword', 'dagger', 'spear', 'bow', 'staff', 'musket'];
+  const WEAPON_SLOTS = ['sword', 'dagger', 'lance', 'bow', 'staff', 'musket'];
 
   // Boons change what can be used, never what is owned. Expiry is read live
   // so a reload or an expired altar restores the original gear automatically.

@@ -317,7 +317,7 @@ test('source: melee auto-engage needs no sword, and a slot tap no longer switche
 
 test('alternate weapons: sparse material names, independent ownership and replacement', () => {
   const save = { relics: { sword: { tier: 7 } }, activeWeapon: 'sword' };
-  for (const slot of ['dagger', 'spear', 'musket']) {
+  for (const slot of ['dagger', 'lance', 'musket']) {
     for (const [tier, material] of [[1, 'Rusty'], [3, 'Fine'], [5, 'Magic']]) {
       Gear.equip(save, 'relic', slot, tier);
       assert.eq(save.relics[slot].tier, tier);
@@ -334,7 +334,7 @@ test('alternate weapons: sparse material names, independent ownership and replac
   }
   assert.eq(Object.keys(save.relics).length, 4, 'one entry per owned weapon type');
   assert.eq(save.relics.sword.tier, 7, 'alternates leave the sword progression intact');
-  for (const slot of ['sword', 'dagger', 'spear', 'musket']) {
+  for (const slot of ['sword', 'dagger', 'lance', 'musket']) {
     assert.truthy(Gear.selectWeapon(save, slot));
     assert.eq(save.activeWeapon, slot);
     assert.eq(Gear.meleeActive(save), slot !== 'musket');

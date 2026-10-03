@@ -792,14 +792,14 @@
   // holds at every tier. Slow it to change how a fight READS; to change how
   // LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
   const MELEE_INTERVAL_MS = 1000;
-  // Off-weapons keep the matching sword's per-hit damage. Spear trades
+  // Off-weapons keep the matching sword's per-hit damage. Lance trades
   // half its attack speed for twice the reach.
   const MELEE_WEAPONS = {
     sword: { reachMul: 1, intervalMul: 1 },
     // A dagger stays inside the gap a closing foe stops at (creature_ai.js
     // rosterEnemyMove: 0.35 cell), or it could never land a blow.
     dagger: { reachMul: 0.75, intervalMul: 1 },
-    spear: { reachMul: 2, intervalMul: 2 },
+    lance: { reachMul: 2, intervalMul: 2 },
   };
   function meleeIntervalMs(slot) { return MELEE_INTERVAL_MS * (MELEE_WEAPONS[slot]?.intervalMul || 1); }
 

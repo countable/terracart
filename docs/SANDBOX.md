@@ -163,7 +163,7 @@ attack range even after the movement stick returns to its anchor.
   escape, consumed shrubs/tar and the surviving charred tree. The lower patch
   starts fresh for flasks, Fireball and the Wall of Fire Tome.
 - All new potions, scrolls, blank scrolls, the tome, Ember Ring and weapon
-  supplies are in the bag. Dagger, spear and musket relics join the T3 kit.
+  supplies are in the bag. Dagger, lance and musket relics join the T3 kit.
   Use a scroll, then return Home to check its newly learned crafting recipe.
 - Reload resets fire history, creature potion effects and daily tome use, so
   the same fuel can burn again. Scroll learning is retained for crafting checks.
