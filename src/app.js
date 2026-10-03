@@ -67,6 +67,9 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
 // The first repaired stretch introduces the neighbours who leave gifts.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
+// The tail of both "Without a tool" stories (_barehandWorkStory): the joke
+// that carries the hint — a tool would be the easier way.
+const BAREHAND_STORY_ASIDE = ' (but to be honest tools would be much less tiring!)';
 const trailIntroBody = (playerClass) =>
   'You clear the rubble from the road. A survivor watches from a doorway, then brings you a gift.';
 // …but not on the same beat as the repair. The first stretch to come back
@@ -8682,14 +8685,18 @@ class MapScene extends Phaser.Scene {
 
   // Completion-only: remember the equipment the job began with, even if
   // another reward changes the inventory while its wheel is running.
+  // (BAREHAND_STORY_ASIDE closes both bodies — barehand_story.test.js.)
   _barehandWorkStory(tool, startingTier, isTree = false) {
     if ((this.depth ?? 0) > 0 || startingTier > 0 || !['axe', 'pick', 'hoe'].includes(tool)) return;
     this._storySplashOnce('work:barehands', {
       art: isTree ? 'barehand_tree' : 'barehand_work',
       title: 'Without a tool',
-      body: isTree
+      // Both end on the same aside (owner's copy, Oct 2026): the job got
+      // done, and the hint that a tool is the easier way rides the joke.
+      body: (isTree
         ? 'You fell the tree with your bare hands. Nearby survivors stare in disbelief.'
-        : 'You finish the work with your bare hands before the others can fetch their tools. They stare in disbelief.',
+        : 'You finish the work with your bare hands before the others can fetch their tools. They stare in disbelief.')
+        + BAREHAND_STORY_ASIDE,
     });
   }
 

@@ -557,6 +557,8 @@ const starterWrapper = (name) => {
     // The one-time first-repair dialog's copy — carried as source so the test
     // reads the shipping sentence and the rung it quotes off Trail.
     `globalThis.TRAIL_INTRO_TITLE = ${constOf('TRAIL_INTRO_TITLE')};\n` +
+    // The aside both bare-hands stories close on (barehand_story.test.js).
+    `globalThis.BAREHAND_STORY_ASIDE = ${constOf('BAREHAND_STORY_ASIDE')};\n` +
     // …and the beat it waits out before opening over the repair it explains.
     `globalThis.TRAIL_INTRO_DELAY_MS = ${constOf('TRAIL_INTRO_DELAY_MS')};\n` +
     // …and the road it waits to see repaired before it opens at all.

@@ -60,6 +60,10 @@ test('barehand story shares one independent key, tree artwork only for a tree', 
   const generic = sceneFor();
   generic._barehandWorkStory('axe', 0, false);
   assert.eq(generic.modals[0].art, 'barehand_work');
+  // Both bodies close on the one aside (owner's copy, Oct 2026).
+  for (const body of [s.modals[0].body, generic.modals[0].body]) {
+    assert.truthy(/disbelief\. \(but to be honest tools would be much less tiring!\)$/.test(body), 'ends on the aside: ' + body);
+  }
   const equipped = sceneFor();
   equipped._barehandWorkStory('pick', 1);
   equipped._barehandWorkStory('bugnet', 0);
