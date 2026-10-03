@@ -146,17 +146,8 @@ const WANDER_STEP_MS = 5000;
 // The tile bits under a world-metre point on the surface (0 underground, on
 // an unloaded tile, or before its roadClass exists).
 function roadClassBitsAt(scene, x, y) {
-  if ((scene.depth || 0) !== 0) return 0;
-  const edge = scene.tileEdgeM;
-  if (!(edge > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
-  const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
-  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-  if (!entry || !entry.roadClass) return 0;
-  const N = entry.cellsPerEdge;
-  if (!(N > 0)) return 0;
-  const ix = Math.floor((x - tx * edge) / (edge / N)), iy = Math.floor((y - ty * edge) / (edge / N));
-  if (ix < 0 || iy < 0 || ix >= N || iy >= N) return 0;
-  return entry.roadClass[iy * N + ix] | 0;
+  const t = tileCellAt(scene, x, y);
+  return t && t.entry.roadClass ? t.entry.roadClass[t.i] | 0 : 0;
 }
 function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
 
@@ -193,14 +184,19 @@ const ROADSIDE_AHEAD_CELLS = 3;
 const ROADSIDE_VERGE_CELLS = 1;
 const ROADSIDE_JITTER = 0.3;
 const ROADSIDE_YARD_BITS = () => WorldGen.SPAWN_WHY.BEHIND_HOUSE | WorldGen.SPAWN_WHY.PRIVATE;
-// The tile cell under a surface point: { entry, N, i } or null.
+// The tile cell under a surface point — the cached tile and its flat index
+// on the tile's OWN grid (entry.cellsPerEdge, the world-frame rule): { entry,
+// N, i } or null (underground, off any cached tile). The one reader every
+// per-cell question below asks (the kerb bits, the yard reasons, the lot,
+// the road); the entry's arrays may still be missing on a tile mid-build, so
+// a caller checks the one it reads.
 function tileCellAt(scene, x, y) {
   if ((scene.depth || 0) !== 0) return null;
   const edge = scene.tileEdgeM;
   if (!(edge > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
   const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-  if (!entry || !entry.grid) return null;
+  if (!entry) return null;
   const N = entry.cellsPerEdge;
   if (!(N > 0)) return null;
   const ix = Math.floor((x - tx * edge) / (edge / N)), iy = Math.floor((y - ty * edge) / (edge / N));
@@ -214,14 +210,48 @@ function yardReasonAt(scene, x, y) {
 }
 function lotAt(scene, x, y) {
   const t = tileCellAt(scene, x, y);
-  return !!t && WorldGen.isLotTerrain(t.entry.grid[t.i]);
+  return !!t && !!t.entry.grid && WorldGen.isLotTerrain(t.entry.grid[t.i]);
 }
 // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not the
 // gate — which way the street runs, so a retreat can run along it. Nothing
 // here places anything.
 function roadAt(scene, x, y) {
   const t = tileCellAt(scene, x, y);
-  return !!t && (!!(t.entry.roadMask && t.entry.roadMask[t.i]) || WorldGen.isRoadTerrain(t.entry.grid[t.i]));
+  return !!t && (!!(t.entry.roadMask && t.entry.roadMask[t.i]) || WorldGen.isRoadTerrain(t.entry.grid?.[t.i]));
+}
+// LAUNCH A STEP: the creature's hop (or a crow's glide — `clockField`
+// '_flightT0') from where it stands to (tx, ty), from `now`. The one writer
+// of the five fields the step chain's interpolation reads.
+function launchStep(c, tx, ty, now, clockField = '_stepT0') {
+  c._startX = c.x; c._startY = c.y;
+  c._targetX = tx; c._targetY = ty;
+  c[clockField] = now;
+}
+// The centre of cell (cx, cy) of tile (tx, ty), in world metres, on the
+// TILE'S OWN grid (`cellM` = tileEdgeM / entry.cellsPerEdge — CLAUDE.md
+// "Every player sees the SAME generated world": the generation frame, never
+// the save's px frame coords.js tileCellCenterMeters projects through). The
+// one conversion every seat in the spawn passes (scene_creatures.js) takes.
+function tileCellCentre(tileEdgeM, tx, ty, cellM, cx, cy) {
+  return { x: tx * tileEdgeM + (cx + 0.5) * cellM, y: ty * tileEdgeM + (cy + 0.5) * cellM };
+}
+// WHERE A SHOVED ANIMAL RUNS TO: `distM` away along its flee angle
+// (`c._fleeAngle` — away from what hit it), bent onto the roadside among
+// houses (roadsideRunAngle; a ±0.3 rad jitter only on an unbent angle), the
+// first of four tries the one step test takes as a retreat
+// (creatureStepRefused — never into a yard). { x, y } or null (cornered:
+// stand still this tick). The animals' flee override and the crow's panic
+// dash take the same search.
+function fleeTarget(scene, c, distM) {
+  const shove = c._fleeAngle ?? 0;
+  const run = roadsideRunAngle(scene, c, shove);
+  const fa = run ?? shove;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const a = fa + (run != null ? 0 : (Math.random() - 0.5) * 0.6);
+    const x = c.x + Math.cos(a) * distM, y = c.y + Math.sin(a) * distM;
+    if (!creatureStepRefused(scene, c, x, y, { retreating: true })) return { x, y };
+  }
+  return null;
 }
 // The bent angle, or null (keep the away angle). `away` is the retreat's own
 // angle, radians.
@@ -620,17 +650,26 @@ function raiseGhostAt(scene, x, y, now, tag) {
 function fishedSlimeSpawn(scene, now, px, py, pcW) {
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
   if (!entry || !entry.creatures) return null;
-  const base = Math.floor(Math.random() * 8);
-  for (let k = 0; k < 8; k++) {
-    const a = (base + k) * Math.PI / 4;
-    const x = px + Math.cos(a) * scene.cellM, y = py + Math.sin(a) * scene.cellM;
+  const seat = ringSeat(px, py, scene.cellM, Math.floor(Math.random() * 8) * Math.PI / 4, (x, y) => {
     const cell = scene.cellAt(x, y);
-    if (!cell.loaded || !WorldGen.isWalkable(cell.type)) continue;
-    const c = WorldGen.makeCreature('slime', x, y,
-      `fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
-      { _lastDamagedT: Date.now() });
-    entry.creatures.push(c);
-    return c;
+    return cell.loaded && WorldGen.isWalkable(cell.type);
+  });
+  if (!seat) return null;
+  const c = WorldGen.makeCreature('slime', seat.x, seat.y,
+    `fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
+    { _lastDamagedT: Date.now() });
+  entry.creatures.push(c);
+  return c;
+}
+// THE RING SEAT: the first of the eight compass points `r` metres about
+// (cx, cy), from angle `base` clockwise, that `ok(x, y)` takes — the fished
+// slime beside the player, a necromancer's skeleton beside its master, the
+// pest deer on the spawn ring. { x, y } or null.
+function ringSeat(cx, cy, r, base, ok) {
+  for (let k = 0; k < 8; k++) {
+    const a = base + k * Math.PI / 4;
+    const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+    if (ok(x, y)) return { x, y };
   }
   return null;
 }
@@ -1053,6 +1092,25 @@ function enemyFireEscapeRoute(scene, c, row) {
   return [];
 }
 
+// LAVA BURNS FOES TOO (Combat.LAVA_DMG_PER_S, the player's rate — app.js
+// _tickLava): whole points once a second off the foe's own HP through
+// _damageEnemy, so the health bar and the "-2" read as any other blow; a
+// foe it kills is the ground's kill ('lava' is no player source —
+// Combat.isPlayerKill): the bounty coin and nothing past it. On the surface
+// (a vent) and the lava level; never a body lava cannot burn (Combat.canBurn
+// — concealed or lavaImmune), a fire-immune one, or a tame one (a pet is
+// never burned). The standing burn itself is _tickUnitFire's (its exposure
+// reads the same cell), so nothing here re-lights it. True when it killed.
+function lavaTick(scene, c, now) {
+  if (!Combat.canBurn(c) || Combat.isTame(c) || Conditions.fireImmune(c)) return false;
+  if (scene.depth !== 0 && scene.depth !== WorldGen.LAVA_DEPTH) return false;
+  if (now < (c._lavaNextT || 0)) return false;
+  c._lavaNextT = now + 1000;
+  const under = scene.cellAt(c.x, c.y);
+  return under.loaded && under.type === WorldGen.T.CAVE_LAVA
+    && !!scene._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava');
+}
+
 // Burning takes priority over attacks, charges and idle pauses. Once safe,
 // the enemy waits out its burn rather than immediately chasing into fuel.
 function enemyFireEscapeTick(scene, c, row, now, dt) {
@@ -1242,39 +1300,79 @@ function enemySightBlocked(scene, c, x, y) {
   return false;
 }
 
-// A wind-up is cancellable: leaving range, hiding or a ward cancels it.
-// Cooldowns start when the attack starts, so the declared interval includes
-// the wind-up rather than accidentally extending every attack cycle. A
-// CHILLED foe (Combat.slowMul — the frost) attacks on a longer beat: the
-// interval over its slow; the wind-up itself is untouched (a slow does not
-// interrupt, and does not stretch a tell).
-function enemyAttackReady(c, row, now, eligible) {
-  if (!eligible) { c._attackWindupUntil = null; return false; }
-  if (c._attackWindupUntil != null) {
-    if (now < c._attackWindupUntil) return false;
-    c._attackWindupUntil = null;
-    return true;
+// ── A CADENCE: a cooldown with an interruptible wind-up ──────────────────
+// The one state machine behind a foe's attack and its support ability: two
+// fields on the creature (`next`, when the beat is due again; `windup`, the
+// tell in progress or null), the beat starting when the tell does so the
+// declared interval includes the wind-up rather than extending every cycle.
+// Returns 'fire' the instant the blow lands (the tell over, or no tell),
+// 'winding' while the tell runs, 'wait' otherwise. Not `eligible` (leaving
+// range, hiding, a ward) cancels the tell. A CHILLED foe (Combat.slowMul —
+// the frost) beats on a longer interval; the tell itself is untouched (a
+// slow does not interrupt, and does not stretch a tell).
+const ATTACK_CADENCE = { next: '_attackNextT', windup: '_attackWindupUntil' };
+const ABILITY_CADENCE = { next: '_abilityNextT', windup: '_abilityWindupUntil' };
+function cadence(c, slot, intervalMs, windupMs, now, eligible) {
+  if (!eligible) { c[slot.windup] = null; return 'wait'; }
+  if (c[slot.windup] != null) {
+    if (now < c[slot.windup]) return 'winding';
+    c[slot.windup] = null;
+    return 'fire';
   }
-  if (now < (c._attackNextT || 0)) return false;
-  c._attackNextT = now + row.damageIntervalSeconds * 1000 / Combat.slowMul(c);
-  c._attackWindupUntil = now + row.windupSeconds * 1000;
-  if (row.windupSeconds > 0) return false;
-  c._attackWindupUntil = null;
-  return true;
+  if (now < (c[slot.next] || 0)) return 'wait';
+  c[slot.next] = now + intervalMs / Combat.slowMul(c);
+  if (!(windupMs > 0)) { c[slot.windup] = null; return 'fire'; }
+  c[slot.windup] = now + windupMs;
+  return 'winding';
+}
+function enemyAttackReady(c, row, now, eligible) {
+  return cadence(c, ATTACK_CADENCE, row.damageIntervalSeconds * 1000, row.windupSeconds * 1000, now, eligible) === 'fire';
+}
+// ── THE NEAREST CREATURE to `c` ────────────────────────────────────────────
+// ONE scan for every "who is closest" the sim asks: a caster's wounded
+// ally, a charmed foe's opponent, a hostile's nearest neighbour or ally, a
+// pet's prey. Over `opts.pool` when given (a prepared list: the charmed
+// allies, the neighbours in range), else the 3×3 tile ring round `c`
+// (WorldGen.forEachItemNear — or round `opts.tile`, the player's, for a
+// pet's scan); never `c` itself or a concealed body; within `radiusM`;
+// `accept(other, d)` says what counts; `opts.los` also asks for a clear line
+// of fire (Combat.lineOfFire over enemySightBlocked — the same rock that
+// stops an arrow). The nearest, or null — or every one that counts, in the
+// order met, with `opts.all` (a healer's wounded allies).
+function nearestCreature(scene, c, radiusM, accept, opts = {}) {
+  let best = null, bestD = radiusM;
+  const all = opts.all ? [] : null;
+  const consider = other => {
+    if (other === c || Combat.isConcealed(other)) return;
+    const d = Math.hypot(other.x - c.x, other.y - c.y);
+    if (d > bestD || !accept(other, d)) return;
+    if (opts.los && !Combat.lineOfFire(c.x, c.y, other.x, other.y,
+      (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM)) return;
+    if (all) all.push(other); else { best = other; bestD = d; }
+  };
+  if (opts.pool) opts.pool.forEach(consider);
+  else {
+    const pc = opts.tile || worldMetersToTileCell(scene, c.x, c.y);
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, consider);
+  }
+  return all || best;
 }
 // A caster's support action uses its own interruptible wind-up. Summons have
 // two fixed identity slots per caster: defeated slots never refill after a
 // reload, so neither enemy count nor rewards can grow without bound.
 function enemySupportAllies(scene, c, radiusCells) {
-  const pc = worldMetersToTileCell(scene, c.x, c.y), allies = [];
   const caught = new Set(scene.save.caught || []);
-  WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, ally => {
-    if (ally !== c && Combat.isEnemy(ally) && !caught.has(ally.id)
-        && Math.hypot(ally.x - c.x, ally.y - c.y) <= radiusCells * scene.cellM
-        && Combat.lineOfFire(c.x, c.y, ally.x, ally.y,
-          (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM)) allies.push(ally);
-  });
-  return allies;
+  return nearestCreature(scene, c, radiusCells * scene.cellM,
+    ally => Combat.isEnemy(ally) && !caught.has(ally.id), { los: true, all: true });
+}
+// What a garrison's child inherits from its parent (a necromancer's summon,
+// a split slime's twin): lairs.js GARRISON_INHERIT — the leash, the seat
+// bounds, the aggro ring, the home, the surface seat and habitat, the zone
+// variant and the hunt. Read at call time; the list here is the fallback
+// until lairs.js exports it.
+function garrisonInherit() {
+  return (typeof Lairs !== 'undefined' && Lairs.GARRISON_INHERIT) || ['lair', 'immobile', 'lairX', 'lairY', 'lairR',
+    'keepHW', 'keepHH', 'aggroCells', 'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting'];
 }
 function enemySummon(scene, c, ability) {
   const kind = ability.kind, row = EnemyRoster.get(kind);
@@ -1288,29 +1386,32 @@ function enemySummon(scene, c, ability) {
   for (let slot = 0; slot < ability.maxMinions; slot++) {
     const id = `${c.id}_summon_${slot}`;
     if (caught.has(id) || existing.has(id)) continue;
-    for (let i = 0; i < 8; i++) {
-      const angle = i * Math.PI / 4;
-      const x = c.x + Math.cos(angle) * scene.cellM, y = c.y + Math.sin(angle) * scene.cellM;
+    let destination = null;
+    const seat = ringSeat(c.x, c.y, scene.cellM, 0, (x, y) => {
       const cell = worldMetersToTileCell(scene, x, y);
-      const destination = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
-      if (!destination?.creatures || !enemyCanStep(scene, c, row, x, y)) continue;
+      destination = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+      if (!destination?.creatures || !enemyCanStep(scene, c, row, x, y)) return false;
       const n = destination.cellsPerEdge;
       const grid = destination.baseGrid || destination.grid;
       const opts = destination._spawnOpts;
-      if (!grid || !opts || !WorldGen.isSpawnCell(grid, n, n, cell.ix, cell.iy, opts, creatureSpawnClass(kind))) continue;
-      if (destination.creatures.some(other => !caught.has(other.id)
-          && Math.hypot(other.x - x, other.y - y) < scene.cellM * 0.7)) continue;
+      if (!grid || !opts || !WorldGen.isSpawnCell(grid, n, n, cell.ix, cell.iy, opts, creatureSpawnClass(kind))) return false;
+      return !destination.creatures.some(other => !caught.has(other.id)
+          && Math.hypot(other.x - x, other.y - y) < scene.cellM * 0.7);
+    });
+    if (!seat) return false;
+    {
+      const { x, y } = seat;
       const child = WorldGen.makeCreature(kind, x, y, id);
-      // A garrison's escort inherits its leash and difficulty, not a new lair.
-      for (const key of ['lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells', 'homeX', 'homeY']) {
-        if (c[key] != null) child[key] = c[key];
-      }
+      // A garrison's escort inherits its leash, its ground and its
+      // difficulty (GARRISON_INHERIT — the one list a split twin reads too),
+      // not a new lair: quiet-home and the amnesty hide the skeletons with
+      // their necromancer.
+      for (const key of garrisonInherit()) if (c[key] != null) child[key] = c[key];
       child.seatX = x; child.seatY = y;
       child._summonerId = c.id;
       destination.creatures.push(child);
       return true;
     }
-    return false;
   }
   return false;
 }
@@ -1366,9 +1467,7 @@ function enemySplit(scene, c, fromX, fromY, now) {
   c._hp = hp - half; c._splitShare = share; c._splitRoot = root; c._splitNextT = now + a.cooldownSeconds * 1000;
   c.x = seats[0].x; c.y = seats[0].y;
   const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false });
-  for (const key of ['lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells', 'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting', '_lastDamagedT']) {
-    if (c[key] != null) twin[key] = c[key];
-  }
+  for (const key of [...garrisonInherit(), '_lastDamagedT']) if (c[key] != null) twin[key] = c[key];
   twin._hp = half; twin._splitShare = share; twin._splitRoot = root; twin._splitNextT = c._splitNextT;
   // Each half's seat is where it now stands, so a garrison's halves walk home
   // to two seats rather than piling onto one.
@@ -1376,35 +1475,30 @@ function enemySplit(scene, c, fromX, fromY, now) {
   entry.creatures.push(twin);
   return twin;
 }
+// The caster's support beat (ABILITY_CADENCE): a blow taken during the tell
+// breaks it (the damage stamp); a healer with nobody wounded looks again in
+// a second rather than spending its beat. True while the ability holds the
+// foe (its tell, or the instant it lands).
 function enemySupportTick(scene, c, row, now, eligible) {
   const a = row.ability;
   if (!a) return false;
-  if (!eligible || (c._abilityWindupUntil != null && c._lastDamagedT !== c._abilityDamageStamp)) {
-    c._abilityWindupUntil = null;
-    return false;
-  }
-  if (c._abilityWindupUntil != null) {
-    if (now < c._abilityWindupUntil) return true;
-    c._abilityWindupUntil = null;
-    if (a.type === 'heal') {
-      const allies = enemySupportAllies(scene, c, a.radiusCells);
-      const target = allies.find(ally => Combat.hp(ally) < Combat.maxHp(ally));
-      if (target) {
-        target._hp = Math.min(Combat.maxHp(target), Combat.hp(target) + a.amount);
-        target._supportUntil = now + 600;
-      }
-    } else if (a.type === 'summon') enemySummon(scene, c, a);
-    return true;
-  }
-  if (now < (c._abilityNextT || 0)) return false;
-  if (a.type === 'heal' && !enemySupportAllies(scene, c, a.radiusCells)
-    .some(ally => Combat.hp(ally) < Combat.maxHp(ally))) {
+  const winding = c._abilityWindupUntil != null;
+  if (winding && c._lastDamagedT !== c._abilityDamageStamp) eligible = false;
+  if (!winding && eligible && now >= (c._abilityNextT || 0) && a.type === 'heal'
+      && !enemySupportAllies(scene, c, a.radiusCells).some(ally => Combat.hp(ally) < Combat.maxHp(ally))) {
     c._abilityNextT = now + 1000;
     return false;
   }
-  c._abilityNextT = now + a.intervalSeconds * 1000 / Combat.slowMul(c);
-  c._abilityWindupUntil = now + a.windupSeconds * 1000;
-  c._abilityDamageStamp = c._lastDamagedT;
+  const phase = cadence(c, ABILITY_CADENCE, a.intervalSeconds * 1000, a.windupSeconds * 1000, now, eligible);
+  if (!winding && phase === 'winding') c._abilityDamageStamp = c._lastDamagedT;
+  if (phase !== 'fire') return phase === 'winding';
+  if (a.type === 'heal') {
+    const target = enemySupportAllies(scene, c, a.radiusCells).find(ally => Combat.hp(ally) < Combat.maxHp(ally));
+    if (target) {
+      target._hp = Math.min(Combat.maxHp(target), Combat.hp(target) + a.amount);
+      target._supportUntil = now + 600;
+    }
+  } else if (a.type === 'summon') enemySummon(scene, c, a);
   return true;
 }
 // The target footprint is fixed when the tell begins. Moving out avoids the
@@ -1673,9 +1767,7 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
   if (Combat.isConcealed(c) || Combat.isSleeping(c)) return;
-  if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
-    c._hp = Combat.maxHp(c); c._lastDamagedT = null;
-  }
+  Combat.healIfRested(c);
   const m = row.meleeWhenCondition && c._attackTargetKey === 'player'
       && Conditions.active(scene.save, row.meleeWhenCondition.id)
     ? {...row.movement, pattern:'pursue'} : row.movement;
@@ -1861,27 +1953,31 @@ function enemyBatMove(scene, c, row, now, px, py) {
 }
 
 // Temporary allies keep their species' movement, reach and attack cadence.
-// Hostiles can choose a nearer charmed creature instead of the player; they
-// remain ordinary creatures and never enter the permanent pet/save ledger.
+// A hostile ATTACKS WHAT IS NEAREST: a charmed creature wins its attention
+// only when it is nearer than the player (unless the player is unnoticed)
+// AND nearer than any neighbour it could target (NPC.enemyTarget — the same
+// nearest scan over the prepared neighbours), so a foe with a charmed slime
+// six cells off and a neighbour one cell off goes for the neighbour; the
+// sim loop's own NPC-or-player pick then settles the rest. A charmed foe
+// takes the nearest enemy in its sight. Opponents remain ordinary creatures
+// and never enter the permanent pet/save ledger.
 function flowerOpponent(scene, c, px, py, caught, wall = Date.now()) {
   const charmed = Combat.isCharmed(c, wall);
   if (!charmed && !Combat.isEnemy(c, wall)) return null;
-  const pc = worldMetersToTileCell(scene, c.x, c.y);
   const sight = Combat.sightCells(c.kind) * scene.cellM;
-  let best = null, distance = charmed || scene.isUnnoticed(c) ? sight : Math.min(sight, Math.hypot(px - c.x, py - c.y));
-  const consider = other => {
-    if (other === c || caught.has(other.id) || other._surfaceInactive || Combat.isConcealed(other)) return;
-    const opponent = charmed ? Combat.isEnemy(other, wall) : Combat.isCharmed(other, wall);
-    if (!opponent || Combat.hp(other) <= 0) return;
-    const d = Math.hypot(other.x - c.x, other.y - c.y);
-    if (d > sight - PotionEffects.visionReduction(other, wall) * scene.cellM) return;
-    if (d > distance || !Combat.lineOfFire(c.x, c.y, other.x, other.y,
-      (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM)) return;
-    best = other; distance = d;
-  };
-  if (!charmed && scene._charmedOpponents) scene._charmedOpponents.forEach(consider);
-  else WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, consider);
-  return best;
+  let limit = sight;
+  if (!charmed) {
+    const unnoticed = scene.isUnnoticed(c);
+    if (!unnoticed) limit = Math.min(limit, Math.hypot(px - c.x, py - c.y));
+    const npc = typeof NPC !== 'undefined' && NPC.enemyTarget
+      ? NPC.enemyTarget(scene, c, EnemyRoster.get(c.kind) || { visionCells: Combat.sightCells(c.kind) }, px, py, unnoticed) : null;
+    if (npc) limit = Math.min(limit, Math.hypot(npc.x - c.x, npc.y - c.y));
+  }
+  return nearestCreature(scene, c, limit, (other, d) => {
+    if (caught.has(other.id) || other._surfaceInactive) return false;
+    if (!(charmed ? Combat.isEnemy(other, wall) : Combat.isCharmed(other, wall)) || Combat.hp(other) <= 0) return false;
+    return d <= sight - PotionEffects.visionReduction(other, wall) * scene.cellM;
+  }, { los: true, pool: !charmed && scene._charmedOpponents ? scene._charmedOpponents : null });
 }
 function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
   const asleep = Combat.isSleeping(c), charmed = Combat.isCharmed(c);
@@ -1898,15 +1994,7 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
   // Temporary allegiance and sleep do not protect from ordinary hazards.
   if (scene._tickUnitFire?.(c, now)) return true;
   if (scene._tickUnitPoison?.(c, now)) return true;
-  if (Combat.canBurn(c) && !Conditions.fireImmune(c) && (scene.depth === 0 || scene.depth === WorldGen.LAVA_DEPTH)
-      && now >= (c._lavaNextT || 0)) {
-    c._lavaNextT = now + 1000;
-    const under = scene.cellAt(c.x, c.y);
-    if (under.loaded && under.type === WorldGen.T.CAVE_LAVA) {
-      Combat.ignite(c, now, 'lava');
-      if (scene._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava')) return true;
-    }
-  }
+  if (lavaTick(scene, c, now)) return true;
   if (Combat.isSleeping(c)) {
     if (SpriteLayout.creatureHaunts(c.kind)) {
       const fate = ghostTick(scene, c, now, c.x, c.y, true, false, 0);

@@ -91,7 +91,7 @@ test('wander-off: out to the edge of its range × [1, 2], ends on arrival or tim
 test('wander-off: one more reason in the lanes that exist, not a lane of its own', () => {
   const start = app.indexOf('  wanderCreatures() {');
   const w = app.slice(start, app.indexOf('\n  }\n', start));
-  assert.truthy(/const wanderOff = !stationary && !isTame && !c\.lair && Combat\.isEnemy\(c\)\s*&& monsterWanderingOff\(/.test(w),
+  assert.truthy(/const enemy = Combat\.isEnemy\(c\);/.test(w) && /const wanderOff = !stationary && !isTame && !c\.lair && enemy\s*&& monsterWanderingOff\(/.test(w),
     'only a mobile, wild, non-lair enemy wanders off');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| /.test(w),
     'while it goes it does not leech, hit, shoot or charge (standDown)');

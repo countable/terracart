@@ -131,7 +131,8 @@ test('psychosis powder: use takes every foe on screen, spends once, and is kept 
 
 test('psychosis: one more reason in the rout lane of wanderCreatures, with a random angle (source pins)', () => {
   const w = app;
-  assert.truthy(/const psychotic = Combat\.isEnemy\(c\) && Combat\.isPsychotic\(c, now\);/.test(w), 'read once per tick, beside fear');
+  assert.truthy(/const psychotic = enemy && Combat\.isPsychotic\(c, now\);/.test(w), 'read once per tick, beside fear');
+  assert.truthy(/const frightened = enemy && Combat\.isFrightened\(c, now\);/.test(w), 'fear through the same table');
   assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened \|\| psychotic;/.test(w), 'it runs at the rout pace');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded/.test(w), 'it lands no blow, shoots nothing, lays nothing');
   assert.truthy(/const lairState = c\.lair && !frightened && !psychotic \? Lairs\.guardState\(/.test(w), 'a mad guard is not holding its seat');

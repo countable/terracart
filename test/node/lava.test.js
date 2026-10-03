@@ -77,27 +77,27 @@ test('lava: the player burns on the surface and lava level, by the feet, through
 });
 
 test('lava: an enemy standing in it burns at the same rate, and the kill is the ground\'s', () => {
-  const src = SCENE_SRC;
-  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Conditions\.fireImmune\(c\) && !rosterRow\?\.lavaImmune && \(this\.depth === 0 \|\| this\.depth === WorldGen\.LAVA_DEPTH\)/.test(src), 'enemies, surface and lava level');
-  assert.truthy(/under\.type === WorldGen\.T\.CAVE_LAVA\s*\n\s*&& this\._damageEnemy\(c, Combat\.LAVA_DMG_PER_S, 'lava'\)\) return;/.test(src),
+  // ONE lava rule (creature_ai.js lavaTick), asked by the sim loop and the
+  // flower lane alike.
+  assert.truthy(/if \(enemy && lavaTick\(this, c, now\)\) return;/.test(SCENE_SRC), 'enemies, in the sim loop');
+  assert.truthy(/if \(lavaTick\(scene, c, now\)\) return true;/.test(CREATURE_AI_SRC), 'and the charmed / sleeping lane');
+  const body = CREATURE_AI_SRC.match(/\nfunction lavaTick\(scene, c, now\) \{([\s\S]*?)\n\}\n/)[1];
+  assert.truthy(/scene\.depth !== 0 && scene\.depth !== WorldGen\.LAVA_DEPTH/.test(body), 'surface vents and the lava level');
+  assert.truthy(/under\.type === WorldGen\.T\.CAVE_LAVA\s*\n\s*&& !!scene\._damageEnemy\(c, Combat\.LAVA_DMG_PER_S, 'lava'\)/.test(body),
     'through _damageEnemy at the shared rate');
+  assert.falsy(/Combat\.ignite/.test(body), 'the standing burn is _tickUnitFire\'s — no second ignite');
   assert.falsy(Combat.isPlayerKill('lava'), 'not a player kill: the bounty coin and nothing else');
 });
 })();
 
-// Exercise the shipping hazard branch: immunity belongs to the creature, not
+// Exercise the shipping hazard rule: immunity belongs to the creature, not
 // to the infernal region, so ordinary foes crossing that region still burn.
 test('lava: demons resist lava while neighbouring mortal enemies still burn', () => {
-  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c)');
-  assert.truthy(start >= 0, 'shipping lava branch was found');
-  const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
-  const body = new Function('c', 'isTame', 'now', 'rosterRow', SCENE_SRC.slice(start, end));
-  const tick = { call: (scene, c, isTame, now) => body.call(scene, c, isTame, now, isTame ? null : EnemyRoster.get(c.kind)) };
   const hurt = [];
   const scene = { depth: WorldGen.LAVA_DEPTH, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_LAVA }),
     _damageEnemy: (c, dmg) => { hurt.push([c.kind, dmg]); return false; } };
-  tick.call(scene, { kind: 'red_demon' }, false, 1000);
-  tick.call(scene, { kind: 'skeleton' }, false, 1000);
+  lavaTick(scene, { kind: 'red_demon' }, 1000);
+  lavaTick(scene, { kind: 'skeleton' }, 1000);
   assert.eq(hurt.length, 1); assert.eq(hurt[0][0], 'skeleton'); assert.eq(hurt[0][1], Combat.LAVA_DMG_PER_S);
 });
 
@@ -127,20 +127,15 @@ test('lava: surface vents burn fractional player time and stop on safe ground', 
 });
 
 test('lava: surface vents respect enemy immunity, pets and the shared burn cooldown', () => {
-  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c)');
-  assert.truthy(start >= 0, 'shipping lava branch was found');
-  const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
-  const body = new Function('c', 'isTame', 'now', 'rosterRow', SCENE_SRC.slice(start, end));
-  const tick = { call: (scene, c, isTame, now) => body.call(scene, c, isTame, now, isTame ? null : EnemyRoster.get(c.kind)) };
   const hurt = [], scene = {depth: 0,
     cellAt: () => ({loaded: true, type: WorldGen.T.CAVE_LAVA}),
     _damageEnemy: (c, damage, source) => { hurt.push({c, damage, source}); return false; }};
   const mortal = {kind: 'skeleton'};
-  tick.call(scene, {kind: 'red_demon'}, false, 1000);
-  tick.call(scene, {kind: 'slime'}, true, 1000);
-  tick.call(scene, {kind: 'skeleton', fireResistancePotionUntil: Date.now() + 180000}, false, 1000);
-  tick.call(scene, mortal, false, 1000); tick.call(scene, mortal, false, 1100);
+  lavaTick(scene, {kind: 'red_demon'}, 1000);
+  lavaTick(scene, {kind: 'slime', id: 'released_slime_1'}, 1000);
+  lavaTick(scene, {kind: 'skeleton', fireResistancePotionUntil: Date.now() + 180000}, 1000);
+  lavaTick(scene, mortal, 1000); lavaTick(scene, mortal, 1100);
   assert.eq(hurt.length, 1); assert.eq(hurt[0].source, 'lava');
   assert.eq(hurt[0].damage, Combat.LAVA_DMG_PER_S);
-  tick.call(scene, mortal, false, 2000); assert.eq(hurt.length, 2);
+  lavaTick(scene, mortal, 2000); assert.eq(hurt.length, 2);
 });

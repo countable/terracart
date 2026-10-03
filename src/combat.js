@@ -254,9 +254,9 @@
   // Callers own energy loss, cooldowns and popup accumulation.
   function incomingDamage(save, damage, hits = 1, now = Date.now()) {
     if (playerDowned(save?.energy) || Conditions.damageImmune(save, now)) return 0;
-    let mul = 1;
-    if ((save.protectionPotionUntil ?? 0) > now) mul = CONSUMABLE_SPEC.protection_potion.damageMul;
-    if ((save.shieldPotionUntil ?? 0) > now) mul = Math.min(mul, CONSUMABLE_SPEC.shield_potion.damageMul);
+    // The shield / protection minimum is PotionEffects.damageMul's (the same
+    // fields, for the player and a potioned creature alike).
+    const mul = root.PotionEffects ? root.PotionEffects.damageMul(save, now) : 1;
     const shielded = mul < 1 ? Math.ceil(damage * mul) : damage;
     return playerDamage(shielded, save.armor, hits, save.mode);
   }
@@ -497,6 +497,11 @@
   // and read back through shotSource.
   const PLAYER_KILL_SOURCES = new Set(['player', 'pet', 'ally']);
   function isPlayerKill(source) { return PLAYER_KILL_SOURCES.has(source); }
+  // THE GROUND'S OWN DAMAGE: lava, a burning light, a burn's tick, thorns
+  // and spikes. No armour against the world (app.js _damageEnemy passes
+  // bypassArmor for these) and no blow to divide a splitting slime under.
+  const ENVIRONMENT_SOURCES = new Set(['lava', 'light', 'burn', 'obstacle']);
+  function isEnvironmentSource(source) { return ENVIRONMENT_SOURCES.has(source); }
   function shotSource(shot) {
     if (shot?._sourceGuard) return isCharmed(shot._sourceGuard) ? 'ally' : 'enemy';
     return (shot && shot.source) || 'player';
@@ -638,9 +643,11 @@
     return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
   }
   function isConcealed(c) { return isBurrowed(c) || isDisguised(c); }
-  function flowerTarget(c) {
-    return !!c && !c._surfaceInactive && !isConcealed(c) && isEnemyKind(c.kind) && !isTame(c);
-  }
+  // What a status may land on: a HOSTILE instance whether or not it is
+  // charmed right now (isEnemy, with the charm's clock pushed past every
+  // charm) — a sleep or a fresh charm reaches a charmed foe too; never a pet,
+  // a concealed body or a foe hidden from this player.
+  function flowerTarget(c) { return isEnemy(c, Infinity); }
   function cancelCreatureAction(c) {
     c._moving = false;
     c._attackWindupUntil = null;
@@ -740,6 +747,17 @@
   function hp(c) {
     if (!Number.isFinite(c._hp)) c._hp = maxHp(c);
     return c._hp;
+  }
+  // RESTED, WHOLE: a creature untouched for REST_HEAL_MS refills to ITS max
+  // (maxHp — the kind's, doubled for an elite; never creatureMaxHp(kind)).
+  // The one rule, asked by both movers (rosterEnemyMove and the animals'
+  // step chain) off the one damage stamp.
+  const REST_HEAL_MS = 20 * 60 * 1000;
+  function healIfRested(c, wall = Date.now()) {
+    if (!c._lastDamagedT || wall - c._lastDamagedT < REST_HEAL_MS) return false;
+    c._hp = maxHp(c);
+    c._lastDamagedT = null;
+    return true;
   }
   // Return actual HP removed for damage popups; damage() retains its HP-left
   // contract for existing defeat checks. Environmental/aura callers can pass
@@ -1643,7 +1661,8 @@
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
     isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, cancelCreatureAction,
     TAME_ID_PREFIX, isTame, isAlly,
-    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
+    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction,
+    ENVIRONMENT_SOURCES, isEnvironmentSource,
     canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,
     ELITE_MUL, isElite, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,

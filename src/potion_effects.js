@@ -90,10 +90,7 @@
   function wake(scene, c) {
     c._npcRestUntilEpoch = 0; c._npcRestUntil = 0; c._retreatUntilT = 0; c._spent = false;
     if (scene.save.npcRestUntil) delete scene.save.npcRestUntil[c.id];
-    if (scene.save.companionState?.[c.kind]) {
-      delete scene.save.companionState[c.kind].restUntil;
-      scene.save.companionState[c.kind].hp = c._hp;
-    }
+    if (scene.save.companionState?.[c.kind]) scene.save.companionState[c.kind].hp = c._hp;
   }
   function downed(c, now = Date.now()) {
     return (c.kind === 'npc' && NPC.isDormant(c, now)) || c._spent
@@ -171,13 +168,10 @@
     });
     return out;
   }
-  function hostile(c) {
-    return Combat.isEnemy(c);
-  }
   function opponents(scene, c, candidates) {
-    const enemy = hostile(c);
+    const enemy = Combat.isEnemy(c);
     const out = candidates.filter(target => target !== c
-      && !downed(target) && hostile(target) !== enemy
+      && !downed(target) && Combat.isEnemy(target) !== enemy
       && (!enemy || target.kind !== 'npc' || NPC.canTarget(scene, target)));
     if (enemy && scene.startWorldM && scene.playerM && !Combat.playerDowned(scene.save.energy)
         && !scene.isUnnoticed?.(c)) {
@@ -194,13 +188,13 @@
     } else if (c.kind === 'npc') {
       NPC.hit(scene, c, Date.now(), raw);
     } else if (Combat.isEnemyKind(c.kind) && !Combat.isTame(c)) {
-      scene._damageEnemy?.(c, raw, hostile(owner) ? 'enemy' : 'ally', { bypassArmor });
+      scene._damageEnemy?.(c, raw, Combat.isEnemy(owner) ? 'enemy' : 'ally', { bypassArmor });
     } else {
-      Combat.damageDealt(c, raw, { bypassArmor });
-      if (Combat.hp(c) <= 0) {
-        if (SpriteLayout.isSummoned(c.kind)) c._spent = true;
-        else { c._hp = 1; c._retreatUntilT = performance.now() + Companions.RECOVERY_MS; }
-      }
+      // An ally or an animal: the number pops like any blow's, and a downed
+      // ally takes its kind's rule (Companions.knockedOut).
+      const dealt = Combat.damageDealt(c, raw, { bypassArmor });
+      if (dealt > 0) scene._popDamageNumber?.(c, dealt);
+      if (Combat.hp(c) <= 0) Companions.knockedOut(scene, c);
     }
   }
   function tick(scene, c, now = Date.now()) {
@@ -214,7 +208,7 @@
       c._potionBlightAt = now + 1000;
       const spec = CONSUMABLE_SPEC.blight_potion;
       const wards = scene._npcWardContext;
-      if (hostile(c) && wards && wardTrip(c, wards.home, wards.castles, wards.radius2)) return false;
+      if (Combat.isEnemy(c) && wards && wardTrip(c, wards.home, wards.castles, wards.radius2)) return false;
       for (const target of opponents(scene, c, units(scene))) {
         if (Math.hypot(target.x - c.x, target.y - c.y) <= spec.radiusCells * scene.cellM) {
           damage(scene, target, spec.damagePerSecond * seconds, c, true);
@@ -224,5 +218,5 @@
     return false;
   }
   root.PotionEffects = { TIMERS, active, speedMul, scaleMul, maxHpBonus, maxHpMul, meleeBonus, meleeMul, visionReduction, range,
-    damageMul, extinguish, clearDebuffs, clearTime, restore, apply, tick, hostile, downed, prune };
+    damageMul, extinguish, clearDebuffs, clearTime, restore, apply, tick, downed, prune };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

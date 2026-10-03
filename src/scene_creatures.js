@@ -417,8 +417,7 @@ class SceneCreatures {
                   spawnWhy: _spawnOpts.spawnWhy, quiet: _spawnOpts.quiet }, 'minor')) displaced = true;
             continue;
           }
-          const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
-          const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
+          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           if (!fauna) enemyGroundSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
@@ -771,8 +770,7 @@ class SceneCreatures {
         // Walkable, off-road, and not deep in a private yard — one shared rule
         // (an X mark is an ordinary pickup: a MINOR spawn).
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
+        const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
         if (!isStarterTile) entry.treasure = { x: wmx, y: wmy, id: `treasure_${tx}_${ty}` };
         break;
       }
@@ -791,8 +789,7 @@ class SceneCreatures {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
+        const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
         entry.extraTreasures.push({ x: wmx, y: wmy, id: WorldGen.cellId('treasure_x', tx, ty, cx, cy) });
         placed = true;
       }
@@ -844,8 +841,7 @@ class SceneCreatures {
           // private yards). Avoid stacking on an existing X below.
           if (genGrid[ncy * N + ncx] === 8 /* PATH */) continue;
           if (!WorldGen.isSpawnCell(genGrid, N, N, ncx, ncy, ambientSpawnOpts, 'minor')) continue;
-          const wmx = tx * this.tileEdgeM + (ncx + 0.5) * cellM;
-          const wmy = ty * this.tileEdgeM + (ncy + 0.5) * cellM;
+          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, ncx, ncy);
           const id = WorldGen.cellId('treasure_path', tx, ty, ncx, ncy);
           if (entry.extraTreasures.some(t => t.id === id)) continue;
           entry.extraTreasures.push({ x: wmx, y: wmy, id });
@@ -875,8 +871,7 @@ class SceneCreatures {
           const cell = sandCells[Math.floor(rng() * sandCells.length)];
           const scx = cell % N, scy = Math.floor(cell / N);
           if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, ambientSpawnOpts, 'minor')) continue;
-          const wmx = tx * this.tileEdgeM + (scx + 0.5) * cellM;
-          const wmy = ty * this.tileEdgeM + (scy + 0.5) * cellM;
+          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, scx, scy);
           const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
           if (entry.extraTreasures.some(t => t.id === id)) continue;
           entry.extraTreasures.push({ x: wmx, y: wmy, id });
@@ -902,8 +897,7 @@ class SceneCreatures {
         if (!WorldGen.isSpawnCell(genGrid, N, N, scx, scy, ambientSpawnOpts, 'minor')) continue;
         const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
         if (entry.extraTreasures.some(t => t.id === id)) continue;
-        entry.extraTreasures.push({ x: tx * this.tileEdgeM + (scx + 0.5) * cellM,
-          y: ty * this.tileEdgeM + (scy + 0.5) * cellM, id });
+        entry.extraTreasures.push({ ...tileCellCentre(this.tileEdgeM, tx, ty, cellM, scx, scy), id });
         placed++;
       }
     }
@@ -993,9 +987,8 @@ class SceneCreatures {
         placed++;
         const id = WorldGen.cellId(kind, tx, ty, cx, cy);
         if (caughtSet.has(id)) continue;
-        const c = WorldGen.makeCreature(kind,
-          tx * this.tileEdgeM + (cx + 0.5) * cellM, ty * this.tileEdgeM + (cy + 0.5) * cellM, id,
-          { shiny: fauna ? faunaShiny(kind, id) : false });
+        const seat = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
+        const c = WorldGen.makeCreature(kind, seat.x, seat.y, id, { shiny: fauna ? faunaShiny(kind, id) : false });
         creatures.push(c);
         out.push(c);
       }
@@ -1232,8 +1225,7 @@ class SceneCreatures {
         if (at < 0) return false;
         taken.add(at);
         if (shoreBird && shoreMask[at]) reserveBirdLanding(at);
-        c.x = tx * this.tileEdgeM + ((at % N) + 0.5) * cellM;
-        c.y = ty * this.tileEdgeM + (((at / N) | 0) + 0.5) * cellM;
+        Object.assign(c, tileCellCentre(this.tileEdgeM, tx, ty, cellM, at % N, (at / N) | 0));
         moved[sp] = (moved[sp] || 0) + 1;
         return true;
       };
@@ -1467,8 +1459,7 @@ class SceneCreatures {
         const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
         if (caughtSet.has(id) || legacyDefeats.pack.has(i) || legacyDefeats.cells.has(`${cx}_${cy}`) || monsterSeats.has(id)) break;   // already defeated — stays dead
         if (heldByPlayer.has(cy * N + cx)) break;   // on the player's own stair
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
+        const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
         // ~5% spawn as ELITES — the shiny variant, stamped off the stable id
         // like a shiny animal so it survives reloads. The same `shiny` flag
         // the renderer already tints and sparkles; combat.js reads it as
@@ -1491,8 +1482,7 @@ class SceneCreatures {
         // Cave rabbits share interactable cells, like surface fauna.
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already caught — stays gone
-        const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
-        const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
+        const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
         creatures.push(WorldGen.makeCreature('rabbit', wmx, wmy, id));
         break;
       }
@@ -1524,8 +1514,7 @@ class SceneCreatures {
         const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
           if (caughtSet.has(id) || legacyDefeats.cells.has(`${cx}_${cy}`) || monsterSeats.has(id)) break;
           if (heldByPlayer.has(cy * N + cx)) break;
-          const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
-          const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
+          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
           creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
             { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster), habitat: habitat.theme }));
           monsterSeats.add(id);
@@ -1565,8 +1554,7 @@ class SceneCreatures {
           if (genGrid[idx] !== 24 /* CAVE_FLOOR */ || taken.has(idx)) continue;
           taken.add(idx);
           if (heldByPlayer.has(idx)) break;   // on the player's own stair
-          const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
-          const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
+          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
           coins.push({ kind: 'coindrop', x: wmx, y: wmy, id: `cavecoin_${depth}_${tx}_${ty}_${i}` });
           break;
         }
@@ -1786,15 +1774,13 @@ class SceneCreatures {
             // window; the timer has already been stamped, so the next window
             // tries again.
             const SPAWN_R = PEST_SPAWN_CELLS * this.cellM;
-            const base = Math.random() * Math.PI * 2;
-            for (let k = 0; k < 8; k++) {
-              const angle = base + (k * Math.PI * 2) / 8;
-              const sx = px + Math.cos(angle) * SPAWN_R, sy = py + Math.sin(angle) * SPAWN_R;
+            const seat = ringSeat(px, py, SPAWN_R, Math.random() * Math.PI * 2, (sx, sy) => {
               const dest = this.cellAt(sx, sy);
-              if (!dest.loaded || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)) continue;
-              entry.creatures.push(WorldGen.makeCreature('deer', sx, sy,
+              return dest.loaded && !Combat.faunaBlocksCell(dest.type) && !WorldGen.isRoadTerrain(dest.type);
+            });
+            if (seat) {
+              entry.creatures.push(WorldGen.makeCreature('deer', seat.x, seat.y,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
-              break;
             }
           }
         }
@@ -1850,6 +1836,10 @@ class SceneCreatures {
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const unnoticed = this.isUnnoticed(c);
       const isTame = Combat.isTame(c);
+      // Read ONCE per creature per tick: is it a hostile right now, and how
+      // far off (metres from the feet) — every lane below asks both.
+      const enemy = Combat.isEnemy(c);
+      const distM = Math.sqrt(ddx * ddx + ddy * ddy);
       // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
       // raven, conjured by a scroll — yours without being tame). One flag
       // the pet scan and its fight read; see huntsPrey for what each takes.
@@ -1907,7 +1897,7 @@ class SceneCreatures {
       const fightsBack = !isTame ? SpriteLayout.creatureFightsBack(c.kind) : null;
       const enraged = !!fightsBack && !!c._rageUntil && Date.now() < c._rageUntil;
       const wardFoe = (!!homePos || castleWards.length > 0 || haunts) && !isTame
-        && (Combat.isEnemy(c) || enraged);
+        && (enemy || enraged);
       if (wardFoe) {
         const from = c._wardFrom;
         // A declared stationary foe cannot retreat to release a latch. Recheck
@@ -1925,8 +1915,8 @@ class SceneCreatures {
       // wild foe turns its back and walks to the edge of its range, so none
       // piles up forever against a campfire's refused ring. A lair guard has
       // its own leash (Lairs.guardState) and is left to it.
-      const wanderOff = !stationary && !isTame && !c.lair && Combat.isEnemy(c)
-        && monsterWanderingOff(c, now, Math.sqrt(ddx * ddx + ddy * ddy), this.cellM);
+      const wanderOff = !stationary && !isTame && !c.lair && enemy
+        && monsterWanderingOff(c, now, distM, this.cellM);
       // TURNED BACK AT THE KERB (creature_ai.js THE KERB): the player stands
       // in a major road's kerb buffer, so every hostile — a foe, or a hunted
       // animal while it is angry — stands down and turns away, exactly as a
@@ -1935,7 +1925,7 @@ class SceneCreatures {
       // stops where it is. One more reason in the wander-off lane, never a
       // "frozen while you are on the road" rule — that one would lure a
       // player INTO the road.
-      const kerbTurn = kerbLeash && !isTame && (Combat.isEnemy(c) || enraged);
+      const kerbTurn = kerbLeash && !isTame && (enemy || enraged);
       // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
       // by wandering off. Two reasons, one pace; the angle chain says away from
       // WHAT (Home, or the player).
@@ -1946,13 +1936,13 @@ class SceneCreatures {
       // pace), and one more reason to stand down below. Asked only of a kind
       // that steals, so the per-creature cost elsewhere is one table read.
       const sated = !isTame && !!Combat.theftKind(c.kind) && Combat.theftSated(this.save, c);
-      const frightened = Combat.isEnemy(c) && c._fearUntilT > now;
+      const frightened = enemy && Combat.isFrightened(c, now);
       // MAD (the Powder of Psychosis — Combat.isPsychotic): the rout lane
       // once more — the flee pace, no blow, no target — but with a RANDOM
       // angle each hop (the chain below) in place of fear's away angle, so
       // it runs every which way rather than off. Home's ward still outranks
       // it: a mad foe inside the ring is walked out like any other.
-      const psychotic = Combat.isEnemy(c) && Combat.isPsychotic(c, now);
+      const psychotic = enemy && Combat.isPsychotic(c, now);
       const routed = warded || wanderOff || sated || frightened || psychotic;
       // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
       // hysteresis and the arrival test; this asks once and stores the
@@ -1985,8 +1975,8 @@ class SceneCreatures {
       // (`unnoticed` — a powder, or a body on an empty bar). Read by the butt
       // below, the stride and the angle chain, so the three agree.
       const gameCharge = enraged && !standDown && !unnoticed;
-      if (!isTame && !standDown && !unnoticed && (Combat.isEnemy(c) || enraged)) {
-        interestedFoeM = Math.min(interestedFoeM, Math.sqrt(ddx * ddx + ddy * ddy));
+      if (!isTame && !standDown && !unnoticed && (enemy || enraged)) {
+        interestedFoeM = Math.min(interestedFoeM, distM);
       }
       // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
       // blow: ONE touch of its row's dmg (Combat.meleeBlow), through the mode,
@@ -2009,20 +1999,9 @@ class SceneCreatures {
         }
         return;
       }
-      // LAVA BURNS FOES TOO (Combat.LAVA_DMG_PER_S, the player's rate — see
-      // app.js _tickLava). Whole points once a second off the foe's own HP
-      // through _damageEnemy, so the health bar and the "-2" read as any
-      // other blow; a foe it kills is the ground's kill ('lava' is no player
-      // source — Combat.isPlayerKill), which pays the bounty coin and nothing
-      // past it, the turret's rule. A tamed slime is a pet, never burned.
-      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c) && !rosterRow?.lavaImmune && (this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH)
-          && now >= (c._lavaNextT || 0)) {
-        c._lavaNextT = now + 1000;
-        const under = this.cellAt(c.x, c.y);
-        if (under.loaded && under.type === WorldGen.T.CAVE_LAVA) Combat.ignite(c, now, 'lava');
-        if (under.loaded && under.type === WorldGen.T.CAVE_LAVA
-            && this._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava')) return;
-      }
+      // LAVA BURNS FOES TOO (creature_ai.js lavaTick — the one lava rule,
+      // the flower lane's as well): the ground's kill, never a pet's.
+      if (enemy && lavaTick(this, c, now)) return;
       if (enemyFireEscapeTick(this, c, rosterRow, now, enemyDt)) return;
       // EVERY FOE'S BLOW, ARROW, SNARE AND SPELL: rosterEnemyAttack
       // (creature_ai.js) on its row — the slime's leech, a goblin's club, the
@@ -2154,14 +2133,8 @@ class SceneCreatures {
             if (dx * dx + dy * dy <= 64) pp.qualBoost = Math.max(pp.qualBoost ?? pp.canBoost ?? 0, 1);
           }
         }
-        // HP healing: if 20 min since last damage, restore to max. Max comes
-        // from Combat.maxHp so a monster wounded by an arrow heals back to ITS
-        // hit points — the kind's, doubled for an elite — not the 10-HP
-        // fallback a local table gave it.
-        if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
-          c._hp = Combat.maxHp(c);
-          c._lastDamagedT = null;
-        }
+        // Rested a while, whole again (Combat.healIfRested — the one rule).
+        Combat.healIfRested(c);
 
         // Pet combat: a creature that HUNTS FOR THE PLAYER scans for the
         // nearest valid prey within 8 cells each wander step. Two reasons, one
@@ -2170,20 +2143,15 @@ class SceneCreatures {
         // raven — every foe and pest deer). What each may take is huntsPrey
         // (creature_ai.js), off the same row.
         if (huntsForPlayer) {
-          const CHASE_R = 8 * this.cellM;
-          const CHASE_R2 = CHASE_R * CHASE_R;
-          let nearest = null, nearestD2 = CHASE_R2;
           // Pet is within sim range of the player and prey within 8 cells of
-          // the pet, so the player's 3×3 tile ring covers the search box.
-          WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (cr) => {
-            if (!huntsPrey(c.kind, cr)) return;
-            if (Companions.follows(c, now) && Math.hypot(cr.x - px, cr.y - py) > 4 * this.cellM) return;
-            if (c.stayHome && Math.hypot(cr.x - c.petHomeX, cr.y - c.petHomeY) > Companions.HOME_PET_CELLS * this.cellM) return;
-            if (caughtSet.has(cr.id)) return;
-            const d2 = (cr.x - c.x) ** 2 + (cr.y - c.y) ** 2;
-            if (d2 < nearestD2) { nearestD2 = d2; nearest = cr; }
-          });
-          c._chaseTarget = nearest;
+          // the pet, so the player's 3×3 tile ring covers the search box
+          // (nearestCreature, creature_ai.js — the one nearest scan).
+          const following = Companions.follows(c, now);
+          c._chaseTarget = nearestCreature(this, c, 8 * this.cellM, (cr) => {
+            if (!huntsPrey(c.kind, cr) || caughtSet.has(cr.id)) return false;
+            if (following && Math.hypot(cr.x - px, cr.y - py) > 4 * this.cellM) return false;
+            return !(c.stayHome && Math.hypot(cr.x - c.petHomeX, cr.y - c.petHomeY) > Companions.HOME_PET_CELLS * this.cellM);
+          }, { tile: pcW });
         }
 
         // Flee override: prey that was just hit runs away — at its BOLT if
@@ -2194,29 +2162,18 @@ class SceneCreatures {
         // whatever _hopMs the last step left, so the shove's speed was an
         // accident of history.
         if (c._fleeUntilT && c._fleeUntilT > now) {
-          // Shoved off among houses, it runs the ROADSIDE (creature_ai.js
-          // roadsideRunAngle) like every other retreat.
-          const shove = c._fleeAngle ?? 0;
-          const run = roadsideRunAngle(this, c, shove);
-          const fa = run ?? shove;
           const base = hurry ? { m: stepM / FLEE_STRIDE_MUL, ms: stepMs / FLEE_BEAT_MUL } : { m: stepM, ms: stepMs };
           const hurryM = bolt ? STEP_M * (bolt.stepCells ?? 1) : base.m * FLEE_STRIDE_MUL;
           const hurryMs = bolt ? (bolt.stepMs ?? STEP_MS) / paceMul : base.ms * FLEE_BEAT_MUL;
-          for (let attempt = 0; attempt < 4; attempt++) {
-            const fleeAngle = fa + (run != null ? 0 : (Math.random() - 0.5) * 0.6);
-            const ftx = c.x + Math.cos(fleeAngle) * hurryM;
-            const fty = c.y + Math.sin(fleeAngle) * hurryM;
-            // The shove is a retreat: the one step test keeps it out of the yards.
-            if (!creatureStepRefused(this, c, ftx, fty, { retreating: true })) {
-              c._startX = c.x; c._startY = c.y;
-              c._targetX = ftx; c._targetY = fty;
-              c._stepT0 = now;
-              // A kind with a top speed (creatureMaxMps) glides the shove no
-              // faster than it: the beat and the glide both stretch.
-              c._hopMs = Math.max(hurryMs, hurryM / maxMps * 1000);
-              c._nextChooseT = now + c._hopMs;
-              break;
-            }
+          // Shoved off among houses, it runs the ROADSIDE and never into a yard
+          // (fleeTarget — the crow's dash takes the same search).
+          const to = fleeTarget(this, c, hurryM);
+          if (to) {
+            // A kind with a top speed (creatureMaxMps) glides the shove no
+            // faster than it: the beat and the glide both stretch.
+            c._hopMs = Math.max(hurryMs, hurryM / maxMps * 1000);
+            launchStep(c, to.x, to.y, now);
+            c._nextChooseT = now + c._hopMs;
           }
           c._fleeUntilT = 0;
           return;   // skip rest of wander step; interpolation resumes next frame
@@ -2313,19 +2270,11 @@ class SceneCreatures {
               this.resolveDefeat(tgt, 'pet');
               c._chaseTarget = null;
             }
-            if (c._hp <= 0 && summoned) {
-              // A SUMMONED ally is spent, not wounded: it has no home to limp
-              // to. Flagged here, removed by its owner's tick (app.js
-              // _tickSpiritRaven) — never spliced out of the array this scan
-              // is walking.
-              c._spent = true;
-              c._chaseTarget = null;
-            } else if (c._hp <= 0) {
-              // Pet retreats home to recover.
-              c._hp = 1;
-              c._chaseTarget = null;
-              c._retreatUntilT = now + Companions.RECOVERY_MS;   // 30s forced home-bias
-            }
+            // The bite back pops like any blow; a downed ally takes its
+            // kind's rule (Companions.knockedOut: a pet limps home at 1 HP,
+            // a timed ally is spent).
+            this._popDamageNumber?.(c, 1);
+            if (c._hp <= 0) Companions.knockedOut(this, c, now);
           }
         }
 
@@ -2447,9 +2396,7 @@ class SceneCreatures {
             }
           }
         }
-        c._startX = c.x; c._startY = c.y;
-        c._targetX = tx; c._targetY = ty;
-        c._stepT0 = now;
+        launchStep(c, tx, ty, now);
         c._hopMs = stepMs;
         // A kind that sits still between hops does it for [base, spread] ms —
         // the rabbit, short when it is bolting and long when it is not.
@@ -2549,33 +2496,21 @@ class SceneCreatures {
         return;
       }
       // Between dashes (or reacting to the hit for the first time) — launch a
-      // new short burst directly away from the hit angle, same ±0.6 rad
-      // jitter the generic flee override uses so a fleeing crow reads like
-      // every other fleeing kind. Among houses the dash runs the ROADSIDE
-      // (creature_ai.js roadsideRunAngle) and never into a yard
-      // (creatureStepRefused, retreating) like every other retreat.
-      const shove = c._fleeAngle ?? 0;
-      const run = roadsideRunAngle(this, c, shove);
-      const fa = run ?? shove;
-      for (let attempt = 0; attempt < 4; attempt++) {
-        const fleeAngle = fa + (run != null ? 0 : (Math.random() - 0.5) * 0.6);
-        const d = 2 * this.cellM;
-        const ftx = c.x + Math.cos(fleeAngle) * d;
-        const fty = c.y + Math.sin(fleeAngle) * d;
-        if (!creatureStepRefused(this, c, ftx, fty, { retreating: true })) {
-          c._startX = c.x; c._startY = c.y;
-          c._targetX = ftx; c._targetY = fty;
-          c._flightT0 = now;
-          // Twice its distance over the crow's peak flight speed
-          // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean): the
-          // panic is in the short legs and the turn, not a faster bird (it
-          // used to cross two cells in 350 ms: 40 m/s). The one pace
-          // multiplier (Combat.paceMul) quickens it like every flight.
-          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.paceMul(c);
-          c._fleeDash = true;
-          c._faceFlip = (ftx - c.x) < 0;
-          break;
-        }
+      // new short burst directly away from the hit angle (fleeTarget: the
+      // generic flee override's own search, so a fleeing crow reads like
+      // every other fleeing kind — the ROADSIDE among houses, never a yard).
+      const d = 2 * this.cellM;
+      const to = fleeTarget(this, c, d);
+      if (to) {
+        launchStep(c, to.x, to.y, now, '_flightT0');
+        // Twice its distance over the crow's peak flight speed
+        // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean): the
+        // panic is in the short legs and the turn, not a faster bird (it
+        // used to cross two cells in 350 ms: 40 m/s). The one pace
+        // multiplier (Combat.paceMul) quickens it like every flight.
+        c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.paceMul(c);
+        c._fleeDash = true;
+        c._faceFlip = (to.x - c.x) < 0;
       }
       // All 4 attempts blocked (e.g. cornered by water/buildings): stand
       // still this tick and retry next tick rather than phasing into a bad
@@ -2731,9 +2666,7 @@ class SceneCreatures {
       c._perchUntilT = now + 800;
       return;
     }
-    c._startX = c.x; c._startY = c.y;
-    c._targetX = tx; c._targetY = ty;
-    c._flightT0 = now;
+    launchStep(c, tx, ty, now, '_flightT0');
     // A glide lasts twice its distance over the crow's peak flight speed
     // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean: ~0.6–1.6 s
     // over the roam's 0.4–1-cell hops); a departing leg takes its row's own time

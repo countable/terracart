@@ -1,5 +1,19 @@
 // Ground fire uses absolute data cells, not camera cells. The permanent ledger
 // survives tile eviction; an active index keeps the frame cost off old burns.
+// The two conditions a creature carries (_tickUnitCondition): who it is on
+// (`carries`), the per-frame stamp, what the row's tick levies (the burn
+// re-stoked by the ground it stands on, the poison's bite), who gave it
+// (`by`) and the kill source when nobody did.
+const UNIT_CONDITIONS = {
+  burning: { carries: c => Combat.canBurn(c), tickedAt: '_fireTickT', by: '_burnBy', source: 'burn',
+    tick(scene, c, now) {
+      const exposure = scene._fireExposureAtWorld(c.x, c.y);
+      if (exposure) Combat.ignite(c, now, exposure);
+      return Combat.burnTick(c, now, !!exposure);
+    } },
+  poison: { carries: c => !!c._poisonState, tickedAt: '_poisonTickT', by: '_poisonBy', source: 'poison',
+    tick(scene, c, now) { return Combat.poisonTick(c, now); } },
+};
 class SceneFire {
   _groundFireIndex() {
     if (this._groundFireSave !== this.save) {
@@ -150,36 +164,30 @@ class SceneFire {
       this.startWorldM.y + this.playerM.y);
   }
 
-  // Every nearby body takes fire exposure before its movement/AI branch,
-  // including neighbours, caught-in-progress animals and frozen creatures.
-  _tickUnitFire(c, now) {
-    if (!Combat.canBurn(c) || c._spent || this.save.caught?.includes(c.id) || c._fireTickT === now) return false;
-    c._fireTickT = now;
-    const exposure = this._fireExposureAtWorld(c.x, c.y);
-    if (exposure) Combat.ignite(c, now, exposure);
-    const source = c._burnBy === 'player' ? 'player' : 'burn';
-    const damage = Combat.burnTick(c, now, !!exposure);
+  // A CREATURE'S CONDITION TICK — the burn and the poison, one skeleton
+  // (UNIT_CONDITIONS, the two rows of Conditions.DEFINITIONS a foe can
+  // carry): once per frame per body, never a spent or a caught one, the
+  // row's bite through the one dispatch (_damageBurningUnit: an NPC's rest,
+  // a pet's retreat, a foe's bar and bounty). Who lit or poisoned it names
+  // the kill: the player's torch or flask is a player kill. Every nearby body
+  // takes fire exposure before its movement/AI branch, including neighbours,
+  // caught-in-progress animals and chilled creatures.
+  _tickUnitCondition(c, now, id) {
+    const row = UNIT_CONDITIONS[id];
+    if (!c || !row.carries(c) || c._spent || this.save.caught?.includes(c.id) || c[row.tickedAt] === now) return false;
+    c[row.tickedAt] = now;
+    // Who gave it, read BEFORE the tick (a burn that ends forgets its lighter).
+    const source = c[row.by] === 'player' ? 'player' : row.source;
+    const damage = row.tick(this, c, now);
     return damage > 0 && this._damageBurningUnit(c, damage, source, now);
   }
-
-  // A POISONED creature (Combat.poison — the Poison Flask): the row's bite
-  // every intervalMs off its HP, through the burn's dispatch below (an NPC's
-  // rest, a pet's retreat, a foe's bar and bounty). The player's flask is a
-  // player kill. Asked wherever the burn is asked.
-  _tickUnitPoison(c, now) {
-    if (!c?._poisonState || c._spent || this.save.caught?.includes(c.id) || c._poisonTickT === now) return false;
-    c._poisonTickT = now;
-    const source = c._poisonBy === 'player' ? 'player' : 'poison';
-    const damage = Combat.poisonTick(c, now);
-    return damage > 0 && this._damageBurningUnit(c, damage, source, now);
-  }
+  _tickUnitFire(c, now) { return this._tickUnitCondition(c, now, 'burning'); }
+  _tickUnitPoison(c, now) { return this._tickUnitCondition(c, now, 'poison'); }
 
   _damageBurningUnit(c, damage, source, now) {
     // NPCs use their existing wounded/resting state, rather than a health bar.
     if (c.kind === 'npc') { NPC.hit(this, c, Date.now(), damage); return false; }
-    const pet = Combat.isTame(c);
-    const summoned = SpriteLayout.isSummoned(c.kind);
-    if (!pet && !summoned) {
+    if (!Combat.isAlly(c)) {
       const dead = this._damageEnemy(c, damage, source, { bypassArmor: true });
       if (dead && this._workProgress?.flee === c) this.cancelWorkProgress();
       return dead;
@@ -188,14 +196,8 @@ class SceneFire {
     if (dealt > 0) this._popDamageNumber(c, dealt);
     c._lastDamagedT = Date.now();
     if (Combat.hp(c) > 0) return false;
-    c._chaseTarget = null;
-    if (summoned) {
-      c._spent = true; // Companions owns removal and recovery of summoned allies.
-      return true;
-    }
-    c._hp = 1;
-    c._retreatUntilT = now + Companions.RECOVERY_MS;
-    return false;
+    // A downed ally takes its kind's rule (Companions.knockedOut).
+    return Companions.knockedOut(this, c, now);
   }
 
   readTomeFirewall() {
