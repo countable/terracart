@@ -443,7 +443,7 @@ def svg_for(v, d, detail=False, prefix="", ground=None):
     parts.append(light_guide(cx,cy,unit*light['radiusCells'],color))
     if shrine:
         art = wreck if shipwreck else registry['groveShrines'][0]
-        mapped = next((row for row in registry['shrineKinds'].values() if v['id'] in row['zones']), None)
+        mapped = next((row for row in registry['shrineKinds'].values() if v['id'] in row['zoneVariants']), None)
         if not shipwreck and v.get('shrineFrame') is not None:
             art = {'key': 'zone_objects', 'frame': v['shrineFrame'], 'scale': 4 / 3}
         elif not shipwreck and mapped:
@@ -838,7 +838,7 @@ def render(d, out):
             source = art_registry()['wildplantRules'].get(crop, {}).get('light')
             if source: light_text += f'; {crop} glow {art_registry()["lighting"][source]["radiusCells"]:g} cells'
         light_text += '; street lamps ' + (f'use zone tint {v["lampGlow"]} (overrides street)' if v.get('lampGlow') else 'retain street variant colour')
-        shrine_row = next((r for r in art_registry()['shrineKinds'].values() if v['id'] in r['zones']), None)
+        shrine_row = next((r for r in art_registry()['shrineKinds'].values() if v['id'] in r['zoneVariants']), None)
         reward_row = art_registry()['shrineRewards'].get(v['id'])
         if reward_row:
             shrine_text = reward_row['name'] + ': ' + ('a full-screen coin burst, once per UTC day' if reward_row.get('fillScreen') else reward_row['reward'])
