@@ -1,13 +1,10 @@
 // Headless tests for the plain-rock promise: WHAT THE ART SHOWS IS WHAT IT
 // DROPS. The mineralrock sheet's four plain-rock looks are not interchangeable
-// — row 15 col 3 draws a PAIR of stones, cols 4..6 draw one — and until Sep
-// 2026 the variant was a cosmetic hash while every rock dropped the same
-// randInt(1,3), so a pair could pay one rock and a lone pebble could pay three.
+// — row 15 col 3 draws a PAIR of stones, cols 4..6 draw one.
 //
-// The fix is one table (SpriteLayout.PLAIN_ROCK_VARIANTS): render.js picks the
-// frame from `col`, interactables.js rolls the yield off `stones`. These tests
-// pin BOTH sides against that table, so the frame and the payout can't drift
-// apart the way they did.
+// One table (SpriteLayout.PLAIN_ROCK_VARIANTS): render.js picks the frame from
+// `col`, interactables.js rolls the yield off `stones`. These tests pin BOTH
+// sides against it, so the frame and the payout can't drift apart.
 
 const PRV = SpriteLayout.PLAIN_ROCK_VARIANTS;
 const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
@@ -174,9 +171,7 @@ test('plain rock: flint on 10% of breaks', () => {
 });
 
 // --- The toast tells the truth ----------------------------------------------
-// The plain-rock branch used to flash "+1 Rock" while handing over up to three
-// — the one loot path that under-reported itself. The flash must carry the
-// count that actually landed in the bag.
+// The flash must carry the count that actually landed in the bag (it once said "+1 Rock" for up to three).
 test('plain rock: the loot toast reports the real stone count', () => {
   for (let i = 0; i < 200; i++) {
     let flashed = null;

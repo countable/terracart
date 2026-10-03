@@ -176,8 +176,8 @@
     // not a knob: on easy a field is only raided by a crow the tile already
     // spawned nearby, and on hard one is sent once an hour. The gate is one line
     // in app.js; run.js hands its source text over so it cannot drift from the
-    // table. It used to read pestAmnesty + save.hasHarvested — retired, because
-    // the mode flag subsumes both (easy never pumps; hard has no grace).
+    // table. The mode flag subsumes the retired pestAmnesty + save.hasHarvested
+    // (easy never pumps; hard has no grace).
     assert.truthy(PEST_PUMP_GATE_SRC.includes('Difficulty.get().cropPests'),
       'the pump reads the flag at the site that owns the behaviour');
     assert.falsy(PEST_PUMP_GATE_SRC.includes('pestAmnesty'),

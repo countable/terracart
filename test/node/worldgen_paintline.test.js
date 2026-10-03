@@ -4,9 +4,7 @@
 // cell-space vertex coords, which selects the cell whose top-LEFT CORNER is
 // nearest the point rather than the cell that CONTAINS it. Every road, path
 // and pier came out half a cell south-east of its own OSM way — half a cell
-// off the buildings/water around it (paintPolygon centre-samples, so those
-// are right) and half a cell off the road-geometry overlay drawn from the
-// same source linework.
+// off the buildings/water around it (paintPolygon centre-samples).
 //
 // WorldGen is injected by run.js. Grids here are plain cell space: paintLine
 // takes mvtToCell = 1 so the input coords ARE cell-space coords.

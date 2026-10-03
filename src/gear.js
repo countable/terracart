@@ -75,9 +75,7 @@
   // Equip a bought / forged / looted relic or armor piece. Armor just fills its
   // slot: its effect (soaking incoming damage — items.js armorReduction, spent
   // by Combat.mitigate) is read live off save.armor at the moment a blow lands,
-  // so there is nothing to bank here. Until Sep 2026 armour raised the max
-  // energy CAP, and this function had to grant the freshly-unlocked headroom
-  // as a delta so a second piece didn't refill the whole bar.
+  // so there is nothing to bank here.
   function equip(save, kind, slot, tier) {
     const def = gearDef(kind, slot);
     if (!def || !TIER_BY_NUM[tier] || (def.tiers && !def.tiers.includes(tier))) return;
@@ -102,8 +100,8 @@
   // weight ∝ 1/2^(tier-1) biases offers toward low tiers. `rng` defaults to
   // Math.random — pass a seeded one for stable per-bucket offers.
   // A SMITHY (opts.isBlacksmith) only ever offers what its anvil can forge
-  // (blacksmithRecipe): wooden jewellery has no recipe, and a seeded offer of
-  // it used to shut the forge for the whole hour bucket ("Anvil's resting").
+  // (blacksmithRecipe); an unforgeable seeded offer would shut the forge for
+  // the whole hour bucket ("Anvil's resting").
   // THE SMITHY OFFERS THE LOWEST RUNG IT CAN (owner, Oct 2026). Per slot,
   // the lowest tier the anvil can forge above what is worn is that slot's
   // NEXT rung (`rank` 0); every tier past it is divided by
@@ -176,9 +174,7 @@
     const pick = { kind, slot, tier };
 
     // Pricing: castle = a flat CASTLE_RELIC_MARKUP; everything else = random
-    // 1.2..3.0× markup. (The Bow used to bend both toward par — gone, Oct
-    // 2026: the Magic Hammer's building is the one standing discount, and the
-    // flower charm the one timed one — houses.js priceMul.)
+    // 1.2..3.0× markup (houses.js priceMul owns the standing discounts).
     const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
     const mul = opts.isCastle ? CASTLE_RELIC_MARKUP : 1.2 + rng() * 1.8;
     const price = Math.max(1, Math.ceil(baseP * mul));

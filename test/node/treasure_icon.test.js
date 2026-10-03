@@ -1,19 +1,14 @@
 // The treasure ceremony opens with the chest it came out of.
 //
 // Every dialog opens with a hero glyph and a one-word category (app.js
-// MODAL_KINDS). TREASURE's glyph was a 💎 — which named neither the chest that
-// paid out nor the thing it paid: a starter crate of onion seeds and a trunk
-// full of frost bars opened under the same gem, and the crate the player had
-// just tapped was nowhere in the dialog. The glyph is that object's OWN sprite
-// now, resolved through the SAME look the renderer draws it from, so a crate
-// opens under a crate and a trunk under a trunk.
+// MODAL_KINDS). TREASURE's glyph is that object's OWN sprite, resolved through
+// the SAME look the renderer draws it from, so a crate opens under a crate and
+// a trunk under a trunk.
 //
 // The lane is loot.js › chestLook: one resolver, four looks, each carrying the
-// TEXTURE KEY it means. render.js's chest spec reads it (it owned a private
-// copy as a per-frame closure until Sep 2026) and app.js's worldIconHTML turns
-// the same key into a DOM icon off the frame the renderer draws. Nothing
-// re-decides which art a look is, so drawn-as and shown-as can't drift apart —
-// the roadOverlayWidthM discipline pointed at a sprite.
+// TEXTURE KEY it means. render.js's chest spec reads it and app.js's
+// worldIconHTML turns the same key into a DOM icon off the frame the renderer
+// draws, so drawn-as and shown-as can't drift apart.
 //
 // app.js needs Phaser and can't load headlessly, so worldIconHTML is lifted
 // and run for real and the wiring is pinned as source text (the trick
@@ -32,8 +27,7 @@ const lift = (sig, what) => {
 const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26, frame = 0) {', 'worldIconHTML');
 
 // ── The one resolver, run for real ────────────────────────────────────────
-// A memorial: an ordinary civic T3 trunk. (It was a library until the library
-// became a macro stall — a Scriptorium — and stopped being a chest at all.)
+// A memorial: an ordinary civic T3 trunk.
 const chest = (over) => ({ kind: 'chest', poiClass: 'memorial', x: 0, y: 0, ...over });
 // A chest's tier (chestTier) is the world's — its class's density on its
 // tile. These still run with no origin so each case says only what it means.

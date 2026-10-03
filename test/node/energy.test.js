@@ -2,10 +2,7 @@
 // rest / tired-threshold math extracted from app.js's MapScene.
 
 test('maxEnergy: ARMOR IS NOT IN THE CAP — a full worn set is still the base bar', () => {
-  // Until Sep 2026 each piece added `energyPerTier × tier` here, so armour was
-  // simply a longer bar — worth exactly as much to a player who never fought
-  // as to one who did. It soaks damage now (Combat.mitigate), and the cap has
-  // no idea armour exists. Re-folding a gear bonus in here is the bug back.
+  // Armour soaks damage (Combat.mitigate); the cap has no idea it exists.
   const worn = {};
   for (const slot of Object.keys(ARMOR_DEFS)) worn[slot] = { tier: 7 };
   const save = { maxEnergy: 100, armor: worn };

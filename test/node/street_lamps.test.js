@@ -108,12 +108,9 @@ test('street lamps: surface only — a cave has no streets to light', () => {
 test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with everything else', () => {
   // THE PAINTER RULE (CLAUDE.md): the lower object renders in front, and the
   // one place that implements it is drawObjects' screen-row z-order pass over
-  // the shared world layer. A lamp had a pool of its own in cobbleContainer
-  // (ground decoration, below the building footprints and below every sprite)
-  // until Sep 2026, so it hid under any footprint or sprite on the map
-  // whatever row it stood in — which is exactly what a layer of its own buys
-  // you. It joins the pass the way the placed campfires and scarecrows do:
-  // an item on filteredObj, which the z-order pass ranks by cell row.
+  // the shared world layer. A lamp joins it the way the placed campfires and
+  // scarecrows do: an item on filteredObj, ranked by cell row (a pool of its
+  // own in cobbleContainer hid under every footprint and sprite).
   assert.truthy(/const lampList = \(scene\._streetLamps \|\| \[\]\)\.map\(L => \(\{/.test(lampListSrc),
     'the list comes off the one app.js keeps (scene._streetLamps)');
   assert.truthy(/kind: '_streetlamp'/.test(lampListSrc), 'as items of its own RENDER_SPEC kind');
@@ -132,19 +129,16 @@ test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with 
 test('street lamps: an UNLIT lamp draws the BROKEN POST baked from the same painter, at the lit lamp\'s size and seat', () => {
   // A lamp stands on every LAMP_SPACING_M of street whether or not that
   // stretch is restored; the dark ones have to be visible or the lamps would
-  // seem to appear from nowhere. Until Oct 2026 they wore a 16 px frame of
-  // the old cobble sheet at a quarter the size and 57% alpha — a smudge next
-  // to the lit lamp. Now the dark lamp is the SAME casting with its column
-  // snapped (RoadOverlay.paintBrokenLamp), baked at runtime exactly as the
-  // lit lamp is, so restoring a stretch changes the lamp and nothing else.
+  // seem to appear from nowhere. The dark lamp is the SAME casting with its
+  // column snapped (RoadOverlay.paintBrokenLamp), baked at runtime exactly as
+  // the lit lamp is, so restoring a stretch changes the lamp and nothing else.
   assert.truthy(/const STREET_LAMP_BROKEN_TEX = 'street_lamp_broken';/.test(app), 'one bake for every street\'s broken post');
   assert.truthy(/_ensureBrokenLampTex\(\) \{[\s\S]{0,600}?RoadOverlay\.paintBrokenLamp\(lctx, S\);[\s\S]{0,80}?this\.textures\.addCanvas\(key, cvs\);/.test(app),
     'baked by the real painter with `broken` set, into a canvas texture');
   assert.truthy(/const key = STREET_LAMP_BROKEN_TEX;\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app), 'baked once');
   assert.truthy(/this\._ensureStreetLampTex\(UI_LAMP_GLOW\);\s*\n\s*this\._ensureBrokenLampTex\(\);/.test(app), 'baked at boot beside the lit lamp');
   // ONE RENDER_SPEC row, two bakes, picked by the one `lit` flag — and the
-  // same frame, origin, nudge, size and alpha for both: the cobble's own
-  // frame table, size and alpha are gone.
+  // same frame, origin, nudge, size and alpha for both.
   assert.truthy(/key: \(o\) => \(o\.lit \? streetLampTexKey\(o\.glow\) : STREET_LAMP_BROKEN_TEX\)/.test(lampSpecSrc),
     'the texture branches on o.lit — a lit lamp by its own glow\'s bake, a dark one the broken post');
   assert.truthy(/frame: '__BASE',/.test(lampSpecSrc), 'the baked canvas is the only frame of either');
@@ -212,8 +206,7 @@ test('street lamps: the lamp STANDS on its point — the sprite\'s origin is the
   // The post is drawn a few pixels below its point — art only: the verge
   // offset above and the light on the same point are unmoved. It counts
   // BECAUSE the row is not seated (a seated spec has its dyPx overwritten by
-  // the seat pass, which is how three tuned offsets that moved nothing came to
-  // ship), so the two pins belong together.
+  // the seat pass), so the two pins belong together.
   assert.truthy(/dyPx: \(\) => STREET_LAMP_DY_PX,/.test(lampSpecSrc),
     'both posts take the nudge — the broken one stands on the same point');
   assert.truthy(/const STREET_LAMP_DY_PX = 3;/.test(app), 'three screen pixels, by eye — it dropped to one when the base came up 2 into its cell, now nudged back down 2px');
@@ -225,11 +218,9 @@ test('street lamps: the lamp STANDS on its point — the sprite\'s origin is the
 test('street lamps: nothing here reaches the save — generated, never stored, like the traps', () => {
   // The whole feature's state is entry._streetLamps (geometry, tile-cached)
   // and scene._streetLamps (the lit subset, frame-cached) — neither is
-  // save.* or JSON that survives a reload. What DOES survive is exactly what
   // it always was: save.streets, the restored intervals — a lamp is lit
   // purely as a function of those, recomputed every time. (The one thing a
-  // lamp adds is the LIVING-LAMP delta, save.lampVisits — when the player
-  // last came by, keyed by the lamp's position-derived id; living_lamps.test.js.)
+  // lamp adds is the LIVING-LAMP delta, save.lampVisits — living_lamps.test.js.)
   assert.falsy(/save\.streetLamps/.test(app), 'no save.streetLamps field exists');
   assert.falsy(/save\._streetLamps/.test(app), 'and the live lists are never written onto save at all');
 });
@@ -239,12 +230,10 @@ test('street lamps: nothing here reaches the save — generated, never stored, l
 // tile entry: a synthetic 180 m street across the middle of one tile, the
 // real Streets algebra, the real coords projection.
 //
-// This is the half the source-text pins above could not see. Until Sep 2026
-// _streetLampsForTile wrote its empty answer onto a tile entry that had no
-// `layers` yet — and a tile's entry is in WorldGen.tileCache from the moment
-// its FETCH starts, while this pass runs every frame — so every tile in the
-// world was measured for lamps while it was still loading and cached as
-// "no lamps here" for the rest of the session. Nothing ever lit.
+// This is the half the source-text pins above could not see: a tile's entry
+// is in WorldGen.tileCache from the moment its FETCH starts, while this pass
+// runs every frame, so writing an empty answer onto an entry with no `layers`
+// yet cached "no lamps here" for the session.
 {
 const P = __streetLampPasses;
 
@@ -363,11 +352,10 @@ test('street lamps: a ready tile stands one lamp per Streets.lampSpacingM() of s
 });
 
 test('street lamps: a lamp stands ON THE VERGE — its stone just touching the band, never in the traffic', () => {
-  // Until Sep 2026 the point came straight off the centreline, so every lamp
-  // stood in the middle of the road it lit. The seat is DERIVED (streets.js
-  // lampOffsetM): half the way's own drawn width — WorldGen.roadOverlayWidthM,
-  // the number road_overlay.js strokes the band with and rasterizeTile stamps
-  // roadMask from — plus the stone's radius, so the art kisses the kerb.
+  // The seat is DERIVED (streets.js lampOffsetM): half the way's own drawn
+  // width — WorldGen.roadOverlayWidthM, the number road_overlay.js strokes
+  // the band with and rasterizeTile stamps roadMask from — plus the stone's
+  // radius, so the art kisses the kerb.
   const lamps = P._streetLampsForTile.call({}, TX, TY, readyEntry());
   const halfBandM = WorldGen.roadOverlayWidthM({ class: 'residential' }) / 2;
   const footRM = STREET_LAMP_R_CELLS * CELL_M_T;
@@ -407,10 +395,9 @@ test('street lamps: the verge offset is derived from the art the draw pass uses'
 
 test('street lamps: a tile still LOADING is never memoised as lampless — the bug that lit nothing', () => {
   // A tile entry enters WorldGen.tileCache the moment its fetch starts, with
-  // no `layers` until the build lands seconds later, and this pass runs on
-  // every frame — so it ALWAYS meets a tile in that state. Writing the empty
-  // answer onto the entry (the entry IS the cache) froze it there for the
-  // tile's whole life, and every tile in the world went through it.
+  // no `layers` until the build lands, and this pass runs every frame, so it
+  // ALWAYS meets a tile in that state. Writing the empty answer onto the entry
+  // (the entry IS the cache) would freeze it there for the tile's whole life.
   const entry = loadingEntry();
   assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 0, 'nothing to place yet');
   assert.falsy(entry._streetLamps, 'and the miss is NOT written onto the entry');
@@ -447,10 +434,9 @@ test('street lamps: a restored stretch lights ITS lamp and only its lamp — the
 
 test('street lamps: a lamp restored in an earlier session lights without the player taking a step', () => {
   // The frame memo is the same rule one level up: keyed on the anchor cell
-  // and Streets.epoch, neither of which moves while the player stands still
-  // watching the ring land. Stamping it over a still-loading ring would hold
-  // "no lamps" until they happened to walk onto another cell — which on a
-  // reload is every lamp they have ever earned.
+  // and Streets.epoch, neither of which moves while the player stands still.
+  // Stamping it over a still-loading ring would hold "no lamps" until they
+  // walked onto another cell.
   const entry = loadingEntry();
   const save = {};
   restoreAround(save, 135, 12);                   // banked before this session

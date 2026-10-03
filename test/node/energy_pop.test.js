@@ -5,10 +5,7 @@
 // own cell for a rest tick or a slime's leech — through the projection, which
 // is what tells the reader WHICH cell it was: the number is the whole mark,
 // and nothing is drawn on the ground under it.
-// Until Sep 2026 the rest splash was a 'note' at the viewport centre minus
-// 70px (two cells over anyone's head, and under a peek drag two cells from
-// nowhere) and the drains sat 40px above the same point. The coin pickup's
-// "+1" is the same cell pop, and the foe's "-N" damage number wears the
+// The coin pickup's "+1" is the same cell pop, and the foe's "-N" damage number wears the
 // same dress (stroke + drop shadow) from the same toast table.
 //
 // The placement (_energyPopAt / _cellToastAt / _cellAtScreen / playerScreen)
@@ -191,10 +188,8 @@ test('energy pop: every energy readout goes through _popEnergy, on a cell', () =
 });
 
 test('energy pop: the stick-walk drain accumulates and flushes as one throttled pop, not one per pip', () => {
-  // Until Sep 2026 _steerManual's per-cell `save.energy -= 1` (inside its own
-  // `while (_steerCostAccrue >= 1)` loop) showed the player nothing at all —
-  // every sibling continuous drain (the slime leech, a monster's melee, the
-  // trap bleed) pops; this one was silent. Mirrors _slimeStealAccum's shape:
+  // Every continuous drain pops (slime leech, melee, trap bleed), including
+  // _steerManual's per-cell `save.energy -= 1`. Mirrors _slimeStealAccum's shape:
   // bank the pip into an accumulator here, flush it as one throttled pop from
   // a place that runs every frame (see below), never one pop per pip — that
   // would spam a long drag across town.
@@ -277,8 +272,7 @@ test('energy pop: a body pop hangs on the player, and nothing is drawn on the gr
   const seat = app.match(/\n  _energyPopAt\(ix, iy\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(/this\._isPlayerCell\(ix, iy\) && this\.playerScreen/.test(seat[1]),
     'the seating asks that test');
-  // The cell number is the whole mark. Until Sep 2026 a thin outline ticked on
-  // the cell under it, which read as a flash of damage on the tapped ground.
+  // The cell number is the whole mark; no outline is drawn on the ground.
   const cm = app.match(/\n  _popCellNumber\(text, color, ix, iy\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(/return this\._toast\(text, \{ tier: 'cell', color, \.\.\.at \}\);/.test(cm[1]),
     'the pop is the toast and nothing else');

@@ -1,13 +1,10 @@
 // Regression guard: WORKING IS NOT RESTING.
 //
 // The passive rests in app.js update() — Home (HOME_FULL_REST_S) and campfire
-// warmth (FIRE_FULL_REST_S) — must pause while a work wheel runs. Until Sep
-// 2026 they didn't, and a new player's first till was free: the starter
-// trailer is dropped under the player at spawn and the starter plot is carved
-// two cells from it — inside Home's rest ring (HOME_R), so the Home
-// rest ticked at maxE / HOME_FULL_REST_S under a wheel that had already cost
-// ENERGY_COST.till — and handed it back before the wheel finished. The bar
-// read the same number before and after ("tilling takes no energy").
+// warmth (FIRE_FULL_REST_S) — must pause while a work wheel runs. Otherwise a new player's first till is
+// free: the starter plot is carved inside Home's rest ring (HOME_R), so the
+// Home rest ticks under a wheel that already cost ENERGY_COST.till and hands
+// it back before the wheel finishes.
 //
 // app.js needs Phaser and can't load headlessly, so the gate is pinned as
 // source text (SCENE_SRC is lifted by run.js). The arithmetic test below is

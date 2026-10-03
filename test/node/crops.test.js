@@ -159,9 +159,7 @@ test('watering can: an area water reports what it pushed along', () => {
 });
 
 // ── Bed quality: the hoe's tier, banked on the cell, spent onto the crop ─────
-// Produce quality was the WATERING CAN's until Sep 2026 (stamped on the plant
-// at its first watering, plus 2 while a refill bank held). It is the HOE's
-// now, and it belongs to the BED: the till banks it on the cell, the plant
+// Produce quality is the HOE's, and it belongs to the BED: the till banks it on the cell, the plant
 // spends it onto the crop, and the harvest reads it off the crop. These pin
 // that a cell's quality and its tilled marker cannot drift apart.
 

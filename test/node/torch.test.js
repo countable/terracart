@@ -86,8 +86,7 @@ test('torch: a KINDS row, TORCH_RADIUS_MUL player radii of the player\'s own whi
   assert.gt(T.flicker, 0, 'it is a flame: it breathes');
   assert.gt(Lighting.radiusCells('handtorch'), Lighting.radiusCells('trailer'), 'and it throws further than Home');
   // The player row's radius is the ramp's extent — the viewport's half-
-  // diagonal plus the past-corner margin — the same number draw() used to
-  // compute for rMax.
+  // diagonal plus the past-corner margin.
   const near = (a, b, m) => { if (Math.abs(a - b) > 1e-9) throw new Error(`${m}: ${a} vs ${b}`); };
   near(Lighting.radiusCells('player'), Math.hypot(VIEW_CELLS, VIEW_CELLS) / 2 + Lighting.PLAYER_RAMP_PAST_CORNER_CELLS,
     'the player row is the ramp');

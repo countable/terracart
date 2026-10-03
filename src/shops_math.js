@@ -11,8 +11,7 @@
 // A CLOSED DEAL SETTLES THE SHOP (owner's call, Oct 2026): what was bought
 // leaves the shelf, so the next offer is a fresh draw (the deal count is in
 // the seed), and the paid re-roll ladder drops back to its base rung
-// (recordDeal zeroes `rerolls` and `skips`). The smithy did this alone
-// before; now every shop does, through the one recorder.
+// (recordDeal zeroes `rerolls` and `skips`), through the one recorder.
 //
 // NO SHOP RATIONS ITS DEALS (Sep 2026, owner's call): a smithy, trader or
 // storefront can be used continuously — there is no per-hour deal cap, no
@@ -62,7 +61,7 @@
   // table of who waits. A role with no row (market, blacksmith, wizard, the
   // castle) never does. Only the trader: its stock is what changes hands,
   // so an instant reopen was a free converter between any two stacks the bag
-  // held. Short on purpose — a breather, not the old hourly ration.
+  // held. Short on purpose — a breather, not a ration.
   const DEAL_COOLDOWN_MS = { trader: 5 * 60 * 1000 };
   const MAX_DEAL_COOLDOWN_MS = Math.max(0, ...Object.values(DEAL_COOLDOWN_MS));
 
@@ -174,8 +173,7 @@
                 ^ Math.imul(turnover, 0x85ebca6b)
                 // The free re-draws a re-roll took to land on something NEW
                 // (rerollPeek): seed-only, so the ladder never climbs for
-                // them. Zero (or absent, on every record written before
-                // Oct 2026) leaves the seed exactly as it was.
+                // them. Zero or absent leaves the seed unchanged.
                 ^ Math.imul(cur.skips | 0, 0x27d4eb2f)) >>> 0;
     // The lane name is folded onto that seed with util.js' fnv1a loop — the
     // same prime and order fnv1a() itself uses, just started from here rather
@@ -233,13 +231,10 @@
   // A stand (the coffee cart, the fruit stall, the fishmonger) is a fresh
   // producer selling its own goods, not a village shop restocking from a
   // wholesaler — so it undercuts the listed price rather than marking it up.
-  // It used to charge exactly par, which read as expensive for what is meant
-  // to be the cheap, friendly way to get hold of an ingredient.
   //
   // The discount has a hard floor: THE PLAYER MUST NEVER BE ABLE TO BUY FROM A
   // STAND AND SELL AT A PROFIT. The stand price is a margin above the sell
-  // rate (sellMultiplier, items.js — one flat number since Oct 2026; it used
-  // to climb with the Sword relic, and the discount shrank with it), clamped
+  // rate (sellMultiplier, items.js — one flat number), clamped
   // between the best discount and par:
   //
   //     sell 0.70  →  pay max(0.75, 0.75) = 0.75   (25% off par, today)
@@ -299,10 +294,8 @@
 
   // ─── Trader ask ──────────────────────────────────────────────────────────
   // What a trader asks in return for its goods: an item id and a count worth
-  // `target` (the give side's value × 1..2). The ask used to be ANY priced
-  // stack in the bag, whatever it held — so a trader happily asked a wooden-
-  // backpack player for 54 Potato Seeds against a stack that can't hold a
-  // third of that. A deal the player can never accept is not an offer.
+  // `target` (the give side's value × 1..2). An ask the player's bag can
+  // never hold is not an offer, hence the two passes below.
   //
   // So the pick runs in two passes on one rng:
   //   1. On TRADER_AFFORDABLE_CHANCE of rolls (most of them), only stacks that

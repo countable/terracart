@@ -87,18 +87,12 @@ function questEnemies() {
 // POI classes worth sending somebody to look at. Common enough to exist in a
 // real neighbourhood, distinct enough to be a destination.
 const QUEST_POIS = ['well', 'fountain', 'library', 'museum', 'park', 'place_of_worship', 'playground'];
-// Exposed as a global (mirrors the "IIFE modules' window.X exports" pattern
-// described at the top of interactables.js) purely for the headless test
-// bundle: test/node/run.js's BRIDGE re-exports QUEST_TEMPLATES/QUEST_ENEMIES
-// this same way, but QUEST_POIS was never added because nothing outside this
-// file used to read the raw target list. poi_quest.test.js needs the REAL
-// array, not a hand-copied one — a copy is exactly the kind of thing that
-// drifts silently the next time a target is added here, which is the whole
-// class of bug this file's onEvent()/onPoiVisit() plumbing just got bitten by
-// (see interactables.js' markOpened for the fix). In the browser this line is
-// a no-op duplicate of the lexical binding every later <script> tag already
-// sees; only the node vm harness — which reloads each test file in its own
-// separate vm.runInContext call — needs the property on the shared global.
+// Exposed as a global purely for the headless test bundle (test/node/run.js's
+// BRIDGE re-exports QUEST_TEMPLATES/QUEST_ENEMIES the same way):
+// poi_quest.test.js needs the REAL array, not a hand-copied one that could
+// drift. In the browser this is a no-op duplicate of the lexical binding;
+// only the node vm harness, which reloads each test file in its own
+// vm.runInContext call, needs the property on the shared global.
 if (typeof window !== 'undefined') window.QUEST_POIS = QUEST_POIS;
 // QUEST_ENEMIES is exported the same way and for the same reason, but as an
 // ACCESSOR rather than a value: the list is derived from a table that does not
@@ -141,8 +135,7 @@ const Quests = {
     // the next job takes its number, which is the whole point of numbering them.
     while (q.slots.length < QUEST_SLOTS) q.slots.push(null);
     for (let i = 0; i < QUEST_SLOTS; i++) {
-      // A job whose verb has left the board (plant / till / restore, retired
-      // Sep 2026) is rerolled in its slot rather than left unfinishable-looking.
+      // A job whose verb has left the board is rerolled in its slot.
       if (q.slots[i] && !QUEST_TEMPLATES.some(t => t.id === q.slots[i].verb)) q.slots[i] = null;
       if (!q.slots[i]) q.slots[i] = this.generate(i, q.gen++, q.done, save.relicSalt || 0);
     }

@@ -3,8 +3,7 @@
 //
 // The wizard draws power from the player's memories (save.memories, the
 // currency that was "Discovery badges") and turns it into rungs of power.
-// Until Sep 2026 he offered one strict ladder — Inner Light, then Full
-// Measure, then Keen Eye, five badges a rung. Now:
+// The offers are:
 //
 //   • TRACKS (one table, TRACKS below). Each is a counter on the save with a
 //     cost and a max; within a track the rungs still climb in order, so the

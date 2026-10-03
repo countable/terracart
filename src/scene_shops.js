@@ -236,7 +236,7 @@ class SceneShops {
     // nothing, so those never offer to take one. Checked after the cooldown
     // gate so a bouquet can't be spent on a shut door, and skipped while a charm
     // is already running so repeat taps don't burn the stack. A RESTORED
-    // castle is excluded too — it no longer sells anything to discount, only
+    // castle is excluded too — it sells nothing to discount, only
     // the daily rest/tax favour (see presentCastleServiceOffer).
     if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
         && ((castle && !this.isCastleClaimed(house)) || shopType === 'market')
@@ -272,7 +272,7 @@ class SceneShops {
     // Plain houses — small residential without a shop role and not the
     // starter blacksmith — are delivery sites only. Each wants a SET of 1-3
     // produce and buys it as a bundle: one of each, full price, no sword
-    // sellMul. They don't sell anything or do the old 10% relic swap. Their
+    // sellMul. They don't sell anything. Their
     // sign shows the wanted icons so the player can scout a street and gather
     // the matching set.
     if (isDeliveryHost) {
@@ -322,7 +322,7 @@ class SceneShops {
       this.presentTraderOffer(sx, sy, house, recordDeal);
       return;
     }
-    // Wizard tower (the first story tower) — no longer a relic vendor. The
+    // Wizard tower (the first story tower). The
     // mage sees power in the player's memories and spends them on his gifts.
     // See presentWizardOffer.
     if (shopType === 'wizard') {
@@ -416,9 +416,8 @@ class SceneShops {
 
   // Resolve (and self-heal) save.starterShopId: the player's Home. Home is the
   // house nearest the player's ACTUAL location — their first GPS fix — NOT the
-  // fixed map origin (startWorldM, anchored at START_LAT/LON). Anchoring on the
-  // origin was the old bug: a player who starts far from START_LAT got a
-  // trailer dropped near the origin, off-screen, so it never appeared.
+  // fixed map origin (startWorldM, anchored at START_LAT/LON): a player who
+  // starts far from START_LAT would get a trailer off-screen near the origin.
   //
   // Once a GPS fix is in, the rule is "what you can see is home":
   //   • if any house is visible ON-SCREEN, adopt the nearest one as the trailer;
@@ -582,11 +581,7 @@ class SceneShops {
           'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
           + 'background:#222a;border:2px solid #555;border-radius:6px;color:#fff;'
           + 'cursor:pointer;font:12px ui-monospace,monospace;text-align:left;';
-        // Icons alone told you nothing: three unlabelled sprites and a
-        // distance, so you couldn't tell what a run needed, what it paid, or
-        // which of five rows you could actually complete. Name every item,
-        // show how many of each you're carrying against the one needed, and
-        // price the set.
+        // Name every item, show carried vs needed, and price the set.
         const icons = h.wanted.map(id => this.iconSpanHTML(id)).join(' ');
         const names = h.wanted.map(id => itemName(id)).join(' + ');
         const have = h.wanted.map(id => Inventory.count(this.save, id));
@@ -1418,9 +1413,7 @@ class SceneShops {
     };
   }
 
-  // REST: a flat CASTLE_REST_ENERGY, once per Houses.CASTLE_SERVICE_MS (it was
-  // a tenth of the bar, the same fraction the old hourly hearth gave — twice a
-  // day now instead of once an hour). Silent (no-op) while the favour is
+  // REST: a flat CASTLE_REST_ENERGY, once per Houses.CASTLE_SERVICE_MS. Silent (no-op) while the favour is
   // still spent or the castle isn't claimed; the modal that calls this never
   // offers the choice in either case.
   _castleRest(sx, sy, house) {
@@ -1658,7 +1651,6 @@ class SceneShops {
         this.buildInventoryDOM();
         // The forge's story pane: the forged piece's own art (not a coin),
         // large on the forge painting, with the finishing moment (FORGE_CEREMONY).
-        // It replaces the old loot splash rather than stacking a toast under it.
         const { iconPx, ...ceremony } = FORGE_CEREMONY;
         this.showChestRewardModal({
           ...ceremony,
@@ -1671,8 +1663,7 @@ class SceneShops {
   }
 
   // Build a shop offer for buying ${id} (baseValue = PRICES[id]). Always a
-  // CASH price now — the old mixed "1/3 cash / 2/3 barter" roll was removed so
-  // the two trade idioms map cleanly onto shop types: MARKETS (and every
+  // CASH price, so the two trade idioms map cleanly onto shop types: MARKETS (and every
   // generic cash storefront) want money, TRADERS barter (their own qty-scaled
   // path in presentTraderOffer). opts.house names the shop asking: it seeds
   // the markup roll off that shop's hour bucket (so the price holds for the

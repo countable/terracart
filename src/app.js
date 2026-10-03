@@ -128,10 +128,8 @@ const BLAST_STONE_R_CELLS = 1.5;
 // 2.4× the old 900 ms. It outlives the shine it was named for: with the run
 // switched off (below) this is what the length of the moment now means.
 const STREET_SHINE_MS = 2200;
-// How bright that shine starts. Well under full white: the run used to fade
-// from opaque white, which at the widths a trunk road is stroked at whited out
-// the carriageway for a beat every time a sweep landed — and a sweep lands
-// every few paces while the player walks a street.
+// How bright that shine starts. Well under full white: opaque white at trunk
+// road widths whited out the carriageway every time a sweep landed.
 //
 // SWITCHED OFF (Sep 2026), the twin of the dwell preview's own switch above:
 // a white run over the new carriageway is the same glow arriving one beat
@@ -302,11 +300,8 @@ const WALK_TIRED_SLOW_MUL = 0.5;
 const FOLLOW_RAMP_M = 4;
 // DETOUR COMMITMENT (see _detourDir): once the body picks a side to walk round
 // a wall, it keeps that side for as long as it keeps jogging, and this long
-// after the last jog. The side used to be re-read every frame from the target's
-// lean off the body's heading — and the jog itself swings that lean: the first
-// sidestep puts the body off the target's line, so the target now leans the
-// OTHER way and the next frame jogged straight back. Behind a one-cell rock the
-// body vibrated on the spot forever. Long enough to see a half-cell jog through
+// after the last jog. Re-reading the side every frame made the body vibrate
+// behind a one-cell rock: the first sidestep flips the target's lean. Long enough to see a half-cell jog through
 // against the follow step pulling it back toward the line; short enough that
 // the next wall along gets a fresh choice.
 const DETOUR_COMMIT_MS = 1000;
@@ -370,10 +365,8 @@ const COIN_BURST_NEAR_PLAYER = 3;
 // few coins at the player's own feet are 'minor' (the player is already
 // there). Both are per-player, so both read the live private-ground veto
 // (WorldGen.privateVetoAt — fences, private areas; none when the fetch fails).
-// SAFETY (owner, Sep 2026): a coin used to be allowed in the carriageway and in
-// front gardens, and to vanish after a minute — the strongest "run into the
-// street" push the safety audit found. Now it never lies on a road or in a
-// yard, and it waits COIN_BURST_LIFE_MS.
+// SAFETY: a coin never lies on a road or in a yard (the strongest "run into the
+// street" push the safety audit found), and it waits COIN_BURST_LIFE_MS.
 // How long a burst's coins wait for you. No timed reward is shorter than ten
 // minutes: nothing is worth hurrying across a street for.
 const COIN_BURST_LIFE_MS = 10 * 60 * 1000;
@@ -680,9 +673,8 @@ const ENEMY_HEALTH_RING_MS = 4000;
 // crossing a pack), so damage accumulates between beats and pops as one
 // rounded number rather than stacking overlapping labels on the same bar.
 // Nothing is lost to the throttle — the kill blow flushes whatever it held.
-// The melee wheel itself no longer needs it: it lands whole blows at
-// Combat.MELEE_INTERVAL_MS, which is slower than this beat, so each one pops
-// on its own.
+// The melee wheel lands whole blows at Combat.MELEE_INTERVAL_MS, slower than
+// this beat, so each pops on its own.
 const DMG_POPUP_BEAT_MS = 500;
 // The tool drawn in the middle of a work wheel (_setWorkProgressIcon). Near
 // full strength so the tier's colour reads — it is the only thing on the
@@ -1053,7 +1045,7 @@ const COLORS = {
   // money, loot. No terrain may claim it, or the one colour that means "you
   // can touch this" turns into scenery. That is why sand, the paths, the
   // farmland mud, the plank floors and tilled soil all sit in grey-brown and
-  // olive here rather than the golds they used to carry.
+  // olive here rather than golds.
   0: 0x7b8d4e,  // grass — dry meadow khaki-green (was a fresh lawn green)
   1: 0x546540,  // forest — deep desaturated olive
   2: 0xcab48b,  // sand — pale grit; was a golden tan, the worst yellow offender
@@ -1114,13 +1106,10 @@ const COLORS = {
 const BUILDING_TYPES = new Set([9, 11, 12]);
 // Resting AT Home (the starter trailer / adopted home shop) fills the bar in
 // this many seconds. YOUR OWN PLACE IS THE ONLY BUILDING THAT RESTS YOU: every
-// building cell used to regenerate energy at INDOOR_FULL_REST_S (300s), which
-// made a home no more than a faster version of the nearest stranger's roof and
-// meant a town was one continuous rest spot. A campfire (FIRE_FULL_REST_S)
+// building cell would otherwise make a town one continuous rest spot. A campfire (FIRE_FULL_REST_S)
 // covers the out-in-the-wild case; going home covers the rest. Like the fire,
 // it rests you anywhere inside its ring (HOME_R) — the doorstep is where the
-// player actually stands, and it used to rest them at neither the doormat nor
-// the doorstep.
+// player actually stands.
 // Both rates PAUSE while a work wheel runs (see the `working` gate in
 // update()): a job done from the doorstep costs its energy on the bar, and
 // the rest earns it back only once the wheel has cleared.
@@ -1843,11 +1832,6 @@ class MapScene extends Phaser.Scene {
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
     // a discovered one. Temporary procedural stand-ins — see textures.js.
     makeTrapTextures(this);
-    // (Longgrass used to be a procedural canvas texture painted by
-    // drawLongGrassTex. CROP_SPRITE.longgrass now points at frame 0 of the
-    // 'props' sheet, which reads as a hand-painted grass tuft consistent
-    // with the rest of the wilderness art. Procedural texture + the
-    // drawLongGrassTex helper have been removed.)
     // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
     // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
     // exact same image. Run after sheet loads so all source images are ready.
@@ -2238,10 +2222,8 @@ class MapScene extends Phaser.Scene {
     // gradient and Phaser's Graphics has no gradient primitive), and drawn by
     // the shared world sprite pass — RENDER_SPEC._streetlamp, into
     // worldContainer with every other standing thing, so a lamp sorts by
-    // SCREEN ROW against the trees, houses and animals around it. It had a
-    // pool of its own in cobbleContainer (ground decoration) until Sep 2026,
-    // which is why a lamp used to hide under any building footprint or sprite
-    // on the map, whatever row it stood in.
+    // SCREEN ROW against the trees, houses and animals around it (not a
+    // ground-decoration pool, which would hide it under building footprints).
     //
     // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS) by that spec, so the lamp
     // keeps its proportion to the carriageway at any latitude's cell size.
@@ -2256,7 +2238,7 @@ class MapScene extends Phaser.Scene {
     // worn paint markings on them (white washed out over pale stone).
     // A road cell is only PART stone, though: the ground the road was painted
     // over shows around the band, so on a road crossing grass or forest
-    // the dark glyphs used to disappear into the dark background. A pale
+    // dark glyphs disappear into the dark background. A pale
     // stone-coloured halo around each glyph carries the word over both — the
     // lettering stays dark on the stones and stays readable off them.
     // Pool is sized one slot per visible cell because render walks cells — at
@@ -2510,8 +2492,7 @@ class MapScene extends Phaser.Scene {
       .strokeRect(this.viewLeft - 1, this.viewTop - 1, this.viewSize + 2, this.viewSize + 2);
 
     // Inner vignette. The map is a hard-clipped 352×352 square sitting on the
-    // flat #222 page, so its edge used to end as an abrupt seam: bright grass
-    // straight into dead grey. A short darkening ramp inward from the rim
+    // flat #222 page, so its edge would be an abrupt seam. A short darkening ramp inward from the rim
     // makes the square read as a WINDOW onto the world rather than a cropped
     // rectangle, and it does the usual vignette job of pulling the eye to the
     // player at the centre.
@@ -2653,10 +2634,8 @@ class MapScene extends Phaser.Scene {
     // There is NO walk-target marker. Movement is target-follow at every depth:
     // GPS fixes and steering input move a free-flying target (this._targetM)
     // and the opaque body (this.player) walks toward it — underground it also
-    // passes through rock, which the body mines out. A small grey dot used to
-    // mark that target (surface first, then underground only), and at every
-    // depth it read as a blob floating ahead of an auto-walking character —
-    // the character walking itself over is the whole message. The ONE ground
+    // passes through rock, which the body mines out. A target dot read as a
+    // blob floating ahead of the character, so there is none. The ONE ground
     // marker beside the body is the GPS crosshair (gpsGhost, below): where you
     // REALLY are, shown at every depth once the body has left it.
     // Warning halo behind the player: red when the tank is empty, near-black
@@ -2784,9 +2763,8 @@ class MapScene extends Phaser.Scene {
 
     // World tap + PEEK DRAG. One pointer does both, and which one it was is
     // only known when it lifts: a pointer that never travelled PEEK_DRAG_SLOP_PX
-    // is a tap and fires on the up (it used to fire on the down — the few ms
-    // between the two is not something a hand can feel, and it is the whole
-    // price of being able to drag). A pointer that DID travel drags the camera
+    // is a tap and fires on the up (the few ms of delay is the whole price of
+    // being able to drag). A pointer that DID travel drags the camera
     // and taps nothing: you cannot chop a tree by sliding the map off it.
     //
     // Ping mode (multiplayer.js — "tap 📍, then tap the map") still takes the
@@ -2926,11 +2904,8 @@ class MapScene extends Phaser.Scene {
     // opening story slides, so calling it here can't jump the story.
     if (!this._sandboxMode) window.showHowTo?.();
 
-    // Boot tile load. The boot overlay (index.html) used to fade the instant
-    // the FIRST update() frame ran, leaving the in-world "unmapped" shimmer as
-    // the only sign anything was happening for however long the initial 3×3
-    // tile block took to fetch — several seconds on a cold cache, and a
-    // dark shimmer reads as stalled, not loading. Keep the overlay up (its bar
+    // Boot tile load. The initial 3×3 tile block can take seconds on a cold
+    // cache and the in-world shimmer reads as stalled, not loading. Keep the overlay up (its bar
     // fed per-tile by ensureTilesAround itself) until this first call actually
     // resolves, success or failure, instead of handing off at first paint.
     const _endTiles = window.__boot?.begin('first tile block (overlay stays up)');
@@ -4044,15 +4019,11 @@ class MapScene extends Phaser.Scene {
   //   harvest → the nearest crop the player planted
   //   sell    → Home (selling only happens there)
   //
-  // Every step past "Break ground" used to fall back to the crates. That read
-  // fine while the crates spread across the whole walk, but once they packed
-  // into its first few cells (TRAIL_SPAN) a player opened all four early —
-  // leaving the RELIC CHEST as the only unopened `chest_start_*`, a full
-  // screen away. So for most of the ladder the one arrow on screen pointed at
-  // the horizon while the chip asked them to tap their soil, their crop, a
-  // wreck or their own house, all of which are near spawn: the arrow did not
-  // point at the intended space. Each unresolvable target still falls back to
-  // the crates, which remain worth collecting.
+  // Falling back to the crates for every step pointed the arrow at the relic
+  // chest, a screen away, while the chip asked for soil/crop/wreck/house near
+  // spawn (the crates pack into the first cells, TRAIL_SPAN). Each
+  // unresolvable target still falls back to the crates, which remain worth
+  // collecting.
   _starterGuidanceGoal(step) {
     const sv = this.save;
     const pWX = this.startWorldM.x + this.playerM.x;
@@ -4219,9 +4190,9 @@ class MapScene extends Phaser.Scene {
       .setRotation(this.playerBodyRotation());
     this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
-    // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
+    // NOT persisted, so a refresh ends it), not a movement MODE:
     // a dragon walks the same way everyone walks, just with tier-8 boots' speed and energy efficiency (DRAGON_WALK_COST_TIER, see _walkRelics) and double damage. All the
-    // edge does is swap the sprite skin; its countdown is a status-row chip.
+    // edge does is swap the sprite skin
     const dragonActive = this.isDragonActive();
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
@@ -4339,26 +4310,17 @@ class MapScene extends Phaser.Scene {
     // and wake up top-side. Guarded so the modal fires once, and skipped in
     // tests (which drive energy directly and don't want a DOM modal).
     //
-    // `_passingOut` alone used to be the only guard, and it is reset the
-    // instant the modal is dismissed — but nothing about passing out
-    // restores energy (that's the point: you must rest before you can go
-    // back down). So the very next frame still reads energy <= 0, and the
-    // gate fired again immediately: a blackout underground drops you to the
-    // surface at 0 energy, which in hard mode is ALSO a surface blackout —
-    // chaining into a loop that halved the purse every frame until it hit
-    // $0. Hard mode's zero-energy lockout (_zeroEnergyLocked) makes this the
-    // common case rather than a corner one: once the tank reads empty on
-    // hard, food/campfire/offline rest all refuse, so nothing but reaching
-    // Home lifts energy off 0 — which used to mean passing out every single
-    // frame until Home was reached. `save.exhausted` is a second latch that
-    // outlives the modal: once tripped it blocks BOTH gates until energy
-    // actually recovers above 0 (Home, a Crow Feather), so a single dry
-    // spell costs the purse exactly once.
+    // `_passingOut` alone is not enough: it resets when the modal is dismissed
+    // but passing out restores no energy, so the gate would refire next frame
+    // (an underground blackout lands you at 0 on the surface, and on hard the
+    // zero-energy lockout (_zeroEnergyLocked) refuses food/campfire/offline
+    // rest, so only Home lifts energy off 0) halving the purse every frame.
+    // `save.exhausted` is a second latch that outlives the modal: once tripped
+    // it blocks BOTH gates until energy recovers above 0 (Home, a Crow Feather),
+    // so a single dry spell costs the purse exactly once.
     //   THE LATCH LIVES IN THE SAVE (`save.exhausted`), not on the scene: a
-    // refresh while lying on an empty bar rebuilt the scene with the latch
-    // cleared and the bar still 0, so reloading charged the half-purse again —
-    // every reload, a fresh penalty for the same collapse. The pass-out
-    // persists it alongside the money it took.
+    // refresh on an empty bar would otherwise charge the half-purse again. The
+    // pass-out persists it alongside the money it took.
     if (this.save.exhausted && (this.save.energy ?? 0) > 0) {
       this.save.exhausted = false;
       persistSave(this.save);
@@ -4419,10 +4381,7 @@ class MapScene extends Phaser.Scene {
     // pip has accrued. Test mode skips this so deterministic test runs don't
     // see energy creep.
     //
-    // HOME ONLY. Standing on ANY building cell used to rest you (300s to a full
-    // bar), which made a stranger's front room a rest spot and a town one
-    // continuous one. Nothing reads a building cell here any more: Home is a
-    // ring (HOME_R), the same shape as the campfire's below.
+    // HOME ONLY: Home is a ring (HOME_R), the same shape as the campfire's below.
     if (!window.__TEST_MODE) {
       const pWX = this.startWorldM.x + this.playerM.x;
       const pWY = this.startWorldM.y + this.playerM.y;
@@ -4523,9 +4482,7 @@ class MapScene extends Phaser.Scene {
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
     // pointing in the compass heading (or last movement, as fallback). It
-    // rides the player's head at every depth. (It used to jump onto the
-    // walk-target dot underground while the dig was out ahead of the body;
-    // that dot is gone — the body's own heading says where the dig is going.)
+    // rides the player's head at every depth.
     this.facingGfx.clear();
     const fmag = Math.hypot(this.facing.x, this.facing.y);
     if (fmag > 0.001) {
@@ -4553,11 +4510,8 @@ class MapScene extends Phaser.Scene {
     }
 
     // Footprint trail. Each ~2m the player moves, fade existing dots by 10%
-    // and drop a fresh one AT THE PLAYER'S CURRENT FEET. (Previously dropped
-    // at the player's _previous_ position, which made the freshest dot trail
-    // ~2m behind the sprite — the trail visibly started a body-length away
-    // from the feet.) Starting alpha is 0.45 (was 0.65 — ~30% lower) so the
-    // freshest dot reads as a soft press rather than ink.
+    // and drop a fresh one AT THE PLAYER'S CURRENT FEET. Starting alpha is 0.45
+    // so the freshest dot reads as a soft press rather than ink.
     {
       const bodyM = this.playerM;
       const lp = this._lastFootprintM;
@@ -4662,11 +4616,8 @@ class MapScene extends Phaser.Scene {
     // The target is PER-STEP (see _starterGuidanceGoal): the crates while the
     // chip says to open one, the carved plot for "Break ground", and the
     // tilled soil / the nearest wreck / the crop / Home for the steps that
-    // happen at those places. Everything past step 2 used to fall back to the
-    // nearest unopened `chest_start_*`, which — once the crates packed into
-    // the first few cells of the walk (TRAIL_SPAN) — was the relic chest a
-    // screen away for the whole rest of the ladder: the one arrow on screen
-    // led AWAY from the space the chip was asking the player to tap.
+    // happen at those places. (The crates pack into the first cells of the walk,
+    // TRAIL_SPAN, so a crate fallback pointed away from the tap the chip asked for.)
     //
     // Retires itself the moment the ladder finishes or is dismissed, and stops
     // pointing once the player is on top of the target (it is in reach by
@@ -5023,11 +4974,8 @@ class MapScene extends Phaser.Scene {
       // against, so what blocks you blocks your arrows; on the surface, a
       // trunk with real girth — an unchopped tree or fruit tree, MEDIUM size
       // class or bigger (treeSizeClass — the same ladder the axe-tier gate
-      // reads). A rock never blocks: mineral stone used to, but a knee-high
-      // boulder stopping an arrow read as the terrain fighting for the
-      // monster, and a 'small'/'bush' tree is too slight a trunk to hide
-      // behind either — only a medium/full canopy has the girth to actually
-      // stop a shot. The surface set is built lazily, once per tick, only
+      // reads). A rock never blocks, and a 'small'/'bush' tree is too slight a trunk —
+      // only a medium/full canopy has the girth to stop a shot. The surface set is built lazily
       // when a shot is actually in flight: stepShots samples the test every
       // half-cell of every shot, far too often for a per-sample object scan.
       let solidCells = null;
@@ -5080,10 +5028,8 @@ class MapScene extends Phaser.Scene {
     // ── Melee: auto-engage ─────────────────────────────────────────────────
     // With no ranged weapon in hand you never have to tap the slime that is
     // already chewing on you: the nearest enemy IN REACH is picked up on its
-    // own. That is the sword's lane AND bare hands' (owner, Oct 2026 — it
-    // used to need an owned, active sword, so a new player had to tap every
-    // foe until they bought one). An equipped bow or staff turns it off —
-    // Gear.meleeActive — see the WEAPON_SLOTS note above.
+    // own. That is the sword's lane AND bare hands'. An equipped bow or staff
+    // turns it off — Gear.meleeActive — see the WEAPON_SLOTS note above.
     // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
@@ -5091,9 +5037,7 @@ class MapScene extends Phaser.Scene {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
-        // swings as far as a monster bites and no further. This used to be
-        // cellInReach, so an auto-engaging sword picked up a foe 2.5 cells off
-        // — 5.5 with the Inner Light upgrades — and fought it the whole way in.
+        // swings as far as a monster bites and no further.
         if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save))) continue;
         const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
         if (d2 < bestD2) { bestD2 = d2; best = c; }
@@ -6042,12 +5986,8 @@ class MapScene extends Phaser.Scene {
     }
     if (Combat.isEnemyKind(victim.kind)) {
       // Every enemy kill pays a bounty (enemyBounty — derived from the kind's
-      // HP plus a depth climb). The gold is the reliable part: before this a
-      // foe dropped nothing at all and the only sane play was to walk around
-      // it. The SURFACE SLIME draws one too — it fights you and eats your
-      // crops, and for a long time killing one paid nothing, which is the gap
-      // this branch closes by asking Combat what an enemy is rather than
-      // asking the cave-monster table.
+      // HP plus a depth climb). The SURFACE SLIME draws one too, because this
+      // branch asks Combat what an enemy is rather than asking the cave-monster table.
       // It is NOT credited: it falls as one coin on the foe's cell carrying
       // the whole amount, and the coin tap (interact.js 'coindrop') pays it
       // and pops the real number there.
@@ -6130,10 +6070,7 @@ class MapScene extends Phaser.Scene {
     // note above, the same shared spawn rule _coinCellsNearPlayer uses for a
     // coin at the player's own feet): a foe felled off legitimate ground
     // leaves its coin on the nearest THE SPAWN GATE allows (a 'minor' spawn),
-    // within three cells. Not just the road band — this used to read
-    // entry.roadMask directly and miss every other hard reason (a kill in a
-    // quiet corner or somebody's back garden) the general coin rule already
-    // promises to avoid.
+    // within three cells. Not just the road band: every hard spawn reason counts.
     const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy };
     const blocked = (x, y) => !WorldGen.isSpawnCell(entry.grid, N, N, x, y, spawnOpts, 'minor');
     if ((this.depth || 0) === 0 && entry.grid && cx >= 0 && cy >= 0 && cx < N && cy < N && blocked(cx, cy)) {
@@ -6203,13 +6140,8 @@ class MapScene extends Phaser.Scene {
   // (combat, mine/chop/fish, catch, till, dig, the interactables table).
   //
   // The tool is drawn IN THE CANVAS, by _drawWorkProgress, at the ring's own
-  // centre (cx, cy) and at 1:1 game pixels. It used to be a 16 CSS px DOM
-  // badge placed by converting that centre through gameScreenRect(): at the
-  // usual ~2× CSS scale that was half the ring's size, faded to 0.7 and
-  // repositioned off a rect cached for a second — and on a cold cache
-  // IconNet's dark loading plate stood in for it, which on the wheel's dark
-  // backing disc drew nothing at all for the length of a short job. One
-  // coordinate space with the ring is what keeps it in the middle.
+  // centre (cx, cy) and at 1:1 game pixels: one coordinate space with the ring
+  // is what keeps it in the middle.
   //
   // The texture is fetched on demand (_toolTexture) — gear art is never in the
   // boot preload — and warmed for every equipped wheel tool whenever relics
@@ -6218,17 +6150,10 @@ class MapScene extends Phaser.Scene {
   // BARE HANDS WEAR NO BADGE, and that test lives HERE, once. Every job on
   // this wheel can be done with nothing in hand — that is the tier-0, 9 s rung
   // of toolDurationMs — and the badge's whole job is to say what you are
-  // swinging, so an unowned slot must draw NOTHING. Until Sep 2026 the tier
-  // fell back to `|| 1`, i.e. to WOOD, so every bare-handed wheel hung a Wood
-  // tool it had invented over the ring. On the catch that read as a bug: the
-  // Bug Net's 16 px art is a pale hoop on a short stick, so a bare-handed
-  // catch put a TINY WHITE CIRCLE in the middle of the wheel, tied to no item
-  // the player owned. Two call sites had already hand-written the test
-  // (`startCombat`'s `relics.sword ? 'sword' : null`, the hunt wheel's
-  // `netSlot`) and every other one — the catch, the till, the cave-wall dig,
-  // the shrub chop, the interactables table — had not. Answering it in the
-  // shared helper is what makes it un-forgettable by the next wheel starter,
-  // and it is the gate _drawWorkProgress' swing branch already claims to
+  // swinging, so an unowned slot must draw NOTHING (no fallback to Wood: a
+  // bare-handed catch would show the Bug Net's pale hoop tied to no owned item).
+  // Answering it in the shared helper keeps the next wheel starter from
+  // forgetting it, and it is the gate _drawWorkProgress
   // share with the badge.
   _setWorkProgressIcon(toolSlot) {
     this._workProgressToolKey = null;
@@ -6413,9 +6338,7 @@ class MapScene extends Phaser.Scene {
     }
     // Tracked defeat target (deer / crow / slime hunt): the creature moves under
     // its OWN wander/flee AI, not the wheel. Keep the wheel drawn over it, and
-    // abort the hunt if it escapes the player's reach for a short grace window —
-    // previously the defeat wheel was anchored to a FIXED point and happily ran
-    // to completion even after a fleeing deer had bounded clear out of range.
+    // abort the hunt if it escapes the player's reach for a short grace window.
     if (wp.track) {
       const c = wp.track;
       wp.worldX = c.x; wp.worldY = c.y;        // follow the target
@@ -6473,16 +6396,10 @@ class MapScene extends Phaser.Scene {
       if (this.save.caught?.includes(c.id)) { this.cancelWorkProgress(); return; }
       // EVERY BLOW IS ARM'S LENGTH, not just the one that opened the fight.
       // The three gates above (tap, auto-engage, break-off) all measure
-      // Combat.inMeleeReach, but the swing below used to sit past all of them
-      // and land on the clock alone — and the break-off is a 1 s GRACE, which
-      // is exactly MELEE_INTERVAL_MS. So every fight paid out one free hit at
-      // whatever distance the foe had got to, and a foe hovering ON the
-      // boundary never broke off at all: each dip back inside resets
-      // `_outSinceT` to null, so the grace never ripened and the blows kept
-      // landing from outside swinging distance indefinitely. That is the
-      // "I can hit a slime more than one cell away" the reach fix was supposed
-      // to have ended — the grace decides whether the FIGHT is still on, this
-      // decides whether a swing can LAND, and they are not the same question.
+      // Combat.inMeleeReach, but the swing below must check it too: the break-off
+      // is a 1 s GRACE (== MELEE_INTERVAL_MS), and a foe hovering ON the boundary
+      // resets `_outSinceT` so the grace never ripens. The grace decides whether
+      // the FIGHT is still on, this decides whether a swing can LAND.
       // `_nextBlowT` is deliberately NOT advanced when the swing misses: the
       // clock is the scene's, so a foe that closes again is hit at once rather
       // than being granted a fresh interval of safety by having stepped out.
@@ -6520,17 +6437,12 @@ class MapScene extends Phaser.Scene {
     const progress = elapsed / dur;
     // Static targets (rock / tree / crop / fish / a cave wall) are worked in
     // ONE CELL, and the wheel is centred on that cell — the anchor is snapped
-    // to its cell centre and no offset is added. It used to sit at a flat -7
-    // above the anchor, which read as riding up the cell rather than on it. A
-    // CREATURE can't use a flat offset either way: the animals are drawn
-    // feet-anchored at wildly different sizes, so the one number that hugged a
-    // cow's head floated ~4 px clear above a chicken and sat down at a perched
-    // crow's feet. Wheels over a creature — a capture (wp.flee) or a hunt
-    // (wp.track) — follow the animal's own position and are placed by the
-    // crown rule instead (SpriteLayout.creatureWheelDy): the ring rests on the
-    // top row of that kind's art. That subsumes the old per-case fudges,
-    // including the capture wheel's extra lift for "clear the fleeing animal"
-    // — it clears it by construction now.
+    // to its cell centre and no offset is added. A CREATURE can't use a flat
+    // offset: the animals are drawn feet-anchored at wildly different sizes.
+    // Wheels over a creature — a capture (wp.flee) or a hunt (wp.track) —
+    // follow the animal's own position and are placed by the crown rule
+    // (SpriteLayout.creatureWheelDy): the ring rests on the top row of that
+    // kind's art, which also clears a fleeing animal by construction.
     const creature = wp.flee || wp.track || null;
     let ax = wp.worldX, ay = wp.worldY;
     if (!creature) {
@@ -7031,8 +6943,8 @@ class MapScene extends Phaser.Scene {
     if (!row.fillScreen) for (const d of this._coinCellsNearPlayer(burstN - n, COIN_BURST_NEAR_R, taken)) drops.push(d);
     // NOTHING SEATED, NOTHING SPENT. The day's claim is written only once a
     // coin will actually land: "No room to scatter!" used to fire AFTER the
-    // claim, so a pot in a tight spot (or tapped with the view peeked away)
-    // ate the day's burst and paid nothing.
+    // coin will actually land: a pot in a tight spot (or tapped with the view
+    // peeked away) must not eat the day's burst and pay nothing.
     if (drops.length === 0) {
       this.flash('No room to scatter!', sx, sy);
       visit.finish();
@@ -7171,8 +7083,7 @@ class MapScene extends Phaser.Scene {
   // taking a staircase, a dragon landing. Also drops the stick's manual offset:
   // after a warp there's no "how far I walked off the GPS" left to honour, and
   // keeping it would just walk the player straight back off the new spot.
-  // Without this the stale target survives the warp and the body immediately
-  // sets off walking back to wherever it used to be headed.
+  // Without this the stale target survives the warp and the body walks back.
   syncMoveTarget() {
     // A peek is a look at the ground AROUND YOU; after a warp that ground is
     // somewhere else, so the camera snaps back onto the body rather than
@@ -8275,10 +8186,7 @@ class MapScene extends Phaser.Scene {
     const t = this.add.text(x, y, text, style)
       .setOrigin(0.5, opts.originY ?? 1).setDepth(S.depth);
     if (opts.mask) t.setMask(opts.mask);
-    // EVERY tier clamps now. Only `flash` used to, which is why a tap near an
-    // edge rendered half a message ("Just out o") — and why a long item name
-    // at 22px could still run off the 352px viewport in the loot pop, where
-    // nobody had noticed because most names are short.
+    // EVERY tier clamps: a tap near an edge must not render half a message.
     t.x = clampTextX(x, t.width, W);
     // Stack instead of overlapping. Do this BEFORE the drift tween is built so
     // the tween captures the final resting y.
@@ -10002,8 +9910,7 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     // The read's own lead-in ("The worn book falls open", or the sketch's
     // "You crack open the book") heads the panel, minus the emoji the plain
-    // consumable path shows: a painted header is a label (CLAUDE.md). The
-    // "pages rustle" line that used to sit over it was cut in Oct 2026.
+    // consumable path shows: a painted header is a label (CLAUDE.md).
     this.showMessageModal({
       title: read.title.replace(/^📖\s*/, ''),
       body: read.body,
@@ -10040,9 +9947,7 @@ class MapScene extends Phaser.Scene {
   // the lit silhouette AND every tap-accept gate cover everything on screen.
   // Stored in `save` (not just in-memory) so the buff survives tile reloads
   // within the minute; the timestamp self-expires, so a stale save is harmless.
-  // `opts` rides through to _finishConsumable like the other drinks; it
-  // used to be read here without being declared, which threw on every
-  // Potion of Reach (sandbox run, Oct 2026 — player_potions.test.js).
+  // `opts` rides through to _finishConsumable like the other drinks.
   drinkReachPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
@@ -10092,8 +9997,7 @@ class MapScene extends Phaser.Scene {
   }
   _tomeSpent(id) {
     // THE ENCHANTER'S EDGE (wizard.js CLASSES): half-length cooldowns, both
-    // the shared lock and the tome's own magic - the calling's whole benefit
-    // since the potion channel retired with the tomes' arrival.
+    // the shared lock and the tome's own magic - the calling's whole benefit.
     const mul = (typeof Wizard !== 'undefined' && Wizard.isClass(this.save, 'enchanter')) ? 0.5 : 1;
     const now = Date.now();
     this.save.tomeReadyAt = now + TOME_COOLDOWN_MS * mul;
@@ -12300,12 +12204,8 @@ class MapScene extends Phaser.Scene {
   // (HOME_R), exactly like the campfire's _nearAny('fires', …, FIRE_REST_R) —
   // because Home is a campfire you own: the same ring rests you, lights you
   // and turns enemies away.
-  //   It used to be two special cases, and they agreed on nothing: an adopted
-  // house rested you only from INSIDE (standing on a building cell, plus a
-  // nearest-house scan so a neighbour's roof didn't read as Home), and the
-  // trailer only from its own snapped cell (it paints no building cell to
-  // stand on). Neither rested you on the DOORSTEP, which is where the player
-  // stands while farming the plot two cells away.
+  //   Both adopted houses and the trailer rest you on the DOORSTEP, which is
+  // where the player stands while farming the plot two cells away.
   isRestingAtHome(pWX, pWY) {
     return this.inHomeRing(pWX, pWY);
   }
@@ -13244,9 +13144,7 @@ class MapScene extends Phaser.Scene {
     // The counter: metres banked toward the current goal, popped ON THE STREET
     // in the colour a restored street is made of (UI_STREET_INK — the same
     // constant the chips and the sparks are thrown in), so the number and the
-    // thing it counts read as one event. It used to pop at the screen centre
-    // in the pale treasure ink, which said "something happened" without saying
-    // where or what to.
+    // thing it counts read as one event.
     //
     // Seated through worldMetersToScreen, never off the player: a peek drag
     // moves the camera, and the counter has to stay on the stretch it is about
@@ -13687,9 +13585,7 @@ class MapScene extends Phaser.Scene {
   // reward as its own card — sprite, name, tier and amount under the same
   // banner, `takenSub` (the giver's thanks) as its line — through
   // showRewardCard, the lane the single-reward ceremony and every other
-  // earned reward use. The pick used to flash the kept card as a toast,
-  // which on the first road prize was the only word the player got of what
-  // they had taken, and a toast under a closing dialog is missed.
+  // earned reward use (a toast under a closing dialog is missed).
   //
   // The caller's `onDismiss` (the prize queue walking on) fires when the
   // CARD closes, not when the pick does: a queued prize draining on the
@@ -13796,8 +13692,7 @@ class MapScene extends Phaser.Scene {
     const single = choices.length === 1 ? costFor(options[0]) : null;
     // THE MAGIC HAMMER (Houses.HAMMER_ID): holding one, the dialog offers a
     // second way to restore — "With Hammer" beside Restore, in this same
-    // window (owner, Oct 2026; it used to be a second prompt after Restore).
-    // The building comes up shiny and sells cheaper for good
+    // window. The building comes up shiny and sells cheaper for good
     // (Houses.priceMul); the hammer is spent with the stones.
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
     const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
@@ -14360,8 +14255,7 @@ class MapScene extends Phaser.Scene {
   // shadow, a lit lower rim) with a brass cap sitting proud of it (top-lit
   // dome, its own drop shadow). The stick is GOLD because gold is the
   // interaction colour — it is the single most-touched control in the game,
-  // so it wears the affordance hue at full strength (it used to be purple,
-  // which said nothing about being touchable). The dark keyline and blur keep
+  // so it wears the affordance hue at full strength. The dark
   // it legible over a bright map.
   _installMovePadCss(PAD, NUB, HALF) {
     if (document.getElementById('move-pad-css')) return;
@@ -14550,11 +14444,9 @@ class MapScene extends Phaser.Scene {
   // per-frame row rebuild can early-out by comparing a counter instead of
   // recomputing a join-string of every slot every frame.
   markRelicsDirty() { this._relicsGen = (this._relicsGen || 0) + 1; }
-  // Relics/armor used to render as a read-only icon strip at the top-right.
-  // That strip is gone: equipped gear now lives in the Relics / Armor tabs of
-  // the two-bar inventory HUD (buildInventoryDOM). This method survives because
-  // it's the per-frame hook that keeps the movement stick on screen
-  // — guarded by a generation counter so it only does work
+  // Equipped gear lives in the Relics / Armor tabs of the two-bar inventory HUD
+  // (buildInventoryDOM); this is the per-frame hook that keeps the movement
+  // stick on screen, guarded by a generation counter so it only does work
   // when gear actually changed (markRelicsDirty bumps the counter).
   updateRelicRow() {
     const gen = this._relicsGen || 0;
@@ -15262,8 +15154,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // Build the Eat button's element once. Split out of syncEatButton because
-  // the button is no longer a bare label — it carries the cooldown bar as a
-  // child, so a plain `innerHTML = label` on the whole button would wipe it.
+  // the button carries the cooldown bar as a child, so a plain
+  // `innerHTML = label` on the whole button would wipe it.
   _makeEatButton() {
     const btn = document.createElement('button');
     btn.id = 'eat-btn';
@@ -15345,9 +15237,8 @@ class MapScene extends Phaser.Scene {
 
   // Book / Honey Read / Use button. Mirror of syncEatButton — sits next
   // to the Eat button (or in the same spot when food isn't selected). This
-  // is THE way to use a self-targeted consumable: the old tap-your-own-feet
-  // gesture (interact.js 'use-consumable') was removed because it was easy
-  // to trigger accidentally while tilling / planting under the player.
+  // is THE way to use a self-targeted consumable (a tap on your own feet was
+  // too easy to trigger accidentally while tilling / planting under the player).
   hatchEgg() {
     const selectedId = this.save.inv?.[this.save.selSlot]?.id;
     const result = EggHatch.hatch(this.save);

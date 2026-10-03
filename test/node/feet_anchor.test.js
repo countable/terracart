@@ -1,13 +1,9 @@
 // Regression guard: THE FEET ARE ON THE FIX.
 //
 // playerM is the GPS position. The player sprite must be seated so its
-// visible FEET land on that point — not its centre. Until Sep 2026 the sprite
-// was centred on the fix (origin 0.5/0.5 at viewCentre, +1.4px) and the feet
-// hung 14px = 3 m south of it, with every ground mark (footprint dots, contact
-// shadow, GPS crosshair, walk-home line) carrying its own +13/+14 to follow
-// them down. Standing on a road's centreline put the band through the
-// character's waist and the feet on the south shoulder, so the whole map read
-// as shifted a body-length NORTH of where the player stood.
+// visible FEET land on that point — not its centre. A sprite centred on the
+// fix leaves the feet 3 m south of it, the road band through the character's
+// waist, and every ground mark needing its own offset to follow.
 //
 // app.js needs Phaser and can't load headlessly, so the seating is pinned as
 // source text (SCENE_SRC / MULTIPLAYER_SRC are lifted by run.js). If one of
@@ -78,11 +74,9 @@ test('feet anchor: ground marks sit on the point with no feet offset of their ow
 });
 
 // The grey walk-target dot is gone at every depth, and the GPS crosshair is
-// shown at every depth. The dot marked this._targetM — the point the body is
-// auto-walking to — and read as a blob floating ahead of the character
-// wherever it showed (it was surface-only, then underground-only). The
-// crosshair marks where you REALLY are, which a descent GPS-mirrors, so it is
-// as true underground as above; it used to be hidden there.
+// shown at every depth. The dot read as a blob floating ahead of the
+// character. The crosshair marks where you REALLY are, which a descent
+// GPS-mirrors, so it is as true underground as above.
 test('ground marks: no walk-target dot, and the GPS crosshair at every depth', () => {
   assert.falsy(/targetGhost/.test(app), 'no walk-target marker anywhere in app.js');
   assert.truthy(/if \(this\.gpsM\) \{/.test(app), 'the GPS ghost block is not gated on depth');

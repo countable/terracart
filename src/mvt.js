@@ -186,11 +186,8 @@
   function* decodeLayerSteps(r, end) {
     const layer = { name: '', extent: 4096, keys: [], values: [], features: [] };
     const featSpans = [];
-    // Header field count — a layer with a huge number of keys/values (or a
-    // huge run of non-feature fields) could otherwise hold the thread between
-    // two yields with nothing to stop it: this loop shipped with NO yield at
-    // all, so decodeTileSliced's whole point (hand the frame back on a budget)
-    // didn't apply to it. 511 matches the per-feature cadence below.
+    // Header field count: yield periodically so a layer with huge key/value
+    // runs cannot hold the thread. 511 matches the per-feature cadence below.
     let hn = 0;
     while (r.pos < end) {
       if ((++hn & 511) === 0) yield;

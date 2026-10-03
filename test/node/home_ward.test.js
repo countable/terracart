@@ -69,8 +69,7 @@ test('home: the rest is a RING, not a doormat', () => {
   const s = trailerScene();
   const r = HOME_R * CELL_M;
   // The doorstep — where the player stands to work the starter plot, two
-  // cells out — rests them. It rested them at neither the doormat nor the
-  // doorstep before: the trailer counted only from its own snapped cell.
+  // cells out — rests them (the trailer counts from more than its own snapped cell).
   assert.truthy(s.isRestingAtHome(2 * CELL_M, 0), 'two cells out is inside Home');
   assert.truthy(s.isRestingAtHome(0, 0), 'and so is standing on it');
   assert.truthy(s.isRestingAtHome(r * 0.99, 0), 'right out to the rim');
@@ -157,10 +156,8 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
     'the angle is away from HOME');
   // Away-from-PLAYER would shove the foe around the ring with the player
   // still inside it, so the branch must not read the player's bearing.
-  // Sliced to the NEXT branch in the chain, whatever it is — the lair guards'
-  // hunt and walk-home branches were added between this one and the slime's,
-  // and a slice pinned to the slime would have swept them in and read their
-  // player bearing as this branch's.
+  // Sliced to the NEXT branch in the chain, whatever it is, so another
+  // branch's player bearing is never read as this one's.
   const branch = wander.match(/\} else if \(warded\) \{([\s\S]*?)\n          \} else if /);
   assert.truthy(branch, 'the ward branch has a branch after it');
   assert.falsy(/dxp|dyp/.test(branch[1]), 'not away-from-player');

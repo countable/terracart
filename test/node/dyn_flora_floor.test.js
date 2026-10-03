@@ -28,10 +28,9 @@ const ring = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMv
 // feeds the polygon's hashed seed — varies the roll.
 const schoolRing = () => ring([[2, 2], [28, 2], [28, 28], [2, 28]]);
 
-// (School grounds are NOT restricted: since Sep 2026 the spawn gate treats
-// them as ordinary open ground — only KINDERGARTEN stays a hard reason. The
-// floor is pinned on a sports pitch, the open-field flora row family; the
-// polygon is merely school-sized.)
+// (School grounds are NOT restricted: the spawn gate treats them as ordinary
+// open ground; only KINDERGARTEN is a hard reason. The floor is pinned on a
+// sports pitch, the open-field flora row family; the polygon is merely school-sized.)
 test('a landuse=pitch polygon never grows zero longgrass, across many locations', () => {
   const N = 400;
   let zeroCount = 0;

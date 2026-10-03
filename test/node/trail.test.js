@@ -30,9 +30,8 @@
   });
 
   test('trail: the stones vocabulary is gone', () => {
-    // The ladder counts restored METRES now. A `GOAL_STEP` left behind as an
-    // alias is how a caller keeps banking pebble counts against a metre goal
-    // and pays a prize every ten metres.
+    // The ladder counts restored METRES. A `GOAL_STEP` left behind as an
+    // alias would let a caller bank pebble counts against a metre goal.
     assert.eq(T.GOAL_STEP, undefined, 'Trail.GOAL_STEP is gone');
     assert.eq(T.bank(0, 0, 5).stones, undefined, 'and bank() reports metres, not stones');
     assert.eq(T.bank(0, 0, 5).metres, 5, 'which is what it is called');
@@ -148,8 +147,8 @@
   });
 
   test('trail: nothing per-path survives', () => {
-    // The old machinery: a segment cap, a per-trail counter, a minimum trail
-    // length, a prizes-earned-per-trail sum. Its absence is the feature.
+    // No segment cap, per-trail counter, minimum trail length or
+    // prizes-earned-per-trail sum: their absence is the feature.
     for (const gone of ['SEGMENT_CELLS', 'MIN_TRAIL_CELLS', 'segmentIndex',
                         'segmentTarget', 'maxPrizes', 'prizesEarned', 'qualifies']) {
       assert.eq(T[gone], undefined, `Trail.${gone} is gone`);
@@ -431,9 +430,8 @@ test('trail counter: the street reads Trail.readout of the bank, not raw progres
 })();
 // ── The counter lands ON the street ───────────────────────────────────────
 // The "N/M m" is drawn over the stretch that just came back, in the colour a
-// restored street is made of, instead of popping at the screen centre in the
-// pale treasure ink. The seating (_worldToastAt) is lifted out of app.js and
-// run for real, because it is a PROJECTION — the thing a peek drag breaks when
+// restored street is made of. The seating (_worldToastAt) is lifted out of
+// app.js and run for real, because it is a PROJECTION — the thing a peek drag breaks when
 // someone measures it off the player instead of the camera anchor.
 (() => {
 const { _worldToastAt, _cellToastAt } = __trailCounter;

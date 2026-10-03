@@ -830,15 +830,8 @@ test('creature: a tap two cells to the side finds nothing (false)', () => {
 });
 
 // ── ONE REACH GATE ──────────────────────────────────────────────────────────
-// tooFar used to carry a second, older rule — a Euclidean distance from the
-// player's CELL CENTRE — behind a `typeof cellInReach === 'function'` guard,
-// as a fallback for the coords.js helpers being unavailable. They never are:
-// coords.js declares them at the top level of a classic script that loads
-// before interact.js, in index.html and in this suite alike. So the guard was
-// always true and the losing rule could not be falsified by playing the game.
-//
-// It mattered because the two rules DISAGREE, which is why the cell rule
-// replaced it: an object whose world point sits off its cell centre (a house
+// tooFar has no Euclidean fallback behind a `typeof cellInReach` guard
+// (coords.js always loads first). The two rules DISAGREE: an object whose world point sits off its cell centre (a house
 // FOOT, up to ~0.7·cellM away) could pass the cell gate and still trip the
 // Euclidean one at the reach edge, flashing "just out of reach" only sometimes,
 // depending on where the foot sat and on cardinal-vs-diagonal geometry.
@@ -871,10 +864,7 @@ test('reach: the removed rule leaves nothing behind to feed it', () => {
 })();
 
 // ─── ONE TOOL TAKES ANIMALS: THE BUG NET ────────────────────────────────────
-// Until Sep 2026 the crow/deer HUNT wheel was sped by the best of sword / bow
-// / staff, so a weapon bought purely to fight also quietly made you a better
-// hunter — and the net, the tool the catalog sells for exactly this, was worth
-// nothing on the two kinds you take by hunting. Weapons fight ENEMIES
+// Weapons must not speed the crow/deer HUNT wheel. Weapons fight ENEMIES
 // (combat.js); the net takes GAME and livestock alike, on the same slot the
 // catch wheel already used. app.js/interact.js can't be driven headlessly this
 // deep, so the wiring is pinned as source text.

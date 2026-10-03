@@ -6,11 +6,8 @@
 // save.houseWishlists the first time it is made and read back from there ever
 // after, so the ask a player walked away from is the ask that is waiting when
 // they come back with the goods — whatever day it is and however far the tier
-// cap has climbed since. (Until Sep 2026 the list re-rolled every UTC day, and
-// the produce you gathered for a house on Tuesday was the wrong produce on
-// Wednesday.) A house takes ONE delivery, ever: once fed it is happy for good
-// (isSatisfied) and its roof callout stays a smiling face. (Until Sep 2026 the
-// happy state reset every UTC day and the wishlist came back.)
+// cap has climbed since. A house takes ONE delivery, ever: once fed it is happy for good
+// (isSatisfied) and its roof callout stays a smiling face.
 //
 // The first roll draws from every produce up to a tier cap that rises one step
 // every 20 lifetime deliveries. The first houses you restore run a SCRIPTED

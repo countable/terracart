@@ -7,19 +7,14 @@
 // have to hold or it reads as a cheat.
 //
 //   1. It has to clear the VIEWPORT with real margin. The corner of an
-//      11-cell view sits at VIEW_CELLS/2 * √2 ≈ 7.8 cells; the bubble used to
-//      stop at 8, a tenth of a cell past the glass, which is exactly where the
-//      seam shows — a deer frozen mid-stride starts walking as it crosses the
-//      corner, and a monster stalking you only begins the stalk once you can
-//      already see it. CREATURE_SIM_CELLS is 12: about half a viewport of
+//      11-cell view sits at VIEW_CELLS/2 * √2 ≈ 7.8 cells; a bubble stopping
+//      at 8 shows the seam (a deer frozen mid-stride starts walking as it
+//      crosses the corner). CREATURE_SIM_CELLS is 12: about half a viewport of
 //      margin, so things arrive already in motion.
 //
 //   2. Anything DISPATCHED at the player must land inside it. The crop-raiding
-//      pest pump seats its deer "just off-screen" and the code promised it
-//      "flies toward the nearest crop next tick" — while seating it at exactly
-//      12 cells, i.e. ON the rim of the cull that decides whether it thinks at
-//      all. The bird sat frozen out in the dark until the player happened to
-//      walk at it. PEST_SPAWN_CELLS (10) has to stay strictly between the
+//      pest pump seats its deer "just off-screen"; seated ON the rim (12) it
+//      would sit frozen. PEST_SPAWN_CELLS (10) has to stay strictly between the
 //      viewport corner and the bubble, and this is the test that says so.
 //
 // The constants are lifted by run.js along with the source text of the three

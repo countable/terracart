@@ -762,9 +762,7 @@ test('slow: the feet cell is read off playerToWorldCell, and the first contact f
 });
 
 // ── One end piece per street per tile (Sep 2026) ───────────────────────────
-// A major road arrives cut into many short lines, and every owned line END
-// used to stand a barricade + goblin (220 over Seattle's nine tiles). Now the
-// ends are pooled by street key and ONE seats per (street, tile): the end
+// A major road arrives cut into many short lines. The ends are pooled by street key and ONE seats per (street, tile): the end
 // whose hash endPick is lowest and that seats. Same for Pilgrim's waystones.
 const PILG = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'pilgrim', 'Chapel Walk');
 function piecewiseLayers() {
@@ -810,9 +808,8 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
 });
 
 // ── Dogs: no ground takes them whole any more (Sep 2026 safety pass) ─────
-// A dog whose every spawn draw failed used to be seated on the bandit verge
-// (a p = 1 species). With the road's `attracts` gone, no ground pulls the
-// dogs whole, so a displaced dog stays lost, as any other species does.
+// With the road's `attracts` gone, no ground pulls the dogs whole, so a
+// displaced dog stays lost, as any other species does.
 test('old trade road: a displaced dog is no longer seated on the major verge', () => {
   const m = liftAttract();
   const r = rasterize();

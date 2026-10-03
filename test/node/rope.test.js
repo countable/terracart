@@ -29,10 +29,8 @@ test('rope: is a T2 consumable with a price and an effect line', () => {
   assert.eq(BASE_TIER.rope, 2, 'BASE_TIER row');
   assert.truthy(PRICES.rope > 0, 'a sell price');
   assert.truthy(PRICES.rope < PRICES.sapphire, 'cheaper than the sapphire, whose portal is one-way');
-  // The climb is disclosed ONE place: the rope's own effect line, which the
-  // player reads while holding it. It used to be said twice — a Book tip
-  // repeated the same sentence — and a Book that restates an item description
-  // spends a consumable to print what the inventory bar already showed.
+  // The climb is disclosed ONE place: the rope's own effect line (a Book tip
+  // restating it would spend a consumable to print what the bar already shows).
   assert.truthy(/handhold/.test(ITEM_EFFECTS.rope), 'the rope hints at climbing');
   assert.falsy(PLAY_TIPS.some(t => /\bRope\b/.test(t) && t !== ITEM_GUIDE_TIPS.rope),
     'and no Book tip repeats it — bar the rope\'s own guide page (ITEM_GUIDE_TIPS)');

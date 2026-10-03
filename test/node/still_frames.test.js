@@ -1,9 +1,7 @@
 // ── Still frames: the loop's cadence and the lightmap's gate ──────────────
 //
-// A GPS walker spends most of a session standing still, and until Sep 2026
-// every step repainted the lightmap and re-uploaded it to the GPU whether or
-// not a single input had moved — at the display's own refresh rate, since
-// the Phaser config carried no fps cap at all. Two things hold now: the loop
+// A GPS walker spends most of a session standing still, so repainting and
+// re-uploading the lightmap every step is waste. Two things hold: the loop
 // STEPS on FPS_LIMIT (30/s) rather than on vsync, and Lighting.draw keys each
 // step on everything the paint reads (frameKey) and reuses the last upload
 // when the key stands. What animates reads a quantised clock (lightClock),

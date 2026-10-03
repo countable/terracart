@@ -270,11 +270,9 @@ test('world frame: ordinary tree sources only generate maple and pine', () => {
 
 // ── Caves: derived from the GENERATED layer above, never the live entry ───────
 // A cave level is the negative of the level above it, and it mirrors that
-// level's chests and down-stairs. It used to read the LIVE entry — the grid
-// app.js carves ponds / wells into, the objects the Overpass bin (when it
-// happened to be cached) and the starter ladder (one player's) were pushed
-// onto — so the cave under a tile depended on who descended and when. Now it
-// reads entry.baseGrid / entry.genObjects, frozen at build.
+// level's chests and down-stairs. It reads entry.baseGrid / entry.genObjects,
+// frozen at build, never the LIVE entry (ponds, wells, cached Overpass bins and
+// one player's starter ladder would make the cave depend on who descended).
 async function caveUnder(edgeM, tamper) {
   const TXC = 900001, TYC = 900002, N = 32, cw = edgeM / N;
   const at = (ix, iy) => ({ x: TXC * edgeM + (ix + 0.5) * cw, y: TYC * edgeM + (iy + 0.5) * cw });
