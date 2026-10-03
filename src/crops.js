@@ -39,9 +39,6 @@
   function stageHoldMs(crop) { return tierHoldMs(cropTier(crop)); }
   // A tier-1 crop's stage — the first crop a player grows (the starter seeds).
   const STAGE_HOLD_MS = tierHoldMs(1);
-  // The flat 15-minute stage every crop had before per-crop holds. Only the
-  // one-time save migration below still reads it.
-  const LEGACY_STAGE_HOLD_MS = 15 * 60 * 1000;
   // THE CAN SHORTENS THE STAGE IT STARTS (owner's call, Sep 2026): a watering
   // stamps the plant's hold for the stage it begins (`p.hold_ms`), cut by the
   // can's tier — CAN_HOLD_CUT off at Frost (seven eighths — owner's call,
@@ -57,29 +54,9 @@
     return p && p.hold_ms > 0 ? p.hold_ms : stageHoldMs(p && p.crop);
   }
 
-  // Called once by save migration. Old watered crops keep the fraction of
-  // their 15-minute stage already earned; a completed stage pays out first.
-  function migrateStageTimers(save, now = Date.now()) {
-    let changed = false;
-    for (const p of save.planted || []) {
-      if (!p.watered_t || isMature(p)) continue;
-      const elapsed = Math.max(0, now - p.watered_t);
-      if (elapsed >= LEGACY_STAGE_HOLD_MS) {
-        p.stage = (p.stage ?? 0) + 1;
-        p.watered_t = 0;
-        changed = true;
-      } else if (stageHoldMs(p.crop) !== LEGACY_STAGE_HOLD_MS) {
-        p.watered_t = now - elapsed / LEGACY_STAGE_HOLD_MS * stageHoldMs(p.crop);
-        changed = true;
-      }
-    }
-    return changed;
-  }
-
-  // The one crop no raider touches: a potato grows underground, and the deer
-  // (the crop raider — scene_creatures.js wanderCreatures `raidsCrops`) never
-  // notices it. It was the crow's rule until Sep 2026, when crop-raiding moved
-  // to the deer; the safe crop stayed the same.
+  // The one crop no raider touches: a potato grows underground, and neither
+  // crop raider (SpriteLayout `raidsCrops` — the deer's graze, the crow's
+  // landing) notices it.
   const RAIDER_IGNORED_CROPS = new Set(['potato']);
 
   // The save owns the flat crop list; this derived index is deliberately kept
@@ -186,18 +163,13 @@
   // ── The watering can, and what a better one is FOR ────────────────────
   // A can's tier is the CHANCE that a watering also jumps the plant a stage
   // there and then: nothing without a can, certain at Frost, straight-line in
-  // between (Wood 1/7, Copper 2/7, … Frost 7/7).
+  // between (Wood 1/7, Copper 2/7, … Frost 7/7). It buys TIME, the one thing a
+  // crop costs: the top rung makes a crop grow twice as fast, because every
+  // watering is worth two.
   //
-  // It buys TIME, which is the one thing a crop costs. Four waterings and four
-  // stage waits stand between a seed and a harvest, and no relic
-  // touched that — a Frost can watered exactly as fast as bare hands and only
-  // improved the produce quality it came out with. Now the ladder is worth
-  // climbing so the top rung makes a crop grow twice
-  // as fast, because every watering is worth two.
-  //
-  // The jump does NOT consume the watering. The plant is watered AND a stage
-  // further on, so its normal advance is still coming — that is what makes a
-  // Frost can a doubling rather than a shortcut.
+  // The jump does NOT consume the watering: the plant is watered AND a stage
+  // further on, so its normal advance is still coming — a doubling, not a
+  // shortcut.
   const CAN_TOP_TIER = 7;               // Frost — the top of MATERIAL_TIERS
   function waterJumpChance(relics) {
     const t = relics && relics.can && relics.can.tier ? relics.can.tier : 0;
@@ -244,12 +216,8 @@
   // and neither does this) — except on a plant that just ripened, which can
   // no longer spend it. Returns how many plants moved.
   //
-  // Pass an array as `movedPlants` to be told WHICH ones moved, exactly as
-  // waterWithin reports its jumps: the scene bursts a 'sprout' on each, the
-  // same cue a plant gets for reaching a stage by its growth timer or by the
-  // can's jump. Until Sep 2026 this was the one of the three that could not
-  // report, so the one moment a whole PLOT springs forward was also the only
-  // one with no leaves over it.
+  // Pass an array as `movedPlants` to be told WHICH ones moved, as waterWithin
+  // reports its jumps: the scene bursts a 'sprout' on each.
   function advanceWithin(save, pwx, pwy, radius, movedPlants = null) {
     const r2 = radius * radius;
     let n = 0;
@@ -271,18 +239,13 @@
   // same cellKey as save.tilled); planting SPENDS that onto the crop as
   // `qualBoost`, which the harvest reads for its extra-seed chance and yield.
   //
-  // Until Sep 2026 this was the WATERING CAN's: the boost was stamped on the
-  // plant at its first watering from can.tier, plus 2 more while the can held
-  // refill charges. The can keeps the thing it is actually for — the growth
-  // JUMP (waterJumpChance above) — and the charge bank retired with the bonus
-  // it fed. Quality now answers to the tool that prepares the ground.
+  // The can keeps the growth JUMP (waterJumpChance above); quality answers to
+  // the tool that prepares the ground.
   //
   // A bed is a cell, so the entry lives and dies with the cell's tilled
   // marker: written by the till, spent by the plant, dropped wherever the
-  // marker is dropped. Everything goes through these three so a bed's quality
-  // and its tilled state cannot drift apart. A stale entry would be harmless
-  // (only a plant on that exact cell ever reads it, and a re-till overwrites
-  // it) but it would sit in the save forever.
+  // marker is dropped. Everything goes through these three so the two cannot
+  // drift apart (a stale entry would be harmless but sit in the save forever).
   function bedQuality(save, cellKey) {
     if (!save || !save.tilledQuality) return 0;
     return save.tilledQuality[cellKey] || 0;
@@ -306,7 +269,7 @@
     return q;
   }
 
-  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, LEGACY_STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, raiderEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex };

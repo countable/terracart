@@ -31,12 +31,10 @@ function seededPrng(seed) {
 // Spec (ENERGY & FOOD): "Equipping better armor bumps current energy by the
 // delta too."
 //
-// SUPERSEDED (Sep 2026). Armor no longer touches the energy CAP at all: it
-// soaks the damage an attack takes off the bar instead (items.js
-// armorReduction, spent by Combat.mitigate), so there is no delta to bump and
-// the finding has nothing left to be a bug about. What replaces it is pinned
-// here — equipping is inert on energy, and what a piece is worth is read live
-// off save.armor at the moment a blow lands.
+// SUPERSEDED (Sep 2026). Armor no longer touches the energy CAP: it soaks the
+// damage an attack takes off the bar (items.js armorReduction, spent by
+// Combat.mitigate). What replaces it is pinned here — equipping is inert on
+// energy, and a piece's worth is read live off save.armor when a blow lands.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('#1 armor equip: fills the slot and leaves energy alone', () => {
@@ -76,16 +74,15 @@ test('#1 reward grant: the interact path equips the same way', () => {
 
 // The approved thematic chest design supersedes the old flat-gear-rate spec.
 // These are surface group probabilities before quality eligibility/fallbacks.
-test('chest themes: gear belongs to civic, cultural and protective groups', () => {
-  for (const theme of ['roadside', 'commerce', 'food', 'health', 'park', 'farm', 'flora', 'worship', 'memorial', 'pets']) {
+test('chest themes: gear belongs to cultural and protective groups', () => {
+  for (const theme of ['roadside', 'commerce', 'food', 'health', 'park', 'farm', 'flora', 'worship', 'civic', 'school']) {
     const gearShare = Object.entries(ChestThemes.weights(theme, 4))
       .filter(([group]) => ChestThemes.groups[group].kind === 'gear')
       .reduce((sum, [, weight]) => sum + weight, 0);
     assert.eq(gearShare, 0, `${theme}: no unrelated gear`);
   }
-  assert.eq(ChestThemes.weights('civic', 4).noncombatGear, 25);
-  assert.eq(ChestThemes.weights('school', 4).noncombatGear, 20);
-  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 35 * 0.95);
+  assert.eq(ChestThemes.weights('civic', 4).uniqueRelics, 25);
+  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 20 * 0.95);
   assert.eq(ChestThemes.weights('authority', 4).protectiveGear, 40 * 0.95);
 });
 
@@ -94,7 +91,7 @@ test('chest themes: roadside never awards gear, even at high quality', () => {
   for (let i = 0; i < 2000; i++) {
     const reward = pickReward('chest:lowtier', { relics: {}, armor: {} }, rng, { tier: 5 });
     assert.truthy(reward.kind === 'item' || reward.kind === 'gold');
-    assert.truthy(['supplies', 'materials', 'cash', 'travelMagic'].includes(reward.group));
+    assert.truthy(['supplies', 'materials', 'cash'].includes(reward.group));
   }
 });
 
@@ -111,8 +108,8 @@ test('#7 no milestone gate on gear tiers: a top chest can roll every tier', () =
     const r = rollGearUpgrade(rng, {}, 5, {});
     if (r && r.kind !== 'gold') seen.add(r.tier);
   }
-  assert.eq([...seen].sort((a, b) => a - b).join(','), '1,2,3,4,5,6,7',
-    'with no progress at all, a tier-5 chest reaches every gear tier');
+  assert.eq([...seen].sort((a, b) => a - b).join(','), '1,2,3,4,5',
+    'with no progress at all, a tier-5 chest reaches tiers through its rolled quality');
 });
 
 test('chest themes: T1 excludes gear for every location, even on jackpot rolls', () => {
@@ -127,19 +124,16 @@ test('chest themes: T1 excludes gear for every location, even on jackpot rolls',
   }
 });
 
-test('chest themes: civic gear is restricted to noncombat tools', () => {
-  const allowed = new Set(['bags', 'can', 'hoe', 'rod', 'bugnet']);
+test('chest themes: civic offers unique relics, supplies and coins', () => {
   const rng = seededPrng(8301);
-  let gearCount = 0;
+  let uniqueCount = 0;
   for (let i = 0; i < 3000; i++) {
     const reward = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 4 });
-    assert.falsy(reward.kind === 'armor', 'civic cannot award protective gear');
-    if (reward.kind === 'relic') {
-      gearCount++;
-      assert.truthy(allowed.has(reward.slot), `civic gear slot ${reward.slot}`);
-    }
+    assert.falsy(reward.kind === 'armor' || reward.kind === 'relic', 'civic excludes ordinary equipment');
+    if (reward.kind === 'item' && ITEM_BY_ID[reward.id]?.kind === 'unique_relic') uniqueCount++;
+    else assert.truthy(['supplies', 'cash'].includes(reward.group), 'civic keeps its supply or coin identity');
   }
-  assert.gt(gearCount, 0, 'the noncombat gear group actually resolves');
+  assert.gt(uniqueCount, 0, 'the unique-relic group resolves');
 });
 
 test('chest themes: culture can award relics and armor; authority awards protective gear only', () => {
@@ -162,24 +156,17 @@ test('chest themes: culture can award relics and armor; authority awards protect
 // defining gem +100% / produce +50% / trader +25%.
 //
 // Current shops.js: the Shops namespace exposes only shopType, shopInk,
-// roleLabel (shopLabel/shopTint/toRoman have since been deleted as dead code —
-// render.js never called shopLabel/shopTint, and stopped calling toRoman once
-// the address-numeral suffix was dropped from every building sign).
-// shopSellBonus is not defined anywhere in the loaded module set.
+// roleLabel. shopSellBonus is not defined anywhere in the loaded module set.
 //
-// SPEC BUG (audit #8): specialty sell bonus is defined but was never wired into
-// a sale path. The function has since been removed entirely; the bonus is still
-// absent from any sale code path.
+// SPEC BUG (audit #8): the specialty sell bonus was never wired into a sale
+// path and is still absent from any sale code.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('#8 Shops namespace exposes exactly the expected surface (no sell-bonus entry)', () => {
   const exposed = Object.keys(Shops).sort();
   // The known exported keys from shops.js IIFE global.Shops = { ... }.
-  // shopLabel/shopTint were dropped entirely (dead code — render.js
-  // deliberately reimplements both off the resolved house role instead of
-  // the address digit these read; see the comment atop shops.js). toRoman
-  // was dropped once its one call site (the sign's address-numeral suffix)
-  // was removed — no building sign carries a street number any more.
+  // shopLabel/shopTint/toRoman were dropped as dead code (render.js reimplements
+  // the first two off the resolved house role; no sign carries a street number).
   assert.truthy(exposed.includes('shopType'),  'shopType present');
   assert.falsy(exposed.includes('shopLabel'),  'shopLabel removed (dead code)');
   assert.falsy(exposed.includes('shopTint'),   'shopTint removed (dead code)');
@@ -206,13 +193,11 @@ test('#8 shopType: address-digit routing matches documented digit rules', () => 
 // from save.js's real constants
 //
 // index.html's inline readActiveSlotData() runs at PARSE time, before save.js
-// has loaded, so it can't call into save.js — it hardcodes its own copy of the
-// slot-registry key ('terracart.saves'), which save.js defines as SAVES_KEY.
-// It reads the active slot's data through the registry's own `slot.key`, so
-// it no longer carries a copy of SAVE_VERSION_KEY at all — and the pin below
-// fails if one ever comes back out of step with save.js. (This pin used to
-// mirror an older readActiveSaveRaw() by hand; that function was renamed and
-// the check went vacuous. It now reads INDEX_HTML_SRC, lifted by run.js.)
+// has loaded, so it hardcodes its own copy of the slot-registry key
+// ('terracart.saves', save.js's SAVES_KEY). It reads the active slot's data
+// through the registry's own `slot.key`, so it carries no copy of
+// SAVE_VERSION_KEY; the pin below fails if one ever comes back out of step.
+// It reads INDEX_HTML_SRC, lifted by run.js.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────

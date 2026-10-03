@@ -17,6 +17,7 @@ STYLE = '''
 :root{color-scheme:dark;background:#101919;color:#ecf3e9;font:16px/1.6 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0}main{max-width:1180px;margin:auto;padding:80px 24px 32px}h1{font-size:clamp(32px,5vw,48px);line-height:1.15}h2{margin-top:32px}p{color:#afc1b7;max-width:850px}a{color:#c7e991}nav{display:flex;flex-wrap:wrap;gap:20px;margin:12px 0 24px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{display:block;background:#192525;border:1px solid #344545;border-radius:12px;padding:22px;text-decoration:none;color:inherit}.card h2,.card h3{margin:0 0 8px}.card p{margin:0}.tag{font-size:12px;color:#c7e991}a:focus-visible,button:focus-visible{outline:3px solid #efca79;outline-offset:4px}button{font:inherit;padding:10px 16px;background:#192525;border:1px solid #52675f;border-radius:8px;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#35482b;border-color:#c7e991}.view-controls{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}iframe{width:100%;height:78vh;min-height:500px;border:1px solid #344545;border-radius:8px;background:#101919}.wide{max-width:1700px;padding-top:32px}.note{border-left:3px solid #efca79;padding:10px 16px;background:#252a20}footer{margin-top:32px;border-top:1px solid #344545;padding-top:16px;font-size:13px}li{margin-bottom:10px}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.grid{grid-template-columns:1fr}}
 '''
+SANDBOX = '<section><h2>Try a biome in the sandbox</h2><p data-sandbox-directory></p></section><script src="../src/sandbox_destinations.js"></script><script src="../tools/sandbox-links.js"></script>'
 NAV = '<nav aria-label="Design navigation"><a href="index.html">Design dashboards</a><a href="developer-tools.html">Developer tools</a><a href="archive.html">Archive</a></nav>'
 
 def page(title, body, wide=False):
@@ -60,6 +61,9 @@ def build(output):
     output.mkdir(parents=True,exist_ok=True)
     if output.name == 'dragon-hood-dashboards':
         alias = output.parent / 'design'
+        # Older installs pointed this bookmark at the previous game's directory.
+        if alias.is_symlink() and alias.readlink() != Path(output.name):
+            alias.unlink()
         if not alias.exists() and not alias.is_symlink():
             alias.symlink_to(output.name, target_is_directory=True)
     # Promote the proposal bookmark while preserving its original review once.
@@ -78,7 +82,7 @@ def build(output):
       ('../tools/treasure-balancing.html','Treasure balancing','Roll rewards by location and tier; compare chest, treasure and fishing results.','Live game data'),
       ('../tools/items.html','Items','Current item catalogue, equipment and source information.','Live game data'),
       ('../tools/map-review.html','Map review','Inspect terrain, world generation and placements.','Live game data')]
-    (output/'index.html').write_text(page('Design dashboards','<p>Design tables for reviewing the game. Older proposals, implementation reports and candidate studies are in the archive.</p><p><a href="../tools/treasure-balancing.html">Open treasure roll simulator →</a></p><div class="grid">'+''.join(card(*row) for row in primary)+'</div>').replace('<meta charset="utf-8">','<meta charset="utf-8"><meta name="artifact-review" content="disabled">',1).replace('padding:80px 24px 32px','padding:32px 24px 32px'))
+    (output/'index.html').write_text(page('Design dashboards','<p>Design tables for reviewing the game. Older proposals, implementation reports and candidate studies are in the archive.</p><p><a href="../tools/treasure-balancing.html">Open treasure roll simulator →</a></p><div class="grid">'+''.join(card(*row) for row in primary)+'</div>'+SANDBOX).replace('<meta charset="utf-8">','<meta charset="utf-8"><meta name="artifact-review" content="disabled">',1).replace('padding:80px 24px 32px','padding:32px 24px 32px'))
     (output/'chests.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>Chest index</title><meta http-equiv="refresh" content="0;url=../tools/chest-report.html"><a href="../tools/chest-report.html">Open the live chest index</a></html>')
     (output/'world-art.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>World art</title><meta http-equiv="refresh" content="0;url=../tools/world-art.html"></head><body><a href="../tools/world-art.html">Open current world art</a></body></html>')
     (output/'zones.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Zones</title><meta http-equiv="refresh" content="0;url=../zone-variants/index.html"></head><body><a href="../zone-variants/index.html">Open zones and road variants</a></body></html>')

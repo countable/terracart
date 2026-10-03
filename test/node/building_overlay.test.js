@@ -247,7 +247,7 @@ test('building overlay: the LOWER building draws in front', () => {
 
 test('building overlay: a castle gets a rampart band, a house gets an outline', () => {
   clearTiles();
-  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE)]);
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, 'citadel')]);
   let scene = makeScene();
   BuildingOverlay.draw(scene);
   const insets = scene.buildingGeomGfx.only('inset');
@@ -262,6 +262,45 @@ test('building overlay: a castle gets a rampart band, a house gets an outline', 
   BuildingOverlay.draw(scene);
   assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'a house has no rampart');
   assert.eq(scene.buildingGeomGfx.only('stroke').length, 1, 'a house is outlined');
+});
+
+test('building overlay: castle floors and ramparts share the tower material in both conditions', () => {
+  for (const id of CastleStyles.ids) for (const claimed of [true, false]) {
+    clearTiles();
+    putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, id)]);
+    const scene = makeScene({ isClaimedKey: () => claimed });
+    BuildingOverlay.draw(scene);
+    const material = CastleStyles.get(id, claimed), g = scene.buildingGeomGfx;
+    const fills = g.only('fill');
+    assert.eq(fills[0].color, material.stone.FACE, `${id}: stone wall face`);
+    assert.eq(fills[1].color, material.floor, `${id}: matching courtyard`);
+    const insets = g.only('inset');
+    assert.eq(insets[0].color, material.stone.BODY, `${id}: stone wall base`);
+    const top = material.rampart.woodTop ? material.wood : material.stone;
+    assert.eq(insets[insets.length - 1].color, top.LITE, `${id}: matching crenellations`);
+    if (id === 'archive') assert.eq(insets[1].color, material.wood.BODY, 'archive wood crowns a stone base');
+    if (id === 'ruin') assert.eq(insets[1].dash.length, 4, 'ruin teeth have uneven gaps');
+  }
+});
+
+test('building overlay: only ruin floors use the shared damage sheet in both conditions', () => {
+  for (const id of CastleStyles.ids) for (const claimed of [true, false]) {
+    clearTiles();
+    putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, id)]);
+    const scene = makeScene({ isClaimedKey: () => claimed });
+    const calls = [];
+    scene.buildingGeomGfx.damagePoly = (pts, key, condition, x, y) => {
+      calls.push({ key, condition, x, y }); return true;
+    };
+    BuildingOverlay.draw(scene);
+    assert.eq(calls.length, id === 'ruin' ? 1 : 0);
+    assert.eq(scene.buildingGeomGfx.only('texture').length, id === 'ruin' ? 0 : 1,
+      'ruin replacement includes its paving; other materials keep their existing texture');
+    if (calls.length) {
+      assert.eq(calls[0].key, id); assert.eq(calls[0].condition, claimed);
+      assert.truthy(Number.isFinite(calls[0].x) && Number.isFinite(calls[0].y), 'tile anchor is projected once');
+    }
+  }
 });
 
 test('building overlay: each floor carries its own tier material', () => {
@@ -375,12 +414,10 @@ test('building overlay: an unclaimed footprint is drawn in shaded colours', () =
 });
 
 test('building overlay: the unclaimed material lift is applied to the colours, never read back', () => {
-  // textures.js's lift (unclaimedMaterialColor) used to run over each
-  // unclaimed footprint's finished pixels — a canvas and a getImageData per
-  // building per cell crossing, the walking stutter on a phone. It goes over
-  // the COLOURS now, after the shade, exactly as render.js's tiled pass runs
-  // its court floors: an unclaimed floor, its slime and its outline all wear
-  // it; a restored neighbour in the same pass wears none of it.
+  // textures.js's lift (unclaimedMaterialColor) goes over the COLOURS, after the
+  // shade, exactly as render.js's tiled pass runs its court floors (no per-
+  // building canvas read-back): an unclaimed floor, its slime and its outline all
+  // wear it; a restored neighbour in the same pass wears none of it.
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'old'),
     rectShape(0, 20, 10, 30, T.BUILDING, 'restored')]);
@@ -732,6 +769,7 @@ function makeWallScene(over) {
     add: { image(x, y, key, frame) { return {
       x, y, key, frame, destroyed: false,
       setOrigin() { return this; },
+      setDepth(depth) { this.depth = depth; return this; },
       setPosition(x, y) { this.x = x; this.y = y; return this; },
       destroy() { this.destroyed = true; },
     }; } },
@@ -740,9 +778,68 @@ function makeWallScene(over) {
 }
 
 clearTiles();
+test('building overlay: castle ramparts use short upright wall sections, leaving the court on the floor', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const { scene, log } = makeWallScene();
+  BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the courtyard stays on the ground canvas');
+  assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'ramparts belong to the upright pieces');
+  assert.eq(scene._buildingUprightPieces.length, 8, 'one section per cell of perimeter');
+  assert.eq(log.sprites.length, 8, 'wall sections are ordinary world sprites');
+  assert.eq(log.pages.length, 1, 'sections share the wall atlas');
+});
+
+test('building overlay: polygon winding does not change wall base anchors', () => {
+  const anchors = [];
+  for (const ring of [[0, 0, 10, 0, 10, 10, 0, 10], [0, 0, 0, 10, 10, 10, 10, 0]]) {
+    clearTiles();
+    putShapes(0, 0, [{ ring: Float32Array.from(ring), tier: T.BUILDING_LARGE, areaM2: 100, key: 'citadel' }]);
+    const { scene } = makeWallScene();
+    BuildingOverlay.draw(scene);
+    anchors.push(scene._buildingUprightPieces.map(p => p.groundY).sort((a, b) => a - b).join(','));
+  }
+  assert.eq(anchors[0], anchors[1], 'south face bases agree for either source ring order');
+});
+
+test('building overlay: angled castle sections sort by their lowest masonry base as actors cross', () => {
+  clearTiles();
+  putShapes(0, 0, [{ ring: Float32Array.from([10, 0, 20, 10, 10, 20, 0, 10]),
+    tier: T.BUILDING_LARGE, areaM2: 200, key: 'archive' }]);
+  const { scene } = makeWallScene();
+  BuildingOverlay.draw(scene);
+  const pieces = scene._buildingUprightPieces;
+  assert.eq(pieces.length, 12, 'each diagonal edge splits into three sub-cell sections');
+  const first = pieces[0], second = pieces[1];
+  assert.lt(Math.abs(first.groundY - 10 / 3), 1e-9, 'first anchor is lower endpoint, not midpoint or roof');
+  assert.lt(Math.abs(second.groundY - 20 / 3), 1e-9, 'next section has its own lower endpoint');
+  const actor = { groundY: first.groundY - 0.01, rank: 3,
+    sprite: { depth: 0, setDepth(d) { this.depth = d; } } };
+  Render.sortWorldDepth([first, second, actor]);
+  assert.lt(actor.sprite.depth, first.sprite.depth, 'actor behind section foot is occluded');
+  actor.groundY = first.groundY + 0.01;
+  Render.sortWorldDepth([first, second, actor]);
+  assert.gt(actor.sprite.depth, first.sprite.depth, 'crossing the foot moves actor in front');
+  assert.lt(actor.sprite.depth, second.sprite.depth, 'next lower wall section remains in front');
+  const front = pieces[3];
+  const faceM = Render.BUILDING_FACE_PX[T.BUILDING_LARGE] / PX_PER_M;
+  assert.lt(Math.abs(front.groundY - (40 / 3 + faceM)), 1e-9, 'south-facing section includes its downward masonry face');
+  actor.groundY = front.groundY - 0.01;
+  Render.sortWorldDepth([front, actor]);
+  assert.lt(actor.sprite.depth, front.sprite.depth, 'actor on the masonry face remains behind the wall');
+  actor.groundY = front.groundY + 0.01;
+  Render.sortWorldDepth([front, actor]);
+  assert.gt(actor.sprite.depth, front.sprite.depth, 'actor below the physical base passes in front');
+  const ground = first.groundY;
+  scene.playerM.x = 5;
+  BuildingOverlay.draw(scene);
+  assert.eq(scene._buildingUprightPieces[0], first, 'moving the camera reuses the section');
+  assert.eq(first.groundY, ground, 'camera movement never changes its world ground anchor');
+});
+
 test('building overlay: a cell crossing reuses baked wall pieces instead of rebaking them', () => {
   clearTiles();
-  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_MED)]);
   const { scene, log } = makeWallScene();
   BuildingOverlay.draw(scene);
   const first = scene._buildingUprightPieces.slice();
@@ -766,18 +863,19 @@ test('building overlay: a cell crossing reuses baked wall pieces instead of reba
 clearTiles();
 test('building overlay: upright polygon walls share world ordering and scroll independently of floors', () => {
   clearTiles();
-  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_MED)]);
   let shutdown, shutdownRegistrations = 0;
   const { scene, log } = makeWallScene({
     events: { once(event, fn) { assert.eq(event, 'shutdown'); shutdown = fn; shutdownRegistrations++; } },
   });
   BuildingOverlay.draw(scene);
   assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the floor stays on the ground canvas');
-  assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'castle ramparts leave the ground canvas');
+  assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'upright building trim leaves the ground canvas');
   assert.eq(scene._buildingUprightPieces.length, 8, 'perimeter divides into cell-length wall pieces');
   const north = scene._buildingUprightPieces[0], south = scene._buildingUprightPieces[4];
   assert.lt(north.groundY, south.groundY, 'north and south walls have independent world anchors');
-  assert.eq(south.groundY, 10, 'anchor is the perimeter ground line, independent of visual extrusion');
+  assert.eq(south.groundY, 10 + Render.BUILDING_FACE_PX[T.BUILDING_MED] / PX_PER_M,
+    'south anchor follows the lowest visible masonry base');
   const oldX = north.sprite.x;
   scene.playerM.x = 1;
   BuildingOverlay.draw(scene);
@@ -799,11 +897,11 @@ test('building overlay: upright polygon walls share world ordering and scroll in
 
 test('building overlay: atlas slots fit the largest piece, and an emptied page is dropped', () => {
   // A diamond footprint cuts diagonal edges, the widest pieces there are in
-  // both axes; a castle carries the deepest face and the rampart padding. No
+  // both axes; the shared slot retains its maximum face padding. No
   // frame may be clamped to its slot (that would crop a wall), so every
   // frame is the piece's own box and every box fits the slot.
   clearTiles();
-  putShapes(0, 0, [{ ring: Float32Array.from([10, 0, 20, 10, 10, 20, 0, 10]), tier: T.BUILDING_LARGE, areaM2: 200, key: null }]);
+  putShapes(0, 0, [{ ring: Float32Array.from([10, 0, 20, 10, 10, 20, 0, 10]), tier: T.BUILDING_MED, areaM2: 200, key: null }]);
   const { scene, log } = makeWallScene();
   BuildingOverlay.draw(scene);
   const A = scene._buildingWallAtlas;

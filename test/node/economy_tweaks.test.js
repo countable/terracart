@@ -1,15 +1,7 @@
-// Economy audit follow-ups (2026-09-27): a delivery takes at most
-// DELIVERY_MAX_SETS sets; the first harvest of each crop banks a memory; a cow
+// Economy audit follow-ups (2026-09-27): the first harvest of each crop banks a memory; a cow
 // takes CREATURE_BEHAVIOUR's catchMul (2) times the net's time; and no gear
 // roll hands out unique jewelry.
 (function () {
-test('economy: a delivery takes at most DELIVERY_MAX_SETS sets, checked twice', () => {
-  assert.truthy(/const DELIVERY_MAX_SETS = 5;/.test(SCENE_SRC), 'five sets');
-  assert.truthy(/const maxSets = Math\.min\(DELIVERY_MAX_SETS,/.test(SCENE_SRC), 'the stepper stops there');
-  assert.truthy(/Math\.min\(q \?\? 1, DELIVERY_MAX_SETS,/.test(SCENE_SRC), 'and the accept re-checks it');
-
-});
-
 test('economy: the first harvest of each crop is a memory, keyed by crop', () => {
   assert.truthy(/scene\._bankDiscovery\?\.\(`harvest:\$\{p\.crop\}`,/.test(INTERACT_SRC),
     'banked through the one ledger, once per crop');

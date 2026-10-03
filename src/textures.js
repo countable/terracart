@@ -9,10 +9,8 @@
 
 // --- Castle stone palette -------------------------------------------------
 // ONE set of stone colours for everything castle: the rampart walls (drawn as
-// graphics in render.js drawCells) and the turret texture below. They used to
-// carry separate palettes — the turret was mixed from #a8a8b0 / #b4b4bc with a
-// near-black outline, roughly two shades lighter than the wall it stands on,
-// so a tower never looked like it was cut from the same rock as its rampart.
+// graphics in render.js drawCells) and the turret texture below, so a tower
+// looks cut from the same rock as its rampart.
 // `.n` is the 0xRRGGBB form the Phaser graphics API wants; `.s` is the CSS
 // string the canvas 2D contexts want.
 const CASTLE_STONE = (() => {
@@ -28,37 +26,27 @@ const CASTLE_STONE = (() => {
 })();
 
 // --- The unclaimed shade, and the second castle palette -------------------
-// An unclaimed building is shifted toward dark green and then murked down. For
-// a HOUSE that is a wash painted over the finished art (see the wash pass in
-// render.js drawCells). A CASTLE is not washed any more: it is GENERATED in a
-// second palette run through this exact transform — rampart stone, turret and
-// court floor alike.
+// An unclaimed building is shifted toward dark green and then murked down. A
+// HOUSE gets that as a wash over the finished art (render.js drawCells); a
+// CASTLE is GENERATED in a second palette run through this exact transform
+// (rampart stone, turret and court floor alike).
 //
-// Why baking beat washing. A wash over a castle could only ever be a layer on
-// top of drawn geometry, and it showed: the crest of a north wall whose own
-// cell was off the top of the frame stayed lit stone, the pixels where two
-// cells' extrusions overlapped got washed twice and banded, and the turret's
-// multiply tint never quite matched the lerp on the wall under it. Baking
-// deletes the layer and every one of those seams with it. Both sides still
-// come through unclaimedShade(), so a baked castle and the washed house across
-// the road land on the same colour rather than drifting apart.
-// murkA was 0.22 — the darkening came out heavier than wanted once it was
-// baked into the stone rather than washed over it, so it is down a tenth.
-// washA was 0.5 — the green read as too strong across a derelict footprint,
-// so it is at the 35% the wash was always described as.
+// Baking beats washing: a wash over drawn geometry showed seams (a north wall
+// crest off-frame stayed lit, overlapping extrusions banded, the turret's
+// multiply tint never matched the wall). Both sides still come through
+// unclaimedShade(), so a baked castle and a washed house land on the same colour.
 const UNCLAIMED_SHADE = { wash: 0x1e3b24, washA: 0.35, murk: 0x05070c, murkA: 0.12 };
 function unclaimedShade(rgb) {
-  // `lerp` is util.js's (loaded first, and beside textures.js in every vm
-  // context test/node/run.js bakes it into).
+  // `lerp` is util.js's (loaded first, including in test/node/run.js contexts).
   const ch = (sh) => {
     const w = lerp((rgb >> sh) & 255, (UNCLAIMED_SHADE.wash >> sh) & 255, UNCLAIMED_SHADE.washA);
     return Math.round(lerp(w, (UNCLAIMED_SHADE.murk >> sh) & 255, UNCLAIMED_SHADE.murkA));
   };
   return (((ch(16) << 16) | (ch(8) << 8) | ch(0)) >>> 0);
 }
-// Unclaimed masonry retains its original weathering rather than shading the
-// much lighter restored palette. The final 5% treatment is applied after
-// painting, so mortar, translucent sludge and outlines keep their contrast.
+// Unclaimed masonry keeps its original weathering rather than shading the much
+// lighter restored palette. The final 5% treatment is applied after painting,
+// so mortar, translucent sludge and outlines keep their contrast.
 const UNCLAIMED_BUILDING_BASE = {
   floors: { 9: 0x984f45, 11: 0x9b8365, 12: 0x787a80 },
   faces: { 9: 0x401f1c, 11: 0x3c2e22, 12: 0x36373a },
@@ -69,8 +57,7 @@ const UNCLAIMED_MATERIAL_PALETTE = [0x171717, 0x26342a, 0x3e4b2c, 0x403e34,
   0x777462, 0xb0aa8a, 0x4c3018, 0x6c431d].map(n => [(n >> 16) & 255, (n >> 8) & 255, n & 255]);
 const _unclaimedMaterialColours = new Map();
 // Half the approved colour/lightness treatment keeps gameplay masonry legible.
-// Source shadows below
-// 55 and bright glints above 235 remain exact; alpha never changes.
+// Source shadows below 55 and glints above 235 remain exact; alpha never changes.
 function tuneUnclaimedMaterialPixels(pixels) {
   const luma = c => c[0] * .2126 + c[1] * .7152 + c[2] * .0722;
   for (let i = 0; i < pixels.length; i += 4) {
@@ -97,12 +84,6 @@ function tuneUnclaimedMaterialPixels(pixels) {
   }
   return pixels;
 }
-function tuneUnclaimedMaterialCanvas(canvas) {
-  const ctx = canvas.getContext('2d'), image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  tuneUnclaimedMaterialPixels(image.data);
-  ctx.putImageData(image, 0, 0);
-  return canvas;
-}
 function unclaimedMaterialColor(rgb) {
   const cached = _unclaimedMaterialColours.get(rgb);
   if (cached !== undefined) return cached;
@@ -118,10 +99,9 @@ const CASTLE_STONE_UNCLAIMED = (() => {
 })();
 
 // --- Water animation timing ---
-// 8 phases × 220ms ≈ a 1.8s loop in which the highlight bands drift one full
-// band-period (8px) downward — roughly 4.5px/s, ambience rather than a
-// current you'd race. 8 phases over an 8px period = exactly 1px per step, so
-// the drift reads as smooth motion, not a two-frame flicker.
+// 8 phases × 220ms ≈ a 1.8s loop in which the highlight bands drift one band-
+// period (8px) downward, about 4.5px/s: ambience, not a current. 8 phases over
+// an 8px period is exactly 1px per step, so it reads as smooth motion.
 const WATER_ANIM_PHASES = 8;
 const WATER_ANIM_MS = 220;
 
@@ -132,13 +112,11 @@ const WATER_ANIM_MS = 220;
 // as `biome${type}_${v}p${p}` (phase 0 keeps the plain key), and render.js
 // picks the phase from the wall clock when it builds the key.
 const BIOME_TEX = {
-  0:  { variants: 2, draw: drawGrassTex },        // grass: tufts (procedural — sheet-tiling was abandoned, see git history)
+  0:  { variants: 2, draw: drawGrassTex },        // grass: tufts
   1:  { variants: 2, patternOpacity: 0.75, draw: drawForestTex },       // forest: dense leaf litter
   2:  { variants: 2, patternOpacity: 0.925, draw: drawSandTex },         // sand: horizontal ripple marks
-  // Water animates: `animPhases` pre-baked frames per variant (the bands drift
-  // downward one band-period per loop), stepped every `animMs`. See the
-  // "Animated biome textures" note above makeBiomeTextures for why this is the
-  // cheap way to animate every water cell at once.
+  // Water animates: `animPhases` pre-baked frames per variant, stepped every
+  // `animMs` (see the "Animated biome textures" note above makeBiomeTextures).
   3:  { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   4:  { variants: 2, patternOpacity: 0.9, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
@@ -164,12 +142,10 @@ const BIOME_TEX = {
   20: { variants: 2, patternOpacity: 1, draw: drawWetlandTex },      // WETLAND — marsh mottle + glints
   21: { variants: 2, patternOpacity: 1, draw: drawGolfTex },         // GOLF — fine fairway stripes
   22: { variants: 2, patternOpacity: 0.9, draw: drawOrchardTex },      // ORCHARD — dappled grass
-  // PIER (type 23) — reuse the water ripple as base texture; render.js
-  // overlays the wooden plank sprite on top via the cobblePool. Without
-  // this entry the cell would fall back to bare colour with no ripple,
-  // breaking visual continuity with adjacent WATER cells. Animates in
-  // lockstep with WATER for the same reason — a still patch under a pier
-  // edge would break the "one body of water" read.
+  // PIER (type 23) — the water ripple as base texture; render.js overlays the
+  // plank sprite via the cobblePool. Without it the cell would be bare colour,
+  // and it animates in lockstep with WATER so the pier edge doesn't break the
+  // "one body of water" read.
   23: { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   // Underground cave biome
   24: { variants: 3, patternOpacity: 0.9, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
@@ -178,35 +154,29 @@ const BIOME_TEX = {
   // same animation clock, so it reads as the same kind of thing gone red.
   // One periodic wave shape keeps neighbouring cells aligned at every phase.
   26: { variants: 1, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
-  // UNMAPPED (30) — render-only pseudo-terrain render.js stamps on cells whose
-  // map tile hasn't loaded yet (never appears in a tile's grid). The animated
-  // survey-line shimmer is the tile-loading indicator: dark fog with faint
-  // diagonal scan lines drifting through it, so a slow tile visibly reads as
-  // "being charted" instead of as fake grass that pops into streets.
+  // UNMAPPED (30) — render-only pseudo-terrain for cells whose tile hasn't
+  // loaded yet (never in a tile's grid): dark fog with drifting scan lines, so
+  // a slow tile reads as "being charted" rather than fake grass that pops into streets.
   30: { variants: 1, draw: drawUnmappedTex, animPhases: 8, animMs: 260 },
 };
 
 // Tilled soil is per-cell state (not a terrain class).
-const TILLED_COLOR = 0xa48a66;        // approved lighter, desaturated turned earth
+const TILLED_COLOR = 0x927245;        // richer, darker turned earth
 const TILLED_VARIANTS = 2;
 // A tilled cell is drawn as ONE BED: an opaque soil pad baked into the
 // `tilled_N` texture, inset TILLED_INSET_PX from every cell edge with corners
-// of TILLED_CORNER_PX, and the ring outside it left transparent so the ground
-// colour shows between neighbouring beds. The shape lives in the texture, not
-// in a per-frame path: Phaser's fillRoundedRect tessellates four arcs (~400
-// points) and triangulates them every frame, and the cell graphics are
-// cleared each frame, so rounding a plot as geometry cost hundreds of
-// triangles per cell. A baked pad is the one sprite the cell already drew.
-// The gap is in LOGICAL px (the canvas renders at up to 4× that), so 1 would
-// be a hairline on a phone; 2 reads as a real edge.
+// of TILLED_CORNER_PX, the ring outside left transparent so ground shows
+// between beds. The shape lives in the texture, not a per-frame path
+// (fillRoundedRect tessellates ~400 points per cell per frame). The gap is in
+// LOGICAL px (the canvas renders at up to 4× that): 1 would be a hairline on a
+// phone, 2 reads as a real edge.
 const TILLED_INSET_PX = 2;
 const TILLED_CORNER_PX = 4;
 
-// Tiny deterministic RNG factory so each texture variant looks stable across reloads.
-// NOT road_overlay.js' lcg(): same advance, but this one divides by 0xffffffff
-// (so it can return exactly 1.0) and floors a zero seed to 1, and the two
-// streams share no draw at all. Neither can adopt the other's divisor without
-// re-rolling every texture it has already baked, so they stay two.
+// Tiny deterministic RNG factory so each texture variant is stable across reloads.
+// NOT road_overlay.js' lcg(): this one divides by 0xffffffff (so it can return
+// exactly 1.0) and floors a zero seed to 1; neither can adopt the other's
+// divisor without re-rolling baked textures.
 function seededRand(seed) {
   let s = (seed >>> 0) || 1;
   return () => {
@@ -216,11 +186,9 @@ function seededRand(seed) {
 }
 
 function drawGrassTex(ctx, size, rng) {
-  // Short, dense lawn — just specks of two greens, no tall blades. Tall-grass tufts
-  // are reserved for the harvestable "longgrass" wildplant sprite so they read as
-  // pickable rather than ambient.
+  // Short, dense lawn: specks only, no tall blades (tufts are reserved for the
+  // harvestable "longgrass" wildplant so they read as pickable).
   ctx.clearRect(0, 0, size, size);
-  // Mostly mid-green specks with occasional dark roots; very subtle.
   for (let i = 0; i < 30; i++) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
@@ -247,8 +215,8 @@ function drawForestTex(ctx, size, rng) {
 function drawSandTex(ctx, size, rng) {
   // Horizontal wind-ripple marks on beach sand (3-4 wavy lines per tile).
   ctx.clearRect(0, 0, size, size);
-  // Every hash-picked variant shares the same periodic ripple paths. Random
-  // phases/row counts at each cell edge used to chop the bands into squares.
+  // Every hash-picked variant shares the same periodic ripple paths, so cell
+  // edges do not chop the bands into squares.
   const ripples = seededRand(0x5A4D);
   const numLines = 3 + Math.floor(ripples() * 2);
   for (let r = 0; r < numLines; r++) {
@@ -258,8 +226,7 @@ function drawSandTex(ctx, size, rng) {
     ctx.strokeStyle = ripples() < 0.65 ? 'rgba(105,95,80,0.30)' : 'rgba(175,170,155,0.20)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    // Continue one sample beyond each edge, keeping the clipped stroke's
-    // joins identical to the adjoining tile rather than ending a cap there.
+    // Continue one sample beyond each edge so the clipped stroke joins the adjoining tile.
     for (let x = -1; x <= size + 1; x++) {
       const y = baseY + Math.sin(x * 2 * Math.PI / size + phase) * amp;
       if (x === -1) ctx.moveTo(x, y); else ctx.lineTo(x, y);
@@ -323,12 +290,11 @@ function drawGroundMottle(ctx, size, rng, edgeSeed, count, minR, radiusSpan, sty
 
 function drawFarmlandTex(ctx, size, rng) {
   // Muddy pasture — churned brown mud patches with tufts of grass poking
-  // through, plus a few hoof/churn marks. (Replaces the old tidy furrow rows,
-  // which read too much like freshly-tilled soil.)
+  // through, plus a few hoof/churn marks.
   //
   // Tileability: cells hash-pick a variant, so any edge can abut any other
-  // edge. The old version clipped its mud blobs flat at the canvas edge,
-  // which read as a light grid at every cell boundary. Now features that may
+  // edge. Clipping blobs flat at the canvas edge read as a light grid at
+  // every cell boundary, so features that may
   // touch an edge come from a FIXED seed shared by all variants and are drawn
   // toroidally wrapped; per-variant features stay fully inside the tile. All
   // variants therefore have pixel-identical borders and tile seamlessly in
@@ -336,9 +302,8 @@ function drawFarmlandTex(ctx, size, rng) {
   ctx.clearRect(0, 0, size, size);
 
   // ── Seam pass: fixed seed, identical across variants, wrapped ──
-  // Features are placed ON the tile edges (alternating top/left so the bottom
-  // and right edges get their halves via the toroidal wrap) so the borders
-  // carry the same mud density as the interior instead of a bare gutter.
+  // Features sit ON the tile edges (alternating top/left; the toroidal wrap
+  // gives the bottom/right halves) so borders carry the interior's mud density.
   const edge = seededRand(0xFA47);
   // Mud blobs straddling the edges.
   for (let i = 0; i < 3; i++) {
@@ -404,9 +369,8 @@ function drawParkTex(ctx, size, rng) {
   for (let i = 0; i < 3; i++) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
-    // No yellow bloom here: yellow is the interaction colour, and a yellow
-    // speck on the ground reads as something to tap. Faded pink / rust /
-    // mauve instead — wildflowers taking a park back.
+    // No yellow bloom: yellow is the interaction colour, and a yellow speck
+    // reads as something to tap. Faded pink / rust / mauve instead.
     const colors = ['rgba(216,150,165,0.55)', 'rgba(190,120,95,0.55)', 'rgba(178,150,195,0.55)'];
     ctx.fillStyle = colors[Math.floor(rng() * colors.length)];
     ctx.fillRect(x, y, 1, 1);
@@ -469,39 +433,29 @@ function drawLavaTex(ctx, size, rng, phaseFrac = 0) {
 }
 
 function drawWaterTex(ctx, size, rng, phaseFrac = 0, inks = WATER_INKS) {
-  // Horizontal highlight bands — top-down water with distinct cyan stripe
-  // pattern. `phaseFrac` (0..1) slides the bands downward by that fraction of
-  // one band-period; a full unit brings the pattern back to itself, so the
-  // WATER_ANIM_PHASES baked frames loop seamlessly. Everything is driven by
-  // the same rng call sequence regardless of phase, so the depth specks hold
-  // still while only the bands move.
+  // Horizontal highlight bands. `phaseFrac` (0..1) slides them downward by that
+  // fraction of one band-period; a full unit returns to itself, so the
+  // WATER_ANIM_PHASES baked frames loop seamlessly. The rng call sequence is
+  // phase-independent, so the depth specks hold still while only bands move.
   ctx.clearRect(0, 0, size, size);
-  // The band grid is FIXED across variants and divides the tile exactly:
-  // period 8 into a 32px cell, no per-variant start offset. Both are what
-  // keep the animation continuous at tile edges — every water cell's crests
-  // sit on the same rows and step in lockstep, so a crest leaving one cell's
-  // bottom edge is the same crest entering the next cell's top edge. (The old
-  // random 7-9px period + random start made each cell its own misaligned
-  // grid, and crests visibly popped in at the top of every tile.)
+  // The band grid is FIXED across variants and divides the tile exactly (period
+  // 8 into a 32px cell, no per-variant offset), so every water cell's crests
+  // sit on the same rows and step in lockstep: a crest leaving one cell's
+  // bottom edge is the one entering the next cell's top edge.
   const bandH = 2;
   const period = 8;                        // must divide `size` for the wrap below
   const off = Math.round(phaseFrac * period);
-  // Horizontal variation — a gentle sine swell plus one broken-crest window
-  // where the band drops out. Both are SHARED by every band in the tile: a
-  // per-band shape can't survive the loop (after one full cycle band k sits
-  // exactly where band k+1 was, so any k-keyed difference would pop at the
-  // wrap). Cells hash-pick between the variants, and the wave slides one full
-  // wavelength sideways per loop, so the water still varies across cells and
-  // shimmers diagonally rather than reading as ruled lines.
+  // Horizontal variation: a gentle sine swell plus one broken-crest window,
+  // SHARED by every band in the tile (after one cycle band k sits where band
+  // k+1 was, so a per-band shape would pop at the wrap). The wave slides one
+  // wavelength sideways per loop, so water shimmers diagonally.
   const waveLen = size / (1 + Math.floor(rng() * 2));   // 1-2 waves per tile (x-periodic)
   const wavePhase = rng() * Math.PI * 2;
   const waveAmp = 0.8 + rng() * 0.7;                    // ~1px swell
   const gapStart = Math.floor(rng() * size);            // broken-crest window (wraps)
   const gapLen = 4 + Math.floor(rng() * 5);             // 4-8 px of open water
   const xPhase = phaseFrac * Math.PI * 2;   // one wavelength per loop — seamless
-  // 1px row with toroidal y-wrap: a crest pushed past either edge re-enters
-  // on the opposite side (consistent with the band grid, since period divides
-  // size), so bands scroll through the tile without clipping flat at y=0.
+  // 1px row with toroidal y-wrap, so bands scroll through without clipping flat at y=0.
   const row = (x, y, style) => {
     ctx.fillStyle = style;
     ctx.fillRect(x, ((y % size) + size) % size, 1, 1);
@@ -522,15 +476,10 @@ function drawWaterTex(ctx, size, rng, phaseFrac = 0, inks = WATER_INKS) {
 }
 
 function drawUnmappedTex(ctx, size, rng, phaseFrac = 0) {
-  // The "still charting this ground" shimmer for cells whose tile hasn't
-  // loaded (pseudo-terrain 30 above). Faint diagonal survey lines drift
-  // slowly across the dark fog base colour; the line grid is tile-periodic
-  // (spacing divides the tile size) and every unmapped cell shares the one
-  // variant and the one clock, so the pattern runs continuously across the
-  // whole unloaded area instead of breaking at each cell edge. Same
-  // pre-baked-phases scheme as water: `phaseFrac` slides the lines one grid
-  // period per loop, so the 8 frames loop seamlessly and cost nothing at
-  // runtime.
+  // The "still charting this ground" shimmer (pseudo-terrain 30 above): faint
+  // diagonal survey lines over the dark fog base. The grid is tile-periodic and
+  // every unmapped cell shares one variant and clock, so the pattern runs
+  // continuously across the unloaded area. Pre-baked phases like water.
   ctx.clearRect(0, 0, size, size);
   const P = 8;                                   // diagonal line spacing; divides 32
   const off = Math.round(phaseFrac * P);
@@ -540,8 +489,7 @@ function drawUnmappedTex(ctx, size, rng, phaseFrac = 0) {
       ctx.fillRect(x, y, 1, 1);
     }
   }
-  // Static specks — unexposed film grain. Same rng sequence every phase, so
-  // only the lines move.
+  // Static specks (same rng sequence every phase, so only the lines move).
   for (let i = 0; i < 6; i++) {
     ctx.fillStyle = 'rgba(0,0,0,0.20)';
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
@@ -774,7 +722,7 @@ function drawPitchTex(ctx, size, rng) {
   // Sports pitch — bold alternating mown stripes + the odd chalk sideline.
   drawGrassTex(ctx, size, rng);
   for (let y = 0; y < size; y += 8) {
-    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.04)' : 'rgba(0,30,0,0.05)';
+    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.06)' : 'rgba(0,30,0,0.08)';
     ctx.fillRect(0, y, size, 8);
   }
   if (rng() < 0.25) {
@@ -878,13 +826,11 @@ function drawWastelandTex(ctx, size, rng) {
 }
 
 function drawGroveTex(ctx, size, rng) {
-  // Grove — the lush sward around a park's heart: the lawn's specks, denser
-  // and greener, with clover clumps and a pale blossom or two. Never yellow
-  // (the interaction colour).
+  // Grove — deep yellow-olive clover with a pale blossom or two.
   drawGrassTex(ctx, size, rng);
   for (let i = 0; i < 5; i++) {
     const x = Math.floor(rng() * (size - 2)), y = Math.floor(rng() * (size - 2));
-    ctx.fillStyle = 'rgba(70,120,55,0.40)';
+    ctx.fillStyle = 'rgba(83,105,48,0.40)';
     ctx.fillRect(x, y, 2, 1); ctx.fillRect(x, y + 1, 1, 1);
   }
   for (let i = 0; i < 2; i++) {
@@ -894,14 +840,12 @@ function drawGroveTex(ctx, size, rng) {
 }
 
 function drawChurchyardTex(ctx, size, rng) {
-  // Churchyard — mossy grey-green sward: moss tufts and grass specks over
-  // the cool grey-green ground, and small pale stone chips working up
-  // through it.
+  // Churchyard — earthy heather ground, muted moss tufts and pale stone chips.
   ctx.clearRect(0, 0, size, size);
   for (let i = 0; i < 22; i++) {
     const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
     const k = rng();
-    ctx.fillStyle = k < 0.45 ? 'rgba(62,92,58,0.34)' : k < 0.75 ? 'rgba(96,128,84,0.26)' : 'rgba(150,160,140,0.20)';
+    ctx.fillStyle = k < 0.45 ? 'rgba(76,62,73,0.34)' : k < 0.75 ? 'rgba(112,96,108,0.26)' : 'rgba(150,160,140,0.20)';
     ctx.fillRect(x, y, k < 0.25 ? 2 : 1, 1);
   }
   for (let i = 0; i < 3; i++) {
@@ -965,186 +909,92 @@ function drawOrchardTex(ctx, size, rng) {
   }
 }
 
-// (drawLongGrassTex removed — longgrass now uses frame 0 of the 'props'
-// sheet via CROP_SPRITE. The procedurally drawn version had inconsistent
-// blade colours / shading next to the hand-painted wilderness art.)
+// (longgrass uses frame 0 of the 'props' sheet via CROP_SPRITE, not a
+// procedural texture.)
 
-// Simple procedural castle turret — a stout stone column with a crenellated
-// top. One 28×42 canvas, anchor at bottom-centre so it sits on its cell. The
-// column still rises clearly above the rampart battlements it stands among
-// (those reach ~10px above their cell) but is shorter than the old 50px
-// version, which towered over the walls rather than crowning them.
-//
-// Pixel-art rules this obeys (the old version broke all three, which is what
-// made it read as slightly "off"):
-//   • the outline is drawn as 1px fillRects, never a stroked path — a
-//     lineWidth-1 stroke ON integer coordinates straddles the pixel boundary
-//     and renders as two half-lit rows, blurring every edge;
-//   • the merlons are centred on the battlement slab (they used to sit 1px
-//     left of centre, so the crown looked knocked sideways);
-//   • shading lines stay INSIDE the outline instead of running under it.
-// `palette` / `key` bake the SECOND turret: an unclaimed castle draws
-// 'tower_unclaimed', generated from CASTLE_STONE_UNCLAIMED, instead of taking a
-// multiply tint over the claimed one (see the unclaimed-shade note up top).
+// Approved sprite silhouettes, baked once per restoration state. Source
+// luminance selects a shared material shade; no per-frame pixel readbacks.
+function castleTowerInk(r, g, b, material) {
+  const timber = material.rampart.woodTop && r > g * 1.16 && r > b * 1.3;
+  const p = timber ? material.wood : material.stone;
+  const light = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  const shade = light < 42 ? 'DARK' : light < 74 ? 'SHADOW' : light < 104 ? 'SIDE'
+    : light < 137 ? 'FACE' : light < 168 ? 'BODY' : 'LITE';
+  return p[shade] ?? p.FACE;
+}
 function makeTowerTexture(scene, palette, key) {
   const KEY = key || 'tower';
-  const P = palette || CASTLE_STONE;
   if (scene.textures.exists(KEY)) return;
-  // 28 wide (was 24): the column read as a thin post next to the rampart it
-  // crowns. The 24px battlement slab still sits inside the 32px cell.
-  // 42 tall with NO padding: the last row of the canvas IS the turret's
-  // grounding line, so the renderer can seat the sprite by its frame bottom
-  // and land the art exactly on the cell's bottom edge (see the tower entry in
-  // render.js RENDER_SPEC). Padding here would offset that by however many
-  // empty rows it left.
-  const W = 28, H = 42;
-  const tex = scene.textures.createCanvas(KEY, W, H);
+  const source = scene.textures.get('castle_tower_shapes').getSourceImage();
+  const W = CastleStyles.TOWER_WIDTH, H = CastleStyles.TOWER_HEIGHT;
+  const tex = scene.textures.createCanvas(KEY, W * CastleStyles.ids.length, H);
   const ctx = tex.getContext();
-  ctx.clearRect(0, 0, W, H);
-
-  // Straight off the shared castle palette, so the turret is the same masonry
-  // as the rampart: column = the walls' extruded FACE stone, battlements =
-  // their lit BODY stone, silhouette = the walls' DARK grounding tone.
-  const OUTLINE     = P.DARK.s;
-  const wallColor   = P.FACE.s;
-  const battleColor = P.BODY.s;
-
-  // Layout, top to bottom: merlons, battlement slab (overhanging the body),
-  // then the column down to a 2px gap at the canvas bottom.
-  // Four teeth on the wider crown keeps the same 4px tooth / 2px crenel rhythm
-  // the old three had on the narrower one (22px of crenellation on the 24px
-  // slab, so 1px of slab shows at each end).
-  const MERLON_H = 4, MERLON_W = 4, MERLON_GAP = 2, MERLONS = 4;
-  const battTop = MERLON_H, battH = 5;
-  const bodyTop = battTop + battH;          // 9
-  const bodyBot = H;                        // 42 — art runs to the last row
-  const bodyX = 4, bodyW = W - 8;           // x 4..24
-  const battX = bodyX - 2, battW = bodyW + 4;  // slab overhangs 2px each side
-
-  // ── Column ────────────────────────────────────────────────────────────
-  ctx.fillStyle = wallColor;
-  ctx.fillRect(bodyX, bodyTop, bodyW, bodyBot - bodyTop);
-  // Lit left edge / shadowed right edge, both inset 1px so the outline below
-  // paints over neither. Both are palette stones, not white/black washes.
-  ctx.fillStyle = P.BODY.s;                 // lit edge = the wall's crest stone
-  ctx.fillRect(bodyX + 1, bodyTop, 1, bodyBot - bodyTop);
-  ctx.globalAlpha = 0.7;
-  ctx.fillStyle = P.SHADOW.s;
-  ctx.fillRect(bodyX + bodyW - 2, bodyTop, 1, bodyBot - bodyTop);
-  ctx.globalAlpha = 1;
-  // Corbel shadow: the slab overhangs, so the top of the column sits in its
-  // shade. Without this the overhang read as a hat balanced on a stick.
-  ctx.fillStyle = P.SHADOW.s;
-  ctx.globalAlpha = 0.55;
-  ctx.fillRect(bodyX + 1, bodyTop, bodyW - 2, 2);
-  ctx.globalAlpha = 1;
-  // Stone-block joints, inset 1px from each side so they stop at the outline.
-  // The wall's own SHADOW tone rather than a black wash: black pulls the
-  // blue-grey stone toward neutral, so joints drawn that way read as a
-  // different rock from the rampart's.
-  ctx.fillStyle = P.SHADOW.s;
-  for (let y = bodyTop + 7; y < bodyBot - 3; y += 7) {
-    ctx.fillRect(bodyX + 1, y, bodyW - 2, 1);
+  ctx.drawImage(source, 0, 0);
+  const image = ctx.getImageData(0, 0, W * CastleStyles.ids.length, H);
+  const claimed = palette !== CASTLE_STONE_UNCLAIMED;
+  const crowns = CastleStyles.ids.map(() => H);
+  const materials = CastleStyles.ids.map(id => CastleStyles.get(id, claimed));
+  // Soften the masonry's join with irregular castle geometry. The bottom
+  // ten rows rise from 30% opacity at the foot to fully opaque above it.
+  const fadeRows = 10, footAlpha = 0.3;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W * materials.length; x++) {
+    const i = (y * W * materials.length + x) * 4, pixels = image.data;
+    if (pixels[i + 3] < 128) { pixels[i + 3] = 0; continue; }
+    const frame = Math.floor(x / W);
+    const ink = castleTowerInk(pixels[i], pixels[i + 1], pixels[i + 2], materials[frame]);
+    pixels[i] = ink >> 16; pixels[i + 1] = (ink >> 8) & 255; pixels[i + 2] = ink & 255;
+    pixels[i + 3] = Math.round(255 * (footAlpha + (1 - footAlpha)
+      * Math.min(1, (H - 1 - y) / (fadeRows - 1))));
+    crowns[frame] = Math.min(crowns[frame], y);
   }
-  // Grounding shade at the foot — a single soft SHADOW pass, no DARK contact
-  // line. The turret always stands ON castle masonry (it only spawns on a
-  // tier-12 wall cell), and that stone is the same tone as its own column, so
-  // a hard dark line there read as the column being CUT rather than as it
-  // meeting the wall. The fade at the very bottom (applied after the outline,
-  // below) does the joining; this just keeps the foot from reading flat.
-  ctx.globalAlpha = 0.30;
-  ctx.fillStyle = P.SHADOW.s;
-  ctx.fillRect(bodyX + 1, bodyBot - 5, bodyW - 2, 5);
-  ctx.globalAlpha = 1;
-  // Arrow slit — a dark 2px slot with a lit sill under it so it reads as an
-  // opening cut INTO the wall rather than a painted-on smudge. Sits one row
-  // BELOW the first joint course: starting flush on a joint made the slit look
-  // like a crack running out of the masonry line.
-  const slitX = (W >> 1) - 1, slitY = bodyTop + 8;
-  ctx.fillStyle = OUTLINE;
-  ctx.fillRect(slitX, slitY, 2, 5);
-  ctx.fillStyle = P.LITE.s;
-  ctx.fillRect(slitX, slitY + 5, 2, 1);
-
-  // ── Battlement slab + merlons ─────────────────────────────────────────
-  ctx.fillStyle = battleColor;
-  ctx.fillRect(battX, battTop, battW, battH);
-  // Merlons centred on the slab (see MERLONS above).
-  const crownW = MERLONS * MERLON_W + (MERLONS - 1) * MERLON_GAP;
-  const crownX = battX + ((battW - crownW) >> 1);
-  const merlonX = (i) => crownX + i * (MERLON_W + MERLON_GAP);
-  for (let i = 0; i < MERLONS; i++) {
-    ctx.fillRect(merlonX(i), battTop - MERLON_H, MERLON_W, MERLON_H);
-  }
-  // (Merlon top-lighting is applied after the outline below — drawn here it
-  // would be painted straight over by the merlon's own outline.)
-  // Shadow line under the slab's own lip, so slab and merlons read as separate
-  // courses of stone rather than one poured shape. Same SHADOW tone the wall
-  // crest uses for its parapet line.
-  ctx.fillStyle = P.SHADOW.s;
-  ctx.fillRect(battX + 1, battTop + battH - 1, battW - 2, 1);
-
-  // ── Silhouette outline (1px fillRects — see the note above) ───────────
-  ctx.fillStyle = OUTLINE;
-  const vline = (x, y0, y1) => ctx.fillRect(x, y0, 1, y1 - y0);
-  const hline = (x0, x1, y) => ctx.fillRect(x0, y, x1 - x0, 1);
-  // Column sides. NO foot line: the turret meets castle masonry of its own
-  // tone, so a dark rule across the bottom read as a cut edge. The foot fade
-  // at the end of this function joins it to the wall instead.
-  vline(bodyX, bodyTop, bodyBot);
-  vline(bodyX + bodyW - 1, bodyTop, bodyBot);
-  // Slab: sides, its underside where it overhangs the column, and the top
-  // where no merlon covers it.
-  vline(battX, battTop, bodyTop);
-  vline(battX + battW - 1, battTop, bodyTop);
-  hline(battX, bodyX, bodyTop - 1);                       // left overhang underside
-  hline(bodyX + bodyW, battX + battW, bodyTop - 1);        // right overhang underside
-  // Merlon outlines + the crenel floors between them.
-  hline(battX, crownX, battTop);
-  for (let i = 0; i < MERLONS; i++) {
-    const mx = merlonX(i);
-    vline(mx, battTop - MERLON_H, battTop);
-    vline(mx + MERLON_W - 1, battTop - MERLON_H, battTop);
-    hline(mx, mx + MERLON_W, battTop - MERLON_H);
-    if (i < MERLONS - 1) hline(mx + MERLON_W, merlonX(i + 1), battTop);
-  }
-  hline(crownX + crownW, battX + battW, battTop);
-  // Merlon top-lighting, inside the outline: one lit pixel across each
-  // merlon's crown, matching the light direction the rampart crest uses
-  // (render.js crestH). Drawn last so the silhouette doesn't cover it.
-  ctx.fillStyle = P.LITE.s;
-  for (let i = 0; i < MERLONS; i++) {
-    ctx.fillRect(merlonX(i) + 1, battTop - MERLON_H + 1, MERLON_W - 2, 1);
-  }
-
-  // ── Foot fade ─────────────────────────────────────────────────────────
-  // The last rows ramp to fully transparent, so the column dissolves into the
-  // masonry it stands on — the wall face where it crowns a rampart, the court
-  // floor where it overhangs one — instead of stopping on a drawn edge. Done
-  // by erasing (destination-out) rather than by painting a colour, so it
-  // blends into WHATEVER is underneath without the texture having to know.
-  // It also takes the side outlines with it, which is the point: an outline
-  // that ran to the last row was the other half of the cut-off look.
-  const FOOT_FADE = 6;
-  ctx.globalCompositeOperation = 'destination-out';
-  const foot = ctx.createLinearGradient(0, H - FOOT_FADE, 0, H);
-  foot.addColorStop(0, 'rgba(0,0,0,0)');
-  foot.addColorStop(1, 'rgba(0,0,0,1)');
-  ctx.fillStyle = foot;
-  ctx.fillRect(0, H - FOOT_FADE, W, FOOT_FADE);
-  ctx.globalCompositeOperation = 'source-over';
-  if (P === CASTLE_STONE_UNCLAIMED) {
-    const image = ctx.getImageData(0, 0, W, H);
-    tuneUnclaimedMaterialPixels(image.data);
-    ctx.putImageData(image, 0, 0);
+  ctx.putImageData(image, 0, 0);
+  for (let frame = 0; frame < materials.length; frame++) {
+    tex.add(frame, 0, frame * W, 0, W, H);
+    const f = tex.get(frame);
+    if (f) f.castleCrownY = crowns[frame];
   }
   tex.refresh();
+}
+
+// Square dark heraldry shares the restored banner's pole foot and canvas.
+// Each family keeps a readable skull, with distinct cloth and pixel geometry.
+function makeCastleSkullFlagTexture(scene) {
+  const heraldry = {
+    citadel: { cloth: '#111111', edge: '#494949', bone: '#e8e3ce', accent: '#929292', glyph: [
+      '.........', '..XXXXX..', '.XXXXXXX.', '.X..X..X.', '.X..X..X.', '..XX.XX..', '...XXX...', '...X.X...', '.........',
+    ] },
+    ruin: { cloth: '#111111', edge: '#494949', bone: '#d9d1b1', accent: '#8a877b', glyph: [
+      '.........', '..XX.XX..', '.XXX.XXX.', '.X..X..X.', '.X..X..X.', '..XX..X..', '...XX....', '...X.X...', 'O.......O',
+    ] },
+    bastion: { cloth: '#484848', edge: '#737373', bone: '#eee2cb', accent: '#bc9862', glyph: [
+      'OOOOOOOOO', 'O.XXXXX.O', 'OXXXXXXXO', 'OX..X..XO', 'OX..X..XO', 'O.XX.XX.O', '.O.XXX.O.', '..O.X.O..', '...OOO...',
+    ] },
+    archive: { cloth: '#493425', edge: '#79614b', bone: '#e7dfcd', accent: '#b49c76', glyph: [
+      '..XXXXX..', '.XXXXXXX.', '.X..X..X.', '..XX.XX..', '...XXX...', 'OOOO.OOOO', 'O..O.O..O', 'OOOOOOOOO', '....O....',
+    ] },
+  };
+  for (const [id, art] of Object.entries(heraldry)) {
+    const key = `castle_skull_flag_${id}`;
+    if (scene.textures.exists(key)) continue;
+    const texture = scene.textures.createCanvas(key, 16, 18), ctx = texture.getContext();
+    ctx.fillStyle = '#29251d'; ctx.fillRect(2, 0, 3, 18);
+    ctx.fillStyle = '#8b795e'; ctx.fillRect(2, 1, 2, 17);
+    ctx.fillStyle = art.edge; ctx.fillRect(4, 1, 12, 12);
+    ctx.fillStyle = art.cloth; ctx.fillRect(5, 2, 10, 10);
+    for (let y = 0; y < art.glyph.length; y++) for (let x = 0; x < art.glyph[y].length; x++) {
+      const mark = art.glyph[y][x];
+      if (mark === '.') continue;
+      ctx.fillStyle = mark === 'X' ? art.bone : art.accent;
+      ctx.fillRect(5 + x, 2 + y, 1, 1);
+    }
+    texture.refresh();
+  }
 }
 
 // Procedural "pot of gold" — the in-world art for the coin-burst POIs
 // (ATM + bicycle_parking). Tapping one of these spills a burst of collectible
 // coins, so a little cast-iron cauldron brimming with gold reads the mechanic
-// at a glance (and replaces the old tinted-chest stand-in flagged in render.js).
+// at a glance.
 // Single-frame canvas texture keyed 'potofgold'; the render spec leaves `frame`
 // undefined for it, exactly like the themed-house sprites.
 function makePotOfGoldTexture(scene) {
@@ -1233,31 +1083,22 @@ function makePotOfGoldTexture(scene) {
 // clearly in one cell) — the art is inset from every edge, and the renderer
 // centres it on the cell, so nothing spills onto a neighbour.
 //
-// These are STAND-INS for hand-drawn sprites. They are drawn rather than
-// loaded because a trap has to say two opposite things with one silhouette,
-// and getting that contrast right matters more right now than the linework:
+// These are STAND-INS for hand-drawn sprites: a trap has to say two opposite
+// things with one silhouette.
 //
-//   trap_hidden — a scuff. Disturbed ground: a broken ring of small loose
-//     stones ringing the covering, a couple of twig slivers laid over it, and
-//     one small dark gap where the covering has sagged. Everything at low
-//     alpha, in tones taken off the ground rather than added to it, so it
-//     reads as "something is odd about this cell" to a player who is looking
-//     and as nothing at all to one who is not. The stone ring is the actual
-//     tell — round and grouped (a shadowed underside, a paler lit top) so it
-//     reads as a little ring of stones rather than a scatter of specks; it was
-//     too faint a first pass (flat 2×1 dots at 0.20-0.30 alpha) to be spotted
-//     at a glance, which is dodgeable-by-the-observant tipping into
-//     invisible-to-everyone. It still sits well under the 0.4-alpha ceiling
-//     the sprung trap's opaque ink clears, so it stays the quieter of the
-//     two. Under the lightmap (the trap layer sits below it) an unlit cell
-//     hides it completely, which is why caves are the dangerous half of this
-//     feature.
+//   trap_hidden — a scuff of disturbed ground: a broken ring of small round
+//     stones (a shadowed underside, a paler lit top), a couple of twig slivers
+//     and one small dark gap where the covering has sagged. All low alpha, in
+//     tones taken off the ground, so it reads as "something is odd" to a
+//     careful player and as nothing to one who is not (flat 2×1 dots at
+//     0.20-0.30 alpha were too faint to spot). It stays under the 0.4-alpha
+//     ceiling the sprung trap's opaque ink clears. Under the lightmap an unlit
+//     cell hides it completely, which is why caves are the dangerous half.
 //
-//   trap_open — a sprung iron jaw. Dark pit, a rust-brown ring, and two arcs
-//     of triangular teeth meeting across it, lit from the top-left like every
-//     other sprite here. Loud on purpose: once it has bitten you, the cost of
-//     standing on it is ongoing, so the art's whole job is "get off, and don't
-//     walk back onto it".
+//   trap_open — a sprung iron jaw: dark pit, rust-brown ring, two arcs of
+//     triangular teeth meeting across it, lit from the top-left. Loud on
+//     purpose: once it has bitten, standing on it is an ongoing cost, so the
+//     art's job is "get off, and don't walk back onto it".
 const TRAP_PX = 32;                 // one cell — CELL_PX in app.js
 
 function makeTrapTextures(scene) {
@@ -1273,12 +1114,9 @@ function makeHiddenTrapTexture(scene) {
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, S, S);
 
-  // Disturbed-earth ring: a broken ring of small round stones, each with a
-  // shadowed underside and a paler lit top so it reads as an actual pebble
-  // rather than a flat speck. Broken, not continuous — a complete circle on
-  // the ground reads as a manhole — and the two dots per stone are drawn
-  // close enough to overlap into one rounded shape instead of a pair of
-  // pixels.
+  // Disturbed-earth ring: small round stones, each a shadowed underside plus a
+  // paler lit top, drawn close enough to overlap into one rounded shape. Broken,
+  // not continuous: a complete circle on the ground reads as a manhole.
   const R = c - 4;
   for (let i = 0; i < 14; i++) {
     const a = (i / 14) * Math.PI * 2 + 0.35;
@@ -1289,18 +1127,13 @@ function makeHiddenTrapTexture(scene) {
     ctx.fillStyle = 'rgba(224,210,182,0.32)';     // its lit top, catching the light
     ctx.beginPath(); ctx.ellipse(x, y - 0.5, 1.4, 1.0, 0, 0, Math.PI * 2); ctx.fill();
   }
-  // The sag: one small dark crescent just below centre where the covering has
-  // given a little. Deliberately fainter and smaller than the disturbed-earth
-  // ring around it — the ring is the tell a careful player learns to read;
-  // the centre itself should all but disappear into the ground, not draw the
-  // eye first.
+  // The sag: a small dark crescent just below centre, deliberately fainter than
+  // the ring (the ring is the tell; the centre should all but disappear).
   ctx.fillStyle = 'rgba(18,14,10,0.15)';
   ctx.beginPath();
   ctx.ellipse(c + 1, c + 2, 3, 1.5, -0.25, 0, Math.PI * 2);
   ctx.fill();
-  // Twigs / grass laid over the covering — three short pale strokes at
-  // different angles. Straight lines are what makes it read as PLACED cover
-  // rather than as a patch of bare dirt.
+  // Twigs laid over the covering: straight strokes read as PLACED cover, not bare dirt.
   ctx.strokeStyle = 'rgba(150,132,92,0.28)';
   ctx.lineWidth = 1;
   const twigs = [[-7, -4, 6, 3], [-5, 4, 8, -2], [1, -6, 5, 6]];
@@ -1321,21 +1154,17 @@ function makeSprungTrapTexture(scene) {
   const ctx = tex.getContext();
   ctx.clearRect(0, 0, S, S);
 
-  // The whole jaw is drawn at SPRUNG_K of the cell it used to fill, and EVERY
-  // number below is scaled by it — plate radii, ring thicknesses, jaw stroke,
-  // tooth length, hinge block — so shrinking the art is one constant rather
-  // than a re-tune. A trap that filled its cell edge to edge crowded the
-  // ground marks and the sprites beside it; at 0.85 it still shouts, and the
-  // cell around it reads as ground again.
+  // The whole jaw is drawn at SPRUNG_K of the cell and EVERY number below is
+  // scaled by it, so resizing is one constant. Edge to edge it crowded the
+  // ground marks and neighbouring sprites; at 0.85 it still shouts.
   const SPRUNG_K = 0.85;
   const k = SPRUNG_K;
   const RX = (c - 3) * k, RY = (c - 3) * 0.84 * k;   // squashed — seen from above
   const IRON = '#7b6553', IRON_HI = '#ac967f', IRON_LO = '#332a22';
   const RUST = '#8a4a28';
 
-  // The plate the trap is bolted to, and the dark hole inside it. The hole is
-  // what the teeth bite into: without it the jaws have nothing to close ON and
-  // the whole thing reads as a disc.
+  // The plate and the dark hole inside it, which the teeth bite into (without
+  // it the whole thing reads as a disc).
   ctx.fillStyle = 'rgba(38,27,18,0.9)';
   ctx.beginPath(); ctx.ellipse(c, c, RX, RY, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = '#0b0908';
@@ -1344,12 +1173,10 @@ function makeSprungTrapTexture(scene) {
   ctx.strokeStyle = RUST;
   ctx.beginPath(); ctx.ellipse(c, c, RX - 0.5 * k, RY - 0.5 * k, 0, 0, Math.PI * 2); ctx.stroke();
 
-  // TWO JAWS, not a ring. Each is a thick arc over roughly the top (or bottom)
-  // two-thirds of the plate, with a clear GAP at each side where the hinge and
-  // the spring sit — that pair of gaps, and the dark slit left between the
-  // tooth tips, are what make the silhouette read as a closed mouth rather
-  // than as a wheel. (It read as a wheel when the teeth ran the whole way
-  // round and met in the middle: evenly spaced spokes on a disc.)
+  // TWO JAWS, not a ring: each a thick arc over roughly the top (or bottom)
+  // two-thirds of the plate, with a GAP at each side for the hinge and spring.
+  // The gaps and the dark slit between tooth tips make a closed mouth rather
+  // than a wheel.
   const A0 = 0.14, A1 = 0.86;                 // jaw arc, in units of π
   const jaw = (flip) => {
     const s = flip ? Math.PI * (1 + A0) : Math.PI * A0;
@@ -1357,8 +1184,7 @@ function makeSprungTrapTexture(scene) {
     ctx.lineWidth = 3 * k;
     ctx.strokeStyle = IRON;
     ctx.beginPath(); ctx.ellipse(c, c, RX - 2 * k, RY - 2 * k, 0, s, e); ctx.stroke();
-    // Lit edge on the OUTSIDE of each jaw, so the two bands read as separate
-    // pieces of metal rather than one ring.
+    // Lit edge on the OUTSIDE of each jaw, so the bands read as separate pieces of metal.
     ctx.lineWidth = 1;
     ctx.strokeStyle = flip ? IRON_HI : IRON_LO;
     ctx.beginPath(); ctx.ellipse(c, c, RX - 0.8 * k, RY - 0.8 * k, 0, s, e); ctx.stroke();
@@ -1366,15 +1192,11 @@ function makeSprungTrapTexture(scene) {
   jaw(true);      // upper
   jaw(false);     // lower
 
-  // The teeth. They hang STRAIGHT DOWN off the upper jaw and straight up off
-  // the lower one — never along the radius — and they are drawn only over the
-  // middle of each arc, so the two rows meet in a narrow horizontal zigzag:
-  // the mouth of a trap that has already CLOSED, which is what this texture is
-  // for. Radial teeth were tried twice and read as a WHEEL both times, at both
-  // lengths: short ones left evenly-spaced spokes on a disc, long ones crossed
-  // near the sides and turned the black between them into more spokes. The
-  // give-away is that a radial tooth near the side of the arc points sideways,
-  // and no jaw has sideways teeth.
+  // The teeth hang STRAIGHT DOWN off the upper jaw and straight up off the
+  // lower, never along the radius, over the middle of each arc only, so the
+  // rows meet in a narrow horizontal zigzag: the mouth of a CLOSED trap.
+  // Radial teeth read as a WHEEL at every length (near the sides they point
+  // sideways, and no jaw has sideways teeth).
   const TOOTH = 4.6 * k, HALF_W = 1.5 * k;
   const B0 = 0.20, B1 = 0.80;                 // tooth span, in units of π
   const tooth = (ang, down) => {
@@ -1395,12 +1217,10 @@ function makeSprungTrapTexture(scene) {
     tooth(Math.PI * (B0 + (B1 - B0) * t), false);       // lower jaw, biting up
   }
 
-  // Hinge and spring, one on each side, filling the gaps the jaws left. They
-  // break the circle — a plain disc on the ground reads as a treasure pad in
-  // this world (see makeRoundPadTexture) — and say which way the jaws swung.
-  // Anchored to the PLATE's rim rather than to the canvas edge: each block
-  // starts 2 units outside the ellipse and runs inward, so it still bridges
-  // the gap between the jaws at whatever size SPRUNG_K picks.
+  // Hinge and spring, one each side, filling the jaws' gaps. They break the
+  // circle (a plain disc reads as a treasure pad here; see makeRoundPadTexture).
+  // Anchored to the PLATE's rim (2 units outside the ellipse, running inward),
+  // so they bridge the gap at any SPRUNG_K.
   const HW = 5 * k, HH = 4 * k, LIP = 1 * k;
   const hxL = c - RX - 2 * k, hxR = c + RX + 2 * k - HW, hy = c - HH / 2;
   ctx.fillStyle = IRON;
@@ -1445,8 +1265,9 @@ function drawBiomeTexture(ctx, size, type, variant = 0, phase = 0) {
 // alter terrain, occupancy, or the cave source. Cache anchor transforms, not
 // a cell answer, so a player-edited terrain cell still keeps its own paint.
 const ZONE_GROUND_ACCENTS = {
-  ancient_grove: { terrain: 28, color: 0x94a38c },
-  silent_circle: { terrain: 29, color: 0xd5d3bd },
+  mushroom_grove: { terrain: 28, color: 0x2f462e, fullCoverage: true },
+  ancient_grove: { terrain: 28, color: 0x58623a },
+  silent_circle: { terrain: 29, color: 0xc9c596 },
 };
 const _zoneGroundStates = new WeakMap();
 function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry && entry.ty) {
@@ -1473,6 +1294,7 @@ function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry
   }
   const s = states[ai];
   if (!s || type !== s.accent.terrain) return null;
+  if (s.accent.fullCoverage) return s.accent.color;
   const dx = Math.round((tx * 4096 + (ix + 0.5) * 4096 / N - s.x) / s.unit);
   const dy = Math.round((ty * 4096 + (iy + 0.5) * 4096 / N - s.y) / s.unit);
   if (s.variant.id === 'silent_circle') return dx === 0 && dy === 0 ? s.accent.color : null;
@@ -1561,8 +1383,7 @@ function makeRoundPadTexture(scene, key, inks = POI_PAD_INKS) {
   const x = inset, y = inset, w = size - inset * 2, h = size - inset * 2 - depth;
   const radius = w * 0.32;                  // generously rounded corners
   // BORDERLESS: the pad is a backdrop, so it carries no perimeter outline —
-  // just the two stone fills. (It used to be ringed in bright cyan, which
-  // drew the eye to the slab instead of to the POI standing on it.) The
+  // just the two stone fills, so the eye goes to the POI standing on it. The
   // darker side face is the only thing separating plinth from top slab.
   // Warm ivory distinguishes this sacred/reward surface from rustic ground.
   // The same-hue side is about 8% darker, preserving the raised slab's depth
@@ -1576,7 +1397,7 @@ function makeRoundPadTexture(scene, key, inks = POI_PAD_INKS) {
   ctx.fillStyle = inks.top;
   ctx.fill();
   // Subtle top sheen + bottom shadow, clipped to the top slab, for the same
-  // faint "beveled flagstone" feel the old shape pads had.
+  // faint "beveled flagstone" feel.
   ctx.save();
   roundRectPath(ctx, x, y, w, h, radius);
   ctx.clip();

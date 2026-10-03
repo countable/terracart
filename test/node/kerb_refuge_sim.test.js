@@ -4,7 +4,7 @@
 // away from an enemy." The rules (creature_ai.js THE KERB, worldgen
 // ROAD_CLASS_MAJOR_BUFFER):
 //   · nothing hostile steps onto a major road's band;
-//   · a FAST mover (isFastFoe / isFastMover — over BRISK_WALK_MPS) never
+//   · a FAST mover (isFastMover — over BRISK_WALK_MPS) never
 //     steps into the kerb buffer, never spawns in it (the spawn gate's KERB
 //     reason, 'fastEnemy' / 'fastFauna'), and a ghost never glides into it;
 //   · a player whose feet are in the buffer is where every chase ends
@@ -62,6 +62,7 @@ function mkScene(entry, creature, feet) {
     cellAt: () => ({ loaded: true, type: 0 }),   // walkable everywhere; only the road bits differ
     _cellBlocked: () => false, _nearAny: () => false, placedRockSet: null,
     _damageEnemy: () => false, resolveDefeat: () => {},
+    _applyCondition(id) { Conditions.apply(this.save, id); },
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     _trapperLay() { this._laid++; },
@@ -149,7 +150,10 @@ test('kerb: the harness bites — every mobile hostile attacks a player in open 
   // Without this the test below could pass for the wrong reason: a sim in
   // which nothing ever attacks anybody.
   for (const spec of foes()) {
-    if (EnemyRoster.get(spec.label)?.attackType === 'none') continue;
+    const row = EnemyRoster.get(spec.label);
+    // Circling trail-makers and buried ambushers do not chase a still target.
+    // Their contact/ground hazards have separate behavioral tests.
+    if (row?.attackType === 'none' || ['orbit_trail', 'burrow'].includes(row?.movement.pattern)) continue;
     const r = walk(spec, at(10, OPEN_ROW + 1), () => at(10, OPEN_ROW), 30);
     assert.gt(attacks(r.scene), 0, `${spec.label}: attacked a player standing in the open`);
   }
@@ -174,7 +178,7 @@ test('kerb: for EVERY hostile, stepping onto the road is never better than walki
 test('kerb: a fast foe never crosses into the buffer — the chase ends at its edge', () => {
   for (const spec of foes()) {
     const c = spec.make(at(0, 0));
-    const fast = isFastFoe(c, CELL);
+    const fast = isFastMover(c, CELL);
     // Chase a player who walks from open ground to the kerb and waits there.
     const path = (t) => {
       const from = at(10, BAND_ROWS[1] + BUF + 6), to = at(10, VERGE_ROW);
@@ -196,7 +200,7 @@ test('kerb: a foe hunting a player ACROSS the road never cuts over it — the ba
   let crossed = 0;
   for (const spec of foes()) {
     const c = spec.make(at(0, 0));
-    const fast = isFastFoe(c, CELL);
+    const fast = isFastMover(c, CELL);
     const r = walk(spec, at(10, BAND_ROWS[1] + BUF + 1), () => far, 60);
     assert.falsy(r.trace.some((p) => p.b & B), `${spec.label}: never on the band`);
     if (fast) assert.falsy(r.trace.some((p) => p.b & K), `${spec.label} (fast) stepped into the kerb buffer`);
@@ -221,12 +225,12 @@ test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s o
     const mv = row.movement;
     const declared = Math.max(...Object.keys(mv).filter((k) => /peedMetersPerSecond$/.test(k)).map((k) => mv[k]));
     assert.eq(pace(row.id), declared, `${row.id}: paced off its row`);
-    assert.eq(isFastFoe({ kind: row.id }, CELL), declared > BRISK_WALK_MPS, `${row.id}: fast iff it out-runs a brisk walk`);
+    assert.eq(isFastMover({ kind: row.id }, CELL), declared > BRISK_WALK_MPS, `${row.id}: fast iff it out-runs a brisk walk`);
   }
   assert.truthy(BRISK_WALK_MPS > WALK_M_S, 'the line is a BRISK walk, over the stick\'s pace');
   assert.eq(pace('slime'), EnemyRoster.get('slime').movement.chargeSpeedMetersPerSecond, 'the wild slime at its charge');
   assert.lt(pace('slime'), BRISK_WALK_MPS, 'under a brisk walk: the wild slime is NOT fast (owner, Sep 2026)');
-  assert.falsy(isFastFoe({ kind: 'slime' }, CELL), 'so it is no fast foe');
+  assert.falsy(isFastMover({ kind: 'slime' }, CELL), 'so it is no fast foe');
   assert.lt(pace('zombie'), BRISK_WALK_MPS, 'a zombie you out-walk');
   assert.lt(pace('fire_slime'), BRISK_WALK_MPS, 'the fire slime too (its own combat row)');
   assert.gt(pace('goblin'), BRISK_WALK_MPS, 'a goblin runs');
@@ -247,13 +251,12 @@ test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s o
   for (const cls of ['enemy', 'fauna', 'npc', 'headstone', 'attractor', 'cave', 'minor']) {
     assert.falsy(WorldGen.SPAWN_CLASS_BLOCKS[cls] & WorldGen.SPAWN_WHY.KERB, `${cls}: not kept off the kerb`);
   }
-  assert.eq(pace('giant_goblin'), pace('goblin'), 'a legacy giant keeps its kind\'s gait');
 });
 
 test('kerb: the rules live on the lanes that exist (source pins)', () => {
   const w = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'));
   assert.truthy(/const kerbLeash = inKerbAt\(this, px, py\);/.test(w), 'read once per tick, off the FEET');
-  assert.truthy(/const standDown = frightened \|\| warded \|\| wanderOff \|\| kerbTurn \|\|/.test(w), 'a reason in standDown');
+  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\|/.test(w), 'a reason in standDown');
   assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed && !kerbTurn\)/.test(w), 'a guard gives up');
   assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) continue;/.test(w), 'the band is a refused cell');
   const spawn = SCENE_SRC.slice(SCENE_SRC.indexOf('  spawnInTile(entry, tx, ty) {'));
@@ -270,14 +273,14 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   assert.falsy(/BANDIT_STORY\.attracts/.test(SCENE_SRC), 'no animal is pulled onto a major verge');
 });
 
-test('kerb: WorldGen.isFoeCell (any foe — the fast row) is the spawn rule minus the buffer', () => {
+test('kerb: isSpawnCell(…, \'fastEnemy\') (any foe — the fast row) is the spawn rule minus the buffer', () => {
   const e = street();
   const opts = { roadMask: null, occupied: new Set(), roadClass: e.roadClass };
   const g = e.grid;   // GRASS
   assert.truthy(WorldGen.isSpawnCell(g, N, N, 5, VERGE_ROW, opts), 'the verge is a spawn cell (scenery, pickups)');
-  assert.falsy(WorldGen.isFoeCell(g, N, N, 5, VERGE_ROW, opts), 'but no foe or animal seat');
-  assert.truthy(WorldGen.isFoeCell(g, N, N, 5, OPEN_ROW, opts), 'open ground takes one');
-  assert.truthy(WorldGen.isFoeCell(g, N, N, 5, VERGE_ROW, { ...opts, roadClass: null }), 'no bits, no buffer');
+  assert.falsy(WorldGen.isSpawnCell(g, N, N, 5, VERGE_ROW, opts, 'fastEnemy'), 'but no foe or animal seat');
+  assert.truthy(WorldGen.isSpawnCell(g, N, N, 5, OPEN_ROW, opts, 'fastEnemy'), 'open ground takes one');
+  assert.truthy(WorldGen.isSpawnCell(g, N, N, 5, VERGE_ROW, { ...opts, roadClass: null }, 'fastEnemy'), 'no bits, no buffer');
   assert.truthy(WorldGen.isSpawnCell(g, N, N, 5, VERGE_ROW, opts, 'enemy'), 'a SLOW foe may take the verge');
   assert.falsy(WorldGen.isSpawnCell(g, N, N, 5, VERGE_ROW, opts, 'fastFauna'), 'a fast animal may not');
 });

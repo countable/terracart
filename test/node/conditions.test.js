@@ -1,4 +1,68 @@
 (function () {
+  test('jellyfish stun: halves trained attack speed without changing hit damage, refreshes and expires', () => {
+    const save = { energy: 100, training: { speed: 5 } };
+    const baseline = Combat.playerAttackIntervalMul(save);
+    const damage = Combat.meleeSwingDamage({});
+    Conditions.apply(save, 'jellyfish_stun');
+    assert.eq(Combat.playerAttackIntervalMul(save), baseline * 2);
+    assert.eq(Combat.meleeSwingDamage({}), damage);
+    Conditions.tick(save, 4000);
+    Conditions.apply(save, 'jellyfish_stun');
+    assert.eq(save.conditions.jellyfish_stun.remainingMs, 5000);
+    Conditions.normalize(save);
+    assert.eq(save.conditions.jellyfish_stun.remainingMs, 5000);
+    Conditions.tick(save, 4999);
+    assert.eq(Combat.playerAttackIntervalMul(save), baseline * 2, 'still slowed just before expiry');
+    Conditions.tick(save, 1);
+    assert.eq(Combat.playerAttackIntervalMul(save), baseline, 'normal speed at exactly five seconds');
+    assert.eq(save.energy, 100, 'stun has no additional damage ticks');
+    Conditions.apply(save, 'jellyfish_stun');
+    assert.truthy(Conditions.useAntidote(save));
+    assert.eq(Combat.playerAttackIntervalMul(save), baseline);
+  });
+  test('jellyfish stun: pending melee and ranged attacks retain progress when speed changes', () => {
+    const body = SCENE_SRC.match(/\n  _syncAttackConditionSpeed\(\) \{([\s\S]*?)\n  \}\n/)[1];
+    const sync = new Function('Conditions', 'performance', body);
+    const scene = { save: {}, _nextBlowT: 1500, _nextShotT: { bow: 2000, staff: 4000 } };
+    const clock = { now: () => 1000 };
+    Conditions.apply(scene.save, 'jellyfish_stun');
+    sync.call(scene, Conditions, clock);
+    assert.eq(scene._nextBlowT, 2000);
+    assert.eq(scene._nextShotT.bow, 3000);
+    assert.eq(scene._nextShotT.staff, 7000);
+    Conditions.cure(scene.save, 'jellyfish_stun');
+    sync.call(scene, Conditions, clock);
+    assert.eq(scene._nextBlowT, 1500);
+    assert.eq(scene._nextShotT.staff, 4000);
+  });
+  test('jellyfish stun: scene clock restores pending attack speed at exactly five seconds', () => {
+    const body = name => SCENE_SRC.match(new RegExp('\\n  ' + name + '\\(\\) \\{([\\s\\S]*?)\\n  \\}\\n'))[1];
+    const sync = new Function('Conditions', 'performance', body('_syncAttackConditionSpeed'));
+    const tick = new Function('Conditions', 'performance', 'document', 'persistSave', body('_tickConditions'));
+    let now = 1000;
+    const clock = { now: () => now };
+    const scene = { save: { energy: 100 }, _conditionLastT: now, _conditionVisibilityHandler() {},
+      _syncStatusRow() {}, _announceStatuses() {}, _nextBlowT: 5000, _nextShotT: { staff: 7000 },
+      _syncAttackConditionSpeed() { sync.call(this, Conditions, clock); } };
+    Conditions.apply(scene.save, 'jellyfish_stun');
+    scene._syncAttackConditionSpeed();
+    assert.eq(scene._nextBlowT, 9000);
+    assert.eq(scene._nextShotT.staff, 13000);
+    now += 4999;
+    tick.call(scene, Conditions, clock, { hidden: false }, () => {});
+    assert.eq(scene._nextShotT.staff, 13000, 'no early restoration');
+    now++;
+    tick.call(scene, Conditions, clock, { hidden: false }, () => {});
+    assert.falsy(Conditions.active(scene.save, 'jellyfish_stun'));
+    assert.eq(scene._nextBlowT, 7500);
+    assert.eq(scene._nextShotT.staff, 9500, 'remaining slow cooldown shrinks immediately on expiry');
+  });
+  test('spider and jellyfish: combat rows carry their timed conditions', () => {
+    assert.eq(Combat.monster('spider').condition, 'poison');
+    assert.eq(Conditions.DEFINITIONS[Combat.monster('spider').condition].durationMs, 60000);
+    assert.eq(Combat.monster('jellyfish').condition, 'jellyfish_stun');
+    assert.eq(Conditions.DEFINITIONS[Combat.monster('jellyfish').condition].durationMs, 5000);
+  });
   test('poison: first tick after 2 seconds, 30 ticks including expiry', () => {
     const save = { energy: 100 };
     Conditions.apply(save, 'poison');
@@ -51,7 +115,6 @@
   });
   test('poison: Purple Slime variants inherit condition; guarded actual damage applies it', () => {
     assert.eq(Combat.monster('purple_slime').condition, 'poison');
-    assert.eq(Combat.monster('giant_purple_slime').condition, 'poison');
     assert.falsy(Combat.monster('cave_slime')?.condition);
     assert.truthy(/lost > 0 && !isTame && Combat.isEnemy\(c\) && m.condition/.test(SCENE_SRC));
   });
@@ -77,7 +140,7 @@
       const fn = new Function('getSelectedSlot', 'Conditions', body);
       const save = { energy: 0, inv: [{ id, count: 2 }] };
       let consumed = 0;
-      const scene = { save, flash() {}, _syncStatusRow() {}, _popEnergy() {}, updateEnergyDOM() {},
+      const scene = { save, flash() {}, _syncStatusRow() {}, _announceStatuses() {}, _syncAttackConditionSpeed() {}, _popEnergy() {}, updateEnergyDOM() {},
         _finishConsumable() { consumed++; return true; } };
       const call = () => fn.call(scene, s => s.inv[0], Conditions);
       assert.falsy(call());
@@ -95,12 +158,13 @@
       const save = { energy: 1, inv: [{ id, count: 2 }] };
       Energy.set(save, Energy.maxEnergy(save));
       let consumed = 0, synced = 0;
-      const scene = { save, _pinnedUntil: performance.now() + 3000,
+      Conditions.apply(save, 'pinned');
+      const scene = { save,
         flash() {}, _syncStatusRow() { synced++; }, _popEnergy() {}, updateEnergyDOM() {},
         _finishConsumable() { consumed++; return true; } };
       const call = () => fn.call(scene, s => s.inv[0], Conditions);
       assert.truthy(call());
-      assert.eq(scene._pinnedUntil, 0);
+      assert.falsy(Conditions.active(save, 'pinned'));
       assert.eq(consumed, 1);
       assert.eq(synced, 1);
       assert.falsy(call());
@@ -118,7 +182,7 @@
     assert.eq(save.conditions.poison.remainingMs, 1000);
     assert.eq(save.conditions.poison.nextTickMs, 2000);
     let persisted = null;
-    const scene = { save, _conditionLastT: 5000, _conditionVisibilityHandler() {}, _syncStatusRow() {} };
+    const scene = { save, _conditionLastT: 5000, _conditionVisibilityHandler() {}, _announceStatuses() {}, _syncStatusRow() {}, _syncAttackConditionSpeed() {} };
     fn.call(scene, Conditions, { hidden: false }, { now: () => 6000 },
       state => { persisted = JSON.parse(JSON.stringify(state)); });
     assert.truthy(persisted, 'expiry saves even though no energy tick happened');
@@ -131,7 +195,7 @@
     const fn = new Function('Conditions', 'document', 'performance', 'persistSave', body);
     let now = 1000;
     const doc = { hidden: false, addEventListener() {} };
-    const scene = { save: { energy: 100 }, _syncStatusRow() {}, _flashPlayerHit() {}, _popEnergy() {}, _warnIfTiring() {}, updateEnergyDOM() {} };
+    const scene = { save: { energy: 100 }, _announceStatuses() {}, _syncStatusRow() {}, _syncAttackConditionSpeed() {}, _flashPlayerHit() {}, _popEnergy() {}, _warnIfTiring() {}, updateEnergyDOM() {} };
     Conditions.apply(scene.save, 'poison');
     const call = () => fn.call(scene, Conditions, doc, { now: () => now }, () => {});
     call(); now += 1000; call();
@@ -144,27 +208,54 @@
   });
 })();
 
-// BURNING (owner, Oct 2026): fire on the body — the second row of the one
-// status table. 1 a second for 5 s, out on its own or cleansed; the row owns
-// its look (tint, HUD chip) for the player and every burning foe alike.
+// Burn clocks are shared by the player and all units.
 (function () {
-  test('burning: five ticks of one over five seconds, then it goes out on its own', () => {
+  test('burning: five seconds of brief contact expire without damage below ten seconds', () => {
     const save = { energy: 50 };
     assert.truthy(Conditions.apply(save, 'burning'));
-    assert.eq(Conditions.tick(save, 999).ticks, 0);
-    assert.eq(Conditions.tick(save, 1).ticks, 1, 'the first point a second in');
-    const r = Conditions.tick(save, 4000);
-    assert.eq(r.ticks, 4); assert.truthy(r.expired, 'out at five seconds');
-    assert.eq(save.energy, 45, 'five points in all');
+    const result = Conditions.tick(save, 5000);
+    assert.eq(result.ticks, 5);
+    assert.eq(result.lost, 0);
+    assert.truthy(result.expired);
     assert.falsy(Conditions.active(save, 'burning'));
   });
-  test('burning: a fresh contact restarts the five seconds without moving the next tick', () => {
-    const save = { energy: 50 };
+  test('burning: exposure grows five seconds per second, caps at sixty and preserves cadence', () => {
+    const save = { energy: 100 };
     Conditions.apply(save, 'burning');
-    Conditions.tick(save, 700);
-    assert.falsy(Conditions.apply(save, 'burning'), 'not fresh');
-    assert.eq(save.conditions.burning.remainingMs, 5000);
-    assert.eq(Conditions.tick(save, 300).ticks, 1, 'the tick already due still lands on time');
+    Conditions.tick(save, 700, { burningExposure: true });
+    assert.falsy(Conditions.apply(save, 'burning'));
+    assert.eq(save.conditions.burning.remainingMs, 8500);
+    assert.eq(Conditions.tick(save, 300, { burningExposure: true }).lost, 1);
+    assert.eq(save.conditions.burning.remainingMs, 10000);
+    Conditions.tick(save, 10000, { burningExposure: true });
+    assert.eq(save.conditions.burning.remainingMs, 60000);
+    assert.eq(Conditions.tick(save, 1000, { burningExposure: true }).lost, 6);
+    assert.eq(save.conditions.burning.remainingMs, 60000);
+    assert.eq(Conditions.tick(save, 1000).lost, 5);
+    assert.eq(save.conditions.burning.remainingMs, 59000);
+  });
+  test('burning: long frames match small steps during exposure and decay', () => {
+    const state = { remainingMs: 5000, nextTickMs: 1000 };
+    const whole = Conditions.advanceBurn(state, 12000, true);
+    let stepped = state, damage = 0;
+    for (let i = 0; i < 120; i++) {
+      stepped = Conditions.advanceBurn(stepped, 100, true);
+      damage += stepped.damage;
+    }
+    assert.eq(whole.damage, damage);
+    assert.eq(whole.remainingMs, stepped.remainingMs);
+    const decay = Conditions.advanceBurn(whole, 60000);
+    assert.eq(decay.remainingMs, 0);
+    assert.eq(decay.damage, 150);
+    assert.eq(state.remainingMs, 5000, 'pure clock does not mutate input');
+  });
+  test('burning: normalization preserves accumulated duration and clamps at sixty seconds', () => {
+    const save = { conditions: { burning: { remainingMs: 43000, nextTickMs: 600 } } };
+    Conditions.normalize(save);
+    assert.eq(save.conditions.burning.remainingMs, 43000);
+    save.conditions.burning.remainingMs = 90000;
+    Conditions.normalize(save);
+    assert.eq(save.conditions.burning.remainingMs, 60000);
   });
   test('Antidote: burning alone is cured, all simultaneous debuffs clear, buffs and energy remain', () => {
     const save = { energy: 50, shieldPotionUntil: Date.now() + 100000,
@@ -175,11 +266,10 @@
     assert.truthy(Conditions.useAntidote(save));
     assert.falsy(Conditions.active(save, 'burning'));
     for (const id of Object.keys(Conditions.DEFINITIONS)) Conditions.apply(save, id);
-    scene._pinnedUntil = performance.now() + 3000;
+    assert.truthy(Conditions.active(save, 'pinned'), 'the trap pin is one of the rows');
     const buffsBefore = JSON.stringify(Buffs.active(save, scene, 0));
     assert.truthy(Conditions.useAntidote(save, scene));
     for (const id of Object.keys(Conditions.DEFINITIONS)) assert.falsy(Conditions.active(save, id));
-    assert.eq(scene._pinnedUntil, 0);
     assert.eq(JSON.stringify(Buffs.active(save, scene, 0)), buffsBefore);
     assert.eq(Conditions.tick(save, 60000).ticks, 0);
     assert.eq(save.energy, 50, 'no healing or delayed damage');
@@ -189,12 +279,12 @@
     for (const id of ['antidote', 'elixir']) {
       const save = { energy: 1, shieldPotionUntil: Date.now() + 100000, eatReadyAt: 12345 };
       Energy.set(save, Energy.maxEnergy(save));
-      const scene = { save, _pinnedUntil: performance.now() + 3000,
-        getMaxEnergy: () => Energy.maxEnergy(save), _slowHere: 'tar' };
+      Conditions.apply(save, 'pinned');
+      const scene = { save, getMaxEnergy: () => Energy.maxEnergy(save), _slowHere: 'tar' };
       assert.truthy(CONSUMABLE_SPEC[id].usable(scene), `${id} is usable for pin alone`);
       const method = id === 'antidote' ? 'useAntidote' : 'useElixir';
       assert.truthy(Conditions[method](save, scene));
-      assert.eq(scene._pinnedUntil, 0);
+      assert.falsy(Conditions.active(save, 'pinned'));
       assert.eq(scene._slowHere, 'tar', 'environmental hazards remain in place');
       assert.eq(save.eatReadyAt, 12345);
       assert.truthy(save.shieldPotionUntil > Date.now());

@@ -5,7 +5,7 @@ const NPC = (() => {
   // tile cheap). Far residents cost the sim loop one distance check a frame
   // (scene_creatures.js wanderCreatures) and the draw a viewport cull, so a
   // tile of fifty is a few hundred multiply-adds — the NPC count is not a
-  // frame budget. Was 40 (Sep 2026: more neighbours, more to say).
+  // frame budget.
   const COUNT = 50;
   // ROLES are what a neighbour has to say when tapped (dialogue below): the
   // scout points at things, the scholar reads the Book, merchant and trader
@@ -57,7 +57,7 @@ const NPC = (() => {
     return null;
   }
   function isShrine(o) {
-    return o.kind === 'shrine' || o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
+    return o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
   }
   function spawn(scene, entry, tx, ty, opts) {
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
@@ -145,8 +145,7 @@ const NPC = (() => {
   }
   // A neighbour's stroll: a slow walking pace (m/s, well under the brisk-walk
   // fast-mover line) in short legs, a few seconds' rest between, never more
-  // than WANDER_CELLS from where it was seated. It was 0.045 cells/s with up
-  // to 16 s rests — about a pixel a second, which read as standing still.
+  // than WANDER_CELLS from where it was seated.
   const WALK_MPS = 0.8;
   const WANDER_CELLS = 4;
   const REST_MS = [2500, 6000];     // [base, spread]
@@ -160,10 +159,14 @@ const NPC = (() => {
   function isDormant(c, now = Date.now()) {
     return c?.kind === 'npc' && (c._npcRestUntilEpoch || 0) > now;
   }
-  function hit(scene, c, now = Date.now()) {
+  function hit(scene, c, now = Date.now(), damage = Combat.creatureMaxHp('npc')) {
     if (c?.kind !== 'npc') return false;
     restore(scene, c);
     if (isDormant(c, now)) return false;
+    if (c._hp <= 0) c._hp = Combat.maxHp(c);
+    const lost = Combat.damageDealt(c, damage);
+    if (!(lost > 0)) return false;
+    if (Combat.hp(c) > 0) return true;
     c._npcRestUntilEpoch = now + REST_MS_AFTER_HIT;
     c._moving = false;
     c._npcSteps = 0;
@@ -199,6 +202,8 @@ const NPC = (() => {
     d2 = Math.min(d2, (row.visionCells * scene.cellM) ** 2);
     for (const c of scene._npcCombatTargets || []) {
       const distance2 = (enemy.x - c.x) ** 2 + (enemy.y - c.y) ** 2;
+      if (typeof PotionEffects !== 'undefined' && distance2 > (Math.max(0,
+        row.visionCells - PotionEffects.visionReduction(c)) * scene.cellM) ** 2) continue;
       if (distance2 >= d2 || !canTarget(scene, c) || enemySightBlocked(scene, enemy, c.x, c.y)) continue;
       if (!Combat.lineOfFire(enemy.x, enemy.y, c.x, c.y,
         (x, y) => enemySightBlocked(scene, enemy, x, y), scene.cellM)) continue;
@@ -209,6 +214,7 @@ const NPC = (() => {
   function tick(scene, c, now, dt) {
     restore(scene, c);
     if (isDormant(c)) { c._moving = false; return; }
+    if (c._hp <= 0) c._hp = Combat.maxHp(c);
     // Integrate only active time: returning to a neighbour never jumps them
     // across their old path. Small steps cannot skip a road cell or building.
     dt = Math.min(0.1, Math.max(0, dt));
@@ -223,10 +229,10 @@ const NPC = (() => {
       c._targetX = c.x + c._npcDX * scene.cellM;
       c._targetY = c.y + c._npcDY * scene.cellM;
     }
-    const step = WALK_MPS * dt;
+    const step = WALK_MPS * dt * (typeof PotionEffects !== 'undefined' ? PotionEffects.speedMul(c) : 1);
     const x = c.x + c._npcDX * step, y = c.y + c._npcDY * step;
     const dest = scene.cellAt(x, y);
-    const blocked = !dest.loaded || dest.underRoad || Combat.faunaBlocksCell(dest.type)
+    const blocked = !dest.loaded || dest.underRoad || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)
       || Math.hypot(x - (c.homeX ?? c.x), y - (c.homeY ?? c.y)) > scene.cellM * WANDER_CELLS;
     if (!blocked) { c.x = x; c.y = y; c._moving = dt > 0; c._faceFlip = c._npcDX < 0; }
     c._npcSteps -= dt;
@@ -263,11 +269,11 @@ const NPC = (() => {
   // CHILD_SCALE of a grown neighbour.
   const CHILD_SCALE = 0.7;
   const STORY_ROLES = {
-    warden: { label: 'Warden', name: 'Bryn', minMemories: 3 },
-    witness: { label: 'Survivor', name: 'Maud', minMemories: 6, arrives: 'rescue' },
-    wanderer: { label: 'Wanderer', name: 'Tilly', artScale: CHILD_SCALE, minMemories: 0 },
-    believer: { label: 'Believer', name: 'Edda', minMemories: 9 },
-    archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', minMemories: 0, radiusM: 250 },
+    warden: { label: 'Warden', name: 'Bryn', art: 'npc_bryn', minMemories: 3 },
+    witness: { label: 'Survivor', name: 'Maud', art: 'npc_maud', minMemories: 6, arrives: 'rescue' },
+    wanderer: { label: 'Wanderer', name: 'Tilly', art: 'npc_tilly', housedArt: 'npc_tilly_happy', artScale: CHILD_SCALE, minMemories: 0 },
+    believer: { label: 'Believer', name: 'Edda', art: 'npc_edda', minMemories: 9 },
+    archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', art: 'npc_orrin', minMemories: 0, radiusM: 250 },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
   function storyNeighbour(id, role) {
@@ -456,7 +462,7 @@ const NPC = (() => {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
     const title = `${c.name} · ${c.roleLabel || LABELS[c.zone || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
-    let body;
+    let body, target = null;
     restore(scene, c);
     const story = !isDormant(c, now) && typeof MemoryStory !== 'undefined'
       && MemoryStory.npcDialogue(scene, c);
@@ -502,14 +508,14 @@ const NPC = (() => {
           '“A lamp only wants company. Pass under one and watch what it does.”']);
     } else {
       const radius = 250, candidates = [];
-      const opened = setOf(scene.save.opened || []), caught = setOf(scene.save.caught || []);
+      const sets = spentSets(scene, scene.save), caught = setOf(scene.save.caught || []);
       const add = (o, label) => {
         const d = Math.hypot(o.x - c.x, o.y - c.y);
         if (d <= radius) candidates.push({ o, label, d });
       };
       for (const entry of WorldGen.tileCache.values()) WorldGen.forEachItemInBox(entry, 'objects', c.x - radius, c.y - radius, c.x + radius, c.y + radius, o => {
         if (isShrine(o) || (o.kind === 'house' && scene.houseShopRole(o) === 'wizard')) add(o, 'shrine');
-        else if (o.kind === 'chest' && !opened.has(o.id)) {
+        else if (o.kind === 'chest' && !isSpent(o, sets) && chestLook(o).texKey === 'chest') {
           const cell = scene.cellAt?.(o.x, o.y);
           if (!cell?.loaded || cell.tx == null || !Fog.seen(cell.tx, cell.ty, cell.ix, cell.iy)) add(o, 'chest');
         }
@@ -520,14 +526,22 @@ const NPC = (() => {
       candidates.sort((a, b) => String(a.o.id).localeCompare(String(b.o.id)));
       if (candidates.length) {
         const { o, label, d } = daily(candidates);
+        target = { targetId: o.id, x: o.x, y: o.y, depth: scene.depth || 0,
+          category: label, type: label === 'foe' || label === 'elite' ? 'creature' : 'object' };
         body = `${daily(['<em>Points past the wrecks.</em>', '<em>Nods down the lane.</em>', '<em>Lowers their voice.</em>'])}\n${SIGHTINGS[label](whereabouts(c, o, d))}`;
       } else body = daily(['“Quiet lanes today. Nothing new to show you. Come back tomorrow.”', '<em>Shrugs.</em>\n“Nothing new on this stretch today. Try me tomorrow.”', '“No fresh sightings today. I will keep looking.”']);
     }
-    return talkOf(title, body);
+    const talk = talkOf(title, body);
+    if (target) talk.target = target;
+    return talk;
   }
-  // Use the same RGB multiplication as Phaser's world tint, including alpha.
-  // Cache on the live NPC, not in a growing global table of everyone met.
+  // Named neighbours share a story painting across every dialogue surface.
+  // Other residents use the same RGB multiplication as Phaser's world tint,
+  // including alpha, cached on the live NPC rather than a global roster.
   function portrait(scene, c) {
+    const row = STORY_ROLES[c.role];
+    if (row?.housedArt && typeof MemoryStory !== 'undefined' && MemoryStory.wandererHoused(scene.save, c)) return row.housedArt;
+    if (row?.art) return row.art;
     if (c._portrait) return c._portrait;
     const sheet = SpriteLayout.npcSheet(c);
     const source = scene.textures.get(sheet.idle).getSourceImage();
@@ -563,6 +577,10 @@ const NPC = (() => {
     // A talk of several pages is one dialog per page, "Next" between them
     // (the revive panels' pattern, app.js), the same portrait throughout.
     const say = () => {
+      if (talk.target && !isDormant(c)) {
+        scene.save.wayfarerCompass = { ...talk.target, until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
+        persistSave(scene.save);
+      }
       const art = portrait(scene, c), pages = talk.pages;
       const show = i => scene.showMessageModal({ title: talk.title, body: pages[i], kind: 'note', art,
         okLabel: i < pages.length - 1 ? 'Next' : 'OK', onDismiss: i < pages.length - 1 ? () => show(i + 1) : undefined });

@@ -25,11 +25,11 @@
   const TIPS_BLOB_ALL = () => PLAY_TIPS.join(' ');
 
   // ── The table ─────────────────────────────────────────────────────────────
-  test('macro: the census classes map to their eight kinds', () => {
+  test('macro: the census classes map to their nine kinds', () => {
     const want = {
       lodging: 'inn', place_of_worship: 'chapel',
       pharmacy: 'apothecary', dentist: 'apothecary', hospital: 'apothecary',
-      library: 'scriptorium', college: 'scriptorium',
+      library: 'scriptorium', college: 'scriptorium', school: 'scholar',
       town_hall: 'guildhall', police: 'guildhall', fire_station: 'guildhall',
       museum: 'curio', theatre: 'curio', cinema: 'curio',
       shop: 'sundries', sports_centre: 'training', yoga: 'training',
@@ -42,9 +42,16 @@
     }
     assert.eq(Object.keys(MACRO_KIND_BY_CLASS).length, Object.keys(want).length, 'no other class is a macro');
     assert.eq(new Set(Object.values(MACRO_KIND_BY_CLASS)).size, MACRO_KINDS.length, 'every kind has a class');
-    for (const cls of ['school', 'park', 'memorial', 'bus', 'atm', 'restaurant', 'cemetery', 'art_gallery']) {
+    for (const cls of ['university', 'park', 'memorial', 'bus', 'atm', 'restaurant', 'cemetery', 'art_gallery']) {
       assert.eq(macroFor(poi(cls)), null, `${cls} stays what it was`);
     }
+  });
+
+  test('macro: schools use the reusable scholar counter, not a chest', () => {
+    const school = poi('school');
+    assert.eq(chestLook(school).texKey, 'macro_scholar');
+    assert.eq(macroFor(school).kind, 'scholar');
+    assert.eq(macroFor(poi('school', { depth: 1 })), null, 'underground mirror remains a chest');
   });
 
   test('macro: a cave mirror, a starter crate and a scripted chest are never macros', () => {
@@ -174,7 +181,11 @@
     let modals = 0;
     const scene = makeScene({
       flash: (m) => flashes.push(m),
-      showChestRewardModal: (opts) => { modals++; assert.eq(opts.header, 'Chapel', 'names the place'); },
+      showChestRewardModal: (opts) => {
+        modals++;
+        assert.eq(opts.header, Macros.KIND_TRANSACTION.chapel.title, 'confirms the blessing');
+        assert.eq(opts.art, Macros.KIND_TRANSACTION.chapel.art, 'shows the completed blessing');
+      },
     });
     const real = globalThis.pickReward;
     globalThis.pickReward = (key, s, rng, opts) => { tiers.push(opts.tier); return { kind: 'item', id: 'wood', qty: 1 }; };
@@ -217,10 +228,11 @@
       assert.truthy(Macros.APOTHECARY_POTIONS.includes(stock[0]), stock[0]);
       assert.eq(stock[1], 'antidote', 'the cure');
       seen.add(stock[0]);
-      for (const id of stock) assert.lte(tiers(id), id === 'vigor_potion' ? 4 : 2, `${id} stays in its remedy tier`);
+      const remedyTiers = { vigor_potion: 2, revive_potion: 3, protection_potion: 2, reach_potion: 4, antidote: 1 };
+      for (const id of stock) assert.eq(tiers(id), remedyTiers[id], `${id} stays in its remedy tier`);
     }
     assert.eq(seen.size, Macros.APOTHECARY_POTIONS.length, 'every remedy turns up somewhere');
-    assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Vigor');
+    assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Healing');
     const o = poi('pharmacy', { id: 3 });
     assert.eq(Macros.apothecaryStock(o).join(), Macros.apothecaryStock({ ...o }).join(), 'the same for everyone');
     const save = { relics: {} };
@@ -229,15 +241,35 @@
     }
   });
 
-  test('sundries: one supply item off the Supply Shop line, never the Book', () => {
-    const line = Shops.THEME_POOL.supply();
+  test('sundries: one supply item off the Supply Shop line or one gear line, never the Book', () => {
+    const line = [...Shops.THEME_POOL.supply(), ...Macros.SUNDRIES_GEAR.map(g => 'gear:' + g)];
+    assert.falsy(line.includes('book'), 'the Supply Shop leaves the Book to the Bookshop');
     const seen = new Set();
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 160; i++) {
       const [id] = Macros.sundriesStock(poi('shop', { id: 'x' + i }));
       assert.truthy(line.includes(id) && id !== 'book', id);
       seen.add(id);
     }
-    assert.eq(seen.size, line.length - 1, 'every other supply item turns up');
+    assert.eq(seen.size, line.length, 'every supply item and gear line turns up');
+  });
+
+  test('sundries gear: the next rung above what is held, at three times list before the stall discount', () => {
+    const save = { relics: {}, armor: {}, inv: [] };
+    const lance = Macros.sundriesGear(save, 'gear:lance');
+    assert.eq(lance.kind, 'relic'); assert.eq(lance.slot, 'lance'); assert.eq(lance.tier, 1, 'Rusty first');
+    assert.eq(lance.price, ShopsMath.standPrice(save, gearPrice('relic', 'lance', 1) * Macros.SUNDRIES_GEAR_PRICE_MUL));
+    save.relics.lance = { tier: 1 };
+    assert.eq(Macros.sundriesGear(save, 'gear:lance').tier, 3, 'Fine over a Rusty one (no T2 rung)');
+    save.relics.lance = { tier: 5 };
+    assert.eq(Macros.sundriesGear(save, 'gear:lance'), null, 'nothing past Magic');
+    assert.eq(Macros.sundriesGear(save, 'gear:shield').id, 'shield_wood');
+    save.inv.push({ id: 'shield_wood', count: 1 });
+    const metal = Macros.sundriesGear(save, 'gear:shield');
+    assert.eq(metal.id, 'shield_metal', 'the Metal Shield over a carried Wood one');
+    assert.eq(metal.price, ShopsMath.standPrice(save, itemValue('shield_metal') * 3));
+    save.inv.push({ id: 'shield_gold', count: 1 });
+    assert.eq(Macros.sundriesGear(save, 'gear:shield'), null, 'the Gold Shield is the finest');
+    for (const line of ['dagger', 'musket']) assert.eq(Macros.sundriesGear(save, 'gear:' + line).tier, 1);
   });
 
   test('scriptorium: a plain stall — Books (and a torch) at the stall price, no free page', () => {
@@ -256,14 +288,18 @@
 
   test('stalls: apothecary, sundries and scriptorium share the market stall\'s one counter', () => {
     // presentMarketStandOffer is _presentStallOffer with the stall's item —
-    // the same price (standPrice), stepper cap (money and bag room) and no
+    // the same price (standPrice), purchase limits (money and bag room) and no
     // stock limit; the three macro counters route to the very same method.
     assert.truthy(/presentMarketStandOffer\(sx, sy, stand\) \{\s*this\._presentStallOffer\(/.test(SCENE_SRC), 'the stall is the counter');
-    for (const kind of ['apothecary', 'sundries', 'scriptorium']) {
+    for (const kind of ['apothecary', 'scriptorium']) {
       assert.truthy(new RegExp(`case '${kind}':\\s*return this\\._presentStallOffer\\(`).test(SCENE_SRC), `${kind} opens the counter`);
     }
-    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const unitPrice = ShopsMath\.standPrice\(this\.save, PRICES\[id\] \?\? 1\);/.test(SCENE_SRC),
-      'priced by ShopsMath.standPrice');
+    // Sundries opens the same counter for a supply item; a gear line opens
+    // its own buy (_presentStallGear — a rung of equipment, not a stack).
+    assert.truthy(/case 'sundries': \{[\s\S]{0,400}?\? this\._presentStallGear\(sx, sy, \{ \.\.\.opts, entry: stock\[0\] \}\)\s*: this\._presentStallOffer\(sx, sy, \{ \.\.\.opts, items: stock \}\)/.test(SCENE_SRC),
+      'sundries opens the counter, or the gear buy for a gear line');
+    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
+      'priced by ShopsMath.standPrice off the list price (the Book\'s ladder rides in listPrice)');
   });
 
   // ── Guildhall ─────────────────────────────────────────────────────────────
@@ -366,7 +402,8 @@
       homeWorldPos: () => null,
       findWalkableDestination(dist, opts) { return walkableDestination(this, 73.5, 73.5, dist, opts); },
       flashLoot: (m) => flashes.push(m), updateHUD: () => {},
-      _storySplashOnce: (k) => stories.push(k),
+      _macroTransaction: (k) => stories.push(k),
+      moneyHTML: (n) => `<coin>${n}</coin>`,
     };
     scene._guildBountyDefeat = onDefeat;
     const b = Macros.bountyFor({ relics: { sword: { tier: 7 } } }, poi('town_hall'), T0);
@@ -401,7 +438,7 @@
         scene._guildBountyDefeat(foes[2]);
         assert.eq(scene.save.money, b.pay, 'paid once');
         assert.eq(flashes.join('|'), `Bounty paid! +${b.pay}`);
-        assert.eq(stories.join(), 'macro:bounty', 'the first bounty tells its story');
+        assert.eq(stories.join(), 'guildhall', 'the completed bounty shows one receipt');
       });
     } finally { globalThis.persistSave = realPersist; }
     assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(SCENE_SRC), 'resolveDefeat calls it');
@@ -509,30 +546,22 @@
     assert.eq(Combat.trainingBonus(save, 'melee', T0 + DAY), 2, 'the drill is gone at 24 h');
     assert.eq(shortDuration(Macros.drillLeftMs(save, 'melee', T0 + DAY - 3600000)), '1h', 'shown in shortDuration');
     assert.eq(Macros.drillPrice(), 150);
-    // A pre-Sep-2026 save: one melee track, capped, folded on the next purchase.
-    const old = { money: 1e9, trainingPerm: 25, trainingBuffUntil: T0 + 1000 };
-    assert.eq(Combat.trainingLevel(old, 'melee'), 5, 'an old +25% veteran reads as melee level 5');
-    assert.truthy(Combat.trainingBuffActive(old, 'melee', T0), 'and keeps its running drill');
-    Macros.buyLesson(old, 'magic', 99);
-    assert.eq(old.trainingPerm, undefined, 'folded into the new fields');
-    assert.eq(old.training.melee, 5);
-    assert.eq(old.trainingDrills.melee, T0 + 1000);
     assert.eq(Energy.maxEnergy({ training: { energy: 3 } }) - Energy.maxEnergy({}), 30, 'stamina lifts the bar\'s cap');
   });
 
   test('training: each attack type reads its own discipline, and speed shortens every beat', () => {
-    assert.truthy(/_attackFlat\(kind\) \{\s*return Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(SCENE_SRC), '_attackFlat, by type');
-    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\('melee'\);/.test(SCENE_SRC), 'melee blows take melee');
+    assert.truthy(/_attackFlat\(kind\) \{\s*const training = Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(SCENE_SRC), '_attackFlat, by type');
+    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass, Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\)\s*\+ this\._attackFlat\('melee'\)\)/.test(SCENE_SRC), 'melee blows take melee');
     assert.truthy(/\* dmgMul\s*\+ this\._attackFlat\(Combat\.TRAINING_SLOT_KIND\[slot\]\),/.test(SCENE_SRC), 'shots take their slot\'s');
     assert.eq(Combat.TRAINING_SLOT_KIND.bow, 'ranged'); assert.eq(Combat.TRAINING_SLOT_KIND.staff, 'magic');
-    assert.truthy(/this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
+    assert.truthy(/this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
     const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), SCENE_SRC.indexOf('  buildingFlavorTitle('));
     assert.truthy(/memories required/.test(body), 'the lesson states its requirement');
     assert.truthy(/Macros\.buyLesson\(this\.save, kind, this\.memoriesTotal\(\)\)/.test(body), 'gated on memories RECOVERED');
   });
 
   test('tips: places offer a story hint while service values remain owned', () => {
-    for (const place of ['inn', 'guildhall', 'curio hall', 'training hall']) {
+    for (const place of ['inn', 'guildhall', 'curio hall', 'training hall', 'book club']) {
       assert.truthy(PLAY_TIPS.some(t => t.toLowerCase().includes(place)), `${place}: a story page`);
     }
     assert.eq(Macros.INN_RATE, 0.5);
@@ -542,23 +571,26 @@
   });
 
   // ── The picture ───────────────────────────────────────────────────────────
-  test('macro: an inn has its host and each weapon discipline has matching art', () => {
-    assert.eq(Macros.stallArt('inn'), 'kind_inn');
+  test('macro: every booth has dedicated, distinct introduction and transaction paintings', () => {
     const seen = new Set();
-    const expected = { melee: 'tool_sword', ranged: 'tool_shoot', magic: 'tool_staff', energy: 'tool_sword', speed: 'tool_sword' };
-    for (let id = 0; id < 100; id++) {
-      const o = { id };
-      const discipline = Macros.trainingKindFor(o);
-      seen.add(discipline);
-      assert.eq(Macros.stallArt('training', o), expected[discipline]);
+    for (const kind of MACRO_KINDS) {
+      assert.eq(Macros.stallArt(kind), `booth_${kind}_intro`);
+      const success = Macros.KIND_TRANSACTION[kind];
+      assert.eq(success.art, `booth_${kind}_used`);
+      assert.truthy(success.title);
+      for (const stem of [Macros.stallArt(kind), success.art]) {
+        assert.falsy(seen.has(stem), `${stem} is dedicated to one booth and stage`);
+        seen.add(stem);
+        const d = webpDims(`assets/art/${stem}.webp`);
+        assert.truthy(d, `${stem} ships`);
+        assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} fits the dialog`);
+      }
     }
-    assert.eq(seen.size, 5, 'all hall disciplines are exercised');
+    assert.eq(seen.size, 18);
   });
   test('macro: each kind ships its 80×80 art and an ASSETS row under its texKey', () => {
-    const files = { inn: 'inn', chapel: 'chapel', apothecary: 'apothecary', scriptorium: 'scriptorium',
-      guildhall: 'guildhall', curio: 'curio', sundries: 'sundries', training: 'training' };
     for (const kind of MACRO_KINDS) {
-      const rel = `assets/Objects/Generated/${files[kind]}.png`;
+      const rel = `assets/Objects/Generated/${kind}_simple.png`;
       const d = pngDims(rel);
       assert.truthy(d && d.w === 80 && d.h === 80, `${rel} is 80×80 (got ${JSON.stringify(d)})`);
       assert.truthy(new RegExp(`macro_${kind}: +\\{ kind: 'spritesheet', path: '${rel}', frameWidth: 80, frameHeight: 80 \\}`).test(ASSETS_SRC),
@@ -591,7 +623,209 @@
     assert.falsy(/alms box/i.test(INTERACTABLES_SRC), 'the bare flash names no alms box');
     assert.truthy(/'A quiet blessing\. Go well\.'/.test(INTERACTABLES_SRC), 'the empty roll is a blessing too');
     assert.lte('A quiet blessing. Go well.'.length, MAP_MSG_MAX);
-    assert.eq(Macros.KIND_DIALOG.chapel.art, 'zone_stones', 'the chapel opens on the churchyard (a lore-free painting)');
+    assert.eq(Macros.KIND_DIALOG.chapel.art, 'booth_chapel_intro', 'the chapel has its own respectful booth painting');
+  });
+
+  // ── The scholar's booth: the BOOK CLUB (Oct 2026) ─────────────────────────
+  // One shelf for every school, humblest first; found books read earn it.
+  test('scholar: the shelf contains every tome once, humblest first, independent of chests', () => {
+    const shelf = Macros.scholarShelf();
+    const tomes = ITEMS.filter(item => isTome(item.id)).map(item => item.id);
+    assert.eq(shelf.length, 8);
+    assert.eq(new Set(shelf).size, shelf.length, 'one of each per cycle');
+    for (const id of shelf) assert.truthy(isTome(id), `${id} is a tome`);
+    for (const id of tomes) assert.includes(shelf, id);
+    for (let i = 1; i < shelf.length; i++) {
+      assert.lte(itemValue(shelf[i - 1]), itemValue(shelf[i]), 'ascending value');
+    }
+    assert.falsy(shelf.includes('book'), 'a prize never earns its own reading credit');
+    assert.eq(Macros.scholarShelf().join(), shelf.join(), 'the same shelf every time, every school');
+  });
+
+  test('scholar: every three books earns a tome, with a repeating shelf', () => {
+    const shelf = Macros.scholarShelf();
+    const per = Macros.SCHOLAR_BOOKS_PER_PRIZE;
+    assert.eq(per, 3);
+    const save = {};
+    assert.eq(Macros.booksRead(save), 0, 'a fresh save has read nothing');
+    let next = Macros.scholarNext(save, shelf);
+    assert.eq(next.id, shelf[0]); assert.eq(next.booksAt, per); assert.falsy(next.ready, 'unread: not ready');
+    assert.eq(Macros.scholarClaim(save, shelf).why, 'unread', 'nothing to collect yet');
+    save.booksRead = per - 1;
+    assert.falsy(Macros.scholarNext(save, shelf).ready, 'one short');
+    save.booksRead = per;
+    assert.truthy(Macros.scholarNext(save, shelf).ready, 'the third book earns the first prize');
+    let r = Macros.scholarClaim(save, shelf);
+    assert.truthy(r.ok && r.id === shelf[0], 'the humblest prize first');
+    assert.eq(Macros.scholarTaken(save), 1);
+    assert.eq(Macros.scholarClaim(save, shelf).why, 'unread', 'the same reading pays once');
+    assert.eq(Macros.scholarNext(save, shelf).id, shelf[1], 'then the next up the shelf');
+    // Read far ahead: the prizes still come one at a time, in order.
+    save.booksRead = per * shelf.length + 100;
+    for (let i = 1; i < shelf.length; i++) {
+      r = Macros.scholarClaim(save, shelf);
+      assert.truthy(r.ok && r.id === shelf[i], `prize ${i} is ${shelf[i]}`);
+    }
+    assert.eq(Macros.scholarNext(save, shelf).id, shelf[0], 'the next cycle starts with the first tome');
+    assert.eq(Macros.scholarNext(save, shelf).booksAt, (shelf.length + 1) * per);
+    assert.eq(Macros.scholarClaim(save, shelf).id, shelf[0]);
+    assert.eq(Macros.scholarTaken(save), shelf.length + 1);
+    assert.eq(Macros.scholarClaim(save, []).why, 'bare', 'an empty catalog has no reward');
+    // Garbage in the ledger reads as nothing, never as a free shelf.
+    assert.eq(Macros.booksRead({ booksRead: 'lots' }), 0);
+    assert.eq(Macros.scholarTaken({ scholarTomes: -3 }), 0);
+  });
+
+
+  test('scholar: legacy mixed prizes never skip tome rewards and reading credit survives', () => {
+    const save = { booksRead: 12, scholarPrizes: 20 };
+    assert.eq(Macros.scholarTaken(save), 0);
+    assert.eq(Macros.scholarNext(save).booksAt, 3);
+    for (let i = 0; i < 4; i++) assert.truthy(Macros.scholarClaim(save).ok);
+    assert.eq(Macros.scholarNext(save).booksAt, 15);
+    assert.falsy(Macros.scholarNext(save).ready);
+    assert.eq(save.booksRead, 12);
+    assert.eq(save.scholarPrizes, 20);
+    assert.eq(save.scholarTomes, 4);
+    const reload = JSON.parse(JSON.stringify(save));
+    assert.eq(Macros.scholarNext(reload).booksAt, 15);
+  });
+
+  test('scholar: every Book read counts — found or bought — and the counter is the brake', () => {
+    // addToInv's Book branch credits save.booksRead for every read, with no
+    // wild-finds test: a bought Book is a read Book.
+    const i = SCENE_SRC.indexOf("if (id === 'book') {");
+    const branch = SCENE_SRC.slice(i, SCENE_SRC.indexOf('return n;', i));
+    assert.truthy(/if \(!silent\) \{[\s\S]*this\.save\.booksRead = \(this\.save\.booksRead \|\| 0\) \+ n;/.test(branch),
+      'every non-silent Book read is the club\'s reading');
+    assert.falsy(/notWild[\s\S]*booksRead|booksRead[^\n]*notWild/.test(branch), 'no purchase test on the reading');
+    // The brake: the Book's list price climbs ×BOOK_PRICE_GROWTH per Book
+    // bought, to a cap, at EVERY counter — one lane, ShopsMath.listPrice.
+    const base = PRICES.book;
+    assert.eq(ShopsMath.listPrice({}, 'book'), base, 'the first Book is the catalogue price');
+    const save = {};
+    ShopsMath.bookBought(save);
+    assert.eq(save.booksBought, 1);
+    assert.eq(ShopsMath.listPrice(save, 'book'), Math.ceil(base * ShopsMath.BOOK_PRICE_GROWTH), 'the second climbs');
+    assert.eq(ShopsMath.listPrice(save, 'torch'), PRICES.torch, 'nothing else does');
+    assert.eq(ShopsMath.listPrice(save, 'chicken', 99), 99, 'a passed base (itemValue) is honoured');
+    ShopsMath.bookBought(save, 40);
+    assert.eq(ShopsMath.listPrice(save, 'book'), base * ShopsMath.BOOK_PRICE_CAP_MUL, 'capped');
+    assert.gt(ShopsMath.listPrice(save, 'book'), 300, 'and dear');
+    assert.eq(Macros.stallPrice(save, 'book'), ShopsMath.standPrice(save, ShopsMath.listPrice(save, 'book')), 'the stall reads the ladder');
+    assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
+      'the stall counter prices off the ladder');
+    assert.truthy(/const want = 1;/.test(SCENE_SRC), 'and sells a Book one at a time');
+    assert.truthy(/this\.buildShopOffer\(id, ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
+      'the themed shop prices off the ladder');
+    assert.eq((SCENE_SRC.match(/if \(id === 'book'\) ShopsMath\.bookBought\(this\.save, (?:take|buyQty)\);/g) || []).length, 2,
+      'both counters climb the ladder on a sale');
+    // A tome prize is handed over notWild and persisted together with its claim.
+    const pres = SCENE_SRC.slice(SCENE_SRC.indexOf('_presentScholar(sx, sy, o, dress) {'));
+    assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true, deferRefresh: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
+      'the prize is handed over notWild');
+    assert.truthy(/case 'scholar': +return this\._presentScholar\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it');
+    assert.eq(Macros.KIND_DIALOG.scholar.label, 'Book Club');
+    assert.lte('Tome collected'.length, MAP_MSG_MAX);
+    assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');
+  });
+
+  test('bookshop: the Book Shop card, from the 15th restoration, is a market that sells only the Book, outside the line cycle', () => {
+    assert.eq(Houses.STORY_RESTORES.bookshop, 15);
+    assert.eq(Houses.buildOption('bookshop').from, 15, 'on offer from the 15th rebuild');
+    assert.eq(Houses.buildOption('bookshop').role, 'market', 'stored as a shop');
+    assert.eq(Shops.THEME_LABEL.book, 'Book Shop');
+    assert.eq(Shops.themedStock('book', 1).join(), 'book', 'the Book and nothing else');
+    assert.falsy(Shops.THEMES.includes('book'), 'not a line of the cycle');
+    // Stamped at restore time, once, on the explicit pick.
+    const save = { restoredHouses: {} };
+    const rh = save.restoredHouses;
+    const h = (id) => ({ kind: 'house', tier: 9, id });
+    assert.eq(Houses.restoreAs(save, h('h0'), 'plain').key, 'plain');
+    assert.eq(Houses.restoreAs(save, h('h1'), 'bookshop'), null, 'not on offer yet');
+    const shopKey = () => Houses.buildOptions(save, null).find((r) => r.role === 'market' && r.key !== 'bookshop').key;
+    for (let i = 1; i < 14; i++) Houses.restoreAs(save, h('h' + i), i % 3 === 0 ? shopKey() : 'plain');
+    assert.eq(save.bookshopId, undefined, 'an ordinary market is not it');
+    assert.eq(Houses.restoreAs(save, h('b'), 'bookshop').key, 'bookshop');
+    assert.eq(save.bookshopId, 'b', 'the pick is');
+    assert.eq(rh.b, 'market');
+    assert.eq(Houses.restoreAs(save, h('m'), 'bookshop'), null, 'once per save');
+    assert.eq(Houses.restoreAs(save, h('m'), shopKey()).role, 'market');
+    assert.eq(Shops.lineFor(save, { id: 'b' }).theme, 'book');
+    assert.eq(Shops.lineFor(save, { id: 'b' }).tier, 1);
+    // Outside the cycle: the markets before it keep their order, and the one
+    // after it takes the line the bookshop would otherwise have spent.
+    const markets = Object.keys(rh).filter((id) => rh[id] === 'market' && id !== 'b');
+    markets.forEach((id, n) => assert.eq(Shops.shopOrder(save, { id }), n, `${id} keeps place ${n}`));
+    const lines = Shops.marketLines(save), mine = lines.find((r) => r.id === 'm');
+    assert.eq(mine.tier, 1 + lines.filter((r) => r.theme === mine.theme && r.id !== 'm').length, 'a picked line\'s tier counts the shops before it on that line');
+    assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(SCENE_SRC), 'the restore path freezes the pick');
+    assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'marketTheme reads lineFor');
+    assert.falsy(/Shops\.themeAt\(Shops\.shopOrder/.test(SCENE_SRC), 'and nothing reads the cycle directly');
+    // A save past the slot before the bookshop existed: no old shop is re-labelled.
+    const old = { restoredHouses: {} };
+    for (let i = 0; i < 20; i++) old.restoredHouses['o' + i] = i % 2 ? 'market' : 'plain';
+    assert.eq(Shops.lineFor(old, { id: 'o15' }).theme, Shops.themeAt(Shops.shopOrder(old, { id: 'o15' })).theme, 'no old shop is re-labelled');
+    assert.eq(Houses.restoreAs(old, h('n'), 'bookshop').key, 'bookshop');
+    assert.eq(old.bookshopId, 'n');
+  });
+
+  test('chest themes: the Book is in every tier-2 roll at the owner\'s share', () => {
+    assert.eq(ChestThemes.BOOK_T2_SHARE, 20);
+    for (const theme of Object.keys(ChestThemes.themes)) {
+      for (const depth of [0, 1]) {
+        const w = ChestThemes.weights(theme, 2, { depth, tier: 2 });
+        assert.inRange(Object.values(w).reduce((a, b) => a + b, 0), 99.999, 100.001, `${theme} d${depth} conserves`);
+        assert.gte((w.books || 0) + (w.plainBook || 0), ChestThemes.BOOK_T2_SHARE - 1e-9, `${theme} d${depth}: books ≥ ${ChestThemes.BOOK_T2_SHARE}`);
+        assert.falsy(w.books && w.plainBook, `${theme} d${depth}: one book lane, not two`);
+      }
+      // The share's lane is the plain Book at every roll tier a T2 chest can
+      // climb to: a row with its own books lane keeps it (the Book at T1/T2,
+      // a tome only from T3), a row without gets plainBook (the Book always).
+      assert.eq(ChestThemes.eligible('books', 2, { theme }).join(), 'book', `${theme}: the Book, not a tome`);
+      for (const t of [1, 2, 3, 5]) assert.eq(ChestThemes.eligible('plainBook', t, { theme }).join(), 'book', `${theme}: plainBook at T${t}`);
+    }
+    assert.eq(ChestThemes.weights('food', 2, { tier: 2 }).plainBook, ChestThemes.BOOK_T2_SHARE, 'a row without a book lane gets the plain Book');
+    assert.eq(ChestThemes.weights('worship', 2, { tier: 2 }).books, ChestThemes.BOOK_T2_SHARE, 'a row with one is topped up');
+    assert.gt(ChestThemes.weights('school', 2).books, ChestThemes.BOOK_T2_SHARE, 'a row already past the share is left alone');
+    assert.falsy(ChestThemes.weights('food', 1).books, 'a T1 chest is untouched');
+    assert.falsy(ChestThemes.weights('food', 3, { tier: 3 }).books, 'so is a T3 chest');
+    assert.eq(ChestThemes.weights('food', 1, { tier: 2 }).plainBook, ChestThemes.BOOK_T2_SHARE, 'a T2 chest rolling at T1 still carries it');
+    assert.eq(ChestThemes.weights('culture', 2, { tier: 2 }).uniqueRelics, 5, 'the rare-finds lane keeps its exact share');
+    // Measured: a fifth of tier-2 rolls from a theme that never carried it.
+    let books = 0; const N = 4000;
+    let x = 0xB00C2; const rng = () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
+    for (let i = 0; i < N; i++) {
+      const r = pickReward('chest:food', { relics: {}, armor: {} }, rng, { tier: 2 });
+      if (r && r.kind === 'item' && r.id === 'book') books++;
+    }
+    assert.inRange(books / N, 0.15, 0.25, 'about a fifth of T2 food chests hand a Book: ' + (books / N).toFixed(3));
+  });
+
+  test('scholar: an open-ground school raises a block and the booth stands at its wall — no pyramid', () => {
+    const T = WorldGen.T;
+    const r = WorldGen.rasterizeTile([
+      { name: 'landcover', features: [{ type: 3, tags: { class: 'grass' },
+        geom: [[{ x: -64, y: -64 }, { x: 4160, y: -64 }, { x: 4160, y: 4160 }, { x: -64, y: 4160 }, { x: -64, y: -64 }]] }] },
+      { name: 'poi', features: [{ type: 1, tags: { class: 'school', name: 'Test School' }, geom: [[{ x: 2048, y: 2048 }]] }] },
+    ], 64, 0, 0, 640);
+    const chests = r.objects.filter((o) => o.kind === 'chest');
+    assert.eq(chests.length, 1, 'one booth');
+    const booth = chests[0];
+    assert.eq(macroFor(booth).kind, 'scholar', 'the school is the scholar\'s booth');
+    const N = 64, cellM = 640 / N;
+    const ix = Math.floor(booth.x / cellM), iy = Math.floor(booth.y / cellM);
+    const at = (x, y) => r.grid[y * N + x];
+    assert.falsy(WorldGen.isBuildingTerrain(at(ix, iy)), 'the booth is not inside the block');
+    let block = 0, commercial = 0;
+    for (let i = 0; i < N * N; i++) { if (r.grid[i] === T.BUILDING_LARGE) block++; if (r.grid[i] === T.COMMERCIAL) commercial++; }
+    assert.eq(block, 9 * 7, 'the civic block (9×7) stands where the school is');
+    assert.eq(commercial, 0, 'no concrete pyramid pad any more');
+    let touches = false;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (at(ix + dx, iy + dy) === T.BUILDING_LARGE) touches = true;
+    assert.truthy(touches, 'the booth stands against the school\'s outer wall');
+    assert.falsy(/rows = \[1, 3, 5, 7\]/.test(WORLDGEN_SRC), 'the pyramid rows are gone');
+    assert.truthy(/POI_CIVIC_BUILDING = new Set\(\[[^\]]*'school'/.test(WORLDGEN_SRC), 'a school raises the civic block');
   });
 
   test('macro: a chapel is minted for a church only — a synagogue, mosque or temple mints nothing', () => {
@@ -599,7 +833,7 @@
       { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'park' },
         geom: [[{ x: -64, y: -64 }, { x: 4160, y: -64 }, { x: 4160, y: 4160 }, { x: -64, y: 4160 }, { x: -64, y: -64 }]] }] },
       { name: 'poi', features: [{ type: 1, tags, geom: [[{ x: 2048, y: 2048 }]] }] },
-    ], 64, 0, 0, 640).objects.filter((o) => o.kind === 'chest');
+    ], 64, 0, 0, 640).objects.filter((o) => o.kind === 'chest' && !o.chestTopUp);
     assert.eq(r({ class: 'place_of_worship', subclass: 'christian' }).map((o) => macroFor(o) && macroFor(o).kind).join(), 'chapel');
     for (const faith of ['jewish', 'muslim', 'buddhist', 'hindu']) {
       assert.eq(r({ class: 'place_of_worship', subclass: faith }).length, 0, `${faith}: no chest, no chapel`);

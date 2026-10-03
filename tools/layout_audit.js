@@ -3,10 +3,9 @@
 // test/node/run.js the same way the sprite and shell audits are.
 //
 // The bug that motivated it: the game box was pinned to top:0 and the HUD to
-// the viewport bottom, so ALL the slack between them landed in one place and
-// nothing measured it. That read very differently per device — an iPhone SE
-// had the walking stick sitting 84px ON TOP of the map, while a tall desktop
-// window had a 195px hole under it. Both from the same non-decision.
+// the viewport bottom, so ALL the slack landed in one place and nothing
+// measured it (an 84px overlap on an iPhone SE, a 195px hole on a tall
+// desktop window).
 //
 // The function under test is layOutVertically() in index.html. It is inline
 // (the whole boot sequence is, because START_LAT/START_LON must be frozen
@@ -34,12 +33,10 @@ function loadLayout() {
   const src = html.slice(start, end + endMark.length) + '\n}\n';
   const ctx = { BOX_W: 352, BOX_H: 844, Math };
   vm.createContext(ctx);
-  // `const` at a script's top level makes a LEXICAL binding, not a property of
-  // the context — reading ctx.TOP_CHROME back gives undefined, every number
-  // downstream becomes NaN, and NaN fails every comparison silently, so the
-  // whole audit passes no matter what the layout does. (It did exactly that
-  // until two deliberately-broken layouts both came back green.) Export the
-  // bindings explicitly instead.
+  // `const` at a script's top level makes a LEXICAL binding, not a context
+  // property: reading ctx.TOP_CHROME gives undefined, the numbers go NaN, and
+  // NaN fails every comparison silently so the audit would pass regardless.
+  // Export the bindings explicitly instead.
   const EXPORTS = ['TOP_CHROME', 'TOP_ROW', 'CELL_GAME', 'INV_CLUSTER',
                    'MAP_TOP_GAME', 'MAP_H_GAME', 'STICK_PX',
                    'PHONE_MIN', 'PHONE_MAX', 'PHONE_FILL_MAX'];
@@ -93,11 +90,9 @@ const DEVICES = [
 
 // The SAME phones with browser chrome on screen — window.innerHeight in an
 // iOS Safari / Android Chrome tab, which is what fitGame actually reads. This
-// list is the regression: every one of these is short enough that the old
-// `band / MAP_H_GAME` clamp scaled the column DOWN below the width fit, so a
-// portrait phone grew gutters and shrank its whole HUD with nothing changed
-// but the browser's toolbars (a 393-wide viewport got a 376px column; a
-// 375x553 one got 299px — a 20% zoom-out).
+// list is the regression: every one is short enough that a `band / MAP_H_GAME`
+// clamp would scale the column DOWN below the width fit, growing gutters and
+// shrinking the HUD with nothing changed but the browser's toolbars.
 const BROWSER_VIEWPORTS = [
   { name: 'iPhone SE / Safari',      w: 375, h: 553 },
   { name: 'iPhone 13 mini / Safari', w: 375, h: 629 },
@@ -232,9 +227,7 @@ for (const dev of [...DEVICES, ...BROWSER_VIEWPORTS]) {
 // the two chrome stacks — rather than against the gap the layout happened to
 // leave. Asking "if there is room, use it" is not a real check here: the
 // regression this guards against is a layout that spends the slack on a top
-// margin FIRST and so destroys the room, which would then excuse itself. An
-// earlier revision did exactly that and turned a clean 8px gap on a 360×740
-// phone into a 24px overlap while this test stayed green.
+// margin FIRST and so destroys the room, which would then excuse itself.
 CHECKS.push({ name: 'layout: every screen that can seat the stick below the map does', run: () => {
   const L = loadLayout();
   const bad = [];

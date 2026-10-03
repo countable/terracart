@@ -27,7 +27,7 @@
       _effectLineEl(text) { const row = el('div'); row.textContent = text; return row; },
     };
     const decl = ['INV_RELIC_ORDER', 'INV_ARMOR_ORDER', 'WEAPON_SLOTS'].map(name =>
-      SCENE_SRC.match(new RegExp('const ' + name + ' = \\[[^;]+;'))[0]).join('\n');
+      SCENE_SRC.match(new RegExp('const ' + name + ' = [^;]+;'))[0]).join('\n');
     for (const name of ['invEntriesForCat', 'invDisplayEntriesForCat', 'gearEntriesForCat', '_settleInvCatOnBoot',
       'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot']) {
       const match = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'));
@@ -43,7 +43,7 @@
     assert.eq(INV_CATS.length, 8);
     assert.falsy(INV_CAT_BY_KEY.unique_relic);
     const ids = ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id);
-    assert.eq(ids.length, 11);
+    assert.eq(ids.length, 23, 'fifteen finds plus eight reusable tomes');
     for (const id of ids) assert.eq(invCatForItem(id), 'relic', id);
   });
 
@@ -54,7 +54,10 @@
     const slots = s.slots();
     assert.eq(slots[0].dataset.gear, 'relic:sword');
     assert.eq(slots[1].dataset.slot, 0); assert.eq(slots[2].dataset.slot, 1);
-    assert.truthy(slots[1].textContent.includes(`T${ITEM_BY_ID.orb.baseTier}`));
+    assert.truthy(slots[1].children.some(c => c.innerHTML === tierBadgeHTML(itemTierOf('orb'), 6, 2)),
+      'carried relic shows its colored rarity badge');
+    assert.truthy(slots[0].children.some(c => c.innerHTML === tierBadgeHTML(2, 6, 2)),
+      'equipment shows rarity without numeric tier jargon');
     s.click(slots[1]);
     assert.eq(getSelectedSlot(s.save).id, 'orb'); assert.falsy(s.save.selGear);
     assert.eq(s.useMethod, 'useOrb'); assert.falsy(s.equipSlot);
@@ -89,6 +92,21 @@
     s._clampSelSlot(); s.buildInventoryDOM();
     assert.eq(s.save.selSlot, -1); assert.eq(s.invEntriesForCat('relic').length, 0);
     assert.eq(s.gearEntriesForCat('relic').length, 6, 'dropping/removing a carried item preserves gear');
+  });
+
+  test('inventory relics: alternate weapons have separate selectable slots and one active badge', () => {
+    const s = harness({ inv: [], relics: { sword: { tier: 3 }, dagger: { tier: 1 },
+      lance: { tier: 3 }, musket: { tier: 5 } }, armor: {}, activeWeapon: 'lance',
+      invCat: 'relic', invPage: 0, selSlot: -1 });
+    s.buildInventoryDOM();
+    for (const slot of ['sword', 'dagger', 'lance', 'musket']) {
+      const button = s.slots().find(b => b.dataset.gear === `relic:${slot}`);
+      assert.truthy(button, `${slot} appears in Relics`);
+      assert.eq(button.children.some(child => child.textContent === 'E'), slot === 'lance');
+      s.click(button);
+      assert.eq(s.save.selGear.slot, slot);
+      assert.eq(s.save.activeWeapon, 'lance', 'highlight alone does not equip');
+    }
   });
 
   test('inventory relics: boot keeps a carried-only Relics tab and empty-hand selection works', () => {

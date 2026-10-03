@@ -167,7 +167,7 @@ test('the day-gated messages name the wait to the UTC roll', () => {
   assert.truthy(/shortDuration\(msToNextUtcDay\(\)\)/.test(Macros.beginDailyVisit.toString()),
     'shared daily visits show the wait to the UTC roll');
   const castle = SCENE_SRC.slice(SCENE_SRC.indexOf('  presentCastleServiceOffer('), SCENE_SRC.indexOf('  showQuestBoard('));
-  assert.truthy(/shortDuration\(this\._castleServiceWaitMs\(house\)\)/.test(castle), 'the castellan names the twelve-hour wait');
+  assert.truthy(/spokenDuration\(this\._castleServiceWaitMs\(house\)\)/.test(castle), 'the castellan says the twelve-hour wait');
   assert.truthy(/shortDuration\(Houses\.CASTLE_SERVICE_MS\)/.test(castle), 'and the blurb its length');
   assert.falsy(/msToNextUtcDay/.test(castle), 'neither counts to the UTC roll');
 });
@@ -175,7 +175,7 @@ test('the day-gated messages name the wait to the UTC roll', () => {
 test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
   const timed = [
     'pairy', 'coffee', 'reach_potion', 'speed_potion', 'shield_potion',
-    'raven_potion', 'blight_potion', 'dragon_powder', 'shadow_powder',
+    'raven_scroll', 'blight_potion', 'dragon_powder', 'shadow_powder',
     'frost_powder', 'torch',
   ];
   for (const id of timed) {

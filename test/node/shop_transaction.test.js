@@ -12,6 +12,7 @@
     const scene = {
       save: { money: 20, inv: [], relics: {}, selSlot: -1 },
       addToInv, _finishInventoryChange: finish,
+      _shopBagSpaceReason: method('_shopBagSpaceReason'),
       invDisplayEntriesForCat() { return this.save.inv.map((entry, idx) => ({ entry, idx })); },
       buildInventoryDOM() {
         refreshes++;
@@ -38,6 +39,7 @@
     const scene = {
       save: { money: 20, inv: [{ id: 'potato', count: 9 }], relics: {}, selSlot: -1 },
       addToInv, _finishInventoryChange: finish,
+      _shopBagSpaceReason: method('_shopBagSpaceReason'),
       invRoomFor(id) { return Inventory.roomFor(this.save, id); },
       buildShopOffer() {
         return { canAfford: () => true, consume: () => { consumed++; this.save.money -= 5; } };
@@ -47,7 +49,8 @@
       flash(t) { this.denial = t; }, _themedStockCount: () => 1,
     };
     method('_presentThemedItem').call(scene, 0, 0, { id: 'shop' }, () => { deals++; }, 'potato');
-    assert.falsy(modal.canAfford, 'the buy button is disabled when the whole bundle cannot fit');
+    assert.truthy(modal.canAfford, 'the price is affordable');
+    assert.truthy(modal.disabledReason, 'capacity disables the button with a visible reason');
     modal.onAccept();
     assert.eq(consumed, 0, 'payment stays');
     assert.eq(deals, 0, 'the hourly deal stays');

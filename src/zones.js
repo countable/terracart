@@ -1,7 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Zones — INFLUENCE ZONES: the Sacred Grove, the Old Stones, the Tar Yard.
+// Zones — INFLUENCE ZONES (ZONE_KINDS): the Quarry, the shore (beach), the
+// Sacred Grove, the Old Stones, the Tar Yard.
 //
 // A few kinds of place stamp their character on the ground around them:
+//   quarry  — no POI: parking-lane geometry, buffered by ZoneCoverage
+//             quarrySteps (anchor.generated === 'parking_lanes')
+//   beach   — a beach POI or natural=beach polygon (anchorOf)
 //   grove   — a park POI (poi class park / subclass park)
 //   stones  — a CHURCH (a place of worship WorldGen.worshipFaith calls
 //             christian — its subclass, or a church's name when the tile
@@ -169,7 +173,7 @@
   // the voice of the one who tends it. The splash `body` is the narrator's;
   // this column is the resident's. Tar has no residents (NPC.zoneFor).
   const ZONE_KINDS = {
-    quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', title: 'Quarry',
+    quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', art: 'zone_quarry', title: 'Quarry',
       body: 'Blue crystals glint among the broken stone. You step through the rubble for a closer look.',
       flash: 'A quarry of broken stone.',
       keeper: ['<em>Kicks a loose stone aside.</em>\n“The lanes here were paved once. The Breaking cracked the stone, and the blue crystals grew in the cracks. Mind your footing.”'] },
@@ -184,7 +188,6 @@
       keeper: ['<em>Glances up at the leaning trunks.</em>\n“The trees leaned in to hide this shrine the night the roofs fell. They have not straightened since. I keep the stone swept and the lantern lit.”',
         '“The deer come here at dusk. They came before the Breaking and they came after. Nothing in this grove was ever the Warmonger’s.”'] },
     stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones',
-      attracts: { crow: 0.5 },
       body: 'Moss covers the stones around the old chapel. You walk towards the lantern by its door.',
       flash: 'The old stones. Walk softly.',
       keeper: ['“These stones are older than the chapel, and the chapel is older than the town. Someone has lit its lantern every night since the Breaking.”\n<em>Lifts the lantern.</em>\n“Tonight it is me.”',

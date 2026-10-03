@@ -1,19 +1,14 @@
 // The treasure ceremony opens with the chest it came out of.
 //
 // Every dialog opens with a hero glyph and a one-word category (app.js
-// MODAL_KINDS). TREASURE's glyph was a 💎 — which named neither the chest that
-// paid out nor the thing it paid: a starter crate of onion seeds and a trunk
-// full of frost bars opened under the same gem, and the crate the player had
-// just tapped was nowhere in the dialog. The glyph is that object's OWN sprite
-// now, resolved through the SAME look the renderer draws it from, so a crate
-// opens under a crate and a trunk under a trunk.
+// MODAL_KINDS). TREASURE's glyph is that object's OWN sprite, resolved through
+// the SAME look the renderer draws it from, so a crate opens under a crate and
+// a trunk under a trunk.
 //
 // The lane is loot.js › chestLook: one resolver, four looks, each carrying the
-// TEXTURE KEY it means. render.js's chest spec reads it (it owned a private
-// copy as a per-frame closure until Sep 2026) and app.js's worldIconHTML turns
-// the same key into a DOM icon off the frame the renderer draws. Nothing
-// re-decides which art a look is, so drawn-as and shown-as can't drift apart —
-// the roadOverlayWidthM discipline pointed at a sprite.
+// TEXTURE KEY it means. render.js's chest spec reads it and app.js's
+// worldIconHTML turns the same key into a DOM icon off the frame the renderer
+// draws, so drawn-as and shown-as can't drift apart.
 //
 // app.js needs Phaser and can't load headlessly, so worldIconHTML is lifted
 // and run for real and the wiring is pinned as source text (the trick
@@ -32,8 +27,7 @@ const lift = (sig, what) => {
 const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26, frame = 0) {', 'worldIconHTML');
 
 // ── The one resolver, run for real ────────────────────────────────────────
-// A memorial: an ordinary civic T3 trunk. (It was a library until the library
-// became a macro stall — a Scriptorium — and stopped being a chest at all.)
+// A memorial: an ordinary civic T3 trunk.
 const chest = (over) => ({ kind: 'chest', poiClass: 'memorial', x: 0, y: 0, ...over });
 // A chest's tier (chestTier) is the world's — its class's density on its
 // tile. These still run with no origin so each case says only what it means.
@@ -47,11 +41,10 @@ test('treasure icon: chestLook names the sprite each chest wears', () => noHome(
   assert.eq(chestLook(chest()).texKey, 'chest', 'an ordinary POI chest is the trunk');
   assert.eq(chestLook(chest({ crate: true })).texKey, 'box', 'a starter supply crate is the box');
   assert.truthy(chestLook(chest({ crate: true })).box, 'and reads as a box');
-  // A tier-1 POI (a class its tile is crowded with) borrows the crate sprite
-  // without being a supply crate — the same test render.js labels and the
-  // tier gem are gated on.
-  const lowtier = chest({ poiClass: 'bus', poiDensity: 30 });
-  assert.eq(chestTier(lowtier), 1, 'thirty bus stops: each a tier-1 chest');
+  // A seeded tier-1 POI borrows the crate sprite without being a supply
+  // crate - the same test render.js labels and the tier gem are gated on.
+  const lowtier = chest({ poiClass: 'bus', poiDensity: 30, tierSeed: 1 });
+  assert.eq(chestTier(lowtier), 1, 'the quota seed makes a tier-1 chest');
   assert.eq(chestLook(lowtier).texKey, 'box', 'so it wears the crate sprite');
   assert.falsy(lowtier.crate, 'without being a supply crate');
   // A bin is a BARREL whatever its count, a bike rack its rack.
@@ -106,9 +99,9 @@ test('treasure icon: an unbaked key falls back to the emoji', () => {
 
 test('treasure icon: tier frames use their own baked art without changing legacy icons', () => {
   const urls = { chest: 'legacy-chest', bonfire: 'campfire' };
-  for (let frame = 0; frame < CHEST_TIER_MAX; frame++) urls['chest:' + frame] = 'tier-frame-' + frame;
+  for (let frame = 0; frame < chestTierMaxFor(9); frame++) urls['chest:' + frame] = 'tier-frame-' + frame;
   const m = iconMethods(urls);
-  for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {
+  for (let frame = 0; frame < chestTierMaxFor(9); frame++) {
     const html = m.worldIconHTML('chest', 30, frame);
     assert.truthy(html.includes('tier-frame-' + frame), 'the requested tier has its own art');
     assert.truthy(html.includes('width:30px;height:30px'), 'frame selection preserves requested size');
@@ -118,14 +111,14 @@ test('treasure icon: tier frames use their own baked art without changing legacy
 });
 
 test('treasure icon: the bake reads the sheets the renderer draws', () => {
-  const start = app.indexOf('for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {');
+  const start = app.indexOf('for (let frame = 0; frame < chestTierMaxFor(9); frame++) {');
   const end = app.indexOf("window.WORLD_ICON_URLS.box", start);
   assert.truthy(start > 0 && end > start, 'found the tier frame bake');
   const calls = [], windowStub = { WORLD_ICON_URLS: {} };
-  new Function('window', 'CHEST_TIER_MAX', 'bakeSheetFrame', app.slice(start, end))(
-    windowStub, CHEST_TIER_MAX, (...args) => { calls.push(args); return args.join(':'); });
-  assert.eq(calls.length, CHEST_TIER_MAX, 'every tier gets baked');
-  for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {
+  new Function('window', 'chestTierMaxFor', 'bakeSheetFrame', app.slice(start, end))(
+    windowStub, chestTierMaxFor, (...args) => { calls.push(args); return args.join(':'); });
+  assert.eq(calls.length, chestTierMaxFor(9), 'every tier gets baked');
+  for (let frame = 0; frame < chestTierMaxFor(9); frame++) {
     assert.eq(windowStub.WORLD_ICON_URLS['chest:' + frame], `chest:${frame}:16:16`, 'bakes the matching sheet frame');
   }
   assert.truthy(/WORLD_ICON_URLS\.box   = bakeSheetFrame\('box',   0, 16, 16\)/.test(app),

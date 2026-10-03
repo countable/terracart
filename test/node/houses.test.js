@@ -68,25 +68,108 @@ test('render: each visible house carries one owner-resolved display role', () =>
     'render does not reconstruct the shop part of the display role');
 });
 
-// ── Pre-seeded restore roles ─────────────────────────────────────────────────
+// ── What a wreck can become ───────────────────────────────────────────────────
 
-test('preseedRestoreRole: the fixed opening run, then the address, and the wizard at 30', () => {
-  assert.eq(JSON.stringify(Houses.PRESEED_RESTORE_ROLES),
-    JSON.stringify({ 0: 'blacksmith', 1: 'trader', 2: 'plain', 3: 'market', 29: 'wizard' }),
-    'the table itself');
-  const save = { restoredHouses: { a: 'blacksmith' }, starterBlacksmithId: 'a' };
-  assert.eq(Houses.preseedRestoreRole(save, 1, plainHouse), 'trader');
-  assert.eq(Houses.preseedRestoreRole(save, 4, { kind: 'house', tier: 9, address: 16 }), 'market', 'rebuild 5 follows its address');
-  assert.eq(Houses.preseedRestoreRole(save, 5, plainHouse), 'plain', 'a plain address stays plain');
-  assert.eq(Houses.preseedRestoreRole(save, 29, plainHouse), 'wizard');
+test('buildOptions: the cards unlock by how many wrecks already stand', () => {
+  const from = Object.fromEntries(Houses.BUILD_OPTIONS.map((r) => [r.key, r.from]));
+  assert.eq(JSON.stringify(from), JSON.stringify({ plain: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, bookshop: 15, wizard: 30 }), 'the ladder');
+  const keys = (order) => Houses.buildOptions({ restoredHouses: {}, discovered: {} }, plainHouse, order).map((r) => r.key).join();
+  assert.eq(keys(0), 'plain', 'the first restore is a House and nothing else');
+  assert.eq(keys(1), 'plain,blacksmith', 'the second adds the smithy');
+  assert.eq(keys(2), 'plain,blacksmith,market:seed', 'the third adds the Shop card, named for its line');
+  assert.eq(keys(3), 'plain,blacksmith,market:seed', 'the fourth adds nothing');
+  assert.eq(keys(4), 'plain,blacksmith,market:seed,trader');
+  assert.eq(keys(7), 'plain,blacksmith,market:seed,trader,turret');
+  assert.eq(keys(8), 'plain,blacksmith,market:seed,market:supply,trader,turret', 'the ninth: two Shop cards');
+  assert.eq(keys(14), 'plain,blacksmith,market:seed,market:supply,trader,turret,bookshop');
+  assert.eq(keys(29), 'plain,blacksmith,market:seed,market:supply,trader,turret,bookshop,wizard');
+  assert.eq(Houses.buildOptions({ restoredHouses: {}, bookshopId: 'b' }, plainHouse, 20).map((r) => r.key).includes('bookshop'), false, 'one Book Shop per save');
+  assert.eq(Houses.restoredCount({ restoredHouses: { a: 'plain', b: 'market' } }), 2, 'the order is the ledger\'s size');
+  for (const row of Houses.BUILD_OPTIONS) {
+    assert.truthy(row.blurb && row.art && row.role, `${row.key} carries its blurb, painting and role`);
+  }
+  assert.eq(Houses.buildOption('turret').role, 'turret');
+  assert.eq(Houses.buildOption('bookshop').role, 'market', 'the Book Shop is stored as a market plus its stamp');
+  assert.eq(Shops.roleLabel('turret'), 'Turret');
 });
 
-test('preseedRestoreRole: a save with no blacksmith gets one on its next rebuild', () => {
-  const save = { restoredHouses: { a: 'trader', b: 'plain', c: true } };
-  assert.eq(Houses.preseedRestoreRole(save, 3, plainHouse), 'blacksmith', 'whatever slot it is');
-  assert.eq(Houses.preseedRestoreRole({ restoredHouses: {} }, 0, plainHouse), 'blacksmith', 'a new save: slot 0 anyway');
-  const has = { restoredHouses: { a: 'trader', z: 'blacksmith' } };
-  assert.eq(Houses.preseedRestoreRole(has, 3, plainHouse), 'market', 'once there is one, the run resumes');
+test('buildOptions: one smithy per tier, the next from restore number tier × 5', () => {
+  const sm = Houses.buildOption('blacksmith');
+  const save = { restoredHouses: { a: 'blacksmith' } };
+  assert.eq(sm.tier(save, 5), 2, 'the next smithy would be tier 2');
+  assert.falsy(sm.offered(save, 8), 'not at the ninth rebuild');
+  assert.truthy(sm.offered(save, 9), 'the tenth may be the T2 smithy');
+  assert.truthy(sm.offered(save, 40), 'and any later one');
+  save.restoredHouses.b = 'blacksmith';
+  assert.eq(sm.tier(save, 0), 3);
+  assert.falsy(sm.offered(save, 13)); assert.truthy(sm.offered(save, 14), 'the fifteenth may be the T3 smithy');
+  assert.truthy(sm.offered({ restoredHouses: {} }, 1), 'the first follows the ladder, not the five rule');
+  for (const k of 'cdefg') save.restoredHouses[k] = 'blacksmith';
+  assert.eq(Shops.smithCount(save), 7);
+  assert.falsy(sm.offered(save, 500), 'seven tiers, seven smithies');
+  assert.eq(Houses.buildOption('trader').tier({}, 4), 1, 'the fifth rebuild raises a T1 trader');
+  assert.eq(Houses.buildOption('trader').tier({}, 9), 2, 'the tenth a T2');
+  assert.eq(Houses.buildOption('trader').tier({}, 9), Shops.traderTierAt(10));
+  assert.eq(Houses.buildOptions({ restoredHouses: {} }, plainHouse, 2).find((r) => r.key === 'market:seed').tier(), 1);
+});
+
+// WHAT EACH CARD COSTS (owner, Oct 2026): a House keeps the ladder, a shop
+// pays stones per tier by its role, a turret a flat five.
+test('buildCost: the House ladder, stones per tier for shops, a flat five for a turret', () => {
+  const save = { restoredHouses: {} };
+  const h = { kind: 'house', tier: 9, id: 'h' };
+  const by = (key, order = 9) => Houses.buildOptions(save, h, order).find((r) => r.key === key);
+  assert.eq(Houses.buildCost(save, h, by('plain')).qty, Houses.wreckRestoreCost(save, h).qty, 'a House is the ladder');
+  assert.eq(Houses.buildCost(save, h, null).qty, Houses.wreckRestoreCost(save, h).qty, 'no card: the ladder');
+  assert.eq(JSON.stringify(Houses.BUILD_ROCKS_PER_TIER), JSON.stringify({ trader: 2, market: 3, blacksmith: 4 }));
+  assert.eq(Houses.TURRET_ROCKS, 5);
+  assert.eq(Houses.buildCost(save, h, by('turret')).qty, 5, 'a turret is five, always');
+  assert.eq(Houses.buildCost(save, h, by('blacksmith'), 9).qty, 4, 'the first smithy: 4 × tier 1');
+  assert.falsy(Houses.buildOptions(save, h, 3).find((r) => r.key === 'trader'), 'no trader card before the fifth');
+  assert.eq(Houses.buildCost(save, h, Houses.buildOptions(save, h, 4).find((r) => r.key === 'trader'), 4).qty, 2, 'a T1 trader: 2 × 1');
+  assert.eq(Houses.buildCost(save, h, Houses.buildOptions(save, h, 9).find((r) => r.key === 'trader'), 9).qty, 4, 'a T2 trader: 2 × 2');
+  const market = Houses.buildOptions(save, h, 2).find((r) => r.key === 'market:seed');
+  assert.eq(Houses.buildCost(save, h, market, 2).qty, 3, 'a T1 shop line: 3 × 1');
+  const smithy = { restoredHouses: { a: 'blacksmith' } };
+  const sm2 = Houses.buildOptions(smithy, h, 9).find((r) => r.key === 'blacksmith');
+  assert.eq(Houses.buildCost(smithy, h, sm2, 9).qty, 8, 'the second smithy is T2: 4 × 2');
+  for (const c of [Houses.buildCost(save, h, by('turret')), Houses.buildCost(save, h, by('plain'))]) {
+    assert.eq(c.id, 'rockfruit'); assert.eq(c.material, 'stone');
+  }
+});
+
+test('buildOptions: the Blacksmith card is suggested until the lane has a smithy', () => {
+  const sm = Houses.buildOption('blacksmith');
+  assert.truthy(sm.suggested({ restoredHouses: {} }));
+  assert.falsy(sm.suggested({ restoredHouses: { a: 'blacksmith' } }));
+  assert.falsy(sm.suggested({ starterBlacksmithId: 'a' }));
+});
+
+test('restoreAs: freezes the pick, stamps what it owns, refuses what is not offered', () => {
+  const save = { restoredHouses: {} };
+  const h = (id) => ({ kind: 'house', tier: 9, id });
+  assert.eq(Houses.restoreAs(save, h('a'), 'blacksmith'), null, 'not offered on the first restore');
+  assert.eq(save.restoredHouses.a, undefined, 'and nothing was written');
+  assert.eq(Houses.restoreAs(save, h('a'), 'plain').key, 'plain');
+  assert.eq(save.restoredHouses.a, 'plain', 'the role string, never a bare true');
+  assert.eq(Houses.restoreAs(save, h('b'), 'blacksmith').role, 'blacksmith');
+  assert.eq(save.starterBlacksmithId, 'b', 'the first smithy is the wooden-tool forge');
+  assert.eq(Houses.restoreAs(save, h('c'), 'blacksmith'), null, 'a second smithy waits for the tenth rebuild');
+  for (let i = 2; i < 9; i++) Houses.restoreAs(save, h('p' + i), 'plain');
+  assert.eq(Houses.restoreAs(save, h('c'), 'blacksmith').role, 'blacksmith');
+  assert.eq(Shops.smithTier(save, h('c')), 2, 'and is tier 2');
+  assert.eq(save.starterBlacksmithId, 'b', 'a second smithy is not the wooden-tool forge');
+  assert.eq(Houses.restoreAs(save, h('a'), 'market:seed'), null, 'a restored house is never relabelled');
+  assert.eq(save.restoredHouses.a, 'plain');
+  for (let i = 10; i < 14; i++) Houses.restoreAs(save, h('f' + i), 'plain');
+  assert.eq(Houses.restoredCount(save), 14);
+  assert.eq(Houses.restoreAs(save, h('book'), 'bookshop').key, 'bookshop');
+  assert.eq(save.restoredHouses.book, 'market');
+  assert.eq(save.bookshopId, 'book');
+  assert.eq(Houses.restoreAs(save, h('book2'), 'bookshop'), null, 'once per save');
+  assert.eq(Houses.restoreAs(save, h('t'), 'turret').role, 'turret');
+  assert.eq(Houses.displayRole(save, h('t')), 'turret', 'every surface reads the pick');
+  assert.eq(Houses.houseShopRole(save, h('book')), 'market');
 });
 
 // ── Shop charm ───────────────────────────────────────────────────────────────
@@ -147,12 +230,12 @@ test('castleKey: the footprint key stamped on the turret, or null', () => {
   assert.eq(Houses.castleKey(null), null);
 });
 
-test('isBuildingSealed: a castle is sealed until claimed, legacy-opened, or old-gate-opened', () => {
+test('isBuildingSealed: a castle is sealed until claimed', () => {
   const tower = { kind: 'tower', castle: 'b_1_1', tier: 12, id: 'tw_1' };
   assert.truthy(Houses.isBuildingSealed({}, tower), 'freshly generated: sealed');
   assert.falsy(Houses.isBuildingSealed({}, { kind: 'house', tier: 9 }), 'not a castle at all');
-  assert.falsy(Houses.isBuildingSealed({ castlesLegacyOpen: true }, tower), 'old three-quest chain finished');
-  assert.falsy(Houses.isBuildingSealed({ openedCastles: { tw_1: true } }, tower), 'opened under the retired delivery gate');
+  assert.truthy(Houses.isBuildingSealed({ castlesLegacyOpen: true }, tower), 'retired global flag grants no access');
+  assert.truthy(Houses.isBuildingSealed({ openedCastles: { tw_1: true } }, tower), 'retired delivery flag grants no access');
   const claimed = {};
   Houses.claimCastle(claimed, tower);
   assert.falsy(Houses.isBuildingSealed(claimed, tower), 'claimed outright');
@@ -189,26 +272,13 @@ test('castleServiceUsed / markCastleServiceUsed: once per castle per twelve hour
   assert.eq(Houses.castleServiceWaitMs(save, tower, t0 + 20 * H), 0, 'and the wait never goes negative');
 });
 
-test('castleServiceUsed: a legacy UTC-day stamp is spent until that day ends, then gone', () => {
-  // Saves from before the twelve-hour clock hold 'YYYYMMDD' (utcDayKey).
-  const save = { castleServiceClaimed: { b_1_1: '20260926' } };
-  const tower = { castle: 'b_1_1' };
-  const sameDay = Date.parse('2026-09-26T23:00:00Z');
-  assert.truthy(Houses.castleServiceUsed(save, tower, sameDay), 'today\'s favour was already taken');
-  assert.eq(Houses.castleServiceWaitMs(save, tower, sameDay), msToNextUtcDay(sameDay), 'and it waits for the old day to roll');
-  const nextDay = Date.parse('2026-09-27T00:00:00Z');
-  assert.falsy(Houses.castleServiceUsed(save, tower, nextDay), 'a new UTC day pours again');
-  Houses.markCastleServiceUsed(save, tower, nextDay);
-  assert.eq(save.castleServiceClaimed['b_1_1'], nextDay, 'and the next use writes the new stamp');
-});
-
 test('markCastleServiceUsed: prunes every OTHER castle\'s spent stamp, keeps a live one', () => {
   const H = 60 * 60 * 1000;
   const now = Date.parse('2026-09-26T12:00:00Z');
   const save = { castleServiceClaimed: { old_castle: now - 13 * H, live_castle: now - 3 * H, legacy_castle: '20000101' } };
   Houses.markCastleServiceUsed(save, { castle: 'b_1_1' }, now);
   assert.falsy('old_castle' in save.castleServiceClaimed, 'spent stamp pruned');
-  assert.falsy('legacy_castle' in save.castleServiceClaimed, 'a stale legacy day stamp pruned too');
+  assert.falsy('legacy_castle' in save.castleServiceClaimed, 'a non-numeric stamp is no stamp, pruned too');
   assert.truthy('live_castle' in save.castleServiceClaimed, 'a castle still owed nine hours keeps its stamp');
   assert.truthy('b_1_1' in save.castleServiceClaimed, 'the current one kept');
 });

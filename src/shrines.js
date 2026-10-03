@@ -47,7 +47,7 @@
       name: 'Lantern saint', flash: 'Her lantern warms your hand.',
       body: "A stone saint holds out a lantern. You pause beneath its warm light." },
     tide_bell: { art: 'shrine_tide_bell', frame: 2, light: 0x9fdcff, lever: 'reach', durationMs: 3 * MIN,
-      zones: ['mystic_reef', 'shellwater_strand'], streets: ['promenade'],
+      zones: ['shellwater_strand'], streets: ['promenade'],
       name: 'Tide bell', flash: 'Your arms feel long as tides.',
       body: "You ring the bell and hear the rush of waves. The sound seems close, though the shore is far away." },
     bone_watcher: { art: 'shrine_bone_watcher', frame: 3, light: 0xd8d4e8, lever: 'shield', durationMs: 3 * MIN,
@@ -55,7 +55,7 @@
       name: 'Bone watcher', flash: 'Something watches your back.',
       body: "A hooded stone figure stands guard. You rest beside it, feeling safer." },
     moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN, boon: 'Unseen',
-      zones: ['ancient_grove'], streets: ['overgrown', 'greenway'],
+      zones: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
       body: "You touch the mossy stones. Nearby creatures look past you, unaware of your presence." },
     rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN, boon: 'Grip',
@@ -66,7 +66,7 @@
       zones: ['meadow', 'hedge_garden'], streets: ['golden', 'hedgerow'],
       name: 'Wishing well', flash: 'A coin sinks. Luck stirs.',
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
-    harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Swift',
+    harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Hardworking',
       zones: ['orchard'], streets: ['orchard'],
       name: 'Harvest idol', flash: 'Your hands move swiftly.',
       body: "You lay your hand on the straw figure. Your weariness lifts, and your hands move swiftly through their work." },
@@ -75,11 +75,13 @@
       name: 'Toad idol', flash: 'Your wounds begin to heal.',
       body: "You touch the cool stone toad. The pain eases as your wounds begin to heal." },
     ember_altar: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN, boon: 'Ember',
-      zones: ['black_ring', 'flint_field'], streets: ['burned'],
+      zones: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
   };
   const REWARD_KINDS = {
+    mystic_reef: { name: 'Reef treasury', art: 'visit_gold', reward: 'coins', fillScreen: true,
+      body: 'You touch the sea-worn stone. Gold washes out across the shore.', light: 0x9fdcff },
     waystone: { name: 'Waystone', art: 'shrine_waystone', reward: 'book',
       body: 'You rest your hand on the stone. Words from an old book come back to you.', light: 0xf2d9a0 },
     grove: { name: 'Sacred grove shrine', art: 'shrine_grove', reward: 'treasure',
@@ -90,7 +92,7 @@
   function kindForObject(o) {
     if (o?.kind === 'waystone') return REWARD_KINDS.waystone;
     if (o?.kind !== 'grove_shrine') return null;
-    return SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
+    return REWARD_KINDS[o.zoneVariant] || SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
   }
   const KIND_IDS = Object.keys(SHRINE_KINDS);
   const byZone = new Map(), byStreet = new Map();
@@ -136,10 +138,20 @@
       scene._consumeFoodEffects('pairy', false, now);
       return true;
     }
-    const until = Math.max(leverUntil(save, row.lever, scene), now + row.durationMs);
+    return extend(save, row.lever, row.durationMs, now, scene);
+  }
+  // Pull `lever` for durationMs from now: its expiry becomes the later of its
+  // own and now + durationMs (never stacking in strength). The one writer
+  // of every lever — a shrine's grant above, and a potion that lends the
+  // same boon (app.js drinkHardworkingPotion pulls `work` for its own
+  // shorter spell) — so the two can never keep separate clocks.
+  function extend(save, lever, durationMs, now = Date.now(), scene = null) {
+    const L = LEVERS[lever];
+    if (!L || L.instant || !save) return false;
+    const until = Math.max(leverUntil(save, lever, scene), now + durationMs);
     if (L.save) save[L.save] = until;
     else if (L.scene) { if (scene) scene[L.scene] = until; }
-    else (save.boonUntil ||= {})[row.lever] = until;
+    else (save.boonUntil ||= {})[lever] = until;
     return true;
   }
 
@@ -147,8 +159,7 @@
   function boonFlash(kindId) { return SHRINE_KINDS[kindId] ? SHRINE_KINDS[kindId].flash : ''; }
 
   // Drop expired boon-only expiries (save hygiene; nothing reads a past one)
-  // and the retired `shrineBoon` (the last kind, once the only countdown —
-  // every running boon shows now, through Buffs.KINDS).
+  // and the retired `shrineBoon` (running boons show through Buffs.KINDS).
   function normalize(save, now = Date.now()) {
     if (!save) return;
     delete save.shrineBoon;
@@ -160,6 +171,6 @@
 
   root.Shrines = {
     SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
-    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, boonFlash, normalize,
+    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, extend, boonFlash, normalize,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -137,10 +137,32 @@ test('lot lanes: removed tagged and inferred geometry remains generation-only qu
   const ownerAt = (x, y) => r.zone?.anchors[r.zone.coverage[y * CPE + x] - 1];
   const owner = ownerAt(40, 41);
   assert.eq(owner?.kind, 'quarry', 'the removed lot becomes a quarry zone');
-  assert.eq(ownerAt(40, 43)?.key, owner.key, 'nearby lane buffers share a connected quarry');
+  const adjacent = ownerAt(40, 43);
+  assert.eq(adjacent?.kind, 'quarry', 'the adjacent removed lane also becomes quarry ground');
+  assert.truthy(adjacent.key !== owner.key, 'proximity evidence alone does not merge disconnected source lanes');
   assert.eq(r.grid[41 * CPE + 40], WorldGen.T.ROCK, 'quarry has rocky ground');
   assert.eq(r.roadMask[41 * CPE + 40], 0, 'the lane never regains a carriageway');
   assert.falsy(hasLine(by.transportation, IN_LOT), 'lamps, restoration and road overlays still cannot see the lane');
+});
+
+test('lot lanes: removal reasons distinguish tags, parking POIs and nearby aisles', () => {
+  const {by}=build();
+  const tagged=by.transportation.parkingLanes.find(row=>row.f.id===2);
+  const inferred=by.transportation.parkingLanes.find(row=>row.f.id===3);
+  assert.eq(JSON.stringify(tagged.reasons), JSON.stringify([['parking_aisle']]));
+  assert.eq(JSON.stringify(tagged.lineGroups),JSON.stringify([[]]),'tags alone do not declare a same-lot group');
+  assert.eq(JSON.stringify(inferred.lineGroups),JSON.stringify([[]]),'POI proximity alone does not merge lots');
+  assert.eq(JSON.stringify(inferred.reasons), JSON.stringify([['parking_poi']]));
+  for (const withPoi of [false,true]) {
+    const L=layers();
+    if (!withPoi) L.find(l=>l.name==='poi').features=[];
+    const tl=L.find(l=>l.name==='transportation');
+    tl.features.find(f=>f.id===3).geom=[line([[37,39],[43,39]])];
+    WorldGen.rasterizeTile(L,CPE,0,0,TILE_EDGE_M);
+    const row=tl.parkingLanes.find(row=>row.f.id===3);
+    assert.eq(JSON.stringify(row.reasons),JSON.stringify([withPoi ? ['nearby_aisle','parking_poi'] : ['nearby_aisle']]));
+    for(const removed of tl.parkingLanes) assert.eq(removed.reasons.length,removed.lines.length,'evidence aligns with removed lines');
+  }
 });
 
 test('lot lanes: quarry coverage and identity survive rebuilding an already-pruned layer', () => {
@@ -170,8 +192,117 @@ test('lot lanes: quarry ground and dressing preserve original cave entrances', (
   const entrances = result => {
     const entry = {...result, objects:result.objects.slice(), cellsPerEdge:CPE, tileEdgeM:TILE_EDGE_M};
     WorldGen.maybePlaceCaveEntrance(entry,0,0,TILE_EDGE_M,result.objects,result.wildplants);
-    return entry.objects.filter(o=>o.kind === 'staircase').map(o=>`${o.id}:${o.x},${o.y}`).join('|');
+    return entry.objects.filter(o=>o.kind === 'staircase' && o.zoneLayer !== 'entrance').map(o=>`${o.id}:${o.x},${o.y}`).join('|');
   };
   assert.eq(entrances(after), entrances(before), 'existing mine mouths keep their positions and IDs');
 });
+})();
+
+(function () {
+  const spine = [{x:0,y:120},{x:150,y:120}];
+  const row = x => [{x,y:120},{x,y:55}];
+  function fixture(rows = [row(30), row(50), row(70)], tags = {class:'service'}) {
+    return { transportation: {extent:4096,features:[
+      {id:900,type:2,tags:{class:'service'},geom:[spine]},
+      {id:901,type:2,tags,geom:rows},
+    ]}};
+  }
+  function prune(by) { const it=WorldGen.pruneLotLanesSteps(by,1); let s; while(!(s=it.next()).done); return s.value; }
+  test('lot lanes: three substantial rows sharing an access spine need no parking POI', () => {
+    const by=fixture();
+    const cut=prune(by);
+    assert.eq(cut.length,1);
+    assert.eq(cut[0].lines.length,3);
+    assert.eq(JSON.stringify(cut[0].reasons),JSON.stringify([['connected_rows'],['connected_rows'],['connected_rows']]));
+    assert.eq(by.transportation.features.length,1);
+    assert.eq(by.transportation.features[0].id,900,'access spine remains a road');
+    assert.eq(by.transportation.parkingLanes[0].lines.length,3,'rows remain quarry evidence');
+    assert.eq(prune(by).length,0,'repeat is idempotent');
+  });
+  test('lot lanes: row comb preserves explicit driveways, short stubs and disconnected parallels', () => {
+    for(const tags of [{class:'service',service:'driveway'},{class:'service',service:'alley'}]) {
+      assert.eq(prune(fixture(undefined,tags)).length,0,'explicit service subtype survives');
+    }
+    assert.eq(prune(fixture([row(30),row(50)])).length,0,'two driveways prove no lot');
+    assert.eq(prune(fixture([30,50,70].map(x=>[{x,y:120},{x,y:100}]))).length,0,'short courtyard stubs survive');
+    assert.eq(prune(fixture([30,50,70].map(x=>[{x,y:110},{x,y:45}]))).length,0,'parallel rows must touch a common spine');
+    assert.eq(prune(fixture([row(20),row(60),row(100)])).length,0,'widely separated access roads survive');
+  });
+  test('lot lanes: distinct combs on one access spine have stable geometry-owned groups', () => {
+    const rows=[10,30,50,100,120,140].map(row);
+    const first=fixture(rows), second=fixture(rows.map(points=>points.slice().reverse()).reverse());
+    second.transportation.features.reverse();
+    for (const f of second.transportation.features) f.id+=20;
+    const a=prune(first), b=prune(second);
+    const groups=a.flatMap(record=>record.lineGroups.flat());
+    assert.eq(new Set(groups).size,2,'one long access spine does not merge distinct lots');
+    for (const key of new Set(groups)) assert.eq(groups.filter(value=>value===key).length,3);
+    assert.eq(JSON.stringify(groups.slice().sort()),JSON.stringify(b.flatMap(record=>record.lineGroups.flat()).sort()),'feature order/id, line order and direction do not affect groups');
+    const stored=JSON.stringify(first.transportation.parkingLanes);
+    prune(first);
+    assert.eq(JSON.stringify(first.transportation.parkingLanes),stored,'group evidence survives repeat pruning');
+  });
+  test('lot lanes: a comb preserves unrelated lines merged into the same feature', () => {
+    const unrelated=[{x:200,y:120},{x:200,y:55}];
+    const by=fixture([row(30),row(50),row(70),unrelated]);
+    prune(by);
+    assert.eq(by.transportation.features.find(f=>f.id===901).geom.length,1);
+    assert.eq(by.transportation.features.find(f=>f.id===901).geom[0],unrelated);
+  });
+  test('lot lanes: opposing, staggered and bent branches do not make a parking comb', () => {
+    const opposite=[{x:70,y:120},{x:70,y:185}];
+    assert.eq(prune(fixture([row(30),row(50),opposite])).length,0);
+    const by=fixture([row(30),row(50),[{x:70,y:100},{x:70,y:35}]]);
+    by.transportation.features[0].geom=[[{x:0,y:120},{x:50,y:120},{x:70,y:100},{x:160,y:100}]];
+    assert.eq(prune(by).length,0,'poor longitudinal overlap is not a comb');
+    assert.eq(prune(fixture([row(30),row(50),[{x:70,y:120},{x:85,y:90},{x:70,y:55}]])).length,0);
+  });
+})();
+
+(function () {
+  const hairpin=[{x:100,y:0},{x:100,y:145},{x:64,y:145},{x:64,y:70}];
+  const centre=[{x:82,y:145},{x:82,y:0}];
+  const access=[{x:20,y:70},{x:130,y:70}];
+  function fixture(u=hairpin, middle=centre, subtype) {
+    return {transportation:{extent:4096,features:[
+      {id:910,type:2,tags:{class:'service',...(subtype?{service:subtype}:{})},geom:[u,middle]},
+      {id:911,type:2,tags:{class:'service'},geom:[access]},
+    ]}};
+  }
+  function prune(by) {const it=WorldGen.pruneLotLanesSteps(by,1); let s; while(!(s=it.next()).done); return s.value;}
+  test('lot lanes: a substantial parking hairpin with a matching middle row needs no parking POI', () => {
+    const by=fixture(), cut=prune(by);
+    assert.eq(cut.length,1);
+    assert.eq(cut[0].lines.length,2,'both the U and its middle row disappear');
+    assert.eq(JSON.stringify(cut[0].reasons),JSON.stringify([['parking_hairpin'],['parking_hairpin']]));
+    assert.eq(by.transportation.features.length,1);
+    assert.eq(by.transportation.features[0].id,911,'separate access survives');
+    assert.eq(by.transportation.parkingLanes[0].lines.length,2);
+    assert.eq(prune(by).length,0);
+  });
+  test('lot lanes: a parking hairpin and its middle row share a stable declared group', () => {
+    const a=prune(fixture()), b=prune(fixture(hairpin.slice().reverse(),centre.slice().reverse()));
+    assert.eq(a[0].lineGroups.length,2);
+    assert.eq(a[0].lineGroups[0].length,1);
+    assert.eq(a[0].lineGroups[0][0],a[0].lineGroups[1][0]);
+    assert.eq(JSON.stringify(a[0].lineGroups),JSON.stringify(b[0].lineGroups),'reversing geometry preserves membership');
+  });
+  test('lot lanes: hairpin evidence requires a connected interior row matching the far extent', () => {
+    for (const middle of [
+      [{x:82,y:140},{x:82,y:0}], // detached from crossbar
+      [{x:82,y:145},{x:82,y:60}], // too short to match the long leg
+      [{x:110,y:145},{x:110,y:0}], // outside the hairpin
+      [{x:82,y:145},{x:95,y:0}], // central row approaches the outer leg
+      [{x:82,y:145},{x:82,y:-20}], // continues beyond the lot
+    ]) assert.eq(prune(fixture(hairpin,middle)).length,0);
+    const noMiddle=fixture(); noMiddle.transportation.features[0].geom=[hairpin];
+    assert.eq(prune(noMiddle).length,0,'an ordinary U-shaped road alone remains');
+  });
+  test('lot lanes: explicit driveways and irregular U-shaped access routes survive hairpin inference', () => {
+    for (const subtype of ['driveway','alley']) assert.eq(prune(fixture(hairpin,centre,subtype)).length,0);
+    const bent=[{x:100,y:0},{x:100,y:145},{x:64,y:145},{x:40,y:70}];
+    assert.eq(prune(fixture(bent)).length,0,'outer legs must be parallel');
+    const wide=[{x:130,y:0},{x:130,y:145},{x:64,y:145},{x:64,y:70}];
+    assert.eq(prune(fixture(wide)).length,0,'an access loop wider than a parking lot remains');
+  });
 })();

@@ -64,6 +64,23 @@
     }
   });
 
+  test('difficulty: a shop-bought crop at least breaks even on hard', () => {
+    // An average trader (the middle of buyMarkupRange) and an average harvest
+    // (2 produce, a 25% seed back), sold at Home. Rockfruit is exempt in both
+    // modes: wild debris priced at the floor, grown for crafting, not cash.
+    withMode('hard', () => {
+      const { lo, hi } = buyMarkupRange();
+      for (const seed of BUY_LIST) {
+        const crop = seed.replace(/_seed$/, '');
+        if (crop === 'rockfruit') continue;
+        const pack = 1 + (isLowTierSeed(seed) ? LOW_TIER_SEED_QTY_BONUS : 0);
+        const seedCost = 0.75 * Math.ceil(PRICES[seed] * (lo + hi) / 2) / pack;
+        const payout = 2 * trailerSellPrice(PRICES[crop]);
+        assert.truthy(payout >= seedCost, `${crop}: pays $${payout} for $${seedCost.toFixed(2)} of seed`);
+      }
+    });
+  });
+
   test('difficulty: the active mode defaults to easy and rejects junk', () => {
     assert.eq(Difficulty.mode(), 'easy');
     assert.eq(Difficulty.of({}).id, 'easy', 'an unset save reads as easy');
@@ -77,12 +94,13 @@
     const easy = withMode('easy', () => buyMarkupRange({}));
     const hard = withMode('hard', () => buyMarkupRange({}));
     assert.eq(easy.lo, 1.2); assert.eq(easy.hi, 3.0);
-    assert.inRange(hard.lo, 1.8 - 1e-9, 1.8 + 1e-9, 'hard lo = 1.2 × 1.5');
-    assert.inRange(hard.hi, 4.5 - 1e-9, 4.5 + 1e-9, 'hard hi = 3.0 × 1.5');
-    // The bow still closes the spread — onto 1.5× par rather than par.
+    assert.inRange(hard.lo, 1.38 - 1e-9, 1.38 + 1e-9, 'hard lo = 1.2 × 1.15');
+    assert.inRange(hard.hi, 3.45 - 1e-9, 3.45 + 1e-9, 'hard hi = 3.0 × 1.15');
+    // No relic bends the markup any more (the Magic Hammer's building is the
+    // one standing discount): a maxed bow pays the same spread.
     const maxed = withMode('hard', () => buyMarkupRange({ bow: { tier: 7 } }));
-    assert.inRange(maxed.lo, 1.5 - 1e-9, 1.5 + 1e-9);
-    assert.inRange(maxed.hi, 1.5 - 1e-9, 1.5 + 1e-9);
+    assert.inRange(maxed.lo, 1.38 - 1e-9, 1.38 + 1e-9);
+    assert.inRange(maxed.hi, 3.45 - 1e-9, 3.45 + 1e-9);
     const stallEasy = withMode('easy', () => ShopsMath.standPrice({ relics: {} }, 20));
     const stallHard = withMode('hard', () => ShopsMath.standPrice({ relics: {} }, 20));
     assert.eq(stallEasy, 15, 'easy stand: 20 × 0.75');
@@ -90,16 +108,15 @@
   });
 
   test('difficulty: hard mode cuts what Home pays, and never below $1', () => {
-    const easy = withMode('easy', () => trailerSellPrice(20, {}));
-    const hard = withMode('hard', () => trailerSellPrice(20, {}));
-    assert.eq(easy, 8, 'easy: 20 × 0.5 × 0.75 = 7.5 → 8');
-    assert.eq(hard, 5, 'hard: 20 × 0.5 × 0.75 × 0.6 = 4.5 → 5');
-    assert.eq(withMode('hard', () => trailerSellPrice(1, {})), 1, 'the $1 floor holds');
+    const easy = withMode('easy', () => trailerSellPrice(20));
+    const hard = withMode('hard', () => trailerSellPrice(20));
+    assert.eq(easy, 11, 'easy: 20 × 0.7 × 0.75 = 10.5 → 11');
+    assert.eq(hard, 10, 'hard: 20 × 0.7 × 0.75 × 0.9 = 9.45 → 10');
+    assert.eq(withMode('hard', () => trailerSellPrice(1)), 1, 'the $1 floor holds');
     // A stand on hard is still never a profit: its price stays above the payout.
     for (const v of [1, 4, 10, 37, 120]) {
       withMode('hard', () => {
-        assert.gte(ShopsMath.standPrice({ relics: { sword: { tier: 7 } } }, v),
-          trailerSellPrice(v, { sword: { tier: 7 } }), `no arbitrage at $${v}, maxed sword`);
+        assert.gte(ShopsMath.standPrice({ relics: {} }, v), trailerSellPrice(v), `no arbitrage at $${v}`);
       });
     }
   });
@@ -157,26 +174,26 @@
   test('difficulty: the crow pump is a hard-mode rule, read at its own site', () => {
     // The dispatched-crow pump (app.js wanderCreatures) is a MODE difference,
     // not a knob: on easy a field is only raided by a crow the tile already
-    // spawned nearby, and on hard one is sent every ~90 s. The gate is one line
+    // spawned nearby, and on hard one is sent once an hour. The gate is one line
     // in app.js; run.js hands its source text over so it cannot drift from the
-    // table. It used to read pestAmnesty + save.hasHarvested — retired, because
-    // the mode flag subsumes both (easy never pumps; hard has no grace).
+    // table. The mode flag subsumes the retired pestAmnesty + save.hasHarvested
+    // (easy never pumps; hard has no grace).
     assert.truthy(PEST_PUMP_GATE_SRC.includes('Difficulty.get().cropPests'),
       'the pump reads the flag at the site that owns the behaviour');
     assert.falsy(PEST_PUMP_GATE_SRC.includes('pestAmnesty'),
       'and no longer doubles as an amnesty check');
   });
 
-  test('difficulty: the save rules — veterans are easy, a fresh save is asked', () => {
+  test('difficulty: normalization preserves a chosen mode and leaves an unset mode for the card', () => {
     const veteran = { tilled: ['1,1'] };
-    SaveMigrate.migrate(veteran);
-    assert.eq(veteran.mode, 'easy', 'a played pre-mode save was played with the tutorial');
+    SaveState.normalize(veteran);
+    assert.eq(veteran.mode, undefined, 'normalization does not infer a historical mode');
     const fresh = {};
-    SaveMigrate.migrate(fresh);
+    SaveState.normalize(fresh);
     assert.eq(fresh.mode, undefined, 'a fresh save is left for the card to ask');
     assert.eq(Difficulty.of(fresh).id, 'easy', 'and reads as easy until it does');
     const hard = { tilled: ['1,1'], mode: 'hard' };
-    SaveMigrate.migrate(hard);
+    SaveState.normalize(hard);
     assert.eq(hard.mode, 'hard', 'a chosen mode is never overwritten');
   });
 

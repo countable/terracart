@@ -11,8 +11,7 @@
 // A CLOSED DEAL SETTLES THE SHOP (owner's call, Oct 2026): what was bought
 // leaves the shelf, so the next offer is a fresh draw (the deal count is in
 // the seed), and the paid re-roll ladder drops back to its base rung
-// (recordDeal zeroes `rerolls` and `skips`). The smithy did this alone
-// before; now every shop does, through the one recorder.
+// (recordDeal zeroes `rerolls` and `skips`), through the one recorder.
 //
 // NO SHOP RATIONS ITS DEALS (Sep 2026, owner's call): a smithy, trader or
 // storefront can be used continuously — there is no per-hour deal cap, no
@@ -62,7 +61,7 @@
   // table of who waits. A role with no row (market, blacksmith, wizard, the
   // castle) never does. Only the trader: its stock is what changes hands,
   // so an instant reopen was a free converter between any two stacks the bag
-  // held. Short on purpose — a breather, not the old hourly ration.
+  // held. Short on purpose — a breather, not a ration.
   const DEAL_COOLDOWN_MS = { trader: 5 * 60 * 1000 };
   const MAX_DEAL_COOLDOWN_MS = Math.max(0, ...Object.values(DEAL_COOLDOWN_MS));
 
@@ -100,7 +99,7 @@
     return cur;
   }
 
-  // Garbage-collect spent entries out of save.shopState (savemigrate.js, once
+  // Garbage-collect spent entries out of save.shopState (save_state.js, once
   // per boot) so the map can't grow by one record per shop ever visited. An
   // entry is spent when it is from an earlier bucket AND its re-roll level has
   // eased all the way to zero: that is exactly the record bucketState() would
@@ -174,8 +173,7 @@
                 ^ Math.imul(turnover, 0x85ebca6b)
                 // The free re-draws a re-roll took to land on something NEW
                 // (rerollPeek): seed-only, so the ladder never climbs for
-                // them. Zero (or absent, on every record written before
-                // Oct 2026) leaves the seed exactly as it was.
+                // them. Zero or absent leaves the seed unchanged.
                 ^ Math.imul(cur.skips | 0, 0x27d4eb2f)) >>> 0;
     // The lane name is folded onto that seed with util.js' fnv1a loop — the
     // same prime and order fnv1a() itself uses, just started from here rather
@@ -233,36 +231,26 @@
   // A stand (the coffee cart, the fruit stall, the fishmonger) is a fresh
   // producer selling its own goods, not a village shop restocking from a
   // wholesaler — so it undercuts the listed price rather than marking it up.
-  // It used to charge exactly par, which read as expensive for what is meant
-  // to be the cheap, friendly way to get hold of an ingredient.
   //
   // The discount has a hard floor: THE PLAYER MUST NEVER BE ABLE TO BUY FROM A
-  // STAND AND SELL AT A PROFIT. That floor is not a constant, because the sell
-  // side is not either — the Sword relic scales selling from 0.5× base up to
-  // 1.0× at tier 7 (sellMultiplier, items.js). A flat "stands are 25% off"
-  // would be free money the moment a player carried a tier-4 sword: buy at
-  // 0.75, sell at 0.79, repeat. So the stand price tracks the player's OWN
-  // sell price and stays a margin above it, and the discount quietly shrinks
-  // as their sword improves:
+  // STAND AND SELL AT A PROFIT. The stand price is a margin above the sell
+  // rate (sellMultiplier, items.js — one flat number), clamped
+  // between the best discount and par:
   //
-  //     no sword (sell 0.50)  →  pay 0.75   (25% off par)
-  //     sword T4 (sell 0.79)  →  pay 0.84   (16% off par)
-  //     sword T7 (sell 1.00)  →  pay 1.00   (par — break-even, as before)
+  //     sell 0.70  →  pay max(0.75, 0.75) = 0.75   (25% off par, today)
   //
-  // Capped at par so a maxed-out player is never charged MORE than the listed
-  // price; at that point buying and reselling is exactly break-even, which is
-  // what it already was. Every combination is pinned in shops_math.test.js.
-  //
-  // What actually guarantees the invariant is the TRACKING — pricing off
-  // sellMultiplier rather than off a constant. The margin below is headroom on
-  // top of that, so a later tweak to either curve doesn't land exactly on the
-  // line; setting it to 0 still yields break-even, never profit.
+  // Capped at par so no retune ever charges MORE than the listed price.
+  // What guarantees the invariant is the TRACKING — pricing off sellMultiplier
+  // rather than off a constant, so a sell rate raised past the floor pulls the
+  // stand price up with it. The margin below is headroom on top of that, so a
+  // later tweak doesn't land exactly on the line; setting it to 0 still yields
+  // break-even, never profit. Pinned in shops_math.test.js.
   const STAND_BUY_MUL = 0.75;      // best case: what a stand charges off par
   const STAND_ARB_MARGIN = 0.05;   // headroom above resale, not the guarantee
 
-  // The multiplier a stand applies to an item's listed value, for these relics.
-  function standBuyMul(relics) {
-    const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(relics) : 0.5;
+  // The multiplier a stand applies to an item's listed value.
+  function standBuyMul() {
+    const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier() : 0.7;
     return clamp(sellMul + STAND_ARB_MARGIN, STAND_BUY_MUL, 1);
   }
 
@@ -273,20 +261,46 @@
   // way to get an ingredient on hard too (Difficulty.buyMul is the trader's
   // markup, and this is not a markup). The no-profit floor still holds there
   // — hard mode only cuts the sell side.
-  function standPrice(save, baseValue) {
-    return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics)));
+  // `save` is accepted for the callers that pass it (the price lane's shape)
+  // and no longer read: nothing on the player moves a stand's price.
+  function standPrice(save, baseValue) {   // eslint-disable-line no-unused-vars
+    return Math.max(1, Math.ceil(baseValue * standBuyMul()));
+  }
+
+  // ─── The Book's price ladder ─────────────────────────────────────────────
+  // A bought Book counts toward the school's book club exactly like a found
+  // one (macros.js scholar* — every Book read counts), so the COUNTER is the
+  // brake: every Book bought (save.booksBought — at any counter: the
+  // scriptorium stall, the supply shop line, the bookshop) raises the list
+  // price of the next by BOOK_PRICE_GROWTH, up to BOOK_PRICE_CAP_MUL × the
+  // catalogue price. The first is the catalogue price. listPrice is the ONE
+  // lane every counter reads for its base, so the ladder cannot be dodged by
+  // shopping elsewhere; bookBought is the one writer.
+  const BOOK_PRICE_GROWTH = 1.5;
+  const BOOK_PRICE_CAP_MUL = 16;
+  function booksBought(save) { return Math.max(0, Math.floor(Number(save && save.booksBought) || 0)); }
+  function bookPriceMul(bought) { return Math.min(BOOK_PRICE_CAP_MUL, Math.pow(BOOK_PRICE_GROWTH, bought)); }
+  // The list price a counter starts from for `id` — `base` defaults to the
+  // catalogue price (a themed shop passes itemValue, which also prices the
+  // unpriced live animals). Only the Book climbs.
+  function listPrice(save, id, base) {
+    const b = Math.max(1, base ?? ((typeof PRICES !== 'undefined' && PRICES[id]) || 1));
+    return id === 'book' ? Math.ceil(b * bookPriceMul(booksBought(save))) : b;
+  }
+  function bookBought(save, n = 1) {
+    save.booksBought = booksBought(save) + Math.max(0, n | 0);
+    return save.booksBought;
   }
 
   // ─── Trader ask ──────────────────────────────────────────────────────────
   // What a trader asks in return for its goods: an item id and a count worth
-  // `target` (the give side's value × 1..2). The ask used to be ANY priced
-  // stack in the bag, whatever it held — so a trader happily asked a wooden-
-  // backpack player for 54 Potato Seeds against a stack that can't hold a
-  // third of that. A deal the player can never accept is not an offer.
+  // `target` (the give side's value × 1..2). An ask the player's bag can
+  // never hold is not an offer, hence the two passes below.
   //
   // So the pick runs in two passes on one rng:
-  //   1. On TRADER_AFFORDABLE_CHANCE of rolls, only stacks that ALREADY cover
-  //      the count are considered — the trade can be taken on the spot.
+  //   1. On TRADER_AFFORDABLE_CHANCE of rolls (most of them), only stacks that
+  //      ALREADY cover the count are considered — the trade can be taken on
+  //      the spot.
   //   2. Otherwise (or when nothing covers it) any owned stack, then the
   //      wishlist of every priced item, as before — the player still learns
   //      what a trader wants and can go and gather it.
@@ -304,8 +318,8 @@
   // affordable pass made that commoner (one of anything is "affordable"), so
   // an ask worth more than TRADER_MAX_OVERPAY × the target is dropped, and
   // only asked when no fairer item exists anywhere.
-  const TRADER_AFFORDABLE_CHANCE = 0.5;
-  const TRADER_MAX_OVERPAY = 2;
+  const TRADER_AFFORDABLE_CHANCE = 0.85;
+  const TRADER_MAX_OVERPAY = 3;
 
   // opts: { rng, giveId, target, inv, prices, isItem(id), capFor(id) }
   // Returns { askId, askQty } or null when no priced item exists at all.
@@ -554,5 +568,6 @@
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
                      SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_DELUXE_SPINS, SLOT_DELUXE_MUL, slotDeluxeShare, slotDeluxeNext, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
+                     BOOK_PRICE_GROWTH, BOOK_PRICE_CAP_MUL, booksBought, bookPriceMul, listPrice, bookBought,
                      TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

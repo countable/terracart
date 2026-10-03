@@ -36,23 +36,18 @@ function trailerScene(over) {
     homeWorldPos: __home.homeWorldPos,
     isRestingAtHome: __home.isRestingAtHome,
     inHomeRing: __home.inHomeRing,
-    homeGuardsCrop: __home.homeGuardsCrop,
     _cropRaidable: __home._cropRaidable,
   }, over);
 }
 
-test('home: crop raiders keep out of Home\'s ring', () => {
+test('home: Home\'s ring is no refuge for crops — deer graze the yard too', () => {
   const s = trailerScene();
   const r = HOME_R * CELL_M;
   const yard = { crop: 'berry', x: 2 * CELL_M, y: 0 };
   const field = { crop: 'berry', x: r * 1.01, y: 0 };
-  assert.truthy(s.homeGuardsCrop(yard), 'a crop two cells from Home is guarded');
-  assert.falsy(s.homeGuardsCrop(field), 'one a step past the ring is not');
-  assert.falsy(s._cropRaidable(yard), 'so a deer leaves the yard crop alone');
-  assert.truthy(s._cropRaidable(field), 'and still raids the field past it');
-  assert.falsy(s._cropRaidable({ crop: 'potato', x: r * 2, y: 0 }), 'potato stays raider-proof anywhere');
-  assert.falsy(trailerScene({ depth: 2 }).homeGuardsCrop(yard), 'no Home underground, no guard');
-  assert.truthy(trailerScene({ save: {} })._cropRaidable(yard), 'no Home yet, nothing is guarded');
+  assert.truthy(s._cropRaidable(yard), 'a deer may graze the crop by the door');
+  assert.truthy(s._cropRaidable(field), 'and the field past the ring');
+  assert.falsy(s._cropRaidable({ crop: 'potato', x: CELL_M, y: 0 }), 'potato stays raider-proof anywhere');
 });
 
 test('home: every crop raider asks the guard, none keeps its own test', () => {
@@ -63,20 +58,18 @@ test('home: every crop raider asks the guard, none keeps its own test', () => {
   assert.eq((app.match(/raiderEatsCrop\(/g) || []).length, 2,
     'the bare kind test is read once, inside _cropRaidable (plus its definition)');
   assert.truthy(/if \(!this\._cropRaidable\(p\)\) return;/.test(app), 'the deer\'s notice reads _cropRaidable');
-  assert.truthy(/if \(!this\._cropRaidable\(p\)\) return false;   \/\/ potato, or Home's yard/.test(app),
+  assert.truthy(/if \(!this\._cropRaidable\(p\)\) return false;   \/\/ potato/.test(app),
     'the deer graze reads _cropRaidable');
   assert.truthy(/this\.save\.planted\.some\(\(p\) => this\._cropRaidable\(p\)\)/.test(app),
     'the hard-mode pump only dispatches a deer for a crop it may eat');
-  assert.falsy(/if \(this\.homeGuardsCrop\(p\)\) return false;/.test(app),
-    'no raider keeps a bare yard test of its own');
+  assert.falsy(/homeGuardsCrop/.test(app), 'no raider keeps a yard test of its own');
 });
 
 test('home: the rest is a RING, not a doormat', () => {
   const s = trailerScene();
   const r = HOME_R * CELL_M;
   // The doorstep — where the player stands to work the starter plot, two
-  // cells out — rests them. It rested them at neither the doormat nor the
-  // doorstep before: the trailer counted only from its own snapped cell.
+  // cells out — rests them (the trailer counts from more than its own snapped cell).
   assert.truthy(s.isRestingAtHome(2 * CELL_M, 0), 'two cells out is inside Home');
   assert.truthy(s.isRestingAtHome(0, 0), 'and so is standing on it');
   assert.truthy(s.isRestingAtHome(r * 0.99, 0), 'right out to the rim');
@@ -163,10 +156,8 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
     'the angle is away from HOME');
   // Away-from-PLAYER would shove the foe around the ring with the player
   // still inside it, so the branch must not read the player's bearing.
-  // Sliced to the NEXT branch in the chain, whatever it is — the lair guards'
-  // hunt and walk-home branches were added between this one and the slime's,
-  // and a slice pinned to the slime would have swept them in and read their
-  // player bearing as this branch's.
+  // Sliced to the NEXT branch in the chain, whatever it is, so another
+  // branch's player bearing is never read as this one's.
   const branch = wander.match(/\} else if \(warded\) \{([\s\S]*?)\n          \} else if /);
   assert.truthy(branch, 'the ward branch has a branch after it');
   assert.falsy(/dxp|dyp/.test(branch[1]), 'not away-from-player');
@@ -183,7 +174,7 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
   // makes the doorstep no safer, only slower to lose the bar on.
   // Through `standDown`, which is Home's ward plus the two lair-guard reasons
   // for the same thing — one read, three reasons (CLAUDE.md).
-  assert.truthy(/const standDown = frightened \|\| warded \|\| /.test(wander),
+  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| /.test(wander),
     'standDown is built from warded');
   assert.truthy(wander.includes('rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt)'),
     'all roster attacks receive the combined ward and unnoticed gate');
@@ -325,34 +316,40 @@ test('ward: the ring is one number, and Home out-rests and out-reaches a fire', 
 
 // ── The fire ward's depth cap ────────────────────────────────────────────
 // A campfire's ward reaches past the surface slime into the cave, but only
-// its entry-level monsters (FIRE_WARD_MAX_DEPTH) — a goblin (minDepth 2) or
-// its archer (minDepth 3), and their giants pushed GIANT_DEPTH_STEP deeper
-// still, are undeterred by firelight. Only Home's stronger ward reaches
-// those, and Home does not exist underground (homeWorldPos returns null off
+// its entry-level monsters (FIRE_WARD_MAX_DEPTH, a cave DEPTH — never the
+// roster's power tier: a purple slime is tier 1 but a depth-3 kind) — a
+// goblin (minDepth 3) or its archer (minDepth 4), and the roster's deeper
+// giants, are undeterred by firelight. Only Home's stronger ward reaches those, and Home does not exist underground (homeWorldPos returns null off
 // the surface — see the "no Home, no ring" test above), so a goblin met in a
 // cave is never warded by anything.
 
 test('fire ward: the depth cap is a named number, and the real table agrees with it', () => {
   assert.eq(FIRE_WARD_MAX_DEPTH, 1, 'only the first cave level is warded off by fire');
-  assert.lte(MONSTERS.cave_slime.tier, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
-  assert.lte(MONSTERS.purple_slime.tier, FIRE_WARD_MAX_DEPTH, 'purple slime is warded');
+  assert.lte(MONSTERS.cave_slime.minDepth, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
+  assert.lte(MONSTERS.purple_slime.tier, FIRE_WARD_MAX_DEPTH, 'a purple slime is tier 1...');
+  assert.gt(MONSTERS.purple_slime.minDepth, FIRE_WARD_MAX_DEPTH,
+    '...but a depth-3 kind, so it is not warded: the cap is depth, not tier');
   assert.gt(MONSTERS.goblin.minDepth, FIRE_WARD_MAX_DEPTH, "a goblin is past a campfire's reach");
   assert.gt(MONSTERS.goblin_archer.minDepth, FIRE_WARD_MAX_DEPTH, 'so is its archer');
-  // Giants are pushed GIANT_DEPTH_STEP deeper than their base kind, so none of
-  // them ever qualify even if a future base kind's minDepth were lowered to 1.
+  // The roster's giants all start deeper than the fire ward reaches.
   for (const kind of Object.keys(MONSTERS)) {
     if (!MONSTERS[kind].giant) continue;
     assert.gt(MONSTERS[kind].minDepth, FIRE_WARD_MAX_DEPTH, `${kind} is never warded by a campfire`);
   }
 });
 
-test('fire ward: roster movement checks the tier cap and excludes lair guards', () => {
+test('fire ward: roster movement checks the depth cap and excludes lair guards', () => {
   const scene = { cellM: 7, _cellBlocked: () => false,
     cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _nearAny: () => true };
-  for (const kind of ['slime', 'cave_slime', 'purple_slime']) {
+  for (const kind of ['slime', 'cave_slime']) {
     assert.falsy(enemyCanStep(scene, { kind }, EnemyRoster.get(kind), 0, 0), kind + ' refuses the fire ring');
     assert.truthy(enemyCanStep(scene, { kind, lair: 'guard' }, EnemyRoster.get(kind), 0, 0), kind + ' guard can return through fire');
   }
+  // The swept step and the wander target loop read ONE predicate
+  // (creature_ai.js campfireAverts); the step used to read the power tier,
+  // so a tier-1 purple slime was refused the ring it had just targeted.
+  assert.truthy(enemyCanStep(scene, { kind: 'purple_slime' }, EnemyRoster.get('purple_slime'), 0, 0),
+    'a purple slime (depth 3) walks through firelight');
   assert.truthy(enemyCanStep(scene, { kind: 'goblin' }, EnemyRoster.get('goblin'), 0, 0));
 });
 })();

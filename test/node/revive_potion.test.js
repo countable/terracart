@@ -1,5 +1,5 @@
 // Revival potions: drunk while DOWN (zero energy, either mode) to get back up
-// where you fell — the Potion of Revival (T2) at 30% of the bar, the
+// where you fell - the Potion of Revival (T3) at 30% of the bar, the
 // Potion of Resurrection (T5) at 60%. (The Crow Feather is a flat 1 energy,
 // FEATHER_REVIVE_ENERGY, and is EATEN, through the hard-mode lockout.) One table (items.js REVIVE_ITEM_FRAC)
 // is read by the drink, the ✦ line and the Drink dialog.
@@ -11,7 +11,7 @@
 (function () {
 const app = SCENE_SRC;
 
-test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
+test('revive potions: T3 at 30%, T5 at 60%, both drunk not eaten', () => {
   assert.eq(REVIVE_ITEM_FRAC.revive_potion, CONSUMABLE_SPEC.revive_potion.energyFrac,
     'Revival runtime derives its 30% from the consumable owner');
   assert.eq(REVIVE_ITEM_FRAC.resurrection_potion, CONSUMABLE_SPEC.resurrection_potion.energyFrac,
@@ -19,7 +19,7 @@ test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
   assert.eq(CONSUMABLE_SPEC.revive_potion.energyFrac, 0.30);
   assert.eq(CONSUMABLE_SPEC.resurrection_potion.energyFrac, 0.60);
   assert.eq(FEATHER_REVIVE_ENERGY, 1, 'the Crow Feather with a flat 1 energy');
-  assert.eq(BASE_TIER.revive_potion, 2, 'Revival is tier 2');
+  assert.eq(BASE_TIER.revive_potion, 3, 'Revival is tier 3');
   assert.eq(BASE_TIER.resurrection_potion, 5, 'Resurrection is tier 5');
   for (const id of ['revive_potion', 'resurrection_potion']) {
     assert.eq(ITEM_BY_ID[id]?.kind, 'magic', `${id} is a consumable`);
@@ -29,7 +29,7 @@ test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
     assert.eq(CONSUMABLE_SPEC[id].method, 'drinkRevivePotion',
       `the Drink button offers ${id}`);
   }
-  assert.truthy(Shops.themedStock('potion', 2).includes('revive_potion'), 'a T2 potion shop stocks Revival');
+  assert.truthy(Shops.themedStock('potion', 3).includes('revive_potion'), 'a T3 potion shop stocks Revival');
   assert.truthy(Shops.themedStock('potion', 5).includes('resurrection_potion'), 'a T5 one stocks Resurrection');
 });
 

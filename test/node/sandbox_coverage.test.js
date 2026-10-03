@@ -98,3 +98,102 @@ test('sandbox coverage: the capture harness export hook stays stable', () => {
   assert.truthy(SANDBOX_JS_SRC.includes('global.Sandbox = { detect, install };'),
     'tools/sandbox_capture.js can expose LAYOUT');
 });
+
+test('sandbox destinations: every dashboard link resolves to its authored area', () => {
+  const built = Sandbox.buildForTest({ cellsPerEdge: 128 });
+  const layout = Sandbox.layoutForTest;
+  for (const d of SandboxDestinations.entries) {
+    const point = Sandbox.resolveDestination(d.id);
+    assert.inRange(point.lx, 0, layout.width - 1, d.id);
+    assert.inRange(point.ly, 0, layout.height - 1, d.id);
+    if (d.scene) {
+      const scene = layout.scenes.find(s => s.name === d.scene);
+      assert.truthy(scene, d.id + ' references an existing scene');
+      if (d.sub) assert.truthy(scene.subLabels.some(s => s.label === d.sub), d.id + ' has a matching caption');
+      assert.inRange(point.lx, scene.lx, scene.lx + scene.w - 1, d.id);
+      assert.inRange(point.ly, scene.ly, scene.ly + scene.h - 1, d.id);
+    } else {
+      const cell = (built.originIY + point.ly) * built.entry.cellsPerEdge + built.originIX + point.lx;
+      assert.truthy([WorldGen.T.ROAD, WorldGen.T.ROAD_MD, WorldGen.T.ROAD_LG, WorldGen.T.PATH].includes(built.entry.grid[cell]),
+        d.id + ' lands on its authored road or path');
+    }
+    assert.truthy(SandboxDestinations.href(d.id).endsWith(`?sandbox=true&sandboxZone=${encodeURIComponent(d.id)}`));
+  }
+  assert.eq(SandboxDestinations.find(' TAR_YARD ').id, 'tar');
+  assert.eq(SandboxDestinations.find('road:orchard').id, 'orchard-road');
+  assert.eq(SandboxDestinations.find('orchard').id, 'orchard');
+  assert.eq(SandboxDestinations.href('not-a-place'), null);
+  assert.eq(JSON.stringify(Sandbox.resolveDestination('not-a-place')), JSON.stringify(Sandbox.resolveDestination('plaza')));
+  const civic = layout.scenes.find(s => s.name === 'CIVIC');
+  assert.eq(Sandbox.resolveDestination('CIVIC').lx, civic.lx + Math.floor(civic.w / 2), 'old scene URLs remain supported');
+  assert.truthy(Sandbox.resolveDestination('grove').ly < Sandbox.resolveDestination('tar').ly, 'subzones have distinct destinations');
+});
+
+test('sandbox coverage: practice yard stocks current mechanics and seeds real effects', () => {
+  const built = Sandbox.buildForTest({ cellsPerEdge: 128, tx: 3, ty: 4 });
+  const yard = Sandbox.layoutForTest.scenes.find(s => s.name === 'PRACTICE');
+  const farm = Sandbox.layoutForTest.scenes.find(s => s.name === 'FARMLAND');
+  assert.eq(yard.ly, farm.ly, 'practice is beside the farm');
+  assert.lte(Math.hypot(yard.spawn.dx - 6, yard.spawn.dy - 6), EnemyRoster.get('plant').range,
+    'practice spawn stays inside the ordinary plant range');
+  const entry = built.entry;
+  const plants = entry.creatures.filter(c => c.id.includes('_PRACTICE_plant_'));
+  assert.eq(plants.length, 3, 'two affected targets and one ordinary comparison');
+  for (const plant of plants) {
+    const ix = Math.floor((plant.x - built.tx * entry.tileEdgeM) / built.cellM);
+    const iy = Math.floor((plant.y - built.ty * entry.tileEdgeM) / built.cellM);
+    assert.falsy(entry.roadClass[iy * entry.cellsPerEdge + ix] & WorldGen.ROAD_CLASS_MAJOR_BUFFER,
+      'practice targets remain outside the major-road safety buffer');
+  }
+  const fuel = entry.objects.filter(o => o.id.includes('_PRACTICE_'));
+  assert.truthy(fuel.some(o => o.kind === 'tree' && GroundFire.survives(o)));
+  assert.truthy(fuel.some(o => o.kind === 'tar' && GroundFire.flammable(o)));
+  for (const tar of fuel.filter(o => o.kind === 'tar')) {
+    const ix = Math.floor((tar.x - built.tx * entry.tileEdgeM) / built.cellM);
+    const iy = Math.floor((tar.y - built.ty * entry.tileEdgeM) / built.cellM);
+    assert.eq(entry.slowCells.get(iy * entry.cellsPerEdge + ix), 'tar',
+      'authored tar participates in movement slowing');
+  }
+  const scene = { save: { energy: 100, groundFire: { old: {} }, burnedObjects: ['old'],
+    potionEffects: { old: {} }, tomeDays: { tome_firewall: 'today' } } };
+  // Coordinate/scene fire integration is exercised in the browser probe; this
+  // fixture drives the actual recipient path and verifies reload cleanup.
+  Sandbox.seedMechanicsState(scene, { creatures: plants, objects: [] });
+  assert.eq(PotionEffects.scaleMul(plants[0]), CONSUMABLE_SPEC.giant_potion.scaleMul);
+  assert.eq(PotionEffects.scaleMul(plants[1]), CONSUMABLE_SPEC.shrinking_potion.scaleMul);
+  assert.eq(PotionEffects.scaleMul(plants[2]), 1);
+  assert.eq(Object.keys(scene.save.groundFire).length, 0);
+  assert.eq(scene.save.burnedObjects.length, 0);
+  assert.falsy(scene.save.potionEffects.old);
+  assert.falsy(scene.save.tomeDays);
+  Sandbox.stockInventoryForTest(scene);
+  for (const id of ['explosive_flask', 'tome_firewall', 'ember_ring', 'sleep_powder',
+    'blank_scroll', ...ITEMS.filter(i => i.potion || i.scroll).map(i => i.id)]) {
+    assert.eq(scene.save.inv.find(i => i.id === id)?.count, 5, `${id} is ready to use`);
+  }
+});
+
+test('sandbox coverage: authored castle, fort and house floors reach the live polygon renderer', () => {
+  const { entry: e, tx, ty, cellM } = Sandbox.buildForTest({ cellsPerEdge: 128, tx: 3, ty: 4 });
+  const castle = e.buildingShapes.find((s) => s.tier === WorldGen.T.BUILDING_LARGE);
+  const fort = e.buildingShapes.find((s) => s.tier === WorldGen.T.BUILDING_MED);
+  assert.truthy(castle, 'castle has a source polygon, so its floor is not suppressed without a replacement');
+  assert.truthy(fort, 'fort has a source polygon too');
+  assert.inRange(castle.areaM2 / (cellM * cellM), 39.99, 40.01, 'five by eight castle court');
+  assert.inRange(fort.areaM2 / (cellM * cellM), 31.99, 32.01, 'four by eight fort deck');
+  for (const shape of e.buildingShapes) {
+    const ix = Math.round(shape.ring[0] / cellM), iy = Math.round(shape.ring[1] / cellM);
+    assert.eq(e.grid[iy * e.cellsPerEdge + ix], shape.tier, 'polygon agrees with authored terrain');
+    assert.eq(e.ownerKeys[e.owners[iy * e.cellsPerEdge + ix]], shape.key, 'floor and cell agree on ownership');
+  }
+  const towers = e.objects.filter((o) => o.kind === 'tower');
+  assert.eq(towers.filter((o) => o.castle === castle.key).length, 4, 'all castle towers share the floor claim');
+  assert.eq(towers.filter((o) => o.flagPost).length, 1, 'one banner for the footprint');
+  for (const house of e.objects.filter((o) => o.kind === 'house' && o.id.includes('_RESIDENTIAL_'))) {
+    const ix = Math.floor((house.x - tx * e.tileEdgeM) / cellM);
+    const iy = Math.floor((house.y - ty * e.tileEdgeM) / cellM);
+    if (e.grid[iy * e.cellsPerEdge + ix] === WorldGen.T.BUILDING) {
+      assert.truthy(e.buildingShapes.some((s) => s.key === house.id), `residential house ${house.id} also keeps its floor`);
+    }
+  }
+});

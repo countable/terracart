@@ -1,26 +1,14 @@
 // A WILD PLANT SAYS WHAT IT IS, AND ONE TABLE SAYS WHAT IT DOES.
 //
-// Two shapes were tangled together here until Sep 2026.
-//
-// 1. `entry.wildplants` records carried `{x, y, crop, _ix, _iy, id}` and NO
-//    `kind`, so the only way to recognise one was the ABSENCE of a kind:
-//    `Lighting.sourceKind` tested `o.kind === undefined && o.crop`. That is a
-//    field's absence standing in for a fact, and it could only be fixed at
-//    every mint site at once — there were seven, across worldgen.js, app.js
-//    and sandbox.js, and nothing would have reminded the eighth. So each of a
-//    tile's three streams (`objects`, `wildplants`, `creatures`) has ONE
-//    factory now — `WorldGen.makeWildplant` / `makeCreature` / `makeObject` —
-//    and a field every record of a stream must carry lands there, once.
+// 1. A wild plant record carries an explicit `kind` (never recognised by the
+//    ABSENCE of one). Each of a tile's three streams (`objects`, `wildplants`,
+//    `creatures`) has ONE factory — `WorldGen.makeWildplant` / `makeCreature` /
+//    `makeObject` — so a field every record must carry lands there, once.
 //    (The ID is still the caller's: the save's delta lists key off ids that
 //    must be a pure function of position, so a re-rasterized or rebuilt tile
 //    reproduces them exactly. A factory takes an id; it never mints one.)
 //
-// 2. What a wild plant DOES was five one-row literals in four files —
-//    `HARVEST_OUTPUT = { shrub: 'wood' }`, `WORK_RELIC = { rockfruit: 'pick',
-//    shrub: 'axe' }` and a `wp.crop === 'shrub'` cost ternary in interact.js,
-//    `WILD_TREASURE` in loot.js, and `crop === 'mushroom'` in BOTH
-//    lighting.js' sourceKind and render.js' light-offer gate. One table now:
-//    items.js' `WILDPLANT_RULES`, beside `CROP_SPRITE` (which is already keyed
+// 2. What a wild plant DOES is one table: items.js' `WILDPLANT_RULES`, beside `CROP_SPRITE` (which is already keyed
 //    on crop and says what the same plant LOOKS like), read through small
 //    accessors. A second glowing plant is one row, not five edits.
 //
@@ -111,13 +99,13 @@ test('wildplant table: the old one-row maps, re-read from the table', () => {
   const t = wildplantTreasure('rockfruit');
   assert.eq(t && t.bonus, 'gemfruit', 'debris still hides a gemfruit');
   assert.eq(t && t.chance, 0.1, 'at the same rate');
-  assert.eq(wildplantTreasure('shrub'), null, 'and nothing else hides anything');
+  assert.eq(wildplantTreasure('shrub'), null, 'a shrub has no treasure roll');
 });
 
 test('wildplant table: an unlisted crop is the ordinary wild plant', () => {
   // The default is the whole point: the vast majority of crops have no row,
   // and every one of them must behave exactly as it did before the table.
-  for (const crop of ['longgrass', 'nut', 'shell', 'wildrose', 'marigold', 'rainberry']) {
+  for (const crop of ['nut', 'shell', 'wildrose', 'marigold', 'rainberry']) {
     assert.eq(wildplantRule(crop), null, `${crop} has no row`);
     assert.eq(wildplantOutput(crop), crop, `${crop} drops itself`);
     assert.eq(wildplantWorkRelic(crop), null, `${crop} is picked instantly`);

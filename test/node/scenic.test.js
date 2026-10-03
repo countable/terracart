@@ -11,8 +11,8 @@
 //     shipping sweep (app.js _ripenStreets → _bankStreetMetres → Trail.bank),
 //     the km chip reads TRUE metres (Trail.restoredMetres), and the living
 //     lamps' re-walk credit is NOT multiplied.
-//   · VIEWPOINTS: the scope's story, the relic once per save, the gift once
-//     per UTC day; merge of near viewpoints; the grail chest's T4.
+//   · VIEWPOINTS: the scope's searches, story and backpack once per save;
+//     merge of near viewpoints; the grail chest's tier.
 //   · BEACHES: the X count follows the shoreline (capped), inland sand keeps
 //     the old stream; the tide line is a pure function of (id, UTC day), taken
 //     into the day ledger (never save.picked).
@@ -324,7 +324,7 @@ test('scenic: viewpoints — detection, merge, and the grail\'s tier', () => {
   assert.eq(vs.length, 4, 'the one within MERGE_M of an earlier key merges away');
   assert.eq(vs.filter((v) => v.owned).length, 3, 'a point in the buffer is the neighbour\'s');
   assert.eq(chestBaseTier({ poiClass: 'attraction', poiDensity: 30, vista: 'grail' }), S.VISTA_CHEST_TIER.grail, 'the grail is its own tier whatever the count');
-  assert.eq(chestTier({ poiClass: 'attraction', vista: 'grail' }), 4, 'T4');
+  assert.eq(chestTier({ poiClass: 'attraction', vista: 'grail' }), 5, 'T5');
   assert.eq(chestTier({ poiClass: 'vista', vista: 'shore' }), S.VISTA_CHEST_TIER.shore);
   assert.eq(POI_CATEGORY.vista, 'park', 'a stretch chest is a park chest');
 });
@@ -334,9 +334,9 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
   assert.eq(chestThemeFor({ poiClass: 'vista', vista: 'shore' }), 'park', 'a stretch chest keeps its poiClass theme');
   assert.eq(chestThemeFor({ poiClass: 'attraction' }), 'civic', 'an ordinary attraction (museum, town hall) is unaffected');
   assert.truthy(ChestThemes.themes.vista, 'the theme exists');
-  assert.eq(ChestThemes.themes.vista.tier, 4, 'the grail\'s own tier');
+  assert.eq(S.VISTA_CHEST_TIER.grail, 5, 'the vista table owns the grail tier');
   // Equipment is common now, but the grail uses its rolled quality as the
-  // gear ceiling: ordinary T4 opens cannot spray expensive T7 equipment.
+  // gear ceiling: ordinary T5 opens cannot spray expensive T7 equipment.
   const val = (r) => {
     if (!r) return 0;
     if (r.kind === 'gold') return (r.amount || 0) + (r.consolation || 0);
@@ -347,18 +347,19 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
   let sum = 0;
   const N = 6000, rng = makeRng32(4432);
   for (let i = 0; i < N; i++) {
-    const reward = pickReward('chest:vista', emptySave, rng, { tier: 4, depth: 0 });
+    const reward = pickReward('chest:vista', emptySave, rng, { tier: 5, depth: 0 });
     if (reward.slot) assert.lte(reward.tier, reward.rolledTier, 'gear respects grail quality');
     sum += val(reward);
   }
-  assert.inRange(sum / N, 200, 600, 'one-time equipment grail stays below a T7-heavy payout');
+  assert.inRange(sum / N, 700, 1100, 'the T5 grail pays its tripled treasure budget without becoming T7');
 });
 
-test('scenic: the scope — story once, the relic once per save, the gift once per UTC day', () => {
+test('scenic: the scope opens its menu on every visit and gives one backpack', () => {
   const save = { relics: {}, coinBurstClaimed: {}, inv: [] };
-  const stories = [], rolls = [], loot = [];
+  const stories = [], rolls = [], loot = [], menus = [];
   const scene = makeScene({ save, flashLoot: (t) => loot.push(t),
-    _storySplashOnce(key) { stories.push(key); return true; } });
+    _storySplashOnce(key) { stories.push(key); return false; },
+    presentTelescopeMenu(x, y, o) { menus.push(o.id); } });
   scene.save = save;
   const realGrant = globalThis.grantTreasureRoll;
   globalThis.grantTreasureRoll = (sc, sv, x, y, mark, ctx) => rolls.push(ctx);
@@ -373,24 +374,69 @@ test('scenic: the scope — story once, the relic once per save, the gift once p
     assert.eq(stories[0], S.VISTA_STORY.story, 'the vista tells its story');
     assert.eq(save.vistaRelic, 1, 'the first vista pays the relic');
     assert.eq(save.relics[S.FIRST_VISTA_SLOT].tier, 1, 'a Wood ' + S.FIRST_VISTA_SLOT);
-    assert.eq(rolls.length, 1, 'and today\'s gift');
-    assert.eq(rolls[0], S.VISTA_CONTEXT);
-    assert.falsy(poiLit(a, spentSets(scene, save)), 'the gift taken, the POI light goes out');
+    assert.eq(rolls.length, 0, 'looking through a telescope gives no treasure roll');
+    assert.eq(menus.length, 1);
     tap(a);
-    assert.eq(rolls.length, 1, 'no second gift the same day');
+    assert.eq(menus.length, 2, 'repeat taps reopen the menu');
     tap(b);
-    assert.eq(rolls.length, 2, 'another scope has its own gift');
+    assert.eq(menus.length, 3, 'another scope also offers a search');
     assert.eq(save.relics[S.FIRST_VISTA_SLOT].tier, 1, 'but no second relic');
     t += 24 * 3600 * 1000;
-    assert.truthy(poiLit(a, spentSets(scene, save)), 'the next UTC day it glows again');
     tap(a);
-    assert.eq(rolls.length, 3, 'and gives again');
+    assert.eq(menus.length, 4, 'the next day still opens the menu');
+    assert.eq(rolls.length, 0);
     assert.eq(S.firstVistaPrize({ relics: { bags: { tier: 3 } } }).tier, 4, 'the relic is a tier over what you wear');
     assert.eq(S.firstVistaPrize({ vistaRelic: 1 }), null, 'once per save');
   } finally {
     Date.now = realNow;
     globalThis.grantTreasureRoll = realGrant;
   }
+});
+
+test('scenic: telescope chooses the nearest unopened real T3+ chest on this level', () => {
+  const chest = (id, x, extra = {}) => ({ kind: 'chest', id, x, y: 0, tierSeed: 3, ...extra });
+  const objects = [chest('low', 1, { tierSeed: 2 }), chest('opened', 2),
+    chest('cave', 3, { depth: 1 }), chest('crate', 4, { crate: true }),
+    chest('far', 20), chest('nearest', 10), chest('invalid', NaN)];
+  const opts = { player: { x: 0, y: 0 }, objects, save: { opened: ['opened'] }, now: 1000 };
+  const found = S.telescopeTarget('chest', opts);
+  assert.eq(found.targetId, 'nearest');
+  assert.eq(found.type, 'object');
+  assert.eq(found.until, 1000 + 24 * 60 * 60 * 1000);
+  assert.eq(found.depth, 0);
+  assert.eq(S.telescopeTarget('chest', { ...opts, objects: [] }), null);
+  assert.eq(S.telescopeTarget('missing', opts), null);
+});
+
+test('scenic: telescope danger ignores defeated, dormant, dead and friendly elites', () => {
+  const enemy = (id, x, extra = {}) => ({ kind: 'goblin', id, x, y: 0, shiny: true, ...extra });
+  const creatures = [enemy('caught', 1), enemy('dead', 2, { _hp: 0 }),
+    enemy('asleep-surface', 3, { _surfaceInactive: true }), enemy('released_pet', 4),
+    enemy('ordinary', 5, { shiny: false }), enemy('far', 30), enemy('nearest', 15)];
+  const found = S.telescopeTarget('elite', { player: { x: 0, y: 0 }, creatures, save: { caught: ['caught'] } });
+  assert.eq(found.targetId, 'nearest');
+  assert.eq(found.type, 'creature');
+});
+
+test('scenic: solace finds the nearest collectible shiny that still grants a memory', () => {
+  function shinyId(prefix, rate) {
+    for (let i = 0; i < 100000; i++) if (isShiny(prefix + i, rate)) return prefix + i;
+    throw new Error('No deterministic shiny fixture');
+  }
+  const tree = { kind: 'tree', id: shinyId('scope-tree', SHINY_RATE.tree), x: 10, y: 0 };
+  const plant = { kind: 'wildplant', crop: 'mushroom', id: shinyId('scope-plant', SHINY_RATE.flora), x: 5, y: 0 };
+  const deer = { kind: 'deer', id: 'scope-deer', shiny: true, x: 20, y: 0 };
+  const opts = { player: { x: 0, y: 0 }, objects: [tree], wildplants: [plant], creatures: [deer] };
+  assert.eq(S.telescopeTarget('shiny', opts).targetId, plant.id);
+  assert.eq(S.telescopeTarget('shiny', { ...opts, save: { picked: [plant.id] } }).targetId, tree.id);
+  assert.eq(S.telescopeTarget('shiny', { ...opts, save: { discovered: { mushroom: 1, wood: 1 } } }).targetId, deer.id);
+  assert.eq(S.telescopeTarget('shiny', { ...opts, save: { discovered: { mushroom: 1, wood: 1, deer: 1 } } }), null);
+  const fruit = { ...tree, kind: 'fruittree', species: 'apple' };
+  const fruitOpts = { player: opts.player, objects: [fruit], now: 1000 };
+  assert.eq(S.telescopeTarget('shiny', fruitOpts).targetId, fruit.id);
+  assert.eq(S.telescopeTarget('shiny', { ...fruitOpts, save: { fruitPicked: { [fruit.id]: 999 } } }), null);
+  assert.eq(S.telescopeTarget('shiny', { ...fruitOpts, save: { burnedObjects: [fruit.id] } }), null);
+  assert.eq(S.telescopeTarget('shiny', { ...fruitOpts, objects: [{ ...fruit, planted: true, planted_t: 999 }] }), null);
 });
 
 test('scenic: a scope is a rest spot on the fire\'s own ring and a light on it — not a ward', () => {
@@ -443,7 +489,7 @@ test('scenic: the tide line is the same for everyone on a UTC day, new the next,
   assert.truthy(on2.join() !== on1.join(), 'a new tide the next day');
   const crops = new Set();
   for (let d = 0; d < 30; d++) for (const w of pool) if (S.tideLive(w, `202610${String(d + 1).padStart(2, '0')}`)) crops.add(w.crop);
-  assert.truthy(crops.has('shell') && crops.has('driftwood') && crops.has('bottle'), 'shells, driftwood and now and then a bottle');
+  assert.truthy(crops.has('shell') && crops.has('driftwood') && !crops.has('bottle'), 'shells and driftwood — a bottle is no tide crop');
   // Spent: not there today, or taken today — the day ledger, never picked.
   const w = pool.find((p) => S.tideLive(p, day1));
   const save = { picked: [], coinBurstClaimed: {} };
@@ -456,9 +502,7 @@ test('scenic: the tide line is the same for everyone on a UTC day, new the next,
   const absent = pool.find((p) => !S.tideLive(p, day1));
   assert.truthy(isSpent(absent, sets({ picked: [], coinBurstClaimed: {} })), 'not on the waterline today');
   assert.eq(wildplantOutput('driftwood'), 'wood', 'driftwood is wood');
-  assert.eq(wildplantRoll('bottle'), S.BOTTLE_CONTEXT, 'a bottle rolls');
-  for (const note of S.BOTTLE_NOTES) assert.lte(note.length, 80, 'a note is a line: ' + note);
-  assert.truthy(CROP_SPRITE.driftwood.frames && CROP_SPRITE.bottle.frames, 'the crops list their frames');
+  assert.truthy(CROP_SPRITE.driftwood.frames, 'driftwood lists its frames');
 });
 
 test('scenic: a tide pickup taps into the day ledger, never save.picked', () => {
@@ -467,7 +511,7 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
   const body = src.slice(at, src.indexOf("{ name: 'coindrop'", at));
   assert.truthy(/if \(wp\.tide\) \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return;\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
-  assert.truthy(/\(wp\) => \(wp\.tide \? !isSpent\(wp, tideSets\) : !pickedSet\.has\(wp\.id\)\)/.test(body),
+  assert.truthy(/\(wp\) => !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
     'and the tap asks the one spent predicate');
 });
 
@@ -487,7 +531,7 @@ const fixtureBuilds = () => {
 };
 
 test('scenic: on the Kelowna fixtures every scenic piece stands off the road, on the spawn gate, never on another piece', () => {
-  let pieces = 0, scopes = 0, grails = 0, tide = 0, chests = 0;
+  let pieces = 0, scopes = 0, grails = 0, tide = 0, chests = 0, beachTiles = 0;
   for (const [key, b] of Object.entries(fixtureBuilds())) {
     const { r, tx, ty, N: Nf, edge } = b;
     const cm = edge / Nf;
@@ -508,12 +552,19 @@ test('scenic: on the Kelowna fixtures every scenic piece stands off the road, on
       if (p.kind === 'chest') chests++;
       if (p.tide) tide++;
     }
+    const bottles = d.objects.filter((o) => o.kind === 'bottle');
+    assert.lte(bottles.length, S.BEACH_BOTTLES_PER_TILE, `${key}: at most ${S.BEACH_BOTTLES_PER_TILE} bottles`);
+    if (d.wildplants.some((w) => w.tide)) {
+      beachTiles++;
+      assert.eq(bottles.length, S.BEACH_BOTTLES_PER_TILE, `${key}: a beach washes up its bottles`);
+    }
     grails += r.objects.filter((o) => o.vista === 'grail').length;
   }
   assert.gt(scopes, 0, 'a viewpoint stood its scope');
   assert.gte(grails + 0, scopes, 'every scope\'s chest is a grail');
   assert.gt(chests, 0, 'scenic stretches stood their chests');
   assert.gt(tide, 0, 'and a beach laid its tide pool');
+  assert.gt(beachTiles, 0, 'a fixture has a beach');
   assert.gt(pieces, 0);
 });
 

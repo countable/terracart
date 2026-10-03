@@ -12,12 +12,12 @@ function seeded(seed) {
   };
 }
 
-test('elite: only eligible rows double HP and damage; armour remains the same', () => {
+test('elite: every shiny row doubles HP and damage; armour remains the same', () => {
   assert.eq(Combat.ELITE_MUL, 2);
   for (const row of EnemyRoster.ROWS) {
     const plain = { kind: row.id, shiny: false };
-    const elite = { kind: row.id, shiny: true };
-    const multiplier = row.eliteEligible ? 2 : 1;
+    const elite = { kind: row.id, shiny: true, _disguiseRevealed: true };
+    const multiplier = 2;
     assert.eq(Combat.isElite(elite), row.eliteEligible);
     assert.eq(Combat.maxHp(plain), row.hp);
     assert.eq(Combat.maxHp(elite), row.hp * multiplier);
@@ -102,18 +102,18 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
   assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemyRoster\.get\(kind\)\.eliteEligible && isShiny\(id, SHINY_RATE\.monster\), habitat: habitat\.theme \}\)\)/.test(spawn),
     'spawnCaveCreatures stamps shiny off the stable id at the monster rate');
-  assert.truthy(/const dmg = m\.dmg \* Combat\.powerMul\(c\);/.test(app),
+  assert.truthy(/const dmg = \(m\.dmg \* Combat\.powerMul\(c\) \+ PotionEffects\.meleeBonus\(c\)\) \* PotionEffects\.meleeMul\(c\);/.test(app),
     'the monster hit is scaled by Combat.powerMul — elite × lair (and the mode)');
   assert.truthy(/c\._hp = Combat\.maxHp\(c\);/.test(app), 'the heal refills to the instance max');
   assert.falsy(/c\._hp = Combat\.creatureMaxHp\(c\.kind\)/.test(app),
     'nothing refills a creature from the KIND max any more');
   const kill = app.slice(app.indexOf("resolveDefeat(victim, source = 'player') {"), app.indexOf('_busyWheel() {'));
-  assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.powerMul\(victim\)\)/.test(kill),
-    'the bounty is paid at the power multiplier (elite × lair)');
+  assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.powerMul\(victim\) \* \(victim\._splitShare \?\? 1\)\)/.test(kill),
+    'the bounty is paid at the power multiplier (elite × lair), by a split slime\'s share');
   assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(kill),
     'an elite kill banks the kind\'s memory the first time');
-  assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\) \}\)/.test(kill),
-    'and rolls the elite treasure at the commensurate tier after that');
+  assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\),\s*ceremony: \{ kind: 'treasure', header: 'Elite slain',/.test(kill),
+    'and rolls the elite treasure at the commensurate tier after that, shown as a card');
   // The relic-capable roll has somewhere to land: grantTreasureRoll equips a
   // relic / armor reward and cashes out a beaten one.
   const grant = INTERACT_SRC.slice(INTERACT_SRC.indexOf('function grantTreasureRoll('));
@@ -125,7 +125,7 @@ test('delivery: the first delivery to a house banks a memory, once', () => {
   const app = SCENE_SRC;
   const start = app.indexOf('presentDeliveryOffer(sx, sy, house, recordDeal) {');
   assert.gt(start, 0, 'the delivery handler exists');
-  const accept = app.slice(start, app.indexOf('\n  }\n', app.indexOf('onAccept: (q) =>', start)));
+  const accept = app.slice(start, app.indexOf('\n  }\n', app.indexOf('onAccept: () =>', start)));
   assert.truthy(/const firstHere = this\._bankDiscovery\(`house:\$\{house\.id\}`,/.test(accept),
     'the accept handler banks house:<id> through the shared ledger');
   assert.truthy(/if \(firstHere\) this\.flashShiny\(gain, true, '🏠 NEW DOOR 🏠'\);/.test(accept),

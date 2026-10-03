@@ -13,11 +13,8 @@ const MemoryStory = (() => {
     body: 'You knock on the tower door. No one answers.' };
   // THE WARDEN'S FIRST WORDS, ON A TAP. This page is what the safe area's
   // warden says the first time the player talks to her, whenever she arrives
-  // (npcDialogue below; save.memoryStory.wardenMet). It
-  // used to be pushed onto the pending queue by the warden's own seating and
-  // splashed over the map on the first morning; it never is now (Sep 2026,
-  // owner's call): the player walks up to the one neighbour on screen and
-  // taps them. drain() drops a queued 'home' record from an older save.
+  // (npcDialogue below; save.memoryStory.wardenMet). Never a splash over the map
+  // (owner's call, Sep 2026): the player walks up to the neighbour and taps.
   // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
   // action in <em> on its own line, the body HTML; a talk that needs two
   // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The
@@ -48,9 +45,12 @@ const MemoryStory = (() => {
       3: ['“Some nights I think it is still out there.”\n<em>Watches a mended window glow.</em>\n“Then I see that, and I stop.”'],
     },
     // The wanderer is a CHILD (NPC.STORY_ROLES — drawn at CHILD_SCALE): short
-    // sentences, one thing at a time, a door remembered before a house.
+    // sentences, one thing at a time, a doorknob remembered before a house
+    // (the doorknob is in the child's hands — the portrait art shows it).
     wanderer: {
-      homeless: '<em>The child looks up at your hood, then quickly away.</em>\n“We sleep under whichever wall is driest.”\n“I had a room once. My name was on the door. Now there is only the door.”',
+      // Owner's copy (Oct 2026), spoken only: no action line — the painting
+      // already shows the child and the handle in her hands.
+      homeless: '“Oh hi Hood. I know you don’t remember me. It’s Tilly. I used to have a room, but now this door handle is all that’s left.”',
       housed: '<em>Runs up, out of breath.</em>\n“Did you see? A roof! A real one, with a lamp under it.”\n“I slept inside last night. Rain sounds different on a roof. I forgot that.”',
       settled: '“I have a bed now, and a window.”\n<em>Tugs the edge of your hood, then lets go.</em>\n“Is it warm under there? Mum says not to ask.”\n“Knock when you go past. There is always something in the pot.”',
     },
@@ -188,20 +188,16 @@ const MemoryStory = (() => {
   function drain(scene) {
     const s = scene.save.memoryStory;
     if (!s?.pending?.length || scene._memoryStoryOpen) return false;
-    // A 'home' record queued by an older save: the warden says it on a tap
-    // now, so it leaves the queue unshown.
-    if (s.pending.some(p => p.id === 'home')) {
-      s.pending = s.pending.filter(p => p.id !== 'home');
+    // The queue holds memory records only (enqueue); anything else is
+    // dropped unshown rather than painted as "A memory returns with undefined".
+    if (!Number.isFinite(s.pending[0]?.memory)) {
+      s.pending = s.pending.filter(p => Number.isFinite(p?.memory));
       persistSave(scene.save);
       if (!s.pending.length) return false;
     }
     if (document.body?.classList?.contains('modal-open')) return false;
     const record = s.pending[0];
-    let p = panel(record, scene.save);
-    if (record.npc && scene.textures && typeof NPC !== 'undefined') {
-      p.art = NPC.portrait(scene, record.npc);
-      p.title = `${record.npc.name} · Neighbour`;
-    }
+    const p = panel(record, scene.save);
     scene._memoryStoryOpen = true;
     try {
       scene.showMessageModal({ ...p, mustAcknowledge: true, onDismiss: () => {
@@ -393,6 +389,10 @@ const MemoryStory = (() => {
   }
   // The child needs two new roofs after meeting. Freeze the target per child;
   // legacy children who already qualified for housing keep their home.
+  function wandererHoused(save, c) {
+    const target = save?.memoryStory?.childHomeAt?.[c.id];
+    return Number.isFinite(target) && Object.keys(save.restoredHouses || {}).length >= target;
+  }
   function wandererLine(scene, c) {
     const s = state(scene.save), mended = Object.keys(scene.save.restoredHouses || {}).length;
     if (!s.met || typeof s.met !== 'object') s.met = {};
@@ -404,7 +404,7 @@ const MemoryStory = (() => {
         ? s.met[c.id] + 1 : s.met[c.id] + Houses.STORY_RESTORES.childHome;
       if (typeof persistSave === 'function') persistSave(scene.save);
     }
-    if (mended < s.childHomeAt[c.id]) return NEIGHBOURS.wanderer.homeless;
+    if (!wandererHoused(scene.save, c)) return NEIGHBOURS.wanderer.homeless;
     return act(scene.save) >= 2 ? NEIGHBOURS.wanderer.settled : NEIGHBOURS.wanderer.housed;
   }
   // The believer follows the tower itself (Houses.wizardTowerIds and the
@@ -436,7 +436,7 @@ const MemoryStory = (() => {
     const towers = Houses.wizardTowerIds(save), memories = total(save);
     if (act(save) === 3) return typeof DragonStory !== 'undefined' ? DragonStory.objective(save) : null;
     if (towers.firstId && memories < START_MEMORIES) return 'Recover nine memories to enter the Wizard Tower.';
-    if (memories >= LEAVE_MEMORIES && towers.firstId && !towers.secondId) return 'Find the wizard’s new tower among the wrecks you restore.';
+    if (memories >= LEAVE_MEMORIES && towers.firstId && !towers.secondId) return 'Raise the wizard’s new tower from a wreck.';
     if (memories >= REVEAL_MEMORIES && towers.secondId) return 'Return to the wizard’s new tower.';
     if (act(save) === 2) return 'Bring your returning memories to the wizard.';
     return null;
@@ -525,6 +525,6 @@ const MemoryStory = (() => {
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
     HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
+    state, total, enqueue, panel, drain, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

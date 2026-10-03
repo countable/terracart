@@ -8,21 +8,13 @@
 // running total. Reach the goal and a treasure lands; the next goal is
 // GOAL_STEP_M longer and rolls a step better.
 //
-// ONE LADDER, NOT ONE PER STREET. Prizes used to be per named way per tile:
-// each street and footpath carried its own counter, its own segment length,
-// its own short-remainder rule, its own "too short to pay anything" floor and
-// its own row in the save — and worldgen ran a whole wavefront pass to decide
-// which ground belonged to which way. The same walk therefore paid differently
-// depending on how OSM happened to split the ways under it, and the counter
-// ("7/29") answered a question nobody had asked: how far along THIS way am I.
-// None of it survives. A metre is a metre, wherever it is restored.
+// ONE LADDER, NOT ONE PER STREET. A metre is a metre, wherever it is
+// restored: the same walk pays the same however OSM splits the ways under it,
+// and the counter reads progress along the ladder, not along one way.
 //
-// METRES, NOT COUNTS. The ladder counted lit pebbles until Sep 2026 — one
-// sprite per 20 m of way, thinned by the renderer — so what a walk paid
-// depended on where the thinning happened to drop a stone, and half a street
-// restored between two of them paid nothing at all. Restoration is exact
-// float arclength now, so the ladder is too: 200 m for the first prize is the
-// same walk ten stones used to be, measured instead of counted.
+// METRES, NOT COUNTS. Restoration is exact float arclength, so the ladder is
+// too; counting rendered pebbles would pay by where the renderer's thinning
+// dropped a stone.
 //
 // Pure arithmetic on purpose: app.js can't load headlessly (it needs Phaser),
 // so keeping the rule here is what lets test/node/trail.test.js pin the real
@@ -113,9 +105,8 @@
   // the running progress toward the NEXT goal — but on a sweep that PAYS, the
   // counter reads the goal just completed, full ("200/200 m"), not the carried
   // remainder against the goal after it ("60/400 m"). The ladder grows by
-  // GOAL_STEP_M each rung, so at the very moment the prize ceremony opened the
-  // counter used to say "out of 400" while the walk had paid at 200, and the
-  // two read as a disagreement (Sep 2026). The remainder is still banked and
+  // GOAL_STEP_M each rung, so showing the goal after it would read "out of
+  // 400" at the moment a 200 prize opens. The remainder is still banked and
   // shows on the next sweep; only the readout of the paying sweep changes.
   function readout(out, playerClass) {
     if (out && (out.owed | 0) > 0) {
@@ -157,8 +148,8 @@
   const STICK_METRES_MUL = 0.4;
 
   // ── Which pool the prize comes out of ────────────────────────────────────
-  // Its OWN context (rarity.js › 'treasure:road'), not the lowtier chest curve
-  // the ladder used to borrow: what the survivors hand over for a rebuilt
+  // Its OWN context (rarity.js › 'treasure:road'), not the lowtier chest curve:
+  // what the survivors hand over for a rebuilt
   // street includes seeds, walking supplies, fruit, boots and coins.
   // The key lives here rather than in app.js so trail.test.js pins the pool
   // the shipping ceremony actually rolls.
@@ -193,8 +184,8 @@
   // different quantity is still the same card, and gold is gold.
   // Three, not two: with two the pick was usually "the seed or the coins".
   // A third card makes it a real comparison while the row still fits across
-  // the ceremony (app.js lays the cards three across and keeps each one's
-  // description behind an ⓘ so the row stays one line of pictures).
+  // the ceremony (app.js lays the cards three across and shows a card's
+  // description only once it is selected, so the row stays one line of pictures).
   // ONE CARD PER GROUP (see rollCardRow): money, something to grow or carry,
   // and something to wear or drink.
   const PRIZE_CARDS = [['cash'], ['seed', 'supply'], ['boots', 'magic']];

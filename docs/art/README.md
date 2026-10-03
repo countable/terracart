@@ -9,6 +9,16 @@ crisp chibi retro pixel style stays consistent in every state.
 candidate assessments and proposed ruins roles. These are review targets, not a
 runtime palette filter. No sprites or spawn rules are changed by this document.
 
+Approved world-art replacements are recorded by review ID and destination frame
+in `assets/Objects/Approved/world-art-imports.json`. The source crops under
+`assets/Objects/Approved/Sources/WorldArt/` retain the generated pixels before
+review downsampling, with original sheet hashes and crop coordinates in that
+manifest. Run `python3 tools/import_world_art_candidates.py` after rebuilding a
+legacy sheet. It replaces only approved frames, preserves sheet geometry and
+all neighbouring pixels, and updates the Approved manifest hashes. The map-art
+baker calls this automatically after its older recolour recipes. The approved
+wood log fills all three quantity frames so the world and inventory stay aligned.
+
 The palette was built from twelve current story paintings. Each contributes an
 equal sample: whole landscape paintings, but only the upper 40% of portrait
 paintings, excluding the deliberately dark text area. The preview shows the
@@ -25,7 +35,7 @@ A soft high-resolution sprite does not become a style match through recolouring.
 `spritePlan` in the JSON records the selected default sprite + target-colour
 combinations, plus named variants for specific settings. The defaults are the
 current chunky grass tuft, red spotted mushroom, rounded woodland bush, open broadleaf
-tree, `pillar_c.png` for the grave marker and `pot.png` for the intact clay pot.
+tree and `pot.png` for the intact clay pot. Grave markers now use the approved zone-object atlas.
 `pot_smashed.png` is the opened state of that same lootable container, not loose
 ruins decoration. Their target palettes are declared as
 palette IDs, so swatches and annotations stay in sync. Zone proposals cover dry
@@ -35,7 +45,7 @@ where recolouring alone is insufficient. Original thumbnails remain unchanged;
 the browser renders proposed RGB palette swaps beside them using
 `tools/nature_recolour.js`. Material groups separate foliage/caps from bark/stems;
 colour ramps are assigned by source brightness. Dimensions and alpha are
-preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` with
+preserved exactly. The five remaining defaults are exported to `assets/Objects/Rustic/` with
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
 states. Shrubs have two appearances: the basic bush and the approved cut hedge at 80%
 of its former residential display size. Both share shrub mechanics, and neither
@@ -73,7 +83,7 @@ frames. Baked unclaimed buildings bypass the old runtime wash to keep their slud
 and weathering visible. Chapel, macro POI booths, actors and other retained art
 remain unchanged.
 
-The sprite contexts are wetland-edge reeds and Burned Row stakes. Rocks use their ordinary art without moss, beach or masonry looks. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
+The sprite contexts are wetland-edge reeds and Burned Row stakes. Loose rocks in Stone Garden, Broken Masonry, Flint Field, Broken Depot, Seep, Work Yard, Black Ring and Pirate Cove use their approved contextual frames in the existing zone-object atlas. Ordinary loose rocks, planted rock crops and inventory icons keep their standard art. `assets/Objects/ZoneVariants/approved-additions.json` records these appended frames and their approved sources; `tools/pack_selected_zone_art.py` preserves them during regeneration. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
 approved ground accents. Context selection preserves placement IDs, quantities,
 loot and interaction types.
 
@@ -150,13 +160,12 @@ contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
 
-Mushroom Grove has giant mushrooms with the surface mushroom’s muted red cap,
-cream spots and a taller cream stem. Their generated single-frame sheet is
-`assets/Objects/Approved/giant_mushroom.png` (32 × 48, frame 0).
-Axe harvesting gives one wood and
-one mushroom. Their sprites fit centered inside the cell at 0.7 scale. Ordinary shrubs retain only the basic bush and smaller cut hedge.
-Mushroom Grove forage uses the ordinary surface toadstool art and mushroom
-harvesting, with baked muted red and cream colors. Rockfruit stone
+Mushroom Grove and Mushroom Lane giant mushrooms use the approved red cap
+in `assets/Objects/ZoneVariants/approved-24.png` (24 × 24, frame 40).
+Axe harvesting gives one wood and one mushroom. The same frame represents
+ordinary forage in these two variants, with ordinary mushroom rewards.
+Ordinary shrubs retain only the basic bush and smaller cut hedge.
+Rockfruit stone
 pixels use the approved ore rocks’ grey palette across growth and inventory
 frames, including player-placed rocks; foliage and sprite alpha are preserved.
 Carnivorous plants use a muted olive multiply tint from their shared enemy-roster
@@ -245,3 +254,40 @@ fog, shadows and tool-lock fading. It makes no game-art changes.
 The pack licence is preserved beside it. Mineral-rock records with
 `deposit: 'crystal'` use this cluster at the shared rock scale and measured
 cell-centred seating; ordinary stone and ore artwork are unchanged.
+
+## Castle families
+
+`src/castle_styles.js` owns four stable material families: Citadel (cool pale
+stone), Weathered Ruin (sage limestone and surviving broken battlements),
+Intact Bastion (warm sandstone, no guards), and Old Archive Court (warm stone
+with timber rampart tops). There is no Mended Court family. The Citadel name
+has no “dark” qualifier: darkness means an unclaimed, weathered condition in
+every family, while restoration brings back clean, brighter materials.
+
+Towers, tiled walls, polygon walls and courtyard floors resolve the same
+building owner key through `CastleStyles.get(key, claimed)`. Its numeric
+palettes already include the condition treatment; never apply the general
+unclaimed building wash to them again. Castle wall sections use ordinary object
+depth at their lowest masonry point. The 32×48 towers sit at the bottom of their
+cell; their bottom ten pixels fade from 30% to full opacity to soften joins.
+Archive ramparts keep a stone base and face beneath
+their wooden crest; the Ruin's uneven crenellations echo its damaged tower.
+
+Weathered Ruin courtyards contain a few broken fluted columns, made from the
+existing pillar's lower shaft and plinth. `CastleStyles.columnSites` scatters
+these deterministically inside the source ring (about four in a 5×8-cell
+court), away from walls and one another. Both floor modes share these sites
+and the same stone palette. They are decorative, with no collision or tap
+targets. Unclaimed masonry retains roughly 80% of restored brightness;
+courtyard floors retain roughly 89%, providing extra contrast against walls.
+Each family has its own dark skull banner: black for Citadel and
+Ruin, grey with a shield for Bastion, and brown with a book for Archive.
+
+The Ruin also has sparse missing paving, fine cracks and small rubble marks,
+with chips and missing sections along its battlements. Damage is seeded and
+cached in the existing floor and wall artwork; it creates no world objects,
+collision changes or animated effects. Restoration changes its palette while
+preserving the damage, and the other castle families keep their intact surfaces.
+Floor damage uses at most eight 96×96 textures (four patterns in two condition
+palettes), lazily baked and shared by all ruins. Tiled floors reuse their
+existing texture pool; polygon floors and wall chips use their existing caches.

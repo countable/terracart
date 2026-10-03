@@ -16,9 +16,8 @@
 // (roadOverlayWidthM) — and every spawn filter consults it.
 //
 // "Road ground" is a cell the UNION of the drawn bands covers at least
-// WorldGen.ROAD_MASK_MIN_COVER (a half) of. It used to be ANY overlap; since
-// Sep 2026 a cell with a sliver of band across its edge is ground again, and
-// may host a spawn. The invariant tests below restate that rule on their own
+// WorldGen.ROAD_MASK_MIN_COVER (a half) of. A cell with a sliver of band
+// across its edge is ground, and may host a spawn. The invariant tests below restate that rule on their own
 // (bandCover: a fine sample of the fixture's bands) rather than trusting the
 // mask to police itself.
 //

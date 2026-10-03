@@ -366,7 +366,7 @@ function wRender(w) {
   const rest = rowsT.filter(row => !keep.includes(row));
   $('wTerrainScope').textContent = `Share of all cells in the loaded roaming area. ${scope}.`;
   table($('wTerrain'), ['terrain', 'area share'], keep.map(row =>
-    `<tr><td>${row.name}${row.code === T.WASTELAND || zoneCodes.has(row.code) ? ' <span style="color:var(--gold)">★</span>' : ''}</td>${barCell(row.share)}</tr>`)
+    `<tr><td>${row.name} ${SandboxLinks.link(row.name, 'Sandbox')}${row.code === T.WASTELAND || zoneCodes.has(row.code) ? ' <span style="color:var(--gold)">★</span>' : ''}</td>${barCell(row.share)}</tr>`)
     .concat(rest.length ? [`<tr><td class="dim">(${rest.length} other codes)</td>${barCell(rest.reduce((a, row) => a + row.share, 0))}</tr>`] : []));
 
   $('wRoadScope').textContent = `Share of all cells in the roaming area. Mask = road cells with no spawns; band / verge = major-road coverage.`;
@@ -402,7 +402,7 @@ function wRender(w) {
       }
       for (const id of ids) {
         const row = SV.VARIANT_BY_ID[id];
-        rows.push(`<tr><td>${size}</td><td class="l">${id}${row ? ` <span class="dim">(${row.rung}, base ${wPct(row.share)})</span>` : ''}</td>`
+        rows.push(`<tr><td>${size}</td><td class="l">${id} ${SandboxLinks.link(`road:${id}`, 'Sandbox')}${row ? ` <span class="dim">(${row.rung}, base ${wPct(row.share)})</span>` : ''}</td>`
           + `<td>${per[id].size}</td><td>${all.size ? wPct(per[id].size / all.size) : '—'}</td>`
           + `<td>${lenTot ? wPct((lenBy[id] || 0) / lenTot) : '—'}</td><td>${f1(lenBy[id] || 0)} m</td></tr>`);
       }
@@ -466,7 +466,7 @@ function wRender(w) {
       }
       const all = [...anchors.values()];
       const halo = sum(m => m.zone?.halo[kind]);
-      return `<tr><td>${kind}</td><td>${Zones.ZONE_KINDS[kind].terrain}</td><td>${Zones.ZONE_KINDS[kind].R} m</td><td>${all.length}</td><td>${all.filter(a => a.owned).length}</td>`
+      return `<tr><td>${kind} ${SandboxLinks.link(kind, 'Sandbox')}</td><td>${Zones.ZONE_KINDS[kind].terrain}</td><td>${Zones.ZONE_KINDS[kind].R} m</td><td>${all.length}</td><td>${all.filter(a => a.owned).length}</td>`
         + `<td>${all.length ? f1(all.reduce((total, a) => total + a.R, 0) / all.length) : '—'}</td>`
         + `<td>${sum(m => m.zone?.cells[kind]).toLocaleString()}</td><td>${halo.toLocaleString()}</td><td>${wPct(halo / totalCells)}</td></tr>`;
     }));
@@ -559,6 +559,7 @@ function wValueByType(entries) {
   for (const e of entries) {
     for (const o of e.objects || []) {
       if (o && o.kind === 'infoboard') bump('Notice board (one Book page)', 'one-time', 0);
+      if (o && o.kind === 'bottle') bump('Message bottle (one Book page)', 'one-time', 0);
       if (o && o.kind === 'gatepost') bump('Gate post (2 per spawn point)', 'one-time', 0);
       // A viewpoint's scope (src/scenic.js): its daily gift (Scenic.VISTA_CONTEXT).
       if (o && o.kind === 'vista_scope' && typeof Scenic !== 'undefined') {
@@ -566,14 +567,12 @@ function wValueByType(entries) {
       }
     }
     // THE TIDE LINE (src/scenic.js): each waterline pickup lies there on a day
-    // with its tideP; a pick is a shell, driftwood (wood) or — rarely — a
-    // bottle (one roll of Scenic.BOTTLE_CONTEXT). Per day, per tile.
+    // with its tideP; a pick is a shell or driftwood (wood). Per day, per tile.
     if (typeof Scenic !== 'undefined') {
       const tideP = (e.wildplants || []).filter((w) => w && w.tide).reduce((s, w) => s + (w.tideP || 0), 0);
       if (tideP > 0) {
-        const pick = Scenic.TIDE_BOTTLE_P * ev(Scenic.BOTTLE_CONTEXT, undefined, true)
-          + Scenic.TIDE_DRIFTWOOD_P * (itemValue('wood') || 0)
-          + (1 - Scenic.TIDE_BOTTLE_P - Scenic.TIDE_DRIFTWOOD_P) * (itemValue('shell') || 0);
+        const pick = Scenic.TIDE_DRIFTWOOD_P * (itemValue('wood') || 0)
+          + (1 - Scenic.TIDE_DRIFTWOOD_P) * (itemValue('shell') || 0);
         bump('Tide line (daily pickups)', 'recurring', tideP * pick);
       }
     }
@@ -656,6 +655,7 @@ const WVALUE_ORDER = [
   (k) => k === 'Zone-nexus chest (bonus tier)',
   (k) => k === 'Headstone hoard',
   (k) => k === 'Notice board (one Book page)',
+  (k) => k === 'Message bottle (one Book page)',
   (k) => k === 'Gate post (2 per spawn point)',
   (k) => k === 'Pot of gold (coin burst, daily)',
   (k) => k === 'Bike rack (speed loan, daily)',

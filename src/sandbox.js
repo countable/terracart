@@ -11,13 +11,13 @@
 //   into one walkable area a tester can sweep in seconds.
 //
 // Design:
-//   The old sandbox was a 5×5 grid of flat colour swatches - one solid biome
-//   per plot. But worldgen never produces a pure "residential square"; a real
-//   residential polygon is a SCENE: a road threads through it, houses (shop
-//   type set by address digit) line the road, mineral rocks sit at the curb. So this version is built from SCENES — small realistic
-//   composites - arranged in horizontal bands, separated by named connective
-//   roads. Each road also carries decoded vector geometry, so the sandbox uses
-//   the same overlay, restoration, lamp and street-dressing lanes as a map tile.
+// Worldgen never produces a pure "residential square"; a real residential
+// polygon is a SCENE: a road threads through it, houses (shop type set by
+// address digit) line the road, mineral rocks sit at the curb. So the sandbox
+// is built from SCENES arranged in horizontal bands, separated by named
+// connective roads. Each road also carries decoded vector geometry, so the
+// sandbox uses the same overlay, restoration, lamp and street-dressing lanes as
+// a map tile.
 //
 //   Layout (north → south):
 //     Band 1  COUNTRYSIDE     FOREST · ORCHARD · ROCK
@@ -244,7 +244,7 @@
       // house's own row (the yard in front stays walkable so the 6m house
       // tap-target stays reachable from the street side).
       for (const [hx, hy] of [[1, 0], [7, 0], [1, 7], [7, 7]]) {
-        p.cell(hx, hy, T.BUILDING); p.cell(hx + 1, hy, T.BUILDING);
+        p.rect(hx, hy, 2, 1, T.BUILDING);
       }
       // A vacant lot across the street from the houses — WASTELAND, the
       // unclassified landuse that plays as residential but looks like scrub.
@@ -332,13 +332,14 @@
   //    BUILDING_MED (fort, with a cache chest).
   const CASTLE = {
     name: 'CASTLE', label: 'CASTLE · FORT', w: 10, h: 8, fill: T.GRASS,
+    subLabels: [{ label: 'CASTLE', dx: 2, dy: 4 }, { label: 'FORT', dx: 7, dy: 4 }],
     paint(p) {
       p.rect(0, 0, 5, 8, T.BUILDING_LARGE);
       p.rect(6, 0, 4, 8, T.BUILDING_MED);
     },
     populate(s) {
       // Towers ARE the castle-shop interactable (unlimited relic stock + reroll).
-      s.tower(2, 0); s.tower(0, 3); s.tower(4, 3); s.tower(2, 7);
+      s.tower(0, 0); s.tower(4, 0); s.tower(0, 7); s.tower(4, 7);
       // Fort BUILDING (tier 11) — renders the fort sprite AND is the fort shop
       // (up to 5 deals/hour). Placed at the fort's bottom edge so it's reachable
       // from the grass below the scene (the rest of the fort blocks the player).
@@ -355,12 +356,13 @@
     { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
     { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
     { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
+    { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
     { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 22, thick: 1, x0: 0, x1: 23, variant: 'snare' },
     { name: 'Fort Road', class: 'tertiary', type: T.ROAD_MD, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
     { name: 'Old Trade Road', class: 'primary', type: T.ROAD_LG, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
   ];
   const SHOWCASE = {
-    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 30, fill: T.GRASS,
+    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 40, fill: T.GRASS,
     routes: SHOWCASE_ROUTES,
     subLabels: SHOWCASE_ROUTES.map((r) => ({
       label: r.variant ? r.variant.toUpperCase() : (r.bandit ? 'OLD TRADE ROAD' : r.name.toUpperCase()),
@@ -407,12 +409,39 @@
     },
   };
 
+  // Beside the farm: ordinary targets and fuel exercise the shipping combat,
+  // potion-recipient and spreading-fire paths without distant world rolls.
+  const PRACTICE = {
+    name: 'PRACTICE', label: 'SPELLS · POTIONS · FIRE', w: 14, h: 14, fill: T.GRASS,
+    // Keep combat clear of the major-road buffers above and below the yard.
+    spawn: { dx: 6, dy: 7 },
+    ambientFlora: false,
+    subLabels: [{ label: 'POTION TARGETS', dx: 3, dy: 4 },
+      { label: 'FIRE PRACTICE', dx: 10, dy: 4 }],
+    populate(s) {
+      s.creature('plant', 2, 6, 1);
+      s.creature('plant', 4, 6, 2);
+      s.creature('plant', 6, 6, 3);
+      s.creature('goblin', 3, 9, 1);
+      s.creature('goblin_archer', 6, 9, 1);
+      s.creature('chicken', 1, 9, 1);
+      // Trees survive as charred trunks; shrubs and tar are consumed.
+      s.tree(4, 10, 6);
+      s.wildplant('shrub', 11, 6);
+      s.object('tar', 12, 6);
+      s.wildplant('longgrass', 10, 7);
+      s.tree(4, 10, 9);
+      s.wildplant('shrub', 11, 9);
+      s.object('tar', 12, 9);
+    },
+  };
+
   // Bands run north to south. Each connective road owns both its painted
   // cells and its vector/variant row through the same record.
   const BANDS = [
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK] },
     { roadAfter: { type: T.ROAD_LG, class: 'primary', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
-    { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND] },
+    { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES] },
@@ -454,6 +483,18 @@
   }
   const ROUTES = buildRoutes();
 
+  function resolveDestination(key) {
+    const destination = SandboxDestinations.find(key);
+    if (destination?.road || destination?.roadName) {
+      const route = ROUTES.find(r => destination.road ? r.variant === destination.road : r.name === destination.roadName);
+      if (route) return { lx: Math.floor((route.x0 + route.x1) / 2), ly: route.y };
+    }
+    const scene = sceneByName(destination?.scene || String(key || '').trim().toUpperCase()) || sceneByName('PLAZA');
+    const point = destination?.sub ? scene.subLabels?.find(s => s.label === destination.sub) : scene.spawn;
+    return { lx: scene.lx + (point?.dx ?? Math.floor(scene.w / 2)),
+      ly: scene.ly + (point?.dy ?? Math.floor(scene.h / 2)) };
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Detection
   // ─────────────────────────────────────────────────────────────────────────
@@ -481,14 +522,17 @@
     const wildplants = [];
     const creatures = [];
     const roadLabels = {};
+    const owners = new Uint16Array(cellsPerEdge * cellsPerEdge);
+    const ownerKeys = [null];
+    const buildingShapes = [];
 
-    // Helper: cell index → world metres at cell centre.
+    // Cell index → world metres at cell centre.
     const wmAt = (ix, iy) => ({
       x: tx * tileEdgeM + (ix + 0.5) * cellM,
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
     });
 
-    const context = { grid, objects, wildplants, creatures, roadLabels,
+    const context = { grid, objects, wildplants, creatures, roadLabels, owners, ownerKeys, buildingShapes,
       cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM };
     populate(context);
 
@@ -499,13 +543,13 @@
       objects,
       wildplants,
       creatures,
-      owners: new Uint16Array(cellsPerEdge * cellsPerEdge),
-      ownerKeys: [],
+      owners,
+      ownerKeys,
       poiPadCells: new Set(),
       parkingTreasures: [],
       roadLabels,
       pathUnder: {},
-      buildingShapes: [],
+      buildingShapes,
       treasure: null,
       extraTreasures: [],
       coinDrops: [],
@@ -528,10 +572,32 @@
       // refreshes real tiles whose Overpass bin landed late) never evicts a
       // synthetic sandbox tile in favour of real-world geometry.
       hadBin: true,
-      // loadTile awaits entry.promise when status === 'loading'; ours is
-      // ready so it's never awaited, but harmless to satisfy the shape.
+      // Satisfies the shape; never awaited since status is ready.
       promise: Promise.resolve(null),
     };
+    // The live renderer draws source polygons, not building terrain cells.
+    // Give authored footprints the same ownership as their house/turrets so
+    // floors, walls and objects agree before and after claiming a building.
+    for (const shape of buildingShapes) {
+      const [x0, y0, x1, , , y1] = shape.ring;
+      const inside = (o) => o.x - tx * tileEdgeM >= x0 && o.x - tx * tileEdgeM < x1
+        && o.y - ty * tileEdgeM >= y0 && o.y - ty * tileEdgeM < y1;
+      const house = objects.find((o) => o.kind === 'house' && o.tier === shape.tier && inside(o));
+      if (house) shape.key = house.id;
+      const owner = entry.ownerKeys.length || 1;
+      entry.ownerKeys[owner] = shape.key;
+      for (let iy = Math.round(y0 / cellM); iy < Math.round(y1 / cellM); iy++) {
+        for (let ix = Math.round(x0 / cellM); ix < Math.round(x1 / cellM); ix++) {
+          entry.owners[iy * cellsPerEdge + ix] = owner;
+        }
+      }
+      let first = true;
+      for (const tower of objects.filter((o) => o.kind === 'tower' && inside(o))) {
+        tower.castle = shape.key;
+        tower.flagPost = first;
+        first = false;
+      }
+    }
     if (finalize) finalize(entry, context);
     entry.baseGrid = entry.grid.slice();
     entry.genObjects = entry.objects.slice();
@@ -599,7 +665,8 @@
       },
       tower(dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push(WorldGen.makeObject('tower', x, y, `${baseId}_tower_${tag}_${dx}_${dy}`));
+        objects.push(WorldGen.makeObject('tower', x, y, `${baseId}_tower_${tag}_${dx}_${dy}`,
+          { castle: `${baseId}_castle_${tag}`, flagPost: dx === 0 && dy === 0 }));
       },
       well(dx, dy) {
         const { x, y } = at(dx, dy);
@@ -648,6 +715,7 @@
     if (typeof BiomeProfiles === 'undefined' || typeof WorldGen === 'undefined') return;
     const { grid, objects, wildplants, cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM } = c;
     const occupied = new Set();
+    let grassCandidates = null;
     const key = (ix, iy) => `${ix}_${iy}`;
     for (const o of objects) {
       const ix = Math.round((o.x - tx * tileEdgeM) / cellM - 0.5);
@@ -669,16 +737,19 @@
     if (zoneCoverage || streetArea) for (let i = 0; i < cellsPerEdge * cellsPerEdge; i++) {
       if (zoneCoverage?.[i] || streetArea?.[i]) occupied.add(key(i % cellsPerEdge, Math.floor(i / cellsPerEdge)));
     }
-    const place = (ix, iy, crop, t) => {
+    const place = (ix, iy, crop, t, clayPot = false) => {
       const kk = key(ix, iy);
       if (occupied.has(kk)) return false;
       occupied.add(kk);
       const { x, y } = wmAt(ix, iy);
-      wildplants.push(WorldGen.makeWildplant(crop, x, y, `sbflora_${tx}_${ty}_${crop}_${ix}_${iy}`,
+      if (clayPot) objects.push(WorldGen.makeObject('chest', x, y,
+        WorldGen.cellId('hmpot', tx, ty, ix, iy), { barrel: true, barrelStyle: 'clay_pot', _biome: t }));
+      else wildplants.push(WorldGen.makeWildplant(crop, x, y, `sbflora_${tx}_${ty}_${crop}_${ix}_${iy}`,
         { _biome: t, _ix: ix, _iy: iy }));
       return true;
     };
     for (const s of LAYOUT.scenes) {
+      if (s.ambientFlora === false) continue;
       const byT = new Map();
       for (let dy = 0; dy < s.h; dy++) for (let dx = 0; dx < s.w; dx++) {
         const ix = originIX + s.lx + dx, iy = originIY + s.ly + dy;
@@ -690,13 +761,24 @@
       for (const [t, cells] of byT) {
         for (const fl of BiomeProfiles.flora(t)) {
           const salt = fl.salt >>> 0;
-          if (fl.pattern === 'hedgemaze') {
+          if (fl.pattern === 'grassfill') {
+            if (!grassCandidates) {
+              const steps = WorldGen.grassFillSteps(tx, ty, cellsPerEdge);
+              let step = steps.next();
+              while (!step.done) step = steps.next();
+              grassCandidates = step.value;
+            }
+            for (const [ix, iy] of cells) {
+              if (grassCandidates[iy * cellsPerEdge + ix]) place(ix, iy, fl.crop, t);
+            }
+          } else if (fl.pattern === 'hedgemaze') {
             // WorldGen.hedgeMazeCell owns the lattice; the sandbox passes
             // ABSOLUTE cells like worldgen does, so the commercial maze here
             // matches the real plaza's rule 1:1.
             for (const [ix, iy] of cells) {
               const ax = tx * cellsPerEdge + ix, ay = ty * cellsPerEdge + iy;
-              if (WorldGen.hedgeMazeCell(ax, ay, salt)) place(ix, iy, fl.crop, t);
+              if (WorldGen.hedgeMazeCell(ax, ay, salt))
+                place(ix, iy, fl.crop, t, WorldGen.hedgeMazePotCell(ax, ay));
             }
           } else {
             // fnv1a: the shared FNV-1a hash (util.js).
@@ -731,10 +813,16 @@
       };
       const rect = (dx, dy, w, h, terrain) => {
         for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) setCell(dx + xx, dy + yy, terrain);
+        if (![T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE].includes(terrain)) return;
+        const x0 = Math.max(0, ix0 + dx) * c.cellM, y0 = Math.max(0, iy0 + dy) * c.cellM;
+        const x1 = Math.min(cellsPerEdge, ix0 + dx + w) * c.cellM;
+        const y1 = Math.min(cellsPerEdge, iy0 + dy + h) * c.cellM;
+        if (x1 <= x0 || y1 <= y0) return;
+        c.buildingShapes.push({ ring: Float32Array.from([x0, y0, x1, y0, x1, y1, x0, y1]),
+          tier: terrain, areaM2: (x1 - x0) * (y1 - y0),
+          key: `${baseId}_building_${s.name}_${dx}_${dy}` });
       };
-      // 1. base terrain fill
       rect(0, 0, s.w, s.h, s.fill);
-      // 2. composite terrain overrides (roads / water / pads / paths)
       if (s.paint) {
         s.paint({
           cell: setCell,
@@ -742,7 +830,6 @@
           roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
         });
       }
-      // 3. static interactables
       s.populate(makeScenePush(ix0, iy0, s.name, baseId, { objects, wildplants, creatures }, wmAt));
     }
 
@@ -990,6 +1077,11 @@
       tx: c.tx, ty: c.ty, N: c.cellsPerEdge, tileEdgeM: c.tileEdgeM }));
     layStreetDressing(entry, c, dressing);
     entry.streetArea = StreetVariants.area(index, c.cellsPerEdge);
+    // Authored hazards need the same movement index as generated dressing.
+    for (const o of entry.objects) if (StreetVariants.SLOW_KINDS.has(o.kind)) {
+      const { ix, iy } = itemCell(o, c);
+      (entry.slowCells ||= new Map()).set(iy * c.cellsPerEdge + ix, o.kind);
+    }
 
     const wagon = entry.objects.find((o) => o.wagonCandidate);
     if (wagon) {
@@ -1042,6 +1134,9 @@
   function install(scene) {
     // Flag the scene so other systems (GPS, etc.) know to behave differently.
     scene._sandboxMode = true;
+    // Authored buildings use the tile painter; only the castle also carries
+    // a source ring for shared floor decoration such as ruined columns.
+    if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.setEnabled(scene, false);
     // If a previous session had already started watching GPS, kill the watch so
     // an incoming fix doesn't race the teleport at the bottom of this function.
     if (scene.gpsWatchId != null && typeof Geo !== 'undefined') {
@@ -1084,10 +1179,11 @@
       }
     }
 
-    // Teleport the player to the PLAYER PLAZA scene's centre.
-    const plaza = sceneByName('PLAZA');
-    const playerCellIX = gridOriginIX + plaza.lx + Math.floor(plaza.w / 2);
-    const playerCellIY = gridOriginIY + plaza.ly + Math.floor(plaza.h / 2);
+    // A named scene link makes a focused browser check repeatable.
+    const params = new URLSearchParams(location.search);
+    const destination = resolveDestination(params.get('sandboxZone') || params.get('sandboxScene'));
+    const playerCellIX = gridOriginIX + destination.lx;
+    const playerCellIY = gridOriginIY + destination.ly;
     const targetWorldX = centreTX * tileEdgeM + (playerCellIX + 0.5) * cellM;
     const targetWorldY = centreTY * tileEdgeM + (playerCellIY + 0.5) * cellM;
     scene.playerM.x = targetWorldX - scene.startWorldM.x;
@@ -1197,6 +1293,7 @@
     };
     if (centreEntry) seedCoverageState(save, centreEntry, originIX, originIY,
       centreTX, centreTY, cellM);
+    seedMechanicsState(scene, centreEntry);
 
     // ── Restore every house in the sandbox tile. Tier-9 houses render as a
     //    generic "wreck" until restored — so without this, the blacksmith /
@@ -1361,6 +1458,28 @@
     if (typeof scene.persistSave === 'function') scene.persistSave();
   }
 
+  function seedMechanicsState(scene, entry) {
+    const save = scene.save;
+    // Fire history is permanent in normal play; keeping it here made a second
+    // sandbox visit unable to ignite the very same demonstration cells.
+    save.groundFire = {};
+    save.burnedObjects = [];
+    save.potionEffects = {};
+    scene._groundFireSave = null;
+    delete save.tomeDays;
+    const targets = (entry?.creatures || []).filter(c => c.id.includes('_PRACTICE_plant_'));
+    for (const [i, id] of ['giant_potion', 'shrinking_potion'].entries()) {
+      if (targets[i]) PotionEffects.apply(scene, targets[i], id);
+    }
+    // An ordinary third plant makes scale and health-cap changes comparable.
+    // Ignite only the upper fuel row; the lower row remains available for casts.
+    const fuel = entry?.objects.find(o => o.id.includes('_tree_PRACTICE_') && o.id.endsWith('_10_6'));
+    if (fuel) {
+      const cell = worldMetersToAbsCell(scene, fuel.x, fuel.y);
+      scene._igniteGroundCell(cell, Date.now());
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Scene name labels (debug orientation captions)
   // ─────────────────────────────────────────────────────────────────────────
@@ -1428,4 +1547,7 @@
   global.Sandbox.buildForTest = buildForTest;
   global.Sandbox.seedCoverageState = seedCoverageState;
   global.Sandbox.layoutForTest = LAYOUT;
+  global.Sandbox.seedMechanicsState = seedMechanicsState;
+  global.Sandbox.stockInventoryForTest = stockSandboxInventory;
+  global.Sandbox.resolveDestination = resolveDestination;
 })(window);

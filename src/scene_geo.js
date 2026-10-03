@@ -12,10 +12,9 @@
 // Plus the constants only they read: ORIGIN_STRANDED_M, RING_IDLE_TIMEOUT_MS,
 // TILE_RETRY_BASE_MS, TILE_RETRY_MAX_MS.
 //
-// Moved verbatim out of app.js. The methods live on `class SceneGeo`, a
-// MIXIN: app.js installs them onto MapScene.prototype right after the class
-// closes (installSceneMixin, from modal_shell.js), so every caller still says
-// `this.startGps()` / `this.ensureTilesAround()` and nothing else changed.
+// The methods live on `class SceneGeo`, a MIXIN: app.js installs them onto
+// MapScene.prototype right after the class closes (installSceneMixin, from
+// modal_shell.js), so callers still say `this.startGps()` etc.
 // The consts stay plain top-level lexical globals (never window.X — see
 // lexical_globals.test.js). This file loads BEFORE app.js, so an initializer
 // here may only read literals or names defined above it; the methods read
@@ -24,20 +23,16 @@
 // this.spawnInTile / this._applyDugWalls / this._placeStarterTrail / … at
 // CALL time only.
 //
-// What this is NOT: the raw location watcher — src/geo.js owns the one
-// watchPosition per page (Geo.subscribe / unsubscribe, the boot-time home
-// capture in index.html shares it); this is the scene's CONSUMER of it. Not
-// the projection either (coords.js: lonLatToLocalM, playerToWorldCell's
-// frame), nor the origin freeze (START_LAT / START_LON / the teleport
-// override stay at the top of app.js — the index.html boot gate depends on
-// app.js freezing them at parse time). Not tile building: WorldGen.loadTile /
-// rasterizeTile / fetchTileResponse make an entry; this only asks for the
-// blocks and settles the banner. Not spawning: spawnInTile and the starter
-// helpers it calls stay in app.js / starter.js. Not the haptics (the tap
-// feedback, app.js) or the coordinate / starter guards (_worldPlaced,
-// playerToWorldCell). See CLAUDE.md "The camera is not the player" (tile
-// loading reads the PLAYER, never the camera anchor) and "A tile can be
-// REBUILT under you" before changing the spawn gate in _ensureTilesAroundPass.
+// What this is NOT: the raw location watcher (src/geo.js owns the one
+// watchPosition per page; this is the scene's CONSUMER of it), the projection
+// (coords.js), the origin freeze (START_LAT / START_LON / the teleport override
+// stay at the top of app.js — the index.html boot gate depends on it), tile
+// building (WorldGen.loadTile / rasterizeTile / fetchTileResponse; this only
+// asks for the blocks and settles the banner), or spawning (spawnInTile and the
+// starter helpers stay in app.js / starter.js). See CLAUDE.md "The camera is
+// not the player" (tile loading reads the PLAYER, never the camera anchor) and
+// "A tile can be REBUILT under you" before changing the spawn gate in
+// _ensureTilesAroundPass.
 
 // How far a player can stand from their world's projection origin before that
 // origin is definitively WRONG rather than merely far — see _warnStrandedOrigin.
@@ -60,19 +55,16 @@ class SceneGeo {
     if (this.gpsWatchId == null) this.startGps();
   }
 
-  // Re-arm the GPS watch after a background nap (the watch is released on
-  // hide to save battery) — and, when the player denied location and has
-  // since changed their mind in the browser's own settings, after that too.
+  // Re-arm the GPS watch after a background nap (the watch is released on hide
+  // to save battery) — and, when the player denied location and has since
+  // changed their mind in the browser's settings, after that too.
   //
   // The gate is the PERMISSION, never how the watch has been behaving: a
-  // transient TIMEOUT or POSITION_UNAVAILABLE used to leave the game refusing
-  // to watch again for the rest of the session, which is exactly how a player
-  // ends up parked at the default home with location switched on. A denial is
-  // re-checked through the Permissions API (no second prompt, and no nagging
-  // if the answer is still no) — a browser that lacks it keeps the old
-  // behaviour of waiting for a reload.
+  // transient TIMEOUT or POSITION_UNAVAILABLE must not leave the game refusing to
+  // watch for the rest of the session. A denial is re-checked through the
+  // Permissions API (no second prompt); a browser that lacks it waits for a reload.
   _retryGps() {
-    if (window.__TEST_MODE || this._sandboxMode || _teleportOverride) return;
+    if (this._gpsSimulated || window.__TEST_MODE || this._sandboxMode || _teleportOverride) return;
     if (this.gpsWatchId != null) return;
     if (!this._gpsDenied) { this.startGps(); return; }
     try {
@@ -85,24 +77,21 @@ class SceneGeo {
   }
 
   // A save that never captured a home plays at the DEFAULT origin. Standing a
-  // few streets from it is ordinary — that IS the default neighbourhood for
-  // the players it was picked for. Standing a province away is not: the map,
-  // Home, the starter crates and the objective arrow are all back there while
-  // the player is here.
+  // few streets from it is ordinary; standing a province away is not (the map,
+  // Home, the starter crates and the objective arrow are all back there).
   //
-  // It cannot be re-anchored under them: every coordinate this save has
-  // written is metres in a frame scaled at the origin's latitude, so moving
-  // the origin drifts the lot (which is why the capture window closes as soon
-  // as the world places anything — see startGps). So this says it plainly,
-  // once a session, and names the one control that rebuilds the farm here.
+  // It cannot be re-anchored under them: every coordinate this save has written
+  // is metres in a frame scaled at the origin's latitude (which is why the
+  // capture window closes as soon as the world places anything — see startGps).
+  // So this says it plainly, once a session, and names the control that rebuilds
+  // the farm here.
   _warnStrandedOrigin(fix) {
     if (this._strandedWarned || !fix) return;
-    if (this.save.home || _teleportOverride || this._sandboxMode || window.__TEST_MODE) return;
-    // Wait for the boot overlay to actually be gone — a dialog stacked under
-    // it is a dialog nobody reads. A later fix re-offers it. This is the
-    // overlay's OWN dismissal (_bootOverlayGone, set once the initial tile
-    // load resolves), not just "a frame has rendered" (_bootStatusDone) — the
-    // overlay now outlives the first frame on purpose (see create()).
+    if (this.save.home || this._gpsSimulated || _teleportOverride || this._sandboxMode || window.__TEST_MODE) return;
+    // Wait for the boot overlay to actually be gone (_bootOverlayGone, set once
+    // the initial tile load resolves; it outlives the first frame on purpose, see
+    // create()) — a dialog stacked under it is a dialog nobody reads. A later fix
+    // re-offers it.
     if (!this._bootOverlayGone) return;
     const d = Math.hypot(fix.x, fix.y);
     if (!(d >= ORIGIN_STRANDED_M)) return;
@@ -165,12 +154,10 @@ class SceneGeo {
         this._hiddenAt = hiddenAt;
         SaveSession.flush(hiddenAt);
       } else {
-        // Foregrounded after a background nap. Resume the game loop FIRST:
-        // everything after this line is nice-to-have, and a throw from any of
-        // it (applyOfflineRest builds Phaser text + tweens) used to escape the
-        // event handler before resume() ran — leaving the game paused forever,
-        // a dead screen that no longer took taps. Guard the rest so one bad
-        // step can't skip the others either.
+        // Foregrounded after a background nap. Resume the game loop FIRST: a throw
+        // from anything after it (applyOfflineRest builds Phaser text + tweens) must
+        // not leave the game paused forever. Guard the rest so one bad step can't skip
+        // the others either.
         if (this.game && this.game.isPaused) this.game.resume();
         // The safety card's RESUME reminder (app.js _safetyOnResume).
         try {
@@ -255,7 +242,162 @@ class SceneGeo {
     if (!was && this._speedGate.tooFast) this._showPassengerCard?.();
   }
 
+  // Debug GPS is session-only. Hiding the stick keeps its last simulated fix;
+  // reload to hand location back to the device.
+  setDebugGpsStick(enabled) {
+    this._debugGpsReset?.();
+    document.getElementById('gps-pad')?.remove();
+    this._debugGpsEnabled = !!enabled;
+    if (!enabled) return;
+    const pad = document.createElement('div');
+    pad.id = 'gps-pad';
+    pad.setAttribute('aria-label', 'Move simulated GPS');
+    pad.title = 'Move GPS (reload to restore real GPS)';
+    pad.style.cssText = `position:fixed;left:calc(var(--phone-left, 0px) + 16px);
+      bottom:calc(var(--stick-bottom, 160px) + env(safe-area-inset-bottom, 0px));
+      width:110px;height:110px;border-radius:50%;box-sizing:border-box;
+      z-index:6;touch-action:none;user-select:none;-webkit-user-select:none;
+      border:2px solid #8bcfe0;background:radial-gradient(circle at 50% 38%,#405d69cc,#142c38dd);
+      box-shadow:inset 0 3px 12px #0009,0 4px 14px #0007;`;
+    const nub = document.createElement('div');
+    nub.textContent = 'GPS';
+    nub.style.cssText = `position:absolute;left:29px;top:29px;width:48px;height:48px;
+      border-radius:50%;display:grid;place-items:center;pointer-events:none;
+      font:bold 12px ui-monospace,monospace;color:#e4faff;
+      background:radial-gradient(circle at 40% 30%,#79bac9,#285a70);
+      box-shadow:0 3px 6px #0008;`;
+    pad.appendChild(nub);
+    document.body.appendChild(pad);
+    let pointer = null;
+    const reset = () => {
+      pointer = null;
+      this._debugGpsVec = { x: 0, y: 0 };
+      nub.style.transform = '';
+    };
+    this._debugGpsReset = reset;
+    const place = (e) => {
+      const rect = pad.getBoundingClientRect();
+      let x = e.clientX - rect.left - rect.width / 2;
+      let y = e.clientY - rect.top - rect.height / 2;
+      const length = Math.hypot(x, y);
+      if (length > 31) { x *= 31 / length; y *= 31 / length; }
+      this._debugGpsVec = { x: x / 31, y: y / 31 };
+      nub.style.transform = `translate(${x}px,${y}px)`;
+    };
+    pad.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      if (pointer != null) return;
+      pointer = e.pointerId;
+      pad.setPointerCapture(pointer);
+      place(e);
+    });
+    pad.addEventListener('pointermove', (e) => {
+      if (pointer !== e.pointerId) return;
+      e.stopPropagation();
+      place(e);
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      pad.addEventListener(type, (e) => {
+        if (pointer !== e.pointerId) return;
+        e.stopPropagation();
+        reset();
+      });
+    }
+    // Reset a held drag on backgrounding or when a modal hides the control.
+    const onVisibility = () => { if (document.hidden) reset(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    const observer = new MutationObserver(() => {
+      if (document.body.classList.contains('modal-open')) reset();
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    this._debugGpsReset = () => {
+      reset();
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }
+
+  _stepDebugGps(dt) {
+    const v = this._debugGpsVec;
+    if (!this._debugGpsEnabled || !v || (!v.x && !v.y)) return;
+    if (document.hidden || document.body.classList.contains('modal-open')) return;
+    if (!this._gpsSimulated) {
+      this._gpsSimulated = true;
+      if (this.gpsWatchId != null) Geo.unsubscribe(this.gpsWatchId);
+      this.gpsWatchId = null;
+      this._eggHatchTracker = null;
+      this._speedGate = null;
+      this._homeCaptureArmed = false;
+      this._homeCapturePending = false;
+      if (this._homeCaptureTimer) clearTimeout(this._homeCaptureTimer);
+      this._homeCaptureTimer = null;
+      this.flash('Simulated GPS active', this.viewCenterX, this.viewCenterY - 40);
+    }
+    this._gpsManualOverride = false;
+    const off = this._manualOffsetM;
+    if (!this.gpsM) this.gpsM = { x: this.playerM.x - off.x, y: this.playerM.y - off.y };
+    const step = WALK_M_S * DEBUG_SPEED_MUL * dt;
+    this._applyGpsFix({ x: this.gpsM.x + v.x * step, y: this.gpsM.y + v.y * step });
+  }
+
+  // Both live fixes and the debug GPS stick use the same follow/snap rules.
+  _applyGpsFix(fix) {
+    const prev = this.gpsM;
+    this.gpsM = { x: fix.x, y: fix.y };
+    // A fix in hand: GPS is live again, whatever transient error the
+    // watch reported earlier (see the error handler — a cold start
+    // routinely TIMEOUTs once before the first fix lands).
+    this.gpsAvailable = true;
+    // Nothing left to anchor, and the player is nowhere near the world
+    // they were given? Say so — it can't be fixed under them.
+    this._warnStrandedOrigin(this.gpsM);
+    // A manual-control takeover this session (WASD / arrow keys / SPACE / T
+    // teleport) owns movement entirely: skip the GPS-driven target write so the
+    // keyboard isn't fighting the watcher. gpsM still tracks so the HUD's gps-live
+    // check and the facing fallback below keep working. Debug controls and a
+    // dragon do not opt out.
+    if (this._gpsManualOverride) {
+      // intentionally no target / playerM write
+    } else {
+      // THE FIX IS THE TARGET — plus whatever the stick has walked you off it
+      // (_manualOffsetM); the body walks toward that in _followStep. Adding the
+      // offset rather than overwriting the target lets stick walking survive the
+      // next fix. A fresh fix counts as a steer, so it also resumes any pursuit
+      // paused by a tap-interrupt.
+      const off = this._manualOffsetM;
+      // Is this fix a jump too big to have been WALKED? Measure in the
+      // GPS's own frame — body minus the stick offset — so walking 200 m
+      // off the GPS by hand doesn't read as a 200 m GPS jump and snap
+      // you home.
+      const bodyGpsX = this.playerM.x - off.x;
+      const bodyGpsY = this.playerM.y - off.y;
+      if ((!prev || Math.hypot(this.gpsM.x - bodyGpsX,
+                              this.gpsM.y - bodyGpsY) > GPS_SNAP_M)
+          && !Conditions.active(this.save, 'confused') && !this._confusedRecover) {
+        // First fix of the session, or a real jump (see GPS_SNAP_M) — place the body
+        // outright and drop the stick offset (the character is being re-anchored on
+        // the true position). At EVERY depth: underground the placement carves the
+        // landing cell out of the rock (_placeBodyOnFix), the same rule the walk
+        // home applies (_driftHome).
+        off.x = 0; off.y = 0;
+        // The first fix of the session is the world simply arriving,
+        // not a trip the player takes — it gets no cut, only a real
+        // jump off an already-placed body does.
+        if (prev) this._teleportCut(() => this._placeBodyOnFix());
+        else this._placeBodyOnFix();
+      }
+      this._targetM = { x: this.gpsM.x + off.x, y: this.gpsM.y + off.y };
+      this._followPaused = false;
+    }
+    if (prev) {
+      const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
+      // Only use movement as facing fallback when there's no compass.
+      if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
+    }
+  }
+
   startGps() {
+    if (this._gpsSimulated) return;
     // Sandbox mode parks the player at a synthetic biome-grid plot and uses
     // keyboard / joystick movement only — GPS would snap them away to their
     // real-world coords on first fix.
@@ -272,19 +414,15 @@ class SceneGeo {
     this.gpsAvailable = true;
     this._eggHatchTracker = null;
     // Safety net: if no fix ever arrives, stop waiting for home capture after
-    // 2 min so the start flow falls back to the default origin rather than
-    // hang forever. Generous on purpose: a cold GPS start indoors routinely
-    // takes 30-60 s, and giving up early permanently anchors the save at the
-    // default home — the starter-chest trail then spawns half a world from
-    // the player (the post-reset "my loot boxes are missing" bug). While
-    // capture is pending nothing is placed or adopted (ensureStarterShopId
-    // waits), so the only cost of patience is Home appearing a little later.
-    // Armed here — not in create() — so the clock starts when GPS actually
-    // starts watching; the opening story + safety splash can hold sensors
-    // off far longer than that.
-    // The net only lets the WORLD get on with it (_homeCapturePending);
-    // _homeCaptureArmed stays set, so a fix that finally lands at 3 minutes
-    // still becomes this save's home as long as nothing has been placed yet.
+    // 2 min so the start flow falls back to the default origin rather than hang.
+    // Generous on purpose: a cold GPS start indoors routinely takes 30-60 s, and
+    // giving up early permanently anchors the save at the default home (the
+    // starter-chest trail then spawns half a world from the player). While capture
+    // is pending nothing is placed or adopted (ensureStarterShopId waits).
+    // Armed here — not in create() — so the clock starts when GPS actually starts
+    // watching. The net only lets the WORLD get on with it (_homeCapturePending);
+    // _homeCaptureArmed stays set, so a fix that lands at 3 minutes still becomes
+    // this save's home as long as nothing has been placed yet.
     if (this._homeCapturePending && !this._homeCaptureTimer) {
       this._homeCaptureTimer = setTimeout(() => {
         if (!this._homeCapturePending) return;
@@ -303,23 +441,17 @@ class SceneGeo {
     try {
       this.gpsWatchId = Geo.subscribe(
         pos => {
+          if (this._gpsSimulated) return;
           const { latitude, longitude } = pos.coords;
           this._trackEggHatch(pos);
           this._trackSpeedGate(pos);
-          // First GPS fix on a brand-new save: freeze THIS location as the
-          // save's home origin and reload so the whole projection re-anchors
-          // here. Only reload after VERIFYING the write landed (read it back) —
-          // otherwise a failed localStorage write would loop on every fix.
-          // (Fallback path only: index.html normally captures home BEFORE
-          // app.js loads, so no reload — and no second location prompt — is
-          // needed. This runs when that boot gate gave up waiting and the
-          // fix landed afterwards.)
-          // The window closes the moment the world puts something down: after
-          // that the origin is load bearing (every saved coordinate is metres
-          // in a frame scaled at the origin's latitude), so moving it would
-          // drift the lot. Until then a late fix is still welcome — that is
-          // what stops a slow first fix leaving the save marooned at the
-          // default home for good.
+          // First GPS fix on a brand-new save: freeze THIS location as the save's home
+          // origin and reload so the projection re-anchors here. Only reload after
+          // VERIFYING the write landed (read it back), else a failed localStorage write
+          // would loop on every fix. (Fallback path only: index.html normally captures
+          // home BEFORE app.js loads.) The window closes the moment the world puts
+          // something down: after that the origin is load bearing (every saved
+          // coordinate is metres in a frame scaled at its latitude).
           if (this._homeCaptureArmed && this._worldPlaced()) this._homeCaptureArmed = false;
           if (this._homeCaptureArmed) {
             this._homeCapturePending = false;
@@ -350,92 +482,23 @@ class SceneGeo {
             }
             // write/readback failed — don't loop; carry on with current origin.
           }
-          // Project the fix the way the MAP is projected (coords.js
-          // lonLatToLocalM — exact Web-Mercator), not with a flat metres-per-
-          // degree approximation: the flat one only agrees with the map at the
-          // origin and drifts as you walk away from it, which put a player
-          // metres off their own map after a long walk and a province off it on
-          // a save that never captured a home.
+          // Project the fix the way the MAP is projected (coords.js lonLatToLocalM —
+          // exact Web-Mercator), not with a flat metres-per-degree approximation, which
+          // only agrees with the map at the origin.
           const fix = lonLatToLocalM(this, longitude, latitude);
-          const prev = this.gpsM;
-          this.gpsM = { x: fix.x, y: fix.y };
-          // A fix in hand: GPS is live again, whatever transient error the
-          // watch reported earlier (see the error handler — a cold start
-          // routinely TIMEOUTs once before the first fix lands).
-          this.gpsAvailable = true;
-          // Nothing left to anchor, and the player is nowhere near the world
-          // they were given? Say so — it can't be fixed under them.
-          this._warnStrandedOrigin(this.gpsM);
-          // A manual-control takeover this session (WASD / arrow keys / SPACE /
-          // T teleport) owns movement entirely: skip the GPS-driven target
-          // write so the keyboard isn't fighting the watcher. gpsM still tracks
-          // so the HUD's gps-live check and the facing fallback below keep
-          // working. Debug controls no longer opt out — they only make stick
-          // walking free (see _steerManual) — and neither does a dragon, which
-          // is now a stat buff rather than a flight mode.
-          if (this._gpsManualOverride) {
-            // intentionally no target / playerM write
-          } else {
-            // THE FIX IS THE TARGET — plus whatever the stick has walked you
-            // off it (_manualOffsetM). The body walks toward that in
-            // _followStep: underground through rock it mines out, on the
-            // surface as a plain walk. Adding the offset rather than
-            // overwriting the target is what lets stick walking survive the
-            // next fix a second later instead of being yanked straight back.
-            // A fresh fix counts as a steer, so it also resumes any pursuit
-            // paused by a tap-interrupt.
-            const off = this._manualOffsetM;
-            // Is this fix a jump too big to have been WALKED? Measure in the
-            // GPS's own frame — body minus the stick offset — so walking 200 m
-            // off the GPS by hand doesn't read as a 200 m GPS jump and snap
-            // you home.
-            const bodyGpsX = this.playerM.x - off.x;
-            const bodyGpsY = this.playerM.y - off.y;
-            if (!prev || Math.hypot(this.gpsM.x - bodyGpsX,
-                                    this.gpsM.y - bodyGpsY) > GPS_SNAP_M) {
-              // First fix of the session, or a real jump (see GPS_SNAP_M) —
-              // place the body outright and drop the stick offset: the
-              // character is being re-anchored on the true position, and
-              // keeping the offset would just walk it back off again. At
-              // EVERY depth: underground the placement carves the landing
-              // cell out of the rock (_placeBodyOnFix), so a snap never
-              // leaves the player standing inside a wall — the same rule
-              // the walk home applies past the same gap (_driftHome).
-              off.x = 0; off.y = 0;
-              // The first fix of the session is the world simply arriving,
-              // not a trip the player takes — it gets no cut, only a real
-              // jump off an already-placed body does.
-              if (prev) this._teleportCut(() => this._placeBodyOnFix());
-              else this._placeBodyOnFix();
-            }
-            this._targetM = { x: this.gpsM.x + off.x, y: this.gpsM.y + off.y };
-            this._followPaused = false;
-          }
-          if (prev) {
-            const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
-            // Only use movement as facing fallback when there's no compass.
-            if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
-          }
+          this._applyGpsFix(fix);
         },
         err => {
+          if (this._gpsSimulated) return;
           console.warn('GPS error', err.message);
-          // The HUD's "have we actually got GPS?" line only. NOT a latch: it
-          // goes true again on the next fix, and nothing decides whether to
-          // keep watching from it. It used to, and that cost a player their
-          // GPS for the whole session — a cold start TIMEOUTs once (below)
-          // before the first fix, and the visibility handler then refused to
-          // re-arm the watch after the first app-switch, freezing the farmer
-          // wherever it stood (on a fresh save: the default home, half a
-          // country from the player).
+          // The HUD's "have we actually got GPS?" line only. NOT a latch: it goes true
+          // again on the next fix, and nothing decides whether to keep watching from it
+          // (the visibility handler must still re-arm the watch after an app-switch).
           this.gpsAvailable = false;
-          // Only a hard permission denial stops the watch. Transient
-          // errors — TIMEOUT (err.code 3, guaranteed within 10 s by the
-          // watch's `timeout` option on a cold GPS start) and
-          // POSITION_UNAVAILABLE (2) — must NOT: cancelling home capture here
-          // froze the save's origin at the DEFAULT home, so when the real fix
-          // finally arrived the starter-chest trail + cleared tutorial pocket
-          // had spawned on the default spawn tile, nowhere near the player
-          // (classic symptom right after a save reset).
+          // Only a hard permission denial stops the watch. Transient errors — TIMEOUT
+          // (err.code 3; a cold start routinely TIMEOUTs once) and POSITION_UNAVAILABLE
+          // (2) — must NOT: cancelling home capture here would freeze the save's origin
+          // at the DEFAULT home.
           if (err && err.code === 1 /* PERMISSION_DENIED */) {
             this._gpsDenied = true;
             // Let the dead subscription go: the watch will never fire again,
@@ -711,15 +774,11 @@ class SceneGeo {
 
   async ensureTilesAround() {
     const cell = this.playerToWorldCell();
-    // ONE PASS PER CENTRE AT A TIME. Measured on a real phone: the centre tile
-    // was fetched, decoded and rasterized THREE times over — two concurrent
-    // passes at boot, then a third when the Overpass bin landed and evicted it
-    // — and the duplicates cost ~8 s of the load, most of it while the player
-    // was already trying to play. Nothing called ensureTilesAround twice on
-    // purpose; create(), the warmOverpass re-entry, the walk check and the
-    // tile-failure retry simply all can, and none of them knew about each
-    // other. A pass already running for this centre IS the answer to a second
-    // ask, so hand it back rather than starting a rival.
+    // ONE PASS PER CENTRE AT A TIME. create(), the warmOverpass re-entry, the walk
+    // check and the tile-failure retry can all call ensureTilesAround and none knows
+    // about the others; measured, the centre tile was once fetched, decoded and
+    // rasterized THREE times (~8 s of load). A pass already running for this centre
+    // IS the answer to a second ask, so hand it back rather than starting a rival.
     const passKey = `${cell.tx}/${cell.ty}/${this.depth || 0}`;
     if (this._tilePass && this._tilePassKey === passKey) return this._tilePass;
     const passSeq = (this._tilePassSeq || 0) + 1;
@@ -760,14 +819,10 @@ class SceneGeo {
     //     retry and nothing was unreachable, so neither of the above.
     let centreFailed = false, centreWhy = "";
     let anyRetry = false;
-    // Fetch/decode/rasterize the whole 3×3 block CONCURRENTLY rather than one
-    // tile at a time. This used to be a serial `for...of` with an `await`
-    // inside — on a cold cache every neighbour is a real network round trip,
-    // so 9 tiles paid 9× the latency back to back, which is where the ~5s
-    // blank-map stretch after boot came from. Nothing here depends on load
-    // order (each tile only reads/writes its own entry; the one cross-tile
-    // read, dedup, already tolerates tiles racing each other — see
-    // collectDedupIndex), so there's nothing to lose by firing them together.
+    // Fetch/decode/rasterize the whole 3×3 block CONCURRENTLY, not serially (on a
+    // cold cache every neighbour is a network round trip: 9x the latency). Nothing
+    // depends on load order: each tile reads/writes only its own entry, and the one
+    // cross-tile read, dedup, tolerates racing (see collectDedupIndex).
     let doneCount = 0;
     const total = needed.size;
     const buildOne = async (k) => {
@@ -787,20 +842,12 @@ class SceneGeo {
         }
         // Surface fauna on depth 0; hostile wandering monsters underground.
         //
-        // GATED ON _spawned, NOT ON entry.creatures. The two look
-        // interchangeable — the spawn pass sets creatures, so creatures means
-        // it ran — right up until a tile is REBUILT. rebuildTileWithBin
-        // (an Overpass bin landing after the tile rasterized without one)
-        // constructs a fresh entry and carries the live creatures across,
-        // because their positions and tamed state cannot be reconstructed. So
-        // the replacement arrived already looking spawned, this call skipped
-        // it, and everything ELSE the pass places was silently gone: the
-        // starter crates first of all, plus the buried X, the extra treasure
-        // scatter and the fruit-tree objects. It read as the crates vanishing
-        // a few seconds into the session ("something loaded over them") and
-        // coming back on refresh — because on reload the bin is already
-        // cached, the tile builds with it first time, and no rebuild happens.
-        // A flag the rebuild does not carry says what the carried state
+        // GATED ON _spawned, NOT ON entry.creatures. They look interchangeable until a
+        // tile is REBUILT: rebuildTileWithBin (an Overpass bin landing after the tile
+        // rasterized) constructs a fresh entry and carries the live creatures across, so
+        // the replacement already looks spawned and everything ELSE the pass places
+        // (starter crates, buried X, treasure scatter, fruit-tree objects) would be
+        // silently lost. A flag the rebuild does not carry says what the carried state
         // cannot: this entry has not been through the spawn pass.
         // The player's own up-staircases (Home's, and the one under the
         // starter ladder) go down BEFORE the cave spawn pass. They are
@@ -840,19 +887,12 @@ class SceneGeo {
         window.__bootStatus?.(0.9 + 0.1 * (doneCount / total), 'Loading the map…');
       }
     };
-    // Show the banner when THE GROUND UNDER THE PLAYER failed, not merely when
-    // some tile in the block did. It is raised on a failure rather than on
-    // navigator.onLine because a captive portal, a blocked or DNS-failed tile
-    // host, a 5xx, a corporate proxy or a VPN all keep onLine true, and the
-    // player was left with a featureless green field, no message and no retry.
-    //
-    // But eight of the nine tiles in a block are ground the player cannot see
-    // and will not reach for minutes — a tile is 222 cells across and the
-    // viewport is 11 — so a flaky ring tile told a player standing on
-    // perfectly good terrain that the map was unreachable. That is the "we
-    // keep hitting it" case. The ring still retries; it just does it quietly,
-    // and if the player does walk that way the tile becomes the centre and
-    // earns the banner then.
+    // Show the banner when THE GROUND UNDER THE PLAYER failed, not merely when some
+    // tile in the block did. It is raised on a failure rather than on
+    // navigator.onLine because a captive portal, DNS failure, 5xx, proxy or VPN all
+    // keep onLine true. Eight of the nine tiles are ground the player will not reach
+    // for minutes (a tile is 222 cells, the viewport 11), so the ring retries quietly;
+    // if the player walks that way the tile becomes the centre and earns the banner.
     const settle = () => {
       // Only the newest centre owns the banner and retry timer. A neighbour
       // ring can finish after GPS has moved the player into another tile.
@@ -863,20 +903,13 @@ class SceneGeo {
       return true;
     };
 
-    // THE CENTRE TILE FIRST, and hand control back the moment it is done.
-    //
-    // A tile build is one uninterruptible 300-800 ms chunk of rasterize on the
-    // main thread. Awaiting all nine before returning meant the player waited
-    // through nine of them — measured at ~5 s of frozen UI on the boot path,
-    // with the overlay up and nothing responding — for eight tiles of ground
-    // they cannot see. The viewport is 11 cells across and a tile is 222, so
-    // the centre tile alone is already ~400× what is on screen; the ring is
-    // walking headroom, minutes away at 1.4 m/s.
-    //
-    // So: await the centre, settle, return. The ring streams in behind, one
-    // chunk per painted frame (worldgen's heavy-phase chain), and settles
-    // again when it lands. One ring pass at a time — walking into a new tile
-    // re-enters here, and stacking ring passes would put the pile-up back.
+    // THE CENTRE TILE FIRST, and hand control back the moment it is done. A tile
+    // build is one uninterruptible 300-800 ms rasterize on the main thread; awaiting
+    // all nine froze the UI for ~5 s on the boot path, for eight tiles of ground the
+    // player cannot see. So: await the centre, settle, return. The ring streams in
+    // behind, one chunk per painted frame (worldgen's heavy-phase chain), and settles
+    // again when it lands. One ring pass at a time: stacking them would put the
+    // pile-up back.
     const _endCentre = window.__boot?.begin('centre tile (blocks the boot)');
     await buildOne(centreKey);
     _endCentre?.(centreKey);
@@ -897,14 +930,11 @@ class SceneGeo {
       return;
     }
     const ringWork = (async () => {
-      // One at a time, each waiting for an IDLE moment first. Fired together
-      // they queue straight onto the heavy chain and spend the player's first
-      // seconds of play the same way the boot did — a 300-800 ms stall, eight
-      // times, while they are trying to walk. The ring is walking headroom a
-      // tile wide (~1.5 km, minutes away at 1.4 m/s), so it can afford to wait
-      // for gaps. requestIdleCallback picks the gaps; the timeout is the floor
-      // that keeps it moving on a busy thread, and the rAF fallback covers
-      // browsers without it.
+      // One at a time, each waiting for an IDLE moment first: fired together they
+      // queue onto the heavy chain and stall the player's first seconds of play. The
+      // ring is walking headroom (~1.5 km), so it can wait for gaps.
+      // requestIdleCallback picks the gaps; the timeout is the floor on a busy thread,
+      // and the rAF fallback covers browsers without it.
       const endRing = window.__boot?.begin('neighbour ring (in the background)');
       for (const k of ring) {
         await this._whenIdle();
@@ -937,16 +967,11 @@ class SceneGeo {
 
   // Re-fetch a block that came back short, on a backoff, until it is whole.
   //
-  // Nothing used to. The only automatic re-fetch in the game is the 20 m walk
-  // check in update(), so a player standing still kept whatever the boot load
-  // managed — and the boot load is the one that fires all nine tiles at once
-  // into a cold cache. One bad moment there (a captive portal, a phone still
-  // handing off from cell to wifi, the tile host shedding a burst) left a
-  // brand-new player on a featureless green field: no houses, no POIs and —
-  // because the trail is laid when the anchor tile rasterizes — no starter
-  // crates either. Measured: the host recovered 25 s in and the game had still
-  // fetched nothing two minutes later. A veteran never sees it; their tiles
-  // are already in IndexedDB.
+  // The only other automatic re-fetch is the 20 m walk check in update(), so a
+  // player standing still would keep whatever the boot load managed, and that load
+  // fires all nine tiles at once into a cold cache. One bad moment (captive
+  // portal, cell-to-wifi handoff, the host shedding a burst) would leave a new
+  // player on a featureless green field with no houses, POIs or starter crates.
   //
   // Failures evict themselves in WorldGen, so a retry is a genuine re-fetch.
   // One timer at a time, reset the moment a pass comes back whole.
@@ -967,10 +992,8 @@ class SceneGeo {
   //               timeout. Retry, and if it was the tile the player is
   //               standing in, tell them.
   //
-  // The _transient flag is read off the ENTRY because that is the object
-  // carrying it: it is deliberately never put in tileCache, so looking it up
-  // there could not work (and the key it was looked up by was the wrong shape
-  // besides — "tx/ty" against cache keys of "z/tx/ty").
+  // The _transient flag is read off the ENTRY because it is deliberately never
+  // put in tileCache.
   _tileFailureKind(err, entry) {
     const msg = (err && err.message) || '';
     if ((entry && entry._transient) || /backoff/.test(msg)) return 'held';

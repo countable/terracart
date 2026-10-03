@@ -2,13 +2,8 @@
 // (src/sprite_layout.js › CREATURE_BEHAVIOUR, read by app.js's wander loop and
 // kill payout, interact.js's tap handler and render.js's draw pass).
 //
-// Per-kind creature GEOMETRY has been one table since CREATURE_ART landed; per-
-// kind BEHAVIOUR was a chain of kind literals spread over three files — a
-// nine-name OR-chain for what wanders, a pair of prey Sets in app.js, a
-// HUNT_KINDS set in interact.js, a crow/deer scarecrow test, a crow/deer drop
-// ternary, a cow/chicken produce ternary written out twice. Each of those was a
-// place a kind had to be REMEMBERED, and a new kind had to be remembered in all
-// of them at once.
+// Per-kind creature GEOMETRY is one table (CREATURE_ART); BEHAVIOUR is too, so
+// a new kind is a row rather than a literal to remember in several files.
 //
 // What is pinned here is the contract the table has to keep for those readers:
 // that every kind the renderer draws has a row, that a GIANT inherits its base
@@ -87,7 +82,7 @@ test('creature table: a PET is exactly the cat and the dog, and each hunts its o
   // FOLLOWING is the cat's (interact.js arms the timer, wanderCreatures
   // honours it) and the spirit raven's (app.js _tickSpiritRaven arms it for
   // the bird's whole life) — and it is not the same question as being a pet.
-  assert.eq(ctKinds((k) => CT_BEH[k].follows), 'cat,mercenary,spirit_raven');
+  assert.eq(ctKinds((k) => CT_BEH[k].follows), 'cat,mercenary,spirit_raven,summoned_skeleton,summoned_wraith');
   assert.truthy(CT_SL.creatureFollows('cat'));
   assert.falsy(CT_SL.creatureFollows('dog'), 'a dog does not trail you around');
 });
@@ -206,11 +201,11 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
     'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
   assert.truthy(/Combat\.incomingDamage\(this\.save, raw\)/.test(w)
-    && /const raw = fightsBack\.dmg;/.test(w), 'the butt is shielded and soaked before recipient difficulty');
+    && /const raw = fightsBack\.dmg \* Combat\.powerMul\(c\);/.test(w), 'the butt is shielded and soaked before recipient difficulty');
   assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
 });
 
 test('creatures: no pest deer is dispatched underground', () => {
-  assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > 90000\)/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > PEST_DISPATCH_MS\)/.test(SCENE_CREATURES_SRC),
     'the pump is surface-only');
 });

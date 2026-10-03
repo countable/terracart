@@ -52,7 +52,8 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    in 1.5 s, a 28 m/s peak) — the hunt's timed odds are tuned on it and no
    10 m/s hop clears the reach inside a T1 net's wheel; flagged for the
    owner.
- - no fauna may move onto a building footing, or road. Nor is any SEATED on one:
+ - no fauna may move onto a building footing, or a major (MD/LG) road; minor
+   streets and paths are crossable. None is SEATED on any road:
    every spawner goes through WorldGen.isSpawnCell with the tile's roadMask.
  - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet
    (CREATURE_SIM_CELLS); stationary beyond that. The viewport corner is ~7.8
@@ -63,12 +64,17 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - slime: a pest that drifts toward the player and leeches energy when adjacent
    (numbers + defeat in CREATURES). Tame with a sapphire (secret — hinted only
    in book tips); tame slimes don't drain.
- - deer (15 hp): THE crop raider. Notices a crop it may eat within 8 cells
+ - deer (15 hp): a crop raider (with the crow). Notices a crop it may eat within 8 cells
    (a dispatched hard-mode pest from anywhere in the bubble) and about half
    its steps walk at it; 20% chance per wander step to eat one within 1.5
-   cells. Never a potato, never Home's yard; bolts from a player within 5
+   cells. Never a potato (Home's yard is fair game); bolts from a player within 5
    cells, so a field is safe while you stand in it. Dogs hunt it, scarecrows
    turn it.
+ - crow: the other crop raider. Notices a crop it may eat within 8 cells and
+   circles it (1.5-3.5 cells out); ~30% of its flights try to land on it.
+   Landed, it sits two perch cycles ON the crop before eating it, then
+   leaves for a few minutes. Never a potato; cats hunt it, scarecrows turn
+   it. Not dispatched by the hard-mode pump (that is deer only).
  - DERELICT LAIRS ARE A HARD-MODE RULE (Difficulty derelictLairs, src/lairs.js).
    Every UNCLAIMED structure — a wrecked house, a sealed fort, an unclaimed
    castle, by the isClaimedKey test the derelict wash already reads — holds a
@@ -214,11 +220,11 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    Everything above the state branch still runs for a guard whatever its
    state — it takes damage, dies and pays its bounty.
  - THE CROW PUMP IS A HARD-MODE RULE (Difficulty cropPests). On hard, a planted
-   crow-edible crop with no wild crow already near the player dispatches one
-   every ~90 s, seated at PEST_CROW_SPAWN_CELLS (10) — past the viewport corner
-   but inside the sim bubble, so it is flying at the field from its first tick.
-   On easy nothing is dispatched: the crows a tile spawns are the whole crow
-   threat, and a field is only raided by a bird you planted next to.
+   crop a raider eats, with no wild deer already near the player, dispatches
+   a DEER once an hour (PEST_DISPATCH_MS), seated at PEST_SPAWN_CELLS (10) — past the viewport corner
+   but inside the sim bubble, so it is walking at the field from its first
+   tick. On easy nothing is dispatched: the deer and crows a tile spawns are
+   the whole threat, and a field is only raided by one you planted near.
  - cats (20 hp): tame cats chase wild crows within 8 cells, fight at 1.5 cells
    (both lose 1 hp per hit; crow flees, crow hp 0 → auto-defeat + feather drop).
  - dogs (40 hp): tame dogs chase wild deer and slimes within 8 cells, same combat.
@@ -331,11 +337,6 @@ ONBOARDING (the first session)
    re-rolled), the rest of the map is unchanged, and it expires at the first
    harvest — the ladder's own proof the player has the loop. Baked in at
    tile-build time, so nothing pops into being the moment the crop comes in.
-   Legacy saves that predate the flag: a PLAYED save is settled as already
-   harvested (SaveMigrate.stampHarvested), so a veteran never wakes up to a
-   pest-free home.
- - Saves that predate the ladder are retired on load (Quests.starterSkipAll)
-   rather than being told to go till their first cell.
 
 ================================================================================
 CORE
@@ -704,7 +705,7 @@ CHOPPING
    is the AXE's, and it is the axe's only reward besides speed and cheap swings:
    10% bare-handed (tier 0) up to a guaranteed 100% with a Frost axe, GEOMETRIC
    between (items.js acornDropChance, ACORN_P_BASE / ACORN_P_FROST).
- - PLANTING AN ACORN (items.js 'acorn', kind:'sapling' + plants:'tree'): tap a
+ - PLANTING AN ACORN (items.js 'acorn', kind:'seed' + plants:'tree'): tap a
    tilled cell with it selected, like any sapling, but it grows a `tree` (the
    thing you chop) rather than a `fruittree` (the thing you pick). It is stored
    in save.fruittrees with kind:'tree' and re-injected per tile by spawnInTile;
@@ -867,9 +868,18 @@ CREATURES
        the HP-driven combat wheel instead, and a sword starts it for you.
  - RELEASE: select a caught animal and tap a passable cell to place it, one at a
    time. Released animals persist in save.released and re-spawn at their spot.
- - PET: tap a released ("tame") animal with anything (or nothing) for a happy
+ - PET: tap a released ("tame") animal while holding any FOOD (or seed) for a happy
    sound + a 10-minute petting boost (the +50% double-yield above). Petting a
-   cat also makes it follow you for 5 minutes.
+   cat also makes it follow you for 5 minutes. A treat (favourite or plant
+   produce) is eaten; other food is a free pet, never a yuck.
+ - PICK UP: tap a tame animal with an EMPTY hand (or a tool) and it goes
+   straight into the bag — no wheel, no fleeing, no energy, and no shiny
+   windfall (it is already yours). A full stack leaves it standing. A pet
+   RAISED from a baby keeps its id, birth and favourite meals while carried
+   (its save.released row stays, its id in save.caught) and comes back as
+   the same pet when a baby/shiny of its kind is next released; it pockets as
+   a Baby while still a baby, as a Shiny once grown. A sapphire-tamed slime
+   has no bag item and is petted instead.
  - SCARECROW: a placeable item — wild crows and deer steer around it (4-cell
    aversion). Pick it back up any time.
  - CROWS additionally try to destroy nearby crops over time — scarecrows and
@@ -893,19 +903,20 @@ COMBAT
    from any source drains the one pool, and an enemy left alone heals back to
    full after 20 minutes without a hit. HP is in-memory: a foe you softened up
    is whole again next session.
- - ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (sword/bow/staff/null)
+ - ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon`
+   (sword/dagger/lance/bow/staff/musket/null)
    picks which owned weapon auto-engages or auto-fires; the others sit inert —
    no auto-engage, no auto-fire — until switched to. MELEE IS THE DEFAULT and
-   needs no weapon: with no bow or staff equipped the hands auto-engage the
+   needs no weapon: with no ranged weapon equipped the hands auto-engage the
    nearest enemy in reach exactly as a sword does, on the bare-handed tier-0
    rung (Gear.meleeActive). Default is the newest weapon OBTAINED or UPGRADED
    (obtaining one always makes it active); switching by hand is EXPLICIT — an
    Equip button under the Relics inventory tab while a weapon is highlighted
-   (and Unequip on the bow or staff in hand, which puts it away: back to the
+   (and Unequip on a ranged weapon in hand, which puts it away: back to the
    sword, or bare hands). Highlighting a slot alone changes nothing. The
-   active weapon wears a small "E" badge alongside its tier badge. This only
-   gates the AUTOMATIC behaviours below — a manual tap-to-fight (tapping an
-   enemy directly) and the crow/deer HUNT wheel are unaffected; the hunt
+   active weapon wears a small "E" badge alongside its tier badge. The choice
+   gates auto-engage. Enemy taps never choose a melee target; melee always
+   follows the closest eligible foe in reach. The crow/deer HUNT
    wheel is the BUG NET's, not a weapon's, so which weapon is active never
    touches it.
  - STATUS EFFECTS are rows of Conditions.DEFINITIONS (src/conditions.js), one
@@ -920,7 +931,21 @@ COMBAT
                from standing IN a campfire (FIRE_TOUCH_CELLS — the warmth ring
                stays safe) or in lava. Armour never soaks a burn; the demons'
                lava immunity covers fire too. A burning body flickers orange.
- - THE THREE WEAPONS DO DIFFERENT THINGS, AND BOW/STAFF DIFFER IN KIND.
+ - WEAPONS HAVE DISTINCT REACH, CADENCE AND AMMUNITION.
+   Alternate weapons occupy independent relic slots: one dagger, one lance
+   and one musket can be held alongside the main weapons. Higher tiers
+   replace the same type. Rusty/Fine/Magic use material tiers 1/3/5
+   (Wood/Iron/Platinum). They are chest finds rather than forge recipes.
+   Equipment chests include them; a displayed T2 general-supplies roll has
+   a 25% chance to introduce a Rusty alternate in an empty slot. Owned
+   variants are excluded from this starter lane.
+     dagger — matching sword damage per hit, half its melee reach.
+     lance  — matching sword damage per hit, double its melee reach,
+              half its attack speed on foot; mounted (a horse ridden) it
+              swings at the sword's pace.
+     musket — gold-bow damage, range and cadence at every material tier.
+              A round ball follows the compass; each shot spends one coin
+              and no wood. An empty purse prevents firing.
      sword  — MELEE. Drains HP while the combat wheel runs, at
               15/durationSeconds HP per second off the WORK WHEEL ladder (bare
               hands = the 9s tier-0 rung, so you can always fight). Melee
@@ -1018,13 +1043,13 @@ CHESTS (POI-driven)
    Chests snap to the cell grid and dedupe by name within ~80m (per tile) /
    ~120m (cross-tile). Density is data-dependent (~tens per tile in town).
  - tap a chest within reach to open it for loot driven by the POI class.
-   Tier yields T1=10 / T2=5 / T3=2 per drop (low-tier street furniture is
-   reduced to 3/2/1). Category weightings (T1/T2/T3), abbreviated:
-     food → produce 60/30/10   commerce → seeds 70/25/5   farm → seeds 40/40/20 (+1)
-     flora → flower seeds 10/30/60   civic → 30/40/30   health → 50/30/20
-     park → 40/40/20   lowtier (bus/fuel/lodging/gate) → 90/8/2, reduced yields
+   A chest's TIER is its tile's quota seat (WorldGen.seedChestTiers; T6-T7
+   only underground, loot.js chestTierMaxFor). What it holds is the POI's
+   chest theme (chest_themes.js, keyed by POI category) rolled through
+   rarity.js pickReward; code owns those weights. The old per-tier count
+   ladder (10/5/2 per drop) is retired.
  - chest TIER is shown by recoloring the approved chest sprite: the item rarity
-   badge palette (T2 copper, T3 silver, T4 gold, T5 lavender). T1 trunks and
+   badge palette (T2 copper, T3 iron, T4 gold, T5 lavender). T1 trunks and
    clay pots (intact and smashed) are desaturated; crates retain their original
    wood colors. T3+ trunks emit light in their rarity color while unopened. No floating tier gem.
  - some opens roll a RELIC or ARMOR instead of normal loot — the chance varies
@@ -1060,8 +1085,8 @@ BREAKABLE POTS AND BARRELS
    70% empty. Barrels: 10% supplies from all ordinary loot tiers, 10% T1–T2
    minerals, 10% T1 produce, 70% empty. Item pools and drop weights come from
    the shared item tables; exclusive finds stay in their own reward sources.
- - Both use the crate restock ledger. POI density affects restock time, not
-   reward odds; generated breakables restock daily. ATM pots of gold are separate.
+ - Both give ONCE (save.opened, like a chest) and stay as broken art; they
+   are not on the crate restock ledger. ATM pots of gold are separate.
 
 ================================================================================
 COIN-BURST POIs (ATM / bicycle parking)
@@ -1166,9 +1191,7 @@ STREET RESTORATION (the road band itself)
    Flat pairs because a walked city keeps one row per line of every way the
    player has stood beside. The epoch is folded into road_overlay.js's rebuild
    key, so a restore repaints the restored canvas on the next frame and nothing
-   repaints on the frames between. savemigrate.js folds the old
-   save.trail.stones into metres (× 20) and drops save.pathStones outright —
-   lit pebble CELLS do not map onto intervals; prizes and progress are kept.
+   repaints on the frames between. Retired pebble saves are not converted.
  - THREE PASSES DRAW IT. Both baked canvases live in roadGeomContainer and
    rebuild together, keyed on the snapped anchor cell + tile readiness + epoch:
      * 'roadgeom_overlay' — the dilapidated network, at image alpha 0.61.
@@ -1326,7 +1349,19 @@ STREET RESTORATION (the road band itself)
    are offered and the player keeps one (Trail.PRIZE_CHOICES). The options must
    differ — gold is gold and the same item at another quantity is the same card
    — and nothing is granted until a button is pressed, so the roll turned down
-   was never theirs. The roll also IMPROVES as the walks get longer:
+   was never theirs. The pick is "Choose one gift": a tap on a card SELECTS
+   it (outlined, and what it does appears on the one line under the row); the
+   single Take button pays the selected card. No flavour line, no ⓘ per card.
+   Take then opens the KEPT gift as its own card (showRewardCard, next) with
+   the neighbours' thanks as its line; the prize queue walks on when that
+   card closes, never when the pick does.
+ - A SINGLE EARNED REWARD IS SHOWN AS A CARD (app.js showRewardCard): the
+   item's sprite, name, tier and amount on the chest shell, framed by its
+   giver — the rescued neighbour's starfruit seed under her portrait with her
+   thanks, an elite's drop under "Elite slain" (grantTreasureRoll's
+   `ceremony`), the road pick's kept gift, and the first vista's walker's
+   relic under the vista's painting once its story is read. Finds on the
+   ground (an X, a shrine, a vista's daily gift) stay toasts. The roll also IMPROVES as the walks get longer:
    Trail.rollBonusFor spends one extra boost-chain step per prize already won,
    capped (past the cap a chain step only buys consolation coins).
  - WHICH CELLS ARE PATH AT ALL is still geometric, and still matters — the PATH
@@ -1369,21 +1404,55 @@ ECONOMY (buying & selling)
    treasure/chests, coin bursts, deliveries and enemy bounties.
  - WRECK-HOUSE RESTORATION: every small house starts as a derelict WRECK with no
    shop function (the starter trailer is exempt — Home works from day one). Tap a
-   wreck to restore it for stone (rockfruit): 1 for the first rebuild, one more
-   per three houses already restored, capped at 20 (items.js wreckRestoreQty).
+   wreck to restore it for stone (rockfruit). A HOUSE (and the wizard's tower)
+   costs the ladder: 2 for the first rebuild, one more per three houses already
+   restored, capped at 20 (items.js wreckRestoreQty). The other cards are priced
+   by the rank they wear (houses.js buildCost): a Trader 2 stones per tier, a
+   Shop 3, a Blacksmith 4; a Turret is a flat 5. The restore dialog shows the
+   selected card's price and charges that one.
    Restoring reveals the house's ROLE, which is frozen into
    save.restoredHouses[id] so it never shifts on later loads.
- - SHOP ROLES are assigned by RESTORE ORDER for the opening run:
-   PRESEED_RESTORE_ROLES (houses.js) makes restore 0 the BLACKSMITH, 1 a TRADER,
-   2 plain, 3 a MARKET, and the 30th (order 29) the WIZARD TOWER; a save with
-   no smithy gets one on its next rebuild. Every other restore falls back to
-   the address-derived role (shops.js Shops.shopType): ending 9 = BLACKSMITH
-   (forges gear from bars/gems), 2/4/6 = MARKET, 1/8 = TRADER (barter-only),
-   else PLAIN. A MARKET is a THEMED shop: one line each — seed, supply, potion,
-   ore, relic or pet — by restore order, priced at the village markup, with a
-   cheap re-roll (app.js presentThemedShop / marketTheme). PLAIN houses run
-   deliveries (see DELIVERIES below). These are BUY/trade specialties —
-   selling is home-only, see SELL below.
+ - WHAT A WRECK BECOMES IS THE PLAYER'S PICK (Oct 2026): the restore modal
+   lays out cards from ONE table, houses.js Houses.BUILD_OPTIONS, unlocked by
+   how many wrecks already stand (STORY_RESTORES, 1-based restore numbers):
+   a HOUSE from the 1st, the BLACKSMITH from the 2nd, a SHOP from the 3rd, a
+   TRADER from the 5th, a TURRET from the 8th, the BOOK SHOP from the 15th
+   (once), the WIZARD TOWER from the 30th, and his second tower from the 52nd
+   once the first stands and 21 memories are home. Nothing is forced and
+   nothing is read off the OSM address (shops.js Shops.shopType is only the
+   fallback for a legacy bare-`true` ledger entry): the Blacksmith card is
+   merely SUGGESTED (outlined) while the lane has no smithy, since the wooden
+   tools come from nowhere else. Houses.restoreAs freezes the pick and stamps
+   what it owns (starterBlacksmithId, bookshopId, wizardTowers). A MARKET is a
+   THEMED shop: one line each — seed, supply, potion, ore, relic or pet —
+   THE PLAYER'S PICK (Oct 2026, shops.js marketOffers): until the ninth
+   rebuild one Shop card, the cycle's next line; from the ninth TWO cards, a
+   pair that moves on with every restore (seed+supply, potion+ore, relic+pet,
+   round again). The pick is stored (save.shopLines) and its tier is one
+   past the shops already on that line (the second Seed Shop is the T2 one);
+   a market from before the cards keeps the cycle's answer. Priced at the
+   village markup, with a cheap re-roll (app.js presentThemedShop /
+   marketTheme). The BOOK SHOP is a market plus its stamp, outside that
+   cycle. THE MAGIC HAMMER (items.js magic_hammer, T4 magic; houses.js
+   HAMMER_ID): holding one, the restore modal asks whether to spend it; the
+   building comes up SHINY (it glints and glows like a shiny tree —
+   save.shinyHouses) and everything it sells is HAMMER_PRICE_MUL (0.8) of the
+   quote for good, the trader's asking stack included (Houses.priceMul; the
+   flower charm's hour and a carried guild badge stack on it). It is the one
+   standing discount a building carries. A BLACKSMITH and a TRADER carry a tier too
+   (shops.js smithTier / traderTier, off the ledger): ONE SMITHY PER TIER — the
+   Nth raised is tier N, and after the first the card for the next is offered
+   only from restore number N × SMITH_TIER_EVERY (5); its anvil forges within
+   one rank of its own and leans to it (gear.js SMITHY_OWN_TIER_BIAS). A
+   trader takes the rank of the restore number that raised it over
+   TRADER_TIER_EVERY (5), any number per rank, and its barter leans toward
+   goods of that rank (Shops.tierAffinity, halved per rank away). Every
+   ranked door wears its rarity badge on the map and in its offers
+   (Shops.shopTier). A TURRET is a lone castle tower on a house
+   lot: it draws the castle tower sheet in its own material family and its
+   archer fires on the castle turret lane (COMBAT) — nothing to trade. PLAIN
+   houses run deliveries (see DELIVERIES below). These are BUY/trade
+   specialties — selling is home-only, see SELL below.
  - FORTS (BUILDING_MED) start SEALED; pay a one-time stack of wood (tracked in
    save.unlockedForts) to open them. The wood price FOLLOWS A PROGRESSION
    across forts: FORT_UNLOCK_WOOD_START (6) for the first fort,
@@ -1412,7 +1481,7 @@ ECONOMY (buying & selling)
      * FULL MEASURE — QUANTITY luck: P(a find comes in a bigger stack),
        save.qtyUpgrades, read by rarity.js qtyLuck.
      * KEEN EYE ×7 — the RING, i.e. TIER luck: P(a find comes a tier rarer),
-       rarity.js ringLuck. The Ring is the tower's exclusive gift: never sold
+       rarity.js upgradeLuck. The Ring is the tower's exclusive gift: never sold
        or forged anywhere else (excluded from buildRelicOffer).
      * VIGOUR ×5 — the cheap track: + max energy per rung.
    The THIRD purchase is a one-time CALLING (class): Hunter (bow damage),
@@ -1437,7 +1506,7 @@ ECONOMY (buying & selling)
    shortDuration); the peddler says it (spokenDuration). Offers themselves
    still rotate on the house's hourly bucket.
  - BUY cost generation: cash storefronts (markets + generic houses) always
-   price in CASH (1.2-3.0× the item value, shrunk by your Bow tier). BARTER is
+   price in CASH (1.2-3.0× the item value — no relic shrinks it). BARTER is
    exclusively the TRADER shop kind's job (its own qty-scaled deal + re-roll —
    see the shop roles above). The old mixed "1/3 cash / 2/3 barter" roll was
    removed so the two idioms map cleanly onto shop type.
@@ -1450,14 +1519,15 @@ ECONOMY (buying & selling)
  - SELL: selling happens only at your HOME shop. With a stack selected, tapping
    home sells one at PRICES[id] × sword multiplier (0.5× with no sword → 1.0× at
    Frost). Other houses are buy/trade-only.
- - the Bow relic shrinks the buy markup (T7 = buy at par). The Staff is a pure
+ - no relic bends a price (Oct 2026; the Bow used to). The Staff is a pure
    combat weapon — it no longer affects prices.
  - ROADSIDE STANDS (the coffee cart, the fruit stall, the fishmonger — anything
    loot.js produceStandFor matches) sell BELOW the listed price, not at par and
    never at the 1.2-3.0x village-shop markup: a stand is a producer selling its
    own goods, not a shop restocking from a wholesaler.
    The discount has a hard ceiling — A STAND MUST NEVER BE AN ARBITRAGE PUMP.
-   Because the sell side is player-scaled (sword 0.5x -> 1.0x), a flat discount
+   Because the sell side tracks one rate (items.js SELL_MUL; it used to be
+   sword-scaled, 0.5x -> 1.0x, until Oct 2026), a flat discount
    would become free money the moment a player carried a tier-4 sword: buy at
    0.75, sell at 0.79, repeat. So the stand price tracks the player's OWN sell
    multiplier and stays above it, capped at par:
@@ -1513,8 +1583,8 @@ GEAR: RELICS & ARMOR
               wizard's Full Measure rung now.
      sword  — MELEE weapon (drains an enemy's HP on the combat wheel; melee
               auto-engages the nearest enemy in reach whenever no bow or
-              staff is equipped, bare hands included — see COMBAT); raises
-              sell prices (0.5× → 1.0× at Frost) whether active or not
+              staff is equipped, bare hands included — see COMBAT). It no
+              longer touches sell prices (Oct 2026: a flat SELL_MUL, items.js)
      bow    — RANGED weapon, an arrow (auto-fires along the compass every 2 s
               while an enemy is on screen, WHEN ACTIVE; stops in the first
               foe hit and at solid ground); lowers buy prices (T7 = par)
@@ -1632,7 +1702,7 @@ CONSUMABLES
    below the inventory bar while one is selected — same spot and behaviour as
    the Eat CTA for food. No foot-tapping: tapping your own cell with one
    selected falls through to the normal cell handlers (till / plant / etc.).
- - SYRUP: select it and tap Use — sets out a jar that lures wandering farm
+ - POTION OF TAMING: select it and tap Use — sets out a jar that lures wandering farm
    animals (chickens / cows) within ~6 cells (30m) toward you (the modal
    reports how many respond). Consumed on use — the animals eat it. (Was the
    Flute until Sep 2026, then Honey; the save id stays `honey`.)
@@ -1681,7 +1751,7 @@ ITEMS & RARITY
      minerals:      coal, wood, copper/iron/gold/platinum/crimson/frost bars
      gems:          sapphire, ruby, emerald, diamond
      animals:       chicken, cow, cat, dog, deer, rabbit, crow, butterfly
-     consumables:   honey, book, potions (reach / vigor / speed / shield /
+     magic, supply: honey, book, potions (reach / vigor / speed / shield /
                     blight / revive / resurrection / thunder), powders
                     (dragon / growth / shadow / frost), rope, torch, trap kit,
                     scarecrow
@@ -1723,7 +1793,7 @@ UNDERGROUND CAVES (Phase 1)
    longer quiet: hostile WANDERING MONSTERS spawn on CAVE_FLOOR cells (no
    surface fauna underground). They're the slime mechanic, parametrised — each
    drifts toward the player and drains energy when within RANGE, differing by
-   HP / RANGE / DAMAGE / SPEED (combat.js MONSTERS_BASELINE), and is an ENEMY:
+   HP / RANGE / DAMAGE / SPEED (combat.js MONSTERS, built from enemy_roster.js), and is an ENEMY:
    fought on HIT POINTS (see COMBAT) and paid for with the bounty. Each melee
    monster lands at most one hit every MONSTER_HIT_MS; a ranged one looses
    visible arrows carrying the same damage per minute. Kinds are gated by depth
@@ -1732,16 +1802,11 @@ UNDERGROUND CAVES (Phase 1)
      * purple slime  (depth 1+) — fast, flies, fragile
      * goblin        (depth 2+) — tougher melee
      * goblin archer (depth 3+) — range 3, the ONLY ranged foe
-   Every kind also has a GIANT form (giant_<kind>): 4× the HP, two levels
-   deeper, drawn at SpriteLayout.GIANT_ART_SCALE.
-   THE FIRST SLIME IS THE TUTORIAL. Those numbers are the authored baseline
-   DOUBLED (CAVE_ENEMY_MUL): the wild surface slime is the only enemy above
-   ground and the first anyone meets, so it stays gentle, and every enemy
-   beyond it — all of them underground, met by a player who went looking — has
-   double the HP and does double the damage. Applied as one rule over the
-   table, so a kind added to it inherits the doubling. Knock-ons are derived:
-   double HP is exactly double the time to kill at any weapon tier (the dps
-   identity is untouched), and the coin bounty pays per HP.
+   GIANT forms are their own enemy_roster.js rows (variantType 'Giant'), with
+   their own HP and depths, drawn at SpriteLayout.GIANT_ART_SCALE.
+   THE FIRST SLIME IS THE TUTORIAL: the wild surface slime stays gentle; the
+   roster rows carry each kind's final numbers (no global multiplier), and the
+   coin bounty pays per HP.
    The goblin archer needs a CLEAR LINE, the same as your own bow — it used to
    chip at you through solid rock from a tunnel you couldn't see.
    Each kind draws from its row in SpriteLayout.CREATURE_ART. Monsters can't be

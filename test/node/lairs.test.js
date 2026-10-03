@@ -270,7 +270,9 @@
     // The renderer must READ that, not branch on the kind.
     // (A burning body — `afire`, the `burning` row's tint — sits between
     // the ice and the sheen: it says something about the instance too.)
-    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
+    // (A status that has JUST landed — `flick`, Combat.statusFlashTint —
+    // flicks over all of them for the instant: it is the event, not a state.)
+    assert.truthy(/s\.setTint\(flick != null \? flick : frozen \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : poisoned \? Conditions\.DEFINITIONS\.poison\.tint : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
       .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
     assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
       'and picks the monster sheet from the table, not an if-else chain');
@@ -335,13 +337,59 @@
     }
     throw new Error(`no held seat for tier ${tier} near ${cxM},${cyM}`);
   }
+  // …and a held one that takes the PLAIN garrison rather than an authored
+  // group (Lairs.GROUPS — guard_groups.test.js is theirs): the first three
+  // draws of the structure's stream, as garrisonFor takes them (held?,
+  // strength, group?).
+  const plainAt = (tier, cxM, cyM) => {
+    const sid = Lairs.structureKey(0, 0, Math.floor(cxM / CELL_M), Math.floor(cyM / CELL_M));
+    const rng = WorldGen.makeRng(Lairs.hashKey(sid));
+    if (rng() >= Lairs.occupancyFor(tier)) return false;
+    const t = rng();
+    return Lairs.groupFor(tier, t, rng, true) == null;
+  };
+  function mkPlainShape(tier, cxM, cyM, sizeM, key) {
+    for (let i = 0; i < 80; i++) {
+      const dx = ((i % 2) ? -1 : 1) * Math.ceil(i / 2) * CELL_M;
+      if (plainAt(tier, cxM + dx, cyM)) return mkShape(tier, cxM + dx, cyM, sizeM, key);
+    }
+    throw new Error(`no plain held seat for tier ${tier} near ${cxM},${cyM}`);
+  }
+
+  test('lairs: an intact bastion stays unguarded while other castle families can wake', () => {
+    const base = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);
+    let bastionKey;
+    for (let i = 0; i < 100; i++) {
+      const key = `castle-bastion-fixture-${i}`;
+      if (CastleStyles.variantFor(key) === 'bastion') { bastionKey = key; break; }
+    }
+    assert.truthy(bastionKey, 'fixture uses a real hashed owner identity');
+    for (const key of ['citadel', bastionKey]) {
+      const shape = { ...base, key }, entry = mkEntry([shape]);
+      const index = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
+      const cand = [...index.buckets.values()].flat()[0];
+      assert.eq(cand.key, key, 'the footprint owner selects the family');
+      const guards = Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME });
+      if (key === 'citadel') assert.gt(guards.length, 0, 'the same held site can wake a citadel');
+      else {
+        assert.eq(guards.length, 0, 'bastions never get the held-site guards');
+        step(entry, CENTRE);
+        assert.eq(guardsOf(entry).length, 0, 'residency also leaves the bastion empty');
+      }
+    }
+    const fort = mkHeldShape(11, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M, bastionKey);
+    const entry = mkEntry([fort]);
+    const cand = [...Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
+    assert.gt(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME }).length, 0,
+      'castle family policy does not change fort guards');
+  });
 
   test('lairs: a building garrison is never rooted plants; a road variant may be', () => {
     assert.truthy(EnemyRoster.isRooted('plant'), 'the plant is rooted');
     assert.falsy(EnemyRoster.isRooted('spider'), 'the spider walks');
     const EH = EnemyHabitats, keep = EH.buildingKinds;
     const wake = (tier, family) => {
-      const shape = mkHeldShape(tier, 20 * CELL_M, 20 * CELL_M, 4 * CELL_M);
+      const shape = mkPlainShape(tier, 20 * CELL_M, 20 * CELL_M, 4 * CELL_M);
       const c = [...Lairs.buildIndex({ buildingShapes: [shape] }, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
       EH.buildingKinds = () => family;
       try { return Lairs.garrisonFor(mkEntry([shape]), c, { tileEdgeM: TILE_M, homeM: HOME }); }
@@ -359,7 +407,7 @@
   });
 
   // ── The kerb buffer (Sep 2026 safety pass) ───────────────────────────────
-  test('lairs: no guard of any lair seats inside the major roads\' kerb buffer (WorldGen.isFoeCell)', () => {
+  test('lairs: no guard of any lair seats inside the major roads\' kerb buffer (WorldGen.isSpawnCell at the guard\'s spawn class)', () => {
     const castle = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);
     const cand = () => Lairs.buildIndex({ buildingShapes: [castle] }, 0, 0, CELL_M, TILE_M);
     const wake = (entry) => {
@@ -461,7 +509,7 @@
     assert.eq(Lairs.occupancyFor(7, 1), 0, 'a tier that holds no lair is never held');
   });
 
-  test('lairs: over many ruins the rate really is the tier\'s rate', () => {
+  test('lairs: guard-eligible ruins retain their tier occupancy rate', () => {
     // The roll drives the shipping garrisonFor, not a reimplementation of it:
     // plant the same wreck at 600 different places and count how many hold.
     const far = { x: -FAR_HOME_M, y: 0 };
@@ -473,6 +521,12 @@
         const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
         const [cand] = [...idx.buckets.values()][0];
         cand.sid = Lairs.structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
+        // Intact bastions deliberately have no guards; occupancy still owns
+        // the chance for the other families, independently of their palette.
+        if (tier === 12 && !CastleStyles.get(cand.key).guards) {
+          assert.eq(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M }).length, 0);
+          continue;
+        }
         n++;
         if (Lairs.garrisonFor(entry, cand, {
           cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
@@ -651,7 +705,10 @@
       step(entry, { x: (8 + (k % 24)) * CELL_M, y: (8 + Math.floor(k / 24) * 8) * CELL_M });
       for (const g of guardsOf(entry)) {
         seen++;
-        const want = Combat.monster(g.kind).eliteEligible && isShiny(g.id, SHINY_RATE.monster);
+        // An authored group's `elite` member is the one stamp that is not
+        // the id's (Lairs.GROUPS — guard_groups.test.js).
+        const authored = !!g.group && Lairs.expandGroup(g.group, k % 2 ? 12 : 9).some((m) => m.kind === g.kind && m.elite);
+        const want = Combat.monster(g.kind).eliteEligible && (authored || isShiny(g.id, SHINY_RATE.monster));
         assert.eq(!!g.shiny, want, `${g.id} (${g.kind}): elite flag is not its id's`);
         if (Combat.monster(g.kind).variantType === 'Giant') assert.falsy(g.shiny, 'giants cannot be elites');
       }
@@ -764,8 +821,9 @@
     // from the wrong one would still look right in every unit test above.
     const want = { 9: /slime$/, 11: /^goblin/, 12: /skeleton$/ };
     for (const tier of Lairs.TIERS) {
-      // A HELD one — a wreck is a 1-in-3 and this test is about families.
-      const entry = mkEntry([mkHeldShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+      // A HELD one, with the PLAIN garrison — a wreck is a 1-in-3 and this
+      // test is about the ladder's families, not the authored groups.
+      const entry = mkEntry([mkPlainShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
       step(entry, CENTRE);
       const guards = guardsOf(entry);
       assert.gt(guards.length, 0, `tier ${tier}: the ruin woke empty`);
@@ -894,9 +952,10 @@
   test('lairs: a garrison is immobile, and a house is ringed but a keep is held from INSIDE', () => {
     // A wrecked house's slimes sit on a ring just off its footing; a fort's or
     // a castle's garrison stands in a knot about the footprint's centre
-    // (CORE_SEATED_TIERS) — the keep is walked INTO for the fight.
+    // (CORE_SEATED_TIERS) — the keep is walked INTO for the fight. The PLAIN
+    // garrison: a group places its members by its own table (guard_groups.test.js).
     for (const tier of [9, 11, 12]) {
-      const entry = mkEntry([mkHeldShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+      const entry = mkEntry([mkPlainShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
       step(entry, CENTRE);
       const gs = guardsOf(entry);
       assert.truthy(gs.length > 0, `tier ${tier}: the ruin woke empty`);
@@ -983,12 +1042,12 @@
   });
 
   test('lairs: a claimed structure holds nothing', () => {
-    const shapes = [mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'mine')];
+    const shapes = [mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'citadel')];
     const open = mkEntry(shapes);
     step(open, CENTRE);
     assert.truthy(guardsOf(open).length > 0, 'unclaimed, it is held');
     const claimed = mkEntry(shapes);
-    step(claimed, CENTRE, { isClaimed: (k) => k === 'mine' });
+    step(claimed, CENTRE, { isClaimed: (k) => k === 'citadel' });
     assert.eq(guardsOf(claimed).length, 0, 'a ruin the player has taken back still held monsters');
   });
 
@@ -1340,7 +1399,7 @@
     };
     const leech = at('rosterEnemyAttack(this, c, rosterRow', 'the roster attack');
     const attack = leech;
-    const immobile = at("if (c.immobile && !frightened && lairState !== 'hunt' && lairState !== 'return') return;",
+    const immobile = at("if (c.immobile && !frightened && !psychotic && lairState !== 'hunt' && lairState !== 'return') return;",
       'the at-rest branch');
     const crow = at("if (c.kind === 'crow' && !isTame) {", 'the wild-crow flight');
     const stepAt = at('if (now >= c._nextChooseT) {', 'the movement step');
@@ -1350,7 +1409,7 @@
     assert.lt(immobile, stepAt, 'at-rest below the movement step — a garrison that wanders off');
     // And the state that decides it is resolved ABOVE the attack blocks, since
     // `standDown` — the one read those blocks ask — is built from it.
-    const state = at("const lairState = c.lair && !frightened ? Lairs.guardState(", 'the guard state');
+    const state = at("const lairState = c.lair && !frightened && !psychotic ? Lairs.guardState(", 'the guard state');
     assert.lt(state, leech, 'the state is resolved before anything reads standDown');
     // `!unnoticed`, optionally AND further reasons to stand down (the kerb
     // turn of the Sep 2026 safety pass) — never a lane that drops unnoticed.

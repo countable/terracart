@@ -9,7 +9,7 @@
 // scene-art frame constants (STORY_MODAL_GROW_PX, ART_FRAME_ASPECT,
 // ART_DETAIL_FRAC, ART_BAND_*).
 //
-// Moved verbatim out of app.js. The methods live on `class SceneModals`, a
+// The methods live on `class SceneModals`, a
 // MIXIN: app.js installs them onto MapScene.prototype right after the class
 // closes (installSceneMixin, below), so every caller still says
 // `this.showOfferModal(...)` / `scene.makeModalShell(...)` and nothing else
@@ -29,10 +29,6 @@
 // changing the frame or the band here, and tools/modal_audit.js for the
 // every-dialog-has-a-kind check.
 
-// How far above dead-centre every dialog rides (game px, in #game's 844-tall
-// box). Reserved as bottom padding on the shared modal wrap so the flex-centred
-// box lifts clear of the bottom inventory/HUD cluster. See makeModalShell —
-// this is the one knob that moves all dialogs together.
 // EVERY DIALOG IS THE MAP VIEWPORT: makeModalShell seats its box exactly
 // over the map square (viewLeft/viewTop/viewSize — 352×352 game px) whatever
 // it holds; the content never sizes the box. Short content sits centred in
@@ -64,38 +60,26 @@ const ART_BAND_FRAC = ART_DETAIL_FRAC - ART_BAND_FROM;
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
 // Every modal opens with one of these: a hero icon and a one-word category, so
-// the player knows what they are looking at before reading a line of it — a
-// castle says QUEST, a chest says TREASURE, a blacksmith says FORGE. Dialogs
-// used to open straight into flavour copy ("The trader offers:"), which reads
-// fine once you already know where you are and not at all when you don't.
+// the player knows what they are looking at before reading a line of it.
+// The label is the CATEGORY, not the specific offer; callers may override it
+// for a one-off outcome (the trail prize's "Thou hast traveled far").
 //
-// The label is the CATEGORY, not the specific offer — the flavour line under
-// it still carries that. Callers may override the label for a one-off outcome
-// (the trail prize's "Thou hast traveled far") and keep the kind's icon; see
-// showChestRewardModal.
+// The icon is the FALLBACK glyph. A dialog whose subject is a thing standing on
+// the map passes that thing's sprite instead (`kindIcon`, makeModalShell); an
+// emoji remains for categories with no sprite behind them.
 //
-// The icon here is the FALLBACK glyph — what a dialog opens with when it has
-// no picture of its own. A dialog whose subject is a thing standing on the map
-// passes that thing's sprite instead (`kindIcon`, makeModalShell): the chest
-// ceremony opens with the crate or the trunk the player just tapped, because
-// TREASURE's diamond said nothing about which chest paid out and drew a gem
-// over a handful of onion seeds. An emoji is what remains for the categories
-// with no sprite behind them — a quest, a trade, the energy explainer.
-//
-// `supplies` exists because the tutorial's own material handout was opening as
-// TREASURE: the objective chip calls them supply crates, they render as the
-// humble box sprite precisely so they read as supplies, and then 9 wood
-// arrived under a diamond. Spending the treasure ceremony there costs it its
-// meaning for the thing at the end of the same trail that IS treasure — the
-// spawn relic chest. The COLOUR stays blue-white either way: both are things
-// the world gives the player (spec §UI COLOUR LANGUAGE). Only the word and the
-// hero icon change.
+// `supplies` is separate from `treasure` so the tutorial's material handout
+// does not spend the treasure ceremony meant for the spawn relic chest. The
+// COLOUR stays blue-white either way (spec §UI COLOUR LANGUAGE).
 //
 // Keys are referenced by every modal call site and pinned by
 // tools/modal_audit.js, which fails the build if a dialog opens without one.
 // `art` is the category's default SCENE painting (assets/art/, see SCENE ART
-// by STORY_MODAL_GROW_PX) — every dialog of the kind opens on it unless its
-// caller hands a painting of its own.
+// by STORY_MODAL_GROW_PX), used unless the caller hands a painting of its own.
+// PIXEL RESOLVE's cuts, coarse to fine: ART_CUTS[stem] then the thumbnail
+// itself (ART_THUMBS), all baked inline by tools/art_thumbs.js at the
+// ART_CUT_WIDTHS it writes beside them. Never cut at runtime (canvas readbacks
+// cost ~200 ms of main thread as the dialog opened).
 // PIXEL RESOLVE's cuts, coarse to fine: ART_CUTS[stem] then the thumbnail
 // itself (ART_THUMBS), all baked inline by tools/art_thumbs.js at the
 // ART_CUT_WIDTHS it writes beside them. Never cut at runtime — that was four
@@ -151,13 +135,18 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, story = false, art, centerBody = false } = {}) {
+    kind, kindLabel, kindIcon, story = false, art, centerBody = false, fullscreen = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog by definition — its frame is cut to
     // the grown box (ART_FRAME_ASPECT).
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
     art = art || kRow?.art;
+    // FULLSCREEN (the wreck's build pick): the box fills the whole visible
+    // game slice instead of the map square, and drops the painting — a
+    // portrait frame cut to the square has no shape to fill it. The kind
+    // header falls back to its plain icon-and-label row.
+    if (fullscreen) art = null;
     if (art) story = true;
     const wrap = document.createElement('div');
     wrap.id = id;
@@ -181,15 +170,22 @@ class SceneModals {
     const vLeft = this.viewLeft ?? 0;
     const vTop = this.viewTop ?? 0;
     const grow = story ? STORY_MODAL_GROW_PX : 0;
+    const frameBorder = borderColor === UI_CONTROL_DIM ? UI_DIALOG_BORDER : borderColor;
     const box = document.createElement('div');
-    box.style.cssText =
+    box.style.cssText = fullscreen
+      ? 'position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;' +
+        'background:#1a1612;color:#fff;border:0;border-radius:0;' +
+        'padding:max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));' +
+        'font:13px ui-monospace,monospace;overflow-y:auto;overscroll-behavior:contain;' +
+        (textAlign ? `text-align:${textAlign};` : '') + boxExtra
+      :
       // Seated on the map square, in #game's own (game px) space; the wrap
       // starts at --view-top, so the box's top is measured back from it.
       `position:absolute;left:${vLeft}px;width:${vSize}px;` +
       `top:calc(${vTop - Math.round(grow / 4)}px - var(--view-top, 0px));height:${vSize + grow}px;` +
       `box-sizing:border-box;display:flex;flex-direction:column;` +
       `background:#1a1612;color:#fff;` +
-      `border:2px solid ${borderColor};border-radius:10px;padding:14px 16px;` +
+      `border:2px solid ${frameBorder};border-radius:10px;padding:14px 16px;` +
       `font:13px ui-monospace,monospace;` +
       // Content that outgrows the square scrolls INSIDE it — the box never
       // grows to fit. (Stats & Relics is the long one.)
@@ -290,9 +286,7 @@ class SceneModals {
     let kindNode = null;
     if (k && art) {
       // With a painting, the painting is the hero: the category shrinks to a
-      // bare label chip on its top-left corner — no emoji, no sprite, no rule
-      // under it. The painting already shows the chest or the crate, so a
-      // sprite of it in the corner was a second, smaller picture of it.
+      // bare label chip on its top-left corner.
       kindNode = document.createElement('div');
       kindNode.className = 'modal-kind';
       kindNode.style.cssText =
@@ -311,13 +305,9 @@ class SceneModals {
         `border-bottom:1px solid ${borderColor}59;`;
       const ico = document.createElement('span');
       if (kindIcon) {
-        // A SPRITE hero glyph: the art the world drew for the very thing this
-        // dialog is about (scene.worldIconHTML off the object's own texture
-        // key), so a ceremony opens with its own source rather than a stand-in
-        // — a chest that stands on the map as a crate opened under a diamond
-        // until Sep 2026. NOT desaturated: the greying below is right for an
-        // emoji, which is a category glyph borrowed from the font, and wrong
-        // for pixel art of a real object, which reads as broken art in grey.
+        // A SPRITE hero glyph: the art the world drew for the thing this dialog
+        // is about (scene.worldIconHTML). NOT desaturated: the greying below
+        // suits an emoji, and reads as broken for pixel art.
         ico.style.cssText = 'display:flex;align-items:center;line-height:0';
         ico.innerHTML = kindIcon;
       } else if (k.coinIcon) {
@@ -353,6 +343,9 @@ class SceneModals {
         // THE CONTENT REGION of a scene dialog: bottom-anchored, capped at the
         // quiet zone, scrolling inside it when the copy is long.
         ? `margin-top:auto;flex:0 1 auto;max-height:${Math.round((1 - ART_DETAIL_FRAC) * 100)}%;` +
+          // Leave room for the controls' 2px press travel and raised edge.
+          // Without it, pressing the last button briefly creates overflow.
+          'padding-bottom:3px;box-sizing:border-box;' +
           'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;' +
           // Above the painting layer (PIXEL RESOLVE), which is absolute.
           'position:relative;z-index:1;'
@@ -492,19 +485,28 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note', mustAcknowledge = false }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false }) {
     document.getElementById('offer-modal')?.remove();
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      if (typeof onDismiss === 'function') onDismiss();
+    };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: mustAcknowledge ? undefined : () => {}, kind: kind, art });
+      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art });
     const safeBody = String(body).replace(/\n/g, '<br>');
-    box.innerHTML =
-      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>` +
-      `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
+    // No title, no title line: a page whose own heading is in the body (the
+    // Book's volume line) starts on it, with no empty gold row above.
+    const titleHTML = title
+      ? `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
+      : '';
+    box.innerHTML = titleHTML + `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       wrap.remove();
-      if (typeof onDismiss === 'function') onDismiss();
+      dismiss();
     });
     box.appendChild(btn);
     mount();
@@ -539,17 +541,11 @@ class SceneModals {
       if ([...document.querySelectorAll('.game-modal')].some(el => el.id !== 'menu-modal' && shown(el))) {
         const m = document.getElementById('menu'); if (m && m.open) m.open = false;
       }
-      // Nothing covering the screen — so anything the starter ladder is
-      // holding can be said now. See _celebrateStarterStep: cheers always
-      // queue and this is the only thing that plays them, which is why the
-      // test is "no modal" rather than "a modal just closed". At the instant a
-      // step completes the answer is not yet knowable: the chest handler
-      // credits the step one line BEFORE it opens the reward modal, so at that
-      // point no modal exists and none of this class's state has been updated
-      // for the one that is about to. One frame later it has.
-      // A cheer that waited out a dialog lost its toast: the dialog already
-      // said it (the Restored! card names the rebuild), so a second notice
-      // after it closes is noise. See _playStarterCheer.
+      // Nothing covering the screen: anything the starter ladder is holding can
+      // be said now (_celebrateStarterStep). The test is "no modal" rather than
+      // "a modal just closed" because when a step completes the answer is not
+      // yet knowable: the chest handler credits the step one line BEFORE it
+      // opens the reward modal. One frame later it is.
       if (any && this._pendingStarterCheers?.length) this._starterCheerBehindDialog = true;
       if (!any) this._flushStarterCheers();
     };
@@ -578,25 +574,42 @@ class SceneModals {
   //   blurb:        OPTIONAL HTML, smaller text below `get` (e.g. relic effect)
   //   cost:         HTML for the price line ("$30", "1× icon Item", "5× gem")
   //   canAfford:    grey out the accept button when false
+  //   disabledReason: explain a non-money blocker without marking the cost unaffordable
   //   onAccept:     called after the modal closes
+  //   repeat:       re-present a counter after each transaction with live state
+  //   onCancel:     optional work deferred until the player leaves
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
   //   cancelLabel:  dismiss button label. Defaults to 'Cancel'; pass 'Later'
   //                 for offers tied to a persistent venue (a shop, a wreck,
   //                 a sealed building) the player can simply come back to —
   //                 "Later" reads as "still on the table" rather than "gone".
-  //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
+  //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn, withChoice? }
   //                 — rendered between Cancel and accept (re-roll button).
+  //                 `withChoice`: a second way to ACCEPT the pick (restore
+  //                 with the hammer): armed exactly as accept is, and its
+  //                 onClick receives the selected card's key.
   //   pager:        OPTIONAL { index, count, onPrev, onNext } — the page is
   //                 one of `count` options (a smelt bar, a Home recipe), and
   //                 small ‹ › arrows flank the `get` line with an "i / n"
-  //                 under it. Paging is not an action: it used to be a
-  //                 full-size "Smelt Platinum" button beside the real one,
-  //                 which read as a second way to SMELT rather than as a way
-  //                 to look at the next bar. `showIndex: false` drops the
-  //                 "i / n" line (Home's Craft page) and keeps the arrows.
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
+  //                 under it (paging is not an action, so no extra button).
+  //                 `showIndex: false` drops the "i / n" line and keeps the arrows.
+  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested?, cost?, canAfford? }]
+  //                 — the offer is ONE OF several things (what a wreck is
+  //                 restored as). Laid out as cards between the headline and
+  //                 the cost; a tap SELECTS a card (outlined, its `info` on
+  //                 the line under the row) and only the accept button pays,
+  //                 with the selected `key` as its argument. A card with its
+  //                 own `cost` (and `canAfford`) puts THAT on the cost line
+  //                 when it is selected and arms accept by it — the cards
+  //                 need not share a price.
+  //                 Until a card is selected `pickHint` sits on that line and
+  //                 accept is disabled; `choice` names a card selected from
+  //                 the start (a single card is selected on its own, so the
+  //                 dialog reads as the plain price tag it is). A `suggested`
+  //                 card wears a soft outline until something is picked.
+  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: () => {}, kind, kindLabel, kindIcon, art });
+      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, fullscreen });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -620,32 +633,27 @@ class SceneModals {
       }
       box.appendChild(tabRow);
     }
-    // Build the chrome out of individual nodes so the quantity stepper (when
-    // present) can live-update the get/cost lines without re-rendering the
-    // whole modal — tap − / + and the headline price + cost-line stack count
-    // refresh in place.
+    // Built from individual nodes so the quantity stepper can live-update the
+    // get/cost lines without re-rendering the whole modal.
     if (title) {
       const titleDiv = document.createElement('div');
       titleDiv.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
       titleDiv.textContent = title;
       box.appendChild(titleDiv);
     }
-    // `getLabel` / `costLabel` are explicit captions over the two halves of
-    // the trade ("You receive" / "You give"). A goods-for-goods trade like the
-    // smithy's — gear for bars, or bars for bars on the Smelt tab — reads as
-    // two equal lines with only the word "for" between them, and which side
-    // was the price was a guess. A caption names each side; when `costLabel`
-    // is given it REPLACES the "for" row rather than stacking on it.
+    // `getLabel` / `costLabel` caption the two halves of a goods-for-goods
+    // trade ("You receive" / "You give") so which side is the price is not a
+    // guess; `costLabel` REPLACES the "for" row rather than stacking on it.
     const mkCaption = (text) => {
       const c = document.createElement('div');
       c.style.cssText = 'font:700 10px ui-monospace,monospace;letter-spacing:.12em;'
-        + 'text-transform:uppercase;opacity:.6;margin:8px 0 2px';
+        + 'text-transform:uppercase;opacity:.6;margin:6px 0 2px';
       c.textContent = text;
       return c;
     };
     if (getLabel) box.appendChild(mkCaption(getLabel));
     const getDiv = document.createElement('div');
-    getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0;color:#ffe066';
+    getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:2px 0;color:#ffe066';
     getDiv.innerHTML = get;
     if (pager && pager.count > 1) {
       const pageRow = document.createElement('div');
@@ -676,20 +684,76 @@ class SceneModals {
     }
     if (blurb) {
       const blurbDiv = document.createElement('div');
-      blurbDiv.style.cssText = 'font-size:11px;opacity:.75;margin-bottom:6px';
+      blurbDiv.style.cssText = 'font-size:11px;opacity:.75;margin-bottom:4px';
       blurbDiv.innerHTML = blurb;
       box.appendChild(blurbDiv);
     }
-    // `cost` is what the player PAYS — the second half of a "you get X FOR y"
-    // trade, and the `forLabel` row is the literal word joining the two. Not
-    // every caller is a trade: the quest board reports progress and asks for
-    // nothing. Those get neither row, rather than a dangling "for" over an
-    // empty line — or, as the quest board did, the same sentence printed twice
-    // because both halves were handed the same string.
-    const hasCost = cost != null && cost !== '';
+    // The choice cards (see `choices` above). A row that wraps, so six
+    // buildings fit a phone two or three to a line; the accept button below
+    // is armed by `syncAccept` once it exists.
+    const hasChoices = Array.isArray(choices) && choices.length > 0;
+    let selected = null;
+    let syncAccept = () => {};
+    let liveCanAfford = canAfford;
     let costDiv = null;
+    // Cards that price themselves and carry no `info` (the wreck's build
+    // pick) spend the dialog's height on the cards: no info line, no cost
+    // caption — the hint and then the price sit on the one cost line.
+    const priced = hasChoices && choices.some((c) => c.cost != null) && !choices.some((c) => c.info);
+    // The selected card's own price, if it carries one, onto the cost line.
+    const applyChoiceCost = () => {
+      if (!selected || selected.cost == null) return;
+      liveCanAfford = selected.canAfford !== false;
+      if (costDiv) { costDiv.innerHTML = selected.cost; costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a'; }
+    };
+    if (hasChoices) {
+      const cardRow = document.createElement('div');
+      // Fullscreen: an even grid of larger cards; otherwise three to a line.
+      cardRow.style.cssText = fullscreen
+        ? 'display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:10px 0 4px;'
+        : 'display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:2px 0 2px;';
+      // Cards with no `info` (names and badges only) need just the hint line
+      // — and when they price themselves, not even that: the hint sits on
+      // the cost line until a card is picked (the dialog's height is what
+      // a six-card pick spends it on).
+      const anyInfo = choices.some((c) => c.info);
+      const infoLine = document.createElement('div');
+      infoLine.style.cssText = 'font-size:12px;line-height:1.35;opacity:.9;margin:4px 0 6px;'
+        + `min-height:${anyInfo ? 2.7 : 1.4}em;`;
+      const cards = [];
+      const paint = () => {
+        for (const { c, b } of cards) {
+          b.style.outline = selected === c ? '2px solid #ffe066'
+            : (!selected && c.suggested) ? '2px dashed #a7ffb0' : '';
+        }
+        infoLine.innerHTML = selected ? (selected.info || '') : `<span style="opacity:.6">${pickHint}</span>`;
+        applyChoiceCost();
+        syncAccept();
+      };
+      for (const c of choices) {
+        const b = document.createElement('button');
+        b.innerHTML = (c.iconHTML ? `<div style="font-size:0;margin-bottom:2px">${c.iconHTML}</div>` : '') + c.label;
+        b.style.cssText = (fullscreen
+          ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
+          : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px ui-monospace,monospace;')
+          + 'border-radius:7px;cursor:pointer;background:transparent;color:#ddd;border:2px solid #555;';
+        b.addEventListener('click', (e) => { e.stopPropagation(); selected = c; paint(); });
+        cardRow.appendChild(b);
+        cards.push({ c, b });
+      }
+      box.appendChild(cardRow);
+      if (!priced) box.appendChild(infoLine);
+      selected = choices.length === 1 ? choices[0] : (choices.find((c) => c.key === choice) || null);
+      paint();
+    }
+    // `cost` is what the player PAYS, the second half of "you get X FOR y";
+    // `forLabel` is the literal word joining them. Callers that are no trade
+    // (the quest board) pass no cost and get neither row.
+    const hasCost = (cost != null && cost !== '') || (hasChoices && choices.some((c) => c.cost != null));
     if (hasCost) {
-      if (costLabel) {
+      if (priced) {
+        // no caption: the line below is the cost
+      } else if (costLabel) {
         box.appendChild(mkCaption(costLabel));
       } else {
         const forDiv = document.createElement('div');
@@ -698,15 +762,24 @@ class SceneModals {
         box.appendChild(forDiv);
       }
       costDiv = document.createElement('div');
-      costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0 10px;';
+      costDiv.style.cssText = priced ? 'font-size:15px;font-weight:700;margin:4px 0 6px;' : 'font-size:16px;font-weight:700;margin:3px 0 8px;';
       costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
-      costDiv.innerHTML = cost;
+      // No price until a card is picked: the hint sits on the line instead.
+      costDiv.innerHTML = (cost != null && cost !== '') ? cost
+        : `<span style="opacity:.6;font-weight:400;font-size:12px">${pickHint}</span>`;
       box.appendChild(costDiv);
+      applyChoiceCost();
+    }
+    if (disabledReason) {
+      const reason = document.createElement('div');
+      reason.className = 'offer-disabled-reason';
+      reason.style.cssText = 'color:#ffcf8a;font-size:13px;margin:4px 0 10px;';
+      reason.textContent = disabledReason;
+      box.appendChild(reason);
     }
     // Quantity stepper (only when caller passes `quantity`). Lays out as
     // [ − ]  N / MAX  [ + ] just above the action-button row.
     let qty = 1;
-    let liveCanAfford = canAfford;
     let stepperRefresh = null;
     if (quantity) {
       const minQ = quantity.min ?? 1;
@@ -752,7 +825,7 @@ class SceneModals {
         dim(minusBtn, qty <= minQ);
         dim(plusBtn,  qty >= maxQ);
         // Keep the primary action button in sync with the live canAfford.
-        if (accept) accept._setEnabled(liveCanAfford);
+        if (accept) accept._setEnabled(liveCanAfford && !disabledReason && (!hasChoices || !!selected));
       };
       minusBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -766,14 +839,38 @@ class SceneModals {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
     const cancel = mkBtn(cancelLabel, false, false);
-    const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
-    const accept = mkBtn(acceptLabel, true, !canAfford);
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled || !!(secondary.withChoice && hasChoices && !selected)) : null;
+    const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); if (onCancel) onCancel(); });
+    let accepted = false;
     accept.addEventListener('click', (e) => {
-      e.stopPropagation(); wrap.remove();
-      onAccept(quantity ? qty : undefined);
+      e.stopPropagation();
+      if (accepted || accept.disabled) return;
+      if (hasChoices && !selected) return;
+      accepted = true;
+      wrap.remove();
+      onAccept(quantity ? qty : hasChoices ? selected.key : undefined);
+      if (repeat) repeat();
     });
-    if (sec) sec.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); secondary.onClick(); });
+    if (hasChoices) {
+      syncAccept = () => {
+        const armed = liveCanAfford && !disabledReason && !!selected;
+        accept._setEnabled(armed);
+        if (sec && secondary.withChoice) sec._setEnabled(armed && !secondary.disabled);
+      };
+      syncAccept();
+    }
+    if (sec) sec.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (secondary.withChoice) {
+        if (accepted || sec.disabled || (hasChoices && !selected)) return;
+        accepted = true;
+        wrap.remove();
+        secondary.onClick(hasChoices ? selected.key : undefined);
+        return;
+      }
+      wrap.remove(); secondary.onClick();
+    });
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);
     row.appendChild(accept);
@@ -814,13 +911,19 @@ class SceneModals {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
-  //                          An action may carry `info` (HTML): its button
-  //                          grows an ⓘ, and tapping THAT (not the button)
-  //                          shows the text under the row — tap again, or
-  //                          another card's ⓘ, to swap or hide it. Nothing is
-  //                          chosen by reading.
+  //                          An action may carry `info` (HTML): in the card
+  //                          pick it is the line shown under the row while
+  //                          that card is selected (what the thing does).
   //   cards         bool?  → lay the actions out as equal-width cards on ONE
   //                          row (the pick) instead of wrapping word buttons.
+  //                          A card is SELECTED by a tap (outlined, its info
+  //                          below), and paid only by the one `confirmLabel`
+  //                          button under the row — so a card is read and
+  //                          compared before it is taken, and nothing is
+  //                          chosen by looking. Until a tap, `pickHint` sits
+  //                          on that line and the button is disabled.
+  //   confirmLabel  string? → the pick's button (default 'Take').
+  //   pickHint      string? → the line under an unselected row.
   //   kindIcon      string? → HTML for the kind header's hero GLYPH, replacing
   //                          the MODAL_KINDS emoji (see makeModalShell). The
   //                          chest ceremony passes the sprite the chest it came
@@ -855,7 +958,8 @@ class SceneModals {
     });
   }
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false, tier = 0 }) {
+    onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false, tier = 0,
+    confirmLabel = 'Take', pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, centerBody: true,
       kind, kindLabel: header, kindIcon,
@@ -864,10 +968,7 @@ class SceneModals {
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
     });
     // Keyframes injected once. The sparkle keyframe reads its drift vector
-    // from per-element CSS custom properties (--dx/--dy) so a single shared
-    // rule animates N sparkles each along its own randomised direction. The
-    // translate(-50%,-50%) prefix keeps each sparkle centred on its
-    // perimeter anchor while drifting outward.
+    // from per-element --dx/--dy so one rule serves every sparkle.
     if (!document.getElementById('chest-modal-css')) {
       const s = document.createElement('style');
       s.id = 'chest-modal-css';
@@ -917,10 +1018,19 @@ class SceneModals {
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;gap:' + (cards ? 6 : 8) + 'px;justify-content:center;margin-top:10px;'
         + (cards ? 'flex-wrap:nowrap;align-items:stretch;' : 'flex-wrap:wrap;');
-      // One shared line under the row for whichever card's ⓘ was tapped.
+      // One shared line under the row: the pick's hint, then the SELECTED
+      // card's info. Word buttons (no cards) have no line.
       const infoLine = document.createElement('div');
-      infoLine.style.cssText = 'display:none;margin-top:10px;font-size:12px;line-height:1.35;opacity:.9;';
-      let infoOpen = null;
+      infoLine.style.cssText = 'margin-top:10px;font-size:12px;line-height:1.35;opacity:.9;min-height:1.35em;'
+        + (cards ? '' : 'display:none;');
+      if (cards) infoLine.innerHTML = `<span style="opacity:.6">${pickHint}</span>`;
+      const choose = (a) => {
+        wrap.remove();
+        if (typeof a.onClick === 'function') a.onClick();
+        if (typeof onDismiss === 'function') onDismiss();
+      };
+      let selected = null;
+      let take = null;
       for (const a of actions) {
         const b = document.createElement('button');
         b.innerHTML = a.label;
@@ -930,34 +1040,38 @@ class SceneModals {
           (a.primary
             ? `background:${accent};color:#1a1612;border:0;`
             : 'background:transparent;color:#ddd;border:2px solid #555;');
-        if (a.info) {
-          const i = document.createElement('span');
-          i.textContent = 'ⓘ';
-          i.setAttribute('role', 'button');
-          i.setAttribute('aria-label', 'What does this do?');
-          i.style.cssText = 'position:absolute;top:0;right:0;width:24px;height:24px;'
-            + 'display:flex;align-items:center;justify-content:center;'
-            + `font:400 15px/1 sans-serif;color:${accent};opacity:.85;`;
-          i.addEventListener('click', (e) => {
-            e.stopPropagation();   // reading a card never takes it
-            const same = infoOpen === b;
-            for (const other of row.children) other.style.outline = '';
-            infoOpen = same ? null : b;
-            infoLine.style.display = same ? 'none' : 'block';
-            if (!same) { infoLine.innerHTML = a.info; b.style.outline = `2px solid ${accent}`; }
-          });
-          b.appendChild(i);
-        }
         b.addEventListener('click', (e) => {
           e.stopPropagation();
-          wrap.remove();
-          if (typeof a.onClick === 'function') a.onClick();
-          if (typeof onDismiss === 'function') onDismiss();
+          if (!cards) { choose(a); return; }
+          // A tap on a card SELECTS it: the outline moves, its line shows,
+          // the Take button arms. Selecting a card never pays it.
+          selected = a;
+          for (const other of row.children) other.style.outline = other === b ? `2px solid ${accent}` : '';
+          infoLine.innerHTML = a.info || '';
+          if (take) take._setEnabled(true);
         });
         row.appendChild(b);
       }
       box.appendChild(row);
       box.appendChild(infoLine);
+      if (cards) {
+        // The one button that pays: the shell's primary in the ceremony's
+        // accent, dead until a card is selected.
+        take = document.createElement('button');
+        take.textContent = confirmLabel;
+        take._setEnabled = (on) => {
+          take.disabled = !on;
+          take.style.cssText = 'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;border:0;'
+            + `font:700 14px ui-monospace,monospace;background:${accent};color:#1a1612;`
+            + (on ? 'cursor:pointer;opacity:1;' : 'cursor:not-allowed;opacity:.4;');
+        };
+        take._setEnabled(false);
+        take.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (selected) choose(selected);
+        });
+        box.appendChild(take);
+      }
     } else {
       // Dismiss on any tap — overlay or box, doesn't matter (this is a "tap
       // to acknowledge" not a "choose action" modal). stopPropagation on the
@@ -965,13 +1079,9 @@ class SceneModals {
       wrap.addEventListener('click', (e) => { e.stopPropagation(); close(); }, true);
     }
     mount();
-    // Sparkle burst around the modal — drives the "fanfare" feel. Spawned
-    // AFTER the wrap is in the DOM so getBoundingClientRect() gives us the
-    // box's real on-screen footprint (it's flex-centred, so the rect depends
-    // on viewport size). Each sparkle is parented to wrap and animates from
-    // a randomised point on the box perimeter outward along its --dx/--dy
-    // vector. Tier colour bleeds into the glow so chests/etc each
-    // sparkle in their own hue.
+    // Sparkle burst around the modal. Spawned AFTER the wrap is in the DOM so
+    // getBoundingClientRect() gives the box's real footprint; each sparkle
+    // animates from a random perimeter point outward along its --dx/--dy.
     requestAnimationFrame(() => {
       const wr = wrap.getBoundingClientRect();
       const br = box.getBoundingClientRect();
@@ -1003,10 +1113,7 @@ class SceneModals {
           `position:absolute;left:${px}px;top:${py}px;` +
           `width:${size}px;height:${size}px;pointer-events:none;` +
           `--dx:${dx.toFixed(1)}px;--dy:${dy.toFixed(1)}px;` +
-          // Radial gradient = soft glow; the central white core sits on a
-          // tier-coloured halo that fades to transparent. Layered with a thin
-          // 4-point star (drawn via conic-gradient masking is overkill —
-          // simpler to fake the star highlight with a tighter inner gradient).
+          // Soft radial glow: white core on an accent halo fading to transparent.
           `background:` +
             `radial-gradient(circle at 50% 50%, #ffffff 0%, #ffffff 18%, ` +
             `${accent} 40%, ${accent}88 65%, transparent 100%);` +

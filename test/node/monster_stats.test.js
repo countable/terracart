@@ -1,7 +1,6 @@
 // Approved enemy roster owns final stats, declared habitats and variant limits.
 (() => {
   test('roster: combat uses approved values without cave or giant multipliers', () => {
-    assert.eq(CAVE_ENEMY_MUL, 1);
     for (const row of EnemyRoster.ROWS) {
       const live = Combat.monster(row.id);
       for (const key of ['hp', 'armor', 'dmg', 'tier', 'range', 'damageIntervalSeconds', 'attackHits']) {
@@ -24,17 +23,19 @@
     }
     assert.gte(dungeonOnly, rolled / 2);
   });
-  test('roster: legacy giant saves resolve without entering spawn or quest pools', () => {
-    assert.truthy(Combat.monster('giant_goblin'));
-    assert.falsy(Combat.spawnsUnderground('giant_goblin'));
+  test('roster: retired giant aliases are gone; roster giants keep their own rows', () => {
+    assert.eq(Combat.monster('giant_goblin'), undefined);
     assert.falsy(Combat.enemyKinds().includes('giant_goblin'));
     assert.eq(Combat.monster('giant_plant').hp, EnemyRoster.get('giant_plant').hp);
   });
-  test('roster: elites respect eligibility and never stack with size variants', () => {
+  test('roster: shiny strength applies to every row while elite rewards respect eligibility', () => {
     for (const row of EnemyRoster.ROWS) {
       const c = { kind: row.id, shiny: true };
       assert.eq(Combat.isElite(c), row.eliteEligible);
-      assert.eq(Combat.maxHp(c), row.hp * (row.eliteEligible ? 2 : 1));
+      assert.eq(Combat.maxHp({ kind: row.id }), row.hp);
+      assert.eq(Combat.maxHp(c), row.hp * 2);
+      assert.eq(Combat.powerMul(c), 2);
+      assert.eq(Combat.shinySpeedMul(c), 1.5);
     }
   });
 })();

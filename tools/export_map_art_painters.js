@@ -86,6 +86,9 @@ ${functionText(util, 'luminance')}
 ${read('src/biome_profiles.js')}
   const BiomeProfiles = window.BiomeProfiles;
 ${read('src/textures.js').replace('const TILLED_COLOR =', 'let TILLED_COLOR =')}
+${read('src/castle_styles.js')}
+  const CastleStyles = window.CastleStyles;
+${read('tools/legacy_tower_texture.js')}
 ${road}
 ${building}
 ${read('tools/map_art_procedural.js')}

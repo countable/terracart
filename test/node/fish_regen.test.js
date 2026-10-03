@@ -128,14 +128,13 @@
   test('peach: restores ordinary food energy and clears all debuffs, preserving positive buffs', () => {
     const s = scene('peach');
     for (const id of Object.keys(Conditions.DEFINITIONS)) Conditions.apply(s.save, id);
-    s._pinnedUntil = performance.now() + 60000;
     s.save.coffeeUntil = Date.now() + 60000;
     Energy.startFishRegen(s.save, 'bass');
     const fish = JSON.stringify(s.save.fishRegen), coffee = s.save.coffeeUntil;
     assert.truthy(eat.call(s));
     assert.eq(s.save.energy, 10 + FOOD_ENERGY.peach);
     assert.falsy(Conditions.hasDebuffs(s.save, s));
-    assert.eq(s._pinnedUntil, 0);
+    assert.falsy(Conditions.active(s.save, 'pinned'), 'the trap pin too');
     assert.eq(JSON.stringify(s.save.fishRegen), fish);
     assert.eq(s.save.coffeeUntil, coffee);
     assert.eq(Inventory.count(s.save, 'peach'), 0);

@@ -113,9 +113,10 @@ test('disarm-trap: disarms the trap on the tapped cell, and usually keeps the ki
   // The kit survives TRAP_KIT_KEEP_CHANCE of the time: the roll is that
   // constant, and a kit is spent only when the roll misses — never always.
   assert.eq(TRAP_KIT_KEEP_CHANCE, 0.8, 'an 80% chance the kit is kept');
-  assert.truthy(/const kept = Math\.random\(\) < TRAP_KIT_KEEP_CHANCE;/.test(src), 'rolls the shared chance');
-  assert.truthy(/if \(!kept\) consumeSelected\(save\);/.test(src), 'spends a kit only when the roll misses');
-  assert.eq((src.match(/consumeSelected\(/g) || []).length, 1, 'and nowhere else');
+  assert.includes(src, "finishTrapKit(ctx, 'Trap disarmed')", 'uses the same successful-work retain roll as obstacles');
+  const finish = INTERACT_SRC.slice(INTERACT_SRC.indexOf('function finishTrapKit'), INTERACT_SRC.indexOf('function consumeSelected'));
+  assert.truthy(/Math\.random\(\) < TRAP_KIT_KEEP_CHANCE/.test(finish));
+  assert.truthy(/if \(!kept\) consumeSelected\(save\)/.test(finish));
   assert.falsy(/%/.test(ITEM_EFFECTS.trap_kit), 'the story leaves the chance for discovery');
   assert.truthy(/if \(!trap \|\| Traps\.isTrapDisarmed\(save, trap\)\) return false;/.test(src),
     'a cell with no trap (or an already-disarmed one) falls through instead of eating the tap');
@@ -304,6 +305,7 @@ function tillAttemptWithObject(object, progress = {}) {
 test('till handler: every spent generated object leaves its cell tillable', () => {
   const cases = [
     [{ kind: 'mineralrock', id: 'spent-rock', x: 0, y: 0 }, { broken: ['spent-rock'] }],
+    [{ kind: 'stronghold_wall', id: 'spent-wall', x: 0, y: 0 }, { broken: ['spent-wall'] }],
     [{ kind: 'groundstack', id: 'spent-stack', x: 0, y: 0 }, { picked: ['spent-stack'] }],
     [{ kind: 'tree', id: 'spent-tree', x: 0, y: 0 }, { chopped: ['spent-tree'] }],
     [{ kind: 'chest', id: 'spent-chest', x: 0, y: 0 }, { opened: ['spent-chest'] }],
@@ -316,7 +318,7 @@ test('till handler: every spent generated object leaves its cell tillable', () =
 });
 
 test('till handler: every fresh generated object still blocks its cell', () => {
-  for (const kind of ['mineralrock', 'groundstack', 'tree', 'chest']) {
+  for (const kind of ['mineralrock', 'stronghold_wall', 'groundstack', 'tree', 'chest']) {
     const result = tillAttemptWithObject({ kind, id: `fresh-${kind}`, x: 0, y: 0 });
     assert.eq(result.workStarted, 0, `${kind} blocks tilling while it still stands`);
     assert.eq(result.flashes.length, 1, `${kind} explains why the hoe was refused`);
@@ -626,6 +628,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'treasure',
     'coindrop',
     'creature',
+    'disarm-obstacle',
     'wildplant',
     'staircase',
     'object',
@@ -827,15 +830,8 @@ test('creature: a tap two cells to the side finds nothing (false)', () => {
 });
 
 // ── ONE REACH GATE ──────────────────────────────────────────────────────────
-// tooFar used to carry a second, older rule — a Euclidean distance from the
-// player's CELL CENTRE — behind a `typeof cellInReach === 'function'` guard,
-// as a fallback for the coords.js helpers being unavailable. They never are:
-// coords.js declares them at the top level of a classic script that loads
-// before interact.js, in index.html and in this suite alike. So the guard was
-// always true and the losing rule could not be falsified by playing the game.
-//
-// It mattered because the two rules DISAGREE, which is why the cell rule
-// replaced it: an object whose world point sits off its cell centre (a house
+// tooFar has no Euclidean fallback behind a `typeof cellInReach` guard
+// (coords.js always loads first). The two rules DISAGREE: an object whose world point sits off its cell centre (a house
 // FOOT, up to ~0.7·cellM away) could pass the cell gate and still trip the
 // Euclidean one at the reach edge, flashing "just out of reach" only sometimes,
 // depending on where the foot sat and on cardinal-vs-diagonal geometry.
@@ -868,10 +864,7 @@ test('reach: the removed rule leaves nothing behind to feed it', () => {
 })();
 
 // ─── ONE TOOL TAKES ANIMALS: THE BUG NET ────────────────────────────────────
-// Until Sep 2026 the crow/deer HUNT wheel was sped by the best of sword / bow
-// / staff, so a weapon bought purely to fight also quietly made you a better
-// hunter — and the net, the tool the catalog sells for exactly this, was worth
-// nothing on the two kinds you take by hunting. Weapons fight ENEMIES
+// Weapons must not speed the crow/deer HUNT wheel. Weapons fight ENEMIES
 // (combat.js); the net takes GAME and livestock alike, on the same slot the
 // catch wheel already used. app.js/interact.js can't be driven headlessly this
 // deep, so the wiring is pinned as source text.
@@ -955,4 +948,73 @@ test('giant mushroom harvest awards wood and mushroom once through axe work', ()
     assert.eq(scene.invCount('giant_mushroom'),0,'the plant itself is not an inventory item');
     assert.eq(save.picked.filter(id=>id===plant.id).length,1,'one persistent picked identity');
   } finally {globalThis.WorldGen=original;}
+});
+
+test('barricade: T4 tree work, weaker-tool gate and selected disarm kit', () => {
+  const original = globalThis.WorldGen;
+  const plant = {kind:'wildplant', crop:'barricade', id:'barricade_harvest_test', x:2.5, y:2.5};
+  const handler = TAP_HANDLERS.find(h => h.name === 'wildplant');
+  try {
+    globalThis.WorldGen = {...original, forEachItem:(layer, cb) => { if (layer === 'wildplants') cb(plant); }};
+    for (const tier of [2, 3, 4]) {
+      let award, duration, cost, offer;
+      const save = {picked:[], energy:100, relics:{axe:{tier}}};
+      const scene = makeGridScene({save,
+        startWorkProgress:(x,y,cb,ms,energy) => { award=cb; duration=ms; cost=energy; },
+        showOfferModal: o => { offer=o; },
+      });
+      assert.eq(handler.try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}), true);
+      if (tier === 2) { assert.falsy(award); assert.falsy(offer); continue; }
+      if (tier === 3) {
+        assert.truthy(offer, 'one tier short offers the shared slow grind');
+        offer.onAccept();
+        assert.eq(duration, SLOW_GRIND_MS);
+        assert.eq(cost, SLOW_GRIND_ENERGY);
+      } else {
+        assert.eq(duration, toolDurationMs(save.relics, 'axe'));
+        const expected = toolEnergyExpected(tier, ENERGY_COST.chop) * 4;
+        assert.inRange(cost, Math.floor(expected), Math.ceil(expected));
+      }
+      assert.eq(scene.invCount('wood'), 0);
+      award();
+      const wood = scene.invCount('wood');
+      assert.truthy(wood === 8 || wood === 12, 'full hardwood yield');
+      award();
+      assert.eq(scene.invCount('wood'), wood, 'completion cannot duplicate wood');
+      assert.eq(save.picked.filter(id => id === plant.id).length, 1);
+      assert.falsy(save.chopped, 'wildplant removal uses its picked ledger');
+    }
+    const save = {picked:[], energy:100, inv:[{id:'trap_kit',count:1}], selSlot:0};
+    let worked = false;
+    const scene = makeGridScene({save, buildInventoryDOM() {},
+      startWorkProgress() { worked=true; }, spendEnergy() { throw Error('kit work is free'); }});
+    assert.eq(handler.try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}), true);
+    assert.falsy(worked);
+    assert.includes(save.picked, plant.id);
+    assert.eq(scene.invCount('wood'), 0, 'dismantling does not harvest wood');
+  } finally { globalThis.WorldGen=original; }
+});
+
+
+test('spike bushes: minimum T1 axe, while ordinary bushes remain barehand work', () => {
+  const original = globalThis.WorldGen;
+  const handler = TAP_HANDLERS.find(h => h.name === 'wildplant');
+  try {
+    for (const art of [null, '_plantArt', '_streetArt']) {
+      for (const tier of [0, 1]) {
+        const plant = {kind:'wildplant',crop:'shrub',id:'thorn_gate_test',x:2.5,y:2.5};
+        if (art) plant[art] = 'bramble';
+        globalThis.WorldGen = {...original, forEachItem:(layer,cb) => { if (layer === 'wildplants') cb(plant); }};
+        let worked = false, spent = false, offer = false;
+        const save = {picked:[],energy:100,relics:{axe:{tier}}};
+        const scene = makeGridScene({save, startWorkProgress() { worked=true; },
+          spendEnergy() { spent=true; return true; }, showOfferModal() { offer=true; }});
+        assert.eq(handler.try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}),true);
+        assert.eq(worked, !art || tier >= 1);
+        assert.eq(spent, worked);
+        assert.falsy(offer, 'bare hands cannot slow-grind thorny bushes');
+        assert.eq(save.picked.length,0,'starting or refusing work never removes the bush');
+      }
+    }
+  } finally { globalThis.WorldGen=original; }
 });

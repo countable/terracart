@@ -35,15 +35,16 @@ function scene(inv) {
   return s;
 }
 const last = (s) => s.modals[s.modals.length - 1];
+const craft = (s) => { const m = last(s); m.onAccept(); m.repeat(); };
 
-test('home craft: recipes include the starter Spear and Syrup from two berries', () => {
+test('home craft: recipes include the starter Spear and Potion of Taming from two berries', () => {
   const by = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r.cost]));
   assert.eq(JSON.stringify(by.spear), JSON.stringify([{ id: 'rockfruit', qty: 1 }, { id: 'wood', qty: 1 }]), 'spear');
   assert.falsy(by.torch, 'the torch is bought or found, never crafted (Oct 2026)');
   assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
   assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 5 }]), 'rope from five long grass');
   assert.eq(JSON.stringify(by.trap_kit), JSON.stringify([{ id: 'rockfruit', qty: 4 }]), 'a disarm kit from four stones');
-  assert.eq(JSON.stringify(by.honey), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Syrup from two berries');
+  assert.eq(JSON.stringify(by.honey), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Potion of Taming from two berries');
   assert.truthy(/wall/.test(ITEM_EFFECTS.rockfruit), 'stone hints at rebuilding');
   assert.truthy(/twist/.test(ITEM_EFFECTS.longgrass), 'grass hints at binding');
   for (const r of HOME_RECIPES) {
@@ -67,22 +68,24 @@ test('home craft: crafting spends the wood and hands over the item', () => {
   s.presentHomeCraft(0, 0, 'scarecrow');
   const m = last(s);
   assert.eq(m.kind, 'craft', 'the Craft category');
-  assert.eq(m.quantity.max, 1, 'five wood makes one 3-wood scarecrow');
+  assert.eq(m.quantity, undefined, 'craft once per tap without a quantity counter');
+  assert.eq(m.cancelLabel, 'Leave');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 2, 'three wood spent');
   assert.eq(Inventory.count(s.save, 'scarecrow'), 1, 'one scarecrow made');
   s.presentHomeCraft(0, 0, 'spear');
-  last(s).onAccept(2);
+  craft(s);
+  craft(s);
   assert.eq(Inventory.count(s.save, 'wood'), 0, 'a spear is one wood each');
   assert.eq(Inventory.count(s.save, 'rockfruit'), 0, 'and one stone each');
   assert.eq(Inventory.count(s.save, 'spear'), 2, 'two spears');
 });
 
-test('home craft: bag room caps the stepper and is rechecked before ingredients are spent', () => {
+test('home craft: bag room disables Craft and is rechecked before ingredients are spent', () => {
   const s = scene([['wood', 5], ['rockfruit', 5], ['spear', 8]]);
   s.presentHomeCraft(0, 0, 'spear');
   let m = last(s);
-  assert.eq(m.quantity.max, 1, 'one open stack place permits one spear');
+  assert.truthy(m.canAfford, 'one open stack place permits one spear');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'one wood spent');
   assert.eq(Inventory.count(s.save, 'rockfruit'), 4, 'one stone spent');
@@ -114,7 +117,7 @@ test('home craft: short on wood, the page says so and nothing changes hands', ()
 test('home craft: opens on something the bag can make, and the pager walks the recipes', () => {
   const s = scene([['wood', 1], ['rockfruit', 1]]);
   s.save.foundWild = Object.fromEntries(HOME_RECIPES.map(r => [r.id, 1]));
-  s.save.usedScrolls = ['fireball_scroll', 'fear_scroll', 'treasure_map'];
+  s.save.usedScrolls = ITEMS.filter(item => item.scroll).map(item => item.id);
   s.presentHomeCraft(0, 0);
   const m = last(s);
   assert.truthy(m.canAfford, 'a wood and a stone: the page opens on the spear it can make');
@@ -163,7 +166,8 @@ test('home craft: every mode starts with only Spear and hides undiscovered recip
       m = last(s);
       assert.eq(m.pager.count, 2, 'a wild find exposes only its own recipe');
       assert.truthy(m.canAfford);
-      m.onAccept(2);
+      craft(s);
+      craft(s);
       assert.eq(Inventory.count(s.save, 'trap_kit'), 3, 'two kits from eight stones');
       assert.eq(Inventory.count(s.save, 'rockfruit'), 0);
       m.pager.onNext();
@@ -174,13 +178,17 @@ test('home craft: every mode starts with only Spear and hides undiscovered recip
   } finally { Difficulty.setMode(was); }
 });
 
-test('home craft: learned Syrup consumes two berries per jar, rechecks ingredients and persists its unlock', () => {
+test('home craft: learned Potion of Taming consumes two berries per jar, rechecks ingredients and persists its unlock', () => {
   const s = scene([['berry', 5]]);
   s.save.foundWild = { honey: 1 };
   s.presentHomeCraft(0, 0, 'honey');
   const m = last(s);
-  assert.eq(m.quantity.max, 2);
-  m.onAccept(2);
+  assert.eq(m.quantity, undefined);
+  craft(s);
+  assert.truthy(last(s).canAfford, 'another jar is available after the first tap');
+  craft(s);
+  assert.falsy(last(s).canAfford, 'the recipe stays open when ingredients run out');
+  assert.includes(last(s).get, itemName('honey'), 'repeat preserves the current recipe');
   assert.eq(Inventory.count(s.save, 'berry'), 1);
   assert.eq(Inventory.count(s.save, 'honey'), 2);
   m.onAccept(1);
@@ -196,8 +204,8 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   const add = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
-  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)? \}/g) || []).length;
-  assert.eq(notWild, 10, 'the ten non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund');
+  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)?(?:, deferBookRead: (?:!!boothKind|true))? \}/g) || []).length;
+  assert.eq(notWild, 12, 'the twelve non-wild grants in app.js: craft, smelt, trader, the trader\'s gear swap, a counter\'s gear, stand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund, and a book club prize');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });
 
@@ -227,8 +235,9 @@ test('home craft: scrolls require prior use in both modes and spend blank scroll
         assert.truthy(last(s).canAfford, 'use alone teaches the recipe, even in hard mode');
         assert.includes(last(s).get, itemName(id), 'learned scroll is offered');
         assert.eq(last(s).pager.count, knownCount + 1, 'using a scroll adds its recipe to the pager');
-        assert.eq(last(s).quantity.max, 3, 'one blank per scroll');
-        last(s).onAccept(2);
+        assert.eq(last(s).quantity, undefined, 'one blank per tap');
+        craft(s);
+        craft(s);
         assert.eq(Inventory.count(s.save, 'blank_scroll'), 1, 'two blanks spent');
         assert.eq(Inventory.count(s.save, id), 3, 'two scrolls made');
       }
@@ -237,20 +246,20 @@ test('home craft: scrolls require prior use in both modes and spend blank scroll
   } finally { Difficulty.setMode(was); }
 });
 
-test('home craft: learned scroll recipes survive saving and migration', () => {
+test('home craft: learned scroll recipes survive saving and normalization', () => {
   const slot = createSave('Scroll crafting test');
   try {
     const save = { inv: [{ id: 'fear_scroll', count: 1 }], usedScrolls: ['fireball_scroll'] };
     persistSave(save);
     flushSave();
     const loaded = loadSave();
-    SaveMigrate.migrate(loaded);
+    SaveState.normalize(loaded);
     assert.falsy(homeRecipeLocked(loaded, 'fireball_scroll', true), 'learned recipe persists');
     assert.truthy(homeRecipeLocked(loaded, 'fear_scroll', false), 'held unused scroll stays locked');
     const old = { inv: [{ id: 'treasure_map', count: 1 }] };
-    SaveMigrate.migrate(old);
+    SaveState.normalize(old);
     assert.eq(old.usedScrolls.length, 0, 'older saves start without inferred scroll uses');
-    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'migration cannot teach a held scroll');
+    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'normalization cannot teach a held scroll');
   } finally { deleteSave(slot); }
 });
 

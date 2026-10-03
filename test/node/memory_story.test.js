@@ -21,6 +21,7 @@ const lift = (sig, what) => {
 
 const BANK_SRC = lift('_bankDiscovery(key, label) {', '_bankDiscovery');
 const DRAIN_SRC = lift('_drainBadgeStories() {', '_drainBadgeStories');
+const RECEIPT_DRAIN_SRC = lift('_drainMacroTransactions() {', '_drainMacroTransactions');
 const TOTAL_SRC = lift('memoriesTotal() {', 'memoriesTotal');
 const UNSPENT_SRC = lift('memoriesUnspent() {', 'memoriesUnspent');
 const SPEND_SRC = lift('spendMemories(n) {', 'spendMemories');
@@ -29,7 +30,7 @@ const MET_SRC = lift('_metWizard() {', '_metWizard');
 
 function mkScene({ energy = 100, max = 100 } = {}) {
   const methods = new Function('persistSave',
-    `return class { ${BANK_SRC}\n${DRAIN_SRC}\n${TOTAL_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
+    `return class { ${BANK_SRC}\n${DRAIN_SRC}\n${RECEIPT_DRAIN_SRC}\n${TOTAL_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
   const s = new (methods((save) => { s.persisted = (s.persisted || 0) + 1; }))();
   s.save = { inv: [], energy };
   s.getMaxEnergy = () => max;
@@ -139,7 +140,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.save.wizardBuys = 1;
   s.showMemoriesHelp();
   assert.truthy(/Wizard Tower/.test(s.modals[2].body), 'a save that has already bought from him knows him too');
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', mustAcknowledge = false \}\)/.test(SCENE_SRC),
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', kindLabel, mustAcknowledge = false \}\)/.test(SCENE_SRC),
     'showMessageModal forwards a kind, defaulting to note (a story when it has a painting)');
 });
 
@@ -167,7 +168,7 @@ test('memory copy: no player-facing "Discovery badge" is left', () => {
   for (const it of ITEMS) assert.falsy(/discovery/i.test(it.name), `item named ${it.name}`);
   assert.falsy(ITEMS.some((it) => it.kind === 'badge'), 'no badge kind in the catalog');
   assert.truthy(PLAY_TIPS.some((t) => /wizard/i.test(t) && /memories/.test(t)), 'the wizard tip speaks of memories');
-  assert.truthy(/wizard: +\{ name: 'Wizard Tower', blurb: ['"][^'"\n]*memories/.test(SCENE_SRC), 'and so does the tower blurb');
+  assert.truthy(/memories/.test(Houses.buildOption('wizard').blurb), 'and so does the tower blurb');
   assert.truthy(/🌟 \+1 memory/.test(SCENE_SRC), 'the shiny fanfare line says memory');
 });
 

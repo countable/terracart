@@ -5,6 +5,24 @@ hand-laid town and countryside map. It keeps sparse mechanics close together,
 because a tester can compare their art and interactions without waiting for a
 real-world roll. `src/sandbox.js` owns the map.
 
+For simulated travel, enable **☰ → Developer → GPS stick**. The blue left
+stick moves the GPS fix; the ordinary stick still moves the character relative
+to it. First movement takes over from device GPS for this session. Hiding the
+stick keeps the simulated fix; reload to restore device GPS in normal play.
+
+## Jump links
+
+Use `index.html?sandbox=true&sandboxZone=forest` to start at a named destination.
+Examples include `beach`, `wetland`, `golf`, `castle`, `fort`, `grove`, `stones`,
+`tar` and `practice`. Road destinations include `hedgerow-road`, `orchard-road`
+and `parkpath`. `src/sandbox_destinations.js` owns the shared catalog used by
+the game and design dashboards; coordinates come from the authored layout.
+
+Existing `sandboxScene=FOREST` or `sandboxScene=PRACTICE` links still work.
+Names are case-insensitive; unknown names return to the player plaza.
+These links visit the sandbox's representative biomes, not every procedural
+variant shown by the dashboards. Unsupported biomes have no jump link.
+
 ## Why scenes and vector roads
 
 A real residential polygon is a scene, not a colour swatch. A road passes
@@ -24,7 +42,7 @@ Band 1  COUNTRYSIDE      FOREST · ORCHARD · ROCK
    -- Oak Road: hedgerow (road) --
 Band 2  WATER & PASTURE  BARNYARD · PETTING PADDOCK · BEACH/PIER · WETLAND/GOLF
    -- Main Street: Lantern Row (road_lg) --
-Band 3  CENTRE           PLAYER SPAWN · FARMLAND
+Band 3  CENTRE           PLAYER SPAWN · FARMLAND · SPELLS/POTIONS/FIRE
    -- Mill Lane: Burned Row (road_md) --
 Band 4  TOWN             RESIDENTIAL ST · CIVIC BLOCK/PATH · SMALL HOUSE
    -- Garden Row: Toadstool Lane (road) --
@@ -32,7 +50,7 @@ Band 5  RECREATION       PARK/PARK PATH · PLAYGROUND · PITCH · CASTLE/FORT
 Band 6  NEW MECHANICS    STREET VARIANTS · SACRED GROVE/OLD STONES/TAR YARD
 ```
 
-The footprint is 36 x 86 cells, about 252 m x 602 m at 7 m per cell.
+The footprint is 36 x 92 cells, about 252 m x 644 m at 7 m per cell.
 `buildLayout` centres it in the start tile. The player teleports to PLAYER
 SPAWN, where a synthetic Home trailer keeps the nearby wizard tower in its
 wizard role.
@@ -127,6 +145,33 @@ art, movement and hostility still resolve through the shared roster and
 `Combat.isEnemy`.
 
 ## Test kit
+
+### Recent combat mechanics
+
+Open `index.html?sandbox=true&sandboxScene=PRACTICE` to start in the test yard
+east of the farm. Any named scene in `src/sandbox.js` can be selected with
+`sandboxScene`; unknown names fall back to Player Spawn.
+The 14-cell-high yard keeps its combat targets clear of the major-road safety
+buffers. Its spawn sits one cell south of the ordinary plant, inside its
+attack range even after the movement stick returns to its anchor.
+
+- Three rooted plants compare Giant, Shrinking and ordinary size. The first
+  two receive actual potion effects on load, with normal expiry and health caps.
+- A chicken, goblin and goblin archer provide friendly, melee and ranged
+  recipients for thrown potions, sleep powder, scrolls and weapons.
+- The upper tree/shrub/tar/grass patch starts burning. Watch spread, enemy
+  escape, consumed shrubs/tar and the surviving charred tree. The lower patch
+  starts fresh for flasks, Fireball and the Wall of Fire Tome.
+- All new potions, scrolls, blank scrolls, the tome, Ember Ring and weapon
+  supplies are in the bag. Dagger, lance and musket relics join the T3 kit.
+  Use a scroll, then return Home to check its newly learned crafting recipe.
+- Reload resets fire history, creature potion effects and daily tome use, so
+  the same fuel can burn again. Scroll learning is retained for crafting checks.
+
+Check Giant/Shrinking body size and health bars, thrown-potion impact effects,
+fire resistance, Protection/Immortal damage handling and Time cooldown reset.
+The yard uses the real runtime paths; effects expire and targets move normally.
+Generation-only chest top-ups and cave tier caps remain covered by node tests.
 
 - The inventory starts with five of every item and at least 20 memories.
 - Every relic and armour piece starts at T3. The pickaxe starts at T7 so every

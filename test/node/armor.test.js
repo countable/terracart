@@ -1,9 +1,7 @@
 // armor.test.js — what a worn set is FOR.
 //
-// Until Sep 2026 armour raised the max-energy CAP: each piece added
-// `energyPerTier × tier` to the bar, so a Frost chestplate was worth exactly
-// as much to a player who never met a slime as to one who lived underground.
-// It soaks INCOMING DAMAGE now, and this file is that rule's audit.
+// Armour soaks INCOMING DAMAGE (it does not raise max energy); this file is
+// that rule's audit.
 //
 // The rule, in one place:
 //
@@ -70,7 +68,7 @@ test('armor: the pool is the sum over the worn set, and empties cleanly', () => 
   assert.eq(armorReduction(null), 0, 'no armour at all');
   assert.eq(armorReduction({}), 0, 'no armour worn');
   assert.eq(armorReduction({ helmet: null, chest: null, legs: null, boots: null }), 0,
-    'four empty slots — the shape savemigrate backfills');
+    'four empty slots — the shape normalization initializes');
   assert.eq(armorReduction({ helmet: { tier: 1 }, boots: { tier: 2 } }), 1 + 2,
     'additive across slots');
   const full = {};

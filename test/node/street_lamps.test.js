@@ -9,8 +9,7 @@
 //
 // app.js needs Phaser and can't load headlessly (no bridge exists for these
 // methods in run.js), so — like feet_anchor.test.js and energy_pop.test.js —
-// the wiring is pinned as SOURCE TEXT against SCENE_SRC, with the one
-// self-contained arithmetic expression (STREET_LAMP_PX) lifted out and run.
+// the wiring is pinned as SOURCE TEXT against SCENE_SRC.
 
 (function () {
 const app = SCENE_SRC;
@@ -109,12 +108,9 @@ test('street lamps: surface only — a cave has no streets to light', () => {
 test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with everything else', () => {
   // THE PAINTER RULE (CLAUDE.md): the lower object renders in front, and the
   // one place that implements it is drawObjects' screen-row z-order pass over
-  // the shared world layer. A lamp had a pool of its own in cobbleContainer
-  // (ground decoration, below the building footprints and below every sprite)
-  // until Sep 2026, so it hid under any footprint or sprite on the map
-  // whatever row it stood in — which is exactly what a layer of its own buys
-  // you. It joins the pass the way the placed campfires and scarecrows do:
-  // an item on filteredObj, which the z-order pass ranks by cell row.
+  // the shared world layer. A lamp joins it the way the placed campfires and
+  // scarecrows do: an item on filteredObj, ranked by cell row (a pool of its
+  // own in cobbleContainer hid under every footprint and sprite).
   assert.truthy(/const lampList = \(scene\._streetLamps \|\| \[\]\)\.map\(L => \(\{/.test(lampListSrc),
     'the list comes off the one app.js keeps (scene._streetLamps)');
   assert.truthy(/kind: '_streetlamp'/.test(lampListSrc), 'as items of its own RENDER_SPEC kind');
@@ -130,45 +126,32 @@ test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with 
   assert.falsy(/streetLampPool/.test(app), 'nor a pool of its own in the ground-decoration layer');
 });
 
-test('street lamps: an UNLIT lamp draws as the OLD ROAD COBBLE sprite, a lit one as the baked lamp', () => {
+test('street lamps: an UNLIT lamp draws the BROKEN POST baked from the same painter, at the lit lamp\'s size and seat', () => {
   // A lamp stands on every LAMP_SPACING_M of street whether or not that
   // stretch is restored; the dark ones have to be visible or the lamps would
-  // seem to appear from nowhere. They wear the sheet the per-cell road stones
-  // drew from until Sep 2026 — Road copiar.png, back in assets.js as 'cobble'
-  // for this one job — at the frame that sheet used for the way's tier.
-  assert.truthy(/const STREET_LAMP_DARK_TEX = 'cobble';/.test(app), 'the dark stone is the cobble sheet');
-  assert.truthy(/cobble:\s*\{ kind: 'spritesheet', path: 'assets\/Objects\/Road copiar\.png',\s*frameWidth: 16, frameHeight: 16 \}/.test(ASSETS_SRC),
-    'assets.js loads Road copiar.png as the cobble sheet again');
-  // The old frame table, per tier: ROAD_LG 0 (densest cluster), ROAD_MD 5,
-  // ROAD 1 (small cluster), PATH 3 (a single pebble) — and keyed by the
-  // WorldGen.T NAME, so the code is looked up live rather than retyped.
-  const m = app.match(/const STREET_LAMP_DARK_FRAME = \{ ROAD_LG: (\d+), ROAD_MD: (\d+), ROAD: (\d+), PATH: (\d+) \};/);
-  assert.truthy(m, 'one frame per road tier');
-  assert.eq(m.slice(1).map(Number).join(','), '0,5,1,3', 'the frames the per-cell stones drew');
-  // A 5x4 sheet of 16px frames: every frame the table names is on it.
-  for (const f of m.slice(1).map(Number)) assert.truthy(f >= 0 && f < 20, `frame ${f} is on the 80x64 sheet`);
-  // ONE RENDER_SPEC row, two arts, picked by the one `lit` flag: the baked
-  // lamp for a lit one, the cobble sheet at its tier's frame, size and alpha
-  // for a dark one — never one art for both.
-  assert.truthy(/key: \(o\) => \(o\.lit \? streetLampTexKey\(o\.glow\) : STREET_LAMP_DARK_TEX\)/.test(lampSpecSrc),
-    'the texture branches on o.lit — a lit lamp by its own glow\'s bake');
-  assert.truthy(/frame: \(o\) => \(o\.lit \? '__BASE' : streetLampDarkFrame\(o\.tier\)\)/.test(lampSpecSrc),
-    'a dark lamp takes the frame its own tier drew, the baked canvas its only frame');
-  assert.truthy(/streetLampDarkCells\(o\.tier\)/.test(lampSpecSrc), 'and that tier\'s own size');
-  assert.truthy(/setAlpha\(o\.lit \? 1 : STREET_LAMP_DARK_ALPHA\)/.test(lampSpecSrc), 'at the old stones\' alpha');
-  assert.truthy(/const STREET_LAMP_DARK_ALPHA = 0\.57;/.test(app), 'the 57% the per-cell cobbles drew at');
-  assert.truthy(/const LAMP_DARK_CELLS = \{ road: 0\.64, path: 0\.584 \};/.test(ROAD_OVERLAY_SRC), 'and their sizes: a road cluster at 0.64 of a cell, a path pebble at 0.584');
+  // seem to appear from nowhere. The dark lamp is the SAME casting with its
+  // column snapped (RoadOverlay.paintBrokenLamp), baked at runtime exactly as
+  // the lit lamp is, so restoring a stretch changes the lamp and nothing else.
+  assert.truthy(/const STREET_LAMP_BROKEN_TEX = 'street_lamp_broken';/.test(app), 'one bake for every street\'s broken post');
+  assert.truthy(/_ensureBrokenLampTex\(\) \{[\s\S]{0,600}?RoadOverlay\.paintBrokenLamp\(lctx, S\);[\s\S]{0,80}?this\.textures\.addCanvas\(key, cvs\);/.test(app),
+    'baked by the real painter with `broken` set, into a canvas texture');
+  assert.truthy(/const key = STREET_LAMP_BROKEN_TEX;\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app), 'baked once');
+  assert.truthy(/this\._ensureStreetLampTex\(UI_LAMP_GLOW\);\s*\n\s*this\._ensureBrokenLampTex\(\);/.test(app), 'baked at boot beside the lit lamp');
+  // ONE RENDER_SPEC row, two bakes, picked by the one `lit` flag — and the
+  // same frame, origin, nudge, size and alpha for both.
+  assert.truthy(/key: \(o\) => \(o\.lit \? streetLampTexKey\(o\.glow\) : STREET_LAMP_BROKEN_TEX\)/.test(lampSpecSrc),
+    'the texture branches on o.lit — a lit lamp by its own glow\'s bake, a dark one the broken post');
+  assert.truthy(/frame: '__BASE',/.test(lampSpecSrc), 'the baked canvas is the only frame of either');
+  assert.truthy(/RoadOverlay\.LAMP_DRAW_CELLS\) \|\| 2\.4\);\s*\n\s*s\.setDisplaySize\(px, px\)\.setAlpha\(1\);/.test(lampSpecSrc), 'both at the lamp\'s size, opaque');
+  assert.falsy(/streetLampDark|STREET_LAMP_DARK_TEX|STREET_LAMP_DARK_ALPHA|STREET_LAMP_DARK_FRAME/.test(app + lampSpecSrc), 'no cobble lane left');
+  // The placement footprint is untouched: the site radius still derives from
+  // the old stone's width, so no lamp moved when its art did.
+  assert.truthy(/const STREET_LAMP_DARK_CELLS = RoadOverlay\.LAMP_DARK_CELLS;/.test(app), 'the site footprint constant stays');
+  assert.truthy(/const LAMP_DARK_CELLS = \{ road: 0\.64, path: 0\.584 \};/.test(ROAD_OVERLAY_SRC), 'at the widths it always had');
   // The tier is the terrain classifier's own answer, not a second class list.
   assert.truthy(/WorldGen\.classifyLine\('transportation', f\.tags \|\| \{\}\)/.test(forTileSrc),
     '_streetLampsForTile classifies the way with WorldGen.classifyLine');
   assert.eq(typeof WorldGen.classifyLine, 'function', 'which worldgen.js exports');
-  // And the frame resolver, run: each T code lands on its frame, and a
-  // non-road (null) falls back to the small road cluster.
-  const resolve = new Function('WorldGen', app.slice(app.indexOf('const STREET_LAMP_DARK_FRAME ='), app.indexOf('// The old stones\' draw size')) + 'return streetLampDarkFrame;')(WorldGen);
-  const T = WorldGen.T;
-  assert.eq(resolve(T.ROAD_LG), 0); assert.eq(resolve(T.ROAD_MD), 5);
-  assert.eq(resolve(T.ROAD), 1); assert.eq(resolve(T.PATH), 3);
-  assert.eq(resolve(null), 1, 'an unclassified way draws the small cluster');
 });
 
 test('street lamps: the light collector reads the same list and skips the dark ones — one list, one flag, both readers', () => {
@@ -198,21 +181,6 @@ test('street lamps: which lamps are lit is settled before the pass that draws th
   assert.truthy(iRoad > 0 && iObjects > iRoad, 'the road pass runs before the sprite pass');
 });
 
-test('street lamps: STREET_LAMP_PX is derived from RoadOverlay.LAMP_DRAW_CELLS x CELL_PX, not a hand-typed pixel count', () => {
-  // Lift the literal declaration rather than retyping the number: a retune
-  // of LAMP_DRAW_CELLS in road_overlay.js has to move this test with it.
-  const m = app.match(/const STREET_LAMP_PX = CELL_PX \*\s*\n?\s*\(\(typeof RoadOverlay !== 'undefined' && RoadOverlay\.LAMP_DRAW_CELLS\) \|\| ([\d.]+)\);/);
-  assert.truthy(m, 'STREET_LAMP_PX reads RoadOverlay.LAMP_DRAW_CELLS, with a literal fallback only for load order');
-  // RoadOverlay IS loaded in this suite, so the real expression the game
-  // computes is CELL_PX * RoadOverlay.LAMP_DRAW_CELLS — evaluate exactly
-  // that, with both operands as the real, live values (not retyped copies).
-  const expected = CELL_PX * RoadOverlay.LAMP_DRAW_CELLS;
-  assert.gt(expected, 0, 'a real, positive size in pixels');
-  // And the fallback literal in app.js agrees with RoadOverlay's own number —
-  // if RoadOverlay ever failed to load, app.js would still draw the lamp at
-  // the size RoadOverlay actually wants it.
-  assert.eq(Number(m[1]), RoadOverlay.LAMP_DRAW_CELLS, 'the load-order fallback matches RoadOverlay.LAMP_DRAW_CELLS');
-});
 
 test('street lamps: the texture is baked once with RoadOverlay.paintLamp, keyed off the module\'s own LAMP_TEX_PX', () => {
   assert.truthy(/RoadOverlay\.paintLamp\(lctx, S, glow \|\| UI_LAMP_GLOW\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');
@@ -233,15 +201,14 @@ test('street lamps: the lamp STANDS on its point — the sprite\'s origin is the
     'the origin comes from the module that paints the art, with a literal fallback only for load order');
   assert.eq(Number(app.match(/RoadOverlay\.LAMP_GROUND_FRAC\) \|\| ([\d.]+);/)[1]), RoadOverlay.LAMP_GROUND_FRAC,
     'and the load-order fallback agrees with it');
-  assert.truthy(/origin: \(o\) => \(o\.lit \? \[0\.5, STREET_LAMP_ORIGIN_Y\] : \[0\.5, 0\.5\]\)/.test(lampSpecSrc),
-    'a LIT lamp is seated on its ground line, and the dark cobble — which LIES on the point — stays centred');
+  assert.truthy(/origin: \(\) => \[0\.5, STREET_LAMP_ORIGIN_Y\],/.test(lampSpecSrc),
+    'lit or broken, the lamp is seated on its ground line (the broken post is the same bake, Oct 2026)');
   // The post is drawn a few pixels below its point — art only: the verge
   // offset above and the light on the same point are unmoved. It counts
   // BECAUSE the row is not seated (a seated spec has its dyPx overwritten by
-  // the seat pass, which is how three tuned offsets that moved nothing came to
-  // ship), so the two pins belong together.
-  assert.truthy(/dyPx: \(o\) => \(o\.lit \? STREET_LAMP_DY_PX : 0\)/.test(lampSpecSrc),
-    'the lit post takes the nudge, the cobble lying on the point does not');
+  // the seat pass), so the two pins belong together.
+  assert.truthy(/dyPx: \(\) => STREET_LAMP_DY_PX,/.test(lampSpecSrc),
+    'both posts take the nudge — the broken one stands on the same point');
   assert.truthy(/const STREET_LAMP_DY_PX = 3;/.test(app), 'three screen pixels, by eye — it dropped to one when the base came up 2 into its cell, now nudged back down 2px');
   assert.falsy(/seat: true/.test(lampSpecSrc),
     'and it is NOT run through the seat pass: SpriteLayout has no trimmed bounds for a canvas bake, '
@@ -251,11 +218,9 @@ test('street lamps: the lamp STANDS on its point — the sprite\'s origin is the
 test('street lamps: nothing here reaches the save — generated, never stored, like the traps', () => {
   // The whole feature's state is entry._streetLamps (geometry, tile-cached)
   // and scene._streetLamps (the lit subset, frame-cached) — neither is
-  // save.* or JSON that survives a reload. What DOES survive is exactly what
   // it always was: save.streets, the restored intervals — a lamp is lit
   // purely as a function of those, recomputed every time. (The one thing a
-  // lamp adds is the LIVING-LAMP delta, save.lampVisits — when the player
-  // last came by, keyed by the lamp's position-derived id; living_lamps.test.js.)
+  // lamp adds is the LIVING-LAMP delta, save.lampVisits — living_lamps.test.js.)
   assert.falsy(/save\.streetLamps/.test(app), 'no save.streetLamps field exists');
   assert.falsy(/save\._streetLamps/.test(app), 'and the live lists are never written onto save at all');
 });
@@ -265,12 +230,10 @@ test('street lamps: nothing here reaches the save — generated, never stored, l
 // tile entry: a synthetic 180 m street across the middle of one tile, the
 // real Streets algebra, the real coords projection.
 //
-// This is the half the source-text pins above could not see. Until Sep 2026
-// _streetLampsForTile wrote its empty answer onto a tile entry that had no
-// `layers` yet — and a tile's entry is in WorldGen.tileCache from the moment
-// its FETCH starts, while this pass runs every frame — so every tile in the
-// world was measured for lamps while it was still loading and cached as
-// "no lamps here" for the rest of the session. Nothing ever lit.
+// This is the half the source-text pins above could not see: a tile's entry
+// is in WorldGen.tileCache from the moment its FETCH starts, while this pass
+// runs every frame, so writing an empty answer onto an entry with no `layers`
+// yet cached "no lamps here" for the session.
 {
 const P = __streetLampPasses;
 
@@ -389,11 +352,10 @@ test('street lamps: a ready tile stands one lamp per Streets.lampSpacingM() of s
 });
 
 test('street lamps: a lamp stands ON THE VERGE — its stone just touching the band, never in the traffic', () => {
-  // Until Sep 2026 the point came straight off the centreline, so every lamp
-  // stood in the middle of the road it lit. The seat is DERIVED (streets.js
-  // lampOffsetM): half the way's own drawn width — WorldGen.roadOverlayWidthM,
-  // the number road_overlay.js strokes the band with and rasterizeTile stamps
-  // roadMask from — plus the stone's radius, so the art kisses the kerb.
+  // The seat is DERIVED (streets.js lampOffsetM): half the way's own drawn
+  // width — WorldGen.roadOverlayWidthM, the number road_overlay.js strokes
+  // the band with and rasterizeTile stamps roadMask from — plus the stone's
+  // radius, so the art kisses the kerb.
   const lamps = P._streetLampsForTile.call({}, TX, TY, readyEntry());
   const halfBandM = WorldGen.roadOverlayWidthM({ class: 'residential' }) / 2;
   const footRM = STREET_LAMP_R_CELLS * CELL_M_T;
@@ -433,10 +395,9 @@ test('street lamps: the verge offset is derived from the art the draw pass uses'
 
 test('street lamps: a tile still LOADING is never memoised as lampless — the bug that lit nothing', () => {
   // A tile entry enters WorldGen.tileCache the moment its fetch starts, with
-  // no `layers` until the build lands seconds later, and this pass runs on
-  // every frame — so it ALWAYS meets a tile in that state. Writing the empty
-  // answer onto the entry (the entry IS the cache) froze it there for the
-  // tile's whole life, and every tile in the world went through it.
+  // no `layers` until the build lands, and this pass runs every frame, so it
+  // ALWAYS meets a tile in that state. Writing the empty answer onto the entry
+  // (the entry IS the cache) would freeze it there for the tile's whole life.
   const entry = loadingEntry();
   assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 0, 'nothing to place yet');
   assert.falsy(entry._streetLamps, 'and the miss is NOT written onto the entry');
@@ -473,10 +434,9 @@ test('street lamps: a restored stretch lights ITS lamp and only its lamp — the
 
 test('street lamps: a lamp restored in an earlier session lights without the player taking a step', () => {
   // The frame memo is the same rule one level up: keyed on the anchor cell
-  // and Streets.epoch, neither of which moves while the player stands still
-  // watching the ring land. Stamping it over a still-loading ring would hold
-  // "no lamps" until they happened to walk onto another cell — which on a
-  // reload is every lamp they have ever earned.
+  // and Streets.epoch, neither of which moves while the player stands still.
+  // Stamping it over a still-loading ring would hold "no lamps" until they
+  // walked onto another cell.
   const entry = loadingEntry();
   const save = {};
   restoreAround(save, 135, 12);                   // banked before this session

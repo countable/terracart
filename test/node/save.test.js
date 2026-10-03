@@ -84,6 +84,58 @@ test('save: each created slot gets a unique id', () => {
   }
 });
 
+test('save: default names skip "Game N" labels already in use', () => {
+  // The "+ New game" flow creates slots with no name at all, so the default
+  // must not collide even when deletions have left holes in the numbering.
+  const idA = createSave();
+  const idB = createSave();
+  try {
+    const list = listSaves();
+    const a = list.find(s => s.id === idA);
+    const b = list.find(s => s.id === idB);
+    assert.truthy(isDefaultSaveName(a.name), 'auto slot A wears a "Game N" default');
+    assert.truthy(isDefaultSaveName(b.name), 'auto slot B wears a "Game N" default');
+    assert.truthy(a.name !== b.name, 'two auto-named slots never share a name');
+  } finally {
+    deleteSave(idA);
+    deleteSave(idB);
+  }
+});
+
+test('save: isDefaultSaveName matches only the untouched placeholder', () => {
+  assert.truthy(isDefaultSaveName('Game 1'), '"Game 1" is a default');
+  assert.truthy(isDefaultSaveName('Game 42'), '"Game 42" is a default');
+  assert.falsy(isDefaultSaveName("Ada's game"), 'christened name is not a default');
+  assert.falsy(isDefaultSaveName('Game '), 'no number → not a default');
+  assert.falsy(isDefaultSaveName(''), 'empty → not a default');
+});
+
+test('save: renameSave relabels a slot without touching its data', () => {
+  const id = createSave(_uid('test_rename'));
+  try {
+    persistSave({ money: 33 });
+    flushSave();
+    assert.truthy(renameSave(id, "Ada's game"), 'rename returns true for known id');
+    const slot = listSaves().find(s => s.id === id);
+    assert.eq(slot.name, "Ada's game", 'new name stored');
+    assert.eq(loadSave().money, 33, 'slot data untouched by rename');
+  } finally {
+    deleteSave(id);
+  }
+});
+
+test('save: renameSave rejects unknown ids and blank names', () => {
+  const id = createSave(_uid('test_rename_bad'));
+  try {
+    assert.falsy(renameSave('no-such-id', 'X'), 'unknown id returns false');
+    assert.falsy(renameSave(id, '   '), 'whitespace name returns false');
+    const slot = listSaves().find(s => s.id === id);
+    assert.truthy(slot.name.startsWith('test_rename_bad'), 'name unchanged after rejected renames');
+  } finally {
+    deleteSave(id);
+  }
+});
+
 test('save: listSaves returns slots sorted newest-lastPlayedAt first', () => {
   // Create two saves, then explicitly re-activate id1 so switchSave bumps its
   // lastPlayedAt to "now" — ensuring id1 sorts ahead of id2 even when both
@@ -619,5 +671,28 @@ test('save: a fresh slot has no home field until one is written', () => {
     assert.falsy(loaded.home, 'fresh slot: no home field yet');
   } finally {
     deleteSave(id);
+  }
+});
+
+
+test('save: a missing registry starts a fresh slot without adopting a bare save', () => {
+  flushSave();
+  const registryKey = 'terracart.saves', bareKey = 'terracart.save.v4';
+  const registry = localStorage.getItem(registryKey), bare = localStorage.getItem(bareKey);
+  let createdKey;
+  try {
+    localStorage.removeItem(registryKey);
+    localStorage.setItem(bareKey, JSON.stringify({ money: 999 }));
+    const reg = initSaves();
+    createdKey = reg.slots[0].key;
+    assert.truthy(createdKey !== bareKey, 'new named slot has its own key');
+    assert.eq(loadSave().money, undefined, 'retired bare save is not adopted');
+  } finally {
+    if (createdKey) localStorage.removeItem(createdKey);
+    if (registry == null) localStorage.removeItem(registryKey);
+    else localStorage.setItem(registryKey, registry);
+    if (bare == null) localStorage.removeItem(bareKey);
+    else localStorage.setItem(bareKey, bare);
+    initSaves();
   }
 });

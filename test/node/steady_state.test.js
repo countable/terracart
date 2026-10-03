@@ -1,11 +1,9 @@
 // ── Steady state: what a step costs while nothing is changing ─────────────
 //
 // A GPS walker spends most of a session standing still or strolling, with
-// every tile loaded. The Sep 2026 phone profile read a still step costing as
-// much as a moving one — per-step work whose answer only moves on a crossing,
-// a claim or the clock. Each rule below keeps one such answer derived once
-// and re-read, and each is pinned where it could quietly regress into a
-// per-step walk again. (The lightmap's own gate is still_frames.test.js.)
+// every tile loaded. Each rule below keeps one answer (which only moves on a
+// crossing, a claim or the clock) derived once and re-read, and pins it
+// against regressing into a per-step walk. (The lightmap's own gate is still_frames.test.js.)
 
 (function () {
 
@@ -147,6 +145,21 @@ test('steady state: drawCells swaps a ground sprite\'s texture only when its key
 });
 
 // ── The lightmap's static layer is baked while it holds ───────────────────
+test('steady state: ground atlas frames swap only when the key or requested frame changes', () => {
+  const source = RENDER_SRC.match(/function setTextureIfDifferent\([\s\S]*?\n\}/)[0];
+  const swap = new Function(source + '; return setTextureIfDifferent;')();
+  let writes = 0;
+  const sprite = { texture: { key: 'ruin' }, frame: { name: 2 },
+    setTexture(key, frame) { writes++; this.texture.key = key; this.frame.name = frame; } };
+  assert.eq(swap(sprite, 'ruin', 2), false);
+  assert.eq(swap(sprite, 'ruin'), false, 'key-only callers preserve their existing frame behavior');
+  assert.eq(writes, 0);
+  assert.eq(swap(sprite, 'ruin', 3), true);
+  assert.eq(swap(sprite, 'ruin', 3), false);
+  assert.eq(swap(sprite, 'ruin-unclaimed', 3), true);
+  assert.eq(writes, 2, 'one change for the frame, one for the condition');
+});
+
 // A recording 2D context: every call is logged against the canvas it was
 // made on, and createRadialGradient hands back a stop-taker.
 function fakeCanvasWorld() {

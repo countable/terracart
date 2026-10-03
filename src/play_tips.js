@@ -8,7 +8,7 @@ const PLAY_TIPS = [
   "I saw a figure watching me from an empty window. By morning, fresh footprints ended at the wall beneath it.",
   "Finish the work before you settle into a proper rest. I cannot sleep with half a wall leaning over me.",
   "I know the shape of the missing letters. Why can I no longer remember the name?",
-  "Wandering survivors will buy anything you want to sell, from your trailer.",
+  "Bring what you want to sell home to your trailer. Hold it out to the wandering survivors; they will pay for it, one piece at a time.",
   "We had lost every tool. Our bare hands still did the work.",
   "Below ground, your light dwindles with every descent. Overwhelmed by the deeper dark.",
   "Your wandering shadow can scout ahead. It cannot put your weight behind a blow. Plant your own boots where the fighting is. Strike true.",
@@ -148,6 +148,12 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.fireball_scroll,
   ITEM_GUIDE_TIPS.fear_scroll,
   ITEM_GUIDE_TIPS.treasure_map,
+  "Joined the book club at the school booth. The scholars count every book I read and take a tome down from the shelf as the pile grows. Bought ones count too, at a climbing price.",
+  // Append new guides after all published pages to preserve saved bookmarks.
+  ITEM_GUIDE_TIPS.thunder_scroll,
+  ITEM_GUIDE_TIPS.raven_scroll,
+  ITEM_GUIDE_TIPS.skeleton_scroll,
+  ITEM_GUIDE_TIPS.wraith_scroll,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -385,7 +391,12 @@ const PLAY_TIP_VOLUMES = [
   "garden",
   "road",
   "road",
-  "road"
+  "road",
+  "ledger",
+  "wizard",
+  "wizard",
+  "wizard",
+  "wizard",
 ];
 
 // Narrator observations sit outside the quoted excerpt.
@@ -436,6 +447,21 @@ const PLAY_TIP_ASIDES = {
   "133": "A black feather marks the passage."
 };
 
+// The pages a save has read so far, in reading order — the course walks
+// PLAY_TIPS from page one (app.js _bookRead keeps the bookmark in
+// save.tipsRead, unwrapped), so the pages read are the first min(tipsRead,
+// PLAY_TIPS.length) of them. The Books chip (app.js _buildBookChip) counts
+// them and its list offers them to read again.
+function bookPagesRead(save) {
+  const read = Math.max(0, Math.floor(Number(save && save.tipsRead) || 0));
+  const n = Math.min(read, PLAY_TIPS.length);
+  return Array.from({ length: n }, (_, i) => i);
+}
+// One line to name a page in a list: its volume's title and author.
+function bookPageLabel(page) {
+  const volume = BOOK_VOLUMES[PLAY_TIP_VOLUMES[page]];
+  return `${volume.title} · ${volume.author}`;
+}
 function bookPageHTML(page) {
   const volume = BOOK_VOLUMES[PLAY_TIP_VOLUMES[page]];
   const aside = PLAY_TIP_ASIDES[page];

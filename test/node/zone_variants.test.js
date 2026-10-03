@@ -9,13 +9,12 @@ const count = (row, x0, y0, w, h, seed) => {
   }
   return result;
 };
-test('zone variants: 23 selectable rows select deterministically; legacy quarry remains explicitly available in their zone kind', () => {
+test('zone variants: 24 rows select deterministically without a legacy quarry', () => {
   assert.eq(V.rows.length, 24);
-  assert.eq(V.rows.filter(row => row.selectable !== false).length, 23);
-  assert.eq(V.byId('quarry').selectable, false);
-  assert.eq(V.pick({kind: 'quarry', variant: 'quarry'}).id, 'quarry');
+  assert.eq(V.rows.filter(row => row.selectable !== false).length, 24);
+  assert.eq(V.byId('quarry'), null);
   assert.eq(V.forKind('quarry').length, 4);
-  assert.eq(V.forKind('grove').length, 6);
+  assert.eq(V.forKind('grove').length, 7);
   assert.eq(V.forKind('stones').length, 5);
   assert.eq(V.forKind('tar').length, 5);
   for (const kind of ['grove', 'stones', 'tar', 'beach', 'quarry']) {
@@ -118,7 +117,7 @@ test('zone variants: explicit lamp tint follows coverage winner and otherwise le
     else tinted.lampGlow = original;
   }
 });
-test('zone variants: migrated grave and ruin motifs fit small zones and retain open aisles', () => {
+test('zone variants: grave and ruin motifs fit small zones and retain their intended gaps', () => {
   for (const id of ['ordered_graves', 'overgrown_graves', 'broken_masonry', 'broken_depot']) {
     const row = V.byId(id), [w, h] = row.background.repeatCells;
     assert.lte(w, 6, id); assert.lte(h, 6, id);
@@ -133,7 +132,11 @@ test('zone variants: migrated grave and ruin motifs fit small zones and retain o
       assert.eq(V.sample(row, x - w, y - h, 'anchor'), slot.material);
       assert.eq(V.sample(row, x + w, y + h, 'anchor'), slot.material);
     }
-    // Every motif leaves a continuous lane through successive repeat blocks.
+    // The checkerboard leaves alternating gaps; the other motifs have straight aisles.
+    if (id === 'broken_masonry') {
+      assert.eq(occupied.size, w * h / 2);
+      continue;
+    }
     assert.truthy(Array.from({length: w}, (_, x) => x).some(x =>
       Array.from({length: h}, (_, y) => y).every(y => !V.sample(row, x, y, 'anchor'))), id);
   }
@@ -169,7 +172,7 @@ test('zone variants: repeated geometry preserves densities and phase across nega
   }
 });
 test('zone variants: seeded scatter has declared mix without dependence on traversal order', () => {
-  for (const id of ['meadow', 'flint_field', 'quarry']) {
+  for (const id of ['meadow', 'flint_field']) {
     const row = V.byId(id), counts = count(row, -150, -150, 300, 300, 'one');
     for (const [material, density] of Object.entries(row.background.materialDensity)) {
       assert.lt(Math.abs((counts[material] || 0) / 90000 - density), 0.004, `${id}/${material}`);
@@ -182,21 +185,6 @@ test('zone variants: seeded scatter has declared mix without dependence on trave
     }
     assert.gt(differences, 100, 'different anchors produce different scatter');
   }
-});
-test('zone variants: quarry rocks form broken rows with empty aisles and unchanged area density', () => {
-  const row = V.byId('quarry');
-  let gaps = 0, seats = 0, neighbours = 0;
-  for (let y = -20; y < 20; y++) for (let x = -100; x < 100; x++) {
-    const material = V.sample(row, x, y, 'parking_lanes|0|0');
-    if (Math.abs(y % 2) === 1) assert.eq(material, null, 'alternate rows are clear aisles');
-    else if (material) {
-      seats++;
-      if (V.sample(row, x + 1, y, 'parking_lanes|0|0')) neighbours++;
-    } else gaps++;
-  }
-  assert.inRange(seats / 8000, .38, .42, '40% density across both rows and aisles');
-  assert.inRange(gaps / 4000, .17, .23, 'rows contain visible seeded breaks');
-  assert.gt(neighbours / seats, .75, 'adjacent rocks read as rows');
 });
 test('zone variants: Mushroom Grove avoids wide empty strips at every repeated phase', () => {
   const row = V.byId('mushroom_grove');
@@ -242,7 +230,7 @@ test('zone variants: compact formal beds and touching Silent Circle rims repeat 
   for (let by = -2; by <= 2; by++) for (let bx = -2; bx <= 2; bx++) {
     const cx = 4 + bx * 8, cy = 4 + by * 8;
     for (const [dx, dy] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) {
-      assert.eq(V.sample(row, cx + dx, cy + dy, 'a'), 'stone', 'neighbouring circles share cardinal rim cells');
+      assert.eq(V.sample(row, cx + dx, cy + dy, 'a'), 'grave', 'neighbouring circles share cardinal pillar cells');
     }
     assert.eq(V.sample(row, cx + 2, cy + 3, 'a'), 'grass', 'entry does not sever the shared rim');
     assert.eq(V.sample(row, cx, cy, 'a'), null, 'circle centers remain clear');
@@ -260,6 +248,8 @@ test('zone variants: continuous grids have centered POIs and their declared exte
     for (let i = 0; i <= edge; i++) for (let line = 0; line <= edge; line += b.spacingCells) {
       assert.truthy(V.sample(row, line, i), 'unbroken column');
       assert.truthy(V.sample(row, i, line), 'unbroken row');
+      if (id === 'work_yard' && i % b.spacingCells === 0)
+        assert.eq(V.sample(row, i, line), 'ground_spikes', 'one spike at each shared grid corner');
     }
     for (const [x, y] of [[-1, 0], [0, -1], [edge + 1, 0], [0, edge + 1]]) {
       if (id === 'work_yard') assert.eq(V.sample(row, x, y), null, 'finite work-yard footprint');
@@ -332,7 +322,8 @@ test('zone variants: finite finds keep exact budgets and pick requirements', () 
   assert.eq(workFind.dy, 8);
 });
 test('zone variants: fauna affinities and material classes match their runtime lanes', () => {
-  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 10);
+  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 8);
+  assert.eq(Object.keys(V.byId('silent_circle').attracts).length, 0, 'quiet grave pillars do not pull extra crows');
   assert.eq(V.materials.grave.spawnClass, 'headstone');
   assert.eq(ZoneVariantData.materials.grave.spawnClass, 'enemy', 'runtime adapts without mutating reviewed source');
   assert.eq(V.materials.trap.collection, 'traps');
@@ -343,3 +334,13 @@ test('zone variants: fauna affinities and material classes match their runtime l
   }
 });
 })();
+
+test('bush groves target half of background cells before placement exclusions', () => {
+ for (const id of ['meadow','ancient_grove']) {
+   const row=ZoneVariants.byId(id); let shrubs=0;
+   assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : undefined);
+   for(let y=0;y<120;y++) for(let x=0;x<120;x++) if(ZoneVariants.sample(row,x,y,'coverage')==='shrub')shrubs++;
+   assert.eq(row.background.materialDensity.shrub,0.5);
+   assert.inRange(shrubs/14400,0.48,0.52,id);
+ }
+});

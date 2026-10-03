@@ -6,23 +6,21 @@
 // absolute world metres, the SAME space every generated object's x/y lives in
 // (playerM starts at {0,0}, so the player literally stands on startWorldM).
 //
-// A lot of early-game customization keys off being near that origin, or off
-// being among the first houses/shops restored. This module owns the geometry
-// ("am I near home?") and the home-area tuning that isn't bound to one specific
-// shop, so future tweaks have one obvious place to live. Loaded BEFORE
-// worldgen.js so tile generation can ask `HomeArea.isNear(...)` while building.
+// This module owns the geometry ("am I near home?") and the home-area tuning
+// that isn't bound to one specific shop. Loaded BEFORE worldgen.js so tile
+// generation can ask `HomeArea.isNear(...)` while building.
 //
 // ── INDEX of home-area customization still living elsewhere ──────────────────
 // (Migrate each into here as it's next touched, routing through HomeArea.)
-//   • Start origin / synthetic trailer ……… app.js  isStarterShop / ensureStarterShopId
-//   • Starter blacksmith (1st restored) …… houses.js  isStarterBlacksmith, PRESEED_RESTORE_ROLES
-//   • Scarecrow shop (early house) ………… app.js  isScarecrowShop
-//   • Shops sell a line by restore order … app.js  marketTheme
+//   • Start origin / synthetic trailer ……… scene_shops.js  isStarterShop / ensureStarterShopId
+//   • What a wreck can become, by count … houses.js  BUILD_OPTIONS / STORY_RESTORES
+//   • Starter blacksmith (1st smithy) ……… houses.js  isStarterBlacksmith
+//   • Shops sell a line by restore order … scene_shops.js  marketTheme
 //     (the first is the Seed Shop — see shops.js themeAt / roleLabel)
 //   • First 8 delivery houses → T1 produce delivery.js Delivery.isEarly
 //     (of which the first 7 walk delivery.js SCRIPTED_WISHLISTS — five
 //      single-item asks, then the starter pair, then the flower trio)
-//   • Starter loot crates (wood/rockfruit/seeds) app.js  STARTER_LOOT
+//   • Starter loot crates (wood/rockfruit/seeds) starter.js  STARTER_LOOT
 //   • Starting money / no free tools …… items.js STARTING_MONEY; a fresh save's
 //                                        relic slots all default to null
 //   • Fort unlock cost ………………………… houses.js  FORT_UNLOCK_WOOD
@@ -58,25 +56,19 @@ const HomeArea = {
   // so the home grove is reliably harvestable bare-handed / with a Wood axe.
   // Returns the species string to store on the tree (the fallback elsewhere).
   //
-  // A PER-PLAYER OVERLAY, never a generation input. Where "home" is differs
-  // per save, and worldgen used to call this mid-build — so the same tree was
-  // a pine in one player's world and a maple in another's. Worldgen now
-  // generates the world's species; applySoftwood (below) stamps this rule
-  // onto a built tile's trees for THIS player, from app.js's spawn pass.
-  //
+  // A PER-PLAYER OVERLAY, never a generation input: where "home" is differs
+  // per save, so worldgen generates the world's species and applySoftwood
+  // (below) stamps this rule onto a built tile's trees for THIS player.
   // Includes legacy bush-sized trees, which now use the small tree canopy.
   softwoodSpeciesNear(x, y, fallbackSpecies) {
     return this.isNear(x, y) ? 'pine' : fallbackSpecies;
   },
 
   // The overlay itself: re-species every generated `tree` object in `objects`
-  // (a tile entry's list) by softwoodSpeciesNear. Idempotent — a pine stays a
-  // pine, a tree outside the zone keeps its species — so running it again on
-  // the same entry is harmless. Call it once per built entry, in the spawn
-  // pass (scene_creatures.js spawnInTile), which a rebuilt entry re-runs (the `_spawned`
-  // gate) — so a rebuild, which mints fresh objects, gets it again. Fruit
-  // trees and anything that is not a `tree` are left alone. Returns the
-  // number of trees it changed.
+  // by softwoodSpeciesNear. Idempotent. Call it once per built entry, in the
+  // spawn pass (scene_creatures.js spawnInTile), which a rebuilt entry re-runs
+  // (the `_spawned` gate) since a rebuild mints fresh objects. Fruit trees and
+  // non-trees are left alone. Returns the number of trees it changed.
   applySoftwood(objects) {
     if (!objects || !this.worldM) return 0;
     let n = 0;
@@ -89,94 +81,63 @@ const HomeArea = {
   },
 
   // ── Starter provisioning ──────────────────────────────────────────────
-  // The starter ladder assumes the world around spawn can actually teach it:
-  // something to chop, something to mine, and a wreck to rebuild. The real
-  // world does not promise any of that. A parkland or rural spawn can have no
-  // OSM buildings at all — no wreck means step 4 ("Rebuild a neighbour") can
-  // never fire, and with no blacksmith there is nothing to spend the crates'
-  // wood and stone on. A downtown spawn has the opposite problem: plenty of
-  // trees, all of them large hardwoods needing a Gold axe the player will not
-  // own for hours.
+  // The starter ladder assumes the world around spawn can teach it: something
+  // to chop, something to mine, and a wreck to rebuild. A parkland or rural
+  // spawn can have no OSM buildings (so "Rebuild a neighbour" never fires), and
+  // a downtown spawn has only large hardwoods needing a Gold axe. So the home
+  // area is AUDITED against a quota and only the shortfall is synthesized;
+  // home keeps looking like the player's actual street.
   //
-  // So the home area is AUDITED against a quota and only the shortfall is
-  // synthesized. What the real neighbourhood already provides is kept — the
-  // point is that home looks like the player's actual street, not a stamped
-  // homestead.
-  //
-  // Geometry, in CELLS from the spawn anchor. Both bands are measured against
-  // the one distance the player can actually perceive: the viewport is
-  // VIEW_CELLS (11) wide with the player in the middle of it, so they see 5
-  // cells in every direction and nothing further out exists to them until
-  // they walk.
-  //   0..POCKET_CELLS   the cleared tutorial pocket (app.js CLEAR_R, which is
-  //                     derived from this number). Kept clean so the crate
-  //                     trail and the starter soil plot read without competing
-  //                     scenery — EXCEPT one token tree and one token rock, so
-  //                     the first thing a player learns to chop and mine is in
-  //                     plain sight from Home. Exactly the ground on screen at
-  //                     spawn, so the tidy pocket IS the opening screen.
+  // Geometry, in CELLS from the spawn anchor, measured against what the player
+  // can perceive: the viewport is VIEW_CELLS (11) wide with the player in the
+  // middle, so they see 5 cells in every direction.
+  //   0..POCKET_CELLS   the cleared tutorial pocket (app.js CLEAR_R, derived
+  //                     from this number). Kept clean so the crate trail and
+  //                     starter soil plot read without competing scenery —
+  //                     EXCEPT one token tree and one token rock, in plain
+  //                     sight from Home. Exactly the opening screen.
   //   RING_MIN..RING_MAX  where the rest goes: it begins at the screen's edge,
   //                     so the pocket reads as a clearing RINGED by the
-  //                     neighbourhood rather than as bare ground running off
-  //                     every side of the display.
+  //                     neighbourhood.
   //
-  // The pocket used to be 10 cells and the ring 11..16 — twice as far out as a
-  // player can see, and past the home fog reveal as well. So a new save
-  // opened on bald ground to every edge of the screen, and the ring of trees
-  // and rocks around home was seated exactly as designed, two screens out,
-  // under fog: correct in the tile, invisible in the game. If the pocket is
-  // ever widened again, widen the view with it or the ring goes missing the
-  // same way.
+  // If the pocket is ever widened, widen the view with it, or the ring is
+  // seated beyond the visible area and fog and goes missing.
   //
-  // RING_MIN is also exactly where the fog now begins: app.js
-  // HOME_REVEAL_CELLS is 6, one cell past the player's 5 cells of sight, so
-  // the first ring of scenery is lit and the wash starts immediately behind
-  // it. The rest of the band (7..16) is walked to, not given.
+  // RING_MIN is also where the fog begins: app.js HOME_REVEAL_CELLS is 6, one
+  // cell past the player's sight, so the first ring of scenery is lit. The
+  // rest of the band (7..16) is walked to, not given.
   POCKET_CELLS: 5,
   RING_MIN_CELLS: 6,
   RING_MAX_CELLS: 16,
-  // How far the search may reach when the ring band itself cannot supply the
-  // quota — a spawn on a pier, a riverbank, a marina, or inside a solid block
-  // of buildings, where most of the band is water or floor and simply has
-  // nowhere to stand anything. Rather than silently under-supplying (the old
-  // behaviour: an all-water spawn seated NOTHING, so there was no wreck to
-  // rebuild and the ladder could not be finished), the band widens outward
-  // until it finds ground. ~280 m — a walk, but a reachable one.
+  // How far the search may reach when the ring band cannot supply the quota
+  // (a spawn on a pier, riverbank, marina, or inside a solid block of
+  // buildings): the band widens outward until it finds ground, rather than
+  // seating nothing. ~280 m.
   RING_MAX_ESCALATED_CELLS: 40,
 
   // What must be reachable on foot before the ladder can be completed.
   // Counted across the pocket AND the ring together — a tree is a tree
   // wherever it stands.
   //
-  // `ladder` is a WAY DOWN — one cave entrance in the home area, so a new
-  // player always has the underground within sight of home instead of having
-  // to stumble across a mine mouth. It is a quota of ONE, not fifty: worldgen
-  // scatters entrances at ~30% per residential rock cluster with a per-tile
-  // guarantee (see maybePlaceCaveEntrance), so most spawns already have one
-  // somewhere on the tile — but "somewhere on a 222-cell tile" is not "in the
-  // ring", and a bare or parkland spawn can put it a long walk away. The audit
-  // counts any down-staircase already standing in the area, so this adds a
-  // second entrance only when the neighbourhood didn't supply one.
+  // `ladder` is a WAY DOWN — one cave entrance in the home area, so the
+  // underground is within sight of home. A quota of ONE: worldgen scatters
+  // entrances at ~30% per residential rock cluster (maybePlaceCaveEntrance),
+  // but "somewhere on the tile" is not "in the ring". The audit counts any
+  // down-staircase already standing, so a second is added only when the
+  // neighbourhood didn't supply one.
   //
-  // `mushroom` is FOOD, and it is the one quota entry that isn't about the
-  // ladder's lessons. Energy is the early game's real constraint — every swing
-  // costs some and the only refills are eating and resting — and a mushroom is
-  // 21 of it (items.js FOOD_ENERGY), so six is over one full tank scattered
-  // around the ring. Bounded on purpose: a picked wild plant never regrows
+  // `mushroom` is FOOD, not a ladder lesson. Energy is the early game's real
+  // constraint and a mushroom is 21 of it (items.js FOOD_ENERGY), so six is over
+  // one full tank. Bounded on purpose: a picked wild plant never regrows
   // (save.picked is keyed by its cell id), so this is a one-time cushion while
-  // the first crop matures, not an income source. The map's own mushrooms are
-  // no help here — the residential flora window is 0.008..0.025 per cell
-  // (biome_profiles.js), so a suburban spawn can easily have none in reach.
+  // the first crop matures. The residential flora window (biome_profiles.js) is
+  // thin enough that a suburban spawn can have none in reach.
   QUOTA: { tree: 50, rock: 50, wreck: 6, ladder: 1, mushroom: 6 },
-  // Of that quota, how many must sit inside the pocket as the visible example.
-  // GUARANTEED, not a shortfall: the pocket is deliberately cleared of trees
-  // and rocks, so however lush the surrounding neighbourhood is, a player
-  // standing at their own front door can otherwise see nothing to chop or
-  // mine. The token pair is what the first two lessons are performed on.
+  // Of that quota, how many must sit inside the pocket as the visible example:
+  // GUARANTEED, since the pocket is deliberately cleared of trees and rocks.
   TOKEN: { tree: 1, rock: 1 },
-  // ...but not right against the door. The trailer's art spills into all eight
-  // neighbouring cells and the crate trail seats from 2 cells out, so a token
-  // any closer reads as clutter in the doorway rather than scenery.
+  // ...but not right against the door: the trailer's art spills into all eight
+  // neighbouring cells and the crate trail seats from 2 cells out.
   TOKEN_MIN_CELLS: 4,
 
   // A tree a player with NO axe can fell: small + softwood is tier 0 via
@@ -192,18 +153,14 @@ const HomeArea = {
   // one place the starter provision crosses into a second stream.
   STARTER_MUSHROOM: { crop: 'mushroom' },
 
-  // Can a beginner actually harvest this, with the empty relic set they start
-  // with? Both read the SHIPPING gate helpers rather than re-deriving them, so
-  // a change to the axe ladder or the pick gate can't silently leave the
-  // starter area full of things that look usable and aren't.
+  // Can a beginner harvest this with the empty relic set they start with? Both
+  // read the SHIPPING gate helpers so a change to the axe ladder or pick gate
+  // can't leave the starter area full of things that aren't usable.
   //
-  // A FRUIT tree is not a tree here. It is never chopped — its only
-  // interaction is the pick (interactables.js fruittree), which hands out the
-  // item named by `o.species` — so it can't fill the "something to chop"
-  // quota, and it must never be tamed: makeStarterUsable used to count it as
-  // a tree and stamp STARTER_TREE's species onto it, and an apple tree near
-  // spawn became species 'pine'. 'pine' is not an item, so the pick flashed
-  // "harvested pine" and Inventory.add dropped it on the floor — no apple.
+  // A FRUIT tree is not a tree here: it is never chopped (its only interaction
+  // is the pick, interactables.js fruittree) so it can't fill the chop quota,
+  // and must never be tamed — stamping STARTER_TREE's species onto it made an
+  // apple tree 'pine', which is not an item.
   isStarterTree(o) {
     if (!o || o.kind !== 'tree') return false;
     return (typeof treeAxeReqTier === 'function') ? treeAxeReqTier(o) === 0 : false;
@@ -218,23 +175,19 @@ const HomeArea = {
     return !!w && w.crop === this.STARTER_MUSHROOM.crop;
   },
   // A house the ladder's "Rebuild a neighbour" step can be performed on: a
-  // plain small house, which renders as a wreck until it is restored. Forts
-  // (11) and civic slabs (12) never wreck, so they don't count — and neither
-  // does HOME, which is a plain house by tier but renders as the trailer and
-  // can never be restored (render.js _houseRole returns 'trailer' for it). A
-  // player standing next to their own front door has no wreck to rebuild.
+  // plain small house, which renders as a wreck until restored. Forts (11) and
+  // civic slabs (12) never wreck, and neither does HOME (render.js _houseRole
+  // returns 'trailer' for it, never restorable).
   isStarterWreck(o, homeId) {
     if (!o || o.kind !== 'house') return false;
     if (homeId && o.id === homeId) return false;
     return o.tier == null || o.tier === 9;
   },
 
-  // Would makeStarterUsable() actually succeed on this? Answered by trying it
-  // on a COPY rather than by re-deriving the rules, so it cannot disagree with
-  // the real thing. Not everything can be tamed: a SHINY tree is pinned to the
-  // Gold-axe tier by its id (util.js treeAxeReqTier checks isShiny first), so
-  // no amount of respeciating it helps — and one standing near spawn must not
-  // be counted as the player's choppable tree.
+  // Would makeStarterUsable() succeed on this? Answered by trying it on a COPY
+  // so it cannot disagree with the real thing. A SHINY tree is pinned to the
+  // Gold-axe tier by its id (util.js treeAxeReqTier), so respeciating cannot
+  // help and it must not be counted.
   canBeStarterUsable(o) {
     if (!o) return false;
     const probe = { ...o };
@@ -270,8 +223,7 @@ const HomeArea = {
   },
 
   // THE AUDIT. Given the objects already in the home area, work out what is
-  // missing. Pure — no scene, no tile, no RNG — so the whole policy is
-  // testable headlessly and app.js is left with just the seating.
+  // missing. Pure — no scene, tile or RNG — so the policy is headless-testable.
   //
   // Returns:
   //   downgrade  objects to run makeStarterUsable() on (unusable naturals
@@ -280,14 +232,11 @@ const HomeArea = {
   //              usable and what the downgrades will make usable
   //   tokens     whether the pocket still lacks its example tree / rock
   //   opts.homeId       the player's Home house id, so it isn't counted as a wreck
-  //   opts.radiusCells  how far out to look (default RING_MAX_CELLS). Widens
-  //                     when an earlier pass had to escalate past the band to
-  //                     find ground, so what it seated out there still counts
-  //                     and the quota isn't provisioned twice.
-  //   opts.wildplants   the area's wild-plant stream. Passed separately because
-  //                     it IS separate in the tile (entry.wildplants, keyed by
-  //                     `crop` where objects are keyed by `kind`) — merging the
-  //                     two into one list here would only hide that.
+  //   opts.radiusCells  how far out to look (default RING_MAX_CELLS); widened
+  //                     when an earlier pass escalated past the band, so what it
+  //                     seated out there still counts.
+  //   opts.wildplants   the area's wild-plant stream, separate in the tile
+  //                     (entry.wildplants, keyed by `crop` not `kind`).
   planStarterProvision(objects, anchorX, anchorY, cellM, opts) {
     const homeId = opts && opts.homeId;
     const radius = (opts && opts.radiusCells) || this.RING_MAX_CELLS;
@@ -321,9 +270,7 @@ const HomeArea = {
         if (d <= this.POCKET_CELLS) pocket[kind]++;
       } else if (o._synthetic) {
         // Seated by an earlier provisioning pass at a deliberately rolled
-        // rarity (the occasional ore-bearing rock / bigger tree). It fills
-        // its slot in the quota — a later pass must not seat a replacement
-        // beside it, and must never downgrade the find back to plain.
+        // rarity: fills its slot in the quota; never replace or downgrade it.
         have[kind]++;
       } else if (this.canBeStarterUsable(o)) {
         // Untameable ones (a shiny tree) are skipped entirely — they are
@@ -331,10 +278,8 @@ const HomeArea = {
         candidates[kind].push({ o, d });
       }
     }
-    // Tame ONLY as many as the quota is short by, nearest first. Taming every
-    // unusable tree in range would flatten a wooded street into saplings to
-    // supply four of them — the opposite of "home looks like the player's
-    // actual neighbourhood".
+    // Tame ONLY as many as the quota is short by, nearest first, so a wooded
+    // street isn't flattened into saplings.
     const downgrade = [];
     for (const kind of ['tree', 'rock']) {
       const short = Math.max(0, this.QUOTA[kind] - have[kind]);
@@ -346,9 +291,8 @@ const HomeArea = {
         if (c.d <= this.POCKET_CELLS) pocket[kind]++;
       }
     }
-    // Food already growing in the area counts, the same way a usable tree does:
-    // a woodland spawn with mushrooms all over it is not owed six more. No
-    // downgrade path — there is nothing about a wild plant to make easier.
+    // Food already growing in the area counts, like a usable tree. No
+    // downgrade path for a wild plant.
     for (const w of ((opts && opts.wildplants) || [])) {
       if (!this.isStarterMushroom(w)) continue;
       if (this.cellsFromAnchor(w.x, w.y, anchorX, anchorY, cellM) > radius) continue;

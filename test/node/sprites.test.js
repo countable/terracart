@@ -224,10 +224,10 @@ test('CROP_SPRITE: starflower is props frame 102 (row 4, col 14 → 4*22+14=102)
 // Shell.png is a 3×4 grid, but only its top row is shell art — see
 // test/node/shell_variants.test.js for what counting the cells instead cost.
 
-test('CROP_SPRITE: shell uses shell_sheet, custom: true, frames 0-2', () => {
+test('CROP_SPRITE: shell uses shell_sheet, custom: true, original frame 0', () => {
   assert.eq(CROP_SPRITE['shell'].sheet, 'shell_sheet');
   assert.eq(CROP_SPRITE['shell'].custom, true);
-  assert.eq(CROP_SPRITE['shell'].frames.join(','), '0,1,2');
+  assert.eq(CROP_SPRITE['shell'].frames.join(','), '0');
 });
 
 // ── Structural invariants for CROP_ROW ────────────────────────────────────
@@ -418,16 +418,16 @@ test('MINERAL_ICON_SHEET: row stride for bars is 16 cols (gold at 16, crimson at
   assert.eq(MINERAL_ICON_SHEET['crimson_bar'].frame - MINERAL_ICON_SHEET['gold_bar'].frame, 16);
 });
 
-test('shrubs have only basic and cut art with identical harvesting and no biome tints', () => {
+test('shrubs keep common harvesting across basic, cut and bramble art', () => {
   const base = CROP_SPRITE.shrub, cut = base.looks.clipped;
-  assert.eq(Object.keys(base.looks).join(','), 'clipped');
+  assert.eq(Object.keys(base.looks).sort().join(','), 'bramble,clipped');
   for (const _biome of [undefined, 0, 5, 6, 16, 17, 18]) {
-    for (const look of [undefined, 'clipped', 'trimmed', 'unknown']) {
+    for (const look of [undefined, 'clipped', 'trimmed', 'bramble', 'unknown']) {
       for (const tag of ['_plantArt', '_streetArt']) {
         for (const _cave of [true, false]) {
           const p = {crop:'shrub', _biome, [tag]:look, _cave};
           const isCut = ['clipped','trimmed'].includes(look) || (!_cave && [5,16].includes(_biome));
-          assert.eq(wildplantSprite(p), isCut ? cut : base);
+          assert.eq(wildplantSprite(p), look === 'bramble' ? base.looks.bramble : isCut ? cut : base);
           assert.eq(wildplantFrame(p), 0);
           assert.eq(BiomeProfiles.tint(_biome, 'shrub'), null);
           assert.eq(wildplantRule(p.crop).output, 'wood');
@@ -440,10 +440,9 @@ test('shrubs have only basic and cut art with identical harvesting and no biome 
 test('Mushroom Grove giant caps fit centered inside the cell and have distinct rewards', () => {
   const p = {crop:'giant_mushroom'};
   const art = wildplantSprite(p);
-  assert.eq(art.sheet, 'giant_mushroom');
-  assert.eq(wildplantFrame(p), 0);
-  assert.truthy(art.seat);
-  const box = SpriteLayout.ART_BOUNDS['giant_mushroom:0'];
+  assert.eq(art.sheet, 'zone_objects');
+  assert.eq(wildplantFrame(p), 40);
+  const box = SpriteLayout.ART_BOUNDS['zone_objects:40'];
   const pos = SpriteLayout.seatInCell(box, .5, .5, art.scale, art.scale);
   assert.truthy(pos.fits, 'the smaller giant fits within one cell');
   assert.eq(pos.dyPx + ((box.minY + box.maxY)/2 - box.fh/2) * art.scale, 0);
@@ -570,4 +569,59 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.falsy(/CHEST_TIER_COLOR|chestObjs|tier diamond/.test(RENDER_SRC), 'tier colours are in the chest art, without floating gems');
   assert.truthy(/const g = scene\.tierGfx;\s*g\.clear\(\);/.test(RENDER_SRC), 'attack warning layer still clears each draw');
   assert.truthy(/g\.strokeCircle\(centre\.sx, centre\.sy, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
+});
+
+test('wooden barrels and smashed barrels render at half their former size', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  for (const smashed of [false, true]) {
+    const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
+    assert.eq(look.texKey, smashed ? 'barrel_smashed' : 'barrel');
+    assert.eq(look.scl, 2 / 3);
+  }
+  assert.eq(art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot'}).scl, 4 / 3);
+});
+
+test('stronghold walls keep their tile frame alignment instead of centering corner art', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  for (let variant=0;variant<15;variant++) {
+    const p=art.resolveAppearance({kind:'stronghold_wall',variant});
+    assert.eq(p.texKey,'stronghold_wall');
+    assert.eq(p.frameVal,variant);
+    assert.eq(p.scl*24,SpriteLayout.CELL_PX);
+    assert.eq(p.dxPx,0); assert.eq(p.dyPx,0);
+    assert.eq(p.spec.seat,false,'corner quadrants must not be recentered');
+  }
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:2}).texKey,'mineralrock','global rock art retained');
+});
+
+// A mature replacement must not turn the seed packet or growing crop into a bush.
+test('berry bush: mature map art replaces wild and farmed berries while growth and inventory remain distinct', () => {
+  for (const plant of [{kind:'wildplant',crop:'berry'}, {crop:'berry',wildId:'wz:berry'}, {crop:'berry',stage:MAX_GROWTH_STAGE}]) {
+    const art = wildplantSprite(plant);
+    assert.eq(art.sheet, 'zone_berry_bush');
+    assert.eq(art.scale, 4 / 3);
+    assert.eq(wildplantFrame(plant), 0);
+  }
+  for (let stage=0; stage<MAX_GROWTH_STAGE; stage++) {
+    assert.eq(wildplantSprite({crop:'berry',stage}).sheet, 'springcrops');
+  }
+  assert.eq(inventoryIconSource('berry_seed').frame, 21);
+  assert.eq(inventoryIconSource('berry').frame, 22);
+  assert.eq(wildplantOutput('berry'), 'berry');
+  assert.eq(wildplantRewards('berry')[0].qty, 1);
+});
+
+test('selected zone appearances keep mineral interactions and global art separate', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  const original = art.resolveAppearance({kind:'mineralrock',yieldTier:2});
+  const selected = art.resolveAppearance({kind:'mineralrock',deposit:'crystal',_zoneObjectFrame:37});
+  assert.eq(original.texKey,'mineralrock');
+  assert.eq(selected.texKey,'zone_objects'); assert.eq(selected.frameVal,37);
+  assert.eq(selected.spec.after,original.spec.after,'pick-gate appearance hook is retained');
+  assert.eq(selected.scl*24,32);
+  const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
+  assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
+  assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
+  assert.eq(art.resolveAppearance(pot).scl*24,32);
+  assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });

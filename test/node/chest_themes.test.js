@@ -1,11 +1,22 @@
 // Themes are tested through the same groups and picker consumed by the game.
+test('chest themes: T2 acorns fill the budget with a stack while fruit saplings stay single', () => {
+  assert.eq(itemValue('acorn'), 5);
+  assert.eq(itemValue('scarecrow'), 20);
+  // T2's current 24-coin allowance buys 4.8 acorns: round up to five.
+  // Better brackets already hit that stack cap; the old 8-coin budget no
+  // longer governs this reward after main's chest-value increase.
+  for (const bracket of [0, 1, 2, 3]) {
+    assert.eq(ChestThemes.quantity('acorn', 2, bracket), 5, 'T2 fills the planting stack');
+  }
+  assert.eq(ChestThemes.quantity('acorn', 7, 3), 5, 'ordinary stack cap still applies');
+  for (const id of ['apple_sapling', 'peach_sapling']) assert.eq(ChestThemes.quantity(id, 7, 3), 1);
+});
+
 test('chest themes: every authored path terminates and conserves probability', () => {
   assert.truthy(ChestThemes.validate());
-  // 14: the MEMORIAL theme is gone (Sep 2026) — a memorial, monument or
-  // cemetery is a sensitive place that mints no chest (WorldGen.isSensitivePoi)
-  // — and VISTA is new (Sep 2026): the viewpoint grail's own T4 pool
-  // (src/chest_themes.js, loot.js chestThemeFor).
-  assert.eq(Object.keys(ChestThemes.themes).length, 14);
+  // Memorials mint no chest, and the unused pets theme is gone because
+  // OpenMapTiles represents pet stores as shop/pet commerce POIs.
+  assert.eq(Object.keys(ChestThemes.themes).length, 13);
   assert.falsy(ChestThemes.themes.memorial, 'no memorial theme');
   for (const theme of Object.keys(ChestThemes.themes)) for (let tier = 1; tier <= 7; tier++) {
     for (const depth of [0, 1]) {
@@ -19,6 +30,7 @@ test('chest themes: every authored path terminates and conserves probability', (
         for (const id of ChestThemes.selectableIds(r)) {
           const item = ITEM_BY_ID[id];
           assert.truthy(item && !item.shiny);
+          assert.falsy(isTome(id), `${theme}/${tier}/${depth}/${group} keeps tomes for the scholar`);
           if (item.cooked) assert.eq(r.group, 'food', 'cooked meals stay in the food pool');
           assert.truthy(!item.caveOnly || depth > 0);
           assert.truthy(item.baseTier <= tier, 'the Book is a T1 item; every group member is tier-gated');
@@ -31,7 +43,7 @@ test('chest themes: every authored path terminates and conserves probability', (
 test('chest themes: cooked meals, spears and minerals are reachable at their quality tier', () => {
   const expected = [
     ...ITEMS.filter(item => item.cooked).map(item => ['food', 'food', item.id]),
-    ['roadside', 'supplies', 'spear'], ['authority', 'field', 'spear'],
+    ['roadside', 'supplies', 'spear'], ['authority', 'supplies', 'spear'],
     ['roadside', 'materials', 'coal'],
     ...Object.values(MINERAL_TIERS).map(row => ['roadside', 'materials', row.barId]),
   ];
@@ -57,53 +69,61 @@ test('chest themes: cooked meals, spears and minerals are reachable at their qua
 
 test('chest themes: high-tier weights use the chest tier, not jackpot quality', () => {
   assert.eq(ChestThemes.weights('roadside', 7, { tier: 1 }).supplies, 45);
-  assert.eq(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 10);
-  assert.eq(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 35);
-  assert.eq(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 35);
-  assert.eq(ChestThemes.weights('food', 4, { tier: 1 }).foodSeeds, 7.5, 'starter jackpot still reduces seeds');
+  assert.eq(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 45);
+  assert.eq(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 50);
+  assert.eq(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 50);
+  assert.eq(ChestThemes.weights('food', 4, { tier: 1 }).food, 95,
+    'a starter jackpot keeps the food chest identity');
 });
 
 test('chest themes: cave mixture adds medicine and retains the location share', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const w = ChestThemes.weights('school', tier, { depth: 1 });
-    assert.eq(w.books, tier >= 3 ? 24 : 33, '60% of the surface book share');
+    assert.eq(w.books, 36, '60% of the surface book share');
     if (tier === 1) assert.eq(w.antidote, 24);
     else assert.eq(w.caveMagic, tier === 2 ? 24 : 32);
   }
-  for (const [tier, top] of [[6, 'resurrection_potion'], [7, 'elixir']]) {
+  for (const tier of [6, 7]) {
     const r = ChestThemes.resolve('caveMagic', tier, { depth: 1 });
+    const topTier = Math.max(...r.ids.map(id => ITEM_BY_ID[id].baseTier));
     const rng = makeRng32(101);
     let powders = 0, topItems = 0;
     for (let i = 0; i < 5000; i++) {
       const id = ChestThemes.pickItem(r, tier, rng);
       assert.lte(ITEM_BY_ID[id].baseTier, tier, 'no medicine above the rolled tier');
       if (id.endsWith('_powder')) powders++;
-      if (id === top) topItems++;
+      if (ITEM_BY_ID[id].baseTier === topTier) topItems++;
     }
     assert.inRange(topItems / 5000, 0.67, 0.73);
     assert.gt(powders, 150, 'deep magic retains useful lower-tier powders');
   }
 });
 
-test('chest themes: recovery, revival and protection remain distinct', () => {
+test('chest themes: health stays in its medical-magic lane', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const opts = { theme: 'health' };
     const recovery = ChestThemes.resolve('recovery', tier, opts);
     const ids = ChestThemes.selectableIds(recovery);
-    if (tier < 4) assert.eq(recovery.group, 'restorative');
+    if (tier < 2) assert.eq(recovery.group, 'restorative');
     else assert.eq(ids.join(','), tier >= 7 ? 'elixir' : 'vigor_potion');
     const revival = ChestThemes.resolve('revival', tier, opts);
-    if (tier === 1) assert.eq(revival.group, 'restorative');
+    if (tier < 3) assert.eq(revival.group, 'restorative');
     else assert.eq(ChestThemes.selectableIds(revival).join(','), tier >= 5 ? 'resurrection_potion' : 'revive_potion');
-    if (tier <= 2) assert.eq(ChestThemes.weights('health', tier).antidote, 25);
-    else assert.eq(ChestThemes.weights('health', tier).medicalMagic, 100);
+    // (A T2 chest lends a fifth of its row to the Book — ChestThemes.BOOK_T2_SHARE.)
+    assert.eq(ChestThemes.weights('health', tier).medicalMagic, tier === 2 ? 100 - ChestThemes.BOOK_T2_SHARE : 100);
+    const resolved = ChestThemes.resolve('medicalMagic', tier, opts);
+    assert.eq(resolved.group, tier === 1 ? 'antidote' : 'medicalMagic');
+    for (const id of ChestThemes.selectableIds(resolved)) {
+      assert.truthy(['magic', 'unique_relic'].includes(ITEM_BY_ID[id].kind),
+        id + ' is restorative magic or a selected healing relic');
+    }
   }
 });
 
 test('chest themes: quantities use actual item price once and discard excess allowance', () => {
-  assert.eq(ChestThemes.quantity('vigor_potion', 4, 0), 2);
-  assert.eq(ChestThemes.quantity('revive_potion', 4, 0), 2);
-  assert.eq(ChestThemes.quantity('vigor_potion', 5, 0), 5);
+  assert.eq(ChestThemes.quantity('vigor_potion', 4, 0), 6);
+  assert.eq(ChestThemes.quantity('revive_potion', 4, 0), 6);
+  assert.eq(ChestThemes.quantity('vigor_potion', 5, 0), 6);
   for (const id of ['elixir', 'resurrection_potion', 'book', 'sunflower_seed', 'fireflower_seed', 'iceflower_seed']) {
     assert.eq(ChestThemes.quantity(id, 7, 3), 1, id + ' is a single reward');
   }
@@ -125,9 +145,56 @@ test('chest themes: unrelated gear and items never leak across themes', () => {
       if (r.kind === 'relic' || r.kind === 'armor') {
         assert.gt(tier, 1);
         assert.truthy(r.slot !== 'ring');
-        if (theme === 'authority') assert.eq(r.kind, 'armor');
-        if (['school', 'civic'].includes(theme)) assert.includes(['bags', 'can', 'hoe', 'rod', 'bugnet'], r.slot);
+        if (r.resolvedGroup === 'supplies') {
+          assert.eq(tier, 2);
+          assert.eq(r.kind, 'relic');
+          assert.eq(r.tier, 1);
+          assert.includes(['dagger', 'lance', 'musket'], r.slot);
+        } else if (theme === 'authority') assert.eq(r.kind, 'armor');
+        if (['school', 'civic'].includes(theme)) assert.includes(
+          r.resolvedGroup === 'supplies' ? ['dagger', 'lance', 'musket'] : ['bags', 'can', 'hoe', 'rod', 'bugnet'], r.slot);
       }
+    }
+  }
+});
+
+test('chest themes: alternate weapons use only their three material tiers', () => {
+  const rng = makeRng32(1872);
+  for (const slot of ['dagger', 'lance', 'musket']) {
+    assert.truthy(ChestThemes.gearSlots('culturalGear').some(row => row.slot === slot));
+    const found = new Set();
+    for (let chestTier = 2; chestTier <= 5; chestTier++) for (let i = 0; i < 200; i++) {
+      const r = rollGearUpgrade(rng, {}, chestTier, {}, [{ kind: 'relic', slot }]);
+      assert.eq(r.kind, 'relic');
+      assert.includes([1, 3, 5], r.tier);
+      found.add(r.tier);
+    }
+    assert.eq(found.size, 3, slot + ' can drop at every material tier');
+    const top = reconcileRelicOffer({ slot, tier: 2 }, { relics: { [slot]: { tier: 3 } } }, () => 0.99);
+    assert.eq(top.tier, 5, 'duplicate walk-up stops at Magic');
+    const owned = reconcileRelicOffer({ slot, tier: 7 }, { relics: { [slot]: { tier: 5 } } }, () => 0.99);
+    assert.eq(owned.kind, 'gold', 'Magic cannot upgrade beyond its final tier');
+  }
+});
+
+test('chest themes: T2 supplies introduce Rusty weapons only in empty slots', () => {
+  const slots = ['dagger', 'lance', 'musket'];
+  const rng = makeRng32(497);
+  const found = new Set();
+  for (const tier of [1, 2, 3]) for (let i = 0; i < 1500; i++) {
+    const r = resolveChestReward('roadside', { tier: 7, bracket: 0, jackpotApplied: 0 }, {}, rng, { tier });
+    if (r.kind !== 'relic') continue;
+    assert.eq(tier, 2, 'starter weapons require displayed T2 even with jackpot quality');
+    assert.eq(r.tier, 1);
+    assert.includes(slots, r.slot);
+    found.add(r.slot);
+  }
+  assert.eq(found.size, 3);
+  for (const ownedTier of [1, 3, 5]) {
+    const save = { relics: Object.fromEntries(slots.map(slot => [slot, { tier: ownedTier }])) };
+    for (let i = 0; i < 500; i++) {
+      const r = resolveChestReward('roadside', { tier: 2, bracket: 0, jackpotApplied: 0 }, save, rng, { tier: 2 });
+      assert.truthy(r.kind !== 'relic', 'supply rolls do not duplicate or downgrade held weapons');
     }
   }
 });
@@ -159,7 +226,7 @@ test('chest themes: high-tier rolls keep quality and one reward through quantity
         assert.gte(reward.qty, 1);
         assert.lte(reward.qty, ChestThemes.cap(reward.id));
         if (theme === 'roadside' && reward.group === 'materials') assert.gte(ITEM_BY_ID[reward.id].baseTier, tier);
-        if (theme === 'health') assert.eq(ITEM_BY_ID[reward.id].kind, 'magic');
+        if (theme === 'health') assert.truthy(['magic', 'unique_relic'].includes(ITEM_BY_ID[reward.id].kind));
         if (theme === 'flora' && tier >= 4 && ['flowers', 'flowerSeeds'].includes(reward.group))
           assert.gte(ITEM_BY_ID[reward.id].baseTier, 4);
       }
@@ -171,6 +238,29 @@ test('chest themes: a high-tier venue does not force starter food', () => {
   const rng = makeRng32(909);
   for (let i = 0; i < 1000; i++) {
     const reward = pickChestReward('food', {}, rng, { tier: 4, venueProduct: 'potato' });
-    if (reward.group === 'food' || reward.group === 'foodSeeds') assert.gte(ITEM_BY_ID[reward.id].baseTier, 4);
+    if (reward.group === 'food') assert.gte(ITEM_BY_ID[reward.id].baseTier, 4);
+  }
+});
+
+test('chest themes: commerce holds its identity underground - coins and gems only', () => {
+  const w = ChestThemes.weights('commerce', 5, { depth: 1 });
+  assert.eq(Object.keys(w).sort().join(), ['cash', 'caveGems', 'gems'].sort().join(),
+    'no field supplies, no magic pools, no traps at depth');
+});
+
+
+test('chest themes: all authored pools exclude tomes and retain other unique relics', () => {
+  for (const group of Object.keys(ChestThemes.groups)) {
+    for (let tier = 1; tier <= 7; tier++) for (const depth of [0, 1]) {
+      const ids = ChestThemes.eligible(group, tier, { theme: 'culture', depth, chestTier: tier });
+      for (const id of ids) assert.falsy(isTome(id), `${group}/${tier}/${depth}: ${id}`);
+    }
+  }
+  const relics = ChestThemes.eligible('uniqueRelics', 7);
+  for (const item of ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id))) {
+    assert.includes(relics, item.id, item.id + ' remains treasure');
+  }
+  for (const kind of Object.values(ITEMS_BY_CLASS_TIER)) for (const ids of Object.values(kind)) {
+    for (const id of ids) assert.falsy(isTome(id), id + ' cannot enter generic treasure or barrel loot');
   }
 });

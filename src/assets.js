@@ -2,6 +2,12 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
+  castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
+  // Potion projectiles use the same frames as inventory and shop icons.
+  icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
+  icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },
+  icon_honey: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
   orrin_idle: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_idle.png', frameWidth: 48, frameHeight: 48 },
   orrin_walk: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_0_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_idle.png', frameWidth: 48, frameHeight: 48 },
@@ -85,16 +91,9 @@ const ASSETS = {
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'assets/Objects/Approved/springcrops.png',  frameWidth: 16, frameHeight: 16 },
-  // Road copiar.png — 80×64 = 5×4 of 16×16 frames, the OLD road cobble. It
-  // stamped a pebble cluster per road cell and a stone per path cell until
-  // Sep 2026 (a street is restored and drawn as arclength along the WAY now;
-  // road_overlay.js paints the carriageway itself). It is back for ONE job:
-  // the UNLIT street lamp. A lamp on a stretch not yet restored draws as this
-  // plain grey cobble (app.js STREET_LAMP_DARK_FRAME picks the frame by road
-  // tier, exactly the frames the per-cell stones used) — the foundation stone
-  // waiting for its lamp — and the gilded lamp itself (RoadOverlay.paintLamp)
-  // stands on it once its metres are rebuilt, so where the lamps will be is
-  // visible before they light.
+  // The legacy 16px cobble sheet. The game draws nothing from it; it stays loaded for the
+  // art review tools (tools/world-art.js, tools/preview_map_art.py) that
+  // still read its frames.
   cobble:      { kind: 'spritesheet', path: 'assets/Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
   // Bridge Beach — 128×224 = 8 cols × 14 rows of 16×16 frames. Wooden plank
   // tiles for pier rendering (transportation:pier OSM lines). Rows 0-3 are a
@@ -150,30 +149,22 @@ const ASSETS = {
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
-  // Stone pillar — 16×32 (1 cell wide × 2 tall): a fluted column with cap +
-  // stepped base. Originally sliced from a gitignored source sheet, but the
-  // slice rect clipped the column's top and left edge ("pole art is cut off"),
-  // so the art was redrawn complete and symmetric in the same palette. Used as
-  // a purely decorative stand-in for OSM utility poles / posts (power=pole,
-  // man_made=mast, barrier=bollard, highway=street_lamp) — no interaction.
-  // Authored at 16px-per-cell, so RENDER_SPEC.pole draws it at scale 2.0 to
-  // match the game's 32px cell (1 cell wide × ~2 tall — a full-height pole).
-  pillar:         { kind: 'image', path: 'assets/Objects/Approved/pillar.png' },
+  // Selected tall pillar (#63), replacing the global mapped-pole sprite.
+  // One 24px frame displayed in a 32px cell; purely decorative as before.
+  pillar:         { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/tall_pillar.png', frameWidth: 24, frameHeight: 24 },
   // STREET VARIANTS (src/street_variants.js): the generated 16px props (see
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes
   // (one look each). wagon: the broken wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
-  giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Approved/giant_mushroom.png', frameWidth: 32, frameHeight: 48 },
-  barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 16, frameHeight: 16 },
+  barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
-  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/pillar_c.png', frameWidth: 16, frameHeight: 16 },
-  grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Approved/grove_votive.png', frameWidth: 16, frameHeight: 16 },
+  grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
   // placeholders on one row, in the table's order.
@@ -182,6 +173,12 @@ const ASSETS = {
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
+  zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
+  zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Approved/approved_clipped_hedge.png', frameWidth: 16, frameHeight: 16 },
+  zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png?v=b465bfa1', frameWidth: 24, frameHeight: 24 },
+  stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
+  reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
@@ -190,27 +187,29 @@ const ASSETS = {
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
-  barrel:         { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel.png', frameWidth: 16, frameHeight: 16 },
-  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
-  clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot.png', frameWidth: 16, frameHeight: 16, desaturated: true },
-  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot_smashed.png', frameWidth: 16, frameHeight: 16, desaturated: true },
+  barrel: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/barrel.png', frameWidth: 24, frameHeight: 24 },
+  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/broken_barrel.png', frameWidth: 24, frameHeight: 24 },
+  clay_pot: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_cracked.png', frameWidth: 24, frameHeight: 24 },
+  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
   signpost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/signpost.png', frameWidth: 16, frameHeight: 16 },
   gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/gatepost.png', frameWidth: 16, frameHeight: 16 },
   // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building
   // POIs that are places you come back to. One 80×80 frame each, the same
   // frame and box as market_stand (art in x:[12,80) y:[0,70)), drawn by
-  // RENDER_SPEC.chest exactly like the stall. Generated placeholders (see
-  // assets/Objects/Generated/README.md, Batch 3). The key is the look's
+  // RENDER_SPEC.chest exactly like the stall. Simple silhouettes and a few
+  // large props keep each service readable at map scale. Each has its own
   // texKey (`macro_<kind>`), so the renderer and the dialog icon agree.
-  macro_inn:         { kind: 'spritesheet', path: 'assets/Objects/Generated/inn.png', frameWidth: 80, frameHeight: 80 },
-  macro_chapel:      { kind: 'spritesheet', path: 'assets/Objects/Generated/chapel.png', frameWidth: 80, frameHeight: 80 },
-  macro_apothecary:  { kind: 'spritesheet', path: 'assets/Objects/Generated/apothecary.png', frameWidth: 80, frameHeight: 80 },
-  macro_scriptorium: { kind: 'spritesheet', path: 'assets/Objects/Generated/scriptorium.png', frameWidth: 80, frameHeight: 80 },
-  macro_guildhall:   { kind: 'spritesheet', path: 'assets/Objects/Generated/guildhall.png', frameWidth: 80, frameHeight: 80 },
-  macro_curio:       { kind: 'spritesheet', path: 'assets/Objects/Generated/curio.png', frameWidth: 80, frameHeight: 80 },
-  macro_sundries:    { kind: 'spritesheet', path: 'assets/Objects/Generated/sundries.png', frameWidth: 80, frameHeight: 80 },
-  macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training.png', frameWidth: 80, frameHeight: 80 },
+  macro_inn:         { kind: 'spritesheet', path: 'assets/Objects/Generated/inn_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_chapel:      { kind: 'spritesheet', path: 'assets/Objects/Generated/chapel_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_apothecary:  { kind: 'spritesheet', path: 'assets/Objects/Generated/apothecary_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_scriptorium: { kind: 'spritesheet', path: 'assets/Objects/Generated/scriptorium_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_guildhall:   { kind: 'spritesheet', path: 'assets/Objects/Generated/guildhall_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_curio:       { kind: 'spritesheet', path: 'assets/Objects/Generated/curio_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_sundries:    { kind: 'spritesheet', path: 'assets/Objects/Generated/sundries_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training_simple.png', frameWidth: 80, frameHeight: 80 },
+  // Scholar has a dedicated reading booth, distinct from the book shop.
+  macro_scholar:     { kind: 'spritesheet', path: 'assets/Objects/Generated/scholar_simple.png', frameWidth: 80, frameHeight: 80 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).
@@ -228,11 +227,8 @@ const ASSETS = {
   // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
   // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).
   shrine:      { kind: 'spritesheet', path: 'assets/Objects/Approved/shrine.png', frameWidth: 80, frameHeight: 104 },
-  // Shell collectible — 48×64 = 3 cols × 4 rows of 16×16. Only the top row is
-  // shell art (three cowries); the rest is keyline duplicates, mask rows and
-  // blanks, so WHICH frames may be drawn is CROP_SPRITE.shell's `frames` list
-  // and nothing may roll a frame index over the sheet's size. Spawns as
-  // wildplant debris on sand cells; the frame is hashed off the spawn cell.
+  // Shell collectible keeps its original 48×64 sheet geometry, with only
+  // frame 0 occupied. Unused colour duplicates were cleared in place.
   shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
   // The Torch consumable's own 16×16 icon, drawn in the world where one lies
   // on a cave floor to be picked up (worldgen.js caveFloorTorches →
@@ -346,7 +342,7 @@ const ASSETS = {
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
   approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
-  approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 16, "frameHeight": 16},
+  approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 24, "frameHeight": 24},
   potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts
 };
@@ -411,9 +407,12 @@ for (const [key, asset] of Object.entries(ASSETS)) {
 function makeChestTierSheet(source) {
   const size = ASSETS.chest.frameWidth;
   const canvas = document.createElement('canvas');
-  canvas.width = size * CHEST_TIER_MAX; canvas.height = size;
+  // Through chestTierMaxFor(9): the underground tiers (T6 from cave level 3,
+  // T7 from 6) recolor off their rarity badges the same way - no new source
+  // art, the silhouette and shading carry.
+  canvas.width = size * chestTierMaxFor(9); canvas.height = size;
   const ctx = canvas.getContext('2d');
-  for (let tier = 1; tier <= CHEST_TIER_MAX; tier++) {
+  for (let tier = 1; tier <= chestTierMaxFor(9); tier++) {
     const x = (tier - 1) * size;
     ctx.drawImage(source, 0, 0, size, size, x, 0, size, size);
     const color = CHEST_TIER_COLOR[tier];

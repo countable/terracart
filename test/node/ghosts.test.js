@@ -120,7 +120,6 @@ test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   for (const row of EnemyRoster.ROWS) {
     assert.gt(Combat.monster(row.id).speed, 0, `${row.id} keeps a positive legacy-step pace`);
   }
-  assert.gt(Combat.monster('giant_goblin').speed, 0, 'a legacy alias cannot freeze at speed zero');
   assert.eq(EnemySpawns.SURFACE_NIGHT_DAYLIGHT, 0.25,
     'ordinary surface foes own their night threshold outside ghost tuning');
 });
@@ -169,9 +168,8 @@ test('ghost pump: nothing by day', () => {
 });
 
 test('ghost pump: no churchyard reason — dusk is dusk at a church too (safety, Sep 2026)', () => {
-  // The Old Stones used to raise the dead from DUSK round a church or a
-  // cemetery, twice as often, fanned from the stones — pulling players to
-  // graveyards at closing time. Gone: one predicate, the same night everywhere.
+  // No church/cemetery dusk boost (it pulled players to graveyards at closing
+  // time): one predicate, the same night everywhere.
   assert.falsy(__ghost.ghostsHaunt(0, 0.4, 'crypt'), 'a cave habitat does not accelerate surface dusk');
   assert.falsy('GHOST_ZONE_DUSK' in __ghost || 'GHOST_ZONE_CADENCE_MUL' in __ghost, 'the boost constants are gone');
   assert.falsy(/ghostAnchorAt|Zones\./.test(CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function ghostSpawnPass('),
@@ -550,6 +548,7 @@ test('ghost pump: D4 enlarges groups and D6 enlarges both ghost colours', () => 
         for (const c of s._entry.creatures) {
           assert.eq(c.kind, 'ghost');
           assert.eq(c._artScale, depth >= 6 ? 1.5 : 1);
+          assert.eq(Combat.maxHp(c), EnemyRoster.get(c.kind).hp * (depth >= 6 ? 2 : 1));
         }
       }
       Math.random = () => 0;
@@ -558,6 +557,7 @@ test('ghost pump: D4 enlarges groups and D6 enlarges both ghost colours', () => 
       assert.eq(s._entry.creatures.length, 2);
       for (const c of s._entry.creatures) {
         assert.eq(c.kind, 'pink_ghost'); assert.eq(c._artScale, 1.5);
+        assert.eq(Combat.maxHp(c), EnemyRoster.get(c.kind).hp * 2);
       }
     } finally { Math.random = random; }
   });

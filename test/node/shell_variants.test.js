@@ -1,27 +1,6 @@
-// Regression guard: NO SHELLS ON BEACHES.
-//
-// A shell is the sand family's only flora (src/biome_profiles.js), scattered at
-// 1–1.75 % of a beach's cells. Originally they were invisible,
-// and every step of the chain looked fine on its own:
-//
-//   • the rasterizer spawned the shells (this file proves it still does);
-//   • CROP_SPRITE.shell said `variants: 12` because Shell.png is a 3×4 grid —
-//     but only its TOP ROW is shell art. The rest is three keyline duplicates,
-//     two flat mask rows and four BLANK cells;
-//   • render.js drew `hash % 12`, and its hash was `_ix`/`_iy` — which the
-//     rasterizer's occupancy pass deletes before the entry is ever drawn —
-//     XORed with the wildplant id's LENGTH. One number for a whole tile.
-//
-// So every shell in a tile drew the same frame, chosen by how many digits its
-// tile and cell indices happened to have, and for most tiles that frame was
-// blank: a pickup the player could tap but not see.
-//
-// The fix is the discipline the plain rock uses (rock_yield.test.js): ONE
-// table both sides read. `CROP_SPRITE.shell.frames` LISTS the frames that
-// carry art, and `wildplantFrame` (items.js) is the only thing that picks one,
-// off a hash of the wildplant's stable id. These tests drive that resolver over
-// a real rasterized beach; tools/sprite_audit.js checks the declared frames
-// against the real PNG.
+// Shells retain the original pink frame on every map cell and item surface.
+// Guard against the old blank-frame bug while keeping the retired colour
+// variants disabled. The art audit checks that their pixels were removed.
 
 (function () {
 const T = WorldGen.T;
@@ -82,27 +61,10 @@ test('shell: the frame list is a list, never a count', () => {
   }
 });
 
-// --- The field reads as varied ----------------------------------------------
-
-test('beach: the shells are a mix, not one frame repeated', () => {
-  const seen = new Set(shells.map((wp) => wildplantFrame(wp)));
-  assert.eq(seen.size, FRAMES.length,
-    `all ${FRAMES.length} shells appear across one beach (saw ${[...seen]})`);
-});
-
-test('beach: the variant reads the whole id, not its length', () => {
-  // THE BUG, pinned from the other end: ids of the SAME LENGTH must still be
-  // able to draw different shells. The old hash was `id.length * K`, so every
-  // wildplant whose indices had the same digit count drew the same frame —
-  // which, in a tile, is nearly all of them.
-  const byLen = new Map();
-  for (const wp of shells) {
-    const L = wp.id.length;
-    if (!byLen.has(L)) byLen.set(L, new Set());
-    byLen.get(L).add(wildplantFrame(wp));
-  }
-  const varied = [...byLen.values()].filter((s) => s.size > 1);
-  assert.gt(varied.length, 0, 'some id-length group draws more than one frame');
+test('beach: all shells use the original single colour and inventory frame', () => {
+  assert.eq(JSON.stringify(FRAMES), '[0]');
+  assert.eq(inventoryIconSource('shell').frame, 0);
+  for (const wp of shells) assert.eq(wildplantFrame(wp), 0, wp.id);
 });
 
 test('beach: a cell keeps its shell across a rebuild', () => {

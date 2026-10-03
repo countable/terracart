@@ -14,13 +14,12 @@
 //
 // Multiple saved games:
 //   A small registry (SAVES_KEY) tracks named slots and which one is active.
-//   Each slot owns its own data key; the legacy single-save key is adopted as
-//   the default slot so existing players keep their progress untouched. The
-//   menu drives switchSave / createSave / deleteSave; each reloads the page so
-//   the whole scene + in-memory caches re-init cleanly for the new slot.
+//   Each slot owns its own data key. The menu drives switchSave / createSave /
+//   deleteSave; each reloads the page so the scene + in-memory caches re-init.
+//   renameSave relabels a slot without a reload (index.html uses it to derive
+//   a fresh slot's name from the player name entered for multiplayer).
 
-// Legacy single-save key — also the data key of the migrated default slot, so
-// existing saves need no data move.
+// Stable storage namespace for named save slots.
 const SAVE_VERSION_KEY = 'terracart.save.v4';
 // Slot registry: { active: <id>, slots: [{ id, name, key, createdAt, lastPlayedAt }] }.
 const SAVES_KEY = 'terracart.saves';
@@ -42,15 +41,14 @@ function _newSaveId() {
 }
 
 // Ensure the registry exists and SAVE_KEY points at the active slot. Idempotent:
-// safe to call on every load. On first run (or for a pre-multislot player) it
-// adopts any existing legacy save as "Game 1" keyed to SAVE_VERSION_KEY.
+// safe to call on every load. Without a registry, start a fresh named slot.
 function initSaves() {
   let reg = _readSavesReg();
   if (!reg || !Array.isArray(reg.slots) || reg.slots.length === 0) {
     const id = _newSaveId();
     reg = {
       active: id,
-      slots: [{ id, name: 'Game 1', key: SAVE_VERSION_KEY, createdAt: Date.now(), lastPlayedAt: Date.now() }],
+      slots: [{ id, name: 'Game 1', key: SAVE_VERSION_KEY + '.' + id, createdAt: Date.now(), lastPlayedAt: Date.now() }],
     };
     _writeSavesReg(reg);
   }
@@ -72,6 +70,21 @@ function getActiveSaveId() {
   return (_readSavesReg() || initSaves()).active;
 }
 
+// Placeholder name for a slot created without one. Deletions can leave holes
+// (slots.length + 1 may already be taken), so walk up to the first free "Game N".
+// The optional multiplayer name christens it later (renameSave).
+function _defaultSaveName(reg) {
+  const used = new Set(reg.slots.map(s => s.name));
+  let n = reg.slots.length + 1;
+  while (used.has('Game ' + n)) n++;
+  return 'Game ' + n;
+}
+// Is a slot name still the untouched createSave/initSaves placeholder? The
+// player-name-driven rename only ever overwrites these, never a name a player chose.
+function isDefaultSaveName(name) {
+  return /^Game \d+$/.test(String(name || ''));
+}
+
 // Create a fresh, empty slot and make it active. Caller reloads the page so the
 // scene boots from the new (empty → fresh game) slot.
 function createSave(name) {
@@ -79,7 +92,7 @@ function createSave(name) {
   const id = _newSaveId();
   reg.slots.push({
     id,
-    name: (name && String(name).trim()) || ('Game ' + (reg.slots.length + 1)),
+    name: (name && String(name).trim()) || _defaultSaveName(reg),
     key: SAVE_VERSION_KEY + '.' + id,
     createdAt: Date.now(),
     lastPlayedAt: Date.now(),
@@ -88,6 +101,20 @@ function createSave(name) {
   _writeSavesReg(reg);
   SAVE_KEY = reg.slots[reg.slots.length - 1].key;
   return id;
+}
+
+// Rename a slot in place. Returns false (and changes nothing) for an unknown
+// id or a blank name. Pure registry write — the slot's data key never changes,
+// so it's safe mid-game.
+function renameSave(id, name) {
+  const clean = name && String(name).trim();
+  if (!clean) return false;
+  const reg = _readSavesReg() || initSaves();
+  const slot = reg.slots.find(s => s.id === id);
+  if (!slot) return false;
+  slot.name = clean;
+  _writeSavesReg(reg);
+  return true;
 }
 
 // Make an existing slot active. Caller reloads. No-op (returns false) if id is
@@ -114,10 +141,8 @@ function deleteSave(id) {
   try { localStorage.removeItem(removed.key); } catch {}
   if (reg.slots.length === 0) {
     const nid = _newSaveId();
-    // Start genuinely clean: use a fresh per-slot key (like createSave) and
-    // clear any stale data at it, rather than reusing the bare legacy
-    // SAVE_VERSION_KEY — which could silently resurrect leftover/legacy
-    // progress sitting at that key.
+    // Start genuinely clean: a fresh per-slot key (like createSave), clearing any
+    // stale data at it, so legacy progress cannot be resurrected.
     const nkey = SAVE_VERSION_KEY + '.' + nid;
     try { localStorage.removeItem(nkey); } catch {}
     reg.slots.push({ id: nid, name: 'Game 1', key: nkey, createdAt: Date.now(), lastPlayedAt: Date.now() });
@@ -299,11 +324,10 @@ const SaveSession = Object.freeze({
 });
 window.SaveSession = SaveSession;
 
-// Hard-disable all writes. Used by the menu's "Reset save" path: once
-// localStorage is wiped, the in-memory _pendingSave (and any in-flight
-// persistSave calls between here and location.reload) must NOT make it back
-// to disk — otherwise the pagehide flush rewrites the old save on top of
-// the clean slate and the reset appears to do nothing.
+// Hard-disable all writes (the menu's "Reset save" path): once localStorage is
+// wiped, the in-memory _pendingSave and any persistSave calls before
+// location.reload must NOT reach disk, or the pagehide flush rewrites the old
+// save over the clean slate.
 function disableSave() {
   _savingDisabled = true;
   _pendingSave = null;
@@ -329,8 +353,7 @@ window.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') SaveSession.flush();
 });
 
-// Resolve the active slot (and migrate a legacy single save into a default
-// slot) at load, before app.js create() / the test harness read SAVE_KEY.
+// Resolve the active slot before app.js create() / the test harness reads SAVE_KEY.
 // Bump the active slot's lastPlayedAt so the menu lists the game you're
 // actually in first.
 (function () {

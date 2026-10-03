@@ -34,22 +34,17 @@
 //   Lighting.draw(scene)          — paint the lightmap (Phaser)
 //
 // ── The model ─────────────────────────────────────────────────────────────
-// Until Sep 2026 the lighting was five Graphics workarounds for "Phaser has no
-// gradient primitive": a per-cell fillRect wash outside the reach bubble, a
-// second wash over the lit cells underground, a pink wash over them at low
-// energy, and ~100 cached strokeCircle rings for the distance falloff. All
-// of it painted DARKNESS, which only ever composes one way: two overlapping
-// dims make the ground between them darker. A second light source cannot be
-// built out of darkness. (The screen-edge vignette in app.js create() is not
-// lighting and stays: it frames the window, it doesn't light the world.)
+// Lighting paints LIGHT, not darkness: darkness only ever composes one way
+// (two overlapping dims make the ground between them darker), so a second
+// light source cannot be built from it. (The screen-edge vignette in app.js
+// create() is not lighting: it frames the window.)
 //
 // So the lightmap is LIGHT, added up, then multiplied over the world:
 //
 //   lightmap = ambient + Σ cookie_i          (ADD, clamped to white)
 //   world'   = world × lightmap              (MULTIPLY)
 //
-// The ambient is the far-field darkness (what the old wash + falloff landed
-// on at the viewport corner). Every source draws one baked radial-gradient
+// The ambient is the far-field darkness. Every source draws one baked radial-gradient
 // COOKIE into the map with additive blending, so lights overlap by adding and
 // a pixel any cookie pushes to white is untouched world. The player's cookie
 // is the biggest and carries the reach PLATEAU (full light inside the reach
@@ -65,21 +60,16 @@
 // The player's PLATEAU is painted per reach cell with cellInReach's own
 // maths, so the sharp edge of the lit area IS the staircase the tap gate
 // accepts. Only the falloff outside it is a circle. That edge is the WHOLE
-// affordance: a white outline was stroked over the same staircase on reachGfx
-// (render.js) until Sep 2026, back when the plateau under it was dim enough
-// to need underlining — PLATEAU_OUTPUT_K lit it back up and the line went, so
-// this pass is now the only thing that says where you can reach. Do not stroke
-// one back: if the boundary stops reading, the step at its edge is what to
-// widen. Inside the staircase the plateau is not flat: it is
-// the player's own lamp, full at the feet and easing down PLATEAU_FALL of
-// the way by the reach rim (plateauLevel), so the lit area reads as light
-// thrown from the body rather than a cut-out — the step down at its edge
-// is still the biggest thing in the picture.
+// affordance (no outline is stroked over it; if the boundary stops reading,
+// widen the step at its edge). Inside the staircase the plateau is the
+// player's own lamp, full at the feet and easing down PLATEAU_FALL of the way
+// by the reach rim (plateauLevel), so the lit area reads as light thrown
+// from the body, with the step down at its edge still the biggest thing in
+// the picture.
 //
 // ── The numbers are DERIVED, not tuned ────────────────────────────────────
-// profile() reproduces the old wash for the white channel from the same two
-// sources the ground pass painted with — Render.reachDimAlpha / reachDimColor
-// — plus the falloff pair (FALLOFF_A, FALLOFF_P) that lived beside the rings.
+// profile() derives the white channel from Render.reachDimAlpha /
+// reachDimColor plus the falloff pair (FALLOFF_A, FALLOFF_P).
 // Three deliberate departures sit on top: AMBIENT_K (and its daytime partner
 // AMBIENT_DAY_LUM), which darken/brighten the floor alone for contrast — a
 // flat night value blended up to a sunlit one by `night`, surface only — and
@@ -168,13 +158,13 @@
     // wash lifts.
     building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.95, flicker: 0 },
     // A placed campfire (burned from a coal). Breathes.
+    ground_fire: { radiusCells: 1.5, colour: 0xff852b, peak: 0.75, flicker: 0.12 },
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 1.00, flicker: 0.18 },
     // A live POI — a chest with something still in it (loose supply crates
     // are excluded for the reason they get no pad: a transient pickup is not
-    // a place). This is what the old halo "ping" was for: places read as
-    // places from across the map without shouting. It was a ring expanding
-    // under the pad; now it is a small treasure blue-white light that breathes
+    // a place). Places read as places from across the map without shouting: a
+    // small treasure blue-white light that breathes
     // SLOWLY (POI_PULSE_PERIOD_S — anything brisk turns a street of POIs into
     // a strobe), each on its own phase hashed from its id so a street doesn't
     // throb in lockstep. Small, so it marks the place rather than lighting
@@ -228,9 +218,8 @@
     // road you have brought back is a road you can walk at night, and the
     // string of lamps behind you is the map of everything you have restored.
     //
-    // In UI_LAMP_GLOW — the violet the lit pebbles wore before the Sep 2026
-    // street-restoration rewrite, brought back for the lamp specifically (see
-    // its note in util.js). The carriageway itself still restores in its own
+    // In UI_LAMP_GLOW, the violet of the lit pebbles (see its note in util.js). The
+    // carriageway itself still restores in its own
     // pale warm stone (UI_STREET_INK — the chips, the sparks, the counter,
     // the dwell preview); the lamp is the one thing on a restored street that
     // reads as ACTIVATED rather than as repaired, so it keeps the old
@@ -255,10 +244,8 @@
     // first frames, which is the flash.
     blast:    { radiusCells: 2.5, colour: 0xe4defc, peak: 1.0, flicker: 0 },
     // A SHINY — a rare gold tree, wild plant or animal (util.js SHINY_RATE;
-    // an elite monster wears the same flag). Until Sep 2026 a shiny was
-    // marked by a spinning gold star floated over its cell and a gold
-    // multiply tint; the tint is a no-op under the Canvas fallback and a gold
-    // multiply over green art reads as olive, not as treasure. The shiny now
+    // an elite monster wears the same flag). A gold multiply tint is a no-op under
+    // the Canvas fallback and reads as olive over green art, so the shiny
     // GLOWS: a small pale-gold pool on its cell, breathing on the POI's slow
     // beat (`pulse`, phased by its id) because it is the same kind of mark —
     // a thing worth walking over to, findable from across the screen. What it
@@ -278,9 +265,13 @@
     bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
   };
   // Treasure trunks from T3 upward cast the same colour as their rarity badge.
-  // The ordinary POI row owns their radius, strength and breathing cadence.
-  for (let tier = 3; tier <= CHEST_TIER_MAX; tier++) {
-    KINDS['chest_' + tier] = { ...KINDS.poi, colour: CHEST_TIER_COLOR[tier] };
+  // The ordinary POI row owns their radius, strength and breathing cadence;
+  // ABOVE T3 the glow DOUBLES (Oct 2026) - the high tiers read at a glance
+  // through the light alone - and the underground tiers (T6 from cave level
+  // 3, T7 from 6) keep the same doubling off their own badge colours.
+  for (let tier = 3; tier <= chestTierMaxFor(9); tier++) {
+    const bright = tier > 3 ? { radiusCells: KINDS.poi.radiusCells * 2, peak: Math.min(1, (KINDS.poi.peak ?? 0.5) * 2) } : {};
+    KINDS['chest_' + tier] = { ...KINDS.poi, colour: CHEST_TIER_COLOR[tier], ...bright };
   }
   // The shrine kinds (src/shrines.js): the grove shrine's own light in each
   // kind's colour — one row per kind, `shrine_<id>` (sourceKind).
@@ -330,7 +321,7 @@
     return typeof r === 'function' ? r() : r;
   }
 
-  // The falloff pair, moved here from the ring code it used to drive. 0.90 at
+  // The falloff pair. 0.90 at
   // the viewport corner on a p=1.5 ramp — picked by measuring mean luminance
   // per radius band against the effect switched off, not by eye:
   //
@@ -339,16 +330,15 @@
   //   210-240px (corners)    -17.2
   //
   // The super-linear ramp is what buys that spread: it holds the mid-field
-  // near full readability while still gathering real depth at the rim, where
-  // the flat wash used to give distance no weight at all. Retune the pair
+  // near full readability while still gathering real depth at the rim. Retune the pair
   // together, never the alpha alone.
   const FALLOFF_A = 0.90;
   const FALLOFF_P = 1.5;
 
   // The CONTRAST knob: how much of the derived floor survives. The derivation
   // below lands the far field where the old wash + rings did (~15-19% on the
-  // surface, biome-tinted), and that read as too bright once real lights were
-  // in the world — "totally unlit areas should be darker" (Sep 2026). This
+  // surface, biome-tinted), which read as too bright once real lights were
+  // in the world. This
   // scales the AMBIENT only: the ramp and the plateau are untouched, so the
   // reach edge and the mid-field keep their step and only the dark gets dark.
   // 1.0 is the old picture exactly; lower is more contrast. AMBIENT_K is the
@@ -367,9 +357,8 @@
   // target luminance can't clip and can't drift per biome (atLuminance mixes
   // the floor toward white to reach it, which also drains the hue — right for
   // noon: the far field should read as sunlit ground, not as tinted dark).
-  // The NIGHT end is unchanged by construction: its target is AMBIENT_K ×
-  // the floor's own luminance, which atLuminance reaches by scaling — the
-  // exact expression this used to be.
+  // The NIGHT end's target is AMBIENT_K × the floor's own luminance, which
+  // atLuminance reaches by scaling.
   const AMBIENT_K = 0.45;
   const AMBIENT_DAY_LUM = 0.40;
 
@@ -380,17 +369,16 @@
   // exactly, and lower is a dimmer light at the same reach.
   //
   // PLAYER_OUTPUT_K scales `edge` — the ramp OUTSIDE the reach area, and the
-  // whole falloff hung off it. Halved from 0.8 to 0.4 in Sep 2026: the body
-  // was throwing enough light that the placed lights — a campfire, Home, a
-  // POI — barely told against it, and the reach step reads better against a
-  // darker mid-field. That is still what this number is for, so it stays.
+  // whole falloff hung off it. Kept low (0.4) so the placed lights (a
+  // campfire, Home, a POI) tell against it and the reach step reads against a
+  // darker mid-field.
   const PLAYER_OUTPUT_K = 0.4;
 
   // PLATEAU_OUTPUT_K scales `lit` — the reach area itself, the plateau the
-  // per-cell mask ADDS over the ramp. It used to BE PLAYER_OUTPUT_K: one knob
-  // scaled both, and dimming the mid-field to let the placed lights tell took
-  // the ground the player actually works on down with it, to a bit over half
-  // its old light. The two wants are opposite, so they are two numbers now —
+  // per-cell mask ADDS over the ramp. It is a separate knob from
+  // PLAYER_OUTPUT_K: dimming the mid-field to let the placed lights tell would
+  // otherwise take the ground the player works on down with it. The two wants
+  // are opposite, so they are two numbers —
   // and splitting them costs none of the relations the shared knob was
   // keeping, because raising `lit` alone only widens them: the falloff's
   // shape is `edge`'s alone, PLATEAU_FALL is a fraction of `lit` so the
@@ -486,7 +474,7 @@
   // player tires. Energy doesn't shrink reach (coords.js reachRadiusM — only
   // depth does), but this red is the cue to rest before energy hits 0, where
   // there is no reach at all. Skipped while a Potion of Reach pins the view
-  // lit. A clean red rather than the pink this used to be — a warning colour,
+  // lit. A clean red, a warning colour,
   // not a mood. PROGRESSIVE now (lowEnergyFrac, below): at the LOW_ENERGY_FRAC
   // threshold it is not yet visible, and it deepens toward LOW_ENERGY_A only
   // as energy keeps draining past it, so the cue arrives as a gradual flush
@@ -759,12 +747,10 @@
     scene._lights.length = 0;
   }
 
-  // THERE ARE STILL NO CELL LIGHTS. A second list used to run beside the
-  // object one, carrying a small violet pool per lit cobble offered by
-  // drawCells — because drawCells runs BEFORE drawObjects and beginFrame
-  // empties the object list at the top of the latter, so a stone pushed onto
-  // scene._lights from the cell pass was gone before draw() read it. The
-  // street lamps that came back in Sep 2026 are lit from a LIST instead
+  // THERE ARE NO CELL LIGHTS: drawCells runs BEFORE drawObjects and beginFrame
+  // empties the object list at the top of the latter, so a light pushed onto
+  // scene._lights from the cell pass would be gone before draw() read it.
+  // Street lamps are lit from a LIST instead
   // (collectLamps, below), collected inside draw() like the fires and the
   // blasts, so the ordering problem never arises: a lamp is a point in world
   // metres, not a cell being painted.
@@ -905,8 +891,17 @@
   function collectFires(scene, ax, ay, halfM) {
     const PF = window.PlacedFloor;
     const fires = scene.save && scene.save.fires;
-    if (!PF || !fires || !fires.length) return 0;
     let n = 0;
+    const now = Date.now();
+    for (const fire of scene._groundFireIndex?.().values() || []) {
+      if (fire.depth !== (scene.depth ?? 0) || !GroundFire.active(fire, now)) continue;
+      const p = absCellCenterMeters(scene, fire.cellIX, fire.cellIY);
+      const dx = p.x - ax, dy = p.y - ay;
+      if (!inRange(scene, dx, dy, 'ground_fire', halfM)) continue;
+      scene._lights.push({ kind: 'ground_fire', dx, dy, id: GroundFire.key(fire.depth, fire.cellIX, fire.cellIY) });
+      n++;
+    }
+    if (!PF || !fires || !fires.length) return n;
     for (const fr of PF.forDepth(fires, scene.depth ?? 0)) {
       const dx = fr.x - ax, dy = fr.y - ay;
       if (!inRange(scene, dx, dy, 'fire', halfM)) continue;
@@ -1085,7 +1080,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
   function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;
@@ -1175,11 +1170,7 @@
   const KIND_STOPS = 8;
 
   // ── The lightmap's own clock, and the still-frame gate ─────────────────
-  // Until Sep 2026 draw() repainted the whole 352px canvas and re-uploaded it
-  // to the GPU on EVERY step — the one unconditional texture upload in the
-  // loop — while the picture it painted was, on most steps, the one it had
-  // painted the step before: a player standing at a plot moves nothing the
-  // lightmap reads. So draw() keys each step on every input the paint depends
+  // draw() keys each step on every input the paint depends
   // on (the feet point, the anchor cell and its fraction, the reach, the whole
   // profile, and each light's own fields — frameKey) and paints only when the
   // key moves. What ANIMATES — a fire's flicker, a POI's breath, a blast, the
@@ -1338,9 +1329,7 @@
 
   // The player's RAMP: flat at `edge` out to the reach radius, then the
   // falloff to zero PLAYER_RAMP_PAST_CORNER_CELLS beyond the viewport's
-  // half-diagonal. It used to land on zero exactly at the corner, which put
-  // the far field of the frame at the ambient floor with nothing of the
-  // player's light left in it; one cell past keeps the corners just lit,
+  // half-diagonal: one cell past keeps the corners just lit,
   // and the ramp still ends on zero so a peek finds no edge past it (the
   // ambient beyond is the value it lands on). The PLATEAU is not in here: it
   // is painted per reach cell in draw(), so the sharp edge of the lit area is
@@ -1448,8 +1437,7 @@
   // corner — and an INNER corner (ReachCorner.fillet) gets the sliver between
   // the corner point and that same arc, drawn in the empty cell above/below,
   // as its own subpath. Corner geometry comes from coords.js' ReachCorner, the
-  // rule the white outline (render.js) rounded by until it was removed; with
-  // no rule loaded the cell is a plain square.
+  // shared rule; with no rule loaded the cell is a plain square.
   function plateauCellPath(ctx, sx, sy, top, bot, lft, rgt, dTL, dTR, dBL, dBR) {
     const RC = (typeof ReachCorner !== 'undefined') ? ReachCorner : null;
     if (!RC) { ctx.rect(sx, sy, CELL_PX, CELL_PX); return; }

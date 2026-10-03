@@ -6,10 +6,93 @@
     spirit_raven: { field: 'spiritRavenUntil', instance: '_spiritRaven',
       get durationMs() { return SPIRIT_RAVEN_MS; },
       expired: 'The spirit raven fades.', defeated: 'The spirit raven is spent.' },
+    summoned_skeleton: { field: 'skeletonUntil', instance: '_summonedSkeleton',
+      get durationMs() { return CONSUMABLE_SPEC.skeleton_scroll.durationMs; }, persistHealth: true,
+      expired: 'The bones settle into dust.', defeated: 'The bones fall still.' },
+    summoned_wraith: { field: 'wraithUntil', instance: '_summonedWraith',
+      get durationMs() { return CONSUMABLE_SPEC.wraith_scroll.durationMs; }, persistHealth: true,
+      expired: 'The wraith dissolves.', defeated: 'The wraith is spent.' },
     mercenary: { field: 'mercenaryUntil', instance: '_mercenary', durationMs: 24 * 60 * 60 * 1000,
       hireCost: 50, recoveryMs: RECOVERY_MS, persistHealth: true,
       expired: 'The mercenary heads home.', defeated: 'The mercenary rests a moment.' },
   };
+  const HOME_PET_CELLS = 2;
+  function releasePolicy(scene, x, y) {
+    const home = scene.homeWorldPos?.();
+    return { stayHome: !!home && Math.hypot(x - home.x, y - home.y) <= HOME_PET_CELLS * scene.cellM,
+      petHomeX: home?.x ?? x, petHomeY: home?.y ?? y };
+  }
+  function follows(c, now = performance.now()) {
+    if (SpriteLayout.isSummoned(c.kind)) return !c._spent && c._followUntilT > now;
+    if (String(c.id || '').startsWith('released_')) return !c.stayHome;
+    return SpriteLayout.creatureFollows(c.kind) && c._followUntilT > now;
+  }
+  function rememberPetHealth(row, creature) {
+    const hp = Combat.hp(creature), lastDamagedAt = creature._lastDamagedT ?? null;
+    if (row.hp === hp && (row.lastDamagedAt ?? null) === lastDamagedAt) return false;
+    row.hp = hp; row.lastDamagedAt = lastDamagedAt;
+    return true;
+  }
+  function tickPets(scene) {
+    if (!scene.startWorldM || !scene.playerM || !(scene.save.released?.length)) return;
+    const wall = Date.now();
+    if (scene._petFollowCheck > wall) return;
+    scene._petFollowCheck = wall + 1000;
+    const pc = scene.playerToWorldCell(), entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+    if (!entry?.creatures) return;
+    const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+    const caught = new Set(scene.save.caught || []);
+    const live = new Map(), owners = new Map();
+    const travelling = scene._travellingPets ||= new Map();
+    for (const tile of WorldGen.tileCache.values()) for (const c of tile.creatures || []) {
+      if (String(c.id || '').startsWith('released_')) { live.set(c.id, c); owners.set(c.id,tile); }
+    }
+    let changed = false;
+    for (const r of scene.save.released) {
+      if (caught.has(r.id)) { travelling.delete(r.id); continue; }
+      const tracked = travelling.get(r.id);
+      let c = tracked?.creature || live.get(r.id);
+      if (r.stayHome == null) {
+        Object.assign(r, releasePolicy(scene, r.x, r.y));
+        if (c) Object.assign(c, {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY});
+        changed = true;
+      }
+      if (c) Object.assign(c, {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY});
+      if (r.stayHome) {
+        if (c && rememberPetHealth(r, c)) changed=true;
+        travelling.delete(r.id);
+        continue;
+      }
+      const cached = live.get(r.id);
+      if (cached && cached !== c) {
+        const owner = owners.get(r.id);
+        owner.creatures.splice(owner.creatures.indexOf(cached),1);
+      }
+      const changedLevel = tracked && ![...WorldGen.tileCache.values()].includes(tracked.entry);
+      if (!c || changedLevel || Math.hypot(c.x - px, c.y - py) > CREATURE_SIM_CELLS * scene.cellM) {
+        if (tracked?.entry?.creatures) {
+          const i = tracked.entry.creatures.indexOf(c);
+          if (i >= 0) tracked.entry.creatures.splice(i,1);
+        }
+        if (c) for (const tile of WorldGen.tileCache.values()) {
+          const i = tile.creatures?.indexOf(c) ?? -1;
+          if (i >= 0) tile.creatures.splice(i, 1);
+        }
+        c = c || WorldGen.makeCreature(r.kind, px, py, r.id, {...r, _lastDamagedT:r.lastDamagedAt ?? null, ...(r.hp != null ? {_hp:r.hp} : {})});
+        Object.assign(c, {x:px,y:py,_startX:px,_startY:py,_targetX:px,_targetY:py,_nextChooseT:0,_chaseTarget:null});
+        entry.creatures.push(c);
+        owners.set(r.id,entry);
+      }
+      travelling.set(r.id,{creature:c,entry:owners.get(r.id)});
+      if (rememberPetHealth(r, c)) changed=true;
+      const tx = Math.floor(c.x / scene.tileEdgeM), ty = Math.floor(c.y / scene.tileEdgeM);
+      if (r.x !== c.x || r.y !== c.y || r.tx !== tx || r.ty !== ty) {
+        r.x=c.x; r.y=c.y; r.tx=tx; r.ty=ty;
+        changed=true;
+      }
+    }
+    if (changed) persistSave(scene.save);
+  }
   function active(save, kind, now = Date.now()) {
     const row = KINDS[kind];
     return !!row && Number(save?.[row.field]) > now;
@@ -70,11 +153,11 @@
     const now = performance.now();
     creature = WorldGen.makeCreature(kind, px, py,
       `${kind}_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
-      { _followUntilT: now + Math.max(0, save[row.field] - wall) });
+      { _followUntilT: now + Math.max(0, save[row.field] - wall), _nextChooseT: 0 });
     if (row.persistHealth) creature._hp = Math.max(1, Math.min(Combat.creatureMaxHp(kind), Number(state.hp) || Combat.creatureMaxHp(kind)));
     entry.creatures.push(creature);
     scene[row.instance] = creature;
   }
-  function tickAll(scene) { for (const kind of Object.keys(KINDS)) tick(scene, kind); }
-  root.Companions = { KINDS, RECOVERY_MS, active, hire, tick, tickAll };
+  function tickAll(scene) { for (const kind of Object.keys(KINDS)) tick(scene, kind); tickPets(scene); }
+  root.Companions = { KINDS, RECOVERY_MS, HOME_PET_CELLS, releasePolicy, follows, tickPets, active, hire, tick, tickAll };
 })(typeof window !== 'undefined' ? window : globalThis);

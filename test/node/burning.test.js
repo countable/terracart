@@ -1,5 +1,5 @@
 // A FOE ON FIRE (combat.js ignite / burning / burnTick): the `burning` row of
-// Conditions.DEFINITIONS — 1 HP a second for 5 s, out on its own — lit by a
+// Conditions.DEFINITIONS — accumulated exposure controls damage — lit by a
 // melee blow while a Torch burns (app.js combat wheel, the player's kill), by
 // standing in a campfire (FIRE_TOUCH_CELLS) or in lava (scene_creatures.js,
 // the ground's kill). The player catches it the same two ways (app.js
@@ -9,28 +9,34 @@
 const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
 const def = Conditions.DEFINITIONS.burning;
 
-test('burning foe: five points over five seconds, then out — every tick lands however late the frame', () => {
+test('burning foe: exposure and decay use the player clock even after dropped frames', () => {
   const c = { kind: 'skeleton' };
-  assert.truthy(Combat.canBurn(c));
-  assert.truthy(Combat.ignite(c, 1000, 'player'), 'fresh');
+  assert.truthy(Combat.ignite(c, 1000, 'player'));
   assert.truthy(Combat.burning(c, 1000));
-  assert.eq(Combat.burnTick(c, 1999), 0);
-  assert.eq(Combat.burnTick(c, 2000), def.energyLoss, 'a second in');
-  assert.eq(Combat.burnTick(c, 6000), 4 * def.energyLoss, 'a dropped frame still pays every tick');
-  assert.falsy(Combat.burning(c, 6001), 'and it is out');
-  assert.eq(Combat.burnTick(c, 7000), 0);
+  assert.eq(Combat.burnTick(c, 2000, true), 1);
+  assert.eq(c._burnState.remainingMs, 10000);
+  const expected = Conditions.advanceBurn(c._burnState, 10000, true);
+  assert.eq(Combat.burnTick(c, 12000, true), expected.damage);
+  assert.eq(c._burnState.remainingMs, 60000);
+  assert.eq(Combat.burnTick(c, 13000, true), 6);
+  assert.eq(Combat.burnTick(c, 14000), 5);
+  assert.eq(c._burnState.remainingMs, 59000);
+  Combat.burnTick(c, 73000);
+  assert.falsy(Combat.burning(c, 73000));
   assert.eq(c._burnBy, null);
-  assert.eq(Combat.burnTick({ kind: 'skeleton' }, 5), 0, 'never lit: nothing due');
+  assert.eq(Combat.burnTick({ kind: 'skeleton' }, 5), 0);
 });
 
-test('burning foe: a fresh contact restarts the five seconds, keeps the cadence and the kill', () => {
+test('burning foe: repeat contact preserves duration and cadence, updates the source', () => {
   const c = { kind: 'skeleton' };
   Combat.ignite(c, 0, 'player');
-  Combat.burnTick(c, 1000);
-  assert.falsy(Combat.ignite(c, 1500, 'fire'), 'not fresh');
-  assert.eq(c._burnUntilT, 6500);
-  assert.eq(c._burnNextT, 2000, 'the next tick is where it was');
-  assert.eq(c._burnBy, 'fire', 'the latest source owns the burn');
+  Combat.burnTick(c, 1000, true);
+  assert.falsy(Combat.ignite(c, 1500, 'fire'));
+  assert.eq(c._burnState.remainingMs, 10000);
+  assert.eq(c._burnAtT + c._burnState.nextTickMs, 2000, 'the next tick keeps its cadence');
+  assert.eq(c._burnBy, 'fire');
+  assert.eq(Combat.burnTick(c, 2000, true), 1);
+  assert.eq(c._burnState.remainingMs, 15000);
 });
 
 test('burning foe: the demons\' lava immunity covers fire too — one flag', () => {
@@ -50,38 +56,69 @@ test('source: a lit torch\'s blow sets the foe alight after the blow lands, as t
     'the torch lights what the blow leaves standing');
 });
 
-test('source: campfires and lava light foes; the burn ticks through the one damage lane, armour never soaking it', () => {
-  const start = SCENE_SRC.indexOf('      // ON FIRE (Combat.ignite');
-  const end = SCENE_SRC.indexOf('      // LAVA BURNS FOES TOO', start);
-  assert.truthy(start > 0 && end > start);
-  const body = SCENE_SRC.slice(start, end);
-  const tick = new Function('c', 'isTame', 'now', 'FIRE_TOUCH_CELLS', body);
+test('fire contact: every unit catches fire and ticks through its damage path', () => {
   const hurt = [];
-  const scene = {
-    _nearAny: (key, x, y, r) => key === 'fires' && x === 1,
-    _damageEnemy: (c, dmg, source, opts) => { hurt.push({ kind: c.kind, dmg, source, opts }); return false; },
-  };
-  const byFire = { kind: 'skeleton', x: 1, y: 0 };
-  tick.call(scene, byFire, false, 0, 0.6);
-  assert.truthy(Combat.burning(byFire, 1), 'standing in the hearth lights it');
-  assert.eq(byFire._burnBy, 'fire');
-  tick.call(scene, byFire, false, 1000, 0.6);
-  assert.eq(hurt.length, 1); assert.eq(hurt[0].source, 'burn'); assert.eq(hurt[0].dmg, def.energyLoss);
-  assert.truthy(hurt[0].opts.bypassArmor, 'a burn is never soaked');
-  const pet = { kind: 'slime', id: 'released_1', x: 1, y: 0 };
-  tick.call(scene, pet, true, 0, 0.6);
-  assert.falsy(Combat.burning(pet, 1), 'a pet is never burned');
+  const scene = Object.assign(new SceneFire(), {
+    save: {},
+    _groundFireAtWorld: () => null,
+    _nearAny: (key, x) => key === 'fires' && x === 1,
+    _damageBurningUnit: (c, dmg, source) => { hurt.push({ kind: c.kind, dmg, source }); return false; },
+  });
+  for (const c of [
+    { kind: 'skeleton', id: 'foe', x: 1, y: 0 },
+    { kind: 'slime', id: 'released_1', x: 1, y: 0 },
+    { kind: 'chicken', id: 'animal', x: 1, y: 0 },
+    { kind: 'npc', id: 'neighbour', x: 1, y: 0 },
+    { kind: 'spirit_raven', id: 'ally', x: 1, y: 0 },
+  ]) {
+    scene._tickUnitFire(c, 0);
+    assert.truthy(Combat.burning(c, 1), c.kind + ' catches fire');
+    scene._tickUnitFire(c, 1000);
+    assert.eq(hurt.at(-1).kind, c.kind);
+    assert.eq(hurt.at(-1).dmg, def.energyLoss);
+  }
+  assert.eq(hurt.length, 5);
   const demon = { kind: 'red_demon', x: 1, y: 0 };
-  tick.call(scene, demon, false, 0, 0.6);
-  assert.falsy(Combat.burning(demon, 1));
+  scene._tickUnitFire(demon, 0);
+  assert.falsy(Combat.burning(demon, 1), 'existing fire immunity still applies');
   const torched = { kind: 'skeleton', x: 5, y: 0 };
   Combat.ignite(torched, 0, 'player');
-  tick.call(scene, torched, false, 1000, 0.6);
-  assert.eq(hurt[1].source, 'player', 'a torch burn is the player\'s kill');
-  // Lava sets the foe alight too, so the burn outlasts the step out.
-  assert.truthy(/if \(under\.loaded && under\.type === WorldGen\.T\.CAVE_LAVA\) Combat\.ignite\(c, now, 'lava'\);/.test(SCENE_SRC));
-  assert.truthy(/source === 'lava' \|\| source === 'light' \|\| source === 'burn'/.test(SCENE_SRC), '_damageEnemy bypasses armour for a burn');
-  assert.falsy(Combat.isPlayerKill('burn'), 'a fire\'s or lava\'s burn pays the bounty coin and nothing past it');
+  Combat.burnTick(torched, 3000, true);
+  scene._tickUnitFire(torched, 4000);
+  assert.eq(hurt.at(-1).source, 'player');
+  scene._tickUnitFire(torched, 23000);
+  assert.eq(hurt.at(-1).source, 'player', 'last damaging tick retains its source');
+});
+
+test('fire damage: wildlife, pets, allies and NPCs keep their existing defeat or recovery rules', () => {
+  const events = [];
+  const scene = Object.assign(new SceneFire(), {
+    save: {},
+    _damageEnemy: (c, amount, source, options) => {
+      events.push({ c, amount, source, options }); return true;
+    },
+    _popDamageNumber: () => {},
+  });
+  assert.truthy(scene._damageBurningUnit({ kind: 'chicken' }, 2, 'burn', 1000));
+  assert.truthy(events[0].options.bypassArmor);
+  const animal = { kind: 'chicken' };
+  scene._workProgress = { flee: animal };
+  scene.cancelWorkProgress = () => { scene._workProgress = null; };
+  scene._damageBurningUnit(animal, 2, 'burn', 1000);
+  assert.eq(scene._workProgress, null, 'a dead animal cannot finish the catch wheel');
+  const pet = { kind: 'dog', id: 'released_dog', _hp: 1 };
+  assert.falsy(scene._damageBurningUnit(pet, 2, 'burn', 1000));
+  assert.eq(pet._hp, 1);
+  assert.eq(pet._retreatUntilT, 1000 + Companions.RECOVERY_MS);
+  const ally = { kind: 'spirit_raven', id: 'ally', _hp: 1 };
+  assert.truthy(scene._damageBurningUnit(ally, 2, 'burn', 1000));
+  assert.truthy(ally._spent);
+  const npc = { kind: 'npc', id: 'neighbour' };
+  assert.falsy(scene._damageBurningUnit(npc, 2, 'burn', 1000));
+  assert.eq(Combat.hp(npc), Combat.maxHp(npc) - 2, 'burning chips actual neighbour health');
+  assert.falsy(NPC.isDormant(npc), 'a surviving neighbour stays on their feet');
+  scene._damageBurningUnit(npc, Combat.hp(npc), 'burn', 2000);
+  assert.truthy(NPC.isDormant(npc), 'a neighbour rests when the burn exhausts their health');
 });
 
 test('player: standing in a campfire or lava sets the farmer burning, once a second, never off an empty bar', () => {
@@ -106,7 +143,7 @@ test('player: standing in a campfire or lava sets the farmer burning, once a sec
 test('look: both bodies wear the row\'s tint, and the HUD chips come off the table', () => {
   assert.truthy(/Combat\.burning\(c\) && Conditions\.conditionTintOn\('burning', performance\.now\(\)\)/.test(RENDER_SRC));
   assert.truthy(/afire \? Conditions\.DEFINITIONS\.burning\.tint/.test(RENDER_SRC), 'a burning foe');
-  assert.truthy(/Conditions\.DEFINITIONS\[burning \? 'burning' : 'poison'\]\.tint/.test(SCENE_SRC), 'the burning or poisoned farmer');
+  assert.truthy(/tint = Conditions\.DEFINITIONS\[status\]\.tint;/.test(SCENE_SRC), 'the burning or poisoned farmer');
   const hud = SCENE_SRC.match(/\n  _syncStatusRow\(\) \{([\s\S]*?)\n  \}\n/)[1];
   assert.truthy(/Object\.entries\(Conditions\.DEFINITIONS\)/.test(hud), 'one chip per row');
   assert.falsy(/'condition-poison'/.test(hud), 'no row named by hand');

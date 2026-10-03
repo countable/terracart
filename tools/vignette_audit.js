@@ -1,15 +1,10 @@
 // Viewport-vignette audit — checks that the map's rim still fades the way the
 // two edges need, which is NOT the same way on all four sides.
 //
-// The bug it guards: the vignette's rim lip (the outer 4px ramped to
-// near-opaque, added so art overhanging the mask fades instead of being sliced
-// mid-pixel — UX audit §15) was applied to all four edges with one strokeRect.
-// The map box spans the whole viewport width on a phone, so the left and right
-// rings ARE the outermost pixels of the screen: the lip painted a ~4px black
-// bar down both sides, and the game read as not being full width. Sampled off
-// a real iPhone 15 viewport, the map's own leftmost pixels came back
-// rgb(6,6,4), rgb(19,19,14), rgb(31,32,24), rgb(44,45,34) before the grass at
-// rgb(68,73,51) finally started.
+// The bug it guards: the rim lip (outer 4px ramped near-opaque so overhanging
+// art fades instead of being sliced mid-pixel, UX audit §15) was once applied
+// to all four edges. On a phone the left and right rings ARE the screen edge,
+// so the lip painted a black bar down both sides.
 //
 // So the rule has two halves and the audit pins both:
 //   * TOP and BOTTOM keep the lip — they sit in the middle of the screen with

@@ -1,14 +1,11 @@
 // The tile-build slice budget, and why it isn't a number any more.
 //
 // WHAT IT FIXED. A tile build hands the thread back through rAF, so a slice
-// costs one frame however long it held. The old live budget of a flat 12 ms
-// took that literally — "use the frame you already paid for" — and it made the
-// first ten seconds of every walk stutter end to end: 12 ms of rasterize plus
-// the game's own 5-9 ms of update and draw is past 16.7, so EVERY frame missed
-// vsync for as long as the neighbour ring was streaming, and everything went
-// smooth the instant it finished. Going one millisecond past the frame does not
-// cost one millisecond, it costs the next vsync — so overrunning buys no
-// throughput at all, which is what makes a smaller budget a fix and not a trade.
+// costs one frame however long it held. A flat 12 ms budget plus the game's
+// own 5-9 ms of update and draw is past 16.7, so EVERY frame missed vsync
+// while the neighbour ring streamed. Going one millisecond past the frame
+// costs the next vsync, so overrunning buys no throughput, which is what makes
+// a smaller budget a fix and not a trade.
 (() => {
   const W = WorldGen;
   // Put the dial back where the game leaves it, whatever a previous test did.

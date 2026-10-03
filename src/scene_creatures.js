@@ -14,8 +14,7 @@
 // Plus the constants only they read: MONSTER_HIT_MS, MONSTER_ARROW_HITS,
 // FIRE_WARD_MAX_DEPTH, BEACH_X_PER_CELLS.
 //
-// Moved verbatim out of app.js. The methods live on `class SceneCreatures`,
-// a MIXIN: app.js installs them onto MapScene.prototype right after the class
+// The methods live on `class SceneCreatures`, a MIXIN: app.js installs them onto MapScene.prototype right after the class
 // closes (installSceneMixin, from modal_shell.js), so every caller still says
 // `this.spawnInTile()` / `this.wanderCreatures()` and nothing else changed.
 // The consts stay plain top-level lexical globals (never window.X — see
@@ -34,14 +33,13 @@
 // drawing (render.js draws the list), not the work wheel itself
 // (startWorkProgress / _drawWorkProgress stay in app.js; the catch wheel only
 // arms it), not traps' tick (_tickTraps), not the starter placers
-// (starter.js, reached through app.js's one-line wrappers), and not Home's
-// yard predicate (_cropRaidable / homeGuardsCrop, app.js). See CLAUDE.md
+// (starter.js, reached through app.js's one-line wrappers), and not the crop
+// raider's predicate (_cropRaidable, app.js). See CLAUDE.md
 // "NOTHING HUNTS A BODY", "Home is a CAMPFIRE YOU OWN", "Nothing spawns on a
 // road" and "A tile can be REBUILT under you" before changing a branch here.
 
-// Seconds between one monster's hits. Per user: monsters were landing a hit a
-// second each, so a pack shredded the energy bar faster than it could be read —
-// halved to one hit per 2 s. (The surface slime keeps its own 1 s cadence: it's
+// Seconds between one monster's hits, slow enough for a pack's damage to be
+// readable. (The surface slime keeps its own 1 s cadence: it's
 // a crop pest, not a cave enemy.)
 const MONSTER_HIT_MS = 2000;
 // A RANGED monster's arrow carries the hits its leech would have landed in the
@@ -53,8 +51,8 @@ const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
 // FIRE WARD DEPTH CAP: a campfire only turns away the WEAKEST cave-dwellers —
 // those introduced at the first cave level (Combat.MONSTERS[kind].minDepth <= 1),
 // the same tier as the surface slime it already deters. A goblin (minDepth 2)
-// or goblin archer (minDepth 3) — and their giants, pushed GIANT_DEPTH_STEP
-// deeper still — are past what a lit campfire can plausibly hold off; only
+// or goblin archer (minDepth 3) — and their giants, at their own roster
+// depths — are past what a lit campfire can plausibly hold off; only
 // Home's stronger ward (HOME_R, surface only) turns those around.
 const FIRE_WARD_MAX_DEPTH = 1;
 
@@ -78,6 +76,35 @@ const FAUNA_ATTRACT_TRIES = 12;
 const LAIR_POINT_SLACK_CELLS = 1;
 
 class SceneCreatures {
+  _revealMimic(o) {
+    if (this.depth > 0 || !(this.tileEdgeM > 0)) return false;
+    const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry?.creatures) return false;
+    const id = 'mimic:' + o.id;
+    const revealed = (this.save.revealedMimics ||= []);
+    if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, x: o.x, y: o.y });
+    if (!entry.creatures.some(c => c.id === id)) {
+      entry.creatures.push(WorldGen.makeCreature('mimic', o.x, o.y, id, {
+        depth: 0, shiny: false, _hunting: true,
+      }));
+    }
+    return true;
+  }
+  _restoreMimics(entry, tx, ty) {
+    if (this.depth > 0 || !(this.tileEdgeM > 0)) return;
+    const caught = new Set(this.save.caught || []);
+    const liveIds = new Set(entry.creatures.map(c => c.id));
+    for (const c of this.save.revealedMimics || []) {
+      if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !c.id
+          || Math.floor(c.x / this.tileEdgeM) !== tx || Math.floor(c.y / this.tileEdgeM) !== ty
+          || caught.has(c.id) || liveIds.has(c.id)) continue;
+      entry.creatures.push(WorldGen.makeCreature('mimic', c.x, c.y, c.id, {
+        depth: 0, shiny: false, _hunting: true,
+      }));
+      liveIds.add(c.id);
+    }
+  }
   // THE SPAWN PASS, run straight through — the centre tile (the ground the
   // player stands on appears whole) and every caller that cannot await. The
   // pass itself is spawnInTileSteps; the neighbour ring drives it sliced
@@ -168,8 +195,9 @@ class SceneCreatures {
       // each cell is refused, as reason bits. Every spawner below names its
       // class to isSpawnCell (WorldGen.SPAWN_CLASS_BLOCKS — a creature's via
       // creatureSpawnClass), and the class's row says which typed reasons
-      // (house, kerb, school, sensitive, field edge) it refuses; the hard ones
-      // (road band, quiet / restricted land, back yards, …) refuse all.
+      // (kerb, sensitive) it refuses; the hard ones (road band, quiet /
+      // restricted land, kindergartens, back yards, a field's interior, …)
+      // refuse all.
       spawnWhy: entry.spawnWhy,
       // The major roads' band / verge / KERB BUFFER bits (worldgen
       // ROAD_CLASS_*) and the QUIET LAND: read by isSpawnCell only on an
@@ -207,6 +235,7 @@ class SceneCreatures {
     yield 'spawn scenic dressing';
     const zoneTraps = [], zoneGuards = [], zoneTreasures = [];
     const zDress = entry.zoneDress;
+    entry.reefCorals = !testMode ? (zDress?.corals || []).map(o => ({ ...o, kind: 'reef_coral' })) : [];
     if (zDress && !testMode) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
@@ -227,6 +256,7 @@ class SceneCreatures {
       for (const o of entry.objects) if (o.kind !== 'lava_vent') {
         for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) liveSeats.add(i);
       }
+      const placedZoneObjects = new Set();
       for (const o of zDress.objects) {
         if (o.kind === 'lava_vent') {
           const i = cellIdx(o);
@@ -242,6 +272,7 @@ class SceneCreatures {
         }
         if (!lay(o)) continue;
         entry.objects.push(o);
+        placedZoneObjects.add(o.id);
         if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
       }
       entry.wildplants = entry.wildplants || [];
@@ -250,8 +281,14 @@ class SceneCreatures {
       // may hide a piece, but must never reveal a different spawn underneath.
       for (const trap of (zDress.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
       for (const guard of (zDress.guards || [])) if (lay(guard)) zoneGuards.push(guard);
-      for (const treasure of (zDress.treasures || [])) if (lay(treasure)) zoneTreasures.push(treasure);
+      for (const treasure of (zDress.treasures || [])) {
+        const placed = treasure.coverRockId ? placedZoneObjects.has(treasure.coverRockId) : lay(treasure);
+        if (placed) zoneTreasures.push(treasure);
+      }
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
+      // Empty hull and approach cells remain unavailable to later surface scatter.
+      // Claim after laying the authored contents, including the wreck's chest.
+      for (const i of zDress.reservedCells || []) _occupiedIdx.add(i);
       entry.slowCells = slow.size ? slow : null;
     }
     yield 'spawn zone dressing';
@@ -321,10 +358,10 @@ class SceneCreatures {
     }
     // A LAIR POINT IS AN ATTRACTOR: a gate's daily foe, a street's guard, a
     // café hoard's giant — each is kept only where attractor ground (the
-    // spawn gate: out of the house buffer, off school and sensitive ground and
-    // fields, off hard land) lies within LAIR_POINT_SLACK_CELLS of its point —
-    // a gate's point sits on its own way, so the ground BESIDE it answers.
-    // A gate in a school's fence or a field gets no foe. The guards' own
+    // spawn gate: off sensitive ground and every hard reason — yards,
+    // kindergartens, a field's interior) lies within LAIR_POINT_SLACK_CELLS of
+    // its point — a gate's point sits on its own way, so the ground BESIDE it
+    // answers. A gate in a kindergarten's fence or deep in a field gets no foe. The guards' own
     // seats are their kind's class (lairs.js, creatureSpawnClass).
     if (entry.streetLairs.length) {
       const lairOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
@@ -373,10 +410,9 @@ class SceneCreatures {
           // Route EVERY candidate cell through the shared spawn rule, not just
           // RESIDENTIAL ones. isSpawnCell checks opts.roadMask FIRST — before
           // its residential-frontage logic — so gating the call on `t === 5`
-          // (the old code) made the mask unreachable for grass/park/farmland/
-          // etc., and a cow or crow could spawn on ground the player sees as
-          // asphalt: a motorway's band covers a cell either side of the cells
-          // it paints.
+          // made the mask unreachable for non-residential ground, so a cow
+          // or crow could spawn on asphalt (a motorway's band covers a cell
+          // either side of the cells it paints).
           // This does NOT impose the frontage rule on non-residential terrain:
           // isSpawnCell returns true right after the walkable+roadMask checks
           // for any cell that isn't lot land (WorldGen.isLotTerrain), so grass
@@ -397,20 +433,18 @@ class SceneCreatures {
           if (!fauna) enemyGroundSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
           // AN ANIMAL (or a wild slime) IS SEATED BY ITS OWN CLASS (the spawn
-          // gate, creatureSpawnClass): fauna keep off school grounds and
-          // sensitive ground; a FAST one off the kerb too; a foe also off the
-          // house buffer and every field. DROPPED after the draw, like the
+          // gate, creatureSpawnClass): every class keeps off the hard reasons
+          // and sensitive ground; a FAST one (animal or foe) off the kerb
+          // too. DROPPED after the draw, like the
           // pest amnesty below, never re-rolled: the stream stays the same
           // for every later spawn, and the mask is generated, so every player
           // loses the same animals.
           if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, seatOpts, spClass)) return;
           // The pest amnesty DROPS a slime, a crow or a raven that lands in the zone —
           // after the cell was drawn exactly as it would be for anyone else.
-          // It used to re-roll (`continue`) instead, which took extra draws out
-          // of the shared stream and reshuffled every later spawn on this tile
-          // for this one player (CLAUDE.md "Every player sees the SAME
-          // generated world": per-player state may hide a thing, never move
-          // the others). Thinning the starting area is the point anyway.
+          // Never re-roll: extra draws would reshuffle every later spawn on
+          // this tile for this one player (per-player state may hide a thing,
+          // never move the others).
           if ((kindStr === 'crow' || kindStr === 'raven') && pestFree && pestFree.has(cx, cy)) return;
           // ~5% of wild animals spawn as the rare shiny variant — stamped at
           // spawn off the stable id so it survives reloads and rides along
@@ -542,12 +576,15 @@ class SceneCreatures {
     // them into an unrelated enemy. Their kills use the usual caught ledger.
     for (const guard of zoneGuards) {
       if (caughtSet.has(guard.id)) continue;
-      creatures.push(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
-        ...guard, shiny: false, immobile: true,
-        lair: guard.lair || guard.id,
+      const creature = WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
+        ...guard, shiny: false, immobile: !guard.burrowCells,
+        ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
+        lair: guard.burrowCells ? null : (guard.lair || guard.id),
         lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
         lairR: 0, seatX: guard.x, seatY: guard.y,
-      }));
+      });
+      if (creature._surfaceSpawn) EnemySpawns.surfaceActive(this, creature);
+      creatures.push(creature);
     }
     for (const c of habitatGuards) {
       if (caughtSet.has(c.id)) continue;
@@ -563,6 +600,9 @@ class SceneCreatures {
         if (caughtSet.has(r.id)) continue;
         // A raised pet carries its birth (SpriteLayout.isBabyPet) back too.
         creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, {
+          ...(r.hp != null ? {_hp:r.hp} : {}), _lastDamagedT:r.lastDamagedAt ?? null,
+          ...(r.stayHome == null ? Companions.releasePolicy(this, r.x, r.y)
+            : {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY}),
           shiny: !!r.shiny, ...(r.raised ? { raised: true, born: r.born, favouriteFeeds: r.favouriteFeeds || 0 } : {}),
         }));
       }
@@ -624,12 +664,10 @@ class SceneCreatures {
       entry.creatures.push(guard);
       liveIds.add(guard.id);
     }
+    this._restoreMimics(entry, tx, ty);
     NPC.shrineResidents(this, entry, tx, ty);
     NPC.arrivals(this, entry, tx, ty);
 
-    // Starter loot now lives entirely in the road-side starter chests placed
-    // below (entry.objects, kind:'chest' with fixedLoot). No loose groundstack
-    // logs / rockfruit piles near spawn — the tutorial pocket stays clean.
     entry.objects = entry.objects || [];
     // Softwood near home — THIS player's overlay on the world's tree species
     // (HomeArea.applySoftwood; CLAUDE.md "Every player sees the SAME generated
@@ -775,12 +813,8 @@ class SceneCreatures {
     // beach's) — taken ahead of the flag, where the pass can still yield (see
     // `pathCells` above) — so a second full-grid scan for the sand would be a
     // second 100k-cell block.
-    // Cells are packed as their grid INDEX (cy * N + cx), which is the index
-    // the rest of this file reads them by. It was `cx * 256 + cy` until Sep
-    // 2026: cellsPerEdge is tileEdgeM / 7, which is over 256 anywhere below
-    // ~43° latitude (349 at the equator), so every path cell in the bottom of
-    // the tile decoded to (cx + 1, cy - 256) and its "roadside" X was dropped
-    // somewhere else entirely.
+    // Cells are packed as their grid INDEX (cy * N + cx); cellsPerEdge can exceed 256,
+    // so a cx*256+cy packing would decode wrong.
     // SHORE SAND (src/scenic.js — a SAND cell within SCENIC_SHORE_CELLS of
     // water, entry.scenic.shore.mask) is the BEACH and takes its own stream
     // below; `sandCells` is the INLAND sand (bunkers, sandpits, volleyball),
@@ -1149,17 +1183,35 @@ class SceneCreatures {
       .sort((a, b) => (pOf(b) >= 1) - (pOf(a) >= 1));
     if (!species.length) return moved;
     const taken = new Set();
+    // Shore birds need room between landings and the beach's interactables.
+    // Failed attraction keeps the original animal; it never removes population.
+    const shoreMask = entry.scenic?.shore?.mask;
+    const birdLandings = new Set();
+    const reserveBirdLanding = idx => {
+      const x = idx % N, y = Math.floor(idx / N);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (x + dx >= 0 && x + dx < N && y + dy >= 0 && y + dy < N)
+          birdLandings.add((y + dy) * N + x + dx);
+      }
+    };
+    if (shoreMask) for (const c of creatures) if (c && (c.kind === 'crow' || c.kind === 'raven')) {
+      const x = Math.floor((c.x - tx * this.tileEdgeM) / cellM);
+      const y = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
+      if (x >= 0 && x < N && y >= 0 && y < N && shoreMask[y * N + x]) reserveBirdLanding(y * N + x);
+    }
     for (const sp of species) {
       const p = pOf(sp);
       const pool = pools.get(sp) || [];
       if (!pool.length) continue;
       const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
       const pest = (sp === 'slime' || sp === 'crow' || sp === 'raven') ? pestFree : null;
+      const shoreBird = shoreMask && (sp === 'crow' || sp === 'raven');
       const spClass = creatureSpawnClass(sp);
       const seatOpts = spClass === 'fauna' || spClass === 'fastFauna'
         ? { ...spawnOpts, occupied: null } : spawnOpts;
       const free = (idx) => {
         if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
+        if (shoreBird && shoreMask[idx] && (spawnOpts.occupied?.has(idx) || birdLandings.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
         // The seat rule for anything alive: its own spawn class.
@@ -1180,6 +1232,7 @@ class SceneCreatures {
         }
         if (at < 0) return false;
         taken.add(at);
+        if (shoreBird && shoreMask[at]) reserveBirdLanding(at);
         c.x = tx * this.tileEdgeM + ((at % N) + 0.5) * cellM;
         c.y = ty * this.tileEdgeM + (((at / N) | 0) + 0.5) * cellM;
         moved[sp] = (moved[sp] || 0) + 1;
@@ -1242,22 +1295,24 @@ class SceneCreatures {
       return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
     };
     const gen = new Set(genObjects);
-    const held = new Set();
+    const held = new Map();
     const footprintFrame = { cellsPerEdge: N };
     for (const o of (entry.objects || [])) {
       if (gen.has(o)) continue;
-      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty)) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty))
+        held.set(i, held.has(i) ? null : o.id);
     }
     const savedIds = SpawnOwnership.savedIds(this.save);
     for (const plant of (entry.wildplants || [])) {
       if (!SpawnOwnership.isProtected(plant, this.save, savedIds)) continue;
-      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.set(i, null);
     }
     const repainted = grid !== genGrid;
     const off = (t, allowOverlap = false) => {
       const i = idxOf(t.x, t.y);
       if (i < 0) return false;
-      if (!allowOverlap && held.has(i)) return true;
+      if (!allowOverlap && held.has(i)
+          && !(t.coverRockId && held.get(i) === t.coverRockId)) return true;
       return repainted && grid[i] !== genGrid[i] && !WorldGen.isWalkable(grid[i]);
     };
     if (!held.size && !repainted) return;
@@ -1299,23 +1354,15 @@ class SceneCreatures {
     const rng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x85ebca77) >>> 0);
     const N = entry.cellsPerEdge;
     const creatures = [];
-    // Memoised Set, not an Array.includes — the monster + rabbit loops below
-    // call this up to (count + rabbitN) * 20 times per tile build (up to
-    // ~3500 calls at max depth), each an O(save.caught length) scan without
-    // this. Same fix as spawnInTile above / setOf's own doc comment.
+    // Memoised Set, not an Array.includes: called up to ~3500 times per tile build.
     const caughtSet = setOf(this.save.caught);
     const eligible = EnemySpawns.caveRows(depth);
     const legacyDefeats = EnemySpawns.legacyCaveDefeats(caughtSet, depth, tx, ty);
     const monsterSeats = new Set();
     if (!eligible.length) { entry._spawned = true; entry.creatures = entry.creatures || creatures; return; }
-    // Anchor spawns near the up-staircases (where the player enters) so
-    // monsters are immediately visible rather than scattered across the
-    // ~229×229 cell tile. A level has an up-stair at EVERY surface entrance
-    // (and the player may descend any of them), so anchor around ALL of them —
-    // the old single-anchor (`find` → first stair) left every other entrance
-    // monster-free, and with the underground torch bubble only ~2 cells wide
-    // the far-away swarm was never seen ("I never see monsters underground").
-    // Falls back to the tile centre when no staircase exists on this tile.
+    // Anchor spawns near the up-staircases so monsters are visible rather than
+    // scattered across the tile. A level has an up-stair at EVERY surface entrance,
+    // so anchor around ALL of them. Falls back to the tile centre when none exists.
     const cellSizeM = entry.tileEdgeM / N;
     // Every draw below asks the level's GENERATED layer (baseGrid /
     // genObjects, frozen by loadCaveTile) — never the live entry, which
@@ -1382,17 +1429,9 @@ class SceneCreatures {
         cy: a.liy + Math.round((rng() - 0.5) * 2 * SPAWN_R),
       };
     };
-    // TOTAL population matches the old single-stair tuning, regardless of how
-    // many up-staircases this tile has — anchors.length only widens WHERE
-    // spawns land (randCell already picks a random anchor per creature), so a
-    // stair-dense tile spreads the same population across more entrances
-    // instead of multiplying it. This used to multiply the count by
-    // anchors.length too, which quietly doubled (or tripled) the population
-    // on any tile with more than one up-staircase — the common case, since
-    // each residential cluster rolls its own staircase independently (~30%
-    // odds each), so 2 anchors on a tile is typical, not an edge case.
-    // The 160 cap is a dead-but-harmless safety net at today's depths — keep
-    // it in case a much deeper level or a MONSTERS-table change changes that.
+    // TOTAL population is fixed regardless of how many up-staircases the tile has:
+    // anchors.length only widens WHERE spawns land. The 160 cap is a safety net
+    // at today's depths.
     // Both modes share this population; Hard applies only at the recipient.
     const count = Math.min(160, Math.round((50 + depth * 10) * Difficulty.get().monsterCountMul));
     for (let i = 0; i < count; i++) {
@@ -1426,8 +1465,7 @@ class SceneCreatures {
         break;
       }
     }
-    // Rabbits: also anchored near the staircases, spread the same way — not
-    // multiplied by anchor count, for the same reason as `count` above.
+    // Rabbits: anchored like the pack, not multiplied by anchor count.
     const rabbitN = 10 + Math.floor(rng() * 8);
     for (let i = 0; i < rabbitN; i++) {
       for (let attempt = 0; attempt < 20; attempt++) {
@@ -1538,9 +1576,7 @@ class SceneCreatures {
     // warning there is, and an unlit cell already swallows most of it.
     entry.traps = [];
     if (typeof Traps !== 'undefined' && !window.__TEST_MODE) {
-      // Same occupiedIdx built once above for the monster/rabbit seat check —
-      // this used to be a third scan of entry.objects for the identical Set;
-      // now it's the one this function already has in scope.
+      // Same occupiedIdx built once above.
       // Flat multiplier regardless of game mode — a dungeon is dangerous on
       // either one (see Traps.DUNGEON_DENSITY_MUL).
       entry.traps = Traps.spawnCave(genGrid, N, tx, ty, entry.tileEdgeM, depth,
@@ -1567,7 +1603,6 @@ class SceneCreatures {
     };
   }
 
-  // Chickens and cows wander ~1 cell every 5s in a random direction.
   // Per-creature state lives on the creature object: _startX/Y, _targetX/Y,
   // _stepT0, _nextChooseT, _homeX/Y, _faceFlip.
   wanderCreatures() {
@@ -1587,32 +1622,22 @@ class SceneCreatures {
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
     const kerbLeash = inKerbAt(this, px, py);
+    enemySlimeTrailTick(this, px, py, npcDt);
     // The nearest hostile TAKING AN INTEREST this tick (not standing down, the
     // player not unnoticed) — handed to app.js _foeHeadsUp after the loop,
     // which buzzes the phone when it is close (SAFETY_FOE_BUZZ_CELLS).
     let interestedFoeM = Infinity;
     // THE SIM BUBBLE — measured from the player's FEET, never the camera
-    // anchor (a peek drag must not widen who is thinking; see the camera rule
-    // in CLAUDE.md).
-    //   The viewport corner sits at VIEW_CELLS/2 * √2 ≈ 7.8 cells, and the
-    // bubble used to stop at 8 — one tenth of a cell past the glass. That is
-    // exactly where it reads as a cheat: a deer frozen mid-stride pops into
-    // motion the moment it crosses the corner, and anything that should be
-    // walking toward you (a stalking monster, a crow inbound to your field)
-    // only starts once it is already on screen. CREATURE_SIM_CELLS gives it a
-    // margin of about half a viewport, so a creature is moving for a second or
-    // two before you ever see it and arrives already in motion.
-    //   The cost is quadratic in the radius (2.25× the creatures of the old 8)
-    // but the population is a handful either way, and the 3×3 tile ring below
-    // still covers it many times over — a tile edge is hundreds of cells.
+    // anchor (a peek drag must not widen who is thinking).
+    //   The viewport corner sits at VIEW_CELLS/2 * √2 ≈ 7.8 cells.
+    // CREATURE_SIM_CELLS gives about half a viewport of margin so a creature is
+    // already moving when it comes into view. The 3×3 tile ring below still
+    // covers it many times over.
     const RANGE_M = CREATURE_SIM_CELLS * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
-    // Per-frame loop hygiene (the render pass documents the same fix): only
-    // the 3×3 tile neighbourhood is simmed — the sim range above is a handful
-    // of cells and a tile edge is hundreds, so one ring of tiles always covers
-    // it — and caught-membership is a memoised Set, not an Array.includes per
-    // creature. The all-tiles + includes version was an O(every creature ever
-    // loaded × caught) scan per frame that grew the longer you walked.
+    // Per-frame loop hygiene: only the 3×3 tile neighbourhood is simmed (the sim
+    // range is a handful of cells, a tile edge hundreds), and caught-membership is a
+    // memoised Set.
     const pcW = this.playerToWorldCell();
     // Prune save.caught of pest-deer markers whose tile has since fallen out
     // of the in-memory tile cache. Every OTHER id in this array is
@@ -1622,11 +1647,7 @@ class SceneCreatures {
     // creature spawn right back. Pest deer are the one exception: each spawn
     // below mints a fresh id off Date.now()+Math.random() that is never minted
     // again, so once its tile leaves the cache the creature object it named is
-    // gone for good and the marker can never matter again. Nothing pruned this
-    // before — grepped, only testtools resets the array wholesale — so a save
-    // with crops planted and a pet active added one of these roughly every 90s
-    // (the pest timer below) for the life of the save, same failure shape as
-    // coinBurstClaimed/houseSatisfied/shopCharm before those grew a prune pass.
+    // gone for good and the marker can never matter again.
     //   Depth-gated: WorldGen.tileCache is REPOINTED to the cave-level map
     // underground (see _setStarterCratesAt above), so checking it while the
     // player is down a level would read the wrong map and wrongly prune a
@@ -1644,7 +1665,7 @@ class SceneCreatures {
         // the same way and are pruned by the same rule. (`pest_crow_` is the
         // pump's old prefix — a marker left by a session before the deer
         // took the job prunes the same way.)
-        const m = typeof id === 'string' && /^(?:pest_deer|pest_crow|ghost|fished_slime|spirit_raven|mercenary|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
+        const m = typeof id === 'string' && /^(?:pest_deer|pest_crow|ghost|fished_slime|spirit_raven|summoned_skeleton|summoned_wraith|mercenary|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
         // A gate's guard (lairs.js DAILY_TIERS) carries its UTC day: one
         // from another day can never rise again, so its marker goes.
         const gateDay = Lairs.dailyGuardDay(id);
@@ -1671,15 +1692,15 @@ class SceneCreatures {
     this._npcWardContext = { home: homePos, castles: castleWards, radius2: HOME_WARD_R2 };
     NPC.prepareTargets(this, pcW, px, py, RANGE_M, now);
     // Pest spawn: if the player has any planted crop and there is NO wild
-    // deer already near the player, dispatch one off-screen every ~90 s. The
-    // deer's wander (`raidsCrops`, below) walks at the nearest crop it may eat
-    // and grazes it when it stands beside it. Eased from "top up to 2 every
-    // 30 s" — that relentless pump made crops unfarmable: another raider
-    // arrived seconds after you dealt with the last. Now the pump only
-    // backfills an emptied field, and slowly, so netting or scaring off the
-    // deer near your field actually buys a quiet window. (The dispatched pest
-    // was a CROW until Sep 2026; the owner moved crop-raiding to the deer,
-    // and the crow is game now — feathers, never a field.)
+    // deer already near the player, dispatch one off-screen once an hour
+    // (PEST_DISPATCH_MS). The deer's wander (`raidsCrops`, below) walks at the
+    // nearest crop it may eat and grazes it when it stands beside it. Eased
+    // from "top up to 2 every 30 s", then every 90 s — both made crops a
+    // chore: another raider arrived soon after you dealt with the last. Now
+    // the pump only backfills an emptied field, once an hour, so a raid is an
+    // event rather than a drain. (The dispatched pest
+    // was a CROW until Sep 2026. Wild crows raid fields again, from their
+    // own tick, but the pump sends only deer.)
     this._lastPestT = this._lastPestT || 0;
     // Only crops a deer actually eats (not potato) justify spawning a pest —
     // and only on HARD (Difficulty.get().cropPests). The pump is not a
@@ -1687,16 +1708,13 @@ class SceneCreatures {
     // wherever you plant it is the hard game's answer to farming as a quiet
     // income, and on easy the tile spawner's own deer are the whole deer
     // threat — meet one by walking into it, not by having one dispatched to
-    // you. That also retires the amnesty clause this gate used to carry
-    // (hasHarvested || !pestAmnesty): easy never pumps at all now, and hard
-    // has no grace to wait out, so the check could only ever answer "true"
-    // where it still ran.
+    // you.
     // Timer gate first: the planted-crop scan is O(planted) and has no
-    // business running on the ~5400 frames between pest windows.
+    // business running on the frames between pest windows.
     // SURFACE ONLY: underground WorldGen.tileCache is the cave level's map
     // (see the prune's depth gate above), so a pest minted here landed in
     // the dungeon — a deer with no crop to walk at, in a cave.
-    if ((this.depth || 0) === 0 && now - this._lastPestT > 90000) {
+    if ((this.depth || 0) === 0 && now - this._lastPestT > PEST_DISPATCH_MS) {
       const hasRaidableCrop = this.save.planted && this.save.planted.some((p) => this._cropRaidable(p));
       if (hasRaidableCrop && Difficulty.get().cropPests) {
         this._lastPestT = now;
@@ -1713,28 +1731,19 @@ class SceneCreatures {
           const pc = pcW;
           const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
           if (entry && entry.creatures) {
-            // Spawn in a random direction, OUTSIDE the viewport but INSIDE
-            // the sim bubble, so the deer walks toward the nearest crop from
-            // its first tick. Seated at CREATURE_SIM_CELLS (12) it landed on
-            // the rim of the very cull that decides whether it thinks, so the
-            // pest the pump had just dispatched sat frozen in the dark until
-            // the player happened to walk at it — the comment right here
-            // claimed it "flies straight to the nearest crop" and it did not.
-            // 10 cells clears the viewport corner (7.8) by a comfortable
-            // margin and stays two cells inside the bubble.
-            //   A deer WALKS, so its seat has to be ground it can stand on:
-            // a few angles round the ring, the first whose cell is loaded
-            // and not water / a building / a road (Combat.faunaBlocksCell —
-            // the same gate its every step passes). None found: no pest this
-            // window; the timer has already been stamped, so the next window
-            // tries again.
+            // Spawn in a random direction, OUTSIDE the viewport but INSIDE the sim
+            // bubble (10 cells: clears the viewport corner at 7.8, two cells inside the
+            // bubble), so the deer walks toward the nearest crop from its first tick.
+            // A deer WALKS: a few angles round the ring, the first whose cell is loaded
+            // and not water / a building / a road (Combat.faunaBlocksCell). None found: no
+            // pest this window; the timer is already stamped.
             const SPAWN_R = PEST_SPAWN_CELLS * this.cellM;
             const base = Math.random() * Math.PI * 2;
             for (let k = 0; k < 8; k++) {
               const angle = base + (k * Math.PI * 2) / 8;
               const sx = px + Math.cos(angle) * SPAWN_R, sy = py + Math.sin(angle) * SPAWN_R;
               const dest = this.cellAt(sx, sy);
-              if (!dest.loaded || Combat.faunaBlocksCell(dest.type)) continue;
+              if (!dest.loaded || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)) continue;
               entry.creatures.push(WorldGen.makeCreature('deer', sx, sy,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
               break;
@@ -1750,8 +1759,14 @@ class SceneCreatures {
     // Most ticks have no charm active: avoid scanning every foe against all
     // creatures just to discover there are no temporary allies to target.
     this._charmedOpponents = [];
+    // The same pass gathers the live foes in the sim bubble once a tick, so
+    // each foe's spacing (creature_ai.js foeSpacingPush) reads a short list.
+    this._foeBodies = [];
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
-      if (Combat.isCharmed(c) && !caughtSet.has(c.id)) this._charmedOpponents.push(c);
+      if (caughtSet.has(c.id)) return;
+      if (Combat.isCharmed(c)) this._charmedOpponents.push(c);
+      const ddx = c.x - px, ddy = c.y - py;
+      if (ddx * ddx + ddy * ddy <= RANGE_SQ && Combat.isEnemy(c) && EnemyRoster.get(c.kind)) this._foeBodies.push(c);
     });
 
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
@@ -1774,14 +1789,21 @@ class SceneCreatures {
         } else if (c._surfaceInactive) return;
       }
       if (far) {
+        c._walkHazardPrevious = null;
         if (c.kind === 'npc') c._moving = false;
         return;
       }
+      if (enemyDisguiseTick(this, c, px, py)) return;
+      if (enemyBurrowTick(this, c, EnemyRoster.get(c.kind), now)) return;
+      if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;
+      if (this._tickUnitFire?.(c, now)) return;
+      if (this._tickUnitPoison?.(c, now)) return;
+      if (!caughtSet.has(c.id) && enemyWalkHazardTick(this, c, now)) return;
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const unnoticed = this.isUnnoticed(c);
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
       // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
-      // raven, conjured by a potion — yours without being tame). One flag
+      // raven, conjured by a scroll — yours without being tame). One flag
       // the pet scan and its fight read; see huntsPrey for what each takes.
       const summoned = SpriteLayout.isSummoned(c.kind);
       // A spent ally (its HP ran out — see the pet fight) stands still until
@@ -1789,11 +1811,8 @@ class SceneCreatures {
       if (summoned && c._spent) return;
       const huntsForPlayer = (isTame && SpriteLayout.isPet(c.kind)) || summoned;
       // WHAT THINKS AT ALL: everything with a row in the creature behaviour
-      // table (SpriteLayout.CREATURE_BEHAVIOUR) — the farm and pet animals,
-      // the wild fauna, the surface slime and every cave monster, giants
-      // included, since a giant resolves to its base kind's row exactly as it
-      // resolves to its base kind's art. This was a nine-name OR-chain plus
-      // Combat.isMonster(), which is one more place a kind had to be remembered.
+      // table (SpriteLayout.CREATURE_BEHAVIOUR); a giant resolves to its base kind's
+      // row exactly as it resolves to its base kind's art.
       const wanders = SpriteLayout.creatureWanders(c.kind);
       if (!wanders) return;
       if (caughtSet.has(c.id)) return;
@@ -1814,24 +1833,19 @@ class SceneCreatures {
       // cave monster), so a kind added to the monster table is warded the day
       // it ships, and a sapphire-tamed slime is a pet and walks where it likes.
       //
-      // THE WARD IS A LATCH, NOT A FENCE, and that is the whole of it: crossing
-      // HOME_R sets `_wardFrom`, and only the sim bubble's edge clears it.
-      // A plain radius test made the ring a turnstile — a foe stepped out at
-      // four cells, stopped being warded on the doorstep's own edge and turned
-      // straight back in, so the yard was quiet for one hop and the player
-      // watched a slime bob in and out of the same three cells forever. Two
-      // radii, one flag: HOME_R is what TRIPS it and CREATURE_SIM_CELLS is what
-      // RELEASES it, the hysteresis a lair guard's hold/hunt/return already has
-      // (Lairs.guardState). Being hit inside the ring needs no branch of its
-      // own any more — a foe close enough to hit at Home is already inside the
-      // ring, so it is already routed.
+      // THE WARD IS A LATCH, NOT A FENCE: crossing HOME_R sets `_wardFrom`, and
+      // only the sim bubble's edge clears it. A plain radius test made the ring a
+      // turnstile (a foe bobbing in and out of the same cells forever). Two radii,
+      // one flag: HOME_R trips it, CREATURE_SIM_CELLS releases it, the hysteresis a
+      // lair guard's hold/hunt/return already has (Lairs.guardState).
       //   The latch remembers WHICH ward tripped it (`_wardFrom`, a point:
       // Home, or a claimed castle's turret), because the rout angle and the
       // release both measure from that point.
       //   A GHOST has one more ward point: a campfire (fireWardTrip) — the
       // same latch, a third reason, asked only for a haunting kind.
       const haunts = SpriteLayout.creatureHaunts(c.kind);
-      const stationary = !!Combat.monster(c.kind)?.stationary;
+      const stationary = !!c.stationary || EnemyRoster.isRooted(c.kind)
+        || !!Combat.monster(c.kind)?.stationary;
       // An ENRAGED game animal (a hunted deer — `fightsBack`, _rageUntil) is
       // hostile for as long as it is angry, so it takes Home's ward exactly as
       // an enemy does: one lane, another reason. Warded, it is turned away
@@ -1879,7 +1893,13 @@ class SceneCreatures {
       // that steals, so the per-creature cost elsewhere is one table read.
       const sated = !isTame && !!Combat.theftKind(c.kind) && Combat.theftSated(this.save, c);
       const frightened = Combat.isEnemy(c) && c._fearUntilT > now;
-      const routed = warded || wanderOff || sated || frightened;
+      // MAD (the Powder of Psychosis — Combat.isPsychotic): the rout lane
+      // once more — the flee pace, no blow, no target — but with a RANDOM
+      // angle each hop (the chain below) in place of fear's away angle, so
+      // it runs every which way rather than off. Home's ward still outranks
+      // it: a mad foe inside the ring is walked out like any other.
+      const psychotic = Combat.isEnemy(c) && Combat.isPsychotic(c, now);
+      const routed = warded || wanderOff || sated || frightened || psychotic;
       // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
       // hysteresis and the arrival test; this asks once and stores the
       // hysteresis back (session state on the creature, like `_hp`).
@@ -1890,7 +1910,7 @@ class SceneCreatures {
       //            does NOT bite on the way — the player got clear, and a
       //            guard still leeching on its walk home would mean they had
       //            not.
-      const lairState = c.lair && !frightened ? Lairs.guardState(c, { x: px, y: py }, this.cellM, !unnoticed && !kerbTurn) : null;
+      const lairState = c.lair && !frightened && !psychotic ? Lairs.guardState(c, { x: px, y: py }, this.cellM, !unnoticed && !kerbTurn) : null;
       c._hunting = lairState === 'hunt';
       // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
       // `unnoticed` is one read for "no hostile takes an interest in you".
@@ -1901,7 +1921,7 @@ class SceneCreatures {
       // growing a second condition each. The MOVEMENT chain still asks
       // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
-      const standDown = frightened || warded || wanderOff || kerbTurn || sated || (!!lairState && lairState !== 'hunt');
+      const standDown = frightened || psychotic || warded || wanderOff || kerbTurn || sated || (!!lairState && lairState !== 'hunt');
       const rosterRow = !isTame ? EnemyRoster.get(c.kind) : null;
       const npcTarget = rosterRow && !standDown
         ? NPC.enemyTarget(this, c, rosterRow, px, py, unnoticed) : null;
@@ -1924,9 +1944,10 @@ class SceneCreatures {
         const pace = gm.mps / 1000;
         const fate = ghostTick(this, c, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
           (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || kerbTurn, warded, pace);
-        if (fate === 'touch' && npcTarget) NPC.hit(this, npcTarget);
+        if (fate === 'touch' && npcTarget) NPC.hit(this, npcTarget, Date.now(),
+          (gm.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c));
         if (fate === 'touch' && !npcTarget) {
-          const raw = gm.dmg * Combat.powerMul(c);
+          const raw = (gm.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
             const lost = this._losePlayerEnergy(dmg, { closeShop: true });
@@ -1939,25 +1960,13 @@ class SceneCreatures {
         }
         return;
       }
-      // ON FIRE (Combat.ignite / burnTick — the `burning` row of
-      // Conditions.DEFINITIONS, 1 HP a second for 5 s, out on its own): a lit
-      // Torch's blow lit it (app.js, the combat wheel), or it stands IN a
-      // CAMPFIRE — within FIRE_TOUCH_CELLS of one on this depth, the same
-      // `fires` list the hearth's ward and warmth read — or in lava (below,
-      // which also sets it alight so the burn outlasts the step out). The
-      // torch's burn is the player's kill; a fire's or lava's is the
-      // ground's, like lava itself. Armour never soaks a burn.
-      if (Combat.isEnemy(c) && !isTame && Combat.canBurn(c)
-          && this._nearAny('fires', c.x, c.y, FIRE_TOUCH_CELLS)) Combat.ignite(c, now, 'fire');
-      const burn = Combat.burnTick(c, now);
-      if (burn > 0 && this._damageEnemy(c, burn, c._burnBy === 'player' ? 'player' : 'burn', { bypassArmor: true })) return;
       // LAVA BURNS FOES TOO (Combat.LAVA_DMG_PER_S, the player's rate — see
       // app.js _tickLava). Whole points once a second off the foe's own HP
       // through _damageEnemy, so the health bar and the "-2" read as any
       // other blow; a foe it kills is the ground's kill ('lava' is no player
       // source — Combat.isPlayerKill), which pays the bounty coin and nothing
       // past it, the turret's rule. A tamed slime is a pet, never burned.
-      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune && (this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH)
+      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c) && !Combat.monster(c.kind)?.lavaImmune && (this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH)
           && now >= (c._lavaNextT || 0)) {
         c._lavaNextT = now + 1000;
         const under = this.cellAt(c.x, c.y);
@@ -1965,6 +1974,7 @@ class SceneCreatures {
         if (under.loaded && under.type === WorldGen.T.CAVE_LAVA
             && this._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava')) return;
       }
+      if (enemyFireEscapeTick(this, c, rosterRow, now, enemyDt)) return;
       // Slime energy steal: a slime sitting on/near the player drains 1 energy
       // on a per-slime cooldown. Accumulated across all slimes this frame and
       // surfaced with one throttled flash after the loop (see below) so a swarm
@@ -1982,7 +1992,7 @@ class SceneCreatures {
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + 1000;   // one bite a second
-          const slimeBite = SLIME_LEECH_ENERGY * Combat.powerMul(c);
+          const slimeBite = (SLIME_LEECH_ENERGY * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
           const slimeDmg = Combat.incomingDamage(this.save, slimeBite);
           if (slimeDmg > 0) {
             this._slimeStealAccum = (this._slimeStealAccum || 0)
@@ -1999,7 +2009,7 @@ class SceneCreatures {
         const BUTT_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + fightsBack.hitMs;
-          const raw = fightsBack.dmg;
+          const raw = fightsBack.dmg * Combat.powerMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
             this._monsterDmgAccum = (this._monsterDmgAccum || 0)
@@ -2025,7 +2035,7 @@ class SceneCreatures {
         // dmg 0) skips both halves below: it is not a melee drain at strength
         // zero, which the armour floor would round up to a bite.
         const hits = Combat.monsterHits(c.kind);
-        const rangeCells = m.range > 1 ? Combat.rangeCellsFor('bow', reachCells(this)) : m.range;
+        const rangeCells = PotionEffects.range(c, m.range > 1 ? Combat.rangeCellsFor('bow', reachCells(this)) : m.range);
         const R = rangeCells * this.cellM;
         // A RANGED monster needs a clear line, for the same reason your bow
         // does: the goblin archer reaches out to the player's own live reach,
@@ -2059,7 +2069,7 @@ class SceneCreatures {
           c._attackT0 = now;
           c._attackUntil = now + 600;
           // Elite and lair power scale the attack before shield and armour.
-          const dmg = m.dmg * Combat.powerMul(c);
+          const dmg = (m.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
           const monDmg = Combat.incomingDamage(this.save, dmg);
           if (monDmg > 0) {
             const lost = this._losePlayerEnergy(monDmg, { closeShop: true });
@@ -2097,7 +2107,7 @@ class SceneCreatures {
       // A declared stationary kind can bite above but never enters a movement
       // lane. Roster plants also remain rooted through their anchor_spit mover.
       if (stationary) return;
-      if (c.immobile && !frightened && lairState !== 'hunt' && lairState !== 'return') return;
+      if (c.immobile && !frightened && !psychotic && lairState !== 'hunt' && lairState !== 'return') return;
       if (rosterRow) {
         // Turned back at the kerb is the wander-off's away angle (as in the
         // step chain below); a lair guard walks home instead (guardState).
@@ -2106,15 +2116,10 @@ class SceneCreatures {
           routed || (kerbTurn && !c.lair), lairState, enemyDt);
         return;
       }
-      // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
-      // burst (500-800 ms, eased) → perch again. Targets a nearest planted
-      // crop by ORBITING it — most flight legs end on the ring 1.5-3.5
-      // cells out, only ~30% are a tight-ring "landing attempt" that may
-      // actually touch the crop's cell. On a landing-on-crop the crow
-      // arms a 2-second destroy timer; the crop is only eaten when that
-      // timer fires, so scaring / capturing the crow within those 2 s
-      // saves it. Tame (released_*) crows fall through to the generic
-      // wander below so they behave like other pets.
+      // Wild-crow flight rhythm: perch → one eased glide → perch again,
+      // casing and raiding a field it notices (_wildCrowTick has the phases).
+      // Tame (released_*) crows fall through to the generic wander below so
+      // they behave like other pets.
       if (c.kind === 'crow' && !isTame) {
         this._wildCrowTick(c, now, px, py);
         return;
@@ -2127,9 +2132,7 @@ class SceneCreatures {
       // three — so they read off ONE row each (SpriteLayout.CREATURE_BEHAVIOUR)
       // instead of three ternaries that each had to name their kind.
       //   A TAME rabbit or deer SETTLES (`tameSettles`): the quick gait and the
-      // bolt are a wild animal's wariness, and a pet joins the base wander.
-      // That is exactly what the `&& !isTame` on the old isRabbit / isDeer
-      // said; a butterfly kept its flit either way and still does.
+      // bolt are a wild animal's wariness, and a pet joins the base wander (a butterfly keeps its flit either way).
       const beh = SpriteLayout.creatureBehaviour(c.kind);
       const gait = (beh && !(isTame && beh.tameSettles)) ? beh : null;
       const bolt = gait ? gait.flee : null;
@@ -2149,14 +2152,8 @@ class SceneCreatures {
       // lumber like the slime (0.6 cell).
       const isMon = Combat.isMonster(c.kind);
       const mon = isMon ? Combat.monster(c.kind) : null;
-      // Rare shiny animals move at SHINY_SPEED_MUL — same hop distances, but
-      // the whole step cadence (hop duration + any pause) is divided by it, so
-      // they cover ground that much faster. isShiny() is keyed off the creature id, so the
-      // status is stable across reloads (matches the shiny-tint in render).
-      // An ELITE monster hits harder, not faster: its cadence comes purely
-      // from SPEED, so the shiny check is for animals only.
-      // A summoned ally is never shiny-fast: its cadence IS its bite rate.
-      const shinyFast = (!isMon && !summoned && isShiny(c.id, SHINY_RATE.animal)) ? 1 / SHINY_SPEED_MUL : 1;
+      // Read the same stamped flag as the gold tint, including pets and foes.
+      const shinyFast = 1 / Combat.shinySpeedMul(c);
       // CHARGING: hit by the player or their pet within STRUCK_REACTION_MS and
       // not warded off. Resolved once here because both halves of the charge
       // read it — the quickened beat just below and the committed angle in the
@@ -2172,14 +2169,10 @@ class SceneCreatures {
       // own pair with the note that tunes them beside them, and a monster's
       // cadence and stride come from the MONSTERS row it is registered in.
       // Everything else is its gait row, or the loop's own base beat.
-      // A ROUTED FOE RUNS, at the same pace anything else in a hurry runs
-      // (FLEE_*). Without it the rout was the crawl it was fleeing at: an
-      // oozing slime is 0.45 cells every 7.5 s, so being driven off the
-      // doorstep meant a full minute parked in the yard just to clear the
-      // four-cell ring and minutes more to reach the bubble — a ward you had
-      // to take on trust, because nothing you could see was leaving. The
-      // slime's charge quickens the BEAT alone; a rout takes the stride too,
-      // because the thing being asked for is distance, not urgency.
+      // A ROUTED FOE RUNS, at the same pace anything else in a hurry runs (FLEE_*);
+      // at its own crawl a ward would take minutes to visibly clear. The slime's
+      // charge quickens the BEAT alone; a rout takes the stride too, because the
+      // thing being asked for is distance, not urgency.
       //   NOT ON A SPRINT. A kind already at its bolt (sprinting — bolting,
       // or a hunted deer's charge) is already in a hurry: the bolt row IS its
       // hurry pace, tuned under the speed ceiling (WILD_SPEED_CEILING_MPS),
@@ -2191,6 +2184,7 @@ class SceneCreatures {
                    : isMon ? STEP_MS / mon.speed
                    : sprinting ? (bolt.stepMs ?? STEP_MS)
                    : (gait?.stepMs ?? STEP_MS)) * shinyFast * (hurry ? FLEE_BEAT_MUL : 1);
+      stepMs /= PotionEffects.speedMul(c);
       const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * monsterStrideCells(mon)
                   : sprinting ? STEP_M * (bolt.stepCells ?? 1)
@@ -2198,7 +2192,7 @@ class SceneCreatures {
       // A kind's top speed (SpriteLayout.creatureMaxMps) stretches the glide,
       // never shortens the stride: the step still lands where it was aimed.
       // A shiny's cap rises by the same factor its beat quickens by.
-      const maxMps = SpriteLayout.creatureMaxMps(c.kind) / shinyFast;
+      const maxMps = SpriteLayout.creatureMaxMps(c.kind) / shinyFast * PotionEffects.speedMul(c);
       stepMs = Math.max(stepMs, stepM / maxMps * 1000);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
@@ -2213,9 +2207,7 @@ class SceneCreatures {
         // at planting (Crops.bedQuality), by one tier. Each step they're
         // within 8 m of a planted cell, that cell gets armed for a better
         // harvest. Never lower a crop already carrying a richer bed: a
-        // butterfly is a bonus, so it takes the max. (This wrote a bare
-        // `true` before the field was numeric; `true` read as 1 in the
-        // harvest arithmetic, so one tier is exactly what it always gave.)
+        // butterfly is a bonus, so it takes the max.
         if (isTame && beh?.pollinates && this.save.planted) {
           for (const pp of this.save.planted) {
             const dx = pp.x - c.x, dy = pp.y - c.y;
@@ -2245,6 +2237,8 @@ class SceneCreatures {
           // the pet, so the player's 3×3 tile ring covers the search box.
           WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (cr) => {
             if (!huntsPrey(c.kind, cr)) return;
+            if (Companions.follows(c, now) && Math.hypot(cr.x - px, cr.y - py) > 4 * this.cellM) return;
+            if (c.stayHome && Math.hypot(cr.x - c.petHomeX, cr.y - c.petHomeY) > Companions.HOME_PET_CELLS * this.cellM) return;
             if (caughtSet.has(cr.id)) return;
             const d2 = (cr.x - c.x) ** 2 + (cr.y - c.y) ** 2;
             if (d2 < nearestD2) { nearestD2 = d2; nearest = cr; }
@@ -2256,9 +2250,7 @@ class SceneCreatures {
         // its row has one (the bolt IS the kind's hurry, tuned under the speed
         // ceiling; the FLEE multipliers on top would stack a run on a run),
         // else at the FLEE pace anything else in a hurry runs. The hop glides
-        // over the same beat it is chosen on (_hopMs): it used to inherit
-        // whatever _hopMs the last step left, so the shove's speed was an
-        // accident of history.
+        // over the same beat it is chosen on (_hopMs).
         if (c._fleeUntilT && c._fleeUntilT > now) {
           // Shoved off among houses, it runs the ROADSIDE (creature_ai.js
           // roadsideRunAngle) like every other retreat.
@@ -2290,8 +2282,8 @@ class SceneCreatures {
 
         // Movement target — modes checked in order:
         //   (a) Pet chasing prey (_chaseTarget set above)
-        //   (b) Following (_followUntilT > now): a petted cat homes in on the
-        //       player. Which kinds follow is the table's `follows`.
+        //   (b) Released followers and active hired/summoned companions
+        //       keep beside their owner through the shared follow predicate.
         //   (c) Slime — lazily drawn toward the player.
         //   (d) Tame pets — home-bias keeps them near release point.
         //   (e) Default — wild farm animals random-wander around home.
@@ -2299,22 +2291,19 @@ class SceneCreatures {
         //   walks at it (raidStep, below) ahead of (d) and (e).
         // Wild crows take a separate path (_wildCrowTick) above.
         const FOLLOW_GAP = 1.5 * this.cellM;
-        const isFollowing = SpriteLayout.creatureFollows(c.kind)
-          && c._followUntilT && c._followUntilT > now;
-        // A SUMMONED follower's home is its summoner: re-anchored on the
-        // player every step, so between hunts it hovers at your side instead
-        // of the home-bias below dragging it back to where it was conjured.
-        // (A cat keeps its own release point — it goes home after its five
-        // minutes.)
-        if (isFollowing && summoned) { c._homeX = px; c._homeY = py; }
+        const isFollowing = Companions.follows(c, now);
+        // Travelling allies regroup beside their owner between hunts.
+        // Pets assigned to Home keep the anchor saved when released.
+        if (isFollowing) { c._homeX = px; c._homeY = py; }
+        else if (c.stayHome) { c._homeX = c.petHomeX ?? c._homeX; c._homeY = c.petHomeY ?? c._homeY; }
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
         const retreating = c._retreatUntilT && c._retreatUntilT > now;
-        const homeRadius = retreating ? 0 : isTame ? 5 * this.cellM : 3 * this.cellM;
+        const homeRadius = retreating ? 0 : c.stayHome ? Companions.HOME_PET_CELLS * this.cellM : isTame ? 5 * this.cellM : 3 * this.cellM;
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
         // A CROP RAIDER NOTICES A FIELD: the nearest planted crop it may eat
-        // (_cropRaidable — never potato, never Home's yard) within
+        // (_cropRaidable — never potato) within
         // RAID_NOTICE_CELLS (the on-screen sim range, so a deer spots a field
         // from across the viewport; a dispatched pest — isPest — from
         // anywhere), and about half its steps walk at it: a grazer that has
@@ -2348,26 +2337,23 @@ class SceneCreatures {
         if (c._chaseTarget) {
           const tgt = c._chaseTarget;
           const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
-          const FIGHT_R2 = (1.5 * this.cellM) ** 2;
+          const FIGHT_R2 = (PotionEffects.range(c, 1.5) * this.cellM) ** 2;
           if (fd2 <= FIGHT_R2) {
-            // One HP table for every fight in the game (combat.js) — a slime a
-            // dog has been worrying shows the damage on the player's health
-            // ring too, and finishing it off with an arrow is that much less
-            // work. The bite is Combat.petBite: a point for a tame pet, the
-            // slime's own blow for the spirit raven (summoned as a slime).
-            // The prey bites back a point either way.
+            // One HP table for every fight (combat.js): the bite is Combat.petBite (a
+            // point for a tame pet, the slime's own blow for the spirit raven). The prey
+            // bites back a point either way.
             tgt._hp = Combat.damage(tgt, Combat.petBlow(c));
             c._hp   = Combat.damage(c, 1);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();
+            // A pet's bite is a blow too: a splitting slime divides under it
+            // (creature_ai.js enemySplit), away from the pet's side.
+            if (tgt._hp > 0) enemySplit(this, tgt, c.x, c.y, now);
             // React to the bite immediately either way — but WHICH reaction
-            // depends on the prey. A bird or a deer runs (the flee override
-            // below). A SLIME charges, at the player: it is an enemy, not
-            // game, and the flee this block used to set on every prey kind
-            // alike was shoving it out of the reach of the person whose dog
-            // had just bitten it. slimeCharging reads `_lastDamagedT`, stamped
-            // just above, so the pet's teeth provoke exactly what the player's
-            // sword does.
+            // depends on the prey. A bird or a deer runs (the flee override below).
+            // A SLIME charges, at the player: it is an enemy, not game.
+            // slimeCharging reads `_lastDamagedT`, stamped just above, so the pet's teeth
+            // provoke exactly what the player's sword does.
             tgt._nextChooseT = 0;            // interrupt current step immediately
             if (!slimeCharging(tgt)) {
               // Push prey away from pet.
@@ -2375,12 +2361,7 @@ class SceneCreatures {
               tgt._fleeUntilT = now + STRUCK_REACTION_MS;  // outlasts one wander step
             }
             if (tgt._hp <= 0) {
-              // Auto-defeat the prey — the SAME outcome as the player killing
-              // it, by calling the one payout path rather than re-implementing
-              // it. This branch used to carry its own copy of the drop logic,
-              // which is how a pet's kill came to skip the bounty, the quest
-              // tick, the treasure roll and the shiny fanfare: your dog killing
-              // a slime paid nothing while your arrow paid coins.
+              // Auto-defeat the prey through the one payout path the player's kills use.
               // A pet is the player's (Combat.isPlayerKill): its kill pays
               // everything the player's own would.
               this.resolveDefeat(tgt, 'pet');
@@ -2407,11 +2388,17 @@ class SceneCreatures {
           // (a guard walking home stops ON its seat rather than overshooting);
           // everything else takes the kind's full stride.
           let stepLen = stepM;
-          if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
+          if (isFollowing && distToPlayer > 3 * this.cellM) {
+            c._chaseTarget = null;
+            angle = Math.atan2(dyp, dxp);
+            stepLen = Math.min(stepM, distToPlayer - FOLLOW_GAP);
+          } else if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
             const tgt = c._chaseTarget;
             angle = Math.atan2(tgt.y - c.y, tgt.x - c.x) + (Math.random() - 0.5) * 0.3;
           } else if (isFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
+          } else if (isFollowing) {
+            stepLen = 0;
           } else if (gameCharge) {
             // A HUNTED DEER turns on you: every stride at the player, on the
             // monsters' stalk jitter, until it is close enough to butt.
@@ -2422,9 +2409,7 @@ class SceneCreatures {
           } else if (bolting) {
             // AWAY FROM THE PLAYER, at the kind's own spread: a rabbit
             // zig-zags in a panic (wide jitter), a deer runs a committed line
-            // (mild), a butterfly careens (wider still). One branch, because
-            // all three were the same line with a different number in it —
-            // and the number is on the kind now.
+            // (mild), a butterfly careens (wider still).
             //   Among houses the bolt runs the ROADSIDE (creature_ai.js
             // roadsideRunAngle): along the street, never into a yard.
             angle = Math.atan2(-dyp, -dxp);
@@ -2432,19 +2417,20 @@ class SceneCreatures {
           } else if (warded) {
             // Away from the WARD (Home, or the claimed castle's turret that
             // tripped it — `_wardFrom`), not away from the PLAYER: away-from-player would
-            // shove the foe around the ring with the player still inside it,
-            // and one standing on the far side of Home would be driven
-            // straight through the door. Away-from-home always leaves.
-            //   And it is an ANGLE, not a refused target cell like the
-            // scarecrow and campfire wards below. A foe already deep inside
-            // the ring would have all six of its attempts rejected by a cell
-            // test — every hop it can reach is still inside — and it would
-            // freeze on the doorstep forever, which is the stall the
-            // "surrounded by scarecrows" comment further down warns about.
+            // shove the foe around the ring with the player still inside it.
+            //   An ANGLE, not a refused target cell like the scarecrow and campfire wards
+            // below: a foe deep inside the ring would have every attempt rejected and
+            // freeze on the doorstep (the stall the "surrounded by scarecrows" note warns
+            // about).
             angle = Math.atan2(c.y - c._wardFrom.y, c.x - c._wardFrom.x);
             // Home stands among houses: the rout runs the ROADSIDE
             // (roadsideRunAngle) — along the street, not through the yards.
             angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
+          } else if (psychotic) {
+            // MAD: every hop in a fresh random direction, at the rout's
+            // pace. Below the ward (Home still drives it out), above fear:
+            // a foe that is both runs about rather than away.
+            angle = Math.random() * Math.PI * 2;
           } else if (frightened || wanderOff || (kerbTurn && !c.lair)) {
             // WANDERING OFF (or TURNED BACK AT THE KERB — the same away angle,
             // at its own pace): away from the PLAYER, on the same spread as the
@@ -2455,11 +2441,8 @@ class SceneCreatures {
             angle = Math.atan2(c.y - py, c.x - px);
             angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
           } else if (lairState === 'hunt') {
-            // THE GARRISON COMES AT YOU, as a group and with commitment. Its
-            // own branch rather than the kind's idle logic below: a lair slime
-            // would otherwise fall into the lazy half-the-hops meander that
-            // makes a wild one read as a pest, and a garrison that ambles is
-            // not something anybody runs from.
+            // THE GARRISON COMES AT YOU, as a group and with commitment; not the kind's
+            // lazy meander, which would make a lair slime read as a pest.
             // A trapper in the garrison hunts at its own distance: it comes
             // for you to lay, not to bite (keepDistanceAngle).
             angle = Combat.monsterLays(c.kind)
@@ -2468,12 +2451,10 @@ class SceneCreatures {
                 ? Math.atan2(dyp, dxp) + (Math.random() - 0.5) * STALK_JITTER
                 : Math.random() * Math.PI * 2;
           } else if (lairState === 'return') {
-            // GIVEN UP: straight back to the seat it was spawned on, with only
-            // enough jitter to keep a rank of them from marching in lockstep.
-            // Not "away from the player" — that is the ward's shape and it
-            // would scatter a garrison across the neighbourhood; a guard owes
-            // its ruin a specific spot, and `stepLen` below lands it exactly
-            // there rather than letting it overshoot and orbit forever.
+            // GIVEN UP: straight back to the seat it was spawned on, with only enough
+            // jitter to keep a rank from marching in lockstep. Not "away from the
+            // player" (that would scatter a garrison); `stepLen` below lands it exactly
+            // there rather than letting it overshoot and orbit.
             angle = Math.atan2(c.seatY - c.y, c.seatX - c.x) + (Math.random() - 0.5) * 0.3;
             stepLen = Math.min(stepM, Math.hypot(c.seatX - c.x, c.seatY - c.y));
           } else if (c.kind === 'slime') {
@@ -2522,8 +2503,11 @@ class SceneCreatures {
           }
           tx = c.x + Math.cos(angle) * stepLen;
           ty = c.y + Math.sin(angle) * stepLen;
+          if (c.stayHome && Math.hypot(tx - c.petHomeX, ty - c.petHomeY) > homeRadius
+              && Math.hypot(tx - c.petHomeX, ty - c.petHomeY) >= Math.hypot(dxh, dyh)) continue;
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
+          if (Combat.isEnemy(c) && !fireStepAllowed(this, c, tx, ty)) continue;
           const dest = this.cellAt(tx, ty);
           // A keep's garrison may cross its own floor (Lairs.inOwnKeep).
           if (dest.loaded && Combat.faunaBlocksCell(dest.type)
@@ -2553,44 +2537,37 @@ class SceneCreatures {
           // pick a different direction.
           if (SpriteLayout.creatureAvoids(c.kind, 'scarecrow')
               && this._nearAny('scarecrows', tx, ty, 4)) continue;
-          // Fire aversion — a lit campfire repels the surface slime exactly
-          // like a scarecrow repels crows/deer, so it can't ooze into (or
-          // steal energy across) the warm ring around a campfire. Extended to
-          // the cave's own entry-level monsters (FIRE_WARD_MAX_DEPTH): a
-          // goblin or its archer is undeterred by firelight, only the cave
-          // slime and purple slime it's a tier above.
+          // Fire aversion — a lit campfire repels the surface slime like a scarecrow
+          // repels crows/deer, and the cave's entry-level monsters
+          // (FIRE_WARD_MAX_DEPTH): a goblin or its archer is undeterred by firelight.
           //   NOT A LAIR GUARD, whatever kind it is. A garrison is a place,
           // not wandering fauna: a campfire dropped by the door cannot empty a
-          // ruin, and — the part that would actually have bitten — a guard
-          // walking home past a fire would have all six of its attempts
-          // refused and freeze in the street, which is the same stall the
-          // scarecrow note above warns about. A goblin garrison is past the
-          // depth cap anyway; this is what covers the slimes.
-          const fireAverts = !c.lair && (c.kind === 'slime' ||
-            (isMon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH));
+          // ruin, and a guard walking home past a fire would freeze in the street (the
+          // scarecrow stall above). A goblin garrison is past the depth cap anyway.
+          // creature_ai.js campfireAverts is the one predicate (the swept step
+          // reads the same one).
+          const fireAverts = campfireAverts(c);
           // The ward's ring is FIRE_REST_R — the same ring the fire lights
           // (Lighting.KINDS.fire) and warms (update()'s rest) — never a
-          // literal of its own (it was 4 while light and rest were 3).
+          // literal of its own.
           if (fireAverts && this._nearAny('fires', tx, ty, FIRE_REST_R)) continue;
           foundValidTarget = true;
           break;
         }
         // If every attempt was blocked (e.g. crow surrounded by scarecrows
         // / water / buildings), stand still instead of moving onto a bad
-        // cell — the old code took the last attempted target which let
-        // crows phase into the very cell the aversion was supposed to
-        // protect.
+        // cell.
         if (!foundValidTarget) { tx = c.x; ty = c.y; }
-        // Deer crop damage — THE crop raid (the crow's was retired, Sep 2026):
-        // each wander step, 20% chance to eat the nearest planted crop within
-        // 1.5 cells that it may (_cropRaidable — never potato, never Home's
-        // yard). Scarecrows already avert the deer before this point, so no
-        // extra scarecrow check needed here.
+        // Deer crop damage (the crow's own raid is in _wildCrowTick): each
+        // wander step, 20% chance to eat the nearest planted crop within 1.5
+        // cells that it may (_cropRaidable — never potato). Scarecrows
+        // already avert the deer before this point, so no extra scarecrow
+        // check needed here.
         if (beh?.raidsCrops && !isTame && this.save.planted?.length) {
           const DR2 = (1.5 * this.cellM) * (1.5 * this.cellM);
           if (Math.random() < 0.20) {
             const idx = this.save.planted.findIndex(p => {
-              if (!this._cropRaidable(p)) return false;   // potato, or Home's yard
+              if (!this._cropRaidable(p)) return false;   // potato
               const ddx = p.x - c.x, ddy = p.y - c.y;
               return ddx * ddx + ddy * ddy <= DR2;
             });
@@ -2621,6 +2598,11 @@ class SceneCreatures {
       if (EnemyRoster.get(c.kind) || SpriteLayout.creatureArt(c.kind)?.directions) {
         SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
       }
+      if (Combat.isEnemy(c) && !fireStepAllowed(this, c, nx, ny)) {
+        c._startX = c._targetX = c.x; c._startY = c._targetY = c.y;
+        c._nextChooseT = now;
+        return;
+      }
       c.x = nx; c.y = ny;
     });
     this._foeHeadsUp?.(interestedFoeM, now);
@@ -2650,14 +2632,16 @@ class SceneCreatures {
   //   FLIGHT     → one eased glide covering ~0.4–1 cell, peaking at
   //                CROW_FLIGHT_MPS (~0.6–1.6 s; slow + short — crows used to
   //                be too fast / fly too far)
-  // A crow is GAME (a feather), nothing more. Until Sep 2026 this tick also
-  // CASED AND ATE planted crops — an orbit ring round the nearest crop, two
-  // perch cycles on it, then the crop was gone — and the hard-mode pump
-  // dispatched one at every field. The owner moved crop-raiding to the DEER
-  // (wanderCreatures `raidsCrops` + _cropRaidable), so a crow just roams:
-  // short hops about where it perched, off water / buildings / roads, clear
-  // of a scarecrow (its row still `avoids` one — an empty coat turns every
-  // hungry-looking thing away).
+  // A crow is GAME (a feather) AND a crop raider (its row's `raidsCrops`,
+  // beside the deer's — owner, Oct 2026: crows take food again, as they did
+  // before Sep 2026). It CASES a field: a crop it may eat (_cropRaidable, the
+  // one predicate every raider reads) within RAID_NOTICE_CELLS draws its
+  // flights onto an orbit ring round it (1.5–3.5 cells); ~30% of those legs
+  // are a landing attempt that may end ON the crop's cell. Landed, it must sit
+  // two perch cycles there (hopping in place) before the crop is gone — the
+  // player's window to scare, net or set a pet on it — and then, SATED, it
+  // leaves (_crowDepart). Off water / buildings / roads, clear of a scarecrow
+  // (its row `avoids` one). The hard-mode pump still dispatches only deer.
   // A crow's FULL RETREAT: it launches on this very tick (out of its perch,
   // any flight cut short) and hops straight away from the player for the
   // usual ~2.5–4 minutes (CROW_DEPART_MS), until it drifts off the sim range
@@ -2666,10 +2650,9 @@ class SceneCreatures {
   // is sitting — or the glide it is on, and the landing perch that ends it —
   // and leaves on its next launch. That remaining perch is the hunt's timing
   // window (creature_ai.js CROW_DEPART_HOP has the design). 'sated' (the
-  // default): off at once, out of its perch this tick — the form a meal used
-  // to take; no crow eats now, so nothing calls it, but it stays the at-once
-  // departure for whatever next wants one (crow_hunt_retreat.test.js pins
-  // both forms).
+  // default): off at once, out of its perch this tick — a crow that has
+  // just eaten a crop (_wildCrowTick). crow_hunt_retreat.test.js pins both
+  // forms.
   _crowDepart(c, now = performance.now(), reason = 'sated') {
     const [base, spread] = CROW_DEPART_MS;
     c._departUntilT = now + base + Math.random() * spread;
@@ -2684,19 +2667,19 @@ class SceneCreatures {
     // _targetX,Y / _flightT0) that a normal glide uses — so the dash gets the
     // existing eased-interpolation code below for free instead of a second
     // position-update path.
-    //   This used to just `return` here for the whole 8s flee window — the
-    // comment said "skips crop logic and runs" but nothing ran: c.x/c.y are
-    // ONLY ever written inside this function, so returning before touching
-    // them froze the crow in place while a cat/dog kept landing hits on a
-    // stationary target. See CLAUDE.md FINDING 1 / test/node/crow_flee.test.js.
+    // Never `return` early here: c.x/c.y are ONLY written in this function, so a
+    // return would freeze the crow while a pet keeps hitting it
+    // (test/node/crow_flee.test.js).
     const fleeing = c._fleeUntilT && c._fleeUntilT > now;
     if (fleeing) {
+      // A crow being mauled doesn't finish casing the crop first — abandon
+      // any in-progress landing so recovering later starts clean.
+      c._destroyCropRef = null;
+      c._destroyCyclesLeft = 0;
       // _fleeDash marks a flight leg as ITS OWN panic dash (vs. a normal
       // glide that was already in flight the instant the hit landed).
-      // Without that distinction the check below would happily keep gliding
-      // the crow ALONG ITS OLD PRE-HIT COURSE for up to a full 1200ms glide
-      // before the flee ever took effect, unlike every other kind's flee
-      // override (:6249), which reacts on the very next tick.
+      // Without that distinction the check below would keep gliding the crow along
+      // its old pre-hit course instead of reacting on the very next tick.
       if (c._flightUntilT && now < c._flightUntilT && c._fleeDash) {
         const dur = c._flightUntilT - c._flightT0;
         const t = Math.min(1, (now - c._flightT0) / dur);
@@ -2722,9 +2705,8 @@ class SceneCreatures {
           c._flightT0 = now;
           // Twice its distance over the crow's peak flight speed
           // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean): the
-          // panic is in the short legs and the turn, not a faster bird (it
-          // used to cross two cells in 350 ms: 40 m/s).
-          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000;
+          // panic is in the short legs and the turn, not a faster bird.
+          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.shinySpeedMul(c);
           c._fleeDash = true;
           c._faceFlip = (ftx - c.x) < 0;
           break;
@@ -2734,6 +2716,14 @@ class SceneCreatures {
       // still this tick and retry next tick rather than phasing into a bad
       // cell — same policy the flight target search uses below.
       return;
+    }
+    const raids = !!SpriteLayout.creatureBehaviour(c.kind)?.raidsCrops;
+    const departing = c._departUntilT && now < c._departUntilT;
+    // (0) The crop it sat on is gone (harvested, eaten by another raider) or
+    // the crow is leaving: drop the count.
+    if (c._destroyCropRef && (departing || !this.save.planted?.includes(c._destroyCropRef))) {
+      c._destroyCropRef = null;
+      c._destroyCyclesLeft = 0;
     }
     // (1) Initialise rhythm on first encounter.
     if (c._perchUntilT == null && c._flightUntilT == null) {
@@ -2748,13 +2738,44 @@ class SceneCreatures {
       c.y = c._startY + (c._targetY - c._startY) * u;
       return;
     }
-    // (3) FLIGHT completion — snap to final and start a new perch.
+    // (3) FLIGHT completion — snap to final and start a new perch. Landed
+    // ON a crop it may eat (within half a cell): the first landing starts a
+    // two-cycle count, each landing on the SAME crop spends one, and when it
+    // is spent the crop is eaten and the crow, sated, leaves. A landing
+    // anywhere else drops the count.
     if (c._flightUntilT && now >= c._flightUntilT) {
       c.x = c._targetX;
       c.y = c._targetY;
       c._flightUntilT = null;
       c._perchUntilT = now + 2000 + Math.random() * 2500;
       c._faceFlip = (c._targetX - c._startX) < 0;
+      if (raids && !departing && this.save.planted?.length) {
+        const NEAR = 0.5 * this.cellM;
+        let landedOn = null;
+        Crops.forEachInBox(this.save, this.depth || 0, c.x - NEAR, c.y - NEAR, c.x + NEAR, c.y + NEAR, (p) => {
+          if (landedOn || !this._cropRaidable(p)) return;
+          const ddx = p.x - c.x, ddy = p.y - c.y;
+          if (ddx * ddx + ddy * ddy <= NEAR * NEAR) landedOn = p;
+        });
+        if (!landedOn) {
+          c._destroyCropRef = null;
+          c._destroyCyclesLeft = 0;
+        } else {
+          if (c._destroyCropRef === landedOn) c._destroyCyclesLeft = (c._destroyCyclesLeft || 1) - 1;
+          else { c._destroyCropRef = landedOn; c._destroyCyclesLeft = CROW_RAID_PERCHES; }
+          if (c._destroyCyclesLeft <= 0) {
+            const idx = this.save.planted.indexOf(landedOn);
+            if (idx >= 0) {
+              this.save.planted.splice(idx, 1);
+              Crops.invalidateSpatialIndex(this.save);
+              this.flash?.('🐦 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
+            }
+            c._destroyCropRef = null;
+            c._destroyCyclesLeft = 0;
+            this._crowDepart(c, now);
+          }
+        }
+      }
       return;
     }
     // (4) PERCH phase — sit still until the timer expires.
@@ -2763,12 +2784,25 @@ class SceneCreatures {
     // (5) Time to launch a new flight burst. Pick a target with up to
     // 6 attempts so we can reject water / buildings / scarecrow rings.
     let tx = c.x, ty = c.y, chosen = false;
-    // A hunted crow leaving — fly steadily away from the player until the
-    // few-minute timer lapses (it freezes once it drifts off the sim range,
-    // so it simply stays gone).
-    // Its first departing launch is the one the hunt's wheel races
+    // A departing crow (hunted, or sated after a meal) — fly steadily away
+    // from the player until the few-minute timer lapses (it freezes once it
+    // drifts off the sim range, so it simply stays gone). A hunted crow's
+    // first departing launch is the one the hunt's wheel races
     // (CROW_DEPART_HOP).
-    const departing = c._departUntilT && now < c._departUntilT;
+    //   Not leaving: a crow mid-count keeps hopping ON its crop; otherwise
+    // the nearest crop it may eat within RAID_NOTICE_CELLS (the crop spatial
+    // index, one bucket walk) is the field it cases.
+    const committed = !departing && c._destroyCropRef && c._destroyCyclesLeft > 0;
+    let casing = null;
+    if (raids && !departing && !committed && this.save.planted?.length) {
+      const R = RAID_NOTICE_CELLS * this.cellM;
+      let bestD2 = R * R;
+      Crops.forEachInBox(this.save, this.depth || 0, c.x - R, c.y - R, c.x + R, c.y + R, (p) => {
+        if (!this._cropRaidable(p)) return;
+        const ddx = p.x - c.x, ddy = p.y - c.y, d2 = ddx * ddx + ddy * ddy;
+        if (d2 < bestD2) { bestD2 = d2; casing = p; }
+      });
+    }
     for (let attempt = 0; attempt < 6 && !chosen; attempt++) {
       if (departing) {
         // Long outbound hop directly away from the player, with a little
@@ -2778,6 +2812,22 @@ class SceneCreatures {
         const d = CROW_DEPART_HOP.cells * this.cellM;
         tx = c.x + Math.cos(away) * d;
         ty = c.y + Math.sin(away) * d;
+      } else if (committed) {
+        // Mid-count — hop in place ON the crop, so each landing spends a cycle.
+        const ang = Math.random() * Math.PI * 2;
+        const r = Math.random() * 0.3 * this.cellM;
+        tx = c._destroyCropRef.x + Math.cos(ang) * r;
+        ty = c._destroyCropRef.y + Math.sin(ang) * r;
+      } else if (casing) {
+        // ORBIT the field: a point on the 1.5–3.5-cell ring round the crop,
+        // or (~30%) a landing attempt that may end on its cell. The approach
+        // cap below makes a far crow arrive over several hops.
+        const radius = Math.random() < 0.30
+          ? Math.random() * 0.4 * this.cellM
+          : (1.5 + Math.random() * 2.0) * this.cellM;
+        const ang = Math.random() * Math.PI * 2;
+        tx = casing.x + Math.cos(ang) * radius;
+        ty = casing.y + Math.sin(ang) * radius;
       } else {
         // Random roam, short hops of 0.4–1 cell. Short on purpose: a glide
         // lasts its distance over CROW_FLIGHT_MPS (below), and the HUNT's
@@ -2792,8 +2842,7 @@ class SceneCreatures {
         ty = c.y + Math.sin(a) * d;
       }
       // Cap any single flight leg to ~2.5 cells — the approach cap (a crow
-      // used to APPROACH a crop over several hops; the roam is already under
-      // it). Not the retreat: a retreat is not an approach, and its hop must
+      // APPROACHES a crop over several hops; the roam is already under it). Not the retreat: a retreat is not an approach, and its hop must
       // clear the reach (CROW_DEPART_HOP).
       const MAX_LEG = 2.5 * this.cellM;
       const legDX = tx - c.x, legDY = ty - c.y;
@@ -2825,7 +2874,7 @@ class SceneCreatures {
     // over the roam's 0.4–1-cell hops); a departing leg takes its row's own time
     // — the pace the hunt's odds are tuned on, the one declared exception to
     // the speed ceiling (CROW_DEPART_HOP has the reasoning).
-    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000);
+    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000) / Combat.shinySpeedMul(c);
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
     // This is a normal glide, not a flee dash — clear the marker so a FUTURE

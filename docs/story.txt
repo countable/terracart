@@ -157,9 +157,9 @@ THE HOOD mends. Peacefully, roof by roof, field by field. They have no idea
 why the old roads feel familiar, why the wrecks look like something they
 should apologise for, or why the hood stays up.
 
-TIM recruits. His tower is a wreck like the rest until the player restores it
-(the thirtieth restoration). Once it stands, he is simply THERE, as if he had
-always been, warm and interested, and the memories the player brings him buy
+TIM recruits. His tower is a wreck like the rest until the player raises it
+(the Wizard Tower is on offer from the thirtieth restoration). Once it
+stands, he is simply THERE, as if he had always been, warm and interested, and the memories the player brings him buy
 power (the tower's rungs). He teaches the player to hunt. Every lesson is true
 and every lesson serves him: a stronger Hood brings him his colours faster.
 His DRAGON HUNTERS are the survivors' bravest, armed at his tower, and they go
@@ -376,17 +376,19 @@ TWO ROUGHLY PARALLEL TIMELINES
   Survivor appears            6                     Neighbour by the trailer
   Child appears               9                     Homeless when first met
   Child has a home            Child already met     Second restoration after meeting
-  First tower / Tim           At least 9            30th restoration; visit tower
+  First tower / Tim           At least 9            Raised from the 30th restoration on; visit tower
   First-tower lessons         12, 15, 18            First tower and earlier lessons
   White dragon attacks        At least 21           First tower; required lessons done
-  Second tower                At least 21           52nd or later restoration after attack
+  Second tower                At least 21           Raised from the 52nd restoration on, after attack
   Later lessons               24, 27                Second tower and earlier lessons
   Identity revelation         At least 30           Second tower; required lessons done
   Dragon speech / choices     Revelation completed  Appropriate Act 3 encounters
 
-  The second-tower code uses zero-based restoration index 51 or later:
-  the 52nd restoration or a later eligible one.
-  References below to "restoration 52+" refer to the completed restoration count.
+  Towers are raised by the player's choice at a wreck (houses.js
+  BUILD_OPTIONS): the Wizard Tower card is offered from the thirtieth
+  restoration until the first stands, and again from the fifty-second (with
+  21 memories) until the second does. References below to "restoration 30"
+  or "52+" are when the card becomes available, not a fixed restoration.
   The milestones are eligibility conditions, not a promise that both tracks
   reach the same point together. For example, recovering 30 memories before
   restoring the first tower must not skip meeting Tim or his required lessons.
@@ -450,7 +452,7 @@ ACT 1 — THE MENDING (memories 0–8, before the tower)
   pictured tool must be the one used for the action.
 
 ACT 2 — THE LESSONS (the first tower, memories 9–21)
-  The thirtieth restoration is Tim's tower. It is sealed until nine memories.
+  Tim's tower is raised by the player, on offer from the thirtieth restoration. It is sealed until nine memories.
   Inside, Tim is kind, asks for memories, gives power. His lessons (the
   existing beats: "In the right order", "What remains useful", "An old
   habit", "Their little lives", "What comes next") are the hydra teaching the
@@ -598,7 +600,9 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
   prose; survivors say "the hooded one", "stranger", "neighbour").
 - ORRIN: working name for the dragon archaeologist.
 - The story neighbours: TILLY (the child), BRYN (the warden), MAUD (the
-  survivor), EDDA (the believer).
+  survivor), EDDA (the believer). Tilly keeps a doorknob, all that remains
+  of her house. She is frightened but cautiously trusting, and stubbornly
+  holds on.
 - The FROST DRAGON QUEEN: Tiamat's late wife; personal name still open.
 - The Warmonger: the title, never a name.
 - The Breaking: the survivors' word for fifty years ago.

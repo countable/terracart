@@ -3,17 +3,10 @@
 // test/node/run.js the same way the sprite, shell and layout audits are.
 //
 // showOfferModal renders a trade: `get` is what you receive, `cost` is what
-// you pay, and a literal "for" sits between them. The castle quest board
-// reused it for something that is not a trade — there is nothing to pay — and
-// filled BOTH halves with the same progress string. Every quest state then
-// printed its own progress line twice with a stray "for" wedged between the
-// copies ("3 / 10 defeated / for / 3 / 10 defeated"), and a finished quest did
-// the same with the reward figure.
-//
-// That is a whole class of mistake rather than one typo: any future caller
-// that isn't really a trade will be tempted to pad the unused half the same
-// way. The fix made `cost` optional, and this audit keeps the temptation from
-// coming back.
+// you pay, with a literal "for" between. A caller that is not a trade (the
+// castle quest board) once filled BOTH halves with the same progress string,
+// printing it twice around a stray "for". `cost` is optional now, and this
+// audit keeps callers from padding the unused half again.
 
 const fs = require('fs');
 const path = require('path');
@@ -21,14 +14,10 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 
 // Replace every comment body with spaces, keeping newlines (and therefore
-// every index and line number) intact. The scanners below track strings so a
-// brace or comma inside one can't fool them — but a COMMENT is not a string,
-// and app.js is heavily commented in prose. The apostrophe in a comment like
-// "so the barter can't be read backwards" opened a phantom single-quoted
-// string that swallowed the next two object entries whole, which is how the
-// trade modal's get/cost pair first parsed as two empty strings — and two
-// empty strings compare equal, so the audit would have reported a duplicate
-// that was never there. Blank the comments and both scanners see only code.
+// every index and line number) intact. The scanners below track strings, and
+// a COMMENT is not a string: an apostrophe in prose opens a phantom
+// single-quoted string that swallows entries whole. Blank the comments and
+// both scanners see only code.
 function blankComments(src) {
   let out = '';
   let quote = null;
@@ -201,14 +190,10 @@ function stripParens(expr) {
 }
 
 // Split a value expression into the alternatives it can actually render.
-// `done ? A : B` renders A or B, never the literal ternary — so comparing the
-// two halves of the dialog as whole strings misses the real bug. The quest
-// board's two halves were NOT textually identical:
-//     get:  done ? `$${reward}`         : progressLine
-//     cost: done ? `Reward: $${reward}` : progressLine
-// They only collided on the `progressLine` branch, which is exactly the branch
-// a player in mid-quest sees — and that is what printed twice. Compare the
-// BRANCH SETS and the collision is obvious.
+// `done ? A : B` renders A or B, never the literal ternary, so comparing the
+// two halves as whole strings misses the bug: the quest board's halves differed
+// (`$${reward}` vs `Reward: $${reward}`) and collided only on the shared
+// `progressLine` branch. Compare the BRANCH SETS.
 function valueBranches(expr) {
   expr = stripParens(expr);
   let depth = 0, quote = null, q = -1;
@@ -283,9 +268,8 @@ const CHECKS = [
       if (shellCalls().length < 6) {
         throw new Error(`only found ${shellCalls().length} makeModalShell call sites — the scanner is broken`);
       }
-      // MODAL_KINDS is a table of a dozen-plus categories; one entry means the
-      // parse died early (this is exactly what a stray apostrophe in the
-      // comment above the table did before blankComments was applied here).
+      // MODAL_KINDS has a dozen-plus categories; one entry means the parse died
+      // early.
       if (declaredKinds().size < 8) {
         throw new Error(`MODAL_KINDS parsed as only ${declaredKinds().size} entries — the scanner is broken`);
       }

@@ -4,15 +4,12 @@
 // (Shops.themeAt via app.js marketTheme), so no sign promises stock the shop
 // doesn't have.
 //
-// The trap here is the same one shops.js already documents for shopLabel: THREE
-// call sites name this building (render.js's sign, app.js's restoration card,
-// app.js's offer title), and when each carried its own string they drifted —
-// which is why they now all read Shops.roleLabel. These tests pin the table and
-// then pin that nobody has re-inlined a name beside it.
+// THREE call sites name this building (render.js's sign, app.js's restoration
+// card, app.js's offer title); they all read Shops.roleLabel so they cannot
+// drift. These tests pin the table and that nobody has re-inlined a name.
 //
-// The role KEY stays 'market': it is persisted in save.restoredHouses and on
-// save.firstMarketId, so renaming it would strand every existing save. Only the
-// player-facing LABEL changed.
+// The role KEY stays 'market': it is persisted in save.restoredHouses and
+// save.firstMarketId. Only the player-facing LABEL changed.
 
 (function () {
 const app = SCENE_SRC;
@@ -93,7 +90,7 @@ test('shop naming: every call site reads Shops.roleLabel, none inlines a name', 
   // app.js's offer title + restoration card.
   assert.truthy(/Shops\.roleLabel\('market', this\.marketTheme\(house\)\.theme\)/.test(app),
     'the offer title resolves through Shops.roleLabel');
-  assert.truthy(/Shops\.roleLabel\(role, theme\)/.test(app),
+  assert.truthy(/Shops\.roleLabel\(row\.role, row\.role === 'market' \? \(row\.theme \|\| theme\) : null\)/.test(app),
     'the restoration card resolves through Shops.roleLabel');
   assert.falsy(/name: 'Market'/.test(app), 'the restoration card no longer hardcodes "Market"');
   assert.falsy(/The market has fresh stock/.test(app), 'the old offer title is gone');

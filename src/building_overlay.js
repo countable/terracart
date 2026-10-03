@@ -25,7 +25,7 @@
 // BuildingOverlay.setEnabled(scene, false) from the console) and the tiled art
 // comes straight back — that A/B is the whole point of the layer.
 //
-// What the polygon draws, tier for tier, is what the cells used to:
+// What the polygon draws, tier for tier:
 //   • the floor, in the tier's colour, carrying the tier's own biome texture
 //     (house cobbles / fort planks / castle paving) so the material reads;
 //   • a south-facing wall: the ring filled again, shifted down by the tier's
@@ -37,22 +37,15 @@
 //   • and the unclaimed shade — the same transform textures.js bakes the
 //     unclaimed castle palette with, applied to the colours rather than washed
 //     over the top, so two overlapping footprints can't wash one twice — then
-//     the unclaimed MATERIAL lift (textures.js unclaimedMaterialColor, the
-//     one the tiled pass runs its shaded floors and stone through), applied
-//     to the same colours. It used to be run over the finished pixels of each
-//     footprint instead, which cost a canvas and a pixel read-back per
-//     unclaimed building on every cell crossing; on a phone each read-back is
-//     a synchronous trip to the GPU process, and forty of them was the
-//     walking stutter. Tuning the colours lands the same lift with no pixels
-//     read at all.
+//     the unclaimed MATERIAL lift (textures.js unclaimedMaterialColor), applied
+//     to the same colours. Tuning colours reads no pixels back (a per-building
+//     canvas read-back was the walking stutter on phones).
 //
-// …and one thing the cells never did: a DILAPIDATED footprint (unclaimed — the
-// wreck you can still restore) grows dark green slime splotches across its
-// floor. See the slime block below; the short version is that they are seeded
-// from the building's own identity (so they don't crawl as you walk), scattered
-// inside the ring rather than its bounding box, and coloured by running the
-// unclaimed shade over the floor twice more — restore the building and both the
-// shade and its slime lift in the same frame.
+// A DILAPIDATED footprint (unclaimed — the wreck you can still restore) also
+// grows dark green slime splotches across its floor (see the slime block
+// below): seeded from the building's own identity so they don't crawl as you
+// walk, scattered inside the ring rather than its bounding box, and coloured
+// by running the unclaimed shade over the floor twice more.
 //
 // Floors share the cached ground canvas. Upright faces and castle ramparts
 // are split into short perimeter pieces in worldContainer, each ordered at
@@ -71,7 +64,8 @@
 //   biome_profiles.js — BiomeProfiles.mixHex (the one colour lerp)
 //   render.js   — Render.BUILDING_FACE_COLOR / BUILDING_FACE_PX (the tiled
 //                 pass's own wall colours + depths, so the two can't drift)
-//   textures.js — CASTLE_STONE / CASTLE_STONE_UNCLAIMED, unclaimedShade,
+//   castle_styles.js — castle tower, wall and courtyard materials
+//   textures.js — unclaimedShade,
 //                 unclaimedMaterialColor
 //   app.js consts — COLORS, CELL_PX
 //
@@ -82,22 +76,18 @@
 (function (global) {
   const CASTLE = 12;   // BUILDING_LARGE — the one tier that draws a rampart
 
-  // Floor colours come from app.js's terrain palette — the very table the
-  // tiled floor fill reads — so a polygon and the cells under it are the same
-  // colour by construction. The fallbacks are for the headless suite, where
-  // app.js isn't loaded.
+  // Floor colours come from app.js's terrain palette, the table the tiled
+  // floor fill reads, so a polygon and the cells under it match. The
+  // fallbacks are for the headless suite, where app.js isn't loaded.
   const FLOOR_FALLBACK = { 9: 0xae685d, 11: 0xaa9577, 12: 0x919395 };
   const floorColor = (tier, claimed = true) =>
     (!claimed && typeof UNCLAIMED_BUILDING_BASE !== 'undefined') ? UNCLAIMED_BUILDING_BASE.floors[tier]
       : (typeof COLORS !== 'undefined' && COLORS[tier] != null) ? COLORS[tier]
       : (FLOOR_FALLBACK[tier] ?? 0xae685d);
 
-  // Wall face + its depth: render.js's own SOUTH_FACE_COLOR / SOUTH_FACE_PX,
-  // read through Render so the polygonal wall and the tiled one are the same
-  // material at the same height. The fallback is DERIVED rather than copied —
-  // 40% brightness of the floor, which is what those constants are (see the
-  // comment above them in render.js) — so a missing table can't silently
-  // introduce a third set of numbers.
+  // Wall face + depth: render.js's SOUTH_FACE_COLOR / SOUTH_FACE_PX via Render,
+  // so the polygonal and tiled walls match. The fallback is DERIVED (40%
+  // brightness of the floor, as those constants are), not a third set of numbers.
   const FACE_MUL = 0.4;
   // Colour maths is BiomeProfiles.mixHex, the one lerp every module shares;
   // scaling a colour by `m` is the lerp from black.
@@ -113,10 +103,9 @@
     return (tbl && tbl[tier] != null) ? tbl[tier] : (tier === CASTLE ? 5 : 4);
   };
 
-  // The silhouette. The tiled pass draws its outline as black at 50% over the
-  // floor; mixing the same black into the floor colour lands the identical
-  // pixel without a translucent stroke that would double up wherever two
-  // rings touch.
+  // The silhouette: the tiled pass draws black at 50% over the floor; mixing
+  // the same black into the floor colour lands the identical pixel without a
+  // translucent stroke that would double up where two rings touch.
   const OUTLINE_MUL = 0.5;
   const OUTLINE_PX = 1;
 
@@ -128,51 +117,36 @@
   // a dashed stroke as wide as the band replaces the stone rather than
   // crowning it, and the wall reads as a dashed ribbon instead of masonry.
   const MERLON_PX = 2;
-  const MERLON_DASH = [4, 4];
 
-  // "Somebody else's". The tiled pass washes the finished cells; here the
-  // COLOURS are shaded instead — the same unclaimedShade() transform
-  // textures.js bakes the unclaimed castle palette with. Overlapping OSM
-  // footprints (a shed drawn inside a house, say) would take a translucent
-  // wash twice and read darker than their neighbours; a shaded colour can't.
+  // "Somebody else's": colours are shaded (the unclaimed castle palette's
+  // unclaimedShade() transform) rather than washed over, since overlapping OSM
+  // footprints (a shed inside a house) would take a translucent wash twice.
   const shadeOf = (claimed) => {
     if (claimed || typeof unclaimedShade !== 'function') return (c) => c;
     return (c) => unclaimedShade(c);
   };
   // …and the material lift over the shaded colour: what render.js's tiled
-  // pass does to an unclaimed court floor and its stone (courtShaded, the
-  // `stone` helper), so a polygon and the cells it replaces land on the same
-  // pixel. Colours only — see the header for why no pixel is read back.
+  // pass does to an unclaimed court floor and its stone (courtShaded, `stone`).
   const tuneOf = (claimed) => {
     if (claimed || typeof unclaimedMaterialColor !== 'function') return (c) => c;
     return (c) => unclaimedMaterialColor(c);
   };
 
   // ── Slime: what "dilapidated" looks like up close ────────────────────────
-  // An unclaimed footprint is a wreck, and the shade alone only tells you it's
-  // dim. Splotches of dark green growth across the floor say WHY. They are for
-  // unclaimed buildings only, so the moment a restore lands the floor comes up
-  // clean in the same repaint the claim epoch already forces.
+  // Dark green splotches across an unclaimed footprint's floor say WHY it is
+  // dim. Unclaimed buildings only; a restore clears them in the same repaint
+  // the claim epoch already forces.
   //
-  // The colour is DERIVED, not picked: the unclaimed shade run over the already
-  // shaded floor twice more. That transform is a lerp a third of the way to
-  // textures.js's own green wash each time, so three shades deep lands a dark
-  // green that is by construction the same green the rest of a derelict wears —
-  // retune UNCLAIMED_SHADE and the slime follows it instead of drifting into a
-  // second green of its own. SLIME_FALLBACK is only reached when textures.js
-  // isn't loaded at all (the headless suite), where the shade is a no-op.
+  // The colour is DERIVED: the unclaimed shade run over the already shaded
+  // floor twice more (each a 35% lerp toward textures.js's green wash), so
+  // retuning UNCLAIMED_SHADE moves the slime too. SLIME_FALLBACK is only
+  // reached when textures.js isn't loaded (the headless suite).
   const SLIME_FALLBACK = 0x1e3b24;      // = textures.js UNCLAIMED_SHADE.wash
   const SLIME_FALLBACK_A = 0.73;        // ≈ where three 35% lerps land (1 − 0.65³)
-  // Translucent, so the floor's own material grains through the stain: growth
-  // ON the cobbles rather than a hole cut in them. Each splotch is painted once
-  // per building, so unlike the whole-footprint wash this can't double up on
-  // itself.
+  // Translucent, so the floor's own material grains through the stain.
   const SLIME_ALPHA = 0.8;
-  // One splotch per ~30×30 px of floor — four or five on a small house, a
-  // couple of dozen across a derelict block — with a hard cap so a
-  // cathedral-sized footprint stays speckled instead of turning solid.
-  // (Was 44×44 and capped at 14: at that density a wreck read as merely dim
-  // with a stain or two, not as overgrown.)
+  // One splotch per ~30×30 px of floor, capped so a cathedral-sized footprint
+  // stays speckled instead of solid.
   const SLIME_PER_PX2 = 1 / (30 * 30);
   const SLIME_MAX = 28;
   const SLIME_MIN_R = 5, SLIME_MAX_R = 11;   // px
@@ -186,40 +160,29 @@
     return s === floor ? mix(floor, SLIME_FALLBACK, SLIME_FALLBACK_A) : s;
   };
 
-  // The seed. A building's splotches have to be the SAME splotches every
-  // rebuild — the layer repaints on every cell crossing, and slime that
-  // re-rolled each time would crawl over the floor as you walked. So the
-  // scatter is a pure function of the building's own identity: its ownerKey
-  // where it has one, its tile and its first vertex where it doesn't (a sliver
-  // clipped at a tile seam owns no cells and so carries no key).
+  // The seed. A building's splotches must be the SAME every rebuild (the layer
+  // repaints on every cell crossing), so the scatter is a pure function of the
+  // building's identity: its ownerKey where it has one, its tile and ring where
+  // it doesn't (a sliver clipped at a tile seam owns no cells and has no key).
   //
-  // NOT util.js' fnv1a: it is FNV's mix (same prime, same xor-then-multiply)
-  // but seeded from the two TILE COORDINATES rather than the offset basis, and
-  // it eats NUMBERS — every quantised ring vertex — not just the char codes of
-  // a string. One call site, so it stays here rather than becoming a second
-  // shared helper; if a second thing ever needs to seed off a tile plus a
-  // polygon, that is the moment to lift it.
+  // NOT util.js' fnv1a: it is seeded from the two TILE COORDINATES and eats
+  // NUMBERS (every quantised ring vertex), not just string char codes. One
+  // call site, so it stays here.
   const seedOf = (tx, ty, ring, key) => {
     let h = (0x811c9dc5 ^ ((tx & 0xffff) << 16) ^ (ty & 0xffff)) >>> 0;
     const eat = (n) => { h = Math.imul(h ^ (n | 0), 0x01000193) >>> 0; };
     if (key) for (let i = 0; i < key.length; i++) eat(key.charCodeAt(i));
-    // …and the whole ring, not just its first vertex: the seed is also the
-    // blob cache's key, so two footprints that shared one it would share their
-    // splotches — and a scatter generated for the wrong size would be the
-    // wrong scatter, not merely a repeated one.
+    // …and the whole ring: the seed is also the blob cache's key, so two
+    // footprints sharing one would share splotches.
     for (let i = 0; i < ring.length; i++) eat(Math.round(ring[i] * 16));
     return h >>> 0;
   };
-  // …fed to worldgen's mulberry32 (WorldGen.makeRng) — small, fast, and
-  // deterministic from that seed.
+  // …fed to worldgen's mulberry32 (WorldGen.makeRng).
   const rngFrom = (seed) => WorldGen.makeRng(seed);
 
-  // Shoelace area and a ray-cast containment test, both on the PROJECTED ring.
-  // Area drives the splotch count off the real footprint rather than its
-  // bounding box, and containment keeps the scatter off the empty quadrant of
-  // an L-shaped block — the clip would hide a splotch dropped there, so
-  // sampling the box alone would quietly thin the growth on exactly the
-  // buildings whose shape is the reason this layer exists.
+  // Shoelace area and a ray-cast containment test on the PROJECTED ring: area
+  // drives the splotch count off the real footprint, and containment keeps the
+  // scatter off the empty quadrant of an L-shaped block.
   const polyArea = (pts) => {
     let a = 0;
     for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
@@ -238,9 +201,8 @@
   };
 
   // Blobs are generated in LOCAL px (relative to the footprint's NW bbox
-  // corner) and translated at draw time — the projection is a pure translation
-  // at a fixed scale, so a building's local geometry never changes and one
-  // generation serves every rebuild for the life of the session.
+  // corner) and translated at draw time: the projection is a pure translation,
+  // so one generation serves every rebuild this session.
   const slimeCache = new Map();
   function slimeBlobs(d) {
     let blobs = slimeCache.get(d.seed);
@@ -279,43 +241,26 @@
 
   // Castle masonry, from the shared palette so a polygon rampart is the same
   // stone as the turret sprites standing on it.
-  const castleStone = (claimed) => {
-    const CS = (typeof CASTLE_STONE === 'undefined') ? null
-      : (claimed || typeof CASTLE_STONE_UNCLAIMED === 'undefined'
-        ? CASTLE_STONE : CASTLE_STONE_UNCLAIMED);
-    const sh = shadeOf(claimed), tune = tuneOf(claimed);
-    return {
-      body: tune(CS ? CS.BODY.n : sh(0x8f9298)),
-      lite: tune(CS ? CS.LITE.n : sh(0xb9bcc2)),
-      dark: tune(CS ? CS.DARK.n : sh(0x303134)),
-    };
+  const castleStone = (claimed, key) => {
+    const style = CastleStyles.get(key, claimed);
+    const top = style.rampart.woodTop ? style.wood : style.stone;
+    return { body: style.stone.BODY, lite: top.LITE, dark: style.stone.DARK,
+      top: top.BODY, style };
   };
 
-  // The dashed cell grid, from render.js so the lattice over a footprint is
-  // the SAME lattice as the one over the ground it stands on — same hairline,
-  // same softness, same 4-on-4-off rhythm — and continues across the building
-  // instead of restarting at its wall.
+  // The dashed cell grid, from render.js, so the lattice over a footprint is
+  // the SAME lattice as the ground's and continues across the building.
   const GRID_FALLBACK = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
   const gridStyle = () =>
     ((typeof Render !== 'undefined' && Render.GRID_LINE) || GRID_FALLBACK);
-  // …with ONE thing changed per building: the ink. The ground's grid is a
-  // black hairline, which works over grass and stone and disappears entirely
-  // into a dark floor — an unclaimed house is shaded most of the way to black,
-  // and 8% black on near-black is nothing. So the ink flips to white where the
-  // floor is too dark to take a dark line, at the same weight, rhythm and
-  // alpha: the lattice stays the ground's lattice, it just stays VISIBLE.
-  // Rec. 601 luma, and the threshold is where a mid-grey stops reading dark.
-  // (luminance() comes from util.js.)
+  // …with ONE thing changed per building: the ink flips to white where the
+  // floor is too dark to take a dark line (an unclaimed house is shaded nearly
+  // to black), at the same weight, rhythm and alpha. Rec. 601 luma
+  // (luminance() from util.js).
   const LUMA_FLIP = 0.42;
-  // …and one thing more: the WEIGHT. 8% reads on the ground because the ground
-  // is quiet — grass tufts, sand ripples, a park's flowers are all low-contrast
-  // at this scale. A floor is not: house cobbles, fort planks and castle paving
-  // are high-frequency patterns with far more local contrast than the hairline
-  // carries, and measured over one, an 8% line moves a pixel by ~10/255 while
-  // the material itself swings ~20. The lattice was there and invisible. This
-  // multiple puts the line's contrast against a paved floor roughly where 8%
-  // puts it against grass — same hairline, same rhythm, same softness to the
-  // eye; it is the BACKGROUND that changed, not the intent.
+  // …and the WEIGHT: floors (cobbles, planks, paving) carry far more local
+  // contrast than the ground, so an 8% hairline vanishes on them. This
+  // multiple puts its contrast against a floor roughly where 8% is on grass.
   const GRID_OVER_FLOOR_MUL = 2;
   const gridInkFor = (style, floor) => ({
     ...style,
@@ -334,10 +279,8 @@
   function setEnabled(scene, on) {
     global.__POLY_BUILDINGS = !!on;
     invalidate(scene);
-    // The road band's keep-out depends on this flag too (it stops punching
-    // building cells out once the buildings aren't cells any more), and that
-    // layer caches its canvas the same way — so flip both or the roads keep
-    // last mode's holes until the player walks a cell.
+    // The road band's keep-out depends on this flag too and that layer caches
+    // its canvas the same way, so flip both.
     if (typeof RoadOverlay !== 'undefined') RoadOverlay.invalidate(scene);
     return !!on;
   }
@@ -349,10 +292,8 @@
   // inject a recording stub as scene.buildingGeomGfx.
   //
   // Canvas 2D rather than a Phaser Graphics for the same reasons the road
-  // overlay uses it: real path fills with holes and joins, `clip()` for the
-  // rampart band, and pattern fills for the materials — none of which Phaser's
-  // Graphics offers. The whole layer is opaque, so unlike the roads there's no
-  // alpha to keep off itself.
+  // overlay uses it: path fills with holes and joins, `clip()` for the
+  // rampart band, and pattern fills for the materials.
   const TEX_KEY = 'buildinggeom_overlay';
   function canvasTarget(scene) {
     if (typeof document === 'undefined' || !scene.textures || !scene.buildingGeomContainer) return null;
@@ -368,10 +309,8 @@
     const img = scene.add.image(originX, originY, TEX_KEY).setOrigin(0, 0);
     scene.buildingGeomContainer.add(img);
     // Material patterns, one per tier, taken from the biome textures the tiled
-    // floors already wear (textures.js bakes them as canvas textures, and they
-    // are pure black/white alpha — a modulation, so they sit correctly over a
-    // shaded unclaimed fill without repainting it back to lit). Built lazily
-    // and kept for the life of the target.
+    // floors wear (pure black/white alpha modulation, so they sit correctly
+    // over a shaded unclaimed fill). Built lazily.
     const patterns = new Map();
     const patternFor = (tier) => {
       if (patterns.has(tier)) return patterns.get(tier);
@@ -379,10 +318,8 @@
       const key = `biome${tier}_0`;
       if (scene.textures.exists(key)) {
         const src = scene.textures.get(key).getSourceImage();
-        // Width/height guard: createPattern THROWS on a zero-sized source, and
-        // a texture that hasn't been baked yet would take the whole pass —
-        // every building on screen — down with it. No material is fine; the
-        // floor is still the tier's colour.
+        // createPattern THROWS on a zero-sized source (a texture not baked yet)
+        // and would take the whole pass down. No material is fine.
         if (src && src.width && src.height) p = ctx.createPattern(src, 'repeat');
       }
       patterns.set(tier, p);
@@ -432,14 +369,10 @@
         ctx.stroke();
         ctx.restore();
       },
-      // The ground's own cell lattice, continued across the footprint. Clipped
-      // to the ring and stroked only over its bounding box, so the cost is
-      // proportional to the footprint's area rather than the whole canvas per
-      // building. The lines are placed from the VIEWPORT, exactly where
-      // render.js's gridGfx places them (cell edges, offset half a cell from
-      // the viewport corner), and both layers ride the same container scroll —
-      // so the lattice is continuous from the grass onto the floor rather than
-      // a second grid that happens to be nearby.
+      // The ground's own cell lattice, continued across the footprint: clipped
+      // to the ring, stroked over its bounding box only, and placed from the
+      // VIEWPORT exactly where render.js's gridGfx places it, so the lattice is
+      // continuous from the grass onto the floor.
       gridPoly(pts, style) {
         if (!pts || pts.length < 3) return;
         let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -448,9 +381,8 @@
           if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
         }
         x0 -= originX; x1 -= originX; y0 -= originY; y1 -= originY;
-        // Where the grid's first line falls on THIS canvas, and the dash phase
-        // that goes with it — both measured from the viewport corner, so a
-        // change to the canvas pad can't slide the lattice or its dashes.
+        // Where the grid's first line falls on THIS canvas, and its dash phase,
+        // both measured from the viewport corner.
         const vx = scene.viewLeft - originX, vy = scene.viewTop - originY;
         const gx = vx + CELL_PX / 2, gy = vy + CELL_PX / 2;
         const period = style.dash + style.gap;
@@ -516,6 +448,28 @@
         ctx.fillRect(-TILE, -TILE, size + TILE * 2, size + TILE * 2);
         ctx.restore();
       },
+      damagePoly(pts, key, claimed, anchorX, anchorY) {
+        const texture = CastleStyles.damageTexture(scene, key, claimed);
+        if (!texture) return false;
+        if (!patterns.has(texture)) patterns.set(texture,
+          ctx.createPattern(scene.textures.get(texture).getSourceImage(), 'repeat'));
+        ctx.save(); trace(pts); ctx.clip();
+        ctx.translate(anchorX - originX, anchorY - originY);
+        ctx.fillStyle = patterns.get(texture);
+        ctx.fillRect(originX - anchorX, originY - anchorY, size, size);
+        ctx.restore();
+        return true;
+      },
+      columnsPoly(pts, columns, claimed) {
+        if (!columns.length) return;
+        const key = CastleStyles.columnTexture(scene, claimed);
+        if (!key) return;
+        const source = scene.textures.get(key).getSourceImage();
+        ctx.save(); trace(pts); ctx.clip(); ctx.imageSmoothingEnabled = false;
+        for (const p of columns) ctx.drawImage(source, 0, 20 - p.height, 16, p.height,
+          Math.round(p.x - originX - 8), Math.round(p.y - originY - p.height), 16, p.height);
+        ctx.restore();
+      },
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
       commit() { tex.refresh(); },
     };
@@ -536,18 +490,13 @@
   // just the edges newly in view instead of every wall on screen.
   //
   // ── The wall atlas ───────────────────────────────────────────────────────
-  // Every piece used to be its own canvas texture, and a crossing in a
-  // downtown bakes ~30 of them: each one a canvas, a whole-canvas pixel
-  // read-back (Phaser's CanvasTexture reads its pixels back on creation), a
-  // second read-back for the unclaimed treatment and its own GPU upload. On a
-  // phone a read-back is a synchronous trip to the GPU process, and that
-  // batch was most of the 60–190 ms stall on every cell crossing. Pieces now
-  // share ATLAS PAGES: square canvas textures cut into fixed slots, one slot
-  // per piece, each exposed to its sprite as a Phaser frame. A crossing
-  // paints its new pieces into free slots and uploads each touched page once
-  // (commitWallAtlas, at the end of the rebuild); nothing reads pixels back.
-  // Slots are freed when a piece scrolls out of the padded view, and a page
-  // with no piece left on it is dropped.
+  // Pieces share ATLAS PAGES: square canvas textures cut into fixed slots, one
+  // per piece, each exposed to its sprite as a Phaser frame. Per-piece canvas
+  // textures cost a read-back each (Phaser's CanvasTexture reads pixels back
+  // on creation) and were most of the 60–190 ms stall on every cell crossing.
+  // A crossing paints new pieces into free slots and uploads each touched page
+  // once (commitWallAtlas); nothing reads pixels back. Slots are freed when a
+  // piece scrolls out of the padded view; an empty page is dropped.
   const PAGE_PX = 512;
   // A slot holds the largest piece uprightEdges can cut: one edge segment of
   // at most a cell in either axis, its wall depth below, the rampart band and
@@ -618,10 +567,20 @@
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine), depth = facePx(d.tier);
-    const stone = castleStone(isMine);
-    const face = tune(shade(faceColor(d.tier, isMine)));
-    const outline = d.tier === CASTLE ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+    const stone = d.tier === CASTLE ? castleStone(isMine, d.key) : null;
+    const face = stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
+    const outline = stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
     const points = d.pts;
+    // Only outward south-facing edges retain the downward face after the
+    // floor is erased from the piece. Their physical base includes that
+    // face depth; the other edges end at the perimeter. Winding keeps the
+    // classification stable for clockwise and counterclockwise rings.
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      area += a.x * b.y - b.x * a.y;
+    }
+    const winding = Math.sign(area);
     const trace = (ctx) => {
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
@@ -644,7 +603,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.tier}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -672,18 +631,40 @@
         ctx.globalCompositeOperation = 'destination-out';
         trace(ctx); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
-        if (d.tier === CASTLE) {
+        if (stone) {
           ctx.save(); trace(ctx); ctx.clip();
           const stroke = (width, color, dash) => {
             ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
             ctx.lineWidth = width; ctx.strokeStyle = cssOf(color);
             ctx.setLineDash(dash || []);
-            // Continue the merlon rhythm through segment boundaries.
             ctx.lineDashOffset = -Math.hypot(p.x - a.x, p.y - a.y);
             ctx.stroke();
           };
           stroke(BAND_PX * 2, stone.body);
-          stroke(MERLON_PX * 2, stone.lite, MERLON_DASH);
+          const rampart = stone.style.rampart;
+          if (rampart.woodTop) stroke(6, stone.top);
+          const tooth = rampart.toothWidth;
+          const dash = rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
+          stroke(MERLON_PX * 2, stone.lite, dash);
+          // Sample just inside the edge, so east/south boundaries use the
+          // same owner's cell as the tiled wall rather than its neighbour.
+          const damageX = (p.x + q.x) / 2 - Math.sign(q.y - p.y) * winding * 0.01;
+          const damageY = (p.y + q.y) / 2 + Math.sign(q.x - p.x) * winding * 0.01;
+          const damage = CastleStyles.damageCell(d.key,
+            Math.floor((damageX - d.damageOriginX) / CELL_PX),
+            Math.floor((damageY - d.damageOriginY) / CELL_PX));
+          if (damage) {
+            const chip = damage.chip / CELL_PX;
+            const cx = Math.round(p.x + (q.x - p.x) * chip);
+            const cy = Math.round(p.y + (q.y - p.y) * chip);
+            ctx.fillStyle = cssOf(stone.style.stone.SHADOW); ctx.fillRect(cx - 1, cy - 3, 2, 6);
+            if (damage.missing >= 0) {
+              const t = (damage.missing + 0.5) / 4;
+              ctx.fillStyle = cssOf(stone.style.floor);
+              ctx.fillRect(Math.round(p.x + (q.x - p.x) * t) - 2,
+                Math.round(p.y + (q.y - p.y) * t) - 2, 4, 4);
+            }
+          }
           ctx.restore();
         }
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
@@ -701,9 +682,9 @@
         scene.worldContainer.add(sprite);
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
-          // The perimeter is the ground anchor; extrusion is visual height,
-          // just as for tiled walls. Towers at this boundary rank above it.
-          groundY: (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX,
+          // Lowest visible masonry, excluding transparent frame padding.
+          groundY: (Math.max(p.y, q.y) + ((a.x - b.x) * winding > 1e-6 ? depth : 0)
+            - projY(0)) * scene.cellM / CELL_PX,
         };
         scene._buildingUprightCache.set(cacheKey, piece);
         seen.add(cacheKey);
@@ -716,10 +697,9 @@
     if (scene) scene._buildingGeomKey = null;
   }
 
-  // Same cache the road overlay uses: the world→screen transform is a pure
-  // translation, so the geometry is drawn ONCE at the cell-snapped camera
-  // position and the container is scrolled by the sub-cell fraction every
-  // frame. Without it a dense downtown would be re-filled every frame.
+  // The world→screen transform is a pure translation, so the geometry is drawn
+  // ONCE at the cell-snapped camera position and the container scrolled by the
+  // sub-cell fraction every frame (as the road overlay does).
   function draw(scene) {
     const g = fillTarget(scene);
     if (!g) return;
@@ -730,11 +710,9 @@
     if (container) container.setVisible(on);
     if (!on) {
       clearUprights(scene);
-      // Wipe the canvas the first time it goes off, not merely when the cache
-      // key is live: setEnabled() invalidates on its way out, and a hidden
-      // container full of last frame's buildings would come back the moment
-      // anything else made the layer visible. `_buildingGeomPainted` tracks
-      // what is actually ON the canvas, which the key never did.
+      // Wipe the canvas the first time it goes off: setEnabled() invalidates
+      // on its way out, and a hidden container full of last frame's buildings
+      // would come back. `_buildingGeomPainted` tracks what is ON the canvas.
       if (scene._buildingGeomPainted) {
         g.clear();
         if (g.commit) g.commit();
@@ -842,6 +820,10 @@
         draws.push({
           pts, south: by1, left: bx0, north: by0, right: bx1,
           tier: shape.tier, key: shape.key,
+          damageOriginX: projX(originMx), damageOriginY: projY(originMy),
+          columns: shape.tier === CASTLE ? CastleStyles.columnSites(shape.key, r,
+            entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile))
+            .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
           seed: seedOf(tx, ty, r, shape.key),
         });
       }
@@ -853,10 +835,7 @@
     draws.sort((a, b) => (a.south - b.south) || (a.left - b.left));
 
     // Anchor the material patterns to the WORLD before anything is filled:
-    // texturePoly paints immediately (unlike the road overlay, which defers
-    // its pattern to commit()), so the phase has to be in hand first or the
-    // floors would wear the previous pass's phase and the material would swim
-    // a cell behind the buildings as the player walks.
+    // texturePoly paints immediately, so the phase has to be in hand first.
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
@@ -864,36 +843,41 @@
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —
       // see slimeColor); the material lift goes over every colour after.
-      const shaded = shade(floorColor(d.tier, isMine));
-      const floor = tune(shaded);
+      const style = d.tier === CASTLE ? CastleStyles.get(d.key, isMine) : null;
+      const shaded = style ? style.floor : shade(floorColor(d.tier, isMine));
+      const floor = style ? style.floor : tune(shaded);
       const depth = facePx(d.tier);
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), tune(shade(faceColor(d.tier, isMine))));
+      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
-      if (g.texturePoly) g.texturePoly(d.pts, d.tier);
+      const damagedFloor = style?.id === 'ruin' && g.damagePoly
+        && g.damagePoly(d.pts, d.key, isMine, d.damageOriginX, d.damageOriginY);
+      if (!damagedFloor && g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
       // on them) but under the lattice, the rampart and the outline — the
       // building's own lines stay clean, only its floor is overgrown.
       if (!isMine && g.blobsPoly) {
         g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north, tune(slimeColor(shaded, shade)), SLIME_ALPHA);
       }
-      // The cell grid goes on OVER the floor and its material. The tiled
-      // floors wore it a layer lower (gridContainer sits under noiseContainer),
-      // but a hairline this faint loses to a cobble or plank pattern laid on
-      // top of it — and the point of the pass is that the ground's squares
-      // stay readable across a footprint, so it goes last.
+      // The cell grid goes on OVER the floor and its material: a hairline this
+      // faint loses to a cobble or plank pattern laid on top of it.
       if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
+      if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
+      // Every short wall section joins the ordinary upright painter pass.
       if (separateUprights) {
         uprightEdges(scene, d, isMine, projX, projY, seen);
       } else if (d.tier === CASTLE) {
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the
         // tiled battlements.
-        const stone = castleStone(isMine);
+        const stone = castleStone(isMine, d.key);
         g.insetStroke(d.pts, BAND_PX, stone.body);
-        g.insetStroke(d.pts, MERLON_PX, stone.lite, MERLON_DASH);
+        if (style.rampart.woodTop) g.insetStroke(d.pts, 3, stone.top);
+        const tooth = style.rampart.toothWidth;
+        const dash = style.rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
+        g.insetStroke(d.pts, MERLON_PX, stone.lite, dash);
         g.strokePoly(d.pts, OUTLINE_PX, stone.dark);
       } else {
         g.strokePoly(d.pts, OUTLINE_PX, tune(dim(shaded, OUTLINE_MUL)));

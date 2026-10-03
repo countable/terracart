@@ -1,19 +1,11 @@
 // Cache-bust derivation — the `?v=` on every module IS a hash of that module's
 // bytes, and sw.js's SHELL_VERSION is a hash of the whole resulting list.
 //
-// The bug that motivated it: 36b4b21 added Combat.playerDowned to
-// src/combat.js and its five call sites to src/app.js, and the merge that
-// landed it resolved index.html by hand and carried only app.js's bump across.
-// combat.js stayed at ?v=15. The URL never changed, so the browser's HTTP
-// cache went on answering combat.js?v=15 with the pre-playerDowned bytes while
-// app.js — refetched, because ITS number had moved on for unrelated work —
-// called a function its Combat no longer had. "Combat.playerDowned is not a
-// function", on returning players only, invisible to anyone with a cold cache.
-// Bumping SHELL_VERSION does not reach it: that drops the service worker's
-// shell cache, but the HTTP cache underneath still matches the identical URL.
-// An audit of every tag at the time found FOURTEEN more modules changed since
-// their last bump — each a latent crash of the same shape, waiting for app.js
-// to call into it.
+// Why: a hand-bumped `?v=` left combat.js at a stale URL, so returning
+// players' HTTP cache served old combat.js bytes to a refetched app.js that
+// called Combat.playerDowned ("not a function", invisible on a cold cache).
+// Bumping SHELL_VERSION does not reach it: the HTTP cache under the service
+// worker still matches the identical URL.
 //
 // A hand-typed counter cannot be right by construction: it records what
 // somebody remembered, not what changed, and a merge that resolves index.html
@@ -25,9 +17,8 @@
 //   node tools/cachebust.js --write    # rewrite index.html + sw.js
 //
 // The check is wired into tools/shell_audit.js, so `node test/node/run.js`
-// fails on drift rather than shipping it. Nothing needs bumping by hand any
-// more — and a merge cannot collide two numbers, because the hash follows the
-// merged content rather than either side's counter.
+// fails on drift rather than shipping it. A merge cannot collide two numbers,
+// because the hash follows the merged content.
 
 const fs = require('fs');
 const path = require('path');
@@ -91,8 +82,6 @@ function scriptUrls(html = expectedIndex()) {
 // hash moves — and ONLY then. It is the service worker's own cache key: the
 // activate handler deletes every shell cache that isn't this one, so a changed
 // module rebuilds the worker's shell on the same deploy that changes its URL.
-// Deriving it also retires the other half of the hand-bumped problem, where
-// two branches both bumped to shell-v182 for different content.
 function expectedShellVersion(urls = scriptUrls()) {
   const h = crypto.createHash('sha256').update(urls.join('\n')).digest('hex').slice(0, HASH_LEN);
   return `shell-${h}`;

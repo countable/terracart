@@ -24,9 +24,9 @@ test('fog: the reveal radius stays INSIDE the viewport', () => {
   assert.lt(Fog.REVEAL_CELLS, (VIEW_CELLS - 1) / 2,
     'a reveal radius at or past the viewport half-width makes the fog invisible');
   assert.gt(Fog.REVEAL_CELLS, 0, 'a zero radius reveals only the cell underfoot');
-  // And the circle is the WHOLE reveal. A step used to also clear the row and
+  // And the circle is the WHOLE reveal. A step must not also clear the row and
   // the column through the player out to the screen edge (the "sweep arms"),
-  // which handed over ground 42 m away on both axes that the player never went
+  // which would hand over ground 42 m away on both axes that the player never went
   // near: walking one street opened every cross-street it passed, and the
   // revealed region stopped tracking where you had actually been. If a walk
   // reveal ever reaches past the vision radius again, this is the guard.
@@ -47,8 +47,7 @@ test('fog: standing somewhere reveals the vision circle, and only that', () => {
   assert.eq(Fog.seen(0, 0, 30, 30), true, 'the cell underfoot is revealed');
   assert.eq(Fog.seen(0, 0, 30 + R, 30), true, 'the cell at the vision radius, on-axis');
   assert.eq(Fog.seen(0, 0, 30, 30 + R), true, 'on the vertical axis too');
-  // One cell past the radius, on-axis, is exactly what the sweep arms used to
-  // clear all the way to the screen edge. It is fog now, on all four sides.
+  // One cell past the radius, on-axis, is fog on all four sides (no sweep arms to the screen edge).
   assert.eq(Fog.seen(0, 0, 30 + R + 1, 30), false, 'nothing carries past the circle east');
   assert.eq(Fog.seen(0, 0, 30 - R - 1, 30), false, 'nor west');
   assert.eq(Fog.seen(0, 0, 30, 30 + R + 1), false, 'nor south');
@@ -232,8 +231,7 @@ test('fog: the home reveal stops just outside what the player can see', () => {
   // The counterpart ceiling, and the point of the feature: fog of war that
   // only starts two screens out is fog nobody meets. The reveal ends one cell
   // past the viewport half-width — the corners of the opening screen already
-  // carry wash, and one step in any direction walks into it. It was 10 (nearly
-  // two screens of free map) until Sep 2026.
+  // carry wash, and one step in any direction walks into it.
   assert.lte(HOME_REVEAL_CELLS, (VIEW_CELLS + 1) / 2,
     'the fog must begin just outside the opening screen, not streets away');
 });

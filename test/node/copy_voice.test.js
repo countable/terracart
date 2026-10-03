@@ -7,12 +7,9 @@
 // lowercase fragments, colon-separated key/value pairs, and raw internal ids
 // printed straight to the screen.
 //
-// Three of those had shipped:
-//   • `occupied: ${blocker}` — a key/value line whose value fell through to
-//     `oo.kind`, so a plot could be refused with "occupied: mineralrock".
-//   • `planted ${item.grows}` — the raw crop id, beside loot toasts that have
-//     resolved names since QC_RULES §4 was written.
-//   • 'bag full' and 'Bag full' — one sentence, two casings, two call sites.
+// Leaks the rules catch: key/value lines like `occupied: ${blocker}` whose
+// value fell through to a raw kind, raw crop ids (`planted ${item.grows}`),
+// and one sentence in two casings ('bag full' / 'Bag full').
 //
 // These pin the rules, not the sentences, so the copy stays free to be
 // reworded and cannot slide back.
@@ -74,10 +71,10 @@ test('copy: the plant flash says the crop by name, and what it needs next', () =
 
 // ── One message, one wording ────────────────────────────────────────────────
 
-test('copy: "bag full" is one line raised from both call sites', () => {
+test('copy: "bag full" is one line shared by inventory refusals', () => {
   assert.truthy(/const BAG_FULL_MSG = '[^']+';/.test(SCENE_SRC), 'app.js owns one constant');
-  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 3,
-    'declared once, used at both the drop and the buy refusal');
+  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 5,
+    'declared once, used for drops, purchases (a counter\'s gear too) and smelting');
   assert.falsy(/flash\('bag full'/i.test(SCENE_SRC), 'neither casing survives as a literal');
   const msg = SCENE_SRC.match(/const BAG_FULL_MSG = '([^']+)';/)[1];
   assert.truthy(/bag/i.test(msg) && /\.$/.test(msg), 'it is a sentence about the bag: ' + msg);
@@ -272,7 +269,7 @@ test('map copy: the name-bearing loot toasts fit at their widest', () => {
   const shapes = [
     `${longestGear} × 10`,                  // the trail card (name + qty)
     longestGear,                            // the forge splash
-    `\u2715 → ${longestItem} ×10`,          // the treasure line
+    `${longestItem} ×10`,          // the treasure line
   ];
   for (const line of shapes) {
     assert.lte([...line].length, MAP_MSG_MAX, `worst-case loot toast overflows: ${line}`);
@@ -363,7 +360,7 @@ test('copy: a shop with nothing to offer says so in a sentence, and promises no 
 
 test('copy: a short smelt names the ingredient and the shortfall', () => {
   assert.falsy(/flash\('not enough to smelt'/.test(SCENE_SRC), 'the bare fragment is gone');
-  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < r\.qty \* q\);/.test(SCENE_SRC),
+  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < need\(r, q\)\);/.test(SCENE_SRC),
     'it finds which ingredient is short');
   assert.truthy(/Need \$\{short\} more \$\{name\}`/.test(SCENE_SRC),
     'and says how many more of it are wanted');
@@ -463,7 +460,6 @@ test('map copy: the barrel, the bike rack and the page stones fit a map line', (
 test('map copy: every wildplant reward bundle fits the harvest toast', () => {
   const crops=new Set([...Object.keys(CROP_ROW),...Object.keys(WILDPLANT_RULES)]);
   for (const crop of crops) {
-    if (wildplantRoll(crop)) continue;
     const line=wildplantHarvestLine(crop);
     for (const reward of wildplantRewards(crop)) {
       assert.truthy(line.includes(`+${reward.qty} ${itemName(reward.id)}`),`${crop} names every guaranteed reward`);

@@ -107,7 +107,7 @@ function xorRng(seed) {
   return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
 }
 
-test('roadside chest: starter supplies give way to high-tier travel magic', () => {
+test('roadside chest: every tier stays with supplies, minerals and cash', () => {
   assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
   const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'spear', 'honey', 'blank_scroll']);
   for (const tier of [1, 2, 3, 5]) {
@@ -119,6 +119,12 @@ test('roadside chest: starter supplies give way to high-tier travel magic', () =
       assert.truthy(r, 'every roadside roll resolves');
       if (r.group === 'supplies') {
         supplies++;
+        if (r.kind === 'relic') {
+          assert.eq(tier, 2, 'only T2 supplies introduce alternate weapons');
+          assert.eq(r.tier, 1, 'supply weapons are always Rusty');
+          assert.includes(['dagger', 'lance', 'musket'], r.slot);
+          continue;
+        }
         assert.eq(r.kind, 'item');
         assert.truthy(supplyIds.has(r.id), `roadside supply ${r.id}`);
         assert.eq(ITEM_BY_ID[r.id].kind, 'supply');
@@ -127,14 +133,17 @@ test('roadside chest: starter supplies give way to high-tier travel magic', () =
         if (r.id === 'torch') torches++;
       } else if (r.group === 'materials') {
         assert.includes(['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
-      } else if (r.group === 'travelMagic') {
-        assert.eq(ITEM_BY_ID[r.id].kind, 'magic');
+      } else if (r.group === 'plainBook') {
+        // A T2 chest lends a fifth of its row to the Book (ChestThemes.BOOK_T2_SHARE).
+        assert.eq(tier, 2, 'the Book joins the roadside row at tier 2 only');
+        assert.eq(r.id, 'book', 'the Book itself, whatever the roll climbed to');
       } else {
         assert.eq(r.group, 'cash');
         assert.eq(r.kind, 'gold');
       }
     }
-    assert.inRange(supplies / n, tier >= 3 ? 0.07 : 0.42, tier >= 3 ? 0.13 : 0.48, `T${tier}: supply share`);
+    const bookMul = tier === 2 ? (100 - ChestThemes.BOOK_T2_SHARE) / 100 : 1;
+    assert.inRange(supplies / n, 0.42 * bookMul, 0.48 * bookMul, `T${tier}: supply share`);
     if (tier === 1) assert.gt(torches / n, 0.30, 'roadside T1 is a dependable Torch source');
   }
 });

@@ -12,7 +12,7 @@ function bookShare(contextKey, tier, n = 4000) {
   let books = 0;
   for (let i = 0; i < n; i++) {
     const r = pickReward(contextKey, BOOK_SAVE(), rng, { tier });
-    if (r && r.kind === 'item' && ['book', 'tome_sight', 'tome_raven', 'tome_storm'].includes(r.id)) books++;
+    if (r && r.kind === 'item' && r.id === 'book') books++;
   }
   return books / n;
 }
@@ -31,9 +31,9 @@ test('books: the Book is the heaviest draw in its class/tier pool', () => {
   }
 });
 
-test('books: a high-tier school chest offers tomes in its book lane', () => {
+test('books: a high-tier school chest offers Books for scholar trades', () => {
   const share = bookShare('chest:school', 3);
-  assert.gt(share, 0.15, `a school chest hands over a tome often (got ${(share * 100).toFixed(1)}%)`);
+  assert.gt(share, 0.15, `a school chest hands over a Book often (got ${(share * 100).toFixed(1)}%)`);
   assert.lt(share, 0.60, 'but it is still a chest, not a book dispenser');
 });
 
@@ -46,10 +46,10 @@ test('books: a school chest beats every other chest at handing one over', () => 
   }
 });
 
-test('books: themed civic uses a dedicated Book group', () => {
-  assert.eq(ChestThemes.weights('civic', 3).books, 15);
-  const share = bookShare('chest:civic', 3);
-  assert.inRange(share, 0.12, 0.18, 'the high-tier book lane pays tomes');
+test('books: the school theme owns the dedicated Book group', () => {
+  assert.eq(ChestThemes.weights('school', 3).books, 60);
+  assert.eq(ChestThemes.weights('civic', 3).books, undefined,
+    'civic chests reserve their identity for relics, supplies and coins');
 });
 
 test('books: a school dense enough to be T1 still pays a book', () => {
@@ -87,7 +87,7 @@ test('school category: the split re-priced nothing — tier, pad and cave mirror
 });
 
 test('school category: Book odds have one owner, without a second favorite roll', () => {
-  assert.eq(ChestThemes.weights('school', 3).books, 40);
+  assert.eq(ChestThemes.weights('school', 3).books, 60);
   assert.eq(LOOT_CONTEXTS['chest:school'].favourite, undefined);
 });
 
@@ -98,7 +98,7 @@ test('school category: the favourite only fires inside its own class', () => {
     const r = pickReward('chest:school', BOOK_SAVE(), rng, { tier: 3 });
     if (r && r.kind === 'item' && r.id !== 'book') kinds.add(ITEM_BY_ID[r.id]?.kind);
   }
-  assert.truthy(kinds.size > 1, 'a school chest still pays seeds, produce and ore too');
+  assert.truthy(kinds.size > 1, 'a school chest mixes study magic with its Book lane');
 });
 
 
@@ -132,13 +132,22 @@ test('course: the chest hint waits until there is nothing left to teach', () => 
     'and the hint branch is gated on it');
 });
 
-test('course: the reader opens the book as a story', () => {
-  assert.truthy(/title: '📖 The worn book falls open'/.test(SCENE_SRC),
-    'the title describes opening the book');
+test('course: a page read heads on its volume line, with no title row over it', () => {
+  // The read used to be titled "The worn book falls open" over the volume
+  // line — two headings (owner, Oct 2026). The page read has no title, and
+  // the shell draws no title row for an empty one; the sketch read keeps its.
+  assert.falsy(/title: '📖 The worn book falls open'/.test(SCENE_SRC), 'the old lead-in is gone');
+  assert.truthy(/title: '',\n\s+body: bookPageHTML\(page\),/.test(SCENE_SRC), 'the page read has no title line');
+  assert.truthy(/title: '📖 You crack open the book'/.test(SCENE_SRC), 'the sketch read keeps its lead-in');
+  assert.truthy(/const titleHTML = title\n\s+\? `<div[^`]*\$\{title\}<\/div>`\n\s+: '';/.test(MODAL_SHELL_SRC),
+    'the shell draws no title row for an empty title');
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 141, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS.length, 146, 'new guides append after the existing saved bookmarks');
+  assert.truthy(/Joined the book club/.test(PLAY_TIPS[141]), 'the published book club page keeps its bookmark');
+  assert.eq(PLAY_TIPS[142], ITEM_GUIDE_TIPS.thunder_scroll);
+  assert.eq(PLAY_TIPS[143], ITEM_GUIDE_TIPS.raven_scroll);
   const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
@@ -249,9 +258,11 @@ test('mechanics: enemy health uses a bar', () => {
   assert.truthy(/_drawEnemyHealthBar/.test(SCENE_SRC), 'app.js draws a bar');
 });
 
-test('mechanics: sword, bow and staff occupy weapon slots', () => {
-  assert.truthy(Gear.WEAPON_SLOTS.includes('sword') && Gear.WEAPON_SLOTS.length === 3,
-    'sword / bow / staff are the three weapon slots');
+test('mechanics: main and alternate weapons occupy weapon slots', () => {
+  for (const slot of ['sword', 'bow', 'staff', 'dagger', 'lance', 'musket']) {
+    assert.truthy(Gear.WEAPON_SLOTS.includes(slot), `${slot} is a weapon slot`);
+  }
+  assert.eq(Gear.WEAPON_SLOTS.length, 6);
 });
 
 test('descriptions: the net and the rod speed a job, they do not unlock one', () => {
@@ -284,13 +295,12 @@ test('mechanics: the castle board holds three jobs', () => {
   assert.eq(QUEST_SLOTS, 3, 'the board holds three jobs');
 });
 
-test('mechanics: chest density and depth determine their tiers', () => {
-  assert.eq(chestDensityTier(1), 4, 'the only one of its kind is T4');
-  assert.eq(CHEST_TIER_COLOR[4], tierBadgeColor(4), 'which shares the rare item badge color');
-  assert.eq(CHEST_DENSITY_T1_AT, 25, 'a crowd of twenty-five is T1');
-  assert.eq(chestDensityTier(CHEST_DENSITY_T1_AT), 1, '…which is the crate');
-  assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'a chest climbs a tier every two levels down');
+test('mechanics: tiers come from the quota seed; the ladder retired', () => {
+  assert.eq(CHEST_TIER_COLOR[4], tierBadgeColor(4), 'T4 shares the rare item badge color');
+  assert.eq(CHEST_DENSITY_T1_AT, 25, 'the restock threshold survives the ladder (crate refill cadence)');
+  assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'a cave copy climbs a tier every two levels down');
   assert.eq(CHEST_TIER_COLOR[CHEST_TIER_MAX], tierBadgeColor(CHEST_TIER_MAX), 'the deepest chest shares the epic badge color');
+  assert.eq(chestTier({ kind: 'chest', poiClass: 'bus' }), CHEST_TIER_UNSTAMPED, 'an unseeded chest is the unstamped T2');
 });
 
 test('mechanics: crates, barrels, gold pots, courier posts and gates retain their rewards', () => {
@@ -384,7 +394,7 @@ test('mechanics: vendors never offer unique jewelry as gear', () => {
 });
 
 test('mechanics: melee reaches adjacent foes', () => {
-  assert.eq(Combat.MELEE_REACH_CELLS, 1, 'a sword still reaches adjacent foes');
+  assert.eq(Combat.MELEE_REACH_CELLS, 0.6, 'a sword reaches a foe at arm\'s length');
   assert.truthy(/too close/.test(RELIC_DEFS.sword.blurb),
     `the sword blurb says how far it swings: ${RELIC_DEFS.sword.blurb}`);
   assert.falsy(/in reach/.test(RELIC_DEFS.sword.blurb),
@@ -428,9 +438,10 @@ test('mechanics: rebuilding adds stone to later restoration costs', () => {
   assert.eq(WRECK_RESTORE_HOUSES_PER_STEP, 3, 'three completed restorations add one stone');
 });
 
-test('restore cost: 1 stone, one more per three houses restored, capped at 20', () => {
-  assert.eq([0, 1, 2, 3, 5, 6, 29, 51, 56, 57, 100].map(wreckRestoreExact).join(','), '1,1,1,2,2,3,10,18,19,20,20', 'step boundaries and story milestones');
-  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 2, 'same price for every house');
+test('restore cost: 2 stone, one more per three houses restored, capped at 20', () => {
+  assert.eq(WRECK_RESTORE_BASE_QTY, 2, 'the first rebuild asks two stones (owner, Oct 2026)');
+  assert.eq([0, 1, 2, 3, 5, 6, 29, 51, 54, 55, 100].map(wreckRestoreExact).join(','), '2,2,2,3,3,4,11,19,20,20,20', 'step boundaries and story milestones');
+  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 3, 'same price for every house');
 });
 
 test('stories: wizard memories precede the permanent calling', () => {

@@ -89,21 +89,21 @@ test('buildRelicOffer: deterministic for a fixed seed', () => {
   assert.eq(JSON.stringify(a), JSON.stringify(b));
 });
 
-test('buildRelicOffer: castle pricing collapses toward par as Bow tier climbs', () => {
+test('buildRelicOffer: castle pricing is a flat markup that no relic bends', () => {
   const base = { relics: {}, armor: {} };
   const bowed = { relics: { bow: { tier: 7 } }, armor: {} };
-  // Compare the SAME pick by using a seed that lands on a non-bow slot, summed
-  // over many seeds: mean castle price with a T7 bow should be < without.
-  let sumBase = 0, sumBow = 0, n = 0;
+  let n = 0;
   for (let s = 1; s <= 200; s++) {
     const o1 = Gear.buildRelicOffer(base, seeded(s), { isCastle: true });
     const o2 = Gear.buildRelicOffer(bowed, seeded(s), { isCastle: true });
     if (o1 && o2 && o1.slot === o2.slot && o1.tier === o2.tier && o1.slot !== 'bow') {
-      sumBase += o1.price; sumBow += o2.price; n++;
+      assert.eq(o1.price, o2.price, `seed ${s}: the bow buys no discount`);
+      assert.eq(o1.price, Math.max(1, Math.ceil(gearPrice(o1.kind, o1.slot, o1.tier) * 4)), 'four times the piece\'s price');
+      n++;
     }
   }
   assert.gt(n, 0, 'had comparable offers');
-  assert.lt(sumBow, sumBase, 'a maxed Bow discounts castle prices');
+  assert.falsy(/bestWeaponTier/.test(ITEMS_JS_SRC), 'the weapon-tier price lever is gone');
 });
 
 test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', () => {
@@ -214,6 +214,38 @@ test('blacksmith offers: never a piece the anvil cannot forge', () => {
   assert.eq(Gear.buildRelicOffer(maxed,seeded(1),{isBlacksmith:true}),null,'nothing left to forge');
 });
 
+test('blacksmith offers: a tiered smithy forges within one rank of its own and leans to it', () => {
+  assert.eq(Gear.SMITHY_OWN_TIER_BIAS, 4);
+  const bare={relics:{},armor:{}};
+  const W=Gear.relicOfferWeights(bare,{isBlacksmith:true,smithTier:3});
+  const tiers=[...new Set(W.map(x=>x.c.tier))].sort().join(',');
+  assert.eq(tiers,'2,3,4','nothing more than one rank above or below');
+  const w=(slot,tier)=>W.find(x=>x.c.kind==='relic'&&x.c.slot==='axe'&&x.c.tier===tier)?.w;
+  // Bare axe: Copper is the next forgeable rung inside reach (rank 1 — Wood is
+  // out of reach), Iron is the smith's own: curve 1/4, rank /16, ×4 → 1/16;
+  // Copper: curve 1/2, rank /4 → 1/8; Gold: 1/8 /64 → 1/512.
+  assert.eq(w('axe',2),1/2/4); assert.eq(w('axe',3),1/4/16*4); assert.eq(w('axe',4),1/8/64);
+  // All at Iron: the T3 smith can still forge Gold (one above), nothing else.
+  const iron={relics:{},armor:{}};
+  for(const slot of Object.keys(RELIC_DEFS)) iron.relics[slot]={tier:3};
+  for(const slot of Object.keys(ARMOR_DEFS)) iron.armor[slot]={tier:3};
+  for(let i=1;i<=200;i++) assert.eq(Gear.buildRelicOffer(iron,seeded(i),{isBlacksmith:true,smithTier:3}).tier,4);
+  // All at Gold: a T1 smith has nothing within reach to offer.
+  const gold={relics:{},armor:{}};
+  for(const slot of Object.keys(RELIC_DEFS)) gold.relics[slot]={tier:4};
+  for(const slot of Object.keys(ARMOR_DEFS)) gold.armor[slot]={tier:4};
+  assert.eq(Gear.buildRelicOffer(gold,seeded(1),{isBlacksmith:true,smithTier:1}),null,'a wooden forge cannot help a Gold kit');
+  assert.truthy(Gear.buildRelicOffer(gold,seeded(1),{isBlacksmith:true,smithTier:4}),'a Gold smith forges Platinum');
+  // At its own rank the lean shows: a T2 smith for an all-Wood kit offers Copper far more than Iron.
+  const wood={relics:{},armor:{}};
+  for(const slot of Object.keys(RELIC_DEFS)) wood.relics[slot]={tier:1};
+  for(const slot of Object.keys(ARMOR_DEFS)) wood.armor[slot]={tier:1};
+  let copper=0; for(let i=1;i<=2000;i++) if(Gear.buildRelicOffer(wood,seeded(i),{isBlacksmith:true,smithTier:2}).tier===2) copper++;
+  assert.gt(copper/2000,.9,'Copper, its own rank, nine times in ten');
+  // No tier passed: the untiered curve, every rung in the pool.
+  assert.eq([...new Set(Gear.relicOfferWeights(bare,{isBlacksmith:true}).map(x=>x.c.tier))].join(','),'1,2,3,4,5,6,7');
+});
+
 test('blacksmith offers: hourly shop lookup passes the bias only for the smith role', () => {
   const start=SCENE_SRC.indexOf('\n  peekOrBuildRelicOffer('),end=SCENE_SRC.indexOf('\n  }\n',start);
   assert.truthy(start>0&&end>start);
@@ -224,6 +256,7 @@ test('blacksmith offers: hourly shop lookup passes the bias only for the smith r
     const result=method.call(scene,house);
     assert.eq(result.actual,rng,'keeps the existing hourly/reroll seed');
     assert.eq(result.opts.isBlacksmith,role==='blacksmith');
+    assert.eq(result.opts.smithTier,role==='blacksmith'?1:undefined,'and the smithy\'s tier (off an empty ledger: 1)');
   }
 });
 
@@ -280,4 +313,94 @@ test('source: melee auto-engage needs no sword, and a slot tap no longer switche
   assert.truthy(/Gear\.selectWeapon\(this\.save, sel\.slot\)/.test(btn), 'Equip selects the highlighted weapon');
   assert.truthy(/Gear\.unequipWeapon\(this\.save\)/.test(btn), 'Unequip puts a ranged weapon away');
   assert.truthy(/Combat\.RANGED_SLOTS\.includes\(g\.slot\)/.test(btn), 'only a bow or staff can be put away');
+});
+
+test('alternate weapons: sparse material names, independent ownership and replacement', () => {
+  const save = { relics: { sword: { tier: 7 } }, activeWeapon: 'sword' };
+  for (const slot of ['dagger', 'lance', 'musket']) {
+    for (const [tier, material] of [[1, 'Rusty'], [3, 'Fine'], [5, 'Magic']]) {
+      Gear.equip(save, 'relic', slot, tier);
+      assert.eq(save.relics[slot].tier, tier);
+      assert.eq(save.activeWeapon, slot);
+      assert.eq(gearName('relic', slot, tier), `${material} ${RELIC_DEFS[slot].name}`);
+    }
+    Gear.equip(save, 'relic', slot, 1);
+    assert.eq(save.relics[slot].tier, 5, 'lower rewards never downgrade');
+    for (const tier of [2, 4, 6, 7]) {
+      Gear.equip(save, 'relic', slot, tier);
+      assert.eq(save.relics[slot].tier, 5, 'unsupported materials never replace a weapon');
+      assert.eq(gearAssetPath('relic', slot, tier), null);
+    }
+  }
+  assert.eq(Object.keys(save.relics).length, 4, 'one entry per owned weapon type');
+  assert.eq(save.relics.sword.tier, 7, 'alternates leave the sword progression intact');
+  for (const slot of ['sword', 'dagger', 'lance', 'musket']) {
+    assert.truthy(Gear.selectWeapon(save, slot));
+    assert.eq(save.activeWeapon, slot);
+    assert.eq(Gear.meleeActive(save), slot !== 'musket');
+  }
+  Gear.unequipWeapon(save);
+  assert.eq(save.activeWeapon, 'sword');
+  assert.falsy(Gear.selectWeapon(save, 'bow'), 'cannot equip an unowned weapon');
+});
+
+// ─── The trader's gear swap (Gear.traderGearSwap) ───────────────────────────
+// Sometimes a trader swaps equipment: one owned piece for a different piece of
+// the SAME tier, any for any across relics, armour and unique relics.
+function swapSave() {
+  return {
+    relics: { sword: { tier: 3 }, bags: { tier: 3 }, pick: { tier: 5 } },
+    armor: { helmet: { tier: 3 } },
+    inv: [{ id: 'lucky_key', count: 1 }],
+    activeWeapon: 'sword',
+  };
+}
+const pieceTier = (save, p) => p.kind === 'item' ? 0 : ((p.kind === 'armor' ? save.armor : save.relics)[p.slot]?.tier || 0);
+
+test('trader gear swap: same tier, owned for wanted, never bags or a downgrade', () => {
+  let swaps = 0;
+  for (let i = 0; i < 600; i++) {
+    const save = swapSave();
+    const swap = Gear.traderGearSwap(save, seeded(i));
+    if (!swap) continue;
+    swaps++;
+    const { give, get } = swap;
+    assert.eq(get.tier, give.tier, 'the same tier either way');
+    assert.truthy(give.slot !== 'bags', 'a bag never leaves: the inventory would spill');
+    if (give.kind === 'item') assert.truthy(carriesItem(save, give.id), 'gives a carried unique');
+    else assert.eq(pieceTier(save, give), give.tier, 'gives an owned piece at its tier');
+    if (get.kind === 'item') {
+      assert.eq(ITEM_BY_ID[get.id].kind, 'unique_relic');
+      assert.falsy(carriesItem(save, get.id), 'never a unique the player already carries');
+      assert.falsy(ITEM_BY_ID[get.id].tome, 'tomes are books, not relics');
+    } else {
+      assert.lt(pieceTier(save, get), get.tier, 'only a slot it would upgrade');
+    }
+    assert.truthy(Gear.traderSwapValid(save, swap));
+  }
+  // TRADER_GEAR_CHANCE of visits, give or take the stream.
+  assert.truthy(Math.abs(swaps / 600 - Gear.TRADER_GEAR_CHANCE) < 0.06, `swap share ${(swaps / 600).toFixed(2)}`);
+});
+
+test('trader gear swap: nothing owned (or only a bag) means no swap', () => {
+  const bare = { relics: { bags: { tier: 2 } }, armor: {}, inv: [] };
+  for (let i = 0; i < 50; i++) assert.eq(Gear.traderGearSwap(bare, seeded(i)), null);
+});
+
+test('trader gear swap: surrendering the active sword puts the hands back to bare', () => {
+  const save = swapSave();
+  const swap = { give: { kind: 'relic', slot: 'sword', tier: 3 }, get: { kind: 'armor', slot: 'boots', tier: 3 } };
+  assert.truthy(Gear.traderSwapValid(save, swap));
+  Gear.surrenderPiece(save, swap.give);
+  Rewards.apply(save, swap.get, {});
+  assert.eq(save.relics.sword, null);
+  assert.eq(save.activeWeapon, null, 'no sword left to fight with');
+  assert.eq(save.armor.boots.tier, 3);
+  assert.falsy(Gear.traderSwapValid(save, swap), 'the same swap cannot be taken twice');
+});
+
+test('trader gear swap: a unique relic leaves the bag', () => {
+  const save = swapSave();
+  Gear.surrenderPiece(save, { kind: 'item', id: 'lucky_key', qty: 1, tier: 3 });
+  assert.falsy(carriesItem(save, 'lucky_key'));
 });

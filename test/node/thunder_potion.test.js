@@ -1,4 +1,4 @@
-// The Potion of Thunder (T4): a white flash, THUNDER_DMG to every ENEMY
+// The Scroll of Thunder (T4): a white flash, THUNDER_DMG to every ENEMY
 // visible on screen through the one damage lane, and whatever it leaves
 // standing turns tail on the ordinary wander-off (monsterRout) — away from the
 // player, to the usual random range, standing down the whole way.
@@ -9,23 +9,30 @@
 (function () {
 const app = SCENE_SRC;
 const body = (() => {
-  const a = app.indexOf('  drinkThunderPotion() {');
-  assert.truthy(a > 0, 'found drinkThunderPotion');
+  const a = app.indexOf('  readThunderScroll() {');
+  assert.truthy(a > 0, 'found readThunderScroll');
   return app.slice(a, app.indexOf('\n  }\n', a));
 })();
 
-test('thunder potion: a T4 potion with a price, an icon and a ✦ line quoting its damage', () => {
+test('thunder scroll: a T4 scroll with a price, an icon and a ✦ line quoting its damage', () => {
   assert.eq(THUNDER_DMG, 25, '25 damage');
-  assert.eq(BASE_TIER.thunder_potion, 4, 'tier 4');
-  assert.eq(ITEM_BY_ID.thunder_potion?.kind, 'magic', 'drunk, not eaten');
-  assert.eq(FOOD_ENERGY.thunder_potion, undefined, 'never on the Eat button');
-  assert.gt(PRICES.thunder_potion, 0, 'priced');
-  assert.falsy(/\d/.test(ITEM_EFFECTS.thunder_potion), 'the storm hints at its power');
-  assert.eq(CONSUMABLE_SPEC.thunder_potion.method, 'drinkThunderPotion', 'the Drink button offers it');
-  assert.truthy(Shops.themedStock('potion', 4).includes('thunder_potion'), 'a T4 potion shop stocks it');
+  assert.eq(BASE_TIER.thunder_scroll, 4, 'tier 4');
+  assert.eq(ITEM_BY_ID.thunder_scroll?.kind, 'magic', 'read, not eaten');
+  assert.eq(FOOD_ENERGY.thunder_scroll, undefined, 'never on the Eat button');
+  assert.gt(PRICES.thunder_scroll, 0, 'priced');
+  assert.truthy(ITEM_BY_ID.thunder_scroll.scroll);
+  assert.eq(inventoryIconSource('thunder_scroll').sheet, 'icon_thunder_scroll', 'lightning-stamped parchment');
+  assert.eq(inventoryIconSource('thunder_scroll').frame, 0, 'dedicated icon frame');
+  assert.falsy(isPotion('thunder_scroll'));
+  assert.eq(CONSUMABLE_SPEC.thunder_scroll.verb, 'Read');
+  assert.truthy(HOME_RECIPES.some(r => r.id === 'thunder_scroll'));
+  assert.truthy(body.includes("this._spendScroll('thunder_scroll')"), 'successful cast teaches its recipe');
+  assert.falsy(/\d/.test(ITEM_EFFECTS.thunder_scroll), 'the storm hints at its power');
+  assert.eq(CONSUMABLE_SPEC.thunder_scroll.method, 'readThunderScroll', 'the Read button offers it');
+  assert.truthy(Shops.themedStock('potion', 4).includes('thunder_scroll'), 'a T4 potion shop stocks it');
 });
 
-test('thunder potion: enemies in SIGHT, through _damageEnemy, the rest routed', () => {
+test('thunder scroll: enemies in SIGHT, through _damageEnemy, the rest routed', () => {
   assert.truthy(/Combat\.isEnemy\(c\)/.test(body), 'enemies only — never a crow, a deer or a pet');
   assert.truthy(/caughtSet\.has\(c\.id\)/.test(body), 'never a caught creature');
   assert.truthy(/Particles\.onScreen\(this, p\.x, p\.y\)/.test(body) && /this\.worldMetersToScreen\(c\.x, c\.y\)/.test(body),
@@ -34,10 +41,10 @@ test('thunder potion: enemies in SIGHT, through _damageEnemy, the rest routed', 
   assert.truthy(/if \(!c\.lair\) monsterRout\(c, now, this\.cellM\);/.test(body),
     'survivors take the ordinary wander-off; a lair guard keeps its own leash');
   assert.truthy(/this\.cameras\?\.main\?\.flash\(THUNDER_FLASH_MS, 255, 255, 255\)/.test(body), 'the screen flashes white');
-  assert.truthy(/potion kept/.test(body) && /return false;/.test(body), 'nothing in sight: refused, potion kept');
+  assert.truthy(/scroll kept/.test(body) && /return false;/.test(body), 'nothing in sight: refused, scroll kept');
 });
 
-test('thunder potion: the retreat is the wander-off, to the usual random range', () => {
+test('thunder scroll: the retreat is the wander-off, to the usual random range', () => {
   const rout = eval('(' + CREATURE_AI_SRC.match(/function monsterRout\(c, now, cellM\) \{[\s\S]*?\n\}/)[0] + ')');
   const g = globalThis;
   // monsterRout reads these module constants; lift their values.

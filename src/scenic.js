@@ -26,11 +26,11 @@
 //                 spawn gate: open ground, off the road, out of the kerb
 //                 buffer), on the path's own side of any major band.
 //   VIEWPOINTS    a poi `attraction / viewpoint` point (OMT tourism=viewpoint).
-//                 Its own POI chest is the grail (VISTA_CHEST_TIER.grail, T4,
+//                 Its own POI chest is the grail (VISTA_CHEST_TIER.grail, T5,
 //                 one-time — loot.js chestBaseTier reads the `vista` stamp),
-//                 and a SCOPE stands beside it: its daily gift (the coin-burst
-//                 day ledger, lit by poiLit while there), the first vista a
-//                 save ever taps pays a relic (firstVistaPrize, once), its
+//                 and a SCOPE stands beside it: it marks a chosen nearby find
+//                 for a day, the first vista a save ever taps pays a backpack
+//                 (firstVistaPrize, once), its
 //                 story panel (zone_viewpoint), and its ring is a REST spot —
 //                 a new reason on the campfire's rest (FIRE_REST_R), not a
 //                 ward. Rarity is the point: nothing is synthesised.
@@ -38,10 +38,12 @@
 //                 inland sand, bunkers and volleyball keep today's behaviour):
 //                 its buried X marks follow the SHORELINE (beachXCount, one per
 //                 BEACH_X_SHORE_M, capped) instead of the tile's flat cap, and
-//                 a DAILY TIDE LINE — shells, driftwood and now and then a
-//                 message bottle on the waterline cells, the same for every
-//                 player (seeded by cell id + UTC day, tideLive), picked into
-//                 the day ledger (never save.picked) and back tomorrow.
+//                 a DAILY TIDE LINE — shells and driftwood on the waterline
+//                 cells, the same for every player (seeded by cell id + UTC
+//                 day, tideLive), picked into the day ledger (never
+//                 save.picked) and back tomorrow — and a few MESSAGE BOTTLES
+//                 (BEACH_BOTTLES_PER_TILE, fixed seats): each reads one Book
+//                 page once (interactables.js pageStone, save.opened).
 //
 // SEAM-SAFE BY CONSTRUCTION. Every distance test is geometry within the MVT
 // buffer (transportation / water / landcover carry ~64 units, the radii here
@@ -75,7 +77,7 @@
 
   // ── The numbers (owner picks, Sep 2026) ────────────────────────────────
   // What a scenic metre banks on the ladder, per kind: water 2×, park and
-  // greenway 1.75× (owner's pick, Sep 2026 — up from 1.5×, shore stays 2×).
+  // greenway 1.75×, shore stays 2×.
   // One table: _ripenStreets banks through bonusMetres, the Book tip prints it.
   const SCENIC_MUL = { shore: 2.0, greenway: 1.75, park: 1.75 };
   // Which kind wins a sample several apply to: the richest first.
@@ -116,17 +118,10 @@
   const VISTA_STRETCH_MIN_M = 120;
   // How far (cells) off the way the chest may be seated.
   const VISTA_SEAT_CELLS = 3;
-  // The chest's tier (loot.js chestBaseTier reads o.vista through this):
-  // the viewpoint's grail T4 — its OWN pool now (loot.js chestThemeFor,
-  // chest_themes.js 'vista' theme), equipment, relics or magic: the
-  // grail is a lookout's one-time find, not the town hall's. A stretch's
-  // chest is a park chest (loot.js POI_CATEGORY.vista), T3 on the water
-  // (~25), T2 else (~13) — MEASURED over the 36 census tiles (~2-4 stretches
-  // a scenic km): with the ladder at ~220 a km at 10 km restored, a shore
-  // path pays ~500-540 a km and a park path ~405-430 (up from ~350-380 at
-  // the old 1.5× — SCENIC_MUL.park/greenway is 1.75× now), the design's
-  // targets (scratchpad scenic2/measure.js).
-  const VISTA_CHEST_TIER = { grail: 4, shore: 3, greenway: 2, park: 2 };
+  // loot.js chestBaseTier reads o.vista through this table. Every vista chest
+  // for a viewpoint or path is T5; reef discoveries are T2–T3. The grail uses the treasure-only vista pool, while a scenic
+  // stretch keeps the park theme through POI_CATEGORY.vista.
+  const VISTA_CHEST_TIER = { grail: 5, shore: 5, greenway: 5, park: 5, reef2: 2, reef3: 3 };
   const VISTA_POI_CLASS = 'vista';
 
   // ── Viewpoints ─────────────────────────────────────────────────────────
@@ -137,8 +132,7 @@
   // The scope seats on the first free cell of these rings round the chest.
   const SCOPE_SEAT_R = 3;
   const RING_ORDER = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
-  // The scope's daily gift: one roll of this context, once per UTC day per
-  // scope, in the coin-burst ledger — a better grove shrine (~15 value).
+  // The vista treasure context retained for the shared treasure value table.
   const VISTA_CONTEXT = 'treasure:vista';
   // The first vista a save ever taps: a relic, once (save.vistaRelic).
   const FIRST_VISTA_SLOT = 'bags';
@@ -158,21 +152,14 @@
   const TIDE_MAX = 12;
   // A shore-sand cell this close to water (cells) is the WATERLINE.
   const WATERLINE_CELLS = 1.5;
-  // What the tide leaves, by one hash of (cell, day): a message bottle this
-  // rarely, driftwood this often, else a shell.
-  const TIDE_BOTTLE_P = 0.04;
+  // What the tide leaves, by one hash of (cell, day): driftwood this often,
+  // else a shell.
   const TIDE_DRIFTWOOD_P = 0.40;
-  // The bottle's roll (the vista's curve) and what its note may say — short,
-  // and at most a FALL hint, never the secret.
-  const BOTTLE_CONTEXT = VISTA_CONTEXT;
-  const BOTTLE_NOTES = [
-    'If you find this: the lamps still work. Light them.',
-    'We went north to the high ground. Do not follow the smoke.',
-    'The fire came down from the hills and did not stop at the river.',
-    'Plant something. Anything. It helps.',
-    'Whoever mends the roads: we saw. Thank you.',
-    'The sea keeps what the fire left. Look along the tideline.',
-  ];
+  // MESSAGE BOTTLES: at most this many per tile, on waterline cells, the
+  // lowest hashes of their cell ids — the same seats for every player. A
+  // bottle is a ground pickup that reads one Book page (interactables.js
+  // INTERACTABLES.bottle — the notice board's pageStone lane) and is gone.
+  const BEACH_BOTTLES_PER_TILE = 3;
 
   const u01 = (s) => (fnv1a(String(s)) >>> 0) / 4294967296;
 
@@ -583,8 +570,8 @@
   // shoreM } or null when the tile has no shore sand. One yield per 16 rows.
   // SAND is the LAND's class (Zones.landAt over the zone paint's `under`
   // ledger): a zone's coverage repaints a beach's look but it is still the
-  // beach — measured on Vancouver's Kits / English Bay, three quarters of the
-  // dry sand wears a grove's ground.
+  // beach (measured on Vancouver's Kits / English Bay: three quarters of the
+  // dry sand wears a grove's ground).
   function* shoreSandSteps(geo, grid, under) {
     const WG = root.WorldGen, Z = root.Zones;
     const N = geo.N, u = geo.ext / N;
@@ -679,7 +666,7 @@
   // ctx: { scenic, tx, ty, N, tileEdgeM, grid, chests (the tile's deduped
   //        objects), spawnOpts (roadMask + spawnWhy + roadClass + occupied —
   //        occupied GROWS: each piece claims its cell) }
-  // Returns { objects (scopes, vista chests), wildplants (tide pool + greenway grass) }.
+  // Returns { objects (scopes, vista chests, message bottles), wildplants (tide pool + greenway grass) }.
   function* dressSteps(ctx) {
     const WG = root.WorldGen, SV = root.StreetVariants;
     const res = { objects: [], wildplants: [], tideSeats: new Set() };
@@ -777,10 +764,30 @@
         { _shrineStreet: KIND_ROW[st.kind], shrineKind: Sh.kindForStreet(KIND_ROW[st.kind]) }));
     }
 
+    // MESSAGE BOTTLES: before the tide pool, so a bottle's cell is claimed
+    // and never doubles as a tide seat.
+    const sh = sc.shore;
+    if (sh && sh.waterline.length) {
+      yield 'scenic bottles';
+      const seats = [];
+      let scanned = 0;
+      for (const i of sh.waterline) {
+        if ((scanned++ & 255) === 0) yield 'scenic bottle eligibility';
+        const ix = i % N, iy = Math.floor(i / N);
+        if (!rewardOk(ix, iy)) continue;
+        const id = WG.cellId('bottle', tx, ty, ix, iy);
+        seats.push({ ix, iy, id, h: u01('bottle|' + id) });
+      }
+      seats.sort((a, b) => a.h - b.h);
+      for (const b of seats.slice(0, BEACH_BOTTLES_PER_TILE)) {
+        claim(b.ix, b.iy);
+        res.objects.push(WG.makeObject('bottle', cx(b.ix), cy(b.iy), b.id));
+      }
+    }
+
     // THE TIDE POOL: every waterline cell that takes a minor spawn holds a
     // tide pickup, shown on a day by tideLive (its own hash of id + day) at
     // the rate that lays tideCount(shoreM) a day over the pool.
-    const sh = sc.shore;
     if (sh && sh.waterline.length) {
       yield 'scenic tide pool';
       const pool = [];
@@ -838,7 +845,7 @@
   // ── THE TIDE: which pickups lie on a waterline cell TODAY ────────────────
   // A pure function of the wildplant's id and the UTC day key — the same for
   // every player and every device. Memoised on the plant for the day, and
-  // sets its `crop` to the day's find (shell / driftwood / bottle), so every
+  // sets its `crop` to the day's find (shell / driftwood), so every
   // reader (the sprite, the tap, the light) sees one answer. Returns whether
   // it lies there today.
   function tideLive(wp, day) {
@@ -848,13 +855,8 @@
     wp._tideDay = d;
     wp._tideOn = u01(`tide|${wp.id}|${d}`) < (wp.tideP || 0);
     const k = u01(`tidek|${wp.id}|${d}`);
-    wp.crop = k < TIDE_BOTTLE_P ? 'bottle' : k < TIDE_BOTTLE_P + TIDE_DRIFTWOOD_P ? 'driftwood' : 'shell';
+    wp.crop = k < TIDE_DRIFTWOOD_P ? 'driftwood' : 'shell';
     return wp._tideOn;
-  }
-  // The message a bottle carries (by its id + the day).
-  function bottleNote(wp, day) {
-    const d = day || utcDayKey();
-    return BOTTLE_NOTES[Math.floor(u01(`note|${wp && wp.id}|${d}`) * BOTTLE_NOTES.length)];
   }
 
   // ── THE LADDER: what a restore of scenic metres banks on top ────────────
@@ -899,6 +901,59 @@
     return (kind && SV && SV.VARIANT_BY_ID[KIND_ROW[kind]]) || null;
   }
 
+  const TELESCOPE_DURATION_MS = 24 * 60 * 60 * 1000;
+  const TELESCOPE_OPTIONS = [
+    { id: 'chest', label: 'Treasure' },
+    { id: 'elite', label: 'Danger' },
+    { id: 'shiny', label: 'Solace' },
+  ];
+
+  // Search only the known world on the player's level. The caller supplies
+  // loaded records and its ordinary spent sets, including burned ground.
+  // Keep the selected identity and position in the save so its bearing survives
+  // leaving the viewpoint, tile eviction and a reload.
+  function telescopeTarget(category, { player, depth = 0, objects = [], wildplants = [],
+    creatures = [], save = {}, sets = spentSets(null, save), now = Date.now() } = {}) {
+    if (!player || !Number.isFinite(player.x) || !Number.isFinite(player.y)) return null;
+    if (!TELESCOPE_OPTIONS.some(o => o.id === category)) return null;
+    const caught = new Set(save.caught || []);
+    const discovered = save.discovered || {};
+    let best = null, bestD2 = Infinity;
+    function consider(o, type) {
+      if (!o || !o.id || !Number.isFinite(o.x) || !Number.isFinite(o.y)
+        || (o.depth ?? depth) !== depth) return;
+      const d2 = (o.x - player.x) ** 2 + (o.y - player.y) ** 2;
+      if (d2 > bestD2 || (d2 === bestD2 && best && String(o.id) >= String(best.targetId))) return;
+      bestD2 = d2;
+      best = { targetId: o.id, x: o.x, y: o.y, depth, until: now + TELESCOPE_DURATION_MS, category, type };
+    }
+    for (const o of objects) {
+      if (isSpent(o, sets)) continue;
+      if (category === 'chest' && o.kind === 'chest' && !sets.opened.has(o.id)
+        && chestTier(o) >= 3 && chestLook(o).texKey === 'chest') consider(o, 'object');
+      if (category === 'shiny' && isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree)) {
+        const fruit = o.kind === 'fruittree';
+        const key = fruit ? (ITEM_BY_ID[o.species]?.kind === 'produce' ? o.species : 'apple') : 'wood';
+        if (!discovered[key] && (!fruit || Crops.fruitTreeState(o, save.fruitPicked?.[o.id], now).ready)) consider(o, 'object');
+      }
+    }
+    if (category === 'shiny') {
+      for (const p of wildplants) {
+        if (!isSpent(p, sets) && !discovered[wildplantOutput(p.crop)] && isShiny(p.id, SHINY_RATE.flora)) consider(p, 'wildplant');
+      }
+    }
+    if (category === 'shiny' || category === 'elite') {
+      for (const c of creatures) {
+        if (caught.has(c.id) || c._surfaceInactive || c._hp <= 0) continue;
+        if (category === 'elite' ? Combat.isElite(c) && Combat.isEnemy(c, now)
+          : c.shiny && !discovered[c.kind] && !Combat.isEnemyKind(c.kind)
+            && (ITEM_BY_ID[`shiny_${c.kind}`] || SpriteLayout.creatureDrop(c.kind))
+            && !String(c.id).startsWith('released_')) consider(c, 'creature');
+      }
+    }
+    return best;
+  }
+
   // ── The first vista's relic ─────────────────────────────────────────────
   // The walker's relic, one tier over what the save wears (capped): a pure
   // function of the save, paid once (save.vistaRelic). Shape: pickReward's.
@@ -915,12 +970,12 @@
     SCENIC_MUL, KIND_ORDER, KIND_ROW, SCENIC_SHORE_CELLS, SHORE_MAX_UNITS, SIDEWALK_M, BUSY_VERGE_M,
     PARK_MIN_M2, SAMPLE_M, GREENWAY_GRASS_STEP_M, GREENWAY_RE, PATH_SUBCLASSES,
     VISTA_STRETCH_MIN_M, VISTA_SEAT_CELLS, VISTA_CHEST_TIER, VISTA_POI_CLASS, VISTA_MERGE_M, SCOPE_SEAT_R,
-    VISTA_CONTEXT, FIRST_VISTA_SLOT, VISTA_STORY,
-    BEACH_X_SHORE_M, BEACH_X_MAX, TIDE_PER_M, TIDE_MAX, WATERLINE_CELLS, TIDE_BOTTLE_P, TIDE_DRIFTWOOD_P,
-    BOTTLE_CONTEXT, BOTTLE_NOTES,
+    VISTA_CONTEXT, FIRST_VISTA_SLOT, VISTA_STORY, TELESCOPE_DURATION_MS, TELESCOPE_OPTIONS, telescopeTarget,
+    BEACH_X_SHORE_M, BEACH_X_MAX, TIDE_PER_M, TIDE_MAX, WATERLINE_CELLS, TIDE_DRIFTWOOD_P,
+    BEACH_BOTTLES_PER_TILE,
     isEligibleWay, isVehicleWay, isBusyWay, isShoreWater, isShoreWaterway, isBeachSand, isViewpoint,
     geoSteps, classify, nearWater, lineIntervals, linesSteps, shoreSandSteps, collectVistas,
-    buildSteps, build, dressSteps, dress, beachXCount, tideCount, tideLive, bottleNote,
+    buildSteps, build, dressSteps, dress, beachXCount, tideCount, tideLive,
     bonusMetres, kindAt, kindOfNewly, rowFor, firstVistaPrize, ringsAreaU2,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

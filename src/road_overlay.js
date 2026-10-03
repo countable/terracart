@@ -67,32 +67,22 @@
 //                                  exported so the headless suite can run them
 //                                  against a recording 2D context
 (function (global) {
-  // Warm earth brown rather than black: the ways read as packed track over the
-  // biome colours instead of as a shadow, and they sit in the same family as
-  // the cobble the rasterizer paints. Muted well off the saturated brown it
-  // started as — over the greens and tans of the biome paint a chromatic band
-  // competed with the map instead of sitting under it, and the cobblestone
-  // texture below needs a quiet base to read against.
-  //
-  // PATH_COLOR is that same brown, desaturated a little (footways/tracks are
-  // still packed earth, just less saturated than the original chromatic
-  // brown). ROAD_COLOR — vehicle carriageways — is desaturated further AND
-  // darkened, so a paved street reads as a visibly different, harder surface
-  // than a dirt path instead of the same band at a different width.
+  // Warm, muted earth brown rather than black: the ways read as packed track
+  // over the biome colours, in the same family as the cobble the rasterizer
+  // paints, and the cobblestone texture below needs a quiet base.
+  // ROAD_COLOR (carriageways) is desaturated further AND darkened so a paved
+  // street reads as a harder surface than a dirt path, not just a wider band.
   const PATH_COLOR = 0x948b75;
   const ROAD_COLOR = 0x79766c;
   const ALPHA = 0.61;    // reads as a band without hiding the map
   const MVT_EXTENT = 4096;
 
-  // Same class list worldgen's classifyLine uses to paint T.PATH cells —
   // WorldGen.PATH_CLASSES itself, so a way that rasterizes as a footpath also
-  // overlays as one and the two lists can't drift apart.
+  // overlays as one.
   const PATH_CLASSES = WorldGen.PATH_CLASSES;
 
-  // Rail is not road. It arrives in the same `transportation` layer and the
-  // rasterizer has no tier for it, so a railway lands on the map as an
-  // ordinary street — which is exactly why the overlay has to say otherwise:
-  // cold steel-slate instead of the warm earth every road tier shares. The
+  // Rail is not road: the rasterizer has no tier for it, so the overlay says
+  // otherwise with cold steel-slate. The
   // classes are OpenMapTiles' rail family (`rail` covers heavy rail and its
   // subclasses; `transit` covers tram / subway / light_rail).
   const RAIL_CLASSES = new Set(['rail', 'transit']);
@@ -147,7 +137,6 @@
     return out;
   }
 
-  // Emit one rail run's furniture: ties by arclength, then the two rails.
   // A polyline pushed `off` to its left (negative: right), each vertex along
   // the mean of its two segment normals. Pure; the carpet strips use it.
   function offsetLine(pts, off) {
@@ -251,7 +240,6 @@
     if (PATH_CLASSES.has(c)) return PATH_COLOR;
     return ROAD_COLOR;
   };
-  // Colour ints become canvas strings through util.js's cssOf.
 
   // Cells the overlay must not paint over, punched out of the finished canvas
   // (see keepOut below): WATER, so the linework stays on land instead of
@@ -261,72 +249,46 @@
   // top surface there rather than having a road drawn across them.
   const WATER_T = WorldGen.T.WATER;
 
-  // The big ways — motorway / trunk / primary, exactly worldgen's ROAD_LG
-  // tier — are stroked half again as wide as their measured carriageway.
-  // Their real widths are already the largest on the map, but at map scale
-  // they still read as ribbons barely wider than the residential streets
-  // feeding them; the extra weight puts the road hierarchy back so the trunk
-  // routes are legible at a glance. Everything else keeps its true width.
-  // That weighting lives in WorldGen.roadOverlayWidthM, NOT here: worldgen
+  // The big ways (motorway / trunk / primary, worldgen's ROAD_LG tier) are
+  // stroked half again as wide as their carriageway so the road hierarchy
+  // stays legible. That weighting lives in WorldGen.roadOverlayWidthM, NOT here: worldgen
   // stamps its no-spawn road mask from the same function, so the ground drawn
   // as road and the ground barred from spawning are the same ground by
   // construction. Widening a band here alone would put rocks back in the
   // traffic.
 
   // Stroke width for one way: the width it covers on the ground, drawn at the
-  // map's own scale (one cell = scene.cellM metres = CELL_PX pixels). So a 5 m
-  // residential street lands just inside the single cell the rasterizer paints
-  // for it, and a 12 m motorway visibly spills past that cell on both sides —
-  // by half again as much once the large tier's weighting is applied.
-  // No fallback width: this module already reads WorldGen at load
-  // (PATH_CLASSES above), and a private number here is exactly the drift
-  // between "drawn as road" and roadMask that the shared function exists to
-  // prevent.
+  // map's own scale (one cell = scene.cellM metres = CELL_PX pixels). No
+  // fallback width: a private number here is exactly the drift between "drawn
+  // as road" and roadMask that the shared function exists to prevent.
   function widthPxFor(scene, tags) {
     const m = WorldGen.roadOverlayWidthM(tags || {});
     return Math.max(1, (m / scene.cellM) * CELL_PX);
   }
 
-  // Fixed-seed LCG, not Math.random: the pattern tiles below are identical
-  // every session, so the roads can't shimmer differently between one load
-  // and the next.
+  // Fixed-seed LCG, not Math.random: the pattern tiles are identical every
+  // session.
   //
-  // NOT textures.js' seededRand, which looks like the same generator and is
-  // not: it divides its state by 0xffffffff rather than 2^32, so it can return
-  // exactly 1.0 and its stream shares not one draw with this one (0/1000 in a
-  // side-by-side run). Merging them would have to carry that divisor as a
-  // parameter forever — a helper that breaks util.js' own "[0, 1)" contract on
-  // one of its two settings — and changing either divisor re-rolls the baked
-  // pattern tiles on the side that moves. Two callers, two textures, left apart
-  // on purpose.
+  // NOT textures.js' seededRand: it divides by 0xffffffff rather than 2^32 (so
+  // it can return exactly 1.0) and shares no stream with this one; changing
+  // either divisor re-rolls the baked tiles. Left apart on purpose.
   function lcg(seed) {
     return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
   }
 
   // ── Cobblestone ──────────────────────────────────────────────────────────
-  // A flat band of colour reads as a sticker laid over the map. The texture
-  // costs nothing per way: ONE small tile of little rounded stones is drawn
-  // once, made into a repeating canvas pattern, and painted over the finished
-  // network in a SINGLE source-atop fillRect — so it lands only on pixels a
-  // way already covers, whatever shape the network is, and the per-rebuild
-  // cost is that one fill no matter how many ways are on screen. (The
-  // obvious alternative — a patterned strokeStyle per way — pays for the
-  // pattern on every stroke, and still can't texture the joins evenly.)
-  // Rebuilds are already rare: the pass only runs when the camera crosses a
-  // cell or a tile finishes loading, never per frame.
+  // ONE small tile of little rounded stones is drawn once, made into a
+  // repeating canvas pattern, and painted over the finished network in a
+  // SINGLE source-atop fillRect — so it lands only on pixels a way already
+  // covers, at one fill per rebuild however many ways are on screen (a
+  // patterned strokeStyle per way would pay per stroke and texture joins
+  // unevenly). Rebuilds only run on a cell crossing or tile load.
   //
-  // Every mark is monochrome black/white at low alpha, composited with
-  // source-atop onto the caller's own stroke colour (earth for roads, slate
-  // for rail) — so the texture only MODULATES light/dark, never introduces a
-  // new hue. That's what keeps a cobbled road the same warm brown it always
-  // was instead of a grey stone pattern pasted over a brown band.
+  // Every mark is monochrome black/white at low alpha composited source-atop,
+  // so the texture only MODULATES light/dark and never introduces a new hue.
   //
-  // Each stone is an IRREGULAR polygon, not a circle — a perfect circle with
-  // a centred highlight/shadow pair is the standard way to draw a glossy
-  // sphere, so the first version of this (round + a highlight dot on one
-  // side, a shadow dot on the other) read as a tray of bubbles instead of
-  // paving. A lumpy 6–8-sided outline plus a plain dark edge stroke (no
-  // gloss) is what actually reads as a small flat stone.
+  // Each stone is an IRREGULAR polygon with a plain dark edge and no gloss; a
+  // round stone with highlight/shadow dots read as a tray of bubbles.
   const STONE_TILE_PX = SpriteLayout.CELL_PX; // repeat every cell
   const STONE_COLS = 4, STONE_ROWS = 4;    // small stones — a 4×4 grid per tile
   const STONE_GROUT_ALPHA = 0.16;    // dark wash first — the seams between stones
@@ -334,9 +296,8 @@
   const STONE_FACE_ALPHA_MIN = 0.06; // per-stone face tone varies within this
   const STONE_FACE_ALPHA_MAX = 0.16; // range so neighbours don't read identical
   // ── Rough edges ──────────────────────────────────────────────────────────
-  // A stroked band ends in a perfectly clean vector edge, which reads as tape
-  // laid over the map rather than a surface worn into it. The roughness is a
-  // silhouette nibble, done in two stroke passes at commit time:
+  // A clean vector edge reads as tape over the map, so the silhouette is
+  // nibbled, in stroke passes at commit time:
   //   1. the whole network is stroked at its TRUE width — the outer
   //      EDGE_FRINGE_PX of that stroke is the sacrificial fringe;
   //   2. a pre-baked noise tile is pattern-filled over the canvas with
@@ -347,10 +308,8 @@
   // The nibble works INWARD from the true width on purpose: the drawn band
   // never exceeds WorldGen.roadOverlayWidthM, so the ground drawn as road
   // stays inside the ground the no-spawn road mask covers (QC rule).
-  // Cost: one extra stroke pass + one pattern fill, only on the rare rebuilds
-  // (cell crossings / tile loads) — nothing per frame. The noise tile is
-  // world-phased exactly like the cobbles, so the bites sit still on the road
-  // instead of crawling along the edge as the player walks.
+  // The noise tile is world-phased exactly like the cobbles, so the bites sit
+  // still on the road as the player walks.
   const EDGE_FRINGE_PX = 3;          // ~1.5px per side — subtle, not torn
   const EDGE_NOISE_COVERAGE = 0.45;  // fraction of the fringe eaten
   let edgeNoiseCanvas;
@@ -390,24 +349,20 @@
     const cx = c.getContext('2d');
     if (!cx) return stoneCanvas;
     const rnd = lcg(0x2f6b4a);
-    // Grout wash: paint the WHOLE tile with a faint dark tone first, so the
-    // margin between stones reads as a recessed seam rather than bare road
-    // colour showing through — the same "cut into the ground" cue the pad
-    // texture's side-face bevel uses.
+    // Grout wash: a faint dark tone over the whole tile first, so the margin
+    // between stones reads as a recessed seam.
     cx.fillStyle = `rgba(0,0,0,${STONE_GROUT_ALPHA})`;
     cx.fillRect(0, 0, STONE_TILE_PX, STONE_TILE_PX);
     cx.lineWidth = 1;
     const cellW = STONE_TILE_PX / STONE_COLS, cellH = STONE_TILE_PX / STONE_ROWS;
     for (let row = 0; row < STONE_ROWS; row++) {
       for (let col = 0; col < STONE_COLS; col++) {
-        // Jitter each stone's centre a little so the grid doesn't read as one
-        // perfectly uniform tile once it repeats across a road.
+        // Jitter each stone's centre so the repeat doesn't read as a grid.
         const jx = (rnd() - 0.5) * cellW * 0.3;
         const jy = (rnd() - 0.5) * cellH * 0.3;
         const px = col * cellW + cellW / 2 + jx;
         const py = row * cellH + cellH / 2 + jy;
         const r = Math.min(cellW, cellH) * 0.42;
-        // Lumpy outline: N vertices at a jittered radius, not a circle.
         const sides = 6 + Math.floor(rnd() * 3);
         cx.beginPath();
         for (let i = 0; i < sides; i++) {
@@ -417,13 +372,10 @@
           if (i === 0) cx.moveTo(vx, vy); else cx.lineTo(vx, vy);
         }
         cx.closePath();
-        // Flat face — no gradient, no gloss — at a per-stone alpha so
-        // neighbouring stones read as separately-set pavers.
+        // Flat face at a per-stone alpha so neighbours read as separate pavers.
         const faceAlpha = STONE_FACE_ALPHA_MIN + rnd() * (STONE_FACE_ALPHA_MAX - STONE_FACE_ALPHA_MIN);
         cx.fillStyle = `rgba(255,255,255,${faceAlpha})`;
         cx.fill();
-        // A plain dark edge, not a shadow blob, is what separates one stone
-        // from the next.
         cx.strokeStyle = `rgba(0,0,0,${STONE_EDGE_ALPHA})`;
         cx.stroke();
       }
@@ -433,18 +385,13 @@
   }
 
   // ── Weathering ───────────────────────────────────────────────────────────
-  // The dilapidated band is more than a faded colour: it is CRACKED. One more
-  // pattern tile, laid source-atop after the stones (so it lands on the ways
-  // and nowhere else), carrying the four marks a neglected street shows from
-  // above — jagged hairline cracks with a pale lifted lip beside them, soft
-  // dark damp patches, pale lichen/dust blooms, and a couple of dark pits
-  // where a stone has gone altogether.
+  // One more pattern tile, laid source-atop after the stones, carrying the
+  // marks of a neglected street: hairline cracks with a pale lifted lip, damp
+  // patches, lichen/dust blooms and dark pits where a stone has gone.
   //
   // The alphas are bold on purpose: the whole canvas is shown at ALPHA (0.61),
-  // so a mark drawn at 0.3 arrives at the player as 0.18 and reads as nothing.
-  // Fixed-seed LCG like the stones — identical every session — and world-
-  // phased through the same texturePhase, so the cracks sit still on the road
-  // instead of crawling along it as the player walks.
+  // so a mark drawn at 0.3 arrives as 0.18 and reads as nothing. Fixed-seed
+  // and world-phased through texturePhase like the stones.
   //
   // RAIL gets none of it: a railway's band is ballast, not paving, and it is
   // already dressed with ties and rails. See commitBase for how the fill is
@@ -457,8 +404,7 @@
   const WEATHER_PIT_ALPHA = 0.6;      // a missing stone
   const WEATHER_LICHEN_N = 3, WEATHER_DAMP_N = 2, WEATHER_CRACK_N = 3, WEATHER_PIT_N = 2;
 
-  // A soft round bloom: a radial gradient falling to zero, painted over its
-  // own bounding square (cheaper than a clipped arc and softer at the rim).
+  // A soft round bloom: a radial gradient falling to zero over its bounding square.
   function weatherBlob(cx, x, y, r, rgb, alpha) {
     const g = cx.createRadialGradient(x, y, 0, x, y, r);
     if (!g || !g.addColorStop) return;
@@ -505,7 +451,6 @@
       }
       cx.stroke();
     }
-    // …and a couple of missing stones.
     for (let i = 0; i < WEATHER_PIT_N; i++) {
       cx.fillStyle = `rgba(0,0,0,${WEATHER_PIT_ALPHA})`;
       cx.beginPath();
@@ -530,15 +475,13 @@
 
   // ── Restored ─────────────────────────────────────────────────────────────
   // A restored stretch is drawn on its OWN canvas, laid over the dilapidated
-  // one, so the two looks never have to be reconciled inside a single band:
-  // the base pass draws every way in full and the restored pass paints the
-  // rebuilt metres on top of it, edge to edge.
+  // one: the base pass draws every way in full and the restored pass paints
+  // the rebuilt metres on top of it.
   //
-  // Near-black rather than "clean grey": the point of the restored street is
-  // that it reads as a different surface from a hundred metres away, and the
-  // one thing the biome palette never contains is black. Paths restore to
-  // dark packed earth instead — a footway that turned into basalt setts would
-  // read as a road. Rail never restores at all.
+  // Near-black, the one thing the biome palette never contains, so a restored
+  // street reads as a different surface from far off. Paths restore to dark
+  // packed earth instead (basalt setts would read as a road). Rail never
+  // restores.
   const RESTORED_ALPHA = 0.92;         // near-opaque: the rebuilt street is the surface
   const RESTORED_ROAD_COLOR = 0x161412;
   const RESTORED_PATH_COLOR = 0x2e2620;
@@ -547,24 +490,18 @@
     (PATH_CLASSES.has((tags && tags.class) || '') ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR);
 
   // The clean cobble tile: brick-staggered courses of small rounded setts on a
-  // pale mortar wash. Smaller and far more regular than the dilapidated
-  // stones — that regularity IS the restoration, so it is drawn as a laid
-  // course grid rather than the base pass's jittered lumps. Paths get the same
-  // tile with the mortar wash halved (packed earth has no mortar to speak of).
+  // pale mortar wash. Its regularity IS the restoration. Paths get the same
+  // tile with the mortar wash halved (packed earth has little mortar).
   const CLEAN_TILE_PX = 32;
-  // Lighter than the first cut (0.13): at that alpha the seams barely broke
-  // from the black setts around them and the whole band read as one flat
-  // slab rather than laid stone. Bright enough now to read as mortar lines
-  // from across the street without competing with the setts themselves.
+  // Bright enough to read as mortar lines from across the street without
+  // competing with the setts (lower and the band reads as one flat slab).
   const CLEAN_MORTAR_ALPHA = 0.22;
   const CLEAN_PATH_MORTAR_MUL = 0.5;
   const CLEAN_COLS = 6, CLEAN_ROWS = 8;   // 6 setts across, 8 courses down
   const CLEAN_SETT_R = 1.6;          // corner radius
   const CLEAN_GAP_X = 1.5, CLEAN_GAP_Y = 1.2;   // mortar gaps between setts, px
   const CLEAN_TONE_MIN = 0.05, CLEAN_TONE_MAX = 0.12;  // per-stone tone
-  // The top bevel catch-light. 0.10 read as a texture noise rather than a
-  // highlight — a restored sett should look wet-laid and lit from above, not
-  // just less flat than the dilapidated ones.
+  // The top bevel catch-light: lower reads as texture noise, not a highlight.
   const CLEAN_BEVEL_ALPHA = 0.24;
   const CLEAN_BEVEL_H = 0.45;        // …over the upper 45% of the sett
 
@@ -582,8 +519,7 @@
     cx.closePath();
   }
 
-  // One sett: black body, a slight per-stone tone so neighbours aren't
-  // identical, and a catch-light along its top edge.
+  // One sett: body, a slight per-stone tone, and a catch-light on its top edge.
   function paintSett(cx, x, y, w, h, tone, stoneColor) {
     cx.fillStyle = stoneColor || '#000';
     roundRectPath(cx, x, y, w, h, CLEAN_SETT_R); cx.fill();
@@ -606,10 +542,8 @@
         const w = sw - CLEAN_GAP_X, h = sh - CLEAN_GAP_Y;
         const tone = CLEAN_TONE_MIN + rnd() * (CLEAN_TONE_MAX - CLEAN_TONE_MIN);
         paintSett(cx, x, y, w, h, tone, stoneColor);
-        // A staggered course's last sett runs off the tile's right edge; draw
-        // that same stone again one tile to the LEFT so the pattern meets
-        // itself where it repeats. The tile is CLEAN_COLS setts wide by
-        // construction — the wrap is a second copy, not a seventh stone.
+        // A staggered course's last sett runs off the right edge; draw it again
+        // one tile to the LEFT so the pattern meets itself where it repeats.
         if (x + w > S) paintSett(cx, x - S, y, w, h, tone, stoneColor);
       }
     }
@@ -653,65 +587,39 @@
 
   // ── The STREET LAMP ──────────────────────────────────────────────────────
   // The lamp a restored street carries every Streets.lampSpacingM() metres of
-  // it — the standing lamp itself; the light it throws is lighting.js's
-  // `cobble` row, and app.js puts both on the SAME point.
+  // it; the light it throws is lighting.js's `cobble` row, and app.js puts
+  // both on the SAME point.
   //
-  // IT STANDS ON THE POINT, which is what composes the square: the plinth's
-  // footprint, the ground shadow and the painted pool of glow all sit on the
-  // square's GROUND LINE (LAMP_GROUND_FRAC — which app.js seats the sprite's
-  // origin at, so that line lands on the lamp's own world point), and the post
-  // rises above it. So the pool lands on the ground the lamp stands on, while
-  // the lantern reads as being up in the air above its own foot. Centre the
-  // LANTERN on the point instead and the plinth stands a lamp's height off the
-  // ground it is on, which is the one thing that gives a seating away.
+  // IT STANDS ON THE POINT: the plinth's footprint, the ground shadow and the
+  // pool of glow sit on the square's GROUND LINE (LAMP_GROUND_FRAC, where
+  // app.js seats the sprite's origin) and the post rises above it. Centring
+  // the LANTERN on the point instead would stand the plinth a lamp's height
+  // off its ground.
   //
-  // …AND IT BURNS AT THE LANTERN. The lamp's world point is its foot and stays
-  // its foot — one point, which both the art and lighting.js read — but the
-  // light lighting.js stamps is LIFTED off it by LAMP_LANTERN_RISE_CELLS, so
-  // the cookie comes out of the glass rather than pooling on the tarmac under
-  // a dark head. The rise is a draw-space lift over the one point (the shape
-  // RENDER_SPEC's dyPx already has for the art), never a second position for
-  // the light to be left behind on.
+  // IT BURNS AT THE LANTERN: the world point stays the foot, but the light
+  // lighting.js stamps is LIFTED off it by LAMP_LANTERN_RISE_CELLS (a draw-space
+  // lift, never a second position), so the cookie comes out of the glass.
   //
-  // The FOOTPRINT is what stands the lamp clear of the carriageway
-  // (LAMP_FOOT_R_CELLS → app.js STREET_LAMP_R_CELLS → Streets.lampOffsetM), so
-  // the number that draws the plinth is the number that seats the lamp on the
-  // verge: one value, two readers, rather than a hand-typed gap that drifts
-  // when the art does.
+  // The FOOTPRINT stands the lamp clear of the carriageway (LAMP_FOOT_R_CELLS
+  // → app.js STREET_LAMP_R_CELLS → Streets.lampOffsetM): one value draws the
+  // plinth and seats the lamp on the verge.
   //
-  // WHY ART AS WELL AS LIGHT. The lightmap is MULTIPLIED over the world, so at
-  // noon (a near-white map) a light alone is invisible and the lamps would
-  // simply not exist by day. The lamp is therefore painted: gilded ironwork
-  // reads as a made object at any hour, and after dark the cookie over it is
-  // what makes it a lamp. It replaced a lit COBBLE in Sep 2026 — a shaded
-  // violet stone with a highlight, which lit the street correctly and looked
-  // like a stone doing it.
+  // ART AS WELL AS LIGHT: the lightmap is MULTIPLIED over the world, so at
+  // noon a light alone is invisible; gilded ironwork reads at any hour.
   //
-  // Baked ONCE into a texture (app.js) rather than stroked per frame, for the
-  // reason at the top of this file — and its glow is a real radial gradient
-  // rather than a stack of translucent rings, which is the same rule again (a
-  // translucent ring composites with its neighbours and blotches). The ink
-  // outline is likewise an OPAQUE bronze rather than dark ink at an alpha:
-  // nine sections meet at their joins, and a translucent stroke composites
-  // with itself wherever two of them do.
+  // Baked ONCE into a texture (app.js). The glow is a real radial gradient and
+  // the outline an OPAQUE bronze: translucent strokes composite with
+  // themselves wherever sections meet.
   //
-  // TWO COLOURS, BECAUSE THEY ARE TWO THINGS. The ironwork is UI_LAMP_GOLD —
-  // what the lamp is MADE of. What it SHEDS is UI_LAMP_GLOW: the glass, the
-  // bloom around it and the pool at its foot, the same violet lighting.js's
-  // `cobble` row throws over the whole thing (deliberately not the street's
-  // own pale UI_STREET_INK — a carriageway restores in stone, but a lamp
-  // reads as ACTIVATED). One constant per side, and the light's is shared with
-  // the lighting pass, so the paint and the cookie can't drift apart.
+  // TWO COLOURS: the ironwork is UI_LAMP_GOLD (what it is MADE of); what it
+  // SHEDS is UI_LAMP_GLOW (glass, bloom, pool), shared with lighting.js's
+  // `cobble` row so paint and cookie can't drift apart.
   const LAMP_TEX_PX = 128;         // baked square — drawn at ~77px, so it supersamples
   const LAMP_DRAW_CELLS = 2.4;     // …drawn this many cells across, glow and post included
-  // WHERE THE GROUND IS in the square, as a fraction of its height — and so
-  // where app.js seats the sprite's origin, which is what puts the foot on the
-  // lamp's own point. It is BELOW the middle because a lamp is mostly post:
-  // everything above the ground line is lamp, everything below it is the pool
-  // of glow and the shadow, and those need only the room a flattened pool
-  // takes (LAMP_HALO_FRAC x LAMP_HALO_SQUASH). Splitting the square evenly
-  // would spend half of it on empty road and leave the post too short to read
-  // as one — the lamp came out a candlestick.
+  // WHERE THE GROUND IS in the square, as a fraction of its height (app.js
+  // seats the sprite's origin there). It is BELOW the middle because a lamp is
+  // mostly post; the pool and shadow need only the room a flattened pool takes
+  // (LAMP_HALO_FRAC x LAMP_HALO_SQUASH).
   const LAMP_GROUND_FRAC = 0.62;
   const LAMP_FOOT_FRAC = 0.085;    // the plinth's half-width, as a fraction of the square
   // …so the lamp's FOOTPRINT covers this much ground, in CELLS.
@@ -751,19 +659,15 @@
     if (typeof Streets === 'undefined' || !entry.layers || !(tileEdgeM > 0)) return out;
     const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
     const tileKey = WorldGen.tileKey(tx, ty);
-    // The stone's radius in metres, in this tile's own basis — the second
-    // half of every verge offset below.
+    // The stone's radius in metres, in this tile's own basis.
     const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : WorldGen.CELL_M;
     const footRM = LAMP_SITE_R_CELLS * cellM;
     // LANTERN ROW (src/street_variants.js) is this lane, denser: a line whose
-    // street rolled 'lantern' stands its lamps at StreetVariants.lampSpacingFor
-    // — the same lamp, the same lit-when-restored rule, no prop of its own.
+    // street rolled 'lantern' stands its lamps at StreetVariants.lampSpacingFor.
     // The index keys lines by (feature, line) position in this same layer.
-    // THE GLOW is the same record's: StreetVariants.lampGlowFor(rec) — the
-    // variant's colour, torch orange for an unthemed major road, else null →
-    // the default UI_LAMP_GLOW. Resolved ONCE per lamp onto `glow`, the one
-    // value both the baked art (streetLampTexKey) and the light
-    // (Lighting.collectLamps) read.
+    // THE GLOW is StreetVariants.lampGlowFor(rec), else UI_LAMP_GLOW; resolved
+    // ONCE per lamp onto `glow`, which both the baked art (streetLampTexKey)
+    // and the light (Lighting.collectLamps) read.
     const lineRecs = new Map();
     const hasVariants = typeof StreetVariants !== 'undefined';
     if (entry.streetIndex && hasVariants) {
@@ -780,20 +684,17 @@
         if (cls === 'rail' || cls === 'transit') continue;
         if (WorldGen.isParkingAisle(f.tags)) continue;
         const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
-        // How far off the centreline this way's lamps stand: its own band's
-        // half-width plus the stone. Per FEATURE — the width is a function of
-        // the way's class, so it is the same for every line and every lamp
-        // this feature carries.
+        // How far off the centreline this way's lamps stand: its band's
+        // half-width plus the stone (per feature: it depends on class only).
         const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
           const rec = lineRecs.get(`${fi}:${i}`) || null;
           // How this line lays its lamps (Streets.lampLayFor): Lantern Row's
-          // own spacing, else a WALKING PATH's denser one (with the street's
-          // floor), else the street's. `spacingM` rides on every lamp as the
-          // gap it was actually laid at (length / count) — the metres a
-          // living-lamp visit pays (Streets.lampCredit).
+          // spacing, else a WALKING PATH's, else the street's. `spacingM` rides
+          // on every lamp as the gap it was laid at (length / count), the
+          // metres a living-lamp visit pays (Streets.lampCredit).
           const baseLay = Streets.lampLayFor(f.tags || {},
             (rec && rec.variant === 'lantern') ? StreetVariants.lampSpacingFor('lantern') : 0);
           const spans = Streets.tileSpans(line, mvtToM, extent);
@@ -855,34 +756,26 @@
   const LAMP_DARK = [28, 24, 20];  // the outline ink every sprite in here is drawn with
 
   // THE PROFILE — the lamp as a lathe turns it, listed top to bottom (as
-  // authored, from LAMP_AUTHORED_DEG; lampTilt stands it at LAMP_VIEW_DEG). Each row
-  // is one section: its top and bottom edge and its half-width at each, all as
-  // fractions of the baked square, with the ground at LAMP_GROUND_FRAC. `tone`
-  // lightens (+, a moulding catching the light) or darkens (−, a face turned
-  // away from it) the gild for that piece; `curve` bows its sides out (a
+  // authored, from LAMP_AUTHORED_DEG; lampTilt stands it at LAMP_VIEW_DEG). Each
+  // row is one section: its top and bottom edge and its half-width at each, all
+  // as fractions of the baked square, with the ground at LAMP_GROUND_FRAC.
+  // `tone` lightens (+) or darkens (−) the gild; `curve` bows its sides out (a
   // torus) or in (the flare of the base); `cap` strokes the visible top ring
   // of a piece wider than the one above it.
   //
   // The rows are drawn BOTTOM UP (paintLamp walks the table backwards): each
-  // piece STANDS ON the top face of the one below it, and seen from above the
-  // piece standing there is nearer the eye than the face it stands on, so it
-  // covers that face's middle and leaves its rim showing. (The painter rule
-  // in CLAUDE.md ranks separate things on the ground; inside one stack the
-  // higher piece is in front.) The moulding band and the cross-arm are drawn
-  // after the column they wrap. The lit glass is not here: it is the one part
-  // that is not metal, and it is painted between the skirt and the eaves.
+  // piece STANDS ON the top face of the one below it and is nearer the eye, so
+  // it covers that face's middle and leaves its rim showing. The moulding band
+  // and the cross-arm are drawn after the column they wrap. The lit glass is
+  // not here (it is not metal); it is painted between the skirt and the eaves.
   //
-  // HOW TALL. Every row here was pulled toward the ground line by one linear
-  // map about LAMP_GROUND_FRAC (×0.85, Sep 2026) — one transform over the
-  // whole table, so every overlap between the pieces, the lantern's share of
-  // the lamp and the rhythm of the mouldings survived it exactly; the widths
-  // are untouched, so the lamp reads as the same casting, standing a head
-  // shorter. It used to rise 0.578 of the square above its foot, near enough
-  // a tree's height (a tree is 1.5 cells and the square is LAMP_DRAW_CELLS
-  // across), which made a restored street a row of masts; the table rises
-  // 0.529 (the lantern was lengthened for the 45° view, so the eaves seen
-  // from above leave the glass showing), and LAMP_TILT stands it about 0.39.
-  // Retune the HEIGHT by re-mapping the table the same way, never by moving
+  // HOW TALL. Every row was pulled toward the ground line by one linear map
+  // about LAMP_GROUND_FRAC (×0.85), which preserves every overlap and the
+  // rhythm of the mouldings; widths are untouched. A lamp near tree height
+  // (1.5 cells; the square is LAMP_DRAW_CELLS across) made a restored street a
+  // row of masts. The table rises 0.529 (the lantern was lengthened for the
+  // 45° view so the eaves leave the glass showing), and LAMP_TILT stands it
+  // about 0.39. Retune the HEIGHT by re-mapping the table the same way, never by moving
   // LAMP_GROUND_FRAC — that line is where the lamp STANDS (app.js seats the
   // sprite on it), not how tall it is.
   const lampTilt = (y) => LAMP_GROUND_FRAC - (LAMP_GROUND_FRAC - y) * LAMP_TILT;
@@ -899,33 +792,26 @@
   ].map((s) => ({ ...s, y0: lampTilt(s.y0), y1: lampTilt(s.y1) }));
   // The lit glass, in the same units — wider at its foot, like every lantern.
   const LAMP_GLASS = { y0: lampTilt(0.196), y1: lampTilt(0.305), w0: 0.038, w1: 0.056 };
-  // The finial over the crown, and the cross-arm (the old ladder rest) under
-  // the lantern: the two pieces that are not sections of the turn.
+  // The finial over the crown, and the cross-arm under the lantern: the two
+  // pieces that are not sections of the turn.
   const LAMP_FINIAL = { cy: lampTilt(0.107), r: 0.016 };
   const LAMP_ARM = { y0: lampTilt(0.363), y1: lampTilt(0.375), w: 0.066, ball: 0.014 };
   const LAMP_BAND_ROW = 5, LAMP_COLUMN_ROW = 4, LAMP_SKIRT_ROW = 2;
-  // WHERE THE LIGHT COMES OUT: the lit glass's own midline, and how far that
-  // is ABOVE the lamp's point, in CELLS. The lamp STANDS on its point (the
-  // plinth, the shadow and the painted pool are all on the ground line), but
-  // the thing that is burning is up in the lantern — so lighting.js lifts its
-  // cookie by this rise rather than pooling it on the tarmac, and the glow
-  // comes out of the glass the bloom is already painted around. Derived from
-  // the profile above, so a re-mapped table takes the light with it: one
-  // number, two readers (paintLamp's bloom and Lighting.collectLamps).
+  // WHERE THE LIGHT COMES OUT: the lit glass's midline, and how far that is
+  // ABOVE the lamp's point, in CELLS. Derived from the profile above, so a
+  // re-mapped table takes the light with it: one number, two readers
+  // (paintLamp's bloom and Lighting.collectLamps).
   const LAMP_LANTERN_FRAC = (LAMP_GLASS.y0 + LAMP_GLASS.y1) / 2;
   const LAMP_LANTERN_RISE_CELLS = (LAMP_GROUND_FRAC - LAMP_LANTERN_FRAC) * LAMP_DRAW_CELLS;
 
   const lampRgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
   const lampMix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 
-  // `glowHex` ('#rrggbb') is the colour the lamp SHEDS — its glass, bloom and
-  // pool: the lamp entry's `glow` (StreetVariants.lampGlowFor off its street,
-  // the same value Lighting.collectLamps throws). Absent or malformed, it is
-  // LAMP_INK — the plain street's lamp, exactly as it always baked. The
-  // ironwork stays UI_LAMP_GOLD whatever the street: the metal is the lamp,
-  // the glow is the street's.
+  // `glowHex` ('#rrggbb') is the colour the lamp SHEDS (the lamp entry's
+  // `glow`, the same value Lighting.collectLamps throws); absent or malformed,
+  // LAMP_INK. The ironwork stays UI_LAMP_GOLD whatever the street.
   const lampGlowHex = (g) => ((typeof g === 'string' && /^#[0-9a-f]{6}$/i.test(g)) ? g : LAMP_INK);
-  function paintLamp(cx, size, glowHex) {
+  function paintLamp(cx, size, glowHex, broken = false) {
     const S = size || LAMP_TEX_PX;
     const c = S / 2;
     const gy = S * LAMP_GROUND_FRAC;          // the ground: where the lamp stands
@@ -933,9 +819,15 @@
     const lw = Math.max(1, S * 0.012);
     const glow = lampRgb(lampGlowHex(glowHex)), gold = lampRgb(LAMP_GOLD);
     const edge = lampMix(gold, LAMP_DARK, LAMP_EDGE_MIX);
-    const rgba = (c3, al) => `rgba(${c3[0]},${c3[1]},${c3[2]},${al})`;
-    // Crisp ochre/gold material bands. Only the metal uses this small ramp;
-    // coloured glass, bloom and the street's own light stay continuous.
+    const rgba = (c3, al) => {
+      // Weathered broken metal retains the standing lamp's hue and shading.
+      if (broken) {
+        const grey = c3[0] * .2126 + c3[1] * .7152 + c3[2] * .0722;
+        c3 = c3.map(v => Math.round(grey + (v - grey) * .35));
+      }
+      return `rgba(${c3[0]},${c3[1]},${c3[2]},${al})`;
+    };
+    // Crisp ochre/gold bands for the metal only; glass, bloom and light stay continuous.
     const metalRamp = [[76,48,24],[108,67,29],[155,101,38],gold,[230,215,163]];
     const shade = (t) => {
       const target = t >= 0 ? lampMix(gold, [255,244,214], Math.min(1,t))
@@ -943,8 +835,7 @@
       const distance = a => a.reduce((sum,v,k) => sum + (v-target[k]) ** 2,0);
       return metalRamp.reduce((best,ink) => distance(ink) < distance(best) ? ink : best);
     };
-    // A hard stop on either side of each band keeps small faces readable at
-    // map scale, while the existing curved outline preserves the silhouette.
+    // A hard stop on either side of each band keeps small faces readable at map scale.
     const metal = (x0, x1, t) => {
       const g = cx.createLinearGradient(x0, 0, x1, 0);
       const bands = [[0,.18,t-.30],[.18,.42,t+.42],[.42,.77,t],[.77,1,t-.45]];
@@ -982,11 +873,9 @@
       strokeEdge();
     };
     const strokeEdge = () => { cx.lineWidth = lw; cx.strokeStyle = rgba(edge, 1); cx.stroke(); };
-    // THE LIT GLASS — the one part of a lamp that is not metal. White-hot
-    // up-left of its middle (the corner every sprite in here is lit from),
-    // falling to the lamp's own violet at the frame, inside the same outline
-    // the ironwork wears, with two mullions down it so it reads as glazing
-    // rather than as a hole in the post.
+    // THE LIT GLASS: white-hot up-left of its middle (the corner every sprite
+    // is lit from), falling to the lamp's glow at the frame, with two mullions
+    // so it reads as glazing rather than a hole in the post.
     const glass = () => {
       const y0 = S * LAMP_GLASS.y0, y1 = S * LAMP_GLASS.y1;
       const w0 = S * LAMP_GLASS.w0, w1 = S * LAMP_GLASS.w1;
@@ -1010,10 +899,9 @@
       }
     };
 
-    // 1. THE POOL. A flat ellipse of the lamp's own violet on the ground it
-    //    stands on, falling to nothing: what says "this thing is lit" at noon,
-    //    when the lightmap has nothing to multiply. Squashed rather than
-    //    round, because it lies on the road.
+    if (!broken) {
+    // 1. THE POOL: a flat ellipse of glow on the ground, falling to nothing;
+    //    it says "lit" at noon when the lightmap has nothing to multiply.
     cx.save();
     cx.translate(c, gy);
     cx.scale(1, LAMP_HALO_SQUASH);
@@ -1026,8 +914,7 @@
     cx.fillStyle = pool;
     cx.fillRect(-hr, -hr, hr * 2, hr * 2);
     cx.restore();
-    // 2. THE BLOOM around the glass, laid BEFORE the ironwork so the metal
-    //    over it stays metal and only the air around the lantern glows.
+    // 2. THE BLOOM around the glass, laid BEFORE the ironwork so the metal stays metal.
     const gcy = S * LAMP_LANTERN_FRAC;
     const br = S * LAMP_BLOOM_FRAC;
     const bloom = cx.createRadialGradient(c, gcy, 0, c, gcy, br);
@@ -1037,16 +924,14 @@
     }
     cx.fillStyle = bloom;
     cx.fillRect(c - br, gcy - br, br * 2, br * 2);
-    // 3. THE GROUND SHADOW, thrown down-right of the plinth — the side every
-    //    sprite here shadows on — and squashed flat: it lies on the road.
+    }
+    // 3. THE GROUND SHADOW, thrown down-right of the plinth and squashed flat.
     cx.fillStyle = `rgba(${LAMP_DARK[0]},${LAMP_DARK[1]},${LAMP_DARK[2]},${LAMP_SHADOW_A})`;
     cx.beginPath();
     cx.ellipse(c + r * 0.40, gy + r * 0.26, r * 1.25, r * 1.25 * LAMP_VIEW_K, 0, 0, Math.PI * 2);
     cx.fill();
-    // 4. THE TURN, BOTTOM UP — each piece stands on the one below it, so it
-    //    covers that one's top face (see LAMP_PROFILE) — with the lit glass
-    //    painted in its place between the skirt and the eaves, and the band
-    //    held back until the column it wraps is up.
+    // 4. THE TURN, BOTTOM UP (see LAMP_PROFILE), with the glass painted between
+    //    the skirt and the eaves and the band held back until the column is up.
     const order = [];
     for (let i = LAMP_PROFILE.length - 1; i >= 0; i--) {
       if (i === LAMP_BAND_ROW) continue;
@@ -1054,21 +939,29 @@
       if (i === LAMP_COLUMN_ROW) order.push(LAMP_BAND_ROW);
     }
     for (const i of order) {
+      if (broken && i < LAMP_COLUMN_ROW) continue;
       const s = LAMP_PROFILE[i];
       const y0 = s.y0 * S, y1 = s.y1 * S, w0 = s.w0 * S, w1 = s.w1 * S;
-      sectionPath(y0, y1, w0, w1, s.curve);
+      if (broken && i === LAMP_COLUMN_ROW) {
+        const cut = lampTilt(.402) * S;
+        cx.beginPath();
+        cx.moveTo(c - w0, cut - lw);
+        cx.lineTo(c - w0 * .2, cut + lw * 1.4);
+        cx.lineTo(c + w0 * .4, cut + lw * .4);
+        cx.lineTo(c + w0, cut + lw * 2);
+        cx.lineTo(c + w1, y1);
+        cx.quadraticCurveTo(c, y1 + w1 * LAMP_VIEW_K, c - w1, y1);
+        cx.closePath();
+      } else sectionPath(y0, y1, w0, w1, s.curve);
       cx.fillStyle = metal(c - Math.max(w0, w1), c + Math.max(w0, w1), s.tone || 0);
       cx.fill();
       strokeEdge();
-      // The top face of a piece wider than the one it carries, catching the
-      // light: the moulding read that turns a stack of silhouettes into a
-      // stack of castings.
+      // The top face of a piece wider than the one it carries, catching the light.
       if (s.cap) topFace(y0, w0 - lw * 0.5, (s.tone || 0) + 0.35);
       if (i === LAMP_SKIRT_ROW) glass();
-      // The CROSS-ARM goes on once the column is up: a thin bar with a ball at
-      // each end, under the lantern — the ladder rest every cast-iron lamp
-      // wears, and the one piece that reads as ornament rather than structure.
-      if (i === LAMP_BAND_ROW) {
+      // The CROSS-ARM goes on once the column is up: a bar with a ball at each
+      // end, under the lantern.
+      if (!broken && i === LAMP_BAND_ROW) {
         const ay0 = S * LAMP_ARM.y0, ay1 = S * LAMP_ARM.y1, aw = S * LAMP_ARM.w;
         const ah = ay1 - ay0, amy = (ay0 + ay1) / 2, ab = S * LAMP_ARM.ball;
         cx.beginPath();
@@ -1084,53 +977,45 @@
         }
       }
     }
+    if (broken) return;
     // 5. THE FINIAL: the ball on the crown, the top of the whole lamp.
     const fr = S * LAMP_FINIAL.r, fy = S * LAMP_FINIAL.cy;
     cx.beginPath(); cx.arc(c, fy, fr, 0, Math.PI * 2);
     cx.fillStyle = metal(c - fr, c + fr, 0.15); cx.fill(); strokeEdge();
   }
 
-  // The kerb: a hairline pale line along the outer edge of a restored band —
-  // the one cue that says "this street has a built edge" rather than "this
-  // street is darker". Painted by re-stroking the run pale at full width and
+  // Baked into the existing cobble sheet's dark-lamp frames by the art tool.
+  // Uses the same 45-degree profile, plinth and moulding as the restored lamp.
+  function paintBrokenLamp(cx, size) { paintLamp(cx, size, undefined, true); }
+
+  // The kerb: a hairline pale line along the outer edge of a restored band.
+  // Painted by re-stroking the run pale at full width and
   // covering all but the outer pixel back up (see commitRestored).
   const KERB_ALPHA = 0.12;
   const KERB_INSET_PX = 2;
 
   // ── The patch is SOFT ────────────────────────────────────────────────────
-  // A rebuilt stretch is a REPAIR, not a decal. Its silhouette against the
-  // dilapidated band underneath is feathered rather than cut, and the round
-  // caps its ends already carry read as a proper lozenge once the corners go
-  // soft — so where the player's dwell stopped is a place the new surface
-  // fades out, not a guillotined edge across the carriageway.
+  // A rebuilt stretch is a REPAIR, not a decal: its silhouette is feathered so
+  // the new surface fades out where the player's dwell stopped.
   //
   // The blur is applied to the patch's ALPHA ONLY: a mask of the same strokes,
-  // blurred, composited `destination-in` over the finished layer. Blurring the
-  // drawn layer itself would smear the clean setts into grey mush, which is
-  // the one thing the restored look is FOR.
+  // blurred, composited `destination-in` over the finished layer (blurring the
+  // drawn layer would smear the clean setts into grey mush).
   //
   // AT FULL WIDTH, and the radius is a FRACTION of the band. A Gaussian leaves
-  // its half-maximum on the original edge, so blurring the true width keeps
-  // the patch exactly as wide as the band it repairs — nothing is stroked in
-  // to compensate. What a fixed radius WOULD do is eat a narrow way alive: a
-  // footpath is a third the width of a street, and at the radius a carriageway
-  // wants its centre never reaches full alpha, so the whole path would restore
-  // ghostly. So each band width is blurred by its own radius, capped at
-  // RESTORED_BLUR_PX for the wide ones.
+  // its half-maximum on the original edge, so the patch stays exactly as wide
+  // as the band it repairs. A fixed radius would eat a narrow way alive (a
+  // footpath is a third the width of a street and would never reach full
+  // alpha), so each band width is blurred by its own radius, capped at
+  // RESTORED_BLUR_PX.
   //
-  // Canvas2D `filter` is the only gradient primitive available here (the same
-  // reason lighting.js bakes its cookies on a canvas). Where it is missing the
-  // softening is skipped and the hard edge ships — never a stack of alpha
-  // strokes standing in for it: a translucent stroke composites with ITSELF
-  // wherever a path doubles back, so a hand-rolled feather would blotch at
-  // every junction, which is the same trap the opaque-then-alpha rule at the
-  // top of this file exists to avoid.
+  // Canvas2D `filter` is the only gradient primitive available. Where it is
+  // missing the hard edge ships — never a stack of alpha strokes, which
+  // composite with THEMSELVES where a path doubles back.
   //
-  // Measured against a real canvas rather than guessed: at these two numbers a
-  // footway (~9px at 7 m cells) fades over 4px and keeps 93% alpha down its
-  // spine, a residential street (~23px) fades over 9px and stays solid. Push
-  // the fraction past a third and the narrow ways stop reaching full alpha at
-  // all — which is the restored footpath going ghostly, not softer.
+  // Measured: at these numbers a footway (~9px at 7 m cells) fades over 4px
+  // and keeps 93% alpha down its spine, a street (~23px) fades over 9px. Past
+  // a third the narrow ways stop reaching full alpha.
   const RESTORED_BLUR_PX = 5;          // the widest feather any band gets
   const RESTORED_BLUR_FRAC = 0.32;     // …and never more than this much of its own width
 
@@ -1175,25 +1060,20 @@
   // headless tests inject their own recording stub as scene.roadGeomGfx.
   //
   // Why canvas 2D rather than a Phaser Graphics:
-  //   • ROUND CAPS + JOINS. Phaser's Graphics has no lineCap/lineJoin control,
-  //     so every way ended in a hard square butt and every bend showed a notch.
-  //   • NO DOUBLED JOINTS. A translucent stroke composites with ITSELF wherever
-  //     a path doubles back over its own width — at every junction and sharp
-  //     bend — stacking 31% on 31% into a dark blot. Here the whole network is
-  //     drawn OPAQUE into an offscreen canvas and the resulting image is shown
-  //     at ALPHA, so overlaps are opaque-on-opaque and the band stays even.
-  // The texture covers the viewport plus PAD on each side (the same pad the
-  // culler keeps), and the container scrolls it for the sub-cell offset.
-  // There are TWO of these canvases now, both in scene.roadGeomContainer: the
-  // dilapidated base (added first) and the restored pass over it. They share
-  // the recording front-end below — the difference is entirely in commit().
+  //   • ROUND CAPS + JOINS: Phaser's Graphics has no lineCap/lineJoin control.
+  //   • NO DOUBLED JOINTS: a translucent stroke composites with ITSELF where a
+  //     path doubles back, stacking into a dark blot. Here the whole network is
+  //     drawn OPAQUE into an offscreen canvas and the image is shown at ALPHA.
+  // The texture covers the viewport plus PAD on each side (the culler's pad),
+  // and the container scrolls it for the sub-cell offset. TWO canvases live in
+  // scene.roadGeomContainer: the dilapidated base and the restored pass over
+  // it; they share the recording front-end below and differ only in commit().
   const TEX_KEY = 'roadgeom_overlay';
 
-  // A scratch canvas the size of a pass's texture. Needed wherever a pattern
-  // must land on SOME of the network instead of all of it: a pattern fill is
-  // a whole-canvas operation, so the strokes it should mask against are
-  // replayed here on their own, the pattern is composited against THOSE, and
-  // the finished layer is drawn back onto the real canvas.
+  // A scratch canvas the size of a pass's texture, for patterns that must land
+  // on SOME of the network: a pattern fill is a whole-canvas operation, so the
+  // strokes to mask against are replayed here, the pattern composited against
+  // them, and the layer drawn back onto the real canvas.
   function scratchLayer(size) {
     if (typeof document === 'undefined') return null;
     const c = document.createElement('canvas');
@@ -1219,13 +1099,12 @@
     }
   }
 
-  // World-phased pattern fill (stones, edge noise, weathering and the clean
-  // setts all share the anchoring): translating by the phase pins the tile to
-  // the world, and the fill runs a tile wider on every side to cover what the
-  // shift pushes off the canvas. The phase is kept UNWRAPPED on the pass and
-  // wrapped per tile here — the tiles are different sizes (32 and 64), and a
-  // phase wrapped to the wrong one would jump the pattern half a tile every
-  // time the camera crossed a cell.
+  // World-phased pattern fill (shared by stones, edge noise, weathering and
+  // setts): translating by the phase pins the tile to the world, and the fill
+  // runs a tile wider on every side to cover what the shift pushes off. The
+  // phase is kept UNWRAPPED on the pass and wrapped per tile here — tiles
+  // differ in size (32 and 64), and a phase wrapped to the wrong one would
+  // jump the pattern whenever the camera crossed a cell.
   function patternFill(ctx, pass, pattern, composite, tilePx) {
     const wrap = (v) => ((v % tilePx) + tilePx) % tilePx;
     ctx.save();
@@ -1261,8 +1140,7 @@
     const pass = {
       ctx, tex, size, originX, originY, image: img,
       ops: [], decorOps: [], erases: [], pats: {},
-      // Screen position the world origin projected to in this pass, relative
-      // to the canvas — see patternFill.
+      // World origin's position in this canvas — see patternFill.
       phaseX: 0, phaseY: 0,
     };
     let curStyle = { w: 1, c: ROAD_COLOR };
@@ -1272,10 +1150,8 @@
         pass.ops = []; pass.decorOps = []; pass.erases = []; curPts = null;
         ctx.clearRect(0, 0, size, size);
       },
-      // The alpha is carried by the IMAGE (see above), so the stroke itself is
-      // always opaque; the colour is the caller's (earth for roads, slate for
-      // rail, near-black for a restored street) and the alpha argument is
-      // deliberately ignored here.
+      // The alpha is carried by the IMAGE, so strokes are always opaque and
+      // the alpha argument is deliberately ignored.
       lineStyle(w, c, alpha, pavement) { curStyle = { w, c: c == null ? ROAD_COLOR : c, ...pavement }; },
       beginPath() { curPts = []; },
       moveTo(x, y) { curPts.push(x - originX, y - originY); },
@@ -1285,13 +1161,11 @@
         curPts = null;
       },
       // Punch a cell-sized hole in the finished band. Recorded and applied
-      // after every paint pass — an immediate clearRect would be repainted
-      // by the repair pass; clearRect rather than a destination-out fill so
-      // the hole is exact and costs nothing to composite.
+      // after every paint pass, since an immediate clearRect would be
+      // repainted by the repair pass.
       eraseRect(x, y, w, h) { pass.erases.push([x - originX, y - originY, w, h]); },
-      // Track furniture (railway ties + rails). Stroked plain in commit() —
-      // after the gravel so it stays crisp, before the erases so the keep-out
-      // cells punch it out along with the ballast.
+      // Track furniture (ties + rails): stroked plain in commit() after the
+      // gravel (stays crisp) and before the erases (keep-out punches it out).
       decorPath(w, c, pts, alpha = 1) {
         if (pts && pts.length >= 2) {
           pass.decorOps.push({ w, c, alpha, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
@@ -1306,18 +1180,16 @@
   function commitBase(pass) {
     const { ctx, size } = pass;
     ctx.clearRect(0, 0, size, size);
-    // Fringe pass at true width, then eat random bites out of everything…
+    // Fringe pass at true width, then eat random bites out of everything.
     strokeOps(ctx, pass.ops, 0);
     const noise = patternOf(ctx, pass.pats, 'edge', edgeNoiseTile());
     if (noise && pass.ops.length) {
       patternFill(ctx, pass, noise, 'destination-out', STONE_TILE_PX);
-      // …and repair the interior: the bites survive only in the outer
-      // EDGE_FRINGE_PX of each band, which is the rough edge.
+      // Repair the interior: the bites survive only in the outer fringe.
       strokeOps(ctx, pass.ops, -EDGE_FRINGE_PX);
     }
-    // source-atop keeps the stones inside what's already drawn — the
-    // nibbled silhouette included — so they never leak off the ways. Laid
-    // BEFORE the track furniture, so ties and rails stay untextured.
+    // source-atop keeps the stones inside the nibbled silhouette; laid BEFORE
+    // the track furniture so ties and rails stay untextured.
     const stones = patternOf(ctx, pass.pats, 'stone', stoneTile());
     if (stones) patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX);
     for (const row of global.StreetVariants?.STREET_VARIANTS || []) {
@@ -1334,14 +1206,10 @@
       ctx.save(); ctx.globalCompositeOperation = 'source-atop';
       ctx.drawImage(layer.canvas, 0, 0); ctx.restore();
     }
-    // Weathering, on the ROADS only. A rail band is ballast and gets none, but
-    // the stone pattern above is one fill over the whole network — there is no
-    // per-way pass to opt out of. So the cracks are masked instead: the road
-    // ops alone are replayed on a scratch layer, the tile is composited
-    // 'source-in' against THAT (pattern ∩ roads), and the result is drawn back
-    // source-atop. One extra layer per rebuild — and rebuilds are rare — where
-    // re-stroking the rail runs plain afterwards would have wiped their gravel
-    // off with the cracks, and a clip path can't be built from a stroke at all.
+    // Weathering, on the ROADS only (rail is ballast). The road ops alone are
+    // replayed on a scratch layer, the tile composited 'source-in' against
+    // THAT, and the result drawn back source-atop (re-stroking the rail runs
+    // plain would wipe their gravel, and a clip can't be built from a stroke).
     // Rail is identified by its colour: RAIL_COLOR has exactly one source.
     const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR);
     if (roadOps.length) {
@@ -1370,23 +1238,17 @@
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
-    // Land only, and never over a floor — applied LAST so the keep-out
-    // holes punch through band, gravel, cracks and track alike.
+    // Applied LAST so the keep-out holes punch through band, gravel, cracks and track.
     for (const [x, y, w, h] of pass.erases) ctx.clearRect(x, y, w, h);
     pass.tex.refresh();
   }
 
   // ── The restored pass ────────────────────────────────────────────────────
-  // No edge NIBBLE here — the ragged bites the base pass eats out of its own
-  // band are what "dilapidated" looks like, and a rebuilt street is whole.
-  // Its outline is still SOFT rather than sharp (see "The patch is SOFT"): the
-  // patch is finished crisp and then feathered as a last step, so the setts
-  // stay clean while the silhouette melts into the band it sits on.
-  // Roads and paths are laid as two SEPARATE layers because their clean tiles
-  // differ (the path's mortar is halved) and a pattern fill is a whole-canvas
-  // operation — one fill after both were stroked would texture the roads
-  // twice. Roads go down first so a footpath crossing a street reads on top,
-  // matching the base pass's widest-first order.
+  // No edge NIBBLE: a rebuilt street is whole. Its outline is feathered as a
+  // last step (see "The patch is SOFT") so the setts stay clean.
+  // Roads and paths are laid as SEPARATE layers because their clean tiles
+  // differ and a pattern fill is a whole-canvas operation. Roads go down first
+  // so a footpath crossing a street reads on top.
   function commitRestored(pass) {
     const { ctx, size } = pass;
     ctx.clearRect(0, 0, size, size);
@@ -1409,16 +1271,14 @@
       const pat = tile && lx.createPattern(tile, 'repeat');
       strokeOps(lx, ops, 0);
       if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
-      // The kerb: wash the whole band pale, cover all but the outer pixel
-      // back up in the band colour, then re-lay the setts over the repair.
-      // What survives is a hairline light edge — a built kerb, not an outline.
+      // The kerb: wash the band pale, cover all but the outer pixel back up,
+      // then re-lay the setts, leaving a hairline light edge.
       lx.save();
       lx.globalCompositeOperation = 'source-atop';
       strokeOps(lx, ops, 0, `rgba(255,255,255,${KERB_ALPHA})`);
       strokeOps(lx, ops, -KERB_INSET_PX);
       lx.restore();
       if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
-      // …and last, melt the silhouette's edge into the band under it.
       softenEdge(layer, size, ops);
       ctx.drawImage(layer.canvas, 0, 0);
     }
@@ -1441,17 +1301,14 @@
     if (!pass) return null;
     pass.target.commit = () => commitRestored(pass);
     scene._roadRestoredTarget = pass.target;
-    // The live Graphics (drawLive) belongs above both images; if it was
-    // created before this pass existed, put it back on top.
+    // The live Graphics (drawLive) belongs above both images.
     const c = scene.roadGeomContainer;
     if (scene.roadLiveGfx && c && c.bringToTop) c.bringToTop(scene.roadLiveGfx);
     return pass.target;
   }
 
   // Prefer a scene-provided Graphics-shaped object (the headless tests inject
-  // one); otherwise build the canvas adapter. The restored pass has no
-  // fallback: a scene that provides no roadRestoredGfx and can't build a
-  // canvas simply doesn't get one (the base band still draws).
+  // one); otherwise build the canvas adapter. The restored pass has no fallback.
   function strokeTarget(scene) {
     return scene.roadGeomGfx || canvasTarget(scene);
   }
@@ -1463,26 +1320,21 @@
     if (scene) scene._roadGeomKey = null;
   }
 
-  // Same trick the dashed grid + biome borders use: the world→screen transform
-  // is a pure translation, so the geometry is drawn ONCE at the cell-snapped
-  // camera position and the container is scrolled by the sub-cell fraction
-  // every frame. Without it this pass would re-stroke a few thousand segments
-  // per frame just to move them a pixel.
+  // The world→screen transform is a pure translation, so the geometry is drawn
+  // ONCE at the cell-snapped camera position and the container is scrolled by
+  // the sub-cell fraction every frame.
   function draw(scene) {
     const g = strokeTarget(scene);
     if (!g) return;
     const container = scene.roadGeomContainer;
-    // Always on at the surface — the ☰ toggle it once had is gone (the band
-    // IS how roads look now, not a debug aid). Only depth gates it: cave
-    // tiles have no MVT layers to stroke.
+    // Always on at the surface; only depth gates it (cave tiles have no MVT layers).
     const on = (scene.depth ?? 0) === 0;
     if (container) container.setVisible(on);
     if (!on) {
       if (scene._roadGeomKey !== null) {
         g.clear();
         if (g.commit) g.commit();
-        // Only a restored pass that already EXISTS is blanked — underground
-        // there is nothing to restore, so there is no reason to build one.
+        // Only an already-existing restored pass is blanked, never built here.
         const r = scene.roadRestoredGfx || scene._roadRestoredTarget;
         if (r) { r.clear(); if (r.commit) r.commit(); }
         scene._roadGeomKey = null;
@@ -1490,19 +1342,14 @@
       return;
     }
 
-    // Camera anchor, not the body — a peek drag repaints the bands over the
-    // ground they belong to (coords.js overlayFrame → viewAnchorCell). The
-    // rebuild key below is the snapped anchor cell, so a peek that crosses a
-    // cell boundary repaints exactly as walking across one does — plus which
-    // of the 3×3 tiles have their MVT layers in hand, so a tile that finishes
-    // loading (or gets evicted and rebuilt) repaints even while the player
-    // stands still.
+    // Camera anchor, not the body (coords.js overlayFrame → viewAnchorCell).
+    // The rebuild key is the snapped anchor cell plus which of the 3×3 tiles
+    // have their MVT layers, so a tile that finishes loading (or is rebuilt)
+    // repaints even while the player stands still.
     const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
       overlayFrame(scene, (entry) => !!entry.layers);
-    // …and the STREETS epoch, which Streets.restore bumps whenever a stretch
-    // is newly rebuilt. That's what repaints the restored canvas the frame
-    // after a restore — and, because it only moves when something changed,
-    // what keeps a standing player from repainting either canvas per frame.
+    // The STREETS epoch, bumped by Streets.restore, repaints the restored
+    // canvas after a restore and moves only when something changed.
     const epoch = (typeof Streets !== 'undefined' && scene.save) ? Streets.epoch(scene.save) : 0;
     const key = `${baseCellIX},${baseCellIY},${ready},${epoch}`;
     if (key !== scene._roadGeomKey) {
@@ -1514,25 +1361,20 @@
   }
 
   // ── Keep-out ─────────────────────────────────────────────────────────────
-  // The overlay is a band painted over the GROUND, so it has no business on
-  // the two things that aren't ground: open water and a building's floor.
-  // Both are cell-shaped, so rather than clipping every stroke we draw the
-  // whole network first and punch the offending cells back out afterwards —
-  // one clearRect per keep-out cell, and only on a rebuild.
+  // The band has no business on open water or a building's floor. Both are
+  // cell-shaped, so the whole network is drawn first and the offending cells
+  // punched back out (one clearRect per cell, only on a rebuild).
   //
-  // The projection is the same cell-snapped one the strokes use: with the
-  // container carrying the sub-cell offset, the cell `ox` columns east and
-  // `oy` rows south of the player's own cell lands at exactly
+  // The projection is the cell-snapped one the strokes use: the cell `ox`
+  // columns east and `oy` rows south of the player's own cell lands at
   // (viewCenterX + ox*CELL_PX, viewCenterY + oy*CELL_PX). Only the padded
-  // viewport is walked — the same pad the culler keeps.
+  // viewport is walked.
   function keepOut(scene, g, baseCellIX, baseCellIY) {
     if (!g.eraseRect || baseCellIX == null) return;
-    // The building half of the keep-out only applies while buildings ARE their
-    // cells. In polygonal mode (building_overlay.js) those cells are painted as
-    // plain ground and the footprint is drawn from its source ring in a layer
-    // ABOVE this one — so punching them out would cut a staircase of holes in
-    // the road wherever a building's old cells fell, next to a polygon that
-    // covers the band by itself. Water is unconditional either way.
+    // The building half only applies while buildings ARE their cells. In
+    // polygonal mode (building_overlay.js) the footprint is drawn from its
+    // source ring ABOVE this layer, so punching cells out would cut a staircase
+    // of holes in the road. Water is unconditional.
     const polyB = typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
     const PAD = CELL_PX * 2;
     const minX = scene.viewLeft - PAD, maxX = scene.viewLeft + scene.viewSize + PAD;
@@ -1541,14 +1383,12 @@
     const ox1 = Math.ceil((maxX - scene.viewCenterX) / CELL_PX);
     const oy0 = Math.floor((minY - scene.viewCenterY) / CELL_PX);
     const oy1 = Math.ceil((maxY - scene.viewCenterY) / CELL_PX);
-    // Each row is read on ITS tile row's grid (coords.js — a tile's grid is its
-    // row's), with the row band's column shift and screen phase (viewBand) for
-    // a row across a seam whose grid differs from the anchor's — the cells
-    // drawCells paints in those slots.
+    // Each row is read on ITS tile row's grid (coords.js), with the row band's
+    // column shift and screen phase (viewBand) across a seam whose grid differs
+    // from the anchor's — the cells drawCells paints in those slots.
     const pc = scene.cellsForRow ? viewAnchorCell(scene) : null;
     const t0 = {};
-    // Tile lookups are memoised across the row-major walk: a padded viewport
-    // spans at most 4 tiles, so this is 4 Map.gets instead of one per cell.
+    // Tile lookups are memoised: a padded viewport spans at most 4 tiles.
     let curTX = null, curTY = null, curGrid = null;
     for (let oy = oy0; oy <= oy1; oy++) {
       const acy = baseCellIY + oy;
@@ -1575,9 +1415,8 @@
   }
 
   // Split one polyline (WORLD METRES) into runs of consecutive ON-SCREEN
-  // segments and hand each to `add`. A run is broken wherever a segment is
-  // wholly outside the padded viewport — the skipped stretch would otherwise
-  // be drawn as a straight shortcut across the view.
+  // segments and hand each to `add`; a run breaks wherever a segment is wholly
+  // outside the padded viewport (else the skip draws a straight shortcut).
   function emitRuns(pts, proj, add) {
     const { projX, projY, minX, maxX, minY, maxY } = proj;
     let px = projX(pts[0].x), py = projY(pts[0].y);
@@ -1595,10 +1434,9 @@
   }
 
   // Stroke a style-bucketed collection — widest first, so a narrow street
-  // crossing a motorway still reads as its own stroke on top. Sorted rather
-  // than insertion-ordered so the draw order doesn't depend on which tile
-  // happened to load first; ties (same width, different colour) break on the
-  // colour and pavement identity so the order is fully determined.
+  // crossing a motorway reads on top. Sorted rather than insertion-ordered so
+  // draw order doesn't depend on tile load order; ties break on colour and
+  // pavement identity.
   function strokeBuckets(g, runsByStyle, alpha) {
     const styles = [...runsByStyle.values()]
       .sort((a, b) => (b.widthPx - a.widthPx) || (a.color - b.color)
@@ -1616,9 +1454,8 @@
 
   // Iterate every transportation LINE of every tile in the frame:
   // fn(feature, line, lineIdx, mvtToM, originMx, originMy, tileKey).
-  // Lot lanes never reach here (WorldGen.isLotLane — the rasterizer cuts
-  // them out of the layer); the tagged check below is belt and braces for a
-  // layer that never went through the rasterizer. See the header.
+  // Lot lanes normally never reach here (WorldGen.isLotLane); the check below
+  // is belt and braces for a layer that skipped the rasterizer.
   function eachTransportLine(tiles, fn) {
     for (const { tx, ty, entry } of tiles) {
       const tileEdgeM = entry.tileEdgeM;
@@ -1644,11 +1481,8 @@
 
   function rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY) {
     // Cell-snapped projection from the camera anchor (the container re-applies
-    // the sub-cell offset) and the padded cull bounds — a segment whose
-    // endpoints both sit outside the padded viewport can still cross it, so
-    // the pad is a full cell wider than the sub-cell scroll can ever reveal.
-    // Both passes share it, so the restored metres land exactly on the band
-    // they were restored from.
+    // the sub-cell offset) and the padded cull bounds. Both passes share it, so
+    // the restored metres land exactly on the band they were restored from.
     const proj = overlayProjection(scene, fracX, fracY);
     rebuildBase(scene, tiles, proj, baseCellIX, baseCellIY);
     rebuildRestored(scene, tiles, proj, baseCellIX, baseCellIY);
@@ -1661,10 +1495,9 @@
     g.clear();
     const { projX, projY } = proj;
 
-    // Ways are collected into runs of consecutive ON-SCREEN segments, bucketed
-    // by stroke STYLE (width, colour and pavement), and stroked as PATHS rather than loose
-    // segments: a wide band drawn segment-by-segment leaves a notch at every
-    // bend, and one lineStyle per style beats one per feature.
+    // Ways are collected into runs of ON-SCREEN segments, bucketed by stroke
+    // STYLE (width, colour and pavement), and stroked as PATHS: segment-by-
+    // segment drawing leaves a notch at every bend.
     const runsByStyle = new Map();   // width, colour, variant and path kind → runs
     const railRuns = [];             // rail-class runs, for the track furniture pass
     const carpets = [];              // themed verge strips (StreetVariants row.carpet)
@@ -1695,13 +1528,10 @@
     });
 
     strokeBuckets(g, runsByStyle, ALPHA);
-    // Dress the railways as track — ties + rails over the ballast band. Only
-    // when the target can draw decor (the canvas adapter); the headless test
-    // stub gets the plain band.
+    // Dress the railways as track, only where the target can draw decor.
     if (g.decorPath) for (const run of railRuns) emitRailDecor(scene, g, run);
-    // Carpet strips: row-defined strokes either side of the road, on the
-    // verge cell, so the keep-out below trims them like the track — then the
-    // row's emblem stamped down each strip.
+    // Carpet strips either side of the road on the verge cell (so the keep-out
+    // trims them like the track), then the row's emblem down each strip.
     if (g.decorPath) for (const { pts, variant, halfM } of carpets) {
       const off = halfM + scene.cellM / 2;
       for (const side of [1, -1]) {
@@ -1710,26 +1540,19 @@
         });
       }
     }
-    // Land only, and never over a floor: punch the keep-out cells back out.
     keepOut(scene, g, baseCellIX, baseCellIY);
-    // Anchor the stone pattern to the world before it's laid down: the world origin's
-    // screen position in THIS pass tells the target how far to phase the
-    // pattern, so walking scrolls the texture with the road rather than under
-    // it. (projX/projY are cheap and this is once per rebuild.)
+    // Anchor the stone pattern to the world, so walking scrolls the texture
+    // with the road rather than under it.
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
-    // Upload the finished canvas once, after every way is on it — not per
-    // stroke. No-op for the tests' recording stub.
+    // Upload the finished canvas once, after every way is on it.
     if (g.commit) g.commit();
   }
 
   // ── The restored metres ──────────────────────────────────────────────────
   // Same walk, but each line is asked what the player has REBUILT of it: an
-  // interval list of metres along the line, from the save through Streets (the
-  // raw save shape is never read here). Each interval becomes its own exact
-  // sub-polyline, so a restored stretch ends where the player's dwell ended
-  // rather than at the nearest vertex.
-  //
-  // Rail is skipped outright: a railway is not a street to rebuild.
+  // interval list of metres from the save through Streets. Each interval
+  // becomes its own exact sub-polyline, so a restored stretch ends where the
+  // dwell ended rather than at the nearest vertex. Rail is skipped.
   function rebuildRestored(scene, tiles, proj, baseCellIX, baseCellIY) {
     const g = restoredTarget(scene);
     if (!g) return;
@@ -1769,24 +1592,17 @@
   }
 
   // A round cap/join for a stroked polyline that never paints ground the
-  // stroke itself already covers. Only two shapes are actually MISSING from
-  // a plain butt-capped, mitred `strokePath()`:
-  //   • the half-disc beyond each END, past the flat edge the butt cap
-  //     leaves — its straight side sits exactly on that edge (zero area
-  //     shared with the stroke's own rectangle), so filling it adds no
-  //     overlap;
-  //   • the WEDGE on the OUTER side of each interior bend — the gap a
-  //     mitred join leaves between the two segments' rectangles. The INNER
-  //     side is already covered (the two rectangles overlap there inside
-  //     Phaser's own single strokePath); that overlap is Phaser's, not
-  //     introduced here, and is left alone.
-  // Each cap/join comes back as one FAN — `[centre, ...arc points]`, meant
-  // for one `g.fillPoints(fan, true)` each — never a full circle, which
-  // would double-composite its alpha over the stroke underneath it (see the
-  // note above drawLive).
+  // stroke already covers. Only two shapes are MISSING from a butt-capped,
+  // mitred `strokePath()`:
+  //   • the half-disc beyond each END (its straight side sits on the butt
+  //     edge, so it adds no overlap);
+  //   • the WEDGE on the OUTER side of each interior bend. The INNER side is
+  //     already covered by overlap inside Phaser's own strokePath.
+  // Each cap/join comes back as one FAN — `[centre, ...arc points]`, for one
+  // `g.fillPoints(fan, true)` — never a full circle, which would
+  // double-composite its alpha (see the note above drawLive).
   //
-  // Pure and exported so test/node/road_overlay.test.js can pin the geometry
-  // — which side is "outer" and by how much — without a Phaser Graphics.
+  // Pure and exported so test/node/road_overlay.test.js can pin the geometry.
   function roundJoinFans(pts, r, arcSteps = 8) {
     const n = pts && pts.length;
     if (!(n >= 2) || !(r > 0)) return [];
@@ -1807,9 +1623,8 @@
     const dirs = [];
     for (let i = 0; i < n - 1; i++) dirs.push(dirOf(pts[i], pts[i + 1]));
     const out = [];
-    // END CAPS: a half-disc bulging AWAY from the line — behind the start,
-    // ahead of the end — from one normal to the other, the long way round
-    // (π), through the line's own extended direction.
+    // END CAPS: a half-disc bulging AWAY from the line, from one normal to the
+    // other (π), through the line's own extended direction.
     const firstDir = dirs.find((d) => d);
     if (firstDir) {
       const n0 = left(firstDir);
@@ -1820,13 +1635,10 @@
       const nL = left(lastDir);
       out.push(fan(pts[n - 1].x, pts[n - 1].y, Math.atan2(-nL.y, -nL.x), Math.PI));
     }
-    // INTERIOR JOINS: the turn's signed angle (atan2 of the cross/dot of the
-    // two segment directions) says which way the path bends AND by how
-    // much; the wedge sits on the side OPPOSITE the turn (a path turning
-    // toward its left leaves the gap on its right), swept by that exact
-    // angle from that side's normal — which lands it precisely on the next
-    // segment's normal, by construction, since a normal rotates rigidly
-    // with its own direction vector.
+    // INTERIOR JOINS: the turn's signed angle says which way the path bends
+    // and by how much; the wedge sits on the side OPPOSITE the turn, swept by
+    // that angle from that side's normal, which lands on the next segment's
+    // normal by construction.
     for (let i = 1; i < n - 1; i++) {
       const dPrev = dirs[i - 1], dNext = dirs[i];
       if (!dPrev || !dNext) continue;
@@ -1844,36 +1656,21 @@
 
   // ── The live pass ────────────────────────────────────────────────────────
   // Everything the overlay draws that changes EVERY frame: the dwell preview
-  // creeping along a street the player is standing over, and the white shine
-  // that runs down a stretch the moment it is rebuilt. Those can't live on
-  // either canvas — a canvas rebuild is a hundred strokes and a handful of
-  // pattern fills, and this changes sixty times a second — so they go on a
-  // plain Phaser Graphics, cleared and re-stroked per frame. Usually 0–10
-  // short runs.
+  // and the white shine down a freshly rebuilt stretch. Too costly for the
+  // canvases, so a plain Phaser Graphics, cleared and re-stroked per frame
+  // (usually 0–10 short runs).
   //
-  // Two things to know about the seating:
-  //   • the points are projected through scene.worldMetersToScreen — the
-  //     camera-anchored projection, so a peek drag carries the preview with
-  //     the ground, exactly as it carries the bands;
-  //   • the Graphics sits INSIDE roadGeomContainer (so it stays above both
-  //     images and inside the same mask), and draw() moves that container by
-  //     the sub-cell scroll every frame — which worldMetersToScreen already
-  //     accounts for. So the container's own offset is subtracted back out,
-  //     or the preview would run half a cell ahead of the band under it.
-  // Phaser's Graphics has no lineCap/lineJoin control (the same limitation
-  // the "why canvas 2D" note above explains), so a stroked path alone would
-  // end these runs in a hard square butt and show a notch at every bend —
-  // where the canvas-baked bands under them are round both ways
-  // (`cx.lineCap/lineJoin = 'round'`). Not worth a second canvas for
-  // something this cheap to fake, but NOT with a filled circle dropped on
-  // every vertex either — that circle's alpha would compost AGAIN on top of
-  // the stroke it's sitting on (the exact "translucent stroke composites
-  // with ITSELF" trap the canvas passes above exist to dodge; at
-  // the preview's old 0.55 the overlap would read at ~0.80, and the shine is
-  // translucent too). roundJoinFans
-  // fills only what a butt-capped, mitred stroke is actually MISSING: the
-  // half-disc beyond each end and the wedge on the OUTER side of each bend —
-  // never ground the stroke already painted.
+  // Seating: points go through scene.worldMetersToScreen (the camera-anchored
+  // projection, so a peek drag carries the preview with the ground). The
+  // Graphics sits INSIDE roadGeomContainer, which draw() moves by the sub-cell
+  // scroll that worldMetersToScreen already accounts for, so the container's
+  // offset is subtracted back out or the preview would run half a cell ahead.
+  //
+  // Phaser's Graphics has no lineCap/lineJoin control, so a stroked path alone
+  // ends in a hard butt and notches every bend, unlike the round canvas bands
+  // under it. A filled circle per vertex would double-composite its alpha on
+  // the stroke (the same trap the canvas passes dodge), so roundJoinFans fills
+  // only what a butt-capped, mitred stroke is MISSING.
   function drawLive(scene, runs) {
     const container = scene.roadGeomContainer;
     let g = scene.roadLiveGfx;
@@ -1904,9 +1701,7 @@
         if (i) g.lineTo(x, y); else g.moveTo(x, y);
       }
       g.strokePath();
-      // ROUND CAPS + JOINS: only the ground the butt-capped, mitred stroke
-      // just drew ACTUALLY MISSED — never a shape overlapping it, or its
-      // alpha composites again on top of the stroke's own.
+      // ROUND CAPS + JOINS: only the ground the stroke MISSED (see above).
       const pt = [];
       for (let i = 0; i < sx.length; i++) pt.push({ x: sx[i], y: sy[i] });
       const fans = roundJoinFans(pt, widthPx / 2);
@@ -1918,7 +1713,7 @@
   }
 
   global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
-                         offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };

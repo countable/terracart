@@ -20,9 +20,9 @@ test('bucket: advances by one each hour; the offset shifts the boundary', () => 
   assert.eq(ShopsMath.bucket(id, boundary), b0 + 1, 'rotates at the staggered boundary');
 });
 
-// NO DEAL CAP (Sep 2026): a shop is never "busy". The old per-hour ration
-// (dealCap / readiness) is gone from the module, not set to Infinity — a cap
-// that never binds is a cap someone will one day lower again.
+// NO DEAL CAP: a shop is never "busy". dealCap / readiness are absent from the
+// module, not set to Infinity — a cap that never binds is a cap someone will
+// one day lower again.
 test('no deal cap: ShopsMath has no ration and no readiness to ask', () => {
   assert.eq(typeof ShopsMath.dealCap, 'undefined', 'no dealCap');
   assert.eq(typeof ShopsMath.readiness, 'undefined', 'no readiness');
@@ -31,7 +31,7 @@ test('no deal cap: ShopsMath has no ration and no readiness to ask', () => {
 
 // THE ONE CLOCK ON A DOOR: a short cooldown after a closed deal, for the
 // roles with a row in DEAL_COOLDOWN_MS — the trader alone. Short (minutes,
-// not the old hourly ration), stamped by recordDeal, read by dealWaitMs.
+// not hourly), stamped by recordDeal, read by dealWaitMs.
 const TRADER_MS = ShopsMath.DEAL_COOLDOWN_MS.trader;
 test('deal cooldown: the table has one row, the trader, and it is short', () => {
   assert.eq(Object.keys(ShopsMath.DEAL_COOLDOWN_MS).join(','), 'trader', 'only the trader waits');
@@ -53,8 +53,7 @@ test('deal cooldown: recordDeal banks the deal and stamps the moment', () => {
 
 // A closed deal SETTLES the shop (shops_math.js header): the paid re-roll
 // rungs and the free skips both go back to zero, so the next re-roll costs
-// the base price at once — the smithy's old inline reset, now the one
-// recorder's job for every shop.
+// the base price at once — the one recorder's job for every shop.
 test('recordDeal: a closed deal settles the re-roll ladder', () => {
   const save = {};
   const house = { id: 'sh-1' };
@@ -251,58 +250,48 @@ test('rng: deterministic per (id, bucket, salt, lane); lane + rerolls vary it', 
   assert.truthy(rerolled !== a[0], 're-roll changes the offer');
 });
 
-test('buyPrice: within the markup band; a maxed Bow collapses it toward par', () => {
+test('buyPrice: within the markup band, and no relic collapses it', () => {
   const plain = { relics: {} };
   for (let s = 0; s < 50; s++) {
     const p = ShopsMath.buyPrice(plain, 100, () => Math.random());
     assert.inRange(p, Math.ceil(100 * 1.2), Math.ceil(100 * 3.0), 'within 1.2..3.0×');
   }
-  // Bow T7 → flat 1.0× → price == baseValue regardless of the roll.
+  // A maxed Bow pays the same band (the Magic Hammer's building is the one
+  // standing discount — houses.js priceMul).
   const bowed = { relics: { bow: { tier: 7 } } };
-  assert.eq(ShopsMath.buyPrice(bowed, 100, () => 0), 100, 'par at low roll');
-  assert.eq(ShopsMath.buyPrice(bowed, 100, () => 0.999), 100, 'par at high roll too');
+  assert.eq(ShopsMath.buyPrice(bowed, 100, () => 0), 120, 'the band\'s floor at a low roll');
+  assert.eq(ShopsMath.buyPrice(bowed, 100, () => 1), 300, 'its ceiling at a high roll');
 });
 
 // ── Stand pricing: cheaper than par, never an arbitrage pump ───────────────
 // The whole point of the stand discount is that it has a ceiling it can never
-// cross. The sell side is player-scaled (the Sword relic takes selling from
-// 0.5× base to 1.0× at tier 7), so a FLAT discount would become free money as
-// soon as the player's sword outran it. These tests pin both halves: that a
-// stand really is cheaper, and that buying at one and selling it back can
-// never turn a profit — for every item in the game, at every sword tier.
+// cross. The stand price is a margin above the sell rate (sellMultiplier —
+// one flat number), clamped between the best discount and par.
+// These tests pin both halves: that a stand really is cheaper, and that
+// buying at one and selling it back can never turn a profit — for every item
+// in the game.
 
-// What the player actually receives for one unit, exactly as app.js computes
-// it in the sell-from-stash flow: base × sellMultiplier, ceil, floored at $1.
-const sellGain = (base, relics) =>
-  Math.max(1, Math.ceil(base * sellMultiplier(relics)));
+// What the player actually receives for one unit before the trailer's own
+// haircut: base × sellMultiplier, ceil, floored at $1.
+const sellGain = (base) => Math.max(1, Math.ceil(base * sellMultiplier()));
 
-const swords = [0, 1, 2, 3, 4, 5, 6, 7];
-
-test('standPrice: undercuts par for a player with no sword', () => {
+test('standPrice: undercuts par, and nothing on the player moves it', () => {
   const save = { relics: {} };
   // Coffee is the motivating case — a $40 cup charged at full list price.
   assert.eq(ShopsMath.standPrice(save, 40), 30, 'coffee: $40 list → $30 at a stand');
-  assert.eq(ShopsMath.standBuyMul({}), 0.75, '25% off par at the sell floor');
+  assert.eq(ShopsMath.standBuyMul(), 0.75, '25% off par');
+  assert.eq(ShopsMath.standBuyMul.length, 0, 'the multiplier reads no relics');
+  for (const t of [0, 4, 7]) {
+    assert.eq(ShopsMath.standPrice({ relics: { sword: { tier: t } } }, 40), 30, `a sword (tier ${t}) changes nothing`);
+  }
+  assert.inRange(ShopsMath.standBuyMul(), 0.75, 1, 'between the floor and par');
 });
 
-test('standPrice: the discount shrinks as the sword grows, and stops at par', () => {
-  const mul = (t) => ShopsMath.standBuyMul({ sword: { tier: t } });
-  assert.eq(mul(0), 0.75, 'no sword → the full discount');
-  assert.truthy(mul(4) > mul(0), 'a mid sword narrows the discount');
-  assert.truthy(mul(7) >= mul(4), 'and it keeps narrowing');
-  assert.eq(mul(7), 1, 'tier 7 → par, never above the listed price');
-  for (const t of swords) {
-    assert.inRange(mul(t), 0.75, 1, `tier ${t} stays between the floor and par`);
-  }
-});
-
-test('standPrice: monotonic in the sword tier (no dips a player could exploit)', () => {
-  let prev = -Infinity;
-  for (const t of swords) {
-    const m = ShopsMath.standBuyMul({ sword: { tier: t } });
-    assert.gte(m, prev, `tier ${t} never cheaper than tier ${t - 1}`);
-    prev = m;
-  }
+test('standPrice: the floor tracks the sell rate — raise selling and the stand follows', () => {
+  // Pinned on the shape, since the rate is a constant: a sell rate under the
+  // floor leaves the full discount; one above it is tracked, a margin up.
+  assert.truthy(/return clamp\(sellMul \+ STAND_ARB_MARGIN, STAND_BUY_MUL, 1\);/.test(SHOPS_MATH_SRC), 'margin above the sell rate, clamped');
+  assert.lte(SELL_MUL + ShopsMath.STAND_ARB_MARGIN, ShopsMath.STAND_BUY_MUL, 'today the sell rate sits under the floor: the stands keep their whole discount');
 });
 
 test('standPrice: NO ARBITRAGE — buy at a stand, sell it back, never profit', () => {
@@ -311,27 +300,21 @@ test('standPrice: NO ARBITRAGE — buy at a stand, sell it back, never profit', 
   const bases = Object.values(PRICES).filter((v) => Number.isFinite(v) && v > 0);
   assert.gt(bases.length, 50, 'PRICES really loaded (guard against a vacuous pass)');
   const leaks = [];
-  for (const t of swords) {
-    const relics = { sword: { tier: t } };
-    const save = { relics };
-    for (const base of bases) {
-      const pay  = ShopsMath.standPrice(save, base);
-      const back = sellGain(base, relics);
-      if (back > pay) leaks.push(`sword T${t}, base $${base}: pay $${pay}, sells back for $${back}`);
-    }
+  const save = { relics: {} };
+  for (const base of bases) {
+    const pay  = ShopsMath.standPrice(save, base);
+    const back = sellGain(base);
+    if (back > pay) leaks.push(`base $${base}: pay $${pay}, sells back for $${back}`);
   }
   assert.eq(leaks.length, 0, 'stand→sell must never pay out: ' + leaks.slice(0, 5).join('; '));
 });
 
 test('standPrice: no arbitrage at $1–$500 either, including odd values', () => {
   const leaks = [];
-  for (const t of swords) {
-    const relics = { sword: { tier: t } };
-    for (let base = 1; base <= 500; base++) {
-      const pay  = ShopsMath.standPrice({ relics }, base);
-      const back = sellGain(base, relics);
-      if (back > pay) leaks.push(`sword T${t}, base $${base}: pay $${pay}, back $${back}`);
-    }
+  for (let base = 1; base <= 500; base++) {
+    const pay  = ShopsMath.standPrice({ relics: {} }, base);
+    const back = sellGain(base);
+    if (back > pay) leaks.push(`base $${base}: pay $${pay}, back $${back}`);
   }
   assert.eq(leaks.length, 0, 'exhaustive sweep found a leak: ' + leaks.slice(0, 5).join('; '));
 });
@@ -345,8 +328,8 @@ test('standPrice: still cheaper than the village-shop markup it replaces', () =>
 });
 
 test('standPrice: floors at $1 and never returns a fractional price', () => {
-  for (const t of swords) {
-    const save = { relics: { sword: { tier: t } } };
+  {
+    const save = { relics: {} };
     for (const base of [1, 2, 3, 7]) {
       const p = ShopsMath.standPrice(save, base);
       assert.gte(p, 1, 'at least $1');
@@ -405,11 +388,9 @@ test('shop offer: it still holds as the hour advances, and turns over at the buc
     'the offer turns over at the hour boundary');
 });
 
-// What was bought LEAVES the shelf (shops_math.js header, owner's call, Oct
-// 2026): a closed deal is in every lane's seed, so the next offer — the
+// What was bought LEAVES the shelf (shops_math.js header): a closed deal is in every lane's seed, so the next offer — the
 // trader's goods and sign, a themed shelf's item, a storefront's price — is a
-// fresh draw, and a re-roll still pivots on top of it. (Until Oct 2026 only
-// the trader folded its deals in; cash shops kept their shelf.)
+// fresh draw, and a re-roll still pivots on top of it.
 test('rng: a closed deal turns the shelf over, in every lane', () => {
   const save = { offerSalt: 5 };
   const house = { id: 'trader-A', kind: 'house', tier: 9 };
@@ -497,7 +478,7 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
 
 // ─── Trader ask (ShopsMath.traderAsk) ───────────────────────────────────────
 // A wooden-backpack player was offered 2 Fireflowers for 54 Potato Seeds — an
-// ask the bag could never hold. Half the asks must be takeable on the spot, and
+// ask the bag could never hold. Most asks must be takeable on the spot, and
 // none may exceed the stack cap while a holdable choice exists.
 (function () {
   const prices = { potato_seed: 1, carrot: 10, stone: 2, gem: 500 };
@@ -516,15 +497,17 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
     }
   });
 
-  test('traderAsk: about half of all asks are affordable from the bag as it stands', () => {
+  test('traderAsk: most asks are affordable from the bag as it stands', () => {
     let ok = 0; const N = 2000;
     for (let i = 0; i < N; i++) {
       const a = ShopsMath.traderAsk(base({ rng: seeded(i * 7919 + 1) }));
       const have = a.askId === 'carrot' ? 8 : a.askId === 'potato_seed' ? 15 : 0;
       if (have >= a.askQty) ok++;
     }
-    // The affordable pass alone is 50%; the fallback's owned pick adds more.
-    assert.truthy(ok / N >= 0.5, `affordable share ${(ok / N).toFixed(2)} ≥ 0.5`);
+    // The affordable pass alone is TRADER_AFFORDABLE_CHANCE; the fallback's
+    // owned pick adds more.
+    assert.truthy(ok / N >= ShopsMath.TRADER_AFFORDABLE_CHANCE - 0.03,
+      `affordable share ${(ok / N).toFixed(2)} ≥ ${ShopsMath.TRADER_AFFORDABLE_CHANCE}`);
   });
 
   test('traderAsk: nothing affordable → still asks for something owned, then the wishlist', () => {

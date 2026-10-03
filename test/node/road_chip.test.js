@@ -49,3 +49,22 @@ test('road chip: an SVG road strip is the bar, the number small beneath, no icon
   assert.truthy(/clip\.setAttribute\('width', \(ROAD_CHIP_W \* frac\)/.test(app), 'the repave clip tracks the fraction');
   assert.truthy(!/🛣/.test(app.slice(app.indexOf('_buildRoadChip() {'), app.indexOf('_showRoadChipHelp() {'))), 'no emoji icon');
 });
+
+// THE BOOKS CHIP (owner, Oct 2026): the pages of the Book's course read so far,
+// in the top row after the road chip, and a tap lists them to read again.
+test('books chip: counts the pages read off the bookmark, built after the road chip, repainted with the HUD', () => {
+  assert.eq(bookPagesRead({}).length, 0, 'nothing read');
+  assert.eq(bookPagesRead({ tipsRead: 3 }).join(), '0,1,2', 'the first three pages, in course order');
+  assert.eq(bookPagesRead({ tipsRead: PLAY_TIPS.length + 5 }).length, PLAY_TIPS.length, 'the course wraps; the shelf does not');
+  assert.eq(bookPagesRead({ tipsRead: -2 }).length, 0);
+  assert.truthy(/^.+ · .+$/.test(bookPageLabel(0)), 'a row names the volume and its author: ' + bookPageLabel(0));
+  const app = SCENE_SRC;
+  assert.truthy(/this\._buildRoadChip\(\);\s*this\._buildBookChip\(\);/.test(app), 'built after the road chip');
+  assert.truthy(/this\.updateRoadChipDOM\(\);\s*this\.updateBookChipDOM\(\);/.test(app), 'repainted with the HUD');
+  assert.truthy(/body\.modal-open #bookchip \{ opacity: 0\.25; pointer-events: none; \}/.test(app), 'dims under a dialog like its neighbours');
+  assert.truthy(/const n = bookPagesRead\(this\.save\)\.length;/.test(app), 'the count is the shelf\'s');
+  // A row reopens its page on the book painting with no title line, and the
+  // list comes back when that page is tapped away; rereading moves no bookmark.
+  assert.truthy(/this\.showMessageModal\(\{ title: '', body: bookPageHTML\(page\), art: 'book_read',\n\s+onDismiss: \(\) => this\._showBooksRead\(\) \}\);/.test(app), 'a row rereads the page and returns to the list');
+  assert.falsy(/_showBooksRead\(\) \{[\s\S]*?tipsRead[\s\S]*?\n  \}\n/.test(app.slice(app.indexOf('  _showBooksRead() {'), app.indexOf('  _showBooksRead() {') + 2500)), 'the shelf never writes the bookmark');
+});

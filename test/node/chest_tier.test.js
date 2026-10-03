@@ -1,47 +1,44 @@
-// A POI chest's TIER is its class's DENSITY on its own tile (loot.js
-// CHEST_DENSITY_TIERS / chestTier, stamped by worldgen.js stampPoiDensity),
-// raised by cave depth and a zone's nexus — identical for every player,
-// wherever their Home is, and the SAME tier its loot rolls at (there is no
-// roll-side twin any more: the Home rings, CHEST_TIER_HOME_RINGS_M, are
-// gone). Pins: the table (1 → T4, 25 → T1), the fixed classes (public art),
-// no Home input anywhere, the stamp over a real rasterize, the look and the
-// restock following the new tier, and the cave mirrors carrying the count.
+// A POI chest's TIER is its tile's QUOTA SEAT (worldgen.js seedChestTiers,
+// stamped as o.tierSeed and read by loot.js chestTier), raised by cave depth
+// and a zone's nexus — identical for every player, wherever their Home is,
+// and the SAME tier its loot rolls at (there is no roll-side twin any more:
+// the Home rings, CHEST_TIER_HOME_RINGS_M, are gone). An unseeded chest is
+// CHEST_TIER_UNSTAMPED (T2). The class COUNT (o.poiDensity, stampPoiDensity)
+// sets no tier; it only paces a crate's restock and a pot's coins. Pins: the
+// retired count ladder, public art seeded like every class, no Home input
+// anywhere, the count stamp over a real rasterize, the look and the restock
+// following the tier, and the cave mirrors carrying the count and rank.
 (() => {
   const chest = (poiClass, poiDensity, extra = {}) => ({ kind: 'chest', poiClass, poiDensity, x: 0, y: 0, id: 'c_' + poiClass + '_' + poiDensity, ...extra });
 
-  test('chest tier: the density table — 1 of a kind is T4, 25 or more is T1', () => {
-    const want = { 1: 4, 2: 3, 3: 3, 4: 3, 5: 2, 10: 2, 24: 2, 25: 1, 26: 1, 500: 1 };
-    for (const [n, t] of Object.entries(want)) assert.eq(chestDensityTier(Number(n)), t, n + ' of a kind');
-    assert.eq(CHEST_DENSITY_T1_AT, 25, 'dense is 25');
-    assert.eq(chestDensityTier(0), CHEST_TIER_UNSTAMPED, 'no count → the unstamped fallback');
-    assert.eq(chestDensityTier(undefined), CHEST_TIER_UNSTAMPED, 'nor does a missing one');
+  test('chest tier: the count ladder retired with the quota pyramid', () => {
+    assert.truthy(typeof chestDensityTier === 'undefined' && typeof CHEST_DENSITY_TIERS === 'undefined',
+      'the ladder and its table are gone');
+    assert.eq(CHEST_DENSITY_T1_AT, 25, 'the threshold survives as the restock unit (crate refill cadence)');
+    assert.eq(chestTier(chest('bus', 1)), CHEST_TIER_UNSTAMPED, 'an unseeded chest is the unstamped T2');
+    assert.eq(chestTier(chest('bus', 500)), CHEST_TIER_UNSTAMPED, 'whatever its class count - counts no longer tier');
     assert.eq(CHEST_TIER_UNSTAMPED, 2, 'which is the old unlisted-class T2');
-    // The table is ordered and total: first row whose threshold is met wins.
-    for (let i = 1; i < CHEST_DENSITY_TIERS.length; i++) {
-      assert.gt(CHEST_DENSITY_TIERS[i - 1].atLeast, CHEST_DENSITY_TIERS[i].atLeast, 'thresholds fall');
-      assert.lt(CHEST_DENSITY_TIERS[i - 1].tier, CHEST_DENSITY_TIERS[i].tier, 'tiers rise as the count falls');
-    }
-    assert.eq(CHEST_DENSITY_TIERS[CHEST_DENSITY_TIERS.length - 1].atLeast, 1, 'every stamped chest has a row');
   });
 
-  test('chest tier: the same rule for every class — density, not category', () => {
-    for (const cls of Object.keys(POI_CATEGORY)) {
-      assert.eq(chestTier(chest(cls, 1)), 4, cls + ' alone is T4');
-      assert.eq(chestTier(chest(cls, 25)), 1, cls + ' in a crowd is T1');
-    }
+  test('chest tier: every class is the same before the seed', () => {
+    for (const cls of Object.keys(POI_CATEGORY))
+      assert.eq(chestTier(chest(cls, 1)), CHEST_TIER_UNSTAMPED, cls + ' unseeded is the unstamped T2');
     assert.truthy(typeof CHEST_TIER_BY_CATEGORY === 'undefined', 'the category tier table is gone');
   });
 
-  test('chest tier: public art rides the density ladder like every class', () => {
-    // Until Oct 2026 art_gallery was a fixed T1 one-time trunk
-    // (CHEST_CLASS_TIER / CHEST_ONE_TIME_CLASSES, both gone).
-    assert.eq(chestTier(chest('art_gallery', 1)), 4, 'a lone mural is a T4 find');
-    assert.eq(chestTier(chest('art_gallery', 30)), 1, 'a gallery street is T1 crates');
-    assert.eq(chestLook(chest('art_gallery', 30)).texKey, 'box', 'T1 wears the crate like anyone');
-    assert.truthy(restocks(chest('art_gallery', 30)), 'and restocks like a crate');
-    const art = chest('art_gallery', 1);
-    const sets = spentSets(null, { opened: [art.id] });
-    assert.truthy(isSpent(art, sets), 'a trunk is still spent in save.opened, for good');
+  test('chest tier: public art rides the pyramid like every class', () => {
+    // Until Oct 2026 art_gallery was a fixed T1 one-time trunk; then the
+    // count ladder; now the per-tile quota seed, like everyone.
+    const lone = [chest('art_gallery', 1)];
+    WorldGen.seedChestTiers(lone);
+    assert.eq(chestTier(lone[0]), 5, 'a lone mural takes the tile\'s T5 seat');
+    const street = [];
+    for (let i = 0; i < 49; i++) street.push(chest('art_gallery', 49, { id: 'ga' + i }));
+    WorldGen.seedChestTiers(street);
+    assert.eq(street.filter((o) => chestTier(o) === 1).length, 1, 'a gallery street holds one T1 crate');
+    assert.eq(chestLook(street.find((o) => chestTier(o) === 1)).texKey, 'box', 'which wears the crate');
+    const sets = spentSets(null, { opened: [lone[0].id] });
+    assert.truthy(isSpent(lone[0], sets), 'a trunk is spent in save.opened, for good');
   });
 
   test('chest tier: Home is no input — no rings, no roll-side twin, the same tier and look anywhere', () => {
@@ -63,32 +60,32 @@
       assert.eq(far, none, 'nor a Home far away');
     } finally { HomeArea.worldM = prev; }
     // Source: the tier code reads no Home at all.
-    const tierSrc = LOOT_SRC.slice(LOOT_SRC.indexOf('const CHEST_DENSITY_TIERS'), LOOT_SRC.indexOf('function chestLook('));
+    const tierSrc = LOOT_SRC.slice(LOOT_SRC.indexOf('const CHEST_DENSITY_T1_AT'), LOOT_SRC.indexOf('function chestLook('));
+    assert.gt(tierSrc.length, 0, 'the tier code slice is found');
     assert.falsy(/HomeArea|homeWorldPos|homeM/.test(tierSrc), 'loot.js tier code never reads Home');
   });
 
-  test('chest tier: depth and nexus stack on the density tier, capped at T5', () => {
-    for (const n of [1, 3, 10, 30]) {
-      const base = chestDensityTier(n);
+  test('chest tier: depth and nexus stack on the seed within each depth cap', () => {
+    for (const seed of [1, 3, 5]) {
       for (let d = 0; d <= 12; d++) {
-        const t = chestTier(chest('park', n, { depth: d }));
-        assert.eq(t, Math.min(CHEST_TIER_MAX, base + Math.floor(d / 2)), `density ${n} at depth ${d}`);
+        const t = chestTier(chest('park', 1, { tierSeed: seed, depth: d }));
+        assert.eq(t, Math.min(chestTierMaxFor(d), seed + Math.floor(d / 2)), `seed ${seed} at depth ${d}`);
       }
-      assert.eq(chestTier(chest('park', n, { zoneNexus: 'grove' })), Math.min(CHEST_TIER_MAX, base + ZONE_NEXUS_TIER_BONUS),
-        `density ${n} nexus`);
+      assert.eq(chestTier(chest('park', 1, { tierSeed: seed, zoneNexus: 'grove' })),
+        Math.min(chestTierMaxFor(0), seed + ZONE_NEXUS_TIER_BONUS), `seed ${seed} nexus`);
     }
   });
 
-  test('chest tier: the look and the restock follow the tier — a dense class is a crate, a rare one a trunk', () => {
-    const dense = chest('bus', 25), rare = chest('bus', 1), mid = chest('shelter', 7);
-    assert.eq(chestLook(dense).texKey, 'box', '25 bus stops: each is a crate');
-    assert.truthy(restocks(dense), 'and restocks');
-    assert.eq(chestLook(rare).texKey, 'chest', 'the one bus stop: a trunk');
-    assert.falsy(restocks(rare), 'one-time');
-    assert.eq(chestLook(mid).texKey, 'chest', 'a T2 shelter: a trunk');
+  test('chest tier: the look and the restock follow the tier — a seeded T1 is a crate, anything higher a trunk', () => {
+    const crate = chest('bus', 25, { tierSeed: 1 }), trunk = chest('bus', 1, { tierSeed: 4 }), mid = chest('shelter', 7, { tierSeed: 2 });
+    assert.eq(chestLook(crate).texKey, 'box', 'the seeded T1: a crate');
+    assert.truthy(restocks(crate), 'and restocks');
+    assert.eq(chestLook(trunk).texKey, 'chest', 'a seeded T4: a trunk');
+    assert.falsy(restocks(trunk), 'one-time');
+    assert.eq(chestLook(mid).texKey, 'chest', 'a seeded T2: a trunk');
     assert.falsy(restocks(mid), 'one-time');
-    const nexus = chest('fuel', 30, { zoneNexus: 'tar' });
-    assert.eq(chestTier(nexus), 2, 'a dense class at a nexus is T2');
+    const nexus = chest('fuel', 30, { tierSeed: 1, zoneNexus: 'tar' });
+    assert.eq(chestTier(nexus), 2, 'a seeded T1 at a nexus is T2');
     assert.falsy(restocks(nexus), 'so it is no crate');
   });
 
@@ -192,9 +189,12 @@
     assert.eq(a.id, 'c_2_2_d1', 'own id per level');
     assert.eq(a.caveOf, 'c_2_2', 'remembers the surface chest');
     assert.truthy(occ.has(2 * N + 2), 'its cell is claimed against the rocks');
-    // One school on the tile: density 1, the T4 surface tier, carried down.
+    // Density still rides down (restock cadence); the tier comes from THIS
+    // level's own seeding, not the surface's.
     assert.eq(a.poiDensity, 1, 'the surface chest\'s density rides down');
-    assert.eq(chestTier(a), 4, 'depth 1 keeps the surface tier');
+    assert.eq(chestTier(a), CHEST_TIER_UNSTAMPED, 'an unseeded mirror is the unstamped T2');
+    WorldGen.seedChestTiers(out, { cave: true });
+    assert.eq(chestTier(out[0]) >= 4, true, 'two mirrors seeded: the pyramid takes the top tiers');
   });
 
   test('cave chests: the recursion keeps the SURFACE id and re-stamps depth', () => {
@@ -205,7 +205,8 @@
     assert.eq(d2[0].caveOf, 'c_2_2', 'surface id carried');
     assert.eq(d2[0].depth, 2, 'depth re-stamped');
     assert.eq(d2[0].poiDensity, 1, 'the density is carried, not recounted off the cave level');
-    assert.eq(chestTier(d2[0]), 5, 'a lone school is T5 two levels down');
+    WorldGen.seedChestTiers(d2, { cave: true });
+    assert.eq(chestTier(d2[0]), Math.min(CHEST_TIER_MAX, 5 + Math.floor(2 / 2)), 'a lone seeded mirror is T5 two levels down');
   });
 
   test('cave chests: lowtier street furniture never goes underground', () => {

@@ -125,9 +125,11 @@ test('downed: the collapse seats the body\'s MIDSECTION where its feet were', ()
   // is on that point instead — which is a drop of exactly the nudge it stood
   // up by, so the pose needs no second constant to seat it.
   const dy = methodBody('playerBodyDy');
-  assert.truthy(
-    /return Combat\.playerDowned\(this\.save\.energy\) \? 0 : this\.playerFeetNudgeY;/.test(dy),
-    'one expression: 0 while down, the standing nudge otherwise');
+  const bodyDy = new Function('Combat', `return { ${dy}\n} };`)(Combat).playerBodyDy;
+  const pose = { save: { energy: 100 }, playerFeetNudgeY: -9, _obstacleStep: { liftPx: 8 } };
+  assert.eq(bodyDy.call(pose), -17, 'standing body rides the support');
+  pose.save.energy = 0;
+  assert.eq(bodyDy.call(pose), 0, 'collapsed body stays on the ground even on an obstacle');
   const rot = methodBody('playerBodyRotation');
   assert.truthy(/Combat\.playerDowned\(this\.save\.energy\)/.test(rot),
     'the turn reads the same predicate as the seat, so the two cannot disagree');

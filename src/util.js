@@ -164,7 +164,7 @@ function msToNextUtcDay(now = Date.now()) {
 // === Shared hashing / seeded RNG ============================================
 // One FNV-1a implementation for every id-derived hash in the game (the shiny
 // roll below, the shop bucket offset, the delivery day-seed + theme pick, and
-// the sandbox flora placer each used to hand-roll this same 32-bit loop —
+// the sandbox flora placer all share this 32-bit loop —
 // same seed 2166136261 / prime 16777619 everywhere, differing only in what
 // string gets salted in and what the caller does with the final uint32).
 // Callers that need [0,1) divide by 4294967296 themselves; callers that need
@@ -523,6 +523,7 @@ const UI_LAMP_GLOW     = '#9a8cff';   // street lamp — its glass, its pool and
 // an accent on a dark panel.
 const UI_LAMP_GOLD     = '#d9a441';   // street lamp — its ironwork
 const UI_CONTROL       = UI_GOLD;     // player controls: buttons, pads, HUD accents
+const UI_DIALOG_BORDER = '#88764a'; // muted brass around dialog frames
 const UI_CONTROL_DIM   = UI_GOLD_DARK;// control borders / rules / inactive controls
 
 // Keep a CENTRED text object inside the canvas. A label placed at its raw
@@ -646,6 +647,10 @@ const BUILDING_ART = {
   house:   { fitMul: 1,   min: 1.2,   def: 1.35,  max: 1.35 },
   trailer: { fitMul: 1,   min: 1.6335, def: 1.6335, max: 1.6335 },   // house × 1.21
   fort:    { fitMul: 0.8, min: 1.87,  def: 1.87,  max: 3.48 },
+  // A restored TURRET (houses.js BUILD_OPTIONS) wears the castle tower sheet,
+  // a one-cell-wide column drawn at the castle rim's own size whatever its
+  // lot: the castle tower row in render.js RENDER_SPEC is scale 1.
+  turret:  { fitMul: 1,   min: 1,     def: 1,     max: 1 },
 };
 // The residential 1.35 is the width the plain house has always drawn at
 // (72px × 0.6 ÷ 32), so the commonest building on the map is unmoved and the

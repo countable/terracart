@@ -72,11 +72,9 @@ function tick(scene, ms) {
   const realForEach = WorldGen.forEachItem;
   const realNear = WorldGen.forEachItemNear;
   const realNow = performance.now;
-  // ONE clock per scene, advanced by `ms` a tick. Re-reading the real clock
-  // here would leave `now` standing still between ticks, and the movement
-  // block only runs when its own `_nextChooseT` comes due — so nothing would
-  // ever take a step and every assertion below would pass for the wrong
-  // reason. (It did, the first time this file was written.)
+  // ONE clock per scene, advanced by `ms` a tick. Re-reading the real clock would
+  // leave `now` standing still, and the movement block only runs when its own
+  // `_nextChooseT` comes due, so every assertion would pass for the wrong reason.
   scene._simT = (scene._simT || 1e6) + ms;
   const t = scene._simT;
   const walk = (what, fn) => {
@@ -153,8 +151,8 @@ test('chase sim: it never strays further than the leash from its ruin', () => {
   // The player walks steadily away; the guard follows until the leash breaks.
   const scene = mkScene(g, { playerM: { x: 0, y: 0 } });
   let worst = 0;
-  // The player walks off at a real 1.4 m/s — faster than a goblin's 0.84, so
-  // this is the escape the design promises rather than a teleport.
+  // The player walks off at a real 1.4 m/s. A goblin (7 m/s since Oct 2026)
+  // keeps pace, so this is the LEASH that ends the chase, not the gap.
   for (let i = 0; i < (300 * 1000) / TICK_MS; i++) {
     scene.playerM.x = Math.min(1.4 * (i * TICK_MS) / 1000, 200 * CELL);
     tick(scene, TICK_MS);

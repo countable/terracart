@@ -1,0 +1,9 @@
+{
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "inputs": ["original twelve-candidate master", "previous four-tower 128x40 atlas"],
+  "prompt": "Use case: precise-object-edit. Create a replacement GAME SPRITE SHEET, one image with FOUR isolated castle towers in a single horizontal row, transparent background. Image1 is the original 4-column 3-row candidate sheet. Image2 is the selected 4-tower sheet in the EXACT order to preserve: 1) image1 row2 col3 mossy round stone citadel; 2) image1 row3 col4 damaged broken-crenellation round ruin; 3) image1 row1 col1 intact square bastion; 4) image1 row1 col3 stone round tower with wooden parapet. Preserve these four distinct tops, materials, simple dark arrow slits, original front/top game view, original pixel-art style, muted stone color and warm brown timber. CHANGE ONLY THEIR HEIGHT: lengthen each masonry shaft with additional natural stone courses so each complete tower has width:height ratio exactly 2:3, corresponding to 32x48 pixels in-game. Do NOT stretch/distort the battlements or window. All four towers must be equally 2:3 proportioned and bottom-aligned, each one fills a full cell width and one-and-a-half cells of height. Big clean coherent pixel clusters readable at 32x48, strong simple silhouette, flat base extending full shaft width, no cast shadow outside footprint. Four equal atlas columns with generous transparent gaps to allow safe cropping, no labels, no text, no floors, no enclosing walls, no other props. Keep ruined tower's visibly broken top and timber tower's wood parapet. Output actual transparent alpha.",
+  "master": "tower_master.png",
+  "runtime_atlas": "tower_shapes.png",
+  "runtime_frame": [32, 48]
+}

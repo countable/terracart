@@ -18,7 +18,7 @@
     // edit here — and it is the walk the ladder always asked for: the counter
     // used to want ten lit pebbles at one per 20 m, which is this number said
     // in the unit that was underneath it all along (see the stones→metres fold
-    // in savemigrate.js).
+    // in save_state.js).
     assert.eq(S, 200, 'GOAL_STEP_M');
     assert.eq(T.goalFor(0), 200, 'the first goal');
   });
@@ -30,9 +30,8 @@
   });
 
   test('trail: the stones vocabulary is gone', () => {
-    // The ladder counts restored METRES now. A `GOAL_STEP` left behind as an
-    // alias is how a caller keeps banking pebble counts against a metre goal
-    // and pays a prize every ten metres.
+    // The ladder counts restored METRES. A `GOAL_STEP` left behind as an
+    // alias would let a caller bank pebble counts against a metre goal.
     assert.eq(T.GOAL_STEP, undefined, 'Trail.GOAL_STEP is gone');
     assert.eq(T.bank(0, 0, 5).stones, undefined, 'and bank() reports metres, not stones');
     assert.eq(T.bank(0, 0, 5).metres, 5, 'which is what it is called');
@@ -148,8 +147,8 @@
   });
 
   test('trail: nothing per-path survives', () => {
-    // The old machinery: a segment cap, a per-trail counter, a minimum trail
-    // length, a prizes-earned-per-trail sum. Its absence is the feature.
+    // No segment cap, per-trail counter, minimum trail length or
+    // prizes-earned-per-trail sum: their absence is the feature.
     for (const gone of ['SEGMENT_CELLS', 'MIN_TRAIL_CELLS', 'segmentIndex',
                         'segmentTarget', 'maxPrizes', 'prizesEarned', 'qualifies']) {
       assert.eq(T[gone], undefined, `Trail.${gone} is gone`);
@@ -294,34 +293,41 @@ test('trail prize: an unrecognised reward draws no card and pays nothing', () =>
   assert.eq(s.save.money, 0, 'nothing paid out');
 });
 
-test('trail prize: each card\'s ⓘ says what it does, off the lines the item already carries', () => {
+test('trail prize: a selected card\'s line says what it does, off the lines the item already carries', () => {
   const { _trailRewardBlurb } = __trailPrize;
   const fxId = Object.keys(ITEM_EFFECTS)[0];
   assert.eq(_trailRewardBlurb({ kind: 'item', id: fxId, qty: 1 }), `✦ ${ITEM_EFFECTS[fxId]}`,
     'an item reads its own ✦ line');
   const plain = ITEMS.find((it) => !ITEM_EFFECTS[it.id]);
   if (plain) assert.eq(_trailRewardBlurb({ kind: 'item', id: plain.id, qty: 1 }), null,
-    'an item with no ✦ line gets no ⓘ');
+    'an item with no ✦ line leaves the line empty');
   assert.eq(_trailRewardBlurb({ kind: 'relic', slot: 'axe', tier: 3 }), RELIC_DEFS.axe.blurb,
     'a relic reads its blurb');
   assert.eq(_trailRewardBlurb({ kind: 'armor', slot: 'helmet', tier: 4 }),
     ARMOR_DEFS.helmet.blurb, 'armour shares its story description');
-  assert.eq(_trailRewardBlurb({ kind: 'gold', amount: 5 }), null, 'gold needs no ⓘ');
+  assert.eq(_trailRewardBlurb({ kind: 'gold', amount: 5 }), null, 'gold has nothing to explain');
 });
 
-test('trail prize: the pick lays its cards out in one row, descriptions behind the ⓘ', () => {
+// Oct 2026: a tap on a card SELECTS it (outline + its line under the row) and
+// one Take button pays — no ⓘ per card, no irreversible tap on the card itself.
+test('trail prize: the pick lays its cards out in one row; a tap selects, Take pays', () => {
   const app = SCENE_SRC;
   const pat = app.indexOf('\n  _offerTreasurePick({');
   const pick = app.slice(pat, app.indexOf('\n  }\n', pat));
   assert.truthy(/cards: true,/.test(pick), 'the pick asks for the card row');
+  assert.truthy(/confirmLabel: 'Take',/.test(pick), 'and names its one button');
   assert.truthy(/info: this\._trailRewardBlurb\(reward\),/.test(pick), 'each card carries its description as info');
+  assert.falsy(/ⓘ/.test(pick), 'no ⓘ on the cards');
   const shell = SCENE_SRC;
   const mat = shell.indexOf('\n  showChestRewardModal(');
   const modal = shell.slice(mat, shell.indexOf('\n  }\n', mat));
-  assert.truthy(/if \(a\.info\) \{/.test(modal), 'the shell draws an ⓘ only for an action with info');
-  assert.truthy(/e\.stopPropagation\(\);\s*\/\/ reading a card never takes it/.test(modal),
-    'tapping the ⓘ does not pick the card');
-  assert.truthy(/infoLine\.style\.cssText = 'display:none;/.test(modal), 'descriptions start hidden');
+  assert.falsy(/ⓘ/.test(modal), 'the shell draws no ⓘ');
+  assert.truthy(/if \(!cards\) \{ choose\(a\); return; \}/.test(modal), 'word buttons still act on a tap');
+  assert.truthy(/selected = a;\s*\n\s*for \(const other of row\.children\) other\.style\.outline = other === b \? `2px solid \$\{accent\}` : '';\s*\n\s*infoLine\.innerHTML = a\.info \|\| '';/.test(modal),
+    'a tap on a card selects it: outline and its line, nothing paid');
+  assert.truthy(/take\._setEnabled\(false\);/.test(modal), 'Take starts disabled');
+  assert.truthy(/if \(selected\) choose\(selected\);/.test(modal), 'and pays the selected card only');
+  assert.truthy(/infoLine\.innerHTML = `<span style="opacity:\.6">\$\{pickHint\}<\/span>`;/.test(modal), 'the hint sits on the line until a tap');
 });
 
 // app.js can't load headlessly, so the wiring AROUND those two methods — that
@@ -338,9 +344,9 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   const pat = app.indexOf('\n  _offerTreasurePick({');
   const pick = app.slice(pat, app.indexOf('\n  }\n', pat));
   assert.truthy(/actions: choices\.map\(/.test(pick), 'the choice opens as an actions modal');
-  assert.truthy(/onClick: \(\) => \{\s*\n\s*const card = this\._claimTrailReward\(reward\);/.test(pick),
+  assert.truthy(/onClick: \(\) => \{\s*\n\s*const card = this\._claimTrailReward\(reward, \{ deferBookRead: true \}\);/.test(pick),
     'and each option only pays when its own button is clicked');
-  assert.truthy(/Take your pick/.test(pick), 'the offer names itself as a pick');
+  assert.truthy(/Choose one gift/.test(pick), 'the offer names itself as a pick of one');
   // The modal shell gives an actions dialog no tap-to-dismiss, so a stray tap
   // can't drop the prize — pin that the offer really is the actions variant.
   // The header: the survivors' thanks, one constant for all three shapes of
@@ -349,7 +355,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
     'the header constant');
   assert.truthy(/const header = TRAIL_PRIZE_HEADER;/.test(body), 'the ceremony uses it');
   assert.eq((body.match(/header,/g) || []).length, 3, 'all three shapes carry the header');
-  assert.truthy(/choose one/i.test(body), 'the choice is clear');
+  assert.falsy(/sub: 'Your neighbours offer/.test(body), 'no flavour line under the pick: header, row, line, button');
   assert.falsy(/\$\{walked\}|\$\{next\}/.test(body), 'the ceremony does not duplicate road counters');
 
 });
@@ -424,9 +430,8 @@ test('trail counter: the street reads Trail.readout of the bank, not raw progres
 })();
 // ── The counter lands ON the street ───────────────────────────────────────
 // The "N/M m" is drawn over the stretch that just came back, in the colour a
-// restored street is made of, instead of popping at the screen centre in the
-// pale treasure ink. The seating (_worldToastAt) is lifted out of app.js and
-// run for real, because it is a PROJECTION — the thing a peek drag breaks when
+// restored street is made of. The seating (_worldToastAt) is lifted out of
+// app.js and run for real, because it is a PROJECTION — the thing a peek drag breaks when
 // someone measures it off the player instead of the camera anchor.
 (() => {
 const { _worldToastAt, _cellToastAt } = __trailCounter;
@@ -997,28 +1002,65 @@ const sweep = (s) => { s._sweepStreets(); };
 // Restoration has no tap and no tool, so the first stretch to come back under
 // a new player is an unexplained flash and a number. The one-time dialog is
 // what turns it into an invitation — once per SAVE, and never for someone
-// already halfway up the ladder.
-test('streets: the first metres ever banked open the one-time dialog', () => {
+// already halfway up the ladder. It waits for TRAIL_INTRO_MIN_M of road,
+// though: the first reach or two play unexplained, so the greeting lands on
+// a repair the player has already watched happen more than once.
+test('streets: the one-time dialog opens once enough road is repaired', () => {
   withStreet((clock) => {
     const s = sweepScene();
     clock.at(0); sweep(s);
     clock.at(PATH_STONE_DWELL_MS); sweep(s);
+    // The first stretch: one reach of street, 35 m, and short of the mark.
+    assert.gt(s.save.trail.metres, 0, 'the first metres banked');
+    assert.lt(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'and they are not yet enough');
+    assert.eq(s.intros.length, 0, 'nothing opens over the first repair');
+    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
+    assert.eq(s.intros.length, 0, 'nor a beat after it — this save is not owed a greeting yet');
+    assert.falsy(s._trailIntroAt, 'nothing was armed');
+    assert.falsy(s.save.trail.greeted, 'and the greeting is not spent');
+    // Five cells on: a fresh reach of street past the first, and the save
+    // crosses the mark on this sweep.
+    s.playerM = { x: MID_M + CELL_M * 5, y: MID_M };
+    clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 4); sweep(s);
+    assert.gte(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'the second stretch carries it over');
     // Not yet: the repair it is about — the flash, the chips, the counter on
     // the street — gets its own beat first.
     assert.eq(s.intros.length, 0, 'nothing opens over the repair itself');
     assert.falsy(s.save.trail.greeted, 'and the greeting is not spent early');
-    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
-    assert.eq(s.intros.length, 1, 'the dialog opened a beat after the first metres');
+    clock.at(PATH_STONE_DWELL_MS * 4 + TRAIL_INTRO_DELAY_MS); sweep(s);
+    assert.eq(s.intros.length, 1, 'the dialog opened a beat after the metres that crossed the mark');
     assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE, 'with the greeting title');
     assert.truthy(s.save.trail.greeted, 'and the save remembers it');
     assert.falsy(/\d/.test(s.intros[0].body), 'thresholds stay on the road counter');
     assert.truthy(/survivor/i.test(s.intros[0].body) && /gift/.test(s.intros[0].body), 'the road has people to thank you');
     // …and never again.
-    s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
-    clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
-    clock.at(PATH_STONE_DWELL_MS * 4); sweep(s);
-    clock.at(PATH_STONE_DWELL_MS * 4 + TRAIL_INTRO_DELAY_MS); sweep(s);
+    s.playerM = { x: MID_M + CELL_M * 10, y: MID_M };
+    clock.at(PATH_STONE_DWELL_MS * 6); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 7); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 7 + TRAIL_INTRO_DELAY_MS); sweep(s);
     assert.eq(s.intros.length, 1, 'and never opens a second time');
+  });
+});
+
+test('streets: the mark is more than one reach of road, and short of the first prize', () => {
+  // More than a single stretch: one reach of street (35 m here, the sweep
+  // test above) must NOT be enough, or the greeting is back on the first
+  // flash it was moved off. And under the first goal for EVERY class — the
+  // dialog introduces the neighbours who leave gifts, so it has to land
+  // before the first gift does, and the ceremony waits behind it (the test
+  // below) only when the greeting is owed on the sweep that pays.
+  assert.gt(TRAIL_INTRO_MIN_M, 35, 'more road than one reach restores');
+  assert.lt(TRAIL_INTRO_MIN_M, Trail.goalFor(0, 'runner'), 'and short of the shortest first goal');
+  assert.lt(TRAIL_INTRO_MIN_M, Trail.goalFor(0), 'and of the ordinary one');
+  // The mark is read off the road chip's number, TRUE metres: a scenic path's
+  // ladder bonus (save.trail.bonusM) does not hurry the greeting.
+  withStreet(() => {
+    const s = sweepScene({ save: { energy: 10, reachUpgrades: 0,
+                                   trail: { metres: TRAIL_INTRO_MIN_M, prizes: 0, bonusM: 1 } } });
+    assert.falsy(s._armTrailIntro(Date.now(), s.save.trail), 'a bonus metre short: not owed');
+    s.save.trail.bonusM = 0;
+    assert.truthy(s._armTrailIntro(Date.now(), s.save.trail), 'on the mark in true metres: owed');
   });
 });
 
@@ -1029,10 +1071,15 @@ test('streets: the greeting is armed ONCE and read by the pass that runs every f
   withStreet(() => {
     const s = sweepScene();
     const t0 = Date.now();
-    assert.truthy(s._armTrailIntro(t0), 'arming says a greeting is owed');
+    const st = { metres: 0, prizes: 0 };
+    assert.falsy(s._armTrailIntro(t0, st), 'nothing restored: no greeting owed');
+    assert.falsy(s._trailIntroAt, 'and no deadline set');
+    st.metres = TRAIL_INTRO_MIN_M;
+    assert.truthy(s._armTrailIntro(t0, st), 'on the mark, arming says a greeting is owed');
     assert.eq(s._trailIntroAt, t0 + TRAIL_INTRO_DELAY_MS, 'the beat is TRAIL_INTRO_DELAY_MS out');
-    assert.truthy(s._armTrailIntro(t0 + 500), 'a later sweep is still owed one');
+    assert.truthy(s._armTrailIntro(t0 + 500, st), 'a later sweep is still owed one');
     assert.eq(s._trailIntroAt, t0 + TRAIL_INTRO_DELAY_MS, 'but the deadline does not move');
+    assert.truthy(s._armTrailIntro(t0 + 600, { metres: 0, prizes: 0 }), 'and, armed, it stays owed whatever that sweep reads');
   });
   // …and it is read from the TOP of _sweepStreets, before that pass's own
   // surface and reach gates: a greeting armed by a repair the player then
@@ -1042,12 +1089,17 @@ test('streets: the greeting is armed ONCE and read by the pass that runs every f
     .test(body), 'the wait is read before the sweep gates on depth or reach');
 });
 
+// A save one reach short of the mark: the first sweep's 35 m carry it over,
+// so the greeting is owed on that sweep.
+const nearMark = () => ({ energy: 10, reachUpgrades: 0,
+                          trail: { metres: TRAIL_INTRO_MIN_M - 30, prizes: 0 } });
+
 test('streets: the beat lets the repair be seen — nothing opens until it has passed', () => {
   withStreet((clock) => {
-    const s = sweepScene();
+    const s = sweepScene({ save: nearMark() });
     clock.at(0); sweep(s);
     clock.at(PATH_STONE_DWELL_MS); sweep(s);
-    assert.gt(s.save.trail.metres, 0, 'the metres banked');
+    assert.gte(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'the metres banked, and over the mark');
     assert.eq(s.toasts.length, 1, 'and the counter popped on the street');
     // One millisecond short: still nothing over the moment it explains.
     clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS - 1); sweep(s);
@@ -1066,7 +1118,7 @@ test('streets: the greeting waits for a clear screen, and asks again', () => {
   // the how-to card is up. A dialog opened behind that one is a dialog nobody
   // reads, and the save's one greeting would be spent on it.
   withStreet((clock) => {
-    const s = sweepScene();
+    const s = sweepScene({ save: nearMark() });
     const body = { classList: { has: true, contains(c) { return c === 'modal-open' && this.has; } } };
     const realBody = document.body;
     document.body = body;
@@ -1078,7 +1130,7 @@ test('streets: the greeting waits for a clear screen, and asks again', () => {
       clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
       assert.eq(s.intros.length, 0, 'nothing opens behind the card');
       assert.falsy(s.save.trail.greeted, 'and the greeting is not spent');
-      assert.gt(s.save.trail.metres, 0, 'though the metres still bank');
+      assert.gte(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'though the metres still bank');
       body.classList.has = false;
       s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
       clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);

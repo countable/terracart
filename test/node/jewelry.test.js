@@ -1,9 +1,9 @@
 // Unique carried jewelry: intrinsic effects, no material-tier gear slot.
 
 (function () {
-  const ids = ['stealth_ring', 'invisibility_ring', 'regen_amulet', 'vigor_amulet'];
+  const ids = ['stealth_ring', 'invisibility_ring', 'ember_ring', 'regen_amulet', 'vigor_amulet'];
 
-  test('unique jewelry: four carried unique relics replace tiered ring and amulet gear', () => {
+  test('unique jewelry: carried unique relics replace tiered ring and amulet gear', () => {
     assert.falsy(RELIC_DEFS.ring, 'ring is not a tiered gear slot');
     assert.falsy(RELIC_DEFS.amulet, 'amulet is not a tiered gear slot');
     for (const id of ids) {

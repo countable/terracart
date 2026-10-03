@@ -1,10 +1,7 @@
 // The fog-of-war WASH (src/render.js).
 //
-// The fog used to be drawn as Graphics fills: concentric shells of 32px rects
-// off the boundary of explored ground, with hashed corner bites. That softened
-// the frontier without ever making it stop being made of cells — a 32px alpha
-// step reads as a UI element laid on the world, and the bites just turned the
-// staircase into chamfered tiles. It is a continuous ALPHA FIELD now, painted
+// The fog is a continuous ALPHA FIELD (not stepped 32px cell fills, which read
+// as a UI element laid on the world), painted
 // into a canvas texture at FOG_SUB samples per cell and smooth-upscaled.
 //
 // Four things about that field are easy to break silently, and this pins them:

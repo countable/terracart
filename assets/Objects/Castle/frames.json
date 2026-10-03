@@ -1,0 +1,54 @@
+[
+  {
+    "frame": 0,
+    "candidate": 7,
+    "sourceFile": "tower_master.png",
+    "source": [
+      67,
+      81,
+      374,
+      636
+    ],
+    "width": 32,
+    "height": 48
+  },
+  {
+    "frame": 1,
+    "candidate": 12,
+    "sourceFile": "tower_ruin_master.png",
+    "source": [
+      176,
+      112,
+      673,
+      1242
+    ],
+    "width": 32,
+    "height": 48
+  },
+  {
+    "frame": 2,
+    "candidate": 1,
+    "sourceFile": "tower_master.png",
+    "source": [
+      1078,
+      100,
+      375,
+      617
+    ],
+    "width": 32,
+    "height": 48
+  },
+  {
+    "frame": 3,
+    "candidate": 3,
+    "sourceFile": "tower_master.png",
+    "source": [
+      1595,
+      91,
+      389,
+      626
+    ],
+    "width": 32,
+    "height": 48
+  }
+]

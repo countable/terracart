@@ -1,12 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Combat — the ONE place the fight maths lives.
 //
-// Before this module a fight was a TIMER: you tapped a foe, a work wheel ran
-// for `toolDurationMs × hp/15`, and when the arc closed the creature died. The
-// weapon you carried only ever changed how long that arc took, and all three
-// weapons (sword / bow / staff) did the identical thing.
-//
-// Now a fight is HIT POINTS, and the three weapons reach them differently:
+// A fight is HIT POINTS, and the three weapons reach them differently:
 //
 //   sword          — melee. The combat wheel lands one BLOW per
 //                    MELEE_INTERVAL_MS on the engaged foe (app.js
@@ -37,26 +32,20 @@
 //
 // KILL TIMES ARE INHERITED, NOT RE-TUNED. The old wheel spent
 // `toolDurationMs × hp/15` ms on a target, so the damage per second that
-// reproduces it exactly is `15000 / toolDurationMs` — see `dpsForDurationMs`.
-// That rate is the MELEE rung, and everything below is derived from it;
-// nothing here is a magic number picked to feel right.
+// reproduces it is `15000 / toolDurationMs` — see `dpsForDurationMs`. That is
+// the MELEE rung; everything below derives from it.
 //
 // ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (app.js) picks which
 // of sword/bow/staff auto-engages or auto-fires; the other owned weapons sit
 // inert — no auto-engage, no auto-fire — until the player switches to them
 // (the Equip button under the Relics inventory tab, or obtaining/forging a
-// new one, which becomes active automatically). MELEE NEEDS NO WEAPON: with
-// no bow or staff equipped the hands auto-engage exactly as a sword does, on
-// the tier-0 rung (Gear.meleeActive). Because only one weapon can ever
-// be in play, there is no split across ranged slots any more: there used to
-// be one (bow and staff fired simultaneously and stacked, so their shares
-// were priced to sum to one sword), but exclusivity already prevents the
-// double-dip the split existed to fix. What's left is SHOT_DMG_MUL, a
-// deliberate difference in KIND rather than a stacking guard: the bow (an
-// arrow) delivers its tier's full melee-equivalent rate, same as the sword;
-// the staff (a piercing, seeking bolt) delivers 4/15 of it — 5 damage every
-// 5 s at Wood — and still costs energy per bolt; see the SHOT table below.
-// (It was DOUBLE the bow until Sep 2026.)
+// MELEE NEEDS NO WEAPON: with no bow or staff equipped the hands auto-engage
+// exactly as a sword does, on the tier-0 rung (Gear.meleeActive). Only one
+// weapon is in play, so ranged slots do not split a share. SHOT_DMG_MUL is a
+// difference in KIND: the bow (an arrow) delivers its tier's full
+// melee-equivalent rate; the staff (a piercing, seeking bolt) delivers 4/15 of
+// it — 5 damage every 5 s at Wood — and still costs energy per bolt; see the
+// SHOT table below.
 //
 // WHAT COUNTS AS AN ENEMY (`isEnemy`): things that attack YOU — the cave
 // monsters and the wild surface slime. Crows and deer are NOT enemies: they're
@@ -65,12 +54,9 @@
 // bow and staff included — a bow-only player can still bring down a deer).
 //
 // Node-testable: no DOM, no Phaser, no WorldGen. The monster stat table lives
-// HERE, beside the maths that reads it — it IS enemy data, and this is the one
-// module that answers "is this an enemy", "how much HP" and "what does the kill
-// pay". It used to live in app.js and arrive through `registerMonsters` at
-// boot, which meant every headless test of a real foe ran on a table lifted out
-// of app.js by regex. The shipping table is the DEFAULT registration now;
-// `registerMonsters` stays for the tests that swap in a synthetic kind.
+// HERE, beside the maths that reads it: this is the one module that answers
+// "is this an enemy", "how much HP" and "what does the kill pay".
+// `registerMonsters` lets tests swap in a synthetic kind.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
@@ -78,9 +64,6 @@
   // Approved roster stats are final values: no implicit cave or giant doubling.
   const roster = root.EnemyRoster || (typeof require === 'function' ? require('./enemy_roster.js') : null);
   if (!roster) throw new Error('Load enemy_roster.js before combat.js');
-  const CAVE_ENEMY_MUL = 1;
-  const GIANT_HP_MUL = 4; // legacy save aliases only
-  const GIANT_DEPTH_STEP = 2;
   const SLIME_SIGHT_CELLS = roster.get('slime').visionCells;
   const GHOST_SPEED_MPS = roster.get('ghost').movement.speedMetersPerSecond;
   const GHOST_TOUCH_DMG = roster.get('ghost').dmg;
@@ -109,27 +92,18 @@
   const MONSTERS = Object.fromEntries(roster.ROWS.map(row => [row.id, combatRow(row)]));
   // Existing zone-only enemy: preserve tar-yard and burned-row encounters.
   // These are final stats; it stays outside the ordinary cave and quest pools.
-  MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 1, dmg: 4, speed: 0.9,
+  MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 0.6, dmg: 4, speed: 0.9,
     minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS, board: false, eliteEligible: true };
-  const MONSTERS_BASELINE = MONSTERS; // compatibility for tools reading the authored table
-  const LEGACY_MONSTERS = {};
-  for (const kind of ['cave_slime', 'purple_slime', 'goblin', 'goblin_archer', 'goblin_trapper']) {
-    const id = `giant_${kind}`, base = MONSTERS[kind];
-    if (!MONSTERS[id]) LEGACY_MONSTERS[id] = { ...base, id, name: `Giant ${base.name}`,
-      hp: base.hp * GIANT_HP_MUL, giant: kind, surface: null, cave: null,
-      spawn: 'legacy', weight: 0, eliteEligible: false };
-  }
 
-  // The registered table — the shipping MONSTERS by default. Kept as a
-  // reference (not a copy) so a kind added above is an enemy here the same
-  // instant; tests swap in a synthetic table through registerMonsters.
+  // The registered table — the shipping MONSTERS by default, kept by reference
+  // so a kind added above is an enemy at once; tests swap via registerMonsters.
   let MONSTER_STATS = MONSTERS;
   function registerMonsters(table) { MONSTER_STATS = table || {}; }
   // One row of the registered table, or undefined. The one read for a kind's
   // range / dmg / speed / minDepth / fly — app.js's wander loop and the fire
   // ward ask through this rather than reaching for the literal, so a test that
   // registered a synthetic kind is answered about that kind.
-  function monster(kind) { return MONSTER_STATS[kind] || (MONSTER_STATS === MONSTERS ? LEGACY_MONSTERS[kind] : undefined); }
+  function monster(kind) { return MONSTER_STATS[kind]; }
   // How far a kind wanders off, as a fraction of its activation range (the
   // `retreat` column above; 1 — a full retreat — for any kind without one,
   // the surface slime included). A giant inherits its base kind's.
@@ -156,17 +130,6 @@
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
   function isMonster(kind) { return kind !== 'slime' && !!monster(kind); }
-  // Does this kind's body FLASH through its attack wind-up (render.js' amber
-  // strobe)? A melee, area, breath or blast attack lands with nothing else to
-  // watch, so the body is the warning. A PROJECTILE kind's warning is the
-  // arrow or bolt itself, seen in flight and stopped by rock — and the goblin
-  // archer, winding up before every shot, strobed seven times a volley
-  // (Oct 2026). A kind with no roster row keeps the flash: it only winds up
-  // through the roster anyway.
-  function windupFlashes(kind) {
-    const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(kind) : null;
-    return !row || row.attackType !== 'projectile';
-  }
   // Does this monster land blows at all? A row with no `dmg` (the trapper)
   // never hits: app.js's melee drain and monster arrow both ask this, so a
   // harmless kind is harmless by its row, never by a `kind === …`.
@@ -186,21 +149,17 @@
   // non-monster kind that is also an ENEMY. app.js reads this through
   // creatureMaxHp so the pet fight and the player fight can't drift apart.
   //
-  // The surface slime is 10, not the 15 it carried until Sep 2026. It is the
-  // FIRST enemy — met on the surface, often with no sword at all — and at 15
-  // it was nine seconds of bare-handed swinging for the one foe a new player
-  // is guaranteed to meet. Ten is six seconds. Nothing else moves with it: the
-  // bounty is derived from this number (enemyBounty below — a slime pays $2
-  // now rather than $3), and BASELINE_HP below is a fixed anchor, not a
-  // reading of this table.
+// The surface slime is 10: it is the FIRST enemy, often met with no sword at
+// all. The bounty is derived from this number (enemyBounty below), and
+// BASELINE_HP below is a fixed anchor, not a reading of this table.
   const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10 };
   // A SUMMONED ally borrows a kind's stats rather than carrying its own: the
-  // spirit raven (the Potion of the Raven) is "equal to a slime", so
+  // spirit raven (the Scroll of the Raven) is "equal to a slime", so
   // its pool is the surface slime's here and its bite is the slime's below
   // (petBite). One row, derived — a retune of the slime retunes the raven.
   // Its pool is the slime's BASE (FAUNA_HP), never the hard-mode enemy scale:
   // creatureMaxHp only scales Combat.isEnemy kinds, and the raven is yours.
-  const SUMMONED_AS = { spirit_raven: 'slime', mercenary: 'goblin' };
+  const SUMMONED_AS = { spirit_raven: 'slime', mercenary: 'goblin', summoned_skeleton: 'skeleton', summoned_wraith: 'ghost' };
   for (const [kind, model] of Object.entries(SUMMONED_AS)) {
     if (FAUNA_HP[model] != null) FAUNA_HP[kind] = FAUNA_HP[model];
   }
@@ -230,16 +189,10 @@
   // and MIN_PLAYER_DAMAGE is the floor: no attack ever lands for zero, however
   // good the armour.
   //
-  // THE POOL IS SPENT, NOT RE-CHARGED — the single most important line here.
-  // It shipped for a day handing each round the whole halved pool afresh, so a
-  // pool of P could soak P + P/2 + P/4 + P/8 ≈ 1.9P in total: a full Wood set
-  // (4) removed SEVEN points from a blow, which is most of anything this game
-  // throws, and every tier above Wood was indistinguishable because they all
-  // bottomed out at the floor. Now what survives a round is halved before the
-  // next one, so the total soak can never exceed the pool and a piece is worth
-  // exactly what it says it is worth. The halving still bites: it decays the
-  // UNSPENT remainder, which is what stops a big pool carrying its full weight
-  // into every round of a long blow.
+// THE POOL IS SPENT, NOT RE-CHARGED: what survives a round is halved before
+// the next one, so the total soak can never exceed the pool and a piece is
+// worth exactly what it says. (Handing each round the whole halved pool
+// afresh soaked ~1.9P and flattened every tier above Wood to the floor.)
   //
   // Between the two rules — a linear per-piece tier and a pool spent once —
   // armour lives on the same scale as the damage (1..16 across the whole
@@ -294,9 +247,11 @@
   // attack cooldowns use performance.now() and must not be passed as `now`.
   // Callers own energy loss, cooldowns and popup accumulation.
   function incomingDamage(save, damage, hits = 1, now = Date.now()) {
-    if (playerDowned(save?.energy)) return 0;
-    const shielded = (save.shieldPotionUntil ?? 0) > now
-      ? Math.ceil(damage * CONSUMABLE_SPEC.shield_potion.damageMul) : damage;
+    if (playerDowned(save?.energy) || Conditions.damageImmune(save, now)) return 0;
+    let mul = 1;
+    if ((save.protectionPotionUntil ?? 0) > now) mul = CONSUMABLE_SPEC.protection_potion.damageMul;
+    if ((save.shieldPotionUntil ?? 0) > now) mul = Math.min(mul, CONSUMABLE_SPEC.shield_potion.damageMul);
+    const shielded = mul < 1 ? Math.ceil(damage * mul) : damage;
     return playerDamage(shielded, save.armor, hits, save.mode);
   }
 
@@ -387,75 +342,62 @@
   }
 
   // ── DOWNED: the bar is empty ─────────────────────────────────────────────
-  // At zero energy the player has collapsed. They cannot reach (coords.js's
-  // reachRadiusM returns 0 at 0 energy, so no cell is tappable), and none of
-  // the three places a foe reaches the player can take another point off an
-  // empty bar — every one of them already refuses. A hostile that goes on
-  // stalking a body it is forbidden to bite is chasing nothing: it just
-  // parks on the wreck, and on hard mode (where nothing but Home lifts the
-  // bar off zero) it escorts the player the whole way home.
-  //
-  // So a downed player is simply NOT THERE to be hunted, exactly as a
-  // Shadow Powder makes them: scene_creatures.js's wanderCreatures reads this beside
-  // `shadowed` and every hostile falls back to an aimless wander — no stalk,
-  // no charge, no leech, no arrow — until the bar lifts off zero.
-  // ONE expression, both sides: the test that drops the pursuit is the same
-  // one that refuses the damage, so a foe can never be chasing a player it
-  // cannot hurt. Written negated so a NaN bar counts as down, like the
-  // `> 0` guards it replaces.
+  // At zero energy the player has collapsed: no reach (reachRadiusM returns 0),
+  // and every place a foe reaches the player already refuses to take another
+  // point. A hostile stalking a body it may not bite would only park on the
+  // wreck (and on hard mode escort the player all the way home), so a downed
+  // player is NOT THERE to be hunted, exactly as Shadow Powder makes them:
+  // wanderCreatures reads this beside `shadowed` and every hostile wanders
+  // aimlessly until the bar lifts. ONE expression, both sides: the test that
+  // drops the pursuit also refuses the damage. Written negated so a NaN bar
+  // counts as down.
   function playerDowned(energy) { return !((energy ?? 0) > 0); }
 
   // ── Elites ───────────────────────────────────────────────────────────────
   // A SHINY cave monster is an elite: one multiplier over the kind's HP and
-  // damage, the same shape as CAVE_ENEMY_MUL above so the dps identity
-  // holds — an elite takes exactly twice as long to kill at any weapon tier
-  // and hits exactly twice as hard. Only MONSTERS are elites: a shiny deer is
-  // game, and the surface slime never rolls shiny at all.
+  // damage together. Elite eligibility owns monster reward rolls; shiny
+  // power applies to every creature, including fauna and coin-stealing ravens.
   const ELITE_MUL = 2;
   function isElite(c) {
     return !!c && !!c.shiny && isEnemyKind(c.kind) && monster(c.kind)?.eliteEligible !== false;
   }
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
-  // A pet RAISED from a baby (SpriteLayout.isBabyPet — found in a nest bush
-  // or hatched from an egg) is twice its kind once grown: HP and bite both,
-  // through powerMul like the elite's, so the dps identity holds — a raised
-  // dog worries a slime in half the time and takes twice the worrying. A
-  // baby is still its kind's size in every sense; the doubling comes with
-  // adulthood. Its own factor, not the elite's: an elite is a MONSTER's
-  // shiny, and a raised pet is shiny for a different reason (it was raised).
+  const SHINY_SPEED_MUL = 1.5;
+  function shinyMul(c) { return c?.shiny ? ELITE_MUL : 1; }
+  function shinySpeedMul(c) { return c?.shiny ? SHINY_SPEED_MUL : 1; }
+  // Raised adults retain their double strength, without stacking that same
+  // shiny identity twice. Shiny babies also receive the universal bonus.
   const RAISED_MUL = 2;
   function raisedMul(c) {
     return (c && c.raised && !SpriteLayout.isBabyPet(c)) ? RAISED_MUL : 1;
   }
 
-  // THE instance's power over its kind's table row — the one factor its HP
-  // pool, its blow and its bounty are scaled by: the elite's. (Home weakens
-  // nothing: a foe too strong for the safe area is simply absent there —
-  // EnemySpawns.homeAllows.) Every per-creature scale reads this; eliteMul alone is
-  // the "is it an elite" half, for callers that ask only that (the elite's
-  // treasure roll, its tint).
-  function powerMul(c) { return eliteMul(c) * raisedMul(c); }
+  // Enlarged crypt ghosts have a separate size-based strength bonus.
+  function ghostSizeMul(c) {
+    if (!SpriteLayout.creatureHaunts(c?.kind)) return 1;
+    const scale = c._artScale ?? c.artScale ?? 1;
+    return EnemyRoster.GHOST_SCALING.rows.reduce((mul, row) =>
+      scale >= row.sizeMultiplier ? Math.max(mul, row.powerMultiplier ?? 1) : mul, 1);
+  }
+  function powerMul(c) { return Math.max(shinyMul(c), raisedMul(c)) * ghostSizeMul(c); }
   // The HP pool of THIS instance — the kind's max times its power.
   // Everything that seeds or refills a creature's HP reads this, never
   // creatureMaxHp(kind) directly, or an elite heals back to half its health.
   // Rounded (a softened pool is a fraction of the kind's), never below 1;
   // at power 1 or 2 it is exactly the integer it always was.
-  function maxHp(c) { return Math.max(1, Math.round(creatureMaxHp(c.kind) * powerMul(c))); }
+  function maxHp(c) {
+    const base = Math.max(1, Math.round(creatureMaxHp(c.kind) * powerMul(c)));
+    return root.PotionEffects ? Math.max(1, Math.ceil((base + root.PotionEffects.maxHpBonus(c))
+      * root.PotionEffects.maxHpMul(c))) : base;
+  }
 
   // Hostile kinds — every cave monster, plus the surface slime.
   function isEnemyKind(kind) {
     return isMonster(kind) || kind === 'slime';
   }
   // EVERY hostile kind, in the order the board should offer them: the surface
-  // slime first (the only foe you can meet without going underground), then the
-  // registered table in ITS OWN order — MONSTERS above is authored
-  // shallowest-first and each `giant_` form is appended, so a giant always
-  // lands after the kind it is a giant of.
-  //
-  // A FUNCTION, never a constant: registerMonsters can swap the table under it
-  // (a test's synthetic kind), so the list is read at call time. quests.js'
-  // board is the caller — it used to hand-type these nine kinds, which is how
-  // a kind added to MONSTERS could quietly fail to be worth a bounty.
+  // slime first, then the registered table in ITS OWN order. A FUNCTION, never
+  // a constant: registerMonsters can swap the table, so it is read at call time.
   function enemyKinds() {
     return [...new Set(['slime', ...Object.keys(MONSTER_STATS)])];
   }
@@ -475,24 +417,16 @@
   }
 
   // ── What a kill pays ─────────────────────────────────────────────────────
-  // A defeated enemy used to drop NOTHING: you paid the work wheel and the
-  // energy it drained off you and got a flash message, so the only rational
-  // play was to walk around every foe you met. Now a kill pays coins, always.
-  //
-  // EVERY ENEMY DRAWS ONE, not just the cave monsters. `isEnemyKind` is the
-  // single definition of "a thing that attacks you" — the cave monsters and
-  // the surface slime — and it is what this reads, so a hostile kind added to
-  // MONSTERS is priced the moment it has stats and can never end up fought for
-  // free. The surface slime was exactly that gap: it fights you, it eats your
-  // crops, and killing one paid nothing at all. Crow and deer are NOT enemies
-  // (they're game) and still pay in feathers and meat instead.
-  //
+  // Every kill pays coins, always. EVERY ENEMY DRAWS ONE, not just cave
+  // monsters: `isEnemyKind` is the single definition of "a thing that attacks
+  // you", so a hostile kind added to MONSTERS is priced the moment it has
+  // stats. Crow and deer are NOT enemies (they're game) and still pay in
+  // feathers and meat instead.
   // The bounty is DERIVED from `hp` — the same number that sets the wheel
   // length — rather than hand-tuned per kind, so a tougher foe can never
   // quietly pay less than an easier one. Roughly a coin per 5 HP, floored at 1:
-  //   surface slime 10hp → $2 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
-  //   archer 36hp → $7 · goblin 50hp → $10
-  //   (the cave kinds are the doubled ones — see CAVE_ENEMY_MUL above)
+  //   surface slime 10hp → $2 · purple slime 16hp → $3 · cave slime 24hp → $5 ·
+  //   goblin 48hp → $10 · archer 57hp → $11 (enemy_roster.js values, Oct 2026)
   // The HP comes from creatureMaxHp, which is the monster table first and the
   // fauna ladder second — one source, so the coins a kind pays and the HP you
   // have to chew through can't drift apart. Depth adds a slow climb on top (a
@@ -557,19 +491,74 @@
 
   // ── Where fauna may not step ─────────────────────────────────────────────
   // Terrain cell types fauna may NEVER move onto (spec §fauna: "no fauna may
-  // move onto a building footing, or road"). WATER (3) + all building tiers
-  // (9/11/12) + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14) + CAVE_WALL
-  // (25). PATHS (8) are pedestrian / public and stay passable. Every wander,
-  // flee, stalk and spawn seat in app.js asks this one predicate — it is about
-  // the creatures, so it lives with them.
-  const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
+  // move onto a building footing, or a major road"). WATER (3) + all building
+  // tiers (9/11/12) + the MAJOR road tiers (ROAD_LG 13 / ROAD_MD 14) +
+  // CAVE_WALL (25). A minor street (ROAD 7) and PATHS (8) are crossable
+  // (owner, Oct 2026: a wall at every side street boxed creatures into one
+  // block); the major band itself is also refused by its roadClass bit (THE
+  // KERB, creature_ai.js), and nothing SPAWNS on any road (isSpawnCell).
+  // Every wander, flee, stalk and spawn seat in app.js asks this one
+  // predicate — it is about the creatures, so it lives with them.
+  const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 13, 14, 25 /* CAVE_WALL */]);
   function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
+
+  // ── A STATUS LANDS ON A CREATURE ──────────────────────────────────────
+  // THE ONE TABLE OF HOW A CREATURE'S STATUS LOOKS when it is given: the
+  // word that pops over its head and the colour its body flicks for
+  // STATUS_FLASH_MS (render.js drawCreatures reads both off the creature;
+  // app.js _popCreatureText draws the word in the damage-number lane). A
+  // sleep, a charm, the frost, a fear and the madness are rows here; a BURN
+  // is the `burning` row of Conditions.DEFINITIONS (statusLook — the same
+  // label and ink the player's chip wears), and a THROWN POTION's buff is
+  // its Buffs.KINDS row (potion_effects.js apply). Every applier calls
+  // flagStatus with its look, so a new status on a creature is a row here
+  // and one flagStatus call, never a pop or a tint of its own. The marker
+  // that STAYS over a sleeper's or an ally's head (Render.flowerStatusMarker)
+  // reads the same colours.
+  //   The flash is the same channel the player's own announcement uses
+  // (app.js _flashPlayerStatus / _announceStatuses, STATUS_FLASH_MS): a
+  // status landing on anybody looks the same.
+  const STATUS_FLASH_MS = 400;
+  const STATUS_LOOKS = Object.freeze({
+    sleep:     Object.freeze({ label: 'Sleep',     color: '#bcdfff' }),
+    charm:     Object.freeze({ label: 'Charm',     color: '#ff91b8' }),
+    // The ice the body wears while it holds (util.js FROZEN_TINT).
+    frozen:    Object.freeze({ label: 'Frozen',    color: '#' + FROZEN_TINT.toString(16).padStart(6, '0') }),
+    fear:      Object.freeze({ label: 'Fear',      color: '#c77dff' }),
+    psychosis: Object.freeze({ label: 'Psychosis', color: '#c6ff4d' }),
+  });
+  function statusLook(id) {
+    const def = root.Conditions?.DEFINITIONS[id];
+    if (def) return { label: def.label, color: def.ink };
+    return STATUS_LOOKS[id] || null;
+  }
+  // A status has just LANDED on `c`: arm the flick and queue the word. The
+  // flick's clock is performance.now() like a foe's burn and fear, whatever
+  // clock the status itself keeps (sleep and frost keep wall time).
+  function flagStatus(c, look, now = performance.now()) {
+    if (!c || !look) return false;
+    c._statusFlashLook = look;
+    c._statusFlashUntilT = now + STATUS_FLASH_MS;
+    c._statusPop = { label: look.label, color: look.color, atT: now };
+    return true;
+  }
+  // The tint the flick paints this instant, or null once it has passed.
+  function statusFlashTint(c, now = performance.now()) {
+    const look = c?._statusFlashLook;
+    if (!look || !((c._statusFlashUntilT || 0) > now)) return null;
+    return parseInt(look.color.slice(1), 16);
+  }
 
   const FLOWER_STATUS_MS = 60 * 1000;
   function isSleeping(c, now = Date.now()) { return !!c && (c._sleepUntil || 0) > now; }
   function isCharmed(c, now = Date.now()) { return !!c && (c._charmUntil || 0) > now; }
+  function isBurrowed(c) { return !!c?._burrowed; }
+  function isDisguised(c) {
+    return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
+  }
+  function isConcealed(c) { return isBurrowed(c) || isDisguised(c); }
   function flowerTarget(c) {
-    return !!c && !c._surfaceInactive && isEnemyKind(c.kind)
+    return !!c && !c._surfaceInactive && !isConcealed(c) && isEnemyKind(c.kind)
       && !(typeof c.id === 'string' && c.id.startsWith('released_'));
   }
   function cancelCreatureAction(c) {
@@ -589,6 +578,7 @@
     if (!flowerTarget(c)) return false;
     c._sleepUntil = now + FLOWER_STATUS_MS;
     cancelCreatureAction(c);
+    flagStatus(c, STATUS_LOOKS.sleep);
     return true;
   }
   function applyCharm(c, now = Date.now()) {
@@ -597,15 +587,35 @@
     cancelCreatureAction(c);
     c._wardFrom = null;
     c._wanderOffUntilT = null;
+    flagStatus(c, STATUS_LOOKS.charm);
+    return true;
+  }
+  // PSYCHOSIS (the Powder of Psychosis, app.js usePsychosisPowder): for
+  // `durationMs` the foe loses its head — wanderCreatures reads
+  // isPsychotic as one more reason in the ROUT lane (the flee pace, no blow,
+  // no target) with a RANDOM angle each hop in place of fear's away angle;
+  // rosterEnemyMove rolls the same random heading. The clock is
+  // performance.now(), fear's (`_fearUntilT`), so the two share one `now` in
+  // the step loop. Whatever it was winding up is dropped, and it turns NOW
+  // rather than finishing a hop at the player (fear does the same through
+  // monsterRout). Only a flower target — a hostile kind, never a pet.
+  function isPsychotic(c, now = performance.now()) { return !!c && (c._psychosisUntilT || 0) > now; }
+  function applyPsychosis(c, durationMs, now = performance.now()) {
+    if (!flowerTarget(c)) return false;
+    c._psychosisUntilT = now + durationMs;
+    cancelCreatureAction(c);
+    if (c._nextChooseT != null) c._nextChooseT = now;
+    flagStatus(c, STATUS_LOOKS.psychosis, now);
     return true;
   }
 
   // A hostile INSTANCE. A slime tamed with a sapphire (id 'released_…') is a
   // pet: it must never be shot at, auto-engaged, or counted as "an enemy is on
   // screen" for the auto-fire gate. A rose's temporary ally gets the same
-  // targeting exclusion while its charm lasts; its species remains unchanged.
+  // targeting exclusion while its charm lasts; buried creatures are likewise
+  // unavailable until they surface. Their species remains unchanged.
   function isEnemy(c, now = Date.now()) {
-    if (!c || c._surfaceInactive || isCharmed(c, now)) return false;
+    if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now)) return false;
     if (typeof c.id === 'string' && c.id.startsWith('released_')) return false;
     return isEnemyKind(c.kind);
   }
@@ -633,7 +643,10 @@
   }
   // THIS pet's blow: its kind's bite times its own power (a raised pet's
   // double). The fight in scene_creatures.js reads this, never petBite alone.
-  function petBlow(c) { return petBite(c.kind) * powerMul(c); }
+  function petBlow(c) {
+    const base = petBite(c.kind) * powerMul(c);
+    return root.PotionEffects ? (base + root.PotionEffects.meleeBonus(c)) * root.PotionEffects.meleeMul(c) : base;
+  }
 
   // Current HP, lazily seeded from the kind's max the first time anything hits
   // it. Creatures are re-spawned from tile data on every reload, so `_hp` is
@@ -648,7 +661,8 @@
   // bypassArmor after computing a packet rate, avoiding a per-frame hit floor.
   function damageDealt(c, amount, options = {}) {
     const before = hp(c);
-    const raw = Math.max(0, amount);
+    if (isConcealed(c)) return 0;
+    const raw = Math.max(0, amount) * (root.PotionEffects ? root.PotionEffects.damageMul(c) : 1);
     const hit = options.bypassArmor ? raw : mitigate(raw, monster(c.kind)?.armor || 0);
     if (hit > 0 && before > 0) c._sleepUntil = 0;
     c._hp = Math.max(0, before - hit);
@@ -663,60 +677,98 @@
     return clamp01(hp(c) / max);
   }
 
-  // ── A foe on fire ─────────────────────────────────────────────────────────
-  // What lights it: a lit Torch's melee blow (app.js, the combat wheel —
-  // `by` 'player', so the burn's kill is the player's), a campfire it brushes
-  // or lava it stands in (scene_creatures.js — 'fire' / 'lava', the ground's
-  // kill). The NUMBERS are the player's own `burning` row of
-  // Conditions.DEFINITIONS, read live: 1 HP a second for 5 s, then out on its
-  // own; a fresh contact restarts the 5 s without moving the next tick, the
-  // way Conditions.apply refreshes the player. In-memory on the creature like
-  // `_hp`. A lava-immune kind (the demons) never catches — ONE flag for fire
-  // and lava both. Clocks are performance.now(), the wander loop's.
+  // Units and the player share the same burn clock and exposure scaling.
+  // Unit clocks are performance.now(); state remains local like `_hp`.
   function burnDef() { return Conditions.DEFINITIONS.burning; }
-  function canBurn(c) { return !!c && !monster(c.kind)?.lavaImmune; }
-  function burning(c, now = performance.now()) { return (c?._burnUntilT || 0) > now; }
+  function canBurn(c) { return !!c && !isConcealed(c) && !monster(c.kind)?.lavaImmune; }
+  function burning(c, now = performance.now()) {
+    if (!c?._burnState) return false;
+    return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
+  }
   function ignite(c, now = performance.now(), by = 'fire') {
+    if (root.Conditions?.fireImmune(c)) return false;
     if (!canBurn(c)) return false;
+    if (c._burnState?.remainingMs > 0) { c._burnBy = by; return false; }
     const def = burnDef();
-    const fresh = !burning(c, now);
-    c._burnUntilT = now + def.durationMs;
-    if (fresh) c._burnNextT = now + def.intervalMs;
+    c._burnState = { remainingMs: def.durationMs, nextTickMs: def.intervalMs };
+    c._burnAtT = now;
+    c._burnExposed = false;
     c._burnBy = by;
+    // A FRESH burn announces itself (a body already alight re-stoked by
+    // exposure returned above, so standing in a fire says it once).
+    flagStatus(c, statusLook('burning'), now);
+    return true;
+  }
+  // ── A creature's POISON ─────────────────────────────────────────────
+  // The `poison` row of Conditions.DEFINITIONS, on a creature: the Poison
+  // Flask (potion_effects.js apply) sets the row's duration and the tick
+  // levies the row's energyLoss every intervalMs off its HP — the same
+  // minute, the same bite a second, as the player's own poison. The clock is
+  // performance.now() like the burn's, state in memory like `_hp`
+  // (`_poisonState` — a thrown Antidote or Elixir deletes it, PotionEffects
+  // .clearDebuffs). `by` names who poisoned it: the player's flask pays the
+  // bounty on a kill (scene_fire.js _tickUnitPoison, the burn's dispatch).
+  // A body no wound can reach (Conditions.damageImmune) runs the clock and
+  // pays nothing.
+  function poisonDef() { return Conditions.DEFINITIONS.poison; }
+  function poisoned(c, now = performance.now()) {
+    return !!c?._poisonState && c._poisonState.remainingMs > Math.max(0, now - c._poisonAtT);
+  }
+  function poison(c, now = performance.now(), by = 'player') {
+    if (!c) return false;
+    const def = poisonDef();
+    const fresh = !poisoned(c, now);
+    // A refresh runs the minute again without postponing the bite already due
+    // (Conditions.apply's rule for the player).
+    c._poisonState = { remainingMs: def.durationMs, nextTickMs: fresh ? def.intervalMs : Math.max(0, c._poisonState.nextTickMs - (now - c._poisonAtT)) };
+    c._poisonAtT = now;
+    c._poisonBy = by;
+    if (fresh) flagStatus(c, statusLook('poison'), now);
     return fresh;
   }
-  // The whole points due since the last call (0 while none is), the fire put
-  // out once its time is up. Every tick inside the burn lands, however late
-  // the frame — a 5 s burn is always five points.
-  function burnTick(c, now = performance.now()) {
-    if (!c || !(c._burnUntilT > 0)) return 0;
-    const def = burnDef();
-    let dmg = 0;
-    while (c._burnNextT <= now && c._burnNextT <= c._burnUntilT) {
-      dmg += def.energyLoss;
-      c._burnNextT += def.intervalMs;
+  function poisonTick(c, now = performance.now()) {
+    if (!c?._poisonState) return 0;
+    const def = poisonDef();
+    let { remainingMs, nextTickMs } = c._poisonState;
+    let elapsed = Math.max(0, now - c._poisonAtT);
+    let ticks = 0;
+    // Advance to each bite's boundary, like Conditions.tick: a delayed frame
+    // pays exactly what the one-second updates would.
+    while (elapsed > 0 && remainingMs > 0) {
+      const step = Math.min(elapsed, nextTickMs, remainingMs);
+      remainingMs -= step; elapsed -= step; nextTickMs -= step;
+      if (nextTickMs <= 0) { ticks++; nextTickMs = def.intervalMs; }
     }
-    if (now >= c._burnUntilT) { c._burnUntilT = 0; c._burnBy = null; }
-    return dmg;
+    c._poisonAtT = now;
+    if (remainingMs <= 0) { delete c._poisonState; c._poisonBy = null; }
+    else c._poisonState = { remainingMs, nextTickMs };
+    return root.Conditions?.damageImmune(c) ? 0 : ticks * def.energyLoss;
+  }
+  function burnTick(c, now = performance.now(), exposed = false) {
+    if (root.Conditions?.fireImmune(c)) {
+      if (root.PotionEffects) root.PotionEffects.extinguish(c);
+      return 0;
+    }
+    if (!c?._burnState) return 0;
+    const result = Conditions.advanceBurn(c._burnState, Math.max(0, now - c._burnAtT), exposed);
+    c._burnState = { remainingMs: result.remainingMs, nextTickMs: result.nextTickMs };
+    c._burnAtT = now;
+    c._burnExposed = exposed;
+    if (result.remainingMs <= 0) c._burnBy = null;
+    return result.damage;
   }
 
   // ── Damage ladders ───────────────────────────────────────────────────────
-  // The identity described at the top: a wheel that took `durMs` to strip a
-  // 15-HP foe was dealing 15000/durMs HP per second. Bare hands (tier 0,
-  // 9000 ms) → 1.67 dps; wood (4000) → 3.75; frost (300) → 50.
-  //
-  // This 15 is the OLD WHEEL'S reference pool and nothing else — it is the
-  // constant the whole weapon ladder is scaled against, so it is frozen even
-  // though the slime it was named after is 10 HP now (FAUNA_HP above). Moving
-  // it would silently re-rate every weapon in the game; to change how long a
-  // given foe takes, move that kind's `hp` or TOOL_DURATION_MS instead.
+  // A wheel that took `durMs` to strip a 15-HP foe dealt 15000/durMs HP per
+  // second: bare hands (9000 ms) 1.67 dps; wood (4000) 3.75; frost (300) 50.
+  // This 15 is the OLD WHEEL'S reference pool and nothing else: it scales the
+  // whole weapon ladder, so it is frozen. Moving it would re-rate every weapon;
+  // change a foe's `hp` or TOOL_DURATION_MS instead.
   const BASELINE_HP = 15;
   function dpsForDurationMs(durMs) { return (BASELINE_HP * 1000) / Math.max(1, durMs); }
 
-  // Melee is the SWORD's job now. Bow and staff shoot instead of swinging, so
-  // they no longer shorten the combat wheel — carrying one and no sword fights
-  // at the bare-handed rung, and the shots are what make up the difference.
-  //
+  // Melee is the SWORD's job. Carrying a bow or staff and no sword fights at
+  // the bare-handed rung.
   // `playerClass` (optional — save.playerClass, the wizard's one-time calling,
   // src/wizard.js CLASSES) is the PLAYER's own melee only: an ENFORCER lands
   // ENFORCER_MELEE_DPS more HP a second on top of the tier's rung. It is a
@@ -726,53 +778,53 @@
   // (1.67 dps) nearly quadruple, a Frost blade (50 dps) barely notices.
   // Pets, turrets and monsters never pass a class.
   const ENFORCER_MELEE_DPS = 5;
-  function meleeDps(relics, playerClass) {
-    const slot = relics && relics.sword ? 'sword' : null;
+  function meleeDps(relics, playerClass, weapon = 'sword', mounted = false) {
+    const slot = MELEE_WEAPONS[weapon] && relics?.[weapon] ? weapon : null;
     const bonus = playerClass === 'enforcer' ? ENFORCER_MELEE_DPS : 0;
-    return dpsForDurationMs(toolDurationMs(relics, slot)) + bonus;
+    return (dpsForDurationMs(toolDurationMs(relics, slot)) + bonus) / meleeIntervalMul(weapon, mounted);
   }
 
   // ── Melee cadence ────────────────────────────────────────────────────────
-  // How often a blow LANDS on the enemy the player has engaged, in ms. A
-  // sword fight is a sequence of swings, not a hose: the wheel used to drain
-  // the foe's pool every frame at meleeDps and merely DRAW a slash twice a
-  // second (app.js borrowed DMG_POPUP_BEAT_MS, 500 ms, because the damage
-  // itself had no cadence of its own to borrow). Two blows a second read as a
-  // blur, and a fight broken off mid-beat had still banked every frame of it.
-  //
-  // The interval CANCELS OUT of the delivered rate, exactly the way
-  // FIRE_INTERVAL_MS does for a shot: one blow is one interval's worth of the
-  // tier's melee rung (meleeSwingDamage below), so halving the attack rate
-  // doubles what a blow lands and the kill-time identity at the top of this
-  // file still holds at every tier. Slow it to change how a fight READS;
-  // to change how LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
+  // How often a blow LANDS on the engaged enemy, in ms. For the sword the
+  // interval CANCELS OUT of the delivered rate, as FIRE_INTERVAL_MS does for a
+  // shot: one blow is one interval's worth of the tier's melee rung
+  // (meleeSwingDamage below), so the kill-time identity at the top of this file
+  // holds at every tier. Slow it to change how a fight READS; to change how
+  // LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
   const MELEE_INTERVAL_MS = 1000;
+  // Off-weapons keep the matching sword's per-hit damage. Lance trades
+  // half its attack speed for twice the reach — on foot. Mounted
+  // (`mountedIntervalMul`, `mounted` = isRiding) it swings at the sword's
+  // pace, so a rider's lance deals twice its walking damage a second.
+  const MELEE_WEAPONS = {
+    sword: { reachMul: 1, intervalMul: 1 },
+    // A dagger stays inside the gap a closing foe stops at (creature_ai.js
+    // rosterEnemyMove: 0.35 cell), or it could never land a blow.
+    dagger: { reachMul: 0.75, intervalMul: 1 },
+    lance: { reachMul: 2, intervalMul: 2, mountedIntervalMul: 1 },
+  };
+  function meleeIntervalMul(slot, mounted = false) {
+    const row = MELEE_WEAPONS[slot];
+    return (mounted && row?.mountedIntervalMul) || row?.intervalMul || 1;
+  }
+  function meleeIntervalMs(slot, mounted = false) { return MELEE_INTERVAL_MS * meleeIntervalMul(slot, mounted); }
 
   // ── How far a melee attacker reaches ───────────────────────────────────
-  // ONE cell, for the player and for a melee monster alike — and ONE number,
-  // read by both sides, for the roadOverlayWidthM reason: a reach the player
-  // has and the thing biting them does not is a difference nobody can see on
-  // the screen and everybody feels in the fight.
-  //
-  // Until Sep 2026 melee reached the player's LIT reach — 2.5 cells at the
-  // start and up to 5.5 with the six Inner Light upgrades — while every melee
-  // monster (MONSTERS[kind].range 1) and the surface slime's leech had to be
-  // ADJACENT. So you could stand three cells off a goblin and punch it to
-  // death while it walked, and the Inner Light's reach upgrades quietly
-  // doubled as combat range. Closing to arm's length is the whole cost of
-  // choosing to melee something; the lit reach is about what you can WORK,
-  // and it kept paying for a fight it was never priced for.
-  //
-  // The RANGED weapons are untouched: a bow or a staff is the thing you buy
-  // to hit what you cannot punch (SHOT[].rangeCells).
-  const MELEE_REACH_CELLS = 1;
+  // 0.6 CELL (owner, Oct 2026: a crowd bites from arm's length), for the
+  // player and for a melee monster alike, ONE number read by both sides: a
+  // reach one side has and the other does not is invisible on screen and felt
+  // in the fight. The lit reach is about what you can WORK, not fight.
+  // RANGED weapons are untouched (SHOT[].rangeCells). Kinds whose roster row
+  // reaches further (spear goblin, fliers, big bodies) are named by
+  // enemy_roster.js `range`.
+  const MELEE_REACH_CELLS = 0.6;
   // The reach in metres, and the test both sides run. Centre-to-centre, which
   // is what the monster's own attack gate measures (scene_creatures.js wanderCreatures
   // compares the creature's position against the player's FEET), so the two
   // are symmetric by construction rather than by two similar-looking circles.
-  function meleeReachM(cellM) { return MELEE_REACH_CELLS * cellM; }
-  function inMeleeReach(ax, ay, bx, by, cellM) {
-    const r = meleeReachM(cellM);
+  function meleeReachM(cellM, slot) { return MELEE_REACH_CELLS * cellM * (MELEE_WEAPONS[slot]?.reachMul || 1); }
+  function inMeleeReach(ax, ay, bx, by, cellM, slot) {
+    const r = meleeReachM(cellM, slot);
     const dx = ax - bx, dy = ay - by;
     return dx * dx + dy * dy <= r * r;
   }
@@ -814,9 +866,7 @@
   //              — the melee blow and both shot cadences; each hit keeps its
   //              damage, so speed is more hits, not bigger ones).
   // Levels live in save.training[kind], drills in save.trainingDrills[kind]
-  // (an expiry stamp). A save from before Sep 2026 held ONE melee track
-  // (trainingPerm / trainingBuffUntil): read as melee here, folded into the
-  // new fields on the next purchase (Macros), and capped like any level.
+  // (an expiry stamp); a level is capped at TRAINING_PERM_MAX.
   // Pets, turrets, powders and potions are not the player's attacks.
   const TRAINING_KINDS = {
     melee:  { label: 'Melee',   per: 1,    drill: 5,    unit: 'dmg' },
@@ -829,16 +879,13 @@
   const TRAINING_PERM_MAX = 5;
   const TRAINING_BUFF_MS = 24 * 60 * 60 * 1000;
   // Which discipline a ranged weapon slot's hits train.
-  const TRAINING_SLOT_KIND = { bow: 'ranged', staff: 'magic' };
+  const TRAINING_SLOT_KIND = { bow: 'ranged', musket: 'ranged', staff: 'magic' };
   function trainingLevel(save, kind) {
-    const t = save && save.training && save.training[kind];
-    const raw = t != null ? t : (kind === 'melee' && save ? save.trainingPerm : 0);
+    const raw = save && save.training && save.training[kind];
     return clamp(Math.floor(Number(raw) || 0), 0, TRAINING_PERM_MAX);
   }
   function trainingDrillUntil(save, kind) {
-    const d = save && save.trainingDrills && save.trainingDrills[kind];
-    const raw = d != null ? d : (kind === 'melee' && save ? save.trainingBuffUntil : 0);
-    return Number(raw) || 0;
+    return Number(save && save.trainingDrills && save.trainingDrills[kind]) || 0;
   }
   function trainingBuffActive(save, kind, now = Date.now()) {
     return trainingDrillUntil(save, kind) > now;
@@ -859,14 +906,15 @@
   }
 
 
+  function playerAttackIntervalMul(save, now = Date.now()) {
+    return trainingIntervalMul(save, now) * Conditions.attackIntervalMul(save);
+  }
 
-  function meleeSwingDamage(relics, mul = 1, playerClass) {
-    return meleeDps(relics, playerClass) * (mul || 1) * MELEE_INTERVAL_MS / 1000;
+  function meleeSwingDamage(relics, mul = 1, playerClass, slot = 'sword', mounted = false) {
+    return meleeDps(relics, playerClass, slot, mounted) * (mul || 1) * meleeIntervalMs(slot, mounted) / 1000;
   }
 
   // The BASE fire beat — one shot every two seconds, and what the bow keeps.
-  // Was 1000 — halving the cadence makes each shot a visible event instead of
-  // a stream; shotDamage scales per-shot damage by the interval, so the
   // delivered rate is cadence-independent.
   //
   // A slot may fire on its own beat (SHOT[slot].fireIntervalMs, read through
@@ -878,11 +926,8 @@
   // weapon quietly loses half its damage.
   const FIRE_INTERVAL_MS = 2000;
   const STAFF_BEAT_MUL = 2.5;   // a bolt every 5 s
-  const RANGED_SLOTS = ['bow', 'staff'];
-  // Per-slot shot geometry. (A `phaseMs` once staggered the staff half a beat
-  // off the bow; only one ranged slot can ever be the active weapon now, so it
-  // was 0 for both and the field is gone — app.js arms a newly active weapon
-  // to fire on the next pass.) Ranges/speeds
+  const RANGED_SLOTS = ['bow', 'staff', 'musket'];
+  // Per-slot shot geometry. Ranges/speeds
   // are in CELLS and cells-per-second so they hold at any cell size; the
   // viewport is 11 cells wide, so a bow shot crosses the screen and a staff
   // bolt very nearly does.
@@ -934,18 +979,23 @@
   function anyEnemyWithin(x, y, enemies, maxM) {
     const m2 = maxM * maxM;
     for (const e of enemies || []) {
+      if (isConcealed(e)) continue;
       const dx = e.x - x, dy = e.y - y;
       if (dx * dx + dy * dy <= m2) return true;
     }
     return false;
   }
+  const BOW_SHOT = { speedCps: 4.5, rangeCells: 8, rangeFromReach: RANGED_TRIGGER_PAST_REACH,
+    color: 0xffe6a8, lenPx: 9, widthPx: 2, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
+    ammo: { id: 'wood', shots: 20 } };
   const SHOT = {
     // `ammo`: the bow burns one WOOD per `shots` arrows, and will not fire
     // with none in the bag (app.js _combatTick). Energy is the staff's price;
     // wood is the bow's.
-    bow:   { speedCps: 4.5, rangeCells: 8, rangeFromReach: RANGED_TRIGGER_PAST_REACH, color: 0xffe6a8, lenPx: 9, widthPx: 2,
-             aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
-             ammo: { id: 'wood', shots: 20 } },
+    bow: BOW_SHOT,
+    musket: { ...BOW_SHOT,
+              color: 0x555961, dotPx: 3, projectile: 'musket_ball', damageTier: 4,
+              ammo: { id: 'coin', shots: 1, currency: true } },
     staff: { speedCps: 1.0, rangeCells: 2.5, rangeFromReach: 0,
              color: 0x9ad6ff, dotPx: 3,
              pierce: true, energyCost: 1, aim: 'nearest',
@@ -980,12 +1030,8 @@
   const SHOT_DMG_MUL = { bow: 1, staff: 4 / 15 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
   // Both weapons now sweep the SAME tight radius: a shot has to actually
-  // reach a foe, not just pass somewhere in its neighbourhood. The bow used
-  // to carry a much wider radius (0.9 cells) to forgive a phone COMPASS
-  // heading being coarse and jittery, but that forgiveness is exactly what
-  // made a shot look like it "hit" a foe it visibly missed — so the bow now
-  // takes the same collision precision the staff does, at the cost of the
-  // compass needing to actually be lined up.
+  // Both weapons sweep the SAME tight radius, so a shot has to actually reach a
+  // foe; a wide forgiving radius made shots look like they hit foes they missed.
   const HIT_RADIUS_CELLS = 0.35;
 
   // ── Bolt size by tier ────────────────────────────────────────────────────
@@ -1039,9 +1085,7 @@
   // delivered per-second rate entirely; it only paces how chunky each hit
   // looks. An empty slot fires nothing at all.
   //
-  // The floor of 1 is what keeps a wooden weapon firing at all once the
-  // rounding is through; it only ever binds on rungs whose full rate is
-  // already under two per second.
+  // The floor of 1 keeps a wooden weapon firing at all after rounding.
   //
   // `playerClass` (optional — save.playerClass, src/wizard.js CLASSES): a
   // HUNTER's BOW shots carry HUNTER_BOW_MUL of the rate. A CLASS BONUS the
@@ -1052,21 +1096,20 @@
   const HUNTER_BOW_MUL = 1.5;
   function shotDamage(relics, slot, playerClass) {
     if (!relics || !relics[slot]) return 0;
-    const classMul = (slot === 'bow' && playerClass === 'hunter') ? HUNTER_BOW_MUL : 1;
-    const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) * (SHOT_DMG_MUL[slot] || 1) * classMul;
+    const classMul = ((slot === 'bow' || slot === 'musket') && playerClass === 'hunter') ? HUNTER_BOW_MUL : 1;
+    const damageRelics = SHOT[slot]?.damageTier ? { [slot]: { tier: SHOT[slot].damageTier } } : relics;
+    const perSecond = dpsForDurationMs(toolDurationMs(damageRelics, slot)) * (SHOT_DMG_MUL[slot] || 1) * classMul;
     return Math.max(1, Math.round(perSecond * fireIntervalMs(slot) / 1000));
   }
 
   // The heading a 'nearest'-aimed slot fires along from (x, y): a vector to
-  // the closest of `enemies`, or null when there is none — or none within
-  // `maxRangeM` (optional; the slot's own rangeCells × cellM is what the
-  // caller hands over, so the staff never spends a bolt on a foe it can't
-  // reach). Ties go to the first listed, so the pick is stable frame to frame.
-  // `enemies` is the caller's already-filtered hostile list, exactly as
-  // stepShots takes it — a crow or a pet can no more be aimed at than hit.
+  // the closest of `enemies` (the caller's already-filtered hostile list), or
+  // null when none, or none within optional `maxRangeM`. Ties go to the first
+  // listed, so the pick is stable frame to frame.
   function aimAtNearest(x, y, enemies, maxRangeM) {
     let best = null, bestD2 = maxRangeM != null ? maxRangeM * maxRangeM : Infinity;
     for (const e of enemies || []) {
+      if (isConcealed(e)) continue;
       const dx = e.x - x, dy = e.y - y;
       const d2 = dx * dx + dy * dy;
       if (d2 > bestD2 || !(d2 > 0)) continue;
@@ -1076,9 +1119,8 @@
     return best;
   }
 
-  // Resolve the heading a slot fires along: the compass `facing` for a
-  // 'compass' slot, the line to the nearest foe for a 'nearest' one. Returns
-  // null when there is nothing to fire at, and app.js fires nothing then.
+  // The heading a slot fires along: compass `facing` for 'compass' slots, the
+  // line to the nearest foe for 'nearest' ones; null when nothing to fire at.
   function shotHeading(slot, x, y, facing, enemies, cellM, reachCells) {
     const spec = SHOT[slot];
     if (!spec) return null;
@@ -1086,15 +1128,11 @@
     return facing || null;
   }
 
-  // A shot in flight. `dir` is the heading (need not be normalised) — the
-  // compass or the line to a foe, per shotHeading; a zero-length heading is
-  // refused rather than firing a shot that sits on the player's feet forever.
-  // `tier` is the firing relic's tier and sizes the shot (boltScale above):
-  // `radiusM` is what stepShots sweeps foes with and `dotPx` what app.js
-  // draws, both stamped here so they can't disagree. Omitted, it is tier 1.
-  // `reachCells` is the caster's live reach, for the slots whose range is
-  // derived from it (rangeCellsFor) — the same value shotHeading was handed,
-  // so the bolt flies exactly as far as the check that loosed it.
+  // A shot in flight. `dir` need not be normalised; a zero-length heading is
+  // refused. `tier` sizes the shot (boltScale): `radiusM` (hit sweep) and
+  // `dotPx` (draw) are both stamped here so they can't disagree. `reachCells`
+  // is the caster's live reach, the same value shotHeading was handed, so the
+  // bolt flies exactly as far as the check that loosed it.
   // `rangeCellsOverride` flies the shot a range of its own (the turret's).
   function spawnShot(slot, x, y, dir, cellM, dmg, tier, reachCells, rangeCellsOverride) {
     const mag = Math.hypot(dir?.x || 0, dir?.y || 0);
@@ -1102,6 +1140,7 @@
     const spec = SHOT[slot];
     return {
       slot, x, y,
+      ...(spec.projectile ? { projectile: spec.projectile } : {}),
       vx: dir.x / mag, vy: dir.y / mag,
       speedMps: spec.speedCps * cellM,
       rangeM: (rangeCellsOverride ?? rangeCellsFor(slot, reachCells)) * cellM,
@@ -1127,10 +1166,56 @@
     return shot;
   }
 
+  // A thrown flask bursts on the first foe or at the vision boundary. It
+  // clears terrain; the scene ignites the square footprint on impact.
+  function spawnExplosiveFlask(x, y, dir, cellM, rangeM, spec) {
+    if (!(rangeM > 0) || !Number.isFinite(rangeM)) return null;
+    const shot = spawnShot('bow', x, y, dir, cellM, spec.damage);
+    if (!shot) return null;
+    Object.assign(shot, {
+      projectile: 'explosive_flask', rangeM, impactOnly: true,
+      blastRadiusM: 0, radiusM: spec.projectileRadiusCells * cellM,
+      dotPx: spec.dotPx, color: 0xffa32d,
+    });
+    return shot;
+  }
+
+  // Find the first contact along the whole frame's flight, including a
+  // grazing contact between sample points. Only that foe takes impact damage.
+  function stepImpactShot(s, dt, targets, onHit, opts) {
+    const travel = Math.min(s.speedMps * dt, Math.max(0, s.rangeM - s.travelledM));
+    let contact = null, distance = travel;
+    for (const e of targets) {
+      if (isConcealed(e)) continue;
+      if (opts?.canHit && !opts.canHit(e, s)) continue;
+      const dx = e.x - s.x, dy = e.y - s.y;
+      const along = dx * s.vx + dy * s.vy;
+      const across = dx * s.vy - dy * s.vx;
+      const chordSquared = s.radiusM * s.radiusM - across * across;
+      if (chordSquared < 0) continue;
+      const halfChord = Math.sqrt(chordSquared);
+      if (along + halfChord < 0) continue;
+      const entry = Math.max(0, along - halfChord);
+      if (entry > distance || (contact && entry === distance)) continue;
+      contact = e;
+      distance = entry;
+    }
+    s.x += s.vx * distance; s.y += s.vy * distance;
+    s.travelledM += distance;
+    if (contact) onHit(contact, s);
+    if (contact || s.travelledM >= s.rangeM - 1e-8) {
+      opts?.onExplode?.(s);
+      return false;
+    }
+    return true;
+  }
+
   function explodeShot(s, targets, onHit, opts, cellM) {
     const blocked = opts?.blocked && ((x, y) => opts.blocked(x, y, s));
     const struck = new Set();
     for (const e of targets) {
+      if (isConcealed(e)) continue;
+      if (!(s.damage > 0)) break;
       if (opts?.canHit && !opts.canHit(e, s)) continue;
       const key = e.id != null ? e.id : e;
       if (struck.has(key) || Math.hypot(e.x - s.x, e.y - s.y) > s.blastRadiusM) continue;
@@ -1148,14 +1233,18 @@
     const sampleM = Math.max(0.01, Math.min(cellM * BLOCK_SAMPLE_CELLS, s.radiusM));
     const samples = Math.max(1, Math.ceil(travel / sampleM));
     const step = travel / samples;
+    const ignite = s.projectile === 'fireball' ? opts?.onFireCell : null;
+    ignite?.(s.x, s.y, s);
     for (let i = 0; i < samples; i++) {
       const x = s.x + s.vx * step, y = s.y + s.vy * step;
       if (opts?.blocked?.(x, y, s)) {
         explodeShot(s, targets, onHit, opts, cellM);
         return false;
       }
+      if (s.projectile === 'fireball') opts?.onFireSegment?.(s.x, s.y, x, y, s);
       s.x = x; s.y = y; s.travelledM += step;
-      if (targets.some(e => (!opts?.canHit || opts.canHit(e, s))
+      ignite?.(s.x, s.y, s);
+      if (targets.some(e => !isConcealed(e) && (!opts?.canHit || opts.canHit(e, s))
           && Math.hypot(e.x - x, e.y - y) <= s.radiusM)) {
         explodeShot(s, targets, onHit, opts, cellM);
         return false;
@@ -1168,10 +1257,9 @@
     return true;
   }
 
-  // How finely a shot's flight is sampled against the world when the caller
-  // supplies a `blocked` test, in cells. Half a cell is well under the
-  // thinnest thing that can stop a shot (a cave wall is a whole cell), so a
-  // frame long enough to carry a shot several cells still can't step over one.
+  // How finely a shot's flight is sampled against the world (`blocked`), in
+  // cells: half a cell is under the thinnest thing that stops a shot (a cave
+  // wall), so a long frame can't step over one.
   const BLOCK_SAMPLE_CELLS = 0.5;
 
   // Advance every shot by `dt` seconds and resolve the first enemy each one
@@ -1199,6 +1287,11 @@
   // reads as hitting the wall, and it is then dropped.
   // `opts.cellM` sizes the sampling; it falls back to the hit radius, which is
   // just under a cell.
+  // `opts.onFireCell(x, y, shot)` ignites fireball trail samples in world
+  // metres, including the launch and final positions. The scene resolves
+  // its tile grid and deduplicates cells already burned.
+  // `opts.onFireSegment(x0, y0, x1, y1, shot)` supplies each accepted sweep
+  // for exact grid traversal, including brief crossings at cell corners.
   //
   // `opts.hostileTargets` — what a HOSTILE shot (a monster's arrow, flagged
   // `hostile` by monsterShot) can hit: the player, handed over as a marker
@@ -1214,12 +1307,15 @@
     const sampleM = Math.max(0.01,
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
-      const targets = s.hostile ? hostileTargets : enemies;
-      if (s.blastRadiusM > 0) {
+      const targets = s.potionId ? (opts?.potionTargets || enemies) : s.hostile ? hostileTargets : enemies;
+      if (s.blastRadiusM > 0 || s.impactOnly) {
         // Blasts can reach beyond the viewport used to choose auto-attack
         // targets. The caller supplies nearby hostiles across that boundary.
         const blastTargets = !s.hostile && opts?.explosiveTargets ? opts.explosiveTargets : targets;
-        if (stepExplosiveShot(s, dt, blastTargets, onHit, opts, opts?.cellM || hitRadiusM)) alive.push(s);
+        const flying = s.impactOnly
+          ? stepImpactShot(s, dt, blastTargets, onHit, opts)
+          : stepExplosiveShot(s, dt, blastTargets, onHit, opts, opts?.cellM || hitRadiusM);
+        if (flying) alive.push(s);
         continue;
       }
       const sr2 = s.radiusM != null ? s.radiusM * s.radiusM : r2;
@@ -1247,6 +1343,7 @@
         // The per-shot hit ledger is what stops a slow bolt re-hitting the
         // same foe on every frame it spends crossing them.
         for (const e of targets) {
+          if (isConcealed(e)) continue;
           if (canHit && !canHit(e, s)) continue;
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 > sr2) continue;
@@ -1259,6 +1356,7 @@
       } else {
         let hit = null, bestD2 = sr2;
         for (const e of targets) {
+          if (isConcealed(e)) continue;
           if (canHit && !canHit(e, s)) continue;
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 <= bestD2) { bestD2 = d2; hit = e; }
@@ -1275,23 +1373,15 @@
   }
 
   // ── Castle turrets ───────────────────────────────────────────────────────
-  // A castle's turrets (worldgen's `tower` objects, one per ~5 rim cells) are
-  // archers. While an enemy is on screen, every turret ALSO on screen looses a
-  // WOOD-TIER BOW ARROW at the nearest foe inside TURRET.rangeCells (3 cells,
-  // owner's call Sep 2026 — the walls guard their own ground, not the street
-  // beyond; the arrow flies that far and no further) — at ONE
-  // FIFTH the player's cadence, so a rim of six covers the approach without
-  // fighting the fight for you. Nothing here is tuned: the arrow IS the
-  // player's bow arrow (SHOT.bow — same speed, range, streak, and it stops in
-  // timber and rock the same way), its damage is what a Wood bow deals
-  // (shotDamage over TURRET_RELICS, so a re-shaped tool ladder moves the
-  // turrets with it), and the interval is the player's times TURRET_RATE_DIV.
-  // A turret has no compass, so it aims the staff's way (aimAtNearest) and,
-  // like the staff, holds fire — clock left due — while the nearest foe is
-  // beyond the arrow's range, so it fires the instant one steps in.
-  // "Enemy" is the caller's already-filtered list, exactly as stepShots takes
-  // it: a turret can no more shoot a crow, a deer or a tamed slime than the
-  // player's auto-fire can.
+  // A castle's turrets (worldgen's `tower` objects) are archers: while an enemy
+  // is on screen, every on-screen turret looses a WOOD-TIER BOW ARROW at the
+  // nearest foe inside TURRET.rangeCells (3 — the walls guard their own ground,
+  // owner's call Sep 2026) at ONE FIFTH the player's cadence. Nothing here is
+  // tuned: the arrow IS the player's bow arrow (SHOT.bow), its damage is a Wood
+  // bow's (shotDamage over TURRET_RELICS) and the interval is the player's
+  // times TURRET_RATE_DIV. A turret aims the staff's way (aimAtNearest) and
+  // holds fire — clock left due — while the nearest foe is out of range.
+  // `enemies` is the caller's already-filtered list, as stepShots takes it.
   const TURRET_RATE_DIV = 5;
   const TURRET = {
     slot: 'bow',
@@ -1342,24 +1432,20 @@
       const shot = turretShot(t.x, t.y, enemies, cellM);
       if (!shot) continue;
       clocks[t.id] = now + TURRET.fireIntervalMs;
+      shot.castle = t.castle;
       shots.push(shot);
     }
     return shots;
   }
 
   // ── Monster arrows ───────────────────────────────────────────────────────
-  // A RANGED monster (MONSTERS[kind].range > 1 — the goblin archer and its
-  // giant) attacks with a visible arrow, not the silent energy leech the
-  // melee kinds land: scene_creatures.js (wanderCreatures) looses one at the player
-  // whenever they are inside the kind's range with a clear line of fire
-  // (lineOfFire — the same rock that stops your arrow stops theirs), and the
-  // arrow flies exactly as a bow arrow does, joining the one shot list. It is
-  // flagged `hostile`, which is what makes stepShots sweep it against the
-  // PLAYER (opts.hostileTargets) rather than the enemy list. Its damage is the
-  // kind's `dmg` — one arrow is one hit of the table — and its cadence is the
-  // castle turret's (MONSTER_SHOT_INTERVAL_MS = TURRET.fireIntervalMs), so an
-  // archer and a turret trade arrows at the same pace. A distinct colour
-  // keeps a shot coming AT you legible from one going out.
+  // A RANGED monster (MONSTERS[kind].range > 1) attacks with a visible arrow
+  // rather than the melee leech: scene_creatures.js wanderCreatures looses one
+  // at the player when inside range with a clear line of fire (lineOfFire).
+  // It is flagged `hostile`, so stepShots sweeps it against the PLAYER
+  // (opts.hostileTargets). Its damage is the kind's `dmg` (one arrow is one
+  // hit of the table) and its cadence is the castle turret's. A distinct
+  // colour keeps a shot coming AT you legible.
   const MONSTER_SHOT_INTERVAL_MS = TURRET.fireIntervalMs;
   const HOSTILE_ARROW_COLOR = 0xb0f08a;
   function monsterShot(x, y, targetX, targetY, cellM, dmg, hits = 1) {
@@ -1376,16 +1462,10 @@
     return shot;
   }
 
-  // Is there a clear line from (x0,y0) to (x1,y1)? Sampled at the same
-  // resolution a shot's flight is, through the same caller-supplied world
-  // test, so what stops an arrow stops a line of fire.
-  //
-  // For a RANGED MONSTER's attack. The goblin archer reaches three cells, and
-  // without this it reaches them through solid rock — taking exactly the shot
-  // the player is no longer allowed to take, from somewhere they often cannot
-  // even see. Melee kinds are adjacent by definition and never consult it.
-  // The endpoints are skipped: those are the two bodies, and a body is
-  // standing on floor by definition.
+  // Is there a clear line from (x0,y0) to (x1,y1)? Sampled like a shot's
+  // flight through the same caller-supplied world test. For a RANGED MONSTER's
+  // attack: without it an archer shoots through solid rock. Endpoints are
+  // skipped (both bodies stand on floor).
   function lineOfFire(x0, y0, x1, y1, blocked, cellM) {
     if (!blocked) return true;
     const dx = x1 - x0, dy = y1 - y0;
@@ -1400,8 +1480,7 @@
     return true;
   }
 
-  // Health-bar tint. The bar has to read as health at a glance without a
-  // number: full green, bloodied amber, nearly-dead red.
+  // Health-bar tint: full green, bloodied amber, nearly-dead red.
   function healthColor(frac) {
     if (frac > 0.5) return 0x6fdc6f;
     if (frac > 0.25) return 0xffc23d;
@@ -1409,29 +1488,30 @@
   }
 
   const api = {
-    MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
-    registerMonsters, monster, isMonster, windupFlashes, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
+    MONSTERS,
+    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
     SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    FLOWER_STATUS_MS, isSleeping, isCharmed, applySleep, applyCharm,
+    FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
+    STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, isPsychotic, applyPsychosis,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
-    canBurn, burning, ignite, burnTick,
-    ELITE_MUL, isElite, eliteMul, RAISED_MUL, raisedMul, powerMul, maxHp,
+    canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,
+    ELITE_MUL, isElite, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
-    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
+    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, playerAttackIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
     theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
-    MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
+    MELEE_REACH_CELLS, MELEE_WEAPONS, meleeIntervalMs, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
-    aimAtNearest, shotHeading, spawnShot, spawnFireball, stepShots, lineOfFire, healthColor,
+    aimAtNearest, shotHeading, spawnShot, spawnFireball, spawnExplosiveFlask, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
     MONSTER_SHOT_INTERVAL_MS, HOSTILE_ARROW_COLOR, monsterShot,
   };

@@ -24,7 +24,7 @@
   function surfaceRows(type, context) {
     const biome = typeof type === 'string' ? type : biomeName(type);
     const eligible = rows().filter(row => !row.retired && row.surface && row.tier <= 3 && row.attackType !== 'touch' && row.surface.biomes.includes(biome))
-      .filter(row => !['pirate_grunt', 'pirate_gunner', 'pirate_captain', 'giant_crab'].includes(row.id) || context?.beach);
+      .filter(row => !['pirate_grunt', 'pirate_gunner', 'pirate_captain', 'giant_crab', 'jellyfish'].includes(row.id) || context?.beach);
     const replaced = new Set(eligible.filter(row => row.variantType === 'Tint').map(row => row.variantOf));
     return eligible.filter(row => !replaced.has(row.id));
   }
@@ -34,7 +34,7 @@
       // Ordinary beaches: mostly resident crabs/slimes, occasional visitors.
       const visitors = ['pirate_grunt', 'pirate_gunner'];
       const pirate = roll(id + ':visitor') < .12;
-      eligible = eligible.filter(row => pirate ? visitors.includes(row.id) : ['giant_crab', 'slime'].includes(row.id));
+      eligible = eligible.filter(row => pirate ? visitors.includes(row.id) : ['giant_crab', 'slime', 'jellyfish'].includes(row.id));
     }
     const weights = root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
     const tiers = [...new Set(eligible.map(row => row.tier))];

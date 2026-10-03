@@ -1,13 +1,11 @@
 // A FOE WANDERS OFF NOW AND THEN — so none piles up against a campfire ring.
 //
-// A slime refused at a lit fire's ring (the fire ward refuses its target
-// CELLS) keeps stalking the player standing inside it, gets every hop toward
-// them refused, and stands on the ring's edge. Over a long rest they pile up.
-// Every few minutes (WANDER_OFF_MIN_MS + random × WANDER_OFF_SPREAD_MS of time
-// spent thinking) each wild foe turns its back and walks out to the edge of its
-// range — the sim bubble, CREATURE_SIM_CELLS, since a foe has no notice radius
-// of its own — times a random [1, WANDER_OFF_MAX_MUL]. It does not bite on the
-// way, and WANDER_OFF_TIMEOUT_MS ends it if it cannot arrive.
+// A slime refused at a lit fire's ring keeps stalking the player inside it and
+// piles up on the ring's edge. Every few minutes (WANDER_OFF_MIN_MS + random ×
+// WANDER_OFF_SPREAD_MS of time spent thinking) each wild foe turns its back and
+// walks out to the edge of its range (the sim bubble, CREATURE_SIM_CELLS) times
+// a random [1, WANDER_OFF_MAX_MUL], without biting; WANDER_OFF_TIMEOUT_MS ends
+// it if it cannot arrive.
 //
 // It is a new REASON in existing lanes, not a mover of its own: `standDown`
 // (the attack gates), `routed` (the flee pace Home's rout runs at) and one
@@ -93,9 +91,9 @@ test('wander-off: one more reason in the lanes that exist, not a lane of its own
   const w = app.slice(start, app.indexOf('\n  }\n', start));
   assert.truthy(/const wanderOff = !stationary && !isTame && !c\.lair && Combat\.isEnemy\(c\)\s*&& monsterWanderingOff\(/.test(w),
     'only a mobile, wild, non-lair enemy wanders off');
-  assert.truthy(/const standDown = frightened \|\| warded \|\| wanderOff \|\| /.test(w),
+  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| /.test(w),
     'while it goes it does not leech, hit, shoot or charge (standDown)');
-  assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened;/.test(w), 'it runs at the rout pace (beside a sated thief)');
+  assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened \|\| psychotic;/.test(w), 'it runs at the rout pace (beside a sated thief)');
   const ward = w.indexOf('} else if (warded) {');
   const off = w.indexOf('} else if (frightened || wanderOff || (kerbTurn && !c.lair)) {');
   const slime = w.indexOf("} else if (c.kind === 'slime') {");
@@ -179,7 +177,6 @@ test('wander-off: each kind retreats its own fraction of the range (default a fu
   assert.eq(Combat.retreatMul('slime'), 1, 'the surface slime: full retreat');
   assert.eq(Combat.retreatMul('cave_slime'), 1, 'a kind with no retreat column: full');
   assert.eq(Combat.retreatMul('goblin'), 0.5, 'a goblin goes half as far — and comes back');
-  assert.eq(Combat.retreatMul('giant_goblin'), 0.5, 'a giant inherits its base kind');
   assert.eq(Combat.retreatMul('purple_slime'), 0.75);
   const W = __monsterWanderingOff;
   const CELL = 7, RANGE = SIM_CELLS * CELL;
