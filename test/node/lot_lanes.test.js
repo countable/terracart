@@ -192,7 +192,7 @@ test('lot lanes: quarry ground and dressing preserve original cave entrances', (
   const entrances = result => {
     const entry = {...result, objects:result.objects.slice(), cellsPerEdge:CPE, tileEdgeM:TILE_EDGE_M};
     WorldGen.maybePlaceCaveEntrance(entry,0,0,TILE_EDGE_M,result.objects,result.wildplants);
-    return entry.objects.filter(o=>o.kind === 'staircase').map(o=>`${o.id}:${o.x},${o.y}`).join('|');
+    return entry.objects.filter(o=>o.kind === 'staircase' && o.zoneLayer !== 'entrance').map(o=>`${o.id}:${o.x},${o.y}`).join('|');
   };
   assert.eq(entrances(after), entrances(before), 'existing mine mouths keep their positions and IDs');
 });

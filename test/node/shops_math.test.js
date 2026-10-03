@@ -482,7 +482,7 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
 
 // ─── Trader ask (ShopsMath.traderAsk) ───────────────────────────────────────
 // A wooden-backpack player was offered 2 Fireflowers for 54 Potato Seeds — an
-// ask the bag could never hold. Half the asks must be takeable on the spot, and
+// ask the bag could never hold. Most asks must be takeable on the spot, and
 // none may exceed the stack cap while a holdable choice exists.
 (function () {
   const prices = { potato_seed: 1, carrot: 10, stone: 2, gem: 500 };
@@ -501,15 +501,17 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
     }
   });
 
-  test('traderAsk: about half of all asks are affordable from the bag as it stands', () => {
+  test('traderAsk: most asks are affordable from the bag as it stands', () => {
     let ok = 0; const N = 2000;
     for (let i = 0; i < N; i++) {
       const a = ShopsMath.traderAsk(base({ rng: seeded(i * 7919 + 1) }));
       const have = a.askId === 'carrot' ? 8 : a.askId === 'potato_seed' ? 15 : 0;
       if (have >= a.askQty) ok++;
     }
-    // The affordable pass alone is 50%; the fallback's owned pick adds more.
-    assert.truthy(ok / N >= 0.5, `affordable share ${(ok / N).toFixed(2)} ≥ 0.5`);
+    // The affordable pass alone is TRADER_AFFORDABLE_CHANCE; the fallback's
+    // owned pick adds more.
+    assert.truthy(ok / N >= ShopsMath.TRADER_AFFORDABLE_CHANCE - 0.03,
+      `affordable share ${(ok / N).toFixed(2)} ≥ ${ShopsMath.TRADER_AFFORDABLE_CHANCE}`);
   });
 
   test('traderAsk: nothing affordable → still asks for something owned, then the wishlist', () => {

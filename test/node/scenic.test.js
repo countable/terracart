@@ -11,8 +11,8 @@
 //     shipping sweep (app.js _ripenStreets → _bankStreetMetres → Trail.bank),
 //     the km chip reads TRUE metres (Trail.restoredMetres), and the living
 //     lamps' re-walk credit is NOT multiplied.
-//   · VIEWPOINTS: the scope's story, the relic once per save, the gift once
-//     per UTC day; merge of near viewpoints; the grail chest's T4.
+//   · VIEWPOINTS: the scope's searches, story and backpack once per save;
+//     merge of near viewpoints; the grail chest's tier.
 //   · BEACHES: the X count follows the shoreline (capped), inland sand keeps
 //     the old stream; the tide line is a pure function of (id, UTC day), taken
 //     into the day ledger (never save.picked).
@@ -354,11 +354,12 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
   assert.inRange(sum / N, 700, 1100, 'the T5 grail pays its tripled treasure budget without becoming T7');
 });
 
-test('scenic: the scope — story once, the relic once per save, the gift once per UTC day', () => {
+test('scenic: the scope opens its menu on every visit and gives one backpack', () => {
   const save = { relics: {}, coinBurstClaimed: {}, inv: [] };
-  const stories = [], rolls = [], loot = [];
+  const stories = [], rolls = [], loot = [], menus = [];
   const scene = makeScene({ save, flashLoot: (t) => loot.push(t),
-    _storySplashOnce(key) { stories.push(key); return true; } });
+    _storySplashOnce(key) { stories.push(key); return false; },
+    presentTelescopeMenu(x, y, o) { menus.push(o.id); } });
   scene.save = save;
   const realGrant = globalThis.grantTreasureRoll;
   globalThis.grantTreasureRoll = (sc, sv, x, y, mark, ctx) => rolls.push(ctx);
@@ -373,24 +374,69 @@ test('scenic: the scope — story once, the relic once per save, the gift once p
     assert.eq(stories[0], S.VISTA_STORY.story, 'the vista tells its story');
     assert.eq(save.vistaRelic, 1, 'the first vista pays the relic');
     assert.eq(save.relics[S.FIRST_VISTA_SLOT].tier, 1, 'a Wood ' + S.FIRST_VISTA_SLOT);
-    assert.eq(rolls.length, 1, 'and today\'s gift');
-    assert.eq(rolls[0], S.VISTA_CONTEXT);
-    assert.falsy(poiLit(a, spentSets(scene, save)), 'the gift taken, the POI light goes out');
+    assert.eq(rolls.length, 0, 'looking through a telescope gives no treasure roll');
+    assert.eq(menus.length, 1);
     tap(a);
-    assert.eq(rolls.length, 1, 'no second gift the same day');
+    assert.eq(menus.length, 2, 'repeat taps reopen the menu');
     tap(b);
-    assert.eq(rolls.length, 2, 'another scope has its own gift');
+    assert.eq(menus.length, 3, 'another scope also offers a search');
     assert.eq(save.relics[S.FIRST_VISTA_SLOT].tier, 1, 'but no second relic');
     t += 24 * 3600 * 1000;
-    assert.truthy(poiLit(a, spentSets(scene, save)), 'the next UTC day it glows again');
     tap(a);
-    assert.eq(rolls.length, 3, 'and gives again');
+    assert.eq(menus.length, 4, 'the next day still opens the menu');
+    assert.eq(rolls.length, 0);
     assert.eq(S.firstVistaPrize({ relics: { bags: { tier: 3 } } }).tier, 4, 'the relic is a tier over what you wear');
     assert.eq(S.firstVistaPrize({ vistaRelic: 1 }), null, 'once per save');
   } finally {
     Date.now = realNow;
     globalThis.grantTreasureRoll = realGrant;
   }
+});
+
+test('scenic: telescope chooses the nearest unopened real T3+ chest on this level', () => {
+  const chest = (id, x, extra = {}) => ({ kind: 'chest', id, x, y: 0, tierSeed: 3, ...extra });
+  const objects = [chest('low', 1, { tierSeed: 2 }), chest('opened', 2),
+    chest('cave', 3, { depth: 1 }), chest('crate', 4, { crate: true }),
+    chest('far', 20), chest('nearest', 10), chest('invalid', NaN)];
+  const opts = { player: { x: 0, y: 0 }, objects, save: { opened: ['opened'] }, now: 1000 };
+  const found = S.telescopeTarget('chest', opts);
+  assert.eq(found.targetId, 'nearest');
+  assert.eq(found.type, 'object');
+  assert.eq(found.until, 1000 + 24 * 60 * 60 * 1000);
+  assert.eq(found.depth, 0);
+  assert.eq(S.telescopeTarget('chest', { ...opts, objects: [] }), null);
+  assert.eq(S.telescopeTarget('missing', opts), null);
+});
+
+test('scenic: telescope danger ignores defeated, dormant, dead and friendly elites', () => {
+  const enemy = (id, x, extra = {}) => ({ kind: 'goblin', id, x, y: 0, shiny: true, ...extra });
+  const creatures = [enemy('caught', 1), enemy('dead', 2, { _hp: 0 }),
+    enemy('asleep-surface', 3, { _surfaceInactive: true }), enemy('released_pet', 4),
+    enemy('ordinary', 5, { shiny: false }), enemy('far', 30), enemy('nearest', 15)];
+  const found = S.telescopeTarget('elite', { player: { x: 0, y: 0 }, creatures, save: { caught: ['caught'] } });
+  assert.eq(found.targetId, 'nearest');
+  assert.eq(found.type, 'creature');
+});
+
+test('scenic: solace finds the nearest collectible shiny that still grants a memory', () => {
+  function shinyId(prefix, rate) {
+    for (let i = 0; i < 100000; i++) if (isShiny(prefix + i, rate)) return prefix + i;
+    throw new Error('No deterministic shiny fixture');
+  }
+  const tree = { kind: 'tree', id: shinyId('scope-tree', SHINY_RATE.tree), x: 10, y: 0 };
+  const plant = { kind: 'wildplant', crop: 'mushroom', id: shinyId('scope-plant', SHINY_RATE.flora), x: 5, y: 0 };
+  const deer = { kind: 'deer', id: 'scope-deer', shiny: true, x: 20, y: 0 };
+  const opts = { player: { x: 0, y: 0 }, objects: [tree], wildplants: [plant], creatures: [deer] };
+  assert.eq(S.telescopeTarget('shiny', opts).targetId, plant.id);
+  assert.eq(S.telescopeTarget('shiny', { ...opts, save: { picked: [plant.id] } }).targetId, tree.id);
+  assert.eq(S.telescopeTarget('shiny', { ...opts, save: { discovered: { mushroom: 1, wood: 1 } } }).targetId, deer.id);
+  assert.eq(S.telescopeTarget('shiny', { ...opts, save: { discovered: { mushroom: 1, wood: 1, deer: 1 } } }), null);
+  const fruit = { ...tree, kind: 'fruittree', species: 'apple' };
+  const fruitOpts = { player: opts.player, objects: [fruit], now: 1000 };
+  assert.eq(S.telescopeTarget('shiny', fruitOpts).targetId, fruit.id);
+  assert.eq(S.telescopeTarget('shiny', { ...fruitOpts, save: { fruitPicked: { [fruit.id]: 999 } } }), null);
+  assert.eq(S.telescopeTarget('shiny', { ...fruitOpts, save: { burnedObjects: [fruit.id] } }), null);
+  assert.eq(S.telescopeTarget('shiny', { ...fruitOpts, objects: [{ ...fruit, planted: true, planted_t: 999 }] }), null);
 });
 
 test('scenic: a scope is a rest spot on the fire\'s own ring and a light on it — not a ward', () => {

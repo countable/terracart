@@ -78,7 +78,7 @@ test('coin icon: money amounts in HTML go through moneyHTML', () => {
   assert.truthy(/kind: 'money',\s*\n\s*label: this\.moneyHTML\(cashCost\),/.test(app),
     'the shop offer label wears the coin');
   assert.truthy(/cost: this\.moneyHTML\(price\),/.test(app), 'a buy cost line wears the coin');
-  assert.truthy(/get: this\.moneyHTML\(`\+\$\{unitPrice \* q\}`\),/.test(app),
+  assert.truthy(/get: this\.moneyHTML\(`\+\$\{unitPrice\}`\),/.test(app),
     'a sell get line wears the coin');
   assert.truthy(/get: done \? `Reward: \$\{this\.moneyHTML\(q\.reward\)\}`/.test(app),
     'the quest-board reward line wears the coin');

@@ -1064,7 +1064,7 @@ test('thorny path: dense deterministic brambles cross their minor road and enclo
     return { result, opts };
   };
   const name = nameFor(false), { result, opts } = build(name);
-  assert.eq(SV.VARIANT_BY_ID.thorny.title, 'Thorny Path');
+  assert.eq(SV.VARIANT_BY_ID.thorny.title, 'Thorny Way');
   assert.eq(SV.VARIANT_BY_ID.thorny.code, SV.VARIANT_BY_ID.snare.code + 1, 'append preserves existing codes');
   assert.eq(SV.THORNY_VERGE_MAX_CELLS, 4);
   assert.inRange(result.wildplants.length / 264, 0.6, 0.95, 'dense irregular verges reach up to four cells');

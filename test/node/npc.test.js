@@ -247,8 +247,40 @@
       const talk = NPC.dialogue(s, c, Date.UTC(2026, 8, 28));
       assert.truthy(talk.body.includes('chest'));
       assert.truthy(talk.body.includes('east'), 'reports direction from the speaker');
+      assert.eq(talk.target.targetId, 'near');
+      assert.eq(talk.target.type, 'object');
+      assert.eq(s.save.wayfarerCompass, undefined, 'reading dialogue does not mark the map');
+      c._portrait = 'portrait';
+      let shown = 0;
+      s.showMessageModal = () => {
+        shown++;
+        assert.eq(s.save.wayfarerCompass.targetId, 'near', 'marker exists when the conversation opens');
+      };
+      const before = Date.now();
+      NPC.interact(s, c, 0, 0);
+      assert.eq(shown, 1);
+      assert.eq(s.save.wayfarerCompass.depth, 0);
+      assert.inRange(s.save.wayfarerCompass.until - before, Scenic.TELESCOPE_DURATION_MS, Scenic.TELESCOPE_DURATION_MS + 1000);
+      delete s.save.wayfarerCompass;
+      s._dialogOpen = () => true;
+      NPC.interact(s, c, 0, 0);
+      assert.eq(s.save.wayfarerCompass, undefined, 'blocked conversation does not mark anything');
       s.save.opened = ['near'];
       assert.falsy(NPC.dialogue(s, c, Date.UTC(2026, 8, 28)).body.includes('chest'), 'used and distant discoveries are excluded');
+      assert.eq(NPC.dialogue(s, c, Date.UTC(2026, 8, 28)).target, undefined, 'no candidate leaves no mark');
+      s.save.opened = [];
+      chests[0] = { kind: 'chest', id: 'inn', poiClass: 'lodging', x: 25, y: 0 };
+      assert.eq(NPC.dialogue(s, c, Date.UTC(2026, 8, 28)).target, undefined, 'service buildings are not treasure sightings');
+      WorldGen.forEachItem = (kind, fn) => fn({ kind: 'slime', id: 'foe', x: 5, y: 10 });
+      const foeTalk = NPC.dialogue(s, c, Date.UTC(2026, 8, 28));
+      assert.eq(foeTalk.target.targetId, 'foe');
+      assert.eq(foeTalk.target.type, 'creature');
+      c.kind = 'npc'; c._npcRestUntilEpoch = Date.now() + 10000;
+      s._dialogOpen = () => false;
+      s.showMessageModal = () => { shown++; };
+      NPC.interact(s, c, 0, 0);
+      assert.eq(s.save.wayfarerCompass, undefined, 'a resting neighbour gives no directions');
+
     } finally {
       WorldGen.forEachItemInBox = realWalk; WorldGen.forEachItem = realAll;
       WorldGen.tileCache.clear(); for (const [key, value] of cache) WorldGen.tileCache.set(key, value);

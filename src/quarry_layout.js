@@ -12,6 +12,8 @@
   // Only isolated remnants keep ordinary rubble.
   const WALL_FRAME_BY_MASK = { 10: 0, 5: 1, 6: 2, 12: 3, 3: 4, 9: 5,
     11: 6, 7: 7, 14: 8, 13: 9, 15: 10, 4: 11, 8: 12, 1: 13, 2: 14 };
+  const WALL_MASK_BY_FRAME = Object.fromEntries(Object.entries(WALL_FRAME_BY_MASK).map(([mask, frame]) => [frame, Number(mask)]));
+  function wallMaskForFrame(frame) { return WALL_MASK_BY_FRAME[frame] ?? 0; }
   function wallFrameAt(cells, i, N) {
     const x = i % N, y = Math.floor(i / N);
     const mask = (y > 0 && cells.has(i - N) ? 1 : 0)
@@ -19,6 +21,39 @@
       | (y < N - 1 && cells.has(i + N) ? 4 : 0)
       | (x > 0 && cells.has(i - 1) ? 8 : 0);
     return WALL_FRAME_BY_MASK[mask] ?? null;
+  }
+  // Authored mine mouths are ordinary generated stairs, so cave loading
+  // mirrors their return ladders and gives each shaft a route farther down.
+  function* entrancesSteps(s, ctx) {
+    const settings = s.variant.entrances, WG = root.WorldGen;
+    if (!settings || !s.a.owned || s.a.clipped) return [];
+    const { N, tx, ty, tileEdgeM, grid } = ctx, opts = ctx.spawnOpts;
+    const covered = new Set(s.cells), selected = [], result = [];
+    const free = i => covered.has(i) && !ctx.tideSeats?.has(i)
+      && !ctx.poiPadCells?.has(i)
+      && WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'cave')
+      && !WG.nearBuildingCell(grid, N, N, i % N, Math.floor(i / N))
+      && !WG.nearPoiCell(opts.pois || [], i % N, Math.floor(i / N));
+    const cells = s.cells.slice().sort((a, b) => noise(tx*N+a%N, ty*N+Math.floor(a/N), 0xca7e)
+      - noise(tx*N+b%N, ty*N+Math.floor(b/N), 0xca7e) || a-b);
+    for (let n = 0; n < cells.length && result.length < settings.count; n++) {
+      if ((n & 255) === 0) yield 'quarry mine entrances';
+      const i = cells[n], ix = i % N, iy = Math.floor(i / N);
+      if (!free(i) || selected.some(j => Math.max(Math.abs(ix-j%N),
+        Math.abs(iy-Math.floor(j/N))) < settings.spacingCells)) continue;
+      const approach = [[0,1],[1,0],[0,-1],[-1,0]].map(([dx,dy]) => [ix+dx,iy+dy])
+        .find(([x,y]) => x >= 0 && y >= 0 && x < N && y < N && free(y*N+x));
+      if (!approach) continue;
+      const step = tileEdgeM / N;
+      result.push(WG.makeObject('staircase', (tx*N+ix+.5)*step, (ty*N+iy+.5)*step,
+        WG.caveStairId('down', 0, tx, ty, ix, iy), { dir:'down', depth:0,
+          zone:'quarry', zoneVariant:s.variant.id, zoneLayer:'entrance', _ix:ix, _iy:iy }));
+      selected.push(i);
+      for (const cell of [i, approach[1]*N+approach[0]]) {
+        opts.occupied.add(cell); s.clear.add(cell); ctx.reservedCells?.add(cell);
+      }
+    }
+    return result;
   }
   function* planSteps(s, { N, tx = 0, ty = 0 }) {
     const settings = root.ZoneVariantData.quarryLayouts;
@@ -223,9 +258,12 @@
           }
           if (hash(x, y, 41) < .5) put(cx, cy, 'copper_rock');
           else if (spikeCount < settings.abandonedMaxSpikes) { put(cx, cy, 'ground_spikes'); spikeCount++; }
-          // A barrel at half the patches' far corner (Oct 2026): what the
-          // last shift left beside its stone — smashed for a coin or a tool.
-          if (hash(x, y, 47) < .5) put(r, b, 'quarry_barrel');
+          // Keep the existing patch roll and double each old barrel into a
+          // corner pair, clear of the central find and the rubble edges.
+          if (hash(x, y, 47) < .5) {
+            put(r, b, 'quarry_barrel');
+            put(r, b - 1, 'quarry_barrel');
+          }
         } else if (id === 'quarry-strip-mine') {
           if (verticalBenches) {
             for (let xx = x; xx <= r; xx += 2) for (let yy = y; yy <= b; yy++) if (yy !== cy) put(xx, yy, 'stone');
@@ -327,5 +365,5 @@
     const fallbackHash = Math.floor(noise(siteHash, 0, 193) * 4294967296);
     return fitting[weightedIndexForHash(fallbackHash, fitting)].id;
   }
-  root.QuarryLayout = { planSteps, variantForSteps, wallFrameAt, weightedIndexForHash };
+  root.QuarryLayout = { entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash };
 })(typeof window !== 'undefined' ? window : globalThis);

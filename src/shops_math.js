@@ -305,8 +305,9 @@
   // third of that. A deal the player can never accept is not an offer.
   //
   // So the pick runs in two passes on one rng:
-  //   1. On TRADER_AFFORDABLE_CHANCE of rolls, only stacks that ALREADY cover
-  //      the count are considered — the trade can be taken on the spot.
+  //   1. On TRADER_AFFORDABLE_CHANCE of rolls (most of them), only stacks that
+  //      ALREADY cover the count are considered — the trade can be taken on
+  //      the spot.
   //   2. Otherwise (or when nothing covers it) any owned stack, then the
   //      wishlist of every priced item, as before — the player still learns
   //      what a trader wants and can go and gather it.
@@ -324,8 +325,8 @@
   // affordable pass made that commoner (one of anything is "affordable"), so
   // an ask worth more than TRADER_MAX_OVERPAY × the target is dropped, and
   // only asked when no fairer item exists anywhere.
-  const TRADER_AFFORDABLE_CHANCE = 0.5;
-  const TRADER_MAX_OVERPAY = 2;
+  const TRADER_AFFORDABLE_CHANCE = 0.85;
+  const TRADER_MAX_OVERPAY = 3;
 
   // opts: { rng, giveId, target, inv, prices, isItem(id), capFor(id) }
   // Returns { askId, askQty } or null when no priced item exists at all.

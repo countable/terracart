@@ -79,6 +79,9 @@ function scene(role, badge) {
   save.restoredHouses = { h: role };
   return Object.assign(Object.create(PROTO), {
     save,
+    invRoomFor(id) { return Inventory.roomFor(this.save, id); },
+    addToInv(id, n) { return Inventory.add(this.save, id, n); },
+    _clampSelSlot() {}, _finishInventoryChange() {}, flashLoot() {},
     shopRng: () => () => 0,
     shopCharmMul: () => 1,
     priceMul: () => 1,
@@ -88,6 +91,7 @@ function scene(role, badge) {
     _trailRewardBlurb: () => '',
     _makeRerollSecondary: () => undefined,
     traderGivePick: () => ({ rng: () => 0, giveId: 'potato_seed' }),
+    peekTraderGearSwap: () => null,
     showOfferModal(offer) { this.offer = offer; },
   });
 }
@@ -124,12 +128,18 @@ test('guild badge: the smiths’ badge trims every forge ingredient', () => {
   assert.truthy(listed.some(r => guildDiscounted(s.save, 'blacksmith', r.qty) < r.qty), 'something is saved');
 });
 
-test('guild badge: the smiths’ badge trims a smelting batch as a whole', () => {
+test('guild badge: repeated single-bar smelting charges the displayed discounted recipe', () => {
   const s = scene('blacksmith', 'guild_blacksmith');
   s.save.inv.push({ id: 'sunflower', count: 9 }, { id: 'gold_bar', count: 9 });
   s.presentSmeltOffer(0, 0, HOUSE, () => {}, () => {}, 'platinum_bar');
-  assert.eq(s.offer.quantity.max, 10, 'ten bars for nine of each');
-  assert.includes(s.offer.quantity.format(10).cost, '9× ');
+  assert.eq(s.offer.quantity, undefined, 'smelting stays one bar per tap');
+  assert.includes(s.offer.cost, '1× ', 'a one-item ingredient cannot round below one');
+  s.offer.onAccept();
+  assert.eq(Inventory.count(s.save, 'sunflower'), 8);
+  assert.eq(Inventory.count(s.save, 'gold_bar'), 8);
+  assert.eq(Inventory.count(s.save, 'platinum_bar'), 1);
+  s.offer.repeat();
+  assert.truthy(s.offer.canAfford, 'the counter reopens with live stock');
 });
 
 })();

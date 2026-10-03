@@ -28,9 +28,9 @@
 //   VIEWPOINTS    a poi `attraction / viewpoint` point (OMT tourism=viewpoint).
 //                 Its own POI chest is the grail (VISTA_CHEST_TIER.grail, T5,
 //                 one-time — loot.js chestBaseTier reads the `vista` stamp),
-//                 and a SCOPE stands beside it: its daily gift (the coin-burst
-//                 day ledger, lit by poiLit while there), the first vista a
-//                 save ever taps pays a relic (firstVistaPrize, once), its
+//                 and a SCOPE stands beside it: it marks a chosen nearby find
+//                 for a day, the first vista a save ever taps pays a backpack
+//                 (firstVistaPrize, once), its
 //                 story panel (zone_viewpoint), and its ring is a REST spot —
 //                 a new reason on the campfire's rest (FIRE_REST_R), not a
 //                 ward. Rarity is the point: nothing is synthesised.
@@ -133,8 +133,7 @@
   // The scope seats on the first free cell of these rings round the chest.
   const SCOPE_SEAT_R = 3;
   const RING_ORDER = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
-  // The scope's daily gift: one roll of this context, once per UTC day per
-  // scope, in the coin-burst ledger — a better grove shrine (~15 value).
+  // The vista treasure context retained for the shared treasure value table.
   const VISTA_CONTEXT = 'treasure:vista';
   // The first vista a save ever taps: a relic, once (save.vistaRelic).
   const FIRST_VISTA_SLOT = 'bags';
@@ -903,6 +902,59 @@
     return (kind && SV && SV.VARIANT_BY_ID[KIND_ROW[kind]]) || null;
   }
 
+  const TELESCOPE_DURATION_MS = 24 * 60 * 60 * 1000;
+  const TELESCOPE_OPTIONS = [
+    { id: 'chest', label: 'Treasure' },
+    { id: 'elite', label: 'Danger' },
+    { id: 'shiny', label: 'Solace' },
+  ];
+
+  // Search only the known world on the player's level. The caller supplies
+  // loaded records and its ordinary spent sets, including burned ground.
+  // Keep the selected identity and position in the save so its bearing survives
+  // leaving the viewpoint, tile eviction and a reload.
+  function telescopeTarget(category, { player, depth = 0, objects = [], wildplants = [],
+    creatures = [], save = {}, sets = spentSets(null, save), now = Date.now() } = {}) {
+    if (!player || !Number.isFinite(player.x) || !Number.isFinite(player.y)) return null;
+    if (!TELESCOPE_OPTIONS.some(o => o.id === category)) return null;
+    const caught = new Set(save.caught || []);
+    const discovered = save.discovered || {};
+    let best = null, bestD2 = Infinity;
+    function consider(o, type) {
+      if (!o || !o.id || !Number.isFinite(o.x) || !Number.isFinite(o.y)
+        || (o.depth ?? depth) !== depth) return;
+      const d2 = (o.x - player.x) ** 2 + (o.y - player.y) ** 2;
+      if (d2 > bestD2 || (d2 === bestD2 && best && String(o.id) >= String(best.targetId))) return;
+      bestD2 = d2;
+      best = { targetId: o.id, x: o.x, y: o.y, depth, until: now + TELESCOPE_DURATION_MS, category, type };
+    }
+    for (const o of objects) {
+      if (isSpent(o, sets)) continue;
+      if (category === 'chest' && o.kind === 'chest' && !sets.opened.has(o.id)
+        && chestTier(o) >= 3 && chestLook(o).texKey === 'chest') consider(o, 'object');
+      if (category === 'shiny' && isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree)) {
+        const fruit = o.kind === 'fruittree';
+        const key = fruit ? (ITEM_BY_ID[o.species]?.kind === 'produce' ? o.species : 'apple') : 'wood';
+        if (!discovered[key] && (!fruit || Crops.fruitTreeState(o, save.fruitPicked?.[o.id], now).ready)) consider(o, 'object');
+      }
+    }
+    if (category === 'shiny') {
+      for (const p of wildplants) {
+        if (!isSpent(p, sets) && !discovered[wildplantOutput(p.crop)] && isShiny(p.id, SHINY_RATE.flora)) consider(p, 'wildplant');
+      }
+    }
+    if (category === 'shiny' || category === 'elite') {
+      for (const c of creatures) {
+        if (caught.has(c.id) || c._surfaceInactive || c._hp <= 0) continue;
+        if (category === 'elite' ? Combat.isElite(c) && Combat.isEnemy(c, now)
+          : c.shiny && !discovered[c.kind] && !Combat.isEnemyKind(c.kind)
+            && (ITEM_BY_ID[`shiny_${c.kind}`] || SpriteLayout.creatureDrop(c.kind))
+            && !String(c.id).startsWith('released_')) consider(c, 'creature');
+      }
+    }
+    return best;
+  }
+
   // ── The first vista's relic ─────────────────────────────────────────────
   // The walker's relic, one tier over what the save wears (capped): a pure
   // function of the save, paid once (save.vistaRelic). Shape: pickReward's.
@@ -919,7 +971,7 @@
     SCENIC_MUL, KIND_ORDER, KIND_ROW, SCENIC_SHORE_CELLS, SHORE_MAX_UNITS, SIDEWALK_M, BUSY_VERGE_M,
     PARK_MIN_M2, SAMPLE_M, GREENWAY_GRASS_STEP_M, GREENWAY_RE, PATH_SUBCLASSES,
     VISTA_STRETCH_MIN_M, VISTA_SEAT_CELLS, VISTA_CHEST_TIER, VISTA_POI_CLASS, VISTA_MERGE_M, SCOPE_SEAT_R,
-    VISTA_CONTEXT, FIRST_VISTA_SLOT, VISTA_STORY,
+    VISTA_CONTEXT, FIRST_VISTA_SLOT, VISTA_STORY, TELESCOPE_DURATION_MS, TELESCOPE_OPTIONS, telescopeTarget,
     BEACH_X_SHORE_M, BEACH_X_MAX, TIDE_PER_M, TIDE_MAX, WATERLINE_CELLS, TIDE_DRIFTWOOD_P,
     BEACH_BOTTLES_PER_TILE,
     isEligibleWay, isVehicleWay, isBusyWay, isShoreWater, isShoreWaterway, isBeachSand, isViewpoint,

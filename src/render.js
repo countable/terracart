@@ -3260,6 +3260,24 @@ Render.drawObjects = function drawObjects(scene) {
   // Every upright piece shares one continuous ground-Y order. Pixel offsets
   // come from the same seating geometry as the art, converted back to metres.
   const groundY = (it, offsetPx = 0) => pWorldY + it.dy + offsetPx * scene.cellM / CELL_PX;
+  // Every support fits within one cell of its anchor, including band ends.
+  // Reject distant visible props before copying art records or testing shapes.
+  const stepObjects = [];
+  const stepX = scene.startWorldM.x + scene.playerM.x;
+  const stepY = scene.startWorldM.y + scene.playerM.y;
+  // The camera may be peeking elsewhere; support belongs to the body's feet.
+  const nearStep = o => Math.abs(o.x - stepX) <= scene.cellM && Math.abs(o.y - stepY) <= scene.cellM;
+  for (const it of filteredObj) {
+    if (!nearStep(it.o)) continue;
+    const art = connectedArt.get(it.o);
+    stepObjects.push(art ? { ...it.o, ...art, _stepSource: it.o } : it.o);
+  }
+  for (const it of plantedList) {
+    if (!it.p.wildId || !nearStep(it.p)) continue;
+    stepObjects.push({ ...it.p, kind: 'wildplant', _stepSource: it.p });
+  }
+  scene._updateObstacleStep?.(stepObjects);
+  const supports = new Set((scene._obstacleStep?.supports || []).map(o => o._stepSource || o));
   const zList = [];
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
@@ -3268,8 +3286,12 @@ Render.drawObjects = function drawObjects(scene) {
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
   for (const it of creatureList) zList.push({ it, rank: 3,
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
+  // The ground shadow stays below props. The raised body clears only its
+  // supporting mid-height pieces; tall trees retain ordinary depth ordering.
+  const playerGroundY = Math.max(scene.startWorldM.y + scene.playerM.y,
+    ...zList.filter(row => supports.has(row.it?.o || row.it?.p)).map(row => row.groundY + 0.001));
   if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
-    groundY: scene.startWorldM.y + scene.playerM.y, rank: 3 });
+    groundY: playerGroundY, rank: 3 });
   zList.push(...(scene._uprightPieces || []), ...(scene._buildingUprightPieces || []),
     ...(scene._peerUprightPieces || []));
   Render.sortWorldDepth(zList);
@@ -3980,11 +4002,8 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
   const _plantNow = Date.now();
-  // The nest bush's swing, degrees. 7 until Oct 2026 — at the wildplant's
-  // size that read as a shiver a player could miss; a secret that is never
-  // noticed is no secret. The show's length is the beat's (items.js
-  // NEST_BUSH_BEAT.showMs).
-  const NEST_WIGGLE_DEG = 16;
+  // The nest bush's swing, degrees; its beat length lives in NEST_BUSH_BEAT.
+  const NEST_WIGGLE_DEG = 8;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -4503,9 +4522,10 @@ Render.objectAppearance = function (scene, houseRoles) {
   // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
   // 32px cell.
   const CRATE_SCALE = 0.8;
-  // A BARREL (a bin — loot.js isBarrel) and a BIKE RACK (isBikeRack): 16px
-  // generated props, a touch bigger than the crate they stand in for.
+  // Bike racks use their original small-prop scale. Wooden barrels use a
+  // 24px frame at half their former size, including the smashed frame.
   const SMALL_POI_SCALE = 1.3;
+  const BARREL_SCALE = 2 / 3;
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.
@@ -4778,11 +4798,11 @@ Render.objectAppearance = function (scene, houseRoles) {
               // uses CHEST_SCALE to retain the prior ~22px visible width.
               // The stall and the pot of gold
               // are structures, not chests. The pot is a further 20% smaller.
-              // A barrel and a bike rack are 16px generated props drawn at
-              // SMALL_POI_SCALE (~21px) and seated like the crate.
+              // Wooden barrels fill 16px; clay pots keep their existing size.
+              // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : (L.barrel ? 4 / 3 : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
+                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : 4 / 3) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px

@@ -75,7 +75,9 @@ test('residential yard flora: street ownership only removes older plants inside 
   const rocks = r.objects.filter((o) => o.kind === 'mineralrock');
   for (const o of rocks) assert.truthy(o._street, `${o.id} is a street rock, not lot rubble`);
   const source = r.caveSource.wildplants.filter((p) => !isYard(p));
-  const sourceIds = source.map((p) => p.id).sort();
+  // The final-grid grass fill now dresses the unmapped border around this
+  // residential polygon. Keep pinning the original non-grass biome stream.
+  const sourceIds = source.filter((p) => p._biome !== T.GRASS).map((p) => p.id).sort();
   assert.eq(fnv1a(sourceIds.join('|')), OLDER_PLANTS_BEFORE.hash, 'the older plant stream did not reroll');
   assert.eq(sourceIds.length, OLDER_PLANTS_BEFORE.n);
   const expected = source.filter((p) => !r.streetArea[cellIdx(p)]).map((p) => p.id).sort();

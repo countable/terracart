@@ -937,54 +937,33 @@ const INTERACTABLES = {
     },
   },
 
-  // A VIEWPOINT's SCOPE (src/scenic.js — one beside each viewpoint's grail
-  // chest). The first tap tells the vista's story (_storySplashOnce, the
-  // zone_viewpoint painting); the FIRST vista a save ever taps also pays the
-  // walker's relic (Scenic.firstVistaPrize → reconcileRelicOffer, once —
-  // save.vistaRelic); and once per UTC day per scope it leaves a gift — one
-  // roll of Scenic.VISTA_CONTEXT in the coin-burst day ledger, the grove
-  // shrine's lane, lit by poiLit while it is there. Its ring is a rest spot
-  // (app.js update(), a reason on the campfire's rest), not a ward.
+  // The looking glass finds a target; only the first visit grants a bag.
   vista_scope: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
       if (typeof Scenic === 'undefined') return true;
       const st = Scenic.VISTA_STORY;
-      // The first vista's relic is paid on the tap and SHOWN as a card
-      // (scene.showRewardCard — Oct 2026, owner's call: an earned reward shows
-      // the item) under the vista's own painting, once its story has been
-      // read: the card waits on the splash's dismiss rather than opening under
-      // it. A save that has had the story (or a busy screen that refused it)
-      // gets the card at once; a scene with no card lane keeps the old toast.
-      // The daily gift below stays a find on the ground, a toast.
+      const menu = () => scene.presentTelescopeMenu?.(sx, sy, o);
       const prize = Scenic.firstVistaPrize(save);
-      let showPrize = null;
+      let next = menu;
       if (prize) {
         save.vistaRelic = 1;
         ctx.dirty = true;
         const got = (typeof reconcileRelicOffer === 'function') ? reconcileRelicOffer(prize, save, Math.random) : prize;
         Rewards.apply(save, got, scene);
-        showPrize = () => {
-          const shown = typeof scene.showRewardCard === 'function'
-            && scene.showRewardCard(got, { kind: 'treasure', header: 'Left at the lookout', art: st.story,
-              sub: got.kind === 'gold' ? 'Already better — paid in coin instead.'
-                : 'Someone left this for whoever climbed up to look.' });
-          if (shown) return;
-          const label = (typeof gearName === 'function') ? gearName('relic', got.slot, got.tier) : got.slot;
-          if (got.kind === 'relic') scene.flashLoot(`\u{1F52D} \u2192 \u2728 ${label}`, '#ffe066', 1.6);
-          else scene.flashLoot(`\u{1F52D} \u2192 ${got.amount}`, '#ffe066', 1.2, null, scene.coinIconEl?.());
+        next = () => {
+          const shown = scene.showRewardCard?.(got, {
+            kind: 'treasure', header: 'For the journey', art: st.story,
+            sub: "You'll need this for all the things you'll find with this looking glass!",
+            onDismiss: menu,
+          });
+          if (!shown) menu();
         };
       }
-      const told = scene._storySplashOnce?.(st.story, { art: st.story, title: st.title, body: st.body,
-        onDismiss: showPrize || undefined });
-      if (showPrize && !told) showPrize();
-      if (Macros.usedToday(save, o.id)) {
-        if (!prize) scene.flash(`The view rests. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
-        return true;
-      }
-      Macros.markToday(save, o.id);
-      ctx.dirty = true;
-      grantTreasureRoll(scene, save, sx, sy - (prize ? 22 : 0), '\u{1F52D}', Scenic.VISTA_CONTEXT);
+      const told = scene._storySplashOnce?.(st.story, {
+        art: st.story, title: st.title, body: st.body, onDismiss: next,
+      });
+      if (!told) next();
       return true;
     },
   },
@@ -1174,7 +1153,8 @@ function isSpent(o, sets) {
 function poiLit(o, sets) {
   if (!o) return false;
   const today = takenToday(o, sets);
-  if (Macros.visitKindForObject(o) || o.kind === 'vista_scope') return !today;
+  if (o.kind === 'vista_scope') return true;
+  if (Macros.visitKindForObject(o)) return !today;
   if (o.kind !== 'chest' || o.crate || isSpent(o, sets)) return false;
   const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
   if (macro && macro.kind === 'chapel') return !serviceTakenToday(o, sets);

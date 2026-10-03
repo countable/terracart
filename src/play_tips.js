@@ -8,7 +8,7 @@ const PLAY_TIPS = [
   "I saw a figure watching me from an empty window. By morning, fresh footprints ended at the wall beneath it.",
   "Finish the work before you settle into a proper rest. I cannot sleep with half a wall leaning over me.",
   "I know the shape of the missing letters. Why can I no longer remember the name?",
-  "Wandering survivors will buy anything you want to sell, from your trailer.",
+  "Bring what you want to sell home to your trailer. Hold it out to the wandering survivors; they will pay for it, one piece at a time.",
   "We had lost every tool. Our bare hands still did the work.",
   "Below ground, your light dwindles with every descent. Overwhelmed by the deeper dark.",
   "Your wandering shadow can scout ahead. It cannot put your weight behind a blow. Plant your own boots where the fighting is. Strike true.",

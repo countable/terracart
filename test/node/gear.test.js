@@ -343,3 +343,64 @@ test('alternate weapons: sparse material names, independent ownership and replac
   assert.eq(save.activeWeapon, 'sword');
   assert.falsy(Gear.selectWeapon(save, 'bow'), 'cannot equip an unowned weapon');
 });
+
+// ─── The trader's gear swap (Gear.traderGearSwap) ───────────────────────────
+// Sometimes a trader swaps equipment: one owned piece for a different piece of
+// the SAME tier, any for any across relics, armour and unique relics.
+function swapSave() {
+  return {
+    relics: { sword: { tier: 3 }, bags: { tier: 3 }, pick: { tier: 5 } },
+    armor: { helmet: { tier: 3 } },
+    inv: [{ id: 'lucky_key', count: 1 }],
+    activeWeapon: 'sword',
+  };
+}
+const pieceTier = (save, p) => p.kind === 'item' ? 0 : ((p.kind === 'armor' ? save.armor : save.relics)[p.slot]?.tier || 0);
+
+test('trader gear swap: same tier, owned for wanted, never bags or a downgrade', () => {
+  let swaps = 0;
+  for (let i = 0; i < 600; i++) {
+    const save = swapSave();
+    const swap = Gear.traderGearSwap(save, seeded(i));
+    if (!swap) continue;
+    swaps++;
+    const { give, get } = swap;
+    assert.eq(get.tier, give.tier, 'the same tier either way');
+    assert.truthy(give.slot !== 'bags', 'a bag never leaves: the inventory would spill');
+    if (give.kind === 'item') assert.truthy(carriesItem(save, give.id), 'gives a carried unique');
+    else assert.eq(pieceTier(save, give), give.tier, 'gives an owned piece at its tier');
+    if (get.kind === 'item') {
+      assert.eq(ITEM_BY_ID[get.id].kind, 'unique_relic');
+      assert.falsy(carriesItem(save, get.id), 'never a unique the player already carries');
+      assert.falsy(ITEM_BY_ID[get.id].tome, 'tomes are books, not relics');
+    } else {
+      assert.lt(pieceTier(save, get), get.tier, 'only a slot it would upgrade');
+    }
+    assert.truthy(Gear.traderSwapValid(save, swap));
+  }
+  // TRADER_GEAR_CHANCE of visits, give or take the stream.
+  assert.truthy(Math.abs(swaps / 600 - Gear.TRADER_GEAR_CHANCE) < 0.06, `swap share ${(swaps / 600).toFixed(2)}`);
+});
+
+test('trader gear swap: nothing owned (or only a bag) means no swap', () => {
+  const bare = { relics: { bags: { tier: 2 } }, armor: {}, inv: [] };
+  for (let i = 0; i < 50; i++) assert.eq(Gear.traderGearSwap(bare, seeded(i)), null);
+});
+
+test('trader gear swap: surrendering the active sword puts the hands back to bare', () => {
+  const save = swapSave();
+  const swap = { give: { kind: 'relic', slot: 'sword', tier: 3 }, get: { kind: 'armor', slot: 'boots', tier: 3 } };
+  assert.truthy(Gear.traderSwapValid(save, swap));
+  Gear.surrenderPiece(save, swap.give);
+  Rewards.apply(save, swap.get, {});
+  assert.eq(save.relics.sword, null);
+  assert.eq(save.activeWeapon, null, 'no sword left to fight with');
+  assert.eq(save.armor.boots.tier, 3);
+  assert.falsy(Gear.traderSwapValid(save, swap), 'the same swap cannot be taken twice');
+});
+
+test('trader gear swap: a unique relic leaves the bag', () => {
+  const save = swapSave();
+  Gear.surrenderPiece(save, { kind: 'item', id: 'lucky_key', qty: 1, tier: 3 });
+  assert.falsy(carriesItem(save, 'lucky_key'));
+});

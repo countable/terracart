@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="artifact-review" content="disabled">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
@@ -1175,6 +1176,7 @@
            finished — a dismissal used to be permanent with no way back. -->
       <button id="show-objectives" style="display:none;">Show objectives</button>
       <button id="toggle-haptics">Vibration: on</button>
+      <button id="toggle-graphics-fx" aria-pressed="false">Graphics FX: off (reloads)</button>
       <!-- Multiplayer is opt-in, per game. Turning it on is the one place the
            game asks for a name; the rename button only shows while it's on. -->
       <button id="mp-toggle">Multiplayer: off</button>
@@ -1732,6 +1734,23 @@
       const m = document.getElementById('menu'); if (m) m.open = false;
       if (window.__scene && window.__scene.openDeliveryMenu) window.__scene.openDeliveryMenu();
     });
+    // FX pools are a renderer boot choice, shared by saves on this device.
+    (() => {
+      const key = 'terracart.graphicsFX';
+      const button = document.getElementById('toggle-graphics-fx');
+      let enabled = false;
+      try { enabled = localStorage.getItem(key) === '1'; } catch {}
+      button.textContent = `Graphics FX: ${enabled ? 'on' : 'off'} (reloads)`;
+      button.setAttribute('aria-pressed', String(enabled));
+      button.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!window.confirm(`Turn graphics FX ${enabled ? 'off' : 'on'}? Golden glows use more memory. The game will reload to apply this setting.`)) return;
+        try { localStorage.setItem(key, enabled ? '0' : '1'); }
+        catch { window.alert('Could not save the graphics setting.'); return; }
+        if (typeof flushSave === 'function') flushSave();
+        location.reload();
+      });
+    })();
     // Vibration toggle (UX audit §18). Label tracks the save both before the
     // scene exists (read localStorage) and after each click.
     // The active slot's save, read straight out of the registry — for the
@@ -2175,25 +2194,9 @@
           flushSave();     // app.js reads the save synchronously as it parses
         } catch (_) { return false; }
       }
-      christenSlotFromPlayer(name);
       paintMultiplayerMenu();
       return true;
     };
-    function christenSlotFromPlayer(name) {
-      try {
-        if (typeof listSaves !== 'function' || typeof renameSave !== 'function'
-            || typeof isDefaultSaveName !== 'function') return;
-        const saves = listSaves();
-        const active = saves.find(s => s.active);
-        if (!active || !isDefaultSaveName(active.name)) return;
-        // Two games by the same player: "Ada's game", "Ada's game 2", …
-        const taken = new Set(saves.filter(s => s.id !== active.id).map(s => s.name));
-        let label = name + "'s game";
-        for (let n = 2; taken.has(label); n++) label = name + "'s game " + n;
-        renameSave(active.id, label);
-        buildSavesMenu();   // reflect the new label if the ☰ menu is open
-      } catch {}
-    }
     // Turn multiplayer on or off for this game. Turning it ON asks for a name
     // when the game has none, and stays off if the player won't give one.
     window.__setMultiplayer = function (on) {
@@ -2768,7 +2771,7 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=92edfd8d"></script>
-  <script src="src/enemy_roster.js?v=58c3d7a9"></script>
+  <script src="src/enemy_roster.js?v=318e4fe9"></script>
   <script src="src/enemy_spawns.js?v=6c8ba0cb"></script>
   <script src="src/enemy_habitats.js?v=69b18296"></script>
   <script src="src/difficulty.js?v=1126cb82"></script>
@@ -2776,30 +2779,30 @@
   <script src="src/particles.js?v=1285fe88"></script>
   <script src="src/trail.js?v=ca804603"></script>
   <script src="src/streets.js?v=959b140a"></script>
-  <script src="src/street_variants.js?v=efd2d043"></script>
-  <script src="src/scenic.js?v=cc21049f"></script>
+  <script src="src/street_variants.js?v=347bdfac"></script>
+  <script src="src/scenic.js?v=930d12bc"></script>
   <script src="src/zones.js?v=599d7128"></script>
-  <script src="src/zone_variant_data.js?v=9ea13bb3"></script>
+  <script src="src/zone_variant_data.js?v=80d8b813"></script>
   <script src="src/zone_variants.js?v=9892c6eb"></script>
   <script src="src/shrines.js?v=db088936"></script>
-  <script src="src/buffs.js?v=9dfe4e35"></script>
+  <script src="src/buffs.js?v=c0a0d102"></script>
   <script src="src/zone_coverage.js?v=51ad3738"></script>
-  <script src="src/quarry_layout.js?v=173f81c9"></script>
-  <script src="src/zone_dressing.js?v=ed79c0a4"></script>
+  <script src="src/quarry_layout.js?v=0bfe6d01"></script>
+  <script src="src/zone_dressing.js?v=9258ef83"></script>
   <script src="src/reef_layout.js?v=4f859489"></script>
   <script src="src/sprite_layout.js?v=70fe5f83"></script>
   <script src="src/placed_floor.js?v=d6c42e37"></script>
   <script src="src/home.js?v=59eddcb1"></script>
   <script src="src/coords.js?v=dea428ec"></script>
   <script src="src/fog.js?v=bdf27172"></script>
-  <script src="src/biome_profiles.js?v=abada016"></script>
+  <script src="src/biome_profiles.js?v=b4a3ebd5"></script>
   <script src="src/traps.js?v=17dbf176"></script>
   <script src="src/lairs.js?v=add5d424"></script>
-  <script src="src/worldgen.js?v=f5cd3b48"></script>
+  <script src="src/worldgen.js?v=851236d3"></script>
   <script src="src/castle_styles.js?v=51966f77"></script>
   <script src="src/textures.js?v=f7edb029"></script>
   <script src="src/save.js?v=3411bbca"></script>
-  <script src="src/items.js?v=76f84755"></script>
+  <script src="src/items.js?v=b2171ca0"></script>
   <script src="src/inventory.js?v=61f97d28"></script>
   <script src="src/energy.js?v=081455ab"></script>
   <script src="src/conditions.js?v=f09c034b"></script>
@@ -2808,9 +2811,9 @@
   <script src="src/crops.js?v=1e5c716e"></script>
   <script src="src/delivery.js?v=aa7217c5"></script>
   <script src="src/save_state.js?v=7876ef4a"></script>
-  <script src="src/gear.js?v=d5016724"></script>
+  <script src="src/gear.js?v=0f3c4f60"></script>
   <script src="src/rewards.js?v=0a2582f3"></script>
-  <script src="src/shops_math.js?v=bbf16f25"></script>
+  <script src="src/shops_math.js?v=640a3df8"></script>
   <script src="src/shops.js?v=75e832b5"></script>
   <script src="src/egg_hatch.js?v=6b07e768"></script>
   <script src="src/chest_themes.js?v=520420fe"></script>
@@ -2818,7 +2821,7 @@
   <script src="src/loot.js?v=601aa194"></script>
   <script src="src/macros.js?v=707047e6"></script>
   <script src="src/quests.js?v=50d40212"></script>
-  <script src="src/interactables.js?v=80ac0aa0"></script>
+  <script src="src/interactables.js?v=f8c0d785"></script>
   <script src="src/houses.js?v=3042b994"></script>
   <script src="src/spawn_ownership.js?v=e5f81207"></script>
   <script src="src/starter.js?v=83c7635a"></script>
@@ -2831,24 +2834,24 @@
   <script src="src/memory_story.js?v=60bbdccf"></script>
   <script src="src/story_encounters.js?v=86a4c845"></script>
   <script src="src/interact.js?v=99918657"></script>
-  <script src="src/play_tips.js?v=a003c72e"></script>
+  <script src="src/play_tips.js?v=391fb7d1"></script>
   <script src="src/lighting.js?v=8dc03d32"></script>
-  <script src="src/render.js?v=c13a350f"></script>
+  <script src="src/render.js?v=295d6ed6"></script>
   <script src="src/multiplayer.js?v=04fb3ba8"></script>
   <script src="src/road_overlay.js?v=667f560f"></script>
   <script src="src/building_overlay.js?v=04427f6e"></script>
   <script src="src/assets.js?v=a49f2a64"></script>
   <script src="src/sandbox_destinations.js?v=92d1e32d"></script>
-  <script src="src/sandbox.js?v=e0283afa"></script>
+  <script src="src/sandbox.js?v=155fe484"></script>
   <script src="src/testtools.js?v=6de8188a"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=f39c511a"></script>
-  <script src="src/modal_shell.js?v=cc554c2a"></script>
+  <script src="src/modal_shell.js?v=6285403d"></script>
   <script src="src/scene_geo.js?v=e5f4a9ed"></script>
-  <script src="src/npc.js?v=16d6e0da"></script>
-  <script src="src/scene_creatures.js?v=7f06a0b0"></script>
+  <script src="src/npc.js?v=055a8639"></script>
+  <script src="src/scene_creatures.js?v=df88151d"></script>
   <script src="src/scene_fire.js?v=77663d8b"></script>
-  <script src="src/scene_shops.js?v=6d081fbb"></script>
+  <script src="src/scene_shops.js?v=21cf5b19"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2909,7 +2912,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=6b83f2b9';
+      const APP_SRC = 'src/app.js?v=72c89ae1';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

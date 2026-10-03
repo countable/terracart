@@ -151,7 +151,7 @@ const FILES = [
   // a home in the headless suite.
   // The lightmap: the light table, the per-frame collector and the derived
   // levels are pure; only draw() touches Phaser, and no test calls it.
-  'lighting.js',
+  'lighting.js', 'obstacle_step.js',
   'render.js',
   // The modal shell: its methods are DOM work on a mixin class nobody runs
   // here, but its top level (MODAL_KINDS, the ART_* frame consts, the class
@@ -174,7 +174,7 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters, ObstacleStep,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,

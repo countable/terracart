@@ -30,6 +30,17 @@
       const down=body();down.save.energy=0;step.call(down,1,null,2);assert.eq(down.playerM.x,0);
     } finally {Math.random=random;}
   });
+  test('obstacle balance: Slowed is contextual and confusion applies its speed reduction once', () => {
+    const plain=body(), balanced=body();
+    plain._confusedLoop={angle:0,turn:1.2,left:3};
+    balanced._confusedLoop={angle:0,turn:1.2,left:3};
+    balanced._obstacleStep={liftPx:3};
+    const state=hold.call(balanced,2,1.2);
+    assert.truthy(state.slowed);assert.eq(state.capMS,null,'balance is a multiplier, not another cap');
+    step.call(plain,.05,1,2);step.call(balanced,.05,1,2);
+    assert.inRange(Math.hypot(balanced.playerM.x,balanced.playerM.y)/Math.hypot(plain.playerM.x,plain.playerM.y),.69999,.70001);
+    balanced._obstacleStep={liftPx:0};assert.falsy(hold.call(balanced,2,1.2).slowed);
+  });
   test('cube contact: nearby live overlap slows and leaving or defeating it releases the cap', () => {
     const s=body(),cube={kind:'gelatinous_cube',id:'cube',x:1,y:0};s._foeBodies=[cube];
     let state=hold.call(s,2,1.2);assert.eq(state.capMS,1);assert.truthy(state.slowed);

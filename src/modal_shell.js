@@ -604,6 +604,8 @@ class SceneModals {
   //   canAfford:    grey out the accept button when false
   //   disabledReason: explain a non-money blocker without marking the cost unaffordable
   //   onAccept:     called after the modal closes
+  //   repeat:       re-present a counter after each transaction with live state
+  //   onCancel:     optional work deferred until the player leaves
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
   //   cancelLabel:  dismiss button label. Defaults to 'Cancel'; pass 'Later'
   //                 for offers tied to a persistent venue (a shop, a wreck,
@@ -633,9 +635,9 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: () => {}, kind, kindLabel, kindIcon, art, fullscreen });
+      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, fullscreen });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -856,7 +858,7 @@ class SceneModals {
         dim(minusBtn, qty <= minQ);
         dim(plusBtn,  qty >= maxQ);
         // Keep the primary action button in sync with the live canAfford.
-        if (accept) accept._setEnabled(liveCanAfford && !disabledReason);
+        if (accept) accept._setEnabled(liveCanAfford && !disabledReason && (!hasChoices || !!selected));
       };
       minusBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -872,12 +874,16 @@ class SceneModals {
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); if (onCancel) onCancel(); });
+    let accepted = false;
     accept.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (accepted || accept.disabled) return;
       if (hasChoices && !selected) return;
+      accepted = true;
       wrap.remove();
       onAccept(quantity ? qty : hasChoices ? selected.key : undefined);
+      if (repeat) repeat();
     });
     if (hasChoices) {
       syncAccept = () => accept._setEnabled(liveCanAfford && !disabledReason && !!selected);

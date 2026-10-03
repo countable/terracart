@@ -316,9 +316,9 @@
     { id: 'thorny', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
       stone: { weathered: '#514638', restored: '#8c7654' }, lampDensity: 1,
       sectionMaxM: 250, words: /(thorn|bramble|briar|brier)/i,
-      lampGlow: '#b1bd78', story: 'street_thorny', art: 'street_overgrown', title: 'Thorny Path',
-      body: 'Tangled brambles crowd both sides of the path. You follow the narrow opening between their thorns.',
-      flash: 'Brambles crowd the path.' },
+      lampGlow: '#b1bd78', story: 'street_thorny', art: 'street_overgrown', title: 'Thorny Way',
+      body: 'Tangled brambles crowd both sides of the road. You follow the narrow opening between their thorns.',
+      flash: 'Brambles crowd the road.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -1600,7 +1600,7 @@
     // THE END PIECES — ONE per (street, tile). A waystone (Pilgrim's Way —
     // tapped, it reads one page of the Book: interactables.js
     // INTERACTABLES.waystone, spent in `opened`) or a barricade (a wild plant
-    // on the SHRUB's rule, items.js WILDPLANT_RULES.barricade — broken up
+    // on the T4 timber rule, items.js WILDPLANT_RULES.barricade — broken up
     // with the axe, `picked` once cleared — and the goblin who holds it,
     // lairs.js 'barricade' tier) stands at the ONE owned end of the street's
     // pieces here whose hash endPick(variant, key, global point) is lowest

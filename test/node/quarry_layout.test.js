@@ -3,6 +3,24 @@
   const run = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
   const rect = (w, h) => Array.from({ length: w * h }, (_, i) => (Math.floor(i / w) + 4) * N + i % w + 4);
   const plan = (id, cells, owned = true) => run(QuarryLayout.planSteps({ a: { owned }, variant: ZoneVariants.byId(id), cells }, { N, tx: 4, ty: 5 }));
+  test('abandoned quarry: former single barrel corners become adjacent pairs', () => {
+    const cells = rect(48, 48), p = plan('quarry-abandoned', cells);
+    const barrels = [...p.background].filter(([, material]) => material === 'quarry_barrel');
+    assert.gt(barrels.length, 0);
+    let oldCount = 0;
+    for (const { bounds: [x, y, r, b] } of p.landmarks) {
+      // The previous placement was one barrel on this unchanged seeded roll.
+      let h = Math.imul(4 * N + x + 173, 374761393) ^ Math.imul(5 * N + y + 719, 668265263) ^ 47;
+      h = Math.imul(h ^ (h >>> 13), 1274126177);
+      if (((h ^ (h >>> 16)) >>> 0) / 4294967296 >= .5) continue;
+      oldCount++;
+      assert.eq(p.background.get(b * N + r), 'quarry_barrel');
+      assert.eq(p.background.get((b - 1) * N + r), 'quarry_barrel');
+    }
+    assert.eq(barrels.length, oldCount * 2, 'double the old count without rerolling patches');
+    assert.eq(JSON.stringify([...p.background]), JSON.stringify([...plan('quarry-abandoned', cells.slice().reverse()).background]));
+    for (const find of p.finds) assert.falsy(p.background.has(find.i), 'find seats stay clear');
+  });
   test('quarry selection: stable weighted rolls make abandoned sites rarer and strongholds more common', () => {
     const variants = ZoneVariants.forKind('quarry'), counts = {};
     for (let n = 0; n < 1000; n++) {
@@ -167,10 +185,10 @@
     const cells = rect(48, 48);
     assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
     const strip = plan('quarry-strip-mine', cells);
+    assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
     assert.eq(strip.guards.length, 3, 'inhabitant budget does not grow with the number of benches');
     assert.eq(strip.guards.filter(g => g.material === 'split_slime').length, 2);
     assert.eq(strip.guards.filter(g => g.material === 'wurm').length, 1);
-    assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
     for (const guard of strip.guards) {
       assert.includes(['split_slime', 'wurm'], guard.material);
       assert.falsy(strip.background.has(guard.i), 'inhabitants occupy open cuts');

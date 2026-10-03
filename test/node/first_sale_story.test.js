@@ -4,7 +4,7 @@ const lift = sig => {
   return SCENE_SRC.slice(a + 1, SCENE_SRC.indexOf('\n  }\n', a) + 4);
 };
 const methods = (0, eval)('({' + [
-  'presentHomeSell(sx, sy) {', '_firstSaleStory() {',
+  'presentHomeSell(sx, sy, targetId = null) {', '_firstSaleStory() {',
   '_storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {',
 ].map(lift).join(',') + '})');
 function saleTest(fn) {
@@ -51,5 +51,21 @@ test('first sale: a busy quest dialog defers the earned story and survives reloa
   assert.eq(s.modals.length, 1);
   assert.falsy(s.save.firstSalePending);
   assert.truthy(/this\._lowHealthStory\(\);\s*this\._firstSaleStory\(\)/.test(SCENE_SRC), 'the modal pass retries it');
+}));
+test('home sell: each tap sells one and the empty page never switches to another stack', () => saleTest(s => {
+  s.save.inv = [{ id: 'rockfruit', count: 2 }, { id: 'wood', count: 4 }];
+  s.presentHomeSell(0, 0);
+  assert.eq(s.offer.quantity, undefined, 'no quantity counter');
+  assert.eq(s.offer.cancelLabel, 'Leave');
+  s.offer.onAccept();
+  assert.eq(Inventory.count(s.save, 'rockfruit'), 1, 'one item per tap');
+  s.offer.repeat();
+  assert.truthy(s.offer.canAfford, 'the next sale stays available');
+  s.offer.onAccept();
+  s.offer.repeat();
+  assert.falsy(s.offer.canAfford, 'the depleted stack disables Sell');
+  assert.eq(s.offer.cancelLabel, 'Leave', 'the player chooses when to exit');
+  s.offer.onAccept();
+  assert.eq(Inventory.count(s.save, 'wood'), 4, 'the neighboring stack stays untouched');
 }));
 })();

@@ -7323,7 +7323,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "attracts": {},
-      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine, with a reserved 3 \u00d7 3-cell footprint and one daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains.",
+      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine. Its 3 \u00d7 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. A one-time T3 treasure chest sits inside the hull alongside the shrine's daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains.",
       "decorations": [
         {
           "material": "amphora",
@@ -7621,6 +7621,10 @@
       "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Loose stone, copper ore and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
       "attracts": {},
       "quarryLayout": "abandoned",
+      "entrances": {
+        "count": 3,
+        "spacingCells": 3
+      },
       "affinities": [
         "ruined"
       ],

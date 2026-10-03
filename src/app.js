@@ -446,6 +446,11 @@ function urlNumParam(name) {
 // every vsync and skips the step until the cap's interval has accumulated
 // (TimeStep.stepLimitFPS in vendor/phaser.js), so `delta` stays honest and
 // nothing time-based (tweens, anims, the peek spring) changes speed.
+// Device preference: opt in before Phaser allocates its FX framebuffer pool.
+const GRAPHICS_FX_ENABLED = (() => {
+  try { return localStorage.getItem('terracart.graphicsFX') === '1'; }
+  catch { return false; }
+})();
 const FPS_LIMIT_DEFAULT = 30;
 const FPS_LIMIT = (() => { const v = urlNumParam('fps'); return v == null ? FPS_LIMIT_DEFAULT : Math.max(0, v); })();
 // What Phaser is actually handed. stepLimitFPS sums the rAF deltas and steps
@@ -3282,7 +3287,8 @@ class MapScene extends Phaser.Scene {
       }
     }
     const held = pinned || Conditions.active(this.save, 'jellyfish_stun');
-    return { pinned: held, capMS, slowed: !held && capMS > 0 };
+    const balancing = typeof ObstacleStep !== 'undefined' && ObstacleStep.speedMul(this._obstacleStep) < 1;
+    return { pinned: held, capMS, slowed: !held && (capMS > 0 || balancing) };
 
   }
 
@@ -3848,8 +3854,7 @@ class MapScene extends Phaser.Scene {
   // Starter-area setup — see Starter.provisionStarterHome (src/starter.js).
   _provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats) { return Starter.provisionStarterHome(this, entry, tx, ty, spawnIX, spawnIY, usedSeats); }
 
-  // Dark-outlined, solid-filled arrow triangle (facing indicator + pairy
-  // compass both draw this onto facingGfx).
+  // Dark-outlined, solid-filled arrow triangle for facing and guidance.
   _drawArrowTriangle(g, tx, ty, blx, bly, brx, bry, outlineAlpha, fillColor) {
     g.lineStyle(2, 0x000000, outlineAlpha);
     g.beginPath();
@@ -3890,8 +3895,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // Edge compass: an arrow parked on the rim of the viewport pointing at a
-  // world-space target. Three callers share it — the pairy chest compass, the
-  // delivery waypoint, and the starter-crate trail — so the ring geometry
+  // world-space target. The delivery waypoint and starter-crate trail share
+  // it, so the ring geometry
   // lives here once instead of being re-derived (identically) at each site.
   // Returns the distance to the target in metres so callers can decide when
   // "close enough" retires their arrow.
@@ -3941,6 +3946,57 @@ class MapScene extends Phaser.Scene {
       tipX - ux * back - pxN * halfW, tipY - uy * back - pyN * halfW,
       outlineAlpha, fillColor);
     return mag;
+  }
+
+  // Small, persistent bearings sit on the visible map rim, including while
+  // their target is on screen. Intersect the ray with the rectangle so diagonal
+  // bearings reach the edge too, and keep the whole dot inside the mask.
+  _drawEdgeDot(targetWX, targetWY, fillColor) {
+    const dx = targetWX - this.startWorldM.x - this.playerM.x;
+    const dy = targetWY - this.startWorldM.y - this.playerM.y;
+    if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 0.001) return;
+    const inset = 5;
+    const left = Math.max(0, this.viewLeft) + inset;
+    const right = Math.min(W, this.viewLeft + this.viewSize) - inset;
+    const top = Math.max(0, this.viewTop) + inset;
+    const bottom = Math.min(H, this.viewTop + this.viewSize) - inset;
+    if (left >= right || top >= bottom) return;
+    const ps = this.playerScreen();
+    const x = Math.max(left, Math.min(right, ps.x));
+    const y = Math.max(top, Math.min(bottom, ps.y));
+    const tx = dx > 0 ? (right - x) / dx : dx < 0 ? (left - x) / dx : Infinity;
+    const ty = dy > 0 ? (bottom - y) / dy : dy < 0 ? (top - y) / dy : Infinity;
+    const t = Math.min(tx, ty);
+    const px = x + dx * t, py = y + dy * t;
+    this.facingGfx.fillStyle(0x000000, 0.85);
+    this.facingGfx.fillCircle(px, py, 4);
+    this.facingGfx.fillStyle(fillColor, 1);
+    this.facingGfx.fillCircle(px, py, 3);
+  }
+
+  _drawTrackedEdgeDot(key, color) {
+    const marker = this.save[key];
+    if (!marker) return;
+    if (Date.now() >= marker.until) {
+      delete this.save[key];
+      persistSave(this.save);
+      return;
+    }
+    if (marker.depth !== (this.depth || 0)) return;
+    // World lookups need not run at render cadence; moving targets refresh
+    // twice per second while the edge projection still follows every frame.
+    const now = Date.now();
+    const memo = (this._edgeDotTargets ||= {});
+    if (memo[key]?.marker !== marker || now - memo[key].at >= 500) {
+      memo[key] = { marker, at: now, target: this._telescopeTrackedTarget(marker) };
+    }
+    const target = memo[key].target;
+    if (!target) {
+      delete this.save[key];
+      persistSave(this.save);
+      return;
+    }
+    this._drawEdgeDot(target.x, target.y, color);
   }
 
   // The nearest starter supply crate the player has not opened yet, or null.
@@ -4557,11 +4613,7 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Pairy chest-compass indicator. Active for 5 minutes after eating a pairy
-    // (see eatSelected). Renders a magenta arrow at the viewport edge pointing
-    // toward the nearest undiscovered chest, blinking at 1 Hz. Cleared once
-    // the chest is opened (target appears in save.opened, or — a daily crate —
-    // in today's day ledger) or the timer expires.
+    // Pairy marks its chest in cyan until opened or its food effect expires.
     if (this.pairyCompass) {
       const opened = setOf(this.save.opened);
       const expired = Date.now() >= this.pairyCompass.until;
@@ -4570,25 +4622,24 @@ class MapScene extends Phaser.Scene {
       if (expired || claimed) {
         this.pairyCompass = null;
       } else {
-        // Blinks at 1 Hz to distinguish it from the solid delivery arrow.
-        if (Math.floor(Date.now() / 500) % 2 === 0) {
-          this._drawEdgeCompass(this.pairyCompass.x, this.pairyCompass.y, 0xc77dff, 0.8);
-        }
+        this._drawEdgeDot(this.pairyCompass.x, this.pairyCompass.y, 0x45e5ff);
       }
     }
+
+    this._drawTrackedEdgeDot('telescopeCompass', 0xffd24a);
+    this._drawTrackedEdgeDot('wayfarerCompass', 0x4488ff);
 
     // A map keeps its original level and expires by wall clock, including reloads.
     const treasure = this.save.treasureCompass;
     if (treasure && Date.now() < treasure.until && treasure.depth === (this.depth || 0)
         && !setOf(this.save.opened).has(treasure.targetId)
         && dayLedgerAges(this.save).get(treasure.targetId) !== 0) {
-      this._drawEdgeCompass(treasure.x, treasure.y, 0xffd166);
+      this._drawEdgeDot(treasure.x, treasure.y, 0xff5555);
     }
 
     // Delivery waypoint — a solid WHITE arrow at the viewport edge pointing at
     // the house the player picked from the delivery menu (openDeliveryMenu).
-    // Same edge-compass geometry as the pairy arrow but persistent (no blink),
-    // cleared once the player arrives or the house has been fed.
+    // Cleared once the player arrives or the house has been fed.
     if (this.deliveryCompass) {
       const satisfied = Delivery.isSatisfied(this.save, { id: this.deliveryCompass.id });
       const pWX = this.startWorldM.x + this.playerM.x;
@@ -6708,13 +6759,39 @@ class MapScene extends Phaser.Scene {
   // land on the fix; collapsed it is 0, because a body lying down has its
   // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
   playerBodyDy() {
-    return Combat.playerDowned(this.save.energy) ? 0 : this.playerFeetNudgeY;
+    return Combat.playerDowned(this.save.energy) ? 0
+      : this.playerFeetNudgeY - (this._obstacleStep?.liftPx || 0);
   }
 
   // …and which way up it is. Same read, so the seat and the turn can never
   // disagree about whether the player is on their feet.
   playerBodyRotation() {
-    return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : 0;
+    return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : (this._obstacleLean || 0);
+  }
+
+  // Render supplies the same surviving props it draws, including connected
+  // wall/hedge frames. Height is spatial: stopping or reversing never runs
+  // down a hop timer. Only the balancing lean settles with elapsed time.
+  _updateObstacleStep(objects) {
+    if (typeof ObstacleStep === 'undefined' || !this.startWorldM || !this.playerM) return;
+    const now = performance.now(), x = this.startWorldM.x + this.playerM.x,
+      y = this.startWorldM.y + this.playerM.y;
+    const prev = this._obstaclePoseAt;
+    const dt = prev ? Math.max(0.001, Math.min(0.1, (now - prev.time) / 1000)) : 1 / 30;
+    const distance = prev ? Math.hypot(x - prev.x, y - prev.y) : 0;
+    this._obstaclePoseAt = { x, y, time: now };
+    this._obstacleStep = ObstacleStep.sample(x, y,
+      Combat.playerDowned(this.save.energy) ? [] : objects, this.cellM);
+    const moved = distance < this.cellM ? distance : 0; // no lean from teleports
+    this._obstaclePhase = (this._obstaclePhase || 0) + moved / this.cellM;
+    const motion = Math.min(1, moved / dt / WALK_M_S);
+    this._obstacleMotion = (this._obstacleMotion || 0)
+      + (motion - (this._obstacleMotion || 0)) * (1 - Math.exp(-dt / 0.12));
+    this._obstacleLean = ObstacleStep.balance(this._obstaclePhase,
+      this._obstacleMotion * Math.min(1, this._obstacleStep.liftPx / 6));
+    const ps = this.playerScreen();
+    this.player?.setPosition(ps.x, ps.y + this.playerBodyDy()).setRotation(this.playerBodyRotation());
+    if (this.playerHalo?.visible) this.playerHalo.setPosition(ps.x, ps.y + this.playerBodyDy());
   }
 
   // A Phaser pointer's position in LOGICAL px (coords.js gamePt), at this
@@ -7499,7 +7576,7 @@ class MapScene extends Phaser.Scene {
   // gold the GPS crosshair itself is drawn in (UI_GOLD, 0xffe066), so the line
   // and the marker it runs to read as one piece of furniture rather than two
   // unrelated marks, and it stays quieter than the coloured compasses (the
-  // green tutorial arrow, the magenta pairy blink) by being translucent.
+  // green tutorial arrow, the cyan pairy dot) by being translucent.
   _drawWalkHomeHint(dt) {
     const g = this.walkHomeGfx;
     if (!g) return;
@@ -7666,7 +7743,8 @@ class MapScene extends Phaser.Scene {
       left: 2 + Math.random() * 2,
     };
     const loop = this._confusedLoop;
-    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity);
+    const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
+    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul;
     let remaining = dt;
     while (remaining > 0) {
       const step = Math.min(remaining, 0.05);
@@ -7730,7 +7808,9 @@ class MapScene extends Phaser.Scene {
                          Math.max(stickMul, 1 + dist / FOLLOW_RAMP_M));
     // SLOW (_bodyHold): tar or stakes underfoot cap the body's pace.
     if (this._confusedRecover) capMS = Math.min(capMS ?? Infinity, WALK_M_S);
-    const move = Math.min(WALK_M_S * mul * dt, dist, capMS > 0 ? capMS * dt : Infinity);
+    const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
+    const moveSpeed = Math.min(WALK_M_S * mul, capMS > 0 ? capMS : Infinity) * balanceMul;
+    const move = Math.min(moveSpeed * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
     const open = (nx, ny) =>
@@ -7765,7 +7845,7 @@ class MapScene extends Phaser.Scene {
     }
     // Arrival can consume only part of a long frame. Contact hazards charge
     // that walking time, not the idle remainder after reaching the target.
-    return move / Math.min(WALK_M_S * mul, capMS > 0 ? capMS : Infinity);
+    return move / moveSpeed;
   }
   // Is the wall blocking forward progress one the body can trivially walk
   // around — one cell out of its way? Returns a unit perpendicular vector to
@@ -11100,6 +11180,79 @@ class MapScene extends Phaser.Scene {
     if (gained > 0) this.updateEnergyDOM();
   }
 
+  _telescopeSearch(category) {
+    const objects = [], wildplants = [], creatures = [];
+    for (const entry of WorldGen.tileCache.values()) {
+      objects.push(...(entry.objects || []));
+      wildplants.push(...(entry.wildplants || []));
+      creatures.push(...(entry.creatures || []));
+    }
+    return Scenic.telescopeTarget(category, {
+      player: { x: this.startWorldM.x + this.playerM.x, y: this.startWorldM.y + this.playerM.y },
+      depth: this.depth || 0, objects, wildplants, creatures,
+      save: this.save, sets: spentSets(this, this.save),
+    });
+  }
+
+  presentTelescopeMenu(sx, sy, scope) {
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('telescope-modal', {
+      kind: 'note', kindLabel: 'Looking glass', art: Scenic.VISTA_STORY.story,
+    });
+    const prompt = document.createElement('p');
+    prompt.textContent = 'You see... everything! Look for: treasure, danger or solace?';
+    box.appendChild(prompt);
+    const status = document.createElement('p');
+    status.setAttribute('role', 'status');
+    status.style.cssText = 'font-size:12px;opacity:.85';
+    status.textContent = `A golden dot marks your find for ${shortDuration(Scenic.TELESCOPE_DURATION_MS)}.`;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:center;flex-wrap:wrap';
+    for (const option of Scenic.TELESCOPE_OPTIONS) {
+      const button = mkBtn(option.label, true, false);
+      button.addEventListener('click', e => {
+        e.stopPropagation();
+        const target = this._telescopeSearch(option.id);
+        if (!target) {
+          status.textContent = 'Nothing like that in sight. Try another search or another lookout.';
+          return;
+        }
+        this.save.telescopeCompass = target;
+        persistSave(this.save);
+        wrap.remove();
+        this.flash('Follow the golden dot.', sx, sy);
+      });
+      row.appendChild(button);
+    }
+    box.appendChild(row);
+    box.appendChild(status);
+    const leave = mkBtn('Leave', false, false);
+    leave.addEventListener('click', e => { e.stopPropagation(); wrap.remove(); });
+    box.appendChild(leave);
+    mount();
+  }
+
+  // Keep a moving find's bearing current while it is loaded. An unloaded
+  // target keeps its last known position; absence from cache is not collection.
+  _telescopeTrackedTarget(marker) {
+    const id = marker.targetId;
+    for (const field of ['opened', 'picked', 'chopped', 'caught', 'burnedObjects', 'brokenRocks']) {
+      if ((this.save[field] || []).includes(id)) return null;
+    }
+    if (marker.category === 'shiny' && this.save.fruitPicked?.[id] >= marker.until - Scenic.TELESCOPE_DURATION_MS) return null;
+    const field = marker.type === 'creature' ? 'creatures' : marker.type === 'wildplant' ? 'wildplants' : 'objects';
+    for (const entry of WorldGen.tileCache.values()) {
+      const target = (entry[field] || []).find(o => o.id === id);
+      if (!target) continue;
+      if (marker.type === 'creature') {
+        if (target._surfaceInactive || target._hp <= 0 || target.hp <= 0) return null;
+      } else if (isSpent(target, spentSets(this, this.save))) return null;
+      marker.x = target.x;
+      marker.y = target.y;
+      return target;
+    }
+    return marker;
+  }
+
   // Find the nearest chest the player hasn't opened. Used by the pairy compass.
   findNearestUnopenedChest(tiers = null) {
     const pWX = this.startWorldM.x + this.playerM.x;
@@ -11718,13 +11871,14 @@ class MapScene extends Phaser.Scene {
       ? (this.worldIconHTML('house_trailer', 30) || undefined) : undefined;
   }
 
-  // SELL page: the selected stack, with a quantity stepper — confirm first so
+  // SELL page: one item per tap from the selected stack — confirm first so
   // an accidental home tap can't silently dump a high-value item. Sword relic
   // scales the price from half (no sword) up to full base value at tier 7, and
   // the trailer takes a flat 25% off that (TRAILER_SELL_MUL, items.js). No shop
   // specialty bonus at home — it's a private sale, not a shopkeep's bid.
-  presentHomeSell(sx, sy) {
-    const sel = this.save.inv[this.save.selSlot];
+  presentHomeSell(sx, sy, targetId = null) {
+    const sel = targetId == null ? this.save.inv[this.save.selSlot]
+      : this.save.inv.find(stack => stack.id === targetId && stack.count > 0);
     const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     const tabs = this._homeTabs('sell', sx, sy);
     const kindIcon = this._homeKindIcon();
@@ -11735,9 +11889,10 @@ class MapScene extends Phaser.Scene {
       this.showOfferModal({
         kind: 'shop', kindIcon, tabs, art: 'home_sell',
         title: 'Sell from your stash',
-        get: 'Nothing picked to sell',
+        get: targetId ? 'Sold out' : 'Nothing picked to sell',
         blurb: 'Pick a stack in your bag, then tap Home to sell it.',
-        cost: '', canAfford: false, cancelLabel: 'Later', acceptLabel: 'Sell',
+        cost: '', canAfford: false, cancelLabel: 'Leave', acceptLabel: 'Sell',
+        repeat: () => this.presentHomeSell(sx, sy, targetId),
         onAccept: () => {},
       });
       return;
@@ -11745,30 +11900,23 @@ class MapScene extends Phaser.Scene {
     const unitPrice = trailerSellPrice(PRICES[sel.id] ?? 1);
     const item = ITEM_BY_ID[sel.id];
     const sellId = sel.id;
-    const maxQty = Math.max(1, sel.count | 0);
     const iconHTML = this.iconSpanHTML(sellId);
     const itemName = item?.name || sellId;
-    const fmt = (q) => ({
-      get: this.moneyHTML(`+${unitPrice * q}`),
-      cost: `${q}× ${iconHTML} ${itemName}`,
-      canAfford: true,
-    });
-    const first = fmt(1);
     this.showOfferModal({
       kind: 'shop', kindIcon, tabs, art: 'home_sell',
       title: 'Sell from your stash?',
-      get: first.get,
-      cost: first.cost,
+      get: this.moneyHTML(`+${unitPrice}`),
+      cost: `1× ${iconHTML} ${itemName}`,
       canAfford: true,
       acceptLabel: 'Sell',
-      quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
-      onAccept: (q) => {
+      cancelLabel: 'Leave',
+      repeat: () => this.presentHomeSell(sx, sy, sellId),
+      onAccept: () => {
         const have = Inventory.count(this.save, sellId);
         if (have <= 0) { this.flash('Gone — already used.', sx, sy); return; }
-        const sold = clamp(q ?? 1, 1, have);
-        Inventory.remove(this.save, sellId, sold);
+        Inventory.remove(this.save, sellId, 1);
         this._clampSelSlot();
-        const gain = unitPrice * sold;
+        const gain = unitPrice;
         addMoney(this.save, gain);
         if (!this.save.storySeen?.['sale:first']) this.save.firstSalePending = true;
         this._finishInventoryChange();
@@ -11780,7 +11928,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // CRAFT page: one recipe of HOME_RECIPES (items.js) at a time, with a
-  // quantity stepper, and the ‹ › pager that walks the rest — the smithy's
+  // Craft button and the ‹ › pager that walks the rest — the smithy's
   // Smelt page, pointed at Home. `targetId` defaults to the first recipe the
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
@@ -11794,16 +11942,11 @@ class MapScene extends Phaser.Scene {
     const cap = capOf(rec);
     const outName = itemName(rec.id);
     const learnVerb = ITEM_BY_ID[rec.id]?.scroll ? 'Use' : 'Find';
-    const costLine = (n) => rec.cost.map(c => {
-      const ok = held(c.id) >= c.qty * n;
+    const costLine = rec.cost.map(c => {
+      const ok = held(c.id) >= c.qty;
       return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
-        + `${c.qty * n}× ${this.iconSpanHTML(c.id)} ${itemName(c.id)}</span>`;
+        + `${c.qty}× ${this.iconSpanHTML(c.id)} ${itemName(c.id)}</span>`;
     }).join(' + ');
-    const fmt = (n) => ({
-      get: `${n}× ${this.iconSpanHTML(rec.id)} ${outName}`,
-      cost: costLine(n),
-      canAfford: cap >= n && n >= 1,
-    });
     const idx = recipes.indexOf(rec);
     const n = recipes.length;
     const pageTo = (r) => () => this.presentHomeCraft(sx, sy, r.id);
@@ -11811,38 +11954,37 @@ class MapScene extends Phaser.Scene {
       kind: 'craft', kindIcon: this._homeKindIcon(),
       tabs: this._homeTabs('craft', sx, sy),
       title: 'Make something at home:',
-      cancelLabel: 'Later',
-      get: fmt(1).get,
+      cancelLabel: 'Leave',
+      get: `1× ${this.iconSpanHTML(rec.id)} ${outName}`,
       blurb: ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined,
-      cost: costLine(1),
+      cost: costLine,
       canAfford: cap >= 1,
       acceptLabel: 'Craft',
       getLabel: 'You make', costLabel: 'You use',
-      quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
+      repeat: () => this.presentHomeCraft(sx, sy, rec.id),
       pager: {
         index: idx, count: n, showIndex: false,
         onPrev: pageTo(recipes[(idx - 1 + n) % n]),
         onNext: pageTo(recipes[(idx + 1) % n]),
       },
-      onAccept: (n) => {
-        const q = Math.max(1, n ?? 1);
+      onAccept: () => {
         if (locked(rec)) { this.flash(`${learnVerb} a ${outName} first.`, sx, sy); return; }
-        if (this.invRoomFor(rec.id) < q) {
+        if (this.invRoomFor(rec.id) < 1) {
           this.flash(`Bag full for ${outName}.`, sx, sy);
           return;
         }
-        if (ingredientCap(rec) < q) {
-          const missing = rec.cost.find(c => held(c.id) < c.qty * q);
-          const short = missing ? missing.qty * q - held(missing.id) : 0;
+        if (ingredientCap(rec) < 1) {
+          const missing = rec.cost.find(c => held(c.id) < c.qty);
+          const short = missing ? missing.qty - held(missing.id) : 0;
           this.flash(missing ? `Need ${short} more ${itemName(missing.id)}.`
                              : 'Not enough to craft.', sx, sy);
           return;
         }
-        for (const c of rec.cost) Inventory.remove(this.save, c.id, c.qty * q);
+        for (const c of rec.cost) Inventory.remove(this.save, c.id, c.qty);
         this._clampSelSlot();
-        this.addToInv(rec.id, q, false, { notWild: true, deferRefresh: true });
+        this.addToInv(rec.id, 1, false, { notWild: true, deferRefresh: true });
         this._finishInventoryChange();
-        this.flashLoot(`✨ ${outName} ×${q}`, '#ffe066', 1.25, rec.id);
+        this.flashLoot(`✨ ${outName} ×1`, '#ffe066', 1.25, rec.id);
       },
     });
   }
@@ -15385,8 +15527,8 @@ const game = window.__game = new Phaser.Game({
   // Phaser 3.87 preallocates three square pre-FX targets every 32px up to
   // the canvas width, plus three full-size targets. At 1179×2826 that pool
   // alone is ~228 MiB of RGBA pixels, even before any shiny uses it.
-  // Use the existing light/spark fallback for shinies and disable optional FX.
-  disablePreFX: true,
+  // Default to the light/spark fallback; the menu can opt in on this device.
+  disablePreFX: !GRAPHICS_FX_ENABLED,
   disablePostFX: true,
   // See FPS_LIMIT / PHASER_FPS_LIMIT: 30 steps/s on any display, 0 = uncapped (?fps=0).
   fps: { limit: PHASER_FPS_LIMIT },

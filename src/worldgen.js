@@ -3859,6 +3859,56 @@
     return [...chosen.values()].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
   }
 
+  // Shared surface/sandbox grass pattern. The mask contains candidates only;
+  // callers retain terrain, area ownership, access and occupancy precedence.
+  function* grassFillSteps(tx, ty, w, h = w) {
+    const grass = BiomeProfiles.GRASS_FILL;
+    const candidates = new Uint8Array(w * h);
+    const grassRegions = new Map();
+    const grassRegion = (bx, by) => {
+      const key = `${bx}_${by}`;
+      if (!grassRegions.has(key)) {
+        const rng = makeRng((cellHash(0, 0, bx, by) ^ grass.salt) >>> 0);
+        grassRegions.set(key, {
+          density: grass.dMin + rng() * (grass.dMax - grass.dMin),
+          x: (bx + rng()) * grass.spacing,
+          y: (by + rng()) * grass.spacing,
+          radius: grass.radiusMin + rng() * (grass.radiusMax - grass.radiusMin),
+        });
+      }
+      return grassRegions.get(key);
+    };
+    const denseGrass = new Uint8Array(w * h);
+    const grassX = tx * w, grassY = ty * h;
+    for (let by = Math.floor((grassY - grass.radiusMax) / grass.spacing);
+      by <= Math.floor((grassY + h + grass.radiusMax) / grass.spacing); by++) {
+      yield 'grass stand rows';
+      for (let bx = Math.floor((grassX - grass.radiusMax) / grass.spacing);
+        bx <= Math.floor((grassX + w + grass.radiusMax) / grass.spacing); bx++) {
+        const stand = grassRegion(bx, by);
+        const cx = stand.x - grassX, cy = stand.y - grassY;
+        for (let iy = Math.max(0, Math.floor(cy - stand.radius)); iy < Math.min(h, Math.ceil(cy + stand.radius)); iy++) {
+          for (let ix = Math.max(0, Math.floor(cx - stand.radius)); ix < Math.min(w, Math.ceil(cx + stand.radius)); ix++) {
+            if ((ix + 0.5 - cx) ** 2 + (iy + 0.5 - cy) ** 2 <= stand.radius ** 2) denseGrass[iy * w + ix] = 1;
+          }
+        }
+      }
+    }
+    for (let iy = 0; iy < h; iy++) {
+      if ((iy & 7) === 0) yield 'grass ground fill rows';
+      const by = Math.floor((grassY + iy + 0.5) / grass.spacing);
+      let lastBx = null, background = 0;
+      for (let ix = 0; ix < w; ix++) {
+        const bx = Math.floor((grassX + ix + 0.5) / grass.spacing);
+        if (bx !== lastBx) { background = grassRegion(bx, by).density; lastBx = bx; }
+        const density = denseGrass[iy * w + ix] ? grass.dense : background;
+        if (makeRng((cellHash(tx, ty, ix, iy) ^ grass.salt) >>> 0)() >= density) continue;
+        candidates[iy * w + ix] = 1;
+      }
+    }
+    return candidates;
+  }
+
   // Rasterize a tile, in slices. THE WHOLE POINT IS THE `yield`s: a tile build
   // is ~50k cells through a dozen sequential passes, and as one straight-line
   // call it was a single 300-800 ms block of the main thread on a desktop —
@@ -4544,6 +4594,7 @@
             if (parkChar) parkPolys.push({ rings: f.geom, character: parkChar, cemetery: isCemetery });
             const floraPatch = BiomeProfiles.patch(t, parkChar);
             for (const fl of BiomeProfiles.flora(t, parkChar)) {
+              if (fl.pattern === 'grassfill') continue; // final-grid pass includes unmapped ground
               const seed = (polyKey ^ (fl.salt >>> 0)) >>> 0;
               if (fl.pattern === 'hedgemaze') {
                 // Deterministic clipped-hedge-maze layout (commercial plazas) —
@@ -5402,6 +5453,28 @@
     // first cull below reads it. Pure MVT, re-derived by a rebuild.
     const spawnWhy = yield* stampSpawnWhySteps({ layers, grid, w, h, mvtToCell, mvtToM,
       roadMask, roadClass, quietMask });
+    // Replace polygon grass on final GRASS cells, so overlapping mapped
+    // polygons and the unclassified fallback get the same single fill pass.
+    // Other plants stay first in the occupancy queue; landmarks, special
+    // zone/street areas and the shared spawn gate still own their cells.
+    let grassKeep = 0;
+    for (let i = 0; i < wildplants.length; i++) {
+      if ((i & 63) === 0) yield 'grass polygon cleanup';
+      const wp = wildplants[i];
+      if (wp.crop === 'longgrass' && grid[wp._iy * w + wp._ix] === T.GRASS) continue;
+      wildplants[grassKeep++] = wp;
+    }
+    wildplants.length = grassKeep;
+    const grassCandidates = yield* grassFillSteps(tx, ty, w, h);
+    for (let iy = 0; iy < h; iy++) {
+      if ((iy & 7) === 0) yield 'grass placement rows';
+      for (let ix = 0; ix < w; ix++) {
+        if (grid[iy * w + ix] !== T.GRASS || !grassCandidates[iy * w + ix]) continue;
+        const { mx, my } = cellCenterMeters(ix, iy);
+        wildplants.push(makeWildplant(BiomeProfiles.GRASS_FILL.crop, mx, my,
+          cellId('wp', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
+      }
+    }
     let streetRockRefused = null;
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
@@ -5998,6 +6071,10 @@
         wildplants: filtered, tx, ty, N: w, tileEdgeM });
     }
     dressSpawn();
+    const wreckReservations = zone && typeof ZoneDressing !== 'undefined'
+      ? yield* ZoneDressing.reserveWrecksSteps({ field: zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+        spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } })
+      : null;
     // Future lamp feet stay clear through both scenic and street dressing,
     // then leave no phantom occupancy behind for unrelated zone spawns.
     const lampReservations = typeof RoadOverlay !== 'undefined'
@@ -6025,8 +6102,12 @@
         wildplants: filtered, occupied: dressOcc, streetDress, scenicDress, tx, ty, N: w, tileEdgeM });
       dressSpawn();
       zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
-        tideSeats: scenicDress && scenicDress.tideSeats,
+        wreckReservations, poiPadCells, tideSeats: scenicDress && scenicDress.tideSeats,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
+      // Shafts must enter the generated surface snapshot before caves derive
+      // their matching up ladders. The live dressing occupancy pass skips
+      // these already-seated stairs when it lays the remaining quarry props.
+      for (const o of zoneDress.objects) if (o.kind === 'staircase') deduped.push(o);
     }
     if (zone && zoneDress && typeof ReefLayout !== 'undefined') {
       yield* ReefLayout.dressSteps({ field: zone, zoneDress, tx, ty, N: w, tileEdgeM, grid,
@@ -7712,6 +7793,14 @@
       objCells.add(liy * N + lix);
     }
     const pads = entry.poiPadCells;
+    // Authored quarry shafts are already in the generated surface layer.
+    // Their cells must remain reserved even when legacy cave identities read
+    // the older pre-dressing source above.
+    for (const stair of stableObjects || entry.objects || []) {
+      if (stair.kind !== 'staircase' || stair.zoneLayer !== 'entrance' || stair.dir !== 'down') continue;
+      const { lix, liy } = cellIndexOf(tx, ty, stair.x, stair.y, tileEdgeM, N);
+      used.add(liy * N + lix); objCells.add(liy * N + lix); markPlaced(lix, liy);
+    }
     // THE SPAWN GATE: a mine mouth is a 'cave' spawn (the stairs down — the
     // owner's "ladders"): off the road band (see above), every hard reason
     // (quiet / restricted land, a back yard, a field's interior) and
@@ -8542,7 +8631,7 @@
     // (test/node/tile_build_blocks.test.js) can time the build one step at
     // a time — the only way to see the thing that actually stutters, which
     // is not the total but the longest stretch between two yields.
-    rasterizeTileSteps,
+    rasterizeTileSteps, grassFillSteps,
     setSliceBudgetMs, sliceBudgetMs, noteSliceFrame, sliceFrameTargetMs,
     // The shared slice driver (see driveStepsSliced): a steps generator run
     // straight through, or sliced as a turn on the heavy chain — the scene's
@@ -8569,7 +8658,7 @@
     // preservation pinned by tile_bin_injection.test.js.
     injectTileBin, injectTileBinSteps,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, relocateToSpawnCell,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, nearBuildingCell, nearPoiCell, relocateToSpawnCell,
     // The hedge-maze lattice decision (spawnHedgeMazeSteps' owner): exported
     // so the sandbox's flora mirror runs the SAME maze, never a drifted copy.
     hedgeMazeCell, hedgeMazePotCell, HEDGE_LATTICE_P,

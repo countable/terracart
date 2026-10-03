@@ -288,6 +288,9 @@ class SceneCreatures {
         if (placed) zoneTreasures.push(treasure);
       }
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
+      // Empty hull and approach cells remain unavailable to later surface scatter.
+      // Claim after laying the authored contents, including the wreck's chest.
+      for (const i of zDress.reservedCells || []) _occupiedIdx.add(i);
       entry.slowCells = slow.size ? slow : null;
     }
     yield 'spawn zone dressing';

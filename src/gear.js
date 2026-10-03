@@ -227,6 +227,88 @@
     return ['platinum_bar', 'crimson_bar', 'frost_bar'];
   }
 
+  // ── THE TRADER'S GEAR SWAP ───────────────────────────────────────────────
+  // On TRADER_GEAR_CHANCE of trader visits, the trader swaps equipment
+  // instead of goods: one piece the player owns for a different piece OF THE
+  // SAME TIER, any for any across relics, armour and unique relics. Pieces
+  // are Rewards.apply shapes: { kind: 'relic'|'armor', slot, tier } or
+  // { kind: 'item', id, qty: 1, tier }.
+  //   • The player gives a piece they own. Bags never go: a smaller bag would
+  //     spill the inventory. A shrine boon's temporary staff is not owned
+  //     (save.relics, not effectiveRelics). Tomes are books, not relics.
+  //   • The trader gives what equip() would actually take — a slot the player
+  //     has empty or holds at a LOWER tier (so never the given slot itself) —
+  //     or a unique relic the player does not carry.
+  const TRADER_GEAR_CHANCE = 0.2;
+  // The trader's sign asks for this every frame, so the unique-relic list is
+  // read off ITEMS once.
+  let _tradeUniques = null;
+  function tradeUniques() {
+    return _tradeUniques || (_tradeUniques = ITEMS.filter(item =>
+      item.kind === 'unique_relic' && !item.tome && (item.baseTier | 0) > 0));
+  }
+  function gearTier(save, kind, slot) {
+    return (kind === 'armor' ? save.armor : save.relics)?.[slot]?.tier || 0;
+  }
+  function traderGivablePieces(save) {
+    const out = [];
+    for (const slot of Object.keys(RELIC_DEFS)) {
+      const tier = gearTier(save, 'relic', slot);
+      if (tier > 0 && slot !== 'bags') out.push({ kind: 'relic', slot, tier });
+    }
+    for (const slot of Object.keys(ARMOR_DEFS)) {
+      const tier = gearTier(save, 'armor', slot);
+      if (tier > 0) out.push({ kind: 'armor', slot, tier });
+    }
+    for (const item of tradeUniques()) {
+      if (carriesItem(save, item.id)) out.push({ kind: 'item', id: item.id, qty: 1, tier: item.baseTier });
+    }
+    return out;
+  }
+  function traderTakeablePieces(save, tier, give) {
+    const out = [];
+    const fits = (kind, slot) => {
+      const def = gearDef(kind, slot);
+      return !!def && !!TIER_BY_NUM[tier] && (!def.tiers || def.tiers.includes(tier)) && gearTier(save, kind, slot) < tier;
+    };
+    for (const slot of Object.keys(RELIC_DEFS)) if (fits('relic', slot)) out.push({ kind: 'relic', slot, tier });
+    for (const slot of Object.keys(ARMOR_DEFS)) if (fits('armor', slot)) out.push({ kind: 'armor', slot, tier });
+    for (const item of tradeUniques()) {
+      if (item.baseTier === tier && item.id !== give?.id && !carriesItem(save, item.id)) {
+        out.push({ kind: 'item', id: item.id, qty: 1, tier });
+      }
+    }
+    return out;
+  }
+  // The chance roll is drawn first, every time, so what is owned never
+  // changes how many numbers the stream spends before it.
+  function traderGearSwap(save, rng = Math.random) {
+    if (rng() >= TRADER_GEAR_CHANCE) return null;
+    const options = traderGivablePieces(save)
+      .map(give => ({ give, gets: traderTakeablePieces(save, give.tier, give) }))
+      .filter(o => o.gets.length);
+    if (!options.length) return null;
+    const { give, gets } = options[Math.floor(rng() * options.length)];
+    return { give, get: gets[Math.floor(rng() * gets.length)] };
+  }
+  const samePiece = (a, b) => a.kind === b.kind && a.slot === b.slot && a.id === b.id && a.tier === b.tier;
+  // Still takeable as offered: the given piece is owned at that tier and the
+  // received one is still wanted (the bag or a slot may have changed since).
+  function traderSwapValid(save, swap) {
+    if (!swap) return false;
+    return traderGivablePieces(save).some(p => samePiece(p, swap.give))
+      && traderTakeablePieces(save, swap.give.tier, swap.give).some(p => samePiece(p, swap.get));
+  }
+  // Hand the given piece over. The received piece goes through Rewards.apply
+  // at the caller, like every other way gear is obtained.
+  function surrenderPiece(save, piece) {
+    if (piece.kind === 'item') { Inventory.remove(save, piece.id, 1); return; }
+    if (piece.kind === 'armor') { save.armor[piece.slot] = null; return; }
+    save.relics[piece.slot] = null;
+    if (save.activeWeapon === piece.slot) unequipWeapon(save);
+  }
+
   root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
-                blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS };
+                blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
+                TRADER_GEAR_CHANCE, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

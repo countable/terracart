@@ -571,6 +571,16 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.sx, centre\.sy, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
+test('wooden barrels and smashed barrels render at half their former size', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  for (const smashed of [false, true]) {
+    const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
+    assert.eq(look.texKey, smashed ? 'barrel_smashed' : 'barrel');
+    assert.eq(look.scl, 2 / 3);
+  }
+  assert.eq(art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot'}).scl, 4 / 3);
+});
+
 test('stronghold walls keep their tile frame alignment instead of centering corner art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (let variant=0;variant<15;variant++) {

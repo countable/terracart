@@ -295,9 +295,28 @@
     for (let y = 31; y <= 33; y++) for (let x = 31; x <= 33; x++) reserved.add(y * ctx.N + x);
     reserved.add(30 * ctx.N + 32);
     for (const i of reserved) assert.truthy(ctx.spawnOpts.occupied.has(i), 'whole footprint reserved');
-    for (const o of all(out)) assert.falsy(reserved.has(o._iy * ctx.N + o._ix), 'scenery and guards cannot overlap hull or approach');
+    for (const o of all(out).filter(o => o.zoneLayer !== 'wreck')) assert.falsy(reserved.has(o._iy * ctx.N + o._ix), 'scenery and guards cannot overlap hull or approach');
+    const chests = out.objects.filter(o => o.zoneLayer === 'wreck');
+    assert.eq(chests.length, 1); assert.eq(chests[0].kind, 'chest');
+    assert.eq(chestTier(chests[0]), 3);
+    assert.truthy(reserved.has(chests[0]._iy * ctx.N + chests[0]._ix));
+    assert.falsy(chests[0].zoneNexus, 'no extra nexus tier');
     assert.eq(out.wildplants.filter(o => o.zoneLayer === 'poi').length, 0, 'wreck replaces small shrine composition');
     assert.eq(finds(out).length, ZoneVariants.byId('pirate_cove').finds.count);
+  });
+  test('zone dressing: early wreck reservations block competitors and survive the later dressing pass', () => {
+    const ctx = pirateShrine(), run = ZoneDressing.reserveWrecksSteps(ctx);
+    let step; do { step = run.next(); } while (!step.done);
+    ctx.wreckReservations = step.value;
+    assert.eq(ctx.wreckReservations.size, 1);
+    const reservation = [...step.value.values()][0];
+    for (const i of reservation.reserved) {
+      assert.falsy(WorldGen.isSpawnCell(ctx.grid, ctx.N, ctx.N, i % ctx.N, Math.floor(i / ctx.N), ctx.spawnOpts, 'minor'), 'later scenery cannot spend reserved sand');
+    }
+    const out = ZoneDressing.dress(ctx);
+    assert.eq(ctx.chests[0]._ix, 32); assert.eq(ctx.chests[0]._iy, 32);
+    assert.eq(out.objects.filter(o => o.zoneLayer === 'wreck').length, 1);
+    assert.eq(out.diagnostics[0].shortfalls.length, 0);
   });
   test('zone dressing: blocked Pirate Cove wreck relocates deterministically without moving obstacles', () => {
     const make = () => {
@@ -334,6 +353,7 @@
       assert.eq(shrine.kind, 'grove_shrine'); assert.eq(shrine.id, before.id);
       assert.eq(shrine.x, before.x); assert.eq(shrine.y, before.y);
       assert.eq(shrine._shrineArt, undefined);
+      assert.eq(out.objects.filter(o => o.zoneLayer === 'wreck').length, 0, 'no floating chest without a hull');
       assert.truthy(out.diagnostics[0].shortfalls.includes('shrine:shipwreck'));
     }
   });
