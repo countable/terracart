@@ -1410,8 +1410,11 @@ const PRICES = {
   rainberry: 6,
   berry: 7,        // T2 sweet — slightly above rainberry
   pairy: 8,
-  starfruit: 18,   // the rescued neighbour’s crop, between Pairy and Gemfruit
-  gemfruit: 25,    // T2 + occasional rockfruit bonus
+  // A shop-bought crop pays its grower: at an average shop (2.1× seed list)
+  // the trailer's 2-produce harvest clears the seed cost by 25% of the
+  // payout (Oct 2026). Starfruit and gemfruit were the T3 crops under it.
+  starfruit: 29,   // the rescued neighbour’s crop, between Pairy and Gemfruit
+  gemfruit: 30,    // T2 + occasional rockfruit bonus
   coffee: 40,      // T2, no wild source
   sunflower: 150,  // T4 magical flower — commonest of the trio
   fireflower: 300, // T5 magical flower
