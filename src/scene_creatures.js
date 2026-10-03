@@ -126,9 +126,14 @@ class SceneCreatures {
     if (entry._spawnPass) return entry._spawnPass;
     const key = WorldGen.tileKey(tx, ty);
     const gone = () => WorldGen.tileCacheFor(0).get(key) !== entry;
-    const pass = WorldGen.runStepsSliced(() => this.spawnInTileSteps(entry, tx, ty), { abort: gone })
+    const stats = {};
+    const endSpawn = window.__boot?.begin(`tile ${key} spawn`);
+    const pass = WorldGen.runStepsSliced(() => this.spawnInTileSteps(entry, tx, ty), { abort: gone, stats })
       .then((r) => r !== WorldGen.STEPS_ABORTED && !!entry._spawned)
-      .finally(() => { if (entry._spawnPass === pass) entry._spawnPass = null; });
+      .finally(() => {
+        endSpawn?.(`${stats.slices || 0} slices, worst block ${Math.round(stats.worstMs || 0)}ms in ${stats.worstAt || 'not started'}`);
+        if (entry._spawnPass === pass) entry._spawnPass = null;
+      });
     entry._spawnPass = pass;
     return pass;
   }
@@ -529,6 +534,7 @@ class SceneCreatures {
     entry._spawnOpts = _spawnOpts;
     const habitatOccupied = new Set([...enemyGroundSeats, ...plantCells]);
     const habitatGuards = EnemyHabitats.surfaceSites(entry, tx, ty, habitatOccupied);
+    yield 'spawn habitat sites';
     const habitatSeats = new Set(habitatGuards.map(c => {
       const x = Math.floor((c.x - tx * this.tileEdgeM) / cellM), y = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
       return y * N + x;
@@ -560,10 +566,11 @@ class SceneCreatures {
       creatures[enemyWrite++] = replacement;
     }
     creatures.length = enemyWrite;
+    yield 'spawn habitat roster';
     // Themed roamers have their own small-group budget. Reserve all generated
     // seats before filtering defeats, so caught enemies never reroll a group.
     const themedOccupied = new Set([..._occupiedIdx, ...plantCells]);
-    const themedEnemies = EnemyHabitats.surfaceEncounters(entry, tx, ty, themedOccupied);
+    const themedEnemies = yield* EnemyHabitats.surfaceEncountersSteps(entry, tx, ty, themedOccupied);
     for (const c of themedEnemies) {
       const at = c._surfaceSpawn;
       _spawnOpts.occupied.add(at.cy * N + at.cx);

@@ -82,12 +82,19 @@
     return { theme: variantAt(entry, cx, cy), beach: !!entry.scenic?.shore?.mask?.[i] };
   }
   function surfaceEncounters(entry, tx, ty, occupied) {
+    return root.WorldGen.runSteps(surfaceEncountersSteps(entry, tx, ty, occupied));
+  }
+  // Keep a whole encounter group together, but let the tile builder yield
+  // between blocks. Failed placement attempts are work too, including on
+  // tiles whose coverage never offers a seat.
+  function* surfaceEncountersSteps(entry, tx, ty, occupied) {
     const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
     const cellM = entry.tileEdgeM / N, out = [], cfg = SURFACE_ENCOUNTERS;
     const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
       roadClass: entry.roadClass, occupied };
     if (!entry.zone?.coverage) return out;
     for (let by = 0; by < N; by += cfg.blockCells) for (let bx = 0; bx < N; bx += cfg.blockCells) {
+      yield 'spawn habitat encounter blocks';
       const id = `zone_encounter_${tx}_${ty}_${bx}_${by}`;
       if (unit(id + ':present') >= cfg.chance) continue;
       const size = unit(id + ':size'), count = size >= cfg.trioAt ? 3 : size >= cfg.pairAt ? 2 : 1;
@@ -242,6 +249,6 @@
     return out;
   }
   root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS,
-    unit, caveAt, surfaceAt, surfaceEncounters, variantAt, emergesFromGround, buildingKinds, surfaceSites, caveSites };
+    unit, caveAt, surfaceAt, surfaceEncounters, surfaceEncountersSteps, variantAt, emergesFromGround, buildingKinds, surfaceSites, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);
