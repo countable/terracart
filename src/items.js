@@ -2445,7 +2445,7 @@ function sellMultiplier() {
 // One number, one place: every home sale goes through trailerSellPrice, so the
 // price the modal quotes and the cash addMoney pays can't drift apart.
 const TRAILER_SELL_MUL = 0.75;
-// Hard mode takes a further cut here (Difficulty.sellMul, 0.6): the SAME
+// Hard mode takes a further cut here (Difficulty.sellMul, 0.9): the SAME
 // place, so the quote and the payout still can't drift, and the stand floor
 // (which prices off sellMultiplier, not this) only widens.
 function trailerSellMultiplier() {
@@ -2502,7 +2502,7 @@ function recipeCap(cost, count) {
 // raised under the Magic Hammer (houses.js priceMul) or a carried guild
 // badge (guildDiscounted), never from gear.
 // The random buy-cash markup: 1.2..3.0× base. Hard mode scales the whole
-// range (Difficulty.buyMul, 1.5×). Applied HERE so every reader — the
+// range (Difficulty.buyMul, 1.15×). Applied HERE so every reader — the
 // trader's roll, the castle's pricing — asks one function and gets the same
 // answer. `relics` is accepted and ignored so every caller keeps its shape.
 function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
