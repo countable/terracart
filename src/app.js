@@ -1987,7 +1987,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── Lava ──────────────────────────────────────────────────────────────────
-  // Surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
+  // Burned Row embers, surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
@@ -2007,8 +2007,10 @@ class MapScene extends Phaser.Scene {
     const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     const N = entry && entry.cellsPerEdge;
+    const embers = this.depth === 0 && typeof StreetVariants !== 'undefined'
+      && StreetVariants.hotRoadAt(entry, pc.cx, pc.cy);
     if (!entry || !entry.grid || lix < 0 || liy < 0 || lix >= N || liy >= N
-        || entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA) {
+        || (entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA && !embers)) {
       this._lavaAccum = 0;   // stepping out ends the burn: no partial second carries
       return;
     }
@@ -2026,7 +2028,7 @@ class MapScene extends Phaser.Scene {
       this._lastLavaFlashT = now;
       const burned = this._lavaPop;
       this._lavaPop = 0;
-      this._popEnergy(-burned, { ix, iy, label: '🔥 lava' });
+      this._popEnergy(-burned, { ix, iy, label: embers ? '🔥 embers' : '🔥 lava' });
       if (typeof persistSave === 'function') persistSave(this.save);
     }
   }

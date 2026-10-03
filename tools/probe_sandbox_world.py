@@ -130,6 +130,21 @@ CASES = {
       check(walkHazardDamageRate(bramble)>0,'bramble contact hurts');
       return {roadBarriers:onRoad.length,removed:barrier.id,thorny:bramble.id};
     }"""),
+    'burned-road': ('burned-road', r"""() => {
+      const {s,entries,check,move,resetHealth}=worldProbe;
+      const e=entries.find(e=>e.streetIndex?.lines.some(r=>r.variant==='burned'));
+      check(e,'authored Burned Row exists');
+      const N=e.cellsPerEdge,m=e.tileEdgeM/N,anchor=e.objects[0];
+      const ox=Math.floor(anchor.x/e.tileEdgeM)*e.tileEdgeM,oy=Math.floor(anchor.y/e.tileEdgeM)*e.tileEdgeM;
+      let hot;
+      for(let y=0;y<N&&!hot;y++)for(let x=0;x<N;x++)if(StreetVariants.hotRoadAt(e,x+.5,y+.5)){hot={x:ox+(x+.5)*m,y:oy+(y+.5)*m};break;}
+      check(hot,'ember road has hot paving');resetHealth();move(hot);s._tickLava(1);
+      check(100-s.save.energy===Combat.LAVA_DMG_PER_S,'embers deal lava damage');
+      check(Conditions.active(s.save,'burning'),'embers ignite player');
+      resetHealth();s.save.fireResistancePotionUntil=Date.now()+60000;s._tickLava(1);
+      check(s.save.energy===100,'fire resistance protects on embers');
+      return {damagePerSecond:Combat.LAVA_DMG_PER_S};
+    }"""),
     'covered-find': ('strip-mine', r"""() => {
       const {s,entries,objects,check,move,context,interact,finishWork}=worldProbe;
       const mark=entries.flatMap(e=>e.extraTreasures||[]).find(o=>o.coverRockId);
