@@ -16,7 +16,7 @@ The preview's surroundings selector shows conditional probabilities among specia
 
 Repeating motifs prefer at most 6 × 6 cells, with a hard maximum of 8 cells on either axis. Smaller squares and rectangles such as 3 × 3 and 3 × 5 are welcome; choose dimensions for the pattern rather than padding every row to a square. Silent Circle uses 8 × 8 so its radius-four circles touch. All repeating rows now satisfy the limit. Ordered Graves, Overgrown Graves, Broken Masonry and Broken Depot use 6 × 6 motifs; no motif migrations remain pending. Fixed compositions such as Stone Garden and Work Yard are not repeating motifs.
 
-- Six grove variants, five each for churchyards and tar yards, and three beach variants. Base weights are adjusted by soft geographic affinities, then chosen from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns; Ancient Grove adds light seeded grass only between its fixed clusters.
+- Seven grove variants, five each for the old stones (churchyards) and tar yards, four generated quarry stories (below) and three beach variants. Base weights are adjusted by soft geographic affinities, then chosen from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns; Ancient Grove adds light seeded grass only between its fixed clusters.
 - Background slots use their declared repeat motif, seeded scatter, or continuous line grid throughout the coverage union, without radial density falloff. Coordinates are zero-based. One cell is currently 7 metres. Work Yard uses a fixed 5 × 5 arrangement with one-cell-wide lines every four cells and its POI centered in the middle plot. Hedge Garden uses continuous lines every four cells throughout the coverage union; the preview shows a 4 × 4 sample. Shared borders belong to one grid; intersections count once.
 - Orient the motif toward the accessible POI approach, quantized to a quarter turn. If no approach can be resolved, use the stable anchor orientation. All tiles must use the same resolved orientation.
 - `material.cycle` advances by repeat-block x + y modulo cycle length. Every slot in a bed uses the same phase, keeping beds monochrome. Density values are derived from complete material cycles.
@@ -47,10 +47,10 @@ Complete parking-lane footprints select one of four stable quarry stories:
 
 | Variant | Layout | Site-wide finds and guards |
 |---|---|---|
-| Destroyed crater | One broken elliptical rim and open bowl scaled to usable coverage; sparse hot vents, one clear approach | Up to two finite Crimson ore deposits |
-| Abandoned quarry | Repeating 3–8-cell rock-and-salvage patches | Two one-off Iron-pick crates; copper ore rocks use normal mining, timber uses the existing wood pickup |
-| Strip mine | Repeating 3–8-cell benches with open cuts | Up to two splitting slimes in complete sites; sparse cell-owned slimes on clipped edges; no extra finite reward |
-| Ruined stronghold | Whole 5 × 5 foundations with doors and gaps between buildings | Up to three finite buried X marks and three goblins per site, limited by fitting foundations |
+| Destroyed crater (`quarry-crater`) | One broken elliptical rim and open bowl scaled to usable coverage; sparse hot vents, one clear approach | Up to two finite Crimson ore deposits |
+| Abandoned quarry (`quarry-abandoned`) | Repeating 3–8-cell rock-and-salvage patches | Two one-off Iron-pick crates; copper ore rocks use normal mining, timber uses the existing wood pickup |
+| Strip mine (`quarry-strip-mine`) | Repeating 3–8-cell benches with open cuts | Up to two splitting slimes in complete sites; sparse cell-owned slimes on clipped edges; no extra finite reward |
+| Ruined stronghold (`quarry-stronghold`) | Whole 5 × 5 foundations with doors and gaps between buildings | Up to three finite buried X marks and three goblins per site, limited by fitting foundations |
 
 `QuarryLayout` fits complete modules around the shared spawn gate and occupied cells. Requested finite counts that cannot fit are reported as shortfalls. Mined rocks, opened salvage, dug treasures and defeated guards use the existing progress ledgers; none refill daily. Crater vents use the existing lava terrain, damage rate and enemy immunity, plus a small orange light. Home/live terrain adjustments remain per-player overlays, leaving generated identities intact.
 

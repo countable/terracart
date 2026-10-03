@@ -3009,7 +3009,7 @@ class MapScene extends Phaser.Scene {
       + '• <b>Rest</b> — it refills slowly on its own over time.<br>'
       + '• <b>Taste</b> — every new food eaten for the first time raises the '
       + 'cap by one, for good (currently ' + max + ').<br><br>'
-      + 'Armor does not lengthen this bar — it soaks the damage attacks take '
+      + 'Armour does not lengthen this bar — it soaks the damage attacks take '
       + 'off it.';
     box.appendChild(body);
     const close = mkBtn('Got it');
@@ -8980,7 +8980,7 @@ class MapScene extends Phaser.Scene {
       { art: 'revive_found', title: 'Found',    body: 'Villagers find you by lantern light. They lift you gently and carry you home.' },
       // The carer is the villager revive_wake draws; they say nothing, which
       // is the point. What the revival GAVE is the energy pop's to say.
-      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket beside your wagon. A farmhand nods goodbye.' },
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket beside your trailer. A farmhand nods goodbye.' },
     ];
     const show = (i) => this.showMessageModal({
       ...PANELS[i], kind: 'story',
@@ -15001,7 +15001,7 @@ class MapScene extends Phaser.Scene {
           // Empty gear tab — tell the player where this gear comes from.
           const hint = document.createElement('div');
           hint.textContent = cat.key === 'armor'
-            ? 'No armor yet — forge or find it'
+            ? 'No armour yet — forge or find it'
             : this.invDisplayEntriesForCat(cat.key).length ? 'Select a relic' : 'No relics yet — forge or find them';
           hint.style.cssText = 'opacity:0.7;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(hint);

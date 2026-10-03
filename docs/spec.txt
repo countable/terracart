@@ -1043,13 +1043,13 @@ CHESTS (POI-driven)
    Chests snap to the cell grid and dedupe by name within ~80m (per tile) /
    ~120m (cross-tile). Density is data-dependent (~tens per tile in town).
  - tap a chest within reach to open it for loot driven by the POI class.
-   Tier yields T1=10 / T2=5 / T3=2 per drop (low-tier street furniture is
-   reduced to 3/2/1). Category weightings (T1/T2/T3), abbreviated:
-     food → produce 60/30/10   commerce → seeds 70/25/5   farm → seeds 40/40/20 (+1)
-     flora → flower seeds 10/30/60   civic → 30/40/30   health → 50/30/20
-     park → 40/40/20   lowtier (bus/fuel/lodging/gate) → 90/8/2, reduced yields
+   A chest's TIER is its tile's quota seat (WorldGen.seedChestTiers; T6-T7
+   only underground, loot.js chestTierMaxFor). What it holds is the POI's
+   chest theme (chest_themes.js, keyed by POI category) rolled through
+   rarity.js pickReward; code owns those weights. The old per-tier count
+   ladder (10/5/2 per drop) is retired.
  - chest TIER is shown by recoloring the approved chest sprite: the item rarity
-   badge palette (T2 copper, T3 silver, T4 gold, T5 lavender). T1 trunks and
+   badge palette (T2 copper, T3 iron, T4 gold, T5 lavender). T1 trunks and
    clay pots (intact and smashed) are desaturated; crates retain their original
    wood colors. T3+ trunks emit light in their rarity color while unopened. No floating tier gem.
  - some opens roll a RELIC or ARMOR instead of normal loot — the chance varies
@@ -1085,8 +1085,8 @@ BREAKABLE POTS AND BARRELS
    70% empty. Barrels: 10% supplies from all ordinary loot tiers, 10% T1–T2
    minerals, 10% T1 produce, 70% empty. Item pools and drop weights come from
    the shared item tables; exclusive finds stay in their own reward sources.
- - Both use the crate restock ledger. POI density affects restock time, not
-   reward odds; generated breakables restock daily. ATM pots of gold are separate.
+ - Both give ONCE (save.opened, like a chest) and stay as broken art; they
+   are not on the crate restock ledger. ATM pots of gold are separate.
 
 ================================================================================
 COIN-BURST POIs (ATM / bicycle parking)
@@ -1481,7 +1481,7 @@ ECONOMY (buying & selling)
      * FULL MEASURE — QUANTITY luck: P(a find comes in a bigger stack),
        save.qtyUpgrades, read by rarity.js qtyLuck.
      * KEEN EYE ×7 — the RING, i.e. TIER luck: P(a find comes a tier rarer),
-       rarity.js ringLuck. The Ring is the tower's exclusive gift: never sold
+       rarity.js upgradeLuck. The Ring is the tower's exclusive gift: never sold
        or forged anywhere else (excluded from buildRelicOffer).
      * VIGOUR ×5 — the cheap track: + max energy per rung.
    The THIRD purchase is a one-time CALLING (class): Hunter (bow damage),
@@ -1751,7 +1751,7 @@ ITEMS & RARITY
      minerals:      coal, wood, copper/iron/gold/platinum/crimson/frost bars
      gems:          sapphire, ruby, emerald, diamond
      animals:       chicken, cow, cat, dog, deer, rabbit, crow, butterfly
-     consumables:   honey, book, potions (reach / vigor / speed / shield /
+     magic, supply: honey, book, potions (reach / vigor / speed / shield /
                     blight / revive / resurrection / thunder), powders
                     (dragon / growth / shadow / frost), rope, torch, trap kit,
                     scarecrow

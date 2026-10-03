@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Lairs — the monsters nesting in a derelict structure, HARD MODE ONLY.
+// Lairs — the monsters nesting in a derelict structure, in EVERY mode.
 //
 // A ruin you walk past is scenery. A ruin with something living in it is a
-// decision: go around, or go in for what the building is worth. On hard
-// (Difficulty.get().derelictLairs) an unclaimed structure may hold a small
+// decision: go around, or go in for what the building is worth. In both
+// modes (Difficulty.get().derelictLairs) an unclaimed structure may hold a small
 // garrison, and BOTH what is in it and how many there are come off two facts
 // about THE BUILDING and no others — so every player meets the same garrison
 // in the same ruin:
@@ -125,9 +125,8 @@
   //     not scale it — a hoard with five giants is a fort);
   //   · ALWAYS held (OCCUPANCY rate 1, never thinned — the dressing only
   //     hands in a guarded hoard);
-  //   · held in EVERY mode (ALWAYS_AWAKE_TIERS): the building lairs stay a
-  //     hard-mode thing (stepResidency's `buildings` option), these are the
-  //     street's own.
+  //   · held in EVERY mode (ALWAYS_AWAKE_TIERS), whatever stepResidency's
+  //     `buildings` option says: these are the street's own.
   // They are NOT buildings: no footprint, no claim key, no part of the tile
   // budget (tileThin reads building shapes only). Street tiers are strings so
   // no terrain code can collide with them.
@@ -141,8 +140,8 @@
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
   // like a barricade, woken in EVERY mode, and the one tier whose count scales
-  // with the mode (MODE_SCALED_TIERS: Difficulty.slimeCountMul — 2 on easy,
-  // 4 on hard), because what holds it is slimes.
+  // with the mode (MODE_SCALED_TIERS: Difficulty.slimeCountMul — 1 in both
+  // modes today), because what holds it is slimes.
   const ZONE_TIER_GUARDS = { tar: 2 };
   Object.assign(TIER_GUARDS, ZONE_TIER_GUARDS);
   // ── A GATE — the same reason again (Sep 2026): an OSM barrier=gate is no
