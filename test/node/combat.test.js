@@ -147,7 +147,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // blow (see the melee-reach test below) — a swing must be both due and in
   // range — so the pin allows it and still refuses a blow that lands without
   // spending the clock.
-  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
+  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\)(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -994,6 +994,15 @@ test('alternate melee: material-equivalent blows and distinct reach/cadence', ()
   }
   assert.eq(Combat.meleeIntervalMs('dagger'), Combat.MELEE_INTERVAL_MS);
   assert.eq(Combat.meleeIntervalMs('lance'), Combat.MELEE_INTERVAL_MS * 2);
+  // Mounted, the lance loses its cadence penalty: sword pace, same blow, so
+  // twice its on-foot damage a second.
+  assert.eq(Combat.meleeIntervalMs('lance', true), Combat.MELEE_INTERVAL_MS);
+  {
+    const relics = { lance: { tier: 3 } };
+    assert.eq(Combat.meleeSwingDamage(relics, 1, null, 'lance', true), Combat.meleeSwingDamage(relics, 1, null, 'lance'));
+    assert.eq(Combat.meleeDps(relics, null, 'lance', true), Combat.meleeDps(relics, null, 'lance') * 2);
+    assert.eq(Combat.meleeIntervalMs('dagger', true), Combat.meleeIntervalMs('dagger'), 'only the lance has a mounted row');
+  }
   const fist = Combat.MELEE_REACH_CELLS * 7;
   assert.truthy(Combat.inMeleeReach(fist * 0.75, 0, 0, 0, 7, 'dagger'));
   assert.falsy(Combat.inMeleeReach(fist * 0.75 + 0.01, 0, 0, 0, 7, 'dagger'));

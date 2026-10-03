@@ -142,6 +142,47 @@ class SceneShops {
     });
   }
 
+  // A sundries counter's gear (Macros.sundriesGear): the next rung of its
+  // weapon or shield line above what the player holds, at the counter's
+  // gear price. Bought once per rung; a player holding the finest is told so.
+  _presentStallGear(sx, sy, opts) {
+    if (document.getElementById('offer-modal')) return;
+    const { entry, title, kind = 'shop', kindLabel, art } = opts;
+    const offer = Macros.sundriesGear(this.save, entry);
+    if (!offer) { this.flash('You carry the finest.', sx, sy); return; }
+    const isItem = offer.kind === 'item';
+    const name = isItem ? itemName(offer.id) : gearName(offer.kind, offer.slot, offer.tier);
+    const icon = isItem ? this.iconSpanHTML(offer.id) : this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
+    const blurb = (isItem ? '' : (gearDef(offer.kind, offer.slot)?.blurb || ''))
+      + `<div style="margin-top:6px">${tierBadgeHTML(offer.tier)}</div>`;
+    const money = () => this.save.money ?? 0;
+    this.showOfferModal({
+      kind, kindLabel, art, title,
+      get: `${icon} ${name}`,
+      blurb,
+      cost: this.moneyHTML(offer.price),
+      canAfford: money() >= offer.price,
+      disabledReason: isItem ? this._shopBagSpaceReason(offer.id, 1) : '',
+      acceptLabel: 'Buy',
+      cancelLabel: 'Leave',
+      onAccept: () => {
+        // The bag or the slot may have changed since the counter opened.
+        const now = Macros.sundriesGear(this.save, entry);
+        if (!now || now.kind !== offer.kind || now.slot !== offer.slot || now.id !== offer.id || now.tier !== offer.tier) {
+          this.flash('Already carry a finer one.', sx, sy); return;
+        }
+        if (money() < offer.price) { this.flash(`need ${offer.price}`, sx, sy); return; }
+        if (isItem && this.invRoomFor(offer.id) < 1) { this.flash(BAG_FULL_MSG, sx, sy); return; }
+        addMoney(this.save, -offer.price);
+        const { price, ...reward } = offer;
+        Rewards.apply(this.save, reward, this, { notWild: true, deferRefresh: true });
+        this.markRelicsDirty();
+        this._finishInventoryChange();
+        this.updateHUD();
+        this.flashLoot(`${name}\n−${offer.price}`, '#ffe066', 1.25);
+      },
+    });
+  }
 
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so

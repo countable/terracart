@@ -941,7 +941,8 @@ COMBAT
    variants are excluded from this starter lane.
      dagger — matching sword damage per hit, half its melee reach.
      lance  — matching sword damage per hit, double its melee reach,
-              half its attack speed.
+              half its attack speed on foot; mounted (a horse ridden) it
+              swings at the sword's pace.
      musket — gold-bow damage, range and cadence at every material tier.
               A round ball follows the compass; each shot spends one coin
               and no wood. An empty purse prevents firing.

@@ -5934,7 +5934,7 @@ class MapScene extends Phaser.Scene {
     // fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
     this._toolActionStory('sword');
-    const dps = Combat.meleeDps(this.save.relics, this.save.playerClass, Gear.activeWeapon(this.save));
+    const dps = Combat.meleeDps(this.save.relics, this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save));
     const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
     const now = performance.now();
     // A fight shows the foe's health bar, not a progress arc, so the tool
@@ -6407,7 +6407,7 @@ class MapScene extends Phaser.Scene {
       const py = this.startWorldM.y + this.playerM.y;
       const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
       if (inSwing && now >= this._nextBlowT) {
-        this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save)) * Combat.playerAttackIntervalMul(this.save);
+        this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save), isRiding(this.save)) * Combat.playerAttackIntervalMul(this.save);
         // A blade to actually swing — bare hands (no sword owned) has none, so
         // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
         // The slash rides the blow itself now rather than its own throttle:
@@ -6417,7 +6417,7 @@ class MapScene extends Phaser.Scene {
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
-        const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save))
+        const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
           + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
         // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
@@ -11355,8 +11355,13 @@ class MapScene extends Phaser.Scene {
       case 'inn':         return this._presentInn(sx, sy, o, dress);
       case 'apothecary':  return this._presentStallOffer(sx, sy,
         { ...dress, items: Macros.apothecaryStock(o), title: 'The apothecary has on the shelf:' });
-      case 'sundries':    return this._presentStallOffer(sx, sy,
-        { ...dress, items: Macros.sundriesStock(o), title: 'The counter has in stock:' });
+      case 'sundries': {
+        const stock = Macros.sundriesStock(o);
+        const opts = { ...dress, title: 'The counter has in stock:' };
+        return Macros.isSundriesGear(stock[0])
+          ? this._presentStallGear(sx, sy, { ...opts, entry: stock[0] })
+          : this._presentStallOffer(sx, sy, { ...opts, items: stock });
+      }
       case 'scriptorium': return this._presentStallOffer(sx, sy,
         { ...dress, items: Macros.scriptoriumStock(), title: 'The scriptorium sells:' });
       case 'guildhall':   return this._presentGuildhall(sx, sy, o, dress);

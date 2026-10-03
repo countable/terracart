@@ -778,10 +778,10 @@
   // (1.67 dps) nearly quadruple, a Frost blade (50 dps) barely notices.
   // Pets, turrets and monsters never pass a class.
   const ENFORCER_MELEE_DPS = 5;
-  function meleeDps(relics, playerClass, weapon = 'sword') {
+  function meleeDps(relics, playerClass, weapon = 'sword', mounted = false) {
     const slot = MELEE_WEAPONS[weapon] && relics?.[weapon] ? weapon : null;
     const bonus = playerClass === 'enforcer' ? ENFORCER_MELEE_DPS : 0;
-    return (dpsForDurationMs(toolDurationMs(relics, slot)) + bonus) / (MELEE_WEAPONS[weapon]?.intervalMul || 1);
+    return (dpsForDurationMs(toolDurationMs(relics, slot)) + bonus) / meleeIntervalMul(weapon, mounted);
   }
 
   // ── Melee cadence ────────────────────────────────────────────────────────
@@ -793,15 +793,21 @@
   // LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
   const MELEE_INTERVAL_MS = 1000;
   // Off-weapons keep the matching sword's per-hit damage. Lance trades
-  // half its attack speed for twice the reach.
+  // half its attack speed for twice the reach — on foot. Mounted
+  // (`mountedIntervalMul`, `mounted` = isRiding) it swings at the sword's
+  // pace, so a rider's lance deals twice its walking damage a second.
   const MELEE_WEAPONS = {
     sword: { reachMul: 1, intervalMul: 1 },
     // A dagger stays inside the gap a closing foe stops at (creature_ai.js
     // rosterEnemyMove: 0.35 cell), or it could never land a blow.
     dagger: { reachMul: 0.75, intervalMul: 1 },
-    lance: { reachMul: 2, intervalMul: 2 },
+    lance: { reachMul: 2, intervalMul: 2, mountedIntervalMul: 1 },
   };
-  function meleeIntervalMs(slot) { return MELEE_INTERVAL_MS * (MELEE_WEAPONS[slot]?.intervalMul || 1); }
+  function meleeIntervalMul(slot, mounted = false) {
+    const row = MELEE_WEAPONS[slot];
+    return (mounted && row?.mountedIntervalMul) || row?.intervalMul || 1;
+  }
+  function meleeIntervalMs(slot, mounted = false) { return MELEE_INTERVAL_MS * meleeIntervalMul(slot, mounted); }
 
   // ── How far a melee attacker reaches ───────────────────────────────────
   // 0.6 CELL (owner, Oct 2026: a crowd bites from arm's length), for the
@@ -904,8 +910,8 @@
     return trainingIntervalMul(save, now) * Conditions.attackIntervalMul(save);
   }
 
-  function meleeSwingDamage(relics, mul = 1, playerClass, slot = 'sword') {
-    return meleeDps(relics, playerClass, slot) * (mul || 1) * meleeIntervalMs(slot) / 1000;
+  function meleeSwingDamage(relics, mul = 1, playerClass, slot = 'sword', mounted = false) {
+    return meleeDps(relics, playerClass, slot, mounted) * (mul || 1) * meleeIntervalMs(slot, mounted) / 1000;
   }
 
   // The BASE fire beat — one shot every two seconds, and what the bow keeps.

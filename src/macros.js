@@ -283,12 +283,39 @@
   }
 
   // ── SUNDRIES: a supply counter ────────────────────────────────────────────
-  // One supply item per shop, from the village Supply Shop's own line
-  // (Shops.THEME_POOL.supply — the Book is the Bookshop's and the Scriptorium's).
+  // One thing per shop: a supply item from the village Supply Shop's own line
+  // (Shops.THEME_POOL.supply — the Book is the Bookshop's and the Scriptorium's)
+  // or one of SUNDRIES_GEAR, the find-only weapons and the shield. A gear
+  // entry is `gear:<line>`; what it sells depends on the player
+  // (sundriesGear).
+  const SUNDRIES_GEAR = ['dagger', 'lance', 'musket', 'shield'];
+  const SUNDRIES_SHIELDS = ['shield_wood', 'shield_metal', 'shield_gold'];
+  // Gear at a counter costs this many times its list price, before the
+  // stall's usual discount (ShopsMath.standPrice).
+  const SUNDRIES_GEAR_PRICE_MUL = 3;
   function sundriesStock(o) {
-    const pool = Shops.THEME_POOL.supply().filter((id) => ITEM_BY_ID[id]);
+    const pool = [...Shops.THEME_POOL.supply().filter((id) => ITEM_BY_ID[id]),
+      ...SUNDRIES_GEAR.map((line) => 'gear:' + line)];
     const id = _pick(o, 'sundries', pool);
     return id ? [id] : [];
+  }
+  function isSundriesGear(entry) { return typeof entry === 'string' && entry.startsWith('gear:'); }
+  // What a gear entry sells THIS player: the lowest rung above what they hold
+  // (a Rusty Dagger to a player without one, a Fine one over a Rusty; the
+  // Metal Shield over a carried Wood one), as a Rewards.apply shape with its
+  // `price`. Null when they already hold the line's finest.
+  function sundriesGear(save, entry) {
+    const line = entry.slice('gear:'.length);
+    if (line === 'shield') {
+      const held = Math.max(0, ...SUNDRIES_SHIELDS.filter((id) => carriesItem(save, id)).map((id) => ITEM_BY_ID[id].baseTier));
+      const id = SUNDRIES_SHIELDS.find((s) => ITEM_BY_ID[s].baseTier > held);
+      return id ? { kind: 'item', id, qty: 1, tier: ITEM_BY_ID[id].baseTier,
+        price: ShopsMath.standPrice(save, itemValue(id) * SUNDRIES_GEAR_PRICE_MUL) } : null;
+    }
+    const owned = save?.relics?.[line]?.tier || 0;
+    const tier = (RELIC_DEFS[line].tiers || [1, 2, 3, 4, 5, 6, 7]).find((t) => t > owned);
+    return tier ? { kind: 'relic', slot: line, tier,
+      price: ShopsMath.standPrice(save, gearPrice('relic', line, tier) * SUNDRIES_GEAR_PRICE_MUL) } : null;
   }
 
   // ── SCRIPTORIUM: a book counter ───────────────────────────────────────────
@@ -547,7 +574,7 @@
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,
     APOTHECARY_POTIONS, APOTHECARY_CURE, apothecaryStock,
-    sundriesStock,
+    SUNDRIES_GEAR, SUNDRIES_SHIELDS, SUNDRIES_GEAR_PRICE_MUL, sundriesStock, isSundriesGear, sundriesGear,
     SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, scriptoriumStock,
     BOUNTY_LADDER, BOUNTY_TIERS_PER_RUNG, BOUNTY_TIERS_PER_FOE, BOUNTY_MAX_FOES, BOUNTY_MATCH, BOUNTY_DIST_CELLS,
     bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
