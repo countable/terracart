@@ -36,9 +36,11 @@ test('shop lines: the pick stamps line and rank; duplicates stand at one rank; l
   assert.eq(save.shopLines.s2, 'seed'); assert.eq(save.shopTiers.s2, 1);
   assert.eq(Shops.lineFor(save, h('s1')).tier, 1); assert.eq(Shops.lineFor(save, h('s2')).tier, 1, 'both T1: the rank is the stamp, not a count');
   assert.eq(Shops.shopTier(save, h('s2'), 'market'), 1);
-  assert.eq(Houses.restoreAs(save, h('x'), 'market:seed:2'), null, 'T2 waits for the tenth rebuild');
+  assert.eq(Houses.restoreAs(save, h('x'), 'market:seed:2'), null, 'T2 waits for five memories');
   for (let i = 4; i < 9; i++) Houses.restoreAs(save, h('h' + i), 'plain');
   assert.eq(Houses.restoredCount(save), 9);
+  assert.eq(Houses.restoreAs(save, h('x'), 'market:seed:2'), null, 'not for wrecks');
+  save.discovered = { a: 1, b: 1, c: 1, d: 1, e: 1 };
   assert.eq(Houses.restoreAs(save, h('s3'), 'market:seed:2').tier, 2);
   assert.eq(Shops.lineFor(save, h('s3')).tier, 2);
   assert.eq(Shops.lineCount(save, 'seed', 1), 2); assert.eq(Shops.lineCount(save, 'seed', 2), 1);

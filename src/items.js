@@ -393,6 +393,8 @@ const MINERAL_ICON_SHEET = {
   explosive_flask: { sheet: 'icon_potions', frame: 22 },
   fear_scroll:     { sheet: 'icon_book', frame: 47 },
   treasure_map:    { sheet: 'icon_book', frame: 49 },
+  // The Renovation Permit — the sealed scroll beside the maps (Books.png).
+  renovation_permit: { sheet: 'icon_book', frame: 48 },
   // The Magic Hammer — the RPG pack's glowing hammer (Icons/Items/MagicHammer.png, see SOURCES.md).
   magic_hammer:    { sheet: 'icon_magic_hammer', frame: 0 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
@@ -656,6 +658,9 @@ const BASE_TIER = {
   // first Supply Shop could not sell it): one thrown shot, a staple of the
   // first cave trips, so the initial supply shop stocks it beside the torch.
   throwing_spear: 1, javelin: 4,
+  // Renovation Permit — a T4 supply spent on a standing shop, smithy or
+  // trader to raise it one rank (houses.js renovate).
+  renovation_permit: 4,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
@@ -892,6 +897,7 @@ const ITEMS = [
   { id: 'magic_trap',    name: 'Magic Trap',          kind: 'supply', caveOnly: true },
   { id: 'throwing_spear',        name: 'Throwing Spear',      kind: 'supply' },
   { id: 'javelin',      name: 'Javelin',             kind: 'supply' },
+  { id: 'renovation_permit', name: 'Renovation Permit', kind: 'supply' },
   // Animal byproducts — kind: 'produce' alongside egg / milk, so they sit in
   // the produce pool of the rarity picker, not the mineral pool.
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
@@ -1453,6 +1459,7 @@ const PRICES = {
   throwing_spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
+  renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
   scarecrow: 20,   // crow/deer ward — crafted at Home (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
@@ -1666,6 +1673,7 @@ const ITEM_EFFECTS = {
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
   trap_disarm_kit: 'Iron tools loosen snares, barricades and spikes.',
+  renovation_permit: 'A guild seal that lets masons raise a shop a rank, once the lane has remembered enough to deserve it.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
   throwing_spear: CONSUMABLE_SPEC.throwing_spear.get,
   javelin: CONSUMABLE_SPEC.javelin.get,

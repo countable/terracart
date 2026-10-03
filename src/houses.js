@@ -80,7 +80,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   //              the House: canon never waits on the offer's rotation.
   // A RANKED role (`ranked`: a smithy, a shop, a trader) is laid out by
   // `variants(save, order)` as ONE CARD PER RANK the ladder has unlocked
-  // (Shops.tierAt — T2 from the tenth rebuild, a rank more every five), a
+  // (Shops.tierCap — by MEMORIES: T2 at five, a rank more every five), a
   // Shop's per line it may still open at that rank (Shops.lineBuildable:
   // LINE_RULES' ceiling and per-tier cap). Each card carries its numeric
   // `tier` (the badge on it and on the Restored! card, its price per rank in
@@ -92,7 +92,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
       blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
     { key: 'blacksmith', role: 'blacksmith', ranked: true, from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
       blurb: 'A family returns to the forge. They offer to make the tools you need.',
-      variants: (save, order) => ranks(order).map((tier) => ({
+      variants: (save) => ranks(save).map((tier) => ({
         key: 'blacksmith:' + tier, tier,
         // The T1 card is SUGGESTED (outlined) while the lane has no smithy:
         // the wooden tools come from nowhere else.
@@ -100,12 +100,12 @@ const FORT_UNLOCK_WOOD_STEP = 6;
       })) },
     { key: 'market', role: 'market', ranked: true, from: STORY_RESTORES.market, art: 'restore_market',
       blurb: 'A family opens the market shutters again. ',
-      variants: (save, order) => Shops.THEMES.flatMap((theme) => ranks(order)
+      variants: (save) => Shops.THEMES.flatMap((theme) => ranks(save)
         .filter((tier) => Shops.lineBuildable(save, theme, tier))
         .map((tier) => ({ key: `market:${theme}:${tier}`, theme, tier }))) },
     { key: 'trader', role: 'trader', ranked: true, from: STORY_RESTORES.trader, art: 'restore_trader',
       blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.',
-      variants: (save, order) => ranks(order).map((tier) => ({ key: 'trader:' + tier, tier })) },
+      variants: (save) => ranks(save).map((tier) => ({ key: 'trader:' + tier, tier })) },
     { key: 'turret', role: 'turret', from: STORY_RESTORES.turret, art: 'castle_claim',
       blurb: 'Masons raise a single tower on the old footings. An archer climbs to the battlement and strings a bow.' },
     { key: 'petshop', role: 'market', solo: 'pet', from: STORY_RESTORES.petshop, name: 'Pet Shop', art: 'restore_market',
@@ -123,9 +123,36 @@ const FORT_UNLOCK_WOOD_STEP = 6;
           && Object.keys(save.discovered || {}).length >= 21;
       } },
   ]);
-  // The ranks on offer at restore `order` (0-based): 1..Shops.tierAt(order + 1).
-  function ranks(order) {
-    return Array.from({ length: Shops.tierAt((order | 0) + 1) }, (_, i) => i + 1);
+  // The ranks on offer: 1..Shops.tierCap(save) — the memory ladder.
+  function ranks(save) {
+    return Array.from({ length: Shops.tierCap(save) }, (_, i) => i + 1);
+  }
+  // THE RENOVATION PERMIT (items.js renovation_permit, a T4 supply): spent
+  // on a standing ranked building (a smithy, a shop, a trader — never a
+  // one-off shop, a House, a turret or the tower), it climbs ONE rank, if
+  // that rank is actually open to the player: under the memory ladder
+  // (Shops.tierCap) and, for a shop, still buildable on its line
+  // (Shops.lineBuildable — Seed and Supply end at T3, one Magic Shop a
+  // tier). renovateTo is the question (the rank it would reach, or null and
+  // why); renovate writes it — save.shopTiers, the rank ledger restoreAs
+  // stamps, so every badge and shelf reads the new rank at once.
+  const PERMIT_ID = 'renovation_permit';
+  function renovateTo(save, house) {
+    const role = houseShopRole(save, house);
+    if (!role || !buildOption(role)?.ranked) return { tier: null, why: 'unranked' };
+    if (role === 'market' && Shops.isSoloShop(save, house.id)) return { tier: null, why: 'unranked' };
+    const now = Shops.shopTier(save, house, role);
+    const next = now + 1;
+    if (next > Shops.SHOP_TIER_MAX) return { tier: null, why: 'top' };
+    if (next > Shops.tierCap(save)) return { tier: null, why: 'memories', need: Shops.tierUnlockMemories(next) };
+    if (role === 'market' && !Shops.lineBuildable(save, Shops.lineFor(save, house).theme, next)) return { tier: null, why: 'line' };
+    return { tier: next, why: null };
+  }
+  function renovate(save, house) {
+    const to = renovateTo(save, house);
+    if (!to.tier) return null;
+    (save.shopTiers = save.shopTiers || {})[house.id] = to.tier;
+    return to.tier;
   }
   const buildOption = (key) => BUILD_OPTIONS.find((row) => row.key === key) || null;
   // THE NEW BADGE (owner, Oct 2026): a card is NEW when nothing the player has
@@ -525,7 +552,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
     BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
-    isNewPick, offerCards, NEW_SLOTS, ranks,
+    isNewPick, offerCards, NEW_SLOTS, ranks, PERMIT_ID, renovateTo, renovate,
     HAMMER_ID, HAMMER_PRICE_MUL, hammerTakes, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerSoloShop,
