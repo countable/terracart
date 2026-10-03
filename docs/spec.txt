@@ -1416,24 +1416,27 @@ ECONOMY (buying & selling)
    lays out cards from ONE table, houses.js Houses.BUILD_OPTIONS, unlocked by
    how many wrecks already stand (STORY_RESTORES, 1-based restore numbers):
    a HOUSE from the 1st, the BLACKSMITH from the 2nd, a SHOP from the 3rd, a
-   TRADER from the 5th, a TURRET from the 8th, the BOOK SHOP from the 15th
-   (once), the WIZARD TOWER from the 30th, and his second tower from the 52nd
+   TRADER from the 5th, a TURRET from the 8th, the PET SHOP from the 12th
+   (once), the BOOK SHOP from the 15th (once), the WIZARD TOWER from the
+   30th, and his second tower from the 52nd
    once the first stands and 21 memories are home. Nothing is forced and
    nothing is read off the OSM address (shops.js Shops.shopType is only the
    fallback for a legacy bare-`true` ledger entry): the Blacksmith card is
    merely SUGGESTED (outlined) while the lane has no smithy, since the wooden
    tools come from nowhere else. Houses.restoreAs freezes the pick and stamps
-   what it owns (starterBlacksmithId, bookshopId, wizardTowers). A MARKET is a
-   THEMED shop: one line each — seed, supply, potion, ore, relic or pet —
-   THE PLAYER'S PICK (Oct 2026, shops.js marketOffers): until the ninth
-   rebuild one Shop card, the cycle's next line; from the ninth TWO cards, a
-   pair that moves on with every restore (seed+supply, potion+ore, relic+pet,
-   round again). The pick is stored (save.shopLines) and its tier is one
-   past the shops already on that line (the second Seed Shop is the T2 one);
-   a market from before the cards keeps the cycle's answer. Priced at the
-   village markup, with a cheap re-roll (app.js presentThemedShop /
-   marketTheme). The BOOK SHOP is a market plus its stamp, outside that
-   cycle. THE MAGIC HAMMER (items.js magic_hammer, T4 magic; houses.js
+   what it owns (starterBlacksmithId, petshopId, bookshopId, wizardTowers).
+   A MARKET is a THEMED shop: one line each — seed, supply, potion, ore or
+   relic — THE PLAYER'S PICK (Oct 2026, shops.js marketOffers): until the
+   ninth rebuild one Shop card, the cycle's next line; from the ninth TWO
+   cards, a pair that moves on with every restore (seed+supply, potion+ore,
+   relic+seed, supply+potion, ore+relic, round again every fifth). The pick
+   is stored (save.shopLines) and its tier is one past the shops already on
+   that line (the second Seed Shop is the T2 one); a market from before the
+   cards keeps the cycle's answer. Priced at the village markup, with a
+   cheap re-roll (app.js presentThemedShop / marketTheme). The PET SHOP and
+   the BOOK SHOP are ONE-OFFS (shops.js SOLO_LINES): each is its own card,
+   a market plus its stamp, outside that cycle — built once per save, always
+   T1, never coming round again at a higher tier. THE MAGIC HAMMER (items.js magic_hammer, T4 magic; houses.js
    HAMMER_ID): holding one, the restore modal asks whether to spend it; the
    building comes up SHINY (it glints and glows like a shiny tree —
    save.shinyHouses) and everything it sells is HAMMER_PRICE_MUL (0.8) of the

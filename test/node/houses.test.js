@@ -72,7 +72,7 @@ test('render: each visible house carries one owner-resolved display role', () =>
 
 test('buildOptions: the cards unlock by how many wrecks already stand', () => {
   const from = Object.fromEntries(Houses.BUILD_OPTIONS.map((r) => [r.key, r.from]));
-  assert.eq(JSON.stringify(from), JSON.stringify({ plain: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, bookshop: 15, wizard: 30 }), 'the ladder');
+  assert.eq(JSON.stringify(from), JSON.stringify({ plain: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15, wizard: 30 }), 'the ladder');
   const keys = (order) => Houses.buildOptions({ restoredHouses: {}, discovered: {} }, plainHouse, order).map((r) => r.key).join();
   assert.eq(keys(0), 'plain', 'the first restore is a House and nothing else');
   assert.eq(keys(1), 'plain,blacksmith', 'the second adds the smithy');
@@ -81,15 +81,20 @@ test('buildOptions: the cards unlock by how many wrecks already stand', () => {
   assert.eq(keys(4), 'plain,blacksmith,market:seed,trader');
   assert.eq(keys(7), 'plain,blacksmith,market:seed,trader,turret');
   assert.eq(keys(8), 'plain,blacksmith,market:seed,market:supply,trader,turret', 'the ninth: two Shop cards');
-  assert.eq(keys(14), 'plain,blacksmith,market:seed,market:supply,trader,turret,bookshop');
-  assert.eq(keys(29), 'plain,blacksmith,market:seed,market:supply,trader,turret,bookshop,wizard');
+  assert.eq(keys(10), 'plain,blacksmith,market:relic,market:seed,trader,turret', 'the eleventh: no Pet Shop yet');
+  assert.eq(keys(11), 'plain,blacksmith,market:supply,market:potion,trader,turret,petshop', 'the twelfth: the Pet Shop');
+  assert.eq(keys(14), 'plain,blacksmith,market:potion,market:ore,trader,turret,petshop,bookshop');
+  assert.eq(keys(29), 'plain,blacksmith,market:potion,market:ore,trader,turret,petshop,bookshop,wizard');
   assert.eq(Houses.buildOptions({ restoredHouses: {}, bookshopId: 'b' }, plainHouse, 20).map((r) => r.key).includes('bookshop'), false, 'one Book Shop per save');
+  assert.eq(Houses.buildOptions({ restoredHouses: {}, petshopId: 'p' }, plainHouse, 20).map((r) => r.key).includes('petshop'), false, 'one Pet Shop per save');
   assert.eq(Houses.restoredCount({ restoredHouses: { a: 'plain', b: 'market' } }), 2, 'the order is the ledger\'s size');
   for (const row of Houses.BUILD_OPTIONS) {
     assert.truthy(row.blurb && row.art && row.role, `${row.key} carries its blurb, painting and role`);
   }
   assert.eq(Houses.buildOption('turret').role, 'turret');
   assert.eq(Houses.buildOption('bookshop').role, 'market', 'the Book Shop is stored as a market plus its stamp');
+  assert.eq(Houses.buildOption('petshop').role, 'market', 'the Pet Shop too');
+  assert.eq(Houses.buildOption('petshop').solo, 'pet'); assert.eq(Houses.buildOption('bookshop').solo, 'book');
   assert.eq(Shops.roleLabel('turret'), 'Turret');
 });
 
