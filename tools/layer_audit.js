@@ -23,7 +23,7 @@ const ROOT = path.resolve(__dirname, '..');
 // The display list, in insertion order: every `this.<name> = this.add.<kind>()`
 // in source order. setDepth() overrides are handled separately below.
 function displayLayers() {
-  const src = fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8');
+  const src = fs.readFileSync(path.resolve(ROOT, 'src/scene_create.js'), 'utf8');
   // A BakedGfx (render.js) adds its image to the display list where it is
   // constructed, so it holds its place exactly like an add.image().
   const re = /this\.(\w+)\s*=\s*(?:this\.add\.(?:graphics|container|image)|new Render\.BakedGfx)\(/g;
@@ -237,7 +237,7 @@ const CHECKS = [
       }
       // ...and the image that shows it has to live in the fog container, or the
       // texture is right and its z-order is not.
-      const app = fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8');
+      const app = fs.readFileSync(path.resolve(ROOT, 'src/scene_create.js'), 'utf8');
       if (!/this\.fogContainer\.add\(this\.fogImage\)/.test(app)) {
         throw new Error('the fog image is not added to fogContainer in MapScene.create() — the '
           + 'ordering check above pins the container, so the wash has to be inside it.');

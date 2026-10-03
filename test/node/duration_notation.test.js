@@ -156,7 +156,7 @@ test('the crop stage badge shows a unit, not a bare number', () => {
 });
 
 test('the day-gated messages name the wait to the UTC roll', () => {
-  const src = DURATION_SOURCES['app.js'];
+  const src = SCENE_SRC;
   // Daily visits share Macros.beginDailyVisit; the inn and guildhall keep
   // their service dialogs. Each is keyed on a UTC day stamp,
   // each saying how long that is. (A fed delivery house is no longer

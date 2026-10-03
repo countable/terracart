@@ -54,7 +54,7 @@ test('home: every crop raider asks the guard, none keeps its own test', () => {
   // The one raider is the deer (scene_creatures.js): its notice, its graze
   // and the hard-mode pump all read _cropRaidable, never the bare kind test
   // or the bare yard test.
-  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+  const app = SCENE_SRC;
   assert.eq((app.match(/raiderEatsCrop\(/g) || []).length, 2,
     'the bare kind test is read once, inside _cropRaidable (plus its definition)');
   assert.truthy(/if \(!this\._cropRaidable\(p\)\) return;/.test(app), 'the deer\'s notice reads _cropRaidable');

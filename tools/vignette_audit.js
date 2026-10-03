@@ -14,7 +14,7 @@
 //   * LEFT and RIGHT get the soft ramp only — nothing is sliced at the screen
 //     edge that the bezel doesn't slice anyway.
 //
-// Like layout_audit, this lifts the real source out of src/app.js and
+// Like layout_audit, this lifts the real source out of src/scene_create.js and
 // evaluates it rather than restating the arithmetic here — a copy would drift
 // from the page and start passing while the map grew its bars back.
 
@@ -28,11 +28,11 @@ const ROOT = path.resolve(__dirname, '..');
 // declares and on the loop's closing brace, so a nearby edit fails loudly here
 // instead of silently matching less code.
 function loadVignette() {
-  const src = fs.readFileSync(path.join(ROOT, 'src', 'app.js'), 'utf8');
+  const src = fs.readFileSync(path.join(ROOT, 'src', 'scene_create.js'), 'utf8');
   const start = src.indexOf('const vignette = this.add.graphics()');
-  if (start < 0) throw new Error('vignette_audit: the vignette block is gone from src/app.js');
+  if (start < 0) throw new Error('vignette_audit: the vignette block is gone from src/scene_create.js');
   const loopAt = src.indexOf('for (let i = 0; i < VIG_PX; i++) {', start);
-  if (loopAt < 0) throw new Error('vignette_audit: the vignette ring loop is gone from src/app.js');
+  if (loopAt < 0) throw new Error('vignette_audit: the vignette ring loop is gone from src/scene_create.js');
   const end = src.indexOf('\n    }\n', loopAt);
   if (end < 0) throw new Error('vignette_audit: could not find the end of the ring loop');
   const block = src.slice(start, end + 6);
@@ -48,7 +48,7 @@ function loadVignette() {
     .join('\n');
   vm.runInContext(
     decls + '\nglobalThis.__v = { VIG_PX, VIG_LIP, vigSoft, vigLip };',
-    ctx, { filename: 'app.js#vignette' });
+    ctx, { filename: 'scene_create.js#vignette' });
   const v = ctx.__v;
   for (const k of ['VIG_PX', 'VIG_LIP']) {
     if (typeof v[k] !== 'number' || !isFinite(v[k])) {
