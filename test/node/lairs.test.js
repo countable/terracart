@@ -1362,7 +1362,7 @@
     assert.truthy(/_lastLairT/.test(call), 'the pass must be throttled, not run every frame');
     // The camera rule: a peek drag must not wake a ruin the player has not
     // walked to, so the pass is measured off playerM and never the anchor.
-    assert.truthy(call.includes('this.startWorldM.x + this.playerM.x'),
+    assert.truthy(call.includes('playerWorldM(this)'),
       'residency must be measured from the feet');
     assert.falsy(/viewAnchor|peekM|viewCenter/.test(call), 'the camera crept into the wake ring');
     assert.truthy(call.includes('this._starterTrailAnchor()'),

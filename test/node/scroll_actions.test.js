@@ -174,14 +174,16 @@ test('scroll actions: nearest chest uses only active level cache, tier and unspe
   const chest = (id, x, tier, extra = {}) => ({ id, kind: 'chest', x, y: 200, tier, ...extra });
   const surface = chest('surface', 101, 5);
   const far = chest('far', 130, 5), near = chest('near', 120, 4);
-  const world = { tileCache: new Map([['surface', { objects: [surface] }]]) };
+  const world = { tileCache: new Map([['surface', { objects: [surface] }]]),
+    forEachItem(prop, fn) { for (const e of this.tileCache.values()) for (const o of e[prop] || []) if (fn(o, e)) return; } };
+  const s = scene('treasure_map');
+  s._nearestObject = method('_nearestObject', { WorldGen: world });
   const find = method('findNearestUnopenedChest', {
     WorldGen: world, spentSets: () => new Set(['spent']),
     chestTier: c => c.tier, isSpent: (c, spent) => spent.has(c.id),
     macroFor: c => c.macro, isBarrel: c => c.barrel,
     isBikeRack: c => c.bike, isPotOfGold: c => c.gold,
   });
-  const s = scene('treasure_map');
   assert.eq(find.call(s, [4, 5]), surface);
   world.tileCache = new Map([['cave', { objects: [far, near,
     chest('low', 101, 3), chest('spent', 102, 5), chest('stall', 103, 5, { macro: true }),

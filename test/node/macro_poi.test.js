@@ -261,7 +261,9 @@
       assert.eq(Macros.stallPrice(save, id), ShopsMath.standPrice(save, PRICES[id]), `${id} at the stall price`);
     }
     assert.falsy(/_presentScriptorium/.test(SCENE_SRC), 'the free-page dialog is gone');
-    assert.truthy(/case 'scriptorium': return this\._presentStallOffer\(sx, sy,\s*\{ \.\.\.dress, items: Macros\.scriptoriumStock\(\)/.test(SCENE_SRC),
+    // presentMacro routes by the kind's `present` column (Macros.KIND_DIALOG);
+    // a stall with a `stock` opens the shared counter with that stock.
+    assert.truthy(/return d\.stock \? this\[d\.present\]\(sx, sy, \{ \.\.\.dress, items: d\.stock\(o\), title: d\.title \}\)/.test(SCENE_SRC),
       'the scriptorium opens the stall counter');
     assert.falsy(/_presentBookRead\(\)/.test(SCENE_SRC.slice(SCENE_SRC.indexOf('presentMacro('), SCENE_SRC.indexOf('buildingFlavorTitle('))),
       'no macro reads a Book page for free');
@@ -272,9 +274,8 @@
     // the same price (standPrice), purchase limits (money and bag room) and no
     // stock limit; the three macro counters route to the very same method.
     assert.truthy(/presentMarketStandOffer\(sx, sy, stand\) \{\s*this\._presentStallOffer\(/.test(SCENE_SRC), 'the stall is the counter');
-    for (const kind of ['apothecary', 'sundries', 'scriptorium']) {
-      assert.truthy(new RegExp(`case '${kind}':\\s*return this\\._presentStallOffer\\(`).test(SCENE_SRC), `${kind} opens the counter`);
-    }
+    assert.truthy(/if \(!d\?\.present\) return undefined;/.test(SCENE_SRC) && !/case 'apothecary'/.test(SCENE_SRC),
+      'the counters route by the row, never a switch');
     assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'priced by ShopsMath.standPrice off the list price (the Book\'s ladder rides in listPrice)');
   });
@@ -354,7 +355,7 @@
     const f = withTile(entry, () => walkableDestination(scene, P.x, P.y, 5, { seed: 'b1', accept: (x, y) => !(x === d.x && y === d.y) }));
     assert.truthy(f && (f.ix !== d.ix || f.iy !== d.iy), 'accept refuses a cell');
     assert.eq(walkableDestinationRings(3).join(), '3,2,4,1,5,6', 'the ring order: dist, nearer, farther');
-    assert.truthy(/findWalkableDestination\(dist, opts\) \{[\s\S]*?this\.startWorldM\.x \+ this\.playerM\.x[\s\S]*?walkableDestination\(this, px, py, dist, opts\)/.test(SCENE_SRC),
+    assert.truthy(/findWalkableDestination\(dist, opts\) \{[\s\S]*?(playerWorldM\(this\)|this\.startWorldM\.x \+ this\.playerM\.x)[\s\S]*?walkableDestination\(this, px, py, dist, opts\)/.test(SCENE_SRC),
       'the scene method measures from the FEET');
   });
 
@@ -703,7 +704,7 @@
     const pres = SCENE_SRC.slice(SCENE_SRC.indexOf('_presentScholar(sx, sy, o, dress) {'));
     assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true, deferRefresh: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
       'the prize is handed over notWild');
-    assert.truthy(/case 'scholar': +return this\._presentScholar\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it');
+    assert.truthy(/: this\[d\.present\]\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it by the row');
     assert.eq(Macros.KIND_DIALOG.scholar.label, 'Book Club');
     assert.lte('Tome collected'.length, MAP_MSG_MAX);
     assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');

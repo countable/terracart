@@ -111,7 +111,7 @@
       startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 }, cellsPerTile: 16,
       _trapCellKey: '0_0_3_4', _trapHere: { id: 'potion_test_trap', x: 15, y: 20 },
       playerToWorldCell: () => ({ tx: 0, ty: 0, cx: 3, cy: 4 }),
-      playerScreen: () => null, _painFlash() {}, _storySplashOnce() {},
+      playerScreen: () => null, _painFlash() {}, _storySplashOnce() {}, _bankDrain() {},
     });
     method('_useTimedBuff').call(s, 'immortal_potion');
     const tick = method('_tickTraps');

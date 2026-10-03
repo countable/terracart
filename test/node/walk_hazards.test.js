@@ -11,7 +11,7 @@ function scene(overrides = {}) {
     mPerPx: 1, cellsPerTile: 32, cellM: 8, tileEdgeM: 256,
     save: {energy: 100}, _walkHazardExposure: exposure, _walkHazardCell: () => 1,
     _losePlayerEnergy(n) { const lost = Math.min(n, this.save.energy); this.save.energy -= lost; return lost; },
-    _popEnergy() {},
+    _popEnergy() {}, _bankDrain() {},
   }, overrides);
 }
 

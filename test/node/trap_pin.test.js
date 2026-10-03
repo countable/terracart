@@ -46,7 +46,7 @@ const TOOL_SRC = lift(app, '_toolActionStory(action) {', '_toolActionStory');
 const HOLD_SRC = lift(app, '_bodyHold() {', '_bodyHold');
 const MOVE_SRC = (() => {
   const a = app.indexOf('const bodyHold = this._bodyHold();');
-  const mark = '\n    }\n    // One throttled flash for the stick-walking drain';
+  const mark = '\n    }\n    // THE DRAIN ROLL-UP flushes here';
   const b = a < 0 ? -1 : app.indexOf(mark, a);
   assert.truthy(a > 0 && b > a, 'found the trap-pin movement gate in update()');
   return app.slice(a, b + mark.length);

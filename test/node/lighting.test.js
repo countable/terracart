@@ -867,7 +867,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
 
 test('lighting: the map multiplies, the cookies add, and the plateau is per cell', () => {
   const a = SCENE_SRC;
-  assert.truthy(/this\.lightTex = this\.textures\.exists\('lightmap'\)/.test(a), 'the lightmap is a canvas texture');
+  assert.truthy(/this\.lightTex = Render\.viewportCanvas\(this, 'lightmap', 0\)\.tex;/.test(a), 'the lightmap is a viewport canvas texture (the one layer shell)');
   assert.truthy(/this\.lightMap = this\.add\.image\(this\.viewLeft, this\.viewTop, 'lightmap'\)\s*\n\s*\.setOrigin\(0, 0\)\.setBlendMode\(Phaser\.BlendModes\.MULTIPLY\)/.test(a),
     'shown as a viewport-sized image multiplied over the world');
   assert.falsy(/atmosFalloffGfx|renderTexture\(/.test(a), 'the ring layer and the render texture are gone');

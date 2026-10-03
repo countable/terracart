@@ -28,7 +28,7 @@ test('hit flash: every drain on the body flinches at the instant it lands, with 
   assert.eq(scene.save.energy, 95);
   assert.eq(hits.join(','), '2,3', 'fractional incoming damage flashes exactly the banked pips');
   const sites = app.match(/this\._losePlayerEnergy\(/g) || [];
-  assert.eq(sites.length, 4, 'the arrow, standing on a sprung trap, standing in lava, walking through thorns or spikes');
+  assert.eq(sites.length, 3, 'standing on a sprung trap, standing in lava, walking through thorns or spikes (the arrow lands through foeBlowLands)');
   // Every foe's CONTACT — its melee and aura, a slime trail, a ghost's touch,
   // a hunted deer's butt, a thrown Blight — lands through the one writer in
   // creature_ai.js (foeBlowLands), which banks it through the same method.
@@ -38,7 +38,8 @@ test('hit flash: every drain on the body flinches at the instant it lands, with 
   assert.truthy(walking && /this\._losePlayerEnergy\(pips\)/.test(walking[1]),
     'thorns and spikes use the same immediate hit flash');
   const arrow = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/);
-  assert.truthy(arrow && /this\._losePlayerEnergy\(dmg/.test(arrow[1]), 'the arrow is one of them');
+  assert.truthy(arrow && /foeBlowLands\(this, shot\._sourceGuard, Combat\.incomingProjectileDamage\(this\.save, shot\.damage, shot\.hits\)/.test(arrow[1]),
+    'the arrow lands through the one blow writer, which banks through it');
   // …and the trap's BITE, which lands through the pain effect rather than in
   // that shape, because it carries the rim pulse and the shake with it.
   const pain = app.match(/\n  _painFlash\(dmg\) \{([\s\S]*?)\n  \}\n/);
@@ -94,7 +95,8 @@ test('hit flash: the haptic sits between a pickup and a refusal', () => {
 const app = SCENE_SRC;
 test('hit flash: a FOE\'s blow closes an open shop dialog — a trap\'s does not', () => {
   const sites = app.match(/this\._losePlayerEnergy\([^)]*\{ closeShop: true \}\)/g) || [];
-  assert.eq(sites.length, 1, 'the arrow closes it');
+  assert.eq(sites.length, 0, 'no blow of the scene\'s own: the arrow goes through foeBlowLands like every other');
+  assert.truthy(/foeBlowLands\(this, shot\._sourceGuard/.test(app), 'the arrow closes it through the one blow writer');
   assert.truthy(/scene\._losePlayerEnergy\(dmg, \{ closeShop: true \}\)/.test(CREATURE_AI_SRC),
     'and so does every contact through the one blow writer (foeBlowLands: melee, the deer, a ghost, an aura)');
   const lose = app.match(/\n  _losePlayerEnergy\(dmg, [^)]*\) \{([\s\S]*?)\n  \}\n/);

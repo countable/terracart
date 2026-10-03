@@ -921,14 +921,15 @@ Object.assign(ctx, {
     return src.slice(start + 1, end + 4);
   };
   // The wreck rules are houses.js now; the scene keeps one-line wrappers.
-  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {']
+  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {',
+    "_nearestObject(pred, { list = 'objects', from = playerWorldM(this) } = {}) {"]
     .map(lift).concat([
       '_isHouseWreck(house) { return Houses.isHouseWreck(this.save, house); }',
       '_wreckRestoreCost(house) { return Houses.wreckRestoreCost(this.save, house); }',
     ]).join(',\n');
   vm.runInContext(`globalThis.__starterArrow = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_starterGuidanceGoal' });
-  for (const k of ['_starterGuidanceGoal', '_nearestStarterCrate', '_isHouseWreck', '_wreckRestoreCost']) {
+  for (const k of ['_starterGuidanceGoal', '_nearestStarterCrate', '_nearestObject', '_isHouseWreck', '_wreckRestoreCost']) {
     if (typeof ctx.__starterArrow[k] !== 'function') {
       console.error(`__starterArrow.${k} did not come back as a function — update run.js`);
       process.exit(2);
