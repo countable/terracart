@@ -968,11 +968,13 @@
     return root.WorldGen?.T[VARIANT_BY_ID[variant]?.terrain] ?? null;
   }
 
-  // Select all themes before painting. Cell centres in the 1.5-cell-wide band
-  // outside the road receive its terrain; intersections prefer the nearest
+  // Select all themes before painting. Theme the ground continuously beneath
+  // the road and out to its 1.5-cell verge. Road/path codes stay intact;
+  // streetGround stores their visible base as terrain + 1 (zero = unset).
+  // Intersections prefer the nearest
   // road edge, with a stable key breaking ties. Source access reasons remain
   // authoritative: a cosmetic commercial verge does not become private land.
-  function* paintTerrainSteps({ index, scenic, transportation, grid, N, roadMask, spawnWhy, zone }) {
+  function* paintTerrainSteps({ index, scenic, transportation, grid, N, roadMask, spawnWhy, zone, streetGround }) {
     const WG = root.WorldGen, S = root.Streets;
     const painted = new Uint8Array(N * N);
     if (!WG || !S) return painted;
@@ -1013,17 +1015,23 @@
           for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - radius)); x <= Math.min(N-1, Math.floor(Math.max(ax, bx) + radius)); x++) {
             if ((++candidates & 511) === 0) yield 'street terrain cells';
             const i = y * N + x, here = original[i];
-            // ALLOWLISTED raw roadMask read: preserve transport geometry.
-            if (roadMask && roadMask[i]) continue;
             if (zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i]) continue;
-            if ((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_HARD) continue;
-            if (!WG.isWalkable(here) || WG.isCobbleTerrain(here) || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
+            // Road/terrain spawn exclusions remain unchanged; only land-access
+            // exclusions prevent this visual ground paint.
+            if ((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND) continue;
+            if ((!WG.isWalkable(here) && !WG.isCobbleTerrain(here))
+                || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
             const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
             const distance = Math.hypot(x+.5-ax-t*dx, y+.5-ay-t*dy) - half;
-            if (distance <= 0 || distance > TERRAIN_VERGE_CELLS || distance >= nearest[i] - 1e-6) continue;
+            if (distance > TERRAIN_VERGE_CELLS || distance >= nearest[i] - 1e-6) continue;
             nearest[i] = distance;
-            grid[i] = terrainFor(rec.variant);
-            painted[i] = 1;
+            const terrain = terrainFor(rec.variant);
+            if (WG.isCobbleTerrain(here)) {
+              if (streetGround) streetGround[i] = terrain + 1;
+            } else {
+              grid[i] = terrain;
+              painted[i] = 1;
+            }
           }
         }
       }

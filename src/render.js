@@ -1719,7 +1719,9 @@ Render.drawCells = function drawCells(scene) {
           const nt = scene.neighborNonRoadType ? scene.neighborNonRoadType(wcx, wcy) : null;
           if (nt != null) { polyGround = nt; color = COLORS[nt] ?? color; }
         } else {
-          color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
+          const themed = scene.streetGroundType?.(wcx, wcy);
+          if (themed != null) { polyGround = themed; color = COLORS[themed] ?? color; }
+          else color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
@@ -2007,9 +2009,8 @@ Render.drawCells = function drawCells(scene) {
           // back to the path's own base if there's no record or the under-biome
           // has no texture (e.g. commercial/industrial concrete pads).
           let baseType = type;
-          // Polygonal mode: the building cell wears the inherited zone's
-          // texture (see polyGround above), so nothing under the polygon reads
-          // as a floor.
+          // Explicit themed roads and polygonal buildings wear the same
+          // biome texture as their base fill, including beneath the paving.
           if (polyGround >= 0) baseType = polyGround;
           else if (type === T_PATH) {
             const lix = _ringIX[_si], liy = _ringIY[_si];
