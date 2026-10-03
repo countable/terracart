@@ -465,8 +465,12 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   assert.eq(row('overgrown').butterfly, 0.5, 'Overgrown → butterflies');
   assert.eq(row('toadstool').butterfly, 0.5, 'Toadstool → butterflies');
   assert.eq(row('greenway').butterfly, 0.5, 'Greenway → butterflies');
-  assert.eq(row('pilgrim').crow, 0.5, "Pilgrim's Way → crows");
-  assert.eq(Zones.ZONE_KINDS.stones.attracts.crow, 0.5, 'churchyard → crows');
+  assert.eq(row('pilgrim').crow, 0.1, "Pilgrim's Way → crows");
+  assert.falsy(Zones.ZONE_KINDS.stones.attracts?.crow, 'ordinary churchyards do not draw extra crows');
+  const birdPulls = [...cols, ...ZoneVariants.rows.map(r => [r.id, r.attracts])]
+    .filter(([, a]) => a?.crow || a?.raven);
+  assert.eq(birdPulls.length, 1, 'only Pilgrim Way attracts birds');
+  assert.eq(birdPulls[0][0], 'pilgrim');
   assert.eq(Zones.ZONE_KINDS.grove.attracts.deer, 0.5, 'grove → deer');
   assert.eq(Zones.ZONE_KINDS.grove.attracts.butterfly, 0.5, 'grove → butterflies');
   assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
@@ -835,10 +839,11 @@ test('short street dressing: mixed orchard rows and a visible maple growth seque
     const trees = d.objects.filter((o) => o._street === v);
     assert.gt(trees.length, 15, v + ' dresses the full short street');
     if (v === 'orchard') {
-      const apples = trees.filter(o => o.kind === 'fruittree' && o.species === 'apple');
+      const apples = trees.filter(o => o.kind === 'fruittree');
+      assert.truthy(apples.every(o => o.species === WorldGen.fruitTreeSpecies(WorldGen.cellHash(TX, TY, cellOf(o.x, TX), cellOf(o.y, TY)))));
       const maples = trees.filter(o => o.kind === 'tree' && o.species === 'maple');
-      assert.eq(apples.length, maples.length, 'half apple, half deciduous on open ground');
-      assert.eq(apples.length + maples.length, trees.length, 'only the two intended species');
+      assert.eq(apples.length, maples.length, 'half fruit trees, half deciduous on open ground');
+      assert.eq(apples.length + maples.length, trees.length, 'only fruit trees and maples');
       assert.truthy(maples.every(o => treeGrowthStage(o) === 3), 'deciduous trees are mature');
       assert.eq(new Set(trees.map(o => o.id)).size, trees.length, 'tree identities remain distinct');
       assert.truthy(trees.some((o) => cellOf(o.y, TY) < 30) && trees.some((o) => cellOf(o.y, TY) > 30), 'both verges');
