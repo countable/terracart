@@ -1393,6 +1393,14 @@
   };
   const TURRET_RELICS = { bow: { tier: TURRET.tier } };
   function turretShotDamage() { return shotDamage(TURRET_RELICS, TURRET.slot); }
+  // A SHINY turret — a house raised as a turret under the Magic Hammer
+  // (houses.js hammerTakes, Houses.isShinyHouse): its arrow deals double,
+  // through the same powerMul a shiny creature's blow does (no turret
+  // multiplier of its own), and flies as LIGHT: stamped `shiny` and coloured
+  // like the shine itself (Lighting.KINDS.shiny's gold), app.js _drawShots
+  // halos it and lighting.js collectBolts lets it light the ground.
+  const SHINY_ARROW_COLOR = 0xfff0a0;
+  function shinyTurretDamage() { return turretShotDamage() * powerMul({ shiny: true }); }
 
   // Where in its cadence a turret starts, in ms — a deterministic hash of its
   // id spread over one interval, so the six turrets of a rim that all sight a
@@ -1407,13 +1415,17 @@
   // line to the nearest foe within the bow's range, or null when there is
   // none. `aimDistM` is stamped on for the draw — the arrow leaves the
   // battlements and comes down to chest height over that distance.
-  function turretShot(x, y, enemies, cellM) {
+  // `shiny` (the turret's, see shinyTurretDamage) doubles the blow and
+  // lights the arrow.
+  function turretShot(x, y, enemies, cellM, shiny = false) {
     const heading = aimAtNearest(x, y, enemies, TURRET.rangeCells * cellM);
     if (!heading) return null;
-    const shot = spawnShot(TURRET.slot, x, y, heading, cellM, turretShotDamage(), TURRET.tier, null, TURRET.rangeCells);
+    const dmg = shiny ? shinyTurretDamage() : turretShotDamage();
+    const shot = spawnShot(TURRET.slot, x, y, heading, cellM, dmg, TURRET.tier, null, TURRET.rangeCells);
     if (!shot) return null;
     shot.source = 'turret';   // not the player's: see isPlayerKill
     shot.aimDistM = Math.hypot(heading.x, heading.y);
+    if (shiny) { shot.shiny = true; shot.color = SHINY_ARROW_COLOR; }
     return shot;
   }
 
@@ -1429,7 +1441,7 @@
       let due = clocks[t.id];
       if (due == null) due = clocks[t.id] = now + turretPhaseMs(t.id);
       if (now < due) continue;
-      const shot = turretShot(t.x, t.y, enemies, cellM);
+      const shot = turretShot(t.x, t.y, enemies, cellM, !!t.shiny);
       if (!shot) continue;
       clocks[t.id] = now + TURRET.fireIntervalMs;
       shot.castle = t.castle;
@@ -1512,7 +1524,7 @@
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, spawnFireball, spawnExplosiveFlask, stepShots, lineOfFire, healthColor,
-    TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
+    TURRET, TURRET_RATE_DIV, turretShotDamage, SHINY_ARROW_COLOR, shinyTurretDamage, turretPhaseMs, turretShot, turretTick,
     MONSTER_SHOT_INTERVAL_MS, HOSTILE_ARROW_COLOR, monsterShot,
   };
   root.Combat = api;
