@@ -611,8 +611,11 @@ class SceneModals {
   //                 for offers tied to a persistent venue (a shop, a wreck,
   //                 a sealed building) the player can simply come back to —
   //                 "Later" reads as "still on the table" rather than "gone".
-  //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn }
+  //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn, withChoice? }
   //                 — rendered between Cancel and accept (re-roll button).
+  //                 `withChoice`: a second way to ACCEPT the pick (restore
+  //                 with the hammer): armed exactly as accept is, and its
+  //                 onClick receives the selected card's key.
   //   pager:        OPTIONAL { index, count, onPrev, onNext } — the page is
   //                 one of `count` options (a smelt bar, a Home recipe), and
   //                 small ‹ › arrows flank the `get` line with an "i / n"
@@ -872,7 +875,7 @@ class SceneModals {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
     const cancel = mkBtn(cancelLabel, false, false);
-    const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
+    const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled || !!(secondary.withChoice && hasChoices && !selected)) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); if (onCancel) onCancel(); });
     let accepted = false;
@@ -886,10 +889,24 @@ class SceneModals {
       if (repeat) repeat();
     });
     if (hasChoices) {
-      syncAccept = () => accept._setEnabled(liveCanAfford && !disabledReason && !!selected);
+      syncAccept = () => {
+        const armed = liveCanAfford && !disabledReason && !!selected;
+        accept._setEnabled(armed);
+        if (sec && secondary.withChoice) sec._setEnabled(armed && !secondary.disabled);
+      };
       syncAccept();
     }
-    if (sec) sec.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); secondary.onClick(); });
+    if (sec) sec.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (secondary.withChoice) {
+        if (accepted || sec.disabled || (hasChoices && !selected)) return;
+        accepted = true;
+        wrap.remove();
+        secondary.onClick(hasChoices ? selected.key : undefined);
+        return;
+      }
+      wrap.remove(); secondary.onClick();
+    });
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);
     row.appendChild(accept);

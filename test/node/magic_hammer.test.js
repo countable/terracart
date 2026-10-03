@@ -33,12 +33,17 @@ test('magic hammer: restoreAs marks the house shiny and every price reads priceM
   assert.truthy(/&& this\.shopCharmMul\(house\) === 1\)/.test(SCENE_SRC), 'the flower gift still asks the charm alone');
 });
 
-test('magic hammer: the restore modal asks, spends it only on a yes, and the house glints', () => {
+test('magic hammer: the restore dialog offers it beside Restore, spends it only on that button, and the house glints', () => {
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const src = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
-  assert.truthy(/if \(Inventory\.count\(this\.save, Houses\.HAMMER_ID\) > 0\) \{/.test(src), 'asked only when held');
-  assert.truthy(/secondary: \{ label: 'Without it', onClick: \(\) => restore\(key, false\) \}/.test(src), 'a plain restore stays one tap away');
-  assert.truthy(/onAccept: \(\) => restore\(key, true\)/.test(src));
+  // In the SAME window (owner, Oct 2026): a "With Hammer" button beside
+  // Restore when one is held, armed with the pick like Restore; no second prompt.
+  assert.truthy(/const hasHammer = Inventory\.count\(this\.save, Houses\.HAMMER_ID\) > 0;/.test(src), 'offered only when held');
+  assert.truthy(/secondary: hasHammer\n\s+\? \{ label: `\$\{this\.iconSpanHTML\(Houses\.HAMMER_ID\)\} With Hammer`, withChoice: true, onClick: \(key\) => restore\(key, true\) \}/.test(src), 'the hammer is a second accept, with the picked key');
+  assert.truthy(/onAccept: \(key\) => restore\(key, false\),/.test(src), 'Restore alone is the plain restore');
+  assert.falsy(/Use your \$\{hammer/.test(src) && /Without it/.test(src), 'the second prompt is gone');
+  assert.truthy(/if \(sec && secondary\.withChoice\) sec\._setEnabled\(armed && !secondary\.disabled\);/.test(MODAL_SHELL_SRC), 'the shell arms it with accept');
+  assert.truthy(/secondary\.onClick\(hasChoices \? selected\.key : undefined\);/.test(MODAL_SHELL_SRC), 'and hands it the selected key');
   assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(src), 'the shine is stamped with the pick');
   assert.truthy(/if \(hammer\) Inventory\.remove\(this\.save, Houses\.HAMMER_ID, 1\);/.test(src), 'and the hammer is spent after the pick is accepted');
   assert.truthy(src.indexOf('Houses.restoreAs(') < src.indexOf('Inventory.remove(this.save, Houses.HAMMER_ID'), 'never before');
