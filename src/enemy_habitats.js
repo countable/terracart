@@ -109,8 +109,8 @@
           if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
           const slot = entry.zone.coverage[cy * N + cx];
           if (!slot || (anchor && slot !== anchor.slot)) continue;
-          const theme = entry.zone.anchors[slot - 1]?.variant;
-          const family = SURFACE_FAMILIES[theme];
+          const zoneVariant = entry.zone.anchors[slot - 1]?.variant;
+          const family = SURFACE_FAMILIES[zoneVariant];
           if (!family) continue;
           const kinds = family.filter(kind => {
             const row = root.EnemyRoster.get(kind);
@@ -125,8 +125,8 @@
           occupied.add(cy * N + cx);
           anchor ||= { cx, cy, slot };
           out.push(WG.makeCreature(kind, x, y, `${id}_${n}`, {
-            habitat: theme, zoneVariant: theme, shiny: false,
-            ...(emergesFromGround(kind, theme)
+            zoneVariant, shiny: false,
+            ...(emergesFromGround(kind, zoneVariant)
               ? { emergeFromGround: true, _burrowed: true } : {}),
             _surfaceSpawn: { x, y, tx, ty, cx, cy },
           }));

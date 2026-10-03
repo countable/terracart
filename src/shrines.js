@@ -39,43 +39,43 @@
   // description (a hint, never the number). Frames are the sheet's order.
   const SHRINE_KINDS = {
     wayfarer_post: { art: 'shrine_wayfarer_post', frame: 0, light: 0xf2d9a0, lever: 'pairy', get durationMs() { return CONSUMABLE_SPEC.pairy.durationMs; },
-      zones: ['formal_garden'], streets: ['pilgrim', 'parkpath'],
+      zoneVariants: ['formal_garden'], streets: ['pilgrim', 'parkpath'],
       name: "Wayfarer's post", flash: 'The bell rings. Seek treasure.',
       body: "You ring the bell. The taste of a Pairy fills your mouth, and you sense treasure nearby." },
     lantern_saint: { art: 'shrine_lantern_saint', frame: 1, light: 0xffb347, lever: 'light', durationMs: 5 * MIN,
-      zones: [], streets: ['lantern'],
+      zoneVariants: [], streets: ['lantern'],
       name: 'Lantern saint', flash: 'Her lantern warms your hand.',
       body: "A stone saint holds out a lantern. You pause beneath its warm light." },
     tide_bell: { art: 'shrine_tide_bell', frame: 2, light: 0x9fdcff, lever: 'reach', durationMs: 3 * MIN,
-      zones: ['shellwater_strand'], streets: ['promenade'],
+      zoneVariants: ['shellwater_strand'], streets: ['promenade'],
       name: 'Tide bell', flash: 'Your arms feel long as tides.',
       body: "You ring the bell and hear the rush of waves. The sound seems close, though the shore is far away." },
     bone_watcher: { art: 'shrine_bone_watcher', frame: 3, light: 0xd8d4e8, lever: 'shield', durationMs: 3 * MIN,
-      zones: ['ordered_graves', 'overgrown_graves'], streets: [],
+      zoneVariants: ['ordered_graves', 'overgrown_graves'], streets: [],
       name: 'Bone watcher', flash: 'Something watches your back.',
       body: "A hooded stone figure stands guard. You rest beside it, feeling safer." },
     moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN, boon: 'Unseen',
-      zones: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
+      zoneVariants: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
       body: "You touch the mossy stones. Nearby creatures look past you, unaware of your presence." },
     rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN, boon: 'Grip',
-      zones: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare'],
+      zoneVariants: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare'],
       name: 'Rust totem', flash: 'Your grip hardens like iron.',
       body: "You touch the rusted iron. Your arms feel stronger as you grip your weapon." },
     wishing_well: { art: 'shrine_wishing_well', frame: 6, light: 0xefc46a, lever: 'fortune', durationMs: 15 * MIN, boon: 'Luck',
-      zones: ['meadow', 'hedge_garden'], streets: ['golden', 'hedgerow'],
+      zoneVariants: ['meadow', 'hedge_garden'], streets: ['golden', 'hedgerow'],
       name: 'Wishing well', flash: 'A coin sinks. Luck stirs.',
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
     harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Hardworking',
-      zones: ['orchard'], streets: ['orchard'],
+      zoneVariants: ['orchard'], streets: ['orchard'],
       name: 'Harvest idol', flash: 'Your hands move swiftly.',
       body: "You lay your hand on the straw figure. Your weariness lifts, and your hands move swiftly through their work." },
     toad_idol: { art: 'shrine_toad_idol', frame: 8, light: 0x7fe0a0, lever: 'regen', durationMs: 8 * MIN, boon: 'Mending',
-      zones: ['mushroom_grove', 'seep'], streets: ['toadstool'],
+      zoneVariants: ['mushroom_grove', 'seep'], streets: ['toadstool'],
       name: 'Toad idol', flash: 'Your wounds begin to heal.',
       body: "You touch the cool stone toad. The pain eases as your wounds begin to heal." },
     ember_altar: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN, boon: 'Ember',
-      zones: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
+      zoneVariants: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
   };
@@ -95,12 +95,12 @@
     return REWARD_KINDS[o.zoneVariant] || SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
   }
   const KIND_IDS = Object.keys(SHRINE_KINDS);
-  const byZone = new Map(), byStreet = new Map();
+  const byZoneVariant = new Map(), byStreet = new Map();
   for (const id of KIND_IDS) {
-    for (const z of SHRINE_KINDS[id].zones) byZone.set(z, id);
+    for (const z of SHRINE_KINDS[id].zoneVariants) byZoneVariant.set(z, id);
     for (const s of SHRINE_KINDS[id].streets) byStreet.set(s, id);
   }
-  const kindForZoneVariant = (variantId) => byZone.get(variantId) || null;
+  const kindForZoneVariant = (variantId) => byZoneVariant.get(variantId) || null;
   const kindForStreet = (variantId) => byStreet.get(variantId) || null;
 
   // Where each lever's expiry lives (see the header): a potion's save field,

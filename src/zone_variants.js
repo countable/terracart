@@ -4,6 +4,8 @@
   'use strict';
   const data = root.ZoneVariantData;
   const rows = data.variants;
+  // A row's `zone` column is its ZONE KIND (the data key in
+  // docs/zone-variants.json stays as authored); a row IS a zone variant.
   const indexed = new Map(rows.map(row => [row.id, row]));
   const kinds = new Map();
   for (const row of rows) {

@@ -97,9 +97,9 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
   const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
   test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
-    // Captured before adding yields: include graveyard emergence flags and
-    // habitat metadata, as well as the seeded seats and identities.
-    const expected = { orchard: 193103011, ordered_graves: 904005234, mystic_reef: 3886995405 };
+    // Captured from main's unsliced implementation after the zone naming
+    // cleanup: include emergence flags, metadata, seeded seats and identities.
+    const expected = { orchard: 1679667825, ordered_graves: 2413853475, mystic_reef: 837559558 };
     for (const [theme, hash] of Object.entries(expected)) {
       const occupied = new Set();
       const it = EnemyHabitats.surfaceEncountersSteps(entry(theme), 0, 0, occupied);
