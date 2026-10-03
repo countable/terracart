@@ -25,7 +25,7 @@ test('smithy: the modal category is Smithy, so Forge names only the action', () 
 });
 
 test('smithy: showOfferModal renders getLabel / costLabel captions, costLabel replacing the "for" row', () => {
-  assert.truthy(/showOfferModal\(\{[^}]*forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, choices, choice = null, pickHint = 'Tap one to see what it does' \}\)/.test(SCENE_SRC),
+  assert.truthy(/showOfferModal\(\{[^}]*forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' \}\)/.test(SCENE_SRC),
     'the params exist');
   assert.truthy(/if \(getLabel\) box\.appendChild\(mkCaption\(getLabel\)\);\n    const getDiv/.test(SCENE_SRC),
     'the receive caption sits directly above the get line');
