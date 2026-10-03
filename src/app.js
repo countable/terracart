@@ -934,7 +934,7 @@ const TOME_COOLDOWN_MS = 60 * 60 * 1000;
 // one-shot form; the tome is the weaker spell you keep.
 const TOME_EFFECT_MUL = 0.5;
 const TOME_THUNDER_DMG = Math.floor(THUNDER_DMG * TOME_EFFECT_MUL);
-const TOME_HEALING_ENERGY = Math.floor(VIGOR_POTION_ENERGY * TOME_EFFECT_MUL);
+const TOME_HEALING_ENERGY = Math.floor(HEALING_POTION_ENERGY * TOME_EFFECT_MUL);
 const SPEED_POTION_MS = CONSUMABLE_SPEC.speed_potion.durationMs;
 const SHIELD_POTION_MS = CONSUMABLE_SPEC.shielding_potion.durationMs;
 const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
@@ -1474,7 +1474,7 @@ const ICON_SHEETS = {
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
   icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
   // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
-  // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+  // Row 2: frame 11=green (healing), 12=red (speed), 13=purple (shield).
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
   icon_rings:    { url: 'assets/Icons/RPG icons/Extras/Rings.png',        cols: 6,  srcW: 96,  srcH: 64 },
   icon_amulets:  { url: 'assets/Icons/RPG icons/Extras/Amulet.png',       cols: 6,  srcW: 96,  srcH: 64 },

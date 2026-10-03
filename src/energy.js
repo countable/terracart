@@ -126,7 +126,7 @@
   // food is worth, only how fast a bag can be poured in.
   //
   // POTIONS ARE EXEMPT BY CONSTRUCTION, not by an id list: a potion is drunk
-  // through its own button (app.js syncConsumableButton → drinkVigorPotion and
+  // through its own button (app.js syncConsumableButton → drinkHealingPotion and
   // friends), which never touches this gate. Nothing that goes through
   // eatSelected is exempt, including the hard-mode Crow Feather revive.
   //

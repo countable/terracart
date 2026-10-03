@@ -2046,8 +2046,6 @@
       const scene = window.__scene;
       if (!scene) return;
       scene.setDebugGpsStick(!scene._debugGpsEnabled);
-      e.currentTarget.textContent = `GPS stick: ${scene._debugGpsEnabled ? 'on' : 'off'}`;
-      e.currentTarget.setAttribute('aria-pressed', String(scene._debugGpsEnabled));
       const m = document.getElementById('menu'); if (m) m.open = false;
     });
     document.getElementById('debug-variant-labels').addEventListener('click', (e) => {
@@ -2807,9 +2805,9 @@
   <script src="src/castle_styles.js?v=51966f77"></script>
   <script src="src/textures.js?v=75c551fd"></script>
   <script src="src/save.js?v=016a2c0f"></script>
-  <script src="src/items.js?v=362aeb77"></script>
+  <script src="src/items.js?v=e9050b89"></script>
   <script src="src/inventory.js?v=3c8c492f"></script>
-  <script src="src/energy.js?v=0f128fda"></script>
+  <script src="src/energy.js?v=91552941"></script>
   <script src="src/conditions.js?v=f09c034b"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=6da47d5b"></script>
@@ -2824,7 +2822,7 @@
   <script src="src/chest_themes.js?v=94546e3a"></script>
   <script src="src/rarity.js?v=2f2fe221"></script>
   <script src="src/loot.js?v=432eb00a"></script>
-  <script src="src/macros.js?v=166757bc"></script>
+  <script src="src/macros.js?v=9870eca4"></script>
   <script src="src/quests.js?v=3ba7962e"></script>
   <script src="src/interactables.js?v=fde7f16d"></script>
   <script src="src/houses.js?v=0603b2c1"></script>
@@ -2853,13 +2851,13 @@
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=f39c511a"></script>
   <script src="src/modal_shell.js?v=426b7946"></script>
-  <script src="src/scene_geo.js?v=d3648da1"></script>
+  <script src="src/scene_geo.js?v=71abcf9f"></script>
   <script src="src/npc.js?v=aea3453d"></script>
   <script src="src/scene_creatures.js?v=63719588"></script>
   <script src="src/scene_fire.js?v=0884f81d"></script>
   <script src="src/scene_shops.js?v=caa3ae24"></script>
-  <script src="src/scene_create.js?v=9b7091e1"></script>
-  <script src="src/scene_consumables.js?v=6ca0fe83"></script>
+  <script src="src/scene_create.js?v=9810595d"></script>
+  <script src="src/scene_consumables.js?v=67837768"></script>
   <script src="src/scene_venues.js?v=f0550ab7"></script>
   <script src="src/scene_streets.js?v=8f11c09c"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
@@ -2922,7 +2920,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=1f41297b';
+      const APP_SRC = 'src/app.js?v=d9986357';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
