@@ -121,6 +121,7 @@ test('poison flask: drunk, it is the player\'s own poison, and the flask is spen
   const applied = [];
   const s = { save: { energy: 100, inv: [{ id: ID, count: 2 }], selSlot: 0 }, consumed: 0,
     _applyCondition(id) { applied.push(id); Conditions.apply(this.save, id); },
+    _selectedConsumable(id) { const sel = this.save.inv[0]; return sel && sel.id === id && sel.count > 0 ? sel : null; },
     _finishConsumable() { this.consumed++; return true; } };
   const call = () => drink.call(s, save => save.inv[save.selSlot], CONSUMABLE_SPEC);
   assert.truthy(call());

@@ -70,8 +70,8 @@ test('trailer sell: NO ARBITRAGE — buy at a stand, cash out at home, never pro
 // text (SCENE_SRC, lifted by run.js) — the same trick feet_anchor.test.js uses.
 test('trailer sell: the home sale in app.js goes through trailerSellPrice', () => {
   const app = SCENE_SRC;
-  assert.truthy(/trailerSellPrice\(PRICES\[sel\.id\] \?\? 1\)/.test(app),
-    'the home sell modal prices via trailerSellPrice, with nothing of the player\'s passed in');
+  assert.truthy(/trailerSellPrice\(itemValue\(sel\.id\)\)/.test(app),
+    'the home sell modal prices via trailerSellPrice off itemValue (the one owner), with nothing of the player\'s passed in');
   assert.falsy(/const sellMul = \(typeof sellMultiplier === 'function'\) \? sellMultiplier\(this\.save\.relics\)/.test(app),
     'the old un-haircut sellMultiplier price is gone from app.js');
 });

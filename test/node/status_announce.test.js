@@ -71,12 +71,14 @@ test('status looks: every creature applier flags its look', () => {
   c = foe(); PotionEffects.apply(scene, c, 'vigor_potion', T0);
   assert.eq(c._statusPop, undefined, 'healing is not a status');
   // The frost (the powder and the magic trap's hold) and fear in app.js.
-  const frost = app.match(/\n  useFrostPowder\(\) \{([\s\S]*?)\n  \}\n/)[1];
-  assert.truthy(/c\._frozenUntil = until;[\s\S]{0,200}Combat\.flagStatus\(c, Combat\.STATUS_LOOKS\.frozen\);/.test(frost), 'frost powder flags frozen');
+  // Every applier is Combat.applyX (applyStatus: the field, the cancel, the
+  // flick and the word) — the powders' CAST_ROWS and the magic trap alike.
+  const casts = app.match(/\nconst CAST_ROWS = \{[\s\S]*?\n\};/)[0];
+  assert.truthy(/frost_powder: [\s\S]*?Combat\.applyFrost\(c, CONSUMABLE_SPEC\.frost_powder\.durationMs, now\)/.test(casts), 'frost powder lands the frost status');
   const trap = app.match(/\n  _tickMagicTraps\(\) \{([\s\S]*?)\n  \}\n/)[1];
-  assert.truthy(/c\._frozenUntil = Math\.max\(c\._frozenUntil \|\| 0, until\);[\s\S]{0,200}Combat\.flagStatus\(c, Combat\.STATUS_LOOKS\.frozen\);/.test(trap), 'the magic trap\'s hold flags frozen');
-  const fear = app.match(/\n  useFearScroll\(\) \{([\s\S]*?)\n  \}\n/)[1];
-  assert.truthy(/Combat\.flagStatus\(c, Combat\.STATUS_LOOKS\.fear, now\);/.test(fear), 'fear flags fear');
+  assert.truthy(/Combat\.applyFrost\(c, MAGIC_TRAP_HOLD_MS\);/.test(trap), 'the magic trap\'s hold lands the frost status');
+  assert.truthy(/fear_scroll: [\s\S]*?Combat\.applyFear\(c, CONSUMABLE_SPEC\.fear_scroll\.durationMs, now\)/.test(casts), 'fear lands the fear status');
+  assert.falsy(/_frozenUntil =|_fearUntilT =/.test(app), 'no raw status write in the scene');
 });
 
 test('status looks: drawCreatures flicks the body over every state and pops the word once, never late', () => {

@@ -4,12 +4,17 @@ function method(name, deps = {}) {
   assert.truthy(match, name + ' exists');
   return new Function(...Object.keys(deps), 'return function(' + match[1] + '){' + match[2] + '}')(...Object.values(deps));
 }
+// The casts (fear, sleep) are CAST_ROWS rows cast by _castOnFoes; the table
+// and the refusal formatter are lifted from app.js beside the methods.
+const TABLE = (deps) => new Function(...Object.keys(deps),
+  APP_JS_SRC.match(/\nconst CAST_ROWS = \{[\s\S]*?\n\};/)[0] + APP_JS_SRC.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0]
+  + 'return { CAST_ROWS, kept };')(...Object.values(deps));
 function scene(id, creatures = []) {
   const s = {
     save: { energy: 50, inv: [{ id, count: 2 }], selSlot: 0, caught: [] },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 0, y: 0 }, depth: 3,
     facing: { x: 1, y: 0 }, cellM: 7, _shots: [], persisted: 0, rebuilt: 0,
-    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashLoot() {},
+    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashAtPlayer() {}, flashLoot() {},
     playerToWorldCell() { return { tx: 0, ty: 0 }; },
     worldMetersToScreen(x, y) { return { x, y }; },
   };
@@ -19,10 +24,15 @@ function scene(id, creatures = []) {
     WorldGen: { forEachItemNear: (_kind, _tx, _ty, visit) => creatures.forEach(visit) },
     Particles: { onScreen: (_scene, x, y) => x >= 0 && x < 100 && y >= 0 && y < 100 },
     monsterRout: c => { c.routed = true; }, shortDuration: () => '15m',
+    THUNDER_FLASH_MS: 350,
   };
-  for (const name of ['_spendScroll', '_onscreenEnemies', 'useFireballScroll', 'useFearScroll', 'useSleepPowder', 'useTreasureMap']) {
+  Object.assign(deps, TABLE(deps));
+  for (const name of ['_selectedConsumable', '_consumeSelected', '_finishInventoryChange', '_spendScroll', '_enemiesWhere',
+    '_onscreenEnemies', '_castOnFoes', 'useFireballScroll', 'useTreasureMap']) {
     s[name] = method(name, deps);
   }
+  s.useFearScroll = () => s._castOnFoes('fear_scroll');
+  s.useSleepPowder = () => s._castOnFoes('sleep_powder');
   return s;
 }
 function assertSpent(s, id, learned) {
@@ -82,7 +92,8 @@ test('scroll actions: fear retreats every visible foe and cancels pending attack
   assert.truthy(c.routed);
   assert.truthy(c._fearUntilT >= before + CONSUMABLE_SPEC.fear_scroll.durationMs);
   assert.eq(c._startX, 20); assert.eq(c._targetY, 30);
-  assert.eq(c._attackWindupUntil, 0); assert.eq(c._lungeWindupUntil, 0); assert.eq(c._abilityWindupUntil, 0);
+  assert.falsy(c._attackWindupUntil); assert.falsy(c._lungeWindupUntil); assert.falsy(c._abilityWindupUntil);
+  assert.eq(c._statusPop?.label, Combat.STATUS_LOOKS.fear.label, 'the status announces itself (Combat.applyFear)');
 });
 
 test('scroll actions: sleep powder applies the existing sleep field without teaching a scroll', () => {
@@ -163,14 +174,16 @@ test('scroll actions: nearest chest uses only active level cache, tier and unspe
   const chest = (id, x, tier, extra = {}) => ({ id, kind: 'chest', x, y: 200, tier, ...extra });
   const surface = chest('surface', 101, 5);
   const far = chest('far', 130, 5), near = chest('near', 120, 4);
-  const world = { tileCache: new Map([['surface', { objects: [surface] }]]) };
+  const world = { tileCache: new Map([['surface', { objects: [surface] }]]),
+    forEachItem(prop, fn) { for (const e of this.tileCache.values()) for (const o of e[prop] || []) if (fn(o, e)) return; } };
+  const s = scene('treasure_map');
+  s._nearestObject = method('_nearestObject', { WorldGen: world });
   const find = method('findNearestUnopenedChest', {
     WorldGen: world, spentSets: () => new Set(['spent']),
     chestTier: c => c.tier, isSpent: (c, spent) => spent.has(c.id),
     macroFor: c => c.macro, isBarrel: c => c.barrel,
     isBikeRack: c => c.bike, isPotOfGold: c => c.gold,
   });
-  const s = scene('treasure_map');
   assert.eq(find.call(s, [4, 5]), surface);
   world.tileCache = new Map([['cave', { objects: [far, near,
     chest('low', 101, 3), chest('spent', 102, 5), chest('stall', 103, 5, { macro: true }),

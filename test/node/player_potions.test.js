@@ -1,13 +1,19 @@
 // Real scene entry points with only rendering/UI stubbed.
 (function () {
   const T0 = 1_700_000_000_000;
+  const APP_TABLES = (() => {
+  const grab = (name) => {
+    const m = SCENE_SRC.match(new RegExp('\\nconst ' + name + ' = \\{[\\s\\S]*?\\n\\};'));
+    assert.truthy(m, name + ' table in app.js');
+    return m[0];
+  };
+  return grab('SUMMON_HOOK') + grab('TIMED_BUFF_HOOKS');
+})();
   function method(name) {
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     const end = SCENE_SRC.indexOf('\n  }\n', start);
     assert.truthy(start >= 0 && end > start, `found ${name}`);
-    const constants = ['SHIELD_POTION_MS', 'SPEED_POTION_MS', 'BLIGHT_MS', 'TOME_EFFECT_MUL', 'REACH_POTION_MS']
-      .map(name => SCENE_SRC.match(new RegExp('^const ' + name + ' = .*;$', 'm'))[0]).join('\n');
-    return new Function(constants + '\nreturn ({'
+    return new Function(APP_TABLES + '\nreturn ({'
       + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   }
   function clock(fn) {
@@ -20,6 +26,8 @@
     return {
       save: { energy: 100, inv: [{ id, count }], selSlot: 0 },
       _finishConsumable: method('_finishConsumable'),
+      _selectedConsumable: method('_selectedConsumable'), _consumeSelected: method('_consumeSelected'),
+      _finishInventoryChange: method('_finishInventoryChange'), _spendScroll: method('_spendScroll'),
       _losePlayerEnergy: method('_losePlayerEnergy'),
       buildInventoryDOM() {}, updateEnergyDOM() {}, _syncPlayerSkin() {},
       showMessageModal() {}, _flashPlayerHit() {}, _closeShopOnHit() {},
@@ -56,7 +64,8 @@
     assert.eq(Combat.incomingDamage(save, 40, 1, T0 + 60_000), 40);
   });
 
-  test('player potions: drinks consume once, refresh duration and do not stack', () => clock(setNow => {
+  test('player potions: drinks consume once and EXTEND the duration (a second dose is banked, never reset)', () => clock(setNow => {
+    const drink = method('_useTimedBuff');
     for (const [id, key, duration] of [
       ['protection_potion', 'protectionPotionUntil', 60_000],
       ['shield_potion', 'shieldPotionUntil', 60_000],
@@ -67,21 +76,21 @@
     ]) {
       setNow(T0);
       const s = scene(id);
-      const drink = method(CONSUMABLE_SPEC[id].method);
-      assert.eq(drink.call(s), true, id);
+      assert.eq(CONSUMABLE_SPEC[id].buff && Buffs.KINDS[CONSUMABLE_SPEC[id].buff].save, key, `${id}: its Buffs row reads ${key}`);
+      assert.eq(drink.call(s, id), true, id);
       assert.eq(Inventory.count(s.save, id), 1);
       assert.eq(s.save[key], T0 + duration);
       setNow(T0 + 10_000);
-      assert.eq(drink.call(s), true);
-      assert.eq(s.save[key], T0 + 10_000 + duration);
+      assert.eq(drink.call(s, id), true);
+      assert.eq(s.save[key], T0 + 2 * duration, 'the second dose runs from the first\'s end (Buffs.laterOf)');
       assert.eq(Inventory.count(s.save, id), 0);
-      assert.eq(drink.call(s), false, 'empty selection cannot refresh');
+      assert.eq(drink.call(s, id), false, 'empty selection cannot refresh');
     }
   }));
 
   test('player potions: immortal blocks blows, direct damage, explosions and poison but permits stamina spending', () => clock(setNow => {
     const s = scene('immortal_potion');
-    method('drinkImmortalPotion').call(s);
+    method('_useTimedBuff').call(s, 'immortal_potion');
     Conditions.apply(s.save, 'poison', T0);
     assert.truthy(Conditions.damageImmune(s.save, T0 + 59_999));
     assert.eq(Combat.incomingDamage(s.save, 10000, 1, T0), 0);
@@ -102,9 +111,9 @@
       startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 }, cellsPerTile: 16,
       _trapCellKey: '0_0_3_4', _trapHere: { id: 'potion_test_trap', x: 15, y: 20 },
       playerToWorldCell: () => ({ tx: 0, ty: 0, cx: 3, cy: 4 }),
-      playerScreen: () => null, _painFlash() {}, _storySplashOnce() {},
+      playerScreen: () => null, _painFlash() {}, _storySplashOnce() {}, _bankDrain() {},
     });
-    method('drinkImmortalPotion').call(s);
+    method('_useTimedBuff').call(s, 'immortal_potion');
     const tick = method('_tickTraps');
     tick.call(s, 0.1);
     tick.call(s, 2);
@@ -166,7 +175,7 @@
       const s = Object.assign(scene('protection_potion'), {
         iconSpanHTML: () => '', throwActionLabel: method('throwActionLabel'),
         throwCooldownLeft: method('throwCooldownLeft'), canThrowItem: method('canThrowItem'),
-        syncConsumableButton: method('syncConsumableButton'), isShadowActive: () => false,
+        syncConsumableButton: method('syncConsumableButton'), _hudActionButton: method('_hudActionButton'), isShadowActive: () => false,
         _throwItem(id) { this.thrown = id; this._throwReadyAt = Date.now() + 1000; },
       });
       s.syncConsumableButton();
@@ -190,8 +199,8 @@
     clock(set => {
       set(T0);
       const s = scene('reach_potion');
-      const drink = method('drinkReachPotion');
-      assert.truthy(drink.call(s), 'drunk');
+      const drink = method('_useTimedBuff');
+      assert.truthy(drink.call(s, 'reach_potion'), 'drunk');
       assert.eq(s.save.reachPotionUntil, T0 + CONSUMABLE_SPEC.reach_potion.durationMs, 'the reach timer is set from the one constant');
       assert.eq(s.save.inv[0].count, 1, 'one flask spent');
     });

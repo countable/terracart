@@ -157,21 +157,37 @@ test('torch: the plateau is untouched — reach, the profile and the tap gate ig
 });
 
 // ── app.js: the timer, the readout, the Use button ─────────────────────────
-test('torch: its three-minute runtime alias derives from CONSUMABLE_SPEC', () => {
+test('torch: its three-minute runtime is the row\'s, read at the use', () => {
   assert.eq(CONSUMABLE_SPEC.torch.durationMs, 3 * 60 * 1000, 'three minutes');
-  assert.truthy(/\nconst TORCH_MS = CONSUMABLE_SPEC\.torch\.durationMs;/.test(app),
-    'runtime derives the duration');
+  assert.eq(CONSUMABLE_SPEC.torch.buff, 'torch', 'a timed buff row: _useTimedBuff lights it');
+  assert.falsy(/TORCH_MS/.test(app), 'no duration alias in the scene');
 });
 
-test('torch: useTorch lights it for TORCH_MS, extending from the current end, in memory only', () => {
-  const m = app.match(/\n  useTorch\(\) \{\n([\s\S]*?)\n  \}\n/);
-  assert.truthy(m, 'useTorch() exists');
-  const body = m[1];
-  assert.truthy(/sel\.id !== 'torch'/.test(body), 'only a selected torch');
-  assert.truthy(/this\._torchUntil = Math\.max\(now, this\._torchUntil \?\? 0\) \+ TORCH_MS;/.test(body),
-    'extends from the LATER of now and the current end — a second torch is never wasted');
-  assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared finisher (consume, persist, rebuild, modal)');
-  assert.falsy(/shortDuration/.test(body), 'the story leaves time to the live torch readout');
+test('torch: lighting it runs for the row\'s length, extending from the current end, in memory only', () => {
+  // _useTimedBuff lifted and RUN: two torches a second apart burn six minutes.
+  const lift = (name) => {
+    const start = app.indexOf('\n  ' + name + '('), end = app.indexOf('\n  }\n', start);
+    assert.truthy(start >= 0 && end > start, `found ${name}`);
+    const tables = ['SUMMON_HOOK', 'TIMED_BUFF_HOOKS'].map(t => app.match(new RegExp('\\nconst ' + t + ' = \\{[\\s\\S]*?\\n\\};'))[0]).join('\n');
+    return new Function(tables + '\nreturn ({' + app.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+  };
+  const titles = [];
+  const s = { save: { inv: [{ id: 'torch', count: 3 }], selSlot: 0 }, _torchUntil: 0,
+    isTorchActive() { return (this._torchUntil ?? 0) > Date.now(); },
+    showMessageModal: ({ title }) => titles.push(title), buildInventoryDOM() {} };
+  for (const name of ['_useTimedBuff', '_selectedConsumable', '_spendScroll', '_consumeSelected', '_finishInventoryChange']) s[name] = lift(name);
+  const T0 = 1_700_000_000_000, old = Date.now; let now = T0; Date.now = () => now;
+  try {
+    assert.truthy(s._useTimedBuff('torch'), 'lit');
+    assert.eq(s._torchUntil, T0 + CONSUMABLE_SPEC.torch.durationMs, 'burns the row\'s three minutes');
+    now = T0 + 1000;
+    assert.truthy(s._useTimedBuff('torch'), 'lit again');
+    assert.eq(s._torchUntil, T0 + 2 * CONSUMABLE_SPEC.torch.durationMs,
+      'extends from the LATER of now and the current end — a second torch is never wasted');
+    assert.eq(s.save.inv[0].count, 1, 'two spent');
+    assert.eq(titles.join('|'), '🔥 You light the Torch|🔥 You light another Torch', 'the title knows a torch was burning');
+  } finally { Date.now = old; }
+  assert.falsy(/shortDuration/.test(JSON.stringify(titles)), 'the story leaves time to the live torch readout');
   assert.truthy(/\n  isTorchActive\(\) \{\n    return \(this\._torchUntil \?\? 0\) > Date\.now\(\);\n  \}/.test(app),
     'isTorchActive is the timer test');
   assert.falsy(/save\.(_)?torchUntil|torchUntil: /.test(app), 'never on the save — a refresh puts it out');

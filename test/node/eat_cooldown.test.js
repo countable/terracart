@@ -148,7 +148,9 @@ test('eat cooldown: a disabled attribute is NOT how the button refuses', () => {
   assert.truthy(a > 0 && b > a, 'found _makeEatButton in app.js');
   const body = app.slice(a, b);
   assert.truthy(!/\.disabled\s*=/.test(body), 'the button is never disabled outright');
-  assert.truthy(/e\.stopPropagation\(\);/.test(body), 'every press is still swallowed by the button');
+  assert.truthy(/this\._hudActionButton\('eat-btn'/.test(body), 'built by the one action-button shell');
+  const shell = app.slice(app.indexOf('  _hudActionButton(id, '), app.indexOf('\n  }\n', app.indexOf('  _hudActionButton(id, ')));
+  assert.truthy(/e\.stopPropagation\(\); onClick\(e\);/.test(shell), 'every press is still swallowed by the button');
 });
 
 test('eat cooldown: potions are exempt because they never go through the gate', () => {
@@ -165,9 +167,8 @@ test('eat cooldown: potions are exempt because they never go through the gate', 
   const body = app.slice(a, b);
   assert.truthy(!/Energy\.canEat|Energy\.startEatCooldown/.test(body),
     'the energy potion neither checks nor arms the bite cooldown');
-  assert.truthy(/Energy\.set\(this\.save, \(this\.save\.energy \?\? 0\) \+ VIGOR_POTION_ENERGY, max\)/.test(body)
-    && VIGOR_POTION_ENERGY === 65,
-    'and it still restores on the spot');
+  assert.truthy(/this\._restoreEnergy\(VIGOR_POTION_ENERGY\)/.test(body) && VIGOR_POTION_ENERGY === 65,
+    'and it still restores on the spot (the one restore helper: cap, pop, HUD)');
 });
 // The foods with an extra effect (rainberry, pairy, coffee) keep tuning rows
 // in CONSUMABLE_SPEC but no verb — they are eaten, not "used" — so the Use

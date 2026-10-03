@@ -190,15 +190,12 @@ test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
         `${id}: numeric effect duration uses the owning value`);
     }
   }
+  // The scene keeps no alias of a row's length: a timed buff is extended by
+  // spec.durationMs at the use (_useTimedBuff), a cast reads its row
+  // (CAST_ROWS), the eat lane reads CONSUMABLE_SPEC.<id>.durationMs.
   const app = DURATION_SOURCES['app.js'];
-  const aliases = {
-    REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
-    SHIELD_POTION_MS: 'shield_potion', DRAGON_POWDER_MS: 'dragon_powder',
-    SHADOW_POWDER_MS: 'shadow_powder', FROST_POWDER_MS: 'frost_powder',
-    BLIGHT_MS: 'blight_potion', COFFEE_BUFF_MS: 'coffee', TORCH_MS: 'torch',
-  };
-  for (const [name, id] of Object.entries(aliases)) {
-    assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(app),
-      `${name}: app derives from CONSUMABLE_SPEC.${id}`);
-  }
+  assert.falsy(/const \w+_MS = CONSUMABLE_SPEC\.\w+\.durationMs;/.test(app), 'no duration alias in app.js');
+  assert.truthy(/Buffs\.extend\(this\.save, this, buff, spec\.durationMs \* mul\);/.test(app), 'the row\'s length extends the buff');
+  for (const id of ['frost_powder', 'sleep_powder', 'psychosis_powder', 'fear_scroll', 'coffee', 'dawnfruit'])
+    assert.truthy(app.includes(`CONSUMABLE_SPEC.${id}.durationMs`), `${id}: app reads the row`);
 });

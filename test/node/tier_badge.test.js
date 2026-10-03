@@ -47,8 +47,8 @@ test('tier badge: the reward ceremony hangs it under the name', () => {
   const inter = INTERACTABLES_SRC;
   assert.eq((inter.match(/Rewards\.present\(scene, result,/g) || []).length, 2, 'the fits and the gear / cash ceremonies present the card');
   assert.truthy(/\.\.\.lootCard, kind: rewardKind, kindIcon,/.test(inter), 'the bag-full choice lays the card under its actions');
-  assert.truthy(/tier: \(typeof itemTierOf === 'function'\) \? itemTierOf\(reward\.id\) : 0,/.test(app), 'a trail prize item');
-  assert.truthy(/sub: 'equipped',\s*\n\s*color: UI_TREASURE,\s*\n\s*tier: reward\.tier,/.test(app), 'a trail prize relic');
+  assert.falsy(/_trailRewardCard\(reward, iconPx/.test(app), 'a trail prize draws through Rewards.card too — no card builder of its own');
+  assert.truthy(/const card = Rewards\.card\(this, reward, 44\);/.test(app) && /const card = Rewards\.card\(this, reward\);/.test(app), 'the pick row and the claim ask the one card');
 });
 
 test('tier badge: the loot toast hangs it off the text\'s right edge, and it leaves with the toast', () => {

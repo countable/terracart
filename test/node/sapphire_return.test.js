@@ -13,7 +13,8 @@
       dugWallSet: new Set(), cellAt: () => ({ cellIX: 7, cellIY: 8 }),
       cameras: { main: { setBackgroundColor() {} } },
       ensureTilesAround: () => Promise.resolve(), syncMoveTarget() {},
-      flash() {}, _storySplashOnce() {}, buildInventoryDOM() {}, _syncStatusRow() {},
+      flash() {}, flashAtPlayer() {}, _storySplashOnce() {}, buildInventoryDOM() {}, _syncStatusRow() {},
+      _selectedConsumable(id) { const sel = this.save.inv[this.save.selSlot]; return sel && sel.id === id && sel.count > 0 ? sel : null; },
       saved: [],
       ...over,
     };
@@ -104,6 +105,7 @@
     const document = { getElementById: () => null, createElement: element,
       body: { classList: { contains: () => false } } };
     s.statusRowEl = element('div');
+    s._dialogOpen = () => false;
     s._syncStatusRow = method('_syncStatusRow', { document, window: {}, Buffs,
       Conditions: { DEFINITIONS: {} }, shortDuration: ms => `${Math.ceil(ms / 1000)}s` });
     s._syncStatusRow();

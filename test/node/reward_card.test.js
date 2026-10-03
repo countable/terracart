@@ -7,11 +7,13 @@ test('reward card: showRewardCard frames the one reward card on the chest shell'
   const at = SCENE_SRC.indexOf('\n  showRewardCard(reward, extra = {}) {');
   assert.gt(at, 0, 'the method exists');
   const body = SCENE_SRC.slice(at, SCENE_SRC.indexOf('\n  }\n', at));
-  assert.truthy(/const card = this\._trailRewardCard\(reward\);/.test(body), 'one card builder for every reward');
-  assert.truthy(/this\.showChestRewardModal\(\{ \.\.\.card, \.\.\.extra, sub \}\);/.test(body),
+  assert.truthy(/return Rewards\.present\(this, \{ \.\.\.reward, jackpot: 0 \}, \{ extra \}\);/.test(body), 'one presenter for every reward (Rewards.present — no fanfare of its own)');
+  const present = Rewards.present.toString();
+  assert.truthy(/scene\.showChestRewardModal\(\{ \.\.\.c, \.\.\.extra, sub \}\);/.test(present),
     'the caller frames it, the card fills it');
-  assert.truthy(/const sub = \[extra\.sub, own\]\.filter\(Boolean\)\.join\(' '\) \|\| undefined;/.test(body),
+  assert.truthy(/const sub = \[extra\.sub, own\]\.filter\(Boolean\)\.join\(' '\) \|\| undefined;/.test(present),
     'a relic\'s "equipped" follows the framing line rather than being dropped');
+  assert.falsy(/_trailRewardCard\(reward, iconPx/.test(SCENE_SRC), 'the scene keeps no card builder of its own');
 });
 
 function rollScene(save) {

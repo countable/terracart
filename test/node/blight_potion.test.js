@@ -30,7 +30,7 @@ test('blight potion: the aura bites enemies from the feet, through _damageEnemy'
   const b = app.indexOf('\n  }\n', a);
   assert.truthy(a > 0 && b > a, 'found _tickBlightAura in app.js');
   const body = app.slice(a, b);
-  assert.truthy(/this\.startWorldM\.x \+ this\.playerM\.x/.test(body), 'measured from the player, not the camera');
+  assert.truthy(/playerWorldM\(this\)/.test(body), 'measured from the player (playerWorldM), not the camera');
   assert.truthy(/Combat\.isEnemy\(c\)/.test(body), 'enemies only');
   assert.truthy(/caughtSet\.has\(c\.id\)/.test(body), 'never a caught creature');
   assert.truthy(/this\._damageEnemy\(c, rate \* dt, 'player', \{ bypassArmor: true \}\)/.test(body), 'through the one damage lane');

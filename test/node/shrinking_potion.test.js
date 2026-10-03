@@ -7,11 +7,19 @@
     try { fn(value => { now = value; }); }
     finally { Date.now = old; }
   }
+  const APP_TABLES = (() => {
+  const grab = (name) => {
+    const m = SCENE_SRC.match(new RegExp('\\nconst ' + name + ' = \\{[\\s\\S]*?\\n\\};'));
+    assert.truthy(m, name + ' table in app.js');
+    return m[0];
+  };
+  return grab('SUMMON_HOOK') + grab('TIMED_BUFF_HOOKS');
+})();
   function lift(name) {
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     assert.truthy(start >= 0, name);
     const end = SCENE_SRC.indexOf('\n  }\n', start);
-    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+    return new Function(APP_TABLES + '\nreturn ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   }
 
   test('shrinking potion: T4 lasts three minutes and halves size, max HP, and melee', () => {
@@ -38,24 +46,24 @@
     });
   });
 
-  test('shrinking potion: drinking caps current HP without healing and refreshes the duration', () => {
+  test('shrinking potion: drinking caps current HP without healing and extends the duration', () => {
     withClock(setNow => {
       const scene = {
         save: { inv: [{ id: 'shrinking_potion', count: 2 }], selSlot: 0, energy: 90 },
-        _finishConsumable: lift('_finishConsumable'),
         _syncPlayerSkin() {}, updateEnergyDOM() {}, buildInventoryDOM() {}, showMessageModal() {},
       };
-      const drink = lift('drinkShrinkingPotion');
-      assert.eq(drink.call(scene), true);
+      for (const name of ['_selectedConsumable', '_spendScroll', '_consumeSelected', '_finishInventoryChange']) scene[name] = lift(name);
+      const drink = lift('_useTimedBuff');
+      assert.eq(drink.call(scene, 'shrinking_potion'), true);
       assert.eq(scene.save.energy, 50);
       assert.eq(scene.save.shrinkingPotionUntil, T0 + 180_000);
       scene.save.energy = 20;
       setNow(T0 + 60_000);
-      assert.eq(drink.call(scene), true);
+      assert.eq(drink.call(scene, 'shrinking_potion'), true);
       assert.eq(scene.save.energy, 20);
-      assert.eq(scene.save.shrinkingPotionUntil, T0 + 240_000);
+      assert.eq(scene.save.shrinkingPotionUntil, T0 + 360_000, 'the second bottle is banked on the first\'s end');
       assert.eq(Inventory.count(scene.save, 'shrinking_potion'), 0);
-      assert.eq(drink.call(scene), false);
+      assert.eq(drink.call(scene, 'shrinking_potion'), false);
     });
   });
 

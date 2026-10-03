@@ -72,7 +72,7 @@ test('lava: the player burns on the surface and lava level, by the feet, through
   assert.truthy(/this\.playerToWorldCell\(\)/.test(b), 'the feet, not the camera');
   assert.truthy(/Combat\.LAVA_DMG_PER_S \* dt/.test(b), 'at the shared rate');
   assert.truthy(/Conditions\.fireDamage\(this\.save, pips\);[\s\S]*this\._losePlayerEnergy\(damage\)/.test(b), 'banked whole, through Energy.set + the flinch');
-  assert.truthy(/this\._popEnergy\(-burned, \{ ix, iy, label: '🔥 lava' \}\)/.test(b), 'popped on its cell');
+  assert.truthy(/this\._bankDrain\('lava', -this\._losePlayerEnergy\(damage\), \{ ix, iy, label: '🔥 lava' \}\)/.test(b), 'popped on its cell, through the drain roll-up');
   assert.truthy(/this\._tickLava\(dt\);/.test(SCENE_SRC), 'and ticked');
 });
 
@@ -108,7 +108,7 @@ test('lava: surface vents burn fractional player time and stop on safe ground', 
   const entry = {cellsPerEdge: 1, grid: new Uint8Array([WorldGen.T.CAVE_LAVA])};
   const scene = {depth: 0, startWorldM: {}, save: {energy: 20},
     playerToWorldCell: () => ({tx: 19371, ty: 29371, cx: 0, cy: 0}),
-    _lastLavaFlashT: Infinity, _popEnergy() {}, _ignitePlayer() {},
+    _bankDrain() {}, _popEnergy() {}, _ignitePlayer() {},
     _losePlayerEnergy(n) { this.save.energy -= n; return n; }};
   const step = dt => tick.call(scene, dt, () => ({cellIX: 0, cellIY: 0}));
   WorldGen.tileCache.set(key, entry);

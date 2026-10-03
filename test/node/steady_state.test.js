@@ -91,10 +91,13 @@ function towerHelper() {
   const src = SCENE_SRC;
   const start = src.indexOf('  _forEachTowerNear(pc, fn) {');
   assert.truthy(start > 0, 'the helper exists');
-  const end = src.indexOf('\n  }\n', start);
-  const text = src.slice(start, end + 4).trim();
-  // A class method, lifted as an object-literal method (the __wander trick).
-  return (new Function(`return ({ ${text} });`))()._forEachTowerNear;
+  // The one-line wrapper and the shared derived-near scan it rides.
+  const one = src.slice(start, src.indexOf('\n', start)).trim();
+  const d = src.indexOf('  _forEachDerivedNear(pc, kind, fn) {');
+  const text = one + ',\n' + src.slice(d, src.indexOf('\n  }\n', d) + 4).trim();
+  // Class methods, lifted as object-literal methods (the __wander trick).
+  const o = (new Function(`return ({ ${text} });`))();
+  return o._forEachTowerNear.bind(o);
 }
 
 test('steady state: the turret scans read a per-tile tower list that re-derives on every mutation', () => {

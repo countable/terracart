@@ -431,16 +431,11 @@ test('copy: the Drink / Use descriptions omit tiers and keep numeric durations d
       assert.truthy(text.includes(shortDuration(row.durationMs)), `${id}: numeric waits use the owning duration`);
     }
   }
-  for (const [name, id] of Object.entries({
-    REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
-    SHIELD_POTION_MS: 'shield_potion', DRAGON_POWDER_MS: 'dragon_powder',
-    SHADOW_POWDER_MS: 'shadow_powder',
-  })) {
-    assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(SCENE_SRC),
-      `${name}: runtime derives from the spec`);
-    assert.truthy(new RegExp('Date\\.now\\(\\) \\+ ' + name + ';').test(SCENE_SRC),
-      `${name}: the derived duration starts the buff`);
-  }
+  // Every timed row's length is read off the row at the use (_useTimedBuff:
+  // Buffs.extend by spec.durationMs) — no alias constant, no hand-typed start.
+  assert.falsy(/const \w+_MS = CONSUMABLE_SPEC\.\w+\.durationMs;/.test(SCENE_SRC), 'no duration alias in the scene');
+  assert.truthy(/Buffs\.extend\(this\.save, this, buff, spec\.durationMs \* mul\);/.test(SCENE_SRC), 'the row\'s duration starts (extends) the buff');
+  for (const [id, row] of timed) if (row.buff) assert.truthy(Buffs.KINDS[row.buff], `${id}: its buff is a Buffs row`);
 });
 })();
 

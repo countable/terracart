@@ -17,6 +17,8 @@ const HOME = (0, eval)('({\n' + [
   lift('_homeTabs(active, sx, sy) {'),
   lift('_homeKindIcon() {'),
   lift('presentHomeCraft(sx, sy, targetId = null) {'),
+  // The ingredient offer is scene_shops.js's one (SCENE_SRC holds the mixin).
+  lift('_presentRecipeOffer(sx, sy, { recipe, produce, refuse, canAfford = true, ...modal }) {'),
 ].join(',\n') + '\n})');
 
 function scene(inv) {
@@ -98,7 +100,7 @@ test('home craft: bag room disables Craft and is rechecked before ingredients ar
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'the full-bag recheck preserves ingredients');
   assert.eq(Inventory.count(s.save, 'spear'), 9, 'the full output stack stays unchanged');
-  assert.truthy(/Bag full for Throwing Spear/.test(s.flashes.at(-1) || ''), `names the full stack: ${s.flashes.at(-1)}`);
+  assert.truthy(/Bag full for\nThrowing Spear/.test(s.flashes.at(-1) || ''), `names the full stack (bagFullFor, two lines): ${s.flashes.at(-1)}`);
 });
 
 test('home craft: short on wood, the page says so and nothing changes hands', () => {

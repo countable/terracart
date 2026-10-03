@@ -261,7 +261,9 @@
       assert.eq(Macros.stallPrice(save, id), ShopsMath.standPrice(save, PRICES[id]), `${id} at the stall price`);
     }
     assert.falsy(/_presentScriptorium/.test(SCENE_SRC), 'the free-page dialog is gone');
-    assert.truthy(/case 'scriptorium': return this\._presentStallOffer\(sx, sy,\s*\{ \.\.\.dress, items: Macros\.scriptoriumStock\(\)/.test(SCENE_SRC),
+    // presentMacro routes by the kind's `present` column (Macros.KIND_DIALOG);
+    // a stall with a `stock` opens the shared counter with that stock.
+    assert.truthy(/return d\.stock \? this\[d\.present\]\(sx, sy, \{ \.\.\.dress, items: d\.stock\(o\), title: d\.title \}\)/.test(SCENE_SRC),
       'the scriptorium opens the stall counter');
     assert.falsy(/_presentBookRead\(\)/.test(SCENE_SRC.slice(SCENE_SRC.indexOf('presentMacro('), SCENE_SRC.indexOf('buildingFlavorTitle('))),
       'no macro reads a Book page for free');
@@ -272,9 +274,8 @@
     // the same price (standPrice), purchase limits (money and bag room) and no
     // stock limit; the three macro counters route to the very same method.
     assert.truthy(/presentMarketStandOffer\(sx, sy, stand\) \{\s*this\._presentStallOffer\(/.test(SCENE_SRC), 'the stall is the counter');
-    for (const kind of ['apothecary', 'sundries', 'scriptorium']) {
-      assert.truthy(new RegExp(`case '${kind}':\\s*return this\\._presentStallOffer\\(`).test(SCENE_SRC), `${kind} opens the counter`);
-    }
+    assert.truthy(/if \(!d\?\.present\) return undefined;/.test(SCENE_SRC) && !/case 'apothecary'/.test(SCENE_SRC),
+      'the counters route by the row, never a switch');
     assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'priced by ShopsMath.standPrice off the list price (the Book\'s ladder rides in listPrice)');
   });
@@ -367,7 +368,8 @@
       const sig = SCENE_SRC.slice(at + 2, open).trim();
       return { args: sig.slice(sig.indexOf('(') + 1, sig.lastIndexOf(')')), body: SCENE_SRC.slice(open + 2, end) };
     };
-    const mk = (name) => { const g = grab(name); return new Function(...g.args.split(',').map((x) => x.trim().replace(/ = .*/, '')), g.body); };
+    const LEDGER = SCENE_SRC.match(/\nconst GUILD_BOUNTY_LEDGER = [^\n]+/)[0];
+    const mk = (name) => { const g = grab(name); return new Function(...g.args.split(',').map((x) => x.trim().replace(/ = .*/, '')), LEDGER + '\n' + g.body); };
     const spawn = mk('_spawnGuildBounty');
     const onDefeat = mk('_guildBountyDefeat');
     const { scene: base, entry, N } = destWorld(({ N, roadMask }) => { for (let i = 0; i < N; i++) roadMask[i * N + 14] = 1; });
@@ -418,7 +420,8 @@
         assert.eq(stories.join(), 'guildhall', 'the completed bounty shows one receipt');
       });
     } finally { globalThis.persistSave = realPersist; }
-    assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(SCENE_SRC), 'resolveDefeat calls it');
+    assert.truthy(/\(s, v\) => \{ if \(v\.bounty\) s\._guildBountyDefeat\(v\); \}/.test(SCENE_SRC) && /for \(const tell of KILL_LEDGERS\) tell\(this, victim, source\);/.test(SCENE_SRC),
+      'resolveDefeat calls it (a KILL_LEDGERS row)');
     assert.truthy(/guildfoe\)_\(-\?\\\\d\+\)_/.test(SCENE_SRC), 'the caught-prune knows the prefix');
     assert.truthy(/this\._tickTraps\(dt\);\s*\/\/[^\n]*\n\s*this\._tickGuildBounty\(\);/.test(SCENE_SRC), 'the leash ticks');
   });
@@ -703,7 +706,7 @@
     const pres = SCENE_SRC.slice(SCENE_SRC.indexOf('_presentScholar(sx, sy, o, dress) {'));
     assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true, deferRefresh: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
       'the prize is handed over notWild');
-    assert.truthy(/case 'scholar': +return this\._presentScholar\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it');
+    assert.truthy(/: this\[d\.present\]\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it by the row');
     assert.eq(Macros.KIND_DIALOG.scholar.label, 'Book Club');
     assert.lte('Tome collected'.length, MAP_MSG_MAX);
     assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');

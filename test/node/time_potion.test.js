@@ -27,6 +27,9 @@
     scene.save.selSlot = 0;
     scene.save.eatReadyAt = Date.now() + 10000;
     scene._finishConsumable = lift('_finishConsumable');
+    scene._consumeSelected = lift('_consumeSelected');
+    scene._selectedConsumable = lift('_selectedConsumable');
+    scene._finishInventoryChange = lift('_finishInventoryChange');
     scene.buildInventoryDOM = () => {};
     scene.showMessageModal = () => {};
     const drink = lift('drinkTimePotion');

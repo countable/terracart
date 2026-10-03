@@ -122,12 +122,13 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   assert.truthy(/hostileTargets: \[playerTarget,/.test(app), 'the player and neighbours are handed to stepShots');
   const hit = app.slice(app.indexOf('  _shotHitsPlayer(shot) {'), app.indexOf('  _turretFire('));
   assert.truthy(hit.length > 0, '_shotHitsPlayer exists');
-  assert.truthy(/const dmg = Combat\.incomingProjectileDamage\(this\.save, shot\.damage, shot\.hits\);/.test(hit),
+  assert.truthy(/Combat\.incomingProjectileDamage\(this\.save, shot\.damage, shot\.hits\)/.test(hit),
     'shield expiry and per-hit armour resolve together at impact');
   const body = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/)[1];
-  assert.truthy(body.includes('const lost = this._losePlayerEnergy(dmg, { closeShop: true });')
-    && body.includes('this._monsterDmgAccum = (this._monsterDmgAccum || 0) + lost;'),
-    'it comes off energy, and rolls into the monsters-hit flash');
+  assert.truthy(/return foeBlowLands\(this, shot\._sourceGuard, [\s\S]*\{ mitigated: true, condition: shot\.condition \}\) > 0;/.test(body),
+    'it lands through the one blow writer (creature_ai.js foeBlowLands): off energy, into the monsters-hit roll-up, the condition with it');
+  assert.truthy(/const lost = scene\._losePlayerEnergy\(dmg, \{ closeShop: true \}\);\s*scene\._monsterDmgAccum = \(scene\._monsterDmgAccum \|\| 0\) \+ lost;/.test(CREATURE_AI_SRC),
+    'which comes off energy and rolls into the monsters-hit flash');
 });
 
 // Attack ranges are declared independently of the player's equipment.

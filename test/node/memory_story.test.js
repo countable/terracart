@@ -148,8 +148,10 @@ test('memory chip: built beside #energy, repainted by updateHUD, dimmed under a 
   const build = lift('_buildMemoriesChip() {', '_buildMemoriesChip');
   assert.truthy(/row\.insertBefore\(el, energy\)/.test(build), 'sits beside the energy gauge');
   assert.truthy(/this\.renderItemIcon\('memory', 18, 'block'\)/.test(build), 'draws the gold star');
-  assert.truthy(/e\.stopPropagation\(\); this\.showMemoriesHelp\(\);/.test(build), 'the tap explains, and stops there');
-  assert.truthy(/'pointerdown'/.test(build), 'the press never reaches the map');
+  assert.truthy(/onTap: \(\) => this\.showMemoriesHelp\(\),/.test(build), 'the tap explains');
+  const chip = lift('_buildHudChip({ id, label, css, fill, seat, onTap }) {', '_buildHudChip');
+  assert.truthy(/swallowTaps\(el\);/.test(chip) && /e\.stopPropagation\(\); onTap\(\);/.test(chip), 'and stops there');
+  assert.truthy(/function swallowTaps\(el\) \{\n  for \(const ev of \['pointerdown'/.test(app), 'the press never reaches the map');
   assert.truthy(/this\.updateEnergyDOM\(\);\s*\n\s*this\.updateMemoriesDOM\(\);/.test(app), 'updateHUD repaints it');
   assert.truthy(/body\.modal-open #memories \{ opacity: 0\.25; pointer-events: none; \}/.test(app),
     'dims with its neighbours');
