@@ -1337,6 +1337,9 @@
         "rabbit": 0.4,
         "butterfly": 0.4,
         "crab": 0.5
+      },
+      "materialLooks": {
+        "shrub": "palm"
       }
     },
     {
@@ -7283,7 +7286,10 @@
           "count": 1
         }
       ],
-      "shrineFrame": 38
+      "shrineFrame": 38,
+      "materialLooks": {
+        "shrub": "palm"
+      }
     },
     {
       "id": "pirate_cove",
@@ -7477,7 +7483,8 @@
         }
       ],
       "materialLooks": {
-        "rubble": "zone_rock_pirate_cove"
+        "rubble": "zone_rock_pirate_cove",
+        "shrub": "palm"
       },
       "shoreTreasure": {
         "count": 2,
@@ -7650,7 +7657,10 @@
           "material": "stone",
           "count": 1
         }
-      ]
+      ],
+      "materialLooks": {
+        "shrub": "palm"
+      }
     },
     {
       "id": "quarry-crater",
