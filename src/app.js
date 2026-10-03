@@ -8442,59 +8442,70 @@ class MapScene extends Phaser.Scene {
       return this.worldIconHTML(texKey, 36, frame);
     };
     const tierOf = (row) => row.tier || 0;
-    // Each card is the building's picture, its name, a NEW pill when the
-    // player has nothing like it yet (Houses.isNewPick: no such building, or
-    // none at this rank) and (when ranked: a shop, a smithy, a trader) its
-    // rarity badge — no pitch; the Restored! card tells what it does. Its
-    // own price rides along for the cost line.
-    const choices = options.map((row) => {
-      const c = costFor(row);
-      return {
-        key: row.key,
-        label: labelFor(row, null)
-          + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
-          + (tierOf(row) ? `<div style="margin-top:1px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
-        iconHTML: iconFor(row),
-        suggested: !!row.suggested?.(this.save),
-        cost: costLine(c),
-        canAfford: affords(c),
-      };
-    });
-    const single = choices.length === 1 ? costFor(options[0]) : null;
-    // THE MAGIC HAMMER (Houses.HAMMER_ID): holding one, the dialog offers a
-    // second way to restore — "With Hammer" beside Restore, in this same
-    // window. The building comes up shiny: a shop sells cheaper for good
-    // (Houses.priceMul), a turret shoots double in arrows of light
-    // (Combat.turretShot); the hammer is spent with the stones. A plain
-    // House takes no hammer (Houses.hammerTakes): the button greys on its card.
-    const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
-    const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
-    // Always show the modal — even when the player can't yet afford it,
-    // they need to see WHAT to gather. Accept stays disabled (red cost
-    // line, greyed button) so the dialog reads as a price tag rather
-    // than a tease. The player will dismiss, go collect, come back. A
-    // regular dialog on the Build painting (Oct 2026 — it was fullscreen).
-    this.showOfferModal({
+    const typeOf = (row) => row.ranked ? [row.role, row.theme].filter(Boolean).join(':') : row.key;
+    const types = [...new Map(options.map(row => [typeOf(row), row])).values()];
+    // Pick the type first; the second step quotes its offered ranks.
+    // Progression still owns the ranks and restoreAs validates the pick.
+    const showTypes = (choice = null) => this.showOfferModal({
       kind: 'build',
-      get: options.length > 1 ? 'Restore this wreck as…' : 'Restore this wreck?',
-      choices,
-      pickHint: 'Tap one to choose',
-      costLabel: 'Cost',
+      title: 'Step 1 of 2 · Building type',
+      get: 'Restore this wreck as…',
+      choices: types.map((row) => ({
+        key: typeOf(row),
+        label: labelFor(row, null) + (options.some(r => typeOf(r) === typeOf(row) && Houses.isNewPick(this.save, r)) ? newBadgeHTML() : ''),
+        iconHTML: iconFor(row),
+        suggested: options.some(r => typeOf(r) === typeOf(row) && r.suggested?.(this.save)),
+      })),
+      choice,
+      pickHint: 'Choose a building type',
+      canAfford: true,
+      acceptLabel: 'Next',
       cancelLabel: 'Later',
-      cost: single ? costLine(single) : null,
-      canAfford: single ? affords(single) : false,
-      acceptLabel: 'Restore',
-      // One line: the dialog's height is spent on the cards.
-      blurb: hasHammer
-        ? `<span style="display:block;margin-top:-2px">${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.</span>`
-        : undefined,
-      secondary: hasHammer
-        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
-            takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
-            onClick: (key) => restore(key, true) }
-        : undefined,
-      onAccept: (key) => restore(key, false),
+      onAccept: (key) => showTiers(key),
     });
+    const showTiers = (typeKey) => {
+      const ranks = options.filter((r) => typeOf(r) === typeKey);
+      const row = ranks[0];
+      if (!row) return;
+      const c = costFor(row);
+      const tier = tierOf(row);
+      const choices = ranks.map((row) => {
+        const c = costFor(row), tier = tierOf(row);
+        return {
+          key: row.key,
+          label: (tier ? tierBadgeHTML(tier, 11) : labelFor(row, null))
+            + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
+            + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
+          iconHTML: iconFor(row),
+          cost: costLine(c),
+          canAfford: affords(c),
+        };
+      });
+      const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
+      const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
+      this.showOfferModal({
+        kind: 'build',
+        title: tier ? 'Step 2 of 2 · Tier and cost' : 'Step 2 of 2 · Confirm cost',
+        get: labelFor(row, null),
+        choices,
+        pickHint: 'Choose a tier',
+        costLabel: 'Cost',
+        canAfford: affords(c),
+        acceptLabel: 'Restore',
+        cancelLabel: 'Back',
+        onCancel: () => showTypes(typeKey),
+        blurb: (tier ? 'This quality is available at your current progress.' : '')
+          + (hasHammer
+            ? `<span style="display:block;margin-top:4px">${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.</span>`
+            : ''),
+        secondary: hasHammer
+          ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
+              takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
+              onClick: (key) => restore(key, true) }
+          : undefined,
+        onAccept: (key) => restore(key, false),
+      });
+    };
     const restore = (key, hammer) => {
       const picked = options.find((r) => r.key === key);
       const cost = picked ? costFor(picked) : null;
@@ -8567,6 +8578,7 @@ class MapScene extends Phaser.Scene {
         }
       });
     };
+    showTypes();
   }
 
 

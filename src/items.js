@@ -149,6 +149,7 @@ const WILDPLANT_CONTEXT_ART = {
   zone_rock_pirate_cove: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 71, scale: 4 / 3 },
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
   zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
+  palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 2, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
@@ -162,6 +163,8 @@ function wildplantSprite(p) {
   const context = WILDPLANT_CONTEXT_ART[look];
   if (context && context.crop === p.crop) return look === 'zone_hedge'
     ? { ...context, frame: p._hedgeFrame ?? 0 } : context;
+  // Unnamed beach sand uses the same palms as authored coastal shrub placements.
+  if (p && !p._cave && p.crop === 'shrub' && p._biome === 2 && !look) return WILDPLANT_CONTEXT_ART.palm;
   if (base?.looks?.[look]) return base.looks[look];
   if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return base.looks.clipped;
   if (base?.mature && (p.kind === 'wildplant' || p.wildId != null || p.stage >= MAX_GROWTH_STAGE)) return base.mature;

@@ -3798,17 +3798,6 @@
   // park landcover here. We paint over residential/grass/etc but NEVER over
   // roads, water, or buildings — those keep their cells.
   const POI_PARK_FAMILY = new Set(['park','garden','playground','pitch']);
-  // Big indoor civic facilities — rec centres, arenas, ice rinks. OSM often
-  // maps these as a leisure AREA with no building=* footprint, so the vector
-  // data carries only the POI point and nothing reads as a building. The poi
-  // pass synthesizes a civic BUILDING_LARGE block at the POI so the facility
-  // actually shows as a structure (the same slate slab schools and malls
-  // render as). Excludes outdoor pools (swimming/swimming_pool become water
-  // elsewhere).
-  // Includes the schools (Oct 2026): the scholar's booth stands at the school's
-  // outer wall, so a school with no building polygon raises a block for the
-  // booth to be pushed to the edge of — the old synthesized pyramid pad is gone.
-  const POI_CIVIC_BUILDING = new Set(['sports_centre','ice_rink','stadium','school','college','university']);
   // Cells a synthesized POI pad never overwrites: water, every road tier, the
   // footpath and every building tier.
   const POI_PAD_KEEP = new Set([T.WATER, T.ROAD, T.PATH, ...BUILDING_TYPES, T.ROAD_LG, T.ROAD_MD]);
@@ -5109,35 +5098,10 @@
                 if (bestPerim) { cellIX = bestPerim.ix; cellIY = bestPerim.iy; }
               }
             } else {
-              // Civic facility with no building footprint in the data: stamp a
-              // BUILDING_LARGE block (~9×7 cells ≈ 45×35 m) centred on the POI so
-              // it reads as a real building. Painted BEFORE the road-edge offset
-              // so offsetForPlacement below pushes the chest off the new block to
-              // a reachable, road-facing cell — the facility's entrance. POI_PAD_KEEP
-              // cells (roads / water / existing buildings) are never overwritten.
-              let frontageOwner = 0;
-              if (POI_CIVIC_BUILDING.has(cls)) {
-                const halfW = 4, halfH = 3;
-                const ownerId = (++nextBuildingOwnerId) & 0xffff;
-                // The source POI owns the identity; clipping or protected
-                // cells cannot move it. Tiled rendering uses the exact mask
-                // because this authored block has no source polygon ring.
-                ownerKeys[ownerId] = `b_${tx * w + poiIX}_${ty * h + poiIY}`;
-                frontageOwner = ownerId;
-                for (let ddy = -halfH; ddy <= halfH; ddy++) {
-                  for (let ddx = -halfW; ddx <= halfW; ddx++) {
-                    const bx = cellIX + ddx, by = cellIY + ddy;
-                    if (bx < 0 || by < 0 || bx >= w || by >= h) continue;
-                    const bidx = by * w + bx;
-                    if (POI_PAD_KEEP.has(grid[bidx])) continue;
-                    grid[bidx] = T.BUILDING_LARGE;
-                    owners[bidx] = ownerId;
-                    syntheticBuildingCells[bidx] = 1;
-                  }
-                }
-              }
-              // POI is on open ground — apply road-edge offset and synthesize a pad shape.
-              const placement = offsetForPlacement(cellIX, cellIY, frontageOwner);
+              // A POI can mark an entire campus or playing field. Only source
+              // building footprints establish structures; a point alone must
+              // not invent a castle on otherwise open ground.
+              const placement = offsetForPlacement(cellIX, cellIY);
               cellIX = placement.ix;
               cellIY = placement.iy;
             }
