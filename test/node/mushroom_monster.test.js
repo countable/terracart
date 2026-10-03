@@ -19,7 +19,7 @@
       zone:{coverage:new Uint8Array(n*n).fill(1),anchors:[{variant:'mushroom_grove'}]}};
     const monsters=EnemyHabitats.surfaceEncounters(entry,0,0,new Set()).filter(c=>c.kind===row.id);
     assert.gt(monsters.length,0,'the actual habitat sampler places mushrooms');
-    assert.truthy(monsters.every(c=>c.habitat==='mushroom_grove'));
+    assert.truthy(monsters.every(c=>c.zoneVariant==='mushroom_grove'));
     entry.zone.anchors[0].variant='meadow';
     assert.falsy(EnemyHabitats.surfaceEncounters(entry,0,0,new Set()).some(c=>c.kind===row.id));
   });

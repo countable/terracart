@@ -53,8 +53,8 @@
   test('reef shrine: a park-shore site gets one gated daily shrine without duplicating a nexus', () => {
     const ctx = fixture(); ctx.field.anchors[0].parkShore = true;
     ctx.zoneDress.nexus = [
-      { zoneAnchor: ctx.field.anchors[0].key, kind: 'grove', variant: 'orchard', poiId: 'inland-park-shrine' },
-      { zoneAnchor: ctx.field.anchors[0].key, kind: 'beach', variant: 'mystic_reef', poiId: null }
+      { zoneAnchor: ctx.field.anchors[0].key, zoneKind: 'grove', zoneVariant: 'orchard', poiId: 'inland-park-shrine' },
+      { zoneAnchor: ctx.field.anchors[0].key, zoneKind: 'beach', zoneVariant: 'mystic_reef', poiId: null }
     ];
     run(ReefLayout.dressSteps(ctx));
     const shrines = ctx.zoneDress.objects.filter(o => o.kind === 'grove_shrine');
@@ -68,7 +68,7 @@
     const rebuilt = fixture(); run(ReefLayout.dressSteps(rebuilt));
     assert.eq(rebuilt.zoneDress.objects.find(o => o.kind === 'grove_shrine').id, shrine.id);
     const existing = fixture();
-    existing.zoneDress.nexus = [{ zoneAnchor: existing.field.anchors[0].key, kind: 'beach', variant: 'mystic_reef', poiId: 'existing-daily-shrine' }];
+    existing.zoneDress.nexus = [{ zoneAnchor: existing.field.anchors[0].key, zoneKind: 'beach', zoneVariant: 'mystic_reef', poiId: 'existing-daily-shrine' }];
     run(ReefLayout.dressSteps(existing));
     assert.eq(existing.zoneDress.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'existing POI shrine remains the only daily shrine');
     const blocked = fixture();

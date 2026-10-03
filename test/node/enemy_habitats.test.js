@@ -96,6 +96,31 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     grid: new Array(N * N).fill(WorldGen.T.PARK), objects: [],
     zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
   const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+  test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
+    // Captured from main's unsliced implementation after the zone naming
+    // cleanup: include emergence flags, metadata, seeded seats and identities.
+    const expected = { orchard: 1679667825, ordered_graves: 2413853475, mystic_reef: 837559558 };
+    for (const [theme, hash] of Object.entries(expected)) {
+      const occupied = new Set();
+      const it = EnemyHabitats.surfaceEncountersSteps(entry(theme), 0, 0, occupied);
+      let r = it.next(), yields = 0;
+      while (!r.done) { yields++; r = it.next(); }
+      assert.eq(yields, Math.ceil(N / EnemyHabitats.SURFACE_ENCOUNTERS.blockCells) ** 2);
+      assert.eq(fnv1a(JSON.stringify(r.value)), hash, theme + ' keeps every generated field');
+      assert.eq(fnv1a(JSON.stringify([...occupied])), 1042003491, theme + ' keeps reservation order');
+      assert.eq(JSON.stringify(r.value), JSON.stringify(EnemyHabitats.surfaceEncounters(entry(theme), 0, 0, new Set())));
+    }
+  });
+  test('surface encounters: empty coverage still yields between unsuccessful block searches', () => {
+    const e = entry();
+    e.zone.coverage.fill(0);
+    const occupied = new Set(), it = EnemyHabitats.surfaceEncountersSteps(e, 0, 0, occupied);
+    let r = it.next(), yields = 0;
+    while (!r.done) { yields++; r = it.next(); }
+    assert.eq(yields, Math.ceil(N / EnemyHabitats.SURFACE_ENCOUNTERS.blockCells) ** 2);
+    assert.eq(r.value.length, 0);
+    assert.eq(occupied.size, 0);
+  });
   test('surface encounters: themed singles and small groups are stable and occupy distinct seats', () => {
     const e = entry(), occupied = new Set();
     const cs = EnemyHabitats.surfaceEncounters(e, 0, 0, occupied);

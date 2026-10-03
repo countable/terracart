@@ -670,6 +670,16 @@ class SceneShops {
     mount();
   }
 
+  // Pick the starter pair once; repeat visits and reloads keep the same tools.
+  starterSmithSlots() {
+    if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
+      const pool = shuffleInPlace([...STARTER_SMITH_SLOTS]);
+      this.save.starterSmithSlots = [pool[0], pool[1]];
+      persistSave(this.save);
+    }
+    return this.save.starterSmithSlots;
+  }
+
   starterBlacksmithRecipe(slot) {
     if (STARTER_SMITH_SLOTS.includes(slot)) {
       return [{ id: 'wood', qty: 5 }];

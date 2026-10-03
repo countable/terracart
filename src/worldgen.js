@@ -847,7 +847,7 @@
       objects.push(makeObject('chest', (tx + (ix + 0.5) / N) * tileEdgeM,
         (ty + (iy + 0.5) / N) * tileEdgeM, cellId('chest_topup', tx, ty, ix, iy), {
           poiClass: 'shelter', tierSeed: tier, chestTopUp: true,
-          ...(anchor ? { zone: anchor.kind, zoneVariant: variant.id, zoneLayer: 'find' } : { _street: street.id }),
+          ...(anchor ? { zoneKind: anchor.kind, zoneVariant: variant.id, zoneLayer: 'find' } : { _street: street.id }),
         }));
       spawnOpts.occupied.add(i);
       need[tier]--; result.added[tier]++;
@@ -6163,6 +6163,10 @@
     let slices = 1, worst = 0, worstAt = '';
     for (;;) {
       const r = it.next();
+      // Include the final next(): committing a pass can be its longest
+      // stretch, even though it returns instead of yielding a label.
+      const held = _now() - started;
+      if (held > worst) { worst = held; worstAt = r.done ? 'completion' : (r.value || 'unlabelled'); }
       if (r.done) {
         if (stats) { stats.slices = slices; stats.worstMs = worst; stats.worstAt = worstAt; }
         return r.value;
@@ -6172,8 +6176,6 @@
       // huge polygon between two yields blocks for as long as it takes however
       // short the budget is. If a profile shows a worst block far above the
       // budget, THAT is the thing left to chunk.
-      const held = _now() - started;
-      if (held > worst) { worst = held; worstAt = r.value || 'unlabelled'; }
       if (held >= _sliceMs) {
         const handedBack = _now();
         await _yieldToPaint();

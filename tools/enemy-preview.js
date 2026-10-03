@@ -93,8 +93,8 @@
       const stats = document.createElement('div'); stats.className = 'meta stats';
       stats.textContent = `Tier ${row.tier} · HP ${row.hp} · armour ${row.armor} · damage ${row.dmg} × ${row.attackHits} · ${row.attackType}, range ${row.range} cells · attack interval ${row.damageIntervalSeconds}s · speed ${row.movement.speedMetersPerSecond} m/s`;
       const habitats = document.createElement('div'); habitats.className = 'meta habitats';
-      const zoneName = id => ZoneVariantData.variants.find(zone => zone.id === id)?.name || id.replaceAll('_', ' ');
-      const memberships = table => Object.entries(table).filter(([, kinds]) => kinds.includes(row.id)).map(([id]) => zoneName(id));
+      const zoneVariantName = id => ZoneVariantData.variants.find(v => v.id === id)?.name || id.replaceAll('_', ' ');
+      const memberships = table => Object.entries(table).filter(([, kinds]) => kinds.includes(row.id)).map(([id]) => zoneVariantName(id));
       const details = [
         row.surface ? `Surface: ${row.surface.biomes.join(', ')}; ${row.surface.time}; ${row.surface.minDistance}–${row.surface.maxDistance ?? '∞'} m` : 'No general surface spawn',
         row.cave ? `Caves: depth ${row.cave.minDepth}–${row.cave.maxDepth ?? '∞'} (${row.cave.depthRule})` : 'No general cave spawn',
@@ -102,7 +102,7 @@
         ['Zone encounters', memberships(EnemyHabitats.SURFACE_FAMILIES)],
         ['Building habitats', memberships(EnemyHabitats.BUILDING_FAMILIES)],
         ['Cave habitats', memberships(EnemyHabitats.FAMILIES)],
-        ['Zone guards', ZoneVariantData.variants.filter(zone => zone.guards?.kind === row.id || zone.guards?.choices?.includes(row.id)).map(zone => zone.name)],
+        ['Zone guards', ZoneVariantData.variants.filter(v => v.guards?.kind === row.id || v.guards?.choices?.includes(row.id)).map(v => v.name)],
       ];
       if (row.ability?.type === 'split') details.push(`Splits after a direct hit if both halves retain at least ${row.ability.minHp} HP and space is available; remaining HP is shared; cooldown ${row.ability.cooldownSeconds}s. Burning does not trigger a split.`);
       for (const detail of details) {

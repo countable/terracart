@@ -28,8 +28,8 @@
     const zones = new Set(ZoneVariants.rows.map(r => r.id));
     const seenZ = new Set(), seenS = new Set();
     for (const id of Shrines.KIND_IDS) {
-      assert.gt(K[id].zones.length + K[id].streets.length, 0, `${id} stands somewhere`);
-      for (const z of K[id].zones) {
+      assert.gt(K[id].zoneVariants.length + K[id].streets.length, 0, `${id} stands somewhere`);
+      for (const z of K[id].zoneVariants) {
         assert.truthy(zones.has(z), `${id}: zone variant ${z} exists`);
         assert.falsy(seenZ.has(z), `${z} has one kind`); seenZ.add(z);
         assert.eq(Shrines.kindForZoneVariant(z), id);
