@@ -185,6 +185,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
 });`;
 try {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/map-review-gameplay.js'), 'utf8'), ctx,
+    { filename: 'map-review-gameplay.js' });
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
     { filename: 'src-bundle.js' });
 } catch (e) {
