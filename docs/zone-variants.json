@@ -6998,70 +6998,6 @@
       ]
     },
     {
-      "id": "quarry",
-      "zone": "quarry",
-      "name": "Quarry",
-      "weight": 1,
-      "generated": "parking_lanes",
-      "source": "parking_lanes",
-      "background": {
-        "type": "seeded_scatter",
-        "densityFalloff": "none",
-        "phaseOrigin": "global_tile_cell",
-        "orientation": "none",
-        "nominalDensity": 0.404,
-        "materialDensity": {
-          "stone": 0.395,
-          "crystal": 0.005,
-          "barrel": 0.004
-        },
-        "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
-        "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
-        "previewCells": [
-          24,
-          24
-        ],
-        "poiOrigin": {
-          "cell": [
-            0,
-            0
-          ],
-          "role": "no_landmark"
-        },
-        "rows": {
-          "axis": "horizontal",
-          "spacingCells": 2,
-          "lineWidthCells": 1
-        }
-      },
-      "poi": {
-        "id": "none",
-        "origin": "none",
-        "slots": []
-      },
-      "finds": {
-        "rarity": "none",
-        "material": "stone",
-        "targets": [],
-        "count": 0
-      },
-      "connection": {
-        "shape": "none"
-      },
-      "guards": {
-        "mode": "none"
-      },
-      "atmosphere": "Legacy broken stone rows; Sapphire deposits occupy 0.5% of eligible cells before clipping.",
-      "attracts": {},
-      "selectable": false,
-      "materialFrames": {
-        "crystal": [
-          58,
-          59
-        ]
-      }
-    },
-    {
       "id": "quarry-crater",
       "zone": "quarry",
       "name": "Destroyed crater",
@@ -7422,6 +7358,11 @@
     "minSiteCells": 25,
     "largeSiteMinCells": 120,
     "broadPatchSizeCells": 9,
-    "craterMaxAspectRatio": 2.5
+    "craterMaxAspectRatio": 2.5,
+    "clippedMaterialDensity": {
+      "stone": 0.395,
+      "crystal": 0.005,
+      "barrel": 0.004
+    }
   }
 }

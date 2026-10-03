@@ -145,17 +145,6 @@
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
   function isMonster(kind) { return kind !== 'slime' && !!monster(kind); }
-  // Does this kind's body FLASH through its attack wind-up (render.js' amber
-  // strobe)? A melee, area, breath or blast attack lands with nothing else to
-  // watch, so the body is the warning. A PROJECTILE kind's warning is the
-  // arrow or bolt itself, seen in flight and stopped by rock — and the goblin
-  // archer, winding up before every shot, strobed seven times a volley
-  // (Oct 2026). A kind with no roster row keeps the flash: it only winds up
-  // through the roster anyway.
-  function windupFlashes(kind) {
-    const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(kind) : null;
-    return !row || row.attackType !== 'projectile';
-  }
   // Does this monster land blows at all? A row with no `dmg` (the trapper)
   // never hits: app.js's melee drain and monster arrow both ask this, so a
   // harmless kind is harmless by its row, never by a `kind === …`.
@@ -1476,7 +1465,7 @@
 
   const api = {
     MONSTERS,
-    registerMonsters, monster, isMonster, windupFlashes, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
     SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,

@@ -1123,8 +1123,13 @@ const TAP_HANDLERS = [
         let bonus = '';
         const treasure = wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
-          scene.addToInv(treasure.bonus, 1);
-          bonus = ` ✨${itemName(treasure.bonus)}`;
+          if (treasure.coins) {
+            addMoney(save, treasure.coins);
+            bonus = ` ✨${treasure.coins} coin`;
+          } else {
+            scene.addToInv(treasure.bonus, 1);
+            bonus = ` ✨${itemName(treasure.bonus)}`;
+          }
         }
         persistSave(save);
         // Display NAMES, never raw ids — every other loot toast resolves the
@@ -1808,7 +1813,7 @@ const TAP_HANDLERS = [
     if (!scene.tilledSet.has(cellKey)) return false;
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
-    if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
+    if (!item || item.kind !== 'seed') {
       scene.flash('Pick a seed from your bag.', sx, sy);
       return true;
     }
@@ -1817,7 +1822,7 @@ const TAP_HANDLERS = [
       return true;
     }
     if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
-    if (item.kind === 'sapling') {
+    if (item.plants) {
       // Plant a sapling → a growing tree (persisted in save.fruittrees,
       // re-injected per tile in spawnInTile). TWO kinds share this path and
       // this list:

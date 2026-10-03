@@ -207,39 +207,6 @@
     assert.truthy(barrels.every(o => o.barrelStyle === 'barrel' && barrelProfile(o).texKey === 'barrel'), 'abandoned quarries contain barrels, never pots');
     assert.eq(finds(out).filter(o => o.quarryCrate).length, 2, 'the separate Iron-pick crates remain');
   });
-  test('quarry dressing: global cell scatter ignores component centers and creates no landmark', () => {
-    const make = () => {
-      const c = context('quarry'); c.grid.fill(WorldGen.T.ROCK);
-      c.field.anchors[0].generated='parking_lanes';
-      return c;
-    };
-    const a=make(), b=make();
-    Object.assign(b.field.anchors[0],{key:9999,gx:204,gy:311,originGX:921,originGY:1234,rotation:3,owned:false});
-    const first=ZoneDressing.dress(a), second=ZoneDressing.dress(b);
-    assert.eq(JSON.stringify(first.objects),JSON.stringify(second.objects),'component identities do not reroll a cell');
-    assert.eq(first.nexus.length,0);assert.eq(first.guards.length,0);assert.eq(first.traps.length,0);
-    assert.eq(first.wildplants.length,0);assert.eq(first.lairs.length,0);
-    // Stone and crystal benches, plus the odd barrel (Oct 2026) — a chest on
-    // the bin lane, background like the rest.
-    assert.truthy(first.objects.every(o=>(o.kind==='mineralrock' || (o.kind==='chest' && o.barrel)) && o.zoneLayer==='background'));
-    assert.gt(first.objects.filter(o=>o.barrel).length, 0, 'a working quarry has a barrel or two about');
-    assert.inRange(first.objects.length,1500,1790,'dense forty-percent coverage');
-    const crystals=first.objects.filter(o=>o.deposit==='crystal');
-    const expected = a.N * a.N * ZoneVariants.byId('quarry').background.materialDensity.crystal;
-    assert.inRange(crystals.length, expected * .4, expected * 1.8, 'about half a percent of eligible cells are crystals');
-    assert.truthy(crystals.every(o=>o.yieldTier===4 && o.requiredTier===3));
-    assert.falsy(first.objects.some(o=>o.yieldTier===6 || o.yieldTier===7),'no rare metal ore in quarry');
-    // Every selected cell can be the component centre without becoming an
-    // implicit clearing or a fake POI seat.
-    const selected=first.objects[0], center=make();
-    Object.assign(center.field.anchors[0],{gx:(selected._ix+.5)*4096/center.N,gy:(selected._iy+.5)*4096/center.N});
-    assert.truthy(ZoneDressing.dress(center).objects.some(o=>o.id===selected.id));
-    const blocked=make(), idx=selected._iy*blocked.N+selected._ix;
-    blocked.spawnOpts.spawnWhy[idx]=WorldGen.SPAWN_WHY.RESTRICTED;
-    assert.falsy(ZoneDressing.dress(blocked).objects.some(o=>o.id===selected.id),'shared hard gates still apply');
-    const occupied=make();occupied.spawnOpts.occupied.add(idx);
-    assert.falsy(ZoneDressing.dress(occupied).objects.some(o=>o.id===selected.id),'existing seats remain protected');
-  });
   function pirateShrine() {
     const ctx = context('pirate_cove'), a = ctx.field.anchors[0], cell = WorldGen.CELL_M;
     ctx.grid.fill(WorldGen.T.SAND);
@@ -638,7 +605,7 @@
   test('zone dressing: the seep and the quarries stand barrels — generated, smashable, on the bin lane (Oct 2026)', () => {
     const m = ZoneVariants.materials.barrel;
     assert.truthy(m && m.kind === 'chest' && m.barrel === true && m.spawnClass === 'minor', 'a barrel material');
-    for (const id of ['seep', 'quarry', 'quarry-abandoned']) {
+    for (const id of ['seep', 'quarry-abandoned']) {
       const barrels = ZoneDressing.dress(context(id)).objects.filter(o => o.barrel === true);
       assert.gt(barrels.length, 0, `${id} stands barrels`);
       for (const b of barrels) {

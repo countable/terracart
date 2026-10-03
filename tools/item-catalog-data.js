@@ -12,7 +12,7 @@
     // maintaining a second item pool just for this catalogue.
     const maxTier = lootContext(context, { tier, depth }).maxTier;
     for (let quality = 1; quality <= maxTier; quality++) {
-      const opts = { theme, depth, chestTier: tier };
+      const opts = { theme, depth, tier, chestTier: tier };
       for (const [group, weight] of Object.entries(ChestThemes.weights(theme, quality, opts))) {
         if (!(weight > 0)) continue;
         const resolved = ChestThemes.resolve(group, quality, opts);
@@ -79,7 +79,7 @@
       id: it.id, itemId: it.id, name: it.name, category: it.kind,
       inventoryCategory: invCatForItem(it.id), tier: it.baseTier,
       value: itemValue(it.id), description: ITEM_EFFECTS[it.id] || '',
-      growthStageMs: it.kind === 'seed' && it.grows ? Crops.stageHoldMs(it.grows) : null,
+      growthStageMs: it.kind === 'seed' && !it.plants && it.grows ? Crops.stageHoldMs(it.grows) : null,
       chests: sources.get(it.id) || [],
     }));
     for (const [kind, defs] of [['relic', RELIC_DEFS], ['armor', ARMOR_DEFS]]) {

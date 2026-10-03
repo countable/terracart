@@ -6,7 +6,7 @@
   // Utility food can restore zero energy and still be a harvestable meal.
   const foodIds = () => ITEMS.filter(i => i.kind === 'produce'
     && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id)).map(i => i.id);
-  const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && foodIds().includes(i.grows)).map(i => i.id);
+  const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && !i.plants && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
     uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id)).map(i => i.id), mixedTiers: true, fallback: 'magic' },
     supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'spear', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
@@ -17,13 +17,12 @@
     restorative: { ids: ['berry', 'cress', 'potato', 'egg', 'milk'] },
     food: { ids: foodIds, fallback: 'restorative' },
     foodSeeds: { ids: cropSeeds, fallback: 'food' },
-    parkSeeds: { ids: cropSeeds, fallback: 'restorative' },
+    parkSeeds: { ids: () => [...cropSeeds(), ...ITEMS.filter(i => i.kind === 'seed' && i.plants).map(i => i.id)], fallback: 'restorative' },
     farmSeeds: { ids: cropSeeds, fallback: 'restorative' },
     farmProduce: { ids: () => cropSeeds().map(id => ITEM_BY_ID[id].grows), fallback: 'restorative' },
     flowerSeeds: { ids: magicalFlowers.map(id => id + '_seed'), fallback: 'flowers' },
     flowers: { ids: flowers },
     forage: { ids: flowers.filter(id => !magicalFlowers.includes(id)).concat(['berry', 'mushroom']) },
-    saplings: { ids: ['acorn', 'apple_sapling', 'peach_sapling'], fallback: { flora: 'flowers', default: 'parkSeeds' } },
     growth: { ids: ['growth_powder'], fallback: { flora: 'flowers', farm: 'farmSupplies', default: 'parkSeeds' } },
     farmAnimals: { ids: ['chicken', 'cow', 'rabbit'], fallback: 'farmProduce' },
     // Surface magic lanes keep place identity while making cave-only potions
@@ -71,7 +70,7 @@
     roadside: { weights: { supplies: 45, materials: 40, cash: 15 } },
     commerce: { weights: { cash: 70, gems: 30 } },
     food: { weights: { food: 95, farmAnimals: 5 } },
-    park: { weights: { parkSeeds: 45, saplings: 25, forage: 20, growth: 10 } },
+    park: { weights: { parkSeeds: 70, forage: 20, growth: 10 } },
     farm: { weights: { farmSeeds: 40, farmProduce: 30, farmAnimals: 15, farmSupplies: 10, growth: 5 } },
     flora: { weights: { flowerSeeds: 50, flowers: 50 } },
     health: { weights: { medicalMagic: 100 } },
@@ -90,8 +89,7 @@
     roadside: { supplies: 45, materials: 40, cash: 15 },
     commerce: { cash: 70, gems: 30 },
     food: { food: 95, farmAnimals: 5 },
-    // (Oct 2026) The high rows fold SAPLINGS into the seed lane - one
-    // plant-things lane at the top, not two.
+    // Crop seeds and tree seeds share the park's seed pool.
     park: { parkSeeds: 60, forage: 15, growth: 25 },
     farm: { farmSeeds: 25, farmProduce: 30, farmAnimals: 15, farmSupplies: 5, growth: 25 },
     flora: { flowerSeeds: 50, flowers: 50 },
@@ -114,7 +112,7 @@
   const aliases = { lowtier: 'roadside' };
   const normalize = theme => themes[theme] ? theme : aliases[theme] || 'roadside';
   const seedMultiplier = tier => tier >= 6 ? 0.25 : tier === 5 ? 0.33 : tier === 4 ? 0.5 : 1;
-  const seedTransfers = { foodSeeds: { food: 1 }, parkSeeds: { forage: 1 }, farmSeeds: { farmProduce: 1 }, flowerSeeds: { growth: 0.5, saplings: 0.5 } };
+  const seedTransfers = { foodSeeds: { food: 1 }, parkSeeds: { forage: 1 }, farmSeeds: { farmProduce: 1 }, flowerSeeds: { growth: 0.5, parkSeeds: 0.5 } };
   function weights(theme, tier, opts = {}) {
     theme = normalize(theme);
     const high = (opts.tier ?? tier) >= 3 && highTierWeights[theme];
@@ -250,9 +248,10 @@
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
     if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap'].includes(id)) return 1;
-    if (item.kind === 'animal' || (item.kind === 'sapling' && item.plants !== 'tree')
+    if (item.kind === 'animal' || item.plants === 'fruittree'
       || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
+    if (item.plants === 'tree') return 5;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;
     if (magicalFlowers.includes(id) || item.kind === 'mineral') return 3;
     return 5;

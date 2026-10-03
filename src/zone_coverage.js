@@ -492,6 +492,7 @@
       const requestedVariant = variants[variantHash % variants.length];
       const variant = clipped ? 'quarry-strip-mine'
         : yield* root.QuarryLayout.variantForSteps(cells, { N, tx, ty }, variantHash % variants.length);
+      if (!variant) continue;
       const lx = (first % N + .5) * EXT / N, ly = (Math.floor(first / N) + .5) * EXT / N;
       const gx = tx * EXT + lx, gy = ty * EXT + ly;
       const row = Z.ZONE_KINDS.quarry;

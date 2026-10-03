@@ -35,7 +35,7 @@ A soft high-resolution sprite does not become a style match through recolouring.
 `spritePlan` in the JSON records the selected default sprite + target-colour
 combinations, plus named variants for specific settings. The defaults are the
 current chunky grass tuft, red spotted mushroom, rounded woodland bush, open broadleaf
-tree, `pillar_c.png` for the grave marker and `pot.png` for the intact clay pot.
+tree and `pot.png` for the intact clay pot. Grave markers now use the approved zone-object atlas.
 `pot_smashed.png` is the opened state of that same lootable container, not loose
 ruins decoration. Their target palettes are declared as
 palette IDs, so swatches and annotations stay in sync. Zone proposals cover dry
@@ -45,7 +45,7 @@ where recolouring alone is insufficient. Original thumbnails remain unchanged;
 the browser renders proposed RGB palette swaps beside them using
 `tools/nature_recolour.js`. Material groups separate foliage/caps from bark/stems;
 colour ramps are assigned by source brightness. Dimensions and alpha are
-preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` with
+preserved exactly. The five remaining defaults are exported to `assets/Objects/Rustic/` with
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
 states. Shrubs have two appearances: the basic bush and the approved cut hedge at 80%
 of its former residential display size. Both share shrub mechanics, and neither
@@ -160,13 +160,12 @@ contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
 
-Mushroom Grove has giant mushrooms with the surface mushroom’s muted red cap,
-cream spots and a taller cream stem. Their generated single-frame sheet is
-`assets/Objects/Approved/giant_mushroom.png` (32 × 48, frame 0).
-Axe harvesting gives one wood and
-one mushroom. Their sprites fit centered inside the cell at 0.7 scale. Ordinary shrubs retain only the basic bush and smaller cut hedge.
-Mushroom Grove forage uses the ordinary surface toadstool art and mushroom
-harvesting, with baked muted red and cream colors. Rockfruit stone
+Mushroom Grove and Mushroom Lane giant mushrooms use the approved red cap
+in `assets/Objects/ZoneVariants/approved-24.png` (24 × 24, frame 40).
+Axe harvesting gives one wood and one mushroom. The same frame represents
+ordinary forage in these two variants, with ordinary mushroom rewards.
+Ordinary shrubs retain only the basic bush and smaller cut hedge.
+Rockfruit stone
 pixels use the approved ore rocks’ grey palette across growth and inventory
 frames, including player-placed rocks; foliage and sprite alpha are preserved.
 Carnivorous plants use a muted olive multiply tint from their shared enemy-roster

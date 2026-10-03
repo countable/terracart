@@ -48,7 +48,7 @@ def assign(first,last,category,zones,note,before=None,label=None):
             rows[i]['before'] = dict(current(*before), label=label or before[0].replace('_',' '))
 
 assign(0,2,'Zone-replacement','Silent Circle; Stone Garden','Replace stone-marker objects with new grave-pillar types only in these zones. Preserve the global stone object and art; pillar interactions remain to be specified.',('mineralrock',171),'Current churchyard stone marker')
-assign(3,5,'Variant','Ordered Graves; Overgrown Graves; Silent Circle','Alternate grave silhouettes for the existing headstone role.',('headstone',0),'Current headstone / short pillar')
+assign(3,5,'Variant','Ordered Graves; Overgrown Graves; Silent Circle','Alternate grave silhouettes for the existing headstone role.',('zone_objects',1),'Current headstone / short pillar')
 assign(6,7,'New prop','Broken Masonry; Ruined Stronghold','New decorative column object; no new loot or interaction defined.')
 assign(8,14,'Zone-replacement','Ruined Stronghold; Broken Masonry','Superseded angled-art proposal. Ruined Stronghold now uses the separate square-grid wall set linked above: straights, corners, four T junctions and a cross selected from surviving neighbors. Ends retain rubble; global stone art is unchanged. Broken Masonry integration remains a proposal.',('mineralrock',171),'Current foundation stone (one cell)')
 assign(15,15,'New prop','Ruined Stronghold; Broken Masonry','New fallen-lintel decoration; no new interaction defined.')
@@ -73,7 +73,7 @@ assign(36,36,'Variant','Mystic Reef','Iron-deposit appearance; preserve the exis
 assign(37,37,'Variant','Mystic Reef','Crystal-deposit appearance candidate. Adding crystal placement to the reef would be a separate change.',('crystal_cluster',0),'Current crystal deposit')
 assign(38,38,'Variant','Mystic Reef','Candidate art for a shrine role; no one-to-one replacement assigned.',('grove_votive',0),'Existing generic shrine reference')
 assign(39,39,'New prop','Mystic Reef; Pirate Cove','Broken amphora decoration; could alternatively use pot-container mechanics if chosen later.')
-assign(40,43,'Variant','Mushroom Grove; Mushroom Lane','Appearance candidates for existing mushroom roles. Keep giant-mushroom wood + mushroom rewards when used for giants.',('giant_mushroom',0),'Current giant mushroom')
+assign(40,43,'Variant','Mushroom Grove; Mushroom Lane','Appearance candidates for existing mushroom roles. Keep giant-mushroom wood + mushroom rewards when used for giants.',('zone_objects',40),'Current giant mushroom')
 rows[40]['before']=dict(current('props',35),label='Current small red mushroom')
 rows[40]['note']='Red mushroom appearance; small-mushroom role shown as comparison. Could also be used for a giant with appropriate sizing.'
 assign(44,44,'Variant','Ancient Grove; Global woodland (optional)','Existing tree-role appearance; representative sapling stage shown.',('trees',1),'Current maple sapling')

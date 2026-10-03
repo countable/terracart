@@ -54,7 +54,7 @@ test('acorn: a tier past Frost cannot push the chance past the ceiling', () => {
 test('acorn: it is a sapling that plants TIMBER, not fruit', () => {
   const acorn = ITEM_BY_ID.acorn;
   assert.truthy(acorn, 'the item exists');
-  assert.eq(acorn.kind, 'sapling', 'it goes down the sapling plant path');
+  assert.eq(acorn.kind, 'seed', 'tree seeds share the seed category');
   assert.eq(acorn.plants, 'tree', 'and that path branches to a tree, not a fruittree');
   assert.falsy(acorn.grows,
     'no species: a species-less tree draws off the default sheet and takes no hardwood tier shift');

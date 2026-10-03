@@ -45,11 +45,10 @@
     // Index 0 is unused; tiers 1..7.
     tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
     // Classes that are inherently single-stack — relic (no qty), animal (one
-    // live catch at a time), consumable (tap-to-use), sapling (one fruit tree
-    // per find — packs of tree saplings read wrong). qty always 1 regardless
-    // of bumps for these. flora maps to the produce 'flowers' item via picker
+    // live catch at a time), consumable (tap-to-use). Fruit-tree seeds also
+    // stay single regardless of bumps. flora maps to the produce 'flowers' item via picker
     // routing, but we treat it as a small-qty class.
-    singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'legacyConsumable', 'sapling'],
+    singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'legacyConsumable'],
     // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
@@ -163,9 +162,9 @@
     // Wandering trader / fort quartermaster also deal the occasional fruit-tree
     // sapling (small share; maxTier 4 keeps it to the apple — peach stays a
     // rare nature-chest find).
-    'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.15, magic:0.05, supply:0.05, relic:0.05, sapling:0.05 },
+    'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.20, magic:0.05, supply:0.05, relic:0.05 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
-    'shop:fort':        { classBias: { seed:0.27, produce:0.27, mineral:0.17, magic:0.085, supply:0.085, relic:0.12, sapling:0.04 },
+    'shop:fort':        { classBias: { seed:0.31, produce:0.27, mineral:0.17, magic:0.085, supply:0.085, relic:0.12 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
     'shop:castle':      { classBias: { relic: 1.00 },
                           chainSteps: 3, chainMax: 4, maxTier: 7, relicCap: 7, singleItem: true },
@@ -192,8 +191,7 @@
     // (no chain, T1-2, no relics), a gardener's classes — seeds first, then
     // produce, then a magic item — and the growth powder as its FAVOURITE,
     // the way a school is known for its Book: a grove is where things grow.
-    // (No sapling share: saplings start at T3, past this curve's ceiling, so
-    // a sapling draw would pay nothing.)
+    // Tree seeds use the same seed class and their normal tier eligibility.
     'treasure:shrine':  { classBias: { seed:0.55, produce:0.30, magic:0.15 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
                           favourite: { id: 'growth_powder', p: 0.5 } },
@@ -783,7 +781,7 @@
       // Any qty bumps the chain rolled are discarded; no consolation
       // since the player is buying, not receiving.
       if (cls === 'seed') qty = itemTier >= 4 ? 1 : 5;
-    } else if ((RARITY_TUNING.singleStackClasses || []).includes(cls)) {
+    } else if ((RARITY_TUNING.singleStackClasses || []).includes(cls) || _ITEM_BY_ID[id]?.plants === 'fruittree') {
       wastedQtyBumps += bracket;          // bracket is dead for these classes
     } else {
       const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(itemTier, 7)] || 1;

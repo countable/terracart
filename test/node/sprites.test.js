@@ -440,10 +440,9 @@ test('shrubs keep common harvesting across basic, cut and bramble art', () => {
 test('Mushroom Grove giant caps fit centered inside the cell and have distinct rewards', () => {
   const p = {crop:'giant_mushroom'};
   const art = wildplantSprite(p);
-  assert.eq(art.sheet, 'giant_mushroom');
-  assert.eq(wildplantFrame(p), 0);
-  assert.truthy(art.seat);
-  const box = SpriteLayout.ART_BOUNDS['giant_mushroom:0'];
+  assert.eq(art.sheet, 'zone_objects');
+  assert.eq(wildplantFrame(p), 40);
+  const box = SpriteLayout.ART_BOUNDS['zone_objects:40'];
   const pos = SpriteLayout.seatInCell(box, .5, .5, art.scale, art.scale);
   assert.truthy(pos.fits, 'the smaller giant fits within one cell');
   assert.eq(pos.dyPx + ((box.minY + box.maxY)/2 - box.fh/2) * art.scale, 0);

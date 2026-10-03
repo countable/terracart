@@ -47,19 +47,33 @@
     assert.truthy(enemyAttackReady(c, row, 15100, true));
     assert.falsy(enemyAttackReady(c, row, 15101, true));
   });
-  test('enemy AI: a projectile kind never strobes through its wind-up; the arrow is the warning', () => {
-    // The goblin archer winds up 0.7 s before every shot; render.js' 100 ms
-    // amber strobe made that seven flashes a volley (Oct 2026). Melee, shaped
-    // and ability wind-ups keep the flash: nothing else tells them apart.
-    for (const kind of ['goblin_archer', 'archer_goblin', 'lich']) {
-      assert.eq(EnemyRoster.get(kind).attackType, 'projectile', `${kind} shoots`);
-      assert.falsy(Combat.windupFlashes(kind), `${kind} does not flash`);
+  test('enemy rendering: attack wind-ups keep the body palette and status tints', () => {
+    const body = RENDER_SRC.match(/    const frozen = c\._frozenUntil[\s\S]*?Render\.setShine\(s, [^;]+;/);
+    assert.truthy(body, 'live creature tint block exists');
+    const paint = new Function('c', 's', 'performance', 'Date', 'Combat', 'Conditions',
+      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', body[0]);
+    const renderTint = (c, now) => {
+      const sprite = { tint: null, fill: false,
+        setTint(tint) { this.tint = tint; this.fill = false; },
+        setTintFill(tint) { this.tint = tint; this.fill = true; } };
+      paint(c, sprite, { now: () => now }, { now: () => now },
+        { burning: () => !!c.burning },
+        { conditionTintOn: () => true, DEFINITIONS: { burning: { tint: 0xff5500 } } },
+        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} });
+      return sprite;
+    };
+    for (const windup of ['_attackWindupUntil', '_lungeWindupUntil', '_abilityWindupUntil']) {
+      for (const now of [1000, 1100, 1200]) {
+        const c = { kind: 'goblin', [windup]: 2000 };
+        const normal = renderTint(c, now);
+        assert.eq(normal.tint, 0x123456, `${windup} keeps its palette`);
+        assert.falsy(normal.fill, 'no attack tint fill');
+        assert.eq(renderTint({ ...c, shiny: true }, now).tint, 0xffd23a, 'elite sheen remains');
+        assert.eq(renderTint({ ...c, burning: true }, now).tint, 0xff5500, 'burning remains visible');
+        assert.eq(renderTint({ ...c, _frozenUntil: 2000 }, now).tint, 0x99ccff, 'ice remains visible');
+        assert.eq(renderTint({ ...c, _supportUntil: 2000 }, now).tint, 0x8cefa0, 'support remains visible');
+      }
     }
-    for (const kind of ['goblin', 'club_goblin', 'spear_goblin', 'cave_slime']) {
-      assert.truthy(Combat.windupFlashes(kind), `${kind} still flashes`);
-    }
-    assert.truthy(Combat.windupFlashes('no_such_kind'), 'an unrostered kind keeps the flash');
-    assert.includes(RENDER_SRC, '!frozen && Combat.windupFlashes(c.kind) &&', 'the strobe asks the predicate');
   });
   test('enemy AI: ranged row fires a single mitigated hit after its own wind-up', () => {
     const s = scene(), c = foe('lich'), row = EnemyRoster.get('lich');
