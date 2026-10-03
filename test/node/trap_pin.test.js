@@ -55,7 +55,7 @@ const moveStep = new Function('stick', 'vx', 'vy', 'speedMul', 'dt', MOVE_SRC);
 
 const tickMethods = new Function(`return {\n${TICK_SRC}\n};`)();
 const holdMethods = new Function(`return {\n${HOLD_SRC}\n};`)();
-const storyMethods = new Function(`return {\n${STORY_SRC},\n${TOOL_SRC}\n};`)();
+const storyMethods = new Function(`return {\n${STORY_SRC},\n${TOOL_SRC},\n${lift(app, '_dialogOpen() {', '_dialogOpen')}\n};`)();
 
 const TRAP_STEMS = ['trap_jaw', 'trap_free'];
 const TOOL_STEMS = ['tool_till', 'tool_chop', 'tool_dig', 'tool_water',
@@ -170,6 +170,7 @@ function trapScene() {
     _trapHere: { id: 'trap_a', x: 15, y: 20 },
     _tickTraps: tickMethods._tickTraps,
     _storySplashOnce: storyMethods._storySplashOnce,
+    _dialogOpen: storyMethods._dialogOpen,
     playerToWorldCell: () => ({ tx: 0, ty: 0, cx: 3, cy: 4 }),
     playerScreen: () => null,
     _painFlash: () => {},
@@ -279,6 +280,7 @@ test('tool stories (behaviour): each action splashes once under its own ledger k
     save: { relics: Object.fromEntries(['hoe', 'axe', 'pick', 'can', 'bugnet', 'sword', 'bow', 'staff'].map(slot => [slot, { tier: 1 }])) },
     showMessageModal: (opts) => modals.push(opts),
     _storySplashOnce: storyMethods._storySplashOnce,
+    _dialogOpen: storyMethods._dialogOpen,
     _toolActionStory: storyMethods._toolActionStory,
   };
   const realPersist = globalThis.persistSave;

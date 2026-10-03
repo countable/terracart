@@ -21,7 +21,8 @@ const lift = (sig, what) => {
 
 const BANK_SRC = lift('_bankDiscovery(key, label) {', '_bankDiscovery');
 const DRAIN_SRC = lift('_drainBadgeStories() {', '_drainBadgeStories');
-const RECEIPT_DRAIN_SRC = lift('_drainMacroTransactions() {', '_drainMacroTransactions');
+// The ceremony queue the drain empties first (receipts before memories).
+const QUEUE_SRC = ['_enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {', '_drainCeremonies() {', '_dialogOpen() {'].map((sig) => lift(sig, sig)).join('\n');
 const TOTAL_SRC = lift('memoriesTotal() {', 'memoriesTotal');
 const UNSPENT_SRC = lift('memoriesUnspent() {', 'memoriesUnspent');
 const SPEND_SRC = lift('spendMemories(n) {', 'spendMemories');
@@ -30,7 +31,7 @@ const MET_SRC = lift('_metWizard() {', '_metWizard');
 
 function mkScene({ energy = 100, max = 100 } = {}) {
   const methods = new Function('persistSave',
-    `return class { ${BANK_SRC}\n${DRAIN_SRC}\n${RECEIPT_DRAIN_SRC}\n${TOTAL_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
+    `return class { ${BANK_SRC}\n${DRAIN_SRC}\n${QUEUE_SRC}\n${TOTAL_SRC}\n${UNSPENT_SRC}\n${SPEND_SRC}\n${HELP_SRC}\n${MET_SRC} }`);
   const s = new (methods((save) => { s.persisted = (s.persisted || 0) + 1; }))();
   s.save = { inv: [], energy };
   s.getMaxEnergy = () => max;

@@ -6,6 +6,7 @@ const lift = sig => {
 const methods = (0, eval)('({' + [
   'presentHomeSell(sx, sy, targetId = null) {', '_firstSaleStory() {',
   '_storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {',
+  '_enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {', '_drainCeremonies() {', '_dialogOpen() {',
 ].map(lift).join(',') + '})');
 function saleTest(fn) {
   const old = document.body;
@@ -47,7 +48,7 @@ test('first sale: a busy quest dialog defers the earned story and survives reloa
   assert.truthy(s.save.firstSalePending);
   assert.falsy(s.save.storySeen?.['sale:first']);
   s.save = JSON.parse(JSON.stringify(s.save));
-  busy(false); s._firstSaleStory();
+  busy(false); s._firstSaleStory();   // the modal pass: queued once, opened when the screen clears
   assert.eq(s.modals.length, 1);
   assert.falsy(s.save.firstSalePending);
   assert.truthy(/this\._lowHealthStory\(\);\s*this\._firstSaleStory\(\)/.test(SCENE_SRC), 'the modal pass retries it');
