@@ -43,6 +43,20 @@ test('pickReward: treasure context also yields a valid reward', () => {
   assert.truthy(r && REWARD_KINDS.has(r.kind), 'treasure produced a valid reward');
 });
 
+// A surface X pays equipment a fifth of the time: a tool or weapon, armour,
+// or a unique relic (a cashed-out duplicate counts — it was a gear roll).
+test('treasure X: a fifth of surface digs are equipment, from all three kinds', () => {
+  const rng = seeded(11); const N = 5000;
+  let gear = 0; const kinds = new Set();
+  for (let i = 0; i < N; i++) {
+    const r = pickReward('treasure:default', { relics: {}, armor: {}, inv: [] }, rng);
+    if (r.kind === 'relic' || r.kind === 'armor' || (r.kind === 'gold' && r.slot)) { gear++; kinds.add(r.kind); }
+    else if (r.kind === 'item' && ITEM_BY_ID[r.id].kind === 'unique_relic') { gear++; kinds.add('unique'); }
+  }
+  assert.truthy(Math.abs(gear / N - 0.2) < 0.02, `gear share ${(gear / N).toFixed(3)}`);
+  for (const k of ['relic', 'armor', 'unique']) assert.truthy(kinds.has(k), `${k} turns up`);
+});
+
 test('reconcileRelicOffer: armor kind reconciles against save.armor, never downgrades', () => {
   // Fixed-payload armor chests (interactables.js fixedChestReward) must not
   // hand back a lower tier than what's already equipped.
