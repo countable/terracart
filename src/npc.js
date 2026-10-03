@@ -463,7 +463,7 @@ const NPC = (() => {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
     const title = `${c.name} · ${c.roleLabel || LABELS[c.zone || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
-    let body;
+    let body, target = null;
     restore(scene, c);
     const story = !isDormant(c, now) && typeof MemoryStory !== 'undefined'
       && MemoryStory.npcDialogue(scene, c);
@@ -509,14 +509,14 @@ const NPC = (() => {
           '“A lamp only wants company. Pass under one and watch what it does.”']);
     } else {
       const radius = 250, candidates = [];
-      const opened = setOf(scene.save.opened || []), caught = setOf(scene.save.caught || []);
+      const sets = spentSets(scene, scene.save), caught = setOf(scene.save.caught || []);
       const add = (o, label) => {
         const d = Math.hypot(o.x - c.x, o.y - c.y);
         if (d <= radius) candidates.push({ o, label, d });
       };
       for (const entry of WorldGen.tileCache.values()) WorldGen.forEachItemInBox(entry, 'objects', c.x - radius, c.y - radius, c.x + radius, c.y + radius, o => {
         if (isShrine(o) || (o.kind === 'house' && scene.houseShopRole(o) === 'wizard')) add(o, 'shrine');
-        else if (o.kind === 'chest' && !opened.has(o.id)) {
+        else if (o.kind === 'chest' && !isSpent(o, sets) && chestLook(o).texKey === 'chest') {
           const cell = scene.cellAt?.(o.x, o.y);
           if (!cell?.loaded || cell.tx == null || !Fog.seen(cell.tx, cell.ty, cell.ix, cell.iy)) add(o, 'chest');
         }
@@ -527,10 +527,14 @@ const NPC = (() => {
       candidates.sort((a, b) => String(a.o.id).localeCompare(String(b.o.id)));
       if (candidates.length) {
         const { o, label, d } = daily(candidates);
+        target = { targetId: o.id, x: o.x, y: o.y, depth: scene.depth || 0,
+          category: label, type: label === 'foe' || label === 'elite' ? 'creature' : 'object' };
         body = `${daily(['<em>Points past the wrecks.</em>', '<em>Nods down the lane.</em>', '<em>Lowers their voice.</em>'])}\n${SIGHTINGS[label](whereabouts(c, o, d))}`;
       } else body = daily(['“Quiet lanes today. Nothing new to show you. Come back tomorrow.”', '<em>Shrugs.</em>\n“Nothing new on this stretch today. Try me tomorrow.”', '“No fresh sightings today. I will keep looking.”']);
     }
-    return talkOf(title, body);
+    const talk = talkOf(title, body);
+    if (target) talk.target = target;
+    return talk;
   }
   // Named neighbours share a story painting across every dialogue surface.
   // Other residents use the same RGB multiplication as Phaser's world tint,
@@ -574,6 +578,10 @@ const NPC = (() => {
     // A talk of several pages is one dialog per page, "Next" between them
     // (the revive panels' pattern, app.js), the same portrait throughout.
     const say = () => {
+      if (talk.target && !isDormant(c)) {
+        scene.save.wayfarerCompass = { ...talk.target, until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
+        persistSave(scene.save);
+      }
       const art = portrait(scene, c), pages = talk.pages;
       const show = i => scene.showMessageModal({ title: talk.title, body: pages[i], kind: 'note', art,
         okLabel: i < pages.length - 1 ? 'Next' : 'OK', onDismiss: i < pages.length - 1 ? () => show(i + 1) : undefined });

@@ -5,7 +5,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const root = path.resolve(__dirname, '..'), ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'items', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'loot', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8'), ctx, { filename: name + '.js' });
 }
 // Select a runtime row for comparison while retaining the real generator,
@@ -36,7 +36,7 @@ if (!coverage.length) throw new Error('Parking lanes produced no Quarry coverage
 if ((tile.streetIndex?.lines || []).length) throw new Error('Removed parking lanes survived as roads');
 const position = o => [Math.floor((o.x-tx*tileEdgeM)/WG.CELL_M)-origin,
   Math.floor((o.y-ty*tileEdgeM)/WG.CELL_M)-origin];
-const material = o => o.quarryCrate ? 'tool_crate' : o.barrel ? 'barrel'
+const material = o => o.kind === 'stakes' ? 'stakes' : o.kind === 'zone_prop' ? 'zone_prop' : o.kind === 'grove_shrine' ? 'shrine' : o.kind === 'stronghold_wall' ? 'stronghold_wall' : o.quarryCrate ? 'tool_crate' : o.barrelStyle === 'clay_pot' ? 'clay_pot' : o.barrel ? 'barrel' : o.kind === 'chest' ? 'chest'
   : ['goblin', 'split_slime'].includes(o.kind) ? o.kind : o.kind === 'wildplant' ? o.crop
   : o.kind === 'lava_vent' ? 'lava' : o.deposit === 'crystal' ? 'crystal'
   : o.kind === 'mineralrock' && o.yieldTier === 2 ? 'copper_rock'
@@ -48,7 +48,8 @@ const records = [...(dress.objects || []), ...(dress.wildplants || []), ...(dres
 const objects = records.filter(o => o.kind !== 'lava_vent').map(o => {
   const m = material(o);
   if (!m) throw new Error(`Unmapped runtime quarry object: ${o.kind}`);
-  return { ...o, cell: position(o), material: m };
+  const look = o.kind === 'chest' ? ctx.chestLook(o) : null;
+  return { ...o, cell: position(o), material: m, ...(look ? {previewArt:{sheet:look.texKey,frames:[look.frame]}} : {}) };
 });
 for (const o of dress.treasures || []) if (o.zoneVariant === variantId) {
   objects.push({ ...o, cell: position(o), material: 'treasure_x' });
@@ -63,6 +64,6 @@ const landmarks = diagnostics.flatMap(row => row.landmarks || []).map(row => ({.
 }));
 const covered = new Set(coverage.map(c => c.join(',')));
 for (const object of objects) if (!covered.has(object.cell.join(','))) throw new Error('Object outside quarry coverage');
-if (new Set(objects.map(o => o.cell.join(','))).size !== objects.length) throw new Error('Overlapping quarry objects');
+if (new Set(objects.filter(o => !o.coverRockId).map(o => o.cell.join(','))).size !== objects.filter(o => !o.coverRockId).length) throw new Error('Overlapping quarry objects');
 process.stdout.write(JSON.stringify({ side, variantId, bufferM: ctx.ZoneCoverage.QUARRY_BUFFER_M, coverage,
   sourceLines:source.map(line=>line.map(([x,y])=>[x+.5,y+.5])), objects, terrain, landmarks, diagnostics }));

@@ -590,6 +590,8 @@ class SceneModals {
   //   canAfford:    grey out the accept button when false
   //   disabledReason: explain a non-money blocker without marking the cost unaffordable
   //   onAccept:     called after the modal closes
+  //   repeat:       re-present a counter after each transaction with live state
+  //   onCancel:     optional work deferred until the player leaves
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
   //   cancelLabel:  dismiss button label. Defaults to 'Cancel'; pass 'Later'
   //                 for offers tied to a persistent venue (a shop, a wreck,
@@ -605,9 +607,9 @@ class SceneModals {
   //                 which read as a second way to SMELT rather than as a way
   //                 to look at the next bar. `showIndex: false` drops the
   //                 "i / n" line (Home's Craft page) and keeps the arrows.
-  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: () => {}, kind, kindLabel, kindIcon, art });
+      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -786,10 +788,15 @@ class SceneModals {
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason);
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); if (onCancel) onCancel(); });
+    let accepted = false;
     accept.addEventListener('click', (e) => {
-      e.stopPropagation(); wrap.remove();
+      e.stopPropagation();
+      if (accepted || accept.disabled) return;
+      accepted = true;
+      wrap.remove();
       onAccept(quantity ? qty : undefined);
+      if (repeat) repeat();
     });
     if (sec) sec.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); secondary.onClick(); });
     row.appendChild(cancel);

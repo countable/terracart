@@ -216,7 +216,9 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
   };
   // The park's chest becomes its shrine in place; all identities stay fixed.
   const sig = (arr) => arr.map((o) => `${o.kind === 'grove_shrine' ? 'chest' : o.kind}|${o.id}|${o.x.toFixed(3)}|${o.y.toFixed(3)}|${o.crop || ''}`).join('\n');
-  assert.eq(sig(on.objects), sig(off.objects.filter(keep)), 'preserved objects keep ids and positions');
+  const authoredStairs = new Set(on.zoneDress.objects.filter(o => o.kind === 'staircase' && o.zoneLayer === 'entrance'));
+  for (const o of authoredStairs) assert.eq(on.objects.filter(p => p === o).length, 1, 'each authored shaft joins the generated layer exactly once');
+  assert.eq(sig(on.objects.filter(o => !authoredStairs.has(o))), sig(off.objects.filter(keep)), 'preserved objects keep ids and positions');
   assert.eq(sig(on.wildplants), sig(off.wildplants.filter(keep)), 'preserved wild plants keep ids and positions');
   assert.gt(off.wildplants.length - on.wildplants.length, 0, 'covered legacy flora is actually replaced');
   assert.eq(JSON.stringify(on.streetDress && on.streetDress.objects.map((o) => o.id)),
@@ -248,7 +250,7 @@ test('zones: mine mouths retain their original source when zone layouts replace 
       zone: r.zone, caveSource: r.caveSource, roadMask: r.roadMask, poiPadCells: r.poiPadCells,
       spawnWhy: r.spawnWhy, quietMask: r.quietMask, roadClass: r.roadClass };
     WorldGen.maybePlaceCaveEntrance(entry, TILE_TX, TILE_TY, edge, r.objects, r.wildplants);
-    return entry.objects.filter((o) => o.kind === 'staircase').map((o) => o.id).sort().join(',');
+    return entry.objects.filter((o) => o.kind === 'staircase' && o.zoneLayer !== 'entrance').map((o) => o.id).sort().join(',');
   };
   assert.eq(stairs(on), stairs(off), 'the same staircase with and without the zones');
 });
@@ -278,7 +280,12 @@ test('zones: every nexus piece is off the road band and off anything already the
     return iy * N + ix;
   };
   const before = new Set();
-  for (const o of [...on.objects, ...on.wildplants]) before.add(cellOf(o));
+  const authoredStairs = new Set(d.objects.filter(o => o.kind === 'staircase' && o.zoneLayer === 'entrance'));
+  // These same records were promoted into the surface snapshot so caves can
+  // mirror return ladders. Exclude only the identical record, never another
+  // object sharing its cell; the checks below still catch real overlaps.
+  for (const o of authoredStairs) assert.eq(on.objects.filter(p => p === o).length, 1, 'one generated shaft record');
+  for (const o of [...on.objects, ...on.wildplants]) if (!authoredStairs.has(o)) before.add(cellOf(o));
   if (on.streetDress) for (const o of [...on.streetDress.objects, ...on.streetDress.wildplants, ...on.streetDress.treasures]) before.add(cellOf(o));
   const mine = new Set();
   const pieces = [...d.objects, ...d.wildplants];
@@ -292,16 +299,27 @@ test('zones: every nexus piece is off the road band and off anything already the
     if (p.zone === 'quarry' && p.zoneLayer === 'find') {
       assert.truthy(on.zone.anchors.some(a => a.kind === 'quarry' &&
         p.id.startsWith(`zq_${ZoneVariants.pick(a).id}_${a.gx}_${a.gy}_find_`) && /_find_\d+$/.test(p.id)), `${p.id} uses its source anchor's identity`);
+    } else if (p.zone === 'quarry' && p.zoneLayer === 'shrine') {
+      assert.truthy(on.zone.anchors.some(a => a.owned && !a.clipped &&
+        p.zoneVariant === ZoneVariants.pick(a).id && p.id === `zsh_${ZoneVariants.identity(a)}`),
+        `${p.id} uses its complete source anchor's identity`);
     } else assert.truthy(p.zoneLayer === 'find' ? /^zf_(grove|stones|tar)_\d+_\d+_/.test(p.id) : /_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} has a stable anchor or tile-cell identity`);
     mine.add(i);
   }
   // Rasterized again: the same pieces, the same ids.
   const again = WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`), N, TILE_TX, TILE_TY, edge);
   assert.eq(again.zoneDress.objects.map((o) => o.id).join(), d.objects.map((o) => o.id).join(), 'deterministic');
-  // Ordinary nexus pieces remain tappable or hazardous. Stronghold walls
-  // are the explicit decorative exception: fitted structural scenery only.
+  // Ordinary nexus pieces remain tappable, traversable or hazardous;
+  // zone_prop records are the explicit decorative exception.
   for (const o of d.objects) {
-    if (o.kind === 'lava_vent') {
+    if (o.kind === 'staircase') {
+      assert.eq(o.zoneVariant, 'quarry-abandoned');
+      assert.eq(o.zoneLayer, 'entrance');
+      assert.eq(o.dir, 'down'); assert.eq(o.depth, 0); assert.falsy(o._synthetic);
+      assert.eq(o.id, WorldGen.caveStairId('down', 0, TILE_TX, TILE_TY, o._ix, o._iy));
+      assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
+        { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'cave'), 'shafts retain the cave spawn gate');
+    } else if (o.kind === 'lava_vent') {
       assert.eq(o.zoneVariant, 'quarry-crater');
       assert.eq(on.grid[cellOf(o)], T.CAVE_LAVA, 'vent marks damaging terrain');
       assert.eq(Lighting.sourceKind({}, o), 'lava_vent', 'vent lights its hazard');
@@ -314,7 +332,10 @@ test('zones: every nexus piece is off the road band and off anything already the
       assert.eq(INTERACTABLES[o.kind], INTERACTABLES.mineralrock, 'ruin walls use the existing stone extraction action');
       assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
         { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'minor'), 'walls retain the normal scenery spawn gate');
-      const neighbors = new Set(d.objects.filter(p => p.zoneVariant === o.zoneVariant && p.zoneLayer === 'background').map(cellOf));
+      const owner = on.zone.coverage[cellOf(o)];
+      const neighbors = new Set(d.objects.filter(p => ['stronghold_wall', 'mineralrock'].includes(p.kind)
+        && p.zoneVariant === o.zoneVariant && p.zoneLayer === 'background'
+        && on.zone.coverage[cellOf(p)] === owner).map(cellOf));
       assert.eq(o.variant, QuarryLayout.wallFrameAt(neighbors, cellOf(o), N), 'frame follows actual surviving wall neighbors');
     } else if (o.kind === 'zone_prop') {
       assert.eq(o.zoneLayer, 'decoration');
@@ -622,7 +643,7 @@ test('tar yard: every tar pit is a slow cell (the burned row\'s lane, _bodyHold)
   assert.truthy(StreetVariants.isSlowKind('tar'), 'one table both sides read');
   assert.truthy(/const zDress = entry\.zoneDress;[\s\S]*StreetVariants\.isSlowKind\(o\.kind\)\) slow\.set/.test(SPAWN_IN_TILE_SRC),
     'spawnInTile merges the zone\'s tar into the same slow map');
-  assert.truthy(/capMS = \(!pinned && this\._slowHere/.test(SCENE_SRC), 'and _bodyHold caps the body on it');
+  assert.truthy(/capMS = \(!pinned && slow/.test(SCENE_SRC), 'and _bodyHold caps the body on it');
   assert.truthy(/'Tar drags at your feet\.'/.test(SCENE_SRC), 'tar SLOWS — it drags, it does not grip');
 });
 

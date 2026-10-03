@@ -11,7 +11,7 @@
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const bushIds = (n) => Array.from({ length: n }, (_, i) => `wp_12_34_${i % 64}_${Math.floor(i / 64)}`);
-const firstNestBush = (nest) => bushIds(4000).find(id => isNestBush('shrub', id) === nest);
+const firstNestBush = (nest) => bushIds(4000).find(id => isNestBush('shrub', id) === nest && (!nest || nestBushContents(id).type === 'baby'));
 
 test('baby pets: one table of domestic kinds, each a real animal item off its base', () => {
   assert.eq(BABY_KINDS.length, 5);
@@ -100,12 +100,32 @@ test('nest bush: chopping one pays the wood AND one baby, with the card; a plain
     assert.eq(save.picked.filter(x => x === nest).length, 1, 'the bush is picked once');
   }
   assert.eq(cards.length, 40); assert.truthy(cards.every(([id, how]) => babyIds.has(id) && how === 'bush'));
-  assert.gt(new Set(cards.map(c => c[0])).size, 1, 'the baby is random');
+  assert.eq(new Set(cards.map(c => c[0])).size, 1, 'the same bush always shelters the same baby');
   const save = { picked: [], energy: 100, relics: {}, inv: [] };
   const scene = bushScene(save, { showBabyFound: () => { throw new Error('no card on a plain bush'); } });
   assert.eq(chopBush(plain, scene, save), true);
   assert.eq(scene.invCount('wood'), 1);
   for (const id of babyIds) assert.eq(scene.invCount(id), 0);
+});
+
+test('nest bush: nonbaby contents emerge once without awarding an inventory baby', () => {
+  const original = globalThis.spawnNestBushCreature;
+  try {
+    for (const type of ['slime', 'fauna']) {
+      const id = bushIds(4000).find(id => isNestBush('shrub', id) && nestBushContents(id).type === type);
+      const save = { picked: [], energy: 100, relics: {}, inv: [] };
+      let emerged = 0;
+      globalThis.spawnNestBushCreature = (scene, bush, occupant) => {
+        assert.eq(bush.id, id); assert.eq(occupant, type); emerged++;
+      };
+      const scene = bushScene(save, { showBabyFound() { throw new Error('nonbaby must not award a baby'); } });
+      assert.eq(chopBush(id, scene, save), true);
+      assert.eq(emerged, 1); assert.eq(scene.invCount('wood'), 1);
+      for (const baby of babyItems()) assert.eq(scene.invCount(baby), 0);
+      chopBush(id, scene, save);
+      assert.eq(emerged, 1, 'picked ledger prevents another emergence');
+    }
+  } finally { globalThis.spawnNestBushCreature = original; }
 });
 
 test('nest bush: a full bag leaves the bush standing to chop again', () => {
@@ -183,7 +203,7 @@ test('baby pet: adulthood requires seven days AND seven favourite meals', () => 
   assert.eq(SpriteLayout.creatureInstScale({ ...c, _artScale: 0.8 }, born), 0.4);
 });
 
-test('raised pet: double HP and bite once grown, its kind\'s while a baby', () => {
+test('raised pet: shiny babies and grown adults double HP and bite without stacking', () => {
   const born = Date.now() - 8 * DAY_MS;
   const grown = { kind: 'dog', id: 'released_dog_g', shiny: true, raised: true, born, favouriteFeeds: 7 };
   const baby = { kind: 'dog', id: 'released_dog_b', shiny: true, raised: true, born: Date.now() };
@@ -192,9 +212,9 @@ test('raised pet: double HP and bite once grown, its kind\'s while a baby', () =
   assert.eq(Combat.raisedMul(grown), 2); assert.eq(Combat.raisedMul(baby), 1); assert.eq(Combat.raisedMul(plain), 1);
   assert.eq(Combat.powerMul(grown), 2, 'through powerMul, like an elite');
   assert.eq(Combat.maxHp(grown), Combat.FAUNA_HP.dog * 2);
-  assert.eq(Combat.maxHp(baby), Combat.FAUNA_HP.dog);
+  assert.eq(Combat.maxHp(baby), Combat.FAUNA_HP.dog * 2);
   assert.eq(Combat.petBlow(grown), Combat.PET_BITE * 2);
-  assert.eq(Combat.petBlow(baby), Combat.PET_BITE);
+  assert.eq(Combat.petBlow(baby), Combat.PET_BITE * 2);
   assert.eq(Combat.petBlow(plain), Combat.petBite('dog'));
   assert.falsy(Combat.isElite(grown), 'a shiny raised dog is no elite — that is a monster\'s word');
   assert.includes(SCENE_CREATURES_SRC, 'Combat.damage(tgt, Combat.petBlow(c))');

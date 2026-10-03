@@ -26,6 +26,16 @@
 //   TAP_HANDLERS   — priority-ordered array of { name, try(ctx) }
 //   interactTap(scene, sx, sy)  — top-level dispatcher; MapScene.handleWorldTap forwards to this
 
+// Successful kit work shares the same retain roll for traps and obstacles.
+function finishTrapKit(ctx, action) {
+  const { scene, save, sx, sy } = ctx;
+  const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
+  if (!kept) consumeSelected(save);
+  ctx.dirty = true;
+  scene.buildInventoryDOM();
+  scene.flash(`${action}; kit ${kept ? 'kept' : 'used'}`, sx, sy);
+}
+
 // Decrement the selected inventory stack by `n` (default 1). If it hits zero,
 // splice it out and leave the hand EMPTY (selSlot = -1) — the stack that
 // slides into its index is not something the player chose. Used by every
@@ -76,7 +86,13 @@ function tameInPlace(scene, save, target, flashMsg, flashIcon, flashScale) {
   const ty = Math.floor(target.y / scene.tileEdgeM);
   const tameId = releasedId(target.kind);
   save.released = save.released || [];
-  save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny });
+  const policy = Companions.releasePolicy(scene, target.x, target.y);
+  save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny, ...policy });
+  Object.assign(target, policy);
+  // A tame animal no longer belongs to its old hostile spawn or garrison.
+  for (const key of ['_surfaceSpawn', '_surfaceInactive', '_surfaceAskedT', 'lair', 'immobile',
+    'lairX', 'lairY', 'lairR', 'seatX', 'seatY', 'aggroCells', 'proximityCells',
+    '_wardFrom', '_hunting', '_chaseTarget', '_wanderOffUntilT']) delete target[key];
   target.id = tameId;   // convert the in-world creature in place → now tame
   scene.flashLoot(flashMsg, '#a7ffb0', flashScale, flashIcon);
   persistSave(save);
@@ -104,6 +120,7 @@ function petPickupItemId(c) {
   return c.kind;
 }
 function pickUpPet(scene, save, target, sx, sy) {
+  if (SpriteLayout.isSummoned(target.kind)) return false;
   const invId = petPickupItemId(target);
   const item = ITEM_BY_ID[invId];
   if (!item || item.kind !== 'animal') return false;
@@ -116,7 +133,20 @@ function pickUpPet(scene, save, target, sx, sy) {
   save.released = save.released || [];
   const ri = save.released.findIndex(r => r.id === target.id);
   const raised = !!(target.raised || (ri >= 0 && save.released[ri].raised));
+  if (ri >= 0 && raised) {
+    save.released[ri].hp = Combat.hp(target);
+    save.released[ri].lastDamagedAt = target._lastDamagedT ?? null;
+  }
   if (ri >= 0 && !raised) save.released.splice(ri, 1);
+  const tracked = scene._travellingPets?.get(target.id);
+  const entries = new Set([...WorldGen.tileCache.values(), tracked?.entry]);
+  for (const entry of entries) {
+    if (!entry?.creatures) continue;
+    for (let i = entry.creatures.length - 1; i >= 0; i--) {
+      if (entry.creatures[i].id === target.id) entry.creatures.splice(i, 1);
+    }
+  }
+  scene._travellingPets?.delete(target.id);
   scene.addToInv(invId, 1);
   scene.flashLoot(`+1 ${item.name || invId}`, raised || item.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
   persistSave(save);
@@ -402,6 +432,12 @@ const GRASSLAND_TILL = new Set([
   WorldGen.T.PITCH, WorldGen.T.GOLF, WorldGen.T.FARMLAND,
 ]);
 
+// Covered X marks become visible and tappable together after their rock is mined.
+function treasureExposed(treasure, scene, save = scene?.save) {
+  return !!treasure && (!treasure.coverRockId
+    || (scene?.brokenRockSet || setOf(save?.brokenRocks)).has(treasure.coverRockId));
+}
+
 // Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
 // with every branch it can take — an item (low-tier seeds bundled up, jackpot
 // fanfare on a big hit), a gold sum, or the fallback dollar if the pool comes
@@ -570,7 +606,7 @@ const TAP_HANDLERS = [
     const { scene, save, wm, sx, sy } = ctx;
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
-      if (!tr || found.has(tr.id)) return false;
+      if (!treasureExposed(tr, scene, save) || found.has(tr.id)) return false;
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
@@ -713,7 +749,7 @@ const TAP_HANDLERS = [
     // distance to the body CENTRE so the most on-target animal wins overlaps.
     let target = null, bestD2 = Infinity;
     WorldGen.forEachItem('creatures', (c) => {
-      if (save.caught.includes(c.id)) return;
+      if (save.caught.includes(c.id) || Combat.isBurrowed(c) || Combat.isDisguised(c)) return;
       // A SUMMONED ally (the spirit raven) is not a tap target: nothing to
       // catch, tame, feed or pet — a tap goes through it to whatever is there.
       if (SpriteLayout.isSummoned(c.kind)) return;
@@ -1068,6 +1104,25 @@ const TAP_HANDLERS = [
     return true;
   }},
 
+  // A selected kit dismantles one obstacle before its normal axe-work tap.
+  { name: 'disarm-obstacle', try: (ctx) => {
+    const { scene, save, wm } = ctx;
+    const sel = getSelectedSlot(save);
+    if (!(sel?.id === 'trap_kit' && sel.count > 0)) return false;
+    const spent = spentSets(scene, save);
+    const accepts = o => isTrapKitObstacle(o) && !isSpent(o, spent);
+    const o = findItemInTapCell(scene, 'wildplants', wm, accepts)
+      || findItemInTapCell(scene, 'objects', wm, accepts);
+    if (!o) return false;
+    if (tooFar(ctx, o.x, o.y)) return 'far';
+    save.picked = [...(save.picked || []), o.id];
+    // Re-evaluate slowing immediately, including while standing on the piece.
+    scene._streetFeetKey = null;
+    scene._tickStreetFeet?.();
+    finishTrapKit(ctx, o.kind === 'stakes' ? 'Spikes removed' : 'Barricade removed');
+    return true;
+  }},
+
   // 1a) Pick the unpicked wild plant standing in the TAPPED CELL. Tall flora
   // (shrubs, long grass) draw above their cell, but only the cell they're
   // rooted in picks them.
@@ -1082,6 +1137,25 @@ const TAP_HANDLERS = [
     if (bestWp) {
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
+      const rule = wildplantRule(wp.crop);
+      if (rule?.hazardMinTier && isWalkHazard(wp)
+          && (save.relics?.[rule.workRelic]?.tier || 0) < rule.hazardMinTier) {
+        const need = TIER_BY_NUM[rule.hazardMinTier].name;
+        scene.flash(`Need ${tierArticle(need)} ${need} ${rule.workRelic}.`, sx, sy);
+        return true;
+      }
+      const selected = getSelectedSlot(save);
+      if (rule?.disarmWithKit && selected?.id === 'trap_kit' && selected.count > 0) {
+        save.picked = [...(save.picked || []), wp.id];
+        const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
+        if (!kept) consumeSelected(save);
+        persistSave(save);
+        ctx.dirty = true;
+        scene.buildInventoryDOM();
+        scene.flash(`Dismantled. Kit ${kept ? 'kept' : 'used'}.`, sx, sy);
+        return true;
+      }
+      if (rule?.timber) return runWildplantTimber(ctx, wp);
       // What this wild plant DOES — what it drops, whether it hides a bonus,
       // which relic times its wheel and what that wheel costs — is one table
       // in items.js (WILDPLANT_RULES), read through the accessors below. It
@@ -1102,10 +1176,11 @@ const TAP_HANDLERS = [
         // between handler start and callback fire, awarding again would dupe.
         // A TIDE pickup is written to the DAY LEDGER (Macros.markToday), never
         // save.picked: it is back on the waterline another day.
-        // A NEST BUSH (items.js isNestBush) hides a baby pet. Chosen before
+        // A shaking bush has a stable occupant; only one fifth hide a baby. Before
         // the pick is written: with no room in the bag for it the bush stays
         // standing, unpicked, to be chopped again once there is.
-        const babyId = isNestBush(wp.crop, wp.id) ? pickFromArray(babyItems()) : null;
+        const nest = isNestBush(wp.crop, wp.id) ? nestBushContents(wp.id) : null;
+        const babyId = nest?.type === 'baby' ? nest.item : null;
         if (babyId && Inventory.roomFor(save, babyId) < 1) {
           scene.flash('Make room for a pet first.', sx, sy);
           return;
@@ -1146,6 +1221,8 @@ const TAP_HANDLERS = [
           scene.addToInv(babyId, 1);
           persistSave(save);
           if (typeof scene.showBabyFound === 'function') scene.showBabyFound(babyId, 'bush');
+        } else if (nest) {
+          spawnNestBushCreature(scene, wp, nest.type);
         }
         return true;
       };
@@ -1310,13 +1387,7 @@ const TAP_HANDLERS = [
     // the record, never as a save id (traps.js) — the same kit shuts either.
     if (!trap || Traps.isTrapDisarmed(save, trap)) return false;
     Traps.disarmTrap(save, trap);
-    // The kit usually survives the job (TRAP_KIT_KEEP_CHANCE, items.js).
-    const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
-    if (!kept) consumeSelected(save);
-    ctx.dirty = true;
-    scene.buildInventoryDOM();
-    if (kept) scene.flash('🧰 trap disarmed, kit kept', sx, sy);
-    else scene.flash('🧰 trap disarmed, kit used', sx, sy);
+    finishTrapKit(ctx, 'Trap disarmed');
     return true;
   }},
 
@@ -1409,14 +1480,17 @@ const TAP_HANDLERS = [
       ? { raised: true, born: carried.born, favouriteFeeds: carried.favouriteFeeds || 0 }
       : isBaby ? { raised: true, born: Date.now(), favouriteFeeds: 0 } : {};
     const id = carried ? carried.id : releasedId(baseKind);
+    const policy = Companions.releasePolicy(scene, cwmx, cwmy);
     if (carried) {
-      Object.assign(carried, { x: cwmx, y: cwmy, tx, ty });
+      Object.assign(carried, { x: cwmx, y: cwmy, tx, ty, ...policy });
       save.caught = (save.caught || []).filter(cid => cid !== id);
     } else {
-      save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth });
+      save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth, ...policy });
     }
     if (entry && entry.creatures) {
-      entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem, ...birth }));
+      entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem, ...birth, ...policy,
+        ...(carried?.hp != null ? {_hp:carried.hp} : {}),
+        _lastDamagedT:carried?.lastDamagedAt ?? null }));
     }
     consumeSelected(save);
     ctx.dirty = true;

@@ -92,6 +92,11 @@
   // park-density pass, Sep 2026: "open ground between").
   const FLORA_PATCH = { units: 64, salt: 5.1, share: 0.30, cut: 0.585, dense: 2.0, sparse: 0.15 };
   const fix = (crop, dMin, dMax, salt) => ({ crop, dMin, dMax, salt });
+  // Ordinary grass, including ground with no mapped polygon. Each 24-cell
+  // region has a 10–40% background and one dense circular stand. Worldgen
+  // seats this once on the final GRASS grid, never once per overlapping polygon.
+  const GRASS_FILL = { crop: 'longgrass', pattern: 'grassfill', salt: S.LONGGRASS,
+    dMin: 0.10, dMax: 0.40, spacing: 24, radiusMin: 3, radiusMax: 5, dense: 0.90 };
 
   // ── Families ──────────────────────────────────────────────────────────────
   // Every biome belongs to a base family. Unknown / unwired types fall back to
@@ -181,10 +186,12 @@
   //        and "medium-frequency drop" axis). canopy/minerals (trees, fruit,
   //        rock clusters) stay in worldgen — they're object spawns with their
   //        own placement maths — but their on/off is still biome-gated there.
-  // A biome with no row here inherits its family's profile above — GRASS,
+  // A biome with no row here inherits its family's profile above —
   // SAND, RESIDENTIAL, WASTELAND and ROCK are exactly their family defaults
   // (grassland / sand / urban / urban / rocky), so they have no row.
   const BIOME_PROFILES = {
+    [T.GRASS]: { flora: [GRASS_FILL,
+      ...FAMILY_PROFILE.grassland.flora.filter((fl) => fl.crop !== 'longgrass')] },
     [T.FOREST]: {
       flora: [fix('shrub', D_MIN, D_MAX, S.SHRUB),
               fix('nut', 0.005, 0.03, S.NUT),
@@ -208,8 +215,8 @@
     },
     [T.COMMERCIAL]: {
       // Clipped hedge maze across the plaza paving — shrubs laid out in neat
-      // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js) plus a few
-      // planter marigolds for colour.
+      // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js), regular
+      // clay pots replacing every fourth pillar, and a few marigolds.
       flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB },
               fix('marigold', 0.004, 0.010, S.COM_MAR)],
     },
@@ -555,7 +562,7 @@
 
   // The accessors. The raw tables reach app.js as the bare globals below
   // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
-  const api = { T, flora, tint, atmos, mixHex, allows, yard, yardAllows, patch, patchMul, FLORA_PATCH,
+  const api = { T, flora, tint, atmos, mixHex, allows, yard, yardAllows, patch, patchMul, FLORA_PATCH, GRASS_FILL,
     PARK_CHARACTERS, PARK_CHARACTER_IDS, CEMETERY_CHARACTER, parkCharacterAt, parkCharacter, isParkPoi };
   global.BiomeProfiles = api;
   global.BIOME_PROFILES = BIOME_PROFILES;

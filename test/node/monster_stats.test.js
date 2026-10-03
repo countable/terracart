@@ -28,11 +28,14 @@
     assert.falsy(Combat.enemyKinds().includes('giant_goblin'));
     assert.eq(Combat.monster('giant_plant').hp, EnemyRoster.get('giant_plant').hp);
   });
-  test('roster: elites respect eligibility and never stack with size variants', () => {
+  test('roster: shiny strength applies to every row while elite rewards respect eligibility', () => {
     for (const row of EnemyRoster.ROWS) {
       const c = { kind: row.id, shiny: true };
       assert.eq(Combat.isElite(c), row.eliteEligible);
-      assert.eq(Combat.maxHp(c), row.hp * (row.eliteEligible ? 2 : 1));
+      assert.eq(Combat.maxHp({ kind: row.id }), row.hp);
+      assert.eq(Combat.maxHp(c), row.hp * 2);
+      assert.eq(Combat.powerMul(c), 2);
+      assert.eq(Combat.shinySpeedMul(c), 1.5);
     }
   });
 })();

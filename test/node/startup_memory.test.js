@@ -1,8 +1,35 @@
 (function () {
-test('startup memory: optional WebGL FX pools are disabled before renderer boot', () => {
+test('startup memory: WebGL FX pools require explicit device opt-in before boot', () => {
   const config = APP_JS_SRC.slice(APP_JS_SRC.indexOf('new Phaser.Game({'));
-  assert.truthy(/disablePreFX: true/.test(config), 'no eager pre-FX framebuffer pool');
+  assert.truthy(/disablePreFX: !GRAPHICS_FX_ENABLED/.test(config), 'pre-FX pool follows the boot preference');
+  const code = APP_JS_SRC.match(/const GRAPHICS_FX_ENABLED = ([\s\S]*?\n\}\)\(\));/)[1];
+  for (const value of [null, '0', 'true', '1']) {
+    const enabled = new Function('localStorage', `return ${code}`)({ getItem: () => value });
+    assert.eq(enabled, value === '1', 'only an explicit opt-in enables FX');
+  }
+  assert.eq(new Function('localStorage', `return ${code}`)({ getItem() { throw Error('blocked'); } }), false,
+    'unavailable storage keeps FX off');
   assert.truthy(/disablePostFX: true/.test(config), 'unused post-FX pipelines stay disabled');
+});
+
+test('startup memory: graphics menu persists changes before reload and allows cancellation', () => {
+  const code = INDEX_HTML_SRC.split('// FX pools are a renderer boot choice, shared by saves on this device.')[1]
+    .split('// Vibration toggle')[0];
+  for (const initial of [null, '1']) {
+    for (const confirmed of [false, true]) {
+      const events = [];
+      let click;
+      const button = { setAttribute() {}, addEventListener(name, fn) { click = fn; } };
+      new Function('document', 'localStorage', 'window', 'flushSave', 'location', code)(
+        { getElementById: () => button },
+        { getItem: () => initial, setItem: (key, value) => events.push(key + '=' + value) },
+        { confirm: () => confirmed }, () => events.push('save'), { reload: () => events.push('reload') });
+      assert.truthy(button.textContent.includes(initial === '1' ? 'on' : 'off'));
+      click({ stopPropagation() {} });
+      assert.eq(events.join(','), confirmed
+        ? `terracart.graphicsFX=${initial === '1' ? '0' : '1'},save,reload` : '');
+    }
+  }
 });
 
 test('startup memory: shinies keep fallback markers when WebGL FX is disabled', () => {

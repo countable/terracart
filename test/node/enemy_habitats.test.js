@@ -145,7 +145,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     const survivor = { ...creatures[0], x: -1, _hp: 2 };
     const rebuilt = { creatures: [survivor] };
     const begin = SPAWN_IN_TILE_SRC.indexOf('    entry.creatures = entry.creatures || creatures;');
-    const end = SPAWN_IN_TILE_SRC.indexOf('    NPC.shrineResidents', begin);
+    const end = SPAWN_IN_TILE_SRC.indexOf('    this._restoreMimics', begin);
     const reconcile = new Function('entry', 'creatures', SPAWN_IN_TILE_SRC.slice(begin, end));
     reconcile(rebuilt, creatures);
     reconcile(rebuilt, creatures);
@@ -154,3 +154,32 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     assert.eq(survivor.x, -1); assert.eq(survivor._hp, 2);
   });
 })();
+
+test('new monsters: jellyfish stay on beaches and graveyard zombies start buried', () => {
+  assert.falsy(EnemySpawns.surfaceRows('SAND').some(r => r.id === 'jellyfish'));
+  assert.truthy(EnemySpawns.surfaceRows('SAND', { beach: true }).some(r => r.id === 'jellyfish'));
+  const kinds = new Set(Array.from({ length: 1000 }, (_, i) => EnemySpawns.surfaceKind('SAND', `jellyfish_beach_${i}`, { beach: true })));
+  assert.truthy(kinds.has('jellyfish'));
+  for (const variant of ['ordered_graves', 'overgrown_graves']) {
+    const N = 64;
+    const entry = { cellsPerEdge: N, tileEdgeM: N * 7, grid: new Array(N * N).fill(WorldGen.T.PARK),
+      objects: [], zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant }] } };
+    const creatures = EnemyHabitats.surfaceEncounters(entry, 0, 0, new Set());
+    const zombies = creatures.filter(c => c.kind === 'zombie');
+    assert.gt(zombies.length, 0, variant + ' has zombies');
+    for (const c of zombies) { assert.truthy(c.emergeFromGround); assert.truthy(c._burrowed); }
+    for (const c of creatures.filter(c => c.kind !== 'zombie')) assert.falsy(c.emergeFromGround);
+  }
+});
+
+test('new monsters: requested tiers and attack behavior come from the roster', () => {
+  assert.eq(EnemyRoster.get('minotaur').tier, 4);
+  assert.truthy(EnemyRoster.get('minotaur').movement.chargeOnly);
+  assert.eq(EnemyRoster.get('mimic').tier, 3);
+  assert.eq(EnemyRoster.get('jellyfish').tier, 2);
+  assert.eq(EnemyRoster.get('golden_slime').trail.durationSeconds, 600);
+  assert.eq(EnemyRoster.get('sword_spirit').movement.pattern, 'orbit_swoop');
+  assert.gt(EnemyRoster.get('sword_spirit').dmg, 0);
+  assert.falsy(EnemyRoster.get('sword_spirit').steals);
+  assert.truthy(EnemySpawns.caveRows(3, { kinds: EnemyHabitats.FAMILIES.natural }).some(r => r.id === 'gelatinous_cube'));
+});

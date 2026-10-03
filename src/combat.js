@@ -387,33 +387,31 @@
 
   // ── Elites ───────────────────────────────────────────────────────────────
   // A SHINY cave monster is an elite: one multiplier over the kind's HP and
-  // damage together, so the dps identity holds — an elite takes exactly twice as long to kill at any weapon tier
-  // and hits exactly twice as hard. Only MONSTERS are elites: a shiny deer is
-  // game, and the surface slime never rolls shiny at all.
+  // damage together. Elite eligibility owns monster reward rolls; shiny
+  // power applies to every creature, including fauna and coin-stealing ravens.
   const ELITE_MUL = 2;
   function isElite(c) {
     return !!c && !!c.shiny && isEnemyKind(c.kind) && monster(c.kind)?.eliteEligible !== false;
   }
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
-  // A pet RAISED from a baby (SpriteLayout.isBabyPet — found in a nest bush
-  // or hatched from an egg) is twice its kind once grown: HP and bite both,
-  // through powerMul like the elite's, so the dps identity holds — a raised
-  // dog worries a slime in half the time and takes twice the worrying. A
-  // baby is still its kind's size in every sense; the doubling comes with
-  // adulthood. Its own factor, not the elite's: an elite is a MONSTER's
-  // shiny, and a raised pet is shiny for a different reason (it was raised).
+  const SHINY_SPEED_MUL = 1.5;
+  function shinyMul(c) { return c?.shiny ? ELITE_MUL : 1; }
+  function shinySpeedMul(c) { return c?.shiny ? SHINY_SPEED_MUL : 1; }
+  // Raised adults retain their double strength, without stacking that same
+  // shiny identity twice. Shiny babies also receive the universal bonus.
   const RAISED_MUL = 2;
   function raisedMul(c) {
     return (c && c.raised && !SpriteLayout.isBabyPet(c)) ? RAISED_MUL : 1;
   }
 
-  // THE instance's power over its kind's table row — the one factor its HP
-  // pool, its blow and its bounty are scaled by: the elite's. (Home weakens
-  // nothing: a foe too strong for the safe area is simply absent there —
-  // EnemySpawns.homeAllows.) Every per-creature scale reads this; eliteMul alone is
-  // the "is it an elite" half, for callers that ask only that (the elite's
-  // treasure roll, its tint).
-  function powerMul(c) { return eliteMul(c) * raisedMul(c); }
+  // Enlarged crypt ghosts have a separate size-based strength bonus.
+  function ghostSizeMul(c) {
+    if (!SpriteLayout.creatureHaunts(c?.kind)) return 1;
+    const scale = c._artScale ?? c.artScale ?? 1;
+    return EnemyRoster.GHOST_SCALING.rows.reduce((mul, row) =>
+      scale >= row.sizeMultiplier ? Math.max(mul, row.powerMultiplier ?? 1) : mul, 1);
+  }
+  function powerMul(c) { return Math.max(shinyMul(c), raisedMul(c)) * ghostSizeMul(c); }
   // The HP pool of THIS instance — the kind's max times its power.
   // Everything that seeds or refills a creature's HP reads this, never
   // creatureMaxHp(kind) directly, or an elite heals back to half its health.
@@ -551,8 +549,13 @@
   const FLOWER_STATUS_MS = 60 * 1000;
   function isSleeping(c, now = Date.now()) { return !!c && (c._sleepUntil || 0) > now; }
   function isCharmed(c, now = Date.now()) { return !!c && (c._charmUntil || 0) > now; }
+  function isBurrowed(c) { return !!c?._burrowed; }
+  function isDisguised(c) {
+    return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
+  }
+  function isConcealed(c) { return isBurrowed(c) || isDisguised(c); }
   function flowerTarget(c) {
-    return !!c && !c._surfaceInactive && isEnemyKind(c.kind)
+    return !!c && !c._surfaceInactive && !isConcealed(c) && isEnemyKind(c.kind)
       && !(typeof c.id === 'string' && c.id.startsWith('released_'));
   }
   function cancelCreatureAction(c) {
@@ -586,9 +589,10 @@
   // A hostile INSTANCE. A slime tamed with a sapphire (id 'released_…') is a
   // pet: it must never be shot at, auto-engaged, or counted as "an enemy is on
   // screen" for the auto-fire gate. A rose's temporary ally gets the same
-  // targeting exclusion while its charm lasts; its species remains unchanged.
+  // targeting exclusion while its charm lasts; buried creatures are likewise
+  // unavailable until they surface. Their species remains unchanged.
   function isEnemy(c, now = Date.now()) {
-    if (!c || c._surfaceInactive || isCharmed(c, now)) return false;
+    if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now)) return false;
     if (typeof c.id === 'string' && c.id.startsWith('released_')) return false;
     return isEnemyKind(c.kind);
   }
@@ -634,6 +638,7 @@
   // bypassArmor after computing a packet rate, avoiding a per-frame hit floor.
   function damageDealt(c, amount, options = {}) {
     const before = hp(c);
+    if (isConcealed(c)) return 0;
     const raw = Math.max(0, amount) * (root.PotionEffects ? root.PotionEffects.damageMul(c) : 1);
     const hit = options.bypassArmor ? raw : mitigate(raw, monster(c.kind)?.armor || 0);
     if (hit > 0 && before > 0) c._sleepUntil = 0;
@@ -652,7 +657,7 @@
   // Units and the player share the same burn clock and exposure scaling.
   // Unit clocks are performance.now(); state remains local like `_hp`.
   function burnDef() { return Conditions.DEFINITIONS.burning; }
-  function canBurn(c) { return !!c && !monster(c.kind)?.lavaImmune; }
+  function canBurn(c) { return !!c && !isConcealed(c) && !monster(c.kind)?.lavaImmune; }
   function burning(c, now = performance.now()) {
     if (!c?._burnState) return false;
     return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
@@ -851,6 +856,9 @@
   }
 
 
+  function playerAttackIntervalMul(save, now = Date.now()) {
+    return trainingIntervalMul(save, now) * Conditions.attackIntervalMul(save);
+  }
 
   function meleeSwingDamage(relics, mul = 1, playerClass, slot = 'sword') {
     return meleeDps(relics, playerClass, slot) * (mul || 1) * meleeIntervalMs(slot) / 1000;
@@ -926,6 +934,7 @@
   function anyEnemyWithin(x, y, enemies, maxM) {
     const m2 = maxM * maxM;
     for (const e of enemies || []) {
+      if (isConcealed(e)) continue;
       const dx = e.x - x, dy = e.y - y;
       if (dx * dx + dy * dy <= m2) return true;
     }
@@ -1064,6 +1073,7 @@
   function aimAtNearest(x, y, enemies, maxRangeM) {
     let best = null, bestD2 = maxRangeM != null ? maxRangeM * maxRangeM : Infinity;
     for (const e of enemies || []) {
+      if (isConcealed(e)) continue;
       const dx = e.x - x, dy = e.y - y;
       const d2 = dx * dx + dy * dy;
       if (d2 > bestD2 || !(d2 > 0)) continue;
@@ -1145,6 +1155,7 @@
     const travel = Math.min(s.speedMps * dt, Math.max(0, s.rangeM - s.travelledM));
     let contact = null, distance = travel;
     for (const e of targets) {
+      if (isConcealed(e)) continue;
       if (opts?.canHit && !opts.canHit(e, s)) continue;
       const dx = e.x - s.x, dy = e.y - s.y;
       const along = dx * s.vx + dy * s.vy;
@@ -1172,6 +1183,7 @@
     const blocked = opts?.blocked && ((x, y) => opts.blocked(x, y, s));
     const struck = new Set();
     for (const e of targets) {
+      if (isConcealed(e)) continue;
       if (!(s.damage > 0)) break;
       if (opts?.canHit && !opts.canHit(e, s)) continue;
       const key = e.id != null ? e.id : e;
@@ -1201,7 +1213,7 @@
       if (s.projectile === 'fireball') opts?.onFireSegment?.(s.x, s.y, x, y, s);
       s.x = x; s.y = y; s.travelledM += step;
       ignite?.(s.x, s.y, s);
-      if (targets.some(e => (!opts?.canHit || opts.canHit(e, s))
+      if (targets.some(e => !isConcealed(e) && (!opts?.canHit || opts.canHit(e, s))
           && Math.hypot(e.x - x, e.y - y) <= s.radiusM)) {
         explodeShot(s, targets, onHit, opts, cellM);
         return false;
@@ -1301,6 +1313,7 @@
         // The per-shot hit ledger is what stops a slow bolt re-hitting the
         // same foe on every frame it spends crossing them.
         for (const e of targets) {
+          if (isConcealed(e)) continue;
           if (canHit && !canHit(e, s)) continue;
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 > sr2) continue;
@@ -1313,6 +1326,7 @@
       } else {
         let hit = null, bestD2 = sr2;
         for (const e of targets) {
+          if (isConcealed(e)) continue;
           if (canHit && !canHit(e, s)) continue;
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 <= bestD2) { bestD2 = d2; hit = e; }
@@ -1471,12 +1485,12 @@
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    FLOWER_STATUS_MS, isSleeping, isCharmed, applySleep, applyCharm,
+    FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
     canBurn, burning, ignite, burnTick,
-    ELITE_MUL, isElite, eliteMul, RAISED_MUL, raisedMul, powerMul, maxHp,
+    ELITE_MUL, isElite, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
-    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
+    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, playerAttackIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,

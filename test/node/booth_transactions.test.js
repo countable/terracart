@@ -62,18 +62,28 @@
     assert.eq(s.messages[0].art, 'booth_inn_used');
     s.offers[0].onAccept(); assert.eq(s.messages.length, 1);
   });
-  boothTest('booth shop: actual quantity and payment are confirmed, book read waits for receipt dismissal', () => {
+  boothTest('booth shop: each tap buys one, refreshes the price, and leaves book reading until Leave', () => {
     const s = fixture();
-    const price = ShopsMath.standPrice(s.save, ShopsMath.listPrice(s.save, 'book'));
-    s._presentStallOffer(0, 0, { items: ['book'], boothKind: 'scriptorium' });
-    s.offers[0].onAccept(1);
-    assert.eq(s.save.money, 10000 - price);
+    const opts = { items: ['book'], boothKind: 'scriptorium' };
+    const price = () => ShopsMath.standPrice(s.save, ShopsMath.listPrice(s.save, 'book'));
+    let paid = 0;
+    s._presentStallOffer(0, 0, opts);
+    for (let i = 0; i < 2; i++) {
+      const offer = s.offers.at(-1);
+      assert.eq(offer.quantity, undefined);
+      assert.eq(offer.cancelLabel, 'Leave');
+      assert.includes(offer.cost, s.moneyHTML(price()));
+      paid += price();
+      offer.onAccept();
+      offer.repeat();
+      assert.eq(s.save.money, 10000 - paid);
+      assert.eq(Inventory.count(s.save, 'book'), i + 1);
+    }
     assert.truthy(s.grantOptions.deferBookRead);
-    assert.eq(s.messages[0].art, 'booth_scriptorium_used');
-    assert.includes(s.messages[0].body, s.moneyHTML(price));
-    assert.includes(s.messages[0].body, 'Book ×1');
-    assert.eq(s.events.join(), 'committed');
-    s.messages[0].onDismiss(); assert.eq(s.events.join(), 'committed,read');
+    assert.eq(s.messages.length, 0, 'receipts do not interrupt repeated purchases');
+    assert.eq(s.events.join(), 'committed,committed');
+    s.offers.at(-1).onCancel();
+    assert.eq(s.events.join(), 'committed,committed,read');
   });
   boothTest('booth shop: insufficient cash or a refused grant neither charges nor confirms', () => {
     for (const why of ['money', 'bag']) {

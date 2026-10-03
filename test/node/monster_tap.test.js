@@ -8,7 +8,7 @@ test('monster taps: hostile and charmed creatures show only their name within th
     for (const kind of Combat.enemyKinds()) {
       if (SpriteLayout.isSummoned(kind)) continue;
       for (const charmed of [false, true]) {
-        const target = { kind, id: `test_${kind}`, x: 0, y: 0,
+        const target = { kind, id: `test_${kind}`, x: 0, y: 0, _disguiseRevealed: true,
           _charmUntil: charmed ? Date.now() + 60000 : 0 };
         globalThis.WorldGen = { ...original.world,
           forEachItem: (layer, visit) => { if (layer === 'creatures') visit(target); } };

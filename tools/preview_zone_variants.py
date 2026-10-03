@@ -5,6 +5,7 @@ Requires Node.js and Pillow; sprite frames come directly from shipped assets.
 """
 import collections
 import copy
+import datetime
 import base64
 import functools
 import hashlib
@@ -55,11 +56,22 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff):
 def material_art(material):
     """Resolve the same mature wildplant/object frames as render.js."""
     r = art_registry()
+    if material.get('previewArt'): return material['previewArt']
     if material.get('recordType') == 'surface_trap':
         return {'procedural': 'trap_hidden', 'source': 'src/textures.js · hidden trap scuff', 'alternates': ['trap_open']}
     if material.get('barrelStyle'):
         return {'sheet': material['barrelStyle'], 'frames': [0]}
     kind = material['kind']
+    if material.get('_zoneObjectFrame') is not None:
+        return {'sheet': 'zone_objects', 'frames': [material['_zoneObjectFrame']]}
+    if kind == 'grove_shrine' and material.get('shrineKind'):
+        return {'sheet': 'shrines', 'frames': [r['shrineKinds'][material['shrineKind']]['frame']]}
+    if kind == 'zone_prop':
+        return {'sheet': 'zone_objects', 'frames': [material['variant']]}
+    if kind == 'headstone':
+        return {'sheet': 'zone_objects', 'frames': [1]}
+    if kind == 'stronghold_wall':
+        return {'sheet': 'stronghold_wall', 'frames': [material.get('variant', 0)], 'preserveFrame': True}
     if kind in r['creatures']:
         creature = r['creatures'][kind]
         sheet, frames = creature['sheet'], [creature.get('directions', {}).get('down', {}).get('idle', [0])[0]]
@@ -102,13 +114,15 @@ def material_art(material):
         species = material.get('species', 'apple')
         sheet, frames = species + '_tree', [r['fruitFrames'][species]['mature']]
     else:
-        sheet, frames = ('approved_charred_stakes' if kind == 'stakes' and material.get('_street') == 'burned' else kind), [0]
+        sheet, frames = ('approved_charred_stakes' if kind == 'stakes' else kind), [0]
     assert sheet in r['assets'], f'No shipping art for {material}'
     return {'sheet': sheet, 'frames': frames, 'preserveFrame': kind == 'tree' or (kind == 'wildplant' and material.get('crop') in ('shrub', 'giant_mushroom')), 'tint': r['creatures'].get(kind, {}).get('tint', 0xffffff),
             'source': r['assets'][sheet]['path'].split('?')[0] + ' · frame ' + ', '.join(map(str, frames))}
 
 
 def art_image(art, extra='', frame=None):
+    if art.get('sheet') == 'chest':
+        return f'<image data-chest-tier="{art["frames"][0] if frame is None else frame}" href="{sprite_png("chest", 0)}" {extra}/>'
     if art.get('procedural'):
         return f'<image data-procedural="{art["procedural"]}" {extra}/>'
     return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame, art.get("preserveFrame", False), art.get("tint", 0xffffff))}" {extra}/>'
@@ -176,8 +190,15 @@ def art_script():
     code += '\nconst WorldGen={PATH_CLASSES:new Set(' + json.dumps(r['pathClasses']) + '),T:{WATER:' + str(r['waterTerrain']) + '}};'
     code += '\nconst SpriteLayout={CELL_PX:' + str(r['cellPx']) + '};\n'
     code += r['variantSource'] + '\n' + r['roadPainter']
-    code += '\nconst paintQuarryLava = (()=>{\n' + r['biomePainter'] + '\nreturn drawLavaTex;})();\n'
+    code += '\nconst previewChestSheet=(()=>{'+r['chestPainter']+';return makeChestTierSheet;})();\n'
     code += '''
+for(const image of document.querySelectorAll('[data-chest-tier]')) {
+  const source=new Image();source.onload=()=>{
+    const sheet=previewChestSheet(source),c=document.createElement('canvas');c.width=c.height=16;
+    c.getContext('2d').drawImage(sheet,Number(image.dataset.chestTier)*16,0,16,16,0,0,16,16);
+    image.setAttribute('href',c.toDataURL());image.dataset.chestReady='true';
+  };source.src=image.getAttribute('href');
+}
 const baked = new Map();
 const scene = {textures:{exists:key=>baked.has(key),createCanvas:(key,w,h)=>{
   const c=document.createElement('canvas');c.width=w;c.height=h;
@@ -190,14 +211,6 @@ for(const image of document.querySelectorAll('[data-procedural]')){
     const [,variant,state,isPath]=key.split(':');
     const c=document.createElement('canvas');c.width=c.height=RoadOverlay.CLEAN_TILE_PX;
     RoadOverlay.paintPavementTile(c.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,isPath==='true',state==='restored',variant);
-    baked.set(key,c.toDataURL());
-  }
-  if(!baked.has(key)&&key==='quarry-lava'){
-    const marks=document.createElement('canvas');marks.width=marks.height=32;
-    let seed=19;const rng=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
-    paintQuarryLava(marks.getContext('2d'),32,rng,0);
-    const c=document.createElement('canvas');c.width=c.height=32;
-    const ctx=c.getContext('2d');ctx.fillStyle='#9a2a10';ctx.fillRect(0,0,32,32);ctx.drawImage(marks,0,0);
     baked.set(key,c.toDataURL());
   }
   if(!baked.has(key)&&key.startsWith('lamp:')){
@@ -305,8 +318,6 @@ def validate(d):
             assert not v['poi']['slots']
             if not v.get('quarryLayout'):
                 assert not v['finds']['count'] and v['guards']['mode'] == 'none'
-        if v['zone'] == 'tar':
-            assert v['guards']['mode'] == 'none'
         if b['type'] in ('line_grid', 'bounded_line_grid'):
             step = b['spacingCells']
             assert all(background_at(v, x, 0) for x in range(step * 3 + 1))
@@ -344,6 +355,13 @@ def creature_at(kind, x, y, unit, label):
     return f'<g class="monster-layer"><circle cx="{x}" cy="{y}" r="{unit*.52}" fill="#4a2527" fill-opacity=".75" stroke="#ff827b" stroke-width=".65"><title>{html.escape(label)}</title></circle>' + art_image(art, f'class="sprite-cell" x="{x-unit*.45}" y="{y-unit*.65}" width="{unit*.9}" height="{unit*.9}"') + '</g>'
 
 
+def ground_pattern(terrain_name, prefix, unit):
+    tile = next(t for t in art_registry()['terrainTiles'] if t['name'] == terrain_name)
+    return (f'<defs><pattern id="{prefix}" patternUnits="userSpaceOnUse" width="{unit}" height="{unit}">'
+            f'<rect width="{unit}" height="{unit}" fill="#{tile["color"]:06x}"/>'
+            f'<image data-ground-type="{tile["type"]}" width="{unit}" height="{unit}"/></pattern></defs>')
+
+
 def svg_for(v, d, detail=False):
     b = v['background']
     side = 9 if detail else (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['previewPlots'][0] + 1 if b['type'] in ('line_grid', 'bounded_line_grid') else 25)
@@ -362,8 +380,20 @@ def svg_for(v, d, detail=False):
         return shipwreck and (max(abs(x),abs(y)) <= reserve or (x == 0 and y == -reserve - 1))
     slots = [s for s in v['poi']['slots'] if not reserved(*s['at'])]
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} {"POI pattern" if detail else "background and POI"}" viewBox="0 0 {side*unit} {side*unit}">', '<rect width="100%" height="100%" fill="#172820"/>']
+    ground_id = f'zone-ground-{v["id"]}-{int(detail)}'
+    parts.append(ground_pattern(registry['zoneKinds'][v['zone']]['terrain'], ground_id, unit))
+    parts.append(f'<rect width="100%" height="100%" fill="url(#{ground_id})"/>')
+    accent = registry['groundAccents'].get(v['id'])
+    if accent:
+        for y in range(side):
+            for x in range(side):
+                material = background_at(v, x + poi_x - draw_x, y + poi_y - draw_y)
+                if accent.get('fullCoverage') or (v['id'] == 'silent_circle' and [x,y] == [draw_x,draw_y]) or (v['id'] == 'ancient_grove' and material in ('tree','shrub')):
+                    parts.append(f'<rect x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="#{accent["color"]:06x}"/><image data-ground-type="{accent["terrain"]}" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"/>')
     art_prefix = f'zone-art-{v["id"]}-{int(detail)}'
     materials = {name: dict(m, **({('_plantArt' if m['kind'] == 'wildplant' else '_objectArt'): v['materialLooks'][name]} if name in v.get('materialLooks', {}) else {})) for name, m in d['materials'].items() if m.get('recordType') != 'treasure'}
+    for name, frames in v.get('materialFrames', {}).items():
+        if name in materials: materials[name]['_zoneObjectFrame'] = frames[0]
     parts.append(sprite_symbols(materials, art_prefix))
     if not detail or b['type'] != 'seeded_scatter':
         parts.append('<g class="background">')
@@ -396,6 +426,12 @@ def svg_for(v, d, detail=False):
     parts.append(light_guide(cx,cy,unit*light['radiusCells'],color))
     if shrine:
         art = wreck if shipwreck else registry['groveShrines'][0]
+        mapped = next((row for row in registry['shrineKinds'].values() if v['id'] in row['zones']), None)
+        if not shipwreck and v.get('shrineFrame') is not None:
+            art = {'key': 'zone_objects', 'frame': v['shrineFrame'], 'scale': 4 / 3}
+        elif not shipwreck and mapped:
+            art = {'key': 'shrines', 'frame': mapped['frame'], 'scale': 2}
+
         asset = registry['assets'][art['key']]
         # Preserve native sprite proportions and the shipping scale.
         width = asset.get('frameWidth',1536 if shipwreck else 48)*art['scale']/registry['cellPx']*unit
@@ -475,7 +511,7 @@ def street_svg(v, cell_m, detail=False):
         tile = terrain_tiles[terrain_type]
         pid = f'street-ground-{v["id"]}-{terrain_type}{suffix}'
         colour = f'#{tile["color"]:06x}'
-        ground.append(f'<defs><pattern id="{pid}" patternUnits="userSpaceOnUse" width="{cell_m}" height="{cell_m}"><rect width="{cell_m}" height="{cell_m}" fill="{colour}"/><image class="sprite-cell" data-ground-type="{terrain_type}" width="{cell_m}" height="{cell_m}"/></pattern></defs>')
+        ground.append(f'<defs><pattern id="{pid}" patternUnits="userSpaceOnUse" width="{cell_m}" height="{cell_m}"><rect width="{cell_m}" height="{cell_m}" fill="{colour}"/><image data-ground-type="{terrain_type}" width="{cell_m}" height="{cell_m}"/></pattern></defs>')
     base_pid = f'street-ground-{v["id"]}-{v["baseTerrain"]}{suffix}'
     ground.append(f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="url(#{base_pid})"/>')
     for cell in v['groundCells']:
@@ -545,7 +581,7 @@ def street_section(streets):
         if tiers: monsters += '; stays defeated; placement and home safety can suppress guards'
         affinity = ', '.join(v.get('affinities', [])) or 'Neutral'
         affinity_details = f'<dt>Affinities</dt><dd>{html.escape(affinity)}</dd>' + (f'<dt>Selection</dt><dd data-affinity-row="{v["id"]}" data-road-size="{v["size"]}"></dd>' if v['size'] != 'path' else '')
-        terrain_details = f'<dt>Terrain verge</dt><dd>{html.escape(v.get("terrain", "").replace("_", " ").title())} · one cell ({streets["cellM"]:g} m) beyond the road edge, on eligible ground. Special zones take precedence.</dd>'
+        terrain_details = f'<dt>Terrain verge</dt><dd>{html.escape(v.get("terrain", "").replace("_", " ").title())} · {streets["terrainVergeCells"]:g} cells ({streets["cellM"]*streets["terrainVergeCells"]:g} m) beyond the road edge, on eligible ground. Special zones take precedence.</dd>'
         scenic_details = (f'<dt>Geography</dt><dd>{html.escape(v["selection"])}</dd><dt>Rewards</dt><dd>{html.escape(v["rewards"])}</dd>' if v['size'] == 'path' else '')
         cards.append(f'''<article id="street-{v['id']}"><p data-sandbox="road:{v['id']}"></p><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{scenic_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
     legend = ''
@@ -562,7 +598,7 @@ target.textContent=row.id==='golden' ? `Fixed rarity · ${(row.probability*100).
 select.addEventListener('change',update);update();
 })();</script>"""
     grouped = ''.join(f'<section id="roads-{size}"><h2>{label}</h2><div class="cards">' + ''.join(card for row, card in zip(streets['rows'], cards) if row['size'] == size) + '</div></section>' for size, label in [('minor', 'Minor roads'), ('major', 'Major roads'), ('path', 'Scenic paths')])
-    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><details><summary>How road samples are generated</summary><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples begin on public park ground, then the shipping terrain pass paints each variant’s one-cell verge before special-zone painting and surface dressing. Path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys unthemed. Affinities and street names adjust the choice among special roads, without changing that rarity. Golden Road keeps its fixed 2% share of all minor keys. Long and tile-crossing roads retain their theme in deterministic patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement and verge carpet decoration use the game’s painters, including carpet colour, width, soft edges and any symbols. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p></details><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
+    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><details><summary>How road samples are generated</summary><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples begin on public park ground, then the shipping terrain pass paints each variant’s {streets['terrainVergeCells']:g}-cell verge before special-zone painting and surface dressing. Path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys unthemed. Affinities and street names adjust the choice among special roads, without changing that rarity. Golden Road keeps its fixed 2% share of all minor keys. Long and tile-crossing roads retain their theme in deterministic patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement and verge carpet decoration use the game’s painters, including carpet colour, width, soft edges and any symbols. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p></details><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
 
 
 @functools.lru_cache(maxsize=None)
@@ -581,31 +617,36 @@ def quarry_card(v, d):
     definitions = {**d['materials'],
                    'tool_crate': {'kind':'box'}, 'barrel': {'kind':'barrel'}, 'goblin': {'kind':'goblin'}}
     names = {o['material'] for o in fixture['objects']}
-    materials = {name:definitions[name] for name in names if name != 'treasure_x'}
+    materials = {name: next(o for o in fixture['objects'] if o['material'] == name) for name in names if name != 'treasure_x'}
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} layout" viewBox="0 0 {side*unit} {side*unit}">',
              '<rect width="100%" height="100%" fill="#172820"/>', sprite_symbols(materials, prefix)]
-    ground = {'crater':'#45413b','abandoned':'#555042','strip_mine':'#55544b','stronghold':'#505044'}.get(v.get('layout'),'#4c4b43')
+    parts.append(ground_pattern('RESIDENTIAL', prefix+'-outside', unit))
+    parts.append(f'<rect width="100%" height="100%" fill="url(#{prefix}-outside)"/>')
+    parts.append(ground_pattern('ROCK', prefix+'-ground', unit))
+    ground = f'url(#{prefix}-ground)'
     for x,y in fixture['coverage']:
         parts.append(f'<rect x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="{ground}"/>')
+    if fixture.get('terrain'):
+        parts.append(ground_pattern('CAVE_LAVA', prefix+'-lava', unit))
     for terrain in fixture.get('terrain', []):
         x,y = terrain['cell']
         if terrain['kind'] == 'lava':
-            parts.append(f'<circle cx="{x*unit+5}" cy="{y*unit+5}" r="9" fill="#dc571b" opacity=".1"/>')
-            parts.append(art_image({'procedural':'quarry-lava'},f'class="sprite-cell" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"'))
+            parts.append(f'<rect class="lava-ground" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="url(#{prefix}-lava)"><title>Lava · hazardous ground</title></rect>')
     for line in fixture['sourceLines']:
         points = ' '.join(f'{x*unit},{y*unit}' for x,y in line)
         parts.append(f'<polyline class="quarry-source" points="{points}" fill="none" stroke="#c3af76" stroke-width="1" stroke-dasharray="3 3"><title>Removed parking-lane source geometry</title></polyline>')
     for o in fixture['objects']:
+        if o.get('coverRockId'): continue  # Still hidden beneath its intact rock.
         material = o['material']; x,y = o['cell']
         if material == 'treasure_x':
             cx,cy = x*unit+5,y*unit+5
             parts.append(f'<g class="treasure-mark"><circle cx="{cx}" cy="{cy}" r="4" fill="#c7b28a" opacity=".35"/><path d="M {cx-2.5} {cy-2.5} L {cx+2.5} {cy+2.5} M {cx+2.5} {cy-2.5} L {cx-2.5} {cy+2.5}" stroke="#2a1d10" stroke-width="1.1"><title>Extra buried treasure · one-off find</title></path></g>')
         else:
-            parts.append(sprite_cell(prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
+            parts.append(art_image(material_art(o), f'class="sprite-cell" x="{x*unit+1}" y="{y*unit+1}" width="{unit-2}" height="{unit-2}"'))
     parts.append('</svg>')
     labels = {'stone':'stone', 'crimson_ore':'Crimson ore', 'crystal':'Sapphire crystals',
-              'copper_rock':'copper ore rocks', 'tool_crate':'one-off tool crates',
-              'goblin':'lurking goblins', 'split_slime':'splitting slimes', 'treasure_x':'extra buried finds', 'driftwood':'driftwood'}
+              'copper_rock':'copper ore rocks', 'tool_crate':'one-off tool crates', 'chest':'T2 chests', 'clay_pot':'clay pots',
+              'goblin':'lurking goblins', 'split_slime':'splitting slimes', 'treasure_x':'buried finds (covered marks hidden)', 'driftwood':'driftwood', 'stronghold_wall':'foundation walls', 'shrine':'daily shrine', 'stakes':'ground spikes (slow movement)'}
     counts = collections.Counter(o['material'] for o in fixture['objects'])
     actual = ' · '.join(f'{n} {labels.get(name,name)}' for name,n in counts.items())
     legend = []
@@ -619,12 +660,24 @@ def quarry_card(v, d):
     metadata = ''.join(f'<dt>{label}</dt><dd>{html.escape(v[key])}</dd>' for label,key in [
         ('Layout','layoutDescription'), ('Hazards','hazardsDescription'),
         ('Lighting','lightingDescription'), ('After a visit','persistenceDescription')])
+    if v.get('shrineChance') and v['layout'] != 'crater': metadata = metadata.replace(html.escape(v['lightingDescription']), 'Ember altar glow when present; nearby street lamps retain their ordinary behavior.')
     metadata += f'<dt>Guards</dt><dd>Up to {v["guards"].get("count", 0)} per complete site.</dd>'
-    metadata += f'<dt>Finite finds</dt><dd>Up to {v["finds"]["count"]} per complete site; actual placements counted below.</dd>'
+    if v.get('buriedTreasureChance'):
+        metadata += f'<dt>Buried finds</dt><dd>{v["buriedTreasureChance"]*100:g}% chance beneath each ordinary stone. Hidden until that stone is mined; each find pays once.</dd>'
+    else:
+        metadata += f'<dt>Finite finds</dt><dd>Up to {v["finds"]["count"]} per complete site; actual placements counted below.</dd>'
+    rules = art_registry()['quarryRockRules']
+    metadata += f'<dt>Mining</dt><dd>Ordinary quarry stones cost {rules["energyMul"]:g}× mining energy and yield {rules["stones"]} stone. The first mined rock guarantees a Sapphire; later rocks have an additional {art_registry()["quarrySapphireChance"]*100:g}% Sapphire chance.</dd>'
+    if v['layout'] == 'crater':
+        metadata += '<dt>Shrine</dt><dd>Ember altar on the dry centre of the lava pool. Cross hazardous lava to reach its daily boon.</dd>'
+    elif v.get('shrineChance'):
+        metadata += f'<dt>Shrine</dt><dd>{v["shrineChance"]*100:g}% chance of an Ember altar at each complete site, when a safe empty seat exists. Daily boon.</dd>'
+
     story = f'<p><strong>Place in the story.</strong> {html.escape(v["storyConnection"])}</p>'
     note = '<p><small>Copper ore rocks use normal mining; each one-off tool crate contains an iron pick.</small></p>' if v['layout']=='abandoned' else ''
+    if v.get('buriedTreasureChance'): note += '<p>Covered treasure is counted below but its X stays hidden in the drawing until the covering rock is mined.</p>'
     if fixture.get('terrain'):
-        actual += f' · {len(fixture["terrain"])} lava vents'
+        actual += f' · {len(fixture["terrain"])} lava cells'
     shortfalls = [reason for row in fixture['diagnostics'] for reason in row.get('shortfalls', [])]
     if shortfalls:
         note += '<p>Placement shortfalls: ' + html.escape(', '.join(shortfalls)) + '</p>'
@@ -648,7 +701,7 @@ def basic_tile_section():
 
 def basic_tile_script():
     registry = art_registry()
-    script = registry['biomePainter'] + '\nconst tiles=' + json.dumps(registry['basicTiles']) + ';'
+    script = registry['biomePainter'] + '\nconst tiles=' + json.dumps(registry['terrainTiles']) + ';'
     script += """
 for (const canvas of document.querySelectorAll('[data-terrain]')) {
   const tile=tiles.find(row=>row.type===Number(canvas.dataset.terrain)),ctx=canvas.getContext('2d');
@@ -708,7 +761,6 @@ def render(d, out):
         hazard = {**b.get('materialDensity', {}), **b.get('hazardDensity', {})}.get('carnivorous_plant', 0)
         if hazard and guard_text == 'None': guard_text = 'No finite guards'
         if hazard: guard_text += f'; static carnivorous plants on {hazard*100:.2f}% of motif cells'
-        if v['zone'] == 'tar': guard_text = 'No authored guards or garrison'
         if guard.get('count') or hazard: guard_text += '; defeated guards/plants stay defeated'
         light = art_registry()['lighting']['shrine' if v['zone'] in ('grove','beach') else 'poi']
         light_color = '#%06x' % light['colour']
@@ -720,11 +772,19 @@ def render(d, out):
             source = art_registry()['wildplantRules'].get(crop, {}).get('light')
             if source: light_text += f'; {crop} glow {art_registry()["lighting"][source]["radiusCells"]:g} cells'
         light_text += '; street lamps ' + (f'use zone tint {v["lampGlow"]} (overrides street)' if v.get('lampGlow') else 'retain street variant colour')
+        shrine_row = next((r for r in art_registry()['shrineKinds'].values() if v['id'] in r['zones']), None)
+        reward_row = art_registry()['shrineRewards'].get(v['id'])
+        if reward_row:
+            shrine_text = reward_row['name'] + ': ' + ('a full-screen coin burst, once per UTC day' if reward_row.get('fillScreen') else reward_row['reward'])
+        elif shrine_row:
+            shrine_text = shrine_row['name'] + ': ' + shrine_row.get('boon', shrine_row.get('lever', 'temporary')) + ' boon, once per UTC day'
+        else:
+            shrine_text = 'Daily treasure gift' if v['zone'] in ('grove', 'beach') else 'No additional shrine'
         reef_note = ''
         if v.get('reef'):
             reef = v['reef']
             reef_note = f'<p>Up to {reef["landOre"]["count"]} scattered pick-gated ore rocks on land; coral extends into nearby water with up to {len(reef["chestTiers"])} one-time T2–T3 chests within dry-shore reach.</p><svg viewBox="0 0 192 48">' + ''.join(f'<g transform="translate({i*48},0)">'+art_image({'sheet':'reef_coral','frames':[i]}, 'width="48" height="48"')+'</g>' for i in range(4)) + '</svg><p><a href="/zone-object-sheets/#live-mystic_reef">See the water treatment at a real site</a></p>'
-        cards.append(f'''<article id="{v['id']}"><p data-sandbox="{v['zone']}"></p><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p>{reef_note}<dl><dt>Traits</dt><dd>{html.escape(", ".join(art_registry()["zoneTraits"].get(v["id"], []))) or "Neutral"}</dd><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Finds</dt><dd>{html.escape(find_text)} · {v['finds']['rarity']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Monsters</dt><dd>{guard_text}</dd><dt>Lighting</dt><dd><span class="swatch" style="background:{light_color}"></span>{light_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
+        cards.append(f'''<article id="{v['id']}"><p data-sandbox="{v['zone']}"></p><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p>{reef_note}<dl><dt>Traits</dt><dd>{html.escape(", ".join(art_registry()["zoneTraits"].get(v["id"], []))) or "Neutral"}</dd><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Shrine</dt><dd>{html.escape(shrine_text)}</dd><dt>Finds</dt><dd>{html.escape(find_text)} · {v['finds']['rarity']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Monsters</dt><dd>{guard_text}</dd><dt>Lighting</dt><dd><span class="swatch" style="background:{light_color}"></span>{light_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
     page = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Zone and street variants · pattern review</title><style>
 *{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
     page = page.replace('</style>', art_styles() + '</style>')
@@ -737,7 +797,9 @@ def render(d, out):
     quick_links += '<a href="#roads-minor">Minor roads</a><a href="#roads-major">Major roads</a><a href="#roads-path">Scenic paths</a><a href="#basic-zones">Basic tile zones</a>'
     page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav" aria-label="Zone categories">{quick_links}</nav>'
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
-    page += '<section id="zones"><h2>Special zones</h2><p>Current runtime definitions. Previews show representative patterns before terrain and occupied cells clip placement. <a href="zone-variants.json">Zone data</a></p>'
+    generated_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    page += f'<p>Static snapshot generated {generated_at} from the checked-out game definitions and shipped art. This page does not fetch live game data; regenerate it after changes.</p>'
+    page += '<section id="zones"><h2>Special zones</h2><p>Runtime definitions at generation time. Previews show representative patterns before terrain and occupied cells clip placement. <a href="zone-variants.json">Zone data</a></p>'
     for key in categories:
         page += f'<section id="category-{key}"><h2>{category_names.get(key, key.title())}</h2>'
         if key == 'quarry':
@@ -745,7 +807,7 @@ def render(d, out):
         page += '<div class="cards">'
         page += ''.join(card for variant, card in zip(d['variants'], cards) if variant['zone'] == key)
         page += '</div></section>'
-    page += '</section>' + street_section(streets) + basic_tile_section() + art_script() + basic_tile_script() + '<script src="../src/sandbox_destinations.js"></script><script src="../tools/sandbox-links.js"></script></body></html>'
+    page += '</section>' + street_section(streets) + basic_tile_section() + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
     (out/'street-variants.json').write_text(json.dumps(streets, indent=2)+'\n')
     (out/'zone-variants.json').write_text(json.dumps(d,indent=2)+'\n')

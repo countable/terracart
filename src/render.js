@@ -1392,11 +1392,52 @@ Render.rampartPiece = function (scene, groundY, rank = 1) {
   return sprite;
 };
 
+// Camouflage uses the same art and scale as its neighbouring wildplants.
+Render.drawCreatureDisguise = function (sprite, creature, sx, sy, now) {
+  if (!Combat.isDisguised(creature)) return false;
+  const disguise = EnemyRoster.get(creature.kind).disguise;
+  const look = wildplantSprite({ crop: disguise.crop, _plantArt: disguise.look });
+  sprite.anims?.stop();
+  sprite.setTexture(look.sheet, look.frame || 0);
+  sprite.setCrop();
+  sprite.setOrigin(0.5, 0.5).setScale(look.scale || 2).setPosition(Math.round(sx), Math.round(sy));
+  const phase = (now + strHash31(creature.id || '')) / disguise.wigglePeriodMs * Math.PI * 2;
+  sprite.setRotation(Math.sin(phase) * disguise.wiggleRadians).setFlipX(false).setTint(0xffffff).setAlpha(1);
+  Render.setShine(sprite, false, creature.id);
+  return true;
+};
+
+// A reusable crop animation needs no additional frames in the source sheet.
+Render.applyEmergence = function (sprite, creature, now) {
+  sprite.setCrop();
+  if (!(creature._emergeUntil > now)) return;
+  const progress = Math.max(0, Math.min(1,
+    (now - creature._emergeT0) / (creature._emergeUntil - creature._emergeT0)));
+  const height = sprite.frame.realHeight, width = sprite.frame.realWidth;
+  sprite.setCrop(0, 0, width, Math.max(1, height * progress));
+  sprite.y += height * sprite.scaleY * (1 - progress);
+};
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
   scene._groundFireGfx?.clear();
   const fireNow = Date.now();
+  scene._slimeTrailGfx?.clear();
+  for (const patch of Object.values(scene.save.slimeTrails || {})) {
+    if (patch.depth !== (scene.depth || 0) || patch.expiresAt <= fireNow) continue;
+    const at = worldMetersToScreen(scene, patch.x, patch.y);
+    const radius = patch.radius / scene.cellM * CELL_PX;
+    if (!scene._slimeTrailGfx) {
+      scene._slimeTrailGfx = scene.add.graphics();
+      scene.cobbleContainer.add(scene._slimeTrailGfx);
+    }
+    const fade = Math.min(1, (patch.expiresAt - fireNow) / 10000);
+    scene._slimeTrailGfx.fillStyle(0xd6a523, 0.65 * fade);
+    scene._slimeTrailGfx.fillCircle(at.x, at.y, radius);
+    scene._slimeTrailGfx.fillStyle(0xffe071, 0.5 * fade);
+    scene._slimeTrailGfx.fillCircle(at.x - radius * 0.2, at.y - radius * 0.2, radius * 0.4);
+  }
   // One read per pass — every building-art decision below asks it, and a
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
@@ -2500,7 +2541,7 @@ Render.drawCells = function drawCells(scene) {
   if ((scene.depth || 0) > 0) g.lineStyle(2, 0xc9b48a, 0.6);
   else g.lineStyle(2, 0x2a1d10, 0.55);
   const drawX = (tr) => {
-    if (!tr || found.has(tr.id)) return;
+    if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
@@ -2884,8 +2925,8 @@ Render.drawObjects = function drawObjects(scene) {
   const openedSet = setOf(scene.save.opened);
   // The day ledger (interactables.js dayLedgerAges — id → days since taken):
   // a pot of gold, a courier's post, the chapel's blessing or a grove shrine's gift
-  // taken TODAY, or a crate / barrel inside its restock days — unlit (and a
-  // pot, rack or crate hidden, a barrel smashed) until it comes back.
+  // taken TODAY, or a crate inside its restock days — unlit (and a
+  // pot, rack or crate hidden) until it comes back.
   const burstSet = dayLedgerAges(scene.save);
   // The frame's spent sets, built ONCE and handed to isSpent (the sprite cull
   // below) and poiLit (the POI light) alike.
@@ -3033,7 +3074,7 @@ Render.drawObjects = function drawObjects(scene) {
           if (caughtSet.has(c.id)) continue;
           if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
           if (c._surfaceInactive) continue;
-          creatureList.push({ c, dx, dy });
+          if (!c._burrowed) creatureList.push({ c, dx, dy });
           _boot_kept++;
         }
       }
@@ -3189,7 +3230,7 @@ Render.drawObjects = function drawObjects(scene) {
   // also what a looted trunk chest has always done, so both tiers now behave
   // the same. (The tap target survives either way — interactables.js still
   // flashes "Picked clean already."; the pad + label persist via objList.)
-  // A spent BARREL is not dropped: it stands SMASHED until it restocks (one
+  // A spent BARREL is not dropped: it stays SMASHED permanently (one
   // art per state — the chest spec's key reads the flag stamped here, once
   // per frame, off the same isSpent every other object is culled by).
   const filteredObj = objList.filter(({ o }) => {
@@ -3212,6 +3253,20 @@ Render.drawObjects = function drawObjects(scene) {
   // Every upright piece shares one continuous ground-Y order. Pixel offsets
   // come from the same seating geometry as the art, converted back to metres.
   const groundY = (it, offsetPx = 0) => pWorldY + it.dy + offsetPx * scene.cellM / CELL_PX;
+  // Every support fits within one cell of its anchor, including band ends.
+  // Reject distant visible props before copying art records or testing shapes.
+  const stepObjects = [];
+  for (const it of filteredObj) {
+    if (Math.abs(it.dx) > scene.cellM || Math.abs(it.dy) > scene.cellM) continue;
+    const art = connectedArt.get(it.o);
+    stepObjects.push(art ? { ...it.o, ...art, _stepSource: it.o } : it.o);
+  }
+  for (const it of plantedList) {
+    if (!it.p.wildId || Math.abs(it.dx) > scene.cellM || Math.abs(it.dy) > scene.cellM) continue;
+    stepObjects.push({ ...it.p, kind: 'wildplant', _stepSource: it.p });
+  }
+  scene._updateObstacleStep?.(stepObjects);
+  const supports = new Set((scene._obstacleStep?.supports || []).map(o => o._stepSource || o));
   const zList = [];
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
@@ -3220,8 +3275,12 @@ Render.drawObjects = function drawObjects(scene) {
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
   for (const it of creatureList) zList.push({ it, rank: 3,
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
+  // The ground shadow stays below props. The raised body clears only its
+  // supporting mid-height pieces; tall trees retain ordinary depth ordering.
+  const playerGroundY = Math.max(scene.startWorldM.y + scene.playerM.y,
+    ...zList.filter(row => supports.has(row.it?.o || row.it?.p)).map(row => row.groundY + 0.001));
   if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
-    groundY: scene.startWorldM.y + scene.playerM.y, rank: 3 });
+    groundY: playerGroundY, rank: 3 });
   zList.push(...(scene._uprightPieces || []), ...(scene._buildingUprightPieces || []),
     ...(scene._peerUprightPieces || []));
   Render.sortWorldDepth(zList);
@@ -3938,11 +3997,8 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
   const _plantNow = Date.now();
-  // The nest bush's swing, degrees. 7 until Oct 2026 — at the wildplant's
-  // size that read as a shiver a player could miss; a secret that is never
-  // noticed is no secret. The show's length is the beat's (items.js
-  // NEST_BUSH_BEAT.showMs).
-  const NEST_WIGGLE_DEG = 16;
+  // The nest bush's swing, degrees; its beat length lives in NEST_BUSH_BEAT.
+  const NEST_WIGGLE_DEG = 8;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -3988,7 +4044,7 @@ Render.drawObjects = function drawObjects(scene) {
     const ov = wildplantSprite(p);
     if (ov && ov.custom) {
       // Custom-sheet wildplants. Some are one frame (longgrass, the flowers),
-      // others vary per cell — the shell's three cowries, the mushroom's two
+      // others vary per cell — the mushroom's two
       // cave caps — so the same world cell always draws the same art while the
       // field reads as varied. WHICH frame is items.js' call, not this pass's:
       // wildplantFrame owns both the hash and the crop's declared frame list,
@@ -4165,6 +4221,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { c, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    if (Render.drawCreatureDisguise(s, c, sx, sy, performance.now())) return;
     // ONE BRANCH FOR EVERY CREATURE. This was a seven-way if-else on the kind
     // (cow / cat|dog / deer / rabbit / crow / butterfly / monster / slime)
     // whose branches differed in nothing but the sheet, how the frames are
@@ -4208,6 +4265,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
+    Render.applyEmergence(s, c, performance.now());
     // Reset every pooled body: the next creature may reuse a resting NPC sprite.
     s.setRotation(npcArt && NPC.isDormant(c) ? Math.PI / 2 : 0);
     if (npcArt && NPC.isDormant(c)) s.setOrigin(0.5, 0.5);
@@ -4441,9 +4499,10 @@ Render.objectAppearance = function (scene, houseRoles) {
   // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
   // 32px cell.
   const CRATE_SCALE = 0.8;
-  // A BARREL (a bin — loot.js isBarrel) and a BIKE RACK (isBikeRack): 16px
-  // generated props, a touch bigger than the crate they stand in for.
+  // Bike racks use their original small-prop scale. Wooden barrels use a
+  // 24px frame at half their former size, including the smashed frame.
   const SMALL_POI_SCALE = 1.3;
+  const BARREL_SCALE = 2 / 3;
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.
@@ -4678,7 +4737,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // opened chest never reaches the renderer (filtered out above), so a
     // crate is either closed or gone. The one exception is the BARREL, which
     // is never dropped: spent, its barrel or clay pot stands smashed (o._smashed,
-    // stamped by the filter) until it restocks — one art per state.
+    // stamped by the filter) permanently — one art per state.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects each tier's recoloured chest frame and
               // the produce stand's awning. Procedural pots of gold have no frame.
@@ -4707,11 +4766,11 @@ Render.objectAppearance = function (scene, houseRoles) {
               // uses CHEST_SCALE to retain the prior ~22px visible width.
               // The stall and the pot of gold
               // are structures, not chests. The pot is a further 20% smaller.
-              // A barrel and a bike rack are 16px generated props drawn at
-              // SMALL_POI_SCALE (~21px) and seated like the crate.
+              // Wooden barrels fill 16px; clay pots keep their existing size.
+              // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : (L.barrel ? 4 / 3 : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
+                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : 4 / 3) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -4848,7 +4907,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // and the iron stakes are the Burned Row's hazards (they SLOW the body —
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    stakes:   { key: (o) => o._street === 'burned' ? 'approved_charred_stakes' : 'stakes',   frame: 0, origin: [0.5, 0.5], scale: o => o._street === 'burned' ? 4 / 3 : 1.6, seat: true, shadow: true },
+    stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);

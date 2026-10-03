@@ -549,6 +549,7 @@ test('ghost pump: D4 enlarges groups and D6 enlarges both ghost colours', () => 
         for (const c of s._entry.creatures) {
           assert.eq(c.kind, 'ghost');
           assert.eq(c._artScale, depth >= 6 ? 1.5 : 1);
+          assert.eq(Combat.maxHp(c), EnemyRoster.get(c.kind).hp * (depth >= 6 ? 2 : 1));
         }
       }
       Math.random = () => 0;
@@ -557,6 +558,7 @@ test('ghost pump: D4 enlarges groups and D6 enlarges both ghost colours', () => 
       assert.eq(s._entry.creatures.length, 2);
       for (const c of s._entry.creatures) {
         assert.eq(c.kind, 'pink_ghost'); assert.eq(c._artScale, 1.5);
+        assert.eq(Combat.maxHp(c), EnemyRoster.get(c.kind).hp * 2);
       }
     } finally { Math.random = random; }
   });

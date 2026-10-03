@@ -74,10 +74,10 @@ test('copy: the plant flash says the crop by name, and what it needs next', () =
 
 // ── One message, one wording ────────────────────────────────────────────────
 
-test('copy: "bag full" is one line raised from both call sites', () => {
+test('copy: "bag full" is one line shared by inventory refusals', () => {
   assert.truthy(/const BAG_FULL_MSG = '[^']+';/.test(SCENE_SRC), 'app.js owns one constant');
-  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 3,
-    'declared once, used at both the drop and the buy refusal');
+  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 4,
+    'declared once, used for drops, purchases and smelting');
   assert.falsy(/flash\('bag full'/i.test(SCENE_SRC), 'neither casing survives as a literal');
   const msg = SCENE_SRC.match(/const BAG_FULL_MSG = '([^']+)';/)[1];
   assert.truthy(/bag/i.test(msg) && /\.$/.test(msg), 'it is a sentence about the bag: ' + msg);

@@ -12,6 +12,8 @@
   // Only isolated remnants keep ordinary rubble.
   const WALL_FRAME_BY_MASK = { 10: 0, 5: 1, 6: 2, 12: 3, 3: 4, 9: 5,
     11: 6, 7: 7, 14: 8, 13: 9, 15: 10, 4: 11, 8: 12, 1: 13, 2: 14 };
+  const WALL_MASK_BY_FRAME = Object.fromEntries(Object.entries(WALL_FRAME_BY_MASK).map(([mask, frame]) => [frame, Number(mask)]));
+  function wallMaskForFrame(frame) { return WALL_MASK_BY_FRAME[frame] ?? 0; }
   function wallFrameAt(cells, i, N) {
     const x = i % N, y = Math.floor(i / N);
     const mask = (y > 0 && cells.has(i - N) ? 1 : 0)
@@ -19,6 +21,39 @@
       | (y < N - 1 && cells.has(i + N) ? 4 : 0)
       | (x > 0 && cells.has(i - 1) ? 8 : 0);
     return WALL_FRAME_BY_MASK[mask] ?? null;
+  }
+  // Authored mine mouths are ordinary generated stairs, so cave loading
+  // mirrors their return ladders and gives each shaft a route farther down.
+  function* entrancesSteps(s, ctx) {
+    const settings = s.variant.entrances, WG = root.WorldGen;
+    if (!settings || !s.a.owned || s.a.clipped) return [];
+    const { N, tx, ty, tileEdgeM, grid } = ctx, opts = ctx.spawnOpts;
+    const covered = new Set(s.cells), selected = [], result = [];
+    const free = i => covered.has(i) && !ctx.tideSeats?.has(i)
+      && !ctx.poiPadCells?.has(i)
+      && WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'cave')
+      && !WG.nearBuildingCell(grid, N, N, i % N, Math.floor(i / N))
+      && !WG.nearPoiCell(opts.pois || [], i % N, Math.floor(i / N));
+    const cells = s.cells.slice().sort((a, b) => noise(tx*N+a%N, ty*N+Math.floor(a/N), 0xca7e)
+      - noise(tx*N+b%N, ty*N+Math.floor(b/N), 0xca7e) || a-b);
+    for (let n = 0; n < cells.length && result.length < settings.count; n++) {
+      if ((n & 255) === 0) yield 'quarry mine entrances';
+      const i = cells[n], ix = i % N, iy = Math.floor(i / N);
+      if (!free(i) || selected.some(j => Math.max(Math.abs(ix-j%N),
+        Math.abs(iy-Math.floor(j/N))) < settings.spacingCells)) continue;
+      const approach = [[0,1],[1,0],[0,-1],[-1,0]].map(([dx,dy]) => [ix+dx,iy+dy])
+        .find(([x,y]) => x >= 0 && y >= 0 && x < N && y < N && free(y*N+x));
+      if (!approach) continue;
+      const step = tileEdgeM / N;
+      result.push(WG.makeObject('staircase', (tx*N+ix+.5)*step, (ty*N+iy+.5)*step,
+        WG.caveStairId('down', 0, tx, ty, ix, iy), { dir:'down', depth:0,
+          zone:'quarry', zoneVariant:s.variant.id, zoneLayer:'entrance', _ix:ix, _iy:iy }));
+      selected.push(i);
+      for (const cell of [i, approach[1]*N+approach[0]]) {
+        opts.occupied.add(cell); s.clear.add(cell); ctx.reservedCells?.add(cell);
+      }
+    }
+    return result;
   }
   function* planSteps(s, { N, tx = 0, ty = 0 }) {
     const settings = root.ZoneVariantData.quarryLayouts;
@@ -52,7 +87,10 @@
         const bx = Math.floor(gx / spacing), by = Math.floor(gy / spacing);
         const sx = bx * spacing + Math.floor(noise(bx, by, 157) * spacing);
         const sy = by * spacing + Math.floor(noise(bx, by, 163) * spacing);
-        if (id === 'quarry-strip-mine' && gx === sx && gy === sy) put(x, y, s.variant.guards.kind);
+        if (id === 'quarry-strip-mine' && gx === sx && gy === sy) {
+          const kinds = s.variant.guards.kinds || [s.variant.guards.kind];
+          put(x, y, kinds[Math.floor(noise(bx, by, 167) * kinds.length)]);
+        }
         else if (h < d.crystal) put(x, y, 'crystal');
         else if (h < d.crystal + d.stone) put(x, y, 'stone');
         else if (h < d.crystal + d.stone + (d.barrel || 0)) put(x, y, 'barrel');
@@ -92,7 +130,8 @@
       }
       // An intact bowl needs room for its rim, ore and an entrance. A sliver
       // should select another quarry form instead of advertising a crater.
-      if (clearance < 3) return plan;
+      const poolRadius = Math.floor(settings.craterPoolSizeCells / 2);
+      if (clearance < poolRadius + 2) return plan;
       const cx = centre % N, cy = Math.floor(centre / N);
       let rx = clearance - 1, ry = clearance - 1;
       const ellipseFits = (ax, ay) => {
@@ -127,18 +166,21 @@
         const rim = d <= 1.04 && [[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy]) =>
           Math.hypot((x + dx - cx) / rx, (y + dy - cy) / ry) > 1.04);
         if (rim) put(x, y, 'stone');
-        if (d < .65 && !rim) bowl.push(i);
+        if (d < 1 && !rim && Math.max(Math.abs(x-cx), Math.abs(y-cy)) > poolRadius) bowl.push(i);
       }
       bowl.sort((a, b) => hash(a % N, Math.floor(a / N), 59) - hash(b % N, Math.floor(b / N), 59) || a - b);
       if (s.a.owned) for (const i of bowl.slice(0, s.variant.finds.count)) { plan.finds.push({ i, material: 'crimson_ore' }); plan.clear.add(i); }
-      const vents = bowl.filter(i => !plan.clear.has(i) && hash(i % N, Math.floor(i / N), 23) < .035);
-      const centreDistance = i => (i % N - cx) ** 2 + (Math.floor(i / N) - cy) ** 2;
-      vents.sort((a, b) => centreDistance(a) - centreDistance(b) || a - b);
-      for (const i of vents.slice(0, settings.craterMaxHazards)) {
-        plan.hazards.push(i); plan.clear.add(i);
+      // A dry altar island sits inside a continuous lava moat. Reserve the
+      // entire square, including the south approach; entrances end at lava.
+      plan.shrineSeat = centre;
+      for (let dy=-poolRadius;dy<=poolRadius;dy++) for (let dx=-poolRadius;dx<=poolRadius;dx++) {
+        const i=(cy+dy)*N+cx+dx;
+        plan.background.delete(i); plan.clear.add(i);
+        if (dx || dy) plan.hazards.push(i);
       }
       return plan;
     }
+    let spikeCount = 0;
     const reserved = new Set();
     const fits = (x, y, width, height = width) => {
       if (x + width > N || y + height > N) return false;
@@ -214,10 +256,14 @@
           for (let yy = y; yy <= b; yy++) for (let xx = x; xx <= r; xx++) {
             if (xx !== cx && (yy === y || xx === x) && hash(xx, yy, 71) < .65) put(xx, yy, 'stone');
           }
-          put(cx, cy, hash(x, y, 41) < .5 ? 'copper_rock' : 'driftwood');
-          // A barrel at half the patches' far corner (Oct 2026): what the
-          // last shift left beside its timber — smashed for a coin or a tool.
-          if (hash(x, y, 47) < .5) put(r, b, 'quarry_barrel');
+          if (hash(x, y, 41) < .5) put(cx, cy, 'copper_rock');
+          else if (spikeCount < settings.abandonedMaxSpikes) { put(cx, cy, 'ground_spikes'); spikeCount++; }
+          // Keep the existing patch roll and double each old barrel into a
+          // corner pair, clear of the central find and the rubble edges.
+          if (hash(x, y, 47) < .5) {
+            put(r, b, 'quarry_barrel');
+            put(r, b - 1, 'quarry_barrel');
+          }
         } else if (id === 'quarry-strip-mine') {
           if (verticalBenches) {
             for (let xx = x; xx <= r; xx += 2) for (let yy = y; yy <= b; yy++) if (yy !== cy) put(xx, yy, 'stone');
@@ -235,19 +281,34 @@
     }
     if (s.a.owned) {
       if (id === 'quarry-strip-mine') for (const centre of centres.slice(0, s.variant.guards.count || 0)) {
-        plan.guards.push({ i: centre, material: s.variant.guards.kind });
+        const kinds = s.variant.guards.kinds || [s.variant.guards.kind];
+        plan.guards.push({ i: centre, material: kinds[plan.guards.length % kinds.length] });
       }
       if (id === 'quarry-abandoned') for (const centre of centres.slice(0, s.variant.finds.count)) plan.finds.push({ i: centre + N, material: 'tool_crate' });
       if (id === 'quarry-stronghold') for (const seats of foundationSeats.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {
         if (plan.guards.length < s.variant.guards.count) plan.guards.push({ i: seats[0], material: 'goblin' });
-        if (plan.finds.length < s.variant.finds.count) plan.finds.push({ i: seats[1], material: 'treasure_x' });
+        if (plan.finds.length < s.variant.finds.count) plan.finds.push({ i: seats[1], material: 'treasure_chest_t2' });
       }
       for (const entry of [...plan.finds, ...plan.guards]) { plan.background.delete(entry.i); plan.clear.add(entry.i); }
     }
     if (id === 'quarry-stronghold') {
+      // Pot seats are interior, outside doors and finite reward/guard seats.
+      for (const m of plan.landmarks) {
+        const [x,y,r,b]=m.bounds;
+        if (hash(x,y,197) >= settings.foundationPotChance) continue;
+        for (let yy=y+1;yy<b;yy++) {
+          let placed=false;
+          for (let xx=x+1;xx<r;xx++) {
+            const i=yy*N+xx;
+            if (!covered.has(i) || plan.clear.has(i) || plan.background.has(i)) continue;
+            put(xx,yy,'clay_pot'); placed=true; break;
+          }
+          if (placed) break;
+        }
+      }
       // Resolve joins only after doors, buried finds and guard seats have
       // removed their cells, so exposed wall ends receive their matching cap.
-      const walls = new Set(plan.background.keys());
+      const walls = new Set([...plan.background.keys()].filter(i => plan.background.get(i) === 'stone'));
       for (const i of walls) {
         const frame = wallFrameAt(walls, i, N);
         if (frame == null) continue;
@@ -256,6 +317,14 @@
       }
     }
     return plan;
+  }
+  function weightedIndexForHash(hash, variants = root.ZoneVariants.forKind('quarry')) {
+    let ticket = (hash >>> 0) / 4294967296 * variants.reduce((sum, v) => sum + v.weight, 0);
+    for (let i = 0; i < variants.length; i++) {
+      ticket -= variants[i].weight;
+      if (ticket < 0) return i;
+    }
+    return variants.length - 1;
   }
   // Ruins need readable surviving walls; craters need a broader pocket and
   // enough total ground. Measure usable squares, respecting holes and bends.
@@ -275,19 +344,26 @@
     const variants = all.filter(v => v.id === 'quarry-crater'
       ? cells.length >= settings.largeSiteMinCells && widest >= settings.broadPatchSizeCells
       : true);
-    // Keep a fitting site's original roll. Only an ineligible roll maps into
-    // the smaller pool, so admitting ruins restores existing fitting sites.
-    const original = variants.indexOf(all[start % all.length]);
-    start = original >= 0 ? original : start % variants.length;
-    for (let n = 0; n < variants.length; n++) {
-      const variant = variants[(start + n) % variants.length];
+    // Preserve any fitting original choice. A rejected roll is redistributed
+    // across all fitting layouts by weight, never handed to the next table row.
+    const original = all[start % all.length];
+    const candidates = variants.includes(original)
+      ? [original, ...variants.filter(v => v !== original)] : variants;
+    const fitting = [];
+    for (const variant of candidates) {
       const plan = yield* planSteps({ a: { owned: true }, variant, cells }, context);
       // Find/guard counts remain maxima, not minimum occupancy requirements.
-      if (plan.landmarks.length && (!variant.finds.count || plan.finds.length)
-          && (!variant.guards.count || plan.guards.length)) return variant.id;
+      if (!plan.landmarks.length || (variant.finds.count && !plan.finds.length)
+          || (variant.guards.count && !plan.guards.length)) continue;
+      if (variant === original) return variant.id;
+      fitting.push(variant);
     }
     // Slivers that cannot seat an authored composition remain ordinary ground.
-    return null;
+    if (!fitting.length) return null;
+    const siteHash = context.variantHash ?? ((Math.imul(context.tx || 0, 73856093)
+      ^ Math.imul(context.ty || 0, 19349663) ^ Math.imul(sorted[0], 83492791)) >>> 0);
+    const fallbackHash = Math.floor(noise(siteHash, 0, 193) * 4294967296);
+    return fitting[weightedIndexForHash(fallbackHash, fitting)].id;
   }
-  root.QuarryLayout = { planSteps, variantForSteps, wallFrameAt };
+  root.QuarryLayout = { entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -389,8 +389,9 @@ class SceneGeo {
       // you home.
       const bodyGpsX = this.playerM.x - off.x;
       const bodyGpsY = this.playerM.y - off.y;
-      if (!prev || Math.hypot(this.gpsM.x - bodyGpsX,
-                              this.gpsM.y - bodyGpsY) > GPS_SNAP_M) {
+      if ((!prev || Math.hypot(this.gpsM.x - bodyGpsX,
+                              this.gpsM.y - bodyGpsY) > GPS_SNAP_M)
+          && !Conditions.active(this.save, 'confused') && !this._confusedRecover) {
         // First fix of the session, or a real jump (see GPS_SNAP_M) —
         // place the body outright and drop the stick offset: the
         // character is being re-anchored on the true position, and

@@ -85,20 +85,9 @@ const CROP_SPRITE = {
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
   mushroom: { sheet: 'props', custom: true, frame: 35, scale: 0.9792, caveFrames: [127, 128] },
-  // Shell — the beach pickup, and the one crop whose LOOK varies per cell.
-  // Shell.png is 48×64 = 3 cols × 4 rows of 16×16, and only the TOP ROW is
-  // shell art: three cowries (pink, gold, blue). Row 1 repeats those three
-  // with a white keyline (a highlight state, not a fourth shell), frames 6
-  // and 9 are flat one-colour silhouettes (mask rows) and 7, 8, 10 and 11 are
-  // blank — the same layout Gemstones.png uses (see MINERAL_ICON_SHEET below).
-  // So `frames` LISTS the three frames that carry a shell rather than counting
-  // them: a count is a claim about the sheet that the sheet does not make.
-  // This said `variants: 12` until Sep 2026 and the renderer drew
-  // `hash % 12`, so most shells on a beach picked a blank frame — a pickup
-  // you could tap but not see, which is what "no shells on beaches" was.
-  // tools/sprite_audit.js decodes the real PNG and fails if a declared frame
-  // is transparent (or a flat mask row), so a re-cut sheet can't do it again.
-  shell: { sheet: 'shell_sheet', custom: true, frames: [0, 1, 2] },
+  // Shell keeps its original pink cowrie on every surface. The unused
+  // colour variants and duplicate frames are cleared without changing sheet geometry.
+  shell: { sheet: 'shell_sheet', custom: true, frames: [0] },
   // Torch — the consumable lying on a level-1 cave floor (worldgen.js
   // caveFloorTorches), drawn with its own inventory icon; picking it is a
   // Torch floor pickup uses the shared crop renderer.
@@ -219,14 +208,14 @@ const WILDPLANT_RULES = {
   // work: the axe relic's ladder times the wheel and `workCharged` puts the
   // shared 9/3/1 tool curve on the bar.
   // `nest`: one shrub in twenty is a NEST BUSH (isNestBush) — it wiggles
-  // now and then and hands over a baby pet when chopped.
-  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true, nest: true },
+  // now and then and may shelter a baby, slime or local animal.
+  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true, nest: true, hazardMinTier: 1 },
   giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
     workRelic: 'axe', workCharged: true },
-  // A barricade road's barricade is the shrub's row — one lane, one more
-  // thing standing on it: axe work, wood, `picked`. (A hedgerow's hedges ARE
-  // shrubs.)
-  barricade: { output: 'wood', workRelic: 'axe', workCharged: true },
+  // Barricades dismantle with a kit, or chop like a full hardwood (T4).
+  // The shared tree pipeline owns the axe gate, slow grind and scaled cost.
+  barricade: { output: 'wood', workRelic: 'axe', workCharged: true,
+    timber: { species: 'maple', size: 'large' }, disarmWithKit: true },
   // A tar yard's flint nodule (src/zones.js) is picked instantly for nothing,
   // like a shell, and hands over the Flint item (id 'coal').
   flint:     { output: 'coal' },
@@ -250,8 +239,18 @@ function wildplantRule(crop) { return WILDPLANT_RULES[crop] || null; }
 function wildplantNests(crop) { return !!wildplantRule(crop)?.nest; }
 // THE NEST BUSH: a nesting crop whose id hashes under SHINY_RATE.nest — the
 // same bushes for every player. render.js wiggles it (nestBushPhase) and the
-// wildplant harvest (interact.js) pays the baby off this one predicate.
+// wildplant harvest (interact.js) reveals its occupant off this predicate.
 function isNestBush(crop, id) { return id != null && wildplantNests(crop) && isShiny(id, SHINY_RATE.nest); }
+// One stable outcome per shaking bush: 20% baby, 40% slime, 40% local fauna.
+const NEST_BUSH_CONTENTS = Object.freeze({ babyChance: 0.2, slimeChance: 0.4 });
+function nestBushContents(id) {
+  const roll = fnv1a(`${id}|nest-contents`) / 4294967296;
+  if (roll < NEST_BUSH_CONTENTS.babyChance) {
+    const babies = babyItems();
+    return { type: 'baby', item: babies[fnv1a(`${id}|nest-baby`) % babies.length] };
+  }
+  return { type: roll < NEST_BUSH_CONTENTS.babyChance + NEST_BUSH_CONTENTS.slimeChance ? 'slime' : 'fauna' };
+}
 // When a nest bush wiggles: its own BEAT (util.js beatPhase), 10-30 s off its
 // id, the wiggle showing NEST_BUSH_BEAT.showMs once per period. Returns the
 // wiggle's progress 0..1 while it shows, else -1. showMs was 900 until Oct
@@ -272,6 +271,7 @@ function wildplantWorkRelic(crop) { return wildplantRule(crop)?.workRelic || nul
 function wildplantWorkCost(crop, relics, rng) {
   const r = wildplantRule(crop);
   if (!r || !r.workCharged || !r.workRelic) return 0;
+  if (r.timber) return effectiveChopCost(relics, r.timber, rng);
   return probEnergy(toolEnergyExpected(relics?.[r.workRelic]?.tier || 0), rng);
 }
 // The surprise bonus a pick may also hand over: { chance, bonus } or null.
@@ -483,9 +483,8 @@ const MINERAL_ICON_SHEET = {
     [c.id, { sheet: 'icon_cooked', frame: i }])),
   rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
-  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png carries three shells
-  // on its top row (see CROP_SPRITE.shell); frame 0 is the pink cowrie, the
-  // canonical one used for the inventory icon.
+  // Beach pickup — the original pink cowrie at frame 0 is shared by
+  // the map, inventory, shops and pickup icons.
   shell:        { sheet: 'shell_sheet', frame: 0 },
   // Wild flowers ('flowers' produce) — props.png (22 cols × 12 rows of 16×16).
   // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no
@@ -676,7 +675,7 @@ const BASE_TIER = {
 // but that's a PNG filename for gearAssetPath — not an emoji.)
 // ── BABY PETS ──────────────────────────────────────────────────────────────
 // The domestic kinds a baby can be. A baby is found in a NEST BUSH (one shrub
-// in twenty, isNestBush — chopped once, it hands the baby over) or HATCHED
+// in twenty, isNestBush — one fifth shelter a baby) or HATCHED
 // from a carried egg (egg_hatch.js). In the bag it is an 'animal' item like
 // any caught creature (`base` names the kind; `baby` marks it); released, it
 // is a tame pet born that moment, half its kind's size until a week old
@@ -861,7 +860,8 @@ const ITEMS = [
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
   { id: 'torch',         name: 'Torch',               kind: 'supply' },
-  // Trap Disarm Kit: hold it and tap a trap (hidden scuff or already-sprung
+  // Trap Disarm Kit also dismantles barricades and iron spikes permanently.
+  // Hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
   // src/traps.js and the 'disarm-trap' tap handler in interact.js. A kit
   // usually SURVIVES the job (TRAP_KIT_KEEP_CHANCE); unlike stepping on a
@@ -1620,7 +1620,7 @@ const ITEM_EFFECTS = {
   frost_powder: 'A pinch chills the air until foes within reach stand still.',
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
-  trap_kit: 'Small iron tools made to ease a snare’s clenched jaw.',
+  trap_kit: 'Iron tools loosen snares, barricades and spikes.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
   spear: CONSUMABLE_SPEC.spear.get,
   javelin: CONSUMABLE_SPEC.javelin.get,
@@ -2491,12 +2491,18 @@ function invCatForItem(id) {
 // Contact damage is shared by player and enemy movement through these props.
 const WALK_HAZARD_ENERGY_PER_S = 1;
 const CHARRED_SPIKE_DAMAGE_PER_S = 2;
+const WALK_HAZARD_ENTRY_DAMAGE = 5;
 function walkHazardDamageRate(o) {
   if (!o) return 0;
   if (o.kind === 'stakes') return o._street === 'burned' ? CHARRED_SPIKE_DAMAGE_PER_S : 0;
   if (o.kind && o.kind !== 'wildplant' && o.kind !== 'shrub') return 0;
-  if (o.crop === 'barricade') return WALK_HAZARD_ENERGY_PER_S;
+  if (o.crop === 'barricade') return CHARRED_SPIKE_DAMAGE_PER_S;
   return (o.crop === 'shrub' || o.kind === 'shrub')
     && (o._plantArt === 'bramble' || o._streetArt === 'bramble') ? WALK_HAZARD_ENERGY_PER_S : 0;
 }
 function isWalkHazard(o) { return walkHazardDamageRate(o) > 0; }
+
+// The same kit removes authored obstacles; tar and natural thorns stay put.
+function isTrapKitObstacle(o) {
+  return !!o && (o.kind === 'stakes' || (o.kind === 'wildplant' && o.crop === 'barricade'));
+}

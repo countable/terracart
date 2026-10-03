@@ -13,17 +13,34 @@
   }
   const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
   const finds = out => all(out).filter(o => o.zoneLayer === 'find');
+  test('Sacred Grove: ordinary harmless bushes and trees without authored enemies', () => {
+    const out = ZoneDressing.dress(context('sacred_grove'));
+    const bushes = out.wildplants.filter(o => o.crop === 'shrub');
+    assert.gt(bushes.length, 100);
+    assert.truthy(bushes.every(o => wildplantSprite(o) === CROP_SPRITE.shrub));
+    assert.truthy(bushes.every(o => walkHazardDamageRate(o) === 0));
+    assert.gt(out.objects.filter(o => o.kind === 'tree').length, 0);
+    assert.eq(out.guards.length, 0);
+    assert.eq(out.traps.length, 0);
+    assert.falsy(all(out).some(o => o.kind === 'plant' || o._plantArt === 'bramble'));
+    assert.eq(finds(out).length, 1);
+    assert.eq(Shrines.kindForZoneVariant('sacred_grove'), 'moss_cairn');
+    assert.gt(ZoneDressing.dress(context('ancient_grove')).guards.length, 0, 'the dangerous variant remains available');
+  });
   test('selected zone objects: replacements keep their own role and sparse props respect occupancy', () => {
     const garden = ZoneDressing.dress(context('stone_garden'));
     const pillars = garden.objects.filter(o => o._zoneObjectFrame === 1);
     assert.gt(pillars.length, 0);
     assert.truthy(pillars.every(o => o.kind === 'headstone' && o.yieldTier == null));
     assert.gt(garden.objects.filter(o => o.kind === 'mineralrock' && o.yieldTier === 3).length, 0, 'iron deposits remain mineable');
+    const quietGraves = ZoneDressing.dress(context('silent_circle')).objects.filter(o => o.kind === 'headstone');
+    assert.gt(quietGraves.length, 0);
+    assert.truthy(quietGraves.every(o => o._zoneObjectFrame === 1), 'Silent Circle uses only single pillars');
     for (const id of ['ordered_graves', 'overgrown_graves']) {
       const graves = ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone');
       assert.truthy(graves.every(o => [4, 5].includes(o._zoneObjectFrame)));
     }
-    for (const id of ['broken_masonry', 'quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef', 'pirate_cove']) {
+    for (const id of ['quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef', 'pirate_cove']) {
       const c = context(id), out = ZoneDressing.dress(c), props = out.objects.filter(o => o.kind === 'zone_prop');
       assert.gt(props.length, 0, id);
       assert.lte(props.length, 2, 'finite site accents');
@@ -34,12 +51,65 @@
       assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o.kind === 'zone_prop').length, 0, 'ordinary gate');
     }
   });
+  test('Broken Masonry: mostly smashable clay pots, sparse rubble and one guarded ore find', () => {
+    const row=ZoneVariants.byId('broken_masonry'),out=ZoneDressing.dress(context(row.id));
+    const background=all(out).filter(o=>o.zoneLayer==='background');
+    for(let y=0;y<12;y++)for(let x=0;x<12;x++)
+      assert.eq(ZoneVariants.sample(row,x,y,'checkerboard') != null,(x+y)%2===0,'alternating occupied and empty cells');
+    const pots=background.filter(o=>o.kind==='chest' && o.barrelStyle==='clay_pot');
+    assert.inRange(pots.length/background.length,.85,.95,'pots dominate the actual layout');
+    assert.truthy(background.every(o=>o.barrelStyle==='clay_pot' || o.crop==='rockfruit'));
+    assert.falsy(out.objects.some(o=>o.kind==='zone_prop'),'no decorative columns remain');
+    assert.eq(out.objects.filter(o=>o.zoneLayer==='poi' && o.barrelStyle==='clay_pot').length,4);
+    assert.eq(out.guards.length,1);assert.eq(out.guards[0].kind,'club_goblin');
+    assert.eq(finds(out).length,1);assert.eq(finds(out)[0].yieldTier,5);
+    for(const o of pots)assert.eq(barrelProfile(o).texKey,'clay_pot','pots retain normal smash rewards');
+  });
+  test('zone guard additions: finite enemies respect ownership, sensitive ground and distinct seats', () => {
+    for(const [id,kind,count] of [['broken_depot','bat',5],['seep','split_slime',1],['work_yard','goblin',2]]) {
+      const out=ZoneDressing.dress(context(id));
+      assert.eq(out.guards.length,count);assert.truthy(out.guards.every(o=>o.kind===kind));
+      assert.eq(new Set(all(out).map(o=>`${o._ix},${o._iy}`)).size,all(out).length);
+      const ctx=context(id),dress=ZoneDressing.dress(ctx);
+      const entry={grid:ctx.grid,baseGrid:ctx.grid.slice(),cellsPerEdge:ctx.N,genObjects:[],objects:[],wildplants:[],zoneDress:dress};
+      const scene=Object.assign(new SceneCreatures(),{tileEdgeM:ctx.tileEdgeM,cellM:WorldGen.CELL_M,save:{caught:[]},
+        _pestFreeZone:()=>null,_starterTrailAnchor:()=>null,_provisionStarterHome(){},_carveStarterPond(){}});
+      const testMode=window.__TEST_MODE;window.__TEST_MODE=false;
+      try {scene.spawnInTile(entry,0,0);} finally {window.__TEST_MODE=testMode;}
+      assert.eq(entry.creatures.filter(o=>o.zoneVariant===id && o.kind===kind).length,count,'the live surface roster accepts every authored guard');
+      const observer=context(id);observer.field.anchors[0].owned=false;
+      assert.eq(ZoneDressing.dress(observer).guards.length,0,'only source owner creates the group');
+      const blocked=context(id);blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
+      assert.eq(ZoneDressing.dress(blocked).guards.length,0,'enemy gate remains authoritative');
+    }
+    assert.eq(EnemyRoster.get('split_slime').ability.type,'split');
+  });
+  test('Ordered Graves: matching dense graves, more grass, regular pots and no rocks or bird attraction', () => {
+    const row = ZoneVariants.byId('ordered_graves'), out = ZoneDressing.dress(context(row.id));
+    const graves = out.objects.filter(o => o.kind === 'headstone');
+    assert.gt(graves.length, 400, 'four graves per 36-cell motif doubles the former density');
+    assert.truthy(graves.every(o => o._zoneObjectFrame === 4), 'one grave silhouette');
+    assert.gt(out.wildplants.filter(o => o.crop === 'longgrass').length, 400, 'four grass seats per motif');
+    assert.eq(out.objects.filter(o => o.kind === 'mineralrock').length, 0, 'no rocks in any layer');
+    const pots = out.objects.filter(o => o.kind === 'chest' && o.barrelStyle === 'clay_pot');
+    assert.eq(pots.length, 2, 'two regular pots flank the POI');
+    assert.truthy(pots.every(o => o._zoneObjectFrame == null), 'regular pot art');
+    assert.eq(Object.keys(row.attracts).length, 0, 'no crow or raven attraction');
+    assert.eq(row.background.materialDensity.grave, 4 / 36);
+    assert.eq(row.background.materialDensity.grass, 4 / 36);
+  });
   test('zone dressing: all variants keep finite counts, tool tiers, uniqueness and rebuild identities', () => {
     for (const row of ZoneVariants.rows) {
       const a = ZoneDressing.dress(context(row.id)), b = ZoneDressing.dress(context(row.id));
       assert.eq(finds(a).length, row.finds.count, row.id);
       assert.eq(a.guards.filter(g => g.zoneLayer !== 'background').length, row.guards.count || 0, row.id);
-      assert.eq(new Set(all(a).map(o => `${o.x},${o.y}`)).size, all(a).length, `${row.id}: unique cells`);
+      for (const mark of a.treasures.filter(o => o.coverRockId)) {
+        const cover = a.objects.find(o => o.id === mark.coverRockId);
+        assert.truthy(cover && cover.kind === 'mineralrock', 'buried mark has its specific covering rock');
+        assert.eq(mark.x, cover.x); assert.eq(mark.y, cover.y);
+      }
+      const visible = all(a).filter(o => !o.coverRockId);
+      assert.eq(new Set(visible.map(o => `${o.x},${o.y}`)).size, visible.length, `${row.id}: unique visible cells`);
       assert.eq(JSON.stringify(all(a)), JSON.stringify(all(b)), `${row.id}: stable rebuild`);
       const m = ZoneVariants.materials[row.finds.material];
       for (const find of finds(a)) if (m.kind === 'mineralrock') {
@@ -170,11 +240,11 @@
       if (!owned) assert.eq(finds(out).length, 0, 'neighbor cannot duplicate finite finds');
     }
   });
-  test('churchyard containers: each variant has one clay pot beside its POI', () => {
+  test('churchyard containers: finite regular clay pots stand beside their POI', () => {
     for (const row of ZoneVariants.forKind('stones')) {
       const out = ZoneDressing.dress(context(row.id));
-      const pots = out.objects.filter(o => o.barrel && o.barrelStyle === 'clay_pot');
-      assert.eq(pots.length, 1, row.id + ': one pot rather than a repeating loot carpet');
+      const pots = out.objects.filter(o => o.zoneLayer === 'poi' && o.barrel && o.barrelStyle === 'clay_pot');
+      assert.eq(pots.length, row.id === 'ordered_graves' ? 2 : row.id === 'broken_masonry' ? 4 : 1, row.id + ': finite POI pots');
       assert.eq(pots[0].zoneLayer, 'poi');
       assert.eq(barrelProfile(pots[0]).texKey, 'clay_pot');
       assert.eq(finds(out).length, row.finds.count, 'the site retains its finite finds');
@@ -225,9 +295,28 @@
     for (let y = 31; y <= 33; y++) for (let x = 31; x <= 33; x++) reserved.add(y * ctx.N + x);
     reserved.add(30 * ctx.N + 32);
     for (const i of reserved) assert.truthy(ctx.spawnOpts.occupied.has(i), 'whole footprint reserved');
-    for (const o of all(out)) assert.falsy(reserved.has(o._iy * ctx.N + o._ix), 'scenery and guards cannot overlap hull or approach');
+    for (const o of all(out).filter(o => o.zoneLayer !== 'wreck')) assert.falsy(reserved.has(o._iy * ctx.N + o._ix), 'scenery and guards cannot overlap hull or approach');
+    const chests = out.objects.filter(o => o.zoneLayer === 'wreck');
+    assert.eq(chests.length, 1); assert.eq(chests[0].kind, 'chest');
+    assert.eq(chestTier(chests[0]), 3);
+    assert.truthy(reserved.has(chests[0]._iy * ctx.N + chests[0]._ix));
+    assert.falsy(chests[0].zoneNexus, 'no extra nexus tier');
     assert.eq(out.wildplants.filter(o => o.zoneLayer === 'poi').length, 0, 'wreck replaces small shrine composition');
     assert.eq(finds(out).length, ZoneVariants.byId('pirate_cove').finds.count);
+  });
+  test('zone dressing: early wreck reservations block competitors and survive the later dressing pass', () => {
+    const ctx = pirateShrine(), run = ZoneDressing.reserveWrecksSteps(ctx);
+    let step; do { step = run.next(); } while (!step.done);
+    ctx.wreckReservations = step.value;
+    assert.eq(ctx.wreckReservations.size, 1);
+    const reservation = [...step.value.values()][0];
+    for (const i of reservation.reserved) {
+      assert.falsy(WorldGen.isSpawnCell(ctx.grid, ctx.N, ctx.N, i % ctx.N, Math.floor(i / ctx.N), ctx.spawnOpts, 'minor'), 'later scenery cannot spend reserved sand');
+    }
+    const out = ZoneDressing.dress(ctx);
+    assert.eq(ctx.chests[0]._ix, 32); assert.eq(ctx.chests[0]._iy, 32);
+    assert.eq(out.objects.filter(o => o.zoneLayer === 'wreck').length, 1);
+    assert.eq(out.diagnostics[0].shortfalls.length, 0);
   });
   test('zone dressing: blocked Pirate Cove wreck relocates deterministically without moving obstacles', () => {
     const make = () => {
@@ -264,16 +353,18 @@
       assert.eq(shrine.kind, 'grove_shrine'); assert.eq(shrine.id, before.id);
       assert.eq(shrine.x, before.x); assert.eq(shrine.y, before.y);
       assert.eq(shrine._shrineArt, undefined);
+      assert.eq(out.objects.filter(o => o.zoneLayer === 'wreck').length, 0, 'no floating chest without a hull');
       assert.truthy(out.diagnostics[0].shortfalls.includes('shrine:shipwreck'));
     }
   });
-  test('zone dressing: orchard is apple-only with medium deciduous timber and no ambient flower mix', () => {
+  test('zone dressing: orchard mixes rare Worldpeach trees with apples and medium deciduous timber', () => {
     const out = ZoneDressing.dress(context('orchard'));
     const fruit = out.objects.filter(o => o.kind === 'fruittree');
     const timber = out.objects.filter(o => o.kind === 'tree');
     assert.gt(fruit.length, 200, 'denser than the former four-percent fruit grid');
     assert.gt(timber.length, 200);
-    assert.truthy(fruit.every(o => o.species === 'apple'), 'all fruit records harvest apples');
+    assert.gt(fruit.filter(o => o.species === 'peach').length, 0, 'one orchard can contain Worldpeach trees');
+    assert.truthy(fruit.every(o => o.species === WorldGen.fruitTreeSpecies(WorldGen.cellHash(0, 0, o._ix, o._iy))), 'each fruit tree rolls by its cell');
     assert.truthy(timber.every(o => o.species === 'maple' && o.size === 'medium' && treeSizeClass(o) === 'medium'));
     assert.eq(out.wildplants.length, 6, 'three gemfruit and three berry finds');
     assert.truthy(out.wildplants.every(o => ['gemfruit', 'berry'].includes(o.crop) && o.zoneLayer === 'find'));
@@ -290,17 +381,18 @@
       assert.eq(wildplantSprite(o).sheet, 'zone_objects');
       assert.eq(wildplantFrame(o), 40);
     }
-    // This placement-specific red cap retains the ordinary mushroom crop.
+    // Ordinary mushrooms retain their small red cap beside the giant caps.
     const forage = grove.wildplants.filter(o => o.crop === 'mushroom');
     assert.gt(forage.length, 0);
-    assert.truthy(forage.every(o => wildplantSprite(o).sheet === 'zone_objects' && wildplantFrame(o) === 40));
+    assert.truthy(forage.every(o => o._zoneObjectFrame == null && wildplantSprite(o) === CROP_SPRITE.mushroom));
+    assert.lt(CROP_SPRITE.mushroom.scale, wildplantSprite(giants[0]).scale, 'small caps stay visibly smaller');
     assert.eq(wildplantSprite({crop:'mushroom'}), CROP_SPRITE.mushroom, 'global mushrooms stay unchanged');
     assert.eq(typeof WILDPLANT_CONTEXT_ART, 'object', 'the context-art table is in scope');
     assert.eq(typeof WILDPLANT_CONTEXT_ART.cap_cluster, 'undefined', 'the surface cluster look is gone');
     assert.eq(wildplantSprite({crop:'mushroom',_plantArt:'cap_cluster'}), CROP_SPRITE.mushroom, 'saved cluster tags fall back to ordinary mushroom art');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
-    assert.truthy(ordinary.every(o => o._plantArt === 'bramble' && wildplantSprite(o).sheet === 'bramble'), 'meadow shrubs use the thorny bramble look');
+    assert.truthy(ordinary.every(o => o._plantArt == null && wildplantSprite(o) === CROP_SPRITE.shrub && walkHazardDamageRate(o) === 0), 'meadow shrubs are ordinary harmless bushes');
   });
   test('zone hedges: joins follow surviving shrubs, never blocked cells or unrelated plants', () => {
     const c = context('hedge_garden');
@@ -374,8 +466,8 @@
     assert.truthy(stones.filter(o => o.yieldTier > 1).every(o => !o._objectArt), 'iron ore keeps its tier art');
     const looks = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC;
     assert.eq(looks.mineralrock.key({}), 'mineralrock');
-    assert.eq(looks.stakes.key({_street:'burned'}), 'approved_charred_stakes');
-    assert.eq(looks.stakes.key({}), 'stakes');
+    assert.eq(looks.stakes.key, 'approved_charred_stakes', 'every spike placement uses the replacement art');
+    assert.eq(looks.stakes.scale, 4 / 3, 'replacement art keeps its authored scale');
   });
   test('zone dressing: Ancient Grove centers and shrine trees use the largest mature canopy', () => {
     const grove = ZoneDressing.dress(context('ancient_grove'));
@@ -453,7 +545,8 @@
     sensitive.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
     const fallback = ZoneDressing.dress(sensitive);
     assert.eq(fallback.objects.filter(o => o.kind === 'headstone').length, 0);
-    assert.gt(fallback.objects.filter(o => o.kind === 'mineralrock').length, 0, 'safe stone replaces refused graves');
+    assert.eq(fallback.objects.filter(o => o.kind === 'mineralrock').length, 0, 'Ordered Graves never substitutes rocks');
+    assert.gt(fallback.wildplants.filter(o => o.crop === 'longgrass').length, 0, 'safe grass replaces refused graves');
   });
   test('zone dressing: background diagnostics distinguish legacy occupancy, gates and composition', () => {
     const pristine = ZoneDressing.dress(context('ordered_graves'));
@@ -495,13 +588,15 @@
     const noGround = context('broken_depot'); noGround.grid.fill(WorldGen.T.GRASS);
     assert.eq(ZoneDressing.dress(noGround).traps.length, 0);
   });
-  test('zone dressing: work-yard copper lines remain continuous and POI slots touch the chest', () => {
+  test('zone dressing: work-yard copper lines have spikes at grid corners and POI slots touch the chest', () => {
     const ctx = context('work_yard'), out = ZoneDressing.dress(ctx), origin = 32;
     const background = new Map(all(out).filter(o => o.zoneLayer === 'background').map(o => [`${o._ix},${o._iy}`, o]));
     // First boundary of the fixed 21 x 21 figure sits 10 cells from its origin.
     for (let x = origin - 10; x <= origin + 10; x++) {
       const o = background.get(`${x},${origin - 10}`);
-      assert.truthy(o, `unbroken copper line ${x}`); assert.eq(o.yieldTier, 2);
+      assert.truthy(o, `unbroken boundary ${x}`);
+      if ((x - origin + 10) % 4 === 0) assert.eq(o.kind, 'stakes');
+      else assert.eq(o.yieldTier, 2);
     }
     for (const o of all(out).filter(o => o.zoneLayer === 'poi')) assert.eq(Math.max(Math.abs(o._ix - origin), Math.abs(o._iy - origin)), 1);
     const chestCtx = context('meadow'), a = chestCtx.field.anchors[0], cell = WorldGen.CELL_M;
@@ -565,13 +660,14 @@
     do { r = it.next(); if (!r.done) labels.push(r.value); } while (!r.done);
     assert.includes(labels, 'zone variant coverage'); assert.includes(labels, 'zone variant pattern rows'); assert.includes(labels, 'zone find fallback');
   });
-  test('zone dressing: repeating carnivorous plants use enemy gates and stable stationary seats', () => {
+  test('zone dressing: repeating grove monsters use enemy gates and stable seats', () => {
     for (const id of ['ancient_grove', 'hedge_garden']) {
       const ctx = context(id), out = ZoneDressing.dress(ctx);
       const plants = out.guards.filter(g => g.zoneLayer === 'background');
       assert.gt(plants.length, 1, id);
       for (const p of plants) {
-        assert.eq(p.kind, 'plant'); assert.truthy(p.stationary);
+        assert.eq(p.kind, id === 'ancient_grove' ? 'treant' : 'plant');
+        assert.eq(p.stationary, id === 'hedge_garden');
         assert.eq(p.homeX, p.x); assert.eq(p.homeY, p.y);
         assert.eq(p.id, WorldGen.cellId('zp', 0, 0, p._ix, p._iy));
       }
@@ -587,17 +683,20 @@
     const kinds = id => ZoneDressing.dress(context(id)).guards.filter(g => g.zoneLayer !== 'background').map(g => g.kind).join();
     assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner');
     assert.eq(kinds('orchard'), 'farmer_goblin');
-    assert.eq(kinds('ancient_grove'), 'plant,spider');
+    assert.eq(kinds('ancient_grove'), 'treant,spider');
     assert.eq(kinds('ordered_graves'), 'skeleton_soldier');
     assert.eq(kinds('overgrown_graves'), 'spider');
     assert.eq(kinds('broken_masonry'), 'club_goblin');
+    assert.eq(kinds('broken_depot'), 'bat,bat,bat,bat,bat');
+    assert.eq(kinds('seep'), 'split_slime');
+    assert.eq(kinds('work_yard'), 'goblin,goblin');
     assert.eq(kinds('mystic_reef'), 'giant_crab');
     assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
     const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
     assert.truthy(plant.stationary);
     const ghost = ZoneDressing.dress(context('silent_circle')).guards;
     assert.eq(ghost.length, 1); assert.eq(ghost[0].kind, 'ghost'); assert.eq(ghost[0].proximityCells, 4);
-    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'shellwater_strand', 'seep', 'black_ring']) assert.eq(kinds(id), '');
+    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'shellwater_strand', 'black_ring']) assert.eq(kinds(id), '');
     for (const id of ['ordered_graves', 'overgrown_graves']) {
       assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
     }
@@ -642,8 +741,8 @@
  test('bramble groves keep shrub harvests and leave ordinary bushes alone', () => {
    for (const id of ['meadow', 'ancient_grove']) {
      const row = ZoneVariantData.variants.find(v => v.id === id);
-     assert.eq(row.materialLooks.shrub, 'bramble');
-     assert.eq(wildplantSprite({crop:'shrub', _plantArt:row.materialLooks.shrub}).sheet, 'bramble');
+     assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : undefined);
+     assert.eq(wildplantSprite({crop:'shrub', _plantArt:row.materialLooks?.shrub}).sheet, id === 'ancient_grove' ? 'bramble' : 'bushes');
    }
    assert.eq(wildplantSprite({crop:'shrub'}).sheet, 'bushes');
    assert.eq(wildplantSprite({crop:'shrub', _plantArt:'clipped'}).sheet, 'approved_clipped_hedge');

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="artifact-review" content="disabled"><title>Obstacle step review</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#14201d;color:#ebeee5;font:15px system-ui,sans-serif}main{max-width:1200px;margin:auto;padding:28px}h1{font-size:26px;margin:0 0 8px}p{color:#b8c8bc;line-height:1.5}header{max-width:820px}.controls{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:#20312b;padding:16px;border-radius:10px;margin:22px 0}button,select{background:#354b3e;color:#fff;border:1px solid #6b8471;border-radius:5px;padding:8px;font:inherit;cursor:pointer}label{display:flex;align-items:center;gap:8px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}article{background:#20312b;border:1px solid #3d5144;border-radius:10px;overflow:hidden}h2{font-size:16px;margin:14px 16px 3px}article p{margin:0 16px 12px;font-size:12px;min-height:36px}canvas{display:block;width:100%;image-rendering:pixelated}output{display:block;padding:10px 16px;color:#b7c9ba;font-size:12px;font-variant-numeric:tabular-nums}input[type=range]{width:160px}#status{color:#d8c787}@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.grid{grid-template-columns:1fr}main{padding:16px}}
+</style></head><body><main><header><h1>Step up, keep your footing</h1><p>Actual game sprites and the game’s shared obstacle-height calculation. The shadow stays on the ground; the body steps up, slows to balance, and gently wobbles while moving. Try a slow crossing, stop on top, or reverse halfway.</p></header>
+<div class="controls"><label>Direction <select id="direction"><option value="0">East →</option><option value="45">South-east ↘</option><option value="90">South ↓</option><option value="135">South-west ↙</option><option value="180">West ←</option><option value="225">North-west ↖</option><option value="270">North ↑</option><option value="315">North-east ↗</option></select></label><label>Speed <select id="speed"><option value="0.75">Slow · 0.75 m/s</option><option value="3" selected>Normal · 3 m/s</option></select></label><button id="pause">Pause</button><button id="reverse">Reverse</button><button id="top">Stand on top</button><label><input type="checkbox" id="wobble" checked> Balance wobble</label><label>Position <input id="progress" type="range" min="-2" max="2" step="0.01" value="-2"></label></div>
+<p id="status" role="status">Loading game art…</p><div class="grid" id="grid"></div><p>White dotted guides mark the ground path. Rock and bush support is centred on each prop; connected walls and hedges support a continuous band. These are controlled render studies, without map fog or interactions.</p></main><div id="game" hidden></div><script src="game-loader.js"></script>
+<script>
+(async()=>{
+ await loadGame();
+ if(typeof ObstacleStep==='undefined')throw new Error('ObstacleStep module missing from game loader');
+ const textures=new Map();
+ for(const key of ['mineralrock','stronghold_wall','bushes','zone_hedge','player_farmer','trees','tar']){
+  const spec=ASSETS[key],img=new Image();img.src='../'+spec.path;await img.decode();
+  const cols=Math.floor(img.width/spec.frameWidth);
+  textures.set(key,{getSourceImage:()=>img,get:(f=0)=>({x:(f%cols)*spec.frameWidth,y:Math.floor(f/cols)*spec.frameHeight,width:spec.frameWidth,height:spec.frameHeight})});
+ }
+ const scene={save:{},textures:{exists:key=>textures.has(key),get:key=>textures.get(key)}};
+ const resolve=Render.objectAppearance(scene,new WeakMap()).resolveAppearance;
+ const wall=(x,y,variant)=>({kind:'stronghold_wall',x,y,variant});
+ const hedge=(x,y,frame)=>({kind:'wildplant',crop:'shrub',x,y,_plantArt:'zone_hedge',_hedgeFrame:frame,art:'zone_hedge',zoneVariant:'hedge_garden'});
+ const cases=[
+  {name:'Low rock',hint:'A centred mound, crossed from any direction.',objects:[{kind:'mineralrock',x:0,y:0,caveVariant:1}]},
+  {name:'Rounded bush',hint:'Soft, lower support; the same crossing geometry.',objects:[{kind:'wildplant',crop:'shrub',x:0,y:0}]},
+  {name:'Stronghold wall · north–south',hint:'Cross east–west, or turn north to walk along its top.',objects:[wall(0,-1,1),wall(0,0,1),wall(0,1,1)]},
+  {name:'Stronghold wall · east–west',hint:'Cross north–south, or walk east along the continuous top.',objects:[wall(-1,0,0),wall(0,0,0),wall(1,0,0)]},
+  {name:'Connected hedge',hint:'A continuous planted band using the actual hedge frames.',objects:[hedge(-1,0,0),hedge(0,0,0),hedge(1,0,0)]},
+  {name:'Stronghold corner',hint:'Diagonal approaches and turning back at a junction.',objects:[wall(0,0,2),wall(1,0,0),wall(0,1,1)]},
+  {name:'Tall tree · no step',hint:'The player stays on the ground beside a tall obstacle.',objects:[{kind:'tree',species:'maple',size:'large',x:0,y:0}]},
+  {name:'Tar patch · no step',hint:'A flat patch does not raise the player.',objects:[{kind:'tar',x:0,y:0}]},
+ ];
+ for(const c of cases){const article=document.createElement('article');article.innerHTML=`<h2>${c.name}</h2><p>${c.hint}</p><canvas width="360" height="264" aria-label="${c.name} crossing animation"></canvas><output></output>`;document.querySelector('#grid').append(article);c.canvas=article.querySelector('canvas');c.output=article.querySelector('output');c.objects.sort((a,b)=>a.y-b.y);c.pos=-2;c.sign=1;c.distance=0;c.envelope=0;}
+ const $=id=>document.getElementById(id);let pos=-2,paused=false,last=performance.now();
+ $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'Resume':'Pause';};
+ $('reverse').onclick=()=>{for(const c of cases)c.sign*=-1;};
+ $('top').onclick=()=>{pos=0;for(const c of cases)c.pos=0;paused=true;$('pause').textContent='Resume';};
+ $('progress').oninput=()=>{pos=+$('progress').value;for(const c of cases)c.pos=pos;paused=true;$('pause').textContent='Resume';};
+ function art(o){if(o.kind!=='wildplant')return resolve(o);const p=wildplantSprite(o);return {texKey:p.sheet,frameVal:wildplantFrame(o),scl:p.scale,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0};}
+ function sprite(g,p,x,y){const t=textures.get(p.texKey),f=t?.get(p.frameVal??0);if(!f)return;const w=f.width*p.scl,h=f.height*p.scl*(p.scaleYMul??1);g.drawImage(t.getSourceImage(),f.x,f.y,f.width,f.height,x+(p.dxPx||0)-w*p.origin[0],y+(p.dyPx||0)-h*p.origin[1],w,h);}
+ function draw(now){const dt=Math.min(.05,(now-last)/1000);last=now;const speed=+$('speed').value;const moving=!paused;
+ const theta=+$('direction').value*Math.PI/180,dx=Math.cos(theta),dy=Math.sin(theta);
+ for(const c of cases){
+ const before=ObstacleStep.sample(c.pos*dx,c.pos*dy,c.objects,1);
+ const actualSpeed=moving?(speed*ObstacleStep.speedMul(before)):0;
+ if(moving){c.pos+=dt*actualSpeed/WorldGen.CELL_M*c.sign;if(c.pos>2){c.pos=2;c.sign=-1;}if(c.pos< -2){c.pos=-2;c.sign=1;}c.distance+=dt*actualSpeed/WorldGen.CELL_M*32;}
+ c.envelope+=(Math.min(1,actualSpeed/speed)-c.envelope)*(1-Math.exp(-dt/.12));
+ const x=c.pos*dx,y=c.pos*dy,distance=c.distance,envelope=c.envelope,sign=c.sign;
+ const facing=Math.abs(dx)>Math.abs(dy)?(dx*sign>0?'right':'left'):(dy*sign>0?'down':'up');
+ const g=c.canvas.getContext('2d');g.imageSmoothingEnabled=false;g.fillStyle='#607747';g.fillRect(0,0,360,264);g.save();g.translate(180,148);g.scale(2,2);
+ for(let row=-3;row<=3;row++)for(let col=-3;col<=3;col++){g.fillStyle=(row+col)%2?'#627a49':'#607747';g.fillRect(col*32-16,row*32-16,32,32);g.fillStyle='#718754';g.fillRect(col*32+9,row*32+7,2,2);}
+ g.strokeStyle='#d5ddba66';g.lineWidth=.6;g.setLineDash([1,3]);g.beginPath();g.moveTo(-dx*76,-dy*76);g.lineTo(dx*76,dy*76);g.stroke();g.setLineDash([]);
+ const s=ObstacleStep.sample(x,y,c.objects,1),px=x*32,py=y*32;
+ g.fillStyle='#14251b66';g.beginPath();g.ellipse(px,py,7,3.2,0,0,Math.PI*2);g.fill();
+ const player=()=>{const a=SpriteLayout.PLAYER_ART.farmer,frames=a.directions[facing][moving?'walk':'idle'],frame=frames[Math.floor(distance/7)%frames.length];g.save();g.translate(px,py-s.liftPx-a.footDrop*a.scale);const angle=$('wobble').checked?ObstacleStep.balance(distance/32,Math.min(1,s.liftPx/6)*envelope):0;g.rotate(angle);sprite(g,{texKey:a.sheet,frameVal:frame,scl:a.scale,origin:[.5,.5],dyPx:0},0,0);g.restore();};
+ const playerDepth=Math.max(y,...s.supports.map(o=>o.y+.001));let drew=false;for(const o of c.objects){if(!drew&&playerDepth<o.y){player();drew=true;}sprite(g,art(o),o.x*32,o.y*32);}if(!drew)player();g.restore();c.output.textContent=`Lift ${s.liftPx.toFixed(1)} px · ${paused?'standing':actualSpeed<1?'slow walking':'walking'} · ${actualSpeed.toFixed(2)} m/s`;c.last={x,y,pos:c.pos,liftPx:s.liftPx,speed:actualSpeed};}
+ pos=cases[0].pos;$('progress').value=pos;window.reviewState={paused,pos,cases:cases.map(c=>({name:c.name,...c.last}))};requestAnimationFrame(draw);}
+ window.reviewReady=true;$('status').textContent='Ready · 8 live render studies · game sprites at 2× zoom';requestAnimationFrame(draw);
+})().catch(error=>{document.getElementById('status').textContent=error.message;console.error(error);});
+</script></body></html>

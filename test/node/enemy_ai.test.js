@@ -9,6 +9,71 @@
   }
   function foe(kind, x = 0, y = 0) { return { kind, id: `ai_${kind}`, x, y }; }
 
+  test('gelatinous cube overlaps player and deals contact damage', () => {
+    const s = scene(), c = foe('gelatinous_cube'), row = EnemyRoster.get(c.kind);
+    for (let i = 0; i < 100; i++) rosterEnemyMove(s,c,row,i*100,3,0,false,false,null,0.1);
+    assert.inRange(c.x, 2.99, 3.01);
+    rosterEnemyAttack(s,c,row,10000,3,0,false,0.1);
+    assert.lt(s.save.energy,100);
+    const before = s.save.energy;
+    rosterEnemyAttack(s,c,row,12000,3,0,true,0.1);
+    assert.eq(s.save.energy,before);
+  });
+  test('golden slime circles and leaves persistent damaging marks expiring after ten minutes', () => {
+    const s=scene(), c=foe('golden_slime',11.2,0), row=EnemyRoster.get(c.kind);
+    for (let i=0;i<100;i++) rosterEnemyMove(s,c,row,i*100,0,0,false,false,null,0.1);
+    assert.gt(Math.abs(c.y),1);
+    assert.inRange(Math.hypot(c.x,c.y),10,13);
+    const marks=Object.values(s.save.slimeTrails);
+    assert.gt(marks.length,10);
+    const mark=marks[0];
+    assert.eq(mark.expiresAt-mark.createdAt,600000);
+    for (let i=0;i<60;i++) enemySlimeTrailTick(s,mark.x,mark.y,1/60,mark.createdAt);
+    assert.lt(s.save.energy,100);
+    const before=s.save.energy;
+    enemySlimeTrailTick(s,mark.x,mark.y,1,Math.max(...marks.map(p=>p.expiresAt)));
+    assert.eq(s.save.energy,before);
+    assert.eq(Object.keys(s.save.slimeTrails).length,0);
+  });
+  test('wurm emerges only in allowed mine cells, waits through emergence then burrows again', () => {
+    const s=scene(), c=foe('wurm'), row=EnemyRoster.get(c.kind);
+    c.burrowCells=[{x:7,y:0}];
+    assert.truthy(enemyBurrowTick(s,c,row,1000));
+    assert.truthy(c._burrowed);
+    assert.falsy(Combat.isEnemy(c));
+    assert.truthy(enemyBurrowTick(s,c,row,c._burrowNextT));
+    assert.falsy(c._burrowed);
+    assert.eq(c.x,7);
+    assert.gt(c._emergeUntil,c._emergeT0);
+    rosterEnemyAttack(s,c,row,c._emergeT0,7,0,false,0.1);
+    assert.eq(s.save.energy,100);
+    assert.falsy(enemyBurrowTick(s,c,row,c._emergeUntil));
+    assert.truthy(enemyBurrowTick(s,c,row,c._burrowNextT));
+    assert.truthy(c._burrowed);
+  });
+  test('graveyard zombie waits for a visible player then emerges once', () => {
+    const s=scene(), c=foe('zombie'), row=EnemyRoster.get(c.kind);
+    Object.assign(s,{startWorldM:{x:0,y:0},playerM:{x:7,y:0},isUnnoticed:()=>true});
+    c.emergeFromGround=true;
+    assert.truthy(enemyBurrowTick(s,c,row,1000));
+    assert.truthy(c._burrowed);
+    s.isUnnoticed=()=>false;
+    assert.truthy(enemyBurrowTick(s,c,row,2000));
+    assert.falsy(c._burrowed);
+    assert.truthy(c._hasEmerged);
+    assert.falsy(enemyBurrowTick(s,c,row,c._emergeUntil));
+    assert.falsy(enemyBurrowTick(s,c,row,10000));
+    const body=RENDER_SRC.match(/Render\.applyEmergence = function \(sprite, creature, now\) \{([\s\S]*?)\n\};/)[1];
+    const animate=new Function('sprite','creature','now',body);
+    for (const progress of [0,0.5,1]) {
+      const sprite={y:100,scaleY:2,frame:{realHeight:16,realWidth:16},
+        setCrop(...args) { this.crop=args; }};
+      animate(sprite,c,c._emergeT0+(c._emergeUntil-c._emergeT0)*progress);
+      assert.eq(sprite.y,100+32*(1-progress));
+      if (progress<1) assert.eq(sprite.crop[3],Math.max(1,16*progress));
+      else assert.eq(sprite.crop.length,0,'pooled sprite crop resets after emergence');
+    }
+  });
   test('metal slime: flees instead of attacking, with very high HP and a fixed 75-coin bounty', () => {
     const row=EnemyRoster.get('metal_slime'), c=foe('metal_slime'), s=scene();
     assert.eq(row.hp,375);
@@ -141,6 +206,42 @@
         }
       }
     }
+  });
+  test('shiny movement: walking and raven/bat flight are exactly 1.5x', () => {
+    const originalRandom = Math.random;
+    try {
+      Math.random = () => 0.5;
+      const normal = foe('zombie'), gold = { ...normal, shiny: true };
+      for (const c of [normal, gold]) rosterEnemyMove(scene(), c, EnemyRoster.get(c.kind), 10000, 40, 0, false, false, null, 0.1);
+      assert.inRange(gold.x / normal.x, 1.5 - 1e-9, 1.5 + 1e-9);
+      for (const kind of ['raven', 'bat', 'vampire_bat']) {
+        const plain = foe(kind), shiny = { ...plain, shiny: true };
+        for (const c of [plain, shiny]) enemyBatMove(scene(), c, EnemyRoster.get(kind), 10000, 40, 0);
+        assert.inRange(plain._batFlight.duration / shiny._batFlight.duration, 1.5 - 1e-9, 1.5 + 1e-9);
+        assert.inRange(Math.hypot(shiny._batFlight.tx, shiny._batFlight.ty) / Math.hypot(plain._batFlight.tx, plain._batFlight.ty), 1 - 1e-9, 1 + 1e-9);
+      }
+    } finally { Math.random = originalRandom; }
+  });
+  test('shiny stats: all fauna and raven double health and attack, only eligible foes gain elite rewards', () => {
+    for (const kind of [...Object.keys(Combat.FAUNA_HP), 'raven']) {
+      const plain = { kind }, shiny = { kind, shiny: true };
+      assert.eq(Combat.maxHp(shiny), 2 * Combat.maxHp(plain), kind);
+      assert.eq(Combat.petBlow(shiny), 2 * Combat.petBlow(plain), kind);
+      assert.eq(Combat.shinySpeedMul(shiny), 1.5);
+      assert.eq(Combat.shinySpeedMul(plain), 1);
+    }
+    assert.falsy(Combat.isElite({ kind: 'raven', shiny: true }));
+  });
+  test('deep ghosts: enlarged white and pink ghosts double power once; shiny is a separate bonus', () => {
+    for (const kind of ['ghost', 'pink_ghost']) {
+      const plain = { kind }, deep = { kind, _artScale: EnemyRoster.ghostProfile(6).sizeMultiplier };
+      assert.eq(Combat.maxHp(deep), 2 * Combat.maxHp(plain));
+      assert.eq(Combat.powerMul(deep), 2);
+      assert.eq(Combat.powerMul({ ...deep, shiny: true }), 4);
+      assert.eq(Combat.ghostSizeMul({ kind, _artScale: 1 }), 1);
+      assert.eq(Combat.shinySpeedMul(deep), 1, 'size alone does not quicken ghosts');
+    }
+    assert.eq(Combat.ghostSizeMul({ kind: 'brute', _artScale: 1.5 }), 1);
   });
   test('enemy AI: scuttle has a real pause; anchored plant holds firing distance', () => {
     const s = scene(), c = foe('spider'), row = EnemyRoster.get('spider');

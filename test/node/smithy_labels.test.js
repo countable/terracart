@@ -20,7 +20,7 @@ test('smithy: the modal category is Smithy, so Forge names only the action', () 
   assert.eq(m[1], 'Smithy', 'category label');
   // The key stays `forge` — every call site and tools/modal_audit.js pin it.
   // Neither offer carries a flavour title: the chip and the tab say it.
-  assert.truthy(/kind: 'forge',\n      cancelLabel: 'Later',\n      get: first\.get,/.test(app), 'smelt offer still keys forge');
+  assert.truthy(/kind: 'forge',\n      cancelLabel: 'Leave',\n      get: first\.get,/.test(app), 'smelt offer still keys forge');
   assert.truthy(/kind: 'forge',\n      cancelLabel: 'Later',\n      get: smithyPreviewHTML\(iconHtml, name\),/.test(app), 'forge offer still keys forge');
 });
 

@@ -142,7 +142,7 @@ const MapReviewArt = (() => {
         }
         for(const o of e.creatures||[])add(e,o,'creature');
         for(const o of e.traps||[])add(e,{...o,kind:'trap'},'object');
-        for(const o of [e.treasure,...(e.extraTreasures||[]),...(e.parkingTreasures||[])])if(o)add(e,{...o,kind:'xmark'},'object');
+        for(const o of [e.treasure,...(e.extraTreasures||[]),...(e.parkingTreasures||[])])if(treasureExposed(o,this._world.scene))add(e,{...o,kind:'xmark'},'object');
       }
       for(const o of this._world.guards||[])add(null,o,'creature');
       this._sprites.sort((a,b)=>a.o.y-b.o.y||a.o.x-b.o.x);

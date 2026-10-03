@@ -39,7 +39,7 @@ test('a landuse=pitch polygon never grows zero longgrass, across many locations'
     const out = WorldGen.rasterizeTile([
       { name: 'landuse', features: [{ type: 3, tags: { class: 'pitch' }, geom: [schoolRing()] }] },
     ], CPE, tx, 5, TILE_EDGE_M);
-    const longgrass = out.wildplants.filter((wp) => wp.crop === 'longgrass').length;
+    const longgrass = out.wildplants.filter((wp) => wp.crop === 'longgrass' && wp._biome === T.PITCH).length;
     if (longgrass === 0) zeroCount++;
   }
   assert.eq(zeroCount, 0, `${zeroCount}/${N} synthetic pitch tiles grew no longgrass at all`);
@@ -49,7 +49,7 @@ test('BiomeProfiles.flora floors every dynamic longgrass entry at DYN_MIN (0.04)
   // Every grassy biome that lists a dynamic longgrass entry — the family
   // default plus every biome with its own BIOME_PROFILES row.
   const biomesWithDynLonggrass = [
-    T.GRASS, T.PARK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
+    T.PARK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
     T.FARMLAND, T.WETLAND, T.ORCHARD,
   ];
   for (const t of biomesWithDynLonggrass) {

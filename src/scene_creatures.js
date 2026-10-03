@@ -78,6 +78,35 @@ const FAUNA_ATTRACT_TRIES = 12;
 const LAIR_POINT_SLACK_CELLS = 1;
 
 class SceneCreatures {
+  _revealMimic(o) {
+    if (this.depth > 0 || !(this.tileEdgeM > 0)) return false;
+    const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry?.creatures) return false;
+    const id = 'mimic:' + o.id;
+    const revealed = (this.save.revealedMimics ||= []);
+    if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, x: o.x, y: o.y });
+    if (!entry.creatures.some(c => c.id === id)) {
+      entry.creatures.push(WorldGen.makeCreature('mimic', o.x, o.y, id, {
+        depth: 0, shiny: false, _hunting: true,
+      }));
+    }
+    return true;
+  }
+  _restoreMimics(entry, tx, ty) {
+    if (this.depth > 0 || !(this.tileEdgeM > 0)) return;
+    const caught = new Set(this.save.caught || []);
+    const liveIds = new Set(entry.creatures.map(c => c.id));
+    for (const c of this.save.revealedMimics || []) {
+      if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !c.id
+          || Math.floor(c.x / this.tileEdgeM) !== tx || Math.floor(c.y / this.tileEdgeM) !== ty
+          || caught.has(c.id) || liveIds.has(c.id)) continue;
+      entry.creatures.push(WorldGen.makeCreature('mimic', c.x, c.y, c.id, {
+        depth: 0, shiny: false, _hunting: true,
+      }));
+      liveIds.add(c.id);
+    }
+  }
   // THE SPAWN PASS, run straight through — the centre tile (the ground the
   // player stands on appears whole) and every caller that cannot await. The
   // pass itself is spawnInTileSteps; the neighbour ring drives it sliced
@@ -229,6 +258,7 @@ class SceneCreatures {
       for (const o of entry.objects) if (o.kind !== 'lava_vent') {
         for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) liveSeats.add(i);
       }
+      const placedZoneObjects = new Set();
       for (const o of zDress.objects) {
         if (o.kind === 'lava_vent') {
           const i = cellIdx(o);
@@ -244,6 +274,7 @@ class SceneCreatures {
         }
         if (!lay(o)) continue;
         entry.objects.push(o);
+        placedZoneObjects.add(o.id);
         if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
       }
       entry.wildplants = entry.wildplants || [];
@@ -252,8 +283,14 @@ class SceneCreatures {
       // may hide a piece, but must never reveal a different spawn underneath.
       for (const trap of (zDress.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
       for (const guard of (zDress.guards || [])) if (lay(guard)) zoneGuards.push(guard);
-      for (const treasure of (zDress.treasures || [])) if (lay(treasure)) zoneTreasures.push(treasure);
+      for (const treasure of (zDress.treasures || [])) {
+        const placed = treasure.coverRockId ? placedZoneObjects.has(treasure.coverRockId) : lay(treasure);
+        if (placed) zoneTreasures.push(treasure);
+      }
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
+      // Empty hull and approach cells remain unavailable to later surface scatter.
+      // Claim after laying the authored contents, including the wreck's chest.
+      for (const i of zDress.reservedCells || []) _occupiedIdx.add(i);
       entry.slowCells = slow.size ? slow : null;
     }
     yield 'spawn zone dressing';
@@ -544,12 +581,15 @@ class SceneCreatures {
     // them into an unrelated enemy. Their kills use the usual caught ledger.
     for (const guard of zoneGuards) {
       if (caughtSet.has(guard.id)) continue;
-      creatures.push(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
-        ...guard, shiny: false, immobile: true,
-        lair: guard.lair || guard.id,
+      const creature = WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
+        ...guard, shiny: false, immobile: !guard.burrowCells,
+        ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
+        lair: guard.burrowCells ? null : (guard.lair || guard.id),
         lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
         lairR: 0, seatX: guard.x, seatY: guard.y,
-      }));
+      });
+      if (creature._surfaceSpawn) EnemySpawns.surfaceActive(this, creature);
+      creatures.push(creature);
     }
     for (const c of habitatGuards) {
       if (caughtSet.has(c.id)) continue;
@@ -565,6 +605,9 @@ class SceneCreatures {
         if (caughtSet.has(r.id)) continue;
         // A raised pet carries its birth (SpriteLayout.isBabyPet) back too.
         creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, {
+          ...(r.hp != null ? {_hp:r.hp} : {}), _lastDamagedT:r.lastDamagedAt ?? null,
+          ...(r.stayHome == null ? Companions.releasePolicy(this, r.x, r.y)
+            : {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY}),
           shiny: !!r.shiny, ...(r.raised ? { raised: true, born: r.born, favouriteFeeds: r.favouriteFeeds || 0 } : {}),
         }));
       }
@@ -626,6 +669,7 @@ class SceneCreatures {
       entry.creatures.push(guard);
       liveIds.add(guard.id);
     }
+    this._restoreMimics(entry, tx, ty);
     NPC.shrineResidents(this, entry, tx, ty);
     NPC.arrivals(this, entry, tx, ty);
 
@@ -1263,22 +1307,24 @@ class SceneCreatures {
       return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
     };
     const gen = new Set(genObjects);
-    const held = new Set();
+    const held = new Map();
     const footprintFrame = { cellsPerEdge: N };
     for (const o of (entry.objects || [])) {
       if (gen.has(o)) continue;
-      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty)) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty))
+        held.set(i, held.has(i) ? null : o.id);
     }
     const savedIds = SpawnOwnership.savedIds(this.save);
     for (const plant of (entry.wildplants || [])) {
       if (!SpawnOwnership.isProtected(plant, this.save, savedIds)) continue;
-      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.set(i, null);
     }
     const repainted = grid !== genGrid;
     const off = (t, allowOverlap = false) => {
       const i = idxOf(t.x, t.y);
       if (i < 0) return false;
-      if (!allowOverlap && held.has(i)) return true;
+      if (!allowOverlap && held.has(i)
+          && !(t.coverRockId && held.get(i) === t.coverRockId)) return true;
       return repainted && grid[i] !== genGrid[i] && !WorldGen.isWalkable(grid[i]);
     };
     if (!held.size && !repainted) return;
@@ -1608,6 +1654,7 @@ class SceneCreatures {
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
     const kerbLeash = inKerbAt(this, px, py);
+    enemySlimeTrailTick(this, px, py, npcDt);
     // The nearest hostile TAKING AN INTEREST this tick (not standing down, the
     // player not unnoticed) — handed to app.js _foeHeadsUp after the loop,
     // which buzzes the phone when it is close (SAFETY_FOE_BUZZ_CELLS).
@@ -1805,6 +1852,8 @@ class SceneCreatures {
         if (c.kind === 'npc') c._moving = false;
         return;
       }
+      if (enemyDisguiseTick(this, c, px, py)) return;
+      if (enemyBurrowTick(this, c, EnemyRoster.get(c.kind), now)) return;
       if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;
       if (this._tickUnitFire?.(c, now)) return;
       if (!caughtSet.has(c.id) && enemyWalkHazardTick(this, c, now)) return;
@@ -2021,7 +2070,7 @@ class SceneCreatures {
         const BUTT_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + fightsBack.hitMs;
-          const raw = fightsBack.dmg;
+          const raw = fightsBack.dmg * Combat.powerMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
             this._monsterDmgAccum = (this._monsterDmgAccum || 0)
@@ -2171,14 +2220,8 @@ class SceneCreatures {
       // lumber like the slime (0.6 cell).
       const isMon = Combat.isMonster(c.kind);
       const mon = isMon ? Combat.monster(c.kind) : null;
-      // Rare shiny animals move at SHINY_SPEED_MUL — same hop distances, but
-      // the whole step cadence (hop duration + any pause) is divided by it, so
-      // they cover ground that much faster. isShiny() is keyed off the creature id, so the
-      // status is stable across reloads (matches the shiny-tint in render).
-      // An ELITE monster hits harder, not faster: its cadence comes purely
-      // from SPEED, so the shiny check is for animals only.
-      // A summoned ally is never shiny-fast: its cadence IS its bite rate.
-      const shinyFast = (!isMon && !summoned && isShiny(c.id, SHINY_RATE.animal)) ? 1 / SHINY_SPEED_MUL : 1;
+      // Read the same stamped flag as the gold tint, including pets and foes.
+      const shinyFast = 1 / Combat.shinySpeedMul(c);
       // CHARGING: hit by the player or their pet within STRUCK_REACTION_MS and
       // not warded off. Resolved once here because both halves of the charge
       // read it — the quickened beat just below and the committed angle in the
@@ -2268,6 +2311,8 @@ class SceneCreatures {
           // the pet, so the player's 3×3 tile ring covers the search box.
           WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (cr) => {
             if (!huntsPrey(c.kind, cr)) return;
+            if (Companions.follows(c, now) && Math.hypot(cr.x - px, cr.y - py) > 4 * this.cellM) return;
+            if (c.stayHome && Math.hypot(cr.x - c.petHomeX, cr.y - c.petHomeY) > Companions.HOME_PET_CELLS * this.cellM) return;
             if (caughtSet.has(cr.id)) return;
             const d2 = (cr.x - c.x) ** 2 + (cr.y - c.y) ** 2;
             if (d2 < nearestD2) { nearestD2 = d2; nearest = cr; }
@@ -2313,8 +2358,8 @@ class SceneCreatures {
 
         // Movement target — modes checked in order:
         //   (a) Pet chasing prey (_chaseTarget set above)
-        //   (b) Following (_followUntilT > now): a petted cat homes in on the
-        //       player. Which kinds follow is the table's `follows`.
+        //   (b) Released followers and active hired/summoned companions
+        //       keep beside their owner through the shared follow predicate.
         //   (c) Slime — lazily drawn toward the player.
         //   (d) Tame pets — home-bias keeps them near release point.
         //   (e) Default — wild farm animals random-wander around home.
@@ -2322,17 +2367,14 @@ class SceneCreatures {
         //   walks at it (raidStep, below) ahead of (d) and (e).
         // Wild crows take a separate path (_wildCrowTick) above.
         const FOLLOW_GAP = 1.5 * this.cellM;
-        const isFollowing = SpriteLayout.creatureFollows(c.kind)
-          && c._followUntilT && c._followUntilT > now;
-        // A SUMMONED follower's home is its summoner: re-anchored on the
-        // player every step, so between hunts it hovers at your side instead
-        // of the home-bias below dragging it back to where it was conjured.
-        // (A cat keeps its own release point — it goes home after its five
-        // minutes.)
-        if (isFollowing && summoned) { c._homeX = px; c._homeY = py; }
+        const isFollowing = Companions.follows(c, now);
+        // Travelling allies regroup beside their owner between hunts.
+        // Pets assigned to Home keep the anchor saved when released.
+        if (isFollowing) { c._homeX = px; c._homeY = py; }
+        else if (c.stayHome) { c._homeX = c.petHomeX ?? c._homeX; c._homeY = c.petHomeY ?? c._homeY; }
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
         const retreating = c._retreatUntilT && c._retreatUntilT > now;
-        const homeRadius = retreating ? 0 : isTame ? 5 * this.cellM : 3 * this.cellM;
+        const homeRadius = retreating ? 0 : c.stayHome ? Companions.HOME_PET_CELLS * this.cellM : isTame ? 5 * this.cellM : 3 * this.cellM;
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
@@ -2433,11 +2475,17 @@ class SceneCreatures {
           // (a guard walking home stops ON its seat rather than overshooting);
           // everything else takes the kind's full stride.
           let stepLen = stepM;
-          if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
+          if (isFollowing && distToPlayer > 3 * this.cellM) {
+            c._chaseTarget = null;
+            angle = Math.atan2(dyp, dxp);
+            stepLen = Math.min(stepM, distToPlayer - FOLLOW_GAP);
+          } else if (c._chaseTarget && !this.save.caught?.includes(c._chaseTarget.id)) {
             const tgt = c._chaseTarget;
             angle = Math.atan2(tgt.y - c.y, tgt.x - c.x) + (Math.random() - 0.5) * 0.3;
           } else if (isFollowing && distToPlayer > FOLLOW_GAP) {
             angle = Math.atan2(dyp, dxp) + (Math.random() - 0.5) * 0.4;
+          } else if (isFollowing) {
+            stepLen = 0;
           } else if (gameCharge) {
             // A HUNTED DEER turns on you: every stride at the player, on the
             // monsters' stalk jitter, until it is close enough to butt.
@@ -2548,6 +2596,8 @@ class SceneCreatures {
           }
           tx = c.x + Math.cos(angle) * stepLen;
           ty = c.y + Math.sin(angle) * stepLen;
+          if (c.stayHome && Math.hypot(tx - c.petHomeX, ty - c.petHomeY) > homeRadius
+              && Math.hypot(tx - c.petHomeX, ty - c.petHomeY) >= Math.hypot(dxh, dyh)) continue;
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           if (Combat.isEnemy(c) && !fireStepAllowed(this, c, tx, ty)) continue;
@@ -2756,7 +2806,7 @@ class SceneCreatures {
           // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean): the
           // panic is in the short legs and the turn, not a faster bird (it
           // used to cross two cells in 350 ms: 40 m/s).
-          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000;
+          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.shinySpeedMul(c);
           c._fleeDash = true;
           c._faceFlip = (ftx - c.x) < 0;
           break;
@@ -2857,7 +2907,7 @@ class SceneCreatures {
     // over the roam's 0.4–1-cell hops); a departing leg takes its row's own time
     // — the pace the hunt's odds are tuned on, the one declared exception to
     // the speed ceiling (CROW_DEPART_HOP has the reasoning).
-    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000);
+    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000) / Combat.shinySpeedMul(c);
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
     // This is a normal glide, not a flee dash — clear the marker so a FUTURE

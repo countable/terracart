@@ -224,10 +224,10 @@ test('CROP_SPRITE: starflower is props frame 102 (row 4, col 14 → 4*22+14=102)
 // Shell.png is a 3×4 grid, but only its top row is shell art — see
 // test/node/shell_variants.test.js for what counting the cells instead cost.
 
-test('CROP_SPRITE: shell uses shell_sheet, custom: true, frames 0-2', () => {
+test('CROP_SPRITE: shell uses shell_sheet, custom: true, original frame 0', () => {
   assert.eq(CROP_SPRITE['shell'].sheet, 'shell_sheet');
   assert.eq(CROP_SPRITE['shell'].custom, true);
-  assert.eq(CROP_SPRITE['shell'].frames.join(','), '0,1,2');
+  assert.eq(CROP_SPRITE['shell'].frames.join(','), '0');
 });
 
 // ── Structural invariants for CROP_ROW ────────────────────────────────────
@@ -569,6 +569,16 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.falsy(/CHEST_TIER_COLOR|chestObjs|tier diamond/.test(RENDER_SRC), 'tier colours are in the chest art, without floating gems');
   assert.truthy(/const g = scene\.tierGfx;\s*g\.clear\(\);/.test(RENDER_SRC), 'attack warning layer still clears each draw');
   assert.truthy(/g\.strokeCircle\(centre\.sx, centre\.sy, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
+});
+
+test('wooden barrels and smashed barrels render at half their former size', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  for (const smashed of [false, true]) {
+    const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
+    assert.eq(look.texKey, smashed ? 'barrel_smashed' : 'barrel');
+    assert.eq(look.scl, 2 / 3);
+  }
+  assert.eq(art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot'}).scl, 4 / 3);
 });
 
 test('stronghold walls keep their tile frame alignment instead of centering corner art', () => {

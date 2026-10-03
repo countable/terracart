@@ -77,11 +77,11 @@
     assert.falsy(restocks(pot) || restocks(rack), 'neither is a crate');
     const src = INTERACTABLES_SRC;
     assert.truthy(/Macros\.serviceUsedToday\(save, o\.id\)\) \{\s*scene\.flash\(`The chapel is quiet/.test(src), 'the chapel reads the service-day gate');
-    assert.truthy(/grove_shrine: \{[\s\S]{0,200}Macros\.dailyVisit\(ctx, o/.test(src), 'and the shrine');
+    assert.truthy(INTERACTABLES.grove_shrine.custom.toString().includes('Macros.dailyVisit(ctx, o'), 'ordinary shrines use the daily visit gate');
   });
 
   // ── Barrels ──────────────────────────────────────────────────────────────
-  test('barrel: clay pots keep their intact/broken pair, distinct rewards and shared restock', () => {
+  test('barrel: clay pots keep their intact/broken pair, distinct rewards and permanent destruction', () => {
     const seen = new Set();
     for (let i = 0; i < 40; i++) {
       const b = poi('waste_basket', { id: `container_${i}`, poiDensity: 50 });
@@ -93,22 +93,21 @@
       assert.truthy(SpriteLayout.ART_BOUNDS[look.smashedKey + ':0'], 'broken art seats in its cell');
       const reloaded = { ...b, _chestLook: undefined, x: 1234, y: -45, _smashed: true };
       assert.eq(chestLook(reloaded).texKey, look.texKey, 'reload, position and spent overlays keep the pair');
-      assert.truthy(restocks(b), 'both use the recurring container ledger');
-      assert.eq(crateRestoreDays(b), 2, 'same density-based restock');
+      assert.falsy(restocks(b), 'neither container restocks');
       assert.eq(rollBarrel(b, () => 0).kind, 'empty', 'empty roll is still empty');
       assert.eq(barrelProfile(b).texKey, look.texKey, 'loot profile matches visible art');
     }
     assert.eq([...seen].sort().join(','), 'barrel,clay_pot', 'both cosmetic pairs occur');
   });
 
-  test('barrel: a bin or a recycling point is a barrel, whatever its count; it restocks like a crate', () => {
+  test('barrel: a bin or a recycling point is a barrel, whatever its count; it never restocks', () => {
     for (const cls of ['waste_basket', 'recycling']) {
       for (const n of [1, 5, 40]) {
         const b = poi(cls, { poiDensity: n });
         assert.truthy(isBarrel(b), `${cls} ×${n} is a barrel`);
         assert.includes(['barrel', 'clay_pot'], chestLook(b).texKey, 'wears a breakable container');
         assert.falsy(chestLook(b).box, 'not the crate look');
-        assert.truthy(restocks(b), 'restocks');
+        assert.falsy(restocks(b), 'never restocks');
       }
     }
     assert.eq(JSON.stringify([...BARREL_CLASSES].sort()), '["recycling","waste_basket"]');
@@ -155,20 +154,20 @@
     }
   });
 
-  test('barrel: a smash pays once, stands smashed while bare, and says what came out', () => {
+  test('barrel: a smash pays once, stays smashed permanently, and says what came out', () => {
     const b = poi('waste_basket', { poiDensity: 1 });
     const save = { inv: [], opened: [], relics: {}, money: 0 };
     const flashes = [], loots = [];
     const scene = makeScene({ flash: (m) => flashes.push(m), flashLoot: (m) => loots.push(m), coinIconEl: () => null });
     runInteractable(makeCtx(scene, save), b);
-    assert.truthy(Macros.usedToday(save, b.id), 'the day ledger holds it');
-    assert.eq(save.opened.length, 0, 'never save.opened');
+    assert.falsy(Macros.usedToday(save, b.id), 'no temporary day ledger');
+    assert.includes(save.opened, b.id, 'permanent destruction ledger');
     const said = [...flashes, ...loots];
     assert.eq(said.length, 1, 'one line');
     const messages = ['Empty.', '+1 coin', ...barrelProfile(b).loot.flatMap(row => barrelLootPool(row).map(item => '+1 ' + item.name))];
     assert.includes(messages, said[0], 'the line names an eligible reward');
     runInteractable(makeCtx(scene, save), b);
-    assert.truthy(/^Smashed\. Back in \d+[smhd]\.$/.test(flashes[flashes.length - 1]), 'a second smash is refused with the wait');
+    assert.eq(flashes[flashes.length - 1], 'Already smashed.', 'a second smash is refused');
     const sets = spentSets(null, save);
     assert.truthy(isSpent(b, sets), 'spent while bare');
     assert.falsy(poiLit(b, sets), 'and dark');
@@ -180,6 +179,27 @@
     assert.truthy(smashedAsset, 'the smashed art is loaded');
     const dims = pngDims(smashedAsset[1]);
     assert.truthy(dims && dims.w > 0 && dims.h > 0, 'the registered smashed art exists');
+  });
+
+  test('breakables: pots and barrels stay smashed after save reload and ninety days', () => {
+    const originalNow = Date.now;
+    try {
+      Date.now = () => T0;
+      for (const texKey of ['barrel', 'clay_pot']) {
+        const b = Array.from({ length: 100 }, (_, i) => poi('waste_basket', { id: `permanent_${i}`, barrel: true }))
+          .find(o => chestLook(o).texKey === texKey);
+        const save = { inv: [], opened: [], relics: {}, money: 0 };
+        const scene = makeScene({ flash: () => {}, flashLoot: () => {} });
+        runInteractable(makeCtx(scene, save), b);
+        const reloaded = JSON.parse(JSON.stringify(save));
+        Date.now = () => T0 + 90 * DAY;
+        const object = { ...b, _chestLook: undefined };
+        assert.truthy(isSpent(object, spentSets(null, reloaded)), texKey + ' stays broken');
+        const before = JSON.stringify(reloaded);
+        runInteractable(makeCtx(scene, reloaded), object);
+        assert.eq(JSON.stringify(reloaded), before, 'no repeat loot or state change');
+      }
+    } finally { Date.now = originalNow; }
   });
 
   // ── Bike racks ───────────────────────────────────────────────────────────

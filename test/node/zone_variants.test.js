@@ -9,12 +9,12 @@ const count = (row, x0, y0, w, h, seed) => {
   }
   return result;
 };
-test('zone variants: 23 rows select deterministically without a legacy quarry', () => {
-  assert.eq(V.rows.length, 23);
-  assert.eq(V.rows.filter(row => row.selectable !== false).length, 23);
+test('zone variants: 24 rows select deterministically without a legacy quarry', () => {
+  assert.eq(V.rows.length, 24);
+  assert.eq(V.rows.filter(row => row.selectable !== false).length, 24);
   assert.eq(V.byId('quarry'), null);
   assert.eq(V.forKind('quarry').length, 4);
-  assert.eq(V.forKind('grove').length, 6);
+  assert.eq(V.forKind('grove').length, 7);
   assert.eq(V.forKind('stones').length, 5);
   assert.eq(V.forKind('tar').length, 5);
   for (const kind of ['grove', 'stones', 'tar', 'beach', 'quarry']) {
@@ -117,7 +117,7 @@ test('zone variants: explicit lamp tint follows coverage winner and otherwise le
     else tinted.lampGlow = original;
   }
 });
-test('zone variants: migrated grave and ruin motifs fit small zones and retain open aisles', () => {
+test('zone variants: grave and ruin motifs fit small zones and retain their intended gaps', () => {
   for (const id of ['ordered_graves', 'overgrown_graves', 'broken_masonry', 'broken_depot']) {
     const row = V.byId(id), [w, h] = row.background.repeatCells;
     assert.lte(w, 6, id); assert.lte(h, 6, id);
@@ -132,7 +132,11 @@ test('zone variants: migrated grave and ruin motifs fit small zones and retain o
       assert.eq(V.sample(row, x - w, y - h, 'anchor'), slot.material);
       assert.eq(V.sample(row, x + w, y + h, 'anchor'), slot.material);
     }
-    // Every motif leaves a continuous lane through successive repeat blocks.
+    // The checkerboard leaves alternating gaps; the other motifs have straight aisles.
+    if (id === 'broken_masonry') {
+      assert.eq(occupied.size, w * h / 2);
+      continue;
+    }
     assert.truthy(Array.from({length: w}, (_, x) => x).some(x =>
       Array.from({length: h}, (_, y) => y).every(y => !V.sample(row, x, y, 'anchor'))), id);
   }
@@ -244,6 +248,8 @@ test('zone variants: continuous grids have centered POIs and their declared exte
     for (let i = 0; i <= edge; i++) for (let line = 0; line <= edge; line += b.spacingCells) {
       assert.truthy(V.sample(row, line, i), 'unbroken column');
       assert.truthy(V.sample(row, i, line), 'unbroken row');
+      if (id === 'work_yard' && i % b.spacingCells === 0)
+        assert.eq(V.sample(row, i, line), 'ground_spikes', 'one spike at each shared grid corner');
     }
     for (const [x, y] of [[-1, 0], [0, -1], [edge + 1, 0], [0, edge + 1]]) {
       if (id === 'work_yard') assert.eq(V.sample(row, x, y), null, 'finite work-yard footprint');
@@ -329,9 +335,10 @@ test('zone variants: fauna affinities and material classes match their runtime l
 });
 })();
 
-test('bramble groves target half of background cells before placement exclusions', () => {
+test('bush groves target half of background cells before placement exclusions', () => {
  for (const id of ['meadow','ancient_grove']) {
    const row=ZoneVariants.byId(id); let shrubs=0;
+   assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : undefined);
    for(let y=0;y<120;y++) for(let x=0;x<120;x++) if(ZoneVariants.sample(row,x,y,'coverage')==='shrub')shrubs++;
    assert.eq(row.background.materialDensity.shrub,0.5);
    assert.inRange(shrubs/14400,0.48,0.52,id);

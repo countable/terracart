@@ -85,18 +85,19 @@ test('reward card: the road pick opens the kept gift as a card, and the queue wa
 // ── The first vista's relic ───────────────────────────────────────────────
 // Paid on the tap, shown as a card once the vista's story has been read (the
 // card waits on the splash's dismiss); a save that has had the story gets the
-// card at once. The daily gift stays a find on the ground.
+// card at once. Its dismissal opens the looking-glass menu.
 test('reward card: the first vista\'s relic is a card after the story, never a toast', () => {
   const realGrant = globalThis.grantTreasureRoll;
   globalThis.grantTreasureRoll = () => {};
   try {
     const vista = (save, over) => {
-      const cards = [], loot = [];
+      const cards = [], loot = [], menus = [];
       const scene = makeScene({ save, flashLoot: (t) => loot.push(t),
+        presentTelescopeMenu: () => menus.push(true),
         showRewardCard: (reward, extra) => { cards.push({ reward, extra }); return true; }, ...over });
       scene.save = save;
       runInteractable({ scene, save, sx: 0, sy: 0 }, { kind: 'vista_scope', id: 'scope_1_2_3_4', x: 0, y: 0 });
-      return { cards, loot };
+      return { cards, loot, menus };
     };
     // A new save: the story opens first, the card on its dismiss.
     let splash = null;
@@ -116,14 +117,19 @@ test('reward card: the first vista\'s relic is a card after the story, never a t
     const b = vista(save2, { _storySplashOnce() { return false; } });
     assert.eq(b.cards.length, 1, 'the card opens on the tap');
     assert.eq(save2.relics[Scenic.FIRST_VISTA_SLOT].tier, 1);
-    // No card lane (a scene without the shell): the toast as before.
+    assert.includes(a.cards[0].extra.sub, "You'll need this for all the things you'll find with this looking glass!");
+    assert.eq(a.menus.length, 0);
+    a.cards[0].extra.onDismiss();
+    assert.eq(a.menus.length, 1, 'the menu follows the bag');
+    // A scene without the card shell still reaches the menu.
     const save3 = { relics: {}, coinBurstClaimed: {}, inv: [] };
     const c = vista(save3, { showRewardCard: undefined, _storySplashOnce() { return false; } });
     assert.eq(c.cards.length, 0);
-    assert.eq(c.loot.filter((t) => /\u{1F52D}/u.test(t)).length, 1, 'the toast stands in');
+    assert.eq(c.menus.length, 1, 'no missing card can swallow the menu');
     // Once per save: a second vista shows nothing.
     const d = vista(save, { _storySplashOnce() { return false; } });
     assert.eq(d.cards.length, 0, 'no second relic card');
+    assert.eq(d.menus.length, 1, 'later visits open the menu');
   } finally {
     globalThis.grantTreasureRoll = realGrant;
   }

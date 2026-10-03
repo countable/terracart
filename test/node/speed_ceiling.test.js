@@ -1,6 +1,6 @@
 // THE SPEED CEILING (creature_ai.js WILD_SPEED_CEILING_MPS — owner, Sep 2026):
-// nothing wild ever moves faster than 10 m/s, shiny included, BY ITS BASE
-// NUMBERS — no cap on top. This measures every lane a wild thing moves by:
+// Ordinary roster speeds target 10 m/s BY THEIR BASE NUMBERS. Shiny
+// creatures multiply their speed by 1.5 afterwards, without a cap. This measures every lane a wild thing moves by:
 //   · the tables: every gait / bolt row (faunaTopMps × SHINY_SPEED_MUL) and
 //     every roster speed (foeChaseMps, the row's declared m/s);
 //   · the crow's own tick, RUN (WILD_CROW_TICK_SRC) through roam and panic
@@ -131,7 +131,7 @@ for (let i = 0; i < 2000 && !(ids.plain && ids.shiny); i++) {
   if (isShiny(id, SHINY_RATE.animal)) ids.shiny ??= id; else ids.plain ??= id;
 }
 function runDeer(id, { near, struck }) {
-  const deer = { kind: 'deer', id, x: 33.5 * CM, y: 32.5 * CM };
+  const deer = { kind: 'deer', id, shiny: isShiny(id, SHINY_RATE.animal), x: 33.5 * CM, y: 32.5 * CM };
   // Near: one cell off (inside the deer's 5-cell bolt). Far: 7 cells off —
   // past the bolt, inside the 12-cell sim bubble (a deer beyond it does not
   // think at all).
@@ -156,6 +156,35 @@ test('speed ceiling: a bolting, struck, or struck-and-bolting deer — plain or 
       assert.gt(r.peak, BRISK_WALK_MPS, `${label} deer, ${mode}: the harness bites — it ran`);
     }
   }
+});
+
+test('shiny deer: the live charging hit deals twice the damage', () => {
+  const losses = [false, true].map(shiny => {
+    const deer = { kind: 'deer', id: 'deer_charge', shiny, x: 32.5 * CM, y: 32.5 * CM, _rageUntil: Date.now() + 60000 };
+    const scene = mkScene(deer, { x: deer.x, y: deer.y });
+    tick(scene);
+    return 80 - scene.save.energy;
+  });
+  assert.gt(losses[0], 0);
+  assert.eq(losses[1], 2 * losses[0]);
+});
+test('shiny crow: panic and retreat flights cover the same leg in two-thirds the time', () => {
+  const random = Math.random;
+  try {
+    Math.random = () => 0.5;
+    for (const mode of ['flee', 'depart']) {
+      const legs = [false, true].map(shiny => {
+        const c = { kind: 'crow', x: 100, y: 100, shiny, _perchUntilT: 0 };
+        if (mode === 'flee') { c._fleeUntilT = 30000; c._fleeAngle = 0; }
+        else depart(c, 0, 'hunted', CROW_DEPART_MS);
+        crowTick(crowScene(), c, 1, 0, 0);
+        return c;
+      });
+      assert.inRange((legs[0]._flightUntilT - 1) / (legs[1]._flightUntilT - 1), 1.5 - 1e-9, 1.5 + 1e-9);
+      assert.eq(legs[0]._targetX, legs[1]._targetX);
+      assert.eq(legs[0]._targetY, legs[1]._targetY);
+    }
+  } finally { Math.random = random; }
 });
 
 test('speed ceiling: the hurry never stacks on a sprint (source pins)', () => {

@@ -26,7 +26,7 @@
     "finiteFindOwnership": "one_anchor_global_plan_not_per_tile_or_per_visit",
     "failedFindPlacement": "try_deterministic_alternatives_inside_zone_then_report_shortfall",
     "hazards": "do_not_count_as_interactables",
-    "tarGuards": "none",
+    "tarGuards": "declared_finite_guards_only",
     "runtimeStatus": "src/zone_variants.js_and_src/zone_dressing.js",
     "coverage": {
       "operation": "union",
@@ -372,6 +372,29 @@
       "spawnClass": "attractor",
       "color": "#8ccfe3",
       "_zoneObjectFrame": 37
+    },
+    "ground_spikes": {
+      "kind": "stakes",
+      "spawnClass": "minor",
+      "color": "#807567"
+    },
+    "treasure_chest_t2": {
+      "kind": "chest",
+      "tierSeed": 2,
+      "spawnClass": "attractor",
+      "color": "#b29d6b"
+    },
+    "wurm": {
+      "kind": "wurm",
+      "recordType": "enemy",
+      "spawnClass": "enemy",
+      "color": "#ba8959"
+    },
+    "treant": {
+      "kind": "treant",
+      "recordType": "enemy",
+      "spawnClass": "enemy",
+      "color": "#99754b"
     }
   },
   "variants": [
@@ -1174,13 +1197,10 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, brambles occupy 50% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 50% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
-      },
-      "materialLooks": {
-        "shrub": "bramble"
       }
     },
     {
@@ -1425,9 +1445,6 @@
         "butterfly": 0.5
       },
       "materialFrames": {
-        "mushroom": [
-          40
-        ],
         "giant_mushroom": [
           40
         ]
@@ -2309,7 +2326,7 @@
               3,
               2
             ],
-            "material": "carnivorous_plant"
+            "material": "treant"
           },
           {
             "at": [
@@ -2425,7 +2442,7 @@
           "tree": 0.027777777777777776,
           "shrub": 0.5,
           "grass": 0.04444444444444444,
-          "carnivorous_plant": 0.027777777777777776
+          "treant": 0.027777777777777776
         },
         "type": "repeat_motif",
         "cluster": {
@@ -2609,9 +2626,9 @@
       },
       "guards": {
         "mode": "guard_find",
-        "kind": "plant",
+        "kind": "treant",
         "kinds": [
-          "plant",
+          "treant",
           "spider"
         ],
         "count": 2,
@@ -2628,12 +2645,368 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded tree-centered clusters repeat six cells apart, with brambles covering half the background cells and light grass in the gaps. Stone markers lead to the guarded starflower. One stationary carnivorous plant stands beside each repeated central tree.",
+      "atmosphere": "Rounded tree-centered clusters repeat six cells apart, with brambles covering half the background cells and light grass in the gaps. Stone markers lead to the guarded starflower. A bramble beside each central tree twitches, hiding a treant that wakes when approached.",
       "attracts": {
         "deer": 0.6
       },
       "materialLooks": {
         "shrub": "bramble"
+      }
+    },
+    {
+      "id": "sacred_grove",
+      "zone": "grove",
+      "name": "Sacred Grove",
+      "weight": 1,
+      "background": {
+        "repeatCells": [
+          6,
+          6
+        ],
+        "slots": [
+          {
+            "at": [
+              2,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              3
+            ],
+            "material": "tree"
+          },
+          {
+            "at": [
+              4,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              5
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              5
+            ],
+            "material": "grass"
+          }
+        ],
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "orientation": "quarter_turn_toward_approach",
+        "nominalDensity": 0.6,
+        "materialDensity": {
+          "shrub": 0.5,
+          "grass": 0.07222222222222222,
+          "tree": 0.027777777777777776
+        },
+        "type": "repeat_motif",
+        "cluster": {
+          "centerCell": [
+            3,
+            3
+          ],
+          "shape": "rounded_concentric_rings",
+          "outerRadiusSquaredCells": 6,
+          "layers": [
+            {
+              "radiusCells": 0,
+              "material": "tree"
+            },
+            {
+              "radiusCells": 1,
+              "material": "shrub"
+            },
+            {
+              "outerRadiusSquaredCells": 6,
+              "material": "shrub"
+            }
+          ]
+        },
+        "poiOrigin": {
+          "cell": [
+            3,
+            3
+          ],
+          "role": "cluster_center_replacing_center_tree"
+        },
+        "gapScatter": {
+          "material": "grass",
+          "chance": 0.04,
+          "placement": "empty_motif_cells_only",
+          "seed": "anchor_variant_global_cell"
+        },
+        "densityBasis": "fixed_cluster_plus_expected_gap_scatter"
+      },
+      "poi": {
+        "id": "stone_tree_ring",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "tree"
+          },
+          {
+            "at": [
+              0,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "tree"
+          },
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "tree"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "tree"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "tree"
+            },
+            {
+              "at": [
+                -2,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                2
+              ],
+              "material": "tree"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap",
+        "composition": {
+          "replaceBackgroundAt": "poi_cell_and_declared_slots_only",
+          "preserveUntouchedNeighbors": true
+        }
+      },
+      "finds": {
+        "rarity": "rare",
+        "material": "star",
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              0,
+              0.65
+            ]
+          }
+        ],
+        "spawnClass": "attractor",
+        "owner": "anchor",
+        "relocation": {
+          "unit": "group",
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "count": 1
+      },
+      "connection": {
+        "shape": "stepping_stones",
+        "material": "stone",
+        "spacingCells": 3,
+        "from": "poi",
+        "to": "finds",
+        "withinCoverageBudget": true,
+        "crossMajorRoad": false
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "Old trees shelter soft bushes and patches of grass. Stone markers lead from the quiet shrine to a starflower.",
+      "attracts": {
+        "deer": 0.6
       }
     },
     {
@@ -3811,14 +4184,35 @@
               1,
               3
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               3,
               3
             ],
-            "material": "stone"
+            "material": "grave"
+          },
+          {
+            "at": [
+              5,
+              1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              5
+            ],
+            "material": "grass"
           },
           {
             "at": [
@@ -3831,11 +4225,10 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.1388888888888889,
+        "nominalDensity": 0.2222222222222222,
         "materialDensity": {
-          "grave": 0.05555555555555555,
-          "stone": 0.05555555555555555,
-          "grass": 0.027777777777777776
+          "grave": 0.1111111111111111,
+          "grass": 0.1111111111111111
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -3843,11 +4236,11 @@
             3,
             3
           ],
-          "role": "central_stone_row_between_graves"
+          "role": "central_aisle_between_graves"
         }
       },
       "poi": {
-        "id": "flanking_stone_rows",
+        "id": "flanking_grass_and_pots",
         "origin": "settled_poi",
         "slots": [
           {
@@ -3862,35 +4255,35 @@
               -1,
               0
             ],
-            "material": "stone"
+            "material": "grass"
           },
           {
             "at": [
               -1,
               1
             ],
-            "material": "stone"
+            "material": "grass"
           },
           {
             "at": [
               1,
               -1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
               1,
               0
             ],
-            "material": "stone"
+            "material": "grass"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "stone"
+            "material": "grass"
           }
         ],
         "relocation": {
@@ -3913,35 +4306,35 @@
                 -2,
                 0
               ],
-              "material": "stone"
+              "material": "grass"
             },
             {
               "at": [
                 -2,
                 1
               ],
-              "material": "stone"
+              "material": "grass"
             },
             {
               "at": [
                 2,
                 -1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
                 2,
                 0
               ],
-              "material": "stone"
+              "material": "grass"
             },
             {
               "at": [
                 2,
                 1
               ],
-              "material": "stone"
+              "material": "grass"
             }
           ],
           "origin": "settled_poi",
@@ -4012,15 +4405,15 @@
         "fallback": "omit_guard_keep_find",
         "headstoneGhostChance": 0.3333333333333333
       },
-      "atmosphere": "Short grave rows leave an aisle; matching finds occupy two empty row ends.",
-      "attracts": {
-        "crow": 0.65
-      },
+      "atmosphere": "Close rows of matching graves stand among long grass, with clay pots beside the central aisle.",
+      "attracts": {},
       "materialFrames": {
         "grave": [
-          4,
-          5
+          4
         ]
+      },
+      "materialReplacements": {
+        "stone": "grass"
       }
     },
     {
@@ -4270,7 +4663,6 @@
       },
       "atmosphere": "Three weathered grave markers mingle with grass and shrubs in each 6 × 6-cell patch, with open aisles through the overgrowth.",
       "attracts": {
-        "crow": 0.4,
         "butterfly": 0.35
       },
       "materialFrames": {
@@ -4302,58 +4694,135 @@
               0,
               0
             ],
-            "material": "rubble"
+            "material": "clay_pot"
           },
           {
             "at": [
-              1,
+              2,
+              0
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              4,
               0
             ],
             "material": "rubble"
           },
           {
             "at": [
-              0,
+              1,
               1
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              3,
+              1
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              5,
+              1
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              0,
+              2
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              1,
+              3
             ],
             "material": "rubble"
           },
           {
             "at": [
-              1,
-              1
+              3,
+              3
             ],
-            "material": "rubble"
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              0,
+              4
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "clay_pot"
           },
           {
             "at": [
               4,
               4
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
-              5,
-              4
+              1,
+              5
             ],
-            "material": "stone"
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "clay_pot"
           },
           {
             "at": [
               5,
               5
             ],
-            "material": "stone"
+            "material": "clay_pot"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.19444444444444445,
+        "nominalDensity": 0.5,
         "materialDensity": {
-          "rubble": 0.1111111111111111,
-          "stone": 0.08333333333333333
+          "clay_pot": 0.4444444444444444,
+          "rubble": 0.05555555555555555
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -4361,11 +4830,11 @@
             3,
             3
           ],
-          "role": "clearing_between_masonry_groups"
+          "role": "checkerboard_origin"
         }
       },
       "poi": {
-        "id": "stone_square",
+        "id": "pottery_square",
         "origin": "settled_poi",
         "slots": [
           {
@@ -4380,21 +4849,21 @@
               1,
               -1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
               -1,
               1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           }
         ],
         "relocation": {
@@ -4417,21 +4886,21 @@
                 1,
                 -1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
                 1,
                 1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
                 -1,
                 1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             }
           ],
           "origin": "settled_poi",
@@ -4470,13 +4939,7 @@
         "count": 1
       },
       "connection": {
-        "shape": "offset_row",
-        "material": "rubble",
-        "spacingCells": 3,
-        "from": "poi",
-        "to": "finds",
-        "withinCoverageBudget": true,
-        "crossMajorRoad": false
+        "shape": "none"
       },
       "guards": {
         "mode": "guard_find",
@@ -4494,18 +4957,8 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a club goblin.",
+      "atmosphere": "Old clay pots stand in a simple checkerboard across the ruined yard, with occasional broken masonry among them. A club goblin watches over a platinum-bearing stone.",
       "attracts": {},
-      "decorations": [
-        {
-          "material": "broken_column",
-          "count": 1
-        },
-        {
-          "material": "fallen_column",
-          "count": 1
-        }
-      ],
       "materialLooks": {
         "rubble": "zone_rock_broken_masonry"
       }
@@ -4834,10 +5287,7 @@
       "attracts": {},
       "materialFrames": {
         "grave": [
-          1,
-          1,
-          4,
-          5
+          1
         ]
       }
     },
@@ -5566,9 +6016,35 @@
         "crossMajorRoad": false
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_poi",
+        "kind": "bat",
+        "count": 5,
+        "offsetCells": [
+          [
+            -2,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            -1,
+            -2
+          ],
+          [
+            1,
+            -2
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush.",
+      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush. Bats roost around the depot and swoop toward visitors.",
       "attracts": {},
       "decorations": [
         {
@@ -5868,9 +6344,22 @@
         "crossMajorRoad": false
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_find",
+        "kind": "split_slime",
+        "kinds": [
+          "split_slime"
+        ],
+        "count": 1,
+        "offsetCells": [
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent.",
+      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
       "attracts": {},
       "materialLooks": {
         "rubble": "zone_rock_seep"
@@ -5886,7 +6375,7 @@
         "spacingCells": 4,
         "horizontalMaterial": "copper_rock",
         "verticalMaterial": "rubble",
-        "intersectionMaterial": "copper_rock",
+        "intersectionMaterial": "ground_spikes",
         "lineWidthCells": 1,
         "previewPlots": [
           5,
@@ -5897,8 +6386,9 @@
         "densityFalloff": "none",
         "nominalDensity": 0.4897959183673469,
         "materialDensity": {
-          "copper_rock": 0.2857142857142857,
-          "rubble": 0.20408163265306123
+          "copper_rock": 0.20408163265306123,
+          "rubble": 0.20408163265306123,
+          "ground_spikes": 0.08163265306122448
         },
         "plots": [
           5,
@@ -6065,9 +6555,23 @@
         "endpoint": "center_of_plot_2_4"
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_find",
+        "kind": "goblin",
+        "count": 2,
+        "offsetCells": [
+          [
+            -2,
+            0
+          ],
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Copper-rock rows and rubble columns enclose twenty-five plots. The POI sits in the central room; a crimson-bearing rock marks the far end of its lane.",
+      "atmosphere": "Copper-rock rows and rubble columns enclose twenty-five plots, with one ground spike at each grid corner. The POI sits in the central room; a crimson-bearing rock marks the far end of its lane. Two goblins watch over the valuable ore.",
       "attracts": {},
       "decorations": [
         {
@@ -6821,7 +7325,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "attracts": {},
-      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine, with a reserved 3 × 3-cell footprint and one daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains.",
+      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine. Its 3 × 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. A one-time T3 treasure chest sits inside the hull alongside the shrine's daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains.",
       "decorations": [
         {
           "material": "amphora",
@@ -7051,7 +7555,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "The old road ends at a wound in the earth. Whatever struck here scattered the stone outward; small seams still smoulder beneath the ash. Deep Crimson ore was thrown up with the broken ground.",
+      "atmosphere": "A central lava pool surrounds a dry island bearing an Ember altar.",
       "attracts": {},
       "quarryLayout": "crater",
       "affinities": [
@@ -7059,16 +7563,16 @@
       ],
       "materialFrames": {
         "crystal": [
-          58,
           59
         ]
-      }
+      },
+      "shrineChance": 1
     },
     {
       "id": "quarry-abandoned",
       "zone": "quarry",
       "name": "Abandoned quarry",
-      "weight": 1,
+      "weight": 0.8,
       "generated": "parking_lanes",
       "source": "parking_lanes",
       "background": {
@@ -7116,16 +7620,22 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Weathered timber, copper ore and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
+      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Loose stone, copper ore and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
       "attracts": {},
       "quarryLayout": "abandoned",
+      "entrances": {
+        "count": 3,
+        "spacingCells": 3
+      },
       "affinities": [
         "ruined"
       ],
       "materialFrames": {
         "crystal": [
-          58,
           59
+        ],
+        "stone": [
+          69
         ]
       },
       "decorations": [
@@ -7170,7 +7680,7 @@
       },
       "finds": {
         "rarity": "none",
-        "material": "stone",
+        "material": "treasure_x",
         "targets": [],
         "count": 0
       },
@@ -7180,9 +7690,14 @@
       "guards": {
         "mode": "quarry_layout",
         "kind": "split_slime",
-        "count": 2
+        "count": 3,
+        "kinds": [
+          "split_slime",
+          "wurm",
+          "split_slime"
+        ]
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Blue slimes divide and gather in the open cuts.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Blue slimes divide and gather in the open cuts. Beneath them, wurms tunnel through the loose earth.",
       "attracts": {},
       "quarryLayout": "strip_mine",
       "affinities": [
@@ -7190,16 +7705,19 @@
       ],
       "materialFrames": {
         "crystal": [
-          58,
           59
+        ],
+        "stone": [
+          65
         ]
-      }
+      },
+      "buriedTreasureChance": 0.2
     },
     {
       "id": "quarry-stronghold",
       "zone": "quarry",
       "name": "Ruined stronghold",
-      "weight": 1,
+      "weight": 1.2,
       "generated": "parking_lanes",
       "source": "parking_lanes",
       "background": {
@@ -7230,16 +7748,19 @@
       },
       "finds": {
         "rarity": "finite",
-        "material": "treasure_x",
+        "material": "treasure_chest_t2",
         "targets": [
           {
-            "id": "0"
+            "id": "0",
+            "material": "treasure_chest_t2"
           },
           {
-            "id": "1"
+            "id": "1",
+            "material": "treasure_chest_t2"
           },
           {
-            "id": "2"
+            "id": "2",
+            "material": "treasure_chest_t2"
           }
         ],
         "count": 3
@@ -7252,7 +7773,7 @@
         "kind": "goblin",
         "count": 3
       },
-      "atmosphere": "Low square foundations are all that remain of the garrison that guarded the stone road. Goblins shelter behind the broken walls. Crosses scratched into the abandoned yards suggest that the defenders buried more than they managed to carry away.",
+      "atmosphere": "Ruined foundations shelter chests, goblins and scattered clay pots.",
       "attracts": {},
       "quarryLayout": "stronghold",
       "affinities": [
@@ -7260,7 +7781,6 @@
       ],
       "materialFrames": {
         "crystal": [
-          58,
           59
         ]
       },
@@ -7286,7 +7806,6 @@
     "sapphireAbundanceMultiplier": 0.25,
     "clusterGapCells": 3,
     "sourceJoinM": 2,
-    "craterMaxHazards": 3,
     "siteNames": {
       "first": [
         "Ash",
@@ -7365,7 +7884,10 @@
       "stone": 0.395,
       "crystal": 0.005,
       "barrel": 0.004
-    }
+    },
+    "craterPoolSizeCells": 5,
+    "abandonedMaxSpikes": 6,
+    "foundationPotChance": 0.5
   }
 };
 })(typeof window !== "undefined" ? window : globalThis);

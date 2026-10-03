@@ -356,7 +356,7 @@
     { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
     { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
     { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
-    { name: 'Thorny Path', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
+    { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
     { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 22, thick: 1, x0: 0, x1: 23, variant: 'snare' },
     { name: 'Fort Road', class: 'tertiary', type: T.ROAD_MD, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
     { name: 'Old Trade Road', class: 'primary', type: T.ROAD_LG, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
@@ -716,6 +716,7 @@
     if (typeof BiomeProfiles === 'undefined' || typeof WorldGen === 'undefined') return;
     const { grid, objects, wildplants, cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM } = c;
     const occupied = new Set();
+    let grassCandidates = null;
     const key = (ix, iy) => `${ix}_${iy}`;
     for (const o of objects) {
       const ix = Math.round((o.x - tx * tileEdgeM) / cellM - 0.5);
@@ -737,12 +738,14 @@
     if (zoneCoverage || streetArea) for (let i = 0; i < cellsPerEdge * cellsPerEdge; i++) {
       if (zoneCoverage?.[i] || streetArea?.[i]) occupied.add(key(i % cellsPerEdge, Math.floor(i / cellsPerEdge)));
     }
-    const place = (ix, iy, crop, t) => {
+    const place = (ix, iy, crop, t, clayPot = false) => {
       const kk = key(ix, iy);
       if (occupied.has(kk)) return false;
       occupied.add(kk);
       const { x, y } = wmAt(ix, iy);
-      wildplants.push(WorldGen.makeWildplant(crop, x, y, `sbflora_${tx}_${ty}_${crop}_${ix}_${iy}`,
+      if (clayPot) objects.push(WorldGen.makeObject('chest', x, y,
+        WorldGen.cellId('hmpot', tx, ty, ix, iy), { barrel: true, barrelStyle: 'clay_pot', _biome: t }));
+      else wildplants.push(WorldGen.makeWildplant(crop, x, y, `sbflora_${tx}_${ty}_${crop}_${ix}_${iy}`,
         { _biome: t, _ix: ix, _iy: iy }));
       return true;
     };
@@ -759,13 +762,24 @@
       for (const [t, cells] of byT) {
         for (const fl of BiomeProfiles.flora(t)) {
           const salt = fl.salt >>> 0;
-          if (fl.pattern === 'hedgemaze') {
+          if (fl.pattern === 'grassfill') {
+            if (!grassCandidates) {
+              const steps = WorldGen.grassFillSteps(tx, ty, cellsPerEdge);
+              let step = steps.next();
+              while (!step.done) step = steps.next();
+              grassCandidates = step.value;
+            }
+            for (const [ix, iy] of cells) {
+              if (grassCandidates[iy * cellsPerEdge + ix]) place(ix, iy, fl.crop, t);
+            }
+          } else if (fl.pattern === 'hedgemaze') {
             // WorldGen.hedgeMazeCell owns the lattice; the sandbox passes
             // ABSOLUTE cells like worldgen does, so the commercial maze here
             // matches the real plaza's rule 1:1.
             for (const [ix, iy] of cells) {
               const ax = tx * cellsPerEdge + ix, ay = ty * cellsPerEdge + iy;
-              if (WorldGen.hedgeMazeCell(ax, ay, salt)) place(ix, iy, fl.crop, t);
+              if (WorldGen.hedgeMazeCell(ax, ay, salt))
+                place(ix, iy, fl.crop, t, WorldGen.hedgeMazePotCell(ax, ay));
             }
           } else {
             // fnv1a: the shared FNV-1a hash (util.js).

@@ -37,7 +37,10 @@
   html,body{margin:0;height:100%;font:13px system-ui,sans-serif;background:#111}
   #map{position:absolute;inset:0 290px 0 0}
   #side{position:absolute;top:0;right:0;bottom:0;width:290px;overflow:auto;padding:10px;box-sizing:border-box;background:#1b1b1b;color:#ddd}
-  #side h3{margin:12px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#aaa}
+  .review-section{margin-top:12px}
+  .review-section>summary{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#aaa;cursor:pointer;padding:4px 0}
+  .review-section>summary:focus-visible{outline:2px solid #fff;outline-offset:2px}
+  .section-body{padding-top:3px}
   #side label{display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer}
   .sw{display:inline-block;width:11px;height:11px;border-radius:50%;flex:none}
   .sq{border-radius:2px}
@@ -50,6 +53,9 @@
   #zonePick,#sourceFilter,#laneFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
   #zoneDetails{font-size:12px;line-height:1.5;margin:8px 0;padding:8px;background:#242c2c}
   #zoneDetails p{margin:6px 0} #sourceLegend{font-size:11px;line-height:1.5}
+  #legend button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;margin:2px 0;padding:5px 6px;background:transparent;border:1px solid transparent}
+  #legend button[aria-pressed="true"]{border-color:#fff;background:#3a3a3a;color:#fff}
+  #legend button:focus-visible{outline:2px solid #fff;outline-offset:1px}
   .zone-label{background:#122f2be8;border:1px solid #3c8f80;color:#fff;font-weight:600;font-size:11px}
 </style>
 </head>
@@ -59,7 +65,7 @@
   <div><b>Map review</b></div>
   <div id="status">loading the game…</div>
   <div><button id="placeHome">Place Home</button></div>
-  <h3>Park / zone variants</h3>
+  <details class="review-section" open><summary>Park / zone variants</summary><div class="section-body">
   <label><input id="zoneLabels" type="checkbox" checked> Show variant labels</label>
   <select id="zonePick" aria-label="Park or zone"><option value="">Loading zones…</option></select>
   <div id="zoneDetails">Select a park or zone to inspect its layout and other spawns.</div>
@@ -67,29 +73,38 @@
   <select id="sourceFilter"><option value="all">All sources</option><option value="ground">Ground placements (hide fauna)</option><option value="variant">Variant only + POIs</option><option value="other">Other spawns + POIs</option></select>
   <label><input id="sourceColors" type="checkbox"> Color markers by source</label>
   <details><summary>Source colors</summary><div id="sourceLegend"></div></details>
-  <h3>Difficulty</h3><div id="modes"></div>
-  <h3>Base map</h3><div id="bases"></div>
+</div></details>
+  <details class="review-section" open><summary>Difficulty</summary><div class="section-body"><div id="modes"></div>
+</div></details>
+  <details class="review-section" open><summary>Base map</summary><div class="section-body"><div id="bases"></div>
   <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
   <div id="artOptions" hidden><label><input id="restoredLamps" type="checkbox">Preview restored roads and lamps</label></div>
-  <h3>Parking-lane review</h3>
+</div></details>
+  <details class="review-section"><summary>Parking-lane review</summary><div class="section-body">
   <label><input id="removedLanes" type="checkbox"><span class="sw" style="background:#ff40c8"></span> Removed lanes (pink dashed)</label>
   <label><input id="keptServiceRoads" type="checkbox"><span class="sw" style="background:#31d9ff"></span> Kept service roads (cyan)</label>
   <label for="laneFilter">Removed-lane evidence</label>
   <select id="laneFilter"><option value="all">All removed lanes</option><option value="inferred">Inferred removals only</option><option value="explicit">Explicit parking-aisle tags only</option></select>
   <div id="laneSummary" style="font-size:11px;color:#aaa;line-height:1.5"></div>
-  <h3>Quarry clusters</h3>
+</div></details>
+  <details class="review-section" open><summary>Quarry clusters</summary><div class="section-body">
   <label><input id="quarryClusters" type="checkbox"> Colour quarry footprints</label>
   <div id="quarrySummary" hidden style="font-size:11px;color:#aaa;line-height:1.5"></div>
-  <h3>Overlays</h3><div id="ovl"></div>
-  <h3>Density band</h3>
+</div></details>
+  <details class="review-section" open><summary>Overlays</summary><div class="section-body"><div id="ovl"></div>
+</div></details>
+  <details class="review-section" open><summary>Density band</summary><div class="section-body">
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
     <input id="dmax" type="number" value="20" min="0" style="width:3.5em"></div>
   <div id="dstats" style="margin-top:4px"></div>
-  <h3>Placed things</h3>
+</div></details>
+  <details class="review-section" open><summary>Placed things</summary><div class="section-body">
   <div id="scope" style="color:#888;margin:-2px 0 6px"></div>
   <div><button id="all">all</button><button id="none">none</button></div>
   <div id="kinds"></div>
-  <h3>Terrain legend</h3><div id="legend"></div>
+</div></details>
+  <details class="review-section" open><summary>Terrain legend</summary><div class="section-body"><p id="terrainStatus" role="status" style="font-size:12px;color:#bbb">Click a ground type to outline it. Click again to clear.</p><div id="legend"></div>
+</div></details>
 </div>
 <div id="game"></div>
 <script src="game-loader.js"></script>
@@ -97,6 +112,7 @@
 <script src="map-review-lanes.js"></script>
 <script src="map-review-quarries.js"></script>
 <script src="map-review-art.js"></script>
+<script src="map-review-terrain.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
@@ -237,6 +253,9 @@ const bases = {
   'Satellite (Esri)': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 19, maxZoom: 21, attribution: 'Esri' }),
 };
 const $ = (id) => document.getElementById(id);
+const terrainReview = TerrainReview.create({ map, legend: $('legend'), status: $('terrainStatus'),
+  getWorld: () => window.__world, getType: name => WorldGen.T[name] ?? Number(name),
+  toLL, getEdge: () => EDGE });
 const mkRow = (host, type, html, checked, on, name) => {
   const l = document.createElement('label');
   l.innerHTML = `<input type="${type}"${name ? ` name="${name}"` : ''}${checked ? ' checked' : ''}> ${html}`;
@@ -450,7 +469,7 @@ function selectZone(id, focus) {
     const tiers = objects.filter(o => o.zoneLayer === 'reef_find').map(o => `T${chestBaseTier(o)}`);
     lines.push(`Reef additions: ${corals.length} coral clusters · ${objects.filter(o => o.zoneLayer === 'reef_ore').length} pick-gated ore rocks · ${tiers.length ? tiers.join(' + ') + ' shore-reachable chests' : 'no shore-reachable chest seats'}`);
   }
-  if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI or shrine. Complete sites have variant finds and guards; incomplete edges use background dressing and cell-owned inhabitants.');
+  if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI. Ruined strongholds have a 50% Ember Altar chance. Complete sites have variant finds and guards; incomplete edges use background dressing and cell-owned inhabitants.');
   if (z.layout) lines.push(z.layout.mode === 'adapted'
     ? `Building-aware layout: complete rings, outer radius ${z.layout.radiusCells} cells`
     : z.layout.mode === 'border' ? `Building-aware layout: ${z.layout.stones}-stone bed along the building`
@@ -534,9 +553,9 @@ function draw(world, home) {
     for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'trap', t.id, t.x, t.y, popupHTML(e,t,'trap'), ZoneReview.source(e,t));
     // Buried X marks: the tile's own mark, spawned and rasterized marks in
     // extraTreasures, and parking-lot marks.
-    if (e.treasure && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
-    for (const t of e.extraTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
-    for (const t of e.parkingTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
+    if (treasureExposed(e.treasure, world.scene) && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
+    for (const t of e.extraTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
+    for (const t of e.parkingTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
     for (const c of e.creatures || []) {
       const hostile = typeof Combat !== 'undefined' && Combat.isEnemy && Combat.isEnemy(c);
       add(c.kind === 'npc' ? 'resident: npc' : hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), (c.name || c.kind) + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y, () => popupHTML(e,c,c.kind), ZoneReview.source(e,c,'creature'));
@@ -900,9 +919,10 @@ function overlays(world) {
     const here = f.members.filter((m) => present.has(m));
     if (!here.length) continue;
     blocks.push(`<div style="color:#aaa;margin-top:6px">${f.name}</div>` + here.map((m) =>
-      `<div style="padding-left:6px"><span class="sw sq" style="background:${TERRAIN_COLOUR[m] || 'hsl(0,0%,50%)'}"></span> ${m.toLowerCase().replace(/_/g, ' ')}</div>`).join(''));
+      `<button type="button" data-terrain="${esc(m)}" aria-pressed="false"><span class="sw sq" style="background:${TERRAIN_COLOUR[m] || 'hsl(0,0%,50%)'}"></span> ${m.toLowerCase().replace(/_/g, ' ')}</button>`).join(''));
   }
   $('legend').innerHTML = blocks.join('');
+  terrainReview.update();
 }
 
 // ── Go ──────────────────────────────────────────────────────────────────────
@@ -911,6 +931,7 @@ function rebuild(home) {
   setTimeout(() => {
     const t0 = performance.now();
     const world = window.__world = buildWorld(home);
+    terrainReview.update();
     laneReview.update(world);
     updateZoneReview(world);
     draw(world, home);

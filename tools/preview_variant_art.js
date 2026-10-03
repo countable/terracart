@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'loot', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
+for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'loot', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
@@ -39,6 +39,8 @@ const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, contextLook
   churchyardFrame: SpriteLayout.plainRockFrame({rockVariant: SpriteLayout.CHURCHYARD_ROCK_VARIANT}),
   groveShrines: SpriteLayout.GROVE_SHRINE_ART, shipwreckShrine: SpriteLayout.SHIPWRECK_SHRINE_ART,
   lighting: Lighting.KINDS, wildplantRules: WILDPLANT_RULES,
+  shrineKinds: Shrines.SHRINE_KINDS, shrineRewards: Shrines.REWARD_KINDS,
+  quarryRockRules: QUARRY_ROCK_RULES, quarrySapphireChance: QUARRY_SAPPHIRE_CHANCE,
   lairs: {kinds:Lairs.KIND_ORDER,counts:Lairs.STREET_TIER_GUARDS,daily:[...Lairs.DAILY_TIERS]},
   zoneKinds: Zones.ZONE_KINDS,
   cellPx: SpriteLayout.CELL_PX, pathClasses: [...WorldGen.PATH_CLASSES], waterTerrain: WorldGen.T.WATER,
@@ -50,6 +52,7 @@ for (const row of Object.values(data.assets)) {
   row.whiteKey = !!(row.onLoad && /data\.data\[i\] > 240/.test(row.onLoad.toString()));
 }
 data.painters = painters;
+data.chestPainter = vm.runInContext("'const CHEST_TIER_COLOR = '+JSON.stringify(CHEST_TIER_COLOR)+'; const ASSETS={chest:{frameWidth:16}}; const chestTierMaxFor=()=>'+chestTierMaxFor(9)+';\\n'+recolorEnemyPixels.toString()+'\\n'+muteSpritePixels.toString()+'\\n'+makeChestTierSheet.toString()", ctx);
 // Basic terrain samples use the same base colours and texture painter as the map.
 const colourTable = read('app').match(/const COLORS = (\{[\s\S]*?\n\});/);
 if (!colourTable) throw new Error('Cannot find shipping ground colours');
@@ -60,6 +63,7 @@ data.terrainTiles = vm.runInContext(`Object.entries(BiomeProfiles.T)
   flora: BiomeProfiles.flora(type),
 }))`, ctx);
 // These ground types exist only as special-zone overlays; rock also occurs naturally.
+data.groundAccents = vm.runInContext('ZONE_GROUND_ACCENTS', ctx);
 data.basicTiles = data.terrainTiles.filter(tile => !['GROVE', 'CHURCHYARD', 'TAR_YARD'].includes(tile.name));
 data.biomePainter = vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.

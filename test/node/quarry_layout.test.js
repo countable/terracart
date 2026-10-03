@@ -3,6 +3,55 @@
   const run = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
   const rect = (w, h) => Array.from({ length: w * h }, (_, i) => (Math.floor(i / w) + 4) * N + i % w + 4);
   const plan = (id, cells, owned = true) => run(QuarryLayout.planSteps({ a: { owned }, variant: ZoneVariants.byId(id), cells }, { N, tx: 4, ty: 5 }));
+  test('abandoned quarry: former single barrel corners become adjacent pairs', () => {
+    const cells = rect(48, 48), p = plan('quarry-abandoned', cells);
+    const barrels = [...p.background].filter(([, material]) => material === 'quarry_barrel');
+    assert.gt(barrels.length, 0);
+    let oldCount = 0;
+    for (const { bounds: [x, y, r, b] } of p.landmarks) {
+      // The previous placement was one barrel on this unchanged seeded roll.
+      let h = Math.imul(4 * N + x + 173, 374761393) ^ Math.imul(5 * N + y + 719, 668265263) ^ 47;
+      h = Math.imul(h ^ (h >>> 13), 1274126177);
+      if (((h ^ (h >>> 16)) >>> 0) / 4294967296 >= .5) continue;
+      oldCount++;
+      assert.eq(p.background.get(b * N + r), 'quarry_barrel');
+      assert.eq(p.background.get((b - 1) * N + r), 'quarry_barrel');
+    }
+    assert.eq(barrels.length, oldCount * 2, 'double the old count without rerolling patches');
+    assert.eq(JSON.stringify([...p.background]), JSON.stringify([...plan('quarry-abandoned', cells.slice().reverse()).background]));
+    for (const find of p.finds) assert.falsy(p.background.has(find.i), 'find seats stay clear');
+  });
+  test('quarry selection: stable weighted rolls make abandoned sites rarer and strongholds more common', () => {
+    const variants = ZoneVariants.forKind('quarry'), counts = {};
+    for (let n = 0; n < 1000; n++) {
+      const hash = Math.floor((n + .5) / 1000 * 4294967296);
+      const index = QuarryLayout.weightedIndexForHash(hash);
+      assert.eq(index, QuarryLayout.weightedIndexForHash(hash), 'stable for a site hash');
+      const id = variants[index].id;
+      counts[id] = (counts[id] || 0) + 1;
+    }
+    assert.eq(counts['quarry-abandoned'], 200);
+    assert.eq(counts['quarry-stronghold'], 300);
+    assert.eq(counts['quarry-strip-mine'], 250);
+    assert.eq(counts['quarry-crater'], 250);
+  });
+  test('quarry selection: rejected craters redistribute by eligible weights and stay stable', () => {
+    const cells = rect(9, 9), counts = {}, variants = ZoneVariants.forKind('quarry');
+    const total = 1000;
+    for (let n = 0; n < total; n++) {
+      const variantHash = Math.floor((n + .5) / total * 4294967296);
+      const start = QuarryLayout.weightedIndexForHash(variantHash);
+      const context = { N, tx: 4, ty: 5, variantHash };
+      const chosen = run(QuarryLayout.variantForSteps(cells, context, start));
+      counts[chosen] = (counts[chosen] || 0) + 1;
+      if (variants[start].id !== 'quarry-crater') assert.eq(chosen, variants[start].id, 'fitting original rolls stay put');
+      if (n % 25 === 0) assert.eq(run(QuarryLayout.variantForSteps(cells.slice().reverse(), context, start)), chosen, 'cell traversal cannot change the fallback');
+    }
+    assert.falsy(counts['quarry-crater']);
+    const eligible = variants.filter(v => v.id !== 'quarry-crater');
+    const weight = eligible.reduce((sum, v) => sum + v.weight, 0);
+    for (const v of eligible) assert.inRange(counts[v.id] / total, v.weight / weight - .035, v.weight / weight + .035, v.id + ' receives only its weighted share');
+  });
   test('stronghold joins: cardinal neighbours select straights, corners, T pieces, cross and end caps', () => {
     const i = 10 * N + 10, offsets = { N: -N, E: 1, S: N, W: -1 };
     const connections = ['EW','NS','ES','WS','NE','NW','NEW','NES','ESW','NSW','NESW','S','W','N','E'];
@@ -16,9 +65,10 @@
   });
   test('stronghold joins: open doors and clipped footprints determine actual piece orientation', () => {
     for (const cells of [rect(5,5), rect(4,4), rect(5,5).filter(i => i !== 4*N+6)]) {
-      const p = plan('quarry-stronghold', cells), walls = new Set(p.background.keys());
+      const p = plan('quarry-stronghold', cells), walls = new Set([...p.background.keys()].filter(i=>p.background.get(i)!=='clay_pot'));
       assert.gt(p.wallFrames.size, 0);
       for (const [i, material] of p.background) {
+        if (material === 'clay_pot') continue;
         const frame = QuarryLayout.wallFrameAt(walls, i, N);
         assert.eq(material, frame == null ? 'stone' : 'stronghold_wall');
         assert.eq(p.wallFrames.get(i), frame == null ? undefined : frame);
@@ -45,7 +95,7 @@
     assert.truthy(large.landmarks[0].radii[1] > small.landmarks[0].radii[1]);
     assert.eq(large.finds.length, 2, 'finite ore does not grow with area');
     assert.truthy(large.hazards.length > 0);
-    assert.lte(large.hazards.length, ZoneVariantData.quarryLayouts.craterMaxHazards, 'a few vents keep the bowl readable');
+    assert.eq(large.hazards.length, 24, 'five by five pool surrounds its dry central island');
     for (const i of large.clear) assert.falsy(large.background.has(i), 'entrance and rewards stay clear');
     for (const f of large.finds) assert.falsy(large.hazards.includes(f.i), 'ore avoids lava');
   });
@@ -95,7 +145,8 @@
           if ((axis === 'x' ? x : y) === middle) assert.falsy(p.background.has(y * N + x), 'cross-cut stays open');
         }
       }
-      assert.eq(p.guards.length, 2, 'narrow modules do not multiply inhabitants');
+      assert.eq(p.guards.length, 3, 'narrow modules do not multiply inhabitants');
+      assert.eq(p.finds.length, 0, 'buried finds roll beneath actual stones after layout placement');
     }
   });
   test('quarry layout: intact patches and surviving foundation walls respect irregular footprints', () => {
@@ -134,10 +185,13 @@
     const cells = rect(48, 48);
     assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
     const strip = plan('quarry-strip-mine', cells);
-    assert.eq(strip.guards.length, 2, 'slime budget does not grow with the number of benches');
+    assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
+    assert.eq(strip.guards.length, 3, 'inhabitant budget does not grow with the number of benches');
+    assert.eq(strip.guards.filter(g => g.material === 'split_slime').length, 2);
+    assert.eq(strip.guards.filter(g => g.material === 'wurm').length, 1);
     for (const guard of strip.guards) {
-      assert.eq(guard.material, 'split_slime');
-      assert.falsy(strip.background.has(guard.i), 'slimes occupy open cuts');
+      assert.includes(['split_slime', 'wurm'], guard.material);
+      assert.falsy(strip.background.has(guard.i), 'inhabitants occupy open cuts');
     }
     const stronghold = plan('quarry-stronghold', cells);
     assert.eq(stronghold.finds.length, 3); assert.eq(stronghold.guards.length, 3);
@@ -209,11 +263,12 @@
     const make = list => run(QuarryLayout.planSteps({ a: { owned: false, clipped: true },
       variant: ZoneVariants.byId('quarry-strip-mine'), cells: list }, { N, tx: 4, ty: 5 }));
     const whole = make(cells), left = make(cells.filter(i => i % N < 24)), right = make(cells.filter(i => i % N >= 24));
-    const slimes = [...whole.background].filter(([, material]) => material === 'split_slime');
-    assert.gt(slimes.length, 0);
+    const inhabitants = [...whole.background].filter(([, material]) => ['split_slime', 'wurm'].includes(material));
+    assert.gt(inhabitants.filter(([, material]) => material === 'split_slime').length, 0);
+    assert.gt(inhabitants.filter(([, material]) => material === 'wurm').length, 0);
     const spacing = ZoneVariantData.quarryLayouts.clippedInhabitantSpacingCells;
-    const blocks = slimes.map(([i]) => `${Math.floor((4 * N + i % N) / spacing)},${Math.floor((5 * N + Math.floor(i / N)) / spacing)}`);
-    assert.eq(new Set(blocks).size, slimes.length, 'no block grants two inhabitants');
+    const blocks = inhabitants.map(([i]) => `${Math.floor((4 * N + i % N) / spacing)},${Math.floor((5 * N + Math.floor(i / N)) / spacing)}`);
+    assert.eq(new Set(blocks).size, inhabitants.length, 'no block grants two inhabitants');
     for (const [i, material] of whole.background) assert.eq((i % N < 24 ? left : right).background.get(i), material);
     assert.eq(whole.guards.length, 0, 'no finite budget is minted');
     assert.eq(whole.finds.length, 0);

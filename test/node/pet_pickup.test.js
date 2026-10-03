@@ -158,3 +158,60 @@ test('pickup: a baby item set down takes a row that grew up in the bag; a shiny 
   assert.eq(carriedRaisedRow(save, 'dog', true), null);
   assert.eq(carriedRaisedRow({ caught: [], released: [grown] }, kind, false), null, 'a row in the world is not carried');
 });
+
+
+test('pickup: releasing near Home saves the stay assignment; releasing away saves following', () => {
+  const original=globalThis.WorldGen;
+  try {
+    for (const x of [10,10.1]) {
+      const save={inv:[{id:'dog',count:1}],selSlot:0,caught:[],released:[]};
+      const entry={creatures:[]};
+      globalThis.WorldGen={...original,tileCache:new Map([[original.tileKey(0,0),entry]])};
+      const scene=petScene(save,{homeWorldPos:()=>({x:0,y:0})});
+      assert.truthy(TAP_HANDLERS.find(h=>h.name==='release').try({scene,save,sx:0,sy:0,cwmx:x,cwmy:0,cell:TERRAIN.GRASS??0}));
+      assert.eq(save.released[0].stayHome,x<=10);
+      assert.eq(entry.creatures[0].stayHome,x<=10);
+      assert.eq(Companions.follows(entry.creatures[0]),x>10);
+    }
+  } finally {globalThis.WorldGen=original;}
+});
+
+
+test('pickup: taming a surface slime clears hostile spawn and garrison gates', () => {
+  const save={inv:[{id:'sapphire',count:1}],selSlot:0,caught:[],released:[]};
+  const scene=petScene(save,{homeWorldPos:()=>({x:0,y:0})});
+  const slime={kind:'slime',id:'wild_surface_slime',x:20,y:0,
+    _surfaceSpawn:{},_surfaceInactive:true,lair:'guard',immobile:true,_wardFrom:{x:0,y:0}};
+  tameInPlace(scene,save,slime,'Tamed','slime',1);
+  assert.falsy(slime._surfaceSpawn);
+  assert.falsy(slime._surfaceInactive);
+  assert.falsy(slime.lair);
+  assert.falsy(slime.immobile);
+  assert.truthy(Companions.follows(slime));
+  slime.x=0;
+  assert.truthy(EnemySpawns.surfaceActive(scene,slime),'tame slime stays visible at Home');
+});
+
+test('pickup: a carried raised pet drops its tracked body before re-release at Home', () => {
+  const pet=tame('dog',{raised:true,born:Date.now(),favouriteFeeds:0,stayHome:false,_hp:2,_lastDamagedT:Date.now()-60000});
+  const save=saveWith(pet), entry={creatures:[pet]};
+  const scene=petScene(save,{homeWorldPos:()=>({x:0,y:0}),
+    _travellingPets:new Map([[pet.id,{creature:pet,entry}]])});
+  assert.truthy(pickUpPet(scene,save,pet,0,0));
+  assert.eq(entry.creatures.length,0);
+  assert.eq(save.released[0].hp,2,'pickup snapshots the current wound');
+  assert.eq(save.released[0].lastDamagedAt,pet._lastDamagedT);
+  assert.falsy(scene._travellingPets.has(pet.id));
+  save.selSlot=save.inv.findIndex(s=>s?.id==='baby_dog');
+  const original=globalThis.WorldGen;
+  try {
+    globalThis.WorldGen={...original,tileCache:new Map([[original.tileKey(0,0),entry]])};
+    TAP_HANDLERS.find(h=>h.name==='release').try({scene,save,sx:0,sy:0,cwmx:5,cwmy:0,cell:TERRAIN.GRASS??0});
+    assert.eq(entry.creatures.length,1);
+    assert.eq(entry.creatures[0].id,pet.id);
+    assert.eq(Combat.hp(entry.creatures[0]),2,'re-release keeps the wound');
+    assert.eq(entry.creatures[0]._lastDamagedT,pet._lastDamagedT,'carrying does not restart healing');
+    assert.truthy(entry.creatures[0].stayHome);
+    assert.falsy(Companions.follows(entry.creatures[0]));
+  } finally {globalThis.WorldGen=original;}
+});

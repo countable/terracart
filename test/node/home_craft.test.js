@@ -35,6 +35,7 @@ function scene(inv) {
   return s;
 }
 const last = (s) => s.modals[s.modals.length - 1];
+const craft = (s) => { const m = last(s); m.onAccept(); m.repeat(); };
 
 test('home craft: recipes include the starter Spear and Potion of Taming from two berries', () => {
   const by = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r.cost]));
@@ -67,22 +68,24 @@ test('home craft: crafting spends the wood and hands over the item', () => {
   s.presentHomeCraft(0, 0, 'scarecrow');
   const m = last(s);
   assert.eq(m.kind, 'craft', 'the Craft category');
-  assert.eq(m.quantity.max, 1, 'five wood makes one 3-wood scarecrow');
+  assert.eq(m.quantity, undefined, 'craft once per tap without a quantity counter');
+  assert.eq(m.cancelLabel, 'Leave');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 2, 'three wood spent');
   assert.eq(Inventory.count(s.save, 'scarecrow'), 1, 'one scarecrow made');
   s.presentHomeCraft(0, 0, 'spear');
-  last(s).onAccept(2);
+  craft(s);
+  craft(s);
   assert.eq(Inventory.count(s.save, 'wood'), 0, 'a spear is one wood each');
   assert.eq(Inventory.count(s.save, 'rockfruit'), 0, 'and one stone each');
   assert.eq(Inventory.count(s.save, 'spear'), 2, 'two spears');
 });
 
-test('home craft: bag room caps the stepper and is rechecked before ingredients are spent', () => {
+test('home craft: bag room disables Craft and is rechecked before ingredients are spent', () => {
   const s = scene([['wood', 5], ['rockfruit', 5], ['spear', 8]]);
   s.presentHomeCraft(0, 0, 'spear');
   let m = last(s);
-  assert.eq(m.quantity.max, 1, 'one open stack place permits one spear');
+  assert.truthy(m.canAfford, 'one open stack place permits one spear');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'one wood spent');
   assert.eq(Inventory.count(s.save, 'rockfruit'), 4, 'one stone spent');
@@ -163,7 +166,8 @@ test('home craft: every mode starts with only Spear and hides undiscovered recip
       m = last(s);
       assert.eq(m.pager.count, 2, 'a wild find exposes only its own recipe');
       assert.truthy(m.canAfford);
-      m.onAccept(2);
+      craft(s);
+      craft(s);
       assert.eq(Inventory.count(s.save, 'trap_kit'), 3, 'two kits from eight stones');
       assert.eq(Inventory.count(s.save, 'rockfruit'), 0);
       m.pager.onNext();
@@ -179,8 +183,12 @@ test('home craft: learned Potion of Taming consumes two berries per jar, recheck
   s.save.foundWild = { honey: 1 };
   s.presentHomeCraft(0, 0, 'honey');
   const m = last(s);
-  assert.eq(m.quantity.max, 2);
-  m.onAccept(2);
+  assert.eq(m.quantity, undefined);
+  craft(s);
+  assert.truthy(last(s).canAfford, 'another jar is available after the first tap');
+  craft(s);
+  assert.falsy(last(s).canAfford, 'the recipe stays open when ingredients run out');
+  assert.includes(last(s).get, itemName('honey'), 'repeat preserves the current recipe');
   assert.eq(Inventory.count(s.save, 'berry'), 1);
   assert.eq(Inventory.count(s.save, 'honey'), 2);
   m.onAccept(1);
@@ -196,7 +204,7 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   const add = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
-  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)?(?:, deferBookRead: !!boothKind)? \}/g) || []).length;
+  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)?(?:, deferBookRead: (?:!!boothKind|true))? \}/g) || []).length;
   assert.eq(notWild, 11, 'the eleven non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund, and a book club prize');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });
@@ -227,8 +235,9 @@ test('home craft: scrolls require prior use in both modes and spend blank scroll
         assert.truthy(last(s).canAfford, 'use alone teaches the recipe, even in hard mode');
         assert.includes(last(s).get, itemName(id), 'learned scroll is offered');
         assert.eq(last(s).pager.count, knownCount + 1, 'using a scroll adds its recipe to the pager');
-        assert.eq(last(s).quantity.max, 3, 'one blank per scroll');
-        last(s).onAccept(2);
+        assert.eq(last(s).quantity, undefined, 'one blank per tap');
+        craft(s);
+        craft(s);
         assert.eq(Inventory.count(s.save, 'blank_scroll'), 1, 'two blanks spent');
         assert.eq(Inventory.count(s.save, id), 3, 'two scrolls made');
       }
