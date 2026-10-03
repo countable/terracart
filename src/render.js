@@ -4855,7 +4855,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // and the iron stakes are the Burned Row's hazards (they SLOW the body —
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    stakes:   { key: (o) => o._street === 'burned' ? 'approved_charred_stakes' : 'stakes',   frame: 0, origin: [0.5, 0.5], scale: o => o._street === 'burned' ? 4 / 3 : 1.6, seat: true, shadow: true },
+    stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);

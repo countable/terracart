@@ -114,7 +114,7 @@ def material_art(material):
         species = material.get('species', 'apple')
         sheet, frames = species + '_tree', [r['fruitFrames'][species]['mature']]
     else:
-        sheet, frames = ('approved_charred_stakes' if kind == 'stakes' and material.get('_street') == 'burned' else kind), [0]
+        sheet, frames = ('approved_charred_stakes' if kind == 'stakes' else kind), [0]
     assert sheet in r['assets'], f'No shipping art for {material}'
     return {'sheet': sheet, 'frames': frames, 'preserveFrame': kind == 'tree' or (kind == 'wildplant' and material.get('crop') in ('shrub', 'giant_mushroom')), 'tint': r['creatures'].get(kind, {}).get('tint', 0xffffff),
             'source': r['assets'][sheet]['path'].split('?')[0] + ' · frame ' + ', '.join(map(str, frames))}

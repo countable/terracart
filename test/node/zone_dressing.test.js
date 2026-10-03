@@ -446,8 +446,8 @@
     assert.truthy(stones.filter(o => o.yieldTier > 1).every(o => !o._objectArt), 'iron ore keeps its tier art');
     const looks = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC;
     assert.eq(looks.mineralrock.key({}), 'mineralrock');
-    assert.eq(looks.stakes.key({_street:'burned'}), 'approved_charred_stakes');
-    assert.eq(looks.stakes.key({}), 'stakes');
+    assert.eq(looks.stakes.key, 'approved_charred_stakes', 'every spike placement uses the replacement art');
+    assert.eq(looks.stakes.scale, 4 / 3, 'replacement art keeps its authored scale');
   });
   test('zone dressing: Ancient Grove centers and shrine trees use the largest mature canopy', () => {
     const grove = ZoneDressing.dress(context('ancient_grove'));
