@@ -73,7 +73,8 @@ const CROP_SPRITE = {
     looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frame: 0, scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
-  // Small mushrooms use 80% of their former 1.224 scale. Surface and
+  // Small mushrooms use 90% of their former 1.224 scale (80% read too
+  // small outdoors). Surface and
   // cave mushrooms share this scale; inventory uses the surface frame. These
   // two are the mushroom's ONLY looks: the red cap above ground, the blue
   // caps below — the authored surface cluster was dropped in Oct 2026.
@@ -84,7 +85,7 @@ const CROP_SPRITE = {
   // same Mushroom item when picked; only the art (and its glow, see
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 0.9792, caveFrames: [127, 128] },
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.1016, caveFrames: [127, 128] },
   // Shell keeps its original pink cowrie on every surface. The unused
   // colour variants and duplicate frames are cleared without changing sheet geometry.
   shell: { sheet: 'shell_sheet', custom: true, frames: [0] },
