@@ -1,21 +1,14 @@
-// Headless tests for the older-device performance-profiling hooks added to
-// answer: how much of a frame is Phaser's own render step vs our JS, which
-// layer rebuild is expensive on a cell-crossing frame, how much drawObjects
-// walks per frame, and what device is slow (see window.__boot in index.html,
-// and its report handler `debug-load-profile`).
+// Headless tests for the older-device performance-profiling hooks (Phaser's
+// render step vs our JS, which layer rebuild is expensive on a cell-crossing
+// frame, how much drawObjects walks per frame, what device is slow; see
+// window.__boot in index.html and its report handler `debug-load-profile`).
 //
 // Two halves:
-//   1. render.js, road_overlay.js and building_overlay.js all load headlessly
-//      (see run.js), so their ticks/counters are exercised for REAL against a
-//      recording `window.__boot` stub.
-//   2. app.js can't load headlessly (it needs Phaser) — its hooks (the
-//      update()/drawCells/drawObjects ticks, the 'phaser render' game-event
-//      wiring, the window.__boot.device line) are pinned as source text
-//      (SCENE_SRC, exposed by run.js) instead, same trick spawn_roads.test.js
-//      uses for ROAD_OVERLAY_SRC. Likewise the border-crossing stamp and the
-//      fog-paint tick sit deep inside Render.drawCells, which needs a full
-//      Graphics-shaped scene fixture nothing else in this suite builds — text
-//      pins on RENDER_SRC cover those two instead of a large new fixture.
+//   1. render.js, road_overlay.js and building_overlay.js load headlessly, so
+//      their ticks/counters run for REAL against a recording `window.__boot` stub.
+//   2. app.js can't load (it needs Phaser), so its hooks are pinned as source
+//      text (SCENE_SRC), as are the border-crossing stamp and fog-paint tick
+//      inside Render.drawCells (RENDER_SRC; no Graphics-shaped fixture exists).
 //
 // Every test that sets window.__boot restores it to undefined afterward
 // (try/finally) — window IS the shared vm global every other *.test.js file
@@ -25,10 +18,8 @@
 
 if (typeof CELL_PX === 'undefined') globalThis.CELL_PX = 32;
 
-// A minimal recording profiler: same call shape as the real window.__boot
-// (tick(name, ms), count(name, n)), but just records calls for assertions
-// instead of aggregating them — the real aggregation (n/sum/worst) is
-// index.html's job, not src's.
+// A minimal recording profiler with the real window.__boot's call shape
+// (tick(name, ms), count(name, n)); the real aggregation is index.html's job.
 function makeBootStub() {
   const ticks = [], counts = [];
   return {

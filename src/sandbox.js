@@ -11,13 +11,13 @@
 //   into one walkable area a tester can sweep in seconds.
 //
 // Design:
-//   The old sandbox was a 5×5 grid of flat colour swatches - one solid biome
-//   per plot. But worldgen never produces a pure "residential square"; a real
-//   residential polygon is a SCENE: a road threads through it, houses (shop
-//   type set by address digit) line the road, mineral rocks sit at the curb. So this version is built from SCENES — small realistic
-//   composites - arranged in horizontal bands, separated by named connective
-//   roads. Each road also carries decoded vector geometry, so the sandbox uses
-//   the same overlay, restoration, lamp and street-dressing lanes as a map tile.
+// Worldgen never produces a pure "residential square"; a real residential
+// polygon is a SCENE: a road threads through it, houses (shop type set by
+// address digit) line the road, mineral rocks sit at the curb. So the sandbox
+// is built from SCENES arranged in horizontal bands, separated by named
+// connective roads. Each road also carries decoded vector geometry, so the
+// sandbox uses the same overlay, restoration, lamp and street-dressing lanes as
+// a map tile.
 //
 //   Layout (north → south):
 //     Band 1  COUNTRYSIDE     FOREST · ORCHARD · ROCK
@@ -526,7 +526,7 @@
     const ownerKeys = [null];
     const buildingShapes = [];
 
-    // Helper: cell index → world metres at cell centre.
+    // Cell index → world metres at cell centre.
     const wmAt = (ix, iy) => ({
       x: tx * tileEdgeM + (ix + 0.5) * cellM,
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
@@ -572,8 +572,7 @@
       // refreshes real tiles whose Overpass bin landed late) never evicts a
       // synthetic sandbox tile in favour of real-world geometry.
       hadBin: true,
-      // loadTile awaits entry.promise when status === 'loading'; ours is
-      // ready so it's never awaited, but harmless to satisfy the shape.
+      // Satisfies the shape; never awaited since status is ready.
       promise: Promise.resolve(null),
     };
     // The live renderer draws source polygons, not building terrain cells.
@@ -823,9 +822,7 @@
           tier: terrain, areaM2: (x1 - x0) * (y1 - y0),
           key: `${baseId}_building_${s.name}_${dx}_${dy}` });
       };
-      // 1. base terrain fill
       rect(0, 0, s.w, s.h, s.fill);
-      // 2. composite terrain overrides (roads / water / pads / paths)
       if (s.paint) {
         s.paint({
           cell: setCell,
@@ -833,7 +830,6 @@
           roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
         });
       }
-      // 3. static interactables
       s.populate(makeScenePush(ix0, iy0, s.name, baseId, { objects, wildplants, creatures }, wmAt));
     }
 

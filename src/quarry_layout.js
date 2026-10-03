@@ -76,9 +76,8 @@
         if ((n & 255) === 0) yield 'quarry clipped benches';
         const i = cells[n], x = i % N, y = Math.floor(i / N);
         const h = hash(x, y, 113), d = settings.clippedMaterialDensity;
-        // Crystal first, then stone, then the barrels (Oct 2026) past them —
-        // the bands stone and crystal held before the barrels joined are the
-        // same cells, so no bench moved when they did.
+        // Crystal first, then stone, then the barrels past them, so the earlier
+        // bands keep the same cells.
         // One fixed cell owns each sparse inhabitant. Never choose the first
         // surviving cell in a clipped fragment: that would duplicate it when
         // another piece of the same site arrives.

@@ -342,15 +342,11 @@ test('hidpi: the drag slop is measured in logical px, not canvas px', () => {
 });
 
 // ── The darkness has to be drawn wider than the frame ───────────────────────
-// The distance falloff used to be ~100 concentric rings cached about the
-// VIEWPORT CENTRE and slid by the peek offset — and the ring image had an
-// EDGE: past the last ring nothing was drawn, so a peek pulled the darkness's
-// own outer edge into the corner of the map as a circular arc. The lightmap
-// (src/lighting.js) has no edge to expose. The player's cookie is drawn at
-// the player's actual screen point EVERY frame (nothing is cached and slid),
-// its ramp lands on exactly zero light PLAYER_RAMP_PAST_CORNER_CELLS beyond
-// the viewport half-diagonal, and past it the map is the ambient floor — the value the ramp ends on — so the
-// join is continuous wherever a peek puts a corner.
+// The player's cookie is drawn at the player's actual screen point EVERY frame
+// (nothing is cached and slid), its ramp lands on exactly zero light
+// PLAYER_RAMP_PAST_CORNER_CELLS beyond the viewport half-diagonal, and past it
+// the map is the ambient floor, so the join is continuous wherever a peek puts
+// a corner. (The old ring image had an EDGE a peek dragged into view.)
 
 const lightScene = () => ({ depth: 0, save: { energy: 100, maxEnergy: 100 }, _atmos: { dim: 0x1a2a1e } });
 

@@ -6,15 +6,10 @@
 // it very easy to add a layer in a reasonable-looking place and silently break
 // something drawn three hundred lines away.
 //
-// The bug that motivated it: the out-of-reach dim — the wash that makes
-// "outside the lit area" mean something — was painted into cellGfx, the
-// BOTTOM-most layer. It could only darken the base terrain fill. Every piece
-// of ground decoration above it (biome seam borders, planks, road letters,
-// POI halos, treasure pads) stayed at full brightness outside the lit area,
-// and the biome boundaries in particular read as glowing lines in the dark.
-// Forcing the dim to alpha 1.0 made it obvious: the road strip, the pale
-// planks and the road lettering all punched straight through a fully opaque
-// black wash.
+// The bug that motivated it: the out-of-reach dim was painted into cellGfx,
+// the BOTTOM-most layer, so it only darkened the base terrain fill and every
+// piece of ground decoration above it stayed at full brightness outside the
+// lit area.
 //
 // These checks are about ORDER ONLY. They deliberately do not care how many
 // layers exist or what any of them paint — just that the ones whose stacking
@@ -28,7 +23,7 @@ const ROOT = path.resolve(__dirname, '..');
 // The display list, in insertion order: every `this.<name> = this.add.<kind>()`
 // in source order. setDepth() overrides are handled separately below.
 function displayLayers() {
-  const src = fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8');
+  const src = fs.readFileSync(path.resolve(ROOT, 'src/scene_create.js'), 'utf8');
   // A BakedGfx (render.js) adds its image to the display list where it is
   // constructed, so it holds its place exactly like an add.image().
   const re = /this\.(\w+)\s*=\s*(?:this\.add\.(?:graphics|container|image)|new Render\.BakedGfx)\(/g;
@@ -72,9 +67,8 @@ const GROUND = [
 
 // Layers that draw STANDING things. These sit ABOVE the reach layer (its
 // white outline is ground-level) and BELOW the lightmap, which dims a sprite
-// with the ground it stands on — the darkness used to sit below the sprites
-// and exempt them, and a house outside the bubble read as a sticker on dark
-// ground.
+// with the ground it stands on, so a house outside the bubble does not
+// read as a sticker on dark ground.
 // Castle walls, turrets and flags are children of this same sorted layer.
 const SPRITES = ['worldContainer'];
 
@@ -243,7 +237,7 @@ const CHECKS = [
       }
       // ...and the image that shows it has to live in the fog container, or the
       // texture is right and its z-order is not.
-      const app = fs.readFileSync(path.resolve(ROOT, 'src/app.js'), 'utf8');
+      const app = fs.readFileSync(path.resolve(ROOT, 'src/scene_create.js'), 'utf8');
       if (!/this\.fogContainer\.add\(this\.fogImage\)/.test(app)) {
         throw new Error('the fog image is not added to fogContainer in MapScene.create() — the '
           + 'ordering check above pins the container, so the wash has to be inside it.');
@@ -258,9 +252,7 @@ const CHECKS = [
       if (start < 0) {
         throw new Error('render.js no longer routes the reach passes through a lighting layer');
       }
-      // The block runs to the atmosphere washes — the next pass after it. It
-      // used to end at the reach outline's own call, which was removed when
-      // the plateau took the affordance over (Sep 2026).
+      // The block runs to the atmosphere washes, the next pass after it.
       const end = src.indexOf('// Atmosphere washes.', start);
       if (end < 0) throw new Error('could not find the end of the reach block in render.js');
       const block = src.slice(start, end);

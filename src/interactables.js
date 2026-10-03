@@ -1,8 +1,8 @@
 // Entity-driven interactable registry.
 //
-// World objects the player taps (trees, ore rocks, fruit trees, …) used to be
-// handled by a long if/else chain on `o.kind` inside interact.js' 'object'
-// tap-handler. That chain mixed three orthogonal concerns for every kind:
+// World objects the player taps (trees, ore rocks, fruit trees, …) are
+// described here, not in an if/else chain on `o.kind`. Three orthogonal
+// concerns per kind:
 //   1. GATE   — is this object spent / does the player have the right tool tier?
 //   2. TIMER  — how long is the work wheel (driven by the equipped tool tier)?
 //   3. PAYOUT — what loot drops when the work completes?
@@ -124,7 +124,7 @@ function fixedChestReward(fixedLoot, save) {
 // `stones` is HOW MANY STONES THE SPRITE SHOWS (SpriteLayout.plainRockStones —
 // 2 for the pair variant, 1 for the singles); the rock pays out EXACTLY that
 // many — no roll, so a pair is always 2 and a single always 1, and what you
-// see is what you get (until Sep 2026 it was that plus a coin-flip bonus).
+// see is what you get.
 // Flint on PLAIN_ROCK_FLINT_P of breaks.
 const PLAIN_ROCK_FLINT_P = 0.10;
 // Copper stays at 1/8; the extra rarity rises smoothly to 3x at Frost.
@@ -222,8 +222,7 @@ function glintRockPhase(id, nowMs, revealStartedMs) { return beatPhase(id, nowMs
 // A CAVE WALL dug out — by a tap (interact.js cave-wall) or by walking into
 // it (app.js auto-mine), both through here: always one stone, and flint on
 // CAVE_WALL_FLINT_P of digs (a wall is where the flint is — a plain rock
-// gives it a third as often). Until Sep 2026 each path rolled its own
-// randInt(1,3) and 20 % flint.
+// gives it a third as often).
 const CAVE_WALL_FLINT_P = 0.30;
 function caveWallDrop(scene) {
   scene.addToInv('rockfruit', 1);
@@ -278,8 +277,7 @@ const INTERACTABLES = {
         // The tool TIER is the only actionable half — the player is looking
         // at the tree they just tapped, so naming its species and the verb
         // spent twenty characters restating the obvious (util.js MAP_MSG_MAX).
-        // `Iron` is the one tier name that starts with a vowel, and the short
-        // line put the old "Need a Iron axe" right under the player's thumb.
+        // `Iron` is the one tier name that starts with a vowel (tierArticle).
         return `Need ${tierArticle(need)} ${need} axe.`;
       }
       return null;
@@ -312,16 +310,13 @@ const INTERACTABLES = {
       const gotAcorn = Math.random() < acornDropChance(save.relics);
       if (gotAcorn) scene.addToInv('acorn', 1);
       persistSave(save);
-      // Say what came off the tree, like mining / harvesting / fishing do —
-      // felling used to report the species and never mention the wood it just
-      // put in the bag. The glyph follows the species: conifers keep 🌲,
+      // Say what came off the tree, like mining / harvesting / fishing do.
+      // The glyph follows the species: conifers keep 🌲,
       // everything else gets the broadleaf 🌳.
       const conifer = /pine|fir|spruce|cedar/i.test(treeSpeciesName(o) || '');
       scene.flash(o.size === 'bush' ? `🌿 Cleared a bush.`
                 : `${conifer ? '🌲' : '🌳'} Felled ${treeSpeciesName(o)} tree.`, sx, sy);
       scene.flashLoot(`+${wood} ${ITEM_BY_ID.wood?.name || 'Wood'}`, undefined, 1, 'wood');
-      // Say what the tree actually gave. A drop the player isn't told about is
-      // a drop that didn't happen as far as they know.
       if (gotAcorn) scene.flashLoot(`+1 ${ITEM_BY_ID.acorn?.name || 'Acorn'}`, '#d9b382', 1.1, 'acorn');
       // Rare shiny tree — 10× wood value in cash + a memory.
       if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
@@ -574,8 +569,7 @@ const INTERACTABLES = {
       // MACRO STALLS (loot.js macroFor — an inn, chapel, apothecary, …): a
       // place you come back to, never a chest. A tap is a VISIT, so a Scouting
       // report aimed at its class (QUEST_POIS: library, museum,
-      // place_of_worship) is credited here, on every tap — the chest used to
-      // credit it once, on opening, and a macro never opens. Every kind but
+      // place_of_worship) is credited here, on every tap — a macro never opens. Every kind but
       // the chapel is a dialog (app.js presentMacro); the chapel pays through
       // THIS ceremony below, once a UTC day (the macro-service lane,
       // Macros.serviceUsedToday) and a tier humbler (Macros.chapelRollTier), and
@@ -836,11 +830,8 @@ const INTERACTABLES = {
   },
 
   // ---- Well / fountain: a landmark on the quest trail ----------------------
-  // OSM amenity=fountain — a water source on dry land. It used to top the
-  // watering can's charge bank to full; that bank fed the can's +2 produce
-  // quality, and when quality moved to the HOE (Crops.bedQuality) the bank
-  // retired with it. The well keeps the thing it is visited FOR — the quest
-  // tick — and otherwise reads as scenery.
+  // OSM amenity=fountain — a water source on dry land. Visited FOR the quest
+  // tick; otherwise it reads as scenery.
   well: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
@@ -988,9 +979,7 @@ INTERACTABLES.stronghold_wall = INTERACTABLES.mineralrock;
 // groundstack are one state wearing four names: the object is still GENERATED
 // (the world is a pure function of where it is), and the save carries only the
 // id that says "…except that one" (CLAUDE.md, bucket 2). render.js drops them
-// from the draw list and the registry's `spent` rows refuse the tap — and both
-// used to carry their own copy of the four clauses with a comment asking the
-// other side to keep matching.
+// from the draw list and the registry's `spent` rows refuse the tap.
 //
 // It takes the SETS, not the save, because render.js runs it over every object
 // of the 3×3 tile ring EVERY FRAME: the sets are built once for the frame and

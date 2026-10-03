@@ -241,16 +241,35 @@
     }
   });
 
-  test('sundries: one supply item off the Supply Shop line, never the Book', () => {
-    const line = Shops.THEME_POOL.supply();
+  test('sundries: one supply item off the Supply Shop line or one gear line, never the Book', () => {
+    const line = [...Shops.THEME_POOL.supply(), ...Macros.SUNDRIES_GEAR.map(g => 'gear:' + g)];
     assert.falsy(line.includes('book'), 'the Supply Shop leaves the Book to the Bookshop');
     const seen = new Set();
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 160; i++) {
       const [id] = Macros.sundriesStock(poi('shop', { id: 'x' + i }));
       assert.truthy(line.includes(id) && id !== 'book', id);
       seen.add(id);
     }
-    assert.eq(seen.size, line.length, 'every supply item turns up');
+    assert.eq(seen.size, line.length, 'every supply item and gear line turns up');
+  });
+
+  test('sundries gear: the next rung above what is held, at three times list before the stall discount', () => {
+    const save = { relics: {}, armor: {}, inv: [] };
+    const lance = Macros.sundriesGear(save, 'gear:lance');
+    assert.eq(lance.kind, 'relic'); assert.eq(lance.slot, 'lance'); assert.eq(lance.tier, 1, 'Rusty first');
+    assert.eq(lance.price, ShopsMath.standPrice(save, gearPrice('relic', 'lance', 1) * Macros.SUNDRIES_GEAR_PRICE_MUL));
+    save.relics.lance = { tier: 1 };
+    assert.eq(Macros.sundriesGear(save, 'gear:lance').tier, 3, 'Fine over a Rusty one (no T2 rung)');
+    save.relics.lance = { tier: 5 };
+    assert.eq(Macros.sundriesGear(save, 'gear:lance'), null, 'nothing past Magic');
+    assert.eq(Macros.sundriesGear(save, 'gear:shield').id, 'shield_wood');
+    save.inv.push({ id: 'shield_wood', count: 1 });
+    const metal = Macros.sundriesGear(save, 'gear:shield');
+    assert.eq(metal.id, 'shield_metal', 'the Metal Shield over a carried Wood one');
+    assert.eq(metal.price, ShopsMath.standPrice(save, itemValue('shield_metal') * 3));
+    save.inv.push({ id: 'shield_gold', count: 1 });
+    assert.eq(Macros.sundriesGear(save, 'gear:shield'), null, 'the Gold Shield is the finest');
+    for (const line of ['dagger', 'musket']) assert.eq(Macros.sundriesGear(save, 'gear:' + line).tier, 1);
   });
 
   test('scriptorium: a plain stall — Books (and a torch) at the stall price, no free page', () => {
@@ -272,9 +291,13 @@
     // the same price (standPrice), purchase limits (money and bag room) and no
     // stock limit; the three macro counters route to the very same method.
     assert.truthy(/presentMarketStandOffer\(sx, sy, stand\) \{\s*this\._presentStallOffer\(/.test(SCENE_SRC), 'the stall is the counter');
-    for (const kind of ['apothecary', 'sundries', 'scriptorium']) {
+    for (const kind of ['apothecary', 'scriptorium']) {
       assert.truthy(new RegExp(`case '${kind}':\\s*return this\\._presentStallOffer\\(`).test(SCENE_SRC), `${kind} opens the counter`);
     }
+    // Sundries opens the same counter for a supply item; a gear line opens
+    // its own buy (_presentStallGear — a rung of equipment, not a stack).
+    assert.truthy(/case 'sundries': \{[\s\S]{0,400}?\? this\._presentStallGear\(sx, sy, \{ \.\.\.opts, entry: stock\[0\] \}\)\s*: this\._presentStallOffer\(sx, sy, \{ \.\.\.opts, items: stock \}\)/.test(SCENE_SRC),
+      'sundries opens the counter, or the gear buy for a gear line');
     assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'priced by ShopsMath.standPrice off the list price (the Book\'s ladder rides in listPrice)');
   });
@@ -528,10 +551,10 @@
 
   test('training: each attack type reads its own discipline, and speed shortens every beat', () => {
     assert.truthy(/_attackFlat\(kind\) \{\s*const training = Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(SCENE_SRC), '_attackFlat, by type');
-    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass, Gear\.activeWeapon\(this\.save\)\)\s*\+ this\._attackFlat\('melee'\)\)/.test(SCENE_SRC), 'melee blows take melee');
+    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass, Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\)\s*\+ this\._attackFlat\('melee'\)\)/.test(SCENE_SRC), 'melee blows take melee');
     assert.truthy(/\* dmgMul\s*\+ this\._attackFlat\(Combat\.TRAINING_SLOT_KIND\[slot\]\),/.test(SCENE_SRC), 'shots take their slot\'s');
     assert.eq(Combat.TRAINING_SLOT_KIND.bow, 'ranged'); assert.eq(Combat.TRAINING_SLOT_KIND.staff, 'magic');
-    assert.truthy(/this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
+    assert.truthy(/this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
     const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), SCENE_SRC.indexOf('  buildingFlavorTitle('));
     assert.truthy(/memories required/.test(body), 'the lesson states its requirement');
     assert.truthy(/Macros\.buyLesson\(this\.save, kind, this\.memoriesTotal\(\)\)/.test(body), 'gated on memories RECOVERED');

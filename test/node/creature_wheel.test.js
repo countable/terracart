@@ -1,15 +1,12 @@
 // Headless tests for the work-progress wheel's CROWN RULE
 // (src/sprite_layout.js › creatureWheelDy, drawn by app.js _drawWorkProgress).
 //
-// The wheel used to sit at one flat offset for every animal — -21 px above the
-// cell centre for a capture, -11 for a hunt. Animals are drawn feet-anchored at
-// wildly different sizes, so that single number floated ~4 px clear above a
-// chicken's head (the reported bug) and sat down at a perched crow's FEET.
-// The rule now: the wheel RESTS ON the kind's crown — the ring's top edge lands
+// Animals are drawn feet-anchored at wildly different sizes, so one flat
+// offset would float above a chicken's head and sit at a perched crow's FEET.
+// The rule: the wheel RESTS ON the kind's crown — the ring's top edge lands
 // on the top row of its visible art at rest, so the whole wheel sits on the
-// animal. It used to CENTRE on the crown, which left a full radius (10 px) of
-// ring in the sky above every animal — a constant overshoot, so it read as too
-// high on all of them, and worst as a fraction of the small ones.
+// animal. Centring on the crown would leave a full radius (10 px) of
+// ring in the sky above every animal.
 //
 // tools/sprite_audit.js re-derives these numbers from the real PNGs (run as part
 // of this suite); the pins below guard the CONTRACT — that the wheel is a
@@ -136,8 +133,8 @@ test('CREATURE_ART entries are complete and sane', () => {
 // ── A STATIC target's wheel is centred in its cell ─────────────────────────
 // Rocks, trees, crops, fish and a cave wall are all worked in ONE cell, and
 // the wheel over them is centred on that cell: the anchor is snapped to the
-// cell centre and no offset is added. Until Sep 2026 it sat at a flat -7 px
-// above the anchor, which read as riding up the cell rather than on it.
+// cell centre and no offset is added (a flat lift would read as riding up
+// the cell rather than on it).
 // app.js can't load headlessly, so the placement is pinned as source text.
 test('static wheel: centred on the cell — snapped to its centre, no flat lift', () => {
   const app = SCENE_SRC;

@@ -1,8 +1,8 @@
 (function () {
 test('startup memory: WebGL FX pools require explicit device opt-in before boot', () => {
-  const config = APP_JS_SRC.slice(APP_JS_SRC.indexOf('new Phaser.Game({'));
+  const config = SCENE_SRC.slice(SCENE_SRC.indexOf('new Phaser.Game({'));
   assert.truthy(/disablePreFX: !GRAPHICS_FX_ENABLED/.test(config), 'pre-FX pool follows the boot preference');
-  const code = APP_JS_SRC.match(/const GRAPHICS_FX_ENABLED = ([\s\S]*?\n\}\)\(\));/)[1];
+  const code = SCENE_SRC.match(/const GRAPHICS_FX_ENABLED = ([\s\S]*?\n\}\)\(\));/)[1];
   for (const value of [null, '0', 'true', '1']) {
     const enabled = new Function('localStorage', `return ${code}`)({ getItem: () => value });
     assert.eq(enabled, value === '1', 'only an explicit opt-in enables FX');

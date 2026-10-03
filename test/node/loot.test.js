@@ -43,6 +43,20 @@ test('pickReward: treasure context also yields a valid reward', () => {
   assert.truthy(r && REWARD_KINDS.has(r.kind), 'treasure produced a valid reward');
 });
 
+// A surface X pays equipment a fifth of the time: a tool or weapon, armour,
+// or a unique relic (a cashed-out duplicate counts — it was a gear roll).
+test('treasure X: a fifth of surface digs are equipment, from all three kinds', () => {
+  const rng = seeded(11); const N = 5000;
+  let gear = 0; const kinds = new Set();
+  for (let i = 0; i < N; i++) {
+    const r = pickReward('treasure:default', { relics: {}, armor: {}, inv: [] }, rng);
+    if (r.kind === 'relic' || r.kind === 'armor' || (r.kind === 'gold' && r.slot)) { gear++; kinds.add(r.kind); }
+    else if (r.kind === 'item' && ITEM_BY_ID[r.id].kind === 'unique_relic') { gear++; kinds.add('unique'); }
+  }
+  assert.truthy(Math.abs(gear / N - 0.2) < 0.02, `gear share ${(gear / N).toFixed(3)}`);
+  for (const k of ['relic', 'armor', 'unique']) assert.truthy(kinds.has(k), `${k} turns up`);
+});
+
 test('reconcileRelicOffer: armor kind reconciles against save.armor, never downgrades', () => {
   // Fixed-payload armor chests (interactables.js fixedChestReward) must not
   // hand back a lower tier than what's already equipped.
@@ -95,19 +109,16 @@ test('pickReward: a roll bonus lifts the average TIER', () => {
   assert.gt(bonused, base, `bonused ${bonused} > base ${base}`);
 });
 
-// THE "× 2" BUG. A bonus step used to be an ordinary chain step, and an
-// ordinary step with no tier headroom left falls through to a QUANTITY
-// bracket. The trail rolls the T4 lowtier curve, which already spends its own
-// chain reaching chainMax — so every bonus step landed on the stack and the
-// prize ceremony offered "× 2" of a T4 item on roughly every other prize. The
-// quantity a walk pays is the chest curve's own; only WHAT it pays improves.
+// THE "× 2" BUG: an ordinary chain step with no tier headroom falls through to
+// a QUANTITY bracket, and the trail's T4 curve already spends its own chain, so
+// bonus steps landed on the stack ("× 2" of a T4 item on every other prize).
+// The quantity a walk pays is the chest curve's own; only WHAT it pays improves.
 test('pickReward: a roll bonus never buys quantity', () => {
   const N = 400;
   const save = () => ({ relics: {}, armor: {} });
   // Same seeds, same context, bonus vs none: the bonus may move the tier (and
   // with it which item is picked), but it must never make the stack BIGGER
-  // than the tier's own bracket roll would. Pin it where the old code was
-  // worst — a bonus far past the chain cap.
+  // than the tier's own bracket roll would. Pinned at its worst: a bonus far past the chain cap.
   const qtyHist = (bonus) => {
     const hist = new Map();
     for (let s = 1; s <= N; s++) {
@@ -122,10 +133,8 @@ test('pickReward: a roll bonus never buys quantity', () => {
   const plain = qtyHist(0);
   const walked = qtyHist(Trail.PRIZE_ROLL_BONUS_MAX);
   // A single item was the commonest outcome of a plain chest and has to stay
-  // an ordinary outcome of a walk. Under the old rule the only singles left
-  // were the classes that discard brackets outright (consumable, animal) —
-  // roughly a fifth as many — because every bonus step bought a bracket for
-  // everything else.
+  // an ordinary outcome of a walk (a bracket-buying bonus left only the classes
+  // that discard brackets, roughly a fifth as many).
   assert.gt(walked.get(1) || 0, 0, 'a walk can still pay a single item');
   assert.gt(ones(walked), ones(plain) / 2,
     `singles stay common (${ones(walked).toFixed(2)} vs ${ones(plain).toFixed(2)})`);
@@ -153,11 +162,8 @@ test('pickReward: no bonus asked for is the old roll, exactly', () => {
 });
 
 // ── The two luck ladders, and who owns them ─────────────────────────────────
-// TIER luck (a find comes a tier rarer) is the RING's; QUANTITY luck (a find
-// comes in a bigger stack) was the AMULET's until Sep 2026 and is a wizard
-// rung now — save.qtyUpgrades, bought as his Full Measure. The ceiling is
-// deliberately the one the amulet had, so the amulet lost a bonus and the
-// player lost nothing.
+// TIER luck (a find comes a tier rarer) is the RING's; QUANTITY luck (a bigger
+// stack) is a wizard rung — save.qtyUpgrades, bought as his Full Measure.
 
 test('qty luck: the ladder runs 0 → the old Frost-amulet ceiling over its rungs', () => {
   const levels = RARITY_TUNING.qtyLuckLevels;
@@ -183,8 +189,7 @@ test('qty luck: a level past the top or below zero cannot leave the ladder', () 
 });
 
 test('qty luck: the AMULET no longer buys it', () => {
-  // The whole point of the move. A Frost amulet used to sit at the ceiling;
-  // now it buys stick walking and nothing else.
+  // A Frost amulet buys stick walking and nothing else.
   assert.eq(qtyLuck({ relics: { amulet: { tier: 7 } } }), 0,
     'a Frost amulet is worth no quantity luck at all');
   assert.eq(qtyLuck({ relics: { amulet: { tier: 7 } }, qtyUpgrades: 3 }),
@@ -236,7 +241,7 @@ test('pickReward: the wizard\'s quantity rungs make loot land in bigger stacks',
   const base = meanQty({ relics: {}, armor: {} });
   const full = meanQty({ relics: {}, armor: {}, qtyUpgrades: RARITY_TUNING.qtyLuckLevels });
   assert.gte(full + 1e-9, base, `full measure mean qty ${full} >= base ${base}`);
-  // And the amulet, which used to do this, must move it not at all.
+  // And the amulet must move it not at all.
   const amuleted = meanQty({ relics: { amulet: { tier: 7 } }, armor: {} });
   assert.eq(amuleted, base, 'a Frost amulet rolls exactly the same loot as none');
 });
@@ -543,8 +548,8 @@ test('cave X: a dig underground leans the cave way, a surface dig does not', () 
     'the fallback dig passes them too');
 });
 
-// The bike rack is a COURIER'S POST in the world (Sep 2026): the old copy
-// implied riding a bicycle while playing. Ids and the texture key stay.
+// The bike rack is a COURIER'S POST in the world (copy must not imply riding a
+// bicycle while playing). Ids and the texture key stay.
 test('courier\'s post: the rack\'s name and flash say walk, never ride', () => {
   assert.eq(POI_CLASS_FALLBACK.bicycle_parking, 'Courier\'s Post');
   const line = bikeRackFlash();

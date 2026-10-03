@@ -17,16 +17,15 @@
 //     something that kills your pets and your game while you walk past.
 //
 //  3. A SHOT THAT PASSES A FOE HITS IT, AND A SHOT THAT DOESN'T, DOESN'T —
-//     the bow used to carry a wide hit box to forgive a coarse phone compass
-//     heading, but that forgiveness is exactly what made a shot register as a
-//     "hit" against a foe it visibly missed. Both weapons now sweep the same
-//     tight radius (HIT_RADIUS_CELLS).
+//     a wide hit box to forgive a coarse phone compass heading would make a
+//     shot register against a foe it visibly missed. Both weapons sweep the
+//     same tight radius (HIT_RADIUS_CELLS).
 //
 //  4. THE STAFF SEEKS, THE BOW DOESN'T. A staff bolt is loosed at the NEAREST
 //     enemy in range whatever way the body faces (SHOT.staff.aim), while an
-//     arrow still flies down the compass. The staff used to fire along the
-//     compass too, and a spell that missed because a phone compass sat a few
-//     degrees off read as broken — so the aim mode is pinned, and so is the
+//     arrow still flies down the compass. A spell that missed because a
+//     phone compass sat a few degrees off would read as broken — so the aim
+//     mode is pinned, and so is the
 //     hold-fire when the nearest foe is beyond the bolt's range (each bolt
 //     costs energy; one that could never arrive would just burn it).
 //
@@ -34,11 +33,9 @@
 // load — but run.js lifts the table out as text and registers it through the
 // same seam app.js uses, so the REAL one is already in hand here.
 //
-// This file used to register a synthetic three-kind copy instead. Every test
-// file shares one vm scope and this one loads early, so that copy overwrote the
-// real registration for the whole suite, and any later test that asked Combat
-// how much HP a monster had got an answer from a hand-written stand-in. Assert
-// the real table arrived rather than replacing it.
+// A synthetic copy of the table would overwrite the real registration for the
+// whole suite (every test file shares one vm scope), so assert the real table
+// arrived rather than replacing it.
 if (!MONSTERS || !MONSTERS.goblin) throw new Error('run.js did not lift the MONSTERS table');
 if (Combat.creatureMaxHp('goblin') !== MONSTERS.goblin.hp) {
   throw new Error('combat.js is not answering from the real MONSTERS table — '
@@ -119,9 +116,8 @@ test('combat: the surface slime and minis remain approachable', () => {
 // ── The melee cadence ───────────────────────────────────────────────────────
 
 test('combat: melee lands BLOWS, and the cadence cancels out of the rate', () => {
-  // The attack rate is a real number now (MELEE_INTERVAL_MS) rather than the
-  // damage-popup throttle app.js used to borrow for the swing animation. What
-  // it must NOT do is change how long a fight takes: one blow is one
+  // The attack rate is a real number (MELEE_INTERVAL_MS). It must NOT change
+  // how long a fight takes: one blow is one
   // interval's worth of the tier's rung, so the delivered dps is the rung
   // whatever the cadence. Slowing the beat makes blows chunkier, not fights
   // longer — that is what keeps the kill-time identity above true.
@@ -135,9 +131,8 @@ test('combat: melee lands BLOWS, and the cadence cancels out of the rate', () =>
   // dragon) rides the blow, so it can't be applied twice or dropped.
   assert.eq(Combat.meleeSwingDamage({ sword: { tier: 1 } }, 2),
     2 * Combat.meleeSwingDamage({ sword: { tier: 1 } }), 'the dragon doubles one blow');
-  // One blow a second: slower than the 500 ms beat the slash used to run at,
-  // and slower than one drawn swing (SWORD_SWING_MS, 220) so arcs never
-  // overlap.
+  // One blow a second: slower than one drawn swing (SWORD_SWING_MS, 220) so
+  // arcs never overlap.
   assert.eq(Combat.MELEE_INTERVAL_MS, 1000, 'one blow a second');
 });
 
@@ -152,7 +147,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // blow (see the melee-reach test below) — a swing must be both due and in
   // range — so the pin allows it and still refuses a blow that lands without
   // spending the clock.
-  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
+  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\)(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -190,17 +185,14 @@ test('combat: the surface slime oozes slowly enough to walk away from', () => {
     'a charge is the ooze without the lazy beat');
   assert.lt(charge, 1.0,
     `a charging slime moves at ${charge.toFixed(2)} m/s — still slower than a walk`);
-  // How much of that ceiling is left. The ooze was raised 50% (0.45 → 0.675 of
-  // a cell) and the charge came up with it, as it must — one hop feeds every
-  // pace a slime has. There is about 5% of a walk in hand, so the NEXT such
-  // raise is not a knob turn: it takes the walking away with it.
+  // How much of that ceiling is left: one hop feeds every pace a slime has, so
+  // about 5% of a walk in hand means the NEXT raise takes the walking away.
   assert.gt(charge, 0.9, `the charge sits at ${charge.toFixed(2)} m/s, near the ceiling`);
 });
 
 test('combat: a struck slime CHARGES, unless it is warded', () => {
-  // Hitting one used to cost nothing: it went back to its 50/50 meander, and a
-  // PET's bite actively shoved it away (the flee override was written for birds
-  // and ran for every prey kind). Pinned as source text — app.js never loads
+  // Hitting one must not send it back to its 50/50 meander, and a PET's bite
+  // must not shove it away (the flee override was written for birds). Pinned as source text — app.js never loads
   // headlessly — plus the one predicate, which is pure enough to lift.
   // The chain and the pet's bite are wanderCreatures' (scene_creatures.js);
   // _damageEnemy stays in app.js.
@@ -249,7 +241,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   // The campfire's ward needs no clause here: it refuses the target CELL.
   // (It skips a lair guard — a garrison is a place, not wandering fauna; see
   // home_ward.test.js — so what it refuses is a WILD slime's cell.)
-  assert.truthy(/const fireAverts = !c\.lair && \(c\.kind === 'slime'/.test(app),
+  assert.truthy(/const fireAverts = campfireAverts\(c\);/.test(app),
     'a lit campfire still refuses every cell inside its ring');
 
   // A pet's bite provokes the same charge instead of pushing it away.
@@ -499,11 +491,10 @@ test('combat: the hit box is tight — the bow needs an actual line-up, not a co
 });
 
 // ── Walls ───────────────────────────────────────────────────────────────────
-// A shot used to ignore the world completely, so underground a bow or staff
-// fired straight through solid rock: a player could stand facing a blank cave
-// wall and clear the tunnel on the other side of it. combat.js knows nothing
-// about the map, so the caller hands over the collision test — app.js gives it
-// the same one the body walks against.
+// A shot must not ignore the world: underground, a bow or staff would fire
+// through solid rock. combat.js knows nothing about the map, so the caller
+// hands over the collision test (app.js gives it the one the body walks
+// against).
 
 // A wall band across the flight path, from `x0` to `x1` metres.
 const combatWall = (x0, x1) => ({
@@ -573,10 +564,9 @@ test('combat: a ranged monster needs the same clear line you do', () => {
 // ── What stops a SHOT on the surface (app.js shotBlocked) ───────────────────
 // combat.js's own lineOfFire/stepShots take whatever obstruction test the
 // caller hands them (pinned above); app.js's shotBlocked is that test on the
-// surface. A rock never blocks — a knee-high boulder stopping an arrow read
-// as the terrain fighting for the monster — and neither does a small/bush
-// tree: too slight a trunk to hide an arrow behind. Only a MEDIUM-or-bigger
-// standing tree (treeSizeClass) still stops one.
+// A rock never blocks, and neither does a small/bush tree: too slight a
+// trunk to hide an arrow behind. Only a MEDIUM-or-bigger standing tree
+// (treeSizeClass) still stops one.
 test('combat: a rock never blocks a shot, and only a real trunk does', () => {
   const app = SCENE_SRC;
   const block = app.slice(app.indexOf('    if (this._shots.length) {'), app.indexOf('this._drawShots();'));
@@ -752,11 +742,9 @@ test('combat: the health tint reads full → hurt → nearly dead', () => {
 
 
 // ── Melee reach ─────────────────────────────────────────────────────────────
-// MELEE IS ARM'S LENGTH. Until Sep 2026 the player's melee reached the LIT
-// reach — 2.5 cells at the start, up to 5.5 through the six Inner Light
-// upgrades — while every melee monster had to be adjacent to bite. So you
-// out-ranged the thing you were fighting, bare-handed, and buying reach
-// upgrades for farming quietly bought combat range too.
+// MELEE IS ARM'S LENGTH: every melee monster must be adjacent to bite, so
+// the player's melee must not reach the lit reach, or reach upgrades bought
+// for farming would quietly buy combat range too.
 
 test('combat: melee reaches exactly as far as a melee monster does', () => {
   assert.eq(Combat.MELEE_REACH_CELLS, 0.6,
@@ -995,23 +983,32 @@ test('sight: each approved kind uses its declared vision', () => {
 
 test('alternate melee: material-equivalent blows and distinct reach/cadence', () => {
   for (const tier of [1, 3, 5]) {
-    const relics = { sword: { tier: 7 }, dagger: { tier }, spear: { tier } };
+    const relics = { sword: { tier: 7 }, dagger: { tier }, lance: { tier } };
     const sword = { sword: { tier } };
     for (const playerClass of [undefined, 'enforcer']) {
       const blow = Combat.meleeSwingDamage(sword, 1, playerClass);
       assert.eq(Combat.meleeSwingDamage(relics, 1, playerClass, 'dagger'), blow);
-      assert.eq(Combat.meleeSwingDamage(relics, 1, playerClass, 'spear'), blow);
-      assert.eq(Combat.meleeDps(relics, playerClass, 'spear'), Combat.meleeDps(sword, playerClass) / 2);
+      assert.eq(Combat.meleeSwingDamage(relics, 1, playerClass, 'lance'), blow);
+      assert.eq(Combat.meleeDps(relics, playerClass, 'lance'), Combat.meleeDps(sword, playerClass) / 2);
     }
   }
   assert.eq(Combat.meleeIntervalMs('dagger'), Combat.MELEE_INTERVAL_MS);
-  assert.eq(Combat.meleeIntervalMs('spear'), Combat.MELEE_INTERVAL_MS * 2);
+  assert.eq(Combat.meleeIntervalMs('lance'), Combat.MELEE_INTERVAL_MS * 2);
+  // Mounted, the lance loses its cadence penalty: sword pace, same blow, so
+  // twice its on-foot damage a second.
+  assert.eq(Combat.meleeIntervalMs('lance', true), Combat.MELEE_INTERVAL_MS);
+  {
+    const relics = { lance: { tier: 3 } };
+    assert.eq(Combat.meleeSwingDamage(relics, 1, null, 'lance', true), Combat.meleeSwingDamage(relics, 1, null, 'lance'));
+    assert.eq(Combat.meleeDps(relics, null, 'lance', true), Combat.meleeDps(relics, null, 'lance') * 2);
+    assert.eq(Combat.meleeIntervalMs('dagger', true), Combat.meleeIntervalMs('dagger'), 'only the lance has a mounted row');
+  }
   const fist = Combat.MELEE_REACH_CELLS * 7;
   assert.truthy(Combat.inMeleeReach(fist * 0.75, 0, 0, 0, 7, 'dagger'));
   assert.falsy(Combat.inMeleeReach(fist * 0.75 + 0.01, 0, 0, 0, 7, 'dagger'));
   assert.gt(fist * 0.75, 0.35 * 7, 'a dagger reaches a foe stopped at its closing gap');
-  assert.truthy(Combat.inMeleeReach(fist * 2, 0, 0, 0, 7, 'spear'));
-  assert.falsy(Combat.inMeleeReach(fist * 2 + 0.01, 0, 0, 0, 7, 'spear'));
+  assert.truthy(Combat.inMeleeReach(fist * 2, 0, 0, 0, 7, 'lance'));
+  assert.falsy(Combat.inMeleeReach(fist * 2 + 0.01, 0, 0, 0, 7, 'lance'));
 });
 
 test('musket: every material fires gold bow damage with one coin and a round ball', () => {

@@ -101,12 +101,17 @@
       starterCrates: false,
       pestAmnesty: false,
       cropPests: true,          // deer are dispatched to your field, once an hour
-      derelictLairs: true,      // every ruin past the home ring is held, and holds more further out
+      derelictLairs: true,      // every ruin is held; its strength is the building's own (lairs.js), never distance from Home
       lairGuardMax: null,       // no group cap: a maxed castle wakes its whole ten
       quietHomeM: 0,            // no quiet home: a fort by the trailer is held for you too
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
-      buyMul: 1.5,              // traders want 1.8..4.5× base; a T7 bow still only reaches 1.5× par
-      sellMul: 0.6,             // Home pays 60% — farming is a living, not the fastest one
+      // FARMING BREAKS EVEN ON HARD (owner, Oct 2026): a seed bought at an
+      // average trader and sold at Home as its average harvest no longer
+      // loses money (difficulty.test.js pins it). Easy prices the T3 crops at
+      // a 25% margin (items.js PRICES), so sellMul / buyMul stays at or above
+      // ~0.78 — it was 0.4 at 1.5 / 0.6, a $16 loss on every starfruit.
+      buyMul: 1.15,             // traders want 1.38..3.45× base
+      sellMul: 0.9,             // Home pays 90% — farming is a living, not the fastest one
       incomingDamageMul: 2.5,  // recipient penalty, after armour
       enemyHpMul: 1,            // shared enemy stats across players
       enemyDmgMul: 1,           // damage penalty belongs to the recipient

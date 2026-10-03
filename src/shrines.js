@@ -159,8 +159,7 @@
   function boonFlash(kindId) { return SHRINE_KINDS[kindId] ? SHRINE_KINDS[kindId].flash : ''; }
 
   // Drop expired boon-only expiries (save hygiene; nothing reads a past one)
-  // and the retired `shrineBoon` (the last kind, once the only countdown —
-  // every running boon shows now, through Buffs.KINDS).
+  // and the retired `shrineBoon` (running boons show through Buffs.KINDS).
   function normalize(save, now = Date.now()) {
     if (!save) return;
     delete save.shrineBoon;

@@ -240,10 +240,7 @@ function distM2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * 
 //           are tx * tileEdgeM + …
 //
 // The world frame is the local one shifted by startWorldM, so worldMetersTo*
-// is localMetersTo* with that subtraction and nothing else. app.js used to
-// spell each of these out by hand at five call sites, each with its own
-// arrangement of originPx / mPerPx / TILE_PX — which is exactly the coord
-// drift this file exists to prevent.
+// is localMetersTo* with that subtraction and nothing else.
 function localMetersToTilePx(scene, mx, my) {
   return {
     x: scene.originPx.x + mx / scene.mPerPx,
@@ -480,8 +477,7 @@ function overlayFrame(scene, entryReady) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const tx = pc.tx + dtx, ty = pc.ty + dty;
       // Only the tiles whose geometry can reach the view are the frame's
-      // inputs — both what the rebuild draws and what its key names. A ring
-      // tile landing a kilometre away used to repaint both canvases.
+      // inputs — both what the rebuild draws and what its key names.
       if (!overlayTileInView(scene, tx, ty)) continue;
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
       if (!entry || !entry.tileEdgeM || !entryReady(entry)) continue;
@@ -597,14 +593,9 @@ function cellInReach(scene, cellIX, cellIY) {
 // (lighting.js draw()) draws its edge — the bright area's sharp boundary, and
 // since Sep 2026 the tap affordance itself. Its corners are rounded by
 // REACH_CORNER_PX — a smidge, so the edge reads as a shape rather than a grid.
-// The rule lives here rather than in the pass that uses it because it used to
-// have TWO readers: a white outline (render.js drawCells) was stroked over the
-// same staircase, and the line could not be allowed to round a corner the
-// light left square. The line is gone (the plateau is lit brightly enough to
-// carry the affordance alone), so `shortenH` / `shortenV` — which said where a
-// stroked EDGE stopped short of a round — went with it: a filled path needs no
-// such thing, its arcTo does the shortening. What stays is the corner
-// classification, which is the part that decides the SHAPE.
+// The rule lives here rather than in the pass that uses it; a filled path's
+// arcTo does the shortening, so only the corner classification (which decides
+// the SHAPE) is needed.
 //
 // Look at one corner of a reach cell with three flags:
 //   h — the neighbour across the corner's VERTICAL edge (left / right) is out
@@ -634,13 +625,10 @@ const ReachCorner = {
 // latitude (app.js create()). So the only correct way to put a GPS fix on that
 // map is to project it the same way — lon/lat → world px → metres.
 //
-// The old conversion was a flat lat/lon → metres approximation anchored at the
-// origin. It agrees with Mercator AT the origin and drifts as you walk away
-// from it, because Mercator's scale grows with latitude: ~2 m out at 5 km
-// north, ~17 km out for a save still anchored at the default home while its
-// player is a province away (home capture never landed). That drift is what
-// stood a player somewhere they weren't — on their own map, and on the
-// multiplayer wire, which is this same metre frame divided by mPerPx.
+// A flat lat/lon → metres approximation agrees with Mercator only AT the
+// origin and drifts as you walk away (~2 m at 5 km north, ~17 km for a save
+// still anchored at the default home), which misplaces the player on their own
+// map and on the multiplayer wire (this same metre frame divided by mPerPx).
 //
 //   lonLatToLocalM(scene, lon, lat) — { x, y } in playerM's frame (metres from
 //                                     the projection origin; + is east / south)

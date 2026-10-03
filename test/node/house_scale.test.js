@@ -187,12 +187,9 @@ test('building scale: a fort outdraws a house at every footprint they share', ()
 // ── Tree size is DISCRETE ───────────────────────────────────────────────────
 // Not really a building rule, but the same discipline and the same file: a
 // sprite's size comes from a table, not from a continuous measurement that
-// nothing downstream can act on. treeBaseScale used to scale by crown_m/5 when
-// a tree had no discrete `size`; every detected tree has one (the detector
-// buckets that same crown_m before writing the geojson), so it never fired —
-// and its 0.8 floor was nearly twice the 0.42 bush multiplier, so a tree that
-// DID reach it would have drawn bush-sized art at small-tree size and could
-// never have classed as a bush at all.
+// nothing downstream can act on. Every detected tree has a discrete `size`
+// (the detector buckets crown_m before writing the geojson), so there is no
+// continuous fallback.
 
 test('tree scale: a crown diameter no longer sets a sprite size', () => {
   // Same species, same (absent) size class, wildly different crowns → one size.

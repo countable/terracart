@@ -122,7 +122,7 @@ test('roadside chest: every tier stays with supplies, minerals and cash', () => 
         if (r.kind === 'relic') {
           assert.eq(tier, 2, 'only T2 supplies introduce alternate weapons');
           assert.eq(r.tier, 1, 'supply weapons are always Rusty');
-          assert.includes(['dagger', 'spear', 'musket'], r.slot);
+          assert.includes(['dagger', 'lance', 'musket'], r.slot);
           continue;
         }
         assert.eq(r.kind, 'item');

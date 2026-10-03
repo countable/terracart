@@ -245,9 +245,7 @@
   // transport surfaces AND BEACH SAND retain their visible footprint (T.SAND
   // — a shore, never a zone's own ground: Scenic's shore-sand cells must keep
   // reading as sand, not a grove or churchyard — src/scenic.js's shoreSandSteps
-  // comment on Zones.landAt, and the beach measured on Vancouver's Kits /
-  // English Bay used to wear grove ground on ~3/4 of its dry sand before this
-  // exclusion). The old land remains available to trap-ground rules through
+  // comment on Zones.landAt). The old land remains available to trap-ground rules through
   // the existing underlay ledger.
   function* paintSteps(field, grid, N, pathUnder, roadMask, spawnWhy) {
     if (!field || !field.coverage) return 0;

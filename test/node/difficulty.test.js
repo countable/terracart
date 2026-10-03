@@ -64,6 +64,23 @@
     }
   });
 
+  test('difficulty: a shop-bought crop at least breaks even on hard', () => {
+    // An average trader (the middle of buyMarkupRange) and an average harvest
+    // (2 produce, a 25% seed back), sold at Home. Rockfruit is exempt in both
+    // modes: wild debris priced at the floor, grown for crafting, not cash.
+    withMode('hard', () => {
+      const { lo, hi } = buyMarkupRange();
+      for (const seed of BUY_LIST) {
+        const crop = seed.replace(/_seed$/, '');
+        if (crop === 'rockfruit') continue;
+        const pack = 1 + (isLowTierSeed(seed) ? LOW_TIER_SEED_QTY_BONUS : 0);
+        const seedCost = 0.75 * Math.ceil(PRICES[seed] * (lo + hi) / 2) / pack;
+        const payout = 2 * trailerSellPrice(PRICES[crop]);
+        assert.truthy(payout >= seedCost, `${crop}: pays $${payout} for $${seedCost.toFixed(2)} of seed`);
+      }
+    });
+  });
+
   test('difficulty: the active mode defaults to easy and rejects junk', () => {
     assert.eq(Difficulty.mode(), 'easy');
     assert.eq(Difficulty.of({}).id, 'easy', 'an unset save reads as easy');
@@ -77,13 +94,13 @@
     const easy = withMode('easy', () => buyMarkupRange({}));
     const hard = withMode('hard', () => buyMarkupRange({}));
     assert.eq(easy.lo, 1.2); assert.eq(easy.hi, 3.0);
-    assert.inRange(hard.lo, 1.8 - 1e-9, 1.8 + 1e-9, 'hard lo = 1.2 × 1.5');
-    assert.inRange(hard.hi, 4.5 - 1e-9, 4.5 + 1e-9, 'hard hi = 3.0 × 1.5');
+    assert.inRange(hard.lo, 1.38 - 1e-9, 1.38 + 1e-9, 'hard lo = 1.2 × 1.15');
+    assert.inRange(hard.hi, 3.45 - 1e-9, 3.45 + 1e-9, 'hard hi = 3.0 × 1.15');
     // No relic bends the markup any more (the Magic Hammer's building is the
     // one standing discount): a maxed bow pays the same spread.
     const maxed = withMode('hard', () => buyMarkupRange({ bow: { tier: 7 } }));
-    assert.inRange(maxed.lo, 1.8 - 1e-9, 1.8 + 1e-9);
-    assert.inRange(maxed.hi, 4.5 - 1e-9, 4.5 + 1e-9);
+    assert.inRange(maxed.lo, 1.38 - 1e-9, 1.38 + 1e-9);
+    assert.inRange(maxed.hi, 3.45 - 1e-9, 3.45 + 1e-9);
     const stallEasy = withMode('easy', () => ShopsMath.standPrice({ relics: {} }, 20));
     const stallHard = withMode('hard', () => ShopsMath.standPrice({ relics: {} }, 20));
     assert.eq(stallEasy, 15, 'easy stand: 20 × 0.75');
@@ -94,7 +111,7 @@
     const easy = withMode('easy', () => trailerSellPrice(20));
     const hard = withMode('hard', () => trailerSellPrice(20));
     assert.eq(easy, 11, 'easy: 20 × 0.7 × 0.75 = 10.5 → 11');
-    assert.eq(hard, 7, 'hard: 20 × 0.7 × 0.75 × 0.6 = 6.3 → 7');
+    assert.eq(hard, 10, 'hard: 20 × 0.7 × 0.75 × 0.9 = 9.45 → 10');
     assert.eq(withMode('hard', () => trailerSellPrice(1)), 1, 'the $1 floor holds');
     // A stand on hard is still never a profit: its price stays above the payout.
     for (const v of [1, 4, 10, 37, 120]) {
@@ -159,8 +176,8 @@
     // not a knob: on easy a field is only raided by a crow the tile already
     // spawned nearby, and on hard one is sent once an hour. The gate is one line
     // in app.js; run.js hands its source text over so it cannot drift from the
-    // table. It used to read pestAmnesty + save.hasHarvested — retired, because
-    // the mode flag subsumes both (easy never pumps; hard has no grace).
+    // table. The mode flag subsumes the retired pestAmnesty + save.hasHarvested
+    // (easy never pumps; hard has no grace).
     assert.truthy(PEST_PUMP_GATE_SRC.includes('Difficulty.get().cropPests'),
       'the pump reads the flag at the site that owns the behaviour');
     assert.falsy(PEST_PUMP_GATE_SRC.includes('pestAmnesty'),

@@ -36,10 +36,7 @@ const CROP_ROW = {
   // unused index in Crops.png that the fallback path would use; never
   // actually reached because CROP_SPRITE intercepts first.
   berry: 10, cress: 11, onion: 12,
-  // tree + shrub are no longer crops — chopping a tree / harvesting a
-  // shrub now drops the 'wood' mineral item directly. The world-object
-  // 'tree' and wildplant 'shrub' kinds in worldgen.js still exist as
-  // map features; only the harvested inv id changed.
+  // tree + shrub are not crops: chopping one drops the 'wood' mineral directly.
 };
 const MAX_GROWTH_STAGE = 4; // cols 0..4 inclusive: 5 stages, 4 waterings to mature
 const PRODUCE_COL = 7;
@@ -65,8 +62,7 @@ const CROP_SPRITE = {
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
   // is a 22-col grid; frame (col 11, row 1) 1-indexed = col 10 row 0
   // 0-indexed = 0*22 + 10 = 10. Renders as leafy green fronds at the
-  // wildplant scale. scale 1.16 (down 15% from 1.36) — the tuft was reading
-  // oversized against neighbouring one-cell props.
+  // wildplant scale (1.16 keeps the tuft from crowding one-cell props).
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
@@ -90,18 +86,15 @@ const CROP_SPRITE = {
   // colour variants and duplicate frames are cleared without changing sheet geometry.
   shell: { sheet: 'shell_sheet', custom: true, frames: [0] },
   // Torch — the consumable lying on a level-1 cave floor (worldgen.js
-  // caveFloorTorches), drawn with its own inventory icon; picking it is a
-  // Torch floor pickup uses the shared crop renderer.
+  // caveFloorTorches); the floor pickup uses the shared crop renderer.
   torch: { sheet: 'icon_torch', custom: true, frame: 0, scale: 1.36 },
   // Ordinary wild blooms use the same pink blossom as their inventory icon.
   flowers: { sheet: 'props', custom: true, frame: 12, scale: 1.13 },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
   // They spawn sparsely on a matching biome (see the per-biome flora in
-  // src/biome_profiles.js) and pick like any wildplant. scale 1.13 (down 15%
-  // from 1.33) renders the 16px frame at ~18px — blooms read as small foraged
-  // flowers tucked in the tile rather than filling it (the default scale 2 /
-  // full-cell was 50% too big, and 1.33 was still crowding its neighbours).
+  // src/biome_profiles.js) and pick like any wildplant. scale 1.13 renders the
+  // 16px frame at ~18px so blooms read as small flowers tucked in the tile.
   forgetmenot: { sheet: 'props', custom: true, frame: 76,  scale: 1.13 },  // blue forget-me-not cluster (row 3, col 10)
   marigold:    { sheet: 'props', custom: true, frame: 34,  scale: 1.13 },  // golden marigold (row 1, col 12)
   wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.13 },  // red wild rose (row 1, col 8)
@@ -132,11 +125,8 @@ const CROP_SPRITE = {
 // by the rasterizer), hashed as a STRING, falling back to the tile-local cell
 // for the wildplants that carry no id. It has to be stable, because the same
 // cell must show the same shell across a reload and a tile rebuild — and it
-// has to be the WHOLE id: until Sep 2026 the renderer hashed `id.length`
-// (one number for a whole tile, since every id in a tile is nearly the same
-// length) XORed with `_ix`/`_iy`, which the rasterizer's occupancy pass
-// deletes before the entry is ever drawn. So every shell in a tile drew the
-// same frame, picked off its id's LENGTH — usually one of the blank ones.
+// has to be the WHOLE id (id length is near-constant within a tile, and
+// `_ix`/`_iy` are deleted by the rasterizer's occupancy pass before drawing).
 // Salted so it can't line up with the other id-derived hashes (shinyHash01).
 function wildplantVariantHash(p) {
   const id = (p && (p.wildId || p.id));
@@ -191,15 +181,9 @@ function wildplantFrame(p) {
 // the player taps it. Both are keyed on `crop`, and this is the second half of
 // the same table.
 //
-// Every per-crop wildplant fact used to be a one-row literal at the site that
-// asked: `HARVEST_OUTPUT = { shrub: 'wood' }` and `WORK_RELIC = { rockfruit:
-// 'pick', shrub: 'axe' }` and a `wp.crop === 'shrub'` work-cost ternary in
-// interact.js' tap handler, `WILD_TREASURE` over in loot.js, and a
-// `crop === 'mushroom'` test in BOTH lighting.js' sourceKind and render.js'
-// light-offer gate. Five lists in four files, so a second glowing plant — or a
-// second bush worth chopping — was five edits, four of which nothing would
-// have reminded anyone about.
-// One table, read through the accessors below: the roadOverlayWidthM
+// One table, read through the accessors below (a second glowing plant or
+// choppable bush is one row, not edits across interact/loot/lighting/render):
+// the roadOverlayWidthM
 // discipline. A crop with NO row here is the ordinary wild plant, and that is
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
@@ -254,9 +238,7 @@ function nestBushContents(id) {
 }
 // When a nest bush wiggles: its own BEAT (util.js beatPhase), 10-30 s off its
 // id, the wiggle showing NEST_BUSH_BEAT.showMs once per period. Returns the
-// wiggle's progress 0..1 while it shows, else -1. showMs was 900 until Oct
-// 2026: with render.js' bigger swing the show now lasts long enough to be
-// caught from the corner of the eye.
+// wiggle's progress 0..1 while it shows, else -1.
 const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 1300 });
 function nestBushPhase(id, nowMs, revealStartedMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT, revealStartedMs); }
 // What a pick hands over — the crop itself, unless a row names something else.
@@ -351,10 +333,7 @@ const MINERAL_ICON_SHEET = {
   // Gems — Gemstones.png row 0 (7 cols of 16×16), left to right: 0 cut cyan
   // diamond, 1 red ruby, 2 purple shard, 3 blue sapphire, 4 orange topaz,
   // 5 green emerald cluster, 6 pink quartz. (Rows 1-3 are outlined / mask
-  // duplicates.) Until Sep 2026 these rows read ruby 0 / emerald 3 /
-  // sapphire 4 — the cyan diamond, the blue sapphire and the orange topaz —
-  // so the "red gem" the tips promised was drawn cyan; the diamond taking
-  // frame 0 is what surfaced it. Pinned by test/node/diamond.test.js.
+  // duplicates.) Pinned by test/node/diamond.test.js.
   sapphire: { sheet: 'gems',      frame: 3 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 1 },   // red gem
   emerald:  { sheet: 'gems',      frame: 5 },   // green gem cluster
@@ -364,8 +343,7 @@ const MINERAL_ICON_SHEET = {
   // metals as bar/ore PAIRS — col0 barA, col1 oreA, col2 barB, col3 oreB,
   // cols4-7 white-outlined duplicates, cols8-11 raw stone. So the actual
   // ingots sit at col0/col2 of rows 0-2: copper 0, iron 2, gold 16,
-  // platinum 18, crimson 32, frost 34. (The old 0..5 run rendered copper
-  // bar, then copper/iron ORE nuggets and outlined dupes.)
+  // platinum 18, crimson 32, frost 34.
   copper_bar:   { sheet: 'bars', frame: 0 },
   iron_bar:     { sheet: 'bars', frame: 2 },
   gold_bar:     { sheet: 'bars', frame: 16 },
@@ -502,9 +480,7 @@ const MINERAL_ICON_SHEET = {
   shell:        { sheet: 'shell_sheet', frame: 0 },
   // Wild flowers ('flowers' produce) — props.png (22 cols × 12 rows of 16×16).
   // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no
-  // crop/grows key, so without this entry inventoryIconSource returned null
-  // and the house delivery callout (and inventory) rendered a bare '·'
-  // placeholder instead of the flower art.
+  // crop/grows key, so it needs this entry to resolve an icon.
   flowers:      { sheet: 'props',       frame: 12 },
   // Fruit-tree saplings — the young-tree frame off the species sheet (32px
   // frames; frame 2 = the small young green tree) reads as a sapling.
@@ -812,12 +788,9 @@ const ITEMS = [
   { id: 'honey', name: 'Potion of Taming', kind: 'supply', potion: true },
   // dropWeight 3: a Book is THE documentation (see play_tips.js), so it is
   // the one consumable that has to turn up often enough to be read. At an even
-  // draw it was one of seven T2 consumables — a sliver of an already-thin
-  // consumable share — and a player could finish a session having never met
-  // one. Three makes it the plurality of the T2 consumable pool everywhere,
-  // and school chests pin it outright on top of that (rarity.js
-  // 'chest:school'). This is the one item whose SCARCITY is a documentation
-  // bug rather than a balance choice.
+  // draw it is one of seven T2 consumables and a player could finish a session
+  // never meeting one. Three makes it the plurality of the T2 consumable pool,
+  // and school chests pin it outright (rarity.js 'chest:school').
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
   // Tomes are the scholar's rewards for reading Books. They cast repeatable
   // spells on timed cooldowns and are never consumed or sold. The tome flag
@@ -891,7 +864,7 @@ const ITEMS = [
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regen_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
-  { id: 'vigor_amulet',      name: 'Amulet of Vigor',        kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'vigor_amulet',      name: 'Amulet of Vigour',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb; its upward trip needs no earlier
@@ -919,14 +892,8 @@ const ITEMS = [
   { id: 'magic_trap',    name: 'Magic Trap',          kind: 'supply', caveOnly: true },
   { id: 'spear',        name: 'Throwing Spear',      kind: 'supply' },
   { id: 'javelin',      name: 'Javelin',             kind: 'supply' },
-  // Wild forest fauna drops — produced when a live caught animal is
-  // processed (a future butcher / blacksmith step). Catching itself yields
-  // the animal, not these.
-  // ('butterfly' lives above as the live-animal entry — there is no
-  // separate butterfly product; the insect itself is the drop.)
-  // Animal byproducts — kind: 'produce' alongside egg / milk. Sit in the
-  // produce pool of the rarity picker, not the mineral pool (which is
-  // reserved for coal / gemstones).
+  // Animal byproducts — kind: 'produce' alongside egg / milk, so they sit in
+  // the produce pool of the rarity picker, not the mineral pool.
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
   // Cooked food is made at campfires or found in themed food chests.
   { id: 'grilled_meat', name: 'Grilled Meat', kind: 'produce', cooked: true },
@@ -969,9 +936,8 @@ const ITEMS = [
   { id: 'mango',   name: 'Mango',   kind: 'produce' },
   { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
   { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
-  // Fruit-tree seeds use plants:'fruittree' for the tree growth path
-  // rather than the four-stage crop bed. `grows` names the species:
-  // apple (T4) or Worldpeach (T7).
+  // Fruit-tree seeds use plants:'fruittree' (the tree growth path, not the
+  // crop bed); `grows` names the species.
   { id: 'apple_sapling', name: 'Apple Sapling', kind: 'seed', plants: 'fruittree', grows: 'apple', baseTier: BASE_TIER.apple_sapling },
   { id: 'peach_sapling', name: 'Worldpeach Sapling', kind: 'seed', plants: 'fruittree', grows: 'peach', baseTier: BASE_TIER.peach_sapling },
   // The ACORN is a sapling too, but it plants TIMBER, not fruit: `plants:'tree'`
@@ -982,7 +948,6 @@ const ITEMS = [
   // off the default growth sheet and takes no hardwood/softwood tier shift.
   { id: 'acorn', name: 'Acorn', kind: 'seed', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
-  // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Flint',    kind: 'mineral' },   // id kept: saves carry 'coal'
   // Sapphire doubles as a one-shot descent charge: tap the Portal button with
   // it selected to descend in place. A Return status action leads back to
@@ -998,10 +963,8 @@ const ITEMS = [
   // Smelted metal bars — primary forge material at blacksmiths. Dropped
   // by mineralrocks (worldgen.js). One ladder per material tier 2..7;
   // tier 1 (wood) gear is starter-shop only and doesn't need a bar.
-  // Display names drop the trailing "Bar" so the inventory + flash text
-  // reads as the material itself ("Copper", "Frost") — the bar nature is
-  // already conveyed by the sprite. Ids keep the _bar suffix so existing
-  // saves + recipe references don't need to migrate.
+  // Display names drop the trailing "Bar" ("Copper", "Frost"); the sprite
+  // shows the bar. Ids keep the _bar suffix.
   // wood is the T1 mineral — chopping a tree or harvesting a shrub drops it,
   // and the starter blacksmith uses it as the sole ingredient for every T1
   // wooden tool. In-world (ground stack + inventory bar) it renders the
@@ -1014,10 +977,8 @@ const ITEMS = [
   { id: 'crimson_bar',  name: 'Crimson',  kind: 'mineral' },
   { id: 'frost_bar',    name: 'Frost',    kind: 'mineral' },
 ];
-// Fill in baseTier for every entry that didn't set one explicitly (cleaner
-// than threading the lookup through each literal above). Anything missing
-// from BASE_TIER falls back to 1 — that's an authoring oversight worth
-// fixing rather than a load-time crash.
+// Fill in baseTier for entries that didn't set one; a missing BASE_TIER row
+// falls back to 1 (an authoring oversight, not a load-time crash).
 for (const it of ITEMS) {
   if (it.baseTier == null) it.baseTier = BASE_TIER[it.id] || 1;
 }
@@ -1045,8 +1006,6 @@ function itemName(id) { return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name |
 // (interact.js 'fire-held'). One table both sides read: the tap handler and
 // the ✦ lines on the inputs. Anything held over a fire that is NOT a key here
 // is burned, after a "Burn <name>?" confirm (app.js presentBurnConfirm).
-// (Wood made a torch here until Oct 2026; the torch is bought or found now,
-// so a branch held over the fire just burns.)
 const CAMPFIRE_MAKES = { meat: 'grilled_meat',
   ...Object.fromEntries(Object.entries(COOKED_FOODS).map(([raw, c]) => [raw, c.id])) };
 // Grilling multiplies the raw cut's energy — and its price, so a grilled
@@ -1191,7 +1150,7 @@ const CONSUMABLE_SPEC = {
 
   egg: {
     verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
-    get: 'A small companion stirs inside the shell.',
+    get: 'A small pet stirs inside the shell.',
     label: scene => EggHatch.ready(scene.save) ? 'Hatch' : `Hatch · ${EggHatch.remaining(scene.save)} m left`,
     disabled: scene => !EggHatch.ready(scene.save),
     usable: scene => EggHatch.ready(scene.save),
@@ -1245,7 +1204,7 @@ const CONSUMABLE_SPEC = {
   },
   vigor_potion: {
     energy: 65,
-    verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Vigor?',
+    verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Healing?',
     get: 'A little strength returns to your limbs.',
   },
   speed_potion: {
@@ -1410,8 +1369,11 @@ const PRICES = {
   rainberry: 6,
   berry: 7,        // T2 sweet — slightly above rainberry
   pairy: 8,
-  starfruit: 18,   // the rescued neighbour’s crop, between Pairy and Gemfruit
-  gemfruit: 25,    // T2 + occasional rockfruit bonus
+  // A shop-bought crop pays its grower: at an average shop (2.1× seed list)
+  // the trailer's 2-produce harvest clears the seed cost by 25% of the
+  // payout (Oct 2026). Starfruit and gemfruit were the T3 crops under it.
+  starfruit: 29,   // the rescued neighbour’s crop, between Pairy and Gemfruit
+  gemfruit: 30,    // T2 + occasional rockfruit bonus
   coffee: 40,      // T2, no wild source
   sunflower: 150,  // T4 magical flower — commonest of the trio
   fireflower: 300, // T5 magical flower
@@ -1577,13 +1539,11 @@ const REVIVE_ITEM_FRAC = {
   resurrection_potion: CONSUMABLE_SPEC.resurrection_potion.energyFrac,
 };
 // The Crow Feather stands you up with a flat 1 energy — enough to crawl, not
-// to fight: its pocket resurrection only buys the walk home. (It rode the
-// table above at 10% until Sep 2026.)
+// to fight: its pocket resurrection only buys the walk home.
 const FEATHER_REVIVE_ENERGY = 1;
 // The wild (green) surface slime's leech: energy per bite, one bite a second
 // (scene_creatures.js wanderCreatures), before the shield potion, its power,
-// the mode and armour. Here so the pest tip quotes the live number. (3 until
-// Sep 2026, doubled with the basic goblin's hit.)
+// the mode and armour. Here so the pest tip quotes the live number.
 const SLIME_LEECH_ENERGY = EnemyRoster.get('slime').dmg;
 
 // Book guides tell a small story about an item, with one useful hint.
@@ -1740,8 +1700,7 @@ for (const item of ITEMS.filter(item => item.kind === 'seed')) {
 }
 
 const STARTING_ENERGY = 100;
-// Every food's restore was raised 30% (owner, Sep 2026): the numbers below
-// are the rows themselves, and the cooked rows follow through GRILL_ENERGY_MUL.
+// The numbers below are the rows themselves; cooked rows follow through GRILL_ENERGY_MUL.
 const FOOD_ENERGY = {
   goblet: 5,
   longgrass:  3,
@@ -1815,8 +1774,7 @@ const ANIMAL_FOOD = {
   // A shore crab is tamed with the smallest fish. (Fed plant produce once
   // tame, it sheds a shell — its CREATURE_BEHAVIOUR `produce` row.)
   crab:    ['minnow'],
-  // Secret: slimes can be tamed with a sapphire — hinted only in book tips,
-  // and true again as of Sep 2026 (ITEM_EFFECTS.sapphire used to spell it out).
+  // Secret: slimes can be tamed with a sapphire — hinted only in book tips.
   // Not reachable through animalLikesFood in practice: a slime is an enemy, so
   // interact.js takes the sapphire branch and then the combat branch long
   // before the favourite-food path, and no "it wants X" hint ever names this.
@@ -1909,7 +1867,7 @@ const RELIC_DEFS = {
   dagger:  { slot: 'dagger', name: 'Dagger', icon: 'Dagger.png', baseCost: 80,
              tiers: [1, 3, 5], chestOnly: true,
              effectKey: 'melee', blurb: 'Its short blade waits until a foe is close.' },
-  spear:   { slot: 'spear', name: 'Spear', icon: 'Spear.png', baseCost: 80,
+  lance:   { slot: 'lance', name: 'Lance', icon: 'Lance.png', baseCost: 80,
              tiers: [1, 3, 5], chestOnly: true,
              effectKey: 'melee', blurb: 'Its long point holds a foe at a distance.' },
   musket:  { slot: 'musket', name: 'Musket', icon: 'Musket.png', baseCost: 60,
@@ -1921,10 +1879,8 @@ const RELIC_DEFS = {
              effectKey: 'bolt',          blurb: 'A spark at its tip strains toward the nearest foe.' },
   // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
   // (Crops.waterJumpChance) of springing the plant a whole growth stage on the
-  // spot: nothing bare-handed, certain at Frost. It used to set produce
-  // QUALITY as well, plus 2 more tiers while a refill charge bank held out;
-  // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
-  // and the charge bank retired with it.
+  // spot: nothing bare-handed, certain at Frost. Produce quality is the
+  // HOE's (it belongs to the bed, see Crops.bedQuality).
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
              effectKey: 'waterJump',     blurb: 'Green shoots hurry toward its falling water.' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
@@ -1933,8 +1889,7 @@ const RELIC_DEFS = {
   // 12%-per-tier chance of costing nothing at all (effectiveTillCost); and the
   // tier is banked on the tilled cell as its produce quality, which the crop
   // planted there carries to harvest (Crops.bedQuality — every quality tier is
-  // +10% extra-seed chance and +floor(qual/3) yield). That last one was the
-  // watering can's until Sep 2026.
+  // +10% extra-seed chance and +floor(qual/3) yield).
   hoe:     { slot: 'hoe',    name: 'Hoe',     icon: 'Hoe.png',     baseCost:  70,
              effectKey: 'tillQuality',   blurb: 'Rich earth rises beneath its blade.' },
   // Bug Net — THE animal tool. It shortens every wheel that takes a creature:
@@ -1992,10 +1947,6 @@ function stackCapForBags(bagsRelic) {
 // The four wearable slots. Armor carries NO per-slot effect number: what a
 // piece is worth is its TIER, and every slot pays the same for it
 // (armorSlotReduction below). Boots also speed up stick walking and soak traps.
-// Until Sep 2026 each slot carried its own `energyPerTier` and armour raised
-// the max-energy CAP — a bigger bar, which helped exactly as much whether or
-// not anything was hitting you. It soaks damage now, so it is worth wearing
-// for the reason armour is worth wearing.
 // The prices sit CLOSE together (a full set still totals 580 base): the
 // pieces are equal protection, so a chestplate at three times the boots read
 // as three times the armour.
@@ -2316,17 +2267,10 @@ function effectiveTillCost(relics, rng) {
 // rounded to 10 ms; `TIER_STEP` and the ratio test in tables.test.js keep an
 // edit from quietly flattening a rung again.
 //
-// It replaces a hand-picked ladder (3000/2500/2000/1300/800/500/300) whose
-// steps wandered between 1.25× and 1.67×, and the flat spot was exactly where
-// a new player lives: copper→iron bought 25%, so the first three relics — the
-// only ones reachable in the opening hour — felt like the same tool. In combat
-// that's the loudest, because a foe of BASELINE_HP has a kill time in seconds
-// that IS the duration here (see combat.js): wood 3s / copper 2.5s / iron 2s
-// was a wooden sword killing nearly as fast as an iron one. (The surface slime
-// was that reference foe until Sep 2026; it is 10 HP now, so it dies in two
-// thirds of a rung — the ladder's SHAPE is what this paragraph is about, and
-// that is unchanged.) Wood also moved 3s
-// → 4s in the same pass, which is what opens the bottom of the curve up.
+// An even ratio matters most for a new player: the first three relics are the
+// only ones reachable in the opening hour and must feel like different tools.
+// In combat a foe of BASELINE_HP has a kill time in seconds that IS the
+// duration here (see combat.js).
 //
 // TIER 0 = BARE HANDS is deliberately NOT on this curve. It stays at 9s, the
 // rung every "you can always do it, only slowly" fallback is written against —
@@ -2442,7 +2386,7 @@ function sellMultiplier() {
 // One number, one place: every home sale goes through trailerSellPrice, so the
 // price the modal quotes and the cash addMoney pays can't drift apart.
 const TRAILER_SELL_MUL = 0.75;
-// Hard mode takes a further cut here (Difficulty.sellMul, 0.6): the SAME
+// Hard mode takes a further cut here (Difficulty.sellMul, 0.9): the SAME
 // place, so the quote and the payout still can't drift, and the stand floor
 // (which prices off sellMultiplier, not this) only widens.
 function trailerSellMultiplier() {
@@ -2490,16 +2434,11 @@ function recipeCap(cost, count) {
   if (!Array.isArray(cost) || !cost.length) return 0;
   return Math.max(0, cost.reduce((m, r) => Math.min(m, Math.floor(count(r.id) / r.qty)), Infinity));
 }
-// Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
-// share this discount, but it's been demoted to a pure combat weapon (it's a
-// ranged weapon in combat.js, and still counts toward the crow/deer hunt-speed
-// max in interact.js). NO RELIC BENDS SHOP PRICES any more (owner, Oct 2026):
-// the Bow used to shrink the buy markup to par at tier 7 and discount the
-// castle vault the same way; a standing discount now comes from a building
+// NO RELIC BENDS SHOP PRICES (owner, Oct 2026): a standing discount comes from a building
 // raised under the Magic Hammer (houses.js priceMul) or a carried guild
 // badge (guildDiscounted), never from gear.
 // The random buy-cash markup: 1.2..3.0× base. Hard mode scales the whole
-// range (Difficulty.buyMul, 1.5×). Applied HERE so every reader — the
+// range (Difficulty.buyMul, 1.15×). Applied HERE so every reader — the
 // trader's roll, the castle's pricing — asks one function and gets the same
 // answer. `relics` is accepted and ignored so every caller keeps its shape.
 function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
@@ -2508,8 +2447,8 @@ function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
 }
 
 // === Per-crop loot tier config (used by chests + treasure marks) ===
-// T1 common (10 seeds/chest default yield), T2 uncommon (5), T3 rare (2).
-// Sourced from BASE_TIER so rarity stays single-source. The legacy callers
+// Crop seed id → BASE_TIER (1..7); chest yields come from rarity.js, not a
+// per-tier count. Sourced from BASE_TIER so rarity stays single-source. The legacy callers
 // (loot.js pickLoot, REG tests) keep working unchanged.
 const SEED_TIER = Object.fromEntries(
   Object.keys(CROP_ROW).map(c => [`${c}_seed`, BASE_TIER[c] || 1])
@@ -2533,9 +2472,7 @@ function isLowTierSeed(id) {
 // instead. 23 = PIER (wooden walkway over water) — walkable but not soil.
 //
 // A terrain-code table, read by app.js' till handler, interact.js' tap gates
-// and render.js' tilled-cell draw. It lived in app.js until Sep 2026, which is
-// why the headless suite had to parse the Set out of app.js' source text to
-// know which codes interact.js' flavour handler had to cover.
+// and render.js' tilled-cell draw.
 // 31 = TAR_YARD (an influence zone's halo round a fuel station, src/zones.js):
 // oily ground that weeps tar — nothing takes root in it.
 const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31]);
@@ -2564,7 +2501,7 @@ const INV_CATS = [
   { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
   { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic', kinds: ['unique_relic'] },
-  { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
+  { key: 'armor',       label: 'Armour',      sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
   { key: 'magic',       label: 'Magic',       sym: '🧪', kinds: ['magic'] },
   { key: 'supplies',    label: 'Supplies',    sym: '🎒', kinds: ['supply'] },

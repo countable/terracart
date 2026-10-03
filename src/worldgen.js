@@ -1125,7 +1125,7 @@
   }
   function isLotLane(f, lots, li) {
     if (!f) return false;
-    // Accept a bare tags object too (the old isParkingAisle call shape).
+    // Accepts a bare tags object too.
     const tags = (f.tags && typeof f.tags === 'object') ? f.tags : f;
     if (isParkingAisle(tags)) return true;
     const set = lots && f.tags ? lots.get(f) : null;
@@ -1639,8 +1639,7 @@
       xs.sort((p, q) => p - q);
       for (let k = 0; k + 1 < xs.length; k += 2) {
         // Symmetric pixel-centre fill: a cell (x, y) is "inside" iff its centre (x+0.5, y+0.5)
-        // is between the left/right intersection xs[k], xs[k+1]. Previously used mixed
-        // ceil/floor with -0.5 offsets which could clip the rightmost cell column.
+        // is between the left/right intersection xs[k], xs[k+1].
         const xa = Math.max(0, Math.floor(xs[k] + 0.5));
         const xb = Math.min(w - 1, Math.floor(xs[k + 1] - 0.5));
         for (let x = xa; x <= xb; x++) visit(x, y);
@@ -2081,8 +2080,7 @@
         u = best;
       }
       grid[y * w + x] = u;
-      // The cell is no longer paved — drop its stale under record so the
-      // exported entry.pathUnder only describes live path cells.
+      // Keep entry.pathUnder describing live path cells only.
       delete pathUnder[`${x}_${y}`];
     };
   }
@@ -2281,9 +2279,7 @@
   // everywhere: one draw for the plain split, then one more for either the
   // plain variant or the ore tier.
   //
-  // Turn a list of per-tier weights into a cumulative table + total, as the
-  // tier pick expects. Summed in order, so tierW[i] is exactly the running
-  // total the old inline loops compared against.
+  // Per-tier weights -> cumulative table + total, as the tier pick expects.
   function cumWeights(weights) {
     const tierW = []; let totalW = 0;
     for (const w of weights) { totalW += w; tierW.push(totalW); }
@@ -2809,8 +2805,7 @@
     // Pass 2 — rectangle bias: inside the bounding box of what pass 1 gave
     // this building, a cell's cover counts FOOT_RECT_BONUS times over. Squares
     // off ragged edges (a rotated house rasterizes to a staircase otherwise)
-    // and fills the notches the old tidy pass used to, but can only take cells
-    // no other building claimed.
+    // and fills notches, but can only take cells no other building claimed.
     const fill = [];
     let _fi = 0;
     for (const it of info) {
@@ -2900,9 +2895,8 @@
       if (bestN) claim({ x: bestN[0], y: bestN[1], i: it.i });
     }
 
-    // Pass 4 — shape cleanup, claim-aware. Same rules the old footprint tidy
-    // enforced (drop stray crumbs, fill 1-wide notches, bridge diagonal-only
-    // contacts) except that it may only ADD cells nobody else owns, so it can
+    // Pass 4 — shape cleanup, claim-aware: drop stray crumbs, fill 1-wide
+    // notches, bridge diagonal-only contacts; it may only ADD cells nobody else owns, so it can
     // never re-introduce an overlap. Buildings are processed in geometry-key
     // order for the same reason pass 1 is: no dependence on input order.
     const tidyOrder = info.slice().sort((a, b) => a.key - b.key);
@@ -4575,11 +4569,7 @@
                 // the same single-field model the cluster spawner uses (see
                 // _pushMineralrock above). yieldTier drives the sprite, the
                 // metal drop, AND the required pick together, so the rock can't
-                // look like one tier but pay out another. (Previously this set
-                // requiredTier directly and left yieldTier undefined, so the
-                // mining code's `yieldTier || 1` fallback always dropped copper
-                // while the sprite/pick used the higher requiredTier — the
-                // "looks like iron, needs an iron pick, drops copper" bug.)
+                // look like one tier but pay out another.
                 const r = rng2();
                 const yieldTier = r < 0.05 ? 3 : r < 0.15 ? 2 : 1;
                 const requiredTier = Math.max(1, yieldTier - 1);
@@ -4662,8 +4652,7 @@
             // rare end of the depth curve (~5 % copper). caveRockP makes the
             // underground levels (loadCaveTile) far richer.
             const _CAVE_ROCK_P = caveRockP(0);
-            // NOTE: we used to do an inline "blocked cell" / "near road"
-            // check here, but it was racy — the MVT polygon loop processes
+            // No inline "blocked cell" / "near road" check here: it would be racy — the MVT polygon loop processes
             // roads, buildings, and landuse in feature-order, so a
             // residential polygon's mineralrock spawn might see a grid
             // where roads haven't been painted yet. The cleanup pass at
@@ -4697,8 +4686,7 @@
             // with probability `fireChance`; each cluster drops
             // clusterMin..clusterMin+clusterSpan-1 rocks jittered within `clusterR`
             // of the pivot, routed through _pushMineralrock. RNG draw order is
-            // identical to the old inline loops (fire roll, count roll, then jx/jy
-            // per rock) so world seeds reproduce exactly.
+            // fixed (fire roll, count roll, then jx/jy per rock) so world seeds reproduce.
             //
             // VEINS: if the caller supplies `veinChance` + raw `weights`, each
             // fired cluster rolls once more (rollVeinTable, VEIN_MUL) and may
@@ -5842,20 +5830,11 @@
     // Road-name labels: walk each transportation_name line at ~1 cell per step
     // and drop ONE compact whole-word label (the name's first word) every
     // LABEL_PERIOD road cells, rotated to the local road direction. This
-    // replaced the old letter-per-cell stamping ("C","A","S",… each in its own
-    // cobble), which read as a cryptic letter trail rather than a street name.
     // Angles are normalized to (-90°, 90°] so a label never renders upside
     // down regardless of the way's digitized direction.
     // Stored as { "ix_iy": { text, angle } } — anchor cells only, vehicle road
     // tiers only (PATH pebbles are too small to carry a label).
     //
-    // This loop used to do double duty: it also recorded a street NAME on every
-    // cobble cell it marched over (pathNames), which a wavefront pass then
-    // spread to the rest of the tile's cobbles so app.js could run a separate
-    // prize counter per named way. The cobble ladder is one global count now
-    // (src/trail.js), so nothing asks which way a stone belongs to and the
-    // whole naming apparatus is gone. A stone is a cobble cell — the grid
-    // already says so, via isCobbleTerrain.
     const roadLabels = {};
     const LABEL_PERIOD = 12;   // cells between label repeats (~84 m)
     const LABEL_OFFSET = 2;    // first label a couple of cells in from the line start
@@ -6320,12 +6299,8 @@
     const key = tileKey(x, y);
     if (!detached && tileCache.has(key)) return tileCache.get(key);
     if (depth > 0) return loadCaveTile(tileCache, depth, key, x, y, lat);
-    // A failed build used to stay in the cache as a permanent 'loading' entry
-    // with a rejected promise: loadTile returns cached entries without looking
-    // at their status, so ONE flaky fetch turned that tile into blank grass for
-    // the rest of the session, mid-walk. Failures now evict themselves (below)
-    // so the next ensureTilesAround retries — with a short floor so a hard
-    // offline stretch doesn't spin on rebuild attempts.
+    // Failures evict themselves (below) so the next ensureTilesAround retries, with a short
+    // floor so a hard offline stretch doesn't spin on rebuild attempts.
     const failedAt = detached ? 0 : _tileFailedAt.get(key);
     if (failedAt && Date.now() - failedAt < TILE_RETRY_MS) {
       return { status: 'loading', grid: null, cellsPerEdge: cellsPerEdgeForTile(y),

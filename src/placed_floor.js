@@ -7,14 +7,8 @@
 //   directly below it (scene.depth = 0 surface, 1+ underground) share the same
 //   world (x, y). Anything the player drops on a cell — crops, scarecrows,
 //   campfires, placed rocks — is stored by world coords, so without a per-level
-//   tag it renders (and reacts) on EVERY level at once. That was the
-//   "scarecrow shows on every floor" bug (2026-06).
-//
-//   Before this module the isolation was ad-hoc and per-interactable: crops
-//   carried their own `.depth` and were filtered inline; placed rocks were
-//   gated `_curDepth === 0`; scarecrows and fires were filtered by nothing at
-//   all. This collects the rule in one spot so the next placeable can't
-//   re-introduce the leak.
+//   tag it renders (and reacts) on EVERY level at once. This collects the
+//   isolation rule in one spot so the next placeable can't re-introduce the leak.
 //
 // TWO IDIOMS, both live here:
 //   • Depth-tagged objects (crops, scarecrows, fires): each stored object
@@ -25,10 +19,7 @@
 //     bare "ix_iy" cell-key strings with no room for a per-item tag, and they
 //     only ever exist on the surface. `isSurface(depth)` gates them.
 //
-// LEGACY SAVES: objects placed before depth-tagging have no `depth` field.
-// `?? 0` treats them as surface — correct, since every pre-tag placeable
-// (crops/scarecrows/fires) could only be dropped on the surface anyway. No
-// save migration needed.
+// Untagged objects (no `depth` field) are surface: `?? 0`.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';

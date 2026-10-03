@@ -7,12 +7,9 @@
 // lowercase fragments, colon-separated key/value pairs, and raw internal ids
 // printed straight to the screen.
 //
-// Three of those had shipped:
-//   • `occupied: ${blocker}` — a key/value line whose value fell through to
-//     `oo.kind`, so a plot could be refused with "occupied: mineralrock".
-//   • `planted ${item.grows}` — the raw crop id, beside loot toasts that have
-//     resolved names since QC_RULES §4 was written.
-//   • 'bag full' and 'Bag full' — one sentence, two casings, two call sites.
+// Leaks the rules catch: key/value lines like `occupied: ${blocker}` whose
+// value fell through to a raw kind, raw crop ids (`planted ${item.grows}`),
+// and one sentence in two casings ('bag full' / 'Bag full').
 //
 // These pin the rules, not the sentences, so the copy stays free to be
 // reworded and cannot slide back.
@@ -76,8 +73,8 @@ test('copy: the plant flash says the crop by name, and what it needs next', () =
 
 test('copy: "bag full" is one line shared by inventory refusals', () => {
   assert.truthy(/const BAG_FULL_MSG = '[^']+';/.test(SCENE_SRC), 'app.js owns one constant');
-  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 4,
-    'declared once, used for drops, purchases and smelting');
+  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 5,
+    'declared once, used for drops, purchases (a counter\'s gear too) and smelting');
   assert.falsy(/flash\('bag full'/i.test(SCENE_SRC), 'neither casing survives as a literal');
   const msg = SCENE_SRC.match(/const BAG_FULL_MSG = '([^']+)';/)[1];
   assert.truthy(/bag/i.test(msg) && /\.$/.test(msg), 'it is a sentence about the bag: ' + msg);
@@ -127,13 +124,11 @@ function firstArgLiterals(src, callName) {
   }
   return out;
 }
-// Every static flash literal in the files that own player-facing taps (and
-// scene_geo.js, which carries the GPS-off toast moved out of app.js, and
-// scene_creatures.js, which carries the crop-raid toasts and the catch line).
+// Every static flash literal in the files that own player-facing taps: the
+// scene (app.js and every mixin it installs) plus interact / interactables.
 function mapMessages() {
   const out = [];
-  const files = { 'app.js': APP_JS_SRC, 'scene_geo.js': SCENE_GEO_SRC,
-                  'scene_creatures.js': SCENE_CREATURES_SRC,
+  const files = { 'app.js + scene mixins': SCENE_SRC,
                   'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC };
   for (const [name, src] of Object.entries(files)) {
     for (const raw of firstArgLiterals(src, 'flash')) out.push({ file: name, raw });

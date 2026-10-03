@@ -18,7 +18,7 @@ test('guild badges: each guild has one carried treasure with shipped art and a d
     assert.truthy(PRICES[id] > 0, `${id}: priced`);
     assert.truthy(ITEM_EFFECTS[id], `${id}: description`);
     const src = inventoryIconSource(id);
-    assert.truthy(APP_JS_SRC.includes(`  ${src.sheet}: { url: 'assets/Icons/Items/${id}.png', cols: 1, srcW: 16, srcH: 16 }`),
+    assert.truthy(SCENE_SRC.includes(`  ${src.sheet}: { url: 'assets/Icons/Items/${id}.png', cols: 1, srcW: 16, srcH: 16 }`),
       `${id}: DOM icon sheet points at its art`);
     assert.truthy(pngDims(`assets/Icons/Items/${id}.png`), `${id}: PNG shipped`);
   }
@@ -91,6 +91,7 @@ function scene(role, badge) {
     _trailRewardBlurb: () => '',
     _makeRerollSecondary: () => undefined,
     traderGivePick: () => ({ rng: () => 0, giveId: 'potato_seed' }),
+    peekTraderGearSwap: () => null,
     showOfferModal(offer) { this.offer = offer; },
   });
 }

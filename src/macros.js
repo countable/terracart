@@ -24,8 +24,7 @@
 // counter, like the market stall they share their dialog with (app.js
 // _presentStallOffer — one price lane, ShopsMath.standPrice).
 //
-// THE ECONOMY GOAL (Sep 2026): these POIs used to be free chests, and the
-// commonest of them injected the most coin. So a macro either SELLS at the
+// THE ECONOMY GOAL: a macro either SELLS at the
 // stall price, charges for a service, or pays in something that is not coin
 // (the curio hall's memories). The chapel's daily roll and the guildhall's
 // bounty (a fight, paid by the kill lane plus a matched wage) are the only
@@ -159,7 +158,7 @@
       return true;
     }
     if ((save.money || 0) < row.price) {
-      scene.flash(`Need $${row.price} to hire.`, sx, sy);
+      scene.flash(`Need ${row.price} coins to hire.`, sx, sy);
       visit.finish();
       return true;
     }
@@ -167,8 +166,8 @@
     let settled = false;
     scene._mercenaryHirePending = true;
     scene.showConfirmModal({ id: 'mercenary-hire', title: row.name, art: row.art,
-      body: `Hire a mercenary for $${row.price}? He follows you and fights enemies for ${shortDuration(row.durationMs)}.`,
-      acceptLabel: `Hire · $${row.price}`, cancelLabel: 'Later',
+      body: `Hire a mercenary for ${row.price} coins? He follows you and fights enemies for ${shortDuration(row.durationMs)}.`,
+      acceptLabel: `Hire · ${row.price} coins`, cancelLabel: 'Later',
       onCancel: () => { if (!settled) { settled = true; scene._mercenaryHirePending = false; visit.finish(); } },
       onAccept: () => {
         if (settled) return;
@@ -284,17 +283,43 @@
   }
 
   // ── SUNDRIES: a supply counter ────────────────────────────────────────────
-  // One supply item per shop, from the village Supply Shop's own line
-  // (Shops.THEME_POOL.supply — the Book is the Bookshop's and the Scriptorium's).
+  // One thing per shop: a supply item from the village Supply Shop's own line
+  // (Shops.THEME_POOL.supply — the Book is the Bookshop's and the Scriptorium's)
+  // or one of SUNDRIES_GEAR, the find-only weapons and the shield. A gear
+  // entry is `gear:<line>`; what it sells depends on the player
+  // (sundriesGear).
+  const SUNDRIES_GEAR = ['dagger', 'lance', 'musket', 'shield'];
+  const SUNDRIES_SHIELDS = ['shield_wood', 'shield_metal', 'shield_gold'];
+  // Gear at a counter costs this many times its list price, before the
+  // stall's usual discount (ShopsMath.standPrice).
+  const SUNDRIES_GEAR_PRICE_MUL = 3;
   function sundriesStock(o) {
-    const pool = Shops.THEME_POOL.supply().filter((id) => ITEM_BY_ID[id]);
+    const pool = [...Shops.THEME_POOL.supply().filter((id) => ITEM_BY_ID[id]),
+      ...SUNDRIES_GEAR.map((line) => 'gear:' + line)];
     const id = _pick(o, 'sundries', pool);
     return id ? [id] : [];
   }
+  function isSundriesGear(entry) { return typeof entry === 'string' && entry.startsWith('gear:'); }
+  // What a gear entry sells THIS player: the lowest rung above what they hold
+  // (a Rusty Dagger to a player without one, a Fine one over a Rusty; the
+  // Metal Shield over a carried Wood one), as a Rewards.apply shape with its
+  // `price`. Null when they already hold the line's finest.
+  function sundriesGear(save, entry) {
+    const line = entry.slice('gear:'.length);
+    if (line === 'shield') {
+      const held = Math.max(0, ...SUNDRIES_SHIELDS.filter((id) => carriesItem(save, id)).map((id) => ITEM_BY_ID[id].baseTier));
+      const id = SUNDRIES_SHIELDS.find((s) => ITEM_BY_ID[s].baseTier > held);
+      return id ? { kind: 'item', id, qty: 1, tier: ITEM_BY_ID[id].baseTier,
+        price: ShopsMath.standPrice(save, itemValue(id) * SUNDRIES_GEAR_PRICE_MUL) } : null;
+    }
+    const owned = save?.relics?.[line]?.tier || 0;
+    const tier = (RELIC_DEFS[line].tiers || [1, 2, 3, 4, 5, 6, 7]).find((t) => t > owned);
+    return tier ? { kind: 'relic', slot: line, tier,
+      price: ShopsMath.standPrice(save, gearPrice('relic', line, tier) * SUNDRIES_GEAR_PRICE_MUL) } : null;
+  }
 
   // ── SCRIPTORIUM: a book counter ───────────────────────────────────────────
-  // A plain stall (no free page any more — it was a free daily Book read,
-  // i.e. a Book's worth of value a day per scriptorium). It sells the Book and
+  // A plain stall (no free daily page). It sells the Book and
   // the one other scholarly thing the game has, a Torch to read by. Priced by
   // stallPrice like every counter; no gate, no cooldown.
   const SCRIPTORIUM_BOOK = 'book';
@@ -549,7 +574,7 @@
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,
     APOTHECARY_POTIONS, APOTHECARY_CURE, apothecaryStock,
-    sundriesStock,
+    SUNDRIES_GEAR, SUNDRIES_SHIELDS, SUNDRIES_GEAR_PRICE_MUL, sundriesStock, isSundriesGear, sundriesGear,
     SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, scriptoriumStock,
     BOUNTY_LADDER, BOUNTY_TIERS_PER_RUNG, BOUNTY_TIERS_PER_FOE, BOUNTY_MAX_FOES, BOUNTY_MATCH, BOUNTY_DIST_CELLS,
     bountyWeaponTier, bountyFor, bountyPay, bountyCleared,

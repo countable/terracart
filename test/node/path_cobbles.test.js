@@ -2,9 +2,8 @@
 // stone only where the footpath actually runs through it — at least one full
 // cell width of way inside the cell (worldgen accumulateLineSpan → pathCross).
 //
-// The old rule hashed the cell coords to a fixed density, which had no idea
-// where the path was: it dropped stones on cells the path merely clipped the
-// corner of, and left gaps in the middle of a straight run.
+// A density hash would drop stones on cells the path merely clips and leave
+// gaps in a straight run.
 (() => {
   const W = 8, H = 8;
   // accumulateLineSpan takes MVT coords and a scale; feeding it cell-unit

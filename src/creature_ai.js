@@ -462,11 +462,8 @@ function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).t
 // odd and even levels alike; every other cave ground stays empty. The sun
 // never reaches them either (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
-// (THE OLD STONES used to be a second reason here - from DUSK inside a
-// church's or cemetery's zone, twice as often, fanned from the stones. Gone,
-// Sep 2026, owner: it pulled players to churchyards at closing time and sent
-// them fleeing through dark streets. A churchyard's headstone can still raise
-// one when TAPPED (raiseGhostAt); the night itself is the same everywhere.)
+// A churchyard's headstone can still raise a ghost when TAPPED (raiseGhostAt);
+// the night itself is the same everywhere.
 // Is this a time and place ghosts rise? One predicate the pump reads: the
 // surface after dark, or a haunted cave level at any hour.
 function ghostsHaunt(depth, day, habitat) {
@@ -864,10 +861,8 @@ const CROW_RAID_PERCHES = 2;
 // and leaves on its NEXT launch (_crowDepart 'hunted'). So the race is
 // between the net's wheel and how much perch the crow had left when you
 // tapped: tap one that has just settled and it sits through a wood net's
-// 4 s; tap one about to hop and it is gone. It used to launch at once
-// (_perchUntilT = now), so the wheel raced its first hop, and whether that
-// 2–2.5-cell hop happened to land on a cell still inside the reach diamond
-// — a die roll on its direction — decided the hunt, not the player.
+// 4 s; tap one about to hop and it is gone. (Launching at once made the
+// hunt a die roll on the first hop's direction.)
 //   The departure hop itself is here, one row: `cells` out and `ms` of
 // glide per leg. Three cells clears the base reach (2.5 cells + 1 m, whole
 // cells — coords.js cellInReach) from wherever it sat, so the hop always
@@ -894,8 +889,7 @@ const CROW_DEPART_HOP = { cells: 3, ms: 1500 };
 // roam, the panic dash away from a pet — is a quadratic leg
 // (creatureFlightEase, whose peak is twice its mean), so it lasts
 // 2 × distance / this, and a longer hop is a longer glide, never a faster
-// one (WILD_SPEED_CEILING_MPS). The roam used to peak at 44 m/s, the dash at
-// 80.
+// one (WILD_SPEED_CEILING_MPS).
 const CROW_FLIGHT_MPS = 9;
 // ── A foe WANDERS OFF now and then ───────────────────────────────────────────
 // Every few minutes each hostile (Combat.isEnemy — the wild slime and every
@@ -1151,6 +1145,19 @@ function enemyWalkHazardTick(scene, c, now) {
   return !!scene._damageEnemy(c, damage, 'obstacle');
 }
 
+// THE CAMPFIRE WARD (scene_creatures.js FIRE_WARD_MAX_DEPTH): a lit fire turns
+// away the surface slime and the cave's entry-level kinds, judged by the
+// roster's cave minDepth (Combat.MONSTERS), never its power tier — a purple
+// slime is tier 1 but a depth-3 kind — and never a lair guard (a garrison is
+// a place, not wandering fauna). One predicate for the wander target loop
+// and the swept step; it used to read `row.tier` here, so the two disagreed.
+function campfireAverts(c) {
+  if (c.lair) return false;
+  if (c.kind === 'slime') return true;
+  const mon = Combat.isMonster(c.kind) ? Combat.monster(c.kind) : null;
+  return !!mon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH;
+}
+
 // Every segment is swept, including fast flights and lunges. Flying permits
 // low terrain, never rock walls, buildings, unloaded cells or placed rocks.
 function enemyCanStep(scene, c, row, x, y, escaping = false) {
@@ -1174,7 +1181,7 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
   if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return false;
   if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
       && isFastMover(c, scene.cellM)) return false;
-  const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
+  const fireAverts = campfireAverts(c);
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false) {

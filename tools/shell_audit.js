@@ -119,7 +119,7 @@ function providedTextureKeys() {
   // preload() only walks ASSETS today, but a sprite loaded straight from
   // app.js would be just as real, and missing it here would have this audit
   // cry wolf about it — so app.js's own load calls still count.
-  const app = blankComments(read('src/app.js'));
+  const app = blankComments(read('src/app.js') + '\n' + read('src/scene_create.js'));
   for (const m of app.matchAll(/this\.load\.(?:image|spritesheet|atlas)\('([^']+)'/g)) keys.add(m[1]);
   // A maker that takes its key as an argument (makeTowerTexture bakes the
   // turret twice — once in the lit castle palette, once in the unclaimed one)
@@ -190,7 +190,7 @@ CHECKS.push({
   name: 'textures: every procedural texture is actually created at boot',
   run: () => {
     const tex = blankComments(read('src/textures.js'));
-    const app = blankComments(read('src/app.js'));
+    const app = blankComments(read('src/app.js') + '\n' + read('src/scene_create.js'));
     const makers = [...tex.matchAll(/function (make\w+)\s*\(/g)].map((m) => m[1]);
     if (makers.length < 5) throw new Error(`found only ${makers.length} texture makers — scanner broken`);
     // Body of each maker, so we can see which other makers it calls.

@@ -77,7 +77,7 @@
 
   // ── The numbers (owner picks, Sep 2026) ────────────────────────────────
   // What a scenic metre banks on the ladder, per kind: water 2×, park and
-  // greenway 1.75× (owner's pick, Sep 2026 — up from 1.5×, shore stays 2×).
+  // greenway 1.75×, shore stays 2×.
   // One table: _ripenStreets banks through bonusMetres, the Book tip prints it.
   const SCENIC_MUL = { shore: 2.0, greenway: 1.75, park: 1.75 };
   // Which kind wins a sample several apply to: the richest first.
@@ -120,8 +120,7 @@
   const VISTA_SEAT_CELLS = 3;
   // loot.js chestBaseTier reads o.vista through this table. Every vista chest
   // for a viewpoint or path is T5; reef discoveries are T2–T3. The grail uses the treasure-only vista pool, while a scenic
-  // stretch keeps the park theme through POI_CATEGORY.vista. Until Oct 2026,
-  // the grail was T4 and stretches were T2-T3 by kind.
+  // stretch keeps the park theme through POI_CATEGORY.vista.
   const VISTA_CHEST_TIER = { grail: 5, shore: 5, greenway: 5, park: 5, reef2: 2, reef3: 3 };
   const VISTA_POI_CLASS = 'vista';
 
@@ -571,8 +570,8 @@
   // shoreM } or null when the tile has no shore sand. One yield per 16 rows.
   // SAND is the LAND's class (Zones.landAt over the zone paint's `under`
   // ledger): a zone's coverage repaints a beach's look but it is still the
-  // beach — measured on Vancouver's Kits / English Bay, three quarters of the
-  // dry sand wears a grove's ground.
+  // beach (measured on Vancouver's Kits / English Bay: three quarters of the
+  // dry sand wears a grove's ground).
   function* shoreSandSteps(geo, grid, under) {
     const WG = root.WorldGen, Z = root.Zones;
     const N = geo.N, u = geo.ext / N;

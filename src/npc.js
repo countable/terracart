@@ -5,7 +5,7 @@ const NPC = (() => {
   // tile cheap). Far residents cost the sim loop one distance check a frame
   // (scene_creatures.js wanderCreatures) and the draw a viewport cull, so a
   // tile of fifty is a few hundred multiply-adds — the NPC count is not a
-  // frame budget. Was 40 (Sep 2026: more neighbours, more to say).
+  // frame budget.
   const COUNT = 50;
   // ROLES are what a neighbour has to say when tapped (dialogue below): the
   // scout points at things, the scholar reads the Book, merchant and trader
@@ -57,7 +57,7 @@ const NPC = (() => {
     return null;
   }
   function isShrine(o) {
-    return o.kind === 'shrine' || o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
+    return o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
   }
   function spawn(scene, entry, tx, ty, opts) {
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
@@ -145,8 +145,7 @@ const NPC = (() => {
   }
   // A neighbour's stroll: a slow walking pace (m/s, well under the brisk-walk
   // fast-mover line) in short legs, a few seconds' rest between, never more
-  // than WANDER_CELLS from where it was seated. It was 0.045 cells/s with up
-  // to 16 s rests — about a pixel a second, which read as standing still.
+  // than WANDER_CELLS from where it was seated.
   const WALK_MPS = 0.8;
   const WANDER_CELLS = 4;
   const REST_MS = [2500, 6000];     // [base, spread]

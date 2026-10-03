@@ -2,16 +2,13 @@
 // Simple procedural castle turret — a stout stone column with a crenellated
 // top. One 28×42 canvas, anchor at bottom-centre so it sits on its cell. The
 // column still rises clearly above the rampart battlements it stands among
-// (those reach ~10px above their cell) but is shorter than the old 50px
-// version, which towered over the walls rather than crowning them.
+// (those reach ~10px above their cell) without towering over the walls.
 //
-// Pixel-art rules this obeys (the old version broke all three, which is what
-// made it read as slightly "off"):
+// Pixel-art rules this obeys:
 //   • the outline is drawn as 1px fillRects, never a stroked path — a
 //     lineWidth-1 stroke ON integer coordinates straddles the pixel boundary
 //     and renders as two half-lit rows, blurring every edge;
-//   • the merlons are centred on the battlement slab (they used to sit 1px
-//     left of centre, so the crown looked knocked sideways);
+//   • the merlons are centred on the battlement slab;
 //   • shading lines stay INSIDE the outline instead of running under it.
 // `palette` / `key` bake the SECOND turret: an unclaimed castle draws
 // 'tower_unclaimed', generated from CASTLE_STONE_UNCLAIMED, instead of taking a
@@ -41,9 +38,8 @@ function makeLegacyTowerTexture(scene, palette, key) {
 
   // Layout, top to bottom: merlons, battlement slab (overhanging the body),
   // then the column down to a 2px gap at the canvas bottom.
-  // Four teeth on the wider crown keeps the same 4px tooth / 2px crenel rhythm
-  // the old three had on the narrower one (22px of crenellation on the 24px
-  // slab, so 1px of slab shows at each end).
+  // Four teeth keep a 4px tooth / 2px crenel rhythm (22px of crenellation on
+  // the 24px slab, so 1px of slab shows at each end).
   const MERLON_H = 4, MERLON_W = 4, MERLON_GAP = 2, MERLONS = 4;
   const battTop = MERLON_H, battH = 5;
   const bodyTop = battTop + battH;          // 9

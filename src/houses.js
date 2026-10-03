@@ -142,8 +142,20 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // discount a BUILDING carries: the relic-tier price bends are gone (items.js
   // buyMarkupRange). The flower charm's hour and a carried guild badge
   // (items.js guildDiscounted) still stack on top.
+  // A SHINY TURRET (owner, Oct 2026) fights harder instead: its arrows deal
+  // double (Combat.turretShot reads the shine through the same powerMul a
+  // shiny creature does) and fly as light (Combat.SHINY_ARROW_COLOR, the
+  // bolt lane in lighting.js collectBolts). A plain HOUSE takes no hammer at
+  // all (hammerTakes): it sells nothing and shoots nothing, so there would
+  // be nothing for the shine to do — the dialog's With Hammer button sits
+  // disabled on that card, and restoreAs will not stamp it.
   const HAMMER_ID = 'magic_hammer';
   const HAMMER_PRICE_MUL = 0.8;
+  // Can this card be raised under the hammer? Every role that trades or
+  // fights; never the plain House.
+  function hammerTakes(row) {
+    return !!row && row.role != null && row.role !== 'plain';
+  }
   function isShinyHouse(save, house) {
     return !!(house && house.id != null && save && save.shinyHouses && save.shinyHouses[house.id]);
   }
@@ -210,7 +222,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (typeof save.restoredHouses[house.id] === 'string') return null;   // never relabel a restored house
     save.restoredHouses[house.id] = row.role;
     if (row.theme) (save.shopLines = save.shopLines || {})[house.id] = row.theme;
-    if (opts.hammer) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
+    if (opts.hammer && hammerTakes(row)) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
     if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
     if (row.key === 'bookshop') registerBookshop(save, house);
     if (row.role === 'wizard') registerWizardTower(save, house);
@@ -308,6 +320,21 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   function wreckRestoreCost(save, house) {
     const restored = Object.keys(save?.restoredHouses || {}).length;
     return { id: 'rockfruit', qty: wreckRestoreQty(restored), material: 'stone' };
+  }
+  // WHAT EACH CARD COSTS (owner, Oct 2026). A House — and the wizard's tower,
+  // a story building — keeps the ladder above. A shop is priced by the rank
+  // its card wears (the row's `tier`, the same badge the pick shows): this
+  // many stones PER TIER, one row per role; the Book Shop is a market at
+  // tier 1. A turret is a flat TURRET_ROCKS. `row` is a buildOptions card.
+  const BUILD_ROCKS_PER_TIER = Object.freeze({ trader: 2, market: 3, blacksmith: 4 });
+  const TURRET_ROCKS = 5;
+  function buildCost(save, house, row, order = restoredCount(save)) {
+    if (!row || row.role === 'plain' || row.role === 'wizard') return wreckRestoreCost(save, house);
+    if (row.role === 'turret') return { id: 'rockfruit', qty: TURRET_ROCKS, material: 'stone' };
+    const per = BUILD_ROCKS_PER_TIER[row.role];
+    if (!per) return wreckRestoreCost(save, house);
+    const tier = Math.max(1, (typeof row.tier === 'function' ? row.tier(save, order) : 1) | 0);
+    return { id: 'rockfruit', qty: per * tier, material: 'stone' };
   }
 
   // Wood this fort demands to unseal, following the per-fort progression
@@ -433,7 +460,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
-    HAMMER_ID, HAMMER_PRICE_MUL, isShinyHouse, priceMul,
+    BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
+    HAMMER_ID, HAMMER_PRICE_MUL, hammerTakes, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,
     shopCharmMul,

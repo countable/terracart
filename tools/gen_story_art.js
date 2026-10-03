@@ -196,11 +196,9 @@ const PIECES = {
     'blue-white bolt leaves its tip across a meadow. Gentle wonder, warm sunset light. No bow or arrows.'),
   // The ONE money icon: a single JADE coin on transparency. Not a banner -
   // generated large, trimmed to its opaque bounds, downscaled to a 64px
-  // runtime icon (assets/art is for banners; the coin lives under
-  // assets/Icons/ - run tools/gen_story_art.js coin_icon). Green on purpose:
-  // the ore ladder already owns orange (copper, gold), grey (iron,
-  // platinum), red (crimson) and blue (frost), and a gold coin read as a
-  // copper one. No ore is green, so the money can't be taken for a metal.
+  // runtime icon (lives under assets/Icons/; run tools/gen_story_art.js
+  // coin_icon). Green on purpose: the ore ladder already owns orange, grey,
+  // red and blue, and a gold coin read as a copper one.
   coin_icon: {
     size: '1024x1024', width: 64, colors: 64, background: 'transparent', trim: true,
     style:
@@ -281,8 +279,8 @@ const PIECES = {
   // doorstep, not a shopkeeper's counter, so it wears its own piece rather
   // than kind_shop.
   // THE REVIVAL STORYBOARD (app.js _reviveStoryboard, the first time Home
-  // stands a downed player back up): collapse, found, home. Three panels read in order, so they share a palette and a
-  // survivor — the same young survivor in a hooded brown cloak throughout.
+  // stands a downed player back up): collapse, found, home. Three panels read
+  // in order, so they share a palette and a
   revive_fall: scene(
     // Nothing dropped beside the body: a collapse costs no gear, and the
     // player may own none — the picture must not promise either.
@@ -419,9 +417,7 @@ const PIECES = {
     'A campfire ringed with stones burning brightly at night, sparks rising, a log half-consumed in the flames.', 'sigil'),
   kind_note: scene(
     'A folded parchment letter weighted with a stone on a wooden fence post at dusk, a meadow and ruined village beyond.', 'claws'),
-  // The ☰ menu. Shipped as a crop of safety_welcome (the survivor rebuilding
-  // a ruined home) until this is generated — the script only renders pieces
-  // missing from assets/art/, so run it with this name (or --force).
+  // The ☰ menu.
   kind_menu: scene(
     'A small half-rebuilt cottage with bare roof rafters, a lone sunflower by its wall, a survivor with a hammer and a sack of stones looking at it at golden hour.'),
 

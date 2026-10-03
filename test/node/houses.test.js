@@ -113,6 +113,31 @@ test('buildOptions: one smithy per tier, the next from restore number tier × 5'
   assert.eq(Houses.buildOptions({ restoredHouses: {} }, plainHouse, 2).find((r) => r.key === 'market:seed').tier(), 1);
 });
 
+// WHAT EACH CARD COSTS (owner, Oct 2026): a House keeps the ladder, a shop
+// pays stones per tier by its role, a turret a flat five.
+test('buildCost: the House ladder, stones per tier for shops, a flat five for a turret', () => {
+  const save = { restoredHouses: {} };
+  const h = { kind: 'house', tier: 9, id: 'h' };
+  const by = (key, order = 9) => Houses.buildOptions(save, h, order).find((r) => r.key === key);
+  assert.eq(Houses.buildCost(save, h, by('plain')).qty, Houses.wreckRestoreCost(save, h).qty, 'a House is the ladder');
+  assert.eq(Houses.buildCost(save, h, null).qty, Houses.wreckRestoreCost(save, h).qty, 'no card: the ladder');
+  assert.eq(JSON.stringify(Houses.BUILD_ROCKS_PER_TIER), JSON.stringify({ trader: 2, market: 3, blacksmith: 4 }));
+  assert.eq(Houses.TURRET_ROCKS, 5);
+  assert.eq(Houses.buildCost(save, h, by('turret')).qty, 5, 'a turret is five, always');
+  assert.eq(Houses.buildCost(save, h, by('blacksmith'), 9).qty, 4, 'the first smithy: 4 × tier 1');
+  assert.falsy(Houses.buildOptions(save, h, 3).find((r) => r.key === 'trader'), 'no trader card before the fifth');
+  assert.eq(Houses.buildCost(save, h, Houses.buildOptions(save, h, 4).find((r) => r.key === 'trader'), 4).qty, 2, 'a T1 trader: 2 × 1');
+  assert.eq(Houses.buildCost(save, h, Houses.buildOptions(save, h, 9).find((r) => r.key === 'trader'), 9).qty, 4, 'a T2 trader: 2 × 2');
+  const market = Houses.buildOptions(save, h, 2).find((r) => r.key === 'market:seed');
+  assert.eq(Houses.buildCost(save, h, market, 2).qty, 3, 'a T1 shop line: 3 × 1');
+  const smithy = { restoredHouses: { a: 'blacksmith' } };
+  const sm2 = Houses.buildOptions(smithy, h, 9).find((r) => r.key === 'blacksmith');
+  assert.eq(Houses.buildCost(smithy, h, sm2, 9).qty, 8, 'the second smithy is T2: 4 × 2');
+  for (const c of [Houses.buildCost(save, h, by('turret')), Houses.buildCost(save, h, by('plain'))]) {
+    assert.eq(c.id, 'rockfruit'); assert.eq(c.material, 'stone');
+  }
+});
+
 test('buildOptions: the Blacksmith card is suggested until the lane has a smithy', () => {
   const sm = Houses.buildOption('blacksmith');
   assert.truthy(sm.suggested({ restoredHouses: {} }));

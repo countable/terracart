@@ -17,7 +17,7 @@
   // Shared with app.js (inventory tap-to-activate) and combat.js (what
   // auto-engages / auto-fires); kept here too since equip() is what flips it
   // on a fresh pickup.
-  const WEAPON_SLOTS = ['sword', 'dagger', 'spear', 'bow', 'staff', 'musket'];
+  const WEAPON_SLOTS = ['sword', 'dagger', 'lance', 'bow', 'staff', 'musket'];
 
   // Boons change what can be used, never what is owned. Expiry is read live
   // so a reload or an expired altar restores the original gear automatically.
@@ -75,9 +75,7 @@
   // Equip a bought / forged / looted relic or armor piece. Armor just fills its
   // slot: its effect (soaking incoming damage — items.js armorReduction, spent
   // by Combat.mitigate) is read live off save.armor at the moment a blow lands,
-  // so there is nothing to bank here. Until Sep 2026 armour raised the max
-  // energy CAP, and this function had to grant the freshly-unlocked headroom
-  // as a delta so a second piece didn't refill the whole bar.
+  // so there is nothing to bank here.
   function equip(save, kind, slot, tier) {
     const def = gearDef(kind, slot);
     if (!def || !TIER_BY_NUM[tier] || (def.tiers && !def.tiers.includes(tier))) return;
@@ -102,8 +100,8 @@
   // weight ∝ 1/2^(tier-1) biases offers toward low tiers. `rng` defaults to
   // Math.random — pass a seeded one for stable per-bucket offers.
   // A SMITHY (opts.isBlacksmith) only ever offers what its anvil can forge
-  // (blacksmithRecipe): wooden jewellery has no recipe, and a seeded offer of
-  // it used to shut the forge for the whole hour bucket ("Anvil's resting").
+  // (blacksmithRecipe); an unforgeable seeded offer would shut the forge for
+  // the whole hour bucket ("Anvil's resting").
   // THE SMITHY OFFERS THE LOWEST RUNG IT CAN (owner, Oct 2026). Per slot,
   // the lowest tier the anvil can forge above what is worn is that slot's
   // NEXT rung (`rank` 0); every tier past it is divided by
@@ -176,9 +174,7 @@
     const pick = { kind, slot, tier };
 
     // Pricing: castle = a flat CASTLE_RELIC_MARKUP; everything else = random
-    // 1.2..3.0× markup. (The Bow used to bend both toward par — gone, Oct
-    // 2026: the Magic Hammer's building is the one standing discount, and the
-    // flower charm the one timed one — houses.js priceMul.)
+    // 1.2..3.0× markup (houses.js priceMul owns the standing discounts).
     const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
     const mul = opts.isCastle ? CASTLE_RELIC_MARKUP : 1.2 + rng() * 1.8;
     const price = Math.max(1, Math.ceil(baseP * mul));
@@ -227,6 +223,89 @@
     return ['platinum_bar', 'crimson_bar', 'frost_bar'];
   }
 
+  // ── THE TRADER'S GEAR SWAP ───────────────────────────────────────────────
+  // On TRADER_GEAR_CHANCE of trader visits, the trader swaps equipment
+  // instead of goods: one piece the player owns for a different piece OF THE
+  // SAME TIER, any for any across relics, armour and unique relics. Pieces
+  // are Rewards.apply shapes: { kind: 'relic'|'armor', slot, tier } or
+  // { kind: 'item', id, qty: 1, tier }.
+  //   • The player gives a piece they own. Bags never go: a smaller bag would
+  //     spill the inventory. A shrine boon's temporary staff is not owned
+  //     (save.relics, not effectiveRelics). Tomes are books, not relics.
+  //   • The trader gives what equip() would actually take — a slot the player
+  //     has empty or holds at a LOWER tier (so never the given slot itself) —
+  //     or a unique relic the player does not carry.
+  const TRADER_GEAR_CHANCE = 0.2;
+  // Every unique relic that counts as equipment (tomes are books), read off
+  // ITEMS once: the trader's sign asks for it every frame. The X mark's gear
+  // class (rarity.js) draws from the same list.
+  let _uniqueRelics = null;
+  function uniqueRelics() {
+    return _uniqueRelics || (_uniqueRelics = ITEMS.filter(item =>
+      item.kind === 'unique_relic' && !item.tome && (item.baseTier | 0) > 0));
+  }
+  function gearTier(save, kind, slot) {
+    return (kind === 'armor' ? save.armor : save.relics)?.[slot]?.tier || 0;
+  }
+  function traderGivablePieces(save) {
+    const out = [];
+    for (const slot of Object.keys(RELIC_DEFS)) {
+      const tier = gearTier(save, 'relic', slot);
+      if (tier > 0 && slot !== 'bags') out.push({ kind: 'relic', slot, tier });
+    }
+    for (const slot of Object.keys(ARMOR_DEFS)) {
+      const tier = gearTier(save, 'armor', slot);
+      if (tier > 0) out.push({ kind: 'armor', slot, tier });
+    }
+    for (const item of uniqueRelics()) {
+      if (carriesItem(save, item.id)) out.push({ kind: 'item', id: item.id, qty: 1, tier: item.baseTier });
+    }
+    return out;
+  }
+  function traderTakeablePieces(save, tier, give) {
+    const out = [];
+    const fits = (kind, slot) => {
+      const def = gearDef(kind, slot);
+      return !!def && !!TIER_BY_NUM[tier] && (!def.tiers || def.tiers.includes(tier)) && gearTier(save, kind, slot) < tier;
+    };
+    for (const slot of Object.keys(RELIC_DEFS)) if (fits('relic', slot)) out.push({ kind: 'relic', slot, tier });
+    for (const slot of Object.keys(ARMOR_DEFS)) if (fits('armor', slot)) out.push({ kind: 'armor', slot, tier });
+    for (const item of uniqueRelics()) {
+      if (item.baseTier === tier && item.id !== give?.id && !carriesItem(save, item.id)) {
+        out.push({ kind: 'item', id: item.id, qty: 1, tier });
+      }
+    }
+    return out;
+  }
+  // The chance roll is drawn first, every time, so what is owned never
+  // changes how many numbers the stream spends before it.
+  function traderGearSwap(save, rng = Math.random) {
+    if (rng() >= TRADER_GEAR_CHANCE) return null;
+    const options = traderGivablePieces(save)
+      .map(give => ({ give, gets: traderTakeablePieces(save, give.tier, give) }))
+      .filter(o => o.gets.length);
+    if (!options.length) return null;
+    const { give, gets } = options[Math.floor(rng() * options.length)];
+    return { give, get: gets[Math.floor(rng() * gets.length)] };
+  }
+  const samePiece = (a, b) => a.kind === b.kind && a.slot === b.slot && a.id === b.id && a.tier === b.tier;
+  // Still takeable as offered: the given piece is owned at that tier and the
+  // received one is still wanted (the bag or a slot may have changed since).
+  function traderSwapValid(save, swap) {
+    if (!swap) return false;
+    return traderGivablePieces(save).some(p => samePiece(p, swap.give))
+      && traderTakeablePieces(save, swap.give.tier, swap.give).some(p => samePiece(p, swap.get));
+  }
+  // Hand the given piece over. The received piece goes through Rewards.apply
+  // at the caller, like every other way gear is obtained.
+  function surrenderPiece(save, piece) {
+    if (piece.kind === 'item') { Inventory.remove(save, piece.id, 1); return; }
+    if (piece.kind === 'armor') { save.armor[piece.slot] = null; return; }
+    save.relics[piece.slot] = null;
+    if (save.activeWeapon === piece.slot) unequipWeapon(save);
+  }
+
   root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
-                blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS };
+                blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
+                TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

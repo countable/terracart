@@ -1,15 +1,10 @@
 // Viewport-vignette audit — checks that the map's rim still fades the way the
 // two edges need, which is NOT the same way on all four sides.
 //
-// The bug it guards: the vignette's rim lip (the outer 4px ramped to
-// near-opaque, added so art overhanging the mask fades instead of being sliced
-// mid-pixel — UX audit §15) was applied to all four edges with one strokeRect.
-// The map box spans the whole viewport width on a phone, so the left and right
-// rings ARE the outermost pixels of the screen: the lip painted a ~4px black
-// bar down both sides, and the game read as not being full width. Sampled off
-// a real iPhone 15 viewport, the map's own leftmost pixels came back
-// rgb(6,6,4), rgb(19,19,14), rgb(31,32,24), rgb(44,45,34) before the grass at
-// rgb(68,73,51) finally started.
+// The bug it guards: the rim lip (outer 4px ramped near-opaque so overhanging
+// art fades instead of being sliced mid-pixel, UX audit §15) was once applied
+// to all four edges. On a phone the left and right rings ARE the screen edge,
+// so the lip painted a black bar down both sides.
 //
 // So the rule has two halves and the audit pins both:
 //   * TOP and BOTTOM keep the lip — they sit in the middle of the screen with
@@ -19,7 +14,7 @@
 //   * LEFT and RIGHT get the soft ramp only — nothing is sliced at the screen
 //     edge that the bezel doesn't slice anyway.
 //
-// Like layout_audit, this lifts the real source out of src/app.js and
+// Like layout_audit, this lifts the real source out of src/scene_create.js and
 // evaluates it rather than restating the arithmetic here — a copy would drift
 // from the page and start passing while the map grew its bars back.
 
@@ -33,11 +28,11 @@ const ROOT = path.resolve(__dirname, '..');
 // declares and on the loop's closing brace, so a nearby edit fails loudly here
 // instead of silently matching less code.
 function loadVignette() {
-  const src = fs.readFileSync(path.join(ROOT, 'src', 'app.js'), 'utf8');
+  const src = fs.readFileSync(path.join(ROOT, 'src', 'scene_create.js'), 'utf8');
   const start = src.indexOf('const vignette = this.add.graphics()');
-  if (start < 0) throw new Error('vignette_audit: the vignette block is gone from src/app.js');
+  if (start < 0) throw new Error('vignette_audit: the vignette block is gone from src/scene_create.js');
   const loopAt = src.indexOf('for (let i = 0; i < VIG_PX; i++) {', start);
-  if (loopAt < 0) throw new Error('vignette_audit: the vignette ring loop is gone from src/app.js');
+  if (loopAt < 0) throw new Error('vignette_audit: the vignette ring loop is gone from src/scene_create.js');
   const end = src.indexOf('\n    }\n', loopAt);
   if (end < 0) throw new Error('vignette_audit: could not find the end of the ring loop');
   const block = src.slice(start, end + 6);
@@ -53,7 +48,7 @@ function loadVignette() {
     .join('\n');
   vm.runInContext(
     decls + '\nglobalThis.__v = { VIG_PX, VIG_LIP, vigSoft, vigLip };',
-    ctx, { filename: 'app.js#vignette' });
+    ctx, { filename: 'scene_create.js#vignette' });
   const v = ctx.__v;
   for (const k of ['VIG_PX', 'VIG_LIP']) {
     if (typeof v[k] !== 'number' || !isFinite(v[k])) {

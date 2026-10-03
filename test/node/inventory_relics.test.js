@@ -96,16 +96,16 @@
 
   test('inventory relics: alternate weapons have separate selectable slots and one active badge', () => {
     const s = harness({ inv: [], relics: { sword: { tier: 3 }, dagger: { tier: 1 },
-      spear: { tier: 3 }, musket: { tier: 5 } }, armor: {}, activeWeapon: 'spear',
+      lance: { tier: 3 }, musket: { tier: 5 } }, armor: {}, activeWeapon: 'lance',
       invCat: 'relic', invPage: 0, selSlot: -1 });
     s.buildInventoryDOM();
-    for (const slot of ['sword', 'dagger', 'spear', 'musket']) {
+    for (const slot of ['sword', 'dagger', 'lance', 'musket']) {
       const button = s.slots().find(b => b.dataset.gear === `relic:${slot}`);
       assert.truthy(button, `${slot} appears in Relics`);
-      assert.eq(button.children.some(child => child.textContent === 'E'), slot === 'spear');
+      assert.eq(button.children.some(child => child.textContent === 'E'), slot === 'lance');
       s.click(button);
       assert.eq(s.save.selGear.slot, slot);
-      assert.eq(s.save.activeWeapon, 'spear', 'highlight alone does not equip');
+      assert.eq(s.save.activeWeapon, 'lance', 'highlight alone does not equip');
     }
   });
 

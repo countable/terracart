@@ -3,17 +3,10 @@
 // test/node/run.js the same way the sprite, shell and layout audits are.
 //
 // showOfferModal renders a trade: `get` is what you receive, `cost` is what
-// you pay, and a literal "for" sits between them. The castle quest board
-// reused it for something that is not a trade — there is nothing to pay — and
-// filled BOTH halves with the same progress string. Every quest state then
-// printed its own progress line twice with a stray "for" wedged between the
-// copies ("3 / 10 defeated / for / 3 / 10 defeated"), and a finished quest did
-// the same with the reward figure.
-//
-// That is a whole class of mistake rather than one typo: any future caller
-// that isn't really a trade will be tempted to pad the unused half the same
-// way. The fix made `cost` optional, and this audit keeps the temptation from
-// coming back.
+// you pay, with a literal "for" between. A caller that is not a trade (the
+// castle quest board) once filled BOTH halves with the same progress string,
+// printing it twice around a stray "for". `cost` is optional now, and this
+// audit keeps callers from padding the unused half again.
 
 const fs = require('fs');
 const path = require('path');
@@ -21,14 +14,10 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 
 // Replace every comment body with spaces, keeping newlines (and therefore
-// every index and line number) intact. The scanners below track strings so a
-// brace or comma inside one can't fool them — but a COMMENT is not a string,
-// and app.js is heavily commented in prose. The apostrophe in a comment like
-// "so the barter can't be read backwards" opened a phantom single-quoted
-// string that swallowed the next two object entries whole, which is how the
-// trade modal's get/cost pair first parsed as two empty strings — and two
-// empty strings compare equal, so the audit would have reported a duplicate
-// that was never there. Blank the comments and both scanners see only code.
+// every index and line number) intact. The scanners below track strings, and
+// a COMMENT is not a string: an apostrophe in prose opens a phantom
+// single-quoted string that swallows entries whole. Blank the comments and
+// both scanners see only code.
 function blankComments(src) {
   let out = '';
   let quote = null;
@@ -137,17 +126,24 @@ function topLevelEntries(body) {
   return pairs;
 }
 
+// The scene's dialogs: app.js plus the mixins carved out of it.
+const SCENE_FILES = ['src/app.js', 'src/scene_create.js', 'src/scene_consumables.js',
+  'src/scene_venues.js', 'src/scene_streets.js'];
+
 // Every showChestRewardModal({...}) call site — the loot/ceremony dialogs.
-function chestCalls(file = 'src/app.js') {
-  return callsTo('showChestRewardModal(', file);
+function chestCalls(files = SCENE_FILES) {
+  return callsTo('showChestRewardModal(', files);
 }
 
 // Every showOfferModal({...}) call site, as { line, args }.
-function offerCalls(file = 'src/app.js') {
-  return callsTo('showOfferModal(', file);
+function offerCalls(files = SCENE_FILES) {
+  return callsTo('showOfferModal(', files);
 }
 
-function callsTo(CALL, file = 'src/app.js') {
+function callsTo(CALL, files = SCENE_FILES) {
+  return [].concat(files).flatMap((file) => callsToIn(CALL, file));
+}
+function callsToIn(CALL, file) {
   const src = blankComments(fs.readFileSync(path.resolve(ROOT, file), 'utf8'));
   const calls = [];
   let at = 0;
@@ -162,7 +158,7 @@ function callsTo(CALL, file = 'src/app.js') {
     if (brace < 0 || brace > at + 4) continue;   // not a call with an object literal
     const body = objectLiteralAt(src, brace);
     if (body == null) continue;
-    calls.push({ line: src.slice(0, i).split('\n').length, args: topLevelEntries(body) });
+    calls.push({ file, line: src.slice(0, i).split('\n').length, args: topLevelEntries(body) });
   }
   return calls;
 }
@@ -201,14 +197,10 @@ function stripParens(expr) {
 }
 
 // Split a value expression into the alternatives it can actually render.
-// `done ? A : B` renders A or B, never the literal ternary — so comparing the
-// two halves of the dialog as whole strings misses the real bug. The quest
-// board's two halves were NOT textually identical:
-//     get:  done ? `$${reward}`         : progressLine
-//     cost: done ? `Reward: $${reward}` : progressLine
-// They only collided on the `progressLine` branch, which is exactly the branch
-// a player in mid-quest sees — and that is what printed twice. Compare the
-// BRANCH SETS and the collision is obvious.
+// `done ? A : B` renders A or B, never the literal ternary, so comparing the
+// two halves as whole strings misses the bug: the quest board's halves differed
+// (`$${reward}` vs `Reward: $${reward}`) and collided only on the shared
+// `progressLine` branch. Compare the BRANCH SETS.
 function valueBranches(expr) {
   expr = stripParens(expr);
   let depth = 0, quote = null, q = -1;
@@ -283,9 +275,8 @@ const CHECKS = [
       if (shellCalls().length < 6) {
         throw new Error(`only found ${shellCalls().length} makeModalShell call sites — the scanner is broken`);
       }
-      // MODAL_KINDS is a table of a dozen-plus categories; one entry means the
-      // parse died early (this is exactly what a stray apostrophe in the
-      // comment above the table did before blankComments was applied here).
+      // MODAL_KINDS has a dozen-plus categories; one entry means the parse died
+      // early.
       if (declaredKinds().size < 8) {
         throw new Error(`MODAL_KINDS parsed as only ${declaredKinds().size} entries — the scanner is broken`);
       }
@@ -301,7 +292,7 @@ const CHECKS = [
         const costBranches = new Set(valueBranches(cost).filter((b) => !TRIVIAL.has(b)));
         const shared = valueBranches(get).filter((b) => !TRIVIAL.has(b) && costBranches.has(b));
         if (shared.length) {
-          bad.push(`src/app.js:${c.line} renders the same text as both get and cost: ` +
+          bad.push(`${c.file}:${c.line} renders the same text as both get and cost: ` +
             shared.map((b) => JSON.stringify(b)).join(', '));
         }
       }
@@ -330,8 +321,8 @@ function declaredKinds() {
 // the stats readout, the energy explainer, the delivery list and so on. Their
 // kind rides in the shell's OPTIONS object, so they need their own scan.
 // The stock dialogs (showMessageModal & co.) call it from src/modal_shell.js,
-// every other dialog from src/app.js — both are scanned.
-function shellCalls(files = ['src/app.js', KINDS_FILE]) {
+// every other dialog from the scene files — all are scanned.
+function shellCalls(files = [...SCENE_FILES, KINDS_FILE]) {
   const calls = [];
   for (const file of files) calls.push(...shellCallsIn(file));
   return calls;
@@ -364,12 +355,12 @@ CHECKS.push({
     const bad = [];
     const check = (c, what) => {
       const k = c.args.get('kind');
-      if (k == null) { bad.push(`${c.file || 'src/app.js'}:${c.line} (${what}) opens without a kind`); return; }
+      if (k == null) { bad.push(`${c.file}:${c.line} (${what}) opens without a kind`); return; }
       // A literal key must exist in MODAL_KINDS; a computed one (a variable or
       // a default forwarded from an outer call) is checked where it originates.
       const lit = k.match(/^'([\w]+)'$/) || k.match(/^"([\w]+)"$/);
       if (lit && !kinds.has(lit[1])) {
-        bad.push(`${c.file || 'src/app.js'}:${c.line} (${what}) uses kind '${lit[1]}', which MODAL_KINDS does not define`);
+        bad.push(`${c.file}:${c.line} (${what}) uses kind '${lit[1]}', which MODAL_KINDS does not define`);
       }
     };
     for (const c of offerCalls()) check(c, 'offer modal');
@@ -379,7 +370,7 @@ CHECKS.push({
       const k = c.args.get('kind');
       const lit = k && (k.match(/^'([\w]+)'$/) || k.match(/^"([\w]+)"$/));
       if (lit && !kinds.has(lit[1])) {
-        bad.push(`src/app.js:${c.line} (chest modal) uses kind '${lit[1]}', which MODAL_KINDS does not define`);
+        bad.push(`${c.file}:${c.line} (chest modal) uses kind '${lit[1]}', which MODAL_KINDS does not define`);
       }
     }
     // The shell's own forwarding call inside showOfferModal passes the caller's

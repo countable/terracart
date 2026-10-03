@@ -68,7 +68,7 @@ test('canvas scale: diagnostic overrides can lower but never raise the memory ca
 
 test('canvas scale: a missing publish degrades to the logical grid', () => {
   // app.js runs after fitGame, but a boot order that ever changed must fail
-  // soft — the old fixed-size canvas — not with a NaN-sized buffer.
+  // soft (the fixed-size canvas), not with a NaN-sized buffer.
   assert.eq(at(undefined, 1), 1, 'no published scale reads as 1');
   assert.eq(at(1, undefined), 1, 'no devicePixelRatio reads as 1');
 });

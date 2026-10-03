@@ -1,9 +1,7 @@
 // armor.test.js — what a worn set is FOR.
 //
-// Until Sep 2026 armour raised the max-energy CAP: each piece added
-// `energyPerTier × tier` to the bar, so a Frost chestplate was worth exactly
-// as much to a player who never met a slime as to one who lived underground.
-// It soaks INCOMING DAMAGE now, and this file is that rule's audit.
+// Armour soaks INCOMING DAMAGE (it does not raise max energy); this file is
+// that rule's audit.
 //
 // The rule, in one place:
 //
