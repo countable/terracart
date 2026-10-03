@@ -13775,7 +13775,7 @@ class MapScene extends Phaser.Scene {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
-      return this.worldIconHTML(texKey, 40, frame);
+      return this.worldIconHTML(texKey, 36, frame);
     };
     const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
     // Each card is the building's picture, its name and (when ranked: a shop,
@@ -13786,7 +13786,7 @@ class MapScene extends Phaser.Scene {
       return {
         key: row.key,
         label: labelFor(row, null)
-          + (tierOf(row) ? `<div style="margin-top:2px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
+          + (tierOf(row) ? `<div style="margin-top:1px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
         iconHTML: iconFor(row),
         suggested: !!row.suggested?.(this.save),
         cost: costLine(c),
@@ -13816,8 +13816,9 @@ class MapScene extends Phaser.Scene {
       cost: single ? costLine(single) : null,
       canAfford: single ? affords(single) : false,
       acceptLabel: 'Restore',
+      // One line: the dialog's height is spent on the cards.
       blurb: hasHammer
-        ? `${this.iconSpanHTML(Houses.HAMMER_ID)} With your ${hammer?.name || 'Magic Hammer'} the building would gleam, and the folk inside would deal kindly with you.`
+        ? `<span style="display:block;margin-top:-2px">${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams, and folk deal kindly.</span>`
         : undefined,
       secondary: hasHammer
         ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true, onClick: (key) => restore(key, true) }

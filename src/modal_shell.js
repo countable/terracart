@@ -689,7 +689,7 @@ class SceneModals {
     };
     if (getLabel) box.appendChild(mkCaption(getLabel));
     const getDiv = document.createElement('div');
-    getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:4px 0;color:#ffe066';
+    getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:2px 0;color:#ffe066';
     getDiv.innerHTML = get;
     if (pager && pager.count > 1) {
       const pageRow = document.createElement('div');
@@ -720,7 +720,7 @@ class SceneModals {
     }
     if (blurb) {
       const blurbDiv = document.createElement('div');
-      blurbDiv.style.cssText = 'font-size:11px;opacity:.75;margin-bottom:6px';
+      blurbDiv.style.cssText = 'font-size:11px;opacity:.75;margin-bottom:4px';
       blurbDiv.innerHTML = blurb;
       box.appendChild(blurbDiv);
     }
@@ -732,6 +732,10 @@ class SceneModals {
     let syncAccept = () => {};
     let liveCanAfford = canAfford;
     let costDiv = null;
+    // Cards that price themselves and carry no `info` (the wreck's build
+    // pick) spend the dialog's height on the cards: no info line, no cost
+    // caption — the hint and then the price sit on the one cost line.
+    const priced = hasChoices && choices.some((c) => c.cost != null) && !choices.some((c) => c.info);
     // The selected card's own price, if it carries one, onto the cost line.
     const applyChoiceCost = () => {
       if (!selected || selected.cost == null) return;
@@ -745,13 +749,12 @@ class SceneModals {
       // rows), two in the old fullscreen grid.
       cardRow.style.cssText = fullscreen
         ? 'display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:10px 0 4px;'
-        : 'display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:4px 0 2px;';
+        : 'display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin:2px 0 2px;';
       // Cards with no `info` (names and badges only) need just the hint line
       // — and when they price themselves, not even that: the hint sits on
       // the cost line until a card is picked (the dialog's height is what
       // a six-card pick spends it on).
       const anyInfo = choices.some((c) => c.info);
-      const priced = choices.some((c) => c.cost != null);
       const infoLine = document.createElement('div');
       infoLine.style.cssText = 'font-size:12px;line-height:1.35;opacity:.9;margin:4px 0 6px;'
         + `min-height:${anyInfo ? 2.7 : 1.4}em;`;
@@ -767,17 +770,17 @@ class SceneModals {
       };
       for (const c of choices) {
         const b = document.createElement('button');
-        b.innerHTML = (c.iconHTML ? `<div style="font-size:0;margin-bottom:3px">${c.iconHTML}</div>` : '') + c.label;
+        b.innerHTML = (c.iconHTML ? `<div style="font-size:0;margin-bottom:2px">${c.iconHTML}</div>` : '') + c.label;
         b.style.cssText = (fullscreen
           ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
-          : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 4px;font:700 12px ui-monospace,monospace;')
+          : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px ui-monospace,monospace;')
           + 'border-radius:7px;cursor:pointer;background:transparent;color:#ddd;border:2px solid #555;';
         b.addEventListener('click', (e) => { e.stopPropagation(); selected = c; paint(); });
         cardRow.appendChild(b);
         cards.push({ c, b });
       }
       box.appendChild(cardRow);
-      if (anyInfo || !priced) box.appendChild(infoLine);
+      if (!priced) box.appendChild(infoLine);
       selected = choices.length === 1 ? choices[0] : (choices.find((c) => c.key === choice) || null);
       paint();
     }
@@ -789,7 +792,9 @@ class SceneModals {
     // because both halves were handed the same string.
     const hasCost = (cost != null && cost !== '') || (hasChoices && choices.some((c) => c.cost != null));
     if (hasCost) {
-      if (costLabel) {
+      if (priced) {
+        // no caption: the line below is the cost
+      } else if (costLabel) {
         box.appendChild(mkCaption(costLabel));
       } else {
         const forDiv = document.createElement('div');
@@ -798,7 +803,7 @@ class SceneModals {
         box.appendChild(forDiv);
       }
       costDiv = document.createElement('div');
-      costDiv.style.cssText = 'font-size:16px;font-weight:700;margin:3px 0 8px;';
+      costDiv.style.cssText = priced ? 'font-size:15px;font-weight:700;margin:4px 0 6px;' : 'font-size:16px;font-weight:700;margin:3px 0 8px;';
       costDiv.style.color = canAfford ? '#a7ffb0' : '#ff8a7a';
       // No price until a card is picked: the hint sits on the line instead.
       costDiv.innerHTML = (cost != null && cost !== '') ? cost
