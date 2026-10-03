@@ -25,7 +25,7 @@
       pestAmnesty: true,        // no slime / crow / raven near home until the first harvest
       // ── Pests ──
       // The crop-raiding PEST PUMP (scene_creatures.js wanderCreatures): a wild
-      // deer dispatched just off-screen every ~90 s whenever a crop a deer eats
+      // deer dispatched just off-screen once an hour (PEST_DISPATCH_MS) whenever a crop a deer eats
       // is planted and no wild deer is already near, which then walks at the
       // field. Off on easy — a deer you meet by walking into one is the whole
       // deer threat there — and on hard it is what stops farming from being a
@@ -100,7 +100,7 @@
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,
-      cropPests: true,          // deer are dispatched to your field, ~90 s apart
+      cropPests: true,          // deer are dispatched to your field, once an hour
       derelictLairs: true,      // every ruin past the home ring is held, and holds more further out
       lairGuardMax: null,       // no group cap: a maxed castle wakes its whole ten
       quietHomeM: 0,            // no quiet home: a fort by the trailer is held for you too

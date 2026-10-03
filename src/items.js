@@ -698,7 +698,7 @@ const CARRIED_ITEM_SPEC = {
   guild_trader: { guildRole: 'trader', guildDiscount: 0.1 },
 };
 const ITEMS = [
-  { id: 'telescope', name: 'Telescope', kind: 'unique_relic' },
+  { id: 'telescope', name: 'Field Scope', kind: 'unique_relic' },
   { id: 'orb', name: 'Orb', kind: 'unique_relic', reusable: true },
   { id: 'goblet', name: 'Goblet', kind: 'unique_relic', reusable: true },
   { id: 'lucky_key', name: 'Lucky Key', kind: 'unique_relic' },
