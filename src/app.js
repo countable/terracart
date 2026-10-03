@@ -197,33 +197,22 @@ const STREET_LAMP_ORIGIN_Y =
 // — it LIES on the point, and a stone in the road has nothing to stand proud
 // of.
 const STREET_LAMP_DY_PX = 3;
-// Unrestored streets carry a snapped-off lamp post. Its weathered metal and
-// plinth are baked from RoadOverlay.paintBrokenLamp into the legacy cobble
-// sheet, retaining its four frame slots and existing street placement.
-const STREET_LAMP_DARK_TEX = 'cobble';
-// Frame per way tier, keyed by the WorldGen.T code classifyLine hands back:
-// motorway/trunk/primary the biggest densest cluster, secondary/tertiary the
-// medium one, minor/service/street the small one, and a footpath a single
-// pebble. Anything classifyLine calls "not a road" falls back to the small
-// cluster. Read through streetLampDarkFrame so the T codes are looked up
-// live rather than retyped here.
-const STREET_LAMP_DARK_FRAME = { ROAD_LG: 0, ROAD_MD: 5, ROAD: 1, PATH: 3 };
-const streetLampDarkFrame = (tier) => {
-  const T = (typeof WorldGen !== 'undefined' && WorldGen.T) || {};
-  for (const k in STREET_LAMP_DARK_FRAME) if (T[k] === tier) return STREET_LAMP_DARK_FRAME[k];
-  return STREET_LAMP_DARK_FRAME.ROAD;
-};
-// The old stones' draw size, in cells: a road cluster at 0.64 of a cell, a
-// path pebble at 0.584 (both "stepped down 20% per playtest" so the ground
-// shows round them), and their 57% alpha. Read through streetLampDarkCells for
-// the same reason as the frame: the T codes are looked up live rather than
-// retyped wherever the art is drawn.
+// Unrestored streets carry a SNAPPED-OFF lamp post: the same casting as the
+// lit lamp (RoadOverlay.paintBrokenLamp — its plinth, base and a column broken
+// off below the lantern, in weathered metal, no glass and no glow), baked at
+// runtime into STREET_LAMP_BROKEN_TEX exactly as the lit lamp is baked for
+// its glow (_ensureBrokenLampTex beside _ensureStreetLampTex), and drawn at
+// the same size, on the same ground line, with the same nudge — so the lamp
+// that lights is visibly the lamp that stood broken. Until Oct 2026 the dark
+// lamp was a 16 px frame of the old cobble sheet at a quarter the size and
+// 57% alpha: a smudge beside the lit one (owner's call).
+const STREET_LAMP_BROKEN_TEX = 'street_lamp_broken';
+// THE SITE'S FOOTPRINT. RoadOverlay.LAMP_DARK_CELLS is the width the old
+// cobble stone drew at, and it is still what RoadOverlay.LAMP_SITE_R_CELLS
+// (the verge offset every lamp is placed by, and the cells rasterization
+// reserves) is derived from — so every lamp stands exactly where it always
+// has. It sizes no art any more; it is kept as a placement constant only.
 const STREET_LAMP_DARK_CELLS = RoadOverlay.LAMP_DARK_CELLS;
-const streetLampDarkCells = (tier) => {
-  const T = (typeof WorldGen !== 'undefined' && WorldGen.T) || {};
-  return tier === T.PATH ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road;
-};
-const STREET_LAMP_DARK_ALPHA = 0.57;
 // THE LAMP STANDS ON THE VERGE, and this is the art's own footprint radius in
 // cells — what _streetLampsForTile adds to half the carriageway
 // (Streets.lampOffsetM) so the art just touches the band's edge instead of
@@ -812,6 +801,9 @@ const NEAR_GPS_CELLS = 3;
 // empty-tank aura is the state, and it pulses on its own clock.
 const HIT_FLASH_MS = 160;
 const HIT_FLASH_TINT = 0xff5a5a;
+// A buff's expiry must move by more than this for _announceStatuses to call
+// it landed again (a timer rewritten to the same deadline is not news).
+const STATUS_EXTEND_SLACK_MS = 1000;
 // UNNOTICED: how far the body fades while nothing can perceive it (scene
 // isUnnoticed — a Shadow Powder's minute, or collapsed on an empty bar). Low
 // enough to read as a ghost at a glance, high enough to keep the character
@@ -953,6 +945,7 @@ const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
 const SHADOW_POWDER_MS = CONSUMABLE_SPEC.shadow_powder.durationMs;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
 const FROST_POWDER_MS = CONSUMABLE_SPEC.frost_powder.durationMs;
+const PSYCHOSIS_POWDER_MS = CONSUMABLE_SPEC.psychosis_powder.durationMs;
 // The Scroll of Thunder's flash (readThunderScroll) — long enough to read as
 // lightning, short enough not to blind the next tap. Its damage is items.js
 // THUNDER_DMG, beside the ✦ line that quotes it.
@@ -1398,6 +1391,27 @@ const ROAD_CHIP_CSS = `
 #roadchip .road-num { line-height: 1; white-space: nowrap; pointer-events: none; opacity: 0.85; }
 body.modal-open #roadchip { opacity: 0.25; pointer-events: none; }
 `;
+// The BOOKS chip (_buildBookChip): the Book pages read so far, as the memories
+// chip's twin — the Book's icon and a count (play_tips.js bookPagesRead). A
+// tap lists those pages to read again (_showBooksRead); owner's call, Oct
+// 2026, so the course is something you can go back to, not a thing that
+// scrolls past once.
+const BOOK_CHIP_CSS = `
+#bookchip {
+  box-sizing: border-box; position: relative;
+  height: var(--hud-chip-h); padding: 0 6px;
+  border: var(--hud-chip-rim) solid var(--chrome-rim); border-radius: 8px;
+  display: flex; flex-direction: row; align-items: center; gap: 5px;
+  background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
+  font: 700 14px ui-monospace, monospace;
+  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+  text-shadow: 0 1px 0 #000;
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  pointer-events: auto; cursor: pointer; user-select: none;
+}
+#bookchip .book-ico { width: 18px; height: 18px; image-rendering: pixelated; pointer-events: none; }
+body.modal-open #bookchip { opacity: 0.25; pointer-events: none; }
+`;
 // The strip itself: a worn band with a dim broken centre line, and over it the
 // same road repaved (light band, bright dashes, kerb lines) clipped to the
 // fraction done — updateRoadChipDOM moves only the clip rect's width.
@@ -1423,6 +1437,9 @@ const ICON_SHEETS = {
   icon_shield_wood: { url: 'assets/Icons/Items/shield_wood.png', cols: 1, srcW: 16, srcH: 16 },
   icon_shield_metal: { url: 'assets/Icons/Items/shield_metal.png', cols: 1, srcW: 16, srcH: 16 },
   icon_shield_gold: { url: 'assets/Icons/Items/shield_gold.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_guild_blacksmith: { url: 'assets/Icons/Items/guild_blacksmith.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_guild_market: { url: 'assets/Icons/Items/guild_market.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_guild_trader: { url: 'assets/Icons/Items/guild_trader.png', cols: 1, srcW: 16, srcH: 16 },
 
   crops:       { url: 'assets/Objects/Approved/crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
   springcrops: { url: 'assets/Objects/Approved/springcrops.png',                cols: 14, srcW: 224, srcH: 128 },
@@ -1459,6 +1476,7 @@ const ICON_SHEETS = {
   icon_skeleton_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_honey:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
+  icon_magic_hammer: { url: 'assets/Icons/Items/MagicHammer.png',             cols: 1,  srcW: 16,  srcH: 16 },
   icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
   icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
@@ -2230,6 +2248,7 @@ class MapScene extends Phaser.Scene {
     // The default glow is baked here at boot; a themed street's colour is
     // baked the first time a lit lamp of it comes near (_updateStreetLamps).
     this._ensureStreetLampTex(UI_LAMP_GLOW);
+    this._ensureBrokenLampTex();
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in
@@ -2868,6 +2887,7 @@ class MapScene extends Phaser.Scene {
     this.moneyEl = document.getElementById('money');
     this._buildMemoriesChip();
     this._buildRoadChip();
+    this._buildBookChip();
     this._buildStatusRow();
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
@@ -3267,7 +3287,8 @@ class MapScene extends Phaser.Scene {
       }
     }
     const held = pinned || Conditions.active(this.save, 'jellyfish_stun');
-    return { pinned: held, capMS, slowed: !held && capMS > 0 };
+    const balancing = typeof ObstacleStep !== 'undefined' && ObstacleStep.speedMul(this._obstacleStep) < 1;
+    return { pinned: held, capMS, slowed: !held && (capMS > 0 || balancing) };
 
   }
 
@@ -3646,6 +3667,7 @@ class MapScene extends Phaser.Scene {
       c._frozenUntil = Math.max(c._frozenUntil || 0, until);
       c._startX = c._targetX = c.x;
       c._startY = c._targetY = c.y;
+      Combat.flagStatus(c, Combat.STATUS_LOOKS.frozen);
       this._damageEnemy(c, magicTrapDamage(), 'player');
       const at = this._cellToastAt(ix, iy, CELL_PX);
       this.flash('✨ Magic trap sprung', at.x, at.y);
@@ -5086,16 +5108,13 @@ class MapScene extends Phaser.Scene {
   }
 
   _applyCondition(id) {
+    // A fresh row pops its word and flicks the body from _announceStatuses
+    // (the next condition tick), as every status does; poison keeps its
+    // one-time lesson.
     const fresh = Conditions.apply(this.save, id);
     this._syncAttackConditionSpeed();
-    if (fresh && id === 'confused') {
-      this._confusedRecover = true;
-      this.flashAtPlayer('Confused!');
-    }
-    if (fresh && id === 'jellyfish_stun') this.flashAtPlayer('Stunned! Attacks slowed.');
-    if (fresh && id === 'burning') this.flashAtPlayer('🔥 You catch fire!');
+    if (fresh && id === 'confused') this._confusedRecover = true;
     if (fresh && id === 'poison') {
-      this.flashAtPlayer('Poisoned! Find an Antidote.');
       if (!this.save.poisonLearned) {
         this.save.poisonLearned = true;
         this.showMessageModal({ title: 'Poisoned', body:
@@ -5169,7 +5188,50 @@ class MapScene extends Phaser.Scene {
       this.updateEnergyDOM();
     }
     if (result.ticks || result.expired) persistSave(this.save);
+    this._announceStatuses();
     this._syncStatusRow();
+  }
+
+  // THE ANNOUNCEMENT. A status or a timed effect that has just LANDED on the
+  // player — a row of Conditions.DEFINITIONS newly active, a row of
+  // Buffs.KINDS whose expiry is newly set or pushed out (a second potion on
+  // top of the first, a torch relit, counts) — flicks the body in the row's
+  // own colour (_flashPlayerStatus → _updatePlayerAura, for
+  // Combat.STATUS_FLASH_MS, the flick a foe gets) and pops the row's word on
+  // the player's cell (_popCellNumber, the tier the "+N⚡" uses). Read off
+  // the two owning tables every frame from _tickConditions, so a new row
+  // announces itself with no call at its writer — the same way the status
+  // row shows it. The first pass only takes stock: a save loaded with three
+  // potions running is not three things landing at once.
+  _announceStatuses() {
+    const seen = this._statusSeen;
+    const next = {};
+    const now = Date.now();
+    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
+      if (!Conditions.active(this.save, id)) continue;
+      next['c:' + id] = 1;
+      if (seen && !seen['c:' + id]) this._flashPlayerStatus(def.label, def.ink);
+    }
+    for (const [id, k] of Object.entries(Buffs.KINDS)) {
+      const until = Buffs.until(id, this.save, this);
+      if (!(until > now)) continue;
+      next['b:' + id] = until;
+      // Pushed out by more than a clock's jitter: a relit torch, a second
+      // potion. A buff merely still running is not announced again.
+      const prev = seen?.['b:' + id];
+      if (seen && (prev == null || until > prev + STATUS_EXTEND_SLACK_MS)) this._flashPlayerStatus(k.name, k.color);
+    }
+    this._statusSeen = next;
+  }
+  _flashPlayerStatus(label, color) {
+    this._statusFlashUntilT = performance.now() + Combat.STATUS_FLASH_MS;
+    this._statusFlashTint = parseInt(String(color).slice(1), 16);
+    let ix, iy;
+    if (this.startWorldM && this.originPx && typeof playerReachCell === 'function') {
+      const p = playerReachCell(this);
+      ix = p.cellIX; iy = p.cellIY;
+    }
+    this._popCellNumber(label, color, ix, iy);
   }
 
   // THE STATUS ROW — every status, buff and timer on the player, as chips
@@ -5489,6 +5551,16 @@ class MapScene extends Phaser.Scene {
         if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
         list.push(o);
       });
+      // A house the player restored as a TURRET (houses.js BUILD_OPTIONS) is
+      // one more archer on the same lane: same bow, cadence and range. Its
+      // `castle` is its own id — the material family the art picked
+      // (render.js _houseFrame), which is what the arrow's launch height
+      // reads (Render.towerCrownHeight).
+      this._forEachHouseNear(pc, (o) => {
+        if (Houses.displayRole(this.save, o) !== 'turret') return;
+        if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
+        list.push({ id: o.id, x: o.x, y: o.y, castle: o.id });
+      });
       scan = this._turretScan = { t: now, list };
     }
     if (!scan.list.length) return;
@@ -5768,6 +5840,13 @@ class MapScene extends Phaser.Scene {
   // wears the same stroke and drop shadow as every other number on the map
   // rather than a hand-set style that drifts from them.
   _popDamageNumber(c, amount) {
+    return this._popCreatureText(c, `-${amount}`, UI_DANGER_INK);
+  }
+  // Any short word ON a creature: the "-N" above, and the name of a status
+  // that has just landed on it (render.js drawCreatures, off
+  // Combat.flagStatus — "Sleep", "Frozen", "Psychosis", in the status's own
+  // ink). Seated over the health bar like the number, in the `damage` tier.
+  _popCreatureText(c, text, color) {
     if (!this.add) return;                       // headless / teardown guard
     const screen = this.worldMetersToScreen(c.x, c.y);
     // Small horizontal scatter so back-to-back numbers (a bow hit landing
@@ -5777,8 +5856,8 @@ class MapScene extends Phaser.Scene {
     const x = Math.round(screen.x) + jitter;
     const y = Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c))) - 3;
     // Clip to the map viewport like every other world-anchored layer.
-    this._toast(`-${amount}`, {
-      tier: 'damage', color: UI_DANGER_INK, x, y, stack: false,
+    this._toast(text, {
+      tier: 'damage', color, x, y, stack: false,
       mask: this.enemyHealthGfx?.mask,
     });
   }
@@ -6511,7 +6590,21 @@ class MapScene extends Phaser.Scene {
   // wear that zone's biome TEXTURE too (see the texture pass in render.js), and
   // a colour can't be turned back into a texture key. The sampling — and the
   // memo — live here so both callers see the same answer for a cell.
+  streetGroundType(wcx, wcy) {
+    // Cave entries may inherit surface metadata; decoration is surface-only.
+    if ((this.depth || 0) !== 0) return null;
+    const cell = absCellToTile(this, Math.floor(wcx), Math.floor(wcy),
+      this._nnScratch || (this._nnScratch = {}));
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    const ground = entry && !(entry.depth > 0) && entry.streetGround
+      && entry.streetGround[cell.iy * cell.n + cell.ix];
+    return ground ? ground - 1 : null;
+  }
+
   neighborNonRoadType(wcx, wcy) {
+    // Explicit ground wins even if a fallback was cached before tile loading.
+    const themed = this.streetGroundType(wcx, wcy);
+    if (themed != null) return themed;
     // Memoise the per-cell result (the TYPE — the colour caller derives its
     // colour from it). Terrain is static after a tile loads, so the mode of a
     // 7×7 sample never changes for a given (wcx, wcy). Without
@@ -7555,6 +7648,9 @@ class MapScene extends Phaser.Scene {
     const nowMs = performance.now();
     const hitLeft = (this._hitFlashUntilT || 0) - nowMs;
     const hit = hitLeft > 0;
+    // A STATUS JUST LANDED (_flashPlayerStatus): a flick in the row's own
+    // colour, under the hit (a blow still reads first) and over every state.
+    const flicked = (this._statusFlashUntilT || 0) > nowMs;
     // A STATUS on the body wears its row's tint (Conditions.DEFINITIONS —
     // the same colour a foe wears, render.js): a burn flickers against the
     // farmer's own colour, a poison holds. Under the hit flick and the empty
@@ -7566,10 +7662,12 @@ class MapScene extends Phaser.Scene {
     const t = nowMs / 1000;
     const periodS = spent ? 1.2 : 2.0;
     const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
-    if (hit || spent || far || status) {
+    if (hit || flicked || spent || far || status) {
       let tint = 0xffffff;
       if (hit) {
         tint = HIT_FLASH_TINT;
+      } else if (flicked) {
+        tint = this._statusFlashTint;
       } else if (spent) {
         tint = 0xff6b6b;
       } else if (status) {
@@ -7645,7 +7743,8 @@ class MapScene extends Phaser.Scene {
       left: 2 + Math.random() * 2,
     };
     const loop = this._confusedLoop;
-    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity);
+    const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
+    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul;
     let remaining = dt;
     while (remaining > 0) {
       const step = Math.min(remaining, 0.05);
@@ -9111,6 +9210,7 @@ class MapScene extends Phaser.Scene {
     this.updateEnergyDOM();
     this.updateMemoriesDOM();
     this.updateRoadChipDOM();
+    this.updateBookChipDOM();
     this.updateRelicRow();
     // Debug HUD: only show when GPS is unavailable or unfixed — i.e. an
     // exception case (desktop/wasd, denied permission, still acquiring).
@@ -9348,6 +9448,97 @@ class MapScene extends Phaser.Scene {
     const st = this.save?.trail || { metres: 0, prizes: 0 };
     const doneM = Trail.restoredMetres(st, this.save?.playerClass);
     this.flash(`${toGoM}m to go · ${Trail.distanceLabel(doneM)} fixed`, this.viewCenterX, 60);
+  }
+
+  // ── The books chip ────────────────────────────────────────────────────
+  // After the road chip: how many pages of the Book's course this save has
+  // read (play_tips.js bookPagesRead — the bookmark save.tipsRead, capped at
+  // the course's length). A tap opens the list of them to read again.
+  _buildBookChip() {
+    if (typeof document === 'undefined' || typeof bookPagesRead !== 'function') return;
+    const row = document.getElementById('hud-row');
+    if (!row) return;
+    if (!document.getElementById('bookchip-style')) {
+      const st = document.createElement('style');
+      st.id = 'bookchip-style';
+      st.textContent = BOOK_CHIP_CSS;
+      document.head.appendChild(st);
+    }
+    let el = document.getElementById('bookchip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'bookchip';
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', 'Books read');
+      const ico = this.renderItemIcon('book', 18, 'block');
+      ico.classList.add('book-ico');
+      const num = document.createElement('span');
+      num.className = 'book-num';
+      num.textContent = '0';
+      el.append(ico, num);
+      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
+        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+      el.addEventListener('click', (e) => { e.stopPropagation(); this._showBooksRead(); });
+      const road = document.getElementById('roadchip');
+      if (road && road.parentNode === row) road.after(el);
+      else row.append(el);
+    }
+    this.bookChipEl = el;
+    this._bookChipDOM = null;
+    this.updateBookChipDOM();
+  }
+
+  // Paints the chip. Every frame from updateHUD, guarded on the count.
+  updateBookChipDOM() {
+    const el = this.bookChipEl;
+    if (!el || typeof bookPagesRead !== 'function') return;
+    const n = bookPagesRead(this.save).length;
+    if (this._bookChipDOM === n) return;
+    this._bookChipDOM = n;
+    const num = el.querySelector('.book-num');
+    if (num) num.textContent = String(n);
+    el.title = `Books read: ${n} of ${PLAY_TIPS.length}`;
+  }
+
+  // THE SHELF OF PAGES READ: every page of the course this save has turned,
+  // newest last, each a row that opens the page again (the same panel the
+  // read showed — bookPageHTML on the book painting, no title line) and
+  // comes back to the list when that is tapped away. Rereading moves no
+  // bookmark: save.tipsRead is the course's, not the shelf's.
+  _showBooksRead() {
+    if (typeof document === 'undefined' || typeof bookPagesRead !== 'function') return;
+    const pages = bookPagesRead(this.save);
+    if (!pages.length) {
+      this.showMessageModal({ title: '', body: 'No pages read yet. Every Book you find turns one.', art: 'book_read' });
+      return;
+    }
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('books-modal',
+      { zIndex: 60, kind: 'story', kindLabel: 'Books read', art: 'book_read', textAlign: 'left' });
+    const list = document.createElement('div');
+    list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:4px 0 12px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain;';
+    for (const page of pages) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'book-row';
+      b.textContent = `${page + 1}. ${bookPageLabel(page)}`;
+      b.style.cssText = 'text-align:left;padding:8px 10px;border-radius:6px;background:transparent;color:#eee;' +
+        'border:1px solid #6b5a2c;font:600 13px ui-monospace,monospace;cursor:pointer;';
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrap.remove();
+        this.showMessageModal({ title: '', body: bookPageHTML(page), art: 'book_read',
+          onDismiss: () => this._showBooksRead() });
+      });
+      list.appendChild(b);
+    }
+    box.appendChild(list);
+    const close = mkBtn('Close');
+    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:center';
+    row.appendChild(close);
+    box.appendChild(row);
+    mount();
   }
 
   // What the memories chip says when tapped.
@@ -9780,9 +9971,12 @@ class MapScene extends Phaser.Scene {
     const read = this.save.tipsRead ?? 0;
     const page = read % PLAY_TIPS.length;
     this.save.tipsRead = read + 1;
-    // Keep the bookmark in the save; the panel tells the page as a story.
+    // Keep the bookmark in the save; the panel tells the page as a story. NO
+    // TITLE LINE (owner, Oct 2026): the volume line in the page is the
+    // heading, and "The worn book falls open" sat over it as a second one.
+    // showMessageModal draws no title row for an empty title.
     return {
-      title: '📖 The worn book falls open',
+      title: '',
       body: bookPageHTML(page),
     };
   }
@@ -10063,6 +10257,29 @@ class MapScene extends Phaser.Scene {
     this.save.protectionPotionUntil = Date.now() + CONSUMABLE_SPEC.protection_potion.durationMs;
     return this._finishConsumable(`You drink the Potion of Protection`,
       CONSUMABLE_SPEC.protection_potion.get);
+  }
+
+  // Potion of Hardworking: pulls the Harvest Idol's `work` lever
+  // (Shrines.extend — the one writer, so it extends the idol's countdown
+  // rather than keeping a clock of its own; the `work` row of Buffs.KINDS
+  // shows it as "Hardworking" either way).
+  drinkHardworkingPotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'hardworking_potion' || (sel.count ?? 0) <= 0) return false;
+    Shrines.extend(this.save, 'work', CONSUMABLE_SPEC.hardworking_potion.durationMs, Date.now(), this);
+    return this._finishConsumable(`You drink the Potion of Hardworking`,
+      CONSUMABLE_SPEC.hardworking_potion.get);
+  }
+
+  // Poison Flask, drunk: the player's own `poison` row (_applyCondition —
+  // the lesson, the row and the announcement), the flask spent either way;
+  // a poison already running is refreshed to its full minute.
+  drinkPoisonFlask() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'poison_flask' || (sel.count ?? 0) <= 0) return false;
+    this._applyCondition('poison');
+    return this._finishConsumable(`You drink the Poison Flask`,
+      CONSUMABLE_SPEC.poison_flask.get);
   }
 
   drinkImmortalPotion() {
@@ -10550,6 +10767,7 @@ class MapScene extends Phaser.Scene {
       c._startX = c._targetX = c.x;
       c._startY = c._targetY = c.y;
       c._attackWindupUntil = c._lungeWindupUntil = c._abilityWindupUntil = 0;
+      Combat.flagStatus(c, Combat.STATUS_LOOKS.fear, now);
     }
     this._spendScroll(sel.id);
     this.flashLoot('The beasts turn and flee.', '#c77dff', 1.8, sel.id);
@@ -10571,6 +10789,29 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     this.buildInventoryDOM();
     this.flashLoot(`Sleep falls for ${shortDuration(CONSUMABLE_SPEC.sleep_powder.durationMs)}.`, '#bca5e8', 1.8, sel.id);
+    return true;
+  }
+
+  // Powder of Psychosis (T1): every foe on screen loses its head for
+  // PSYCHOSIS_POWDER_MS (Combat.applyPsychosis — the `psychotic` reason in
+  // wanderCreatures' rout lane: the flee pace on a random heading each hop,
+  // no blow, no target). Weak on purpose: ten seconds to get clear, or to
+  // get the first blow in. Refused — and kept — when no foe is in sight.
+  usePsychosisPowder() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'psychosis_powder' || !(sel.count > 0)
+        || Combat.playerDowned(this.save.energy)) return false;
+    const targets = this._onscreenEnemies();
+    if (!targets.length) {
+      this.flash('No foe in sight — powder kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    const now = performance.now();
+    for (const c of targets) Combat.applyPsychosis(c, PSYCHOSIS_POWDER_MS, now);
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.flashLoot(`Madness takes them for ${shortDuration(PSYCHOSIS_POWDER_MS)}.`, Combat.STATUS_LOOKS.psychosis.color, 1.8, sel.id);
     return true;
   }
 
@@ -10677,6 +10918,7 @@ class MapScene extends Phaser.Scene {
       c._frozenUntil = until;
       c._startX = c._targetX = c.x;
       c._startY = c._targetY = c.y;
+      Combat.flagStatus(c, Combat.STATUS_LOOKS.frozen);
     }
     consumeSelected(this.save);
     persistSave(this.save);
@@ -11125,10 +11367,6 @@ class MapScene extends Phaser.Scene {
   //   'buy'      → routine seed/produce/barter buy
   //   'relic'    → a relic offer (non-starter)
   //   'forge'    → blacksmith forge offer
-  // One-time scarecrow sale at the forced scarecrow shop. Cash only; on
-  // accept it deducts the price, grants one scarecrow, and flips
-  // save.scarecrowShopUsed so the house reverts to its normal role. Mirrors
-  // the cash branch of the regular buy modal (loud loot pop, real sprite).
   // Anything held over a campfire that the fire can't MAKE something of
   // (items.js CAMPFIRE_MAKES) is burned — one of it, after this confirm.
   // Tapped from interact.js 'fire-held' with the fire's world point. The
@@ -11659,7 +11897,7 @@ class MapScene extends Phaser.Scene {
       });
       return;
     }
-    const unitPrice = trailerSellPrice(PRICES[sel.id] ?? 1, this.save.relics);
+    const unitPrice = trailerSellPrice(PRICES[sel.id] ?? 1);
     const item = ITEM_BY_ID[sel.id];
     const sellId = sel.id;
     const iconHTML = this.iconSpanHTML(sellId);
@@ -12027,6 +12265,16 @@ class MapScene extends Phaser.Scene {
       }
     }
   }
+  // The houses of the 3×3 ring, off the same per-tile derived index idiom.
+  _forEachHouseNear(pc, fn) {
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+        if (!e) continue;
+        for (const o of derivedObjects(e, '_houses', (o) => o.kind === 'house')) fn(o);
+      }
+    }
+  }
 
   homeWorldPos() {
     if ((this.depth || 0) !== 0) return null;
@@ -12063,7 +12311,7 @@ class MapScene extends Phaser.Scene {
   }
   // Is the world point (x, y) inside Home's ring (HOME_R)? THE one distance
   // test behind every effect of the ring that is asked about a point — the
-  // rest above, and the yard crop raiders keep out of (homeGuardsCrop).
+  // rest above.
   // Surface only, through homeWorldPos; no Home, no ring.
   inHomeRing(x, y) {
     const home = this.homeWorldPos();
@@ -12072,24 +12320,14 @@ class MapScene extends Phaser.Scene {
     const dx = home.x - x, dy = home.y - y;
     return dx * dx + dy * dy <= r * r;
   }
-  // HOME GUARDS ITS YARD. A planted crop inside Home's ring is off the menu
-  // for every crop raider: the crow neither notices nor lands on it, the
-  // hard-mode pump doesn't dispatch a crow for it, and the deer won't graze
-  // it. Home already turns enemies away on this ring; a bird eating the
-  // lettuce on your doorstep while you rest there read as Home doing nothing.
-  // Out past the ring the field is as exposed as it always was (scarecrows are
-  // the answer there). It is a REASON on the raider's existing "may I eat
-  // this?" test, never a second lane: _cropRaidable, which the deer's graze
-  // and the hard-mode pest pump both read.
-  homeGuardsCrop(p) {
-    return !!p && this.inHomeRing(p.x, p.y);
-  }
   // May a raider (the deer) eat this crop? Its kind (Crops.raiderEats —
-  // never potato) and where it grows (homeGuardsCrop). Every crop-raid test
-  // — the deer's notice, its graze, the pest pump's "is there a field worth
-  // sending one at" — reads this and nothing else.
+  // never potato). Home's yard is NOT a refuge (owner, Oct 2026): a deer may
+  // walk into Home's ring and graze the beds by the door like any field —
+  // a garden no deer ever visits is no garden to defend. Every crop-raid
+  // test — the deer's notice, its graze, the pest pump's "is there a field
+  // worth sending one at" — reads this and nothing else.
   _cropRaidable(p) {
-    return raiderEatsCrop(p) && !this.homeGuardsCrop(p);
+    return raiderEatsCrop(p);
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid
@@ -12268,9 +12506,6 @@ class MapScene extends Phaser.Scene {
   isStarterBlacksmith(house) { return Houses.isStarterBlacksmith(this.save, house); }
 
   houseShopRole(house) { return Houses.houseShopRole(this.save, house); }
-
-  // Resolve the role a wreck reveals when restored — see Houses.preseedRestoreRole.
-  _preseedRestoreRole(order, house) { return Houses.preseedRestoreRole(this.save, order, house); }
 
   _hasBlacksmith() { return Houses.hasBlacksmith(this.save); }
 
@@ -12485,6 +12720,26 @@ class MapScene extends Phaser.Scene {
   // and lit by the restored intervals that are already stored, the same
   // discipline traps.js keeps (generated, never stored — only what the player
   // DID is written down).
+
+  // The broken post every lamp wears before its stretch is restored: the
+  // same painter as the lit lamp below with `broken` set
+  // (RoadOverlay.paintBrokenLamp), in the same square, baked once under
+  // STREET_LAMP_BROKEN_TEX. One bake for every street — a broken lamp sheds
+  // no glow, so it has no colour to key by.
+  _ensureBrokenLampTex() {
+    const key = STREET_LAMP_BROKEN_TEX;
+    if (this.textures.exists(key)) return key;
+    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintBrokenLamp || typeof document === 'undefined') return key;
+    const S = RoadOverlay.LAMP_TEX_PX;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = S;
+    const lctx = cvs.getContext('2d');
+    if (lctx) {
+      RoadOverlay.paintBrokenLamp(lctx, S);
+      this.textures.addCanvas(key, cvs);
+    }
+    return key;
+  }
 
   // Bake the lamp art for one GLOW colour, once: RoadOverlay.paintLamp with
   // that colour as its glass, bloom and pool, under streetLampTexKey(glow).
@@ -13498,124 +13753,151 @@ class MapScene extends Phaser.Scene {
     const heldCount = Inventory.count(this.save, cost.id);
     const canAfford = heldCount >= cost.qty;
     const item = ITEM_BY_ID[cost.id];
-    // Role this wreck will reveal, picked from the player's current restore
-    // order (this house isn't in restoredHouses yet, so the live count IS its
-    // 0-based index). Single-modal guard keeps the count stable while the modal
-    // is open, so recomputing the same index on accept lands on the same role.
-    const restoreOrder = Object.keys(this.save.restoredHouses || {}).length;
-    const prospectiveRole = this._preseedRestoreRole(restoreOrder, house);
-    // "shop" if this wreck restores into a themed business, else "house".
-    const isThemed = prospectiveRole !== 'plain';   // blacksmith / market / trader / wizard
+    // WHAT THE WRECK BECOMES IS THE PLAYER'S PICK: the cards on offer are
+    // Houses.buildOptions (one owning table, unlocked by how many wrecks
+    // already stand), each named the way its sign will be (Shops.roleLabel —
+    // the Shop card promises the line the next shop sells, Shops.nextLine).
+    // The single-modal guard keeps the count stable while the modal is open;
+    // restoreAs re-checks the offer at accept anyway.
+    const options = Houses.buildOptions(this.save, house);
+    // A Shop card is named for the line it would open (its variant's theme).
+    const labelFor = (row, theme) => row.name
+      || Shops.roleLabel(row.role, row.role === 'market' ? (row.theme || theme) : null) || 'House';
+    const iconFor = (row) => {
+      const texKey = Render.houseTextureKey(row.role, house, this);
+      const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
+        : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
+      return this.worldIconHTML(texKey, 56, frame);
+    };
+    const order = Houses.restoredCount(this.save);
+    const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
+    // Each card is the building's picture, its name and (when ranked: a shop,
+    // a smithy, a trader) its rarity badge — no pitch; the Restored! card
+    // tells what it does.
+    const choices = options.map((row) => ({
+      key: row.key,
+      label: labelFor(row, null)
+        + (tierOf(row) ? `<div style="margin-top:5px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
+      iconHTML: iconFor(row),
+      suggested: !!row.suggested?.(this.save),
+    }));
     // Always show the modal — even when the player can't yet afford it,
     // they need to see WHAT to gather. Accept stays disabled (red cost
     // line, greyed button) so the dialog reads as a price tag rather
     // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
       kind: 'build',
-      // The question and the price, nothing else: what the wreck BECOMES is
-      // the Restored card's reveal, not a line to read before it.
-      get: 'Restore this wreck?',
+      fullscreen: true,
+      get: options.length > 1 ? 'Restore this wreck as…' : 'Restore this wreck?',
+      choices,
+      pickHint: 'Tap one to choose',
       costLabel: 'Cost',
       cancelLabel: 'Later',
       cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`
         + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
       canAfford,
       acceptLabel: 'Restore',
-      onAccept: () => {
+      onAccept: (key) => {
         // Re-check stock at accept time — the player might have spent
         // the materials elsewhere while the modal was open.
         if (Inventory.count(this.save, cost.id) < cost.qty) {
           this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
           return;
         }
-        Inventory.remove(this.save, cost.id, cost.qty);
-        this._clampSelSlot();
-        this.save.restoredHouses = this.save.restoredHouses || {};
-        // Freeze the restore-order role onto this house so it never shifts.
-        // Recompute the index at accept time (still stable behind the modal
-        // guard) so a stale closure can't desync from the live count.
-        const order = Object.keys(this.save.restoredHouses).length;
-        const restoredRole = this._preseedRestoreRole(order, house);
-        this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
-        Houses.registerWizardTower(this.save, house, order);
-        Houses.registerBookshop(this.save, house, order);
-        if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
-        // The first wreck restored becomes the starter blacksmith (wooden-tool
-        // forge). Stamp its id so isStarterBlacksmith picks it up.
-        if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
-          this.save.starterBlacksmithId = house.id;
-        }
-        persistSave(this.save);
-        // THE GATHER FIRST: the road repair's own `stonegather` (the setts
-        // pulling back together), thrown off a ring at the walls and drawn in
-        // to the footprint's centre, plays for WRECK_GATHER_MS before the
-        // blast and the Restored! card. The save, the ledger and the stock
-        // have all moved already — only the picture and the card wait.
-        const bg = this._houseBlastGeometry(house);
-        this._blastAt(bg.x, bg.y, { ringPx: bg.ringPx, gather: 'stonegather' });
-        this.buildInventoryDOM();
-        this.questEvent('restore');
-        this._afterWreckGather(() => {
-          // THE BLAST, before the card opens (once the gather has played): the
-          // same fanfare a street gets, scaled to a building. The flash covers the footprint's half-diagonal
-          // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
-          // are thrown off a RING at its half-extent so they come off the walls
-          // rather than out of the middle, and the sparks are UI_GREEN — the
-          // colour the Restored! card that follows is already set in, so the
-          // world and the card read as one event.
-          this._blastAt(bg.x, bg.y, {
-            radiusCells: bg.radiusCells, ringPx: bg.ringPx,
-            chips: 'timber', sparks: 'greenspark',
+        // THE MAGIC HAMMER (Houses.HAMMER_ID): holding one, the player is
+        // asked whether to spend it on this wreck — the building comes up
+        // shiny and sells cheaper for good (Houses.priceMul). "Without it"
+        // restores plainly; "Later" keeps the wreck as it was.
+        if (Inventory.count(this.save, Houses.HAMMER_ID) > 0) {
+          const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
+          this.showOfferModal({
+            kind: 'build',
+            get: `Use your ${hammer?.name || 'Magic Hammer'} on it?`,
+            blurb: 'The building would gleam, and the folk inside would deal kindly with you.',
+            costLabel: 'Spends',
+            cost: `1× ${this.iconSpanHTML(Houses.HAMMER_ID)} ${hammer?.name || Houses.HAMMER_ID}`,
+            canAfford: true,
+            acceptLabel: 'Use it',
+            cancelLabel: 'Later',
+            secondary: { label: 'Without it', onClick: () => restore(key, false) },
+            onAccept: () => restore(key, true),
           });
-          if (this.showChestRewardModal) {
-            // Name the building, describe what it does, show its sprite, and let
-            // showChestRewardModal's sparkle burst supply the fanfare.
-            // The role a wreck reveals once restored — mirrors render.js
-            // _houseTrueRole (minus fort/trailer, which never wreck). Reads the
-            // frozen restore-order role; 'plain' for a role-less residential house.
-            const role = this.houseShopRole(house) || 'plain';
-            // Names come from Shops.roleLabel so the card, the sign outside and
-            // the offer modal all call the building the same thing. A themed
-            // shop's blurb follows its line (marketTheme).
-            const theme = role === 'market' ? this.marketTheme(house).theme : null;
-            const THEME_BLURB = {
-              seed:   'You find packets of seeds on the shelves.',
-              supply: 'You find supplies for the road on the shelves.',
-              potion: 'You watch strange colours swirl in bottles behind the counter.',
-              ore:    'You find ore for the forge piled on the counter.',
-              relic:  'You inspect the tools and armour hanging behind the counter.',
-              pet:    'You hear paws and hooves shuffling nearby.',
-            };
-            const INFO = {
-              blacksmith: { blurb: 'A family returns to the forge. They offer to make the tools you need.' },
-              market:     { blurb: 'A family opens the market shutters again. ' + (THEME_BLURB[theme] || 'You look over the freshly stocked counter.') },
-              trader:     { blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.' },
-              wizard:     { name: 'Wizard Tower', blurb: "You step into the tower. An old wizard asks about your memories." },
-              plain:      { name: 'House',        blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
-            };
-            const info = INFO[role] || INFO.plain;
-            const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
-            this.showChestRewardModal({
-              kind: 'build',
-              // The banner carries the picture now - one art piece per role
-              // (restore_house / restore_blacksmith / …) instead of the
-              // building sprite, so the card shows the story of the restore.
-              iconHTML: '',
-              art: role === 'plain' ? 'restore_house' : 'restore_' + role,
-              header: 'Restored!',
-              name: `You restored a ${name}`,
-              sub: order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : info.blurb,
-              color: '#a7ffb0', accent: '#a7ffb0',
-              onDismiss: role === 'wizard'
-                ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
-            });
-          } else {
-            this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
-          }
-        });
+          return;
+        }
+        restore(key, false);
       },
     });
+    const restore = (key, hammer) => {
+      if (Inventory.count(this.save, cost.id) < cost.qty) {
+        this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
+        return;
+      }
+      if (hammer && Inventory.count(this.save, Houses.HAMMER_ID) < 1) hammer = false;
+      // Freeze the pick onto the house (the role string, never a bare
+      // `true`) and stamp what it owns — the first smithy, the Book Shop,
+      // a wizard tower, a shop's line, the hammer's shine. A card no longer
+      // on offer (a stale modal) is refused before anything is charged.
+      const row = Houses.restoreAs(this.save, house, key, { hammer });
+      if (!row) { this.flash('No longer on offer.', sx, sy); return; }
+      Inventory.remove(this.save, cost.id, cost.qty);
+      if (hammer) Inventory.remove(this.save, Houses.HAMMER_ID, 1);
+      this._clampSelSlot();
+      const order = Houses.restoredCount(this.save) - 1;   // this restore's 0-based index
+      if (row.role === 'wizard') NPC.restoreShrine(this, house);
+      persistSave(this.save);
+      // THE GATHER FIRST: the road repair's own `stonegather` (the setts
+      // pulling back together), thrown off a ring at the walls and drawn in
+      // to the footprint's centre, plays for WRECK_GATHER_MS before the
+      // blast and the Restored! card. The save, the ledger and the stock
+      // have all moved already — only the picture and the card wait.
+      const bg = this._houseBlastGeometry(house);
+      this._blastAt(bg.x, bg.y, { ringPx: bg.ringPx, gather: 'stonegather' });
+      this.buildInventoryDOM();
+      this.questEvent('restore');
+      this._afterWreckGather(() => {
+        // THE BLAST, before the card opens (once the gather has played): the
+        // same fanfare a street gets, scaled to a building. The flash covers the footprint's half-diagonal
+        // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
+        // are thrown off a RING at its half-extent so they come off the walls
+        // rather than out of the middle, and the sparks are UI_GREEN — the
+        // colour the Restored! card that follows is already set in, so the
+        // world and the card read as one event.
+        this._blastAt(bg.x, bg.y, {
+          radiusCells: bg.radiusCells, ringPx: bg.ringPx,
+          chips: 'timber', sparks: 'greenspark',
+        });
+        if (this.showChestRewardModal) {
+          // Name the building, describe what it does, show its painting, and
+          // let showChestRewardModal's sparkle burst supply the fanfare. The
+          // name is the sign's (Shops.roleLabel — a shop is named for the
+          // line it now sells, marketTheme), the blurb and art the row's.
+          const theme = row.role === 'market' ? this.marketTheme(house).theme : null;
+          const name = labelFor(row, theme);
+          const tier = Shops.shopTier(this.save, house, row.role) || 0;
+          const blurb = row.key === 'market' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
+          this.showChestRewardModal({
+            kind: 'build',
+            // The banner carries the picture - one art piece per card
+            // (restore_house / restore_blacksmith / …), so the card shows
+            // the story of the restore.
+            iconHTML: '',
+            art: row.art,
+            header: 'Restored!',
+            name: `You restored a ${hammer ? 'shiny ' : ''}${name}`,
+            tier,
+            sub: (hammer ? 'The walls gleam under the hammer’s work. ' : '')
+              + (order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb),
+            color: '#a7ffb0', accent: '#a7ffb0',
+            onDismiss: row.role === 'wizard'
+              ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
+          });
+        } else {
+          this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
+        }
+      });
+    };
   }
+
 
   // Wood this fort demands to unseal — see Houses.fortUnlockCost / FORT_UNLOCK_WOOD*.
   _fortUnlockCost() { return Houses.fortUnlockCost(this.save); }

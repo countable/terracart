@@ -93,9 +93,9 @@ test('wander-off: one more reason in the lanes that exist, not a lane of its own
   const w = app.slice(start, app.indexOf('\n  }\n', start));
   assert.truthy(/const wanderOff = !stationary && !isTame && !c\.lair && Combat\.isEnemy\(c\)\s*&& monsterWanderingOff\(/.test(w),
     'only a mobile, wild, non-lair enemy wanders off');
-  assert.truthy(/const standDown = frightened \|\| warded \|\| wanderOff \|\| /.test(w),
+  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| /.test(w),
     'while it goes it does not leech, hit, shoot or charge (standDown)');
-  assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened;/.test(w), 'it runs at the rout pace (beside a sated thief)');
+  assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened \|\| psychotic;/.test(w), 'it runs at the rout pace (beside a sated thief)');
   const ward = w.indexOf('} else if (warded) {');
   const off = w.indexOf('} else if (frightened || wanderOff || (kerbTurn && !c.lair)) {');
   const slime = w.indexOf("} else if (c.kind === 'slime') {");

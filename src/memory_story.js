@@ -439,7 +439,7 @@ const MemoryStory = (() => {
     const towers = Houses.wizardTowerIds(save), memories = total(save);
     if (act(save) === 3) return typeof DragonStory !== 'undefined' ? DragonStory.objective(save) : null;
     if (towers.firstId && memories < START_MEMORIES) return 'Recover nine memories to enter the Wizard Tower.';
-    if (memories >= LEAVE_MEMORIES && towers.firstId && !towers.secondId) return 'Find the wizard’s new tower among the wrecks you restore.';
+    if (memories >= LEAVE_MEMORIES && towers.firstId && !towers.secondId) return 'Raise the wizard’s new tower from a wreck.';
     if (memories >= REVEAL_MEMORIES && towers.secondId) return 'Return to the wizard’s new tower.';
     if (act(save) === 2) return 'Bring your returning memories to the wizard.';
     return null;

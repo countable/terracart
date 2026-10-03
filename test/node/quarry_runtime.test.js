@@ -92,6 +92,11 @@
       assert.gt(blockedClipped.objects.length, 0, 'typed enemy exclusion still allows stones');
     }
   });
+  test('quarry runtime: abandoned ground spikes visibly slow their own cells', () => {
+    const out=ZoneDressing.dress(context('quarry-abandoned')), spikes=out.objects.filter(o=>o.kind==='stakes');
+    assert.gt(spikes.length,0);assert.lte(spikes.length,6);
+    for(const o of spikes) assert.eq(out.slowCells.get(o._iy*N+o._ix),'stakes');
+  });
   test('quarry runtime: authored wurms respect Home bands and starter amnesty before emerging', () => {
     const was = window.__TEST_MODE; window.__TEST_MODE = false;
     const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
@@ -122,11 +127,6 @@
       for (const biome of ['ROCK', 'SAND', 'GRASS', 'PARK', 'FARMLAND', 'INDUSTRIAL', 'WETLAND'])
         assert.falsy(EnemySpawns.surfaceRows(biome).some(c => c.id === 'wurm'), 'wurms stay authored mine inhabitants');
     } finally { window.__TEST_MODE = was; }
-  });
-  test('quarry runtime: abandoned ground spikes visibly slow their own cells', () => {
-    const out=ZoneDressing.dress(context('quarry-abandoned')), spikes=out.objects.filter(o=>o.kind==='stakes');
-    assert.gt(spikes.length,0);assert.lte(spikes.length,6);
-    for(const o of spikes) assert.eq(out.slowCells.get(o._iy*N+o._ix),'stakes');
   });
   test('quarry runtime: abandoned finds are fixed-loot persistent crates, not daily POIs', () => {
     const out = ZoneDressing.dress(context('quarry-abandoned'));

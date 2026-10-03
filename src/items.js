@@ -339,6 +339,9 @@ const MINERAL_ICON_SHEET = {
   shield_wood: { sheet: 'icon_shield_wood', frame: 0 },
   shield_metal: { sheet: 'icon_shield_metal', frame: 0 },
   shield_gold: { sheet: 'icon_shield_gold', frame: 0 },
+  guild_blacksmith: { sheet: 'icon_guild_blacksmith', frame: 0 },
+  guild_market: { sheet: 'icon_guild_market', frame: 0 },
+  guild_trader: { sheet: 'icon_guild_trader', frame: 0 },
 
   giant_mushroom: { sheet: 'giant_mushroom', frame: 0 },
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
@@ -411,6 +414,8 @@ const MINERAL_ICON_SHEET = {
   explosive_flask: { sheet: 'icon_potions', frame: 22 },
   fear_scroll:     { sheet: 'icon_book', frame: 47 },
   treasure_map:    { sheet: 'icon_book', frame: 49 },
+  // The Magic Hammer — the RPG pack's glowing hammer (Icons/Items/MagicHammer.png, see SOURCES.md).
+  magic_hammer:    { sheet: 'icon_magic_hammer', frame: 0 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
@@ -457,6 +462,14 @@ const MINERAL_ICON_SHEET = {
   regen_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
+  // Powder of Psychosis — the green mortar beside it (row 0, frame 1): the
+  // weak T1 powder, used from the Use button like the sleep dust
+  // (usePsychosisPowder in app.js).
+  psychosis_powder: { sheet: 'icon_potions', frame: 1 },
+  // Potion of Hardworking — the sparkling blue round flask (row 2, frame 14).
+  hardworking_potion: { sheet: 'icon_potions', frame: 14 },
+  // Poison Flask — the wide violet flask (row 4, frame 23), poison's ink.
+  poison_flask: { sheet: 'icon_potions', frame: 23 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -574,6 +587,7 @@ const SHINY_TIER_UP = 3;
 const BASE_TIER = {
   telescope: 5, orb: 7, goblet: 6, lucky_key: 3,
   shield_wood: 2, shield_metal: 4, shield_gold: 6,
+  guild_blacksmith: 4, guild_market: 4, guild_trader: 4,
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
   potato: 1, rockfruit: 1,
@@ -638,12 +652,22 @@ const BASE_TIER = {
   // Frost is the T3 fight-changer before the T4 dragon — it is the one that turns
   // a fight you are already in.
   growth_powder: 2, shadow_powder: 2, frost_powder: 3, sleep_powder: 3,
+  // Psychosis is the T1 powder — ten seconds of foes running every which
+  // way, the weak cousin of Fear (T3): the first Magic shop sells it beside
+  // the Antidote, so the first cave trip has one trick to get clear with.
+  psychosis_powder: 1,
+  // Hardworking is the T1 farm potion: the Harvest Idol's boon (work at
+  // Shrines.WORK_SPEED_MUL) for a third of the idol's time, bottled.
+  hardworking_potion: 1,
+  // The Poison Flask: the purple slime's minute of poison, thrown or drunk —
+  // a T2 utility like the protection potion, under the T3 explosive flask.
+  poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   stealth_ring: 2, invisibility_ring: 4, ember_ring: 3, regen_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_sight: 3, tome_raven: 4, tome_storm: 5, tome_firewall: 4,
-  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4,
+  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4, magic_hammer: 4,
   tome_speed: 3, tome_shield: 3, tome_healing: 3, tome_blight: 4,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
@@ -694,15 +718,25 @@ const CARRIED_ITEM_SPEC = {
   shield_wood: { projectileReduction: 3 },
   shield_metal: { projectileReduction: 6 },
   shield_gold: { projectileReduction: 10 },
+  // GUILD BADGES: a carried badge takes `guildDiscount` off every deal at
+  // its guild's houses (`guildRole`, the Houses.houseShopRole key) — the
+  // themed shop's price, the smith's forge and smelt materials, the trader's
+  // ask. guildDiscounted (below) is the one place it is applied.
+  guild_blacksmith: { guildRole: 'blacksmith', guildDiscount: 0.1 },
+  guild_market: { guildRole: 'market', guildDiscount: 0.1 },
+  guild_trader: { guildRole: 'trader', guildDiscount: 0.1 },
 };
 const ITEMS = [
-  { id: 'telescope', name: 'Telescope', kind: 'unique_relic' },
+  { id: 'telescope', name: 'Field Scope', kind: 'unique_relic' },
   { id: 'orb', name: 'Orb', kind: 'unique_relic', reusable: true },
   { id: 'goblet', name: 'Goblet', kind: 'unique_relic', reusable: true },
   { id: 'lucky_key', name: 'Lucky Key', kind: 'unique_relic' },
   { id: 'shield_wood', name: 'Wood Shield', kind: 'unique_relic' },
   { id: 'shield_metal', name: 'Metal Shield', kind: 'unique_relic' },
   { id: 'shield_gold', name: 'Gold Shield', kind: 'unique_relic' },
+  { id: 'guild_blacksmith', name: 'Smiths’ Guild Badge', kind: 'unique_relic' },
+  { id: 'guild_market', name: 'Marketeers’ Guild Badge', kind: 'unique_relic' },
+  { id: 'guild_trader', name: 'Traders’ Guild Badge', kind: 'unique_relic' },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
@@ -800,7 +834,15 @@ const ITEMS = [
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
   { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
   { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
+  // Spent on a wreck restore (houses.js HAMMER_ID): the building comes up shiny and sells cheaper for good.
+  { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
   { id: 'sleep_powder', name: 'Sleep Powder', kind: 'magic' },
+  { id: 'psychosis_powder', name: 'Powder of Psychosis', kind: 'magic' },
+  // Drunk, never thrown (no `potion` flag): a creature has no work to hurry.
+  { id: 'hardworking_potion', name: 'Potion of Hardworking', kind: 'magic' },
+  // Thrown like a potion (it lands Combat.poison on whatever it strikes) or
+  // drunk (the player's own poison row).
+  { id: 'poison_flask', name: 'Poison Flask', kind: 'magic', potion: true },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
@@ -900,8 +942,8 @@ const ITEMS = [
   // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
   // from the rod's loot table at small weight; mostly a flavour moment.
   { id: 'boot',         name: 'Old Boot',     kind: 'produce' },
-  // Scarecrow — placeable on tillable cells. Wild deer (the crop raider)
-  // and crows steer around it (4-cell aversion radius in wanderCreatures).
+  // Scarecrow — placeable on tillable cells. Wild deer and crows (the
+  // crop raiders) steer around it (4-cell aversion radius in wanderCreatures).
   // Stack of N can be deployed across the farm.
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
@@ -1105,6 +1147,34 @@ const CONSUMABLE_SPEC = {
     get durationMs() { return Combat.FLOWER_STATUS_MS; },
     verb: 'Use', method: 'useSleepPowder', title: 'Scatter the Sleep Powder?',
     get: 'Dream dust settles over every foe in sight.',
+  },
+  // Powder of Psychosis: every foe in sight loses its head for durationMs —
+  // it runs every which way at the flee pace and lands no blow
+  // (Combat.applyPsychosis; the `psychotic` reason in wanderCreatures' rout
+  // lane). Weak on purpose: ten seconds to get clear, or to get the first
+  // blow in.
+  psychosis_powder: {
+    durationMs: 10 * 1000,
+    verb: 'Use', method: 'usePsychosisPowder', title: 'Scatter the Powder of Psychosis?',
+    get: 'A giddy haze takes every foe in sight, and they run every which way.',
+  },
+  // Potion of Hardworking: the Harvest Idol's boon (shrines.js `work` lever,
+  // Shrines.WORK_SPEED_MUL on every work wheel — gear.js workDurationMs) for
+  // durationMs, pulled through the same lever (Shrines.extend), so a potion
+  // on top of the idol's visit extends the one countdown and never stacks.
+  hardworking_potion: {
+    durationMs: 5 * _CONSUMABLE_MINUTE_MS,
+    verb: 'Drink', method: 'drinkHardworkingPotion', title: 'Drink the Potion of Hardworking?',
+    get: 'Your weariness lifts, and your hands move swiftly through their work.',
+  },
+  // Poison Flask: whoever it touches carries the `poison` row of
+  // Conditions.DEFINITIONS for its minute — a struck creature through
+  // PotionEffects.apply (Combat.poison), the drinker through
+  // _applyCondition. The duration IS the row's; no number of its own.
+  poison_flask: {
+    get durationMs() { return Conditions.DEFINITIONS.poison.durationMs; },
+    verb: 'Drink', method: 'drinkPoisonFlask', title: 'Drink the Poison Flask?',
+    get: 'A purple chill creeps down your throat.',
   },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.
@@ -1322,11 +1392,14 @@ const PRICES = {
   telescope: 80, orb: 180, goblet: 180, lucky_key: 100,
   shield_wood: 40, shield_metal: 160, shield_gold: 500,
   // ── Seeds ────────────────────────────────────────────────
-  rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
-  berry_seed: 2, cress_seed: 1, onion_seed: 2, starfruit_seed: 4,
-  gemfruit_seed: 8, rockfruit_seed: 8, coffee_seed: 12,
-  sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 100,
-  miracle_lettuce_seed: 80,
+  // A seed's price is also its chest allowance divisor (chest_themes.js
+  // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier chest with no
+  // bumps holds about five, not the nine-seed cap.
+  rainberry_seed: 42, pairy_seed: 42, nut_seed: 5, potato_seed: 1,
+  berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
+  gemfruit_seed: 15, rockfruit_seed: 8, coffee_seed: 12,
+  sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
+  miracle_lettuce_seed: 216,
   // ── Produce (sell value) ─────────────────────────────────
   rockfruit: 1,    // wild debris in every residential tile — the floor
   nut: 4,
@@ -1380,7 +1453,11 @@ const PRICES = {
   explosive_flask: 100,
   fear_scroll: 100,
   treasure_map: 200,
+  magic_hammer: 220,   // T4 — a standing discount at one building, forever
   sleep_powder: 100,
+  psychosis_powder: 15, // T1 — ten seconds of foes running every which way
+  hardworking_potion: 15, // T1 — the Harvest Idol's quick hands for five minutes
+  poison_flask: 45, // T2 — a minute of the purple slime's poison on whatever it touches
   reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
@@ -1413,7 +1490,7 @@ const PRICES = {
   spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
-  scarecrow: 20,   // crow/deer ward — sold once at the forced scarecrow shop
+  scarecrow: 20,   // crow/deer ward — crafted at Home (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -1548,6 +1625,9 @@ const ITEM_EFFECTS = {
   shield_wood: 'Old arrowheads sleep in its sturdy wooden face.',
   shield_metal: 'Arrows glance away from its hammered metal face.',
   shield_gold: 'A golden face stands firm beneath a rain of arrows.',
+  guild_blacksmith: 'Smiths nod at the little hammer and go easier on your ore.',
+  guild_market: 'Shopkeepers see the coin on it and knock a little off.',
+  guild_trader: 'Traders spot the crossed arrows and ask a little less.',
   egg: 'A tiny heartbeat keeps time with your footsteps.',
   ...Object.fromEntries(BABY_KINDS.map(k => [babyItemId(k),
     'Too small to be left in the bag for long. Set it down on soft ground and let it grow.'])),
@@ -1605,7 +1685,11 @@ const ITEM_EFFECTS = {
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
   treasure_map: CONSUMABLE_SPEC.treasure_map.get,
+  magic_hammer: 'Masons say a wall raised under this hammer never stops gleaming, and the folk inside deal kindly with whoever swung it.',
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
+  psychosis_powder: CONSUMABLE_SPEC.psychosis_powder.get,
+  hardworking_potion: CONSUMABLE_SPEC.hardworking_potion.get,
+  poison_flask: 'Bottled venom. A purple chill creeps into whoever it touches, thrown or drunk.',
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',
@@ -1820,7 +1904,7 @@ const RELIC_DEFS = {
   // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
   // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
-             effectKey: 'sellPrice',     blurb: 'Its edge answers a foe that comes too close.' },
+             effectKey: 'melee',         blurb: 'Its edge answers a foe that comes too close.' },
   dagger:  { slot: 'dagger', name: 'Dagger', icon: 'Dagger.png', baseCost: 80,
              tiers: [1, 3, 5], chestOnly: true,
              effectKey: 'melee', blurb: 'Its short blade waits until a foe is close.' },
@@ -2296,6 +2380,23 @@ const UNIQUE_JEWELRY = Object.freeze({
 function carriesItem(save, id) {
   return !!(save?.inv || []).find((st) => st?.id === id && (st.count ?? 0) > 0);
 }
+// The fraction a carried guild badge takes off deals with `role` (a
+// Houses.houseShopRole key), 0 without one. Read from CARRIED_ITEM_SPEC.
+function guildDiscount(save, role) {
+  if (!role) return 0;
+  for (const [id, row] of Object.entries(CARRIED_ITEM_SPEC)) {
+    if (row.guildRole === role && carriesItem(save, id)) return row.guildDiscount || 0;
+  }
+  return 0;
+}
+// A price or material count `n` after the guild discount for `role`. A half
+// unit rounds in the player's favour (5 bars → 4), a sub-half saving rounds
+// away (3 coins stay 3), and a deal never drops below one.
+function guildDiscounted(save, role, n) {
+  const d = guildDiscount(save, role);
+  if (!d || !(n > 0)) return n;
+  return Math.max(1, n - Math.round(n * d));
+}
 function jewelryVisionReduction(save) {
   let cells = 0;
   for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
@@ -2318,39 +2419,40 @@ function jewelryRegenIntervalMs(save) {
   }
   return interval;
 }
-// Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
-// tier 7 (frost sword sells at par with the listed PRICES[]). Note that
-// callers floor at $1 with Math.max(1, ceil(...)), so low-value items like
-// $1 longgrass show no sword benefit — the multiplier kicks in noticeably
-// above ~$4 produce.
-function sellMultiplier(relics) {
-  const t = relics?.sword?.tier || 0;
-  return 0.5 + (t / 7) * 0.5;
+// THE SELL RATE: what a listed price is worth when sold, before the trailer's
+// haircut below. ONE FLAT NUMBER (owner's call, Oct 2026): it used to climb
+// with the Sword relic's tier, 0.5 × base bare-handed to 1.0 × at Frost,
+// which made a weapon a haggling tool. 0.70 is the highest flat rate at which
+// the roadside stands keep their whole 25% discount (shops_math.js
+// standBuyMul prices a margin above this rate and floors at 0.75 of par) —
+// so a stand is still the cheap way to an ingredient, and still never an
+// arbitrage pump. Callers floor at $1 with Math.max(1, ceil(...)).
+const SELL_MUL = 0.70;
+function sellMultiplier() {
+  return SELL_MUL;
 }
 // The TRAILER (home) is the only place a haul can be cashed out, so what it
 // pays IS the sell economy — a haul is worth exactly what home hands over.
-// That payout is a 25% haircut off the sword-scaled price: the sword ladder
-// above still governs how much better selling gets as the player levels, this
-// only sets where the whole ladder sits. It is deliberately a separate number
-// from sellMultiplier so the stand's anti-arbitrage floor (shops_math.js
-// standBuyMul, which prices off sellMultiplier) is unaffected — a smaller
-// trailer payout only widens the margin that keeps buy-low-sell-high shut,
-// never narrows it.
+// That payout is a 25% haircut off the sell rate above. It is deliberately a
+// separate number from sellMultiplier so the stand's anti-arbitrage floor
+// (shops_math.js standBuyMul, which prices off sellMultiplier) is unaffected —
+// a smaller trailer payout only widens the margin that keeps
+// buy-low-sell-high shut, never narrows it.
 // One number, one place: every home sale goes through trailerSellPrice, so the
 // price the modal quotes and the cash addMoney pays can't drift apart.
 const TRAILER_SELL_MUL = 0.75;
 // Hard mode takes a further cut here (Difficulty.sellMul, 0.6): the SAME
 // place, so the quote and the payout still can't drift, and the stand floor
 // (which prices off sellMultiplier, not this) only widens.
-function trailerSellMultiplier(relics) {
+function trailerSellMultiplier() {
   const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().sellMul : 1;
-  return sellMultiplier(relics) * TRAILER_SELL_MUL * modeMul;
+  return sellMultiplier() * TRAILER_SELL_MUL * modeMul;
 }
 // Cash the trailer pays for ONE unit of an item listed at baseValue. Ceil and
 // a $1 floor, same as every other price path — so a $1 item still sells for $1
 // and the haircut only bites above the floor.
-function trailerSellPrice(baseValue, relics) {
-  return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier(relics)));
+function trailerSellPrice(baseValue) {
+  return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier()));
 }
 // What Home CRAFTS — the Craft page beside the Sell page at the trailer
 // (app.js presentHomeCraft). One row per recipe, in the order the page's
@@ -2390,22 +2492,18 @@ function recipeCap(cost, count) {
 // Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
 // share this discount, but it's been demoted to a pure combat weapon (it's a
 // ranged weapon in combat.js, and still counts toward the crow/deer hunt-speed
-// max in interact.js); only the Bow bends shop prices. Shared by buyMarkupRange and castle pricing in app.js.
-function bestWeaponTier(relics) {
-  return relics?.bow?.tier || 0;
-}
-// Bow relic: shrinks the random buy-cash markup. Without one, the trader still
-// wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0× (the player
-// buys at par).
-// Hard mode scales the whole range (Difficulty.buyMul, 1.5×): the bow still
-// closes the spread the same way, it just closes on 1.5× par instead of par.
-// Applied HERE so every reader — the trader's roll, the castle's pricing —
-// asks one function and gets the same answer.
-function buyMarkupRange(relics) {
-  const t = bestWeaponTier(relics);
-  const f = 1 - t / 7;   // 1 → 0 as tier rises
+// max in interact.js). NO RELIC BENDS SHOP PRICES any more (owner, Oct 2026):
+// the Bow used to shrink the buy markup to par at tier 7 and discount the
+// castle vault the same way; a standing discount now comes from a building
+// raised under the Magic Hammer (houses.js priceMul) or a carried guild
+// badge (guildDiscounted), never from gear.
+// The random buy-cash markup: 1.2..3.0× base. Hard mode scales the whole
+// range (Difficulty.buyMul, 1.5×). Applied HERE so every reader — the
+// trader's roll, the castle's pricing — asks one function and gets the same
+// answer. `relics` is accepted and ignored so every caller keeps its shape.
+function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
   const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().buyMul : 1;
-  return { lo: (1 + 0.2 * f) * modeMul, hi: (1 + 2.0 * f) * modeMul };
+  return { lo: 1.2 * modeMul, hi: 3.0 * modeMul };
 }
 
 // === Per-crop loot tier config (used by chests + treasure marks) ===

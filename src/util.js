@@ -647,6 +647,10 @@ const BUILDING_ART = {
   house:   { fitMul: 1,   min: 1.2,   def: 1.35,  max: 1.35 },
   trailer: { fitMul: 1,   min: 1.6335, def: 1.6335, max: 1.6335 },   // house × 1.21
   fort:    { fitMul: 0.8, min: 1.87,  def: 1.87,  max: 3.48 },
+  // A restored TURRET (houses.js BUILD_OPTIONS) wears the castle tower sheet,
+  // a one-cell-wide column drawn at the castle rim's own size whatever its
+  // lot: the castle tower row in render.js RENDER_SPEC is scale 1.
+  turret:  { fitMul: 1,   min: 1,     def: 1,     max: 1 },
 };
 // The residential 1.35 is the width the plain house has always drawn at
 // (72px × 0.6 ÷ 32), so the commonest building on the map is unmoved and the

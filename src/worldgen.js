@@ -6046,9 +6046,10 @@
     }
     // Polygon scatter is legacy input for caves; surface corridor replacement
     // follows affinity selection and precedes zone paint and all dressings.
+    const streetGround = new Uint8Array(w * h);
     const streetTerrain = typeof StreetVariants !== 'undefined'
       ? yield* StreetVariants.paintTerrainSteps({ index: streetIndex, scenic,
-        transportation: layersByName.transportation, grid, N: w, roadMask, spawnWhy, zone }) : null;
+        transportation: layersByName.transportation, grid, N: w, roadMask, spawnWhy, zone, streetGround }) : null;
     const hasStreetTerrain = streetTerrain && streetTerrain.some(Boolean);
     if (hasStreetTerrain) yield* clearStreetAmbientSteps({ area: streetTerrain,
       objects: deduped, wildplants: filtered, tx, ty, N: w, tileEdgeM, ownLines: ownStreetLines });
@@ -6118,7 +6119,7 @@
     const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM,
       spawnOpts: { roadMask, spawnWhy, roadClass, occupied: new Set([...dressOcc, ...lampReservations]), pois: dressPois } });
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -6329,7 +6330,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -6357,6 +6358,8 @@
       // bursts, the starter provisioner — can ask the same question the
       // rasterize post-pass asks, by passing it as isSpawnCell's opts.roadMask.
       entry.roadMask = roadMask;
+      // Cosmetic street ground stays separate from transport and cave inputs.
+      entry.streetGround = streetGround;
       // QUIET LAND (see QUIET_LAND / isSpawnCell's opts.quiet): 1 = a military,
       // railway, reserve or cemetery cell that hosts nothing. Pure MVT,
       // re-derived by a rebuild like the mask; spawnInTile hands it on as

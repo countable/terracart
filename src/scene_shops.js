@@ -1,8 +1,8 @@
 // The scene's SHOPS — every door that sells, buys, swaps or serves:
 //   · shopInteract, the one entry a shop tap reaches, and the starter-shop
-//     lookups (isStarterShop / ensureStarterShopId, the starter blacksmith and
-//     scarecrow finders and the smith's two starter slots);
-//   · the offers it opens: the scarecrow and market stalls, deliveries (the
+//     lookups (isStarterShop / ensureStarterShopId and the smith's two
+//     starter slots);
+//   · the offers it opens: the market stalls, deliveries (the
 //     wishlist, knownDeliveryHouses / openDeliveryMenu), relic and themed
 //     shops, the smelter, the wizard, the trader's barter, the castle's daily
 //     service, the quest board, the fort unlock and the blacksmith's forge
@@ -44,8 +44,8 @@ const FORGE_CEREMONY = {
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
-// The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and the pre-seeded restore
-// roles (Houses.PRESEED_RESTORE_ROLES) live in houses.js with the rules that read them.
+// The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and what a wreck can be
+// restored as (Houses.BUILD_OPTIONS) live in houses.js with the rules that read them.
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
 // the tier cap (PRODUCE_TIER_MIN/MAX, TIER_UNLOCK_EVERY) and the wishlist roll
 // now live with the rest of the delivery logic in delivery.js (Delivery.tierCap).
@@ -62,31 +62,6 @@ const CASTLE_TAX_GOLD = 10;
 const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
 
 class SceneShops {
-
-  presentScarecrowOffer(sx, sy, house, recordDeal) {
-    const id = 'scarecrow';
-    const item = ITEM_BY_ID[id];
-    const price = PRICES[id] ?? 30;
-    const canAfford = () => (this.save.money ?? 0) >= price;
-    this.showOfferModal({
-      kind: 'farm',
-      title: 'The farmhand offers a scarecrow:',
-      cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
-      blurb: 'Its ragged sleeves stir in the breeze. Watchful eyes keep their distance.',
-      cost: this.moneyHTML(price),
-      canAfford: canAfford(),
-      onAccept: () => {
-        if (!canAfford()) { this.flash(`need ${price}`, sx, sy); return; }
-        addMoney(this.save, -price);
-        this.addToInv(id, 1, false, { notWild: true, deferRefresh: true });
-        this.save.scarecrowShopUsed = true;
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`${item?.name || id}\n−${price}`, '#ffe066', 1, id);
-      },
-    });
-  }
 
   // Produce stand = a roadside MARKET (not a one-shot chest). It sells the
   // produce its awning advertises (loot.js produceStandFor → { item, frame })
@@ -172,10 +147,10 @@ class SceneShops {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
     // rapid double-taps can't stack two modals or stale closures.
     if (document.getElementById('offer-modal') || document.getElementById('slots-modal')) return;
-    // Wreck → restoration modal. Every tier-9 small house starts as a
-    // wreck (see save.restoredHouses); the trailer is exempt and forts /
-    // castles never wreck. Plain houses cost 5 wood (tree); themed
-    // tier-9 shops (blacksmith / market / trader) cost 5 rockfruit.
+    // Wreck → restoration modal (the player picks what it becomes —
+    // Houses.BUILD_OPTIONS). Every tier-9 small house starts as a wreck (see
+    // save.restoredHouses); the trailer is exempt and forts / castles never
+    // wreck. Every pick costs the same stone (Houses.wreckRestoreCost).
     if (house && this._isHouseWreck && this._isHouseWreck(house)) {
       this.presentWreckRestoreModal(sx, sy, house);
       return;
@@ -220,20 +195,25 @@ class SceneShops {
     }
     const castle = isCastle(house);
     const isStarterSmith = this.isStarterBlacksmith(house);
-    // Effective shop role from the frozen restore-order assignment (falls back
-    // to the address-derived type for legacy saves). Returns 'blacksmith' for
-    // the first-restored starter smithy too, so the forge branch fires
-    // regardless of the underlying house number.
+    // The role the player picked at the wreck, frozen in the ledger (falls
+    // back to the address-derived type for legacy saves). Returns
+    // 'blacksmith' for the starter smithy too, so the forge branch fires.
     const shopType = this.houseShopRole(house);
     if (shopType === 'wizard' && MemoryStory.towerAccess(this.save, house) !== 'open') {
       MemoryStory.visitWizard(this, () => {}, house);
       return;
     }
+    // A TURRET trades nothing: its archer is the castle turret lane
+    // (app.js _turretFire) and a tap only says so.
+    if (shopType === 'turret') {
+      this.showMessageModal({ kind: 'build', title: 'Turret',
+        body: 'An archer leans over the battlement and nods. Anything hostile that comes within bowshot of these walls is their business.' });
+      return;
+    }
     const isFort = !!house && house.tier === 11;
     // A delivery host (plain house, no shop role) takes ONE delivery ever
     // (Delivery.isSatisfied), and render.js shows its wishlist over the roof.
-    const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
-      && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
+    const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house;
     // There is no per-hour deal cap (shops_math.js header). A deal is still
     // RECORDED against the house — it settles the shop: the shelf turns over
     // (the deal count is in shopRng's seed), the re-roll ladder drops back to
@@ -287,15 +267,6 @@ class SceneShops {
           this.shopInteract(sx, sy, house);
         },
       });
-      return;
-    }
-    // Forced scarecrow shop (the house just past the starter blacksmith).
-    // Sells a single scarecrow for cash, ONCE, then this branch goes quiet
-    // and the house reverts to its normal role (delivery / shop). Checked
-    // before every other small-house branch so it wins regardless of the
-    // underlying address-derived role.
-    if (!castle && !isFort && house && this.isScarecrowShop(house) && !this.save.scarecrowShopUsed) {
-      this.presentScarecrowOffer(sx, sy, house, recordDeal);
       return;
     }
     // Plain houses — small residential without a shop role and not the
@@ -556,7 +527,7 @@ class SceneShops {
   // The line and tier a themed shop (role key 'market') sells: its place in
   // the save's restore order of shops, through Shops.themeAt — seed, supply,
   // potion, ore, relic, pet, then round again a tier up. The tutorial's market
-  // (PRESEED_RESTORE_ROLES order 3) is the first shop, so it is still the
+  // (Houses.BUILD_OPTIONS, from the third rebuild) is the first shop, so it is still the
   // beginner's T1 seed shop. The sign, the offer title, the restoration card
   // and the stock all read this one answer.
   marketTheme(house) {
@@ -662,105 +633,6 @@ class SceneShops {
     mount();
   }
 
-  findStarterBlacksmithId() {
-    // Resolve the starter shop first — needed both to anchor the search and
-    // to exclude it from the candidate list. Goes through the guarded
-    // resolver so a half-streamed map can't anchor the smithy across town.
-    this.ensureStarterShopId();
-    const starterId = this.save.starterShopId;
-    // Anchor the distance search at the starter house's world position when
-    // it's loaded; otherwise fall back to the player's spawn so the choice
-    // converges to the same answer once tiles around home stream in.
-    let fromPos = this.startWorldM;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind === 'house' && o.id === starterId) {
-          fromPos = { x: o.x, y: o.y }; break;
-        }
-      }
-    }
-    // Closest small house (BUILDING tier) to the starter, excluding the
-    // starter itself. Skip forts and castles so a civic building next door
-    // doesn't get re-skinned as a smithy.
-    let bestId = null, bestD2 = Infinity;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id || o.id === starterId) continue;
-        if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
-        const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
-      }
-    }
-    return bestId;
-  }
-
-  // Forced scarecrow shop. The next house out past the starter blacksmith
-  // (so: Home is nearest, smithy is 2nd, this is 3rd) is pinned as a one-time
-  // scarecrow vendor — the player begins with no scarecrow now, so this is
-  // where they buy their first crow/deer ward. Memoized like the blacksmith.
-  // Sells a single scarecrow for cash, then reverts to a normal house (see
-  // save.scarecrowShopUsed).
-  isScarecrowShop(house) {
-    if (!house || !house.id) return false;
-    if (this.save.scarecrowShopId == null) {
-      const id = this.findScarecrowShopId();
-      if (id) this.save.scarecrowShopId = id;
-    }
-    return this.save.scarecrowShopId === house.id;
-  }
-
-  findScarecrowShopId() {
-    // Anchor at the blacksmith (resolving it first) and exclude both Home and
-    // the smithy, so the nearest remaining small house becomes the scarecrow
-    // shop — one house further out than the smithy. Same guarded-resolver +
-    // BUILDING-tier filter as findStarterBlacksmithId.
-    this.ensureStarterShopId();
-    const starterId = this.save.starterShopId;
-    const smithId = this.save.starterBlacksmithId != null
-      ? this.save.starterBlacksmithId : this.findStarterBlacksmithId();
-    // Anchor the search at the smithy when it's loaded, else fall back to spawn
-    // so the choice converges once tiles around home stream in.
-    let fromPos = this.startWorldM;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind === 'house' && o.id === smithId) {
-          fromPos = { x: o.x, y: o.y }; break;
-        }
-      }
-    }
-    let bestId = null, bestD2 = Infinity;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id) continue;
-        if (o.id === starterId || o.id === smithId) continue;
-        if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
-        const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
-      }
-    }
-    return bestId;
-  }
-
-  // The two random wooden relics this smithy offers. Chosen once from
-  // STARTER_SMITH_SLOTS and memoized in save.starterSmithSlots so reloads +
-  // re-taps keep the same pair. starterBlacksmithOffer skips owned slots.
-  starterSmithSlots() {
-    if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
-      // Shuffle the pool, take the first two for a distinct random pair.
-      const pool = shuffleInPlace([...STARTER_SMITH_SLOTS]);
-      this.save.starterSmithSlots = [pool[0], pool[1]];
-      persistSave(this.save);
-    }
-    return this.save.starterSmithSlots;
-  }
-
-  // Recipes the starter blacksmith trades for wooden tools. Every T1 item
-  // costs a flat 5 wood — wood drops from ground stacks sprinkled near the
-  // starting area (no tool needed), from chopping shrubs (bare-handed slow
-  // chop), and from chopping trees (axe). The starter crate seeds the first
-  // 5 wood so the player can forge their first tool immediately.
   starterBlacksmithRecipe(slot) {
     if (STARTER_SMITH_SLOTS.includes(slot)) {
       return [{ id: 'wood', qty: 5 }];
@@ -899,8 +771,16 @@ class SceneShops {
   // the shop open": the bucket only rotates the offer and eases the re-roll
   // ladder (ShopsMath.bucketState); the trader's short cooldown is asked of
   // ShopsMath.dealWaitMs at the two dispatchers, not here.
-  // Flower charm multiplier — see Houses.shopCharmMul.
+  // Flower charm multiplier — see Houses.shopCharmMul (the gift branch asks
+  // it alone, so a charm is never bought twice).
   shopCharmMul(house) { return Houses.shopCharmMul(this.save, house); }
+  // What every price here multiplies by: the charm's hour times the Magic
+  // Hammer's standing cut on a shiny building — see Houses.priceMul.
+  priceMul(house) { return Houses.priceMul(this.save, house); }
+  // A price or material count after the carried guild badge for this place's
+  // guild (items.js guildDiscounted, Houses.guildRole) — every deal a shop,
+  // smithy or trader quotes passes through here once.
+  guildPrice(house, n) { return guildDiscounted(this.save, Houses.guildRole(this.save, house), n); }
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
@@ -915,12 +795,15 @@ class SceneShops {
   // offer — no need to persist the offer object. Re-roll bumps cur.rerolls
   // which pivots the seed lane; a purchase pivots it too (cur.deals).
   // opts.maxTier caps the roll at a themed relic shop's tier (Gear.buildRelicOffer).
+  // A smithy also hands over its tier (Shops.smithTier): the anvil forges
+  // within one rank of it and leans to its own (Gear.relicOfferWeights).
   peekOrBuildRelicOffer(house, opts = {}) {
     const castle = isCastle(house);
     const isBlacksmith = !castle && this.houseShopRole(house) === 'blacksmith';
-    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, isBlacksmith, ...opts });
+    const smithTier = isBlacksmith ? Shops.smithTier(this.save, house) : undefined;
+    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, isBlacksmith, smithTier, ...opts });
     const rng = this.shopRng(house, 'relic');
-    return this.buildRelicOffer(rng, { isCastle: castle, isBlacksmith, ...opts });
+    return this.buildRelicOffer(rng, { isCastle: castle, isBlacksmith, smithTier, ...opts });
   }
 
   // Pick a random relic OR armor piece the player can actually use — meaning
@@ -1005,9 +888,12 @@ class SceneShops {
     return Shops.themedStock(theme, tier).length;
   }
 
+  // The rank badge under an offer — a shop's line tier, a smithy's, a
+  // trader's (Shops.shopTier); nothing for a role with none.
   shopTierBadgeHTML(house) {
-    if (this.houseShopRole(house) !== 'market') return '';
-    const { tier } = this.marketTheme(house);
+    const role = this.houseShopRole(house);
+    const tier = role === 'market' ? this.marketTheme(house).tier : Shops.shopTier(this.save, house, role);
+    if (tier == null) return '';
     return `<div style="margin-top:6px">${tierBadgeHTML(tier)}</div>`;
   }
 
@@ -1069,8 +955,9 @@ class SceneShops {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = (gearDef(offer.kind, offer.slot)?.blurb || '') + this.shopTierBadgeHTML(house);
-    // Flower charm halves the asking price for the charm window (floor $1).
-    const price = Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house)));
+    // The charm's hour and the hammer's standing cut (floor $1) — priceMul —
+    // then a guild badge takes its share off (guildPrice).
+    const price = this.guildPrice(house, Math.max(1, Math.ceil(offer.price * this.priceMul(house))));
     this.showOfferModal({
       kind: 'relics',
       title: this.buildingFlavorTitle(house, 'relic'),
@@ -1138,6 +1025,9 @@ class SceneShops {
       Inventory.remove(this.save, id, n);
       this._clampSelSlot();
     };
+    // What smelting n bars takes of one ingredient: the recipe's count times
+    // n, trimmed on the whole batch by a guild badge (guildPrice).
+    const need = (r, n) => this.guildPrice(house, r.qty * n);
     const tabs = [
       { label: 'Forge', active: false, onSelect: forgeBack },
       { label: 'Smelt', active: true,  onSelect: () => {} },
@@ -1165,18 +1055,21 @@ class SceneShops {
     // reaches the others).
     if (!target || !bars.includes(target)) {
       target = bars.slice().reverse().find(id =>
-        Gear.smeltingRecipe(id).every(r => heldCount(r.id) >= r.qty)) || bars[bars.length - 1];
+        Gear.smeltingRecipe(id).every(r => heldCount(r.id) >= need(r, 1))) || bars[bars.length - 1];
     }
     const recipe = Gear.smeltingRecipe(target);
     const outItem = ITEM_BY_ID[target];
     // Max smeltable — the same count Home's Craft page uses (items.js
-    // recipeCap, which also makes an empty recipe 0 rather than unbounded).
-    const cap = Math.min(recipeCap(recipe, heldCount), this.invRoomFor(target));
+    // recipeCap, which also makes an empty recipe 0 rather than unbounded),
+    // then as far past it as a guild badge's savings stretch.
+    let cap = recipeCap(recipe, heldCount);
+    while (recipe.length && recipe.every(r => r.qty > 0 && heldCount(r.id) >= need(r, cap + 1))) cap++;
+    cap = Math.min(cap, this.invRoomFor(target));
     const recipeLine = (n) => recipe.map(r => {
       const it = ITEM_BY_ID[r.id];
-      const ok = heldCount(r.id) >= r.qty * n;
+      const ok = heldCount(r.id) >= need(r, n);
       return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
-        + `${r.qty * n}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}</span>`;
+        + `${need(r, n)}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}</span>`;
     }).join(' + ');
     // The ‹ › pager walks the unlocked bars (wraps around).
     const idx = bars.indexOf(target);
@@ -1205,18 +1098,18 @@ class SceneShops {
       onAccept: () => {
         const q = 1;
         if (this.invRoomFor(target) < q) { this.flash(BAG_FULL_MSG, sx, sy); return; }
-        if (q < 1 || !recipe.every(r => heldCount(r.id) >= r.qty * q)) {
+        if (q < 1 || !recipe.every(r => heldCount(r.id) >= need(r, q))) {
           // Name the ingredient and the shortfall — 'not enough to smelt'
           // made the player close the modal and count their own bag, with
           // the recipe line right there on screen in red.
-          const missing = recipe.find(r => heldCount(r.id) < r.qty * q);
-          const short = missing ? (missing.qty * q) - heldCount(missing.id) : 0;
+          const missing = recipe.find(r => heldCount(r.id) < need(r, q));
+          const short = missing ? need(missing, q) - heldCount(missing.id) : 0;
           const name = missing ? itemName(missing.id) : '';
           this.flash(missing ? `Need ${short} more ${name}`
                              : 'Not enough to smelt.', sx, sy);
           return;
         }
-        for (const r of recipe) consume(r.id, r.qty * q);
+        for (const r of recipe) consume(r.id, need(r, q));
         this.addToInv(target, q, false, { notWild: true, deferRefresh: true });
         recordDeal();
         this._finishInventoryChange();
@@ -1372,13 +1265,12 @@ class SceneShops {
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
     const houseSeed = this._houseSeed(house);
     const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
-    let giveId;
-    if (sellsProduce) {
-      const ids = Object.keys(CROP_ROW);
-      giveId = ids[Math.floor(rng() * ids.length)] || ids[0];
-    } else {
-      giveId = BUY_LIST[Math.floor(rng() * BUY_LIST.length)] || BUY_LIST[0];
-    }
+    // The pool leans to the trader's own tier (Shops.traderTier /
+    // tierAffinity): one draw off the lane either way, so the ask side that
+    // follows reads the same stream it always did.
+    const ids = sellsProduce ? Object.keys(CROP_ROW) : BUY_LIST;
+    const tier = Shops.traderTier(this.save, house);
+    const giveId = weightedPickBy(ids, (id) => Shops.tierAffinity(Shops.itemTier(id), tier), rng) || ids[0];
     if (!giveId) return null;
     return { rng, giveId };
   }
@@ -1394,8 +1286,9 @@ class SceneShops {
     if (!pick) return null;
     const { rng, giveId } = pick;
     const baseValue = Math.max(1, PRICES[giveId] ?? 1);
-    // Target trade value the trader considers appropriate.
-    const target = baseValue * (1.0 + rng());
+    // Target trade value the trader considers appropriate — a shiny trader's
+    // (the Magic Hammer's) asks for less of your stack, priceMul.
+    const target = baseValue * (1.0 + rng()) * this.priceMul(house);
     // Asking item: ShopsMath.traderAsk — half the time a stack that already
     // covers the count, otherwise anything owned, then the wishlist; never a
     // count the bag's stack cap could not hold.
@@ -1407,8 +1300,8 @@ class SceneShops {
       capFor: (id) => Inventory.stackCapFor(this.save, id),
     });
     if (!ask) return null;
-    const { askId, askQty } = ask;
-    return { giveId, askId, askQty };
+    const { askId } = ask;
+    return { giveId, askId, askQty: this.guildPrice(house, ask.askQty) };
   }
 
   presentTraderOffer(sx, sy, house, recordDeal) {
@@ -1633,9 +1526,11 @@ class SceneShops {
     // recipe override lets the starter blacksmith define T1 wooden recipes
     // (rockfruit + tree) without loosening the T2+ bar requirement in
     // blacksmithRecipe — keeps every other smithy on the original ladder.
-    const recipe = opts.recipe || Gear.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
+    const listed = opts.recipe || Gear.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     // Unreachable for a seeded smithy offer (Gear.buildRelicOffer skips what
     // the anvil cannot forge); kept as a guard for a hand-built one.
+    // A guild badge trims each ingredient's count (guildPrice).
+    const recipe = listed && listed.map(r => ({ ...r, qty: this.guildPrice(house, r.qty) }));
     if (!recipe) {
       this.flash('Nothing to forge here.', sx, sy);
       return;
@@ -1725,7 +1620,7 @@ class SceneShops {
   // hour) and applies its flower-charm discount; with no house the markup is
   // a plain roll and there is no charm to apply.
   buildShopOffer(id, baseValue, opts = {}) {
-    // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
+    // Pricing (the 1.2–3.0× markup) lives in ShopsMath.buyPrice; the
     // offer object's afford/consume closures stay here (they bind this.save).
     // Seed the markup roll off the shop's hour bucket when we know which shop
     // is asking. buyPrice spans 1.2x-3.0x base, so on Math.random the player
@@ -1734,9 +1629,10 @@ class SceneShops {
     const priceRng = (opts.house && opts.house.id)
       ? this.shopRng(opts.house, 'price')
       : undefined;
-    // Flower charm halves the quoted price (floor $1) — see shopCharmMul.
-    const cashCost = Math.max(1,
-      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.shopCharmMul(opts.house)));
+    // The charm's hour and the hammer's standing cut (floor $1) — see priceMul —
+    // then a guild badge takes its share off (guildPrice).
+    const cashCost = this.guildPrice(opts.house, Math.max(1,
+      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.priceMul(opts.house))));
     return {
       kind: 'money',
       label: this.moneyHTML(cashCost),

@@ -546,6 +546,53 @@
   const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 13, 14, 25 /* CAVE_WALL */]);
   function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
+  // ── A STATUS LANDS ON A CREATURE ──────────────────────────────────────
+  // THE ONE TABLE OF HOW A CREATURE'S STATUS LOOKS when it is given: the
+  // word that pops over its head and the colour its body flicks for
+  // STATUS_FLASH_MS (render.js drawCreatures reads both off the creature;
+  // app.js _popCreatureText draws the word in the damage-number lane). A
+  // sleep, a charm, the frost, a fear and the madness are rows here; a BURN
+  // is the `burning` row of Conditions.DEFINITIONS (statusLook — the same
+  // label and ink the player's chip wears), and a THROWN POTION's buff is
+  // its Buffs.KINDS row (potion_effects.js apply). Every applier calls
+  // flagStatus with its look, so a new status on a creature is a row here
+  // and one flagStatus call, never a pop or a tint of its own. The marker
+  // that STAYS over a sleeper's or an ally's head (Render.flowerStatusMarker)
+  // reads the same colours.
+  //   The flash is the same channel the player's own announcement uses
+  // (app.js _flashPlayerStatus / _announceStatuses, STATUS_FLASH_MS): a
+  // status landing on anybody looks the same.
+  const STATUS_FLASH_MS = 400;
+  const STATUS_LOOKS = Object.freeze({
+    sleep:     Object.freeze({ label: 'Sleep',     color: '#bcdfff' }),
+    charm:     Object.freeze({ label: 'Charm',     color: '#ff91b8' }),
+    // The ice the body wears while it holds (util.js FROZEN_TINT).
+    frozen:    Object.freeze({ label: 'Frozen',    color: '#' + FROZEN_TINT.toString(16).padStart(6, '0') }),
+    fear:      Object.freeze({ label: 'Fear',      color: '#c77dff' }),
+    psychosis: Object.freeze({ label: 'Psychosis', color: '#c6ff4d' }),
+  });
+  function statusLook(id) {
+    const def = root.Conditions?.DEFINITIONS[id];
+    if (def) return { label: def.label, color: def.ink };
+    return STATUS_LOOKS[id] || null;
+  }
+  // A status has just LANDED on `c`: arm the flick and queue the word. The
+  // flick's clock is performance.now() like a foe's burn and fear, whatever
+  // clock the status itself keeps (sleep and frost keep wall time).
+  function flagStatus(c, look, now = performance.now()) {
+    if (!c || !look) return false;
+    c._statusFlashLook = look;
+    c._statusFlashUntilT = now + STATUS_FLASH_MS;
+    c._statusPop = { label: look.label, color: look.color, atT: now };
+    return true;
+  }
+  // The tint the flick paints this instant, or null once it has passed.
+  function statusFlashTint(c, now = performance.now()) {
+    const look = c?._statusFlashLook;
+    if (!look || !((c._statusFlashUntilT || 0) > now)) return null;
+    return parseInt(look.color.slice(1), 16);
+  }
+
   const FLOWER_STATUS_MS = 60 * 1000;
   function isSleeping(c, now = Date.now()) { return !!c && (c._sleepUntil || 0) > now; }
   function isCharmed(c, now = Date.now()) { return !!c && (c._charmUntil || 0) > now; }
@@ -575,6 +622,7 @@
     if (!flowerTarget(c)) return false;
     c._sleepUntil = now + FLOWER_STATUS_MS;
     cancelCreatureAction(c);
+    flagStatus(c, STATUS_LOOKS.sleep);
     return true;
   }
   function applyCharm(c, now = Date.now()) {
@@ -583,6 +631,25 @@
     cancelCreatureAction(c);
     c._wardFrom = null;
     c._wanderOffUntilT = null;
+    flagStatus(c, STATUS_LOOKS.charm);
+    return true;
+  }
+  // PSYCHOSIS (the Powder of Psychosis, app.js usePsychosisPowder): for
+  // `durationMs` the foe loses its head — wanderCreatures reads
+  // isPsychotic as one more reason in the ROUT lane (the flee pace, no blow,
+  // no target) with a RANDOM angle each hop in place of fear's away angle;
+  // rosterEnemyMove rolls the same random heading. The clock is
+  // performance.now(), fear's (`_fearUntilT`), so the two share one `now` in
+  // the step loop. Whatever it was winding up is dropped, and it turns NOW
+  // rather than finishing a hop at the player (fear does the same through
+  // monsterRout). Only a flower target — a hostile kind, never a pet.
+  function isPsychotic(c, now = performance.now()) { return !!c && (c._psychosisUntilT || 0) > now; }
+  function applyPsychosis(c, durationMs, now = performance.now()) {
+    if (!flowerTarget(c)) return false;
+    c._psychosisUntilT = now + durationMs;
+    cancelCreatureAction(c);
+    if (c._nextChooseT != null) c._nextChooseT = now;
+    flagStatus(c, STATUS_LOOKS.psychosis, now);
     return true;
   }
 
@@ -671,7 +738,55 @@
     c._burnAtT = now;
     c._burnExposed = false;
     c._burnBy = by;
+    // A FRESH burn announces itself (a body already alight re-stoked by
+    // exposure returned above, so standing in a fire says it once).
+    flagStatus(c, statusLook('burning'), now);
     return true;
+  }
+  // ── A creature's POISON ─────────────────────────────────────────────
+  // The `poison` row of Conditions.DEFINITIONS, on a creature: the Poison
+  // Flask (potion_effects.js apply) sets the row's duration and the tick
+  // levies the row's energyLoss every intervalMs off its HP — the same
+  // minute, the same bite a second, as the player's own poison. The clock is
+  // performance.now() like the burn's, state in memory like `_hp`
+  // (`_poisonState` — a thrown Antidote or Elixir deletes it, PotionEffects
+  // .clearDebuffs). `by` names who poisoned it: the player's flask pays the
+  // bounty on a kill (scene_fire.js _tickUnitPoison, the burn's dispatch).
+  // A body no wound can reach (Conditions.damageImmune) runs the clock and
+  // pays nothing.
+  function poisonDef() { return Conditions.DEFINITIONS.poison; }
+  function poisoned(c, now = performance.now()) {
+    return !!c?._poisonState && c._poisonState.remainingMs > Math.max(0, now - c._poisonAtT);
+  }
+  function poison(c, now = performance.now(), by = 'player') {
+    if (!c) return false;
+    const def = poisonDef();
+    const fresh = !poisoned(c, now);
+    // A refresh runs the minute again without postponing the bite already due
+    // (Conditions.apply's rule for the player).
+    c._poisonState = { remainingMs: def.durationMs, nextTickMs: fresh ? def.intervalMs : Math.max(0, c._poisonState.nextTickMs - (now - c._poisonAtT)) };
+    c._poisonAtT = now;
+    c._poisonBy = by;
+    if (fresh) flagStatus(c, statusLook('poison'), now);
+    return fresh;
+  }
+  function poisonTick(c, now = performance.now()) {
+    if (!c?._poisonState) return 0;
+    const def = poisonDef();
+    let { remainingMs, nextTickMs } = c._poisonState;
+    let elapsed = Math.max(0, now - c._poisonAtT);
+    let ticks = 0;
+    // Advance to each bite's boundary, like Conditions.tick: a delayed frame
+    // pays exactly what the one-second updates would.
+    while (elapsed > 0 && remainingMs > 0) {
+      const step = Math.min(elapsed, nextTickMs, remainingMs);
+      remainingMs -= step; elapsed -= step; nextTickMs -= step;
+      if (nextTickMs <= 0) { ticks++; nextTickMs = def.intervalMs; }
+    }
+    c._poisonAtT = now;
+    if (remainingMs <= 0) { delete c._poisonState; c._poisonBy = null; }
+    else c._poisonState = { remainingMs, nextTickMs };
+    return root.Conditions?.damageImmune(c) ? 0 : ticks * def.energyLoss;
   }
   function burnTick(c, now = performance.now(), exposed = false) {
     if (root.Conditions?.fireImmune(c)) {
@@ -1486,8 +1601,9 @@
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
+    STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, isPsychotic, applyPsychosis,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
-    canBurn, burning, ignite, burnTick,
+    canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,
     ELITE_MUL, isElite, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, playerAttackIntervalMul,

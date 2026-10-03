@@ -191,7 +191,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   houseArtScale, buildingBaseScale, buildingCellsToScale, buildingArt, BUILDING_ART,
   HomeArea, SpawnOwnership,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
-  TRAILER_SELL_MUL,
+  TRAILER_SELL_MUL, SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
   // a stall's name promises is what it sells.
   POI_CATEGORY, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
@@ -466,11 +466,11 @@ const starterWrapper = (name) => {
     return src.slice(start + 1, end + 4);
   };
   const methods = ['homeWorldPos() {', 'isRestingAtHome(pWX, pWY) {', 'inHomeRing(x, y) {',
-                   'homeGuardsCrop(p) {', '_cropRaidable(p) {']
+                   '_cropRaidable(p) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__home = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#homeWorldPos' });
-  for (const k of ['homeWorldPos', 'isRestingAtHome', 'inHomeRing', 'homeGuardsCrop', '_cropRaidable']) {
+  for (const k of ['homeWorldPos', 'isRestingAtHome', 'inHomeRing', '_cropRaidable']) {
     if (typeof ctx.__home[k] !== 'function') {
       console.error(`__home.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -1212,6 +1212,7 @@ Object.assign(ctx, {
 }
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
+ctx.SHOPS_MATH_SRC = readSrc('shops_math.js');
 // …and the building overlay's, for building_overlay.test.js's read-back sweep.
 ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 
@@ -1577,6 +1578,18 @@ for (const f of testFiles) {
       const rel = ctx.gearAssetPath('relic', slot, ctx.STARTER_RELIC_TIER);
       if (!rel) throw new Error(`no gear asset path for relic/${slot}/T${ctx.STARTER_RELIC_TIER}`);
       if (!/1\. Wood/.test(rel)) throw new Error(`${slot} T1 art is not wooden-tier art: ${rel}`);
+      if (!fs.existsSync(path.join(ROOT, rel))) throw new Error(`missing art file: ${rel}`);
+    } });
+  }
+}
+
+// ── Restore cards' paintings (houses.js BUILD_OPTIONS) ────────────────────
+// Every card a wreck can be restored as names the painting its Restored!
+// card opens on; a missing file is a blank banner. Files on disk, so node scope.
+{
+  for (const row of (ctx.Houses?.BUILD_OPTIONS || [])) {
+    ctx.__tests.push({ name: `build options: ${row.key} painting ships (${row.art})`, fn: () => {
+      const rel = path.join('assets', 'art', row.art + '.webp');
       if (!fs.existsSync(path.join(ROOT, rel))) throw new Error(`missing art file: ${rel}`);
     } });
   }

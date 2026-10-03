@@ -53,7 +53,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   Derive consumers from it; do not add independent tuning factors.
 - Add kinds as table rows and repeated kind groups as predicates:
   `SpriteLayout.CREATURE_BEHAVIOUR`, `CREATURE_ART`, `Combat.MONSTERS`,
-  `interactables.js` predicates, `RENDER_SPEC`, and `Lighting.KINDS`.
+  `interactables.js` predicates, `RENDER_SPEC`, `Lighting.KINDS`, and what a
+  wreck can be restored as (`Houses.BUILD_OPTIONS`: the player's pick, cards
+  unlocked by restore count in `STORY_RESTORES`; `restoreAs` is the ledger's
+  one writer — never a fixed schedule or the OSM address).
   Creature variants inherit through `baseKind`; hostility uses `Combat.isEnemy`.
   An authored garrison (a horde, a decoy, an elite with minions) is a row of
   `Lairs.GROUPS` — members, placement (`seatPolar`) and what each is told
@@ -407,7 +410,12 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a
-  row there; never a label over the player or a chip of its own.
+  row there; never a label over the player or a chip of its own. A status
+  LANDING announces itself from those tables (`_announceStatuses`: the body
+  flicks the row's ink, the word pops on the cell) — never at the writer. A
+  creature's status (sleep, charm, frost, fear, psychosis) is a row of
+  `Combat.STATUS_LOOKS` and one `Combat.flagStatus` call at its applier;
+  render.js flicks and pops it through `_popCreatureText`.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls

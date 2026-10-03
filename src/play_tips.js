@@ -447,6 +447,21 @@ const PLAY_TIP_ASIDES = {
   "133": "A black feather marks the passage."
 };
 
+// The pages a save has read so far, in reading order — the course walks
+// PLAY_TIPS from page one (app.js _bookRead keeps the bookmark in
+// save.tipsRead, unwrapped), so the pages read are the first min(tipsRead,
+// PLAY_TIPS.length) of them. The Books chip (app.js _buildBookChip) counts
+// them and its list offers them to read again.
+function bookPagesRead(save) {
+  const read = Math.max(0, Math.floor(Number(save && save.tipsRead) || 0));
+  const n = Math.min(read, PLAY_TIPS.length);
+  return Array.from({ length: n }, (_, i) => i);
+}
+// One line to name a page in a list: its volume's title and author.
+function bookPageLabel(page) {
+  const volume = BOOK_VOLUMES[PLAY_TIP_VOLUMES[page]];
+  return `${volume.title} · ${volume.author}`;
+}
 function bookPageHTML(page) {
   const volume = BOOK_VOLUMES[PLAY_TIP_VOLUMES[page]];
   const aside = PLAY_TIP_ASIDES[page];

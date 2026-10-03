@@ -38,22 +38,20 @@ test('effectivePickCost: cheaper as the pick tier climbs', () => {
   assert.gt(bare, t7, 'bare hands cost more energy than a T7 pick');
 });
 
-// Growing a crop out — the seed cost, the tilling/watering/waiting — has to
-// pay back at least 3x the seed price, or the loop isn't worth it next to
-// just selling the seed itself. rockfruit is DELIBERATELY EXEMPT: its produce
-// is already the game's $1 price FLOOR (wild debris, free off any rock), so
-// no seed price above $0 clears 3x — its $8 seed stands on its own terms
-// instead, priced as a stone/building-material commodity rather than a
-// grow-for-profit crop (see items.js PRICES comment).
-test('crop economy: produce sells for at least 3x its own seed (rockfruit exempt)', () => {
+// A seed's price is its chest allowance divisor (chest_themes.js quantity),
+// so seed prices sit near TIER_VALUE[baseTier] / 5: a chest of the seed's own
+// tier with no quantity bumps holds about five, never the nine-seed cap.
+// Bumps (up to 2.5x the allowance) are what reach the cap. Seeds may now sell
+// for more than a harvest returns; the 3x produce rule was retired for this.
+test('crop economy: a same-tier chest holds about five seeds, not the cap', () => {
   for (const crop of Object.keys(CROP_ROW)) {
     const seedId = `${crop}_seed`;
-    if (PRICES[seedId] == null || PRICES[crop] == null) continue;
-    if (crop === 'rockfruit') continue;
-    assert.gte(PRICES[crop], PRICES[seedId] * 3,
-      `${crop}: produce $${PRICES[crop]} should be at least 3x its $${PRICES[seedId]} seed`);
+    if (!ITEM_BY_ID[seedId] || PRICES[seedId] == null) continue;
+    const qty = ChestThemes.quantity(seedId, ITEM_BY_ID[seedId].baseTier || 1, 0, () => 0);
+    assert.lte(qty, 6, `${seedId}: a same-tier chest gives ${qty}`);
   }
-  assert.eq(PRICES.rockfruit_seed, 8, 'rockfruit seed is intentionally untouched by the 3x rule');
+  assert.eq(ChestThemes.quantity('starfruit_seed', 3, 0), 5);
+  assert.eq(ChestThemes.quantity('starfruit_seed', 3, 3), 9, 'bumps still reach the cap');
 });
 
 test('itemValue: a gold bar is worth more than a copper bar', () => {

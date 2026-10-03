@@ -36,23 +36,18 @@ function trailerScene(over) {
     homeWorldPos: __home.homeWorldPos,
     isRestingAtHome: __home.isRestingAtHome,
     inHomeRing: __home.inHomeRing,
-    homeGuardsCrop: __home.homeGuardsCrop,
     _cropRaidable: __home._cropRaidable,
   }, over);
 }
 
-test('home: crop raiders keep out of Home\'s ring', () => {
+test('home: Home\'s ring is no refuge for crops — deer graze the yard too', () => {
   const s = trailerScene();
   const r = HOME_R * CELL_M;
   const yard = { crop: 'berry', x: 2 * CELL_M, y: 0 };
   const field = { crop: 'berry', x: r * 1.01, y: 0 };
-  assert.truthy(s.homeGuardsCrop(yard), 'a crop two cells from Home is guarded');
-  assert.falsy(s.homeGuardsCrop(field), 'one a step past the ring is not');
-  assert.falsy(s._cropRaidable(yard), 'so a deer leaves the yard crop alone');
-  assert.truthy(s._cropRaidable(field), 'and still raids the field past it');
-  assert.falsy(s._cropRaidable({ crop: 'potato', x: r * 2, y: 0 }), 'potato stays raider-proof anywhere');
-  assert.falsy(trailerScene({ depth: 2 }).homeGuardsCrop(yard), 'no Home underground, no guard');
-  assert.truthy(trailerScene({ save: {} })._cropRaidable(yard), 'no Home yet, nothing is guarded');
+  assert.truthy(s._cropRaidable(yard), 'a deer may graze the crop by the door');
+  assert.truthy(s._cropRaidable(field), 'and the field past the ring');
+  assert.falsy(s._cropRaidable({ crop: 'potato', x: CELL_M, y: 0 }), 'potato stays raider-proof anywhere');
 });
 
 test('home: every crop raider asks the guard, none keeps its own test', () => {
@@ -63,12 +58,11 @@ test('home: every crop raider asks the guard, none keeps its own test', () => {
   assert.eq((app.match(/raiderEatsCrop\(/g) || []).length, 2,
     'the bare kind test is read once, inside _cropRaidable (plus its definition)');
   assert.truthy(/if \(!this\._cropRaidable\(p\)\) return;/.test(app), 'the deer\'s notice reads _cropRaidable');
-  assert.truthy(/if \(!this\._cropRaidable\(p\)\) return false;   \/\/ potato, or Home's yard/.test(app),
+  assert.truthy(/if \(!this\._cropRaidable\(p\)\) return false;   \/\/ potato/.test(app),
     'the deer graze reads _cropRaidable');
   assert.truthy(/this\.save\.planted\.some\(\(p\) => this\._cropRaidable\(p\)\)/.test(app),
     'the hard-mode pump only dispatches a deer for a crop it may eat');
-  assert.falsy(/if \(this\.homeGuardsCrop\(p\)\) return false;/.test(app),
-    'no raider keeps a bare yard test of its own');
+  assert.falsy(/homeGuardsCrop/.test(app), 'no raider keeps a yard test of its own');
 });
 
 test('home: the rest is a RING, not a doormat', () => {
@@ -183,7 +177,7 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
   // makes the doorstep no safer, only slower to lose the bar on.
   // Through `standDown`, which is Home's ward plus the two lair-guard reasons
   // for the same thing — one read, three reasons (CLAUDE.md).
-  assert.truthy(/const standDown = frightened \|\| warded \|\| /.test(wander),
+  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| /.test(wander),
     'standDown is built from warded');
   assert.truthy(wander.includes('rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt)'),
     'all roster attacks receive the combined ward and unnoticed gate');

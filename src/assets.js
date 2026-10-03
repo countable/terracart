@@ -91,9 +91,11 @@ const ASSETS = {
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'assets/Objects/Approved/springcrops.png',  frameWidth: 16, frameHeight: 16 },
-  // The legacy 16px cobble sheet now holds broken street-lamp posts in the
-  // four dark-lamp frames (0, 1, 3, 5); other frames remain unchanged.
-  // Baked from RoadOverlay.paintBrokenLamp to share the restored lamp profile.
+  // The legacy 16px cobble sheet. The game draws nothing from it any more
+  // (Oct 2026: the dark street lamp is baked at runtime from
+  // RoadOverlay.paintBrokenLamp, like the lit one); it stays loaded for the
+  // art review tools (tools/world-art.js, tools/preview_map_art.py) that
+  // still read its frames.
   cobble:      { kind: 'spritesheet', path: 'assets/Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
   // Bridge Beach — 128×224 = 8 cols × 14 rows of 16×16 frames. Wooden plank
   // tiles for pier rendering (transportation:pier OSM lines). Rows 0-3 are a

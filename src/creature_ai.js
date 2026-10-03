@@ -76,6 +76,9 @@ const STRUCK_REACTION_MS = 8000;
 // kinds that have none, the slime and every cave monster among them.
 const FLEE_STRIDE_MUL = 2;
 const FLEE_BEAT_MUL = 0.5;
+// How long a mad roster foe (Combat.isPsychotic, rosterEnemyMove) holds one
+// random heading before rolling the next — a stagger, not a spin.
+const PSYCHOSIS_TURN_MS = 700;
 // All shiny creatures move 1.5x faster; Combat owns the shared multiplier.
 const SHINY_SPEED_MUL = Combat.SHINY_SPEED_MUL;
 // Ordinary wild movement targets 10 m/s. The universal shiny multiplier
@@ -133,6 +136,11 @@ const SURFACE_RECHECK_MS = 1000;
 // thinking, and walking at the field, from the tick it is pushed. The ghosts
 // rise on the same ring.
 const PEST_SPAWN_CELLS = 10;
+// How often that pump may dispatch one (owner, Oct 2026: "just once per
+// hour"; it was every 90 s). Timed on the page clock, so it is an hour of
+// play since the last window (or since the game opened), not a wall-clock
+// schedule that survives a reload.
+const PEST_DISPATCH_MS = 60 * 60 * 1000;
 // A MONSTER'S STRIDE, in cells: how far one step of the step chain carries it
 // (wanderCreatures' stepM) — a full cell for a flier, 0.6 for everything that
 // walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
@@ -838,13 +846,17 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
 // How long a departing crow keeps flying away (_crowDepart): [base, spread]
 // ms, so ~2.5–4 minutes — once the player starts hunting it.
 const CROW_DEPART_MS = [150000, 90000];
-// How far a CROP RAIDER (the deer — SpriteLayout `raidsCrops`) notices a
+// How far a CROP RAIDER (the deer or the crow — SpriteLayout `raidsCrops`) notices a
 // planted crop it may eat, in cells (wanderCreatures raidStep): the on-screen
 // sim range, so it spots a field from across the viewport but not from the
 // next street. It does not teleport in — every step is its own gait's — so a
 // far deer visibly walks toward the beds. A dispatched pest (isPest) has no
 // limit: it was sent at the field.
 const RAID_NOTICE_CELLS = 8;
+// How many perch cycles a crow sits ON a crop before it is eaten
+// (_wildCrowTick): the first landing starts the count, each landing on the
+// same crop spends one. The player's window to net, scare or set a pet on it.
+const CROW_RAID_PERCHES = 2;
 // THE HUNT IS TIMED, NOT ROLLED (owner, Sep 2026: "a 50/50 chance with a T1
 // net, depending on timing, standing right on it"). A hunted crow does NOT
 // bolt the instant the wheel starts — it keeps its own rhythm, finishes the
@@ -1684,6 +1696,15 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   if (routed) {
     const from = c._wardFrom || { x: px, y: py };
     angle = Math.atan2(c.y - from.y, c.x - from.x);
+    // MAD (Combat.isPsychotic): the rout's pace on a RANDOM heading,
+    // re-rolled every PSYCHOSIS_TURN_MS so it runs every which way; Home's
+    // ward (_wardFrom) still drives it out of the ring.
+    if (!c._wardFrom && Combat.isPsychotic(c, now)) {
+      if (now >= (c._madTurnT || 0)) {
+        c._madAngle = Math.random() * Math.PI * 2; c._madTurnT = now + PSYCHOSIS_TURN_MS;
+      }
+      angle = c._madAngle;
+    }
     maxDistance = Infinity;
     // Retreat is brisk but never exceeds the roster's fastest flight.
     speed = Math.min(6, speed * FLEE_STRIDE_MUL / FLEE_BEAT_MUL);
@@ -1857,6 +1878,7 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
   }
   // Temporary allegiance and sleep do not protect from ordinary hazards.
   if (scene._tickUnitFire?.(c, now)) return true;
+  if (scene._tickUnitPoison?.(c, now)) return true;
   if (Combat.canBurn(c) && !Conditions.fireImmune(c) && (scene.depth === 0 || scene.depth === WorldGen.LAVA_DEPTH)
       && now >= (c._lavaNextT || 0)) {
     c._lavaNextT = now + 1000;
@@ -1873,8 +1895,8 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
     }
     c._moving = false; c._enemyTickT = now; c._ghostT = now; return true;
   }
-  // Fear uses the ordinary retreat lane, even when fire just woke a sleeper.
-  if (!charmed && c._fearUntilT > now) return false;
+  // Fear and madness use the ordinary retreat lane, even when fire just woke a sleeper.
+  if (!charmed && (c._fearUntilT > now || Combat.isPsychotic(c, now))) return false;
   if (!charmed && !target) return false;
   const dt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
   c._enemyTickT = now;

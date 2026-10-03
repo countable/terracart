@@ -667,7 +667,7 @@
                      stepMs: 900, stepCells: 0.5, pauseMs: [700, 1300],
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
-    crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
+    crow:          { wanders: true, game: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
     // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
     // SPIRIT_RAVEN_MS. It is a PET's hunt by another reason, not a second hunter: wanderCreatures' pet scan

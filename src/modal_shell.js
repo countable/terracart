@@ -151,13 +151,18 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, story = false, art, centerBody = false } = {}) {
+    kind, kindLabel, kindIcon, story = false, art, centerBody = false, fullscreen = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog by definition — its frame is cut to
     // the grown box (ART_FRAME_ASPECT).
     const kRow = typeof kind === 'string' ? MODAL_KINDS[kind] : kind;
     art = art || kRow?.art;
+    // FULLSCREEN (the wreck's build pick): the box fills the whole visible
+    // game slice instead of the map square, and drops the painting — a
+    // portrait frame cut to the square has no shape to fill it. The kind
+    // header falls back to its plain icon-and-label row.
+    if (fullscreen) art = null;
     if (art) story = true;
     const wrap = document.createElement('div');
     wrap.id = id;
@@ -183,7 +188,13 @@ class SceneModals {
     const grow = story ? STORY_MODAL_GROW_PX : 0;
     const frameBorder = borderColor === UI_CONTROL_DIM ? UI_DIALOG_BORDER : borderColor;
     const box = document.createElement('div');
-    box.style.cssText =
+    box.style.cssText = fullscreen
+      ? 'position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;' +
+        'background:#1a1612;color:#fff;border:0;border-radius:0;' +
+        'padding:max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));' +
+        'font:13px ui-monospace,monospace;overflow-y:auto;overscroll-behavior:contain;' +
+        (textAlign ? `text-align:${textAlign};` : '') + boxExtra
+      :
       // Seated on the map square, in #game's own (game px) space; the wrap
       // starts at --view-top, so the box's top is measured back from it.
       `position:absolute;left:${vLeft}px;width:${vSize}px;` +
@@ -507,9 +518,12 @@ class SceneModals {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
       { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art });
     const safeBody = String(body).replace(/\n/g, '<br>');
-    box.innerHTML =
-      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>` +
-      `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
+    // No title, no title line: a page whose own heading is in the body (the
+    // Book's volume line) starts on it, with no empty gold row above.
+    const titleHTML = title
+      ? `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
+      : '';
+    box.innerHTML = titleHTML + `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -607,9 +621,20 @@ class SceneModals {
   //                 which read as a second way to SMELT rather than as a way
   //                 to look at the next bar. `showIndex: false` drops the
   //                 "i / n" line (Home's Craft page) and keeps the arrows.
-  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
+  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested? }] — the
+  //                 offer is ONE OF several things at the same price (what a
+  //                 wreck is restored as). Laid out as cards between the
+  //                 headline and the cost; a tap SELECTS a card (outlined,
+  //                 its `info` on the line under the row) and only the accept
+  //                 button pays, with the selected `key` as its argument.
+  //                 Until a card is selected `pickHint` sits on that line and
+  //                 accept is disabled; `choice` names a card selected from
+  //                 the start (a single card is selected on its own, so the
+  //                 dialog reads as the plain price tag it is). A `suggested`
+  //                 card wears a soft outline until something is picked.
+  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art });
+      { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, fullscreen });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
@@ -693,6 +718,48 @@ class SceneModals {
       blurbDiv.innerHTML = blurb;
       box.appendChild(blurbDiv);
     }
+    // The choice cards (see `choices` above). A row that wraps, so six
+    // buildings fit a phone two or three to a line; the accept button below
+    // is armed by `syncAccept` once it exists.
+    const hasChoices = Array.isArray(choices) && choices.length > 0;
+    let selected = null;
+    let syncAccept = () => {};
+    if (hasChoices) {
+      const cardRow = document.createElement('div');
+      // Fullscreen: an even grid of larger cards, two or three to a line.
+      cardRow.style.cssText = fullscreen
+        ? 'display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;margin:10px 0 4px;'
+        : 'display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:6px 0 2px;';
+      // Cards with no `info` (names and badges only) need just the hint line.
+      const anyInfo = choices.some((c) => c.info);
+      const infoLine = document.createElement('div');
+      infoLine.style.cssText = 'font-size:12px;line-height:1.35;opacity:.9;margin:4px 0 6px;'
+        + `min-height:${anyInfo ? 2.7 : 1.4}em;`;
+      const cards = [];
+      const paint = () => {
+        for (const { c, b } of cards) {
+          b.style.outline = selected === c ? '2px solid #ffe066'
+            : (!selected && c.suggested) ? '2px dashed #a7ffb0' : '';
+        }
+        infoLine.innerHTML = selected ? (selected.info || '') : `<span style="opacity:.6">${pickHint}</span>`;
+        syncAccept();
+      };
+      for (const c of choices) {
+        const b = document.createElement('button');
+        b.innerHTML = (c.iconHTML ? `<div style="font-size:0;margin-bottom:3px">${c.iconHTML}</div>` : '') + c.label;
+        b.style.cssText = (fullscreen
+          ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
+          : 'flex:1 1 30%;min-width:84px;max-width:46%;padding:8px 4px 7px;font:700 12px ui-monospace,monospace;')
+          + 'border-radius:7px;cursor:pointer;background:transparent;color:#ddd;border:2px solid #555;';
+        b.addEventListener('click', (e) => { e.stopPropagation(); selected = c; paint(); });
+        cardRow.appendChild(b);
+        cards.push({ c, b });
+      }
+      box.appendChild(cardRow);
+      box.appendChild(infoLine);
+      selected = choices.length === 1 ? choices[0] : (choices.find((c) => c.key === choice) || null);
+      paint();
+    }
     // `cost` is what the player PAYS — the second half of a "you get X FOR y"
     // trade, and the `forLabel` row is the literal word joining the two. Not
     // every caller is a trade: the quest board reports progress and asks for
@@ -772,7 +839,7 @@ class SceneModals {
         dim(minusBtn, qty <= minQ);
         dim(plusBtn,  qty >= maxQ);
         // Keep the primary action button in sync with the live canAfford.
-        if (accept) accept._setEnabled(liveCanAfford && !disabledReason);
+        if (accept) accept._setEnabled(liveCanAfford && !disabledReason && (!hasChoices || !!selected));
       };
       minusBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -787,17 +854,22 @@ class SceneModals {
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
-    const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason);
+    const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); if (onCancel) onCancel(); });
     let accepted = false;
     accept.addEventListener('click', (e) => {
       e.stopPropagation();
       if (accepted || accept.disabled) return;
+      if (hasChoices && !selected) return;
       accepted = true;
       wrap.remove();
-      onAccept(quantity ? qty : undefined);
+      onAccept(quantity ? qty : hasChoices ? selected.key : undefined);
       if (repeat) repeat();
     });
+    if (hasChoices) {
+      syncAccept = () => accept._setEnabled(liveCanAfford && !disabledReason && !!selected);
+      syncAccept();
+    }
     if (sec) sec.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); secondary.onClick(); });
     row.appendChild(cancel);
     if (sec) row.appendChild(sec);

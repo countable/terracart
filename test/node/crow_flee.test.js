@@ -16,9 +16,8 @@
 // _fleeDash, marks a flight leg as belonging to a panic dash; without it a
 // crow hit mid-glide would keep coasting to that STALE pre-hit target for
 // up to 1200ms before the flee ever took effect, which is the secondary
-// effect the finding asked to confirm. (The glide used to be an orbit round
-// a crop; the crow raids nothing since Sep 2026 — the deer does — so it is a
-// plain roam now, and the crop-destroy pause this file once checked is gone.)
+// effect the finding asked to confirm. (The crop raid — orbit, landing and
+// the perch count — is checked below.)
 //
 // _wildCrowTick can't load headlessly (it needs Phaser, being a method on
 // the scene class) so it's driven the way spawn_rebuild.test.js drives the
@@ -88,18 +87,61 @@ test('crow flee: a crow mid ORBIT-glide when hit redirects on its very next tick
     `fresh dash apart from a leftover pre-hit glide`);
 });
 
-test('crow flee: a crow beside a planted crop never eats it — the crow raids nothing', () => {
-  // The tick used to arm a destroy timer on landing on a crop's cell and
-  // splice the crop out two perch cycles later. Run a crow ON a planted cell
-  // for a good while: the field is untouched, and nothing on the bird says
-  // it was ever casing one.
+// THE CROW RAIDS AGAIN (owner, Oct 2026 — it did until Sep 2026). It cases a
+// crop it may eat (_cropRaidable), lands ON its cell, sits CROW_RAID_PERCHES
+// perch cycles there and eats it, then leaves sated (_crowDepart).
+const raidSelf = (planted) => {
+  const save = { planted };
+  return makeSelf({
+    save,
+    // The real predicate is app.js's (raiderEatsCrop, home_ward.test.js pins
+    // it); the stub keeps its one rule that matters here — never potato.
+    _cropRaidable: (p) => p.crop !== 'potato',
+    _crowDepart(c, now) { c._departUntilT = now + 150000; c._perchUntilT = now; c._flightUntilT = null; },
+    flash() {},
+  });
+};
+
+test('crow raid: a crow on a planted crop eats it after its perches, then leaves', () => {
   const crop = { x: 0, y: 0, crop: 'berry' };
-  const self = makeSelf({ save: { planted: [crop] } });
+  const self = raidSelf([crop]);
   const c = { x: 0, y: 0, kind: 'crow' };
-  for (let t = 0; t <= 60000; t += 100) tick(self, c, t);
-  assert.eq(self.save.planted.length, 1, 'the crop is still there after a minute of crow');
-  assert.falsy('_destroyCropRef' in c || '_destroyAtT' in c, 'no crop-casing state on the bird');
-  assert.falsy(/planted/.test(WILD_CROW_TICK_SRC), 'the tick never reads the field at all');
+  let t = 0;
+  for (; t <= 600000 && self.save.planted.length; t += 100) tick(self, c, t);
+  assert.eq(self.save.planted.length, 0, 'the crop is eaten');
+  assert.truthy(c._departUntilT > t - 100, 'and the sated crow is leaving');
+  assert.falsy(c._destroyCropRef, 'with no count left on it');
+});
+
+test('crow raid: it sits the full count on the crop before it eats', () => {
+  const crop = { x: 0, y: 0, crop: 'berry' };
+  const self = raidSelf([crop]);
+  // Landing on the crop starts the count; one landing is not a meal.
+  const c = { x: 0.1, y: 0, kind: 'crow', _startX: 1, _startY: 0, _targetX: 0.1, _targetY: 0,
+              _flightT0: 0, _flightUntilT: 100 };
+  tick(self, c, 100);
+  assert.eq(c._destroyCropRef, crop, 'the first landing starts the count');
+  assert.eq(c._destroyCyclesLeft, CROW_RAID_PERCHES, 'at the full count');
+  assert.eq(self.save.planted.length, 1, 'nothing eaten yet');
+});
+
+test('crow raid: never a potato, and a hit crow drops its count', () => {
+  const self = raidSelf([{ x: 0, y: 0, crop: 'potato' }]);
+  const c = { x: 0, y: 0, kind: 'crow' };
+  for (let t = 0; t <= 120000; t += 100) tick(self, c, t);
+  assert.eq(self.save.planted.length, 1, 'the potato survives two minutes of crow');
+  const crop = { x: 0, y: 0, crop: 'berry' };
+  const s2 = raidSelf([crop]);
+  const d = { x: 0, y: 0, kind: 'crow', _destroyCropRef: crop, _destroyCyclesLeft: 1,
+              _fleeAngle: 0, _fleeUntilT: 9000 };
+  tick(s2, d, 1000);
+  assert.falsy(d._destroyCropRef, 'a mauled crow abandons the crop');
+});
+
+test('crow raid: the crow reads the one raider predicate and its row\'s flag', () => {
+  assert.truthy(SpriteLayout.creatureBehaviour('crow').raidsCrops, 'the crow row says it raids crops');
+  assert.truthy(/this\._cropRaidable\(p\)/.test(WILD_CROW_TICK_SRC), 'its tick asks _cropRaidable');
+  assert.falsy(/raiderEatsCrop\(/.test(WILD_CROW_TICK_SRC), 'never the bare kind test');
 });
 
 })();

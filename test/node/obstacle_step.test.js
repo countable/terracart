@@ -69,3 +69,26 @@ test('support stays continuous at top and approach boundaries; balance vanishes 
   assert.inRange(ObstacleStep.balance(0.3, 1), -0.035, 0.035);
   assert.eq(ObstacleStep.balance(0.3, 2), ObstacleStep.balance(0.3, 1));
 });
+
+
+test('step support follows player feet while the camera peeks away', () => {
+  const start = RENDER_SRC.indexOf('  const stepObjects = [];');
+  const end = RENDER_SRC.indexOf('  const supports = new Set', start);
+  const collect = new Function('scene', 'filteredObj', 'plantedList', 'connectedArt', RENDER_SRC.slice(start, end));
+  const x = 110, y = 220, cellM = 8;
+  for (const peek of [{x:0,y:0}, {x:16,y:0}, {x:-16,y:16}]) {
+    const rock = {kind:'mineralrock', x, y};
+    const bush = {crop:'shrub', wildId:'support-bush', x, y};
+    const distant = {kind:'mineralrock', x:x+24, y};
+    const item = o => ({o, dx:o.x-x-peek.x, dy:o.y-y-peek.y});
+    let objects;
+    const scene = {cellM, startWorldM:{x:100,y:200}, playerM:{x:10,y:20},
+      _updateObstacleStep(list) { objects=list; }};
+    collect(scene, [item(rock),item(distant)], [{p:bush,dx:-peek.x,dy:-peek.y}], new Map());
+    assert.eq(objects.length, 2, 'only supports near the body survive the prefilter');
+    const support = ObstacleStep.sample(x,y,objects,cellM);
+    assert.eq(support.liftPx, 4, 'camera movement cannot drop the body off its rock');
+    assert.eq(support.supports.length, 2, 'the bush underfoot remains a support too');
+    assert.eq(ObstacleStep.speedMul(support),0.7,'the same balancing slowdown remains active');
+  }
+});

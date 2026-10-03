@@ -22,15 +22,14 @@ const lift = (sig) => {
 };
 const SHOP = (0, eval)('({\n' + lift('shopInteract(sx, sy, house) {') + '\n})');
 
-function scene({ role = null, scarecrowShop = false, scarecrowUsed = true } = {}) {
-  const calls = { flashes: [], delivery: 0, scarecrow: 0, themed: 0, trader: 0, smith: 0, records: [] };
-  const save = { inv: [], selSlot: -1, scarecrowShopUsed: scarecrowUsed, shopState: {} };
+function scene({ role = null } = {}) {
+  const calls = { flashes: [], delivery: 0, themed: 0, trader: 0, smith: 0, records: [] };
+  const save = { inv: [], selSlot: -1, shopState: {} };
   const s = Object.assign(Object.create(SHOP), {
     save,
     calls,
     isStarterShop: () => false,
     isStarterBlacksmith: () => false,
-    isScarecrowShop: () => scarecrowShop,
     houseShopRole: () => role,
     shopCharmMul: () => 1,
     // The real ledger, not a stub: this is what recordDeal writes to.
@@ -38,7 +37,6 @@ function scene({ role = null, scarecrowShop = false, scarecrowUsed = true } = {}
     peekOrBuildRelicOffer: () => ({ kind: 'relic', slot: 'axe', tier: 2, price: 10 }),
     flash(t) { calls.flashes.push(t); },
     presentDeliveryOffer() { calls.delivery++; },
-    presentScarecrowOffer(sx, sy, h, record) { calls.scarecrow++; calls.records.push(record); },
     presentThemedShop(sx, sy, h, record) { calls.themed++; calls.records.push(record); },
     presentTraderOffer(sx, sy, h, record) { calls.trader++; calls.records.push(record); },
     presentBlacksmithOffer(sx, sy, offer, record) { calls.smith++; calls.records.push(record); },
@@ -57,7 +55,6 @@ test('always open: a heap of deals this hour shuts no door', () => withDocument(
     [{ role: 'market' }, 'themed'],
     [{ role: 'trader' }, 'trader'],
     [{ role: 'blacksmith' }, 'smith'],
-    [{ scarecrowShop: true, scarecrowUsed: false }, 'scarecrow'],
     [{}, 'delivery'],
   ]) {
     const s = scene(opts);

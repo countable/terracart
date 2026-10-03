@@ -90,11 +90,13 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
-// Shop rank is assigned at restoration; stock can fall back to another tier.
+// Shop rank is assigned at restoration (a shop's line tier, a smithy's own,
+// a trader's — Shops.shopTier); stock can fall back to another tier.
+// A market's tier comes through scene.marketTheme (an NPC stall carries its
+// own line); a smithy's and a trader's straight off the ledger.
 Render.shopTierBadge = (scene, house, role) => {
-  if (role !== 'market'
-      || (scene.save.scarecrowShopId === house.id && !scene.save.scarecrowShopUsed)) return null;
-  const tier = scene.marketTheme(house).tier;
+  const tier = role === 'market' ? scene.marketTheme(house).tier : Shops.shopTier(scene.save, house, role);
+  if (tier == null) return null;
   const t = Math.min(7, Math.max(1, tier));
   const color = TIER_BADGE_TINT[t] ?? TIER_BY_NUM[t].color;
   const r = (color >> 16) & 255, g = (color >> 8) & 255, b = color & 255;
@@ -508,11 +510,14 @@ function hidePoolFrom(pool, startIdx) {
 
 // Temporary flower effects sit above the health-bar line; the combat helpers
 // own their expiry. This pool is separate from permanent released-pet hearts.
+// The colours are the statuses' own rows (Combat.STATUS_LOOKS) — the ink the
+// word popped when each landed.
 Render.flowerStatusMarker = (creature, now) => {
   const sleeping = Combat.isSleeping(creature, now), charmed = Combat.isCharmed(creature, now);
-  if (sleeping && charmed) return { text: '♥ Zzz', color: '#ff91b8' };
-  if (sleeping) return { text: 'Zzz', color: '#bcdfff' };
-  if (charmed) return { text: '♥', color: '#ff91b8' };
+  const L = Combat.STATUS_LOOKS;
+  if (sleeping && charmed) return { text: '♥ Zzz', color: L.charm.color };
+  if (sleeping) return { text: 'Zzz', color: L.sleep.color };
+  if (charmed) return { text: '♥', color: L.charm.color };
   return null;
 };
 Render.drawFlowerStatusMarkers = (scene, creatures, project, depth, now) => {
@@ -1210,6 +1215,7 @@ Render.reachDimAlpha = (scene) => {
 Render.houseTextureKey = (role, o, scene) => {
   if (role === 'plain') return 'house';
   if (role === 'wizard') return 'shrine';
+  if (role === 'turret') return 'tower';   // the castle tower sheet, claimed palette: it is yours
   if (role === 'fort' && scene.isClaimedKey && !scene.isClaimedKey(o.id)
       && typeof ASSETS !== 'undefined' && ASSETS.house_fort_unclaimed) return 'house_fort_unclaimed';
   return `house_${role}`;
@@ -1713,7 +1719,9 @@ Render.drawCells = function drawCells(scene) {
           const nt = scene.neighborNonRoadType ? scene.neighborNonRoadType(wcx, wcy) : null;
           if (nt != null) { polyGround = nt; color = COLORS[nt] ?? color; }
         } else {
-          color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
+          const themed = scene.streetGroundType?.(wcx, wcy);
+          if (themed != null) { polyGround = themed; color = COLORS[themed] ?? color; }
+          else color = scene.neighborNonRoadColor(wcx, wcy) ?? color;
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
@@ -2001,9 +2009,8 @@ Render.drawCells = function drawCells(scene) {
           // back to the path's own base if there's no record or the under-biome
           // has no texture (e.g. commercial/industrial concrete pads).
           let baseType = type;
-          // Polygonal mode: the building cell wears the inherited zone's
-          // texture (see polyGround above), so nothing under the polygon reads
-          // as a floor.
+          // Explicit themed roads and polygonal buildings wear the same
+          // biome texture as their base fill, including beneath the paving.
           if (polyGround >= 0) baseType = polyGround;
           else if (type === T_PATH) {
             const lix = _ringIX[_si], liy = _ringIY[_si];
@@ -3256,13 +3263,17 @@ Render.drawObjects = function drawObjects(scene) {
   // Every support fits within one cell of its anchor, including band ends.
   // Reject distant visible props before copying art records or testing shapes.
   const stepObjects = [];
+  const stepX = scene.startWorldM.x + scene.playerM.x;
+  const stepY = scene.startWorldM.y + scene.playerM.y;
+  // The camera may be peeking elsewhere; support belongs to the body's feet.
+  const nearStep = o => Math.abs(o.x - stepX) <= scene.cellM && Math.abs(o.y - stepY) <= scene.cellM;
   for (const it of filteredObj) {
-    if (Math.abs(it.dx) > scene.cellM || Math.abs(it.dy) > scene.cellM) continue;
+    if (!nearStep(it.o)) continue;
     const art = connectedArt.get(it.o);
     stepObjects.push(art ? { ...it.o, ...art, _stepSource: it.o } : it.o);
   }
   for (const it of plantedList) {
-    if (!it.p.wildId || Math.abs(it.dx) > scene.cellM || Math.abs(it.dy) > scene.cellM) continue;
+    if (!it.p.wildId || !nearStep(it.p)) continue;
     stepObjects.push({ ...it.p, kind: 'wildplant', _stepSource: it.p });
   }
   scene._updateObstacleStep?.(stepObjects);
@@ -3350,7 +3361,7 @@ Render.drawObjects = function drawObjects(scene) {
       // The small extra lift tucks the ellipse's bulk behind the building.
       const role = o.kind === 'house' ? item.houseRole : null;
       let w = CELL_PX * 1.5, footY = sy - 4;
-      if (o.kind === 'tower') { w = CELL_PX * 1.1; footY = sy + 2; }
+      if (o.kind === 'tower' || role === 'turret') { w = CELL_PX * 1.1; footY = sy + 2; }
       else if (role === 'wizard') { footY = sy + CELL_PX * 0.5 - 4; }
       else if (o.kind === 'house') {
         if (role === 'fort') w = CELL_PX * 2.4;
@@ -3379,7 +3390,9 @@ Render.drawObjects = function drawObjects(scene) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
-    Render.setShine(s, isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree), o.id);
+    // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
+    Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
+      || (o.kind === 'house' && Houses.isShinyHouse(scene.save, o)), o.id);
     const appearance = item._appearance;
     if (!appearance) return;
     if (!appearance.visible) { s.setVisible(false); return; }
@@ -3667,13 +3680,8 @@ Render.drawObjects = function drawObjects(scene) {
       const access = MemoryStory.towerAccess(scene.save, o);
       return { locked: 'Sealed Tower', abandoned: 'Abandoned Tower', empty: 'Empty Tower', open: 'Wizard Tower' }[access];
     }
-    // Forced scarecrow shop - signed only while it still has one to sell.
-    // After the sale it reverts to its underlying role (handled below).
-    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
-        && !scene.save.scarecrowShopUsed) {
-      return 'Scarecrows';
-    }
-    // Frozen restore-order shop role (blacksmith / trader / market / wizard).
+    // The frozen role the player picked at the wreck (blacksmith / trader /
+    // market / turret / wizard).
     const ordinary = role === 'plain' || role === 'fort';
     const label = ordinary ? null : _roleLabel(role, o);
     if (label) return label;
@@ -3692,14 +3700,12 @@ Render.drawObjects = function drawObjects(scene) {
     return null;
   };
   // True if this house is a residential delivery host — a plain tier-9 home
-  // (not a wreck, the player's own home, the starter smithy, a scarecrow shop,
-  // or any specialty shop) that asks for produce bundles. Hosts always show a
+  // (not a wreck, the player's own home, the starter smithy or any specialty
+  // shop) that asks for produce bundles. Hosts always show a
   // roof callout: a wishlist while hungry, a happy face once fed (for good).
   const _houseIsHost = (o) => {
     if (!o || o.kind !== 'house' || o.tier !== 9) return false;
     if (_houseRole(o) !== 'plain') return false;                          // wreck, Home or storefront
-    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
-        && !scene.save.scarecrowShopUsed) return false;                   // active scarecrow shop (text sign instead)
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
     return wanted.length > 0;
   };
@@ -3717,6 +3723,7 @@ Render.drawObjects = function drawObjects(scene) {
     trader:     '#ffae5c',
     market:     '#5ddcc0',
     wizard:     '#b98cff',   // arcane violet
+    turret:     '#9aa49a',   // the fort's mossy stone — it is a piece of castle
   };
   // Fallback inks for the non-specialty building kinds.
   const _CASTLE_INK = '#e0c060';   // gold — fits the "vault" flavor
@@ -3724,8 +3731,6 @@ Render.drawObjects = function drawObjects(scene) {
   const _HOUSE_INK  = '#d6c9a8';   // warm parchment — plain residential
   const _houseSignInk = (o) => {
     const role = _houseRole(o);
-    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
-        && !scene.save.scarecrowShopUsed) return '#cdb07a';   // straw-gold scarecrow sign
     if (role && _ROLE_INK[role]) return _ROLE_INK[role];
     if (o.tier === 12) return _CASTLE_INK;
     if (o.tier === 11) return _FORT_INK;
@@ -4283,7 +4288,24 @@ Render.drawObjects = function drawObjects(scene) {
     // the body's own colour so it reads as flame, not a sheen. Ice still
     // wins — a frozen body shows the ice.
     const afire = !frozen && Combat.burning(c) && Conditions.conditionTintOn('burning', performance.now());
-    s.setTint(frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    // POISONED (Combat.poisoned): the `poison` row's steady tint, under the
+    // ice and the flame — the same colour the player's body holds.
+    const poisoned = !frozen && !afire && Combat.poisoned(c, performance.now());
+    // A STATUS JUST LANDED (Combat.flagStatus — a sleep, a charm, the frost,
+    // a fear, the madness, a fresh burn, a thrown potion's buff): the body
+    // flicks the status's own colour for STATUS_FLASH_MS, over everything
+    // (it is the instant, not the state), and its word pops once over the
+    // head through the damage-number lane (app.js _popCreatureText). The
+    // pop is drawn HERE, by whoever first draws the creature, because only a
+    // drawn creature has a screen point; a word older than the flick (the
+    // foe was off screen when it landed) is dropped rather than popped late.
+    const flick = Combat.statusFlashTint(c, performance.now());
+    if (c._statusPop) {
+      const pop = c._statusPop;
+      c._statusPop = null;
+      if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
+    }
+    s.setTint(flick != null ? flick : frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
@@ -4378,7 +4400,8 @@ Render.drawObjects = function drawObjects(scene) {
   // the now-empty cell — the "sparkle on the road with nothing under it" bug.
   const _sparkNow = Date.now();
   for (const it of filteredObj) {
-    if (isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree)) {
+    if ((isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree))
+        || (it.o.kind === 'house' && Houses.isShinyHouse(scene.save, it.o))) {
       pushSpark(it, it.o.id);
     }
     // The GLINT ROCK (interactables.js isGlintRock — the one predicate the
@@ -4560,6 +4583,9 @@ Render.objectAppearance = function (scene, houseRoles) {
     const role = _houseRole(o);
     if (role === 'plain')  return 'front';
     if (role === 'wizard') return 3;
+    // A turret picks its material family off its own id, the way a castle
+    // does off its footprint key, so two turrets on a street can differ.
+    if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
     return undefined;
   };
   // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
@@ -4616,8 +4642,10 @@ Render.objectAppearance = function (scene, houseRoles) {
       // The wizard tower is the exception: it's a tall sprite that must
       // stand foot-seated at the cell's front edge, so it keeps the bottom
       // anchor + a downward nudge.
-      origin: (o) => (_houseRole(o) === 'wizard' ? [0.5, 1.0] : [0.5, 0.5]),
-      dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
+      // A turret is the castle tower sprite and seats as the castle tower
+      // row below does: foot at the cell's front edge, half-cell nudge.
+      origin: (o) => (_houseRole(o) === 'wizard' || _houseRole(o) === 'turret' ? [0.5, 1.0] : [0.5, 0.5]),
+      dyPx: (o) => (_houseRole(o) === 'wizard' || _houseRole(o) === 'turret' ? CELL_PX * 0.5 : 0),
       scale: _houseScale,
     },
     // Bottom-seat each sprite at its data cell. A castle's identity selects
@@ -4661,29 +4689,33 @@ Render.objectAppearance = function (scene, houseRoles) {
     // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Same discipline as the seat
     // pass, one step earlier.
     //
-    // Sized through `after` rather than `scale`: both arts are sized in CELLS
-    // (the baked square in LAMP_DRAW_CELLS, the cobble in
-    // STREET_LAMP_DARK_CELLS), and setDisplaySize says that without this row
-    // having to know either texture's pixel size.
+    // BOTH ARTS ARE THE SAME BAKE (Oct 2026): a lit lamp draws the bake for
+    // its glow, a dark one the broken post (STREET_LAMP_BROKEN_TEX — the same
+    // painter with the column snapped, no glass, no glow), in the same square
+    // on the same ground line, so the only thing that changes when a stretch
+    // is restored is the lamp itself. Sized through `after` rather than
+    // `scale`: the art is sized in CELLS (LAMP_DRAW_CELLS), and
+    // setDisplaySize says that without this row knowing the texture's pixels.
     _streetlamp: {
       ground: (o) => !o.lit,
       // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
       // STREET_LAMP_TEX for the default, one texture per colour otherwise,
-      // baked by app.js _ensureStreetLampTex before this pass runs).
-      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_DARK_TEX),
-      frame: (o) => (o.lit ? '__BASE' : streetLampDarkFrame(o.tier)),
-      origin: (o) => (o.lit ? [0.5, STREET_LAMP_ORIGIN_Y] : [0.5, 0.5]),
+      // baked by app.js _ensureStreetLampTex before this pass runs); a dark
+      // one the broken post app.js _ensureBrokenLampTex baked at boot.
+      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_BROKEN_TEX),
+      frame: '__BASE',
+      // Read lazily (functions, not values): both constants live in app.js,
+      // which loads after this table is built.
+      origin: () => [0.5, STREET_LAMP_ORIGIN_Y],
       // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits a pixel
       // lower than its point, the point itself is untouched. Live
       // rather than decorative because this row is NOT seated — a seated spec
       // has its dxPx/dyPx overwritten by the seat pass.
-      dyPx: (o) => (o.lit ? STREET_LAMP_DY_PX : 0),
+      dyPx: () => STREET_LAMP_DY_PX,
       scale: 1,
-      after: (s, o) => {
-        const px = CELL_PX * (o.lit
-          ? ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4)
-          : streetLampDarkCells(o.tier));
-        s.setDisplaySize(px, px).setAlpha(o.lit ? 1 : STREET_LAMP_DARK_ALPHA);
+      after: (s) => {
+        const px = CELL_PX * ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
+        s.setDisplaySize(px, px).setAlpha(1);
       },
     },
     // Cave torch — 16×32 like the campfire, same scale, same flicker cadence

@@ -480,7 +480,7 @@ test('particles: a restored wreck gathers for a beat, then blasts at its footpri
   const gatherMs = +app.match(/const WRECK_GATHER_MS = (\d+);/)[1];
   assert.truthy(gatherMs >= 550 && gatherMs <= 1500, 'about a second, long enough for stonegather to land');
   assert.truthy(blast > 0, 'the restore fires a blast');
-  const frozen = body.indexOf('this.save.restoredHouses[house.id] = restoredRole;');
+  const frozen = body.indexOf('const row = Houses.restoreAs(this.save, house, key, { hammer });');
   const saved = body.indexOf('persistSave(this.save);');
   const card = body.indexOf('this.showChestRewardModal({');
   assert.truthy(frozen > 0 && saved > frozen, 'the role is frozen and banked first');
