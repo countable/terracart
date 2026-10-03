@@ -125,6 +125,30 @@ const FORT_UNLOCK_WOOD_STEP = 6;
       } },
   ]);
   const buildOption = (key) => BUILD_OPTIONS.find((row) => row.key === key) || null;
+  // THE NEW BADGE (owner, Oct 2026): a card on the restore modal is NEW when
+  // nothing the player has raised matches it — no building of its role at
+  // all, or, for a ranked role, none at the rank the pick would carry: a
+  // shop's LINE and tier (Shops.lineFor), a smithy's or a trader's tier
+  // (Shops.shopTier — the one tier every badge reads). A solo shop (`solo`)
+  // is a line of its own and is only offered while none stands. `row` is a
+  // card as buildOptions lays it out (a Shop variant carries its `theme`).
+  function isNewPick(save, row, order = restoredCount(save)) {
+    if (!row) return false;
+    const rh = (save && save.restoredHouses) || {};
+    const tier = typeof row.tier === 'function' ? row.tier(save, order) : null;
+    const theme = row.role === 'market' ? (row.solo || row.theme || null) : null;
+    for (const id of Object.keys(rh)) {
+      if (rh[id] !== row.role) continue;
+      const house = { kind: 'house', id };
+      if (theme) {
+        const line = Shops.lineFor(save, house);
+        if (line.theme !== theme || (tier != null && line.tier !== tier)) continue;
+        return false;
+      }
+      if (tier == null || Shops.shopTier(save, house, row.role) === tier) return false;
+    }
+    return true;
+  }
   // How many wrecks already stand: the 0-based restore ORDER of the next one.
   function restoredCount(save) { return Object.keys(save?.restoredHouses || {}).length; }
   // The cards on offer for the next restore. Pure: reads the ledgers, never
@@ -472,6 +496,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
     BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
+    isNewPick,
     HAMMER_ID, HAMMER_PRICE_MUL, hammerTakes, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerSoloShop,

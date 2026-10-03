@@ -8437,14 +8437,17 @@ class MapScene extends Phaser.Scene {
       return this.worldIconHTML(texKey, 36, frame);
     };
     const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
-    // Each card is the building's picture, its name and (when ranked: a shop,
-    // a smithy, a trader) its rarity badge — no pitch; the Restored! card
-    // tells what it does. Its own price rides along for the cost line.
+    // Each card is the building's picture, its name, a NEW pill when the
+    // player has nothing like it yet (Houses.isNewPick: no such building, or
+    // none at this rank) and (when ranked: a shop, a smithy, a trader) its
+    // rarity badge — no pitch; the Restored! card tells what it does. Its
+    // own price rides along for the cost line.
     const choices = options.map((row) => {
       const c = costFor(row);
       return {
         key: row.key,
         label: labelFor(row, null)
+          + (Houses.isNewPick(this.save, row, order) ? newBadgeHTML() : '')
           + (tierOf(row) ? `<div style="margin-top:1px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
         iconHTML: iconFor(row),
         suggested: !!row.suggested?.(this.save),

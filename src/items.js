@@ -1845,6 +1845,14 @@ function tierBadgeHTML(tier, fontPx = 10, paddingPx = 5) {
     + `font:700 ${fontPx}px ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase;`
     + `line-height:1.35;vertical-align:middle;background:${bg};color:${ink};">${name}</span>`;
 }
+// THE NEW BADGE: the pill a restore card wears when the player has nothing
+// like it yet (houses.js isNewPick) — the accept green, same cut as the
+// rarity badge so the two sit on one line.
+function newBadgeHTML(fontPx = 9) {
+  return `<span class="new-badge" style="display:inline-block;padding:0 4px;margin-left:3px;border-radius:4px;`
+    + `font:700 ${fontPx}px ui-monospace,monospace;letter-spacing:.06em;line-height:1.35;vertical-align:middle;`
+    + `background:#a7ffb0;color:#1a1612;">NEW</span>`;
+}
 // Relic SLOT defs. icon=file under Icons/RPG icons/Weapons and Armor/<folder>/.
 // effectKey is read by gameplay code (interact.js / loot.js) to apply bonuses.
 const RELIC_DEFS = {
