@@ -36,8 +36,8 @@ if (!coverage.length) throw new Error('Parking lanes produced no Quarry coverage
 if ((tile.streetIndex?.lines || []).length) throw new Error('Removed parking lanes survived as roads');
 const position = o => [Math.floor((o.x-tx*tileEdgeM)/WG.CELL_M)-origin,
   Math.floor((o.y-ty*tileEdgeM)/WG.CELL_M)-origin];
-const material = o => o.kind === 'stakes' ? 'stakes' : o.kind === 'zone_prop' ? 'zone_prop' : o.kind === 'grove_shrine' ? 'shrine' : o.kind === 'stronghold_wall' ? 'stronghold_wall' : o.quarryCrate ? 'tool_crate' : o.barrelStyle === 'clay_pot' ? 'clay_pot' : o.barrel ? 'barrel' : o.kind === 'chest' ? 'chest'
-  : ['goblin', 'split_slime'].includes(o.kind) ? o.kind : o.kind === 'wildplant' ? o.crop
+const material = o => o.kind === 'staircase' ? 'staircase' : o.kind === 'stakes' ? 'stakes' : o.kind === 'zone_prop' ? 'zone_prop' : o.kind === 'grove_shrine' ? 'shrine' : o.kind === 'stronghold_wall' ? 'stronghold_wall' : o.quarryCrate ? 'tool_crate' : o.barrelStyle === 'clay_pot' ? 'clay_pot' : o.barrel ? 'barrel' : o.kind === 'chest' ? 'chest'
+  : (ctx.SpriteLayout.CREATURE_ART[o.kind] || ctx.EnemyRoster.get(o.kind)) ? o.kind : o.kind === 'wildplant' ? o.crop
   : o.kind === 'lava_vent' ? 'lava' : o.deposit === 'crystal' ? 'crystal'
   : o.kind === 'mineralrock' && o.yieldTier === 2 ? 'copper_rock'
   : o.kind === 'mineralrock' && o.yieldTier === 6 ? 'crimson_ore'

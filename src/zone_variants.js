@@ -25,7 +25,7 @@
   }
   // Traits describe appearance, not eligibility: unusual combinations remain possible.
   const TRAITS = {
-    meadow: ['cultivated'], mushroom_grove: ['woodland', 'damp'], orchard: ['cultivated', 'woodland'],
+    meadow: ['cultivated'], marine_meadow: ['coastal', 'cultivated'], mushroom_grove: ['woodland', 'damp'], orchard: ['cultivated', 'woodland'],
     formal_garden: ['formal', 'cultivated'], hedge_garden: ['formal', 'cultivated'], ancient_grove: ['woodland', 'sacred'], sacred_grove: ['woodland', 'sacred'],
     stone_garden: ['formal', 'sacred'], ordered_graves: ['formal', 'sacred'], overgrown_graves: ['woodland', 'sacred'],
     broken_masonry: ['ruined'], silent_circle: ['sacred'], flint_field: ['ruined'], broken_depot: ['ruined'],
@@ -92,7 +92,7 @@
   // always take effect immediately. Bound the cache for review-tool inputs.
   const weightCache = new Map();
   function weightedChoices(anchor) {
-    const context = contextFor(anchor), candidates = forKind(anchor.kind);
+    const context = contextFor(anchor), candidates = forKind(anchor.kind).filter(row => row.selectable !== false);
     const contextKey = Object.keys(context).sort().filter(k => Number.isFinite(context[k]) && context[k] > 0)
       .map(k => `${k}:${context[k]}`).join('|');
     const tableKey = candidates.map(row => `${row.id}:${row.weight}:${traitsFor(row).join(',')}`).join('|');

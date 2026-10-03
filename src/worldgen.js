@@ -5944,6 +5944,12 @@
     // Capture after ordinary dedupe, before either street or zone replacement.
     const caveSource = { grid: grid.slice(), objects: deduped.slice(),
       wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
+    // Surface shrines change POI kind, theme and sometimes position in place.
+    // A slice alone would let those mutations rewrite the cave snapshot.
+    for (let i = 0; i < caveSource.objects.length; i++) {
+      if ((i & 255) === 0) yield 'cave source objects';
+      caveSource.objects[i] = { ...caveSource.objects[i] };
+    }
     const ownStreetLines = hasStreetArea
       ? new Set(streetIndex.lines.filter(r => r.variant).map(r => r.lineKey)) : null;
     if (hasStreetArea) yield* clearStreetAmbientSteps({ area: streetArea, objects: deduped,
@@ -6083,7 +6089,7 @@
     const temporaryLampCells = [...lampReservations].filter(cell => !dressOcc.has(cell));
     for (const cell of temporaryLampCells) dressOcc.add(cell);
     if (scenic) {
-      scenicDress = yield* Scenic.dressSteps({ scenic, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+      scenicDress = yield* Scenic.dressSteps({ scenic, zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
     if (streetIndex && typeof StreetVariants !== 'undefined') {

@@ -823,7 +823,7 @@ test('beach anchors: source tags choose the theme without beach-name heuristics'
 
 // Real source data tags these places as parks while their sand polygons carry
 // subclass=beach. Changing those polygon tags is the control: terrain stays sand.
-test('beach parks: Kelowna mapped shores get beach variants while inland groves and POIs survive', () => {
+test('beach parks: Kelowna mapped shores pair beach variants with marine meadows and preserve POIs', () => {
   const named = new Set(), variants = new Set();
   let shoreCells = 0, inlandCells = 0, pieces = 0;
   for (const [tx, ty] of [[2753,5565], [2753,5566], [2753,5567], [2754,5567]]) {
@@ -834,6 +834,20 @@ test('beach parks: Kelowna mapped shores get beach variants while inland groves 
     }
     const on = WorldGen.rasterizeTile(source, N, tx, ty, edge);
     const off = WorldGen.rasterizeTile(control, N, tx, ty, edge);
+    const rotary = on.zone?.anchors.find(a => a.name === 'Rotary Beach Park' && a.kind === 'grove');
+    if (rotary) {
+      assert.eq(rotary.variant, 'marine_meadow', 'Rotary grass is coastal meadow, never mushroom grove ' + key + ' ' + JSON.stringify({owned:rotary.owned, gx:rotary.gx, gy:rotary.gy, anchors:on.zone.anchors.filter(a=>a.name===rotary.name).map(a=>({kind:a.kind,variant:a.variant,owned:a.owned}))}));
+      const shore = on.zone.anchors.find(a => a.name === rotary.name && a.parkShore);
+      assert.eq(shore?.variant, 'pirate_cove');
+      if (shore.owned) {
+        const objects = on.zoneDress.objects.filter(o => o.zoneVariant === 'pirate_cove');
+        assert.truthy(objects.some(o => o._shrineArt === 'shipwreck'), 'Rotary has its ship: ' + JSON.stringify(on.zoneDress.diagnostics.filter(d => d.variant === 'pirate_cove')));
+        assert.eq(objects.filter(o => o.zoneLayer === 'shore_find').length, 2, 'Rotary has two shoreline chests');
+        assert.eq(objects.filter(o => o.barrel).length, 3, 'Rotary has authored barrels');
+        assert.eq(on.zoneDress.wildplants.filter(o => o.zoneVariant === 'pirate_cove' && o.crop === 'driftwood' && o.zoneLayer === 'decoration').length, 4, 'Rotary has authored driftwood');
+        assert.eq(on.zoneDress.guards.filter(o => o.zoneVariant === 'pirate_cove' && o.kind === 'crab').length, 3, 'Rotary has authored crabs');
+      }
+    }
     const beaches = (source.find(l => l.name === 'landcover')?.features || [])
       .filter(f => f.type === 3 && f.tags.subclass === 'beach');
     const inside = (p, rings) => {
@@ -859,7 +873,7 @@ test('beach parks: Kelowna mapped shores get beach variants while inland groves 
     }
     const poiIds = r => r.objects.filter(o => o._poiAt).map(o => o.id).sort().join(',');
     assert.eq(poiIds(on), poiIds(off), 'existing park POI ids survive without an extra POI');
-    assert.eq(JSON.stringify(on.zone?.caveSource), JSON.stringify(off.zone?.caveSource), 'beach dressing preserves cave inputs');
+    assert.truthy(JSON.stringify(on.zone?.caveSource) === JSON.stringify(off.zone?.caveSource), 'beach dressing preserves cave inputs');
     pieces += [...(on.zoneDress?.objects || []), ...(on.zoneDress?.wildplants || [])]
       .filter(o => o.zoneKind === 'beach').length;
   }

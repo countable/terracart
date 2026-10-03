@@ -38,6 +38,8 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff):
         x, y = frame % cols * w, frame // cols * h
         assert y + h <= image.height, (sheet, frame)
         image = image.crop((x, y, x + w, y + h))
+    if sheet == 'stair_down':
+        image = image.crop((0, 16, 32, 32))  # ASSETS.stair_down named down frame.
     # Match ASSETS.crops.onLoad; raw Crops.png has an opaque white key.
     if row['whiteKey']:
         image.putdata([(r, g, b, 0 if min(r, g, b) > 240 else a) for r, g, b, a in image.getdata()])
@@ -96,6 +98,8 @@ def material_art(material):
             sheet, frames = 'springcrops', [ov['row'] * 14 + r['matureStage']]
         else:
             sheet, frames = 'crops', [r['cropRows'][crop] * r['cropColumns'] + r['matureStage']]
+    elif kind == 'staircase':
+        sheet, frames = ('stair_up' if material.get('dir') == 'up' else 'stair_down'), [0]
     elif kind == 'coindrop':
         sheet, frames = 'coin_drop', [0]
     elif kind == 'mineralrock':
@@ -291,7 +295,7 @@ def validate(d):
     assert len(ids) == len(set(ids))
     affinities = [v for v in d['variants'] if v.get('attracts')]
     for v in affinities:
-        assert set(v['attracts']) <= {'rabbit','butterfly','deer','crow'}
+        assert set(v['attracts']) <= art_registry()['creatures'].keys()
         assert all(0 < chance <= 1 for chance in v['attracts'].values())
     for v in d['variants']:
         b = v['background']
@@ -362,7 +366,7 @@ def ground_pattern(terrain_name, prefix, unit):
             f'<image data-ground-type="{tile["type"]}" width="{unit}" height="{unit}"/></pattern></defs>')
 
 
-def svg_for(v, d, detail=False):
+def svg_for(v, d, detail=False, prefix="", ground=None):
     b = v['background']
     side = 9 if detail else (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['previewPlots'][0] + 1 if b['type'] in ('line_grid', 'bounded_line_grid') else 25)
     unit = 10
@@ -380,8 +384,8 @@ def svg_for(v, d, detail=False):
         return shipwreck and (max(abs(x),abs(y)) <= reserve or (x == 0 and y == -reserve - 1))
     slots = [s for s in v['poi']['slots'] if not reserved(*s['at'])]
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} {"POI pattern" if detail else "background and POI"}" viewBox="0 0 {side*unit} {side*unit}">', '<rect width="100%" height="100%" fill="#172820"/>']
-    ground_id = f'zone-ground-{v["id"]}-{int(detail)}'
-    parts.append(ground_pattern(registry['zoneKinds'][v['zone']]['terrain'], ground_id, unit))
+    ground_id = f'{prefix}zone-ground-{v["id"]}-{int(detail)}'
+    parts.append(ground_pattern(ground or v.get('ground') or ('SAND' if v['zone'] == 'beach' else registry['zoneKinds'][v['zone']]['terrain']), ground_id, unit))
     parts.append(f'<rect width="100%" height="100%" fill="url(#{ground_id})"/>')
     accent = registry['groundAccents'].get(v['id'])
     if accent:
@@ -390,7 +394,7 @@ def svg_for(v, d, detail=False):
                 material = background_at(v, x + poi_x - draw_x, y + poi_y - draw_y)
                 if accent.get('fullCoverage') or (v['id'] == 'silent_circle' and [x,y] == [draw_x,draw_y]) or (v['id'] == 'ancient_grove' and material in ('tree','shrub')):
                     parts.append(f'<rect x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="#{accent["color"]:06x}"/><image data-ground-type="{accent["terrain"]}" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"/>')
-    art_prefix = f'zone-art-{v["id"]}-{int(detail)}'
+    art_prefix = f'{prefix}zone-art-{v["id"]}-{int(detail)}'
     materials = {name: dict(m, **({('_plantArt' if m['kind'] == 'wildplant' else '_objectArt'): v['materialLooks'][name]} if name in v.get('materialLooks', {}) else {})) for name, m in d['materials'].items() if m.get('recordType') != 'treasure'}
     for name, frames in v.get('materialFrames', {}).items():
         if name in materials: materials[name]['_zoneObjectFrame'] = frames[0]
@@ -413,10 +417,23 @@ def svg_for(v, d, detail=False):
                     parts.append(f'<rect class="geometry-cell" x="{x*unit+gap}" y="{y*unit+gap}" width="{unit-2*gap}" height="{unit-2*gap}" fill="{color}"><title>{material}</title></rect>')
                     parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2, definition))
         parts.append('</g>')
+    # Finite dressing has its own budget in the runtime row, outside the motif.
+    if not detail and v.get('decorations'):
+        seats = [(x, y) for y in range(2, side-2) for x in range(2, side-2)
+                 if not reserved(x-draw_x, y-draw_y) and max(abs(x-draw_x), abs(y-draw_y)) > 3
+                 and not background_at(v, x + poi_x - draw_x, y + poi_y - draw_y)]
+        seats.sort(key=lambda cell: hash_unit(v['id'], *cell, 'decoration'))
+        parts.append('<g class="background">')
+        for decoration in v['decorations']:
+            material = decoration['material']
+            for _ in range(min(decoration['count'], len(seats))):
+                x, y = seats.pop()
+                parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
+        parts.append('</g>')
     cx, cy = draw_x * unit + unit / 2, draw_y * unit + unit / 2
     parts.append('<g class="poi-layer">')
     for x,y in [(0,0)] + [slot['at'] for slot in slots]:
-        parts.append(f'<rect x="{(draw_x+x)*unit}" y="{(draw_y+y)*unit}" width="10" height="10" fill="#172820"/>')
+        parts.append(f'<rect x="{(draw_x+x)*unit}" y="{(draw_y+y)*unit}" width="10" height="10" fill="url(#{ground_id})"/>')
     for slot in slots:
         x, y = slot['at']; material = slot['material']; color = materials[material]['color']
         parts.append(f'<rect class="geometry-cell" x="{(draw_x+x)*unit+1}" y="{(draw_y+y)*unit+1}" width="8" height="8" fill="{color}"><title>POI: {material} ({x}, {y})</title></rect>')
@@ -729,9 +746,58 @@ document.documentElement.dataset.tilesReady='true';
     return '<script>(()=>{\n' + script.replace('</script', '<\\/script') + '\n})();</script>'
 
 
+def beach_park_section(d):
+    meadow = next((v for v in d['variants'] if v['id'] == 'marine_meadow'), None)
+    if not meadow:
+        return ''
+    cards = []
+    for beach in (v for v in d['variants'] if v['zone'] == 'beach'):
+        prefix = 'adjoining-' + beach['id'] + '-'
+        parts = [f'<svg role="img" aria-label="Marine Meadow adjoining {html.escape(beach["name"])} and water" viewBox="0 0 580 280">']
+        for variant, x, ground in [(meadow, 0, 'GRASS'), (beach, 250, 'SAND')]:
+            diagram = svg_for(variant, d, prefix=prefix, ground=ground)
+            diagram = diagram.replace('<svg role=', f'<svg x="{x}" y="25" width="250" height="250" role=', 1)
+            parts.append(diagram)
+        water_id = prefix + 'water'
+        parts.append(ground_pattern('WATER', water_id, 10))
+        parts.append(f'<rect x="500" y="25" width="80" height="250" fill="url(#{water_id})"/>')
+        treasure = beach.get('shoreTreasure')
+        tiers = [treasure['tier']] * treasure['count'] if treasure else beach.get('reef', {}).get('chestTiers', [])
+        for i, tier in enumerate(tiers):
+            y = 65 + i * 40
+            parts.append(art_image({'sheet': 'chest', 'frames': [tier-1]}, f'class="sprite-cell" x="501" y="{y}" width="9" height="9"'))
+            parts.append(f'<rect class="geometry-cell" x="501" y="{y}" width="9" height="9" fill="#f6d483"><title>T{tier} water-edge chest</title></rect>')
+        parts.append('<g fill="#e5ecdf" font-size="11"><text x="8" y="16">Marine Meadow · grass</text>' + f'<text x="258" y="16">{html.escape(beach["name"])} · sand</text><text x="507" y="16">Water</text></g></svg>')
+        chest_note = (' Water-edge finds: ' + ', '.join(f'T{tier}' for tier in tiers) + '.') if tiers else ''
+        cards.append(f'<article id="adjoining-{beach["id"]}"><h3>Marine Meadow + {html.escape(beach["name"])}</h3><figure>{"".join(parts)}<figcaption>One continuous park, beach and shoreline sample · one cell = 7 m</figcaption></figure><p>Grass keeps the meadow’s mixed coastal plants and objects; the adjoining sand keeps its beach identity.{chest_note}</p></article>')
+    return '<section id="beach-parks"><h2>Beach parks · Marine Meadow</h2><p>A park adjoining a beach becomes a Marine Meadow. These representative layouts use the current grass, beach and shoreline definitions. Live boundaries, access restrictions and occupied cells clip placement; the samples do not reproduce a surveyed site.</p><div class="cards">' + ''.join(cards) + '</div></section>'
+
+
+def viewer_navigation_script():
+    return """<script>
+(() => {
+  const panels = [...document.querySelectorAll('[data-view-panel]')];
+  const tabs = [...document.querySelectorAll('[data-view]')];
+  function selectView() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const target = document.getElementById(id);
+    const active = target?.closest('[data-view-panel]') || panels.find(p => p.id === 'basic-zones');
+    for (const panel of panels) panel.hidden = panel !== active;
+    for (const tab of tabs) {
+      if (tab.dataset.view === active.id) tab.setAttribute('aria-current', 'page');
+      else tab.removeAttribute('aria-current');
+    }
+    if (target && target !== active) requestAnimationFrame(() => target.scrollIntoView());
+  }
+  addEventListener('hashchange', selectView);
+  selectView();
+})();
+</script>"""
+
+
 def render(d, out):
     validate(d)
-    d = {**d, 'variants': [v for v in d['variants'] if v.get('selectable', True)]}
+    d = {**d, 'variants': [v for v in d['variants'] if v.get('selectable', True) or v['id'] == 'marine_meadow']}
     helper = pathlib.Path(__file__).with_name('preview_street_variants.js')
     streets = json.loads(subprocess.check_output(['node', str(helper)], text=True))
     out.mkdir(parents=True, exist_ok=True)
@@ -786,7 +852,7 @@ def render(d, out):
             reef_note = f'<p>Up to {reef["landOre"]["count"]} scattered pick-gated ore rocks on land; coral extends into nearby water with up to {len(reef["chestTiers"])} one-time T2–T3 chests within dry-shore reach.</p><svg viewBox="0 0 192 48">' + ''.join(f'<g transform="translate({i*48},0)">'+art_image({'sheet':'reef_coral','frames':[i]}, 'width="48" height="48"')+'</g>' for i in range(4)) + '</svg><p><a href="/zone-object-sheets/#live-mystic_reef">See the water treatment at a real site</a></p>'
         cards.append(f'''<article id="{v['id']}"><p data-sandbox="{v['zone']}"></p><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p>{reef_note}<dl><dt>Traits</dt><dd>{html.escape(", ".join(art_registry()["zoneTraits"].get(v["id"], []))) or "Neutral"}</dd><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Shrine</dt><dd>{html.escape(shrine_text)}</dd><dt>Finds</dt><dd>{html.escape(find_text)} · {v['finds']['rarity']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Monsters</dt><dd>{guard_text}</dd><dt>Lighting</dt><dd><span class="swatch" style="background:{light_color}"></span>{light_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
     page = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Zone and street variants · pattern review</title><style>
-*{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
+*{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}[hidden]{display:none!important}.view-tabs a[aria-current="page"]{background:#95d7d1;color:#101a15;font-weight:700}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
     page = page.replace('</style>', art_styles() + '</style>')
     counts = collections.Counter(v['zone'] for v in d['variants'])
     category_names = {'grove': 'Groves and gardens', 'stones': 'Churchyards and stone', 'tar': 'Tar yards', 'beach': 'Beaches', 'quarry': 'Quarries'}
@@ -794,12 +860,12 @@ def render(d, out):
     quick_links = ''.join(f'<a href="#category-{key}">{category_names.get(key, key.title())} ({counts[key]})</a>' for key in categories)
     if 'quarry' in categories:
         quick_links += '<a href="#quarry-drafts">Parking-lot stories (4)</a>'
-    quick_links += '<a href="#roads-minor">Minor roads</a><a href="#roads-major">Major roads</a><a href="#roads-path">Scenic paths</a><a href="#basic-zones">Basic tile zones</a>'
-    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav" aria-label="Zone categories">{quick_links}</nav>'
+    quick_links += '<a href="#beach-parks">Beach parks</a>'
+    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav view-tabs" aria-label="Viewer sections"><a href="#basic-zones" data-view="basic-zones">Basic zones</a><a href="#streets" data-view="streets">Roads</a><a href="#zones" data-view="zones">Nexus</a></nav>'
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
     generated_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
     page += f'<p>Static snapshot generated {generated_at} from the checked-out game definitions and shipped art. This page does not fetch live game data; regenerate it after changes.</p>'
-    page += '<section id="zones"><h2>Special zones</h2><p>Runtime definitions at generation time. Previews show representative patterns before terrain and occupied cells clip placement. <a href="zone-variants.json">Zone data</a></p>'
+    page += '<section id="zones" data-view-panel hidden><h2>Nexus</h2><nav class="page-nav" aria-label="Nexus categories">' + quick_links + '</nav><p>Runtime definitions at generation time. Previews show representative patterns before terrain and occupied cells clip placement. <a href="zone-variants.json">Zone data</a></p>'
     for key in categories:
         page += f'<section id="category-{key}"><h2>{category_names.get(key, key.title())}</h2>'
         if key == 'quarry':
@@ -807,7 +873,7 @@ def render(d, out):
         page += '<div class="cards">'
         page += ''.join(card for variant, card in zip(d['variants'], cards) if variant['zone'] == key)
         page += '</div></section>'
-    page += '</section>' + street_section(streets) + basic_tile_section() + art_script() + basic_tile_script() + '</body></html>'
+    page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + viewer_navigation_script() + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
     (out/'street-variants.json').write_text(json.dumps(streets, indent=2)+'\n')
     (out/'zone-variants.json').write_text(json.dumps(d,indent=2)+'\n')

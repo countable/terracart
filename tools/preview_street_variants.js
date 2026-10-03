@@ -13,19 +13,7 @@ vm.createContext(ctx);
 for (const name of ['enemy_roster', 'sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'interactables', 'loot', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
-// The pure lamp method and its footprint constants are lifted exactly as in
-// test/node/run.js. Fail loudly if its boundaries change; never substitute a
-// second implementation or an independent spacing/offset number.
-const app = read('app');
-for (const name of ['STREET_LAMP_DARK_CELLS', 'STREET_LAMP_R_CELLS']) {
-  const match = app.match(new RegExp(`\nconst ${name} = [\\s\\S]*?;\n`));
-  if (!match) throw new Error(`Cannot load ${name} from app.js`);
-  vm.runInContext(match[0], ctx);
-}
-const start = app.indexOf('  _streetLampsForTile(tx, ty, entry) {');
-const end = app.indexOf('  // The lamps near the frame', start);
-if (start < 0 || end < start) throw new Error('Cannot load street lamp placement from app.js');
-vm.runInContext('globalThis.previewLampPass = {\n' + app.slice(start, end) + '\n};', ctx);
+// Use the same shared geometry pass as the scene street-lamp renderer.
 
 const WG = ctx.WorldGen, SV = ctx.StreetVariants;
 const extent = 4096, tx = 2622, ty = 5615;
@@ -105,7 +93,7 @@ function preview(row) {
     spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass,
       spawnWhy: tile.spawnWhy, occupied: ctx.RoadOverlay.lampReservedCells(tx, ty,
         { ...tile, layers, tileEdgeM, cellsPerEdge: N }), pois: [] } });
-  const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
+  const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   const objects = [...dress.objects, ...dress.wildplants, ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
   const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
@@ -142,7 +130,7 @@ function previewPath(row) {
   const dress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [],
     spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass, spawnWhy: tile.spawnWhy, occupied: ctx.RoadOverlay.lampReservedCells(tx, ty,
       { ...tile, layers, tileEdgeM, cellsPerEdge: N }) } });
-  const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
+  const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
   return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,

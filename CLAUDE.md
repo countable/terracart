@@ -257,6 +257,9 @@ Higher-priority placements and their access space take precedence in this order:
   traps, treasure and rooted enemies respect variant exclusions; a variant's
   own content does not use the general-fill veto. Fauna retain their intentional
   ability to share interactable cells and their terrain/road restrictions.
+  Nexus coverage also excludes ordinary beach bottles, tide reservations and
+  generic fauna. Within it, only the variant's declared fauna and `attracts`
+  row can add or attract animals; underlying shore/terrain rules do not apply.
 - Resolve equal-priority generated claims using stable world-space feature keys
   and buffered geometry, never iteration order, tile-load order or save state.
   Apply saved-player changes as overlays without rerolling the generated world.

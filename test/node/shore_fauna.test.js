@@ -81,7 +81,7 @@ function seat(b, caught = new Set(), order) {
   const was = globalThis.SHORE_FAUNA_ORDER;
   if (order) globalThis.SHORE_FAUNA_ORDER = order;
   try {
-    fn.call({ tileEdgeM: NB * CM }, creatures, b.shore, b.pierCells, NB, 3, 4, CM, b.grid, {}, {}, caught);
+    fn.call({ tileEdgeM: NB * CM }, creatures, b.shore, b.pierCells, NB, 3, 4, CM, b.grid, {}, {}, caught, b.coverage);
   } finally { globalThis.SHORE_FAUNA_ORDER = was; }
   return creatures;
 }
@@ -150,6 +150,17 @@ test('shore fauna: the shore pass runs inside spawnInTile, after every shared dr
   assert.lt(call, s.indexOf('this._cullOffLiveGround('), 'before the per-player cull');
   assert.gt(call, s.indexOf('const EXTRA_X_COUNT'), 'after the tile stream\'s last draw');
   assert.truthy(/else if \(t === WorldGen\.T\.PIER\) pierCells\.push/.test(s), 'the pier cells come out of the one grid pass');
+});
+
+test('shore fauna: beach nexus coverage excludes ambient shore and pier animals', () => {
+  const b = beach(); b.coverage = new Uint16Array(NB * NB);
+  for (const i of b.shore.cells) b.coverage[i] = 1;
+  for (const i of b.pierCells) b.coverage[i] = 1;
+  assert.eq(seat(b).length, 0);
+  for (const i of b.shore.cells) if (i < NB * 20) b.coverage[i] = 0;
+  const animals = seat(b);
+  assert.gt(animals.length, 0);
+  assert.truthy(animals.every(c => !b.coverage[cellOf(c)]));
 });
 
 })();

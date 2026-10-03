@@ -116,8 +116,8 @@
     assert.eq(report.slept, 1);
   });
 
-  test('zone runtime: eight variants attract existing fauna across union coverage', () => {
-    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 8);
+  test('zone runtime: authored variants attract existing fauna across union coverage', () => {
+    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 9);
     const N = 32, grid = new Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
     for (const row of ZoneVariants.rows) {
@@ -156,8 +156,7 @@
     }
     const pilgrim = new Uint8Array(N*N).fill(StreetVariants.STREET_VARIANTS.find(r=>r.id==='pilgrim').code);
     const present = run(pilgrim);
-    assert.inRange(present.moved,70,130,'a present Pilgrim road contributes only its configured 10% pull');
-    assert.gt(present.moved,baseline.moved,'present stronger grounds still take effect');
+    assert.eq(present.moved,0,'a street crossing a nexus cannot introduce unlisted fauna');
   });
 
   test('zone runtime: quiet grave variants leave natural birds in place without an extra gathering', () => {
@@ -237,7 +236,7 @@
     window.__TEST_MODE = false;
     try { spawn.call(scene, entry, 0, 0); } finally { window.__TEST_MODE = prior; }
     assert.falsy(entry.creatures.some(c => c.id.startsWith('plant_')));
-    assert.gt(entry.creatures.filter(c => c.kind === 'crow').length, 0);
+    assert.eq(entry.creatures.filter(c => c.kind === 'crow').length, 0, 'empty nexus cells reject generic fauna too');
     assert.eq(entry.traps.length, 1);
     assert.eq(entry.traps[0].id, trap.id);
     assert.eq(entry._ambientSpawnOpts.occupied.size, N * N);

@@ -395,6 +395,11 @@
       "recordType": "enemy",
       "spawnClass": "enemy",
       "color": "#99754b"
+    },
+    "crab": {
+      "recordType": "enemy",
+      "kind": "crab",
+      "spawnClass": "fauna"
     }
   },
   "variants": [
@@ -1204,6 +1209,134 @@
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
+      }
+    },
+    {
+      "id": "marine_meadow",
+      "zone": "grove",
+      "name": "Marine meadow",
+      "weight": 1,
+      "selectable": false,
+      "ground": "GRASS",
+      "background": {
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_global_cell_hash",
+        "orientation": "quarter_turn_toward_approach",
+        "nominalDensity": 0.28,
+        "materialDensity": {
+          "grass": 0.14,
+          "shrub": 0.06,
+          "shell": 0.03,
+          "driftwood": 0.03,
+          "barrel": 0.02
+        },
+        "type": "seeded_scatter",
+        "seed": "anchor_key + variant_id + global_cell_coordinates",
+        "sampling": "one_hash_for_occupancy_then_independent_hash_for_material",
+        "previewCells": [
+          24,
+          24
+        ],
+        "poiOrigin": {
+          "cell": [
+            0,
+            0
+          ],
+          "role": "scatter_seed_origin"
+        }
+      },
+      "poi": {
+        "id": "marine_meadow_clearing",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "shell"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true
+        }
+      },
+      "finds": {
+        "rarity": "medium",
+        "material": "shell",
+        "targets": [
+          {
+            "id": "shell-1",
+            "radiusFraction": [
+              -0.4,
+              0.3
+            ]
+          },
+          {
+            "id": "shell-2",
+            "radiusFraction": [
+              0.4,
+              0.3
+            ]
+          }
+        ],
+        "spawnClass": "attractor",
+        "owner": "anchor",
+        "relocation": {
+          "unit": "group",
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "count": 2
+      },
+      "connection": {
+        "shape": "none"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "A grassy beach park with open walking space, low shrubs, washed-up shells, driftwood and barrels. The adjoining sand keeps its own beach nexus.",
+      "attracts": {
+        "rabbit": 0.4,
+        "butterfly": 0.4,
+        "crab": 0.5
       }
     },
     {
@@ -7331,12 +7464,25 @@
       "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine. Its 3 × 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. A one-time T3 treasure chest sits inside the hull alongside the shrine's daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains.",
       "decorations": [
         {
-          "material": "amphora",
-          "count": 1
+          "material": "barrel",
+          "count": 3
+        },
+        {
+          "material": "driftwood",
+          "count": 4
+        },
+        {
+          "material": "crab",
+          "count": 3
         }
       ],
       "materialLooks": {
         "rubble": "zone_rock_pirate_cove"
+      },
+      "shoreTreasure": {
+        "count": 2,
+        "tier": 2,
+        "spacingCells": 3
       }
     },
     {

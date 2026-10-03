@@ -45,8 +45,8 @@
     const anchor = r.zone.anchors.find(a => /maude roxby/i.test(a.name || ''));
     assert.truthy(anchor, 'real wetland fixture');
     const cell = o => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
-    assert.gt(r.zone.legacyRemovedByAnchor[`grove:${anchor.gx},${anchor.gy}`].street, 0,
-      'fixture actually exercises scenic replacement');
+    assert.truthy(r.scenic.grassSeats.some(p => r.zone.coverage[Math.floor(p.y * N / r.scenic.ext) * N + Math.floor(p.x * N / r.scenic.ext)]),
+      'fixture has scenic grass candidates inside nexus; they are refused before placement');
     for (const o of r.scenicDress.wildplants.filter(o => o._street)) {
       assert.falsy(r.zone.coverage[cell(o)], 'greenway grass remains only outside zone coverage');
     }

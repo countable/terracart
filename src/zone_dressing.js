@@ -15,14 +15,15 @@
     const step = tileEdgeM / N, ox = tx * tileEdgeM, oy = ty * tileEdgeM;
     for (let ai = 0; ai < field.anchors.length; ai++) {
       const a = field.anchors[ai];
-      if (!a.owned || a.parkShore || a.generated || V.pick(a).id !== 'pirate_cove') continue;
-      const chest = (ctx.chests || []).find(o => o.kind === 'chest' && o._poiAt === `${a.lx},${a.ly}`);
-      if (!chest) continue;
+      if (!a.owned || a.generated || V.pick(a).id !== 'pirate_cove') continue;
+      let chest = !a.parkShore && (ctx.chests || []).find(o => o.kind === 'chest' && o._poiAt === `${a.lx},${a.ly}`);
+      const synthetic = !chest;
+      if (!chest) chest = { x: ox + a.lx * tileEdgeM / EXT, y: oy + a.ly * tileEdgeM / EXT };
       const extent = root.SpriteLayout.SHIPWRECK_SHRINE_ART.extentCells;
       const radius = Math.floor(extent / 2);
       const original = [Math.floor((chest.x - ox) / step), Math.floor((chest.y - oy) / step)];
       const originalIndex = original[1] * N + original[0];
-      const free = new Set(occ); free.delete(originalIndex);
+      const free = new Set(occ); if (!synthetic) free.delete(originalIndex);
       const shrineOpts = { ...opts, occupied: free };
       const [ax, ay] = V.rotate(0, -radius - 1, V.rotation(a));
       const footprint = (x, y) => {
@@ -52,7 +53,7 @@
       Object.assign(chest, { x: ox + (seat[0] + 0.5) * step, y: oy + (seat[1] + 0.5) * step,
         _ix: seat[0], _iy: seat[1], _shrineArt: 'shipwreck', _shrineExtentCells: extent });
       for (const i of reserved) occ.add(i);
-      reservations.set(a.key, { seat, reserved, originalIndex });
+      reservations.set(a.key, { seat, reserved, originalIndex, synthetic });
     }
     return reservations;
   }
@@ -204,10 +205,17 @@
     }
     const wrecks = ctx.wreckReservations || (yield* reserveWrecksSteps(ctx));
     for (const s of states) {
-      if (!s.chest || s.variant.id !== 'pirate_cove') continue;
+      if (!s.a.owned || s.variant.id !== 'pirate_cove') continue;
       const wreck = wrecks.get(s.a.key);
       if (!wreck) { s.rec.shortfalls.push('shrine:shipwreck'); continue; }
       s.poi = wreck.seat; s.shipwreck = true;
+      if (wreck.synthetic) {
+        const [x, y] = position(...s.poi);
+        s.chest = WG.makeObject('chest', x, y, `wreck_shrine_${V.identity(s.a)}`,
+          { zoneAnchor: s.a.key, _ix: s.poi[0], _iy: s.poi[1], _shrineArt: 'shipwreck',
+            _shrineExtentCells: root.SpriteLayout.SHIPWRECK_SHRINE_ART.extentCells });
+        out.objects.push(s.chest);
+      }
       s.clear.add(wreck.originalIndex);
       out.reservedCells = out.reservedCells || new Set();
       for (const i of wreck.reserved) { occ.add(i); s.clear.add(i); out.reservedCells.add(i); }
@@ -504,6 +512,41 @@
         const frame = root.QuarryLayout.wallFrameAt(walls, i, N);
         plan.background.set(i, frame == null ? 'stone' : 'stronghold_wall');
         if (frame != null) plan.wallFrames.set(i, frame);
+      }
+    }
+    // Authored water treasure occupies only the first water cell off eligible
+    // shore. Keep both the water reward and its walkable approach out of exclusions.
+    for (const s of states) {
+      const config = s.variant.shoreTreasure;
+      if (!s.a.owned || !config) continue;
+      const candidates = new Set(), waterOpts = { ...opts, waterOnly: true };
+      const shoreOpts = { ...opts, occupied: null };
+      for (const i of s.cells) {
+        if ((i & 255) === 0) yield 'beach water treasure';
+        const x = i % N, y = Math.floor(i / N);
+        if (!WG.isSpawnCell(grid, N, N, x, y, shoreOpts, 'reward')) continue;
+        for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const nx = x + dx, ny = y + dy;
+          const j = ny * N + nx;
+          const owner = states[coverage[j] - 1]?.a;
+          const sameSite = owner && owner.gx === s.a.gx && owner.gy === s.a.gy && owner.key === s.a.key;
+          if ((!coverage[j] || coverage[j] === s.ai + 1 || sameSite)
+              && WG.isSpawnCell(grid, N, N, nx, ny, waterOpts, 'reward')) candidates.add(j);
+        }
+      }
+      const seats = [], ranked = [...candidates].sort((a,b) =>
+        Z.cellU01(tx * N + a % N, ty * N + Math.floor(a / N), 0xb34c)
+        - Z.cellU01(tx * N + b % N, ty * N + Math.floor(b / N), 0xb34c) || a - b);
+      for (const i of ranked) {
+        if (seats.length >= config.count) break;
+        const ix = i % N, iy = Math.floor(i / N);
+        if (!WG.isSpawnCell(grid, N, N, ix, iy, waterOpts, 'reward')
+            || seats.some(j => (ix-j%N)**2 + (iy-Math.floor(j/N))**2 < config.spacingCells**2)) continue;
+        const [x,y] = position(ix,iy);
+        out.objects.push(WG.makeObject('chest', x, y, WG.cellId(`shore_chest_${s.a.key}`,tx,ty,ix,iy),
+          { tierSeed: config.tier, zone: s.a.kind, zoneVariant: s.variant.id, zoneAnchor: s.a.key,
+            zoneLayer: 'shore_find', _ix: ix, _iy: iy }));
+        occ.add(i); seats.push(i);
       }
     }
     // Small finite accents belong to the source anchor, not every repeating

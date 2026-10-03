@@ -686,6 +686,10 @@
     // step to the kerb of a major road), off the road mask and whatever the
     // tile already put there.
     const rewardOk = (ix, iy) => inSq(ix, iy) && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
+    // Mapped viewpoints keep landmark priority. Procedural scenic rewards
+    // yield the full nexus area, including cells its layout leaves empty.
+    const zoneCoverage = ctx.zone && (ctx.zone.coverage || ctx.zone.idx);
+    const ambientRewardOk = (ix, iy) => !zoneCoverage?.[iy * N + ix] && rewardOk(ix, iy);
     const rc = spawnOpts.roadClass || null;
     const seatOffsets = seatOffsetsWithin(VISTA_SEAT_CELLS);
 
@@ -737,7 +741,7 @@
       const p = st.at;
       if (!p) continue;
       const pix = Math.floor(p.x * N / ext), piy = Math.floor(p.y * N / ext);
-      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, rewardOk) : null;
+      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, ambientRewardOk) : null;
       if (!s) continue;
       claim(s.ix, s.iy);
       res.objects.push(WG.makeObject('chest', cx(s.ix), cy(s.iy), WG.cellId('vista', tx, ty, s.ix, s.iy),
@@ -756,7 +760,7 @@
       if (shrinesSeated >= Sh.SCENIC_SHRINES_PER_TILE) break;
       yield 'scenic shrines';
       const pix = Math.floor(st.at.x * N / ext), piy = Math.floor(st.at.y * N / ext);
-      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, rewardOk) : null;
+      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, ambientRewardOk) : null;
       if (!s) continue;
       claim(s.ix, s.iy);
       shrinesSeated++;
@@ -767,6 +771,8 @@
     // MESSAGE BOTTLES: before the tide pool, so a bottle's cell is claimed
     // and never doubles as a tide seat.
     const sh = sc.shore;
+    // A nexus owns even its empty cells. Ordinary beach rewards must not
+    // reserve its waterline before the authored layout gets a chance to seat.
     if (sh && sh.waterline.length) {
       yield 'scenic bottles';
       const seats = [];
@@ -774,7 +780,7 @@
       for (const i of sh.waterline) {
         if ((scanned++ & 255) === 0) yield 'scenic bottle eligibility';
         const ix = i % N, iy = Math.floor(i / N);
-        if (!rewardOk(ix, iy)) continue;
+        if (!ambientRewardOk(ix, iy)) continue;
         const id = WG.cellId('bottle', tx, ty, ix, iy);
         seats.push({ ix, iy, id, h: u01('bottle|' + id) });
       }
@@ -795,7 +801,7 @@
       for (const i of sh.waterline) {
         if ((scanned++ & 255) === 0) yield 'scenic tide eligibility';
         const ix = i % N, iy = Math.floor(i / N);
-        if (rewardOk(ix, iy)) pool.push(i);
+        if (ambientRewardOk(ix, iy)) pool.push(i);
       }
       const want = tideCount(sh.shoreM);
       const p = pool.length ? Math.min(1, want / pool.length) : 0;
@@ -818,7 +824,7 @@
     for (const p of sc.grassSeats || []) {
       if ((grassCount++ % 128) === 0) yield 'scenic greenway grass';
       const ix = Math.floor(p.x * N / ext), iy = Math.floor(p.y * N / ext);
-      if (!inSq(ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor')) continue;
+      if (!inSq(ix, iy) || zoneCoverage?.[iy * N + ix] || !WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor')) continue;
       claim(ix, iy);
       res.wildplants.push(WG.makeWildplant('longgrass', cx(ix), cy(iy), WG.cellId('greenway_grass', tx, ty, ix, iy),
         { _street: 'greenway' }));
