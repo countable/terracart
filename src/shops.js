@@ -97,7 +97,17 @@
   // nearest tier the line actually stocks (ties go LOWER), since no line has
   // an item at every tier. The relic line is gear, rolled by Gear.buildRelicOffer
   // (never at or below what the player already wears), so it has no pool here.
-  const THEMES = ['seed', 'supply', 'potion', 'ore', 'relic', 'pet'];
+  // THE CYCLE: the lines a Shop card offers, round and round a tier up
+  // (themeAt). The Book and Pet lines are NOT in it — see SOLO_LINES.
+  const THEMES = ['seed', 'supply', 'potion', 'ore', 'relic'];
+  // ONE-OFF LINES (owner, Oct 2026): a line exactly ONE market per save
+  // sells, outside the cycle — the Book Shop (save.bookshopId, from the 15th
+  // restore) and the Pet Shop (save.petshopId, from the 12th), each its own
+  // card in houses.js BUILD_OPTIONS (`solo`, stamped by registerSoloShop).
+  // A solo shop is a market plus its stamp: shopOrder and marketLines skip
+  // it, so the markets after it keep the lines they would have had, and the
+  // line never comes round again at a higher tier — it is always T1.
+  const SOLO_LINES = Object.freeze({ book: 'bookshopId', pet: 'petshopId' });
   const THEME_LABEL = {
     seed: 'Seed Shop', supply: 'Supply Shop', potion: 'Magic Shop',
     ore: 'Ore Shop', relic: 'Relic Shop', pet: 'Pet Shop',
@@ -148,7 +158,7 @@
     if (rh[house.id] === 'market') {
       let n = 0;
       for (const id of Object.keys(rh)) {
-        if (rh[id] !== 'market' || isBookshop(save, id)) continue;   // the bookshop takes no place in the cycle
+        if (rh[id] !== 'market' || isSoloShop(save, id)) continue;   // a solo shop takes no place in the cycle
         if (id === house.id) return n;
         n++;
       }
@@ -156,14 +166,19 @@
     return fnv1a(String(house.id) + '|theme') % THEMES.length;
   }
 
-  // THE BOOKSHOP: the market the player picked the Book Shop card for, on offer
-  // from the STORY_RESTORES.bookshop-th restoration (houses.js restoreAs stamps
-  // save.bookshopId). It sells the Book line and stands OUTSIDE the cycle above:
-  // shopOrder skips it, so later markets keep the lines they would have had.
-  // Every themed-shop reader goes through lineFor, never themeAt directly.
-  function isBookshop(save, houseId) {
-    return !!(save && save.bookshopId != null && houseId != null && String(houseId) === String(save.bookshopId));
+  // The solo line this house was stamped with (SOLO_LINES), or null for a
+  // market of the cycle. Every themed-shop reader goes through lineFor,
+  // never themeAt directly.
+  function soloLine(save, houseId) {
+    if (!save || houseId == null) return null;
+    for (const theme of Object.keys(SOLO_LINES)) {
+      const id = save[SOLO_LINES[theme]];
+      if (id != null && String(houseId) === String(id)) return theme;
+    }
+    return null;
   }
+  function isSoloShop(save, houseId) { return soloLine(save, houseId) != null; }
+  function isBookshop(save, houseId) { return soloLine(save, houseId) === 'book'; }
   // THE LINE IS THE PLAYER'S PICK: a market restored off the Shop cards carries
   // its chosen line in save.shopLines[id] (houses.js restoreAs); its TIER is one
   // more than the markets before it on the same line. A market with no stored
@@ -176,9 +191,11 @@
     let n = 0;
     const seen = {};
     for (const id of Object.keys(rh)) {
-      if (rh[id] !== 'market' || isBookshop(save, id)) continue;
+      if (rh[id] !== 'market' || isSoloShop(save, id)) continue;
       let theme, tier;
-      if (THEMES.includes(stored[id])) { theme = stored[id]; tier = 1 + (seen[theme] || 0); }
+      // Any line the pools know (a market picked as a Pet Shop before the
+      // line left the cycle keeps selling pets), else the cycle's answer.
+      if (THEME_POOL[stored[id]]) { theme = stored[id]; tier = 1 + (seen[theme] || 0); }
       else ({ theme, tier } = themeAt(n));
       seen[theme] = (seen[theme] || 0) + 1;
       out.push({ id, theme, tier });
@@ -187,9 +204,10 @@
     return out;
   }
   function lineFor(save, house) {
-    if (house && isBookshop(save, house.id)) return { theme: 'book', tier: 1 };
+    const solo = house ? soloLine(save, house.id) : null;
+    if (solo) return { theme: solo, tier: 1 };
     const stored = save?.shopLines?.[house?.id];
-    if (house && THEMES.includes(stored)) {
+    if (house && THEME_POOL[stored]) {
       const row = marketLines(save).find((r) => r.id === String(house.id));
       if (row) return { theme: row.theme, tier: row.tier };
     }
@@ -200,15 +218,15 @@
     return 1 + marketLines(save).filter((r) => r.theme === theme).length;
   }
   // The line the next shop would sell: the one Shop card before the pairs begin
-  // (marketOffers); counts every restored market but the bookshop.
+  // (marketOffers); counts every restored market but the solo shops.
   function nextLine(save) {
     return themeAt(marketLines(save).length);
   }
   // THE SHOP CARDS ON OFFER for restore `order` (0-based; houses.js
   // BUILD_OPTIONS market row). Until restore number MARKET_PAIR_FROM one
   // card, the cycle's next line; from then on TWO lines, and the pair moves
-  // on with every restore — six lines, so the same pair comes round every
-  // third rebuild. Each names the tier the pick would carry (lineTierFor).
+  // on with every restore — five lines, so the same pair comes round every
+  // fifth rebuild. Each names the tier the pick would carry (lineTierFor).
   const MARKET_PAIR_FROM = 9;
   function marketOffers(save, order) {
     const n = (order | 0) + 1;
@@ -306,7 +324,7 @@
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
-    THEMES, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineTierFor, nextLine, MARKET_PAIR_FROM, marketOffers, themedStock, itemTier,
+    THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineTierFor, nextLine, MARKET_PAIR_FROM, marketOffers, themedStock, itemTier,
     SMITH_TIER_EVERY, TRADER_TIER_EVERY, SHOP_TIER_MAX, smithCount, smithTier, nextSmithTier, smithUnlockAt, traderTierAt, traderTier, shopTier, tierAffinity, pickThemed, petItems,
   };
 })(window);
