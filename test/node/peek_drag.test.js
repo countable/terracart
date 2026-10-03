@@ -183,7 +183,7 @@ test('peek drag: no drag can outrun the loaded world', () => {
 
 test('peek drag: carrying a telescope restores three cells without stacking', () => {
   for (const count of [0, 1, 2]) {
-    const s = peekScene({ save: { inv: [{ id: 'telescope', count }] } });
+    const s = peekScene({ save: { inv: [{ id: 'field_scope', count }] } });
     s._setPeekFromDrag(4000, 4000);
     near(Math.hypot(s.peekM.x, s.peekM.y) / s.cellM, count ? 3 : 1.5, 1e-9,
       'only a positive owned count extends the camera');

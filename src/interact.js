@@ -722,7 +722,7 @@ const TAP_HANDLERS = [
     // Per-kind horizontal grab half-width (m).
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
-      chicken: 1.5, crab: 1.5, turtle: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7, raven: 1.7, horse: 2.2, boar: 1.7,
+      chicken: 1.5, crab: 1.5, sea_turtle: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7, raven: 1.7, horse: 2.2, boar: 1.7,
       slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
@@ -843,11 +843,11 @@ const TAP_HANDLERS = [
       // the catch wheel below already uses.
       // The net uses the shared spec tool ladder via toolDurationMs (wood 4s …
       // frost .3s). No net = tier 0 (bare hands): 9s — slow but always possible.
-      // Named plainly, not `r.bugnet ? 'bugnet' : null`: toolDurationMs already
+      // Named plainly, not `r.bugnet ? 'net' : null`: toolDurationMs already
       // answers an unowned slot with the bare-handed rung, and the wheel's tool
       // badge answers "you own no net, so wear none" in _setWorkProgressIcon —
       // the one place that test lives.
-      const netSlot = 'bugnet';
+      const netSlot = 'net';
       const durMs = toolDurationMs(r, netSlot);
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
@@ -914,7 +914,7 @@ const TAP_HANDLERS = [
     if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort',
-                      crab: 'click', horse: 'whinny', turtle: 'blink' };
+                      crab: 'click', horse: 'whinny', sea_turtle: 'blink' };
       const sound = SOUND[target.kind] || 'happy';
       // Petting accepts the favourite OR plant produce as a treat. Treats
       // get consumed; an empty-handed pet is free. animalLikesFood handles
@@ -1052,7 +1052,7 @@ const TAP_HANDLERS = [
     // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
     // that a slow target usually slips out of reach and escapes. Butterflies
     // catch bare-handed too — no tool gate.
-    let catchMs = toolDurationMs(save.relics, 'bugnet') * CATCH_SPEED_MUL;
+    let catchMs = toolDurationMs(save.relics, 'net') * CATCH_SPEED_MUL;
     // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
     // a shiny animal (which also flees at SHINY_SPEED_MUL, app.js) is much harder to net: it
     // has more time to slip out of reach and escape. Plain kinds are unchanged.
@@ -1073,7 +1073,7 @@ const TAP_HANDLERS = [
       // On the cell the animal escaped FROM (where it stands now), not the
       // viewport centre.
       scene.flashAtWorld('🏃 it got away', victim.x, victim.y);
-    }, 'bugnet', catchCost);
+    }, 'net', catchCost);
     return true;
   }},
 
@@ -1081,7 +1081,7 @@ const TAP_HANDLERS = [
   { name: 'disarm-obstacle', try: (ctx) => {
     const { scene, save, wm } = ctx;
     const sel = getSelectedSlot(save);
-    if (!(sel?.id === 'trap_kit' && sel.count > 0)) return false;
+    if (!(sel?.id === 'trap_disarm_kit' && sel.count > 0)) return false;
     const spent = spentSets(scene, save);
     const accepts = o => isTrapKitObstacle(o) && !isSpent(o, spent);
     const o = findItemInTapCell(scene, 'wildplants', wm, accepts)
@@ -1118,7 +1118,7 @@ const TAP_HANDLERS = [
         return true;
       }
       const selected = getSelectedSlot(save);
-      if (rule?.disarmWithKit && selected?.id === 'trap_kit' && selected.count > 0) {
+      if (rule?.disarmWithKit && selected?.id === 'trap_disarm_kit' && selected.count > 0) {
         save.picked = [...(save.picked || []), wp.id];
         const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
         if (!kept) consumeSelected(save);
@@ -1345,7 +1345,7 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cell } = ctx;
     if (typeof Traps === 'undefined') return false;
     const sel = getSelectedSlot(save);
-    if (!(sel && sel.id === 'trap_kit' && (sel.count ?? 0) > 0)) return false;
+    if (!(sel && sel.id === 'trap_disarm_kit' && (sel.count ?? 0) > 0)) return false;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
     const trap = entry ? Traps.trapAt(entry, cell.ix, cell.iy) : null;
     // isTrapDisarmed / disarmTrap: a goblin's LAID snare keeps its state on
@@ -1473,7 +1473,7 @@ const TAP_HANDLERS = [
     if (!scene.placedRockSet.has(cellKey)) return false;
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.placedRockSet.delete(cellKey);
-      scene.addToInv('rockfruit', 1);
+      scene.addToInv('rubble', 1);
       persistSave(save);
       scene.flash('⛏ rock', sx, sy);
     });
@@ -1536,7 +1536,7 @@ const TAP_HANDLERS = [
   // scarecrow repels crows/deer — and slowly restores energy to anyone resting
   // near it (see app.js). Coal is consumed; the fire persists until tapped out.
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
-    itemId: 'coal',
+    itemId: 'flint_shard',
     extraGuard: ({ scene, save, cwmx, cwmy }) =>
       PlacedFloor.indexAt(save.fires, cwmx, cwmy, scene.depth, 0.1) < 0,
     place: ({ scene, save, cwmx, cwmy }) => {
@@ -1592,7 +1592,7 @@ const TAP_HANDLERS = [
 
   // 2-place-rock) With rockfruit selected, drop a stone on an empty tillable cell.
   { name: 'place-rock', try: (ctx) => placeOnEmptyCell(ctx, {
-    itemId: 'rockfruit',
+    itemId: 'rubble',
     energyKey: 'rockPlace',
     place: ({ scene, cellKey }) => {
       scene.placedRockSet.add(cellKey);
@@ -1701,7 +1701,7 @@ const TAP_HANDLERS = [
       // The can does ONE thing now: the growth jump above — how soon you get
       // it. WHAT you get (produce quality) is the bed's, set by the hoe that
       // tilled it and banked on the crop at planting (Crops.bedQuality).
-      const can = save.relics?.can;
+      const can = save.relics?.watering_can;
       ctx.dirty = true;
       // Say what the tap DID, like every other farm action does ('tilled',
       // 'planted …', 'harvested …'): until Sep 2026 this read only the stage
@@ -1744,14 +1744,14 @@ const TAP_HANDLERS = [
     // NOT the per-tier toolDurationMs ladder. Rod tier already scales the
     // catch table and the energy cost; letting it also shrink the cast to
     // 0.3s turned a Frost rod into a 3-casts-per-second money faucet.
-    const castMs = save.relics?.rod ? 3000 : 9000;
+    const castMs = save.relics?.fishing_rod ? 3000 : 9000;
     // Which spot this is, and whether a fish is secretly in it (items.js
     // FISH_STOCK_CHANCE / fishSpotStocked; the starter pond always is). A
     // spot already fished out is in save.fishedSpots for good.
     const spotId = fishSpotId(cell.tx, cell.ty, cell.ix, cell.iy);
     const stocked = inStarterPond(scene, cell) || fishSpotStocked(spotId);
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
-      const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
+      const tier = save.relics?.fishing_rod?.tier || 0;   // 0 = bare hands (worst odds)
       // An empty or fished-out spot looks and casts like any other and is
       // always an empty cast — the player learns where the fish are by
       // fishing. A spot still holding its fish always bites.
@@ -1792,7 +1792,7 @@ const TAP_HANDLERS = [
       const item = ITEM_BY_ID[pick];
       scene.flashLoot(`🐟 ${item?.name || pick}`, '#7adcff', 1, pick);
       if (shiny) scene.awardShinyBonus(pick, sx, sy);
-    }, castMs, 5, 'rod');   // castMs = locked cast time (9s bare / 3s rod); 5 = cancel refund
+    }, castMs, 5, 'fishing_rod');   // castMs = locked cast time (9s bare / 3s rod); 5 = cancel refund
     return true;
   }},
 
@@ -1808,7 +1808,7 @@ const TAP_HANDLERS = [
     if (cell.type !== TERRAIN.CAVE_WALL) return false;
     const cost = effectivePickCost(save.relics);
     if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
-    const durMs = toolDurationMs(save.relics, 'pick');
+    const durMs = toolDurationMs(save.relics, 'pickaxe');
     // First dig the save ever starts tells its story - after the spend, so a
     // tap that could not afford it tells none.
     scene._toolActionStory?.('dig');
@@ -1818,9 +1818,9 @@ const TAP_HANDLERS = [
       // one stone, flint on 30 % — the same one the auto-mine pays.
       const qty = caveWallDrop(scene);
       persistSave(save);
-      const item = ITEM_BY_ID['rockfruit'];
-      scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
-    }, durMs, cost || 0, 'pick');
+      const item = ITEM_BY_ID['rubble'];
+      scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rubble');
+    }, durMs, cost || 0, 'pickaxe');
     return true;
   }},
 

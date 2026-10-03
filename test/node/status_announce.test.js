@@ -68,7 +68,7 @@ test('status looks: every creature applier flags its look', () => {
   assert.eq(c._statusPop?.color, Buffs.KINDS.speed.color);
   c = foe(); PotionEffects.apply(scene, c, 'giant_potion', T0);
   assert.eq(c._statusPop?.label, Buffs.KINDS.giant.name);
-  c = foe(); PotionEffects.apply(scene, c, 'vigor_potion', T0);
+  c = foe(); PotionEffects.apply(scene, c, 'healing_potion', T0);
   assert.eq(c._statusPop, undefined, 'healing is not a status');
   // The frost (the powder and the magic trap's hold) and fear in app.js.
   const frost = app.match(/\n  useFrostPowder\(\) \{([\s\S]*?)\n  \}\n/)[1];

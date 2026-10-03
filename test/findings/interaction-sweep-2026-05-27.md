@@ -76,11 +76,11 @@ their relic set, *every* water tap refills it — fishing is unreachable.
 
 **Suggested fix (one of):**
 1. Gate `can-refill` on the can being the selected item:
-   `if (sel?.id !== 'can') return false;` (most surgical; rod-selected
+   `if (sel?.id !== 'watering_can') return false;` (most surgical; rod-selected
    water taps now fall through to fishing).
 2. Swap the order: put `fishing` before `can-refill`. Then rod-equipped
    water taps fish; otherwise the can refills.
-3. Gate `can-refill` on `!save.relics?.rod || sel?.id === 'can'` — i.e.
+3. Gate `can-refill` on `!save.relics?.rod || sel?.id === 'watering_can'` — i.e.
    refill only if the player has no rod OR explicitly has the can in
    hand.
 

@@ -89,14 +89,14 @@ test('wildplant: nothing mints one by hand any more', () => {
 test('wildplant table: the old one-row maps, re-read from the table', () => {
   // HARVEST_OUTPUT = { shrub: 'wood' }
   assert.eq(wildplantOutput('shrub'), 'wood', 'a bush drops the wood mineral');
-  // WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' }
+  // WORK_RELIC = { rockfruit: 'pickaxe', shrub: 'axe' }
   assert.eq(wildplantWorkRelic('shrub'), 'axe', 'a bush is felling work');
-  assert.eq(wildplantWorkRelic('rockfruit'), 'pick', 'debris is rock work');
+  assert.eq(wildplantWorkRelic('rubble'), 'pickaxe', 'debris is rock work');
   // The `crop === 'mushroom'` light literals (lighting.js + render.js).
   assert.eq(wildplantLight('mushroom'), 'mushroom', 'a mushroom is a light');
   assert.eq(wildplantLight('shrub'), null, 'a bush is not');
   // WILD_TREASURE = { rockfruit: { chance: 0.1, bonus: 'gemfruit' } }
-  const t = wildplantTreasure('rockfruit');
+  const t = wildplantTreasure('rubble');
   assert.eq(t && t.bonus, 'gemfruit', 'debris still hides a gemfruit');
   assert.eq(t && t.chance, 0.1, 'at the same rate');
   assert.eq(wildplantTreasure('shrub'), null, 'a shrub has no treasure roll');
@@ -123,11 +123,11 @@ test('wildplant table: the work cost is the shared 9/3/1 tool curve', () => {
   assert.eq(wildplantWorkCost('shrub', {}, lo), 9, 'bare-handed chop is 9');
   assert.eq(wildplantWorkCost('shrub', { axe: { tier: 1 } }, lo), 3, 'a Wood axe is 3');
   assert.eq(wildplantWorkCost('shrub', { axe: { tier: 7 } }, lo), 1, 'a Frost axe is 1');
-  assert.eq(wildplantWorkCost('shrub', { pick: { tier: 7 } }, lo), 9,
+  assert.eq(wildplantWorkCost('shrub', { pickaxe: { tier: 7 } }, lo), 9,
     'and it reads the AXE tier, not whatever else is worn');
   // A relic-gated crop that is not CHARGED stays free: gathering loose rubble
   // off the ground costs nothing, it is only slow.
-  assert.eq(wildplantWorkCost('rockfruit', { pick: { tier: 0 } }, hi), 0, 'debris is free to gather');
+  assert.eq(wildplantWorkCost('rubble', { pickaxe: { tier: 0 } }, hi), 0, 'debris is free to gather');
 });
 
 // --- 3. The light asks the table, on both sides ----------------------------

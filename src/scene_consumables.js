@@ -35,7 +35,7 @@ class SceneConsumables {
 
   useHoney() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'honey' || (sel.count ?? 0) <= 0) return false;
+    if (!sel || sel.id !== 'taming_potion' || (sel.count ?? 0) <= 0) return false;
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
     let lured = 0;
@@ -45,7 +45,7 @@ class SceneConsumables {
         if (this.save.caught.includes(c.id)) continue;
         if (!SpriteLayout.creatureProduce(c.kind)) continue;
         const d = Math.hypot(c.x - pWX, c.y - pWY);
-        if (d > CONSUMABLE_SPEC.honey.radiusM) continue;
+        if (d > CONSUMABLE_SPEC.taming_potion.radiusM) continue;
         // Re-anchor the wander home toward the player. The wanderer's next
         // step picks a direction biased back toward _homeX/_homeY when it
         // drifts beyond ~3 cells, so this pulls them in over a few ticks.
@@ -240,10 +240,10 @@ class SceneConsumables {
   }
   readTomeSight() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_sight' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_sight')) return false;
+    if (!sel || sel.id !== 'tome_reach' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_reach')) return false;
     this.save.reachPotionUntil = Date.now() + REACH_POTION_MS * TOME_EFFECT_MUL;
-    this._tomeSpent('tome_sight');
+    this._tomeSpent('tome_reach');
     this.flash('✨ The sight tome opens', this.viewCenterX, this.viewCenterY);
     return true;
   }
@@ -259,8 +259,8 @@ class SceneConsumables {
   }
   readTomeStorm() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_storm' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_storm')) return false;
+    if (!sel || sel.id !== 'tome_thunder' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_thunder')) return false;
     const caughtSet = setOf(this.save.caught);
     const pc = this.playerToWorldCell();
     const targets = [];
@@ -280,7 +280,7 @@ class SceneConsumables {
       if (this._damageEnemy(c, TOME_THUNDER_DMG)) { felled++; continue; }
       if (!c.lair) monsterRout(c, now, this.cellM);
     }
-    this._tomeSpent('tome_storm');
+    this._tomeSpent('tome_thunder');
     this.flash('⚡ The storm tome speaks', this.viewCenterX, this.viewCenterY);
     return true;
   }
@@ -295,10 +295,10 @@ class SceneConsumables {
   }
   readTomeShield() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_shield' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_shield')) return false;
+    if (!sel || sel.id !== 'tome_shielding' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_shielding')) return false;
     this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS * TOME_EFFECT_MUL;
-    this._tomeSpent('tome_shield');
+    this._tomeSpent('tome_shielding');
     this.flash('✨ The shield tome opens', this.viewCenterX, this.viewCenterY);
     return true;
   }
@@ -328,7 +328,7 @@ class SceneConsumables {
 
   drinkVigorPotion() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'vigor_potion' || (sel.count ?? 0) <= 0) return false;
+    if (!sel || sel.id !== 'healing_potion' || (sel.count ?? 0) <= 0) return false;
     const max = this.getMaxEnergy();
     const restored = Math.min(VIGOR_POTION_ENERGY, max - (this.save.energy ?? 0));
     Energy.set(this.save, (this.save.energy ?? 0) + VIGOR_POTION_ENERGY, max);
@@ -468,7 +468,7 @@ class SceneConsumables {
 
   drinkShieldPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
+    if (!sel || sel.id !== 'shielding_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS;
     return this._finishConsumable(
       `\u2728 You drink the Potion of Shielding`,
@@ -1009,7 +1009,7 @@ class SceneConsumables {
   }
 
   useSpear() {
-    return this._throwItem('spear');
+    return this._throwItem('throwing_spear');
   }
 
   useJavelin() {
@@ -1017,7 +1017,7 @@ class SceneConsumables {
   }
 
   useRock() {
-    return this._throwItem('rockfruit');
+    return this._throwItem('rubble');
   }
 
   useForgetmenot() {
@@ -1301,7 +1301,7 @@ class SceneConsumables {
       const spec = CONSUMABLE_SPEC.miracle_lettuce;
       this.save.miracleLettuceUntil = Math.max(this.save.miracleLettuceUntil || 0, now + spec.durationMs);
       extra = `\n+${spec.luckBonus} Luck: ${shortDuration(this.save.miracleLettuceUntil - now)}`;
-    } else if (id === 'peach' && Conditions.clearDebuffs(this.save)) {
+    } else if (id === 'worldpeach' && Conditions.clearDebuffs(this.save)) {
       extra = '\nDebuffs cleared';
     }
     if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(id)} max ⚡`;
@@ -1424,7 +1424,7 @@ class SceneConsumables {
     // The can's jump roll applies here too — a rainberry soaking the whole
     // plot is still the player watering, so it is still worth owning a can.
     const own = this.save.relics || {};
-    const relics = (canTier > (own.can?.tier || 0)) ? { ...own, can: { ...(own.can || {}), tier: canTier } } : own;
+    const relics = (canTier > (own.watering_can?.tier || 0)) ? { ...own, watering_can: { ...(own.watering_can || {}), tier: canTier } } : own;
     const jumpedPlants = [];
     const out = Crops.waterWithin(this.save, pWX, pWY, radius, Date.now(), relics,
                                   Math.random, jumpedPlants);

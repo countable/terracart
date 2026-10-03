@@ -50,7 +50,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // story's restoration-count gates (memory_story.js).
   const STORY_RESTORES = Object.freeze({
     house: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, bookshop: 15,
-    firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 2,
+    firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 1,
   });
   // Old unstamped saves retain the tower identities their original schedule
   // gave them (wizardTowerIds): restore index 14 was the first tower, 25+ the second.
@@ -319,7 +319,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // residential alike rebuild from the same masonry.
   function wreckRestoreCost(save, house) {
     const restored = Object.keys(save?.restoredHouses || {}).length;
-    return { id: 'rockfruit', qty: wreckRestoreQty(restored), material: 'stone' };
+    return { id: 'rubble', qty: wreckRestoreQty(restored), material: 'stone' };
   }
   // WHAT EACH CARD COSTS (owner, Oct 2026). A House — and the wizard's tower,
   // a story building — keeps the ladder above. A shop is priced by the rank
@@ -330,11 +330,11 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   const TURRET_ROCKS = 5;
   function buildCost(save, house, row, order = restoredCount(save)) {
     if (!row || row.role === 'plain' || row.role === 'wizard') return wreckRestoreCost(save, house);
-    if (row.role === 'turret') return { id: 'rockfruit', qty: TURRET_ROCKS, material: 'stone' };
+    if (row.role === 'turret') return { id: 'rubble', qty: TURRET_ROCKS, material: 'stone' };
     const per = BUILD_ROCKS_PER_TIER[row.role];
     if (!per) return wreckRestoreCost(save, house);
     const tier = Math.max(1, (typeof row.tier === 'function' ? row.tier(save, order) : 1) | 0);
-    return { id: 'rockfruit', qty: per * tier, material: 'stone' };
+    return { id: 'rubble', qty: per * tier, material: 'stone' };
   }
 
   // Wood this fort demands to unseal, following the per-fort progression

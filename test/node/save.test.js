@@ -437,8 +437,8 @@ test('save: complex nested data round-trips faithfully', () => {
       money: 1234,
       energy: 75,
       maxEnergy: 100,
-      inv: [{ id: 'coal', count: 3 }, { id: 'ruby', count: 1 }],
-      relics: { pick: { tier: 2 }, bags: { tier: 1 } },
+      inv: [{ id: 'flint_shard', count: 3 }, { id: 'ruby', count: 1 }],
+      relics: { pickaxe: { tier: 2 }, bag: { tier: 1 } },
       armor: { helmet: { tier: 1 } },
       chopped: ['t1', 't2'],
       shrineLevel: 3,
@@ -451,7 +451,7 @@ test('save: complex nested data round-trips faithfully', () => {
     assert.eq(loaded.maxEnergy, 100);
     assert.eq(loaded.inv.length, 2);
     assert.eq(loaded.inv[1].id, 'ruby');
-    assert.eq(loaded.relics.pick.tier, 2);
+    assert.eq(loaded.relics.pickaxe.tier, 2);
     assert.eq(loaded.armor.helmet.tier, 1);
     assert.eq(loaded.chopped[0], 't1');
     assert.eq(loaded.shrineLevel, 3);
@@ -600,14 +600,14 @@ test('save: getSelectedSlot returns null for a falsy inv entry', () => {
 });
 
 test('save: getSelectedSlot returns the stack at selSlot', () => {
-  const stack = { id: 'coal', count: 3 };
+  const stack = { id: 'flint_shard', count: 3 };
   const save = { inv: [{ id: 'wood', count: 1 }, stack], selSlot: 1 };
   assert.eq(getSelectedSlot(save), stack, 'returns exact stack object at selSlot');
 });
 
 test('save: getSelectedSlot reflects selSlot changes on the same save object', () => {
   const save = {
-    inv: [{ id: 'wood', count: 1 }, { id: 'coal', count: 2 }, { id: 'ruby', count: 1 }],
+    inv: [{ id: 'wood', count: 1 }, { id: 'flint_shard', count: 2 }, { id: 'ruby', count: 1 }],
     selSlot: 0,
   };
   assert.eq(getSelectedSlot(save).id, 'wood', 'selSlot 0 → wood');

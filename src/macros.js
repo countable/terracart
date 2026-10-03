@@ -237,7 +237,7 @@
   // passive rest (free, on HOME_R, gated on `working`): a one-shot purchase.
   const INN_RATE = 0.5;
   function innCoinsPerEnergy() {
-    return PRICES.vigor_potion / VIGOR_POTION_ENERGY * INN_RATE;
+    return PRICES.healing_potion / VIGOR_POTION_ENERGY * INN_RATE;
   }
   function innPrice(missing) {
     const m = Math.max(0, Math.floor(missing || 0));
@@ -275,10 +275,10 @@
   // One remedy per apothecary (a dentist is always Vigor), plus the
   // Antidote (T1 — the poison cure, src/conditions.js) at every counter.
   // Counter remedies stay available independently of their loot tiers.
-  const APOTHECARY_POTIONS = ['vigor_potion', 'revive_potion', 'protection_potion', 'reach_potion'];
+  const APOTHECARY_POTIONS = ['healing_potion', 'revival_potion', 'protection_potion', 'reach_potion'];
   const APOTHECARY_CURE = 'antidote';
   function apothecaryStock(o) {
-    const potion = (o && o.poiClass === 'dentist') ? 'vigor_potion' : _pick(o, 'apothecary', APOTHECARY_POTIONS);
+    const potion = (o && o.poiClass === 'dentist') ? 'healing_potion' : _pick(o, 'apothecary', APOTHECARY_POTIONS);
     return [potion, APOTHECARY_CURE].filter((id) => id && ITEM_BY_ID[id]);
   }
 
@@ -289,7 +289,7 @@
   // entry is `gear:<line>`; what it sells depends on the player
   // (sundriesGear).
   const SUNDRIES_GEAR = ['dagger', 'lance', 'musket', 'shield'];
-  const SUNDRIES_SHIELDS = ['shield_wood', 'shield_metal', 'shield_gold'];
+  const SUNDRIES_SHIELDS = ['wood_shield', 'metal_shield', 'gold_shield'];
   // Gear at a counter costs this many times its list price, before the
   // stall's usual discount (ShopsMath.standPrice).
   const SUNDRIES_GEAR_PRICE_MUL = 3;
@@ -388,10 +388,10 @@
   // `curio:<n>`) when the count reaches each of CURIO_MILESTONES — once per
   // save, because the memory ledger pays each key once.
   const CURIO_COLLECTION = [
-    'coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar',
+    'flint_shard', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar',
     'sapphire', 'ruby', 'emerald', 'diamond',
-    'shell', 'crow_feather', 'rabbit_pelt', 'boot', 'book', 'honey',
-    'rope', 'torch', 'trap_kit', 'magic_trap', 'scarecrow',
+    'shell', 'crow_feather', 'rabbit_pelt', 'old_boot', 'book', 'taming_potion',
+    'rope', 'torch', 'trap_disarm_kit', 'magic_trap', 'scarecrow',
   ];
   const CURIO_MILESTONES = [5, 10, 15];
   const _curioSet = new Set(CURIO_COLLECTION);

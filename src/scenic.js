@@ -135,7 +135,7 @@
   // The vista treasure context retained for the shared treasure value table.
   const VISTA_CONTEXT = 'treasure:vista';
   // The first vista a save ever taps: a relic, once (save.vistaRelic).
-  const FIRST_VISTA_SLOT = 'bags';
+  const FIRST_VISTA_SLOT = 'bag';
   // The vista's story (its painting stem and the _storySplashOnce key).
   const VISTA_STORY = {
     story: 'zone_viewpoint', title: 'A vista',

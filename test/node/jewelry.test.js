@@ -1,7 +1,7 @@
 // Unique carried jewelry: intrinsic effects, no material-tier gear slot.
 
 (function () {
-  const ids = ['stealth_ring', 'invisibility_ring', 'ember_ring', 'regen_amulet', 'vigor_amulet'];
+  const ids = ['stealth_ring', 'invisibility_ring', 'ember_ring', 'regeneration_amulet', 'vigor_amulet'];
 
   test('unique jewelry: carried unique relics replace tiered ring and amulet gear', () => {
     assert.falsy(RELIC_DEFS.ring, 'ring is not a tiered gear slot');
@@ -14,7 +14,7 @@
     }
     assert.eq(MINERAL_ICON_SHEET.stealth_ring.frame, 8);
     assert.eq(MINERAL_ICON_SHEET.invisibility_ring.frame, 11);
-    assert.eq(MINERAL_ICON_SHEET.regen_amulet.frame, 10);
+    assert.eq(MINERAL_ICON_SHEET.regeneration_amulet.frame, 10);
     assert.eq(MINERAL_ICON_SHEET.vigor_amulet.frame, 17);
   });
 
@@ -39,9 +39,9 @@
   test('unique amulets: fastest carried regeneration cadence wins', () => {
     const bag = (...ids) => ({ inv: ids.map(id => ({ id, count: 1 })) });
     assert.eq(jewelryRegenIntervalMs({}), Infinity);
-    assert.eq(jewelryRegenIntervalMs(bag('regen_amulet')), 4000);
+    assert.eq(jewelryRegenIntervalMs(bag('regeneration_amulet')), 4000);
     assert.eq(jewelryRegenIntervalMs(bag('vigor_amulet')), 2000);
-    assert.eq(jewelryRegenIntervalMs(bag('regen_amulet', 'vigor_amulet')), 2000, 'strongest wins');
+    assert.eq(jewelryRegenIntervalMs(bag('regeneration_amulet', 'vigor_amulet')), 2000, 'strongest wins');
     const update = SCENE_SRC.match(/const jewelryRegenMs = jewelryRegenIntervalMs\(this\.save\);[\s\S]*?this\._jewelryAccrueE = 0;/);
     assert.truthy(update, 'update reads the carried amulet');
     assert.truthy(/if \(!working && Number\.isFinite\(jewelryRegenMs\)/.test(update[0]), 'working pauses regeneration');

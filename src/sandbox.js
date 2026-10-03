@@ -109,9 +109,9 @@
   const ORCHARD = {
     name: 'ORCHARD', label: 'ORCHARD', w: 7, h: 7, fill: T.ORCHARD,
     populate(s) {
-      s.fruitTree('apple', 0, 0);   s.fruitTree('apple', 3, 0);  s.fruitTree('peach', 6, 0);
-      s.fruitTree('apple', 0, 3);   s.fruitTree('peach', 6, 3);
-      s.fruitTree('apple', 0, 6);   s.fruitTree('apple', 3, 6);  s.fruitTree('peach', 6, 6);
+      s.fruitTree('apple', 0, 0);   s.fruitTree('apple', 3, 0);  s.fruitTree('worldpeach', 6, 0);
+      s.fruitTree('apple', 0, 3);   s.fruitTree('worldpeach', 6, 3);
+      s.fruitTree('apple', 0, 6);   s.fruitTree('apple', 3, 6);  s.fruitTree('worldpeach', 6, 6);
       s.chest('park', 'Sandbox Orchard', 3, 3);   // round pad
     },
   };
@@ -176,7 +176,7 @@
       s.creature('cat', 1, 1, 1);           // a cat sunning on the sand
       s.creature('giant_crab', 2, 3, 1);     // representative shore enemy
       s.creature('gull', 3, 1, 1);           // scenic-shore scavenger
-      s.creature('turtle', 1, 4, 1);         // the rabbit of the beach
+      s.creature('sea_turtle', 1, 4, 1);         // the rabbit of the beach
       s.well(3, 6);                          // fountain on dry land
     },
   };
@@ -1235,7 +1235,7 @@
     for (const slot of Object.keys(RELIC_DEFS)) relics[slot] = { tier: TIER };
     // Frost (T7) pickaxe so every ore tier in the ROCK band can be mined and
     // verified (each ore's bar drop + matching ore-stone sprite).
-    relics.pick = { tier: 7 };
+    relics.pickaxe = { tier: 7 };
     scene.save.relics = relics;
     const armor = {};
     for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: TIER };
@@ -1325,7 +1325,7 @@
     // ── FARMLAND: a row of crops at every growth stage 0..4. The cell must be
     //    tilled first; the renderer reads each entry's `stage` directly so we
     //    don't have to wait for real game time.
-    const CROPS_AT_STAGE = ['rainberry', 'pairy', 'nut', 'potato', 'rockfruit'];
+    const CROPS_AT_STAGE = ['rainberry', 'pairy', 'nut', 'potato', 'rubble'];
     for (let stage = 0; stage < 5; stage++) {
       const { cellIX, cellIY } = sceneCell('FARMLAND', 2 + stage, 2);
       const key = absKey(cellIX, cellIY);

@@ -34,7 +34,7 @@ const run = (grid, opts = {}) => {
 
 test('starter stash: four Books, a Rope and a Trap Disarm Kit', () => {
   const ids = stash.map((s) => s.id).sort().join();
-  assert.eq(ids, 'book,book,book,book,rope,trap_kit', 'what the stash holds');
+  assert.eq(ids, 'book,book,book,book,rope,trap_disarm_kit', 'what the stash holds');
 });
 
 test('starter stash: every crate is seated, in the resource ring, one to a cell', () => {

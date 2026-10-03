@@ -2,13 +2,13 @@
 // (src/items.js, src/util.js, src/worldgen.js namespace).
 
 test('toolDurationMs: tier ladder 9s bare → 0.3s frost', () => {
-  assert.eq(toolDurationMs({}, 'pick'), 9000, 'no tool = 9s (2.25× wood)');
-  assert.eq(toolDurationMs({ pick: { tier: 1 } }, 'pick'), 4000, 'T1 = 4s');
-  assert.eq(toolDurationMs({ pick: { tier: 7 } }, 'pick'), 300, 'T7 = 0.3s');
+  assert.eq(toolDurationMs({}, 'pickaxe'), 9000, 'no tool = 9s (2.25× wood)');
+  assert.eq(toolDurationMs({ pickaxe: { tier: 1 } }, 'pickaxe'), 4000, 'T1 = 4s');
+  assert.eq(toolDurationMs({ pickaxe: { tier: 7 } }, 'pickaxe'), 300, 'T7 = 0.3s');
   // Strictly monotonic decreasing across the ladder.
   let prev = Infinity;
   for (let t = 1; t <= 7; t++) {
-    const d = toolDurationMs({ pick: { tier: t } }, 'pick');
+    const d = toolDurationMs({ pickaxe: { tier: t } }, 'pickaxe');
     assert.lt(d, prev, `tier ${t} faster than tier ${t - 1}`);
     prev = d;
   }
@@ -29,12 +29,12 @@ test('toolDurationMs: every rung is ~1.5× the one below it', () => {
   assert.eq(TOOL_DURATION_MS[1], 4000, 'wood end pinned');
   assert.eq(TOOL_DURATION_MS[7], 300, 'frost end pinned');
   // Bare hands is NOT on the curve — it's the always-possible floor at 9s.
-  assert.eq(toolDurationMs({}, 'pick') / TOOL_DURATION_MS[1], 2.25, 'bare hands = 2.25× wood');
+  assert.eq(toolDurationMs({}, 'pickaxe') / TOOL_DURATION_MS[1], 2.25, 'bare hands = 2.25× wood');
 });
 
 test('effectivePickCost: cheaper as the pick tier climbs', () => {
   const bare = effectivePickCost({});
-  const t7 = effectivePickCost({ pick: { tier: 7 } });
+  const t7 = effectivePickCost({ pickaxe: { tier: 7 } });
   assert.gt(bare, t7, 'bare hands cost more energy than a T7 pick');
 });
 

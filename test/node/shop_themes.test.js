@@ -42,10 +42,10 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
   // them (owner, Oct 2026: a T1 supply like the torch); rope and the disarm
   // kit wait for the T2 round.
   const s1 = Shops.themedStock('supply', 1);
-  for (const id of ['wood', 'rockfruit', 'torch', 'spear']) assert.truthy(s1.includes(id), `T1 supply shop stocks ${id}`);
+  for (const id of ['wood', 'rubble', 'torch', 'throwing_spear']) assert.truthy(s1.includes(id), `T1 supply shop stocks ${id}`);
   assert.falsy(s1.includes('rope'), 'rope is the T2 round');
   assert.truthy(Shops.themedStock('supply', 2).includes('rope'));
-  for (const [tier, id] of [[2, 'shield_wood'], [4, 'shield_metal'], [5, 'telescope'], [6, 'shield_gold'], [7, 'orb']]) {
+  for (const [tier, id] of [[2, 'wood_shield'], [4, 'metal_shield'], [5, 'field_scope'], [6, 'gold_shield'], [7, 'orb']]) {
     assert.falsy(Shops.themedStock('supply', tier).includes(id), `${id} is reward-only`);
   }
   // Antidote fills the T1 Magic shop; other medicines follow at their tiers.
@@ -92,7 +92,7 @@ test('smithy: the re-roll is $5, then ×1.5 rounded down, and the forge offer us
 
 test('themed shops: prices sit above list', () => {
   const save = { relics: {} };
-  for (const id of ['torch', 'vigor_potion', 'iron_bar', 'cow', 'potato_seed']) {
+  for (const id of ['torch', 'healing_potion', 'iron_bar', 'cow', 'potato_seed']) {
     const base = itemValue(id);
     for (const r of [0, 0.5, 0.999]) {
       assert.gte(ShopsMath.buyPrice(save, base, () => r), base, id + ' at or above list');
@@ -154,9 +154,9 @@ test('themed shops: three market digits and one blacksmith digit on small houses
 });
 
 test('themed shops: Potion of Taming and magic traps fill tier 3 supplies; dragon powder stays tier 4 Magic', () => {
-  assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'honey,magic_trap');
+  assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'magic_trap,taming_potion');
   assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'javelin', 'T4 has its own supply stock');
-  for (const id of ['honey', 'magic_trap']) {
+  for (const id of ['taming_potion', 'magic_trap']) {
     assert.eq(ITEM_BY_ID[id].baseTier, 3);
     assert.eq(ITEM_BY_ID[id].kind, 'supply');
     assert.falsy(Shops.themedStock('supply', 2).includes(id), 'no early supply stock');

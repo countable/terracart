@@ -208,7 +208,7 @@
     // 2) Equip a pick, tap a rock cell, flush: cell key lands in brokenRockSet.
     async break_rock() {
       const s = S();
-      setRelic('pick', 3);   // iron = 1.5 s wheel
+      setRelic('pickaxe', 3);   // iron = 1.5 s wheel
       setEnergy(50);
       const pc = s.playerToWorldCell();
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
@@ -253,18 +253,18 @@
     // 4) Pick a rockfruit (work wheel): the wheel ran AND the produce landed.
     async pick_rockfruit() {
       const s = S();
-      setRelic('pick', 3);
-      const wp = nearestWildplant(w => w.crop === 'rockfruit');
+      setRelic('pickaxe', 3);
+      const wp = nearestWildplant(w => w.crop === 'rubble');
       if (!wp) return { name: 'pick_rockfruit', pass: false, details: 'no rockfruit' };
       teleport(wp.x, wp.y);
-      const before = invCount('rockfruit');
+      const before = invCount('rubble');
       tapWorld(wp.x, wp.y);
       const hadWheel = !!s._workProgress;
       flushWorkProgress();
       return {
         name: 'pick_rockfruit',
-        pass: hadWheel && invCount('rockfruit') === before + 1,
-        details: { hadWheel, before, after: invCount('rockfruit') },
+        pass: hadWheel && invCount('rubble') === before + 1,
+        details: { hadWheel, before, after: invCount('rubble') },
       };
     },
 

@@ -90,7 +90,7 @@ async function main() {
   });
   await new Promise(resolve => server.listen(+(process.env.PORT || 0), '127.0.0.1', resolve));
   const results = { environment: { browser: 'Chromium headless with SwiftShader flags', startupMs: startupMs || null, walkingMps: 1.4, fpsOverride: fps === undefined ? null : +fps, durations, note: 'Main-renderer JS CPU samples; GPU/battery power not measured. Fresh browser context, live network tiles. TEST_MODE direct-position movement excludes GPS, multiplayer, street restoration, rest and traps; Overpass disabled.' }, phases: {}, requests: [], pageErrors: [], consoleErrors: [] };
-  let browser, phase = 'boot';
+  let browser, phase = 'old_boot';
   try {
     browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || '/usr/bin/chromium', headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
@@ -104,7 +104,7 @@ async function main() {
     await cdp.send('Profiler.setSamplingInterval', { interval: 500 });
     async function capture(name, action) {
       phase = name;
-      if (name !== 'boot' && name !== 'startup') await page.evaluate(() => { window.__boot.reset(); window.__boot.spans = []; window.__boot.marks = []; });
+      if (name !== 'old_boot' && name !== 'startup') await page.evaluate(() => { window.__boot.reset(); window.__boot.spans = []; window.__boot.marks = []; });
       const requestStart = results.requests.length;
       const metricsBefore = (await cdp.send('Performance.getMetrics')).metrics;
       await cdp.send('Profiler.start');
@@ -157,7 +157,7 @@ async function main() {
       if (!results.startupMovement?.distanceM) failures.push('Startup window never reached walking readiness');
       if (results.phases.startup.snapshot.ring.some(t => !t.ready)) failures.push('Missing startup destination tiles at deadline');
     } else {
-      await capture('boot', async () => {
+      await capture('old_boot', async () => {
         await page.goto(pageUrl, { timeout: 120000 });
         await page.evaluate(() => window.__perfReady);
         await waitTiles(page);

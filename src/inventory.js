@@ -23,7 +23,7 @@
 
   // Per-stack cap for the equipped bag tier (9 with no bag … 249 at tier 7).
   function stackCap(save) {
-    return (typeof stackCapForBags === 'function') ? stackCapForBags(save?.relics?.bags) : 9;
+    return (typeof stackCapForBags === 'function') ? stackCapForBags(save?.relics?.bag) : 9;
   }
 
   // Effective cap for ONE item id. Every id shares the bag's cap today; the

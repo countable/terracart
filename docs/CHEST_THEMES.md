@@ -69,7 +69,7 @@ Every named group is an explicit, tier-filtered list or a catalog query with cle
 | General supplies | Torch, Rope, Trap Disarm Kit, Honey; authored weights are Torch 3, others 1; effective odds by tier are below |
 | Exploration / field supplies | Torch, Rope, Trap Disarm Kit; equal weights |
 | Farm supplies | Scarecrow, Honey; equal weights |
-| Building materials | Wood or stone (`rockfruit`); equal weights |
+| Building materials | Wood or stone (`rubble`); equal weights |
 | Provisions / restorative food | Berry, cress, potato, egg, milk; equal weights. Honey is an animal lure, not a healing item. |
 | Food | Existing edible produce, excluding materials, flowers, feathers and live animals; when its recognized venue product is eligible, choose it 70% of the time and use the ordinary food pool for the other 30%; otherwise use that pool for all draws |
 | Matching crop seeds | Seeds for the food group's growable crops; if a venue product has no seed, use its food instead |

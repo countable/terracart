@@ -933,7 +933,7 @@ class SceneCreatures {
           ? WorldGen.makeObject('tree', ft.x, ft.y, ft.id,
               { planted: true, planted_t: ft.planted_t })
           : WorldGen.makeObject('fruittree', ft.x, ft.y, ft.id,
-              { species: ft.species === 'peach' ? 'peach' : 'apple',
+              { species: ft.species === 'worldpeach' ? 'worldpeach' : 'apple',
                 planted: true, planted_t: ft.planted_t }));
         savedPlantings.push(entry.objects[entry.objects.length - 1]);
       }
