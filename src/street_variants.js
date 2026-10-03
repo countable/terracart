@@ -192,7 +192,7 @@
   // (scene_creatures.js _seatFaunaOnFavouriteGround): each of the tile's own
   // spawns of that species moves onto this street's verge with probability p.
   // `share` is the neutral-name probability for a key of that size. Minor
-  // shares total 40%; name nudges redistribute ordinary themes inside that
+  // selection stays at 40%; name nudges redistribute ordinary themes inside that
   // fixed budget, while Golden Road remains 2% of all minor keys.
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
@@ -233,7 +233,9 @@
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
       flash: 'A waystone, worn smooth.' },
-    { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'major', share: 0.07, rung: 'common',
+    // Lantern Row takes Burned Row's former major-road weight. Burned Row
+    // now joins the minor pool; its overall themed-street budget stays fixed.
+    { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'major', share: 0.12, rung: 'common',
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
@@ -244,7 +246,7 @@
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts line the road, close enough to light the whole street. You walk between the rows of lamps.',
       flash: 'Lamp posts, cold and waiting.' },
-    { id: 'burned', terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'major', share: 0.05, rung: 'uncommon',
+    { id: 'burned', terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#321b18', restored: '#49241b', pattern: 'embers', accent: '#ff6a20' }, lampDensity: 0.5,
       hotRoad: true,
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
