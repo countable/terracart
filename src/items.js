@@ -140,7 +140,7 @@ function wildplantVariantHash(p) {
 // atlas frame; ordinary surface and cave mushrooms retain their base art.
 const WILDPLANT_CONTEXT_ART = {
   zone_rock_stone_garden: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 64, scale: 4 / 3 },
-  zone_rock_broken_masonry: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 65, scale: 4 / 3 },
+  zone_rock_broken_masonry: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 65, scale: 1.1 },
   zone_rock_flint_field: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 66, scale: 4 / 3 },
   zone_rock_broken_depot: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 67, scale: 4 / 3 },
   zone_rock_seep: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 68, scale: 4 / 3 },
