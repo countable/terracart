@@ -1521,7 +1521,8 @@ ECONOMY (buying & selling)
    never at the 1.2-3.0x village-shop markup: a stand is a producer selling its
    own goods, not a shop restocking from a wholesaler.
    The discount has a hard ceiling — A STAND MUST NEVER BE AN ARBITRAGE PUMP.
-   Because the sell side is player-scaled (sword 0.5x -> 1.0x), a flat discount
+   Because the sell side tracks one rate (items.js SELL_MUL; it used to be
+   sword-scaled, 0.5x -> 1.0x, until Oct 2026), a flat discount
    would become free money the moment a player carried a tier-4 sword: buy at
    0.75, sell at 0.79, repeat. So the stand price tracks the player's OWN sell
    multiplier and stays above it, capped at par:
@@ -1577,8 +1578,8 @@ GEAR: RELICS & ARMOR
               wizard's Full Measure rung now.
      sword  — MELEE weapon (drains an enemy's HP on the combat wheel; melee
               auto-engages the nearest enemy in reach whenever no bow or
-              staff is equipped, bare hands included — see COMBAT); raises
-              sell prices (0.5× → 1.0× at Frost) whether active or not
+              staff is equipped, bare hands included — see COMBAT). It no
+              longer touches sell prices (Oct 2026: a flat SELL_MUL, items.js)
      bow    — RANGED weapon, an arrow (auto-fires along the compass every 2 s
               while an enemy is on screen, WHEN ACTIVE; stops in the first
               foe hit and at solid ground); lowers buy prices (T7 = par)

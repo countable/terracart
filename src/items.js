@@ -1843,7 +1843,7 @@ const RELIC_DEFS = {
   // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
   // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
-             effectKey: 'sellPrice',     blurb: 'Its edge answers a foe that comes too close.' },
+             effectKey: 'melee',         blurb: 'Its edge answers a foe that comes too close.' },
   dagger:  { slot: 'dagger', name: 'Dagger', icon: 'Dagger.png', baseCost: 80,
              tiers: [1, 3, 5], chestOnly: true,
              effectKey: 'melee', blurb: 'Its short blade waits until a foe is close.' },
@@ -2358,39 +2358,40 @@ function jewelryRegenIntervalMs(save) {
   }
   return interval;
 }
-// Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
-// tier 7 (frost sword sells at par with the listed PRICES[]). Note that
-// callers floor at $1 with Math.max(1, ceil(...)), so low-value items like
-// $1 longgrass show no sword benefit — the multiplier kicks in noticeably
-// above ~$4 produce.
-function sellMultiplier(relics) {
-  const t = relics?.sword?.tier || 0;
-  return 0.5 + (t / 7) * 0.5;
+// THE SELL RATE: what a listed price is worth when sold, before the trailer's
+// haircut below. ONE FLAT NUMBER (owner's call, Oct 2026): it used to climb
+// with the Sword relic's tier, 0.5 × base bare-handed to 1.0 × at Frost,
+// which made a weapon a haggling tool. 0.70 is the highest flat rate at which
+// the roadside stands keep their whole 25% discount (shops_math.js
+// standBuyMul prices a margin above this rate and floors at 0.75 of par) —
+// so a stand is still the cheap way to an ingredient, and still never an
+// arbitrage pump. Callers floor at $1 with Math.max(1, ceil(...)).
+const SELL_MUL = 0.70;
+function sellMultiplier() {
+  return SELL_MUL;
 }
 // The TRAILER (home) is the only place a haul can be cashed out, so what it
 // pays IS the sell economy — a haul is worth exactly what home hands over.
-// That payout is a 25% haircut off the sword-scaled price: the sword ladder
-// above still governs how much better selling gets as the player levels, this
-// only sets where the whole ladder sits. It is deliberately a separate number
-// from sellMultiplier so the stand's anti-arbitrage floor (shops_math.js
-// standBuyMul, which prices off sellMultiplier) is unaffected — a smaller
-// trailer payout only widens the margin that keeps buy-low-sell-high shut,
-// never narrows it.
+// That payout is a 25% haircut off the sell rate above. It is deliberately a
+// separate number from sellMultiplier so the stand's anti-arbitrage floor
+// (shops_math.js standBuyMul, which prices off sellMultiplier) is unaffected —
+// a smaller trailer payout only widens the margin that keeps
+// buy-low-sell-high shut, never narrows it.
 // One number, one place: every home sale goes through trailerSellPrice, so the
 // price the modal quotes and the cash addMoney pays can't drift apart.
 const TRAILER_SELL_MUL = 0.75;
 // Hard mode takes a further cut here (Difficulty.sellMul, 0.6): the SAME
 // place, so the quote and the payout still can't drift, and the stand floor
 // (which prices off sellMultiplier, not this) only widens.
-function trailerSellMultiplier(relics) {
+function trailerSellMultiplier() {
   const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().sellMul : 1;
-  return sellMultiplier(relics) * TRAILER_SELL_MUL * modeMul;
+  return sellMultiplier() * TRAILER_SELL_MUL * modeMul;
 }
 // Cash the trailer pays for ONE unit of an item listed at baseValue. Ceil and
 // a $1 floor, same as every other price path — so a $1 item still sells for $1
 // and the haircut only bites above the floor.
-function trailerSellPrice(baseValue, relics) {
-  return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier(relics)));
+function trailerSellPrice(baseValue) {
+  return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier()));
 }
 // What Home CRAFTS — the Craft page beside the Sell page at the trailer
 // (app.js presentHomeCraft). One row per recipe, in the order the page's

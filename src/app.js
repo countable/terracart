@@ -11623,7 +11623,7 @@ class MapScene extends Phaser.Scene {
       });
       return;
     }
-    const unitPrice = trailerSellPrice(PRICES[sel.id] ?? 1, this.save.relics);
+    const unitPrice = trailerSellPrice(PRICES[sel.id] ?? 1);
     const item = ITEM_BY_ID[sel.id];
     const sellId = sel.id;
     const maxQty = Math.max(1, sel.count | 0);

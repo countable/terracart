@@ -91,16 +91,15 @@
   });
 
   test('difficulty: hard mode cuts what Home pays, and never below $1', () => {
-    const easy = withMode('easy', () => trailerSellPrice(20, {}));
-    const hard = withMode('hard', () => trailerSellPrice(20, {}));
-    assert.eq(easy, 8, 'easy: 20 × 0.5 × 0.75 = 7.5 → 8');
-    assert.eq(hard, 5, 'hard: 20 × 0.5 × 0.75 × 0.6 = 4.5 → 5');
-    assert.eq(withMode('hard', () => trailerSellPrice(1, {})), 1, 'the $1 floor holds');
+    const easy = withMode('easy', () => trailerSellPrice(20));
+    const hard = withMode('hard', () => trailerSellPrice(20));
+    assert.eq(easy, 11, 'easy: 20 × 0.7 × 0.75 = 10.5 → 11');
+    assert.eq(hard, 7, 'hard: 20 × 0.7 × 0.75 × 0.6 = 6.3 → 7');
+    assert.eq(withMode('hard', () => trailerSellPrice(1)), 1, 'the $1 floor holds');
     // A stand on hard is still never a profit: its price stays above the payout.
     for (const v of [1, 4, 10, 37, 120]) {
       withMode('hard', () => {
-        assert.gte(ShopsMath.standPrice({ relics: { sword: { tier: 7 } } }, v),
-          trailerSellPrice(v, { sword: { tier: 7 } }), `no arbitrage at $${v}, maxed sword`);
+        assert.gte(ShopsMath.standPrice({ relics: {} }, v), trailerSellPrice(v), `no arbitrage at $${v}`);
       });
     }
   });
