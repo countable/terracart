@@ -39,7 +39,7 @@
     }
   });
   test('quarry runtime: all four compositions ship their finite site budgets and stable identities', () => {
-    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 3], ['quarry-stronghold', 3, 3]]) {
+    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 1], ['quarry-stronghold', 3, 3]]) {
       const a = ZoneDressing.dress(context(id)), b = ZoneDressing.dress(context(id));
       assert.eq(records(a).filter(o => o.zoneLayer === 'find').length, finds, id);
       assert.eq(a.guards.length, guards, id);
@@ -51,33 +51,30 @@
       assert.eq(observer.guards.length, 0, 'observer cannot multiply guards');
     }
   });
-  test('quarry runtime: strip mine slimes and burrowing wurms respect enemy-only exclusions', () => {
+  test('quarry runtime: strip mine burrowing wurms respect enemy-only exclusions', () => {
     const out = ZoneDressing.dress(context('quarry-strip-mine'));
-    assert.eq(out.guards.length, 3);
-    assert.eq(out.guards.filter(g => g.kind === 'split_slime').length, 2);
+    assert.eq(out.guards.length, 1);
+    assert.eq(out.guards.filter(g => g.kind === 'split_slime').length, 0);
     assert.eq(out.guards.filter(g => g.kind === 'wurm').length, 1);
     for (const guard of out.guards) {
-      if (guard.kind === 'split_slime') assert.eq(EnemyRoster.get(guard.kind).ability.type, 'split');
-      else {
-        assert.gt(guard.burrowCells.length, 0, 'wurms retain their strip mine region');
-        for (const p of guard.burrowCells) {
-          const ix = Math.floor(p.x / C), iy = Math.floor(p.y / C);
-          assert.eq(context('quarry-strip-mine').field.coverage[iy * N + ix], 1);
-        }
+      assert.gt(guard.burrowCells.length, 0, 'wurms retain their strip mine region');
+      for (const p of guard.burrowCells) {
+        const ix = Math.floor(p.x / C), iy = Math.floor(p.y / C);
+        assert.eq(context('quarry-strip-mine').field.coverage[iy * N + ix], 1);
       }
     }
     const ctx = context('quarry-strip-mine');
     ctx.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
     const blocked = ZoneDressing.dress(ctx);
-    assert.eq(blocked.guards.length, 0, 'enemy gate suppresses the slimes');
+    assert.eq(blocked.guards.length, 0, 'enemy gate suppresses the wurms');
     assert.gt(blocked.objects.length, 0, 'ordinary bench stones remain eligible');
     for (const owned of [true, false]) {
       const clipped = context('quarry-strip-mine', owned);
       clipped.field.anchors[0].clipped = true;
       const inhabited = ZoneDressing.dress(clipped);
-      assert.gt(inhabited.guards.length, 0, 'clipped sites retain sparse splitting slimes');
+      assert.gt(inhabited.guards.length, 0, 'clipped sites retain sparse wurms');
       for (const guard of inhabited.guards) {
-        assert.includes(['split_slime', 'wurm'], guard.kind);
+        assert.eq(guard.kind, 'wurm');
         assert.eq(guard.zoneLayer, 'background', 'clipped cells do not acquire a finite guard budget');
       }
       const movedAnchor = context('quarry-strip-mine', owned);
