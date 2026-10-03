@@ -366,9 +366,11 @@ def ground_pattern(terrain_name, prefix, unit):
             f'<image data-ground-type="{tile["type"]}" width="{unit}" height="{unit}"/></pattern></defs>')
 
 
-def svg_for(v, d, detail=False, prefix="", ground=None):
+def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None):
     b = v['background']
     side = 9 if detail else (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['previewPlots'][0] + 1 if b['type'] in ('line_grid', 'bounded_line_grid') else 25)
+    if sample_cells is not None:
+        side = sample_cells
     unit = 10
     center = side // 2
     aligned = b['type'] in ('line_grid','bounded_line_grid','concentric_rings')
@@ -711,9 +713,31 @@ def basic_tile_section():
     cards = []
     for tile in art_registry()['basicTiles']:
         name = tile['name'].replace('_', ' ').title()
-        plants = ', '.join(dict.fromkeys(row['crop'].replace('_', ' ') for row in tile['flora'])) or 'No ambient flora'
-        cards.append(f'<article id="tile-{tile["name"].lower()}"><p data-sandbox="{tile["name"]}"></p><h3>{name}</h3><canvas data-terrain="{tile["type"]}" width="192" height="96" role="img" aria-label="{name} ground texture preview"></canvas><p>{html.escape(plants)}</p><small>Terrain {tile["type"]} · {tile["variants"]} texture variants</small></article>')
-    return '<section id="basic-zones"><h2>Basic tile zones</h2><p>Shipping ground colours and texture painters, tiled at 32 pixels per cell. Flora is listed from the runtime biome profile. These samples show ground only; buildings, vegetation, lighting and map geometry are not overlaid.</p><div class="tile-grid">' + ''.join(cards) + '</div></section>'
+        examples = tile['examples'] + tile['creatureExamples']
+        prefix = 'basic-' + tile['name'].lower()
+        parts = [f'<svg data-basic-sample="{tile["name"]}" data-example-count="{len(examples)}" role="img" aria-label="{name}: representative spawned objects" viewBox="0 0 192 144">',
+                 ground_pattern(tile['name'], prefix, 32), f'<rect width="192" height="144" fill="url(#{prefix})"/>']
+        labels = []
+        for i, example in enumerate(examples):
+            label = example.get('crop') or example.get('species') or example['kind']
+            if example['kind'] == 'mineralrock':
+                label = 'plain rock' if example.get('caveVariant') is not None or example.get('yieldTier', 1) <= 1 else 'ore rock'
+            label = label.replace('_', ' ')
+            labels.append(label)
+            x, y = (i % 4) * 48 + 8, (i // 4) * 48 + 8
+            parts.append(f'<g data-example-kind="{example["kind"]}"><title>{html.escape(label)}</title>' + art_image(material_art(example), f'class="sprite-cell" x="{x}" y="{y}" width="32" height="32"') + '</g>')
+        parts.append('</svg>')
+        note = 'Examples: ' + ', '.join(dict.fromkeys(labels)) + '.' if labels else 'No ordinary objects or creatures spawn on this ground.'
+        if tile['name'] == 'CAVE_FLOOR':
+            note += ' Cave level 1: mushrooms and eligible cave enemies.'
+        elif tile['name'] == 'PIER':
+            note += ' Public piers only; private access excludes population.'
+        elif tile['name'] == 'PARK':
+            note += ' One generated park character; other parks vary.'
+        if tile['enemies']:
+            note += ' Enemy appearance also depends on distance, time or cave depth.'
+        cards.append(f'<article id="tile-{tile["name"].lower()}"><p data-sandbox="{tile["name"]}"></p><h3>{name}</h3>{"".join(parts)}<p>{html.escape(note)}</p><small>Terrain {tile["type"]} · {tile["variants"]} texture variants</small></article>')
+    return '<section id="basic-zones"><h2>Basic tile zones</h2><p>Shipping ground textures with representative spawned objects. Plants, trees and minerals come from the real world generator on small public-frontage terrain fixtures; wildlife and enemies use the owning spawn tables. Examples are arranged for visibility, not to predict density. Access restrictions, nearby buildings, roads and occupied cells still control live placement. Special nexus and road layouts have their own tabs.</p><div class="tile-grid">' + ''.join(cards) + '</div></section>'
 
 
 def basic_tile_script():
@@ -753,23 +777,28 @@ def beach_park_section(d):
     cards = []
     for beach in (v for v in d['variants'] if v['zone'] == 'beach'):
         prefix = 'adjoining-' + beach['id'] + '-'
-        parts = [f'<svg role="img" aria-label="Marine Meadow adjoining {html.escape(beach["name"])} and water" viewBox="0 0 580 280">']
-        for variant, x, ground in [(meadow, 0, 'GRASS'), (beach, 250, 'SAND')]:
-            diagram = svg_for(variant, d, prefix=prefix, ground=ground)
-            diagram = diagram.replace('<svg role=', f'<svg x="{x}" y="25" width="250" height="250" role=', 1)
+        parts = [f'<svg role="img" aria-label="Marine Meadow adjoining {html.escape(beach["name"])} and water" viewBox="0 0 480 290">']
+        for variant, x, width, ground in [(meadow, 0, 260, 'GRASS'), (beach, 260, 160, 'SAND')]:
+            diagram = svg_for(variant, d, prefix=prefix, ground=ground, sample_cells=13)
+            diagram = diagram.replace('width="100%" height="100%"', 'width="130" height="130"')
+            diagram = diagram.replace('<svg role=', f'<svg x="{x}" y="25" width="{width}" height="260" style="overflow:hidden" role=', 1)
+            # Thirteen rows at twice the old cell size; the eight-cell sand
+            # strip keeps the meadow and waterline together in the close-up.
+            if ground == 'SAND':
+                diagram = diagram.replace('viewBox="0 0 130 130"', 'viewBox="25 0 80 130"', 1)
             parts.append(diagram)
         water_id = prefix + 'water'
-        parts.append(ground_pattern('WATER', water_id, 10))
-        parts.append(f'<rect x="500" y="25" width="80" height="250" fill="url(#{water_id})"/>')
+        parts.append(ground_pattern('WATER', water_id, 20))
+        parts.append(f'<rect x="420" y="25" width="60" height="260" fill="url(#{water_id})"/>')
         treasure = beach.get('shoreTreasure')
         tiers = [treasure['tier']] * treasure['count'] if treasure else beach.get('reef', {}).get('chestTiers', [])
         for i, tier in enumerate(tiers):
-            y = 65 + i * 40
-            parts.append(art_image({'sheet': 'chest', 'frames': [tier-1]}, f'class="sprite-cell" x="501" y="{y}" width="9" height="9"'))
-            parts.append(f'<rect class="geometry-cell" x="501" y="{y}" width="9" height="9" fill="#f6d483"><title>T{tier} water-edge chest</title></rect>')
-        parts.append('<g fill="#e5ecdf" font-size="11"><text x="8" y="16">Marine Meadow · grass</text>' + f'<text x="258" y="16">{html.escape(beach["name"])} · sand</text><text x="507" y="16">Water</text></g></svg>')
+            y = 85 + i * 75
+            parts.append(art_image({'sheet': 'chest', 'frames': [tier-1]}, f'class="sprite-cell" x="421" y="{y}" width="18" height="18"'))
+            parts.append(f'<rect class="geometry-cell" x="421" y="{y}" width="18" height="18" fill="#f6d483"><title>T{tier} water-edge chest</title></rect>')
+        parts.append('<g fill="#e5ecdf" font-size="11"><text x="8" y="16">Marine Meadow · grass</text>' + f'<text x="268" y="16">{html.escape(beach["name"])} · sand</text><text x="427" y="16">Water</text></g></svg>')
         chest_note = (' Water-edge finds: ' + ', '.join(f'T{tier}' for tier in tiers) + '.') if tiers else ''
-        cards.append(f'<article id="adjoining-{beach["id"]}"><h3>Marine Meadow + {html.escape(beach["name"])}</h3><figure>{"".join(parts)}<figcaption>One continuous park, beach and shoreline sample · one cell = 7 m</figcaption></figure><p>Grass keeps the meadow’s mixed coastal plants and objects; the adjoining sand keeps its beach identity.{chest_note}</p></article>')
+        cards.append(f'<article id="adjoining-{beach["id"]}"><h3>Marine Meadow + {html.escape(beach["name"])}</h3><figure>{"".join(parts)}<figcaption>Close-up · 8-cell beach strip · one cell = 7 m</figcaption></figure><p>Grass keeps the meadow’s mixed coastal plants and objects; the adjoining sand keeps its beach identity.{chest_note}</p></article>')
     return '<section id="beach-parks"><h2>Beach parks · Marine Meadow</h2><p>A park adjoining a beach becomes a Marine Meadow. These representative layouts use the current grass, beach and shoreline definitions. Live boundaries, access restrictions and occupied cells clip placement; the samples do not reproduce a surveyed site.</p><div class="cards">' + ''.join(cards) + '</div></section>'
 
 

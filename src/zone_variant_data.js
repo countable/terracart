@@ -7946,6 +7946,7 @@
     }
   ],
   "quarryLayouts": {
+    "entranceCountScale": 0.7,
     "patchSizeCells": {
       "min": 3,
       "max": 8

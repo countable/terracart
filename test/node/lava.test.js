@@ -72,7 +72,7 @@ test('lava: the player burns on the surface and lava level, by the feet, through
   assert.truthy(/this\.playerToWorldCell\(\)/.test(b), 'the feet, not the camera');
   assert.truthy(/Combat\.LAVA_DMG_PER_S \* dt/.test(b), 'at the shared rate');
   assert.truthy(/Conditions\.fireDamage\(this\.save, pips\);[\s\S]*this\._losePlayerEnergy\(damage\)/.test(b), 'banked whole, through Energy.set + the flinch');
-  assert.truthy(/this\._popEnergy\(-burned, \{ ix, iy, label: '🔥 lava' \}\)/.test(b), 'popped on its cell');
+  assert.truthy(/this\._popEnergy\(-burned, \{ ix, iy, label: embers \? '🔥 embers' : '🔥 lava' \}\)/.test(b), 'popped on its cell');
   assert.truthy(/this\._tickLava\(dt\);/.test(SCENE_SRC), 'and ticked');
 });
 
@@ -141,4 +141,52 @@ test('lava: surface vents respect enemy immunity, pets and the shared burn coold
   assert.eq(hurt.length, 1); assert.eq(hurt[0].source, 'lava');
   assert.eq(hurt[0].damage, Combat.LAVA_DMG_PER_S);
   tick.call(scene, mortal, false, 2000); assert.eq(hurt.length, 2);
+});
+
+test('embers: Burned Row hazard follows the paved width and themed intervals, not its verge', () => {
+  const entry = { cellsPerEdge: 20, tileEdgeM: 100, grid: new Uint8Array(400).fill(WorldGen.T.GRASS),
+    streetIndex: { extent: 100, lines: [{ variant: 'burned', halfW: 3,
+      line: [{x: 0, y: 50}, {x: 100, y: 50}], variantRanges: [[20, 60]] }] } };
+  assert.truthy(StreetVariants.hotRoadAt(entry, 8, 10), 'pavement burns even if grid is grass');
+  assert.truthy(StreetVariants.hotRoadAt(entry, 8, 10.59), 'inside the 3 metre half width');
+  assert.falsy(StreetVariants.hotRoadAt(entry, 8, 10.61), 'outside paving stays safe');
+  assert.falsy(StreetVariants.hotRoadAt(entry, 8, 11), 'dressing verge is not lava');
+  assert.falsy(StreetVariants.hotRoadAt(entry, 2, 10), 'plain remainder is safe');
+  assert.truthy(StreetVariants.hotRoadAt(entry, 12.4, 10), 'round end cap is hot');
+  assert.falsy(StreetVariants.hotRoadAt(entry, 12.7, 10), 'past end cap is safe');
+  entry.grid[208] = WorldGen.T.WATER;
+  assert.falsy(StreetVariants.hotRoadAt(entry, 8, 10), 'erased water band is safe');
+  entry.grid[208] = WorldGen.T.BUILDING;
+  assert.falsy(StreetVariants.hotRoadAt(entry, 8, 10), 'building floor is safe');
+  assert.falsy(StreetVariants.hotRoadAt(undefined, 8, 10), 'loading tile is safe');
+});
+
+test('embers: player uses lava rate, fractional timing, ignition, resistance and surface-only feet geometry', () => {
+  const body = SCENE_SRC.match(/\n  _tickLava\(dt\) \{([\s\S]*?)\n  \}\n/)[1];
+  const tick = new Function('dt', 'tileCellToAbs', body);
+  const key = WorldGen.tileKey(19372, 29372), prior = WorldGen.tileCache.get(key);
+  const entry = { cellsPerEdge: 20, tileEdgeM: 100, grid: new Uint8Array(400).fill(WorldGen.T.ROAD),
+    streetIndex: { extent: 100, lines: [{ variant: 'burned', halfW: 3,
+      line: [{x: 0, y: 50}, {x: 100, y: 50}] }] } };
+  let cy = 10, ignited = 0;
+  const scene = { depth: 0, startWorldM: {}, save: {energy: 20},
+    playerToWorldCell: () => ({tx: 19372, ty: 29372, cx: 8, cy}),
+    _lastLavaFlashT: Infinity, _popEnergy() {}, _ignitePlayer() { ignited++; },
+    _losePlayerEnergy(n) { this.save.energy -= n; return n; } };
+  const step = dt => tick.call(scene, dt, () => ({cellIX: 8, cellIY: 10}));
+  WorldGen.tileCache.set(key, entry);
+  try {
+    step(.25); assert.eq(scene.save.energy, 20);
+    step(.25); assert.eq(scene.save.energy, 19); assert.eq(ignited, 2);
+    step(.25); cy = 10.7; step(.25);
+    assert.eq(scene._lavaAccum, 0, 'leaving actual band clears partial burn');
+    cy = 10; step(.25); assert.eq(scene.save.energy, 19);
+    scene.save.fireResistancePotionUntil = Date.now() + 60000;
+    step(1); assert.eq(scene.save.energy, 19, 'same immunity as lava');
+    delete scene.save.fireResistancePotionUntil;
+    scene.depth = WorldGen.LAVA_DEPTH; step(1); assert.eq(scene.save.energy, 19, 'surface road does not heat cave floors');
+    scene.depth = 0; scene.save.energy = 0; step(1); assert.eq(scene.save.energy, 0);
+  } finally {
+    if (prior) WorldGen.tileCache.set(key, prior); else WorldGen.tileCache.delete(key);
+  }
 });

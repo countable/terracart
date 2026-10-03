@@ -576,7 +576,8 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   assert.gt(plants.length, 4, 'the lane is dressed');
   const mush = plants.filter((w) => w.crop === 'mushroom').length;
   assert.truthy(plants.every((w) => ['mushroom', 'giant_mushroom'].includes(w.crop)), 'mushrooms only');
-  assert.gt(plants.filter((w) => w.crop === 'giant_mushroom').length, 0, 'occasional giant caps');
+  assert.inRange(plants.filter((w) => w.crop === 'giant_mushroom').length / plants.length, 0.17, 0.35,
+    'large caps appear in two of every three groups while small caps remain the majority');
   assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
   for (const w of plants) assert.eq(wildplantSprite(w), CROP_SPRITE[w.crop], 'small and giant caps use their distinct crop art');
   assert.truthy(wildplantLight('mushroom'), 'and a mushroom glows');
@@ -1064,7 +1065,7 @@ test('thorny path: dense deterministic brambles cross their minor road and enclo
   assert.eq(SV.VARIANT_BY_ID.thorny.title, 'Thorny Way');
   assert.eq(SV.VARIANT_BY_ID.thorny.code, SV.VARIANT_BY_ID.snare.code + 1, 'append preserves existing codes');
   assert.eq(SV.THORNY_VERGE_MAX_CELLS, 4);
-  assert.inRange(result.wildplants.length / 264, 0.6, 0.95, 'dense irregular verges reach up to four cells');
+  assert.inRange(result.wildplants.length / 264, 0.35, 0.57, 'thicket clusters retain about 60% of their former fill');
   assert.eq(new Set(result.wildplants.map(p => p.id)).size, result.wildplants.length, 'unique shrubs');
   assert.eq(JSON.stringify(result), JSON.stringify(build(name, [[line[1],mid],[mid,line[0]]]).result),
     'reversal and fragments keep identical generated content');
@@ -1454,13 +1455,21 @@ test('barricade scenery: perpendicular lines reach four cells from the verge', (
   assert.truthy(pieces.some(o=>o.kind==='stakes'));
   assert.truthy(pieces.some(o=>o.crop==='barricade'));
   assert.eq(SV.BARRICADE_VERGE_MAX_CELLS,4);
+  const crossingRows = [...rows.keys()].sort((a, b) => a - b);
+  assert.gt(crossingRows.length, 1, 'the road has repeated crossings');
+  for (let i = 1; i < crossingRows.length; i++) {
+    const gapM = (crossingRows[i] - crossingRows[i - 1]) * WorldGen.CELL_M;
+    assert.inRange(gapM, 43, 57, 'single barricade layers sit about 50 m apart after cell snapping');
+  }
 });
 
 test('barricades cross rasterized major roads, including diagonal pavement beyond the band center', () => {
   for (const roadClass of ['secondary', 'primary', 'motorway']) {
     for (const diagonal of [false, true]) {
       const line = diagonal
-        ? [{ x: 32 * CELL_MVT, y: 32 * CELL_MVT }, { x: 55 * CELL_MVT, y: 55.5 * CELL_MVT }]
+        ? [{ x: (32 - 23 / Math.hypot(23, 23.5)) * CELL_MVT,
+            y: (32 - 23.5 / Math.hypot(23, 23.5)) * CELL_MVT },
+            { x: 55 * CELL_MVT, y: 55.5 * CELL_MVT }]
         : pts([[32, 32], [32, 63]]);
       const r = WorldGen.rasterizeTile([
         { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
@@ -1474,10 +1483,10 @@ test('barricades cross rasterized major roads, including diagonal pavement beyon
       const pieces = [...r.streetDress.objects, ...r.streetDress.wildplants]
         .filter(o => o._street === 'barricade' && o._streetScenery);
       const occupied = new Set(pieces.map(o => cellOf(o.y, TY) * CPE + cellOf(o.x, TX)));
-      // The second diagonal crossing reaches this paved tile whose center
+      // The first diagonal crossing reaches this paved tile whose center
       // is outside a secondary road's 4.5 m half-width. Treating it as verge
       // used to reject its road terrain and stop the barrier mid-crossing.
-      const x = diagonal ? 34 : 32, y = diagonal ? 33 : 35, i = y * CPE + x;
+      const x = diagonal ? 34 : 32, y = diagonal ? 33 : 36, i = y * CPE + x;
       assert.truthy(WorldGen.isRoadTerrain(r.grid[i]), `${roadClass}: fixture checks actual pavement`);
       assert.truthy(r.spawnWhy[i] & WorldGen.SPAWN_WHY.TERRAIN, 'ordinary terrain spawn exclusion remains');
       assert.truthy(occupied.has(i), `${roadClass}: barrier covers ${diagonal ? 'diagonal' : 'straight'} road tile`);

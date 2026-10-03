@@ -250,7 +250,7 @@
       const entrances = yield* root.QuarryLayout.entrancesSteps(s, { ...ctx, spawnOpts: opts, reservedCells: out.reservedCells });
       out.objects.push(...entrances);
       s.rec.placed += entrances.length;
-      if (s.a.owned && s.variant.entrances && entrances.length < s.variant.entrances.count)
+      if (s.a.owned && s.variant.entrances && entrances.length < root.QuarryLayout.entranceCount(s))
         s.rec.shortfalls.push('entrance:no-safe-seat');
       if (s.a.clipped) s.rec.shortfalls.push('layout:incomplete-source-strip-mine');
       for (const [layer, entries] of [['find',plan.finds], ['guard',plan.guards]]) {
