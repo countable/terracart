@@ -847,7 +847,7 @@
       objects.push(makeObject('chest', (tx + (ix + 0.5) / N) * tileEdgeM,
         (ty + (iy + 0.5) / N) * tileEdgeM, cellId('chest_topup', tx, ty, ix, iy), {
           poiClass: 'shelter', tierSeed: tier, chestTopUp: true,
-          ...(anchor ? { zone: anchor.kind, zoneVariant: variant.id, zoneLayer: 'find' } : { _street: street.id }),
+          ...(anchor ? { zoneKind: anchor.kind, zoneVariant: variant.id, zoneLayer: 'find' } : { _street: street.id }),
         }));
       spawnOpts.occupied.add(i);
       need[tier]--; result.added[tier]++;

@@ -258,7 +258,7 @@
       assert.eq(shrines.length, 1, JSON.stringify(tags));
       assert.eq(shrines[0]._poiAt, '2048,2048');
       assert.eq(shrines[0].id, WorldGen.cellId('c', tx, ty, 32, 32));
-      assert.eq(shrines[0].zone, 'beach');
+      assert.eq(shrines[0].zoneKind, 'beach');
       assert.eq(a.objects.filter(o => o.kind === 'chest' && !o.chestTopUp).length, 0, 'the POI converts instead of duplicating');
       const topUps = a.objects.filter(o => o.chestTopUp);
       assert.eq(topUps.filter(o => chestTier(o) === 1).length, 25, 'variant fills the T1 minimum');

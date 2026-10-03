@@ -83,7 +83,7 @@
       const indoor = typeof ctx.insideBuilding === 'function' ? ctx.insideBuilding(a)
         : !!(source[0] >= 0 && source[1] >= 0 && source[0] < N && source[1] < N
           && WG.isBuildingTerrain && WG.isBuildingTerrain(grid[source[1] * N + source[0]]));
-      const rec = { anchorKey: a.key, variant: variant.id, eligible: 0, placed: 0, findsRequested: a.owned ? variant.finds.count : 0,
+      const rec = { anchorKey: a.key, zoneVariant: variant.id, eligible: 0, placed: 0, findsRequested: a.owned ? variant.finds.count : 0,
         background: { planned: 0, placed: 0, occupied: 0, blocked: 0, reserved: 0 },
         findsPlaced: 0, guardsRequested: a.owned ? (variant.guards.count || 0) : 0, guardsPlaced: 0, shortfalls: [] };
       out.diagnostics.push(rec);
@@ -121,7 +121,7 @@
         material = s.variant.materialReplacements?.[m.fallback] || m.fallback; m = V.materials[material];
       }
       const i = iy * N + ix, [x, y] = position(ix, iy);
-      const extra = { zone: s.a.kind, zoneVariant: s.variant.id, zoneLayer: layer, _ix: ix, _iy: iy };
+      const extra = { zoneKind: s.a.kind, zoneVariant: s.variant.id, zoneLayer: layer, _ix: ix, _iy: iy };
       const frames = s.variant.materialFrames?.[material];
       if (frames?.length) extra._zoneObjectFrame = frames[Math.floor(Z.cellU01(tx * N + ix, ty * N + iy, 0x2416) * frames.length)];
       else if (m._zoneObjectFrame != null) extra._zoneObjectFrame = m._zoneObjectFrame;
@@ -217,7 +217,7 @@
       // retaining a separate occupied cell from the daily shrine.
       const ix = s.poi[0], iy = s.poi[1] + 1, [x, y] = position(ix, iy - 0.45);
       out.objects.push(WG.makeObject('chest', x, y, `wreck_chest_${s.a.gx}_${s.a.gy}`,
-        { tierSeed: WRECK_CHEST_TIER, zone: s.a.kind, zoneVariant: s.variant.id,
+        { tierSeed: WRECK_CHEST_TIER, zoneKind: s.a.kind, zoneVariant: s.variant.id,
           zoneLayer: 'wreck', _ix: ix, _iy: iy }));
     }
     for (const s of states) {
@@ -270,7 +270,7 @@
         const [x, y] = position(ix, iy);
         grid[i] = WG.T.CAVE_LAVA;
         out.objects.push(WG.makeObject('lava_vent', x, y, WG.cellId('qlava', tx, ty, ix, iy),
-          {zone:'quarry', zoneVariant:s.variant.id, zoneLayer:'hazard', _ix:ix, _iy:iy}));
+          {zoneKind:'quarry', zoneVariant:s.variant.id, zoneLayer:'hazard', _ix:ix, _iy:iy}));
         occ.add(i);
       }
     }
@@ -314,7 +314,7 @@
           if (ix < 0) { s.rec.shortfalls.push(`guard:${n}`); continue; }
           const [x, y] = position(ix, iy), [homeX, homeY] = position(target[0], target[1]);
           out.guards.push({ kind, id: `zg_${a.kind}_${a.gx}_${a.gy}_${n}`, x, y, homeX, homeY,
-            zone: a.kind, zoneVariant: v.id, stationary: kind === 'plant',
+            zoneKind: a.kind, zoneVariant: v.id, stationary: kind === 'plant',
             ...(v.guards.proximityCells ? { proximityCells: v.guards.proximityCells } : {}), _ix: ix, _iy: iy });
           occ.add(iy * N + ix); s.rec.guardsPlaced++;
         }
@@ -325,7 +325,7 @@
           // The park's place becomes its daily shrine, keeping its name,
           // stable POI identity and settled seat at the composition's centre.
           s.chest.kind = 'grove_shrine';
-          s.chest.zone = a.kind; s.chest.zoneLayer = 'shrine';
+          s.chest.zoneKind = a.kind; s.chest.zoneLayer = 'shrine';
           if (v.shrineFrame != null) s.chest._zoneObjectFrame = v.shrineFrame;
           // A shrine kind (src/shrines.js) lends its boon in place of the gift.
           const shrineKind = s.shipwreck ? null : root.Shrines && root.Shrines.kindForZoneVariant(v.id);
@@ -356,13 +356,13 @@
           if (!owns(s, ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, opts, 'attractor')) continue;
           const [x, y] = position(ix, iy);
           out.objects.push(WG.makeObject('grove_shrine', x, y, WG.cellId('zsh', tx, ty, ix, iy),
-            { zone: a.kind, zoneVariant: v.id, shrineKind: standKind, _ix: ix, _iy: iy }));
+            { zoneKind: a.kind, zoneVariant: v.id, shrineKind: standKind, _ix: ix, _iy: iy }));
           occ.add(iy * N + ix); s.clear.add(iy * N + ix); seated = true;
           break;
         }
         if (!seated) s.rec.shortfalls.push('shrine:' + standKind);
       }
-      out.nexus.push({ zoneAnchor: a.key, kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
+      out.nexus.push({ zoneAnchor: a.key, zoneKind: a.kind, zoneVariant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
     }
     // Generated sites have no POI to turn into a shrine. Their optional
     // altar belongs to the complete source site, after its finite rewards
@@ -388,7 +388,7 @@
       if (seat < 0) { s.rec.shortfalls.push('shrine:' + shrineKind); continue; }
       const ix = seat % N, iy = Math.floor(seat / N), [x, y] = position(ix, iy);
       out.objects.push(WG.makeObject('grove_shrine', x, y, `zsh_${identity}`,
-        { zone: a.kind, zoneVariant: v.id, zoneLayer: 'shrine', shrineKind, _ix: ix, _iy: iy }));
+        { zoneKind: a.kind, zoneVariant: v.id, zoneLayer: 'shrine', shrineKind, _ix: ix, _iy: iy }));
       occ.add(seat); s.clear.add(seat); s.rec.placed++;
     }
     // Fit a bounded composition as a whole instead of clipping its stones
@@ -546,7 +546,7 @@
           background[o ? 'placed' : 'blocked']++;
           if (o && canBury && fnv1a(`${o.id}|buried-treasure`) / 4294967296 < s.variant.buriedTreasureChance) {
             out.treasures.push({ id: `${o.id}_treasure`, x: o.x, y: o.y,
-              zone: s.a.kind, zoneVariant: s.variant.id, zoneLayer: 'buried_find',
+              zoneKind: s.a.kind, zoneVariant: s.variant.id, zoneLayer: 'buried_find',
               _ix: ix, _iy: iy, coverRockId: o.id });
             s.rec.findsRequested++; s.rec.findsPlaced++;
           }

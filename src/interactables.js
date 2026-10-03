@@ -152,7 +152,7 @@ function isPlainRock(o) {
 // their own costs and yields. Bonus finds still use the ordinary rock rolls.
 const QUARRY_ROCK_RULES = Object.freeze({ energyMul: 1.5, stones: 1 });
 function quarryRockRules(o) {
-  return o?.kind === 'mineralrock' && o.zone === 'quarry' && isPlainRock(o) ? QUARRY_ROCK_RULES : null;
+  return o?.kind === 'mineralrock' && o.zoneKind === 'quarry' && isPlainRock(o) ? QUARRY_ROCK_RULES : null;
 }
 
 // One first find per surface quarry, shared by every tile seeing its anchor.

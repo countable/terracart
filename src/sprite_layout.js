@@ -365,7 +365,7 @@
     { role: 'wanderer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
     { role: 'archaeologist', idle: 'orrin_idle', walk: 'orrin_walk', path: 'assets/NPC/Orrin_old_man_idle.png', cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY: 90 },
     // Every neighbour role has its own look: one sheet per label, so a role
-    // shown in several zones (Peddler, Lamplighter) looks the same in each.
+    // shown in several cultures (Peddler, Lamplighter) looks the same in each.
     // tools/art/import_npc_art.py seats them in 4x4 cells of 48px and bakes
     // the citizen palette into them; assets.js preloads them from here.
     // `portraitY` lowers the smaller heads in the dialog portrait, as Orrin's.
@@ -380,11 +380,11 @@
       ['mason', ['village'], 'mason', 90], ['mason', ['farm'], 'barn_raiser', 99], ['mason', ['market'], 'stonemason', 99],
       ['lamplighter', ['village', 'market'], 'lamplighter', 99],
       ['keeper', ['shrine'], 'shrine_keeper', 99], ['keeper', ['grove'], 'den_keeper', 90],
-    ].map(([role, zones, slug, portraitY]) => ({ role, zones, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
+    ].map(([role, cultures, slug, portraitY]) => ({ role, cultures, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
       path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY })),
   ];
   function npcSheet(c) {
-    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.zones || sheet.zones.includes(c.zone)))
+    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.cultures || sheet.cultures.includes(c.culture)))
       || NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
   }
   function npcAppearance(c, now) {
