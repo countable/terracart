@@ -44,7 +44,7 @@
     // live catch at a time), consumable (tap-to-use). Fruit-tree seeds also
     // stay single regardless of bumps. flora maps to the produce 'flowers' item via picker
     // routing, but we treat it as a small-qty class.
-    singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'legacyConsumable'],
+    singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'consumable'],
     // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
@@ -175,8 +175,8 @@
     'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 0.5,
                           chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0,
                           favourite: { p: 0.85, ids: {
-                            reach_potion: 1, vigor_potion: 1,
-                            speed_potion: 1, shield_potion: 1, revive_potion: 1,
+                            reach_potion: 1, healing_potion: 1,
+                            speed_potion: 1, shielding_potion: 1, revival_potion: 1,
                           } } },
     // ── A grove shrine's daily gift (src/zones.js, INTERACTABLES.grove_shrine)
     // One roll a day per shrine, worth about a buried X: the X's flat curve
@@ -272,7 +272,7 @@
 
   // BUNDLE. Wood and stone, both T1, so its worth is entirely in its COUNT:
   // BUNDLE_QTY plus BUNDLE_PER_BUMP per quantity bracket banked.
-  const BUNDLE_IDS = ['wood', 'rockfruit'];
+  const BUNDLE_IDS = ['wood', 'rubble'];
   const BUNDLE_QTY_MIN = 3, BUNDLE_QTY_MAX = 8;
   const BUNDLE_PER_BUMP = 2;
 
@@ -283,7 +283,7 @@
   CLASS_MAX_TIER.bundle = 1;
   CLASS_MAX_TIER.boots = 7;
   CLASS_MAX_TIER.gear = 7;
-  CLASS_MAX_TIER.legacyConsumable = Math.max(CLASS_MAX_TIER.magic || 1, CLASS_MAX_TIER.supply || 1);
+  CLASS_MAX_TIER.consumable = Math.max(CLASS_MAX_TIER.magic || 1, CLASS_MAX_TIER.supply || 1);
   // Relics span every tier 1..7 for every slot — pickItemInClass handles this
   // without needing an entry in ITEMS_BY_CLASS_TIER.
 
@@ -314,7 +314,7 @@
   // nearest filled tier if empty (e.g. seeds at T5; a fallback for jackpots).
   function pickItemInClass(cls, tier, rng) {
     if (cls === 'relic') return null;            // handled by reconcileRelicOffer
-    if (cls === 'legacyConsumable') {
+    if (cls === 'consumable') {
       const items = _ITEMS.filter(i => ['magic', 'supply'].includes(i.kind) && !i.caveOnly && !i.uniqueJewelry && !i.cooked && !i.shiny && i.baseTier <= tier);
       if (!items.length) return null;
       const top = Math.max(...items.map(i => i.baseTier));
@@ -391,10 +391,10 @@
   // Caller passes opts.depth (the cave level; 0/absent = surface).
   const CAVE_SUPPLY_MAX_TIER = 2;
   const CAVE_SUPPLY_SKEW = {
-    classAdd:  { cash: 0.25, legacyConsumable: 0.25 },
+    classAdd:  { cash: 0.25, consumable: 0.25 },
     favourite: { p: 0.85, ids: {
       torch: 1, rope: 1,
-      vigor_potion: 0.25, shield_potion: 0.25, reach_potion: 0.25, speed_potion: 0.25,
+      healing_potion: 0.25, shielding_potion: 0.25, reach_potion: 0.25, speed_potion: 0.25,
       // The Magic Trap (items.js `caveOnly`): the one door into it besides a
       // slain trapper. Half a share: glad to find, not a staple.
       magic_trap: 0.5,
@@ -415,10 +415,10 @@
   // TIER-CAPPED (`tierCapped`: members at or under the rolled tier), so a gem
   // arrives only where its tier does — a sapphire from T4, a diamond at T7.
   const CAVE_DEEP_SKEW = {
-    classAdd:  { legacyConsumable: 0.25, mineral: 0.25 },
+    classAdd:  { consumable: 0.25, mineral: 0.25 },
     favourite: { p: 0.75, tierCapped: true, ids: {
-      vigor_potion: 1, shield_potion: 1, reach_potion: 1, speed_potion: 1,
-      revive_potion: 1, blight_potion: 1, raven_scroll: 1, skeleton_scroll: 1, wraith_scroll: 1, thunder_scroll: 1, resurrection_potion: 1,
+      healing_potion: 1, shielding_potion: 1, reach_potion: 1, speed_potion: 1,
+      revival_potion: 1, blight_potion: 1, raven_scroll: 1, bones_scroll: 1, wraith_scroll: 1, thunder_scroll: 1, resurrection_potion: 1,
       growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1, sleep_powder: 1,
       fireball_scroll: 1, explosive_flask: 1, fear_scroll: 1, treasure_map: 1,
       sapphire: 1, ruby: 1, emerald: 1, diamond: 1,
@@ -446,7 +446,7 @@
     if (caveSkew) {
       const classBias = { ...ctx.classBias };
       // Buried cave X marks keep a union pool of supply + magic: a loot group, never an inventory kind.
-      classBias.legacyConsumable = (classBias.legacyConsumable || 0) + (classBias.supply || 0);
+      classBias.consumable = (classBias.consumable || 0) + (classBias.supply || 0);
       delete classBias.supply;
       for (const [c, w] of Object.entries(caveSkew.classAdd)) classBias[c] = (classBias[c] || 0) + w;
       ctx = { ...ctx, classBias, favourite: caveSkew.favourite };
@@ -684,7 +684,7 @@
     let favId = null;
     if (fav) {
       const cand = fav.ids
-        ? Object.entries(fav.ids).filter(([k]) => (_ITEM_BY_ID[k]?.kind === cls || (cls === 'legacyConsumable' && ['magic', 'supply'].includes(_ITEM_BY_ID[k]?.kind)))
+        ? Object.entries(fav.ids).filter(([k]) => (_ITEM_BY_ID[k]?.kind === cls || (cls === 'consumable' && ['magic', 'supply'].includes(_ITEM_BY_ID[k]?.kind)))
             && (!(fav.tierCapped || cls === 'magic') || (_ITEM_BY_ID[k]?.baseTier ?? 1) <= tier))
         : (_ITEM_BY_ID[fav.id]?.kind === cls ? [[fav.id, 1]] : []);
       if (cand.length && rng() < (fav.p ?? 0)) {

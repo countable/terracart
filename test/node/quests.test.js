@@ -185,7 +185,7 @@ test('plant: past the ladder, a seedless tap STILL leaves the soil alone', () =>
 test('plant: nothing in the game undoes a till by tapping it', () => {
   // Any selection that is not plantable lands in the same branch — a mineral,
   // a tool, an animal. None of them may cost the player their ground.
-  for (const id of ['wood', 'rockfruit', 'chicken']) {
+  for (const id of ['wood', 'rubble', 'chicken']) {
     const save = { inv: [{ id, count: 3 }], selSlot: 0, tilled: ['7,7'], planted: [] };
     Quests.starterSkipAll(save);
     const flashes = [];

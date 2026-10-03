@@ -80,7 +80,7 @@ test('water → hold → advance is a coherent cycle', () => {
 // so the one thing a crop actually costs — four waterings and four holds —
 // was the same at the top of the ladder as at the bottom.
 
-const canOf = (tier) => (tier ? { can: { tier } } : {});
+const canOf = (tier) => (tier ? { watering_can: { tier } } : {});
 const alwaysJump = () => 0;      // rng below every chance → always jumps
 const neverJump = () => 0.999;   // rng at the top → only a 100% chance fires
 
@@ -289,10 +289,10 @@ test('crop tier sets the stage hold; the can shortens the stage it starts', () =
   assert.eq(Crops.stageHoldMs('sunflower'), 240 * MIN, 'a magical flower rides the same curve');
   assert.eq(Crops.CAN_HOLD_CUT, 0.875, 'a Frost can: an eighth of the wait');
   assert.eq(Crops.canHoldMul(null), 1, 'bare hands: the full hold');
-  assert.eq(Crops.canHoldMul({ can: { tier: Crops.CAN_TOP_TIER } }), 1 - Crops.CAN_HOLD_CUT, 'Frost: the full cut');
+  assert.eq(Crops.canHoldMul({ watering_can: { tier: Crops.CAN_TOP_TIER } }), 1 - Crops.CAN_HOLD_CUT, 'Frost: the full cut');
   const never = () => 1;   // no jump
   for (const tier of [0, 1, 4, 7]) {
-    const relics = tier ? { can: { tier } } : null;
+    const relics = tier ? { watering_can: { tier } } : null;
     const p = { crop: 'pairy', stage: 0, watered_t: 0 }, save = { planted: [p] };
     assert.eq(Crops.waterOne(save, p, relics, 1000, never), 'watered');
     const hold = Math.round(Crops.stageHoldMs('pairy') * Crops.canHoldMul(relics));

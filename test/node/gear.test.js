@@ -14,8 +14,8 @@ function seeded(seed) {
 
 test('equip: a relic just sets its slot to the tier', () => {
   const save = { relics: {}, armor: {}, energy: 50, maxEnergy: 100 };
-  Gear.equip(save, 'relic', 'pick', 3);
-  assert.eq(save.relics.pick.tier, 3);
+  Gear.equip(save, 'relic', 'pickaxe', 3);
+  assert.eq(save.relics.pickaxe.tier, 3);
   assert.eq(save.energy, 50, 'relics don’t touch energy');
 });
 
@@ -54,7 +54,7 @@ test('equip: a weapon relic (sword/bow/staff) becomes the active weapon', () => 
 
 test('equip: a non-weapon relic never touches activeWeapon', () => {
   const save = { relics: {}, armor: {}, activeWeapon: 'bow' };
-  Gear.equip(save, 'relic', 'pick', 3);
+  Gear.equip(save, 'relic', 'pickaxe', 3);
   Gear.equip(save, 'armor', 'helmet', 2);
   assert.eq(save.activeWeapon, 'bow', 'gathering tools and armor are not weapons');
 });
@@ -75,10 +75,10 @@ test('buildRelicOffer: never offers a tier ≤ what the player already owns', ()
   for (const slot of Object.keys(ARMOR_DEFS)) maxed.armor[slot] = { tier: 7 };
   assert.eq(Gear.buildRelicOffer(maxed, seeded(2)), null, 'fully maxed → no offer');
   // A T5 pick → any pick offer must be T6+.
-  const save = { relics: { pick: { tier: 5 } }, armor: {} };
+  const save = { relics: { pickaxe: { tier: 5 } }, armor: {} };
   for (let s = 1; s <= 40; s++) {
     const o = Gear.buildRelicOffer(save, seeded(s));
-    if (o && o.kind === 'relic' && o.slot === 'pick') assert.gt(o.tier, 5, 'pick offer beats the owned T5');
+    if (o && o.kind === 'relic' && o.slot === 'pickaxe') assert.gt(o.tier, 5, 'pick offer beats the owned T5');
   }
 });
 
@@ -107,10 +107,10 @@ test('buildRelicOffer: castle pricing is a flat markup that no relic bends', () 
 });
 
 test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', () => {
-  assert.eq(Gear.blacksmithRecipe('relic', 'pick', 0), null, 'tier 0 → no recipe');
-  const wood = Gear.blacksmithRecipe('relic', 'pick', 1);
+  assert.eq(Gear.blacksmithRecipe('relic', 'pickaxe', 0), null, 'tier 0 → no recipe');
+  const wood = Gear.blacksmithRecipe('relic', 'pickaxe', 1);
   assert.eq(JSON.stringify(wood), JSON.stringify([{ id: 'wood', qty: 5 }]), 'T1 pick = 5 wood');
-  const iron = Gear.blacksmithRecipe('relic', 'pick', 3);
+  const iron = Gear.blacksmithRecipe('relic', 'pickaxe', 3);
   assert.eq(JSON.stringify(iron), JSON.stringify([{ id: 'iron_bar', qty: 5 }]), 'T3 pick = 5 iron');
   assert.eq(Gear.blacksmithRecipe('relic', 'ring', 3), null, 'unique rings are not forged');
   assert.eq(Gear.blacksmithRecipe('relic', 'amulet', 3), null, 'unique amulets are not forged');
@@ -142,18 +142,18 @@ test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
 test('blacksmith offers: the next rung per slot, every tier past it divided down, no relic/armour split', () => {
   assert.eq(Gear.SMITHY_NEXT_RUNG_BIAS, 4, 'each rung skipped quarters the odds');
   // Pick at Iron (3), axe bare, helmet at Copper (2), the rest bare.
-  const save={relics:{pick:{tier:3},staff:{tier:1}},armor:{helmet:{tier:2}}};
+  const save={relics:{pickaxe:{tier:3},staff:{tier:1}},armor:{helmet:{tier:2}}};
   const W=Gear.relicOfferWeights(save,{isBlacksmith:true});
   const w=(kind,slot,tier)=>W.find(x=>x.c.kind===kind&&x.c.slot===slot&&x.c.tier===tier)?.w;
   assert.eq(w('relic','axe',1),1,'a bare tool slot: a wooden axe is the next rung at full weight');
   assert.eq(w('armor','boots',1),1,'a bare armour slot the same — no kind split at the smith');
-  assert.eq(w('relic','pick',4),1/8,'the kitted pick\'s next rung carries only the low-tier curve');
+  assert.eq(w('relic','pickaxe',4),1/8,'the kitted pick\'s next rung carries only the low-tier curve');
   assert.eq(w('armor','helmet',3),1/4,'the Copper helmet\'s next rung likewise');
   assert.eq(w('relic','axe',2),1/2/4,'a wooden-slot Copper axe is one rung skipped: curve / 4');
   assert.eq(w('relic','axe',3),1/4/16,'two skipped: / 16');
   assert.eq(w('relic','staff',2),1/2,'a wooden staff\'s next FORGEABLE rung is Copper (no wooden jewellery): rank 0');
   assert.eq(w('relic','staff',3),1/4/4,'and Iron is one past it');
-  assert.truthy(w('relic','axe',1)>w('relic','pick',4)&&w('armor','boots',1)>w('relic','pick',4),
+  assert.truthy(w('relic','axe',1)>w('relic','pickaxe',4)&&w('armor','boots',1)>w('relic','pickaxe',4),
     'missing wood pieces outweigh a finer upgrade for a kitted slot');
   // Every tier stays in the pool: bias, not a cut.
   assert.eq([...new Set(W.filter(x=>x.c.slot==='axe').map(x=>x.c.tier))].join(','),'1,2,3,4,5,6,7');
@@ -349,7 +349,7 @@ test('alternate weapons: sparse material names, independent ownership and replac
 // the SAME tier, any for any across relics, armour and unique relics.
 function swapSave() {
   return {
-    relics: { sword: { tier: 3 }, bags: { tier: 3 }, pick: { tier: 5 } },
+    relics: { sword: { tier: 3 }, bag: { tier: 3 }, pickaxe: { tier: 5 } },
     armor: { helmet: { tier: 3 } },
     inv: [{ id: 'lucky_key', count: 1 }],
     activeWeapon: 'sword',
@@ -366,7 +366,7 @@ test('trader gear swap: same tier, owned for wanted, never bags or a downgrade',
     swaps++;
     const { give, get } = swap;
     assert.eq(get.tier, give.tier, 'the same tier either way');
-    assert.truthy(give.slot !== 'bags', 'a bag never leaves: the inventory would spill');
+    assert.truthy(give.slot !== 'bag', 'a bag never leaves: the inventory would spill');
     if (give.kind === 'item') assert.truthy(carriesItem(save, give.id), 'gives a carried unique');
     else assert.eq(pieceTier(save, give), give.tier, 'gives an owned piece at its tier');
     if (get.kind === 'item') {
@@ -383,7 +383,7 @@ test('trader gear swap: same tier, owned for wanted, never bags or a downgrade',
 });
 
 test('trader gear swap: nothing owned (or only a bag) means no swap', () => {
-  const bare = { relics: { bags: { tier: 2 } }, armor: {}, inv: [] };
+  const bare = { relics: { bag: { tier: 2 } }, armor: {}, inv: [] };
   for (let i = 0; i < 50; i++) assert.eq(Gear.traderGearSwap(bare, seeded(i)), null);
 });
 

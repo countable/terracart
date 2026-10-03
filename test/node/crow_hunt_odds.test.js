@@ -56,8 +56,8 @@ function hunt(tier, dist) {
   scene.playerM = { x: c.x + Math.cos(a) * r, y: c.y + Math.sin(a) * r };
   const inReach = () => { const k = worldMetersToAbsCell(scene, c.x, c.y); return cellInReach(scene, k.cellIX, k.cellIY); };
   if (!inReach()) return null;   // (a half-cell offset can straddle a cell edge; not a hunt)
-  const relics = tier > 0 ? { bugnet: { tier } } : {};
-  const wheelMs = toolDurationMs(relics, 'bugnet');
+  const relics = tier > 0 ? { net: { tier } } : {};
+  const wheelMs = toolDurationMs(relics, 'net');
   scene._crowDepart(c, t, 'hunted');                      // interact.js: the hunt starts
   const end = t + wheelMs;
   let outSince = null;

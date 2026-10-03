@@ -1,6 +1,6 @@
 (function () {
   const handler = TAP_HANDLERS.find(h => h.name === 'disarm-obstacle');
-  function exercise(piece, { reach = true, keep = false, held = 'trap_kit', picked = [] } = {}) {
+  function exercise(piece, { reach = true, keep = false, held = 'trap_disarm_kit', picked = [] } = {}) {
     const save = { inv: [{ id: held, count: 2 }], selSlot: 0, picked: [...picked], energy: 80 };
     const scene = Object.assign(makeScene(), { save, cellM: 5, cellPx: 32, cellsPerTile: 32,
       mPerPx: 5 / (WorldGen.TILE_PX / 32), originPx: { x: 0, y: 0 },

@@ -49,10 +49,10 @@
     'apple_tree:2': { fw: 32, fh: 48, minX: 5, minY: 14, maxX: 29, maxY: 48 },
     'apple_tree:4': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 47 },
     'apple_tree:5': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 47 },
-    'peach_tree:0': { fw: 32, fh: 48, minX: 12, minY: 42, maxX: 20, maxY: 46 },
-    'peach_tree:2': { fw: 32, fh: 48, minX: 5, minY: 14, maxX: 28, maxY: 48 },
-    'peach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
-    'peach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
+    'worldpeach_tree:0': { fw: 32, fh: 48, minX: 12, minY: 42, maxX: 20, maxY: 46 },
+    'worldpeach_tree:2': { fw: 32, fh: 48, minX: 5, minY: 14, maxX: 28, maxY: 48 },
+    'worldpeach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
+    'worldpeach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'chest:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
     'box:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
@@ -231,7 +231,7 @@
   // fails if this table has drifted from the art.
   const CROWN_BOUNDS = {
     'apple_tree:4': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 34 },
-    'peach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 35 },
+    'worldpeach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 35 },
   };
 
   // Offset in screen px from a fruit tree sprite's ANCHOR (its x/y — wherever
@@ -422,7 +422,7 @@
                        down: { idle: [0, 1, 2, 3], move: [4, 5, 6, 7] },
                        side: { idle: [8, 9, 10, 11], move: [12, 13, 14, 15] },
                        up:   { idle: [16, 17, 18, 19], move: [20, 21, 22, 23] } } },
-    turtle:        { sheet: 'turtle',    frameMs: CREATURE_FRAME_MS, fw: 16, fh: 16, scale: 1.30, foot: 14 / 16, float: 0,  minY: 1,  maxY: 14,
+    sea_turtle:        { sheet: 'sea_turtle',    frameMs: CREATURE_FRAME_MS, fw: 16, fh: 16, scale: 1.30, foot: 14 / 16, float: 0,  minY: 1,  maxY: 14,
                      directionSideFacing: 'left', directions: {
                        down: { idle: [6], move: [6, 7] },
                        side: { idle: [2], move: [2, 3] },
@@ -643,9 +643,9 @@
     slime:         { wanders: true },
     cave_slime:    { wanders: true },
     purple_slime:  { wanders: true },
-    // A fire slime's kill (player or pet) hands over a flint (items.js 'coal')
+    // A fire slime's kill (player or pet) hands over a flint (items.js 'flint_shard')
     // — the tar yard's thematic prize, on top of its bounty coin.
-    fire_slime:    { wanders: true, drop: 'coal' },
+    fire_slime:    { wanders: true, drop: 'flint_shard' },
     goblin:        { wanders: true },
     goblin_archer: { wanders: true },
     // A trapper's kill (by the player or their pet — resolveDefeat pays a drop
@@ -660,7 +660,7 @@
   // The sea turtle is the rabbit's row on the beach (seated by
   // biome_profiles.js SHORE_FAUNA): the same hops, bolt and settling, read
   // from the rabbit's row so the two cannot drift.
-  CREATURE_BEHAVIOUR.turtle = CREATURE_BEHAVIOUR.rabbit;
+  CREATURE_BEHAVIOUR.sea_turtle = CREATURE_BEHAVIOUR.rabbit;
   // The behaviour row for `kind` — the base row for a giant, like its art.
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;

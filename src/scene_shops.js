@@ -59,7 +59,7 @@ const CASTLE_TAX_GOLD = 10;
 // Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
 // (see starterSmithSlots) as the player's bootstrap tools.
-const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
+const STARTER_SMITH_SLOTS = ['pickaxe', 'axe', 'hoe', 'fishing_rod', 'watering_can', 'net'];
 
 class SceneShops {
 

@@ -82,15 +82,15 @@
   // given build are filtered out at roll time, so missing items are harmless.
   const BUNDLE_THEMES = {
     // Beach — sand + shore + shallows: shells, washed-up coconut, the fish ladder.
-    beach:   ['shell', 'boot', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish', 'coconut'],
+    beach:   ['shell', 'old_boot', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish', 'coconut'],
     // Forage — wild-picked debris and prized foraged flora.
     forage:  ['flowers', 'longgrass', 'mushroom', 'berry', 'forgetmenot', 'marigold', 'wildrose', 'starflower'],
     // Mining — rock-break spoils and forge bars, climbing the gem/metal ladder
     // (gem then bar per tier: T4 sapphire/gold … T7 diamond/frost).
-    mining:  ['wood', 'coal', 'copper_bar', 'iron_bar', 'sapphire', 'gold_bar', 'ruby', 'platinum_bar', 'emerald', 'crimson_bar', 'diamond', 'frost_bar'],
+    mining:  ['wood', 'flint_shard', 'copper_bar', 'iron_bar', 'sapphire', 'gold_bar', 'ruby', 'platinum_bar', 'emerald', 'crimson_bar', 'diamond', 'frost_bar'],
     // Harvest — farmed crops and orchard fruit, the core farming loop.
-    harvest: ['potato', 'rockfruit', 'berry', 'cress', 'onion', 'rainberry', 'pairy', 'nut',
-              'apple', 'cherry', 'peach', 'apricot', 'orange', 'coffee', 'gemfruit', 'banana',
+    harvest: ['potato', 'rubble', 'berry', 'cress', 'onion', 'rainberry', 'pairy', 'nut',
+              'apple', 'cherry', 'worldpeach', 'apricot', 'orange', 'coffee', 'gemfruit', 'banana',
               'sunflower', 'fireflower', 'iceflower'],
     // Animal products — barnyard + butcher output: eggs, milk, meat, pelts, feathers.
     animal:  ['egg', 'milk', 'crow_feather', 'rabbit_pelt', 'meat'],

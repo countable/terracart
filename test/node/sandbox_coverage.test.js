@@ -155,7 +155,7 @@ test('sandbox coverage: practice yard stocks current mechanics and seeds real ef
       'authored tar participates in movement slowing');
   }
   const scene = { save: { energy: 100, groundFire: { old: {} }, burnedObjects: ['old'],
-    potionEffects: { old: {} }, tomeDays: { tome_firewall: 'today' } } };
+    potionEffects: { old: {} }, tomeDays: { tome_fire_wall: 'today' } } };
   // Coordinate/scene fire integration is exercised in the browser probe; this
   // fixture drives the actual recipient path and verifies reload cleanup.
   Sandbox.seedMechanicsState(scene, { creatures: plants, objects: [] });
@@ -167,7 +167,7 @@ test('sandbox coverage: practice yard stocks current mechanics and seeds real ef
   assert.falsy(scene.save.potionEffects.old);
   assert.falsy(scene.save.tomeDays);
   Sandbox.stockInventoryForTest(scene);
-  for (const id of ['explosive_flask', 'tome_firewall', 'ember_ring', 'sleep_powder',
+  for (const id of ['explosive_flask', 'tome_fire_wall', 'ember_ring', 'sleep_powder',
     'blank_scroll', ...ITEMS.filter(i => i.potion || i.scroll).map(i => i.id)]) {
     assert.eq(scene.save.inv.find(i => i.id === id)?.count, 5, `${id} is ready to use`);
   }

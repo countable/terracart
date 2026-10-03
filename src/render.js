@@ -3006,7 +3006,7 @@ Render.drawObjects = function drawObjects(scene) {
       const { x, y } = absCellCenterMeters(scene, absIX, absIY);
       const dx = x - pWorldX, dy = y - pWorldY;
       if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-      plantedList.push({ p: { x, y, crop: 'rockfruit', _placedRock: true }, dx, dy });
+      plantedList.push({ p: { x, y, crop: 'rubble', _placedRock: true }, dx, dy });
     }
   }
   // Placed scarecrows render as world objects — 3-cell-tall single image,
@@ -3803,7 +3803,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
-      const frame = (CROP_ROW['rockfruit'] ?? 4) * CROPS_SHEET_COLS + PRODUCE_COL;
+      const frame = (CROP_ROW['rubble'] ?? 4) * CROPS_SHEET_COLS + PRODUCE_COL;
       setTextureIfDifferent(s, 'crops');
       s.setFrame(frame);
       // Centre on the rock cell (0.5, 0.5): this is the produce icon, not a
@@ -4096,7 +4096,7 @@ Render.drawObjects = function drawObjects(scene) {
   // animate (a measured shadow would pulse frame to frame).
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
-      cow: 30, horse: 26, deer: 26, dog: 22, boar: 20, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14, turtle: 16,
+      cow: 30, horse: 26, deer: 26, dog: 22, boar: 20, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14, sea_turtle: 16,
       butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
@@ -4282,9 +4282,9 @@ Render.objectAppearance = function (scene, houseRoles) {
   // is the same mature tree with fruit hung on it.
   const FRUIT_FRAMES = {
     apple: { grow: [0, 2, 4, 5, 4], mature: 4 },
-    peach: { grow: [0, 2, 3, 4, 3], mature: 3 },
+    worldpeach: { grow: [0, 2, 3, 4, 3], mature: 3 },
   };
-  const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
+  const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'worldpeach' ? 'worldpeach' : 'apple'];
   const fruitNow = Date.now();
   const _ftState = (o) => Crops.fruitTreeState(o, scene.save.fruitPicked?.[o.id], fruitNow);
   const _ftStage = (o) => _ftState(o).stage;
@@ -4522,7 +4522,7 @@ Render.objectAppearance = function (scene, houseRoles) {
               // stands and the pot-of-gold are structure-like and stay foot-anchored.
               seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.coin && !L.wagon; },
               shadow: true },
-    fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
+    fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
               frame: (o) => {
                 const fr = _ftSpec(o);
                 // A planted sapling walks the sheet's life-cycle frames as it grows; a wild

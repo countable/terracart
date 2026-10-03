@@ -47,7 +47,7 @@
   // crop's own hold (plantHoldMs).
   const CAN_HOLD_CUT = 0.875;  // a Frost can's stage is an eighth of bare hands'
   function canHoldMul(relics) {
-    const t = relics && relics.can && relics.can.tier ? relics.can.tier : 0;
+    const t = relics && relics.watering_can && relics.watering_can.tier ? relics.watering_can.tier : 0;
     return 1 - CAN_HOLD_CUT * Math.max(0, Math.min(1, t / CAN_TOP_TIER));
   }
   function plantHoldMs(p) {
@@ -172,7 +172,7 @@
   // shortcut.
   const CAN_TOP_TIER = 7;               // Frost — the top of MATERIAL_TIERS
   function waterJumpChance(relics) {
-    const t = relics && relics.can && relics.can.tier ? relics.can.tier : 0;
+    const t = relics && relics.watering_can && relics.watering_can.tier ? relics.watering_can.tier : 0;
     return Math.max(0, Math.min(1, t / CAN_TOP_TIER));
   }
 

@@ -20,14 +20,14 @@ function saveAt(tier) {
 // The loader disables persistence. Gear changes belong to this cast only.
 function sampleFishing(start, opts) {
   const save = structuredClone(start);
-  if (opts.rodTier) save.relics.rod = { tier: opts.rodTier };
-  else delete save.relics.rod;
+  if (opts.rodTier) save.relics.fishing_rod = { tier: opts.rodTier };
+  else delete save.relics.fishing_rod;
   let result = { ...describe(null), cls: 'no payout', key: 'No payout' };
   const scene = {
     spendEnergy() { return true; },
     startWorkProgress(x, y, complete) { complete(); },
     addToInv(id, qty) { result = describe({ kind: 'item', id, qty,
-      cls: id === 'boot' ? 'junk' : 'fish' }); },
+      cls: id === 'old_boot' ? 'junk' : 'fish' }); },
     flashLoot(text) {
       result.text = text;
       if (result.cls === 'no payout') result.key = text;
@@ -40,7 +40,7 @@ function sampleFishing(start, opts) {
     markRelicsDirty() {
       for (const [kind, slots] of [['relic', save.relics], ['armor', save.armor]]) {
         for (const [slot, gear] of Object.entries(slots)) {
-          const before = kind === 'relic' && slot === 'rod' ? opts.rodTier
+          const before = kind === 'relic' && slot === 'fishing_rod' ? opts.rodTier
             : start[kind === 'relic' ? 'relics' : 'armor'][slot]?.tier || 0;
           if (gear.tier > before) result = describe({ kind, slot, tier: gear.tier });
         }
@@ -90,7 +90,7 @@ function sample(ctx, opts, owned, n) {
 }
 function optsFor(ctx) {
   const o = {};
-  if (ctx === 'fishing') return { rodTier: +$('rod').value, slimeSpace: $('slime').value === 'yes' };
+  if (ctx === 'fishing') return { rodTier: +$('fishing_rod').value, slimeSpace: $('slime').value === 'yes' };
   if (ctx.startsWith('chest:')) o.tier = +$('tier').value;
   if (ctx.startsWith('chest:')) o.depth = +$('depth').value;
   if (ctx === 'treasure:default' && +$('depth').value > 0) {
@@ -208,10 +208,10 @@ function syncControls() {
     opt($('bonus'), Array.from({ length: Trail.PRIZE_ROLL_BONUS_MAX }, (_, i) => i + 1).map((b) => [b, '#' + b]), 1);
     opt($('monster'), Object.keys(Combat.MONSTERS).filter((k) => Combat.spawnsUnderground(k)).map((k) => [k, k]), 'cave_slime');
     opt($('owned'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'nothing']), 0);
-    opt($('rod'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'bare hands']), 0);
+    opt($('fishing_rod'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'bare hands']), 0);
     opt($('qty'), Array.from({ length: RARITY_TUNING.qtyLuckLevels + 1 }, (_, i) => [i, i]), 0);
     $('ctx').onchange = () => { syncControls(); rollOne(); };
-    for (const id of ['tier', 'depth', 'bonus', 'monster', 'owned', 'qty', 'rod', 'slime', 'n']) $(id).onchange = () => { rollOne(); matrix(); if (id === 'owned' || id === 'qty') chestGrid(); };
+    for (const id of ['tier', 'depth', 'bonus', 'monster', 'owned', 'qty', 'fishing_rod', 'slime', 'n']) $(id).onchange = () => { rollOne(); matrix(); if (id === 'owned' || id === 'qty') chestGrid(); };
     $('go').onclick = rollOne;
     syncControls();
     $('status').textContent = 'rolling…';

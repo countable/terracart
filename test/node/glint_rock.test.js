@@ -35,7 +35,7 @@ test('glint rock: only a PLAIN rock glints — ore and crystal never', () => {
 
 test('glint rock: the find table IS the plain rock ladder, plus the crystal', () => {
   const byId = Object.fromEntries(GLINT_ROCK_FINDS.map(f => [f.id, f.weight]));
-  assert.eq(byId.coal, PLAIN_ROCK_FLINT_P, 'flint at its base chance');
+  assert.eq(byId.flint_shard, PLAIN_ROCK_FLINT_P, 'flint at its base chance');
   for (let t = 2; t <= 7; t++) assert.eq(byId[mineralBarId(t)], plainRockBarChance(t), `T${t} bar at its bonus chance`);
   assert.eq(byId.sapphire, GEM_P_BY_TIER[4] * plainRockBarChance(4), 'the crystal at the gold rock gem odds against its bar');
   assert.eq(GLINT_ROCK_FINDS.length, 8, 'flint, six bars, one crystal — nothing else');
@@ -45,10 +45,10 @@ test('glint rock: the find table IS the plain rock ladder, plus the crystal', ()
     assert.gt(f.weight, 0);
   }
   // Rarity order holds: flint and copper lead, a crystal is a rare find.
-  assert.gt(byId.coal, byId.sapphire); assert.gt(byId.copper_bar, byId.iron_bar);
+  assert.gt(byId.flint_shard, byId.sapphire); assert.gt(byId.copper_bar, byId.iron_bar);
   assert.gt(byId.iron_bar, byId.sapphire); assert.gt(byId.sapphire, byId.frost_bar);
   // The pick walks the table: rng 0 lands on flint, rng just under 1 on the last row.
-  assert.eq(glintRockFind(() => 0), 'coal');
+  assert.eq(glintRockFind(() => 0), 'flint_shard');
   assert.eq(glintRockFind(() => 1 - 1e-12), GLINT_ROCK_FINDS[GLINT_ROCK_FINDS.length - 1].id);
 });
 
@@ -61,20 +61,20 @@ test('glint rock: pays exactly one find even when every chance roll loses', () =
     const g = firstGlintRock(true), plain = firstGlintRock(false);
     for (let i = 0; i < 50; i++) {
       const scene = makeScene();
-      const save = { relics: { pick: { tier: 7 } } };
+      const save = { relics: { pickaxe: { tier: 7 } } };
       assert.eq(runInteractable(makeCtx(scene, save), g), true);
-      assert.eq(scene.invCount('rockfruit'), SpriteLayout.plainRockStones(g), 'stones as drawn');
+      assert.eq(scene.invCount('rubble'), SpriteLayout.plainRockStones(g), 'stones as drawn');
       assert.eq(bonusCount(scene), 1, 'one guaranteed find');
     }
     const scene = makeScene();
-    runInteractable(makeCtx(scene, { relics: { pick: { tier: 7 } } }), plain);
+    runInteractable(makeCtx(scene, { relics: { pickaxe: { tier: 7 } } }), plain);
     assert.eq(bonusCount(scene), 0, 'a plain rock with no glint pays only its stones on a losing roll');
     // A crystal find is a gem find: the jackpot fanfare fires with it.
     Math.random = () => 1 - 1e-12;   // chance rolls lose; the weighted pick lands on the last row
     assert.eq(GLINT_ROCK_FINDS[GLINT_ROCK_FINDS.length - 1].id, 'sapphire');
     let jackpots = 0;
     const s2 = makeScene(); s2.flashJackpot = () => { jackpots++; };
-    runInteractable(makeCtx(s2, { relics: { pick: { tier: 7 } } }), g);
+    runInteractable(makeCtx(s2, { relics: { pickaxe: { tier: 7 } } }), g);
     assert.eq(s2.invCount('sapphire'), 1); assert.eq(jackpots, 1);
   } finally { Math.random = original; }
 });

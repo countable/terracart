@@ -2293,7 +2293,7 @@
       }
     },
     {
-      "id": "peach_tree",
+      "id": "worldpeach_tree",
       "name": "Peach tree",
       "category": "trees",
       "priority": 26,
@@ -2304,7 +2304,7 @@
       },
       "current": [
         {
-          "key": "peach_tree",
+          "key": "worldpeach_tree",
           "path": "assets/Objects/Wilderness/Peach Tree.png",
           "frame": 3,
           "rect": [

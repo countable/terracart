@@ -174,7 +174,7 @@ test('the day-gated messages name the wait to the UTC roll', () => {
 
 test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
   const timed = [
-    'pairy', 'coffee', 'reach_potion', 'speed_potion', 'shield_potion',
+    'pairy', 'coffee', 'reach_potion', 'speed_potion', 'shielding_potion',
     'raven_scroll', 'blight_potion', 'dragon_powder', 'shadow_powder',
     'frost_powder', 'torch',
   ];
@@ -190,7 +190,7 @@ test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
   const app = DURATION_SOURCES['app.js'];
   const aliases = {
     REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
-    SHIELD_POTION_MS: 'shield_potion', DRAGON_POWDER_MS: 'dragon_powder',
+    SHIELD_POTION_MS: 'shielding_potion', DRAGON_POWDER_MS: 'dragon_powder',
     SHADOW_POWDER_MS: 'shadow_powder', FROST_POWDER_MS: 'frost_powder',
     BLIGHT_MS: 'blight_potion', COFFEE_BUFF_MS: 'coffee', TORCH_MS: 'torch',
   };

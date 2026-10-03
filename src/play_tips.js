@@ -15,7 +15,7 @@ const PLAY_TIPS = [
   "A wounded goblin may still swing. Record observations from a safe distance. If the subject approaches, abandon the notebook.",
   "One task, then the next. That is how we built our house. I cannot face rebuilding it all yet. Today, just the door. I kept the hinges.",
   "ROAD WARDEN’S NOTICE: If caught in a snare, move clear immediately. Remaining within its jaws will cause further injury.",
-  ITEM_GUIDE_TIPS.trap_kit,
+  ITEM_GUIDE_TIPS.trap_disarm_kit,
   "Stay on the pavement beside a busy road to escape a chase. Never step into the road to play.",
   "Reach things across a street with the game's stick. Never enter the road to collect them.",
   "The game pauses while you travel faster than a run. Play only when you are safely on foot.",
@@ -143,8 +143,8 @@ const PLAY_TIPS = [
   "Each stretch of road they ask me to mend runs longer than the last. What waits at the end of it is finer, too. I have stopped asking who set the terms.",
   // Appended (Oct 2026): the spear, made at Home from a stone and a branch
   // (items.js HOME_RECIPES) — every craftable has its page in the Book.
-  ITEM_GUIDE_TIPS.spear,
-  ITEM_GUIDE_TIPS.honey,
+  ITEM_GUIDE_TIPS.throwing_spear,
+  ITEM_GUIDE_TIPS.taming_potion,
   ITEM_GUIDE_TIPS.fireball_scroll,
   ITEM_GUIDE_TIPS.fear_scroll,
   ITEM_GUIDE_TIPS.treasure_map,
@@ -152,7 +152,7 @@ const PLAY_TIPS = [
   // Append new guides after all published pages to preserve saved bookmarks.
   ITEM_GUIDE_TIPS.thunder_scroll,
   ITEM_GUIDE_TIPS.raven_scroll,
-  ITEM_GUIDE_TIPS.skeleton_scroll,
+  ITEM_GUIDE_TIPS.bones_scroll,
   ITEM_GUIDE_TIPS.wraith_scroll,
 ];
 

@@ -72,7 +72,7 @@
       const { lo, hi } = buyMarkupRange();
       for (const seed of BUY_LIST) {
         const crop = seed.replace(/_seed$/, '');
-        if (crop === 'rockfruit') continue;
+        if (crop === 'rubble') continue;
         const pack = 1 + (isLowTierSeed(seed) ? LOW_TIER_SEED_QTY_BONUS : 0);
         const seedCost = 0.75 * Math.ceil(PRICES[seed] * (lo + hi) / 2) / pack;
         const payout = 2 * trailerSellPrice(PRICES[crop]);

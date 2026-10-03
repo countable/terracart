@@ -420,7 +420,7 @@ test('copy: the Drink / Use descriptions omit tiers and keep numeric durations d
   }
   for (const [name, id] of Object.entries({
     REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
-    SHIELD_POTION_MS: 'shield_potion', DRAGON_POWDER_MS: 'dragon_powder',
+    SHIELD_POTION_MS: 'shielding_potion', DRAGON_POWDER_MS: 'dragon_powder',
     SHADOW_POWDER_MS: 'shadow_powder',
   })) {
     assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(SCENE_SRC),

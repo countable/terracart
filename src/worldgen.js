@@ -17,7 +17,7 @@
   // No RNG draws or placement order affect the species.
   const PEACH_ONE_IN = 50;
   function fruitTreeSpecies(hash) {
-    return (hash >>> 0) % PEACH_ONE_IN === 0 ? 'peach' : 'apple';
+    return (hash >>> 0) % PEACH_ONE_IN === 0 ? 'worldpeach' : 'apple';
   }
   // Temporarily pause the detected-tree layer, including already cached bins.
   const DEEPFOREST_TREES_ENABLED = false;

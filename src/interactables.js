@@ -136,8 +136,8 @@ function plainRockBarChance(tier) {
 }
 function plainRockBaseDrop(scene, stones) {
   const qty = stones == null ? 1 : stones;
-  scene.addToInv('rockfruit', qty);
-  if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('coal', 1);
+  scene.addToInv('rubble', qty);
+  if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('flint_shard', 1);
   return qty;
 }
 // A PLAIN rock: a cave rock or a T1 surface rock with no named deposit —
@@ -203,7 +203,7 @@ function isGlintRock(o) {
   return isPlainRock(o) && isShiny(o.id, SHINY_RATE.rock);
 }
 const GLINT_ROCK_FINDS = Object.freeze([
-  Object.freeze({ id: 'coal', weight: PLAIN_ROCK_FLINT_P }),
+  Object.freeze({ id: 'flint_shard', weight: PLAIN_ROCK_FLINT_P }),
   ...[2, 3, 4, 5, 6, 7].map(t => Object.freeze({ id: mineralBarId(t), weight: plainRockBarChance(t) })),
   Object.freeze({ id: GEM_BY_TIER[4][0], weight: GEM_P_BY_TIER[4] * plainRockBarChance(4) }),
 ]);
@@ -225,8 +225,8 @@ function glintRockPhase(id, nowMs, revealStartedMs) { return beatPhase(id, nowMs
 // gives it a third as often).
 const CAVE_WALL_FLINT_P = 0.30;
 function caveWallDrop(scene) {
-  scene.addToInv('rockfruit', 1);
-  if (Math.random() < CAVE_WALL_FLINT_P) scene.addToInv('coal', 1);
+  scene.addToInv('rubble', 1);
+  if (Math.random() < CAVE_WALL_FLINT_P) scene.addToInv('flint_shard', 1);
   return 1;
 }
 
@@ -328,13 +328,13 @@ const INTERACTABLES = {
   // drops stone + a small chance of a sliver of ore. Ore rock (T2+) is pick-tier
   // gated and drops exactly one namesake bar + coal + tier-rolled gems.
   mineralrock: {
-    tool: 'pick',
+    tool: 'pickaxe',
     spent: (o, ctx) => isSpent(o, spentSets(ctx.scene, ctx.save)),
     spentAction: 'consume',
     gate: (o, save) => {
       const deposit = mineralDeposit(o);
       if (isPlainRock(o)) return null;   // plain rock is ungated
-      const pickTier = save.relics?.pick?.tier || 0;
+      const pickTier = save.relics?.pickaxe?.tier || 0;
       const reqTier = deposit?.requiredTier || o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       if (pickTier < reqTier) {
         const need = TIER_BY_NUM[reqTier]?.name || 'better';
@@ -348,12 +348,12 @@ const INTERACTABLES = {
       const deposit = mineralDeposit(o);
       if (isPlainRock(o)) return 0;
       const reqTier = deposit?.requiredTier || o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
-      return reqTier - (save.relics?.pick?.tier || 0);
+      return reqTier - (save.relics?.pickaxe?.tier || 0);
     },
     // Shared tool-tier baseline (9 bare → 1 Frost via effectivePickCost) OR a
     // +9-per-tier surcharge when the rock out-tiers the pick, whichever is more.
     energy: (save, o) => {
-      const pickTier = save.relics?.pick?.tier || 0;
+      const pickTier = save.relics?.pickaxe?.tier || 0;
       const rockTier = mineralDeposit(o)?.yieldTier || o.yieldTier || 1;
       const cost = Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
       // Energy uses whole pips; preserve the 50% increase in expectation.
@@ -383,7 +383,7 @@ const INTERACTABLES = {
         // Quarry rubble pays one stone regardless of its pile silhouette.
         // Elsewhere the original pair/single artwork still owns the quantity.
         const qty = plainRockBaseDrop(scene, quarryRockRules(o)?.stones ?? SpriteLayout.plainRockStones(o));
-        let flashId = 'rockfruit';
+        let flashId = 'rubble';
         for (let t = 2; t <= 7; t++) {
           if (Math.random() < plainRockBarChance(t)) {
             const bar = mineralBarId(t);
@@ -407,13 +407,13 @@ const INTERACTABLES = {
         // actually went in the bag — this line read "+1 Rock" while handing
         // over three, the one loot path that under-reported itself (the cave
         // wall's own toast in interact.js has always flashed its qty).
-        const flashQty = (flashId === 'rockfruit') ? qty : 1;
+        const flashQty = (flashId === 'rubble') ? qty : 1;
         scene.flashLoot(`+${flashQty} ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
         return;
       }
       // Ore-bearing rock — exactly ONE bar of the indicated type, plus a coal
       // nugget and a tier-rolled gem on T4+.
-      addLoot('coal', randInt(1, 2));
+      addLoot('flint_shard', randInt(1, 2));
       const t = o.yieldTier || 1;
       const primaryBar = mineralBarId(t) || mineralBarId(2);
       addLoot(primaryBar, 1);
@@ -1216,7 +1216,7 @@ function runInteractable(ctx, o, definition) {
   // acceptance. Cancellation never invokes the completion story.
   const startJob = (duration, cost) => {
     const startingTier = save.relics?.[def.tool]?.tier || 0;
-    const action = { axe: 'chop', pick: 'dig', hoe: 'till' }[def.tool];
+    const action = { axe: 'chop', pickaxe: 'dig', hoe: 'till' }[def.tool];
     if (action) scene._toolActionStory?.(action);
     scene.startWorkProgress(o.x, o.y, () => {
       if (def.spent && def.spent(o, ctx)) return;

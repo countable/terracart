@@ -95,7 +95,7 @@ test('creature table: what a kill drops is the kind\'s own row', () => {
   // slime's flint (src/zones.js) — paid ON TOP of the bounty (app.js
   // resolveDefeat asks Combat for the wage, this table for the drop).
   assert.eq(ctKinds((k) => CT_BEH[k].drop), 'crow,deer,fire_slime,goblin_trapper');
-  assert.eq(CT_SL.creatureDrop('fire_slime'), 'coal', 'a fire slime drops a flint');
+  assert.eq(CT_SL.creatureDrop('fire_slime'), 'flint_shard', 'a fire slime drops a flint');
   assert.eq(CT_SL.creatureDrop('goblin_trapper'), 'magic_trap', 'a trapper drops its trap');
   assert.eq(CT_SL.creatureDrop('giant_goblin_trapper'), 'magic_trap', 'and so does its giant');
   assert.truthy(ITEM_BY_ID.magic_trap, 'which is a real item');
@@ -158,10 +158,10 @@ test('creature table: a gait row is complete — a bolt says how fast, how far a
       `${kind} has a bolt with nothing to trigger it`);
   }
   // The three kinds that bolt, and the one whose trigger is the failed catch.
-  assert.eq(ctKinds((k) => CT_BEH[k].flee), 'butterfly,deer,rabbit,turtle');
+  assert.eq(ctKinds((k) => CT_BEH[k].flee), 'butterfly,deer,rabbit,sea_turtle');
   assert.eq(ctKinds((k) => CT_BEH[k].flee?.escapes), 'butterfly');
   // A tame rabbit or deer settles into the base wander; a butterfly flits on.
-  assert.eq(ctKinds((k) => CT_BEH[k].tameSettles), 'deer,rabbit,turtle');
+  assert.eq(ctKinds((k) => CT_BEH[k].tameSettles), 'deer,rabbit,sea_turtle');
 });
 
 test('creature table: it says how a kind BEHAVES, never whether it is a FOE', () => {

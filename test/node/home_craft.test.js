@@ -39,13 +39,13 @@ const craft = (s) => { const m = last(s); m.onAccept(); m.repeat(); };
 
 test('home craft: recipes include the starter Spear and Potion of Taming from two berries', () => {
   const by = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r.cost]));
-  assert.eq(JSON.stringify(by.spear), JSON.stringify([{ id: 'rockfruit', qty: 1 }, { id: 'wood', qty: 1 }]), 'spear');
+  assert.eq(JSON.stringify(by.throwing_spear), JSON.stringify([{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }]), 'throwing_spear');
   assert.falsy(by.torch, 'the torch is bought or found, never crafted (Oct 2026)');
   assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
   assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 5 }]), 'rope from five long grass');
-  assert.eq(JSON.stringify(by.trap_kit), JSON.stringify([{ id: 'rockfruit', qty: 4 }]), 'a disarm kit from four stones');
-  assert.eq(JSON.stringify(by.honey), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Potion of Taming from two berries');
-  assert.truthy(/wall/.test(ITEM_EFFECTS.rockfruit), 'stone hints at rebuilding');
+  assert.eq(JSON.stringify(by.trap_disarm_kit), JSON.stringify([{ id: 'rubble', qty: 4 }]), 'a disarm kit from four stones');
+  assert.eq(JSON.stringify(by.taming_potion), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Potion of Taming from two berries');
+  assert.truthy(/wall/.test(ITEM_EFFECTS.rubble), 'stone hints at rebuilding');
   assert.truthy(/twist/.test(ITEM_EFFECTS.longgrass), 'grass hints at binding');
   for (const r of HOME_RECIPES) {
     assert.truthy(ITEM_BY_ID[r.id], `${r.id} is a real item`);
@@ -54,16 +54,16 @@ test('home craft: recipes include the starter Spear and Potion of Taming from tw
 });
 
 test('home craft: recipeCap is the fewest times any ingredient covers its share', () => {
-  const bag = { wood: 7, coal: 2 };
+  const bag = { wood: 7, flint_shard: 2 };
   const count = (id) => bag[id] || 0;
   assert.eq(recipeCap([{ id: 'wood', qty: 3 }], count), 2, '7 wood makes two 3-wood crafts');
-  assert.eq(recipeCap([{ id: 'wood', qty: 1 }, { id: 'coal', qty: 1 }], count), 2, 'the scarcer one decides');
+  assert.eq(recipeCap([{ id: 'wood', qty: 1 }, { id: 'flint_shard', qty: 1 }], count), 2, 'the scarcer one decides');
   assert.eq(recipeCap([{ id: 'ruby', qty: 1 }], count), 0, 'none held: none made');
   assert.eq(recipeCap([], count), 0, 'an empty recipe makes nothing, never Infinity');
 });
 
 test('home craft: crafting spends the wood and hands over the item', () => {
-  const s = scene([['wood', 5], ['rockfruit', 2]]);
+  const s = scene([['wood', 5], ['rubble', 2]]);
   s.save.foundWild = { scarecrow: 1 };
   s.presentHomeCraft(0, 0, 'scarecrow');
   const m = last(s);
@@ -73,31 +73,31 @@ test('home craft: crafting spends the wood and hands over the item', () => {
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 2, 'three wood spent');
   assert.eq(Inventory.count(s.save, 'scarecrow'), 1, 'one scarecrow made');
-  s.presentHomeCraft(0, 0, 'spear');
+  s.presentHomeCraft(0, 0, 'throwing_spear');
   craft(s);
   craft(s);
   assert.eq(Inventory.count(s.save, 'wood'), 0, 'a spear is one wood each');
-  assert.eq(Inventory.count(s.save, 'rockfruit'), 0, 'and one stone each');
-  assert.eq(Inventory.count(s.save, 'spear'), 2, 'two spears');
+  assert.eq(Inventory.count(s.save, 'rubble'), 0, 'and one stone each');
+  assert.eq(Inventory.count(s.save, 'throwing_spear'), 2, 'two spears');
 });
 
 test('home craft: bag room disables Craft and is rechecked before ingredients are spent', () => {
-  const s = scene([['wood', 5], ['rockfruit', 5], ['spear', 8]]);
-  s.presentHomeCraft(0, 0, 'spear');
+  const s = scene([['wood', 5], ['rubble', 5], ['throwing_spear', 8]]);
+  s.presentHomeCraft(0, 0, 'throwing_spear');
   let m = last(s);
   assert.truthy(m.canAfford, 'one open stack place permits one spear');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'one wood spent');
-  assert.eq(Inventory.count(s.save, 'rockfruit'), 4, 'one stone spent');
-  assert.eq(Inventory.count(s.save, 'spear'), 9, 'the last place filled');
+  assert.eq(Inventory.count(s.save, 'rubble'), 4, 'one stone spent');
+  assert.eq(Inventory.count(s.save, 'throwing_spear'), 9, 'the last place filled');
 
-  s.presentHomeCraft(0, 0, 'spear');
+  s.presentHomeCraft(0, 0, 'throwing_spear');
   m = last(s);
   assert.falsy(m.canAfford, 'a full output stack disables Craft');
   assert.eq(m.quantity, undefined, 'no quantity stepper when nothing fits');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'the full-bag recheck preserves ingredients');
-  assert.eq(Inventory.count(s.save, 'spear'), 9, 'the full output stack stays unchanged');
+  assert.eq(Inventory.count(s.save, 'throwing_spear'), 9, 'the full output stack stays unchanged');
   assert.truthy(/Bag full for Throwing Spear/.test(s.flashes.at(-1) || ''), `names the full stack: ${s.flashes.at(-1)}`);
 });
 
@@ -115,7 +115,7 @@ test('home craft: short on wood, the page says so and nothing changes hands', ()
 });
 
 test('home craft: opens on something the bag can make, and the pager walks the recipes', () => {
-  const s = scene([['wood', 1], ['rockfruit', 1]]);
+  const s = scene([['wood', 1], ['rubble', 1]]);
   s.save.foundWild = Object.fromEntries(HOME_RECIPES.map(r => [r.id, 1]));
   s.save.usedScrolls = ITEMS.filter(item => item.scroll).map(item => item.id);
   s.presentHomeCraft(0, 0);
@@ -151,8 +151,8 @@ test('home craft: every mode starts with only Spear and hides undiscovered recip
   try {
     for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
       Difficulty.setMode(mode);
-      const s = scene([['rockfruit', 8], ['wood', 8], ['trap_kit', 1], ['berry', 8]]);
-      s.presentHomeCraft(0, 0, 'trap_kit');
+      const s = scene([['rubble', 8], ['wood', 8], ['trap_disarm_kit', 1], ['berry', 8]]);
+      s.presentHomeCraft(0, 0, 'trap_disarm_kit');
       let m = last(s);
       assert.includes(m.get, 'Spear', 'a locked target falls back to the known recipe');
       assert.eq(m.pager.count, 1);
@@ -161,15 +161,15 @@ test('home craft: every mode starts with only Spear and hides undiscovered recip
       assert.includes(last(s).get, 'Spear');
       last(s).pager.onPrev();
       assert.includes(last(s).get, 'Spear');
-      s.save.foundWild = { trap_kit: 1 };
-      s.presentHomeCraft(0, 0, 'trap_kit');
+      s.save.foundWild = { trap_disarm_kit: 1 };
+      s.presentHomeCraft(0, 0, 'trap_disarm_kit');
       m = last(s);
       assert.eq(m.pager.count, 2, 'a wild find exposes only its own recipe');
       assert.truthy(m.canAfford);
       craft(s);
       craft(s);
-      assert.eq(Inventory.count(s.save, 'trap_kit'), 3, 'two kits from eight stones');
-      assert.eq(Inventory.count(s.save, 'rockfruit'), 0);
+      assert.eq(Inventory.count(s.save, 'trap_disarm_kit'), 3, 'two kits from eight stones');
+      assert.eq(Inventory.count(s.save, 'rubble'), 0);
       m.pager.onNext();
       assert.includes(last(s).get, 'Spear', 'next skips still-locked recipes');
       last(s).pager.onPrev();
@@ -180,23 +180,23 @@ test('home craft: every mode starts with only Spear and hides undiscovered recip
 
 test('home craft: learned Potion of Taming consumes two berries per jar, rechecks ingredients and persists its unlock', () => {
   const s = scene([['berry', 5]]);
-  s.save.foundWild = { honey: 1 };
-  s.presentHomeCraft(0, 0, 'honey');
+  s.save.foundWild = { taming_potion: 1 };
+  s.presentHomeCraft(0, 0, 'taming_potion');
   const m = last(s);
   assert.eq(m.quantity, undefined);
   craft(s);
   assert.truthy(last(s).canAfford, 'another jar is available after the first tap');
   craft(s);
   assert.falsy(last(s).canAfford, 'the recipe stays open when ingredients run out');
-  assert.includes(last(s).get, itemName('honey'), 'repeat preserves the current recipe');
+  assert.includes(last(s).get, itemName('taming_potion'), 'repeat preserves the current recipe');
   assert.eq(Inventory.count(s.save, 'berry'), 1);
-  assert.eq(Inventory.count(s.save, 'honey'), 2);
+  assert.eq(Inventory.count(s.save, 'taming_potion'), 2);
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'berry'), 1, 'stale offer cannot spend missing ingredients');
-  assert.eq(Inventory.count(s.save, 'honey'), 2);
-  Inventory.remove(s.save, 'honey', 2);
-  s.presentHomeCraft(0, 0, 'honey');
-  assert.includes(last(s).get, itemName('honey'), 'learned recipe survives spending the item');
+  assert.eq(Inventory.count(s.save, 'taming_potion'), 2);
+  Inventory.remove(s.save, 'taming_potion', 2);
+  s.presentHomeCraft(0, 0, 'taming_potion');
+  assert.includes(last(s).get, itemName('taming_potion'), 'learned recipe survives spending the item');
   assert.falsy(last(s).canAfford, 'ingredient shortages remain visible once learned');
 });
 

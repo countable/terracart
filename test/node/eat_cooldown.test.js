@@ -155,7 +155,7 @@ test('eat cooldown: potions are exempt because they never go through the gate', 
   // The exemption is structural, not an id list: a potion is drunk through its
   // own method off syncConsumableButton, which never calls eatSelected. Two
   // things have to hold for that to keep being true.
-  for (const id of ['reach_potion', 'vigor_potion', 'speed_potion', 'shield_potion']) {
+  for (const id of ['reach_potion', 'healing_potion', 'speed_potion', 'shielding_potion']) {
     assert.eq(FOOD_ENERGY[id], undefined,
       `${id} carries no FOOD_ENERGY — it can never reach the Eat button`);
   }

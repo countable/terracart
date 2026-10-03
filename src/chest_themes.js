@@ -9,10 +9,10 @@
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && !i.plants && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
     uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id)).map(i => i.id), mixedTiers: true, fallback: 'magic' },
-    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
-    field: { ids: ['torch', 'rope', 'trap_kit', 'spear'], fallback: 'torch' },
-    farmSupplies: { ids: ['scarecrow', 'honey'], fallback: 'torch' },
-    materials: { ids: ['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
+    supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, taming_potion: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
+    field: { ids: ['torch', 'rope', 'trap_disarm_kit', 'throwing_spear'], fallback: 'torch' },
+    farmSupplies: { ids: ['scarecrow', 'taming_potion'], fallback: 'torch' },
+    materials: { ids: ['wood', 'rubble', 'flint_shard', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
     cash: { kind: 'cash' },
     restorative: { ids: ['berry', 'cress', 'potato', 'egg', 'milk'] },
     food: { ids: foodIds, fallback: 'restorative' },
@@ -29,29 +29,29 @@
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
-    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'giant_potion', 'shield_potion', 'raven_scroll', 'skeleton_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder', 'psychosis_powder', 'poison_flask'], mixedTiers: true, fallback: 'antidote' },
-    medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, protection_potion: 2, shield_potion: 2, resurrection_potion: 2, elixir: 1,
-      regen_amulet: 0.3, vigor_amulet: 0.3 }, mixedTiers: true, fallback: 'antidote' },
-    recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
+    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'giant_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder', 'psychosis_powder', 'poison_flask'], mixedTiers: true, fallback: 'antidote' },
+    medicalMagic: { ids: { healing_potion: 3, revival_potion: 3, protection_potion: 2, shielding_potion: 2, resurrection_potion: 2, elixir: 1,
+      regeneration_amulet: 0.3, vigor_amulet: 0.3 }, mixedTiers: true, fallback: 'antidote' },
+    recovery: { ids: ['healing_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
-    healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: { vista: 'antidote', default: 'restorative' } },
-    revival: { ids: { revive_potion: 3, resurrection_potion: 1 }, fallback: 'restorative' },
-    shield: { ids: ['protection_potion', 'shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
-    study: { ids: { reach_potion: 2, raven_scroll: 1, protection_potion: 1, shield_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
-    shadow: { ids: { raven_scroll: 1, skeleton_scroll: 1, wraith_scroll: 1, shadow_powder: 1 }, mixedTiers: true, fallback: 'flowers' },
+    healing: { ids: { healing_potion: 3, revival_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: { vista: 'antidote', default: 'restorative' } },
+    revival: { ids: { revival_potion: 3, resurrection_potion: 1 }, fallback: 'restorative' },
+    shield: { ids: ['protection_potion', 'shielding_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
+    study: { ids: { reach_potion: 2, raven_scroll: 1, protection_potion: 1, shielding_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
+    shadow: { ids: { raven_scroll: 1, bones_scroll: 1, wraith_scroll: 1, shadow_powder: 1 }, mixedTiers: true, fallback: 'flowers' },
     gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', vista: 'antidote', commerce: 'cash', default: 'field' } },
     // Books feed the scholar's tome trades at every chest tier.
     books: { ids: ['book'], fallback: 'torch' },
     // Dedicated Book share for themes without their own books lane.
     plainBook: { ids: ['book'], fallback: 'torch' },
-    honey: { ids: ['honey'], fallback: 'restorative' },
+    taming_potion: { ids: ['taming_potion'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
     rope: { ids: ['rope'], fallback: 'torch' },
-    trapKit: { ids: ['trap_kit'], fallback: 'torch' },
+    trapKit: { ids: ['trap_disarm_kit'], fallback: 'torch' },
     magicTrap: { ids: ['magic_trap'], fallback: 'field' },
     caveMagic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'torch' },
     caveGems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], mixedTiers: true, fallback: 'field' },
-    noncombatGear: { kind: 'gear', slots: ['bags', 'can', 'hoe', 'rod', 'bugnet'], fallback: { school: 'books', default: 'supplies' } },
+    noncombatGear: { kind: 'gear', slots: ['bag', 'watering_can', 'hoe', 'fishing_rod', 'net'], fallback: { school: 'books', default: 'supplies' } },
     protectiveGear: { kind: 'gear', armorOnly: true, fallback: { vista: 'magic', default: 'field' } },
     culturalGear: { kind: 'gear', fallback: 'books' },
   };
@@ -257,7 +257,7 @@
     return 5;
   }
   function quantity(id, tier, bracket, rng = Math.random) {
-    if (id === 'wood' || id === 'rockfruit') return Math.min(12, 3 + Math.floor(rng() * 6) + bracket * 2);
+    if (id === 'wood' || id === 'rubble') return Math.min(12, 3 + Math.floor(rng() * 6) + bracket * 2);
     const allowance = TIER_VALUE[tier] * (1 + 0.5 * bracket);
     const count = allowance / Math.max(1, PRICES[id] || itemValue(id));
     // Magic and timber seeds round up to fill the allowance. Fruit saplings

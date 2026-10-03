@@ -160,7 +160,7 @@
     return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   }
   for (const [id, kind, model, tier] of [
-    ['skeleton_scroll', 'summoned_skeleton', 'skeleton', 3],
+    ['bones_scroll', 'summoned_skeleton', 'skeleton', 3],
     ['wraith_scroll', 'summoned_wraith', 'ghost', 4],
   ]) {
     test(`companions: ${id} is learned by use and summons one friendly fighter through reload and expiry`, () => withScene((s, entry, advance) => {

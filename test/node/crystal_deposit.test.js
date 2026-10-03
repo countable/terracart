@@ -4,7 +4,7 @@
     const random = Math.random;
     try {
       for (const tier of [3,7]) {
-        const scene=makeScene(), save={relics:{pick:{tier}}}, o=crystal(`crystal_${tier}`);
+        const scene=makeScene(), save={relics:{pickaxe:{tier}}}, o=crystal(`crystal_${tier}`);
         // The known gem deposit does not use the ordinary rock's bonus table.
         Math.random=()=>{throw new Error('crystal rewards must not roll');};
         INTERACTABLES.mineralrock.complete(makeCtx(scene,save),o);
@@ -22,7 +22,7 @@
     try {
     Math.random=()=>.5;
     for(let tier=0;tier<=7;tier++) {
-      const save={relics:{pick:{tier}}};
+      const save={relics:{pickaxe:{tier}}};
       assert.eq(!!INTERACTABLES.mineralrock.gate(o,save),tier<3,'shared deposit tier gates even objects without explicit tier fields');
       assert.eq(INTERACTABLES.mineralrock.tierShort(o,save),3-tier);
       assert.eq(INTERACTABLES.mineralrock.energy(save,o),INTERACTABLES.mineralrock.energy(save,ore),'ordinary mining energy formula');
@@ -30,7 +30,7 @@
     } finally {Math.random=random;}
   });
   test('crystal deposit: a completed work interaction cannot reward the same deposit twice', () => {
-    const scene=makeScene(),save={relics:{pick:{tier:3}}},o=crystal('crystal_spent'),ctx=makeCtx(scene,save);
+    const scene=makeScene(),save={relics:{pickaxe:{tier:3}}},o=crystal('crystal_spent'),ctx=makeCtx(scene,save);
     assert.eq(runInteractable(ctx,o),true);
     assert.eq(scene.invCount('sapphire'),1);
     assert.eq(runInteractable(ctx,o),true,'spent tap is consumed');
