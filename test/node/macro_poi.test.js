@@ -802,6 +802,29 @@
     assert.inRange(books / N, 0.15, 0.25, 'about a fifth of T2 food chests hand a Book: ' + (books / N).toFixed(3));
   });
 
+  test('scholar: the real Casorso school keeps its book club at the school wall', () => {
+    const tx=2754, ty=5566, N=WorldGen.cellsPerEdgeForTile(ty);
+    const edge=WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty)), cellM=edge/N;
+    const r=WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES['2754_5566']),N,tx,ty,edge);
+    const booths=r.objects.filter(o=>o.kind==='chest' && o._poiAt==='1312,3693');
+    assert.eq(booths.length,1,'the source school survives occupancy and POI deduplication');
+    const booth=booths[0];
+    assert.eq(chestLook(booth).texKey,'macro_scholar');
+    assert.falsy(isSpent(booth,spentSets(null,{opened:[booth.id]})),'legacy opened saves keep the counter visible');
+    const ix=Math.floor(booth.x/cellM)-tx*N, iy=Math.floor(booth.y/cellM)-ty*N;
+    assert.falsy(WorldGen.isBuildingTerrain(r.grid[iy*N+ix]),'outside the school');
+    const sourceX=Math.floor(1312*N/4096), sourceY=Math.floor(3693*N/4096);
+    const owner=r.owners[sourceY*N+sourceX];
+    assert.truthy(owner,'the school owns its generated footprint');
+    assert.truthy([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>
+      r.owners[(iy+dy)*N+ix+dx]===owner), 'a nearby road cannot pull the scholar away from its school wall');
+    assert.eq(r.owners[(iy-1)*N+ix],owner,'the counter sits in front of the school, not behind its tall turrets');
+    for (const tower of r.objects.filter(o=>o.kind==='tower')) {
+      const towerX=Math.floor(tower.x/cellM)-tx*N, towerY=Math.floor(tower.y/cellM)-ty*N;
+      assert.falsy(Math.abs(towerX-ix)<=1 && towerY>iy && towerY-iy<=3,'no nearby turret projects over the counter');
+    }
+  });
+
   test('scholar: an open-ground school raises a block and the booth stands at its wall — no pyramid', () => {
     const T = WorldGen.T;
     const r = WorldGen.rasterizeTile([

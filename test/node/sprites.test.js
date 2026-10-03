@@ -625,3 +625,27 @@ test('selected zone appearances keep mineral interactions and global art separat
   assert.eq(art.resolveAppearance(pot).scl*24,32);
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
+
+
+test('quarry broken stone shrinks while mineral shadows stay under every resolved art', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  for (const o of [
+    {kind:'mineralrock',yieldTier:1,rockVariant:3},
+    {kind:'mineralrock',yieldTier:4},
+    {kind:'mineralrock',deposit:'crystal'},
+    {kind:'mineralrock',zone:'quarry',zoneVariant:'quarry-strip-mine',_zoneObjectFrame:65},
+    {kind:'mineralrock',deposit:'crystal',_zoneObjectFrame:59},
+  ]) {
+    const p = art.resolveAppearance(o);
+    const shadowHeight = Math.max(8,p.foot.w*0.9)*0.42;
+    const shadowBottom = p.foot.footFromCentre-p.foot.shadowInsetPx+shadowHeight/2;
+    assert.eq(shadowBottom,p.foot.footFromCentre,'shadow ends at the seated art bottom');
+    const b = SpriteLayout.ART_BOUNDS[`${p.texKey}:${p.frameVal}`];
+    assert.truthy(Math.abs(p.dyPx+(b.maxY-b.fh/2)*p.scl-p.foot.footFromCentre)<1e-10,'depth keeps the true art foot');
+  }
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,1.1);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4/3);
+});
