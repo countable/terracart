@@ -10,7 +10,7 @@
   });
   const signature = (creatures) => JSON.stringify(creatures.map(c => ({
     id: c.id, x: c.x, y: c.y, name: c.name, role: c.role,
-    npcVariant: c.npcVariant, tint: c.tint, zone: c.zone,
+    npcVariant: c.npcVariant, tint: c.tint, culture: c.culture,
   })));
 
   test('NPC identities: names, role, art and tint remain fixed across regeneration', () => {
@@ -33,12 +33,12 @@
     assert.inRange(counts.scholar, 40, 180, 'book readers are roughly a tenth of the population');
   });
 
-  test('NPC zones: inhabited areas and shrine woods differ from empty wilderness', () => {
-    assert.eq(NPC.zoneFor(T.RESIDENTIAL), 'village');
-    assert.eq(NPC.zoneFor(T.FARMLAND), 'farm');
-    assert.eq(NPC.zoneFor(T.COMMERCIAL), 'market');
-    assert.falsy(NPC.zoneFor(T.GRASS), 'ordinary wilderness has no NPC population');
-    assert.eq(NPC.zoneFor(T.FOREST, true), 'shrine');
+  test('NPC cultures: inhabited areas and shrine woods differ from empty wilderness', () => {
+    assert.eq(NPC.cultureFor(T.RESIDENTIAL), 'village');
+    assert.eq(NPC.cultureFor(T.FARMLAND), 'farm');
+    assert.eq(NPC.cultureFor(T.COMMERCIAL), 'market');
+    assert.falsy(NPC.cultureFor(T.GRASS), 'ordinary wilderness has no NPC population');
+    assert.eq(NPC.cultureFor(T.FOREST, true), 'shrine');
     for (let i = 0; i < 40; i++) {
       const person = NPC.identity(`npc_0_0_${i}_1`, 'shrine');
       const red = (person.tint >> 16) & 255, green = (person.tint >> 8) & 255;
@@ -75,18 +75,18 @@
     const residents = NPC.spawn(s, e, 0, 0, {});
     assert.gt(residents.length, 0);
     for (const c of residents) {
-      assert.eq(c.zone, 'shrine');
+      assert.eq(c.culture, 'shrine');
       assert.lte(Math.hypot(c.x - shrine.x, c.y - shrine.y), 6 * CELL_M);
     }
   });
 
-  test('NPC zones: groves have the fox people, churchyards the shrine neighbours; tar influence excludes residents', () => {
-    for (const [terrain, zone, names] of [[T.GROVE, 'grove', /^(Ru|Vix|Tod|Sor)/], [T.CHURCHYARD, 'shrine', /^(Ae|Eli|Gala|Syl)/]]) {
+  test('NPC cultures: groves have the fox people, churchyards the shrine neighbours; tar influence excludes residents', () => {
+    for (const [terrain, culture, names] of [[T.GROVE, 'grove', /^(Ru|Vix|Tod|Sor)/], [T.CHURCHYARD, 'shrine', /^(Ae|Eli|Gala|Syl)/]]) {
       const residents = NPC.spawn(scene(), entry(terrain), 0, 0, {});
       assert.eq(residents.length, NPC.COUNT);
       for (const c of residents) {
-        assert.eq(c.zone, zone);
-        assert.truthy(names.test(c.name), `${zone} name prefixes`);
+        assert.eq(c.culture, culture);
+        assert.truthy(names.test(c.name), `${culture} name prefixes`);
       }
     }
     for (const kind of ['grove', 'stones', 'tar']) {
@@ -96,7 +96,7 @@
       e.genObjects.push({ id: 'grove_shrine', kind: 'grove_shrine', x: EDGE_M / 2, y: EDGE_M / 2 });
       const residents = NPC.spawn(scene(), e, 0, 0, {});
       assert.eq(residents.length, kind === 'tar' ? 0 : NPC.COUNT);
-      assert.truthy(residents.every(c => c.zone === (kind === 'grove' ? 'grove' : 'shrine')));
+      assert.truthy(residents.every(c => c.culture === (kind === 'grove' ? 'grove' : 'shrine')));
     }
     assert.eq(NPC.spawn(scene(), entry(T.TAR_YARD), 0, 0, {}).length, 0);
   });
@@ -106,7 +106,7 @@
     e.genObjects.push({ id: 'grove_shrine', kind: 'grove_shrine', x: EDGE_M / 2, y: EDGE_M / 2 });
     const residents = NPC.spawn(scene(), e, 0, 0, {});
     assert.gt(residents.length, 0);
-    assert.truthy(residents.every(c => c.zone === 'shrine'));
+    assert.truthy(residents.every(c => c.culture === 'shrine'));
   });
 
   test('NPC shrine residents: restored wizard house adds four stable elves without rerolling neighbours', () => {
@@ -125,7 +125,7 @@
     assert.eq(elves.length, 4);
     assert.eq(signature(e.creatures.filter(c => !c.id.startsWith('npc_shrine_'))), ordinary);
     for (const c of elves) {
-      assert.eq(c.zone, 'shrine');
+      assert.eq(c.culture, 'shrine');
       assert.gte((c.tint >> 8) & 255, (c.tint >> 16) & 255);
       assert.gte((c.tint >> 8) & 255, c.tint & 255);
       assert.truthy(c.id.startsWith(`npc_shrine_${house.id}_`));

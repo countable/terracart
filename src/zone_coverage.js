@@ -154,7 +154,7 @@
     const shoreFor = a => {
       if (!companions.has(key(a))) {
         const beach = { ...a, kind: 'beach', code: Z.ZONE_KINDS.beach.code,
-          R: Z.radiusFor('beach', 0), q: 0, aspect: 'tree_ring',
+          R: Z.radiusFor('beach', 0), q: 0, nexusPattern: 'tree_ring',
           parkShore: true };
         delete beach.variant; delete beach.character;
         beach.variant = V.pick(beach).id;
@@ -498,7 +498,7 @@
       const words = root.ZoneVariantData.quarryLayouts.siteNames;
       const nameHash = fnv1a(`quarry-name|${gx}|${gy}`);
       const name = clipped ? 'Quarry edge' : `${words.first[nameHash % words.first.length]} ${words.last[(nameHash >>> 16) % words.last.length]} Quarry`;
-      const anchor = { kind: 'quarry', variant, aspect: 'quarry', generated: 'parking_lanes',
+      const anchor = { kind: 'quarry', variant, nexusPattern: 'quarry', generated: 'parking_lanes',
         clipped, cluster: { sourceCells: cells.filter(i => !additions[i]).length,
           filledCells: cells.filter(i => additions[i]).length },
         requestedVariant: clipped ? undefined : requestedVariant,
