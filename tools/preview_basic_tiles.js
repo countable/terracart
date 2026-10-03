@@ -20,26 +20,29 @@ function basicTileExamples(ctx) {
   ctx.Zones = undefined;
   try {
   for (const [name, [layer, tags]] of Object.entries(fixtures)) {
+    const seen = new Set(), examples = [];
+    let creatureSeats = false;
+    for (let tx = 2622; tx < 2626; tx++) {
     const layers = [
       {name:layer,extent,features:[{type:3,tags,geom:[[point(1,1),point(31,1),point(31,31),point(1,31),point(1,1)]]}]},
-      {name:'transportation',extent,features:[{type:2,tags:{class:'residential'},geom:[[point(0,2),point(32,2)]]}]},
+      ...require('./preview_basic_roads')(ctx,[{type:2,tags:{class:'minor'},geom:[[point(1,2),point(31,2)]]}],tx,5615,extent),
       // The public POI supplies frontage for plaza/industrial spawn gates.
       {name:'poi',extent,features:[{type:1,tags:{class:'library'},geom:[[point(16,3)]]}]},
     ];
-    const tile = WG.rasterizeTile(layers, N, 2622, 5615, edge);
-    const seen = new Set(), examples = [];
+    const tile = WG.rasterizeTile(layers, N, tx, 5615, edge);
     for (const o of [...tile.objects, ...tile.wildplants]) {
-      if (!['wildplant','tree','fruittree','mineralrock'].includes(o.kind)) continue;
-      const x = Math.floor((o.x - 2622 * edge) / WG.CELL_M), y = Math.floor((o.y - 5615 * edge) / WG.CELL_M);
+      if (!['wildplant','tree','fruittree','mineralrock'].includes(o.kind) && !(o.kind === 'chest' && o.barrel)) continue;
+      const x = Math.floor((o.x - tx * edge) / WG.CELL_M), y = Math.floor((o.y - 5615 * edge) / WG.CELL_M);
       if (tile.grid[y * N + x] !== WG.T[name]) continue;
-      const key = [o.kind,o.crop,o.species,o.kind === 'mineralrock' ? (o.caveVariant != null ? 'plain' : o.yieldTier) : ''].join(':');
+      const key = [o.kind,o.barrelStyle,o.crop,o.species,o.kind === 'mineralrock' ? (o.caveVariant != null || (o.yieldTier || 1) <= 1 ? 'plain' : 'ore') : ''].join(':');
       if (seen.has(key)) continue;
       seen.add(key);
       examples.push(o);
     }
-    const creatureSeats = tile.grid.some((terrain, i) => terrain === WG.T[name]
+    creatureSeats ||= tile.grid.some((terrain, i) => terrain === WG.T[name]
       && WG.isSpawnCell(tile.grid, N, N, i % N, Math.floor(i / N),
         {spawnWhy:tile.spawnWhy,roadMask:tile.roadMask}, 'fastFauna'));
+    }
     result[name] = {objects:examples, creatureSeats};
   }
   } finally { ctx.Zones = zones; }

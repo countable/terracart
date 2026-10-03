@@ -411,7 +411,7 @@ class SceneCreatures {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
         const t = genGrid[cy * N + cx];
-        if (classesOK.has(t)) {
+        if (classesOK.has(t) && BiomeProfiles.faunaAllows(kindStr, t)) {
           // Route EVERY candidate cell through the shared spawn rule, not just
           // RESIDENTIAL ones. isSpawnCell checks opts.roadMask FIRST — before
           // its residential-frontage logic — so gating the call on `t === 5`
@@ -1223,7 +1223,7 @@ class SceneCreatures {
       const seatOpts = spClass === 'fauna' || spClass === 'fastFauna'
         ? { ...spawnOpts, occupied: null } : spawnOpts;
       const free = (idx) => {
-        if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
+        if (taken.has(idx) || (blocked && blocked.has(idx)) || !BiomeProfiles.faunaAllows(sp, genGrid[idx])) return false;
         if (shoreBird && shoreMask[idx] && (spawnOpts.occupied?.has(idx) || birdLandings.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
@@ -1756,7 +1756,8 @@ class SceneCreatures {
               const angle = base + (k * Math.PI * 2) / 8;
               const sx = px + Math.cos(angle) * SPAWN_R, sy = py + Math.sin(angle) * SPAWN_R;
               const dest = this.cellAt(sx, sy);
-              if (!dest.loaded || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)) continue;
+              if (!dest.loaded || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)
+                  || !BiomeProfiles.faunaAllows('deer', dest.type)) continue;
               entry.creatures.push(WorldGen.makeCreature('deer', sx, sy,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
               break;

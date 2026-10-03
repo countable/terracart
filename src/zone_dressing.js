@@ -109,6 +109,7 @@
       if (grid[iy * N + ix] === WG.T.SAND && s.variant.id === 'shellwater_strand' && material === 'rose') return false;
       const m = V.materials[s.variant.materialReplacements?.[material] || material];
       if (!m) return false;
+      if (m.recordType === 'enemy' && root.BiomeProfiles && !root.BiomeProfiles.faunaAllows(m.kind, grid[iy * N + ix])) return false;
       const cls = m.recordType === 'enemy' && typeof root.creatureSpawnClass === 'function'
         ? root.creatureSpawnClass(m.kind) : m.spawnClass;
       if (!WG.isSpawnCell(grid, N, N, ix, iy, opts, cls)) return false;
@@ -316,6 +317,7 @@
           for (let sy = -2; sy <= 2; sy++) for (let sx = -2; sx <= 2; sx++) {
             const distance = sx * sx + sy * sy, x = desiredX + sx, y = desiredY + sy;
             if (distance > 4 || distance >= bestDistance || !owns(s, x, y)
+                || (root.BiomeProfiles && !root.BiomeProfiles.faunaAllows(kind, grid[y * N + x]))
                 || !WG.isSpawnCell(grid, N, N, x, y, opts, cls)) continue;
             ix = x; iy = y; bestDistance = distance;
           }

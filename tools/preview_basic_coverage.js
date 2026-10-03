@@ -17,12 +17,15 @@ module.exports = function basicCoverageMetrics(ctx, options = {}) {
   const group = o => o.kind === 'wildplant' ? o.crop
     : o.kind === 'tree' ? 'tree'
     : o.kind === 'fruittree' ? 'fruittree'
-    : o.kind === 'mineralrock' ? (o.caveVariant != null || (o.yieldTier || 1) <= 1 ? 'plain_rock' : 'ore_rock')
-    : o.kind === 'chest' && o.barrel && o.barrelStyle === 'clay_pot' ? 'clay_pot' : null;
+    : o.kind === 'mineralrock' ? (o._street === true ? 'street_' : '') + (o.caveVariant != null || (o.yieldTier || 1) <= 1 ? 'plain_rock' : 'ore_rock')
+    : o.kind === 'chest' && o.barrel ? (o.barrelStyle === 'clay_pot' ? 'clay_pot' : 'barrel') : null;
   const roads=[], pois=[];
   for(let p=8;p<N;p+=16) {
-    roads.push({type:2,tags:{class:'residential',access:'yes'},geom:[[point(0,p),point(N,p)]]},
-      {type:2,tags:{class:'residential',access:'yes'},geom:[[point(p,0),point(p,N)]]});
+    for(let q=1;q<N-1;q+=16) {
+      const end=Math.min(N-1,q+14);
+      roads.push({type:2,tags:{class:'minor',access:'yes'},geom:[[point(q,p),point(end,p)]]},
+        {type:2,tags:{class:'minor',access:'yes'},geom:[[point(p,q),point(p,end)]]});
+    }
     for(let q=8;q<N;q+=16) pois.push({type:1,tags:{class:'library'},geom:[[point(p+2,q+2)]]});
   }
   const rows=[];
@@ -35,7 +38,7 @@ module.exports = function basicCoverageMetrics(ctx, options = {}) {
         for(let tx=2622;samples.length<repeats;tx++) {
           if(character&&ctx.BiomeProfiles.parkCharacterAt(tx*E+E/2,ty*E+E/2)!==character)continue;
           const layers=[{name:layer,extent:E,features:[{type:3,tags,geom:[[point(1,1),point(N-1,1),point(N-1,N-1),point(1,N-1),point(1,1)]]}]},
-            {name:'transportation',extent:E,features:roads},{name:'poi',extent:E,features:pois}];
+            ...require('./preview_basic_roads')(ctx,roads,tx,ty,E),{name:'poi',extent:E,features:pois}];
           const tile=WG.rasterizeTile(layers,N,tx,ty,edge);
           const target=new Set(),eligible=new Set();
           for(let y=1;y<N-1;y++)for(let x=1;x<N-1;x++) {
@@ -45,7 +48,7 @@ module.exports = function basicCoverageMetrics(ctx, options = {}) {
           }
           const groups=new Map(),occupied=new Set();let outsideEligible=0;
           for(const o of [...(tile.objects||[]),...(tile.wildplants||[])]) {
-            const key=group(o);if(!key||o._street||o.zoneVariant||o.placed)continue;
+            const key=group(o);if(!key||typeof o._street==='string'||o.zoneVariant||o.placed)continue;
             const x=Math.floor((o.x-tx*edge)/WG.CELL_M),y=Math.floor((o.y-ty*edge)/WG.CELL_M),i=y*N+x;
             if(!target.has(i))continue;
             if(!eligible.has(i)){outsideEligible++;continue;}
@@ -68,7 +71,7 @@ module.exports = function basicCoverageMetrics(ctx, options = {}) {
   } finally {ctx.Zones=zones;}
   return {method:{cellsPerEdge:N,repeats,cellM:WG.CELL_M,fixtureSideM:edge,
     denominator:'Target terrain cells in source polygon interior passing the runtime minor spawn gate. Restricted/private cells and road bands excluded; all-terrain count retained separately.',
-    numerator:'Unique cell seats occupied by generated plants, trees, fruit trees, rocks or clay pots. No visual canopy area, mobile creatures, POI chests, street dressing or nexus.',
-    fixture:'One polygon; public residential roads every16 cells (112m), public library POIs near each crossing; no buildings; natural park-character seeds; Zones module disabled to isolate basic land.',
+    numerator:'Unique cell seats occupied by generated plants, trees, fruit trees, rocks, pots or barrels (including ordinary rock-lined streets). No visual canopy area, mobile creatures, POI chests, themed street dressing or nexus.',
+    fixture:'One polygon; short public minor road segments on a16-cell (112m) lattice, real names selected for plain road variants with one in four roads selected to be rock-lined, public library POIs near each crossing; no buildings; natural park-character seeds; Zones module disabled to isolate basic land.',
     caveat:'Synthetic comparison, not live-map area coverage. Geometry, overlapping source polygons, restrictions and source POIs change live occupancy.'},rows};
 };

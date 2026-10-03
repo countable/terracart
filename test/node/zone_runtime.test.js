@@ -132,8 +132,9 @@
         { occupied: new Set() }, creatures, null, [], new Set());
       assert.eq(creatures.length, count, `${row.id} cannot add animals`);
       for (const sp of species) {
-        if (row.attracts[sp]) assert.gt(moved[sp] || 0, 0, `${row.id}: ${sp} reaches fringe-only coverage`);
-        else assert.eq(moved[sp] || 0, 0, `${row.id}: no inherited zone-kind affinity for ${sp}`);
+        if (row.attracts[sp] && BiomeProfiles.faunaAllows(sp, grid[0]))
+          assert.gt(moved[sp] || 0, 0, `${row.id}: ${sp} reaches eligible fringe-only coverage`);
+        else assert.eq(moved[sp] || 0, 0, `${row.id}: ${sp} cannot bypass its habitat or inherit zone-kind affinity`);
       }
     }
   });

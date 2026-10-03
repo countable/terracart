@@ -54,6 +54,18 @@ function makeTryPlace(scene, rng, N, pestFree, entry, _spawnOpts, tx, ty, caught
 
 const GRASS = 0, RESIDENTIAL = 5, ROAD = 7;
 
+test('fauna spawn: broad fallback sets cannot bypass deer and cat habitat limits', () => {
+  const N = 2, scene = {tileEdgeM: 14, cellM: 7};
+  for (const [kind, terrain, allowed] of [['deer',WorldGen.T.PARK,false],['deer',WorldGen.T.FOREST,true],
+    ['deer',WorldGen.T.RESIDENTIAL,true],['cat',WorldGen.T.WASTELAND,false]]) {
+    const entry = {grid:new Uint8Array(N*N).fill(terrain)}, creatures = [];
+    const opts = {spawnWhy:new Uint16Array(N*N)};
+    const place = makeTryPlace(scene, () => .25, N, null, entry, opts, 0, 0, new Set(), creatures);
+    place(null,new Set([terrain]),0,kind);
+    assert.eq(creatures.length,allowed ? 1 : 0, `${kind} on terrain ${terrain}`);
+  }
+});
+
 test('fauna spawn (FINDING 2): a GRASS cell under the road mask is refused, not just RESIDENTIAL', () => {
   const N = 2;
   const entry = { grid: [GRASS, GRASS, GRASS, GRASS] };

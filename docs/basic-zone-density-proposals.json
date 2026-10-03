@@ -1,14 +1,14 @@
 {
-  "status": "Design proposals only, except the implemented farmland exclusion. Not read by runtime spawners.",
+  "status": "Basic-zone tuning implemented with the latest user overrides. These are design coverage targets; actual generated coverage is measured separately. Signature gaps and suggestions are not implemented.",
   "metric": "Percentage of eligible 7 m ground cells occupied by stationary elements. Targets are occupied-cell budgets, not direct per-attempt spawn probabilities.",
   "zones": {
     "GRASS": {
       "targetPct": {
         "longgrass": 28,
         "flowers": 1.5,
-        "marigold": 0.3
+        "marigold": 0
       },
-      "intent": "Open meadow: broad grass clumps with a few ordinary flowers; marigolds become uncommon."
+      "intent": "Open grass clumps and ordinary flowers; no marigolds."
     },
     "FOREST": {
       "targetPct": {
@@ -30,16 +30,19 @@
     },
     "FARMLAND": {
       "targetPct": {},
-      "intent": "Excluded: no generated objects, plants, wildlife or enemies. This restriction is implemented; other targets remain proposals."
+      "intent": "Private ground: no generated plants, objects, wildlife or enemies, including edges and POI rewards."
     },
     "RESIDENTIAL": {
       "targetPct": {
-        "plain_rock": 1,
-        "longgrass": 3,
-        "shrub": 2,
-        "mushroom": 0
+        "longgrass": 0,
+        "shrub": 2
       },
-      "intent": "Broken yard edges: mundane rubble, sparse grass and shrubs. Keep usable street frontage clear."
+      "intent": "Keep mushrooms and existing rock-lined street verges. Remove long grass; retain sparse shrubs. Street rubble follows the road network rather than a new residential scatter.",
+      "preserveElements": [
+        "mushroom",
+        "street_plain_rock",
+        "street_ore_rock"
+      ]
     },
     "PARK": {
       "targetPct": {},
@@ -101,10 +104,8 @@
       "intent": "Reedy grass bands and damp mushrooms around open channels; fewer flowers and dry-looking shrubs."
     },
     "GOLF": {
-      "targetPct": {
-        "longgrass": 2
-      },
-      "intent": "Clear fairways with longer grass concentrated in rough and boundaries."
+      "targetPct": {},
+      "intent": "Private ground: no generated plants, objects, wildlife or enemies, including edges and POI rewards."
     },
     "ORCHARD": {
       "targetPct": {
@@ -139,10 +140,10 @@
       "targetPct": {
         "tree": 4,
         "shrub": 1,
-        "mushroom": 2,
+        "mushroom": 0,
         "flowers": 0.2
       },
-      "intent": "Small tree stands and shaded mushrooms."
+      "intent": "Small tree stands and sparse shrubs. No ordinary park mushrooms."
     },
     "formal": {
       "targetPct": {

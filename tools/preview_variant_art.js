@@ -82,7 +82,7 @@ for (const tile of data.basicTiles) {
   for (const o of tile.examples) if (o.kind === 'mineralrock' && (o.caveVariant != null || (o.yieldTier || 1) <= 1)) {
     o.previewArt = {sheet:'mineralrock', frames:[ctx.SpriteLayout.plainRockFrame(o)]};
   }
-  tile.creatureExamples = [...new Set([...tile.fauna.slice(0,2), ...tile.enemies.slice(0,2)])].map(kind => {
+  tile.creatureExamples = [...new Set([...tile.fauna.slice(0,4), ...tile.enemies.slice(0,2)])].map(kind => {
     const art = ctx.SpriteLayout.creatureArt(kind);
     return {kind, previewArt:{sheet:art.sheet,frames:[art.directions?.down?.idle?.[0] || 0],tint:art.tint ?? 0xffffff}};
   });

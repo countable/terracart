@@ -49,9 +49,11 @@ test('park characters: one table, picked off a global point at its shares', () =
   }
   for (const id of ids) near(got[id] / M, BP.PARK_CHARACTERS[id].share, 0.02, `${id} at its share`);
   assert.eq(BP.parkCharacterAt(100.2, 200.4), BP.parkCharacterAt(100, 200), 'integer MVT points');
-  // A wooded park's mushrooms grow on park ground — and ONLY there, not
-  // on every lawn a residential spill reaches.
-  assert.truthy(BP.allows('mushroom', T.PARK) && BP.allows('mushroom', T.GROVE));
+  // Basic parks have no mushrooms, including forest/residential overlap.
+  // Authored nexus fungi use their separate declarative material lane.
+  assert.falsy(BP.allows('mushroom', T.PARK));
+  assert.falsy(BP.allows('mushroom', T.GROVE));
+  assert.truthy(BP.allows('mushroom', T.RESIDENTIAL), 'residential mushrooms remain');
   assert.falsy(BP.allows('mushroom', T.GRASS), 'a plain lawn keeps its old verdict');
 });
 

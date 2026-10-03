@@ -94,7 +94,7 @@
       const seatOpts = spClass === 'fauna' || spClass === 'fastFauna'
         ? { ...spawnOpts, occupied: null } : spawnOpts;
       const free = (idx) => {
-        if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
+        if (taken.has(idx) || (blocked && blocked.has(idx)) || !BiomeProfiles.faunaAllows(sp, genGrid[idx])) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
         // The seat rule for anything alive: its own spawn class.
@@ -245,5 +245,17 @@
     const fauna=Array.from({length:100},(_,i)=>({kind:species,id:`f${i}`,x:-1,y:-1}));
     scene._seatFaunaOnFavouriteGround(entry,0,0,N,cellM,grid,{},fauna,null,[],new Set());
     assert.truthy(fauna.some(c=>c.x>=0),'explicit row attraction can enter its nexus');
+  });
+  test('fauna attraction: authored groves and walking-path lamps respect habitat restrictions', () => {
+    const N=12, cellM=7, scene=Object.assign(new SceneCreatures(),{tileEdgeM:N*cellM,
+      _pathLampCells:()=>new Set(Array.from({length:N*N},(_,i)=>i))});
+    for (const [kind,terrain,allowed] of [['deer',WorldGen.T.PARK,false],['deer',WorldGen.T.FOREST,true],
+      ['cat',WorldGen.T.WASTELAND,false],['cat',WorldGen.T.GRASS,true]]) {
+      const grid=new Uint8Array(N*N).fill(terrain);
+      const entry=kind==='deer'?{zone:{coverage:new Uint16Array(N*N).fill(1),anchors:[{kind:'grove'}]}}:{};
+      const animals=Array.from({length:80},(_,i)=>({kind,id:`${kind}${i}`,x:-1,y:-1}));
+      scene._seatFaunaOnFavouriteGround(entry,0,0,N,cellM,grid,{spawnWhy:new Uint16Array(N*N)},animals,null,[],new Set());
+      assert.eq(animals.some(c=>c.x>=0),allowed,`${kind} attracted onto terrain ${terrain}`);
+    }
   });
 })();

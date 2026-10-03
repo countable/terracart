@@ -474,7 +474,7 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   assert.eq(Zones.ZONE_KINDS.grove.attracts.deer, 0.5, 'grove → deer');
   assert.eq(Zones.ZONE_KINDS.grove.attracts.butterfly, 0.5, 'grove → butterflies');
   assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
-  assert.eq(BIOME_ATTRACTS[WorldGen.T.PITCH].deer, 0.5, 'sports pitch → deer');
+  assert.falsy(BIOME_ATTRACTS[WorldGen.T.PITCH]?.deer, 'sports pitches do not attract deer');
   // The spawner reads the columns; it names no species of its own.
   const src = SCENE_SRC;
   const body = src.slice(src.indexOf('\n  _seatFaunaOnFavouriteGround('), src.indexOf('\n  }\n', src.indexOf('\n  _seatFaunaOnFavouriteGround(')));
@@ -516,18 +516,20 @@ test('fauna attractors: half of a species moves onto its ground, the rest stay; 
   assert.falsy(m2.slime, 'no slime moves into the starting area\'s amnesty');
 });
 
-test('sports pitch affinity relocates existing deer without creating more animals', () => {
+test('sports pitches do not pull deer out of their forest habitat', () => {
   const N = CPE, cellM = TILE_EDGE_M / N;
-  const grid = new Uint8Array(N * N).fill(T.GRASS);
+  const grid = new Uint8Array(N * N).fill(T.FOREST);
   for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) grid[y * N + x] = T.PITCH;
   const deer = Array.from({ length: 60 }, (_, i) => WorldGen.makeCreature('deer',
     TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i + .5) * cellM, `pitch_deer_${i}`));
+  const before = deer.map(d => [d.x, d.y]);
   const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, liftAttract());
   const moved = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) },
     TX, TY, N, cellM, grid, { occupied: new Set(), roadMask: new Uint8Array(N * N), pois: [] }, deer, null);
   assert.eq(deer.length, 60, 'affinity never adds deer');
-  assert.inRange(moved.deer, 18, 42, 'approximately half the existing deer choose the pitch');
-  assert.eq(deer.filter(d => grid[cellOf(d.y, TY) * N + cellOf(d.x, TX)] === T.PITCH).length, moved.deer);
+  assert.eq(moved.deer || 0, 0, 'no deer are attracted to the pitch');
+  assert.eq(JSON.stringify(deer.map(d => [d.x, d.y])), JSON.stringify(before), 'existing forest seats stay unchanged');
+  assert.eq(deer.filter(d => grid[cellOf(d.y, TY) * N + cellOf(d.x, TX)] === T.PITCH).length, 0);
 });
 
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──

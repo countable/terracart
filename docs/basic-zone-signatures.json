@@ -1,0 +1,1105 @@
+{
+  "schemaVersion": 1,
+  "status": "Signature design proposals and current-source audit only. Not read by runtime spawners. No rarity ownership or new candidate placement implemented.",
+  "scope": "Basic terrain outside special nexus ownership. Exclude player planting, shops, general chest loot and authored zones when judging ambient habitat exclusivity. Conditional shore/fishing and cave candidates are identified explicitly.",
+  "encounterRarity": {
+    "common": "Proposed routine habitat-defining sight.",
+    "uncommon": "Proposed intermittent secondary encounter.",
+    "rare": "Proposed exceptional encounter worth noticing.",
+    "thresholds": "Qualitative design bands, not measured numeric thresholds. Static occupied-cell percentages, per-tile fauna counts, per-shore-metre seats and per-interaction loot probabilities have different denominators and cannot share an honest universal cutoff. Existing frequencies are stated where known; no numbers are changed by these labels.",
+    "notItemQuality": "Item rarity remains the existing seven-tier Basic/Common/Uncommon/Rare/Epic/Legendary/Godly ladder. Creature combat tier is a third, separate scale."
+  },
+  "statusLegend": {
+    "existing_exclusive": "Candidate already has an exclusive ordinary basic habitat or a stated exclusive context; the proposed encounter-frequency band is not automatically implemented.",
+    "shared": "Candidate exists here or through an explicitly stated existing conditional lane, but also occurs elsewhere. This is a differentiation gap, not a completed exclusive slot.",
+    "gap": "Candidate has shipping art/items/behavior but no current ordinary placement in this terrain. Suggested future placement only."
+  },
+  "uniquenessRule": "Each proposedThing.id is assigned at most once at each encounter level across all populated cards. Reuse at a different level is deliberate. This guarantees unique proposed assignments, not current runtime frequency exclusivity; shared candidates require a future distribution decision.",
+  "userConstraints": [
+    "Deer only in forest and residential.",
+    "No cats on wasteland.",
+    "No mushrooms in ordinary parks.",
+    "No residential long grass.",
+    "No marigolds on ordinary grass.",
+    "Farm and golf remain excluded."
+  ],
+  "residentialRockAudit": {
+    "mechanism": "LOT_ROCK_DRY suppresses independent residential yard rock clusters. Existing generic _street:true rocks line selected25% of minor streets through spawnStreetRocksSteps. They are eligible basic frontage content; string-valued themed street dressing is different.",
+    "measurementCorrection": "The earlier fixture helper discarded every truthy _street record and therefore missed these existing residential rocks. Fix measurement classification; do not invent a replacement yard-rock spawner.",
+    "sourceRefs": [
+      "src/worldgen.js LOT_ROCK_DRY; spawnStreetRocksSteps",
+      "src/street_variants.js rocksFor"
+    ]
+  },
+  "zones": {
+    "GRASS": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Grass has its own dense grass-fill pattern, but long grass also grows on several other basic terrains.",
+          "proposedThing": {
+            "id": "wildplant:longgrass",
+            "label": "Long grass"
+          },
+          "proposalAction": "Use broad grass clumps as the common signature; uniqueness of the encounter band is not yet enforced.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js GRASS_FILL"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Grass is the primary cow habitat; fallback includes other accessible habitats.",
+          "proposedThing": {
+            "id": "creature:cow",
+            "label": "Cow"
+          },
+          "proposalAction": "Keep cattle as the intermittent meadow encounter without increasing stationary coverage.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.cow"
+          ],
+          "itemQuality": {
+            "itemId": "cow",
+            "baseTier": 4,
+            "badge": "Rare",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "Five horses per tile before placement gates; grass is a primary habitat, with wider fallbacks.",
+          "proposedThing": {
+            "id": "creature:horse",
+            "label": "Horse"
+          },
+          "proposalAction": "Use the existing sparse horse population as the rare grass signature; review competing fallback habitats before claiming exclusivity.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.horse"
+          ],
+          "itemQuality": {
+            "itemId": "horse",
+            "baseTier": 4,
+            "badge": "Rare",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "FOREST": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Forest canopy and wooded parks share maple/pine generation.",
+          "proposedThing": {
+            "id": "tree:pine",
+            "label": "Pine tree"
+          },
+          "proposalAction": "Keep forest canopy as the routine identity; a pine-led forest would need an explicit species preference.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js TREE_SPECIES; spawnForestTreesSteps"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "Forest is the only ordinary basic biome with nut flora; cultivated nuts and loot are outside this scope.",
+          "proposedThing": {
+            "id": "wildplant:nut",
+            "label": "Nut"
+          },
+          "proposalAction": "Keep this existing forest forage signature.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_PROFILES.FOREST"
+          ],
+          "itemQuality": {
+            "itemId": "nut",
+            "baseTier": 2,
+            "badge": "Common",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "Starflower flora belongs to forest, outside authored zones and player planting.",
+          "proposedThing": {
+            "id": "wildplant:starflower",
+            "label": "Starflower"
+          },
+          "proposalAction": "Keep this scarce glowing forest find; its Epic item quality is separate from encounter rarity.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_PROFILES.FOREST",
+            "src/items.js BASE_TIER.starflower"
+          ],
+          "itemQuality": {
+            "itemId": "starflower",
+            "baseTier": 5,
+            "badge": "Epic",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "SAND": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "Shell is the ordinary sand flora signature; marine nexus material is excluded from this audit.",
+          "proposedThing": {
+            "id": "wildplant:shell",
+            "label": "Shell"
+          },
+          "proposalAction": "Retain shells as the repeating beach identity.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js FAMILY_PROFILE.sand",
+            "src/items.js CROP_SPRITE.shell"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "The basic sand row and coastal tide-line lane supply driftwood; this is not a generic grass plant.",
+          "proposedThing": {
+            "id": "wildplant:driftwood",
+            "label": "Driftwood"
+          },
+          "proposalAction": "Use shoreline-aligned driftwood as the second signature rather than filling inland sand with marine rewards.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js FAMILY_PROFILE.sand",
+            "src/scenic.js tide-line dressing",
+            "src/items.js CROP_SPRITE.driftwood"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "Shore fauna seats sea turtles on the shoreline, not inland sand or piers.",
+          "proposedThing": {
+            "id": "creature:sea_turtle",
+            "label": "Sea turtle"
+          },
+          "proposalAction": "Retain the limited shoreline population as the rare coastal encounter.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js SHORE_FAUNA.sea_turtle",
+            "src/scene_creatures.js spawnShoreFauna"
+          ],
+          "itemQuality": {
+            "itemId": "sea_turtle",
+            "baseTier": 3,
+            "badge": "Uncommon",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": "Coastal shore cells only; an inland sandpit has no turtle population."
+        }
+      }
+    },
+    "RESIDENTIAL": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Residential yard flora now contains shrubs, not long grass. Shrubs are shared with many terrains.",
+          "proposedThing": {
+            "id": "wildplant:shrub",
+            "label": "Yard shrub"
+          },
+          "proposalAction": "Use short hedge/yard clusters as the recurring signature; do not restore residential grass.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_PROFILES.RESIDENTIAL.yard"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Cats prefer residential and commercial ground; wasteland is explicitly excluded.",
+          "proposedThing": {
+            "id": "creature:cat",
+            "label": "Cat"
+          },
+          "proposalAction": "Use cats as the intermittent residential encounter; commercial cats remain shared until frequency ownership is decided.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.cat"
+          ],
+          "itemQuality": {
+            "itemId": "cat",
+            "baseTier": 4,
+            "badge": "Rare",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "The user-approved habitat whitelist now limits deer to forest and residential ground.",
+          "proposedThing": {
+            "id": "creature:deer",
+            "label": "Deer"
+          },
+          "proposalAction": "Make deer the unusual residential visitor while keeping forest deer; this proposes relative frequency, not a new habitat.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.deer.only"
+          ],
+          "itemQuality": {
+            "itemId": "deer",
+            "baseTier": 3,
+            "badge": "Uncommon",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "PARK": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Meadow/common parks and other basic terrains share ordinary flowers. Park characters remain distinct.",
+          "proposedThing": {
+            "id": "wildplant:flowers",
+            "label": "Ordinary flowers"
+          },
+          "proposalAction": "Use bounded flower patches as the common park signature; keep all four park characters, and keep mushrooms excluded.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js PARK_CHARACTERS"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "After current removals, ordinary basic marigold flora remains in meadow/formal park characters; authored nexus and planted crops do not count.",
+          "proposedThing": {
+            "id": "wildplant:marigold",
+            "label": "Marigold"
+          },
+          "proposalAction": "Retain marigolds as the park forage distinction, particularly formal beds.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js PARK_CHARACTERS; blockedFlora"
+          ],
+          "itemQuality": {
+            "itemId": "marigold",
+            "baseTier": 3,
+            "badge": "Uncommon",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "gap",
+          "currentEvidence": "Sunflower has existing crop art, harvest rules and a Rare item, but no ordinary park spawn row.",
+          "proposedThing": {
+            "id": "wildplant:sunflower",
+            "label": "Sunflower"
+          },
+          "proposalAction": "Consider a very sparse sunflower pocket using the existing wildplant lane; this would be new placement and is NOT implemented.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/items.js CROP_ROW.sunflower; BASE_TIER.sunflower"
+          ],
+          "itemQuality": {
+            "itemId": "sunflower",
+            "baseTier": 4,
+            "badge": "Rare",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "ROCK": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Plain mineral rocks also occur in industrial/wasteland clusters and selected residential street edges.",
+          "proposedThing": {
+            "id": "mineralrock:plain",
+            "label": "Plain rock"
+          },
+          "proposalAction": "Use natural scree clusters as the common identity; no extra residential rock spawner is implied.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js spawn rock clusters; LOT_ROCK_DRY"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Copper-bearing rocks are an existing yieldTier2 outcome across multiple mineral habitats.",
+          "proposedThing": {
+            "id": "mineralrock:copper",
+            "label": "Copper-bearing rock"
+          },
+          "proposalAction": "Consider making copper the characteristic intermittent rockland ore without changing item quality.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js mineral cluster tier tables",
+            "src/items.js MINERAL_TIERS"
+          ],
+          "itemQuality": {
+            "itemId": "copper_bar",
+            "baseTier": 2,
+            "badge": "Common",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "Tier7 ore is already possible in surface mineral distributions; it is not rockland-exclusive.",
+          "proposedThing": {
+            "id": "mineralrock:frost",
+            "label": "Frost-bearing rock"
+          },
+          "proposalAction": "Consider reserving the rare rockland ore identity for Frost; doing so requires a separate approved resource-weight change.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js SURFACE_ROCK_TIER_WEIGHTS",
+            "src/items.js MINERAL_TIERS"
+          ],
+          "itemQuality": {
+            "itemId": "frost_bar",
+            "baseTier": 7,
+            "badge": "Godly",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "SCHOOL": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "School grounds own forget-me-not flora through terrainOnly; the same crop is not ordinary flora elsewhere.",
+          "proposedThing": {
+            "id": "wildplant:forgetmenot",
+            "label": "Forget-me-not"
+          },
+          "proposalAction": "Keep blue flowers as the school signature without raising its existing density just to match a label.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_PROFILES.SCHOOL",
+            "src/items.js BASE_TIER.forgetmenot"
+          ],
+          "itemQuality": {
+            "itemId": "forgetmenot",
+            "baseTier": 2,
+            "badge": "Common",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "gap",
+          "currentEvidence": "Berry bushes have shipping art and crop/harvest rules, but no ordinary school flora row.",
+          "proposedThing": {
+            "id": "wildplant:berry",
+            "label": "Berry bush"
+          },
+          "proposalAction": "Consider occasional berry beds on eligible school ground using existing crop assets; no placement is implemented.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/items.js CROP_SPRITE.berry; BASE_TIER.berry"
+          ],
+          "itemQuality": {
+            "itemId": "berry",
+            "baseTier": 2,
+            "badge": "Common",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "gap",
+          "currentEvidence": "Rainberry is an existing cultivated crop and item, not a school ambient find.",
+          "proposedThing": {
+            "id": "wildplant:rainberry",
+            "label": "Rainberry"
+          },
+          "proposalAction": "Consider a sparse rainberry garden find only if a future school-garden theme is approved; do not mint a new reward mechanic.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/items.js CROP_ROW.rainberry; BASE_TIER.rainberry"
+          ],
+          "itemQuality": {
+            "itemId": "rainberry",
+            "baseTier": 4,
+            "badge": "Rare",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "COMMERCIAL": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "The commercial hedge-maze replaces selected shrub seats with clay pots. Ordinary industrial barrels are a different prop.",
+          "proposedThing": {
+            "id": "barrel:clay_pot",
+            "label": "Clay pot"
+          },
+          "proposalAction": "Keep breakable clay pots as the commercial identity within open hedge corridors.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js hedgeMazePotCell commercial substitution",
+            "src/loot.js barrelProfile"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "gap",
+          "currentEvidence": "Coffee has existing crop art and effects but explicitly has no wild source.",
+          "proposedThing": {
+            "id": "wildplant:coffee",
+            "label": "Coffee plant"
+          },
+          "proposalAction": "Consider a sparse existing coffee crop near commercial gardens; this would add a wild source and requires a separate economy decision.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/items.js CROP_ROW.coffee; PRICES.coffee"
+          ],
+          "itemQuality": {
+            "itemId": "coffee",
+            "baseTier": 3,
+            "badge": "Uncommon",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "The generic 5% animal shiny roll applies to cats wherever cat habitats allow them.",
+          "proposedThing": {
+            "id": "creature:cat:shiny",
+            "label": "Shiny cat"
+          },
+          "proposalAction": "Consider the shiny cat as the rare commercial encounter identity; no biome-specific shiny rule currently exists.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.cat",
+            "src/util.js SHINY_RATE.animal; faunaShiny"
+          ],
+          "itemQuality": {
+            "itemId": "cat",
+            "baseTier": 4,
+            "badge": "Rare",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": "The shiny catch adds3 item tiers, capped at7; current shiny probability is global, not commercial-specific."
+        }
+      }
+    },
+    "INDUSTRIAL": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "The current industrial salvage pass places ordinary barrels from its staticObjects row; themed zones and mapped POI barrels are excluded.",
+          "proposedThing": {
+            "id": "barrel:ordinary",
+            "label": "Salvage barrel"
+          },
+          "proposalAction": "Keep salvage barrels as the repeated industrial prop alongside mineral piles.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_PROFILES.INDUSTRIAL.staticObjects",
+            "src/worldgen.js industrial salvage",
+            "src/loot.js barrelProfile"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Tier3 ore appears in industrial and other mineral distributions.",
+          "proposedThing": {
+            "id": "mineralrock:iron",
+            "label": "Iron-bearing rock"
+          },
+          "proposalAction": "Consider iron as the industrial intermittent ore identity; existing shared ore weights do not enforce this.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js industrial mineral cluster tier table",
+            "src/items.js MINERAL_TIERS"
+          ],
+          "itemQuality": {
+            "itemId": "iron_bar",
+            "baseTier": 3,
+            "badge": "Uncommon",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "Tier6 ore is possible in several surface mineral habitats.",
+          "proposedThing": {
+            "id": "mineralrock:crimson",
+            "label": "Crimson-bearing rock"
+          },
+          "proposalAction": "Consider the rare industrial ore signature as Crimson, using the existing rock, pick gate and bar.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js mineral cluster tier tables",
+            "src/items.js MINERAL_TIERS"
+          ],
+          "itemQuality": {
+            "itemId": "crimson_bar",
+            "baseTier": 6,
+            "badge": "Legendary",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "PLAYGROUND": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Playground is a butterfly fallback habitat; parks, forest, wetland and orchard are primary habitats.",
+          "proposedThing": {
+            "id": "creature:butterfly",
+            "label": "Butterfly"
+          },
+          "proposalAction": "Consider butterflies the recurring playground wildlife identity; the existing fallback allocation does not guarantee this.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.butterfly"
+          ],
+          "itemQuality": {
+            "itemId": "butterfly",
+            "baseTier": 3,
+            "badge": "Uncommon",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "gap",
+          "currentEvidence": "Rabbit art and behavior exist, but rabbits have no ordinary surface BIOME_FAUNA row; cave rabbits do not fill this slot.",
+          "proposedThing": {
+            "id": "creature:rabbit",
+            "label": "Rabbit"
+          },
+          "proposalAction": "Consider a small playground rabbit population through the existing fauna lane; this is a new habitat proposal only.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/items.js BASE_TIER.rabbit",
+            "src/scene_creatures.js cave rabbit placement",
+            "src/sprite_layout.js CREATURE_ART.rabbit"
+          ],
+          "itemQuality": {
+            "itemId": "rabbit",
+            "baseTier": 1,
+            "badge": "Basic",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "Existing 5% shiny rolls can produce shiny butterflies in every allowed butterfly habitat.",
+          "proposedThing": {
+            "id": "creature:butterfly:shiny",
+            "label": "Shiny butterfly"
+          },
+          "proposalAction": "Consider shiny butterflies the rare playground sighting; exclusive rarity ownership remains unimplemented.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/util.js SHINY_RATE.animal",
+            "src/biome_profiles.js BIOME_FAUNA.butterfly"
+          ],
+          "itemQuality": {
+            "itemId": "butterfly",
+            "baseTier": 3,
+            "badge": "Uncommon",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": "Shiny butterfly item quality is base3+3=6 (Legendary), not the proposed encounter label."
+        }
+      }
+    },
+    "PITCH": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Crows are a widespread natural-terrain population, including pitches.",
+          "proposedThing": {
+            "id": "creature:crow",
+            "label": "Crow"
+          },
+          "proposalAction": "Use crows as the recurring open-field wildlife identity while keeping the playing surface sparse.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.crow"
+          ],
+          "itemQuality": {
+            "itemId": "crow",
+            "baseTier": 1,
+            "badge": "Basic",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Pitch supports only sparse long grass as ordinary flora; other habitats also use it.",
+          "proposedThing": {
+            "id": "wildplant:longgrass",
+            "label": "Boundary grass"
+          },
+          "proposalAction": "Keep occasional boundary tufts, rather than adding reward props to the playing surface.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_PROFILES.PITCH"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "Pitch is a horse fallback habitat; a shiny horse uses the global animal shiny roll.",
+          "proposedThing": {
+            "id": "creature:horse:shiny",
+            "label": "Shiny horse"
+          },
+          "proposalAction": "Consider a rare shiny horse on eligible field margins; there is no pitch-specific rarity rule yet.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.horse",
+            "src/util.js faunaShiny"
+          ],
+          "itemQuality": {
+            "itemId": "horse",
+            "baseTier": 4,
+            "badge": "Rare",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": "Shiny catch item quality is capped at7; do not imply every pitch receives a horse."
+        }
+      }
+    },
+    "WETLAND": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Wetland and forest retain mushrooms; residential frontage can retain them. Parks and wasteland now exclude them.",
+          "proposedThing": {
+            "id": "wildplant:mushroom",
+            "label": "Mushroom"
+          },
+          "proposalAction": "Use damp mushroom/grass clusters as the routine marsh identity without reintroducing park mushrooms.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_PROFILES.WETLAND; blockedFlora"
+          ],
+          "itemQuality": {
+            "itemId": "mushroom",
+            "baseTier": 1,
+            "badge": "Basic",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "gap",
+          "currentEvidence": "Cress has existing crop art and harvest rules, but no basic wetland flora row.",
+          "proposedThing": {
+            "id": "wildplant:cress",
+            "label": "Watercress"
+          },
+          "proposalAction": "Consider watercress along eligible marsh margins through the existing wildplant lane; no runtime placement is added.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/items.js CROP_SPRITE.cress; BASE_TIER.cress"
+          ],
+          "itemQuality": {
+            "itemId": "cress",
+            "baseTier": 1,
+            "badge": "Basic",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "The surface roster permits golden slimes in wetland and park (and farmland before its spawn exclusion).",
+          "proposedThing": {
+            "id": "creature:golden_slime",
+            "label": "Golden slime"
+          },
+          "proposalAction": "Consider the golden slime as the rare wetland creature signature; current roster weights do not make it exclusive.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/enemy_roster.js golden_slime.surface",
+            "src/enemy_spawns.js surfaceRows"
+          ],
+          "itemQuality": null,
+          "condition": "Existing home-distance and time/encounter gates still apply."
+        }
+      }
+    },
+    "ORCHARD": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "Ordinary naturally generated fruit trees come from orchard landcover; planted trees and authored orchard nexus are outside this audit.",
+          "proposedThing": {
+            "id": "fruittree:apple",
+            "label": "Apple tree"
+          },
+          "proposalAction": "Retain apple rows as the common orchard signature.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js spawnFruitTreesSteps; fruitTreeSpecies"
+          ],
+          "itemQuality": {
+            "itemId": "apple",
+            "baseTier": 2,
+            "badge": "Common",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Orchards are one of several primary butterfly habitats.",
+          "proposedThing": {
+            "id": "creature:butterfly",
+            "label": "Orchard butterfly"
+          },
+          "proposalAction": "Use intermittent pollinator activity as the second orchard signature; no new flower crop is required.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.butterfly"
+          ],
+          "itemQuality": {
+            "itemId": "butterfly",
+            "baseTier": 3,
+            "badge": "Uncommon",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "Natural fruit-tree species use one Worldpeach per50 stable cell hashes; ordinary basic fruit trees belong to orchards.",
+          "proposedThing": {
+            "id": "fruittree:worldpeach",
+            "label": "Worldpeach tree"
+          },
+          "proposalAction": "Keep the existing exceptional tree; the1-in50 is per generated fruit tree, not per ground cell.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js PEACH_ONE_IN; fruitTreeSpecies",
+            "src/items.js BASE_TIER.worldpeach"
+          ],
+          "itemQuality": {
+            "itemId": "worldpeach",
+            "baseTier": 7,
+            "badge": "Godly",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "WASTELAND": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Ravens can reach wasteland through a broad fallback set; forest and rock remain primary habitats.",
+          "proposedThing": {
+            "id": "creature:raven",
+            "label": "Raven"
+          },
+          "proposalAction": "Consider ravens the repeating wasteland wildlife signature; do not reintroduce cats.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js BIOME_FAUNA.raven; BIOME_FAUNA.cat.excluded"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Wasteland retains scattered rock clusters; residential ground instead uses selected street-edge rocks.",
+          "proposedThing": {
+            "id": "mineralrock:plain",
+            "label": "Rubble pile"
+          },
+          "proposalAction": "Keep intermittent rubble piles as the wasteland material identity.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js LOT_ROCK_DRY; lot rock clusters"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "Tier5 ore can occur in several existing surface mineral streams.",
+          "proposedThing": {
+            "id": "mineralrock:platinum",
+            "label": "Platinum-bearing rock"
+          },
+          "proposalAction": "Consider Platinum as the rare salvage ore signature; a future distribution decision must enforce the distinction.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js SURFACE_ROCK_TIER_WEIGHTS",
+            "src/items.js MINERAL_TIERS"
+          ],
+          "itemQuality": {
+            "itemId": "platinum_bar",
+            "baseTier": 5,
+            "badge": "Epic",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": null
+        }
+      }
+    },
+    "PIER": {
+      "category": "surface",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Gulls use both coastal shore seats and eligible public pier cells.",
+          "proposedThing": {
+            "id": "creature:gull",
+            "label": "Gull"
+          },
+          "proposalAction": "Keep gulls as the ordinary public-pier wildlife identity.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js SHORE_FAUNA.gull",
+            "src/scene_creatures.js spawnShoreFauna"
+          ],
+          "itemQuality": null,
+          "condition": "Private/restricted piers remain excluded."
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Metal slimes use shoreline and pier cells, one per300m capped at2; no pier-exclusive frequency exists.",
+          "proposedThing": {
+            "id": "creature:metal_slime",
+            "label": "Metal slime"
+          },
+          "proposalAction": "Use the existing occasional metal slime as the second pier encounter.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/biome_profiles.js SHORE_FAUNA.metal_slime"
+          ],
+          "itemQuality": null,
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "shared",
+          "currentEvidence": "Goldenfish has weight 1 of8 stocked fish; stocked spots also use the existing 5% fish shiny roll. Both rules apply to fishing generally, not just piers.",
+          "proposedThing": {
+            "id": "item:goldenfish:shiny",
+            "label": "Shiny goldenfish"
+          },
+          "proposalAction": "Use the existing exceptional shiny catch as the proposed public-pier signature; fishing from other shores remains a shared-encounter gap. No new reward system or higher catch weight is proposed.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/items.js FISH_SPECIES; fishSpotShiny; BASE_TIER.goldenfish",
+            "src/util.js SHINY_RATE.fish"
+          ],
+          "itemQuality": {
+            "itemId": "goldenfish",
+            "baseTier": 7,
+            "badge": "Godly",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": "Fishing interaction only, never static-cell coverage. The 1-in-8 species weight and 5% shiny roll have stocked fishing spots as their denominator. Item quality remains capped at Godly 7."
+        }
+      }
+    },
+    "CAVE_FLOOR": {
+      "category": "cave",
+      "excluded": false,
+      "slots": {
+        "common": {
+          "currentStatus": "shared",
+          "currentEvidence": "Bats are an existing cave encounter at depths1\u20132 and also occur on selected surface terrains at night.",
+          "proposedThing": {
+            "id": "creature:bat",
+            "label": "Cave bat"
+          },
+          "proposalAction": "Use bats as the routine shallow-cave creature identity, explicitly depth-qualified.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/enemy_roster.js bat.cave; bat.surface",
+            "src/enemy_spawns.js caveRows"
+          ],
+          "itemQuality": null,
+          "condition": "Depths1\u20132 only for this candidate."
+        },
+        "uncommon": {
+          "currentStatus": "shared",
+          "currentEvidence": "Cave mushrooms use underground blue frames but yield the same Mushroom item as surface mushrooms.",
+          "proposedThing": {
+            "id": "wildplant:mushroom",
+            "label": "Blue cave mushroom"
+          },
+          "proposalAction": "Use the existing blue cave look as the intermittent forage cue; it is a visual habitat variant, not a unique reward.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/worldgen.js spawnCaveMushrooms",
+            "src/items.js CROP_SPRITE.mushroom.caveFrames"
+          ],
+          "itemQuality": {
+            "itemId": "mushroom",
+            "baseTier": 1,
+            "badge": "Basic",
+            "source": "src/items.js BASE_TIER; independent of encounter label"
+          },
+          "condition": "Cave depths have their own mushroom density; do not apply surface coverage targets."
+        },
+        "rare": {
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "Fire elementals have no surface habitat and are cave-depth5 encounters.",
+          "proposedThing": {
+            "id": "creature:fire_elemental",
+            "label": "Fire elemental"
+          },
+          "proposalAction": "Retain this depth-specific encounter; assigning it a rare role does not alter its existing roster weight3.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/enemy_roster.js fire_elemental.cave",
+            "src/enemy_spawns.js caveRows"
+          ],
+          "itemQuality": null,
+          "condition": "Depth5 only; creature tier4 is a combat tier, not an item-quality tier."
+        }
+      }
+    },
+    "FARMLAND": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "User-excluded farmland: no generated population.",
+      "slots": {}
+    },
+    "GOLF": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "User-excluded golf ground: no generated population.",
+      "slots": {}
+    },
+    "WATER": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "No ordinary on-ground population; reef and fishing systems have separate ownership.",
+      "slots": {}
+    },
+    "ROAD": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "Road bands are not ordinary basic population seats.",
+      "slots": {}
+    },
+    "ROAD_MD": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "Road bands are not ordinary basic population seats.",
+      "slots": {}
+    },
+    "ROAD_LG": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "Road bands are not ordinary basic population seats.",
+      "slots": {}
+    },
+    "PATH": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "Path geometry retains its own road/scenic rules.",
+      "slots": {}
+    },
+    "BUILDING": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "Buildings are not ordinary basic population seats.",
+      "slots": {}
+    },
+    "BUILDING_MED": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "Buildings are not ordinary basic population seats.",
+      "slots": {}
+    },
+    "BUILDING_LARGE": {
+      "category": "surface",
+      "excluded": true,
+      "reason": "Buildings are not ordinary basic population seats.",
+      "slots": {}
+    },
+    "CAVE_WALL": {
+      "category": "cave",
+      "excluded": true,
+      "reason": "Solid cave wall; no ordinary floor population.",
+      "slots": {}
+    },
+    "CAVE_LAVA": {
+      "category": "cave",
+      "excluded": true,
+      "reason": "Hazardous lava; no ordinary floor population.",
+      "slots": {}
+    }
+  }
+}

@@ -788,7 +788,7 @@ test('zones: every zone terrain is enumerated — colour, texture, family, walka
     assert.truthy(Z.zoneTerrains().includes(code));
   }
   assert.eq(BiomeProfiles.flora(T.GROVE), BiomeProfiles.flora(T.PARK), 'a grove plays like a park');
-  assert.truthy(BIOME_FAUNA.deer.primary.includes(T.GROVE), 'deer take to a grove');
+  assert.falsy(BIOME_FAUNA.deer.primary.includes(T.GROVE), 'deer are confined to forest and residential ground');
   assert.truthy(/FLAT_ROUNDABLE = new Set\(\[[^\]]*\b29\b[^\]]*\b31\b/.test(RENDER_SRC), 'the two flat halos round their corners');
   assert.eq(T.GROVE !== 30 && T.CHURCHYARD !== 30 && T.TAR_YARD !== 30, true, '30 stays the unmapped veil');
 });
