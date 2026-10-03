@@ -2,23 +2,34 @@
 """Pack approved zone objects, used pots and connected hedge art."""
 from pathlib import Path
 import json
-from PIL import Image
+import sys
+from PIL import Image, ImageEnhance
 from connected_art import pack_connected, pack_end
 root=Path(__file__).resolve().parents[1]
 out=root/'assets/Objects/ZoneVariants'
+pots_only='--pots-only' in sys.argv
+POT_SATURATION = 0.85
+
+def pot_palette(image):
+ # Native palette adjustment shared by intact and smashed states; keep alpha exact.
+ return Image.merge('RGBA', (*ImageEnhance.Color(image.convert('RGB')).enhance(POT_SATURATION).split(), image.getchannel('A')))
+
 source=Image.open(out/'objects-24.png').convert('RGBA')
 selection=json.loads((out/'selection.json').read_text())
 # Keep approved additions after the original 64 slots, so existing frame IDs
 # stay fixed and rerunning the packer cannot drop the reviewed zone rocks.
 additions=json.loads((out/'approved-additions.json').read_text())
 last_frame=max([source.width//24 * (source.height//24)-1]+[r['frame'] for r in additions['frames']])
-approved=Image.new('RGBA',(source.width, (last_frame//8+1)*24))
+approved=Image.open(out/'approved-24.png').convert('RGBA') if pots_only else Image.new('RGBA',(source.width, (last_frame//8+1)*24))
 for frame in selection['selectedFrames']:
+ if pots_only and frame != 20: continue
  x,y=frame%8*24,frame//8*24
- tile=source.crop((x,y,x+24,y+24));approved.paste(tile,(x,y))
+ tile=source.crop((x,y,x+24,y+24))
+ if frame == 20: tile=pot_palette(tile)
+ approved.paste(tile,(x,y))
  name=json.loads((out/'manifest.json').read_text())['frames'][frame]['name']
  tile.save(out/(name+'.png'))
-for row in additions['frames']:
+for row in ([] if pots_only else additions['frames']):
  tile=Image.open(out/row['source']).convert('RGBA')
  if tile.size != (24,24): raise ValueError(f"Expected 24px zone art: {row['source']}")
  approved.paste(tile,(row['frame']%8*24,row['frame']//8*24))
@@ -26,7 +37,8 @@ approved.save(out/'approved-24.png')
 pots=Image.open(out/'pots-smashed-source.png').convert('RGBA')
 pots.putalpha(pots.getchannel('A').point(lambda a:255 if a>=128 else 0))
 pots=pots.crop(pots.getbbox());pots.thumbnail((22,18),Image.Resampling.NEAREST)
-frame=Image.new('RGBA',(24,24));frame.alpha_composite(pots,((24-pots.width)//2,(24-pots.height)//2));frame.save(out/'pots_smashed.png')
+frame=Image.new('RGBA',(24,24));frame.alpha_composite(pots,((24-pots.width)//2,(24-pots.height)//2));pot_palette(frame).save(out/'pots_smashed.png')
+if pots_only: sys.exit(0)
 hedges=root/'assets/Objects/Hedges';im=Image.open(hedges/'source.png').convert('RGBA')
 # Keep the rounded canopy and its shaded front face at the 45-degree camera
 # angle. Horizontal runs need more height than the ground footprint; cardinal

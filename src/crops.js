@@ -54,10 +54,9 @@
     return p && p.hold_ms > 0 ? p.hold_ms : stageHoldMs(p && p.crop);
   }
 
-  // The one crop no raider touches: a potato grows underground, and the deer
-  // (the crop raider — scene_creatures.js wanderCreatures `raidsCrops`) never
-  // notices it. It was the crow's rule until Sep 2026, when crop-raiding moved
-  // to the deer; the safe crop stayed the same.
+  // The one crop no raider touches: a potato grows underground, and neither
+  // crop raider (SpriteLayout `raidsCrops` — the deer's graze, the crow's
+  // landing) notices it.
   const RAIDER_IGNORED_CROPS = new Set(['potato']);
 
   // The save owns the flat crop list; this derived index is deliberately kept

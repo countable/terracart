@@ -1706,8 +1706,8 @@ class SceneCreatures {
     // chore: another raider arrived soon after you dealt with the last. Now
     // the pump only backfills an emptied field, once an hour, so a raid is an
     // event rather than a drain. (The dispatched pest
-    // was a CROW until Sep 2026; the owner moved crop-raiding to the deer,
-    // and the crow is game now — feathers, never a field.)
+    // was a CROW until Sep 2026. Wild crows raid fields again, from their
+    // own tick, but the pump sends only deer.)
     this._lastPestT = this._lastPestT || 0;
     // Only crops a deer actually eats (not potato) justify spawning a pest —
     // and only on HARD (Difficulty.get().cropPests). The pump is not a
@@ -2135,15 +2135,10 @@ class SceneCreatures {
           routed || (kerbTurn && !c.lair), lairState, enemyDt);
         return;
       }
-      // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
-      // burst (500-800 ms, eased) → perch again. Targets a nearest planted
-      // crop by ORBITING it — most flight legs end on the ring 1.5-3.5
-      // cells out, only ~30% are a tight-ring "landing attempt" that may
-      // actually touch the crop's cell. On a landing-on-crop the crow
-      // arms a 2-second destroy timer; the crop is only eaten when that
-      // timer fires, so scaring / capturing the crow within those 2 s
-      // saves it. Tame (released_*) crows fall through to the generic
-      // wander below so they behave like other pets.
+      // Wild-crow flight rhythm: perch → one eased glide → perch again,
+      // casing and raiding a field it notices (_wildCrowTick has the phases).
+      // Tame (released_*) crows fall through to the generic wander below so
+      // they behave like other pets.
       if (c.kind === 'crow' && !isTame) {
         this._wildCrowTick(c, now, px, py);
         return;
@@ -2609,11 +2604,11 @@ class SceneCreatures {
         // crows phase into the very cell the aversion was supposed to
         // protect.
         if (!foundValidTarget) { tx = c.x; ty = c.y; }
-        // Deer crop damage — THE crop raid (the crow's was retired, Sep 2026):
-        // each wander step, 20% chance to eat the nearest planted crop within
-        // 1.5 cells that it may (_cropRaidable — never potato, never Home's
-        // yard). Scarecrows already avert the deer before this point, so no
-        // extra scarecrow check needed here.
+        // Deer crop damage (the crow's own raid is in _wildCrowTick): each
+        // wander step, 20% chance to eat the nearest planted crop within 1.5
+        // cells that it may (_cropRaidable — never potato). Scarecrows
+        // already avert the deer before this point, so no extra scarecrow
+        // check needed here.
         if (beh?.raidsCrops && !isTame && this.save.planted?.length) {
           const DR2 = (1.5 * this.cellM) * (1.5 * this.cellM);
           if (Math.random() < 0.20) {
@@ -2683,14 +2678,16 @@ class SceneCreatures {
   //   FLIGHT     → one eased glide covering ~0.4–1 cell, peaking at
   //                CROW_FLIGHT_MPS (~0.6–1.6 s; slow + short — crows used to
   //                be too fast / fly too far)
-  // A crow is GAME (a feather), nothing more. Until Sep 2026 this tick also
-  // CASED AND ATE planted crops — an orbit ring round the nearest crop, two
-  // perch cycles on it, then the crop was gone — and the hard-mode pump
-  // dispatched one at every field. The owner moved crop-raiding to the DEER
-  // (wanderCreatures `raidsCrops` + _cropRaidable), so a crow just roams:
-  // short hops about where it perched, off water / buildings / roads, clear
-  // of a scarecrow (its row still `avoids` one — an empty coat turns every
-  // hungry-looking thing away).
+  // A crow is GAME (a feather) AND a crop raider (its row's `raidsCrops`,
+  // beside the deer's — owner, Oct 2026: crows take food again, as they did
+  // before Sep 2026). It CASES a field: a crop it may eat (_cropRaidable, the
+  // one predicate every raider reads) within RAID_NOTICE_CELLS draws its
+  // flights onto an orbit ring round it (1.5–3.5 cells); ~30% of those legs
+  // are a landing attempt that may end ON the crop's cell. Landed, it must sit
+  // two perch cycles there (hopping in place) before the crop is gone — the
+  // player's window to scare, net or set a pet on it — and then, SATED, it
+  // leaves (_crowDepart). Off water / buildings / roads, clear of a scarecrow
+  // (its row `avoids` one). The hard-mode pump still dispatches only deer.
   // A crow's FULL RETREAT: it launches on this very tick (out of its perch,
   // any flight cut short) and hops straight away from the player for the
   // usual ~2.5–4 minutes (CROW_DEPART_MS), until it drifts off the sim range
@@ -2699,10 +2696,9 @@ class SceneCreatures {
   // is sitting — or the glide it is on, and the landing perch that ends it —
   // and leaves on its next launch. That remaining perch is the hunt's timing
   // window (creature_ai.js CROW_DEPART_HOP has the design). 'sated' (the
-  // default): off at once, out of its perch this tick — the form a meal used
-  // to take; no crow eats now, so nothing calls it, but it stays the at-once
-  // departure for whatever next wants one (crow_hunt_retreat.test.js pins
-  // both forms).
+  // default): off at once, out of its perch this tick — a crow that has
+  // just eaten a crop (_wildCrowTick). crow_hunt_retreat.test.js pins both
+  // forms.
   _crowDepart(c, now = performance.now(), reason = 'sated') {
     const [base, spread] = CROW_DEPART_MS;
     c._departUntilT = now + base + Math.random() * spread;
@@ -2724,6 +2720,10 @@ class SceneCreatures {
     // stationary target. See CLAUDE.md FINDING 1 / test/node/crow_flee.test.js.
     const fleeing = c._fleeUntilT && c._fleeUntilT > now;
     if (fleeing) {
+      // A crow being mauled doesn't finish casing the crop first — abandon
+      // any in-progress landing so recovering later starts clean.
+      c._destroyCropRef = null;
+      c._destroyCyclesLeft = 0;
       // _fleeDash marks a flight leg as ITS OWN panic dash (vs. a normal
       // glide that was already in flight the instant the hit landed).
       // Without that distinction the check below would happily keep gliding
@@ -2768,6 +2768,14 @@ class SceneCreatures {
       // cell — same policy the flight target search uses below.
       return;
     }
+    const raids = !!SpriteLayout.creatureBehaviour(c.kind)?.raidsCrops;
+    const departing = c._departUntilT && now < c._departUntilT;
+    // (0) The crop it sat on is gone (harvested, eaten by another raider) or
+    // the crow is leaving: drop the count.
+    if (c._destroyCropRef && (departing || !this.save.planted?.includes(c._destroyCropRef))) {
+      c._destroyCropRef = null;
+      c._destroyCyclesLeft = 0;
+    }
     // (1) Initialise rhythm on first encounter.
     if (c._perchUntilT == null && c._flightUntilT == null) {
       c._perchUntilT = now + 1500 + Math.random() * 2500;
@@ -2781,13 +2789,44 @@ class SceneCreatures {
       c.y = c._startY + (c._targetY - c._startY) * u;
       return;
     }
-    // (3) FLIGHT completion — snap to final and start a new perch.
+    // (3) FLIGHT completion — snap to final and start a new perch. Landed
+    // ON a crop it may eat (within half a cell): the first landing starts a
+    // two-cycle count, each landing on the SAME crop spends one, and when it
+    // is spent the crop is eaten and the crow, sated, leaves. A landing
+    // anywhere else drops the count.
     if (c._flightUntilT && now >= c._flightUntilT) {
       c.x = c._targetX;
       c.y = c._targetY;
       c._flightUntilT = null;
       c._perchUntilT = now + 2000 + Math.random() * 2500;
       c._faceFlip = (c._targetX - c._startX) < 0;
+      if (raids && !departing && this.save.planted?.length) {
+        const NEAR = 0.5 * this.cellM;
+        let landedOn = null;
+        Crops.forEachInBox(this.save, this.depth || 0, c.x - NEAR, c.y - NEAR, c.x + NEAR, c.y + NEAR, (p) => {
+          if (landedOn || !this._cropRaidable(p)) return;
+          const ddx = p.x - c.x, ddy = p.y - c.y;
+          if (ddx * ddx + ddy * ddy <= NEAR * NEAR) landedOn = p;
+        });
+        if (!landedOn) {
+          c._destroyCropRef = null;
+          c._destroyCyclesLeft = 0;
+        } else {
+          if (c._destroyCropRef === landedOn) c._destroyCyclesLeft = (c._destroyCyclesLeft || 1) - 1;
+          else { c._destroyCropRef = landedOn; c._destroyCyclesLeft = CROW_RAID_PERCHES; }
+          if (c._destroyCyclesLeft <= 0) {
+            const idx = this.save.planted.indexOf(landedOn);
+            if (idx >= 0) {
+              this.save.planted.splice(idx, 1);
+              Crops.invalidateSpatialIndex(this.save);
+              this.flash?.('🐦 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
+            }
+            c._destroyCropRef = null;
+            c._destroyCyclesLeft = 0;
+            this._crowDepart(c, now);
+          }
+        }
+      }
       return;
     }
     // (4) PERCH phase — sit still until the timer expires.
@@ -2796,12 +2835,25 @@ class SceneCreatures {
     // (5) Time to launch a new flight burst. Pick a target with up to
     // 6 attempts so we can reject water / buildings / scarecrow rings.
     let tx = c.x, ty = c.y, chosen = false;
-    // A hunted crow leaving — fly steadily away from the player until the
-    // few-minute timer lapses (it freezes once it drifts off the sim range,
-    // so it simply stays gone).
-    // Its first departing launch is the one the hunt's wheel races
+    // A departing crow (hunted, or sated after a meal) — fly steadily away
+    // from the player until the few-minute timer lapses (it freezes once it
+    // drifts off the sim range, so it simply stays gone). A hunted crow's
+    // first departing launch is the one the hunt's wheel races
     // (CROW_DEPART_HOP).
-    const departing = c._departUntilT && now < c._departUntilT;
+    //   Not leaving: a crow mid-count keeps hopping ON its crop; otherwise
+    // the nearest crop it may eat within RAID_NOTICE_CELLS (the crop spatial
+    // index, one bucket walk) is the field it cases.
+    const committed = !departing && c._destroyCropRef && c._destroyCyclesLeft > 0;
+    let casing = null;
+    if (raids && !departing && !committed && this.save.planted?.length) {
+      const R = RAID_NOTICE_CELLS * this.cellM;
+      let bestD2 = R * R;
+      Crops.forEachInBox(this.save, this.depth || 0, c.x - R, c.y - R, c.x + R, c.y + R, (p) => {
+        if (!this._cropRaidable(p)) return;
+        const ddx = p.x - c.x, ddy = p.y - c.y, d2 = ddx * ddx + ddy * ddy;
+        if (d2 < bestD2) { bestD2 = d2; casing = p; }
+      });
+    }
     for (let attempt = 0; attempt < 6 && !chosen; attempt++) {
       if (departing) {
         // Long outbound hop directly away from the player, with a little
@@ -2811,6 +2863,22 @@ class SceneCreatures {
         const d = CROW_DEPART_HOP.cells * this.cellM;
         tx = c.x + Math.cos(away) * d;
         ty = c.y + Math.sin(away) * d;
+      } else if (committed) {
+        // Mid-count — hop in place ON the crop, so each landing spends a cycle.
+        const ang = Math.random() * Math.PI * 2;
+        const r = Math.random() * 0.3 * this.cellM;
+        tx = c._destroyCropRef.x + Math.cos(ang) * r;
+        ty = c._destroyCropRef.y + Math.sin(ang) * r;
+      } else if (casing) {
+        // ORBIT the field: a point on the 1.5–3.5-cell ring round the crop,
+        // or (~30%) a landing attempt that may end on its cell. The approach
+        // cap below makes a far crow arrive over several hops.
+        const radius = Math.random() < 0.30
+          ? Math.random() * 0.4 * this.cellM
+          : (1.5 + Math.random() * 2.0) * this.cellM;
+        const ang = Math.random() * Math.PI * 2;
+        tx = casing.x + Math.cos(ang) * radius;
+        ty = casing.y + Math.sin(ang) * radius;
       } else {
         // Random roam, short hops of 0.4–1 cell. Short on purpose: a glide
         // lasts its distance over CROW_FLIGHT_MPS (below), and the HUNT's
@@ -2825,8 +2893,7 @@ class SceneCreatures {
         ty = c.y + Math.sin(a) * d;
       }
       // Cap any single flight leg to ~2.5 cells — the approach cap (a crow
-      // used to APPROACH a crop over several hops; the roam is already under
-      // it). Not the retreat: a retreat is not an approach, and its hop must
+      // APPROACHES a crop over several hops; the roam is already under it). Not the retreat: a retreat is not an approach, and its hop must
       // clear the reach (CROW_DEPART_HOP).
       const MAX_LEG = 2.5 * this.cellM;
       const legDX = tx - c.x, legDY = ty - c.y;

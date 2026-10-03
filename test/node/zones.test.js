@@ -319,7 +319,8 @@ test('zones: every nexus piece is off the road band and off anything already the
       assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
         { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'minor'), 'walls retain the normal scenery spawn gate');
       const owner = on.zone.coverage[cellOf(o)];
-      const neighbors = new Set(d.objects.filter(p => p.zoneVariant === o.zoneVariant && p.zoneLayer === 'background'
+      const neighbors = new Set(d.objects.filter(p => ['stronghold_wall', 'mineralrock'].includes(p.kind)
+        && p.zoneVariant === o.zoneVariant && p.zoneLayer === 'background'
         && on.zone.coverage[cellOf(p)] === owner).map(cellOf));
       assert.eq(o.variant, QuarryLayout.wallFrameAt(neighbors, cellOf(o), N), 'frame follows actual surviving wall neighbors');
     } else if (o.kind === 'zone_prop') {

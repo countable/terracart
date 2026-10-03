@@ -534,6 +534,7 @@
     enemy: W_.SENSITIVE,
     fastEnemy: W_.SENSITIVE | W_.KERB,
     reward: W_.SENSITIVE | W_.KERB,
+    streetObstacle: 0, // declared static cross-sections only; default gate stays hard
   };
   const SPAWN_CLASSES = Object.keys(SPAWN_CLASS_BLOCKS);
   function spawnBlocks(cls) {
@@ -569,22 +570,30 @@
   function isSpawnCell(grid, w, h, cx, cy, opts, cls) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     const here = grid[cy * w + cx];
+    // Only authored thorny/barricade cross-sections may occupy their own
+    // road band. Declared seats never relax any other spawn class.
+    const obstacle = cls === 'streetObstacle' && opts?.streetObstacleCells?.has(cy * w + cx);
+    const barricade = obstacle && opts.streetObstacleKind === 'barricade';
+    const obstacleRoad = obstacle && (here === T.ROAD || (barricade && isRoadTerrain(here)));
+    if (obstacle && (isLotTerrain(here) || (!barricade && (onMajorBand(opts.roadClass, w, cx, cy)
+        || inMajorBuffer(opts.roadClass, w, cx, cy))))) return false;
     // Terrain and band are read LIVE as well as through the mask: a live grid
     // (the starter pond, a dug wall) can differ from the one the mask was
     // stamped over.
     // Reef scenery and shore-reachable finds explicitly require actual water;
     // all other callers keep the ordinary walkable-terrain gate.
     const waterOnly = !!(opts && opts.waterOnly);
-    if (waterOnly ? here !== T.WATER : !isWalkable(here)) return false;
+    if (waterOnly ? here !== T.WATER : !isWalkable(here) && !obstacleRoad) return false;
     // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): this IS THE
     // GATE — every other spawner's roadMask question resolves here.
     const roadMask = opts && opts.roadMask;
-    if (roadMask && roadMask[cy * w + cx]) return false;   // under a drawn road band
+    if (roadMask && roadMask[cy * w + cx] && !obstacle) return false;   // under a drawn road band
     const occupied = opts && opts.occupied;
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
     const mask = opts && opts.spawnWhy;
     if (mask) {
-      const v = mask[cy * w + cx] & ~(waterOnly ? W_.TERRAIN : 0);
+      const v = mask[cy * w + cx] & ~((waterOnly || obstacleRoad ? W_.TERRAIN : 0) | (obstacle ? W_.ROAD : 0) | (barricade ? W_.KERB : 0));
+      if (obstacle && (v & (W_.PRIVATE | W_.KERB))) return false;
       if (v & (SPAWN_WHY_HARD & ~W_.PRIVATE)) return false;
       if (v & spawnBlocks(cls)) return false;
       if (!(v & W_.PRIVATE)) return true;

@@ -113,9 +113,10 @@ test('disarm-trap: disarms the trap on the tapped cell, and usually keeps the ki
   // The kit survives TRAP_KIT_KEEP_CHANCE of the time: the roll is that
   // constant, and a kit is spent only when the roll misses — never always.
   assert.eq(TRAP_KIT_KEEP_CHANCE, 0.8, 'an 80% chance the kit is kept');
-  assert.truthy(/const kept = Math\.random\(\) < TRAP_KIT_KEEP_CHANCE;/.test(src), 'rolls the shared chance');
-  assert.truthy(/if \(!kept\) consumeSelected\(save\);/.test(src), 'spends a kit only when the roll misses');
-  assert.eq((src.match(/consumeSelected\(/g) || []).length, 1, 'and nowhere else');
+  assert.includes(src, "finishTrapKit(ctx, 'Trap disarmed')", 'uses the same successful-work retain roll as obstacles');
+  const finish = INTERACT_SRC.slice(INTERACT_SRC.indexOf('function finishTrapKit'), INTERACT_SRC.indexOf('function consumeSelected'));
+  assert.truthy(/Math\.random\(\) < TRAP_KIT_KEEP_CHANCE/.test(finish));
+  assert.truthy(/if \(!kept\) consumeSelected\(save\)/.test(finish));
   assert.falsy(/%/.test(ITEM_EFFECTS.trap_kit), 'the story leaves the chance for discovery');
   assert.truthy(/if \(!trap \|\| Traps\.isTrapDisarmed\(save, trap\)\) return false;/.test(src),
     'a cell with no trap (or an already-disarmed one) falls through instead of eating the tap');
@@ -627,6 +628,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'treasure',
     'coindrop',
     'creature',
+    'disarm-obstacle',
     'wildplant',
     'staircase',
     'object',

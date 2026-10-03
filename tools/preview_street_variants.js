@@ -164,7 +164,7 @@ const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland'
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
   hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
-  thorny: '50% bramble coverage across three rows of both verges; shrine enclosures stay full. Selected streets enclose a moss cairn in brambles when the whole ring fits. Brambles burn and cost 1 energy per second while crossed.',
+  thorny: `Dense irregular brambles cross the road and reach up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond either edge, stopping at the first obstruction. Selected streets enclose a moss cairn in brambles when the whole ring fits. Brambles burn and cost 1 energy per second while crossed.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half fruit trees (rare Worldpeach among apples) and half mature deciduous maples.`,
   snare: `One T${SV.SNARE_CHEST_TIER} cave-loot chest at the street midpoint, surrounded by up to ${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps on eligible verge ground. At least ${SV.SNARE_MIN_TRAPS} traps must fit.`,
@@ -172,7 +172,7 @@ const rules = {
   pilgrim: 'One waystone per street per tile, at an eligible owned line end.',
   lantern: `Lamps at ${SV.lampSpacingFor('lantern')} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual density); no extra verge props.`,
   burned: `One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. Placed torches punctuate the verges; red lamps have ${SV.lampSpacingFor('burned')} m target spacing. One fire-slime guard site per stretch, seated back from the kerb.`,
-  barricade: `Repeated stakes and barricades every ${SV.BARRICADE_STEP_M} m, up to ${SV.BARRICADE_MAX} pieces; one encounter anchor and its goblin guard site per street per tile.`,
+  barricade: `Perpendicular lines of stakes and barricades cross the road every ${SV.BARRICADE_STEP_M} m and extend up to ${SV.BARRICADE_VERGE_MAX_CELLS} cells beyond either edge, stopping at obstacles; a target of ${SV.BARRICADE_MAX} pieces per line piece, finishing the last cross-road line. A Trap Kit removes each piece. One encounter anchor and its goblin guard site per street per tile.`,
   toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
 };
 for (const row of rows) row.placement = rules[row.id] || row.placement;

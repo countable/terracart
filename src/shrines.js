@@ -55,7 +55,7 @@
       name: 'Bone watcher', flash: 'Something watches your back.',
       body: "A hooded stone figure stands guard. You rest beside it, feeling safer." },
     moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN, boon: 'Unseen',
-      zones: ['ancient_grove'], streets: ['overgrown', 'greenway', 'thorny'],
+      zones: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
       body: "You touch the mossy stones. Nearby creatures look past you, unaware of your presence." },
     rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN, boon: 'Grip',
@@ -75,7 +75,7 @@
       name: 'Toad idol', flash: 'Your wounds begin to heal.',
       body: "You touch the cool stone toad. The pain eases as your wounds begin to heal." },
     ember_altar: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN, boon: 'Ember',
-      zones: ['black_ring', 'flint_field', 'quarry-stronghold'], streets: ['burned'],
+      zones: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
   };

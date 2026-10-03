@@ -64,12 +64,17 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - slime: a pest that drifts toward the player and leeches energy when adjacent
    (numbers + defeat in CREATURES). Tame with a sapphire (secret — hinted only
    in book tips); tame slimes don't drain.
- - deer (15 hp): THE crop raider. Notices a crop it may eat within 8 cells
+ - deer (15 hp): a crop raider (with the crow). Notices a crop it may eat within 8 cells
    (a dispatched hard-mode pest from anywhere in the bubble) and about half
    its steps walk at it; 20% chance per wander step to eat one within 1.5
    cells. Never a potato (Home's yard is fair game); bolts from a player within 5
    cells, so a field is safe while you stand in it. Dogs hunt it, scarecrows
    turn it.
+ - crow: the other crop raider. Notices a crop it may eat within 8 cells and
+   circles it (1.5-3.5 cells out); ~30% of its flights try to land on it.
+   Landed, it sits two perch cycles ON the crop before eating it, then
+   leaves for a few minutes. Never a potato; cats hunt it, scarecrows turn
+   it. Not dispatched by the hard-mode pump (that is deer only).
  - DERELICT LAIRS ARE A HARD-MODE RULE (Difficulty derelictLairs, src/lairs.js).
    Every UNCLAIMED structure — a wrecked house, a sealed fort, an unclaimed
    castle, by the isClaimedKey test the derelict wash already reads — holds a
@@ -215,11 +220,11 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    Everything above the state branch still runs for a guard whatever its
    state — it takes damage, dies and pays its bounty.
  - THE CROW PUMP IS A HARD-MODE RULE (Difficulty cropPests). On hard, a planted
-   crow-edible crop with no wild crow already near the player dispatches one
-   every ~90 s, seated at PEST_CROW_SPAWN_CELLS (10) — past the viewport corner
-   but inside the sim bubble, so it is flying at the field from its first tick.
-   On easy nothing is dispatched: the crows a tile spawns are the whole crow
-   threat, and a field is only raided by a bird you planted next to.
+   crop a raider eats, with no wild deer already near the player, dispatches
+   a DEER once an hour (PEST_DISPATCH_MS), seated at PEST_SPAWN_CELLS (10) — past the viewport corner
+   but inside the sim bubble, so it is walking at the field from its first
+   tick. On easy nothing is dispatched: the deer and crows a tile spawns are
+   the whole threat, and a field is only raided by one you planted near.
  - cats (20 hp): tame cats chase wild crows within 8 cells, fight at 1.5 cells
    (both lose 1 hp per hit; crow flees, crow hp 0 → auto-defeat + feather drop).
  - dogs (40 hp): tame dogs chase wild deer and slimes within 8 cells, same combat.

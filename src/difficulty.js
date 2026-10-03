@@ -64,8 +64,8 @@
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
       slimeCountMul: 1,         // over BIOME_FAUNA.slime's per-tile count
       crowCountMul: 0.5,        // over BIOME_FAUNA.crow's per-tile count — half
-                                 // as many wild crows on easy (a quieter sky; the
-                                 // crow raids nothing since Sep 2026)
+                                 // as many wild crows on easy (a quieter sky,
+                                 // fewer birds casing your field)
       // ── Traps ──
       trapCountMul: 10,         // over traps.js's base 10..18 roadside traps/tile —
                                  // 10x on easy too: the base rate reads as too rare

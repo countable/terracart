@@ -92,7 +92,7 @@ test('spirit raven: it hunts every foe and the pest deer — not game, not the t
   assert.truthy(huntsPrey(R, { kind: 'goblin', id: 'mon_goblin_2_1_1_0' }), 'a cave monster');
   assert.truthy(huntsPrey(R, { kind: 'giant_spider', id: 'mon_giant_spider_5_1_1_0' }), 'a giant');
   assert.truthy(huntsPrey(R, { kind: 'deer', id: 'pest_deer_3_4_1000_7' }), 'a pest deer — the one dispatched at your field');
-  assert.falsy(huntsPrey(R, { kind: 'crow', id: 'crow_3_4_0' }), 'never a wild crow (game — it raids nothing)');
+  assert.falsy(huntsPrey(R, { kind: 'crow', id: 'crow_3_4_0' }), 'never a wild crow (game, not a dispatched pest)');
   assert.falsy(huntsPrey(R, { kind: 'deer', id: 'deer_3_4_0' }), 'never a deer (game)');
   assert.falsy(huntsPrey(R, { kind: 'chicken', id: 'chicken_3_4_0' }), 'never livestock');
   assert.falsy(huntsPrey(R, { kind: 'slime', id: 'released_slime_1_2' }), 'never a tamed slime');

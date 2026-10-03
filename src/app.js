@@ -3196,6 +3196,12 @@ class MapScene extends Phaser.Scene {
     // does too (it is a hazard, not a story).
     const was = this._slowHere;
     this._slowHere = (entry.slowCells && entry.slowCells.get(i)) || null;
+    if (this._slowHere === 'stakes') {
+      const picked = new Set(this.save.picked || []);
+      const standing = (entry.objects || []).some(o => o.kind === 'stakes' && !picked.has(o.id)
+        && SpawnOwnership.tileCells(this, entry, o, pc.tx, pc.ty).includes(i));
+      if (!standing) this._slowHere = null;
+    }
     const fireCell = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
     const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, fireCell.cellIX, fireCell.cellIY)];
     if (this._slowHere === 'tar' && fire && !GroundFire.active(fire, Date.now())) this._slowHere = null;
