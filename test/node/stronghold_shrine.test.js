@@ -13,14 +13,15 @@
   }
   const shrine = out => out.objects.find(o => o.zoneLayer === 'shrine');
   const records = out => [...out.objects, ...out.wildplants, ...out.guards, ...out.treasures];
-  test('crater altar: centered dry island within a continuous five-cell lava pool', () => {
+  test('crater altar: centered dry island within a rounded five-cell lava pool', () => {
     const ctx=context(); ctx.field.anchors[0].variant='quarry-crater';
     const out=ZoneDressing.dress(ctx), altar=shrine(out);
     assert.truthy(altar); assert.eq(altar.shrineKind,'ember_altar');
-    assert.eq(out.objects.filter(o=>o.kind==='lava_vent').length,24);
+    assert.eq(out.objects.filter(o=>o.kind==='lava_vent').length,20);
     for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++) {
       const i=(altar._iy+dy)*N+altar._ix+dx;
-      assert.eq(ctx.grid[i],dx||dy?WorldGen.T.CAVE_LAVA:WorldGen.T.ROCK);
+      const corner = Math.abs(dx) === 2 && Math.abs(dy) === 2;
+      assert.eq(ctx.grid[i],(dx||dy) && !corner ? WorldGen.T.CAVE_LAVA : WorldGen.T.ROCK);
     }
     assert.eq(records(out).filter(o=>o._ix===altar._ix&&o._iy===altar._iy).length,1);
     for(const field of ['owned','clipped']) {

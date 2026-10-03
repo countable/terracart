@@ -169,13 +169,13 @@
       }
       bowl.sort((a, b) => hash(a % N, Math.floor(a / N), 59) - hash(b % N, Math.floor(b / N), 59) || a - b);
       if (s.a.owned) for (const i of bowl.slice(0, s.variant.finds.count)) { plan.finds.push({ i, material: 'crimson_ore' }); plan.clear.add(i); }
-      // A dry altar island sits inside a continuous lava moat. Reserve the
-      // entire square, including the south approach; entrances end at lava.
+      // A dry altar island sits inside a rounded, continuous lava moat. Reserve
+      // its bounding square so clipped corners stay bare; entrances end at lava.
       plan.shrineSeat = centre;
       for (let dy=-poolRadius;dy<=poolRadius;dy++) for (let dx=-poolRadius;dx<=poolRadius;dx++) {
         const i=(cy+dy)*N+cx+dx;
         plan.background.delete(i); plan.clear.add(i);
-        if (dx || dy) plan.hazards.push(i);
+        if ((dx || dy) && Math.hypot(dx, dy) <= settings.craterPoolSizeCells / 2) plan.hazards.push(i);
       }
       return plan;
     }

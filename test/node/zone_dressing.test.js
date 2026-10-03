@@ -392,7 +392,19 @@
     assert.eq(wildplantSprite({crop:'mushroom',_plantArt:'cap_cluster'}), CROP_SPRITE.mushroom, 'saved cluster tags fall back to ordinary mushroom art');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
-    assert.truthy(ordinary.every(o => o._plantArt == null && wildplantSprite(o) === CROP_SPRITE.shrub && walkHazardDamageRate(o) === 0), 'meadow shrubs are ordinary harmless bushes');
+    assert.truthy(ordinary.every(o => o._plantArt === 'ordinary' && wildplantSprite(o) === CROP_SPRITE.shrub && walkHazardDamageRate(o) === 0), 'meadow shrubs are ordinary harmless bushes');
+  });
+  test('Meadow: ordinary bushes retain their look over residential and commercial terrain', () => {
+    const bushes = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
+    assert.gt(bushes.filter(o => o.zoneLayer === 'background').length, 0);
+    assert.gt(bushes.filter(o => o.zoneLayer === 'poi').length, 0, 'shrine rim keeps its bushes');
+    for (const bush of bushes) for (const biome of [WorldGen.T.PARK, WorldGen.T.RESIDENTIAL, WorldGen.T.COMMERCIAL]) {
+      const stamped = { ...bush, _biome: biome };
+      assert.eq(wildplantSprite(stamped), CROP_SPRITE.shrub, 'ordinary art wins over later terrain stamping');
+      assert.eq(walkHazardDamageRate(stamped), 0, 'bushes never deal bramble damage');
+    }
+    assert.eq(wildplantSprite({ crop: 'shrub', _biome: WorldGen.T.RESIDENTIAL }).sheet, 'approved_clipped_hedge', 'ordinary residential fill retains its inferred hedge');
+    assert.eq(wildplantSprite({ crop: 'shrub', _plantArt: 'bramble', _biome: WorldGen.T.RESIDENTIAL }).sheet, 'bramble', 'authored brambles retain their look');
   });
   test('zone hedges: joins follow surviving shrubs, never blocked cells or unrelated plants', () => {
     const c = context('hedge_garden');
@@ -741,7 +753,7 @@
  test('bramble groves keep shrub harvests and leave ordinary bushes alone', () => {
    for (const id of ['meadow', 'ancient_grove']) {
      const row = ZoneVariantData.variants.find(v => v.id === id);
-     assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : undefined);
+     assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : 'ordinary');
      assert.eq(wildplantSprite({crop:'shrub', _plantArt:row.materialLooks?.shrub}).sheet, id === 'ancient_grove' ? 'bramble' : 'bushes');
    }
    assert.eq(wildplantSprite({crop:'shrub'}).sheet, 'bushes');

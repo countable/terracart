@@ -1456,4 +1456,35 @@ test('barricade scenery: perpendicular lines reach four cells from the verge', (
   assert.eq(SV.BARRICADE_VERGE_MAX_CELLS,4);
 });
 
+test('barricades cross rasterized major roads, including diagonal pavement beyond the band center', () => {
+  for (const roadClass of ['secondary', 'primary', 'motorway']) {
+    for (const diagonal of [false, true]) {
+      const line = diagonal
+        ? [{ x: 32 * CELL_MVT, y: 32 * CELL_MVT }, { x: 55 * CELL_MVT, y: 55.5 * CELL_MVT }]
+        : pts([[32, 32], [32, 63]]);
+      const r = WorldGen.rasterizeTile([
+        { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+        { name: 'transportation', extent: EXTENT, features: [
+          { type: 2, tags: { class: roadClass }, geom: [line] },
+        ] },
+        { name: 'transportation_name', extent: EXTENT, features: [
+          { type: 2, tags: { name: BARR }, geom: [line] },
+        ] },
+      ], CPE, TX, TY, TILE_EDGE_M);
+      const pieces = [...r.streetDress.objects, ...r.streetDress.wildplants]
+        .filter(o => o._street === 'barricade' && o._streetScenery);
+      const occupied = new Set(pieces.map(o => cellOf(o.y, TY) * CPE + cellOf(o.x, TX)));
+      // The second diagonal crossing reaches this paved tile whose center
+      // is outside a secondary road's 4.5 m half-width. Treating it as verge
+      // used to reject its road terrain and stop the barrier mid-crossing.
+      const x = diagonal ? 34 : 32, y = diagonal ? 33 : 35, i = y * CPE + x;
+      assert.truthy(WorldGen.isRoadTerrain(r.grid[i]), `${roadClass}: fixture checks actual pavement`);
+      assert.truthy(r.spawnWhy[i] & WorldGen.SPAWN_WHY.TERRAIN, 'ordinary terrain spawn exclusion remains');
+      assert.truthy(occupied.has(i), `${roadClass}: barrier covers ${diagonal ? 'diagonal' : 'straight'} road tile`);
+      assert.truthy(pieces.some(o => r.roadMask[cellOf(o.y, TY) * CPE + cellOf(o.x, TX)]),
+        'barriers survive the full terrain/mask/dressing pipeline on the drawn band');
+    }
+  }
+});
+
 })();
