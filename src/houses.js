@@ -50,7 +50,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // story's restoration-count gates (memory_story.js).
   const STORY_RESTORES = Object.freeze({
     house: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, bookshop: 15,
-    firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 2,
+    firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 1,
   });
   // Old unstamped saves retain the tower identities their original schedule
   // gave them (wizardTowerIds): restore index 14 was the first tower, 25+ the second.
