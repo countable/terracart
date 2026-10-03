@@ -3323,7 +3323,9 @@ Render.drawObjects = function drawObjects(scene) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
-    Render.setShine(s, isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree), o.id);
+    // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
+    Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
+      || (o.kind === 'house' && Houses.isShinyHouse(scene.save, o)), o.id);
     const appearance = item._appearance;
     if (!appearance) return;
     if (!appearance.visible) { s.setVisible(false); return; }
@@ -4315,7 +4317,8 @@ Render.drawObjects = function drawObjects(scene) {
   // the now-empty cell — the "sparkle on the road with nothing under it" bug.
   const _sparkNow = Date.now();
   for (const it of filteredObj) {
-    if (isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree)) {
+    if ((isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree))
+        || (it.o.kind === 'house' && Houses.isShinyHouse(scene.save, it.o))) {
       pushSpark(it, it.o.id);
     }
     // The GLINT ROCK (interactables.js isGlintRock — the one predicate the

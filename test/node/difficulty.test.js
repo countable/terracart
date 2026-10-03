@@ -79,10 +79,11 @@
     assert.eq(easy.lo, 1.2); assert.eq(easy.hi, 3.0);
     assert.inRange(hard.lo, 1.8 - 1e-9, 1.8 + 1e-9, 'hard lo = 1.2 × 1.5');
     assert.inRange(hard.hi, 4.5 - 1e-9, 4.5 + 1e-9, 'hard hi = 3.0 × 1.5');
-    // The bow still closes the spread — onto 1.5× par rather than par.
+    // No relic bends the markup any more (the Magic Hammer's building is the
+    // one standing discount): a maxed bow pays the same spread.
     const maxed = withMode('hard', () => buyMarkupRange({ bow: { tier: 7 } }));
-    assert.inRange(maxed.lo, 1.5 - 1e-9, 1.5 + 1e-9);
-    assert.inRange(maxed.hi, 1.5 - 1e-9, 1.5 + 1e-9);
+    assert.inRange(maxed.lo, 1.8 - 1e-9, 1.8 + 1e-9);
+    assert.inRange(maxed.hi, 4.5 - 1e-9, 4.5 + 1e-9);
     const stallEasy = withMode('easy', () => ShopsMath.standPrice({ relics: {} }, 20));
     const stallHard = withMode('hard', () => ShopsMath.standPrice({ relics: {} }, 20));
     assert.eq(stallEasy, 15, 'easy stand: 20 × 0.75');

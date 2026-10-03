@@ -183,18 +183,66 @@
   function isBookshop(save, houseId) {
     return !!(save && save.bookshopId != null && houseId != null && String(houseId) === String(save.bookshopId));
   }
+  // THE LINE IS THE PLAYER'S PICK (Oct 2026): a market restored off the
+  // Shop cards carries its chosen line in save.shopLines[id] (houses.js
+  // restoreAs); its TIER is one more than the markets before it on the same
+  // line, so the second Seed Shop raised is the T2 one. A market with no
+  // stored line (restored before the cards existed) keeps the cycle's
+  // answer, themeAt(shopOrder), unchanged. One walk over the ledger resolves
+  // every market's line and tier in restore order (marketLines).
+  function marketLines(save) {
+    const rh = (save && save.restoredHouses) || {};
+    const stored = (save && save.shopLines) || {};
+    const out = [];
+    let n = 0;
+    const seen = {};
+    for (const id of Object.keys(rh)) {
+      if (rh[id] !== 'market' || isBookshop(save, id)) continue;
+      let theme, tier;
+      if (THEMES.includes(stored[id])) { theme = stored[id]; tier = 1 + (seen[theme] || 0); }
+      else ({ theme, tier } = themeAt(n));
+      seen[theme] = (seen[theme] || 0) + 1;
+      out.push({ id, theme, tier });
+      n++;
+    }
+    return out;
+  }
   function lineFor(save, house) {
     if (house && isBookshop(save, house.id)) return { theme: 'book', tier: 1 };
+    const stored = save?.shopLines?.[house?.id];
+    if (house && THEMES.includes(stored)) {
+      const row = marketLines(save).find((r) => r.id === String(house.id));
+      if (row) return { theme: row.theme, tier: row.tier };
+    }
     return themeAt(shopOrder(save, house));
   }
-  // The line the NEXT shop restored would sell — what the Shop card on the
-  // restore modal promises (houses.js BUILD_OPTIONS). The same count
-  // shopOrder would hand that shop: every restored market but the bookshop.
+  // The tier a NEW market of `theme` would carry: one past those already on the line.
+  function lineTierFor(save, theme) {
+    return 1 + marketLines(save).filter((r) => r.theme === theme).length;
+  }
+  // The line the next shop restored off the cycle would sell — the one Shop
+  // card before the pairs begin (marketOffers). The same count shopOrder
+  // would hand that shop: every restored market but the bookshop.
   function nextLine(save) {
-    const rh = (save && save.restoredHouses) || {};
-    let n = 0;
-    for (const id of Object.keys(rh)) if (rh[id] === 'market' && !isBookshop(save, id)) n++;
-    return themeAt(n);
+    return themeAt(marketLines(save).length);
+  }
+  // THE SHOP CARDS ON OFFER for restore `order` (0-based; houses.js
+  // BUILD_OPTIONS market row). Until restore number MARKET_PAIR_FROM one
+  // card, the cycle's next line; from then on TWO lines, and the pair moves
+  // on with every restore — six lines, so the same pair comes round every
+  // third rebuild. Each names the tier the pick would carry (lineTierFor).
+  const MARKET_PAIR_FROM = 9;
+  function marketOffers(save, order) {
+    const n = (order | 0) + 1;
+    if (n < MARKET_PAIR_FROM) {
+      const { theme } = nextLine(save);
+      return [{ theme, tier: lineTierFor(save, theme) }];
+    }
+    const k = n - MARKET_PAIR_FROM;
+    return [0, 1].map((i) => {
+      const theme = THEMES[(2 * k + i) % THEMES.length];
+      return { theme, tier: lineTierFor(save, theme) };
+    });
   }
 
   function itemTier(id) {
@@ -280,7 +328,7 @@
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
-    THEMES, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, lineFor, nextLine, themedStock, itemTier,
+    THEMES, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineTierFor, nextLine, MARKET_PAIR_FROM, marketOffers, themedStock, itemTier,
     SMITH_TIER_EVERY, TRADER_TIER_EVERY, SHOP_TIER_MAX, smithCount, smithTier, nextSmithTier, smithUnlockAt, traderTierAt, traderTier, shopTier, tierAffinity, pickThemed, petItems,
   };
 })(window);

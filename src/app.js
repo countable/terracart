@@ -1464,6 +1464,7 @@ const ICON_SHEETS = {
   icon_skeleton_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_honey:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
+  icon_magic_hammer: { url: 'assets/Icons/Items/MagicHammer.png',             cols: 1,  srcW: 16,  srcH: 16 },
   icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
   icon_potion:   { url: 'assets/Icons/Items/Potion_light.png?v=1',           cols: 1,  srcW: 16,  srcH: 16 },
@@ -13350,8 +13351,9 @@ class MapScene extends Phaser.Scene {
     // The single-modal guard keeps the count stable while the modal is open;
     // restoreAs re-checks the offer at accept anyway.
     const options = Houses.buildOptions(this.save, house);
+    // A Shop card is named for the line it would open (its variant's theme).
     const labelFor = (row, theme) => row.name
-      || Shops.roleLabel(row.role, row.role === 'market' ? theme : null) || 'House';
+      || Shops.roleLabel(row.role, row.role === 'market' ? (row.theme || theme) : null) || 'House';
     const iconFor = (row) => {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
@@ -13363,7 +13365,7 @@ class MapScene extends Phaser.Scene {
     const choices = options.map((row) => ({
       key: row.key,
       // A ranked card (a shop, a smithy, a trader) wears its rarity badge.
-      label: labelFor(row, Shops.nextLine(this.save).theme)
+      label: labelFor(row, null)
         + (tierOf(row) ? `<div style="margin-top:3px;line-height:0">${tierBadgeHTML(tierOf(row), 10)}</div>` : ''),
       info: row.pick,
       iconHTML: iconFor(row),
@@ -13390,68 +13392,98 @@ class MapScene extends Phaser.Scene {
           this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
           return;
         }
-        // Freeze the pick onto the house (the role string, never a bare
-        // `true`) and stamp what it owns — the first smithy, the Book Shop,
-        // a wizard tower. A card no longer on offer (a stale modal) is
-        // refused before anything is charged.
-        const row = Houses.restoreAs(this.save, house, key);
-        if (!row) { this.flash('No longer on offer.', sx, sy); return; }
-        Inventory.remove(this.save, cost.id, cost.qty);
-        this._clampSelSlot();
-        const order = Houses.restoredCount(this.save) - 1;   // this restore's 0-based index
-        if (row.role === 'wizard') NPC.restoreShrine(this, house);
-        persistSave(this.save);
-        // THE GATHER FIRST: the road repair's own `stonegather` (the setts
-        // pulling back together), thrown off a ring at the walls and drawn in
-        // to the footprint's centre, plays for WRECK_GATHER_MS before the
-        // blast and the Restored! card. The save, the ledger and the stock
-        // have all moved already — only the picture and the card wait.
-        const bg = this._houseBlastGeometry(house);
-        this._blastAt(bg.x, bg.y, { ringPx: bg.ringPx, gather: 'stonegather' });
-        this.buildInventoryDOM();
-        this.questEvent('restore');
-        this._afterWreckGather(() => {
-          // THE BLAST, before the card opens (once the gather has played): the
-          // same fanfare a street gets, scaled to a building. The flash covers the footprint's half-diagonal
-          // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
-          // are thrown off a RING at its half-extent so they come off the walls
-          // rather than out of the middle, and the sparks are UI_GREEN — the
-          // colour the Restored! card that follows is already set in, so the
-          // world and the card read as one event.
-          this._blastAt(bg.x, bg.y, {
-            radiusCells: bg.radiusCells, ringPx: bg.ringPx,
-            chips: 'timber', sparks: 'greenspark',
+        // THE MAGIC HAMMER (Houses.HAMMER_ID): holding one, the player is
+        // asked whether to spend it on this wreck — the building comes up
+        // shiny and sells cheaper for good (Houses.priceMul). "Without it"
+        // restores plainly; "Later" keeps the wreck as it was.
+        if (Inventory.count(this.save, Houses.HAMMER_ID) > 0) {
+          const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
+          this.showOfferModal({
+            kind: 'build',
+            get: `Use your ${hammer?.name || 'Magic Hammer'} on it?`,
+            blurb: 'The building would gleam, and the folk inside would deal kindly with you.',
+            costLabel: 'Spends',
+            cost: `1× ${this.iconSpanHTML(Houses.HAMMER_ID)} ${hammer?.name || Houses.HAMMER_ID}`,
+            canAfford: true,
+            acceptLabel: 'Use it',
+            cancelLabel: 'Later',
+            secondary: { label: 'Without it', onClick: () => restore(key, false) },
+            onAccept: () => restore(key, true),
           });
-          if (this.showChestRewardModal) {
-            // Name the building, describe what it does, show its painting, and
-            // let showChestRewardModal's sparkle burst supply the fanfare. The
-            // name is the sign's (Shops.roleLabel — a shop is named for the
-            // line it now sells, marketTheme), the blurb and art the row's.
-            const theme = row.role === 'market' ? this.marketTheme(house).theme : null;
-            const name = labelFor(row, theme);
-            const tier = Shops.shopTier(this.save, house, row.role) || 0;
-            const blurb = row.key === 'market' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
-            this.showChestRewardModal({
-              kind: 'build',
-              // The banner carries the picture - one art piece per card
-              // (restore_house / restore_blacksmith / …), so the card shows
-              // the story of the restore.
-              iconHTML: '',
-              art: row.art,
-              header: 'Restored!',
-              name: `You restored a ${name}`,
-              tier,
-              sub: order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb,
-              color: '#a7ffb0', accent: '#a7ffb0',
-              onDismiss: row.role === 'wizard'
-                ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
-            });
-          } else {
-            this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
-          }
-        });
+          return;
+        }
+        restore(key, false);
       },
     });
+    const restore = (key, hammer) => {
+      if (Inventory.count(this.save, cost.id) < cost.qty) {
+        this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
+        return;
+      }
+      if (hammer && Inventory.count(this.save, Houses.HAMMER_ID) < 1) hammer = false;
+      // Freeze the pick onto the house (the role string, never a bare
+      // `true`) and stamp what it owns — the first smithy, the Book Shop,
+      // a wizard tower, a shop's line, the hammer's shine. A card no longer
+      // on offer (a stale modal) is refused before anything is charged.
+      const row = Houses.restoreAs(this.save, house, key, { hammer });
+      if (!row) { this.flash('No longer on offer.', sx, sy); return; }
+      Inventory.remove(this.save, cost.id, cost.qty);
+      if (hammer) Inventory.remove(this.save, Houses.HAMMER_ID, 1);
+      this._clampSelSlot();
+      const order = Houses.restoredCount(this.save) - 1;   // this restore's 0-based index
+      if (row.role === 'wizard') NPC.restoreShrine(this, house);
+      persistSave(this.save);
+      // THE GATHER FIRST: the road repair's own `stonegather` (the setts
+      // pulling back together), thrown off a ring at the walls and drawn in
+      // to the footprint's centre, plays for WRECK_GATHER_MS before the
+      // blast and the Restored! card. The save, the ledger and the stock
+      // have all moved already — only the picture and the card wait.
+      const bg = this._houseBlastGeometry(house);
+      this._blastAt(bg.x, bg.y, { ringPx: bg.ringPx, gather: 'stonegather' });
+      this.buildInventoryDOM();
+      this.questEvent('restore');
+      this._afterWreckGather(() => {
+        // THE BLAST, before the card opens (once the gather has played): the
+        // same fanfare a street gets, scaled to a building. The flash covers the footprint's half-diagonal
+        // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
+        // are thrown off a RING at its half-extent so they come off the walls
+        // rather than out of the middle, and the sparks are UI_GREEN — the
+        // colour the Restored! card that follows is already set in, so the
+        // world and the card read as one event.
+        this._blastAt(bg.x, bg.y, {
+          radiusCells: bg.radiusCells, ringPx: bg.ringPx,
+          chips: 'timber', sparks: 'greenspark',
+        });
+        if (this.showChestRewardModal) {
+          // Name the building, describe what it does, show its painting, and
+          // let showChestRewardModal's sparkle burst supply the fanfare. The
+          // name is the sign's (Shops.roleLabel — a shop is named for the
+          // line it now sells, marketTheme), the blurb and art the row's.
+          const theme = row.role === 'market' ? this.marketTheme(house).theme : null;
+          const name = labelFor(row, theme);
+          const tier = Shops.shopTier(this.save, house, row.role) || 0;
+          const blurb = row.key === 'market' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
+          this.showChestRewardModal({
+            kind: 'build',
+            // The banner carries the picture - one art piece per card
+            // (restore_house / restore_blacksmith / …), so the card shows
+            // the story of the restore.
+            iconHTML: '',
+            art: row.art,
+            header: 'Restored!',
+            name: `You restored a ${hammer ? 'shiny ' : ''}${name}`,
+            tier,
+            sub: (hammer ? 'The walls gleam under the hammer’s work. ' : '')
+              + (order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb),
+            color: '#a7ffb0', accent: '#a7ffb0',
+            onDismiss: row.role === 'wizard'
+              ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
+          });
+        } else {
+          this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
+        }
+      });
+    };
   }
 
 

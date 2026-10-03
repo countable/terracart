@@ -93,7 +93,7 @@ test('shop naming: every call site reads Shops.roleLabel, none inlines a name', 
   // app.js's offer title + restoration card.
   assert.truthy(/Shops\.roleLabel\('market', this\.marketTheme\(house\)\.theme\)/.test(app),
     'the offer title resolves through Shops.roleLabel');
-  assert.truthy(/Shops\.roleLabel\(row\.role, row\.role === 'market' \? theme : null\)/.test(app),
+  assert.truthy(/Shops\.roleLabel\(row\.role, row\.role === 'market' \? \(row\.theme \|\| theme\) : null\)/.test(app),
     'the restoration card resolves through Shops.roleLabel');
   assert.falsy(/name: 'Market'/.test(app), 'the restoration card no longer hardcodes "Market"');
   assert.falsy(/The market has fresh stock/.test(app), 'the old offer title is gone');

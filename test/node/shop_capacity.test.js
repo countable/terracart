@@ -7,7 +7,7 @@
   function fixture(held, money = 100) {
     const save = { money, inv: [{ id: 'potato_seed', count: held }], relics: {} };
     const scene = Object.assign(Object.create(proto), {
-      save, shopRng: () => () => 0, shopCharmMul: () => 1,
+      save, shopRng: () => () => 0, shopCharmMul: () => 1, priceMul: () => 1,
       moneyHTML: n => String(n), iconSpanHTML: () => '',
       buildingFlavorTitle: () => 'Seed Shop', shopTierBadgeHTML: () => '',
       invRoomFor: id => Inventory.roomFor(save, id), _themedStockCount: () => 1,
