@@ -507,9 +507,12 @@ class SceneModals {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
       { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art });
     const safeBody = String(body).replace(/\n/g, '<br>');
-    box.innerHTML =
-      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>` +
-      `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
+    // No title, no title line: a page whose own heading is in the body (the
+    // Book's volume line) starts on it, with no empty gold row above.
+    const titleHTML = title
+      ? `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
+      : '';
+    box.innerHTML = titleHTML + `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();

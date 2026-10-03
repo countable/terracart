@@ -132,9 +132,15 @@ test('course: the chest hint waits until there is nothing left to teach', () => 
     'and the hint branch is gated on it');
 });
 
-test('course: the reader opens the book as a story', () => {
-  assert.truthy(/title: '📖 The worn book falls open'/.test(SCENE_SRC),
-    'the title describes opening the book');
+test('course: a page read heads on its volume line, with no title row over it', () => {
+  // The read used to be titled "The worn book falls open" over the volume
+  // line — two headings (owner, Oct 2026). The page read has no title, and
+  // the shell draws no title row for an empty one; the sketch read keeps its.
+  assert.falsy(/title: '📖 The worn book falls open'/.test(SCENE_SRC), 'the old lead-in is gone');
+  assert.truthy(/title: '',\n\s+body: bookPageHTML\(page\),/.test(SCENE_SRC), 'the page read has no title line');
+  assert.truthy(/title: '📖 You crack open the book'/.test(SCENE_SRC), 'the sketch read keeps its lead-in');
+  assert.truthy(/const titleHTML = title\n\s+\? `<div[^`]*\$\{title\}<\/div>`\n\s+: '';/.test(MODAL_SHELL_SRC),
+    'the shell draws no title row for an empty title');
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {

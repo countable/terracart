@@ -9523,9 +9523,12 @@ class MapScene extends Phaser.Scene {
     const read = this.save.tipsRead ?? 0;
     const page = read % PLAY_TIPS.length;
     this.save.tipsRead = read + 1;
-    // Keep the bookmark in the save; the panel tells the page as a story.
+    // Keep the bookmark in the save; the panel tells the page as a story. NO
+    // TITLE LINE (owner, Oct 2026): the volume line in the page is the
+    // heading, and "The worn book falls open" sat over it as a second one.
+    // showMessageModal draws no title row for an empty title.
     return {
-      title: '📖 The worn book falls open',
+      title: '',
       body: bookPageHTML(page),
     };
   }
