@@ -1185,13 +1185,10 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, brambles occupy 50% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 50% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
-      },
-      "materialLooks": {
-        "shrub": "bramble"
       }
     },
     {
