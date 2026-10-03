@@ -27,8 +27,24 @@
       else assert.eq(species, 'apple');
     }
     assert.eq(peaches, 200);
-    assert.includes(WORLDGEN_SRC, 'const species = fruitTreeSpecies(polyKey >>> 8);');
+    assert.includes(WORLDGEN_SRC, 'species: fruitTreeSpecies(cellHash(tx, ty, ix, iy))');
     assert.includes(WORLDGEN_SRC, 'species: fruitTreeSpecies(ftHash),');
+  });
+
+  test('peach rarity: one orchard mixes species by cell and retains them in another metre frame', () => {
+    const tx = 4, ty = 8192, n = 64, extent = 4096;
+    const ring = [{ x: 0, y: 0 }, { x: extent, y: 0 }, { x: extent, y: extent }, { x: 0, y: extent }, { x: 0, y: 0 }];
+    const layers = [{ name: 'landcover', features: [{ type: 3, tags: { class: 'orchard' }, geom: [ring] }] }];
+    const trees = edge => WorldGen.rasterizeTile(layers, n, tx, ty, edge).objects.filter(o => o.kind === 'fruittree');
+    const a = trees(1000), b = trees(1500);
+    assert.gt(a.length, 1000, 'enough trees in one orchard to measure its mix');
+    const peaches = a.filter(o => o.species === 'peach');
+    assert.inRange(peaches.length / a.length, 0.01, 0.03, 'approximately one tree in fifty');
+    assert.eq(JSON.stringify(a.map(o => [o.id, o.species])), JSON.stringify(b.map(o => [o.id, o.species])), 'species do not depend on the save metre frame');
+    for (const tree of a) {
+      const [ix, iy] = tree.id.split('_').slice(-2).map(Number);
+      assert.eq(tree.species, WorldGen.fruitTreeSpecies(WorldGen.cellHash(tx, ty, ix, iy)));
+    }
   });
 
   test('peach rarity: a peach shop name cannot create an unlimited peach market', () => {

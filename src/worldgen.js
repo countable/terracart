@@ -13,8 +13,8 @@
   // Park, forest and grove trees share this ordered set so a species change
   // reaches every generated tree lane.
   const TREE_SPECIES = Object.freeze(['maple', 'pine']);
-  // Both procedural fruit sources share the same rare-peach selection. The
-  // caller supplies its existing stable polygon/cell hash; no RNG draw changes.
+  // Natural fruit trees share one Worldpeach chance per stable cell.
+  // No RNG draws or placement order affect the species.
   const PEACH_ONE_IN = 50;
   function fruitTreeSpecies(hash) {
     return (hash >>> 0) % PEACH_ONE_IN === 0 ? 'peach' : 'apple';
@@ -129,7 +129,7 @@
 
   function isGeneralAmbientRecord(o) {
     return !o.placed && !o.zoneVariant &&
-      /^(?:wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
+      /^(?:wp|hr|hm|hmpot|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
   }
 
   // Zone layouts own the entire coverage, including intentionally empty motif
@@ -875,6 +875,12 @@
   function hedgeWallOn(sx, sy, k, salt) {
     const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
     return (hsh % 100) < HEDGE_WALL_PCT;
+  }
+  // Regular clay pots replace one in four pillar bushes; the intervening
+  // hedge walls and every open passage keep the maze's existing shape.
+  function hedgeMazePotCell(ax, ay) {
+    const period = HEDGE_LATTICE_P * 2;
+    return ax % period === 0 && ay % period === 0;
   }
   function hedgeMazeCell(ax, ay, salt) {
     const P = HEDGE_LATTICE_P;
@@ -4179,11 +4185,9 @@
     // orchard polygon ran this loop with no yield either. Unlike the forest
     // scatter above this draws no rng() at all (fixed grid, no jitter), so
     // there is no draw order to preserve — only the yield cadence is new.
-    function* spawnFruitTreesSteps(rings, polyKey) {
-      // Only two fruit-tree species are available in the world now: common
-      // apple, very rare peach. One species per orchard polygon, using the
-      // same rare-peach rate as individually classified fruit trees.
-      const species = fruitTreeSpecies(polyKey >>> 8);
+    function* spawnFruitTreesSteps(rings) {
+      // Each tree independently has a 1-in-50 Worldpeach chance. The cell
+      // hash keeps its species stable across reloads and polygon boundaries.
       const bb = bboxOf(rings);
       const stepMvt = 13 / mvtToM; // one fruit tree per ~13m — planted feel
       let _row = 0;
@@ -4193,7 +4197,7 @@
           if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
           const { ix, iy, cx, cy } = snapCell(xx + stepMvt * 0.5, yy + stepMvt * 0.5);
           objects.push(makeObject('fruittree', cx, cy, cellId('ft', tx, ty, ix, iy),
-            { species }));
+            { species: fruitTreeSpecies(cellHash(tx, ty, ix, iy)) }));
         }
       }
     }
@@ -4561,7 +4565,7 @@
                 yield* spawnForestTreesSteps(f.geom, polyKey);
               }
               if (cls === 'orchard' || f.tags.subclass === 'orchard') {
-                yield* spawnFruitTreesSteps(f.geom, polyKey);
+                yield* spawnFruitTreesSteps(f.geom);
               }
             }
 
@@ -5710,6 +5714,15 @@
             || (y > 0 && grid[(y - 1) * w + x] !== t)
             || (y + 1 < h && grid[(y + 1) * w + x] !== t);
           if (edge) wp._plantArt = 'reeds';
+        }
+        // Convert only accepted commercial hedge candidates. Pots inherit
+        // the hedge's land/road gate and lose to real POIs and structures;
+        // minting chest candidates earlier would give them POI exemptions.
+        if (t === T.COMMERCIAL && wp.crop === 'shrub' && wp.id.startsWith('hm_')
+            && hedgeMazePotCell(tx * w + wp._ix, ty * h + wp._iy)) {
+          keptStructs.push(makeObject('chest', wp.x, wp.y, cellId('hmpot', tx, ty, wp._ix, wp._iy),
+            { barrel: true, barrelStyle: 'clay_pot', _biome: t }));
+          continue;
         }
         delete wp._ix; delete wp._iy; delete wp._yard;
         filtered.push(wp);
@@ -8547,7 +8560,7 @@
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, relocateToSpawnCell,
     // The hedge-maze lattice decision (spawnHedgeMazeSteps' owner): exported
     // so the sandbox's flora mirror runs the SAME maze, never a drifted copy.
-    hedgeMazeCell, HEDGE_LATTICE_P,
+    hedgeMazeCell, hedgeMazePotCell, HEDGE_LATTICE_P,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
     SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,

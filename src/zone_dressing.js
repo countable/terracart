@@ -65,7 +65,7 @@
       let m = V.materials[material];
       if (!allowed(s, ix, iy, material)) {
         if (!m || !m.fallback || !allowed(s, ix, iy, m.fallback)) return null;
-        material = m.fallback; m = V.materials[material];
+        material = s.variant.materialReplacements?.[m.fallback] || m.fallback; m = V.materials[material];
       }
       const i = iy * N + ix, [x, y] = position(ix, iy);
       const extra = { zone: s.a.kind, zoneVariant: s.variant.id, zoneLayer: layer, _ix: ix, _iy: iy };
@@ -93,7 +93,8 @@
         if (m.quarryCrate) extra.quarryCrate = true;
         if (m.barrelStyle) extra.barrelStyle = m.barrelStyle;
         if (m.barrel) extra.barrel = true;   // a generated barrel (loot.js isBarrel)
-        if (m.species) extra.species = m.species;
+        if (m.species) extra.species = m.kind === 'fruittree' && m.species === 'apple'
+          ? WG.fruitTreeSpecies(WG.cellHash(tx, ty, ix, iy)) : m.species;
         if (m.kind === 'tree') {
           extra.variant = 1;
           if (m.size) extra.size = m.size;

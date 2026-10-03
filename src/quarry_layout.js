@@ -237,6 +237,9 @@
       if (id === 'quarry-strip-mine') for (const centre of centres.slice(0, s.variant.guards.count || 0)) {
         plan.guards.push({ i: centre, material: s.variant.guards.kind });
       }
+      if (id === 'quarry-strip-mine') for (const centre of centres.slice(0, s.variant.finds.count)) {
+        plan.finds.push({ i: centre + (verticalBenches ? 1 : N), material: s.variant.finds.material });
+      }
       if (id === 'quarry-abandoned') for (const centre of centres.slice(0, s.variant.finds.count)) plan.finds.push({ i: centre + N, material: 'tool_crate' });
       if (id === 'quarry-stronghold') for (const seats of foundationSeats.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {
         if (plan.guards.length < s.variant.guards.count) plan.guards.push({ i: seats[0], material: 'goblin' });
@@ -257,6 +260,14 @@
     }
     return plan;
   }
+  function weightedIndexForHash(hash, variants = root.ZoneVariants.forKind('quarry')) {
+    let ticket = (hash >>> 0) / 4294967296 * variants.reduce((sum, v) => sum + v.weight, 0);
+    for (let i = 0; i < variants.length; i++) {
+      ticket -= variants[i].weight;
+      if (ticket < 0) return i;
+    }
+    return variants.length - 1;
+  }
   // Ruins need readable surviving walls; craters need a broader pocket and
   // enough total ground. Measure usable squares, respecting holes and bends.
   function* variantForSteps(cells, context, start) {
@@ -275,19 +286,26 @@
     const variants = all.filter(v => v.id === 'quarry-crater'
       ? cells.length >= settings.largeSiteMinCells && widest >= settings.broadPatchSizeCells
       : true);
-    // Keep a fitting site's original roll. Only an ineligible roll maps into
-    // the smaller pool, so admitting ruins restores existing fitting sites.
-    const original = variants.indexOf(all[start % all.length]);
-    start = original >= 0 ? original : start % variants.length;
-    for (let n = 0; n < variants.length; n++) {
-      const variant = variants[(start + n) % variants.length];
+    // Preserve any fitting original choice. A rejected roll is redistributed
+    // across all fitting layouts by weight, never handed to the next table row.
+    const original = all[start % all.length];
+    const candidates = variants.includes(original)
+      ? [original, ...variants.filter(v => v !== original)] : variants;
+    const fitting = [];
+    for (const variant of candidates) {
       const plan = yield* planSteps({ a: { owned: true }, variant, cells }, context);
       // Find/guard counts remain maxima, not minimum occupancy requirements.
-      if (plan.landmarks.length && (!variant.finds.count || plan.finds.length)
-          && (!variant.guards.count || plan.guards.length)) return variant.id;
+      if (!plan.landmarks.length || (variant.finds.count && !plan.finds.length)
+          || (variant.guards.count && !plan.guards.length)) continue;
+      if (variant === original) return variant.id;
+      fitting.push(variant);
     }
     // Slivers that cannot seat an authored composition remain ordinary ground.
-    return null;
+    if (!fitting.length) return null;
+    const siteHash = context.variantHash ?? ((Math.imul(context.tx || 0, 73856093)
+      ^ Math.imul(context.ty || 0, 19349663) ^ Math.imul(sorted[0], 83492791)) >>> 0);
+    const fallbackHash = Math.floor(noise(siteHash, 0, 193) * 4294967296);
+    return fitting[weightedIndexForHash(fallbackHash, fitting)].id;
   }
-  root.QuarryLayout = { planSteps, variantForSteps, wallFrameAt };
+  root.QuarryLayout = { planSteps, variantForSteps, wallFrameAt, weightedIndexForHash };
 })(typeof window !== 'undefined' ? window : globalThis);

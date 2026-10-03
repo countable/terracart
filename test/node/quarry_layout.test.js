@@ -3,6 +3,37 @@
   const run = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
   const rect = (w, h) => Array.from({ length: w * h }, (_, i) => (Math.floor(i / w) + 4) * N + i % w + 4);
   const plan = (id, cells, owned = true) => run(QuarryLayout.planSteps({ a: { owned }, variant: ZoneVariants.byId(id), cells }, { N, tx: 4, ty: 5 }));
+  test('quarry selection: stable weighted rolls make abandoned sites rarer and strongholds more common', () => {
+    const variants = ZoneVariants.forKind('quarry'), counts = {};
+    for (let n = 0; n < 1000; n++) {
+      const hash = Math.floor((n + .5) / 1000 * 4294967296);
+      const index = QuarryLayout.weightedIndexForHash(hash);
+      assert.eq(index, QuarryLayout.weightedIndexForHash(hash), 'stable for a site hash');
+      const id = variants[index].id;
+      counts[id] = (counts[id] || 0) + 1;
+    }
+    assert.eq(counts['quarry-abandoned'], 200);
+    assert.eq(counts['quarry-stronghold'], 300);
+    assert.eq(counts['quarry-strip-mine'], 250);
+    assert.eq(counts['quarry-crater'], 250);
+  });
+  test('quarry selection: rejected craters redistribute by eligible weights and stay stable', () => {
+    const cells = rect(9, 9), counts = {}, variants = ZoneVariants.forKind('quarry');
+    const total = 1000;
+    for (let n = 0; n < total; n++) {
+      const variantHash = Math.floor((n + .5) / total * 4294967296);
+      const start = QuarryLayout.weightedIndexForHash(variantHash);
+      const context = { N, tx: 4, ty: 5, variantHash };
+      const chosen = run(QuarryLayout.variantForSteps(cells, context, start));
+      counts[chosen] = (counts[chosen] || 0) + 1;
+      if (variants[start].id !== 'quarry-crater') assert.eq(chosen, variants[start].id, 'fitting original rolls stay put');
+      if (n % 25 === 0) assert.eq(run(QuarryLayout.variantForSteps(cells.slice().reverse(), context, start)), chosen, 'cell traversal cannot change the fallback');
+    }
+    assert.falsy(counts['quarry-crater']);
+    const eligible = variants.filter(v => v.id !== 'quarry-crater');
+    const weight = eligible.reduce((sum, v) => sum + v.weight, 0);
+    for (const v of eligible) assert.inRange(counts[v.id] / total, v.weight / weight - .035, v.weight / weight + .035, v.id + ' receives only its weighted share');
+  });
   test('stronghold joins: cardinal neighbours select straights, corners, T pieces, cross and end caps', () => {
     const i = 10 * N + 10, offsets = { N: -N, E: 1, S: N, W: -1 };
     const connections = ['EW','NS','ES','WS','NE','NW','NEW','NES','ESW','NSW','NESW','S','W','N','E'];
@@ -96,6 +127,9 @@
         }
       }
       assert.eq(p.guards.length, 2, 'narrow modules do not multiply inhabitants');
+      assert.eq(p.finds.length, 3, 'each orientation seats three buried treasures');
+      assert.truthy(p.finds.every(f => f.material === 'treasure_x'));
+      assert.eq(new Set([...p.guards, ...p.finds].map(o => o.i)).size, 5, 'treasure and slime seats stay distinct');
     }
   });
   test('quarry layout: intact patches and surviving foundation walls respect irregular footprints', () => {
@@ -134,6 +168,7 @@
     const cells = rect(48, 48);
     assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
     const strip = plan('quarry-strip-mine', cells);
+    assert.eq(strip.finds.length, 3, 'treasure budget does not grow with the number of benches');
     assert.eq(strip.guards.length, 2, 'slime budget does not grow with the number of benches');
     for (const guard of strip.guards) {
       assert.eq(guard.material, 'split_slime');

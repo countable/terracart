@@ -489,9 +489,10 @@
       // is available; never invent a second crater or duplicate finite finds.
       const variants = root.ZoneVariants.forKind('quarry').map(v => v.id);
       const variantHash = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
-      const requestedVariant = variants[variantHash % variants.length];
+      const variantIndex = root.QuarryLayout.weightedIndexForHash(variantHash);
+      const requestedVariant = variants[variantIndex];
       const variant = clipped ? 'quarry-strip-mine'
-        : yield* root.QuarryLayout.variantForSteps(cells, { N, tx, ty }, variantHash % variants.length);
+        : yield* root.QuarryLayout.variantForSteps(cells, { N, tx, ty, variantHash }, variantIndex);
       if (!variant) continue;
       const lx = (first % N + .5) * EXT / N, ly = (Math.floor(first / N) + .5) * EXT / N;
       const gx = tx * EXT + lx, gy = ty * EXT + ly;

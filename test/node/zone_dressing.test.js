@@ -34,6 +34,20 @@
       assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o.kind === 'zone_prop').length, 0, 'ordinary gate');
     }
   });
+  test('Ordered Graves: matching dense graves, more grass, regular pots and no rocks or bird attraction', () => {
+    const row = ZoneVariants.byId('ordered_graves'), out = ZoneDressing.dress(context(row.id));
+    const graves = out.objects.filter(o => o.kind === 'headstone');
+    assert.gt(graves.length, 400, 'four graves per 36-cell motif doubles the former density');
+    assert.truthy(graves.every(o => o._zoneObjectFrame === 4), 'one grave silhouette');
+    assert.gt(out.wildplants.filter(o => o.crop === 'longgrass').length, 400, 'four grass seats per motif');
+    assert.eq(out.objects.filter(o => o.kind === 'mineralrock').length, 0, 'no rocks in any layer');
+    const pots = out.objects.filter(o => o.kind === 'chest' && o.barrelStyle === 'clay_pot');
+    assert.eq(pots.length, 2, 'two regular pots flank the POI');
+    assert.truthy(pots.every(o => o._zoneObjectFrame == null), 'regular pot art');
+    assert.eq(Object.keys(row.attracts).length, 0, 'no crow or raven attraction');
+    assert.eq(row.background.materialDensity.grave, 4 / 36);
+    assert.eq(row.background.materialDensity.grass, 4 / 36);
+  });
   test('zone dressing: all variants keep finite counts, tool tiers, uniqueness and rebuild identities', () => {
     for (const row of ZoneVariants.rows) {
       const a = ZoneDressing.dress(context(row.id)), b = ZoneDressing.dress(context(row.id));
@@ -170,11 +184,11 @@
       if (!owned) assert.eq(finds(out).length, 0, 'neighbor cannot duplicate finite finds');
     }
   });
-  test('churchyard containers: each variant has one clay pot beside its POI', () => {
+  test('churchyard containers: finite regular clay pots stand beside their POI', () => {
     for (const row of ZoneVariants.forKind('stones')) {
       const out = ZoneDressing.dress(context(row.id));
       const pots = out.objects.filter(o => o.barrel && o.barrelStyle === 'clay_pot');
-      assert.eq(pots.length, 1, row.id + ': one pot rather than a repeating loot carpet');
+      assert.eq(pots.length, row.id === 'ordered_graves' ? 2 : 1, row.id + ': finite POI pots');
       assert.eq(pots[0].zoneLayer, 'poi');
       assert.eq(barrelProfile(pots[0]).texKey, 'clay_pot');
       assert.eq(finds(out).length, row.finds.count, 'the site retains its finite finds');
@@ -267,13 +281,14 @@
       assert.truthy(out.diagnostics[0].shortfalls.includes('shrine:shipwreck'));
     }
   });
-  test('zone dressing: orchard is apple-only with medium deciduous timber and no ambient flower mix', () => {
+  test('zone dressing: orchard mixes rare Worldpeach trees with apples and medium deciduous timber', () => {
     const out = ZoneDressing.dress(context('orchard'));
     const fruit = out.objects.filter(o => o.kind === 'fruittree');
     const timber = out.objects.filter(o => o.kind === 'tree');
     assert.gt(fruit.length, 200, 'denser than the former four-percent fruit grid');
     assert.gt(timber.length, 200);
-    assert.truthy(fruit.every(o => o.species === 'apple'), 'all fruit records harvest apples');
+    assert.gt(fruit.filter(o => o.species === 'peach').length, 0, 'one orchard can contain Worldpeach trees');
+    assert.truthy(fruit.every(o => o.species === WorldGen.fruitTreeSpecies(WorldGen.cellHash(0, 0, o._ix, o._iy))), 'each fruit tree rolls by its cell');
     assert.truthy(timber.every(o => o.species === 'maple' && o.size === 'medium' && treeSizeClass(o) === 'medium'));
     assert.eq(out.wildplants.length, 6, 'three gemfruit and three berry finds');
     assert.truthy(out.wildplants.every(o => ['gemfruit', 'berry'].includes(o.crop) && o.zoneLayer === 'find'));
@@ -453,7 +468,8 @@
     sensitive.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
     const fallback = ZoneDressing.dress(sensitive);
     assert.eq(fallback.objects.filter(o => o.kind === 'headstone').length, 0);
-    assert.gt(fallback.objects.filter(o => o.kind === 'mineralrock').length, 0, 'safe stone replaces refused graves');
+    assert.eq(fallback.objects.filter(o => o.kind === 'mineralrock').length, 0, 'Ordered Graves never substitutes rocks');
+    assert.gt(fallback.wildplants.filter(o => o.crop === 'longgrass').length, 0, 'safe grass replaces refused graves');
   });
   test('zone dressing: background diagnostics distinguish legacy occupancy, gates and composition', () => {
     const pristine = ZoneDressing.dress(context('ordered_graves'));

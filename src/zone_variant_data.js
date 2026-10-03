@@ -3811,14 +3811,35 @@
               1,
               3
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               3,
               3
             ],
-            "material": "stone"
+            "material": "grave"
+          },
+          {
+            "at": [
+              5,
+              1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              5
+            ],
+            "material": "grass"
           },
           {
             "at": [
@@ -3831,11 +3852,10 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.1388888888888889,
+        "nominalDensity": 0.2222222222222222,
         "materialDensity": {
-          "grave": 0.05555555555555555,
-          "stone": 0.05555555555555555,
-          "grass": 0.027777777777777776
+          "grave": 0.1111111111111111,
+          "grass": 0.1111111111111111
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -3843,11 +3863,11 @@
             3,
             3
           ],
-          "role": "central_stone_row_between_graves"
+          "role": "central_aisle_between_graves"
         }
       },
       "poi": {
-        "id": "flanking_stone_rows",
+        "id": "flanking_grass_and_pots",
         "origin": "settled_poi",
         "slots": [
           {
@@ -3862,35 +3882,35 @@
               -1,
               0
             ],
-            "material": "stone"
+            "material": "grass"
           },
           {
             "at": [
               -1,
               1
             ],
-            "material": "stone"
+            "material": "grass"
           },
           {
             "at": [
               1,
               -1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
               1,
               0
             ],
-            "material": "stone"
+            "material": "grass"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "stone"
+            "material": "grass"
           }
         ],
         "relocation": {
@@ -3913,35 +3933,35 @@
                 -2,
                 0
               ],
-              "material": "stone"
+              "material": "grass"
             },
             {
               "at": [
                 -2,
                 1
               ],
-              "material": "stone"
+              "material": "grass"
             },
             {
               "at": [
                 2,
                 -1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
                 2,
                 0
               ],
-              "material": "stone"
+              "material": "grass"
             },
             {
               "at": [
                 2,
                 1
               ],
-              "material": "stone"
+              "material": "grass"
             }
           ],
           "origin": "settled_poi",
@@ -4012,15 +4032,15 @@
         "fallback": "omit_guard_keep_find",
         "headstoneGhostChance": 0.3333333333333333
       },
-      "atmosphere": "Short grave rows leave an aisle; matching finds occupy two empty row ends.",
-      "attracts": {
-        "crow": 0.65
-      },
+      "atmosphere": "Close rows of matching graves stand among long grass, with clay pots beside the central aisle.",
+      "attracts": {},
       "materialFrames": {
         "grave": [
-          4,
-          5
+          4
         ]
+      },
+      "materialReplacements": {
+        "stone": "grass"
       }
     },
     {
@@ -4270,7 +4290,6 @@
       },
       "atmosphere": "Three weathered grave markers mingle with grass and shrubs in each 6 × 6-cell patch, with open aisles through the overgrowth.",
       "attracts": {
-        "crow": 0.4,
         "butterfly": 0.35
       },
       "materialFrames": {
@@ -7068,7 +7087,7 @@
       "id": "quarry-abandoned",
       "zone": "quarry",
       "name": "Abandoned quarry",
-      "weight": 1,
+      "weight": 0.8,
       "generated": "parking_lanes",
       "source": "parking_lanes",
       "background": {
@@ -7169,10 +7188,20 @@
         "slots": []
       },
       "finds": {
-        "rarity": "none",
-        "material": "stone",
-        "targets": [],
-        "count": 0
+        "rarity": "finite",
+        "material": "treasure_x",
+        "targets": [
+          {
+            "id": "0"
+          },
+          {
+            "id": "1"
+          },
+          {
+            "id": "2"
+          }
+        ],
+        "count": 3
       },
       "connection": {
         "shape": "none"
@@ -7199,7 +7228,7 @@
       "id": "quarry-stronghold",
       "zone": "quarry",
       "name": "Ruined stronghold",
-      "weight": 1,
+      "weight": 1.2,
       "generated": "parking_lanes",
       "source": "parking_lanes",
       "background": {

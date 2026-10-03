@@ -208,8 +208,8 @@
     },
     [T.COMMERCIAL]: {
       // Clipped hedge maze across the plaza paving — shrubs laid out in neat
-      // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js) plus a few
-      // planter marigolds for colour.
+      // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js), regular
+      // clay pots replacing every fourth pillar, and a few marigolds.
       flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB },
               fix('marigold', 0.004, 0.010, S.COM_MAR)],
     },

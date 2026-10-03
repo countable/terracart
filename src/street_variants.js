@@ -224,7 +224,7 @@
       // The diamond marks the ancient religion; hedged lanes bear the ruling crown.
       carpet: '#64517d', emblem: 'diamond', emblemInk: '#c5b4d5',
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
-      lampGlow: '#f2eee0', attracts: { crow: 0.5 },
+      lampGlow: '#f2eee0', attracts: { crow: 0.1 },
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
       flash: 'A waystone, worn smooth.' },
@@ -1463,7 +1463,7 @@
             const apple = (Math.floor(s / ORCHARD_STEP_M) + (side === 1 ? 0 : 1)) % 2 === 0;
             res.objects.push(WG.makeObject(apple ? 'fruittree' : 'tree', cx(c.ix), cy(c.iy),
               WG.cellId(apple ? 'ft_lane' : 'tree_lane', tx, ty, c.ix, c.iy),
-              apple ? { species: 'apple', wild: true, _street: v }
+              apple ? { species: WG.fruitTreeSpecies(WG.cellHash(tx, ty, c.ix, c.iy)), wild: true, _street: v }
                 : { species: 'maple', variant: 3, _street: v }));
             placed++;
           }
