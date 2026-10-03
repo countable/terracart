@@ -1853,6 +1853,7 @@ class SceneCreatures {
       if (enemyBurrowTick(this, c, EnemyRoster.get(c.kind), now)) return;
       if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;
       if (this._tickUnitFire?.(c, now)) return;
+      if (this._tickUnitPoison?.(c, now)) return;
       if (!caughtSet.has(c.id) && enemyWalkHazardTick(this, c, now)) return;
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const unnoticed = this.isUnnoticed(c);

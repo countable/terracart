@@ -1878,6 +1878,7 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
   }
   // Temporary allegiance and sleep do not protect from ordinary hazards.
   if (scene._tickUnitFire?.(c, now)) return true;
+  if (scene._tickUnitPoison?.(c, now)) return true;
   if (Combat.canBurn(c) && !Conditions.fireImmune(c) && (scene.depth === 0 || scene.depth === WorldGen.LAVA_DEPTH)
       && now >= (c._lavaNextT || 0)) {
     c._lavaNextT = now + 1000;

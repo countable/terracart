@@ -10191,6 +10191,17 @@ class MapScene extends Phaser.Scene {
       CONSUMABLE_SPEC.hardworking_potion.get);
   }
 
+  // Poison Flask, drunk: the player's own `poison` row (_applyCondition —
+  // the lesson, the row and the announcement), the flask spent either way;
+  // a poison already running is refreshed to its full minute.
+  drinkPoisonFlask() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'poison_flask' || (sel.count ?? 0) <= 0) return false;
+    this._applyCondition('poison');
+    return this._finishConsumable(`You drink the Poison Flask`,
+      CONSUMABLE_SPEC.poison_flask.get);
+  }
+
   drinkImmortalPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'immortal_potion' || (sel.count ?? 0) <= 0) return false;

@@ -4269,6 +4269,9 @@ Render.drawObjects = function drawObjects(scene) {
     // the body's own colour so it reads as flame, not a sheen. Ice still
     // wins — a frozen body shows the ice.
     const afire = !frozen && Combat.burning(c) && Conditions.conditionTintOn('burning', performance.now());
+    // POISONED (Combat.poisoned): the `poison` row's steady tint, under the
+    // ice and the flame — the same colour the player's body holds.
+    const poisoned = !frozen && !afire && Combat.poisoned(c, performance.now());
     // A STATUS JUST LANDED (Combat.flagStatus — a sleep, a charm, the frost,
     // a fear, the madness, a fresh burn, a thrown potion's buff): the body
     // flicks the status's own colour for STATUS_FLASH_MS, over everything
@@ -4283,7 +4286,7 @@ Render.drawObjects = function drawObjects(scene) {
       c._statusPop = null;
       if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
     }
-    s.setTint(flick != null ? flick : frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    s.setTint(flick != null ? flick : frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
