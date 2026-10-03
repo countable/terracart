@@ -41,6 +41,12 @@
     const e=entry([layer('transportation',[line('primary',[[0,140],[280,140]]),line('footway',[[140,0],[140,280]])])]);
     const r=run(e);assert.eq(at(r,140,140),2);assert.eq(at(r,70,140),3);assert.eq(at(r,140,42),1);
   });
+  test('gameplay tiers: walking paths buffer three cells, including across tile edges, without overriding exclusions',()=>{
+    const e=entry([layer('transportation',[line('footway',[[0,140],[280,140]]),line('footway',[[-14,0],[-14,70]])]),
+      layer('building',[polygon('building',[rect(70,140,105,168)])])]);
+    const r=run(e);assert.eq(at(r,140,154),1);assert.eq(at(r,140,161),0);
+    assert.eq(at(r,3,35),1);assert.eq(at(r,84,154),4);
+  });
   test('gameplay tiers: parallel path promotes its local road stretch only',()=>{
     const e=entry([layer('transportation',[line('primary',[[0,140],[280,140]]),line('footway',[[0,126],[98,126]])])]);
     const r=run(e);assert.eq(at(r,35,140),2);assert.eq(at(r,224,140),3);assert.eq(at(r,35,126),2);
