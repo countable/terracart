@@ -26,7 +26,7 @@
     "finiteFindOwnership": "one_anchor_global_plan_not_per_tile_or_per_visit",
     "failedFindPlacement": "try_deterministic_alternatives_inside_zone_then_report_shortfall",
     "hazards": "do_not_count_as_interactables",
-    "tarGuards": "none",
+    "tarGuards": "declared_finite_guards_only",
     "runtimeStatus": "src/zone_variants.js_and_src/zone_dressing.js",
     "coverage": {
       "operation": "union",
@@ -4318,58 +4318,72 @@
               0,
               0
             ],
-            "material": "rubble"
+            "material": "clay_pot"
           },
           {
             "at": [
               1,
               0
             ],
-            "material": "rubble"
+            "material": "clay_pot"
           },
           {
             "at": [
               0,
               1
             ],
-            "material": "rubble"
+            "material": "clay_pot"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "rubble"
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              4,
+              3
+            ],
+            "material": "clay_pot"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "clay_pot"
           },
           {
             "at": [
               4,
               4
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
               5,
               4
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
-              5,
-              5
+              4,
+              0
             ],
-            "material": "stone"
+            "material": "rubble"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.19444444444444445,
+        "nominalDensity": 0.25,
         "materialDensity": {
-          "rubble": 0.1111111111111111,
-          "stone": 0.08333333333333333
+          "clay_pot": 0.2222222222222222,
+          "rubble": 0.027777777777777776
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -4377,11 +4391,11 @@
             3,
             3
           ],
-          "role": "clearing_between_masonry_groups"
+          "role": "clearing_between_pottery_groups"
         }
       },
       "poi": {
-        "id": "stone_square",
+        "id": "pottery_square",
         "origin": "settled_poi",
         "slots": [
           {
@@ -4396,21 +4410,21 @@
               1,
               -1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
               -1,
               1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           }
         ],
         "relocation": {
@@ -4433,21 +4447,21 @@
                 1,
                 -1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
                 1,
                 1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
                 -1,
                 1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             }
           ],
           "origin": "settled_poi",
@@ -4486,13 +4500,7 @@
         "count": 1
       },
       "connection": {
-        "shape": "offset_row",
-        "material": "rubble",
-        "spacingCells": 3,
-        "from": "poi",
-        "to": "finds",
-        "withinCoverageBudget": true,
-        "crossMajorRoad": false
+        "shape": "none"
       },
       "guards": {
         "mode": "guard_find",
@@ -4510,18 +4518,8 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a club goblin.",
+      "atmosphere": "Clusters of old clay pots cover the ruined yard, with only scattered masonry left among them. A club goblin watches over a platinum-bearing stone.",
       "attracts": {},
-      "decorations": [
-        {
-          "material": "broken_column",
-          "count": 1
-        },
-        {
-          "material": "fallen_column",
-          "count": 1
-        }
-      ],
       "materialLooks": {
         "rubble": "zone_rock_broken_masonry"
       }
@@ -5579,9 +5577,35 @@
         "crossMajorRoad": false
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_poi",
+        "kind": "bat",
+        "count": 5,
+        "offsetCells": [
+          [
+            -2,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            -1,
+            -2
+          ],
+          [
+            1,
+            -2
+          ],
+          [
+            0,
+            2
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush.",
+      "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush. Bats roost around the depot and swoop toward visitors.",
       "attracts": {},
       "decorations": [
         {
@@ -5881,9 +5905,22 @@
         "crossMajorRoad": false
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_find",
+        "kind": "split_slime",
+        "kinds": [
+          "split_slime"
+        ],
+        "count": 1,
+        "offsetCells": [
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent.",
+      "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
       "attracts": {},
       "materialLooks": {
         "rubble": "zone_rock_seep"
@@ -6078,9 +6115,23 @@
         "endpoint": "center_of_plot_2_4"
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_find",
+        "kind": "goblin",
+        "count": 2,
+        "offsetCells": [
+          [
+            -2,
+            0
+          ],
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Copper-rock rows and rubble columns enclose twenty-five plots. The POI sits in the central room; a crimson-bearing rock marks the far end of its lane.",
+      "atmosphere": "Copper-rock rows and rubble columns enclose twenty-five plots. The POI sits in the central room; a crimson-bearing rock marks the far end of its lane. Two goblins watch over the valuable ore.",
       "attracts": {},
       "decorations": [
         {
@@ -7072,7 +7123,6 @@
       ],
       "materialFrames": {
         "crystal": [
-          58,
           59
         ]
       }
@@ -7137,7 +7187,6 @@
       ],
       "materialFrames": {
         "crystal": [
-          58,
           59
         ],
         "stone": [
@@ -7206,7 +7255,6 @@
       ],
       "materialFrames": {
         "crystal": [
-          58,
           59
         ],
         "stone": [
@@ -7280,7 +7328,6 @@
       ],
       "materialFrames": {
         "crystal": [
-          58,
           59
         ]
       },

@@ -26,7 +26,7 @@
       const graves = ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone');
       assert.truthy(graves.every(o => [4, 5].includes(o._zoneObjectFrame)));
     }
-    for (const id of ['broken_masonry', 'quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef', 'pirate_cove']) {
+    for (const id of ['quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef', 'pirate_cove']) {
       const c = context(id), out = ZoneDressing.dress(c), props = out.objects.filter(o => o.kind === 'zone_prop');
       assert.gt(props.length, 0, id);
       assert.lte(props.length, 2, 'finite site accents');
@@ -36,6 +36,37 @@
       const blocked = context(id); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
       assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o.kind === 'zone_prop').length, 0, 'ordinary gate');
     }
+  });
+  test('Broken Masonry: mostly smashable clay pots, sparse rubble and one guarded ore find', () => {
+    const row=ZoneVariants.byId('broken_masonry'),out=ZoneDressing.dress(context(row.id));
+    const background=all(out).filter(o=>o.zoneLayer==='background');
+    const pots=background.filter(o=>o.kind==='chest' && o.barrelStyle==='clay_pot');
+    assert.inRange(pots.length/background.length,.85,.95,'pots dominate the actual layout');
+    assert.truthy(background.every(o=>o.barrelStyle==='clay_pot' || o.crop==='rockfruit'));
+    assert.falsy(out.objects.some(o=>o.kind==='zone_prop'),'no decorative columns remain');
+    assert.eq(out.objects.filter(o=>o.zoneLayer==='poi' && o.barrelStyle==='clay_pot').length,4);
+    assert.eq(out.guards.length,1);assert.eq(out.guards[0].kind,'club_goblin');
+    assert.eq(finds(out).length,1);assert.eq(finds(out)[0].yieldTier,5);
+    for(const o of pots)assert.eq(barrelProfile(o).texKey,'clay_pot','pots retain normal smash rewards');
+  });
+  test('zone guard additions: finite enemies respect ownership, sensitive ground and distinct seats', () => {
+    for(const [id,kind,count] of [['broken_depot','bat',5],['seep','split_slime',1],['work_yard','goblin',2]]) {
+      const out=ZoneDressing.dress(context(id));
+      assert.eq(out.guards.length,count);assert.truthy(out.guards.every(o=>o.kind===kind));
+      assert.eq(new Set(all(out).map(o=>`${o._ix},${o._iy}`)).size,all(out).length);
+      const ctx=context(id),dress=ZoneDressing.dress(ctx);
+      const entry={grid:ctx.grid,baseGrid:ctx.grid.slice(),cellsPerEdge:ctx.N,genObjects:[],objects:[],wildplants:[],zoneDress:dress};
+      const scene=Object.assign(new SceneCreatures(),{tileEdgeM:ctx.tileEdgeM,cellM:WorldGen.CELL_M,save:{caught:[]},
+        _pestFreeZone:()=>null,_starterTrailAnchor:()=>null,_provisionStarterHome(){},_carveStarterPond(){}});
+      const testMode=window.__TEST_MODE;window.__TEST_MODE=false;
+      try {scene.spawnInTile(entry,0,0);} finally {window.__TEST_MODE=testMode;}
+      assert.eq(entry.creatures.filter(o=>o.zoneVariant===id && o.kind===kind).length,count,'the live surface roster accepts every authored guard');
+      const observer=context(id);observer.field.anchors[0].owned=false;
+      assert.eq(ZoneDressing.dress(observer).guards.length,0,'only source owner creates the group');
+      const blocked=context(id);blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
+      assert.eq(ZoneDressing.dress(blocked).guards.length,0,'enemy gate remains authoritative');
+    }
+    assert.eq(EnemyRoster.get('split_slime').ability.type,'split');
   });
   test('Ordered Graves: matching dense graves, more grass, regular pots and no rocks or bird attraction', () => {
     const row = ZoneVariants.byId('ordered_graves'), out = ZoneDressing.dress(context(row.id));
@@ -196,8 +227,8 @@
   test('churchyard containers: finite regular clay pots stand beside their POI', () => {
     for (const row of ZoneVariants.forKind('stones')) {
       const out = ZoneDressing.dress(context(row.id));
-      const pots = out.objects.filter(o => o.barrel && o.barrelStyle === 'clay_pot');
-      assert.eq(pots.length, row.id === 'ordered_graves' ? 2 : 1, row.id + ': finite POI pots');
+      const pots = out.objects.filter(o => o.zoneLayer === 'poi' && o.barrel && o.barrelStyle === 'clay_pot');
+      assert.eq(pots.length, row.id === 'ordered_graves' ? 2 : row.id === 'broken_masonry' ? 4 : 1, row.id + ': finite POI pots');
       assert.eq(pots[0].zoneLayer, 'poi');
       assert.eq(barrelProfile(pots[0]).texKey, 'clay_pot');
       assert.eq(finds(out).length, row.finds.count, 'the site retains its finite finds');
@@ -617,13 +648,16 @@
     assert.eq(kinds('ordered_graves'), 'skeleton_soldier');
     assert.eq(kinds('overgrown_graves'), 'spider');
     assert.eq(kinds('broken_masonry'), 'club_goblin');
+    assert.eq(kinds('broken_depot'), 'bat,bat,bat,bat,bat');
+    assert.eq(kinds('seep'), 'split_slime');
+    assert.eq(kinds('work_yard'), 'goblin,goblin');
     assert.eq(kinds('mystic_reef'), 'giant_crab');
     assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
     const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
     assert.truthy(plant.stationary);
     const ghost = ZoneDressing.dress(context('silent_circle')).guards;
     assert.eq(ghost.length, 1); assert.eq(ghost[0].kind, 'ghost'); assert.eq(ghost[0].proximityCells, 4);
-    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'shellwater_strand', 'seep', 'black_ring']) assert.eq(kinds(id), '');
+    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'shellwater_strand', 'black_ring']) assert.eq(kinds(id), '');
     for (const id of ['ordered_graves', 'overgrown_graves']) {
       assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
     }

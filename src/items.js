@@ -85,20 +85,9 @@ const CROP_SPRITE = {
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
   mushroom: { sheet: 'props', custom: true, frame: 35, scale: 0.9792, caveFrames: [127, 128] },
-  // Shell — the beach pickup, and the one crop whose LOOK varies per cell.
-  // Shell.png is 48×64 = 3 cols × 4 rows of 16×16, and only the TOP ROW is
-  // shell art: three cowries (pink, gold, blue). Row 1 repeats those three
-  // with a white keyline (a highlight state, not a fourth shell), frames 6
-  // and 9 are flat one-colour silhouettes (mask rows) and 7, 8, 10 and 11 are
-  // blank — the same layout Gemstones.png uses (see MINERAL_ICON_SHEET below).
-  // So `frames` LISTS the three frames that carry a shell rather than counting
-  // them: a count is a claim about the sheet that the sheet does not make.
-  // This said `variants: 12` until Sep 2026 and the renderer drew
-  // `hash % 12`, so most shells on a beach picked a blank frame — a pickup
-  // you could tap but not see, which is what "no shells on beaches" was.
-  // tools/sprite_audit.js decodes the real PNG and fails if a declared frame
-  // is transparent (or a flat mask row), so a re-cut sheet can't do it again.
-  shell: { sheet: 'shell_sheet', custom: true, frames: [0, 1, 2] },
+  // Shell keeps its original pink cowrie on every surface. The unused
+  // colour variants and duplicate frames are cleared without changing sheet geometry.
+  shell: { sheet: 'shell_sheet', custom: true, frames: [0] },
   // Torch — the consumable lying on a level-1 cave floor (worldgen.js
   // caveFloorTorches), drawn with its own inventory icon; picking it is a
   // Torch floor pickup uses the shared crop renderer.
@@ -483,9 +472,8 @@ const MINERAL_ICON_SHEET = {
     [c.id, { sheet: 'icon_cooked', frame: i }])),
   rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
-  // Beach pickup — Icons/Fish/Sea/Creatures/Shell.png carries three shells
-  // on its top row (see CROP_SPRITE.shell); frame 0 is the pink cowrie, the
-  // canonical one used for the inventory icon.
+  // Beach pickup — the original pink cowrie at frame 0 is shared by
+  // the map, inventory, shops and pickup icons.
   shell:        { sheet: 'shell_sheet', frame: 0 },
   // Wild flowers ('flowers' produce) — props.png (22 cols × 12 rows of 16×16).
   // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no

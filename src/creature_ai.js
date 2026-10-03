@@ -76,21 +76,10 @@ const STRUCK_REACTION_MS = 8000;
 // kinds that have none, the slime and every cave monster among them.
 const FLEE_STRIDE_MUL = 2;
 const FLEE_BEAT_MUL = 0.5;
-// A rare SHINY animal (isShiny, SHINY_RATE.animal) moves this much faster than
-// its plain kind — its wander beat and its bolt from the net alike. One number
-// both read. It was 2×, which stacked on the butterfly's own quickness into a
-// blur that no net under tier 3 could hold.
-const SHINY_SPEED_MUL = 1.5;
-// THE SPEED CEILING (owner, Sep 2026): nothing wild — animal or foe, shiny
-// included — ever moves faster than this, m/s, BY ITS BASE NUMBERS. Not a cap
-// applied on top (the owner's call: "rebalance the base speed, no max
-// mechanic"): every gait and bolt row (SpriteLayout.CREATURE_BEHAVIOUR), every
-// roster speed (enemy_roster.js), the crow tick's glides (CROW_FLIGHT_MPS,
-// CROW_DEPART_HOP) and the struck / routed flee are tuned so that
-// pace × SHINY_SPEED_MUL stays under it, and test/node/speed_ceiling.test.js
-// measures every one of them against it. Retune the row, never add a cap.
-// (Before this, a deer bolted at 37 m/s, a rabbit at 33, and the crow's
-// panic dash ran at 40.)
+// All shiny creatures move 1.5x faster; Combat owns the shared multiplier.
+const SHINY_SPEED_MUL = Combat.SHINY_SPEED_MUL;
+// Ordinary wild movement targets 10 m/s. The universal shiny multiplier
+// applies afterwards, including to fast bats and crow flights; it is not capped.
 const WILD_SPEED_CEILING_MPS = 10;
 // The spread on a COMMITTED approach, in radians: tight enough to read as a
 // line rather than a meander. The cave monsters stalk on it (a flyer doubles
@@ -768,7 +757,7 @@ function fireWardTrip(scene, c) {
 // straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
 // Powder) it hovers where it is. Neither touches.
 function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
-  pace *= PotionEffects.speedMul(c);
+  pace *= (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c));
   // A finite memorial guard is visible but dormant until approached. Its
   // lifetime begins at awakening, not while the player passes far away.
   if (c.proximityCells && !c._awakened) {
@@ -1063,7 +1052,7 @@ function enemyFireEscapeTick(scene, c, row, now, dt) {
   if (!point) return true;
   const distance = Math.hypot(point.x - c.x, point.y - c.y);
   const speed = Math.min(SpriteLayout.creatureMaxMps(c.kind), foeChaseMps(c, scene.cellM) / FLEE_BEAT_MUL);
-  const step = Math.min(distance, speed * dt);
+  const step = Math.min(distance, speed * dt * Combat.shinySpeedMul(c));
   if (distance > 0 && !enemySweep(scene, c, row, c.x + (point.x - c.x) / distance * step,
       c.y + (point.y - c.y) / distance * step, now, true)) c._fireEscapeRoute = null;
   else if (step >= distance) c._fireEscapeRoute.shift();
@@ -1525,7 +1514,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     if (!sees && !routed) {
       const distance = Math.hypot(c.x - c._territoryX, c.y - c._territoryY);
       if (distance > scene.cellM * 0.2) {
-        const step = Math.min(distance, m.speedMetersPerSecond * dt * PotionEffects.speedMul(c));
+        const step = Math.min(distance, m.speedMetersPerSecond * dt * (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c)));
         enemySweep(scene, c, row, c.x + (c._territoryX - c.x) / distance * step,
           c.y + (c._territoryY - c.y) / distance * step, now);
       }
@@ -1602,7 +1591,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     speed = m.chargeSpeedMetersPerSecond || speed;
   }
   if (c._attackWindupUntil != null && !routed) return;
-  const pace = speed * dt * PotionEffects.speedMul(c);
+  const pace = speed * dt * (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c));
   let step = Math.min(maxDistance, pace);
   // Foes keep a little room between them (FOE_SPACING_CELLS): the spacing
   // push joins the approach inside the same per-frame budget, so a crowd
@@ -1658,9 +1647,9 @@ function enemyBatMove(scene, c, row, now, px, py) {
   const tx = px + Math.cos(a) * radius * scene.cellM;
   const ty = py + Math.sin(a) * radius * scene.cellM;
   const distance = Math.hypot(tx - c.x, ty - c.y);
-  const duration = (m.flightSeconds[0] + Math.random() * (m.flightSeconds[1] - m.flightSeconds[0])) / PotionEffects.speedMul(c);
+  const duration = (m.flightSeconds[0] + Math.random() * (m.flightSeconds[1] - m.flightSeconds[0])) / (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c));
   const leg = Math.min(distance, m.maxLegCells * scene.cellM,
-    m.speedMetersPerSecond * PotionEffects.speedMul(c) * duration / 2);
+    m.speedMetersPerSecond * (PotionEffects.speedMul(c) * Combat.shinySpeedMul(c)) * duration / 2);
   const scale = distance > 0 ? leg / distance : 0;
   c._batFlight = { start: now, duration: duration * 1000,
     x: c.x, y: c.y, tx: c.x + (tx - c.x) * scale, ty: c.y + (ty - c.y) * scale };

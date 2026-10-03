@@ -166,7 +166,7 @@ const rules = {
   hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
   thorny: '50% bramble coverage across three rows of both verges; shrine enclosures stay full. Selected streets enclose a moss cairn in brambles when the whole ring fits. Brambles burn and cost 1 energy per second while crossed.',
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
-  orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
+  orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half fruit trees (rare Worldpeach among apples) and half mature deciduous maples.`,
   snare: `One T${SV.SNARE_CHEST_TIER} cave-loot chest at the street midpoint, surrounded by up to ${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps on eligible verge ground. At least ${SV.SNARE_MIN_TRAPS} traps must fit.`,
   golden: `Dense 1-coin pickups across all three rows of both verges; samples every ${SV.GOLDEN_STEP_M} m fill eligible cells. Road, lamp and occupied cells stay clear. Each coin is collectible once.`,
   pilgrim: 'One waystone per street per tile, at an eligible owned line end.',
@@ -176,7 +176,7 @@ const rules = {
   toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
 };
 for (const row of rows) row.placement = rules[row.id] || row.placement;
-process.stdout.write(JSON.stringify({ cellM, affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
+process.stdout.write(JSON.stringify({ cellM, terrainVergeCells: Number(read('street_variants').match(/const TERRAIN_VERGE_CELLS = ([\d.]+)/)[1]), affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
   maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,
   plainShare: Object.fromEntries(['minor', 'major'].map((size) =>
     [size, 1 - (size === 'minor' ? SV.MINOR_VARIANT_SHARE : rows.filter((r) => r.size === size).reduce((sum, r) => sum + r.share, 0))])) }, null, 2) + '\n');

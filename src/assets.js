@@ -227,11 +227,8 @@ const ASSETS = {
   // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
   // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).
   shrine:      { kind: 'spritesheet', path: 'assets/Objects/Approved/shrine.png', frameWidth: 80, frameHeight: 104 },
-  // Shell collectible — 48×64 = 3 cols × 4 rows of 16×16. Only the top row is
-  // shell art (three cowries); the rest is keyline duplicates, mask rows and
-  // blanks, so WHICH frames may be drawn is CROP_SPRITE.shell's `frames` list
-  // and nothing may roll a frame index over the sheet's size. Spawns as
-  // wildplant debris on sand cells; the frame is hashed off the spawn cell.
+  // Shell collectible keeps its original 48×64 sheet geometry, with only
+  // frame 0 occupied. Unused colour duplicates were cleared in place.
   shell_sheet: { kind: 'spritesheet', path: 'assets/Icons/Fish/Sea/Creatures/Shell.png', frameWidth: 16, frameHeight: 16 },
   // The Torch consumable's own 16×16 icon, drawn in the world where one lies
   // on a cave floor to be picked up (worldgen.js caveFloorTorches →

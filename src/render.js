@@ -3988,7 +3988,7 @@ Render.drawObjects = function drawObjects(scene) {
     const ov = wildplantSprite(p);
     if (ov && ov.custom) {
       // Custom-sheet wildplants. Some are one frame (longgrass, the flowers),
-      // others vary per cell — the shell's three cowries, the mushroom's two
+      // others vary per cell — the mushroom's two
       // cave caps — so the same world cell always draws the same art while the
       // field reads as varied. WHICH frame is items.js' call, not this pass's:
       // wildplantFrame owns both the hash and the crop's declared frame list,

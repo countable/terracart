@@ -906,6 +906,10 @@ const INTERACTABLES = {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
       const row = Shrines.kindForObject(o);
+      if (row.reward === 'coins') {
+        scene._coinBurstInteract(sx, sy, o);
+        return true;
+      }
       return Macros.dailyVisit(ctx, o, {
         row,
         grant: row.reward ? null : () => {

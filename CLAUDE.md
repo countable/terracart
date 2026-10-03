@@ -166,11 +166,15 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
   hazard joins that map, never a new movement gate. Top speeds are BASE
-  numbers: no wild kind's gait, bolt, glide or flee — shiny included — exceeds
+  numbers: ordinary wild gait, bolt, glide and flee speeds stay within
   `WILD_SPEED_CEILING_MPS` (creature_ai.js; `test/node/speed_ceiling.test.js`
   measures every lane). Retune the row, never add a cap; a hurry (the rout,
   a struck animal) never stacks on a bolt. The hunted crow's retreat hop
-  (`CROW_DEPART_HOP`) is the one declared exception, tied to the hunt's odds.
+  (`CROW_DEPART_HOP`) is the base-speed exception, tied to the hunt's odds.
+  Every shiny creature moves at exactly 1.5 times its ordinary speed, even
+  above that ceiling; apply the multiplier after the base pace, never cap it.
+  Shiny HP and attack are doubled through `Combat.powerMul`; raised pets
+  do not stack their shiny and adult strength bonuses.
   A RETREAT among houses
   (a bolt, Home's rout, wandering off, a pet's shove) runs the ROADSIDE:
   `roadsideRunAngle` (creature_ai.js) bends the away angle along the nearest

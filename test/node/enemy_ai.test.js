@@ -142,6 +142,42 @@
       }
     }
   });
+  test('shiny movement: walking and raven/bat flight are exactly 1.5x', () => {
+    const originalRandom = Math.random;
+    try {
+      Math.random = () => 0.5;
+      const normal = foe('zombie'), gold = { ...normal, shiny: true };
+      for (const c of [normal, gold]) rosterEnemyMove(scene(), c, EnemyRoster.get(c.kind), 10000, 40, 0, false, false, null, 0.1);
+      assert.inRange(gold.x / normal.x, 1.5 - 1e-9, 1.5 + 1e-9);
+      for (const kind of ['raven', 'bat', 'vampire_bat']) {
+        const plain = foe(kind), shiny = { ...plain, shiny: true };
+        for (const c of [plain, shiny]) enemyBatMove(scene(), c, EnemyRoster.get(kind), 10000, 40, 0);
+        assert.inRange(plain._batFlight.duration / shiny._batFlight.duration, 1.5 - 1e-9, 1.5 + 1e-9);
+        assert.inRange(Math.hypot(shiny._batFlight.tx, shiny._batFlight.ty) / Math.hypot(plain._batFlight.tx, plain._batFlight.ty), 1 - 1e-9, 1 + 1e-9);
+      }
+    } finally { Math.random = originalRandom; }
+  });
+  test('shiny stats: all fauna and raven double health and attack, only eligible foes gain elite rewards', () => {
+    for (const kind of [...Object.keys(Combat.FAUNA_HP), 'raven']) {
+      const plain = { kind }, shiny = { kind, shiny: true };
+      assert.eq(Combat.maxHp(shiny), 2 * Combat.maxHp(plain), kind);
+      assert.eq(Combat.petBlow(shiny), 2 * Combat.petBlow(plain), kind);
+      assert.eq(Combat.shinySpeedMul(shiny), 1.5);
+      assert.eq(Combat.shinySpeedMul(plain), 1);
+    }
+    assert.falsy(Combat.isElite({ kind: 'raven', shiny: true }));
+  });
+  test('deep ghosts: enlarged white and pink ghosts double power once; shiny is a separate bonus', () => {
+    for (const kind of ['ghost', 'pink_ghost']) {
+      const plain = { kind }, deep = { kind, _artScale: EnemyRoster.ghostProfile(6).sizeMultiplier };
+      assert.eq(Combat.maxHp(deep), 2 * Combat.maxHp(plain));
+      assert.eq(Combat.powerMul(deep), 2);
+      assert.eq(Combat.powerMul({ ...deep, shiny: true }), 4);
+      assert.eq(Combat.ghostSizeMul({ kind, _artScale: 1 }), 1);
+      assert.eq(Combat.shinySpeedMul(deep), 1, 'size alone does not quicken ghosts');
+    }
+    assert.eq(Combat.ghostSizeMul({ kind: 'brute', _artScale: 1.5 }), 1);
+  });
   test('enemy AI: scuttle has a real pause; anchored plant holds firing distance', () => {
     const s = scene(), c = foe('spider'), row = EnemyRoster.get('spider');
     rosterEnemyMove(s, c, row, 10000, 20, 0, false, false, null, 0.1);

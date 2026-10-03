@@ -12,12 +12,12 @@ function seeded(seed) {
   };
 }
 
-test('elite: only eligible rows double HP and damage; armour remains the same', () => {
+test('elite: every shiny row doubles HP and damage; armour remains the same', () => {
   assert.eq(Combat.ELITE_MUL, 2);
   for (const row of EnemyRoster.ROWS) {
     const plain = { kind: row.id, shiny: false };
     const elite = { kind: row.id, shiny: true };
-    const multiplier = row.eliteEligible ? 2 : 1;
+    const multiplier = 2;
     assert.eq(Combat.isElite(elite), row.eliteEligible);
     assert.eq(Combat.maxHp(plain), row.hp);
     assert.eq(Combat.maxHp(elite), row.hp * multiplier);
