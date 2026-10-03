@@ -8409,12 +8409,15 @@ class MapScene extends Phaser.Scene {
 
   presentWreckRestoreModal(sx, sy, house) {
     // WHAT THE WRECK BECOMES IS THE PLAYER'S PICK: the cards on offer are
-    // Houses.buildOptions (one owning table, unlocked by how many wrecks
-    // already stand), each named the way its sign will be (Shops.roleLabel —
-    // the Shop card promises the line the next shop sells, Shops.nextLine).
+    // Houses.offerCards — one more card with every wreck that stands, cut
+    // from the catalogue (Houses.buildOptions, one owning table unlocked by
+    // how many wrecks already stand): the House always, up to three NEW
+    // cards, the rest duplicates, each pool a window that slides along with
+    // every restore. Each card is named the way its sign will be
+    // (Shops.roleLabel — a Shop card for its line) and wears its rank.
     // The single-modal guard keeps the count stable while the modal is open;
-    // restoreAs re-checks the offer at accept anyway.
-    const options = Houses.buildOptions(this.save, house);
+    // restoreAs re-checks the catalogue at accept anyway.
+    const options = Houses.offerCards(this.save, house);
     const order = Houses.restoredCount(this.save);
     // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
     // shop's stones per tier, the turret's flat five): the cost line shows
@@ -8436,7 +8439,7 @@ class MapScene extends Phaser.Scene {
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
       return this.worldIconHTML(texKey, 36, frame);
     };
-    const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
+    const tierOf = (row) => row.tier || 0;
     // Each card is the building's picture, its name, a NEW pill when the
     // player has nothing like it yet (Houses.isNewPick: no such building, or
     // none at this rank) and (when ranked: a shop, a smithy, a trader) its
@@ -8447,7 +8450,7 @@ class MapScene extends Phaser.Scene {
       return {
         key: row.key,
         label: labelFor(row, null)
-          + (Houses.isNewPick(this.save, row, order) ? newBadgeHTML() : '')
+          + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
           + (tierOf(row) ? `<div style="margin-top:1px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
         iconHTML: iconFor(row),
         suggested: !!row.suggested?.(this.save),

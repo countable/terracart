@@ -673,17 +673,27 @@ ECONOMY (buying & selling)
    the Blacksmith card is SUGGESTED while the lane has no smithy, since the
    wooden tools come from nowhere else. `Houses.restoreAs` freezes the pick
    and is the ledger's one writer (CLAUDE.md).
-   A SHOP is a THEMED market (seed, supply, potion, ore, relic), also the
-   player's pick (`shops.js` `marketOffers`); a repeated line comes at the
-   next rank. The PET SHOP and the BOOK SHOP are one-offs (`shops.js`
-   `SOLO_LINES`): built once per save, outside that cycle. THE MAGIC HAMMER (`houses.js` `HAMMER_ID`): spent on a restore,
+   THE OFFER (`Houses.offerCards`): restored + 1 slots — the House always
+   (and the wizard's tower while offered), then up to `NEW_SLOTS` (3) cards
+   the player has nothing like yet (`Houses.isNewPick`, a NEW pill), then
+   buildable duplicates; each pool a window over the catalogue
+   (`Houses.buildOptions`) that slides one card along per restore. ANY
+   NUMBER of a card may stand. A RANKED card (smithy, shop, trader) is one
+   per rank the ladder has unlocked (`Shops.tierAt`: T2 from the tenth
+   rebuild, a rank every `TIER_EVERY`), stamped in `save.shopTiers`.
+   A SHOP is a THEMED market, one LINE at one rank, from `Shops.LINE_RULES`:
+   seed and supply to T3, the magic shop one per tier to T7, relic to T7;
+   there is no ore shop. The PET SHOP and the BOOK SHOP are one-offs
+   (`shops.js` `SOLO_LINES`): built once per save, outside that table.
+   THE MAGIC HAMMER (`houses.js` `HAMMER_ID`): spent on a restore,
    the building comes up SHINY and sells at a standing discount for good
    (`Houses.priceMul` — the one standing discount a building carries); a
    shiny turret fights harder instead. A plain house takes no hammer
    (`Houses.hammerTakes`).
-   Smithies and traders carry a RANK too (`shops.js` `smithTier`,
-   `traderTier`): one smithy per rank, each forging near its own rank; a
-   trader's barter leans to goods of its rank (`Shops.tierAffinity`). Every
+   Smithies and traders read their RANK off the same stamp (`shops.js`
+   `smithTier`, `traderTier`; older houses keep the derivations that raised
+   them): a smithy forges near its own rank; a trader's barter leans to
+   goods of its rank (`Shops.tierAffinity`). Every
    ranked door wears its rarity badge (`Shops.shopTier`). A TURRET is a lone
    castle tower on a house lot that fights on the castle turret lane. PLAIN
    houses run deliveries. All of these BUY/trade — selling is home-only.

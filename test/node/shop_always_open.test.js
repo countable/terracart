@@ -57,7 +57,7 @@ test('restored starter smith: keeps its pair and advances to the regular forge',
   s.isStarterBlacksmith = h => Houses.isStarterBlacksmith(s.save, h);
   s.houseShopRole = h => Houses.houseShopRole(s.save, h);
   Houses.restoreAs(s.save, { ...HOUSE, id: 'first-home' }, 'plain');
-  Houses.restoreAs(s.save, HOUSE, 'blacksmith');
+  Houses.restoreAs(s.save, HOUSE, 'blacksmith:1');
   const offers = [];
   s.presentBlacksmithOffer = (sx, sy, offer, record, house, opts) => offers.push({ offer, opts });
 

@@ -7,7 +7,7 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   assert.truthy(start > 0, 'the modal exists');
   const src = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
-  assert.truthy(/const options = Houses\.buildOptions\(this\.save, house\);/.test(src), 'the cards are the table');
+  assert.truthy(/const options = Houses\.offerCards\(this\.save, house\);/.test(src), 'the cards are the offer cut from the table');
   assert.truthy(/choices,/.test(src) && /onAccept: \(key\) =>/.test(src), 'the pick rides the offer modal\'s choice row');
   assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(src), 'the ledger is written by restoreAs');
   assert.truthy(src.indexOf('Houses.restoreAs(') < src.indexOf('Inventory.remove('), 'a refused pick is never charged');
