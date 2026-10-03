@@ -1395,6 +1395,21 @@ Render.rampartPiece = function (scene, groundY, rank = 1) {
   return sprite;
 };
 
+// Camouflage uses the same art and scale as its neighbouring wildplants.
+Render.drawCreatureDisguise = function (sprite, creature, sx, sy, now) {
+  if (!Combat.isDisguised(creature)) return false;
+  const disguise = EnemyRoster.get(creature.kind).disguise;
+  const look = wildplantSprite({ crop: disguise.crop, _plantArt: disguise.look });
+  sprite.anims?.stop();
+  sprite.setTexture(look.sheet, look.frame || 0);
+  sprite.setCrop();
+  sprite.setOrigin(0.5, 0.5).setScale(look.scale || 2).setPosition(Math.round(sx), Math.round(sy));
+  const phase = (now + strHash31(creature.id || '')) / disguise.wigglePeriodMs * Math.PI * 2;
+  sprite.setRotation(Math.sin(phase) * disguise.wiggleRadians).setFlipX(false).setTint(0xffffff).setAlpha(1);
+  Render.setShine(sprite, false, creature.id);
+  return true;
+};
+
 // A reusable crop animation needs no additional frames in the source sheet.
 Render.applyEmergence = function (sprite, creature, now) {
   sprite.setCrop();
@@ -4188,6 +4203,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { c, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    if (Render.drawCreatureDisguise(s, c, sx, sy, performance.now())) return;
     // ONE BRANCH FOR EVERY CREATURE. This was a seven-way if-else on the kind
     // (cow / cat|dog / deer / rabbit / crow / butterfly / monster / slime)
     // whose branches differed in nothing but the sheet, how the frames are

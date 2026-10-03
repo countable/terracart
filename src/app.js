@@ -3267,9 +3267,19 @@ class MapScene extends Phaser.Scene {
     const pinned = Conditions.active(this.save, 'pinned');
     const slow = this._walkHazardSlow ? this._walkHazardSlow() : this._slowHere;
     // An Ember Altar's boon (src/shrines.js 'surefoot') frees the feet like the dragon.
-    const capMS = (!pinned && slow && !this._dragonActive
+    let capMS = (!pinned && slow && !this._dragonActive
       && !Shrines.leverActive(this.save, 'surefoot')) ? SLOW_BODY_M_S : null;
-    return { pinned: pinned || Conditions.active(this.save, 'jellyfish_stun'), capMS };
+    for (const c of this._foeBodies || []) {
+      const contact = EnemyRoster.get(c.kind)?.contactSlow;
+      if (!contact || !Combat.isEnemy(c) || (this.save.caught || []).includes(c.id) || !this.playerM || !this.startWorldM) continue;
+      if (Math.hypot(c.x - this.startWorldM.x - this.playerM.x, c.y - this.startWorldM.y - this.playerM.y)
+          <= contact.radiusCells * this.cellM) {
+        capMS = Math.min(capMS ?? Infinity, WALK_M_S * contact.speedMul);
+      }
+    }
+    const held = pinned || Conditions.active(this.save, 'jellyfish_stun');
+    return { pinned: held, capMS, slowed: !held && capMS > 0 };
+
   }
 
   _tickTraps(dt) {
@@ -4227,7 +4237,13 @@ class MapScene extends Phaser.Scene {
       // Held still, but sharp ground continues hurting.
       const x = this.startWorldM.x + this.playerM.x, y = this.startWorldM.y + this.playerM.y;
       this._tickWalkHazards(dt, x, y, x, y);
+    } else if (Conditions.active(this.save, 'confused')) {
+      const x = this.startWorldM.x + this.playerM.x, y = this.startWorldM.y + this.playerM.y;
+      this._confusedStep(dt, bodyHold.capMS);
+      this._tickWalkHazards(dt, x, y, this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y);
     } else {
+      if (this._confusedLoop) { this._confusedLoop = null; this._confusedRecover = true; }
+      if ((stick && (stick.x || stick.y)) || vx || vy) this._confusedRecover = false;
       // Stick → walk yourself off the GPS (costs stamina, boots-scaled).
       if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
       // Stick idle for a few seconds → walk back to where you really are.
@@ -5038,6 +5054,10 @@ class MapScene extends Phaser.Scene {
   _applyCondition(id) {
     const fresh = Conditions.apply(this.save, id);
     this._syncAttackConditionSpeed();
+    if (fresh && id === 'confused') {
+      this._confusedRecover = true;
+      this.flashAtPlayer('Confused!');
+    }
     if (fresh && id === 'jellyfish_stun') this.flashAtPlayer('Stunned! Attacks slowed.');
     if (fresh && id === 'burning') this.flashAtPlayer('🔥 You catch fire!');
     if (fresh && id === 'poison') {
@@ -5156,6 +5176,10 @@ class MapScene extends Phaser.Scene {
       const drain = def.intervalMs ? ` · −${loss} energy / ${shortDuration(def.intervalMs)}` : '';
       chips.push({ id, ink: def.ink, bg: def.bg, text: `${def.label} · ${shortDuration(left)}${drain}` });
     }
+    if (this._bodyHold?.().slowed) {
+      const def = Conditions.CONTEXT_STATUS.slowed;
+      chips.push({ id: 'slowed', ink: def.ink, bg: def.bg, text: def.label });
+    }
     for (const b of Buffs.active(this.save, this)) {
       chips.push({ id: b.id, action: b.action, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
     }
@@ -5236,7 +5260,7 @@ class MapScene extends Phaser.Scene {
   }
 
   _shotCanHit(target, shot) {
-    if (Combat.isBurrowed(target)) return false;
+    if (Combat.isConcealed(target)) return false;
     if (shot.potionId) return target.id !== 'player';
     // Recheck at impact: an earlier flower in this same frame may have changed
     // the source's or target's allegiance since the target lists were built.
@@ -5275,9 +5299,10 @@ class MapScene extends Phaser.Scene {
   _shotHitsPlayer(shot) {
     const dmg = Combat.incomingProjectileDamage(this.save, shot.damage, shot.hits);
     if (!(dmg > 0)) return false;
-    this._monsterDmgAccum = (this._monsterDmgAccum || 0)
-      + this._losePlayerEnergy(dmg, { closeShop: true });
-    return true;
+    const lost = this._losePlayerEnergy(dmg, { closeShop: true });
+    this._monsterDmgAccum = (this._monsterDmgAccum || 0) + lost;
+    if (lost > 0 && shot.condition) this._applyCondition(shot.condition);
+    return lost > 0;
   }
 
   // The body takes a hit: a short red flick on the character, at the INSTANT
@@ -5493,6 +5518,16 @@ class MapScene extends Phaser.Scene {
         spearUsed++;
         sprite.setTexture(art.sheet, art.frame).setScale(s.effect ? 0.8 : 1)
           .setVisible(true).setPosition(hx, hy).setRotation(Math.atan2(s.vy, s.vx));
+        continue;
+      }
+      if (s.projectile === 'confusion_puff') {
+        const phase = (s.travelledM || 0) * 3;
+        for (let i = 0; i < 5; i++) {
+          const angle = phase + i * Math.PI * 2 / 5;
+          g.fillStyle(i % 2 ? 0xe8d878 : 0xc68ee8, 0.45);
+          g.fillCircle(hx + Math.cos(angle) * 4, hy + Math.sin(angle) * 3, 4);
+        }
+        g.fillStyle(0xf2d8ff, 0.7); g.fillCircle(hx, hy, 2);
         continue;
       }
       if (s.projectile === 'rock') {
@@ -7016,6 +7051,7 @@ class MapScene extends Phaser.Scene {
   // standing inside a wall, which was the reason both snaps were surface-only
   // until Sep 2026 — and why the walk home never ran in a cave at all.
   _placeBodyOnFix() {
+    if (Conditions.active(this.save, 'confused') || this._confusedRecover) return;
     this.playerM.x = this.gpsM.x;
     this.playerM.y = this.gpsM.y;
     this._carveLanding();
@@ -7318,7 +7354,8 @@ class MapScene extends Phaser.Scene {
     // bled the offset away ("underground I am not auto-walking to GPS"). The
     // one real reason to stay off the caves was this snap dropping the body
     // inside rock, and _placeBodyOnFix carves the landing cell instead.
-    if (this._gpsAwayM() > GPS_SNAP_M) {
+    if (this._gpsAwayM() > GPS_SNAP_M && !this._confusedRecover
+        && !Conditions.active(this.save, 'confused')) {
       this._teleportCut(() => {
         this._placeBodyOnFix();
         this.syncMoveTarget();    // drops the offset, the target and the ghost
@@ -7547,6 +7584,38 @@ class MapScene extends Phaser.Scene {
   // single-cell jog around it (_detourDir) and only dig if no such trivial
   // detour exists. _startAutoMine no-ops unless a wall is really ahead, so a
   // body merely outrun by fast steering on open floor won't dig.
+  // Confusion owns direction, while collision and the ordinary hold/slow gates
+  // remain in force. GPS keeps its latest target for a gentle recovery later.
+  _confusedStep(dt, capMS) {
+    if (!(dt > 0) || Combat.playerDowned(this.save.energy)) return;
+    if (this._busyWheel?.()) { this._playDirected(this.player, 'idle'); return; }
+    if (!this._confusedLoop) this._confusedLoop = {
+      angle: Math.random() * Math.PI * 2,
+      turn: (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random()),
+      left: 2 + Math.random() * 2,
+    };
+    const loop = this._confusedLoop;
+    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity);
+    let remaining = dt;
+    while (remaining > 0) {
+      const step = Math.min(remaining, 0.05);
+      remaining -= step;
+      loop.angle += loop.turn * step;
+      loop.left -= step;
+      const dx = Math.cos(loop.angle) * speed * step, dy = Math.sin(loop.angle) * speed * step;
+      const x = this.playerM.x + dx, y = this.playerM.y + dy;
+      if (!this._cellBlocked(this.startWorldM.x + x, this.startWorldM.y + y + (this.feetOffsetM || 0))) {
+        this.playerM.x = x; this.playerM.y = y;
+      } else { loop.angle += Math.PI / 2; }
+      if (loop.left <= 0) {
+        loop.turn = (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random());
+        loop.left = 2 + Math.random() * 2;
+      }
+    }
+    this.facing = { x: Math.cos(loop.angle), y: Math.sin(loop.angle) };
+    this._playDirected(this.player, 'walk', this.facing.x, this.facing.y);
+  }
+
   _followStep(dt, capMS) {
     // No target yet (surface before the first fix / any steer) — stand still.
     if (!this._targetM) { this._playDirected(this.player, 'idle'); return; }
@@ -7565,6 +7634,7 @@ class MapScene extends Phaser.Scene {
     const dx = this._targetM.x - body.x, dy = this._targetM.y - body.y;
     const dist = Math.hypot(dx, dy);
     if (dist <= this.cellM * 0.15) {   // arrived — sit still, don't jitter
+      this._confusedRecover = false;
       if (steering) this._playDirected(this.player, 'walk', this._stickHeading.x, this._stickHeading.y);
       else this._playDirected(this.player, 'idle');
       return;
@@ -7588,6 +7658,7 @@ class MapScene extends Phaser.Scene {
     const mul = Math.min(Math.max(DEBUG_SPEED_MUL, stickMul),
                          Math.max(stickMul, 1 + dist / FOLLOW_RAMP_M));
     // SLOW (_bodyHold): tar or stakes underfoot cap the body's pace.
+    if (this._confusedRecover) capMS = Math.min(capMS ?? Infinity, WALK_M_S);
     const move = Math.min(WALK_M_S * mul * dt, dist, capMS > 0 ? capMS * dt : Infinity);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;

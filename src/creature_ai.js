@@ -998,7 +998,7 @@ function isPest(c) {
 // Nobody's hunter takes a tamed (released_) animal. The caller still skips
 // what is already caught.
 function huntsPrey(hunterKind, cr) {
-  if (!cr || Combat.isBurrowed(cr) || Combat.isCharmed(cr) || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
+  if (!cr || Combat.isConcealed(cr) || Combat.isCharmed(cr) || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
   if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPest(cr);
   const prey = SpriteLayout.creaturePrey(hunterKind);
   return !!prey && prey.has(cr.kind);
@@ -1389,10 +1389,23 @@ function enemyAreaContains(c, row, px, py, cellM) {
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
-  if (c._burrowed || c._emergeUntil > now || Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
-  if (creatureTarget && (Combat.isBurrowed(creatureTarget)
+  if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
+  if (creatureTarget && (Combat.isConcealed(creatureTarget)
       || Combat.isCharmed(c) === Combat.isCharmed(creatureTarget))) return;
   if (row.attackType === 'none') return;
+  if (row.meleeWhenCondition) {
+    const melee = !npcTarget && !creatureTarget && Conditions.active(scene.save, row.meleeWhenCondition.id);
+    const mode = melee ? 'condition_melee' : 'primary';
+    // Each attack retains its cooldown when the target enters/leaves the
+    // condition; switching also cancels the old attack's unfinished wind-up.
+    if (c._conditionalAttackMode && c._conditionalAttackMode !== mode) {
+      (c._attackModeNext ||= {})[c._conditionalAttackMode] = c._attackNextT || 0;
+      c._attackNextT = c._attackModeNext[mode] || 0;
+      c._attackWindupUntil = null; c._attackAim = null;
+    }
+    c._conditionalAttackMode = mode;
+    if (melee) row = {...row, ...row.meleeWhenCondition, id: row.id, attackType:'melee'};
+  }
   const targetKey = creatureTarget?.id || npcTarget?.id || 'player';
   if (c._attackTargetKey != null && c._attackTargetKey !== targetKey) {
     c._attackWindupUntil = null; c._attackAim = null;
@@ -1488,6 +1501,8 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     if (shot) {
       shot.projectile = row.projectile || (row.id === 'goblin_archer' ? 'arrow' : 'enemy_magic');
       shot.enemyKind = row.id;
+      if (row.projectileCondition) shot.condition = row.projectileCondition;
+      if (row.projectileSpeedMetersPerSecond) shot.speedMps = row.projectileSpeedMetersPerSecond;
       shot._sourceGuard = c;
       shot.hostile = !Combat.isCharmed(c);
       (scene._shots ||= []).push(shot);
@@ -1540,6 +1555,18 @@ function foeSpacingPush(scene, c) {
   const len = Math.hypot(x, y);
   if (len < 1e-6) return null;
   return len > 1 ? { x: x / len, y: y / len } : { x, y };
+}
+
+// A camouflaged foe holds its authored seat until the player gets close.
+// The same predicate keeps weapons and the renderer on the disguised state.
+function enemyDisguiseTick(scene, c, px, py) {
+  if (!Combat.isDisguised(c)) return false;
+  const disguise = EnemyRoster.get(c.kind).disguise;
+  if (Math.hypot(px - c.x, py - c.y) > disguise.revealCells * scene.cellM) return true;
+  c._disguiseRevealed = true;
+  c._hunting = true;
+  scene._burstAtWorld?.('timber', c.x, c.y);
+  return false;
 }
 
 function enemyStartEmerging(scene, c, row, now) {
@@ -1630,11 +1657,13 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
 }
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
-  if (Combat.isSleeping(c)) return;
+  if (Combat.isConcealed(c) || Combat.isSleeping(c)) return;
   if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
     c._hp = Combat.maxHp(c); c._lastDamagedT = null;
   }
-  const m = row.movement;
+  const m = row.meleeWhenCondition && c._attackTargetKey === 'player'
+      && Conditions.active(scene.save, row.meleeWhenCondition.id)
+    ? {...row.movement, pattern:'pursue'} : row.movement;
   // Roots cannot wander, pursue, flee from wards or shuffle back to a seat.
   // Attack suppression still uses the ordinary ward/hidden/downed gates.
   if (c.stationary || m.pattern === 'anchor_spit' || m.pattern === 'burrow') return;
@@ -1810,7 +1839,7 @@ function flowerOpponent(scene, c, px, py, caught, wall = Date.now()) {
   const sight = Combat.sightCells(c.kind) * scene.cellM;
   let best = null, distance = charmed || scene.isUnnoticed(c) ? sight : Math.min(sight, Math.hypot(px - c.x, py - c.y));
   const consider = other => {
-    if (other === c || caught.has(other.id) || other._surfaceInactive || Combat.isBurrowed(other)) return;
+    if (other === c || caught.has(other.id) || other._surfaceInactive || Combat.isConcealed(other)) return;
     const opponent = charmed ? Combat.isEnemy(other, wall) : Combat.isCharmed(other, wall);
     if (!opponent || Combat.hp(other) <= 0) return;
     const d = Math.hypot(other.x - c.x, other.y - c.y);

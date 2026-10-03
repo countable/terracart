@@ -9,7 +9,7 @@
 
   test('buffs: every row names itself, inks itself and reads a real expiry', () => {
     for (const [id, k] of Object.entries(Buffs.KINDS)) {
-      assert.truthy(typeof k.name === 'string' && k.name.length > 0 && k.name.length <= 10, `${id}: a short label`);
+      assert.truthy(typeof k.name === 'string' && k.name.length > 0 && k.name.length <= 11, `${id}: a short label`);
       assert.truthy(/^#[0-9a-f]{6}$/.test(k.color), `${id}: a fill colour`);
       assert.truthy(/^#[0-9a-f]{6}$/.test(k.stroke), `${id}: a stroke colour`);
       const where = ['save', 'scene', 'read'].filter(w => k[w]);

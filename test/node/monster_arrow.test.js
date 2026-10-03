@@ -126,7 +126,8 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   assert.truthy(/const dmg = Combat\.incomingProjectileDamage\(this\.save, shot\.damage, shot\.hits\);/.test(hit),
     'shield expiry and per-hit armour resolve together at impact');
   const body = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/)[1];
-  assert.truthy(/this\._monsterDmgAccum = \(this\._monsterDmgAccum \|\| 0\)\s*\+ this\._losePlayerEnergy\(dmg, \{ closeShop: true \}\);/.test(body),
+  assert.truthy(body.includes('const lost = this._losePlayerEnergy(dmg, { closeShop: true });')
+    && body.includes('this._monsterDmgAccum = (this._monsterDmgAccum || 0) + lost;'),
     'it comes off energy, and rolls into the monsters-hit flash');
 });
 

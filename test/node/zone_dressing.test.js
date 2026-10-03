@@ -640,13 +640,14 @@
     do { r = it.next(); if (!r.done) labels.push(r.value); } while (!r.done);
     assert.includes(labels, 'zone variant coverage'); assert.includes(labels, 'zone variant pattern rows'); assert.includes(labels, 'zone find fallback');
   });
-  test('zone dressing: repeating carnivorous plants use enemy gates and stable stationary seats', () => {
+  test('zone dressing: repeating grove monsters use enemy gates and stable seats', () => {
     for (const id of ['ancient_grove', 'hedge_garden']) {
       const ctx = context(id), out = ZoneDressing.dress(ctx);
       const plants = out.guards.filter(g => g.zoneLayer === 'background');
       assert.gt(plants.length, 1, id);
       for (const p of plants) {
-        assert.eq(p.kind, 'plant'); assert.truthy(p.stationary);
+        assert.eq(p.kind, id === 'ancient_grove' ? 'treant' : 'plant');
+        assert.eq(p.stationary, id === 'hedge_garden');
         assert.eq(p.homeX, p.x); assert.eq(p.homeY, p.y);
         assert.eq(p.id, WorldGen.cellId('zp', 0, 0, p._ix, p._iy));
       }
@@ -662,7 +663,7 @@
     const kinds = id => ZoneDressing.dress(context(id)).guards.filter(g => g.zoneLayer !== 'background').map(g => g.kind).join();
     assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner');
     assert.eq(kinds('orchard'), 'farmer_goblin');
-    assert.eq(kinds('ancient_grove'), 'plant,spider');
+    assert.eq(kinds('ancient_grove'), 'treant,spider');
     assert.eq(kinds('ordered_graves'), 'skeleton_soldier');
     assert.eq(kinds('overgrown_graves'), 'spider');
     assert.eq(kinds('broken_masonry'), 'club_goblin');

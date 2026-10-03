@@ -9,7 +9,7 @@
     warren: ['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper', 'bomb_goblin', 'orc'],
     crypt: ['zombie', 'skeleton', 'skeleton_soldier', 'necromancer', 'lich', 'bone_plant', 'vampire_bat', 'sword_spirit'],
     stronghold: ['orc', 'orc_mage', 'orc_shaman', 'minotaur', 'spear_goblin', 'brute'],
-    infernal: ['red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'],
+    infernal: ['fire_elemental', 'red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'],
     roost: ['red_demon', 'armoured_demon'],
   };
   const THEME_BANDS = [
@@ -27,7 +27,7 @@
     pirate_cove: ['pirate_grunt', 'pirate_gunner', 'pirate_captain'],
     mystic_reef: ['giant_crab', 'jellyfish'],
     orchard: ['farmer_goblin', 'club_goblin'],
-    hedge_garden: ['plant', 'spider'], ancient_grove: ['plant', 'spider'],
+    hedge_garden: ['plant', 'spider'], ancient_grove: ['treant', 'spider'],
     overgrown: ['plant', 'spider'], ordered_graves: ['zombie', 'skeleton', 'skeleton_soldier'],
     silent_circle: ['skeleton', 'skeleton_soldier'], overgrown_graves: ['zombie', 'spider', 'skeleton'],
     broken_masonry: ['club_goblin', 'spear_goblin', 'archer_goblin'],
@@ -36,7 +36,7 @@
   };
   const SURFACE_FAMILIES = {
     ...BUILDING_FAMILIES,
-    meadow: ['slime', 'plant'], mushroom_grove: ['spider', 'slime'],
+    meadow: ['slime', 'plant'], mushroom_grove: ['mushroom_monster', 'spider', 'slime'],
     formal_garden: ['slime', 'plant'], stone_garden: ['slime', 'skeleton'],
     flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
     seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin', 'archer_goblin'],
