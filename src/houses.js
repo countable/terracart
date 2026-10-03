@@ -140,6 +140,15 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return (typeof Shops !== 'undefined' && Shops.shopType(house)) || null;
   }
 
+  // The guild whose badge discounts deals at `place` (items.js
+  // guildDiscounted): a house's role, or a peddling neighbour's — a merchant
+  // keeps a themed shop (role key 'market'), a trader barters.
+  const NPC_GUILD = { merchant: 'market', trader: 'trader' };
+  function guildRole(save, place) {
+    if (place?.kind === 'npc') return NPC_GUILD[place.role] || null;
+    return houseShopRole(save, place);
+  }
+
   // Does this save have a smithy? The stamped starter smithy, or any restored
   // house frozen as one.
   function hasBlacksmith(save) {
@@ -384,6 +393,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,
     shopCharmMul,
+    guildRole,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
     castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle,
