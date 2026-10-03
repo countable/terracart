@@ -4602,29 +4602,33 @@ Render.objectAppearance = function (scene, houseRoles) {
     // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Same discipline as the seat
     // pass, one step earlier.
     //
-    // Sized through `after` rather than `scale`: both arts are sized in CELLS
-    // (the baked square in LAMP_DRAW_CELLS, the cobble in
-    // STREET_LAMP_DARK_CELLS), and setDisplaySize says that without this row
-    // having to know either texture's pixel size.
+    // BOTH ARTS ARE THE SAME BAKE (Oct 2026): a lit lamp draws the bake for
+    // its glow, a dark one the broken post (STREET_LAMP_BROKEN_TEX — the same
+    // painter with the column snapped, no glass, no glow), in the same square
+    // on the same ground line, so the only thing that changes when a stretch
+    // is restored is the lamp itself. Sized through `after` rather than
+    // `scale`: the art is sized in CELLS (LAMP_DRAW_CELLS), and
+    // setDisplaySize says that without this row knowing the texture's pixels.
     _streetlamp: {
       ground: (o) => !o.lit,
       // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
       // STREET_LAMP_TEX for the default, one texture per colour otherwise,
-      // baked by app.js _ensureStreetLampTex before this pass runs).
-      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_DARK_TEX),
-      frame: (o) => (o.lit ? '__BASE' : streetLampDarkFrame(o.tier)),
-      origin: (o) => (o.lit ? [0.5, STREET_LAMP_ORIGIN_Y] : [0.5, 0.5]),
+      // baked by app.js _ensureStreetLampTex before this pass runs); a dark
+      // one the broken post app.js _ensureBrokenLampTex baked at boot.
+      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_BROKEN_TEX),
+      frame: '__BASE',
+      // Read lazily (functions, not values): both constants live in app.js,
+      // which loads after this table is built.
+      origin: () => [0.5, STREET_LAMP_ORIGIN_Y],
       // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits a pixel
       // lower than its point, the point itself is untouched. Live
       // rather than decorative because this row is NOT seated — a seated spec
       // has its dxPx/dyPx overwritten by the seat pass.
-      dyPx: (o) => (o.lit ? STREET_LAMP_DY_PX : 0),
+      dyPx: () => STREET_LAMP_DY_PX,
       scale: 1,
-      after: (s, o) => {
-        const px = CELL_PX * (o.lit
-          ? ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4)
-          : streetLampDarkCells(o.tier));
-        s.setDisplaySize(px, px).setAlpha(o.lit ? 1 : STREET_LAMP_DARK_ALPHA);
+      after: (s) => {
+        const px = CELL_PX * ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
+        s.setDisplaySize(px, px).setAlpha(1);
       },
     },
     // Cave torch — 16×32 like the campfire, same scale, same flicker cadence

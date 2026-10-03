@@ -197,33 +197,22 @@ const STREET_LAMP_ORIGIN_Y =
 // — it LIES on the point, and a stone in the road has nothing to stand proud
 // of.
 const STREET_LAMP_DY_PX = 3;
-// Unrestored streets carry a snapped-off lamp post. Its weathered metal and
-// plinth are baked from RoadOverlay.paintBrokenLamp into the legacy cobble
-// sheet, retaining its four frame slots and existing street placement.
-const STREET_LAMP_DARK_TEX = 'cobble';
-// Frame per way tier, keyed by the WorldGen.T code classifyLine hands back:
-// motorway/trunk/primary the biggest densest cluster, secondary/tertiary the
-// medium one, minor/service/street the small one, and a footpath a single
-// pebble. Anything classifyLine calls "not a road" falls back to the small
-// cluster. Read through streetLampDarkFrame so the T codes are looked up
-// live rather than retyped here.
-const STREET_LAMP_DARK_FRAME = { ROAD_LG: 0, ROAD_MD: 5, ROAD: 1, PATH: 3 };
-const streetLampDarkFrame = (tier) => {
-  const T = (typeof WorldGen !== 'undefined' && WorldGen.T) || {};
-  for (const k in STREET_LAMP_DARK_FRAME) if (T[k] === tier) return STREET_LAMP_DARK_FRAME[k];
-  return STREET_LAMP_DARK_FRAME.ROAD;
-};
-// The old stones' draw size, in cells: a road cluster at 0.64 of a cell, a
-// path pebble at 0.584 (both "stepped down 20% per playtest" so the ground
-// shows round them), and their 57% alpha. Read through streetLampDarkCells for
-// the same reason as the frame: the T codes are looked up live rather than
-// retyped wherever the art is drawn.
+// Unrestored streets carry a SNAPPED-OFF lamp post: the same casting as the
+// lit lamp (RoadOverlay.paintBrokenLamp — its plinth, base and a column broken
+// off below the lantern, in weathered metal, no glass and no glow), baked at
+// runtime into STREET_LAMP_BROKEN_TEX exactly as the lit lamp is baked for
+// its glow (_ensureBrokenLampTex beside _ensureStreetLampTex), and drawn at
+// the same size, on the same ground line, with the same nudge — so the lamp
+// that lights is visibly the lamp that stood broken. Until Oct 2026 the dark
+// lamp was a 16 px frame of the old cobble sheet at a quarter the size and
+// 57% alpha: a smudge beside the lit one (owner's call).
+const STREET_LAMP_BROKEN_TEX = 'street_lamp_broken';
+// THE SITE'S FOOTPRINT. RoadOverlay.LAMP_DARK_CELLS is the width the old
+// cobble stone drew at, and it is still what RoadOverlay.LAMP_SITE_R_CELLS
+// (the verge offset every lamp is placed by, and the cells rasterization
+// reserves) is derived from — so every lamp stands exactly where it always
+// has. It sizes no art any more; it is kept as a placement constant only.
 const STREET_LAMP_DARK_CELLS = RoadOverlay.LAMP_DARK_CELLS;
-const streetLampDarkCells = (tier) => {
-  const T = (typeof WorldGen !== 'undefined' && WorldGen.T) || {};
-  return tier === T.PATH ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road;
-};
-const STREET_LAMP_DARK_ALPHA = 0.57;
 // THE LAMP STANDS ON THE VERGE, and this is the art's own footprint radius in
 // cells — what _streetLampsForTile adds to half the carriageway
 // (Streets.lampOffsetM) so the art just touches the band's edge instead of
@@ -2246,6 +2235,7 @@ class MapScene extends Phaser.Scene {
     // The default glow is baked here at boot; a themed street's colour is
     // baked the first time a lit lamp of it comes near (_updateStreetLamps).
     this._ensureStreetLampTex(UI_LAMP_GLOW);
+    this._ensureBrokenLampTex();
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in
@@ -12317,6 +12307,26 @@ class MapScene extends Phaser.Scene {
   // and lit by the restored intervals that are already stored, the same
   // discipline traps.js keeps (generated, never stored — only what the player
   // DID is written down).
+
+  // The broken post every lamp wears before its stretch is restored: the
+  // same painter as the lit lamp below with `broken` set
+  // (RoadOverlay.paintBrokenLamp), in the same square, baked once under
+  // STREET_LAMP_BROKEN_TEX. One bake for every street — a broken lamp sheds
+  // no glow, so it has no colour to key by.
+  _ensureBrokenLampTex() {
+    const key = STREET_LAMP_BROKEN_TEX;
+    if (this.textures.exists(key)) return key;
+    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintBrokenLamp || typeof document === 'undefined') return key;
+    const S = RoadOverlay.LAMP_TEX_PX;
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = S;
+    const lctx = cvs.getContext('2d');
+    if (lctx) {
+      RoadOverlay.paintBrokenLamp(lctx, S);
+      this.textures.addCanvas(key, cvs);
+    }
+    return key;
+  }
 
   // Bake the lamp art for one GLOW colour, once: RoadOverlay.paintLamp with
   // that colour as its glass, bloom and pool, under streetLampTexKey(glow).
