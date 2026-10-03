@@ -702,6 +702,10 @@ const STAFF_CHARGE_HAND_DX = 7;
 const BOLT_GLOW_TEX_PX = 64;
 const BOLT_TRAIL_N = 8;
 const BOLT_TRAIL_STEP_CELLS = 0.12;   // trail points this far apart: ~a cell of comet
+// A shiny turret's arrow of light (Combat.turretShot `shiny`): the halo's
+// radius on the head, in px, off the same glow texture; the trailing one is
+// smaller and fainter (_drawShots).
+const SHINY_ARROW_GLOW_PX = 9;
 // A shot's colour by tier: the relic's MATERIAL colour (MATERIAL_TIERS
 // .color), the slot's own for a tier the table lacks. One answer for the
 // bow's arrow and the staff's bolt, stamped on the shot where it is loosed
@@ -5500,10 +5504,13 @@ class MapScene extends Phaser.Scene {
       // `castle` is its own id — the material family the art picked
       // (render.js _houseFrame), which is what the arrow's launch height
       // reads (Render.towerCrownHeight).
+      // Raised under the Magic Hammer (Houses.isShinyHouse) it is a SHINY
+      // turret: Combat.turretTick hands the flag to the shot — double damage,
+      // an arrow of light.
       this._forEachHouseNear(pc, (o) => {
         if (Houses.displayRole(this.save, o) !== 'turret') return;
         if (Math.abs(o.x - px) > halfSpanM || Math.abs(o.y - py) > halfSpanM) return;
-        list.push({ id: o.id, x: o.x, y: o.y, castle: o.id });
+        list.push({ id: o.id, x: o.x, y: o.y, castle: o.id, shiny: Houses.isShinyHouse(this.save, o) });
       });
       scan = this._turretScan = { t: now, list };
     }
@@ -5600,7 +5607,17 @@ class MapScene extends Phaser.Scene {
       // heading — the streak is a readability device, not a world-space
       // object, so it shouldn't grow or shrink with the projection.
       // A hostile arrow carries its own colour (Combat.HOSTILE_ARROW_COLOR)
-      // so a shot coming AT you reads apart from one going out.
+      // so a shot coming AT you reads apart from one going out. A SHINY
+      // turret's arrow (Combat.turretShot, `shiny`) is a streak of light: the
+      // bolt's glow texture in its own gold, a soft halo on the head and a
+      // fainter one trailing, under the same streak. Lighting.collectBolts
+      // throws its light on the ground it crosses.
+      if (s.shiny) {
+        const key = this._boltGlowKey(s.color != null ? s.color : spec.color);
+        this._boltGlow(key, hx, hy, SHINY_ARROW_GLOW_PX, 0.85);
+        this._boltGlow(key, Math.round(hx - s.vx * spec.lenPx * 0.5), Math.round(hy - s.vy * spec.lenPx * 0.5),
+          SHINY_ARROW_GLOW_PX * 0.6, 0.45);
+      }
       g.lineStyle(spec.widthPx, s.color != null ? s.color : spec.color, 0.9);
       g.beginPath();
       g.moveTo(Math.round(hx - s.vx * spec.lenPx), Math.round(hy - s.vy * spec.lenPx));
@@ -13697,8 +13714,10 @@ class MapScene extends Phaser.Scene {
     const single = choices.length === 1 ? costFor(options[0]) : null;
     // THE MAGIC HAMMER (Houses.HAMMER_ID): holding one, the dialog offers a
     // second way to restore — "With Hammer" beside Restore, in this same
-    // window. The building comes up shiny and sells cheaper for good
-    // (Houses.priceMul); the hammer is spent with the stones.
+    // window. The building comes up shiny: a shop sells cheaper for good
+    // (Houses.priceMul), a turret shoots double in arrows of light
+    // (Combat.turretShot); the hammer is spent with the stones. A plain
+    // House takes no hammer (Houses.hammerTakes): the button greys on its card.
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
     const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
     // Always show the modal — even when the player can't yet afford it,
@@ -13718,10 +13737,12 @@ class MapScene extends Phaser.Scene {
       acceptLabel: 'Restore',
       // One line: the dialog's height is spent on the cards.
       blurb: hasHammer
-        ? `<span style="display:block;margin-top:-2px">${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams, and folk deal kindly.</span>`
+        ? `<span style="display:block;margin-top:-2px">${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.</span>`
         : undefined,
       secondary: hasHammer
-        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true, onClick: (key) => restore(key, true) }
+        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
+            takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
+            onClick: (key) => restore(key, true) }
         : undefined,
       onAccept: (key) => restore(key, false),
     });
@@ -13733,7 +13754,7 @@ class MapScene extends Phaser.Scene {
         if (cost) this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
         return;
       }
-      if (hammer && Inventory.count(this.save, Houses.HAMMER_ID) < 1) hammer = false;
+      if (hammer && (Inventory.count(this.save, Houses.HAMMER_ID) < 1 || !Houses.hammerTakes(picked))) hammer = false;
       // Freeze the pick onto the house (the role string, never a bare
       // `true`) and stamp what it owns — the first smithy, the Book Shop,
       // a wizard tower, a shop's line, the hammer's shine. A card no longer
