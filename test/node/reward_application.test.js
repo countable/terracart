@@ -44,10 +44,10 @@
     } finally { globalThis.pickReward = original; }
   });
 
-  test('road rewards: identical rolls pay half cash and preserve other rewards', () => {
+  test('road rewards: identical rolls pay a sixth of the cash and preserve other rewards', () => {
     const context = LOOT_CONTEXTS['treasure:road'];
     const multiplier = context.cashMul;
-    assert.eq(multiplier, 0.5);
+    assert.eq(multiplier, 1 / 6);
     let cash = 0, items = 0;
     try {
       for (let i = 1; i <= 300; i++) {
@@ -56,7 +56,7 @@
         context.cashMul = multiplier;
         const after = pickReward('treasure:road', { relics: {}, armor: {} }, seeded(i), { rollBonus: 3 });
         if (before.kind === 'gold') {
-          assert.eq(after.amount, Math.max(1, Math.round(before.amount / 2)));
+          assert.eq(after.amount, Math.max(1, Math.round(before.amount * multiplier)));
           cash++;
           before.amount = after.amount;
         } else { items++; }

@@ -25,7 +25,7 @@
 // Rewards, Delivery, Houses own the numbers and who sells what), nor the
 // dialogs themselves (makeModalShell / showOfferModal are SceneModals, in
 // modal_shell.js). Home's own sell / craft tabs, the inn, guildhall, curio,
-// training and fort slots stay in app.js.
+// training and fort slots are SceneVenues (scene_venues.js).
 
 // THE SMITHY'S PREVIEW: what you receive is a big picture over its name, not
 // a line-height icon beside it. The Smithy chip and the Forge / Smelt tab

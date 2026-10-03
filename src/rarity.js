@@ -41,11 +41,12 @@
     // Index 0 is unused; tiers 1..7.
     tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
     // Classes that are inherently single-stack — relic (no qty), animal (one
-    // live catch at a time), consumable (tap-to-use). Fruit-tree seeds also
-    // stay single regardless of bumps. flora maps to the produce 'flowers' item via picker
-    // routing, but we treat it as a small-qty class.
+    // live catch at a time), magic / supply (tap-to-use; legacyConsumable is
+    // the retired 'consumable' class, still routed by old contexts). Fruit-tree
+    // seeds also stay single regardless of bumps.
     singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'legacyConsumable'],
-    // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
+    // Chest tier 1..7 modifiers (1..5 on the surface; 6..7 only underground,
+    // loot.js chestTierMaxFor). Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
     // across different biomes. The tier is the chest's per-tile quota seat
@@ -172,7 +173,7 @@
     // only split a group between its classes; boots are capped a tier a km
     // (Trail.bootsTierCap). Favourites make the magic card usually a potion.
     // The caller's rollBonus buys tiers up to T4; higher tiers need a jackpot.
-    'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 0.5,
+    'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 1/6,
                           chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0,
                           favourite: { p: 0.85, ids: {
                             reach_potion: 1, vigor_potion: 1,

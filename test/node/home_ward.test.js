@@ -54,7 +54,7 @@ test('home: every crop raider asks the guard, none keeps its own test', () => {
   // The one raider is the deer (scene_creatures.js): its notice, its graze
   // and the hard-mode pump all read _cropRaidable, never the bare kind test
   // or the bare yard test.
-  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+  const app = SCENE_SRC;
   assert.eq((app.match(/raiderEatsCrop\(/g) || []).length, 2,
     'the bare kind test is read once, inside _cropRaidable (plus its definition)');
   assert.truthy(/if \(!this\._cropRaidable\(p\)\) return;/.test(app), 'the deer\'s notice reads _cropRaidable');
@@ -316,16 +316,19 @@ test('ward: the ring is one number, and Home out-rests and out-reaches a fire', 
 
 // ── The fire ward's depth cap ────────────────────────────────────────────
 // A campfire's ward reaches past the surface slime into the cave, but only
-// its entry-level monsters (FIRE_WARD_MAX_DEPTH) — a goblin (minDepth 2) or
-// its archer (minDepth 3), and the roster's deeper giants, are undeterred by
-// firelight. Only Home's stronger ward reaches those, and Home does not exist underground (homeWorldPos returns null off
+// its entry-level monsters (FIRE_WARD_MAX_DEPTH, a cave DEPTH — never the
+// roster's power tier: a purple slime is tier 1 but a depth-3 kind) — a
+// goblin (minDepth 3) or its archer (minDepth 4), and the roster's deeper
+// giants, are undeterred by firelight. Only Home's stronger ward reaches those, and Home does not exist underground (homeWorldPos returns null off
 // the surface — see the "no Home, no ring" test above), so a goblin met in a
 // cave is never warded by anything.
 
 test('fire ward: the depth cap is a named number, and the real table agrees with it', () => {
   assert.eq(FIRE_WARD_MAX_DEPTH, 1, 'only the first cave level is warded off by fire');
-  assert.lte(MONSTERS.cave_slime.tier, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
-  assert.lte(MONSTERS.purple_slime.tier, FIRE_WARD_MAX_DEPTH, 'purple slime is warded');
+  assert.lte(MONSTERS.cave_slime.minDepth, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
+  assert.lte(MONSTERS.purple_slime.tier, FIRE_WARD_MAX_DEPTH, 'a purple slime is tier 1...');
+  assert.gt(MONSTERS.purple_slime.minDepth, FIRE_WARD_MAX_DEPTH,
+    '...but a depth-3 kind, so it is not warded: the cap is depth, not tier');
   assert.gt(MONSTERS.goblin.minDepth, FIRE_WARD_MAX_DEPTH, "a goblin is past a campfire's reach");
   assert.gt(MONSTERS.goblin_archer.minDepth, FIRE_WARD_MAX_DEPTH, 'so is its archer');
   // The roster's giants all start deeper than the fire ward reaches.
@@ -335,13 +338,18 @@ test('fire ward: the depth cap is a named number, and the real table agrees with
   }
 });
 
-test('fire ward: roster movement checks the tier cap and excludes lair guards', () => {
+test('fire ward: roster movement checks the depth cap and excludes lair guards', () => {
   const scene = { cellM: 7, _cellBlocked: () => false,
     cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _nearAny: () => true };
-  for (const kind of ['slime', 'cave_slime', 'purple_slime']) {
+  for (const kind of ['slime', 'cave_slime']) {
     assert.falsy(enemyCanStep(scene, { kind }, EnemyRoster.get(kind), 0, 0), kind + ' refuses the fire ring');
     assert.truthy(enemyCanStep(scene, { kind, lair: 'guard' }, EnemyRoster.get(kind), 0, 0), kind + ' guard can return through fire');
   }
+  // The swept step and the wander target loop read ONE predicate
+  // (creature_ai.js campfireAverts); the step used to read the power tier,
+  // so a tier-1 purple slime was refused the ring it had just targeted.
+  assert.truthy(enemyCanStep(scene, { kind: 'purple_slime' }, EnemyRoster.get('purple_slime'), 0, 0),
+    'a purple slime (depth 3) walks through firelight');
   assert.truthy(enemyCanStep(scene, { kind: 'goblin' }, EnemyRoster.get('goblin'), 0, 0));
 });
 })();

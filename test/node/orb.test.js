@@ -1,10 +1,10 @@
-const orbMethodStart = APP_JS_SRC.indexOf('\n  useOrb() {');
-const orbMethodEnd = APP_JS_SRC.indexOf('\n  }\n', orbMethodStart);
+const orbMethodStart = SCENE_SRC.indexOf('\n  useOrb() {');
+const orbMethodEnd = SCENE_SRC.indexOf('\n  }\n', orbMethodStart);
 function orbActionFor(plants, rocks) {
   const world = { forEachItemNear(kind, tx, ty, visit) {
     for (const o of kind === 'wildplants' ? plants : rocks) visit(o);
   } };
-  return new Function('WorldGen', 'return ({' + APP_JS_SRC.slice(orbMethodStart, orbMethodEnd + 4) + '}).useOrb')(world);
+  return new Function('WorldGen', 'return ({' + SCENE_SRC.slice(orbMethodStart, orbMethodEnd + 4) + '}).useOrb')(world);
 }
 function orbFixture() {
   const plants = [], rocks = [];

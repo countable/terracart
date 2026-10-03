@@ -70,7 +70,7 @@
   test('NPC spawn: a shrine creates a green community in otherwise empty forest', () => {
     const e = entry(T.FOREST), s = scene();
     assert.eq(NPC.spawn(s, e, 0, 0, {}).length, 0);
-    const shrine = { id: 'shrine', kind: 'shrine', x: EDGE_M / 2, y: EDGE_M / 2 };
+    const shrine = { id: 'shrine', kind: 'chest', poiClass: 'place_of_worship', x: EDGE_M / 2, y: EDGE_M / 2 };
     e.genObjects.push(shrine);
     const residents = NPC.spawn(s, e, 0, 0, {});
     assert.gt(residents.length, 0);

@@ -15,7 +15,7 @@ function throwScene(overrides = {}) {
   };
   const names = ['throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useJavelin', 'useRock', '_tickThrowButton', 'useForgetmenot', 'useWildrose', '_friendlyShotHitsEnemy', '_shotCanHit', '_shotHitsTarget'];
   const methods = names.map(name => {
-    const method = APP_JS_SRC.match(new RegExp('\\n  (' + name + '\\([^\\n]*\\) \\{\\n[\\s\\S]*?\\n  \\})\\n'));
+    const method = SCENE_SRC.match(new RegExp('\\n  (' + name + '\\([^\\n]*\\) \\{\\n[\\s\\S]*?\\n  \\})\\n'));
     assert.truthy(method, `${name} exists`);
     return method[1];
   });
@@ -308,12 +308,12 @@ test('javelin: runtime steel recolour preserves alpha and registers the same she
   assert.eq(canvas.width, 32); assert.eq(canvas.height, 16);
   assert.eq(written[3], 255); assert.eq(written[7], 128); assert.eq(written[11], 0);
   assert.gt(written[6], written[4], 'steel blue replaces the original warm shaft');
-  assert.truthy(APP_JS_SRC.includes("ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16)"),
+  assert.truthy(SCENE_SRC.includes("ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16)"),
     'all DOM surfaces bake the same recoloured texture');
 });
 
 test('javelin: projectile sprite pool switches between both inventory art sheets', () => {
-  const m = APP_JS_SRC.match(/\n  (_drawShots\(\) \{\n[\s\S]*?\n  \})\n/);
+  const m = SCENE_SRC.match(/\n  (_drawShots\(\) \{\n[\s\S]*?\n  \})\n/);
   const draw = new Function('SHOT_DRAW_LIFT_PX', 'return ({' + m[1] + '})._drawShots;')(10);
   const sprite = { setTexture(sheet) { this.sheet = sheet; return this; },
     setScale() { return this; }, setVisible() { return this; }, setPosition() { return this; }, setRotation() { return this; } };

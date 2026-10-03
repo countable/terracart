@@ -101,7 +101,7 @@
       starterCrates: false,
       pestAmnesty: false,
       cropPests: true,          // deer are dispatched to your field, once an hour
-      derelictLairs: true,      // every ruin past the home ring is held, and holds more further out
+      derelictLairs: true,      // every ruin is held; its strength is the building's own (lairs.js), never distance from Home
       lairGuardMax: null,       // no group cap: a maxed castle wakes its whole ten
       quietHomeM: 0,            // no quiet home: a fort by the trailer is held for you too
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
