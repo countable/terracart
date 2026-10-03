@@ -566,7 +566,8 @@ class SceneShops {
 
   // The line and tier a themed shop (role key 'market') sells: its place in
   // the save's restore order of shops, through Shops.themeAt — seed, supply,
-  // potion, ore, relic, pet, then round again a tier up. The tutorial's market
+  // potion, ore, relic, then round again a tier up (the Book and Pet lines
+  // are one-off stamps, Shops.SOLO_LINES). The tutorial's market
   // (Houses.BUILD_OPTIONS, from the third rebuild) is the first shop, so it is still the
   // beginner's T1 seed shop. The sign, the offer title, the restoration card
   // and the stock all read this one answer.

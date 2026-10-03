@@ -49,7 +49,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // 2nd rebuild may be a Blacksmith"); `earlyMending` and `childHome` are the
   // story's restoration-count gates (memory_story.js).
   const STORY_RESTORES = Object.freeze({
-    house: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, bookshop: 15,
+    house: 1, blacksmith: 2, market: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15,
     firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 2,
   });
   // Old unstamped saves retain the tower identities their original schedule
@@ -64,9 +64,13 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // player-facing NAME is Shops.roleLabel (the sign, the card and the offer
   // modal call it the same thing); `name` overrides it where the label is a
   // line, not a building.
-  //   bookshop — stored as a 'market' plus save.bookshopId (shops.js lineFor
-  //              sells the Book line off that stamp), so old readers of the
-  //              role string never meet a new one.
+  //   bookshop, petshop — ONE-OFF SHOPS (`solo`: the line, a key of
+  //              shops.js SOLO_LINES): stored as a 'market' plus the stamp
+  //              that table names (save.bookshopId / save.petshopId —
+  //              registerSoloShop; lineFor sells the line off it), so old
+  //              readers of the role string never meet a new one. Once built
+  //              the card leaves the offer for good, and the line never
+  //              returns at a higher tier — it is not in the Shop cycle.
   //   turret   — a single castle tower on a house lot: it draws the castle
   //              tower sheet (render.js houseTextureKey) and its archer
   //              fires through the castle turret lane (app.js _turretFire).
@@ -105,7 +109,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
       tier: (save, order) => Shops.traderTierAt(order + 1) },
     { key: 'turret', role: 'turret', from: STORY_RESTORES.turret, art: 'castle_claim',
       blurb: 'Masons raise a single tower on the old footings. An archer climbs to the battlement and strings a bow.' },
-    { key: 'bookshop', role: 'market', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
+    { key: 'petshop', role: 'market', solo: 'pet', from: STORY_RESTORES.petshop, name: 'Pet Shop', art: 'restore_market',
+      blurb: 'A family opens the market shutters again. You hear paws and hooves shuffling nearby.',
+      offered: (save) => save.petshopId == null },
+    { key: 'bookshop', role: 'market', solo: 'book', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
       blurb: 'A family opens the market shutters again. Shelves of books line the walls.',
       offered: (save) => save.bookshopId == null },
     { key: 'wizard', role: 'wizard', from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
@@ -210,8 +217,9 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   // RESTORE THIS WRECK AS THE PICKED CARD. The one writer of the restoration
   // ledger: freezes the row's role onto the house, then stamps what the pick
-  // owns — the first blacksmith (starterBlacksmithId), the Book Shop
-  // (bookshopId), a wizard tower (wizardTowers). Refuses (null) a card not on
+  // owns — the first blacksmith (starterBlacksmithId), a solo shop (the Book
+  // Shop's bookshopId, the Pet Shop's petshopId), a wizard tower
+  // (wizardTowers). Refuses (null) a card not on
   // offer, so a stale modal can't raise a tower early. Returns the row.
   // `opts.hammer` marks the house shiny (the caller spends the Magic Hammer).
   function restoreAs(save, house, key, opts = {}) {
@@ -224,7 +232,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (row.theme) (save.shopLines = save.shopLines || {})[house.id] = row.theme;
     if (opts.hammer && hammerTakes(row)) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
     if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
-    if (row.key === 'bookshop') registerBookshop(save, house);
+    if (row.solo) registerSoloShop(save, house, row.solo);
     if (row.role === 'wizard') registerWizardTower(save, house);
     return row;
   }
@@ -254,15 +262,18 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return null;
   }
 
-  // Stamp the Book Shop (save.bookshopId): the market the player picked the
-  // Book Shop card for — once per save (the card leaves the offer once it is
-  // stamped). A save that restored a market before the card existed is
-  // never re-labelled; its next pick is the one.
-  function registerBookshop(save, house) {
-    if (save.bookshopId != null || house?.id == null) return save.bookshopId ?? null;
+  // Stamp a solo shop (shops.js SOLO_LINES: the Book Shop's bookshopId, the
+  // Pet Shop's petshopId): the market the player picked that card for — once
+  // per save (the card leaves the offer once it is stamped). A save that
+  // restored a market before the card existed is never re-labelled; its next
+  // pick is the one.
+  function registerSoloShop(save, house, theme) {
+    const key = Shops.SOLO_LINES[theme];
+    if (!key) return null;
+    if (save[key] != null || house?.id == null) return save[key] ?? null;
     if (save.restoredHouses?.[house.id] !== 'market') return null;
-    save.bookshopId = String(house.id);
-    return save.bookshopId;
+    save[key] = String(house.id);
+    return save[key];
   }
   // Stamp a tower the player just raised: the first if none stands, else the
   // second. Whether a second may be raised at all is the wizard card's
@@ -463,7 +474,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
     HAMMER_ID, HAMMER_PRICE_MUL, hammerTakes, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
-    wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,
+    wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerSoloShop,
     shopCharmMul,
     guildRole,
     isHouseWreck, wreckRestoreCost,
