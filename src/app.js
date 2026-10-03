@@ -11901,7 +11901,7 @@ class MapScene extends Phaser.Scene {
   }
   // Is the world point (x, y) inside Home's ring (HOME_R)? THE one distance
   // test behind every effect of the ring that is asked about a point — the
-  // rest above, and the yard crop raiders keep out of (homeGuardsCrop).
+  // rest above.
   // Surface only, through homeWorldPos; no Home, no ring.
   inHomeRing(x, y) {
     const home = this.homeWorldPos();
@@ -11910,24 +11910,14 @@ class MapScene extends Phaser.Scene {
     const dx = home.x - x, dy = home.y - y;
     return dx * dx + dy * dy <= r * r;
   }
-  // HOME GUARDS ITS YARD. A planted crop inside Home's ring is off the menu
-  // for every crop raider: the crow neither notices nor lands on it, the
-  // hard-mode pump doesn't dispatch a crow for it, and the deer won't graze
-  // it. Home already turns enemies away on this ring; a bird eating the
-  // lettuce on your doorstep while you rest there read as Home doing nothing.
-  // Out past the ring the field is as exposed as it always was (scarecrows are
-  // the answer there). It is a REASON on the raider's existing "may I eat
-  // this?" test, never a second lane: _cropRaidable, which the deer's graze
-  // and the hard-mode pest pump both read.
-  homeGuardsCrop(p) {
-    return !!p && this.inHomeRing(p.x, p.y);
-  }
   // May a raider (the deer) eat this crop? Its kind (Crops.raiderEats —
-  // never potato) and where it grows (homeGuardsCrop). Every crop-raid test
-  // — the deer's notice, its graze, the pest pump's "is there a field worth
-  // sending one at" — reads this and nothing else.
+  // never potato). Home's yard is NOT a refuge (owner, Oct 2026): a deer may
+  // walk into Home's ring and graze the beds by the door like any field —
+  // a garden no deer ever visits is no garden to defend. Every crop-raid
+  // test — the deer's notice, its graze, the pest pump's "is there a field
+  // worth sending one at" — reads this and nothing else.
   _cropRaidable(p) {
-    return raiderEatsCrop(p) && !this.homeGuardsCrop(p);
+    return raiderEatsCrop(p);
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid

@@ -466,11 +466,11 @@ const starterWrapper = (name) => {
     return src.slice(start + 1, end + 4);
   };
   const methods = ['homeWorldPos() {', 'isRestingAtHome(pWX, pWY) {', 'inHomeRing(x, y) {',
-                   'homeGuardsCrop(p) {', '_cropRaidable(p) {']
+                   '_cropRaidable(p) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__home = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#homeWorldPos' });
-  for (const k of ['homeWorldPos', 'isRestingAtHome', 'inHomeRing', 'homeGuardsCrop', '_cropRaidable']) {
+  for (const k of ['homeWorldPos', 'isRestingAtHome', 'inHomeRing', '_cropRaidable']) {
     if (typeof ctx.__home[k] !== 'function') {
       console.error(`__home.${k} did not come back as a function — update run.js`);
       process.exit(2);
