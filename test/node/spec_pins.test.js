@@ -39,8 +39,8 @@ function seededPrng(seed) {
 
 test('#1 armor equip: fills the slot and leaves energy alone', () => {
   const save = { relics: {}, armor: {}, energy: 40, maxEnergy: 100 };
-  Gear.equip(save, 'armor', 'chest', 2);
-  assert.eq(save.armor.chest.tier, 2, 'the slot is filled');
+  Gear.equip(save, 'armor', 'chestplate', 2);
+  assert.eq(save.armor.chestplate.tier, 2, 'the slot is filled');
   assert.eq(save.energy, 40, 'no headroom granted — armour is not a bigger bar');
   assert.eq(Energy.maxEnergy(save), 100, 'and the cap is untouched by armour');
 });
@@ -66,8 +66,8 @@ test('#1 reward grant: the interact path equips the same way', () => {
   // Reward grants delegate gear to Gear.equip.
   const save = { relics: {}, armor: {}, energy: 100, maxEnergy: 100 };
   const scene = makeScene();
-  Rewards.apply(save, { kind: 'armor', slot: 'legs', tier: 2 }, scene);
-  assert.eq(save.armor.legs.tier, 2, 'looted armour lands in its slot');
+  Rewards.apply(save, { kind: 'armor', slot: 'leggings', tier: 2 }, scene);
+  assert.eq(save.armor.leggings.tier, 2, 'looted armour lands in its slot');
   assert.eq(armorReduction(save.armor), 2, 'and starts soaking immediately');
   assert.eq(save.energy, 100, 'without touching the bar');
 });

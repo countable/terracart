@@ -1386,7 +1386,7 @@ for (const f of testFiles) {
 // Every tool a wheel can be started with must ship art at every tier (a missing
 // PNG is a wheel with an empty middle). Checked in node scope.
 {
-  for (const slot of ['axe', 'bugnet', 'hoe', 'pick', 'rod', 'sword']) {
+  for (const slot of ['axe', 'net', 'hoe', 'pickaxe', 'fishing_rod', 'sword']) {
     ctx.__tests.push({ name: `work wheel: ${slot} art ships at every tier`, fn: () => {
       for (const tier of Object.keys(ctx.TIER_BY_NUM || {}).map(Number)) {
         const rel = ctx.gearAssetPath('relic', slot, tier);

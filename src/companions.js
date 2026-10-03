@@ -7,7 +7,7 @@
       get durationMs() { return SPIRIT_RAVEN_MS; },
       expired: 'The spirit raven fades.', defeated: 'The spirit raven is spent.' },
     summoned_skeleton: { field: 'skeletonUntil', instance: '_summonedSkeleton',
-      get durationMs() { return CONSUMABLE_SPEC.skeleton_scroll.durationMs; }, persistHealth: true,
+      get durationMs() { return CONSUMABLE_SPEC.bones_scroll.durationMs; }, persistHealth: true,
       expired: 'The bones settle into dust.', defeated: 'The bones fall still.' },
     summoned_wraith: { field: 'wraithUntil', instance: '_summonedWraith',
       get durationMs() { return CONSUMABLE_SPEC.wraith_scroll.durationMs; }, persistHealth: true,

@@ -34,7 +34,7 @@ test('baby pets: one table of domestic kinds, each a real animal item off its ba
 
 test('nest bush: one shrub in twenty, off the id, only nesting crops', () => {
   assert.eq(SHINY_RATE.nest, 1 / 20);
-  assert.truthy(wildplantNests('shrub')); assert.falsy(wildplantNests('mushroom')); assert.falsy(wildplantNests('rockfruit'));
+  assert.truthy(wildplantNests('shrub')); assert.falsy(wildplantNests('mushroom')); assert.falsy(wildplantNests('rubble'));
   const all = bushIds(20000);
   const n = all.filter(id => isNestBush('shrub', id)).length;
   assert.inRange(n / all.length, 0.045, 0.055, `rate ${n / all.length}`);

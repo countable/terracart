@@ -60,9 +60,9 @@ test('MINERAL_ICON_SHEET: wood uses the wood sheet, frame 2', () => {
   assert.eq(MINERAL_ICON_SHEET['wood'].frame, 2);
 });
 
-test('MINERAL_ICON_SHEET: coal uses coal_icon sheet, frame 0', () => {
-  assert.eq(MINERAL_ICON_SHEET['coal'].sheet, 'coal_icon');
-  assert.eq(MINERAL_ICON_SHEET['coal'].frame, 0);
+test('MINERAL_ICON_SHEET: flint_shard uses icon_flint_shard sheet, frame 0', () => {
+  assert.eq(MINERAL_ICON_SHEET['flint_shard'].sheet, 'icon_flint_shard');
+  assert.eq(MINERAL_ICON_SHEET['flint_shard'].frame, 0);
 });
 
 test('MINERAL_ICON_SHEET: gem frames — diamond 0, ruby 1, sapphire 3, emerald 5 (all on gems sheet)', () => {
@@ -83,24 +83,24 @@ test('MINERAL_ICON_SHEET: gem frames — diamond 0, ruby 1, sapphire 3, emerald 
 test('MINERAL_ICON_SHEET: fruit-tree saplings use the species tree sheet at frame 2', () => {
   assert.eq(MINERAL_ICON_SHEET['apple_sapling'].sheet, 'apple_tree');
   assert.eq(MINERAL_ICON_SHEET['apple_sapling'].frame, 2);
-  assert.eq(MINERAL_ICON_SHEET['peach_sapling'].sheet, 'peach_tree');
-  assert.eq(MINERAL_ICON_SHEET['peach_sapling'].frame, 2);
+  assert.eq(MINERAL_ICON_SHEET['worldpeach_sapling'].sheet, 'worldpeach_tree');
+  assert.eq(MINERAL_ICON_SHEET['worldpeach_sapling'].frame, 2);
 });
 
 test('MINERAL_ICON_SHEET: apple and peach saplings use DIFFERENT sheets (bug 5bb9e66)', () => {
   // apple≠peach frames: both are frame 2 (young sapling frame) but on different species sheets.
   assert.truthy(
-    MINERAL_ICON_SHEET['apple_sapling'].sheet !== MINERAL_ICON_SHEET['peach_sapling'].sheet,
+    MINERAL_ICON_SHEET['apple_sapling'].sheet !== MINERAL_ICON_SHEET['worldpeach_sapling'].sheet,
     'apple_sapling and peach_sapling must use different species sheets'
   );
   assert.eq(MINERAL_ICON_SHEET['apple_sapling'].sheet, 'apple_tree');
-  assert.eq(MINERAL_ICON_SHEET['peach_sapling'].sheet, 'peach_tree');
+  assert.eq(MINERAL_ICON_SHEET['worldpeach_sapling'].sheet, 'worldpeach_tree');
 });
 
 test('MINERAL_ICON_SHEET: boot junk pickup is frame 88 on the pickup sheet', () => {
   // row 6, col 4 of 7_Pickup_Items_16x16 (14 cols): frame = 6*14 + 4 = 88
-  assert.eq(MINERAL_ICON_SHEET['boot'].sheet, 'pickup');
-  assert.eq(MINERAL_ICON_SHEET['boot'].frame, 88);
+  assert.eq(MINERAL_ICON_SHEET['old_boot'].sheet, 'pickup');
+  assert.eq(MINERAL_ICON_SHEET['old_boot'].frame, 88);
   assert.eq(6 * 14 + 4, 88, 'frame derivation check');
 });
 
@@ -257,7 +257,7 @@ test('CROP_ROW: every crop key has an ITEM_BY_ID entry for its seed', () => {
 });
 
 test('CROP_ROW: rows 0..9 cover the main Crops.png crops (not spring-crop overrides)', () => {
-  const mainCrops = ['rainberry', 'pairy', 'gemfruit', 'nut', 'rockfruit', 'coffee',
+  const mainCrops = ['rainberry', 'pairy', 'gemfruit', 'nut', 'rubble', 'coffee',
                      'potato', 'iceflower', 'fireflower', 'sunflower'];
   for (const key of mainCrops) {
     assert.truthy(CROP_ROW[key] != null, `${key} has a CROP_ROW entry`);
@@ -481,10 +481,10 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   assert.truthy(1024 * art.scale <= 3 * SpriteLayout.CELL_PX);
   assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
   assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
-  assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
+  assert.eq(wildplantSprite({crop:'rubble',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
   assert.eq(wildplantSprite({crop:'driftwood'}).sheet, 'driftwood');
-  assert.eq(inventoryIconSource('rockfruit').sheet, 'crops');
-  assert.eq(iconBadgeItem('rockfruit_seed'), 'rockfruit');
+  assert.eq(inventoryIconSource('rubble').sheet, 'crops');
+  assert.eq(iconBadgeItem('rubble_seed'), 'rubble');
 });
 
 

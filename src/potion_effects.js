@@ -4,7 +4,7 @@
   'use strict';
   const TIMERS = {
     reach_potion: 'reachPotionUntil', speed_potion: 'speedPotionUntil',
-    shield_potion: 'shieldPotionUntil', protection_potion: 'protectionPotionUntil',
+    shielding_potion: 'shieldPotionUntil', protection_potion: 'protectionPotionUntil',
     giant_potion: 'giantPotionUntil', fire_resistance_potion: 'fireResistancePotionUntil',
     blight_potion: 'blightPotionUntil',
     immortal_potion: 'immortalPotionUntil',
@@ -36,7 +36,7 @@
   }
   function damageMul(c, now = Date.now()) {
     if (Conditions.damageImmune(c, now)) return 0;
-    return Math.min(active(c, 'shield_potion', now) ? CONSUMABLE_SPEC.shield_potion.damageMul : 1,
+    return Math.min(active(c, 'shielding_potion', now) ? CONSUMABLE_SPEC.shielding_potion.damageMul : 1,
       active(c, 'protection_potion', now) ? CONSUMABLE_SPEC.protection_potion.damageMul : 1);
   }
   function extinguish(c) {
@@ -130,7 +130,7 @@
       // the chip the player wears for it, so a thrown Speed says "Speed".
       const row = root.Buffs && Object.values(root.Buffs.KINDS).find(k => k.save === TIMERS[id]);
       if (row) Combat.flagStatus(c, { label: row.name, color: row.color });
-    } else if (id === 'vigor_potion' || id === 'elixir') {
+    } else if (id === 'healing_potion' || id === 'elixir') {
       if (id === 'elixir' && downed(c, now)) return false;
       if (id === 'elixir') clearDebuffs(c);
       c._hp = id === 'elixir' ? Combat.maxHp(c) : Math.min(Combat.maxHp(c), Combat.hp(c) + spec.energy);
@@ -140,11 +140,11 @@
     } else if (id === 'poison_flask') {
       // A struck creature takes the player's poison (the row's minute).
       Combat.poison(c, performance.now(), 'player');
-    } else if (id === 'revive_potion' || id === 'resurrection_potion') {
+    } else if (id === 'revival_potion' || id === 'resurrection_potion') {
       if (!downed(c, now)) return false;
       c._hp = Math.max(1, Math.round(Combat.maxHp(c) * spec.energyFrac));
       clearDebuffs(c); wake(scene, c);
-    } else if (id === 'honey') {
+    } else if (id === 'taming_potion') {
       c._potionTamingUntil = now + (spec.durationMs || 60000);
       if (Combat.isEnemyKind(c.kind)) Combat.applyCharm(c, now);
       if (scene.startWorldM && scene.playerM) {

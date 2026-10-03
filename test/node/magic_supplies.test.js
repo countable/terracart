@@ -1,9 +1,9 @@
 test('item classes: potions and powders are Magic; practical items are Supplies', () => {
-  for (const id of ['antidote', 'elixir', 'reach_potion', 'vigor_potion', 'speed_potion', 'shield_potion', 'blight_potion', 'raven_scroll', 'revive_potion', 'resurrection_potion', 'thunder_scroll', 'growth_powder', 'shadow_powder', 'dragon_powder', 'frost_powder']) {
+  for (const id of ['antidote', 'elixir', 'reach_potion', 'healing_potion', 'speed_potion', 'shielding_potion', 'blight_potion', 'raven_scroll', 'revival_potion', 'resurrection_potion', 'thunder_scroll', 'growth_powder', 'shadow_powder', 'dragon_powder', 'frost_powder']) {
     assert.eq(ITEM_BY_ID[id].kind, 'magic', id);
     assert.eq(invCatForItem(id), 'magic', id);
   }
-  for (const id of ['honey', 'book', 'rope', 'torch', 'trap_kit', 'magic_trap', 'scarecrow']) {
+  for (const id of ['taming_potion', 'book', 'rope', 'torch', 'trap_disarm_kit', 'magic_trap', 'scarecrow']) {
     assert.eq(ITEM_BY_ID[id].kind, 'supply', id);
     assert.eq(invCatForItem(id), 'supplies', id);
   }
@@ -19,7 +19,7 @@ test('new medicines have distinct nonempty art and fixed tiers', () => {
   assert.eq(itemValue('antidote'), 12);
   assert.eq(itemValue('elixir'), 360);
   const used = new Set();
-  for (const id of ['antidote', 'elixir', 'vigor_potion', 'revive_potion', 'resurrection_potion']) {
+  for (const id of ['antidote', 'elixir', 'healing_potion', 'revival_potion', 'resurrection_potion']) {
     const art = inventoryIconSource(id);
     const key = `${art.sheet}:${art.frame}`;
     assert.falsy(used.has(key), `${id} shares art`);

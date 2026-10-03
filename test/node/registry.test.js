@@ -37,7 +37,7 @@ test('tree: too-weak axe is gated (no wood, tap consumed)', () => {
 // --- Mineral rock -----------------------------------------------------------
 test('mineralrock: ore is gated behind the pick tier', () => {
   const scene = makeScene();
-  const save = { relics: { pick: { tier: 1 } } };       // too weak for a T4 deposit
+  const save = { relics: { pickaxe: { tier: 1 } } };       // too weak for a T4 deposit
   const o = { kind: 'mineralrock', id: 'mr-1', x: 0, y: 0, yieldTier: 4 };
   assert.eq(runInteractable(makeCtx(scene, save), o), true, 'tap consumed by gate');
   assert.eq(scene.invCount('gold_bar'), 0, 'gated ore drops no bar');
@@ -49,27 +49,27 @@ test('mineralrock: ore is gated behind the pick tier', () => {
 // what its own art promises, whichever variant cell (0,0) happens to hash to.
 test('mineralrock: plain rock drops what its sprite shows and breaks', () => {
   const scene = makeScene();
-  const save = { relics: { pick: { tier: 7 } } };
+  const save = { relics: { pickaxe: { tier: 7 } } };
   const o = { kind: 'mineralrock', id: 'mr-2', x: 0, y: 0, yieldTier: 1 };
   const stones = SpriteLayout.plainRockStones(o);
   assert.eq(runInteractable(makeCtx(scene, save), o), true);
-  assert.inRange(scene.invCount('rockfruit'), stones, stones + 1,
+  assert.inRange(scene.invCount('rubble'), stones, stones + 1,
     `plain rock showing ${stones} stone(s) = ${stones}-${stones + 1} stone`);
   assert.truthy(scene.brokenRockSet.has('mr-2'), 'rock recorded as broken');
 });
 
 test('mineralrock: T4 ore yields exactly one namesake bar + coal', () => {
   const scene = makeScene();
-  const save = { relics: { pick: { tier: 7 } } };
+  const save = { relics: { pickaxe: { tier: 7 } } };
   const o = { kind: 'mineralrock', id: 'mr-3', x: 0, y: 0, yieldTier: 4 };
   runInteractable(makeCtx(scene, save), o);
   assert.eq(scene.invCount('gold_bar'), 1, 'T4 → one gold bar');
-  assert.gte(scene.invCount('coal'), 1, 'ore also drops coal');
+  assert.gte(scene.invCount('flint_shard'), 1, 'ore also drops coal');
 });
 
 test('mineralrock: a broken rock is a no-op (consumes, no double loot)', () => {
   const scene = makeScene();
-  const save = { relics: { pick: { tier: 7 } } };
+  const save = { relics: { pickaxe: { tier: 7 } } };
   scene.brokenRockSet.add('mr-4');
   const o = { kind: 'mineralrock', id: 'mr-4', x: 0, y: 0, yieldTier: 4 };
   assert.eq(runInteractable(makeCtx(scene, save), o), true, 'spent rock consumes the tap');
@@ -94,7 +94,7 @@ test('fruittree: a pick always yields a REAL item, even after the starter-home p
   // (like app.js addToInv) drops an unknown id silently. That silence is the
   // bug this pins: starter provisioning used to tame a fruit tree near spawn
   // to species 'pine', so the pick flashed "harvested pine" and gave nothing.
-  for (const species of ['apple', 'peach']) {
+  for (const species of ['apple', 'worldpeach']) {
     const o = { kind: 'fruittree', id: `ft_${species}`, x: 84, y: 0, species, wild: true };
     const plan = HomeArea.planStarterProvision([o], 0, 0, 7);
     for (const d of plan.downgrade) HomeArea.makeStarterUsable(d);
@@ -134,9 +134,9 @@ test('fruittree: a tree already stamped with a non-fruit species repairs itself 
     assert.falsy(msgs.some(m => /pine|maple|wood|undefined/.test(m)), 'never flashes the bad species');
   }
   // A real fruit is left alone.
-  const peach = { kind: 'fruittree', id: 'ft_ok', x: 84, y: 0, species: 'peach', wild: true };
+  const peach = { kind: 'fruittree', id: 'ft_ok', x: 84, y: 0, species: 'worldpeach', wild: true };
   runInteractable(makeCtx(makeScene(), {}), peach);
-  assert.eq(peach.species, 'peach', 'a peach tree stays a peach tree');
+  assert.eq(peach.species, 'worldpeach', 'a peach tree stays a peach tree');
 });
 
 test('registry: unknown kinds are not handled (driver returns false)', () => {

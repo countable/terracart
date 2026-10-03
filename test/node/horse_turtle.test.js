@@ -45,10 +45,10 @@ test('horse: a T4 mount with a premium sale value and no milk', () => {
 });
 
 test('turtle: the rabbit\'s habits, seated on the shore', () => {
-  assert.eq(SpriteLayout.CREATURE_BEHAVIOUR.turtle, SpriteLayout.CREATURE_BEHAVIOUR.rabbit, 'one gait row');
-  assert.eq(ITEM_BY_ID.turtle.kind, 'animal');
-  assert.eq(ITEM_BY_ID.turtle.baseTier, 3);
-  assert.truthy(SHORE_FAUNA.turtle, 'a shore species');
-  assert.eq(SHORE_FAUNA_ORDER[SHORE_FAUNA_ORDER.length - 1], 'turtle', 'appended last: no older seat moves');
-  assert.falsy(Object.values(BIOME_FAUNA).some((r, i) => Object.keys(BIOME_FAUNA)[i] === 'turtle'), 'never inland');
+  assert.eq(SpriteLayout.CREATURE_BEHAVIOUR.sea_turtle, SpriteLayout.CREATURE_BEHAVIOUR.rabbit, 'one gait row');
+  assert.eq(ITEM_BY_ID.sea_turtle.kind, 'animal');
+  assert.eq(ITEM_BY_ID.sea_turtle.baseTier, 3);
+  assert.truthy(SHORE_FAUNA.sea_turtle, 'a shore species');
+  assert.eq(SHORE_FAUNA_ORDER[SHORE_FAUNA_ORDER.length - 1], 'sea_turtle', 'appended last: no older seat moves');
+  assert.falsy(Object.values(BIOME_FAUNA).some((r, i) => Object.keys(BIOME_FAUNA)[i] === 'sea_turtle'), 'never inland');
 });

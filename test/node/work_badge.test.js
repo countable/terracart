@@ -56,30 +56,30 @@ const runHelper = (relics, toolSlot) => {
 };
 
 test('work badge: a bare-handed catch draws nothing', () => {
-  const { calls, key } = runHelper({}, 'bugnet');
+  const { calls, key } = runHelper({}, 'net');
   assert.truthy(!calls.some((c) => c.slot), 'no tool texture is asked for');
   assert.eq(key, null, "the last wheel's tool is cleared, not carried over");
 });
 
 test('work badge: an owned net still draws, at ITS tier', () => {
-  const { calls, key } = runHelper({ bugnet: { tier: 4 } }, 'bugnet');
-  const built = calls.find((c) => c.slot === 'bugnet');
+  const { calls, key } = runHelper({ net: { tier: 4 } }, 'net');
+  const built = calls.find((c) => c.slot === 'net');
   assert.truthy(built, 'the net texture was asked for');
   assert.eq(built.tier, 4, 'at the tier actually owned, not Wood');
-  assert.eq(key, 'tex:bugnet:4', 'and the wheel will draw that texture');
+  assert.eq(key, 'tex:net:4', 'and the wheel will draw that texture');
 });
 
 test('work badge: every bare-handable job is covered by the one gate', () => {
   // The slots below all reach the wheel through a call site that passes the
   // slot unconditionally, and all of them have a tier-0 (bare hands) rung.
-  for (const slot of ['bugnet', 'hoe', 'pick', 'axe', 'rod', 'sword']) {
+  for (const slot of ['net', 'hoe', 'pickaxe', 'axe', 'fishing_rod', 'sword']) {
     const { key } = runHelper({}, slot);
     assert.eq(key, null, `bare-handed "${slot}" wears no badge`);
   }
 });
 
 test('work badge: every owned wheel tool is drawn at its tier', () => {
-  for (const slot of ['bugnet', 'hoe', 'pick', 'axe', 'rod', 'sword']) {
+  for (const slot of ['net', 'hoe', 'pickaxe', 'axe', 'fishing_rod', 'sword']) {
     for (let tier = 1; tier <= 7; tier++) {
       const { key } = runHelper({ [slot]: { tier } }, slot);
       assert.eq(key, `tex:${slot}:${tier}`, `${slot} tier ${tier} is drawn`);
@@ -106,9 +106,9 @@ test('work badge: the call sites hand over the slot plainly', () => {
     "startCombat passes the equipped melee weapon, with the bare-hands sword fallback");
   assert.truthy(!/_setWorkProgressIcon\([^)]*\?[^)]*:/.test(app),
     'no call site in app.js re-tests ownership with a ternary');
-  assert.truthy(/const netSlot = 'bugnet';/.test(INTERACT_SRC),
+  assert.truthy(/const netSlot = 'net';/.test(INTERACT_SRC),
     "the hunt wheel names the net slot plainly");
-  assert.truthy(!/const netSlot = r\.bugnet \? 'bugnet' : null;/.test(INTERACT_SRC),
+  assert.truthy(!/const netSlot = r\.net \? 'net' : null;/.test(INTERACT_SRC),
     'the hunt wheel no longer carries its own copy of the ownership test');
 });
 })();

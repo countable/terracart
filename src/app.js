@@ -557,8 +557,8 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
-const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
+const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
+const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
 // tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
@@ -660,7 +660,7 @@ const PEST_FREE_CELLS = 20;
 // found while gathering rather than handed over at the door.
 const STARTER_STASH = [
   { id: 'book', qty: 1 }, { id: 'book', qty: 1 }, { id: 'book', qty: 1 }, { id: 'book', qty: 1 },
-  { id: 'rope', qty: 1 }, { id: 'trap_kit', qty: 1 },
+  { id: 'rope', qty: 1 }, { id: 'trap_disarm_kit', qty: 1 },
 ];
 const STARTER_STASH_R_CELLS = [8, 16];
 // How long a wounded enemy keeps its floating health bar after the last hit.
@@ -936,7 +936,7 @@ const TOME_EFFECT_MUL = 0.5;
 const TOME_THUNDER_DMG = Math.floor(THUNDER_DMG * TOME_EFFECT_MUL);
 const TOME_HEALING_ENERGY = Math.floor(VIGOR_POTION_ENERGY * TOME_EFFECT_MUL);
 const SPEED_POTION_MS = CONSUMABLE_SPEC.speed_potion.durationMs;
-const SHIELD_POTION_MS = CONSUMABLE_SPEC.shield_potion.durationMs;
+const SHIELD_POTION_MS = CONSUMABLE_SPEC.shielding_potion.durationMs;
 const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
 const SHADOW_POWDER_MS = CONSUMABLE_SPEC.shadow_powder.durationMs;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
@@ -1160,7 +1160,7 @@ const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'N
 // three WORK tools (BAREHAND_MUTTER_TOOLS, the same three _barehandWorkStory
 // tells of) grunt: a bare-handed catch or fight is the normal way of those.
 const BAREHAND_MUTTERS = ['Oof!', 'Ghhhh!', 'Need tools!'];
-const BAREHAND_MUTTER_TOOLS = ['axe', 'pick', 'hoe'];
+const BAREHAND_MUTTER_TOOLS = ['axe', 'pickaxe', 'hoe'];
 const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
@@ -1206,7 +1206,7 @@ const HOME_R = 4;   // cells — Home's light / rest / ward ring
 // makes a WOODEN relic of it drawable. Unique jewelry is carried inventory,
 // not gear, so it never enters this starter-slot table. Audited against the
 // shipped PNGs in test/node/starter_relic.test.js.
-const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'sword', 'bow', 'staff'];
+const STARTER_RELIC_SLOTS = ['pickaxe', 'axe', 'hoe', 'fishing_rod', 'watering_can', 'net', 'sword', 'bow', 'staff'];
 // Wood — the first rung of MATERIAL_TIERS. The chest is a bootstrap, not a
 // jackpot: it makes the player's first swing 2.25× quicker and leaves every finer
 // tier to be bought, forged or looted.
@@ -1423,21 +1423,21 @@ const ROAD_CHIP_SVG =
 
 const ICON_SHEETS = {
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_telescope: { url: 'assets/Icons/Items/telescope.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_field_scope: { url: 'assets/Icons/Items/field_scope.png', cols: 1, srcW: 16, srcH: 16 },
   icon_orb: { url: 'assets/Icons/Items/orb.png', cols: 1, srcW: 16, srcH: 16 },
   icon_goblet: { url: 'assets/Icons/Items/goblet.png', cols: 1, srcW: 16, srcH: 16 },
   icon_lucky_key: { url: 'assets/Icons/Items/lucky_key.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_shield_wood: { url: 'assets/Icons/Items/shield_wood.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_shield_metal: { url: 'assets/Icons/Items/shield_metal.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_shield_gold: { url: 'assets/Icons/Items/shield_gold.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_guild_blacksmith: { url: 'assets/Icons/Items/guild_blacksmith.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_guild_market: { url: 'assets/Icons/Items/guild_market.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_guild_trader: { url: 'assets/Icons/Items/guild_trader.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_wood_shield: { url: 'assets/Icons/Items/wood_shield.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_metal_shield: { url: 'assets/Icons/Items/metal_shield.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_gold_shield: { url: 'assets/Icons/Items/gold_shield.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_smiths_guild_badge: { url: 'assets/Icons/Items/smiths_guild_badge.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_marketeers_guild_badge: { url: 'assets/Icons/Items/marketeers_guild_badge.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_traders_guild_badge: { url: 'assets/Icons/Items/traders_guild_badge.png', cols: 1, srcW: 16, srcH: 16 },
 
   crops:       { url: 'assets/Objects/Approved/crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
   springcrops: { url: 'assets/Objects/Approved/springcrops.png',                cols: 14, srcW: 224, srcH: 128 },
   gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
-  coal_icon:   { url: 'assets/Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
+  icon_flint_shard:   { url: 'assets/Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
   // Bars + ores — 256×64, 16 cols × 4 rows of 16×16. Row 0 left-to-right
   // is the bar tier ladder: copper, iron, gold, platinum, crimson, frost
   // (frames 0..5). MINERAL_ICON_SHEET maps each bar id to its frame.
@@ -1450,7 +1450,7 @@ const ICON_SHEETS = {
   // Orchard fruit — 32×16 each (frame 0 = whole fruit).
   icon_apple:   { url: 'assets/Icons/Food Icons/Apple.png',             cols: 2,  srcW: 32,  srcH: 16  },
   icon_cherry:  { url: 'assets/Icons/Food Icons/Cherry.png',            cols: 2,  srcW: 32,  srcH: 16  },
-  icon_peach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
+  icon_worldpeach:   { url: 'assets/Icons/Food Icons/Peach.png',             cols: 2,  srcW: 32,  srcH: 16  },
   icon_mango:   { url: 'assets/Icons/Food Icons/Mango.png',             cols: 2,  srcW: 32,  srcH: 16  },
   icon_apricot: { url: 'assets/Icons/Food Icons/Apricot.png',           cols: 2,  srcW: 32,  srcH: 16  },
   icon_banana:  { url: 'assets/Icons/Food Icons/Banana.png',            cols: 2,  srcW: 32,  srcH: 16  },
@@ -1466,9 +1466,9 @@ const ICON_SHEETS = {
   // Consumables + wilderness drops.
   icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_skeleton_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_bones_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_honey:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
+  icon_taming_potion:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_magic_hammer: { url: 'assets/Icons/Items/MagicHammer.png',             cols: 1,  srcW: 16,  srcH: 16 },
   icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
@@ -1478,7 +1478,7 @@ const ICON_SHEETS = {
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
   icon_rings:    { url: 'assets/Icons/RPG icons/Extras/Rings.png',        cols: 6,  srcW: 96,  srcH: 64 },
   icon_amulets:  { url: 'assets/Icons/RPG icons/Extras/Amulet.png',       cols: 6,  srcW: 96,  srcH: 64 },
-  icon_spear:    { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
+  icon_throwing_spear:    { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   icon_javelin:  { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
@@ -4747,7 +4747,7 @@ class MapScene extends Phaser.Scene {
   // every wheel starter passes its tool slot through startWorkProgress, so no
   // call site can forget it. A slot the player owns at any tier says nothing;
   // so does a wheel with no work tool (a catch, a fight, a dig in a cave wall
-  // passes 'pick' and grunts like the rest — the rung is the same).
+  // passes 'pickaxe' and grunts like the rest — the rung is the same).
   _barehandMutter(toolSlot, worldX, worldY) {
     if (!toolSlot || !BAREHAND_MUTTER_TOOLS.includes(toolSlot)) return false;
     if ((this.save?.relics?.[toolSlot]?.tier || 0) > 0) return false;
@@ -5346,9 +5346,9 @@ class MapScene extends Phaser.Scene {
   _setPeekFromDrag(dxPx, dyPx) {
     const k = this.cellM / CELL_PX;
     let mx = -dxPx * k, my = -dyPx * k;
-    const telescope = carriesItem(this.save, 'telescope') || Energy.dawnfruitActive(this.save);
+    const telescope = carriesItem(this.save, 'field_scope') || Energy.dawnfruitActive(this.save);
     const maxM = PEEK_MAX_CELLS * this.cellM
-      / (telescope ? 1 : CARRIED_ITEM_SPEC.telescope.peekMultiplier);
+      / (telescope ? 1 : CARRIED_ITEM_SPEC.field_scope.peekMultiplier);
     const mag = Math.hypot(mx, my);
     if (mag > maxM) { mx = mx / mag * maxM; my = my / mag * maxM; }
     this.peekM.x = mx;
@@ -6434,8 +6434,8 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const durMs = (typeof toolDurationMs === 'function')
-      ? toolDurationMs(this.save.relics, 'pick')
-      : (this.save.relics?.pick ? 4000 : 9000);
+      ? toolDurationMs(this.save.relics, 'pickaxe')
+      : (this.save.relics?.pickaxe ? 4000 : 9000);
     this._autoMineKey = `${c.tx}/${c.ty}/${c.ix}/${c.iy}`;
     // energyRefund = 0: nothing was charged up-front, so a tap-bail has nothing
     // to refund (it just cancels the dig). The spend lands at the dig instant.
@@ -6455,9 +6455,9 @@ class MapScene extends Phaser.Scene {
       const qty = caveWallDrop(this);
       this._autoMineKey = null;
       persistSave(this.save);
-      const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rockfruit'] : null;
-      this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
-    }, durMs, 0, 'pick');
+      const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rubble'] : null;
+      this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rubble');
+    }, durMs, 0, 'pickaxe');
   }
   // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
   // staircase's cell at the new depth (where a matching stair sits), swaps the
@@ -7629,8 +7629,8 @@ class MapScene extends Phaser.Scene {
   }
 
   _toolActionStory(action) {
-    const slot = { till: 'hoe', chop: 'axe', dig: 'pick', water: 'can',
-      catch: 'bugnet', sword: 'sword', staff: 'staff', shoot: 'bow' }[action];
+    const slot = { till: 'hoe', chop: 'axe', dig: 'pickaxe', water: 'watering_can',
+      catch: 'net', sword: 'sword', staff: 'staff', shoot: 'bow' }[action];
     if (!slot || !(this.save.relics?.[slot]?.tier > 0)) return;
     const TOOL_STORIES = {
       till:  { art: 'tool_till',  title: 'First furrow',
@@ -7658,7 +7658,7 @@ class MapScene extends Phaser.Scene {
   // another reward changes the inventory while its wheel is running.
   // (BAREHAND_STORY_ASIDE closes both bodies — barehand_story.test.js.)
   _barehandWorkStory(tool, startingTier, isTree = false) {
-    if ((this.depth ?? 0) > 0 || startingTier > 0 || !['axe', 'pick', 'hoe'].includes(tool)) return;
+    if ((this.depth ?? 0) > 0 || startingTier > 0 || !['axe', 'pickaxe', 'hoe'].includes(tool)) return;
     this._storySplashOnce('work:barehands', {
       art: isTree ? 'barehand_tree' : 'barehand_work',
       title: 'Without a tool',
@@ -9246,9 +9246,9 @@ class MapScene extends Phaser.Scene {
     //   bug net     — single 16×16 icon
     //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
     let sheetCols, sheetRows, frame;
-    if (kind === 'relic' && slot === 'bags') {
+    if (kind === 'relic' && slot === 'bag') {
       sheetCols = 7; sheetRows = 1; frame = tier - 1;
-    } else if (kind === 'relic' && slot === 'bugnet') {
+    } else if (kind === 'relic' && slot === 'net') {
       sheetCols = 1; sheetRows = 1; frame = 0;
     } else {
       sheetCols = 2; sheetRows = 1; frame = 0;

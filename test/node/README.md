@@ -62,7 +62,7 @@ test('plain rock drops stone', () => {
   const scene = makeScene();
   const save = { relics: { pick: { tier: 7 } } };
   runInteractable(makeCtx(scene, save), { kind: 'mineralrock', id: 'r', x: 0, y: 0, yieldTier: 1 });
-  assert.inRange(scene.invCount('rockfruit'), 1, 3);
+  assert.inRange(scene.invCount('rubble'), 1, 3);
 });
 ```
 

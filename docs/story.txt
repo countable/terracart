@@ -375,7 +375,7 @@ TWO ROUGHLY PARALLEL TIMELINES
   Believer appears            3                     Neighbour by the trailer
   Survivor appears            6                     Neighbour by the trailer
   Child appears               9                     Homeless when first met
-  Child has a home            Child already met     Second restoration after meeting
+  Child has a home            Child already met     First restoration after meeting
   First tower / Tim           At least 9            Raised from the 30th restoration on; visit tower
   First-tower lessons         12, 15, 18            First tower and earlier lessons
   White dragon attacks        At least 21           First tower; required lessons done
@@ -418,7 +418,7 @@ IMPLEMENTATION STATUS
 
 ACT 1 — THE MENDING (memories 0–8, before the tower)
   The Hood wakes at the trailer with nothing. Tilly, a child, is the only
-  neighbour there (homeless until the second restoration after they meet).
+  neighbour there (homeless until the first restoration after they meet).
   Neighbours return as memories do. The story neighbours arrive by memory
   count: Bryn the warden at three explains the safe area on first meeting
   (nobody knows why only weak monsters live here; the truth: the Hood's own

@@ -5,14 +5,14 @@ test('item tiers: fish span T1–T7 with no gap larger than two', () => {
   assert.eq(tiers[tiers.length - 1], 7);
   for (let i = 1; i < tiers.length; i++) assert.inRange(tiers[i] - tiers[i - 1], 1, 2);
   assert.eq(ITEM_BY_ID.egg.baseTier, 2);
-  assert.eq(ITEM_BY_ID.vigor_potion.baseTier, 2);
+  assert.eq(ITEM_BY_ID.healing_potion.baseTier, 2);
   assert.eq(ITEM_BY_ID.reach_potion.baseTier, 4);
-  assert.eq(ITEM_BY_ID.revive_potion.baseTier, 3);
+  assert.eq(ITEM_BY_ID.revival_potion.baseTier, 3);
 });
 
 test('item tiers: ordinary fauna span the approved catch and utility bands', () => {
   const tiers = { crow: 1, rabbit: 1, chicken: 2, crab: 2, deer: 3,
-    butterfly: 3, turtle: 3, cat: 4, cow: 4, horse: 4, dog: 5 };
+    butterfly: 3, sea_turtle: 3, cat: 4, cow: 4, horse: 4, dog: 5 };
   const seen = new Set();
   for (const item of ITEMS.filter(it => it.kind === 'animal' && !it.shiny)) {
     assert.eq(item.baseTier, tiers[item.base || item.id], item.id);
@@ -32,13 +32,13 @@ test('item tiers: shiny animals gain three tiers up to the T7 ceiling', () => {
 
 test('item tiers: approved food and utility shifts use their new reward tiers', () => {
   const tiers = { milk: 3, meat: 3, grilled_meat: 4, banana: 2, coconut: 2,
-    orange: 2, elixir: 7, goblet: 6, telescope: 5, orb: 7, apple_sapling: 4 };
+    orange: 2, elixir: 7, goblet: 6, field_scope: 5, orb: 7, apple_sapling: 4 };
   for (const [id, tier] of Object.entries(tiers)) assert.eq(ITEM_BY_ID[id].baseTier, tier, id);
   assert.eq(ITEM_BY_ID.starfruit.baseTier, 3);
   assert.eq(FOOD_ENERGY.starfruit, 35, 'Starfruit healing fits its new tier');
   // Coverage improvements must survive the real picker index.
   assert.includes(ITEMS_BY_CLASS_TIER.magic[7], 'elixir');
-  for (const id of ['goblet', 'telescope', 'orb']) {
+  for (const id of ['goblet', 'field_scope', 'orb']) {
     assert.eq(ITEM_BY_ID[id].kind, 'unique_relic');
     for (const pool of Object.values(ITEMS_BY_CLASS_TIER)) {
       assert.falsy(Object.values(pool).flat().includes(id), 'unique relic excluded from ordinary loot');

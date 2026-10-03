@@ -3,10 +3,10 @@
 test('save state: backfills relic / armor / progression defaults on an empty save', () => {
   const save = {};
   SaveState.normalize(save);
-  for (const slot of ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
+  for (const slot of ['pickaxe', 'axe', 'sword', 'bow', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag']) {
     assert.truthy(slot in save.relics, 'relic slot ' + slot + ' present');
   }
-  for (const slot of ['helmet', 'chest', 'legs', 'boots']) {
+  for (const slot of ['helmet', 'chestplate', 'leggings', 'boots']) {
     assert.truthy(slot in save.armor, 'armor slot ' + slot + ' present');
   }
   assert.eq(save.deliveryCount, 0);

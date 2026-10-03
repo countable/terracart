@@ -22,17 +22,17 @@ test('rainberry: the spec names the can it counts as — Gold, T4', () => {
 
 test('rainberry: the soak waters with the better of the Gold can and the player\'s own', () => {
   const body = lift('  waterCropsWithin(radius, canTier = 0) {');
-  assert.truthy(/const relics = \(canTier > \(own\.can\?\.tier \|\| 0\)\) \? \{ \.\.\.own, can: \{ \.\.\.\(own\.can \|\| \{\}\), tier: canTier \} \} : own;/.test(body),
+  assert.truthy(/const relics = \(canTier > \(own\.watering_can\?\.tier \|\| 0\)\) \? \{ \.\.\.own, watering_can: \{ \.\.\.\(own\.watering_can \|\| \{\}\), tier: canTier \} \} : own;/.test(body),
     'the higher tier wins, the rest of the relics untouched');
   assert.truthy(/Crops\.waterWithin\(this\.save, pWX, pWY, radius, Date\.now\(\), relics,/.test(body),
     'and that is what Crops.waterWithin is handed');
   // The mechanism it rides: a can's tier is the jump chance (crops.js).
-  assert.inRange(Crops.waterJumpChance({ can: { tier: 4 } }) - 4 / 7, -1e-9, 1e-9, 'Gold jumps 4 times in 7');
+  assert.inRange(Crops.waterJumpChance({ watering_can: { tier: 4 } }) - 4 / 7, -1e-9, 1e-9, 'Gold jumps 4 times in 7');
   const dry = () => ({ crop: 'potato', x: 0, y: 0, stage: 0, watered_t: 0 });
   const save = (p) => ({ planted: [p] });
   // rng 0.5: under 4/7 → a Gold soak jumps; bare hands (chance 0) never do.
   const gold = dry();
-  assert.eq(Crops.waterWithin(save(gold), 0, 0, 5, 1000, { can: { tier: 4 } }, () => 0.5).jumped, 1, 'a Gold soak sprang the plant');
+  assert.eq(Crops.waterWithin(save(gold), 0, 0, 5, 1000, { watering_can: { tier: 4 } }, () => 0.5).jumped, 1, 'a Gold soak sprang the plant');
   assert.eq(gold.stage, 1);
   const bare = dry();
   assert.eq(Crops.waterWithin(save(bare), 0, 0, 5, 1000, null, () => 0.5).jumped, 0, 'bare hands did not');

@@ -38,7 +38,7 @@ test('picking a wildplant within reach adds to inventory and marks picked', (sce
   // Find a non-rockfruit wildplant near the world origin (rockfruit pickup is
   // now an async work-progress action and would only land mid-tick).
   const wp = findWildplant(w =>
-    w.crop !== 'rockfruit' &&
+    w.crop !== 'rubble' &&
     Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 100);
   assert.truthy(wp, 'found a starter non-rockfruit wildplant');
   teleport(scene, wp.x, wp.y);
@@ -58,7 +58,7 @@ test('picking again at same spot does nothing (already picked)', (scene) => {
   outer: for (const entry of WorldGen.tileCache.values()) {
     if (!entry.wildplants) continue;
     for (const wp of entry.wildplants) {
-      if (wp.crop === 'rockfruit' || wp.crop === 'shrub') continue; // async work-progress, skip
+      if (wp.crop === 'rubble' || wp.crop === 'shrub') continue; // async work-progress, skip
       let lonely = true;
       for (const other of entry.wildplants) {
         if (other === wp) continue;
@@ -420,7 +420,7 @@ test('every produce item has a sell price', () => {
 });
 
 test('produce prices range from $1 (rockfruit) to $500 (iceflower)', () => {
-  assert.eq(PRICES.rockfruit, 1, 'rockfruit floor = $1');
+  assert.eq(PRICES.rubble, 1, 'rockfruit floor = $1');
   assert.eq(PRICES.iceflower, 500, 'iceflower ceiling = $500');
   // Magical-flower prices follow BASE_TIER: sunflower (T4) < fireflower (T5)
   // < iceflower (T6) — the rarity ladder and the price ladder must agree.
@@ -905,7 +905,7 @@ test('REG #15: sell modal succeeds even if the stack moved to a new slot index',
   // Stage: two stacks. Sell the second one. Mid-modal, splice the first stack
   // so the second moves to index 0. Accept the sale.
   scene.save.inv = [
-    { id: 'rockfruit', count: 1 },
+    { id: 'rubble', count: 1 },
     { id: 'potato_seed', count: 3 },
   ];
   scene.save.selSlot = 1;
@@ -996,7 +996,7 @@ test('REG #16: tilled self-heal preserves cells with a planted crop', (scene) =>
 test('energy: starts at maxEnergy after fresh init', (scene) => {
   // Reset any pollution from prior runs — armor purchased in other tests would
   // otherwise raise maxEnergy and fail the equality assertion.
-  scene.save.armor = { helmet: null, chest: null, legs: null, boots: null };
+  scene.save.armor = { helmet: null, chestplate: null, leggings: null, boots: null };
   scene.save.maxEnergy = STARTING_ENERGY;
   scene.save.energy = STARTING_ENERGY;
   assert.eq(scene.save.maxEnergy, STARTING_ENERGY, 'maxEnergy = STARTING_ENERGY');
@@ -1161,31 +1161,31 @@ test('pick relic reduces rock-break energy cost', () => {
   // Anchors are exact integers, so deterministic regardless of rng.
   assert.eq(effectivePickCost(null), 9, 'bare-handed rock-break = 9');
   assert.eq(effectivePickCost(null), ENERGY_COST.rockBreak, 'no relic = base cost');
-  assert.eq(effectivePickCost({ pick: { tier: 1 } }), 3, 'Wood pick = 3');
-  assert.eq(effectivePickCost({ pick: { tier: 4 } }), 2, 'Iron (tier-4) pick = 2');
-  assert.eq(effectivePickCost({ pick: { tier: 7 } }), 1, 'Frost pick = 1');
+  assert.eq(effectivePickCost({ pickaxe: { tier: 1 } }), 3, 'Wood pick = 3');
+  assert.eq(effectivePickCost({ pickaxe: { tier: 4 } }), 2, 'Iron (tier-4) pick = 2');
+  assert.eq(effectivePickCost({ pickaxe: { tier: 7 } }), 1, 'Frost pick = 1');
 });
 
 test('tool energy is probabilistically rounded at in-between tiers', () => {
   // Tier-2 expects 2.667: spend 3 when the roll lands under the .667 fraction,
   // 2 otherwise. Inject the rng so the branch is deterministic in the test.
-  const t2 = { pick: { tier: 2 } };
+  const t2 = { pickaxe: { tier: 2 } };
   assert.eq(effectivePickCost(t2, () => 0.0),  3, 'low roll rounds 2.667 up to 3');
   assert.eq(effectivePickCost(t2, () => 0.99), 2, 'high roll rounds 2.667 down to 2');
 });
 
 test('bug net reduces catch energy (9 bare → 3 Wood → 1 Frost)', () => {
   assert.eq(effectiveCatchCost(null), 9, 'bare-handed catch = 9');
-  assert.eq(effectiveCatchCost({ bugnet: { tier: 1 } }), 3, 'Wood net = 3');
-  assert.eq(effectiveCatchCost({ bugnet: { tier: 7 } }), 1, 'Frost net = 1');
+  assert.eq(effectiveCatchCost({ net: { tier: 1 } }), 3, 'Wood net = 3');
+  assert.eq(effectiveCatchCost({ net: { tier: 7 } }), 1, 'Frost net = 1');
 });
 
 test('fishing rod reduces cast energy (18 bare → 6 Wood → 2 Frost)', () => {
   // The cast pays the shared tool curve × FISH_COST_MULT (fishing's own
   // doubling — chop / mine / catch keep the plain 9/3/1 ladder).
   assert.eq(effectiveFishCost(null), 18, 'bare-handed cast = 18');
-  assert.eq(effectiveFishCost({ rod: { tier: 1 } }), 6, 'Wood rod = 6');
-  assert.eq(effectiveFishCost({ rod: { tier: 7 } }), 2, 'Frost rod = 2');
+  assert.eq(effectiveFishCost({ fishing_rod: { tier: 1 } }), 6, 'Wood rod = 6');
+  assert.eq(effectiveFishCost({ fishing_rod: { tier: 7 } }), 2, 'Frost rod = 2');
 });
 
 test('ring relic raises average chest quality across deterministic rolls', () => {
@@ -1229,21 +1229,21 @@ test('armor pieces build a damage-soak pool via armorReduction', () => {
   assert.eq(armorReduction(null), 0, 'no armor = nothing soaked');
   assert.eq(armorReduction({ helmet: { tier: 1 } }), 1, 'a Wood helmet soaks 1 — one per tier');
   // Slots do not differ — only tiers do.
-  assert.eq(armorReduction({ helmet: { tier: 2 }, chest: { tier: 1 } }), 3,
+  assert.eq(armorReduction({ helmet: { tier: 2 }, chestplate: { tier: 1 } }), 3,
     'multiple armor pieces are additive');
   assert.eq(armorReduction({ helmet: { tier: 7 } }), 7, 'and linear in the tier');
 });
 
 test('gearPrice scales with tier multiplier', () => {
-  const t1 = gearPrice('relic', 'pick', 1);
-  const t3 = gearPrice('relic', 'pick', 3);
+  const t1 = gearPrice('relic', 'pickaxe', 1);
+  const t3 = gearPrice('relic', 'pickaxe', 3);
   // baseCost $80, Wood costMul ×1.5, tier-3 costMul ×8, global /4.
   assert.eq(t1, 30, 'tier-1 pick = $30');
   assert.eq(t3, 160, 'tier-3 pick = $160');
 });
 
 test('rock break: bare-handed works but slower than with pick', (scene) => {
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null };
   scene.save.energy = 100;
   scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
   // Terrain rock stopped breaking (edbf0b2): a real mineralrock object is the
@@ -1262,7 +1262,7 @@ test('rock break: bare-handed works but slower than with pick', (scene) => {
     // Equip wood pick → 4s instead of 9s. (Cancel the in-progress bare-handed
     // attempt, then start the picked one.)
     scene.cancelWorkProgress();
-    scene.save.relics.pick = { tier: 1 };
+    scene.save.relics.pickaxe = { tier: 1 };
     tapWorld(scene, o.x, o.y);
     assert.truthy(scene._workProgress, 'work-progress started with pick');
     assert.eq(scene._workProgress.durationMs, 4000, 'pick makes mining take 4s');
@@ -1270,7 +1270,7 @@ test('rock break: bare-handed works but slower than with pick', (scene) => {
 });
 
 test('tree chop refuses without an axe relic', (scene) => {
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null };
   scene.save.energy = 100;
   const tree = findObject(o => o.kind === 'tree' && !o.chopped);
   if (!tree) return;
@@ -1303,7 +1303,7 @@ test('fort wood cost ramps per fort, then opens its slot machine', (scene) => {
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
   scene.save.money = 100000000;
-  scene.save.relics = { pick: { tier: 1 }, axe: { tier: 1 } };
+  scene.save.relics = { pickaxe: { tier: 1 }, axe: { tier: 1 } };
   scene.save.inv = []; scene.save.selSlot = 0;
   scene.save.unlockedForts = {};
   const fort = { kind: 'house', id: 'test_fort_gate', tier: 11,
@@ -1354,10 +1354,10 @@ test('re-roll button is hidden on non-castle relic offers', (scene) => {
   // Force a non-castle relic offer via presentRelicOffer directly.
   document.getElementById('offer-modal')?.remove();
   scene.save.money = 10000;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
                         sword: null, bow: null, staff: null };
-  const offer = { kind: 'relic', slot: 'pick', tier: 1,
-    price: gearPrice('relic', 'pick', 1), rerollCount: 0 };
+  const offer = { kind: 'relic', slot: 'pickaxe', tier: 1,
+    price: gearPrice('relic', 'pickaxe', 1), rerollCount: 0 };
   scene.presentRelicOffer(0, 0, offer, () => {},
     { id: 'fake_regular', kind: 'house', tier: 9, x: 0, y: 0 }, false);
   const modal = document.getElementById('offer-modal');
@@ -1371,7 +1371,7 @@ test('re-roll button is hidden on non-castle relic offers', (scene) => {
 test('shop offer persists across multiple taps on same house', (scene) => {
   scene.save.shopState = {};
   if (scene.save.offerSalt == null) scene.save.offerSalt = 0xdeadbeef;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null };
   scene.save.money = 10000;
   const fakeCastle = { kind: 'tower', id: 'test_castle_persist', tier: 12,
     x: scene.startWorldM.x, y: scene.startWorldM.y };
@@ -1421,7 +1421,7 @@ test('weapons: sell modal honours the sword multiplier', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
   document.getElementById('slots-modal')?.remove();
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
                         sword: { tier: 7 }, bow: null, staff: null };
   scene.save.inv = [{ id: 'potato', count: 1 }];  // base price $5
   scene.save.selSlot = 0;
@@ -1454,13 +1454,13 @@ test('weapons: sell modal honours the sword multiplier', (scene) => {
 
 test('buildRelicOffer never offers a same-or-lower tier than equipped', (scene) => {
   // Equip a tier-3 pick. The offer should NEVER include pick t1..t3.
-  scene.save.relics = { pick: { tier: 3 }, ring: null, amulet: null };
-  scene.save.armor  = { helmet: null, chest: null, legs: null, boots: null };
+  scene.save.relics = { pickaxe: { tier: 3 }, ring: null, amulet: null };
+  scene.save.armor  = { helmet: null, chestplate: null, leggings: null, boots: null };
   // Sample many offers and assert no pick<=3 appears.
   let pickTooLow = 0;
   for (let i = 0; i < 100; i++) {
     const o = scene.buildRelicOffer();
-    if (o && o.kind === 'relic' && o.slot === 'pick' && o.tier <= 3) pickTooLow++;
+    if (o && o.kind === 'relic' && o.slot === 'pickaxe' && o.tier <= 3) pickTooLow++;
   }
   assert.eq(pickTooLow, 0, 'no pick offers at tier ≤ 3');
 });
@@ -1470,10 +1470,10 @@ test('buildRelicOffer never offers a same-or-lower tier than equipped', (scene) 
 // ───────────────────────────────────────────────────────────────────────
 
 test('honey supply is registered with the right shape', () => {
-  const f = ITEM_BY_ID['honey'];
+  const f = ITEM_BY_ID['taming_potion'];
   assert.truthy(f, 'honey item exists');
   assert.eq(f.kind, 'supply', 'kind=supply');
-  assert.truthy(PRICES.honey > 0, 'has a sell price');
+  assert.truthy(PRICES.taming_potion > 0, 'has a sell price');
 });
 
 test('book supply is registered with the right shape', () => {
@@ -1483,12 +1483,12 @@ test('book supply is registered with the right shape', () => {
 });
 
 test('mineral items registered with expected price ladder', () => {
-  for (const id of ['coal', 'sapphire', 'ruby', 'emerald']) {
+  for (const id of ['flint_shard', 'sapphire', 'ruby', 'emerald']) {
     const it = ITEM_BY_ID[id];
     assert.truthy(it, id + ' exists');
     assert.eq(it.kind, 'mineral', id + ' kind=mineral');
   }
-  assert.lt(PRICES.coal, PRICES.sapphire, 'coal < sapphire');
+  assert.lt(PRICES.flint_shard, PRICES.sapphire, 'coal < sapphire');
   assert.lt(PRICES.sapphire, PRICES.ruby, 'sapphire < ruby');
   assert.lt(PRICES.ruby, PRICES.emerald, 'ruby < emerald');
 });
@@ -1516,7 +1516,7 @@ test('readBook consumes one Book and opens a modal', (scene) => {
 });
 
 test('useHoney consumes one Honey and re-anchors nearby creatures', (scene) => {
-  scene.save.inv = [{ id: 'honey', count: 1 }];
+  scene.save.inv = [{ id: 'taming_potion', count: 1 }];
   scene.save.selSlot = 0;
   const pWX = scene.startWorldM.x + scene.playerM.x;
   const pWY = scene.startWorldM.y + scene.playerM.y;
@@ -1526,7 +1526,7 @@ test('useHoney consumes one Honey and re-anchors nearby creatures', (scene) => {
   entry.creatures.push(target);
   document.getElementById('message-modal')?.remove();
   scene.useHoney();
-  assert.eq(scene.save.inv.find(s => s?.id === 'honey'), undefined, 'honey consumed');
+  assert.eq(scene.save.inv.find(s => s?.id === 'taming_potion'), undefined, 'honey consumed');
   const homeDist = Math.hypot((target._homeX ?? target.x) - pWX, (target._homeY ?? target.y) - pWY);
   assert.lt(homeDist, 6, 'chicken home pulled close to player');
   entry.creatures.pop();
@@ -1568,7 +1568,7 @@ test('watering can: Frost watering jumps growth without writing canBoost', (scen
   scene.save.caught = [..._caught];
   scene.save.picked = [..._picked];
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.can = { tier: 7 };
+  scene.save.relics.watering_can = { tier: 7 };
   scene.save.planted = [];
   scene.save.tilled = [];
   scene.tilledSet = new Set();
@@ -1662,7 +1662,7 @@ test('tapping an immature crop reports its growth stage (never "occupied")', (sc
   // Tapping a planted, non-mature crop reports the authored stage name and
   // what the tap did. A dry stage-1 potato is watered by hand and reads Sprout.
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.can = null;
+  scene.save.relics.watering_can = null;
   scene.save.planted = [];
   scene.save.tilled = []; scene.tilledSet = new Set();
   scene.save.placedRocks = []; scene.placedRockSet = new Set();
@@ -1706,16 +1706,16 @@ test('tapping an immature crop reports its growth stage (never "occupied")', (sc
 });
 
 test('rock loot table buckets produce coal + gems at expected rates', () => {
-  const tally = { coal: 0, sapphire: 0, ruby: 0, emerald: 0, other: 0 };
+  const tally = { flint_shard: 0, sapphire: 0, ruby: 0, emerald: 0, other: 0 };
   for (let i = 0; i < 5000; i++) {
     const r = Math.random();
     if (r < 0.002)      tally.emerald++;
     else if (r < 0.008) tally.ruby++;
     else if (r < 0.025) tally.sapphire++;
-    else if (r < 0.430) tally.coal++;
+    else if (r < 0.430) tally.flint_shard++;
     else                tally.other++;
   }
-  assert.gt(tally.coal, 100, 'coal dropped many times (>= 100 in 5000)');
+  assert.gt(tally.flint_shard, 100, 'coal dropped many times (>= 100 in 5000)');
   assert.gt(tally.sapphire, 0, 'sapphire dropped at least once');
   assert.gt(tally.ruby, 0, 'ruby dropped at least once');
 });
@@ -1726,7 +1726,7 @@ test('rock loot table buckets produce coal + gems at expected rates', () => {
 // ============================================================================
 
 test('new items registered: mushrooms, fruits, fauna drops, fish', () => {
-  for (const id of ['mushroom', 'apple', 'cherry', 'peach', 'mango',
+  for (const id of ['mushroom', 'apple', 'cherry', 'worldpeach', 'mango',
                     'meat', 'rabbit_pelt', 'crow_feather', 'butterfly',
                     'minnow', 'bass', 'trout', 'salmon', 'goldenfish']) {
     assert.truthy(ITEM_BY_ID[id], id + ' exists');
@@ -1735,8 +1735,8 @@ test('new items registered: mushrooms, fruits, fauna drops, fish', () => {
 });
 
 test('new relic defs registered', () => {
-  assert.truthy(RELIC_DEFS.bugnet, 'bugnet relic def exists');
-  assert.truthy(RELIC_DEFS.rod, 'rod relic def exists');
+  assert.truthy(RELIC_DEFS.net, 'bugnet relic def exists');
+  assert.truthy(RELIC_DEFS.fishing_rod, 'rod relic def exists');
 });
 
 test('mushroom wildplant pickup adds 1 mushroom to inv', (scene) => {
@@ -1775,7 +1775,7 @@ test('mineralrock without pickaxe flashes need-pickaxe', (scene) => {
   const mr = findObject(o => o.kind === 'mineralrock');
   if (!mr) return;
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.pick = null;
+  scene.save.relics.pickaxe = null;
   scene.save.inv = []; scene.save.selSlot = 0;
   scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
   scene.brokenRockSet = new Set(scene.save.brokenRocks);
@@ -1794,7 +1794,7 @@ test('mineralrock ore drop: exactly 1 bar of the indicated tier', (scene) => {
   mr.yieldTier = 4;
   mr.requiredTier = 3;   // gold needs an iron pick (one below)
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.pick = { tier: 7 };
+  scene.save.relics.pickaxe = { tier: 7 };
   scene.save.energy = 100;
   scene.save.inv = []; scene.save.selSlot = 0;
   scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
@@ -1808,7 +1808,7 @@ test('mineralrock ore drop: exactly 1 bar of the indicated tier', (scene) => {
   assert.eq(invCount(scene, 'gold_bar'), 1, 'exactly 1 gold bar (T4 indicated bar)');
   assert.eq(invCount(scene, 'copper_bar'), 0, 'no copper from a T4 rock');
   assert.eq(invCount(scene, 'iron_bar'), 0, 'no iron from a T4 rock');
-  assert.gt(invCount(scene, 'coal'), 0, 'coal also dropped');
+  assert.gt(invCount(scene, 'flint_shard'), 0, 'coal also dropped');
 });
 
 test('mineralrock cave drop: rockfruit only when ore rolls fail', (scene) => {
@@ -1820,7 +1820,7 @@ test('mineralrock cave drop: rockfruit only when ore rolls fail', (scene) => {
   mr.caveVariant = 0;
   mr.requiredTier = 1;
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.pick = { tier: 1 };
+  scene.save.relics.pickaxe = { tier: 1 };
   scene.save.energy = 100;
   scene.save.inv = []; scene.save.selSlot = 0;
   scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
@@ -1842,7 +1842,7 @@ test('mineralrock cave drop: rockfruit only when ore rolls fail', (scene) => {
     scene.flashLoot = origFlashLoot;
     Math.random = origRandom;
   }
-  assert.gt(invCount(scene, 'rockfruit'), 0, 'cave rock drops rockfruit');
+  assert.gt(invCount(scene, 'rubble'), 0, 'cave rock drops rockfruit');
   assert.eq(invCount(scene, 'copper_bar'), 0, 'no copper bar when ore roll fails');
   assert.eq(invCount(scene, 'iron_bar'), 0, 'no iron bar when ore roll fails');
   assert.eq(invCount(scene, 'gold_bar'), 0, 'no gold bar when ore roll fails');
@@ -1858,7 +1858,7 @@ test('mineralrock cave drop: lucky ore strike when roll succeeds', (scene) => {
   mr.caveVariant = 0;
   mr.requiredTier = 1;
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.pick = { tier: 1 };
+  scene.save.relics.pickaxe = { tier: 1 };
   scene.save.energy = 100;
   scene.save.inv = []; scene.save.selSlot = 0;
   scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
@@ -1900,7 +1900,7 @@ test('mineralrock cave drop: no ore when the lowest-tier roll fails', (scene) =>
   mr.caveVariant = 0;
   mr.requiredTier = 1;
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.pick = { tier: 1 };
+  scene.save.relics.pickaxe = { tier: 1 };
   scene.save.energy = 100;
   scene.save.inv = []; scene.save.selSlot = 0;
   scene.save.brokenRocks = scene.save.brokenRocks?.filter(k => k !== mr.id) || [];
@@ -1967,7 +1967,7 @@ test('cave spawn: total monster/rabbit count does not scale with entrance count'
 });
 
 test('fishing: bare-handed tap water starts a 9s cast queue (no rod needed)', (scene) => {
-  scene.save.relics = { ...(scene.save.relics || {}), rod: null, can: null };
+  scene.save.relics = { ...(scene.save.relics || {}), fishing_rod: null, watering_can: null };
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
   scene.save.planted = [];   // clear any leftover crop (planted handler out-ranks fishing)
   scene._workProgress = null;
@@ -2014,8 +2014,8 @@ test('fishing: bare-handed tap water starts a 9s cast queue (no rod needed)', (s
 test('defeat: bare-handed crow tap starts a long 9s work queue, no instant catch', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: null, staff: null, bugnet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null, net: null };
   scene.save.caught = scene.save.caught || [];
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
   scene._workProgress = null;
@@ -2040,8 +2040,8 @@ test('defeat: bare-handed crow tap starts a long 9s work queue, no instant catch
 test('defeat: a bug net shortens the queue; finishing it removes the crow + drops a feather', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: null, staff: null, bugnet: { tier: 1 } };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null, net: { tier: 1 } };
   scene.save.caught = scene.save.caught || [];
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
   scene._workProgress = null;
@@ -2073,8 +2073,8 @@ test('defeat: a bug net shortens the queue; finishing it removes the crow + drop
 test('defeat: slime tap opens the COMBAT wheel; draining its HP removes it, no drop', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: null, staff: null, bugnet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null, net: null };
   scene.save.caught = scene.save.caught || [];
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
   scene._workProgress = null;
@@ -2105,8 +2105,8 @@ test('defeat: slime tap opens the COMBAT wheel; draining its HP removes it, no d
 test('combat: a bow auto-fires at an on-screen enemy, along the compass', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: { tier: 1 }, staff: null, bugnet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: { tier: 1 }, staff: null, net: null };
   scene.save.activeWeapon = 'bow';   // only the ACTIVE weapon auto-fires
   scene.save.caught = scene.save.caught || [];
   scene.save.inv = [{ id: 'wood', count: 2 }]; scene.save.selSlot = 0;
@@ -2142,8 +2142,8 @@ test('combat: a bow auto-fires at an on-screen enemy, along the compass', (scene
 test('combat: nothing auto-fires at GAME or at a tamed slime', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: { tier: 7 }, staff: null, bugnet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: { tier: 7 }, staff: null, net: null };
   scene.save.activeWeapon = 'bow';   // only the ACTIVE weapon auto-fires
   scene.save.caught = scene.save.caught || [];
   scene._workProgress = null;
@@ -2175,8 +2175,8 @@ test('combat: nothing auto-fires at GAME or at a tamed slime', (scene) => {
 test('combat: a sword auto-engages the nearest enemy in reach, without a tap', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: { tier: 1 }, bow: null, staff: null, net: null };
   scene.save.activeWeapon = 'sword';   // only the ACTIVE weapon auto-engages
   scene.save.caught = scene.save.caught || [];
   scene.save.energy = 100;
@@ -2208,8 +2208,8 @@ test('combat: a sword auto-engages the nearest enemy in reach, without a tap', (
 test('combat: a melee swing draws a slash toward the target, then fades', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: { tier: 1 }, bow: null, staff: null, bugnet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: { tier: 1 }, bow: null, staff: null, net: null };
   scene.save.energy = 100;
   scene._workProgress = null;
   scene._swing = null; scene._nextSwingT = 0;
@@ -2236,8 +2236,8 @@ test('combat: a melee swing draws a slash toward the target, then fades', (scene
 test('combat: bare hands draw no swing — there is no blade', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: null, staff: null, bugnet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: null, net: null };
   scene.save.energy = 100;
   scene._workProgress = null;
   scene._swing = null; scene._nextSwingT = 0;
@@ -2259,8 +2259,8 @@ test('combat: bare hands draw no swing — there is no blade', (scene) => {
 test('defeat: deer with a weapon → finishing the queue drops meat and removes the deer', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { pick: null, axe: null, ring: null, amulet: null,
-                        sword: null, bow: null, staff: { tier: 1 }, bugnet: null };
+  scene.save.relics = { pickaxe: null, axe: null, ring: null, amulet: null,
+                        sword: null, bow: null, staff: { tier: 1 }, net: null };
   scene.save.caught = scene.save.caught || [];
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
   scene._workProgress = null;
@@ -2342,7 +2342,7 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
   scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
   scene.save.tilled = [];  scene.tilledSet = new Set();
   scene.save.energy = 100;
-  scene.save.inv = [{ id: 'rockfruit', count: 3 }];
+  scene.save.inv = [{ id: 'rubble', count: 3 }];
   scene.save.selSlot = 0;
   // Find an empty tillable grass cell near the player so the place succeeds.
   let target = null;
@@ -2373,7 +2373,7 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
   // Place the rockfruit.
   tapWorld(scene, target.wx, target.wy);
   assert.eq(scene.placedRockSet.size, 1, 'placed-rock set grew by 1');
-  assert.eq(invCount(scene, 'rockfruit'), 2, 'inv stack decremented by 1');
+  assert.eq(invCount(scene, 'rubble'), 2, 'inv stack decremented by 1');
   // Empty-hand tap to start the pickup work-wheel.
   scene.save.selSlot = -1;
   tapWorld(scene, target.wx, target.wy);
@@ -2383,7 +2383,7 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
   scene.cancelWorkProgress();
   cb();
   assert.eq(scene.placedRockSet.size, 0, 'placed-rock set drained after pickup');
-  assert.eq(invCount(scene, 'rockfruit'), 3, 'rockfruit refunded to inv');
+  assert.eq(invCount(scene, 'rubble'), 3, 'rockfruit refunded to inv');
 });
 
 // PICK / TOOL DURATION — tier curve for rock-break work-wheel. A geometric
@@ -2391,16 +2391,16 @@ test('placed-rock cycle: place rockfruit then pick it back up via work-wheel', (
 // Bare hands sits off the curve at 9s, a deliberate 2.25× below wood.
 // (test/node/tables.test.js pins the RATIO; this pins the concrete numbers.)
 test('toolDurationMs(pick): tier curve matches spec ladder (bare 9s → wood 4s → frost 0.3s)', () => {
-  const pickDurationMs = (relics) => toolDurationMs(relics, 'pick');
+  const pickDurationMs = (relics) => toolDurationMs(relics, 'pickaxe');
   assert.eq(pickDurationMs(null), 9000, 'no relic → 9s bare-handed (2.25× wood)');
   assert.eq(pickDurationMs({}), 9000, 'no .pick entry → 9s');
-  assert.eq(pickDurationMs({ pick: { tier: 1 } }), 4000, 'wood pick → 4s');
-  assert.eq(pickDurationMs({ pick: { tier: 2 } }), 2600, 'copper → 2.6s');
-  assert.eq(pickDurationMs({ pick: { tier: 3 } }), 1690, 'iron → 1.69s');
-  assert.eq(pickDurationMs({ pick: { tier: 4 } }), 1100, 'gold → 1.1s');
-  assert.eq(pickDurationMs({ pick: { tier: 5 } }), 710,  'platinum → 0.71s');
-  assert.eq(pickDurationMs({ pick: { tier: 6 } }), 460,  'crimson → 0.46s');
-  assert.eq(pickDurationMs({ pick: { tier: 7 } }), 300,  'frost → 0.3s');
+  assert.eq(pickDurationMs({ pickaxe: { tier: 1 } }), 4000, 'wood pick → 4s');
+  assert.eq(pickDurationMs({ pickaxe: { tier: 2 } }), 2600, 'copper → 2.6s');
+  assert.eq(pickDurationMs({ pickaxe: { tier: 3 } }), 1690, 'iron → 1.69s');
+  assert.eq(pickDurationMs({ pickaxe: { tier: 4 } }), 1100, 'gold → 1.1s');
+  assert.eq(pickDurationMs({ pickaxe: { tier: 5 } }), 710,  'platinum → 0.71s');
+  assert.eq(pickDurationMs({ pickaxe: { tier: 6 } }), 460,  'crimson → 0.46s');
+  assert.eq(pickDurationMs({ pickaxe: { tier: 7 } }), 300,  'frost → 0.3s');
 });
 
 // CHICKEN RELEASE — one chicken sprite is one bird now (the sheet that used
@@ -2518,7 +2518,7 @@ test('treasure: tapping the X within reach marks it found and grants loot', (sce
 // can end up cancelling it on the same gesture.
 test('work-progress: tap within 150ms of start does NOT cancel; later tap cancels', (scene) => {
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.pick = { tier: 1 };
+  scene.save.relics.pickaxe = { tier: 1 };
   scene.save.energy = 100;
   scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
   // Terrain rock stopped breaking (edbf0b2) - start the wheel on a seated
@@ -2547,7 +2547,7 @@ test('work-progress: tap within 150ms of start does NOT cancel; later tap cancel
 // Regression: cancelling used to silently eat the energy.
 test('work-progress: cancelling a mine refunds the up-front energy', (scene) => {
   scene.save.relics = scene.save.relics || {};
-  scene.save.relics.pick = { tier: 1 };
+  scene.save.relics.pickaxe = { tier: 1 };
   scene.save.energy = 100;
   scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
   // Terrain rock stopped breaking (edbf0b2) - charge and refund a real
@@ -2613,7 +2613,7 @@ test('tame: favourite food befriends a wild animal in place (cat + bass), no cat
 test('catch: empty-handed tap starts the catch queue; finishing it captures the animal', (scene) => {
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
-  scene.save.relics = { ...(scene.save.relics || {}), bugnet: null };
+  scene.save.relics = { ...(scene.save.relics || {}), net: null };
   scene.save.caught = scene.save.caught || [];
   scene.save.inv = []; scene.save.selSlot = 0; scene.save.energy = 100;
   scene._workProgress = null;
@@ -2857,7 +2857,7 @@ test('bars: inventory icons route to the bars sheet at the bar/ore-paired frames
 test('blacksmithRecipe: tool/weapon/armor slots want max(5, tier) copies of the tier-matched bar', (scene) => {
   const BARS = ['copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
   for (let t = 2; t <= 7; t++) {
-    const r = Gear.blacksmithRecipe('relic', 'pick', t);
+    const r = Gear.blacksmithRecipe('relic', 'pickaxe', t);
     assert.truthy(Array.isArray(r) && r.length === 1, 'pick T' + t + ': single-ingredient recipe');
     assert.eq(r[0].id, BARS[t - 2], 'pick T' + t + ' bar = ' + BARS[t - 2]);
     // Per spec §CRAFTING: tools/weapons/armor cost max(5, tier) of the bar.
@@ -2885,12 +2885,12 @@ test('blacksmithRecipe: T1 tools cost 5 wood; tier 0 / none returns null', (scen
   // Per spec §CRAFTING: tools cost max(5, tier) of the tier-matched bar, and
   // "T1 = wood" — so a T1 tool is a real recipe (5 wood), not null. Only a
   // missing/zero tier yields null.
-  const t1 = Gear.blacksmithRecipe('relic', 'pick', 1);
+  const t1 = Gear.blacksmithRecipe('relic', 'pickaxe', 1);
   assert.truthy(Array.isArray(t1) && t1.length === 1, 'T1 = single-ingredient recipe');
   assert.eq(t1[0].id, 'wood', 'T1 pick uses wood');
   assert.eq(t1[0].qty, 5, 'T1 pick = 5 wood (max(5, 1))');
-  assert.eq(Gear.blacksmithRecipe('relic', 'pick', 0), null, 'T0 = null');
-  assert.eq(Gear.blacksmithRecipe('relic', 'pick', null), null, 'no tier = null');
+  assert.eq(Gear.blacksmithRecipe('relic', 'pickaxe', 0), null, 'T0 = null');
+  assert.eq(Gear.blacksmithRecipe('relic', 'pickaxe', null), null, 'no tier = null');
 });
 
 test('smeltingRecipe: T2-T4 bars are non-smeltable; T5-T7 each consume 1 flower + 1 prev-tier bar', (scene) => {
@@ -2925,7 +2925,7 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (each tier its own n
   // guaranteed bar (a lucky strike may still surface low-tier copper). Copper
   // (T2) is the first tier whose primary drop is an ingot; each higher tier
   // then yields its OWN namesake bar (no collapsing to gold). See BARS[]+isPlain.
-  const expected = { 1: 'rockfruit', 2: 'copper_bar', 3: 'iron_bar',
+  const expected = { 1: 'rubble', 2: 'copper_bar', 3: 'iron_bar',
                      4: 'gold_bar',   5: 'platinum_bar', 6: 'crimson_bar', 7: 'frost_bar' };
   // Seat one rock per tier beside the player instead of scanning streamed
   // tiles: which tiles are live by now is order-dependent, and a pinned
@@ -2945,7 +2945,7 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (each tier its own n
   for (const seat of seats) {
     const o = seat.o, want = expected[o.yieldTier || 1];
     scene.save.relics = scene.save.relics || {};
-    scene.save.relics.pick = { tier: 7 };   // Frost: every gate opens
+    scene.save.relics.pickaxe = { tier: 7 };   // Frost: every gate opens
     scene.save.energy = 100;
     scene.save.inv = []; scene.save.selSlot = 0;
     scene.save.brokenRocks = (scene.save.brokenRocks || []).filter(k => k !== o.id);

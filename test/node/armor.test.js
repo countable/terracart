@@ -67,7 +67,7 @@ test('armor: the soak is LINEAR — it lives on the same scale as the damage', (
 test('armor: the pool is the sum over the worn set, and empties cleanly', () => {
   assert.eq(armorReduction(null), 0, 'no armour at all');
   assert.eq(armorReduction({}), 0, 'no armour worn');
-  assert.eq(armorReduction({ helmet: null, chest: null, legs: null, boots: null }), 0,
+  assert.eq(armorReduction({ helmet: null, chestplate: null, leggings: null, boots: null }), 0,
     'four empty slots — the shape normalization initializes');
   assert.eq(armorReduction({ helmet: { tier: 1 }, boots: { tier: 2 } }), 1 + 2,
     'additive across slots');
@@ -191,7 +191,7 @@ test('armor: a real ladder of sets against a real blow', () => {
   assert.gte(hit(7), Combat.MIN_PLAYER_DAMAGE, 'and a Frost set still gets bitten');
   // A single piece separates every rung too, which is what a player upgrading
   // one slot at a time actually experiences.
-  const one = (tier) => Combat.playerDamage(24, { chest: { tier } });
+  const one = (tier) => Combat.playerDamage(24, { chestplate: { tier } });
   prev = 24;
   for (let t = 1; t <= 7; t++) { assert.lt(one(t), prev, `one T${t} piece beats one T${t - 1}`); prev = one(t); }
   // The small blows a new player actually meets bottom out fast, and that is
@@ -271,7 +271,7 @@ test('armor: shield expiry uses epoch time, independent of attack cooldown time'
 });
 
 test('armor: incoming shield mitigation precedes armour and preserves bundled hits', () => {
-  assert.eq(CONSUMABLE_SPEC.shield_potion.damageMul, 0.5, 'the consumable spec owns the half blow');
+  assert.eq(CONSUMABLE_SPEC.shielding_potion.damageMul, 0.5, 'the consumable spec owns the half blow');
   const save = { energy: 100, armor: { helmet: { tier: 1 } }, shieldPotionUntil: 2000 };
   // 30 damage -> shield halves to 15 -> five hits of 3, each losing 1 to armour.
   assert.eq(Combat.incomingDamage(save, 30, 5, 1000), 10,
@@ -302,20 +302,20 @@ test('armor: every enemy blow uses shared incoming damage before reaching the ba
 });
 
 test('carried shields: strongest shield reduces each projectile, never melee', () => {
-  for (const [id, reduction] of [['shield_wood', 3], ['shield_metal', 6], ['shield_gold', 10]]) {
+  for (const [id, reduction] of [['wood_shield', 3], ['metal_shield', 6], ['gold_shield', 10]]) {
     const save = { energy: 100, mode: 'normal', inv: [{ id, count: 2 }] };
     assert.eq(Combat.incomingProjectileDamage(save, 20), 20 - reduction, id);
     assert.eq(Combat.incomingDamage(save, 20), 20, 'melee is unaffected');
     save.inv[0].count = 0;
     assert.eq(Combat.incomingProjectileDamage(save, 20), 20, 'zero count provides no protection');
   }
-  const save = { energy: 100, mode: 'normal', inv: ['shield_wood', 'shield_metal', 'shield_gold'].map(id => ({ id, count: 1 })) };
+  const save = { energy: 100, mode: 'normal', inv: ['wood_shield', 'metal_shield', 'gold_shield'].map(id => ({ id, count: 1 })) };
   assert.eq(Combat.incomingProjectileDamage(save, 20), 10, 'only the strongest owned shield applies');
   assert.eq(Combat.incomingProjectileDamage(save, 5), 0, 'shield can fully stop a small shot');
 });
 
 test('carried shields: reduction follows potion, bundled armour and difficulty', () => {
-  const save = { energy: 100, mode: 'hard', inv: [{ id: 'shield_metal', count: 1 }],
+  const save = { energy: 100, mode: 'hard', inv: [{ id: 'metal_shield', count: 1 }],
     armor: { helmet: { tier: 1 } }, shieldPotionUntil: 2000 };
   assert.eq(Combat.incomingProjectileDamage(save, 30, 5, 1000),
     Combat.incomingDamage(save, 30, 5, 1000) - 6, 'one reduction for the entire arrow');

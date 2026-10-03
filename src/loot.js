@@ -483,7 +483,7 @@ function isBikeRack(o) {
 // item → awning frame in the market_stand spritesheet (the product "family").
 const STAND_ITEM_FRAME = {
   // fruit (orange, 0)
-  apple: 0, cherry: 0, peach: 0, banana: 0, orange: 0, coconut: 0, apricot: 0, mango: 0, berry: 0,
+  apple: 0, cherry: 0, worldpeach: 0, banana: 0, orange: 0, coconut: 0, apricot: 0, mango: 0, berry: 0,
   // veg / grocer (green, 1)
   potato: 1, onion: 1, cress: 1, nut: 1, mushroom: 1,
   // meat (red, 2)

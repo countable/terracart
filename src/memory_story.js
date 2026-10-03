@@ -387,21 +387,19 @@ const MemoryStory = (() => {
     if (c.role === 'scout' && act(scene.save) >= 2) return survivorLine(scene.save);
     return null;
   }
-  // The child needs two new roofs after meeting. Freeze the target per child;
-  // legacy children who already qualified for housing keep their home.
+  // The child moves in Houses.STORY_RESTORES.childHome roofs after the
+  // restore count she was first met at — derived, so retuning it reaches
+  // children already met.
   function wandererHoused(save, c) {
-    const target = save?.memoryStory?.childHomeAt?.[c.id];
-    return Number.isFinite(target) && Object.keys(save.restoredHouses || {}).length >= target;
+    const met = save?.memoryStory?.met?.[c.id];
+    return Number.isFinite(met)
+      && Object.keys(save.restoredHouses || {}).length >= met + Houses.STORY_RESTORES.childHome;
   }
   function wandererLine(scene, c) {
-    const s = state(scene.save), mended = Object.keys(scene.save.restoredHouses || {}).length;
+    const s = state(scene.save);
     if (!s.met || typeof s.met !== 'object') s.met = {};
-    if (!s.childHomeAt || typeof s.childHomeAt !== 'object') s.childHomeAt = {};
-    if (!Number.isFinite(s.childHomeAt[c.id])) {
-      const met = Number.isFinite(s.met[c.id]);
-      if (!met) s.met[c.id] = mended;
-      s.childHomeAt[c.id] = met && mended > s.met[c.id]
-        ? s.met[c.id] + 1 : s.met[c.id] + Houses.STORY_RESTORES.childHome;
+    if (!Number.isFinite(s.met[c.id])) {
+      s.met[c.id] = Object.keys(scene.save.restoredHouses || {}).length;
       if (typeof persistSave === 'function') persistSave(scene.save);
     }
     if (!wandererHoused(scene.save, c)) return NEIGHBOURS.wanderer.homeless;

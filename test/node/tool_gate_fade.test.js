@@ -9,7 +9,7 @@
 
 (function () {
 const axe  = (tier) => ({ relics: { axe:  { tier } } });
-const pick = (tier) => ({ relics: { pick: { tier } } });
+const pick = (tier) => ({ relics: { pickaxe: { tier } } });
 const bigMaple = { kind: 'tree', id: 'tgf_m', x: 0, y: 0, species: 'maple', size: 'large' };
 const smallPine = { kind: 'tree', id: 'tgf_p', x: 7, y: 0, species: 'pine', size: 'small' };
 const bush = { kind: 'wildplant', crop: 'shrub', id: 'tgf_b', x: 14, y: 0 };

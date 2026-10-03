@@ -11,7 +11,7 @@ function saleTest(fn) {
   const old = document.body;
   let busy = false;
   document.body = { classList: { contains: () => busy } };
-  const s = makeScene({ ...methods, save: { inv: [{ id: 'rockfruit', count: 3 }], selSlot: 0, money: 0, relics: {} },
+  const s = makeScene({ ...methods, save: { inv: [{ id: 'rubble', count: 3 }], selSlot: 0, money: 0, relics: {} },
     modals: [], _homeTabs: () => [], _homeKindIcon: () => undefined,
     moneyHTML: String, _clampSelSlot() {}, _finishInventoryChange() {},
     questEvent() {}, showOfferModal(o) { this.offer = o; }, showMessageModal(o) { this.modals.push(o); },
@@ -22,7 +22,7 @@ test('first sale: only a completed sale opens its exact story, once per save', (
   s.presentHomeSell(0, 0);
   assert.eq(s.modals.length, 0, 'opening or dismissing the offer is not a sale');
   s.offer.onAccept(1);
-  assert.eq(Inventory.count(s.save, 'rockfruit'), 2);
+  assert.eq(Inventory.count(s.save, 'rubble'), 2);
   assert.gt(s.save.money, 0);
   assert.eq(s.modals[0].art, 'first_sale');
   assert.eq(s.modals[0].body, "The neighbours offer to buy your fine wares for some 'green'.");
@@ -32,7 +32,7 @@ test('first sale: only a completed sale opens its exact story, once per save', (
 }));
 test('first sale: empty bag or vanished stock cannot consume the story', () => saleTest(s => {
   s.presentHomeSell(0, 0);
-  Inventory.remove(s.save, 'rockfruit', 3);
+  Inventory.remove(s.save, 'rubble', 3);
   s.offer.onAccept(1);
   assert.falsy(s.save.firstSalePending);
   assert.eq(s.modals.length, 0);
@@ -53,12 +53,12 @@ test('first sale: a busy quest dialog defers the earned story and survives reloa
   assert.truthy(/this\._lowHealthStory\(\);\s*this\._firstSaleStory\(\)/.test(SCENE_SRC), 'the modal pass retries it');
 }));
 test('home sell: each tap sells one and the empty page never switches to another stack', () => saleTest(s => {
-  s.save.inv = [{ id: 'rockfruit', count: 2 }, { id: 'wood', count: 4 }];
+  s.save.inv = [{ id: 'rubble', count: 2 }, { id: 'wood', count: 4 }];
   s.presentHomeSell(0, 0);
   assert.eq(s.offer.quantity, undefined, 'no quantity counter');
   assert.eq(s.offer.cancelLabel, 'Leave');
   s.offer.onAccept();
-  assert.eq(Inventory.count(s.save, 'rockfruit'), 1, 'one item per tap');
+  assert.eq(Inventory.count(s.save, 'rubble'), 1, 'one item per tap');
   s.offer.repeat();
   assert.truthy(s.offer.canAfford, 'the next sale stays available');
   s.offer.onAccept();

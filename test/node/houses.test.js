@@ -139,7 +139,7 @@ test('buildCost: the House ladder, stones per tier for shops, a flat five for a 
   const sm2 = Houses.buildOptions(smithy, h, 9).find((r) => r.key === 'blacksmith');
   assert.eq(Houses.buildCost(smithy, h, sm2, 9).qty, 8, 'the second smithy is T2: 4 × 2');
   for (const c of [Houses.buildCost(save, h, by('turret')), Houses.buildCost(save, h, by('plain'))]) {
-    assert.eq(c.id, 'rockfruit'); assert.eq(c.material, 'stone');
+    assert.eq(c.id, 'rubble'); assert.eq(c.material, 'stone');
   }
 });
 
@@ -204,7 +204,7 @@ test('wreckRestoreCost: rockfruit, stepping with how many houses are already res
   assert.eq(Houses.wreckRestoreCost({}, {}).qty, wreckRestoreQty(0), 'first rebuild');
   assert.eq(Houses.wreckRestoreCost({ restoredHouses: { a: 'trader', b: 'plain' } }, {}).qty, wreckRestoreQty(2));
   const cost = Houses.wreckRestoreCost({}, {});
-  assert.eq(cost.id, 'rockfruit');
+  assert.eq(cost.id, 'rubble');
   assert.eq(cost.material, 'stone');
 });
 

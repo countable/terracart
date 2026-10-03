@@ -109,7 +109,7 @@ function xorRng(seed) {
 
 test('roadside chest: every tier stays with supplies, minerals and cash', () => {
   assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
-  const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'spear', 'honey', 'blank_scroll']);
+  const supplyIds = new Set(['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'taming_potion', 'blank_scroll']);
   for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
     let supplies = 0, torches = 0;
@@ -132,7 +132,7 @@ test('roadside chest: every tier stays with supplies, minerals and cash', () => 
         if (r.rolledTier === 1) assert.eq(ITEM_BY_ID[r.id].baseTier, 1, 'T1 supplies respect catalog rarity');
         if (r.id === 'torch') torches++;
       } else if (r.group === 'materials') {
-        assert.includes(['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
+        assert.includes(['wood', 'rubble', 'flint_shard', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
       } else if (r.group === 'plainBook') {
         // A T2 chest lends a fifth of its row to the Book (ChestThemes.BOOK_T2_SHARE).
         assert.eq(tier, 2, 'the Book joins the roadside row at tier 2 only');

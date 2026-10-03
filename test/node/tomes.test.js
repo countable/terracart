@@ -10,14 +10,14 @@
   const APP = globalThis.SCENE_SRC || '';
 
   const ROSTER = [
-    ['tome_sight', 'Tome of Reach', 3, 160, 2 * 3600e3],
+    ['tome_reach', 'Tome of Reach', 3, 160, 2 * 3600e3],
     ['tome_speed', 'Tome of Speed', 3, 160, 2 * 3600e3],
-    ['tome_shield', 'Tome of Shielding', 3, 160, 2 * 3600e3],
+    ['tome_shielding', 'Tome of Shielding', 3, 160, 2 * 3600e3],
     ['tome_healing', 'Tome of Healing', 3, 160, 2 * 3600e3],
     ['tome_raven', 'Tome of the Raven', 4, 400, 8 * 3600e3],
     ['tome_blight', 'Tome of Blight', 4, 400, 8 * 3600e3],
-    ['tome_firewall', 'Wall of Fire Tome', 4, 400, 8 * 3600e3],
-    ['tome_storm', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
+    ['tome_fire_wall', 'Wall of Fire Tome', 4, 400, 8 * 3600e3],
+    ['tome_thunder', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
   ];
 
   test('tomes: eight registered, named, unique, tiered, priced, framed', () => {
@@ -49,9 +49,9 @@
     }
     const m = (name) => SCENE_SRC.match(new RegExp(`\\n  ${name}\\(\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
     for (const [id] of ROSTER) {
-      const method = ['tome_sight', 'tome_raven', 'tome_storm'].includes(id)
-        ? { tome_sight: 'readTomeSight', tome_raven: 'readTomeRaven', tome_storm: 'readTomeStorm' }[id]
-        : { tome_speed: 'readTomeSpeed', tome_shield: 'readTomeShield', tome_healing: 'readTomeHealing', tome_blight: 'readTomeBlight', tome_firewall: 'readTomeFirewall' }[id];
+      const method = ['tome_reach', 'tome_raven', 'tome_thunder'].includes(id)
+        ? { tome_reach: 'readTomeSight', tome_raven: 'readTomeRaven', tome_thunder: 'readTomeStorm' }[id]
+        : { tome_speed: 'readTomeSpeed', tome_shielding: 'readTomeShield', tome_healing: 'readTomeHealing', tome_blight: 'readTomeBlight', tome_fire_wall: 'readTomeFirewall' }[id];
       const r = m(method);
       assert.truthy(r, `${method} exists`);
       assert.falsy(/_finishConsumable/.test(r[1]), `${method}: never consumed`);
@@ -76,8 +76,8 @@
   });
 
   test('vista: grails hold treasure only - no tools, produce or field supplies', () => {
-    const banned = new Set(['potato', 'berry', 'cress', 'egg', 'milk', 'rope', 'trap_kit', 'torch', 'honey',
-      'can', 'hoe', 'rod', 'bugnet', 'bags']);
+    const banned = new Set(['potato', 'berry', 'cress', 'egg', 'milk', 'rope', 'trap_disarm_kit', 'torch', 'taming_potion',
+      'watering_can', 'hoe', 'fishing_rod', 'net', 'bag']);
     const rng = seeded(4242);
     const save = { relics: {}, armor: {} };
     let rolled = 0;

@@ -792,8 +792,8 @@ test('rerollPeek: offerKey — gear by kind/slot/tier, a barter by give/ask, nev
   assert.eq(k({ kind: 'relic', slot: 'bow', tier: 3, price: 40 }), k({ kind: 'relic', slot: 'bow', tier: 3, price: 55 }), 'a repriced relic is the same relic');
   assert.truthy(k({ kind: 'relic', slot: 'bow', tier: 3 }) !== k({ kind: 'relic', slot: 'bow', tier: 4 }), 'a tier up is different');
   assert.truthy(k({ kind: 'relic', slot: 'bow', tier: 3 }) !== k({ kind: 'armor', slot: 'bow', tier: 3 }), 'kind counts');
-  assert.eq(k({ giveId: 'rockfruit', askId: 'wood', askQty: 3 }), k({ giveId: 'rockfruit', askId: 'wood', askQty: 5 }), 'a barter is its goods, not the count');
-  assert.truthy(k({ giveId: 'rockfruit', askId: 'wood' }) !== k({ giveId: 'rockfruit', askId: 'stone' }), 'a different ask is a different deal');
+  assert.eq(k({ giveId: 'rubble', askId: 'wood', askQty: 3 }), k({ giveId: 'rubble', askId: 'wood', askQty: 5 }), 'a barter is its goods, not the count');
+  assert.truthy(k({ giveId: 'rubble', askId: 'wood' }) !== k({ giveId: 'rubble', askId: 'stone' }), 'a different ask is a different deal');
   assert.eq(k('starfruit_seed'), 'starfruit_seed', 'a themed pick is its id');
   assert.eq(k(null), ''); assert.eq(k(undefined), '');
 });

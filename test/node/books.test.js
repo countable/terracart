@@ -210,7 +210,7 @@ test('mechanics: armour applies the mitigation ladder', () => {
 });
 
 test('mechanics: bare hands and tools use the duration ladder', () => {
-  const bare = toolDurationMs({}, 'pick');
+  const bare = toolDurationMs({}, 'pickaxe');
   assert.eq(bare / TOOL_DURATION_MS[1], 2.25, 'a Wood relic is 2.25× quicker, not 3×');
   assert.eq(bare / TOOL_DURATION_MS[7], 30, 'a Frost one is 30×');
 });
@@ -266,13 +266,13 @@ test('mechanics: main and alternate weapons occupy weapon slots', () => {
 });
 
 test('descriptions: the net and the rod speed a job, they do not unlock one', () => {
-  assert.gt(toolDurationMs({}, 'bugnet'), toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'),
+  assert.gt(toolDurationMs({}, 'net'), toolDurationMs({ net: { tier: 1 } }, 'net'),
     'a net only shortens the wheel');
-  assert.truthy(/const netSlot = 'bugnet';/.test(INTERACT_SRC),
+  assert.truthy(/const netSlot = 'net';/.test(INTERACT_SRC),
     'the hunt wheel reads the bugnet slot, not a weapon');
-  assert.truthy(/swiftly.*fleeing/i.test(RELIC_DEFS.bugnet.blurb), 'the net says it speeds a hunt');
+  assert.truthy(/swiftly.*fleeing/i.test(RELIC_DEFS.net.blurb), 'the net says it speeds a hunt');
   assert.truthy(/fish BARE-HANDED/.test(INTERACT_SRC), 'interact.js still allows a bare cast');
-  assert.truthy(/pull.*fish/i.test(RELIC_DEFS.rod.blurb), 'and the rod\'s blurb admits it');
+  assert.truthy(/pull.*fish/i.test(RELIC_DEFS.fishing_rod.blurb), 'and the rod\'s blurb admits it');
 });
 
 test('mechanics: delivery progression keeps household wishlists stable', () => {

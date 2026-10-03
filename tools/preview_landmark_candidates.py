@@ -140,7 +140,7 @@ def render(reserve, out):
         image, path = crop_for(row, reserve)
         records.append({**row, 'absoluteSource': str(path), 'provenanceNote': PROVENANCE[row['provenance']]})
         uri = image_uri(image)
-        badge = 'PREVIOUS' if row.get('previous') else 'APPROVED · CURRENT' if row.get('approved') else 'CURRENT' if row.get('current') else 'FIRST PICK' if row.get('pick') else 'UNUSED CANDIDATE'
+        badge = 'PREVIOUS' if row.get('previous') else 'APPROVED · CURRENT' if row.get('approved') else 'CURRENT' if row.get('current') else 'FIRST PICK' if row.get('pickaxe') else 'UNUSED CANDIDATE'
         x, y, w, h = row['rect']
         small_height = row['rect'][3]*row['render_scale'] if row.get('approved') else (38 if row['group'] == 'Grove shrines' else 26)
         small_width = row['rect'][2]*row['render_scale'] if row.get('approved') else 32
