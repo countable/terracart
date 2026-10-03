@@ -8,7 +8,7 @@ test('carried treasures: catalog icons point at their shipped single-frame art',
     assert.falsy(item.caveOnly, `${id}: enters ordinary loot pools`);
     const src = inventoryIconSource(id);
     assert.eq(src.frame, 0, `${id}: single icon frame`);
-    const row = APP_JS_SRC.match(new RegExp(`\\n  ${src.sheet}:\\s*\\{ url: '([^']+)',\\s*cols: (\\d+),\\s*srcW: (\\d+),\\s*srcH: (\\d+) \\}`));
+    const row = SCENE_SRC.match(new RegExp(`\\n  ${src.sheet}:\\s*\\{ url: '([^']+)',\\s*cols: (\\d+),\\s*srcW: (\\d+),\\s*srcH: (\\d+) \\}`));
     assert.truthy(row, `${id}: matching DOM icon sheet`);
     const dims = pngDims(row[1]);
     assert.truthy(dims, `${id}: PNG shipped`);

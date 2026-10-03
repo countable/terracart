@@ -2,9 +2,9 @@
 (function () {
   const T0 = 1_700_000_000_000;
   function lift(name) {
-    const start = APP_JS_SRC.indexOf(`\n  ${name}(`);
-    const end = APP_JS_SRC.indexOf('\n  }\n', start);
-    return new Function('return ({' + APP_JS_SRC.slice(start, end + 4) + '})')()[name];
+    const start = SCENE_SRC.indexOf(`\n  ${name}(`);
+    const end = SCENE_SRC.indexOf('\n  }\n', start);
+    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})')()[name];
   }
   const eat = lift('eatSelected'), effects = lift('_consumeFoodEffects');
   function scene(id) {
@@ -115,14 +115,14 @@
     const row = Buffs.active(save, {}, T0 + 1000).find(b => b.id === 'fish');
     assert.truthy(row); assert.eq(row.remainingMs, 179000);
     assert.eq(Buffs.active(save, {}, T0 + 180000).some(b => b.id === 'fish'), false);
-    assert.includes(APP_JS_SRC, 'this._tickShrineRegen(dt);\n    this._tickFishRegen();');
+    assert.includes(SCENE_SRC, 'this._tickShrineRegen(dt);\n    this._tickFishRegen();');
     const s = scene('bass');
     Energy.startFishRegen(s.save, 'bass', T0);
     s._workProgress = {}; s.playerMoving = true;
     lift('_tickFishRegen').call(s, T0 + 180000);
     assert.eq(s.save.energy, 30);
-    assert.includes(APP_JS_SRC, 'Energy.fishRegenWait(this.save, sel?.id)');
-    assert.includes(APP_JS_SRC, '`${eatVerb} ${restore}⚡/${shortDuration(Energy.FISH_REGEN_MS)}`');
+    assert.includes(SCENE_SRC, 'Energy.fishRegenWait(this.save, sel?.id)');
+    assert.includes(SCENE_SRC, '`${eatVerb} ${restore}⚡/${shortDuration(Energy.FISH_REGEN_MS)}`');
   });
 
   test('peach: restores ordinary food energy and clears all debuffs, preserving positive buffs', () => {

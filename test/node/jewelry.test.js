@@ -42,7 +42,7 @@
     assert.eq(jewelryRegenIntervalMs(bag('regeneration_amulet')), 4000);
     assert.eq(jewelryRegenIntervalMs(bag('vigor_amulet')), 2000);
     assert.eq(jewelryRegenIntervalMs(bag('regeneration_amulet', 'vigor_amulet')), 2000, 'strongest wins');
-    const update = APP_JS_SRC.match(/const jewelryRegenMs = jewelryRegenIntervalMs\(this\.save\);[\s\S]*?this\._jewelryAccrueE = 0;/);
+    const update = SCENE_SRC.match(/const jewelryRegenMs = jewelryRegenIntervalMs\(this\.save\);[\s\S]*?this\._jewelryAccrueE = 0;/);
     assert.truthy(update, 'update reads the carried amulet');
     assert.truthy(/if \(!working && Number\.isFinite\(jewelryRegenMs\)/.test(update[0]), 'working pauses regeneration');
     assert.truthy(/this\._accrueRestEnergy\('_jewelryAccrueE', dt \* 1000 \/ jewelryRegenMs, maxE\)/.test(update[0]),

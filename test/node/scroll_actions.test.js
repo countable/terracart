@@ -1,6 +1,6 @@
 (function () {
 function method(name, deps = {}) {
-  const match = APP_JS_SRC.match(new RegExp('\\n  ' + name + '\\(([^\\n]*)\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n'));
+  const match = SCENE_SRC.match(new RegExp('\\n  ' + name + '\\(([^\\n]*)\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n'));
   assert.truthy(match, name + ' exists');
   return new Function(...Object.keys(deps), 'return function(' + match[1] + '){' + match[2] + '}')(...Object.values(deps));
 }

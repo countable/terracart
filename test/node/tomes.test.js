@@ -7,7 +7,7 @@
 // cooldownMs, power-scaled: 2 h / 8 h / 24 h). Home refreshes both; the
 // enchanter halves both; nothing is ever consumed.
 (function () {
-  const APP = globalThis.APP_JS_SRC || '';
+  const APP = globalThis.SCENE_SRC || '';
 
   const ROSTER = [
     ['tome_reach', 'Tome of Reach', 3, 160, 2 * 3600e3],
