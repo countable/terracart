@@ -1428,7 +1428,8 @@ ECONOMY (buying & selling)
    building comes up SHINY (it glints and glows like a shiny tree —
    save.shinyHouses) and everything it sells is HAMMER_PRICE_MUL (0.8) of the
    quote for good, the trader's asking stack included (Houses.priceMul; the
-   flower charm's hour stacks on it). It is the one standing discount. A BLACKSMITH and a TRADER carry a tier too
+   flower charm's hour and a carried guild badge stack on it). It is the one
+   standing discount a building carries. A BLACKSMITH and a TRADER carry a tier too
    (shops.js smithTier / traderTier, off the ledger): ONE SMITHY PER TIER — the
    Nth raised is tier N, and after the first the card for the next is offered
    only from restore number N × SMITH_TIER_EVERY (5); its anvil forges within

@@ -144,9 +144,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // restore. The wreck raised under it is SHINY — it glints and glows like a
   // shiny tree (render.js, Lighting.KINDS.shiny) — and everything its keepers
   // sell is HAMMER_PRICE_MUL of the quoted price, for good (save.shinyHouses,
-  // an id set like the rest of the player's marks). This is the one way to a
-  // standing discount: the relic-tier price bends are gone (items.js
-  // buyMarkupRange). The flower charm still stacks on top for its hour.
+  // an id set like the rest of the player's marks). It is the one standing
+  // discount a BUILDING carries: the relic-tier price bends are gone (items.js
+  // buyMarkupRange). The flower charm's hour and a carried guild badge
+  // (items.js guildDiscounted) still stack on top.
   const HAMMER_ID = 'magic_hammer';
   const HAMMER_PRICE_MUL = 0.8;
   function isShinyHouse(save, house) {
@@ -183,6 +184,15 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (typeof stored === 'string') return stored === 'plain' ? null : stored;
     if (save.starterBlacksmithId && save.starterBlacksmithId === house.id) return 'blacksmith';
     return (typeof Shops !== 'undefined' && Shops.shopType(house)) || null;
+  }
+
+  // The guild whose badge discounts deals at `place` (items.js
+  // guildDiscounted): a house's role, or a peddling neighbour's — a merchant
+  // keeps a themed shop (role key 'market'), a trader barters.
+  const NPC_GUILD = { merchant: 'market', trader: 'trader' };
+  function guildRole(save, place) {
+    if (place?.kind === 'npc') return NPC_GUILD[place.role] || null;
+    return houseShopRole(save, place);
   }
 
   // Does this save have a smithy? The stamped starter smithy, or any restored
@@ -433,6 +443,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,
     shopCharmMul,
+    guildRole,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
     castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle,

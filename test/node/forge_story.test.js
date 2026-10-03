@@ -40,6 +40,7 @@ function forgeOnce({ afford = true } = {}) {
     _equipGear: (...a) => calls.equipped.push(a),
     shopBucketState: () => null,
     _trailRewardBlurb: () => '',
+    guildPrice: (_h, n) => n,
   };
   const env = {
     FORGE_CEREMONY: FORGE,

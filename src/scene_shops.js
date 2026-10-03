@@ -782,6 +782,10 @@ class SceneShops {
   // What every price here multiplies by: the charm's hour times the Magic
   // Hammer's standing cut on a shiny building — see Houses.priceMul.
   priceMul(house) { return Houses.priceMul(this.save, house); }
+  // A price or material count after the carried guild badge for this place's
+  // guild (items.js guildDiscounted, Houses.guildRole) — every deal a shop,
+  // smithy or trader quotes passes through here once.
+  guildPrice(house, n) { return guildDiscounted(this.save, Houses.guildRole(this.save, house), n); }
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
@@ -956,8 +960,9 @@ class SceneShops {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = (gearDef(offer.kind, offer.slot)?.blurb || '') + this.shopTierBadgeHTML(house);
-    // The charm's hour and the hammer's standing cut (floor $1) — priceMul.
-    const price = Math.max(1, Math.ceil(offer.price * this.priceMul(house)));
+    // The charm's hour and the hammer's standing cut (floor $1) — priceMul —
+    // then a guild badge takes its share off (guildPrice).
+    const price = this.guildPrice(house, Math.max(1, Math.ceil(offer.price * this.priceMul(house))));
     this.showOfferModal({
       kind: 'relics',
       title: this.buildingFlavorTitle(house, 'relic'),
@@ -1025,6 +1030,9 @@ class SceneShops {
       Inventory.remove(this.save, id, n);
       this._clampSelSlot();
     };
+    // What smelting n bars takes of one ingredient: the recipe's count times
+    // n, trimmed on the whole batch by a guild badge (guildPrice).
+    const need = (r, n) => this.guildPrice(house, r.qty * n);
     const tabs = [
       { label: 'Forge', active: false, onSelect: forgeBack },
       { label: 'Smelt', active: true,  onSelect: () => {} },
@@ -1052,18 +1060,20 @@ class SceneShops {
     // reaches the others).
     if (!target || !bars.includes(target)) {
       target = bars.slice().reverse().find(id =>
-        Gear.smeltingRecipe(id).every(r => heldCount(r.id) >= r.qty)) || bars[bars.length - 1];
+        Gear.smeltingRecipe(id).every(r => heldCount(r.id) >= need(r, 1))) || bars[bars.length - 1];
     }
     const recipe = Gear.smeltingRecipe(target);
     const outItem = ITEM_BY_ID[target];
     // Max smeltable — the same count Home's Craft page uses (items.js
-    // recipeCap, which also makes an empty recipe 0 rather than unbounded).
-    const cap = recipeCap(recipe, heldCount);
+    // recipeCap, which also makes an empty recipe 0 rather than unbounded),
+    // then as far past it as a guild badge's savings stretch.
+    let cap = recipeCap(recipe, heldCount);
+    while (recipe.length && recipe.every(r => r.qty > 0 && heldCount(r.id) >= need(r, cap + 1))) cap++;
     const recipeLine = (n) => recipe.map(r => {
       const it = ITEM_BY_ID[r.id];
-      const ok = heldCount(r.id) >= r.qty * n;
+      const ok = heldCount(r.id) >= need(r, n);
       return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
-        + `${r.qty * n}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}</span>`;
+        + `${need(r, n)}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}</span>`;
     }).join(' + ');
     // The ‹ › pager walks the unlocked bars (wraps around).
     const idx = bars.indexOf(target);
@@ -1091,18 +1101,18 @@ class SceneShops {
       },
       onAccept: (n) => {
         const q = clamp(n ?? 1, 1, cap);
-        if (q < 1 || !recipe.every(r => heldCount(r.id) >= r.qty * q)) {
+        if (q < 1 || !recipe.every(r => heldCount(r.id) >= need(r, q))) {
           // Name the ingredient and the shortfall — 'not enough to smelt'
           // made the player close the modal and count their own bag, with
           // the recipe line right there on screen in red.
-          const missing = recipe.find(r => heldCount(r.id) < r.qty * q);
-          const short = missing ? (missing.qty * q) - heldCount(missing.id) : 0;
+          const missing = recipe.find(r => heldCount(r.id) < need(r, q));
+          const short = missing ? need(missing, q) - heldCount(missing.id) : 0;
           const name = missing ? itemName(missing.id) : '';
           this.flash(missing ? `Need ${short} more ${name}`
                              : 'Not enough to smelt.', sx, sy);
           return;
         }
-        for (const r of recipe) consume(r.id, r.qty * q);
+        for (const r of recipe) consume(r.id, need(r, q));
         this.addToInv(target, q, false, { notWild: true, deferRefresh: true });
         recordDeal();
         this._finishInventoryChange();
@@ -1293,8 +1303,8 @@ class SceneShops {
       capFor: (id) => Inventory.stackCapFor(this.save, id),
     });
     if (!ask) return null;
-    const { askId, askQty } = ask;
-    return { giveId, askId, askQty };
+    const { askId } = ask;
+    return { giveId, askId, askQty: this.guildPrice(house, ask.askQty) };
   }
 
   presentTraderOffer(sx, sy, house, recordDeal) {
@@ -1519,9 +1529,11 @@ class SceneShops {
     // recipe override lets the starter blacksmith define T1 wooden recipes
     // (rockfruit + tree) without loosening the T2+ bar requirement in
     // blacksmithRecipe — keeps every other smithy on the original ladder.
-    const recipe = opts.recipe || Gear.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
+    const listed = opts.recipe || Gear.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
     // Unreachable for a seeded smithy offer (Gear.buildRelicOffer skips what
     // the anvil cannot forge); kept as a guard for a hand-built one.
+    // A guild badge trims each ingredient's count (guildPrice).
+    const recipe = listed && listed.map(r => ({ ...r, qty: this.guildPrice(house, r.qty) }));
     if (!recipe) {
       this.flash('Nothing to forge here.', sx, sy);
       return;
@@ -1620,9 +1632,10 @@ class SceneShops {
     const priceRng = (opts.house && opts.house.id)
       ? this.shopRng(opts.house, 'price')
       : undefined;
-    // The charm's hour and the hammer's standing cut (floor $1) — see priceMul.
-    const cashCost = Math.max(1,
-      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.priceMul(opts.house)));
+    // The charm's hour and the hammer's standing cut (floor $1) — see priceMul —
+    // then a guild badge takes its share off (guildPrice).
+    const cashCost = this.guildPrice(opts.house, Math.max(1,
+      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.priceMul(opts.house))));
     return {
       kind: 'money',
       label: this.moneyHTML(cashCost),
