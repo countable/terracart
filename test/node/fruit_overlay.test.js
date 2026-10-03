@@ -130,9 +130,11 @@ test('fruit overlay: the fruit pass renders through its own pool', () => {
 (() => {
   const start = RENDER_SRC.indexOf('  const resolveAppearance = (o) => {');
   const end = RENDER_SRC.indexOf('  return { RENDER_SPEC, resolveAppearance,', start);
-  const makeResolver = new Function('RENDER_SPEC', 'scene', 'window', 'CELL_PX',
+  // The resolver reads the draw pass's scene off `_pass` (render.js — set by
+  // Render.objectAppearance), so the harness hands one in under that name.
+  const makeResolver = new Function('RENDER_SPEC', '_pass', 'window', 'CELL_PX',
     RENDER_SRC.slice(start, end) + '\nreturn resolveAppearance;');
-  const scene = { textures: { exists: (key) => key === 'tree' } };
+  const scene = { scene: { textures: { exists: (key) => key === 'tree' } } };
 
   test('appearance: animated frame and seatFrame resolve once with shared foot geometry', () => {
     let frames = 0, seats = 0;

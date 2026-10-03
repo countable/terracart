@@ -78,8 +78,10 @@ test('steady state: a surface foe outside the sim bubble is re-asked once a SURF
 
 test('steady state: drawObjects culls a creature to the viewport before asking whether it is here', () => {
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  const loop = body.slice(body.indexOf('for (const c of entry.creatures) {'), body.indexOf('creatureList.push({ c, dx, dy });'));
-  const cull = loop.indexOf('if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;');
+  const loop = body.slice(body.indexOf('if (entry.creatures) {'), body.indexOf('creatureList.push({ c, dx, dy });'));
+  // The cull is coords.js cullToView: only a creature inside the view box is
+  // handed to the callback that asks.
+  const cull = loop.indexOf('cullToView(entry.creatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {');
   const ask = loop.indexOf('EnemySpawns.surfaceActive(scene, c)');
   assert.truthy(cull > 0 && ask > cull, 'the cull comes first');
 });

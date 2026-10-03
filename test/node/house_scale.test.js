@@ -89,7 +89,7 @@ test('building scale: Home draws a tenth wider than the village, on its own row'
   }
   assert.eq(buildingArt('fort'), FORT); assert.eq(buildingArt('trailer'), TRAILER);
   // render.js hands the role itself to the rule, never an isFort flag.
-  assert.includes(RENDER_SRC, 'houseArtScale(o.area, _houseFrameW(o), _houseRole(o), scene.cellM, CELL_PX)');
+  assert.includes(RENDER_SRC, 'houseArtScale(o.area, _houseFrameW(o), _houseRole(o), _pass.scene.cellM, CELL_PX)');
   assert.includes(RENDER_SRC, 'buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX)');
 });
 

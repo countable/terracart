@@ -449,6 +449,17 @@ function mulTint(a, b) {
 function cssOf(c) {
   return '#' + (c >>> 0).toString(16).padStart(6, '0');
 }
+// …and back: CSS '#rgb' / '#rrggbb' → packed 0xRRGGBB, or null for anything
+// else. The inks and sampled colours that arrive as strings go through here
+// to BiomeProfiles.mixHex and back out through cssOf.
+function parseHex(css) {
+  if (typeof css !== 'string' || css[0] !== '#') return null;
+  let h = css.slice(1);
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  if (h.length !== 6) return null;
+  const n = parseInt(h, 16);
+  return Number.isNaN(n) ? null : n;
+}
 // Packed 0xRRGGBB + alpha → CSS 'rgba(r,g,b,a)'. `a` is printed as given.
 function rgbaOf(c, a) {
   return `rgba(${(c >> 16) & 255},${(c >> 8) & 255},${c & 255},${a})`;

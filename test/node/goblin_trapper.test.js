@@ -251,7 +251,7 @@ test('laid traps: every consumer reads both lists — tick, draw, kit, rebuild',
   assert.truthy(/if \(trap\._laid && !Traps\.isLive\(trap, Date\.now\(\)\)\) \{ this\._trapHere = null; return; \}/.test(tick.slice(0, 5000)),
     'an expired snare under the feet stops biting');
   assert.truthy(/Traps\.springTrap\(this\.save, trap\)/.test(tick.slice(0, 6000)), 'the bite springs either kind');
-  assert.truthy(/for \(const tr of entry\.laidTraps\)/.test(RENDER_SRC), 'the render pass draws them');
+  assert.truthy(/cullToView\(entry\.laidTraps, pWorldX, pWorldY, halfM, \(tr, dx, dy\) => \{/.test(RENDER_SRC), 'the render pass draws them');
   assert.truthy(/sprung: !!tr\._sprung/.test(RENDER_SRC), 'in the sprung texture once sprung');
   assert.truthy(/Traps\.disarmTrap\(save, trap\)/.test(INTERACT_SRC), 'the kit shuts them');
   assert.truthy(/if \(prev\.laidTraps && !fresh\.laidTraps\) fresh\.laidTraps = prev\.laidTraps;/.test(ALL_SRC['worldgen.js']),
@@ -382,7 +382,7 @@ test('magic trap: a magenta light row, collected like the campfires', () => {
   assert.eq(scene._lights[0].id, 'mtrap_d1_0_0_1_1', 'keyed by the trap id, so frameKey moves when one goes');
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/collectMagicTraps\(scene, ax, ay, halfM\);/.test(d), 'draw() collects them every frame');
-  assert.truthy(/for \(const mt of PlacedFloor\.forDepth\(scene\.save\.magicTraps, _curDepth\)\)/.test(RENDER_SRC),
+  assert.truthy(/cullToView\(PlacedFloor\.forDepth\(scene\.save\.magicTraps, _curDepth\), pWorldX, pWorldY, halfM, \(mt, dx, dy\) => \{/.test(RENDER_SRC),
     'and a tinted scuff marks the cell on the trap layer (it lies on the ground)');
 });
 
