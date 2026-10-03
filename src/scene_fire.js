@@ -162,6 +162,18 @@ class SceneFire {
     return damage > 0 && this._damageBurningUnit(c, damage, source, now);
   }
 
+  // A POISONED creature (Combat.poison — the Poison Flask): the row's bite
+  // every intervalMs off its HP, through the burn's dispatch below (an NPC's
+  // rest, a pet's retreat, a foe's bar and bounty). The player's flask is a
+  // player kill. Asked wherever the burn is asked.
+  _tickUnitPoison(c, now) {
+    if (!c?._poisonState || c._spent || this.save.caught?.includes(c.id) || c._poisonTickT === now) return false;
+    c._poisonTickT = now;
+    const source = c._poisonBy === 'player' ? 'player' : 'poison';
+    const damage = Combat.poisonTick(c, now);
+    return damage > 0 && this._damageBurningUnit(c, damage, source, now);
+  }
+
   _damageBurningUnit(c, damage, source, now) {
     // NPCs use their existing wounded/resting state, rather than a health bar.
     if (c.kind === 'npc') { NPC.hit(this, c, Date.now(), damage); return false; }

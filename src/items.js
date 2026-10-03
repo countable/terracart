@@ -468,6 +468,8 @@ const MINERAL_ICON_SHEET = {
   psychosis_powder: { sheet: 'icon_potions', frame: 1 },
   // Potion of Hardworking — the sparkling blue round flask (row 2, frame 14).
   hardworking_potion: { sheet: 'icon_potions', frame: 14 },
+  // Poison Flask — the wide violet flask (row 4, frame 23), poison's ink.
+  poison_flask: { sheet: 'icon_potions', frame: 23 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -657,6 +659,9 @@ const BASE_TIER = {
   // Hardworking is the T1 farm potion: the Harvest Idol's boon (work at
   // Shrines.WORK_SPEED_MUL) for a third of the idol's time, bottled.
   hardworking_potion: 1,
+  // The Poison Flask: the purple slime's minute of poison, thrown or drunk —
+  // a T2 utility like the protection potion, under the T3 explosive flask.
+  poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
   stealth_ring: 2, invisibility_ring: 4, ember_ring: 3, regen_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
@@ -835,6 +840,9 @@ const ITEMS = [
   { id: 'psychosis_powder', name: 'Powder of Psychosis', kind: 'magic' },
   // Drunk, never thrown (no `potion` flag): a creature has no work to hurry.
   { id: 'hardworking_potion', name: 'Potion of Hardworking', kind: 'magic' },
+  // Thrown like a potion (it lands Combat.poison on whatever it strikes) or
+  // drunk (the player's own poison row).
+  { id: 'poison_flask', name: 'Poison Flask', kind: 'magic', potion: true },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
@@ -1159,6 +1167,15 @@ const CONSUMABLE_SPEC = {
     verb: 'Drink', method: 'drinkHardworkingPotion', title: 'Drink the Potion of Hardworking?',
     get: 'Your weariness lifts, and your hands move swiftly through their work.',
   },
+  // Poison Flask: whoever it touches carries the `poison` row of
+  // Conditions.DEFINITIONS for its minute — a struck creature through
+  // PotionEffects.apply (Combat.poison), the drinker through
+  // _applyCondition. The duration IS the row's; no number of its own.
+  poison_flask: {
+    get durationMs() { return Conditions.DEFINITIONS.poison.durationMs; },
+    verb: 'Drink', method: 'drinkPoisonFlask', title: 'Drink the Poison Flask?',
+    get: 'A purple chill creeps down your throat.',
+  },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.
   // The rainberry's soak is a WATERING CAN'S: every crop in reach is watered
@@ -1437,6 +1454,7 @@ const PRICES = {
   sleep_powder: 100,
   psychosis_powder: 15, // T1 — ten seconds of foes running every which way
   hardworking_potion: 15, // T1 — the Harvest Idol's quick hands for five minutes
+  poison_flask: 45, // T2 — a minute of the purple slime's poison on whatever it touches
   reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
@@ -1668,6 +1686,7 @@ const ITEM_EFFECTS = {
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
   psychosis_powder: CONSUMABLE_SPEC.psychosis_powder.get,
   hardworking_potion: CONSUMABLE_SPEC.hardworking_potion.get,
+  poison_flask: 'Bottled venom. A purple chill creeps into whoever it touches, thrown or drunk.',
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',

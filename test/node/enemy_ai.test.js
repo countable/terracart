@@ -122,8 +122,8 @@
         setTint(tint) { this.tint = tint; this.fill = false; },
         setTintFill(tint) { this.tint = tint; this.fill = true; } };
       paint(c, sprite, { now: () => now }, { now: () => now },
-        { burning: () => !!c.burning, statusFlashTint: () => null },
-        { conditionTintOn: () => true, DEFINITIONS: { burning: { tint: 0xff5500 } } },
+        { burning: () => !!c.burning, statusFlashTint: () => null, poisoned: () => !!c.poisoned },
+        { conditionTintOn: () => true, DEFINITIONS: { burning: { tint: 0xff5500 }, poison: { tint: 0x9fdc8c } } },
         0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {});
       return sprite;
     };
