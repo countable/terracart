@@ -209,13 +209,13 @@ const WILDPLANT_RULES = {
   // shared 9/3/1 tool curve on the bar.
   // `nest`: one shrub in twenty is a NEST BUSH (isNestBush) — it wiggles
   // now and then and may shelter a baby, slime or local animal.
-  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true, nest: true },
+  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true, nest: true, hazardMinTier: 1 },
   giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
     workRelic: 'axe', workCharged: true },
-  // A barricade road's barricade is the shrub's row — one lane, one more
-  // thing standing on it: axe work, wood, `picked`. (A hedgerow's hedges ARE
-  // shrubs.)
-  barricade: { output: 'wood', workRelic: 'axe', workCharged: true },
+  // Barricades dismantle with a kit, or chop like a full hardwood (T4).
+  // The shared tree pipeline owns the axe gate, slow grind and scaled cost.
+  barricade: { output: 'wood', workRelic: 'axe', workCharged: true,
+    timber: { species: 'maple', size: 'large' }, disarmWithKit: true },
   // A tar yard's flint nodule (src/zones.js) is picked instantly for nothing,
   // like a shell, and hands over the Flint item (id 'coal').
   flint:     { output: 'coal' },
@@ -271,6 +271,7 @@ function wildplantWorkRelic(crop) { return wildplantRule(crop)?.workRelic || nul
 function wildplantWorkCost(crop, relics, rng) {
   const r = wildplantRule(crop);
   if (!r || !r.workCharged || !r.workRelic) return 0;
+  if (r.timber) return effectiveChopCost(relics, r.timber, rng);
   return probEnergy(toolEnergyExpected(relics?.[r.workRelic]?.tier || 0), rng);
 }
 // The surprise bonus a pick may also hand over: { chance, bonus } or null.
@@ -2526,11 +2527,12 @@ function invCatForItem(id) {
 // Contact damage is shared by player and enemy movement through these props.
 const WALK_HAZARD_ENERGY_PER_S = 1;
 const CHARRED_SPIKE_DAMAGE_PER_S = 2;
+const WALK_HAZARD_ENTRY_DAMAGE = 5;
 function walkHazardDamageRate(o) {
   if (!o) return 0;
   if (o.kind === 'stakes') return o._street === 'burned' ? CHARRED_SPIKE_DAMAGE_PER_S : 0;
   if (o.kind && o.kind !== 'wildplant' && o.kind !== 'shrub') return 0;
-  if (o.crop === 'barricade') return WALK_HAZARD_ENERGY_PER_S;
+  if (o.crop === 'barricade') return CHARRED_SPIKE_DAMAGE_PER_S;
   return (o.crop === 'shrub' || o.kind === 'shrub')
     && (o._plantArt === 'bramble' || o._streetArt === 'bramble') ? WALK_HAZARD_ENERGY_PER_S : 0;
 }

@@ -62,6 +62,7 @@ function mkScene(entry, creature, feet) {
     cellAt: () => ({ loaded: true, type: 0 }),   // walkable everywhere; only the road bits differ
     _cellBlocked: () => false, _nearAny: () => false, placedRockSet: null,
     _damageEnemy: () => false, resolveDefeat: () => {},
+    _applyCondition(id) { Conditions.apply(this.save, id); },
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     _trapperLay() { this._laid++; },
@@ -149,7 +150,10 @@ test('kerb: the harness bites — every mobile hostile attacks a player in open 
   // Without this the test below could pass for the wrong reason: a sim in
   // which nothing ever attacks anybody.
   for (const spec of foes()) {
-    if (EnemyRoster.get(spec.label)?.attackType === 'none') continue;
+    const row = EnemyRoster.get(spec.label);
+    // Circling trail-makers and buried ambushers do not chase a still target.
+    // Their contact/ground hazards have separate behavioral tests.
+    if (row?.attackType === 'none' || ['orbit_trail', 'burrow'].includes(row?.movement.pattern)) continue;
     const r = walk(spec, at(10, OPEN_ROW + 1), () => at(10, OPEN_ROW), 30);
     assert.gt(attacks(r.scene), 0, `${spec.label}: attacked a player standing in the open`);
   }

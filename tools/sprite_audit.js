@@ -33,6 +33,7 @@ const ROOT = path.resolve(__dirname, '..');
 const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART, GROVE_SHRINE_ART, SHRINE_KIND_ART, CHEST_SCALE,
         CREATURE_WHEEL_R, creatureWheelDy } =
   require(path.join(ROOT, 'src', 'sprite_layout.js'));
+const EnemyRoster = require(path.join(ROOT, 'src', 'enemy_roster.js'));
 const CELL_BOTTOM = CELL_PX / 2;
 
 // Tolerances (px). Sub-pixel slop is fine; these are the "looks wrong" gates.
@@ -389,9 +390,9 @@ function evaluate(s) {
 // CREATURE_ART still have to describe the real art: the work-progress wheel is
 // centred on each kind's CROWN from that table, so a resized or repainted
 // creature sheet must not be able to leave its wheel floating in the air.
-// Reference frame is 0 — the rest pose — for every kind; sibling frames in
-// these sheets agree to within a pixel, and pinning one frame keeps the wheel
-// from bobbing with the idle animation.
+// Enemy atlases reference their first downward idle pose; other sheets use frame 0.
+// Atlas kinds start elsewhere; pinning their rest pose keeps the wheel from
+// bobbing with the idle animation.
 //
 // The rule checked below is that the ring RESTS ON the crown — its top edge on
 // the art's top row — not that its centre sits there. Centring on the crown put
@@ -428,7 +429,7 @@ function evaluateCreature(kind) {
   const violations = [];
   if (!a) return { kind, violations: ['no CREATURE_ART entry'] };
   if (!file) return { kind, violations: ['no sheet mapped in CREATURE_SHEETS'] };
-  const fresh = trimSheetFrame(file, a.fw, a.fh, 0);
+  const fresh = trimSheetFrame(file, a.fw, a.fh, EnemyRoster.get(kind)?.art.directions?.down?.idle?.[0] ?? 0);
   if (!fresh) return { kind, violations: ['reference frame is fully transparent'] };
   if (fresh.minY !== a.minY || fresh.maxY !== a.maxY) {
     violations.push(`CREATURE_ART stale: art rows ${fresh.minY}-${fresh.maxY}, ` +

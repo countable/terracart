@@ -52,7 +52,10 @@
         const bx = Math.floor(gx / spacing), by = Math.floor(gy / spacing);
         const sx = bx * spacing + Math.floor(noise(bx, by, 157) * spacing);
         const sy = by * spacing + Math.floor(noise(bx, by, 163) * spacing);
-        if (id === 'quarry-strip-mine' && gx === sx && gy === sy) put(x, y, s.variant.guards.kind);
+        if (id === 'quarry-strip-mine' && gx === sx && gy === sy) {
+          const kinds = s.variant.guards.kinds || [s.variant.guards.kind];
+          put(x, y, kinds[Math.floor(noise(bx, by, 167) * kinds.length)]);
+        }
         else if (h < d.crystal) put(x, y, 'crystal');
         else if (h < d.crystal + d.stone) put(x, y, 'stone');
         else if (h < d.crystal + d.stone + (d.barrel || 0)) put(x, y, 'barrel');
@@ -240,7 +243,8 @@
     }
     if (s.a.owned) {
       if (id === 'quarry-strip-mine') for (const centre of centres.slice(0, s.variant.guards.count || 0)) {
-        plan.guards.push({ i: centre, material: s.variant.guards.kind });
+        const kinds = s.variant.guards.kinds || [s.variant.guards.kind];
+        plan.guards.push({ i: centre, material: kinds[plan.guards.length % kinds.length] });
       }
       if (id === 'quarry-abandoned') for (const centre of centres.slice(0, s.variant.finds.count)) plan.finds.push({ i: centre + N, material: 'tool_crate' });
       if (id === 'quarry-stronghold') for (const seats of foundationSeats.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {

@@ -1099,6 +1099,9 @@
       const shiny = eligible && (spec.elite === true || root.isShiny(id, SHINY_RATE.monster));
       const g = WG.makeCreature(kind, seat.x, seat.y, id, {
         shiny,
+        ...(root.EnemyHabitats?.emergesFromGround(kind,
+          root.EnemyHabitats.variantAt(entry, seat.ix, seat.iy) || cand.variant)
+          ? { emergeFromGround: true, _burrowed: true } : {}),
         // `immobile` still means "this creature does not wander": app.js reads
         // it to route the guard through Lairs.guardState instead of the
         // ordinary fauna step. Where it goes from here is that state's answer,

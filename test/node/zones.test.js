@@ -629,7 +629,7 @@ test('tar yard: every tar pit is a slow cell (the burned row\'s lane, _bodyHold)
   assert.truthy(StreetVariants.isSlowKind('tar'), 'one table both sides read');
   assert.truthy(/const zDress = entry\.zoneDress;[\s\S]*StreetVariants\.isSlowKind\(o\.kind\)\) slow\.set/.test(SPAWN_IN_TILE_SRC),
     'spawnInTile merges the zone\'s tar into the same slow map');
-  assert.truthy(/capMS = \(!pinned && this\._slowHere/.test(SCENE_SRC), 'and _bodyHold caps the body on it');
+  assert.truthy(/capMS = \(!pinned && slow/.test(SCENE_SRC), 'and _bodyHold caps the body on it');
   assert.truthy(/'Tar drags at your feet\.'/.test(SCENE_SRC), 'tar SLOWS — it drags, it does not grip');
 });
 
