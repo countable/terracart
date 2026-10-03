@@ -114,7 +114,7 @@
     const fixed = byId(anchor.variant);
     if (fixed && fixed.zone === anchor.kind) return fixed;
     const { choices: candidates, total } = weightedChoices(anchor);
-    let ticket = (fnv1a(`zone-variant|${identity(anchor)}`) / 4294967296) * total;
+    let ticket = hash01(`zone-variant|${identity(anchor)}`) * total;
     for (const choice of candidates) {
       ticket -= choice.weight;
       if (ticket < 0) return choice.row;
@@ -165,13 +165,9 @@
     return map.get(`${x},${y}`) || null;
   }
   // Separate hash lanes make occupancy independent of material choice. Mix the
-  // FNV result to avoid its low-bit structure showing up as rows in a scatter.
-  function unitHash(key) {
-    let h = fnv1a(key);
-    h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
-    h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-  }
+  // FNV result (util.js avalanche32) so its low-bit structure never shows up
+  // as rows in a scatter.
+  function unitHash(key) { return u01(avalanche32(fnv1a(key))); }
   function sample(variant, u, v, anchorKey) {
     const b = variant.background;
     if (b.type === 'seeded_scatter') {

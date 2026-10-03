@@ -232,9 +232,8 @@
   // How far (cells) a blocked pattern piece may walk outward along its ray.
   const RESCUE_CELLS = 4;
   // The one standing prop per grove: the shrine seats on the first free cell
-  // of these rings (radius 1..SHRINE_SEAT_R, N first, clockwise).
+  // of the rings radius 1..SHRINE_SEAT_R (WorldGen.RING_ORDER: N first, clockwise).
   const SHRINE_SEAT_R = 3;
-  const RING_ORDER = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
   // NO STACKING ON A FULL PARK: a grove piece is skipped when this many of its
   // eight neighbours already hold something the TILE put there (the park's
   // own flora clumps, a tree, the pad's greenery) — the rings thin out where
@@ -278,17 +277,12 @@
   const SALT_CHROCK = 0xc4a2c401;
   const SALT_FILL = 0xf1a9e501;
 
-  const u01 = (h) => (h >>> 0) / 4294967296;
   // 0..1 off a GLOBAL cell (tile·N + local) and a salt — one per-cell stream
   // per use, the same for every player; a cell belongs to one tile, so each
-  // is decided exactly once.
+  // is decided exactly once. (util.js's murmurMix32 / u01.)
   function cellU01(gx, gy, salt) {
-    let h = Math.imul(gx | 0, 0x27d4eb2d) ^ Math.imul(gy | 0, 0x165667b1) ^ salt;
-    h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
-    h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-    return u01(h ^ (h >>> 16));
+    return u01(murmurMix32(Math.imul(gx | 0, 0x27d4eb2d) ^ Math.imul(gy | 0, 0x165667b1) ^ salt));
   }
-  function hashStr01(s) { return u01(fnv1a(s)); }
 
   // ── Detection ────────────────────────────────────────────────────────────
   // What kind of anchor a poi feature is, or null. The sensitive-place table
@@ -500,12 +494,7 @@
     }
     return { anchors, idx, s, reach, allAnchors: all };
   }
-  function field(poiLayer, tx, ty, N) {
-    const it = fieldSteps(poiLayer, tx, ty, N);
-    let r = it.next();
-    while (!r.done) r = it.next();
-    return r.value;
-  }
+  function field(poiLayer, tx, ty, N) { return root.WorldGen.runSteps(fieldSteps(poiLayer, tx, ty, N)); }
 
   // ── The halo: lot + commercial ground under a zone takes its terrain ──────
   let _haloOver = null;
@@ -713,7 +702,7 @@
   }
   // Does this headstone hold a one-off find? Off its own id — the world's.
   function headstoneHoards(id) {
-    return hashStr01(String(id) + '#hoard') < HEADSTONE_HOARD_SHARE;
+    return hash01(String(id) + '#hoard') < HEADSTONE_HOARD_SHARE;
   }
 
   // ── Pattern geometry ─────────────────────────────────────────────────────
@@ -835,18 +824,11 @@
     const res = { objects: [], wildplants: [], lairs: [], slowCells: new Map(), nexus: [] };
     const fld = ctx && ctx.field;
     if (!fld || !WG) return res;
-    const { tx, ty, N, tileEdgeM, grid, spawnOpts } = ctx;
-    const frameCellM = tileEdgeM / N;
-    const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
-    const occ = spawnOpts.occupied || (spawnOpts.occupied = new Set());
-    const cx = (ix) => ox + (ix + 0.5) * frameCellM;
-    const cy = (iy) => oy + (iy + 0.5) * frameCellM;
-    // The chest each owned anchor minted (worldgen stamps `_poiAt` with the
-    // POI's tile-local point).
-    const chestAt = new Map();
-    for (const o of ctx.chests || []) {
-      if (o && o.kind === 'chest' && o._poiAt) chestAt.set(o._poiAt, o);
-    }
+    const { tx, ty, N, grid, spawnOpts } = ctx;
+    // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
+    // metres, the occupancy this pass claims into, and the chest each owned
+    // anchor minted (worldgen stamps `_poiAt` with the POI's tile-local point).
+    const { cellM: frameCellM, ox, oy, occ, chestAt, cx, cy } = WG.dressFrame(ctx);
     // EVERY churchyard rock wears the one look (the frame and the drop follow
     // the explicit `rockVariant` — SpriteLayout.plainRockVariant reads it first).
     const rockLook = (root.SpriteLayout && root.SpriteLayout.CHURCHYARD_ROCK_VARIANT != null)
@@ -895,7 +877,7 @@
         // THE SHRINE first — it takes the best seat beside the chest.
         let seated = false;
         for (let r = 1; r <= SHRINE_SEAT_R && !seated; r++) {
-          for (const [ux, uy] of RING_ORDER) {
+          for (const [ux, uy] of WG.RING_ORDER) {
             const ix = ix0 + ux * r, iy = iy0 + uy * r;
             if (!ok(ix, iy, 'attractor')) continue;
             claim(ix, iy);
@@ -1022,12 +1004,10 @@
     const WG = root.WorldGen, BP = root.BiomeProfiles;
     const fld = ctx.field;
     const fr = ctx.fringe || null;
-    const { tx, ty, N, tileEdgeM, grid, spawnOpts } = ctx;
+    const { tx, ty, N, grid } = ctx;
     if (!fld.idx && !fr) return;
     const T = WG.T;
-    const occ = spawnOpts.occupied;
-    const frameCellM = tileEdgeM / N;
-    const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
+    const { occ, cx, cy } = WG.dressFrame(ctx);
     const fillerOf = (id) => (BP && BP.parkCharacter(id) && BP.parkCharacter(id).filler) || 'longgrass';
     let graves = 0, rocks = 0, fill = 0;
     for (let iy = 0; iy < N; iy++) {
@@ -1038,7 +1018,7 @@
         const gx = tx * N + ix;
         const a = fld.idx && fld.idx[i] ? fld.anchors[fld.idx[i] - 1] : null;
         const s = a ? fld.s[i] / 255 : 0;
-        const x = ox + (ix + 0.5) * frameCellM, y = oy + (iy + 0.5) * frameCellM;
+        const x = cx(ix), y = cy(iy);
         if (a && a.kind === 'stones' && grid[i] === T.CHURCHYARD) {
           if (((gy % GRAVE_ROW) + GRAVE_ROW) % GRAVE_ROW === 0 && ((gx % GRAVE_COL) + GRAVE_COL) % GRAVE_COL === 0
               && cellU01(gx, gy, SALT_GRAVE) < HEADSTONE_P * s && ok(ix, iy, 'headstone')) {
@@ -1079,17 +1059,12 @@
       res.fringe = { painted: fr.painted, parks: fr.parks.length, chars };
     }
   }
-  function dress(ctx) {
-    const it = dressSteps(ctx);
-    let r = it.next();
-    while (!r.done) r = it.next();
-    return r.value;
-  }
+  function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
 
   root.Zones = {
     POI_BUFFER_UNITS, W_MAX_M, R_MIN_M, R_MAX_M, MERGE_M, WINDOW_MARGIN_M, EDGE_JITTER,
     NOISE_UNITS, CORE_S, MAX_FIELD_ANCHORS, ZONE_KINDS, KIND_BY_CODE, ASPECTS,
-    SHRINE_SEAT_R, RING_ORDER, GROVE_CROWD_MAX, HEADSTONE_GHOST_P, HEADSTONE_HOARD_SHARE, HEADSTONE_CONTEXT, HEADSTONE_TIER,
+    SHRINE_SEAT_R, GROVE_CROWD_MAX, HEADSTONE_GHOST_P, HEADSTONE_HOARD_SHARE, HEADSTONE_CONTEXT, HEADSTONE_TIER,
     SHRINE_CONTEXT, GROVE_ASPECTS, SYMMETRIC_ASPECTS, RESCUE_CELLS, rayStep, figureCells, GRAVE_ROW, GRAVE_COL, HEADSTONE_P, CHURCHYARD_ROCK_P,
     FRINGE_M, FRINGE_JITTER, FRINGE_NOISE_UNITS, FRINGE_FILL_M, FRINGE_FILL_P, GROVE_FILL_P,
     cellU01, fringeReach, fringeSteps, rescueCell,

@@ -86,10 +86,14 @@ test('floor torches: rolled LAST, so no level already walked rearranges', () => 
   const src = WORLDGEN_SRC;
   const start = src.indexOf('async function loadCaveTile(');
   const body = src.slice(start, src.indexOf('\n  }\n', start));
-  const at = body.indexOf('caveFloorTorches(objects, grid, N, x, y, tileEdgeM, depth, wildplants, occupied)');
-  assert.gt(at, 0, 'loadCaveTile lays them into the level\'s wildplants');
-  for (const pass of ['spawnCaveRocks(', 'spawnCaveMushrooms(', 'caveChestRings(', 'caveWallTorches(', 'caveCoins(', 'caveTreasureMarks(']) {
-    assert.gt(at, body.indexOf(pass), `after ${pass}`);
+  assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(body), 'loadCaveTile lays the table (CAVE_PASSES) in order');
+  assert.truthy(/const level = cavePassLevel\(grid, N, x, y, tileEdgeM, depth, occupied, \{ objects, wildplants \}\);/.test(body),
+    'into the level\'s wildplants');
+  const order = WorldGen.CAVE_PASSES.map(r => r.id);
+  const at = order.indexOf('floorTorches');
+  assert.gt(at, 0, 'a row of the table');
+  for (const pass of ['rocks', 'mushrooms', 'rings', 'wallTorches', 'coins', 'treasureMarks']) {
+    assert.gt(at, order.indexOf(pass), `after ${pass}`);
   }
 });
 

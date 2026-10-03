@@ -57,8 +57,12 @@ test('level 1: a dozen-odd barrels on free floor cells, off their own stream, po
   const deeper = [];
   WorldGen.caveBarrels(deeper, grid, N, 3, 4, N * WorldGen.CELL_M, 2, new Set());
   assert.eq(deeper.length, 0, 'level 2 has none');
-  // Wired last in the level build, after the torches, so nothing seated moves.
-  assert.truthy(/caveFloorTorches\(objects, grid, N, x, y, tileEdgeM, depth, wildplants, occupied\);\s*\n\s*caveBarrels\(objects, grid, N, x, y, tileEdgeM, depth, occupied\);/.test(WORLDGEN_SRC));
+  // Wired last in the level build (the last row of CAVE_PASSES, after the
+  // torches), so nothing seated moves; loadCaveTile lays the table in order.
+  const order = WorldGen.CAVE_PASSES.map(r => r.id);
+  assert.eq(order[order.length - 1], 'barrels', 'the last floor pass');
+  assert.eq(order[order.length - 2], 'floorTorches', 'after the floor torches');
+  assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(WORLDGEN_SRC), 'loadCaveTile runs the table');
 });
 
 test('quarry: the clipped benches read the whole density table, stone and crystal where they were', () => {

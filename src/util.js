@@ -185,6 +185,28 @@ function fnv1aFrom(seed, str) {
   }
   return h >>> 0;
 }
+// A uint32 as a float in [0, 1) — the one division every hash-to-roll site
+// used to spell out — and the string form of it (fnv1a then u01), which the
+// street dressing, the zone layouts, the reef and the enemy rolls all take.
+function u01(h) { return (h >>> 0) / 4294967296; }
+function hash01(str) { return u01(fnv1a(str)); }
+// The two integer finalisers behind every per-coordinate hash in the game,
+// each byte-identical to the loops it replaces (a world re-rolls otherwise):
+//   murmurMix32 — murmur3's fmix (0x85ebca6b / 0xc2b2ae35): worldgen.js
+//     cellHash, zones.js cellU01 and the value-noise lattice below;
+//   avalanche32 — the 0x7feb352d / 0x846ca68b mix laid over an fnv1a so
+//     nearby string keys do not form runs (zone_variants.js's scatter
+//     occupancy, enemy_habitats.js's encounter rolls).
+function murmurMix32(h) {
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+function avalanche32(h) {
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
 
 // === Smooth value noise over the plane ========================================
 // A pure function of the point — no rng, no tile — so the same world point
@@ -196,10 +218,7 @@ function fnv1aFrom(seed, str) {
 // line up. Output 0..1, clustered about 0.5 (not uniform — a caller that
 // wants a share of the plane takes a measured quantile, see FLORA_PATCH).
 function _noiseLattice(ix, iy) {
-  let h = Math.imul(ix | 0, 0x27d4eb2d) ^ Math.imul(iy | 0, 0x165667b1);
-  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  return u01(murmurMix32(Math.imul(ix | 0, 0x27d4eb2d) ^ Math.imul(iy | 0, 0x165667b1)));
 }
 function _valueNoise1(x, y) {
   const fx = Math.floor(x), fy = Math.floor(y);
