@@ -1277,11 +1277,33 @@ class SceneShops {
   // Display name of what a trader currently offers, for its sign — null when
   // there is no offer to name (the sign then falls back to a bare "Trader").
   traderGoodsName(house) {
+    const swap = this.peekTraderGearSwap(house);
+    if (swap) return this._tradePieceName(swap.get);
     const pick = this.traderGivePick(house);
     if (!pick) return null;
     return itemName(pick.giveId);
   }
+  // Sometimes the trader swaps equipment instead (Gear.traderGearSwap): on
+  // its own seed lane, so the barter stream below draws what it always did.
+  // `id` names the swap for ShopsMath.offerKey, so a re-roll moves past it.
+  peekTraderGearSwap(house) {
+    if (!house?.id) return null;
+    const swap = Gear.traderGearSwap(this.save, this.shopRng(house, 'trader_gear'));
+    if (!swap) return null;
+    const key = (p) => [p.kind, p.slot || p.id, p.tier].join(':');
+    return { ...swap, gearSwap: true, id: `swap/${key(swap.give)}/${key(swap.get)}` };
+  }
+  _tradePieceName(p) {
+    return p.kind === 'item' ? itemName(p.id) : gearName(p.kind, p.slot, p.tier);
+  }
+  _tradePieceHTML(p) {
+    return p.kind === 'item'
+      ? `${this.iconSpanHTML(p.id)} ${this._tradePieceName(p)}`
+      : `${this.gearIconHTML(p.kind, p.slot, p.tier, 20)} ${this._tradePieceName(p)}`;
+  }
   peekOrBuildTraderOffer(house) {
+    const swap = this.peekTraderGearSwap(house);
+    if (swap) return swap;
     const pick = this.traderGivePick(house);
     if (!pick) return null;
     const { rng, giveId } = pick;
@@ -1289,7 +1311,7 @@ class SceneShops {
     // Target trade value the trader considers appropriate — a shiny trader's
     // (the Magic Hammer's) asks for less of your stack, priceMul.
     const target = baseValue * (1.0 + rng()) * this.priceMul(house);
-    // Asking item: ShopsMath.traderAsk — half the time a stack that already
+    // Asking item: ShopsMath.traderAsk — usually a stack that already
     // covers the count, otherwise anything owned, then the wishlist; never a
     // count the bag's stack cap could not hold.
     const ask = ShopsMath.traderAsk({
@@ -1307,11 +1329,10 @@ class SceneShops {
   presentTraderOffer(sx, sy, house, recordDeal) {
     const offer = this.peekOrBuildTraderOffer(house);
     if (!offer) { this.flash('Nothing to trade for.', sx, sy); return; }
+    if (offer.gearSwap) { this._presentTraderGearSwap(sx, sy, house, recordDeal, offer); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
     const heldCount = () => Inventory.count(this.save, offer.askId);
-    const curState = this.shopBucketState(house);
-    const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
     // Low-tier seeds barter in a slightly larger bundle (planted in bulk).
     const giveQty = TRADE_OFFER_QTY
       + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);
@@ -1342,21 +1363,59 @@ class SceneShops {
           '#ffe066', 1, offer.giveId,
         );
       },
-      secondary: {
-        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
-        disabled: (this.save.money ?? 0) < rerollCost,
-        onClick: () => {
-          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
-          // Settles the bucket's rerolls / skips on a DIFFERENT barter; the
-          // re-present below peeks the same record and shows that one.
-          ShopsMath.rerollPeek(curState, () => this.peekOrBuildTraderOffer(house), offer);
-          addMoney(this.save, -rerollCost);
-          persistSave(this.save);
-          this.updateHUD();
-          this.presentTraderOffer(sx, sy, house, recordDeal);
-        },
-      },
+      secondary: this._traderRerollSecondary(sx, sy, house, recordDeal, offer),
     });
+  }
+
+  // The gear swap's modal: same title, art and re-roll as the barter.
+  _presentTraderGearSwap(sx, sy, house, recordDeal, offer) {
+    const { give, get } = offer;
+    this.showOfferModal({
+      kind: 'trade',
+      title: 'The trader offers:',
+      ...NPC.offerArt(this, house),
+      forLabel: 'for your',
+      cancelLabel: 'Later',
+      get: this._tradePieceHTML(get),
+      blurb: `<div style="margin-top:6px">${tierBadgeHTML(get.tier)}</div>`,
+      cost: this._tradePieceHTML(give),
+      canAfford: Gear.traderSwapValid(this.save, offer),
+      onAccept: () => {
+        if (!Gear.traderSwapValid(this.save, offer)) { this.flash('That swap has gone.', sx, sy); return; }
+        if (get.kind === 'item' && this.invRoomFor(get.id) < 1) { this.flash('Bag full.', sx, sy); return; }
+        Gear.surrenderPiece(this.save, give);
+        Rewards.apply(this.save, get, this, { notWild: true, deferRefresh: true });
+        this.markRelicsDirty();
+        this._clampSelSlot();
+        recordDeal();
+        this._finishInventoryChange();
+        this.updateHUD();
+        this.flashLoot(`${this._tradePieceName(get)}\n−${this._tradePieceName(give)}`, '#ffe066', 1.25);
+      },
+      secondary: this._traderRerollSecondary(sx, sy, house, recordDeal, offer),
+    });
+  }
+
+  // The trader's re-roll, shared by the barter and the gear swap. It peeks
+  // the next offer rather than building a relic offer, so it is not
+  // _makeRerollSecondary. Cost = 5 × 2^rerolls.
+  _traderRerollSecondary(sx, sy, house, recordDeal, offer) {
+    const curState = this.shopBucketState(house);
+    const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
+    return {
+      label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
+      disabled: (this.save.money ?? 0) < rerollCost,
+      onClick: () => {
+        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
+        // Settles the bucket's rerolls / skips on a DIFFERENT offer; the
+        // re-present below peeks the same record and shows that one.
+        ShopsMath.rerollPeek(curState, () => this.peekOrBuildTraderOffer(house), offer);
+        addMoney(this.save, -rerollCost);
+        persistSave(this.save);
+        this.updateHUD();
+        this.presentTraderOffer(sx, sy, house, recordDeal);
+      },
+    };
   }
 
   // REST: a flat CASTLE_REST_ENERGY, once per Houses.CASTLE_SERVICE_MS (it was

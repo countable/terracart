@@ -91,6 +91,7 @@ function scene(role, badge) {
     _trailRewardBlurb: () => '',
     _makeRerollSecondary: () => undefined,
     traderGivePick: () => ({ rng: () => 0, giveId: 'potato_seed' }),
+    peekTraderGearSwap: () => null,
     showOfferModal(offer) { this.offer = offer; },
   });
 }
