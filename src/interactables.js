@@ -139,6 +139,13 @@ function isPlainRock(o) {
   return !!o && !mineralDeposit(o) && (o.caveVariant != null || (o.yieldTier || 1) <= 1);
 }
 
+// Quarry rubble takes more work for one stone; ore deposits and walls keep
+// their own costs and yields. Bonus finds still use the ordinary rock rolls.
+const QUARRY_ROCK_RULES = Object.freeze({ energyMul: 1.5, stones: 1 });
+function quarryRockRules(o) {
+  return o?.kind === 'mineralrock' && o.zone === 'quarry' && isPlainRock(o) ? QUARRY_ROCK_RULES : null;
+}
+
 // One first find per surface quarry, shared by every tile seeing its anchor.
 // Existing sapphire loot satisfies the find rather than duplicating it.
 const QUARRY_SAPPHIRE_CHANCE = 0.10;
@@ -344,7 +351,9 @@ const INTERACTABLES = {
     energy: (save, o) => {
       const pickTier = save.relics?.pick?.tier || 0;
       const rockTier = mineralDeposit(o)?.yieldTier || o.yieldTier || 1;
-      return Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
+      const cost = Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
+      // Energy uses whole pips; preserve the 50% increase in expectation.
+      return probEnergy(cost * (quarryRockRules(o)?.energyMul || 1));
     },
     complete: (ctx, o) => {
       const { scene, save } = ctx;
@@ -367,11 +376,9 @@ const INTERACTABLES = {
         // plainRockBaseDrop), plus the shared, tier-steepened bonus-bar
         // chances, on top of the base — and, on a GLINT rock, one
         // guaranteed find off that same ladder (glintRockFind).
-        // The stone count follows the ART: the pair-of-stones variant drops
-        // 2, a single stone 1. Both numbers come off the one table in
-        // sprite_layout.js that render.js picks the frame from, so the rock the
-        // player sees and the rocks they get can't disagree.
-        const qty = plainRockBaseDrop(scene, SpriteLayout.plainRockStones(o));
+        // Quarry rubble pays one stone regardless of its pile silhouette.
+        // Elsewhere the original pair/single artwork still owns the quantity.
+        const qty = plainRockBaseDrop(scene, quarryRockRules(o)?.stones ?? SpriteLayout.plainRockStones(o));
         let flashId = 'rockfruit';
         for (let t = 2; t <= 7; t++) {
           if (Math.random() < plainRockBarChance(t)) {

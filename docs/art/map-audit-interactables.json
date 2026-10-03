@@ -516,26 +516,26 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Retain all four quantity-bearing silhouettes: the pair must remain a pair, singles remain singles. Warm neutral stone replaces the cool grey/purple substrate. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
+        "note": "Retain all four quantity-bearing silhouettes: the pair must remain a pair, singles remain singles. Neutralize the pink-brown faces and yellow tops toward the warm grey stone of the authored rock variants. Preserve source shades, dark contours, original luminance contrast and every alpha pixel.",
         "palette": [
           {
             "id": "stone_shadow",
-            "hex": "#403e34"
+            "hex": "#454440"
           },
           {
             "id": "stone",
-            "hex": "#777462"
+            "hex": "#77766f"
           },
           {
             "id": "stone_light",
-            "hex": "#b0aa8a"
+            "hex": "#ada99c"
           },
           {
             "id": "cream",
-            "hex": "#e6d7a3"
+            "hex": "#d2ccba"
           }
         ],
-        "recolourStrength": 0.12,
+        "recolourStrength": 0.65,
         "preserveLuminance": true
       },
       "zoneVariant": {

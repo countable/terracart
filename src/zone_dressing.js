@@ -318,6 +318,31 @@
       }
       out.nexus.push({ zoneAnchor: a.key, kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
     }
+    // Generated sites have no POI to turn into a shrine. Their optional
+    // altar belongs to the complete source site, after its finite rewards
+    // and entrances have claimed their seats, never to a clipped fragment.
+    for (const s of states) {
+      const { a, variant: v } = s;
+      if (!(a.generated || v.generated) || !a.owned || a.clipped || !(v.shrineChance > 0)) continue;
+      const identity = V.identity(a), shrineKind = root.Shrines?.kindForZoneVariant(v.id);
+      if (!shrineKind || fnv1a(`zone-shrine|${identity}`) / 4294967296 >= v.shrineChance) continue;
+      let seat = -1, rank = Infinity;
+      for (let n = 0; n < s.cells.length; n++) {
+        if ((n & 255) === 0) yield 'generated zone shrine';
+        const i = s.cells[n], ix = i % N, iy = Math.floor(i / N);
+        if (s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i)
+            || s.quarryPlan?.background.has(i) || ctx.tideSeats?.has(i)
+            || ctx.poiPadCells?.has(i) || out.reservedCells?.has(i)
+            || !WG.isSpawnCell(grid, N, N, ix, iy, opts, 'attractor')) continue;
+        const score = Z.cellU01(tx * N + ix, ty * N + iy, 0xe6be2);
+        if (score < rank || (score === rank && i < seat)) { seat = i; rank = score; }
+      }
+      if (seat < 0) { s.rec.shortfalls.push('shrine:' + shrineKind); continue; }
+      const ix = seat % N, iy = Math.floor(seat / N), [x, y] = position(ix, iy);
+      out.objects.push(WG.makeObject('grove_shrine', x, y, `zsh_${identity}`,
+        { zone: a.kind, zoneVariant: v.id, zoneLayer: 'shrine', shrineKind, _ix: ix, _iy: iy }));
+      occ.add(seat); s.clear.add(seat); s.rec.placed++;
+    }
     // Fit a bounded composition as a whole instead of clipping its stones
     // individually against a building. Only complete owner-local sites may
     // choose a new centre: a neighbouring tile cannot observe this occupancy.
@@ -465,8 +490,18 @@
           if (s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i)
               || (occ.has(i) && !initialOccupied.has(i))) { background.reserved++; continue; }
           if (initialOccupied.has(i)) { background.occupied++; continue; }
+          // Roll only beneath actual ordinary stones, including clipped sites.
+          // Check the treasure gate before the rock claims the shared cell.
+          const canBury = material === 'stone' && s.variant.buriedTreasureChance > 0
+            && allowed(s, ix, iy, 'treasure_x');
           const o = place(s, ix, iy, material, 'background');
           background[o ? 'placed' : 'blocked']++;
+          if (o && canBury && fnv1a(`${o.id}|buried-treasure`) / 4294967296 < s.variant.buriedTreasureChance) {
+            out.treasures.push({ id: `${o.id}_treasure`, x: o.x, y: o.y,
+              zone: s.a.kind, zoneVariant: s.variant.id, zoneLayer: 'buried_find',
+              _ix: ix, _iy: iy, coverRockId: o.id });
+            s.rec.findsRequested++; s.rec.findsPlaced++;
+          }
           if (o) { if (o.kind === 'headstone') ground.graves++; else if (o.kind === 'mineralrock') ground.rocks++; else if (o.kind === 'wildplant') ground.fill++; }
         } else if (ctx.fringe) {
           // Preserve unnamed parks' sparse fringe without assigning rewards.

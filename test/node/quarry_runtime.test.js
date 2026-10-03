@@ -39,12 +39,13 @@
     }
   });
   test('quarry runtime: all four compositions ship their finite site budgets and stable identities', () => {
-    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 3, 2], ['quarry-stronghold', 3, 3]]) {
+    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 2], ['quarry-stronghold', 3, 3]]) {
       const a = ZoneDressing.dress(context(id)), b = ZoneDressing.dress(context(id));
       assert.eq(records(a).filter(o => o.zoneLayer === 'find').length, finds, id);
       assert.eq(a.guards.length, guards, id);
       assert.eq(JSON.stringify(records(a)), JSON.stringify(records(b)), 'stable rebuild');
-      assert.eq(new Set(records(a).map(o => `${o._ix},${o._iy}`)).size, records(a).length, 'unique authored seats');
+      const active = records(a).filter(o => !o.coverRockId);
+      assert.eq(new Set(active.map(o => `${o._ix},${o._iy}`)).size, active.length, 'unique active authored seats');
       const observer = ZoneDressing.dress(context(id, false));
       assert.eq(records(observer).filter(o => o.zoneLayer === 'find').length, 0, 'observer cannot multiply finds');
       assert.eq(observer.guards.length, 0, 'observer cannot multiply guards');

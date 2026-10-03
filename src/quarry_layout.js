@@ -237,9 +237,6 @@
       if (id === 'quarry-strip-mine') for (const centre of centres.slice(0, s.variant.guards.count || 0)) {
         plan.guards.push({ i: centre, material: s.variant.guards.kind });
       }
-      if (id === 'quarry-strip-mine') for (const centre of centres.slice(0, s.variant.finds.count)) {
-        plan.finds.push({ i: centre + (verticalBenches ? 1 : N), material: s.variant.finds.material });
-      }
       if (id === 'quarry-abandoned') for (const centre of centres.slice(0, s.variant.finds.count)) plan.finds.push({ i: centre + N, material: 'tool_crate' });
       if (id === 'quarry-stronghold') for (const seats of foundationSeats.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {
         if (plan.guards.length < s.variant.guards.count) plan.guards.push({ i: seats[0], material: 'goblin' });

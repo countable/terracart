@@ -19,6 +19,9 @@
     assert.gt(pillars.length, 0);
     assert.truthy(pillars.every(o => o.kind === 'headstone' && o.yieldTier == null));
     assert.gt(garden.objects.filter(o => o.kind === 'mineralrock' && o.yieldTier === 3).length, 0, 'iron deposits remain mineable');
+    const quietGraves = ZoneDressing.dress(context('silent_circle')).objects.filter(o => o.kind === 'headstone');
+    assert.gt(quietGraves.length, 0);
+    assert.truthy(quietGraves.every(o => o._zoneObjectFrame === 1), 'Silent Circle uses only single pillars');
     for (const id of ['ordered_graves', 'overgrown_graves']) {
       const graves = ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone');
       assert.truthy(graves.every(o => [4, 5].includes(o._zoneObjectFrame)));
@@ -53,7 +56,13 @@
       const a = ZoneDressing.dress(context(row.id)), b = ZoneDressing.dress(context(row.id));
       assert.eq(finds(a).length, row.finds.count, row.id);
       assert.eq(a.guards.filter(g => g.zoneLayer !== 'background').length, row.guards.count || 0, row.id);
-      assert.eq(new Set(all(a).map(o => `${o.x},${o.y}`)).size, all(a).length, `${row.id}: unique cells`);
+      for (const mark of a.treasures.filter(o => o.coverRockId)) {
+        const cover = a.objects.find(o => o.id === mark.coverRockId);
+        assert.truthy(cover && cover.kind === 'mineralrock', 'buried mark has its specific covering rock');
+        assert.eq(mark.x, cover.x); assert.eq(mark.y, cover.y);
+      }
+      const visible = all(a).filter(o => !o.coverRockId);
+      assert.eq(new Set(visible.map(o => `${o.x},${o.y}`)).size, visible.length, `${row.id}: unique visible cells`);
       assert.eq(JSON.stringify(all(a)), JSON.stringify(all(b)), `${row.id}: stable rebuild`);
       const m = ZoneVariants.materials[row.finds.material];
       for (const find of finds(a)) if (m.kind === 'mineralrock') {

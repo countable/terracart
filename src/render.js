@@ -2500,7 +2500,7 @@ Render.drawCells = function drawCells(scene) {
   if ((scene.depth || 0) > 0) g.lineStyle(2, 0xc9b48a, 0.6);
   else g.lineStyle(2, 0x2a1d10, 0.55);
   const drawX = (tr) => {
-    if (!tr || found.has(tr.id)) return;
+    if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);

@@ -450,7 +450,7 @@ function selectZone(id, focus) {
     const tiers = objects.filter(o => o.zoneLayer === 'reef_find').map(o => `T${chestBaseTier(o)}`);
     lines.push(`Reef additions: ${corals.length} coral clusters · ${objects.filter(o => o.zoneLayer === 'reef_ore').length} pick-gated ore rocks · ${tiers.length ? tiers.join(' + ') + ' shore-reachable chests' : 'no shore-reachable chest seats'}`);
   }
-  if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI or shrine. Complete sites have variant finds and guards; incomplete edges use background dressing and cell-owned inhabitants.');
+  if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI. Ruined strongholds have a 50% Ember Altar chance. Complete sites have variant finds and guards; incomplete edges use background dressing and cell-owned inhabitants.');
   if (z.layout) lines.push(z.layout.mode === 'adapted'
     ? `Building-aware layout: complete rings, outer radius ${z.layout.radiusCells} cells`
     : z.layout.mode === 'border' ? `Building-aware layout: ${z.layout.stones}-stone bed along the building`
@@ -534,9 +534,9 @@ function draw(world, home) {
     for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'trap', t.id, t.x, t.y, popupHTML(e,t,'trap'), ZoneReview.source(e,t));
     // Buried X marks: the tile's own mark, spawned and rasterized marks in
     // extraTreasures, and parking-lot marks.
-    if (e.treasure && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
-    for (const t of e.extraTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
-    for (const t of e.parkingTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
+    if (treasureExposed(e.treasure, world.scene) && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
+    for (const t of e.extraTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
+    for (const t of e.parkingTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
     for (const c of e.creatures || []) {
       const hostile = typeof Combat !== 'undefined' && Combat.isEnemy && Combat.isEnemy(c);
       add(c.kind === 'npc' ? 'resident: npc' : hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), (c.name || c.kind) + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y, () => popupHTML(e,c,c.kind), ZoneReview.source(e,c,'creature'));

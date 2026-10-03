@@ -4850,10 +4850,7 @@
       "attracts": {},
       "materialFrames": {
         "grave": [
-          1,
-          1,
-          4,
-          5
+          1
         ]
       }
     },
@@ -7142,6 +7139,9 @@
         "crystal": [
           58,
           59
+        ],
+        "stone": [
+          69
         ]
       },
       "decorations": [
@@ -7185,20 +7185,10 @@
         "slots": []
       },
       "finds": {
-        "rarity": "finite",
+        "rarity": "none",
         "material": "treasure_x",
-        "targets": [
-          {
-            "id": "0"
-          },
-          {
-            "id": "1"
-          },
-          {
-            "id": "2"
-          }
-        ],
-        "count": 3
+        "targets": [],
+        "count": 0
       },
       "connection": {
         "shape": "none"
@@ -7218,8 +7208,12 @@
         "crystal": [
           58,
           59
+        ],
+        "stone": [
+          65
         ]
-      }
+      },
+      "buriedTreasureChance": 0.2
     },
     {
       "id": "quarry-stronghold",
@@ -7299,7 +7293,8 @@
           "material": "fallen_column",
           "count": 1
         }
-      ]
+      ],
+      "shrineChance": 0.5
     }
   ],
   "quarryLayouts": {

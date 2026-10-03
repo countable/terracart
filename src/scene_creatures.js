@@ -229,6 +229,7 @@ class SceneCreatures {
       for (const o of entry.objects) if (o.kind !== 'lava_vent') {
         for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) liveSeats.add(i);
       }
+      const placedZoneObjects = new Set();
       for (const o of zDress.objects) {
         if (o.kind === 'lava_vent') {
           const i = cellIdx(o);
@@ -244,6 +245,7 @@ class SceneCreatures {
         }
         if (!lay(o)) continue;
         entry.objects.push(o);
+        placedZoneObjects.add(o.id);
         if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
       }
       entry.wildplants = entry.wildplants || [];
@@ -252,7 +254,10 @@ class SceneCreatures {
       // may hide a piece, but must never reveal a different spawn underneath.
       for (const trap of (zDress.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
       for (const guard of (zDress.guards || [])) if (lay(guard)) zoneGuards.push(guard);
-      for (const treasure of (zDress.treasures || [])) if (lay(treasure)) zoneTreasures.push(treasure);
+      for (const treasure of (zDress.treasures || [])) {
+        const placed = treasure.coverRockId ? placedZoneObjects.has(treasure.coverRockId) : lay(treasure);
+        if (placed) zoneTreasures.push(treasure);
+      }
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
       entry.slowCells = slow.size ? slow : null;
     }
@@ -1263,22 +1268,24 @@ class SceneCreatures {
       return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
     };
     const gen = new Set(genObjects);
-    const held = new Set();
+    const held = new Map();
     const footprintFrame = { cellsPerEdge: N };
     for (const o of (entry.objects || [])) {
       if (gen.has(o)) continue;
-      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty)) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty))
+        held.set(i, held.has(i) ? null : o.id);
     }
     const savedIds = SpawnOwnership.savedIds(this.save);
     for (const plant of (entry.wildplants || [])) {
       if (!SpawnOwnership.isProtected(plant, this.save, savedIds)) continue;
-      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.set(i, null);
     }
     const repainted = grid !== genGrid;
     const off = (t, allowOverlap = false) => {
       const i = idxOf(t.x, t.y);
       if (i < 0) return false;
-      if (!allowOverlap && held.has(i)) return true;
+      if (!allowOverlap && held.has(i)
+          && !(t.coverRockId && held.get(i) === t.coverRockId)) return true;
       return repainted && grid[i] !== genGrid[i] && !WorldGen.isWalkable(grid[i]);
     };
     if (!held.size && !repainted) return;

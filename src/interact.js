@@ -402,6 +402,12 @@ const GRASSLAND_TILL = new Set([
   WorldGen.T.PITCH, WorldGen.T.GOLF, WorldGen.T.FARMLAND,
 ]);
 
+// Covered X marks become visible and tappable together after their rock is mined.
+function treasureExposed(treasure, scene, save = scene?.save) {
+  return !!treasure && (!treasure.coverRockId
+    || (scene?.brokenRockSet || setOf(save?.brokenRocks)).has(treasure.coverRockId));
+}
+
 // Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
 // with every branch it can take — an item (low-tier seeds bundled up, jackpot
 // fanfare on a big hit), a gold sum, or the fallback dollar if the pool comes
@@ -570,7 +576,7 @@ const TAP_HANDLERS = [
     const { scene, save, wm, sx, sy } = ctx;
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
-      if (!tr || found.has(tr.id)) return false;
+      if (!treasureExposed(tr, scene, save) || found.has(tr.id)) return false;
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];

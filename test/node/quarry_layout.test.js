@@ -127,9 +127,7 @@
         }
       }
       assert.eq(p.guards.length, 2, 'narrow modules do not multiply inhabitants');
-      assert.eq(p.finds.length, 3, 'each orientation seats three buried treasures');
-      assert.truthy(p.finds.every(f => f.material === 'treasure_x'));
-      assert.eq(new Set([...p.guards, ...p.finds].map(o => o.i)).size, 5, 'treasure and slime seats stay distinct');
+      assert.eq(p.finds.length, 0, 'buried finds roll beneath actual stones after layout placement');
     }
   });
   test('quarry layout: intact patches and surviving foundation walls respect irregular footprints', () => {
@@ -168,7 +166,7 @@
     const cells = rect(48, 48);
     assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
     const strip = plan('quarry-strip-mine', cells);
-    assert.eq(strip.finds.length, 3, 'treasure budget does not grow with the number of benches');
+    assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
     assert.eq(strip.guards.length, 2, 'slime budget does not grow with the number of benches');
     for (const guard of strip.guards) {
       assert.eq(guard.material, 'split_slime');

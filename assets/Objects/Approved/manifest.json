@@ -2966,7 +2966,7 @@
       "source": "assets/Objects/Wilderness/stone with minerals.png",
       "width": 176,
       "height": 272,
-      "sha256": "a033d36362ad5581999ba88fd9709103e4961cb9ddc09db8e31cbe55635bc43a",
+      "sha256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
       "rows": [
         "ore-copper",
         "ore-crimson",
@@ -2986,12 +2986,12 @@
             16
           ],
           "palette": [
-            "#403e34",
-            "#777462",
-            "#b0aa8a",
-            "#e6d7a3"
+            "#454440",
+            "#77766f",
+            "#ada99c",
+            "#d2ccba"
           ],
-          "strength": 0.12,
+          "strength": 0.65,
           "mode": null,
           "preserveLuminance": true,
           "colourMap": null,
@@ -3006,12 +3006,12 @@
             16
           ],
           "palette": [
-            "#403e34",
-            "#777462",
-            "#b0aa8a",
-            "#e6d7a3"
+            "#454440",
+            "#77766f",
+            "#ada99c",
+            "#d2ccba"
           ],
-          "strength": 0.12,
+          "strength": 0.65,
           "mode": null,
           "preserveLuminance": true,
           "colourMap": null,
@@ -3026,12 +3026,12 @@
             16
           ],
           "palette": [
-            "#403e34",
-            "#777462",
-            "#b0aa8a",
-            "#e6d7a3"
+            "#454440",
+            "#77766f",
+            "#ada99c",
+            "#d2ccba"
           ],
-          "strength": 0.12,
+          "strength": 0.65,
           "mode": null,
           "preserveLuminance": true,
           "colourMap": null,
@@ -3046,12 +3046,12 @@
             16
           ],
           "palette": [
-            "#403e34",
-            "#777462",
-            "#b0aa8a",
-            "#e6d7a3"
+            "#454440",
+            "#77766f",
+            "#ada99c",
+            "#d2ccba"
           ],
-          "strength": 0.12,
+          "strength": 0.65,
           "mode": null,
           "preserveLuminance": true,
           "colourMap": null,

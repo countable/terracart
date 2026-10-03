@@ -292,6 +292,10 @@ test('zones: every nexus piece is off the road band and off anything already the
     if (p.zone === 'quarry' && p.zoneLayer === 'find') {
       assert.truthy(on.zone.anchors.some(a => a.kind === 'quarry' &&
         p.id.startsWith(`zq_${ZoneVariants.pick(a).id}_${a.gx}_${a.gy}_find_`) && /_find_\d+$/.test(p.id)), `${p.id} uses its source anchor's identity`);
+    } else if (p.zone === 'quarry' && p.zoneLayer === 'shrine') {
+      assert.truthy(on.zone.anchors.some(a => a.owned && !a.clipped &&
+        p.zoneVariant === ZoneVariants.pick(a).id && p.id === `zsh_${ZoneVariants.identity(a)}`),
+        `${p.id} uses its complete source anchor's identity`);
     } else assert.truthy(p.zoneLayer === 'find' ? /^zf_(grove|stones|tar)_\d+_\d+_/.test(p.id) : /_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} has a stable anchor or tile-cell identity`);
     mine.add(i);
   }
