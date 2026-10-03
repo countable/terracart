@@ -418,16 +418,16 @@ test('MINERAL_ICON_SHEET: row stride for bars is 16 cols (gold at 16, crimson at
   assert.eq(MINERAL_ICON_SHEET['crimson_bar'].frame - MINERAL_ICON_SHEET['gold_bar'].frame, 16);
 });
 
-test('shrubs have only basic and cut art with identical harvesting and no biome tints', () => {
+test('shrubs keep common harvesting across basic, cut and bramble art', () => {
   const base = CROP_SPRITE.shrub, cut = base.looks.clipped;
-  assert.eq(Object.keys(base.looks).join(','), 'clipped');
+  assert.eq(Object.keys(base.looks).sort().join(','), 'bramble,clipped');
   for (const _biome of [undefined, 0, 5, 6, 16, 17, 18]) {
-    for (const look of [undefined, 'clipped', 'trimmed', 'unknown']) {
+    for (const look of [undefined, 'clipped', 'trimmed', 'bramble', 'unknown']) {
       for (const tag of ['_plantArt', '_streetArt']) {
         for (const _cave of [true, false]) {
           const p = {crop:'shrub', _biome, [tag]:look, _cave};
           const isCut = ['clipped','trimmed'].includes(look) || (!_cave && [5,16].includes(_biome));
-          assert.eq(wildplantSprite(p), isCut ? cut : base);
+          assert.eq(wildplantSprite(p), look === 'bramble' ? base.looks.bramble : isCut ? cut : base);
           assert.eq(wildplantFrame(p), 0);
           assert.eq(BiomeProfiles.tint(_biome, 'shrub'), null);
           assert.eq(wildplantRule(p.crop).output, 'wood');

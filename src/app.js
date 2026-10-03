@@ -3392,6 +3392,82 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // Count only time actually walking through a sharp obstacle's occupied
+  // cell. Exact intervals catch briefly crossed cells and overlapping props
+  // count once. Fractional energy survives pauses without charging idle time.
+  _walkHazardCell(tx, ty, cx, cy) {
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry?._spawned) return 0;
+    const c = tileCellToAbs(this, tx, ty, cx, cy);
+    const p = absCellCenterMeters(this, c.cellIX, c.cellIY);
+    const half = (entry.tileEdgeM || this.tileEdgeM) / entry.cellsPerEdge / 2;
+    const picked = setOf(this.save.picked), chopped = setOf(this.save.chopped);
+    const burned = setOf(this.save.burnedObjects);
+    let rate = 0;
+    for (const list of ['objects', 'wildplants']) {
+      WorldGen.forEachItemInBox(entry, list, p.x - half, p.y - half, p.x + half, p.y + half, o => {
+        if (!isWalkHazard(o) || o.chopped || picked.has(o.id) || chopped.has(o.id) || burned.has(o.id)) return;
+        const oc = worldMetersToAbsCell(this, o.x, o.y);
+        if (oc.cellIX === c.cellIX && oc.cellIY === c.cellIY) rate = Math.max(rate, walkHazardDamageRate(o));
+      });
+    }
+    return rate;
+  }
+
+  // Time-weighted contact damage rate for any moving body, in world metres.
+  _walkHazardExposure(x0, y0, x1, y1) {
+    if (!this.startWorldM) return 0;
+    if (x0 === x1 && y0 === y1) return 0;
+    const a = worldMetersToTilePx(this, x0, y0), b = worldMetersToTilePx(this, x1, y1);
+    const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+    if (!(length > 0)) return 0;
+    // Mercator tile rows can have different cell counts, so split there
+    // before traversing each row's own grid (as ground-fire trails do).
+    const cuts = [0, 1], T = WorldGen.TILE_PX;
+    if (dy !== 0) {
+      for (let row = Math.floor(Math.min(a.y, b.y) / T) + 1; row * T < Math.max(a.y, b.y); row++) {
+        cuts.push((row * T - a.y) / dy);
+      }
+    }
+    cuts.sort((u, v) => u - v);
+    let exposed = 0;
+    for (let i = 1; i < cuts.length; i++) {
+      const lo = cuts[i - 1], hi = cuts[i];
+      const ty = Math.floor((a.y + dy * (lo + hi) / 2) / T);
+      const n = this.cellsForRow ? this.cellsForRow(ty) : this.cellsPerTile;
+      const line = [lo, hi].map(t => ({ x: a.x + dx * t, y: a.y + dy * t - ty * T }));
+      const rates = new Map();
+      Streets.reachIntervals(line, 1, T / n, (ix, iy) => {
+        const tx = Math.floor(ix / n);
+        const rate = this._walkHazardCell(tx, ty, ix - tx * n, iy);
+        if (rate > 0) rates.set(`${ix},${iy}`, rate);
+        return false;
+      });
+      for (const rate of new Set(rates.values())) {
+        const intervals = Streets.reachIntervals(line, 1, T / n,
+          (ix, iy) => rates.get(`${ix},${iy}`) === rate);
+        for (const [start, end] of intervals) exposed += rate * (end - start) / length;
+      }
+    }
+    return exposed;
+  }
+
+  _tickWalkHazards(dt, x0, y0, x1, y1) {
+    if (!this.startWorldM || !(dt > 0) || Combat.playerDowned(this.save.energy)
+        || Conditions.damageImmune(this.save)) { this._walkHazardAccum = 0; return; }
+    const exposed = this._walkHazardExposure(x0, y0, x1, y1);
+    this._walkHazardAccum = (this._walkHazardAccum || 0) + exposed * dt;
+    const pips = Math.floor(this._walkHazardAccum + 1e-9);
+    if (pips > 0) {
+      this._walkHazardAccum = Math.max(0, this._walkHazardAccum - pips);
+      const lost = this._losePlayerEnergy(pips);
+      if (lost > 0) {
+        this._popEnergy(-lost);
+        persistSave(this.save);
+      }
+    }
+  }
+
   // ── The goblin trapper's snares ───────────────────────────────────────────
   // A trapper (Combat.monsterLays) that has noticed the player lays a snare
   // at its declared attack interval on an EMPTY cell on the line between them
@@ -4077,7 +4153,10 @@ class MapScene extends Phaser.Scene {
       else this._driftHome(dt);
       // Keyboard → steer the target directly, free, no offset.
       this._steerTarget(vx, vy, speedMul, dt);
-      this._followStep(dt, bodyHold.capMS);
+      const walkX = this.playerM.x, walkY = this.playerM.y;
+      const walkSeconds = this._followStep(dt, bodyHold.capMS);
+      this._tickWalkHazards(walkSeconds ?? dt, this.startWorldM.x + walkX, this.startWorldM.y + walkY,
+        this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y);
     }
     // One throttled flash for the stick-walking drain banked in _steerManual,
     // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
@@ -5569,7 +5648,7 @@ class MapScene extends Phaser.Scene {
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
     if (!(amount > 0)) return false;
-    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light' || source === 'burn') ? { bypassArmor: true } : options);
+    const dealt = Combat.damageDealt(c, amount, (['lava', 'light', 'burn', 'obstacle'].includes(source)) ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
     // Moss hides us until we strike this creature. Environmental damage and
     // allied attacks do not reveal us; a fresh blessing hides us again.
@@ -5618,7 +5697,7 @@ class MapScene extends Phaser.Scene {
       // not, or a burning slime would divide itself every tick. The striker's
       // side is whoever dealt it: a shot's origin when the caller says, else
       // the player's feet.
-      if (dealt > 0 && !['lava', 'light', 'burn'].includes(source)) {
+      if (dealt > 0 && !['lava', 'light', 'burn', 'obstacle'].includes(source)) {
         const from = options.from || this.playerM || { x: c.x - 1, y: c.y };
         if (enemySplit(this, c, from.x, from.y, now) && now >= (this._splitFlashT || 0)) {
           this._splitFlashT = now + 2500;
@@ -7377,6 +7456,9 @@ class MapScene extends Phaser.Scene {
         this._startAutoMine(ux, uy);
       }
     }
+    // Arrival can consume only part of a long frame. Contact hazards charge
+    // that walking time, not the idle remainder after reaching the target.
+    return move / Math.min(WALK_M_S * mul, capMS > 0 ? capMS : Infinity);
   }
   // Is the wall blocking forward progress one the body can trivially walk
   // around — one cell out of its way? Returns a unit perpendicular vector to
@@ -7393,30 +7475,7 @@ class MapScene extends Phaser.Scene {
     const bx = this.startWorldM.x + this.playerM.x;
     const by = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
     const open = (cdx, cdy) => !this._cellBlocked(bx + cdx * m, by + cdy * m);
-    // Forward = dominant heading axis; perpendicular = the other axis.
-    const fwd = Math.abs(ux) >= Math.abs(uy) ? [Math.sign(ux), 0] : [0, Math.sign(uy)];
-    if (!fwd[0] && !fwd[1]) return null;
-    const perp = fwd[0] !== 0 ? [0, 1] : [1, 0];
-    // Prefer the side the target leans toward, so we round the corner the short
-    // way; with no lean (pure-axis heading) try one side then the other. But a
-    // side already chosen on this heading axis, and still held, goes first
-    // whatever the lean now says — the lean is read from where the body stands,
-    // and every jog moves it. Each jog re-stamps the hold, so it lasts the whole
-    // way round and DETOUR_COMMIT_MS past it. The other side is still tried if
-    // the held one has closed, so a hold can't wall the body in.
-    const now = performance.now();
-    const hold = this._detourHold;
-    const held = hold && now < hold.until && hold.fx === fwd[0] && hold.fy === fwd[1];
-    const lean = fwd[0] !== 0 ? Math.sign(uy) : Math.sign(ux);
-    const first = held ? hold.side : (lean < 0 ? -1 : 1);
-    for (const s of [first, -first]) {
-      const px = perp[0] * s, py = perp[1] * s;
-      if (open(px, py) && open(px + fwd[0], py + fwd[1])) {
-        this._detourHold = { fx: fwd[0], fy: fwd[1], side: s, until: now + DETOUR_COMMIT_MS };
-        return { x: px, y: py };
-      }
-    }
-    return null;
+    return committedDetourDir(this, ux, uy, open, performance.now(), DETOUR_COMMIT_MS);
   }
   // Pick the wall cell blocking progress toward the target (dominant axis first)
   // and start an auto-mine wheel on it. No-op if no adjacent wall is found.

@@ -1801,11 +1801,13 @@ class SceneCreatures {
         } else if (c._surfaceInactive) return;
       }
       if (far) {
+        c._walkHazardPrevious = null;
         if (c.kind === 'npc') c._moving = false;
         return;
       }
       if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;
       if (this._tickUnitFire?.(c, now)) return;
+      if (!caughtSet.has(c.id) && enemyWalkHazardTick(this, c, now)) return;
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const unnoticed = this.isUnnoticed(c);
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');

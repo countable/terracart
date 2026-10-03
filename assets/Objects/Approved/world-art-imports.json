@@ -362,6 +362,18 @@
       "source": "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png",
       "sourceSha256": "380d334c25133ed0426a41e55af1067cc258bbb9d2c7a48d759da0f83bdd7725",
       "native": true
+    },
+    {
+      "reviewId": "bramble",
+      "sheet": "assets/Objects/Approved/bramble.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/bramble-native.png",
+      "sourceSha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c",
+      "native": true
     }
   ]
 }

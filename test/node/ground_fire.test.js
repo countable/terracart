@@ -18,6 +18,9 @@
       { kind: 'tar' }, { kind: 'bush' }, { kind: 'shrub' },
       { kind: 'wildplant', crop: 'longgrass' }, { kind: 'wildplant', crop: 'shrub' },
       { kind: 'wildplant', crop: 'bush' },
+      { kind: 'wildplant', crop: 'shrub', _streetArt: 'bramble' },
+      { kind: 'wildplant', crop: 'shrub', _plantArt: 'bramble' },
+      { kind: 'shrub', _plantArt: 'bramble' },
     ]) {
       assert.truthy(GroundFire.flammable(object));
       assert.falsy(GroundFire.survives(object));

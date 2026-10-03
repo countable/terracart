@@ -170,6 +170,7 @@
   // The hedged lane's carpet: centred on the first verge cell (where the
   // hedges stand, so it shows at every garden gate), this many cells wide.
   const CARPET_WIDTH_CELLS = 0.6;
+  const THORNY_SHRINE_RADIUS_CELLS = 2;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
@@ -202,7 +203,7 @@
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Hedges line the road, with gaps at the garden gates. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.08, rung: 'common',
+    { id: 'overgrown', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
@@ -306,6 +307,13 @@
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'A chest sits beside the lane, surrounded by iron traps. You stop short of the open jaws in the grass.',
       flash: 'Iron teeth around a chest.' },
+    // Append so saved mark codes retain their existing meanings.
+    { id: 'thorny', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
+      stone: { weathered: '#514638', restored: '#8c7654' }, lampDensity: 1,
+      sectionMaxM: 250, words: /(thorn|bramble|briar|brier)/i,
+      lampGlow: '#b1bd78', story: 'street_thorny', art: 'street_overgrown', title: 'Thorny Path',
+      body: 'Tangled brambles crowd both sides of the path. You follow the narrow opening between their thorns.',
+      flash: 'Brambles crowd the path.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -404,7 +412,7 @@
     let cumulative = 0;
     const roll = u01('street|' + key);
     for (const row of STREET_VARIANTS) {
-      if (row.size !== size || row.id === 'golden') continue;
+      if (row.size !== size || row.id === 'golden' || row.id === 'thorny') continue;
       const share = row.id === 'hedgerow' || row.id === 'overgrown' ? 0.10 : row.share;
       cumulative += name && row.words && row.words.test(name)
         ? Math.min(NUDGED_SHARE_MAX, share * (row.nudge || NAME_NUDGE)) : share;
@@ -1283,7 +1291,7 @@
     // square (tile-local MVT points), in line order.
     const streetEnds = new Map(), habitatSeats = new Set(), snareSeats = new Set();
     // Street key → its dressed pieces here, for the street shrines.
-    const shrineStreets = new Map();
+    const shrineStreets = new Map(), thornyShrines = new Set();
     for (const rec of (idx.dressingLines || idx.lines)) {
       const v = rec.variant;
       if (!v) continue;
@@ -1292,7 +1300,7 @@
       mark(rec, row.code);
       const spans = S.tileSpans(rec.line, gM, ext);
       if (!spans.length) continue;
-      if (root.Shrines && root.Shrines.kindForStreet(v)) {
+      if (v !== 'thorny' && root.Shrines && root.Shrines.kindForStreet(v)) {
         if (!shrineStreets.has(rec.key)) shrineStreets.set(rec.key, { v, recs: [] });
         shrineStreets.get(rec.key).recs.push({ rec, spans });
       }
@@ -1364,6 +1372,47 @@
             claim(ix, iy);
             res.wildplants.push(WG.makeWildplant('shrub', cx(ix), cy(iy),
               WG.cellId('hedge', tx, ty, ix, iy), { _street: v, _streetArt: 'clipped' }));
+          }
+        });
+      } else if (v === 'thorny') {
+        const bramble = (ix, iy) => {
+          claim(ix, iy);
+          res.wildplants.push(WG.makeWildplant('shrub', cx(ix), cy(iy),
+            WG.cellId('bramble', tx, ty, ix, iy), { _street: v, _streetArt: 'bramble' }));
+        };
+        // Reserve the selected shrine before filling its verge. Two complete
+        // shrub rings enclose it, connected to the verge but clear of the road.
+        // Cutting or burning an approach uses the ordinary shrub picked ledger.
+        if (!thornyShrines.has(rec.key) && streetShrineChosen(rec.key)) {
+          const length = S.lineLengthM(rec.line, gM), radius = THORNY_SHRINE_RADIUS_CELLS;
+          sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
+            if (!S.covers(spans, s)) return;
+            for (const side of [1, -1]) {
+              const off = side * (rec.halfW + (radius + 1.5) * CELL_M);
+              const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
+              if (!hoardOk(ix, iy)) continue;
+              const ring = [];
+              for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+                if (dx || dy) ring.push({ ix: ix + dx, iy: iy + dy });
+              }
+              if (!ring.every(c => cellOk(c.ix, c.iy))) continue;
+              claim(ix, iy);
+              res.objects.push(WG.makeObject('grove_shrine', cx(ix), cy(iy),
+                WG.cellId('street_shrine', tx, ty, ix, iy),
+                { _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v) }));
+              for (const c of ring) bramble(c.ix, c.iy);
+              thornyShrines.add(rec.key);
+              break;
+            }
+          });
+        }
+        // Half-cell samples fill three continuous rows on each verge. Every
+        // claim uses the shared gate, leaving crossing roads and occupied cells.
+        sampleLine(rec.line, gM, CELL_M / 2, CELL_M / 4, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          for (const side of [1, -1]) for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
+            const c = verge(rec, x, y, nx, ny, side, k);
+            if (c) bramble(c.ix, c.iy);
           }
         });
       } else if (v === 'overgrown') {
@@ -1710,7 +1759,7 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,

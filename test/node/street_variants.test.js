@@ -560,7 +560,7 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   // Appended after the seven older rows (code 8), and only the never-rolled
   // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
   assert.eq(row.code, 8, 'appended: no older row\'s code moves');
-  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare'), 'new rows append without changing existing codes');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny'), 'new rows append without changing existing codes');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
@@ -1037,6 +1037,57 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
     assert.truthy(opts.occupied.has(iy*CPE+ix),'coin reserves its cell before save filtering');
   }
   assert.eq(build([line],true).result.coins.length,0,'hard restrictions prevent coin placement');
+});
+
+
+test('thorny path: dense deterministic brambles flank a clear road and enclose selected shrines', () => {
+  const nameFor = shrine => nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'thorny'
+    && SV.streetShrineChosen(k) === shrine, 'Bramble Lane');
+  const line = pts([[10,25],[42,25]]), mid = pts([[26,25]])[0];
+  const build = (name, lines = [line], blocked = false, occupied = new Set(), crossing = false) => {
+    const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
+    const roadMask = new Uint8Array(CPE*CPE), spawnWhy = new Uint16Array(CPE*CPE);
+    for (let x=10; x<=42; x++) roadMask[25*CPE+x] = 1;
+    if (crossing) for (let y=0; y<CPE; y++) roadMask[y*CPE+26] = 1;
+    if (blocked) spawnWhy.fill(WorldGen.SPAWN_WHY.PRIVATE);
+    const opts = { roadMask, spawnWhy, occupied, roadClass: new Uint8Array(CPE*CPE) };
+    const result = SV.dress({ index, tx:TX, ty:TY, N:CPE, tileEdgeM:TILE_EDGE_M,
+      grid: new Uint8Array(CPE*CPE).fill(T.PARK), spawnOpts: opts });
+    return { result, opts };
+  };
+  const name = nameFor(false), { result, opts } = build(name);
+  assert.eq(SV.VARIANT_BY_ID.thorny.title, 'Thorny Path');
+  assert.eq(SV.VARIANT_BY_ID.thorny.code, SV.VARIANT_BY_ID.snare.code + 1, 'append preserves existing codes');
+  assert.eq(result.wildplants.length, 198, '33 contiguous cells on each of six verge rows');
+  assert.eq(new Set(result.wildplants.map(p => p.id)).size, 198, 'unique shrubs');
+  assert.eq(JSON.stringify(result), JSON.stringify(build(name, [[line[1],mid],[mid,line[0]]]).result),
+    'reversal and fragments keep identical generated content');
+  for (const plant of result.wildplants) {
+    const ix=cellOf(plant.x,TX), iy=cellOf(plant.y,TY);
+    assert.eq(plant.crop, 'shrub'); assert.eq(plant._streetArt, 'bramble');
+    assert.falsy(opts.roadMask[iy*CPE+ix], 'road center stays clear');
+    assert.truthy(opts.occupied.has(iy*CPE+ix));
+    assert.eq(plant.id, WorldGen.cellId('bramble',TX,TY,ix,iy));
+  }
+  const first = result.wildplants[0], occupiedCell = cellOf(first.y,TY)*CPE+cellOf(first.x,TX);
+  assert.eq(build(name,[line],false,new Set([occupiedCell])).result.wildplants.length,197,'occupied cells remain empty');
+  assert.eq(build(name,[line],false,new Set(),true).result.wildplants.length,192,'crossing road removes six brambles');
+  assert.eq(build(name,[line],true).result.wildplants.length,0,'private land cannot host brambles');
+  assert.eq(result.objects.filter(o=>o.kind==='grove_shrine').length,0,'unselected street has no shrine');
+
+  const shrineName = nameFor(true), shrineResult = build(shrineName).result;
+  const shrines = shrineResult.objects.filter(o=>o.kind==='grove_shrine');
+  assert.eq(shrines.length,1,'selected street seats one shrine');
+  const shrine = shrines[0], sx=cellOf(shrine.x,TX), sy=cellOf(shrine.y,TY);
+  assert.eq(shrine.shrineKind, Shrines.kindForStreet('thorny'));
+  const cells = new Set(shrineResult.wildplants.map(p=>cellOf(p.y,TY)*CPE+cellOf(p.x,TX)));
+  assert.falsy(cells.has(sy*CPE+sx),'shrine seat stays free');
+  for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) {
+    if(dx || dy) assert.truthy(cells.has((sy+dy)*CPE+sx+dx),'two complete cuttable rings enclose the shrine');
+  }
+  assert.eq(JSON.stringify(shrineResult),JSON.stringify(build(shrineName,[[line[1],mid],[mid,line[0]]]).result));
+  assert.eq(build(shrineName,[line],true).result.objects.filter(o=>o.kind==='grove_shrine').length,0,
+    'private land cannot host the shrine');
 });
 
 test('snare lane: a deterministic central T3 cave cache surrounded by reserved traps', () => {

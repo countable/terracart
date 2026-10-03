@@ -14,7 +14,7 @@
 const app = SCENE_SRC;
 
 test('hit flash: every drain on the body flinches at the instant it lands, with what it cost', () => {
-  // Four drains bank through ONE method, and it flinches right after the loss
+  // Contact damage banks through ONE method, which flinches after the loss
   // is banked with the actual points taken, so a graze can throw a shorter
   // burst than the worst hit in the game (Particles.dmgSpeedScale).
   const lose = app.match(/\n  _losePlayerEnergy\(dmg, [^)]*\) \{([\s\S]*?)\n  \}\n/);
@@ -28,7 +28,10 @@ test('hit flash: every drain on the body flinches at the instant it lands, with 
   assert.eq(scene.save.energy, 95);
   assert.eq(hits.join(','), '2,3', 'fractional incoming damage flashes exactly the banked pips');
   const sites = app.match(/this\._losePlayerEnergy\(/g) || [];
-  assert.eq(sites.length, 7, 'slime leech, monster melee, arrow, a ghost\'s touch, standing on a sprung trap, a hunted deer\'s butt, standing in lava');
+  assert.eq(sites.length, 8, 'slime leech, monster melee, arrow, a ghost\'s touch, standing on a sprung trap, a hunted deer\'s butt, standing in lava, walking through thorns or spikes');
+  const walking = app.match(/\n  _tickWalkHazards\(dt, x0, y0, x1, y1\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(walking && /this\._losePlayerEnergy\(pips\)/.test(walking[1]),
+    'thorns and spikes use the same immediate hit flash');
   const arrow = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(arrow && /this\._losePlayerEnergy\(dmg/.test(arrow[1]), 'the arrow is one of them');
   // …and the trap's BITE, which lands through the pain effect rather than in

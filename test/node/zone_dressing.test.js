@@ -333,7 +333,7 @@
     assert.eq(wildplantSprite({crop:'mushroom',_plantArt:'cap_cluster'}), CROP_SPRITE.mushroom, 'saved cluster tags fall back to ordinary mushroom art');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
-    assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves use the same shrub');
+    assert.truthy(ordinary.every(o => o._plantArt === 'bramble' && wildplantSprite(o).sheet === 'bramble'), 'meadow shrubs use the thorny bramble look');
   });
   test('zone hedges: joins follow surviving shrubs, never blocked cells or unrelated plants', () => {
     const c = context('hedge_garden');
@@ -671,3 +671,14 @@
     assert.eq(grove.chests[0].shrineKind, 'harvest_idol', 'the park POI itself becomes the kind');
   });
 })();
+
+ test('bramble groves keep shrub harvests and leave ordinary bushes alone', () => {
+   for (const id of ['meadow', 'ancient_grove']) {
+     const row = ZoneVariantData.variants.find(v => v.id === id);
+     assert.eq(row.materialLooks.shrub, 'bramble');
+     assert.eq(wildplantSprite({crop:'shrub', _plantArt:row.materialLooks.shrub}).sheet, 'bramble');
+   }
+   assert.eq(wildplantSprite({crop:'shrub'}).sheet, 'bushes');
+   assert.eq(wildplantSprite({crop:'shrub', _plantArt:'clipped'}).sheet, 'approved_clipped_hedge');
+   assert.eq(JSON.stringify(wildplantRewards('shrub')), JSON.stringify([{id:'wood',qty:1}]));
+ });

@@ -46,7 +46,7 @@ const TOOL_SRC = lift(app, '_toolActionStory(action) {', '_toolActionStory');
 const HOLD_SRC = lift(app, '_bodyHold() {', '_bodyHold');
 const MOVE_SRC = (() => {
   const a = app.indexOf('const bodyHold = this._bodyHold();');
-  const mark = 'this._followStep(dt, bodyHold.capMS);\n    }';
+  const mark = '\n    }\n    // One throttled flash for the stick-walking drain';
   const b = a < 0 ? -1 : app.indexOf(mark, a);
   assert.truthy(a > 0 && b > a, 'found the trap-pin movement gate in update()');
   return app.slice(a, b + mark.length);
@@ -102,9 +102,11 @@ test('trap pin: the movement block is gated on the pin, all four steps together'
 
 // ── The pin, run for real ─────────────────────────────────────────────────
 function pinScene() {
-  const calls = { steer: 0, drift: 0, target: 0, follow: 0, splashes: [] };
+  const calls = { steer: 0, drift: 0, target: 0, follow: 0, hazards: 0, splashes: [] };
   const scene = {
     save: {},
+    playerM: {x: 0, y: 0}, startWorldM: {x: 0, y: 0},
+    _tickWalkHazards: () => { calls.hazards++; },
     _steerManual: () => { calls.steer++; },
     _driftHome: () => { calls.drift++; },
     _steerTarget: () => { calls.target++; },
@@ -123,6 +125,7 @@ test('trap pin (behaviour): while pinned, no movement step runs', () => {
   assert.eq(calls.drift, 0, 'no drift home while clamped');
   assert.eq(calls.target, 0, 'no keyboard steer while clamped');
   assert.eq(calls.follow, 0, 'no follow step while clamped');
+  assert.eq(calls.hazards, 0, 'walking hazards cannot charge while clamped');
   assert.eq(calls.splashes.length, 0, 'and no freed splash yet');
 });
 

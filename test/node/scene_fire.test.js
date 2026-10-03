@@ -71,6 +71,7 @@ test('scene fire: expired fuel destruction survives reload on another floor and 
   const original = scene({ _groundFireFuel() {
     return [{ id: 'grass', kind: 'wildplant', crop: 'longgrass' },
       { id: 'tar', kind: 'tar' }, { id: 'tree', kind: 'tree' },
+      { id: 'bramble', kind: 'wildplant', crop: 'shrub', _plantArt: 'bramble' },
       { id: 'fruit', kind: 'fruittree' }];
   } });
   original._igniteGroundCell({ cellIX: 0, cellIY: 0 }, Date.now() - 40000);
@@ -83,6 +84,7 @@ test('scene fire: expired fuel destruction survives reload on another floor and 
   assert.eq(s._groundFireIndex().size, 0);
   assert.truthy(s.save.burnedObjects.includes('grass'));
   assert.truthy(s.save.burnedObjects.includes('tar'));
+  assert.truthy(s.save.burnedObjects.includes('bramble'));
   assert.truthy(s.save.burnedObjects.includes('already-burned'));
   assert.falsy(s.save.burnedObjects.includes('tree'));
   assert.falsy(s.save.burnedObjects.includes('fruit'));
@@ -90,7 +92,7 @@ test('scene fire: expired fuel destruction survives reload on another floor and 
   s.depth = 0;
   assert.falsy(s._igniteGroundAtWorld(4, 4));
   s._tickGroundFire();
-  assert.eq(s.save.burnedObjects.length, 3, 'expiry is idempotent');
+  assert.eq(s.save.burnedObjects.length, 4, 'expiry is idempotent');
 });
 
 test('scene fire: a diagonal trail includes a briefly crossed corner cell', () => {

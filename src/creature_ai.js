@@ -1070,6 +1070,48 @@ function enemyFireEscapeTick(scene, c, row, now, dt) {
   return true;
 }
 
+// Shared with the GPS-following body: try a one-cell jog that also clears
+// the forward neighbour, holding the chosen side so each jog cannot reverse it.
+function committedDetourDir(owner, ux, uy, open, now, commitMs = 1000) {
+  const fwd = Math.abs(ux) >= Math.abs(uy) ? [Math.sign(ux), 0] : [0, Math.sign(uy)];
+  if (!fwd[0] && !fwd[1]) return null;
+  const perp = fwd[0] !== 0 ? [0, 1] : [1, 0];
+  const hold = owner._detourHold;
+  const held = hold && now < hold.until && hold.fx === fwd[0] && hold.fy === fwd[1];
+  const lean = fwd[0] !== 0 ? Math.sign(uy) : Math.sign(ux);
+  const first = held ? hold.side : (lean < 0 ? -1 : 1);
+  for (const side of [first, -first]) {
+    const x = perp[0] * side, y = perp[1] * side;
+    if (open(x, y) && open(x + fwd[0], y + fwd[1])) {
+      owner._detourHold = { fx: fwd[0], fy: fwd[1], side, until: now + commitMs };
+      return { x, y };
+    }
+  }
+  return null;
+}
+
+function enemyWalkHazardRate(scene, x, y) {
+  if (!scene._walkHazardCell) return 0;
+  const p = worldMetersToTileCell(scene, x, y);
+  return scene._walkHazardCell(p.tx, p.ty, p.ix, p.iy);
+}
+
+// Resolve last frame's actual movement before AI can take another step. This
+// also covers flights, fear retreats and charmed foes without a second mover.
+// The shared exposure query excludes cut/burned pieces and takes max overlap.
+function enemyWalkHazardTick(scene, c, now) {
+  const previous = c._walkHazardPrevious;
+  c._walkHazardPrevious = { x: c.x, y: c.y, now };
+  if (!previous || !Combat.isEnemy(c) || !scene._walkHazardExposure) return false;
+  const dt = Math.min(0.1, Math.max(0, (now - previous.now) / 1000));
+  const rate = scene._walkHazardExposure(previous.x, previous.y, c.x, c.y);
+  c._walkHazardAccum = (c._walkHazardAccum || 0) + rate * dt;
+  const damage = Math.floor(c._walkHazardAccum + 1e-9);
+  if (!damage) return false;
+  c._walkHazardAccum = Math.max(0, c._walkHazardAccum - damage);
+  return !!scene._damageEnemy(c, damage, 'obstacle');
+}
+
 // Every segment is swept, including fast flights and lunges. Flying permits
 // low terrain, never rock walls, buildings, unloaded cells or placed rocks.
 function enemyCanStep(scene, c, row, x, y, escaping = false) {
@@ -1097,8 +1139,19 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false) {
-  const dx = x - c.x, dy = y - c.y;
-  const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (scene.cellM * 0.2)));
+  let dx = x - c.x, dy = y - c.y;
+  const distance = Math.hypot(dx, dy);
+  // Sharp plants and spikes are passable. Prefer the body's same short jog
+  // when it fits; a broad belt has no trivial detour, so keep going through.
+  if (!escaping && distance > 0 && scene._walkHazardExposure?.(c.x, c.y, x, y) > 0) {
+    const open = (ox, oy) => {
+      const nx = c.x + ox * scene.cellM, ny = c.y + oy * scene.cellM;
+      return enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0;
+    };
+    const jog = committedDetourDir(c, dx / distance, dy / distance, open, now);
+    if (jog) { dx = jog.x * distance; dy = jog.y * distance; }
+  }
+  const n = Math.max(1, Math.ceil(distance / (scene.cellM * 0.2)));
   const sx = c.x, sy = c.y;
   let clear = true;
   for (let i = 1; i <= n; i++) {

@@ -5965,6 +5965,30 @@
           "native": true
         }
       ]
+    },
+    {
+      "key": "bramble",
+      "keys": [
+        "bramble"
+      ],
+      "path": "assets/Objects/Approved/bramble.png",
+      "width": 24,
+      "height": 24,
+      "sha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c",
+      "frameImports": [
+        {
+          "reviewId": "bramble",
+          "sheet": "assets/Objects/Approved/bramble.png",
+          "frame": 0,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/bramble-native.png",
+          "sourceSha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c",
+          "native": true
+        }
+      ]
     }
   ]
 }

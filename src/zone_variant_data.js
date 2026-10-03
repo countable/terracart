@@ -1174,10 +1174,13 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, bushes occupy 15% of cells; no grass or ordinary flowers. Three marigolds remain as special finds.",
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, bushes occupy 15% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Thorny brambles occupy the shrub patches.",
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
+      },
+      "materialLooks": {
+        "shrub": "bramble"
       }
     },
     {
@@ -2625,9 +2628,12 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded clusters centered on the largest mature deciduous trees repeat six cells apart, surrounded by bushes and grass. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower. One stationary carnivorous plant replaces a bush beside each repeated central tree.",
+      "atmosphere": "Rounded clusters centered on the largest mature deciduous trees repeat six cells apart, surrounded by bushes and grass. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower. One stationary carnivorous plant replaces a bush beside each repeated central tree. Thorny brambles occupy the shrub patches.",
       "attracts": {
         "deer": 0.6
+      },
+      "materialLooks": {
+        "shrub": "bramble"
       }
     },
     {

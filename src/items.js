@@ -68,10 +68,9 @@ const CROP_SPRITE = {
   // wildplant scale. scale 1.16 (down 15% from 1.36) — the tuft was reading
   // oversized against neighbouring one-cell props.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
-  // Two shrub appearances with identical harvesting: a basic bush and a cut
-  // hedge, 20% smaller than the former residential hedge.
+  // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
-    looks: { clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
+    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frame: 0, scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Small mushrooms use 80% of their former 1.224 scale. Surface and
@@ -2486,3 +2485,16 @@ function invCatForItem(id) {
   for (const c of INV_CATS) if (c.kinds && c.kinds.includes(kind)) return c.key;
   return 'produce';
 }
+
+// Contact damage is shared by player and enemy movement through these props.
+const WALK_HAZARD_ENERGY_PER_S = 1;
+const CHARRED_SPIKE_DAMAGE_PER_S = 2;
+function walkHazardDamageRate(o) {
+  if (!o) return 0;
+  if (o.kind === 'stakes') return o._street === 'burned' ? CHARRED_SPIKE_DAMAGE_PER_S : 0;
+  if (o.kind && o.kind !== 'wildplant' && o.kind !== 'shrub') return 0;
+  if (o.crop === 'barricade') return WALK_HAZARD_ENERGY_PER_S;
+  return (o.crop === 'shrub' || o.kind === 'shrub')
+    && (o._plantArt === 'bramble' || o._streetArt === 'bramble') ? WALK_HAZARD_ENERGY_PER_S : 0;
+}
+function isWalkHazard(o) { return walkHazardDamageRate(o) > 0; }
