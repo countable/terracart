@@ -241,7 +241,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   // The campfire's ward needs no clause here: it refuses the target CELL.
   // (It skips a lair guard — a garrison is a place, not wandering fauna; see
   // home_ward.test.js — so what it refuses is a WILD slime's cell.)
-  assert.truthy(/const fireAverts = !c\.lair && \(c\.kind === 'slime'/.test(app),
+  assert.truthy(/const fireAverts = campfireAverts\(c\);/.test(app),
     'a lit campfire still refuses every cell inside its ring');
 
   // A pet's bite provokes the same charge instead of pushing it away.

@@ -610,11 +610,14 @@ class SceneModals {
   //                 for offers tied to a persistent venue (a shop, a wreck,
   //                 a sealed building) the player can simply come back to —
   //                 "Later" reads as "still on the table" rather than "gone".
-  //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn, withChoice? }
+  //   secondary:    OPTIONAL { label: HTML, disabled: bool, onClick: fn, withChoice?, takes? }
   //                 — rendered between Cancel and accept (re-roll button).
   //                 `withChoice`: a second way to ACCEPT the pick (restore
   //                 with the hammer): armed exactly as accept is, and its
-  //                 onClick receives the selected card's key.
+  //                 onClick receives the selected card's key. `takes(key)`
+  //                 (optional, with withChoice) says whether that card may
+  //                 be accepted this way — the hammer refuses a plain
+  //                 House — and the button greys on a card it refuses.
   //   pager:        OPTIONAL { index, count, onPrev, onNext } — the page is
   //                 one of `count` options (a smelt bar, a Home recipe), and
   //                 small ‹ › arrows flank the `get` line with an "i / n"
@@ -883,7 +886,9 @@ class SceneModals {
       syncAccept = () => {
         const armed = liveCanAfford && !disabledReason && !!selected;
         accept._setEnabled(armed);
-        if (sec && secondary.withChoice) sec._setEnabled(armed && !secondary.disabled);
+        if (sec && secondary.withChoice) {
+          sec._setEnabled(armed && !secondary.disabled && (!secondary.takes || !!secondary.takes(selected.key)));
+        }
       };
       syncAccept();
     }

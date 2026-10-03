@@ -1,7 +1,11 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Zones — INFLUENCE ZONES: the Sacred Grove, the Old Stones, the Tar Yard.
+// Zones — INFLUENCE ZONES (ZONE_KINDS): the Quarry, the shore (beach), the
+// Sacred Grove, the Old Stones, the Tar Yard.
 //
 // A few kinds of place stamp their character on the ground around them:
+//   quarry  — no POI: parking-lane geometry, buffered by ZoneCoverage
+//             quarrySteps (anchor.generated === 'parking_lanes')
+//   beach   — a beach POI or natural=beach polygon (anchorOf)
 //   grove   — a park POI (poi class park / subclass park)
 //   stones  — a CHURCH (a place of worship WorldGen.worshipFaith calls
 //             christian — its subclass, or a church's name when the tile

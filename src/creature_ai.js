@@ -1145,6 +1145,19 @@ function enemyWalkHazardTick(scene, c, now) {
   return !!scene._damageEnemy(c, damage, 'obstacle');
 }
 
+// THE CAMPFIRE WARD (scene_creatures.js FIRE_WARD_MAX_DEPTH): a lit fire turns
+// away the surface slime and the cave's entry-level kinds, judged by the
+// roster's cave minDepth (Combat.MONSTERS), never its power tier — a purple
+// slime is tier 1 but a depth-3 kind — and never a lair guard (a garrison is
+// a place, not wandering fauna). One predicate for the wander target loop
+// and the swept step; it used to read `row.tier` here, so the two disagreed.
+function campfireAverts(c) {
+  if (c.lair) return false;
+  if (c.kind === 'slime') return true;
+  const mon = Combat.isMonster(c.kind) ? Combat.monster(c.kind) : null;
+  return !!mon && (mon.minDepth || 1) <= FIRE_WARD_MAX_DEPTH;
+}
+
 // Every segment is swept, including fast flights and lunges. Flying permits
 // low terrain, never rock walls, buildings, unloaded cells or placed rocks.
 function enemyCanStep(scene, c, row, x, y, escaping = false) {
@@ -1168,7 +1181,7 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
   if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return false;
   if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
       && isFastMover(c, scene.cellM)) return false;
-  const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
+  const fireAverts = campfireAverts(c);
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false) {
