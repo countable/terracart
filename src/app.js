@@ -1162,6 +1162,14 @@ const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until S
 // What a house says when the feet walk through it (_houseMutter). Each line
 // fits MAP_MSG_MAX.
 const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'Needs a little TLC.'];
+// What the Hood grunts when a job STARTS with nothing in hand (_barehandMutter,
+// owner's copy, Oct 2026). The bare-handed rung of the tool ladder
+// (toolDurationMs: 9 s against a Wood tool's 3) is the slow way, and the grunt
+// is the hint — one line per job, cycling, on the job's own cell. Only the
+// three WORK tools (BAREHAND_MUTTER_TOOLS, the same three _barehandWorkStory
+// tells of) grunt: a bare-handed catch or fight is the normal way of those.
+const BAREHAND_MUTTERS = ['Oof!', 'Ghhhh!', 'Need tools!'];
+const BAREHAND_MUTTER_TOOLS = ['axe', 'pick', 'hoe'];
 const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
@@ -5933,8 +5941,24 @@ class MapScene extends Phaser.Scene {
   // it slips out of reach. Omit it for static targets (rock / tree / fish).
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._setWorkProgressIcon(toolSlot);
+    this._barehandMutter?.(toolSlot, worldX, worldY);
     durationMs = Gear.workDurationMs(this.save, durationMs);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
+  }
+  // The grunt a bare-handed job starts with (BAREHAND_MUTTERS), on the job's
+  // cell. Answered HERE, beside the badge, for the same reason the badge is:
+  // every wheel starter passes its tool slot through startWorkProgress, so no
+  // call site can forget it. A slot the player owns at any tier says nothing;
+  // so does a wheel with no work tool (a catch, a fight, a dig in a cave wall
+  // passes 'pick' and grunts like the rest — the rung is the same).
+  _barehandMutter(toolSlot, worldX, worldY) {
+    if (!toolSlot || !BAREHAND_MUTTER_TOOLS.includes(toolSlot)) return false;
+    if ((this.save?.relics?.[toolSlot]?.tier || 0) > 0) return false;
+    if (!this.startWorldM || typeof worldMetersToAbsCell !== 'function') return false;
+    const c = worldMetersToAbsCell(this, worldX, worldY);
+    const n = this._barehandMutterN = (this._barehandMutterN | 0) + 1;
+    this._popCellNumber(BAREHAND_MUTTERS[(n - 1) % BAREHAND_MUTTERS.length], UI_DANGER_INK, c.cellIX, c.cellIY);
+    return true;
   }
   // Pick the tool drawn in the MIDDLE of a work-progress wheel: the equipped
   // tier's own art for `toolSlot`, or nothing. Shared by every wheel starter

@@ -567,6 +567,9 @@ const starterWrapper = (name) => {
     declOf('trailIntroBody') + '\n' +
     // What a house says underfoot (_houseMutter; house_mutter.test.js).
     declOf('HOUSE_WRECK_MUTTERS') + '\n' +
+    // What a bare-handed job starts with (_barehandMutter; barehand_story.test.js).
+    declOf('BAREHAND_MUTTERS') + '\n' +
+    declOf('BAREHAND_MUTTER_TOOLS') + '\n' +
     declOf('HOUSE_RESTORED_MUTTERS') + '\n' +
     // The energy pop's seating: derived from the cyan farmer's art row, in
     // the order app.js declares them (the head clearance reads the three
