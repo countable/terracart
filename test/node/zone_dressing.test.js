@@ -305,10 +305,11 @@
       assert.eq(wildplantSprite(o).sheet, 'zone_objects');
       assert.eq(wildplantFrame(o), 40);
     }
-    // This placement-specific red cap retains the ordinary mushroom crop.
+    // Ordinary mushrooms retain their small red cap beside the giant caps.
     const forage = grove.wildplants.filter(o => o.crop === 'mushroom');
     assert.gt(forage.length, 0);
-    assert.truthy(forage.every(o => wildplantSprite(o).sheet === 'zone_objects' && wildplantFrame(o) === 40));
+    assert.truthy(forage.every(o => o._zoneObjectFrame == null && wildplantSprite(o) === CROP_SPRITE.mushroom));
+    assert.lt(CROP_SPRITE.mushroom.scale, wildplantSprite(giants[0]).scale, 'small caps stay visibly smaller');
     assert.eq(wildplantSprite({crop:'mushroom'}), CROP_SPRITE.mushroom, 'global mushrooms stay unchanged');
     assert.eq(typeof WILDPLANT_CONTEXT_ART, 'object', 'the context-art table is in scope');
     assert.eq(typeof WILDPLANT_CONTEXT_ART.cap_cluster, 'undefined', 'the surface cluster look is gone');

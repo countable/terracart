@@ -578,6 +578,7 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   assert.truthy(plants.every((w) => ['mushroom', 'giant_mushroom'].includes(w.crop)), 'mushrooms only');
   assert.gt(plants.filter((w) => w.crop === 'giant_mushroom').length, 0, 'occasional giant caps');
   assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
+  for (const w of plants) assert.eq(wildplantSprite(w), CROP_SPRITE[w.crop], 'small and giant caps use their distinct crop art');
   assert.truthy(wildplantLight('mushroom'), 'and a mushroom glows');
   for (const w of plants) {
     const i = cellOf(w.y, TY) * CPE + cellOf(w.x, TX);
@@ -1281,7 +1282,7 @@ function vergeFixture(variant = 'overgrown') {
     key:'road', variant, halfW:3.5, line:[{x:1.5,y:6.5},{x:10.5,y:6.5}]
   }]}};
 }
-test('street terrain: agreed biome rows paint one cell beyond road geometry', () => {
+test('street terrain: agreed biome rows paint one and a half cells beyond road geometry', () => {
   for (const [variant, terrain] of Object.entries({hedgerow:T.PARK,overgrown:T.FOREST,
     orchard:T.ORCHARD,pilgrim:T.ROCK,lantern:T.COMMERCIAL,burned:T.INDUSTRIAL,
     barricade:T.WASTELAND,toadstool:T.WETLAND,golden:T.ROCK,promenade:T.SAND,
@@ -1290,7 +1291,10 @@ test('street terrain: agreed biome rows paint one cell beyond road geometry', ()
     const f=vergeFixture(variant), painted=paintVerge(f);
     assert.eq(f.grid[5*12+5],terrain);
     assert.eq(f.grid[7*12+5],terrain);
-    assert.eq(f.grid[4*12+5],T.GRASS,'outside one-cell band');
+    assert.eq(f.grid[4*12+5],terrain,'new half-cell reaches the outer cell centre');
+    assert.eq(f.grid[8*12+5],terrain,'both sides widen');
+    assert.eq(painted[4*12+5],1);
+    assert.eq(f.grid[3*12+5],T.GRASS,'outside the wider band');
     assert.eq(f.grid[6*12+5],T.ROAD,'road stays road');
     assert.eq(painted[5*12+5],1);
   }

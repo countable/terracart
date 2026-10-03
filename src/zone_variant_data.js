@@ -1425,9 +1425,6 @@
         "butterfly": 0.5
       },
       "materialFrames": {
-        "mushroom": [
-          40
-        ],
         "giant_mushroom": [
           40
         ]

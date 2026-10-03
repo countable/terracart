@@ -170,6 +170,7 @@
   // The hedged lane's carpet: centred on the first verge cell (where the
   // hedges stand, so it shows at every garden gate), this many cells wide.
   const CARPET_WIDTH_CELLS = 0.6;
+  const TERRAIN_VERGE_CELLS = 1.5;
   const THORNY_SHRINE_RADIUS_CELLS = 2;
   const THORNY_BRAMBLE_COVERAGE = 0.5;
   const SNARE_CHEST_TIER = 3;
@@ -919,7 +920,7 @@
     return best;
   }
 
-  // Reserve the full band and first verge cell of each themed street,
+  // Reserve the full band and themed verge of each themed street,
   // including deliberate gaps between furniture. Test cell squares against
   // the geometry; sample spacing or a missed loop endpoint cannot make holes.
   function* areaSteps(index, N) {
@@ -934,7 +935,7 @@
     for (const rec of (index.dressingLines || index.lines)) {
       if (!rec.variant) continue;
       yield 'street area';
-      const radius = rec.halfW / cellM + 1;
+      const radius = rec.halfW / cellM + TERRAIN_VERGE_CELLS;
       for (let j = 1; j < rec.line.length; j++) {
         if ((++segments & 127) === 0) yield 'street area segments';
         const a = rec.line[j - 1], b = rec.line[j];
@@ -964,7 +965,7 @@
     return root.WorldGen?.T[VARIANT_BY_ID[variant]?.terrain] ?? null;
   }
 
-  // Select all themes before painting. Cell centres in the one-cell-wide band
+  // Select all themes before painting. Cell centres in the 1.5-cell-wide band
   // outside the road receive its terrain; intersections prefer the nearest
   // road edge, with a stable key breaking ties. Source access reasons remain
   // authoritative: a cosmetic commercial verge does not become private land.
@@ -999,7 +1000,7 @@
     let candidates = 0;
     for (const rec of records) {
       yield 'street terrain lines';
-      const half = rec.halfW / WG.CELL_M, radius = half + 1;
+      const half = rec.halfW / WG.CELL_M, radius = half + TERRAIN_VERGE_CELLS;
       for (let j = 1; j < rec.line.length; j++) {
         const a = rec.line[j - 1], b = rec.line[j];
         const ax = a.x * N / ext, ay = a.y * N / ext;
@@ -1016,7 +1017,7 @@
             if (!WG.isWalkable(here) || WG.isCobbleTerrain(here) || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
             const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
             const distance = Math.hypot(x+.5-ax-t*dx, y+.5-ay-t*dy) - half;
-            if (distance <= 0 || distance > 1 || distance >= nearest[i] - 1e-6) continue;
+            if (distance <= 0 || distance > TERRAIN_VERGE_CELLS || distance >= nearest[i] - 1e-6) continue;
             nearest[i] = distance;
             grid[i] = terrainFor(rec.variant);
             painted[i] = 1;
@@ -1446,7 +1447,7 @@
           const crop = n % 4 === 1 && Math.floor(n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS === 0
             ? 'giant_mushroom' : 'mushroom';
           res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy),
-            WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v, _zoneObjectFrame: 40 }));
+            WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v }));
           placed++;
         });
       } else if (v === 'orchard') {
