@@ -510,11 +510,14 @@ function hidePoolFrom(pool, startIdx) {
 
 // Temporary flower effects sit above the health-bar line; the combat helpers
 // own their expiry. This pool is separate from permanent released-pet hearts.
+// The colours are the statuses' own rows (Combat.STATUS_LOOKS) — the ink the
+// word popped when each landed.
 Render.flowerStatusMarker = (creature, now) => {
   const sleeping = Combat.isSleeping(creature, now), charmed = Combat.isCharmed(creature, now);
-  if (sleeping && charmed) return { text: '♥ Zzz', color: '#ff91b8' };
-  if (sleeping) return { text: 'Zzz', color: '#bcdfff' };
-  if (charmed) return { text: '♥', color: '#ff91b8' };
+  const L = Combat.STATUS_LOOKS;
+  if (sleeping && charmed) return { text: '♥ Zzz', color: L.charm.color };
+  if (sleeping) return { text: 'Zzz', color: L.sleep.color };
+  if (charmed) return { text: '♥', color: L.charm.color };
   return null;
 };
 Render.drawFlowerStatusMarkers = (scene, creatures, project, depth, now) => {
@@ -4222,7 +4225,21 @@ Render.drawObjects = function drawObjects(scene) {
     // the body's own colour so it reads as flame, not a sheen. Ice still
     // wins — a frozen body shows the ice.
     const afire = !frozen && Combat.burning(c) && Conditions.conditionTintOn('burning', performance.now());
-    s.setTint(frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    // A STATUS JUST LANDED (Combat.flagStatus — a sleep, a charm, the frost,
+    // a fear, the madness, a fresh burn, a thrown potion's buff): the body
+    // flicks the status's own colour for STATUS_FLASH_MS, over everything
+    // (it is the instant, not the state), and its word pops once over the
+    // head through the damage-number lane (app.js _popCreatureText). The
+    // pop is drawn HERE, by whoever first draws the creature, because only a
+    // drawn creature has a screen point; a word older than the flick (the
+    // foe was off screen when it landed) is dropped rather than popped late.
+    const flick = Combat.statusFlashTint(c, performance.now());
+    if (c._statusPop) {
+      const pop = c._statusPop;
+      c._statusPop = null;
+      if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
+    }
+    s.setTint(flick != null ? flick : frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled

@@ -461,6 +461,10 @@ const MINERAL_ICON_SHEET = {
   regen_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
+  // Powder of Psychosis — the green mortar beside it (row 0, frame 1): the
+  // weak T1 powder, used from the Use button like the sleep dust
+  // (usePsychosisPowder in app.js).
+  psychosis_powder: { sheet: 'icon_potions', frame: 1 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -643,6 +647,10 @@ const BASE_TIER = {
   // Frost is the T3 fight-changer before the T4 dragon — it is the one that turns
   // a fight you are already in.
   growth_powder: 2, shadow_powder: 2, frost_powder: 3, sleep_powder: 3,
+  // Psychosis is the T1 powder — ten seconds of foes running every which
+  // way, the weak cousin of Fear (T3): the first Magic shop sells it beside
+  // the Antidote, so the first cave trip has one trick to get clear with.
+  psychosis_powder: 1,
   // Unique jewelry is intrinsically magical, never a metal rung.
   stealth_ring: 2, invisibility_ring: 4, ember_ring: 3, regen_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
@@ -818,6 +826,7 @@ const ITEMS = [
   // Spent on a wreck restore (houses.js HAMMER_ID): the building comes up shiny and sells cheaper for good.
   { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
   { id: 'sleep_powder', name: 'Sleep Powder', kind: 'magic' },
+  { id: 'psychosis_powder', name: 'Powder of Psychosis', kind: 'magic' },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
@@ -1123,6 +1132,16 @@ const CONSUMABLE_SPEC = {
     verb: 'Use', method: 'useSleepPowder', title: 'Scatter the Sleep Powder?',
     get: 'Dream dust settles over every foe in sight.',
   },
+  // Powder of Psychosis: every foe in sight loses its head for durationMs —
+  // it runs every which way at the flee pace and lands no blow
+  // (Combat.applyPsychosis; the `psychotic` reason in wanderCreatures' rout
+  // lane). Weak on purpose: ten seconds to get clear, or to get the first
+  // blow in.
+  psychosis_powder: {
+    durationMs: 10 * 1000,
+    verb: 'Use', method: 'usePsychosisPowder', title: 'Scatter the Powder of Psychosis?',
+    get: 'A giddy haze takes every foe in sight, and they run every which way.',
+  },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.
   // The rainberry's soak is a WATERING CAN'S: every crop in reach is watered
@@ -1399,6 +1418,7 @@ const PRICES = {
   treasure_map: 200,
   magic_hammer: 220,   // T4 — a standing discount at one building, forever
   sleep_powder: 100,
+  psychosis_powder: 15, // T1 — ten seconds of foes running every which way
   reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
@@ -1628,6 +1648,7 @@ const ITEM_EFFECTS = {
   treasure_map: CONSUMABLE_SPEC.treasure_map.get,
   magic_hammer: 'Masons say a wall raised under this hammer never stops gleaming, and the folk inside deal kindly with whoever swung it.',
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
+  psychosis_powder: CONSUMABLE_SPEC.psychosis_powder.get,
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',

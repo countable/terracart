@@ -51,15 +51,15 @@
     const body = RENDER_SRC.match(/    const frozen = c\._frozenUntil[\s\S]*?Render\.setShine\(s, [^;]+;/);
     assert.truthy(body, 'live creature tint block exists');
     const paint = new Function('c', 's', 'performance', 'Date', 'Combat', 'Conditions',
-      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', body[0]);
+      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', body[0]);
     const renderTint = (c, now) => {
       const sprite = { tint: null, fill: false,
         setTint(tint) { this.tint = tint; this.fill = false; },
         setTintFill(tint) { this.tint = tint; this.fill = true; } };
       paint(c, sprite, { now: () => now }, { now: () => now },
-        { burning: () => !!c.burning },
+        { burning: () => !!c.burning, statusFlashTint: () => null },
         { conditionTintOn: () => true, DEFINITIONS: { burning: { tint: 0xff5500 } } },
-        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} });
+        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {});
       return sprite;
     };
     for (const windup of ['_attackWindupUntil', '_lungeWindupUntil', '_abilityWindupUntil']) {

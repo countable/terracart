@@ -796,6 +796,9 @@ const NEAR_GPS_CELLS = 3;
 // empty-tank aura is the state, and it pulses on its own clock.
 const HIT_FLASH_MS = 160;
 const HIT_FLASH_TINT = 0xff5a5a;
+// A buff's expiry must move by more than this for _announceStatuses to call
+// it landed again (a timer rewritten to the same deadline is not news).
+const STATUS_EXTEND_SLACK_MS = 1000;
 // UNNOTICED: how far the body fades while nothing can perceive it (scene
 // isUnnoticed — a Shadow Powder's minute, or collapsed on an empty bar). Low
 // enough to read as a ghost at a glance, high enough to keep the character
@@ -937,6 +940,7 @@ const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
 const SHADOW_POWDER_MS = CONSUMABLE_SPEC.shadow_powder.durationMs;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
 const FROST_POWDER_MS = CONSUMABLE_SPEC.frost_powder.durationMs;
+const PSYCHOSIS_POWDER_MS = CONSUMABLE_SPEC.psychosis_powder.durationMs;
 // The Scroll of Thunder's flash (readThunderScroll) — long enough to read as
 // lightning, short enough not to blind the next tap. Its damage is items.js
 // THUNDER_DMG, beside the ✦ line that quotes it.
@@ -3602,6 +3606,7 @@ class MapScene extends Phaser.Scene {
       c._frozenUntil = Math.max(c._frozenUntil || 0, until);
       c._startX = c._targetX = c.x;
       c._startY = c._targetY = c.y;
+      Combat.flagStatus(c, Combat.STATUS_LOOKS.frozen);
       this._damageEnemy(c, magicTrapDamage(), 'player');
       const at = this._cellToastAt(ix, iy, CELL_PX);
       this.flash('✨ Magic trap sprung', at.x, at.y);
@@ -4985,10 +4990,11 @@ class MapScene extends Phaser.Scene {
   }
 
   _applyCondition(id) {
+    // A fresh row pops its word and flicks the body from _announceStatuses
+    // (the next condition tick), as every status does; poison keeps its
+    // one-time lesson.
     const fresh = Conditions.apply(this.save, id);
-    if (fresh && id === 'burning') this.flashAtPlayer('🔥 You catch fire!');
     if (fresh && id === 'poison') {
-      this.flashAtPlayer('Poisoned! Find an Antidote.');
       if (!this.save.poisonLearned) {
         this.save.poisonLearned = true;
         this.showMessageModal({ title: 'Poisoned', body:
@@ -5048,7 +5054,50 @@ class MapScene extends Phaser.Scene {
       this.updateEnergyDOM();
     }
     if (result.ticks || result.expired) persistSave(this.save);
+    this._announceStatuses();
     this._syncStatusRow();
+  }
+
+  // THE ANNOUNCEMENT. A status or a timed effect that has just LANDED on the
+  // player — a row of Conditions.DEFINITIONS newly active, a row of
+  // Buffs.KINDS whose expiry is newly set or pushed out (a second potion on
+  // top of the first, a torch relit, counts) — flicks the body in the row's
+  // own colour (_flashPlayerStatus → _updatePlayerAura, for
+  // Combat.STATUS_FLASH_MS, the flick a foe gets) and pops the row's word on
+  // the player's cell (_popCellNumber, the tier the "+N⚡" uses). Read off
+  // the two owning tables every frame from _tickConditions, so a new row
+  // announces itself with no call at its writer — the same way the status
+  // row shows it. The first pass only takes stock: a save loaded with three
+  // potions running is not three things landing at once.
+  _announceStatuses() {
+    const seen = this._statusSeen;
+    const next = {};
+    const now = Date.now();
+    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
+      if (!Conditions.active(this.save, id)) continue;
+      next['c:' + id] = 1;
+      if (seen && !seen['c:' + id]) this._flashPlayerStatus(def.label, def.ink);
+    }
+    for (const [id, k] of Object.entries(Buffs.KINDS)) {
+      const until = Buffs.until(id, this.save, this);
+      if (!(until > now)) continue;
+      next['b:' + id] = until;
+      // Pushed out by more than a clock's jitter: a relit torch, a second
+      // potion. A buff merely still running is not announced again.
+      const prev = seen?.['b:' + id];
+      if (seen && (prev == null || until > prev + STATUS_EXTEND_SLACK_MS)) this._flashPlayerStatus(k.name, k.color);
+    }
+    this._statusSeen = next;
+  }
+  _flashPlayerStatus(label, color) {
+    this._statusFlashUntilT = performance.now() + Combat.STATUS_FLASH_MS;
+    this._statusFlashTint = parseInt(String(color).slice(1), 16);
+    let ix, iy;
+    if (this.startWorldM && this.originPx && typeof playerReachCell === 'function') {
+      const p = playerReachCell(this);
+      ix = p.cellIX; iy = p.cellIY;
+    }
+    this._popCellNumber(label, color, ix, iy);
   }
 
   // THE STATUS ROW — every status, buff and timer on the player, as chips
@@ -5641,6 +5690,13 @@ class MapScene extends Phaser.Scene {
   // wears the same stroke and drop shadow as every other number on the map
   // rather than a hand-set style that drifts from them.
   _popDamageNumber(c, amount) {
+    return this._popCreatureText(c, `-${amount}`, UI_DANGER_INK);
+  }
+  // Any short word ON a creature: the "-N" above, and the name of a status
+  // that has just landed on it (render.js drawCreatures, off
+  // Combat.flagStatus — "Sleep", "Frozen", "Psychosis", in the status's own
+  // ink). Seated over the health bar like the number, in the `damage` tier.
+  _popCreatureText(c, text, color) {
     if (!this.add) return;                       // headless / teardown guard
     const screen = this.worldMetersToScreen(c.x, c.y);
     // Small horizontal scatter so back-to-back numbers (a bow hit landing
@@ -5650,8 +5706,8 @@ class MapScene extends Phaser.Scene {
     const x = Math.round(screen.x) + jitter;
     const y = Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c))) - 3;
     // Clip to the map viewport like every other world-anchored layer.
-    this._toast(`-${amount}`, {
-      tier: 'damage', color: UI_DANGER_INK, x, y, stack: false,
+    this._toast(text, {
+      tier: 'damage', color, x, y, stack: false,
       mask: this.enemyHealthGfx?.mask,
     });
   }
@@ -7400,6 +7456,9 @@ class MapScene extends Phaser.Scene {
     const nowMs = performance.now();
     const hitLeft = (this._hitFlashUntilT || 0) - nowMs;
     const hit = hitLeft > 0;
+    // A STATUS JUST LANDED (_flashPlayerStatus): a flick in the row's own
+    // colour, under the hit (a blow still reads first) and over every state.
+    const flicked = (this._statusFlashUntilT || 0) > nowMs;
     // A STATUS on the body wears its row's tint (Conditions.DEFINITIONS —
     // the same colour a foe wears, render.js): a burn flickers against the
     // farmer's own colour, a poison holds. Under the hit flick and the empty
@@ -7411,10 +7470,12 @@ class MapScene extends Phaser.Scene {
     const t = nowMs / 1000;
     const periodS = spent ? 1.2 : 2.0;
     const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
-    if (hit || spent || far || status) {
+    if (hit || flicked || spent || far || status) {
       let tint = 0xffffff;
       if (hit) {
         tint = HIT_FLASH_TINT;
+      } else if (flicked) {
+        tint = this._statusFlashTint;
       } else if (spent) {
         tint = 0xff6b6b;
       } else if (status) {
@@ -10454,6 +10515,7 @@ class MapScene extends Phaser.Scene {
       c._startX = c._targetX = c.x;
       c._startY = c._targetY = c.y;
       c._attackWindupUntil = c._lungeWindupUntil = c._abilityWindupUntil = 0;
+      Combat.flagStatus(c, Combat.STATUS_LOOKS.fear, now);
     }
     this._spendScroll(sel.id);
     this.flashLoot('The beasts turn and flee.', '#c77dff', 1.8, sel.id);
@@ -10475,6 +10537,29 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
     this.buildInventoryDOM();
     this.flashLoot(`Sleep falls for ${shortDuration(CONSUMABLE_SPEC.sleep_powder.durationMs)}.`, '#bca5e8', 1.8, sel.id);
+    return true;
+  }
+
+  // Powder of Psychosis (T1): every foe on screen loses its head for
+  // PSYCHOSIS_POWDER_MS (Combat.applyPsychosis — the `psychotic` reason in
+  // wanderCreatures' rout lane: the flee pace on a random heading each hop,
+  // no blow, no target). Weak on purpose: ten seconds to get clear, or to
+  // get the first blow in. Refused — and kept — when no foe is in sight.
+  usePsychosisPowder() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'psychosis_powder' || !(sel.count > 0)
+        || Combat.playerDowned(this.save.energy)) return false;
+    const targets = this._onscreenEnemies();
+    if (!targets.length) {
+      this.flash('No foe in sight — powder kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    const now = performance.now();
+    for (const c of targets) Combat.applyPsychosis(c, PSYCHOSIS_POWDER_MS, now);
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.flashLoot(`Madness takes them for ${shortDuration(PSYCHOSIS_POWDER_MS)}.`, Combat.STATUS_LOOKS.psychosis.color, 1.8, sel.id);
     return true;
   }
 
@@ -10581,6 +10666,7 @@ class MapScene extends Phaser.Scene {
       c._frozenUntil = until;
       c._startX = c._targetX = c.x;
       c._startY = c._targetY = c.y;
+      Combat.flagStatus(c, Combat.STATUS_LOOKS.frozen);
     }
     consumeSelected(this.save);
     persistSave(this.save);

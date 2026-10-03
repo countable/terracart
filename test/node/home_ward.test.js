@@ -177,7 +177,7 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
   // makes the doorstep no safer, only slower to lose the bar on.
   // Through `standDown`, which is Home's ward plus the two lair-guard reasons
   // for the same thing — one read, three reasons (CLAUDE.md).
-  assert.truthy(/const standDown = frightened \|\| warded \|\| /.test(wander),
+  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| /.test(wander),
     'standDown is built from warded');
   assert.truthy(wander.includes('rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt)'),
     'all roster attacks receive the combined ward and unnoticed gate');
