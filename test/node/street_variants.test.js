@@ -136,6 +136,19 @@ test('variants: each row dresses ONE size, at its share (±1.5%) over 40k keys',
   assert.eq(SV.variantFor('x|0,0', 'x', null), null, 'a way of neither size is plain');
 });
 
+test('variants: Burned Row stays on small roads; Lantern Row takes its major-road share', () => {
+  assert.eq(SV.VARIANT_BY_ID.burned.size, 'minor');
+  assert.eq(SV.VARIANT_BY_ID.lantern.size, 'major');
+  assert.eq(SV.VARIANT_BY_ID.lantern.share, 0.12);
+  for (const klass of ['primary', 'secondary', 'tertiary']) {
+    const size = SV.sizeOfTags({ class: klass });
+    for (let i = 0; i < 1000; i++) {
+      assert.falsy(SV.variantFor(`burn-swap-${i}`, 'Ember Kiln Road', size) === 'burned',
+        'even a matching name cannot put Burned Row on a major/medium road');
+    }
+  }
+});
+
 test('variants: a name word nudges its row (the sign foreshadows the street)', () => {
   let plain = 0, cherry = 0;
   for (let i = 0; i < 20000; i++) {
@@ -535,7 +548,7 @@ test('sports pitches do not pull deer out of their forest habitat', () => {
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──
 const TOAD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'toadstool', 'Pale Lane');
 const BARR = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'barricade', 'Gate Road');
-const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'burned', 'Kiln Road');
+const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'burned', 'Kiln Road');
 function variantLayers() {
   const toad = pts([[0, 20], [CPE - 1, 20]]);
   const barr = pts([[40, 30], [40, CPE - 1]]);     // one owned end inside (row 30)
@@ -545,7 +558,7 @@ function variantLayers() {
     { name: 'transportation', extent: EXTENT, features: [
       { type: 2, tags: { class: 'minor' }, geom: [toad] },
       { type: 2, tags: { class: 'secondary' }, geom: [barr] },
-      { type: 2, tags: { class: 'secondary' }, geom: [burn] },
+      { type: 2, tags: { class: 'minor' }, geom: [burn] },
     ] },
     { name: 'transportation_name', extent: EXTENT, features: [
       { type: 2, tags: { name: TOAD }, geom: [toad] },
