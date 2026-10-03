@@ -50,8 +50,8 @@ test('elite: the treasure roll climbs with depth and the kind\'s introduction de
   assert.eq(eliteRollBonus('cave_slime', 1), 0, 'a first-level foe at the first level: no bonus');
   assert.eq(eliteRollBonus('cave_slime', 3), 2, 'two levels further down: +2');
   assert.eq(eliteRollBonus('goblin_archer', 3),
-    2 + (MONSTERS.goblin_archer.minDepth - 1), 'a deep kind adds its own introduction depth');
-  assert.eq(eliteRollBonus('goblin', 0), MONSTERS.goblin.minDepth - 1, 'depth 0 never goes negative');
+    2 + (MONSTERS.goblin_archer.cave.minDepth - 1), 'a deep kind adds its own introduction depth');
+  assert.eq(eliteRollBonus('goblin', 0), MONSTERS.goblin.cave.minDepth - 1, 'depth 0 never goes negative');
 });
 
 test('elite: the treasure pool is biased to relics and pays a real reward', () => {
@@ -102,9 +102,21 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
   assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemyRoster\.get\(kind\)\.eliteEligible && isShiny\(id, SHINY_RATE\.monster\), habitat: habitat\.theme \}\)\)/.test(spawn),
     'spawnCaveCreatures stamps shiny off the stable id at the monster rate');
-  assert.truthy(/const dmg = \(m\.dmg \* Combat\.powerMul\(c\) \+ PotionEffects\.meleeBonus\(c\)\) \* PotionEffects\.meleeMul\(c\);/.test(app),
+  // The melee formula is typed ONCE (Combat.meleeBlow: the row's dmg × powerMul
+  // — elite × lair — plus the Giant bonus, times the Shrinking multiplier).
+  assert.truthy(/\? Combat\.meleeBlow\(c, row\.dmg\)\s*: row\.dmg \* Combat\.powerMul\(c\);/.test(CREATURE_AI_SRC),
     'the monster hit is scaled by Combat.powerMul — elite × lair (and the mode)');
-  assert.truthy(/c\._hp = Combat\.maxHp\(c\);/.test(app), 'the heal refills to the instance max');
+  assert.eq(Combat.meleeBlow({ kind: 'goblin', shiny: true }, 9), 18, 'an elite goblin swings double');
+  assert.eq(Combat.petBlow({ kind: 'dog', id: 'released_dog' }), Combat.meleeBlow({ kind: 'dog' }, Combat.PET_BITE), 'a pet bites by the same formula');
+  assert.falsy(/\* Combat\.powerMul\(c\) \+ PotionEffects\.meleeBonus\(c\)\) \* PotionEffects\.meleeMul\(c\)/.test(SCENE_CREATURES_SRC + CREATURE_AI_SRC),
+    'no second copy of the formula in the sim');
+  // The rested heal is ONE rule (Combat.healIfRested), asked by both movers.
+  assert.eq((app + CREATURE_AI_SRC).match(/Combat\.healIfRested\(c\);/g).length, 2, 'both movers ask the one heal');
+  const rested = { kind: 'goblin', shiny: true, _hp: 3, _lastDamagedT: 1 };
+  assert.truthy(Combat.healIfRested(rested, 1 + Combat.REST_HEAL_MS));
+  assert.eq(rested._hp, Combat.maxHp(rested), 'the heal refills to the instance max');
+  assert.eq(rested._lastDamagedT, null);
+  assert.falsy(Combat.healIfRested({ kind: 'goblin', _hp: 3, _lastDamagedT: 1000 }, 1000 + Combat.REST_HEAL_MS - 1), 'not before');
   assert.falsy(/c\._hp = Combat\.creatureMaxHp\(c\.kind\)/.test(app),
     'nothing refills a creature from the KIND max any more');
   const kill = app.slice(app.indexOf("resolveDefeat(victim, source = 'player') {"), app.indexOf('_busyWheel() {'));

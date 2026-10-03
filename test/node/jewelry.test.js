@@ -32,8 +32,8 @@
       'the reduced edge is still visible');
     assert.eq(Math.max(0, Combat.sightCells('slime', bag('invisibility_ring'))), Combat.sightCells('slime', bag('invisibility_ring')),
       'effective sight never goes below zero');
-    assert.truthy(/Combat\.seesPlayer\(c\.kind, distToPlayer, this\.cellM, this\.save\)/.test(SCENE_CREATURES_SRC),
-      'ordinary pursuit passes the save through the one sight helper');
+    assert.eq((CREATURE_AI_SRC.match(/Combat\.seesPlayer\(c\.kind, dist, scene\.cellM, scene\.save\)/g) || []).length, 2,
+      'ordinary pursuit (the roster attack and mover) passes the save through the one sight helper');
   });
 
   test('unique amulets: fastest carried regeneration cadence wins', () => {

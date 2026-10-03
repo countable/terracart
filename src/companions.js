@@ -1,21 +1,44 @@
 // Timed allies share their lifecycle; movement and fighting stay in the pet AI.
+// ONE TABLE of the timed allies: the save field that holds the contract, the
+// scene slot the live instance sits in, how long a contract runs, what the
+// player is told when it ends, and `onDefeat` — what happens when the ally's
+// HP runs out (knockedOut below): every timed ally is 'spent' (gone; a
+// mercenary DIES — owner, Oct 2026 — hire again), where a released pet
+// retreats home at 1 HP instead.
 (function (root) {
   'use strict';
   const RECOVERY_MS = 30000;
   const KINDS = {
-    spirit_raven: { field: 'spiritRavenUntil', instance: '_spiritRaven',
+    spirit_raven: { field: 'spiritRavenUntil', instance: '_spiritRaven', onDefeat: 'spent',
       get durationMs() { return SPIRIT_RAVEN_MS; },
       expired: 'The spirit raven fades.', defeated: 'The spirit raven is spent.' },
-    summoned_skeleton: { field: 'skeletonUntil', instance: '_summonedSkeleton',
+    summoned_skeleton: { field: 'skeletonUntil', instance: '_summonedSkeleton', onDefeat: 'spent',
       get durationMs() { return CONSUMABLE_SPEC.skeleton_scroll.durationMs; }, persistHealth: true,
       expired: 'The bones settle into dust.', defeated: 'The bones fall still.' },
-    summoned_wraith: { field: 'wraithUntil', instance: '_summonedWraith',
+    summoned_wraith: { field: 'wraithUntil', instance: '_summonedWraith', onDefeat: 'spent',
       get durationMs() { return CONSUMABLE_SPEC.wraith_scroll.durationMs; }, persistHealth: true,
       expired: 'The wraith dissolves.', defeated: 'The wraith is spent.' },
     mercenary: { field: 'mercenaryUntil', instance: '_mercenary', durationMs: 24 * 60 * 60 * 1000,
-      hireCost: 50, recoveryMs: RECOVERY_MS, persistHealth: true,
-      expired: 'The mercenary heads home.', defeated: 'The mercenary rests a moment.' },
+      hireCost: 50, persistHealth: true, onDefeat: 'spent',
+      expired: 'The mercenary heads home.', defeated: 'The mercenary falls.' },
   };
+  // A DOWNED ALLY — the one rule, asked wherever an ally's HP runs out (the
+  // pet fight in wanderCreatures, a burn or poison in scene_fire.js, a thrown
+  // potion's damage): a timed ally (its KINDS row, `onDefeat` 'spent') is
+  // SPENT — flagged here, lifted off the map and its contract ended by tick
+  // below (never spliced out of a list a scan is walking); a released pet
+  // comes back at 1 HP and retreats home for RECOVERY_MS. Returns true when
+  // the ally is gone.
+  function knockedOut(scene, c, now = performance.now()) {
+    c._chaseTarget = null;
+    if (KINDS[c.kind]?.onDefeat === 'spent' || SpriteLayout.isSummoned(c.kind)) {
+      c._spent = true;
+      return true;
+    }
+    c._hp = 1;
+    c._retreatUntilT = now + RECOVERY_MS;
+    return false;
+  }
   const HOME_PET_CELLS = 2;
   function releasePolicy(scene, x, y) {
     const home = scene.homeWorldPos?.();
@@ -24,7 +47,7 @@
   }
   function follows(c, now = performance.now()) {
     if (SpriteLayout.isSummoned(c.kind)) return !c._spent && c._followUntilT > now;
-    if (String(c.id || '').startsWith('released_')) return !c.stayHome;
+    if (Combat.isTame(c)) return !c.stayHome;
     return SpriteLayout.creatureFollows(c.kind) && c._followUntilT > now;
   }
   function rememberPetHealth(row, creature) {
@@ -45,7 +68,7 @@
     const live = new Map(), owners = new Map();
     const travelling = scene._travellingPets ||= new Map();
     for (const tile of WorldGen.tileCache.values()) for (const c of tile.creatures || []) {
-      if (String(c.id || '').startsWith('released_')) { live.set(c.id, c); owners.set(c.id,tile); }
+      if (Combat.isTame(c)) { live.set(c.id, c); owners.set(c.id,tile); }
     }
     let changed = false;
     for (const r of scene.save.released) {
@@ -130,10 +153,8 @@
       if (!live || creature._spent || lost) {
         (save.caught ||= []).push(creature.id);
         scene[row.instance] = null;
-        if (creature._spent && live) {
-          if (row.recoveryMs) state.restUntil = wall + row.recoveryMs;
-          else { save[row.field] = 0; live = false; }
-        }
+        // Spent is gone: the contract ends (a mercenary dies — hire again).
+        if (creature._spent && live) { save[row.field] = 0; live = false; }
         if (here && (creature._spent || !live)) {
           scene.flashAtWorld(creature._spent ? row.defeated : row.expired, creature.x, creature.y);
         }
@@ -142,14 +163,9 @@
         creature._followUntilT = performance.now() + Math.max(0, save[row.field] - wall);
       }
     }
-    if (!live || scene[row.instance] || (state.restUntil || 0) > wall) return;
+    if (!live || scene[row.instance]) return;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     if (!entry || !entry.creatures) return;
-    if (state.restUntil) {
-      delete state.restUntil;
-      state.hp = Combat.creatureMaxHp(kind);
-      persistSave(save);
-    }
     const now = performance.now();
     creature = WorldGen.makeCreature(kind, px, py,
       `${kind}_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
@@ -159,5 +175,5 @@
     scene[row.instance] = creature;
   }
   function tickAll(scene) { for (const kind of Object.keys(KINDS)) tick(scene, kind); tickPets(scene); }
-  root.Companions = { KINDS, RECOVERY_MS, HOME_PET_CELLS, releasePolicy, follows, tickPets, active, hire, tick, tickAll };
+  root.Companions = { KINDS, RECOVERY_MS, HOME_PET_CELLS, releasePolicy, follows, knockedOut, tickPets, active, hire, tick, tickAll };
 })(typeof window !== 'undefined' ? window : globalThis);

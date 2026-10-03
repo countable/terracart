@@ -43,9 +43,9 @@ test('trapper: a MONSTERS row that lands no blow and lays a trap', () => {
   assert.truthy(Combat.monsterHits('goblin') && Combat.monsterHits('goblin_archer'), 'the others still hit');
   assert.eq(Combat.monsterLays('goblin_trapper'), 'trap', 'it lays a trap');
   assert.eq(Combat.monsterLays('goblin'), null, 'nothing else does');
-  assert.gte(row.minDepth, Combat.monster('goblin_archer').minDepth,
+  assert.gte(row.cave.minDepth, Combat.monster('goblin_archer').cave.minDepth,
     'met no shallower than the archer (the garrison ladder never runs backwards)');
-  assert.gt(Combat.enemyBounty('goblin_trapper', row.minDepth), 0, 'and it pays a bounty');
+  assert.gt(Combat.enemyBounty('goblin_trapper', row.cave.minDepth), 0, 'and it pays a bounty');
 });
 
 test('trapper: the goblin sheet drawn red, and a Magic Trap on its kill', () => {
@@ -79,9 +79,13 @@ test('trapper: dungeon-only roster excludes it from surface garrisons', () => {
 test('trapper: the hit and the arrow ask the row, never the kind', () => {
   const start = APP.indexOf('  wanderCreatures() {');
   const w = APP.slice(start, APP.indexOf('\n  }\n', start));
-  assert.truthy(/const hits = Combat\.monsterHits\(c\.kind\);/.test(w), 'the attack reads monsterHits');
-  assert.truthy(/const clear = hits && \(m\.range <= 1 \|\|/.test(w), 'and both halves are behind it');
+  // rosterEnemyAttack (creature_ai.js): a row that lands no blow and steals
+  // nothing lands nothing, and a 'trap' row lays instead — the row, never
+  // the kind.
+  assert.truthy(CREATURE_AI_SRC.includes("if ((!row.dmg && !row.steals) || row.attackType === 'touch') return;"),
+    'the attack reads the row\'s dmg');
   assert.falsy(/goblin_trapper/.test(w), 'no kind literal in the sim loop');
+  assert.falsy(/goblin_trapper/.test(CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyAttack('))), 'nor in the movers');
   assert.truthy(w.includes('rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt)'),
     'trap laying shares the roster attack gate');
   assert.truthy(CREATURE_AI_SRC.includes("if (row.attackType === 'trap')"));

@@ -118,17 +118,27 @@
     assert.eq(s._mercenary, null);
     assert.falsy(Companions.active(s.save, 'mercenary'));
   }));
-  test('companions: mercenary recovers like a pet; the raven still ends when spent', () => withScene((s, entry, advance) => {
+  test('companions: a downed mercenary DIES — its contract ends, hire again; the raven still ends when spent', () => withScene((s, entry, advance) => {
+    // ONE rule per kind (Companions.KINDS onDefeat, knockedOut): every timed
+    // ally is spent when its HP runs out (owner, Oct 2026 — a mercenary no
+    // longer rests and returns at full health); a released pet retreats home.
+    for (const row of Object.values(Companions.KINDS)) assert.eq(row.onDefeat, 'spent');
+    assert.falsy(Companions.KINDS.mercenary.recoveryMs, 'no rest-and-return column');
     Companions.hire(s, 'mercenary');
-    s._mercenary._hp = 0; s._mercenary._spent = true;
+    const hired = s._mercenary;
+    hired._hp = 0;
+    assert.truthy(Companions.knockedOut(s, hired, 1000), 'gone');
+    assert.truthy(hired._spent);
     Companions.tickAll(s);
     assert.eq(s._mercenary, null);
-    assert.truthy(Companions.active(s.save, 'mercenary'));
-    Companions.tickAll(s);
-    assert.eq(s._mercenary, null, 'waits through recovery');
+    assert.falsy(Companions.active(s.save, 'mercenary'), 'the contract is over');
+    assert.eq(s.save.mercenaryUntil, 0);
     advance(Companions.RECOVERY_MS);
     Companions.tickAll(s);
-    assert.eq(Combat.hp(s._mercenary), Combat.creatureMaxHp('mercenary'));
+    assert.eq(s._mercenary, null, 'nobody comes back');
+    s.save.money = 50;
+    assert.truthy(Companions.hire(s, 'mercenary'), 'hire again');
+    assert.truthy(s._mercenary && s._mercenary !== hired);
     s.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
     Companions.tickAll(s);
     assert.truthy(s._spiritRaven);
@@ -137,6 +147,10 @@
     Companions.tickAll(s);
     assert.eq(s._spiritRaven, null);
     assert.eq(s.save.spiritRavenUntil, 0);
+    // A released pet limps home at 1 HP for RECOVERY_MS.
+    const pet = { kind: 'dog', id: 'released_dog_1', _hp: 0, _chaseTarget: {} };
+    assert.falsy(Companions.knockedOut(s, pet, 5000));
+    assert.eq(pet._hp, 1); assert.eq(pet._retreatUntilT, 5000 + Companions.RECOVERY_MS); assert.eq(pet._chaseTarget, null);
   }));
   test('companions: insufficient funds or a loading tile never duplicates charges or creatures', () => withScene((s, entry) => {
     s.save.money = 49;

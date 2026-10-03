@@ -131,19 +131,15 @@ test('psychosis powder: use takes every foe on screen, spends once, and is kept 
 
 test('psychosis: one more reason in the rout lane of wanderCreatures, with a random angle (source pins)', () => {
   const w = app;
-  assert.truthy(/const psychotic = Combat\.isEnemy\(c\) && Combat\.isPsychotic\(c, now\);/.test(w), 'read once per tick, beside fear');
+  assert.truthy(/const psychotic = enemy && Combat\.isPsychotic\(c, now\);/.test(w), 'read once per tick, beside fear');
+  assert.truthy(/const frightened = enemy && Combat\.isFrightened\(c, now\);/.test(w), 'fear through the same table');
   assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened \|\| psychotic;/.test(w), 'it runs at the rout pace');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded/.test(w), 'it lands no blow, shoots nothing, lays nothing');
   assert.truthy(/const lairState = c\.lair && !frightened && !psychotic \? Lairs\.guardState\(/.test(w), 'a mad guard is not holding its seat');
   assert.truthy(/if \(c\.immobile && !frightened && !psychotic && lairState/.test(w), 'and an immobile one still runs about');
-  // In the step chain: below the ward (Home still drives it out), above fear.
-  const chain = w.slice(w.indexOf('} else if (warded) {'), w.indexOf("} else if (lairState === 'hunt') {"));
-  const mad = chain.indexOf('} else if (psychotic) {');
-  const fear = chain.indexOf('} else if (frightened || wanderOff');
-  assert.truthy(mad > 0 && fear > mad, 'the mad branch sits between the ward and fear');
-  assert.truthy(/\} else if \(psychotic\) \{[\s\S]{0,400}?angle = Math\.random\(\) \* Math\.PI \* 2;/.test(chain), 'a fresh random heading each hop');
-  // The roster mover rolls the same random heading inside its routed branch.
-  assert.truthy(/if \(!c\._wardFrom && Combat\.isPsychotic\(c, now\)\) \{/.test(CREATURE_AI_SRC), 'rosterEnemyMove: mad, and not warded');
+  // The roster mover (every foe's) rolls the random heading inside its routed
+  // branch: below the ward (Home still drives it out — `_wardFrom` wins).
+  assert.truthy(/if \(!c\._wardFrom && Combat\.isPsychotic\(c, now\)\) \{[\s\S]{0,300}?c\._madAngle = Math\.random\(\) \* Math\.PI \* 2;/.test(CREATURE_AI_SRC), 'rosterEnemyMove: mad, and not warded — a fresh random heading');
   assert.truthy(/if \(!charmed && \(c\._fearUntilT > now \|\| Combat\.isPsychotic\(c, now\)\)\) return false;/.test(CREATURE_AI_SRC),
     'flowerCreatureTick hands a mad foe to the ordinary lanes like a frightened one');
 });

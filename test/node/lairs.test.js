@@ -180,7 +180,7 @@
     for (const tier of [11, 12]) {
       const ks = all(tier);
       for (let i = 1; i < ks.length; i++) {
-        assert.gte(MONSTERS[ks[i]].minDepth, MONSTERS[ks[i - 1]].minDepth,
+        assert.gte(MONSTERS[ks[i]].cave.minDepth, MONSTERS[ks[i - 1]].cave.minDepth,
           `tier ${tier}: ${ks[i]} is introduced shallower than ${ks[i - 1]}`);
       }
     }
@@ -1420,28 +1420,25 @@
   });
 
   test('lairs: hunting and walking home are branches of the ONE movement chain', () => {
-    // Not a mover of their own: a chase and a walk back are ordinary steps, so
-    // they are two more `else if`s in the angle chain every creature shares —
-    // which is what keeps them subject to the blocked-cell, placed-rock and
-    // water rules the rest of the fauna obeys.
-    const w = APP.slice(APP.indexOf('  wanderCreatures() {'));
-    const body = w.slice(0, w.indexOf('\n  }\n'));
-    const hunt = body.indexOf("} else if (lairState === 'hunt') {");
+    // Not a mover of their own: a chase and a walk back are ordinary steps of
+    // rosterEnemyMove's one chain (creature_ai.js) — which is what keeps them
+    // subject to the blocked-cell, placed-rock, water and kerb rules every
+    // foe obeys (enemySweep → creatureStepRefused).
+    const body = CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyMove('));
     const home = body.indexOf("} else if (lairState === 'return') {");
-    const ward = body.indexOf('} else if (warded) {');
-    const slime = body.indexOf("} else if (c.kind === 'slime') {");
-    assert.gt(hunt, ward, "Home's ward outranks a garrison's chase");
-    assert.gt(home, hunt, 'the chase is asked before the walk home');
-    assert.lt(home, slime, 'and both are asked before the kinds\' own idle logic');
+    const ward = body.indexOf('if (routed) {');
+    const idle = body.indexOf('} else if (!sees) {');
+    assert.gt(home, ward, "Home's ward outranks a garrison's walk home");
+    assert.lt(home, idle, 'and it is asked before the kinds\' own idle logic');
     // The walk home aims at the SEAT and lands on it — an away-from-player
     // angle would scatter the garrison, and a full stride would overshoot and
     // orbit forever.
-    const branch = body.slice(home, slime);
-    assert.truthy(/Math\.atan2\(c\.seatY - c\.y, c\.seatX - c\.x\)/.test(branch), 'toward its own seat');
-    assert.falsy(/dxp|dyp/.test(branch), 'not away from the player');
-    assert.truthy(/stepLen = Math\.min\(stepM, Math\.hypot\(c\.seatX - c\.x, c\.seatY - c\.y\)\);/.test(branch),
+    const branch = body.slice(home, idle);
+    assert.truthy(/angle = Math\.atan2\(c\.seatY - c\.y, c\.seatX - c\.x\);/.test(branch), 'toward its own seat');
+    assert.falsy(/px - c\.x|py - c\.y/.test(branch), 'not away from the player');
+    assert.truthy(/maxDistance = Math\.hypot\(c\.seatX - c\.x, c\.seatY - c\.y\);/.test(branch),
       'the last step lands exactly on the seat');
-    assert.truthy(/tx = c\.x \+ Math\.cos\(angle\) \* stepLen;/.test(body),
+    assert.truthy(/let step = Math\.min\(maxDistance, pace\);/.test(body),
       'and the step the chain takes is that one');
   });
 

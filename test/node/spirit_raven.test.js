@@ -108,10 +108,13 @@ test('spirit raven: the pet lane is the raven\'s lane', () => {
   const sim = SCENE_SRC;
   assert.truthy(/const huntsForPlayer = \(isTame && SpriteLayout\.isPet\(c\.kind\)\) \|\| summoned;/.test(sim),
     'a summoned ally hunts through the pet scan, as a second reason');
-  assert.truthy(/if \(!huntsPrey\(c\.kind, cr\)\) return;/.test(sim), 'the scan asks the one predicate');
+  assert.truthy(/c\._chaseTarget = nearestCreature\(this, c, 8 \* this\.cellM, \(cr\) => \{\s*if \(!huntsPrey\(c\.kind, cr\)/.test(sim),
+    'the scan is the one nearest scan, asking the one predicate');
   assert.truthy(/Combat\.damage\(tgt, Combat\.petBlow\(c\)\)/.test(sim), 'the bite is Combat.petBlow — petBite times the pet\'s own power');
   assert.truthy(/this\.resolveDefeat\(tgt, 'pet'\)/.test(sim), 'and a kill pays as the pet\'s');
-  assert.truthy(/pest_deer\|pest_crow\|ghost\|fished_slime\|spirit_raven/.test(sim), 'a dismissed raven\'s id is pruned like the pest deer\'s');
+  assert.truthy(/pest_deer\|pest_crow\|ghost\|fished_slime\|\$\{Object\.keys\(Companions\.KINDS\)\.join\('\|'\)\}/.test(sim),
+    'a dismissed raven\'s id is pruned like the pest deer\'s — every Companions.KINDS row, derived');
+  assert.truthy('spirit_raven' in Companions.KINDS);
   assert.truthy(/if \(SpriteLayout\.isSummoned\(c\.kind\)\) return;/.test(INTERACT_SRC),
     'a tap goes through it — nothing to catch, tame or pet');
 });

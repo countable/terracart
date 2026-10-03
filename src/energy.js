@@ -202,9 +202,7 @@
       return 0;
     }
     const rate = typeof Shrines !== 'undefined' ? Shrines.REGEN_PER_SECOND : 0;
-    const accrued = (state._shrineRegenAcc || 0) + activeSeconds * rate;
-    const whole = Math.floor(accrued + 1e-9);
-    state._shrineRegenAcc = Math.max(0, accrued - whole);
+    const whole = bankWhole(state, '_shrineRegenAcc', activeSeconds * rate);
     if (!whole) return 0;
     const before = save.energy ?? 0;
     set(save, before + whole, maxE);

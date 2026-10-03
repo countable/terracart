@@ -47,6 +47,17 @@ function randInt(min, max, rng) {
 function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
 function clamp01(x) { return clamp(x, 0, 1); }
 function lerp(a, b, t) { return a * (1 - t) + b * t; }
+// Bank a fractional gain or loss in `obj[key]` and return the WHOLE pips it
+// carried past the line; the key keeps the remainder (0 ≤ r < 1, a sub-1e-9
+// residue zeroed). THE one float accumulator for every per-frame drain and
+// regen that pays in whole pips (a burn's fraction, the shrine regen, a foe
+// walking through thorns): `whole = bankWhole(this, '_acc', rate * dt)`.
+function bankWhole(obj, key, delta) {
+  const total = (obj[key] || 0) + delta;
+  const whole = Math.floor(total + 1e-9);
+  obj[key] = total - whole > 1e-9 ? total - whole : 0;
+  return whole;
+}
 // Fisher–Yates, in place; returns `arr`. One rng() call per swap step.
 function shuffleInPlace(arr, rng) {
   const r = rng ?? Math.random;

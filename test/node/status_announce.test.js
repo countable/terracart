@@ -95,7 +95,7 @@ test('status looks: drawCreatures flicks the body over every state and pops the 
   const c = { id: 'ice', kind: 'goblin', _frozenUntil: 10 ** 9, shiny: true };
   Combat.flagStatus(c, Combat.STATUS_LOOKS.frozen, 1000);
   assert.eq(draw(c, 1100, scene), FROZEN_TINT, 'the flick in the status\'s ink wins over ice and sheen');
-  assert.eq(pops.length, 1); assert.eq(pops[0].text, 'Frozen'); assert.eq(pops[0].color, Combat.STATUS_LOOKS.frozen.color);
+  assert.eq(pops.length, 1); assert.eq(pops[0].text, 'Chilled'); assert.eq(pops[0].color, Combat.STATUS_LOOKS.frozen.color);
   assert.eq(c._statusPop, null, 'the word is queued once');
   assert.eq(draw(c, 1200, scene), FROZEN_TINT);
   assert.eq(pops.length, 1, 'and popped once');

@@ -160,11 +160,13 @@ const NPC = (() => {
   function isDormant(c, now = Date.now()) {
     return c?.kind === 'npc' && (c._npcRestUntilEpoch || 0) > now;
   }
+  // A neighbour back on their feet (their rest over) stands at full health.
+  function standUp(c) { if (c._hp <= 0) c._hp = Combat.maxHp(c); }
   function hit(scene, c, now = Date.now(), damage = Combat.creatureMaxHp('npc')) {
     if (c?.kind !== 'npc') return false;
     restore(scene, c);
     if (isDormant(c, now)) return false;
-    if (c._hp <= 0) c._hp = Combat.maxHp(c);
+    standUp(c);
     const lost = Combat.damageDealt(c, damage);
     if (!(lost > 0)) return false;
     if (Combat.hp(c) > 0) return true;
@@ -195,25 +197,23 @@ const NPC = (() => {
       }
     });
   }
+  // The neighbour a foe goes for: the nearest it can target (canTarget) within
+  // its vision less the neighbour's own visionReduction, with a line of fire
+  // — and nearer than the player unless the player is hidden. The one
+  // nearest scan (creature_ai.js nearestCreature) over the prepared list.
   function enemyTarget(scene, enemy, row, px, py, playerHidden) {
-    let best = null;
-    let d2 = playerHidden ? Infinity : (enemy.x - px) ** 2 + (enemy.y - py) ** 2;
-    d2 = Math.min(d2, (row.visionCells * scene.cellM) ** 2);
-    for (const c of scene._npcCombatTargets || []) {
-      const distance2 = (enemy.x - c.x) ** 2 + (enemy.y - c.y) ** 2;
-      if (typeof PotionEffects !== 'undefined' && distance2 > (Math.max(0,
-        row.visionCells - PotionEffects.visionReduction(c)) * scene.cellM) ** 2) continue;
-      if (distance2 >= d2 || !canTarget(scene, c) || enemySightBlocked(scene, enemy, c.x, c.y)) continue;
-      if (!Combat.lineOfFire(enemy.x, enemy.y, c.x, c.y,
-        (x, y) => enemySightBlocked(scene, enemy, x, y), scene.cellM)) continue;
-      best = c; d2 = distance2;
-    }
-    return best;
+    const limit = Math.min(row.visionCells * scene.cellM,
+      playerHidden ? Infinity : Math.hypot(enemy.x - px, enemy.y - py));
+    return nearestCreature(scene, enemy, limit, (c, d) => {
+      if (typeof PotionEffects !== 'undefined'
+          && d > Math.max(0, row.visionCells - PotionEffects.visionReduction(c)) * scene.cellM) return false;
+      return canTarget(scene, c) && !enemySightBlocked(scene, enemy, c.x, c.y);
+    }, { los: true, pool: scene._npcCombatTargets || [] });
   }
   function tick(scene, c, now, dt) {
     restore(scene, c);
     if (isDormant(c)) { c._moving = false; return; }
-    if (c._hp <= 0) c._hp = Combat.maxHp(c);
+    standUp(c);
     // Integrate only active time: returning to a neighbour never jumps them
     // across their old path. Small steps cannot skip a road cell or building.
     dt = Math.min(0.1, Math.max(0, dt));
