@@ -124,6 +124,11 @@ const MODAL_KINDS = {
   story:    { icon: '📜', label: 'Story' },
 };
 
+// How long a freshly opened dialog ignores taps before its buttons fade in
+// (makeModalShell's arming second), and that fade (index.html modal-btn-in).
+const MODAL_ARM_MS = 1000;
+const MODAL_UNVEIL_MS = 500;
+
 class SceneModals {
   // Shared factory for all modal overlays. Returns { wrap, box, mount, mkBtn }.
   //   onClose — if provided, backdrop click (tap on wrap outside box) removes
@@ -136,6 +141,9 @@ class SceneModals {
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
     kind, kindLabel, kindIcon, story = false, art, centerBody = false, fullscreen = false } = {}) {
+    // A dialog swapping itself in place (a pager turn, a tab) is the same
+    // dialog already armed; anything else opens on THE ARMING SECOND below.
+    const swapping = !!document.getElementById(id);
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog by definition — its frame is cut to
@@ -157,6 +165,25 @@ class SceneModals {
     // …and its KIND on the same node, so a rule about one category of dialog
     // (a foe's blow closes a shop — _closeShopOnHit) can find it.
     if (typeof kind === 'string') wrap.dataset.kind = kind;
+    // THE ARMING SECOND: a tap meant for the map (or a double tap on the
+    // button that opened this) must not close a dialog the player has not
+    // seen. For MODAL_ARM_MS every click on the dialog is swallowed here,
+    // registered first so it beats the backdrop close and the chest's
+    // tap-anywhere; then .modal-arming lifts and .modal-unveil fades its
+    // buttons in (index.html). Capture phase, so no caller's listener runs first.
+    if (!swapping) {
+      const armedUntil = Date.now() + MODAL_ARM_MS;
+      wrap.classList.add('modal-arming');
+      wrap.addEventListener('click', (e) => {
+        if (Date.now() >= armedUntil) return;
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }, true);
+      setTimeout(() => {
+        wrap.classList.replace('modal-arming', 'modal-unveil');
+        setTimeout(() => wrap.classList.remove('modal-unveil'), MODAL_UNVEIL_MS);
+      }, MODAL_ARM_MS);
+    }
     // The backdrop covers the VISIBLE slice of the game box (fitGame
     // publishes it as --view-top/--view-h in game px); the box itself is
     // seated on the MAP VIEWPORT, not centred on the backdrop — see
