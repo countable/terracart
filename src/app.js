@@ -13775,7 +13775,7 @@ class MapScene extends Phaser.Scene {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
-      return this.worldIconHTML(texKey, 40, frame);
+      return this.worldIconHTML(texKey, 36, frame);
     };
     const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
     // Each card is the building's picture, its name and (when ranked: a shop,
@@ -13786,7 +13786,7 @@ class MapScene extends Phaser.Scene {
       return {
         key: row.key,
         label: labelFor(row, null)
-          + (tierOf(row) ? `<div style="margin-top:2px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
+          + (tierOf(row) ? `<div style="margin-top:1px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
         iconHTML: iconFor(row),
         suggested: !!row.suggested?.(this.save),
         cost: costLine(c),
@@ -13794,6 +13794,13 @@ class MapScene extends Phaser.Scene {
       };
     });
     const single = choices.length === 1 ? costFor(options[0]) : null;
+    // THE MAGIC HAMMER (Houses.HAMMER_ID): holding one, the dialog offers a
+    // second way to restore — "With Hammer" beside Restore, in this same
+    // window (owner, Oct 2026; it used to be a second prompt after Restore).
+    // The building comes up shiny and sells cheaper for good
+    // (Houses.priceMul); the hammer is spent with the stones.
+    const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
+    const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
     // Always show the modal — even when the player can't yet afford it,
     // they need to see WHAT to gather. Accept stays disabled (red cost
     // line, greyed button) so the dialog reads as a price tag rather
@@ -13809,38 +13816,14 @@ class MapScene extends Phaser.Scene {
       cost: single ? costLine(single) : null,
       canAfford: single ? affords(single) : false,
       acceptLabel: 'Restore',
-      onAccept: (key) => {
-        const row = options.find((r) => r.key === key);
-        const cost = row ? costFor(row) : null;
-        const item = cost && ITEM_BY_ID[cost.id];
-        // Re-check stock at accept time — the player might have spent
-        // the materials elsewhere while the modal was open.
-        if (!cost || Inventory.count(this.save, cost.id) < cost.qty) {
-          if (cost) this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
-          return;
-        }
-        // THE MAGIC HAMMER (Houses.HAMMER_ID): holding one, the player is
-        // asked whether to spend it on this wreck — the building comes up
-        // shiny and sells cheaper for good (Houses.priceMul). "Without it"
-        // restores plainly; "Later" keeps the wreck as it was.
-        if (Inventory.count(this.save, Houses.HAMMER_ID) > 0) {
-          const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
-          this.showOfferModal({
-            kind: 'build',
-            get: `Use your ${hammer?.name || 'Magic Hammer'} on it?`,
-            blurb: 'The building would gleam, and the folk inside would deal kindly with you.',
-            costLabel: 'Spends',
-            cost: `1× ${this.iconSpanHTML(Houses.HAMMER_ID)} ${hammer?.name || Houses.HAMMER_ID}`,
-            canAfford: true,
-            acceptLabel: 'Use it',
-            cancelLabel: 'Later',
-            secondary: { label: 'Without it', onClick: () => restore(key, false) },
-            onAccept: () => restore(key, true),
-          });
-          return;
-        }
-        restore(key, false);
-      },
+      // One line: the dialog's height is spent on the cards.
+      blurb: hasHammer
+        ? `<span style="display:block;margin-top:-2px">${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams, and folk deal kindly.</span>`
+        : undefined,
+      secondary: hasHammer
+        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true, onClick: (key) => restore(key, true) }
+        : undefined,
+      onAccept: (key) => restore(key, false),
     });
     const restore = (key, hammer) => {
       const picked = options.find((r) => r.key === key);

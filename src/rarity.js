@@ -171,7 +171,10 @@
 
     // ── Floating treasure mark ──────────────────────────────────
     // Small fixed reward — no chain (always rolls T1) plus jackpot.
-    'treasure:default': { classBias: { seed:0.45, produce:0.30, mineral:0.10, supply:0.15 },
+    // `gear` (any equipment: a tool or weapon, armour, a unique relic) is a
+    // fifth of the draws above ground: 0.25 of a 1.25 total. A cave X adds its
+    // supply skew to the total, so the share is smaller down there.
+    'treasure:default': { classBias: { seed:0.45, produce:0.30, mineral:0.10, supply:0.15, gear:0.25 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
     // ── The ROAD ladder's prize ─────────────────────────────────────────
     // What restoring a street pays (src/trail.js, app.js _fireTrailPrize).
@@ -319,6 +322,7 @@
   CLASS_MAX_TIER.cash = 7;
   CLASS_MAX_TIER.bundle = 1;
   CLASS_MAX_TIER.boots = 7;
+  CLASS_MAX_TIER.gear = 7;
   CLASS_MAX_TIER.legacyConsumable = Math.max(CLASS_MAX_TIER.magic || 1, CLASS_MAX_TIER.supply || 1);
   // Relics span every tier 1..7 for every slot — pickItemInClass handles this
   // without needing an entry in ITEMS_BY_CLASS_TIER.
@@ -710,6 +714,29 @@
       if (!ctx.singleItem) wastedQtyBumps += bracket;
       const out = reconcileRelicOffer({ slot, tier: relicTier, jackpot: jackpotApplied }, save, rng);
       if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(relicTier);
+      return out;
+    }
+    // GEAR — any piece of equipment, one even draw over every tool / weapon
+    // slot, every armour slot and every unique relic the player does not
+    // carry at or under the rolled tier (Gear.uniqueRelics). Gear keeps the
+    // rolled tier (no relic deduction) and the same duplicate / upgrade
+    // handling as the other gear classes.
+    if (cls === 'gear') {
+      if (!ctx.singleItem) wastedQtyBumps += bracket;
+      const uniques = Gear.uniqueRelics().filter(it => it.baseTier <= tier && !carriesItem(save, it.id));
+      const pool = [
+        ...Object.keys(_RELIC_DEFS).map(slot => ({ kind: 'relic', slot })),
+        ...Object.keys(_ARMOR_DEFS).map(slot => ({ kind: 'armor', slot })),
+        ...uniques.map(it => ({ kind: 'item', id: it.id })),
+      ];
+      const pick = pool[Math.floor(rng() * pool.length)];
+      if (pick.kind === 'item') {
+        const uTier = _ITEM_BY_ID[pick.id].baseTier;
+        return { kind: 'item', id: pick.id, qty: 1, tier: uTier, cls: 'unique_relic',
+                 jackpot: jackpotApplied, consolation: consolationFor(uTier) };
+      }
+      const out = reconcileRelicOffer({ kind: pick.kind, slot: pick.slot, tier, jackpot: jackpotApplied }, save, rng, finalCap);
+      if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(tier);
       return out;
     }
     // BOOTS — the road's equipment option, with the same duplicate/upgrade

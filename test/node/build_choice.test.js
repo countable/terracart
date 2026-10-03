@@ -21,7 +21,7 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   assert.falsy(/fullscreen: true/.test(src), 'no longer fullscreen');
   assert.truthy(/const costFor = \(row\) => Houses\.buildCost\(this\.save, house, row, order\);/.test(src), 'each card is priced by Houses.buildCost');
   assert.truthy(/cost: costLine\(c\),\n\s+canAfford: affords\(c\),/.test(src), 'a card carries its own cost line');
-  assert.truthy(/iconHTML: iconFor\(row\),/.test(src) && /this\.worldIconHTML\(texKey, 40, frame\)/.test(src), 'a card shows the building it raises');
+  assert.truthy(/iconHTML: iconFor\(row\),/.test(src) && /this\.worldIconHTML\(texKey, 36, frame\)/.test(src), 'a card shows the building it raises');
   assert.truthy(/const picked = options\.find\(\(r\) => r\.key === key\);\n\s+const cost = picked \? costFor\(picked\) : null;/.test(src), 'the charge is the picked card\'s');
   // The picture is baked from the texture's own frame on demand.
   assert.truthy(/_worldIconUrl\(texKey, frame = 0\) \{[\s\S]{0,900}?drawImage\(src, fr\.cutX, fr\.cutY, fr\.width, fr\.height/.test(SCENE_SRC), 'a world icon is cut from the frame\'s rect');
