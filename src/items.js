@@ -1530,7 +1530,7 @@ const PRICES = {
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
-  frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
+  frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
   stealth_ring: 0, invisibility_ring: 0, ember_ring: 0, regen_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
@@ -1752,7 +1752,7 @@ const ITEM_EFFECTS = {
   revive_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',
   growth_powder: 'Spring stirs in the dust, impatient with the sleeping crops.',
-  frost_powder: 'A pinch chills the air until foes within reach stand still.',
+  frost_powder: 'A pinch chills the air, and foes within reach move and strike slowly.',
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
   trap_kit: 'Iron tools loosen snares, barricades and spikes.',
