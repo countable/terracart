@@ -179,8 +179,9 @@
         stampSegment(p.p,p.p,cell*2,N,ox,oy,cell,i=>{if(!reasons[i]) reasons[i]=denied(p.tags)?R.ACCESS:p.reason;});
       }
       const pathCells=new Uint8Array(N*N);
-      for(const path of data.paths) if(overlaps(path.bounds,[ox-cell,oy-cell,ox+edge+cell,oy+edge+cell])) {
-        const radius=Math.max(cell*.71,WG.roadWidthM(path.tags)/2);
+      for(const path of data.paths) {
+        const radius=path.reason===R.PATH ? WG.roadWidthM(path.tags)/2+3*cell : Math.max(cell*.71,WG.roadWidthM(path.tags)/2);
+        if(!overlaps(path.bounds,[ox-radius,oy-radius,ox+edge+radius,oy+edge+radius])) continue;
         for(const s of path.segments) stampSegment(s.a,s.b,radius,N,ox,oy,cell,i=>{
           if(path.reason===R.ACCESS) exclusions[i]=R.ACCESS;
           else if(reasons[i]!==R.PARKING) {pathCells[i]=1;reasons[i]=path.reason;}

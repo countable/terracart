@@ -24,10 +24,20 @@
     ['Fernsehturm / Neptunbrunnen plaza', 'Berlin', 52.520189, 13.408785],
   ];
 
+  const AREA_TYPES = [
+    { id: 'pedestrian', label: 'Pedestrian area polygons', color: '#b66cff', layer: 'transportation', cls: 'path', sub: 'pedestrian' },
+    { id: 'recreation', label: 'Recreation-ground polygons', color: '#63d34f', layer: 'landcover', cls: 'grass', sub: 'recreation_ground' },
+    { id: 'footway', label: 'Footway area polygons', color: '#40bfff', layer: 'transportation', cls: 'path', sub: 'footway' },
+  ];
+
   function create({ map, toLL, getEdge, toggle, legend, summary, details, opacity, sitePick }) {
     const pane = map.createPane('gameplayTiers');
     pane.style.zIndex = 425;
     pane.style.pointerEvents = 'none';
+    const areaPane = map.createPane('gameplayAreas');
+    areaPane.style.zIndex = 426;
+    const areaRenderer = L.canvas({ pane: 'gameplayAreas' });
+    const shownAreas = new Set(AREA_TYPES.map(a => a.id));
     const layer = L.layerGroup(), shown = new Set([1, 2, 3]);
     let world, source, result, pending, revision = 0;
     const tiers = GameplayTiers.TIERS;
@@ -42,6 +52,19 @@
       label.title = tier.description;
       label.querySelector('input').onchange = event => {
         event.target.checked ? shown.add(id) : shown.delete(id);
+        paint();
+      };
+      legend.appendChild(label);
+    }
+    const areaHeading = document.createElement('p');
+    areaHeading.textContent = 'Area treatment gaps · source polygons';
+    legend.appendChild(areaHeading);
+    for (const area of AREA_TYPES) {
+      const label = document.createElement('label');
+      label.innerHTML = `<input type="checkbox" data-area="${area.id}" checked>`
+        + `<span class="sw sq" style="background:${area.color}"></span> ${area.label}`;
+      label.querySelector('input').onchange = event => {
+        event.target.checked ? shownAreas.add(area.id) : shownAreas.delete(area.id);
         paint();
       };
       legend.appendChild(label);
@@ -87,6 +110,36 @@
           toLL((e.tx + 1) * edge, e.ty * edge, edge),
         ], { pane: 'gameplayTiers', opacity: Number(opacity.value), interactive: false }).addTo(layer);
       }
+      // Draw the original area footprints, not buffered path lines. These
+      // diagnostic shapes deliberately retain portions excluded by tier rules.
+      const rawByTile = new Map((source || []).map(r => [`${r.tx},${r.ty}`, r]));
+      for (const { entry: e } of result.tiles) {
+        for (const sourceLayer of e.layers || rawByTile.get(`${e.tx},${e.ty}`)?.layers || []) {
+          for (const f of sourceLayer.features || []) {
+            if (f.type !== 3 || !f.geom) continue;
+            const area = AREA_TYPES.find(a => shownAreas.has(a.id) && sourceLayer.name === a.layer
+              && f.tags?.class === a.cls && f.tags?.subclass === a.sub);
+            if (!area) continue;
+            const extent = sourceLayer.extent || 4096;
+            // Clip buffered tile geometry to its owning tile to avoid dark seams.
+            const rings = f.geom.map(ring => L.PolyUtil.clipPolygon(ring.map(p => L.point(p.x, p.y)),
+              L.bounds([0, 0], [extent, extent]))).filter(ring => ring.length >= 3);
+            if (!rings.length) continue;
+            const shape = L.polygon(rings.map(ring => ring.map(p =>
+              toLL((e.tx + p.x / extent) * edge, (e.ty + p.y / extent) * edge, edge))), {
+              renderer: areaRenderer, color: area.color, weight: 1.5,
+              fillColor: area.color, fillOpacity: Number(opacity.value), opacity: 1,
+              fillRule: 'evenodd', bubblingMouseEvents: false,
+            });
+            const content = `<b>${esc(area.label)}</b>`
+              + (f.tags.name ? `<p>${esc(f.tags.name)}</p>` : '')
+              + `<p>${esc(area.layer)} · class=${esc(area.cls)} · subclass=${esc(area.sub)}</p>`
+              + '<p>Mapped polygon footprint, before road buffers and access exclusions. Colour identifies the treatment gap, not final Tier 1 eligibility.</p>';
+            shape.bindPopup(content).on('click', () => { details.innerHTML = content; });
+            shape.addTo(layer);
+          }
+        }
+      }
       const stats = result.stats;
       summary.innerHTML = [1, 2, 3, 0, 4].map(id =>
         `<div><span style="color:${esc(row(id).color)}">${esc(row(id).label)}</span>`
@@ -131,7 +184,7 @@
       const tier = row(tile.tiers[i]), reason = GameplayTiers.REASONS[tile.reasons[i]];
       const content = `<b>${esc(tier.label)}</b><p>${esc(tier.description)}</p>`
         + `<p><b>Evidence:</b> ${esc(reason?.label || 'No matching mapped evidence')}</p>`
-        + '<p>Road corridors extend 3 game cells beyond the drawn edge. Tiers infer intended gameplay from map features, not live traffic.</p>'
+        + '<p>Road and designated walking-path corridors extend 3 game cells beyond their edges. Road buffers take precedence over Tier 1 path buffers. Tiers infer intended gameplay from map features, not live traffic.</p>'
         + '<small>Road surfaces and current access/spawn exclusions still apply. Review overlay only.</small>';
       details.innerHTML = content;
       return { tier: tier.id, reason: reason?.id, content, entry: e, cell: i };
@@ -142,8 +195,11 @@
       if (hit) L.popup().setLatLng(event.latlng).setContent(hit.content).openOn(map);
     });
     toggle.onchange = sync;
-    opacity.oninput = () => layer.eachLayer(image => image.setOpacity(Number(opacity.value)));
+    opacity.oninput = () => layer.eachLayer(item => {
+      if (item.setStyle) item.setStyle({ fillOpacity: Number(opacity.value) });
+      else item.setOpacity(Number(opacity.value));
+    });
     return { update, inspect, layer, get result() { return result; } };
   }
-  root.MapReviewGameplay = { create, SITES };
+  root.MapReviewGameplay = { create, SITES, AREA_TYPES };
 })(globalThis);
