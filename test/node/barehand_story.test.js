@@ -161,7 +161,7 @@ test('barehand mutter: a tool-less job grunts on its cell, in turn; an owned too
   assert.eq(owned.pops.length, 0);
   assert.eq(BAREHAND_MUTTER_TOOLS.join(), 'axe,pick,hoe', 'the work tools the bare-hands story tells of');
   // Wired into the one wheel starter, right beside the badge it shares its gate with.
-  assert.truthy(/startWorkProgress\(worldX, worldY, onComplete[^)]*\) \{\n\s+this\._setWorkProgressIcon\(toolSlot\);\n\s+this\._barehandMutter\(toolSlot, worldX, worldY\);/.test(SCENE_SRC),
+  assert.truthy(/startWorkProgress\(worldX, worldY, onComplete[^)]*\) \{\n\s+this\._setWorkProgressIcon\(toolSlot\);\n\s+this\._barehandMutter\?\.\(toolSlot, worldX, worldY\);/.test(SCENE_SRC),
     'every wheel start asks for the grunt');
 });
 })();
