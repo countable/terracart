@@ -310,6 +310,42 @@ class SceneShops {
       });
       return;
     }
+    // THE RENOVATION PERMIT (Houses.PERMIT_ID) in hand at a ranked building:
+    // the masons offer to raise it one rank (Houses.renovateTo decides
+    // whether that rank is open — the memory ladder, the line's own cap),
+    // and the permit is spent with the work. A refused permit says why on
+    // the map and the tap falls through to the shop as usual.
+    if (house && house.id != null && sel && sel.id === Houses.PERMIT_ID && (sel.count ?? 0) > 0 && shopType && shopType !== 'turret' && !castle) {
+      const to = Houses.renovateTo(this.save, house);
+      if (to.tier) {
+        const label = Shops.roleLabel(shopType, shopType === 'market' ? this.marketTheme(house).theme : null) || 'shop';
+        this.showOfferModal({
+          kind: 'build',
+          title: 'Renovate the building?',
+          get: `Masons raise the ${label.toLowerCase()} a rank: ${tierBadgeHTML(to.tier, 11)}`,
+          cost: `1× ${this.iconSpanHTML(Houses.PERMIT_ID)} ${ITEM_BY_ID[Houses.PERMIT_ID]?.name || 'Renovation Permit'}`,
+          canAfford: true,
+          acceptLabel: 'Renovate',
+          cancelLabel: 'Later',
+          onAccept: () => {
+            if (Inventory.remove(this.save, Houses.PERMIT_ID, 1) < 1) {
+              this.flash('Gone — already used.', sx, sy);
+              return;
+            }
+            this._clampSelSlot();
+            const tier = Houses.renovate(this.save, house);
+            this._finishInventoryChange();
+            if (tier) this.flashLoot(`🏗️ renovated — ${TIER_BADGE_NAMES[tier]}!`, '#ffe066', 1.2, Houses.PERMIT_ID);
+            // Straight back into the shop so the new shelf is in hand.
+            this.shopInteract(sx, sy, house);
+          },
+        });
+        return;
+      }
+      if (to.why === 'memories') this.flash(`Needs ${to.need} memories`, sx, sy);
+      else if (to.why === 'line') this.flash('This line goes no higher', sx, sy);
+      else if (to.why === 'top') this.flash('Already the top rank', sx, sy);
+    }
     // Plain houses — small residential without a shop role and not the
     // starter blacksmith — are delivery sites only. Each wants a SET of 1-3
     // produce and buys it as a bundle: one of each, full price, no sword

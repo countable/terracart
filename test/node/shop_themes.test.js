@@ -161,7 +161,7 @@ test('themed shops: three market digits and one blacksmith digit on small houses
 
 test('themed shops: Potion of Taming and magic traps fill tier 3 supplies; dragon powder stays tier 4 Magic', () => {
   assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'magic_trap,taming_potion');
-  assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'javelin', 'T4 has its own supply stock');
+  assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'javelin,renovation_permit', 'T4 has its own supply stock');
   for (const id of ['taming_potion', 'magic_trap']) {
     assert.eq(ITEM_BY_ID[id].baseTier, 3);
     assert.eq(ITEM_BY_ID[id].kind, 'supply');

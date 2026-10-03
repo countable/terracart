@@ -142,7 +142,7 @@
     // The seeds any shop may sell (BUY_LIST: T1..T3 crops — the magical
     // flowers stay find-only).
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
-    supply: () => ['wood', 'rubble', 'torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'javelin', 'scarecrow', 'magic_trap', 'taming_potion'],
+    supply: () => ['wood', 'rubble', 'torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'javelin', 'scarecrow', 'magic_trap', 'taming_potion', 'renovation_permit'],
     potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry).map(item => item.id),
     pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
     // The bookshop's line: only the Book, at the price ladder (shops_math.js listPrice).
@@ -231,7 +231,7 @@
   }
   // May a market of `theme` be raised at `tier`? The line must exist at
   // that rank (LINE_RULES maxTier) and its per-tier cap (perTier) must not
-  // be full. The restore ladder (tierAt) is the caller's question.
+  // be full. The ladder (tierCap) is the caller's question.
   function lineBuildable(save, theme, tier) {
     const rule = LINE_RULES[theme];
     if (!rule || !(tier >= 1) || tier > rule.maxTier) return false;
@@ -249,22 +249,30 @@
   // RANK IS THE PLAYER'S PICK (owner, Oct 2026): the restore modal offers a
   // card per rank the ladder has unlocked, any number may stand at one rank
   // (a line's own cap aside, LINE_RULES), and restoreAs stamps the pick in
-  // save.shopTiers[id] — storedTier, which every reader below asks first.
-  //   THE LADDER (tierAt): restore number n (1-based) has unlocked ranks up
-  //   to n / TIER_EVERY (floored, at least 1): T2 from the tenth rebuild, T3
-  //   from the fifteenth, T7 from the thirty-fifth. T1 waits only on the
-  //   role's own slot (houses.js STORY_RESTORES).
+  // save.shopTiers[id] — storedTier, which every reader below asks first. A
+  // standing building climbs a rank under a RENOVATION PERMIT (items.js
+  // renovation_permit, a T4 supply; houses.js renovateTo / renovate — the
+  // ledger's second writer), to a rank the ladder has unlocked.
+  //   THE LADDER (tierCap) climbs by MEMORIES, never by wrecks restored
+  //   (owner, Oct 2026): rank t opens at (t - 1) × MEMORIES_PER_TIER
+  //   lifetime memories (MemoryStory.total — the discovered ledger): T2 at
+  //   five, T3 at ten, T7 at thirty. T1 waits only on the role's own slot
+  //   (houses.js STORY_RESTORES).
   //   A smithy's anvil favours its own tier and forges nothing more than one
   //   tier above or below it (gear.js relicOfferWeights, opts.smithTier); a
   //   trader's barter leans toward goods of its tier (tierAffinity).
   // Houses from before ranks were stored keep the derivations that raised
-  // them: the Nth smithy was tier N, a trader took the ladder's rank at the
-  // restore number that raised it. The map badge, the offer blurb, the
+  // them: the Nth smithy was tier N, a trader took the old restore-number
+  // ladder's rank (traderTierAt). The map badge, the offer blurb, the
   // restore card and the Restored! card all read shopTier.
-  const TIER_EVERY = 5;
+  const MEMORIES_PER_TIER = 5;
+  const LEGACY_TRADER_TIER_EVERY = 5;
   const clampTier = (t) => Math.max(1, Math.min(SHOP_TIER_MAX, t | 0));
-  function tierAt(n) { return clampTier(Math.floor(n / TIER_EVERY)); }
-  function tierUnlockAt(tier) { return tier <= 1 ? 1 : tier * TIER_EVERY; }
+  function memoryTotal(save) {
+    return (typeof MemoryStory !== 'undefined') ? MemoryStory.total(save || {}) : Object.keys(save?.discovered || {}).length;
+  }
+  function tierCap(save) { return clampTier(1 + Math.floor(memoryTotal(save) / MEMORIES_PER_TIER)); }
+  function tierUnlockMemories(tier) { return Math.max(0, (tier | 0) - 1) * MEMORIES_PER_TIER; }
   function storedTier(save, houseId) {
     const t = save && save.shopTiers && houseId != null ? save.shopTiers[houseId] : null;
     return Number.isInteger(t) && t >= 1 ? clampTier(t) : null;
@@ -282,7 +290,7 @@
     return clampTier(n < 0 ? 1 : n + 1);   // the stamped starter smith off the ledger: tier 1
   }
   // A trader raised as restore number `n` (1-based), before ranks were stored.
-  function traderTierAt(n) { return tierAt(n); }
+  function traderTierAt(n) { return clampTier(Math.floor(n / LEGACY_TRADER_TIER_EVERY)); }
   function traderTier(save, house) {
     if (!house || house.id == null) return 1;
     const stored = storedTier(save, house.id);
@@ -334,6 +342,6 @@
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
     LINE_RULES, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineCount, lineBuildable, themedStock, itemTier,
-    TIER_EVERY, SHOP_TIER_MAX, tierAt, tierUnlockAt, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed, petItems,
+    MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed, petItems,
   };
 })(window);

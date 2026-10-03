@@ -679,8 +679,13 @@ ECONOMY (buying & selling)
    buildable duplicates; each pool a window over the catalogue
    (`Houses.buildOptions`) that slides one card along per restore. ANY
    NUMBER of a card may stand. A RANKED card (smithy, shop, trader) is one
-   per rank the ladder has unlocked (`Shops.tierAt`: T2 from the tenth
-   rebuild, a rank every `TIER_EVERY`), stamped in `save.shopTiers`.
+   per rank the ladder has unlocked, stamped in `save.shopTiers`. THE LADDER
+   CLIMBS BY MEMORIES, never by wrecks (`Shops.tierCap`: T2 at five
+   lifetime memories, a rank every `MEMORIES_PER_TIER`, T7 at thirty). A
+   RENOVATION PERMIT (`items.js` `renovation_permit`, a T4 supply) held at a
+   standing smithy, shop or trader raises it ONE rank (`Houses.renovateTo`
+   / `renovate`), only to a rank the ladder has opened and the line still
+   allows; a refusal says why on the map.
    A SHOP is a THEMED market, one LINE at one rank, from `Shops.LINE_RULES`:
    seed and supply to T3, the magic shop one per tier to T7, relic to T7;
    there is no ore shop. The PET SHOP and the BOOK SHOP are one-offs
