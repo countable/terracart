@@ -1,11 +1,13 @@
 (function () {
   const copy = x => JSON.parse(JSON.stringify(x));
+  // The demon is in save.caught (resolveDefeat's one mark) before the credit
+  // is asked (Macros.slainByPlayer).
   function scene() {
-    return { depth: 9, cellM: 7, save: { energy: 100, memoryStory: { act3Started: true } },
+    return { depth: 9, cellM: 7, save: { energy: 100, memoryStory: { act3Started: true }, caught: ['demon'] },
       _shots: [], _cellBlocked: () => false, _attackMul: () => 1,
       showMessageModal(m) { this.modal = m; } };
   }
-  function unlock(s) { return DragonStory.defeated(s, { kind: 'red_demon' }, 'player'); }
+  function unlock(s) { return DragonStory.defeated(s, { kind: 'red_demon', id: 'demon' }, 'player'); }
   const foe = (x = 14, y = 0) => ({ kind: 'zombie', id: 'target', x, y });
 
   test('dragon story: all existing demons can yield the power on dungeon level nine', () => {
@@ -13,7 +15,7 @@
     for (const kind of ['red_demon', 'purple_demon', 'armoured_demon']) {
       assert.includes(available, kind, 'objective has real level-nine enemies');
       const s = scene();
-      assert.truthy(DragonStory.defeated(s, {kind}, 'player'));
+      assert.truthy(DragonStory.defeated(s, {kind, id: 'demon'}, 'player'));
       assert.truthy(DragonStory.unlocked(s.save));
       assert.truthy(s.save.dragonStory.pending);
     }
@@ -26,11 +28,12 @@
     }
     const before = scene(); before.save.memoryStory.act3Started = false;
     assert.falsy(unlock(before));
-    const wrong = scene(); assert.falsy(DragonStory.defeated(wrong, {kind:'red_dragon'}, 'player'));
+    const wrong = scene(); assert.falsy(DragonStory.defeated(wrong, {kind:'red_dragon', id: 'demon'}, 'player'));
     for (const source of ['turret', 'lava', 'light']) {
-      const s = scene(); assert.falsy(DragonStory.defeated(s, {kind:'red_demon'}, source));
+      const s = scene(); assert.falsy(DragonStory.defeated(s, {kind:'red_demon', id: 'demon'}, source));
     }
-    const pet = scene(); assert.truthy(DragonStory.defeated(pet, {kind:'purple_demon'}, 'pet'));
+    const unmarked = scene(); assert.falsy(DragonStory.defeated(unmarked, {kind:'red_demon', id: 'other'}, 'player'), 'not in save.caught: no credit');
+    const pet = scene(); assert.truthy(DragonStory.defeated(pet, {kind:'purple_demon', id: 'demon'}, 'pet'));
   });
 
   test('dragon story: recovery is permanent and duplicate kills cannot repeat its reward', () => {

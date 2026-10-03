@@ -10,6 +10,8 @@
 //   persistSave(save)     — debounced write (coalesced ≤ SAVE_DEBOUNCE_MS)
 //   flushSave()           — synchronous write of any pending save; safe to call multiple times
 //   bindIdSet(save, field) - Set-like id collection backed by one save array
+//   Save.persist(save)    — persistSave for modules that may hold no save yet
+//   Ledger                — the rolling-millisecond cooldown maps (until / waitMs / stamp)
 //   SaveSession           — owns the live save's heartbeat and lifecycle flush
 //
 // Multiple saved games:
@@ -241,6 +243,39 @@ function persistSave(s) {
     else flushSave();
   }, SAVE_DEBOUNCE_MS);
 }
+
+// persistSave for a module that may be handed no save (a stub scene, a
+// headless test): a missing save is a no-op, never a throw.
+const Save = {
+  persist(s) { if (s) persistSave(s); },
+};
+
+// ── Rolling-millisecond ledgers ─────────────────────────────────────────────
+// A save map of { [key]: epoch-ms } read back as "when may I again": a stamp
+// plus a cooldown (the castle's favour, an animal's produce, a fruit pick) or
+// an expiry outright (a neighbour's rest, a pet's boost). until() is the ms
+// stored (0 for none or junk); waitMs() the ms still to wait; stamp() writes
+// a key and prunes every OTHER lapsed entry (ms + cooldown <= now), so a map
+// of places visited over weeks never grows. The UTC-DAY ledger
+// (Macros.markToday) is a day, not a clock.
+const Ledger = {
+  until(map, key) {
+    const v = map && map[key];
+    return (typeof v === 'number' && Number.isFinite(v)) ? v : 0;
+  },
+  waitMs(map, key, now = Date.now(), cooldownMs = 0) {
+    const t = Ledger.until(map, key);
+    return t ? Math.max(0, t + cooldownMs - now) : 0;
+  },
+  stamp(save, field, key, ms, now = Date.now(), cooldownMs = 0) {
+    const map = save[field] = (save[field] && typeof save[field] === 'object') ? save[field] : {};
+    for (const k of Object.keys(map)) {
+      if (k !== key && !Ledger.waitMs(map, k, now, cooldownMs)) delete map[k];
+    }
+    map[key] = ms;
+    return map;
+  },
+};
 
 // Bind one persisted id array to a Set-like runtime view. The binding owns
 // both representations because a one-sided mutation otherwise works only

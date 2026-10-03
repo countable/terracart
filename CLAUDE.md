@@ -93,8 +93,11 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
   grove shrines daily. Recurring sites take the one day ledger (`Macros.markToday` — it
   keeps a week; `usedToday` / `stillBare` / `restockWaitMs` read it) and glow
-  while available (`poiLit`); a refusal prints the wait via `shortDuration`. A
-  new recurring thing joins that ledger and that glow, never a list of its own.
+  while available (`poiLit`); a refusal is `Macros.waitLine(prefix, ms)`. A
+  recurring thing is a ROW of `Macros.DAILY_VISIT_KINDS` (its ledger lane,
+  bare days, refusal prefix, optional `open` tap) resolved by
+  `visitKindForObject`; rolling-millisecond cooldowns use `Ledger`
+  (save.js). A new recurring thing joins that table, never a list of its own.
 - Derive generated ids/seeds from tile + local cell or OSM id, never array
   indices, timestamps or save-relative metres. The transient pest deer is the
   id exception. Per-save salts may vary rewards, not positions;
@@ -410,7 +413,9 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a
-  row there; never a label over the player or a chip of its own. A status
+  row there; never a label over the player or a chip of its own.
+  `Buffs.extend(save, scene, id, ms)` is the one writer of a row's expiry
+  (max(now, until) + ms — a second dose extends, never resets or refuses). A status
   LANDING announces itself from those tables (`_announceStatuses`: the body
   flicks the row's ink, the word pops on the cell) — never at the writer. A
   creature's status (sleep, charm, frost, fear, psychosis) is a row of

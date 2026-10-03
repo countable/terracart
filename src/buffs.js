@@ -19,7 +19,14 @@
 // is a row here, never a chip or label of its own (buffs.test.js sweeps
 // every `save.<x>Until =` writer). Not listed: the mercenary's day and a
 // training drill — a whole-day countdown on screen all day is noise; the
-// wagon and the hall say the wait when asked. Pure: no Phaser, no DOM.
+// wagon and the hall say the wait when asked (the drill still takes the
+// one extend rule, laterOf). Pure: no Phaser, no DOM.
+//
+// `extend(save, scene, id, ms)` is THE WRITER of every row's expiry (owner,
+// Oct 2026): a second dose while one runs EXTENDS — the new expiry is
+// max(now, until) + ms, so nothing a potion or shrine lends is thrown away
+// and nothing refuses while active. Shrines.grant, the bike rack and the
+// hardworking potion pull it; app.js's potion handlers are to follow.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
@@ -60,16 +67,23 @@
       read: save => Number(save?.wayfarerCompass?.until) || 0 },
     compass: { name: 'Compass', color: '#67e8f9', stroke: '#2a1040',
       read: (save, scene) => Number(scene?.pairyCompass?.until) || 0 },
+    // The Treasure Map's mark (app.js useTreasureMap — save.treasureCompass,
+    // drawn as the red edge dot), so its quarter hour shows like the others.
+    treasure: { name: 'Treasure', color: '#ff5555', stroke: '#3a0a0a',
+      read: save => Number(save?.treasureCompass?.until) || 0 },
   };
-  // The shrine boons that keep their own expiry (save.boonUntil[lever]).
+  // The shrine boons that keep their own expiry (save.boonUntil[lever]):
+  // every lever Shrines.LEVERS maps to a buff id that is not already a row
+  // above gets one, named by the kind's `boon` word, inked in its light.
+  // `boon` names the save.boonUntil key extend() writes.
   const S = root.Shrines;
   if (S) {
     for (const id of S.KIND_IDS) {
-      const row = S.SHRINE_KINDS[id], L = S.LEVERS[row.lever];
-      if (!L || L.save || L.scene || L.instant) continue;
-      KINDS[row.lever] = {
-        name: row.boon, color: '#' + row.light.toString(16).padStart(6, '0'), stroke: BOON_STROKE,
-        read: (save) => Number(save?.boonUntil?.[row.lever]) || 0,
+      const row = S.SHRINE_KINDS[id], buff = S.LEVERS[row.lever];
+      if (!buff || KINDS[buff]) continue;
+      KINDS[buff] = {
+        name: row.boon, color: '#' + row.light.toString(16).padStart(6, '0'), stroke: BOON_STROKE, boon: buff,
+        read: (save) => Number(save?.boonUntil?.[buff]) || 0,
       };
     }
   }
@@ -82,6 +96,24 @@
     return k.read(save, scene);
   }
 
+  // THE EXTEND RULE: a dose of `ms` on an expiry `until` runs to
+  // max(now, until) + ms — banked on top of what is left, never reset.
+  function laterOf(until, ms, now = Date.now()) {
+    return Math.max(now, Number(until) || 0) + ms;
+  }
+  // Lend row `id` for `ms` more: the one writer of a row's expiry. False for
+  // an unknown row or one with nowhere to write (a `read`-only row).
+  function extend(save, scene, id, ms, now = Date.now()) {
+    const k = KINDS[id];
+    if (!k || !save) return false;
+    const next = laterOf(until(id, save, scene), ms, now);
+    if (k.save) save[k.save] = next;
+    else if (k.scene) { if (scene) scene[k.scene] = next; }
+    else if (k.boon) (save.boonUntil ||= {})[k.boon] = next;
+    else return false;
+    return true;
+  }
+
   // The running effects, in table order: [{ id, name, color, stroke, remainingMs }].
   function active(save, scene, now = Date.now()) {
     const out = [];
@@ -92,5 +124,5 @@
     return out;
   }
 
-  root.Buffs = { KINDS, until, active };
+  root.Buffs = { KINDS, until, active, laterOf, extend };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

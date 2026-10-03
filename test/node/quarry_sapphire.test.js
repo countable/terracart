@@ -54,13 +54,13 @@ test('quarry mining: ordinary land and underground rocks get no quarry bonus', (
   entry.zone.idx[0] = 1; s.depth = 1;
   mine('cave');
   assert.eq(s.invCount('sapphire'), 0);
-  assert.falsy(s.save.quarryMined);
+  assert.eq(Object.keys(s.save.quarryMined).length, 0, 'no quarry recorded');
 }));
 
 test('quarry mining: canceled work does not consume the first sapphire', () => quarryTest((s) => {
   s.startWorkProgress = () => {};
   runInteractable(makeCtx(s, s.save), { id: 'canceled', kind: 'mineralrock', x: 1, y: 1, yieldTier: 1 });
   assert.eq(s.invCount('sapphire'), 0);
-  assert.falsy(s.save.quarryMined);
+  assert.eq(Object.keys(s.save.quarryMined).length, 0, 'no quarry recorded');
 }));
 })();

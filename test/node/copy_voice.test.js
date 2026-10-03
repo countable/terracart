@@ -243,6 +243,8 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'barrelFlash', 'bikeRackFlash',    // the barrel / bike-rack lines, measured below
     'wildplantHarvestLine',           // every guaranteed wildplant reward bundle, measured below
     'Shrines',                         // Shrines.boonFlash — every kind measured in shrines.test.js
+    'Macros',                          // Macros.waitLine — every recurring row's prefix, measured below
+    'row',                             // a page stone's `read` line, measured below
   ]);
   const seen = new Set();
   for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -447,14 +449,16 @@ test('map copy: the barrel, the bike rack and the page stones fit a map line', (
   assert.lte([...bikeRackFlash()].length, MAP_MSG_MAX, `bike rack: ${bikeRackFlash()}`);
   assert.eq(bikeRackFlash(), `Swift step! Stick ×2 for ${shortDuration(BIKE_RACK_MS)}`, 'off the boost\'s own length');
   assert.falsy(/pedal|bike|cycl/i.test(bikeRackFlash()), 'the courier\'s post never says ride a bike (safety, Sep 2026)');
-  // pageStone's literal lines (INTERACTABLES.waystone / .infoboard).
-  for (const m of INTERACTABLES_SRC.matchAll(/(?:spent|read): '([^']+)'/g)) {
-    assert.lte([...m[1]].length, MAP_MSG_MAX, `page stone: ${m[1]}`);
+  // Every recurring site's refusal (Macros.waitLine: "<prefix> — <wait>")
+  // prints a real wait; at its widest (a week) it still fits. The shrine
+  // rows and page stones' `read` lines ride the same table.
+  const week = 7 * 24 * 60 * 60 * 1000;
+  for (const row of [...Object.values(Macros.DAILY_VISIT_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Shrines.SHRINE_KINDS)]) {
+    const line = Macros.waitLine(row.spent || 'Already visited', week);
+    assert.lte([...line].length, MAP_MSG_MAX, `recurring site: ${line}`);
+    if (row.read) assert.lte([...row.read].length, MAP_MSG_MAX, `page stone: ${row.read}`);
   }
-  // The barrel / crate / rack refusals print a real wait; at their widest
-  // (a week) they still fit.
-  const week = shortDuration(7 * 24 * 60 * 60 * 1000);
-  for (const line of [`Smashed. Back in ${week}.`, `The crate is bare. ${week}.`, `Bikes all out. ${shortDuration(24 * 60 * 60 * 1000)}.`]) {
+  for (const line of [Macros.waitLine('Already milked', week), Macros.waitLine('Already laid', week), Macros.waitLine('Still growing', week), Macros.waitLine('Picked', week)]) {
     assert.lte([...line].length, MAP_MSG_MAX, line);
   }
 });

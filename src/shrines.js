@@ -15,8 +15,10 @@
 // Shield, reach and light share their existing item timers. Other timed
 // boons persist in save.boonUntil and never stack in strength; `boon` is
 // the word their countdown shows (src/buffs.js reads it — every running
-// boon shows over the head, each in the kind's light colour). Wayfarer's
-// post immediately applies the same food effects as a Pairy.
+// boon shows in the status row, each in the kind's light colour). A boon is
+// written through the one buff writer, Buffs.extend (LEVERS maps each lever
+// to its Buffs.KINDS row). Wayfarer's post immediately applies the same
+// food effects as a Pairy.
 // Pure apart from the scene food-effect callback; no Phaser or DOM.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
@@ -103,56 +105,40 @@
   const kindForZoneVariant = (variantId) => byZone.get(variantId) || null;
   const kindForStreet = (variantId) => byStreet.get(variantId) || null;
 
-  // Where each lever's expiry lives (see the header): a potion's save field,
-  // the Torch's in-memory scene field, or (no entry) save.boonUntil[lever].
-  // Buffs.KINDS reads this to seat each boon's countdown on the right row.
+  // Which Buffs.KINDS row each lever pulls: shield, reach and light are the
+  // potion's / torch's own rows; the rest are boon-only rows buffs.js derives
+  // from this table (save.boonUntil[lever]). `null` is instant (the pairy's
+  // food effects), nothing to extend. Where an expiry LIVES is the row's.
   const LEVERS = {
-    pairy:    { instant: true },
-    shield:   { save: 'shieldPotionUntil' },
-    reach:    { save: 'reachPotionUntil' },
-    light:    { scene: '_torchUntil' },
-    hidden:   {},
-    melee:    {}, fortune: {}, work: {}, regen: {}, wand: {},
+    pairy: null,
+    shield: 'shield', reach: 'reach', light: 'torch',
+    hidden: 'hidden', melee: 'melee', fortune: 'fortune', work: 'work', regen: 'regen', wand: 'wand',
   };
 
   function leverUntil(save, lever, scene) {
-    const L = LEVERS[lever];
-    if (!L) return 0;
-    if (L.save) return Number(save?.[L.save]) || 0;
-    if (L.scene) return Number(scene?.[L.scene]) || 0;
-    return Number(save?.boonUntil?.[lever]) || 0;
+    return LEVERS[lever] ? root.Buffs.until(LEVERS[lever], save, scene) : 0;
   }
   // The boon-only levers (their readers ask this).
   function leverActive(save, lever, now = Date.now()) {
     return (Number(save?.boonUntil?.[lever]) || 0) > now;
   }
 
-  // Lend kind's boon: the lever's expiry becomes the later of its own and
-  // now + durationMs. Returns false for an unknown kind.
+  // Lend kind's boon through the one buff writer (Buffs.extend — the expiry
+  // runs to max(now, until) + durationMs). Returns false for an unknown kind.
   function grant(save, kindId, now = Date.now(), scene = null) {
     const row = SHRINE_KINDS[kindId];
     if (!row || !save) return false;
-    const L = LEVERS[row.lever];
-    if (L.instant) {
+    if (LEVERS[row.lever] === null) {
       if (!scene?._consumeFoodEffects) return false;
       scene._consumeFoodEffects('pairy', false, now);
       return true;
     }
     return extend(save, row.lever, row.durationMs, now, scene);
   }
-  // Pull `lever` for durationMs from now: its expiry becomes the later of its
-  // own and now + durationMs (never stacking in strength). The one writer
-  // of every lever — a shrine's grant above, and a potion that lends the
-  // same boon (app.js drinkHardworkingPotion pulls `work` for its own
-  // shorter spell) — so the two can never keep separate clocks.
+  // Pull `lever` for durationMs: Buffs.extend on the lever's row (a shrine's
+  // grant above, and app.js drinkHardworkingPotion pulling `work`).
   function extend(save, lever, durationMs, now = Date.now(), scene = null) {
-    const L = LEVERS[lever];
-    if (!L || L.instant || !save) return false;
-    const until = Math.max(leverUntil(save, lever, scene), now + durationMs);
-    if (L.save) save[L.save] = until;
-    else if (L.scene) { if (scene) scene[L.scene] = until; }
-    else (save.boonUntil ||= {})[lever] = until;
-    return true;
+    return !!LEVERS[lever] && root.Buffs.extend(save, scene, LEVERS[lever], durationMs, now);
   }
 
   // The map line a visit shows (≤ MAP_MSG_MAX — shrines.test.js measures).

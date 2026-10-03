@@ -115,18 +115,18 @@
     assert.falsy(Macros.usedToday(save, 'c_x', T0));
     Macros.markToday(save, 'c_x', T0);
     assert.truthy(Macros.usedToday(save, 'c_x', T0), 'used today');
-    assert.eq(save.coinBurstClaimed['c_x' + Delivery.dayKey(new Date(T0))], 1, 'keyed id + dayKey');
+    assert.eq(save.coinBurstClaimed['c_x' + utcDayKey(new Date(T0))], 1, 'keyed id + dayKey');
     assert.falsy(Macros.usedToday(save, 'c_x', T0 + DAY), 'free tomorrow');
     Macros.markToday(save, 'c_y', T0 + DAY);
     assert.eq(Object.keys(save.coinBurstClaimed).length, 2, 'yesterday is kept — the ledger holds a week');
     Macros.markToday(save, 'c_z', T0 + Macros.LEDGER_KEEP_DAYS * DAY);
-    assert.eq(Object.keys(save.coinBurstClaimed).join(','), 'c_y' + Delivery.dayKey(new Date(T0 + DAY)) + ',c_z' + Delivery.dayKey(new Date(T0 + Macros.LEDGER_KEEP_DAYS * DAY)),
+    assert.eq(Object.keys(save.coinBurstClaimed).join(','), 'c_y' + utcDayKey(new Date(T0 + DAY)) + ',c_z' + utcDayKey(new Date(T0 + Macros.LEDGER_KEEP_DAYS * DAY)),
       'a take a week old is pruned on the next write');
   });
 
   test('macro: service use has a prefixed lane beside plain crate takes', () => {
     const id = 'c_1_2_3_4';
-    const day = Delivery.dayKey(new Date(T0));
+    const day = utcDayKey(new Date(T0));
     const save = { coinBurstClaimed: { [id + day]: 1 } };
     assert.truthy(Macros.usedToday(save, id, T0), 'the carried plain key keeps its crate bare');
     assert.falsy(Macros.serviceUsedToday(save, id, T0), 'the carried chest opening leaves its service available');
@@ -197,7 +197,7 @@
     assert.eq(modals, 1, 'one ceremony');
     assert.eq(save.opened.length, 0, 'the chapel is never opened');
     assert.truthy(Macros.serviceUsedToday(save, o.id), 'the service lane holds it');
-    assert.truthy(/^The chapel is quiet\. \d+[smhd]\.$/.test(flashes[flashes.length - 1]), `the wait is shortDuration: ${flashes[flashes.length - 1]}`);
+    assert.truthy(/^The chapel is quiet — \d+[smhd]$/.test(flashes[flashes.length - 1]), `the wait is shortDuration: ${flashes[flashes.length - 1]}`);
   }));
 
   // ── Quest credit ──────────────────────────────────────────────────────────
@@ -492,7 +492,7 @@
   });
 
   test('training: a level costs $25 × its number and needs 2 × its number memories recovered', () => {
-    const save = { money: 1e9 };
+    const save = SaveState.defaults({ money: 1e9 });
     assert.eq(Macros.lessonPricesAll().join(), '25,50,75,100,125', '25 × level');
     assert.eq(Macros.buyLesson(save, 'ranged', 1).why, 'memories', 'level 1 needs 2 memories');
     assert.eq(Macros.buyLesson(save, 'ranged', 1).need, 2);
@@ -502,22 +502,24 @@
     assert.eq(paid, 375);
     assert.eq(Macros.buyLesson(save, 'ranged', 99).why, 'cap');
     assert.eq(Macros.buyLesson(save, 'magic', 99).ok, true, 'each discipline is its own track');
-    const s2 = { money: 1e9 };
+    const s2 = SaveState.defaults({ money: 1e9 });
     for (let i = 0; i < 5; i++) Macros.buyLesson(s2, 'melee', 5);
     assert.eq(Combat.trainingLevel(s2, 'melee'), 2, 'five memories stop at level 2 (level 3 needs 6)');
     assert.eq(Macros.buyLesson(save, 'nonsense', 99).why, 'kind');
   });
 
   test('training: bonuses land per discipline, drills add and lapse, old melee saves carry over', () => {
-    const save = { money: 1e9, training: { melee: 2, ranged: 3, energy: 4, speed: 5 } };
+    const save = SaveState.defaults({ money: 1e9, training: { melee: 2, ranged: 3, energy: 4, speed: 5 } });
     assert.eq(Combat.trainingBonus(save, 'melee', T0), 2);
     assert.eq(Combat.trainingBonus(save, 'ranged', T0), 3);
     assert.eq(Combat.trainingBonus(save, 'magic', T0), 0);
     assert.eq(Combat.trainingBonus(save, 'energy', T0), 40);
     assert.inRange(Combat.trainingIntervalMul(save, T0) - 1 / 1.25, -1e-12, 1e-12, 'five speed levels: a beat 1/1.25 as long');
     assert.eq(Macros.buyDrill(save, 'melee', T0).ok, true);
-    assert.eq(Macros.buyDrill(save, 'melee', T0 + 1).why, 'active', 'one drill at a time per discipline');
-    assert.eq(Macros.buyDrill(save, 'energy', T0).ok, true, 'but another discipline\'s may run');
+    assert.eq(Macros.buyDrill(save, 'melee', T0 + 1).ok, true, 'a drill bought while one runs is not refused');
+    assert.eq(save.trainingDrills.melee, T0 + 2 * DAY, 'it extends: another day on top of what is left (Buffs.laterOf)');
+    save.trainingDrills.melee = T0 + DAY;
+    assert.eq(Macros.buyDrill(save, 'energy', T0).ok, true, 'another discipline\'s may run beside it');
     assert.eq(Combat.trainingBonus(save, 'melee', T0 + DAY - 1), 7, 'lessons and a drill add');
     assert.eq(Combat.trainingBonus(save, 'energy', T0 + 1), 90);
     assert.eq(Combat.trainingBonus(save, 'melee', T0 + DAY), 2, 'the drill is gone at 24 h');
@@ -715,7 +717,7 @@
     assert.eq(Shops.themedStock('book', 1).join(), 'book', 'the Book and nothing else');
     assert.falsy(Shops.THEMES.includes('book'), 'not a line of the cycle');
     // Stamped at restore time, once, on the explicit pick.
-    const save = { restoredHouses: {} };
+    const save = SaveState.defaults({ restoredHouses: {} });
     const rh = save.restoredHouses;
     const h = (id) => ({ kind: 'house', tier: 9, id });
     assert.eq(Houses.restoreAs(save, h('h0'), 'plain').key, 'plain');

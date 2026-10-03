@@ -236,13 +236,13 @@ test('isBuildingSealed: a castle is sealed until claimed', () => {
   assert.falsy(Houses.isBuildingSealed({}, { kind: 'house', tier: 9 }), 'not a castle at all');
   assert.truthy(Houses.isBuildingSealed({ castlesLegacyOpen: true }, tower), 'retired global flag grants no access');
   assert.truthy(Houses.isBuildingSealed({ openedCastles: { tw_1: true } }, tower), 'retired delivery flag grants no access');
-  const claimed = {};
+  const claimed = SaveState.defaults({});
   Houses.claimCastle(claimed, tower);
   assert.falsy(Houses.isBuildingSealed(claimed, tower), 'claimed outright');
 });
 
 test('isCastleClaimed / claimCastle: idempotent, presence not truthiness, non-castles refused', () => {
-  const save = {};
+  const save = SaveState.defaults({});
   const tower = { kind: 'tower', castle: 'b_1_1' };
   assert.falsy(Houses.isCastleClaimed(save, tower), 'nothing claimed yet');
   assert.truthy(Houses.claimCastle(save, tower), 'the claim took');

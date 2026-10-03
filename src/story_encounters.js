@@ -10,7 +10,7 @@ const StoryEncounters = (() => {
   const KEY = 'fourth_home';
   const WORRIED = 'A goblin archer has been hunting me. Please help me!';
   const THANKS = 'You stopped the archer. Thank you! Take this starfruit seed.';
-  const persist = scene => { if (typeof persistSave === 'function') persistSave(scene.save); };
+  const persist = scene => Save.persist(scene.save);
   function arm(scene) {
     if (scene.save.storyEncounter || typeof MemoryStory === 'undefined'
         || MemoryStory.total(scene.save) < armAtMemories()) return false;
@@ -21,9 +21,7 @@ const StoryEncounters = (() => {
     persist(scene);
     return true;
   }
-  function busy(scene) {
-    return !!scene._dialogOpen?.() || (typeof document !== 'undefined' && document.body?.classList?.contains('modal-open'));
-  }
+  const busy = scene => MemoryStory.dialogOpen(scene);
   function surfaceEntries() { return WorldGen.tileCacheFor(0); }
   function find(id) {
     for (const entry of surfaceEntries().values()) {
@@ -88,9 +86,12 @@ const StoryEncounters = (() => {
     (entry.creatures || (entry.creatures = [])).push(c);
     return c;
   }
-  function defeated(scene, victim) {
+  // Credit is the one kill predicate (Macros.slainByPlayer): her archer in
+  // save.caught, felled by the player's side.
+  function defeated(scene, victim, source = 'player') {
     const q = scene.save.storyEncounter;
-    if (!q || victim?.id !== q.enemyId || q.status !== 'hunted') return false;
+    if (!q || victim?.id !== q.enemyId || q.status !== 'hunted'
+        || !Macros.slainByPlayer(scene.save, q.enemyId, source)) return false;
     q.status = 'grateful';
     persist(scene);
     return true;
@@ -100,7 +101,7 @@ const StoryEncounters = (() => {
     arm(scene);
     const q = scene.save.storyEncounter;
     if (!q) return;
-    if ((scene.save.caught || []).includes(q.enemyId)) defeated(scene, { id: q.enemyId });
+    defeated(scene, { id: q.enemyId });
     if (now < (scene._storyEncounterNext || 0)) return;
     scene._storyEncounterNext = now + 1000;
     if (!q.npc || (q.status === 'hunted' && !q.enemy)) {
@@ -125,7 +126,7 @@ const StoryEncounters = (() => {
     // Once the seed is given she speaks as the survivor (MemoryStory).
     if (!q || c.id !== q.npcId || q.status === 'rewarded') return false;
     if (busy(scene) || NPC.isDormant?.(c)) return true;
-    if ((scene.save.caught || []).includes(q.enemyId)) defeated(scene, { id: q.enemyId });
+    defeated(scene, { id: q.enemyId });
     let body = WORRIED;
     if (q.status === 'grateful') {
       // Defer refresh so the gift and its spent flag persist together. A full
@@ -137,9 +138,9 @@ const StoryEncounters = (() => {
         persist(scene);
         scene._finishInventoryChange?.();
         // The gift is SHOWN — the seed's own card under her portrait, her
-        // thanks as its line — not described in a note (showRewardCard).
-        scene.showRewardCard({ kind: 'item', id: 'starfruit_seed', qty: 1 },
-          { kind: 'story', header: `${c.name} · ${c.roleLabel}`, art: NPC.portrait(scene, c), sub: THANKS });
+        // thanks as its line — not described in a note (Rewards.present).
+        Rewards.present(scene, { kind: 'item', id: 'starfruit_seed', qty: 1 },
+          { extra: { kind: 'story', header: `${c.name} · ${c.roleLabel}`, art: NPC.portrait(scene, c), sub: THANKS } });
         return true;
       }
       body = 'Thank you for stopping the archer. Make room in your bag; I have a starfruit seed for you.';

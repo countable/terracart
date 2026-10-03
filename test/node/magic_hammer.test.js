@@ -17,7 +17,7 @@ test('magic hammer: a T4 magic item with an icon, a price and a story line', () 
 });
 
 test('magic hammer: restoreAs marks the house shiny and every price reads priceMul', () => {
-  const save = { restoredHouses: {} };
+  const save = SaveState.defaults({ restoredHouses: {} });
   assert.eq(Houses.restoreAs(save, h('a'), 'plain', { hammer: true }).key, 'plain');
   assert.truthy(Houses.isShinyHouse(save, h('a')));
   assert.eq(Houses.priceMul(save, h('a')), Houses.HAMMER_PRICE_MUL);

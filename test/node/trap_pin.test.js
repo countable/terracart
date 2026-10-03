@@ -228,8 +228,11 @@ test('tool stories: the table has all 8 actions, each with its banner', () => {
 });
 
 test('tool stories: interact.js hooks fire at action start, one per call site', () => {
+  // A wheel on the shared job (interactables.js startToolJob) names its
+  // story as `action: '<x>'`; the watering and the catch call their hooks.
   const hook = (action, anchor, what, after = true) => {
-    const call = action === 'catch' ? 'scene._catchStory?.(victim);' : `scene._toolActionStory?.('${action}');`;
+    const call = action === 'catch' ? 'scene._catchStory?.(victim);'
+      : ['till', 'dig'].includes(action) ? `action: '${action}'` : `scene._toolActionStory?.('${action}');`;
     const c = ix.indexOf(call);
     const a = ix.indexOf(anchor);
     assert.truthy(c > 0, `${what} calls ${call}`);
@@ -239,8 +242,7 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
     else assert.truthy(c > a, `${what}: the story fires after the anchor`);
     return { c, a };
   };
-  hook('till', "scene.startWorkProgress(cwmx, cwmy, () => {\n      scene.tilledSet.add(cellKey);",
-       'the till wheel');
+  hook('till', "onDone: () => {\n      scene.tilledSet.add(cellKey);", 'the till wheel');
   hook('dig', 'scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);',
        'the pick wheel');
   hook('catch', 'scene.startCatchProgress(victim, catchMs,', 'the catch wheel');
@@ -259,8 +261,9 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
   // happened, not a dry tap on an already-watered plant.
   hook('water', 'Crops.waterOne(save, p, save.relics)', 'the watering', false);
   // The chop story is the axe alone: rockfruit debris gathers free, by hand.
-  assert.truthy(/if \(reqRelic === 'axe'\) scene\._toolActionStory\?\.\('chop'\);\n        const startingTier = save\.relics\?\.\[reqRelic\]\?\.tier \|\| 0;\n        scene\.startWorkProgress\(wp\.x, wp\.y, /.test(ix),
+  assert.truthy(/const work = \(durationMs, cost\) => startToolJob\(ctx, \{\n        x: wp\.x, y: wp\.y, tool: reqRelic, durationMs, cost,\n        action: reqRelic === 'axe' \? 'chop' : null, onDone: award,/.test(ix),
     "the wildplant wheel hooks 'chop' only when the work needs the axe");
+  assert.truthy(/if \(action\) scene\._toolActionStory\?\.\(action\);/.test(INTERACTABLES_SRC), 'startToolJob tells the story, after the spend');
 });
 
 test('tool stories: the auto-fire hooks the first shot loosed, not the cadence', () => {

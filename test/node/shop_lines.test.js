@@ -6,7 +6,7 @@ const h = (id) => ({ kind: 'house', tier: 9, id });
 
 test('shop lines: one card off the cycle, then a pair that moves on with every restore', () => {
   assert.eq(Shops.MARKET_PAIR_FROM, 9);
-  const save = { restoredHouses: {} };
+  const save = SaveState.defaults({ restoredHouses: {} });
   assert.eq(JSON.stringify(Shops.marketOffers(save, 2)), JSON.stringify([{ theme: 'seed', tier: 1 }]), 'the third rebuild: the first line');
   assert.eq(JSON.stringify(Shops.marketOffers(save, 7)), JSON.stringify([{ theme: 'seed', tier: 1 }]), 'the eighth: still one card');
   const themes = (order) => Shops.marketOffers(save, order).map((r) => r.theme).join();
