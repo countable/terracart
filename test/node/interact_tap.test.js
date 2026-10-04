@@ -325,11 +325,13 @@ test('till handler: every fresh generated object still blocks its cell', () => {
   }
 });
 
-test('till handler: a spent barrel still blocks because its smashed art stands', () => {
-  const barrel = { kind: 'chest', id: 'spent-barrel', poiClass: 'waste_basket', x: 0, y: 0 };
-  const result = tillAttemptWithObject(barrel, { takenToday: true });
-  assert.eq(result.workStarted, 0, 'the smashed barrel still occupies its cell');
-  assert.eq(result.flashes.length, 1, 'the barrel explains why the hoe was refused');
+test('till handler: collected barrels free their cells while broken clay pots remain', () => {
+  for (const barrelStyle of ['barrel', 'clay_pot']) {
+    const barrel = { kind: 'chest', id: 'spent-barrel', barrel: true, barrelStyle, x: 0, y: 0 };
+    const result = tillAttemptWithObject(barrel, { opened: [barrel.id] });
+    assert.eq(result.workStarted, barrelStyle === 'barrel' ? 1 : 0);
+    assert.eq(result.flashes.length, barrelStyle === 'barrel' ? 0 : 1);
+  }
 });
 
 // ─── 3. work-progress handler behaviour ─────────────────────────────────────

@@ -1939,9 +1939,8 @@ const TAP_HANDLERS = [
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
         if (wp) { blocker = `Pick ${cropName(wp.crop)} first.`; break; }
         const oo = (e.objects || []).find(o =>
-          // Spent generated objects leave their cell. A spent barrel remains
-          // a blocker because its smashed art still stands in the world.
-          !(isSpent(o, spentTill) && !isBarrel(o)) &&
+          // Spent objects leave their cell unless their profile keeps broken art.
+          !(isSpent(o, spentTill) && !(isBarrel(o) && chestLook(o).smashedKey)) &&
           Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM);
         if (oo) { blocker = tillBlockerLine(oo); break; }
       }

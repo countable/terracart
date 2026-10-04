@@ -3065,11 +3065,11 @@ Render.drawObjects = function drawObjects(scene) {
   // EVERY opened chest vanishes, crates included (an empty-crate sprite read as
   // broken art); the tap target survives (interactables.js flashes "Picked clean
   // already."; the pad + label persist via objList).
-  // A spent BARREL is not dropped: it stays SMASHED permanently (one art per
-  // state — the chest spec's key reads the flag stamped here, once per frame).
+  // Only containers with broken art remain after collection (clay pots).
+  // Wooden barrels disappear through the ordinary spent-object filter.
   const filteredObj = objList.filter(({ o }) => {
     const spent = isSpent(o, spentIds);
-    if (o.kind === 'chest' && isBarrel(o)) { o._smashed = spent; return true; }
+    if (o.kind === 'chest' && isBarrel(o) && chestLook(o).smashedKey) { o._smashed = spent; return true; }
     return !spent;
   });
   // Merge in placed scarecrows so they go through the same sprite pool +
@@ -4481,8 +4481,8 @@ Render.objectAppearance = function (scene, houseRoles) {
     // same resolver the treasure ceremony asks for its hero icon. An ATM spills
     // collectible coins, so it renders as a "pot of gold"; a cave-level mirror of
     // one is a plain chest. An opened chest never reaches the renderer (filtered
-    // out above); the one exception is the BARREL, which is never dropped: spent,
-    // its barrel or clay pot stands smashed (o._smashed, stamped by the filter).
+    // out above); clay pots retain their broken art (o._smashed, stamped
+    // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects each tier's recoloured chest frame and
               // the produce stand's awning. Procedural pots of gold have no frame.
@@ -4696,7 +4696,8 @@ Render.objectAppearance = function (scene, houseRoles) {
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const baseScale = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const scl = o.kind === 'mineralrock' && o.zone === 'quarry' ? baseScale * 0.9 : baseScale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
     let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);

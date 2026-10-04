@@ -1094,7 +1094,7 @@ function isSpent(o, sets) {
     // put in save.opened while that POI was still a crate, or in the day
     // ledger for the inn's rest, leaves the building standing.
     // A recurring crate uses the day ledger; smashed pots and barrels use
-    // save.opened forever and remain visible as broken art (render.js).
+    // save.opened forever. Only pots retain broken art (render.js).
     case 'chest': {
       if (chestNeverSpent(o)) return false;
       if (isBarrel(o)) return sets.opened.has(o.id);
