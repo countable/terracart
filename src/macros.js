@@ -153,21 +153,8 @@
       open: (ctx, o) => hireMercenary(ctx, o) },
     // A BIKE RACK: a push in the stick-walk speed lane (Buffs.KINDS.bike —
     // save.bikeUntil, app.js _walkRelics → items.js steerSpeedMul).
-    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1, ledger: 'day',
-      reward: 'bike', effect: 'Faster walking', locations: ['Mapped bicycle parking'], get durationMs() { return BIKE_RACK_MS; },
-      spent: 'Horse is out',
-      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.',
-      open: (ctx, o) => dailyVisit(ctx, o, { grant: () => {
-        Buffs.extend(ctx.save, ctx.scene, 'bike', BIKE_RACK_MS);
-        ctx.scene.flash(bikeRackFlash(), ctx.sx, ctx.sy);
-      } }) },
-    // A POT OF GOLD (an ATM): scattered coin pickups (app.js _coinBurstInteract).
-    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778, ledger: 'day',
-      reward: 'coins', effect: 'Scattered coins', durationMs: 0,
-      locations: ['Mapped ATMs'],
-      body: 'You lift the heavy lid. Coins spill across the ground.',
-      open: (ctx, o) => typeof ctx.scene._coinBurstInteract === 'function'
-        ? (ctx.scene._coinBurstInteract(ctx.sx, ctx.sy, o), true) : null },
+    bike: root.Shrines.REWARD_KINDS.bike,
+    gold: root.Shrines.REWARD_KINDS.gold,
     // The CHAPEL's blessing: the chest ceremony a tier humbler (chapelRollTier).
     chapel: { name: 'Chapel', get art() { return KIND_DIALOG.chapel.art; }, sprite: 'macro_chapel', light: 0xf2d9a0, ledger: 'service',
       reward: 'treasure', effect: 'A daily blessing, a tier under the chest it replaced', durationMs: 0,

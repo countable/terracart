@@ -783,7 +783,7 @@ const TAP_HANDLERS = [
     // distance to the body CENTRE so the most on-target animal wins overlaps.
     let target = null, bestD2 = Infinity;
     WorldGen.forEachItem('creatures', (c) => {
-      if (save.caught.includes(c.id) || Combat.isBurrowed(c) || Combat.isDisguised(c)) return;
+      if (save.caught.includes(c.id) || Combat.isConcealed(c)) return;
       // A SUMMONED ally (the spirit raven) is not a tap target: nothing to
       // catch, tame, feed or pet — a tap goes through it to whatever is there.
       if (SpriteLayout.isSummoned(c.kind)) return;
@@ -824,8 +824,10 @@ const TAP_HANDLERS = [
     // (id starts with 'released_') skip this and fall through to petting.
     const isTame = Combat.isTame(target);
     const _mangoSel = getSelectedSlot(save);
-    // Underground monsters can't be befriended — they're DEFEAT-only foes.
-    if (!isTame && !Combat.isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
+    // Catchable animals retain feeding and netting even when hostile in the wild.
+    const catchableAnimal = ITEM_BY_ID[target.kind]?.kind === 'animal';
+    // Other monsters can't be befriended — they're DEFEAT-only foes.
+    if (!isTame && (catchableAnimal || !Combat.isMonster(target.kind)) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
       const doMangoTame = () => tameInPlace(scene, save, target,
         `🥭 tamed ${itemName(target.kind)}`, 'mango', 1.2);
       confirmFeed(scene, 'mango', target.kind, doMangoTame);
@@ -872,7 +874,7 @@ const TAP_HANDLERS = [
 
     // Enemy taps do not choose a melee target. The combat tick continuously
     // selects the closest foe in weapon reach; feeding/taming above still works.
-    if (Combat.isEnemy(target)) {
+    if (Combat.isEnemy(target) && !catchableAnimal) {
       const name = Combat.monster(target.kind)?.name || itemName(target.kind);
       scene.flash(name, sx, sy);
       return true;

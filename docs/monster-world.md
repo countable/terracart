@@ -30,6 +30,11 @@ anchor, including where its coverage crosses tile boundaries, and a blocked
 guard is omitted rather than moved. Headstone ghost interactions in the
 churchyard variants are separate from the guard budget.
 
+Mystic Reef and Shellwater Strand each place eight stealthy shore crabs;
+Mystic Reef also keeps its giant crab. Ordinary shoreline seats make crabs
+common outside nexus coverage. Wild crabs attack, while caught and tamed crabs
+remain pets.
+
 Themed streets carry at most one finite encounter per street and owning tile,
 however many fragments the map splits the line into (`StreetVariants`, the
 `street_*` tiers in `src/lairs.js`). Barricades are held by their goblins.
