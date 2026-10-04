@@ -587,7 +587,7 @@ class SceneCreatures {
     // them into an unrelated enemy. Their kills use the usual caught ledger.
     for (const guard of zoneGuards) {
       const fauna = ['fauna', 'fastFauna'].includes(creatureSpawnClass(guard.kind))
-        || ITEM_BY_ID[guard.kind]?.kind === 'animal';
+        || (!Combat.isEnemyKind(guard.kind) && ITEM_BY_ID[guard.kind]?.kind === 'animal');
       const creature = WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
         ...guard, shiny: fauna ? faunaShiny(guard.kind, guard.id) : false, immobile: !fauna && !guard.burrowCells,
         ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
@@ -601,20 +601,15 @@ class SceneCreatures {
       creatures.push(creature);
     }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
-    // Merge in any creatures the player has released back into the world for this tile.
-    // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
-    if (this.save.released) {
-      for (const r of this.save.released) {
-        if (r.tx !== tx || r.ty !== ty) continue;
-        if (caughtSet.has(r.id)) continue;
-        // A raised pet carries its birth (SpriteLayout.isBabyPet) back too.
-        creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, {
-          ...(r.hp != null ? {_hp:r.hp} : {}), _lastDamagedT:r.lastDamagedAt ?? null,
-          ...(r.stayHome == null ? Companions.releasePolicy(this, r.x, r.y)
-            : {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY}),
-          shiny: !!r.shiny, ...(r.raised ? { raised: true, born: r.born, favouriteFeeds: r.favouriteFeeds || 0 } : {}),
-        }));
-      }
+    // Owned and individually saved wild animals retain their state across tile rebuilds.
+    for (const r of [...Pets.list(this.save), ...(this.save.wildAnimals || [])]) {
+      if (r.carried || r.tx !== tx || r.ty !== ty || (!r.pet && caughtSet.has(r.id))) continue;
+      creatures.push(WorldGen.makeCreature(r.kind,r.x,r.y,r.id,{
+        ...r, _hp:r.hp, _lastDamagedT:r.lastDamagedAt ?? null,
+      }));
+    }
+    for (const c of creatures) {
+      if (Pets.eligible(c.kind)) { c.tint = Pets.tintFor(c); if (Pets.fed(this.save,c)) c.favouriteFed = true; }
     }
     yield 'spawn habitats';
     // AHEAD OF THE FLAG: the two heavy, pure pieces of the stretch after
@@ -1775,9 +1770,11 @@ class SceneCreatures {
     // The same pass gathers the live foes in the sim bubble once a tick, so
     // each foe's spacing (creature_ai.js foeSpacingPush) reads a short list.
     this._foeBodies = [];
+    this._characterBodies = [{id:'player', x:px, y:py}];
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
       if (caughtSet.has(c.id)) return;
       if (Combat.isCharmed(c)) this._charmedOpponents.push(c);
+      if (!c._surfaceInactive && Math.hypot(c.x-px,c.y-py) <= Math.sqrt(RANGE_SQ)) this._characterBodies.push(c);
       const ddx = c.x - px, ddy = c.y - py;
       if (ddx * ddx + ddy * ddy <= RANGE_SQ && Combat.isEnemy(c) && EnemyRoster.get(c.kind)) this._foeBodies.push(c);
     });
@@ -1805,6 +1802,10 @@ class SceneCreatures {
         c._walkHazardPrevious = null;
         if (c.kind === 'npc') c._moving = false;
         return;
+      }
+      if (Combat.isTame(c)) {
+        if (Pets.tick(this.save,c)) persistSave(this.save);
+        if (Pets.isDown(c)) { c._moving=false; c._chaseTarget=null; return; }
       }
       if (enemyConcealmentTick(this, c)) return;
       if (enemyDisguiseTick(this, c, px, py)) return;
@@ -2026,7 +2027,7 @@ class SceneCreatures {
       }
       // Wild-crow flight rhythm: perch → one eased glide → perch again,
       // casing and raiding a field it notices (_wildCrowTick has the phases).
-      // Tame (released_*) crows fall through to the generic wander below so
+      // Owned crows fall through to the generic wander below so
       // they behave like other pets.
       if (c.kind === 'crow' && !isTame) {
         this._wildCrowTick(c, now, px, py);
@@ -2162,8 +2163,7 @@ class SceneCreatures {
         if (isFollowing) { c._homeX = px; c._homeY = py; }
         else if (c.stayHome) { c._homeX = c.petHomeX ?? c._homeX; c._homeY = c.petHomeY ?? c._homeY; }
         const dxh = c._homeX - c.x, dyh = c._homeY - c.y;
-        const retreating = c._retreatUntilT && c._retreatUntilT > now;
-        const homeRadius = retreating ? 0 : c.stayHome ? Companions.HOME_PET_CELLS * this.cellM : isTame ? 5 * this.cellM : 3 * this.cellM;
+        const homeRadius = c.stayHome ? Companions.HOME_PET_CELLS * this.cellM : isTame ? 5 * this.cellM : 3 * this.cellM;
         const homeBias = Math.hypot(dxh, dyh) > homeRadius;
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
@@ -2364,7 +2364,13 @@ class SceneCreatures {
       if (EnemyRoster.get(c.kind) || SpriteLayout.creatureArt(c.kind)?.directions) {
         SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
       }
-      c.x = nx; c.y = ny;
+      if (!Combat.isEnemy(c)) {
+        const frameMs = Math.min(100, Math.max(0, now - (c._characterMoveT ?? now)));
+        c._characterMoveT = now;
+        const pace = stepM / (c._hopMs || stepMs) * frameMs;
+        characterMove(this,c,nx,ny,now,{pace});
+      }
+      else { c.x = nx; c.y = ny; }
     });
     this._foeHeadsUp?.(interestedFoeM, now);
     // What the foes took off the bar this window pops as one "⚔️ monsters"
@@ -2620,25 +2626,19 @@ class SceneCreatures {
   }
 
   catchCreature(c, sx, sy) {
-    this.save.caught.push(c.id);   // keep so the creature doesn't respawn
-    // If this was a player-released creature, also trim it from save.released so the
-    // array doesn't grow unbounded across many release-and-recatch cycles.
-    if (this.save.released) {
-      const ri = this.save.released.findIndex(r => r.id === c.id);
-      if (ri >= 0) this.save.released.splice(ri, 1);
+    if (Combat.isTame(c)) {
+      const carried = Pets.carry(this.save,c);
+      if (carried) persistSave(this.save);
+      return carried;
     }
-    // A shiny animal stays shiny in its own per-kind stack (shiny_chicken,
-    // shiny_cow, …) — never folded into the plain stack or other shinies. It
-    // also pays the headline 10× money + memory with fanfare.
-    const isShinyCatch = !!c.shiny && !!ITEM_BY_ID[`shiny_${c.kind}`];
-    const invId = isShinyCatch ? `shiny_${c.kind}` : c.kind;
-    // addToInv already persists; passing silent=true to avoid a double write.
-    this.addToInv(invId, 1, true);
+    const row = Pets.bond(this.save,c);
+    if (!row) return false;
     persistSave(this.save);
-    const item = ITEM_BY_ID[invId];
-    // flashLoot draws the item's sprite (from the itemId arg) beside the text,
-    // so the text carries the name only — no emoji standing in for the item.
-    this.flashLoot(`+1 ${item?.name || invId}`, isShinyCatch ? '#ffd23a' : '#a7ffb0', 1, invId);
-    if (isShinyCatch) this.awardShinyBonus(c.kind, sx, sy);
+    const invId = c.shiny && ITEM_BY_ID[`shiny_${c.kind}`] ? `shiny_${c.kind}` : c.kind;
+    this.flashLoot(`${ITEM_BY_ID[invId]?.name || c.kind} joined you`, c.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
+    if (c.shiny) this.awardShinyBonus(c.kind,sx,sy);
+    PetStories.queue(this,c.kind);
+    this.selectInvCat('animal');
+    return row;
   }
 }

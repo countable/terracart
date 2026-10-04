@@ -36,7 +36,7 @@
     assert.truthy(Combat.isCharmed(c, wall + 59999)); assert.truthy(Combat.isEnemy(c, wall + 60000));
     assert.falsy(huntsPrey('dog', c)); assert.falsy(huntsPrey('spirit_raven', c));
     c.id = 'pest_slime_0_0'; assert.falsy(huntsPrey('spirit_raven', c), 'a charmed pest is still allied');
-    assert.falsy(Combat.applyCharm(foe('released_pet', 'slime'), wall));
+    assert.falsy(Combat.applyCharm({...foe('released_pet', 'slime'),pet:true}, wall));
     assert.falsy(Combat.applySleep(foe('cow', 'cow'), wall));
     assert.truthy(Combat.isPlayerKill('ally')); assert.falsy(Combat.isPlayerKill('enemy'));
     assert.eq(Combat.shotSource({ _sourceGuard: c }), 'ally');

@@ -629,6 +629,66 @@ function hidePoolFrom(pool, startIdx) {
   for (let i = startIdx; i < pool.length; i++) pool[i].setVisible(false);
 }
 
+// Pets share one neutral copy per species sheet. Keep alpha, dark eyes and
+// the original shading; remove baked hue once, so an individual's saved tint
+// reads clearly instead of multiplying two competing colours into mud.
+Render.neutralPetPixels = function neutralPetPixels(data) {
+  for (let i = 0; i < data.length; i += 4) {
+    if (!data[i + 3]) continue;
+    const light = Math.max(data[i], data[i + 1], data[i + 2]);
+    data[i] = data[i + 1] = data[i + 2] = light;
+  }
+  return data;
+};
+Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
+  const key = 'pet-neutral-' + sheet;
+  if (scene.textures.exists(key)) return Render.petCanvasTint(scene, kind, key, tint);
+  const source = scene.textures.get(sheet)?.getSourceImage();
+  const art = SpriteLayout.creatureArt(kind);
+  if (!source || !art || typeof document === 'undefined') return sheet;
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width; canvas.height = source.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(source, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  Render.neutralPetPixels(pixels.data);
+  ctx.putImageData(pixels, 0, 0);
+  scene.textures.addSpriteSheet(key, canvas, { frameWidth: art.fw, frameHeight: art.fh });
+  return Render.petCanvasTint(scene, kind, key, tint);
+};
+// Phaser's Canvas renderer ignores sprite tint. Bake each used palette entry
+// once there; WebGL keeps the shared neutral sheet and its cheap vertex tint.
+Render.petCanvasTint = function petCanvasTint(scene, kind, neutral, tint) {
+  if (typeof Phaser === 'undefined' || scene.sys?.game?.renderer?.type !== Phaser.CANVAS
+      || !Number.isFinite(tint) || tint === 0xffffff) return neutral;
+  const key = neutral + '-' + tint.toString(16);
+  if (scene.textures.exists(key)) return key;
+  const source = scene.textures.get(neutral).getSourceImage(), art = SpriteLayout.creatureArt(kind);
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width; canvas.height = source.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(source, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height), data = pixels.data;
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.round(data[i] * ((tint >> 16) & 255) / 255);
+    data[i + 1] = Math.round(data[i + 1] * ((tint >> 8) & 255) / 255);
+    data[i + 2] = Math.round(data[i + 2] * (tint & 255) / 255);
+  }
+  ctx.putImageData(pixels, 0, 0);
+  scene.textures.addSpriteSheet(key, canvas, { frameWidth: art.fw, frameHeight: art.fh });
+  return key;
+};
+Render.petFrame = function petFrame(scene, anim, fallback, now) {
+  const cycle = anim && scene.anims?.get(anim);
+  if (!cycle?.frames?.length) return fallback;
+  return cycle.frames[Math.floor(now * cycle.frameRate / 1000) % cycle.frames.length].textureFrame;
+};
+Render.petDownPose = function petDownPose(s, down) {
+  if (!down) return;
+  const middleY = s.y - (s.originY - 0.5) * s.displayHeight;
+  s.setOrigin(0.5, 0.5).setPosition(s.x, middleY).setRotation(Math.PI);
+};
+
 // Temporary flower effects sit above the health-bar line; the combat helpers
 // own their expiry. This pool is separate from permanent released-pet hearts.
 // The colours are the statuses' own rows (Combat.STATUS_LOOKS) — the ink the
@@ -4170,9 +4230,16 @@ Render.drawObjects = function drawObjects(scene) {
     // drift apart.
     const npcArt = c.kind === 'npc' ? SL.npcAppearance(c, performance.now()) : null;
     const appearance = npcArt ? null : creatureAppearance(c, performance.now());
-    const texKey = npcArt ? npcArt.sheet : creatureSheet(c.kind);
+    const pet = Combat.isTame(c) && !npcArt;
+    const down = pet && typeof Pets !== 'undefined' && Pets.isDown(c, Date.now());
+    const baseSheet = npcArt ? npcArt.sheet : creatureSheet(c.kind);
+    const texKey = pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint) : baseSheet;
     const anim = creatureAnim(c.kind);
-    if (npcArt) {
+    if (pet) {
+      s.anims?.stop();
+      const frame = down ? 0 : Render.petFrame(scene, anim, appearance.frame, performance.now());
+      if (s.texture.key !== texKey) s.setTexture(texKey, frame); else s.setFrame(frame);
+    } else if (npcArt) {
       s.anims?.stop();
       if (s.texture.key !== texKey) s.setTexture(texKey, npcArt.frame);
       else s.setFrame(npcArt.frame);
@@ -4187,9 +4254,9 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // How far off the ground the body is drawn: its constant float (a crow
     // perches high, a bat hovers) plus, for a hopping kind, the live bounce.
-    let lift = creatureFloat(c.kind);
+    let lift = down ? 0 : creatureFloat(c.kind);
     const hop = creatureHop(c.kind);
-    if (hop) {
+    if (hop && !down) {
       // Phase-offset per creature off a cached hash of its id, so a pack of
       // slimes doesn't pulse in unison.
       if (c._hopSeed == null) c._hopSeed = strHash31(c.id || '');
@@ -4206,6 +4273,7 @@ Render.drawObjects = function drawObjects(scene) {
     Render.applyEmergence(s, c, performance.now());
     // A resting NPC lies down; every other body stands at the pool's reset.
     if (npcArt && NPC.isDormant(c)) s.setRotation(Math.PI / 2).setOrigin(0.5, 0.5);
+    Render.petDownPose(s, down);
     if (!npcArt) s.setFlipX(appearance.flipX);
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
@@ -4238,7 +4306,7 @@ Render.drawObjects = function drawObjects(scene) {
       c._statusPop = null;
       if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
     }
-    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : pet && Number.isFinite(c.tint) ? c.tint : npcArt ? npcArt.tint : creatureTint(c.kind));
     if (c._supportUntil > performance.now() && !chilled) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !chilled, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
@@ -4247,7 +4315,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Where the body's centre landed — the glow pass below sits on it, so the
     // halo rides the hover and the bob with the sprite.
     item._bodyY = s.y - (s.originY - 0.5) * s.displayHeight;
-    if (c._meleeSwing) {
+    if (c._meleeSwing && !down) {
       const pose = Render.meleePose(c._meleeSwing, performance.now(), 'sword',
         c._meleeSwing.reachCells * CELL_PX);
       if (pose) {

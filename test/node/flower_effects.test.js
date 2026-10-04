@@ -17,7 +17,7 @@
   test('fireflower: nearest hostile, range, walls and independent firing clocks', () => {
     const p = plant('fireflower'), clocks = new WeakMap();
     const near = foe(7, { y: 7 }), far = foe(21);
-    const pet = foe(1, { id: 'released_pet' });
+    const pet = foe(1, { pet: true, id: 'released_pet' });
     const shot = tick(p, [pet, far, near, foe(0, { kind: 'cow' })], 1000, clocks);
     assert.eq(shot.projectile, 'fireball');
     assert.eq(shot.damage, CONSUMABLE_SPEC.fireball_scroll.damage);
@@ -43,7 +43,7 @@
   });
   test('iceflower: radius reaches all bodies and overlapping blooms do not stack', () => {
     const p = plant('iceflower'), r = auraRadiusCells(Crops.EFFECTS.iceflower.aura) * CELL;
-    const units = [foe(r), foe(2, { kind: 'npc' }), foe(3, { kind: 'cow', id: 'released_cow' }), foe(r + 0.01)];
+    const units = [foe(r), foe(2, { kind: 'npc' }), foe(3, { kind: 'cow', pet: true, id: 'released_cow' }), foe(r + 0.01)];
     const save = {}, player = { x: r, y: 0 }, clocks = new WeakMap();
     Crops.tickPlantEffect(p, units, save, player, CELL, 1000, clocks);
     assert.truthy(units.slice(0, 3).every(c => c._frozenUntil === 11000));

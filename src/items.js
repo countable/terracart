@@ -409,6 +409,10 @@ const MINERAL_ICON_SHEET = {
   renovation_permit: { sheet: 'icon_book', frame: 48 },
   // The Magic Hammer — the RPG pack's glowing hammer (Icons/Items/MagicHammer.png, see SOURCES.md).
   magic_hammer:    { sheet: 'icon_magic_hammer', frame: 0 },
+  pet_collar: { sheet: 'icon_amulets', frame: 0 },
+  pet_guard_collar: { sheet: 'icon_amulets', frame: 1 },
+  pet_fang_charm: { sheet: 'icon_amulets', frame: 2 },
+  pet_rest_charm: { sheet: 'icon_amulets', frame: 3 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
@@ -612,8 +616,8 @@ const BASE_TIER = {
   egg: 2, milk: 3,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
-  // Ordinary orchard fruit share T2; mango keeps its universal-taming premium.
-  // Mango is no longer an orchard tree — it's a rare universal tame treat
+  // Ordinary orchard fruit share T2; mango keeps its rarity premium.
+  // Mango is no longer an orchard tree — it is a rare fruit
   // (see interact.js) — but still carries a rarity tier for loot/pricing.
   apple: 2, cherry: 2, worldpeach: 7, apricot: 2,
   orange: 2, mango: 3,
@@ -743,10 +747,8 @@ const ITEMS = [
     id: c, name: CROP_NAMES[c], kind: 'produce', crop: c,
     baseTier: BASE_TIER[c] || 1,
   })),
-  // Caught creatures stack in the inventory. Catching any wild animal —
-  // including wilderness fauna (deer, rabbit, crow, butterfly) — puts the
-  // live animal here; processing into meat / pelt / feather is a separate
-  // step downstream.
+  // Species metadata supplies names and icons; Pets owns individual animals.
+  ...['slime', 'cave_slime', 'purple_slime', 'fire_slime'].map(kind => ({ id: kind, name: kind.split('_').map(s => s[0].toUpperCase() + s.slice(1)).join(' '), kind: 'animal', baseTier: 1 })),
   { id: 'chicken',   name: 'Chicken',   kind: 'animal' },
   { id: 'cow',       name: 'Cow',       kind: 'animal' },
   { id: 'cat',       name: 'Cat',       kind: 'animal' },
@@ -757,24 +759,17 @@ const ITEMS = [
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
   // The shore crab — the chicken of the beach (SpriteLayout CREATURE_BEHAVIOUR.crab).
   { id: 'crab',      name: 'Crab',      kind: 'animal' },
-  // The horse — kept in the bag it is a mount (HORSE_RIDE, isRiding).
+  // An owned horse can be ridden through its pet panel.
   { id: 'horse',     name: 'Horse',     kind: 'animal' },
   // The sea turtle — the rabbit of the beach (CREATURE_BEHAVIOUR.turtle).
   { id: 'sea_turtle',    name: 'Sea Turtle', kind: 'animal' },
-  // Shiny (rare, 5%) animal variants — caught from yellow-tinted wild animals.
-  // Each shiny kind keeps its OWN inventory stack: a shiny chicken never
-  // folds into normal chickens, nor into other shiny animals ("not other
-  // shinys"). `base` points at the plain kind so the icon + release path can
-  // reuse the normal sprite/behaviour; `shiny` flags the shiny sheen. Only
-  // the catch-into-inventory kinds get a shiny item — hunted fauna (deer,
-  // crow) drop meat/feather, so there's no live shiny animal to keep.
+  // Variant catalog rows supply names and icons; owned animals live in Pets.
   ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle'].map(k => ({
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, shiny: true, baseTier: Math.min(7, (BASE_TIER[k] || 1) + SHINY_TIER_UP),
   })),
-  // Baby pets (BABY_KINDS above) — their own stacks, released like any
-  // animal; `base` lends the plain kind's icon and creature.
+  // Baby catalog rows borrow the adult icon; eggs create individual wildlife.
   ...BABY_KINDS.map(k => ({
     id: babyItemId(k),
     name: `Baby ${k.charAt(0).toUpperCase() + k.slice(1)}`,
@@ -832,6 +827,10 @@ const ITEMS = [
   { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
   // Spent on a wreck restore (houses.js HAMMER_ID): the building comes up shiny and sells cheaper for good.
   { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
+  { id: 'pet_collar', name: 'Sturdy Collar', kind: 'pet_accessory', baseTier: 1, petAccessory: { slot: 'collar', stats: { maxHp: 4 } } },
+  { id: 'pet_guard_collar', name: 'Guard Collar', kind: 'pet_accessory', baseTier: 2, petAccessory: { slot: 'collar', stats: { armor: 1 } } },
+  { id: 'pet_fang_charm', name: 'Fang Charm', kind: 'pet_accessory', baseTier: 2, petAccessory: { slot: 'charm', stats: { attack: 1 } } },
+  { id: 'pet_rest_charm', name: 'Rest Charm', kind: 'pet_accessory', baseTier: 2, petAccessory: { slot: 'charm', stats: { regen: 1 } } },
   { id: 'sleep_powder', name: 'Sleep Powder', kind: 'magic' },
   { id: 'psychosis_powder', name: 'Powder of Psychosis', kind: 'magic' },
   // Drunk, never thrown (no `potion` flag): a creature has no work to hurry.
@@ -959,8 +958,7 @@ const ITEMS = [
   { id: 'worldpeach',   name: 'Worldpeach',   kind: 'produce', crop: 'worldpeach' },
   { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana' },
   { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange' },
-  // Mango: a rare treat that tames ANY animal (see the creature handler in
-  // interact.js). No `crop` ref — it isn't farmed or fed for milk/eggs.
+  // Mango is food for the player; favourite meals govern animal bonding.
   { id: 'mango',   name: 'Mango',   kind: 'produce' },
   { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
   { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
@@ -1418,15 +1416,16 @@ const HEALING_POTION_ENERGY = CONSUMABLE_SPEC.healing_potion.energy;
 const THUNDER_DMG = CONSUMABLE_SPEC.thunder_scroll.damage;
 const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_scroll.durationMs;
 const HORSE_RIDE = CONSUMABLE_SPEC.horse;
-// A shiny horse is ridden the same way: one row, two stacks.
+// Shiny horses share the same riding action.
 CONSUMABLE_SPEC.shiny_horse = HORSE_RIDE;
 // Is the player mounted? The flag only counts while a horse (plain or shiny)
-// is in the bag, so selling or releasing the last one ends the ride.
+// remains owned and awake; release or knockout ends the ride.
 function isRiding(save) {
-  return !!save?.riding && (save.inv || []).some(s => s && (s.count ?? 0) > 0
-    && ((ITEM_BY_ID[s.id]?.base || s.id) === 'horse'));
+  const horse = typeof Pets !== 'undefined' && Pets.ownedKind(save, 'horse');
+  return !!save?.riding && !!horse && !Pets.isDown(horse);
 }
 const PRICES = {
+  pet_collar: 35, pet_guard_collar: 60, pet_fang_charm: 60, pet_rest_charm: 50,
   field_scope: 80, orb: 180, goblet: 180, lucky_key: 100,
   wood_shield: 40, metal_shield: 160, gold_shield: 500,
   // ── Seeds ────────────────────────────────────────────────
@@ -1662,6 +1661,10 @@ const ITEM_GUIDE_TIPS = {
 const EGG_HATCH_METERS = 500;
 
 const ITEM_EFFECTS = {
+  pet_collar: 'A broad, soft collar for a companion with a long road ahead.',
+  pet_guard_collar: 'Small plates catch the blows meant for your companion.',
+  pet_fang_charm: 'A carved fang lends courage to a small bite.',
+  pet_rest_charm: 'A quiet warmth helps a tired companion recover.',
   field_scope: 'Distant branches sharpen into view through its worn brass tube.',
   orb: CONSUMABLE_SPEC.orb.get,
   goblet: 'A little warmth gathers in its bowl after every sip.',
@@ -1840,22 +1843,19 @@ const ENERGY_COST = {
                          // (see effectiveChopCost). small/medium/full = ×1/2/4.
 };
 
-// Catching an animal requires holding its favourite food in the selected
-// inventory slot — one is consumed per catch. Both picks are T1 farm produce
-// so the player has to deliberately grow a crop (not just collect debris)
-// before they can catch livestock. ITEM_BY_ID lookup so the catch flash can
-// show the readable name.
-// Per-animal accepted "favourite" food list. First entry is the canonical
-// preferred food (used in hint flashes like "needs milk"); any subsequent
-// entry also accepts. Code that asks for the singular favourite should
-// read ANIMAL_FOOD[kind][0]; code that asks "is this food OK?" should call
-// animalLikesFood(kind, id) below.
+// Feed a wild individual its favourite before catching it. The first entry
+// supplies its hint; animalLikesFood owns alternate foods and chicken seeds.
 const ANIMAL_FOOD = {
   // Chickens — no explicit list. animalLikesFood special-cases any *_seed
   // for them, and the catch-hint flash hardcodes "want seed" for chickens,
   // so the array can stay empty. (Was ['rainberry'] before seeds replaced
   // berries as the canonical feed.)
   chicken: [],
+  rabbit: ['cress'],
+  deer: ['apple'],
+  crow: ['potato_seed'],
+  butterfly: ['flowers'],
+  sea_turtle: ['cress'],
   cow:     ['pairy'],      // pears to munch
   horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.
@@ -1864,11 +1864,11 @@ const ANIMAL_FOOD = {
   // A shore crab is tamed with the smallest fish. (Fed plant produce once
   // tame, it sheds a shell — its CREATURE_BEHAVIOUR `produce` row.)
   crab:    ['minnow'],
-  // Secret: slimes can be tamed with a sapphire — hinted only in book tips.
-  // Not reachable through animalLikesFood in practice: a slime is an enemy, so
-  // interact.js takes the sapphire branch and then the combat branch long
-  // before the favourite-food path, and no "it wants X" hint ever names this.
+  // Slimes accept sapphire before they can be caught.
   slime:   ['sapphire'],
+  cave_slime: ['sapphire'],
+  purple_slime: ['sapphire'],
+  fire_slime: ['sapphire'],
 };
 function animalLikesFood(kind, foodId) {
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
@@ -2593,7 +2593,7 @@ function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad;
 const INV_CATS = [
   { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed'] },
   { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
-  { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
+  { key: 'animal',      label: 'Pets',        sym: '🐾', kinds: ['pet_accessory'] },
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic', kinds: ['unique_relic'] },
   { key: 'armor',       label: 'Armour',      sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },

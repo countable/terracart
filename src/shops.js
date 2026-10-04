@@ -137,7 +137,7 @@
     supply: 'You find supplies for the road on the shelves.',
     potion: 'You watch strange colours swirl in bottles behind the counter.',
     relic:  'You inspect the tools and armour hanging behind the counter.',
-    pet:    'You hear paws and hooves shuffling nearby.',
+    pet:    'Soft collars and little charms hang above the counter.',
     book:   'Shelves of books line the walls.',
   };
   // Resolved at CALL time: items.js (BUY_LIST, the catalogue) is read when a
@@ -148,13 +148,11 @@
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
     supply: () => ['wood', 'rubble', 'torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'javelin', 'scarecrow', 'magic_trap', 'taming_potion', 'renovation_permit'],
     potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry).map(item => item.id),
-    pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
+    pet:    () => ITEMS.filter(it => it.petAccessory).map(it => it.id),
     // The bookshop's line: only the Book, at the price ladder (shops_math.js listPrice).
     book:   () => ['book'],
   };
 
-  // Shared by pet shops and egg hatching; callers receive their own array.
-  function petItems() { return THEME_POOL.pet(); }
 
   // The line + tier for the Nth shop restored (0-based).
   function themeAt(order) {
@@ -210,7 +208,7 @@
       if (rh[id] !== 'market' || isSoloShop(save, id)) continue;
       let theme, tier;
       // Any line the pools know (a market picked as a Pet Shop before the
-      // line became a one-off keeps selling pets), else the cycle's answer.
+      // line became a one-off keeps its pet accessories), else the cycle's answer.
       if (LINE_RULES[stored[id]] || THEME_POOL[stored[id]]) { theme = stored[id]; tier = storedTier(save, id) ?? 1 + (seen[theme] || 0); }
       else ({ theme, tier } = themeAt(n));
       seen[theme] = (seen[theme] || 0) + 1;
@@ -374,6 +372,6 @@
     ROLE_LABEL, roleLabel, BUILDING_LABEL, TOWER_LABEL,
     THEMED_BATCH_CHANCE, batchStock, themedOfferStock, themedQuantity, traderPrices, traderStock,
     LINE_RULES, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineCount, lineBuildable, themedStock, itemTier,
-    MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed, petItems,
+    MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed,
   };
 })(window);

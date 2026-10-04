@@ -376,7 +376,7 @@
   // Rounded (a softened pool is a fraction of the kind's), never below 1;
   // at power 1 or 2 it is exactly the integer it always was.
   function maxHp(c) {
-    const base = Math.max(1, Math.round(creatureMaxHp(c.kind) * powerMul(c)));
+    const base = Math.max(1, Math.round(creatureMaxHp(c.kind) * powerMul(c) + (isTame(c) && root.Pets ? root.Pets.stats(c).maxHp : 0)));
     return root.PotionEffects ? Math.max(1, Math.ceil((base + root.PotionEffects.maxHpBonus(c))
       * root.PotionEffects.maxHpMul(c))) : base;
   }
@@ -664,24 +664,18 @@
   }
 
   // ── YOURS, not the world's ───────────────────────────────────────────────
-  // A TAME creature: one the player released (save.released — pickUpPet /
-  // release mint its id with TAME_ID_PREFIX). THE one test; a tame slime is
-  // a pet whatever its species. An ALLY is a tame creature or a SUMMONED
-  // one (SpriteLayout.isSummoned — the raven, the bones, the wraith, the
-  // mercenary): it hunts for the player, is never a target, and goes where
-  // it likes (the kerb and the yards are the wild things' rules).
-  const TAME_ID_PREFIX = 'released_';
-  function isTame(c) { return !!c && typeof c.id === 'string' && c.id.startsWith(TAME_ID_PREFIX); }
+  // Ownership is explicit individual state, never inferred from an id prefix.
+  function isTame(c) { return c?.pet === true; }
   function isAlly(c) { return isTame(c) || (!!c && SpriteLayout.isSummoned(c.kind)); }
 
-  // A hostile INSTANCE. A slime tamed with a sapphire (isTame) is a pet: it
+  // A hostile INSTANCE. A fed and captured slime (isTame) is a pet: it
   // must never be shot at, auto-engaged, or counted as "an enemy is on
   // screen" for the auto-fire gate. A rose's temporary ally gets the same
   // targeting exclusion while its charm lasts; buried creatures are likewise
   // unavailable until they surface. Their species remains unchanged.
   function isEnemy(c, now = Date.now()) {
     if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now)) return false;
-    if (isTame(c)) return false;
+    if (isTame(c) || c.favouriteFed) return false;
     return isEnemyKind(c.kind);
   }
 
@@ -716,7 +710,7 @@
   // THIS pet's blow: its kind's bite through the melee formula (a raised
   // pet's double). The fight in scene_creatures.js reads this, never petBite
   // alone.
-  function petBlow(c) { return meleeBlow(c, petBite(c.kind)); }
+  function petBlow(c) { return meleeBlow(c, petBite(c.kind) + (isTame(c) && root.Pets ? root.Pets.stats(c).attack : 0)); }
   // Armed allies share the player weapon reach; other pets keep their bite range.
   function petReachCells(c) {
     const weapon = root.SpriteLayout?.CREATURE_BEHAVIOUR[c.kind]?.meleeWeapon;
@@ -738,6 +732,7 @@
   // step chain) off the one damage stamp.
   const REST_HEAL_MS = 20 * 60 * 1000;
   function healIfRested(c, wall = Date.now()) {
+    if (isTame(c)) return false;
     if (!c._lastDamagedT || wall - c._lastDamagedT < REST_HEAL_MS) return false;
     c._hp = maxHp(c);
     c._lastDamagedT = null;
@@ -748,9 +743,9 @@
   // bypassArmor after computing a packet rate, avoiding a per-frame hit floor.
   function damageDealt(c, amount, options = {}) {
     const before = hp(c);
-    if (isConcealed(c)) return 0;
+    if (isConcealed(c) || (root.Pets && root.Pets.isDown(c))) return 0;
     const raw = Math.max(0, amount) * (root.PotionEffects ? root.PotionEffects.damageMul(c) : 1);
-    const hit = options.bypassArmor ? raw : mitigate(raw, monster(c.kind)?.armor || 0);
+    const hit = options.bypassArmor ? raw : mitigate(raw, (monster(c.kind)?.armor || 0) + (isTame(c) && root.Pets ? root.Pets.stats(c).armor : 0));
     if (hit > 0 && before > 0) c._sleepUntil = 0;
     c._hp = Math.max(0, before - hit);
     return before - c._hp;
@@ -1600,7 +1595,7 @@
     FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
     isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, applyFrostAura, cancelCreatureAction,
-    TAME_ID_PREFIX, isTame, isAlly,
+    isTame, isAlly,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction,
     ENVIRONMENT_SOURCES, isEnvironmentSource,
     canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,

@@ -294,6 +294,10 @@ class SceneCreate {
     // that same texture for inventory, shop offers and pickup toasts.
     window.ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16);
     window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 10, 16, 16);
+    for (const kind of ['slime', 'cave_slime', 'purple_slime', 'fire_slime']) {
+      const art = SpriteLayout.creatureArt(kind);
+      window.ITEM_DATA_URLS[kind] = bakeSheetFrame(art.sheet, 0, 32, 32);
+    }
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
     // Cat + dog use the 32×32 RPG-style sheets (the older 16×16 Icons/Pets

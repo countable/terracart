@@ -169,7 +169,7 @@ test('wander-off sim: it does not bite on the way, even starting in contact', ()
 });
 
 test('wander-off sim: a pet never wanders off its owner', () => {
-  const pet = { kind: 'slime', id: 'released_slime_1757000000000_1', x: CELL, y: 0, _wanderOffInMs: 1 };
+  const pet = { kind: 'slime', pet:true, id: 'released_slime_1757000000000_1', x: CELL, y: 0, _wanderOffInMs: 1 };
   run(fireScene(pet, { _nearAny: () => false }), 1);
   assert.eq(pet._wanderOffUntilT, undefined, 'the schedule never even runs for a pet');
 });

@@ -823,8 +823,8 @@ class SceneConsumables {
   // nothing is spent). The skin follows from isRiding every frame
   // (SpriteLayout.playerArt), and so does the stick's speed and cost.
   toggleHorseRide() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || (ITEM_BY_ID[sel.id]?.base || sel.id) !== 'horse' || (sel.count ?? 0) <= 0) return false;
+    const horse = Pets.ownedKind(this.save, 'horse');
+    if (!horse || Pets.isDown(horse)) return false;
     this.save.riding = !isRiding(this.save);
     persistSave(this.save);
     if (this.save.riding) this.flash(`Stick ×${HORSE_RIDE.speedMul} speed, ×${HORSE_RIDE.energyMul} ⚡`);

@@ -1228,8 +1228,11 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
 // (scene._cellBlocked), a building's wall and a campfire's ward
 // (fireAverse); a flier (orbit_swoop) crosses low terrain.
 function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, escaping = false } = {}) {
-  if (row && !fireStepAllowed(scene, c, x, y, escaping)) return true;
+  if (!fireStepAllowed(scene, c, x, y, escaping)) return true;
+  const trap = characterTrapAt(scene, x, y);
+  if (trap && trap !== characterTrapAt(scene, c.x, c.y)) return true;
   const cell = scene.cellAt(x, y);
+  if (!cell.loaded) return true;
   if (row) {
     if (!cell.loaded) return true;
     if (scene._cellBlocked(x, y)) return true;
@@ -1271,7 +1274,7 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
 // a literal of its own. Both movers read this one predicate through
 // creatureStepRefused (test/node/home_ward.test.js).
 function fireAverse(c, row) { return !c.lair && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH; }
-function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false) {
+function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false, allow = null) {
   let dx = x - c.x, dy = y - c.y;
   const distance = Math.hypot(dx, dy);
   // Sharp plants and spikes are passable. Prefer the body's same short jog
@@ -1279,7 +1282,7 @@ function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = fal
   if (!escaping && distance > 0 && scene._walkHazardExposure?.(c.x, c.y, x, y) > 0) {
     const open = (ox, oy) => {
       const nx = c.x + ox * scene.cellM, ny = c.y + oy * scene.cellM;
-      return enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0;
+      return (!allow || allow(nx, ny)) && enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0;
     };
     const jog = committedDetourDir(c, dx / distance, dy / distance, open, now);
     if (jog) { dx = jog.x * distance; dy = jog.y * distance; }
@@ -1289,9 +1292,9 @@ function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = fal
   let clear = true;
   for (let i = 1; i <= n; i++) {
     const nx = sx + dx * i / n, ny = sy + dy * i / n;
-    if (!enemyCanStep(scene, c, row, nx, ny, escaping)) { clear = false; break; }
+    if ((allow && !allow(nx, ny)) || !enemyCanStep(scene, c, row, nx, ny, escaping)) { clear = false; break; }
     c.x = nx; c.y = ny;
-    if (row.trail && c._laySlimeTrail) enemyLaySlimeTrail(scene, c, row);
+    if (row?.trail && c._laySlimeTrail) enemyLaySlimeTrail(scene, c, row);
   }
   // A blocked sweep can still advance partway. Face only its accepted motion.
   SpriteLayout.updateCreatureFacing(c, c.x - sx, c.y - sy, now);
@@ -1660,33 +1663,84 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   if (lunging) c._lungeHit = true;
 }
 
-// FOE SPACING: foes may brush against each other, but each keeps about
-// FOE_SPACING_CELLS from the next. The push is a unit-scaled vector away from
-// every live foe nearer than that (stronger the closer it is), or null when
-// the foe has room. It steers the step in rosterEnemyMove, inside the foe's own
-// pace; nothing is ever blocked by it, so a crowd can still squeeze through a
-// gap. Exact overlap breaks the tie off the ids, so two stacked foes part.
-// A swooping flier (enemyBatMove) and a lair guard walking home are not pushed.
+// Shared soft spacing for every mobile body. The scene gathers nearby actors
+// once per sim tick, including the player. An injured/stationary body still
+// occupies space; only its own movement is held. Spacing never teleports or
+// spends more than the mover's usual step budget.
 const FOE_SPACING_CELLS = 0.6;
-function foeSpacingPush(scene, c) {
-  const bodies = scene._foeBodies;
+function characterSpacingPush(scene, c) {
+  const bodies = scene._characterBodies || scene._foeBodies;
   if (!bodies || bodies.length < 2) return null;
   const r = FOE_SPACING_CELLS * scene.cellM;
   let x = 0, y = 0;
   for (const o of bodies) {
-    if (o === c) continue;
+    if (o === c || (o.id && o.id === c.id)) continue;
     const dx = c.x - o.x, dy = c.y - o.y;
     if (Math.abs(dx) >= r || Math.abs(dy) >= r) continue;
     const d = Math.hypot(dx, dy);
     if (d >= r) continue;
     const w = (r - d) / r;
     if (d > 1e-6) { x += dx / d * w; y += dy / d * w; continue; }
-    const a = (strHash31(String(c.id)) - strHash31(String(o.id))) % 628 / 100;
-    x += Math.cos(a) * w; y += Math.sin(a) * w;
+    // One axis for the pair, opposite signs for its two members: hashing a
+    // signed difference gives equal cosine pushes and can preserve a pile.
+    const first = String(c.id) < String(o.id), ids = [String(c.id), String(o.id)].sort();
+    const a = (strHash31(ids.join('|')) >>> 0) / 4294967296 * Math.PI * 2;
+    const sign = first ? 1 : -1;
+    x += Math.cos(a) * w * sign; y += Math.sin(a) * w * sign;
   }
   const len = Math.hypot(x, y);
   if (len < 1e-6) return null;
   return len > 1 ? { x: x / len, y: y / len } : { x, y };
+}
+function foeSpacingPush(scene, c) { return characterSpacingPush(scene, c); }
+
+function characterTrapAt(scene, x, y) {
+  if (typeof Traps === 'undefined' || !scene.originPx || !scene.startWorldM) return null;
+  const p = worldMetersToTileCell(scene, x, y);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(p.tx, p.ty));
+  const trap = Traps.trapAt(entry, p.ix, p.iy);
+  return trap && !Traps.isTrapDisarmed(scene.save || {}, trap) ? trap : null;
+}
+
+// Non-roster movers share the enemy's swept steps and committed hazard detour.
+// `pace` also lets a resting follower gently part from overlapping characters.
+function characterMove(scene, c, x, y, now, { pace = Math.hypot(x - c.x, y - c.y), allow = null } = {}) {
+  if (!(pace > 0) || c.stationary || (typeof Pets !== 'undefined' && Pets.isDown(c))) return false;
+  const push = characterSpacingPush(scene, c);
+  let dx = x - c.x + (push?.x || 0) * pace, dy = y - c.y + (push?.y || 0) * pace;
+  const length = Math.hypot(dx, dy);
+  if (length < 1e-9) return false;
+  const step = Math.min(length, pace), sx = c.x, sy = c.y;
+  dx = dx / length * step; dy = dy / length * step;
+  if (!enemySweep(scene, c, null, sx + dx, sy + dy, now, false, allow)) {
+    const remaining = Math.max(0, step - Math.hypot(c.x - sx, c.y - sy));
+    const side = c._avoidSide ?? ((strHash31(c.id || '') & 1) ? 1 : -1);
+    for (const turn of [side, -side]) {
+      const nx = c.x - dy / step * remaining * turn, ny = c.y + dx / step * remaining * turn;
+      if ((allow && !allow(nx, ny)) || creatureStepRefused(scene, c, nx, ny)) continue;
+      if (enemySweep(scene, c, null, nx, ny, now, false, allow)) { c._avoidSide = turn; break; }
+    }
+  }
+  return Math.hypot(c.x - sx, c.y - sy) > 1e-9;
+}
+
+// Release/rejoin seats are deterministic for the individual, but checked live
+// against terrain, traps and other bodies. A crowded/blocked area waits; it
+// never falls back to stacking everyone on the player's feet.
+function characterFreePoint(scene, c, x, y, bodies = scene._characterBodies || scene._foeBodies || []) {
+  const phase = (strHash31(c.id || '') >>> 0) / 4294967296 * Math.PI * 2;
+  for (const ring of [0.8, 1.3, 2, 3]) {
+    for (let i = 0; i < 12; i++) {
+      const angle = phase + i * Math.PI / 6;
+      const nx = x + Math.cos(angle) * ring * scene.cellM, ny = y + Math.sin(angle) * ring * scene.cellM;
+      const probe = { ...c, x: nx, y: ny };
+      if (characterTrapAt(scene, nx, ny) || creatureStepRefused(scene, probe, nx, ny)
+          || enemyWalkHazardRate(scene, nx, ny) > 0) continue;
+      if (bodies.some(o => o !== c && o.id !== c.id && Math.hypot(nx - o.x, ny - o.y) < FOE_SPACING_CELLS * scene.cellM)) continue;
+      return { x: nx, y: ny };
+    }
+  }
+  return null;
 }
 
 // Discovery gates movement and effects for wild animals as well as enemies.

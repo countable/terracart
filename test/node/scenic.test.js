@@ -435,7 +435,7 @@ test('scenic: telescope chooses the nearest unopened real T3+ chest on this leve
 test('scenic: telescope danger ignores defeated, dormant, dead and friendly elites', () => {
   const enemy = (id, x, extra = {}) => ({ kind: 'goblin', id, x, y: 0, shiny: true, ...extra });
   const creatures = [enemy('caught', 1), enemy('dead', 2, { _hp: 0 }),
-    enemy('asleep-surface', 3, { _surfaceInactive: true }), enemy('released_pet', 4),
+    enemy('asleep-surface', 3, { _surfaceInactive: true }), enemy('released_pet', 4, {pet:true}),
     enemy('ordinary', 5, { shiny: false }), enemy('far', 30), enemy('nearest', 15)];
   const found = S.telescopeTarget('elite', { player: { x: 0, y: 0 }, creatures, save: { caught: ['caught'] } });
   assert.eq(found.targetId, 'nearest');

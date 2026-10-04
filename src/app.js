@@ -9379,7 +9379,6 @@ class MapScene extends Phaser.Scene {
       return n;
     }
     const r = Inventory.add(this.save, id, n);
-    if (r.accepted > 0) PetStories.queue(this, id);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     // The wild-finds ledger (items.js homeRecipeLocked): every grant counts
     // unless its caller says it was bought, bartered, forged or crafted.
@@ -9446,7 +9445,8 @@ class MapScene extends Phaser.Scene {
   // One display order for tab counts, paging and pickups. Fixed-tier relics
   // remain ordinary inventory stacks after the equipped tool/weapon slots.
   invDisplayEntriesForCat(catKey) {
-    return [...this.gearEntriesForCat(catKey).map(gear => ({ gear })),
+    const pets = catKey === 'animal' ? Pets.list(this.save).map(pet => ({ pet })) : [];
+    return [...pets, ...this.gearEntriesForCat(catKey).map(gear => ({ gear })),
       ...this.invEntriesForCat(catKey)];
   }
   // Owned relic/armor slots for a gear category, in draw order. One per slot —
@@ -9709,6 +9709,12 @@ class MapScene extends Phaser.Scene {
           slot.textContent = '';
           slot.style.cursor = 'default';
         }
+      } else if (displayList[p]?.pet) {
+        const pet = displayList[p].pet;
+        slot.dataset.pet = pet.id;
+        slot.title = itemName(pet.kind);
+        slot.appendChild(this.renderItemIcon(pet.kind, 32, 'block'));
+        slot.addEventListener('click', e => { e.stopPropagation(); this.presentPetMenu(pet.id); });
       } else if (displayList[p]?.entry) {
         const { idx, entry } = displayList[p];
         const item = ITEM_BY_ID[entry.id];
@@ -10069,13 +10075,17 @@ class MapScene extends Phaser.Scene {
   // too easy to trigger accidentally while tilling / planting under the player).
   hatchEgg() {
     const selectedId = this.save.inv?.[this.save.selSlot]?.id;
-    const result = EggHatch.hatch(this.save);
+    const at = playerWorldM(this), cell = this.playerToWorldCell();
+    const result = EggHatch.hatch(this.save, Math.random, { ...at, tx: cell.tx, ty: cell.ty, depth: this.depth || 0 });
     if (!result.ok) {
       if (result.reason === 'full') this.flash('Make room for a pet first.');
       return false;
     }
     this._eggHatchTracker = null;
-    PetStories.queue(this, result.petId);
+    if (result.creature) {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+      entry?.creatures?.push(WorldGen.makeCreature(result.creature.kind, at.x, at.y, result.creature.id, result.creature));
+    }
     this.save.selSlot = this.save.inv.findIndex(item => item.id === selectedId);
     this._clampSelSlot();
     persistSave(this.save);
@@ -10198,6 +10208,7 @@ installSceneMixin(MapScene, SceneFire);
 // street restoration, lamps and the trail's prizes are scene_streets.js.
 installSceneMixin(MapScene, SceneCreate);
 installSceneMixin(MapScene, SceneConsumables);
+installSceneMixin(MapScene, ScenePets);
 installSceneMixin(MapScene, SceneElevators);
 installSceneMixin(MapScene, SceneArena);
 installSceneMixin(MapScene, SceneVenues);

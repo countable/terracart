@@ -155,7 +155,7 @@
   // ── PADDOCK — a "petting paddock" of RELEASED (tame) pets, one of each
   //    tameable kind, seeded in seedSandboxState(). Lets a tester verify the
   //    purr/cluck pet path, cat-follow timer, and +50% double-produce boost
-  //    without first taming anything. The pets are runtime state (save.released).
+  //    without first feeding and catching anything. The pets are runtime state (save.released).
   const PADDOCK = {
     name: 'PADDOCK', label: 'PETTING PADDOCK', w: 5, h: 7, fill: T.GRASS,
     populate(s) {
@@ -1366,6 +1366,8 @@
     save.scarecrows = [];
     scene.tilledSet.clear();
     save.released = [];
+    save.wildAnimals = [];
+    save.animalFeeds = {};
     save.restoredHouses = save.restoredHouses || {};
     const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
 
@@ -1449,23 +1451,23 @@
       if (!scene.placedRockSet.has(key)) scene.placedRockSet.add(key);
     }
 
-    // ── PADDOCK: one RELEASED (tame) pet of each tameable kind. Tame animals
-    //    (id starts 'released_') trigger the pet path on tap; cats follow for
-    //    5 min; produce-givers double-yield. They live in save.released.
+    // ── PADDOCK: one bonded individual per species, plus wild growth samples.
     const PADDOCK_PETS = ['cat', 'dog', 'cow', 'chicken', 'butterfly'];
     PADDOCK_PETS.forEach((kind, i) => {
       const dx = 1 + (i % 3), dy = 1 + Math.floor(i / 3) * 3;
       const { cellIX, cellIY } = sceneCell('PADDOCK', dx, dy);
       const { x, y } = cellCenter(cellIX, cellIY);
-      save.released.push({ x, y, kind, id: `released_${kind}_sandbox_${i}`,
-        tx: centreTX, ty: centreTY });
+      const animal = { x, y, kind, id: `sandbox_${kind}_${i}`, tx: centreTX, ty: centreTY };
+      Pets.feedWild(save, animal, kind === 'chicken' ? 'potato_seed' : ANIMAL_FOOD[kind][0]);
+      const row = Pets.bond(save, animal, { carried: false });
+      Object.assign(row, { stayHome: true, petHomeX: x, petHomeY: y });
     });
 
     for (const [i, extra] of [{ raised: true, born: Date.now(), favouriteFeeds: 0, shiny: true },
       { shiny: true }].entries()) {
       const { cellIX, cellIY } = sceneCell('PADDOCK', 1 + i * 2, 6);
-      save.released.push({ ...cellCenter(cellIX, cellIY), kind: 'chicken',
-        id: `released_chicken_sandbox_growth_${i}`, tx: centreTX, ty: centreTY, ...extra });
+      (save.wildAnimals ||= []).push({ ...cellCenter(cellIX, cellIY), kind: 'chicken',
+        id: `sandbox_chicken_growth_${i}`, tx: centreTX, ty: centreTY, ...extra });
     }
 
     // ── RECREATION (park): a scarecrow beside the crow so its aversion ring is

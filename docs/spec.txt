@@ -87,13 +87,12 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    no wild deer near dispatches one just off-screen on a timer
    (`creature_ai.js` `PEST_DISPATCH_MS`), so farming on hard is not an
    unattended income. On easy only the deer and crows a tile spawns raid.
- - wild deer and crow are GAME, hunted with the BUG NET's wheel (never a
-   weapon — see CREATURES).
- - each fauna can be tamed with a favourite food (`items.js` `ANIMAL_FOOD`;
-   the slime with a sapphire).
- - tame animals wander near their release point and can be petted (see
-   CREATURES).
- - damaged animals heal to full after a while with no damage.
+ - wild deer and crow are GAME; equipped-weapon taps start a hunt using
+   the BUG NET's timed wheel, while fed animals can be caught (see CREATURES).
+ - feed an animal its favourite food (`items.js` `ANIMAL_FOOD`) before
+   catching it. Only catching completes the pet bond.
+ - pets keep individual state while carried, following or staying Home.
+ - pets recover energy gradually; favourite food fills their energy.
 
 # biomes
 Different map polygons rasterize to tiles according to rules
@@ -437,31 +436,26 @@ CREATURES
  - spawned per tile, seeded, biased to fitting biomes (`BIOME_FAUNA`); only
    simulated near the player. Domestic, wild and pest kinds; behaviour is a
    row of `SpriteLayout.CREATURE_BEHAVIOUR`.
- - CATCHING vs TAMING are SEPARATE:
-     * CATCH = a work wheel with an empty hand (or any non-food). The animal
-       flees while the wheel runs; if it escapes, the catch fails. Finishing
-       it puts the LIVE animal in the bag. The Bug Net speeds the wheel.
-     * TAME = feed the FAVOURITE food (`ANIMAL_FOOD`). The animal befriends in
-       place as a tame pet; it does not enter the bag.
-     * PLANT PRODUCE fed to a chicken or cow gives an egg or milk, on a
-       per-animal cooldown; a recently petted animal may give double.
-     * any other food → YUCK.
- - GAME (crow / deer) is HUNTED, not caught: the Bug Net's wheel, never a
-   weapon. Game is not an enemy — nothing auto-fires at it, so a hunt is
-   always something you chose. A hunted crow leaves on its own rhythm, so the
-   wheel races its perch (`CROW_DEPART_HOP`). A hunted deer may turn on you.
-   ENEMIES (`Combat.isEnemy`) are fought instead — see COMBAT.
- - RELEASE: select a caught animal and tap a passable cell. Released animals
-   persist in `save.released`.
- - PET: tap a tame animal holding food for a petting boost; a petted cat
-   follows you for a while. A treat is eaten; other food is a free pet.
- - PICK UP: a tame pet leaves the world only through `pickUpPet` (CLAUDE.md
-   "Combat, energy and Home"): no wheel, no energy, no shiny windfall. A
-   raised pet keeps its identity while carried.
+ - FEED THEN CATCH: favourite food makes that individual catchable, without
+   bonding it. A catch wheel finishes the bond; a net speeds the wheel. Fed
+   slimes are caught by tapping. Unfed animals cannot be caught.
+ - One owned animal per species, including carried and deployed pets. Release
+   the current individual before catching another. Variants share species.
+ - Plant produce fed to a producer gives its species yield on a per-animal
+   cooldown. Other food on a wild animal is refused.
+ - Unfed GAME (crow / deer) can still be deliberately hunted with an equipped
+   weapon and empty hand. The hunt uses the Bug Net's timed work wheel. Fed
+   game animals follow the ordinary catching rules.
+ - Owned pets open their individual menu on tap. Carrying and setting down
+   preserve identity, colour, growth, energy, bonuses and accessories. Release
+   relinquishes ownership and returns accessories.
+ - Favourite food restores full energy. A pet at zero energy rests upside
+   down for one minute, then returns with one energy; it regenerates slowly.
+ - Eggs and nest discoveries reveal wild babies. They still need favourite
+   food and catching before becoming pets.
  - SCARECROW: a placeable item that wild crows and deer steer around.
- - SLIMES are an energy-leeching PEST and an ENEMY: they ooze toward the
-   player and leech when adjacent (armour applies). Not catchable or
-   feedable; they can be fought or walked away from.
+ - SLIMES are hostile when wild. Sapphire prepares a slime for catching;
+   feeding it alone does not make it a pet.
 
 ================================================================================
 COMBAT

@@ -345,10 +345,12 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   there, never a timer, colour or label of its own.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
-- A tame pet leaves the world only through `pickUpPet` (interact.js): a bare
-  hand pockets it, food pets it. "In the bag" is `save.caught`; a raised pet's
-  `save.released` row stays while carried and `release` hands it back
-  (`carriedRaisedRow`), so growth never lives on a stack.
+- `Pets` owns individual pet records in `save.released` (`pet: true`), including
+  carried animals. Favourite feeding prepares one wild animal; catching it
+  completes the bond. Only one pet per species, including baby/shiny variants.
+  Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
+  ownership. Stats, tint, accessories, growth and recovery stay on that record.
+  Pet shops sell accessories. Eggs hatch wild babies that use the same gate.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap

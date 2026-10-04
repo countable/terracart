@@ -108,7 +108,7 @@ const FILES = [
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
   // Fight maths (pure; combat.test.js registers a synthetic monster table).
-  'ground_fire.js', 'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
+  'ground_fire.js', 'combat.js', 'pets.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure, so wizard.test.js drives the shipping rules.
   'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js',
   'interact.js',
@@ -181,8 +181,6 @@ const BRIDGE = `;Object.assign(globalThis, {
   wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
-  // Pocketing a tame pet and the carried raised row — pet_pickup.test.js.
-  pickUpPet, petPickupItemId, carriedRaisedRow,
   Quests, questEnemies, questAnimals, STARTER_CHAIN,
 });`;
 try {

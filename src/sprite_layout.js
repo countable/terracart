@@ -579,13 +579,9 @@
   // `movement` (creature_ai.js rosterEnemyMove); the loop below only gives
   // each row `wanders` (and `haunts` for a ghost) so the sim thinks for it.
   //
-  // Animal feeding and petting read one timing row; the Book derives its
-  // lessons from it.
+  // Animal production and the Book read the same cooldown.
   const ANIMAL_INTERACTION = Object.freeze({
     produceCooldownMs: 60 * 60 * 1000,
-    petBoostMs: 10 * 60 * 1000,
-    doubleYieldChance: 0.5,
-    followMs: 5 * 60 * 1000,
   });
   const CREATURE_BEHAVIOUR = {
     npc:           { wanders: true },
@@ -604,7 +600,7 @@
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
-    cat:           { wanders: true, concealment: 'stealthy', pet: true, follows: true, prey: new Set(['crow']) },
+    cat:           { wanders: true, concealment: 'stealthy', pet: true, prey: new Set(['crow']) },
     dog:           { wanders: true, pet: true, prey: new Set(['deer', 'slime']) },
     // `fightsBack`: GAME that turns on the hunter. Starting a hunt on it
     // (interact.js) enrages it for `rageMs`; while enraged it charges at its
@@ -642,11 +638,11 @@
     // stride; the beat is the bite. It is NOT an
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
-    spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
-    summoned_skeleton: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
+    spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, stepMs: 1000, stepCells: 0.7 },
+    summoned_skeleton: { wanders: true, summoned: true, preysOnFoes: true,
       get stepMs() { return EnemyRoster.get('skeleton').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
-    summoned_wraith: { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
-    mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true, meleeWeapon: 'sword',
+    summoned_wraith: { wanders: true, summoned: true, preysOnFoes: true, stepMs: 1000, stepCells: 0.7 },
+    mercenary: { wanders: true, summoned: true, preysOnFoes: true, meleeWeapon: 'sword',
       get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (a butterfly never outpaces
     // 6 m/s) — over its gait, its bolt and the net wheel's flee. A shiny's cap
@@ -710,8 +706,6 @@
   // Does this hunter take every FOE (Combat.isEnemy) and every pest deer,
   // rather than a `prey` list of kinds? creature_ai.js huntsPrey answers it.
   function preysOnFoes(kind) { return !!creatureBehaviour(kind)?.preysOnFoes; }
-  // Does a petted one follow the player? ANIMAL_INTERACTION owns the window.
-  function creatureFollows(kind) { return !!creatureBehaviour(kind)?.follows; }
   // Is a target cell within a ward of `what` ('scarecrow') refused to it?
   function creatureAvoids(kind, what) {
     const a = creatureBehaviour(kind)?.avoids;
@@ -994,7 +988,7 @@
     NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
-    creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
+    creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureAvoids, isSummoned, preysOnFoes,
     creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,

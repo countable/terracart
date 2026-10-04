@@ -60,7 +60,7 @@ test('combat: game and livestock are NOT enemies (hunting stays a tap)', () => {
 
 test('combat: a TAMED slime is a pet, not a target', () => {
   assert.truthy(Combat.isEnemy({ kind: 'slime', id: 'slime_7' }), 'a wild slime is a foe');
-  assert.truthy(!Combat.isEnemy({ kind: 'slime', id: 'released_slime_7' }),
+  assert.truthy(!Combat.isEnemy({ kind: 'slime', pet: true, id: 'released_slime_7' }),
     'a sapphire-tamed slime must never be auto-fired at');
 });
 

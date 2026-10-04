@@ -66,7 +66,7 @@ test('fire contact: every unit catches fire and ticks through its damage path', 
   });
   for (const c of [
     { kind: 'skeleton', id: 'foe', x: 1, y: 0 },
-    { kind: 'slime', id: 'released_1', x: 1, y: 0 },
+    { kind: 'slime', pet: true, id: 'released_1', x: 1, y: 0 },
     { kind: 'chicken', id: 'animal', x: 1, y: 0 },
     { kind: 'npc', id: 'neighbour', x: 1, y: 0 },
     { kind: 'spirit_raven', id: 'ally', x: 1, y: 0 },
@@ -106,10 +106,11 @@ test('fire damage: wildlife, pets, allies and NPCs keep their existing defeat or
   scene.cancelWorkProgress = () => { scene._workProgress = null; };
   scene._damageBurningUnit(animal, 2, 'burn', 1000);
   assert.eq(scene._workProgress, null, 'a dead animal cannot finish the catch wheel');
-  const pet = { kind: 'dog', id: 'released_dog', _hp: 1 };
+  const pet = { kind: 'dog', pet: true, id: 'released_dog', _hp: 1 };
+  scene.save.released=[{...pet,hp:1}];
   assert.falsy(scene._damageBurningUnit(pet, 2, 'burn', 1000));
-  assert.eq(pet._hp, 1);
-  assert.eq(pet._retreatUntilT, 1000 + Companions.RECOVERY_MS);
+  assert.eq(pet._hp, 0);
+  assert.truthy(pet.recoverUntil >= Date.now() + Companions.RECOVERY_MS - 100);
   const ally = { kind: 'spirit_raven', id: 'ally', _hp: 1 };
   assert.truthy(scene._damageBurningUnit(ally, 2, 'burn', 1000));
   assert.truthy(ally._spent);

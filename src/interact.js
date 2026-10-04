@@ -51,118 +51,25 @@ function consumeSelected(save, n = 1) {
   save.selSlot = -1;
 }
 
-// Count only a favourite meal actually consumed, on both the live pet and its
-// saved release row. (A tame pet leaves the world only by pickUpPet below.)
+// Food is consumed only after the individual animal accepts it.
 function consumePetFood(save, pet, foodId) {
   const sel = getSelectedSlot(save);
   if (!sel || sel.id !== foodId || !(sel.count > 0)) return false;
   consumeSelected(save);
-  if (pet.raised && animalLikesFood(pet.kind, foodId)) {
-    const row = save.released?.find(r => r.id === pet.id);
-    const feeds = Math.min(SpriteLayout.PET_BABY.feeds, (row?.favouriteFeeds ?? pet.favouriteFeeds ?? 0) + 1);
-    pet.favouriteFeeds = feeds;
-    if (row) row.favouriteFeeds = feeds;
-  }
   return true;
 }
 
-// Unique id for an animal/slime released (or tamed) at a spot. `extra`
-// disambiguates a batch released in the same tick (the per-item index).
-function releasedId(kind, extra) {
-  const tail = extra === undefined ? '' : `_${extra}`;
-  return `released_${kind}_${Date.now()}_${Math.floor(Math.random() * 1e6)}${tail}`;
-}
-
-// Befriend a wild creature IN PLACE: consume the treat, mark the wild one caught
-// so it stops respawning, then re-add it as a tame 'released_' pet at the same
-// spot (so the bond survives reloads / tile re-rasterise) and convert the
-// in-world object's id to the tame id. Shared by the mango (universal) and
-// favourite-food taming paths — they differ only in the flash icon/scale.
-function tameInPlace(scene, save, target, flashMsg, flashIcon, flashScale) {
-  consumeSelected(save);
-  scene.buildInventoryDOM();
-  if (!save.caught.includes(target.id)) save.caught.push(target.id);
-  const tx = Math.floor(target.x / scene.tileEdgeM);
-  const ty = Math.floor(target.y / scene.tileEdgeM);
-  const tameId = releasedId(target.kind);
-  const policy = Companions.releasePolicy(scene, target.x, target.y);
-  save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny, ...policy });
-  Object.assign(target, policy);
-  // A tame animal no longer belongs to its old hostile spawn or garrison.
-  for (const key of ['_surfaceSpawn', '_surfaceInactive', '_surfaceAskedT', 'lair', 'immobile',
-    'lairX', 'lairY', 'lairR', 'seatX', 'seatY', 'aggroCells', 'proximityCells',
-    '_wardFrom', '_hunting', '_chaseTarget', '_wanderOffUntilT']) delete target[key];
-  target.id = tameId;   // convert the in-world creature in place → now tame
-  PetStories.queue(scene, target.kind);
-  scene.flashLoot(flashMsg, '#a7ffb0', flashScale, flashIcon);
-  persistSave(save);
-}
-
-// PICK UP a tame pet (a 'released_' id) — the owner's own animal goes
-// straight into the bag: no wheel, no flee, no energy, and never the shiny
-// windfall (awardShinyBonus pays cash every time, so a re-pocketed shiny pet
-// must not farm it). Returns false when the kind has no bag item (a sapphire-
-// tamed slime) so the tap falls through to petting; true once handled, even
-// when the bag was full (the pet stays where it is).
-//   The bag's stacks are fungible, so a RAISED pet (nest bush / hatched egg:
-// `raised`, `born`, `favouriteFeeds`) would lose its growth in a plain stack.
-// Its save.released row therefore STAYS while it is carried, with its id in
-// save.caught — the one flag the spawner and the wander loop already read for
-// "not in the world" — and `release` below hands that row back to the first
-// baby_/shiny_ of the kind set down (carriedRaisedRow). A plain pet's row is
-// dropped as catchCreature drops it. The item a raised pet pockets as is its
-// state NOW: still a baby → baby_<kind>, grown → shiny_<kind> (a raised pet is
-// always shiny). Its clock keeps running in the bag, which changes nothing a
-// player can see: adulthood also needs its seven meals (isBabyPet).
-function petPickupItemId(c) {
-  if (c.raised) return SpriteLayout.isBabyPet(c) ? babyItemId(c.kind) : `shiny_${c.kind}`;
-  if (c.shiny && ITEM_BY_ID[`shiny_${c.kind}`]) return `shiny_${c.kind}`;
-  return c.kind;
-}
-function pickUpPet(scene, save, target, sx, sy) {
-  if (SpriteLayout.isSummoned(target.kind)) return false;
-  const invId = petPickupItemId(target);
-  const item = ITEM_BY_ID[invId];
-  if (!item || item.kind !== 'animal') return false;
-  if (Inventory.roomFor(save, invId) < 1) {
-    scene.flash('Make room for a pet first.', sx, sy);
-    return true;
-  }
-  if (!save.caught.includes(target.id)) save.caught.push(target.id);
-  const ri = save.released.findIndex(r => r.id === target.id);
-  const raised = !!(target.raised || (ri >= 0 && save.released[ri].raised));
-  if (ri >= 0 && raised) {
-    save.released[ri].hp = Combat.hp(target);
-    save.released[ri].lastDamagedAt = target._lastDamagedT ?? null;
-  }
-  if (ri >= 0 && !raised) save.released.splice(ri, 1);
-  const tracked = scene._travellingPets?.get(target.id);
-  const entries = new Set([...WorldGen.tileCache.values(), tracked?.entry]);
-  for (const entry of entries) {
-    if (!entry?.creatures) continue;
-    for (let i = entry.creatures.length - 1; i >= 0; i--) {
-      if (entry.creatures[i].id === target.id) entry.creatures.splice(i, 1);
-    }
-  }
-  scene._travellingPets?.delete(target.id);
-  scene.addToInv(invId, 1);
-  scene.flashLoot(`+1 ${item.name || invId}`, raised || item.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
-  persistSave(save);
-  return true;
-}
-// The carried raised row a set-down baby_/shiny_ of `kind` brings back, or
-// null for a fresh birth / a plain shiny. A row still a baby answers a baby
-// item and a grown row a shiny one; a baby item with only grown rows left
-// takes one of those (it grew up in the bag), a shiny item never takes a
-// baby's row. Stacks are indistinguishable, so whichever release gets which
-// row, the pets that come back are the pets that were picked up.
-function carriedRaisedRow(save, kind, wantBaby) {
-  const caught = save.caught || [];
-  const rows = (save.released || []).filter(r => r && r.raised && r.kind === kind && caught.includes(r.id));
-  if (!rows.length) return null;
-  const exact = rows.find(r => SpriteLayout.isBabyPet(r) === !!wantBaby);
-  if (exact) return exact;
-  return wantBaby ? rows[0] : null;
+// Egg and nest discoveries stay wild until fed and caught, just like wildlife.
+function placeFoundAnimal(scene, itemId, sourceId, x, y) {
+  const kind = ITEM_BY_ID[itemId]?.base || itemId;
+  const id = `found_${sourceId}`;
+  const tx = Math.floor(x / scene.tileEdgeM), ty = Math.floor(y / scene.tileEdgeM);
+  const row = { id, kind, x, y, tx, ty, raised: true, born: Date.now(),
+    favouriteFeeds: 0, shiny: true, pet: false };
+  (scene.save.wildAnimals ||= []).push(row);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+  entry?.creatures?.push(WorldGen.makeCreature(kind, x, y, id, row));
+  return row;
 }
 
 // True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is
@@ -726,29 +633,8 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 1) Tap a creature within 4m. The outcome depends on what's in the
-  // selected inventory slot:
-  //
-  //   FAVOURITE FOOD                 → catch (consumes 1, spends energy).
-  //                                    chicken→any seed, cow→pairy,
-  //                                    cat→milk or any fish, dog→meat.
-  //   PLANT PRODUCE on chicken/cow   → feed for produce: consume the
-  //                                    plant, gain 1 egg (chicken) or
-  //                                    1 milk (cow). Any crop produce or
-  //                                    wild plant works (longgrass,
-  //                                    shrub, nut, rockfruit, flowers,
-  //                                    farmed crops…). Animal stays.
-  //   ANY OTHER FOOD on this animal  → YUCK: consume the food anyway, no
-  //                                    catch, no produce. (Cats/dogs
-  //                                    turn up their nose at plants;
-  //                                    chickens/cows refuse meat / dairy.)
-  //   NOTHING / non-food selected    → flash a hint with the favourite.
-  // PRIORITY: creature checks happen BEFORE wildplant / object / cell so a
-  // tap near any nearby animal always reads as "I'm trying to interact with
-  // the animal." A tap on a tree two metres from a chicken will trigger the
-  // chicken handler (favourite-food hint / catch / yuck), not the chop —
-  // step away from the animal to chop the tree. This is intentional: in
-  // practice missing a chicken tap is more frustrating than missing a tree.
+  // Creature taps use drawn sprite bounds. Favourite food prepares a wild
+  // individual for catching; owned animals open their individual pet menu.
   { name: 'creature', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
     // Every creature is drawn FEET-ANCHORED (setOrigin(0.5, 0.9) in render.js),
@@ -817,52 +703,42 @@ const TAP_HANDLERS = [
     if (tooFar(ctx, target.x, target.y)) return 'far';
     if (target.kind === 'npc') { NPC.interact(scene, target, sx, sy); return true; }
 
-    // MANGO — the universal tame treat. Feeding a mango to ANY wild creature
-    // (livestock, cats/dogs, even pests like slimes / crows / deer) befriends
-    // it in place instead of catching or fighting. Checked before the slime /
-    // DEFEAT / favourite-food paths so mango always wins. Already-tame pets
-    // (id starts with 'released_') skip this and fall through to petting.
     const isTame = Combat.isTame(target);
-    const _mangoSel = getSelectedSlot(save);
-    // Catchable animals retain feeding and netting even when hostile in the wild.
-    const catchableAnimal = ITEM_BY_ID[target.kind]?.kind === 'animal';
-    // Other monsters can't be befriended — they're DEFEAT-only foes.
-    if (!isTame && (catchableAnimal || !Combat.isMonster(target.kind)) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
-      const doMangoTame = () => tameInPlace(scene, save, target,
-        `🥭 tamed ${itemName(target.kind)}`, 'mango', 1.2);
-      confirmFeed(scene, 'mango', target.kind, doMangoTame);
+    const catchableAnimal = ITEM_BY_ID[target.kind]?.kind === 'animal' || !!ANIMAL_FOOD[target.kind];
+    const sel = getSelectedSlot(save);
+    const likes = sel && animalLikesFood(target.kind, sel.id);
+    const producerMeal = sel?.count > 0 && ITEM_BY_ID[sel.id]?.crop
+      && ITEM_BY_ID[sel.id]?.kind === 'produce' && !!SpriteLayout.creatureProduce(target.kind);
+    if (isTame && (likes || !producerMeal)) {
+      if (likes && sel.count > 0) {
+        const food = sel.id;
+        confirmFeed(scene, food, target.kind, () => {
+          const held = getSelectedSlot(save);
+          if (held?.id !== food || !(held.count > 0) || !Pets.feed(save, target, food)) return;
+          consumeSelected(save);
+          scene.buildInventoryDOM();
+          scene.flashLoot('Favourite food: full energy', '#a7ffb0', 1, food);
+          persistSave(save);
+        });
+      } else scene.presentPetMenu(target.id);
       return true;
     }
-
-    // PESTS / HUNTABLES — slimes, crows and deer are DEFEATED rather than
-    // caught alive, and the two halves now diverge (see combat.js):
-    //
-    //   ENEMIES (wild slime + every cave monster) fight on the HP-driven
-    //   COMBAT wheel. The ring is the foe's health, a sword (or bare hands)
-    //   drains it while the wheel runs, and bow/staff shots drain the same
-    //   pool. The combat tick chooses the closest enemy automatically.
-    //
-    //   GAME (crow / deer) keeps the old timed work wheel: nothing auto-fires
-    //   at them and no shot can hit them, so a hunt is still a deliberate tap.
-    //   The BUG NET is what speeds it — see the isGame branch below.
-    //
-    // Either way the defeat is FREE (no energy spent): your TIME is the cost,
-    // which also means you can still kill the very slime that's draining you
-    // when low on energy.
-
-    // Secret: slime can be tamed with a sapphire. Hinted in ONE place — the
-    // closing riddle in PLAY_TIPS — and nowhere else: ITEM_EFFECTS.sapphire
-    // names the portal, which is the sapphire's advertised use.
-    // Checked before the enemy branch below so the sapphire path wins over the
-    // combat wheel — otherwise you'd stab the slime you meant to befriend.
-    if (target.kind === 'slime') {
-      const selNow = getSelectedSlot(save);
-      if (selNow?.id === 'sapphire' && (selNow.count ?? 0) > 0) {
-        // The one taming lane (tameInPlace): the release policy, the garrison
-        // fields cleared, the shiny flag kept, persisted.
-        tameInPlace(scene, save, target, '💎 slime tamed!', 'sapphire', 1.2);
+    if (catchableAnimal && likes && sel.count > 0) {
+      if (Pets.ownedKind(save, target.kind)) {
+        scene.flash('Release this species first', sx, sy);
         return true;
       }
+      const food = sel.id;
+      confirmFeed(scene, food, target.kind, () => {
+        const held = getSelectedSlot(save);
+        if (held?.id !== food || !(held.count > 0) || Pets.ownedKind(save, target.kind)
+          || !Pets.feedWild(save, target, food)) return;
+        consumeSelected(save);
+        scene.buildInventoryDOM();
+        scene.flashLoot('Fed — ready to catch', '#a7ffb0', 1, food);
+        persistSave(save);
+      });
+      return true;
     }
 
     // A rose befriends an enemy temporarily; it does not make it catchable.
@@ -883,8 +759,9 @@ const TAP_HANDLERS = [
     // HUNTING — GAME only, which is crow and deer: SpriteLayout.isGame reads
     // the one creature table, so what may be hunted is written beside what
     // that kill drops instead of in a set of its own here. A pet of any kind
-    // falls through to petting below.
-    if (!isTame && SpriteLayout.isGame(target.kind)) {
+    // opens its individual menu above.
+    if (SpriteLayout.isGame(target.kind) && !Pets.fed(save, target)
+      && !sel && Gear.activeWeapon(save)) {
       const r = save.relics || {};
       // ONE TOOL TAKES ANIMALS: the BUG NET. Weapons fight ENEMIES
       // (combat.js); the net takes GAME and livestock alike, on the same slot
@@ -925,103 +802,10 @@ const TAP_HANDLERS = [
       if (fb) victim._rageUntil = Date.now() + fb.rageMs;
       return true;
     }
-    // Catchable animals (chicken/cow/cat/dog/rabbit/butterfly) all flow through
-    // the unified tame-or-catch logic below: favourite food TAMES (befriends in
-    // place); an empty hand starts the CATCH work queue. Slimes/crows/deer were
-    // defeated above and never reach here.
-    const sel = getSelectedSlot(save);
     const selItem = sel ? ITEM_BY_ID[sel.id] : null;
     const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
-    // "Plant produce" = anything tagged kind:'produce' that came from a plant
-    // — farmed crops carry an `item.crop` ref; longgrass too.
-    // Excludes egg / milk (also kind:'produce' but they're animal-source).
     const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
-
-    // ── TAME PETS — released animals (id starts with 'released_'). Tame
-    // pets never get "yuck'd"; tapping them while holding FOOD plays
-    // a brief species-specific happy interaction (cluck / purr / etc.),
-    // arms the shared petting-boost timer and its next-yield double chance,
-    // and - for cats - kicks off the shared follow timer the wander loop honours. (isTame is decided above, before the mango path;
-    // an empty hand or a tool PICKS THE PET UP instead — pickUpPet, just above.)
-    // A tame PRODUCER (cow / chicken) fed PLANT PRODUCE must fall through to the
-    // produce path below — that's where milk / eggs are granted and where the
-    // petting boost armed here is consumed. Without this exception the isTame
-    // block swallows every tap, so a tame cow/chicken only ever gets petted and
-    // never produces (the reported "cow gives no milk when fed" bug). Petting
-    // with an empty hand or a non-produce treat still runs the pet branch.
-    const tameProducerFeed = isTame && isPlantProduce && (sel?.count ?? 0) > 0
-      && !!SpriteLayout.creatureProduce(target.kind);
-    // FOOD IS OFFERED, A HAND TAKES. Holding anything an animal could eat (a
-    // treat, produce, a seed, a bite it won't want) pets the animal below; an
-    // EMPTY hand or a tool picks the pet UP into the bag (pickUpPet) — the
-    // same split the wild branch makes between feeding and the catch wheel,
-    // minus the wheel: it is yours.
-    const offering = sel && (sel.count ?? 0) > 0
-      && (isEdible || isPlantProduce || selItem?.kind === 'seed' || animalLikesFood(target.kind, sel.id));
-    if (isTame && !offering && pickUpPet(scene, save, target, sx, sy)) return true;
-    if (isTame && !tameProducerFeed) {
-      const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
-                      butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort',
-                      crab: 'click', horse: 'whinny', sea_turtle: 'blink' };
-      const sound = SOUND[target.kind] || 'happy';
-      // Petting accepts the favourite OR plant produce as a treat. Treats
-      // get consumed; an empty-handed pet is free. animalLikesFood handles
-      // species-specific quirks (e.g. tame chicken accepts any seed).
-      const likesTame = sel && animalLikesFood(target.kind, sel.id);
-      const isTreat = sel && (sel.count ?? 0) > 0
-        && (likesTame || isPlantProduce);
-      // Pet the animal: arm the shared double-yield boost and (for treats) eat
-      // the held item. Both the in-memory timer and a persisted EPOCH-ms mirror
-      // are set — creatures are re-spawned from tile data on every reload and
-      // lose their in-memory _pettedUntilT (a performance.now value that also
-      // resets to ~0 on reload), so the produce path below reads the persisted
-      // copy; otherwise the boost would silently never survive a tile change.
-      const ANIMAL_INTERACTION = SpriteLayout.ANIMAL_INTERACTION;
-      const doPet = () => {
-        if (isTreat && !consumePetFood(save, target, sel.id)) return;
-        target._pettedUntilT = performance.now() + ANIMAL_INTERACTION.petBoostMs;
-        Ledger.stamp(save, 'petBoost', target.id, Date.now() + ANIMAL_INTERACTION.petBoostMs);
-        // A kind that FOLLOWS once petted (the cat) starts the shared follow
-        // window - the same `follows` flag wanderCreatures reads to honour it.
-        if (SpriteLayout.creatureFollows(target.kind)) {
-          target._followUntilT = performance.now() + ANIMAL_INTERACTION.followMs;
-        }
-        if (isTreat) {
-          scene.buildInventoryDOM();
-        }
-        // The boost is timed, so the flash says for how long — before this it
-        // was the one buff in the game with no readout at all, and a player
-        // who petted a cow had no way to know the double-yield window.
-        scene.flashLoot(`💗 ${sound} - ${shortDuration(ANIMAL_INTERACTION.petBoostMs)}`, '#ff8aff', 0.85);
-        persistSave(save);
-      };
-      // A treat is FED → confirm what's going to the pet first. An empty-handed
-      // (or non-treat) pet consumes nothing, so it stays instant.
-      if (isTreat) {
-        confirmFeed(scene, sel.id, target.kind, doPet);
-      } else {
-        doPet();
-      }
-      return true;
-    }
-
-    // 1. Favourite food → TAME (befriend in place), NOT catch. Converts the
-    // wild animal into a tame 'released_' pet at its spot: it stays in the
-    // world, becomes pettable / produces / follows, but does NOT enter your
-    // inventory. Capturing-into-inventory is the separate CATCH work queue
-    // below. animalLikesFood handles the chicken-eats-any-seed special case.
-    // Guarded on !isTame so an already-tame cow fed its favourite (pairy, which
-    // is also plant produce) doesn't re-tame — it falls through to milk instead.
-    const likes = sel && animalLikesFood(target.kind, sel.id);
-    if (!isTame && sel && likes && (sel.count ?? 0) > 0) {
-      const favId = sel.id;
-      const doTame = () => tameInPlace(scene, save, target,
-        `🐾 tamed ${itemName(target.kind)}`, target.kind, 1);
-      confirmFeed(scene, favId, target.kind, doTame);
-      return true;
-    }
-    // 2. Plant produce → produce (chicken / cow only). Recently-petted
-    // tame animals roll the shared chance for a double yield.
+    // Plant produce gives the species yield on its per-animal cooldown.
     //
     // Per-creature production cooldown: each chicken / cow only yields once
     // per ANIMAL_INTERACTION.produceCooldownMs. The last-yield timestamp lives on
@@ -1051,15 +835,7 @@ const TAP_HANDLERS = [
         const feedId = sel.id;
         const doFeed = () => {
           if (!consumePetFood(save, target, feedId)) return;
-          // Petting boost: prefer the persisted epoch-ms expiry (survives reload)
-          // and fall back to the in-memory timer for boosts armed this session.
-          const petted = Ledger.waitMs(save.petBoost, target.id) > 0
-            || (target._pettedUntilT && target._pettedUntilT > performance.now());
-          const yieldN = petted && Math.random() < ANIMAL_INTERACTION.doubleYieldChance ? 2 : 1;
-          if (petted) {                            // consume the boost (both copies)
-            delete save.petBoost[target.id];
-            target._pettedUntilT = 0;
-          }
+          const yieldN = 1;
           scene.addToInv(yieldId, yieldN);
           scene.buildInventoryDOM();
           scene.flashLoot(`+${yieldN} ${itemName(yieldId)}`, '#a7ffb0', 1, yieldId);
@@ -1088,14 +864,20 @@ const TAP_HANDLERS = [
       confirmFeed(scene, yuckId, target.kind, doYuck);
       return true;
     }
-    // 4. CATCH via work queue. Reached with an empty hand (or any non-food,
-    // non-favourite selection) — favourite food TAMED above, edible food was
-    // yuck'd above. The animal FLEES the player at 2 m/s while the wheel runs
-    // (startCatchProgress); if it stays outside the player's reach for 1 s the
-    // catch fails (butterflies: 2.7× faster flee, 2 s grace). A Bug Net shortens
-    // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
-    // that a slow target usually slips out of reach and escapes. Butterflies
-    // catch bare-handed too — no tool gate.
+    if (isTame) { scene.presentPetMenu(target.id); return true; }
+    // The food requirement and species slot are checked before any energy or work.
+    if (!Pets.canCatch(save, target)) {
+      const food = target.kind === 'chicken' ? 'a seed' : itemName(ANIMAL_FOOD[target.kind]?.[0] || 'favourite food');
+      const msg = Pets.ownedKind(save, target.kind)
+        ? 'Release this species first' : `Feed ${food} first`;
+      scene.flash(msg, sx, sy);
+      return true;
+    }
+    // Fed slimes are picked up by a tap; other animals use the net work wheel.
+    if (SpriteLayout.baseKind(target.kind) === 'slime') {
+      scene.catchCreature(target, sx, sy);
+      return true;
+    }
     let catchMs = toolDurationMs(save.relics, 'net') * CATCH_SPEED_MUL;
     // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
     // a shiny animal (which also flees at SHINY_SPEED_MUL, app.js) is much harder to net: it
@@ -1112,7 +894,7 @@ const TAP_HANDLERS = [
     // story. After the spend, so an unaffordable attempt tells neither.
     scene._catchStory?.(victim);
     scene.startCatchProgress(victim, catchMs, () => {
-      scene.catchCreature(victim, sx, sy);
+      if (Pets.canCatch(save, victim)) scene.catchCreature(victim, sx, sy);
     }, () => {
       // On the cell the animal escaped FROM (where it stands now), not the
       // viewport centre.
@@ -1178,10 +960,6 @@ const TAP_HANDLERS = [
         // standing, unpicked, to be chopped again once there is.
         const nest = isNestBush(wp.crop, wp.id) ? nestBushContents(wp.id) : null;
         const babyId = nest?.type === 'baby' ? nest.item : null;
-        if (babyId && Inventory.roomFor(save, babyId) < 1) {
-          scene.flash('Make room for a pet first.', sx, sy);
-          return false;
-        }
         if (wp.tide) {
           Macros.markToday(save, wp.id);
         } else {
@@ -1212,7 +990,7 @@ const TAP_HANDLERS = [
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
         // The nest bush's baby, and the card that shows it.
         if (babyId) {
-          scene.addToInv(babyId, 1);
+          placeFoundAnimal(scene, babyId, wp.id, wp.x, wp.y);
           persistSave(save);
           if (typeof scene.showBabyFound === 'function') scene.showBabyFound(babyId, 'bush');
         } else if (nest) {
@@ -1442,8 +1220,7 @@ const TAP_HANDLERS = [
     // MAKES something of it (items.js CAMPFIRE_MAKES: meat → grilled meat,
     // the cooked foods) or, for anything else, asks "Burn <name>?" and destroys
     // one on yes (app.js presentBurnConfirm). Empty-handed, the tap falls
-    // through to extinguish-fire. Runs before `release` so a held animal
-    // over a fire is a burn question, not a release into the flames.
+    // through to extinguish-fire.
     const { scene, save } = ctx;
     const sel = getSelectedSlot(save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
@@ -1465,55 +1242,6 @@ const TAP_HANDLERS = [
     ctx.dirty = true;
     scene.buildInventoryDOM();
     scene.flashLoot(`🔥 ${itemName(made)}`, '#ffb070', 1, made);
-    return true;
-  }},
-
-  { name: 'release', try: (ctx) => {
-    const { scene, save, sx, sy, cwmx, cwmy, cell } = ctx;
-    const sel = getSelectedSlot(save);
-    const item = sel ? ITEM_BY_ID[sel.id] : null;
-    if (!(item && item.kind === 'animal' && (sel.count ?? 0) > 0)) return false;
-    if (!isTillableCell(cell)) {
-      scene.flash("can't release here", sx, sy);
-      return true;
-    }
-    // Shiny animals release as their plain kind (so the world creature
-    // renders + behaves normally) but carry a shiny flag so they tint gold and
-    // re-catch back into the shiny stack.
-    const baseKind = item.base || item.id;
-    // A BABY (items.js BABY_KINDS) is born the moment it is set down: `raised`
-    // + `born` ride the save row and the live creature alike, and both the
-    // size (SpriteLayout.isBabyPet) and, once grown, the double strength
-    // (combat.js raisedMul) read them. A raised pet is always shiny.
-    const isBaby = !!item.baby;
-    const tx = Math.floor(cwmx / scene.tileEdgeM);
-    const ty = Math.floor(cwmy / scene.tileEdgeM);
-    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    // A raised pet PICKED UP earlier (pickUpPet) comes back as itself: its row
-    // kept its id, birth and meals while its id sat in save.caught, so the
-    // row moves here and the mark comes off instead of a new birth.
-    const carried = carriedRaisedRow(save, baseKind, isBaby);
-    const isShinyItem = !!item.shiny || isBaby || !!carried;
-    const birth = carried
-      ? { raised: true, born: carried.born, favouriteFeeds: carried.favouriteFeeds || 0 }
-      : isBaby ? { raised: true, born: Date.now(), favouriteFeeds: 0 } : {};
-    const id = carried ? carried.id : releasedId(baseKind);
-    const policy = Companions.releasePolicy(scene, cwmx, cwmy);
-    if (carried) {
-      Object.assign(carried, { x: cwmx, y: cwmy, tx, ty, ...policy });
-      save.caught = save.caught.filter(cid => cid !== id);
-    } else {
-      save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth, ...policy });
-    }
-    if (entry && entry.creatures) {
-      entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem, ...birth, ...policy,
-        ...(carried?.hp != null ? {_hp:carried.hp} : {}),
-        _lastDamagedT:carried?.lastDamagedAt ?? null }));
-    }
-    consumeSelected(save);
-    ctx.dirty = true;
-    scene.buildInventoryDOM();
-    scene.flash(`released ${item.name || item.id}`, sx, sy);
     return true;
   }},
 

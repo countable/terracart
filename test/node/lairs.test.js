@@ -272,9 +272,9 @@
     // the ice and the sheen: it says something about the instance too.)
     // (A status that has JUST landed — `flick`, Combat.statusFlashTint —
     // flicks over all of them for the instant: it is the event, not a state.)
-    assert.truthy(/s\.setTint\(flick != null \? flick : chilled \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : poisoned \? Conditions\.DEFINITIONS\.poison\.tint : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
+    assert.truthy(/s\.setTint\(flick != null \? flick : chilled \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : poisoned \? Conditions\.DEFINITIONS\.poison\.tint : c\.shiny \? SHINY_TINT : pet && Number\.isFinite\(c\.tint\) \? c\.tint : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
       .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
-    assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
+    assert.truthy(/const baseSheet = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
       'and picks the monster sheet from the table, not an if-else chain');
   });
 

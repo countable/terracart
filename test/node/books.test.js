@@ -245,7 +245,7 @@ test('stories: animal pages hint at produce and companionship', () => {
   assert.truthy(/egg/.test(produce), 'feeding is told through its produce');
   assert.gt(a.produceCooldownMs, 0, 'produce retains a cooldown');
   assert.truthy(/follow/.test(follow), 'the cat story hints at companionship');
-  assert.gt(a.followMs, 0, 'companionship has a real duration');
+  assert.eq(a.followMs, undefined, 'owned companionship no longer expires on a petting timer');
 });
 
 test('mechanics: ranged weapons keep their cadence and sensory hints', () => {

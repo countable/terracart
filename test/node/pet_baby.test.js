@@ -84,7 +84,7 @@ function chopBush(id, scene, save) {
   } finally { globalThis.WorldGen = original; }
 }
 const bushScene = (save, over) => Object.assign(makeScene(), {
-  save, cellM: 5, cellsPerTile: 32, mPerPx: 5 / (WorldGen.TILE_PX / 32), originPx: { x: 0, y: 0 },
+  presentPetMenu() {}, save, cellM: 5, cellsPerTile: 32, mPerPx: 5 / (WorldGen.TILE_PX / 32), originPx: { x: 0, y: 0 },
   startWorldM: { x: 0, y: 0 }, playerM: { x: 2.5, y: 2.5 }, feetOffsetM: 0, depth: 0, tileEdgeM: 1000,
   playerToWorldCell: () => ({ tx: 0, ty: 0 }), buildInventoryDOM: () => {}, _toolActionStory: () => {},
 }, over);
@@ -99,7 +99,9 @@ test('nest bush: chopping one pays the wood AND one baby, with the card; a plain
     assert.eq(chopBush(nest, scene, save), true);
     assert.eq(scene.invCount('wood'), 1);
     const babies = [...babyIds].reduce((n, id) => n + scene.invCount(id), 0);
-    assert.eq(babies, 1, 'exactly one baby');
+    assert.eq(babies, 0, 'babies are individuals, not stacks');
+    assert.eq(save.wildAnimals.length, 1);
+    assert.falsy(save.wildAnimals[0].pet);
     assert.eq(save.picked.filter(x => x === nest).length, 1, 'the bush is picked once');
   }
   assert.eq(cards.length, 40); assert.truthy(cards.every(([id, how]) => babyIds.has(id) && how === 'bush'));
@@ -131,18 +133,6 @@ test('nest bush: nonbaby contents emerge once without awarding an inventory baby
   } finally { globalThis.spawnNestBushCreature = original; }
 });
 
-test('nest bush: a full bag leaves the bush standing to chop again', () => {
-  const nest = firstNestBush(true);
-  const save = { picked: [], energy: 100, relics: {}, inv: [] };
-  for (const id of babyItems()) Inventory.add(save, id, Inventory.stackCap(save));
-  const flashes = [];
-  const scene = bushScene(save, { flash: (m) => flashes.push(m), showBabyFound: () => { throw new Error('no card'); } });
-  assert.eq(chopBush(nest, scene, save), true);
-  assert.eq(scene.invCount('wood'), 0, 'no wood either — nothing was taken');
-  assert.eq(save.picked.length, 0, 'unpicked');
-  assert.truthy(flashes.some(m => /room/i.test(m)));
-});
-
 test('egg: hatches a baby, never an adult', () => {
   const save = { inv: [] };
   Inventory.add(save, 'egg', 1);
@@ -152,35 +142,12 @@ test('egg: hatches a baby, never an adult', () => {
   assert.includes(SCENE_SRC, "this.showBabyFound(result.petId, 'egg')");
 });
 
-test('release: a baby is set down as a raised, shiny, newborn tame pet', () => {
-  const entry = { creatures: [] };
-  const original = globalThis.WorldGen;
-  const save = { inv: [], selSlot: 0, released: [], caught: [] };
-  Inventory.add(save, 'baby_dog', 1);
-  const scene = bushScene(save);
-  const before = Date.now();
-  try {
-    globalThis.WorldGen = { ...original, tileCache: new Map([[original.tileKey(0, 0), entry]]) };
-    const ok = TAP_HANDLERS.find(h => h.name === 'release').try({ scene, save, sx: 0, sy: 0, cwmx: 12, cwmy: 18, cell: TERRAIN.GRASS ?? 0 });
-    assert.eq(ok, true);
-  } finally { globalThis.WorldGen = original; }
-  assert.eq(save.released.length, 1);
-  const row = save.released[0], c = entry.creatures[0];
-  assert.eq(row.kind, 'dog'); assert.truthy(row.id.startsWith('released_dog_'), 'tame id');
-  assert.truthy(row.shiny, 'a raised pet is always shiny'); assert.truthy(row.raised);
-  assert.inRange(row.born, before, Date.now());
-  assert.eq(row.favouriteFeeds, 0); assert.eq(c.favouriteFeeds, 0);
-  assert.truthy(c && c.kind === 'dog' && c.shiny && c.raised && c.born === row.born, 'the live creature carries the same birth');
-  assert.eq(Inventory.count(save, 'baby_dog'), 0);
-  // A plain dog released the same way is neither raised nor shiny.
-  const save2 = { inv: [], selSlot: 0, released: [], caught: [] };
-  Inventory.add(save2, 'dog', 1);
-  const entry2 = { creatures: [] };
-  try {
-    globalThis.WorldGen = { ...original, tileCache: new Map([[original.tileKey(0, 0), entry2]]) };
-    TAP_HANDLERS.find(h => h.name === 'release').try({ scene: bushScene(save2), save: save2, sx: 0, sy: 0, cwmx: 12, cwmy: 18, cell: TERRAIN.GRASS ?? 0 });
-  } finally { globalThis.WorldGen = original; }
-  assert.falsy(save2.released[0].shiny); assert.falsy(save2.released[0].raised); assert.eq(save2.released[0].born, undefined);
+test('nest: a found baby remains wild until fed and caught', () => {
+  const save = { picked: [], energy: 100, relics: {}, inv: [] };
+  chopBush(firstNestBush(true), bushScene(save), save);
+  const baby = save.wildAnimals[0];
+  assert.truthy(baby.raised); assert.truthy(baby.shiny);
+  assert.falsy(Combat.isTame(baby)); assert.falsy(Pets.canCatch(save, baby));
 });
 
 test('baby pet: adulthood requires seven days AND seven favourite meals', () => {
@@ -223,8 +190,15 @@ test('raised pet: shiny babies and grown adults double HP and bite without stack
   assert.includes(SCENE_CREATURES_SRC, 'Combat.damage(tgt, Combat.petBlow(c))');
 });
 
-test('reload: a released row\'s birth rides back onto the live creature', () => {
-  assert.includes(SCENE_CREATURES_SRC, "...(r.raised ? { raised: true, born: r.born, favouriteFeeds: r.favouriteFeeds || 0 } : {})");
+test('reload: a bonded baby retains its individual birth and meals', () => {
+  const save = { inv: [], caught: [], released: [] };
+  const baby = { id: 'found_baby', kind: 'dog', raised: true, born: Date.now() - DAY_MS };
+  Pets.feedWild(save, baby, 'meat');
+  const pet = Pets.bond(save, baby);
+  const restored = Pets.get(JSON.parse(JSON.stringify(save)), pet.id);
+  assert.eq(restored.born, baby.born);
+  assert.eq(restored.favouriteFeeds, 1);
+  assert.truthy(restored.raised);
 });
 
 
@@ -240,12 +214,12 @@ function feedBaby(pet, save, foodId, overrides = {}) {
   } finally { globalThis.WorldGen = original; globalThis.cellInReach = originalReach; }
 }
 
-test('baby feeding: favourites count per pet, ordinary treats and petting do not', () => {
-  const pet = { kind: 'dog', id: 'released_dog_feed', x: 2.5, y: 2.5, raised: true, born: Date.now() - 8 * DAY_MS, favouriteFeeds: 0 };
+test('baby feeding: favourites count per pet, other food does not', () => {
+  const pet = { kind: 'dog', id: 'pet_dog_feed', pet: true, x: 2.5, y: 2.5, raised: true, born: Date.now() - 8 * DAY_MS, favouriteFeeds: 0 };
   const row = { ...pet };
   const other = { ...pet, id: 'released_dog_other' };
   const save = { caught: [], released: [row, other] };
-  // (An empty hand no longer pets: it picks the pet up — pet_pickup.test.js.)
+  // Other food opens the individual menu without consuming a meal.
   for (const food of ['apple', 'milk']) {
     assert.eq(feedBaby(pet, save, food), true);
     assert.eq(pet.favouriteFeeds, 0);
@@ -262,9 +236,9 @@ test('baby feeding: favourites count per pet, ordinary treats and petting do not
   assert.eq(Combat.raisedMul(pet), 2, 'seventh meal unlocks adult power after a week');
 });
 
-test('baby feeding: producer favourites count only when consumed, not during cooldown', () => {
+test('baby feeding: producer favourite meals heal and grow without a production cooldown', () => {
   for (const kind of ['cow', 'chicken']) {
-    const pet = { kind, id: `released_${kind}_feed`, x: 2.5, y: 2.5, raised: true, born: Date.now(), favouriteFeeds: 0 };
+    const pet = { kind, id: `pet_${kind}_feed`, pet: true, x: 2.5, y: 2.5, raised: true, born: Date.now(), favouriteFeeds: 0 };
     const save = { caught: [], released: [{ ...pet }] };
     const food = kind === 'cow' ? ANIMAL_FOOD.cow[0] : 'potato_seed';
     assert.truthy(animalLikesFood(kind, food));
@@ -272,11 +246,10 @@ test('baby feeding: producer favourites count only when consumed, not during coo
     assert.eq(pet.favouriteFeeds, 1);
     if (kind === 'cow') {
       assert.eq(feedBaby(pet, save, food), true);
-      assert.eq(pet.favouriteFeeds, 1);
-      assert.eq(Inventory.count(save, food), 1, 'cooldown refuses the meal');
-      save.lastProduce[pet.id] = 0; pet._lastProduceT = 0;
+      assert.eq(pet.favouriteFeeds, 2);
+      assert.eq(Inventory.count(save, food), 0);
       feedBaby(pet, save, 'apple');
-      assert.eq(pet.favouriteFeeds, 1, 'non-favourite produce earns no growth');
+      assert.eq(pet.favouriteFeeds, 2, 'non-favourite produce earns no growth');
     }
   }
 });
@@ -297,7 +270,7 @@ test('baby discovery: nest and egg stories teach favourite meals and a week to a
 });
 
 test('baby feeding: a cancelled confirmation or missing meal grants no progress', () => {
-  const pet = { kind: 'dog', id: 'released_dog_cancel', x: 2.5, y: 2.5, raised: true, born: Date.now(), favouriteFeeds: 0 };
+  const pet = { kind: 'dog', id: 'pet_dog_cancel', pet: true, x: 2.5, y: 2.5, raised: true, born: Date.now(), favouriteFeeds: 0 };
   const save = { caught: [], released: [{ ...pet }] };
   let confirm;
   const testMode = window.__TEST_MODE;

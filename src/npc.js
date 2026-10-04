@@ -222,7 +222,15 @@ const NPC = (() => {
     // across their old path. Small steps cannot skip a road cell or building.
     dt = Math.min(0.1, Math.max(0, dt));
     c._moving = false;
-    if (now < (c._npcRestUntil || 0)) return;
+    const allow = (x, y) => {
+      const dest = scene.cellAt(x, y);
+      return dest.loaded && !dest.underRoad && !Combat.faunaBlocksCell(dest.type) && !WorldGen.isRoadTerrain(dest.type)
+        && Math.hypot(x - (c.homeX ?? c.x), y - (c.homeY ?? c.y)) <= scene.cellM * WANDER_CELLS;
+    };
+    if (now < (c._npcRestUntil || 0)) {
+      c._moving = characterMove(scene, c, c.x, c.y, now, { pace: WALK_MPS * dt * Combat.paceMul(c), allow });
+      return;
+    }
     if (!c._npcRng) c._npcRng = WorldGen.makeRng(fnv1a(`${c.id}:walk`));
     if (!c._npcSteps || c._npcSteps <= 0) {
       const angle = c._npcRng() * Math.PI * 2;
@@ -234,10 +242,9 @@ const NPC = (() => {
     }
     const step = WALK_MPS * dt * Combat.paceMul(c);
     const x = c.x + c._npcDX * step, y = c.y + c._npcDY * step;
-    const dest = scene.cellAt(x, y);
-    const blocked = !dest.loaded || dest.underRoad || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)
-      || Math.hypot(x - (c.homeX ?? c.x), y - (c.homeY ?? c.y)) > scene.cellM * WANDER_CELLS;
-    if (!blocked) { c.x = x; c.y = y; c._moving = dt > 0; c._faceFlip = c._npcDX < 0; }
+    const moved = characterMove(scene, c, x, y, now, { pace: step, allow });
+    const blocked = dt > 0 && !moved;
+    c._moving = moved;
     c._npcSteps -= dt;
     if (blocked || c._npcSteps <= 0) {
       c._npcSteps = 0;

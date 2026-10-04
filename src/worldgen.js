@@ -82,7 +82,7 @@
   function makeCreature(kind, x, y, id, extra) {
     // Wild animals wait for discovery; released pets are already known.
     const behaviour = SpriteLayout.creatureBehaviour(kind);
-    const concealment = typeof id === 'string' && id.startsWith('released_') ? null
+    const concealment = extra?.pet === true ? null
       : behaviour?.concealment || (extra?.shiny && typeof ITEM_BY_ID !== 'undefined'
         && ITEM_BY_ID[kind]?.kind === 'animal' ? 'hidden' : null);
     return { kind, x, y, id, ...(concealment ? { [concealment]: true } : {}), ...extra };

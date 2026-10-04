@@ -4,10 +4,10 @@
 // player is told when it ends, and `onDefeat` — what happens when the ally's
 // HP runs out (knockedOut below): every timed ally is 'spent' (gone; a
 // mercenary DIES — owner, Oct 2026 — hire again), where a released pet
-// retreats home at 1 HP instead.
+// rests in place for one minute instead.
 (function (root) {
   'use strict';
-  const RECOVERY_MS = 30000;
+  const RECOVERY_MS = 60000;
   const KINDS = {
     spirit_raven: { field: 'spiritRavenUntil', instance: '_spiritRaven', onDefeat: 'spent',
       get durationMs() { return SPIRIT_RAVEN_MS; },
@@ -27,7 +27,7 @@
   // potion's damage): a timed ally (its KINDS row, `onDefeat` 'spent') is
   // SPENT — flagged here, lifted off the map and its contract ended by tick
   // below (never spliced out of a list a scan is walking); a released pet
-  // comes back at 1 HP and retreats home for RECOVERY_MS. Returns true when
+  // rests in place for RECOVERY_MS, then wakes at 1 HP. Returns true when
   // the ally is gone.
   function knockedOut(scene, c, now = performance.now()) {
     c._chaseTarget = null;
@@ -35,8 +35,8 @@
       c._spent = true;
       return true;
     }
-    c._hp = 1;
-    c._retreatUntilT = now + RECOVERY_MS;
+    Pets.knockedOut(scene.save, c);
+    persistSave(scene.save);
     return false;
   }
   const HOME_PET_CELLS = 2;
@@ -47,8 +47,8 @@
   }
   function follows(c, now = performance.now()) {
     if (SpriteLayout.isSummoned(c.kind)) return !c._spent && c._followUntilT > now;
-    if (Combat.isTame(c)) return !c.stayHome;
-    return SpriteLayout.creatureFollows(c.kind) && c._followUntilT > now;
+    if (Combat.isTame(c)) return !Pets.isDown(c) && !c.carried && !c.stayHome;
+    return false;
   }
   function rememberPetHealth(row, creature) {
     const hp = Combat.hp(creature), lastDamagedAt = creature._lastDamagedT ?? null;
@@ -64,15 +64,16 @@
     const pc = scene.playerToWorldCell(), entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     if (!entry?.creatures) return;
     const { x: px, y: py } = playerWorldM(scene);
-    const caught = new Set(scene.save.caught || []);
+
     const live = new Map(), owners = new Map();
     const travelling = scene._travellingPets ||= new Map();
     for (const tile of WorldGen.tileCache.values()) for (const c of tile.creatures || []) {
       if (Combat.isTame(c)) { live.set(c.id, c); owners.set(c.id,tile); }
     }
+    const bodies = [{id:'player',x:px,y:py}, ...live.values()];
     let changed = false;
-    for (const r of scene.save.released) {
-      if (caught.has(r.id)) { travelling.delete(r.id); continue; }
+    for (const r of Pets.list(scene.save)) {
+      if (r.carried) { travelling.delete(r.id); if (Pets.tick(scene.save,r,wall)) changed=true; continue; }
       const tracked = travelling.get(r.id);
       let c = tracked?.creature || live.get(r.id);
       if (r.stayHome == null) {
@@ -80,7 +81,10 @@
         if (c) Object.assign(c, {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY});
         changed = true;
       }
-      if (c) Object.assign(c, {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY});
+      if (c) {
+        if (Pets.tick(scene.save,c,wall)) changed=true;
+        Object.assign(c, {stayHome:r.stayHome,petHomeX:r.petHomeX,petHomeY:r.petHomeY});
+      } else if (Pets.tick(scene.save,r,wall)) changed=true;
       if (r.stayHome) {
         if (c && rememberPetHealth(r, c)) changed=true;
         travelling.delete(r.id);
@@ -102,8 +106,11 @@
           if (i >= 0) tile.creatures.splice(i, 1);
         }
         c = c || WorldGen.makeCreature(r.kind, px, py, r.id, {...r, _lastDamagedT:r.lastDamagedAt ?? null, ...(r.hp != null ? {_hp:r.hp} : {})});
-        Object.assign(c, {x:px,y:py,_startX:px,_startY:py,_targetX:px,_targetY:py,_nextChooseT:0,_chaseTarget:null});
+        const point = characterFreePoint(scene,c,px,py,bodies);
+        if (!point) continue;
+        Object.assign(c, {x:point.x,y:point.y,_startX:point.x,_startY:point.y,_targetX:point.x,_targetY:point.y,_nextChooseT:0,_chaseTarget:null});
         entry.creatures.push(c);
+        if (!bodies.includes(c)) bodies.push(c);
         owners.set(r.id,entry);
       }
       travelling.set(r.id,{creature:c,entry:owners.get(r.id)});

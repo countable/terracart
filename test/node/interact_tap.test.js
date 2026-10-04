@@ -246,16 +246,8 @@ test('flavor handler: the same grass cell without the road band still tills', ()
   assert.falsy(flavor.try(ctx), 'missing underRoad field = tillable as before');
 });
 
-test('release handler: animals cannot be released onto a road-band cell', () => {
-  const release = TAP_HANDLERS.find(h => h.name === 'release');
-  const seen = [];
-  const scene = makeScene({ flash: (msg) => seen.push(msg) });
-  const save = { inv: [{ id: 'chicken', count: 4 }], selSlot: 0, released: [] };
-  const ctx = Object.assign(makeCtx(scene, save), { cwmx: 0, cwmy: 0 });
-  ctx.cell = { type: TERRAIN.GRASS, underRoad: true };
-  assert.truthy(release.try(ctx), 'release consumes the tap');
-  assert.eq(seen[0], "can't release here", 'refused on the road band');
-  assert.eq(save.inv[0].count, 4, 'no animal consumed');
+test('pet placement: animal inventory stacks have no release tap handler', () => {
+  assert.falsy(TAP_HANDLERS.some(h => h.name === 'release'));
 });
 
 test('TAP_HANDLERS: plant precedes till (a tilled cell is planted, not re-tilled)', () => {
@@ -638,7 +630,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'disarm-trap',
     'building-zone',
     'fire-held',
-    'release',
     'pickup-rock',
     'pickup-scarecrow',
     'place-scarecrow',
@@ -876,8 +867,8 @@ test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   // creature table's `game` row, read through SpriteLayout.isGame — beside
   // what a kill of that kind drops (app.js resolveDefeat), so the two halves
   // of "crow and deer are hunted" cannot name different kinds.
-  const huntStart = src.indexOf("if (!isTame && SpriteLayout.isGame(target.kind)) {");
-  const hunt = src.slice(huntStart, src.indexOf('// Catchable animals', huntStart));
+  const huntStart = src.indexOf("if (SpriteLayout.isGame(target.kind) && !Pets.fed(save, target)");
+  const hunt = src.slice(huntStart, src.indexOf('const selItem =', huntStart));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
   assert.eq(Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k)).join(),
     'deer,crow', 'and the table still calls exactly the crow and the deer game');

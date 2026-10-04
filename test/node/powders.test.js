@@ -292,7 +292,7 @@ test('frost: a chilled creature is SLOWED, never pinned — half pace, half cade
   assert.truthy(Combat.applyFrost(d, 1000));
   assert.eq(d._attackWindupUntil, 7000, 'the wind-up stands');
   assert.eq(d._frozenUntil, until + 5000, 'a shorter chill never cuts a longer one short');
-  assert.falsy(Combat.applyFrost({ id: 'released_slime', kind: 'slime' }, 1000), 'never a pet');
+  assert.falsy(Combat.applyFrost({ id: 'pet_slime', kind: 'slime', pet: true }, 1000), 'never a pet');
   // The roster mover moves a chilled foe at half its pace.
   const s = { cellM: 7, depth: 2, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _cellBlocked: () => false,
     _nearAny: () => false, isUnnoticed: () => false, save: { energy: 100 }, placedRockSet: null };

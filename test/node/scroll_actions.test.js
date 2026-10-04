@@ -73,7 +73,7 @@ test('scroll actions: screen effects exclude offscreen enemies, caught foes, ani
     { id: 'offscreen', kind: 'goblin', x: 101, y: 20 },
     { id: 'caught', kind: 'goblin', x: 20, y: 20 },
     { id: 'crow', kind: 'crow', x: 20, y: 20 },
-    { id: 'released_pet', kind: 'slime', x: 20, y: 20 }];
+    { pet: true, id: 'released_pet', kind: 'slime', x: 20, y: 20 }];
   const s = scene('fear_scroll', creatures);
   s.save.caught = ['caught'];
   const targets = s._onscreenEnemies();

@@ -134,7 +134,7 @@ test('lava: surface vents respect enemy immunity, pets and the shared burn coold
     _damageEnemy: (c, damage, source) => { hurt.push({c, damage, source}); return false; }};
   const mortal = {kind: 'skeleton'};
   lavaTick(scene, {kind: 'red_demon'}, 1000);
-  lavaTick(scene, {kind: 'slime', id: 'released_slime_1'}, 1000);
+  lavaTick(scene, {kind: 'slime', pet: true, id: 'released_slime_1'}, 1000);
   lavaTick(scene, {kind: 'skeleton', fireResistancePotionUntil: Date.now() + 180000}, 1000);
   lavaTick(scene, mortal, 1000); lavaTick(scene, mortal, 1100);
   assert.eq(hurt.length, 1); assert.eq(hurt[0].source, 'lava');

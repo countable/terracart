@@ -9,9 +9,9 @@
   // picked —, the placed things, the rolling ledgers and the per-building
   // stamps). A field already holding the right shape is left alone.
   const SAVE_DEFAULTS = Object.freeze({
-    caught: [], released: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
+    caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
     magicTraps: [], donated: [],
-    petBoost: {}, lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
+    animalFeeds: {}, lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
     trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
     castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
   });
@@ -27,6 +27,10 @@
   function normalize(save) {
     let needsPersist = false;
     defaults(save);
+    if (typeof ITEM_BY_ID !== 'undefined' && Array.isArray(save.inv) && save.inv.some(row => ITEM_BY_ID[row.id]?.kind === 'animal')) {
+      save.inv = save.inv.filter(row => ITEM_BY_ID[row.id]?.kind !== 'animal');
+    }
+    save.released = save.released.filter(row => row?.pet === true && typeof row.id === 'string');
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
     if (typeof Shrines !== 'undefined') Shrines.normalize(save);
     const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)

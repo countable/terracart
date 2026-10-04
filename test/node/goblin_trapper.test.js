@@ -442,7 +442,7 @@ test('magic trap: an ENEMY on the cell is held and hurt as a player kill; the tr
   assert.gte(foe._frozenUntil, before + Combat.fireIntervalMs('staff'), 'chilled one staff beat (the frost slow)');
   assert.eq(scene.save.magicTraps.map((t) => t.id).join(), other.id, 'the sprung trap is spent, the other kept');
   // A tamed slime is a pet, never a target.
-  const pet = { kind: 'slime', id: 'released_slime_1', x: 9.5 * CELL, y: 9.5 * CELL };
+  const pet = { kind: 'slime', pet: true, id: 'released_slime_1', x: 9.5 * CELL, y: 9.5 * CELL };
   const t2 = tickScene([pet], [{ ...other }]);
   t2.run();
   assert.eq(t2.hits.length, 0, 'a pet walks over it');

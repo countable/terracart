@@ -60,12 +60,13 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
   assert.falsy(Shops.themedStock('potion', 6).includes('elixir'), 'Elixir waits for T7');
   assert.truthy(Shops.themedStock('potion', 7).includes('elixir'), 'T7 magic shop stocks Elixir');
   assert.falsy(Shops.THEME_POOL.potion().includes('orb'), 'Orb is reward-only');
-  // A pet shop stocks every pet across its rounds.
+  // Pet shops sell accessories; ownership always starts with food and catching.
   const pets = new Set();
   for (let tier = 1; tier <= 7; tier++) for (const id of Shops.themedStock('pet', tier)) pets.add(id);
-  for (const id of ['chicken', 'cow', 'cat', 'dog', 'deer', 'rabbit', 'crow', 'butterfly']) {
+  for (const id of ['pet_collar', 'pet_guard_collar', 'pet_fang_charm', 'pet_rest_charm']) {
     assert.truthy(pets.has(id), 'the pet shop sells ' + id);
   }
+  for (const id of pets) assert.falsy(ITEM_BY_ID[id].kind === 'animal', 'no live pet sales');
   // The magical flower seeds stay find-only.
   for (let tier = 1; tier <= 7; tier++) {
     for (const id of Shops.themedStock('seed', tier)) assert.truthy(BUY_LIST.includes(id), id + ' is a shop seed');
