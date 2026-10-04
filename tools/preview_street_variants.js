@@ -10,7 +10,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'interactables', 'loot', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'coords', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'macros', 'interactables', 'loot', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 // Use the same shared geometry pass as the scene street-lamp renderer.
