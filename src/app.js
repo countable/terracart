@@ -681,13 +681,6 @@ const DMG_POPUP_BEAT_MS = 500;
 // wheel that says WHICH tool you are swinging — but a touch under 1 so the
 // sprite being worked still shows through, as the ring's own alphas do.
 const WORK_TOOL_ALPHA = 0.85;
-// How long ONE drawn sword swing lasts, in ms — the slash sweeps across its
-// arc over this window, then fades. A swing is drawn BY the blow that lands
-// it (_drawWorkProgress' combat branch), so the blade and the number it earns
-// share the one cadence — Combat.MELEE_INTERVAL_MS — instead of the blade
-// running on a throttle of its own. Comfortably shorter than that interval so
-// one slash finishes before the next starts, whatever the weapon's tier.
-const SWORD_SWING_MS = 220;
 // Screen-px lift on a drawn shot. Shots fly between FOOT positions (the anchor
 // every creature and the player use), so without this they'd skim the ground
 // under the bodies they hit.
@@ -4850,32 +4843,31 @@ class MapScene extends Phaser.Scene {
     const g = this.swordSwingGfx;
     if (!g) return;
     g.clear();
+    this._meleeWeaponSprite?.setVisible(false);
     const sw = this._swing;
     if (!sw) return;
-    const t = (performance.now() - sw.startT) / SWORD_SWING_MS;
-    if (t >= 1) { this._swing = null; return; }
-    // Sweep a wide arc centred on the direction of the target: the LEADING
-    // edge is the blade's current position, the trailing edge a fixed slice
-    // behind it, so the stroke reads as a slash in flight rather than a
-    // wedge appearing all at once (the same "trailing streak" idea _drawShots
-    // uses for an arrow, just swept angularly instead of along a line).
-    const baseAngle = Math.atan2(sw.dir.y, sw.dir.x);
-    const SWEEP = Math.PI * 0.6;                    // ~108° tip-to-tip
-    const startA = baseAngle - SWEEP / 2;
-    const headA = startA + SWEEP * t;
-    const tailA = startA + SWEEP * Math.max(0, t - 0.35);
+    const pose = Render.meleePose(sw, performance.now(), sw.weapon || 'fist');
+    if (!pose) { this._swing = null; return; }
     const ps = this.playerScreen();
-    const cx = ps.x;
-    const cy = ps.y + this.playerFeetNudgeY - 8;   // roughly chest height
-    const R = 15;
-    // Fade only in the closing stretch — a slash that's visible then vanishes
-    // instantly reads as a glitch, not a completed swing.
-    const alpha = t < 0.7 ? 0.9 : 0.9 * (1 - (t - 0.7) / 0.3);
-    g.lineStyle(3, 0xe8ecf0, alpha);
-    g.beginPath();
-    g.arc(cx, cy, R, tailA, headA, false);
-    g.strokePath();
+    const cx = ps.x, cy = ps.y + this.playerBodyDy();
+    Render.drawMelee(g, pose, cx, cy);
+    if (sw.texture && this.textures.exists(sw.texture)) {
+      if (!this._meleeWeaponSprite) {
+        this._meleeWeaponSprite = this.add.image(0, 0, sw.texture, 0).setDepth(12);
+        this.playerWorldContainer.add(this._meleeWeaponSprite);
+        this.playerWorldContainer.sort('depth');
+      }
+      // The existing icons point northeast, with the grip at bottom-left.
+      const handRadius = sw.weapon === 'lance' ? pose.radius * 0.4 : pose.radius - 7;
+      const grip = sw.weapon === 'lance' ? 0.25 : 0.3;
+      this._meleeWeaponSprite.setTexture(sw.texture, 0).setVisible(true)
+        .setOrigin(grip, 1 - grip).setScale(sw.weapon === 'lance' ? 1.7 : 1.3)
+        .setPosition(cx + Math.cos(pose.angle) * handRadius,
+          cy + Math.sin(pose.angle) * handRadius)
+        .setRotation(pose.angle + Math.PI / 4).setAlpha(pose.alpha);
+    }
   }
+
   _drawWorkProgress() {
     // Independent of wp — a killing blow clears _workProgress the instant it
     // lands, and the swing that landed it should still finish its fade rather
@@ -5030,15 +5022,13 @@ class MapScene extends Phaser.Scene {
       const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
       if (inSwing && now >= this._nextBlowT) {
         this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save), isRiding(this.save)) * Combat.playerAttackIntervalMul(this.save);
-        // A blade to actually swing — bare hands (no sword owned) has none, so
-        // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
-        // The slash rides the blow itself now rather than its own throttle:
-        // one cadence, so the arc and the damage it earns can't drift apart.
-        if (this.save.relics?.[Gear.activeWeapon(this.save)]) {
-          const dx = c.x - px, dy = c.y - py;
-          const d = Math.hypot(dx, dy) || 1;
-          this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
-        }
+        const weapon = Gear.activeWeapon(this.save);
+        const equipped = this.save.relics?.[weapon];
+        const dx = c.x - px, dy = c.y - py;
+        const d = Math.hypot(dx, dy);
+        this._swing = { startT: now, dir: d ? { x: dx / d, y: dy / d } : { x: 0, y: 1 },
+          weapon: equipped ? weapon : 'fist',
+          texture: equipped ? this._toolTexture(weapon, equipped.tier) : null };
         const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
           + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out

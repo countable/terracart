@@ -49,6 +49,57 @@
 
 const Render = {};
 
+// Shared, short-lived melee art. The event is authored by the damage lane;
+// drawing never changes attack cadence or reach.
+Render.MELEE_LOOKS = {
+  fist: { ms: 220, reach: 10 },
+  sword: { ms: 260, reach: 15, sweep: Math.PI * 0.75 },
+  dagger: { ms: 180, reach: 13 },
+  lance: { ms: 300, reach: 22 },
+  claw: { ms: 240, reach: 15, sweep: Math.PI * 0.65 },
+};
+Render.meleePose = function (sw, now, weapon = 'claw', scale = 1) {
+  const look = Render.MELEE_LOOKS[weapon] || Render.MELEE_LOOKS.claw;
+  const t = (now - sw.startT) / look.ms;
+  if (t < 0 || t >= 1) return null;
+  const base = Math.atan2(sw.dir.y, sw.dir.x);
+  const advance = Math.sin(Math.PI * t);
+  const angle = base + (look.sweep ? look.sweep * (t - 0.5) : 0);
+  const radius = (look.sweep ? look.reach : 5 + look.reach * advance) * scale;
+  return { t, angle, radius, tail: angle - (look.sweep || 0) * Math.min(t, 0.3),
+    alpha: Math.min(1, (1 - t) / 0.3), scale, weapon, look };
+};
+Render.drawMelee = function (g, pose, x, y, color = 0xe8ecf0) {
+  if (!pose) return;
+  const { angle, radius, alpha, scale, weapon, look } = pose;
+  const ux = Math.cos(angle), uy = Math.sin(angle);
+  g.lineStyle(2 * scale, color, alpha * 0.8);
+  if (look.sweep) {
+    const count = weapon === 'claw' ? 3 : 1;
+    for (let i = 0; i < count; i++) {
+      g.beginPath();
+      g.arc(x, y, radius - i * 4 * scale, pose.tail, angle, false);
+      g.strokePath();
+    }
+  } else {
+    g.beginPath();
+    g.moveTo(x + ux * 5 * scale, y + uy * 5 * scale);
+    g.lineTo(x + ux * radius, y + uy * radius);
+    g.strokePath();
+    if (weapon === 'fist') {
+      g.fillStyle(0xf2c69d, alpha);
+      g.fillCircle(x + ux * radius, y + uy * radius, 3 * scale);
+      g.lineStyle(scale, 0x8a5d44, alpha);
+      g.strokeCircle(x + ux * radius, y + uy * radius, 3 * scale);
+    }
+  }
+};
+Render.enemyMeleeColor = function (c) {
+  const colors = { fire_elemental: 0xff863f, ice_elemental: 0x8de5ff,
+    ghost: 0xb3a0ff, slime: 0x90d970, treant: 0xb4d77a };
+  return c.shiny ? 0xffd36a : colors[SpriteLayout.baseKind(c.kind)] || 0xe8ecf0;
+};
+
 // Flat ground props always precede upright pieces. Within each lane, ground
 // anchors determine occlusion; rank only breaks exact ties, so stepping
 // within one cell can still pass behind a tree.
@@ -3995,6 +4046,11 @@ Render.drawObjects = function drawObjects(scene) {
   const CREATURE_GROUND_DY = (typeof SpriteLayout !== 'undefined'
     && SpriteLayout.CREATURE_GROUND_DY != null) ? SpriteLayout.CREATURE_GROUND_DY : 2;
 
+  // Pool effects with the visible creatures and seat them beside their body
+  // in the same depth-sorted container. Hidden/offscreen actors leave no trail.
+  scene._creatureMeleePool ||= [];
+  let meleeUsed = 0;
+  for (const effect of scene._creatureMeleePool) effect.setVisible(false).clear();
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -4079,6 +4135,21 @@ Render.drawObjects = function drawObjects(scene) {
     // Where the body's centre landed — the glow pass below sits on it, so the
     // halo rides the hover and the bob with the sprite.
     item._bodyY = s.y - (s.originY - 0.5) * s.displayHeight;
+    if (c._meleeSwing) {
+      const scale = Math.max(0.7, s.displayHeight / 24);
+      const pose = Render.meleePose(c._meleeSwing, performance.now(), c.kind === 'mercenary' ? 'sword' : 'claw', scale);
+      if (pose) {
+        let effect = scene._creatureMeleePool[meleeUsed];
+        if (!effect) {
+          effect = scene.add.graphics();
+          scene.creaturesContainer.add(effect);
+          scene._creatureMeleePool.push(effect);
+        }
+        meleeUsed++;
+        effect.setVisible(true).setDepth((item._z ?? 0) + 0.1);
+        Render.drawMelee(effect, pose, s.x, item._bodyY, Render.enemyMeleeColor(c));
+      } else delete c._meleeSwing;
+    }
   });
 
   // THE GHOST'S GLOW — a non-lighting halo on each glowing kind, on its body
