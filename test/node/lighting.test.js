@@ -35,6 +35,19 @@ function scene(over) {
 }
 const HALF_M = (11 / 2 + 1) * 5;   // drawObjects' halfM at cellM 5
 
+
+test('lighting: arena ambient illuminates distant boundaries at every hour without changing caves', () => {
+  const arena = scene({ depth: WorldGen.ARENA_DEPTH });
+  const day = Lighting.profile(arena, 1), night = Lighting.profile(arena, 0);
+  assert.eq(day.ambient, night.ambient, 'a separate realm has no surface night cycle');
+  assert.gt(Lighting.lum(day.ambient), .65, 'the full arena floor remains readable outside player reach');
+  assert.gt(ch(day.ambient, 0), ch(day.ambient, 16), 'ambient is gently violet');
+  assert.gt(ch(day.ambient, 16), ch(day.ambient, 8), 'violet retains more red than green');
+  const cave = Lighting.profile(scene({ depth: 3 }), 1);
+  assert.lt(Lighting.lum(cave.ambient), .05, 'Underdark retains ordinary cave darkness');
+  assert.gt(cave.lit, day.lit, 'caves still depend on a strong player torch bubble');
+});
+
 test('lighting: daily sites retain ambient light after the availability pulse is spent', () => {
   const start = RENDER_SRC.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
   const end = RENDER_SRC.indexOf('\n  };', start);

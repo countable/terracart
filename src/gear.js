@@ -251,7 +251,7 @@
   let _uniqueRelics = null;
   function uniqueRelics() {
     return _uniqueRelics || (_uniqueRelics = ITEMS.filter(item =>
-      item.kind === 'unique_relic' && !item.tome && (item.baseTier | 0) > 0));
+      item.kind === 'unique_relic' && !item.tome && !item.progressionOnly && (item.baseTier | 0) > 0));
   }
   // The tier worn in a slot (0: bare), and whether `tier` would be an
   // upgrade a real piece can fill — the one downgrade guard equip, the
