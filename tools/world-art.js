@@ -17,6 +17,9 @@
       if(!response.ok)throw new Error('Could not load '+key+' frame names');
       manifests[key]=await response.json();
     }
+    const caveResponse=await fetch('../assets/Objects/Cave/manifest.json',{cache:'no-store'});
+    if(!caveResponse.ok)throw new Error('Could not load approved cave art names');
+    const approvedSheets=(await caveResponse.json()).sheets;
     const rockResponse = await fetch('../assets/Objects/ZoneVariants/approved-additions.json', {cache:'no-store'});
     if (!rockResponse.ok) throw new Error('Could not load zone rock frame names');
     const rockAdditions = await rockResponse.json();
@@ -41,6 +44,8 @@
     const render = Render.objectAppearance(scene,roles);
     const wanted = new Map(), failures=[];
     function want(key, frame=0){if(!key)return;if(!wanted.has(key))wanted.set(key,new Set());wanted.get(key).add(frame ?? 0);}
+    // Approved world art is catalogued before its placement mechanics are wired.
+    for(const [key,sheet] of Object.entries(approvedSheets))for(const entry of sheet.entries)for(const frame of entry.frames)want(key,frame);
     // Resolve the live object registry rather than browsing every loaded sheet.
     // Variants have stable example identities, so frame selection is repeatable.
     const probeStore = {...store,exists:()=>true,get:key=>store.get(key)||{get:()=>({width:80,height:80})}};
@@ -113,6 +118,14 @@
     const plantFrames=new Set(plantRows.flatMap(r=>r.frames.map(f=>`${r.key}:${f}`)));
     function category(key){return /house|tower|macro_|market_stand|shrine|well/.test(key)?'Buildings & landmarks':/tree|bush|mushroom/.test(key)?'Trees & foliage':/rock|ore/.test(key)?'Stone & minerals':/trap|tar/.test(key)?'Hazards':'Objects & props';}
     for(const [key,wantedFrames] of wanted) {
+      if(approvedSheets[key]) {
+        for(const entry of approvedSheets[key].entries)rows.push({
+          ...entry,id:`${key}:${entry.id}`,key,approved:true,
+          images:entry.frames.map(frame=>image(key,frame)).filter(Boolean),
+          zoneVariants:new Set(entry.zones||[]),source:ASSETS[key]?.path
+        });
+        continue;
+      }
       const frames=[...wantedFrames].filter(frame=>!plantFrames.has(`${key}:${frame}`));
       if(!frames.length)continue;
       const groups=manifests[key]||key==='reef_coral'?frames.map(frame=>[frame]):[frames];
@@ -142,7 +155,8 @@
       });
     }
     const names=new Map(ZoneVariantData.variants.map(z=>[z.id,z.name]));
-    for(const zoneVariant of [...ZoneVariantData.variants].sort((a,b)=>a.name.localeCompare(b.name)))$('zone').add(new Option(zoneVariant.name,zoneVariant.id));
+    for(const row of rows)for(const zone of row.zoneVariants)if(!names.has(zone))names.set(zone,title(zone));
+    for(const [id,name] of [...names].sort((a,b)=>a[1].localeCompare(b[1])))$('zone').add(new Option(name,id));
     for(const cat of [...new Set(rows.map(r=>r.category))].sort())$('category').add(new Option(cat,cat));
     // Numbers belong to catalog identities, not positions in the displayed list.
     // Keep removed entries in the checked-in registry so numbers are never reused.
@@ -158,9 +172,9 @@
     }
     const unnumbered=rows.filter(row=>row.reference==null);
     let selected=null,descending=false;
-    const zoneVariantsText=row=>[...row.zoneVariants].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use';
+    const zoneVariantsText=row=>(row.approved?'Approved for placement: ':'')+([...row.zoneVariants].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use');
     const sandboxZoneKind = id => ZoneVariantData.variants.find(z=>z.id===id)?.zone || id;
-    const art=(row,limit)=>row.images.slice(0,limit).map(src=>`<img class="sprite" src="${src}" alt="${esc(row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
+    const art=(row,limit)=>row.images.slice(0,limit).map((src,i)=>`<img class="sprite" src="${src}" alt="${esc(row.name+(row.stateLabels?.[i]?' · '+row.stateLabels[i]:''))}" title="${esc(row.stateLabels?.[i]||row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
     function renderTable(){
       const words=$('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean),zoneVariant=$('zone').value,cat=$('category').value,sort=$('sort').value;
       const visible=rows.filter(r=>(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
@@ -176,14 +190,14 @@
         button.textContent=`${title(button.dataset.sort)} ${active?(descending?'▼':'▲'):'↕'}`;
       });
       const row=rows.find(r=>r.id===selected);
-      $('detail').innerHTML=row?`<h2>${esc(row.referenceLabel)} · ${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div><h3>Zone use</h3><p>${esc(zoneVariantsText(row))}</p><small>${row.zoneVariants.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
-      if(row){const keys=[...new Set([...row.zoneVariants].map(sandboxZoneKind))];$('detail').insertAdjacentHTML('beforeend', `<p>${keys.map(key=>SandboxLinks.link(key)).filter(Boolean).join('<br>')}</p>`);}
+      $('detail').innerHTML=row?`<h2>${esc(row.referenceLabel)} · ${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div>${row.stateLabels?'<p><small>Frames, left to right: '+esc(row.stateLabels.join(', '))+'</small></p>':''}<h3>Zone use</h3><p>${esc(zoneVariantsText(row))}</p><small>${row.approved?'Approved art; placement and interactions are not yet enabled.':row.zoneVariants.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
+      if(row&&!row.approved){const keys=[...new Set([...row.zoneVariants].map(sandboxZoneKind))];$('detail').insertAdjacentHTML('beforeend', `<p>${keys.map(key=>SandboxLinks.link(key)).filter(Boolean).join('<br>')}</p>`);}
     }
     for(const id of ['search','zone','category'])$(id).addEventListener('input',renderTable);
     $('sort').addEventListener('change',()=>{descending=false;renderTable();});
     document.querySelectorAll('[data-sort]').forEach(b=>b.addEventListener('click',()=>{descending=$('sort').value===b.dataset.sort?!descending:false;$('sort').value=b.dataset.sort;renderTable();}));
     $('reset').addEventListener('click',()=>{for(const id of ['search','zone','category'])$(id).value='';$('sort').value='name';descending=false;renderTable();});
-    renderTable();$('status').textContent=`${rows.length} entries loaded from current game definitions.${failures.length?' Missing textures: '+failures.join(', '):''}${unnumbered.length?' '+unnumbered.length+' new entries await a reference number.':''}`;
+    renderTable();$('status').textContent=`${rows.length} entries loaded from game definitions and approved art manifests.${failures.length?' Missing textures: '+failures.join(', '):''}${unnumbered.length?' '+unnumbered.length+' new entries await a reference number.':''}`;
     window.worldArt={rows,failures};document.documentElement.dataset.worldArtReady='true';
   } catch(error) {$('status').textContent='Could not load world art: '+error.message;$('status').className='error';document.documentElement.dataset.worldArtError=error.message;console.error(error);}
 })();

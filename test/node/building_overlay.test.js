@@ -777,6 +777,44 @@ function makeWallScene(over) {
   return { scene, log };
 }
 
+test('building overlay: canvas adapter clears and fills the full padded backing store', () => {
+  clearTiles();
+  const { scene, log } = makeWallScene({ buildingGeomGfx: null, viewSize: 352.25 });
+  scene.buildingGeomContainer.add = () => {};
+  // Exercise the actual canvas adapter rather than the recording graphics stub.
+  BuildingOverlay.draw(scene);
+  const page = log.pages.find(p => p.key === 'buildinggeom_overlay');
+  assert.truthy(page, 'the real viewport canvas was created');
+  const ctx = page.getContext(), clears = [], fills = [];
+  ctx.clearRect = (...args) => clears.push(args);
+  ctx.fillRect = (...args) => fills.push(args);
+  const target = scene._buildingGeomTarget;
+  const points = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 20 }];
+  const oldDamageTexture = CastleStyles.damageTexture;
+  try {
+    scene.textures.exists = () => true;
+    scene.textures.get = () => ({ getSourceImage: () => ({ width: 16, height: 16 }) });
+    ctx.createPattern = () => ({});
+    CastleStyles.damageTexture = () => 'test_damage';
+    target.clear();
+    target.texturePoly(points, T.BUILDING_SMALL);
+    assert.truthy(target.damagePoly(points, 'building', false, 0, 0));
+    const size = Math.ceil(scene.viewSize + CELL_PX * 4);
+    assert.eq(page.w, size);
+    assert.eq(JSON.stringify(clears[0]), JSON.stringify([0, 0, size, size]));
+    assert.eq(fills[0][2], size + CELL_PX * 2, 'material pattern covers padded canvas');
+    assert.eq(fills[0][3], size + CELL_PX * 2);
+    assert.eq(fills[1][2], size, 'damage pattern covers padded canvas');
+    assert.eq(fills[1][3], size);
+    scene.depth = 1;
+    BuildingOverlay.draw(scene);
+    assert.eq(clears.length, 2, 'entering a cave clears the real canvas too');
+  } finally {
+    CastleStyles.damageTexture = oldDamageTexture;
+    clearTiles();
+  }
+});
+
 clearTiles();
 test('building overlay: castle ramparts use short upright wall sections, leaving the court on the floor', () => {
   clearTiles();

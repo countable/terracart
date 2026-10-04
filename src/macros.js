@@ -140,6 +140,10 @@
   // behind never spends the day's visit.
   const SPENT_DEFAULT = 'Already visited';
   const DAILY_VISIT_KINDS = {
+    hive: { name: 'Forest hive', art: 'visit_hive', sprite: 'beehive', light: 0xe8b95a, ledger: 'day',
+      reward: 'syrup', effect: 'Syrup, guarded by bees', locations: ['Forest'],
+      spent: 'Hive already tapped',
+      body: 'Thick syrup fills your jars. Angry bees pour from the hive.' },
     wagon: { name: 'Mercenary wagon', art: 'visit_wagon', sprite: 'wagon', light: 0xf2d9a0, ledger: 'day',
       reward: 'companion', effect: 'A mercenary fights beside you',
       get price() { return root.Companions.KINDS.mercenary.hireCost; },
@@ -204,6 +208,7 @@
     return row;
   }
   function _resolveRow(o) {
+    if (o?.kind === 'hive') return DAILY_VISIT_KINDS.hive;
     const shrine = root.Shrines?.kindForObject(o);
     if (shrine) return shrine;
     if (o.kind === 'infoboard') return DAILY_VISIT_KINDS.board;
