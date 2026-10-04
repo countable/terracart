@@ -158,8 +158,19 @@
   const GATE_TIER_GUARDS = { gate: 1 };
   Object.assign(TIER_GUARDS, GATE_TIER_GUARDS);
   const DAILY_TIERS = new Set(Object.keys(GATE_TIER_GUARDS));
-  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS]);
-  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS]);
+  // ── A HABITAT SITE — the same reason again (Oct 2026): a wetland's HUNGRY
+  // MARSH and a rock outcrop's ORC STRONGHOLD (enemy_habitats.js
+  // habitatLairs — one owner per sub-tile block) used to be a fourth seater
+  // outside this file, with no guard cap, no kerb-aware seat and no quiet
+  // home. Each is a lair candidate now (entry.streetLairs, the barricade's
+  // lane) whose garrison is its own GROUPS row (marsh / stronghold — a tier
+  // that is a group's alone always takes it, TIER_GROUP), so it shares the
+  // whole garrison lifecycle: the wake ring, the mode's guard cap, the seat
+  // rule, the quiet home and the safe area. Two guards, always held, every mode.
+  const HABITAT_TIER_GUARDS = { habitat_marsh: 2, habitat_stronghold: 2 };
+  Object.assign(TIER_GUARDS, HABITAT_TIER_GUARDS);
+  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS)]);
+  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS)]);
   const MODE_SCALED_TIERS = new Set(Object.keys(ZONE_TIER_GUARDS));
   // The strength multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
@@ -220,7 +231,7 @@
     // elite roll and every café would flood the map with gear. (The old
     // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
     cafe: ['skeleton_soldier', 'orc'],
-    // A tar yard: fire slimes (combat.js MONSTERS.fire_slime).
+    // A tar yard: fire slimes (the enemy_roster.js fire_slime row).
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
     barricade: ['spear_goblin', 'archer_goblin'],
@@ -235,6 +246,10 @@
     // A gate: the surface pest or the goblin who holds the way — half each,
     // off the gate's own strength.
     gate: ['slime', 'goblin'],
+    // The habitat sites: their GROUPS rows seat these (the ladder is the
+    // plain roll's, which a group tier never takes).
+    habitat_marsh: ['plant', 'slime'],
+    habitat_stronghold: ['orc', 'orc_shaman'],
   };
   const KIND_LADDER = {};
   for (const [tier, kinds] of Object.entries(KIND_ORDER)) {
@@ -327,7 +342,31 @@
       story: 'An elite captain at the heart of the castle and four skeletons about the floor.',
       members: [{ kind: 'skeleton_soldier', n: 1, place: 'core', elite: true },
                 { kind: 'skeleton', n: 4, place: 'floor' }] },
+    // ── A habitat site (HABITAT_TIER_GUARDS): the group IS the garrison, two
+    // to three cells out round the site's point (a point has no footprint,
+    // so the ring is the one-cell pad and the band takes it out) ──
+    marsh: { label: 'Hungry marsh', tiers: ['habitat_marsh'], minT: 0,
+      story: 'A biting plant in the reeds, and the slime that feeds beside it.',
+      members: [{ kind: 'plant', n: 1, place: 'ring', band: [2, 3] },
+                { kind: 'slime', n: 1, place: 'ring', band: [2, 3] }] },
+    stronghold: { label: 'Orc stronghold', tiers: ['habitat_stronghold'], minT: 0,
+      story: 'An orc and its shaman hold the bare rock.',
+      members: [{ kind: 'orc', n: 1, place: 'ring', band: [2, 3] },
+                { kind: 'orc_shaman', n: 1, place: 'ring', band: [2, 3] }] },
   };
+  // A tier that is a group's alone (a habitat site's) always takes that
+  // group — no draw, so the street tiers' streams are untouched.
+  const TIER_GROUP = {};
+  for (const [name, g] of Object.entries(GROUPS)) {
+    for (const tier of g.tiers) if (typeof tier === 'string') TIER_GROUP[tier] = name;
+  }
+  // What a garrison member hands its offspring — a necromancer's summons,
+  // a splitting slime's halves (creature_ai.js enemySummon / splitSlime):
+  // its leash and ruin, its notice ring, its home, and the per-player
+  // overlays that hide it (the quiet home, the amnesty, the surface spawn's
+  // night rule) — so a hidden summoner never leaves its minions standing.
+  const GARRISON_INHERIT = ['lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells',
+    'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting'];
   // The share of HELD structures of each tier that take a group at all (the
   // rest roll the plain garrison). A castle is where the interesting fight
   // belongs; a wreck is still mostly slimes; a fort takes none.
@@ -487,6 +526,8 @@
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
+    habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
+    habitat_stronghold: { rate: 1, thinned: false },
   };
 
   // ── The per-tile budget ──────────────────────────────────────────────────
@@ -951,7 +992,8 @@
     // one FACING draw (front / behind placements turn on it). Both are taken
     // on every path so the plain garrison's seat draws start at the same
     // point of the stream whether or not the tier offers any group at all.
-    const group = TIERS.includes(cand.tier) ? groupFor(cand.tier, t, rng, nearShore(entry, cand, N, cellM)) : null;
+    const group = TIERS.includes(cand.tier) ? groupFor(cand.tier, t, rng, nearShore(entry, cand, N, cellM))
+      : (TIER_GROUP[cand.tier] || null);
     const facing = rng() * TAU;
     const plan = group ? expandGroup(group, cand.tier) : null;
     const baseCount = plan ? plan.length : countFor(cap, rng);
@@ -987,13 +1029,8 @@
     // added after generation claim their cell, and a player-repainted cell
     // drops its guard only when the live terrain is no longer walkable.
     const generated = new Set(genObjects);
-    const liveOccupied = new Set();
-    for (const obj of entry.objects || []) {
-      if (generated.has(obj)) continue;
-      const ix = Math.floor((obj.x - cand.ox) / cellM);
-      const iy = Math.floor((obj.y - cand.oy) / cellM);
-      if (ix >= 0 && iy >= 0 && ix < N && iy < N) liveOccupied.add(iy * N + ix);
-    }
+    const liveOccupied = WG.occupiedIndexSet(WG.tileFrame(entry, cand.tx, cand.ty, tileEdgeM),
+      (entry.objects || []).filter((obj) => !generated.has(obj)));
     const liveBlocks = (ix, iy) => {
       const at = iy * N + ix;
       if (liveOccupied.has(at)) return true;
@@ -1014,7 +1051,7 @@
     const out = [];
     // A DAILY tier's guard carries the UTC day in its id (see DAILY_TIERS).
     const day = DAILY_TIERS.has(cand.tier)
-      ? String(o.dayKey || (root.Delivery && root.Delivery.dayKey ? root.Delivery.dayKey() : '0')) : null;
+      ? String(o.dayKey || utcDayKey()) : null;
     for (let i = 0; i < n; i++) {
       const id = day ? `lair_${cand.sid}_${day}_${i}` : `lair_${cand.sid}_${i}`;
       const spec = plan ? plan[i] : Object.assign({ idx: i }, plainSpec);
@@ -1363,7 +1400,8 @@
     LAIR_RING_PAD_CELLS, CORE_SEATED_TIERS, LAIR_CORE_SPREAD_CELLS, LAIR_CORE_AGGRO_CELLS, inOwnKeep, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
-    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, HABITAT_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    TIER_GROUP, GARRISON_INHERIT,
     capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
     GROUPS, GROUP_RATE, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,
     hashKey, ringBox,

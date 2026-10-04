@@ -41,7 +41,7 @@
     { file: 'worldgen.js', re: /^const _underRoadBand = \(ix, iy\) => roadMask\[iy \* w \+ ix\] === 1;/ },
     // ── traps.js: geometry (trap-ground SHAPE; spawnSurface's isSpawnCell
     //    ('enemy') call is the actual seat gate) ──────────────────────────
-    { file: 'traps.js', re: /if \(isRoadCode\(T, grid\[i\]\) \|\| \(roadMask && roadMask\[i\]\)\) return true;/ },
+    { file: 'traps.js', re: /WG\.isRoadTerrain\(grid\[i\]\) \|\| \(roadMask && roadMask\[i\]\)\);/ },
     { file: 'traps.js', re: /^if \(roadMask && roadMask\[i\]\) return 0;/ },
     // ── zone_dressing.js: geometry (the connecting avenue's own walk stops
     //    at a road; place()/allowed() always calls WG.isSpawnCell) ────────
@@ -94,12 +94,19 @@
     // now asks the gate. Pinning the call text (not just "isSpawnCell
     // appears somewhere") keeps this from passing on an unrelated call.
     const wants = [
-      /function placeStarterTrail\([\s\S]{0,2000}WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, spawnOpts, 'minor'\)/,
-      /function scatterStarterStash\([\s\S]{0,2500}WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy,\s*\{ roadMask: entry\.roadMask, spawnWhy: entry\.spawnWhy \}, 'minor'\)/,
-      /function carveStarterPlot\([\s\S]{0,4000}WorldGen\.isSpawnCell\(grid, N, N, cx, cy,\s*\{ roadMask: entry\.roadMask, spawnWhy: entry\.spawnWhy \}, 'minor'\)/,
+      /function placeStarterTrail\([\s\S]{0,6000}WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, spawnOpts, 'minor'\)/,
+      /function scatterStarterStash\([\s\S]{0,2500}WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, spawnOpts, 'minor'\)/,
+      /function carveStarterPlot\([\s\S]{0,4000}WorldGen\.isSpawnCell\(grid, N, N, cx, cy, spawnOpts, 'minor'\)/,
       /function carveStarterPond\([\s\S]{0,9000}spawnOkAt\(cx, cy, 'minor'\)/,
     ];
     for (const re of wants) assert.truthy(re.test(src), `starter.js: expected a gated placer matching ${re}`);
+    // ...and each asks it through the entry's FULL options (WorldGen.spawnOptsOf
+    // — kerb class, quiet land, POI frontage, shared occupancy), never a
+    // rebuilt { roadMask, spawnWhy } pair that judged the starting area by a
+    // thinner gate than everything else on the tile.
+    assert.falsy(/\{ roadMask: (?:entry|e|origin)\.roadMask, spawnWhy: (?:entry|e|origin)\.spawnWhy \}/.test(src),
+      'no placer rebuilds a thin { roadMask, spawnWhy } gate of its own');
+    assert.gte((src.match(/WorldGen\.spawnOptsOf\(/g) || []).length, 8, 'the placers read the entry\'s options');
     const provision = src.slice(src.indexOf('  function provisionStarterHome('),
       src.indexOf('  function placeHomeGreeter('));
     assert.truthy(/spawnOkAt\(cx, cy, 'minor'\)/.test(provision),
@@ -111,8 +118,8 @@
     assert.truthy(/function canLay\(entry, lix, liy\)/.test(src), 'canLay exists');
     const body = src.slice(src.indexOf('function canLay('), src.indexOf('function canLay(') + 1500);
     assert.falsy(/entry\.roadMask && entry\.roadMask\[i\]/.test(body), 'no separate raw roadMask check left in canLay');
-    assert.truthy(/if \(!WG\.isSpawnCell\(entry\.grid, N, N, lix, liy,\s*\{ roadMask: entry\.roadMask, spawnWhy: entry\.spawnWhy \}, 'enemy'\)\) return false;/.test(body),
-      'canLay asks isSpawnCell unconditionally (mask or no mask)');
+    assert.truthy(/if \(!WG\.isSpawnCell\(entry\.grid, N, N, lix, liy, WG\.spawnOptsOf\(entry\), 'enemy'\)\) return false;/.test(body),
+      'canLay asks isSpawnCell unconditionally (mask or no mask), through the entry\'s full options');
   });
 
   test('spawn gate sweep: a kill\'s bounty coin (_dropBountyCoin) asks the gate, like every other coin drop', () => {

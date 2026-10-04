@@ -179,8 +179,8 @@ test('coin pop: the "+N" lands on the cell the coin was picked from', () => {
 test('energy pop: every energy readout goes through _popEnergy, on a cell', () => {
   assert.truthy(/_splashEnergyGain\(amount\) \{[\s\S]*?this\._popEnergy\(amount\);/.test(app),
     'the rest / offline splash is a pop on the player');
-  assert.truthy(/this\._popEnergy\(-drained, \{ label: /.test(app), 'the slime drain is a pop');
-  assert.truthy(/this\._popEnergy\(-hit, \{ label: /.test(app), 'the monster hit is a pop');
+  assert.truthy(/_bankDrain\?\.\('monsters', -lost, \{ label: '⚔️ monsters' \}\)/.test(CREATURE_AI_SRC), 'every foe\'s blow rolls up into the one monsters drain lane');
+  assert.falsy(/this\._popEnergy\(-drained, \{ label: |'👻 ghost'/.test(app), 'no second roll-up for the slimes or the ghost');
   assert.falsy(/this\.flash\(`[^`]*⚡[^`]*`, this\.viewCenterX/.test(app),
     'no energy number is flashed at the viewport centre any more');
   assert.falsy(/this\._toast\(`\+\$\{amount\}⚡`, \{ tier: 'note'/.test(app),
@@ -206,20 +206,20 @@ test('energy pop: the stick-walk drain accumulates and flushes as one throttled 
     'the accrual is drawn down by the same lump the loop waits for');
   assert.truthy(/Energy\.set\(this\.save, before - STEER_DRAIN_LUMP\);/.test(body),
     'and the debit is that same lump — never a hard-typed pip beside it');
-  assert.truthy(/this\._steerDrainAccum = \(this\._steerDrainAccum \|\| 0\) \+ \(before - this\.save\.energy\);/.test(body),
-    'each pip banks into an accumulator rather than popping per pip');
+  assert.truthy(/this\._bankDrain\('walk', -\(before - this\.save\.energy\)\);/.test(body),
+    'each pip banks into the drain roll-up rather than popping per pip');
   assert.falsy(/this\._popEnergy/.test(body), 'never a pop per pip inside the cost loop itself');
   // Flushed from update() / _updateTimed, NOT from inside _steerManual: that
   // method only runs on a frame the stick is actually held, so a flush living
   // there would drop the tail of a throttle window the instant the player
   // lets go. Same 1200ms throttle as the slime / monster / trap roll-ups.
-  assert.truthy(/if \(this\._steerDrainAccum > 0 && performance\.now\(\) - \(this\._lastSteerFlashT \|\| 0\) > 1200\) \{/.test(app),
-    'flushed on the shared 1200ms accumulator throttle');
+  assert.truthy(/this\._flushDrainPops\(\);/.test(app.slice(app.indexOf('const bodyHold = this._bodyHold();'))) && /const DRAIN_POP_MS = 1200;/.test(app),
+    'flushed from update() by the one drain roll-up, on its shared 1200ms window');
   // Bare number, no label: the walking-off-GPS drain is the one drain whose
   // label read as an instruction ("steer!") rather than as the name of a
   // cost, so it says nothing and the −N⚡ speaks for itself.
-  assert.truthy(/this\._popEnergy\(-drained\);/.test(app),
-    'pops with no ix/iy — a cost to the BODY lands on the player\'s own cell, like the slime leech');
+  assert.truthy(/this\._popEnergy\(row\.delta, \{ ix: row\.ix, iy: row\.iy, label: row\.label \}\);/.test(app),
+    'the roll-up pops each lane where it banked — the walk with no ix/iy, a cost to the BODY on the player\'s own cell');
   assert.falsy(/label: '🚶/.test(app), 'and carries no label');
 });
 

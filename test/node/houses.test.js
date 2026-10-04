@@ -77,13 +77,13 @@ test('buildOptions: the catalogue unlocks by how many wrecks already stand', () 
   const keys = (order, save = { restoredHouses: {}, discovered: {} }) => Houses.buildOptions(save, plainHouse, order).map((r) => r.key).join();
   assert.eq(keys(0), 'plain', 'the first restore is a House and nothing else');
   assert.eq(keys(1), 'plain,blacksmith:1', 'the second adds the smithy');
-  assert.eq(keys(2), 'plain,blacksmith:1,market:seed:1,market:supply:1,market:potion:1,market:relic:1', 'the third adds a Shop card per line (no Ore Shop)');
+  assert.eq(keys(2), 'plain,blacksmith:1,market:seed:1,market:supply:1,market:potion:1', 'the third adds the available T1 shop lines; Relic starts at T2');
   assert.eq(keys(3), keys(2), 'the fourth adds nothing');
   assert.eq(keys(4), keys(2) + ',trader:1');
   assert.eq(keys(7), keys(4) + ',turret');
   assert.eq(keys(9), keys(7), 'the tenth: still T1 only — ranks climb by memories, not wrecks');
   // Five memories open T2, whatever the restore count.
-  assert.eq(keys(9, { restoredHouses: {}, discovered: mem(5) }), 'plain,blacksmith:1,blacksmith:2,market:seed:1,market:seed:2,market:supply:1,market:supply:2,market:potion:1,market:potion:2,market:relic:1,market:relic:2,trader:1,trader:2,turret', 'five memories: a card per rank, T2 unlocked');
+  assert.eq(keys(9, { restoredHouses: {}, discovered: mem(5) }), 'plain,blacksmith:1,blacksmith:2,market:seed:1,market:seed:2,market:supply:1,market:supply:2,market:potion:1,market:relic:2,trader:1,trader:2,turret', 'five memories: a card per rank, T2 unlocked');
   assert.truthy(keys(4, { restoredHouses: {}, discovered: mem(5) }).includes('blacksmith:2'), 'even at the fifth restore');
   assert.truthy(keys(11).endsWith(',turret,petshop'), 'the twelfth: the Pet Shop');
   assert.truthy(keys(14, { restoredHouses: {}, discovered: mem(10) }).includes('market:seed:3') && keys(14).endsWith(',turret,petshop,bookshop'), 'ten memories: T3; the fifteenth: the Book Shop');
@@ -92,13 +92,13 @@ test('buildOptions: the catalogue unlocks by how many wrecks already stand', () 
   const k20 = keys(19, { restoredHouses: {}, discovered: mem(15) }).split(',');
   assert.truthy(k20.includes('market:seed:3') && !k20.includes('market:seed:4'), 'no T4 Seed Shop');
   assert.truthy(k20.includes('market:supply:3') && !k20.includes('market:supply:4'), 'no T4 Supply Shop');
-  assert.truthy(k20.includes('market:potion:4') && k20.includes('market:relic:4'), 'Magic and Relic reach T4');
+  assert.truthy(k20.includes('market:potion:3') && !k20.includes('market:potion:4') && k20.includes('market:relic:4'), 'Magic stays at odd tiers; Relic reaches T4');
   assert.truthy(k20.includes('blacksmith:4') && k20.includes('trader:4'));
-  // Magic is one per tier: a standing T1 Magic Shop removes that card, not the T2.
-  const magic = { restoredHouses: { m: 'market' }, shopLines: { m: 'potion' }, shopTiers: { m: 1 }, discovered: mem(5) };
+  // Magic is one per tier: a standing T1 Magic Shop removes that card, not the T3.
+  const magic = { restoredHouses: { m: 'market' }, shopLines: { m: 'potion' }, shopTiers: { m: 1 }, discovered: mem(10) };
   const km = keys(9, magic).split(',');
   assert.falsy(km.includes('market:potion:1'), 'the T1 Magic Shop stands: no second');
-  assert.truthy(km.includes('market:potion:2') && km.includes('market:seed:1'), 'the T2 one, and every other line, still');
+  assert.truthy(km.includes('market:potion:3') && km.includes('market:seed:1'), 'the T3 one, and every other line, still');
   assert.eq(Houses.buildOptions({ restoredHouses: {}, bookshopId: 'b' }, plainHouse, 20).map((r) => r.key).includes('bookshop'), false, 'one Book Shop per save');
   assert.eq(Houses.buildOptions({ restoredHouses: {}, petshopId: 'p' }, plainHouse, 20).map((r) => r.key).includes('petshop'), false, 'one Pet Shop per save');
   assert.eq(Houses.restoredCount({ restoredHouses: { a: 'plain', b: 'market' } }), 2, 'the order is the ledger\'s size');
@@ -204,20 +204,20 @@ test('offerCards: N = restored + 1 — the House, up to three NEW, the rest dupl
   Houses.restoreAs(save, h('h1'), 'plain');
   assert.eq(offer().length, 3, 'three for the third');
   assert.eq(offer()[0], 'plain', 'the House always leads');
-  // A window of NEW cards over the catalogue (table order), two of the five
+  // A window of NEW cards over the catalogue (table order), two of the four
   // ranked cards here; the window's offset is the restore order.
   assert.eq(offer().join(), 'plain,market:supply:1,market:potion:1', 'order 2: the window starts two cards in');
   Houses.restoreAs(save, h('h2'), 'plain');
-  assert.eq(offer().join(), 'plain,market:potion:1,market:relic:1,blacksmith:1', 'order 3: slid one card along, three NEW now');
+  assert.eq(offer().join(), 'plain,market:potion:1,blacksmith:1,market:seed:1', 'order 3: slid one card along, three NEW now');
   Houses.restoreAs(save, h('h3'), 'plain');
-  assert.eq(offer().join(), 'plain,market:relic:1,trader:1,blacksmith:1', 'order 4: wraps round; still three NEW');
+  assert.eq(offer().join(), 'plain,trader:1,blacksmith:1,market:seed:1', 'order 4: wraps round; still three NEW');
   for (let i = 4; i < 8; i++) Houses.restoreAs(save, h('h' + i), 'plain');
   let o = offer();
   // Nine slots for the ninth wreck, but nothing stands except Houses: no
   // duplicates to fill the slots past the three NEW, so they stay empty.
   assert.eq(o.length, 4, 'the House and three NEW');
   assert.eq(o.filter((k) => k === 'plain').length, 1, 'the House once');
-  assert.eq(Houses.buildOptions(save, plainHouse).filter((r) => !r.pinned).length, 7, 'out of seven NEW on the table');
+  assert.eq(Houses.buildOptions(save, plainHouse).filter((r) => !r.pinned).length, 6, 'out of six NEW on the table');
   // Raise a smithy and a Seed Shop: they move from the NEW pool to the duplicates.
   Houses.restoreAs(save, h('s'), 'blacksmith:1');
   Houses.restoreAs(save, h('m'), 'market:seed:1');
@@ -351,13 +351,13 @@ test('isBuildingSealed: a castle is sealed until claimed', () => {
   assert.falsy(Houses.isBuildingSealed({}, { kind: 'house', tier: 9 }), 'not a castle at all');
   assert.truthy(Houses.isBuildingSealed({ castlesLegacyOpen: true }, tower), 'retired global flag grants no access');
   assert.truthy(Houses.isBuildingSealed({ openedCastles: { tw_1: true } }, tower), 'retired delivery flag grants no access');
-  const claimed = {};
+  const claimed = SaveState.defaults({});
   Houses.claimCastle(claimed, tower);
   assert.falsy(Houses.isBuildingSealed(claimed, tower), 'claimed outright');
 });
 
 test('isCastleClaimed / claimCastle: idempotent, presence not truthiness, non-castles refused', () => {
-  const save = {};
+  const save = SaveState.defaults({});
   const tower = { kind: 'tower', castle: 'b_1_1' };
   assert.falsy(Houses.isCastleClaimed(save, tower), 'nothing claimed yet');
   assert.truthy(Houses.claimCastle(save, tower), 'the claim took');

@@ -160,42 +160,30 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
 test('combat: the surface slime oozes slowly enough to walk away from', () => {
   // Its speed IS its threat: it homes in on you and leeches energy by sitting
   // on you, so a slime that keeps pace with a walk can never be left behind.
-  // Derived from the two gait constants and the base wander beat rather than
-  // pinned, so retuning either shows up here as a speed, not a diff.
-  // The gait constants live in creature_ai.js; the loop that reads them
-  // (wanderCreatures) in scene_creatures.js.
-  const app = SCENE_SRC;
-  const mul = Number(/const SLIME_STEP_MUL = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
-  const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
-  const beat = /const STEP_MS = WANDER_STEP_MS;/.test(app) ? Number(/const WANDER_STEP_MS = (\d+);/.exec(CREATURE_AI_SRC)?.[1]) : NaN;
-  assert.truthy(mul > 0 && hop > 0 && beat > 0, 'the gait constants are readable');
-  assert.truthy(/c\.kind === 'slime' \? STEP_MS \* \(charging \? 1 : SLIME_STEP_MUL\)/.test(app),
-    'the cadence branch reads the constant');
-  assert.truthy(/const stepM = \(c\.kind === 'slime' \? STEP_M \* SLIME_HOP_CELLS/.test(app),
-    'and so does the hop distance');
-  const mps = (hop * COMBAT_CELL_M) / ((beat * mul) / 1000);
-  assert.lt(mps, 0.7, `a slime oozes at ${mps.toFixed(2)} m/s — well under a walking pace`);
+  // Read off the roster row the ONE mover moves it by (enemy_roster.js
+  // `slime`, creature_ai.js rosterEnemyMove), so a retune shows up here as a
+  // speed, not a diff.
+  const mv = EnemyRoster.get('slime').movement;
+  assert.eq(mv.pattern, 'ooze');
+  const mps = mv.speedMetersPerSecond;
+  assert.lt(mps, BRISK_WALK_MPS, `a slime oozes at ${mps.toFixed(2)} m/s — under a brisk walk`);
   assert.gt(mps, 0.15, 'but it still closes on you eventually');
-  // A CHARGE drops the lazy beat and keeps the hop, so it is the same gait
-  // read at the base cadence — no third constant, and still walk-away-able.
-  // Compared to a tolerance, not exactly: the two sides divide by the beat in
-  // a different order, and at some hop values the last bit disagrees.
-  const charge = (hop * COMBAT_CELL_M) / (beat / 1000);
-  assert.lt(Math.abs(charge - mps * mul), 1e-9,
-    'a charge is the ooze without the lazy beat');
-  assert.lt(charge, 1.0,
-    `a charging slime moves at ${charge.toFixed(2)} m/s — still slower than a walk`);
-  // How much of that ceiling is left: one hop feeds every pace a slime has, so
-  // about 5% of a walk in hand means the NEXT raise takes the walking away.
-  assert.gt(charge, 0.9, `the charge sits at ${charge.toFixed(2)} m/s, near the ceiling`);
+  // A CHARGE is the row's own charge speed (rosterEnemyMove's ooze branch) —
+  // quicker than the ooze, and still walk-away-able.
+  const charge = mv.chargeSpeedMetersPerSecond;
+  assert.gt(charge, mps, 'a charge is quicker than the ooze');
+  assert.lt(charge, BRISK_WALK_MPS, `a charging slime moves at ${charge.toFixed(2)} m/s — still slower than a brisk walk`);
+  assert.truthy(/\} else if \(m\.pattern === 'ooze' && slimeCharging\(c\)\) \{\s*speed = m\.chargeSpeedMetersPerSecond \|\| speed;/.test(CREATURE_AI_SRC),
+    'the mover reads the charge off the row');
+  assert.eq(foeChaseMps({ kind: 'slime' }, COMBAT_CELL_M), charge, 'and the chase pace is the charge');
 });
 
 test('combat: a struck slime CHARGES, unless it is warded', () => {
-  // Hitting one must not send it back to its 50/50 meander, and a PET's bite
-  // must not shove it away (the flee override was written for birds). Pinned as source text — app.js never loads
-  // headlessly — plus the one predicate, which is pure enough to lift.
-  // The chain and the pet's bite are wanderCreatures' (scene_creatures.js);
-  // _damageEnemy stays in app.js.
+  // Hitting one used to cost nothing: it went back to its 50/50 meander, and a
+  // PET's bite actively shoved it away (the flee override was written for birds
+  // and ran for every prey kind). Pinned as source text plus the one
+  // predicate, which is pure enough to lift. The mover is rosterEnemyMove
+  // (creature_ai.js); the pet's bite is wanderCreatures' (scene_creatures.js).
   const app = SCENE_SRC;
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
 
@@ -210,38 +198,28 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   const beat = /const STEP_MS = WANDER_STEP_MS;/.test(app) ? Number(/const WANDER_STEP_MS = (\d+);/.exec(CREATURE_AI_SRC)?.[1]) : NaN;
   assert.gt(win, beat, 'a reaction must outlast the wander step it interrupts');
 
-  // The charge itself: every hop at the player, on the monsters' own jitter.
-  const chain = app.slice(app.indexOf("} else if (c.kind === 'slime') {"));
-  const head = code(chain.slice(0, chain.indexOf("} else if (isMon)")));
-  assert.truthy(/if \(charging && distToPlayer/.test(head),
-    'a struck slime commits every hop to the player');
-  assert.truthy(/STALK_JITTER/.test(head),
-    'on the committed stalk spread, not the meander\'s');
-  assert.falsy(/Math\.random\(\) < 0\.5[\s\S]*if \(charging/.test(head),
-    'the charge is decided before the coin flip, not after it');
-
-  // IF NOT WARDED — the three that switch it off.
-  const gate = /const charging = ([^;]+);/.exec(app)?.[1] || '';
-  // `unnoticed` is the pair of wards that make the player not THERE to be
-  // charged at: a Shadow Powder, or a bar run to zero (downed_pursuit.test.js).
-  // `standDown` is the one read for "this foe is not attacking you right now"
-  // — Home's ward, and a lair guard that has not noticed you or has given up
-  // and is walking home. The charge asks it rather than carrying a condition
-  // per reason (CLAUDE.md: a new rule is a new REASON, not a new lane).
-  for (const ward of ['!isTame', '!standDown', '!unnoticed']) {
-    assert.truthy(gate.includes(ward), `the charge is off when ${ward}`);
-  }
+  // IF NOT WARDED. The roster mover is handed the two gates: `inactive`
+  // (`unnoticed` — a Shadow Powder, or a bar run to zero — or `standDown`,
+  // the one read for "this foe is not attacking you right now": Home's ward,
+  // a wander-off, the kerb, a sated thief, a lair guard that has not noticed
+  // you) and `routed`; a tame slime (released_) never reaches it at all.
+  assert.truthy(/const rosterRow = !isTame \? EnemyRoster\.get\(c\.kind\) : null;/.test(app), 'a tame slime is a pet, not a foe');
+  assert.truthy(/rosterEnemyMove\(this, c, rosterRow, now, npcTarget\?\.x \?\? px, npcTarget\?\.y \?\? py,\s*\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\);/.test(app),
+    'the mover is told unnoticed, standDown and routed');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\| sated \|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
     'and standDown is still built from Home\'s ward, the wander-off, the kerb (creature_ai.js THE KERB), a sated thief (Combat.theftSated) and the lair state');
-  // Home's ward is checked EARLIER in the same chain, so a warded slime is
-  // walking out whether or not it has been hit.
-  assert.lt(app.indexOf('} else if (warded) {'),
-    app.indexOf("} else if (c.kind === 'slime') {"),
-    'the ward branch outranks the charge branch');
-  // The campfire's ward needs no clause here: it refuses the target CELL.
-  // (It skips a lair guard — a garrison is a place, not wandering fauna; see
-  // home_ward.test.js — so what it refuses is a WILD slime's cell.)
-  assert.truthy(/const fireAverts = campfireAverts\(c\);/.test(app),
+  // Home's ward is checked EARLIER in the mover's chain, so a warded slime is
+  // walking out whether or not it has been hit; a mover that sees nothing
+  // (`!sees` — inactive) idles rather than charging.
+  const move = CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyMove('));
+  assert.lt(move.indexOf('if (routed) {'), move.indexOf("} else if (m.pattern === 'ooze' && slimeCharging(c)) {"),
+    'the rout outranks the charge');
+  assert.lt(move.indexOf('} else if (!sees) {'), move.indexOf("} else if (m.pattern === 'ooze' && slimeCharging(c)) {"),
+    'and so does not being there to be charged at');
+  // The campfire's ward needs no clause here: it refuses the target CELL
+  // (creature_ai.js creatureStepRefused — fireAverse; it skips a lair guard: a
+  // garrison is a place, not wandering fauna; see home_ward.test.js).
+  assert.truthy(/fireAverse\(c, row\) && !!scene\._nearAny\?\.\('fires', x, y, FIRE_REST_R\)/.test(CREATURE_AI_SRC),
     'a lit campfire still refuses every cell inside its ring');
 
   // A pet's bite provokes the same charge instead of pushing it away.
@@ -828,9 +806,12 @@ test('combat: every melee gate the player has runs the shared test', () => {
     code(swing.slice(0, swing.indexOf('if (inSwing')))),
     'a missed swing must not spend the blow clock — a foe that closes is hit at once');
 
-  // The surface slime reads the one number rather than its own copy of it.
-  assert.truthy(/const STEAL_R = Combat\.meleeReachM\(this\.cellM\);/.test(SCENE_SRC),
+  // The surface slime reads the one number rather than its own copy of it:
+  // its row's range is the melee reach, and the mover's attack gate reads
+  // the row (creature_ai.js rosterEnemyAttack `attackRange`).
+  assert.eq(EnemyRoster.get('slime').range, Combat.MELEE_REACH_CELLS,
     'the slime\'s leech radius IS the melee reach, not a second 1-cell constant');
+  assert.truthy(/const attackRange = PotionEffects\.range\(c, row\.range\);/.test(CREATURE_AI_SRC));
 });
 
 test('combat: the RANGED weapons keep their range', () => {

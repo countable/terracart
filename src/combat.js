@@ -68,32 +68,13 @@
   const GHOST_SPEED_MPS = roster.get('ghost').movement.speedMetersPerSecond;
   const GHOST_TOUCH_DMG = roster.get('ghost').dmg;
   const LAVA_DMG_PER_S = 2;
-  function combatRow(row) {
-    return {
-      ...row,
-      // Preserve the condition already carried by purple slimes in existing saves.
-      ...(row.id === 'purple_slime' ? { condition: 'poison' } : {}),
-      sight: row.visionCells,
-      retreat: row.movement.retreatDistanceFraction || 1,
-      // The legacy step lane needs a positive pace. The roster owns movement
-      // in metres per second, so aliases inherit that value instead of a dead
-      // speedCellsPerSecond field that froze them at zero.
-      speed: row.movement.speedMetersPerSecond || 1,
-      mps: row.movement.speedMetersPerSecond,
-      minDepth: row.cave?.minDepth ?? 0,
-      maxDepth: row.cave?.maxDepth ?? null,
-      weight: row.cave?.weight || 0,
-      spawn: row.attackType === 'touch' ? 'night' : (!row.cave ? 'surface' : undefined),
-      fly: row.movement.pattern === 'orbit_swoop' || row.id === 'purple_slime',
-      giant: row.variantType === 'Giant' ? row.variantOf : undefined,
-      lays: row.attackType === 'trap' ? 'trap' : undefined,
-    };
-  }
-  const MONSTERS = Object.fromEntries(roster.ROWS.map(row => [row.id, combatRow(row)]));
-  // Existing zone-only enemy: preserve tar-yard and burned-row encounters.
-  // These are final stats; it stays outside the ordinary cave and quest pools.
-  MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 0.6, dmg: 4, speed: 0.9,
-    minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS, board: false, eliteEligible: true };
+  // THE MONSTER TABLE IS THE ROSTER: kind → its enemy_roster.js row, the very
+  // object EnemyRoster.get returns (hp, armor, dmg, tier, range, visionCells,
+  // movement, cave, condition, …). No alias layer: a reader asks the row's
+  // own column (`cave.minDepth`, `movement.retreatDistanceFraction`,
+  // `attackType`). The surface slime and the zone-seated fire slime are rows
+  // like any other; every enemy moves by rosterEnemyMove (creature_ai.js).
+  const MONSTERS = Object.fromEntries(roster.ROWS.map(row => [row.id, row]));
 
   // The registered table — the shipping MONSTERS by default, kept by reference
   // so a kind added above is an enemy at once; tests swap via registerMonsters.
@@ -105,19 +86,18 @@
   // registered a synthetic kind is answered about that kind.
   function monster(kind) { return MONSTER_STATS[kind]; }
   // How far a kind wanders off, as a fraction of its activation range (the
-  // `retreat` column above; 1 — a full retreat — for any kind without one,
-  // the surface slime included). A giant inherits its base kind's.
+  // row's movement.retreatDistanceFraction; 1 — a full retreat — for any kind
+  // without one, the surface slime included).
   function retreatMul(kind) {
-    const r = monster(kind)?.retreat;
+    const r = monster(kind)?.movement?.retreatDistanceFraction;
     return (typeof r === 'number' && r > 0) ? r : 1;
   }
-  // How far off, in cells, this kind notices the player (the `sight` column;
-  // the surface slime, which has no row, is a slime and so SLIME_SIGHT_CELLS).
-  // Infinity for a row without one: it sees as far as it thinks, the sim
-  // bubble. A giant inherits its base kind's. Lair guards and the ghost have
-  // rings of their own and never ask.
+  // How far off, in cells, this kind notices the player (the row's
+  // visionCells). Infinity for a kind without one: it sees as far as it
+  // thinks, the sim bubble. Lair guards and the ghost have rings of their own
+  // and never ask.
   function sightCells(kind, save) {
-    const raw = kind === 'slime' ? SLIME_SIGHT_CELLS : monster(kind)?.sight;
+    const raw = monster(kind)?.visionCells;
     const sight = (typeof raw === 'number' && raw > 0) ? raw : Infinity;
     const cut = (typeof jewelryVisionReduction === 'function') ? jewelryVisionReduction(save) : 0;
     return Number.isFinite(sight) ? Math.max(0, sight - cut) : sight;
@@ -131,17 +111,18 @@
   // the surface slime.
   function isMonster(kind) { return kind !== 'slime' && !!monster(kind); }
   // Does this monster land blows at all? A row with no `dmg` (the trapper)
-  // never hits: app.js's melee drain and monster arrow both ask this, so a
-  // harmless kind is harmless by its row, never by a `kind === …`.
+  // never hits, so a harmless kind is harmless by its row, never by a
+  // `kind === …`.
   function monsterHits(kind) { return (monster(kind)?.dmg || 0) > 0; }
-  // What a monster LAYS instead of hitting ('trap'), or null. A giant inherits
-  // its base kind's (the giant rows are spreads of the base row).
-  function monsterLays(kind) { return monster(kind)?.lays || null; }
-  // Does the cave bag (scene_creatures.js spawnCaveCreatures) draw this kind? Every row
-  // without a `spawn` column — the ghost's 'night' is the one that has one.
+  // What a monster LAYS instead of hitting ('trap' — a row whose attackType
+  // is 'trap'), or null.
+  function monsterLays(kind) { return monster(kind)?.attackType === 'trap' ? 'trap' : null; }
+  // Does the cave bag (scene_creatures.js spawnCaveCreatures) draw this kind?
+  // Every row with a cave window but the ghosts (a 'touch' row rises by the
+  // night pump instead).
   function spawnsUnderground(kind) {
     const m = monster(kind);
-    return !!m && !m.spawn && !!m.cave;
+    return !!m && !!m.cave && m.attackType !== 'touch';
   }
 
   // Non-monster fauna that can take damage. cat/dog/crow/deer are the pet-combat
@@ -219,9 +200,9 @@
   }
 
   // The one call site shape app.js uses: a blow of `damage` against the worn
-  // set. `hits` is for a monster ARROW, which carries several hits of the
-  // table in one projectile (scene_creatures.js MONSTER_ARROW_HITS) — armour soaks each
-  // of those hits, not the bundle, or a slow archer would out-damage a melee
+  // set. `hits` is for a monster ARROW, which may carry several hits of the
+  // table in one projectile (the row's attackHits) — armour soaks each of
+  // those hits, not the bundle, or a slow archer would out-damage a melee
   // kind against armour precisely because its damage arrives in one lump.
   // Mode belongs to the recipient, after armour. Callers may supply a mode
   // for another player; local combat defaults to the active save's mode.
@@ -248,9 +229,9 @@
   // Callers own energy loss, cooldowns and popup accumulation.
   function incomingDamage(save, damage, hits = 1, now = Date.now()) {
     if (playerDowned(save?.energy) || Conditions.damageImmune(save, now)) return 0;
-    let mul = 1;
-    if ((save.protectionPotionUntil ?? 0) > now) mul = CONSUMABLE_SPEC.protection_potion.damageMul;
-    if ((save.shieldPotionUntil ?? 0) > now) mul = Math.min(mul, CONSUMABLE_SPEC.shielding_potion.damageMul);
+    // The shield / protection minimum is PotionEffects.damageMul's (the same
+    // fields, for the player and a potioned creature alike).
+    const mul = root.PotionEffects ? root.PotionEffects.damageMul(save, now) : 1;
     const shielded = mul < 1 ? Math.ceil(damage * mul) : damage;
     return playerDamage(shielded, save.armor, hits, save.mode);
   }
@@ -365,6 +346,15 @@
   const SHINY_SPEED_MUL = 1.5;
   function shinyMul(c) { return c?.shiny ? ELITE_MUL : 1; }
   function shinySpeedMul(c) { return c?.shiny ? SHINY_SPEED_MUL : 1; }
+  // THE ONE PACE MULTIPLIER, at every site a creature's speed is read (the
+  // roster mover's step, a bat's leg, a ghost's glide, the crow's flights,
+  // the fire escape, the animals' hop): a shiny's 1.5 (above the ceiling,
+  // never capped) × a thrown Speed potion's 2 (PotionEffects.speedMul) × the
+  // frost's slow (STATUS_LOOKS.frozen.slow while it holds). A crow a Speed
+  // potion lands on flies faster, like everything else.
+  function paceMul(c, now) {
+    return shinySpeedMul(c) * (root.PotionEffects ? root.PotionEffects.speedMul(c) : 1) * slowMul(c, now);
+  }
   // Raised adults retain their double strength, without stacking that same
   // shiny identity twice. Shiny babies also receive the universal bonus.
   const RAISED_MUL = 2;
@@ -463,6 +453,11 @@
   // and read back through shotSource.
   const PLAYER_KILL_SOURCES = new Set(['player', 'pet', 'ally']);
   function isPlayerKill(source) { return PLAYER_KILL_SOURCES.has(source); }
+  // THE GROUND'S OWN DAMAGE: lava, a burning light, a burn's tick, thorns
+  // and spikes. No armour against the world (app.js _damageEnemy passes
+  // bypassArmor for these) and no blow to divide a splitting slime under.
+  const ENVIRONMENT_SOURCES = new Set(['lava', 'light', 'burn', 'obstacle']);
+  function isEnvironmentSource(source) { return ENVIRONMENT_SOURCES.has(source); }
   function shotSource(shot) {
     if (shot?._sourceGuard) return isCharmed(shot._sourceGuard) ? 'ally' : 'enemy';
     return (shot && shot.source) || 'player';
@@ -485,7 +480,7 @@
   // depth 1.
   const ELITE_TREASURE_CONTEXT = 'treasure:elite';
   function eliteRollBonus(kind, depth) {
-    const intro = Math.max(1, monster(kind)?.minDepth || 1);
+    const intro = Math.max(1, monster(kind)?.cave?.minDepth || 1);
     return Math.max(0, (depth || 0) - 1) + (intro - 1);
   }
 
@@ -503,30 +498,50 @@
   function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
   // ── A STATUS LANDS ON A CREATURE ──────────────────────────────────────
-  // THE ONE TABLE OF HOW A CREATURE'S STATUS LOOKS when it is given: the
-  // word that pops over its head and the colour its body flicks for
-  // STATUS_FLASH_MS (render.js drawCreatures reads both off the creature;
-  // app.js _popCreatureText draws the word in the damage-number lane). A
-  // sleep, a charm, the frost, a fear and the madness are rows here; a BURN
-  // is the `burning` row of Conditions.DEFINITIONS (statusLook — the same
-  // label and ink the player's chip wears), and a THROWN POTION's buff is
-  // its Buffs.KINDS row (potion_effects.js apply). Every applier calls
-  // flagStatus with its look, so a new status on a creature is a row here
-  // and one flagStatus call, never a pop or a tint of its own. The marker
-  // that STAYS over a sleeper's or an ally's head (Render.flowerStatusMarker)
-  // reads the same colours.
+  // THE ONE TABLE OF A CREATURE'S STATUSES: what each one IS and how it LOOKS.
+  //   label / color — the word that pops over its head and the colour its
+  //     body flicks for STATUS_FLASH_MS (render.js drawCreatures reads both
+  //     off the creature; app.js _popCreatureText draws the word in the
+  //     damage-number lane). The marker that STAYS over a sleeper's or an
+  //     ally's head (Render.flowerStatusMarker) reads the same colours.
+  //   field — the expiry stamp on the creature (render.js, app.js and the
+  //     save's potion ledger read these names, so they stay);
+  //   clock — 'wall' (Date.now: sleep, charm, frost — they survive a tab
+  //     asleep) or 'perf' (performance.now: fear and madness share the step
+  //     loop's `now`). Per row what it had, so nothing shifts.
+  //   cancels — landing drops whatever the foe was winding up
+  //     (cancelCreatureAction). A SLOW does not interrupt: the frost no longer
+  //     cancels (owner, Oct 2026 — frost is a slow, never a freeze).
+  //   turnsNow — it turns on the spot rather than finishing a hop at the
+  //     player (fear and madness).
+  //   slow — the pace it moves and attacks at while it holds: paceMul
+  //     multiplies every movement site by it, and enemyAttackReady /
+  //     enemySupportTick divide their cadence by it (creature_ai.js). A
+  //     chilled archer still fires — half as often.
+  //   ally — a charm is an allegiance, not an affliction: an Antidote leaves
+  //     it (PotionEffects.clearDebuffs).
+  // Every applier is applyStatus (the names below are wrappers), so a new
+  // status on a creature is a row here and one call, never a pop, a tint, a
+  // clock or a field of its own. A BURN is the `burning` row of
+  // Conditions.DEFINITIONS (statusLook — the same label and ink the player's
+  // chip wears), and a THROWN POTION's buff is its Buffs.KINDS row
+  // (potion_effects.js apply).
   //   The flash is the same channel the player's own announcement uses
   // (app.js _flashPlayerStatus / _announceStatuses, STATUS_FLASH_MS): a
   // status landing on anybody looks the same.
   const STATUS_FLASH_MS = 400;
   const STATUS_LOOKS = Object.freeze({
-    sleep:     Object.freeze({ label: 'Sleep',     color: '#bcdfff' }),
-    charm:     Object.freeze({ label: 'Charm',     color: '#ff91b8' }),
-    // The ice the body wears while it holds (util.js FROZEN_TINT).
-    frozen:    Object.freeze({ label: 'Frozen',    color: '#' + FROZEN_TINT.toString(16).padStart(6, '0') }),
-    fear:      Object.freeze({ label: 'Fear',      color: '#c77dff' }),
-    psychosis: Object.freeze({ label: 'Psychosis', color: '#c6ff4d' }),
+    sleep:     Object.freeze({ label: 'Sleep',     color: '#bcdfff', field: '_sleepUntil',      clock: 'wall', cancels: true }),
+    charm:     Object.freeze({ label: 'Charm',     color: '#ff91b8', field: '_charmUntil',      clock: 'wall', cancels: true, ally: true }),
+    // The ice the body wears while it holds (util.js FROZEN_TINT). A SLOW:
+    // half pace, half cadence, never pinned in place.
+    frozen:    Object.freeze({ label: 'Chilled',   color: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), field: '_frozenUntil', clock: 'wall', cancels: false, slow: 0.5 }),
+    fear:      Object.freeze({ label: 'Fear',      color: '#c77dff', field: '_fearUntilT',      clock: 'perf', cancels: true, turnsNow: true }),
+    psychosis: Object.freeze({ label: 'Psychosis', color: '#c6ff4d', field: '_psychosisUntilT', clock: 'perf', cancels: true, turnsNow: true }),
   });
+  function statusNow(row, now) {
+    return now != null ? now : row.clock === 'wall' ? Date.now() : performance.now();
+  }
   function statusLook(id) {
     const def = root.Conditions?.DEFINITIONS[id];
     if (def) return { label: def.label, color: def.ink };
@@ -550,17 +565,45 @@
   }
 
   const FLOWER_STATUS_MS = 60 * 1000;
-  function isSleeping(c, now = Date.now()) { return !!c && (c._sleepUntil || 0) > now; }
-  function isCharmed(c, now = Date.now()) { return !!c && (c._charmUntil || 0) > now; }
+  // Does `c` carry status `id` at `now` (the row's own clock when omitted)?
+  function hasStatus(c, id, now) {
+    const row = STATUS_LOOKS[id];
+    return !!c && !!row && (c[row.field] || 0) > statusNow(row, now);
+  }
+  // LAND status `id` on `c` for `durationMs`: the row's field, on the row's
+  // clock, EXTENDED (the later of what it holds and now + duration — a second
+  // dose never shortens the first), its cancel and its turn, and the flick
+  // and the word (flagStatus). Only a flower target — a hostile kind, never a
+  // pet, a concealed foe or one hidden from this player. False when refused.
+  function applyStatus(c, id, durationMs, now) {
+    const row = STATUS_LOOKS[id];
+    if (!row || !flowerTarget(c)) return false;
+    const t = statusNow(row, now);
+    c[row.field] = Math.max(c[row.field] || 0, t + durationMs);
+    if (row.cancels) cancelCreatureAction(c);
+    if (row.turnsNow && c._nextChooseT != null) c._nextChooseT = t;
+    flagStatus(c, row, row.clock === 'perf' ? t : undefined);
+    return true;
+  }
+  // The pace a status holds a creature to: the `slow` of every status it
+  // carries (one today, the frost), 1 for none. paceMul folds it in.
+  function slowMul(c, now) {
+    let mul = 1;
+    for (const [id, row] of Object.entries(STATUS_LOOKS)) if (row.slow && hasStatus(c, id, now)) mul *= row.slow;
+    return mul;
+  }
+  function isSleeping(c, now = Date.now()) { return hasStatus(c, 'sleep', now); }
+  function isCharmed(c, now = Date.now()) { return hasStatus(c, 'charm', now); }
   function isBurrowed(c) { return !!c?._burrowed; }
   function isDisguised(c) {
     return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
   }
   function isConcealed(c) { return isBurrowed(c) || isDisguised(c); }
-  function flowerTarget(c) {
-    return !!c && !c._surfaceInactive && !isConcealed(c) && isEnemyKind(c.kind)
-      && !(typeof c.id === 'string' && c.id.startsWith('released_'));
-  }
+  // What a status may land on: a HOSTILE instance whether or not it is
+  // charmed right now (isEnemy, with the charm's clock pushed past every
+  // charm) — a sleep or a fresh charm reaches a charmed foe too; never a pet,
+  // a concealed body or a foe hidden from this player.
+  function flowerTarget(c) { return isEnemy(c, Infinity); }
   function cancelCreatureAction(c) {
     c._moving = false;
     c._attackWindupUntil = null;
@@ -574,49 +617,49 @@
     c._startX = c._targetX = c.x;
     c._startY = c._targetY = c.y;
   }
-  function applySleep(c, now = Date.now()) {
-    if (!flowerTarget(c)) return false;
-    c._sleepUntil = now + FLOWER_STATUS_MS;
-    cancelCreatureAction(c);
-    flagStatus(c, STATUS_LOOKS.sleep);
-    return true;
-  }
-  function applyCharm(c, now = Date.now()) {
-    if (!flowerTarget(c)) return false;
-    c._charmUntil = now + FLOWER_STATUS_MS;
-    cancelCreatureAction(c);
+  // The rows by name (callers outside combat.js use these):
+  //   SLEEP / CHARM (the flowers, the Sleep Powder; a thrown Honey charms):
+  //   FLOWER_STATUS_MS each. A charmed foe also forgets Home's ward and its
+  //   wander-off — it is yours now.
+  //   PSYCHOSIS (the Powder of Psychosis, app.js usePsychosisPowder): for
+  //   `durationMs` the foe loses its head — wanderCreatures reads isPsychotic
+  //   as one more reason in the ROUT lane (the flee pace, no blow, no target)
+  //   and rosterEnemyMove rolls a RANDOM heading in place of fear's away angle.
+  //   FEAR (the Fear Scroll): the rout, away from the player, for `durationMs`.
+  //   FROST (the Frost Powder, the magic trap's hold): a SLOW, never a freeze.
+  function applySleep(c, now) { return applyStatus(c, 'sleep', FLOWER_STATUS_MS, now); }
+  function applyCharm(c, now) {
+    if (!applyStatus(c, 'charm', FLOWER_STATUS_MS, now)) return false;
     c._wardFrom = null;
     c._wanderOffUntilT = null;
-    flagStatus(c, STATUS_LOOKS.charm);
     return true;
   }
-  // PSYCHOSIS (the Powder of Psychosis, app.js usePsychosisPowder): for
-  // `durationMs` the foe loses its head — wanderCreatures reads
-  // isPsychotic as one more reason in the ROUT lane (the flee pace, no blow,
-  // no target) with a RANDOM angle each hop in place of fear's away angle;
-  // rosterEnemyMove rolls the same random heading. The clock is
-  // performance.now(), fear's (`_fearUntilT`), so the two share one `now` in
-  // the step loop. Whatever it was winding up is dropped, and it turns NOW
-  // rather than finishing a hop at the player (fear does the same through
-  // monsterRout). Only a flower target — a hostile kind, never a pet.
-  function isPsychotic(c, now = performance.now()) { return !!c && (c._psychosisUntilT || 0) > now; }
-  function applyPsychosis(c, durationMs, now = performance.now()) {
-    if (!flowerTarget(c)) return false;
-    c._psychosisUntilT = now + durationMs;
-    cancelCreatureAction(c);
-    if (c._nextChooseT != null) c._nextChooseT = now;
-    flagStatus(c, STATUS_LOOKS.psychosis, now);
-    return true;
-  }
+  function isPsychotic(c, now = performance.now()) { return hasStatus(c, 'psychosis', now); }
+  function applyPsychosis(c, durationMs, now) { return applyStatus(c, 'psychosis', durationMs, now); }
+  function isFrightened(c, now = performance.now()) { return hasStatus(c, 'fear', now); }
+  function applyFear(c, durationMs, now) { return applyStatus(c, 'fear', durationMs, now); }
+  function isChilled(c, now = Date.now()) { return hasStatus(c, 'frozen', now); }
+  function applyFrost(c, durationMs, now) { return applyStatus(c, 'frozen', durationMs, now); }
 
-  // A hostile INSTANCE. A slime tamed with a sapphire (id 'released_…') is a
-  // pet: it must never be shot at, auto-engaged, or counted as "an enemy is on
+  // ── YOURS, not the world's ───────────────────────────────────────────────
+  // A TAME creature: one the player released (save.released — pickUpPet /
+  // release mint its id with TAME_ID_PREFIX). THE one test; a tame slime is
+  // a pet whatever its species. An ALLY is a tame creature or a SUMMONED
+  // one (SpriteLayout.isSummoned — the raven, the bones, the wraith, the
+  // mercenary): it hunts for the player, is never a target, and goes where
+  // it likes (the kerb and the yards are the wild things' rules).
+  const TAME_ID_PREFIX = 'released_';
+  function isTame(c) { return !!c && typeof c.id === 'string' && c.id.startsWith(TAME_ID_PREFIX); }
+  function isAlly(c) { return isTame(c) || (!!c && SpriteLayout.isSummoned(c.kind)); }
+
+  // A hostile INSTANCE. A slime tamed with a sapphire (isTame) is a pet: it
+  // must never be shot at, auto-engaged, or counted as "an enemy is on
   // screen" for the auto-fire gate. A rose's temporary ally gets the same
   // targeting exclusion while its charm lasts; buried creatures are likewise
   // unavailable until they surface. Their species remains unchanged.
   function isEnemy(c, now = Date.now()) {
     if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now)) return false;
-    if (typeof c.id === 'string' && c.id.startsWith('released_')) return false;
+    if (isTame(c)) return false;
     return isEnemyKind(c.kind);
   }
 
@@ -625,28 +668,33 @@
   // resolves once per wander step). A tame animal worries its prey down, a
   // point a bite — PET_BITE, what the fight always dealt. A SUMMONED ally
   // bites with the blow of the kind it is summoned as (SUMMONED_AS): the
-  // spirit raven lands the surface slime's leech, SLIME_LEECH_ENERGY (items.js
-  // — the slime's one bite a second), and its row steps once a second, so it
+  // spirit raven lands the surface slime's leech (the enemy_roster.js slime
+  // row's dmg — one bite a second), and its row steps once a second, so it
   // deals what a slime deals at the rate a slime deals it. A monster model
   // would bite for its registered `dmg`.
   const PET_BITE = 1;
   function enemyBlow(kind) {
     const m = monster(kind);
-    if (m) return m.dmg || 0;
-    // The surface slime — the one enemy with no MONSTERS row (isEnemyKind).
-    if (isEnemyKind(kind) && typeof SLIME_LEECH_ENERGY === 'number') return SLIME_LEECH_ENERGY;
-    return PET_BITE;
+    return m ? (m.dmg || 0) : PET_BITE;
   }
   function petBite(kind) {
     const model = SUMMONED_AS[kind];
     return model ? enemyBlow(model) : PET_BITE;
   }
-  // THIS pet's blow: its kind's bite times its own power (a raised pet's
-  // double). The fight in scene_creatures.js reads this, never petBite alone.
-  function petBlow(c) {
-    const base = petBite(c.kind) * powerMul(c);
+  // THE MELEE FORMULA — what ONE contact blow of `c` carries, before the
+  // defender's shield, armour and mode: its `baseDmg` (the row's dmg, a pet's
+  // bite, a deer's butt) times its own power (powerMul: elite, raised,
+  // ghost size), plus a Giant potion's bonus, times a Shrinking potion's
+  // multiplier (PotionEffects). The one place it is typed: a Giant-potioned
+  // ghost or deer hits as hard as a Giant-potioned goblin.
+  function meleeBlow(c, baseDmg) {
+    const base = (baseDmg || 0) * powerMul(c);
     return root.PotionEffects ? (base + root.PotionEffects.meleeBonus(c)) * root.PotionEffects.meleeMul(c) : base;
   }
+  // THIS pet's blow: its kind's bite through the melee formula (a raised
+  // pet's double). The fight in scene_creatures.js reads this, never petBite
+  // alone.
+  function petBlow(c) { return meleeBlow(c, petBite(c.kind)); }
 
   // Current HP, lazily seeded from the kind's max the first time anything hits
   // it. Creatures are re-spawned from tile data on every reload, so `_hp` is
@@ -655,6 +703,17 @@
   function hp(c) {
     if (!Number.isFinite(c._hp)) c._hp = maxHp(c);
     return c._hp;
+  }
+  // RESTED, WHOLE: a creature untouched for REST_HEAL_MS refills to ITS max
+  // (maxHp — the kind's, doubled for an elite; never creatureMaxHp(kind)).
+  // The one rule, asked by both movers (rosterEnemyMove and the animals'
+  // step chain) off the one damage stamp.
+  const REST_HEAL_MS = 20 * 60 * 1000;
+  function healIfRested(c, wall = Date.now()) {
+    if (!c._lastDamagedT || wall - c._lastDamagedT < REST_HEAL_MS) return false;
+    c._hp = maxHp(c);
+    c._lastDamagedT = null;
+    return true;
   }
   // Return actual HP removed for damage popups; damage() retains its HP-left
   // contract for existing defeat checks. Environmental/aura callers can pass
@@ -1451,14 +1510,17 @@
   }
 
   // ── Monster arrows ───────────────────────────────────────────────────────
-  // A RANGED monster (MONSTERS[kind].range > 1) attacks with a visible arrow
-  // rather than the melee leech: scene_creatures.js wanderCreatures looses one
-  // at the player when inside range with a clear line of fire (lineOfFire).
-  // It is flagged `hostile`, so stepShots sweeps it against the PLAYER
-  // (opts.hostileTargets). Its damage is the kind's `dmg` (one arrow is one
-  // hit of the table) and its cadence is the castle turret's. A distinct
-  // colour keeps a shot coming AT you legible.
-  const MONSTER_SHOT_INTERVAL_MS = TURRET.fireIntervalMs;
+  // A RANGED monster (a 'projectile' roster row — the goblin archer, the
+  // casters) attacks with a visible arrow, not the silent energy leech the
+  // melee kinds land: creature_ai.js rosterEnemyAttack looses one at the
+  // player whenever they are inside the row's range with a clear line of
+  // fire (lineOfFire — the same rock that stops your arrow stops theirs), on
+  // the row's own cadence, and the arrow flies exactly as a bow arrow does,
+  // joining the one shot list. It is flagged `hostile`, which is what makes
+  // stepShots sweep it against the PLAYER (opts.hostileTargets) rather than
+  // the enemy list. Its damage is the kind's `dmg` — one arrow is one hit of
+  // the table. A distinct colour keeps a shot coming AT you legible from one
+  // going out.
   const HOSTILE_ARROW_COLOR = 0xb0f08a;
   function monsterShot(x, y, targetX, targetY, cellM, dmg, hits = 1) {
     const heading = { x: targetX - x, y: targetY - y };
@@ -1502,14 +1564,17 @@
   const api = {
     MONSTERS,
     registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
-    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow,
+    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, meleeBlow,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
-    STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, isPsychotic, applyPsychosis,
-    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
+    STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
+    isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, cancelCreatureAction,
+    TAME_ID_PREFIX, isTame, isAlly,
+    isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction,
+    ENVIRONMENT_SOURCES, isEnvironmentSource,
     canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,
     ELITE_MUL, isElite, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
@@ -1525,7 +1590,7 @@
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, spawnFireball, spawnExplosiveFlask, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, SHINY_ARROW_COLOR, shinyTurretDamage, turretPhaseMs, turretShot, turretTick,
-    MONSTER_SHOT_INTERVAL_MS, HOSTILE_ARROW_COLOR, monsterShot,
+    HOSTILE_ARROW_COLOR, monsterShot,
   };
   root.Combat = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

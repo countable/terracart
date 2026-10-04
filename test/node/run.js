@@ -339,14 +339,14 @@ const starterWrapper = (name) => {
                    '_teleportCut(place) {',
                    // Grabbing the stick mid-walk re-anchors target AND offset.
                    '_steerManual(vx, vy, dt) {',
-                   // What pauses the debounce (a wheel, a dialog).
-                   '_walkHomeHeld() {']
+                   // What pauses the debounce (a wheel, a dialog), and the one dialog test.
+                   '_walkHomeHeld() {', '_dialogOpen() {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
   for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
                    '_placeBodyOnFix', '_carveLanding', 'clearPeek', '_teleportCut',
-                   '_steerManual', '_walkHomeHeld']) {
+                   '_steerManual', '_walkHomeHeld', '_dialogOpen']) {
     if (typeof ctx.__walkHome[k] !== 'function') {
       console.error(`__walkHome.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -368,9 +368,9 @@ const starterWrapper = (name) => {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailRewardCard(reward, iconPx = 64) {', '_claimTrailReward(reward, opts = {}) {',
-                   '_trailRewardBlurb(reward) {']
-    .map(lift).join(',\n');
+  // The card is Rewards.card now; the scene keeps no copy, so the lift wraps it.
+  const methods = ['_claimTrailReward(reward, opts = {}) {', '_trailRewardBlurb(reward) {']
+    .map(lift).concat(['_trailRewardCard(reward, iconPx = 64) { return Rewards.card(this, reward, iconPx); }']).join(',\n');
   vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_claimTrailReward' });
   for (const k of ['_trailRewardCard', '_claimTrailReward', '_trailRewardBlurb']) {
@@ -437,7 +437,8 @@ const starterWrapper = (name) => {
                    '_roadMetresMul() {', '_offGps() {',
                    '_scenicIntervals(tileKey, lineKey) {',
                    '_scenicWalkStory(kind) {', '_afterRestoreBeat(fn) {',
-                   '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro() {',
+                   '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro(onDone) {',
+                   '_enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {', '_drainCeremonies() {', '_dialogOpen() {',
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
                    '_armTrailIntro(now, st) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
@@ -506,7 +507,7 @@ const starterWrapper = (name) => {
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
                    '_setStreetPreview', '_ripenStreets', '_oneRoadPay', '_roadMetresMul', '_offGps',
                    '_scenicIntervals', '_scenicWalkStory',
-                   '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro',
+                   '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro', '_enqueueCeremony', '_drainCeremonies', '_dialogOpen',
                    '_armTrailIntro', '_openTrailIntroIfDue',
                    '_drawStreetLive', '_blastAt', '_houseMutter']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
@@ -799,15 +800,16 @@ Object.assign(ctx, {
     }
     return src.slice(start + 1, end + 4);
   };
-  // The wreck rules are houses.js; the scene keeps one-line wrappers.
-  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {']
+  // The wreck rules are houses.js now; the scene keeps one-line wrappers.
+  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {',
+    "_nearestObject(pred, { list = 'objects', from = playerWorldM(this) } = {}) {"]
     .map(lift).concat([
       '_isHouseWreck(house) { return Houses.isHouseWreck(this.save, house); }',
       '_wreckRestoreCost(house) { return Houses.wreckRestoreCost(this.save, house); }',
     ]).join(',\n');
   vm.runInContext(`globalThis.__starterArrow = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_starterGuidanceGoal' });
-  for (const k of ['_starterGuidanceGoal', '_nearestStarterCrate', '_isHouseWreck', '_wreckRestoreCost']) {
+  for (const k of ['_starterGuidanceGoal', '_nearestStarterCrate', '_nearestObject', '_isHouseWreck', '_wreckRestoreCost']) {
     if (typeof ctx.__starterArrow[k] !== 'function') {
       console.error(`__starterArrow.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -848,9 +850,10 @@ Object.assign(ctx, {
   const src = SCENE_SRC + '\n' + readSrc('creature_ai.js');
   let decls = '';
   for (const name of ['CREATURE_SIM_CELLS', 'PEST_SPAWN_CELLS', 'VIEW_CELLS',
-                      // The rout's pace (home_ward.test.js times the ring clearing).
-                      'FLEE_STRIDE_MUL', 'FLEE_BEAT_MUL',
-                      'SLIME_HOP_CELLS', 'SLIME_STEP_MUL']) {
+                      // The rout's pace, and the slowest gait it has to move:
+                      // home_ward.test.js measures how long the ring takes to
+                      // clear in seconds a player would recognise.
+                      'FLEE_STRIDE_MUL', 'FLEE_BEAT_MUL']) {
     const m = src.match(new RegExp(`const ${name} = ([^;]+);`));
     if (!m) {
       console.error(`Could not find ${name} in src/app.js — update run.js`);
@@ -862,9 +865,10 @@ Object.assign(ctx, {
   // is the sim's own and not the first look-alike in app.js.
   const sim = readSrc('scene_creatures.js');
   const cull = sim.match(/const RANGE_M = [^\n]+\n\s*const RANGE_SQ = [^\n]+/);
-  const feet = sim.match(/const px = this\.startWorldM[^\n]+\n\s*const py = [^\n]+/);
-  // Two `const SPAWN_R` exist (the cave entrance scatter is the other); take
-  // the pump's, the last before the pest-deer id.
+  const feet = sim.match(/const \{ x: px, y: py \} = playerWorldM\(this\);\n\s*const kerbLeash = [^\n]+/);
+  // There are two `const SPAWN_R` in scene_creatures.js (the cave entrance
+  // scatter is the other), so take the one in the pump — the last before the
+  // pest-deer id.
   const pumpAt = sim.indexOf('`pest_deer_${');
   const spawnAt = pumpAt < 0 ? -1 : sim.lastIndexOf('const SPAWN_R = ', pumpAt);
   const spawn = spawnAt < 0 ? null : [sim.slice(spawnAt, sim.indexOf('\n', spawnAt))];
@@ -1137,25 +1141,22 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   }
   const method = src.slice(start + 2, end + 4);
   const preamble = [
-    // The numbers the loop reads, lifted so a retune moves the simulation with it.
-    num('CREATURE_SIM_CELLS'), num('SURFACE_RECHECK_MS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'), num('WANDER_STEP_MS'),
-    num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
+    // The numbers the loop reads. Lifted, never retyped: a retune has to move
+    // the simulation with it or these tests are measuring last week's game.
+    num('CREATURE_SIM_CELLS'), num('SURFACE_RECHECK_MS'), num('FIRE_WARD_MAX_DEPTH'), num('WANDER_STEP_MS'),
+    num('STALK_JITTER'),
     num('PEST_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
     // The struck-prey flee and Home's rout both run at this pair.
     num('FLEE_STRIDE_MUL'), num('FLEE_BEAT_MUL'),
     // The wander-off schedule, distance and timeout (wander_off.test.js).
     num('WANDER_OFF_MIN_MS'), num('WANDER_OFF_SPREAD_MS'), num('WANDER_OFF_MAX_MUL'),
     num('WANDER_OFF_TIMEOUT_MS'), num('WANDER_OFF_TICK_CAP_MS'),
-    'const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;',
-    // The predicates (faunaBlocksCell is Combat's).
+    // The predicates. (faunaBlocksCell is Combat's, already loaded.)
     fn('function slimeCharging(c) {'),
     fn('function monsterRout(c, now, cellM) {'),
     fn('function monsterWanderingOff(c, now, distM, cellM) {'),
     fn('function wardTrip(c, homePos, castleWards, r2) {'),
-    // The goblin trapper's stalk: hold its row's range off the player.
-    fn('function keepDistanceAngle(dist, dxp, dyp, keepM, cellM) {'),
-    // The ghosts: the stride both movers read, the night pump and the mover.
-    fn('function monsterStrideCells(mon) {'),
+    // The ghosts: the night pump and the mover.
     num('GHOST_DARK_DAYLIGHT'),
     'const GHOST_SPAWN_MS = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;',
     'const GHOST_SPAWN_JITTER_MS = EnemyRoster.GHOST_SCALING.jitterSeconds * 1000;',
@@ -1173,10 +1174,12 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     // The fished slime: a cast's slime, seated beside the player, angry.
     fn('function fishedSlimeSpawn(scene, now, px, py, pcW) {'),
   ].join('\n');
-  // ONE script, so the method closes over the preamble's consts (a vm script's
-  // top-level `const` does not land on the context global; see BRIDGE). The
-  // class method is wrapped as an object literal and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
+  // ONE script, so the method closes over the preamble's consts — a second
+  // runInContext would not see them (a vm script's top-level `const` does not
+  // land on the context global; that is what the BRIDGE above exists for).
+  // The method text is a class method, so it is wrapped as an object literal
+  // and the property taken off it.
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, ghostSunExposure, ghostSpawnDelay };\n})();`,
     ctx, { filename: 'scene_creatures.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');
@@ -1342,7 +1345,9 @@ vm.runInContext(`
     return Object.assign(s, over);
   };
   // Build a ctx the tap-driver expects (scene + save + screen coords).
-  globalThis.makeCtx = (scene, save) => ({ scene, save, sx: 0, sy: 0, dirty: false });
+  // The live save is seeded by SaveState.normalize at boot (SAVE_DEFAULTS);
+  // a test's bare save is seeded here the same way.
+  globalThis.makeCtx = (scene, save) => ({ scene, save: SaveState.defaults(save), sx: 0, sy: 0, dirty: false });
 `, ctx, { filename: 'framework.js' });
 
 // ── Load every *.test.js in this directory into the same context ──────────

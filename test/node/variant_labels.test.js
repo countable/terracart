@@ -38,7 +38,10 @@
     const text = () => {
       const t = { setOrigin() { return this; }, setDepth() { return this; },
         setText(v) { this.text = v; return this; }, setPosition(x, y) { this.x = x; this.y = y; return this; },
-        setVisible(v) { this.visible = v; return this; } };
+        setVisible(v) { this.visible = v; return this; },
+        // The pool's identity reset (render.js resetSlot) and the family shadow.
+        setAlpha() { return this; }, setAngle() { return this; }, setScale() { return this; },
+        setFlipX() { return this; }, clearTint() { return this; }, setShadow() { return this; } };
       made.push(t); return t;
     };
     const scene = { debugVariantLabels: true, depth: 0, tileEdgeM: 100, cellM: 10,

@@ -5,12 +5,9 @@
   // Surface foes own their night threshold. Ghost dusk is a separate haunt
   // rule, so retuning ghosts cannot move ordinary foes between day and night.
   const SURFACE_NIGHT_DAYLIGHT = 0.25;
-  const hash = value => {
-    let h = 2166136261;
-    for (const c of String(value)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); }
-    return h >>> 0;
-  };
-  const roll = key => hash(key) / 4294967296;
+  // util.js's fnv1a / hash01, read at call time (util.js loads after this).
+  const hash = value => fnv1a(value);
+  const roll = key => hash01(key);
   function pick(weighted, r) {
     const total = weighted.reduce((sum, x) => sum + x.weight, 0);
     if (!(total > 0)) return null;
@@ -144,8 +141,8 @@
     const local = giant ? r / giantChance : (r - giantChance) / (1 - giantChance);
     return pick(pool.map(row => ({ row, weight: row.cave.weight })), local)?.id || null;
   }
-  function surfaceId(tx, ty, cx, cy) { return `enemy_${tx}_${ty}_${cx}_${cy}`; }
-  function caveId(depth, tx, ty, cx, cy) { return `enemy_cave_${depth}_${tx}_${ty}_${cx}_${cy}`; }
+  function surfaceId(tx, ty, cx, cy) { return root.WorldGen.cellId('enemy', tx, ty, cx, cy); }
+  function caveId(depth, tx, ty, cx, cy) { return root.WorldGen.cellId(`enemy_cave_${depth}`, tx, ty, cx, cy); }
   // Legacy IDs encode ordinal seats (pack) or cells (roamers). Match either
   // suffix without tying a persistent defeat to the newly selected species.
   function legacyCaveDefeats(caught, depth, tx, ty) {

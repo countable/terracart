@@ -9,9 +9,10 @@
       isRestingAtHome() { return false; },
       flash(message) { this.flashes.push(message); },
       flashAtCell(message) { this.flashes.push(message); },
+      flashAtPlayer(message) { this.flashes.push(message); },
     }, overrides);
     // Exercise the shared activation lock and own cooldown of the other tomes.
-    for (const name of ['_tomeReady', '_tomeSpent']) {
+    for (const name of ['_tomeWait', '_tomeReady', '_tomeSpent', '_selectedConsumable']) {
       const match = SCENE_SRC.match(new RegExp(`\\n  ${name}\\(id\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
       const cooldown = SCENE_SRC.match(/const TOME_COOLDOWN_MS = ([^;]+);/)[1];
       s[name] = new Function('TOME_COOLDOWN_MS', 'shortDuration',

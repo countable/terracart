@@ -13,6 +13,7 @@
 //   worldMetersToTilePx(scene, wmx, wmy)     — …and absolute metres → the same
 //   localMetersToTile / worldMetersToTile    — the TILE either of those falls in
 //   eachTile3x3(tx, ty, fn)                  — the 3×3 tile ring, in row order
+//   forEachLoadedTile(tx, ty, fn)            — …only the ring's CACHED tiles
 //   gamePt(p, renderScale)                   — a canvas-px pointer in LOGICAL px
 //   rowCells / rowCellPx / rowCellM(scene, ty) — a tile ROW's own grid
 //   tileCellToAbs / absCellToTile            — (tx,ty,ix,iy) ⇄ absolute cell
@@ -24,7 +25,10 @@
 //   absCellCenterMeters(scene, cellIX, cellIY) — { x, y }
 //   sameAbsCell(scene, ax, ay, bx, by)       — do both points share a cell?
 //   peekM(scene)                             — the peek-drag camera offset
+//   playerWorldM(scene)                      — the player's feet, in world metres
 //   viewAnchorWorldM(scene)                  — world point the viewport centres on
+//   deltaMToScreen / cellScreenXY            — metres / cells from the anchor → screen px
+//   inViewBox / cullToView                   — the viewport cull every pass shares
 //   viewAnchorCell(scene)                    — that point's { tx, ty, cx, cy }
 //   overlayFrame(scene, entryReady)          — a geometry overlay's draw frame
 //   overlayProjection(scene, fracX, fracY)   — …and its cell-snapped projection
@@ -274,6 +278,15 @@ function eachTile3x3(tx, ty, fn) {
     for (let dtx = -1; dtx <= 1; dtx++) fn(tx + dtx, ty + dty, dtx, dty);
   }
 }
+// The same ring, visiting only the tiles the cache holds — the per-frame
+// walks in render.js (objects, treasure marks, coin drops, shiny fish) and
+// the overlays' frame all skip a tile that has not landed yet.
+function forEachLoadedTile(tx, ty, fn) {
+  eachTile3x3(tx, ty, (x, y, dtx, dty) => {
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(x, y));
+    if (entry) fn(entry, x, y, dtx, dty);
+  });
+}
 
 // A Phaser pointer's position in LOGICAL px. Phaser reports pointer positions
 // in CANVAS px — the backing store, which is renderScale× the logical grid (see
@@ -353,14 +366,67 @@ function peekM(scene) {
   return scene.peekM || _NO_PEEK;
 }
 
+// The player's feet in WORLD metres (the frame every object, creature and
+// wildplant x/y is in): the local playerM shifted by the frame origin. The one
+// spelling of `startWorldM + playerM`, for every "how far is this from the
+// player" question — reach, taps, nearest-thing scans, the lights.
+function playerWorldM(scene) {
+  return { x: scene.startWorldM.x + scene.playerM.x, y: scene.startWorldM.y + scene.playerM.y };
+}
+
 // The world point (metres, same frame as an object's x/y) the viewport centres
 // on. worldMetersToScreen / screenToWorldMeters are both defined against it.
 function viewAnchorWorldM(scene) {
-  const p = peekM(scene);
+  const p = peekM(scene), w = playerWorldM(scene);
+  w.x += p.x; w.y += p.y;
+  return w;
+}
+
+// ─── Metres from the anchor → screen px ──────────────────────────────────────
+// THE projection every drawn thing shares: a delta (dx, dy) in metres from the
+// camera anchor lands at viewCenter + delta in cells × CELL_PX. render.js's
+// object pass, the lightmap's cookie centres (lighting.js lightCentrePx) and
+// the labels all take it from here, so a sprite and the light on it can never
+// disagree by a pixel. The anchor is viewAnchorWorldM (the player, or the peek).
+function deltaMToScreen(scene, dx, dy) {
   return {
-    x: scene.startWorldM.x + scene.playerM.x + p.x,
-    y: scene.startWorldM.y + scene.playerM.y + p.y,
+    x: scene.viewCenterX + (dx / scene.cellM) * CELL_PX,
+    y: scene.viewCenterY + (dy / scene.cellM) * CELL_PX,
   };
+}
+
+// Cell offset (ox, oy) from the anchor cell -> rounded top-left screen pixel,
+// given the sub-cell pan fraction (fracX, fracY). The cell-grid passes
+// (render.js drawCells, the lightmap's plateau and its key) all share this
+// one expression. Returns a shared scratch object (not a fresh one) — drawCells
+// calls this up to VIEW_CELLS² times per pass, several times a frame, so this
+// avoids an allocation per cell; read x/y out of it before the next call.
+// `phaseX` (optional, screen px) is a row band's column phase — viewBand — for
+// a band whose tile row has a different grid to the anchor's. 0 / omitted
+// everywhere else, which is the plain slot position exactly.
+const _cellScreenXY = { x: 0, y: 0 };
+function cellScreenXY(scene, ox, oy, fracX, fracY, phaseX) {
+  _cellScreenXY.x = Math.round(scene.viewCenterX + (ox - fracX + 0.5) * CELL_PX - CELL_PX / 2 + (phaseX || 0));
+  _cellScreenXY.y = Math.round(scene.viewCenterY + (oy - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+  return _cellScreenXY;
+}
+
+// ─── The viewport cull ───────────────────────────────────────────────────────
+// Is a delta from the anchor inside the drawn square (halfM metres each way)?
+// Every per-frame list in render.js and every light collector asks this of
+// each candidate; a pass that pads its box (a house, a light's own radius)
+// hands in the padded half-width.
+function inViewBox(dx, dy, halfM) {
+  return Math.abs(dx) <= halfM && Math.abs(dy) <= halfM;
+}
+// Walk `list` (anything with world-metre x/y) and call fn(item, dx, dy) for
+// each item inside the view box about the anchor (ax, ay). The deltas are
+// handed on because every caller draws by them.
+function cullToView(list, ax, ay, halfM, fn) {
+  for (const it of list) {
+    const dx = it.x - ax, dy = it.y - ay;
+    if (inViewBox(dx, dy, halfM)) fn(it, dx, dy);
+  }
 }
 
 // The anchor's tile + intra-tile cell address — the origin of the drawn window.
@@ -473,18 +539,15 @@ function overlayFrame(scene, entryReady) {
   const { cellIX: baseCellIX, cellIY: baseCellIY } = viewAnchorAbsCell(scene, pc);
   const tiles = [];
   let ready = '';
-  for (let dty = -1; dty <= 1; dty++) {
-    for (let dtx = -1; dtx <= 1; dtx++) {
-      const tx = pc.tx + dtx, ty = pc.ty + dty;
-      // Only the tiles whose geometry can reach the view are the frame's
-      // inputs — both what the rebuild draws and what its key names.
-      if (!overlayTileInView(scene, tx, ty)) continue;
-      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-      if (!entry || !entry.tileEdgeM || !entryReady(entry)) continue;
-      tiles.push({ tx, ty, entry });
-      ready += `${dtx}${dty}|`;
-    }
-  }
+  forEachLoadedTile(pc.tx, pc.ty, (entry, tx, ty, dtx, dty) => {
+    // Only the tiles whose geometry can reach the view are the frame's
+    // inputs — both what the rebuild draws and what its key names. A ring
+    // tile landing a kilometre away used to repaint both canvases.
+    if (!overlayTileInView(scene, tx, ty)) return;
+    if (!entry.tileEdgeM || !entryReady(entry)) return;
+    tiles.push({ tx, ty, entry });
+    ready += `${dtx}${dty}|`;
+  });
   // A row band off the anchor's grid can step without the anchor cell moving,
   // so its layout is part of the cache key too ('' on a uniform view).
   const bands = viewBandKey(scene, pc, baseCellIY, (VIEW_CELLS - 1) / 2);

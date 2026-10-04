@@ -77,7 +77,7 @@ test('rope: the Use dialog offers Down (primary) and Up (secondary), Up greyed o
   assert.falsy(row.secondary.disabled({ depth: 1 }), 'Up is enabled underground');
   assert.eq(row.title, 'Use the rope — which way?', 'the title asks which way');
   // The handler actually threads the row through to the modal.
-  assert.truthy(/secondary,\n        onAccept: \(\) => \{ this\[fn\]\(\); this\.syncConsumableButton\(\); \},/.test(app),
+  assert.truthy(/secondary,\n        onAccept: \(\) => \{ this\._useConsumable\(id\); this\.syncConsumableButton\(\); \},/.test(app),
     'syncConsumableButton passes `secondary` to showOfferModal');
   assert.truthy(/acceptLabel: entry\.acceptLabel \|\| entry\.verb,/.test(app),
     'the primary label honours acceptLabel');
@@ -90,7 +90,7 @@ test('rope: useRope moves one level either way and is consumed only once the mov
   const body = m[1];
   assert.truthy(/useRopeUp\(\)\s*\{ return this\.useRope\(-1\); \}/.test(app), 'useRopeUp is delta -1');
   assert.truthy(/useRopeDown\(\)\s*\{ return this\.useRope\(\+1\); \}/.test(app), 'useRopeDown is delta +1');
-  assert.truthy(/sel\.id !== 'rope'/.test(body), 'only a selected rope');
+  assert.truthy(/this\._selectedConsumable\('rope'\)/.test(body), 'only a selected rope (the one slot guard)');
   assert.truthy(/if \(target < 0\) \{[\s\S]*?return false;/.test(body), 'no climbing up from the surface');
   assert.truthy(/if \(delta > 0 && \(this\.save\.energy \?\? 0\) <= 0\) \{[\s\S]*?return false;/.test(body),
     'no climbing down on an empty tank (the staircase gate)');

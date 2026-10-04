@@ -8,7 +8,8 @@
 // here so every way a piece can be obtained lands in exactly one place.
 //
 // Depends on globals from items.js: MATERIAL_TIERS, RELIC_DEFS, ARMOR_DEFS,
-// gearPrice.
+// gearPrice, buyMarkupRange, the bar ladder (barForTier / BAR_IDS /
+// MINERAL_TIERS.smeltFrom); util.js pickFromArray / weightedPickBy.
 
 (function (root) {
   'use strict';
@@ -77,10 +78,7 @@
   // by Combat.mitigate) is read live off save.armor at the moment a blow lands,
   // so there is nothing to bank here.
   function equip(save, kind, slot, tier) {
-    const def = gearDef(kind, slot);
-    if (!def || !TIER_BY_NUM[tier] || (def.tiers && !def.tiers.includes(tier))) return;
-    const owned = (kind === 'armor' ? save.armor : save.relics)?.[slot]?.tier || 0;
-    if (tier <= owned) return;
+    if (!canUpgrade(save, kind, slot, tier)) return;
     if (kind === 'armor') {
       save.armor = save.armor || {};
       save.armor[slot] = { tier };
@@ -176,13 +174,16 @@
     // Pricing: castle = a flat CASTLE_RELIC_MARKUP; everything else = random
     // 1.2..3.0× markup (houses.js priceMul owns the standing discounts).
     const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
-    const mul = opts.isCastle ? CASTLE_RELIC_MARKUP : 1.2 + rng() * 1.8;
+    // The same markup range every cash shop reads (items.js buyMarkupRange —
+    // hard mode scales it); the castle alone is flat.
+    const { lo, hi } = buyMarkupRange(save.relics);
+    const mul = opts.isCastle ? CASTLE_RELIC_MARKUP : lo + rng() * (hi - lo);
     const price = Math.max(1, Math.ceil(baseP * mul));
     return { ...pick, price };
   }
 
   // Forge recipe for a gear piece. Tools use the tier-matched bar (T1 = plain
-  // wood); the staff's emerald setting uses a geometric
+  // wood — items.js barForTier); the staff's emerald setting uses a geometric
   // gem ramp (1,2,4,…,32 from T2..T7) plus one bar. At the Frost tier every
   // staff is cut around DIAMONDS instead of emerald at Frost (JEWELRY_FROST_TIER). Returns null when uncraftable.
   const JEWELRY_FROST_TIER = 7;
@@ -193,8 +194,7 @@
     if (kind === 'relic' && RELIC_DEFS[slot].chestOnly) return null;
     if (kind === 'armor' && !ARMOR_DEFS[slot]) return null;
     const JEWELRY_GEM = { staff: 'emerald' };
-    const BAR_BY_TIER = [, 'wood', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
-    const bar = BAR_BY_TIER[tier];
+    const bar = barForTier(tier);
     if (!bar) return null;
     if (JEWELRY_GEM[slot]) {
       if (tier < 2) return null;   // no wooden jewelry
@@ -208,19 +208,17 @@
     return [{ id: bar, qty: Math.max(5, tier) }];
   }
 
-  // Bar smelting recipe — only T5+ bars (platinum/crimson/frost) are smelted
-  // from a flower + the prior bar; T2-T4 are mined. Returns null otherwise.
+  // Bar smelting recipe — only the bars with a `smeltFrom` flower in
+  // MINERAL_TIERS (T5+: platinum / crimson / frost) are smelted, from that
+  // flower + the bar one tier below; T2-T4 are mined. Returns null otherwise.
   function smeltingRecipe(barId) {
-    const RECIPES = {
-      platinum_bar: [{ id: 'sunflower', qty: 1 }, { id: 'gold_bar', qty: 1 }],
-      crimson_bar: [{ id: 'fireflower', qty: 1 }, { id: 'platinum_bar', qty: 1 }],
-      frost_bar: [{ id: 'iceflower', qty: 1 }, { id: 'crimson_bar', qty: 1 }],
-    };
-    return RECIPES[barId] || null;
+    const tier = BAR_IDS.indexOf(barId) + 1;
+    const flower = MINERAL_TIERS[tier]?.smeltFrom;
+    return flower ? [{ id: flower, qty: 1 }, { id: barForTier(tier - 1), qty: 1 }] : null;
   }
 
   function smeltUnlockedBars() {
-    return ['platinum_bar', 'crimson_bar', 'frost_bar'];
+    return BAR_IDS.filter(smeltingRecipe);
   }
 
   // ── THE TRADER'S GEAR SWAP ───────────────────────────────────────────────
@@ -244,8 +242,16 @@
     return _uniqueRelics || (_uniqueRelics = ITEMS.filter(item =>
       item.kind === 'unique_relic' && !item.tome && (item.baseTier | 0) > 0));
   }
+  // The tier worn in a slot (0: bare), and whether `tier` would be an
+  // upgrade a real piece can fill — the one downgrade guard equip, the
+  // trader's swap, the smithy and the relic stall all read.
   function gearTier(save, kind, slot) {
-    return (kind === 'armor' ? save.armor : save.relics)?.[slot]?.tier || 0;
+    return (kind === 'armor' ? save?.armor : save?.relics)?.[slot]?.tier || 0;
+  }
+  function canUpgrade(save, kind, slot, tier) {
+    const def = gearDef(kind, slot);
+    return !!def && !!TIER_BY_NUM[tier] && (!def.tiers || def.tiers.includes(tier))
+      && tier > gearTier(save, kind, slot);
   }
   function traderGivablePieces(save) {
     const out = [];
@@ -264,12 +270,8 @@
   }
   function traderTakeablePieces(save, tier, give) {
     const out = [];
-    const fits = (kind, slot) => {
-      const def = gearDef(kind, slot);
-      return !!def && !!TIER_BY_NUM[tier] && (!def.tiers || def.tiers.includes(tier)) && gearTier(save, kind, slot) < tier;
-    };
-    for (const slot of Object.keys(RELIC_DEFS)) if (fits('relic', slot)) out.push({ kind: 'relic', slot, tier });
-    for (const slot of Object.keys(ARMOR_DEFS)) if (fits('armor', slot)) out.push({ kind: 'armor', slot, tier });
+    for (const slot of Object.keys(RELIC_DEFS)) if (canUpgrade(save, 'relic', slot, tier)) out.push({ kind: 'relic', slot, tier });
+    for (const slot of Object.keys(ARMOR_DEFS)) if (canUpgrade(save, 'armor', slot, tier)) out.push({ kind: 'armor', slot, tier });
     for (const item of uniqueRelics()) {
       if (item.baseTier === tier && item.id !== give?.id && !carriesItem(save, item.id)) {
         out.push({ kind: 'item', id: item.id, qty: 1, tier });
@@ -286,8 +288,8 @@
       .map(give => ({ give, gets: traderTakeablePieces(save, give.tier, give) }))
       .filter(o => o.gets.length);
     if (!options.length) return null;
-    const { give, gets } = options[Math.floor(rng() * options.length)];
-    return { give, get: gets[Math.floor(rng() * gets.length)] };
+    const { give, gets } = pickFromArray(options, rng);
+    return { give, get: pickFromArray(gets, rng) };
   }
   const samePiece = (a, b) => a.kind === b.kind && a.slot === b.slot && a.id === b.id && a.tier === b.tier;
   // Still takeable as offered: the given piece is owned at that tier and the
@@ -306,7 +308,7 @@
     if (save.activeWeapon === piece.slot) unequipWeapon(save);
   }
 
-  root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
+  root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
                 TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -52,7 +52,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Keep numbers shared by rendering, gameplay and copy in one owning table.
   Derive consumers from it; do not add independent tuning factors.
 - Add kinds as table rows and repeated kind groups as predicates:
-  `SpriteLayout.CREATURE_BEHAVIOUR`, `CREATURE_ART`, `Combat.MONSTERS`,
+  `SpriteLayout.CREATURE_BEHAVIOUR`, `CREATURE_ART`, `enemy_roster.js` rows
+  (`Combat.MONSTERS` is their view),
   `interactables.js` predicates, `RENDER_SPEC`, `Lighting.KINDS`, and what a
   wreck can be restored as (`Houses.BUILD_OPTIONS`: the player's pick, cards
   unlocked by restore count in `STORY_RESTORES`; `restoreAs` is the ledger's
@@ -93,8 +94,11 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
   grove shrines daily. Recurring sites take the one day ledger (`Macros.markToday` — it
   keeps a week; `usedToday` / `stillBare` / `restockWaitMs` read it) and glow
-  while available (`poiLit`); a refusal prints the wait via `shortDuration`. A
-  new recurring thing joins that ledger and that glow, never a list of its own.
+  while available (`poiLit`); a refusal is `Macros.waitLine(prefix, ms)`. A
+  recurring thing is a ROW of `Macros.DAILY_VISIT_KINDS` (its ledger lane,
+  bare days, refusal prefix, optional `open` tap) resolved by
+  `visitKindForObject`; rolling-millisecond cooldowns use `Ledger`
+  (save.js). A new recurring thing joins that table, never a list of its own.
 - Derive generated ids/seeds from tile + local cell or OSM id, never array
   indices, timestamps or save-relative metres. The transient pest deer is the
   id exception. Per-save salts may vary rewards, not positions;
@@ -324,6 +328,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   blows rather than increasing maximum energy.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
+- A TIMED CONSUMABLE is a `CONSUMABLE_SPEC` row with `buff` (its `Buffs.KINDS`
+  row) and `used` (its dialog): app.js `_useTimedBuff` is its one user,
+  `Buffs.extend` its one writer (a second dose is banked on the first's end,
+  never reset or refused), `TIMED_BUFF_HOOKS` its only side effects. A tome is
+  the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
+  `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
+  the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
@@ -413,7 +424,9 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a
-  row there; never a label over the player or a chip of its own. A status
+  row there; never a label over the player or a chip of its own.
+  `Buffs.extend(save, scene, id, ms)` is the one writer of a row's expiry
+  (max(now, until) + ms — a second dose extends, never resets or refuses). A status
   LANDING announces itself from those tables (`_announceStatuses`: the body
   flicks the row's ink, the word pops on the cell) — never at the writer. A
   creature's status (sleep, charm, frost, fear, psychosis) is a row of

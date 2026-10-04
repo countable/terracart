@@ -529,7 +529,7 @@ function wValueByType(entries) {
   }
   function standDiscount(id) {
     if (!id || typeof PRICES === 'undefined' || typeof ShopsMath === 'undefined' || !ShopsMath.standPrice) return 0;
-    const listPrice = Math.max(1, PRICES[id] ?? 1);
+    const listPrice = Math.max(1, typeof itemValue === 'function' ? itemValue(id) : (PRICES[id] ?? 1));
     return listPrice - ShopsMath.standPrice(emptySave, listPrice);
   }
   // Value the actual object's pot/barrel table, including its empty row and

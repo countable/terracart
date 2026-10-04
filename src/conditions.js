@@ -72,10 +72,8 @@
       return 0;
     }
     if (!Number.isFinite(raw) || raw <= 0) return 0;
-    const total = raw * jewelryFireDamageMul(save) + fireRemainder(save);
-    const damage = Math.floor(total + 1e-9);
-    save.fireDamageRemainder = total - damage > 1e-9 ? total - damage : 0;
-    return damage;
+    save.fireDamageRemainder = fireRemainder(save);
+    return bankWhole(save, 'fireDamageRemainder', raw * jewelryFireDamageMul(save));
   }
   // Does the row's tint show at this instant? A `flicker` row alternates
   // every FLICKER_MS (a burn licks); a steady row always shows. One clock for

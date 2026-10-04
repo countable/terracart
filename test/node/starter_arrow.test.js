@@ -33,6 +33,7 @@
       tilledSet: new Set(),
       _starterGuidanceGoal: __starterArrow._starterGuidanceGoal,
       _nearestStarterCrate: __starterArrow._nearestStarterCrate,
+      _nearestObject: __starterArrow._nearestObject,
       _isHouseWreck: __starterArrow._isHouseWreck,
       _wreckRestoreCost: __starterArrow._wreckRestoreCost,
     }, over);

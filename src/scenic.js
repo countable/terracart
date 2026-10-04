@@ -129,9 +129,9 @@
   // later key is dropped (Zones' MERGE rule, off the poi buffer — the
   // neighbour's copy of a point is bit-identical, so both tiles agree).
   const VISTA_MERGE_M = 40;
-  // The scope seats on the first free cell of these rings round the chest.
+  // The scope seats on the first free cell of the rings round the chest
+  // (radius 1..SCOPE_SEAT_R, WorldGen.RING_ORDER).
   const SCOPE_SEAT_R = 3;
-  const RING_ORDER = [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]];
   // The vista treasure context retained for the shared treasure value table.
   const VISTA_CONTEXT = 'treasure:vista';
   // The first vista a save ever taps: a relic, once (save.vistaRelic).
@@ -161,7 +161,6 @@
   // INTERACTABLES.bottle — the notice board's pageStone lane) and is gone.
   const BEACH_BOTTLES_PER_TILE = 3;
 
-  const u01 = (s) => (fnv1a(String(s)) >>> 0) / 4294967296;
 
   // ── Tags ─────────────────────────────────────────────────────────────────
   const truthy = (v) => v != null && v !== '' && v !== 0 && v !== '0' && v !== 'no' && v !== false;
@@ -271,11 +270,7 @@
     const bk = (x) => Math.max(0, Math.min(n - 1, Math.floor((x - lo) / BUCKET_U)));
     let count = 0;
     function add(rings) {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const r of rings) for (const p of r) {
-        if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
-        if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
-      }
+      const { minX: x0, minY: y0, maxX: x1, maxY: y1 } = root.WorldGen.bboxOf(rings);
       if (!(x1 >= x0)) return;
       const poly = { rings, x0, y0, x1, y1 };
       for (let y = bk(y0); y <= bk(y1); y++) {
@@ -294,32 +289,15 @@
       if (!b) return false;
       for (const P of b) {
         if (x < P.x0 || x > P.x1 || y < P.y0 || y > P.y1) continue;
-        if (inRings(P.rings, x, y)) return true;
+        if (root.WorldGen.pointInRings(P.rings, x, y)) return true;
       }
       return false;
     }
     return { add, contains, get count() { return count; } };
   }
-  // Even-odd over every ring of a feature (holes subtract).
-  function inRings(rings, x, y) {
-    let inside = false;
-    for (const r of rings) {
-      for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
-        const a = r[i], b = r[j];
-        if ((a.y > y) !== (b.y > y) && x < a.x + (y - a.y) / (b.y - a.y) * (b.x - a.x)) inside = !inside;
-      }
-    }
-    return inside;
-  }
   // Signed-area total of a feature's rings (outer minus holes), in units².
   function ringsAreaU2(rings) {
-    let a = 0;
-    for (const r of rings) {
-      let s = 0;
-      for (let i = 0, j = r.length - 1; i < r.length; j = i++) s += (r[j].x * r[i].y - r[i].x * r[j].y);
-      a += s / 2;
-    }
-    return Math.abs(a);
+    return Math.abs(rings.reduce((a, r) => a + root.WorldGen.ringSignedArea(r), 0));
   }
   // Does a ring reach the edge of what the tile can see (clipped at its
   // buffer)? Then it is part of something bigger than the tile shows.
@@ -656,10 +634,7 @@
     return out;
   }
   function build(L, tx, ty, N, grid, keepGeo, under) {
-    const it = buildSteps(L, tx, ty, N, grid, keepGeo, under);
-    let r = it.next();
-    while (!r.done) r = it.next();
-    return r.value;
+    return root.WorldGen.runSteps(buildSteps(L, tx, ty, N, grid, keepGeo, under));
   }
 
   // ── The dressing (the end of rasterizeTileSteps; laid by spawnInTile) ────
@@ -672,15 +647,11 @@
     const res = { objects: [], wildplants: [], tideSeats: new Set() };
     const sc = ctx && ctx.scenic;
     if (!sc || !WG) return res;
-    const { tx, ty, N, tileEdgeM, grid, spawnOpts } = ctx;
+    const { tx, ty, N, grid, spawnOpts } = ctx;
     const ext = sc.ext || 4096;
-    const frameCellM = tileEdgeM / N;
-    const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
-    const occ = spawnOpts.occupied || (spawnOpts.occupied = new Set());
-    const cx = (ix) => ox + (ix + 0.5) * frameCellM;
-    const cy = (iy) => oy + (iy + 0.5) * frameCellM;
-    const claim = (ix, iy) => occ.add(iy * N + ix);
-    const inSq = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N;
+    // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
+    // metres, the occupancy this pass claims into, the chest each POI minted.
+    const { cellM: frameCellM, ox, oy, chestAt, cx, cy, claim, inTile: inSq } = WG.dressFrame(ctx);
     // Scenic rewards are finds the player walks to: the spawn gate's
     // 'reward' class (the attractor row + the kerb buffer — never a reason to
     // step to the kerb of a major road), off the road mask and whatever the
@@ -691,11 +662,9 @@
     const zoneCoverage = ctx.zone && (ctx.zone.coverage || ctx.zone.idx);
     const ambientRewardOk = (ix, iy) => !zoneCoverage?.[iy * N + ix] && rewardOk(ix, iy);
     const rc = spawnOpts.roadClass || null;
-    const seatOffsets = seatOffsetsWithin(VISTA_SEAT_CELLS);
+    const seatOffsets = WG.discOffsets(VISTA_SEAT_CELLS);
 
     // VIEWPOINTS: the owner's chest becomes the grail; the scope beside it.
-    const chestAt = new Map();
-    for (const o of ctx.chests || []) if (o && o.kind === 'chest' && o._poiAt) chestAt.set(o._poiAt, o);
     for (const v of sc.vistas || []) {
       if (!v.owned) continue;
       yield 'scenic vista';
@@ -722,7 +691,7 @@
       }
       let seated = false;
       for (let r = 1; r <= SCOPE_SEAT_R && !seated; r++) {
-        for (const [ux, uy] of RING_ORDER) {
+        for (const [ux, uy] of WG.RING_ORDER) {
           const ix = ix0 + ux * r, iy = iy0 + uy * r;
           if (!rewardOk(ix, iy)) continue;
           if (rc && SV && SV.crossesMajorBand(rc, N, ix0, iy0, ix, iy)) continue;
@@ -754,7 +723,7 @@
     const Sh = root.Shrines;
     const shrineStretches = Sh ? (sc.stretches || [])
       .filter((st) => st.at && Sh.kindForStreet(KIND_ROW[st.kind]))
-      .sort((a, b) => u01('shrine|' + a.key) - u01('shrine|' + b.key)) : [];
+      .sort((a, b) => hash01('shrine|' + a.key) - hash01('shrine|' + b.key)) : [];
     let shrinesSeated = 0;
     for (const st of shrineStretches) {
       if (shrinesSeated >= Sh.SCENIC_SHRINES_PER_TILE) break;
@@ -782,7 +751,7 @@
         const ix = i % N, iy = Math.floor(i / N);
         if (!ambientRewardOk(ix, iy)) continue;
         const id = WG.cellId('bottle', tx, ty, ix, iy);
-        seats.push({ ix, iy, id, h: u01('bottle|' + id) });
+        seats.push({ ix, iy, id, h: hash01('bottle|' + id) });
       }
       seats.sort((a, b) => a.h - b.h);
       for (const b of seats.slice(0, BEACH_BOTTLES_PER_TILE)) {
@@ -831,22 +800,7 @@
     }
     return res;
   }
-  function dress(ctx) {
-    const it = dressSteps(ctx);
-    let r = it.next();
-    while (!r.done) r = it.next();
-    return r.value;
-  }
-  function seatOffsetsWithin(R) {
-    const out = [];
-    for (let dy = -R; dy <= R; dy++) {
-      for (let dx = -R; dx <= R; dx++) {
-        if (dx * dx + dy * dy <= R * R) out.push({ dx, dy, d2: dx * dx + dy * dy });
-      }
-    }
-    out.sort((a, b) => a.d2 - b.d2 || a.dy - b.dy || a.dx - b.dx);
-    return out;
-  }
+  function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
 
   // ── THE TIDE: which pickups lie on a waterline cell TODAY ────────────────
   // A pure function of the wildplant's id and the UTC day key — the same for
@@ -859,8 +813,8 @@
     const d = day || utcDayKey();
     if (wp._tideDay === d) return !!wp._tideOn;
     wp._tideDay = d;
-    wp._tideOn = u01(`tide|${wp.id}|${d}`) < (wp.tideP || 0);
-    const k = u01(`tidek|${wp.id}|${d}`);
+    wp._tideOn = hash01(`tide|${wp.id}|${d}`) < (wp.tideP || 0);
+    const k = hash01(`tidek|${wp.id}|${d}`);
     wp.crop = k < TIDE_DRIFTWOOD_P ? 'driftwood' : 'shell';
     return wp._tideOn;
   }
@@ -954,7 +908,7 @@
         if (category === 'elite' ? Combat.isElite(c) && Combat.isEnemy(c, now)
           : c.shiny && !discovered[c.kind] && !Combat.isEnemyKind(c.kind)
             && (ITEM_BY_ID[`shiny_${c.kind}`] || SpriteLayout.creatureDrop(c.kind))
-            && !String(c.id).startsWith('released_')) consider(c, 'creature');
+            && !Combat.isTame(c)) consider(c, 'creature');
       }
     }
     return best;

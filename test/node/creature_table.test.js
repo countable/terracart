@@ -200,8 +200,9 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   const w = SCENE_SRC;
   assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
     'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
-  assert.truthy(/Combat\.incomingDamage\(this\.save, raw\)/.test(w)
-    && /const raw = fightsBack\.dmg \* Combat\.powerMul\(c\);/.test(w), 'the butt is shielded and soaked before recipient difficulty');
+  assert.truthy(/foeBlowLands\(this, c, Combat\.meleeBlow\(c, fightsBack\.dmg\)\);/.test(w)
+    && /const dmg = mitigated \? raw : Combat\.incomingDamage\(scene\.save, raw\);/.test(CREATURE_AI_SRC),
+    'the butt is the melee formula, shielded and soaked before recipient difficulty by the one blow writer');
   assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
 });
 

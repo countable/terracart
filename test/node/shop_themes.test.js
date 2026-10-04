@@ -75,10 +75,10 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
 
 test('themed shops: the pick is off the caller\'s seeded rng', () => {
   const seq = (v) => () => v;
-  const stock = Shops.themedStock('potion', 4);
+  const stock = Shops.themedStock('supply', 1);
   assert.gt(stock.length, 1, 'a tier with a choice');
-  assert.eq(Shops.pickThemed('potion', 4, seq(0)), stock[0]);
-  assert.eq(Shops.pickThemed('potion', 4, seq(0.9999)), stock[stock.length - 1]);
+  assert.eq(Shops.pickThemed('supply', 1, seq(0)), stock[0]);
+  assert.eq(Shops.pickThemed('supply', 1, seq(0.9999)), stock[stock.length - 1]);
 });
 
 test('themed shops: the re-roll is $2, then ×1.5 rounded down — cheaper than the smith', () => {

@@ -5,8 +5,7 @@
 (() => {
   // A giant is a CAVE kind's: a row with its own `spawn` (the ghost, which
   // rises on the surface at night) has none, and is pinned so below.
-  const baseKinds = Object.keys(MONSTERS).filter((k) => !MONSTERS[k].giant && Combat.spawnsUnderground(k));
-  const giantKinds = Object.keys(MONSTERS).filter((k) => MONSTERS[k].giant);
+  const giantKinds = Object.keys(MONSTERS).filter((k) => MONSTERS[k].variantType === 'Giant');
 
   test('giants: only declared variants enter the roster, with their own final stats', () => {
     const declared = EnemyRoster.ROWS.filter(row => row.variantType === 'Giant');
@@ -14,7 +13,7 @@
     for (const row of declared) {
       const live = Combat.monster(row.id);
       assert.eq(live.hp, row.hp);
-      assert.eq(live.giant, row.variantOf);
+      assert.eq(live.variantOf, row.variantOf);
       const plain = { kind: row.id }, shiny = { kind: row.id, shiny: true };
       assert.eq(Combat.maxHp(plain), row.hp, 'giant size is already included in its authored stats');
       assert.eq(Combat.maxHp(shiny), row.hp * 2, 'universal shiny strength doubles the giant row once');
@@ -72,7 +71,7 @@
     // The kill path credits the kind as-is, and the elite badge is keyed the
     // same way — so an elite giant goblin is a discovery of its own.
     const app = SCENE_SRC;
-    assert.truthy(/const qDone = Quests\.onKill\(save, victim\.kind\);/.test(app), 'quest credit is the kind as-is');
+    assert.truthy(/if \(Quests\.onKill\(s\.save, v\.kind\)\)/.test(app), 'quest credit is the kind as-is (KILL_LEDGERS)');
     assert.falsy(/\.giant \|\| victim\.kind/.test(app), 'no fold to the base kind anywhere');
     assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(app), 'the elite badge is keyed by the kind as-is');
   });

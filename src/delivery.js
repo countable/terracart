@@ -17,8 +17,8 @@
 //
 // Everything here is a pure function of (save, house): the house._wantedProduce
 // cache and the save.houseWishlists pin it writes are plain data, not scene
-// state. The scene calls Delivery directly (dayKey / wanted / isSatisfied /
-// isEarly …) from its interact and render paths. The one piece that stays in
+// state. The scene calls Delivery directly (wanted / isSatisfied / isEarly …)
+// from its interact and render paths; the UTC day is util.js utcDayKey. The one piece that stays in
 // app.js is knownDeliveryHouses — it scans WorldGen.tileCache and uses the
 // player's world position.
 //
@@ -96,12 +96,6 @@
     animal:  ['egg', 'milk', 'crow_feather', 'rabbit_pelt', 'meat'],
   };
   const BUNDLE_THEME_KEYS = Object.keys(BUNDLE_THEMES);
-
-  // Compatibility alias for callers that still reach the general UTC clock
-  // through Delivery. New daily mechanics call util.js's owner directly.
-  function dayKey(now = new Date()) {
-    return utcDayKey(now);
-  }
 
   // Per-house RNG: FNV-1a hash of the house id seeds a small PRNG so a house
   // rolls the same wishlist every time it is asked. The day is deliberately
@@ -284,7 +278,7 @@
   root.Delivery = {
     PRODUCE_TIER_MIN, PRODUCE_TIER_MAX, TIER_UNLOCK_EVERY, BUNDLE_THEMES,
     SCRIPTED_WISHLISTS, SCRIPTED_SINGLES, EARLY_HOUSES,
-    dayKey, wantedRng, produceTier, tierCap, houseOrder, isEarly, isSatisfied,
+    wantedRng, produceTier, tierCap, houseOrder, isEarly, isSatisfied,
     bundleTheme, pinnedProduce, wantedProduce, missingLine,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

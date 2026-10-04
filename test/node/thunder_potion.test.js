@@ -8,11 +8,16 @@
 
 (function () {
 const app = SCENE_SRC;
-const body = (() => {
-  const a = app.indexOf('  readThunderScroll() {');
-  assert.truthy(a > 0, 'found readThunderScroll');
-  return app.slice(a, app.indexOf('\n  }\n', a));
+// The scroll is a CAST_ROWS row cast by _castOnFoes (the one "every foe in
+// sight" lane); the targets come from _enemiesWhere / _onscreenEnemies.
+const row = (() => {
+  const a = app.indexOf('  thunder_scroll: { noun:');
+  assert.truthy(a > 0, 'found the thunder row of CAST_ROWS');
+  return app.slice(a, app.indexOf('\n  fear_scroll:', a));
 })();
+const cast = app.match(/\n  _castOnFoes\(id, [^\n]*\) \{\n([\s\S]*?)\n  \}\n/)[1];
+const body = row + cast + app.match(/\n  _enemiesWhere\(where\) \{\n([\s\S]*?)\n  \}\n/)[1]
+  + app.match(/\n  _onscreenEnemies\(\) \{\n([\s\S]*?)\n  \}\n/)[1];
 
 test('thunder scroll: a T4 scroll with a price, an icon and a ✦ line quoting its damage', () => {
   assert.eq(THUNDER_DMG, 25, '25 damage');
@@ -26,22 +31,25 @@ test('thunder scroll: a T4 scroll with a price, an icon and a ✦ line quoting i
   assert.falsy(isPotion('thunder_scroll'));
   assert.eq(CONSUMABLE_SPEC.thunder_scroll.verb, 'Read');
   assert.truthy(HOME_RECIPES.some(r => r.id === 'thunder_scroll'));
-  assert.truthy(body.includes("this._spendScroll('thunder_scroll')"), 'successful cast teaches its recipe');
+  assert.truthy(cast.includes('this._spendScroll(id);'), 'successful cast teaches its recipe');
+  assert.truthy(CONSUMABLE_SPEC.thunder_scroll.damage > 0 && !CONSUMABLE_SPEC.thunder_scroll.buff, 'a cast, not a timed buff');
   assert.falsy(/\d/.test(ITEM_EFFECTS.thunder_scroll), 'the storm hints at its power');
-  assert.eq(CONSUMABLE_SPEC.thunder_scroll.method, 'readThunderScroll', 'the Read button offers it');
+  assert.truthy(SCENE_SRC.includes('\n  thunder_scroll: { noun:'), 'the Read button routes it as a cast row');
   assert.truthy(Shops.themedStock('potion', 4).includes('thunder_scroll'), 'a T4 potion shop stocks it');
 });
 
 test('thunder scroll: enemies in SIGHT, through _damageEnemy, the rest routed', () => {
   assert.truthy(/Combat\.isEnemy\(c\)/.test(body), 'enemies only — never a crow, a deer or a pet');
-  assert.truthy(/caughtSet\.has\(c\.id\)/.test(body), 'never a caught creature');
+  assert.truthy(/caught\.has\(c\.id\)/.test(body), 'never a caught creature');
   assert.truthy(/Particles\.onScreen\(this, p\.x, p\.y\)/.test(body) && /this\.worldMetersToScreen\(c\.x, c\.y\)/.test(body),
     '"visible" is the draw-space viewport test, not reach');
-  assert.truthy(/this\._damageEnemy\(c, THUNDER_DMG\)/.test(body), 'through the one damage lane');
-  assert.truthy(/if \(!c\.lair\) monsterRout\(c, now, this\.cellM\);/.test(body),
+  assert.truthy(/s\._damageEnemy\(c, damage\)/.test(row) && /_castOnFoes\(id, \{ damage = CONSUMABLE_SPEC\[id\]\?\.damage/.test(app),
+    'through the one damage lane, at the row\'s THUNDER_DMG (a tome passes half)');
+  assert.truthy(/if \(!c\.lair\) monsterRout\(c, now, s\.cellM\);/.test(row),
     'survivors take the ordinary wander-off; a lair guard keeps its own leash');
-  assert.truthy(/this\.cameras\?\.main\?\.flash\(THUNDER_FLASH_MS, 255, 255, 255\)/.test(body), 'the screen flashes white');
-  assert.truthy(/scroll kept/.test(body) && /return false;/.test(body), 'nothing in sight: refused, scroll kept');
+  assert.truthy(/s\.cameras\?\.main\?\.flash\(THUNDER_FLASH_MS, 255, 255, 255\)/.test(row), 'the screen flashes white');
+  assert.truthy(/noun: 'scroll'/.test(row) && /kept\(reach \? 'No foe in reach' : 'No foe in sight', noun \|\| row\.noun\)/.test(cast)
+    && cast.indexOf('return false;') < cast.indexOf('this._spendScroll(id);'), 'nothing in sight: refused before the spend, scroll kept');
 });
 
 test('thunder scroll: the retreat is the wander-off, to the usual random range', () => {

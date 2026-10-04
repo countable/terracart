@@ -43,11 +43,13 @@ const body = (() => {
 const drink = (id, energy, max = 120) => {
   const popped = [];
   const save = { energy, inv: [{ id, count: 1 }], selSlot: 0 };
+  const r = app.indexOf('  _restoreEnergy(amount) {');
   const scene = {
     save,
     getMaxEnergy: () => max,
     _popEnergy: (d) => popped.push(d),
     updateEnergyDOM() {},
+    _restoreEnergy: new Function('amount', app.slice(r + '  _restoreEnergy(amount) {'.length, app.indexOf('\n  }\n', r))),
     _finishConsumable: (title, text) => { save.inv[0].count--; return { title, text }; },
   };
   const getSelectedSlot = (s) => s.inv[s.selSlot];

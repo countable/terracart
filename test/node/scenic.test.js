@@ -381,6 +381,8 @@ test('scenic: the scope opens its menu on every visit and gives one backpack', (
   const stories = [], rolls = [], loot = [], menus = [];
   const scene = makeScene({ save, flashLoot: (t) => loot.push(t),
     _storySplashOnce(key) { stories.push(key); return false; },
+    // The relic's card (Rewards.present) hands over to the menu on dismiss.
+    showChestRewardModal(card) { card.onDismiss?.(); },
     presentTelescopeMenu(x, y, o) { menus.push(o.id); } });
   scene.save = save;
   const realGrant = globalThis.grantTreasureRoll;
@@ -531,7 +533,9 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
   const src = INTERACT_SRC;
   const at = src.indexOf("{ name: 'wildplant', try: (ctx) => {");
   const body = src.slice(at, src.indexOf("{ name: 'coindrop'", at));
-  assert.truthy(/if \(wp\.tide\) \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return;\s*Macros\.markToday\(save, wp\.id\);/.test(body),
+  assert.truthy(/const award = \(\) => \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return false;/.test(body),
+    'the award asks the one spent predicate first');
+  assert.truthy(/if \(wp\.tide\) \{\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
   assert.truthy(/\(wp\) => !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
     'and the tap asks the one spent predicate');

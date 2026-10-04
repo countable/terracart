@@ -201,7 +201,7 @@ class SceneGeo {
     this._gpsManualOverride = true;
     this.syncMoveTarget();   // drop the last GPS target so it can't keep pulling
     if (this.gpsAvailable) {
-      this.flash('GPS off — manual control', this.viewCenterX, this.viewCenterY - 40);
+      this.flashAtPlayer('GPS off — manual control');
     }
   }
 
@@ -313,7 +313,7 @@ class SceneGeo {
     const onVisibility = () => { if (document.hidden) reset(); };
     document.addEventListener('visibilitychange', onVisibility);
     const observer = new MutationObserver(() => {
-      if (document.body.classList.contains('modal-open')) reset();
+      if (this._dialogOpen()) reset();
     });
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     this._debugGpsReset = () => {
@@ -326,7 +326,7 @@ class SceneGeo {
   _stepDebugGps(dt) {
     const v = this._debugGpsVec;
     if (!this._debugGpsEnabled || !v || (!v.x && !v.y)) return;
-    if (document.hidden || document.body.classList.contains('modal-open')) return;
+    if (document.hidden || this._dialogOpen()) return;
     if (!this._gpsSimulated) {
       this._gpsSimulated = true;
       if (this.gpsWatchId != null) Geo.unsubscribe(this.gpsWatchId);
@@ -337,7 +337,7 @@ class SceneGeo {
       this._homeCapturePending = false;
       if (this._homeCaptureTimer) clearTimeout(this._homeCaptureTimer);
       this._homeCaptureTimer = null;
-      this.flash('Simulated GPS active', this.viewCenterX, this.viewCenterY - 40);
+      this.flashAtPlayer('Simulated GPS active');
     }
     this._gpsManualOverride = false;
     const off = this._manualOffsetM;

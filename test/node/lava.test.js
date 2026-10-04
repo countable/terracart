@@ -72,31 +72,33 @@ test('lava: the player burns on the surface and lava level, by the feet, through
   assert.truthy(/this\.playerToWorldCell\(\)/.test(b), 'the feet, not the camera');
   assert.truthy(/Combat\.LAVA_DMG_PER_S \* dt/.test(b), 'at the shared rate');
   assert.truthy(/Conditions\.fireDamage\(this\.save, pips\);[\s\S]*this\._losePlayerEnergy\(damage\)/.test(b), 'banked whole, through Energy.set + the flinch');
-  assert.truthy(/this\._popEnergy\(-burned, \{ ix, iy, label: embers \? '🔥 embers' : '🔥 lava' \}\)/.test(b), 'popped on its cell');
+  assert.truthy(/this\._bankDrain\('lava', -this\._losePlayerEnergy\(damage\), \{ ix, iy, label: embers \? '🔥 embers' : '🔥 lava' \}\)/.test(b),
+    'popped on its cell (embers or lava), through the drain roll-up');
   assert.truthy(/this\._tickLava\(dt\);/.test(SCENE_SRC), 'and ticked');
 });
 
 test('lava: an enemy standing in it burns at the same rate, and the kill is the ground\'s', () => {
-  const src = SCENE_SRC;
-  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Conditions\.fireImmune\(c\) && !Combat\.monster\(c\.kind\)\?\.lavaImmune && \(this\.depth === 0 \|\| this\.depth === WorldGen\.LAVA_DEPTH\)/.test(src), 'enemies, surface and lava level');
-  assert.truthy(/under\.type === WorldGen\.T\.CAVE_LAVA\s*\n\s*&& this\._damageEnemy\(c, Combat\.LAVA_DMG_PER_S, 'lava'\)\) return;/.test(src),
+  // ONE lava rule (creature_ai.js lavaTick), asked by the sim loop and the
+  // flower lane alike.
+  assert.truthy(/if \(enemy && lavaTick\(this, c, now\)\) return;/.test(SCENE_SRC), 'enemies, in the sim loop');
+  assert.truthy(/if \(lavaTick\(scene, c, now\)\) return true;/.test(CREATURE_AI_SRC), 'and the charmed / sleeping lane');
+  const body = CREATURE_AI_SRC.match(/\nfunction lavaTick\(scene, c, now\) \{([\s\S]*?)\n\}\n/)[1];
+  assert.truthy(/scene\.depth !== 0 && scene\.depth !== WorldGen\.LAVA_DEPTH/.test(body), 'surface vents and the lava level');
+  assert.truthy(/under\.type === WorldGen\.T\.CAVE_LAVA\s*\n\s*&& !!scene\._damageEnemy\(c, Combat\.LAVA_DMG_PER_S, 'lava'\)/.test(body),
     'through _damageEnemy at the shared rate');
+  assert.falsy(/Combat\.ignite/.test(body), 'the standing burn is _tickUnitFire\'s — no second ignite');
   assert.falsy(Combat.isPlayerKill('lava'), 'not a player kill: the bounty coin and nothing else');
 });
 })();
 
-// Exercise the shipping hazard branch: immunity belongs to the creature, not
+// Exercise the shipping hazard rule: immunity belongs to the creature, not
 // to the infernal region, so ordinary foes crossing that region still burn.
 test('lava: demons resist lava while neighbouring mortal enemies still burn', () => {
-  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c)');
-  assert.truthy(start >= 0, 'shipping lava branch was found');
-  const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
-  const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [];
   const scene = { depth: WorldGen.LAVA_DEPTH, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_LAVA }),
     _damageEnemy: (c, dmg) => { hurt.push([c.kind, dmg]); return false; } };
-  tick.call(scene, { kind: 'red_demon' }, false, 1000);
-  tick.call(scene, { kind: 'skeleton' }, false, 1000);
+  lavaTick(scene, { kind: 'red_demon' }, 1000);
+  lavaTick(scene, { kind: 'skeleton' }, 1000);
   assert.eq(hurt.length, 1); assert.eq(hurt[0][0], 'skeleton'); assert.eq(hurt[0][1], Combat.LAVA_DMG_PER_S);
 });
 
@@ -107,7 +109,7 @@ test('lava: surface vents burn fractional player time and stop on safe ground', 
   const entry = {cellsPerEdge: 1, grid: new Uint8Array([WorldGen.T.CAVE_LAVA])};
   const scene = {depth: 0, startWorldM: {}, save: {energy: 20},
     playerToWorldCell: () => ({tx: 19371, ty: 29371, cx: 0, cy: 0}),
-    _lastLavaFlashT: Infinity, _popEnergy() {}, _ignitePlayer() {},
+    _bankDrain() {}, _popEnergy() {}, _ignitePlayer() {},
     _losePlayerEnergy(n) { this.save.energy -= n; return n; }};
   const step = dt => tick.call(scene, dt, () => ({cellIX: 0, cellIY: 0}));
   WorldGen.tileCache.set(key, entry);
@@ -126,21 +128,17 @@ test('lava: surface vents burn fractional player time and stop on safe ground', 
 });
 
 test('lava: surface vents respect enemy immunity, pets and the shared burn cooldown', () => {
-  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c)');
-  assert.truthy(start >= 0, 'shipping lava branch was found');
-  const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
-  const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [], scene = {depth: 0,
     cellAt: () => ({loaded: true, type: WorldGen.T.CAVE_LAVA}),
     _damageEnemy: (c, damage, source) => { hurt.push({c, damage, source}); return false; }};
   const mortal = {kind: 'skeleton'};
-  tick.call(scene, {kind: 'red_demon'}, false, 1000);
-  tick.call(scene, {kind: 'slime'}, true, 1000);
-  tick.call(scene, {kind: 'skeleton', fireResistancePotionUntil: Date.now() + 180000}, false, 1000);
-  tick.call(scene, mortal, false, 1000); tick.call(scene, mortal, false, 1100);
+  lavaTick(scene, {kind: 'red_demon'}, 1000);
+  lavaTick(scene, {kind: 'slime', id: 'released_slime_1'}, 1000);
+  lavaTick(scene, {kind: 'skeleton', fireResistancePotionUntil: Date.now() + 180000}, 1000);
+  lavaTick(scene, mortal, 1000); lavaTick(scene, mortal, 1100);
   assert.eq(hurt.length, 1); assert.eq(hurt[0].source, 'lava');
   assert.eq(hurt[0].damage, Combat.LAVA_DMG_PER_S);
-  tick.call(scene, mortal, false, 2000); assert.eq(hurt.length, 2);
+  lavaTick(scene, mortal, 2000); assert.eq(hurt.length, 2);
 });
 
 test('embers: Burned Row hazard follows the paved width and themed intervals, not its verge', () => {
@@ -171,7 +169,7 @@ test('embers: player uses lava rate, fractional timing, ignition, resistance and
   let cy = 10, ignited = 0;
   const scene = { depth: 0, startWorldM: {}, save: {energy: 20},
     playerToWorldCell: () => ({tx: 19372, ty: 29372, cx: 8, cy}),
-    _lastLavaFlashT: Infinity, _popEnergy() {}, _ignitePlayer() { ignited++; },
+    _bankDrain() {}, _popEnergy() {}, _ignitePlayer() { ignited++; },
     _losePlayerEnergy(n) { this.save.energy -= n; return n; } };
   const step = dt => tick.call(scene, dt, () => ({cellIX: 8, cellIY: 10}));
   WorldGen.tileCache.set(key, entry);

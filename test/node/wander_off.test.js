@@ -89,21 +89,22 @@ test('wander-off: out to the edge of its range × [1, 2], ends on arrival or tim
 test('wander-off: one more reason in the lanes that exist, not a lane of its own', () => {
   const start = app.indexOf('  wanderCreatures() {');
   const w = app.slice(start, app.indexOf('\n  }\n', start));
-  assert.truthy(/const wanderOff = !stationary && !isTame && !c\.lair && Combat\.isEnemy\(c\)\s*&& monsterWanderingOff\(/.test(w),
+  assert.truthy(/const enemy = Combat\.isEnemy\(c\);/.test(w) && /const wanderOff = !stationary && !isTame && !c\.lair && enemy\s*&& monsterWanderingOff\(/.test(w),
     'only a mobile, wild, non-lair enemy wanders off');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| /.test(w),
     'while it goes it does not leech, hit, shoot or charge (standDown)');
   assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened \|\| psychotic;/.test(w), 'it runs at the rout pace (beside a sated thief)');
-  const ward = w.indexOf('} else if (warded) {');
-  const off = w.indexOf('} else if (frightened || wanderOff || (kerbTurn && !c.lair)) {');
-  const slime = w.indexOf("} else if (c.kind === 'slime') {");
-  const mon = w.indexOf('} else if (isMon) {');
-  assert.gt(off, ward, "Home's ward outranks it");
-  assert.lt(off, slime, 'it outranks the slime\'s stalk');
-  assert.lt(off, mon, 'and the monsters\' stalk');
-  const branch = w.slice(off, w.indexOf('} else if', off + 5));
-  assert.truthy(/angle = Math\.atan2\(c\.y - py, c\.x - px\)/.test(branch), 'away from the player');
-  assert.falsy(/continue;/.test(branch), 'an angle, never a refused cell');
+  // The roster mover's routed branch (creature_ai.js rosterEnemyMove): away
+  // from the ward that tripped it, else from the PLAYER — and asked before
+  // every stalk pattern.
+  const move = CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyMove('));
+  const off = move.indexOf('if (routed) {');
+  assert.truthy(off > 0, 'the rout lane');
+  assert.lt(off, move.indexOf("} else if (m.pattern === 'ooze' && slimeCharging(c)) {"), 'it outranks the slime\'s charge');
+  assert.lt(off, move.indexOf("} else if (m.pattern === 'scuttle_pause') {"), 'and the monsters\' stalks');
+  const branch = move.slice(off, move.indexOf('} else if', off + 5));
+  assert.truthy(/const from = c\._wardFrom \|\| \{ x: px, y: py \};\s*angle = Math\.atan2\(c\.y - from\.y, c\.x - from\.x\)/.test(branch), 'away from the player');
+  assert.truthy(/maxDistance = Infinity;/.test(branch), 'an angle, never a refused cell');
 });
 
 // ── Ticked for real: a slime piled against a campfire the player sits at ──
