@@ -154,7 +154,7 @@ test('launch safety: the STAY SAFE message is the loading screen, acknowledged b
 test('heads-up buzz: a hostile taking an interest close by vibrates the phone, throttled', () => {
   const app = SCENE_SRC;
   assert.truthy(/this\._foeHeadsUp\?\.\(interestedFoeM, now\);/.test(SCENE_SRC), 'the sim hands over the nearest interested foe');
-  assert.truthy(/if \(!isTame && !standDown && !unnoticed && \(Combat\.isEnemy\(c\) \|\| enraged\)\)/.test(SCENE_SRC),
+  assert.truthy(/const enemy = Combat\.isEnemy\(c\);/.test(SCENE_SRC) && /if \(!isTame && !standDown && !unnoticed && \(enemy \|\| enraged\)\)/.test(SCENE_SRC),
     'only one that is taking an interest');
   const m = app.slice(app.indexOf('  _foeHeadsUp(distM, now) {'));
   const f = new Function('SAFETY_FOE_BUZZ_CELLS', 'SAFETY_FOE_BUZZ_GAP_MS', 'SAFETY_FOE_BUZZ',

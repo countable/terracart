@@ -387,6 +387,36 @@ test('trader gear swap: nothing owned (or only a bag) means no swap', () => {
   for (let i = 0; i < 50; i++) assert.eq(Gear.traderGearSwap(bare, seeded(i)), null);
 });
 
+test('trader gear swap: a trader only exchanges gear from its own tier', () => {
+  const save = swapSave();
+  for (const tier of [3, 5]) {
+    for (let i = 0; i < 100; i++) {
+      const random = seeded(i);
+      let rolls = 0;
+      const swap = Gear.traderGearSwap(save, () => rolls++ === 0 ? 0 : random(), tier);
+      assert.truthy(swap, 'matching owned gear can be exchanged');
+      assert.eq(swap.give.tier, tier);
+      assert.eq(swap.get.tier, tier);
+      assert.truthy(Gear.traderSwapValid(save, swap));
+    }
+  }
+  assert.eq(Gear.traderGearSwap(save, () => 0, 2), null, 'gear from other tiers cannot pay');
+});
+
+test('trader gear swap: omitting the trader tier keeps all owned tiers eligible', () => {
+  const save = swapSave();
+  const tiers = new Set();
+  for (let i = 0; i < 100; i++) {
+    const random = seeded(i);
+    let rolls = 0;
+    const swap = Gear.traderGearSwap(save, () => rolls++ === 0 ? 0 : random());
+    assert.truthy(swap);
+    tiers.add(swap.give.tier);
+  }
+  assert.truthy(tiers.has(3));
+  assert.truthy(tiers.has(5));
+});
+
 test('trader gear swap: surrendering the active sword puts the hands back to bare', () => {
   const save = swapSave();
   const swap = { give: { kind: 'relic', slot: 'sword', tier: 3 }, get: { kind: 'armor', slot: 'boots', tier: 3 } };

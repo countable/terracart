@@ -9,7 +9,7 @@
         if (row.variantType === 'Tint') assert.falsy(pool.some(other => other.id === row.variantOf));
       }
     }
-    assert.falsy(EnemySpawns.surfaceRows('ORCHARD').some(row => row.id === 'copper_plant'));
+    assert.falsy(EnemySpawns.surfaceRows('ORCHARD').some(row => ['copper_plant', 'bat', 'spider'].includes(row.id)));
     assert.truthy(EnemySpawns.surfaceRows('ORCHARD').some(row => row.id === 'plant'));
     assert.falsy(EnemySpawns.surfaceRows('WETLAND').some(row => row.id === 'marsh_zombie'));
   });

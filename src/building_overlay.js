@@ -298,11 +298,11 @@
   function canvasTarget(scene) {
     if (typeof document === 'undefined' || !scene.textures || !scene.buildingGeomContainer) return null;
     if (scene._buildingGeomTarget) return scene._buildingGeomTarget;
-    const pad = CELL_PX * 2;
-    const size = Math.ceil(scene.viewSize + pad * 2);
-    const originX = scene.viewLeft - pad, originY = scene.viewTop - pad;
+    // The padded viewport layer (render.js Render.viewportCanvas — the grid
+    // and border bakes open theirs the same way). A texture left by an
+    // earlier scene is dropped first, so this canvas is this scene's own.
     if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
-    const tex = scene.textures.createCanvas(TEX_KEY, size, size);
+    const { tex, x: originX, y: originY, cw: size } = Render.viewportCanvas(scene, TEX_KEY, CELL_PX * 2);
     if (!tex) return null;
     const ctx = tex.getContext();
     ctx.lineJoin = 'round';
@@ -470,6 +470,12 @@
           Math.round(p.x - originX - 8), Math.round(p.y - originY - p.height), 16, p.height);
         ctx.restore();
       },
+      templePoly(pts, activated, dark) {
+        ctx.save();
+        ctx.translate(-originX, -originY);
+        TempleArt.draw(ctx, pts, { activated, dark, faces: false });
+        ctx.restore();
+      },
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
       commit() { tex.refresh(); },
     };
@@ -567,9 +573,10 @@
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine), depth = facePx(d.tier);
-    const stone = d.tier === CASTLE ? castleStone(isMine, d.key) : null;
-    const face = stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
-    const outline = stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
+    const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar') : null;
+    const face = temple ? temple.face : stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
+    const outline = temple ? temple.outline : stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
     const points = d.pts;
     // Only outward south-facing edges retain the downward face after the
     // floor is erased from the piece. Their physical base includes that
@@ -603,7 +610,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.templeZone || ''}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -759,7 +766,7 @@
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
-      + ',' + (s.starterShopId || '');
+      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length;
   }
 
   function rebuild(scene, tiles, fracX, fracY) {
@@ -819,9 +826,9 @@
         if (bx1 < minX || bx0 > maxX || by1 + facePx(shape.tier) < minY || by0 > maxY) continue;
         draws.push({
           pts, south: by1, left: bx0, north: by0, right: bx1,
-          tier: shape.tier, key: shape.key,
+          tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
-          columns: shape.tier === CASTLE ? CastleStyles.columnSites(shape.key, r,
+          columns: shape.tier === CASTLE && !shape.templeZone ? CastleStyles.columnSites(shape.key, r,
             entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile))
             .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
           seed: seedOf(tx, ty, r, shape.key),
@@ -839,6 +846,15 @@
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
+      if (d.templeZone) {
+        const active = Temples.isActive(scene.save, d);
+        const palette = TempleArt.palette(active, d.templeKind === 'tar');
+        if (!separateUprights) g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
+        if (g.templePoly) g.templePoly(d.pts, active, d.templeKind === 'tar');
+        else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
+        if (separateUprights) uprightEdges(scene, d, active, projX, projY, seen);
+        continue;
+      }
       const isMine = claimed(d.key);
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —

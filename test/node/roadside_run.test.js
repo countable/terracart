@@ -121,6 +121,36 @@ test('roadside run: a deer bolting between houses runs the verge, never into the
   assert.lte(Math.max(...trace.map((p) => p.col)) - ROAD_COL, 4, 'and kept to the roadside');
 });
 
+// A ROSTER FOE on the same street, routed by Home's ward (Home at the player's
+// feet, the slime inside HOME_R): away from Home is straight into the yards.
+// The roster mover (creature_ai.js rosterEnemyMove — every foe's) bends the
+// rout onto the roadside and its sweep (enemyCanStep → creatureStepRefused,
+// retreating) refuses the yard cells, so it runs the verge like the deer.
+test('roadside run: a routed roster foe runs the verge and never steps into a yard', () => {
+  const entry = street();
+  const slime = { kind: 'slime', id: 'slime_0_0_1', x: at(22, 30).x, y: at(22, 30).y };
+  const feet = at(21, 30);
+  const s = mkScene(entry, slime, feet);
+  s.homeWorldPos = () => ({ x: feet.x, y: feet.y });
+  const realNear = WorldGen.forEachItemNear, realNow = performance.now;
+  const trace = [];
+  WorldGen.forEachItemNear = (what, tx, ty, fn) => { if (what === 'creatures') for (const c of s.creatures.slice()) fn(c, 0, 0); };
+  try {
+    withTile(entry, () => {
+      for (let ms = 0; ms < 20000; ms += 100) {
+        performance.now = () => 1e6 + ms;
+        __wander.call(s);
+        trace.push({ col: colOf(slime), row: rowOf(slime), warded: !!slime._wardFrom });
+      }
+    });
+  } finally { WorldGen.forEachItemNear = realNear; performance.now = realNow; }
+  assert.truthy(trace.some((p) => p.warded), 'Home\'s ward tripped: the slime was routed');
+  assert.falsy(trace.some((p) => p.col >= YARD_COL), 'never behind the houses');
+  assert.falsy(trace.some((p) => p.col <= ROAD_COL), 'never onto or across the street');
+  assert.gte(Math.max(...trace.map((p) => Math.abs(p.row - 30))), 4, 'it ran ALONG the street');
+  assert.lte(Math.max(...trace.map((p) => p.col)) - ROAD_COL, 4, 'and kept to the roadside');
+});
+
 test('roadside run: without the rule\'s ground — open grass — the same deer bolts straight away', () => {
   const entry = street({ lot: false, yard: false, road: false });
   const deer = { kind: 'deer', id: 'deer_0_0_1', x: at(22, 30).x, y: at(22, 30).y };

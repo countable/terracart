@@ -655,7 +655,9 @@ test('traps: a downed player springs nothing — the whole tick stands down', ()
 test('traps: the numbers land on the trap\'s own cell, through _popEnergy', () => {
   const block = SCENE_SRC.slice(SCENE_SRC.indexOf('  _tickTraps(dt) {'));
   const head = block.slice(0, block.indexOf('\n  }\n'));
-  const pops = head.match(/this\._popEnergy\([^)]*\)/g) || [];
+  // The bite pops at once; the bleed banks into the drain roll-up (_bankDrain),
+  // which pops it on the same cell once per window.
+  const pops = [...(head.match(/this\._popEnergy\([^)]*\)/g) || []), ...(head.match(/this\._bankDrain\('trap', [^)]*\)[^)]*\)/g) || [])];
   assert.gte(pops.length, 2, 'both the bite and the bleed pop a number');
   for (const p of pops) {
     assert.truthy(/\{ ix, iy/.test(p),

@@ -1,24 +1,28 @@
 <!doctype html><meta charset="utf-8"><title>Work animations</title>
 <style>body{background:#17231f;color:#e8ecdf;font:16px system-ui;margin:24px}canvas{image-rendering:pixelated;max-width:100%}label{margin-right:20px}</style>
-<h1>Work animations</h1><p>Tools work at the target cell. Smaller solid wheels show progress at 50% opacity.</p>
+<h1>Work animations</h1><p>Tools work at the target cell. Trees sway and rocks shake on impact; solid wheels show progress at 50% opacity.</p>
 <label><input id="bare" type="checkbox">No tools</label><label><input id="pause" type="checkbox">Pause at contact</label><div id="stage"></div>
 <script src="game-loader.js"></script><script>
 (async()=>{
 await loadGame();
 const slots=['axe','hoe','pickaxe','net','watering_can'];
 const paths=Object.fromEntries(slots.map(slot=>[slot,gearAssetPath('relic',slot,3)]));
+const impactAssets={trees:ASSETS.trees,mineralrock:ASSETS.mineralrock};
 const drawTool=MapScene.prototype._drawWorkTool, drawWater=MapScene.prototype._drawWatering;
 await new Promise((res,rej)=>{const s=document.createElement('script');s.src='../vendor/phaser.js';s.onload=res;s.onerror=rej;document.head.append(s);});
 let previewStart=performance.now();
 new Phaser.Game({type:Phaser.CANVAS,width:900,height:300,parent:'stage',backgroundColor:'#17231f',audio:{noAudio:true},scene:{
- preload(){for(const slot of slots)this.load.spritesheet(slot,'../'+paths[slot],{frameWidth:16,frameHeight:16});},
+ preload(){for(const slot of slots)this.load.spritesheet(slot,'../'+paths[slot],{frameWidth:16,frameHeight:16});for(const [key,a] of Object.entries(impactAssets))this.load.spritesheet(key,'../'+a.path,{frameWidth:a.frameWidth,frameHeight:a.frameHeight});},
  create(){this.examples=slots.map((slot,i)=>{
   const x=90+i*180,y=130;
   this.add.rectangle(x,y,96,96,0x3b5140).setStrokeStyle(1,0x779477);
   this.add.text(x,y+85,{axe:'Chop',hoe:'Hoe',pickaxe:'Mine',net:'Net',watering_can:'Water'}[slot],{fontSize:'16px',color:'#e8ecdf'}).setOrigin(.5);
   const root=this.add.container(x,y).setScale(3);
+  const object=slot==='axe'?{kind:'tree',x:0,y:0}:slot==='pickaxe'?{kind:'mineralrock',x:0,y:0}:null;
+  const target=object?this.add.image(0,14,slot==='axe'?'trees':'mineralrock',slot==='axe'?3:0).setOrigin(.5,1).setScale(slot==='axe'?.7:1.4):null;
+  if(target)root.add(target);
   const wheel=this.add.graphics(),gfx=this.add.graphics(),icon=this.add.image(0,0,slot).setVisible(false);root.add([wheel,gfx,icon]);
-  return{slot,x,y,wheel,ctx:{add:{graphics:()=>{const g=this.add.graphics();root.add(g);return g;},image:(...args)=>{const im=this.add.image(...args);root.add(im);return im;}},textures:this.textures,_workProgressIcon:icon,_workProgressToolKey:slot,_workToolGfx:gfx,worldMetersToScreen:(x,y)=>({x,y})}};
+  return{slot,x,y,wheel,target,object,ctx:{add:{graphics:()=>{const g=this.add.graphics();root.add(g);return g;},image:(...args)=>{const im=this.add.image(...args);root.add(im);return im;}},textures:this.textures,_workProgressIcon:icon,_workProgressToolKey:slot,_workToolGfx:gfx,worldMetersToScreen:(x,y)=>({x,y})}};
  });window.previewReady=true;},
  update(){const bare=document.querySelector('#bare').checked,pause=document.querySelector('#pause').checked;const elapsed=performance.now()-previewStart;
  for(const row of this.examples){const {slot,ctx}=row;row.wheel.clear();ctx._workToolGfx.clear();ctx._workProgressToolKey=bare?null:slot;
@@ -31,7 +35,7 @@ new Phaser.Game({type:Phaser.CANVAS,width:900,height:300,parent:'stage',backgrou
   const e=ctx._wateringEffects[0];e.startT=now-(bare?(pause?130:phase):phase);e.texture=bare?null:slot;e.durationMs=bare?260:800;
   drawWater.call(ctx);
 
- }else{const age=pause?160:elapsed;Render.drawWorkWheel(row.wheel,0,0,pause?.55:(elapsed%4000)/4000);drawTool.call(ctx,{toolSlot:slot,startT:0},0,0,age);}
+ }else{const age=pause?235:elapsed;if(row.target){row.target.setPosition(0,14).setRotation(0);Render.applyWorkImpact(row.target,Render.workImpactPose({toolSlot:slot,startT:0,durationMs:Infinity,worldX:0,worldY:0},row.object,age),0,14);}Render.drawWorkWheel(row.wheel,0,0,pause?.55:(elapsed%4000)/4000);drawTool.call(ctx,{toolSlot:slot,startT:0},0,0,age);}
  }
  }
 }});

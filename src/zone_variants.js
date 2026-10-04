@@ -4,6 +4,8 @@
   'use strict';
   const data = root.ZoneVariantData;
   const rows = data.variants;
+  // A row's `zone` column is its ZONE KIND (the data key in
+  // docs/zone-variants.json stays as authored); a row IS a zone variant.
   const indexed = new Map(rows.map(row => [row.id, row]));
   const kinds = new Map();
   for (const row of rows) {
@@ -23,7 +25,7 @@
   }
   // Traits describe appearance, not eligibility: unusual combinations remain possible.
   const TRAITS = {
-    meadow: ['cultivated'], mushroom_grove: ['woodland', 'damp'], orchard: ['cultivated', 'woodland'],
+    meadow: ['cultivated'], marine_meadow: ['coastal', 'cultivated'], mushroom_grove: ['woodland', 'damp'], orchard: ['cultivated', 'woodland'],
     formal_garden: ['formal', 'cultivated'], hedge_garden: ['formal', 'cultivated'], ancient_grove: ['woodland', 'sacred'], sacred_grove: ['woodland', 'sacred'],
     stone_garden: ['formal', 'sacred'], ordered_graves: ['formal', 'sacred'], overgrown_graves: ['woodland', 'sacred'],
     broken_masonry: ['ruined'], silent_circle: ['sacred'], flint_field: ['ruined'], broken_depot: ['ruined'],
@@ -90,7 +92,7 @@
   // always take effect immediately. Bound the cache for review-tool inputs.
   const weightCache = new Map();
   function weightedChoices(anchor) {
-    const context = contextFor(anchor), candidates = forKind(anchor.kind);
+    const context = contextFor(anchor), candidates = forKind(anchor.kind).filter(row => row.selectable !== false);
     const contextKey = Object.keys(context).sort().filter(k => Number.isFinite(context[k]) && context[k] > 0)
       .map(k => `${k}:${context[k]}`).join('|');
     const tableKey = candidates.map(row => `${row.id}:${row.weight}:${traitsFor(row).join(',')}`).join('|');
@@ -114,7 +116,7 @@
     const fixed = byId(anchor.variant);
     if (fixed && fixed.zone === anchor.kind) return fixed;
     const { choices: candidates, total } = weightedChoices(anchor);
-    let ticket = (fnv1a(`zone-variant|${identity(anchor)}`) / 4294967296) * total;
+    let ticket = hash01(`zone-variant|${identity(anchor)}`) * total;
     for (const choice of candidates) {
       ticket -= choice.weight;
       if (ticket < 0) return choice.row;
@@ -165,13 +167,9 @@
     return map.get(`${x},${y}`) || null;
   }
   // Separate hash lanes make occupancy independent of material choice. Mix the
-  // FNV result to avoid its low-bit structure showing up as rows in a scatter.
-  function unitHash(key) {
-    let h = fnv1a(key);
-    h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
-    h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-  }
+  // FNV result (util.js avalanche32) so its low-bit structure never shows up
+  // as rows in a scatter.
+  function unitHash(key) { return u01(avalanche32(fnv1a(key))); }
   function sample(variant, u, v, anchorKey) {
     const b = variant.background;
     if (b.type === 'seeded_scatter') {

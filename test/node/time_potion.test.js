@@ -27,6 +27,9 @@
     scene.save.selSlot = 0;
     scene.save.eatReadyAt = Date.now() + 10000;
     scene._finishConsumable = lift('_finishConsumable');
+    scene._consumeSelected = lift('_consumeSelected');
+    scene._selectedConsumable = lift('_selectedConsumable');
+    scene._finishInventoryChange = lift('_finishInventoryChange');
     scene.buildInventoryDOM = () => {};
     scene.showMessageModal = () => {};
     const drink = lift('drinkTimePotion');
@@ -87,7 +90,7 @@
       opened: ['chest1'], caught: ['deer1'], lastProduce: { cow1: until },
       coinBurstClaimed: { shrine120261002: 1 }, shopState: { trader1: { bucket: 12, deals: 1, dealAt: until } },
       sapphireReturn: { fromDepth: 0, depth: 1, until }, mercenaryUntil: until,
-      companionState: { mercenary: { hp: 20, restUntil: until } },
+      companionState: { mercenary: { hp: 20 } },
     };
     Object.assign(scene.save, permanent);
     const expected = JSON.stringify(permanent), ordinaryMax = Energy.maxEnergy(scene.save);

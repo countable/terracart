@@ -11,6 +11,8 @@
     const Scene = new Function('document', 'Geo', 'navigator', 'window', '_teleportOverride',
       'WALK_M_S', 'DEBUG_SPEED_MUL', 'GPS_SNAP_M',
       SCENE_GEO_SRC + '; return SceneGeo;')(doc, geo, { geolocation: {} }, {}, null, 2.8, 5, 200);
+    Scene.prototype._dialogOpen = () => !!doc.body.classList.contains('modal-open');   // app.js's busy test, stubbed
+    Scene.prototype.flashAtPlayer = () => {};
     const scene = new Scene();
     Object.assign(scene, {
       playerM: { x: 25, y: 30 }, _manualOffsetM: { x: 5, y: 0 },

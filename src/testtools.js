@@ -73,15 +73,14 @@
     if (!s) return;
     if (s._workProgress) s.cancelWorkProgress();
     const pc = (typeof worldMetersToAbsCell === 'function')
-      ? worldMetersToAbsCell(s, s.startWorldM.x + s.playerM.x, s.startWorldM.y + s.playerM.y)
+      ? worldMetersToAbsCell(s, playerWorldM(s).x, playerWorldM(s).y)
       : null;
     let centreX, centreY;
     if (pc && typeof absCellCenterMeters === 'function') {
       const c = absCellCenterMeters(s, pc.cellIX, pc.cellIY);
       centreX = c.x; centreY = c.y;
     } else {
-      centreX = s.startWorldM.x + s.playerM.x;
-      centreY = s.startWorldM.y + s.playerM.y;
+      ({ x: centreX, y: centreY } = playerWorldM(s));
     }
     const wx = centreX + dxCells * s.cellM;
     const wy = centreY + dyCells * s.cellM;
@@ -102,8 +101,7 @@
   // array that passes `predicate`; the nearest* helpers below wrap it.
   function _nearest(listKey, predicate) {
     const s = S();
-    const pWX = s.startWorldM.x + s.playerM.x;
-    const pWY = s.startWorldM.y + s.playerM.y;
+    const { x: pWX, y: pWY } = playerWorldM(s);
     let best = null, bestD2 = Infinity;
     for (const entry of WorldGen.tileCache.values()) {
       for (const o of (entry[listKey] || [])) {
@@ -176,11 +174,7 @@
     };
   }
 
-  function invCount(itemId) {
-    const s = S();
-    return (s.save.inv || []).reduce((n, e) =>
-      n + (e && e.id === itemId ? (e.count || 1) : 0), 0);
-  }
+  function invCount(itemId) { return Inventory.count(S().save, itemId); }
 
   // ── Verify scenarios ───────────────────────────────────────────────
   // Each returns { name, pass, details } so a driver can collect and report.

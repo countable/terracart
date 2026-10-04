@@ -178,7 +178,6 @@
   // trapper's snare (canLay — session state, but it refuses the same buffer).
   const TRAP_ROAD_CLEAR_CELLS = 2;
   const landAt = (grid, under, i) => root.Zones.landAt(grid, under, i);
-  function isRoadCode(T, t) { return t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG; }
   // Is any road cell within TRAP_ROAD_CLEAR_CELLS of (cx, cy)? ALLOWLISTED
   // raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not the gate —
   // this defines the SHAPE of trap ground (how close a road may come before
@@ -187,15 +186,9 @@
   // candidate may actually be SEATED is spawnSurface's isSpawnCell('enemy')
   // call below, the gate proper.
   function nearRoad(grid, roadMask, w, h, cx, cy) {
-    const T = root.WorldGen.T;
-    const R = TRAP_ROAD_CLEAR_CELLS;
-    for (let y = Math.max(0, cy - R); y <= Math.min(h - 1, cy + R); y++) {
-      for (let x = Math.max(0, cx - R); x <= Math.min(w - 1, cx + R); x++) {
-        const i = y * w + x;
-        if (isRoadCode(T, grid[i]) || (roadMask && roadMask[i])) return true;
-      }
-    }
-    return false;
+    const WG = root.WorldGen;
+    return !!WG.boxCells(w, h, cx, cy, TRAP_ROAD_CLEAR_CELLS,
+      (x, y, i) => WG.isRoadTerrain(grid[i]) || (roadMask && roadMask[i]));
   }
   // `under` (optional): the codes an influence zone's HALO painted over
   // (src/zones.js — entry.zone.under, optional presence mask): the park test reads the
@@ -223,24 +216,9 @@
     // KERB reason (fast movers only) is not its.
     if (WG.inMajorBuffer && WG.inMajorBuffer(roadClass, w, cx, cy)) return 0;
     let kind = 0;
-    for (let dy = -1; dy <= 1 && !kind; dy++) {
-      const y = cy + dy;
-      if (y < 0 || y >= h) continue;
-      for (let dx = -1; dx <= 1; dx++) {
-        const x = cx + dx;
-        if ((dx || dy) && x >= 0 && x < w && grid[y * w + x] === T.PATH) { kind = 1; break; }
-      }
-    }
-    if (!kind && landAt(grid, under, i) === T.PARK) {
-      for (let dy = -1; dy <= 1 && !kind; dy++) {
-        const y = cy + dy;
-        if (y < 0 || y >= h) continue;
-        for (let dx = -1; dx <= 1; dx++) {
-          const x = cx + dx;
-          if ((dx || dy) && x >= 0 && x < w && landAt(grid, under, y * w + x) !== T.PARK) { kind = 2; break; }
-        }
-      }
-    }
+    if (WG.anyNeighbour8(w, h, cx, cy, (x, y, j) => grid[j] === T.PATH)) kind = 1;
+    else if (landAt(grid, under, i) === T.PARK
+      && WG.anyNeighbour8(w, h, cx, cy, (x, y, j) => landAt(grid, under, j) !== T.PARK)) kind = 2;
     if (!kind) return 0;
     return nearRoad(grid, roadMask, w, h, cx, cy) ? 0 : kind;
   }
@@ -262,11 +240,7 @@
   // is asked only of those and of park cells. Same verdicts, same order.
   // (A steps generator — the spawn pass drives it sliced, yielding every
   // block of rows; sampleTrapCells runs it straight through.)
-  function drive(it) {
-    let r = it.next();
-    while (!r.done) r = it.next();
-    return r.value;
-  }
+  const drive = (it) => root.WorldGen.runSteps(it);
   function sampleTrapCells(grid, roadClass, w, h, rng, k, under, roadMask) {
     return drive(sampleTrapCellsSteps(grid, roadClass, w, h, rng, k, under, roadMask));
   }
@@ -389,36 +363,32 @@
   // sprite, or the only warning the art gives is painted over. `countMul`
   // scales the base rate the same way spawnSurface's does — the app.js call
   // site passes DUNGEON_DENSITY_MUL, flat regardless of game mode.
+  // A row of the cave floor's TRIES walk (worldgen.js CAVE_PASSES /
+  // runCavePass): n snares, ATTEMPTS picks each about a random anchor, on a
+  // free floor cell. The level's occupancy is COPIED: a snare claims a cell
+  // against the next snare, never against the caller's set.
   function spawnCave(grid, N, tx, ty, tileEdgeM, depth, anchors, occupiedIdx, countMul) {
     if (!grid || !root.WorldGen) return [];
     const WG = root.WorldGen;
-    const FLOOR = WG.T.CAVE_FLOOR;
-    // Own stream on purpose — see spawnSurface; never "unify" with tileStreamSeed.
-    const rng = WG.makeRng(
-      ((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ (depth * 0x9e3779b1) ^ 0x1b873593) >>> 0);
     const anch = (anchors && anchors.length)
       ? anchors : [{ lix: Math.floor(N / 2), liy: Math.floor(N / 2) }];
     const mul = countMul > 0 ? countMul : 1;
-    const n = Math.round((CAVE_TRAP_MIN + Math.floor(rng() * CAVE_TRAP_SPAN)
-      + Math.min(depth, CAVE_TRAP_DEPTH_CAP) * CAVE_TRAP_PER_DEPTH) * mul);
     const traps = [];
-    const taken = new Set();
-    for (let k = 0; k < n; k++) {
-      for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    WG.runCavePass({
+      id: 'traps',
+      // Own stream on purpose — see spawnSurface; never "unify" with tileStreamSeed.
+      rng: () => WG.makeRng(((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ (depth * 0x9e3779b1) ^ 0x1b873593) >>> 0),
+      count: (rng) => Math.round((CAVE_TRAP_MIN + Math.floor(rng() * CAVE_TRAP_SPAN)
+        + Math.min(depth, CAVE_TRAP_DEPTH_CAP) * CAVE_TRAP_PER_DEPTH) * mul),
+      tries: ATTEMPTS,
+      pick: (rng) => {
         const a = anch[Math.floor(rng() * anch.length)];
-        const lix = a.lix + Math.round((rng() - 0.5) * 2 * CAVE_SPAWN_R);
-        const liy = a.liy + Math.round((rng() - 0.5) * 2 * CAVE_SPAWN_R);
-        if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
-        const idx = liy * N + lix;
-        if (grid[idx] !== FLOOR) continue;
-        if (taken.has(idx)) continue;
-        if (occupiedIdx && occupiedIdx.has(idx)) continue;
-        taken.add(idx);
-        traps.push(makeTrap(tx, ty, tileEdgeM, N, lix, liy,
-          WG.cellId(`trap_d${depth}`, tx, ty, lix, liy)));
-        break;
-      }
-    }
+        return { lix: a.lix + Math.round((rng() - 0.5) * 2 * CAVE_SPAWN_R),
+                 liy: a.liy + Math.round((rng() - 0.5) * 2 * CAVE_SPAWN_R) };
+      },
+      emit: (L, c) => traps.push(makeTrap(tx, ty, tileEdgeM, N, c.lix, c.liy,
+        WG.cellId(`trap_d${depth}`, tx, ty, c.lix, c.liy))),
+    }, WG.cavePassLevel(grid, N, tx, ty, tileEdgeM, depth, new Set(occupiedIdx || [])));
     return traps;
   }
 
@@ -499,21 +469,17 @@
     const i = liy * N + lix;
     if (!root.WorldGen.isWalkable(entry.grid[i])) return false;
     // THE SPAWN GATE: a snare is an 'enemy' spawn (off sensitive ground and
-    // every hard reason — yards, a field's interior — entry.spawnWhy; and
-    // the road band, entry.roadMask — isSpawnCell reads that unconditionally,
-    // mask or no mask, so one call covers both halves and there is no raw
-    // roadMask read to keep separately). It does not move, so the gate's
-    // KERB reason is not its; the kerb buffer is its own GROUND rule instead
-    // (trapGroundKind's — a snare there is a reason to step off the kerb).
-    // Underground entries carry neither mask, so a cave reads through
-    // isSpawnCell's own no-mask fallback (open ground, never a lot) — still
-    // untouched.
+    // every hard reason — yards, a field's interior — entry.spawnWhy; the
+    // road band, entry.roadMask; the tile's generated occupancy and its POI
+    // frontage — the entry's full options, WorldGen.spawnOptsOf, the same
+    // gate every other spawner on the tile is judged by). It does not move,
+    // so the gate's KERB reason is not its; the kerb buffer is its own GROUND
+    // rule instead (trapGroundKind's — a snare there is a reason to step off
+    // the kerb). Underground entries carry no mask, so a cave reads through
+    // isSpawnCell's own no-mask fallback (open ground, never a lot).
     const WG = root.WorldGen;
-    if (!WG.isSpawnCell(entry.grid, N, N, lix, liy,
-      { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy }, 'enemy')) return false;
+    if (!WG.isSpawnCell(entry.grid, N, N, lix, liy, WG.spawnOptsOf(entry), 'enemy')) return false;
     if (WG.inMajorBuffer && WG.inMajorBuffer(entry.roadClass, N, lix, liy)) return false;
-    const occ = entry._spawnOpts && entry._spawnOpts.occupied;
-    if (occ && occ.has(i)) return false;
     return !trapAt(entry, lix, liy);
   }
 
@@ -600,8 +566,8 @@
   // glow (Lighting.KINDS.magic_trap) over a tinted scuff on its cell.
   //
   // An ENEMY (Combat.isEnemy — never game, never a pet, never the player)
-  // that walks onto the cell is HELD — the Frost Powder's own freeze
-  // (c._frozenUntil; one lane, a second reason) for MAGIC_HOLD_MS — and takes
+  // that walks onto the cell is CHILLED — the Frost Powder's own slow
+  // (Combat.applyFrost; one lane, a second reason) for MAGIC_HOLD_MS — and takes
   // one hit, and the trap is spent. The numbers, both derived in app.js
   // (MAGIC_TRAP_HOLD_MS / magicTrapDamage) so they read off the tables they
   // stand for:

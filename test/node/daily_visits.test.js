@@ -56,25 +56,38 @@
     assert.eq(h.save.opened.length, 1, 'no added permanent opened flags');
   }));
 
-  test('daily visits: the notice board remains a one-time page', () => at(T0, () => {
+  test('daily visits: the notice board reads one page a UTC day, the waystone\'s lane', () => at(T0, () => {
     const h = harness({ opened: [] }), o = { kind: 'infoboard', id: 'board' };
+    assert.eq(Macros.visitKindForObject(o), Macros.DAILY_VISIT_KINDS.board, 'a recurring site');
+    assert.truthy(poiLit(o, spentSets(null, h.save)), 'lit while the page waits');
     h.tap(o);
     assert.eq(h.pages(), 1);
+    assert.eq(h.stories[0].title, 'A notice board');
+    assert.truthy(Macros.usedToday(h.save, o.id), 'the day ledger holds it');
+    assert.falsy(h.save.opened.includes(o.id), 'never save.opened');
+    assert.falsy(poiLit(o, spentSets(null, h.save)), 'dark once read today');
+    assert.falsy(isSpent(o, spentSets(null, h.save)), 'the board stands');
+    h.tap(o);
+    assert.eq(h.pages(), 1, 'one page a day');
+    assert.truthy(/^Read it already — \d+[smhd]$/.test(h.flashes[h.flashes.length - 1]), `the one refusal shape: ${h.flashes[h.flashes.length - 1]}`);
     at(T0 + DAY, () => h.tap(o));
-    assert.eq(h.pages(), 1);
-    assert.includes(h.save.opened, o.id);
-    assert.falsy(Macros.usedToday(h.save, o.id));
+    assert.eq(h.pages(), 2, 'another page the next day');
   }));
 
-  test('daily visits: a message bottle reads one page with its own painting, then is gone', () => at(T0, () => {
+  test('daily visits: a message bottle reads one page with its own painting, then is gone till tomorrow', () => at(T0, () => {
     const h = harness({ opened: [] }), o = { kind: 'bottle', id: 'bottle_1_2_3_4' };
     h.tap(o);
     assert.eq(h.pages(), 1);
     assert.eq(h.stories[0].art, 'bottle_read');
-    assert.includes(h.save.opened, o.id);
+    assert.truthy(Macros.usedToday(h.save, o.id));
     assert.truthy(isSpent(o, spentSets(null, h.save)), 'picked up: hidden and refused');
     h.tap(o);
     assert.eq(h.pages(), 1);
+    at(T0 + DAY, () => {
+      assert.falsy(isSpent(o, spentSets(null, h.save)), 'back with the next day\'s tide');
+      h.tap(o);
+      assert.eq(h.pages(), 2);
+    });
   }));
 
   test('daily visits: plain grove treasure waits for story dismissal and cannot pay twice', () => at(T0, () => {

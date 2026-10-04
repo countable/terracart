@@ -77,6 +77,14 @@ async def probe(args):
         assert impacts[1]['consumed'] and not impacts[1]['speedActive'] and impacts[1]['cooldown'] == 0, impacts
         await page.wait_for_timeout(2500)
         await page.screenshot(path=str(args.output/'fireball.png'))
+        # Story arrivals hide the inventory while their message is open.
+        await page.evaluate("__game.scene.getScene('map').scene.pause()")
+        for _ in range(15):
+            modal = page.locator('#message-modal')
+            if not await modal.count():
+                break
+            await modal.get_by_role('button', name='OK', exact=True).click()
+            await page.wait_for_timeout(150)
         await page.set_viewport_size({'width': 390, 'height': 844})
         await page.locator('#inv-tabs button[data-cat="magic"]').click()
         await page.wait_for_timeout(500)

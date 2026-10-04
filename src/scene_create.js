@@ -93,7 +93,7 @@ class SceneCreate {
     // Chests left for later because the bag was full: { [chestId]: {id, n} }.
     // The chest stays out of save.opened (so it still renders + reopens) and
     // remembers exactly what it rolled, so reopening can't re-roll the loot.
-    this.save.chestHold = this.save.chestHold || {};
+    // (A SaveState.SAVE_DEFAULTS row — normalize above has already seated it.)
     // These runtime membership views write through to their save arrays. Each
     // mutation also joins the normal debounced persistence lane, so no caller
     // can update the live Set while leaving reload with stale progress.
@@ -553,9 +553,7 @@ class SceneCreate {
     // batch cut them into pieces on some GPUs. A 2D canvas composites the
     // same way everywhere. LINEAR filtering (WebGL) keeps the upscale from
     // the logical grid to the device canvas from stepping the gradients.
-    this.lightTex = this.textures.exists('lightmap')
-      ? this.textures.get('lightmap')
-      : this.textures.createCanvas('lightmap', this.viewSize, this.viewSize);
+    this.lightTex = Render.viewportCanvas(this, 'lightmap', 0).tex;   // the view box, no halo
     try { this.lightTex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
@@ -622,10 +620,7 @@ class SceneCreate {
     // view, so the container's sub-cell scroll never exposes an unfogged edge.
     // Taken from there, not retyped, so the texture can't be sized for a halo
     // the painter doesn't lay out.
-    const fogPx = (VIEW_CELLS + FOG_TEX_CELLS_PAD) * CELL_PX;
-    this.fogTex = this.textures.exists('fogwash')
-      ? this.textures.get('fogwash')
-      : this.textures.createCanvas('fogwash', fogPx, fogPx);
+    this.fogTex = Render.viewportCanvas(this, 'fogwash', FOG_TEX_CELLS_PAD * CELL_PX / 2).tex;
     this.fogImage = this.add.image(0, 0, 'fogwash').setOrigin(0, 0).setVisible(false);
     this.fogContainer.add(this.fogImage);
 
@@ -778,33 +773,11 @@ class SceneCreate {
     // The ghost's glow (SpriteLayout.GHOST_GLOW): a soft disc in GHOST_TINT,
     // opaque at the centre and gone at the rim; the renderer scales it to the
     // row's px and fades it to the row's alpha.
-    if (!this.textures.exists('ghost_glow')) {
-      const S = 64;
-      const tex = this.textures.createCanvas('ghost_glow', S, S);
-      const ctx = tex.getContext();
-      const t = SpriteLayout.GHOST_TINT;
-      const rgb = `${(t >> 16) & 255}, ${(t >> 8) & 255}, ${t & 255}`;
-      const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
-      grad.addColorStop(0,   `rgba(${rgb}, 1)`);
-      grad.addColorStop(0.4, `rgba(${rgb}, 0.45)`);
-      grad.addColorStop(1,   `rgba(${rgb}, 0)`);
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, S, S);
-      tex.refresh();
-    }
-    if (!this.textures.exists('aura_blight')) {
-      const S = 128;
-      const tex = this.textures.createCanvas('aura_blight', S, S);
-      const ctx = tex.getContext();
-      const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
-      grad.addColorStop(0,    'rgba(120, 10, 60, 0.12)');
-      grad.addColorStop(0.55, 'rgba(170, 20, 70, 0.26)');
-      grad.addColorStop(0.85, 'rgba(210, 40, 90, 0.42)');
-      grad.addColorStop(1,    'rgba(210, 40, 90, 0)');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, S, S);
-      tex.refresh();
-    }
+    const t = SpriteLayout.GHOST_TINT, rgb = `${(t >> 16) & 255}, ${(t >> 8) & 255}, ${t & 255}`;
+    this._ensureCanvasTex('ghost_glow', 64, (ctx, S) => paintRadialDisc(ctx, S,
+      [[0, `rgba(${rgb}, 1)`], [0.4, `rgba(${rgb}, 0.45)`], [1, `rgba(${rgb}, 0)`]]));
+    this._ensureCanvasTex('aura_blight', 128, (ctx, S) => paintRadialDisc(ctx, S,
+      [[0, 'rgba(120, 10, 60, 0.12)'], [0.55, 'rgba(170, 20, 70, 0.26)'], [0.85, 'rgba(210, 40, 90, 0.42)'], [1, 'rgba(210, 40, 90, 0)']]));
     // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
     // below). An open ring with four ticks crossing it, deliberately NOT a
     // filled disc: a small gold disc IS a coin in this game, and the map is

@@ -116,8 +116,8 @@
     assert.eq(report.slept, 1);
   });
 
-  test('zone runtime: eight variants attract existing fauna across union coverage', () => {
-    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 8);
+  test('zone runtime: authored variants attract existing fauna across union coverage', () => {
+    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 9);
     const N = 32, grid = new Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
     for (const row of ZoneVariants.rows) {
@@ -132,8 +132,9 @@
         { occupied: new Set() }, creatures, null, [], new Set());
       assert.eq(creatures.length, count, `${row.id} cannot add animals`);
       for (const sp of species) {
-        if (row.attracts[sp]) assert.gt(moved[sp] || 0, 0, `${row.id}: ${sp} reaches fringe-only coverage`);
-        else assert.eq(moved[sp] || 0, 0, `${row.id}: no inherited zone-kind affinity for ${sp}`);
+        if (row.attracts[sp] && BiomeProfiles.faunaAllows(sp, grid[0]))
+          assert.gt(moved[sp] || 0, 0, `${row.id}: ${sp} reaches eligible fringe-only coverage`);
+        else assert.eq(moved[sp] || 0, 0, `${row.id}: ${sp} cannot bypass its habitat or inherit zone-kind affinity`);
       }
     }
   });
@@ -156,8 +157,7 @@
     }
     const pilgrim = new Uint8Array(N*N).fill(StreetVariants.STREET_VARIANTS.find(r=>r.id==='pilgrim').code);
     const present = run(pilgrim);
-    assert.inRange(present.moved,70,130,'a present Pilgrim road contributes only its configured 10% pull');
-    assert.gt(present.moved,baseline.moved,'present stronger grounds still take effect');
+    assert.eq(present.moved,0,'a street crossing a nexus cannot introduce unlisted fauna');
   });
 
   test('zone runtime: quiet grave variants leave natural birds in place without an extra gathering', () => {
@@ -178,7 +178,7 @@
       tileEdgeM: N * 10, save: { caught: [] }, startWorldM: { x: -5000, y: 0 },
       _pestFreeZone: () => null,
     });
-    const entry = { cellsPerEdge: N, grid: new Array(N * N).fill(WorldGen.T.GRASS),
+    const entry = { cellsPerEdge: N, grid: new Array(N * N).fill(WorldGen.T.PARK),
       objects: Array.from({ length: N * N }, (_, i) => ({ kind: 'mineralrock', id: `rock_${i}`,
         x: (i % N + .5) * 10, y: (Math.floor(i / N) + .5) * 10 })),
       roadClass: new Uint8Array(N * N),
@@ -237,7 +237,7 @@
     window.__TEST_MODE = false;
     try { spawn.call(scene, entry, 0, 0); } finally { window.__TEST_MODE = prior; }
     assert.falsy(entry.creatures.some(c => c.id.startsWith('plant_')));
-    assert.gt(entry.creatures.filter(c => c.kind === 'crow').length, 0);
+    assert.eq(entry.creatures.filter(c => c.kind === 'crow').length, 0, 'empty nexus cells reject generic fauna too');
     assert.eq(entry.traps.length, 1);
     assert.eq(entry.traps[0].id, trap.id);
     assert.eq(entry._ambientSpawnOpts.occupied.size, N * N);
@@ -258,7 +258,7 @@
       assert.eq(shrines.length, 1, JSON.stringify(tags));
       assert.eq(shrines[0]._poiAt, '2048,2048');
       assert.eq(shrines[0].id, WorldGen.cellId('c', tx, ty, 32, 32));
-      assert.eq(shrines[0].zone, 'beach');
+      assert.eq(shrines[0].zoneKind, 'beach');
       assert.eq(a.objects.filter(o => o.kind === 'chest' && !o.chestTopUp).length, 0, 'the POI converts instead of duplicating');
       const topUps = a.objects.filter(o => o.chestTopUp);
       assert.eq(topUps.filter(o => chestTier(o) === 1).length, 25, 'variant fills the T1 minimum');

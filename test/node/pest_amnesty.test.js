@@ -1,7 +1,7 @@
 // The pest amnesty (src/starter.js › pestFreeZone + app.js's fauna spawner + the crow
 // pump). It covers slimes and crows, and ends at the FIRST HARVEST.
 //
-// A slime sits on your crops and drains SLIME_LEECH_ENERGY a second, a crow eats the
+// A slime sits on your crops and drains its roster row's dmg a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
 // nothing to answer either with: no weapon, no relic, an empty bag, and a
 // ladder telling them to stand still and till. So until the save's first crop
@@ -96,7 +96,8 @@
     const caught = src.indexOf('if (caughtSet.has(id)) return;', tp);
     assert.lt(drawY, guardAt, 'after the cell is drawn');
     assert.lt(spawnRule, guardAt, 'after the shared spawn rule accepts it');
-    assert.lt(caught, guardAt, 'beside the per-player caught cull');
+    assert.lt(drawY, caught, 'defeat filtering also follows the deterministic draw');
+    assert.falsy(/rng\(\)/.test(src.slice(Math.min(caught, guardAt), Math.max(caught, guardAt))), 'moving the defeat filter past provenance recording adds no random draws');
     // And nothing between the draw and the push re-draws on the zone's say.
     const body = src.slice(tp, src.indexOf('creatures.push(', tp));
     assert.eq((body.match(/pestFree\.has\(/g) || []).length, 1, 'the zone is asked once, in the guard');

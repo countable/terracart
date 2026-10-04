@@ -391,7 +391,7 @@ test('inventoryIconSource: copper_bar frame 0 (not iron_bar-adjacent frame 1)', 
 // ORE_COL_BY_TIER is render-side (not in items.js / not bridged), but its
 // logic is documented in the source comments. We test the documented mapping:
 // T2=copper→col0, T3=iron→col1, T4=gold→col2, T5=platinum→col3,
-// T6=crimson→col5 (col4 skipped), T7=frost→col6.
+// T6=crimson→col5 (col4 skipped), T7=frost→col7 (blue, skipping green col6).
 // These cols map to the same tier ladder as the bar frames in MINERAL_ICON_SHEET.
 
 test('MINERAL_ICON_SHEET bars are consistently ordered copper<iron<gold<platinum<crimson<frost', () => {
@@ -568,7 +568,7 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.eq(spec.frame({kind:'chest', poiClass:'atm'}), undefined, 'procedural gold pot has no sheet frame');
   assert.falsy(/CHEST_TIER_COLOR|chestObjs|tier diamond/.test(RENDER_SRC), 'tier colours are in the chest art, without floating gems');
   assert.truthy(/const g = scene\.tierGfx;\s*g\.clear\(\);/.test(RENDER_SRC), 'attack warning layer still clears each draw');
-  assert.truthy(/g\.strokeCircle\(centre\.sx, centre\.sy, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
+  assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
 test('wooden barrels render at half their former size and have no broken art', () => {

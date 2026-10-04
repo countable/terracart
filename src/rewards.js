@@ -1,7 +1,86 @@
-// Apply an already-chosen reward. Callers own rolls, capacity decisions,
-// persistence and presentation; item grants keep the scene's book/tab behavior.
+// Apply an already-chosen reward, and PRESENT it. Callers own rolls,
+// capacity decisions and persistence; item grants keep the scene's book/tab
+// behavior.
+//
+// `card(scene, reward)` is THE ONE kind → card ladder (icon, name, qty,
+// colour, line, tier — the shape showChestRewardModal takes) for every
+// ceremony and toast: a chest's, a dug X's, an elite's drop, the first
+// vista's relic, a neighbour's gift, a barrel. `present(scene, reward, opts)`
+// shows it — as a card (mode 'card', with opts.extra laid over: the header,
+// the painting, the chest glyph, the caller's own line, onDismiss) or as a
+// toast (mode 'toast', led by opts.mark, or opts.text in full) — and fires
+// the jackpot fanfare once for any reward the roll stamped (`jackpot`). A
+// beaten gear roll (a gold reward WITH a slot: reconcileRelicOffer cashed it
+// out) wears the one line, BEATEN_GEAR, wherever it is shown. Depends on
+// (call time): items.js (ITEM_BY_ID, itemName, itemTierOf, gearName),
+// loot.js (lootFlashColor), util.js (UI_GOLD, UI_TREASURE) and the scene's
+// icon helpers (app.js iconSpanHTML / coinIconHTML / gearIconHTML).
 (function (root) {
   'use strict';
+
+  const BEATEN_GEAR = 'Already better — paid in coin.';
+  function gearCard(scene, kind, slot, tier, iconPx) {
+    return {
+      iconHTML: scene.gearIconHTML ? scene.gearIconHTML(kind, slot, tier, iconPx) : '★',
+      name: (typeof gearName === 'function') ? gearName(kind, slot, tier) : slot,
+      tier,
+    };
+  }
+  function card(scene, reward, iconPx = 64) {
+    if (!reward) return null;
+    if (reward.kind === 'item') {
+      return {
+        iconHTML: scene.iconSpanHTML ? scene.iconSpanHTML(reward.id, iconPx) : '',
+        name: String(itemName(reward.id)),
+        qty: reward.qty > 1 ? `× ${reward.qty}` : null,
+        color: lootFlashColor(reward.id),
+        tier: itemTierOf(reward.id),
+      };
+    }
+    if (reward.kind === 'gold' && reward.slot) {
+      return { ...gearCard(scene, reward.gearKind || 'relic', reward.slot, reward.tier, iconPx), sub: BEATEN_GEAR, color: '#aaa' };
+    }
+    if (reward.kind === 'gold') {
+      return {
+        iconHTML: scene.coinIconHTML ? scene.coinIconHTML(Math.round(iconPx * 0.75)) : '',
+        name: `+${reward.amount || 0}`,
+        color: UI_GOLD,
+      };
+    }
+    if (reward.kind === 'relic' || reward.kind === 'armor') {
+      return { ...gearCard(scene, reward.kind, reward.slot, reward.tier, iconPx), sub: 'equipped', color: UI_TREASURE };
+    }
+    return null;   // an unrecognised kind draws no card and opens no modal
+  }
+  // The fanfare a roll stamped (`jackpot` steps), once.
+  function jackpot(scene, reward) {
+    if (reward?.jackpot >= 1 && typeof scene.flashJackpot === 'function') scene.flashJackpot(reward.jackpot);
+  }
+  function present(scene, reward, { mode = 'card', extra = {}, mark = '', text } = {}) {
+    const c = card(scene, reward);
+    if (!c) return false;
+    if (mode === 'card') {
+      if (typeof scene.showChestRewardModal !== 'function') return false;
+      // The card's own line ("equipped", the beaten line) follows the
+      // caller's framing line rather than being dropped.
+      const own = c.sub ? c.sub[0].toUpperCase() + c.sub.slice(1) + (/[.!?]$/.test(c.sub) ? '' : '.') : '';
+      const sub = [extra.sub, own].filter(Boolean).join(' ') || undefined;
+      scene.showChestRewardModal({ ...c, ...extra, sub });
+    } else {
+      const lead = mark ? `${mark} ` : '';
+      if (reward.kind === 'relic' || reward.kind === 'armor') {
+        scene.flashLoot(`${lead}→ ✨ ${c.name} (equipped!)`, UI_GOLD, 1.6);
+      } else if (reward.kind === 'gold' && reward.slot) {
+        scene.flashLoot(`${lead}Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
+      } else if (reward.kind === 'item') {
+        scene.flashLoot(text ?? `${c.name}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`, c.color, 1, reward.id);
+      } else {
+        scene.flashLoot(text ?? `${lead}→ ${reward.amount}`, UI_GOLD, 1, null, scene.coinIconEl?.());
+      }
+    }
+    jackpot(scene, reward);
+    return true;
+  }
 
   // An item reward may have waited in a chest while another copy was found.
   // Like equipment's duplicate consolation, pay its value instead of a second
@@ -32,5 +111,5 @@
     return result;
   }
 
-  root.Rewards = { apply, reconcileUnique };
+  root.Rewards = { apply, reconcileUnique, BEATEN_GEAR, card, present, jackpot };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

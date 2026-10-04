@@ -126,17 +126,27 @@
     assert.eq(s._mercenary, null);
     assert.falsy(Companions.active(s.save, 'mercenary'));
   }));
-  test('companions: mercenary recovers like a pet; the raven still ends when spent', () => withScene((s, entry, advance) => {
+  test('companions: a downed mercenary DIES — its contract ends, hire again; the raven still ends when spent', () => withScene((s, entry, advance) => {
+    // ONE rule per kind (Companions.KINDS onDefeat, knockedOut): every timed
+    // ally is spent when its HP runs out (owner, Oct 2026 — a mercenary no
+    // longer rests and returns at full health); a released pet retreats home.
+    for (const row of Object.values(Companions.KINDS)) assert.eq(row.onDefeat, 'spent');
+    assert.falsy(Companions.KINDS.mercenary.recoveryMs, 'no rest-and-return column');
     Companions.hire(s, 'mercenary');
-    s._mercenary._hp = 0; s._mercenary._spent = true;
+    const hired = s._mercenary;
+    hired._hp = 0;
+    assert.truthy(Companions.knockedOut(s, hired, 1000), 'gone');
+    assert.truthy(hired._spent);
     Companions.tickAll(s);
     assert.eq(s._mercenary, null);
-    assert.truthy(Companions.active(s.save, 'mercenary'));
-    Companions.tickAll(s);
-    assert.eq(s._mercenary, null, 'waits through recovery');
+    assert.falsy(Companions.active(s.save, 'mercenary'), 'the contract is over');
+    assert.eq(s.save.mercenaryUntil, 0);
     advance(Companions.RECOVERY_MS);
     Companions.tickAll(s);
-    assert.eq(Combat.hp(s._mercenary), Combat.creatureMaxHp('mercenary'));
+    assert.eq(s._mercenary, null, 'nobody comes back');
+    s.save.money = 50;
+    assert.truthy(Companions.hire(s, 'mercenary'), 'hire again');
+    assert.truthy(s._mercenary && s._mercenary !== hired);
     s.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
     Companions.tickAll(s);
     assert.truthy(s._spiritRaven);
@@ -145,6 +155,10 @@
     Companions.tickAll(s);
     assert.eq(s._spiritRaven, null);
     assert.eq(s.save.spiritRavenUntil, 0);
+    // A released pet limps home at 1 HP for RECOVERY_MS.
+    const pet = { kind: 'dog', id: 'released_dog_1', _hp: 0, _chaseTarget: {} };
+    assert.falsy(Companions.knockedOut(s, pet, 5000));
+    assert.eq(pet._hp, 1); assert.eq(pet._retreatUntilT, 5000 + Companions.RECOVERY_MS); assert.eq(pet._chaseTarget, null);
   }));
   test('companions: insufficient funds or a loading tile never duplicates charges or creatures', () => withScene((s, entry) => {
     s.save.money = 49;
@@ -161,11 +175,19 @@
     assert.truthy(s._mercenary, 'contract spawns once tile finishes loading');
     assert.eq(entry.creatures.length, 1);
   }));
+  const APP_TABLES = (() => {
+  const grab = (name) => {
+    const m = SCENE_SRC.match(new RegExp('\\nconst ' + name + ' = \\{[\\s\\S]*?\\n\\};'));
+    assert.truthy(m, name + ' table in app.js');
+    return m[0];
+  };
+  return grab('SUMMON_HOOK') + grab('TIMED_BUFF_HOOKS');
+})();
   function method(name) {
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     const end = SCENE_SRC.indexOf('\n  }\n', start);
     assert.truthy(start >= 0 && end > start);
-    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+    return new Function(APP_TABLES + '\nreturn ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   }
   for (const [id, kind, model, tier] of [
     ['bones_scroll', 'summoned_skeleton', 'skeleton', 3],
@@ -190,8 +212,12 @@
       s.save.inv = [{ id, count: 3 }]; s.save.selSlot = 0;
       s.buildInventoryDOM = () => {};
       s.showMessageModal = () => {};
-      s._spendScroll = method('_spendScroll');
-      const read = method('readSummoningScroll'), row = Companions.KINDS[kind];
+      for (const name of ['_selectedConsumable', '_spendScroll', '_consumeSelected', '_finishInventoryChange']) s[name] = method(name);
+      // The scroll is a `buff` row: _useTimedBuff extends the companion's own
+      // field (the Buffs row reads it) around Companions.tick (SUMMON_HOOK).
+      assert.eq(Buffs.KINDS[CONSUMABLE_SPEC[id].buff].save, Companions.KINDS[kind].field, `${id}: one expiry field`);
+      const use = method('_useTimedBuff'), row = Companions.KINDS[kind];
+      const read = { call: (scene) => use.call(scene, id) };
       assert.truthy(read.call(s));
       assert.eq(s.save.inv[0].count, 2);
       assert.falsy(homeRecipeLocked(s.save, id));
@@ -207,7 +233,7 @@
       assert.truthy(read.call(s), 'refresh immediately after reload');
       assert.eq(Combat.hp(s[row.instance]), 5, 'refresh after reload preserves wounds');
       assert.falsy(read.call(s), 'empty slot cannot summon');
-      advance(row.durationMs);
+      advance(3 * row.durationMs);   // three reads, each banked on the last (Buffs.laterOf)
       Companions.tickAll(s);
       assert.eq(s[row.instance], null);
       assert.falsy(Companions.active(s.save, kind));

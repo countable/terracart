@@ -17,7 +17,7 @@
       assert.eq(Lighting.sourceKind({}, { kind: 'grove_shrine', shrineKind: id }), 'shrine_' + id);
       assert.eq(Lighting.KINDS['shrine_' + id].colour, K[id].light, `${id}: light colour from the table`);
       assert.eq(Lighting.KINDS['shrine_' + id].radiusCells, Lighting.KINDS.shrine.radiusCells, 'the shrine row\'s reach');
-      assert.truthy(Shrines.LEVERS[K[id].lever], `${id}: a known lever`);
+      assert.truthy(K[id].lever in Shrines.LEVERS, `${id}: a known lever`);
       assert.gt(K[id].durationMs, 0);
     }
     assert.eq(Lighting.sourceKind({}, { kind: 'grove_shrine' }), 'shrine', 'a plain grove shrine keeps its light');
@@ -28,8 +28,8 @@
     const zones = new Set(ZoneVariants.rows.map(r => r.id));
     const seenZ = new Set(), seenS = new Set();
     for (const id of Shrines.KIND_IDS) {
-      assert.gt(K[id].zones.length + K[id].streets.length, 0, `${id} stands somewhere`);
-      for (const z of K[id].zones) {
+      assert.gt(K[id].zoneVariants.length + K[id].streets.length, 0, `${id} stands somewhere`);
+      for (const z of K[id].zoneVariants) {
         assert.truthy(zones.has(z), `${id}: zone variant ${z} exists`);
         assert.falsy(seenZ.has(z), `${z} has one kind`); seenZ.add(z);
         assert.eq(Shrines.kindForZoneVariant(z), id);
@@ -53,16 +53,16 @@
     }
   });
 
-  test('shrines: a boon takes the later expiry, never a sum, and runs out', () => {
+  test('shrines: a boon extends what is running (Buffs.extend), never stacks in strength, and runs out', () => {
     const save = {};
     Shrines.grant(save, 'bone_watcher', T0);
     assert.eq(save.shieldPotionUntil, T0 + K.bone_watcher.durationMs);
     save.shieldPotionUntil = T0 + 60 * 60 * 1000;
     Shrines.grant(save, 'bone_watcher', T0);
-    assert.eq(save.shieldPotionUntil, T0 + 60 * 60 * 1000, 'longer potion preserved');
-    save.shieldPotionUntil = T0 + 1000;
+    assert.eq(save.shieldPotionUntil, T0 + 60 * 60 * 1000 + K.bone_watcher.durationMs, 'banked on top of the longer potion (owner, Oct 2026)');
+    save.shieldPotionUntil = T0 - 1000;
     Shrines.grant(save, 'bone_watcher', T0);
-    assert.eq(save.shieldPotionUntil, T0 + K.bone_watcher.durationMs, 'not added');
+    assert.eq(save.shieldPotionUntil, T0 + K.bone_watcher.durationMs, 'a lapsed one runs from now');
     Shrines.grant(save, 'wishing_well', T0);
     assert.truthy(Shrines.leverActive(save, 'fortune', T0 + 1));
     assert.falsy(Shrines.leverActive(save, 'fortune', T0 + K.wishing_well.durationMs));
@@ -152,8 +152,8 @@
     const a = SCENE_SRC.indexOf('  _consumeFoodEffects(');
     const b = SCENE_SRC.indexOf('\n  }', a) + 4;
     const method = new Function('Energy', 'FOOD_ENERGY', 'CONSUMABLE_SPEC', 'shortDuration',
-      'FEATHER_REVIVE_ENERGY', 'COFFEE_BUFF_MS', 'return ({' + SCENE_SRC.slice(a,b) + '})._consumeFoodEffects;')(
-        Energy, FOOD_ENERGY, CONSUMABLE_SPEC, shortDuration, FEATHER_REVIVE_ENERGY, 60000);
+      'FEATHER_REVIVE_ENERGY', 'Buffs', 'return ({' + SCENE_SRC.slice(a,b) + '})._consumeFoodEffects;')(
+        Energy, FOOD_ENERGY, CONSUMABLE_SPEC, shortDuration, FEATHER_REVIVE_ENERGY, Buffs);
     const save = { energy: 5, eatReadyAt: T0 + 99999 };
     const scene = { save, _consumeFoodEffects: method, getMaxEnergy: () => Energy.maxEnergy(save),
       findNearestUnopenedChest: () => ({ id: 'chest1', x: 12, y: 34 }) };
@@ -184,7 +184,7 @@
     assert.truthy(Macros.usedToday(save, o.id), 'the day ledger holds it');
     save.shieldPotionUntil = 0;
     runInteractable(makeCtx(scene, save), o);
-    assert.truthy(/^Already visited\./.test(flashed), 'a second visit waits, with its wait shown');
+    assert.truthy(/^Already visited — \d+[smhd]$/.test(flashed), 'a second visit waits, with its wait shown (the one refusal shape)');
     assert.eq(save.shieldPotionUntil, 0, 'no second boon today');
   });
   test('shrines: one scenic-path shrine per tile beside its stretch, on a reward seat, stable', () => {

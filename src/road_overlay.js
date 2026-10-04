@@ -558,6 +558,29 @@
     cx.globalAlpha = 1;
   }
 
+  // Fractured charcoal with broad orange heat and a narrow yellow core.
+  // Periodic paths meet on tile edges; runtime and preview share the painter.
+  function paintEmbers(cx, size, accent) {
+    const cracks = [[[0, .28], [.22, .35], [.42, .22], [.68, .34], [1, .28]],
+      [[.42, .22], [.36, 0]], [[.68, .34], [.60, .65], [.36, .80], [.36, 1]],
+      [[0, .76], [.19, .68], [.36, .80]], [[.60, .65], [.83, .82], [1, .76]]];
+    for (const [width, ink, alpha] of [[.15, accent || '#ff6a20', .3],
+      [.065, accent || '#ff6a20', .9], [.018, '#ffe7a0', 1]]) {
+      cx.lineWidth = size * width; cx.strokeStyle = ink; cx.globalAlpha = alpha;
+      for (const points of cracks) {
+        cx.beginPath(); cx.moveTo(points[0][0] * size, points[0][1] * size);
+        for (const [x, y] of points.slice(1)) cx.lineTo(x * size, y * size);
+        cx.stroke();
+      }
+    }
+    cx.globalAlpha = 1;
+  }
+
+  function paintPattern(cx, size, pattern, accent) {
+    if (pattern === 'spots') paintSpots(cx, size, accent);
+    if (pattern === 'embers') paintEmbers(cx, size, accent);
+  }
+
   // Shared preview swatch uses the same authored tiles and palette as the game.
   function paintPavementTile(cx, size, isPath, restored, variant) {
     const palette = global.StreetVariants?.VARIANT_BY_ID[variant]?.stone;
@@ -566,7 +589,7 @@
     cx.fillRect(0, 0, size, size);
     if (restored) paintCleanTile(cx, size, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), color);
     else { const tile = stoneTile(); if (tile) cx.drawImage(tile, 0, 0, size, size); }
-    if (palette?.pattern === 'spots') paintSpots(cx, size, palette.accent);
+    paintPattern(cx, size, palette?.pattern, palette?.accent);
   }
 
   const cleanCanvas = {};
@@ -580,7 +603,7 @@
     const cx = c.getContext('2d');
     if (!cx) return cleanCanvas[k];
     paintCleanTile(cx, CLEAN_TILE_PX, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), stoneColor);
-    if (pattern === 'spots') paintSpots(cx, CLEAN_TILE_PX, accent);
+    paintPattern(cx, CLEAN_TILE_PX, pattern, accent);
     cleanCanvas[k] = c;
     return cleanCanvas[k];
   }
@@ -1193,13 +1216,13 @@
     const stones = patternOf(ctx, pass.pats, 'stone', stoneTile());
     if (stones) patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX);
     for (const row of global.StreetVariants?.STREET_VARIANTS || []) {
-      if (row.stone?.pattern !== 'spots') continue;
+      if (!row.stone?.pattern) continue;
       const ops = pass.ops.filter((op) => op.variant === row.id);
       if (!ops.length) continue;
       const layer = scratchLayer(size);
       if (!layer) continue;
       const tile = document.createElement('canvas'); tile.width = tile.height = STONE_TILE_PX;
-      paintSpots(tile.getContext('2d'), STONE_TILE_PX, row.stone.accent);
+      paintPattern(tile.getContext('2d'), STONE_TILE_PX, row.stone.pattern, row.stone.accent);
       const pat = layer.ctx.createPattern(tile, 'repeat');
       strokeOps(layer.ctx, ops, 0);
       if (pat) patternFill(layer.ctx, pass, pat, 'source-in', STONE_TILE_PX);
@@ -1211,7 +1234,8 @@
     // THAT, and the result drawn back source-atop (re-stroking the rail runs
     // plain would wipe their gravel, and a clip can't be built from a stroke).
     // Rail is identified by its colour: RAIL_COLOR has exactly one source.
-    const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR);
+    const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR
+      && !global.StreetVariants?.VARIANT_BY_ID[op.variant]?.hotRoad);
     if (roadOps.length) {
       const layer = scratchLayer(size);
       const tile = weatherTile();

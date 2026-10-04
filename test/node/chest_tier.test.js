@@ -324,7 +324,8 @@
       assert.falsy(isPotOfGold(o) || isBikeRack(o) || isBarrel(o), cls + ' underground is none of its surface selves');
       assert.eq(chestLook(o).texKey, 'chest', 'and wears the trunk');
     }
-    assert.truthy(/if \(isPotOfGold\(o\)\) \{/.test(INTERACTABLES_SRC), 'the pot hijack asks the one predicate');
+    assert.truthy(/if \(look\.coin\) return DAILY_VISIT_KINDS\.gold;/.test(ALL_SRC['macros.js']), 'the pot hijack asks the one look (chestLook → isPotOfGold)');
+    assert.eq(Macros.visitKindForObject({ kind: 'chest', poiClass: 'atm', x: 0, y: 0, depth: 2 }), null, 'underground: no row');
     assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
       'an ATM on the surface wears the pot of gold');
     assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),

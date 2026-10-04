@@ -185,6 +185,7 @@
     // produce, then a magic item — and the growth powder as its FAVOURITE,
     // the way a school is known for its Book: a grove is where things grow.
     // Tree seeds use the same seed class and their normal tier eligibility.
+    'treasure:temple':  { classBias: { magic: 1 }, chainSteps: 0, chainMax: 2, maxTier: 2, relicCap: 0 },
     'treasure:shrine':  { classBias: { seed:0.55, produce:0.30, magic:0.15 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
                           favourite: { id: 'growth_powder', p: 0.5 } },
@@ -614,52 +615,59 @@
       return Math.min(wastedQtyBumps * per, 100);
     };
 
+    // A piece of gear, reconciled against what is worn (reconcileRelicOffer:
+    // never a downgrade), with its consolation — the tail every gear class
+    // (relic, gear, boots) shares. Every chain qty-step on a gear class was
+    // "wasted" (gear has no qty axis), so the brackets roll into consolation
+    // beside the qty-cap waste — except for shops, which never pay
+    // consolation (the player is buying).
+    const gearOut = (rolled, rewardTier, cap) => {
+      if (!ctx.singleItem) wastedQtyBumps += bracket;
+      const out = reconcileRelicOffer({ ...rolled, jackpot: jackpotApplied }, save, rng, cap);
+      if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(rewardTier);
+      return out;
+    };
+
     // 4) Resolve to a concrete item / relic / gold.
     if (cls === 'relic') {
       const slots = Object.keys(_RELIC_DEFS);
       if (!slots.length) return null;
-      const slot = slots[Math.floor(rng() * slots.length)];
-      // Relics deduct one tier off the chain roll (a T2 chest still offers a T1 relic); floor 1, clamp to relicCap.
+      const slot = pickFromArray(slots, rng);
+      // Relics deduct one tier off whatever the chain rolled — a T2 chest
+      // that produced tier=2 still offers a T1 (wood) relic. Floor at 1 and
+      // re-clamp against relicCap.
       const relicTier = Math.max(1, Math.min(finalCap, tier - 1));
-      // Relics have no qty axis, so every qty step was "wasted": consolation, except shops (the player is buying).
-      if (!ctx.singleItem) wastedQtyBumps += bracket;
-      const out = reconcileRelicOffer({ slot, tier: relicTier, jackpot: jackpotApplied }, save, rng);
-      if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(relicTier);
-      return out;
+      return gearOut({ slot, tier: relicTier }, relicTier);
     }
     // GEAR — one even draw over every tool / weapon slot, armour slot and
     // unique relic not carried at or under the rolled tier (Gear.uniqueRelics).
     // Keeps the rolled tier (no relic deduction) and the usual duplicate handling.
     if (cls === 'gear') {
-      if (!ctx.singleItem) wastedQtyBumps += bracket;
       const uniques = Gear.uniqueRelics().filter(it => it.baseTier <= tier && !carriesItem(save, it.id));
       const pool = [
         ...Object.keys(_RELIC_DEFS).map(slot => ({ kind: 'relic', slot })),
         ...Object.keys(_ARMOR_DEFS).map(slot => ({ kind: 'armor', slot })),
         ...uniques.map(it => ({ kind: 'item', id: it.id })),
       ];
-      const pick = pool[Math.floor(rng() * pool.length)];
+      const pick = pickFromArray(pool, rng);
       if (pick.kind === 'item') {
+        if (!ctx.singleItem) wastedQtyBumps += bracket;
         const uTier = _ITEM_BY_ID[pick.id].baseTier;
         return { kind: 'item', id: pick.id, qty: 1, tier: uTier, cls: 'unique_relic',
                  jackpot: jackpotApplied, consolation: consolationFor(uTier) };
       }
-      const out = reconcileRelicOffer({ kind: pick.kind, slot: pick.slot, tier, jackpot: jackpotApplied }, save, rng, finalCap);
-      if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(tier);
-      return out;
+      return gearOut({ kind: pick.kind, slot: pick.slot, tier }, tier, finalCap);
     }
-    // BOOTS — the road's equipment option; never replaces better owned boots.
-    if (cls === 'boots') {
-      if (!ctx.singleItem) wastedQtyBumps += bracket;
-      const out = reconcileRelicOffer({ kind: 'armor', slot: 'boots', tier,
-        jackpot: jackpotApplied }, save, rng, finalCap);
-      if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(tier);
-      return out;
-    }
-    // CASH — worth what an item of the rolled tier is worth (CASH_TIER_VALUE),
-    // fattened by the same quantity brackets a stack would have had.
-    // NO `slot`: that tells every payer apart from a gear cash-out
-    // (interact.js grantTreasureRoll, interactables.js). No separate consolation.
+    // BOOTS — the road's equipment option, with the same duplicate/upgrade
+    // handling as other gear so a reward never replaces better owned boots.
+    if (cls === 'boots') return gearOut({ kind: 'armor', slot: 'boots', tier }, tier, finalCap);
+    // CASH — coins, worth what an item of the rolled tier is worth
+    // (CASH_TIER_VALUE) and fattened by the same quantity brackets a stack
+    // would have been, so the qty axis is not dead weight on a money roll.
+    // NO `slot`: that is what tells every payer apart from a gear cash-out
+    // (interact.js grantTreasureRoll, interactables.js) — money is money.
+    // It pays no separate consolation; coins beside coins is one number said
+    // twice, and a wasted bracket on this class is already rare (cap 3).
     if (cls === 'cash') {
       let qty = 1;
       const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(tier, 7)] || 1;
@@ -669,7 +677,7 @@
     }
     // BUNDLE — wood or stone; tier never climbs (CLASS_MAX_TIER.bundle), so every bracket is size.
     if (cls === 'bundle') {
-      const bid = BUNDLE_IDS[Math.floor(rng() * BUNDLE_IDS.length)];
+      const bid = pickFromArray(BUNDLE_IDS, rng);
       const bqty = BUNDLE_QTY_MIN + Math.floor(rng() * (BUNDLE_QTY_MAX - BUNDLE_QTY_MIN + 1))
                  + (ctx.singleItem ? 0 : bracket * BUNDLE_PER_BUMP);
       return { kind: 'item', id: bid, qty: bqty, cls: 'bundle',

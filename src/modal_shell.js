@@ -413,31 +413,42 @@ class SceneModals {
         if (centerBody) body.style.height = body.style.maxHeight;
       }
     };
-    // Buttons are CONTROLS — gold, always (spec §UI COLOUR LANGUAGE). An
-    // ENABLED primary is the full UI_CONTROL gold, RAISED (a darker-gold
-    // under-edge and a soft glow) so it reads as something to press, and it
-    // presses: the tap sinks it onto its edge. A DISABLED one is the flat
-    // UI_CONTROL_DIM the token is named for ("inactive controls"), faded.
-    // One setter (b._setEnabled) for the first paint and every live toggle
-    // (the quantity stepper's canAfford), so the two looks can't drift.
+    // ONE button factory for every button a modal shows, in two VARIANTS:
+    //   primary — a CONTROL: gold, always (spec §UI COLOUR LANGUAGE), or a
+    //             ceremony's accent. Enabled, it is RAISED (a darker-gold
+    //             under-edge and a soft glow) so it reads as something to
+    //             press, and it presses: the tap sinks it onto its edge.
+    //             Disabled, it is the flat UI_CONTROL_DIM the token is named
+    //             for ("inactive controls"), faded.
+    //   ghost   — transparent with a thin grey border: Cancel, a secondary
+    //             action, a choice card, a pager arrow, a stepper key, an
+    //             inactive tab. One ghost (it used to be #eee/#666 on Cancel
+    //             and #ddd/#555 on the rest).
+    // Every button carries _setEnabled(on): the ONE disabled look (faded, no
+    // pointer) for the first paint and every live toggle (the quantity
+    // stepper's canAfford, the reward card's Take arming), so looks can't
+    // drift. `mkBtn(label, { variant, disabled, accent, css })`; the older
+    // `mkBtn(label, primary, disabled)` spelling still reads as before.
     const RAISED = `0 3px 0 ${UI_CONTROL_DIM}, 0 0 10px rgba(255,224,102,0.35)`;
     const PRESSED = `0 1px 0 ${UI_CONTROL_DIM}, 0 0 6px rgba(255,224,102,0.25)`;
-    const mkBtn = (label, primary = true, disabled = false) => {
+    const GHOST = 'background:transparent;color:#ddd;border:2px solid #555;';
+    const mkBtn = (label, opts = true, disabled = false) => {
+      const o = (opts && typeof opts === 'object') ? opts : { variant: opts ? 'primary' : 'ghost', disabled };
+      const primary = o.variant !== 'ghost';
       const b = document.createElement('button');
       b.innerHTML = label;
       b.style.cssText =
         `padding:8px 14px;border-radius:6px;font:700 13px ui-monospace,monospace;cursor:pointer;` +
         'transition:transform 60ms,box-shadow 60ms,background-color 120ms;' +
-        (primary
-          ? `color:#1a1612;border:0;`
-          : 'background:transparent;color:#eee;border:2px solid #666;');
+        (primary ? `color:#1a1612;border:0;` : GHOST) +
+        (o.css || '');
       b._setEnabled = (on) => {
         b.disabled = !on;
         b.style.opacity = on ? '1' : '0.4';
         b.style.cursor = on ? 'pointer' : 'not-allowed';
         b.style.transform = '';
         if (primary) {
-          b.style.background = on ? UI_CONTROL : UI_CONTROL_DIM;
+          b.style.background = on ? (o.accent || UI_CONTROL) : UI_CONTROL_DIM;
           b.style.boxShadow = on ? RAISED : 'none';
         }
       };
@@ -450,7 +461,7 @@ class SceneModals {
       for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) {
         b.addEventListener(ev, () => press(false));
       }
-      b._setEnabled(!disabled);
+      b._setEnabled(!o.disabled);
       return b;
     };
     return { wrap, box, mount, mkBtn };
@@ -648,14 +659,11 @@ class SceneModals {
       const tabRow = document.createElement('div');
       tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:8px;';
       for (const t of tabs) {
-        const tb = document.createElement('button');
-        tb.textContent = t.label;
-        tb.style.cssText =
-          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px ui-monospace,monospace;'
-          + 'border:2px solid #555;border-bottom:none;cursor:pointer;'
+        const tb = mkBtn(t.label, { variant: 'ghost', css:
+          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px ui-monospace,monospace;border-bottom:none;'
           + (t.active
               ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
-              : 'background:transparent;color:#999;');
+              : 'color:#999;') });
         if (!t.active) {
           tb.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); t.onSelect(); });
         }
@@ -689,12 +697,9 @@ class SceneModals {
       const pageRow = document.createElement('div');
       pageRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;';
       const mkArrow = (glyph, aria, fn) => {
-        const b = document.createElement('button');
-        b.textContent = glyph;
+        const b = mkBtn(glyph, { variant: 'ghost', css:
+          'flex:none;width:32px;height:32px;border-radius:50%;line-height:1;font:700 18px ui-monospace,monospace;' });
         b.setAttribute('aria-label', aria);
-        b.style.cssText =
-          'flex:none;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1;'
-          + 'font:700 18px ui-monospace,monospace;background:transparent;color:#ddd;border:2px solid #555;';
         b.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); fn(); });
         return b;
       };
@@ -761,12 +766,11 @@ class SceneModals {
         syncAccept();
       };
       for (const c of choices) {
-        const b = document.createElement('button');
-        b.innerHTML = (c.iconHTML ? `<div style="font-size:0;margin-bottom:2px">${c.iconHTML}</div>` : '') + c.label;
-        b.style.cssText = (fullscreen
-          ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
-          : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px ui-monospace,monospace;')
-          + 'border-radius:7px;cursor:pointer;background:transparent;color:#ddd;border:2px solid #555;';
+        const b = mkBtn((c.iconHTML ? `<div style="font-size:0;margin-bottom:2px">${c.iconHTML}</div>` : '') + c.label,
+          { variant: 'ghost', css: (fullscreen
+            ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
+            : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px ui-monospace,monospace;')
+            + 'border-radius:7px;' });
         b.addEventListener('click', (e) => { e.stopPropagation(); selected = c; paint(); });
         cardRow.appendChild(b);
         cards.push({ c, b });
@@ -818,14 +822,8 @@ class SceneModals {
       const stepRow = document.createElement('div');
       stepRow.style.cssText =
         'display:flex;gap:10px;justify-content:center;align-items:center;margin:2px 0 10px;';
-      const mkStep = (label) => {
-        const b = document.createElement('button');
-        b.textContent = label;
-        b.style.cssText =
-          'width:44px;height:44px;border-radius:6px;font:700 20px ui-monospace,monospace;cursor:pointer;' +
-          'background:transparent;color:#ddd;border:2px solid #555;line-height:1;';
-        return b;
-      };
+      const mkStep = (label) => mkBtn(label, { variant: 'ghost', css:
+        'width:44px;height:44px;border-radius:6px;font:700 20px ui-monospace,monospace;line-height:1;' });
       const minusBtn = mkStep('−');
       const plusBtn  = mkStep('+');
       const countSpan = document.createElement('span');
@@ -846,14 +844,8 @@ class SceneModals {
             if (costDiv) costDiv.style.color = liveCanAfford ? '#a7ffb0' : '#ff8a7a';
           }
         }
-        const dim = (b, off) => {
-          if (b._setEnabled) { b._setEnabled(!off); return; }
-          b.disabled = off;
-          b.style.opacity = off ? '0.4' : '1';
-          b.style.cursor  = off ? 'not-allowed' : 'pointer';
-        };
-        dim(minusBtn, qty <= minQ);
-        dim(plusBtn,  qty >= maxQ);
+        minusBtn._setEnabled(qty > minQ);
+        plusBtn._setEnabled(qty < maxQ);
         // Keep the primary action button in sync with the live canAfford.
         if (accept) accept._setEnabled(liveCanAfford && !disabledReason && (!hasChoices || !!selected));
       };
@@ -992,7 +984,7 @@ class SceneModals {
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
     onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false, tier = 0,
     confirmLabel = 'Take', pickHint = 'Tap one to see what it does' }) {
-    const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, centerBody: true,
       kind, kindLabel: header, kindIcon,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
@@ -1063,15 +1055,12 @@ class SceneModals {
       };
       let selected = null;
       let take = null;
+      // The card buttons: a primary word in the ceremony's accent (the shell's
+      // raised control), the rest ghosts. A card row's buttons share the row.
+      const cardCss = 'position:relative;border-radius:7px;font:700 12px ui-monospace,monospace;' +
+        (cards ? 'flex:1 1 0;min-width:0;padding:12px 4px 9px;' : 'padding:9px 14px;');
       for (const a of actions) {
-        const b = document.createElement('button');
-        b.innerHTML = a.label;
-        b.style.cssText =
-          'position:relative;border-radius:7px;font:700 12px ui-monospace,monospace;cursor:pointer;' +
-          (cards ? 'flex:1 1 0;min-width:0;padding:12px 4px 9px;' : 'padding:9px 14px;') +
-          (a.primary
-            ? `background:${accent};color:#1a1612;border:0;`
-            : 'background:transparent;color:#ddd;border:2px solid #555;');
+        const b = mkBtn(a.label, a.primary ? { accent, css: cardCss } : { variant: 'ghost', css: cardCss });
         b.addEventListener('click', (e) => {
           e.stopPropagation();
           if (!cards) { choose(a); return; }
@@ -1089,14 +1078,8 @@ class SceneModals {
       if (cards) {
         // The one button that pays: the shell's primary in the ceremony's
         // accent, dead until a card is selected.
-        take = document.createElement('button');
-        take.textContent = confirmLabel;
-        take._setEnabled = (on) => {
-          take.disabled = !on;
-          take.style.cssText = 'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;border:0;'
-            + `font:700 14px ui-monospace,monospace;background:${accent};color:#1a1612;`
-            + (on ? 'cursor:pointer;opacity:1;' : 'cursor:not-allowed;opacity:.4;');
-        };
+        take = mkBtn(confirmLabel, { accent, css:
+          'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px ui-monospace,monospace;' });
         take._setEnabled(false);
         take.addEventListener('click', (e) => {
           e.stopPropagation();

@@ -569,8 +569,9 @@ const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
 // Combat.faunaBlocksCell, beside the creatures it governs.
 //
-// The MONSTER table is Combat's too — Combat.MONSTERS / Combat.monster(kind) —
-// with the giants and the cave doubling derived there, registered at load. It
+// The MONSTER table is Combat's too — Combat.MONSTERS / Combat.monster(kind),
+// the roster (every kind an enemy_roster.js row) with the giants and the cave
+// doubling derived there, registered at load. It
 // lived here until Sep 2026, which meant combat.js could only answer about a
 // real foe once app.js had booted and handed the table over, and every
 // headless test of one ran on a copy lifted out of this file by regex.
@@ -633,8 +634,8 @@ const HOME_GREETER_SLACK_CELLS = 2;
 // with per direction (save.caught is checked by id).
 const HOME_GREETER_DIR_VEC = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 // ── Home is pest-free until the first harvest ────────────────────────────
-// A slime sits on your crops and drains SLIME_LEECH_ENERGY a second, a crow eats the
-// crop outright, and the opening session is the one stretch a player has
+// A slime sits on your crops and drains the slime row's dmg (enemy_roster.js)
+// a second, a crow eats the crop outright, and the opening session is the one stretch a player has
 // nothing to answer either with: no weapon, no relic, an empty bag and a
 // ladder telling them to stand still and till. Meeting a pest there is not a
 // fight, it is the tutorial being interrupted — so until the save's FIRST
@@ -869,6 +870,13 @@ const PLAYER_DOWNED_ROTATION = Math.PI / 2;
 // (the feet ARE the fix — see playerFeetNudgeY), at the scale the base art is
 // drawn, so this is derived from the art, not tuned to it.
 const ENERGY_POP_LIFT_PX = 4;
+// THE DRAIN ROLL-UP's window: every per-frame drain or regen on the body
+// (a trap's bleed, lava, the stick walk, thorns and spikes, a rest's gain)
+// banks into _bankDrain and ONE flush in update() pops each lane's total
+// once per window — one clock for all, so two hazards at once read as two
+// numbers rather than a stagger; the monsters' roll-up (scene_creatures.js)
+// keeps the same beat.
+const DRAIN_POP_MS = 1200;
 const ENERGY_POP_HEAD_PX = Math.round((PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) * PLAYER_ART_SCALE) + ENERGY_POP_LIFT_PX;
 // How long the stick must sit idle before the character walks itself home.
 //
@@ -916,36 +924,24 @@ const WALK_HOME_SPEED_MUL = 1.5;
 // WALK_HOME_IDLE_MS — it is that plus a beat and a half.
 const WALK_HOME_HINT_IDLE_MS = 6500;
 // Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
-// gameplay, item copy and the Drink / Use button.
-const REACH_POTION_MS = CONSUMABLE_SPEC.reach_potion.durationMs;
+// gameplay, item copy and the Drink / Use button. A TIMED consumable's length
+// is read off its row at the use (_useTimedBuff) — no alias of it lives here.
 // The SHARED tome-button lock: reading any tome locks every tome's button
 // for an hour (food's eat lock is Energy's 10 s). Each tome's own magic
 // cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to the spell's power.
+// A tome's spell is HALF its potion's (items.js TOME_MUL, the row's `tome`).
 const TOME_COOLDOWN_MS = 60 * 60 * 1000;
-// A tome's spell is HALF its potion's: half the duration for timed effects,
-// half the damage or restore for instant ones. The potion stays the strong,
-// one-shot form; the tome is the weaker spell you keep.
-const TOME_EFFECT_MUL = 0.5;
-const TOME_THUNDER_DMG = Math.floor(THUNDER_DMG * TOME_EFFECT_MUL);
-const TOME_HEALING_ENERGY = Math.floor(HEALING_POTION_ENERGY * TOME_EFFECT_MUL);
-const SPEED_POTION_MS = CONSUMABLE_SPEC.speed_potion.durationMs;
-const SHIELD_POTION_MS = CONSUMABLE_SPEC.shielding_potion.durationMs;
-const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
-const SHADOW_POWDER_MS = CONSUMABLE_SPEC.shadow_powder.durationMs;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
-const FROST_POWDER_MS = CONSUMABLE_SPEC.frost_powder.durationMs;
-const PSYCHOSIS_POWDER_MS = CONSUMABLE_SPEC.psychosis_powder.durationMs;
-// The Scroll of Thunder's flash (readThunderScroll) — long enough to read as
-// lightning, short enough not to blind the next tap. Its damage is items.js
-// THUNDER_DMG, beside the ✦ line that quotes it.
+// The Scroll of Thunder's flash (CAST_ROWS.thunder_scroll) — long enough to
+// read as lightning, short enough not to blind the next tap. Its damage is
+// items.js THUNDER_DMG, beside the ✦ line that quotes it.
 const THUNDER_FLASH_MS = 350;
-// Potion of Blight: for BLIGHT_MS a round aura on the ground around the
+// Potion of Blight: for its minute a round aura on the ground around the
 // player hurts every ENEMY whose centre is inside BLIGHT_R_CELLS cells of the
 // feet, BLIGHT_DPS HP a second (_tickBlightAura). A plain Euclidean radius on
 // purpose — it is a smooth circle, not the per-cell reach staircase — and the
 // baked 'aura_blight' texture is drawn exactly that wide, so the edge the
 // player sees is the edge that bites.
-const BLIGHT_MS = CONSUMABLE_SPEC.blight_potion.durationMs;
 const BLIGHT_R_CELLS = CONSUMABLE_SPEC.blight_potion.radiusCells;
 const BLIGHT_DPS = CONSUMABLE_SPEC.blight_potion.damagePerSecond;
 // SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
@@ -962,10 +958,77 @@ const SPEED_POTION_WALK_COST_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
 // for a while after the constant went to 2, and so did the item-effect line
 // the player reads (items.js ITEM_EFFECTS); both quote the constant now.
 const COFFEE_BOOT_BOOST = CONSUMABLE_SPEC.coffee.speedTierBoost;
-const COFFEE_BUFF_MS = CONSUMABLE_SPEC.coffee.durationMs;
-// Torch: how long one burns (useTorch). Lighting another while one burns
-// extends from the current end, so a bag of them is one long light.
-const TORCH_MS = CONSUMABLE_SPEC.torch.durationMs;
+// THE REFUSAL that keeps the item: "<why> — <noun> kept." — a cast with no
+// foe in sight, an Antidote with nothing to cure, a map with no chest.
+function kept(why, noun) { return `${why} — ${noun} kept.`; }
+// ONE <style> per rule set, injected once under `id` (the HUD chips, the
+// status row, the move pad): a second call with the same id is a no-op.
+function ensureStyle(id, css) {
+  if (typeof document === 'undefined' || document.getElementById(id)) return;
+  const st = document.createElement('style');
+  st.id = id;
+  st.textContent = css;
+  document.head.appendChild(st);
+}
+// A control that sits OVER the map swallows the press, so no tap lands on
+// the world under it; its own click handler says what it does.
+function swallowTaps(el) {
+  for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
+    el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+}
+// ── THE MARKERS ─────────────────────────────────────────────────────────────
+// Every bearing drawn at the map's rim is a row here, drawn by _drawMarkers
+// (each through _drawMarker): `key` on `store` ('save' survives a reload;
+// 'scene' is session state), the `color`, the `shape` (a dot, or the
+// delivery's arrow), `tracked` for a find that moves (re-read twice a second
+// through _telescopeTrackedTarget), and `clearWhen(scene, m)` — the row's
+// own reason to drop the mark besides its `until` passing. A mark on another
+// level is kept but not drawn. The Pairy's mark stays session state
+// (Buffs.KINDS.compass and player_time.js read scene.pairyCompass).
+const _markClaimed = (s, m) => setOf(s.save.opened).has(m.targetId) || dayLedgerAges(s.save).get(m.targetId) === 0;
+const MARKERS = [
+  // The Pairy marks its chest in cyan until opened or its food effect expires.
+  { key: 'pairyCompass', store: 'scene', color: 0x45e5ff, shape: 'dot', clearWhen: _markClaimed },
+  { key: 'telescopeCompass', store: 'save', color: 0xffd24a, shape: 'dot', tracked: true },
+  { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, shape: 'dot', tracked: true },
+  // A map keeps its original level and expires by wall clock, including reloads.
+  { key: 'treasureCompass', store: 'save', color: 0xff5555, shape: 'dot', clearWhen: _markClaimed },
+  // The delivery waypoint — a solid WHITE arrow at the house the player picked
+  // (openDeliveryMenu), cleared once they arrive or the house has been fed.
+  { key: 'deliveryCompass', store: 'scene', color: 0xffffff, shape: 'arrow',
+    clearWhen: (s, m) => Delivery.isSatisfied(s.save, { id: m.id })
+      || Math.hypot(m.x - playerWorldM(s).x, m.y - playerWorldM(s).y) < s.cellM * 1.2 },
+];
+// ── WHO IS TOLD OF A KILL ───────────────────────────────────────────────────
+// Every ledger resolveDefeat reports a fallen foe to, in order, each judging
+// the credit by ONE question — Macros.slainByPlayer: the id in save.caught
+// and a blow of the player's side (Combat.isPlayerKill). Maud's archer and
+// the fire-breath demon ask it inside their own `defeated`; the castle's
+// board asks it here; the guild bounty pays whoever felled the last foe.
+const KILL_LEDGERS = [
+  (s, v, source) => StoryEncounters.defeated(s, v, source),
+  (s, v, source) => DragonStory.defeated(s, v, source),
+  // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
+  // never credit toward its base kind's. A turret's kill is not the player's job done.
+  (s, v, source) => {
+    if (typeof Quests === 'undefined' || !Macros.slainByPlayer(s.save, v.id, source)) return;
+    if (Quests.onKill(s.save, v.kind)) s.flashAtPlayer('Quest done — see the castle.');
+  },
+  (s, v) => { if (v.bounty) s._guildBountyDefeat(v); },
+];
+// The day-ledger ids (Macros.markToday / usedToday) of the guild bounty out
+// today and the dusk safety card — a UTC day each, in the one ledger.
+const GUILD_BOUNTY_LEDGER = 'guildbounty';
+const SAFETY_DUSK_LEDGER = 'safety:dusk';
+// A soft disc for a baked glow (the ghost's glow, the Blight aura): a radial
+// gradient from the centre to the rim over `stops` ([offset, rgba]) filling
+// an S×S canvas.
+function paintRadialDisc(ctx, S, stops) {
+  const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  for (const [at, rgba] of stops) grad.addColorStop(at, rgba);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, S, S);
+}
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -1877,7 +1940,6 @@ class MapScene extends Phaser.Scene {
       this._trapCellKey = null;
       this._trapHere = null;
       this._trapDrainAccum = 0;
-      this._trapDrainPop = 0;
       return;
     }
     const pc = this.playerToWorldCell();
@@ -1897,7 +1959,6 @@ class MapScene extends Phaser.Scene {
       this._trapHere = (found && Traps.isTrapDisarmed(this.save, found)) ? null : found;
       // Stepping off ends the bleed: no partial second carries to the next trap.
       this._trapDrainAccum = 0;
-      this._trapDrainPop = 0;
     }
     const trap = this._trapHere;
     if (!trap) return;
@@ -1953,41 +2014,51 @@ class MapScene extends Phaser.Scene {
       return;   // the bite is this frame's cost; the bleed starts on the next
     }
 
-    // Still standing on a sprung one. Float accumulator → whole pips, the same
-    // shape the passive rests use, so a fractional per-frame drain doesn't
-    // churn save.energy and the DOM every frame.
-    this._trapDrainAccum = (this._trapDrainAccum || 0)
-      + Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt;
-    const pips = Math.floor(this._trapDrainAccum);
-    if (pips > 0) {
-      this._trapDrainAccum -= pips;
-      const before = this.save.energy ?? 0;
-      if (before > 0) {
-        this._trapDrainPop = (this._trapDrainPop || 0) + this._losePlayerEnergy(pips);
-      }
+    // Still standing on a sprung one. Float accumulator → whole pips
+    // (bankWhole, the one bank every per-frame drain uses), so a fractional
+    // per-frame drain doesn't churn save.energy and the DOM every frame; the
+    // loss joins the drain roll-up (_bankDrain) — a number a second stacks
+    // into an unreadable column.
+    const pips = bankWhole(this, '_trapDrainAccum',
+      Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt);
+    if (pips > 0 && (this.save.energy ?? 0) > 0) this._bankDrain('trap', -this._losePlayerEnergy(pips), { ix, iy, label: '🪤 trap' });
+  }
+
+  // ── THE DRAIN ROLL-UP ──────────────────────────────────────────────────────
+  // Every per-frame change to the bar the player should read as ONE number
+  // banks here by LANE (`delta`: negative for a loss, positive for a rest's
+  // gain; the cell it names, or the body when none), and _flushDrainPops —
+  // once per frame from update() — pops every lane that holds something
+  // once per DRAIN_POP_MS, on one clock, and persists what moved.
+  _bankDrain(lane, delta, { ix, iy, label } = {}) {
+    if (!delta) return;
+    const d = (this._drains ||= {});
+    const row = d[lane] || (d[lane] = { delta: 0 });
+    row.delta += delta; row.ix = ix; row.iy = iy; row.label = label;
+  }
+  _flushDrainPops(now = performance.now()) {
+    const d = this._drains;
+    if (!d || now - (this._drainPopT || 0) <= DRAIN_POP_MS) return;
+    let any = false;
+    for (const row of Object.values(d)) {
+      if (!row.delta) continue;
+      this._popEnergy(row.delta, { ix: row.ix, iy: row.iy, label: row.label });
+      row.delta = 0; any = true;
     }
-    // One throttled pop for everything the trap has taken this window — the
-    // slime-leech roll-up, for the same reason: a number a second stacks into
-    // an unreadable column.
-    const now = performance.now();
-    if (this._trapDrainPop > 0 && now - (this._lastTrapFlashT || 0) > 1200) {
-      this._lastTrapFlashT = now;
-      const drained = this._trapDrainPop;
-      this._trapDrainPop = 0;
-      this._popEnergy(-drained, { ix, iy, label: '🪤 trap' });
-      if (typeof persistSave === 'function') persistSave(this.save);
-    }
+    if (!any) return;
+    this._drainPopT = now;
+    if (typeof persistSave === 'function') persistSave(this.save);
   }
 
   // ── Lava ──────────────────────────────────────────────────────────────────
-  // Surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
+  // Burned Row embers, surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
   // not a foe, deals it: fire resistance reduces it; mode, shield and armour
-  // do not. A float
-  // accumulator banks whole pips through _losePlayerEnergy (Energy.set, the hit
-  // flinch); one throttled pop names the cell, and the burn leaves shop dialogs
+  // do not. bankWhole
+  // banks whole pips through _losePlayerEnergy (Energy.set, the hit flinch);
+  // the drain roll-up pops them on the cell, and the burn leaves shop dialogs
   // open. Stands down on an empty bar (Combat.playerDowned — being upright,
   // not being noticed; a Shadow Powder does not cool lava).
   _tickLava(dt) {
@@ -2000,27 +2071,19 @@ class MapScene extends Phaser.Scene {
     const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     const N = entry && entry.cellsPerEdge;
+    const embers = this.depth === 0 && typeof StreetVariants !== 'undefined'
+      && StreetVariants.hotRoadAt(entry, pc.cx, pc.cy);
     if (!entry || !entry.grid || lix < 0 || liy < 0 || lix >= N || liy >= N
-        || entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA) {
+        || (entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA && !embers)) {
       this._lavaAccum = 0;   // stepping out ends the burn: no partial second carries
       return;
     }
     const { cellIX: ix, cellIY: iy } = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
-    this._lavaAccum = (this._lavaAccum || 0) + Combat.LAVA_DMG_PER_S * dt;
+    const pips = bankWhole(this, '_lavaAccum', Combat.LAVA_DMG_PER_S * dt);
     this._ignitePlayer();   // and the burn outlasts the step out (Conditions `burning`)
-    const pips = Math.floor(this._lavaAccum);
     if (pips > 0) {
-      this._lavaAccum -= pips;
       const damage = Conditions.fireDamage(this.save, pips);
-      this._lavaPop = (this._lavaPop || 0) + this._losePlayerEnergy(damage);
-    }
-    const now = performance.now();
-    if (this._lavaPop > 0 && now - (this._lastLavaFlashT || 0) > 1200) {
-      this._lastLavaFlashT = now;
-      const burned = this._lavaPop;
-      this._lavaPop = 0;
-      this._popEnergy(-burned, { ix, iy, label: '🔥 lava' });
-      if (typeof persistSave === 'function') persistSave(this.save);
+      this._bankDrain('lava', -this._losePlayerEnergy(damage), { ix, iy, label: embers ? '🔥 embers' : '🔥 lava' });
     }
   }
 
@@ -2131,16 +2194,8 @@ class MapScene extends Phaser.Scene {
       this._walkHazardAccum = 0;
       return;
     }
-    this._walkHazardAccum = (this._walkHazardAccum || 0) + damage;
-    const pips = Math.floor(this._walkHazardAccum + 1e-9);
-    if (pips > 0) {
-      this._walkHazardAccum = Math.max(0, this._walkHazardAccum - pips);
-      const lost = this._losePlayerEnergy(pips);
-      if (lost > 0) {
-        this._popEnergy(-lost);
-        persistSave(this.save);
-      }
-    }
+    const pips = bankWhole(this, '_walkHazardAccum', damage);
+    if (pips > 0) this._bankDrain('hazard', -this._losePlayerEnergy(pips));   // the body's own cell, like the stick walk
   }
 
   // ── The goblin trapper's snares ───────────────────────────────────────────
@@ -2204,8 +2259,8 @@ class MapScene extends Phaser.Scene {
   // ── The player's Magic Traps ──────────────────────────────────────────────
   // Every MAGIC_TRAP_TICK_MS: the first ENEMY (Combat.isEnemy — never game,
   // never a pet, never the player) standing on the cell of an armed trap on
-  // this level is HELD for MAGIC_TRAP_HOLD_MS — the Frost Powder's own
-  // c._frozenUntil, with its hop pinned where it stands — and takes
+  // this level is CHILLED for MAGIC_TRAP_HOLD_MS — the Frost Powder's own
+  // status (Combat.applyFrost: a SLOW, half pace and cadence) — and takes
   // magicTrapDamage() through _damageEnemy with source 'player': the player
   // set the trap, so a trap kill is a player kill (bounty, drop, quest tick).
   // The trap is spent — spliced out of save.magicTraps, which also takes its
@@ -2237,14 +2292,10 @@ class MapScene extends Phaser.Scene {
       hits.push({ t, c, ix: a.cellIX, iy: a.cellIY });
     });
     if (!hits.length) return;
-    const until = Date.now() + MAGIC_TRAP_HOLD_MS;
     for (const { t, c, ix, iy } of hits) {
       const i = list.indexOf(t);
       if (i >= 0) list.splice(i, 1);
-      c._frozenUntil = Math.max(c._frozenUntil || 0, until);
-      c._startX = c._targetX = c.x;
-      c._startY = c._targetY = c.y;
-      Combat.flagStatus(c, Combat.STATUS_LOOKS.frozen);
+      Combat.applyFrost(c, MAGIC_TRAP_HOLD_MS);
       this._damageEnemy(c, magicTrapDamage(), 'player');
       const at = this._cellToastAt(ix, iy, CELL_PX);
       this.flash('✨ Magic trap sprung', at.x, at.y);
@@ -2486,8 +2537,7 @@ class MapScene extends Phaser.Scene {
   // terms. The return value is unchanged either way, so that logic is
   // untouched.
   _drawEdgeCompass(targetWX, targetWY, fillColor, outlineAlpha = 0.85) {
-    const pWX = this.startWorldM.x + this.playerM.x;
-    const pWY = this.startWorldM.y + this.playerM.y;
+    const { x: pWX, y: pWY } = playerWorldM(this);
     const dxM = targetWX - pWX, dyM = targetWY - pWY;
     const mag = Math.hypot(dxM, dyM);
     if (!(mag > 0.001)) return mag;
@@ -2551,29 +2601,31 @@ class MapScene extends Phaser.Scene {
     this.facingGfx.fillCircle(px, py, 3);
   }
 
-  _drawTrackedEdgeDot(key, color) {
-    const marker = this.save[key];
+  // Every row of MARKERS, each frame.
+  _drawMarkers() { for (const row of MARKERS) this._drawMarker(row); }
+  _drawMarker(row) {
+    const marker = (row.store === 'scene' ? this : this.save)[row.key];
     if (!marker) return;
-    if (Date.now() >= marker.until) {
-      delete this.save[key];
-      persistSave(this.save);
-      return;
+    const clear = () => {
+      if (row.store === 'scene') this[row.key] = null;
+      else { delete this.save[row.key]; persistSave(this.save); }
+    };
+    if ((marker.until != null && Date.now() >= marker.until) || row.clearWhen?.(this, marker)) { clear(); return; }
+    if (marker.depth != null && marker.depth !== (this.depth || 0)) return;
+    let target = marker;
+    if (row.tracked) {
+      // World lookups need not run at render cadence; moving targets refresh
+      // twice per second while the edge projection still follows every frame.
+      const now = Date.now();
+      const memo = (this._edgeDotTargets ||= {});
+      if (memo[row.key]?.marker !== marker || now - memo[row.key].at >= 500) {
+        memo[row.key] = { marker, at: now, target: this._telescopeTrackedTarget(marker) };
+      }
+      target = memo[row.key].target;
+      if (!target) { clear(); return; }
     }
-    if (marker.depth !== (this.depth || 0)) return;
-    // World lookups need not run at render cadence; moving targets refresh
-    // twice per second while the edge projection still follows every frame.
-    const now = Date.now();
-    const memo = (this._edgeDotTargets ||= {});
-    if (memo[key]?.marker !== marker || now - memo[key].at >= 500) {
-      memo[key] = { marker, at: now, target: this._telescopeTrackedTarget(marker) };
-    }
-    const target = memo[key].target;
-    if (!target) {
-      delete this.save[key];
-      persistSave(this.save);
-      return;
-    }
-    this._drawEdgeDot(target.x, target.y, color);
+    if (row.shape === 'arrow') this._drawEdgeCompass(target.x, target.y, row.color, 0.9);
+    else this._drawEdgeDot(target.x, target.y, row.color);
   }
 
   // The nearest starter supply crate the player has not opened yet, or null.
@@ -2592,21 +2644,29 @@ class MapScene extends Phaser.Scene {
   // crate is left unopened.
   _nearestStarterCrate() {
     const opened = setOf(this.save.opened);
-    const pWX = this.startWorldM.x + this.playerM.x;
-    const pWY = this.startWorldM.y + this.playerM.y;
-    let crate = null, crateD2 = Infinity, chest = null, chestD2 = Infinity;
+    // The starter chests of each tile, derived once (util.js derivedObjects)
+    // rather than picked out of every cached tile's every object on each ask.
+    const starters = [];
     for (const e of WorldGen.tileCache.values()) {
-      // The starter chests of each tile, derived once (util.js derivedObjects)
-      // rather than picked out of every cached tile's every object on each ask.
       for (const o of derivedObjects(e, '_starterChests', (o) => o.kind === 'chest' && !!o.id && String(o.id).startsWith('chest_start_'))) {
-        if (opened.has(o.id)) continue;
-        const dx = o.x - pWX, dy = o.y - pWY;
-        const d2 = dx * dx + dy * dy;
-        if (o.crate) { if (d2 < crateD2) { crateD2 = d2; crate = o; } }
-        else if (d2 < chestD2) { chestD2 = d2; chest = o; }
+        if (!opened.has(o.id)) starters.push(o);
       }
     }
-    return crate || chest;
+    return this._nearestObject((o) => o.crate, { list: starters }) || this._nearestObject((o) => !o.crate, { list: starters });
+  }
+  // THE NEAREST-TO-THE-PLAYER SCAN: the closest thing `pred` accepts (every
+  // thing when null), by squared distance from the player's feet (or
+  // `from`), over `list` — a tile layer walked through WorldGen.forEachItem
+  // ('objects', 'creatures', …) or an array of points. Null for none.
+  _nearestObject(pred, { list = 'objects', from = playerWorldM(this) } = {}) {
+    let best = null, bestD2 = Infinity;
+    const see = (o) => {
+      if (!o || !Number.isFinite(o.x) || (pred && !pred(o))) return;
+      const dx = o.x - from.x, dy = o.y - from.y, d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) { bestD2 = d2; best = o; }
+    };
+    if (Array.isArray(list)) list.forEach(see); else WorldGen.forEachItem(list, see);
+    return best;
   }
 
   // Where the green starter arrow points for the ACTIVE ladder step: the space
@@ -2628,17 +2688,7 @@ class MapScene extends Phaser.Scene {
   // collecting.
   _starterGuidanceGoal(step) {
     const sv = this.save;
-    const pWX = this.startWorldM.x + this.playerM.x;
-    const pWY = this.startWorldM.y + this.playerM.y;
-    const nearest = (pts) => {
-      let best = null, bestD2 = Infinity;
-      for (const p of pts) {
-        if (!p || !Number.isFinite(p.x)) continue;
-        const dx = p.x - pWX, dy = p.y - pWY, d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; best = p; }
-      }
-      return best;
-    };
+    const nearest = (pts) => this._nearestObject(null, { list: pts });
     // starterPlotAt is the top-left cell centre; aim at the 2x2's middle.
     const plotMiddle = () => (sv.starterPlotAt && Number.isFinite(sv.starterPlotAt.x))
       ? { x: sv.starterPlotAt.x + this.cellM / 2, y: sv.starterPlotAt.y + this.cellM / 2 }
@@ -2869,12 +2919,13 @@ class MapScene extends Phaser.Scene {
     const bodyHold = this._bodyHold();
     if (bodyHold.pinned) {
       // Held still, but sharp ground continues hurting.
-      const x = this.startWorldM.x + this.playerM.x, y = this.startWorldM.y + this.playerM.y;
+      const { x, y } = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, x, y);
     } else if (Conditions.active(this.save, 'confused')) {
-      const x = this.startWorldM.x + this.playerM.x, y = this.startWorldM.y + this.playerM.y;
+      const { x, y } = playerWorldM(this);
       this._confusedStep(dt, bodyHold.capMS);
-      this._tickWalkHazards(dt, x, y, this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y);
+      const after = playerWorldM(this);
+      this._tickWalkHazards(dt, x, y, after.x, after.y);
     } else {
       if (this._confusedLoop) { this._confusedLoop = null; this._confusedRecover = true; }
       if ((stick && (stick.x || stick.y)) || vx || vy) this._confusedRecover = false;
@@ -2886,27 +2937,18 @@ class MapScene extends Phaser.Scene {
       this._steerTarget(vx, vy, speedMul, dt);
       const walkX = this.playerM.x, walkY = this.playerM.y;
       const walkSeconds = this._followStep(dt, bodyHold.capMS);
-      this._tickWalkHazards(walkSeconds ?? dt, this.startWorldM.x + walkX, this.startWorldM.y + walkY,
-        this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y);
+      const after = playerWorldM(this);
+      this._tickWalkHazards(walkSeconds ?? dt, this.startWorldM.x + walkX, this.startWorldM.y + walkY, after.x, after.y);
       if (walkSeconds < dt) {
-        const x = this.startWorldM.x + this.playerM.x, y = this.startWorldM.y + this.playerM.y;
+        const { x, y } = playerWorldM(this);
         this._tickWalkHazards(dt - walkSeconds, x, y, x, y);
       }
     }
-    // One throttled flash for the stick-walking drain banked in _steerManual,
-    // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
-    // pop for the whole window rather than one per energy pip). Lives here
-    // rather than inside _steerManual because that method only runs on a
-    // frame the stick is actually held — this runs every frame, so a drag
-    // that lets go mid-window still gets its pop instead of losing the
-    // remainder silently.
-    if (this._steerDrainAccum > 0 && performance.now() - (this._lastSteerFlashT || 0) > 1200) {
-      this._lastSteerFlashT = performance.now();
-      const drained = this._steerDrainAccum;
-      this._steerDrainAccum = 0;
-      this._popEnergy(-drained);
-      if (typeof persistSave === 'function') persistSave(this.save);
-    }
+    // THE DRAIN ROLL-UP flushes here, every frame (the stick walk banks in
+    // _steerManual, which only runs on a frame the stick is held — a drag
+    // that lets go mid-window still gets its pop), one window for every
+    // lane: the trap's bleed, lava, thorns, the walk, a rest's gain.
+    this._flushDrainPops();
 
     // Exhaustion underground: hit 0 energy below the surface and you black out
     // and wake up top-side. Guarded so the modal fires once, and skipped in
@@ -2985,8 +3027,7 @@ class MapScene extends Phaser.Scene {
     //
     // HOME ONLY: Home is a ring (HOME_R), the same shape as the campfire's below.
     if (!window.__TEST_MODE) {
-      const pWX = this.startWorldM.x + this.playerM.x;
-      const pWY = this.startWorldM.y + this.playerM.y;
+      const { x: pWX, y: pWY } = playerWorldM(this);
       // Home rests you anywhere inside its ring, the way a campfire does —
       // no building-cell test, so the synthetic trailer (which paints no cell
       // at all) and an adopted house work by the one rule. See HOME_R.
@@ -3045,13 +3086,9 @@ class MapScene extends Phaser.Scene {
       } else if (atHome && !working && (this.save.energy ?? 0) < maxE) {
         this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE, !settledHome);
       } else {
-        // Stopped resting — flush any unsplashed accumulation so the last few
-        // points of a short rest still register. (A quiet pass through Home
-        // banked none to flush — see _accrueRestEnergy's `quiet`.)
-        if (this._restSplashAccum > 0) {
-          this._splashEnergyGain(this._restSplashAccum);
-          this._restSplashAccum = 0;
-        }
+        // Stopped resting: the last few points of a short rest are already in
+        // the drain roll-up and pop at its next window. (A quiet pass through
+        // Home banked none — see _accrueRestEnergy's `quiet`.)
         this._restAccrueE = 0;
       }
       // Campfire warmth: standing within FIRE_REST_R cells of a lit fire slowly
@@ -3169,44 +3206,9 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Pairy marks its chest in cyan until opened or its food effect expires.
-    if (this.pairyCompass) {
-      const opened = setOf(this.save.opened);
-      const expired = Date.now() >= this.pairyCompass.until;
-      const claimed = opened.has(this.pairyCompass.targetId)
-        || dayLedgerAges(this.save).get(this.pairyCompass.targetId) === 0;
-      if (expired || claimed) {
-        this.pairyCompass = null;
-      } else {
-        this._drawEdgeDot(this.pairyCompass.x, this.pairyCompass.y, 0x45e5ff);
-      }
-    }
-
-    this._drawTrackedEdgeDot('telescopeCompass', 0xffd24a);
-    this._drawTrackedEdgeDot('wayfarerCompass', 0x4488ff);
-
-    // A map keeps its original level and expires by wall clock, including reloads.
-    const treasure = this.save.treasureCompass;
-    if (treasure && Date.now() < treasure.until && treasure.depth === (this.depth || 0)
-        && !setOf(this.save.opened).has(treasure.targetId)
-        && dayLedgerAges(this.save).get(treasure.targetId) !== 0) {
-      this._drawEdgeDot(treasure.x, treasure.y, 0xff5555);
-    }
-
-    // Delivery waypoint — a solid WHITE arrow at the viewport edge pointing at
-    // the house the player picked from the delivery menu (openDeliveryMenu).
-    // Cleared once the player arrives or the house has been fed.
-    if (this.deliveryCompass) {
-      const satisfied = Delivery.isSatisfied(this.save, { id: this.deliveryCompass.id });
-      const pWX = this.startWorldM.x + this.playerM.x;
-      const pWY = this.startWorldM.y + this.playerM.y;
-      const mag = Math.hypot(this.deliveryCompass.x - pWX, this.deliveryCompass.y - pWY);
-      if (satisfied || mag < this.cellM * 1.2) {
-        this.deliveryCompass = null;
-      } else {
-        this._drawEdgeCompass(this.deliveryCompass.x, this.deliveryCompass.y, 0xffffff, 0.9);
-      }
-    }
+    // The bearings at the rim: the Pairy's chest, a telescope or wayfarer
+    // sighting, a map's treasure, the delivery's house (MARKERS).
+    this._drawMarkers();
 
     // Starter guidance — a LIGHT-GREEN arrow toward whatever the ACTIVE ladder
     // step actually wants, shown only while the first-session ladder is
@@ -3242,8 +3244,7 @@ class MapScene extends Phaser.Scene {
       }
       const goal = this._starterGoalMemo.goal;
       if (goal) {
-        const pWX = this.startWorldM.x + this.playerM.x;
-        const pWY = this.startWorldM.y + this.playerM.y;
+        const { x: pWX, y: pWY } = playerWorldM(this);
         if (Math.hypot(goal.x - pWX, goal.y - pWY) > this.cellM * 1.5) {
           this._drawEdgeCompass(goal.x, goal.y, 0xa7ffb0, 0.9);
         }
@@ -3299,8 +3300,7 @@ class MapScene extends Phaser.Scene {
         Lairs.stepResidency(ring, {
           cellM: this.cellM,
           tileEdgeM: this.tileEdgeM,
-          playerM: { x: this.startWorldM.x + this.playerM.x,
-                     y: this.startWorldM.y + this.playerM.y },
+          playerM: playerWorldM(this),
           homeM: lairHome,
           isClaimed: (key) => this.isClaimedKey(key),
           caughtSet: setOf(this.save.caught),
@@ -3332,6 +3332,11 @@ class MapScene extends Phaser.Scene {
     // …and which STREET are the feet on — a variant's first-entry story, and
     // whether tar or stakes are slowing the body (the same feet cell).
     this._tickStreetFeet();
+    HiddenObjects.tick(this);
+    if (!this._templeObserveAt || performance.now() - this._templeObserveAt >= 500) {
+      this._templeObserveAt = performance.now();
+      Temples.observe(this);
+    }
     // …and is the player standing in lava (the lava level only)?
     this._tickLava(dt);
     // …or in a campfire?
@@ -3405,8 +3410,7 @@ class MapScene extends Phaser.Scene {
   // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
   // this method is the scene glue.
   _combatTick(dt) {
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     const now = performance.now();
     // "On screen" = inside the drawn viewport, measured as a box rather than a
     // radius because the viewport IS a box: a foe in the corner is visible and
@@ -3801,7 +3805,7 @@ class MapScene extends Phaser.Scene {
     // chip's display, its text, a dialog hiding it, a resize) — a rect read
     // every frame would force a layout every frame.
     const obj = document.getElementById('objective');
-    const shown = obj && obj.style.display !== 'none' && !document.body.classList.contains('modal-open');
+    const shown = obj && obj.style.display !== 'none' && !this._dialogOpen();
     const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
     if (this._statusRowSeat !== seatKey) {
       this._statusRowSeat = seatKey;
@@ -3838,7 +3842,7 @@ class MapScene extends Phaser.Scene {
             el.type = 'button';
             el.addEventListener('click', e => {
               e.stopPropagation();
-              if (document.body.classList.contains('modal-open')) return;
+              if (this._dialogOpen()) return;
               this[c.action]?.();
               this._syncStatusRow();
             });
@@ -3862,12 +3866,7 @@ class MapScene extends Phaser.Scene {
   // beside the other chips; _syncStatusRow fills it.
   _buildStatusRow() {
     if (typeof document === 'undefined') return;
-    if (!document.getElementById('status-row-style')) {
-      const st = document.createElement('style');
-      st.id = 'status-row-style';
-      st.textContent = STATUS_ROW_CSS;
-      document.head.appendChild(st);
-    }
+    ensureStyle('status-row-style', STATUS_ROW_CSS);
     let el = document.getElementById('status-row');
     if (!el) {
       el = document.createElement('div');
@@ -3897,7 +3896,7 @@ class MapScene extends Phaser.Scene {
   }
   _tickFireTouch() {
     if (!this.startWorldM || !this.save.fires?.length) return;
-    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     if (this._nearAny('fires', px, py, FIRE_TOUCH_CELLS)) this._ignitePlayer();
   }
 
@@ -3932,19 +3931,15 @@ class MapScene extends Phaser.Scene {
     return this._damageEnemy(target, shot.damage, Combat.shotSource(shot));
   }
 
-  // A monster's arrow lands. The same energy hit the melee leech deals
-  // (wanderCreatures' monster branch) — the shield potion halves it at the
-  // moment of impact, worn armour soaks what is left, and the loss rolls into
-  // the throttled "monsters hit -N⚡" flash so a volley reads as one pop —
-  // only delivered by a shot you could see coming rather than a silent drain
-  // at range.
+  // A monster's arrow lands: the one blow writer (creature_ai.js
+  // foeBlowLands — the loss, the flinch, the shop shut, the monsters'
+  // roll-up, the arrow's condition) with the packet already mitigated here —
+  // the shield potion halves it at the moment of impact, worn armour soaks
+  // what is left (Combat.incomingProjectileDamage) — only delivered by a shot
+  // you could see coming rather than a silent drain at range.
   _shotHitsPlayer(shot) {
-    const dmg = Combat.incomingProjectileDamage(this.save, shot.damage, shot.hits);
-    if (!(dmg > 0)) return false;
-    const lost = this._losePlayerEnergy(dmg, { closeShop: true });
-    this._monsterDmgAccum = (this._monsterDmgAccum || 0) + lost;
-    if (lost > 0 && shot.condition) this._applyCondition(shot.condition);
-    return lost > 0;
+    return foeBlowLands(this, shot._sourceGuard, Combat.incomingProjectileDamage(this.save, shot.damage, shot.hits),
+      { mitigated: true, condition: shot.condition }) > 0;
   }
 
   // The body takes a hit: a short red flick on the character, at the INSTANT
@@ -3996,10 +3991,8 @@ class MapScene extends Phaser.Scene {
     if (!(before > 0) || !(dmg > 0)) return 0;
     if (Conditions.damageImmune(this.save)) { this._incomingDamageFraction = 0; return 0; }
     // Hard's post-armour penalty can leave half-pips. Bank them across hits
-    // instead of rounding every attack into a different damage rate.
-    this._incomingDamageFraction = (this._incomingDamageFraction || 0) + dmg;
-    const whole = Math.floor(this._incomingDamageFraction + 1e-9);
-    this._incomingDamageFraction -= whole;
+    // (bankWhole) instead of rounding every attack into a different damage rate.
+    const whole = bankWhole(this, '_incomingDamageFraction', dmg);
     if (!whole) return 0;
     Energy.set(this.save, before - whole);
     if (!this.save.energy) this._incomingDamageFraction = 0;
@@ -4032,15 +4025,21 @@ class MapScene extends Phaser.Scene {
     const taken = Math.min(purse, Math.max(0, Math.floor(n || 0)));
     if (!(taken > 0)) return 0;
     addMoney(this.save, -taken);
+    this._theftLanded(taken, thief, `-${taken}`, UI_GOLD);
+    return taken;
+  }
+  // A theft LANDED (coins or food): the thief sated for the day
+  // (Combat.bankTheft), the flinch, the shop shut, `text` in `ink` on the
+  // player's cell, the save.
+  _theftLanded(taken, thief, text, ink) {
     if (thief) Combat.bankTheft(this.save, thief);
     this._flashPlayerHit(taken);
     this._closeShopOnHit();
     if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
       const p = playerReachCell(this);
-      this._popCellNumber(`-${taken}`, UI_GOLD, p.cellIX, p.cellIY);
+      this._popCellNumber(text, ink, p.cellIX, p.cellIY);
     }
     if (typeof persistSave === 'function') persistSave(this.save);
-    return taken;
   }
   // Food out of the bag: Inventory.remove is the one bag writer (never more
   // than the stack holds), the bar rebuilt so the missing piece shows, the
@@ -4049,16 +4048,9 @@ class MapScene extends Phaser.Scene {
   _losePlayerFood(id, n, thief) {
     const taken = Inventory.remove(this.save, id, Math.max(0, Math.floor(n || 0)));
     if (!(taken > 0)) return 0;
-    if (thief) Combat.bankTheft(this.save, thief);
     if ((this.save.selSlot ?? -1) >= (this.save.inv || []).length) this.save.selSlot = -1;
-    this._flashPlayerHit(taken);
-    this._closeShopOnHit();
-    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
-      const p = playerReachCell(this);
-      const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.name) || id;
-      this._popCellNumber(`-${taken} ${name}`, UI_DANGER_INK, p.cellIX, p.cellIY);
-    }
-    if (typeof persistSave === 'function') persistSave(this.save);
+    const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.name) || id;
+    this._theftLanded(taken, thief, `-${taken} ${name}`, UI_DANGER_INK);
     if (this.buildInventoryDOM) this.buildInventoryDOM();
     return taken;
   }
@@ -4403,7 +4395,7 @@ class MapScene extends Phaser.Scene {
   }
   // Any short word ON a creature: the "-N" above, and the name of a status
   // that has just landed on it (render.js drawCreatures, off
-  // Combat.flagStatus — "Sleep", "Frozen", "Psychosis", in the status's own
+  // Combat.flagStatus — "Sleep", "Chilled", "Psychosis", in the status's own
   // ink). Seated over the health bar like the number, in the `damage` tier.
   _popCreatureText(c, text, color) {
     if (!this.add) return;                       // headless / teardown guard
@@ -4434,7 +4426,7 @@ class MapScene extends Phaser.Scene {
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
     if (!(amount > 0)) return false;
-    const dealt = Combat.damageDealt(c, amount, (['lava', 'light', 'burn', 'obstacle'].includes(source)) ? { bypassArmor: true } : options);
+    const dealt = Combat.damageDealt(c, amount, Combat.isEnvironmentSource(source) ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
     // Moss hides us until we strike this creature. Environmental damage and
     // allied attacks do not reveal us; a fresh blessing hides us again.
@@ -4483,7 +4475,7 @@ class MapScene extends Phaser.Scene {
       // not, or a burning slime would divide itself every tick. The striker's
       // side is whoever dealt it: a shot's origin when the caller says, else
       // the player's feet.
-      if (dealt > 0 && !['lava', 'light', 'burn', 'obstacle'].includes(source)) {
+      if (dealt > 0 && !Combat.isEnvironmentSource(source)) {
         const from = options.from || this.playerM || { x: c.x - 1, y: c.y };
         if (enemySplit(this, c, from.x, from.y, now) && now >= (this._splitFlashT || 0)) {
           this._splitFlashT = now + 2500;
@@ -4559,8 +4551,6 @@ class MapScene extends Phaser.Scene {
     save.caught = save.caught || [];
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
-    StoryEncounters.defeated(this, victim);
-    DragonStory.defeated(this, victim, source);
     const mine = Combat.isPlayerKill(source);
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
@@ -4571,7 +4561,7 @@ class MapScene extends Phaser.Scene {
     if (dropId) {
       this.addToInv(dropId, 1);
       const item = ITEM_BY_ID[dropId];
-      this.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+      this.flashLoot(`+1 ${item?.name || dropId}`, UI_GOLD, 1, dropId);
     }
     if (Combat.isEnemyKind(victim.kind)) {
       // Every enemy kill pays a bounty (enemyBounty — derived from the kind's
@@ -4618,16 +4608,10 @@ class MapScene extends Phaser.Scene {
       // carry enemies. A kind that ever did would otherwise die in silence.
       this.flashAtWorld(`${victim.kind} defeated`, victim.x, victim.y);
     }
-    if (mine && typeof Quests !== 'undefined') {
-      // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
-      // never credit toward its base kind's. A turret's kill is not the
-      // player's job done.
-      const qDone = Quests.onKill(save, victim.kind);
-      if (qDone) this.flash('Quest done — see the castle.', this.viewCenterX, this.viewCenterY - 60);
-    }
-    // A guildhall bounty's foe: the pack's reward when it was the last one
-    // (whoever felled it — the wage above was paid either way).
-    if (victim.bounty) this._guildBountyDefeat(victim);
+    // Who is told (KILL_LEDGERS): Maud's archer, the fire-breath demon, the
+    // castle's board, the guild bounty — each judging the credit by
+    // Macros.slainByPlayer (the wage above was paid either way).
+    for (const tell of KILL_LEDGERS) tell(this, victim, source);
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
     // feather), so there's no live shiny animal to keep, but the shiny find
@@ -4663,18 +4647,8 @@ class MapScene extends Phaser.Scene {
     const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy };
     const blocked = (x, y) => !WorldGen.isSpawnCell(entry.grid, N, N, x, y, spawnOpts, 'minor');
     if ((this.depth || 0) === 0 && entry.grid && cx >= 0 && cy >= 0 && cx < N && cy < N && blocked(cx, cy)) {
-      outer: for (let r = 1; r <= 3; r++) {
-        for (let dy = -r; dy <= r; dy++) {
-          for (let dx = -r; dx <= r; dx++) {
-            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-            const nx = cx + dx, ny = cy + dy;
-            if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
-            if (blocked(nx, ny)) continue;
-            cx = nx; cy = ny;
-            break outer;
-          }
-        }
-      }
+      const seat = WorldGen.nearestRingCell(cx, cy, 1, 3, (x, y) => x >= 0 && y >= 0 && x < N && y < N && !blocked(x, y));
+      if (seat) { cx = seat.ix; cy = seat.iy; }
     }
     const coin = {
       kind: 'coindrop',
@@ -4861,8 +4835,7 @@ class MapScene extends Phaser.Scene {
       const c = wp.flee;
       const dt = Math.min(0.1, (now - (wp._lastT ?? wp.startT)) / 1000);
       wp._lastT = now;
-      const px = this.startWorldM.x + this.playerM.x;
-      const py = this.startWorldM.y + this.playerM.y;
+      const { x: px, y: py } = playerWorldM(this);
       let dx = c.x - px, dy = c.y - py;
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
@@ -4926,14 +4899,12 @@ class MapScene extends Phaser.Scene {
       // a foe that has backed out of swinging distance is no longer being hit
       // — and without this you could engage at one cell and keep landing blows
       // out to five as it walked away.
+      const feet = playerWorldM(this);
       const outOfRange = wp.combat
-        ? !Combat.inMeleeReach(c.x, c.y,
-            this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y,
-            this.cellM, Gear.activeWeapon(this.save))
+        ? !Combat.inMeleeReach(c.x, c.y, feet.x, feet.y, this.cellM, Gear.activeWeapon(this.save))
         : (typeof cellInReach === 'function')
           ? !cellInReach(this, tc.cellIX, tc.cellIY)
-          : ((c.x - (this.startWorldM.x + this.playerM.x)) ** 2
-             + (c.y - (this.startWorldM.y + this.playerM.y)) ** 2) > (reachRadiusM(this)) ** 2;
+          : ((c.x - feet.x) ** 2 + (c.y - feet.y) ** 2) > (reachRadiusM(this)) ** 2;
       if (outOfRange) {
         wp._outSinceT = wp._outSinceT ?? now;
         if (now - wp._outSinceT >= 1000) {     // 1 s grace — matches the catch wheel
@@ -4975,8 +4946,7 @@ class MapScene extends Phaser.Scene {
       // `_nextBlowT` is deliberately NOT advanced when the swing misses: the
       // clock is the scene's, so a foe that closes again is hit at once rather
       // than being granted a fresh interval of safety by having stepped out.
-      const px = this.startWorldM.x + this.playerM.x;
-      const py = this.startWorldM.y + this.playerM.y;
+      const { x: px, y: py } = playerWorldM(this);
       const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
       if (inSwing && now >= this._nextBlowT) {
         this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save), isRiding(this.save)) * Combat.playerAttackIntervalMul(this.save);
@@ -5291,8 +5261,7 @@ class MapScene extends Phaser.Scene {
   // down a hop timer. Only the balancing lean settles with elapsed time.
   _updateObstacleStep(objects) {
     if (typeof ObstacleStep === 'undefined' || !this.startWorldM || !this.playerM) return;
-    const now = performance.now(), x = this.startWorldM.x + this.playerM.x,
-      y = this.startWorldM.y + this.playerM.y;
+    const now = performance.now(), { x, y } = playerWorldM(this);
     const prev = this._obstaclePoseAt;
     const dt = prev ? Math.max(0.001, Math.min(0.1, (now - prev.time) / 1000)) : 1 / 30;
     const distance = prev ? Math.hypot(x - prev.x, y - prev.y) : 0;
@@ -5563,7 +5532,7 @@ class MapScene extends Phaser.Scene {
       d.entry.coinDrops = d.entry.coinDrops || [];
       d.entry.coinDrops.push({ kind: 'coindrop', x: d.x, y: d.y, id: `coin_${poi.id}_${dayKey}_${i}`, expiresAt });
     });
-    this.flashLoot(`Scattered ${drops.length} coins!`, '#ffe066', 1, null, this.coinIconEl());
+    this.flashLoot(`Scattered ${drops.length} coins!`, UI_GOLD, 1, null, this.coinIconEl());
     visit.present();
   }
 
@@ -5577,7 +5546,7 @@ class MapScene extends Phaser.Scene {
     const out = [];
     if (count <= 0) return out;
     const tileEdgeM = this.tileEdgeM;
-    const wx = this.startWorldM.x + this.playerM.x, wy = this.startWorldM.y + this.playerM.y;
+    const { x: wx, y: wy } = playerWorldM(this);
     const { tx, ty, ix: pcx, iy: pcy } = worldMetersToTileCell(this, wx, wy);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.grid) return out;
@@ -5587,18 +5556,14 @@ class MapScene extends Phaser.Scene {
       occupied: (entry._spawnOpts && entry._spawnOpts.occupied) || null };
     for (let ring = 1; ring <= r && out.length < count; ring++) {
       const cells = [];
-      for (let dy = -ring; dy <= ring; dy++) {
-        for (let dx = -ring; dx <= ring; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-          const cx = pcx + dx, cy = pcy + dy;
-          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'minor')) continue;
-          if (WorldGen.privateVetoAt(tx, ty, cx, cy)) continue;
-          if (!sameSideAs(this, tx * tileEdgeM + (cx + 0.5) * cellM, ty * tileEdgeM + (cy + 0.5) * cellM)) continue;
-          if (taken.has(`${tx}_${ty}_${cx}_${cy}`)) continue;
-          cells.push({ cx, cy });
-        }
-      }
+      WorldGen.ringCells(pcx, pcy, ring, ring, (cx, cy) => {
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N) return;
+        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'minor')) return;
+        if (WorldGen.privateVetoAt(tx, ty, cx, cy)) return;
+        if (!sameSideAs(this, tx * tileEdgeM + (cx + 0.5) * cellM, ty * tileEdgeM + (cy + 0.5) * cellM)) return;
+        if (taken.has(`${tx}_${ty}_${cx}_${cy}`)) return;
+        cells.push({ cx, cy });
+      });
       shuffleInPlace(cells);
       for (const { cx, cy } of cells) {
         if (out.length >= count) break;
@@ -5622,8 +5587,7 @@ class MapScene extends Phaser.Scene {
   // A cast that hooks a slime (interact.js fishing): seat it beside the
   // player's FEET, angry. See fishedSlimeSpawn.
   spawnFishedSlime() {
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     return fishedSlimeSpawn(this, performance.now(), px, py, this.playerToWorldCell());
   }
   _cellBlocked(wmx, wmy) {
@@ -5750,8 +5714,8 @@ class MapScene extends Phaser.Scene {
   // No-op on the surface, on an unloaded cell, and on anything but a wall.
   _carveLanding(onlyTile = null) {
     if (!(this.depth > 0)) return;
-    const c = this.cellAt(this.startWorldM.x + this.playerM.x,
-                          this.startWorldM.y + this.playerM.y + this.feetOffsetM);
+    const feet = playerWorldM(this);
+    const c = this.cellAt(feet.x, feet.y + this.feetOffsetM);
     if (onlyTile && (c.tx !== onlyTile.tx || c.ty !== onlyTile.ty)) return;
     if (!c.loaded || c.type !== 25 /* CAVE_WALL */) return;
     this.digCaveWall(c.tx, c.ty, c.ix, c.iy, c.cellIX, c.cellIY);
@@ -5862,7 +5826,7 @@ class MapScene extends Phaser.Scene {
       const now = Date.now();
       if (now - (this._steerTiredFlashAt || 0) > 3000) {
         this._steerTiredFlashAt = now;
-        this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
+        this.flashAtPlayer(TOO_TIRED_MSG);
       }
       return;
     }
@@ -5928,18 +5892,14 @@ class MapScene extends Phaser.Scene {
         const before = this.save.energy ?? 0;
         Energy.set(this.save, before - STEER_DRAIN_LUMP);
         // CLAUDE.md: "when you add an energy gain or loss the player can see,
-        // pop it with _popEnergy and name the cell." Every other continuous
-        // drain (the slime leech, a monster's melee, the trap bleed) rolls up
-        // into an accumulator and flushes it as ONE throttled pop rather than
+        // pop it with _popEnergy and name the cell." Every continuous drain
+        // rolls up (_bankDrain) and flushes as ONE throttled pop rather than
         // one per pip — a long drag across town would otherwise spam a "-1⚡"
-        // every single cell. This one had no pop at all until now. Flushed in
-        // update() (see _lastSteerFlashT), not here, because _steerManual only
-        // runs while the stick is actually pushed — the flush needs a home
-        // that runs every frame so a drag that stops mid-throttle still pays
-        // out. This is a cost to the BODY (walking, not a tap on a cell), so
-        // it wears the same "no ix/iy" default _popEnergy already gives the
-        // slime leech and the rest splash — it lands on the player's own cell.
-        this._steerDrainAccum = (this._steerDrainAccum || 0) + (before - this.save.energy);
+        // every single cell. Flushed in update() (_flushDrainPops), not here,
+        // because _steerManual only runs while the stick is actually pushed.
+        // A cost to the BODY (walking, not a tap on a cell): no ix/iy, so it
+        // lands on the player's own cell like the slime leech.
+        this._bankDrain('walk', -(before - this.save.energy));
         this._warnIfTiring(before);
         if (this.updateEnergyDOM) this.updateEnergyDOM();
       }
@@ -5955,8 +5915,7 @@ class MapScene extends Phaser.Scene {
   // screen (body.modal-open, the same live signal the pads hide on). Held is a
   // PAUSE of the debounce, not a block: see _driftHome.
   _walkHomeHeld() {
-    if (this._busyWheel()) return true;
-    return typeof document !== 'undefined' && !!document.body?.classList?.contains('modal-open');
+    return this._busyWheel() || this._dialogOpen();
   }
   // Let go of the stick and, after a few seconds, the character walks itself
   // back to where you actually are. Stick walking builds up an offset from the
@@ -6375,16 +6334,14 @@ class MapScene extends Phaser.Scene {
   // can't flip the choice it was made by.
   _detourDir(ux, uy) {
     const m = this.cellM;
-    const bx = this.startWorldM.x + this.playerM.x;
-    const by = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
+    const feet = playerWorldM(this), bx = feet.x, by = feet.y + this.feetOffsetM;
     const open = (cdx, cdy) => !this._cellBlocked(bx + cdx * m, by + cdy * m);
     return committedDetourDir(this, ux, uy, open, performance.now(), DETOUR_COMMIT_MS);
   }
   // Pick the wall cell blocking progress toward the target (dominant axis first)
   // and start an auto-mine wheel on it. No-op if no adjacent wall is found.
   _startAutoMine(ux, uy) {
-    const bx = this.startWorldM.x + this.playerM.x;
-    const by = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
+    const feet = playerWorldM(this), bx = feet.x, by = feet.y + this.feetOffsetM;
     // Two candidates: the X-neighbour and Y-neighbour toward the target, in
     // dominant-axis order so we cut the most useful wall first.
     const cand = Math.abs(ux) >= Math.abs(uy)
@@ -6412,7 +6369,7 @@ class MapScene extends Phaser.Scene {
     // Charge at COMPLETION instead (in the wheel callback below): a dug wall
     // always costs, an interrupted one costs nothing — and isn't dug.
     if (cost > (this.save.energy ?? 0)) {
-      this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer(TOO_TIRED_MSG);
       this._followPaused = true;   // out of energy — stop chewing the wall
       return;
     }
@@ -6439,7 +6396,7 @@ class MapScene extends Phaser.Scene {
       this._autoMineKey = null;
       persistSave(this.save);
       const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rubble'] : null;
-      this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rubble');
+      this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, UI_GREEN, 1, 'rubble');
     }, durMs, 0, 'pickaxe');
   }
   // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
@@ -6451,7 +6408,7 @@ class MapScene extends Phaser.Scene {
     // Can't descend on an empty tank — you'd just pass out down there. Climbing
     // up is always allowed (it's how you escape exhaustion).
     if (delta > 0 && (this.save.energy ?? 0) <= 0) {
-      this.flash('Too tired to go down.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer('Too tired to go down.');
       return;
     }
     // Leaving the portal's destination by any other route closes the return.
@@ -6650,10 +6607,17 @@ class MapScene extends Phaser.Scene {
   // Debug key T — hop to the nearest standalone (OSM-mapped) tree not yet
   // visited this session, measured from wherever the last hop landed; once
   // every loaded tree has been visited the set clears and the cycle restarts.
+  // The debug hop itself: the feet (and the GPS fix, so the walk-home never
+  // drags the body back) a little below `o`, the view re-aimed, a note.
+  _debugTeleportTo(o, note) {
+    this.playerM.x = o.x - this.startWorldM.x;
+    this.playerM.y = o.y - this.startWorldM.y + 4;
+    this.gpsM = { x: this.playerM.x, y: this.playerM.y };
+    this.syncMoveTarget();
+    this.flashAtPlayer(note);
+  }
   teleportNextIndividualTree() {
     this.disableGpsForSession();
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
     if (!this._indivTreeVisited) this._indivTreeVisited = new Set();
     // Gather every standalone OSM tree across currently-loaded tiles.
     const all = [];
@@ -6661,7 +6625,7 @@ class MapScene extends Phaser.Scene {
       if (o.kind === 'tree' && o.individual) all.push(o);
     });
     if (!all.length) {
-      this.flash('no individual trees loaded yet', this.viewCenterX, this.viewCenterY - 40);
+      this.flashAtPlayer('no individual trees loaded yet');
       return;
     }
     // Cycle outward: hop to the nearest tree we haven't visited yet. Once we've
@@ -6670,19 +6634,9 @@ class MapScene extends Phaser.Scene {
     // walk you through a cluster rather than ping-ponging.
     let pool = all.filter(o => !this._indivTreeVisited.has(o.id));
     if (!pool.length) { this._indivTreeVisited.clear(); pool = all; }
-    let best = null, bestD = Infinity;
-    for (const o of pool) {
-      const dx = o.x - px, dy = o.y - py;
-      const d = dx * dx + dy * dy;
-      if (d < bestD) { bestD = d; best = o; }
-    }
+    const best = this._nearestObject(null, { list: pool });
     this._indivTreeVisited.add(best.id);
-    this.playerM.x = best.x - this.startWorldM.x;
-    this.playerM.y = best.y - this.startWorldM.y + 4;
-    this.gpsM = { x: this.playerM.x, y: this.playerM.y };
-    this.syncMoveTarget();
-    this.flash(`→ ${treeSpeciesName(best)} (${this._indivTreeVisited.size}/${all.length})`,
-               this.viewCenterX, this.viewCenterY - 40);
+    this._debugTeleportTo(best, `→ ${treeSpeciesName(best)} (${this._indivTreeVisited.size}/${all.length})`);
   }
 
   // Debug-only: jump to the next-nearest POI chest that has a decoration pad,
@@ -6690,8 +6644,6 @@ class MapScene extends Phaser.Scene {
   // POI in `_poiTpFirst` if it's loaded.
   teleportNextPoi() {
     this.disableGpsForSession();
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
     // Deterministic visit key by game cell — matches the render/tap dedupe so the
     // teleport cycle visits exactly the crates you can see. Chest ids are cell-snapped,
     // so duplicates of one POI across tile seams share a cell and count as a single stop.
@@ -6704,39 +6656,31 @@ class MapScene extends Phaser.Scene {
       WorldGen.forEachItem('objects', (o) => {
         if (o.kind !== 'chest' || o.name !== this._poiTpFirst) return;
         this._poiTpVisited.add(chestKey(o));
-        this.playerM.x = o.x - this.startWorldM.x;
-        this.playerM.y = o.y - this.startWorldM.y + 4;
-        this.syncMoveTarget();
         // Name the KIND, never the OSM name (unbounded — MAP_MSG_MAX).
-        this.flash(`→ ${o.poiClass || 'chest'}`, this.viewCenterX, this.viewCenterY - 40);
+        this._debugTeleportTo(o, `→ ${o.poiClass || 'chest'}`);
         return true; // short-circuit
       });
       if (this._poiTpVisited.size > 0) return;
     }
     // Find the nearest unvisited decorated chest, deduped by key.
-    let best = null, bestD = Infinity, bestKey = null;
     const seenKey = new Set();
-    WorldGen.forEachItem('objects', (o) => {
-      if (o.kind !== 'chest' || !o.poiClass) return;
-      if (!padShapeKeyForPoi(o.poiClass)) return;
+    const best = this._nearestObject((o) => {
+      if (o.kind !== 'chest' || !o.poiClass || !padShapeKeyForPoi(o.poiClass)) return false;
       const k = chestKey(o);
-      if (seenKey.has(k)) return;
+      if (seenKey.has(k)) return false;
       seenKey.add(k);
-      if (this._poiTpVisited.has(k)) return;
-      const d = Math.hypot(o.x - px, o.y - py);
-      if (d < bestD) { bestD = d; best = o; bestKey = k; }
+      return !this._poiTpVisited.has(k);
     });
+    const bestKey = best && chestKey(best);
     if (!best) {
       // Out of decorated chests within loaded tiles — reset cycle.
       this._poiTpVisited.clear();
-      this.flash('cycle reset — press space', this.viewCenterX, this.viewCenterY - 40);
+      this.flashAtPlayer('cycle reset — press space');
       return;
     }
     this._poiTpVisited.add(bestKey);
-    this.playerM.x = best.x - this.startWorldM.x;
-    this.playerM.y = best.y - this.startWorldM.y + 4;
-    this.syncMoveTarget();
-    this.flash(`→ ${best.poiClass} ${Math.round(bestD)}m`, this.viewCenterX, this.viewCenterY - 40);
+    const { x, y } = playerWorldM(this);
+    this._debugTeleportTo(best, `→ ${best.poiClass} ${Math.round(Math.hypot(best.x - x, best.y - y))}m`);
   }
 
   // ── Toasts ───────────────────────────────────────────────────────────────
@@ -7140,31 +7084,34 @@ class MapScene extends Phaser.Scene {
 
 
   // Shared rest-energy accumulator. Adds `gain` energy onto the named fractional
-  // accumulator field, spends whole points into save.energy (capped at maxE),
-  // and emits the throttled green "+N⚡" splash. Used by BOTH indoor/home rest
-  // and campfire warmth so the two share one mental model (and one bug surface).
-  // `quiet` banks the pips with no splash at all — not now, not on the way
-  // out: the walk through Home (update()'s settledHome). The bar still moves.
+  // accumulator field (bankWhole), spends whole points into save.energy
+  // (capped at maxE), and hands the gain to the drain roll-up for its
+  // throttled green "+N⚡". Used by BOTH indoor/home rest and campfire warmth
+  // so the two share one mental model (and one bug surface). `quiet` banks
+  // the pips with no splash at all — not now, not on the way out: the walk
+  // through Home (update()'s settledHome). The bar still moves.
   _accrueRestEnergy(accrueKey, gain, maxE, quiet = false) {
-    this[accrueKey] = (this[accrueKey] || 0) + gain;
-    const pip = Math.floor(this[accrueKey]);
+    const pip = bankWhole(this, accrueKey, gain);
     if (pip <= 0) return;
-    this[accrueKey] -= pip;
     const beforeE = this.save.energy ?? 0;
     Energy.set(this.save, beforeE + pip, maxE);
     const gainedE = this.save.energy - beforeE;
-    // Accumulate rest gains and splash a throttled "+N⚡" so a long rest shows
-    // periodic ticks rather than one pop per energy pip.
     if (gainedE > 0 && !quiet) {
-      this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
-      const tnow = performance.now();
-      if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
-        this._splashEnergyGain(this._restSplashAccum);
-        this._restSplashAccum = 0;
-        this._restSplashNextT = tnow + 1200;
-      }
+      this._bankDrain('rest', gainedE);
     }
     if (this.updateEnergyDOM) this.updateEnergyDOM();
+  }
+
+  // Every object of `kind` in the 3×3 tile ring about `pc` (the turrets, the
+  // houses, the vista scopes), off one per-tile derived index each.
+  _forEachDerivedNear(pc, kind, fn) {
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+        if (!e) continue;
+        for (const o of derivedObjects(e, `_${kind}s`, (o) => o.kind === kind)) fn(o);
+      }
+    }
   }
 
   // True if world point (wx,wy) is within `cells` cells of ANY entry (a {x,y})
@@ -7179,19 +7126,12 @@ class MapScene extends Phaser.Scene {
   _nearVista(wx, wy, cells) {
     if ((this.depth ?? 0) !== 0 || typeof WorldGen === 'undefined' || !this.playerToWorldCell) return false;
     const r2 = (cells * this.cellM) * (cells * this.cellM);
-    const pc = this.playerToWorldCell();
-    for (let dty = -1; dty <= 1; dty++) {
-      for (let dtx = -1; dtx <= 1; dtx++) {
-        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
-        if (!entry || !entry._spawned || !entry.objects) continue;
-        const list = entry._vistaScopes || (entry._vistaScopes = entry.objects.filter((o) => o && o.kind === 'vista_scope'));
-        for (const o of list) {
-          const dx = o.x - wx, dy = o.y - wy;
-          if (dx * dx + dy * dy < r2) return true;
-        }
-      }
-    }
-    return false;
+    let near = false;
+    this._forEachDerivedNear(this.playerToWorldCell(), 'vista_scope', (o) => {
+      const dx = o.x - wx, dy = o.y - wy;
+      if (dx * dx + dy * dy < r2) near = true;
+    });
+    return near;
   }
 
   _nearAny(listKey, wx, wy, cells) {
@@ -7352,8 +7292,48 @@ class MapScene extends Phaser.Scene {
   // fanfare fires in the same handler that just mounted the dialog.
   _dialogOpen() {
     if (typeof document === 'undefined') return false;
+    // Headless (no DOM query): the mirrored class is all there is to read.
+    if (typeof document.querySelectorAll !== 'function') return !!document.body?.classList?.contains('modal-open');
     return [...document.querySelectorAll('.game-modal')]
       .some((el) => el.isConnected && el.style.display !== 'none' && el.getClientRects().length > 0);
+  }
+
+  // ── THE CEREMONY QUEUE ────────────────────────────────────────────────────
+  // Every dialog that must wait for a clear screen waits HERE: a booth's
+  // receipt, a Book's read, the road's greeting, a trail prize, a starter
+  // cheer, the first-sale and low-health stories. `_enqueueCeremony(kind,
+  // open)` queues `open(done)`; `_drainCeremonies` — on every enqueue, from
+  // the modal-gate tick and when a ceremony's `done` is called — opens ONE at
+  // a time, the highest kind first (the order below: a receipt before the
+  // memories MemoryStory.drain opens after this queue, a read before the
+  // next prize), oldest first within a kind, with _dialogOpen() the only
+  // busy test. `open` returns false to decline (it opened nothing: the entry
+  // is dropped and the next is tried) and otherwise calls `done` when its
+  // dialog closes. `key` queues a ceremony once; `hold()` keeps an entry
+  // waiting (a prize behind an owed greeting) while later ones may pass;
+  // `defer` leaves the first drain to the gate tick (a cheer fired one line
+  // before the reward card it must wait behind is mounted).
+  _enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {
+    const priority = ['receipt', 'read', 'intro', 'prize', 'cheer', 'story'].indexOf(kind);
+    if (priority < 0) throw new Error(`unknown ceremony ${kind}`);
+    const q = (this._ceremonies ||= []);
+    if (key && q.some((c) => c.key === key)) return this._drainCeremonies();
+    q.push({ kind, key, hold, open, priority, seq: this._ceremonySeq = (this._ceremonySeq || 0) + 1 });
+    return defer ? false : this._drainCeremonies();
+  }
+  _drainCeremonies() {
+    const q = this._ceremonies;
+    if (!q?.length || this._ceremonyOpen || this._dialogOpen()) return false;
+    q.sort((a, b) => a.priority - b.priority || a.seq - b.seq);
+    const i = q.findIndex((c) => !c.hold?.());
+    if (i < 0) return false;
+    const [next] = q.splice(i, 1);
+    this._ceremonyOpen = true;
+    const done = () => { this._ceremonyOpen = false; this._drainCeremonies(); };
+    let opened = false;
+    try { opened = next.open(done) !== false; }
+    finally { if (!opened) this._ceremonyOpen = false; }
+    return opened || this._drainCeremonies();
   }
 
   // The fanfare as HTML, over whatever dialog is open: the canvas toast's
@@ -7519,35 +7499,40 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
+  // Both earned stories queue once (`key`) and open through the story ledger
+  // when the screen clears; the pending flag on the save survives a reload.
   _firstSaleStory() {
     if (!this.save.firstSalePending || this.save.storySeen?.['sale:first']) return;
-    if (this._storySplashOnce('sale:first', {
-      art: 'first_sale', title: 'Fine wares',
-      body: "The neighbours offer to buy your fine wares for some 'green'.",
-    })) {
+    this._enqueueCeremony('story', (done) => {
+      if (!this.save.firstSalePending || !this._storySplashOnce('sale:first', {
+        art: 'first_sale', title: 'Fine wares',
+        body: "The neighbours offer to buy your fine wares for some 'green'.", onDismiss: done,
+      })) return false;
       delete this.save.firstSalePending;
       persistSave(this.save);
-    }
+      return true;
+    }, { key: 'sale:first' });
   }
 
   _lowHealthStory() {
     this._queueLowHealthStory();
-    if (!this.save.healthLowPending || this.save.storySeen?.['health:low']
-        || !(this.save.energy > 0) || this._passingOut) return;
-    if (this._storySplashOnce('health:low', {
-      art: 'health_low', title: 'Running low',
-      body: 'Your hands tremble, and every step feels heavier. You need food or a place to rest.',
-    })) {
+    if (!this.save.healthLowPending || this.save.storySeen?.['health:low']) return;
+    this._enqueueCeremony('story', (done) => {
+      if (!this.save.healthLowPending || !(this.save.energy > 0) || this._passingOut) return false;
+      if (!this._storySplashOnce('health:low', {
+        art: 'health_low', title: 'Running low',
+        body: 'Your hands tremble, and every step feels heavier. You need food or a place to rest.', onDismiss: done,
+      })) return false;
       delete this.save.healthLowPending;
       persistSave(this.save);
-    }
+      return true;
+    }, { key: 'health:low' });
   }
 
-  // Opens the next queued memory story once nothing else is up. Rides the
-  // modal-gate backstop's throttle in update(), right after the sync, so
-  // body.modal-open is fresh when it is read.
+  // Opens the next queued ceremony, else the next queued memory story, once
+  // nothing else is up. Rides the modal-gate backstop's throttle in update().
   _drainBadgeStories() {
-    if (this._drainMacroTransactions()) return;
+    if (this._drainCeremonies()) return;
     MemoryStory.drain(this);
   }
 
@@ -7565,13 +7550,10 @@ class MapScene extends Phaser.Scene {
   _storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen[key]) return false;
-    // The modal-open class lags the DOM by a microtask (it is mirrored off a
-    // MutationObserver), and two of the story moments - a first delivery, a
-    // castle's claim - fire from inside the accept handler of the modal they
-    // just closed, where the class still says busy. Re-sync first so the
-    // guard reads the screen as it is, not as it was a click ago.
-    this._syncModalGate?.();
-    if (document.body?.classList?.contains('modal-open')) return false;
+    // _dialogOpen reads the DOM itself (two of the story moments - a first
+    // delivery, a castle's claim - fire from inside the accept handler of the
+    // modal they just closed, where the mirrored class still says busy).
+    if (this._dialogOpen()) return false;
     seen[key] = 1;
     persistSave(this.save);
     this.showMessageModal({ title, body, art, okLabel, onDismiss });
@@ -7587,8 +7569,7 @@ class MapScene extends Phaser.Scene {
   _reviveStoryboard() {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen.revive) return;
-    this._syncModalGate?.();
-    if (document.body?.classList?.contains('modal-open')) return;
+    if (this._dialogOpen()) return;
     seen.revive = 1;
     persistSave(this.save);
     const PANELS = [
@@ -7598,12 +7579,7 @@ class MapScene extends Phaser.Scene {
       // is the point. What the revival GAVE is the energy pop's to say.
       { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket beside your trailer. A farmhand nods goodbye.' },
     ];
-    const show = (i) => this.showMessageModal({
-      ...PANELS[i], kind: 'story',
-      okLabel: i < PANELS.length - 1 ? 'Next' : 'OK',
-      onDismiss: i < PANELS.length - 1 ? () => show(i + 1) : undefined,
-    });
-    show(0);
+    MemoryStory.showPages(this, PANELS, { kind: 'story' });   // "Next" between them, "OK" on the last
   }
 
   // FIRST-TOOL-ACTION stories: one splash per action, ever, keyed
@@ -7713,14 +7689,13 @@ class MapScene extends Phaser.Scene {
     // Money badge always shown.
     if (this.moneyEl) {
       const money = `${this.save.money ?? 0}`;
-      if (this._moneyDOM !== money) {
-        this._moneyDOM = money;
+      this._paintIfChanged('_moneyDOM', money, () => {
         // The chip is a coin icon plus a bare number span (#money-num); the
         // icon is the symbol, so the number carries no `$`. Fall back to the
         // chip itself when the span is absent.
         const numEl = document.getElementById('money-num') || this.moneyEl;
         numEl.textContent = money;
-      }
+      });
       // The chip now holds a real balance, so it can be shown. Until this
       // point body.booting keeps the whole top row off screen: the markup
       // ships "0" and "⚡100/100" as placeholder text, and on a fresh save the
@@ -7810,9 +7785,7 @@ class MapScene extends Phaser.Scene {
     // from updateHUD, so when neither has moved there is nothing to write:
     // bail before touching the DOM rather than restating the same six values
     // and dirtying style for the next layout pass.
-    if (this._energyDOMCur === cur && this._energyDOMMax === max) return;
-    this._energyDOMCur = cur;
-    this._energyDOMMax = max;
+    if (!this._paintIfChanged('_energyDOM', `${cur}|${max}`, () => {})) return;
     const pct = max > 0 ? cur / max : 0;
     // Green normally, yellow at/below 30%, red when critically low.
     // Green → GOLD → red. Gold is the interaction colour everywhere else in the
@@ -7820,7 +7793,7 @@ class MapScene extends Phaser.Scene {
     // that reason. Reverted on the call that the traffic-light reading is worth
     // more here than the strict colour law: a draining bar is an idiom players
     // already know, and the gauge carries no affordance for gold to confuse.
-    const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#ffe066' : '#ff8a7a');
+    const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
     // Just the current energy: the bar under it already shows how full it is,
@@ -7835,6 +7808,16 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // THE HUD PAINTERS run every frame: `paint` only when `key` differs from
+  // the value `slot` remembers (money, energy, the three chips), so a frame
+  // where nothing moved writes nothing to the DOM. True when it painted.
+  _paintIfChanged(slot, key, paint) {
+    if (this[slot] === key) return false;
+    this[slot] = key;
+    paint();
+    return true;
+  }
+
   // ── The memories chip ───────────────────────────────────────────────────
   // A third chip in the top row (#hud-row), beside the energy gauge: the gold
   // star, the memories RECOVERED ever (memoriesTotal), and a corner pip with
@@ -7844,42 +7827,53 @@ class MapScene extends Phaser.Scene {
   // body.modal-open exactly like #energy / #money. Tapping it explains itself
   // (showMemoriesHelp) and never reaches the map.
   _buildMemoriesChip() {
-    if (typeof document === 'undefined') return;
-    const row = document.getElementById('hud-row');
-    if (!row) return;
-    if (!document.getElementById('memories-style')) {
-      const st = document.createElement('style');
-      st.id = 'memories-style';
-      st.textContent = MEMORIES_CHIP_CSS;
-      document.head.appendChild(st);
-    }
-    let el = document.getElementById('memories');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'memories';
-      el.setAttribute('role', 'button');
-      el.setAttribute('aria-label', 'Memories');
-      const ico = this.renderItemIcon('memory', 18, 'block');
-      ico.classList.add('mem-ico');
-      const num = document.createElement('span');
-      num.className = 'mem-num';
-      num.textContent = '0';
-      const pip = document.createElement('span');
-      pip.className = 'mem-unspent';
-      pip.style.display = 'none';
-      el.append(ico, num, pip);
-      // The chip sits over the map: swallow the press so no tap lands on the
-      // world under it, then explain on the click.
-      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
-        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
-      el.addEventListener('click', (e) => { e.stopPropagation(); this.showMemoriesHelp(); });
-      const energy = document.getElementById('energy');
-      if (energy && energy.parentNode === row) row.insertBefore(el, energy);
-      else row.prepend(el);
-    }
+    const el = this._buildHudChip({
+      id: 'memories', label: 'Memories', css: MEMORIES_CHIP_CSS,
+      fill: (el) => {
+        const ico = this.renderItemIcon('memory', 18, 'block');
+        ico.classList.add('mem-ico');
+        const num = document.createElement('span');
+        num.className = 'mem-num';
+        num.textContent = '0';
+        const pip = document.createElement('span');
+        pip.className = 'mem-unspent';
+        pip.style.display = 'none';
+        el.append(ico, num, pip);
+      },
+      seat: (row, el) => {
+        const energy = document.getElementById('energy');
+        if (energy && energy.parentNode === row) row.insertBefore(el, energy);
+        else row.prepend(el);
+      },
+      onTap: () => this.showMemoriesHelp(),
+    });
+    if (!el) return;
     this.memoriesEl = el;
     this._memoriesDOM = null;
     this.updateMemoriesDOM();
+  }
+  // ONE HUD CHIP (the memories, road and books chips of #hud-row): its rule
+  // once (ensureStyle, `<id>-style`), the element once — `fill(el)` adds its
+  // children, `seat(row, el)` places it in the row — the press swallowed so
+  // no tap lands on the world under it, `onTap` on the click. Null when
+  // there is no document or no row.
+  _buildHudChip({ id, label, css, fill, seat, onTap }) {
+    if (typeof document === 'undefined') return null;
+    const row = document.getElementById('hud-row');
+    if (!row) return null;
+    ensureStyle(id + '-style', css);
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', label);
+      fill(el);
+      swallowTaps(el);
+      el.addEventListener('click', (e) => { e.stopPropagation(); onTap(); });
+      seat(row, el);
+    }
+    return el;
   }
 
   // Paints the chip from the two numbers. Called every frame from updateHUD
@@ -7888,9 +7882,7 @@ class MapScene extends Phaser.Scene {
     const el = this.memoriesEl;
     if (!el) return;
     const total = this.memoriesTotal(), unspent = this.memoriesUnspent();
-    const key = total + '|' + unspent;
-    if (this._memoriesDOM === key) return;
-    this._memoriesDOM = key;
+    if (!this._paintIfChanged('_memoriesDOM', total + '|' + unspent, () => {})) return;
     const num = el.querySelector('.mem-num');
     if (num) num.textContent = String(total);
     const pip = el.querySelector('.mem-unspent');
@@ -7907,30 +7899,19 @@ class MapScene extends Phaser.Scene {
   // the on-street counter prints — so the chip and the counter can't disagree
   // (the Runner's shorter rungs come through save.playerClass, as everywhere).
   _buildRoadChip() {
-    if (typeof document === 'undefined' || typeof Trail === 'undefined') return;
-    const row = document.getElementById('hud-row');
-    if (!row) return;
-    if (!document.getElementById('roadchip-style')) {
-      const st = document.createElement('style');
-      st.id = 'roadchip-style';
-      st.textContent = ROAD_CHIP_CSS;
-      document.head.appendChild(st);
-    }
-    let el = document.getElementById('roadchip');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'roadchip';
-      el.setAttribute('role', 'button');
-      el.setAttribute('aria-label', 'Road repair');
+    if (typeof Trail === 'undefined') return;
+    const el = this._buildHudChip({
+      id: 'roadchip', label: 'Road repair', css: ROAD_CHIP_CSS,
       // The road strip is the bar; the total restored sits small beneath it.
-      el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0km</span>';
-      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
-        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
-      el.addEventListener('click', (e) => { e.stopPropagation(); this._showRoadChipHelp(); });
-      const mem = document.getElementById('memories');
-      if (mem && mem.parentNode === row) mem.after(el);
-      else row.append(el);
-    }
+      fill: (el) => { el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0km</span>'; },
+      seat: (row, el) => {
+        const mem = document.getElementById('memories');
+        if (mem && mem.parentNode === row) mem.after(el);
+        else row.append(el);
+      },
+      onTap: () => this._showRoadChipHelp(),
+    });
+    if (!el) return;
     this.roadChipEl = el;
     this._roadChipDOM = null;
     this.updateRoadChipDOM();
@@ -7949,9 +7930,8 @@ class MapScene extends Phaser.Scene {
     const p = this.roadChipProgress();
     const st = this.save?.trail || { metres: 0, prizes: 0 };
     const total = Trail.distanceLabel(Trail.restoredMetres(st, this.save?.playerClass));
-    const pos = Math.floor(p.pos), key = pos + '|' + p.target + '|' + total;
-    if (this._roadChipDOM === key) return;
-    this._roadChipDOM = key;
+    const pos = Math.floor(p.pos);
+    if (!this._paintIfChanged('_roadChipDOM', pos + '|' + p.target + '|' + total, () => {})) return;
     // The bar is THIS rung: metres banked toward the next prize.
     const clip = el.querySelector('.road-clip');
     const frac = Math.min(1, Math.max(0, pos / Math.max(1, p.target)));
@@ -7979,34 +7959,25 @@ class MapScene extends Phaser.Scene {
   // read (play_tips.js bookPagesRead — the bookmark save.tipsRead, capped at
   // the course's length). A tap opens the list of them to read again.
   _buildBookChip() {
-    if (typeof document === 'undefined' || typeof bookPagesRead !== 'function') return;
-    const row = document.getElementById('hud-row');
-    if (!row) return;
-    if (!document.getElementById('bookchip-style')) {
-      const st = document.createElement('style');
-      st.id = 'bookchip-style';
-      st.textContent = BOOK_CHIP_CSS;
-      document.head.appendChild(st);
-    }
-    let el = document.getElementById('bookchip');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'bookchip';
-      el.setAttribute('role', 'button');
-      el.setAttribute('aria-label', 'Books read');
-      const ico = this.renderItemIcon('book', 18, 'block');
-      ico.classList.add('book-ico');
-      const num = document.createElement('span');
-      num.className = 'book-num';
-      num.textContent = '0';
-      el.append(ico, num);
-      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
-        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
-      el.addEventListener('click', (e) => { e.stopPropagation(); this._showBooksRead(); });
-      const road = document.getElementById('roadchip');
-      if (road && road.parentNode === row) road.after(el);
-      else row.append(el);
-    }
+    if (typeof bookPagesRead !== 'function') return;
+    const el = this._buildHudChip({
+      id: 'bookchip', label: 'Books read', css: BOOK_CHIP_CSS,
+      fill: (el) => {
+        const ico = this.renderItemIcon('book', 18, 'block');
+        ico.classList.add('book-ico');
+        const num = document.createElement('span');
+        num.className = 'book-num';
+        num.textContent = '0';
+        el.append(ico, num);
+      },
+      seat: (row, el) => {
+        const road = document.getElementById('roadchip');
+        if (road && road.parentNode === row) road.after(el);
+        else row.append(el);
+      },
+      onTap: () => this._showBooksRead(),
+    });
+    if (!el) return;
     this.bookChipEl = el;
     this._bookChipDOM = null;
     this.updateBookChipDOM();
@@ -8017,8 +7988,7 @@ class MapScene extends Phaser.Scene {
     const el = this.bookChipEl;
     if (!el || typeof bookPagesRead !== 'function') return;
     const n = bookPagesRead(this.save).length;
-    if (this._bookChipDOM === n) return;
-    this._bookChipDOM = n;
+    if (!this._paintIfChanged('_bookChipDOM', n, () => {})) return;
     const num = el.querySelector('.book-num');
     if (num) num.textContent = String(n);
     el.title = `Books read: ${n} of ${PLAY_TIPS.length}`;
@@ -8304,31 +8274,33 @@ class MapScene extends Phaser.Scene {
   // restoring a wreck (its own ceremony) and any future step that completes
   // behind a dialog get the same treatment without their call sites knowing.
   _celebrateStarterStep(done) {
-    (this._pendingStarterCheers = this._pendingStarterCheers || []).push(done);
+    this._enqueueCeremony('cheer', (finish) => {
+      // Only the LAST one gets the full ceremony: two cheers racing for the
+      // same chip means the first is overwritten mid-hold anyway, and
+      // stacking their toasts on one frame just makes an unreadable pile.
+      // The rest are already banked; the chip resync at the end of the play
+      // shows where the ladder actually stands.
+      if (this._pendingStarterCheers.length) return false;
+      // Own try/catch: the drain also runs from _installModalPadGate's
+      // MutationObserver callback, outside update()'s guard — a throw
+      // escaping from a microtask there is uncatchable by the game loop.
+      const quiet = !!this._starterCheerBehindDialog;
+      this._starterCheerBehindDialog = false;
+      try { this._playStarterCheer(done, { quiet }); }
+      catch (e) { this._reportLoopError?.(e); }
+      finish();   // a toast and a chip hold, not a dialog: the queue moves on
+      return true;
+    }, { defer: true });
   }
-
-  _flushStarterCheers() {
-    const queued = this._pendingStarterCheers;
-    if (!queued || !queued.length) return;
-    this._pendingStarterCheers = [];
-    // Only the LAST one gets the full ceremony: two cheers racing for the same
-    // chip means the first is overwritten mid-hold anyway, and stacking their
-    // toasts on one frame just makes an unreadable pile. The rest are already
-    // banked; the chip resync at the end of the play shows where the ladder
-    // actually stands.
-    // Own try/catch: this is also called from _installModalPadGate's
-    // MutationObserver callback, which runs outside update()'s guard — a throw
-    // escaping from a microtask there is uncatchable by the game loop.
-    const quiet = !!this._starterCheerBehindDialog;
-    this._starterCheerBehindDialog = false;
-    try { this._playStarterCheer(queued[queued.length - 1], { quiet }); }
-    catch (e) { this._reportLoopError?.(e); }
-  }
+  // The cheers still waiting (modal_shell.js's gate sync reads this to mark
+  // a cheer that waited out a dialog `quiet`), and the gate's flush.
+  get _pendingStarterCheers() { return (this._ceremonies || []).filter((c) => c.kind === 'cheer'); }
+  _flushStarterCheers() { this._drainCeremonies(); }
 
   // `quiet`: the step completed behind a dialog, which was the notice — the
   // chip still holds the green ✓, but no toast repeats it.
   _playStarterCheer(done, { quiet = false } = {}) {
-    if (!quiet) this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
+    if (!quiet) this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, UI_GREEN, 1.3);
     // Hold the COMPLETED step on screen in green for a beat before swapping in
     // the next one, so finishing something is legible instead of an instant
     // relabel. The held text is written from `done` rather than left as
@@ -8385,14 +8357,13 @@ class MapScene extends Phaser.Scene {
   // Flash a "getting tired" warning the first time a drain crosses below 30%
   // energy, so running down toward 0 (where you can't reach at all) isn't a
   // silent surprise. `before` is the energy reading just before the drain;
-  // sx/sy are optional and default to the view centre.
+  // sx/sy are optional and default to the player's body.
   _warnIfTiring(before, sx, sy) {
     // Energy.crossedTired owns the reach-potion guard + 30%-threshold math; this
-    // wrapper only fires the flash (defaulting to the view centre).
-    if (Energy.crossedTired(this.save, before)) {
-      this.flash('Getting tired…', sx != null ? sx : this.viewCenterX,
-                                    sy != null ? sy : this.viewCenterY, UI_DANGER_INK);
-    }
+    // wrapper only fires the flash.
+    if (!Energy.crossedTired(this.save, before)) return;
+    if (sx != null && sy != null) this.flash('Getting tired…', sx, sy, UI_DANGER_INK);
+    else this.flashAtPlayer('Getting tired…', UI_DANGER_INK);
   }
 
   // A wreck the player has not restored yet — see Houses.isHouseWreck.
@@ -8403,12 +8374,15 @@ class MapScene extends Phaser.Scene {
 
   presentWreckRestoreModal(sx, sy, house) {
     // WHAT THE WRECK BECOMES IS THE PLAYER'S PICK: the cards on offer are
-    // Houses.buildOptions (one owning table, unlocked by how many wrecks
-    // already stand), each named the way its sign will be (Shops.roleLabel —
-    // the Shop card promises the line the next shop sells, Shops.nextLine).
+    // Houses.offerCards — one more card with every wreck that stands, cut
+    // from the catalogue (Houses.buildOptions, one owning table unlocked by
+    // how many wrecks already stand): the House always, up to three NEW
+    // cards, the rest duplicates, each pool a window that slides along with
+    // every restore. Each card is named the way its sign will be
+    // (Shops.roleLabel — a Shop card for its line) and wears its rank.
     // The single-modal guard keeps the count stable while the modal is open;
-    // restoreAs re-checks the offer at accept anyway.
-    const options = Houses.buildOptions(this.save, house);
+    // restoreAs re-checks the catalogue at accept anyway.
+    const options = Houses.offerCards(this.save, house);
     const order = Houses.restoredCount(this.save);
     // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
     // shop's stones per tier, the turret's flat five): the cost line shows
@@ -8430,18 +8404,20 @@ class MapScene extends Phaser.Scene {
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
       return this.worldIconHTML(texKey, 36, frame);
     };
-    const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
-    // Pick the type first; the second step quotes only that type's available
-    // rank. Progression still owns the rank and restoreAs validates the pick.
+    const tierOf = (row) => row.tier || 0;
+    const typeOf = (row) => row.ranked ? [row.role, row.theme].filter(Boolean).join(':') : row.key;
+    const types = [...new Map(options.map(row => [typeOf(row), row])).values()];
+    // Pick the type first; the second step quotes its offered ranks.
+    // Progression still owns the ranks and restoreAs validates the pick.
     const showTypes = (choice = null) => this.showOfferModal({
       kind: 'build',
       title: 'Step 1 of 2 · Building type',
       get: 'Restore this wreck as…',
-      choices: options.map((row) => ({
-        key: row.key,
-        label: labelFor(row, null),
+      choices: types.map((row) => ({
+        key: typeOf(row),
+        label: labelFor(row, null) + (options.some(r => typeOf(r) === typeOf(row) && Houses.isNewPick(this.save, r)) ? newBadgeHTML() : ''),
         iconHTML: iconFor(row),
-        suggested: !!row.suggested?.(this.save),
+        suggested: options.some(r => typeOf(r) === typeOf(row) && r.suggested?.(this.save)),
       })),
       choice,
       pickHint: 'Choose a building type',
@@ -8451,18 +8427,23 @@ class MapScene extends Phaser.Scene {
       onAccept: (key) => showTiers(key),
     });
     const showTiers = (typeKey) => {
-      const row = options.find((r) => r.key === typeKey);
+      const ranks = options.filter((r) => typeOf(r) === typeKey);
+      const row = ranks[0];
       if (!row) return;
       const c = costFor(row);
       const tier = tierOf(row);
-      const choices = [{
-        key: row.key,
-        label: (tier ? tierBadgeHTML(tier, 11) : labelFor(row, null))
-          + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
-        iconHTML: iconFor(row),
-        cost: costLine(c),
-        canAfford: affords(c),
-      }];
+      const choices = ranks.map((row) => {
+        const c = costFor(row), tier = tierOf(row);
+        return {
+          key: row.key,
+          label: (tier ? tierBadgeHTML(tier, 11) : labelFor(row, null))
+            + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
+            + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
+          iconHTML: iconFor(row),
+          cost: costLine(c),
+          canAfford: affords(c),
+        };
+      });
       const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
       const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
       this.showOfferModal({
@@ -8551,12 +8532,12 @@ class MapScene extends Phaser.Scene {
             tier,
             sub: (hammer ? 'The walls gleam under the hammer’s work. ' : '')
               + (order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb),
-            color: '#a7ffb0', accent: '#a7ffb0',
+            color: UI_GREEN, accent: UI_GREEN,
             onDismiss: row.role === 'wizard'
               ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
           });
         } else {
-          this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
+          this.flashLoot('🛠 restored', UI_GREEN, 1.25);
         }
       });
     };
@@ -9027,10 +9008,7 @@ class MapScene extends Phaser.Scene {
   // so it wears the affordance hue at full strength. The dark
   // it legible over a bright map.
   _installMovePadCss(PAD, NUB, HALF) {
-    if (document.getElementById('move-pad-css')) return;
-    const s = document.createElement('style');
-    s.id = 'move-pad-css';
-    s.textContent = `
+    ensureStyle('move-pad-css', `
       #move-pad {
         position: fixed;
         /* Placed by fitGame, which measures what is actually left between the
@@ -9147,8 +9125,7 @@ class MapScene extends Phaser.Scene {
       @media (prefers-reduced-motion: reduce) {
         #move-pad, #move-pad::before, #move-pad .nub { transition: none; }
       }
-    `;
-    document.head.appendChild(s);
+    `);
   }
   // Dev tool (☰ › Developer): call a pack of wild slimes to the edge of the
   // screen. They spawn as ORDINARY surface slimes — same kind, same HP table,
@@ -9161,8 +9138,7 @@ class MapScene extends Phaser.Scene {
   // Returns how many actually landed (a spot with no walkable ground — open
   // water, a cave wall — re-rolls a few times, then gives up on that slime).
   debugSpawnSlimePack(n = 6) {
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     // Just inside the view edge: visible the moment they land (so the
     // auto-fire gate sees them too), but a full screen-half from the player.
     const edgeM = (VIEW_CELLS / 2 - 0.5) * this.cellM;
@@ -9339,7 +9315,7 @@ class MapScene extends Phaser.Scene {
         setTimeout(() => {
           this._bagFullPending = false;
           try {
-            this.flash(BAG_FULL_MSG, this.viewCenterX, this.viewCenterY - 28);
+            this.flashAtPlayer(BAG_FULL_MSG);
           } catch (_) {}
         }, 0);
       }
@@ -9506,7 +9482,7 @@ class MapScene extends Phaser.Scene {
       caption.style.cssText =
         'font:700 7px ui-monospace,monospace;letter-spacing:-0.2px;line-height:1;' +
         'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
-        (active ? 'color:#ffe066;' : 'color:#999;');
+        (active ? `color:${UI_GOLD};` : 'color:#999;');
       tab.appendChild(caption);
       // An EMPTY tab reads as empty: without this a fresh save's Relics and
       // Armor tabs looked identical to stocked ones bar a missing pip (UX audit
@@ -9619,7 +9595,7 @@ class MapScene extends Phaser.Scene {
             eBadge.textContent = 'E';
             eBadge.title = 'Active weapon';
             eBadge.className = 'hud-badge';
-            eBadge.style.cssText = 'position:absolute;top:1px;left:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;background:#ffe066;color:#3a3322;';
+            eBadge.style.cssText = `position:absolute;top:1px;left:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;background:${UI_GOLD};color:#3a3322;`;
             slot.appendChild(eBadge);
           }
           slot.addEventListener('click', (e) => {
@@ -9825,34 +9801,39 @@ class MapScene extends Phaser.Scene {
     const tier = Gear.effectiveRelics(this.save)[g.slot]?.tier;
     const verb = active ? 'Unequip' : 'Equip';
     const label = `${this.gearIconHTML('relic', g.slot, tier, 20)} ${verb}`;
-    const btn = existing || document.createElement('button');
-    if (!existing) {
-      btn.id = 'equip-btn';
-      // Same seat and face as the Drink button (control gold: a thing you
-      // press), bottom-right under the inventory bar.
-      btn.className = 'hud-action';
-      btn.style.cssText =
-        'position:fixed;' +
-        'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
-        'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
-        'display:flex;align-items:center;gap:6px;' +
-        'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-        'color:#ffe066;border:2px solid #c8a64a;' +
-        'font:700 12px ui-monospace,monospace;';
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const sel = this.save.selGear;
-        if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
-        if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
-        else Gear.selectWeapon(this.save, sel.slot);
-        this.markRelicsDirty();
-        persistSave(this.save);
-        this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too
-      });
-      document.body.appendChild(btn);
-    }
+    // Same seat and face as the Drink button (control gold: a thing you
+    // press), bottom-right under the inventory bar.
+    const btn = existing || this._hudActionButton('equip-btn', { onClick: () => {
+      const sel = this.save.selGear;
+      if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
+      if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
+      else Gear.selectWeapon(this.save, sel.slot);
+      this.markRelicsDirty();
+      persistSave(this.save);
+      this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too
+    } });
     btn.dataset.slot = g.slot;
     btn.innerHTML = label;
+  }
+  // ONE fixed action button under the inventory bar (Equip, Eat, Throw,
+  // Drink / Use): the seat and face every one shares — control gold unless
+  // the row says otherwise (`ink`, `border`), `css` appended for its own
+  // needs — the press swallowed and `onClick` run. Appended to the body.
+  _hudActionButton(id, { ink = UI_GOLD, border = UI_GOLD_DARK, css = '', onClick }) {
+    const btn = document.createElement('button');
+    btn.id = id;
+    btn.className = 'hud-action';
+    btn.style.cssText =
+      'position:fixed;' +
+      'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
+      'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
+      'display:flex;align-items:center;gap:6px;' +
+      'padding:6px 10px;border-radius:8px;cursor:pointer;' +
+      `color:${ink};border:2px solid ${border};` +
+      'font:700 12px ui-monospace,monospace;' + css;
+    btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(e); });
+    document.body.appendChild(btn);
+    return btn;
   }
 
   // Eat button — appears bottom-right when the selected stack is food.
@@ -9926,24 +9907,19 @@ class MapScene extends Phaser.Scene {
   // the button carries the cooldown bar as a child, so a plain
   // `innerHTML = label` on the whole button would wipe it.
   _makeEatButton() {
-    const btn = document.createElement('button');
-    btn.id = 'eat-btn';
     // Bottom-right, BELOW the inventory bar (the bar bottom sits at
     // safe-area + 48px, so a button at safe-area + 4px sits in the gap
-    // underneath). Right-anchored to --phone-right so the button tucks
-    // inside the simulated phone column on desktop.
-    btn.className = 'hud-action';
-    // overflow:hidden clips the cooldown bar to the rounded corners; the
-    // fixed position is also what makes the bar's absolute placement resolve
-    // against the button rather than the page.
-    btn.style.cssText =
-      'position:fixed;' +
-      'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
-      'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
-      'display:flex;align-items:center;overflow:hidden;' +
-      'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      `color:${UI_GREEN};border:2px solid #4a8c4a;` +
-      'font:700 12px ui-monospace,monospace;';
+    // underneath) — the shared seat. overflow:hidden clips the cooldown bar
+    // to the rounded corners; the fixed position is also what makes the
+    // bar's absolute placement resolve against the button rather than the
+    // page. NOT `disabled` while cooling: a disabled button swallows the tap
+    // without running the handler, so the stopPropagation never fires and
+    // the press falls through to the world underneath — tilling the ground
+    // behind the button. eatSelected owns the refusal instead.
+    const btn = this._hudActionButton('eat-btn', { ink: UI_GREEN, border: '#4a8c4a', css: 'overflow:hidden;', onClick: () => {
+      this.eatSelected();
+      this.syncEatButton();   // refresh count / hide if stack ran out
+    } });
     // The bar sits along the BOTTOM EDGE rather than washing over the face:
     // a shroud across a button this small swallows its own label, and the
     // label is carrying the exact number.
@@ -9962,16 +9938,6 @@ class MapScene extends Phaser.Scene {
     txt.className = 'eat-txt';
     lbl.append(ico, txt);
     btn.append(bar, lbl);
-    // NOT `disabled` while cooling: a disabled button swallows the tap without
-    // running this handler, so the stopPropagation below never fires and the
-    // press falls through to the world underneath — tilling the ground behind
-    // the button. eatSelected owns the refusal instead.
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.eatSelected();
-      this.syncEatButton();   // refresh count / hide if stack ran out
-    });
-    document.body.appendChild(btn);
     return btn;
   }
 
@@ -10042,17 +10008,12 @@ class MapScene extends Phaser.Scene {
     let throwBtn = document.getElementById('potion-throw-btn');
     if (sel && isPotion(sel.id) && sel.count > 0) {
       if (!throwBtn) {
-        throwBtn = document.createElement('button');
-        throwBtn.id = 'potion-throw-btn';
-        throwBtn.className = 'hud-action';
-        throwBtn.style.cssText = 'position:fixed;bottom:calc(4px + env(safe-area-inset-bottom, 0px));right:calc(var(--phone-right, 0px) + 130px);z-index:7;padding:6px 10px;border:2px solid #c8a64a;border-radius:8px;color:#ffe066;font:700 12px ui-monospace,monospace;';
-        throwBtn.addEventListener('click', e => {
-          e.stopPropagation();
+        // Beside the Drink button, to its left.
+        throwBtn = this._hudActionButton('potion-throw-btn', { css: 'right:calc(var(--phone-right, 0px) + 130px);', onClick: () => {
           const id = getSelectedSlot(this.save)?.id;
           if (isPotion(id)) this._throwItem(id);
           this.syncConsumableButton();
-        });
-        document.body.appendChild(throwBtn);
+        } });
       }
       throwBtn.textContent = this.throwActionLabel();
       throwBtn.disabled = !this.canThrowItem(sel.id);
@@ -10074,33 +10035,15 @@ class MapScene extends Phaser.Scene {
         : 'calc(4px + env(safe-area-inset-bottom, 0px))';
     };
     if (existing) { existing.innerHTML = label; existing.dataset.id = sel.id; syncState(existing); return; }
-    const btn = document.createElement('button');
-    btn.id = 'consumable-btn';
-    btn.dataset.id = sel.id;
-    // Sit to the LEFT of the Eat button (Eat lives at right:8). Since the
-    // two are mutually-exclusive in normal play (Eat = food selected,
-    // consumable = book/honey selected) we use the same right slot. CSS
-    // identical except border colour (warm tan to distinguish from
-    // Eat's green).
-    btn.className = 'hud-action';
-    btn.style.cssText =
-      'position:fixed;' +
-      'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
-      'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
-      'display:flex;align-items:center;gap:6px;' +
-      'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'color:#ffe066;border:2px solid #c8a64a;' +
-      'font:700 12px ui-monospace,monospace;';
-    btn.innerHTML = label;
-    syncState(btn);
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
+    // The Eat button's seat (the two are mutually exclusive in normal play:
+    // Eat = food selected, this = a book, a honey, a potion), in control
+    // gold rather than Eat's green.
+    const btn = this._hudActionButton('consumable-btn', { onClick: () => {
       const id = btn.dataset.id;
       const entry = CONSUMABLE_SPEC[id];
-      const fn = entry?.method;
-      if (!fn || typeof this[fn] !== 'function') return;
+      if (!entry) return;
       if (entry.immediate) {
-        this[fn]();
+        this._useConsumable(id);
         this.syncConsumableButton();
         return;
       }
@@ -10127,10 +10070,12 @@ class MapScene extends Phaser.Scene {
         canAfford: typeof entry.usable === 'function' ? entry.usable(this, entry) : true,
         acceptLabel: entry.acceptLabel || entry.verb,
         secondary,
-        onAccept: () => { this[fn](); this.syncConsumableButton(); },
+        onAccept: () => { this._useConsumable(id); this.syncConsumableButton(); },
       });
-    });
-    document.body.appendChild(btn);
+    } });
+    btn.dataset.id = sel.id;
+    btn.innerHTML = label;
+    syncState(btn);
   }
 }
 // The modal shell's methods (makeModalShell, showMessageModal, showOfferModal,

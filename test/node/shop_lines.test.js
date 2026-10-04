@@ -1,52 +1,67 @@
-// The Shop cards (shops.js marketOffers): one line off the cycle until the
-// ninth rebuild, then a rotating pair; a picked line is stored
-// (save.shopLines) and its tier counts the markets before it on the same line.
+// Shop LINES and RANKS (shops.js LINE_RULES, lineBuildable, storedTier):
+// a market sells one line at one rank, both the player's pick, stamped on
+// the save; any number may stand at a rank but for a line's own cap; the
+// Pet and Book lines are one-off stamps outside the table.
 (function () {
 const h = (id) => ({ kind: 'house', tier: 9, id });
 
-test('shop lines: one card off the cycle, then a pair that moves on with every restore', () => {
-  assert.eq(Shops.MARKET_PAIR_FROM, 9);
+test('shop lines: the one table — Seed and Supply to T3, Magic odd tiers to T7, Relic even tiers to T6, no Ore', () => {
+  assert.eq(Shops.THEMES.join(), 'seed,supply,potion,relic');
+  assert.eq(JSON.stringify(Shops.LINE_RULES), JSON.stringify({
+    seed: { maxTier: 3 }, supply: { maxTier: 3 }, potion: { maxTier: 7, tiers: [1, 3, 5, 7], perTier: 1 }, relic: { maxTier: 6, tiers: [2, 4, 6] },
+  }));
+  assert.eq(Shops.THEMES.join(), Object.keys(Shops.LINE_RULES).join(), 'THEMES is the table\'s keys');
+  for (const k of ['ore']) {
+    assert.falsy(Shops.LINE_RULES[k] || Shops.THEME_LABEL[k] || Shops.THEME_BLURB[k] || Shops.THEME_POOL[k], 'the Ore Shop is gone: ' + k);
+  }
+  const save = SaveState.defaults({ restoredHouses: {} });
+  assert.truthy(Shops.lineBuildable(save, 'seed', 3)); assert.falsy(Shops.lineBuildable(save, 'seed', 4), 'Seed stops at T3');
+  assert.truthy(Shops.lineBuildable(save, 'supply', 3)); assert.falsy(Shops.lineBuildable(save, 'supply', 4));
+  assert.truthy(Shops.lineBuildable(save, 'relic', 6)); assert.falsy(Shops.lineBuildable(save, 'relic', 8));
+  assert.falsy(Shops.lineBuildable(save, 'ore', 1) || Shops.lineBuildable(save, 'pet', 1) || Shops.lineBuildable(save, 'book', 1), 'not lines of the table');
+  assert.falsy(Shops.lineBuildable(save, 'seed', 0));
+  // Magic: one per tier.
+  const magic = { restoredHouses: { a: 'market', b: 'market' }, shopLines: { a: 'potion', b: 'seed' }, shopTiers: { a: 3, b: 2 } };
+  assert.falsy(Shops.lineBuildable(magic, 'potion', 3), 'a T3 Magic Shop stands');
+  assert.truthy(Shops.lineBuildable(magic, 'potion', 1) && Shops.lineBuildable(magic, 'potion', 5), 'other ranks still open');
+  assert.truthy(Shops.lineBuildable(magic, 'seed', 2), 'a second T2 Seed Shop may stand');
+  assert.eq(Shops.lineCount(magic, 'potion', 3), 1); assert.eq(Shops.lineCount(magic, 'seed', 1), 0);
+});
+
+test('shop lines: the pick stamps line and rank; duplicates stand at one rank; legacy markets keep their derivations', () => {
   const save = { restoredHouses: {} };
-  assert.eq(JSON.stringify(Shops.marketOffers(save, 2)), JSON.stringify([{ theme: 'seed', tier: 1 }]), 'the third rebuild: the first line');
-  assert.eq(JSON.stringify(Shops.marketOffers(save, 7)), JSON.stringify([{ theme: 'seed', tier: 1 }]), 'the eighth: still one card');
-  const themes = (order) => Shops.marketOffers(save, order).map((r) => r.theme).join();
-  assert.eq(themes(8), 'seed,supply', 'the ninth: two cards');
-  assert.eq(themes(9), 'potion,ore');
-  assert.eq(themes(10), 'relic,seed', 'five lines: the pair wraps');
-  assert.eq(themes(11), 'supply,potion');
-  assert.eq(themes(12), 'ore,relic');
-  assert.eq(themes(13), 'seed,supply', 'round again');
-  assert.eq(themes(100), themes(100 + 5), 'the same pair every fifth rebuild');
-  assert.falsy([8, 9, 10, 11, 12].some((o) => themes(o).includes('pet')), 'never a Pet Shop card off the cycle');
-  // Picked lines are stored, and the tier counts the line's earlier shops.
-  save.restoredHouses.a = 'plain';
-  for (let i = 1; i < 8; i++) save.restoredHouses['p' + i] = 'plain';
-  assert.eq(Houses.restoreAs(save, h('s1'), 'market:seed').theme, 'seed', 'the ninth may be a Seed Shop');
-  assert.eq(save.shopLines.s1, 'seed');
-  assert.eq(Shops.lineFor(save, h('s1')).theme, 'seed');
-  assert.eq(Shops.lineFor(save, h('s1')).tier, 1);
-  assert.eq(Houses.restoreAs(save, h('s2'), 'market:ore').theme, 'ore', 'the tenth: potion or ore');
-  assert.eq(Houses.restoreAs(save, h('x'), 'market:potion'), null, 'not potion at the eleventh');
-  assert.eq(Houses.restoreAs(save, h('x'), 'market:pet'), null, 'and never pets');
-  assert.eq(Houses.restoreAs(save, h('s3'), 'market:seed').theme, 'seed', 'the eleventh: relic or seed again');
-  assert.eq(Shops.lineFor(save, h('s3')).tier, 2, 'the second Seed Shop is the T2 one');
-  assert.eq(Shops.lineFor(save, h('s2')).tier, 1);
-  assert.eq(Shops.marketOffers(save, 13)[0].tier, 3, 'and the card says the third would be T3');
-  assert.eq(Shops.shopTier(save, h('s3'), 'market'), 2);
-});
-
-test('shop lines: a market with no stored line keeps the cycle\'s answer beside the picked ones', () => {
-  const save = { restoredHouses: { m1: 'market', m2: 'market', s: 'market', m3: 'market' }, shopLines: { s: 'seed' } };
-  const lines = Shops.marketLines(save);
-  assert.eq(lines.map((r) => r.theme).join(), 'seed,supply,seed,ore', 'legacy markets take the cycle by position, the pick its own');
+  Houses.restoreAs(save, h('h0'), 'plain'); Houses.restoreAs(save, h('h1'), 'plain');
+  assert.eq(Houses.restoreAs(save, h('s1'), 'market:seed:1').theme, 'seed');
+  assert.eq(Houses.restoreAs(save, h('s2'), 'market:seed:1').theme, 'seed', 'a second T1 Seed Shop');
+  assert.eq(save.shopLines.s2, 'seed'); assert.eq(save.shopTiers.s2, 1);
+  assert.eq(Shops.lineFor(save, h('s1')).tier, 1); assert.eq(Shops.lineFor(save, h('s2')).tier, 1, 'both T1: the rank is the stamp, not a count');
+  assert.eq(Shops.shopTier(save, h('s2'), 'market'), 1);
+  assert.eq(Houses.restoreAs(save, h('x'), 'market:seed:2'), null, 'T2 waits for five memories');
+  for (let i = 4; i < 9; i++) Houses.restoreAs(save, h('h' + i), 'plain');
+  assert.eq(Houses.restoredCount(save), 9);
+  assert.eq(Houses.restoreAs(save, h('x'), 'market:seed:2'), null, 'not for wrecks');
+  save.discovered = { a: 1, b: 1, c: 1, d: 1, e: 1 };
+  assert.eq(Houses.restoreAs(save, h('s3'), 'market:seed:2').tier, 2);
+  assert.eq(Shops.lineFor(save, h('s3')).tier, 2);
+  assert.eq(Shops.lineCount(save, 'seed', 1), 2); assert.eq(Shops.lineCount(save, 'seed', 2), 1);
+  assert.eq(Houses.restoreAs(save, h('p1'), 'market:potion:1').theme, 'potion');
+  assert.eq(Houses.restoreAs(save, h('p2'), 'market:potion:1'), null, 'the Magic Shop is one per tier');
+  assert.eq(Houses.restoreAs(save, h('p2'), 'market:potion:2'), null, 'Magic skips even tiers');
+  for (let i = 0; i < 5; i++) save.discovered['more' + i] = 1;
+  assert.eq(Houses.restoreAs(save, h('p2'), 'market:potion:3').tier, 3, 'the next allowed rank opens at ten memories');
+  // Legacy: a market with a stored line but no stored rank takes one past
+  // the markets before it on that line; one with no line keeps the cycle.
+  const old = { restoredHouses: { m1: 'market', m2: 'market', s: 'market', m3: 'market' }, shopLines: { s: 'seed' } };
+  const lines = Shops.marketLines(old);
+  assert.eq(lines.map((r) => r.theme).join(), 'seed,supply,seed,relic', 'legacy markets take the cycle by position, the pick its own');
   assert.eq(lines.map((r) => r.tier).join(), '1,1,2,1', 'the picked Seed Shop is the second on its line');
-  assert.eq(Shops.lineFor(save, h('m3')).theme, Shops.themeAt(3).theme, 'a legacy market reads exactly as before');
-  assert.eq(Shops.lineFor(save, h('s')).tier, 2);
-  assert.eq(Shops.lineTierFor(save, 'seed'), 3);
-  assert.eq(Shops.lineTierFor(save, 'pet'), 1);
+  assert.eq(Shops.lineFor(old, h('m3')).theme, Shops.themeAt(3).theme, 'a legacy market reads exactly as before');
+  assert.eq(Shops.lineFor(old, h('s')).tier, 2);
+  assert.eq(Shops.storedTier(old, 's'), null); assert.eq(Shops.storedTier({ shopTiers: { s: 3 } }, 's'), 3);
+  assert.eq(Shops.storedTier({ shopTiers: { s: 99 } }, 's'), 7, 'clamped to the top rank');
 });
 
-test('pet shop: a one-off card from the 12th restore, a market plus its stamp, outside the cycle and never a tier up', () => {
+test('pet shop: a one-off card from the 12th restore, a market plus its stamp, outside the lines table and never a tier up', () => {
   assert.eq(Houses.STORY_RESTORES.petshop, 12);
   assert.eq(Houses.buildOption('petshop').from, 12);
   assert.eq(Houses.buildOption('petshop').role, 'market', 'stored as a shop');
@@ -57,7 +72,7 @@ test('pet shop: a one-off card from the 12th restore, a market plus its stamp, o
   const save = { restoredHouses: {} };
   assert.eq(Houses.restoreAs(save, h('h0'), 'plain').key, 'plain');
   assert.eq(Houses.restoreAs(save, h('p'), 'petshop'), null, 'not on offer yet');
-  for (let i = 1; i < 11; i++) Houses.restoreAs(save, h('h' + i), i % 3 === 0 ? 'market:' + Shops.marketOffers(save, i)[0].theme : 'plain');
+  for (let i = 1; i < 11; i++) Houses.restoreAs(save, h('h' + i), i % 3 === 0 ? 'market:seed:1' : 'plain');
   assert.eq(Houses.restoredCount(save), 11);
   assert.eq(save.petshopId, undefined, 'an ordinary market is not it');
   assert.eq(Houses.restoreAs(save, h('p'), 'petshop').key, 'petshop', 'the twelfth may be the Pet Shop');
@@ -67,12 +82,8 @@ test('pet shop: a one-off card from the 12th restore, a market plus its stamp, o
   assert.eq(JSON.stringify(Shops.lineFor(save, h('p'))), JSON.stringify({ theme: 'pet', tier: 1 }), 'sells pets at T1');
   assert.eq(Houses.restoreAs(save, h('p2'), 'petshop'), null, 'once per save');
   assert.falsy(Houses.buildOptions(save, h('p2')).some((r) => r.key === 'petshop'), 'the card is gone');
-  // Outside the cycle: the markets after it keep the lines they would have had.
-  const before = Shops.marketLines(save).map((r) => r.theme + r.tier).join();
-  assert.falsy(Shops.marketLines(save).some((r) => r.id === 'p'), 'not a market of the cycle');
-  assert.eq(Houses.restoreAs(save, h('m'), 'market:' + Shops.marketOffers(save, 12)[0].theme).role, 'market');
-  assert.eq(Shops.marketLines(save).map((r) => r.theme + r.tier).join().indexOf(before), 0, 'the markets before it are unmoved');
-  assert.eq(Shops.lineTierFor(save, 'pet'), 1, 'and a Pet Shop never climbs a tier');
+  assert.falsy(Houses.buildOptions(save, h('p2')).some((r) => r.theme === 'pet'), 'and pets are no Shop line');
+  assert.falsy(Shops.marketLines(save).some((r) => r.id === 'p'), 'not a market of the lines table');
   // The Book Shop is the same kind of thing: both stamps may stand at once.
   for (let i = 13; i < 15; i++) Houses.restoreAs(save, h('h' + i), 'plain');
   assert.eq(Houses.restoreAs(save, h('b'), 'bookshop').key, 'bookshop');
@@ -84,3 +95,12 @@ test('pet shop: a one-off card from the 12th restore, a market plus its stamp, o
   assert.eq(Shops.lineFor(old, h('m')).theme, 'pet', 'an old Pet Shop still sells pets');
 });
 })();
+
+test('shop lines: restoration cards respect every allowed magic and relic rank', () => {
+  const save = { restoredHouses: { a: 'plain', b: 'blacksmith' }, discovered: Object.fromEntries(Array.from({ length: 30 }, (_, i) => ['m' + i, 1])) };
+  for (const [theme, tiers] of [['relic', [2, 4, 6]], ['potion', [1, 3, 5, 7]]]) {
+    for (let tier = 1; tier <= 7; tier++) assert.eq(Shops.lineBuildable(save, theme, tier), tiers.includes(tier));
+    const cards = Houses.buildOptions(save, { kind: 'house', tier: 9, id: 'new' }).filter(card => card.theme === theme);
+    assert.eq(cards.map(card => card.tier).join(), tiers.join());
+  }
+});

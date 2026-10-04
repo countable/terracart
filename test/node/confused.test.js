@@ -62,7 +62,7 @@
   });
   test('confused: update routes inputs to forced loops and stronger holds take precedence', () => {
     const a=SCENE_SRC.indexOf('const bodyHold = this._bodyHold();');
-    const b=SCENE_SRC.indexOf('\n    // One throttled flash for the stick-walking drain',a);
+    const b=SCENE_SRC.indexOf('\n    // THE DRAIN ROLL-UP flushes here',a);
     const move=new Function('stick','vx','vy','speedMul','dt',SCENE_SRC.slice(a,b));
     const s=body();let loops=0,normal=0;
     s._bodyHold=()=>({pinned:Conditions.active(s.save,'pinned'),capMS:null});

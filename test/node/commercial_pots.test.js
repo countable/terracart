@@ -46,4 +46,25 @@
     while (!clear.next().done) {}
     assert.eq(list.length, 0, 'authored street areas retain their empty passages');
   });
+  test('industrial salvage: public empty seats hold stable barrels, private lots do not', () => {
+    const industrial={...commercial,features:commercial.features.map(f=>({...f,tags:{class:'industrial'}}))};
+    const salvage=out=>out.objects.filter(o=>o.id.startsWith('ibarrel_'));
+    const out=W.rasterizeTile([industrial,publicPois,roads],N,0,0,edge), barrels=salvage(out);
+    assert.gt(barrels.length,0,'public industrial frontage has salvage');
+    assert.eq(salvage(W.rasterizeTile([industrial],N,0,0,edge)).length,0,'barrels cannot make private lots public');
+    assert.eq(JSON.stringify(barrels),JSON.stringify(salvage(W.rasterizeTile([industrial,publicPois,roads],N,0,0,edge))),
+      'barrel locations and identities survive rebuilding');
+    for(const o of barrels){
+      const [x,y]=cell(o),i=y*N+x;
+      assert.falsy(out.roadMask[i]); assert.falsy(out.spawnWhy[i]&W.SPAWN_WHY.PRIVATE);
+      assert.eq(out.grid[i],W.T.INDUSTRIAL);
+      assert.eq([...out.objects,...out.wildplants].filter(p=>p.x===o.x&&p.y===o.y).length,1,'one object per seat');
+      assert.eq(o.barrel,true);
+    }
+    const area=new Uint8Array(N*N).fill(1);
+    const clear=W.clearStreetAmbientSteps({area,objects:barrels,wildplants:[],tx:0,ty:0,N,tileEdgeM:edge});
+    while(!clear.next().done){}
+    assert.eq(barrels.length,0,'authored street space clears ambient salvage');
+  });
+
 })();

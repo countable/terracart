@@ -73,8 +73,12 @@ test('copy: the plant flash says the crop by name, and what it needs next', () =
 
 test('copy: "bag full" is one line shared by inventory refusals', () => {
   assert.truthy(/const BAG_FULL_MSG = '[^']+';/.test(SCENE_SRC), 'app.js owns one constant');
-  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 5,
-    'declared once, used for drops, purchases (a counter\'s gear too) and smelting');
+  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 2,
+    'declared once, used for drops');
+  // The counters (purchases, barter, smelting — scene_shops.js) name the
+  // full stack instead, through the one bagFullFor line.
+  assert.eq((ENERGY_WRITE_SOURCES['scene_shops.js'].match(/Bag full/g) || []).length, 1, 'the counters word it once');
+  assert.gte((ENERGY_WRITE_SOURCES['scene_shops.js'].match(/bagFullFor\(/g) || []).length, 5, 'and every counter reads it');
   assert.falsy(/flash\('bag full'/i.test(SCENE_SRC), 'neither casing survives as a literal');
   const msg = SCENE_SRC.match(/const BAG_FULL_MSG = '([^']+)';/)[1];
   assert.truthy(/bag/i.test(msg) && /\.$/.test(msg), 'it is a sentence about the bag: ' + msg);
@@ -238,6 +242,9 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'barrelFlash', 'bikeRackFlash',    // the barrel / bike-rack lines, measured below
     'wildplantHarvestLine',           // every guaranteed wildplant reward bundle, measured below
     'Shrines',                         // Shrines.boonFlash — every kind measured in shrines.test.js
+    'purseShort', 'bagFullFor',        // the counters' two refusals, measured in economy_owners.test.js
+    'Macros',                          // Macros.waitLine — every recurring row's prefix, measured below
+    'row',                             // a page stone's `read` line, measured below
   ]);
   const seen = new Set();
   for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -356,12 +363,15 @@ test('copy: a shop with nothing to offer says so in a sentence, and promises no 
   }
 });
 
-test('copy: a short smelt names the ingredient and the shortfall', () => {
+test('copy: a short smelt or forge names the ingredient and the shortfall', () => {
   assert.falsy(/flash\('not enough to smelt'/.test(SCENE_SRC), 'the bare fragment is gone');
-  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < need\(r, q\)\);/.test(SCENE_SRC),
-    'it finds which ingredient is short');
-  assert.truthy(/Need \$\{short\} more \$\{name\}`/.test(SCENE_SRC),
+  // The one recipe counter (scene_shops.js _presentRecipeOffer) behind the
+  // crucible and the forge finds which ingredient is short…
+  assert.truthy(/const missing = short\(\);/.test(SCENE_SRC), 'it finds which ingredient is short');
+  // …and says how many more of it are wanted, in the one wording.
+  assert.truthy(/Need \$\{missing\.qty - held\(missing\.id\)\} more \$\{itemName\(missing\.id\)\}`/.test(SCENE_SRC),
     'and says how many more of it are wanted');
+  assert.falsy(/flash\(`need \$\{/.test(ENERGY_WRITE_SOURCES['scene_shops.js']), 'no counter prints a bare total instead of the shortfall');
 });
 
 test('copy: no player-facing refusal is a bare lowercase fragment', () => {
@@ -404,7 +414,7 @@ test('copy: item descriptions explain effects without tier jargon', () => {
 });
 
 test('copy: the Drink / Use descriptions omit tiers and keep numeric durations derived', () => {
-  const timed = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.method && row.durationMs);
+  const timed = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.verb && row.durationMs);
   assert.gt(timed.length, 5, 'timed action rows are in the shared spec');
   for (const [id, row] of timed) {
     const text = typeof row.get === 'function' ? row.get({
@@ -416,16 +426,11 @@ test('copy: the Drink / Use descriptions omit tiers and keep numeric durations d
       assert.truthy(text.includes(shortDuration(row.durationMs)), `${id}: numeric waits use the owning duration`);
     }
   }
-  for (const [name, id] of Object.entries({
-    REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
-    SHIELD_POTION_MS: 'shielding_potion', DRAGON_POWDER_MS: 'dragon_powder',
-    SHADOW_POWDER_MS: 'shadow_powder',
-  })) {
-    assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(SCENE_SRC),
-      `${name}: runtime derives from the spec`);
-    assert.truthy(new RegExp('Date\\.now\\(\\) \\+ ' + name + ';').test(SCENE_SRC),
-      `${name}: the derived duration starts the buff`);
-  }
+  // Every timed row's length is read off the row at the use (_useTimedBuff:
+  // Buffs.extend by spec.durationMs) — no alias constant, no hand-typed start.
+  assert.falsy(/const \w+_MS = CONSUMABLE_SPEC\.\w+\.durationMs;/.test(SCENE_SRC), 'no duration alias in the scene');
+  assert.truthy(/Buffs\.extend\(this\.save, this, buff, spec\.durationMs \* mul\);/.test(SCENE_SRC), 'the row\'s duration starts (extends) the buff');
+  for (const [id, row] of timed) if (row.buff) assert.truthy(Buffs.KINDS[row.buff], `${id}: its buff is a Buffs row`);
 });
 })();
 
@@ -442,14 +447,16 @@ test('map copy: the barrel, the bike rack and the page stones fit a map line', (
   assert.lte([...bikeRackFlash()].length, MAP_MSG_MAX, `bike rack: ${bikeRackFlash()}`);
   assert.eq(bikeRackFlash(), `Swift step! Stick ×2 for ${shortDuration(BIKE_RACK_MS)}`, 'off the boost\'s own length');
   assert.falsy(/pedal|bike|cycl/i.test(bikeRackFlash()), 'the courier\'s post never says ride a bike (safety, Sep 2026)');
-  // pageStone's literal lines (INTERACTABLES.waystone / .infoboard).
-  for (const m of INTERACTABLES_SRC.matchAll(/(?:spent|read): '([^']+)'/g)) {
-    assert.lte([...m[1]].length, MAP_MSG_MAX, `page stone: ${m[1]}`);
+  // Every recurring site's refusal (Macros.waitLine: "<prefix> — <wait>")
+  // prints a real wait; at its widest (a week) it still fits. The shrine
+  // rows and page stones' `read` lines ride the same table.
+  const week = 7 * 24 * 60 * 60 * 1000;
+  for (const row of [...Object.values(Macros.DAILY_VISIT_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Shrines.SHRINE_KINDS)]) {
+    const line = Macros.waitLine(row.spent || 'Already visited', week);
+    assert.lte([...line].length, MAP_MSG_MAX, `recurring site: ${line}`);
+    if (row.read) assert.lte([...row.read].length, MAP_MSG_MAX, `page stone: ${row.read}`);
   }
-  // The barrel / crate / rack refusals print a real wait; at their widest
-  // (a week) they still fit.
-  const week = shortDuration(7 * 24 * 60 * 60 * 1000);
-  for (const line of [`Smashed. Back in ${week}.`, `The crate is bare. ${week}.`, `Bikes all out. ${shortDuration(24 * 60 * 60 * 1000)}.`]) {
+  for (const line of [Macros.waitLine('Already milked', week), Macros.waitLine('Already laid', week), Macros.waitLine('Still growing', week), Macros.waitLine('Picked', week)]) {
     assert.lte([...line].length, MAP_MSG_MAX, line);
   }
 });

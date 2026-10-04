@@ -5,6 +5,12 @@
   const gameURL = scriptURL ? new URL('../index.html', scriptURL).href : 'index.html';
   const entries = [
     { id: 'plaza', label: 'Player plaza', scene: 'PLAZA', aliases: ['grass', 'home'] },
+    { id: 'encounters', label: 'Recent enemy encounters', scene: 'RESTORATION', sub: 'RECENT ENEMIES' },
+    { id: 'strip-mine', label: 'Strip mine', scene: 'QUARRY', sub: 'STRIP MINE' },
+    { id: 'ruins', label: 'Ruin walls', scene: 'QUARRY', sub: 'RUIN WALLS' },
+    { id: 'restoration', label: 'Restoration and recent enemies', scene: 'RESTORATION' },
+    { id: 'meadow', label: 'Meadow', scene: 'ZONES', sub: 'MEADOW' },
+    { id: 'crater', label: 'Destroyed crater', scene: 'ZONES', sub: 'CRATER', aliases: ['quarry-crater'] },
     { id: 'practice', label: 'Combat practice', scene: 'PRACTICE' },
     { id: 'forest', label: 'Forest', scene: 'FOREST' },
     { id: 'orchard', label: 'Orchard', scene: 'ORCHARD' },
@@ -32,7 +38,7 @@
       ['hedgerow', 'Hedgerow'], ['lantern', 'Lantern row'], ['burned', 'Burned row'],
       ['toadstool', 'Toadstool lane'], ['overgrown', 'Overgrown road'],
       ['orchard', 'Orchard road'], ['pilgrim', 'Pilgrim road'], ['golden', 'Golden road'],
-      ['snare', 'Snare lane'], ['barricade', 'Barricade road'],
+      ['thorny', 'Thorny Way'], ['snare', 'Snare lane'], ['barricade', 'Barricade road'],
     ].map(([variant, label]) => ({ id: `${variant}-road`, label, road: variant,
       aliases: [`road:${variant}`, ...(variant === 'orchard' ? [] : [variant])] })),
     { id: 'parkpath', label: 'Park path', roadName: 'Common Walk', aliases: ['path', 'road:parkpath'] },
