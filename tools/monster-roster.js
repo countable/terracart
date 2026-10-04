@@ -12,6 +12,7 @@
     let selected=null;
     // Aliases adapt the proposal's presentation to the runtime schema. Never copy stats.
     const enemies=EnemyRoster.ROWS.filter(e=>!e.retired).map(e=>({...e,
+      name:e.id==='gull'?'Seagull':e.name,
       attack:e.attackType,attackSeconds:e.damageIntervalSeconds,
       surface:e.surface&&{...e.surface,minHomeM:e.surface.minDistance,maxHomeM:e.surface.maxDistance},
       cave:e.cave&&{...e.cave,every:e.cave.depthRule==='even'?2:null},
