@@ -19,7 +19,7 @@
       get durationMs() { return CONSUMABLE_SPEC.wraith_scroll.durationMs; }, persistHealth: true,
       expired: 'The wraith dissolves.', defeated: 'The wraith is spent.' },
     mercenary: { field: 'mercenaryUntil', instance: '_mercenary', durationMs: 24 * 60 * 60 * 1000,
-      hireCost: 50, persistHealth: true, onDefeat: 'spent',
+      hireCost: 50, coinPickupCells: 0.75, persistHealth: true, onDefeat: 'spent',
       expired: 'The mercenary heads home.', defeated: 'The mercenary falls.' },
   };
   // A DOWNED ALLY — the one rule, asked wherever an ally's HP runs out (the

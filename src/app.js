@@ -3358,6 +3358,7 @@ class MapScene extends Phaser.Scene {
     this._combatTick(dt);
     this._tickBlightAura();
     Companions.tickAll(this);
+    tickGroundCoins(this);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
