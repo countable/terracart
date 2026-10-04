@@ -4421,35 +4421,9 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // The WORK wheel's ring: an arc that fills with progress toward finishing the
-  // job (chop / mine / fish / hunt / catch), over a faint full-circle track so
-  // it shows how far there is still to go and not just how much is done
-  // (UX audit §20).
-  //
-  // The wheel sits ON the thing being worked, so its alphas have been walked
-  // back twice: first 20% off everything (0.55 → 0.44 backing, 0.9 → 0.72 arc),
-  // then a flat 0.1 off each — backing 0.34, arc 0.62 (the tool in the middle
-  // is WORK_TOOL_ALPHA, drawn by _drawWorkProgress). At full
-  // strength it hid the very sprite it was reporting progress against. The
-  // track is thinned in step with the arc (×0.62/0.72) rather than by the flat
-  // 0.1, which would have all but erased it.
+  // A small, solid, half-opacity progress disc on the target cell.
   _strokeWorkRing(g, cx, cy, progress) {
-    // Radius comes from the same table that PLACES the wheel — the crown
-    // seating clears the outer edge (R + 1, the backing disc), so a resize here
-    // without one there would put the ring back in the sky.
-    const R = SpriteLayout.CREATURE_WHEEL_R;
-    g.fillStyle(0x000000, 0.34);
-    g.fillCircle(cx, cy, R + 1);
-    g.lineStyle(3, 0xffffff, 0.155);
-    g.beginPath();
-    g.arc(cx, cy, R, 0, Math.PI * 2, false);
-    g.strokePath();
-    if (progress > 0) {
-      g.lineStyle(3, 0xffffff, 0.62);
-      g.beginPath();
-      g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress, false);
-      g.strokePath();
-    }
+    Render.drawWorkWheel(g, cx, cy, progress);
   }
 
   // Apply damage to an enemy from any source (a shot, or the melee wheel).
@@ -4733,7 +4707,7 @@ class MapScene extends Phaser.Scene {
     this._setWorkProgressIcon(toolSlot);
     this._barehandMutter?.(toolSlot, worldX, worldY);
     durationMs = Gear.workDurationMs(this.save, durationMs);
-    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
+    this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, toolSlot, startT: performance.now(), track: trackCreature };
   }
   // The grunt a bare-handed job starts with (BAREHAND_MUTTERS), on the job's
   // cell. Answered HERE, beside the badge, for the same reason the badge is:
@@ -4750,26 +4724,8 @@ class MapScene extends Phaser.Scene {
     this._popCellNumber(BAREHAND_MUTTERS[(n - 1) % BAREHAND_MUTTERS.length], UI_DANGER_INK, c.cellIX, c.cellIY);
     return true;
   }
-  // Pick the tool drawn in the MIDDLE of a work-progress wheel: the equipped
-  // tier's own art for `toolSlot`, or nothing. Shared by every wheel starter
-  // (combat, mine/chop/fish, catch, till, dig, the interactables table).
-  //
-  // The tool is drawn IN THE CANVAS, by _drawWorkProgress, at the ring's own
-  // centre (cx, cy) and at 1:1 game pixels: one coordinate space with the ring
-  // is what keeps it in the middle.
-  //
-  // The texture is fetched on demand (_toolTexture) — gear art is never in the
-  // boot preload — and warmed for every equipped wheel tool whenever relics
-  // change (updateRelicRow), so it is normally ready before the first swing.
-  //
-  // BARE HANDS WEAR NO BADGE, and that test lives HERE, once. Every job on
-  // this wheel can be done with nothing in hand — that is the tier-0, 9 s rung
-  // of toolDurationMs — and the badge's whole job is to say what you are
-  // swinging, so an unowned slot must draw NOTHING (no fallback to Wood: a
-  // bare-handed catch would show the Bug Net's pale hoop tied to no owned item).
-  // Answering it in the shared helper keeps the next wheel starter from
-  // forgetting it, and it is the gate _drawWorkProgress
-  // share with the badge.
+  // Resolve the actual owned tool art once per job. The work renderer swings
+  // this image at the target; no owned tool means the generic melee sweep.
   _setWorkProgressIcon(toolSlot) {
     this._workProgressToolKey = null;
     this._workProgressIcon?.setVisible(false);
@@ -4803,6 +4759,7 @@ class MapScene extends Phaser.Scene {
     if (this._workProgress?.flee) this._workProgress.flee._beingCaught = false;
     this._workProgress = null;
     this._workProgressGfx?.clear();
+    this._workToolGfx?.clear();
     this._workProgressIcon?.setVisible(false);
     this._workProgressToolKey = null;
   }
@@ -4873,6 +4830,7 @@ class MapScene extends Phaser.Scene {
     // lands, and the swing that landed it should still finish its fade rather
     // than being cut off mid-sweep by the early `if (!wp) return` below.
     this._drawSwordSwing();
+    this._drawWatering?.();
     const wp = this._workProgress;
     if (!wp) return;
     // A rose can change allegiance while a melee wheel is already running.
@@ -5047,53 +5005,88 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const progress = elapsed / dur;
-    // Static targets (rock / tree / crop / fish / a cave wall) are worked in
-    // ONE CELL, and the wheel is centred on that cell — the anchor is snapped
-    // to its cell centre and no offset is added. A CREATURE can't use a flat
-    // offset: the animals are drawn feet-anchored at wildly different sizes.
-    // Wheels over a creature — a capture (wp.flee) or a hunt (wp.track) —
-    // follow the animal's own position and are placed by the crown rule
-    // (SpriteLayout.creatureWheelDy): the ring rests on the top row of that
-    // kind's art, which also clears a fleeing animal by construction.
-    const creature = wp.flee || wp.track || null;
+    // Every work wheel, including a fleeing net target, stays in its cell.
+    // Combat health bars retain their creature anchor.
     let ax = wp.worldX, ay = wp.worldY;
-    if (!creature) {
+    if (!wp.combat) {
       const ac = worldMetersToAbsCell(this, ax, ay);
       const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
       ax = cc.x; ay = cc.y;
     }
     const screen = this.worldMetersToScreen(ax, ay);
-    const cx = Math.round(screen.x);
-    const dyWheel = creature ? SpriteLayout.creatureWheelDy(creature.kind, SpriteLayout.creatureInstScale(creature)) : 0;
-    const cy = Math.round(screen.y) + Math.round(dyWheel);
+    const cx = Math.round(screen.x), cy = Math.round(screen.y);
     const g = this._workProgressGfx;
     g.clear();
-    // Two readouts, two shapes — deliberately. A WORK wheel is the original
-    // ring: the arc FILLS with progress toward finishing the job, seated on
-    // the crown. A COMBAT target wears the enemy HEALTH BAR instead — the
-    // strip above its head that drains as you hurt it, the same bar every
-    // hurt foe floats (_drawEnemyHealthBar), just brighter for the one you
-    // are actually engaged with. A fight and a job can't be misread for each
-    // other any more; the tool badge below still says what you're swinging.
+    this._workProgressIcon?.setVisible(false);
+    this._workToolGfx?.clear();
     if (wp.combat) {
       this._drawEnemyHealthBar(g, cx,
         Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(wp.combat.kind, SpriteLayout.creatureInstScale(wp.combat))),
         Combat.hpFraction(wp.combat), 1);
     } else {
       this._strokeWorkRing(g, cx, cy, progress);
+      this._drawWorkTool(wp, cx, cy, now);
     }
-    // The tool, dead centre on the ring (see _setWorkProgressIcon). Shown only
-    // once its texture has landed; until then the ring runs on its own.
-    const key = this._workProgressToolKey;
+  }
+
+  _drawWorkTool(wp, cx, cy, now) {
     const icon = this._workProgressIcon;
-    if (icon) {
-      if (key && this.textures.exists(key)) {
-        if (icon.texture.key !== key) icon.setTexture(key, 0);
-        icon.setPosition(cx, cy).setVisible(true);
-      } else {
-        icon.setVisible(false);
-      }
+    if (!icon) return;
+    icon.setVisible(false).setRotation(0).setOrigin(0.5).setScale(1).setAlpha(WORK_TOOL_ALPHA);
+    const key = this._workProgressToolKey;
+    const look = Render.WORK_LOOKS[wp.toolSlot];
+    if (!look) {
+      if (key && this.textures.exists(key)) icon.setTexture(key, 0).setPosition(cx, cy).setVisible(true);
+      return;
     }
+    const pose = Render.workToolPose(wp.toolSlot, now - wp.startT);
+    if (!pose) return;
+    if (key && this.textures.exists(key)) {
+      icon.setTexture(key, 0).setVisible(true).setOrigin(pose.gripX, pose.gripY)
+        .setScale(pose.scale).setRotation(pose.rotation).setAlpha(pose.alpha)
+        .setPosition(cx + pose.x, cy + pose.y);
+    } else {
+      const age = ((now - wp.startT) % look.beatMs) / look.ms * Render.MELEE_LOOKS.sword.ms;
+      const sweep = Render.meleePose({ startT: 0, dir: { x: 1, y: 0 } }, age, 'sword', 12);
+      Render.drawMelee(this._workToolGfx, sweep, cx - 10, cy);
+    }
+  }
+
+  _playWatering(worldX, worldY) {
+    const tier = this.save.relics?.watering_can?.tier;
+    const ac = worldMetersToAbsCell(this, worldX, worldY);
+    const cell = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
+    (this._wateringEffects ||= []).push({ ...cell, startT: performance.now(),
+      texture: tier ? this._toolTexture('watering_can', tier) : null,
+      durationMs: tier ? 800 : Render.MELEE_LOOKS.sword.ms });
+  }
+
+  _drawWatering() {
+    const now = performance.now();
+    this._wateringEffects = (this._wateringEffects || []).filter(effect => {
+      const t = (now - effect.startT) / effect.durationMs;
+      if (t >= 1) { effect.icon?.destroy(); effect.gfx?.destroy(); return false; }
+      const p = this.worldMetersToScreen(effect.x, effect.y);
+      const g = effect.gfx ||= this.add.graphics().setDepth(96);
+      g.clear();
+      if (!effect.texture) {
+        Render.drawMelee(g, Render.meleePose({ startT: effect.startT, dir: { x: 1, y: 0 } },
+          now, 'sword', 12), p.x - 10, p.y);
+      } else if (this.textures.exists(effect.texture)) {
+        const icon = effect.icon ||= this.add.image(0, 0, effect.texture, 0).setDepth(97);
+        const tilt = Math.sin(Math.PI * Math.min(1, t / 0.85));
+        icon.setPosition(p.x + 9, p.y - 9).setOrigin(0.5).setScale(0.9)
+          .setRotation(-0.7 * tilt).setAlpha(Math.min(1, (1 - t) / 0.15));
+        if (t > 0.15 && t < 0.8) {
+          g.fillStyle(0x8ed3e6, 0.8);
+          for (let i = 0; i < 3; i++) {
+            const drop = ((t - 0.15) * 3 + i / 3) % 1;
+            g.fillCircle(p.x + 1 - drop * 3 + i, p.y - 9 + drop * 10, 1);
+          }
+        }
+      }
+      return true;
+    });
   }
 
   // Sample a symmetric square neighbourhood around (wcx, wcy) and return the

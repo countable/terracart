@@ -91,6 +91,36 @@ Render.drawMelee = function (g, pose, x, y, color = 0xe8ecf0) {
   }
   g.strokePath();
 };
+// Work happens at the target cell, with a brief recovery between strokes.
+Render.WORK_WHEEL = { radius: 7, alpha: 0.5 };
+Render.WORK_LOOKS = {
+  axe: { ms: 360, beatMs: 700 }, hoe: { ms: 360, beatMs: 700 },
+  pickaxe: { ms: 360, beatMs: 700 }, net: { ms: 440, beatMs: 850 },
+};
+Render.workToolPose = function (slot, elapsed) {
+  const look = Render.WORK_LOOKS[slot];
+  if (!look || elapsed < 0) return null;
+  const t = (elapsed % look.beatMs) / look.ms;
+  if (t >= 1) return null;
+  const strike = 1 - (1 - t) ** 3;
+  return { rotation: -0.9 + 1.7 * strike, alpha: Math.min(1, (1 - t) / 0.2),
+    scale: 0.9, x: -10, y: 3, gripX: 0.25, gripY: 0.75 };
+};
+Render.drawWorkWheel = function (g, cx, cy, progress) {
+  const p = Math.max(0, Math.min(1, progress));
+  const start = -Math.PI / 2, end = start + Math.PI * 2 * p;
+  // Adjacent sectors avoid making the filled portion more opaque by stacking.
+  const sector = (a, b, color) => {
+    if (b <= a) return;
+    g.fillStyle(color, Render.WORK_WHEEL.alpha);
+    g.beginPath(); g.moveTo(cx, cy);
+    g.arc(cx, cy, Render.WORK_WHEEL.radius, a, b, false);
+    g.closePath(); g.fillPath();
+  };
+  sector(end, start + Math.PI * 2, 0x27332f);
+  sector(start, end, 0xffffff);
+};
+
 Render.enemyMeleeColor = function (c) {
   const colors = { fire_elemental: 0xff863f, ice_elemental: 0x8de5ff,
     ghost: 0xb3a0ff, slime: 0x90d970, treant: 0xb4d77a };

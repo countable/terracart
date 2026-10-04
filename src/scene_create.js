@@ -926,10 +926,11 @@ class SceneCreate {
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
-    // The tool in the middle of the ring — one image, re-textured per wheel by
-    // _setWorkProgressIcon and placed by _drawWorkProgress. Hidden between wheels.
+    this._workToolGfx = this.add.graphics().setDepth(96);
+    this._wateringEffects = [];
+    // One reusable image swings the owned tool beside the target cell.
     this._workProgressIcon = this.add.image(0, 0, '__WHITE')
-      .setDepth(95.5).setAlpha(WORK_TOOL_ALPHA).setVisible(false);
+      .setDepth(97).setAlpha(WORK_TOOL_ALPHA).setVisible(false);
     this._workProgressToolKey = null;
     this._workProgress = null;
 

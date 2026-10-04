@@ -518,10 +518,10 @@ test('particles: a crop reaching its next stage bursts on every path that grows 
     'the can jump bursts on the cell');
 });
 
-test('particles: watering a crop says so and sprinkles the cell', () => {
+test('particles: watering a crop names the action and triggers one cell effect', () => {
   // The tap on a dry plant names the action like till / plant /
   // harvest do, says HOW when there is no can (the only hint one exists), and
-  // throws the water burst on the cell, before the jump's sprout burst.
+  // starts the watering effect on the cell, before the jump's sprout burst.
   const inter = INTERACT_JS_SRC;
   const a = inter.indexOf("    if (!p.watered_t) {");
   assert.truthy(a > 0, 'found the watering branch');
@@ -534,10 +534,9 @@ test('particles: watering a crop says so and sprinkles the cell', () => {
   assert.truthy(m && m[1].split(' ').length <= 3, 'the no-can verb phrase is at most three words');
   assert.truthy(/`💧 \$\{how\} — \$\{stageReadout\(\)\}`/.test(body),
     'the flash leads with the verb, then the stage readout');
-  assert.truthy(/scene\._burstAtWorld\?\.\('water', cwmx, cwmy\);\n\s+if \(jumped\) scene\._burstAtWorld\?\.\('sprout', cwmx, cwmy\);/.test(body),
-    'the water burst lands on the cell, under the jump burst');
-  assert.truthy(Particles.PRESETS.water, 'the water preset exists');
-  assert.eq(Particles.PRESETS.water.tex.shape, 'drop', 'and it throws drops');
+  assert.truthy(/scene\._playWatering\?\.\(cwmx, cwmy\);\n\s+if \(jumped\) scene\._burstAtWorld\?\.\('sprout', cwmx, cwmy\);/.test(body),
+    'the can pour or bare-hand sweep starts on the cell, with a sprout burst only on a jump');
+  assert.eq((body.match(/_playWatering/g) || []).length, 1, 'one watering effect per action');
 });
 
 test('particles: Crops.advanceGrowth / waterWithin report the plants they moved', () => {

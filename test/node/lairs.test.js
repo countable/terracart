@@ -1458,12 +1458,10 @@
       'the health bar rides a crown half as high');
     const full = SpriteLayout.creatureTapSpanPx(k), half = SpriteLayout.creatureTapSpanPx(k, 0.5);
     assert.lt(half.bottom - half.top, full.bottom - full.top, 'and the tap box shrinks');
-    // Every reader passes the instance: render, health bars, wheel, tap.
+    // Art-dependent readers pass the instance; work wheels use the cell centre.
     assert.truthy(/setScale\(creatureScale\(c\.kind, creatureInstScale\(c\)\)\)/.test(RENDER_SRC), 'render draws it');
     assert.eq((SCENE_SRC.match(/creatureHealthBarTop\([^)]*, SpriteLayout\.creatureInstScale\(/g) || []).length,
       (SCENE_SRC.match(/creatureHealthBarTop\(/g) || []).length, 'every health bar seat passes it');
-    assert.truthy(/creatureWheelDy\(creature\.kind, SpriteLayout\.creatureInstScale\(creature\)\)/.test(SCENE_SRC),
-      'the wheel');
   });
 
 })();
