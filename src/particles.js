@@ -93,7 +93,7 @@
     // Slow blood-red embers and dull gold mark an approaching threat.
     eliteArrival: {
       tex: { shape: 'star', color: '#a62d36', core: '#d6a842', size: 12 },
-      count: 16, angle: [245, 295], speed: [18, 55], lifespan: [1000, 1700],
+      count: 16, angle: [245, 295], speed: [18, 55], lifespan: [1000, 1400],
       gravityY: -12, scale: [0.8, 0.1], alpha: [0.85, 0], rotate: [0, 90],
     },
     // ✨ SHINY FIND / ELITE SLAIN — the richer cousin, in the pale gold the
