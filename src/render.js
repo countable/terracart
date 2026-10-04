@@ -4123,6 +4123,20 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
+  // Elite circles stay on the ground through hops and use baked glow even with FX off.
+  if (scene.shadowContainer) {
+    scene.eliteRingPool ||= [];
+    const elites = creatureList.filter(({ c }) => Combat.isElite(c) && !Combat.isConcealed(c));
+    Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, elites, (s, item) => {
+      const { sx, sy } = project(item.dx, item.dy);
+      const size = 36 * giantMul(item.c.kind) * creatureInstScale(item.c);
+      setTextureIfDifferent(s, 'elite_ring');
+      s.setOrigin(0.5, 0.5).setDisplaySize(size, size / 2)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY)
+       .setAlpha(1).setTint(0xffffff);
+    });
+  }
+
   // Renderer-AGNOSTIC shiny markers. The gold setTint() above is a WebGL multiply
   // that does NOTHING under Phaser's Canvas fallback, so a baked-gold sparkle
   // floats above every shiny entity instead (animated with pure transforms that

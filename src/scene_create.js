@@ -738,6 +738,16 @@ class SceneCreate {
       sg.generateTexture('bldg_shadow', 64, 32);
       sg.destroy();
     }
+    // Baked gold keeps the elite foot ring visible without the optional FX pipeline.
+    if (!this.textures.exists('elite_ring')) {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      for (const [width, alpha] of [[10, 0.08], [7, 0.15], [4, 0.3], [2, 0.95]]) {
+        g.lineStyle(width, SHINY_TINT, alpha);
+        g.strokeEllipse(32, 16, 50, 18);
+      }
+      g.generateTexture('elite_ring', 64, 32);
+      g.destroy();
+    }
     // Soft round halos — a glow that fades from the centre out, baked once and
     // reused for every pulsing aura: the player's warning auras (out of energy,
     // strayed far from the GPS) and the slow breath that marks a POI. Baked in

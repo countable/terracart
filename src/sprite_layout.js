@@ -752,6 +752,7 @@
   // here, so the whole body shrinks together.
   function creatureInstScale(c, now) {
     return (c._artScale ?? c.artScale ?? 1) * (isBabyPet(c, now) ? PET_BABY.scale : 1)
+      * (root.Combat?.isElite(c) ? 1.15 : 1)
       * (root.PotionEffects ? root.PotionEffects.scaleMul(c) : 1);
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
