@@ -2821,6 +2821,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
       this._lowHealthStory();
       this._firstSaleStory();
+      PetStories.drain(this);
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
       NPC.tickArrivals(this, Date.now());
@@ -9304,6 +9305,7 @@ class MapScene extends Phaser.Scene {
       return n;
     }
     const r = Inventory.add(this.save, id, n);
+    if (r.accepted > 0) PetStories.queue(this, id);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
     // The wild-finds ledger (items.js homeRecipeLocked): every grant counts
     // unless its caller says it was bought, bartered, forged or crafted.
@@ -9999,6 +10001,7 @@ class MapScene extends Phaser.Scene {
       return false;
     }
     this._eggHatchTracker = null;
+    PetStories.queue(this, result.petId);
     this.save.selSlot = this.save.inv.findIndex(item => item.id === selectedId);
     this._clampSelSlot();
     persistSave(this.save);

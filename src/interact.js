@@ -93,6 +93,7 @@ function tameInPlace(scene, save, target, flashMsg, flashIcon, flashScale) {
     'lairX', 'lairY', 'lairR', 'seatX', 'seatY', 'aggroCells', 'proximityCells',
     '_wardFrom', '_hunting', '_chaseTarget', '_wanderOffUntilT']) delete target[key];
   target.id = tameId;   // convert the in-world creature in place → now tame
+  PetStories.queue(scene, target.kind);
   scene.flashLoot(flashMsg, '#a7ffb0', flashScale, flashIcon);
   persistSave(save);
 }

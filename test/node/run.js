@@ -110,7 +110,7 @@ const FILES = [
   // Fight maths (pure; combat.test.js registers a synthetic monster table).
   'ground_fire.js', 'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure, so wizard.test.js drives the shipping rules.
-  'wizard.js', 'dragon_story.js', 'memory_story.js', 'story_encounters.js',
+  'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js',
   'interact.js',
   // The Book curriculum loads after the mechanic owners whose values it teaches.
   'play_tips.js',
@@ -142,7 +142,7 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters, ObstacleStep,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
