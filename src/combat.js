@@ -695,6 +695,12 @@
   // pet's double). The fight in scene_creatures.js reads this, never petBite
   // alone.
   function petBlow(c) { return meleeBlow(c, petBite(c.kind)); }
+  // Armed allies share the player weapon reach; other pets keep their bite range.
+  function petReachCells(c) {
+    const weapon = root.SpriteLayout?.CREATURE_BEHAVIOUR[c.kind]?.meleeWeapon;
+    const base = weapon ? meleeReachM(1, weapon) : 1.5;
+    return root.PotionEffects ? root.PotionEffects.range(c, base) : base;
+  }
 
   // Current HP, lazily seeded from the kind's max the first time anything hits
   // it. Creatures are re-spawned from tile data on every reload, so `_hp` is
@@ -1564,7 +1570,7 @@
   const api = {
     MONSTERS,
     registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
-    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, meleeBlow,
+    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, meleeBlow, petReachCells,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,

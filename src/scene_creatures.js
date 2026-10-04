@@ -1597,7 +1597,7 @@ class SceneCreatures {
     this._setWorkProgressIcon(toolSlot);
     this._workProgress = {
       worldX: creature.x, worldY: creature.y, onComplete, durationMs,
-      energyRefund, startT: t, _lastT: t, flee: creature, onFail,
+      energyRefund, toolSlot, startT: t, _lastT: t, flee: creature, onFail,
     };
   }
 
@@ -1976,6 +1976,7 @@ class SceneCreatures {
         const BUTT_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + fightsBack.hitMs;
+          creatureMeleeSwing(c, px, py, BUTT_R / this.cellM);
           foeBlowLands(this, c, Combat.meleeBlow(c, fightsBack.dmg));
         }
       }
@@ -2178,13 +2179,16 @@ class SceneCreatures {
         if (c._chaseTarget) {
           const tgt = c._chaseTarget;
           const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
-          const FIGHT_R2 = (PotionEffects.range(c, 1.5) * this.cellM) ** 2;
+          const fightRange = Combat.petReachCells(c);
+          const FIGHT_R2 = (fightRange * this.cellM) ** 2;
           if (fd2 <= FIGHT_R2) {
             // One HP table for every fight (combat.js): the bite is Combat.petBite (a
             // point for a tame pet, the slime's own blow for the spirit raven). The prey
             // bites back a point either way.
             tgt._hp = Combat.damage(tgt, Combat.petBlow(c));
             c._hp   = Combat.damage(c, 1);
+            creatureMeleeSwing(c, tgt.x, tgt.y, fightRange);
+            creatureMeleeSwing(tgt, c.x, c.y, fightRange);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();
             // A pet's bite is a blow too: a splitting slime divides under it

@@ -49,6 +49,105 @@
 
 const Render = {};
 
+// Shared, short-lived melee art. The event is authored by the damage lane;
+// drawing never changes attack cadence or reach.
+Render.MELEE_LOOKS = {
+  sword: { ms: 260, sweep: Math.PI * 0.75 },
+  dagger: { ms: 180 },
+  lance: { ms: 300 },
+};
+Render.meleePose = function (sw, now, weapon = 'sword', reachPx = Combat.meleeReachM(CELL_PX, weapon)) {
+  // Bare hands and every creature share the mercenary's single sweep.
+  const look = Render.MELEE_LOOKS[weapon] || Render.MELEE_LOOKS.sword;
+  const t = (now - sw.startT) / look.ms;
+  if (t < 0 || t >= 1) return null;
+  const base = Math.atan2(sw.dir.y, sw.dir.x);
+  const advance = Math.sin(Math.PI * t);
+  const angle = base + (look.sweep ? look.sweep * (t - 0.5) : 0);
+  const radius = reachPx * (look.sweep ? 1 : 0.35 + 0.65 * advance);
+  return { t, angle, radius, tail: angle - (look.sweep || 0) * Math.min(t, 0.3),
+    alpha: Math.min(1, (1 - t) / 0.3), weapon, look, reachPx };
+};
+Render.meleeWeaponPose = function (pose) {
+  // Keep the actual 16px icon compact. Its tip meets the reach boundary at
+  // full extension; the grip slides forward instead of stretching the art.
+  const grip = pose.weapon === 'lance' ? 0.25 : 0.3;
+  const scale = Math.min(pose.weapon === 'lance' ? 0.9 : 0.8,
+    pose.reachPx / (16 * Math.SQRT2));
+  const tipLength = (1 - grip) * 16 * Math.SQRT2 * scale;
+  return { grip, scale, handRadius: Math.max(0, pose.radius - tipLength) };
+};
+Render.drawMelee = function (g, pose, x, y, color = 0xe8ecf0) {
+  if (!pose) return;
+  const { angle, radius, alpha, look } = pose;
+  g.lineStyle(2, color, alpha * 0.8);
+  g.beginPath();
+  if (look.sweep) {
+    g.arc(x, y, radius, pose.tail, angle, false);
+  } else {
+    const ux = Math.cos(angle), uy = Math.sin(angle);
+    g.moveTo(x + ux * radius * 0.35, y + uy * radius * 0.35);
+    g.lineTo(x + ux * radius, y + uy * radius);
+  }
+  g.strokePath();
+};
+// Work happens at the target cell, with a brief recovery between strokes.
+Render.WORK_WHEEL = { radius: 7, alpha: 0.5 };
+Render.WORK_LOOKS = {
+  axe: { ms: 360, beatMs: 700, impact: { kind: 'tree', atMs: 180, ms: 360 } }, hoe: { ms: 360, beatMs: 700 },
+  pickaxe: { ms: 360, beatMs: 700, impact: { kind: 'mineralrock', atMs: 180, ms: 300 } }, net: { ms: 440, beatMs: 850 },
+};
+Render.workToolPose = function (slot, elapsed) {
+  const look = Render.WORK_LOOKS[slot];
+  if (!look || elapsed < 0) return null;
+  const t = (elapsed % look.beatMs) / look.ms;
+  if (t >= 1) return null;
+  const strike = 1 - (1 - t) ** 3;
+  return { rotation: -0.9 + 1.7 * strike, alpha: Math.min(1, (1 - t) / 0.2),
+    scale: 0.9, x: -10, y: 3, gripX: 0.25, gripY: 0.75 };
+};
+// Recoil shares the tool's clock and only touches the object being worked.
+Render.workImpactPose = function (wp, object, now) {
+  if (!wp || wp.combat || now < wp.startT || now - wp.startT >= wp.durationMs) return null;
+  const look = Render.WORK_LOOKS[wp.toolSlot], impact = look?.impact;
+  if (!impact || object.kind !== impact.kind || object.x !== wp.worldX || object.y !== wp.worldY) return null;
+  const age = ((now - wp.startT) % look.beatMs) - impact.atMs;
+  if (age < 0 || age >= impact.ms) return null;
+  const t = age / impact.ms, fade = (1 - t) ** 2;
+  return object.kind === 'tree'
+    ? { rotation: Math.sin(t * Math.PI * 2) * 0.07 * fade, x: 0, y: 0 }
+    : { rotation: 0, x: Math.sin(t * Math.PI * 6) * 2 * fade,
+        y: -Math.abs(Math.sin(t * Math.PI * 6)) * 0.6 * fade };
+};
+Render.applyWorkImpact = function (sprite, pose, pivotX, pivotY) {
+  if (!pose) return;
+  // Rotate about the trimmed trunk base, leaving its world seat and depth fixed.
+  const dx = sprite.x - pivotX, dy = sprite.y - pivotY;
+  const cos = Math.cos(pose.rotation), sin = Math.sin(pose.rotation);
+  sprite.setPosition(pivotX + dx * cos - dy * sin + pose.x,
+    pivotY + dx * sin + dy * cos + pose.y).setRotation(pose.rotation);
+};
+Render.drawWorkWheel = function (g, cx, cy, progress) {
+  const p = Math.max(0, Math.min(1, progress));
+  const start = -Math.PI / 2, end = start + Math.PI * 2 * p;
+  // Adjacent sectors avoid making the filled portion more opaque by stacking.
+  const sector = (a, b, color) => {
+    if (b <= a) return;
+    g.fillStyle(color, Render.WORK_WHEEL.alpha);
+    g.beginPath(); g.moveTo(cx, cy);
+    g.arc(cx, cy, Render.WORK_WHEEL.radius, a, b, false);
+    g.closePath(); g.fillPath();
+  };
+  sector(end, start + Math.PI * 2, 0x27332f);
+  sector(start, end, 0xffffff);
+};
+
+Render.enemyMeleeColor = function (c) {
+  const colors = { fire_elemental: 0xff863f, ice_elemental: 0x8de5ff,
+    ghost: 0xb3a0ff, slime: 0x90d970, treant: 0xb4d77a };
+  return c.shiny ? 0xffd36a : colors[SpriteLayout.baseKind(c.kind)] || 0xe8ecf0;
+};
+
 // Flat ground props always precede upright pieces. Within each lane, ground
 // anchors determine occlusion; rank only breaks exact ties, so stepping
 // within one cell can still pass behind a tree.
@@ -3342,6 +3441,8 @@ Render.drawObjects = function drawObjects(scene) {
     // rocks).
     // Handed the scene so a hook can read the save (tool tiers).
     if (typeof spec.after === 'function') spec.after(s, o, scene);
+    Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
+      Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
   };
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
@@ -3980,6 +4081,11 @@ Render.drawObjects = function drawObjects(scene) {
   const CREATURE_GROUND_DY = (typeof SpriteLayout !== 'undefined'
     && SpriteLayout.CREATURE_GROUND_DY != null) ? SpriteLayout.CREATURE_GROUND_DY : 2;
 
+  // Pool effects with the visible creatures and seat them beside their body
+  // in the same depth-sorted container. Hidden/offscreen actors leave no trail.
+  scene._creatureMeleePool ||= [];
+  let meleeUsed = 0;
+  for (const effect of scene._creatureMeleePool) effect.setVisible(false).clear();
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
@@ -4068,6 +4174,21 @@ Render.drawObjects = function drawObjects(scene) {
     // Where the body's centre landed — the glow pass below sits on it, so the
     // halo rides the hover and the bob with the sprite.
     item._bodyY = s.y - (s.originY - 0.5) * s.displayHeight;
+    if (c._meleeSwing) {
+      const pose = Render.meleePose(c._meleeSwing, performance.now(), 'sword',
+        c._meleeSwing.reachCells * CELL_PX);
+      if (pose) {
+        let effect = scene._creatureMeleePool[meleeUsed];
+        if (!effect) {
+          effect = scene.add.graphics();
+          scene.creaturesContainer.add(effect);
+          scene._creatureMeleePool.push(effect);
+        }
+        meleeUsed++;
+        effect.setVisible(true).setDepth((item._z ?? 0) + 0.1);
+        Render.drawMelee(effect, pose, s.x, item._bodyY, Render.enemyMeleeColor(c));
+      } else delete c._meleeSwing;
+    }
   });
 
   // THE GHOST'S GLOW — a non-lighting halo on each glowing kind, on its body

@@ -1695,7 +1695,7 @@ const TAP_HANDLERS = [
                           : `💧 ${how} — ${stageReadout()}`), sx, sy);
       // The visual cue: a sprinkle of drops onto the cell (particles.js
       // 'water'). A jump adds the sprout burst on top — two things happened.
-      scene._burstAtWorld?.('water', cwmx, cwmy);
+      scene._playWatering?.(cwmx, cwmy);
       if (jumped) scene._burstAtWorld?.('sprout', cwmx, cwmy);
       return true;
     }
