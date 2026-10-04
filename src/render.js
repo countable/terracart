@@ -1507,7 +1507,42 @@ Render.applyEmergence = function (sprite, creature, now) {
   sprite.y += height * sprite.scaleY * (1 - progress);
 };
 
+// A fine dashed vector over ground, below buildings, objects, lighting and fog.
+Render.drawChestTrails = function drawChestTrails(scene) {
+  let g = scene._chestTrailGfx;
+  g?.clear();
+  if (typeof Starter === 'undefined' || !scene.cobbleContainer) return;
+  const paths = Starter.trailPaths(scene, Date.now());
+  if (!paths.length) return;
+  if (!g) { g = scene._chestTrailGfx = scene.add.graphics(); scene.cobbleContainer.add(g); }
+  const style = Starter.TRAIL_STYLE;
+  g.lineStyle(style.width, style.colour, style.alpha);
+  for (const path of paths) {
+    let along = 0;
+    g.beginPath();
+    for (let i = 1; i < path.points.length; i++) {
+      const a = worldMetersToScreen(scene, path.points[i - 1].x, path.points[i - 1].y);
+      const b = worldMetersToScreen(scene, path.points[i].x, path.points[i].y);
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      if (!length) continue;
+      let at = 0;
+      while (at < length) {
+        const phase = along % (style.dash + style.gap), ink = phase < style.dash;
+        const span = Math.min(length - at, (ink ? style.dash : style.dash + style.gap) - phase);
+        if (ink) {
+          g.moveTo(a.x + (b.x - a.x) * at / length, a.y + (b.y - a.y) * at / length);
+          g.lineTo(a.x + (b.x - a.x) * (at + span) / length, a.y + (b.y - a.y) * (at + span) / length);
+        }
+        at += span; along += span;
+        if (span < 1e-8) { along += 1e-7; }
+      }
+    }
+    g.strokePath();
+  }
+};
+
 Render.drawCells = function drawCells(scene) {
+  Render.drawChestTrails(scene);
   const g = scene.cellGfx;
   g.clear();
   scene._groundFireGfx?.clear();

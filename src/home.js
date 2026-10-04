@@ -44,10 +44,32 @@ const HomeArea = {
   // below (via applySoftwood, app.js's per-player overlay) — a new home-area
   // feature should route through it rather than an inline hypot check, so the
   // zone keeps one definition.
-  isNear(x, y, radiusM = HomeArea.NEAR_M) {
-    if (!this.worldM) return false;
-    const dx = x - this.worldM.x, dy = y - this.worldM.y;
+  isNear(x, y, radiusM = HomeArea.NEAR_M, anchor = this.worldM) {
+    if (!anchor) return false;
+    const dx = x - anchor.x, dy = y - anchor.y;
     return dx * dx + dy * dy <= radiusM * radiusM;
+  },
+
+  CHEST_TRAIL_LIMIT: 5,
+
+  // Optional treasure trails share Home's ring with the starter supplies.
+  // Pick by distance and id, so streaming order never reshuffles the trails.
+  chestTrailCandidates(scene, anchor = scene.save.starterCratesAt || this.worldM) {
+    if (!anchor || (scene.depth || 0) !== 0 || !(scene.cellM > 0)) return [];
+    const opened = new Set(scene.save.opened || []), candidates = new Map();
+    const radius = this.RING_MAX_CELLS * scene.cellM;
+    for (const entry of WorldGen.tileCache.values()) {
+      for (const o of entry.objects || []) {
+        if (o.kind !== 'chest' || !o.id || String(o.id).startsWith('chest_start_')
+            || (o.depth || 0) !== 0 || opened.has(o.id)
+            || !this.isNear(o.x, o.y, radius, anchor)
+            || chestTier(o) < 3 || chestLook(o).texKey !== 'chest') continue;
+        candidates.set(o.id, o);
+      }
+    }
+    const distance = o => (o.x - anchor.x) ** 2 + (o.y - anchor.y) ** 2;
+    return [...candidates.values()].sort((a, b) => distance(a) - distance(b)
+      || String(a.id).localeCompare(String(b.id))).slice(0, this.CHEST_TRAIL_LIMIT);
   },
 
   // Trees within NEAR_M of the start are SOFTWOOD (species 'pine'). The early
