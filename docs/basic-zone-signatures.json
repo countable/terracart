@@ -61,20 +61,29 @@
           "itemQuality": null,
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:meadow_fern",
-            "label": "Forage fern",
+            "id": "proposal:grass_common_item_frond",
+            "label": "Tender shoot patch",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/fern.png",
+              "path": "docs/proposal-art/round2/grass_common_item_frond.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_frond.png",
+              "sourcePath": "db32_rpg_items/item_frond.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "f9e65a04bf7c98c936bf3b7ba1d42a20821679b1edf3e686df8ab6fc096f04e6",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Cut fern fronds for useful plant fibre (long grass).",
-              "mechanicStatus": "existing_handler_new_placement",
-              "reuse": "src/items.js WILDPLANT_RULES.longgrass",
-              "requires": "Register fern art and a harvest row yielding the existing longgrass item; assign grass-only seats."
+              "action": "Cut a tender shoot for plant fibre; leave the roots for a daily regrowth.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Harvest state and fibre reward; use dailyVisit for regrowth."
             }
           }
         },
@@ -98,20 +107,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:feeding_bale",
-            "label": "Feeding bale",
+            "id": "proposal:grass_uncommon_item_magnifying_glass",
+            "label": "Naturalist lens",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/hay_bale.png",
+              "path": "docs/proposal-art/round2/grass_uncommon_item_magnifying_glass.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_magnifying_glass.png",
+              "sourcePath": "db32_rpg_items/item_magnifying_glass.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "76a9efa043a18702cf71d8a4ead77cb4f254e8cf9aa87b43796a0a3655172e48",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Spend harvested grass to refill a bale and attract a nearby cow for taming.",
+              "action": "Inspect three nearby plants in order to earn a seed sample.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/scene_creatures.js fauna attraction; src/items.js longgrass",
-              "requires": "Add refill costs, a bounded attraction effect and persistent empty/full state. Do not introduce deer to grass."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Short deterministic observation challenge and completion reward; never require restricted land."
             }
           }
         },
@@ -135,20 +153,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:meadow_trough",
-            "label": "Meadow water trough",
+            "id": "proposal:grass_rare_item_compass",
+            "label": "Wayfinder compass",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/water_trough.png",
+              "path": "docs/proposal-art/round2/grass_rare_item_compass.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_compass.png",
+              "sourcePath": "db32_rpg_items/item_compass.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "34c47a57bf8ffd9d533a26784393e69a33d26ac7ff8ffbdcc9cb45f7a7c36a1e",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Repair and fill a dry trough to briefly calm nearby horses for a taming attempt.",
+              "action": "Align the compass and follow a short public-ground bearing to a buried find.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/scene_creatures.js creature interaction; src/macros.js dailyVisit",
-              "requires": "Add repair/fill interaction and bounded calm duration; reuse existing taming rather than award a free horse."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Bearing puzzle and locally reachable reward seat; persist one-time completion."
             }
           }
         }
@@ -173,20 +200,29 @@
           "itemQuality": null,
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:fallen_timber",
-            "label": "Fallen timber",
+            "id": "proposal:forest_common_item_gem_amber",
+            "label": "Resin pocket",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/log_fallen.png",
+              "path": "docs/proposal-art/round2/forest_common_item_gem_amber.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_gem_amber.png",
+              "sourcePath": "db32_rpg_items/item_gem_amber.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "0f82fa5475cbc041b0b042be00cf293cf892e2d5684aa5df41c220b78b523d82",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Chop a fallen log for wood, leaving a cleared footprint.",
-              "mechanicStatus": "existing_handler_new_placement",
-              "reuse": "src/items.js WILDPLANT_RULES.shrub",
-              "requires": "Register a log harvest row and art, reuse axe work and harvested-object persistence; tune yield and work separately from shrubs."
+              "action": "Chip amber resin from a fallen twig for a small crafting ingredient yield.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Register harvestable resin variant and resource conversion; preview is an item icon, requiring a twig mount."
             }
           }
         },
@@ -333,20 +369,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:community_woodpile",
-            "label": "Community woodpile",
+            "id": "proposal:residential_uncommon_item_envelope",
+            "label": "Undelivered letter",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/woodpile.png",
+              "path": "docs/proposal-art/round2/residential_uncommon_item_envelope.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_envelope.png",
+              "sourcePath": "db32_rpg_items/item_envelope.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "8b9555257e0f4ad4c6f0779d4286cfd5931a799b4bc0f7e3502edf6ebc0a29ee",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Collect a small daily wood allocation from a marked communal pile.",
+              "action": "Read a lost letter and deliver it to a nearby public noticeboard for a reward.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/macros.js dailyVisit; src/items.js wood",
-              "requires": "Add an explicitly communal interaction, fixed wood reward and spent state. Place only in eligible public frontage, never treat private supplies as harvestable."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Local delivery objective with no home-door or private-yard destination."
             }
           }
         },
@@ -370,20 +415,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:wayfarer_lantern",
-            "label": "Wayfarer lantern",
+            "id": "proposal:residential_rare_item_mirror",
+            "label": "Signal mirror",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/lantern_post.png",
+              "path": "docs/proposal-art/round2/residential_rare_item_mirror.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_mirror.png",
+              "sourcePath": "db32_rpg_items/item_mirror.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "33fe2f7b9146cc6a653162e788b51bf2c4f89005739cc7e9517fa9d4272a4c35",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Repair an unlit lantern; it lights the nearby route and grants one daily recovery visit.",
+              "action": "Turn a mounted mirror toward a nearby marker to reveal a concealed supply cache.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/lighting.js; src/macros.js dailyVisit",
-              "requires": "Register a repairable prop, fuel/material cost, active light and a modest energy reward. Archive art is a static concept frame; lit/unlit states need art wiring."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Orientation puzzle, safe target selection and single-claim cache state."
             }
           }
         }
@@ -431,30 +485,39 @@
         },
         "rare": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant well stone sprite exists, but this object is not registered or placed as an ordinary park interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "interactable:restoration_well",
-            "label": "Restoration well"
+            "id": "proposal:park_rare_telescope2",
+            "label": "Birdwatching telescope"
           },
-          "proposalAction": "Restore a dry well with wood and stone, then take a small daily energy recovery.",
+          "proposalAction": "Focus on a sequence of distant park markers to reveal a hidden nature-cache clue.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/interactables.js well; src/macros.js dailyVisit",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/well_stone.png",
+            "path": "docs/proposal-art/round2/park_rare_telescope2.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/telescope2.png",
+            "sourcePath": "db32_rpg_items/telescope2.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "7db91527322df3d21acb5403a8123ed5bd3c5ea2db3cf9ceb8a1b85cb0956fcc",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Restore a dry well with wood and stone, then take a small daily energy recovery.",
+            "action": "Focus on a sequence of distant park markers to reveal a hidden nature-cache clue.",
             "mechanicStatus": "new_behavior",
-            "reuse": "src/interactables.js well; src/macros.js dailyVisit",
-            "requires": "New repair cost/state and daily energy reward. The existing well only advances quests and displays text; it does not refill anything. Use the existing daily ledger and energy feedback, not a new timer."
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "Mounted telescope interaction and observation puzzle; markers stay on public ground."
           }
         }
       }
@@ -478,20 +541,29 @@
           "itemQuality": null,
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:layered_seam",
-            "label": "Layered stone seam",
+            "id": "proposal:rock_common_item_gem_peridot",
+            "label": "Peridot seam",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/ore_vein_rock.png",
+              "path": "docs/proposal-art/round2/rock_common_item_gem_peridot.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_gem_peridot.png",
+              "sourcePath": "db32_rpg_items/item_gem_peridot.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "bba931d4e167a7b611720a00019074a4a8176e4d8dbff0b610bf404987382533",
+              "note": "Visually inspected unchanged archive icon. A grounded rock mount/composite is needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Mine a seam in stages to expose a small, visible resource pocket.",
+              "action": "Expose a green seam with carefully placed mining strikes for a small crafting-mineral yield.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/interactables.js mineralrock; src/items.js MINERAL_TIERS",
-              "requires": "Add staged depletion and exposed-pocket state; use existing stone/copper rewards. This is a new seam mechanic, not an assertion that ordinary copper is exclusive."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Targeted-strike harvesting and spent state; use a rock-mounted gem composite."
             }
           }
         },
@@ -516,20 +588,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:stone_spire",
-            "label": "Stone spire",
+            "id": "proposal:rock_uncommon_item_gem_quartz",
+            "label": "Resonant quartz",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/stalagmite.png",
+              "path": "docs/proposal-art/round2/rock_uncommon_item_gem_quartz.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_gem_quartz.png",
+              "sourcePath": "db32_rpg_items/item_gem_quartz.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "02b198aa08882006c4fa16fdde2b210d2e6392f9177424838a0295f3b8385418",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Break a narrow stone spire with a pickaxe for stone.",
-              "mechanicStatus": "existing_handler_new_placement",
-              "reuse": "src/interactables.js mineralrock",
-              "requires": "Map this distinct art to a mineable plain-stone variant; add deterministic placement and tool-work tuning. Reserve these surface spires for rock terrain."
+              "action": "Tap the quartz in its repeating rhythm to release a small mineral reward.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Rhythm interaction and one-time reward, rather than another ordinary ore roll."
             }
           }
         },
@@ -554,20 +635,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:frost_splinter",
-            "label": "Frost splinter",
+            "id": "proposal:rock_rare_item_gem_diamond_rough",
+            "label": "Uncut prism",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/ice_shard.png",
+              "path": "docs/proposal-art/round2/rock_rare_item_gem_diamond_rough.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_gem_diamond_rough.png",
+              "sourcePath": "db32_rpg_items/item_gem_diamond_rough.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "3b77a07c2b3f63ca8c05d54e43d201449670e0d5077f45132bf91697b5baee4c",
+              "note": "Visually inspected unchanged archive icon. A grounded rock mount/composite is needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Mine a brittle frozen splinter for a small frost resource reward.",
-              "mechanicStatus": "existing_handler_new_placement",
-              "reuse": "src/interactables.js mineralrock; src/items.js MINERAL_TIERS",
-              "requires": "Register the sprite as a distinct mineable frost variant with a restricted yield. No new chilling hazard is implied."
+              "action": "Rotate an uncut prism to align its light and uncover a rare find.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Prism orientation puzzle and completed appearance; use a small stone mount."
             }
           }
         }
@@ -600,30 +690,39 @@
         },
         "uncommon": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant crate sprite exists, but this object is not registered or placed as an ordinary school interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "container:seed_exchange",
-            "label": "Seed-exchange crate"
+            "id": "proposal:school_uncommon_item_paper_map",
+            "label": "Scavenger map"
           },
-          "proposalAction": "Open a community seed crate for a small, recurring seed allocation.",
+          "proposalAction": "Match map symbols to three nearby public markers and claim a supply reward.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/interactables.js chest; src/loot.js crateRestoreDays",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
-          "condition": "Accessible public frontage only; retain school-sensitive spawn gates.",
+          "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/crate.png",
+            "path": "docs/proposal-art/round2/school_uncommon_item_paper_map.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/item_paper_map.png",
+            "sourcePath": "db32_rpg_items/item_paper_map.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "3b50ea522803ed6e067c75c00df584271a6e8fd62896b63eab4d64d618f0d1a9",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Open a community seed crate for a small, recurring seed allocation.",
-            "mechanicStatus": "existing_handler_new_placement",
-            "reuse": "src/interactables.js chest; src/loot.js crateRestoreDays",
-            "requires": "Register the art and deterministic placement; assign a narrow seed loot profile and reuse crate restock state. Existing generic crates do not yet have this school-specific profile."
+            "action": "Match map symbols to three nearby public markers and claim a supply reward.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "Accessible local scavenger route and one-time completion ledger."
           }
         },
         "rare": {
@@ -646,20 +745,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:riddle_trail",
-            "label": "Riddle trail marker",
+            "id": "proposal:school_rare_item_book_red_lines",
+            "label": "Field lesson book",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/signpost.png",
+              "path": "docs/proposal-art/round2/school_rare_item_book_red_lines.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_book_red_lines.png",
+              "sourcePath": "db32_rpg_items/item_book_red_lines.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "4d13592a5238636ba23bc73afbc1b0c9a1f59adc02f0d10ec92ecb4d6df92150",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Read a clue, visit the indicated nearby marker and return for a daily reward.",
+              "action": "Read a short illustrated lesson, then identify the matching nearby plant to earn seeds.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/macros.js dailyVisit; src/quests.js",
-              "requires": "Add deterministic paired clue/answer locations and completion state. Use reachable public-edge school seats only. Existing signposts do not implement this puzzle."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Book prompt, plant-identification choice and reward; no quiz answers requiring outside research."
             }
           }
         }
@@ -687,30 +795,39 @@
         },
         "uncommon": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant cart hand sprite exists, but this object is not registered or placed as an ordinary commercial interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "interactable:abandoned_handcart",
-            "label": "Abandoned handcart"
+            "id": "proposal:commercial_uncommon_key4",
+            "label": "Lost locker key"
           },
-          "proposalAction": "Dismantle an abandoned handcart for wood and a modest supply find, with a visible emptied state.",
+          "proposalAction": "Find the matching public locker symbol and open its small supply cache.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/items.js WILDPLANT_RULES.shrub; src/interactables.js chest",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
-          "condition": "Public commercial frontage only.",
+          "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/cart_hand.png",
+            "path": "docs/proposal-art/round2/commercial_uncommon_key4.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/key4.png",
+            "sourcePath": "db32_rpg_items/key4.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "85bcd9fd707a7a3bcfaee5b562d422693fae9aafedb2569d310d720305ed2e45",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Dismantle an abandoned handcart for wood and a modest supply find, with a visible emptied state.",
+            "action": "Find the matching public locker symbol and open its small supply cache.",
             "mechanicStatus": "new_behavior",
-            "reuse": "src/items.js WILDPLANT_RULES.shrub; src/interactables.js chest",
-            "requires": "New salvage object/loot row combining existing axe work with a one-time supply reward. Art and reward state need registration; the cart is not a currently working vehicle."
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "Key-and-lock pairing, owned completion state and public-frontage placement."
           }
         },
         "rare": {
@@ -734,20 +851,29 @@
           },
           "condition": "The shiny catch adds3 item tiers, capped at7; current shiny probability is global, not commercial-specific.",
           "newItemAlternative": {
-            "id": "proposal:travelling_anvil",
-            "label": "Travelling anvil",
+            "id": "proposal:commercial_rare_item_book_brown_square",
+            "label": "Recipe ledger",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/anvil.png",
+              "path": "docs/proposal-art/round2/commercial_rare_item_book_brown_square.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_book_brown_square.png",
+              "sourcePath": "db32_rpg_items/item_book_brown_square.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "7be61a62825b304f4b24d86b758dcdb99b607c0e9c0241468ec7944950352704",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Trade stored metal and coins for one selected equipment upgrade.",
+              "action": "Spend a listed ingredient to complete a recipe and gain a one-time crafted item.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/gear.js blacksmith recipes",
-              "requires": "Reuse existing smith costs and upgrade eligibility through a new prop interaction; do not grant free upgrades or invent tool durability. Archive anvil is proposal art, not a registered forge."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Recipe choice and atomic ingredient/reward exchange; preview book needs a counter mount."
             }
           }
         }
@@ -776,30 +902,39 @@
         },
         "uncommon": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant cart wheel sprite exists, but this object is not registered or placed as an ordinary industrial interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "interactable:salvage_wheel",
-            "label": "Salvage wheel"
+            "id": "proposal:industrial_uncommon_pickaxe_crusty",
+            "label": "Jammed salvage tool"
           },
-          "proposalAction": "Break down a discarded iron-rimmed wheel for wood and an occasional iron resource.",
+          "proposalAction": "Free a rusted tool from scrap, choosing safe leverage to recover metal.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/items.js WILDPLANT_RULES.giant_mushroom; MINERAL_TIERS",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/cart_wheel.png",
+            "path": "docs/proposal-art/round2/industrial_uncommon_pickaxe_crusty.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/pickaxe_crusty.png",
+            "sourcePath": "db32_rpg_items/pickaxe_crusty.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "4ad26b86b5d4a8f260f0eb7bc3879be351344a5f74dc334a8b074531ee2f777b",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Break down a discarded iron-rimmed wheel for wood and an occasional iron resource.",
+            "action": "Free a rusted tool from scrap, choosing safe leverage to recover metal.",
             "mechanicStatus": "new_behavior",
-            "reuse": "src/items.js WILDPLANT_RULES.giant_mushroom; MINERAL_TIERS",
-            "requires": "Add a salvage output row and object registration using the existing tool work and multi-output harvest pipeline. This is salvage, not a new ore patch."
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "Salvage choice and material payout; the tool is the interaction target, not free equipment."
           }
         },
         "rare": {
@@ -823,20 +958,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:reclamation_brazier",
-            "label": "Reclamation brazier",
+            "id": "proposal:industrial_rare_lance_crusty",
+            "label": "Grounding rod",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/brazier_cold.png",
+              "path": "docs/proposal-art/round2/industrial_rare_lance_crusty.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/lance_crusty.png",
+              "sourcePath": "db32_rpg_items/lance_crusty.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "1d0b2cc6dcc5f82531a486ab604f1d7ebd9ee0241bf8bda95821a1b8fea70880",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Fuel a cold brazier to process one batch of scrap into an existing metal resource.",
+              "action": "Connect a loose grounding rod to discharge a live salvage pile before opening it.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/items.js metal resources; src/macros.js dailyVisit",
-              "requires": "Define accepted scrap inputs, conversion recipe, energy cost and lit/spent state. Cap processing using existing daily state; new behavior and lit art are required."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Small safety-order puzzle and live/discharged states; preview rod needs a scrap base."
             }
           }
         }
@@ -848,30 +992,39 @@
       "slots": {
         "common": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant sack sprite exists, but this object is not registered or placed as an ordinary playground interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "container:lost_supplies",
-            "label": "Lost supply sack"
+            "id": "proposal:playground_common_item_feather",
+            "label": "Wind feather"
           },
-          "proposalAction": "Search an abandoned supply sack once for a small useful supply, leaving a spent sack.",
+          "proposalAction": "Follow and catch a drifting feather before it settles for a small energy reward.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/interactables.js chest; src/loot.js chest contents",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/sack.png",
+            "path": "docs/proposal-art/round2/playground_common_item_feather.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/item_feather.png",
+            "sourcePath": "db32_rpg_items/item_feather.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "638d8a1b53b16f758a0e59bdf75d037af1ed07540f7ae7ec690fa8eb33eda795",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Search an abandoned supply sack once for a small useful supply, leaving a spent sack.",
-            "mechanicStatus": "existing_handler_new_placement",
-            "reuse": "src/interactables.js chest; src/loot.js chest contents",
-            "requires": "A sack art mapping, deterministic placement and a modest fixed-loot profile. Reuse the one-time opened ledger. Existing unrelated sacks/containers elsewhere would need ownership review before exclusivity is claimed."
+            "action": "Follow and catch a drifting feather before it settles for a small energy reward.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "Short chase interaction constrained to accessible playground ground."
           }
         },
         "uncommon": {
@@ -896,20 +1049,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:buried_bucket",
-            "label": "Buried play bucket",
+            "id": "proposal:playground_uncommon_stave1",
+            "label": "Trail wand",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/bucket.png",
+              "path": "docs/proposal-art/round2/playground_uncommon_stave1.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/stave1.png",
+              "sourcePath": "db32_rpg_items/stave1.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "abaa4d18a0894e47993a933947ac389c8059ba3a2a9d6cfd9f248094a8799380",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Dig out a half-buried bucket and search it once for a modest supply find.",
+              "action": "Touch a play wand and follow its sequence of glowing stepping spots.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/interactables.js chest; src/items.js tool work",
-              "requires": "Add a dig-then-open sequence and opened state; use existing low-tier supply loot. Reuse this single bucket art with placement offset, not a claim that digging already exists."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Memory trail minigame and one-time reward; no combat weapon pickup."
             }
           }
         },
@@ -934,20 +1096,29 @@
           },
           "condition": "Shiny butterfly item quality is base3+3=6 (Legendary), not the proposed encounter label.",
           "newItemAlternative": {
-            "id": "proposal:puzzle_pedestal",
-            "label": "Puzzle pedestal",
+            "id": "proposal:playground_rare_item_book_purple_square",
+            "label": "Story puzzle book",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/statue_base.png",
+              "path": "docs/proposal-art/round2/playground_rare_item_book_purple_square.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_book_purple_square.png",
+              "sourcePath": "db32_rpg_items/item_book_purple_square.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "450051a3592adc654df49c0c4831a87f78f58d67e373a28d607d05e65163c041",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Fit found tokens into a pedestal in the shown order for a daily reward.",
+              "action": "Arrange three pictured story events to unlock a toy-sized supply cache.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/macros.js dailyVisit; src/interactables.js chest",
-              "requires": "Add puzzle UI, token rules and completion state. Base art is available; puzzle symbols and solved-state presentation still need authoring."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Three-choice order puzzle with retry and persistent completion."
             }
           }
         }
@@ -972,20 +1143,29 @@
           "itemQuality": null,
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:course_marker",
-            "label": "Practice course marker",
+            "id": "proposal:pitch_common_item_arrow",
+            "label": "Practice arrow marker",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/fence_post.png",
+              "path": "docs/proposal-art/round2/pitch_common_item_arrow.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_arrow.png",
+              "sourcePath": "db32_rpg_items/item_arrow.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "2bc9f65d95ab22df7a4fb08d7509a77c53396cc4cb0e04e78237e01274c2a353",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Repair a broken course marker with wood to earn a small one-time supply reward.",
+              "action": "Retrieve an arrow after a short target-aiming exercise.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/items.js wood; src/interactables.js chest",
-              "requires": "Add repair cost and repaired state; place at pitch perimeter and preserve the playing surface. No rock reward or mineral placement."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Safe target minigame and small material reward; no rocks or hostile combat."
             }
           }
         },
@@ -1005,49 +1185,67 @@
           "itemQuality": null,
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:field_banner",
-            "label": "Field trial banner",
+            "id": "proposal:pitch_uncommon_armor_boots_crusty",
+            "label": "Sprint boots marker",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/banner_pole_f0.png",
+              "path": "docs/proposal-art/round2/pitch_uncommon_armor_boots_crusty.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/armor_boots_crusty.png",
+              "sourcePath": "db32_rpg_items/armor_boots_crusty.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "3fa5b5b5ebd369ff785feb7f2924c6e74db5d428f142fa70fcc050c48816898e",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Start a short timed perimeter course and claim a daily completion reward.",
+              "action": "Start a short timed circuit between accessible pitch-edge markers.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/macros.js dailyVisit",
-              "requires": "Add reachable deterministic checkpoints, progress UI and completion timing. Keep all course markers at the pitch edge; no rocks. Preview shows the first archived animation frame."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Timed circuit with retry, daily reward and no real-world speed requirement; walking suffices."
             }
           }
         },
         "rare": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant scarecrow sprite exists, but this object is not registered or placed as an ordinary pitch interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "interactable:practice_dummy",
-            "label": "Practice dummy"
+            "id": "proposal:pitch_rare_armor_helmet_gold",
+            "label": "Champion trophy"
           },
-          "proposalAction": "Complete a short timed target-practice challenge for a daily small reward.",
+          "proposalAction": "Complete three precision targets to claim a commemorative reward.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/interact.js place-scarecrow; src/macros.js dailyVisit; src/combat.js",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
-          "condition": "Place at the field boundary, outside play lines.",
+          "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/scarecrow.png",
+            "path": "docs/proposal-art/round2/pitch_rare_armor_helmet_gold.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/armor_helmet_gold.png",
+            "sourcePath": "db32_rpg_items/armor_helmet_gold.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "da47de78b83791e6ade502f502edbf747cf278453cdd27c05c895debdfafbd38",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Complete a short timed target-practice challenge for a daily small reward.",
+            "action": "Complete three precision targets to claim a commemorative reward.",
             "mechanicStatus": "new_behavior",
-            "reuse": "src/interact.js place-scarecrow; src/macros.js dailyVisit; src/combat.js",
-            "requires": "New training interaction and challenge rules. The current scarecrow only wards fauna; it is not an attackable training dummy. Use the existing daily reward ledger."
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "Three-stage accuracy challenge; helmet icon represents a mounted trophy, not free high-tier armour."
           }
         }
       }
@@ -1076,49 +1274,67 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:bundled_reeds",
-            "label": "Harvestable reed clump",
+            "id": "proposal:wetland_common_cattails",
+            "label": "Harvestable cattails",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/reed_clump.png",
+              "path": "docs/proposal-art/round2/wetland_common_cattails.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cattails.png",
+              "sourcePath": "verdant-props-tileset-16x16/tiles/16x16/cattails.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "7e51e97de85ccb50eabb822ed12ed45f9fb92289f917aa5d47341b58cde3c76c",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. World prop art is already present.",
               "license": "docs/proposal-art/VERDANT-LICENSE.txt"
             },
             "interactionProposal": {
-              "action": "Cut a reed clump for long-grass fibre.",
-              "mechanicStatus": "existing_handler_new_placement",
-              "reuse": "src/items.js WILDPLANT_RULES.longgrass",
-              "requires": "Register this standalone reed art and a wetland harvest row yielding existing longgrass; no flowers, stones or ore. Wetland already has reeds visually, so distinction comes from a readable harvestable clump and its yield."
+              "action": "Cut a ripe cattail head for fibre while leaving the plant standing.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Harvestable variant and daily regrowth state; no flower, rock or ore placement."
             }
           }
         },
         "uncommon": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant rotten stump sprite exists, but this object is not registered or placed as an ordinary wetland interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "wildplant:rotting_stump",
-            "label": "Rotting stump"
+            "id": "proposal:wetland_uncommon_item_root",
+            "label": "Bog root knot"
           },
-          "proposalAction": "Split a rotten stump with an axe to collect wood and mushrooms.",
+          "proposalAction": "Pull exposed roots in the right order to free a medicinal ingredient.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/items.js WILDPLANT_RULES.giant_mushroom",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/rotten_stump.png",
+            "path": "docs/proposal-art/round2/wetland_uncommon_item_root.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/item_root.png",
+            "sourcePath": "db32_rpg_items/item_root.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "eb8317e3b20e48841f2e18dc41bd7a74b442c3426bf0b99a4706986b337dba2c",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Split a rotten stump with an axe to collect wood and mushrooms.",
-            "mechanicStatus": "existing_handler_new_placement",
-            "reuse": "src/items.js WILDPLANT_RULES.giant_mushroom",
-            "requires": "A wetland stump art/rule row and deterministic placement reusing axe work and the existing wood-plus-mushroom outputs. No rock, ore or flower placement."
+            "action": "Pull exposed roots in the right order to free a medicinal ingredient.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "Root-order puzzle and ingredient reward; sprite requires a mud-edge mount."
           }
         },
         "rare": {
@@ -1137,20 +1353,29 @@
           "itemQuality": null,
           "condition": "Existing home-distance and time/encounter gates still apply.",
           "newItemAlternative": {
-            "id": "proposal:floating_cache",
-            "label": "Waterlogged log cache",
+            "id": "proposal:wetland_rare_potion_murkygreen",
+            "label": "Filtering flask",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/bog_log.png",
+              "path": "docs/proposal-art/round2/wetland_rare_potion_murkygreen.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/potion_murkygreen.png",
+              "sourcePath": "db32_rpg_items/potion_murkygreen.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "a7c97730ba4a1249a7753706a343178804e99fb67c5f3cf2a31199ec61d1a4ac",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Pry open a waterlogged hollow log to find a one-time seed cache.",
+              "action": "Filter murky water through gathered fibre to prepare a cleansing dose.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/items.js WILDPLANT_RULES.shrub; src/interactables.js chest",
-              "requires": "Add axe-work-then-loot state and a restricted seed profile. Keep the seat on walkable wetland; no rocks, ores or flowers are spawned."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Material conversion and flask ready/used states; drinking unidentified water is not the action."
             }
           }
         }
@@ -1206,7 +1431,8 @@
             "mechanicStatus": "new_behavior",
             "reuse": "src/macros.js dailyVisit; src/items.js consumable definitions; src/conditions.js",
             "requires": "New hive interaction, honey food/reward definition and sting behavior. Existing Potion of Taming is not edible honey; do not silently reuse that item. This is the highest-effort proposal."
-          }
+          },
+          "userPreference": "accepted concept; implementation pending"
         },
         "rare": {
           "currentStatus": "existing_exclusive",
@@ -1237,30 +1463,39 @@
       "slots": {
         "common": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant charred stump sprite exists, but this object is not registered or placed as an ordinary wasteland interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "wildplant:charred_stump",
-            "label": "Charred stump"
+            "id": "proposal:wasteland_common_axe_crusty",
+            "label": "Buried salvage axe"
           },
-          "proposalAction": "Chop charred timber for wood, with a visible ember warning on the occasional still-hot stump.",
+          "proposalAction": "Dig a rusted axe head out of ash and break it down into scrap.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/items.js WILDPLANT_RULES.shrub; src/conditions.js burning",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/charred_stump.png",
+            "path": "docs/proposal-art/round2/wasteland_common_axe_crusty.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/axe_crusty.png",
+            "sourcePath": "db32_rpg_items/axe_crusty.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "836b2bda7ee7679dfd8c63d1729527070e1fadec73a3d48f92517c3be2d766ea",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Chop charred timber for wood, with a visible ember warning on the occasional still-hot stump.",
+            "action": "Dig a rusted axe head out of ash and break it down into scrap.",
             "mechanicStatus": "new_behavior",
-            "reuse": "src/items.js WILDPLANT_RULES.shrub; src/conditions.js burning",
-            "requires": "Reuse ordinary axe harvesting and wood output; add a charred art/rule row. Optional hot-stump behavior requires explicit hazard/light/interaction wiring and a readable warning. No raven placement."
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "One-time salvage material payout; the damaged tool is not equippable."
           }
         },
         "uncommon": {
@@ -1278,20 +1513,29 @@
           "itemQuality": null,
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:masonry_salvage",
-            "label": "Masonry salvage",
+            "id": "proposal:wasteland_uncommon_item_bucket_narrow_lava",
+            "label": "Hot slag pail",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/rubble_masonry.png",
+              "path": "docs/proposal-art/round2/wasteland_uncommon_item_bucket_narrow_lava.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_bucket_narrow_lava.png",
+              "sourcePath": "db32_rpg_items/item_bucket_narrow_lava.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "df90a587871c47fa317f8794e845250df6d1a48e0debb259fb3f7815af06090b",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Break down abandoned masonry into a modest stone supply.",
-              "mechanicStatus": "existing_handler_new_placement",
-              "reuse": "src/interactables.js mineralrock",
-              "requires": "Register a plain-stone salvage appearance and deterministic seats using existing mining/depletion. No ore pocket is added by this alternative."
+              "action": "Cool a pail of glowing slag before extracting metal.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Water-item cost, cooled art state and salvage reward; no direct handling while hot."
             }
           }
         },
@@ -1316,20 +1560,29 @@
           },
           "condition": null,
           "newItemAlternative": {
-            "id": "proposal:ember_vent",
-            "label": "Ember vent",
+            "id": "proposal:wasteland_rare_gravestone",
+            "label": "Memory stone",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/ash_vent_f0.png",
+              "path": "docs/proposal-art/round2/wasteland_rare_gravestone.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/gravestone.png",
+              "sourcePath": "verdant-props-tileset-16x16/tiles/16x16/gravestone.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "78ed875e731c3780d19366a823cbc5f21d0b91cbe56c810f6ed838951003972e",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. World prop art is already present.",
               "license": "docs/proposal-art/VERDANT-LICENSE.txt"
             },
             "interactionProposal": {
-              "action": "Wait for a vent to cool, then extract a rare mineral; approaching during a flare burns.",
+              "action": "Trace worn markings in sequence to release a brief memory and a relic reward.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/conditions.js burning; src/interactables.js mineralrock",
-              "requires": "Add deterministic flare/cool timing, clear hazard telegraph, safe interaction window and reward tuning. Full archived animation exists; only its first frame is previewed."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Inscription puzzle and one-time narrative/reward; use existing memory gating if attached to story progression."
             }
           }
         }
@@ -1341,30 +1594,39 @@
       "slots": {
         "common": {
           "currentStatus": "gap",
-          "currentEvidence": "The archived Verdant crab pot sprite exists, but this object is not registered or placed as an ordinary pier interactable.",
+          "currentEvidence": "The selected archive artwork exists; this interactive object is not registered or spawned.",
           "proposedThing": {
-            "id": "interactable:public_crab_pot",
-            "label": "Public crab pot"
+            "id": "proposal:pier_common_item_bucket_wide_empty",
+            "label": "Bait pail"
           },
-          "proposalAction": "Bait a communal crab pot and return later to collect a shell or crab catch.",
+          "proposalAction": "Place bait in a pail at a public pier and return after a daily reset for a small fishing supply yield.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/interact.js fishing; src/macros.js dailyVisit; src/sprite_layout.js CREATURE_BEHAVIOUR.crab",
-            "docs/ART_SOURCES.md"
+            "docs/ART_SOURCES.md",
+            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
-          "condition": "Only positively identified public piers; unknown and private piers remain empty. No gull placement on piers.",
+          "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/crab_pot.png",
+            "path": "docs/proposal-art/round2/pier_common_item_bucket_wide_empty.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "archivePath": "unused_art/db32_rpg_items/item_bucket_wide_empty.png",
+            "sourcePath": "db32_rpg_items/item_bucket_wide_empty.png",
+            "frameBox": [
+              0,
+              0,
+              16,
+              16
+            ],
+            "sha256": "e2ee79cfce4cebb9b3fdf24a39c2fa7c3663e76b151a6232704fbadcacd4b74d",
+            "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
-            "action": "Bait a communal crab pot and return later to collect a shell or crab catch.",
+            "action": "Place bait in a pail at a public pier and return after a daily reset for a small fishing supply yield.",
             "mechanicStatus": "new_behavior",
-            "reuse": "src/interact.js fishing; src/macros.js dailyVisit; src/sprite_layout.js CREATURE_BEHAVIOUR.crab",
-            "requires": "New bait/wait/claim state and catch table using existing catch items and persistent ledgers. This is a managed communal object, never permission to open a real private fishing trap."
+            "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+            "requires": "Bait cost and dailyVisit reward row; only explicitly public pier cells."
           }
         },
         "uncommon": {
@@ -1382,20 +1644,29 @@
           "itemQuality": null,
           "condition": "Only positively identified public piers; unknown and private piers remain empty. Fishing rewards additionally require reachable water.",
           "newItemAlternative": {
-            "id": "proposal:public_mooring_rope",
-            "label": "Public mooring rope",
+            "id": "proposal:pier_uncommon_item_pearl_necklace",
+            "label": "Tangled pearl line",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/rope_coil.png",
+              "path": "docs/proposal-art/round2/pier_uncommon_item_pearl_necklace.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_pearl_necklace.png",
+              "sourcePath": "db32_rpg_items/item_pearl_necklace.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "21a971dec1842605d9670b82df87a2bb602f3cdc1d2814a83cbf815e16e535c5",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Untangle a communal rope coil to repair a mooring point and earn a small daily supply reward.",
+              "action": "Untangle a submerged line in the correct sequence to recover a small pearl find.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/macros.js dailyVisit",
-              "requires": "Add a short untangling interaction, reset/reward state and explicit public ownership. Spawn only on positively identified public piers; do not harvest private boat ropes."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Line-order interaction, single-claim reward and water-edge reach check; necklace icon requires rope mount."
             }
           }
         },
@@ -1420,20 +1691,29 @@
           },
           "condition": "Only positively identified public piers; unknown and private piers remain empty. Fishing rewards additionally require reachable water.",
           "newItemAlternative": {
-            "id": "proposal:washed_up_urn",
-            "label": "Washed-up sealed urn",
+            "id": "proposal:pier_rare_item_scroll",
+            "label": "Tide chart",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/urn_stone.png",
+              "path": "docs/proposal-art/round2/pier_rare_item_scroll.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_scroll.png",
+              "sourcePath": "db32_rpg_items/item_scroll.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "bded95a3456e1e6f0176f0b743817c3c284c7b394e3efbd27f028cd956e69301",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Open a salvaged sealed urn once for a small treasure find.",
-              "mechanicStatus": "existing_handler_new_placement",
-              "reuse": "src/interactables.js chest; src/loot.js chest contents",
-              "requires": "Register urn art and a one-time loot profile, with deterministic public-pier-only placement. Requires an opened visual; no new fishing species or birds."
+              "action": "Read the tide symbols and cast at the marked reachable water edge for one special catch.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Fishing challenge using existing cast interaction plus one-time chart state; explicitly public piers only."
             }
           }
         }
@@ -1469,11 +1749,12 @@
               "license": "docs/proposal-art/VERDANT-LICENSE.txt"
             },
             "interactionProposal": {
-              "action": "Search old bones for a small one-time supply find.",
-              "mechanicStatus": "existing_handler_new_placement",
-              "reuse": "src/interactables.js chest; src/loot.js chest contents",
-              "requires": "Register searchable bone-pile art and a low-tier supply profile; reuse opened persistence. No new bone resource is required."
-            }
+              "action": "Search once: 50% empty, 40% cave supplies (torch, rope or trap-disarm kit), 10% Scroll of Bones. Independently, a skeleton appears 25% of the time.",
+              "mechanicStatus": "new_loot_profile_existing_opened_state",
+              "reuse": "Existing one-time opened persistence, loot profile selection and skeleton creature dispatch.",
+              "requires": "Add a cave-specific loot profile and an independent 25% skeleton roll. No seeds, produce, coins or mineral pool. Persist searched and defeated state; do not reroll on revisit."
+            },
+            "userPreference": "accepted concept; implementation pending"
           }
         },
         "uncommon": {
@@ -1497,20 +1778,29 @@
           },
           "condition": "Cave depths have their own mushroom density; do not apply surface coverage targets.",
           "newItemAlternative": {
-            "id": "proposal:spring_pool",
-            "label": "Cave spring pool",
+            "id": "proposal:cave_floor_uncommon_item_gem_amethyst",
+            "label": "Echo crystal",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/cave_pool.png",
+              "path": "docs/proposal-art/round2/cave_floor_uncommon_item_gem_amethyst.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "archivePath": "unused_art/db32_rpg_items/item_gem_amethyst.png",
+              "sourcePath": "db32_rpg_items/item_gem_amethyst.png",
+              "frameBox": [
+                0,
+                0,
+                16,
+                16
+              ],
+              "sha256": "e46e2a077095bb276f20023f30b4322a113eb43e458cd6eddae335f9b9c8eebe",
+              "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
+              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
-              "action": "Take one daily restorative drink from a clear underground spring.",
+              "action": "Repeat a crystal tone pattern to reveal nearby cave supplies.",
               "mechanicStatus": "new_behavior",
-              "reuse": "src/macros.js dailyVisit; src/interactables.js well",
-              "requires": "Add a pool interaction and small daily energy recovery, including a drained-for-today state. Existing wells only advance quests/display text; recovery is new behavior."
+              "reuse": "src/interactables.js dispatch; src/macros.js dailyVisit when recurring; existing save opened state for one-time rewards",
+              "requires": "Sequence puzzle and temporary reveal effect; independent of park-POI altar mirrors."
             }
           }
         },
@@ -1606,63 +1896,215 @@
     }
   },
   "artAudit": {
-    "method": "Visually reviewed the standalone archive sprites and checked selected PNG SHA-256 values against shipped PNGs. The 34 selected proposal files are not byte-identical to shipped PNGs. Existing atlas crops or similar prop concepts may still exist; archived_unused describes the selected standalone file, not proven global visual uniqueness.",
-    "selection": "Keep each current candidate and its evidence visible. Every shared slot now has an art-backed interactive new-item alternative; the two gap candidates without earlier art/mechanics have alternatives too. The ten earlier art-backed gap proposals remain. Alternatives are proposals, not new runtime spawns. Wetland reeds already exist visually; the proposed harvestable clump is explicitly a mechanical variant.",
-    "copyPolicy": "Small selected art set copied into docs/proposal-art for reproducible proposal previews only; no runtime art registration, new placements or new mechanics are implemented.",
-    "license": "docs/proposal-art/VERDANT-LICENSE.txt",
+    "method": "Inspected the complete DB32 contact sheet, Zoria sprite/overworld/underworld sheets, selected unused Verdant props, and archive pack provenance. All 32 replacement images differ from every prior proposal file; none is byte-identical to a shipped PNG. Accepted hive, bone cache and spring artwork are retained. Archive labels and file hashes do not prove global pixel uniqueness in atlases.",
+    "selection": "32 fresh interactive concepts: 30 DB32 sprites and 2 different Verdant props. Existing candidates remain side by side. DB32 thumbnails are item icons, explicitly requiring grounded world mounts before implementation. Spring moved to POI proposal outside rarity slots.",
+    "copyPolicy": "Only small unchanged proposal-preview images copied; no runtime import or spawn change.",
+    "license": "DB32: CC0, author ARoachIFoundOnMyPillow, primary upload https://opengameart.org/content/16x16-rpg-items-db32 . Verdant: included LICENSE. Other packs were reviewed but excluded where archive license provenance was absent or free use was noncommercial.",
     "candidates": [
+      {
+        "zone": "GRASS",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/grass_common_item_frond.png",
+        "archivePath": "unused_art/db32_rpg_items/item_frond.png",
+        "sha256": "f9e65a04bf7c98c936bf3b7ba1d42a20821679b1edf3e686df8ab6fc096f04e6"
+      },
+      {
+        "zone": "GRASS",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/grass_uncommon_item_magnifying_glass.png",
+        "archivePath": "unused_art/db32_rpg_items/item_magnifying_glass.png",
+        "sha256": "76a9efa043a18702cf71d8a4ead77cb4f254e8cf9aa87b43796a0a3655172e48"
+      },
+      {
+        "zone": "GRASS",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/grass_rare_item_compass.png",
+        "archivePath": "unused_art/db32_rpg_items/item_compass.png",
+        "sha256": "34c47a57bf8ffd9d533a26784393e69a33d26ac7ff8ffbdcc9cb45f7a7c36a1e"
+      },
+      {
+        "zone": "FOREST",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/forest_common_item_gem_amber.png",
+        "archivePath": "unused_art/db32_rpg_items/item_gem_amber.png",
+        "sha256": "0f82fa5475cbc041b0b042be00cf293cf892e2d5684aa5df41c220b78b523d82"
+      },
+      {
+        "zone": "RESIDENTIAL",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/residential_uncommon_item_envelope.png",
+        "archivePath": "unused_art/db32_rpg_items/item_envelope.png",
+        "sha256": "8b9555257e0f4ad4c6f0779d4286cfd5931a799b4bc0f7e3502edf6ebc0a29ee"
+      },
+      {
+        "zone": "RESIDENTIAL",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/residential_rare_item_mirror.png",
+        "archivePath": "unused_art/db32_rpg_items/item_mirror.png",
+        "sha256": "33fe2f7b9146cc6a653162e788b51bf2c4f89005739cc7e9517fa9d4272a4c35"
+      },
       {
         "zone": "PARK",
         "level": "rare",
-        "path": "docs/proposal-art/well_stone.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/well_stone.png",
-        "sha256": "b1f9727ae66c7324896f0fbbc1ce3059f3c9f40e0ba40dc7550e9ff6b0ca1539"
+        "role": "slot",
+        "path": "docs/proposal-art/round2/park_rare_telescope2.png",
+        "archivePath": "unused_art/db32_rpg_items/telescope2.png",
+        "sha256": "7db91527322df3d21acb5403a8123ed5bd3c5ea2db3cf9ceb8a1b85cb0956fcc"
+      },
+      {
+        "zone": "ROCK",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/rock_common_item_gem_peridot.png",
+        "archivePath": "unused_art/db32_rpg_items/item_gem_peridot.png",
+        "sha256": "bba931d4e167a7b611720a00019074a4a8176e4d8dbff0b610bf404987382533"
+      },
+      {
+        "zone": "ROCK",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/rock_uncommon_item_gem_quartz.png",
+        "archivePath": "unused_art/db32_rpg_items/item_gem_quartz.png",
+        "sha256": "02b198aa08882006c4fa16fdde2b210d2e6392f9177424838a0295f3b8385418"
+      },
+      {
+        "zone": "ROCK",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/rock_rare_item_gem_diamond_rough.png",
+        "archivePath": "unused_art/db32_rpg_items/item_gem_diamond_rough.png",
+        "sha256": "3b77a07c2b3f63ca8c05d54e43d201449670e0d5077f45132bf91697b5baee4c"
       },
       {
         "zone": "SCHOOL",
         "level": "uncommon",
-        "path": "docs/proposal-art/crate.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/crate.png",
-        "sha256": "d672046f30fe11dcf15e02d3fa07f54f5d7127dffa34a07f029bf2fbd39aaa17"
+        "role": "slot",
+        "path": "docs/proposal-art/round2/school_uncommon_item_paper_map.png",
+        "archivePath": "unused_art/db32_rpg_items/item_paper_map.png",
+        "sha256": "3b50ea522803ed6e067c75c00df584271a6e8fd62896b63eab4d64d618f0d1a9"
+      },
+      {
+        "zone": "SCHOOL",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/school_rare_item_book_red_lines.png",
+        "archivePath": "unused_art/db32_rpg_items/item_book_red_lines.png",
+        "sha256": "4d13592a5238636ba23bc73afbc1b0c9a1f59adc02f0d10ec92ecb4d6df92150"
       },
       {
         "zone": "COMMERCIAL",
         "level": "uncommon",
-        "path": "docs/proposal-art/cart_hand.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cart_hand.png",
-        "sha256": "49e2aafe60ab77726d461a704064cadc60cf6fc077dea2e554dc874bf318b9ff"
+        "role": "slot",
+        "path": "docs/proposal-art/round2/commercial_uncommon_key4.png",
+        "archivePath": "unused_art/db32_rpg_items/key4.png",
+        "sha256": "85bcd9fd707a7a3bcfaee5b562d422693fae9aafedb2569d310d720305ed2e45"
+      },
+      {
+        "zone": "COMMERCIAL",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/commercial_rare_item_book_brown_square.png",
+        "archivePath": "unused_art/db32_rpg_items/item_book_brown_square.png",
+        "sha256": "7be61a62825b304f4b24d86b758dcdb99b607c0e9c0241468ec7944950352704"
       },
       {
         "zone": "INDUSTRIAL",
         "level": "uncommon",
-        "path": "docs/proposal-art/cart_wheel.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cart_wheel.png",
-        "sha256": "21f60ed4a65a9f389da093fee2f23a6ff66c8e52ab47fa5b8c141079825df02c"
+        "role": "slot",
+        "path": "docs/proposal-art/round2/industrial_uncommon_pickaxe_crusty.png",
+        "archivePath": "unused_art/db32_rpg_items/pickaxe_crusty.png",
+        "sha256": "4ad26b86b5d4a8f260f0eb7bc3879be351344a5f74dc334a8b074531ee2f777b"
+      },
+      {
+        "zone": "INDUSTRIAL",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/industrial_rare_lance_crusty.png",
+        "archivePath": "unused_art/db32_rpg_items/lance_crusty.png",
+        "sha256": "1d0b2cc6dcc5f82531a486ab604f1d7ebd9ee0241bf8bda95821a1b8fea70880"
       },
       {
         "zone": "PLAYGROUND",
         "level": "common",
-        "path": "docs/proposal-art/sack.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/sack.png",
-        "sha256": "713df8385f1b18592825748b1081d57c6e481e5d9bf683f363aef01aeb8f8582"
+        "role": "slot",
+        "path": "docs/proposal-art/round2/playground_common_item_feather.png",
+        "archivePath": "unused_art/db32_rpg_items/item_feather.png",
+        "sha256": "638d8a1b53b16f758a0e59bdf75d037af1ed07540f7ae7ec690fa8eb33eda795"
+      },
+      {
+        "zone": "PLAYGROUND",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/playground_uncommon_stave1.png",
+        "archivePath": "unused_art/db32_rpg_items/stave1.png",
+        "sha256": "abaa4d18a0894e47993a933947ac389c8059ba3a2a9d6cfd9f248094a8799380"
+      },
+      {
+        "zone": "PLAYGROUND",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/playground_rare_item_book_purple_square.png",
+        "archivePath": "unused_art/db32_rpg_items/item_book_purple_square.png",
+        "sha256": "450051a3592adc654df49c0c4831a87f78f58d67e373a28d607d05e65163c041"
+      },
+      {
+        "zone": "PITCH",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/pitch_common_item_arrow.png",
+        "archivePath": "unused_art/db32_rpg_items/item_arrow.png",
+        "sha256": "2bc9f65d95ab22df7a4fb08d7509a77c53396cc4cb0e04e78237e01274c2a353"
+      },
+      {
+        "zone": "PITCH",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/pitch_uncommon_armor_boots_crusty.png",
+        "archivePath": "unused_art/db32_rpg_items/armor_boots_crusty.png",
+        "sha256": "3fa5b5b5ebd369ff785feb7f2924c6e74db5d428f142fa70fcc050c48816898e"
       },
       {
         "zone": "PITCH",
         "level": "rare",
-        "path": "docs/proposal-art/scarecrow.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/scarecrow.png",
-        "sha256": "29e400dad53498cab25249f166c84222e5c8e98848283ac78f7aa05973ffc278"
+        "role": "slot",
+        "path": "docs/proposal-art/round2/pitch_rare_armor_helmet_gold.png",
+        "archivePath": "unused_art/db32_rpg_items/armor_helmet_gold.png",
+        "sha256": "da47de78b83791e6ade502f502edbf747cf278453cdd27c05c895debdfafbd38"
+      },
+      {
+        "zone": "WETLAND",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/wetland_common_cattails.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cattails.png",
+        "sha256": "7e51e97de85ccb50eabb822ed12ed45f9fb92289f917aa5d47341b58cde3c76c"
       },
       {
         "zone": "WETLAND",
         "level": "uncommon",
-        "path": "docs/proposal-art/rotten_stump.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rotten_stump.png",
-        "sha256": "25e421cb6603311abf4387f96ffb54276941fd9dba719d9ae49ceb98fb230947"
+        "role": "slot",
+        "path": "docs/proposal-art/round2/wetland_uncommon_item_root.png",
+        "archivePath": "unused_art/db32_rpg_items/item_root.png",
+        "sha256": "eb8317e3b20e48841f2e18dc41bd7a74b442c3426bf0b99a4706986b337dba2c"
+      },
+      {
+        "zone": "WETLAND",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/round2/wetland_rare_potion_murkygreen.png",
+        "archivePath": "unused_art/db32_rpg_items/potion_murkygreen.png",
+        "sha256": "a7c97730ba4a1249a7753706a343178804e99fb67c5f3cf2a31199ec61d1a4ac"
       },
       {
         "zone": "ORCHARD",
         "level": "uncommon",
+        "role": "slot",
         "path": "docs/proposal-art/beehive_skep.png",
         "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/beehive_skep.png",
         "sha256": "d89820edbd2e6dc4bddfb47fd17c6abd8c6447c6e44f848200af2ef1ab3240fe"
@@ -1670,192 +2112,50 @@
       {
         "zone": "WASTELAND",
         "level": "common",
-        "path": "docs/proposal-art/charred_stump.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/charred_stump.png",
-        "sha256": "d68e65d6e635d427ff5ee5b4689cb7d79f6dd235aea8bc141353c7dc707d9c45"
-      },
-      {
-        "zone": "PIER",
-        "level": "common",
-        "path": "docs/proposal-art/crab_pot.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/crab_pot.png",
-        "sha256": "79c90a5f3e4991dce506ad16d17339b93cc6a28f208d91764909a7b81001dcfe"
-      },
-      {
-        "zone": "GRASS",
-        "level": "common",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/fern.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/fern.png",
-        "sha256": "42a86eda2afe7aada7628274b882f95556f6ebb56481bbbfe8790212fc4dd698"
-      },
-      {
-        "zone": "GRASS",
-        "level": "uncommon",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/hay_bale.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/hay_bale.png",
-        "sha256": "aa07f304c1fa5eb13e181b76994f2392c3797f1b46fccbb10d4b5a5d4880d1d6"
-      },
-      {
-        "zone": "GRASS",
-        "level": "rare",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/water_trough.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/water_trough.png",
-        "sha256": "975e5ca435339d32beae4565b29679d8cde727f601a32d9f8b96883b3aa342c9"
-      },
-      {
-        "zone": "FOREST",
-        "level": "common",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/log_fallen.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/log_fallen.png",
-        "sha256": "63b383df4bcd10775b97db558684f1eb30c97a81a9ace38a76e2331d2d0ac8dd"
-      },
-      {
-        "zone": "RESIDENTIAL",
-        "level": "uncommon",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/woodpile.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/woodpile.png",
-        "sha256": "2d1bff6cebdcdbc7b06250a56fce76f331d667108e2fe7489230230f4dcc816d"
-      },
-      {
-        "zone": "RESIDENTIAL",
-        "level": "rare",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/lantern_post.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/lantern_post.png",
-        "sha256": "1a89cdffc239ff2b680bb4700939f3ccf038da9cd5bcb5504d1f5a249cce217d"
-      },
-      {
-        "zone": "ROCK",
-        "level": "common",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/ore_vein_rock.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/ore_vein_rock.png",
-        "sha256": "d356d18c7409f2b7882acf8d5639a24a93133cbdd63719287cbbed061dabdc2a"
-      },
-      {
-        "zone": "ROCK",
-        "level": "uncommon",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/stalagmite.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/stalagmite.png",
-        "sha256": "89ac58c988dc1cd6c4edf3125c5f4d2672b5bfa246920c41c83b1780daa88a0d"
-      },
-      {
-        "zone": "ROCK",
-        "level": "rare",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/ice_shard.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/ice_shard.png",
-        "sha256": "e78f0593b6900d37fe8d816093963ff085db70a1935e6df9596db458368961a2"
-      },
-      {
-        "zone": "SCHOOL",
-        "level": "rare",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/signpost.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/signpost.png",
-        "sha256": "272ee635eb5c78ef7e36fb63bb04d76e543e3c4ab38e1ce273b7932a16a86e04"
-      },
-      {
-        "zone": "COMMERCIAL",
-        "level": "rare",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/anvil.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/anvil.png",
-        "sha256": "0eb17cced17da6440190d9491f557dd5a7c5e8437084e97877d018731755a76f"
-      },
-      {
-        "zone": "INDUSTRIAL",
-        "level": "rare",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/brazier_cold.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/brazier_cold.png",
-        "sha256": "4227184316a91ef74acd26e4f417906f6de3049c6ae3aee3d48f8a8552d249f2"
-      },
-      {
-        "zone": "PLAYGROUND",
-        "level": "uncommon",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/bucket.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/bucket.png",
-        "sha256": "d364e8e9365f8deae8400d3ce0d82edf673c2d376e4a783dda83f363c989efce"
-      },
-      {
-        "zone": "PLAYGROUND",
-        "level": "rare",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/statue_base.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/statue_base.png",
-        "sha256": "df45aef740a723d4eb13991d6d9e7acf6ea34fc741a53a100baadb9f7d57f596"
-      },
-      {
-        "zone": "PITCH",
-        "level": "common",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/fence_post.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/fence_post.png",
-        "sha256": "8b011cb7a9635e53b6a2de9c2211f97435970615a3cf3e9d8d2349cf0b9539b7"
-      },
-      {
-        "zone": "PITCH",
-        "level": "uncommon",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/banner_pole_f0.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/banner_pole_f0.png",
-        "sha256": "18be9322e5ac4b5a0b04d9e4e73b1aa48b945670c0eded075240c6410782b80f"
-      },
-      {
-        "zone": "WETLAND",
-        "level": "common",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/reed_clump.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/reed_clump.png",
-        "sha256": "f45aee74635ded2189ec51cb9008c417aa15f72a77d658f790c748fca6ac1fa6"
-      },
-      {
-        "zone": "WETLAND",
-        "level": "rare",
-        "role": "newItemAlternative",
-        "path": "docs/proposal-art/bog_log.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/bog_log.png",
-        "sha256": "29a0abb863f4d92da36903e1882d3632116e3aef06ecf34399c2f612570f43a4"
+        "role": "slot",
+        "path": "docs/proposal-art/round2/wasteland_common_axe_crusty.png",
+        "archivePath": "unused_art/db32_rpg_items/axe_crusty.png",
+        "sha256": "836b2bda7ee7679dfd8c63d1729527070e1fadec73a3d48f92517c3be2d766ea"
       },
       {
         "zone": "WASTELAND",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/rubble_masonry.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_masonry.png",
-        "sha256": "5abab3beb517a9490fb54c67157cfdfd4f04d0d81c25968705c5968d48a9b82c"
+        "path": "docs/proposal-art/round2/wasteland_uncommon_item_bucket_narrow_lava.png",
+        "archivePath": "unused_art/db32_rpg_items/item_bucket_narrow_lava.png",
+        "sha256": "df90a587871c47fa317f8794e845250df6d1a48e0debb259fb3f7815af06090b"
       },
       {
         "zone": "WASTELAND",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/ash_vent_f0.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/ash_vent_f0.png",
-        "sha256": "407bc9e6abdb02a0597324e417a88ff3564759d7af14c5dcb0e3c8cdc073bd00"
+        "path": "docs/proposal-art/round2/wasteland_rare_gravestone.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/gravestone.png",
+        "sha256": "78ed875e731c3780d19366a823cbc5f21d0b91cbe56c810f6ed838951003972e"
+      },
+      {
+        "zone": "PIER",
+        "level": "common",
+        "role": "slot",
+        "path": "docs/proposal-art/round2/pier_common_item_bucket_wide_empty.png",
+        "archivePath": "unused_art/db32_rpg_items/item_bucket_wide_empty.png",
+        "sha256": "e2ee79cfce4cebb9b3fdf24a39c2fa7c3663e76b151a6232704fbadcacd4b74d"
       },
       {
         "zone": "PIER",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/rope_coil.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rope_coil.png",
-        "sha256": "ffd8f518e2ac524b0b469efd3883a305014bb66cec13dae00df20b5e57d4e24b"
+        "path": "docs/proposal-art/round2/pier_uncommon_item_pearl_necklace.png",
+        "archivePath": "unused_art/db32_rpg_items/item_pearl_necklace.png",
+        "sha256": "21a971dec1842605d9670b82df87a2bb602f3cdc1d2814a83cbf815e16e535c5"
       },
       {
         "zone": "PIER",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/urn_stone.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/urn_stone.png",
-        "sha256": "6c5a830f00f0c5f67fb471f7c1f2a3acb72cae81fb8fbecd22d3dd3c8a7cd326"
+        "path": "docs/proposal-art/round2/pier_rare_item_scroll.png",
+        "archivePath": "unused_art/db32_rpg_items/item_scroll.png",
+        "sha256": "bded95a3456e1e6f0176f0b743817c3c284c7b394e3efbd27f028cd956e69301"
       },
       {
         "zone": "CAVE_FLOOR",
@@ -1869,11 +2169,120 @@
         "zone": "CAVE_FLOOR",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/cave_pool.png",
-        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cave_pool.png",
-        "sha256": "a28ac935a903ec31e2bc96c039105ed98356f37ce60677ad8ca9b1eab819066a"
+        "path": "docs/proposal-art/round2/cave_floor_uncommon_item_gem_amethyst.png",
+        "archivePath": "unused_art/db32_rpg_items/item_gem_amethyst.png",
+        "sha256": "e46e2a077095bb276f20023f30b4322a113eb43e458cd6eddae335f9b9c8eebe"
       }
-    ]
+    ],
+    "retainedPoiArt": "docs/proposal-art/cave_pool.png"
   },
-  "alternativeRule": "Each newItemAlternative.id is used once per encounter band. Show alongside the existing proposedThing and its audit status; never replace or imply the existing shared candidate is exclusive. Where a gap already has artProposal and interactionProposal, that existing proposal is the new item option. All 34 shared/gap slots therefore have a pictured interactive option."
+  "alternativeRule": "Existing candidates stay visible beside fresh interactive alternatives. All alternatives are design proposals. Accepted hive and bone-cache designs await implementation; cave spring is a park-POI cave altar and is excluded from rarity slots.",
+  "poiProposals": [
+    {
+      "id": "proposal:spring_pool",
+      "label": "Cave spring pool",
+      "implementationState": "proposal_only",
+      "artProposal": {
+        "path": "docs/proposal-art/cave_pool.png",
+        "status": "archived_unused",
+        "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+        "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+      },
+      "interactionProposal": {
+        "action": "Use a cave spring altar at the underground mirror of an aboveground park POI.",
+        "mechanicStatus": "new_behavior",
+        "reuse": "Existing park POI -> cave chest mirror, preserving stable chest/caveOf identity; Macros dailyVisit helpers.",
+        "requires": "Add a spring-specific daily visit row and reward routing using the existing shrine/regeneration boon helpers. The cave mirror exists, but a working cave spring altar does not. Select spring artwork at literal poiClass=park mirrors only; no uncommon scatter or automatic new object kind."
+      },
+      "placement": "Underground mirrors of aboveground POIs with literal poiClass=park only; never uncommon scatter.",
+      "userPreference": "accepted concept; implementation pending",
+      "sourcePath": "src/worldgen.js chest/caveOf park-POI mirror; src/macros.js dailyVisit"
+    }
+  ],
+  "acceptedMechanics": {
+    "boneCache": {
+      "loot": [
+        {
+          "kind": "empty",
+          "percent": 50
+        },
+        {
+          "kind": "cave supplies",
+          "percent": 40,
+          "items": [
+            "torch",
+            "rope",
+            "trap_disarm_kit"
+          ]
+        },
+        {
+          "kind": "Scroll of Bones",
+          "percent": 10,
+          "items": [
+            "bones_scroll"
+          ]
+        }
+      ],
+      "skeletonChance": 0.25,
+      "skeletonIndependent": true,
+      "notes": "One-time search; 25% skeleton roll independent of loot. No seeds/produce/coins/mineral pool. Opened/defeated state persists."
+    },
+    "butterflies": {
+      "status": "proposal_only",
+      "baseKind": "butterfly",
+      "mechanic": "Catch with Bug Net; released butterflies pollinate nearby crops. Preserve color through capture and release.",
+      "variants": [
+        {
+          "id": "amber",
+          "label": "Amber meadow butterfly",
+          "zones": [
+            "GRASS"
+          ],
+          "palette": {
+            "shadow": "#594014",
+            "mid": "#e6a62d",
+            "highlight": "#fff1ae",
+            "gamma": 0.65
+          }
+        },
+        {
+          "id": "pink",
+          "label": "Rose park butterfly",
+          "zones": [
+            "PARK",
+            "GROVE"
+          ],
+          "palette": {
+            "shadow": "#592344",
+            "mid": "#df719f",
+            "highlight": "#ffe4ef",
+            "gamma": 0.65
+          }
+        },
+        {
+          "id": "azure",
+          "label": "Azure marsh butterfly",
+          "zones": [
+            "WETLAND"
+          ],
+          "palette": null
+        },
+        {
+          "id": "violet",
+          "label": "Violet garden butterfly",
+          "zones": [
+            "SCHOOL",
+            "PLAYGROUND"
+          ],
+          "palette": {
+            "shadow": "#38245e",
+            "mid": "#9975dc",
+            "highlight": "#eee1ff",
+            "gamma": 0.65
+          }
+        }
+      ],
+      "beeAudit": "Hive art exists; no bee species, behavior or bee animation found in shipped or archived assets."
+    }
+  }
 }

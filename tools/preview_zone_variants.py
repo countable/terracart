@@ -28,7 +28,7 @@ def art_registry():
 
 
 @functools.lru_cache(maxsize=None)
-def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff):
+def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=None):
     row = art_registry()['assets'][sheet]
     path = pathlib.Path(__file__).resolve().parents[1] / row['path'].split('?')[0]
     with Image.open(path) as source:
@@ -45,6 +45,8 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff):
     if row['whiteKey']:
         image.putdata([(r, g, b, 0 if min(r, g, b) > 240 else a) for r, g, b, a in image.getdata()])
     palette = art_registry().get('enemyPalettes', {}).get(sheet)
+    if palette_key:
+        palette = next(row['palette'] for row in basic_signatures()['acceptedMechanics']['butterflies']['variants'] if row['id'] == palette_key)
     if palette:
         # Match assets.js recolorEnemyPixels: luminance ramp, not RGB tinting.
         stops = [tuple(bytes.fromhex(value.lstrip('#'))) for value in ['#000000', palette['shadow'], palette['mid'], palette['highlight']]]
@@ -143,7 +145,7 @@ def art_image(art, extra='', frame=None):
         return f'<image data-chest-tier="{art["frames"][0] if frame is None else frame}" href="{sprite_png("chest", 0)}" {extra}/>'
     if art.get('procedural'):
         return f'<image data-procedural="{art["procedural"]}" {extra}/>'
-    return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame, art.get("preserveFrame", False), art.get("tint", 0xffffff))}" {extra}/>'
+    return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame, art.get("preserveFrame", False), art.get("tint", 0xffffff), art.get("paletteKey"))}" {extra}/>'
 
 
 def sprite_symbols(materials, prefix):
@@ -820,11 +822,11 @@ def signature_proposal_details(slot, compact=False):
     parts = []
     art = slot.get('artProposal')
     if art:
-        art_note = '' if compact else '<br>' + html.escape(art['note'])
+        art_note = ('<br><small>Item icon; world sprite still needed.</small>' if 'inventory-sized icon' in art['note'] else '') if compact else '<br>' + html.escape(art['note'])
         parts.append(f'<p class="proposal-art"><img src="{proposal_art_uri(art["path"])}" width="64" height="64" alt="{html.escape(slot["proposedThing"]["label"], quote=True)} proposal sprite"><span><b>Unused art candidate</b>{art_note}</span></p>')
     interaction = slot.get('interactionProposal')
     if interaction:
-        status = {'new_behavior': 'New behavior required', 'existing_handler_new_placement': 'Existing interaction; new placement'}[interaction['mechanicStatus']]
+        status = {'new_behavior': 'New behavior required', 'new_loot_profile_existing_opened_state': 'New loot and ambush; existing one-time state', 'existing_handler_new_placement': 'Existing interaction; new placement', 'existing_path_new_art': 'Existing POI path; new altar treatment'}[interaction['mechanicStatus']]
         requirements = '' if compact else ' ' + html.escape(interaction['requires'])
         parts.append(f'<p><b>Interaction:</b> {html.escape(interaction["action"])}</p><p><small>{status}.{requirements}</small></p>')
     return ''.join(parts)
@@ -865,6 +867,40 @@ def basic_signature_card(terrain):
     return ''.join(parts) + '</div>'
 
 
+def accepted_signature_directions():
+    data = basic_signatures()
+    accepted = data.get('acceptedMechanics', {})
+    if not accepted:
+        return ''
+    hive = data['zones']['ORCHARD']['slots']['uncommon']
+    hive_picture = f'<img src="{proposal_art_uri(hive["artProposal"]["path"])}" width="64" height="64" alt="Orchard hive">'
+    butterflies = accepted.get('butterflies', {})
+    variants = []
+    for row in butterflies.get('variants', []):
+        art = {'sheet': 'butterfly', 'frames': [0]}
+        if row.get('palette'):
+            art['paletteKey'] = row['id']
+        picture = '<svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="' + html.escape(row['label']) + '">' + art_image(art, 'width="64" height="64"') + '</svg>'
+        variants.append('<figure data-butterfly-preview="' + row['id'] + '">' + picture + '<figcaption><b>' + html.escape(row['label']) + '</b><br>' + html.escape(', '.join(row['zones']).replace('_', ' ').title()) + '</figcaption></figure>')
+    bone = accepted.get('boneCache', {})
+    bone_slot = data['zones']['CAVE_FLOOR']['slots']['common']
+    bone_proposal = bone_slot.get('newItemAlternative', bone_slot)
+    bone_picture = f'<img src="{proposal_art_uri(bone_proposal["artProposal"]["path"])}" width="64" height="64" alt="Cave bone cache">'
+    profiles = art_registry()['containerLootProfiles']
+    def shipping_mix(name):
+        return ', '.join(f'{row["w"]*100:g}% {row["kind"]}' for row in profiles[name])
+    bone_mix = ', '.join(f'{row["percent"]:g}% {row["kind"]}' for row in bone.get('loot', []))
+    spring_cards = []
+    for proposal in data.get('poiProposals', []):
+        adapted = {**proposal, 'proposedThing': {'label': proposal['label']}}
+        spring_cards.append('<article class="accepted-direction" data-accepted="spring"><h4>' + html.escape(proposal['label']) + ' · POI altar</h4>' + signature_proposal_details(adapted, True) + '<p><b>Placement:</b> Underground mirror of a surface park POI. Keep its identity through deeper cave levels; reuse the existing daily-visit and shrine reward helpers. Replaces that POI’s ordinary cave chest. No uncommon floor scatter.</p></article>')
+    return ('<section id="accepted-signature-directions"><h3>Accepted directions · mechanic and art review</h3><p>These are design specifications, not new live spawns. Hive and bone art are retained; the spring moves to the park POI’s underground mirror. Colored butterflies share the existing capture and pollination behavior.</p><div class="accepted-directions">'
+        + '<article class="accepted-direction" data-accepted="hive"><h4>Orchard hive</h4>' + hive_picture + '<p>' + html.escape(butterflies.get('beeAudit', '')) + '</p><p>' + html.escape(hive['interactionProposal']['action']) + '</p><small>Hive interaction and honey rewards still need implementation. A bee creature would require new art and behavior. Orchard edges only.</small></article>'
+        + '<article class="accepted-direction" data-accepted="butterflies"><h4>Butterfly colors by habitat</h4><div class="butterfly-preview-grid">' + ''.join(variants) + '</div><p>' + html.escape(butterflies.get('mechanic', '')) + '</p><small>Color previews use the existing butterfly sprite. Keep forest, orchard and golf exclusions. Captured colors must survive inventory and release.</small></article>'
+        + '<article class="accepted-direction" data-accepted="bone"><h4>Cave bone cache</h4>' + bone_picture + '<p><b>Proposed loot:</b> ' + html.escape(bone_mix) + '.</p><p><b>Skeleton: 25%</b> on first search, independently of the loot roll. One skeleton at most; opening and defeat persist through reloads.</p><p><b>Cave supplies:</b> torch, rope or trap-disarming kit. Magic finds are Scrolls of Bones. No produce, seeds, coins or mineral pool.</p><details><summary>Compare existing containers</summary><p><b>Barrel:</b> ' + html.escape(shipping_mix('barrel')) + '.</p><p><b>Clay pot:</b> ' + html.escape(shipping_mix('clay_pot')) + '.</p></details></article>'
+        + ''.join(spring_cards) + '</div></section><style>.accepted-directions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;margin:20px 0}.accepted-direction{padding:16px;min-width:0}.accepted-direction img,.accepted-direction svg{image-rendering:pixelated}.butterfly-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.butterfly-preview-grid figure{margin:0}.accepted-direction h4{margin:0 0 12px}.accepted-direction p{font-size:13px}</style>')
+
+
 def basic_signature_overview():
     data = basic_signatures()
     counts = collections.Counter(s['currentStatus'] for row in data['zones'].values() for s in row.get('slots', {}).values())
@@ -874,7 +910,7 @@ def basic_signature_overview():
             continue
         cells = ''.join(signature_overview_cell(row['slots'][level], terrain) for level in ['common', 'uncommon', 'rare'])
         rows.append(f'<tr><th><a href="#tile-{terrain.lower()}">{terrain.replace("_", " ").title()}</a></th>{cells}</tr>')
-    return f'<details class="signature-overview" id="basic-signatures"><summary><strong>Common / uncommon / rare signature audit</strong> · {counts["existing_exclusive"]} existing habitats · {counts["shared"]} shared gaps · {counts["gap"]} placement ideas</summary><p>These are encounter-frequency proposals, separate from item quality and enemy tier. Each proposed thing is assigned to only one zone at the same encounter level. Existing habitat means the thing already has a distinctive ordinary habitat or stated context; it does not mean the proposed frequency band is enforced. Shared candidates need distribution changes; new placements need implementation. General chest loot, player planting and nexus contents do not establish basic-zone exclusivity. Each slot below shows its existing candidate or first proposal, with an art-backed new item alongside every unresolved shared slot. New-item mechanics are ideas, not live behavior.</p><div class="signature-scroll"><table class="signature-table"><thead><tr><th>Zone</th><th>Common</th><th>Uncommon</th><th>Rare</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div><p>Open a zone’s individual slots below for evidence, unused-art thumbnails and proposed interactions. Art proposals are not new live spawns; each states whether an existing interaction can be reused or new behavior is needed. <a href="basic-zone-signatures.json">Full audit</a> · <a href="proposal-art-license.txt">Proposal art license</a></p></details><style>.signature-overview{{margin:24px 0;padding:18px;border:1px solid #405745;border-radius:12px}}.signature-overview summary,.signature-card summary{{cursor:pointer}}.signature-scroll{{overflow:auto}}.signature-table{{width:100%;border-collapse:collapse;font-size:13px}}.signature-table td,.signature-table th{{text-align:left;padding:10px;border-bottom:1px solid #405745;min-width:280px;vertical-align:top}}.signature-table td{{width:30%}}.signature-table th{{min-width:100px}}.signature-sprite{{image-rendering:pixelated;display:block;margin:8px 0}}.signature-existing-art p{{margin:6px 0}}.signature-alternative{{border-top:1px dashed #6c7550;margin-top:16px;padding-top:8px}}.signature-alternative h5{{font-size:13px;color:#e6c779;margin:8px 0}}.signature-status{{display:inline-block;font-size:10px;margin:5px 0;color:#e6c779}}.signature-status.existing_exclusive{{color:#95d7d1}}.signature-status.gap{{color:#efb5a2}}.signature-card{{border-top:1px solid #405745;margin:16px 0;padding-top:4px}}.signature-card details{{margin:12px 0;font-size:13px}}.proposal-art{{display:flex;gap:12px;align-items:center}}.proposal-art img{{image-rendering:pixelated;flex:none}}.signature-card p,.signature-note{{font-size:12px}}</style>'
+    return f'<details class="signature-overview" id="basic-signatures"><summary><strong>Common / uncommon / rare signature audit</strong> · {counts["existing_exclusive"]} existing habitats · {counts["shared"]} shared gaps · {counts["gap"]} placement ideas</summary><p>These are encounter-frequency proposals, separate from item quality and enemy tier. Each proposed thing is assigned to only one zone at the same encounter level. Existing habitat means the thing already has a distinctive ordinary habitat or stated context; it does not mean the proposed frequency band is enforced. Shared candidates need distribution changes; new placements need implementation. General chest loot, player planting and nexus contents do not establish basic-zone exclusivity. Each slot below shows its existing candidate or first proposal, with an art-backed new item alongside every unresolved shared slot. New-item mechanics are ideas, not live behavior.</p>{accepted_signature_directions()}<div class="signature-scroll"><table class="signature-table"><thead><tr><th>Zone</th><th>Common</th><th>Uncommon</th><th>Rare</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div><p>Open a zone’s individual slots below for evidence, unused-art thumbnails and proposed interactions. Art proposals are not new live spawns; each states whether an existing interaction can be reused or new behavior is needed. <a href="basic-zone-signatures.json">Full audit</a> · <a href="proposal-art-license.txt">Proposal art licenses</a></p></details><style>.signature-overview{{margin:24px 0;padding:18px;border:1px solid #405745;border-radius:12px}}.signature-overview summary,.signature-card summary{{cursor:pointer}}.signature-scroll{{overflow:auto}}.signature-table{{width:100%;border-collapse:collapse;font-size:13px}}.signature-table td,.signature-table th{{text-align:left;padding:10px;border-bottom:1px solid #405745;min-width:280px;vertical-align:top}}.signature-table td{{width:30%}}.signature-table th{{min-width:100px}}.signature-sprite{{image-rendering:pixelated;display:block;margin:8px 0}}.signature-existing-art p{{margin:6px 0}}.signature-alternative{{border-top:1px dashed #6c7550;margin-top:16px;padding-top:8px}}.signature-alternative h5{{font-size:13px;color:#e6c779;margin:8px 0}}.signature-status{{display:inline-block;font-size:10px;margin:5px 0;color:#e6c779}}.signature-status.existing_exclusive{{color:#95d7d1}}.signature-status.gap{{color:#efb5a2}}.signature-card{{border-top:1px solid #405745;margin:16px 0;padding-top:4px}}.signature-card details{{margin:12px 0;font-size:13px}}.proposal-art{{display:flex;gap:12px;align-items:center}}.proposal-art img{{image-rendering:pixelated;flex:none}}.signature-card p,.signature-note{{font-size:12px}}</style>'
 
 
 def basic_tile_section():
@@ -1078,7 +1114,18 @@ def render(d, out):
         page += '</div></section>'
     page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + viewer_navigation_script() + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
-    (out/'proposal-art-license.txt').write_text((pathlib.Path(__file__).resolve().parents[1] / 'docs/proposal-art/VERDANT-LICENSE.txt').read_text())
+    def art_licenses(value):
+        if isinstance(value, dict):
+            if isinstance(value.get('artProposal'), dict) and value['artProposal'].get('license'):
+                yield value['artProposal']['license']
+            for child in value.values():
+                yield from art_licenses(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from art_licenses(child)
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    license_paths = sorted(set(art_licenses(basic_signatures())))
+    (out/'proposal-art-license.txt').write_text('\n\n'.join(path + '\n' + (repo/path).read_text() for path in license_paths))
     (out/'basic-zone-signatures.json').write_text(json.dumps(basic_signatures(), indent=2)+'\n')
     (out/'basic-zone-coverage.json').write_text(json.dumps(art_registry()['basicCoverage'], indent=2)+'\n')
     (out/'basic-zone-density-proposals.json').write_text(json.dumps(basic_density_proposals(), indent=2)+'\n')
