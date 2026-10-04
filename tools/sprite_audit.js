@@ -227,6 +227,7 @@ const ASSETS = assetsCtx.window.ASSETS;
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
+  cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [6] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
@@ -276,6 +277,7 @@ const SHEETS = {
 const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
+  { name: 'drill shrine', key: 'cave_props', frameIdx: 6, scale: 4 / 3 },
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
   { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
   { name: 'maple small',     key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },

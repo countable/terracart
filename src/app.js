@@ -4719,7 +4719,7 @@ class MapScene extends Phaser.Scene {
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._setWorkProgressIcon(toolSlot);
     this._barehandMutter?.(toolSlot, worldX, worldY);
-    durationMs = Gear.workDurationMs(this.save, durationMs);
+    durationMs = Gear.workDurationMs(this.save, durationMs, Date.now(), toolSlot);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, toolSlot, startT: performance.now(), track: trackCreature };
   }
   // The grunt a bare-handed job starts with (BAREHAND_MUTTERS), on the job's

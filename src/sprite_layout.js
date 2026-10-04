@@ -38,6 +38,7 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
+    'cave_props:6': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 24, maxY: 23 },
     'beach_palms:0': { fw: 16, fh: 16, minX: 4, minY: 9, maxX: 10, maxY: 15 },
     'beach_palms:1': { fw: 16, fh: 16, minX: 6, minY: 9, maxX: 12, maxY: 15 },
     'beach_palms:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
@@ -151,6 +152,7 @@
   // this file without Shrines; shrines.test.js pins every row's frame here.
   const SHRINE_KIND_ART = { key: 'shrines', scale: 1.6, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] };
   function groveShrineArt(o) {
+    if (o?.shrineKind === 'drill') return { key: 'cave_props', frame: 6, scale: 4 / 3, name: 'Drill construct' };
     if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;
     const kind = o?.shrineKind && root.Shrines && root.Shrines.SHRINE_KINDS[o.shrineKind];
     if (kind) return { key: SHRINE_KIND_ART.key, frame: kind.frame, scale: SHRINE_KIND_ART.scale, name: kind.name };

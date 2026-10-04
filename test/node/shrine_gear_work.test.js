@@ -20,6 +20,16 @@
     assert.eq(scene._workProgress.durationMs, 2000, 'the separate live catch wheel is tripled too');
   });
 
+  test('Drill: the real work entry point speeds mining only', () => {
+    const scene = { save: { boonUntil: { mining: Date.now() + 60000 } }, _setWorkProgressIcon() {} };
+    const start = lift('startWorkProgress');
+    start.call(scene, 0, 0, () => {}, 9000, 3, 'pickaxe');
+    assert.eq(scene._workProgress.durationMs, toolDurationMs({ pickaxe: { tier: 7 } }, 'pickaxe'));
+    assert.eq(scene._workProgress.energyRefund, 3);
+    start.call(scene, 0, 0, () => {}, 9000, 3, 'axe');
+    assert.eq(scene._workProgress.durationMs, 9000);
+  });
+
   test('Harvest: expiry restores duration, with no tier or combat changes', () => {
     const save = { relics: { pickaxe: { tier: 1 }, axe: { tier: 1 }, sword: { tier: 2 } }, boonUntil: { work: 100 } };
     const before = JSON.stringify(save.relics);
