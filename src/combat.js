@@ -641,6 +641,12 @@
     const model = SUMMONED_AS[kind];
     return model ? enemyBlow(model) : PET_BITE;
   }
+  // Armed allies share the player weapon reach; other pets keep their bite range.
+  function petReachCells(c) {
+    const weapon = root.SpriteLayout?.CREATURE_BEHAVIOUR[c.kind]?.meleeWeapon;
+    const base = weapon ? meleeReachM(1, weapon) : 1.5;
+    return root.PotionEffects ? root.PotionEffects.range(c, base) : base;
+  }
   // THIS pet's blow: its kind's bite times its own power (a raised pet's
   // double). The fight in scene_creatures.js reads this, never petBite alone.
   function petBlow(c) {
@@ -1502,7 +1508,7 @@
   const api = {
     MONSTERS,
     registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
-    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow,
+    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, petReachCells,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,

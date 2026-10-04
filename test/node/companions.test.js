@@ -78,6 +78,14 @@
     assert.eq(Combat.hp(restored),3);
 
   }));
+  test('companions: mercenary melee reach matches the player sword', () => {
+    const reach = Combat.petReachCells({ kind: 'mercenary' });
+    assert.eq(reach, Combat.meleeReachM(1, 'sword'));
+    assert.eq(Combat.petReachCells({ kind: 'dog' }), 1.5, 'ordinary pet reach is unchanged');
+    assert.truthy(Combat.inMeleeReach(0, 0, reach * 7, 0, 7, 'sword'));
+    assert.falsy(Combat.inMeleeReach(0, 0, reach * 7 + 0.01, 0, 7, 'sword'));
+  });
+
   test('companions: mercenary uses the existing summoned hunter and combat stats', () => {
     assert.truthy(SpriteLayout.isSummoned('mercenary'));
     assert.truthy(SpriteLayout.creatureFollows('mercenary'));

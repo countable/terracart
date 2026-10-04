@@ -2347,7 +2347,7 @@ class SceneCreatures {
         if (c._chaseTarget) {
           const tgt = c._chaseTarget;
           const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
-          const fightRange = PotionEffects.range(c, 1.5);
+          const fightRange = Combat.petReachCells(c);
           const FIGHT_R2 = (fightRange * this.cellM) ** 2;
           if (fd2 <= FIGHT_R2) {
             // One HP table for every fight (combat.js): the bite is Combat.petBite (a
