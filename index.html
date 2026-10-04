@@ -232,17 +232,10 @@
       --chrome-key:   0 0 0 1px rgba(0,0,0,0.5);                  /* keyline   */
       --chrome-gold:  0 0 12px rgba(255,224,102,0.38);            /* selected  */
       --chrome-rim:   #5c5340;   /* warm steel rim — for surfaces you can't touch */
-      /* ── Top HUD row geometry ─────────────────────────────────────────
-         The ☰, the energy gauge and the money chip are three different roles
-         but ONE ROW, and a row whose chips are 30 / 35 / 27 px tall with two
-         rim weights between them reads as three widgets that happen to be
-         near each other. So the BOX is shared — height, rim weight, radius,
-         padding — and only the accent colour and the ink differ. Unlike the
-         paint tokens above (deliberately geometry-free), these ARE geometry:
-         they live here so the row can only ever change as a row. */
+      /* Shared height and spacing for the borderless top navigation chips. */
       --hud-chip-h:   32px;
       --hud-chip-pad: 0 10px;
-      --hud-chip-rim: 2px;
+      --hud-chip-rim: 0px;
     }
     html, body {
       margin: 0; padding: 0; height: 100%;
@@ -429,15 +422,7 @@
     /* Top-row HUD is position:fixed and lives outside #game (see the comment
        on #hud below) so it anchors to the visual viewport instead of #game's
        scaled box. env(safe-area-inset-top) clears the iPhone notch. */
-    /* ONE BOX for the three chips of the top HUD row — the ☰, the energy gauge
-       and the money chip. Height, rim weight, radius and padding live here and
-       only here; each chip's own rule below keeps just what makes it itself —
-       its position, its face, its ink, and its rim COLOUR, which overrides the
-       steel default because those rules come after this one. The energy gauge
-       stacks a readout over a bar inside the shared height, centred, so the
-       row's baseline doesn't move when the bar is there. Steel (--chrome-rim)
-       is the default because it's the rim for a surface you can't touch; the
-       two you CAN touch repaint it. */
+    /* Menu, energy and money share a borderless box with the dynamic chips. */
     #menu summary, #energy, #money {
       box-sizing: border-box;
       height: var(--hud-chip-h);
@@ -465,12 +450,6 @@
       /* Row, not the shared column: coin icon and number sit side by side on
          the chip's one line. */
       display: flex; flex-direction: row; align-items: center; gap: 6px;
-      /* A real 2px rim, like every other chip in the row (it used to fake one
-         with an inset ring, which left it visibly thinner than its neighbours).
-         Steel, not gold: --chrome-rim is the rim for a surface you can't touch,
-         and this chip is a readout — the gold here is the CURRENCY, not an
-         invitation to tap. */
-      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000, 0 0 10px rgba(255,224,102,0.35);
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
@@ -483,12 +462,9 @@
        do nothing (UX audit §20). Tapping explains where energy comes from. */
     #energy {
       background: var(--chrome-scuff), var(--chrome-panel); color: var(--green);
-      border-color: #4a8c4a;
       font: 700 14px ui-monospace, monospace;
       pointer-events: auto; cursor: pointer;
       gap: 3px; align-items: stretch;
-      /* border-color is repainted per energy level by updateEnergyDOM. */
-      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
@@ -577,7 +553,6 @@
       position: relative;
       list-style: none; cursor: pointer; user-select: none;
       background: var(--chrome-scuff), var(--chrome-face); color: var(--gold-dark);
-      border-color: var(--ctl-rim);
       font: 700 16px ui-monospace, monospace;
       align-items: center;
       /* The button is the size of the glyph, open or closed. Without this it
@@ -585,7 +560,6 @@
          opens — a 38px square that turns into a 150px bar the moment you tap
          it, which is not the same control any more. */
       width: fit-content;
-      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
     #menu summary::-webkit-details-marker { display: none; }
@@ -597,7 +571,7 @@
       position: absolute; right: -5px; bottom: -5px;
       font: 700 8px ui-monospace, monospace; letter-spacing: 0.02em;
       padding: 1px 3px; border-radius: 4px; line-height: 1.2;
-      background: #1a1612; border: 1px solid currentColor;
+      background: #1a1612; border: 0;
       pointer-events: none;
     }
     .mode-badge.easy { color: var(--gold); }
@@ -605,9 +579,8 @@
     /* Open = pressed in: the button sinks into the HUD and the panel it
        opened takes over the raised look. */
     #menu[open] summary {
-      border-color: var(--gold); color: var(--gold-pale);
+      color: var(--gold-pale);
       background: var(--chrome-sunk);
-      box-shadow: var(--chrome-well), var(--chrome-key);
     }
     /* OPAQUE, not #000c: 80% black over bright pixel art let map detail bleed
        through behind 12px text, and on a 360-wide phone the panel overlaps the
@@ -2925,7 +2898,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=1fc14686';
+      const APP_SRC = 'src/app.js?v=246c3dca';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
