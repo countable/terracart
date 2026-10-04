@@ -8,13 +8,13 @@
     return SCENE_SRC.slice(start + 1, end + 4);
   }
   const methods = new Function('slimeCharging', 'ENEMY_HEALTH_RING_MS', 'DMG_POPUP_BEAT_MS',
-    'isShiny', 'SHINY_RATE', 'SHINY_SPEED_MUL', 'worldMetersToAbsCell', 'cellInReach',
+    'isShiny', 'SHINY_RATE', 'SHINY_SPEED_MUL', 'worldMetersToAbsCell', 'cellInReach', 'absCellCenterMeters',
     `return {${[
       'isUnnoticed(creature = null) {',
       "_damageEnemy(c, amount, source = 'player', options = {}) {",
       '_drawWorkProgress() {',
     ].map(lift).join(',\n')}};`)(() => false, 3000, 300,
-      () => false, { animal: 1 }, 2, () => ({ cellIX: 0, cellIY: 0 }), () => true);
+      () => false, { animal: 1 }, 2, () => ({ cellIX: 0, cellIY: 0 }), () => true, () => ({ x: 0, y: 0 }));
 
   function scene() {
     return Object.assign({
@@ -24,7 +24,7 @@
       cancelWorkProgress() { this._workProgress = null; },
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
       worldMetersToScreen: (x, y) => ({ x, y }),
-      _workProgressGfx: { clear() {} }, _strokeWorkRing() {},
+      _workProgressGfx: { clear() {} }, _strokeWorkRing() {}, _drawWorkTool() {},
     }, methods);
   }
 

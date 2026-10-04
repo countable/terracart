@@ -899,10 +899,11 @@ class SceneCreate {
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
-    // The tool in the middle of the ring — one image, re-textured per wheel by
-    // _setWorkProgressIcon and placed by _drawWorkProgress. Hidden between wheels.
+    this._workToolGfx = this.add.graphics().setDepth(96);
+    this._wateringEffects = [];
+    // One reusable image swings the owned tool beside the target cell.
     this._workProgressIcon = this.add.image(0, 0, '__WHITE')
-      .setDepth(95.5).setAlpha(WORK_TOOL_ALPHA).setVisible(false);
+      .setDepth(97).setAlpha(WORK_TOOL_ALPHA).setVisible(false);
     this._workProgressToolKey = null;
     this._workProgress = null;
 
@@ -1133,7 +1134,7 @@ class SceneCreate {
     this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
     // Sword-swing slash — a short arc drawn near the player, toward whatever
     // it's engaged with, on the same beat the melee wheel's damage numbers
-    // pop (see SWORD_SWING_MS / _drawSwordSwing). Depth 11: same tier as the
+    // pop (see Render.MELEE_LOOKS / _drawSwordSwing). Depth 11: same tier as the
     // facing arrow, above the body (10).
     this.swordSwingGfx = this.add.graphics().setDepth(11);
     this.playerWorldContainer.add(this.swordSwingGfx);
