@@ -30,8 +30,9 @@ const METHODS = [
   "resolveDefeat(victim, source = 'player') {",
   '_dropBountyCoin(victim, amount) {',
 ].map(liftMethod).join(',\n');
+const KILL = APP.match(/\nconst KILL_LEDGERS = \[[\s\S]*?\n\];/)[0];   // who a kill is reported to, lifted beside the method
 const makeKill = new Function('grantTreasureRoll', 'Quests', 'persistSave',
-  `return {\n${METHODS}\n};`);
+  KILL + `\nreturn {\n${METHODS}\n};`);
 
 const EDGE = 1000, N = 200, CELL = EDGE / N;
 const TX = 7301, TY = 4102;   // a key no other suite uses
@@ -58,7 +59,7 @@ function harness() {
     depth: 0, tileEdgeM: EDGE, cellsPerTile: N,
     viewCenterX: 0, viewCenterY: 0,
     addToInv: (id, n) => paid.inv.push(id),
-    flash: (t) => paid.flashes.push(t),
+    flash: (t) => paid.flashes.push(t), flashAtPlayer: (t) => paid.flashes.push(t),
     flashAtWorld: (t) => paid.flashes.push(t),
     flashLoot: (t) => paid.flashes.push(t),
     flashShiny: () => { paid.shiny++; },

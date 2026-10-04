@@ -14,7 +14,7 @@
 //     writes save.sprungTraps / save.disarmedTraps; it expires.
 //  3. THE MAGIC TRAP IS PLACED STATE that glows: save.magicTraps (id from the
 //     cell), a Lighting.KINDS row with its own collector, a cave-only tier-3
-//     find; an ENEMY stepping on it is held (the frost freeze) and hurt as a
+//     find; an ENEMY stepping on it is chilled (the frost slow) and hurt as a
 //     player kill, and the trap is spent.
 
 (function () {
@@ -43,9 +43,9 @@ test('trapper: a MONSTERS row that lands no blow and lays a trap', () => {
   assert.truthy(Combat.monsterHits('goblin') && Combat.monsterHits('goblin_archer'), 'the others still hit');
   assert.eq(Combat.monsterLays('goblin_trapper'), 'trap', 'it lays a trap');
   assert.eq(Combat.monsterLays('goblin'), null, 'nothing else does');
-  assert.gte(row.minDepth, Combat.monster('goblin_archer').minDepth,
+  assert.gte(row.cave.minDepth, Combat.monster('goblin_archer').cave.minDepth,
     'met no shallower than the archer (the garrison ladder never runs backwards)');
-  assert.gt(Combat.enemyBounty('goblin_trapper', row.minDepth), 0, 'and it pays a bounty');
+  assert.gt(Combat.enemyBounty('goblin_trapper', row.cave.minDepth), 0, 'and it pays a bounty');
 });
 
 test('trapper: the goblin sheet drawn red, and a Magic Trap on its kill', () => {
@@ -79,9 +79,13 @@ test('trapper: dungeon-only roster excludes it from surface garrisons', () => {
 test('trapper: the hit and the arrow ask the row, never the kind', () => {
   const start = APP.indexOf('  wanderCreatures() {');
   const w = APP.slice(start, APP.indexOf('\n  }\n', start));
-  assert.truthy(/const hits = Combat\.monsterHits\(c\.kind\);/.test(w), 'the attack reads monsterHits');
-  assert.truthy(/const clear = hits && \(m\.range <= 1 \|\|/.test(w), 'and both halves are behind it');
+  // rosterEnemyAttack (creature_ai.js): a row that lands no blow and steals
+  // nothing lands nothing, and a 'trap' row lays instead — the row, never
+  // the kind.
+  assert.truthy(CREATURE_AI_SRC.includes("if ((!row.dmg && !row.steals) || row.attackType === 'touch') return;"),
+    'the attack reads the row\'s dmg');
   assert.falsy(/goblin_trapper/.test(w), 'no kind literal in the sim loop');
+  assert.falsy(/goblin_trapper/.test(CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyAttack('))), 'nor in the movers');
   assert.truthy(w.includes('rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt)'),
     'trap laying shares the roster attack gate');
   assert.truthy(CREATURE_AI_SRC.includes("if (row.attackType === 'trap')"));
@@ -251,7 +255,7 @@ test('laid traps: every consumer reads both lists — tick, draw, kit, rebuild',
   assert.truthy(/if \(trap\._laid && !Traps\.isLive\(trap, Date\.now\(\)\)\) \{ this\._trapHere = null; return; \}/.test(tick.slice(0, 5000)),
     'an expired snare under the feet stops biting');
   assert.truthy(/Traps\.springTrap\(this\.save, trap\)/.test(tick.slice(0, 6000)), 'the bite springs either kind');
-  assert.truthy(/for \(const tr of entry\.laidTraps\)/.test(RENDER_SRC), 'the render pass draws them');
+  assert.truthy(/cullToView\(entry\.laidTraps, pWorldX, pWorldY, halfM, \(tr, dx, dy\) => \{/.test(RENDER_SRC), 'the render pass draws them');
   assert.truthy(/sprung: !!tr\._sprung/.test(RENDER_SRC), 'in the sprung texture once sprung');
   assert.truthy(/Traps\.disarmTrap\(save, trap\)/.test(INTERACT_SRC), 'the kit shuts them');
   assert.truthy(/if \(prev\.laidTraps && !fresh\.laidTraps\) fresh\.laidTraps = prev\.laidTraps;/.test(ALL_SRC['worldgen.js']),
@@ -382,7 +386,7 @@ test('magic trap: a magenta light row, collected like the campfires', () => {
   assert.eq(scene._lights[0].id, 'mtrap_d1_0_0_1_1', 'keyed by the trap id, so frameKey moves when one goes');
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/collectMagicTraps\(scene, ax, ay, halfM\);/.test(d), 'draw() collects them every frame');
-  assert.truthy(/for \(const mt of PlacedFloor\.forDepth\(scene\.save\.magicTraps, _curDepth\)\)/.test(RENDER_SRC),
+  assert.truthy(/cullToView\(PlacedFloor\.forDepth\(scene\.save\.magicTraps, _curDepth\), pWorldX, pWorldY, halfM, \(mt, dx, dy\) => \{/.test(RENDER_SRC),
     'and a tinted scuff marks the cell on the trap layer (it lies on the ground)');
 });
 
@@ -435,7 +439,7 @@ test('magic trap: an ENEMY on the cell is held and hurt as a player kill; the tr
   assert.eq(hits[0].c, foe);
   assert.eq(hits[0].source, 'player', 'the player set it: a trap kill is a player kill');
   assert.eq(hits[0].amount, Combat.shotDamage({ bow: { tier: 3 } }, 'bow'), 'one tier-3 bow shot');
-  assert.gte(foe._frozenUntil, before + Combat.fireIntervalMs('staff'), 'held one staff beat (the frost freeze)');
+  assert.gte(foe._frozenUntil, before + Combat.fireIntervalMs('staff'), 'chilled one staff beat (the frost slow)');
   assert.eq(scene.save.magicTraps.map((t) => t.id).join(), other.id, 'the sprung trap is spent, the other kept');
   // A tamed slime is a pet, never a target.
   const pet = { kind: 'slime', id: 'released_slime_1', x: 9.5 * CELL, y: 9.5 * CELL };
@@ -463,7 +467,8 @@ const METHODS = [
   "resolveDefeat(victim, source = 'player') {",
   '_dropBountyCoin(victim, amount) {',
 ].map(liftMethod).join(',\n');
-const makeKill = new Function('grantTreasureRoll', 'Quests', 'persistSave', `return {\n${METHODS}\n};`);
+const KILL = APP.match(/\nconst KILL_LEDGERS = \[[\s\S]*?\n\];/)[0];   // who a kill is reported to, lifted beside the method
+const makeKill = new Function('grantTreasureRoll', 'Quests', 'persistSave', KILL + `\nreturn {\n${METHODS}\n};`);
 test('trapper: its kill drops a Magic Trap ON TOP of the bounty coin — for the player only', () => {
   const key = WorldGen.tileKey(7311, 4111);
   const had = WorldGen.tileCache.get(key);
@@ -477,7 +482,7 @@ test('trapper: its kill drops a Magic Trap ON TOP of the bounty coin — for the
       const scene = Object.assign(Object.create(methods), {
         save: { money: 0, caught: [] }, depth: 3, tileEdgeM: 1000, cellsPerTile: 200,
         viewCenterX: 0, viewCenterY: 0,
-        addToInv: (id) => inv.push(id), flash: () => {}, flashAtWorld: () => {}, flashLoot: () => {}, flashShiny: () => {},
+        addToInv: (id) => inv.push(id), flash: () => {}, flashAtPlayer: () => {}, flashAtWorld: () => {}, flashLoot: () => {}, flashShiny: () => {},
         awardShinyBonus: () => {}, _bankDiscovery: () => false,
       });
       const v = { kind: 'goblin_trapper', id: `mon_tr_${source}`, x: 7311 * 1000 + 12, y: 4111 * 1000 + 17 };

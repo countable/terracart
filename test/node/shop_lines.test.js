@@ -14,7 +14,7 @@ test('shop lines: the one table — Seed and Supply to T3, Magic one per tier to
   for (const k of ['ore']) {
     assert.falsy(Shops.LINE_RULES[k] || Shops.THEME_LABEL[k] || Shops.THEME_BLURB[k] || Shops.THEME_POOL[k], 'the Ore Shop is gone: ' + k);
   }
-  const save = { restoredHouses: {} };
+  const save = SaveState.defaults({ restoredHouses: {} });
   assert.truthy(Shops.lineBuildable(save, 'seed', 3)); assert.falsy(Shops.lineBuildable(save, 'seed', 4), 'Seed stops at T3');
   assert.truthy(Shops.lineBuildable(save, 'supply', 3)); assert.falsy(Shops.lineBuildable(save, 'supply', 4));
   assert.truthy(Shops.lineBuildable(save, 'relic', 7)); assert.falsy(Shops.lineBuildable(save, 'relic', 8));

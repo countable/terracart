@@ -34,6 +34,14 @@
 const SMITHY_PREVIEW_PX = 56;
 const smithyPreviewHTML = (iconHTML, name) =>
   `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
+// THE TWO REFUSALS every counter shares, worded once: a purse that cannot
+// cover a price (_spendMoney, the re-roll button, buildShopOffer's
+// shortDenial) and a bag with no room for what is bought (named for the
+// stack, so the player knows which one to thin — on its own line, so the
+// longest catalogue name still fits MAP_MSG_MAX; economy_owners.test.js
+// measures both).
+const purseShort = (price) => `Purse too light — need ${price}.`;
+const bagFullFor = (id) => `Bag full for\n${itemName(id)}.`;
 // THE FORGE CEREMONY (presentBlacksmithOffer's onAccept): the piece just
 // forged, large on the forge_done painting (a bare anvil, so the icon is the
 // only piece in the picture), with the player’s first impression of the finished work.
@@ -128,23 +136,51 @@ class SceneShops {
       onAccept: () => {
         const want = 1;
         let take = Math.min(want, room());
-        if (take <= 0) { this.flash(BAG_FULL_MSG, sx, sy); return; }
+        if (take <= 0) { this.flash(bagFullFor(id), sx, sy); return; }
         let pay = unitPrice * take;
-        if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
+        if (money() < pay) { this.flash(purseShort(pay), sx, sy); return; }
         take = this.addToInv(id, take, false, { notWild: true, deferRefresh: true, deferBookRead: true });
         if (!(take > 0)) return;
         pay = unitPrice * take;
         addMoney(this.save, -pay);
         if (id === 'book') ShopsMath.bookBought(this.save, take);
-        this._finishInventoryChange();
-        this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
+        this._settleDeal(null, [`${take}× ${itemName}\n−${pay}`, UI_GOLD, 1, id]);
       },
     });
+  }
+
+  // ─── What every closed deal shares ─────────────────────────────────
+  // Pay `price` from the purse, or say why not (purseShort) and return false.
+  _spendMoney(price, sx, sy) {
+    if ((this.save.money ?? 0) < price) { this.flash(purseShort(price), sx, sy); return false; }
+    addMoney(this.save, -price);
+    return true;
+  }
+  // The last-chance downgrade guard on a piece of gear: by the time the
+  // player taps Buy / Forge, the slot may have been upgraded elsewhere (a
+  // chest, another shop). False, with the line, when the offer is no longer
+  // an upgrade (Gear.canUpgrade).
+  _gearUpgradeOk(offer, sx, sy) {
+    if (Gear.canUpgrade(this.save, offer.kind, offer.slot, offer.tier)) return true;
+    this.flash('Already carry a finer one.', sx, sy);
+    return false;
+  }
+  // The tail of a closed deal: bank it against the house (`recordDeal` —
+  // the shelf turns over, the re-roll ladder settles, the trader's cooldown
+  // starts; null for a counter with no house), persist and redraw the bag
+  // (the HUD's purse repaints on its own frame), then the loot toast —
+  // flashLoot's arguments — when the deal has one.
+  _settleDeal(recordDeal, loot) {
+    if (recordDeal) recordDeal();
+    this._finishInventoryChange();
+    if (loot) this.flashLoot(...loot);
   }
 
   // A sundries counter's gear (Macros.sundriesGear): the next rung of its
   // weapon or shield line above what the player holds, at the counter's
   // gear price. Bought once per rung; a player holding the finest is told so.
+  // Reached from presentMacro: a counter whose stock entry is `gear:<line>`
+  // (Macros.isSundriesGear) opens this instead of the stall counter.
   _presentStallGear(sx, sy, opts) {
     if (document.getElementById('offer-modal')) return;
     const { entry, title, kind = 'shop', kindLabel, art } = opts;
@@ -155,13 +191,12 @@ class SceneShops {
     const icon = isItem ? this.iconSpanHTML(offer.id) : this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = (isItem ? '' : (gearDef(offer.kind, offer.slot)?.blurb || ''))
       + `<div style="margin-top:6px">${tierBadgeHTML(offer.tier)}</div>`;
-    const money = () => this.save.money ?? 0;
     this.showOfferModal({
       kind, kindLabel, art, title,
       get: `${icon} ${name}`,
       blurb,
       cost: this.moneyHTML(offer.price),
-      canAfford: money() >= offer.price,
+      canAfford: (this.save.money ?? 0) >= offer.price,
       disabledReason: isItem ? this._shopBagSpaceReason(offer.id, 1) : '',
       acceptLabel: 'Buy',
       cancelLabel: 'Leave',
@@ -171,18 +206,17 @@ class SceneShops {
         if (!now || now.kind !== offer.kind || now.slot !== offer.slot || now.id !== offer.id || now.tier !== offer.tier) {
           this.flash('Already carry a finer one.', sx, sy); return;
         }
-        if (money() < offer.price) { this.flash(`need ${offer.price}`, sx, sy); return; }
-        if (isItem && this.invRoomFor(offer.id) < 1) { this.flash(BAG_FULL_MSG, sx, sy); return; }
-        addMoney(this.save, -offer.price);
+        if (isItem && this.invRoomFor(offer.id) < 1) { this.flash(bagFullFor(offer.id), sx, sy); return; }
+        if (!this._spendMoney(offer.price, sx, sy)) return;
         const { price, ...reward } = offer;
         Rewards.apply(this.save, reward, this, { notWild: true, deferRefresh: true });
         this.markRelicsDirty();
-        this._finishInventoryChange();
+        this._settleDeal(null, [`${name}\n−${offer.price}`, UI_GOLD, 1.25]);
         this.updateHUD();
-        this.flashLoot(`${name}\n−${offer.price}`, '#ffe066', 1.25);
       },
     });
   }
+
 
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
@@ -302,8 +336,7 @@ class SceneShops {
             if (this.save.shopCharm[k] <= Date.now()) delete this.save.shopCharm[k];
           }
           this.save.shopCharm[house.id] = Date.now() + SHOP_CHARM_MS;
-          this._finishInventoryChange();
-          this.flashLoot('💐 charmed — half prices!', '#ff8aff', 1.2, 'flowers');
+          this._settleDeal(null, ['💐 charmed — half prices!', '#ff8aff', 1.2, 'flowers']);
           // Straight back into the shop so the discounted offer is in hand.
           this.shopInteract(sx, sy, house);
         },
@@ -335,7 +368,7 @@ class SceneShops {
             this._clampSelSlot();
             const tier = Houses.renovate(this.save, house);
             this._finishInventoryChange();
-            if (tier) this.flashLoot(`🏗️ renovated — ${TIER_BADGE_NAMES[tier]}!`, '#ffe066', 1.2, Houses.PERMIT_ID);
+            if (tier) this.flashLoot(`🏗️ renovated — ${TIER_BADGE_NAMES[tier]}!`, UI_GOLD, 1.2, Houses.PERMIT_ID);
             // Straight back into the shop so the new shelf is in hand.
             this.shopInteract(sx, sy, house);
           },
@@ -439,7 +472,7 @@ class SceneShops {
     } else {
       id = BUY_LIST[(this.save.buyIndex ?? 0) % BUY_LIST.length];
     }
-    const baseValue = PRICES[id] ?? 1;
+    const baseValue = itemValue(id);
     const item = ITEM_BY_ID[id];
     // Every cash storefront (markets + generic houses) buys for money now;
     // barter lives only in the dedicated 'trader' shop kind (presentTraderOffer
@@ -465,18 +498,13 @@ class SceneShops {
       disabledReason: this._shopBagSpaceReason(id, buyQty),
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
-        if (this.invRoomFor(id) < buyQty) {
-          this.flash(`Bag full for ${item?.name || id}.`, sx, sy);
-          return;
-        }
+        if (this.invRoomFor(id) < buyQty) { this.flash(bagFullFor(id), sx, sy); return; }
         offer.consume();
         this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
-        recordDeal();
-        this._finishInventoryChange();
-        // Use the loud loot pop so a purchase reads as a real gain.
-        // Sprite shows the bought item — drop the item-icon emoji.
-        this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
+        // The loud loot pop, so a purchase reads as a real gain; the sprite
+        // shows the bought item.
+        this._settleDeal(recordDeal, [`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, UI_GOLD, 1, id]);
       },
     });
   }
@@ -617,8 +645,7 @@ class SceneShops {
   // the delivery menu (openDeliveryMenu). Home / forts / castles / wrecks are
   // excluded — only plain residential delivery houses appear.
   knownDeliveryHouses() {
-    const pWX = this.startWorldM.x + this.playerM.x;
-    const pWY = this.startWorldM.y + this.playerM.y;
+    const { x: pWX, y: pWY } = playerWorldM(this);
     const out = [];
     const seen = new Set();
     for (const e of WorldGen.tileCache.values()) {
@@ -653,13 +680,16 @@ class SceneShops {
       empty.textContent = 'No delivery requests nearby. Restore a house to start.';
       box.appendChild(empty);
     } else {
+      // One row per house: a ghost button (modal_shell mkBtn — the one
+      // factory) laid out as a two-line row, its label the HTML below.
+      const rowCss = 'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
+        + 'background:#222a;color:#fff;font:12px ui-monospace,monospace;text-align:left;';
       for (const h of houses) {
-        const row = document.createElement('button');
-        row.style.cssText =
-          'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
-          + 'background:#222a;border:2px solid #555;border-radius:6px;color:#fff;'
-          + 'cursor:pointer;font:12px ui-monospace,monospace;text-align:left;';
-        // Name every item, show carried vs needed, and price the set.
+        // Icons alone told you nothing: three unlabelled sprites and a
+        // distance, so you couldn't tell what a run needed, what it paid, or
+        // which of five rows you could actually complete. Name every item,
+        // show how many of each you're carrying against the one needed, and
+        // price the set.
         const icons = h.wanted.map(id => this.iconSpanHTML(id)).join(' ');
         const names = h.wanted.map(id => itemName(id)).join(' + ');
         const have = h.wanted.map(id => Inventory.count(this.save, id));
@@ -672,8 +702,8 @@ class SceneShops {
           .map(id => itemName(id));
         const stock = missing.length ? `need ${missing.join(', ')}` : '✓ you have everything';
         const setPrice = Math.max(1, Math.round(
-          h.wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
-        row.innerHTML =
+          h.wanted.reduce((sum, id) => sum + Math.max(1, itemValue(id)), 0) * DELIVERY_BONUS_MULT));
+        const row = mkBtn(
           `<span style="flex:1;min-width:0;">`
           + `<span style="display:flex;align-items:center;gap:4px;">${icons}`
           + `<b style="font-weight:700;">${names}</b></span>`
@@ -682,7 +712,8 @@ class SceneShops {
           + `${stock}</span></span>`
           + `<span style="white-space:nowrap;text-align:right;">`
           + `<b style="color:var(--gold);">${this.moneyHTML(`+${setPrice}`)}</b><br>`
-          + `<span style="opacity:.7;font-size:11px;">${Math.round(h.dist)}m ›</span></span>`;
+          + `<span style="opacity:.7;font-size:11px;">${Math.round(h.dist)}m ›</span></span>`,
+          { variant: 'ghost', css: rowCss });
         // A row you can complete right now reads as ready.
         if (ready) row.style.borderColor = '#4a8c4a';
         row.addEventListener('click', (e) => {
@@ -783,7 +814,7 @@ class SceneShops {
     // delivery premium (DELIVERY_BONUS_MULT) so delivering the set beats selling
     // the items individually. Drives both the modal display and the payout.
     const setPrice = Math.max(1, Math.round(
-      wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
+      wanted.reduce((sum, id) => sum + Math.max(1, itemValue(id)), 0) * DELIVERY_BONUS_MULT));
     // Keep each icon beside its name and requested count, including bundles.
     const requested = wanted.map(id =>
       `<div style="display:flex;align-items:center;gap:8px;text-align:left;">` +
@@ -825,9 +856,7 @@ class SceneShops {
           'a first delivery to a new household');
         // That ledger key IS the household's "fed" record (Delivery.isSatisfied
         // reads it): it stops asking and shows a smiling face for good.
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`+${gain}`, '#ffe066', 1, wanted[0]);
+        this._settleDeal(recordDeal, [`+${gain}`, UI_GOLD, 1, wanted[0]]);
         // A new door gets the same fanfare as any other memory — the
         // shiny-find banner + burst, not a bare flash — so every "first time"
         // moment in the game reads the same way (see the elite-kill call site).
@@ -903,32 +932,29 @@ class SceneShops {
     return Gear.buildRelicOffer(this.save, rng, opts);
   }
 
-  // Build the "Re-roll" secondary button shared by the relic and blacksmith
-  // offers. Both pivot the same seed lane (curState.rerolls) and pull the next
-  // target from peekOrBuildRelicOffer; they differ only in the "nothing left"
-  // flash text and which present* method re-renders. Cost = 5 × 2^rerolls,
-  // unless `opts.cost` says otherwise (the smithy: ShopsMath.smithyRerollCost).
-  // (The trader offer's re-roll is structurally different — it has no peek
-  // step — so it stays inline in presentTraderOffer.)
-  // A themed shop rides the same button with its own `opts.cost` (the cheaper
-  // ShopsMath.themedRerollCost) and `opts.peek` (its next item, or its capped
-  // relic roll). `opts.current` is what is on display: the draw goes through
-  // ShopsMath.rerollPeek, which re-draws (for free) until it is something else.
-  _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts = {}) {
+  // THE "Re-roll" secondary button every shop shares: the relic stall, the
+  // smithy, the themed shelf and the trader. All pivot the same seed lane
+  // (curState.rerolls); `opts.cost` is the shop's ladder (ShopsMath
+  // themedRerollCost / smithyRerollCost / traderRerollCost — one family),
+  // `opts.peek` its next offer (the capped relic roll by default; the themed
+  // shelf's next item; the trader's next barter) and `present` the method
+  // that re-renders it. `opts.current` is what is on display: the draw goes
+  // through ShopsMath.rerollPeek, which re-draws (for free) until it is
+  // something else. The purse is checked BEFORE the peek, which climbs the
+  // ladder, so a short purse never pays a rung.
+  _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts) {
     const curState = house?.id ? this.shopBucketState(house) : null;
-    const n = curState?.rerolls || 0;
-    const rerollCost = opts.cost ? opts.cost(n) : 5 * Math.pow(2, n);
+    const rerollCost = opts.cost(curState?.rerolls || 0);
     const peek = opts.peek || (() => this.peekOrBuildRelicOffer(house));
     return {
       label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
       disabled: (this.save.money ?? 0) < rerollCost,
       onClick: () => {
-        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
+        if ((this.save.money ?? 0) < rerollCost) { this.flash(purseShort(rerollCost), sx, sy); return; }
         const next = ShopsMath.rerollPeek(curState, peek, opts.current);
         if (!next) { this.flash(emptyMsg, sx, sy); return; }
         addMoney(this.save, -rerollCost);
         persistSave(this.save);
-        this.updateHUD();
         present(next);
       },
     };
@@ -1008,16 +1034,11 @@ class SceneShops {
       disabledReason: this._shopBagSpaceReason(id, buyQty),
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
-        if (this.invRoomFor(id) < buyQty) {
-          this.flash(`Bag full for ${item?.name || id}.`, sx, sy);
-          return;
-        }
+        if (this.invRoomFor(id) < buyQty) { this.flash(bagFullFor(id), sx, sy); return; }
         offer.consume();
         this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         if (id === 'book') ShopsMath.bookBought(this.save, buyQty);
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
+        this._settleDeal(recordDeal, [`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, UI_GOLD, 1, id]);
       },
       // A re-roll can only land on another item of the same stock, so a line
       // that carries ONE item at this tier (a line with one item at a rank)
@@ -1051,20 +1072,11 @@ class SceneShops {
       canAfford: (this.save.money ?? 0) >= price,
       acceptLabel: 'Buy',
       onAccept: () => {
-        // Last-chance downgrade guard — by the time the player taps Buy, the
-        // slot may have been upgraded elsewhere (chest reward, another shop).
-        const curTier = offer.kind === 'relic'
-          ? (this.save.relics?.[offer.slot]?.tier ?? 0)
-          : (this.save.armor?.[offer.slot]?.tier ?? 0);
-        if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
-        if ((this.save.money ?? 0) < price) { this.flash(`Purse too light — need ${price}.`, sx, sy); return; }
-        addMoney(this.save, -price);
+        if (!this._gearUpgradeOk(offer, sx, sy)) return;
+        if (!this._spendMoney(price, sx, sy)) return;
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
-        recordDeal();
-        persistSave(this.save);
-        this.updateHUD();
-        this.flashLoot(`${name}\n−${price}`, '#ffe066', 1.25);
+        this._settleDeal(recordDeal, [`${name}\n−${price}`, UI_GOLD, 1.25]);
       },
       // Pivot the seed lane so the next peekOrBuildRelicOffer returns
       // something else — no per-house cache to invalidate.
@@ -1103,14 +1115,6 @@ class SceneShops {
   // bar the player can currently afford, so the modal opens on something usable.
   presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target = null) {
     const bars = Gear.smeltUnlockedBars();
-    const heldCount = (id) => Inventory.count(this.save, id);
-    const consume = (id, n) => {
-      Inventory.remove(this.save, id, n);
-      this._clampSelSlot();
-    };
-    // What smelting n bars takes of one ingredient: the recipe's count times
-    // n, trimmed on the whole batch by a guild badge (guildPrice).
-    const need = (r, n) => this.guildPrice(house, r.qty * n);
     const tabs = [
       { label: 'Forge', active: false, onSelect: forgeBack },
       { label: 'Smelt', active: true,  onSelect: () => {} },
@@ -1130,47 +1134,25 @@ class SceneShops {
       });
       return;
     }
-    // Default focus: highest unlocked bar the player can afford ≥1 of, else
-    // the highest unlocked. An explicit `target` (from the rotate button) wins
-    // as long as it's actually unlocked. Prefer the highest unlocked bar the
-    // player can actually afford ≥1 of, so the modal opens on something usable
-    // rather than a bar they lack ingredients for (the pager still
-    // reaches the others).
-    if (!target || !bars.includes(target)) {
-      target = bars.slice().reverse().find(id =>
-        Gear.smeltingRecipe(id).every(r => heldCount(r.id) >= need(r, 1))) || bars[bars.length - 1];
-    }
-    const recipe = Gear.smeltingRecipe(target);
+    // One bar's recipe, each count trimmed by a guild badge (guildPrice).
+    const recipeFor = (id) => Gear.smeltingRecipe(id).map(r => ({ ...r, qty: this.guildPrice(house, r.qty) }));
+    const covered = (id) => recipeFor(id).every(r => Inventory.count(this.save, r.id) >= r.qty);
+    // Default focus: the highest unlocked bar the player can afford ≥1 of,
+    // else the highest unlocked, so the modal opens on something usable
+    // rather than a bar they lack ingredients for (the pager still reaches
+    // the others). An explicit `target` (from the pager) wins as long as it
+    // is actually unlocked.
+    if (!target || !bars.includes(target)) target = bars.slice().reverse().find(covered) || bars[bars.length - 1];
     const outItem = ITEM_BY_ID[target];
-    // Max smeltable — the same count Home's Craft page uses (items.js
-    // recipeCap, which also makes an empty recipe 0 rather than unbounded),
-    // then as far past it as a guild badge's savings stretch.
-    let cap = recipeCap(recipe, heldCount);
-    while (recipe.length && recipe.every(r => r.qty > 0 && heldCount(r.id) >= need(r, cap + 1))) cap++;
-    cap = Math.min(cap, this.invRoomFor(target));
-    const recipeLine = (n) => recipe.map(r => {
-      const it = ITEM_BY_ID[r.id];
-      const ok = heldCount(r.id) >= need(r, n);
-      return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
-        + `${need(r, n)}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}</span>`;
-    }).join(' + ');
     // The ‹ › pager walks the unlocked bars (wraps around).
     const idx = bars.indexOf(target);
     const pageTo = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
-    const fmt = (n) => ({
-      get: smithyPreviewHTML(this.iconSpanHTML(target, SMITHY_PREVIEW_PX), `${n}× ${outItem?.name || target}`),
-      cost: recipeLine(n),
-      canAfford: cap >= n && n >= 1,
-    });
-    const first = fmt(1);
-    this.showOfferModal({
-      kind: 'forge',
+    this._presentRecipeOffer(sx, sy, {
+      recipe: recipeFor(target),
       cancelLabel: 'Leave',
-      get: first.get,
-      cost: cap >= 1 ? first.cost : recipeLine(1),
-      canAfford: cap >= 1,
+      get: smithyPreviewHTML(this.iconSpanHTML(target, SMITHY_PREVIEW_PX), `1× ${outItem?.name || target}`),
+      canAfford: this.invRoomFor(target) >= 1,
       acceptLabel: 'Smelt',
-      costLabel: 'You give',
       tabs,
       repeat: () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target),
       pager: {
@@ -1178,25 +1160,49 @@ class SceneShops {
         onPrev: pageTo(bars[(idx - 1 + bars.length) % bars.length]),
         onNext: pageTo(bars[(idx + 1) % bars.length]),
       },
+      refuse: () => {
+        if (this.invRoomFor(target) >= 1) return false;
+        this.flash(bagFullFor(target), sx, sy);
+        return true;
+      },
+      produce: () => {
+        this.addToInv(target, 1, false, { notWild: true, deferRefresh: true });
+        this._settleDeal(recordDeal, [`✨ ${outItem?.name || target} ×1`, UI_GOLD, 1.25, target]);
+      },
+    });
+  }
+
+  // THE RECIPE COUNTER — the one presenter for "give these ingredients, take
+  // that": the crucible (presentSmeltOffer) and the forge
+  // (presentBlacksmithOffer); Home's Craft page (app.js presentHomeCraft) is
+  // its third caller-to-be. It owns the held count, the coloured cost line
+  // (green where the bag covers an ingredient, red where it is short), the
+  // shortfall line that names the ingredient and how many more are wanted —
+  // 'not enough' made the player close the modal and count their own bag,
+  // with the recipe line right there on screen in red — and the consume
+  // step. The caller owns what comes out (`produce`, after the ingredients
+  // are gone) and any guard of its own (`refuse`, run first: a bag with no
+  // room, a slot already finer; true refuses). `recipe` is [{ id, qty }] with
+  // the counts already trimmed by a guild badge; `canAfford` may add the
+  // caller's own condition. Everything else rides through to showOfferModal.
+  _presentRecipeOffer(sx, sy, { recipe, produce, refuse, canAfford = true, ...modal }) {
+    const held = (id) => Inventory.count(this.save, id);
+    const short = () => recipe.find(r => held(r.id) < r.qty);
+    const cost = recipe.map(r => `<span style="color:${held(r.id) >= r.qty ? UI_GREEN : UI_DANGER_INK}">`
+      + `${r.qty}× ${this.iconSpanHTML(r.id)} ${itemName(r.id)}</span>`).join(' + ');
+    this.showOfferModal({
+      kind: 'forge',
+      costLabel: 'You give',
+      ...modal,
+      cost,
+      canAfford: canAfford && !short(),
       onAccept: () => {
-        const q = 1;
-        if (this.invRoomFor(target) < q) { this.flash(BAG_FULL_MSG, sx, sy); return; }
-        if (q < 1 || !recipe.every(r => heldCount(r.id) >= need(r, q))) {
-          // Name the ingredient and the shortfall — 'not enough to smelt'
-          // made the player close the modal and count their own bag, with
-          // the recipe line right there on screen in red.
-          const missing = recipe.find(r => heldCount(r.id) < need(r, q));
-          const short = missing ? need(missing, q) - heldCount(missing.id) : 0;
-          const name = missing ? itemName(missing.id) : '';
-          this.flash(missing ? `Need ${short} more ${name}`
-                             : 'Not enough to smelt.', sx, sy);
-          return;
-        }
-        for (const r of recipe) consume(r.id, need(r, q));
-        this.addToInv(target, q, false, { notWild: true, deferRefresh: true });
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`✨ ${outItem?.name || target} ×${q}`, '#ffe066', 1.25, target);
+        if (refuse && refuse()) return;
+        const missing = short();
+        if (missing) { this.flash(`Need ${missing.qty - held(missing.id)} more ${itemName(missing.id)}`, sx, sy); return; }
+        for (const r of recipe) Inventory.remove(this.save, r.id, r.qty);
+        this._clampSelSlot();
+        produce();
       },
     });
   }
@@ -1229,7 +1235,7 @@ class SceneShops {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { onClose: () => {}, kind: 'wizard' });
     const intro = document.createElement('div');
-    intro.style.cssText = 'font-size:13px;margin-bottom:4px;color:#ffe066';
+    intro.style.cssText = `font-size:13px;margin-bottom:4px;color:${UI_GOLD}`;
     intro.textContent = Wizard.INTRO;
     box.appendChild(intro);
     const ask = document.createElement('div');
@@ -1259,7 +1265,7 @@ class SceneShops {
       const what = o.sub;
       card.innerHTML =
         `<div style="font-size:24px;line-height:1.1">${o.icon}</div>`
-        + `<div style="font-weight:700;color:#ffe066">${o.title}</div>`
+        + `<div style="font-weight:700;color:${UI_GOLD}">${o.title}</div>`
         + `<div style="font-size:11px;line-height:1.3">${what}</div>`
         + `<div style="margin-top:2px;font-weight:700">${mem(12)} ${o.cost}</div>`;
       if (!o.canAfford) {
@@ -1390,17 +1396,19 @@ class SceneShops {
     const pick = this.traderGivePick(house);
     if (!pick) return null;
     const { rng, giveId } = pick;
-    const baseValue = Math.max(1, PRICES[giveId] ?? 1);
+    const baseValue = Math.max(1, itemValue(giveId));
     // Target trade value the trader considers appropriate — a shiny trader's
     // (the Magic Hammer's) asks for less of your stack, priceMul.
     const target = baseValue * (1.0 + rng()) * this.priceMul(house);
     // Asking item: ShopsMath.traderAsk — usually a stack that already
     // covers the count, otherwise anything owned, then the wishlist; never a
-    // count the bag's stack cap could not hold.
+    // count the bag's stack cap could not hold. Every catalogue item is
+    // worth what itemValue says (the unpriced live animals and saplings
+    // included), so a deer is never asked for by the dozen at $1.
     const ask = ShopsMath.traderAsk({
       rng, giveId, target,
       inv: this.save.inv,
-      prices: PRICES,
+      prices: itemValues(),
       isItem: (id) => !!ITEM_BY_ID[id],
       capFor: (id) => Inventory.stackCapFor(this.save, id),
     });
@@ -1432,19 +1440,17 @@ class SceneShops {
       canAfford: heldCount() >= offer.askQty,
       onAccept: () => {
         if (heldCount() < offer.askQty) {
-          this.flash(`need ${offer.askQty} ${askItem?.name || offer.askId}`, sx, sy);
+          this.flash(`Need ${offer.askQty - heldCount()} more ${askItem?.name || offer.askId}`, sx, sy);
           return;
         }
         Inventory.remove(this.save, offer.askId, offer.askQty);
         this._clampSelSlot();
         this.addToInv(offer.giveId, giveQty, false, { notWild: true, deferRefresh: true });
         this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(
+        this._settleDeal(recordDeal, [
           `${giveQty}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
-          '#ffe066', 1, offer.giveId,
-        );
+          UI_GOLD, 1, offer.giveId,
+        ]);
       },
       secondary: this._traderRerollSecondary(sx, sy, house, recordDeal, offer),
     });
@@ -1465,40 +1471,25 @@ class SceneShops {
       canAfford: Gear.traderSwapValid(this.save, offer),
       onAccept: () => {
         if (!Gear.traderSwapValid(this.save, offer)) { this.flash('That swap has gone.', sx, sy); return; }
-        if (get.kind === 'item' && this.invRoomFor(get.id) < 1) { this.flash('Bag full.', sx, sy); return; }
+        if (get.kind === 'item' && this.invRoomFor(get.id) < 1) { this.flash(bagFullFor(get.id), sx, sy); return; }
         Gear.surrenderPiece(this.save, give);
         Rewards.apply(this.save, get, this, { notWild: true, deferRefresh: true });
         this.markRelicsDirty();
         this._clampSelSlot();
-        recordDeal();
-        this._finishInventoryChange();
-        this.updateHUD();
-        this.flashLoot(`${this._tradePieceName(get)}\n−${this._tradePieceName(give)}`, '#ffe066', 1.25);
+        this._settleDeal(recordDeal, [`${this._tradePieceName(get)}\n−${this._tradePieceName(give)}`, UI_GOLD, 1.25]);
       },
       secondary: this._traderRerollSecondary(sx, sy, house, recordDeal, offer),
     });
   }
 
-  // The trader's re-roll, shared by the barter and the gear swap. It peeks
-  // the next offer rather than building a relic offer, so it is not
-  // _makeRerollSecondary. Cost = 5 × 2^rerolls.
+  // The trader's re-roll, shared by the barter and the gear swap: the
+  // common button on the trader's ladder (ShopsMath.traderRerollCost, the
+  // smithy's). The peek settles the bucket's rerolls / skips on a DIFFERENT
+  // offer; the re-present reads the same record back and shows that one.
   _traderRerollSecondary(sx, sy, house, recordDeal, offer) {
-    const curState = this.shopBucketState(house);
-    const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
-    return {
-      label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
-      disabled: (this.save.money ?? 0) < rerollCost,
-      onClick: () => {
-        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
-        // Settles the bucket's rerolls / skips on a DIFFERENT offer; the
-        // re-present below peeks the same record and shows that one.
-        ShopsMath.rerollPeek(curState, () => this.peekOrBuildTraderOffer(house), offer);
-        addMoney(this.save, -rerollCost);
-        persistSave(this.save);
-        this.updateHUD();
-        this.presentTraderOffer(sx, sy, house, recordDeal);
-      },
-    };
+    return this._makeRerollSecondary(house, sx, sy, 'Nothing to trade for.',
+      () => this.presentTraderOffer(sx, sy, house, recordDeal),
+      { cost: ShopsMath.traderRerollCost, peek: () => this.peekOrBuildTraderOffer(house), current: offer });
   }
 
   // REST: a flat CASTLE_REST_ENERGY, once per Houses.CASTLE_SERVICE_MS. Silent (no-op) while the favour is
@@ -1524,7 +1515,7 @@ class SceneShops {
     this._markCastleServiceUsed(house);
     if (typeof persistSave === 'function') persistSave(this.save);
     this.buildInventoryDOM();
-    this.flashLoot(`+${CASTLE_TAX_GOLD} taxes`, '#ffe066', 1, null, this.coinIconEl?.());
+    this.flashLoot(`+${CASTLE_TAX_GOLD} taxes`, UI_GOLD, 1, null, this.coinIconEl?.());
   }
   // The castellan's greeting and offer. A RESTORED castle (the player solved
   // its quest — see showQuestBoard/_claimCastle) no longer sells relics: it's
@@ -1532,10 +1523,10 @@ class SceneShops {
   // Houses.CASTLE_SERVICE_MS — the one timer on any building you trade at.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsed(house)) {
-      // A timed gate names its wait, never "later" — and the castellan SAYS
-      // it (spokenDuration), on two lines so each fits MAP_MSG_MAX.
-      this.flash(`My lord!\nCome back in ${spokenDuration(this._castleServiceWaitMs(house))}.`,
-                 sx, sy);
+      // A timed gate names its wait, never "later" — the one refusal shape
+      // every recurring site takes (Macros.waitLine, the castle row's `spent`
+      // prefix): "The castellan is away — 12h".
+      this.flash(Macros.waitLine(Macros.DAILY_VISIT_KINDS.castle.spent, this._castleServiceWaitMs(house)), sx, sy);
       return;
     }
     this.showOfferModal({
@@ -1593,7 +1584,7 @@ class SceneShops {
         const claimed = this._claimCastle(house);
         persistSave(this.save);
         this.buildInventoryDOM();
-        this.flashLoot(`+${finished.reward}`, '#ffe066', 1, null, this.coinIconEl());
+        this.flashLoot(`+${finished.reward}`, UI_GOLD, 1, null, this.coinIconEl());
         if (claimed) {
           // The banner IS the moment, once per castle (the ledger key carries
           // the castle's own id). A busy screen returns false unmarked, so
@@ -1636,7 +1627,8 @@ class SceneShops {
       onAccept: () => {
         // Re-check stock at accept time — the player might have spent the wood
         // elsewhere while the modal was open.
-        if (Inventory.count(this.save, 'wood') < need) { this.flash(`need ${need} wood`, sx, sy); return; }
+        const have = Inventory.count(this.save, 'wood');
+        if (have < need) { this.flash(`Need ${need - have} more ${itemName('wood')}`, sx, sy); return; }
         Inventory.remove(this.save, 'wood', need);
         this._clampSelSlot();
         this.save.unlockedForts = this.save.unlockedForts || {};
@@ -1653,10 +1645,10 @@ class SceneShops {
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
             sub: "The gate opens in a cloud of dust. The quartermaster waves you over to his clattering reels.",
-            color: '#a7ffb0', accent: '#a7ffb0',
+            color: UI_GREEN, accent: UI_GREEN,
           });
         } else {
-          this.flashLoot('🛡️ unsealed', '#a7ffb0', 1.25);
+          this.flashLoot('🛡️ unsealed', UI_GREEN, 1.25);
         }
       },
     });
@@ -1677,12 +1669,6 @@ class SceneShops {
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, SMITHY_PREVIEW_PX);
-    const heldCount = (id) => Inventory.count(this.save, id);
-    const canAfford = () => recipe.every(r => heldCount(r.id) >= r.qty);
-    const costHTML = recipe.map(r => {
-      const itm = ITEM_BY_ID[r.id];
-      return `${r.qty}× ${this.iconSpanHTML(r.id)} ${itm?.name || r.id}`;
-    }).join(' + ');
     // Re-roll mirrors the relic-offer flow (shared via _makeRerollSecondary):
     // cost = ShopsMath.smithyRerollCost (×1.5 a roll), bumps curState.rerolls so the next
     // peekOrBuildRelicOffer returns a different forge target. Suppressed for
@@ -1703,40 +1689,22 @@ class SceneShops {
                 () => this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house, opts)) },
         ]
       : undefined;
-    this.showOfferModal({
-      kind: 'forge',
+    this._presentRecipeOffer(sx, sy, {
+      recipe,
       cancelLabel: 'Later',
       get: smithyPreviewHTML(iconHtml, name),
       blurb: this._trailRewardBlurb(offer),
-      cost: costHTML,
-      canAfford: canAfford(),
       acceptLabel: 'Forge',
-      costLabel: 'You give',
       tabs,
       secondary,
-      onAccept: () => {
-        const curTier = offer.kind === 'relic'
-          ? (this.save.relics?.[offer.slot]?.tier ?? 0)
-          : (this.save.armor?.[offer.slot]?.tier ?? 0);
-        if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
-        if (!canAfford()) {
-          const missing = recipe.find(r => heldCount(r.id) < r.qty);
-          const itm = ITEM_BY_ID[missing.id];
-          this.flash(`need ${missing.qty} ${itm?.name || missing.id}`, sx, sy);
-          return;
-        }
-        // Consume every ingredient.
-        for (const r of recipe) Inventory.remove(this.save, r.id, r.qty);
-        this._clampSelSlot();
+      refuse: () => !this._gearUpgradeOk(offer, sx, sy),
+      produce: () => {
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         // Forging settles the smithy like any closed deal (ShopsMath.recordDeal):
         // the re-roll cost drops back to the base rung and the next forge
         // target is a fresh draw.
-        recordDeal();
-        persistSave(this.save);
-        this.updateHUD();
-        this.buildInventoryDOM();
+        this._settleDeal(recordDeal);
         // The forge's story pane: the forged piece's own art (not a coin),
         // large on the forge painting, with the finishing moment (FORGE_CEREMONY).
         const { iconPx, ...ceremony } = FORGE_CEREMONY;
@@ -1744,13 +1712,13 @@ class SceneShops {
           ...ceremony,
           iconHTML: this.gearIconHTML(offer.kind, offer.slot, offer.tier, iconPx),
           name,
-          color: '#ffe066', accent: '#ffb347',
+          color: UI_GOLD, accent: '#ffb347',
         });
       },
     });
   }
 
-  // Build a shop offer for buying ${id} (baseValue = PRICES[id]). Always a
+  // Build a shop offer for buying ${id} (baseValue = itemValue(id)). Always a
   // CASH price, so the two trade idioms map cleanly onto shop types: MARKETS (and every
   // generic cash storefront) want money, TRADERS barter (their own qty-scaled
   // path in presentTraderOffer). opts.house names the shop asking: it seeds
@@ -1775,7 +1743,7 @@ class SceneShops {
       kind: 'money',
       label: this.moneyHTML(cashCost),
       shortGain: `−${cashCost}`,
-      shortDenial: `need ${cashCost}`,
+      shortDenial: purseShort(cashCost),
       canAfford: () => (this.save.money ?? 0) >= cashCost,
       consume: () => { addMoney(this.save, -cashCost); },
     };

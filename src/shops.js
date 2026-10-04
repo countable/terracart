@@ -31,7 +31,7 @@
   const SHOP_CONFIG = {
     blacksmith: { ink: '#d8d8d8' },  // steel
     market:     { ink: '#ff7a6a' },  // red
-    trader:     { ink: '#ffe066' },  // gold
+    trader:     { ink: UI_GOLD },    // gold
   };
 
   // ── What the player calls each shop ───────────────────────────────────────
@@ -66,6 +66,11 @@
     if (role === 'trader' && goods) return `${goods} ${ROLE_LABEL.trader}`;
     return ROLE_LABEL[role] ?? null;
   }
+  // The sign on a building with NO shop role (render.js _houseSignText):
+  // Home, the castle, the fort and the plain house, by the building's
+  // tier, and the story tower by its MemoryStory.towerAccess state.
+  const BUILDING_LABEL = { trailer: 'Home', 12: 'Castle', 11: 'Fort', 9: 'House' };
+  const TOWER_LABEL = { locked: 'Sealed Tower', abandoned: 'Abandoned Tower', empty: 'Empty Tower', open: 'Wizard Tower' };
 
   function shopType(house) {
     if (!house || house.kind !== 'house') return null;
@@ -239,10 +244,9 @@
     return true;
   }
 
-  function itemTier(id) {
-    const it = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
-    return (it && it.baseTier) ?? ((typeof BASE_TIER !== 'undefined' && BASE_TIER[id]) || 1);
-  }
+  // An item's tier for stocking and the trader's lean (items.js itemTierOf,
+  // the one lookup; an unknown id stocks as T1).
+  function itemTier(id) { return itemTierOf(id, 1); }
 
   // ── RANKS ─────────────────────────────────────────────────────────────────
   // A shop, a smithy and a trader each carry a tier (T1..SHOP_TIER_MAX). THE
@@ -335,12 +339,12 @@
   function pickThemed(theme, tier, rng = Math.random) {
     const stock = themedStock(theme, tier);
     if (!stock.length) return null;
-    return stock[Math.floor(rng() * stock.length) % stock.length];
+    return pickFromArray(stock, rng);
   }
 
   global.Shops = {
     shopType, shopInk,
-    ROLE_LABEL, roleLabel,
+    ROLE_LABEL, roleLabel, BUILDING_LABEL, TOWER_LABEL,
     LINE_RULES, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineCount, lineBuildable, themedStock, itemTier,
     MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed, petItems,
   };

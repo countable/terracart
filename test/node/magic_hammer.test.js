@@ -17,7 +17,7 @@ test('magic hammer: a T4 magic item with an icon, a price and a story line', () 
 });
 
 test('magic hammer: restoreAs marks the house shiny and every price reads priceMul', () => {
-  const save = { restoredHouses: {} };
+  const save = SaveState.defaults({ restoredHouses: {} });
   // The first restore can only be the House (STORY_RESTORES), which takes no
   // hammer; the second may be the smithy, and that one shines.
   Houses.restoreAs(save, h('b'), 'plain');

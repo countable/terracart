@@ -185,31 +185,82 @@ function seededRand(seed) {
   };
 }
 
+// ── Painter idioms ─────────────────────────────────────────────────────────
+// The strokes every ground painter below is made of. The textures are
+// pinned byte for byte (ground_texture_seams, tilled_bed, lava, the palette
+// audit), so a helper never rolls the dice on a painter's behalf: each one
+// keeps its own `rng()` order, and the helper is told the numbers, or hands
+// the rng over at exactly the moment the painter used to roll.
+//
+// A filled disc, and an axis-aligned filled ellipse. `style` set first when
+// given, as the painters did.
+function dot(ctx, x, y, r, style) {
+  if (style !== undefined) ctx.fillStyle = style;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+function blob(ctx, x, y, rx, ry, style) {
+  if (style !== undefined) ctx.fillStyle = style;
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+}
+// `n` specks at rng positions, each rolled x then y, THEN `pick(rng)` chooses
+// its ink (and any further rolls — a 2px width, a taller tick): returns
+// [style, w = 1, h = 1].
+function speckle(ctx, size, rng, n, pick) {
+  for (let i = 0; i < n; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    const [style, w = 1, h = 1] = pick(rng);
+    ctx.fillStyle = style;
+    ctx.fillRect(x, y, w, h);
+  }
+}
+// `n` w×h grains whose ink is decided BEFORE the position is rolled: a fixed
+// string, or `ink(rng)` for a per-grain roll.
+function grain(ctx, size, rng, n, ink, w = 1, h = 1) {
+  for (let i = 0; i < n; i++) {
+    ctx.fillStyle = typeof ink === 'function' ? ink(rng) : ink;
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), w, h);
+  }
+}
+// Mown stripes every `step` px across the tile, `band` px wide, in
+// `ink(stripeIndex)`; vertical when asked.
+function stripes(ctx, size, step, ink, vertical = false, band = step) {
+  for (let p = 0; p < size; p += step) {
+    ctx.fillStyle = ink(Math.floor(p / step));
+    if (vertical) ctx.fillRect(p, 0, band, size);
+    else ctx.fillRect(0, p, size, band);
+  }
+}
+// The canvas-texture shell every baked art shares: skip a key the scene
+// already has, else create the canvas, hand `paint` its 2D context (and the
+// texture, for makers that register frames) and upload it once.
+function bakeCanvas(scene, key, w, h, paint) {
+  if (scene.textures.exists(key)) return;
+  const tex = scene.textures.createCanvas(key, w, h);
+  paint(tex.getContext(), tex);
+  tex.refresh();
+}
+
 function drawGrassTex(ctx, size, rng) {
   // Short, dense lawn: specks only, no tall blades (tufts are reserved for the
   // harvestable "longgrass" wildplant so they read as pickable).
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 30; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
+  // Mostly mid-green specks with occasional dark roots; very subtle.
+  speckle(ctx, size, rng, 30, (rng) => {
     const r = rng();
-    ctx.fillStyle = r < 0.20
+    return [r < 0.20
       ? 'rgba(45,55,30,0.35)'        // dark root speck
       : r < 0.55
       ? 'rgba(95,110,65,0.25)'       // dry mid-green speck
-      : 'rgba(170,175,130,0.18)';    // bleached highlight
-    ctx.fillRect(x, y, 1, 1);
-  }
+      : 'rgba(170,175,130,0.18)'];   // bleached highlight
+  });
 }
 
 function drawForestTex(ctx, size, rng) {
   // Dense leaf-litter clumps — small dark blobs + a few bright leaf specks.
   ctx.clearRect(0, 0, size, size);
   drawGroundMottle(ctx, size, rng, 0xF047, 14, 1.5, 1.5, 'rgba(15,28,12,0.35)');
-  for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = 'rgba(140,150,105,0.25)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
-  }
+  grain(ctx, size, rng, 10, 'rgba(140,150,105,0.25)');
 }
 
 function drawSandTex(ctx, size, rng) {
@@ -234,10 +285,7 @@ function drawSandTex(ctx, size, rng) {
     ctx.stroke();
   }
   // Scattered fine grain specks.
-  for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = rng() < 0.5 ? 'rgba(90,82,68,0.14)' : 'rgba(235,232,222,0.12)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
-  }
+  grain(ctx, size, rng, 10, (rng) => rng() < 0.5 ? 'rgba(90,82,68,0.14)' : 'rgba(235,232,222,0.12)');
 }
 
 // Toroidally-wrapped primitives for tileable textures: draw the feature at
@@ -249,7 +297,7 @@ function wrapArc(ctx, size, x, y, r, style) {
     for (const oy of [-size, 0, size]) {
       if (x + ox + r < 0 || x + ox - r > size) continue;
       if (y + oy + r < 0 || y + oy - r > size) continue;
-      ctx.beginPath(); ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2); ctx.fill();
+      dot(ctx, x + ox, y + oy, r);
     }
   }
 }
@@ -284,7 +332,7 @@ function drawGroundMottle(ctx, size, rng, edgeSeed, count, minR, radiusSpan, sty
     const margin = r + 1; // include the antialiased edge
     const x = margin + rng() * (size - 2 * margin);
     const y = margin + rng() * (size - 2 * margin);
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    dot(ctx, x, y, r);
   }
 }
 
@@ -342,10 +390,8 @@ function drawFarmlandTex(ctx, size, rng) {
   // Soft mud patches — irregular brown blobs, fully contained in the tile.
   for (let i = 0; i < 3; i++) {
     const r = 3 + rng() * 4;
-    ctx.fillStyle = rng() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
-    ctx.beginPath();
-    ctx.arc(r + rng() * (size - 2 * r), r + rng() * (size - 2 * r), r, 0, Math.PI * 2);
-    ctx.fill();
+    const style = rng() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
+    dot(ctx, r + rng() * (size - 2 * r), r + rng() * (size - 2 * r), r, style);
   }
   // Grass tufts poking through — green specks, some 2px tall.
   for (let i = 0; i < 16; i++) {
@@ -366,15 +412,10 @@ function drawFarmlandTex(ctx, size, rng) {
 function drawParkTex(ctx, size, rng) {
   // Park = grass + occasional tiny flower.
   drawGrassTex(ctx, size, rng);
-  for (let i = 0; i < 3; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    // No yellow bloom: yellow is the interaction colour, and a yellow speck
-    // reads as something to tap. Faded pink / rust / mauve instead.
-    const colors = ['rgba(216,150,165,0.55)', 'rgba(190,120,95,0.55)', 'rgba(178,150,195,0.55)'];
-    ctx.fillStyle = colors[Math.floor(rng() * colors.length)];
-    ctx.fillRect(x, y, 1, 1);
-  }
+  // No yellow bloom: yellow is the interaction colour, and a yellow speck
+  // reads as something to tap. Faded pink / rust / mauve instead.
+  const colors = ['rgba(216,150,165,0.55)', 'rgba(190,120,95,0.55)', 'rgba(178,150,195,0.55)'];
+  speckle(ctx, size, rng, 3, (rng) => [colors[Math.floor(rng() * colors.length)]]);
 }
 
 function drawTilledTex(ctx, size, rng) {
@@ -409,14 +450,9 @@ function drawTilledTex(ctx, size, rng) {
     ctx.fillStyle = 'rgba(214,198,170,0.16)';
     ctx.fillRect(0, y + 3, size, 1);
   }
-  for (let i = 0; i < 8; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.5
-      ? 'rgba(64,44,22,0.35)'
-      : 'rgba(206,190,162,0.22)';
-    ctx.fillRect(x, y, 1, 1);
-  }
+  speckle(ctx, size, rng, 8, (rng) => [rng() < 0.5
+    ? 'rgba(64,44,22,0.35)'
+    : 'rgba(206,190,162,0.22)']);
   ctx.restore();
 }
 
@@ -469,10 +505,7 @@ function drawWaterTex(ctx, size, rng, phaseFrac = 0, inks = WATER_INKS) {
     }
   }
   // Subtle dark depth specks.
-  for (let i = 0; i < 4; i++) {
-    ctx.fillStyle = inks.speck;
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
-  }
+  grain(ctx, size, rng, 4, inks.speck, 2, 1);
 }
 
 function drawUnmappedTex(ctx, size, rng, phaseFrac = 0) {
@@ -490,23 +523,15 @@ function drawUnmappedTex(ctx, size, rng, phaseFrac = 0) {
     }
   }
   // Static specks (same rng sequence every phase, so only the lines move).
-  for (let i = 0; i < 6; i++) {
-    ctx.fillStyle = 'rgba(0,0,0,0.20)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
-  }
+  grain(ctx, size, rng, 6, 'rgba(0,0,0,0.20)', 2, 1);
 }
 
 function drawResidentialTex(ctx, size, rng) {
   // Concrete — subtle, infrequent aggregate flecks on transparent bg.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 14; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.5
-      ? 'rgba(0,0,0,0.18)'
-      : 'rgba(255,255,255,0.10)';
-    ctx.fillRect(x, y, 1, 1);
-  }
+  speckle(ctx, size, rng, 14, (rng) => [rng() < 0.5
+    ? 'rgba(0,0,0,0.18)'
+    : 'rgba(255,255,255,0.10)']);
   for (let i = 0; i < 3; i++) {
     const x = 2 + Math.floor(rng() * (size - 4));
     const y = 2 + Math.floor(rng() * (size - 4));
@@ -520,14 +545,11 @@ function drawResidentialTex(ctx, size, rng) {
 function drawPathTex(ctx, size, rng) {
   // Scattered pebbles — small darker and lighter dots.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 18; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
+  speckle(ctx, size, rng, 18, (rng) => {
     const dark = rng() < 0.6;
-    ctx.fillStyle = dark ? 'rgba(38,32,24,0.4)' : 'rgba(226,222,212,0.25)';
     const w = rng() < 0.3 ? 2 : 1;
-    ctx.fillRect(x, y, w, w);
-  }
+    return [dark ? 'rgba(38,32,24,0.4)' : 'rgba(226,222,212,0.25)', w, w];
+  });
 }
 
 function drawBuildingTex(ctx, size, rng) {
@@ -540,10 +562,8 @@ function drawBuildingTex(ctx, size, rng) {
       const cx = col * step + offset + (rng() - 0.5) * 1.5;
       const cy = row * step + step / 2 + (rng() - 0.5) * 1.5;
       const r = 2 + rng() * 0.6;
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      ctx.beginPath(); ctx.arc(cx - 0.6, cy - 0.6, r - 1.2, 0, Math.PI * 2); ctx.fill();
+      dot(ctx, cx, cy, r, 'rgba(0,0,0,0.35)');
+      dot(ctx, cx - 0.6, cy - 0.6, r - 1.2, 'rgba(255,255,255,0.18)');
     }
   }
 }
@@ -561,10 +581,8 @@ function drawCastleFloorTex(ctx, size, rng) {
       const cx = col * step + offset + (rng() - 0.5) * 2;
       const cy = row * step + step / 2 + (rng() - 0.5) * 2;
       const r = 2.6 + rng() * 0.8;
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
-      ctx.beginPath(); ctx.arc(cx - 0.7, cy - 0.7, r - 1.4, 0, Math.PI * 2); ctx.fill();
+      dot(ctx, cx, cy, r, 'rgba(0,0,0,0.15)');
+      dot(ctx, cx - 0.7, cy - 0.7, r - 1.4, 'rgba(255,255,255,0.08)');
     }
   }
 }
@@ -593,10 +611,7 @@ function drawWoodFloorTex(ctx, size, rng) {
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + len, y); ctx.stroke();
   }
   // Occasional knot.
-  if (rng() < 0.5) {
-    ctx.fillStyle = 'rgba(62,48,30,0.55)';
-    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 1.4 + rng() * 0.6, 0, Math.PI * 2); ctx.fill();
-  }
+  if (rng() < 0.5) dot(ctx, rng() * size, rng() * size, 1.4 + rng() * 0.6, 'rgba(62,48,30,0.55)');
 }
 
 function drawRockTex(ctx, size, rng) {
@@ -618,10 +633,7 @@ function drawRockTex(ctx, size, rng) {
     }
     ctx.stroke();
   }
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
-  for (let i = 0; i < 4; i++) {
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 2, 1);
-  }
+  grain(ctx, size, rng, 4, 'rgba(255,255,255,0.12)', 2, 1);
 }
 
 // ── Cave biome textures ────────────────────────────────────────────────────
@@ -640,15 +652,13 @@ function drawCaveWallTex(ctx, size, rng) {
       const rw = 2.5 + rng() * 1.2;
       const rh = 1.8 + rng() * 1.0;
       // Faint warm face — catches a tiny glimmer off the cave floor below
-      ctx.fillStyle = 'rgba(200,170,130,0.07)';
-      ctx.beginPath(); ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2); ctx.fill();
+      blob(ctx, cx, cy, rw, rh, 'rgba(200,170,130,0.07)');
       // Crack / shadow outline around each boulder
       ctx.strokeStyle = 'rgba(0,0,0,0.55)';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
       // Highlight sliver — top-left edge
-      ctx.fillStyle = 'rgba(255,220,180,0.13)';
-      ctx.beginPath(); ctx.ellipse(cx - rw * 0.3, cy - rh * 0.35, rw * 0.45, rh * 0.38, 0, 0, Math.PI * 2); ctx.fill();
+      blob(ctx, cx - rw * 0.3, cy - rh * 0.35, rw * 0.45, rh * 0.38, 'rgba(255,220,180,0.13)');
     }
   }
   // 1-2 longer crack lines cutting across the face
@@ -675,14 +685,9 @@ function drawCaveFloorTex(ctx, size, rng) {
   // Packed grit and small pebbles over the earthy brown base (0x4a423b).
   ctx.clearRect(0, 0, size, size);
   // Fine grit — dark and light specks
-  for (let i = 0; i < 22; i++) {
-    const x = Math.floor(rng() * size);
-    const y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.6
-      ? 'rgba(0,0,0,0.28)'
-      : 'rgba(255,215,170,0.13)';
-    ctx.fillRect(x, y, 1, 1);
-  }
+  speckle(ctx, size, rng, 22, (rng) => [rng() < 0.6
+    ? 'rgba(0,0,0,0.28)'
+    : 'rgba(255,215,170,0.13)']);
   // Small pebbles (2×1 or 1×2)
   const pebbles = 2 + Math.floor(rng() * 3);
   for (let i = 0; i < pebbles; i++) {
@@ -712,19 +717,13 @@ function drawCaveFloorTex(ctx, size, rng) {
 function drawSchoolTex(ctx, size, rng) {
   // Schoolyard turf — grass with faint horizontal mown bands.
   drawGrassTex(ctx, size, rng);
-  for (let y = 0; y < size; y += 8) {
-    ctx.fillStyle = 'rgba(255,255,255,0.05)';
-    ctx.fillRect(0, y, size, 4);
-  }
+  stripes(ctx, size, 8, () => 'rgba(255,255,255,0.05)', false, 4);
 }
 
 function drawPitchTex(ctx, size, rng) {
   // Sports pitch — bold alternating mown stripes + the odd chalk sideline.
   drawGrassTex(ctx, size, rng);
-  for (let y = 0; y < size; y += 8) {
-    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.06)' : 'rgba(0,30,0,0.08)';
-    ctx.fillRect(0, y, size, 8);
-  }
+  stripes(ctx, size, 8, (i) => (i % 2) ? 'rgba(255,255,255,0.06)' : 'rgba(0,30,0,0.08)');
   if (rng() < 0.25) {
     ctx.fillStyle = 'rgba(235,235,225,0.22)';
     ctx.fillRect(rng() < 0.5 ? 2 : size - 3, 0, 1, size);
@@ -734,23 +733,19 @@ function drawPitchTex(ctx, size, rng) {
 function drawGolfTex(ctx, size, rng) {
   // Fairway — fine vertical mowing stripes on bright turf.
   drawGrassTex(ctx, size, rng);
-  for (let x = 0; x < size; x += 4) {
-    ctx.fillStyle = (Math.floor(x / 4) % 2) ? 'rgba(255,255,255,0.03)' : 'rgba(0,30,0,0.04)';
-    ctx.fillRect(x, 0, 4, size);
-  }
+  stripes(ctx, size, 4, (i) => (i % 2) ? 'rgba(255,255,255,0.03)' : 'rgba(0,30,0,0.04)', true);
 }
 
 function drawPlaygroundTex(ctx, size, rng) {
   // Bark / rubber mulch — warm brown chips, no green.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 40; i++) {
-    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+  speckle(ctx, size, rng, 40, (rng) => {
     const r = rng();
-    ctx.fillStyle = r < 0.5 ? 'rgba(96,84,62,0.30)'
-                  : r < 0.8 ? 'rgba(128,116,92,0.25)'
-                            : 'rgba(72,62,44,0.30)';
-    ctx.fillRect(x, y, rng() < 0.3 ? 2 : 1, 1);
-  }
+    const style = r < 0.5 ? 'rgba(96,84,62,0.30)'
+                : r < 0.8 ? 'rgba(128,116,92,0.25)'
+                          : 'rgba(72,62,44,0.30)';
+    return [style, rng() < 0.3 ? 2 : 1, 1];
+  });
 }
 
 function drawCommercialTex(ctx, size, rng) {
@@ -760,16 +755,9 @@ function drawCommercialTex(ctx, size, rng) {
   // edges so adjacent cells read as a continuous large-format tile grid.
   ctx.clearRect(0, 0, size, size);
   // Anti-slip matte speckle — many very-low-contrast dots, evenly spread.
-  for (let i = 0; i < 70; i++) {
-    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
-    ctx.fillRect(x, y, 1, 1);
-  }
+  speckle(ctx, size, rng, 70, (rng) => [rng() < 0.5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)']);
   // Faint ceramic mottle — a couple of soft tonal patches.
-  for (let i = 0; i < 3; i++) {
-    ctx.fillStyle = 'rgba(0,0,0,0.04)';
-    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 5 + rng() * 5, 0, Math.PI * 2); ctx.fill();
-  }
+  for (let i = 0; i < 3; i++) dot(ctx, rng() * size, rng() * size, 5 + rng() * 5, 'rgba(0,0,0,0.04)');
   // Grout seam (top + left) with a soft inner highlight = a subtle bevel.
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
   ctx.fillRect(0, 0, size, 1);
@@ -782,16 +770,12 @@ function drawCommercialTex(ctx, size, rng) {
 function drawIndustrialTex(ctx, size, rng) {
   // Industrial yard — rough concrete with scattered gravel + the odd oil stain.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 22; i++) {
-    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.55 ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.10)';
+  speckle(ctx, size, rng, 22, (rng) => {
+    const style = rng() < 0.55 ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.10)';
     const w = rng() < 0.25 ? 2 : 1;
-    ctx.fillRect(x, y, w, w);
-  }
-  if (rng() < 0.5) {
-    ctx.fillStyle = 'rgba(0,0,0,0.16)';
-    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 2 + rng() * 2, 0, Math.PI * 2); ctx.fill();
-  }
+    return [style, w, w];
+  });
+  if (rng() < 0.5) dot(ctx, rng() * size, rng() * size, 2 + rng() * 2, 'rgba(0,0,0,0.16)');
 }
 
 function drawWastelandTex(ctx, size, rng) {
@@ -800,11 +784,10 @@ function drawWastelandTex(ctx, size, rng) {
   // concrete flecks, but looser and dustier, so a vacant lot reads as
   // neglected ground rather than a yard.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 16; i++) {
-    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.6 ? 'rgba(52,42,26,0.22)' : 'rgba(236,224,190,0.12)';
-    ctx.fillRect(x, y, rng() < 0.3 ? 2 : 1, 1);
-  }
+  speckle(ctx, size, rng, 16, (rng) => {
+    const style = rng() < 0.6 ? 'rgba(52,42,26,0.22)' : 'rgba(236,224,190,0.12)';
+    return [style, rng() < 0.3 ? 2 : 1, 1];
+  });
   ctx.strokeStyle = 'rgba(40,32,20,0.20)';
   ctx.lineWidth = 1;
   for (let c = 0; c < 2; c++) {
@@ -833,21 +816,16 @@ function drawGroveTex(ctx, size, rng) {
     ctx.fillStyle = 'rgba(83,105,48,0.40)';
     ctx.fillRect(x, y, 2, 1); ctx.fillRect(x, y + 1, 1, 1);
   }
-  for (let i = 0; i < 2; i++) {
-    ctx.fillStyle = rng() < 0.5 ? 'rgba(230,225,240,0.45)' : 'rgba(216,160,175,0.45)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
-  }
+  grain(ctx, size, rng, 2, (rng) => rng() < 0.5 ? 'rgba(230,225,240,0.45)' : 'rgba(216,160,175,0.45)');
 }
 
 function drawChurchyardTex(ctx, size, rng) {
   // Churchyard — earthy heather ground, muted moss tufts and pale stone chips.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 22; i++) {
-    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+  speckle(ctx, size, rng, 22, (rng) => {
     const k = rng();
-    ctx.fillStyle = k < 0.45 ? 'rgba(76,62,73,0.34)' : k < 0.75 ? 'rgba(112,96,108,0.26)' : 'rgba(150,160,140,0.20)';
-    ctx.fillRect(x, y, k < 0.25 ? 2 : 1, 1);
-  }
+    return [k < 0.45 ? 'rgba(76,62,73,0.34)' : k < 0.75 ? 'rgba(112,96,108,0.26)' : 'rgba(150,160,140,0.20)', k < 0.25 ? 2 : 1, 1];
+  });
   for (let i = 0; i < 3; i++) {
     const x = Math.floor(rng() * (size - 2)), y = Math.floor(rng() * (size - 2));
     ctx.fillStyle = 'rgba(200,200,190,0.30)';
@@ -861,16 +839,11 @@ function drawTarYardTex(ctx, size, rng) {
   // Tar yard — dark oily ground: grit, a black pool or two with a dull
   // blue-violet sheen on its lip.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 16; i++) {
-    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.6 ? 'rgba(0,0,0,0.30)' : 'rgba(255,255,255,0.07)';
-    ctx.fillRect(x, y, 1, 1);
-  }
+  speckle(ctx, size, rng, 16, (rng) => [rng() < 0.6 ? 'rgba(0,0,0,0.30)' : 'rgba(255,255,255,0.07)']);
   const pools = 1 + Math.floor(rng() * 2);
   for (let p = 0; p < pools; p++) {
     const x = rng() * size, y = rng() * size, r = 2 + rng() * 3;
-    ctx.fillStyle = 'rgba(8,8,10,0.45)';
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    dot(ctx, x, y, r, 'rgba(8,8,10,0.45)');
     ctx.strokeStyle = 'rgba(120,110,170,0.22)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(x, y, r, Math.PI * 1.1, Math.PI * 1.6); ctx.stroke();
@@ -903,10 +876,7 @@ function drawWetlandTex(ctx, size, rng) {
 function drawOrchardTex(ctx, size, rng) {
   // Orchard understory — grass dappled with soft tree-shade pools.
   drawGrassTex(ctx, size, rng);
-  for (let i = 0; i < 3; i++) {
-    ctx.fillStyle = 'rgba(0,30,0,0.10)';
-    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 4 + rng() * 3, 0, Math.PI * 2); ctx.fill();
-  }
+  for (let i = 0; i < 3; i++) dot(ctx, rng() * size, rng() * size, 4 + rng() * 3, 'rgba(0,30,0,0.10)');
 }
 
 // (longgrass uses frame 0 of the 'props' sheet via CROP_SPRITE, not a
@@ -923,12 +893,9 @@ function castleTowerInk(r, g, b, material) {
   return p[shade] ?? p.FACE;
 }
 function makeTowerTexture(scene, palette, key) {
-  const KEY = key || 'tower';
-  if (scene.textures.exists(KEY)) return;
-  const source = scene.textures.get('castle_tower_shapes').getSourceImage();
   const W = CastleStyles.TOWER_WIDTH, H = CastleStyles.TOWER_HEIGHT;
-  const tex = scene.textures.createCanvas(KEY, W * CastleStyles.ids.length, H);
-  const ctx = tex.getContext();
+  bakeCanvas(scene, key || 'tower', W * CastleStyles.ids.length, H, (ctx, tex) => {
+  const source = scene.textures.get('castle_tower_shapes').getSourceImage();
   ctx.drawImage(source, 0, 0);
   const image = ctx.getImageData(0, 0, W * CastleStyles.ids.length, H);
   const claimed = palette !== CASTLE_STONE_UNCLAIMED;
@@ -953,7 +920,7 @@ function makeTowerTexture(scene, palette, key) {
     const f = tex.get(frame);
     if (f) f.castleCrownY = crowns[frame];
   }
-  tex.refresh();
+  });
 }
 
 // Square dark heraldry shares the restored banner's pole foot and canvas.
@@ -998,11 +965,8 @@ function makeCastleSkullFlagTexture(scene) {
 // Single-frame canvas texture keyed 'potofgold'; the render spec leaves `frame`
 // undefined for it, exactly like the themed-house sprites.
 function makePotOfGoldTexture(scene) {
-  const KEY = 'potofgold';
-  if (scene.textures.exists(KEY)) return;
   const W = 24, H = 22;
-  const tex = scene.textures.createCanvas(KEY, W, H);
-  const ctx = tex.getContext();
+  bakeCanvas(scene, 'potofgold', W, H, (ctx) => {
   ctx.clearRect(0, 0, W, H);
   const cx = 12;
 
@@ -1010,28 +974,13 @@ function makePotOfGoldTexture(scene) {
   // A dark rounded pot drawn as an ellipse, with a belly highlight/shadow
   // and three stubby feet so it reads as a pot rather than a blob.
   const bodyCY = 14, bodyRX = 9, bodyRY = 7;
-  ctx.fillStyle = '#2b2b32';
-  ctx.beginPath();
-  ctx.ellipse(cx, bodyCY, bodyRX, bodyRY, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';   // left-belly highlight
-  ctx.beginPath();
-  ctx.ellipse(cx - 3, bodyCY + 1, 3, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(0,0,0,0.30)';          // right-belly shadow
-  ctx.beginPath();
-  ctx.ellipse(cx + 4, bodyCY + 1, 3, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
+  blob(ctx, cx, bodyCY, bodyRX, bodyRY, '#2b2b32');
+  blob(ctx, cx - 3, bodyCY + 1, 3, 5, 'rgba(255,255,255,0.12)');   // left-belly highlight
+  blob(ctx, cx + 4, bodyCY + 1, 3, 5, 'rgba(0,0,0,0.30)');          // right-belly shadow
 
   // Rim band + dark inner mouth (so the gold reads as overflowing the pot).
-  ctx.fillStyle = '#3b3b44';
-  ctx.beginPath();
-  ctx.ellipse(cx, 8, 9, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#1a1a1e';
-  ctx.beginPath();
-  ctx.ellipse(cx, 8, 7, 2, 0, 0, Math.PI * 2);
-  ctx.fill();
+  blob(ctx, cx, 8, 9, 3, '#3b3b44');
+  blob(ctx, cx, 8, 7, 2, '#1a1a1e');
 
   // Three little feet.
   ctx.fillStyle = '#1f1f24';
@@ -1041,29 +990,21 @@ function makePotOfGoldTexture(scene) {
 
   // ── Green coin pile overflowing the mouth ───────────────────────────
   const gold = '#45c878', goldHi = '#b2f5ba', goldLo = '#21894f';
-  ctx.fillStyle = gold;                        // base mound
-  ctx.beginPath();
-  ctx.ellipse(cx, 7, 8, 4, 0, 0, Math.PI * 2);
-  ctx.fill();
+  blob(ctx, cx, 7, 8, 4, gold);                // base mound
   // Rounded coin bumps on top — each is a low-shadow + body + highlight dot.
   const coins = [
     [cx - 4, 5, 2.4], [cx + 1, 4, 2.6], [cx + 5, 6, 2.2],
     [cx - 1, 7, 2.2], [cx + 3, 8, 1.8],
   ];
   for (const [x, y, r] of coins) {
-    ctx.fillStyle = goldLo;
-    ctx.beginPath(); ctx.ellipse(x, y + 0.6, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = gold;
-    ctx.beginPath(); ctx.ellipse(x, y, r, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = goldHi;
-    ctx.beginPath(); ctx.ellipse(x - r * 0.3, y - r * 0.25, r * 0.4, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+    blob(ctx, x, y + 0.6, r, r * 0.7, goldLo);
+    blob(ctx, x, y, r, r * 0.7, gold);
+    blob(ctx, x - r * 0.3, y - r * 0.25, r * 0.4, r * 0.3, goldHi);
   }
   // A couple of coins spilling down each side of the pot.
   for (const [x, y] of [[cx - 8, 11], [cx + 9, 12]]) {
-    ctx.fillStyle = gold;
-    ctx.beginPath(); ctx.ellipse(x, y, 2, 1.5, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = goldHi;
-    ctx.beginPath(); ctx.ellipse(x - 0.4, y - 0.4, 0.8, 0.6, 0, 0, Math.PI * 2); ctx.fill();
+    blob(ctx, x, y, 2, 1.5, gold);
+    blob(ctx, x - 0.4, y - 0.4, 0.8, 0.6, goldHi);
   }
 
   // Crisp dark outline along the lower belly for pixel-art pop (the top is
@@ -1073,8 +1014,7 @@ function makePotOfGoldTexture(scene) {
   ctx.beginPath();
   ctx.ellipse(cx, bodyCY, bodyRX, bodyRY, 0, Math.PI * 0.12, Math.PI * 0.88);
   ctx.stroke();
-
-  tex.refresh();
+  });
 }
 
 // === Traps — TEMPORARY procedural art ==================================
@@ -1107,11 +1047,8 @@ function makeTrapTextures(scene) {
 }
 
 function makeHiddenTrapTexture(scene) {
-  const KEY = 'trap_hidden';
-  if (scene.textures.exists(KEY)) return;
   const S = TRAP_PX, c = S / 2;
-  const tex = scene.textures.createCanvas(KEY, S, S);
-  const ctx = tex.getContext();
+  bakeCanvas(scene, 'trap_hidden', S, S, (ctx) => {
   ctx.clearRect(0, 0, S, S);
 
   // Disturbed-earth ring: small round stones, each a shadowed underside plus a
@@ -1122,16 +1059,14 @@ function makeHiddenTrapTexture(scene) {
     const a = (i / 14) * Math.PI * 2 + 0.35;
     if (i % 5 === 3) continue;                    // gaps in the ring
     const x = c + Math.cos(a) * R, y = c + Math.sin(a) * R * 0.92;
-    ctx.fillStyle = 'rgba(24,18,12,0.40)';        // shadowed underside of the stone
-    ctx.beginPath(); ctx.ellipse(x, y + 0.6, 1.8, 1.3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(224,210,182,0.32)';     // its lit top, catching the light
-    ctx.beginPath(); ctx.ellipse(x, y - 0.5, 1.4, 1.0, 0, 0, Math.PI * 2); ctx.fill();
+    blob(ctx, x, y + 0.6, 1.8, 1.3, 'rgba(24,18,12,0.40)');      // shadowed underside of the stone
+    blob(ctx, x, y - 0.5, 1.4, 1.0, 'rgba(224,210,182,0.32)');   // its lit top, catching the light
   }
   // The sag: a small dark crescent just below centre, deliberately fainter than
   // the ring (the ring is the tell; the centre should all but disappear).
   ctx.fillStyle = 'rgba(18,14,10,0.15)';
   ctx.beginPath();
-  ctx.ellipse(c + 1, c + 2, 3, 1.5, -0.25, 0, Math.PI * 2);
+  ctx.ellipse(c + 1, c + 2, 3, 1.5, -0.25, 0, Math.PI * 2);   // tilted: not blob's axis-aligned ellipse
   ctx.fill();
   // Twigs laid over the covering: straight strokes read as PLACED cover, not bare dirt.
   ctx.strokeStyle = 'rgba(150,132,92,0.28)';
@@ -1143,15 +1078,12 @@ function makeHiddenTrapTexture(scene) {
     ctx.lineTo(c + dx0 + dx1 + 0.5, c + dy0 + dy1 + 0.5);
     ctx.stroke();
   }
-  tex.refresh();
+  });
 }
 
 function makeSprungTrapTexture(scene) {
-  const KEY = 'trap_open';
-  if (scene.textures.exists(KEY)) return;
   const S = TRAP_PX, c = S / 2;
-  const tex = scene.textures.createCanvas(KEY, S, S);
-  const ctx = tex.getContext();
+  bakeCanvas(scene, 'trap_open', S, S, (ctx) => {
   ctx.clearRect(0, 0, S, S);
 
   // The whole jaw is drawn at SPRUNG_K of the cell and EVERY number below is
@@ -1165,10 +1097,8 @@ function makeSprungTrapTexture(scene) {
 
   // The plate and the dark hole inside it, which the teeth bite into (without
   // it the whole thing reads as a disc).
-  ctx.fillStyle = 'rgba(38,27,18,0.9)';
-  ctx.beginPath(); ctx.ellipse(c, c, RX, RY, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#0b0908';
-  ctx.beginPath(); ctx.ellipse(c, c, RX - 4 * k, RY - 2 * k, 0, 0, Math.PI * 2); ctx.fill();
+  blob(ctx, c, c, RX, RY, 'rgba(38,27,18,0.9)');
+  blob(ctx, c, c, RX - 4 * k, RY - 2 * k, '#0b0908');
   ctx.lineWidth = 1;
   ctx.strokeStyle = RUST;
   ctx.beginPath(); ctx.ellipse(c, c, RX - 0.5 * k, RY - 0.5 * k, 0, 0, Math.PI * 2); ctx.stroke();
@@ -1232,7 +1162,7 @@ function makeSprungTrapTexture(scene) {
   ctx.fillStyle = IRON_LO;
   ctx.fillRect(hxL, hy + HH - LIP, HW, LIP);
   ctx.fillRect(hxR, hy + HH - LIP, HW, LIP);
-  tex.refresh();
+  });
 }
 
 // === Animated biome textures ===
@@ -1308,21 +1238,13 @@ function makeBiomeTextures(scene, size) {
     const phases = spec.animPhases || 1;
     for (let v = 0; v < spec.variants; v++) {
       for (let p = 0; p < phases; p++) {
-        const key = `biome${type}_${v}` + (p ? `p${p}` : '');
-        if (scene.textures.exists(key)) continue;
-        const tex = scene.textures.createCanvas(key, size, size);
-        const ctx = tex.getContext();
-        drawBiomeTexture(ctx, size, type, v, p / phases);
-        tex.refresh();
+        bakeCanvas(scene, `biome${type}_${v}` + (p ? `p${p}` : ''), size, size,
+          (ctx) => drawBiomeTexture(ctx, size, type, v, p / phases));
       }
     }
   }
   for (let v = 0; v < TILLED_VARIANTS; v++) {
-    const key = `tilled_${v}`;
-    if (scene.textures.exists(key)) continue;
-    const tex = scene.textures.createCanvas(key, size, size);
-    drawTilledTex(tex.getContext(), size, seededRand(7919 + v));
-    tex.refresh();
+    bakeCanvas(scene, `tilled_${v}`, size, size, (ctx) => drawTilledTex(ctx, size, seededRand(7919 + v)));
   }
 }
 

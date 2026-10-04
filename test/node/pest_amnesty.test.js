@@ -1,7 +1,7 @@
 // The pest amnesty (src/starter.js › pestFreeZone + app.js's fauna spawner + the crow
 // pump). It covers slimes and crows, and ends at the FIRST HARVEST.
 //
-// A slime sits on your crops and drains SLIME_LEECH_ENERGY a second, a crow eats the
+// A slime sits on your crops and drains its roster row's dmg a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
 // nothing to answer either with: no weapon, no relic, an empty bag, and a
 // ladder telling them to stand still and till. So until the save's first crop

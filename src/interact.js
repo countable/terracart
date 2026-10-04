@@ -17,7 +17,7 @@
 //   coords.js    — worldMetersToAbsCell, absCellCenterMeters, sameAbsCell,
 //                  cellInReach (tap targeting is cell-bounded, see below)
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
-//   items.js     — ITEM_BY_ID, SEED_TIER, MAX_GROWTH_STAGE
+//   items.js     — ITEM_BY_ID, MAX_GROWTH_STAGE
 //   loot.js      — POI_CATEGORY, chestTier, rusticifyName
 //   rarity.js    — pickReward
 //   save.js      — persistSave
@@ -85,7 +85,6 @@ function tameInPlace(scene, save, target, flashMsg, flashIcon, flashScale) {
   const tx = Math.floor(target.x / scene.tileEdgeM);
   const ty = Math.floor(target.y / scene.tileEdgeM);
   const tameId = releasedId(target.kind);
-  save.released = save.released || [];
   const policy = Companions.releasePolicy(scene, target.x, target.y);
   save.released.push({ x: target.x, y: target.y, kind: target.kind, id: tameId, tx, ty, shiny: !!target.shiny, ...policy });
   Object.assign(target, policy);
@@ -128,9 +127,7 @@ function pickUpPet(scene, save, target, sx, sy) {
     scene.flash('Make room for a pet first.', sx, sy);
     return true;
   }
-  save.caught = save.caught || [];
   if (!save.caught.includes(target.id)) save.caught.push(target.id);
-  save.released = save.released || [];
   const ri = save.released.findIndex(r => r.id === target.id);
   const raised = !!(target.raised || (ri >= 0 && save.released[ri].raised));
   if (ri >= 0 && raised) {
@@ -167,10 +164,38 @@ function carriedRaisedRow(save, kind, wantBaby) {
   return wantBaby ? rows[0] : null;
 }
 
-// True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is 0.1 for
-// an exact snapped-center match, or cellHalfM to accept anything overlapping.
+// True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is
+// PLACED_EPS_M for an exact snapped-center match, or half a cell to accept
+// anything overlapping.
 const inPlantedCell = (p, cwmx, cwmy, eps) =>
   Math.abs(p.x - cwmx) < eps && Math.abs(p.y - cwmy) < eps;
+
+// ── What sits on the tapped cell ────────────────────────────────────────────
+// Resolved ONCE per tap at cell-resolve (ctx.at) for every handler after it:
+// the placed fire, scarecrow, magic trap and crop on this level in the WHOLE
+// cell (`half`), plus the snapped-centre matches a new placement asks
+// (PLACED_EPS_M: set down HERE, not a neighbour's edge). Indexes into the
+// save arrays; the one handler that consumes the tap may splice.
+const PLACED_EPS_M = 0.1;
+function occupantsOf(ctx) {
+  return ctx.at || (ctx.at = cellOccupants(ctx.scene, ctx.save, ctx.cwmx, ctx.cwmy));
+}
+function cellOccupants(scene, save, cwmx, cwmy) {
+  const half = scene.cellM / 2, depth = scene.depth ?? 0;
+  const at = (list, eps) => PlacedFloor.indexAt(list, cwmx, cwmy, depth, eps);
+  return {
+    half,
+    fireIdx: at(save.fires, half),
+    scarecrowIdx: at(save.scarecrows, half),
+    magicTrapIdx: at(save.magicTraps, half),
+    // A surface crop and the cave cell below it share world coords (the GPS
+    // mirror), so only this level's crop is here.
+    plantedIdx: save.planted.findIndex(p => (p.depth ?? 0) === depth && inPlantedCell(p, cwmx, cwmy, half)),
+    fireHere: at(save.fires, PLACED_EPS_M) >= 0,
+    scarecrowHere: at(save.scarecrows, PLACED_EPS_M) >= 0,
+    plantedHere: save.planted.some(p => inPlantedCell(p, cwmx, cwmy, PLACED_EPS_M)),
+  };
+}
 
 // Gate a feeding action behind a "Feed <food> to the <fauna>?" confirmation.
 // `doFeed` performs the actual feed AND must persist its own state: it runs
@@ -466,35 +491,11 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   }
   if (reward.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
   Rewards.apply(save, reward, scene);
-  // A beaten relic roll cashed out (reconcileRelicOffer) says so on its card.
-  const shown = ceremony && typeof scene.showRewardCard === 'function'
-    && scene.showRewardCard(reward, reward.kind === 'gold' && reward.slot
-      ? { ...ceremony, sub: 'Already better — paid in coin instead.' } : ceremony);
-  if (shown) {
-    if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') scene.flashJackpot(reward.jackpot);
-  } else if (reward.kind === 'relic' || reward.kind === 'armor') {
-    const label = (typeof gearName === 'function')
-      ? gearName(reward.kind, reward.slot, reward.tier) : reward.slot;
-    scene.flashLoot(`${mark} → ✨ ${label} (equipped!)`, '#ffe066', 1.6);
-    if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
-      scene.flashJackpot(reward.jackpot);
-    }
-  } else if (reward.kind === 'gold' && reward.slot) {
-    // A relic roll the player already beats — cashed out by reconcileRelicOffer.
-    const label = (typeof gearName === 'function')
-      ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : reward.slot;
-    scene.flashLoot(`${mark} Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
-  } else if (reward.kind === 'item') {
-    const item = ITEM_BY_ID[reward.id];
-    const ti = tierInfo(reward.id);
-    const color = ti?.color || '#ffe066';
-    const label = `${item?.name || reward.id}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`;
-    scene.flashLoot(label, color, 1, reward.id);
-    if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
-      scene.flashJackpot(reward.jackpot);
-    }
-  } else if (reward.kind === 'gold') {
-    scene.flashLoot(`${mark} → ${reward.amount}`, '#ffe066', 1, null, scene.coinIconEl?.());
+  // Shown by the one presenter: a card under the caller's framing, or the
+  // toast led by `mark`; a beaten relic roll (cashed out by
+  // reconcileRelicOffer) wears Rewards.BEATEN_GEAR either way.
+  if (!(ceremony && Rewards.present(scene, reward, { extra: ceremony }))) {
+    Rewards.present(scene, reward, { mode: 'toast', mark });
   }
   // Consolation coins for any qty bumps the picker couldn't apply
   // (bracket at cap or single-stack class). Small gold trickle alongside
@@ -519,13 +520,12 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
 //   flashMsg   — the success flash text
 // Returns the handler result (false = not this handler, true = consumed).
 function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg }) {
-  const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
+  const { scene, save, sx, sy, cell, cellKey } = ctx;
   const sel = getSelectedSlot(save);
   const selItem = sel ? ITEM_BY_ID[sel.id] : null;
   if (!(selItem && selItem.id === itemId && (sel.count ?? 0) > 0 &&
         isTillableCell(cell) && !scene.tilledSet.has(cellKey) &&
-        (!extraGuard || extraGuard(ctx)) &&
-        !save.planted.some(p => inPlantedCell(p, cwmx, cwmy, 0.1)))) {
+        (!extraGuard || extraGuard(ctx)) && !occupantsOf(ctx).plantedHere)) {
     return false;
   }
   if (energyKey && !scene.spendEnergy(ENERGY_COST?.[energyKey] ?? 0, sx, sy)) return true;
@@ -768,7 +768,7 @@ const TAP_HANDLERS = [
     // it in place instead of catching or fighting. Checked before the slime /
     // DEFEAT / favourite-food paths so mango always wins. Already-tame pets
     // (id starts with 'released_') skip this and fall through to petting.
-    const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
+    const isTame = Combat.isTame(target);
     const _mangoSel = getSelectedSlot(save);
     // Underground monsters can't be befriended — they're DEFEAT-only foes.
     if (!isTame && !Combat.isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
@@ -802,17 +802,9 @@ const TAP_HANDLERS = [
     if (target.kind === 'slime') {
       const selNow = getSelectedSlot(save);
       if (selNow?.id === 'sapphire' && (selNow.count ?? 0) > 0) {
-        consumeSelected(save);
-        scene.buildInventoryDOM();
-        if (!save.caught.includes(target.id)) save.caught.push(target.id);
-        const tx2 = Math.floor(target.x / scene.tileEdgeM);
-        const ty2 = Math.floor(target.y / scene.tileEdgeM);
-        const tameId = releasedId('slime');
-        save.released = save.released || [];
-        save.released.push({ x: target.x, y: target.y, kind: 'slime', id: tameId, tx: tx2, ty: ty2 });
-        target.id = tameId;
-        ctx.dirty = true;
-        scene.flashLoot('💎 slime tamed!', '#aa88ff', 1.2, 'sapphire');
+        // The one taming lane (tameInPlace): the release policy, the garrison
+        // fields cleared, the shiny flag kept, persisted.
+        tameInPlace(scene, save, target, '💎 slime tamed!', 'sapphire', 1.2);
         return true;
       }
     }
@@ -932,8 +924,7 @@ const TAP_HANDLERS = [
       const doPet = () => {
         if (isTreat && !consumePetFood(save, target, sel.id)) return;
         target._pettedUntilT = performance.now() + ANIMAL_INTERACTION.petBoostMs;
-        save.petBoost = save.petBoost || {};
-        save.petBoost[target.id] = Date.now() + ANIMAL_INTERACTION.petBoostMs;
+        Ledger.stamp(save, 'petBoost', target.id, Date.now() + ANIMAL_INTERACTION.petBoostMs);
         // A kind that FOLLOWS once petted (the cat) starts the shared follow
         // window - the same `follows` flag wanderCreatures reads to honour it.
         if (SpriteLayout.creatureFollows(target.kind)) {
@@ -992,15 +983,13 @@ const TAP_HANDLERS = [
       const yieldId = produce ? produce.item : null;
       if (yieldId) {
         const now = Date.now();
-        save.lastProduce = save.lastProduce || {};
-        const lastT = save.lastProduce[target.id] || target._lastProduceT || 0;
+        const lastT = Ledger.until(save.lastProduce, target.id) || target._lastProduceT || 0;
         if (now - lastT < ANIMAL_INTERACTION.produceCooldownMs) {
           // Still on cooldown — refuse without consuming the produce. Bail
           // before the confirm dialog so we don't ask about a feed that can't
-          // happen yet.
-          const left = shortDuration(ANIMAL_INTERACTION.produceCooldownMs - (now - lastT));
+          // happen yet. The one refusal shape (Macros.waitLine).
           const verb = produce.verb;
-          scene.flash(`already ${verb} — in ${left}`, sx, sy);
+          scene.flash(Macros.waitLine(`Already ${verb}`, ANIMAL_INTERACTION.produceCooldownMs - (now - lastT)), sx, sy);
           return true;
         }
         const feedId = sel.id;
@@ -1008,8 +997,7 @@ const TAP_HANDLERS = [
           if (!consumePetFood(save, target, feedId)) return;
           // Petting boost: prefer the persisted epoch-ms expiry (survives reload)
           // and fall back to the in-memory timer for boosts armed this session.
-          save.petBoost = save.petBoost || {};
-          const petted = (save.petBoost[target.id] || 0) > Date.now()
+          const petted = Ledger.waitMs(save.petBoost, target.id) > 0
             || (target._pettedUntilT && target._pettedUntilT > performance.now());
           const yieldN = petted && Math.random() < ANIMAL_INTERACTION.doubleYieldChance ? 2 : 1;
           if (petted) {                            // consume the boost (both copies)
@@ -1024,7 +1012,7 @@ const TAP_HANDLERS = [
           // the confirm dialog may have sat open for a while.
           const stamp = Date.now();
           target._lastProduceT = stamp;
-          save.lastProduce[target.id] = stamp;
+          Ledger.stamp(save, 'lastProduce', target.id, stamp, stamp, ANIMAL_INTERACTION.produceCooldownMs);
           persistSave(save);
         };
         confirmFeed(scene, feedId, target.kind, doFeed);
@@ -1111,36 +1099,19 @@ const TAP_HANDLERS = [
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
       const rule = wildplantRule(wp.crop);
-      if (rule?.hazardMinTier && isWalkHazard(wp)
-          && (save.relics?.[rule.workRelic]?.tier || 0) < rule.hazardMinTier) {
-        const need = TIER_BY_NUM[rule.hazardMinTier].name;
-        scene.flash(`Need ${tierArticle(need)} ${need} ${rule.workRelic}.`, sx, sy);
-        return true;
-      }
-      const selected = getSelectedSlot(save);
-      if (rule?.disarmWithKit && selected?.id === 'trap_disarm_kit' && selected.count > 0) {
-        save.picked = [...(save.picked || []), wp.id];
-        const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
-        if (!kept) consumeSelected(save);
-        persistSave(save);
-        ctx.dirty = true;
-        scene.buildInventoryDOM();
-        scene.flash(`Dismantled. Kit ${kept ? 'kept' : 'used'}.`, sx, sy);
-        return true;
-      }
-      if (rule?.timber) return runWildplantTimber(ctx, wp);
+      const reqRelic = wildplantWorkRelic(wp.crop);
       // What this wild plant DOES — what it drops, whether it hides a bonus,
       // which relic times its wheel and what that wheel costs — is one table
       // in items.js (WILDPLANT_RULES), read through the accessors below.
       // Some wild crops require physical work to harvest, mirroring their
       // hard-object cousins:
-      //   rockfruit (stone debris) → pick relic speeds up rock-breaking work
-      //   shrub     (woody bush)   → axe  relic speeds up chop work
+      //   rubble    (stone debris) → pickaxe relic speeds up rock-breaking work
+      //   shrub     (woody bush)   → axe relic speeds up chop work
       // Both run toolDurationMs of that relic (items.js TOOL_DURATION_MS —
       // 9s bare-handed, faster per tier). Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
       const award = () => {
-        if (isSpent(wp, spentSets(scene, save))) return;
+        if (isSpent(wp, spentSets(scene, save))) return false;
         // Re-check picked at callback time. The work wheel runs async — if a
         // save reload or some other path already marked this wp.id as picked
         // between handler start and callback fire, awarding again would dupe.
@@ -1153,14 +1124,13 @@ const TAP_HANDLERS = [
         const babyId = nest?.type === 'baby' ? nest.item : null;
         if (babyId && Inventory.roomFor(save, babyId) < 1) {
           scene.flash('Make room for a pet first.', sx, sy);
-          return;
+          return false;
         }
         if (wp.tide) {
-          if (isSpent(wp, spentSets(scene, save))) return;
           Macros.markToday(save, wp.id);
         } else {
-          if ((save.picked || []).includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return;
-          save.picked = [...(save.picked || []), wp.id];
+          if (save.picked.includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return false;
+          save.picked = [...save.picked, wp.id];
         }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;
@@ -1194,28 +1164,42 @@ const TAP_HANDLERS = [
         }
         return true;
       };
-      const reqRelic = wildplantWorkRelic(wp.crop);
+      // The relic's work on the shared pipeline (interactables.js
+      // startToolJob): the energy pre-spent, the wheel on the relic's tool
+      // ladder, the cost refunded on cancel. Only the axe work tells the
+      // felling story — rubble debris gathers free, by hand.
+      const work = (durationMs, cost) => startToolJob(ctx, {
+        x: wp.x, y: wp.y, tool: reqRelic, durationMs, cost,
+        action: reqRelic === 'axe' ? 'chop' : null, onDone: award,
+        after: (startingTier) => scene._barehandWorkStory?.(reqRelic, startingTier),
+      });
+      // A WALK HAZARD (a bramble) asks a minimum tier of its relic, like a
+      // tree or a rock: refused the same way, the slow grind offered when it
+      // is exactly one tier out of reach (interactables.js refuseToolGate).
+      if (rule?.hazardMinTier && isWalkHazard(wp)) {
+        const short = rule.hazardMinTier - (save.relics?.[rule.workRelic]?.tier || 0);
+        if (short > 0) return refuseToolGate(ctx, needToolLine(rule.hazardMinTier, rule.workRelic), short, work);
+      }
+      const selected = getSelectedSlot(save);
+      if (rule?.disarmWithKit && selected?.id === 'trap_disarm_kit' && selected.count > 0) {
+        save.picked = [...save.picked, wp.id];
+        const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
+        if (!kept) consumeSelected(save);
+        persistSave(save);
+        ctx.dirty = true;
+        scene.buildInventoryDOM();
+        scene.flash(`Dismantled. Kit ${kept ? 'kept' : 'used'}.`, sx, sy);
+        return true;
+      }
+      if (rule?.timber) return runWildplantTimber(ctx, wp);
       if (reqRelic) {
         // Chopping a shrub is real felling work — the table charges the shared
         // 9/3/1 tool curve off the axe tier (9 bare-handed, 3 with a Wood axe
         // … 1 frost). rockfruit debris stays free to gather.
-        const workCost = wildplantWorkCost(wp.crop, save.relics);
-        // Same pipeline as interactables.js runInteractable: pre-spend the
-        // energy (an unaffordable tap is consumed without starting), then run
-        // the wheel on the relic's tool ladder, refunding the cost on cancel.
-        const durMs = toolDurationMs(save.relics, reqRelic);
-        if (workCost && !scene.spendEnergy(workCost, sx, sy)) return true;
-        // First felling chop the save ever starts tells its story. Only the
-        // axe work counts here - rockfruit debris gathers free, by hand.
-        if (reqRelic === 'axe') scene._toolActionStory?.('chop');
-        const startingTier = save.relics?.[reqRelic]?.tier || 0;
-        scene.startWorkProgress(wp.x, wp.y, () => {
-          if (award()) scene._barehandWorkStory?.(reqRelic, startingTier);
-        }, durMs, workCost || 0, reqRelic);
-      } else {
-        award();
-        ctx.dirty = true;
+        return work(toolDurationMs(save.relics, reqRelic), wildplantWorkCost(wp.crop, save.relics));
       }
+      award();
+      ctx.dirty = true;
       return true;
     }
     return false;
@@ -1317,19 +1301,17 @@ const TAP_HANDLERS = [
     if (!cell.loaded) { scene.flash('loading…', sx, sy); return true; }
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, wm.x, wm.y);
     const { x: cwmx, y: cwmy } = absCellCenterMeters(scene, cellIX, cellIY);
-    // Single source of truth (coords.js): cellInReach uses the same
-    // (cellIX - playerCellIX, cellIY - feetCellIY) integer math as the
-    // visual reach silhouette in render.js, so a cell that's visually
-    // lit is always tap-accepted — no FP / cell-centre / hypot drift.
-    if (!cellInReach(scene, cellIX, cellIY)) {
-      scene.flash('Just out of reach.', sx, sy); return true;
-    }
+    // The one reach gate (tooFar → coords.js cellInReach: the same integer
+    // cell math as the lit reach silhouette in render.js, so a cell that is
+    // visually lit is always tap-accepted), with the refusal's haptic.
+    if (tooFar(ctx, wm.x, wm.y)) return 'far';
     ctx.cell = cell;
     ctx.cellIX = cellIX;
     ctx.cellIY = cellIY;
     ctx.cwmx = cwmx;
     ctx.cwmy = cwmy;
     ctx.cellKey = cellKeyFromAbsCell(cellIX, cellIY);
+    ctx.at = cellOccupants(scene, ctx.save, cwmx, cwmy);
     return false;
   }},
 
@@ -1389,12 +1371,11 @@ const TAP_HANDLERS = [
     // one on yes (app.js presentBurnConfirm). Empty-handed, the tap falls
     // through to extinguish-fire. Runs before `release` so a held animal
     // over a fire is a burn question, not a release into the flames.
-    const { scene, save, sx, sy, cwmx, cwmy } = ctx;
+    const { scene, save } = ctx;
     const sel = getSelectedSlot(save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
-    const half = scene.cellM / 2;
-    const fireIdx = PlacedFloor.indexAt(save.fires, cwmx, cwmy, scene.depth, half);
-    const fire = fireIdx >= 0 ? save.fires[fireIdx] : null;
+    const at = occupantsOf(ctx);
+    const fire = at.fireIdx >= 0 ? save.fires[at.fireIdx] : null;
     if (!fire) return false;
     const made = CAMPFIRE_MAKES[sel.id];
     if (!made) { scene.presentBurnConfirm(sel.id, { x: fire.x, y: fire.y }); return true; }
@@ -1434,7 +1415,6 @@ const TAP_HANDLERS = [
     const isBaby = !!item.baby;
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
-    save.released = save.released || [];
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     // A raised pet PICKED UP earlier (pickUpPet) comes back as itself: its row
     // kept its id, birth and meals while its id sat in save.caught, so the
@@ -1448,7 +1428,7 @@ const TAP_HANDLERS = [
     const policy = Companions.releasePolicy(scene, cwmx, cwmy);
     if (carried) {
       Object.assign(carried, { x: cwmx, y: cwmy, tx, ty, ...policy });
-      save.caught = (save.caught || []).filter(cid => cid !== id);
+      save.caught = save.caught.filter(cid => cid !== id);
     } else {
       save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth, ...policy });
     }
@@ -1471,27 +1451,22 @@ const TAP_HANDLERS = [
     // would otherwise phantom-match a surface stone (GPS-mirrored coords).
     if ((scene.depth ?? 0) !== 0) return false;
     if (!scene.placedRockSet.has(cellKey)) return false;
-    scene.startWorkProgress(cwmx, cwmy, () => {
+    return startToolJob(ctx, { x: cwmx, y: cwmy, onDone: () => {
       scene.placedRockSet.delete(cellKey);
       scene.addToInv('rubble', 1);
       persistSave(save);
       scene.flash('⛏ rock', sx, sy);
-    });
-    return true;
+    } });
   }},
 
   // 2-pickup-scarecrow) Tap a placed scarecrow (any tap, any selection) to
   // pick it back up. Stores positions in save.scarecrows = [{ x, y }, …].
   { name: 'pickup-scarecrow', try: (ctx) => {
-    const { scene, save, sx, sy, cwmx, cwmy } = ctx;
-    const arr = save.scarecrows = save.scarecrows || [];
-    const half = scene.cellM / 2;
-    // Only match a scarecrow placed on the level we're standing on — a surface
-    // scarecrow and the cave cell below it share world coords (GPS mirror), so
-    // without the depth gate a cave tap would reclaim the farm scarecrow above.
-    const idx = PlacedFloor.indexAt(arr, cwmx, cwmy, scene.depth, half);
-    if (idx < 0) return false;
-    arr.splice(idx, 1);
+    const { scene, save, sx, sy } = ctx, at = occupantsOf(ctx);
+    // Only a scarecrow placed on the level we're standing on (cellOccupants)
+    // — a surface scarecrow and the cave cell below it share world coords.
+    if (at.scarecrowIdx < 0) return false;
+    save.scarecrows.splice(at.scarecrowIdx, 1);
     scene.addToInv('scarecrow', 1, false, { notWild: true });   // reclaimed, not found
     ctx.dirty = true;
     scene.flash('🪦 reclaimed', sx, sy);
@@ -1504,10 +1479,8 @@ const TAP_HANDLERS = [
     // Scarecrow placement is free (no energyKey). Extra guard: refuse if a
     // scarecrow already sits on this cell (rock has no such per-cell list to
     // check — placedRockSet membership is implied by the tilled/planted gates).
-    extraGuard: ({ scene, save, cwmx, cwmy }) =>
-      PlacedFloor.indexAt(save.scarecrows, cwmx, cwmy, scene.depth, 0.1) < 0,
+    extraGuard: (ctx) => !occupantsOf(ctx).scarecrowHere,
     place: ({ scene, save, cwmx, cwmy }) => {
-      save.scarecrows = save.scarecrows || [];
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
       save.scarecrows.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
     },
@@ -1518,14 +1491,11 @@ const TAP_HANDLERS = [
   // out. The coal already burned, so there's no refund — this just clears the
   // cell. Runs before light-fire so tapping a fire never stacks a second one.
   { name: 'extinguish-fire', try: (ctx) => {
-    const { scene, save, sx, sy, cwmx, cwmy } = ctx;
-    const arr = save.fires = save.fires || [];
-    const half = scene.cellM / 2;
-    // Match only a fire lit on this level — fires are placeable underground
-    // (they ward slimes), so the GPS-mirror depth gate matters here too.
-    const idx = PlacedFloor.indexAt(arr, cwmx, cwmy, scene.depth, half);
-    if (idx < 0) return false;
-    arr.splice(idx, 1);
+    const { scene, save, sx, sy } = ctx, at = occupantsOf(ctx);
+    // Only a fire lit on this level (cellOccupants) — fires are placeable
+    // underground (they ward slimes), so the GPS-mirror depth gate matters.
+    if (at.fireIdx < 0) return false;
+    save.fires.splice(at.fireIdx, 1);
     ctx.dirty = true;
     scene.flash('🔥 out', sx, sy);
     return true;
@@ -1537,10 +1507,8 @@ const TAP_HANDLERS = [
   // near it (see app.js). Coal is consumed; the fire persists until tapped out.
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
     itemId: 'flint_shard',
-    extraGuard: ({ scene, save, cwmx, cwmy }) =>
-      PlacedFloor.indexAt(save.fires, cwmx, cwmy, scene.depth, 0.1) < 0,
+    extraGuard: (ctx) => !occupantsOf(ctx).fireHere,
     place: ({ scene, save, cwmx, cwmy }) => {
-      save.fires = save.fires || [];
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
       save.fires.push(PlacedFloor.stampDepth({ x: cwmx, y: cwmy }, scene.depth));
       // The FIRST fire a save ever lights tells its story. A busy screen
@@ -1570,15 +1538,11 @@ const TAP_HANDLERS = [
     const sel = getSelectedSlot(save);
     if (!(sel && sel.id === 'magic_trap' && (sel.count ?? 0) > 0)) return false;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
-    const half = scene.cellM / 2;
-    const onCell = (list) => (list || []).some(o => PlacedFloor.onDepth(o, scene.depth) &&
-      Math.abs(o.x - cwmx) < half && Math.abs(o.y - cwmy) < half);
+    const at = occupantsOf(ctx);
     const free = !!entry && Traps.canLay(entry, cell.ix, cell.iy)
       && !(PlacedFloor.isSurface(scene.depth) && scene.tilledSet?.has(cellKey))
-      && !onCell(save.planted) && !onCell(save.fires) && !onCell(save.scarecrows)
-      && !onCell(save.magicTraps);
+      && at.plantedIdx < 0 && at.fireIdx < 0 && at.scarecrowIdx < 0 && at.magicTrapIdx < 0;
     if (!free) { scene.flash("can't set a trap here", sx, sy); return true; }
-    save.magicTraps = save.magicTraps || [];
     save.magicTraps.push(PlacedFloor.stampDepth({
       id: Traps.magicTrapId(scene.depth, cell.tx, cell.ty, cell.ix, cell.iy),
       x: cwmx, y: cwmy,
@@ -1603,18 +1567,11 @@ const TAP_HANDLERS = [
   // 2a) Tap a planted cell → harvest / advance / water / stage readout.
   { name: 'planted', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
-    // Match against the whole CELL the tap lands in (same half-cell epsilon the
-    // till path uses below), not a tight 0.1m epsilon. A planted cell must
-    // always be handled here so a tap on an immature crop reports its growth
-    // stage — it must never fall through to the till path's "occupied:" message.
-    const cellHalfM = scene.cellM / 2;
-    // Match only crops sown on the current level — a surface crop and the cave
-    // cell directly below it share world coords (GPS mirror), so without the
-    // depth gate a tap underground would harvest the farm overhead.
-    const curDepth = scene.depth ?? 0;
-    const plantedIdx = save.planted.findIndex(p =>
-      (p.depth ?? 0) === curDepth &&
-      Math.abs(p.x - cwmx) < cellHalfM && Math.abs(p.y - cwmy) < cellHalfM);
+    // The crop in the whole CELL the tap lands in, on this level
+    // (cellOccupants). A planted cell must always be handled here so a tap on
+    // an immature crop reports its growth stage — it must never fall through
+    // to the till path's blocker line.
+    const plantedIdx = occupantsOf(ctx).plantedIdx;
     if (plantedIdx < 0) return false;
     const p = save.planted[plantedIdx];
     // 1-indexed "<stage>/<total>" growth readout for an immature crop, e.g.
@@ -1739,7 +1696,6 @@ const TAP_HANDLERS = [
     // No rod? You can still fish BARE-HANDED — it just takes 3× as long. A rod
     // cheapens the cast and lets fewer big fish get away (spec §FISHING).
     const fishCost = effectiveFishCost(save.relics);
-    if (!scene.spendEnergy(fishCost, sx, sy)) return true;
     // Cast time is LOCKED to 9s bare-handed / 3s with any rod — deliberately
     // NOT the per-tier toolDurationMs ladder. Rod tier already scales the
     // catch table and the energy cost; letting it also shrink the cast to
@@ -1750,7 +1706,9 @@ const TAP_HANDLERS = [
     // spot already fished out is in save.fishedSpots for good.
     const spotId = fishSpotId(cell.tx, cell.ty, cell.ix, cell.iy);
     const stocked = inStarterPond(scene, cell) || fishSpotStocked(spotId);
-    scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
+    // The shared job (startToolJob) with a FIXED cancel refund of 5, whatever
+    // the rod's cast cost.
+    return startToolJob(ctx, { x: ctx.cwmx, y: ctx.cwmy, tool: 'fishing_rod', durationMs: castMs, cost: fishCost, refund: 5, onDone: () => {
       const tier = save.relics?.fishing_rod?.tier || 0;   // 0 = bare hands (worst odds)
       // An empty or fished-out spot looks and casts like any other and is
       // always an empty cast — the player learns where the fish are by
@@ -1792,8 +1750,7 @@ const TAP_HANDLERS = [
       const item = ITEM_BY_ID[pick];
       scene.flashLoot(`🐟 ${item?.name || pick}`, '#7adcff', 1, pick);
       if (shiny) scene.awardShinyBonus(pick, sx, sy);
-    }, castMs, 5, 'fishing_rod');   // castMs = locked cast time (9s bare / 3s rod); 5 = cancel refund
-    return true;
+    } });
   }},
 
   // 2a-cave-wall) A solid cave wall blocking the player can be mined out like a
@@ -1806,22 +1763,18 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cell, cellIX, cellIY, cwmx, cwmy } = ctx;
     if ((scene.depth ?? 0) <= 0) return false;
     if (cell.type !== TERRAIN.CAVE_WALL) return false;
-    const cost = effectivePickCost(save.relics);
-    if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
-    const durMs = toolDurationMs(save.relics, 'pickaxe');
-    // First dig the save ever starts tells its story - after the spend, so a
-    // tap that could not afford it tells none.
-    scene._toolActionStory?.('dig');
-    scene.startWorkProgress(cwmx, cwmy, () => {
-      scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
-      // A wall pays the wall's own table (interactables.js caveWallDrop) —
-      // one stone, flint on 30 % — the same one the auto-mine pays.
-      const qty = caveWallDrop(scene);
-      persistSave(save);
-      const item = ITEM_BY_ID['rubble'];
-      scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rubble');
-    }, durMs, cost || 0, 'pickaxe');
-    return true;
+    // The shared job (startToolJob): the pick's cost and ladder, the first
+    // dig's story after the spend.
+    return startToolJob(ctx, { x: cwmx, y: cwmy, tool: 'pickaxe', durationMs: toolDurationMs(save.relics, 'pickaxe'),
+      cost: effectivePickCost(save.relics), action: 'dig', onDone: () => {
+        scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
+        // A wall pays the wall's own table (interactables.js caveWallDrop) —
+        // one stone, flint on 30 % — the same one the auto-mine pays.
+        const qty = caveWallDrop(scene);
+        persistSave(save);
+        const item = ITEM_BY_ID['rubble'];
+        scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rubble');
+      } });
   }},
 
   // 2b) Tap non-tillable terrain → flavor label. A road-BAND cell (grass in
@@ -1866,7 +1819,6 @@ const TAP_HANDLERS = [
       //       fruit at maturity (render.js fruittree spec + the fruittree
       //       harvest handler).
       const asTree = item.plants === 'tree';
-      save.fruittrees = save.fruittrees || [];
       const id = `${asTree ? 'ptr' : 'pft'}_${Math.round(cwmx)}_${Math.round(cwmy)}`;
       const planted_t = Date.now();
       if (!save.fruittrees.some(f => f.id === id)) {
@@ -1924,15 +1876,12 @@ const TAP_HANDLERS = [
 
   // 2d) Untilled tillable cell → till it (refuses if occupied by any interactable).
   { name: 'till', try: (ctx) => {
-    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
-    const cellHalfM = scene.cellM / 2;
-    const pickedAll = new Set([...(save.picked || []), ...(save.burnedObjects || [])]);
+    const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx, at = occupantsOf(ctx);
+    const cellHalfM = at.half;
+    const pickedAll = new Set([...save.picked, ...(save.burnedObjects || [])]);
     let blocker = null;
     if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence.';
-    if (!blocker) {
-      const pp = save.planted.find(p => inPlantedCell(p, cwmx, cwmy, cellHalfM));
-      if (pp) blocker = `${cropName(pp.crop)} grows here.`;
-    }
+    if (!blocker && at.plantedIdx >= 0) blocker = `${cropName(save.planted[at.plantedIdx].crop)} grows here.`;
     if (!blocker) {
       const spentTill = spentSets(scene, save);
       for (const e of WorldGen.tileCache.values()) {
@@ -1947,22 +1896,20 @@ const TAP_HANDLERS = [
       }
     }
     if (blocker) { scene.flash(blocker, sx, sy); return true; }
-    // Hoe relic discounts (and sometimes zeroes out) the till cost.
-    const tillCost = effectiveTillCost(save.relics);
-    if (!scene.spendEnergy(tillCost, sx, sy)) return true;
-    // Tilling runs a WORK WHEEL. Duration follows the shared tool ladder via the
-    // hoe slot (bare hands 9s; a Hoe relic speeds it by tier). GRASSLAND-biome
-    // cells till in HALF the time (spec §cells). Energy is pre-spent and refunds
-    // if the player cancels the wheel.
+    // Tilling runs a WORK WHEEL (startToolJob: the hoe's cost pre-spent and
+    // refunded on a cancel, the first furrow's story as the wheel starts).
+    // Duration follows the shared tool ladder via the hoe slot (bare hands
+    // 9s; a Hoe relic speeds it by tier). GRASSLAND-biome cells till in HALF
+    // the time (spec §cells).
     let tillMs = toolDurationMs(save.relics, 'hoe');
     // Global 2× tilling speed-up — applied on top of the tool-tier ladder and
     // the grassland half-time below, so every till is twice as fast everywhere.
     tillMs = Math.round(tillMs / 2);
     if (GRASSLAND_TILL.has(cell.type)) tillMs = Math.round(tillMs / 2);
-    // First furrow the save ever turns tells its story, as the wheel starts.
-    scene._toolActionStory?.('till');
-    const startingTier = save.relics?.hoe?.tier || 0;
-    scene.startWorkProgress(cwmx, cwmy, () => {
+    // Hoe relic discounts (and sometimes zeroes out) the till cost.
+    const tillCost = effectiveTillCost(save.relics);
+    return startToolJob(ctx, { x: cwmx, y: cwmy, tool: 'hoe', durationMs: tillMs, cost: tillCost, action: 'till',
+      after: (startingTier) => scene._barehandWorkStory?.('hoe', startingTier), onDone: () => {
       scene.tilledSet.add(cellKey);
       // The bed remembers the hoe that made it - that's the produce QUALITY a
       // crop planted here will carry (Crops.bedQuality). A better hoe is
@@ -1981,9 +1928,7 @@ const TAP_HANDLERS = [
         persistSave(save);
         scene.flashLoot(`+1 ${ITEM_BY_ID[find.id]?.name || find.id}`, '#a7ffb0', 1, find.id);
       }
-      scene._barehandWorkStory?.('hoe', startingTier);
-    }, tillMs, tillCost, 'hoe');
-    return true;
+    } });
   }},
 ];
 

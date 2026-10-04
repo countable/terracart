@@ -11,12 +11,13 @@
     const { N, tx, ty, tileEdgeM, grid, field } = ctx;
     const reservations = new Map(), coverage = field?.coverage || field?.idx;
     if (!coverage) return reservations;
-    const opts = ctx.spawnOpts, occ = opts.occupied;
-    const step = tileEdgeM / N, ox = tx * tileEdgeM, oy = ty * tileEdgeM;
+    const { cellM: step, ox, oy, occ, chestAt, cx, cy } = WG.dressFrame(ctx), opts = ctx.spawnOpts;
     for (let ai = 0; ai < field.anchors.length; ai++) {
       const a = field.anchors[ai];
       if (!a.owned || a.generated || V.pick(a).id !== 'pirate_cove') continue;
-      let chest = !a.parkShore && (ctx.chests || []).find(o => o.kind === 'chest' && o._poiAt === `${a.lx},${a.ly}`);
+      // A beach park's shore anchor minted no chest (its POI is the grove
+      // shrine); the hull then seats on a synthetic point at the anchor.
+      let chest = !a.parkShore && chestAt.get(`${a.lx},${a.ly}`);
       const synthetic = !chest;
       if (!chest) chest = { x: ox + a.lx * tileEdgeM / EXT, y: oy + a.ly * tileEdgeM / EXT };
       const extent = root.SpriteLayout.SHIPWRECK_SHRINE_ART.extentCells;
@@ -26,19 +27,15 @@
       const free = new Set(occ); if (!synthetic) free.delete(originalIndex);
       const shrineOpts = { ...opts, occupied: free };
       const [ax, ay] = V.rotate(0, -radius - 1, V.rotation(a));
+      // The hull (WorldGen.footprintFree: the square, then the shrine cell).
       const footprint = (x, y) => {
-        const cells = [];
         const eligible = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
           && coverage[iy * N + ix] === ai + 1 && !ctx.tideSeats?.has(iy * N + ix)
           && grid[iy * N + ix] === WG.T.SAND
           && WG.isSpawnCell(grid, N, N, ix, iy, shrineOpts, 'minor');
-        for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
-          if (!eligible(x + dx, y + dy)) return null;
-          cells.push((y + dy) * N + x + dx);
-        }
-        if (!eligible(x + ax, y + ay)) return null;
-        cells.push((y + ay) * N + x + ax);
-        return cells;
+        const hull = WG.footprintFree(x, y, radius, eligible);
+        if (!hull || !eligible(x + ax, y + ay)) return null;
+        return [...hull.map(([hx, hy]) => hy * N + hx), (y + ay) * N + x + ax];
       };
       let seat = original, reserved = footprint(...seat), distance = reserved ? 0 : Infinity;
       if (!reserved) for (let i = 0; i < coverage.length; i++) {
@@ -50,7 +47,7 @@
         if (candidate) { seat = [x, y]; reserved = candidate; distance = d; }
       }
       if (!reserved) continue;
-      Object.assign(chest, { x: ox + (seat[0] + 0.5) * step, y: oy + (seat[1] + 0.5) * step,
+      Object.assign(chest, { x: cx(seat[0]), y: cy(seat[1]),
         _ix: seat[0], _iy: seat[1], _shrineArt: 'shipwreck', _shrineExtentCells: extent });
       for (const i of reserved) occ.add(i);
       reservations.set(a.key, { seat, reserved, originalIndex, synthetic });
@@ -64,12 +61,11 @@
     if (!field || !WG || !V) return out;
     const { N, tx, ty, tileEdgeM, grid } = ctx, coverage = field.coverage || field.idx;
     if (!coverage) return out;
-    const opts = ctx.spawnOpts || (ctx.spawnOpts = {}), occ = opts.occupied || (opts.occupied = new Set());
+    // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
+    // metres, the occupancy this pass claims into, the chest each POI minted.
+    const { cellM: step, ox, oy, occ, chestAt: chests, cx, cy } = WG.dressFrame(ctx), opts = ctx.spawnOpts;
     const initialOccupied = new Set(occ);
-    const step = tileEdgeM / N, ox = tx * tileEdgeM, oy = ty * tileEdgeM;
-    const position = (ix, iy) => [ox + (ix + 0.5) * step, oy + (iy + 0.5) * step];
-    const chests = new Map();
-    for (const chest of ctx.chests || []) if (chest.kind === 'chest' && chest._poiAt) chests.set(chest._poiAt, chest);
+    const position = (ix, iy) => [cx(ix), cy(iy)];
     const states = (field.anchors || []).map((a, ai) => {
       const variant = V.pick(a), unit = WG.CELL_M / (a.upm || N * WG.CELL_M / EXT);
       const gx = a.originGX == null ? a.gx : a.originGX, gy = a.originGY == null ? a.gy : a.originGY;
@@ -361,7 +357,7 @@
         && root.Shrines.kindForZoneVariant(v.id);
       if (standKind) {
         let seated = false;
-        for (let r = 1; r <= Z.SHRINE_SEAT_R && !seated; r++) for (const [ux, uy] of Z.RING_ORDER) {
+        for (let r = 1; r <= Z.SHRINE_SEAT_R && !seated; r++) for (const [ux, uy] of WG.RING_ORDER) {
           const ix = s.poi[0] + ux * r, iy = s.poi[1] + uy * r;
           if (!owns(s, ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, opts, 'attractor')) continue;
           const [x, y] = position(ix, iy);
@@ -416,15 +412,8 @@
       const innerRadius = radii[radii.length - 1];
       if (b.fitToGround.compactRadiusCells < innerRadius) radii.push(b.fitToGround.compactRadiusCells);
       const geometryOpts = { ...opts, occupied: initialOccupied };
-      const diskFree = (cx, cy, radius, gateOpts) => {
-        for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
-          if (dx * dx + dy * dy > (radius + 0.5) ** 2) continue;
-          const x = cx + dx, y = cy + dy;
-          if (!owns(s, x, y) || ctx.tideSeats?.has(y * N + x)
-              || !WG.isSpawnCell(grid, N, N, x, y, gateOpts, 'minor')) return false;
-        }
-        return true;
-      };
+      const diskFree = (cx, cy, radius, gateOpts) => !!WG.footprintFree(cx, cy, radius, (x, y) =>
+        owns(s, x, y) && !ctx.tideSeats?.has(y * N + x) && WG.isSpawnCell(grid, N, N, x, y, gateOpts, 'minor'), true);
       const original = offsetCell(s, 0, 0);
       // Existing authored aisles/finds are intentional gaps in an otherwise
       // unobstructed garden. Keep those layouts and their cell identities.
@@ -678,6 +667,6 @@
       }
     }
   }
-  function dress(ctx) { const it = dressSteps(ctx); let r; do { r = it.next(); } while (!r.done); return r.value; }
+  function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
   root.ZoneDressing = { dressSteps, dress, reserveWrecksSteps, WRECK_CHEST_TIER, stampHedges, hedgeGroup };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

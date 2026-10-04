@@ -120,7 +120,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
         const towers = wizardTowerIds(save);
         if (!towers.firstId) return true;
         return !towers.secondId && order >= STORY_RESTORES.secondTower - 1
-          && Object.keys(save.discovered || {}).length >= 21;
+          && MemoryStory.total(save) >= MemoryStory.LEAVE_MEMORIES;
       } },
   ]);
   // The ranks on offer: 1..Shops.tierCap(save) — the memory ladder.
@@ -151,7 +151,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   function renovate(save, house) {
     const to = renovateTo(save, house);
     if (!to.tier) return null;
-    (save.shopTiers = save.shopTiers || {})[house.id] = to.tier;
+    (save.shopTiers ||= {})[house.id] = to.tier;
     return to.tier;
   }
   const buildOption = (key) => BUILD_OPTIONS.find((row) => row.key === key) || null;
@@ -308,9 +308,9 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     save.restoredHouses = save.restoredHouses || {};
     if (typeof save.restoredHouses[house.id] === 'string') return null;   // never relabel a restored house
     save.restoredHouses[house.id] = row.role;
-    if (row.theme) (save.shopLines = save.shopLines || {})[house.id] = row.theme;
-    if (row.tier) (save.shopTiers = save.shopTiers || {})[house.id] = row.tier;
-    if (opts.hammer && hammerTakes(row)) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
+    if (row.theme) (save.shopLines ||= {})[house.id] = row.theme;
+    if (row.tier) (save.shopTiers ||= {})[house.id] = row.tier;
+    if (opts.hammer && hammerTakes(row)) (save.shinyHouses ||= {})[house.id] = 1;
     if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
     if (row.solo) registerSoloShop(save, house, row.solo);
     if (row.role === 'wizard') registerWizardTower(save, house);
@@ -327,7 +327,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     const entries = Object.entries(save.restoredHouses || {});
     const firstId = stamped.firstId || (entries[LEGACY_FIRST_TOWER_INDEX]?.[1] === 'wizard'
       ? entries[LEGACY_FIRST_TOWER_INDEX][0] : entries.find(([, role]) => role === 'wizard')?.[0]) || null;
-    const secondId = stamped.secondId || (firstId && Object.keys(save.discovered || {}).length >= 21
+    const secondId = stamped.secondId || (firstId && MemoryStory.total(save) >= MemoryStory.LEAVE_MEMORIES
       ? entries.find(([id, role], order) => order >= LEGACY_SECOND_TOWER_INDEX && role === 'wizard' && id !== firstId)?.[0]
       : null) || null;
     return { firstId, secondId };
@@ -403,14 +403,13 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return houseShopRole(save, house) || 'plain';
   }
 
-  // Restoration cost: stone (rockfruit — wild residential debris, gatherable
+  // Restoration cost: stone (rubble — wild residential debris, gatherable
   // bare-handed): 2 for the first rebuild, one more per three houses already
   // restored, capped at 20 (wreckRestoreQty in items.js). A whole price, so
   // the dialog's quote is the accept's charge. Themed shops and plain
   // residential alike rebuild from the same masonry.
   function wreckRestoreCost(save, house) {
-    const restored = Object.keys(save?.restoredHouses || {}).length;
-    return { id: 'rubble', qty: wreckRestoreQty(restored), material: 'stone' };
+    return { id: 'rubble', qty: wreckRestoreQty(restoredCount(save)), material: 'stone' };
   }
   // WHAT EACH CARD COSTS (owner, Oct 2026). A House — and the wizard's tower,
   // a story building — keeps the ladder above. A shop is priced by the rank
@@ -512,7 +511,6 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   function claimCastle(save, house) {
     const key = castleKey(house);
     if (!key) return false;
-    save.claimedCastles = save.claimedCastles || {};
     if (save.claimedCastles[key] != null) return false;
     save.claimedCastles[key] = 0;
     return true;
@@ -523,30 +521,22 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // the ONE timer left on any building the player trades at; shops never
   // wait — shops_math.js header). save.castleServiceClaimed[key] holds the
   // ms stamp of the last favour; anything else is no stamp (and is pruned).
-  const CASTLE_SERVICE_MS = 12 * 60 * 60 * 1000;
-  function _stampWaitMs(stamp, now) {
-    if (typeof stamp !== 'number') return 0;
-    return Math.max(0, stamp + CASTLE_SERVICE_MS - now);
-  }
+  // The row is the recurring-site table's (Macros.DAILY_VISIT_KINDS.castle —
+  // its cooldownMs) and the map is a rolling ledger (save.js Ledger: stamp +
+  // cooldown). macros.js loads before this module.
+  const CASTLE_SERVICE_MS = Macros.DAILY_VISIT_KINDS.castle.cooldownMs;
   // Milliseconds until this castle's favour is on offer again (0 = now). The
   // one number its refusal and its blurb print (shortDuration).
   function castleServiceWaitMs(save, house, now = Date.now()) {
     const key = castleKey(house);
-    return key ? _stampWaitMs(save.castleServiceClaimed?.[key], now) : 0;
+    return key ? Ledger.waitMs(save.castleServiceClaimed, key, now, CASTLE_SERVICE_MS) : 0;
   }
   function castleServiceUsed(save, house, now = Date.now()) {
     return castleServiceWaitMs(save, house, now) > 0;
   }
   function markCastleServiceUsed(save, house, now = Date.now()) {
     const key = castleKey(house);
-    if (!key) return;
-    save.castleServiceClaimed = save.castleServiceClaimed || {};
-    // Prune every OTHER castle's spent stamp while we're here — the map
-    // can't grow without bound across weeks of play.
-    for (const k of Object.keys(save.castleServiceClaimed)) {
-      if (k !== key && !_stampWaitMs(save.castleServiceClaimed[k], now)) delete save.castleServiceClaimed[k];
-    }
-    save.castleServiceClaimed[key] = now;
+    if (key) Ledger.stamp(save, 'castleServiceClaimed', key, now, now, CASTLE_SERVICE_MS);
   }
 
   root.Houses = {

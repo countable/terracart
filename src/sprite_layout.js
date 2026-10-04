@@ -338,7 +338,8 @@
   //
   // Two beats are shared: CREATURE_FRAME_MS is what every stepped kind runs at
   // unless it says otherwise, and SLIME_FRAME_MS is HALF that rate (the ooze
-  // reads as a slow swell, not a flutter). Derived from the common beat, and
+  // reads as a slow swell, not a flutter — the surface slime covers ground at
+  // its row's pace, enemy_roster.js `slime`). Derived from the common beat, and
   // BOTH rows on the slime sheet read it.
   const CREATURE_FRAME_MS = 160;
   const SLIME_FRAME_MS = CREATURE_FRAME_MS * 2;
@@ -566,8 +567,9 @@
   //   tameSettles  the quick gait above is a WILD animal's wariness; a tame
   //              one drops it and joins the base wander. A butterfly flits
   //              either way.
-  // The surface slime's gait is NOT here (SLIME_STEP_MUL / SLIME_HOP_CELLS are
-  // app.js's own), and a monster's cadence comes from its MONSTERS row.
+  // A FOE's gait is NOT here: every enemy_roster.js row moves by its own
+  // `movement` (creature_ai.js rosterEnemyMove); the loop below only gives
+  // each row `wanders` (and `haunts` for a ghost) so the sim thinks for it.
   //
   // Animal feeding and petting read one timing row; the Book derives its
   // lessons from it.
@@ -646,34 +648,31 @@
     // the cap is a stated number, not what paces it.
     butterfly:     { wanders: true, pollinates: true, stepMs: 1400, maxMps: 6,
                      flee: { escapes: true, jitter: 1.2, stepMs: 1350, stepCells: 1.15 } },
-    slime:         { wanders: true },
-    cave_slime:    { wanders: true },
-    purple_slime:  { wanders: true },
-    // A fire slime's kill (player or pet) hands over a flint (items.js 'flint_shard')
-    // — the tar yard's thematic prize, on top of its bounty coin.
+    // A fire slime's kill (player or pet) hands over a flint (items.js
+    // 'flint_shard') — the tar yard's thematic prize, on top of its bounty
+    // coin. (A Tint variant of the slime with a row of its own here: the drop
+    // is its.)
     fire_slime:    { wanders: true, drop: 'flint_shard' },
-    goblin:        { wanders: true },
-    goblin_archer: { wanders: true },
     // A trapper's kill (by the player or their pet — resolveDefeat pays a drop
-    // only then) hands over a Magic Trap, on top of the bounty coin.
+    // only then) hands over a Magic Trap, on top of the bounty coin; an
+    // enemy's drop is ON TOP of the wage, never instead of it.
     goblin_trapper: { wanders: true, drop: 'magic_trap' },
-    // THE GHOST has its own mover (creature_ai.js ghostTick — hover, then a committed
-    // rush at the player, over any terrain; a touch spends it; light burns
-    // it). `haunts` is what hands it there instead of the step chain.
-    ghost:         { wanders: true, haunts: true },
-    plant:         { wanders: true }, // thinks/attacks in the sim bubble; Combat keeps it rooted
   };
   // The sea turtle is the rabbit's row on the beach (seated by
   // biome_profiles.js SHORE_FAUNA): the same hops, bolt and settling, read
   // from the rabbit's row so the two cannot drift.
   CREATURE_BEHAVIOUR.sea_turtle = CREATURE_BEHAVIOUR.rabbit;
-  // The behaviour row for `kind` — the base row for a giant, like its art.
+  // Every roster base kind thinks (`wanders`); a ghost moves by its own mover
+  // (creature_ai.js ghostTick — hover, then a committed rush at the player,
+  // over any terrain; a touch spends it; light burns it): `haunts` is what
+  // hands it there instead of the step chain. A variant reads its base row
+  // unless it has a row of its own above (the fire slime's drop).
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;
     CREATURE_BEHAVIOUR[row.id] = { ...CREATURE_BEHAVIOUR[row.id], wanders: true,
       ...(row.movement.pattern === 'ghost_glide' ? { haunts: true } : {}) };
   }
-  function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
+  function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[kind] || CREATURE_BEHAVIOUR[baseKind(kind)]; }
   // Does this kind think at all? wanderCreatures culls on it before anything
   // else, so a kind with no row is furniture.
   function creatureWanders(kind) { return !!creatureBehaviour(kind)?.wanders; }

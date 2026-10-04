@@ -111,7 +111,7 @@ test('poison flask: the scene levies the bite through the burn\'s dispatch, aske
   // Asked wherever the burn is asked, right after it.
   assert.truthy(/if \(this\._tickUnitFire\?\.\(c, now\)\) return;\s*\n\s*if \(this\._tickUnitPoison\?\.\(c, now\)\) return;/.test(app), 'wanderCreatures');
   assert.truthy(/if \(scene\._tickUnitFire\?\.\(c, now\)\) return true;\s*\n\s*if \(scene\._tickUnitPoison\?\.\(c, now\)\) return true;/.test(CREATURE_AI_SRC), 'the flower tick (a sleeper, an ally)');
-  assert.truthy(/const poisoned = !frozen && !afire && Combat\.poisoned\(c, performance\.now\(\)\);/.test(RENDER_SRC), 'the body wears the row\'s tint');
+  assert.truthy(/const poisoned = !chilled && !afire && Combat\.poisoned\(c, performance\.now\(\)\);/.test(RENDER_SRC), 'the body wears the row\'s tint');
 });
 
 test('poison flask: drunk, it is the player\'s own poison, and the flask is spent either way', () => {
@@ -121,6 +121,7 @@ test('poison flask: drunk, it is the player\'s own poison, and the flask is spen
   const applied = [];
   const s = { save: { energy: 100, inv: [{ id: ID, count: 2 }], selSlot: 0 }, consumed: 0,
     _applyCondition(id) { applied.push(id); Conditions.apply(this.save, id); },
+    _selectedConsumable(id) { const sel = this.save.inv[0]; return sel && sel.id === id && sel.count > 0 ? sel : null; },
     _finishConsumable() { this.consumed++; return true; } };
   const call = () => drink.call(s, save => save.inv[save.selSlot], CONSUMABLE_SPEC);
   assert.truthy(call());

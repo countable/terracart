@@ -684,12 +684,12 @@ test('grove shrine: one gift a UTC day per shrine, in the coin-burst ledger', ()
   const shrine = { kind: 'grove_shrine', id: 'sh_1_2_3_4', x: 0, y: 0 };
   runInteractable(makeCtx(scene, save), shrine);
   assert.eq(loots.length, 1, 'a gift');
-  assert.eq(save.coinBurstClaimed[shrine.id + Delivery.dayKey()], 1, 'claimed for today');
+  assert.eq(save.coinBurstClaimed[shrine.id + utcDayKey()], 1, 'claimed for today');
   assert.falsy('stale_20000101' in save.coinBurstClaimed, 'other days pruned');
   runInteractable(makeCtx(scene, save), shrine);
   assert.eq(loots.length, 1, 'once a day');
-  assert.truthy(/^Already visited\. \d+[smhd]\.$/.test(flashes[flashes.length - 1]), `the wait is shown: ${flashes[flashes.length - 1]}`);
-  assert.lte(`The shrine rests. ${shortDuration(24 * 3600 * 1000)}.`.length, MAP_MSG_MAX, 'fits a map line');
+  assert.truthy(/^Already visited — \d+[smhd]$/.test(flashes[flashes.length - 1]), `the wait is shown: ${flashes[flashes.length - 1]}`);
+  assert.lte(Macros.waitLine('Already visited', 24 * 3600 * 1000).length, MAP_MSG_MAX, 'fits a map line');
   const ctxRow = LOOT_CONTEXTS[Z.SHRINE_CONTEXT];
   assert.truthy(ctxRow && ctxRow.favourite.id === 'growth_powder', 'a grove is known for its growth powder');
   let paid = 0;

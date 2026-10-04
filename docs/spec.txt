@@ -885,8 +885,8 @@ UNDERGROUND CAVES (Phase 1)
  - tiles are cached PER DEPTH. Caves hold mineral rocks and hostile MONSTERS
    (no surface fauna), each an ENEMY fought on HP and paid with the bounty.
    Kinds are gated by depth windows so each level down reads as a new
-   population (`enemy_roster.js`; giants and other variants are their own
-   rows). Ranged foes need a CLEAR LINE, like your own bow.
+   population (`enemy_roster.js` rows — `Combat.MONSTERS` is their view;
+   giants and other variants are their own rows). Ranged foes need a CLEAR LINE, like your own bow.
  - monsters can't be tamed; a defeated one is recorded in `save.caught` so it
    stays dead across reloads.
 

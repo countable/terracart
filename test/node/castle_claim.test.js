@@ -81,7 +81,7 @@ test('castle identity: the key is stable across a rebuild', () => {
 // ── Claiming, and the daily favour ──────────────────────────────────────────
 
 const ccScene = (over = {}) => Object.assign({
-  save: { energy: 40 },
+  save: SaveState.defaults({ energy: 40 }),
   _maxE: 100,
   getMaxEnergy() { return this._maxE; },
   buildInventoryDOM() {},
@@ -203,7 +203,7 @@ test('castle service: the gate is per castle, not global', () => {
 });
 
 test('castle service: it never overfills', () => {
-  const s = ccScene({ save: { energy: 97 } });
+  const s = ccScene({ save: SaveState.defaults({ energy: 97 }) });
   const t = ccTower('b_1_1');
   s._claimCastle(t);
   s._castleRest(0, 0, t);

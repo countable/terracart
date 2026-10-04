@@ -96,6 +96,23 @@
       assert.eq(flowerOpponent(s, enemy, 100, 0, new Set(), wall + 60000), null);
     } finally { WorldGen.forEachItemNear = realEach; }
   }));
+  test('flower status: a hostile attacks what is NEAREST — a charmed ally, a neighbour or the player', () => withClock(() => {
+    // One nearest scan (creature_ai.js nearestCreature) behind flowerOpponent
+    // and NPC.enemyTarget: a foe with a charmed slime four cells off and a
+    // neighbour one cell off goes for the neighbour; with the neighbour gone,
+    // the ally; with the player nearer than both, the player.
+    const hostile = foe('hostile'), ally = foe('ally', 'zombie', 28), s = scene();
+    Combat.applyCharm(ally, wall); s._charmedOpponents = [ally];
+    const neighbour = { kind: 'npc', id: 'npc_near', x: 7, y: 0, homeX: 7, homeY: 0 };
+    s._npcCombatTargets = [neighbour];
+    assert.eq(flowerOpponent(s, hostile, 1000, 0, new Set()), null, 'the neighbour one cell off wins over the ally four cells off');
+    assert.eq(NPC.enemyTarget(s, hostile, EnemyRoster.get('zombie'), 1000, 0, false), neighbour);
+    s._npcCombatTargets = [];
+    assert.eq(flowerOpponent(s, hostile, 1000, 0, new Set()), ally, 'no neighbour: the ally within sight');
+    assert.eq(flowerOpponent(s, hostile, 14, 0, new Set()), null, 'the player two cells off wins over the ally');
+    s.isUnnoticed = () => true;
+    assert.eq(flowerOpponent(s, hostile, 14, 0, new Set()), ally, 'unless the player is not there to be hunted');
+  }));
   test('flower status: hostile ally pursuit keeps Home wards and lair stand-down', () => withClock(() => {
     const hostile = foe('hostile'), ally = foe('ally', 'zombie', 1), s = scene();
     Combat.applyCharm(ally, wall); s._charmedOpponents = [ally];

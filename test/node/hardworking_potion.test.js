@@ -10,11 +10,19 @@
 const T0 = 1_700_000_000_000;
 const ID = 'hardworking_potion';
 const app = SCENE_SRC;
+const APP_TABLES = (() => {
+  const grab = (name) => {
+    const m = SCENE_SRC.match(new RegExp('\\nconst ' + name + ' = \\{[\\s\\S]*?\\n\\};'));
+    assert.truthy(m, name + ' table in app.js');
+    return m[0];
+  };
+  return grab('SUMMON_HOOK') + grab('TIMED_BUFF_HOOKS');
+})();
 function method(name) {
   const start = app.indexOf('\n  ' + name + '(');
   const end = app.indexOf('\n  }\n', start);
   assert.truthy(start >= 0 && end > start, `found ${name}`);
-  return new Function('return ({' + app.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+  return new Function(APP_TABLES + '\nreturn ({' + app.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
 }
 function clock(fn) {
   const old = Date.now; let now = T0; Date.now = () => now;
@@ -22,7 +30,8 @@ function clock(fn) {
 }
 function scene(count = 2) {
   return { save: { energy: 100, inv: [{ id: ID, count }], selSlot: 0 }, modals: 0,
-    _finishConsumable: method('_finishConsumable'),
+    _selectedConsumable: method('_selectedConsumable'), _spendScroll: method('_spendScroll'),
+    _consumeSelected: method('_consumeSelected'), _finishInventoryChange: method('_finishInventoryChange'),
     buildInventoryDOM() {}, showMessageModal() { this.modals++; } };
 }
 
@@ -37,20 +46,20 @@ test('hardworking potion: a T1 magic item, drunk and never thrown', () => {
   assert.eq(src.sheet, 'icon_potions'); assert.eq(src.frame, 14);
   assert.falsy(Object.entries(MINERAL_ICON_SHEET).some(([id, r]) => id !== ID && r.sheet === src.sheet && r.frame === src.frame), 'its own frame');
   const row = CONSUMABLE_SPEC[ID];
-  assert.eq(row.verb, 'Drink'); assert.eq(row.method, 'drinkHardworkingPotion');
+  assert.eq(row.verb, 'Drink'); assert.eq(row.buff, 'work');
   assert.eq(row.durationMs, 5 * 60 * 1000, 'five minutes');
   assert.lt(row.durationMs, Shrines.SHRINE_KINDS.harvest_idol.durationMs, 'shorter than the idol\'s visit');
   assert.includes(Shops.themedStock('potion', 1), ID, 'the T1 magic shop stocks it');
 });
 
-test('hardworking potion: Shrines.extend is the one lever writer, for the idol and the bottle alike', () => {
+test('hardworking potion: Buffs.extend is the one lever writer, for the idol and the bottle alike', () => {
   const save = {};
   assert.truthy(Shrines.extend(save, 'work', 1000, T0));
   assert.eq(save.boonUntil.work, T0 + 1000);
   assert.truthy(Shrines.extend(save, 'work', 500, T0 + 100), 'a shorter pull inside a longer one');
-  assert.eq(save.boonUntil.work, T0 + 1000, 'keeps the later expiry; never stacks');
+  assert.eq(save.boonUntil.work, T0 + 1500, 'adds to the time left (Buffs.laterOf); strength never stacks');
   assert.truthy(Shrines.grant(save, 'harvest_idol', T0 + 200));
-  assert.eq(save.boonUntil.work, T0 + 200 + Shrines.SHRINE_KINDS.harvest_idol.durationMs, 'grant goes through the same writer');
+  assert.eq(save.boonUntil.work, T0 + 1500 + Shrines.SHRINE_KINDS.harvest_idol.durationMs, 'grant goes through the same writer');
   assert.truthy(Shrines.extend(save, 'shield', 1000, T0), 'a potion-field lever writes its field');
   assert.eq(save.shieldPotionUntil, T0 + 1000);
   const scene = {};
@@ -63,7 +72,9 @@ test('hardworking potion: Shrines.extend is the one lever writer, for the idol a
 
 test('hardworking potion: the drink pulls the work lever for five minutes, extends the idol\'s, and is spent once', () => clock(setNow => {
   const s = scene();
-  const drink = method('drinkHardworkingPotion');
+  assert.eq(CONSUMABLE_SPEC[ID].buff, 'work', 'the idol\'s own lever, by its Buffs row');
+  const use = method('_useTimedBuff');
+  const drink = function () { return use.call(this, ID); };
   assert.eq(drink.call(s), true);
   assert.eq(Inventory.count(s.save, ID), 1);
   assert.eq(s.modals, 1, 'the drink dialog');
@@ -75,24 +86,25 @@ test('hardworking potion: the drink pulls the work lever for five minutes, exten
   // The countdown is the idol's row, named by its boon word.
   const rows = Buffs.active(s.save, s, T0);
   assert.eq(rows.length, 1); assert.eq(rows[0].id, 'work'); assert.eq(rows[0].name, Shrines.SHRINE_KINDS.harvest_idol.boon);
-  // On top of a fresh idol visit the longer countdown stands; later it extends.
+  // On top of a fresh idol visit the drink EXTENDS the idol's spell (owner,
+  // Oct 2026 — Buffs.extend: max(now, until) + duration, nothing thrown away).
   Shrines.grant(s.save, 'harvest_idol', T0);
   const idol = s.save.boonUntil.work;
   setNow(T0 + 10_000);
   assert.eq(drink.call(s), true);
-  assert.eq(s.save.boonUntil.work, idol, 'the idol\'s longer spell is kept');
+  assert.eq(s.save.boonUntil.work, idol + CONSUMABLE_SPEC[ID].durationMs, 'the bottle is banked on top of the idol\'s spell');
   assert.eq(Inventory.count(s.save, ID), 0);
   assert.eq(drink.call(s), false, 'empty selection');
   const t = scene(1);
-  setNow(idol - 1000);
+  setNow(idol + 1000);
   t.save.boonUntil = { work: idol };
   assert.eq(drink.call(t), true);
-  assert.eq(t.save.boonUntil.work, idol - 1000 + CONSUMABLE_SPEC[ID].durationMs, 'extends from now when that is later');
+  assert.eq(t.save.boonUntil.work, idol + 1000 + CONSUMABLE_SPEC[ID].durationMs, 'runs from now once the idol\'s has lapsed');
   const wrong = scene(); wrong.save.inv[0].id = 'wood';
   assert.eq(drink.call(wrong), false);
   assert.falsy(wrong.save.boonUntil);
-  assert.truthy(/Shrines\.extend\(this\.save, 'work', CONSUMABLE_SPEC\.hardworking_potion\.durationMs, Date\.now\(\), this\);/.test(app),
-    'the drink pulls the lever through the one writer, never boonUntil by hand');
+  assert.truthy(/Buffs\.extend\(this\.save, this, buff, spec\.durationMs \* mul\);/.test(app) && Buffs.KINDS.work.boon === 'work',
+    'the drink pulls the lever through the one writer (the `work` row of Buffs.KINDS), never boonUntil by hand');
   assert.eq((app.match(/boonUntil\.work\s*=/g) || []).length, 0, 'no hand-written work expiry in the scene');
 }));
 })();

@@ -164,21 +164,21 @@ const NPC = (() => {
   function isDormant(c, now = Date.now()) {
     return c?.kind === 'npc' && (c._npcRestUntilEpoch || 0) > now;
   }
+  // A neighbour back on their feet (their rest over) stands at full health.
+  function standUp(c) { if (c._hp <= 0) c._hp = Combat.maxHp(c); }
   function hit(scene, c, now = Date.now(), damage = Combat.creatureMaxHp('npc')) {
     if (c?.kind !== 'npc') return false;
     restore(scene, c);
     if (isDormant(c, now)) return false;
-    if (c._hp <= 0) c._hp = Combat.maxHp(c);
+    standUp(c);
     const lost = Combat.damageDealt(c, damage);
     if (!(lost > 0)) return false;
     if (Combat.hp(c) > 0) return true;
     c._npcRestUntilEpoch = now + REST_MS_AFTER_HIT;
     c._moving = false;
     c._npcSteps = 0;
-    const ledger = scene.save.npcRestUntil ||= {};
-    for (const id of Object.keys(ledger)) if (ledger[id] <= now) delete ledger[id];
-    ledger[c.id] = c._npcRestUntilEpoch;
-    if (typeof persistSave === 'function') persistSave(scene.save);
+    Ledger.stamp(scene.save, 'npcRestUntil', c.id, c._npcRestUntilEpoch, now);
+    Save.persist(scene.save);
     return true;
   }
   function canTarget(scene, c) {
@@ -201,25 +201,23 @@ const NPC = (() => {
       }
     });
   }
+  // The neighbour a foe goes for: the nearest it can target (canTarget) within
+  // its vision less the neighbour's own visionReduction, with a line of fire
+  // — and nearer than the player unless the player is hidden. The one
+  // nearest scan (creature_ai.js nearestCreature) over the prepared list.
   function enemyTarget(scene, enemy, row, px, py, playerHidden) {
-    let best = null;
-    let d2 = playerHidden ? Infinity : (enemy.x - px) ** 2 + (enemy.y - py) ** 2;
-    d2 = Math.min(d2, (row.visionCells * scene.cellM) ** 2);
-    for (const c of scene._npcCombatTargets || []) {
-      const distance2 = (enemy.x - c.x) ** 2 + (enemy.y - c.y) ** 2;
-      if (typeof PotionEffects !== 'undefined' && distance2 > (Math.max(0,
-        row.visionCells - PotionEffects.visionReduction(c)) * scene.cellM) ** 2) continue;
-      if (distance2 >= d2 || !canTarget(scene, c) || enemySightBlocked(scene, enemy, c.x, c.y)) continue;
-      if (!Combat.lineOfFire(enemy.x, enemy.y, c.x, c.y,
-        (x, y) => enemySightBlocked(scene, enemy, x, y), scene.cellM)) continue;
-      best = c; d2 = distance2;
-    }
-    return best;
+    const limit = Math.min(row.visionCells * scene.cellM,
+      playerHidden ? Infinity : Math.hypot(enemy.x - px, enemy.y - py));
+    return nearestCreature(scene, enemy, limit, (c, d) => {
+      if (typeof PotionEffects !== 'undefined'
+          && d > Math.max(0, row.visionCells - PotionEffects.visionReduction(c)) * scene.cellM) return false;
+      return canTarget(scene, c) && !enemySightBlocked(scene, enemy, c.x, c.y);
+    }, { los: true, pool: scene._npcCombatTargets || [] });
   }
   function tick(scene, c, now, dt) {
     restore(scene, c);
     if (isDormant(c)) { c._moving = false; return; }
-    if (c._hp <= 0) c._hp = Combat.maxHp(c);
+    standUp(c);
     // Integrate only active time: returning to a neighbour never jumps them
     // across their old path. Small steps cannot skip a road cell or building.
     dt = Math.min(0.1, Math.max(0, dt));
@@ -286,8 +284,11 @@ const NPC = (() => {
     return { ...identity(id, 'village'), ...(row?.name ? { name: row.name } : {}), role, roleLabel: row?.label || 'Neighbour', ...(row?.artScale ? { artScale: row.artScale } : {}) };
   }
   function warden(id) { return storyNeighbour(id, 'warden'); }
-  function memoriesOf(save) {
-    return typeof MemoryStory !== 'undefined' ? MemoryStory.total(save) : Object.keys(save?.discovered || {}).length;
+  function memoriesOf(save) { return MemoryStory.total(save); }
+  // "One roof stands" / "3 roofs stand": a counted noun and its verb, the
+  // noun through the quest board's plural (quests.js _plural).
+  function countOf(n, noun, verb) {
+    return `${n === 1 ? 'One' : n} ${_plural(noun, n)} ${n === 1 ? verb + 's' : verb}`;
   }
   function storyNeighbourDue(save, role) {
     return memoriesOf(save) >= (STORY_ROLES[role]?.minMemories ?? 0);
@@ -402,7 +403,7 @@ const NPC = (() => {
   function offscreenAt(scene) {
     if (!(scene.viewSize > 0) || !(scene.mPerPx > 0) || !scene.playerM || !scene.startWorldM) return () => true;
     const half = (scene.viewSize / 2) * scene.mPerPx + scene.cellM;
-    const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+    const { x: px, y: py } = playerWorldM(scene);
     return (x, y) => Math.max(Math.abs(x - px), Math.abs(y - py)) > half;
   }
   // The arrivals pass (app.js update, on the modal-gate cadence): every
@@ -495,11 +496,11 @@ const NPC = (() => {
     } else if (c.role === 'mason') {
       // Off the restoration ledger (save.restoredHouses) and the wreck
       // verdict, never a count of its own.
-      const mended = Object.keys(scene.save.restoredHouses || {}).length;
+      const mended = Houses.restoredCount(scene.save);
       const wreck = nearestWreck(scene, c);
       const where = wreck ? `“The nearest wreck still waiting is ${whereabouts(c, wreck.o, wreck.d)}.”` : '“No wreck near here still waits, that I know of.”';
       body = (mended
-        ? `“${mended === 1 ? 'One roof stands' : `${mended} roofs stand`} again since you came. Fifty years nobody laid a stone here, and then you.”\n<em>Nods up the street.</em>`
+        ? `“${countOf(mended, 'roof', 'stand')} again since you came. Fifty years nobody laid a stone here, and then you.”\n<em>Nods up the street.</em>`
         : daily(['<em>Runs a hand along a cracked wall.</em>\n“Every roof on the lane came down in one night. Stone remembers its shape, though. Mend one wreck and the street will follow.”',
           '“Nobody has laid a stone here since the Breaking. The wrecks are waiting for hands.”'])) + '\n' + where;
     } else if (c.role === 'lamplighter') {
@@ -508,7 +509,7 @@ const NPC = (() => {
       const lit = Object.keys(scene.save.lampVisits || {}).length;
       const fade = typeof Streets !== 'undefined' && Streets.LAMP_FADE_MS ? spokenDuration(Streets.LAMP_FADE_MS) : 'a day';
       body = lit
-        ? `<em>Squints down the lane.</em>\n“${lit === 1 ? 'One lamp burns' : `${lit} lamps burn`} brighter for your passing tonight. Stay away ${fade} and they forget you. Lamps are like that.”`
+        ? `<em>Squints down the lane.</em>\n“${countOf(lit, 'lamp', 'burn')} brighter for your passing tonight. Stay away ${fade} and they forget you. Lamps are like that.”`
         : daily(['<em>Taps a dark lamp post.</em>\n“Dark since the Breaking, every one. The roads were spared, but nobody was left to light them. Walk under one. It remembers you.”',
           '“A lamp only wants company. Pass under one and watch what it does.”']);
     } else {
@@ -575,21 +576,18 @@ const NPC = (() => {
     // A dialog SHOWN, not merely present: index.html's static overlays
     // (#story, #howto, …) always carry .game-modal and only toggle display,
     // so a presence test swallowed every tap on every neighbour.
-    if (scene._dialogOpen?.()) return;
+    if (MemoryStory.dialogOpen(scene)) return;
     c._moving = false;
     c._npcRestUntil = performance.now() + 12000;
     const talk = dialogue(scene, c);
     // A talk of several pages is one dialog per page, "Next" between them
-    // (the revive panels' pattern, app.js), the same portrait throughout.
+    // (MemoryStory.showPages — the wizard's lane), the same portrait throughout.
     const say = () => {
       if (talk.target && !isDormant(c)) {
         scene.save.wayfarerCompass = { ...talk.target, until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
         persistSave(scene.save);
       }
-      const art = portrait(scene, c), pages = talk.pages;
-      const show = i => scene.showMessageModal({ title: talk.title, body: pages[i], kind: 'note', art,
-        okLabel: i < pages.length - 1 ? 'Next' : 'OK', onDismiss: i < pages.length - 1 ? () => show(i + 1) : undefined });
-      show(0);
+      MemoryStory.showPages(scene, talk.pages, { title: talk.title, art: portrait(scene, c), kind: 'note' });
     };
     if (isDormant(c)) { say(); return; }
     if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {
@@ -607,7 +605,7 @@ const NPC = (() => {
               answered = true;
               const reply = MemoryStory.acknowledgeArchaeologist(scene.save, conversation.id, choice.id);
               if (!reply) return;
-              if (typeof persistSave === 'function') persistSave(scene.save);
+              Save.persist(scene.save);
               scene.showMessageModal({ kind: 'note', title: talk.title, body: reply.body, art });
             },
           })),

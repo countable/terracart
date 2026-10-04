@@ -315,45 +315,56 @@
   const texKey = (kind, colour) => (colour ? `fx_${kind}_${String(colour).replace('#', '')}` : `fx_${kind}`);
   const hex = (s) => parseInt(String(s).replace('#', ''), 16);
 
-  // Bake the preset's coloured texture with a throwaway Graphics. Baked, not
-  // tinted: setTint() is a no-op under the Canvas renderer.
-  function ensureTexture(scene, kind, colour) {
-    const key = texKey(kind, colour);
-    if (scene.textures.exists(key)) return key;
-    const t = colour ? Object.assign({}, PRESETS[kind].tex, { color: colour }) : PRESETS[kind].tex;
-    const S = t.size, c = S / 2;
-    const g = scene.make.graphics({ x: 0, y: 0, add: false });
-    if (t.shape === 'star') {
-      // Soft glow, two crossed slim diamonds (the 4-point glint), white-hot
-      // core — the same construction as the shiny marker in app.js.
+  // How each `tex.shape` a preset names is painted — on a throwaway Graphics
+  // `g`, at size S about its centre c, in the preset's inks `t`. A new shape
+  // is a row here and a `tex.shape` on its presets.
+  const SHAPES = {
+    // Soft glow, two crossed slim diamonds (the 4-point glint), white-hot
+    // core — the same construction as the shiny marker in app.js.
+    star(g, t, S, c) {
       g.fillStyle(hex(t.color), 0.35); g.fillCircle(c, c, c * 0.5);
       g.fillStyle(hex(t.color), 1);
       const r = c - 1, w = Math.max(1, S * 0.11);
       g.fillPoints([{ x: c, y: c - r }, { x: c + w, y: c }, { x: c, y: c + r }, { x: c - w, y: c }], true);
       g.fillPoints([{ x: c - r, y: c }, { x: c, y: c - w }, { x: c + r, y: c }, { x: c, y: c + w }], true);
       g.fillStyle(hex(t.core), 1); g.fillCircle(c, c, Math.max(1, S * 0.09));
-    } else if (t.shape === 'chip') {
-      // A stone chip: a slightly irregular quad, darker rim under the fill.
+    },
+    // A stone chip: a slightly irregular quad, darker rim under the fill.
+    chip(g, t, S, c) {
       const pts = [{ x: 1, y: 3 }, { x: 5, y: 1 }, { x: S - 1, y: 4 }, { x: 4, y: S - 1 }]
         .map((p) => ({ x: p.x * S / 8, y: p.y * S / 8 }));
       g.fillStyle(hex(t.edge), 1); g.fillPoints(pts, true);
       g.fillStyle(hex(t.color), 1);
       g.fillPoints(pts.map((p) => ({ x: c + (p.x - c) * 0.6, y: c + (p.y - c) * 0.6 })), true);
-    } else if (t.shape === 'confetti') {
-      // A paper strip: a flat rectangle twice as long as it is wide, a darker
-      // underside line so the tumble reads as a flat thing turning.
+    },
+    // A paper strip: a flat rectangle twice as long as it is wide, a darker
+    // underside line so the tumble reads as a flat thing turning.
+    confetti(g, t, S, c) {
       g.fillStyle(hex(t.color), 1); g.fillRect(c - S * 0.4, c - S * 0.2, S * 0.8, S * 0.4);
       g.fillStyle(0x000000, 0.25); g.fillRect(c - S * 0.4, c + S * 0.1, S * 0.8, S * 0.1);
-    } else if (t.shape === 'drop') {
-      // A water drop: a round bead, taller than wide, with a white glint
-      // off-centre so it reads as wet rather than as a blue dot.
+    },
+    // A water drop: a round bead, taller than wide, with a white glint
+    // off-centre so it reads as wet rather than as a blue dot.
+    drop(g, t, S, c) {
       g.fillStyle(hex(t.color), 1); g.fillEllipse(c, c, S * 0.6, S * 0.85);
       g.fillStyle(hex(t.core), 0.9); g.fillCircle(c - S * 0.12, c - S * 0.18, Math.max(1, S * 0.12));
-    } else {
-      // A leaf: a small ellipse with a lighter vein down its length.
+    },
+    // A leaf: a small ellipse with a lighter vein down its length.
+    leaf(g, t, S, c) {
       g.fillStyle(hex(t.color), 1); g.fillEllipse(c, c, S * 0.9, S * 0.5);
       g.fillStyle(hex(t.vein), 0.9); g.fillRect(c * 0.45, c - 0.5, S * 0.55, 1);
-    }
+    },
+  };
+
+  // Bake the preset's coloured texture with a throwaway Graphics. Baked, not
+  // tinted: setTint() is a no-op under the Canvas renderer.
+  function ensureTexture(scene, kind, colour) {
+    const key = texKey(kind, colour);
+    if (scene.textures.exists(key)) return key;
+    const t = colour ? Object.assign({}, PRESETS[kind].tex, { color: colour }) : PRESETS[kind].tex;
+    const S = t.size;
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    (SHAPES[t.shape] || SHAPES.leaf)(g, t, S, S / 2);
     g.generateTexture(key, S, S);
     g.destroy();
     return key;

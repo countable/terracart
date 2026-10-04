@@ -121,9 +121,10 @@
     const inside = new Set(['core', 'floor', 'front', 'behind', 'cloud']);
     for (const [name, g] of Object.entries(Lairs.GROUPS)) {
       assert.eq(g.tiers.length, 1, `${name}: one tier, never both`);
-      assert.truthy(g.tiers[0] === 9 || g.tiers[0] === 12, `${name}: a house's or a castle's, never a fort's`);
+      const habitat = Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, g.tiers[0]);
+      assert.truthy(g.tiers[0] === 9 || g.tiers[0] === 12 || habitat, `${name}: a house's, a castle's or a habitat site's, never a fort's`);
       const n = Lairs.expandGroup(name, g.tiers[0]).length;
-      if (g.tiers[0] === 9) {
+      if (g.tiers[0] === 9 || habitat) {
         assert.lte(n, 4, `${name}: a wreck's group is small (${n})`);
         for (const m of g.members) assert.truthy(m.place === 'ring' || m.place === 'cloud', `${name}: a wreck's guards sit round or over it, never on its floor`);
       } else {
@@ -145,7 +146,8 @@
     for (const [name, g] of Object.entries(Lairs.GROUPS)) {
       assert.truthy(g.label && g.story, `${name}: a label and a line for the design sheet`);
       assert.gt(g.tiers.length, 0, `${name}: holds somewhere`);
-      for (const tier of g.tiers) assert.truthy(Lairs.TIERS.includes(tier), `${name}: tier ${tier} is a building tier`);
+      for (const tier of g.tiers) assert.truthy(Lairs.TIERS.includes(tier) || Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, tier), `${name}: tier ${tier} is a building or a habitat tier`);
+      for (const tier of g.tiers) if (typeof tier === 'string') assert.eq(Lairs.TIER_GROUP[tier], name, `${name}: a habitat tier always takes its group`);
       assert.inRange(g.minT || 0, 0, 0.9, `${name}: minT leaves strong ruins something to take`);
       for (const m of g.members) {
         assert.truthy(Combat.isEnemy({ kind: m.kind, id: `x_${m.kind}` }), `${name}: ${m.kind} is a registered enemy`);
@@ -447,7 +449,8 @@
 
   test('split slime: the damage lane divides it on a blow but not on lava, light, burns or obstacles; the pet bite too; the bounty by share', () => {
     const dmg = SCENE_SRC.slice(SCENE_SRC.indexOf('_damageEnemy(c, amount, source = \'player\', options = {}) {'));
-    assert.truthy(/if \(dealt > 0 && !\['lava', 'light', 'burn', 'obstacle'\]\.includes\(source\)\) \{\s*const from = options\.from \|\| this\.playerM[^;]*;\s*if \(enemySplit\(this, c, from\.x, from\.y, now\)/.test(dmg),
+    assert.truthy(/if \(dealt > 0 && !Combat\.isEnvironmentSource\(source\)\) \{\s*const from = options\.from \|\| this\.playerM[^;]*;\s*if \(enemySplit\(this, c, from\.x, from\.y, now\)/.test(dmg)
+      && Combat.isEnvironmentSource('lava') && Combat.isEnvironmentSource('obstacle') && !Combat.isEnvironmentSource('player'),
       '_damageEnemy divides a surviving splitting slime on a blow, never on the ground\'s damage');
     assert.truthy(/if \(tgt\._hp > 0\) enemySplit\(this, tgt, c\.x, c\.y, now\);/.test(SCENE_SRC),
       'a pet\'s bite divides it too, away from the pet');

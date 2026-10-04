@@ -822,7 +822,7 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
   // Deterministic, and off a hash of the street + the end's GLOBAL point.
   const again = dressed(WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M)).d;
   assert.eq(again.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery)[0].id, bars[0].id, 'the same end every build');
-  assert.truthy(/u01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
+  assert.truthy(/hash01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
     'the pick hashes variant, street key and the global end point');
 });
 

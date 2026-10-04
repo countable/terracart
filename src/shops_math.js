@@ -337,7 +337,7 @@
     }
     const owned = [...held.keys()];
     const wantAffordable = rng() < TRADER_AFFORDABLE_CHANCE;
-    const pick = (ids) => ids[Math.floor(rng() * ids.length)];
+    const pick = (ids) => pickFromArray(ids, rng);
     const firstNonEmpty = (...lists) => lists.find(l => l.length) || [];
     let ids = [];
     if (wantAffordable) ids = owned.filter(id => fair(id) && held.get(id) >= qtyFor(id));
@@ -354,11 +354,15 @@
     return { askId, askQty: qtyFor(askId) };
   }
 
-  // A themed shop's re-roll: $2, then ×1.5 rounded DOWN per re-roll rung
-  // ($2, 3, 4, 6, 9, 13, 19 …); a rung comes off per hour (bucketState).
-  // Deliberately cheaper than the smithy's $5 start
-  // and the trader's 5 × 2^n — a themed shop sells one ordinary item, and looking
-  // along its shelf should cost less than asking a smith for another relic.
+  // THE RE-ROLL LADDERS — one family: a start price, then ×1.5 rounded DOWN
+  // per re-roll rung; a rung comes off per hour (bucketState).
+  //   · a themed shop: $2 ($2, 3, 4, 6, 9, 13, 19 …) — deliberately cheaper
+  //     than the smith's: it sells one ordinary item, and looking along its
+  //     shelf should cost less than asking a smith for another relic;
+  //   · the smithy and the trader: $5 ($5, 7, 10, 15, 22, 33 …) — hunting
+  //     the anvil for the one piece you want stays affordable, and the
+  //     trader's barter re-rolls at the same price (owner, Oct 2026: it used
+  //     to double, $5, 10, 20, 40).
   const THEMED_REROLL_START = 2;
   const THEMED_REROLL_MUL = 1.5;
   function growRerollCost(start, rerolls) {
@@ -367,11 +371,9 @@
     return c;
   }
   function themedRerollCost(rerolls = 0) { return growRerollCost(THEMED_REROLL_START, rerolls); }
-  // The smithy's re-roll: the relic stalls' $5 start, but growing on the
-  // same ×1.5 rounded-down curve ($5, 7, 10, 15, 22, 33 …) rather than their
-  // doubling — hunting the anvil for the one piece you want stays affordable.
   const SMITHY_REROLL_START = 5;
   function smithyRerollCost(rerolls = 0) { return growRerollCost(SMITHY_REROLL_START, rerolls); }
+  const traderRerollCost = smithyRerollCost;
 
   // ─── Fort slot machine ───────────────────────────────────────────────────
   // A fort's quartermaster runs a three-reel slot machine instead of a shop.
@@ -562,7 +564,7 @@
     return out;
   }
 
-  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, bucketOffset, bucket, easedRerolls, bucketState, pruneShopState, rng, buyPrice,
+  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, traderRerollCost, bucketOffset, bucket, easedRerolls, bucketState, pruneShopState, rng, buyPrice,
                      DEAL_COOLDOWN_MS, MAX_DEAL_COOLDOWN_MS, dealCooling, recordDeal, dealWaitMs,
                      REROLL_RETRIES, offerKey, rerollPeek,
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
