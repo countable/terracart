@@ -7353,6 +7353,17 @@ class MapScene extends Phaser.Scene {
     } catch (_) {}
   }
 
+  flashEliteAppearance(count) {
+    if (!this.add || this._dialogOpen()) return false;
+    const now = performance.now();
+    if (now < (this._eliteFanfareUntil || 0)) return false;
+    const banner = this._toast(count > 1 ? 'ELITES APPROACH' : 'ELITE APPROACHES',
+      { tier: 'fanfare', color: UI_GOLD_DEEP, bg: '#350f1b' });
+    this._burstAt('eliteArrival', banner.x, banner.y);
+    this._eliteFanfareUntil = now + 3200;
+    return true;
+  }
+
   // Is a dialog up right now? Read off the DOM, not body.modal-open: that
   // class is synced by a MutationObserver AFTER the tap's handler, and the
   // fanfare fires in the same handler that just mounted the dialog.

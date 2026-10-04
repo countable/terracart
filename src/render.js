@@ -654,6 +654,22 @@ Render.canShine = function canShine(scene) {
   return !!(r && typeof Phaser !== 'undefined' && r.type === Phaser.WEBGL && r.pipelines?.FX_PIPELINE);
 };
 
+// Announce only visible, revealed hostiles, once per identity in this scene.
+// A pack shares one banner; a dialog defers it until the world is visible again.
+Render.announceElites = function announceElites(scene, list, project) {
+  if (!scene.flashEliteAppearance || !Number.isFinite(scene.viewSize)) return;
+  const seen = scene._announcedElites ||= new Set();
+  const arrivals = list.filter(({ c, dx, dy }) => {
+    if (!c.id || seen.has(c.id) || !Combat.isElite(c) || !Combat.isEnemy(c) || Combat.isConcealed(c)) return false;
+    const { sx, sy } = project(dx, dy);
+    return sx >= scene.viewLeft && sy >= scene.viewTop
+      && sx <= scene.viewLeft + scene.viewSize && sy <= scene.viewTop + scene.viewSize;
+  });
+  if (arrivals.length && scene.flashEliteAppearance(arrivals.length)) {
+    for (const { c } of arrivals) seen.add(c.id);
+  }
+};
+
 // Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b. Same as
 // BiomeProfiles.mixHex, aliased locally for the per-bordered-edge hot path.
 const mixHex = BiomeProfiles.mixHex;
@@ -4124,6 +4140,7 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
   // Elite circles stay on the ground through hops and use baked glow even with FX off.
+  Render.announceElites(scene, creatureList, project);
   if (scene.shadowContainer) {
     scene.eliteRingPool ||= [];
     const elites = creatureList.filter(({ c }) => Combat.isElite(c) && !Combat.isConcealed(c));
