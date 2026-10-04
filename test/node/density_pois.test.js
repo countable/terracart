@@ -261,7 +261,7 @@
     // debug readout's `${steerSpeedMul(…)}` only prints it.
     const calls = SCENE_SRC.match(/(?<!\$\{)steerSpeedMul\([^)]*\)/g) || [];
     assert.eq(calls.length, 3, 'three readers');
-    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
+    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* Conditions\.movementMul\(this\.save\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
     assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(SCENE_SRC),
       'the follow cap, only while the stick is pushed');
     assert.truthy(/const bike = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),

@@ -3369,6 +3369,7 @@ class MapScene extends Phaser.Scene {
     // Runs AFTER the creatures have moved (so shots resolve against where the
     // foes actually are this frame) and BEFORE the wheel, which is where melee
     // damage lands.
+    Crops.tickEffects(this);
     this._combatTick(dt);
     this._tickBlightAura();
     Companions.tickAll(this);
@@ -5891,7 +5892,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const relics = this._walkRelics();
-    const step = WALK_M_S * steerSpeedMul(relics) * dt;
+    const step = WALK_M_S * steerSpeedMul(relics) * Conditions.movementMul(this.save) * dt;
     const dx = (vx / n) * step, dy = (vy / n) * step;
     if (!this._targetM) this._targetM = { x: this.playerM.x, y: this.playerM.y };
     // TAKE THE WHEEL AT ONCE. The stick nudges the TARGET, and _followStep
@@ -6279,7 +6280,7 @@ class MapScene extends Phaser.Scene {
     };
     const loop = this._confusedLoop;
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
-    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul;
+    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul * Conditions.movementMul(this.save);
     let remaining = dt;
     while (remaining > 0) {
       const step = Math.min(remaining, 0.05);
@@ -6344,7 +6345,7 @@ class MapScene extends Phaser.Scene {
     // SLOW (_bodyHold): tar or stakes underfoot cap the body's pace.
     if (this._confusedRecover) capMS = Math.min(capMS ?? Infinity, WALK_M_S);
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
-    const moveSpeed = Math.min(WALK_M_S * mul, capMS > 0 ? capMS : Infinity) * balanceMul;
+    const moveSpeed = Math.min(WALK_M_S * mul, capMS > 0 ? capMS : Infinity) * balanceMul * Conditions.movementMul(this.save);
     const move = Math.min(moveSpeed * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
