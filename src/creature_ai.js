@@ -773,6 +773,27 @@ function spawnNestBushCreature(scene, bush, type) {
   return creature;
 }
 
+// A hive's daily defenders use ordinary enemy seating and combat. Plan the
+// entire swarm first so a refused placement cannot partially spend a visit.
+function planHiveBees(scene, hive) {
+  const out = [], seats = new Set();
+  const day = utcDayKey();
+  for (let i = 0; i < WorldGen.HIVE_SPEC.bees; i++) {
+    const id = `hivebee_${hive.id}_${day}_${i}`;
+    const point = walkableDestination(scene, hive.x, hive.y, 1, {
+      seed: id, cls: creatureSpawnClass('bee'),
+      accept(x, y) {
+        return !seats.has(`${x},${y}`) && !(x === hive.x && y === hive.y);
+      },
+    });
+    if (!point) return [];
+    seats.add(`${point.x},${point.y}`);
+    out.push({ entry: point.entry, creature: WorldGen.makeCreature('bee', point.x, point.y, id,
+      { shiny: false, homeX: hive.x, homeY: hive.y }) });
+  }
+  return out;
+}
+
 // A CAMPFIRE ROUTS A GHOST — Home's mechanism (the ward latch: turned onto
 // an away-from-the-fire angle and run to the sim bubble's edge), not the
 // fire's own ward on other foes (a refused target cell, which held a ghost

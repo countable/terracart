@@ -387,6 +387,7 @@ const MINERAL_ICON_SHEET = {
   // Consumables — honey is a single 16×16 jar (Icons/Items/Honey.png, an
   // amber fill of the potion pack's empty flask); books are a 240×64
   // multi-frame sheet, frame 0 the basic variant.
+  syrup: { sheet: 'icon_potions', frame: 0 },
   taming_potion:      { sheet: 'icon_taming_potion',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
   tome_reach: { sheet: 'icon_book',   frame: 2 },
@@ -624,7 +625,7 @@ const BASE_TIER = {
   dog: 5,
   // Consumables
   antidote: 1, elixir: 7,
-  taming_potion: 3, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
+  syrup: 2, taming_potion: 3, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
@@ -943,6 +944,7 @@ const ITEMS = [
   { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     dropWeight: 0.4 },
   { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', dropWeight: 0.4 },
   // Fruit from fruit trees in orchard tiles
+  { id: 'syrup', name: 'Syrup', kind: 'produce', dropWeight: 0 },
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
   { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry' },
   { id: 'worldpeach',   name: 'Worldpeach',   kind: 'produce', crop: 'worldpeach' },
@@ -1460,6 +1462,7 @@ const PRICES = {
   milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
+  syrup: 7,
   taming_potion: 12,
   book:  20,
   tome_reach: 90,   // T3 — a reach potion's sight, once a day, forever
@@ -1691,6 +1694,7 @@ const ITEM_EFFECTS = {
   iceflower: 'Its frozen petals cool even crimson metal.',
   diamond: 'A sliver of winter waits for a jeweller’s hand.',
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
+  syrup: 'Sweet amber syrup clings to the lip of the jar.',
   taming_potion: 'Its sweet scent draws curious noses through the grass.',
   book: 'An elder’s faded words wait beneath the worn cover.',
   tome_reach: 'Page by page, the horizon walks closer.',
@@ -1764,6 +1768,7 @@ const STARTING_ENERGY = 100;
 // The numbers below are the rows themselves; cooked rows follow through GRILL_ENERGY_MUL.
 const FOOD_ENERGY = {
   goblet: 5,
+  syrup: 13,
   longgrass:  3,
   nut:        10,
   potato:     10,

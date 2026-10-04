@@ -4599,6 +4599,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
     // pay a one-off find. Plain grove shrines use the cell-seated votive,
     // giving the daily gift and light (Lighting.KINDS.shrine).
+    hive: { key: 'beehive', frame: 0, origin: [0.5, 0.5], scale: 2, seat: true, shadow: true },
     headstone:    { key: 'zone_objects', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     grove_shrine: {
       key: o => SpriteLayout.groveShrineArt(o).key,

@@ -124,6 +124,21 @@
     return plants;
   }
 
+  const HIVE_SPEC = { cellChance: 1 / 192, syrup: 3, bees: 3 };
+  function spawnForestHives(grid, w, h, tx, ty, tileEdgeM, opts = {}) {
+    const out = [];
+    for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
+      const i = cy * w + cx;
+      if (grid[i] !== T.FOREST || opts.zoneCoverage?.[i]) continue;
+      if (makeRng(cellHash(tx, ty, cx, cy) ^ 0xbee517)() >= HIVE_SPEC.cellChance) continue;
+      if (!isSpawnCell(grid, w, h, cx, cy, opts, 'minor')) continue;
+      out.push(makeObject('hive', tx * tileEdgeM + (cx + 0.5) * tileEdgeM / w,
+        ty * tileEdgeM + (cy + 0.5) * tileEdgeM / h, cellId('hive', tx, ty, cx, cy)));
+      opts.occupied?.add(i);
+    }
+    return out;
+  }
+
   function isGeneralAmbientRecord(o) {
     return !o.placed && !o.zoneVariant &&
       /^(?:wp|hr|hm|hmpot|ibarrel|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
@@ -6231,6 +6246,9 @@
       yield* ReefLayout.dressSteps({ field: zone, zoneDress, tx, ty, N: w, tileEdgeM, grid,
         spawnOpts: dressOpts() });
     }
+    // Hives are basic forest props; every nexus reserves its entire coverage.
+    deduped.push(...spawnForestHives(grid, w, h, tx, ty, tileEdgeM,
+      { ...dressOpts(), zoneCoverage: zone?.coverage }));
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);
@@ -8814,7 +8832,7 @@
     // sandbox.js as well as this file — one shape per stream, reachable from
     // all of them.
     makeWildplant, makeCreature, makeObject,
-    spawnParkPlants, PARK_PLANT_CELL_CHANCE, clearZoneAmbientSteps,
+    spawnParkPlants, PARK_PLANT_CELL_CHANCE, spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
     clearStreetAmbientSteps, variantOwnerAt, getTileBin,
   };
 })(window);

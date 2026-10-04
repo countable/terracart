@@ -124,6 +124,7 @@
     'shrines:7': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
     'shrines:8': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
     'shrines:9': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
+    'beehive:0': { fw: 16, fh: 16, minX: 2, minY: 3, maxX: 14, maxY: 14 },
     'barrel:0': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 20, maxY: 23 },
     'barrel_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
     'clay_pot:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },

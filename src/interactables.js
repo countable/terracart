@@ -816,6 +816,32 @@ const INTERACTABLES = {
   // While the gift is there it wears the
   // POI light (poiLit) on top of its own; not a rest ring, not a ward — its
   // own light (Lighting.KINDS.shrine) is what keeps the night off.
+  hive: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      const visit = Macros.beginDailyVisit(ctx, o);
+      if (!visit) return true;
+      if (Inventory.roomFor(save, 'syrup') < WorldGen.HIVE_SPEC.syrup) {
+        visit.finish();
+        scene.flash(`Make room for ${WorldGen.HIVE_SPEC.syrup} syrup.`, sx, sy);
+        return true;
+      }
+      // Reserve the whole swarm before claiming the day: a blocked site must
+      // never award syrup without its three defenders.
+      const bees = planHiveBees(scene, o);
+      if (bees.length !== WorldGen.HIVE_SPEC.bees) {
+        visit.finish();
+        scene.flash('No room around the hive.', sx, sy);
+        return true;
+      }
+      if (!visit.claim()) { visit.finish(); return true; }
+      scene.addToInv('syrup', WorldGen.HIVE_SPEC.syrup);
+      for (const { entry, creature } of bees) (entry.creatures ||= []).push(creature);
+      scene.flashLoot(`${WorldGen.HIVE_SPEC.syrup} syrup; bees awaken!`, '#f4ce75', WorldGen.HIVE_SPEC.syrup, 'syrup');
+      visit.present();
+      return true;
+    },
+  },
   grove_shrine: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;

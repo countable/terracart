@@ -737,7 +737,7 @@ test('combat: melee reaches exactly as far as a melee monster does', () => {
   assert.gt(melee.length, 3, 'found the melee monsters');
   // Only a declared long reach (a swooping pass, a big body's arms) may
   // out-reach the player's fist; nothing reaches less.
-  const LONG = new Set(['bat', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'sword_spirit', 'brute', 'hell_brute', 'obsidian_brute',
+  const LONG = new Set(['bat', 'bee', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'sword_spirit', 'brute', 'hell_brute', 'obsidian_brute',
     'orc', 'minotaur', 'giant_slime', 'giant_spider', 'giant_skeleton', 'giant_cave_slime', 'giant_crab',
     'red_demon', 'armoured_demon']);
   for (const [kind, m] of melee) {
