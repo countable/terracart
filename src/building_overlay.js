@@ -302,7 +302,7 @@
     // and border bakes open theirs the same way). A texture left by an
     // earlier scene is dropped first, so this canvas is this scene's own.
     if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
-    const { tex, x: originX, y: originY } = Render.viewportCanvas(scene, TEX_KEY, CELL_PX * 2);
+    const { tex, x: originX, y: originY, cw: size } = Render.viewportCanvas(scene, TEX_KEY, CELL_PX * 2);
     if (!tex) return null;
     const ctx = tex.getContext();
     ctx.lineJoin = 'round';
