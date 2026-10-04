@@ -1,0 +1,567 @@
+{
+  "status": "design_draft_not_runtime",
+  "revision": 1,
+  "date": "2026-10-03",
+  "purpose": "Project underground chambers from park POI regions and route zones from small roads and walking paths.",
+  "scope": {
+    "initialDepths": [
+      1,
+      2,
+      3
+    ],
+    "surfaceChanges": false,
+    "otherPOIRegions": "future explicit mapping rows",
+    "activation": "separate implementation after design review"
+  },
+  "source": {
+    "regions": "stable park POI + associated original park polygon; bounded POI influence only if no reliable polygon",
+    "smallRoads": [
+      "minor",
+      "street",
+      "service"
+    ],
+    "walkingPaths": [
+      "path",
+      "footway",
+      "track",
+      "pedestrian",
+      "cycleway",
+      "steps"
+    ],
+    "exclude": [
+      "parking aisles pruned by current pipeline",
+      "private driveway access",
+      "unknown road class fallback",
+      "major and medium roads",
+      "water crossings and bridge spans without an explicit underground connector"
+    ]
+  },
+  "identity": {
+    "region": "underground/{sourceFeatureId}/{depth}",
+    "route": "underground-route/{canonicalWayOrSegmentId}/{depth}",
+    "inputs": "generated surface metadata at every depth; independent of player position, tile clipping, restoration and dug walls"
+  },
+  "nexusVariants": [
+    {
+      "id": "spring_cave",
+      "name": "Underground Spring Cave",
+      "source": "park",
+      "affinities": [
+        "water",
+        "wetland",
+        "woodland"
+      ],
+      "layout": "loop around a spring, mushroom edges, optional mineral alcove",
+      "depths": [
+        1,
+        2,
+        3
+      ],
+      "interaction": "proposed watering-can refill adapter; reachable bank; no free healing",
+      "encounterByDepth": {
+        "1": [
+          "cave_slime",
+          "bat"
+        ],
+        "2": [
+          "cave_slime",
+          "bat",
+          "spider"
+        ],
+        "3": [
+          "spider",
+          "purple_slime"
+        ]
+      },
+      "reward": "reuse a surviving mirrored POI cache; no extra daily chest"
+    },
+    {
+      "id": "goblin_warrens",
+      "name": "Goblin Warrens",
+      "source": "park",
+      "affinities": [
+        "formal",
+        "worked",
+        "built_edge"
+      ],
+      "layout": "irregular rooms around a central store, side route around sentry, optional trapped alcove",
+      "depths": [
+        1,
+        2,
+        3
+      ],
+      "interaction": "clear sentry, break stores, mine optional collapse",
+      "encounterByDepth": {
+        "1": [
+          "club_goblin"
+        ],
+        "2": [
+          "club_goblin",
+          "spear_goblin"
+        ],
+        "3": [
+          "spear_goblin",
+          "archer_goblin"
+        ]
+      },
+      "reward": "reuse a surviving mirrored POI cache; barrels replace allocated finite containers"
+    }
+  ],
+  "routeVariants": [
+    {
+      "id": "root_passage",
+      "source": "walking_path",
+      "context": "spring or wooded park",
+      "mechanic": "sparse harvestable mushroom edges; uninterrupted central lane"
+    },
+    {
+      "id": "seep_passage",
+      "source": "walking_path",
+      "context": "spring or wet park",
+      "mechanic": "bank beside small impassable pools; always retain a dry connection"
+    },
+    {
+      "id": "miners_way",
+      "source": "small_road",
+      "context": "neutral or mineral",
+      "mechanic": "mineable side alcoves; rare existing supply cache allocation"
+    },
+    {
+      "id": "warren_run",
+      "source": "small_road_or_walking_path",
+      "context": "goblin_warrens",
+      "mechanic": "visible sentry pockets and optional traps with bypasses"
+    }
+  ],
+  "proposedTuning": {
+    "springVsWarrenByDepth": {
+      "1": [
+        65,
+        35
+      ],
+      "2": [
+        40,
+        60
+      ],
+      "3": [
+        25,
+        75
+      ]
+    },
+    "weights": "relative before existing soft affinity adjustments; proposal only",
+    "walkingLaneMinCells": 1,
+    "roadLaneTargetCells": 2,
+    "repeatMotifPreferredMaxCells": 6,
+    "repeatMotifHardMaxCells": 8,
+    "routeRewards": "budget per canonical connected route component and depth, never per tile or segment",
+    "nexusCacheMax": 1
+  },
+  "terrainContract": [
+    "Project eligible route lines before generic cave dressing. Small-road corridors explicitly carve CAVE_WALL; walking paths already yield CAVE_FLOOR.",
+    "No carve through building or water provenance, medium/large road bands, saved structures, or excluded access regions.",
+    "Keep a per-depth geology base separate from the projected design overlay, so a shallow corridor does not silently propagate deeper.",
+    "Plan original staircase identities from the existing unmodified geology. Preserve actual stairs and reserve clear approaches before adding zone pieces.",
+    "Connect a park chamber only to a route that intersects or reaches it through eligible park floor; no straight-line connection across unrelated obstructions.",
+    "Do not close existing reachable routes to force a warren maze. Use wall-adjacent rooms and removable obstacles outside the through lane.",
+    "At seams use canonical source geometry and world positions; ambiguous or missing geometry keeps ordinary cave generation."
+  ],
+  "economy": [
+    "Anchor regions from surface geography, even when POI mirrors are pruned at an earlier depth.",
+    "Style at most one surviving mirror as the cache; retain its current chest-tier and depth rules in the first slice.",
+    "If no mirror survives, keep a spring or encounter landmark without minting a replacement chest.",
+    "Zone finds and containers replace allocated ordinary cave seats; measure total loot before tuning additional rewards.",
+    "Path intersections confer connectivity, not extra rewards or extra daily ledgers.",
+    "Use existing picked/opened/caught/treasure persistence with stable depth-qualified IDs."
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "deliverable": "Preview projection of parks and small-road/path geometry over existing cave terrain, including seams and blocked connections."
+    },
+    {
+      "step": 2,
+      "deliverable": "Add depth-scoped zone and route masks; explicit small-road carve; preserve staircase topology and inherited geology."
+    },
+    {
+      "step": 3,
+      "deliverable": "Place spring and warren layouts before generic rocks, mushrooms, extras and enemy seats; reserve whole clear lanes."
+    },
+    {
+      "step": 4,
+      "deliverable": "Override local EnemyHabitats.caveAt context with zone context, intersect enemy roster depth rules and reallocate existing encounter budget."
+    },
+    {
+      "step": 5,
+      "deliverable": "Register only selected art frames, interactions and footprints; audit economy, reachability, persistence and frame-time cost."
+    }
+  ],
+  "checks": [
+    "Same source region and route across adjacent tiles and reversed load order.",
+    "Reload, player digging and surface restoration never reroll generated anchors.",
+    "Every active nexus and stair has a walkable approach; all required through routes remain connected.",
+    "No carves under excluded roads, buildings or water; no surface terrain change.",
+    "No duplicate finds, guards or caches at seams and junctions.",
+    "Depth 1 never uses deeper goblin roster entries; no empty habitat silently produces illegal enemies.",
+    "Compare capped chest totals and expected resource value against baseline cave seeds.",
+    "Check inspected art at game scale, transparent margins, frame rectangles, readable interactions and shared footprint reservation."
+  ],
+  "art": [
+    {
+      "id": "cave_pool",
+      "name": "Spring source",
+      "mechanic": "Refill a watering can through a proposed spring interaction. Keep the centre impassable and its bank reachable; no healing or fishing in the first slice.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/cave_pool.png",
+      "preview": "/underground-zones-design/art/cave_pool.png",
+      "status": "Preferred"
+    },
+    {
+      "id": "cave_shrooms",
+      "name": "Mushroom beds",
+      "mechanic": "Harvest existing cave mushrooms along chamber edges. Replace ordinary mushroom seats within the zone.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/cave_shrooms.png",
+      "preview": "/underground-zones-design/art/cave_shrooms.png",
+      "status": "Preferred"
+    },
+    {
+      "id": "crystal_cluster",
+      "name": "Crystal seam",
+      "mechanic": "A finite mineable find using existing ore requirements and drops; one existing rock seat changes appearance. Colour must match its actual yield.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/crystal_cluster.png",
+      "preview": "/underground-zones-design/art/crystal_cluster.png",
+      "status": "Candidate"
+    },
+    {
+      "id": "rubble_pile",
+      "name": "Collapsed side room",
+      "mechanic": "Mine rubble to open an optional cache alcove. The main passage stays open; use existing mineral-rock removal.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_pile.png",
+      "preview": "/underground-zones-design/art/rubble_pile.png",
+      "status": "Preferred"
+    },
+    {
+      "id": "barrel",
+      "name": "Warren stores",
+      "mechanic": "Breakable supply cache. Spend the zone\u2019s existing finite container budget; no repeated cache on every path segment.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/barrel.png",
+      "preview": "/underground-zones-design/art/barrel.png",
+      "status": "Preferred"
+    },
+    {
+      "id": "stalagmite",
+      "name": "Mineable stalagmite",
+      "mechanic": "A mineable ordinary-rock appearance beside the route. Bare floor remains the readable walking lane.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/stalagmite.png",
+      "preview": "/underground-zones-design/art/stalagmite.png",
+      "status": "Candidate"
+    },
+    {
+      "id": "spike_trap",
+      "name": "Warren choke point",
+      "mechanic": "Reuse the trap system in an optional flank with a visible alternate route. Review animation frames and timing before importing.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/Fantasy City ver1.3/Animation/Spike_trap.png",
+      "preview": "/underground-zones-design/art/spike_trap.png",
+      "status": "Sheet review"
+    },
+    {
+      "id": "mine_mouth",
+      "name": "Timbered entrance",
+      "mechanic": "Possible staircase appearance. Sheet contains multiple entrances; choose and register one frame rather than placing the sheet.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/MiniWorldSprites/Buildings/Wood/CaveV2.png",
+      "preview": "/underground-zones-design/art/mine_mouth.png",
+      "status": "Sheet review"
+    },
+    {
+      "id": "bone_pile",
+      "name": "Bone pile",
+      "mechanic": "Hold until it has an explicit interaction and yield. It should not become decorative standing clutter.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/bone_pile.png",
+      "preview": "/underground-zones-design/art/bone_pile.png",
+      "status": "Hold"
+    },
+    {
+      "id": "underworld",
+      "name": "Zoria underworld sheet",
+      "mechanic": "Inspected: strongly limited palette and uncertain compatibility. Hold as reference; the accompanying readme describes unfinished underworld work.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/Zoria Tileset/underworld.png",
+      "preview": "/underground-zones-design/art/underworld.png",
+      "status": "Hold"
+    }
+  ],
+  "openDecisions": [
+    "First slice proposes water refill only; healing springs would need a separate economy decision.",
+    "Depths 4+ remain ordinary caves until explicit deeper variants and legal enemy pools are designed.",
+    "Point-only POI coverage needs a reviewed influence radius before activation."
+  ],
+  "previewMaterials": {
+    "cave_pool": {
+      "path": "docs/art/underground-proposals/cave_pool.png",
+      "color": "#53a6c6"
+    },
+    "cave_shrooms": {
+      "path": "docs/art/underground-proposals/cave_shrooms.png",
+      "color": "#c5a9d7"
+    },
+    "crystal_cluster": {
+      "path": "docs/art/underground-proposals/crystal_cluster.png",
+      "color": "#a4dbe6"
+    },
+    "rubble_pile": {
+      "path": "docs/art/underground-proposals/rubble_pile.png",
+      "color": "#b6aa87"
+    },
+    "barrel": {
+      "path": "docs/art/underground-proposals/barrel.png",
+      "color": "#b77d4c"
+    },
+    "stalagmite": {
+      "path": "docs/art/underground-proposals/stalagmite.png",
+      "color": "#858d9c"
+    }
+  },
+  "previewRows": [
+    {
+      "id": "spring_cave",
+      "kind": "nexus",
+      "name": "Underground Spring Cave",
+      "motifCells": [
+        6,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            0
+          ],
+          "material": "cave_shrooms"
+        },
+        {
+          "at": [
+            1,
+            0
+          ],
+          "material": "cave_shrooms"
+        },
+        {
+          "at": [
+            5,
+            4
+          ],
+          "material": "cave_shrooms"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "stalagmite"
+        },
+        {
+          "at": [
+            5,
+            0
+          ],
+          "material": "rubble_pile"
+        }
+      ],
+      "atmosphere": "A loop around a cool spring, mushroom beds at the wall and a short mineral alcove.",
+      "poi": "One reachable spring bank; at most one surviving mirrored POI cache.",
+      "connection": "Open loop; two approaches when geography permits.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
+      "source": "Park POI region; wet and wooded affinities."
+    },
+    {
+      "id": "goblin_warrens",
+      "kind": "nexus",
+      "name": "Goblin Warrens",
+      "motifCells": [
+        6,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            0
+          ],
+          "material": "rubble_pile"
+        },
+        {
+          "at": [
+            1,
+            0
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            5,
+            4
+          ],
+          "material": "rubble_pile"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "stalagmite"
+        }
+      ],
+      "atmosphere": "Small rooms around a guarded store. A side entrance lets the player circle the sentry; rubble blocks an optional alcove.",
+      "poi": "One store chamber around an existing mirrored POI cache.",
+      "connection": "Open through lane; optional side rooms, no forced sealed maze.",
+      "monsters": "D1: club goblin; D2: club / spear goblin; D3: spear / archer goblin.",
+      "source": "Park POI region; worked and built-edge affinities."
+    },
+    {
+      "id": "root_passage",
+      "kind": "path",
+      "name": "Root Passage",
+      "motifCells": [
+        3,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "cave_shrooms"
+        },
+        {
+          "at": [
+            2,
+            4
+          ],
+          "material": "cave_shrooms"
+        }
+      ],
+      "atmosphere": "Harvestable mushroom pockets frame an uninterrupted walking lane.",
+      "poi": "No extra nexus or cache per route segment.",
+      "connection": "One-cell clear centre; follows actual path bends and junctions.",
+      "monsters": "Depth-legal spring family; reallocate existing ambient seats.",
+      "source": "Walking path beneath wooded parks or approaching a spring."
+    },
+    {
+      "id": "seep_passage",
+      "kind": "path",
+      "name": "Seep Passage",
+      "motifCells": [
+        4,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "cave_pool"
+        },
+        {
+          "at": [
+            3,
+            4
+          ],
+          "material": "cave_pool"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "cave_shrooms"
+        }
+      ],
+      "atmosphere": "Small pools sit beside a continuous dry bank. Refilling is proposed; water never seals the through route.",
+      "poi": "Reachable water banks; no extra daily reward.",
+      "connection": "Two-cell dry middle where geometry permits.",
+      "monsters": "Depth-legal spring family; keep water-bank approaches clear.",
+      "source": "Walking path adjoining a spring or wet park region."
+    },
+    {
+      "id": "miners_way",
+      "kind": "path",
+      "name": "Miners\u2019 Way",
+      "motifCells": [
+        6,
+        4
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            0
+          ],
+          "material": "rubble_pile"
+        },
+        {
+          "at": [
+            5,
+            1
+          ],
+          "material": "stalagmite"
+        },
+        {
+          "at": [
+            0,
+            3
+          ],
+          "material": "rubble_pile"
+        },
+        {
+          "at": [
+            5,
+            3
+          ],
+          "material": "crystal_cluster"
+        }
+      ],
+      "atmosphere": "A broad tunnel with mineable side alcoves. Its larger width distinguishes the small-road route from a footpath.",
+      "poi": "Finite finds replace existing cave-rock allocations.",
+      "connection": "Two-cell clear lane; explicit carve beneath eligible small roads.",
+      "monsters": "Existing cave family; no extra guard budget from route length.",
+      "source": "Public minor / street / service lines; never unknown road fallback."
+    },
+    {
+      "id": "warren_run",
+      "kind": "path",
+      "name": "Warren Run",
+      "motifCells": [
+        6,
+        4
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            0
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            5,
+            1
+          ],
+          "material": "rubble_pile"
+        },
+        {
+          "at": [
+            0,
+            3
+          ],
+          "material": "rubble_pile"
+        }
+      ],
+      "atmosphere": "Sentry pockets and stores sit off the main lane. Optional trapped alcoves retain a visible bypass.",
+      "poi": "Containers spend the parent region / route finite budget.",
+      "connection": "Two-cell through lane; connect a warren to eligible road or path.",
+      "monsters": "D1: club; D2: club / spear; D3: spear / archer goblins.",
+      "source": "Small road or walking path entering Goblin Warrens."
+    }
+  ],
+  "previewNote": "Authored representative patterns, not generated live cave placement. Nominal motif occupancy is calculated from listed slots; POI, encounter and optional trap seats are separate. Existing geology clips all patterns."
+}
