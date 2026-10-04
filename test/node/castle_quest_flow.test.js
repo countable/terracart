@@ -51,8 +51,10 @@
     const firstQuest = Quests.get(s.save, first.castle);
     const secondQuest = Quests.get(s.save, second.castle);
     assert.eq(firstQuest.need, 1);
-    assert.eq(secondQuest.need, 2, 'assignment order advances before anyone claims');
+    assert.eq(secondQuest.need, 1, 'every Archive needs one delivery');
     Quests.onEvent(s.save, 'deliver');
+    assert.eq(firstQuest.have, firstQuest.need);
+    assert.eq(secondQuest.have, secondQuest.need, 'one delivery completes both active quests');
     s.showQuestBoard(0, 0, first);
     const ready = s.offers[s.offers.length - 1];
     assert.truthy(ready.canAfford);

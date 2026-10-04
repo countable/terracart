@@ -1,5 +1,6 @@
 // Each castle keeps the quest assigned on its first conversation. Assignment
-// order advances each quest type independently; completion never creates a job.
+// order chooses targets independently; counters begin here and shared actions
+// advance every matching active quest. Completion never creates a job.
 function questEnemies() {
   return Combat.enemyKinds().filter(kind => Combat.onQuestBoard(kind))
     .sort((a, b) => (Combat.monster(a)?.tier ?? 1) - (Combat.monster(b)?.tier ?? 1));
@@ -20,7 +21,7 @@ const Quests = {
     if (!save.quests?.byCastle) save.quests = { byCastle: {}, assigned: {} };
     const state = save.quests;
     const order = state.assigned[verb] || 0;
-    const q = { verb, event: verb, need: verb === 'kill' ? 3 : verb === 'hunt' ? 2 : order + 1,
+    const q = { verb, event: verb, need: verb === 'kill' ? 3 : verb === 'hunt' ? 2 : 1,
       have: 0, claimed: false };
     if (verb === 'kill') {
       const enemies = questEnemies();

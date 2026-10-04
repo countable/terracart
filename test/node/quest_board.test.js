@@ -36,8 +36,8 @@
     }
     assert.eq(Quests.completedCount(save), 0);
     assert.eq(Quests.assign(save, 'first-delivery', 'archive').need, 1);
-    assert.eq(Quests.assign(save, 'second-delivery', 'archive').need, 2);
-    assert.eq(Quests.assign(save, 'third-delivery', 'archive').need, 3);
+    assert.eq(Quests.assign(save, 'second-delivery', 'archive').need, 1);
+    assert.eq(Quests.assign(save, 'third-delivery', 'archive').need, 1);
   });
 
   test('castle quests: hunting cycles through game animals', () => {
@@ -84,9 +84,28 @@
     const save = {}, a = Quests.assign(save, 'a', 'archive'), b = Quests.assign(save, 'b', 'archive');
     Quests.onEvent(save, 'deliver');
     assert.eq(a.have, 1); assert.eq(b.have, 1);
-    Quests.onEvent(save, 'deliver');
-    assert.eq(a.have, 1); assert.eq(b.have, 2);
+    assert.eq(a.have, a.need); assert.eq(b.have, b.need);
+    assert.falsy(Quests.onEvent(save, 'deliver'));
+    assert.eq(a.have, 1); assert.eq(b.have, 1);
     assert.eq(Quests.assign(save, 'c', 'archive').have, 0, 'past deliveries do not count');
+  });
+
+  test('castle quests: one hunt advances all matching active jobs but never credits future jobs', () => {
+    const save = {};
+    Quests.onKill(save, 'deer');
+    const a = Quests.assign(save, 'a', 'ruin');
+    const other = Quests.assign(save, 'other', 'ruin');
+    assert.eq(a.have, 0, 'kills before activation do not count');
+    Quests.onKill(save, a.target);
+    const b = Quests.assign(save, 'b', 'ruin');
+    assert.eq(b.target, a.target);
+    assert.eq(b.have, 0, 'a later conversation starts a fresh counter');
+    Quests.onKill(save, a.target);
+    assert.eq(a.have, 2); assert.eq(b.have, 1); assert.eq(other.have, 0);
+    Quests.onKill(save, a.target);
+    assert.eq(a.have, 2); assert.eq(b.have, 2);
+    assert.truthy(Quests.claim(save, 'a'));
+    assert.truthy(Quests.claim(save, 'b'));
   });
 
   test('castle quests: claim happens once and never replaces the permanent job', () => {
@@ -103,6 +122,6 @@
     assert.eq(save.quests.assigned.deliver, 1);
     const restored = JSON.parse(JSON.stringify(save));
     assert.eq(Quests.claim(restored, 'a'), null);
-    assert.eq(Quests.assign(restored, 'next', 'archive').need, 2);
+    assert.eq(Quests.assign(restored, 'next', 'archive').need, 1);
   });
 })();

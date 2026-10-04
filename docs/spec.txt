@@ -709,10 +709,11 @@ ECONOMY (buying & selling)
  - CASTLES open individually. On first conversation, each unguarded castle
    receives one permanent quest determined by its variant. Bastions ask for
    three enemies of one type, advancing through enemy types in tier order;
-   Archives ask for deliveries, starting at one and increasing with each new
-   Archive; Weathered Ruins ask for two animals of one huntable species,
+   Archives always ask for one delivery; Weathered Ruins ask for two animals
+   of one huntable species,
    cycling through the game-animal list. Assignment order advances each type
-   separately. Only actions after assignment count. Claiming never rerolls
+   separately. Counters start at first conversation. One delivery or hunt
+   advances every matching active quest. Earlier actions never count. Claiming never rerolls
    the job, and there are no shared quest slots or random quest templates.
    Citadels have no quest: clearing their guards opens them. Other castle
    variants have no guards; house and fort garrisons retain their usual rules.
