@@ -676,6 +676,7 @@ class SceneCreatures {
     }
     this._restoreMimics(entry, tx, ty);
     NPC.shrineResidents(this, entry, tx, ty);
+    NPC.houseNeighbours(this, { offscreen: NPC.offscreenAt(this) });
     NPC.arrivals(this, entry, tx, ty);
 
     entry.objects = entry.objects || [];
