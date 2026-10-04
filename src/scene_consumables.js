@@ -909,12 +909,18 @@ class SceneConsumables {
     // changeDepth GPS-mirrors the feet onto it, so the move is straight up or
     // down with no sideways step.
     const feet = playerWorldM(this), anchor = { x: feet.x, y: feet.y + this.feetOffsetM, descentSource: 'rope' };
+    let landingKey, landingWasOpen;
     if (target > 0) {
       const c = this.cellAt(anchor.x, anchor.y);
-      this.dugWallSet.add(`${target}:${cellKeyFromAbsCell(c.cellIX, c.cellIY)}`);
+      landingKey = `${target}:${cellKeyFromAbsCell(c.cellIX, c.cellIY)}`;
+      landingWasOpen = this.dugWallSet.has(landingKey);
+      this.dugWallSet.add(landingKey);
     }
     this.changeDepth(delta, anchor);
-    if (this.depth !== target) return false;
+    if (this.depth !== target) {
+      if (landingKey && !landingWasOpen) this.dugWallSet.delete(landingKey);
+      return false;
+    }
     consumeSelected(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();

@@ -210,16 +210,7 @@ class SceneCreate {
     // the save so a reload underground stays underground. Point WorldGen at the
     // matching tile cache before any tiles load.
     // An interrupted trial returns to its surface portal; completed wins persist.
-    if (this.save.depth === Arena.DEPTH) {
-      const portal = this.save.arenaRun?.return || this.save.arena?.portal;
-      this.save.depth = 0;
-      delete this.save.arenaRun;
-      if (portal) {
-        this.playerM.x = portal.x - this.startWorldM.x;
-        this.playerM.y = portal.y - this.startWorldM.y;
-      }
-      persistSave(this.save);
-    }
+    this._recoverArenaRun();
     this.depth = this.save.depth || 0;
     WorldGen.setDepth(this.depth);
     if (this.depth > 0) this.cameras.main.setBackgroundColor('#0a0a12');

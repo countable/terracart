@@ -1,6 +1,19 @@
 // Scene integration for a realm with its own WorldGen tile cache. Only wins
 // survive a reload; incomplete trials restart from the arena's safe portal.
 class SceneArena {
+  // Boot recovers the saved return anchor, never an unfinished trial clock.
+  _recoverArenaRun() {
+    if (this.save.depth !== Arena.DEPTH) return;
+    const portal = this.save.arenaRun?.return || this.save.arena?.portal;
+    this.save.depth = 0;
+    delete this.save.arenaRun;
+    if (portal) {
+      this.playerM.x = portal.x - this.startWorldM.x;
+      this.playerM.y = portal.y - this.startWorldM.y;
+    }
+    persistSave(this.save);
+  }
+
   async usePortalStone() {
     if(Inventory.count(this.save,'portal_stone')<1 || Combat.playerDowned(this.save.energy) || this.isTooFast()) return false;
     if(this.depth!==0) { this.flashAtPlayer('Create the portal on the surface.'); return false; }
