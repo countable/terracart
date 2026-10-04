@@ -536,13 +536,13 @@ test('down ladder uses only the centered bottom half while the up ladder stays w
 });
 
 
-test('crystal deposits use their cluster art at ordinary rock scale and centered seating', () => {
+test('crystal deposits use their quarry sapphire rock art and centered seating', () => {
   const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.mineralrock;
   const crystal={kind:'mineralrock',deposit:'crystal',yieldTier:1};
-  assert.eq(spec.key(crystal),'crystal_cluster');assert.eq(spec.frame(crystal),0);
+  assert.eq(spec.key(crystal),'zone_objects');assert.eq(spec.frame(crystal),59);
   assert.eq(spec.key({yieldTier:6}),'mineralrock');assert.eq(spec.frame({yieldTier:6}),mineralRockFrame(6));
-  assert.eq(spec.scale(crystal),1.28);assert.truthy(spec.seat);
-  const b=SpriteLayout.ART_BOUNDS['crystal_cluster:0'];
+  assert.eq(spec.scale(crystal),1.28*16/24);assert.truthy(spec.seat);
+  const b=SpriteLayout.ART_BOUNDS['zone_objects:59'];
   const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale(crystal),spec.scale(crystal));
   assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale(crystal),0);
   assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale(crystal),0);
@@ -646,6 +646,6 @@ test('quarry broken stone shrinks while mineral shadows stay under every resolve
   assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,1.1);
   assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,1.28);
   assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.28);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,CRYSTAL_DEPOSIT.art.scale);
   assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4/3);
 });

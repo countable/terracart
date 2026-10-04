@@ -300,7 +300,7 @@ const SCENARIOS = [
   { name: 'chest',           key: 'chest',         frameIdx: 0, scale: CHEST_SCALE },
   { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
   { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
-  { name: 'crystal deposit', key: 'crystal_cluster', frameIdx: 0, scale: 1.28 },
+  { name: 'crystal deposit', key: itemsCtx.GEM_DEPOSITS.crystal.art.sheet, frameIdx: itemsCtx.GEM_DEPOSITS.crystal.art.frame, scale: itemsCtx.GEM_DEPOSITS.crystal.art.scale },
   { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.28 },
   { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
   { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 4 / 3 },

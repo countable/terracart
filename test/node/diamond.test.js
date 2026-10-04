@@ -92,7 +92,7 @@ test('diamond: the T7 mineralrock lists the diamond FIRST — it is the Frost ro
   assert.truthy(/6:\s*\['emerald'\]/.test(table), 'T6 → emerald');
   // …and the roll really reads the list (pickFromArray), so "first" is a
   // real primary only because the list is what gets rolled.
-  assert.truthy(/const gemId = pickFromArray\(gems\);/.test(inter), 'the drop rolls GEM_BY_TIER[t]');
+  assert.truthy(/const gemId = quarryItem \|\| pickFromArray\(gems\);/.test(inter), 'outside quarries the drop rolls GEM_BY_TIER[t]');
 });
 
 // ── Gear ────────────────────────────────────────────────────────────────────

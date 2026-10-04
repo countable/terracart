@@ -44,8 +44,9 @@
     const N=64, a={kind:'quarry',variant:'quarry-strip-mine',generated:'parking_lanes',gx:2048,gy:2048,lx:2048,ly:2048,key:1,R:21,upm:N*7/4096,owned:true};
     const out=ZoneDressing.dress({N,tx:0,ty:0,tileEdgeM:N*7,grid:new Uint8Array(N*N).fill(WorldGen.T.ROCK),
       field:{anchors:[a],coverage:new Uint16Array(N*N).fill(1)},chests:[],spawnOpts:{occupied:new Set(),spawnWhy:new Uint16Array(N*N)}});
-    const deposits=out.objects.filter(o=>o.deposit==='crystal');
+    const deposits=out.objects.filter(o=>o.quarryId==='2048,2048');
     assert.gt(deposits.length,0,'zone placements keep the crystal subtype');
-    assert.truthy(deposits.every(o=>o.yieldTier===CRYSTAL_DEPOSIT.yieldTier&&o.requiredTier===CRYSTAL_DEPOSIT.requiredTier));
+    const assigned=GEM_DEPOSITS[quarryGemDeposit('2048,2048')];
+    assert.truthy(deposits.every(o=>o.yieldTier===assigned.yieldTier&&o.requiredTier===assigned.requiredTier));
   });
 })();

@@ -165,6 +165,16 @@
         if (m.deposit) extra.deposit = m.deposit;
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
+        if (m.kind === 'mineralrock' && m.deposit && s.a.kind === 'quarry') {
+          extra.quarryId = `${s.a.gx},${s.a.gy}`;
+          extra.deposit = quarryGemDeposit(extra.quarryId);
+          // The site's old sapphire-only frame override cannot repaint a
+          // newly assigned gem; the deposit registry owns its appearance.
+          delete extra._zoneObjectFrame;
+          const gem = GEM_DEPOSITS[extra.deposit];
+          extra.yieldTier = gem.yieldTier;
+          extra.requiredTier = gem.requiredTier;
+        }
         if (m.rockVariant) extra.rockVariant = root.SpriteLayout ? root.SpriteLayout[m.rockVariant] : 3;
         record = WG.makeObject(m.kind, x, y, id, extra); out.objects.push(record);
         if (m.kind === 'tar' || m.kind === 'stakes') out.slowCells.set(i, m.kind);

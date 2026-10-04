@@ -400,7 +400,7 @@
       ],
       "layout": "Fit ore pockets around existing walkable cave routes and stairs within quarry coverage. House and road footprints stay rock walls; do not carve them to join deposits.",
       "interaction": "Mine a simple ore-rich deposit using existing floor-tier ore and mining rules.",
-      "reward": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple, cache or surface quarry first-rock reward."
+      "reward": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. On depth 1 only, gemstone deposits mirror the surface quarry's stable assignment: rose quartz, topaz, amethyst or sapphire. Ruby and higher gems are excluded. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple or cache."
     }
   ],
   "routeVariants": [
@@ -2225,7 +2225,7 @@
       "centralReserveCells": 0,
       "source": "Beneath surface quarry regions only, using their stable generated quarry anchor and original coverage.",
       "atmosphere": "A simple ore-rich deposit cut by clear cave passages. Dense metal-ore pockets and quarry stone line the tunnels; there are no buildings or temple chambers.",
-      "poi": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple, cache or surface quarry first-rock reward.",
+      "poi": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. On depth 1 only, gemstone deposits mirror the surface quarry's stable assignment: rose quartz, topaz, amethyst or sapphire. Ruby and higher gems are excluded. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple or cache.",
       "connection": "Fit ore pockets around existing walkable cave routes and stairs within quarry coverage. House and road footprints stay rock walls; do not carve them to join deposits.",
       "monsters": "Existing depth-legal cave encounters only; no additional authored guards.",
       "artNote": "Game floor-tier ore plus the same broken and worked stone variants as the surface quarries. No new art required.",

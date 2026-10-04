@@ -305,9 +305,9 @@ const COOKED_FOODS = {
 // Yield tier 1 is a plain rock and therefore has no row or namesake bar.
 // A crystal deposit is mined like a rock but pays only its visible gem.
 const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3,
-  art: Object.freeze({ sheet: 'crystal_cluster', frame: 0, scale: 1.28 }) });
+  art: Object.freeze({ sheet: 'zone_objects', frame: 59, scale: 1.28 * 16 / 24 }) });
 // Dedicated rocks pay their pictured gem. The approved cave sheet uses 24px
-// frames; match the physical size of the existing 16px sapphire deposit.
+// frames; keep all gem rocks at the same physical width.
 function caveGemDeposit(item, yieldTier, frame) {
   return Object.freeze({ item, quantity: 1, yieldTier, requiredTier: Math.max(1, yieldTier - 1),
     art: Object.freeze({ sheet: 'cave_props', frame, scale: 1.28 * 16 / 24 }) });
@@ -321,6 +321,11 @@ const GEM_DEPOSITS = Object.freeze({
   emerald: caveGemDeposit('emerald', 6, 25),
   diamond: caveGemDeposit('diamond', 7, 26),
 });
+// One assignment per surface quarry anchor, shared with the first cave floor.
+const QUARRY_GEM_KEYS = Object.freeze(Object.keys(GEM_DEPOSITS).filter(key => GEM_DEPOSITS[key].yieldTier <= 4));
+function quarryGemDeposit(quarryId) {
+  return QUARRY_GEM_KEYS[avalanche32(fnv1a('quarry-gem:' + quarryId)) % QUARRY_GEM_KEYS.length];
+}
 function mineralDeposit(o) {
   return o && Object.prototype.hasOwnProperty.call(GEM_DEPOSITS, o.deposit) ? GEM_DEPOSITS[o.deposit] : null;
 }
