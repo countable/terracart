@@ -312,7 +312,7 @@
       body: 'Green coins lie scattered in the grass on both sides of the road. You spot more with every step.',
       flash: 'The verges glitter with coins.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
-      stone: { weathered: '#594a3f', restored: '#897051' }, lampDensity: 1,
+      stone: { weathered: '#594a3f', restored: '#493b2e' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
       flash: 'Iron teeth around a chest.' },
