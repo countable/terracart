@@ -12,7 +12,7 @@ const load=async(path)=>{const im=new Image();im.src='../'+path;await im.decode(
 for(const row of cases){
  const art=row[2]?SpriteLayout.creatureArt(row[2]):SpriteLayout.PLAYER_ART.farmer;
  row.art=art;row.body=await load(ASSETS[art.sheet].path);
- row.reachPx=(row[2]==='mercenary'?1.5:row[2]?EnemyRoster.get(row[2]).range:Combat.meleeReachM(1,row[1]))*CELL_PX;
+ row.reachPx=(row[2]==='mercenary'?Combat.petReachCells({kind:row[2]}):row[2]?EnemyRoster.get(row[2]).range:Combat.meleeReachM(1,row[1]))*CELL_PX;
  if(row[0]!=='Bare hands'&&!row[2])row.weapon=await load(gearAssetPath('relic',row[1],3));
 }
 const color=n=>'#'+n.toString(16).padStart(6,'0');
