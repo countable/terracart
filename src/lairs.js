@@ -1374,6 +1374,7 @@
             // The structure's own key, built HERE rather than in the index:
             // only the few candidates that reach the wake ring ever need it,
             // and the index runs over every building on the tile.
+            if (isCitadel(cand) && !o.isCitadelActive?.(cand.key)) continue;
             if (!buildings && !ALWAYS_AWAKE_TIERS.has(cand.tier) && !isCitadel(cand)) continue;
             if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
             if (resident.has(cand.sid)) {

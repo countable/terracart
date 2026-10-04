@@ -313,7 +313,7 @@
   function step(entry, at, over = {}) {
     return Lairs.stepResidency([{ entry, tx: 0, ty: 0 }], Object.assign({
       cellM: CELL_M, tileEdgeM: TILE_M, playerM: at, homeM: HOME,
-      isClaimed: () => false, caughtSet: new Set(),
+      isClaimed: () => false, isCitadelActive: () => true, caughtSet: new Set(),
     }, over));
   }
   const guardsOf = (entry) => entry.creatures.filter((c) => c.lair);
@@ -384,6 +384,28 @@
       assert.gt(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME }).length, 0,
         `castle family policy does not change tier ${tier} guards`);
     }
+  });
+
+  test('lairs: dormant citadels never spawn or unlock before Fight, even on return', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const entry = mkEntry([shape]), save = {}, claimed = new Set();
+    const opts = { isCitadelActive: key => Houses.citadelBattleActive(save, key),
+      onCitadelCleared: key => claimed.add(key) };
+    step(entry, CENTRE, opts);
+    step(entry, { x: CENTRE.x + 1000, y: CENTRE.y }, opts);
+    step(entry, CENTRE, opts);
+    assert.eq(guardsOf(entry).length, 0);
+    assert.falsy(entry._citadelGuards?.has('citadel'));
+    assert.eq(claimed.size, 0);
+    Houses.startCitadelBattle(save, 'citadel');
+    step(entry, CENTRE, opts);
+    assert.gt(guardsOf(entry).length, 0);
+    const ids = guardsOf(entry).map(c => c.id).join();
+    step(entry, CENTRE, opts);
+    assert.eq(guardsOf(entry).map(c => c.id).join(), ids, 'no duplicate garrison');
+    const reloaded = mkEntry([shape]), restored = JSON.parse(JSON.stringify(save));
+    step(reloaded, CENTRE, { ...opts, isCitadelActive: key => Houses.citadelBattleActive(restored, key) });
+    assert.eq(guardsOf(reloaded).map(c => c.id).join(), ids, 'accepted battle survives reload');
   });
 
   test('lairs: citadel unlock waits for generation and every reachable guard defeat', () => {

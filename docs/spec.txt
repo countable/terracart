@@ -709,7 +709,9 @@ ECONOMY (buying & selling)
    separately. Counters start at first conversation. One delivery or hunt
    advances every matching active quest. Earlier actions never count. Claiming never rerolls
    the job, and there are no shared quest slots or random quest templates.
-   Citadels have no quest: clearing their guards opens them. Other castle
+   Citadels offer Fight or Later at their gate. Only choosing Fight activates
+   their guards; walking nearby, reading the dialog, or choosing Later leaves
+   them dormant. The choice survives reloads; clearing the guards opens them. Other castle
    variants have no guards; house and fort garrisons retain their usual rules.
    Claiming mans the turrets (COMBAT), lights the castle, and opens a castellan
    favour (rest or a coin tax) on the Houses.CASTLE_SERVICE_MS timer.

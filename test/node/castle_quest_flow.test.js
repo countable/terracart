@@ -72,13 +72,24 @@
     assert.eq(Quests.get(s.save, second.castle), secondQuest);
   });
 
-  test('castle conversation: citadel shows its guards without creating a quest', () => {
+  test('castle conversation: citadel waits for Fight and Later leaves it dormant', () => {
     const s = scene();
     s.showQuestBoard(0, 0, house('citadel'));
     assert.eq(s.guardChecks, 1);
     assert.eq(s.offers.length, 1);
     assert.eq(s.offers[0].get, 'Defeat the guards');
-    assert.falsy(s.offers[0].canAfford);
+    assert.truthy(s.offers[0].canAfford);
+    assert.eq(s.offers[0].acceptLabel, 'Fight');
+    assert.eq(s.offers[0].cancelLabel, 'Later');
+    assert.falsy(Houses.citadelBattleActive(s.save, 'citadel'), 'reading is not accepting');
+    s.showQuestBoard(0, 0, house('citadel'));
+    assert.falsy(Houses.citadelBattleActive(s.save, 'citadel'), 'leaving and returning does not activate');
+    s.offers[1].onAccept();
+    assert.truthy(Houses.citadelBattleActive(s.save, 'citadel'));
+    assert.eq(s._lastLairT, -Infinity, 'the next residency tick can spawn the guards');
+    assert.truthy(Houses.citadelBattleActive(JSON.parse(JSON.stringify(s.save)), 'citadel'));
+    assert.falsy(Houses.startCitadelBattle(s.save, 'citadel'), 'accepting again cannot restart it');
+    assert.falsy(Houses.startCitadelBattle(s.save, 'archive'));
     assert.falsy(s.save.quests);
   });
 

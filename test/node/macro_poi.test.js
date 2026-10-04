@@ -9,7 +9,6 @@
 //     on the next UTC day;
 //   • every price is derived from items.js PRICES;
 //   • the chapel pays a tier under the chest (+ the churchyard nexus);
-//   • a tap credits a Scouting report aimed at its class;
 //   • the Training Hall's cap (+25%) and its 24 h drill;
 //   • the renderer draws a macro with the stall's numbers.
 (function () {

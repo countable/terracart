@@ -1,7 +1,5 @@
-// Quest ladders — the castle BOARD (three generated slots) and the first-session
-// starter chain (STARTER_CHAIN). The two are deliberately independent; the
-// isolation tests below are the guard that keeps them that way, because the
-// castle vault gate reads allDone() and a leak would silently reprice it.
+// Permanent castle quests and the first-session starter chain are independent.
+// Tutorial progress never assigns a castle job or opens a castle.
 
 // ── Starter chain: shape ────────────────────────────────────────────────────
 

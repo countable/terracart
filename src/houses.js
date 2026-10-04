@@ -5,9 +5,8 @@
 // This is NOT the shop pricing/scheduling engine (shops_math.js ShopsMath) nor
 // the OSM-address → role lookup (shops.js Shops.shopType) — this module is
 // "what IS this building, and has the player made it theirs", the layer those
-// two sit on top of. It is also not quest/quest-board logic (quests.js) — a
-// castle's seal defers to the quest board (Scene.showQuestBoard) rather than
-// deciding anything about quests itself.
+// two sit on top of. Castle quests and citadel garrisons record claims here;
+// this module reads ownership without deciding quest or combat progress.
 //
 // Depends on globals from interactables.js (isCastle), shops.js (Shops),
 // and items.js (wreckRestoreQty) - all resolved
@@ -504,6 +503,17 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return true;
   }
 
+  // Citadels stay dormant until the player chooses Fight at their gate.
+  function citadelBattleActive(save, key) {
+    return !!save.citadelBattles?.[key];
+  }
+  function startCitadelBattle(save, key) {
+    if (!key || !CastleStyles.get(key).guards || isCastleClaimed(save, { castle: key })
+        || citadelBattleActive(save, key)) return false;
+    (save.citadelBattles ||= {})[key] = true;
+    return true;
+  }
+
   // The castle's favour, gated to once per castle per CASTLE_SERVICE_MS —
   // twelve hours (Sep 2026, owner's call: it was once per UTC day, and it is
   // the ONE timer left on any building the player trades at; shops never
@@ -538,7 +548,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     guildRole,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
-    castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle,
+    castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle,
     CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
