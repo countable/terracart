@@ -2606,11 +2606,29 @@ class MapScene extends Phaser.Scene {
   _drawMarkers() {
     for (const text of Object.values(this._edgeDotLabels || {})) text.setVisible(false);
     this._edgeDotLabelBounds = [];
+    this._edgeDotPoints = {};
     for (const row of MARKERS) this._drawMarker(row);
+  }
+
+  // A generous hit area keeps the small rim dots usable on touchscreens.
+  _tapEdgeDot(sx, sy) {
+    let key = null, nearest = 16 * 16;
+    for (const [candidate, point] of Object.entries(this._edgeDotPoints || {})) {
+      const d2 = (sx - point.x) ** 2 + (sy - point.y) ** 2;
+      if (d2 <= nearest) { key = candidate; nearest = d2; }
+    }
+    if (key === null) return false;
+    const hidden = (this._hiddenEdgeDotLabels ||= new Set());
+    if (hidden.has(key)) hidden.delete(key);
+    else hidden.add(key);
+    this._edgeDotLabels?.[key]?.setVisible(!hidden.has(key));
+    return true;
   }
 
   _drawEdgeDotLabel(row, target, marker, point) {
     if (!point) return;
+    (this._edgeDotPoints ||= {})[row.key] = point;
+    if (this._hiddenEdgeDotLabels?.has(row.key)) return;
     const labels = (this._edgeDotLabels ||= {});
     const text = labels[row.key] ||= this.add.text(0, 0, '', {
       fontFamily: 'sans-serif', fontSize: '11px', color: '#ffffff',
