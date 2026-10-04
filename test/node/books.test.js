@@ -291,8 +291,10 @@ test('mechanics: requested deliveries pay a premium', () => {
   assert.eq(Number(m[1]), 1.5, 'a set pays half again');
 });
 
-test('mechanics: the castle board holds three jobs', () => {
-  assert.eq(QUEST_SLOTS, 3, 'the board holds three jobs');
+test('mechanics: castles offer three quest types', () => {
+  const save = {};
+  const verbs = ['bastion', 'archive', 'ruin'].map(variant => Quests.assign(save, variant, variant).verb);
+  assert.eq(verbs.join(','), 'kill,deliver,hunt');
 });
 
 test('mechanics: tiers come from the quota seed; the ladder retired', () => {
