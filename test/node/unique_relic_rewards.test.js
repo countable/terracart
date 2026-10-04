@@ -1,5 +1,5 @@
 (function () {
-  const uniques = () => ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id));
+  const uniques = () => ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id) && !item.progressionOnly);
   const held = ids => ({ inv: ids.map(id => ({ id, count: 1 })), relics: {}, armor: {} });
   const quality = { tier: 7, bracket: 5, jackpotApplied: 0 };
 

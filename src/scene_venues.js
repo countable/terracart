@@ -446,6 +446,10 @@ class SceneVenues {
       });
       return;
     }
+    if (ITEM_BY_ID[sel.id]?.progressionOnly) {
+      this.showMessageModal({ kind: 'story', art: 'progression_portal', title: 'A journey still ahead', body: 'Keep this relic. There are places only it can open.' });
+      return;
+    }
     const unitPrice = trailerSellPrice(itemValue(sel.id));
     const item = ITEM_BY_ID[sel.id];
     const sellId = sel.id;

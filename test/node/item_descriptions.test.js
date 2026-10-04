@@ -36,7 +36,7 @@ test('consumable confirmations: outcomes stay brief and enigmatic', () => {
 
 test('consumables: one action row names every button method', () => {
   const ids = [
-    'orb', 'egg', 'book', 'taming_potion', 'reach_potion', 'antidote', 'elixir',
+    'portal_stone', 'orb', 'egg', 'book', 'taming_potion', 'reach_potion', 'antidote', 'elixir',
     'healing_potion', 'speed_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll',
     'giant_potion', 'fire_resistance_potion', 'protection_potion', 'time_potion', 'immortal_potion', 'shrinking_potion',
     'thunder_scroll', 'blight_potion', 'revival_potion',
@@ -58,7 +58,7 @@ test('consumables: one action row names every button method', () => {
     if (row.buff) assert.truthy(Buffs.KINDS[row.buff], `${id}: a timed buff (Buffs row ${row.buff})`);
     else if (row.tome) assert.truthy(CONSUMABLE_SPEC[row.tome.of], `${id}: a tome of ${row.tome.of}`);
     else if (new RegExp(`\\n  ${id}: \\{ noun:`).test(SCENE_SRC)) assert.truthy(true, `${id}: a CAST_ROWS row`);
-    else assert.truthy(new RegExp(`\\n  ${row.method}\\(`).test(SCENE_SRC), `${id}: MapScene implements ${row.method}`);
+    else assert.truthy(new RegExp(`\\n  (?:async )?${row.method}\\(`).test(SCENE_SRC), `${id}: MapScene implements ${row.method}`);
   }
   assert.truthy(/const cfg = sel && CONSUMABLE_SPEC\[sel\.id\];/.test(SCENE_SRC),
     'the button reads the static owner instead of rebuilding a local registry');

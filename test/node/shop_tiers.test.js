@@ -55,8 +55,8 @@ test('trader stock: every non-gear item is available at exactly its own tier', (
   for (const item of Object.values(ITEM_BY_ID)) {
     const tier = Shops.itemTier(item.id);
     if (tier < 1 || tier > Shops.SHOP_TIER_MAX) continue;
-    assert.eq(Shops.traderStock(tier).includes(item.id), !equipment.has(item.id), item.id);
-    if (!equipment.has(item.id)) assert.eq(Shops.traderPrices()[item.id], itemValue(item.id), item.id + ' value');
+    assert.eq(Shops.traderStock(tier).includes(item.id), !equipment.has(item.id) && !item.progressionOnly, item.id);
+    if (!equipment.has(item.id) && !item.progressionOnly) assert.eq(Shops.traderPrices()[item.id], itemValue(item.id), item.id + ' value');
   }
   for (let tier = 1; tier <= Shops.SHOP_TIER_MAX; tier++) {
     assert.gt(Shops.traderStock(tier).length, 0);

@@ -609,6 +609,7 @@ const INTERACTABLES = {
         if (row) Macros.markUsed(save, row, o);
         else save.opened.push(o.id);
         if (chapel) return;
+        if (typeof DungeonProgression !== 'undefined' && Inventory.count(save, 'portal_stone') > 0) DungeonProgression.state(save).portalStoneFound = true;
         scene.questEvent?.('chest');
         // BUG (Scouting report / QUEST_POIS): Quests.onPoiVisit is the only
         // thing that can credit a 'poi' quest, and its ONLY call site used to
@@ -653,6 +654,19 @@ const INTERACTABLES = {
                     ? pickReward('chest:' + theme, save, undefined, { tier: chestT, depth: chestLootDepth(o),
                         venueProduct: venueProductFor(o) })
                     : null)));
+      // The first qualifying Underdark search always reveals the reusable stone.
+      const home = scene._elevatorHomePosition?.() || (typeof HomeArea !== 'undefined' ? HomeArea.worldM : null);
+      const portalStone = !chapel && !stand && iconLook?.texKey === 'chest'
+        && typeof DungeonProgression !== 'undefined' && DungeonProgression.portalStoneDue(save, {
+          depth: scene.depth || o.depth || 0, tier: chestT,
+          distanceM: home ? Math.hypot(o.x - home.x, o.y - home.y) : NaN,
+        });
+      if (portalStone) {
+        result = { kind: 'item', id: 'portal_stone', qty: 1, consolation: 0 };
+        dress.art = 'progression_portal';
+        dress.header = 'A light beyond the Underdark';
+        dress.sub = 'Among the dust lies a portal stone. Bring it to the surface, at least 50 metres from a road. Beyond its light waits the Transcendent Arena: five different victories earn the key to Level 4.';
+      }
       result = Rewards.reconcileUnique(save, result);
       if (!result) {
         addMoney(save, 1);
