@@ -124,12 +124,12 @@ def _spring_card(row,data,helpers):
     counts=', '.join(f'{n} {m.replace("_"," ")}' for m,n in mix.items())
     layout=row['layout']
     detail_rows=[('Source region',row['source']),('Depth','1–3 proposal; deeper floors retain ordinary caves.'),
-        ('Pattern','One concentric composition around the spring, not a repeating motif. Pool radius 3 cells; mushroom ring at 5 cells; stone ring at 8 cells.'),
+        ('Pattern','One concentric composition around the spring, not a repeating motif. Pool radius 3 cells; mushroom ring at 5 cells; rock ring at 8 cells.'),
         ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
         ('Water','Pool surrounds the source. The water is impassable; refilling uses the nearest reachable bank, not the distant centre.'),
         ('Placement','The clear bank and four radial openings take precedence over ring pieces. Pool and source share one POI identity; the cache stays dry.'),
         ('Lighting','Existing cave and player light; water does not add a new light source.'),
-        ('Art','Game cave-floor and water textures. Spring, mushroom and stalagmite sprites are archived Verdant Props candidates, not shipping game objects; bank and island outlines are preview geometry.')]
+        ('Art','Game cave-floor and water textures, cave mushroom sprites and ordinary mineral-rock sprites. Only the spring-source prop is an archived candidate; bank and island outlines are preview geometry.')]
     dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in detail_rows)
     return (f'<article id="underground-{row["id"]}"><header><small>Underground nexus · draft · concentric rings</small><h2>{html.escape(row["name"])}</h2></header>'
         f'<p class="mix"><b>Spring → pool → clear bank → mushrooms → stone</b><br>{counts} before terrain clipping; water and POI counted separately.</p>'
@@ -231,7 +231,7 @@ def underground_section(helpers, out):
                    ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
                    ('Lighting','Existing cave torches and player light. Additional glowing water or crystal art is not an enabled light source.'),
                    ('Fauna','No new surface fauna underground.'),
-                   ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'game sprites and labeled archived proposal props; existing chest, shrine and enemy art. Layouts and interactions are proposals.')]
+                   ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'game rock, cave mushroom, barrel, chest, shrine and enemy sprites. Layouts and interactions are proposals.')]
         if row.get('walls'):
             details.append(('Stone walls', 'Stronghold stone wall set; connected straight, corner, junction and end frames. Structural cave walls, not reward-bearing props. Doorways and through lanes stay open.'))
         if row.get('shrineKind'):
@@ -240,13 +240,13 @@ def underground_section(helpers, out):
         if row.get('artNote'):
             details.append(('Art note', row['artNote']))
         if row.get('layout',{}).get('type') == 'rooms':
-            details[2] = ('Pattern','Five bounded rooms in a 25 × 25 cell composition, with explicit two-cell door gaps. Props fit only room interiors; corridors and doors stay clear.')
+            details[2] = ('Pattern','Room interiors range from 3 × 3 to 5 × 5 cells, excluding walls. This 25 × 25 cell sample fits 25 adjoining rooms with offset partitions and open door gaps. The Ember shrine occupies an inner room.')
         dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
         overview = _sample(row,data,helpers)
         if row.get('layout',{}).get('type') == 'rooms':
             coverage = overview.count('class="proposal-prop"') / 625 * 100
             mix_text = ', '.join(f'{overview.count(chr(34)+key+chr(34))} {key.replace(chr(95), chr(32))}' for key in mix)
-        cap='Five rooms · two-cell doors · central Ember altar' if row.get('layout',{}).get('type') == 'rooms' else 'Background + nexus arrangement' if row['kind']=='nexus' else 'Representative straight passage · not a live carved route'
+        cap='Connected rooms · 3×3 to 5×5 interiors' if row.get('layout',{}).get('type') == 'rooms' else 'Background + nexus arrangement' if row['kind']=='nexus' else 'Representative straight passage · not a live carved route'
         close='Nexus close-up' if row['kind']=='nexus' else 'Passage close-up'
         motif_label = 'generated rooms' if row.get('layout',{}).get('type') == 'rooms' else f'{mw} × {mh} motif'
         cards[row['kind']].append(f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · draft · {motif_label}</small><h2>{html.escape(row["name"])}</h2></header><p class="mix"><b>{coverage:.2f}% object occupancy{wall_text}</b><br>{html.escape(mix_text)}; nexus and encounter seats counted separately.</p><div class="visual"><figure>{overview}<figcaption>{cap}</figcaption></figure><figure class="detail">{_sample(row,data,helpers,True)}<figcaption>{close}<br>1 cell = 7 m</figcaption></figure></div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
