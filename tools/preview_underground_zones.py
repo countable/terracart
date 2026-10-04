@@ -16,7 +16,8 @@ def _image(material, x, y, unit, materials, helpers):
         definition = dict(row['gameMaterial'])
         if material == 'game_mushroom':
             mushroom = helpers['art_registry']()['crops']['mushroom']
-            definition['previewArt'] = {'sheet':mushroom['sheet'], 'frames':mushroom['caveFrames']}
+            frames = mushroom['caveFrames']
+            definition['previewArt'] = {'sheet':mushroom['sheet'], 'frames':[frames[(int(x/unit)+int(y/unit)) % len(frames)]]}
         uri = helpers['art_image'](helpers['material_art'](definition), f'class="sprite-cell" x="{x}" y="{y}" width="{unit}" height="{unit}"')
     else:
         source = 'data:image/png;base64,' + base64.b64encode((ROOT / row['path']).read_bytes()).decode()
@@ -226,7 +227,7 @@ def underground_section(helpers, out):
         coverage = len(row['slots']) / (mw*mh) * 100
         wall_text = f'; {len(_wall_cells(row,25,25))/625*100:.2f}% structural stone-wall footprint in overview' if row.get('walls') and row['kind']=='nexus' else f'; {len(row.get("wallSlots", []))/(mw*mh)*100:.2f}% structural stone-wall footprint' if row.get('walls') else ''
         mix_text = ', '.join(f'{count} {key.replace("_", " ")}' for key,count in mix.items())
-        details = [('Source region / route',row['source']),('Depth','1–3 proposal; deeper floors retain ordinary caves.'),
+        details = [('Source region / route',row['source']),('Depth',row.get('depthNote','1–3 proposal; deeper floors retain ordinary caves.')),
                    ('Pattern',f'{mw} × {mh} cells; {mix_text}. Nominal occupancy before clipping and reserved approaches.'),
                    ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
                    ('Lighting','Existing cave torches and player light. Additional glowing water or crystal art is not an enabled light source.'),

@@ -1,6 +1,6 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 4,
+  "revision": 5,
   "date": "2026-10-03",
   "purpose": "Project underground chambers from park POI regions and route zones from small roads and walking paths.",
   "scope": {
@@ -149,14 +149,9 @@
         "rock",
         "stony_ground"
       ],
-      "layout": "Four clear approaches and a central court. Seams occupy side pockets; preserve any surviving mirrored cache on reachable floor.",
-      "depths": [
-        1,
-        2,
-        3
-      ],
-      "interaction": "Mine sapphire crystal deposits using existing pick gates.",
-      "reward": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
+      "layout": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
+      "interaction": "Mine mixed gemstone pockets under their existing deposit or ore-rock rules.",
+      "reward": "Sapphire clusters use the existing gem-only deposit. Ruby, emerald and diamond seats currently show the corresponding shipping gem-bearing ore rocks, retaining their metal and chance-gem drops. Dedicated gem-only versions need new world art and deposit rows.",
       "encounterByDepth": {
         "1": [
           "cave_slime",
@@ -171,7 +166,8 @@
           "spider",
           "purple_slime"
         ]
-      }
+      },
+      "depthPolicy": "Mixed-tier art showcase. Runtime placement must filter each deposit by cave depth and existing mining rules; this sample does not authorize high-tier rocks on every shallow floor."
     }
   ],
   "routeVariants": [
@@ -258,7 +254,7 @@
     "Use existing picked/opened/caught/treasure persistence with stable depth-qualified IDs.",
     "One shrine per qualifying nexus region and depth, using the existing daily shrine ledger and boon rules. The boon replaces its shrine treasure gift; tile fragments never duplicate it.",
     "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
-    "Gemstone zones concentrate existing crystal-deposit allocations; they do not use metal ore rocks. First preview uses sapphire art and existing yield/pick gates; ruby, emerald and diamond deposits are outside this first slice."
+    "Gemstone Cavern previews mixed shipping deposits and gem-bearing ore rocks. Keep their actual drop identities and mining rules; dedicated ruby, emerald and diamond deposits require new art and explicit mechanics. Gemstone Path remains sapphire-focused in this first preview."
   ],
   "implementation": [
     {
@@ -405,13 +401,6 @@
       },
       "color": "#bea480"
     },
-    "giant_mushroom": {
-      "gameMaterial": {
-        "kind": "wildplant",
-        "crop": "giant_mushroom"
-      },
-      "color": "#bd8386"
-    },
     "charred_stakes": {
       "gameMaterial": {
         "kind": "stakes"
@@ -447,6 +436,27 @@
         "yieldTier": 1
       },
       "color": "#98968c"
+    },
+    "ruby_bearing_rock": {
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "yieldTier": 5
+      },
+      "color": "#c67b87"
+    },
+    "emerald_bearing_rock": {
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "yieldTier": 6
+      },
+      "color": "#77b68c"
+    },
+    "diamond_bearing_rock": {
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "yieldTier": 7
+      },
+      "color": "#a7d3e3"
     }
   },
   "previewRows": [
@@ -1190,7 +1200,7 @@
             4,
             4
           ],
-          "material": "giant_mushroom"
+          "material": "game_mushroom"
         },
         {
           "at": [
@@ -1201,16 +1211,17 @@
         }
       ],
       "shrineKind": "toad_idol",
-      "atmosphere": "Small mushroom beds and broad mushroom caps surround a clear shrine court. Open lanes divide the beds and connect to the cave paths.",
+      "atmosphere": "Beds of the two underground mushroom varieties surround a clear Toad shrine court. Open lanes divide the beds and connect to cave paths; no surface mushroom caps appear here.",
       "poi": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
       "connection": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
-      "source": "Park POI region; wooded, shaded and damp affinities."
+      "source": "Park POI region; wooded, shaded and damp affinities.",
+      "artNote": "Only the two caveFrames from the game mushroom registry; no surface mushroom or giant-mushroom sprites."
     },
     {
-      "poi": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
+      "poi": "Sapphire clusters use the existing gem-only deposit. Ruby, emerald and diamond seats currently show the corresponding shipping gem-bearing ore rocks, retaining their metal and chance-gem drops. Dedicated gem-only versions need new world art and deposit rows.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
-      "artNote": "Shipping crystal_cluster sprite: sapphire deposit. Retain existing mining requirements even on a shallow floor; no metal ore in the gemstone motif.",
+      "artNote": "Existing sapphire cluster plus platinum (ruby chance), crimson (emerald chance) and frost (diamond / emerald chance) rock frames. All four gems have item icons; dedicated ruby, emerald and diamond world-deposit sprites are missing.",
       "id": "gemstone_cavern",
       "kind": "nexus",
       "name": "Gemstone Cavern",
@@ -1231,7 +1242,7 @@
             2,
             1
           ],
-          "material": "gem_deposit"
+          "material": "ruby_bearing_rock"
         },
         {
           "at": [
@@ -1245,14 +1256,14 @@
             5,
             5
           ],
-          "material": "gem_deposit"
+          "material": "emerald_bearing_rock"
         },
         {
           "at": [
             6,
             5
           ],
-          "material": "gem_deposit"
+          "material": "diamond_bearing_rock"
         },
         {
           "at": [
@@ -1263,8 +1274,9 @@
         }
       ],
       "source": "Park POI region; exposed rock and stony-ground affinities.",
-      "atmosphere": "Sapphire crystal clusters gather in exposed side seams around an open central chamber. Stone separates the crystal pockets; the main approaches remain clear.",
-      "connection": "Four clear approaches and a central court. Seams occupy side pockets; preserve any surviving mirrored cache on reachable floor."
+      "atmosphere": "Mixed gemstone pockets surround an open central chamber: sapphire crystal deposits and rocks that can yield ruby, emerald or diamond. Clear approaches run between the pockets.",
+      "connection": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
+      "depthNote": "Mixed-tier art showcase. Runtime placement must filter each deposit by cave depth and existing mining rules; this sample does not authorize high-tier rocks on every shallow floor."
     },
     {
       "id": "root_passage",
