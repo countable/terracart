@@ -80,7 +80,12 @@
     return { kind: 'wildplant', crop, x, y, id, ...extra };
   }
   function makeCreature(kind, x, y, id, extra) {
-    return { kind, x, y, id, ...extra };
+    // Wild animals wait for discovery; released pets are already known.
+    const behaviour = SpriteLayout.creatureBehaviour(kind);
+    const concealment = typeof id === 'string' && id.startsWith('released_') ? null
+      : behaviour?.concealment || (extra?.shiny && typeof ITEM_BY_ID !== 'undefined'
+        && ITEM_BY_ID[kind]?.kind === 'animal' ? 'hidden' : null);
+    return { kind, x, y, id, ...(concealment ? { [concealment]: true } : {}), ...extra };
   }
   function makeObject(kind, x, y, id, extra) {
     return { kind, x, y, id, ...extra };

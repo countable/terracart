@@ -771,7 +771,7 @@ test('combat: every melee gate the player has runs the shared test', () => {
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
   // Enemy taps are handled without choosing a combat target. Feeding,
   // catching, petting and hunting keep their existing tap interactions.
-  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
+  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target) && !catchableAnimal) {'));
   const head = code(tap.slice(0, tap.indexOf('\n    }')));
   assert.falsy(/startCombat/.test(head), 'tapping a foe cannot select a melee target');
   assert.truthy(/return true/.test(head), 'the enemy tap is consumed');

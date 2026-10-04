@@ -3189,6 +3189,7 @@ Render.drawObjects = function drawObjects(scene) {
         if (caughtSet.has(c.id)) return;
         if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
         if (c._surfaceInactive) return;
+        if ((c.hidden || c.stealthy) && !c._discovered) return;
         if (!c._burrowed) creatureList.push({ c, dx, dy });
         _boot_kept++;
       });
