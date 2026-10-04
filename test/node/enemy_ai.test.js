@@ -355,6 +355,14 @@
     assert.eq(c.x, x, 'pauses instead of walking at the player');
     assert.lt(rested + 1000, c._lungeNextT, 'still inside the cooldown');
   });
+  test('enemy AI: ordinary shore crab approaches and damages the player', () => {
+    const row=EnemyRoster.get('crab'), s=scene(), c=foe('crab',14,0);
+    for (let i=0;i<200;i++) rosterEnemyMove(s,c,row,i*100,0,0,false,false,null,0.1);
+    assert.lt(Math.hypot(c.x,c.y),row.range*s.cellM);
+    rosterEnemyAttack(s,c,row,20000,0,0,false,0.1);
+    rosterEnemyAttack(s,c,row,20400,0,0,false,0.1);
+    assert.lt(s.save.energy,100);
+  });
   test('enemy AI: crab returns to its territory and stops attacking beyond it', () => {
     const row=EnemyRoster.get('giant_crab'), s=scene(), c=foe(row.id,7,0);
     c.homeX=0;c.homeY=0;

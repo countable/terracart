@@ -388,7 +388,7 @@
     "crab": {
       "recordType": "enemy",
       "kind": "crab",
-      "spawnClass": "fauna"
+      "spawnClass": "enemy"
     }
   },
   "variants": [
@@ -7271,6 +7271,10 @@
       },
       "decorations": [
         {
+          "material": "crab",
+          "count": 8
+        },
+        {
           "material": "amphora",
           "count": 1
         }
@@ -7642,6 +7646,10 @@
         ]
       },
       "decorations": [
+        {
+          "material": "crab",
+          "count": 8
+        },
         {
           "material": "stone",
           "count": 1

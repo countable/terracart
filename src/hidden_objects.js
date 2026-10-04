@@ -4,20 +4,37 @@
   const KINDS = {
     shrine_spirit: { discover: (scene, object) => root.Temples.discoverSpirit(scene, object) },
   };
-  function isHidden(save, object) {
-    return !!object?.hidden && !save?.hiddenDiscoveries?.[object.id];
+  function mode(object) {
+    if (object?.hidden) return 'hidden';
+    return object?.stealthy ? 'stealthy' : null;
   }
-  function adjacent(scene, object) {
-    if ((object.depth || 0) !== (scene.depth || 0)) return false;
+  function isHidden(save, object) {
+    return !!mode(object) && !save?.hiddenDiscoveries?.[object.id];
+  }
+  function cellDelta(scene, object) {
     const player = worldMetersToAbsCell(scene,
       scene.startWorldM.x + scene.playerM.x, scene.startWorldM.y + scene.playerM.y);
     const target = worldMetersToAbsCell(scene, object.x, object.y);
-    const delta = absCellDelta(scene, player.cellIX, player.cellIY, target.cellIX, target.cellIY);
+    return absCellDelta(scene, player.cellIX, player.cellIY, target.cellIX, target.cellIY);
+  }
+  function adjacent(scene, object) {
+    if ((object.depth || 0) !== (scene.depth || 0)) return false;
+    const delta = cellDelta(scene, object);
     return Math.abs(delta.dx) <= 1 && Math.abs(delta.dy) <= 1;
   }
+  function inVision(scene, object) {
+    if ((object.depth || 0) !== (scene.depth || 0)) return false;
+    const delta = cellDelta(scene, object);
+    return delta.dx * delta.dx + delta.dy * delta.dy <= root.Fog.REVEAL_CELLS ** 2;
+  }
   function reveal(scene, object) {
-    if (!isHidden(scene.save, object) || !adjacent(scene, object)) return false;
+    if (!isHidden(scene.save, object)) {
+      if (mode(object)) object._discovered = true;
+      return false;
+    }
+    if (!(mode(object) === 'stealthy' ? inVision(scene, object) : adjacent(scene, object))) return false;
     (scene.save.hiddenDiscoveries ||= {})[object.id] = true;
+    object._discovered = true;
     scene._hiddenDiscoveryTick = null;
     persistSave(scene.save);
     KINDS[object.discovery || object.kind]?.discover?.(scene, object);
@@ -88,5 +105,5 @@
     persistSave(scene.save);
     return object;
   }
-  root.HiddenObjects = { KINDS, isHidden, adjacent, reveal, saved, tick, ensureSpirit };
+  root.HiddenObjects = { KINDS, mode, isHidden, adjacent, inVision, reveal, saved, tick, ensureSpirit };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

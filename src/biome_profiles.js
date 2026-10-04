@@ -515,7 +515,7 @@
   const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'sea_turtle'];
   const SHORE_FAUNA = {
     metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
-    crab: { perShoreM: 35, max: 14, pier: false, salt: 'shorefauna|crab' },
+    crab: { perShoreM: 20, max: 24, pier: false, salt: 'shorefauna|crab' },
     gull: { perShoreM: 90, max: 6,  pier: false, only: [T.SAND],  salt: 'shorefauna|gull' },
     // The sea turtle: the rabbit's habits on the sand, fewer than the crabs.
     sea_turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
