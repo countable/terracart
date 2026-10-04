@@ -1008,13 +1008,14 @@ const MARKERS = [
 const KILL_LEDGERS = [
   (s, v, source) => StoryEncounters.defeated(s, v, source),
   (s, v, source) => DragonStory.defeated(s, v, source),
-  // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
+  // The kind as-is: each enemy or game animal is its own quest target,
   // never credit toward its base kind's. A turret's kill is not the player's job done.
   (s, v, source) => {
     if (typeof Quests === 'undefined' || !Macros.slainByPlayer(s.save, v.id, source)) return;
-    if (Quests.onKill(s.save, v.kind)) s.flashAtPlayer('Quest done — see the castle.');
+    if (Quests.onKill(s.save, v.kind)) s.flashAtPlayer('Castle quest progress.');
   },
   (s, v) => { if (v.bounty) s._guildBountyDefeat(v); },
+  (s, v) => { if (v.lair) s._checkCitadelClaims?.(); },
 ];
 // The day-ledger ids (Macros.markToday / usedToday) of the guild bounty out
 // today and the dusk safety card — a UTC day each, in the one ledger.
@@ -3355,6 +3356,7 @@ class MapScene extends Phaser.Scene {
           playerM: playerWorldM(this),
           homeM: lairHome,
           isClaimed: (key) => this.isClaimedKey(key),
+          onCitadelCleared: (key) => this._claimCitadel(key),
           caughtSet: setOf(this.save.caught),
           hpMemo: this._lairHp,
           // A gate's guard re-rises each UTC day (lairs.js DAILY_TIERS).
@@ -8612,7 +8614,7 @@ class MapScene extends Phaser.Scene {
   // True iff `house` is a castle still sealed — see Houses.isBuildingSealed.
   _isBuildingSealed(house) { return Houses.isBuildingSealed(this.save, house); }
 
-  // The sealed castle gate — now delegates to the quest board.
+  // The sealed castle gate offers its permanent quest or names its guards.
   presentSealedBuildingModal(sx, sy, house) {
     this.showQuestBoard(sx, sy, house);
   }

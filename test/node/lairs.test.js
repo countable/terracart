@@ -299,7 +299,7 @@
   function mkShape(tier, cxM, cyM, sizeM, key) {
     const h = sizeM / 2;
     return {
-      tier, areaM2: sizeM * sizeM, key: key || `k_${tier}_${Math.round(cxM)}_${Math.round(cyM)}`,
+      tier, areaM2: sizeM * sizeM, key: key || (tier === 12 ? 'citadel' : `k_${tier}_${Math.round(cxM)}_${Math.round(cyM)}`),
       ring: new Float32Array([cxM - h, cyM - h, cxM + h, cyM - h, cxM + h, cyM + h, cxM - h, cyM + h]),
     };
   }
@@ -356,7 +356,7 @@
     throw new Error(`no plain held seat for tier ${tier} near ${cxM},${cyM}`);
   }
 
-  test('lairs: an intact bastion stays unguarded while other castle families can wake', () => {
+  test('lairs: only citadels have castle guards; houses and forts keep theirs', () => {
     const base = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);
     let bastionKey;
     for (let i = 0; i < 100; i++) {
@@ -364,7 +364,7 @@
       if (CastleStyles.variantFor(key) === 'bastion') { bastionKey = key; break; }
     }
     assert.truthy(bastionKey, 'fixture uses a real hashed owner identity');
-    for (const key of ['citadel', bastionKey]) {
+    for (const key of ['citadel', 'ruin', 'archive', bastionKey]) {
       const shape = { ...base, key }, entry = mkEntry([shape]);
       const index = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
       const cand = [...index.buckets.values()].flat()[0];
@@ -377,11 +377,76 @@
         assert.eq(guardsOf(entry).length, 0, 'residency also leaves the bastion empty');
       }
     }
-    const fort = mkHeldShape(11, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M, bastionKey);
-    const entry = mkEntry([fort]);
-    const cand = [...Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
-    assert.gt(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME }).length, 0,
-      'castle family policy does not change fort guards');
+    for (const tier of [9, 11]) {
+      const shape = mkHeldShape(tier, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M, bastionKey);
+      const entry = mkEntry([shape]);
+      const cand = [...Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
+      assert.gt(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME }).length, 0,
+        `castle family policy does not change tier ${tier} guards`);
+    }
+  });
+
+  test('lairs: citadel unlock waits for generation and every reachable guard defeat', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const entry = mkEntry([shape]), ring = [{ entry, tx: 0, ty: 0 }];
+    const caughtSet = new Set(), claimed = new Set();
+    const onCitadelCleared = key => claimed.add(key);
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.eq(claimed.size, 0, 'unknown garrison does not unlock');
+    step(entry, CENTRE, { caughtSet, onCitadelCleared, buildings: false });
+    const guards = guardsOf(entry);
+    assert.gt(guards.length, 1, 'citadel has a garrison even with other building lairs off');
+    assert.eq(claimed.size, 0);
+    for (const guard of guards.slice(1)) caughtSet.add(guard.id);
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.eq(claimed.size, 0, 'one living member keeps the gate closed');
+    caughtSet.add(guards[0].id);
+    const child = { id: guards[0].id + '_s1', _splitRoot: guards[0].id };
+    ring.push({ entry: { creatures: [child] } });
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.eq(claimed.size, 0, 'living split offspring on another tile still guard the keep');
+    caughtSet.add(child.id);
+    const escort = { id: guards[0].id + '_summon_0', castle: 'citadel' };
+    ring[1].entry.creatures.push(escort);
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.eq(claimed.size, 0, 'summoned escorts also keep the gate closed');
+    caughtSet.add(escort.id);
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.truthy(claimed.has('citadel'));
+    const reloaded = mkEntry([shape]);
+    claimed.clear();
+    step(reloaded, CENTRE, { caughtSet, onCitadelCleared });
+    assert.truthy(claimed.has('citadel'), 'prior defeats survive reload');
+    assert.eq(guardsOf(reloaded).length, 0);
+  });
+
+  test('lairs: blocked citadels open after generation; deferred ones stay sealed', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const entry = mkEntry([shape]);
+    entry.grid.fill(3);
+    const claimed = new Set(), onCitadelCleared = key => claimed.add(key);
+    step(entry, CENTRE, { onCitadelCleared, liveMax: 0 });
+    assert.eq(claimed.size, 0, 'live cap is not proof the garrison is empty');
+    step(entry, CENTRE, { onCitadelCleared, homeM: null });
+    assert.eq(claimed.size, 0, 'waiting for Home is not proof the garrison is empty');
+    step(entry, CENTRE, { onCitadelCleared });
+    assert.truthy(claimed.has('citadel'), 'unreachable seats cannot lock the castle forever');
+  });
+
+  test('lairs: rebuilt resident citadels recover their complete garrison before opening', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const original = mkEntry([shape]);
+    step(original, CENTRE);
+    const guards = guardsOf(original), entry = mkEntry([shape]);
+    entry.creatures = guards.slice(0, 1);
+    const caughtSet = new Set(guards.slice(1).map(g => g.id));
+    const claimed = new Set(), onCitadelCleared = key => claimed.add(key);
+    step(entry, CENTRE, { caughtSet, onCitadelCleared });
+    assert.eq(claimed.size, 0);
+    assert.eq(entry._citadelGuards.get('citadel').length, guards.length);
+    caughtSet.add(guards[0].id);
+    step(entry, CENTRE, { caughtSet, onCitadelCleared });
+    assert.truthy(claimed.has('citadel'));
   });
 
   test('lairs: a building garrison is never rooted plants; a road variant may be', () => {
@@ -451,7 +516,7 @@
   });
 
   test('lairs: a live-grid blocker drops its guard without moving the others', () => {
-    const castle = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'live-grid-cull');
+    const castle = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
     const wake = (entry) => {
       const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
       const cand = [...idx.buckets.values()].flat()[0];
@@ -584,7 +649,7 @@
     // opposite orders, with different neighbours, and read back the same
     // guards — kinds, ids and seats.
     const far = { x: -FAR_HOME_M, y: 0 };
-    const target = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
+    const target = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'citadel');
     const decoys = [
       mkShape(9, 6 * CELL_M, 6 * CELL_M, CELL_M),
       mkShape(11, 30 * CELL_M, 12 * CELL_M, 2 * CELL_M),
@@ -595,7 +660,7 @@
       for (const bucket of idx.buckets.values()) {
         for (const cand of bucket) {
           cand.sid = Lairs.structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
-          if (cand.key !== 'target') continue;
+          if (cand.key !== 'citadel') continue;
           return Lairs.garrisonFor(entry, cand, {
             cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
           }).map((g) => `${g.id}:${g.kind}:${g.seatX.toFixed(3)},${g.seatY.toFixed(3)}`);
@@ -619,7 +684,7 @@
   // seat as a TILE-LOCAL CELL — plus the nerf it carries.
   function garrisonIn(edgeM, tx, ty, fx, fy, sizeCells, homeM) {
     const cM = edgeM / N;
-    const entry = mkEntry([mkShape(12, fx * cM, fy * cM, sizeCells * cM, 'target')]);
+    const entry = mkEntry([mkShape(12, fx * cM, fy * cM, sizeCells * cM, 'citadel')]);
     entry.tileEdgeM = edgeM;
     const idx = Lairs.buildIndex(entry, tx, ty, cM, edgeM);
     const [cand] = [...idx.buckets.values()][0];
@@ -893,7 +958,7 @@
   test('lairs: a garrison depends on its own building and nothing else', () => {
     // Same footprint, wildly different neighbours and list order. If the seed
     // had any tile-level ordering left in it, these would differ.
-    const target = mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
+    const target = mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'citadel');
     const alone = mkEntry([target]);
     const crowded = mkEntry([
       mkShape(9, 8 * CELL_M, 8 * CELL_M, CELL_M),
@@ -930,7 +995,7 @@
     // The polygon list is not stable — a rebuild that adds an Overpass
     // building shifts every index after it — so an index-keyed id would let a
     // guard the player had killed come back under a new name.
-    const target = mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
+    const target = mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'citadel');
     const first = mkEntry([target]);
     const shifted = mkEntry([mkShape(9, 8 * CELL_M, 8 * CELL_M, CELL_M), target]);
     step(first, CENTRE);

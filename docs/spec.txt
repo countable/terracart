@@ -127,8 +127,8 @@ ONBOARDING (the first session)
    that perform them (`scene.questEvent`) and each pays a small reward. The
    chip retires when the ladder finishes or is dismissed (☰ "Show objectives"
    brings it back). Hard mode has no ladder (`difficulty.js`).
-   The starter ladder is INDEPENDENT of the castle quest board, which alone
-   decides castle claims. Do not merge them.
+   The starter ladder is INDEPENDENT of castle quests and citadel garrisons.
+   It never opens a castle.
  - STARTER COMPASS: a light-green edge arrow (the tutorial's colour) toward
    the ACTIVE step's own space (`app.js` `_starterGuidanceGoal`): the nearest
    crate, the plot, the soil, a wreck, the crop, Home. When a step needs
@@ -652,8 +652,8 @@ STREET RESTORATION (the road band itself)
 ================================================================================
 WELLS / FOUNTAINS
 ================================================================================
- - OSM fountains become a 'well' object: a water source on dry land, now a quest
-   landmark and flavour text (produce quality moved to the HOE; see FARMING).
+ - OSM fountains become a 'well' object: a water source on dry land with
+   flavour text (produce quality moved to the HOE; see FARMING).
 
 ================================================================================
 ECONOMY (buying & selling)
@@ -706,11 +706,18 @@ ECONOMY (buying & selling)
    one (`houses.js` `FORT_UNLOCK_WOOD_START`). An open fort runs a SLOT
    MACHINE (`presentFortSlots`, odds in `ShopsMath`) that costs what it wins
    on average.
- - CASTLES are SEALED PER CASTLE until the player completes a job from THAT
-   castle's quest board (`quests.js`). Claiming it mans its turrets (COMBAT),
-   lights it, and opens a castellan favour (rest or a coin tax) on a timer
-   (`Houses.CASTLE_SERVICE_MS` — twelve hours since Sep 2026; it is the one
-   timer left on any building the player trades at).
+ - CASTLES open individually. On first conversation, each unguarded castle
+   receives one permanent quest determined by its variant. Bastions ask for
+   three enemies of one type, advancing through enemy types in tier order;
+   Archives ask for deliveries, starting at one and increasing with each new
+   Archive; Weathered Ruins ask for two animals of one huntable species,
+   cycling through the game-animal list. Assignment order advances each type
+   separately. Only actions after assignment count. Claiming never rerolls
+   the job, and there are no shared quest slots or random quest templates.
+   Citadels have no quest: clearing their guards opens them. Other castle
+   variants have no guards; house and fort garrisons retain their usual rules.
+   Claiming mans the turrets (COMBAT), lights the castle, and opens a castellan
+   favour (rest or a coin tax) on the Houses.CASTLE_SERVICE_MS timer.
  - WIZARD TOWER: spends MEMORIES (`save.memories` — see SHINY VARIANTS &
    DISCOVERY) on rungs of power (`src/wizard.js` `Wizard.TRACKS`). Each visit
    offers two tracks, seeded so re-opening shows the same pair:

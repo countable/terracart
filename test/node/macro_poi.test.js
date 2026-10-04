@@ -200,24 +200,6 @@
     assert.truthy(/^The chapel is quiet — \d+[smhd]$/.test(flashes[flashes.length - 1]), `the wait is shortDuration: ${flashes[flashes.length - 1]}`);
   }));
 
-  // ── Quest credit ──────────────────────────────────────────────────────────
-  for (const target of ['library', 'museum', 'place_of_worship']) {
-    test(`macro: a Scouting report on "${target}" is credited by tapping its macro`, () => {
-      const save = {
-        inv: [], opened: [], relics: {},
-        quests: { gen: 1, done: 0, slots: [
-          { id: 'q0', slot: 0, gen: 0, verb: 'poi', event: 'poi', need: 1, have: 0, target, reward: 55 }, null, null,
-        ] },
-      };
-      const scene = makeScene({ presentMacro: () => {}, _macroStory: () => false });
-      const real = globalThis.pickReward;
-      globalThis.pickReward = () => ({ kind: 'item', id: 'wood', qty: 1 });
-      try { runInteractable(makeCtx(scene, save), poi(target)); } finally { globalThis.pickReward = real; }
-      assert.truthy(macroFor(poi(target)), `${target} is a macro`);
-      assert.eq(save.quests.slots[0].have, 1, 'credited on the tap');
-    });
-  }
-
   // ── Stalls: stock and prices ──────────────────────────────────────────────
   test('apothecary: one remedy and the antidote, priced like a stall', () => {
     const tiers = (id) => ITEM_BY_ID[id].baseTier ?? BASE_TIER[id];

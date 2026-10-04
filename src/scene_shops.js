@@ -1545,59 +1545,68 @@ class SceneShops {
     });
   }
 
-  // Quest board modal for castles. Shows the active quest's progress; when the
-  // quest is complete the player can claim the reward — which also CLAIMS THIS
-  // CASTLE: the one you solved it at, and no other. A claimed castle never
-  // shows this board again (the seal check below lets it straight through to
-  // its vault), so the next job is always somewhere you haven't been.
+  // A castle keeps the job assigned on its first conversation. Citadels open
+  // through their garrison instead and never enter the quest ledger.
   showQuestBoard(sx, sy, house) {
-    if (typeof Quests === 'undefined') return;
-    // WHICH slot this castle keeps. Every castle is pinned to one for life, so
-    // the job here is never the job at the castle down the road — which is the
-    // reason to walk to a different one.
-    const mine = Quests.slotForCastle(this._castleKey(house) || (house && house.id) || '');
-    const board = Quests.board(this.save);
-    const q = board[mine];
-    if (!q) { this.flash('No work here today.', sx, sy); return; }
-    // Read at its castle: an `activates` job (Salvage rights) counts from here.
-    if (Quests.activate(this.save, mine)) persistSave(this.save);
-    const done = Quests.isSlotComplete(this.save, mine);
+    const key = this._castleKey(house);
+    if (!key || this.isCastleClaimed(house)) return;
+    const style = CastleStyles.get(key);
+    if (style.guards) {
+      this._checkCitadelClaims();
+      if (this.isCastleClaimed(house)) return;
+      this.showOfferModal({
+        kind: 'quest', title: style.name, get: 'Defeat the guards',
+        blurb: 'Clear the garrison to open this citadel.',
+        canAfford: false, acceptLabel: 'Guarded', cancelLabel: 'Later',
+      });
+      return;
+    }
+    const q = Quests.assign(this.save, key, style.id);
+    if (!q) return;
+    persistSave(this.save);
+    const done = q.have >= q.need;
     this.showOfferModal({
       kind: 'quest',
-      title: done ? 'Quest complete!' : `#${mine + 1} ${q.title}`,
+      title: done ? 'Quest complete!' : q.title,
       get: done ? `Reward: ${this.moneyHTML(q.reward)}` : `${q.have} / ${q.need}`,
       blurb: q.body,
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',
       onAccept: () => {
-        const finished = Quests.claim(this.save, mine);
+        const finished = Quests.claim(this.save, key);
         if (!finished) return;
         if (finished.reward) addMoney(this.save, finished.reward);
-        // THIS castle, and no other. The job was done for the people here, so
-        // this is the vault that opens and the tower that raises a banner; the
-        // next job took its slot number and is somebody else's, at a castle the
-        // player hasn't been to.
         const claimed = this._claimCastle(house);
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`+${finished.reward}`, UI_GOLD, 1, null, this.coinIconEl());
         if (claimed) {
-          // The banner IS the moment, once per castle (the ledger key carries
-          // the castle's own id). A busy screen returns false unmarked, so
-          // the plain flash stays as the fallback and the splash can still
-          // open the next time this castle's claim fires on a clear screen.
-          const splashed = this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {
-            art: 'castle_claim',
-            title: 'The castle is yours',
+          const splashed = this._storySplashOnce('castle:' + key, {
+            art: 'castle_claim', title: 'The castle is yours',
             body: "The vault door grinds open, and your banner rises above the gate. You step inside.",
           });
-          if (!splashed) {
-            this.flash('The castle vault is yours.', sx, sy);
-          }
+          if (!splashed) this.flash('The castle vault is yours.', sx, sy);
         }
       },
     });
+  }
+
+  _claimCitadel(key) {
+    if (!Houses.claimCastle(this.save, { castle: key })) return false;
+    persistSave(this.save);
+    this.flashAtPlayer('The citadel is yours.');
+    return true;
+  }
+
+  _checkCitadelClaims() {
+    if ((this.depth || 0) !== 0) return;
+    const pc = this.playerToWorldCell(), ring = [];
+    eachTile3x3(pc.tx, pc.ty, (tx, ty) => {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (entry) ring.push({ entry, tx, ty });
+    });
+    Lairs.claimClearedCitadels(ring, setOf(this.save.caught), key => this._claimCitadel(key));
   }
 
   // True iff `house` is a fort the player hasn't unsealed yet — see Houses.isFortLocked.
