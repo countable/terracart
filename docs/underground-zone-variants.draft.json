@@ -84,7 +84,7 @@
         "worked",
         "built_edge"
       ],
-      "layout": "irregular rooms around a central store, side route around sentry, optional trapped alcove",
+      "layout": "connected stone-walled rooms around a central store; two-cell doors and open main approaches",
       "depths": [
         1,
         2,
@@ -130,7 +130,7 @@
       "id": "warren_run",
       "source": "small_road_or_walking_path",
       "context": "goblin_warrens",
-      "mechanic": "visible sentry pockets and optional traps with bypasses"
+      "mechanic": "stone-walled passage, open doorways to sentry and storage alcoves, optional traps with bypasses"
     }
   ],
   "proposedTuning": {
@@ -381,38 +381,74 @@
       "slots": [
         {
           "at": [
-            0,
-            0
+            1,
+            1
           ],
           "material": "rubble_pile"
         },
         {
           "at": [
-            1,
-            0
+            2,
+            1
           ],
           "material": "barrel"
         },
         {
           "at": [
-            5,
+            4,
             4
           ],
           "material": "rubble_pile"
         },
         {
           "at": [
-            0,
-            5
+            1,
+            4
           ],
           "material": "stalagmite"
         }
       ],
-      "atmosphere": "Small rooms around a guarded store. A side entrance lets the player circle the sentry; rubble blocks an optional alcove.",
+      "atmosphere": "Connected stone walls divide the warren into small rooms around a guarded store. Two-cell doorways keep the main routes open; rubble blocks only optional alcoves.",
       "poi": "One store chamber around an existing mirrored POI cache.",
-      "connection": "Open through lane; optional side rooms, no forced sealed maze.",
+      "connection": "Connected 6 \u00d7 6 stone-room grid; two-cell doorways on each side, with a clear nexus approach.",
       "monsters": "D1: club goblin; D2: club / spear goblin; D3: spear / archer goblin.",
-      "source": "Park POI region; worked and built-edge affinities."
+      "source": "Park POI region; worked and built-edge affinities.",
+      "wallSlots": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          0,
+          5
+        ]
+      ],
+      "walls": {
+        "sheet": "stronghold_wall",
+        "manifest": "assets/Objects/Stronghold/manifest.json",
+        "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
+        "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
+      }
     },
     {
       "id": "root_passage",
@@ -530,37 +566,133 @@
       "kind": "path",
       "name": "Warren Run",
       "motifCells": [
-        6,
-        4
+        8,
+        6
       ],
       "slots": [
         {
           "at": [
-            0,
-            0
+            1,
+            1
           ],
           "material": "barrel"
         },
         {
           "at": [
-            5,
-            1
+            6,
+            4
           ],
           "material": "rubble_pile"
         },
         {
           "at": [
-            0,
-            3
+            1,
+            5
           ],
           "material": "rubble_pile"
         }
       ],
-      "atmosphere": "Sentry pockets and stores sit off the main lane. Optional trapped alcoves retain a visible bypass.",
+      "atmosphere": "Stone walls line a two-cell passage. Open doorways lead into narrow sentry and storage alcoves; supplies and optional traps stay out of the through lane.",
       "poi": "Containers spend the parent region / route finite budget.",
-      "connection": "Two-cell through lane; connect a warren to eligible road or path.",
+      "connection": "Two-cell central passage with stone-walled side alcoves and two-cell door openings.",
       "monsters": "D1: club; D2: club / spear; D3: spear / archer goblins.",
-      "source": "Small road or walking path entering Goblin Warrens."
+      "source": "Small road or walking path entering Goblin Warrens.",
+      "wallSlots": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          7,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          7,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          7,
+          5
+        ]
+      ],
+      "walls": {
+        "sheet": "stronghold_wall",
+        "manifest": "assets/Objects/Stronghold/manifest.json",
+        "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
+        "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
+      }
     }
   ],
   "previewNote": "Authored representative patterns, not generated live cave placement. Nominal motif occupancy is calculated from listed slots; POI, encounter and optional trap seats are separate. Existing geology clips all patterns."

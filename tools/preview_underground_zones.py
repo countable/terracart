@@ -18,6 +18,42 @@ def _image(material, x, y, unit, materials):
             f'<image class="sprite-cell" href="{uri}" x="{x}" y="{y}" width="{unit}" height="{unit}"/></g>')
 
 
+def _wall_cells(row, width, height):
+    """Include a one-cell border so clipped walls retain their true joins."""
+    slots = {tuple(at) for at in row.get('wallSlots', [])}
+    if not slots:
+        return set()
+    mw, mh = row['motifCells']
+    cx, cy = width // 2, height // 2
+    cells = set()
+    for y in range(-1, height + 1):
+        for x in range(-1, width + 1):
+            if row['kind'] == 'path':
+                at = (x - (cx - mw // 2), y % mh)
+            else:
+                at = ((x-cx+3) % mw, (y-cy+3) % mh)
+                if abs(x-cx) <= 2 and abs(y-cy) <= 2:
+                    continue
+            if at in slots:
+                cells.add((x,y))
+    return cells
+
+
+def _wall_art(cells, width, height, unit, helpers):
+    manifest = json.loads((ROOT/'assets/Objects/Stronghold/manifest.json').read_text())
+    frames = {frozenset(f['connections']): f['frame'] for f in manifest['frames']}
+    parts = []
+    for x,y in sorted(cells, key=lambda cell: (cell[1],cell[0])):
+        if not (0 <= x < width and 0 <= y < height):
+            continue
+        neighbors = frozenset(name for name,dx,dy in [('N',0,-1),('E',1,0),('S',0,1),('W',-1,0)] if (x+dx,y+dy) in cells)
+        frame = frames.get(neighbors)
+        if frame is None:
+            continue
+        parts.append(f'<g class="warren-wall"><title>Stone wall · structural · frame {frame}</title><rect class="geometry-cell" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="#989986"/>' + helpers['art_image']({'sheet':'stronghold_wall','frames':[frame],'preserveFrame':True},f'class="sprite-cell" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"') + '</g>')
+    return ''.join(parts)
+
+
 def _sample(row, data, helpers, detail=False):
     path = row['kind'] == 'path'
     width, height = ((9, 9) if detail else (12, 25) if path else (25, 25))
@@ -34,9 +70,12 @@ def _sample(row, data, helpers, detail=False):
         parts.append(f'<path d="M {start*unit} 0 V {height*unit} M {(start+motif_width)*unit} 0 V {height*unit}" stroke="#a6b6a7" stroke-dasharray="2 3" stroke-opacity=".5"/>')
     parts.append('<g class="background">')
     mw, mh = row['motifCells']
+    walls = _wall_cells(row, width, height)
     occupied = set()
     for y in range(height):
         for x in range(width):
+            if (x,y) in walls:
+                continue
             if path:
                 rx = x - (cx - mw // 2)
                 if not 0 <= rx < mw:
@@ -46,11 +85,12 @@ def _sample(row, data, helpers, detail=False):
                 # The centre and approach lanes take precedence over background slots.
                 if abs(x-cx) <= 2 and abs(y-cy) <= 2 or x == cx or y == cy:
                     continue
-                at = [x % mw, y % mh]
+                at = [(x-cx+3) % mw, (y-cy+3) % mh] if row.get('walls') else [x % mw, y % mh]
             for slot in row['slots']:
                 if slot['at'] == at:
                     parts.append(_image(slot['material'], x*unit, y*unit, unit, data['previewMaterials']))
                     occupied.add((x,y))
+    parts.append(_wall_art(walls, width, height, unit, helpers))
     parts.append('</g>')
     if not path:
         parts.append('<g class="poi-layer">')
@@ -65,7 +105,7 @@ def _sample(row, data, helpers, detail=False):
         parts.append('</g>')
     enemy = 'club_goblin' if row['id'] in ('goblin_warrens','warren_run') else 'cave_slime'
     if not path or row['id']=='warren_run':
-        ex,ey = ((cx+3)*unit, (cy+2)*unit) if not path else ((cx-2)*unit,cy*unit)
+        ex,ey = ((cx+1)*unit, (cy+2)*unit) if not path else ((cx-3)*unit,(cy+2)*unit)
         parts.append(helpers['creature_at'](enemy,ex,ey,unit,'Proposed depth-1 encounter seat; reallocated from existing budget'))
     parts.append(f'<path d="M 6 {height*unit-6} h 50" stroke="#e5ecdf"/><text x="6" y="{height*unit-10}" fill="#e5ecdf" font-size="5">35 m · 5 cells</text></svg>')
     return ''.join(parts)
@@ -83,17 +123,20 @@ def underground_section(helpers, out):
             assert slot['material'] in data['previewMaterials']
         mix = collections.Counter(s['material'] for s in row['slots'])
         coverage = len(row['slots']) / (mw*mh) * 100
+        wall_text = f'; {len(row.get("wallSlots", []))/(mw*mh)*100:.2f}% structural stone-wall footprint' if row.get('walls') else ''
         mix_text = ', '.join(f'{count} {key.replace("_", " ")}' for key,count in mix.items())
         details = [('Source region / route',row['source']),('Depth','1–3 proposal; deeper floors retain ordinary caves.'),
                    ('Pattern',f'{mw} × {mh} cells; {mix_text}. Nominal occupancy before clipping and reserved approaches.'),
                    ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
                    ('Lighting','Existing cave torches and player light. Additional glowing water or crystal art is not an enabled light source.'),
                    ('Fauna','No new surface fauna underground.'),
-                   ('Art','Inspected unused Verdant Props sprites; existing chest and enemy art. Art and interactions are proposals.')]
+                   ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'unused Verdant Props sprites; existing chest and enemy art. Layouts and interactions are proposals.')]
+        if row.get('walls'):
+            details.append(('Stone walls', 'Stronghold stone wall set; connected straight, corner, junction and end frames. Structural cave walls, not reward-bearing props. Doorways and through lanes stay open.'))
         dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
         cap='Background + nexus arrangement' if row['kind']=='nexus' else 'Representative straight passage · not a live carved route'
         close='Nexus close-up' if row['kind']=='nexus' else 'Passage close-up'
-        cards[row['kind']].append(f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · draft · {mw} × {mh} motif</small><h2>{html.escape(row["name"])}</h2></header><p class="mix"><b>{coverage:.2f}% nominal motif occupancy</b><br>{html.escape(mix_text)}; nexus and encounter seats counted separately.</p><div class="visual"><figure>{_sample(row,data,helpers)}<figcaption>{cap}</figcaption></figure><figure class="detail">{_sample(row,data,helpers,True)}<figcaption>{close}<br>1 cell = 7 m</figcaption></figure></div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+        cards[row['kind']].append(f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · draft · {mw} × {mh} motif</small><h2>{html.escape(row["name"])}</h2></header><p class="mix"><b>{coverage:.2f}% object occupancy{wall_text}</b><br>{html.escape(mix_text)}; nexus and encounter seats counted separately.</p><div class="visual"><figure>{_sample(row,data,helpers)}<figcaption>{cap}</figcaption></figure><figure class="detail">{_sample(row,data,helpers,True)}<figcaption>{close}<br>1 cell = 7 m</figcaption></figure></div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
     # Keep the reviewed design alongside the preview without enabling it in runtime data.
     (out/'underground-zone-variants.draft.json').write_text(json.dumps(data,indent=2)+'\n')
     (out/'underground-art-license.txt').write_text((ROOT/'docs/art/underground-proposals/LICENSE.txt').read_text())
