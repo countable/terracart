@@ -1,22 +1,12 @@
 // FINDING 1 — a hit wild crow must actually flee, not freeze.
 //
-// WHAT BROKE. _wildCrowTick's very first line was
-//   if (c._fleeUntilT && c._fleeUntilT > now) return;
-// with a comment claiming the crow "skips crop logic and runs". It doesn't
-// run: c.x/c.y are written NOWHERE else in this file for a wild crow (crows
-// are diverted into _wildCrowTick instead of the generic wander body), so
-// returning before touching them froze the crow in place for the full 8s
-// flee window a pet hit arms — while the pet kept landing hits on a
-// stationary target.
-//
-// THE FIX. _wildCrowTick now treats "fleeing" as its own phase that launches
-// short fast dashes away from the hit angle, reusing the same FLIGHT-phase
-// fields (_flightUntilT/_startX,Y/_targetX,Y/_flightT0) — and the existing
-// eased-interpolation code — that a normal orbit glide uses. A NEW flag,
-// _fleeDash, marks a flight leg as belonging to a panic dash; without it a
-// crow hit mid-glide would keep coasting to that STALE pre-hit target for
-// up to 1200ms before the flee ever took effect, which is the secondary
-// effect the finding asked to confirm. (The crop raid — orbit, landing and
+// A hit wild crow runs _wildCrowTick's "fleeing" phase: short fast dashes away
+// from the hit angle, reusing the FLIGHT-phase fields (_flightUntilT/
+// _startX,Y/_targetX,Y/_flightT0) and the eased-interpolation code of a normal
+// orbit glide. c.x/c.y are written nowhere else for a wild crow, so an early
+// return would freeze it for the full 8s flee window. _fleeDash marks a leg as
+// a panic dash; without it a crow hit mid-glide would keep coasting to its
+// STALE pre-hit target for up to 1200ms. (The crop raid — orbit, landing and
 // the perch count — is checked below.)
 //
 // _wildCrowTick can't load headlessly (it needs Phaser, being a method on

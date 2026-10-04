@@ -171,7 +171,7 @@ Spec implies the unified rarity picker drives shops. All `shop:*` LOOT_CONTEXTS 
 
 ## MINOR / COSMETIC
 
-- **`pick` relic energy discount is dead** — `effectivePickCost` (`items.js:657-660`) is never
+- **`pickaxe` relic energy discount is dead** — `effectivePickCost` (`items.js:657-660`) is never
   called; mining energy uses inline `10+(tier-1)*4` (`interact.js:908`) with no pick discount.
   Pick tier still shortens the wheel. *(Spec's `10+(tier-1)*4` itself matches.)*
 - **Stale comment: reach origin** — `interact.js:984` comment says reach is the "PLAYER'S CELL

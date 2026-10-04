@@ -1,12 +1,8 @@
 // THE SMITHY SAYS WHICH SIDE IS THE PRICE, AND "FORGE" IS AN ACTION.
 //
-// The blacksmith dialog used one word three times: the modal's category
-// header read FORGE (over the Smelt tab too), the tab read Forge, and the
-// button read Forge. And the trade itself — gear for bars, or on the Smelt
-// tab bars for bars — was two equal lines with a lone "for" between them, so
-// which line you were paying was a guess. The category is SMITHY now, and
+// The modal's category is SMITHY (FORGE is the tab and button action), and
 // both smithy offers caption the price "You give", which showOfferModal
-// renders in place of the "for" row.
+// renders in place of the "for" row so the paying side is explicit.
 //
 // app.js needs Phaser, so this is pinned as source text (the MODAL_KINDS row
 // and showOfferModal itself in modal_shell.js).

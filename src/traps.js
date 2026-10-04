@@ -160,11 +160,8 @@
   // ── The trap ground ──────────────────────────────────────────────────────
   // Surface traps belong to the FOOTPATHS and the PARK EDGES — the ground a
   // walker crosses on foot, away from traffic — and nowhere near a road.
-  // Until Sep 2026 they sat on the "bandit" stretches of the MAJOR roads'
-  // verges (ROAD_CLASS_BANDIT_VERGE) and on waste ground; the owner's safety
-  // pass moved them: a snare on a kerb is a reason to step into the street.
-  // Waste ground (T.WASTELAND — rail yards, brownfield, construction) is no
-  // longer trap ground either: "only on paths and park edges".
+  // A snare on a kerb is a reason to step into the street, and waste ground
+  // (T.WASTELAND) is not trap ground either: "only on paths and park edges".
   //
   //   PATH-SIDE (1) — a walkable cell 8-adjacent to a T.PATH cell, never the
   //     path itself: the snare lies BESIDE the way, so walking the path never
@@ -306,9 +303,8 @@
   // Path-side and park-edge ground carry this many times the plain share —
   // easy tops out at 6% of that ground, hard at 15%. MEASURED (Sep 2026, the
   // 36-tile city census, easy): 257 / 408 / 716 / 281 traps over nine tiles of
-  // Kelowna / Vancouver / Berlin / Seattle, against 696 / 1049 / 1138 / 1109
-  // on the old bandit verges — fewer, on purpose: this is ground people walk
-  // beside, where the old verge (6× the share) was ground they walked past.
+  // Kelowna / Vancouver / Berlin / Seattle — fewer than the old road verges,
+  // on purpose.
   const TRAP_GROUND_DENSITY_MUL = 2;
   // `under`: the zone halo's replaced codes (see isTrapGround), or omitted.
   function spawnSurface(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under) {

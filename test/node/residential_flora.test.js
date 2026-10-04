@@ -50,19 +50,11 @@ const cellIdx = (p) => cellY(p.y) * CPE + cellX(p.x);
 // Measured on this fixture BEFORE the yard lane existed. The yard flora draws
 // from its own salted stream and only joins `wildplants` after every older
 // plant, so neither the rocks nor the older plants may move by one cell.
-// (The rock hash was re-pinned when ids moved from frame metres to tile +
-// local cell, `mr_${tx}_${ty}_${ix}_${iy}`: the same 395 rocks on the same
-// cells — the old-format ids rebuilt from these positions still hash to the
-// old 3517605594.)
-// MOVED (Sep 2026, street variants): residential rubble no longer scatters
-// through the lots — the lot walk runs DRY (every draw, no rock) so the yard
-// flora around its fired pivots is exactly what it was, and the rocks now
-// line a quarter of the minor streets (worldgen spawnStreetRocksSteps, off
-// StreetVariants.rocksFor). The 395 lot rocks this fixture pinned are gone.
-// RE-PINNED with the move: 32 → 40 older plants, because cells the lot rubble
-// used to hold (the occupancy pass: a rock claimed its cell first) are free.
-// RE-PINNED (Sep 2026, denser street rocks — STREET_ROCK_PIVOT_M 20 → 10):
-// 40 → 39, one older plant's cell now holds a street rock (occupancy).
+// Residential rubble no longer scatters through the lots: the lot walk runs
+// DRY (every draw, no rock) so the yard flora around its fired pivots is
+// stable, and the rocks line a quarter of the minor streets (worldgen
+// spawnStreetRocksSteps, off StreetVariants.rocksFor). One older plant's cell
+// holds a street rock (occupancy), hence 39.
 // The biome stream's pre-ownership source remains stable; special street
 // corridors now remove only plants inside their claimed area.
 // Affinity and rarity changes reconcile SURFACE rocks after caveSource is
@@ -85,11 +77,11 @@ test('residential yard flora: street ownership only removes older plants inside 
   assert.eq(older.join('|'), expected.join('|'), 'only owned corridor plants are cleared');
 });
 
-test('residential yard flora: both long grass and shrubs grow on residential cells', () => {
+test('residential yard flora: shrubs grow on residential cells without long grass', () => {
   const { wildplants, grid } = rasterize();
   const yard = wildplants.filter(isYard);
   const onRes = (crop) => yard.filter((p) => p.crop === crop && grid[cellIdx(p)] === T.RESIDENTIAL).length;
-  assert.gt(onRes('longgrass'), 0, 'long grass grows in the yards');
+  assert.eq(onRes('longgrass'), 0, 'residential yards have no long grass');
   assert.gt(onRes('shrub'), 0, 'shrubs grow in the yards');
   for (const p of yard) {
     // A try at the polygon's rim can land on a cell painted as something
@@ -100,12 +92,12 @@ test('residential yard flora: both long grass and shrubs grow on residential cel
   }
 });
 
-test('residential yard flora: still grows, roughly half grass half scrub', () => {
+test('residential yard flora: still grows sparse scrub without long grass', () => {
   const { wildplants } = rasterize();
   const yard = wildplants.filter(isYard);
   const grass = yard.filter((p) => p.crop === 'longgrass').length;
-  assert.gt(yard.length, 50, 'the yards still grow (the dry lot walk keeps its pivots)');
-  assert.inRange(grass / yard.length, 0.35, 0.65, 'long grass share of the yard flora');
+  assert.gt(yard.length, 0, 'the yards still grow (the dry lot walk keeps its pivots)');
+  assert.eq(grass, 0, 'no long grass in residential yards');
 });
 
 test('residential yard flora: the rocks that remain sit on a kerb — within four cells of a road band', () => {

@@ -26,7 +26,7 @@ const FORGE = new Function(`${constSrc('FORGE_CEREMONY')} return FORGE_CEREMONY;
 function forgeOnce({ afford = true } = {}) {
   const held = { copper_bar: afford ? 5 : 0 };
   const recipe = [{ id: 'copper_bar', qty: 3 }];
-  const offer = { kind: 'relic', slot: 'pick', tier: 2 };
+  const offer = { kind: 'relic', slot: 'pickaxe', tier: 2 };
   const calls = { offer: null, ceremony: [], loot: [], flash: [], equipped: [] };
   const scene = {
     save: { relics: {}, armor: {} },
@@ -75,7 +75,7 @@ test('forge story: a successful forge opens the Smithy story pane with the piece
   const c = calls.ceremony[0];
   assert.eq(c.kind, 'forge', 'on the Smithy kind');
   assert.eq(c.art, 'forge_done', 'over the forge painting');
-  assert.truthy(/data-gear="relic:pick:2"/.test(c.iconHTML), 'showing the forged piece itself');
+  assert.truthy(/data-gear="relic:pickaxe:2"/.test(c.iconHTML), 'showing the forged piece itself');
   assert.truthy(/data-px="64"/.test(c.iconHTML), 'large, not toast-sized');
   assert.eq(c.name, 'Copper Pick', 'under its name');
   assert.eq(c.header, 'Forged!', 'with the painted label');

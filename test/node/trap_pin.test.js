@@ -277,7 +277,7 @@ test('tool stories: the auto-fire hooks the first shot loosed, not the cadence',
 test('tool stories (behaviour): each action splashes once under its own ledger key', () => {
   const modals = [];
   const scene = {
-    save: { relics: Object.fromEntries(['hoe', 'axe', 'pick', 'can', 'bugnet', 'sword', 'bow', 'staff'].map(slot => [slot, { tier: 1 }])) },
+    save: { relics: Object.fromEntries(['hoe', 'axe', 'pickaxe', 'watering_can', 'net', 'sword', 'bow', 'staff'].map(slot => [slot, { tier: 1 }])) },
     showMessageModal: (opts) => modals.push(opts),
     _storySplashOnce: storyMethods._storySplashOnce,
     _dialogOpen: storyMethods._dialogOpen,

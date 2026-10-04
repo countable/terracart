@@ -2,9 +2,9 @@
 (function () {
   const T0 = 1_700_000_000_000;
   function lift(name) {
-    const start = APP_JS_SRC.indexOf(`\n  ${name}(`);
-    const end = APP_JS_SRC.indexOf('\n  }\n', start);
-    return new Function('return ({' + APP_JS_SRC.slice(start, end + 4) + '})')()[name];
+    const start = SCENE_SRC.indexOf(`\n  ${name}(`);
+    const end = SCENE_SRC.indexOf('\n  }\n', start);
+    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})')()[name];
   }
   const eat = lift('eatSelected'), effects = lift('_consumeFoodEffects');
   function scene(id) {
@@ -115,36 +115,36 @@
     const row = Buffs.active(save, {}, T0 + 1000).find(b => b.id === 'fish');
     assert.truthy(row); assert.eq(row.remainingMs, 179000);
     assert.eq(Buffs.active(save, {}, T0 + 180000).some(b => b.id === 'fish'), false);
-    assert.includes(APP_JS_SRC, 'this._tickShrineRegen(dt);\n    this._tickFishRegen();');
+    assert.includes(SCENE_SRC, 'this._tickShrineRegen(dt);\n    this._tickFishRegen();');
     const s = scene('bass');
     Energy.startFishRegen(s.save, 'bass', T0);
     s._workProgress = {}; s.playerMoving = true;
     lift('_tickFishRegen').call(s, T0 + 180000);
     assert.eq(s.save.energy, 30);
-    assert.includes(APP_JS_SRC, 'Energy.fishRegenWait(this.save, sel?.id)');
-    assert.includes(APP_JS_SRC, '`${eatVerb} ${restore}⚡/${shortDuration(Energy.FISH_REGEN_MS)}`');
+    assert.includes(SCENE_SRC, 'Energy.fishRegenWait(this.save, sel?.id)');
+    assert.includes(SCENE_SRC, '`${eatVerb} ${restore}⚡/${shortDuration(Energy.FISH_REGEN_MS)}`');
   });
 
   test('peach: restores ordinary food energy and clears all debuffs, preserving positive buffs', () => {
-    const s = scene('peach');
+    const s = scene('worldpeach');
     for (const id of Object.keys(Conditions.DEFINITIONS)) Conditions.apply(s.save, id);
     s.save.coffeeUntil = Date.now() + 60000;
     Energy.startFishRegen(s.save, 'bass');
     const fish = JSON.stringify(s.save.fishRegen), coffee = s.save.coffeeUntil;
     assert.truthy(eat.call(s));
-    assert.eq(s.save.energy, 10 + FOOD_ENERGY.peach);
+    assert.eq(s.save.energy, 10 + FOOD_ENERGY.worldpeach);
     assert.falsy(Conditions.hasDebuffs(s.save, s));
     assert.falsy(Conditions.active(s.save, 'pinned'), 'the trap pin too');
     assert.eq(JSON.stringify(s.save.fishRegen), fish);
     assert.eq(s.save.coffeeUntil, coffee);
-    assert.eq(Inventory.count(s.save, 'peach'), 0);
-    assert.includes(s.save.eaten, 'peach');
+    assert.eq(Inventory.count(s.save, 'worldpeach'), 0);
+    assert.includes(s.save.eaten, 'worldpeach');
     assert.truthy(Energy.eatCooldownLeft(s.save) > 0);
   });
 
   test('peach: refused eating never cleanses', () => {
     for (const refusal of ['cooldown', 'locked', 'empty']) {
-      const s = scene('peach');
+      const s = scene('worldpeach');
       Conditions.apply(s.save, 'poison');
       if (refusal === 'cooldown') Energy.startEatCooldown(s.save);
       if (refusal === 'locked') s._zeroEnergyLocked = () => true;

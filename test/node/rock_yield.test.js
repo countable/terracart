@@ -1,13 +1,10 @@
 // Headless tests for the plain-rock promise: WHAT THE ART SHOWS IS WHAT IT
 // DROPS. The mineralrock sheet's four plain-rock looks are not interchangeable
-// — row 15 col 3 draws a PAIR of stones, cols 4..6 draw one — and until Sep
-// 2026 the variant was a cosmetic hash while every rock dropped the same
-// randInt(1,3), so a pair could pay one rock and a lone pebble could pay three.
+// — row 15 col 3 draws a PAIR of stones, cols 4..6 draw one.
 //
-// The fix is one table (SpriteLayout.PLAIN_ROCK_VARIANTS): render.js picks the
-// frame from `col`, interactables.js rolls the yield off `stones`. These tests
-// pin BOTH sides against that table, so the frame and the payout can't drift
-// apart the way they did.
+// One table (SpriteLayout.PLAIN_ROCK_VARIANTS): render.js picks the frame from
+// `col`, interactables.js rolls the yield off `stones`. These tests pin BOTH
+// sides against it, so the frame and the payout can't drift apart.
 
 const PRV = SpriteLayout.PLAIN_ROCK_VARIANTS;
 const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
@@ -16,10 +13,10 @@ const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
 // the variant (a hash of the id for a surface rock, caveVariant for a cave one).
 function mineOnce(o) {
   const scene = makeScene();
-  const save = { relics: { pick: { tier: 7 } } };
+  const save = { relics: { pickaxe: { tier: 7 } } };
   const res = runInteractable(makeCtx(scene, save), o);
   assert.eq(res, true, 'tap consumed');
-  return scene.invCount('rockfruit');
+  return scene.invCount('rubble');
 }
 
 // A surface plain rock whose ID hashes to variant `v`: walk candidate ids
@@ -133,7 +130,7 @@ test('ore tiers: one table owns the frame, dropped bar and item tier', () => {
     assert.eq(ITEM_BY_ID[row.barId].baseTier, tier, `T${tier}: catalog item inherits its row`);
 
     const scene = makeScene();
-    const save = { relics: { pick: { tier: 7 } } };
+    const save = { relics: { pickaxe: { tier: 7 } } };
     runInteractable(makeCtx(scene, save), {
       kind: 'mineralrock', id: `ore-table-${tier}`, x: 0, y: 0, yieldTier: tier,
     });
@@ -154,8 +151,8 @@ test('cave wall dig: always one stone, flint on 30%', () => {
   for (let i = 0; i < N; i++) {
     const scene = makeScene();
     assert.eq(caveWallDrop(scene), 1, 'one stone');
-    assert.eq(scene.invCount('rockfruit'), 1, 'and one in the bag');
-    flint += scene.invCount('coal');
+    assert.eq(scene.invCount('rubble'), 1, 'and one in the bag');
+    flint += scene.invCount('flint_shard');
   }
   assert.inRange(flint / N, 0.26, 0.34, 'flint on about 30% of digs');
   assert.truthy(/const qty = caveWallDrop\(scene\);/.test(INTERACT_SRC), 'the tapped dig pays it');
@@ -168,26 +165,24 @@ test('plain rock: flint on 10% of breaks', () => {
   for (let i = 0; i < N; i++) {
     const scene = makeScene();
     plainRockBaseDrop(scene, 1);
-    flint += scene.invCount('coal');
+    flint += scene.invCount('flint_shard');
   }
   assert.inRange(flint / N, 0.075, 0.125, 'flint on about 10% of rocks');
 });
 
 // --- The toast tells the truth ----------------------------------------------
-// The plain-rock branch used to flash "+1 Rock" while handing over up to three
-// — the one loot path that under-reported itself. The flash must carry the
-// count that actually landed in the bag.
+// The flash must carry the count that actually landed in the bag (it once said "+1 Rock" for up to three).
 test('plain rock: the loot toast reports the real stone count', () => {
   for (let i = 0; i < 200; i++) {
     let flashed = null;
     const scene = makeScene({ flashLoot: (msg, _c, _n, id) => { flashed = { msg, id }; } });
-    const save = { relics: { pick: { tier: 7 } } };
+    const save = { relics: { pickaxe: { tier: 7 } } };
     runInteractable(makeCtx(scene, save), surfaceRock(0, `toast${i}`));
     assert.truthy(flashed, 'a loot toast fired');
-    if (flashed.id !== 'rockfruit') continue;   // a cracked-open bar upstages the stones
+    if (flashed.id !== 'rubble') continue;   // a cracked-open bar upstages the stones
     const m = /^\+(\d+)/.exec(flashed.msg);
     assert.truthy(m, `toast leads with a count: ${flashed.msg}`);
-    assert.eq(Number(m[1]), scene.invCount('rockfruit'),
+    assert.eq(Number(m[1]), scene.invCount('rubble'),
       `toast "${flashed.msg}" matches the rockfruit actually awarded`);
   }
 });
@@ -232,7 +227,7 @@ test('plain rock: steeper bar rarity keeps copper and makes Frost three times ra
         return calls === tier ? plainRockBarChance(tier) + (win ? -1e-10 : 1e-10) : 0.99;
       };
       const scene = makeScene();
-      const save = { relics: { pick: { tier: 7 } } };
+      const save = { relics: { pickaxe: { tier: 7 } } };
       INTERACTABLES.mineralrock.complete(makeCtx(scene, save), { kind: 'mineralrock', id: 'bonus-boundary', yieldTier: 1 });
       assert.eq(scene.invCount(bars[tier]), win ? 1 : 0, `tier ${tier} threshold`);
       for (let other = 2; other <= 7; other++) if (other !== tier) assert.eq(scene.invCount(bars[other]), 0);
@@ -240,7 +235,7 @@ test('plain rock: steeper bar rarity keeps copper and makes Frost three times ra
     Math.random = () => 0.99;
     for (let tier = 2; tier <= 7; tier++) {
       const scene = makeScene();
-      const save = { relics: { pick: { tier: 7 } } };
+      const save = { relics: { pickaxe: { tier: 7 } } };
       INTERACTABLES.mineralrock.complete(makeCtx(scene, save), { kind: 'mineralrock', id: `ore-${tier}`, yieldTier: tier });
       assert.eq(scene.invCount(bars[tier]), 1, 'named ore still guarantees its primary bar');
     }

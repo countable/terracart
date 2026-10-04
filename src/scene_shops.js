@@ -25,7 +25,7 @@
 // Rewards, Delivery, Houses own the numbers and who sells what), nor the
 // dialogs themselves (makeModalShell / showOfferModal are SceneModals, in
 // modal_shell.js). Home's own sell / craft tabs, the inn, guildhall, curio,
-// training and fort slots stay in app.js.
+// training and fort slots are SceneVenues (scene_venues.js).
 
 // THE SMITHY'S PREVIEW: what you receive is a big picture over its name, not
 // a line-height icon beside it. The Smithy chip and the Forge / Smelt tab
@@ -67,7 +67,7 @@ const CASTLE_TAX_GOLD = 10;
 // Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
 // (see starterSmithSlots) as the player's bootstrap tools.
-const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
+const STARTER_SMITH_SLOTS = ['pickaxe', 'axe', 'hoe', 'fishing_rod', 'watering_can', 'net'];
 
 class SceneShops {
 
@@ -176,6 +176,47 @@ class SceneShops {
     if (loot) this.flashLoot(...loot);
   }
 
+  // A sundries counter's gear (Macros.sundriesGear): the next rung of its
+  // weapon or shield line above what the player holds, at the counter's
+  // gear price. Bought once per rung; a player holding the finest is told so.
+  // Reached from presentMacro: a counter whose stock entry is `gear:<line>`
+  // (Macros.isSundriesGear) opens this instead of the stall counter.
+  _presentStallGear(sx, sy, opts) {
+    if (document.getElementById('offer-modal')) return;
+    const { entry, title, kind = 'shop', kindLabel, art } = opts;
+    const offer = Macros.sundriesGear(this.save, entry);
+    if (!offer) { this.flash('You carry the finest.', sx, sy); return; }
+    const isItem = offer.kind === 'item';
+    const name = isItem ? itemName(offer.id) : gearName(offer.kind, offer.slot, offer.tier);
+    const icon = isItem ? this.iconSpanHTML(offer.id) : this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
+    const blurb = (isItem ? '' : (gearDef(offer.kind, offer.slot)?.blurb || ''))
+      + `<div style="margin-top:6px">${tierBadgeHTML(offer.tier)}</div>`;
+    this.showOfferModal({
+      kind, kindLabel, art, title,
+      get: `${icon} ${name}`,
+      blurb,
+      cost: this.moneyHTML(offer.price),
+      canAfford: (this.save.money ?? 0) >= offer.price,
+      disabledReason: isItem ? this._shopBagSpaceReason(offer.id, 1) : '',
+      acceptLabel: 'Buy',
+      cancelLabel: 'Leave',
+      onAccept: () => {
+        // The bag or the slot may have changed since the counter opened.
+        const now = Macros.sundriesGear(this.save, entry);
+        if (!now || now.kind !== offer.kind || now.slot !== offer.slot || now.id !== offer.id || now.tier !== offer.tier) {
+          this.flash('Already carry a finer one.', sx, sy); return;
+        }
+        if (isItem && this.invRoomFor(offer.id) < 1) { this.flash(bagFullFor(offer.id), sx, sy); return; }
+        if (!this._spendMoney(offer.price, sx, sy)) return;
+        const { price, ...reward } = offer;
+        Rewards.apply(this.save, reward, this, { notWild: true, deferRefresh: true });
+        this.markRelicsDirty();
+        this._settleDeal(null, [`${name}\n−${offer.price}`, UI_GOLD, 1.25]);
+        this.updateHUD();
+      },
+    });
+  }
+
 
   shopInteract(sx, sy, house) {
     // Single-modal guard: if a confirmation modal is already open, ignore the tap so
@@ -270,7 +311,7 @@ class SceneShops {
     // nothing, so those never offer to take one. Checked after the cooldown
     // gate so a bouquet can't be spent on a shut door, and skipped while a charm
     // is already running so repeat taps don't burn the stack. A RESTORED
-    // castle is excluded too — it no longer sells anything to discount, only
+    // castle is excluded too — it sells nothing to discount, only
     // the daily rest/tax favour (see presentCastleServiceOffer).
     if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
         && ((castle && !this.isCastleClaimed(house)) || shopType === 'market')
@@ -302,10 +343,46 @@ class SceneShops {
       });
       return;
     }
+    // THE RENOVATION PERMIT (Houses.PERMIT_ID) in hand at a ranked building:
+    // the masons offer to raise it one rank (Houses.renovateTo decides
+    // whether that rank is open — the memory ladder, the line's own cap),
+    // and the permit is spent with the work. A refused permit says why on
+    // the map and the tap falls through to the shop as usual.
+    if (house && house.id != null && sel && sel.id === Houses.PERMIT_ID && (sel.count ?? 0) > 0 && shopType && shopType !== 'turret' && !castle) {
+      const to = Houses.renovateTo(this.save, house);
+      if (to.tier) {
+        const label = Shops.roleLabel(shopType, shopType === 'market' ? this.marketTheme(house).theme : null) || 'shop';
+        this.showOfferModal({
+          kind: 'build',
+          title: 'Renovate the building?',
+          get: `Masons raise the ${label.toLowerCase()} a rank: ${tierBadgeHTML(to.tier, 11)}`,
+          cost: `1× ${this.iconSpanHTML(Houses.PERMIT_ID)} ${ITEM_BY_ID[Houses.PERMIT_ID]?.name || 'Renovation Permit'}`,
+          canAfford: true,
+          acceptLabel: 'Renovate',
+          cancelLabel: 'Later',
+          onAccept: () => {
+            if (Inventory.remove(this.save, Houses.PERMIT_ID, 1) < 1) {
+              this.flash('Gone — already used.', sx, sy);
+              return;
+            }
+            this._clampSelSlot();
+            const tier = Houses.renovate(this.save, house);
+            this._finishInventoryChange();
+            if (tier) this.flashLoot(`🏗️ renovated — ${TIER_BADGE_NAMES[tier]}!`, UI_GOLD, 1.2, Houses.PERMIT_ID);
+            // Straight back into the shop so the new shelf is in hand.
+            this.shopInteract(sx, sy, house);
+          },
+        });
+        return;
+      }
+      if (to.why === 'memories') this.flash(`Needs ${to.need} memories`, sx, sy);
+      else if (to.why === 'line') this.flash('This line goes no higher', sx, sy);
+      else if (to.why === 'top') this.flash('Already the top rank', sx, sy);
+    }
     // Plain houses — small residential without a shop role and not the
     // starter blacksmith — are delivery sites only. Each wants a SET of 1-3
     // produce and buys it as a bundle: one of each, full price, no sword
-    // sellMul. They don't sell anything or do the old 10% relic swap. Their
+    // sellMul. They don't sell anything. Their
     // sign shows the wanted icons so the player can scout a street and gather
     // the matching set.
     if (isDeliveryHost) {
@@ -355,7 +432,7 @@ class SceneShops {
       this.presentTraderOffer(sx, sy, house, recordDeal);
       return;
     }
-    // Wizard tower (the first story tower) — no longer a relic vendor. The
+    // Wizard tower (the first story tower). The
     // mage sees power in the player's memories and spends them on his gifts.
     // See presentWizardOffer.
     if (shopType === 'wizard') {
@@ -444,9 +521,8 @@ class SceneShops {
 
   // Resolve (and self-heal) save.starterShopId: the player's Home. Home is the
   // house nearest the player's ACTUAL location — their first GPS fix — NOT the
-  // fixed map origin (startWorldM, anchored at START_LAT/LON). Anchoring on the
-  // origin was the old bug: a player who starts far from START_LAT got a
-  // trailer dropped near the origin, off-screen, so it never appeared.
+  // fixed map origin (startWorldM, anchored at START_LAT/LON): a player who
+  // starts far from START_LAT would get a trailer off-screen near the origin.
   //
   // Once a GPS fix is in, the rule is "what you can see is home":
   //   • if any house is visible ON-SCREEN, adopt the nearest one as the trailer;
@@ -554,7 +630,8 @@ class SceneShops {
 
   // The line and tier a themed shop (role key 'market') sells: its place in
   // the save's restore order of shops, through Shops.themeAt — seed, supply,
-  // potion, ore, relic, pet, then round again a tier up. The tutorial's market
+  // potion, ore, relic, then round again a tier up (the Book and Pet lines
+  // are one-off stamps, Shops.SOLO_LINES). The tutorial's market
   // (Houses.BUILD_OPTIONS, from the third rebuild) is the first shop, so it is still the
   // beginner's T1 seed shop. The sign, the offer title, the restoration card
   // and the stock all read this one answer.
@@ -658,6 +735,16 @@ class SceneShops {
     close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     box.appendChild(close);
     mount();
+  }
+
+  // Pick the starter pair once; repeat visits and reloads keep the same tools.
+  starterSmithSlots() {
+    if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
+      const pool = shuffleInPlace([...STARTER_SMITH_SLOTS]);
+      this.save.starterSmithSlots = [pool[0], pool[1]];
+      persistSave(this.save);
+    }
+    return this.save.starterSmithSlots;
   }
 
   starterBlacksmithRecipe(slot) {
@@ -954,7 +1041,7 @@ class SceneShops {
         this._settleDeal(recordDeal, [`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, UI_GOLD, 1, id]);
       },
       // A re-roll can only land on another item of the same stock, so a line
-      // that carries ONE item at this tier (an ore shop is one bar a tier)
+      // that carries ONE item at this tier (a line with one item at a rank)
       // has nothing to re-roll to — paying would hand back the same item.
       secondary: this._themedStockCount(house) > 1
         ? this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
@@ -1405,9 +1492,7 @@ class SceneShops {
       { cost: ShopsMath.traderRerollCost, peek: () => this.peekOrBuildTraderOffer(house), current: offer });
   }
 
-  // REST: a flat CASTLE_REST_ENERGY, once per Houses.CASTLE_SERVICE_MS (it was
-  // a tenth of the bar, the same fraction the old hourly hearth gave — twice a
-  // day now instead of once an hour). Silent (no-op) while the favour is
+  // REST: a flat CASTLE_REST_ENERGY, once per Houses.CASTLE_SERVICE_MS. Silent (no-op) while the favour is
   // still spent or the castle isn't claimed; the modal that calls this never
   // offers the choice in either case.
   _castleRest(sx, sy, house) {
@@ -1622,7 +1707,6 @@ class SceneShops {
         this._settleDeal(recordDeal);
         // The forge's story pane: the forged piece's own art (not a coin),
         // large on the forge painting, with the finishing moment (FORGE_CEREMONY).
-        // It replaces the old loot splash rather than stacking a toast under it.
         const { iconPx, ...ceremony } = FORGE_CEREMONY;
         this.showChestRewardModal({
           ...ceremony,
@@ -1635,8 +1719,7 @@ class SceneShops {
   }
 
   // Build a shop offer for buying ${id} (baseValue = itemValue(id)). Always a
-  // CASH price now — the old mixed "1/3 cash / 2/3 barter" roll was removed so
-  // the two trade idioms map cleanly onto shop types: MARKETS (and every
+  // CASH price, so the two trade idioms map cleanly onto shop types: MARKETS (and every
   // generic cash storefront) want money, TRADERS barter (their own qty-scaled
   // path in presentTraderOffer). opts.house names the shop asking: it seeds
   // the markup roll off that shop's hour bucket (so the price holds for the

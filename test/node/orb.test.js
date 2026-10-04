@@ -1,10 +1,10 @@
-const orbMethodStart = APP_JS_SRC.indexOf('\n  useOrb() {');
-const orbMethodEnd = APP_JS_SRC.indexOf('\n  }\n', orbMethodStart);
+const orbMethodStart = SCENE_SRC.indexOf('\n  useOrb() {');
+const orbMethodEnd = SCENE_SRC.indexOf('\n  }\n', orbMethodStart);
 function orbActionFor(plants, rocks) {
   const world = { forEachItemNear(kind, tx, ty, visit) {
     for (const o of kind === 'wildplants' ? plants : rocks) visit(o);
   } };
-  return new Function('WorldGen', 'return ({' + APP_JS_SRC.slice(orbMethodStart, orbMethodEnd + 4) + '}).useOrb')(world);
+  return new Function('WorldGen', 'return ({' + SCENE_SRC.slice(orbMethodStart, orbMethodEnd + 4) + '}).useOrb')(world);
 }
 function orbFixture() {
   const plants = [], rocks = [];
@@ -40,7 +40,7 @@ test('orb reveals only visible unspent secret bushes and rocks without consuming
   assert.eq(scene.save.inv[0].count, 1);
   scene.save.inv[0].count = 0;
   assert.eq(use.call(scene), false, 'empty stack cannot reveal');
-  scene.save.inv[0] = { id: 'telescope', count: 1 };
+  scene.save.inv[0] = { id: 'field_scope', count: 1 };
   assert.eq(use.call(scene), false, 'must select the orb');
 });
 test('orb follows the peek camera when deciding which secrets are onscreen', () => {

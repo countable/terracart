@@ -1,10 +1,8 @@
 // The shared world-object predicates (src/interactables.js).
 //
-// isCastle / isTreeLike / isBuilding / isSpent used to be spelled out as
-// `o.kind === 'a' || o.kind === 'b'` in render.js, interact.js, worldgen.js,
-// multiplayer.js and shops_math.js — one copy per reader, each free to drift.
-// interactables.js is the registry every one of those already loads before
-// itself, so the group lives there and these pin it: the predicate's own
+// isCastle / isTreeLike / isBuilding / isSpent live in interactables.js (the
+// registry every reader loads first) so no reader keeps its own copy. These
+// pin it: the predicate's own
 // answer, that the registry's `spent` rows are readers of isSpent rather than
 // a second lane, and that no call site has grown its own copy back.
 
@@ -147,7 +145,6 @@ test('chestCellDedup: the draw pass and the tap pass build the same predicate', 
                 'render.js takes its dedup from interactables.js');
   assert.truthy(/const isDupTapChest = chestCellDedup\(scene\.cellM\)/.test(INTERACT_SRC),
                 'interact.js takes the same one');
-  // The copies both files used to keep are gone.
   for (const [name, src] of [['render.js', RENDER_SRC], ['interact.js', INTERACT_SRC]]) {
     assert.falsy(/Math\.floor\(o\.x \/ scene\.cellM\) \+ '_' \+/.test(src),
                  `${name} no longer spells the dedup key itself`);

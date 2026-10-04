@@ -1,19 +1,14 @@
 // THE OPENING PLAYS FOR EVERY GAME, not once per device.
 //
-// A fresh game opens on three story slides (a nightmare, trailer, then wrecked
-// neighbourhood), then the safety / "Go to my location" CTA, then the how-to
-// card. Whether that has happened is remembered in localStorage —
-// `terracart.introSeen` for the slides, `terracart.howtoSeen` for the card —
-// which is per-DEVICE storage answering a per-GAME question. "Reset THIS game"
-// cleared both and replayed the opening; "+ New game" did NOT, so the second
-// game a player ever started opened straight on the location CTA with no story
-// and no how-to at all.
+// A fresh game opens on three story slides, then the safety / "Go to my
+// location" CTA, then the how-to card. Whether that has happened is remembered
+// in localStorage (`terracart.introSeen`, `terracart.howtoSeen`): per-DEVICE
+// storage answering a per-GAME question, so "+ New game" must replay it too.
 //
-// The fix is ONE writer of the two keys (`replayOpening`), called by every
-// path that boots a game from nothing, rather than a second copy of the pair
-// inside the new-game handler — a copy is what drifts when a third such path
-// arrives. index.html needs a DOM to run, so the wiring is pinned as SOURCE
-// TEXT (the same trick feet_anchor.test.js and street_lamps.test.js use).
+// There is ONE writer of the two keys (`replayOpening`), called by every path
+// that boots a game from nothing; a second copy is what drifts. index.html
+// needs a DOM, so the wiring is pinned as SOURCE TEXT (as feet_anchor.test.js
+// and street_lamps.test.js do).
 
 (function () {
 const html = INDEX_HTML_SRC;

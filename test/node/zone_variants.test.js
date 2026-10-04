@@ -9,12 +9,12 @@ const count = (row, x0, y0, w, h, seed) => {
   }
   return result;
 };
-test('zone variants: 24 rows select deterministically without a legacy quarry', () => {
-  assert.eq(V.rows.length, 24);
+test('zone variants: contextual meadow and 24 random rows select deterministically without a legacy quarry', () => {
+  assert.eq(V.rows.length, 25);
   assert.eq(V.rows.filter(row => row.selectable !== false).length, 24);
   assert.eq(V.byId('quarry'), null);
   assert.eq(V.forKind('quarry').length, 4);
-  assert.eq(V.forKind('grove').length, 7);
+  assert.eq(V.forKind('grove').length, 8);
   assert.eq(V.forKind('stones').length, 5);
   assert.eq(V.forKind('tar').length, 5);
   for (const kind of ['grove', 'stones', 'tar', 'beach', 'quarry']) {
@@ -26,9 +26,10 @@ test('zone variants: 24 rows select deterministically without a legacy quarry', 
       assert.eq(V.pick({ ...anchor, lx: 23, owned: false }), row, 'observer does not alter selection');
       selected.add(row.id);
     }
-    assert.eq(selected.size, V.forKind(kind).length, 'every declared option is selectable');
+    assert.eq(selected.size, V.forKind(kind).filter(row => row.selectable !== false).length, 'every ordinary option is selectable');
   }
   assert.eq(V.pick({ kind: 'tar', variant: 'seep' }).id, 'seep');
+  assert.eq(V.pick({ kind: 'grove', variant: 'marine_meadow' }).id, 'marine_meadow');
   assert.eq(V.pick({ kind: 'unknown' }), null);
 });
 test('zone affinities: bounded averaged context and neutral fallback preserve rare combinations', () => {
@@ -57,7 +58,7 @@ test('zone affinities: source traits and park character favour matching zones wi
     selected.add(V.pick(a).id);
     assert.eq(V.pick(a), V.pick({...a, owned: false, lx: -400, ly: 921}));
   }
-  assert.eq(selected.size, V.forKind('grove').length);
+  assert.eq(selected.size, V.forKind('grove').filter(row => row.selectable !== false).length);
 });
 test('zone affinities: cached weights follow edits to contexts, overrides and candidate tables', () => {
   const anchor = {kind: 'grove', gx: 143, gy: 851, character: 'wooded'};
@@ -322,7 +323,7 @@ test('zone variants: finite finds keep exact budgets and pick requirements', () 
   assert.eq(workFind.dy, 8);
 });
 test('zone variants: fauna affinities and material classes match their runtime lanes', () => {
-  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 8);
+  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 9);
   assert.eq(Object.keys(V.byId('silent_circle').attracts).length, 0, 'quiet grave pillars do not pull extra crows');
   assert.eq(V.materials.grave.spawnClass, 'headstone');
   assert.eq(ZoneVariantData.materials.grave.spawnClass, 'enemy', 'runtime adapts without mutating reviewed source');
@@ -335,12 +336,14 @@ test('zone variants: fauna affinities and material classes match their runtime l
 });
 })();
 
-test('bush groves target half of background cells before placement exclusions', () => {
+test('bush groves keep their authored background density before placement exclusions', () => {
  for (const id of ['meadow','ancient_grove']) {
    const row=ZoneVariants.byId(id); let shrubs=0;
-   assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : undefined);
+   assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : 'ordinary');
    for(let y=0;y<120;y++) for(let x=0;x<120;x++) if(ZoneVariants.sample(row,x,y,'coverage')==='shrub')shrubs++;
-   assert.eq(row.background.materialDensity.shrub,0.5);
-   assert.inRange(shrubs/14400,0.48,0.52,id);
+   const density = id === 'meadow' ? 0.35 : 0.5;
+   assert.eq(row.background.materialDensity.shrub, density);
+   if (id === 'meadow') assert.eq(row.background.nominalDensity, density);
+   assert.inRange(shrubs/14400, density - 0.02, density + 0.02, id);
  }
 });

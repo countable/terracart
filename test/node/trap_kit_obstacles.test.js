@@ -1,6 +1,6 @@
 (function () {
   const handler = TAP_HANDLERS.find(h => h.name === 'disarm-obstacle');
-  function exercise(piece, { reach = true, keep = false, held = 'trap_kit', picked = [] } = {}) {
+  function exercise(piece, { reach = true, keep = false, held = 'trap_disarm_kit', picked = [] } = {}) {
     const save = { inv: [{ id: held, count: 2 }], selSlot: 0, picked: [...picked], energy: 80 };
     const scene = Object.assign(makeScene(), { save, cellM: 5, cellPx: 32, cellsPerTile: 32,
       mPerPx: 5 / (WorldGen.TILE_PX / 32), originPx: { x: 0, y: 0 },
@@ -49,9 +49,9 @@
     assert.lt(TAP_HANDLERS.indexOf(handler), TAP_HANDLERS.findIndex(h => h.name === 'object'));
   });
   test('trap kit: removed spikes stop slowing immediately and after tile regeneration', () => {
-    const start = APP_JS_SRC.indexOf('  _tickStreetFeet() {');
-    const end = APP_JS_SRC.indexOf('\n  }', start);
-    const tick = new Function(APP_JS_SRC.slice(APP_JS_SRC.indexOf('{', start) + 1, end));
+    const start = SCENE_SRC.indexOf('  _tickStreetFeet() {');
+    const end = SCENE_SRC.indexOf('\n  }', start);
+    const tick = new Function(SCENE_SRC.slice(SCENE_SRC.indexOf('{', start) + 1, end));
     const world = globalThis.WorldGen;
     const piece = { kind: 'stakes', id: 'spikes', x: 2.5, y: 2.5 };
     const entry = { _spawned: true, cellsPerEdge: 32, objects: [piece], slowCells: new Map([[0, 'stakes']]) };

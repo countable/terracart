@@ -1,7 +1,7 @@
 (function () {
   function scene(overrides = {}) {
     const s = Object.assign(new SceneFire(), {
-      save: { energy: 100, inv: [{ id: 'tome_firewall', count: 1 }], selSlot: 0 },
+      save: { energy: 100, inv: [{ id: 'tome_fire_wall', count: 1 }], selSlot: 0 },
       startWorldM: { x: 0, y: 0 }, playerM: { x: 252, y: 252 },
       originPx: { x: 0, y: 0 }, mPerPx: 1, cellsPerTile: 32, cellM: 8,
       depth: 2, facing: { x: 0, y: -1 }, flashes: [],
@@ -12,7 +12,7 @@
       flashAtPlayer(message) { this.flashes.push(message); },
     }, overrides);
     // Exercise the shared activation lock and own cooldown of the other tomes.
-    for (const name of ['_tomeWait', '_tomeReady', '_tomeSpent']) {
+    for (const name of ['_tomeWait', '_tomeReady', '_tomeSpent', '_selectedConsumable']) {
       const match = SCENE_SRC.match(new RegExp(`\\n  ${name}\\(id\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
       const cooldown = SCENE_SRC.match(/const TOME_COOLDOWN_MS = ([^;]+);/)[1];
       s[name] = new Function('TOME_COOLDOWN_MS', 'shortDuration',
@@ -35,7 +35,7 @@
       assert.falsy(s.save.groundFire[GroundFire.key(2, 31, 31)], 'player cell stays clear');
       assert.eq(s.save.inv[0].count, 1, 'the tome is reusable');
       assert.inRange(s.save.tomeReadyAt - Date.now(), 3600e3 - 1000, 3600e3);
-      assert.inRange(s.save.tomeMagicCd.tome_firewall - Date.now(), 8 * 3600e3 - 1000, 8 * 3600e3);
+      assert.inRange(s.save.tomeMagicCd.tome_fire_wall - Date.now(), 8 * 3600e3 - 1000, 8 * 3600e3);
       assert.falsy(s.readTomeFirewall(), 'second reading waits for cooldown');
     }
   });
@@ -47,7 +47,7 @@
       s.save.groundFire[GroundFire.key(2, x, 30)].extinguished = true;
     }
     assert.falsy(s.readTomeFirewall());
-    assert.falsy(s.save.tomeMagicCd?.tome_firewall);
+    assert.falsy(s.save.tomeMagicCd?.tome_fire_wall);
     assert.falsy(s.save.tomeReadyAt);
     assert.eq(s.flashes[0], 'No fresh ground — tome kept');
     s.facing = { x: 1, y: 0 };
@@ -58,11 +58,11 @@
 
   test('wall of fire tome: invalid heading, wrong selection and downed player cannot cast', () => {
     for (const overrides of [{ facing: { x: 0, y: 0 } }, { facing: { x: NaN, y: 0 } },
-      { save: { energy: 0, inv: [{ id: 'tome_firewall', count: 1 }], selSlot: 0 } },
+      { save: { energy: 0, inv: [{ id: 'tome_fire_wall', count: 1 }], selSlot: 0 } },
       { save: { energy: 100, inv: [{ id: 'book', count: 1 }], selSlot: 0 } }]) {
       const s = scene(overrides);
       assert.falsy(s.readTomeFirewall());
-      assert.falsy(s.save.tomeMagicCd?.tome_firewall);
+      assert.falsy(s.save.tomeMagicCd?.tome_fire_wall);
       assert.falsy(s.save.tomeReadyAt);
       assert.falsy(s.save.groundFire);
     }

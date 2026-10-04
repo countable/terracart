@@ -110,7 +110,7 @@
     assert.truthy(/<em>[^<\n]+<\/em>\n“/.test(MemoryStory.HOME.body), 'an action on its own line, then the words');
   });
 
-  test('story neighbours: the wanderer is homeless until the second restoration after you meet them', () => {
+  test('story neighbours: the wanderer is homeless until the first restoration after you meet them', () => {
     const w = person('wanderer');
     const s = scene({ discovered: {}, restoredHouses: { h0: 'blacksmith' } });
     assert.eq(NPC.portrait(s, w), 'npc_tilly');
@@ -118,32 +118,30 @@
     assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'sad on the first meeting even after a restoration they never saw');
     assert.eq(s.save.memoryStory.met[w.id], 1, 'the meeting is stamped with the day\'s count');
     assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'still sad tomorrow');
+    assert.eq(Houses.STORY_RESTORES.childHome, 1, 'owner\'s call (Oct 2026): one roof is enough');
     s.save.restoredHouses.h1 = 'trader';
-    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'one new roof is not enough');
-    assert.eq(NPC.portrait(s, w), 'npc_tilly', 'still wary until her housing requirement is met');
-    s.save.restoredHouses.h2 = 'plain';
-    assert.eq(NPC.portrait(s, w), 'npc_tilly_happy', 'the same live target changes her portrait before the next talk');
-    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the second restoration gives them a roof');
+    assert.eq(NPC.portrait(s, w), 'npc_tilly_happy', 'the live target changes her portrait before the next talk');
+    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the first restoration after meeting gives them a roof');
     const reloaded = scene(JSON.parse(JSON.stringify(s.save)));
     assert.eq(NPC.dialogue(reloaded, w).body, MemoryStory.NEIGHBOURS.wanderer.housed);
     assert.eq(NPC.portrait(reloaded, w), 'npc_tilly_happy');
     assert.eq(s.save.memoryStory.met[w.id], 1, 'the stamp never moves');
-    const legacy = scene({ restoredHouses: { first: 'plain', second: 'plain' }, memoryStory: { met: { [w.id]: 1 } } });
-    assert.eq(NPC.dialogue(legacy, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'legacy child already housed after one new roof keeps the home');
-    assert.eq(NPC.portrait(legacy, w), 'npc_tilly_happy', 'legacy housing stays happy');
+    const stamped = scene({ restoredHouses: { first: 'plain', second: 'plain' }, memoryStory: { met: { [w.id]: 1 }, childHomeAt: { [w.id]: 3 } } });
+    assert.eq(NPC.dialogue(stamped, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the target derives from the meeting, so a child met under the old rule moves in too');
+    assert.eq(NPC.portrait(stamped, w), 'npc_tilly_happy');
     const later = scene(towerSave(12)); later.save.memoryStory = { met: { [w.id]: 3 } };
     assert.eq(NPC.dialogue(later, w).body, MemoryStory.NEIGHBOURS.wanderer.settled, 'settled by the second act');
     assert.truthy(/· Wanderer$/.test(NPC.dialogue(s, w).title));
   });
 
-  test('roles: every role a zone draws has its own untinted sheet, one per label', () => {
+  test('roles: every role a culture draws has its own untinted sheet, one per label', () => {
     const byLabel = new Map();
-    for (const [zone, p] of Object.entries(NPC.PROFILES)) for (const role of new Set(p.roles)) {
-      const sheet = SpriteLayout.npcSheet({ role, zone });
-      assert.eq(sheet.role, role, `${zone} ${role} has a sheet of its own`);
-      assert.eq(sheet.tint, 0xffffff, `${zone} ${role} wears its own colours`);
-      const label = NPC.LABELS[zone][role];
-      assert.eq(byLabel.get(label) ?? sheet.idle, sheet.idle, `${label} looks the same in every zone`);
+    for (const [culture, p] of Object.entries(NPC.CULTURES)) for (const role of new Set(p.roles)) {
+      const sheet = SpriteLayout.npcSheet({ role, culture });
+      assert.eq(sheet.role, role, `${culture} ${role} has a sheet of its own`);
+      assert.eq(sheet.tint, 0xffffff, `${culture} ${role} wears its own colours`);
+      const label = NPC.LABELS[culture][role];
+      assert.eq(byLabel.get(label) ?? sheet.idle, sheet.idle, `${label} looks the same in every culture`);
       byLabel.set(label, sheet.idle);
     }
     assert.eq(new Set(byLabel.values()).size, byLabel.size, 'no two labels share a look');
@@ -227,10 +225,10 @@
     assert.eq(JSON.stringify(NPC.warden('npc_warden_1_2')), JSON.stringify(NPC.storyNeighbour('npc_warden_1_2', 'warden')));
   });
 
-  test('roles: every zone labels every role, and the new roles are drawn', () => {
-    const roles = new Set(Object.values(NPC.PROFILES).flatMap(p => p.roles));
-    for (const role of ['mason', 'lamplighter', 'keeper']) assert.truthy(roles.has(role), `${role} is in a profile`);
-    for (const [zone, labels] of Object.entries(NPC.LABELS)) for (const role of roles) assert.truthy(labels[role], `${zone} labels ${role}`);
+  test('roles: every culture labels every role, and the new roles are drawn', () => {
+    const roles = new Set(Object.values(NPC.CULTURES).flatMap(p => p.roles));
+    for (const role of ['mason', 'lamplighter', 'keeper']) assert.truthy(roles.has(role), `${role} is in a culture`);
+    for (const [culture, labels] of Object.entries(NPC.LABELS)) for (const role of roles) assert.truthy(labels[role], `${culture} labels ${role}`);
     const seen = new Set();
     for (let i = 0; i < 600; i++) seen.add(NPC.identity(`npc_3_3_${i}_2`, 'village').role);
     for (const role of ['mason', 'lamplighter', 'scholar', 'scout', 'merchant', 'trader']) assert.truthy(seen.has(role), `a village draws a ${role}`);
@@ -296,7 +294,7 @@
       assert.eq(JSON.stringify(again.map(c => [c.id, c.role])), JSON.stringify(residents.map(c => [c.id, c.role])), 'the keeper is the same person every build');
     }
     // The guarantee reseats only when the roll left a zone without one.
-    const people = [{ id: 'a', zone: 'shrine', zoneKind: 'grove', role: 'scout' }, { id: 'b', zone: 'shrine', zoneKind: 'grove', role: 'keeper' }, { id: 'c', zone: 'village', zoneKind: 'grove', role: 'scout' }];
+    const people = [{ id: 'a', culture: 'shrine', zoneKind: 'grove', role: 'scout' }, { id: 'b', culture: 'shrine', zoneKind: 'grove', role: 'keeper' }, { id: 'c', culture: 'village', zoneKind: 'grove', role: 'scout' }];
     NPC.seatKeepers(people);
     assert.eq(people.map(p => p.role).join(','), 'scout,keeper,scout', 'a keeper already drawn is enough; villagers stay villagers');
     const plain = Object.assign({ id: 'npc_9_9_9_9', x: 0, y: 0 }, NPC.identity('npc_9_9_9_9', 'shrine'), { role: 'keeper' });

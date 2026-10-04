@@ -36,18 +36,18 @@
   }
 
   test('player potions: revised tiers, prices and explicit potion membership', () => {
-    for (const [id, tier, price] of [['protection_potion', 2, 40], ['shield_potion', 5, 250],
+    for (const [id, tier, price] of [['protection_potion', 2, 40], ['shielding_potion', 5, 250],
       ['time_potion', 7, 800], ['immortal_potion', 7, 800]]) {
       assert.eq(BASE_TIER[id], tier, id);
       assert.eq(PRICES[id], price, id);
       assert.truthy(isPotion(id), id);
     }
     assert.eq(BASE_TIER.fire_resistance_potion, 4);
-    for (const id of ['honey', 'antidote', 'elixir', 'reach_potion', 'vigor_potion', 'speed_potion',
-      'blight_potion', 'revive_potion', 'resurrection_potion', 'giant_potion', 'shrinking_potion']) {
+    for (const id of ['taming_potion', 'antidote', 'elixir', 'reach_potion', 'healing_potion', 'speed_potion',
+      'blight_potion', 'revival_potion', 'resurrection_potion', 'giant_potion', 'shrinking_potion']) {
       assert.truthy(isPotion(id), `${id} can be thrown as a potion`);
     }
-    assert.eq(ITEM_BY_ID.honey.name, 'Potion of Taming');
+    assert.eq(ITEM_BY_ID.taming_potion.name, 'Potion of Taming');
     for (const id of ['thunder_scroll', 'raven_scroll']) {
       assert.falsy(isPotion(id), `${id}: is a scroll`);
       assert.truthy(ITEM_BY_ID[id].name.includes('Scroll'));
@@ -68,7 +68,7 @@
     const drink = method('_useTimedBuff');
     for (const [id, key, duration] of [
       ['protection_potion', 'protectionPotionUntil', 60_000],
-      ['shield_potion', 'shieldPotionUntil', 60_000],
+      ['shielding_potion', 'shieldPotionUntil', 60_000],
       ['speed_potion', 'speedPotionUntil', CONSUMABLE_SPEC.speed_potion.durationMs],
       ['blight_potion', 'blightPotionUntil', CONSUMABLE_SPEC.blight_potion.durationMs],
       ['immortal_potion', 'immortalPotionUntil', 60_000],
@@ -124,8 +124,8 @@
     const s = scene('time_potion');
     Object.assign(s.save, { giantPotionUntil: T0 + 180_000, immortalPotionUntil: T0 + 60_000,
       protectionPotionUntil: T0 + 60_000, fireResistancePotionUntil: T0 + 180_000,
-      eatReadyAt: T0 + 10_000, tomeDays: { tome_sight: '2023-11-14' },
-      tomeReadyAt: T0 + 3600_000, tomeMagicCd: { tome_sight: T0 + 3600_000 },
+      eatReadyAt: T0 + 10_000, tomeDays: { tome_reach: '2023-11-14' },
+      tomeReadyAt: T0 + 3600_000, tomeMagicCd: { tome_reach: T0 + 3600_000 },
       training: { melee: 3 }, tipsRead: 12, coinBurstClaimed: { 'inn:test': T0 } });
     Object.assign(s, { _throwReadyAt: T0 + 1000, _nextBlowT: T0 + 1000,
       _nextShotT: { bow: T0 + 1000 }, _staffCharge: {} });
@@ -192,9 +192,8 @@
     } finally { Object.assign(document, original); }
   }));
 
-  // Every drink method must actually run: the Potion of Reach threw a
-  // ReferenceError (an undeclared `opts`) on every sip until Oct 2026, which
-  // no test caught because none called it.
+  // Every drink method must actually run (the Potion of Reach once threw a
+  // ReferenceError on every sip because no test called it).
   test('player potions: the Potion of Reach is drinkable — the timer is set and one flask spent', () => {
     clock(set => {
       set(T0);

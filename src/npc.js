@@ -5,7 +5,7 @@ const NPC = (() => {
   // tile cheap). Far residents cost the sim loop one distance check a frame
   // (scene_creatures.js wanderCreatures) and the draw a viewport cull, so a
   // tile of fifty is a few hundred multiply-adds — the NPC count is not a
-  // frame budget. Was 40 (Sep 2026: more neighbours, more to say).
+  // frame budget.
   const COUNT = 50;
   // ROLES are what a neighbour has to say when tapped (dialogue below): the
   // scout points at things, the scholar reads the Book, merchant and trader
@@ -14,18 +14,23 @@ const NPC = (() => {
   // stands in (Zones.ZONE_KINDS[kind].keeper — the zone row owns its copy).
   // The story neighbours by the starting trailer (STORY_ROLES) are placed,
   // not drawn, and speak through MemoryStory.npcDialogue.
-  const PROFILES = {
+  // CULTURES: the resident profile (names, colours, roles, shop theme) a
+  // neighbour is drawn from, picked by cultureFor() off the ground and any
+  // influence zone. A culture is not a zone: the influence zone a resident
+  // stands in is its separate zoneKind.
+  const CULTURES = {
     village: { prefixes: ['Al', 'Bel', 'Mar', 'Ros'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xe8bb91, 0xbfc8ee, 0xeeb3cb], roles: ['scout', 'scout', 'scout', 'scout', 'merchant', 'merchant', 'trader', 'trader', 'trader', 'scholar', 'mason', 'lamplighter'], theme: 'supply' },
     farm: { prefixes: ['Br', 'Fen', 'Haz', 'Row'], roots: ['am', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xdec58d, 0xe9ba96, 0xc6ce9c], roles: ['scout', 'scout', 'merchant', 'trader', 'mason'], theme: 'seed' },
     market: { prefixes: ['Cal', 'Dar', 'Mer', 'Val'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'is'], colors: [0xe7b1d8, 0xaacde9, 0xe5d593], roles: ['merchant', 'trader', 'merchant', 'scout', 'mason', 'lamplighter'], theme: 'supply' },
     woodland: { prefixes: ['Syl', 'Lin', 'Fa', 'El'], roots: ['ar', 'eth', 'ir', 'ow'], suffixes: ['a', 'iel', 'en', 'yn'], colors: [0xacc79a, 0xc3bf8c, 0xa4c8bd], roles: ['scout', 'scout', 'scout', 'scout', 'scout', 'trader', 'trader', 'trader', 'trader', 'scholar'], theme: 'seed' },
     shrine: { prefixes: ['Ae', 'Eli', 'Gala', 'Syl'], roots: ['lan', 'riel', 'thar', 'wen'], suffixes: ['iel', 'ia', 'eth', 'wyn'], colors: [0x70cf86, 0x87db96, 0x59bc78, 0x9bdd7f], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
-    // The fox people of the groves (Oct 2026, owner's call): their own zone
+    // The fox people of the groves (Oct 2026, owner's call): their own culture
     // and role names, so they never read as the shrine's neighbours.
     grove: { prefixes: ['Ru', 'Vix', 'Tod', 'Sor'], roots: ['an', 'el', 'in', 'ow'], suffixes: ['a', 'en', 'ie', 'y'], colors: [0xe0b48a, 0xd9a77c, 0xe8c49b], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
   };
-  // Every zone labels every role: a keeper reseated by the zone guarantee in
-  // spawn(), or a role added to one profile later, must never title as
+  // LABELS, keyed by culture: every culture labels every role. A keeper
+  // reseated by the zone guarantee in spawn(), or a role added to one culture
+  // later, must never title as
   // "undefined".
   const LABELS = {
     village: { scout: 'Wayfinder', scholar: 'Storykeeper', merchant: 'Peddler', trader: 'Barterer', mason: 'Mason', lamplighter: 'Lamplighter', keeper: 'Keeper' },
@@ -35,15 +40,15 @@ const NPC = (() => {
     shrine: { scout: 'Shrine Warden', scholar: 'Shrine Lorekeeper', merchant: 'Herbalist', trader: 'Shrine Trader', mason: 'Shrine Mason', lamplighter: 'Lantern Keeper', keeper: 'Shrine Keeper' },
     grove: { scout: 'Fox Tracker', scholar: 'Fox Storyteller', merchant: 'Fox Herbalist', trader: 'Fox Trader', mason: 'Den Builder', lamplighter: 'Fox Lantern Bearer', keeper: 'Den Keeper' },
   };
-  function identity(id, zone = 'village') {
-    if (!PROFILES[zone]) zone = 'village';
-    const p = PROFILES[zone], rng = WorldGen.makeRng(fnv1a(`${id}:identity:${zone}`));
+  function identity(id, culture = 'village') {
+    if (!CULTURES[culture]) culture = 'village';
+    const p = CULTURES[culture], rng = WorldGen.makeRng(fnv1a(`${id}:identity:${culture}`));
     const pick = a => a[Math.floor(rng() * a.length)];
     const name = pick(p.prefixes) + pick(p.roots) + pick(p.suffixes);
     const role = pick(p.roles);
-    return { name, role, zone, roleLabel: LABELS[zone][role], npcVariant: Math.floor(rng() * 3), tint: pick(p.colors), shopTheme: p.theme };
+    return { name, role, culture, roleLabel: LABELS[culture][role], npcVariant: Math.floor(rng() * 3), tint: pick(p.colors), shopTheme: p.theme };
   }
-  function zoneFor(type, nearShrine = false, influence = null) {
+  function cultureFor(type, nearShrine = false, influence = null) {
     const T = WorldGen.T;
     // Zone influence also covers ground that the halo cannot repaint.
     // Hostile yards stay empty even when a shrine stands nearby.
@@ -57,7 +62,7 @@ const NPC = (() => {
     return null;
   }
   function isShrine(o) {
-    return o.kind === 'shrine' || o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
+    return o.kind === 'grove_shrine' || o.poiClass === 'place_of_worship' || o.role === 'wizard';
   }
   function spawn(scene, entry, tx, ty, opts) {
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
@@ -84,29 +89,29 @@ const NPC = (() => {
       const y = (ty + (cy + 0.5) / N) * scene.tileEdgeM;
       const shrine = shrines.some(o => Math.hypot(o.x - x, o.y - y) <= cellM * 6);
       const influence = typeof Zones !== 'undefined' ? Zones.at(entry, cx, cy) : null;
-      const zone = zoneFor(grid[idx], shrine, influence);
+      const culture = cultureFor(grid[idx], shrine, influence);
       // A villager is someone a player walks up to (a shop, the day's talk):
       // an 'npc' spawn (the spawn gate) — by the houses is fine, not on school
       // or sensitive ground, not in a field.
-      if (!zone || !WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, 'npc')) continue;
+      if (!culture || !WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, 'npc')) continue;
       used.add(idx);
       const id = `npc_${tx}_${ty}_${cx}_${cy}`;
       // zoneKind: the named zone (Zones.ZONE_KINDS) the resident stands in,
       // if any — what a keeper tells the story of.
-      result.push(WorldGen.makeCreature('npc', x, y, id, { ...identity(id, zone), zoneKind: influence?.kind || null, homeX: x, homeY: y }));
+      result.push(WorldGen.makeCreature('npc', x, y, id, { ...identity(id, culture), zoneKind: influence?.kind || null, homeX: x, homeY: y }));
     }
     seatKeepers(result);
     return result;
   }
   // EVERY NAMED ZONE WITH RESIDENTS HAS A KEEPER: the zone's story should not
-  // depend on the role lottery. The first shrine-profile resident drawn on
+  // depend on the role lottery. The first shrine- or grove-culture resident drawn on
   // each zone kind (the draw order above is seeded, so the same one every
   // build, for every player) becomes its keeper when the roll seated none.
   function seatKeepers(people) {
     const kept = new Set(people.filter(c => c.role === 'keeper' && c.zoneKind).map(c => c.zoneKind));
     for (const c of people) {
-      if (!c.zoneKind || kept.has(c.zoneKind) || (c.zone !== 'shrine' && c.zone !== 'grove')) continue;
-      c.role = 'keeper'; c.roleLabel = LABELS[c.zone].keeper;
+      if (!c.zoneKind || kept.has(c.zoneKind) || (c.culture !== 'shrine' && c.culture !== 'grove')) continue;
+      c.role = 'keeper'; c.roleLabel = LABELS[c.culture].keeper;
       kept.add(c.zoneKind);
     }
   }
@@ -126,7 +131,7 @@ const NPC = (() => {
         const cy = Math.floor((house.y / scene.tileEdgeM - ty) * N) + Math.floor(rng() * 11) - 5;
         if (cx < 0 || cy < 0 || cx >= N || cy >= N || used.has(cy * N + cx)) continue;
         const influence = typeof Zones !== 'undefined' ? Zones.at(entry, cx, cy) : null;
-        if (!zoneFor(grid[cy * N + cx], true, influence)) continue;
+        if (!cultureFor(grid[cy * N + cx], true, influence)) continue;
         if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, entry._spawnOpts, 'npc')) continue;
         used.add(cy * N + cx);
         const id = `npc_shrine_${house.id}_${cx}_${cy}`;
@@ -145,8 +150,7 @@ const NPC = (() => {
   }
   // A neighbour's stroll: a slow walking pace (m/s, well under the brisk-walk
   // fast-mover line) in short legs, a few seconds' rest between, never more
-  // than WANDER_CELLS from where it was seated. It was 0.045 cells/s with up
-  // to 16 s rests — about a pixel a second, which read as standing still.
+  // than WANDER_CELLS from where it was seated.
   const WALK_MPS = 0.8;
   const WANDER_CELLS = 4;
   const REST_MS = [2500, 6000];     // [base, spread]
@@ -462,7 +466,7 @@ const NPC = (() => {
   };
   function dialogue(scene, c, now = Date.now()) {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
-    const title = `${c.name} · ${c.roleLabel || LABELS[c.zone || 'village'][c.role]}`;
+    const title = `${c.name} · ${c.roleLabel || LABELS[c.culture || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
     let body, target = null;
     restore(scene, c);
@@ -627,5 +631,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, zoneFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
 })();

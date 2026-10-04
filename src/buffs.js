@@ -61,7 +61,7 @@
     fish:    { name: 'Fish regen', color: '#a7ffb0', stroke: '#103a18',
       read: (save) => Number(save?.fishRegen?.until) || 0 },
     bike:    { name: 'Bike',    color: '#a8f0b0', stroke: '#103a18', save: 'bikeUntil' },
-    telescope: { name: 'Telescope', color: '#ffd166', stroke: '#4a3a00',
+    field_scope: { name: 'Telescope', color: '#ffd166', stroke: '#4a3a00',
       read: save => Number(save?.telescopeCompass?.until) || 0 },
     wayfarer: { name: 'Wayfarer', color: '#4d9dff', stroke: '#102a40',
       read: save => Number(save?.wayfarerCompass?.until) || 0 },

@@ -2,10 +2,9 @@
 // SpriteLayout.fruitCrownOffset over CROWN_BOUNDS in src/sprite_layout.js).
 //
 // The rule these pin: the tree's ART is the same whether or not it is bearing.
-// It used to swap to the sheet's fruiting frame and dim to 70% once picked, so
-// a worked orchard turned into a row of faded, subtly different trees; now the
-// FRUIT is the thing that appears and disappears, and it is placed off the
-// tree sprite that was just drawn rather than at a hand-picked offset.
+// The FRUIT is what appears and disappears (swapping to a fruiting frame and
+// dimming turned a worked orchard into faded, different trees), and it is
+// placed off the tree sprite just drawn, not at a hand-picked offset.
 //
 // (The crown boxes themselves are re-derived from the real PNGs by
 // tools/sprite_audit.js — see the `fruit-tree crown:` cases in run.js.)
@@ -13,7 +12,7 @@
 (function () {
 const SL = SpriteLayout;
 // The two mature frames the renderer draws — apple 4, peach 3.
-const MATURE = [['apple_tree', 4], ['peach_tree', 3]];
+const MATURE = [['apple_tree', 4], ['worldpeach_tree', 3]];
 // How a wild fruit tree is drawn (RENDER_SPEC.fruittree): origin, scale, and
 // the 1.10 Y stretch. Mirrors the sprite_audit scenario of the same name.
 const ORIGIN_Y = 0.95, TREE_SCALE = 0.85, SCALE_Y_MUL = 1.10;
@@ -80,8 +79,7 @@ test('fruit overlay: a frame with no crown (sprout / young tree) gets no fruit',
 
 test('fruit overlay: the sheets’ own fruiting frames are never drawn', () => {
   // apple 7 / peach 5 are the cells that draw fruit INTO the tree. Drawing one
-  // is the old behaviour coming back: the tree would change under the player
-  // on a pick, and it would then be wearing an overlay fruit as well.
+  // would change the tree under the player on a pick, and wear an overlay fruit as well.
   const frames = RENDER_FRUIT_FRAMES_SRC;
   assert.truthy(/apple:\s*\{\s*grow:\s*\[0, 2, 4, 5, 4\], mature: 4 \}/.test(frames),
     'apple ends its life cycle on the mature frame, not the fruiting one');

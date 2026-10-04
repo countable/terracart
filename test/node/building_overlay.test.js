@@ -414,12 +414,10 @@ test('building overlay: an unclaimed footprint is drawn in shaded colours', () =
 });
 
 test('building overlay: the unclaimed material lift is applied to the colours, never read back', () => {
-  // textures.js's lift (unclaimedMaterialColor) used to run over each
-  // unclaimed footprint's finished pixels — a canvas and a getImageData per
-  // building per cell crossing, the walking stutter on a phone. It goes over
-  // the COLOURS now, after the shade, exactly as render.js's tiled pass runs
-  // its court floors: an unclaimed floor, its slime and its outline all wear
-  // it; a restored neighbour in the same pass wears none of it.
+  // textures.js's lift (unclaimedMaterialColor) goes over the COLOURS, after the
+  // shade, exactly as render.js's tiled pass runs its court floors (no per-
+  // building canvas read-back): an unclaimed floor, its slime and its outline all
+  // wear it; a restored neighbour in the same pass wears none of it.
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'old'),
     rectShape(0, 20, 10, 30, T.BUILDING, 'restored')]);

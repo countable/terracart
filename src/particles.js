@@ -7,12 +7,8 @@
 // (explode() recycles its pool), so a session holds at most one emitter per
 // preset, and none until the first burst.
 //
-// Before this module the "fanfare" burst was eight tweened `✦` Text objects
-// (app.js _starburst — a Text object, a tween and a destroy per star, twice
-// over per jackpot), and the street restoration and the crop stage flip had
-// no burst at all. The particle emitter is the built-in for exactly this
-// shape — Phaser 3.60+ ships it in the vendored build — so the presets here
-// replace the hand-rolled text burst rather than sit beside it.
+// Replaces the old hand-rolled `✦` Text burst (app.js _starburst); the
+// particle emitter is built into the vendored Phaser 3.60+.
 //
 // The rules this obeys (CLAUDE.md QC rules):
 //   • WHERE. A burst at a WORLD position is projected through the scene's
@@ -122,26 +118,16 @@
       count: 10, angle: [0, 360], speed: [70, 150], lifespan: [300, 550],
       gravityY: 0, scale: [0.9, 0], alpha: [1, 0], rotate: [0, 360],
     },
-    // …and the THIRD part of the same moment: the setts PULLING THEMSELVES
-    // BACK TOGETHER — the "magical repair" read the sweep asked for, rather
-    // than only debris kicking up and a flash burning out. Bigger and a shade
-    // darker than the outward `stone` chip — not a different material, but a
-    // laid sett rather than a loose flake, so it reads as substantial against
-    // both the dilapidated band and the near-black restored one. GROWING and
-    // BRIGHTENING as it closes in — scale and alpha run the OPPOSITE way from
-    // every other preset here, which all shrink/fade as they age.
-    // `converge: true` marks it as one of these: it does not fly outward on
-    // an angle+speed cone at all, it is thrown through Particles.burst's
-    // per-particle fresh emitters with a Phaser `moveTo` (see burstConverge)
-    // — every particle spawns scattered on `scatterCells` (Particles.burst
-    // reads it, this table never converts it to px) around ONE of its
-    // targets and converges on that exact point by the end of its life. The
-    // targets are the whole restored SECTION (app.js hands _blastAt
-    // `gatherPts`, several points spread along the stretch that just came
-    // back, not one), spread round-robin across the particles — so the sink
-    // is the section, not a single dot on it. `angle`/`speed` are still
-    // carried (the completeness sweep below wants every preset shaped alike)
-    // but are inert here — moveTo overrides them outright.
+    // ...and the THIRD part of the same moment: the setts PULLING THEMSELVES BACK
+    // TOGETHER (the "magical repair" read). A shade darker than the outward
+    // `stone` chip, and GROWING and BRIGHTENING as it closes in: scale and alpha
+    // run the opposite way from every other preset.
+    // `converge: true` marks it: it is thrown through burstConverge's fresh
+    // per-target emitters with a Phaser `moveTo`, each particle spawning on
+    // `scatterCells` (read by Particles.burst; never converted to px here) round
+    // one of the targets (app.js hands _blastAt `gatherPts`, spread along the
+    // restored section) and landing on it. `angle`/`speed` are carried only so
+    // the completeness sweep sees every preset shaped alike; moveTo overrides them.
     stonegather: {
       tex: { shape: 'chip', color: '#948a79', edge: '#3f382e', size: 11 },
       count: 18, angle: [0, 360], speed: [40, 90], lifespan: [550, 850],
@@ -156,11 +142,9 @@
       count: 8, angle: [240, 300], speed: [25, 60], lifespan: [550, 900],
       gravityY: -50, scale: [0.9, 0.2], alpha: [1, 0], rotate: [-40, 40],
     },
-    // A crop being WATERED — the tap on a dry plant, can or cupped hands. Until
-    // Sep 2026 watering was the one farm action with no visual at all: the tap
-    // flashed the stage readout and the cell looked exactly as it had. Drops
-    // are tossed up in a narrow cone and fall straight back onto the plant
-    // under a firm gravity — a sprinkle onto the cell, not a spray over the
+    // A crop being WATERED — the tap on a dry plant, can or cupped hands. Drops
+    // are tossed up in a narrow cone and fall straight back onto the plant under
+    // a firm gravity — a sprinkle onto the cell, not a spray over the
     // neighbours (reach at the fastest, longest drop is well under a cell).
     water: {
       tex: { shape: 'drop', color: C.water, core: '#ffffff', size: 8 },
@@ -188,20 +172,12 @@
       count: 12, angle: [225, 315], speed: [60, 140], lifespan: [400, 700],
       gravityY: 300, scale: [1, 0.4], alpha: [1, 0.2], rotate: [0, 180],
     },
-    // …and the BLAST that goes with it: THE GREEN RING, in the UI_GREEN the
-    // Restored! card is already set in, so the burst in the world and the card
-    // that follows it are one event in one colour. Same shape as the street's
-    // trailspark — a weightless full ring burning out to nothing — because it
-    // is the same moment at a different size.
-    //
-    // It is `greenspark` rather than `buildspark` because a wreck coming back
-    // is not the only thing in the game that suddenly comes GOOD over an area:
-    // the Growth Powder throws the identical ring off the radius its scatter
-    // covers (app.js useGrowthPowder), with `sprout` leaves over each plant
-    // that moved the way `timber` chips fly off a restored building's walls.
-    // Two reasons, one ring — a byte-identical second preset under a second
-    // name is the duplication this table's `ringPx` and `colour` overrides
-    // exist to make unnecessary. Name it for the ring, not for one caller.
+    // ...and the BLAST that goes with it: THE GREEN RING, in the UI_GREEN the
+    // Restored! card is set in, so the world burst and the card are one event in
+    // one colour. Same shape as the street's trailspark. Named for the ring, not
+    // for one caller: the Growth Powder throws the identical ring (app.js
+    // useGrowthPowder), and a second byte-identical preset is what the `ringPx`
+    // and `colour` overrides exist to avoid.
     greenspark: {
       tex: { shape: 'star', color: C.green, core: '#ffffff', size: 12 },
       count: 10, angle: [0, 360], speed: [70, 150], lifespan: [350, 600],
@@ -416,27 +392,16 @@
     return em;
   }
 
-  // A CONVERGING burst's emitters are never pooled. Every other preset
-  // explodes OUT of a point the emitter doesn't need to know — angle+speed do
-  // the work — so one emitter per texture serves every call at every position
-  // for the whole session. A converge preset moves particles TO a fixed point
-  // instead (Phaser's `moveTo`/`moveToX`/`moveToY`), and that point is baked
-  // into the config at emitter creation, not read per explode() call — so
-  // reusing one emitter across bursts (or across two DIFFERENT targets in the
-  // same burst) would pull those particles toward the wrong destination. A
-  // converge burst is rare (once per restoration sweep, not a hot path), so a
-  // fresh emitter per target — thrown away once its particles have lived out
-  // their longest lifespan — costs nothing worth pooling for.
+  // A CONVERGING burst's emitters are never pooled: `moveTo` is baked into the
+  // config at emitter creation, so reusing an emitter across bursts or targets
+  // would pull particles toward the wrong point. Converge bursts are rare (once
+  // per restoration sweep), so a fresh emitter per target, thrown away after its
+  // longest lifespan, costs nothing worth pooling for.
   //
-  // `targets` is one or more SCREEN points: the sink is not always one dot —
-  // a restored ROAD SECTION hands app.js's _blastAt several points spread
-  // along the stretch (gatherPts), not just its midpoint, so the cobbles
-  // visibly gather along the whole length rather than converging on one spot
-  // of it. `n` particles are dealt round-robin across `targets`, one emitter
-  // PER TARGET (not per particle — every particle assigned to the same
-  // target shares its moveTo config and just explodes again on it), each
-  // scattered out on its own ring offset so two particles sharing a target
-  // never approach from the same angle.
+  // `targets` is one or more SCREEN points (a road section's `gatherPts`). `n`
+  // particles are dealt round-robin across them, one emitter PER TARGET, each
+  // scattered on its own ring offset so two particles sharing a target never
+  // approach from the same angle.
   function burstConverge(scene, kind, targets, n, o) {
     const p = PRESETS[kind];
     const key = ensureTexture(scene, kind, o.colour);

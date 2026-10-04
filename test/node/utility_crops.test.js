@@ -3,9 +3,9 @@
 (function () {
   const T0 = 1_700_000_000_000;
   function lift(name) {
-    const start = APP_JS_SRC.indexOf(`\n  ${name}(`);
-    const end = APP_JS_SRC.indexOf('\n  }\n', start);
-    return new Function('return ({' + APP_JS_SRC.slice(start, end + 4) + '})')()[name];
+    const start = SCENE_SRC.indexOf(`\n  ${name}(`);
+    const end = SCENE_SRC.indexOf('\n  }\n', start);
+    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})')()[name];
   }
   const effects = lift('_consumeFoodEffects'), eat = lift('eatSelected');
   function scene(id) {

@@ -157,7 +157,7 @@ test('the crop stage badge shows a unit, not a bare number', () => {
 });
 
 test('the day-gated messages name the wait to the UTC roll', () => {
-  const src = DURATION_SOURCES['app.js'];
+  const src = SCENE_SRC;
   // Daily visits share Macros.beginDailyVisit; the inn and guildhall keep
   // their service dialogs. Each is keyed on a UTC day stamp,
   // each saying how long that is. (A fed delivery house is no longer
@@ -177,7 +177,7 @@ test('the day-gated messages name the wait to the UTC roll', () => {
 
 test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
   const timed = [
-    'pairy', 'coffee', 'reach_potion', 'speed_potion', 'shield_potion',
+    'pairy', 'coffee', 'reach_potion', 'speed_potion', 'shielding_potion',
     'raven_scroll', 'blight_potion', 'dragon_powder', 'shadow_powder',
     'frost_powder', 'torch',
   ];
@@ -193,7 +193,7 @@ test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
   // The scene keeps no alias of a row's length: a timed buff is extended by
   // spec.durationMs at the use (_useTimedBuff), a cast reads its row
   // (CAST_ROWS), the eat lane reads CONSUMABLE_SPEC.<id>.durationMs.
-  const app = DURATION_SOURCES['app.js'];
+  const app = DURATION_SOURCES['app.js'] + DURATION_SOURCES['scene_consumables.js'];
   assert.falsy(/const \w+_MS = CONSUMABLE_SPEC\.\w+\.durationMs;/.test(app), 'no duration alias in app.js');
   assert.truthy(/Buffs\.extend\(this\.save, this, buff, spec\.durationMs \* mul\);/.test(app), 'the row\'s length extends the buff');
   for (const id of ['frost_powder', 'sleep_powder', 'psychosis_powder', 'fear_scroll', 'coffee', 'dawnfruit'])

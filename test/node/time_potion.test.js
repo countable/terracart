@@ -51,8 +51,8 @@
       boonUntil: { regen: until, melee: until }, trainingDrills: { melee: until, energy: until },
       fishRegen: { total: 50, paid: 10, startedAt: Date.now(), until },
       treasureCompass: { targetId: 'treasure', until },
-      tomeReadyAt: until, tomeMagicCd: { tome_sight: until, tome_storm: until },
-      eatReadyAt: until, tomeDays: { tome_sight: utcDayKey(new Date()), tome_storm: utcDayKey(new Date()) },
+      tomeReadyAt: until, tomeMagicCd: { tome_reach: until, tome_thunder: until },
+      eatReadyAt: until, tomeDays: { tome_reach: utcDayKey(new Date()), tome_thunder: utcDayKey(new Date()) },
       fireDamageRemainder: 0.75,
       conditions: { poison: { remainingMs: 60_000, nextTickMs: 2000 }, burning: { remainingMs: 5000, nextTickMs: 1000 }, pinned: { remainingMs: 3000 } },
     });

@@ -21,7 +21,7 @@ test('economy: every item a shop line or the supply shelf can stock has a real v
     if (PRICES[id] == null) assert.gt(v, 1, `${id}: an unpriced item is worth its tier, not $1`);
   }
   // The seven that fell through to $1 at the trader and the delivery door.
-  for (const id of ['deer', 'rabbit', 'crow', 'turtle', 'apple_sapling', 'peach_sapling', 'wood']) {
+  for (const id of ['deer', 'rabbit', 'crow', 'sea_turtle', 'apple_sapling', 'peach_sapling', 'wood']) {
     assert.gt(itemValue(id), 1, `${id}: worth more than a coin`);
   }
 });
@@ -58,21 +58,20 @@ test('economy: one tier lookup, one bar ladder', () => {
   assert.eq(JSON.stringify(Gear.smeltingRecipe('crimson_bar')), JSON.stringify([{ id: 'fireflower', qty: 1 }, { id: 'platinum_bar', qty: 1 }]));
   assert.eq(JSON.stringify(Gear.smeltingRecipe('frost_bar')), JSON.stringify([{ id: 'iceflower', qty: 1 }, { id: 'crimson_bar', qty: 1 }]));
   assert.eq(Gear.smeltingRecipe('gold_bar'), null);
-  assert.eq(Gear.blacksmithRecipe('relic', 'pick', 4)[0].id, 'gold_bar');
+  assert.eq(Gear.blacksmithRecipe('relic', 'pickaxe', 4)[0].id, 'gold_bar');
   assert.falsy(/BAR_BY_TIER/.test(GEAR_JS_SRC), 'gear.js keeps no ladder of its own');
-  assert.truthy(Shops.THEME_POOL.ore().includes('frost_bar') && !Shops.THEME_POOL.ore().includes('wood'), 'the ore shelf is the bars past wood');
 });
 
 test('economy: Gear.gearTier / canUpgrade are the one downgrade guard', () => {
-  const save = { relics: { pick: { tier: 3 } }, armor: {} };
-  assert.eq(Gear.gearTier(save, 'relic', 'pick'), 3);
+  const save = { relics: { pickaxe: { tier: 3 } }, armor: {} };
+  assert.eq(Gear.gearTier(save, 'relic', 'pickaxe'), 3);
   assert.eq(Gear.gearTier(save, 'armor', 'helmet'), 0);
-  assert.falsy(Gear.canUpgrade(save, 'relic', 'pick', 3), 'the same tier is no upgrade');
-  assert.truthy(Gear.canUpgrade(save, 'relic', 'pick', 4));
-  assert.falsy(Gear.canUpgrade(save, 'relic', 'pick', 9), 'no such tier');
+  assert.falsy(Gear.canUpgrade(save, 'relic', 'pickaxe', 3), 'the same tier is no upgrade');
+  assert.truthy(Gear.canUpgrade(save, 'relic', 'pickaxe', 4));
+  assert.falsy(Gear.canUpgrade(save, 'relic', 'pickaxe', 9), 'no such tier');
   assert.falsy(Gear.canUpgrade(save, 'relic', 'no_such_slot', 2));
-  Gear.equip(save, 'relic', 'pick', 2);
-  assert.eq(save.relics.pick.tier, 3, 'equip refuses a downgrade through the same guard');
+  Gear.equip(save, 'relic', 'pickaxe', 2);
+  assert.eq(save.relics.pickaxe.tier, 3, 'equip refuses a downgrade through the same guard');
   assert.truthy(/Gear\.canUpgrade\(this\.save, offer\.kind, offer\.slot, offer\.tier\)/.test(SHOPS_SRC), 'the shops ask it');
   assert.falsy(/this\.save\.relics\?\.\[offer\.slot\]\?\.tier/.test(SHOPS_SRC), 'and keep no ternary of their own');
 });
@@ -145,9 +144,9 @@ test('economy: CONSUMABLE_SPEC names each timed buff\'s Buffs row, each tome\'s 
     assert.truthy(Buffs.KINDS[row.buff], `${id}: '${row.buff}' is a Buffs.KINDS row`);
     assert.gt(row.durationMs, 0, `${id}: a duration to extend by`);
   }
-  for (const id of ['speed_potion', 'protection_potion', 'shield_potion', 'immortal_potion', 'fire_resistance_potion',
+  for (const id of ['speed_potion', 'protection_potion', 'shielding_potion', 'immortal_potion', 'fire_resistance_potion',
     'shrinking_potion', 'giant_potion', 'blight_potion', 'reach_potion', 'shadow_powder', 'dragon_powder', 'torch',
-    'hardworking_potion', 'raven_scroll', 'skeleton_scroll', 'wraith_scroll']) {
+    'hardworking_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll']) {
     const row = CONSUMABLE_SPEC[id];
     assert.truthy(row.buff && row.used && row.used.title && row.used.body, `${id}: buff and the dialog it closes on`);
     const body = typeof row.used.body === 'function' ? row.used.body({ isTorchActive: () => false }, row) : row.used.body;
@@ -164,14 +163,14 @@ test('economy: CONSUMABLE_SPEC names each timed buff\'s Buffs row, each tome\'s 
     assert.truthy(CONSUMABLE_SPEC[tome.of], `${id}: of a real row`);
     assert.truthy(tome.flash, `${id}: says something`);
   }
-  assert.eq(CONSUMABLE_SPEC.tome_healing.tome.of, 'vigor_potion');
-  assert.eq(CONSUMABLE_SPEC.tome_storm.tome.of, 'thunder_scroll');
+  assert.eq(CONSUMABLE_SPEC.tome_healing.tome.of, 'healing_potion');
+  assert.eq(CONSUMABLE_SPEC.tome_thunder.tome.of, 'thunder_scroll');
   const throwables = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.throwable);
-  assert.eq(throwables.map(([id]) => id).join(), 'spear,javelin,rockfruit,forgetmenot,wildrose');
-  const scene = { canThrowItem: (id) => id === 'spear', throwActionLabel: () => 'Throw' };
-  assert.truthy(CONSUMABLE_SPEC.spear.usable(scene) && !CONSUMABLE_SPEC.spear.disabled(scene));
+  assert.eq(throwables.map(([id]) => id).join(), 'throwing_spear,javelin,rubble,forgetmenot,wildrose');
+  const scene = { canThrowItem: (id) => id === 'throwing_spear', throwActionLabel: () => 'Throw' };
+  assert.truthy(CONSUMABLE_SPEC.throwing_spear.usable(scene) && !CONSUMABLE_SPEC.throwing_spear.disabled(scene));
   assert.falsy(CONSUMABLE_SPEC.javelin.usable(scene)); assert.truthy(CONSUMABLE_SPEC.javelin.disabled(scene));
-  assert.eq(CONSUMABLE_SPEC.rockfruit.label(scene), 'Throw');
+  assert.eq(CONSUMABLE_SPEC.rubble.label(scene), 'Throw');
   assert.eq((ITEMS_JS_SRC.match(/scene\.canThrowItem\(/g) || []).length, 2, 'the throw gate is typed once, not per row');
 });
 

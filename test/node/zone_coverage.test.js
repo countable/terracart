@@ -203,7 +203,7 @@
     }
   });
 
-  test('park beaches: mapped footprints gain beach variants while inland parks retain groves', () => {
+  test('park beaches: adjoining park becomes grass marine meadow while mapped sand keeps its beach', () => {
     const T = WorldGen.T, a = anchor(1800, 1800);
     const park = { rings: [rect(700, 700, 3000, 3000)] };
     const beachLayer = { features: [{ type: 3, tags: { class: 'sand', subclass: 'beach' },
@@ -216,13 +216,34 @@
     assert.eq(beach.kind, 'beach');
     assert.truthy(beach.parkShore);
     assert.eq(beach.key, a.key, 'existing source point owns the beach identity');
-    assert.eq(ownerAt(f, 30, 22), a, 'inland coverage retains the original grove');
+    assert.eq(ownerAt(f, 30, 22), a, 'park keeps its original POI');
+    assert.eq(a.variant, 'marine_meadow', 'beach park cannot roll an unrelated mushroom grove');
+    paint(f, grid);
+    assert.eq(grid[22 * N + 30], T.GRASS, 'marine meadow has grass ground');
     assert.falsy(ownerAt(f, 13, 20)?.parkShore, 'building is never beach');
     assert.falsy(ownerAt(f, 13, 21)?.parkShore, 'water is never beach');
     assert.eq(ownerAt(build([anchor(1800, 1800)], [park], { grid }).field, 13, 22).kind,
       'grove', 'a beach-like park name or sand without mapped beach is insufficient');
     const inland = { features: [{ type: 3, tags: { class: 'sand', subclass: 'sand' }, geom: beachLayer.features[0].geom }] };
     assert.falsy(build([anchor(1800, 1800)], [park], { grid, beachLayer: inland }).field.anchors.some(a => a.parkShore));
+  });
+
+  test('park beaches: source adjacency outside the park and direct beach POIs get a meadow companion', () => {
+    const park = { rings: [rect(1200, 700, 3000, 3000)] };
+    const beachLayer = { features: [{ type: 3, tags: { natural: 'beach' }, geom: [rect(700,700,1200,3000)] }] };
+    for (const kind of ['grove', 'beach']) {
+      const a = anchor(1800, 1800, kind), grid = new Uint8Array(N * N).fill(WorldGen.T.PARK);
+      for (let y = 11; y < 47; y++) for (let x = 11; x < 19; x++) grid[y * N + x] = WorldGen.T.SAND;
+      const f = build([a], [park], { grid, beachLayer }).field;
+      assert.eq(ownerAt(f, 30, 22).variant, 'marine_meadow', kind);
+      assert.eq(ownerAt(f, 18, 22).kind, 'beach', 'adjoining mapped sand stays beach');
+      paint(f, grid);
+      assert.eq(grid[22 * N + 30], WorldGen.T.GRASS);
+      assert.eq(grid[22 * N + 18], WorldGen.T.SAND);
+    }
+    const distant = { features: [{ ...beachLayer.features[0], geom: [rect(0,0,100,100)] }] };
+    assert.falsy(build([anchor(1800,1800)], [park], { grid:new Uint8Array(N*N).fill(WorldGen.T.PARK), beachLayer:distant })
+      .field.anchors.some(a => a.variant === 'marine_meadow'), 'unrelated beach does not change an inland park');
   });
 
   test('park beaches: source identity survives clipped geometry, seams and feature order', () => {
@@ -247,6 +268,26 @@
     for (const k of ['gx', 'gy', 'key', 'R', 'variant']) assert.eq(a[k], b[k], k);
     assert.truthy(a.owned); assert.falsy(b.owned, 'finite beach finds retain canonical tile ownership');
     assert.eq(a.originGX, undefined); assert.eq(b.originGX, undefined);
+  });
+
+  test('beach parks: buffered POIs continue across clipped park edges only', () => {
+    const run = (right, gx, reverse = false) => {
+      const a = anchor(gx, 1800), rings = [rect(3600, 1200, right, 2200)];
+      if (reverse) rings[0].reverse();
+      const grid = new Uint8Array(N * N).fill(WorldGen.T.PARK);
+      const field = build([a], [{rings}], {grid, beachLayer:{features:[{
+        type:3, tags:{natural:'beach'}, geom:[rect(3600,1200,3800,2200)]
+      }]}}).field;
+      return {a, field};
+    };
+    for (const reverse of [false,true]) {
+      const {a,field} = run(4160,4172,reverse);
+      assert.eq(a.variant,'marine_meadow');
+      assert.truthy(field.anchors.some(a=>a.parkShore && !a.owned));
+    }
+    assert.falsy(run(4120,4132).a.variant==='marine_meadow','a real boundary beyond tile edge is not a clip edge');
+    assert.falsy(run(4000,4012).a.variant==='marine_meadow','a nearby public park does not claim an outside POI');
+    assert.falsy(run(4160,4800).a.variant==='marine_meadow','projection is bounded to the existing fringe distance');
   });
 
   test('zone coverage: enclosed outdoor patterns phase from the settled POI in either metre frame', () => {
@@ -276,9 +317,7 @@
   // A shore-sand cell must never come out of ANY zone/fringe pass as a
   // zone's ground: not the ragged HALO (Zones.haloSteps), not the PARK FRINGE
   // band (Zones.fringeSteps), not the full placement union (ZoneCoverage.
-  // paintSteps — this is where the bug lived: it painted every walkable,
-  // non-road/building/pier cell, T.SAND included, which read as ~3/4 of
-  // Vancouver's dry beach wearing grove ground). Runs the real pipeline
+  // paintSteps, which must skip T.SAND). Runs the real pipeline
   // order from worldgen.js rasterizeTileSteps (halo, then fringe, then
   // coverage) over a tile scattered with sand under a full-tile park/anchor,
   // so every pass gets a real chance to touch it.

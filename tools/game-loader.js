@@ -18,18 +18,20 @@
 
   window.loadGame = async function loadGame() {
     const html = await (await fetch('../index.html', { cache: 'no-store' })).text();
-    const srcs = [...html.matchAll(/<script src="(src\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)].map((m) => m[1]);
-    srcs.push('src/app.js');
-    const bust = Date.now();
-    for (const src of srcs) {
-      await new Promise((res, rej) => {
+    const srcs = [...html.matchAll(/<script src="(src\/[^"?]+)(?:\?([^"]*))?"><\/script>/g)].map((m) => m[1] + (m[2] ? '?' + m[2] : ''));
+    srcs.push(html.match(/const APP_SRC = '([^']+)'/)?.[1] || 'src/app.js');
+    // Fetch together, execute in document order: these classic scripts share
+    // globals. Keep the game's content hashes so unchanged modules can cache.
+    await Promise.all(srcs.map(src =>
+      new Promise((res, rej) => {
         const s = document.createElement('script');
-        s.src = '../' + src + '?' + bust;
+        s.async = false;
+        s.src = '../' + src;
         s.onload = res;
         s.onerror = () => rej(new Error('could not load ' + src));
         document.head.appendChild(s);
-      });
-    }
+      })
+    ));
     if (typeof disableSave === 'function') disableSave();
   };
 })();

@@ -157,17 +157,17 @@ test('eat cooldown: potions are exempt because they never go through the gate', 
   // The exemption is structural, not an id list: a potion is drunk through its
   // own method off syncConsumableButton, which never calls eatSelected. Two
   // things have to hold for that to keep being true.
-  for (const id of ['reach_potion', 'vigor_potion', 'speed_potion', 'shield_potion']) {
+  for (const id of ['reach_potion', 'healing_potion', 'speed_potion', 'shielding_potion']) {
     assert.eq(FOOD_ENERGY[id], undefined,
       `${id} carries no FOOD_ENERGY — it can never reach the Eat button`);
   }
-  const a = app.indexOf('drinkVigorPotion() {');
+  const a = app.indexOf('drinkHealingPotion() {');
   const b = app.indexOf('\n  }\n', a);
-  assert.truthy(a > 0 && b > a, 'found drinkVigorPotion in app.js');
+  assert.truthy(a > 0 && b > a, 'found drinkHealingPotion in app.js');
   const body = app.slice(a, b);
   assert.truthy(!/Energy\.canEat|Energy\.startEatCooldown/.test(body),
     'the energy potion neither checks nor arms the bite cooldown');
-  assert.truthy(/this\._restoreEnergy\(VIGOR_POTION_ENERGY\)/.test(body) && VIGOR_POTION_ENERGY === 65,
+  assert.truthy(/this\._restoreEnergy\(HEALING_POTION_ENERGY\)/.test(body) && HEALING_POTION_ENERGY === 65,
     'and it still restores on the spot (the one restore helper: cap, pop, HUD)');
 });
 // The foods with an extra effect (rainberry, pairy, coffee) keep tuning rows

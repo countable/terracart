@@ -1,8 +1,8 @@
 // Entity-driven interactable registry.
 //
-// World objects the player taps (trees, ore rocks, fruit trees, …) used to be
-// handled by a long if/else chain on `o.kind` inside interact.js' 'object'
-// tap-handler. That chain mixed three orthogonal concerns for every kind:
+// World objects the player taps (trees, ore rocks, fruit trees, …) are
+// described here, not in an if/else chain on `o.kind`. Three orthogonal
+// concerns per kind:
 //   1. GATE   — is this object spent / does the player have the right tool tier?
 //   2. TIMER  — how long is the work wheel (driven by the equipped tool tier)?
 //   3. PAYOUT — what loot drops when the work completes?
@@ -124,7 +124,7 @@ function fixedChestReward(fixedLoot, save) {
 // `stones` is HOW MANY STONES THE SPRITE SHOWS (SpriteLayout.plainRockStones —
 // 2 for the pair variant, 1 for the singles); the rock pays out EXACTLY that
 // many — no roll, so a pair is always 2 and a single always 1, and what you
-// see is what you get (until Sep 2026 it was that plus a coin-flip bonus).
+// see is what you get.
 // Flint on PLAIN_ROCK_FLINT_P of breaks.
 const PLAIN_ROCK_FLINT_P = 0.10;
 // Copper stays at 1/8; the extra rarity rises smoothly to 3x at Frost.
@@ -136,8 +136,8 @@ function plainRockBarChance(tier) {
 }
 function plainRockBaseDrop(scene, stones) {
   const qty = stones == null ? 1 : stones;
-  scene.addToInv('rockfruit', qty);
-  if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('coal', 1);
+  scene.addToInv('rubble', qty);
+  if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('flint_shard', 1);
   return qty;
 }
 // A PLAIN rock: a cave rock or a T1 surface rock with no named deposit —
@@ -152,7 +152,7 @@ function isPlainRock(o) {
 // their own costs and yields. Bonus finds still use the ordinary rock rolls.
 const QUARRY_ROCK_RULES = Object.freeze({ energyMul: 1.5, stones: 1 });
 function quarryRockRules(o) {
-  return o?.kind === 'mineralrock' && o.zone === 'quarry' && isPlainRock(o) ? QUARRY_ROCK_RULES : null;
+  return o?.kind === 'mineralrock' && o.zoneKind === 'quarry' && isPlainRock(o) ? QUARRY_ROCK_RULES : null;
 }
 
 // One first find per surface quarry, shared by every tile seeing its anchor.
@@ -203,7 +203,7 @@ function isGlintRock(o) {
   return isPlainRock(o) && isShiny(o.id, SHINY_RATE.rock);
 }
 const GLINT_ROCK_FINDS = Object.freeze([
-  Object.freeze({ id: 'coal', weight: PLAIN_ROCK_FLINT_P }),
+  Object.freeze({ id: 'flint_shard', weight: PLAIN_ROCK_FLINT_P }),
   ...[2, 3, 4, 5, 6, 7].map(t => Object.freeze({ id: mineralBarId(t), weight: plainRockBarChance(t) })),
   Object.freeze({ id: GEM_BY_TIER[4][0], weight: GEM_P_BY_TIER[4] * plainRockBarChance(4) }),
 ]);
@@ -222,12 +222,11 @@ function glintRockPhase(id, nowMs, revealStartedMs) { return beatPhase(id, nowMs
 // A CAVE WALL dug out — by a tap (interact.js cave-wall) or by walking into
 // it (app.js auto-mine), both through here: always one stone, and flint on
 // CAVE_WALL_FLINT_P of digs (a wall is where the flint is — a plain rock
-// gives it a third as often). Until Sep 2026 each path rolled its own
-// randInt(1,3) and 20 % flint.
+// gives it a third as often).
 const CAVE_WALL_FLINT_P = 0.30;
 function caveWallDrop(scene) {
-  scene.addToInv('rockfruit', 1);
-  if (Math.random() < CAVE_WALL_FLINT_P) scene.addToInv('coal', 1);
+  scene.addToInv('rubble', 1);
+  if (Math.random() < CAVE_WALL_FLINT_P) scene.addToInv('flint_shard', 1);
   return 1;
 }
 
@@ -315,16 +314,13 @@ const INTERACTABLES = {
       const gotAcorn = Math.random() < acornDropChance(save.relics);
       if (gotAcorn) scene.addToInv('acorn', 1);
       persistSave(save);
-      // Say what came off the tree, like mining / harvesting / fishing do —
-      // felling used to report the species and never mention the wood it just
-      // put in the bag. The glyph follows the species: conifers keep 🌲,
+      // Say what came off the tree, like mining / harvesting / fishing do.
+      // The glyph follows the species: conifers keep 🌲,
       // everything else gets the broadleaf 🌳.
       const conifer = /pine|fir|spruce|cedar/i.test(treeSpeciesName(o) || '');
       scene.flash(o.size === 'bush' ? `🌿 Cleared a bush.`
                 : `${conifer ? '🌲' : '🌳'} Felled ${treeSpeciesName(o)} tree.`, sx, sy);
       scene.flashLoot(`+${wood} ${ITEM_BY_ID.wood?.name || 'Wood'}`, undefined, 1, 'wood');
-      // Say what the tree actually gave. A drop the player isn't told about is
-      // a drop that didn't happen as far as they know.
       if (gotAcorn) scene.flashLoot(`+1 ${ITEM_BY_ID.acorn?.name || 'Acorn'}`, '#d9b382', 1.1, 'acorn');
       // Rare shiny tree — 10× wood value in cash + a memory.
       if (isShiny(o.id, SHINY_RATE.tree)) scene.awardShinyBonus('wood', sx, sy);
@@ -336,20 +332,20 @@ const INTERACTABLES = {
   // drops stone + a small chance of a sliver of ore. Ore rock (T2+) is pick-tier
   // gated and drops exactly one namesake bar + coal + tier-rolled gems.
   mineralrock: {
-    tool: 'pick',
+    tool: 'pickaxe',
     spent: (o, ctx) => isSpent(o, spentSets(ctx.scene, ctx.save)),
     spentAction: 'consume',
     gate: (o, save) => {
       if (isPlainRock(o)) return null;   // plain rock is ungated
-      return (save.relics?.pick?.tier || 0) < rockReqTier(o) ? needToolLine(rockReqTier(o), 'pick') : null;
+      return (save.relics?.pickaxe?.tier || 0) < rockReqTier(o) ? needToolLine(rockReqTier(o), 'pick') : null;
     },
     // Tier shortfall for the slow-grind offer — same req the gate reads.
     // Plain rock is ungated, so it never reports short.
-    tierShort: (o, save) => isPlainRock(o) ? 0 : rockReqTier(o) - (save.relics?.pick?.tier || 0),
+    tierShort: (o, save) => isPlainRock(o) ? 0 : rockReqTier(o) - (save.relics?.pickaxe?.tier || 0),
     // Shared tool-tier baseline (9 bare → 1 Frost via effectivePickCost) OR a
     // +9-per-tier surcharge when the rock out-tiers the pick, whichever is more.
     energy: (save, o) => {
-      const pickTier = save.relics?.pick?.tier || 0;
+      const pickTier = save.relics?.pickaxe?.tier || 0;
       const rockTier = mineralDeposit(o)?.yieldTier || o.yieldTier || 1;
       const cost = Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
       // Energy uses whole pips; preserve the 50% increase in expectation.
@@ -379,7 +375,7 @@ const INTERACTABLES = {
         // Quarry rubble pays one stone regardless of its pile silhouette.
         // Elsewhere the original pair/single artwork still owns the quantity.
         const qty = plainRockBaseDrop(scene, quarryRockRules(o)?.stones ?? SpriteLayout.plainRockStones(o));
-        let flashId = 'rockfruit';
+        let flashId = 'rubble';
         for (let t = 2; t <= 7; t++) {
           if (Math.random() < plainRockBarChance(t)) {
             const bar = mineralBarId(t);
@@ -403,13 +399,13 @@ const INTERACTABLES = {
         // actually went in the bag — this line read "+1 Rock" while handing
         // over three, the one loot path that under-reported itself (the cave
         // wall's own toast in interact.js has always flashed its qty).
-        const flashQty = (flashId === 'rockfruit') ? qty : 1;
+        const flashQty = (flashId === 'rubble') ? qty : 1;
         scene.flashLoot(`+${flashQty} ${item?.name || flashId}`, '#a7ffb0', 1, flashId);
         return;
       }
       // Ore-bearing rock — exactly ONE bar of the indicated type, plus a coal
       // nugget and a tier-rolled gem on T4+.
-      addLoot('coal', randInt(1, 2));
+      addLoot('flint_shard', randInt(1, 2));
       const t = o.yieldTier || 1;
       const primaryBar = mineralBarId(t) || mineralBarId(2);
       addLoot(primaryBar, 1);
@@ -543,8 +539,7 @@ const INTERACTABLES = {
       // MACRO STALLS (loot.js macroFor — an inn, chapel, apothecary, …): a
       // place you come back to, never a chest. A tap is a VISIT, so a Scouting
       // report aimed at its class (QUEST_POIS: library, museum,
-      // place_of_worship) is credited here, on every tap — the chest used to
-      // credit it once, on opening, and a macro never opens. Every kind but
+      // place_of_worship) is credited here, on every tap — a macro never opens. Every kind but
       // the chapel is a dialog (app.js presentMacro); the chapel pays through
       // THIS ceremony below, once a UTC day (the macro-service lane,
       // Macros.serviceUsedToday) and a tier humbler (Macros.chapelRollTier), and
@@ -746,11 +741,8 @@ const INTERACTABLES = {
   },
 
   // ---- Well / fountain: a landmark on the quest trail ----------------------
-  // OSM amenity=fountain — a water source on dry land. It used to top the
-  // watering can's charge bank to full; that bank fed the can's +2 produce
-  // quality, and when quality moved to the HOE (Crops.bedQuality) the bank
-  // retired with it. The well keeps the thing it is visited FOR — the quest
-  // tick — and otherwise reads as scenery.
+  // OSM amenity=fountain — a water source on dry land. Visited FOR the quest
+  // tick; otherwise it reads as scenery.
   well: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
@@ -896,9 +888,7 @@ INTERACTABLES.stronghold_wall = INTERACTABLES.mineralrock;
 // groundstack are one state wearing four names: the object is still GENERATED
 // (the world is a pure function of where it is), and the save carries only the
 // id that says "…except that one" (CLAUDE.md, bucket 2). render.js drops them
-// from the draw list and the registry's `spent` rows refuse the tap — and both
-// used to carry their own copy of the four clauses with a comment asking the
-// other side to keep matching.
+// from the draw list and the registry's `spent` rows refuse the tap.
 //
 // It takes the SETS, not the save, because render.js runs it over every object
 // of the 3×3 tile ring EVERY FRAME: the sets are built once for the frame and
@@ -1174,7 +1164,7 @@ function runInteractable(ctx, o, definition) {
   // while the wheel ran (a reload) completes nothing.
   const job = (durationMs, cost) => startToolJob(ctx, {
     x: o.x, y: o.y, tool: def.tool, durationMs, cost,
-    action: { axe: 'chop', pick: 'dig', hoe: 'till' }[def.tool] || null,
+    action: { axe: 'chop', pickaxe: 'dig', hoe: 'till' }[def.tool] || null,
     onDone: () => {
       if (def.spent && def.spent(o, ctx)) return false;
       def.complete(ctx, o);

@@ -1,23 +1,20 @@
 // Inventory core — pure operations on `save.inv`, extracted from app.js so the
 // stack/cap/dedupe rules are testable headlessly (no scene, no DOM).
 //
-// Invariants this enforces (unchanged from the original MapScene methods):
+// Invariants this enforces:
 //   - At most ONE stack per item id; legacy duplicate stacks self-heal (fold
 //     into one) on the next add.
 //   - Each stack is capped at stackCapForBags(bags relic): 9 with no bag, 249
 //     at tier 7. Excess is rejected (this game has no ground drops). No item is
-//     exempt: the one that was (the old Discovery badge) is now a save
-//     counter, save.memories, and never enters the bag.
+//     exempt; the Discovery badge is a save counter, save.memories, not a stack.
 //
 // The scene keeps thin wrappers (app.js addToInv / invRoomFor) that call these
 // and then do the side effects cores must not own: persistSave, buildInventory
 // DOM, the tab switch that surfaces a new pickup, and the 'bag full' flash.
 //
-// A pickup NEVER moves the selection. Until Sep 2026 a brand-new stack
-// auto-selected itself (save.selSlot jumped to it), so walking over a pebble
-// silently swapped the seeds out of the player's hand and the next tap on the
-// soil did the wrong thing. Nothing selected (-1) is the resting state and no
-// path may pick an item on the player's behalf.
+// A pickup NEVER moves the selection (save.selSlot): auto-selecting a new
+// stack swapped the seeds out of the player's hand. Nothing selected (-1) is
+// the resting state and no path may pick an item on the player's behalf.
 //
 // Depends on globals from items.js: ITEM_BY_ID, stackCapForBags.
 
@@ -26,7 +23,7 @@
 
   // Per-stack cap for the equipped bag tier (9 with no bag … 249 at tier 7).
   function stackCap(save) {
-    return (typeof stackCapForBags === 'function') ? stackCapForBags(save?.relics?.bags) : 9;
+    return (typeof stackCapForBags === 'function') ? stackCapForBags(save?.relics?.bag) : 9;
   }
 
   // Effective cap for ONE item id. Every id shares the bag's cap today; the

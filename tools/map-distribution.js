@@ -125,7 +125,7 @@ function wMeasure(e, EDGE, errors) {
   const rocks = objs.filter((o) => o.kind === 'mineralrock');
   const isPlain = (o) => o.caveVariant != null || (o.yieldTier || 1) <= 1;
   m.rocks = { all: rocks.length, plain: rocks.filter(isPlain).length, ore: rocks.filter((o) => !isPlain(o)).length,
-    street: rocks.filter((o) => o._street).length, zone: rocks.filter((o) => o.zone).length };
+    street: rocks.filter((o) => o._street).length, zone: rocks.filter((o) => o.zoneKind).length };
   // Streets.
   m.streets = null;
   const si = e.streetIndex;
@@ -174,10 +174,10 @@ function wMeasure(e, EDGE, errors) {
   }
   // Slow ground and zone props.
   const byKind = (k) => objs.filter((o) => o.kind === k);
-  m.tar = { zone: byKind('tar').filter((o) => o.zone).length, street: byKind('tar').filter((o) => !o.zone).length };
+  m.tar = { zone: byKind('tar').filter((o) => o.zoneKind).length, street: byKind('tar').filter((o) => !o.zoneKind).length };
   m.stakes = byKind('stakes').length;
   m.headstones = byKind('headstone').length;
-  m.shrines = objs.filter((o) => /shrine/.test(o.kind) && o.zone).length;
+  m.shrines = objs.filter((o) => /shrine/.test(o.kind) && o.zoneKind).length;
   // Parks: occupancy of PARK cells (anything standing), the characters of the
   // tile's park polygons, the fringe band and its filler (Zones.groundSteps'
   // tallies on the zone dressing), and the churchyards per anchor.
@@ -205,9 +205,9 @@ function wMeasure(e, EDGE, errors) {
     const cells = {};
     if (z && z.idx) for (let i = 0; i < NN; i++) if (z.idx[i]) { const a = anchors[z.idx[i] - 1]; if (a) cells[a.kind] = (cells[a.kind] || 0) + 1; }
     m.zone = {
-      anchors: anchors.map((a) => ({ kind: a.kind, R: a.R, owned: !!a.owned, aspect: a.aspect, key: a.key })),
+      anchors: anchors.map((a) => ({ kind: a.kind, R: a.R, owned: !!a.owned, variant: a.variant, key: a.key })),
       halo, cells, codes,
-      nexus: ((zd && zd.nexus) || []).map((n) => ({ kind: n.kind, aspect: n.aspect, pieces: n.pieces })),
+      nexus: ((zd && zd.nexus) || []).map((n) => ({ zoneKind: n.zoneKind, zoneVariant: n.zoneVariant, pieces: n.pieces })),
       lairs: ((zd && zd.lairs) || []).length,
     };
   }
@@ -470,9 +470,9 @@ function wRender(w) {
         + `<td>${all.length ? f1(all.reduce((total, a) => total + a.R, 0) / all.length) : '—'}</td>`
         + `<td>${sum(m => m.zone?.cells[kind]).toLocaleString()}</td><td>${halo.toLocaleString()}</td><td>${wPct(halo / totalCells)}</td></tr>`;
     }));
-    const asp = {};
-    for (const m of zs) for (const x of m.zone.nexus) { const k = `${x.kind}: ${x.aspect}`; asp[k] = asp[k] || { n: 0, p: 0 }; asp[k].n++; asp[k].p += x.pieces; }
-    const extra = Object.entries(asp).sort().map(([k, v]) => `<tr><td>nexus ${k}</td><td>${v.n}</td><td>${f1(v.p / v.n)} pieces</td></tr>`);
+    const byVariant = {};
+    for (const m of zs) for (const x of m.zone.nexus) { const k = `${x.zoneKind}: ${x.zoneVariant}`; byVariant[k] = byVariant[k] || { n: 0, p: 0 }; byVariant[k].n++; byVariant[k].p += x.pieces; }
+    const extra = Object.entries(byVariant).sort().map(([k, v]) => `<tr><td>nexus ${k}</td><td>${v.n}</td><td>${f1(v.p / v.n)} pieces</td></tr>`);
     const tot = (f) => ms.reduce((a, m) => a + f(m), 0);
     extra.push(`<tr><td>headstones</td><td>${tot((m) => m.headstones)}</td><td></td></tr>`);
     extra.push(`<tr><td>tar pits (zone)</td><td>${tot((m) => m.tar.zone)}</td><td></td></tr>`);
@@ -529,7 +529,7 @@ function wValueByType(entries) {
   }
   function standDiscount(id) {
     if (!id || typeof PRICES === 'undefined' || typeof ShopsMath === 'undefined' || !ShopsMath.standPrice) return 0;
-    const listPrice = Math.max(1, PRICES[id] ?? 1);
+    const listPrice = Math.max(1, typeof itemValue === 'function' ? itemValue(id) : (PRICES[id] ?? 1));
     return listPrice - ShopsMath.standPrice(emptySave, listPrice);
   }
   // Value the actual object's pot/barrel table, including its empty row and

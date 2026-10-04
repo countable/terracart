@@ -33,7 +33,7 @@
       assert.includes([2, 3, 4], rock.yieldTier);
       assert.eq(rock.requiredTier, rock.yieldTier - 1);
       assert.truthy(INTERACTABLES.mineralrock.gate(rock, { relics: {} }), 'ore cannot be gathered barehanded');
-      assert.eq(INTERACTABLES.mineralrock.gate(rock, { relics: { pick: { tier: rock.requiredTier } } }), null);
+      assert.eq(INTERACTABLES.mineralrock.gate(rock, { relics: { pickaxe: { tier: rock.requiredTier } } }), null);
     }
     assert.eq(JSON.stringify(rocks), JSON.stringify(ore(dress(context()))), 'reload preserves mineral types, seats and spent IDs');
     assert.eq(ore(dress(context(false))).length, 0, 'an observing tile cannot duplicate the site budget');

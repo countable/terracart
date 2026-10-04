@@ -34,7 +34,7 @@ test('coin icon: map size derives from each texture width', () => {
 // ── No other face of money survives ───────────────────────────────────────
 test('coin icon: no coin emoji remains anywhere in src/', () => {
   for (const [name, src] of Object.entries({
-    'app.js': APP_JS_SRC, 'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC,
+    'app.js + scene mixins': SCENE_SRC, 'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC,
     'items.js': ITEMS_JS_SRC, 'render.js': RENDER_SRC, 'assets.js': ASSETS_SRC,
   })) {
     assert.falsy(src.includes('🪙'), `${name} still draws money as the coin emoji`);
@@ -43,7 +43,7 @@ test('coin icon: no coin emoji remains anywhere in src/', () => {
 
 test('coin icon: no money "$" remains in src/ strings (interpolation ${ } untouched)', () => {
   for (const [name, src] of Object.entries({
-    'app.js': APP_JS_SRC, 'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC,
+    'app.js + scene mixins': SCENE_SRC, 'interact.js': INTERACT_SRC, 'interactables.js': INTERACTABLES_SRC,
   })) {
     src.split('\n').forEach((line, i) => {
       const code = line.replace(/\/\/.*$/, '');          // comments may talk prices

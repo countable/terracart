@@ -1,15 +1,13 @@
 // The pest amnesty (src/starter.js › pestFreeZone + app.js's fauna spawner + the crow
-// pump). Formerly the first-day slime amnesty — same zone, two changes: crows
-// are covered too, and it ends at the FIRST HARVEST instead of on a clock.
+// pump). It covers slimes and crows, and ends at the FIRST HARVEST.
 //
 // A slime sits on your crops and drains its roster row's dmg a second, a crow eats the
 // crop outright, and the opening session is the one stretch a player has
 // nothing to answer either with: no weapon, no relic, an empty bag, and a
 // ladder telling them to stand still and till. So until the save's first crop
 // is harvested (save.hasHarvested) the spawner seats no slime or crow near the
-// starting anchor. (The crop-raiding pest pump used to read this grace too;
-// it is hard-mode-only now, so on easy — the only mode with a grace to serve —
-// it never runs at all. difficulty.test.js owns that gate.)
+// starting anchor. (The crop-raiding pest pump is hard-mode-only;
+// difficulty.test.js owns that gate.)
 //
 // Two things have to be true or the rule is worse than useless: it has to end
 // (a permanent pest-free home is a different game — bringing in the first crop
@@ -106,12 +104,10 @@
 
   test('pest amnesty: the pest pump is off in the mode that has the grace', () => {
     // The pump spawns a deer just off-screen that walks to the nearest crop, so
-    // a zone check on its spawn point would be theatre. It used to be gated on
-    // the save flag instead; now it is a MODE difference (Difficulty cropPests,
-    // hard only), which subsumes the grace — easy, the only mode a grace could
-    // apply to, never pumps at any point in the save. The amnesty's own job is
-    // unchanged: the SPAWNER still keeps both pests away from home until the
-    // first harvest, in both modes.
+    // a zone check on its spawn point would be theatre. The pump is a MODE
+    // difference (Difficulty cropPests, hard only), which subsumes the grace;
+    // the SPAWNER still keeps both pests away from home until the first
+    // harvest, in both modes.
     assert.truthy(PEST_PUMP_GATE_SRC.includes('hasRaidableCrop'),
       'still only pumps when there is a crop worth raiding');
     assert.truthy(PEST_PUMP_GATE_SRC.includes('cropPests'),

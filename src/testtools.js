@@ -2,15 +2,9 @@
 // let an external driver (preview_eval, manual console, or a fixture script)
 // exercise game mechanics without going through the UI gestures.
 //
-// Why this exists separately from test/runner.js + test/tests.js:
-//   The harness runs ONE big batch at page load and reports pass/fail. These
-//   tools are pokeable LIVE in the running game — meant for the sandbox where
-//   you want to (a) reproduce a bug with one eval call, (b) advance a
-//   work-progress wheel without waiting 10 s in real time, or (c) snapshot
-//   state into a single JSON for diffing.
-//
-// Loaded unconditionally but inert until something calls TestTools.X(). Safe
-// to ship in prod since it never auto-runs.
+// Unlike the harness batch, these are pokeable LIVE in the sandbox: reproduce a
+// bug with one eval call, advance a work wheel without waiting, or snapshot
+// state to JSON. Loaded unconditionally but inert until TestTools.X() is called.
 //
 // Depends on:
 //   app.js — scene (window.__scene), addToInv, spendEnergy, handleWorldTap,
@@ -19,12 +13,11 @@
 //   save.js — persistSave
 
 (function (global) {
-  // Resolve scene each call so it works even if the scene was re-created.
+  // Resolved per call: the scene may be re-created.
   const S = () => global.__scene;
 
   // ── Time / work-progress helpers ───────────────────────────────────
-  // Force the in-flight work wheel to its completion handler without waiting
-  // for the real-time duration. Returns true if a wheel was running.
+  // Force the in-flight work wheel to its completion handler. Returns true if one was running.
   function flushWorkProgress() {
     const s = S();
     if (!s || !s._workProgress) return false;
@@ -35,7 +28,6 @@
     return true;
   }
 
-  // Sleep utility wrapping setTimeout — useful for awaiting async tile work.
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   // ── Inventory / state mutators ─────────────────────────────────────
@@ -57,9 +49,8 @@
   function setRelic(slot, tier) {
     const s = S();
     s.save.relics = s.save.relics || {};
-    // `setRelic('axe', null)` should UNEQUIP, not write a `{ tier: null }`
-    // placeholder. The game's slot-presence checks use `save.relics?.axe`
-    // which is truthy for any object — placeholders broke those gates.
+    // `setRelic('axe', null)` UNEQUIPS: slot-presence checks use
+    // `save.relics?.axe`, truthy for any object, so no `{ tier: null }` placeholder.
     if (tier == null) s.save.relics[slot] = null;
     else s.save.relics[slot] = { tier };
   }
@@ -75,14 +66,12 @@
   }
 
   // ── Tap helpers ────────────────────────────────────────────────────
-  // Tap a cell at offset (dxCells, dyCells) from the player's CELL CENTRE.
-  // Cancels any in-flight work wheel first so the new tap isn't swallowed
-  // by the "any tap cancels work" handler.
+  // Tap a cell at offset (dxCells, dyCells) from the player's CELL CENTRE,
+  // cancelling any work wheel first (any tap cancels work).
   function tapCellOffset(dxCells, dyCells) {
     const s = S();
     if (!s) return;
     if (s._workProgress) s.cancelWorkProgress();
-    // Convert player WORLD → screen, then add cell offset in screen pixels.
     const pc = (typeof worldMetersToAbsCell === 'function')
       ? worldMetersToAbsCell(s, playerWorldM(s).x, playerWorldM(s).y)
       : null;
@@ -99,8 +88,7 @@
     s.handleWorldTap(ss.x, ss.y);
   }
 
-  // Tap a world-meter point directly. Useful for tapping an object whose
-  // exact x/y was found via findObject().
+  // Tap a world-meter point directly (e.g. an object found via findObject()).
   function tapWorld(wx, wy) {
     const s = S();
     if (s._workProgress) s.cancelWorkProgress();
@@ -109,11 +97,8 @@
   }
 
   // ── Locator helpers — find nearby content for tap targeting ──────────
-  // Shared scan: the closest entry (by straight-line distance to the player)
-  // across every cached tile's `listKey` array that passes `predicate`.
-  // nearestObject/nearestWildplant/nearestCreature below are thin wrappers —
-  // only the array they scan (and, for creatures, the extra caught-filter)
-  // differ.
+  // The closest entry to the player across every cached tile's `listKey`
+  // array that passes `predicate`; the nearest* helpers below wrap it.
   function _nearest(listKey, predicate) {
     const s = S();
     const { x: pWX, y: pWY } = playerWorldM(s);
@@ -142,8 +127,7 @@
     return _nearest('creatures', (c) => !s.save.caught.includes(c.id) && predicate(c));
   }
 
-  // Teleport: shift playerM directly. Cell centres are easier to reason about
-  // than arbitrary world metres, so we accept WORLD METRES of the target.
+  // Teleport: shift playerM directly; takes WORLD METRES of the target.
   function teleport(wx, wy) {
     const s = S();
     s.playerM.x = wx - s.startWorldM.x;
@@ -153,8 +137,7 @@
     if (s.syncMoveTarget) s.syncMoveTarget();
   }
 
-  // Move the player one CELL adjacent to the target (south by default) so
-  // a tap on the target is in reach. Useful for "go interact with X" flows.
+  // Move the player `cells` adjacent to the target (south by default) so a tap is in reach.
   function teleportAdjacent(target, side = 'south', cells = 1) {
     if (!target) return false;
     const s = S();
@@ -165,7 +148,6 @@
   }
 
   // ── Snapshots ──────────────────────────────────────────────────────
-  // Compact state dump — what we usually want to assert against.
   function snapshot() {
     const s = S();
     const sv = s.save;
@@ -197,13 +179,10 @@
   // ── Verify scenarios ───────────────────────────────────────────────
   // Each returns { name, pass, details } so a driver can collect and report.
   const VERIFY = {
-    // 1) Walk into a tree. Equip an axe, tap, flush the chop wheel, expect
-    //    the tree to be flagged chopped and 'tree' produce in the inventory.
+    // 1) Equip an axe, tap a tree, flush the chop wheel: tree chopped, produce in inventory.
     async chop_tree() {
       const s = S();
-      // Top-tier axe so the nearest tree fells regardless of its size class
-      // (bush→large), species shift (softwood/hardwood), or shiny status —
-      // the test verifies the chop flow, not the axe-tier gate.
+      // Top-tier axe: this verifies the chop flow, not the axe-tier gate.
       setRelic('axe', 4);
       const tree = nearestObject(o => o.kind === 'tree' && !o.chopped);
       if (!tree) return { name: 'chop_tree', pass: false, details: 'no tree near player' };
@@ -220,13 +199,11 @@
       };
     },
 
-    // 2) Break a rock cell. Equip a pick, stand next to a rock plot in the
-    //    sandbox, tap, flush. Expect cell key in brokenRockSet.
+    // 2) Equip a pick, tap a rock cell, flush: cell key lands in brokenRockSet.
     async break_rock() {
       const s = S();
-      setRelic('pick', 3);   // iron = 1.5 s wheel
+      setRelic('pickaxe', 3);   // iron = 1.5 s wheel
       setEnergy(50);
-      // Find any rock cell in the start tile.
       const pc = s.playerToWorldCell();
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
       const N = entry.cellsPerEdge;   // the tile's own grid (its row's)
@@ -237,7 +214,6 @@
         }
       }
       if (!target) return { name: 'break_rock', pass: false, details: 'no rock cell' };
-      // Teleport to the rock cell, then tap it (cell-resolve uses our cell).
       const { x: wmx, y: wmy } = tileCellCenterMeters(s, pc.tx, pc.ty, target.ix, target.iy);
       teleport(wmx, wmy);
       const before = s.brokenRockSet.size;
@@ -251,8 +227,7 @@
       };
     },
 
-    // 3) Pick an instant wildplant (longgrass / nut / shrub-free). Walk over
-    //    it and tap; expect inv + picked grows by 1.
+    // 3) Tap an instant wildplant (longgrass): inv + picked grow by 1.
     async pick_wildplant_instant() {
       const wp = nearestWildplant(w => w.crop === 'longgrass');
       if (!wp) return { name: 'pick_wildplant_instant', pass: false, details: 'no longgrass' };
@@ -269,27 +244,25 @@
       };
     },
 
-    // 4) Pick a rockfruit (uses work wheel — pick tier scales speed). Flush
-    //    and expect the work wheel ran AND the produce landed in the inventory.
+    // 4) Pick a rockfruit (work wheel): the wheel ran AND the produce landed.
     async pick_rockfruit() {
       const s = S();
-      setRelic('pick', 3);
-      const wp = nearestWildplant(w => w.crop === 'rockfruit');
+      setRelic('pickaxe', 3);
+      const wp = nearestWildplant(w => w.crop === 'rubble');
       if (!wp) return { name: 'pick_rockfruit', pass: false, details: 'no rockfruit' };
       teleport(wp.x, wp.y);
-      const before = invCount('rockfruit');
+      const before = invCount('rubble');
       tapWorld(wp.x, wp.y);
       const hadWheel = !!s._workProgress;
       flushWorkProgress();
       return {
         name: 'pick_rockfruit',
-        pass: hadWheel && invCount('rockfruit') === before + 1,
-        details: { hadWheel, before, after: invCount('rockfruit') },
+        pass: hadWheel && invCount('rubble') === before + 1,
+        details: { hadWheel, before, after: invCount('rubble') },
       };
     },
 
-    // 5) Catch a chicken. Hold its favourite food (rainberry), tap, expect
-    //    chicken in inv + creature flagged caught.
+    // 5) Hold the chicken's favourite food (rainberry), tap: chicken in inv + flagged caught.
     async catch_chicken() {
       const s = S();
       give('rainberry', 1);
@@ -307,10 +280,9 @@
       };
     },
 
-    // 6) Open a chest. Stand adjacent, tap, expect entry in save.opened AND
-    //    at least one new inventory entry. A one-off chest only: a crate
-    //    (interactables.js restocks) spends into the day ledger
-    //    instead, and a pot of gold / bike rack is no chest.
+    // 6) Tap an adjacent chest: entry in save.opened AND inventory. A one-off
+    //    chest only: a crate spends into the day ledger, and a pot of gold /
+    //    bike rack is no chest.
     async open_chest() {
       const s = S();
       const chest = nearestObject(o => o.kind === 'chest' && !restocks(o) && !chestNeverSpent(o)
@@ -327,13 +299,11 @@
       };
     },
 
-    // 7) Till → plant → harvest a crop. Stand on an empty grass cell, till,
-    //    plant a seed, force-grow the crop to stage 4, harvest.
+    // 7) Till, plant, force-grow to stage 4, harvest on an empty grass cell.
     async crop_cycle() {
       const s = S();
       setEnergy(50);
-      // Find an empty grass cell near the player plot — the sandbox's farmland
-      // / player plots are reliable starts.
+      // An empty grass cell near the player plot.
       const pc = s.playerToWorldCell();
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
       const N = entry.cellsPerEdge;   // the tile's own grid (its row's)
@@ -349,26 +319,22 @@
         }
       }
       if (cellIX < 0) return { name: 'crop_cycle', pass: false, details: 'no grass cell' };
-      // Use the SAME cell-centre coords the cell-resolve handler will compute,
-      // so the entries the planter writes are findable by exact equality.
-      // (cellIX / cellIY here are the tile-LOCAL cell the scan found.)
+      // Same cell-centre coords the tap handler computes, so planted entries
+      // are findable by exact equality (cellIX / cellIY are tile-LOCAL).
       const cc = tileCellCenterMeters(s, pc.tx, pc.ty, cellIX, cellIY);
       const wmx = cc.x, wmy = cc.y;
       teleport(wmx, wmy + s.cellM);   // stand south of target
-      // Till — empty hands.
+      // Till with empty hands.
       s.save.selSlot = -1;
       tapWorld(wmx, wmy);
       const tilled = s.tilledSet.size > 0;
-      // Plant — give and select a fast seed.
       give('potato_seed', 1);
       select('potato_seed');
       tapWorld(wmx, wmy);
       const cropEntry = (s.save.planted || []).find(p =>
         Math.abs(p.x - wmx) < 0.1 && Math.abs(p.y - wmy) < 0.1);
       const planted = !!cropEntry;
-      // Force-grow: bump stage to mature directly so we can harvest.
       if (cropEntry) cropEntry.stage = 4;
-      // Harvest — empty hands on a mature crop.
       s.save.selSlot = -1;
       const before = invCount('potato');
       tapWorld(wmx, wmy);
@@ -381,11 +347,10 @@
     },
   };
 
-  // Reset transient save state that scenarios mutate, so a runAll is
-  // reproducible from any starting point. NOT a full save wipe — keeps
-  // money/maxEnergy/relics inv/etc. — only zeroes the slices each scenario
-  // touches. Also resets the in-memory mirrors (brokenRockSet, tilledSet,
-  // placedRockSet) and unflags in-memory chopped trees / opened chests.
+  // Reset the transient save state scenarios mutate, so a runAll is
+  // reproducible. NOT a full wipe (keeps money/maxEnergy/relics). Also resets
+  // the in-memory mirrors (brokenRockSet, tilledSet, placedRockSet) and unflags
+  // chopped trees.
   function resetTestState() {
     const s = S();
     if (!s) return;
@@ -401,32 +366,24 @@
     sv.foundTreasures = [];
     sv.sprungTraps = [];
     sv.scarecrows = [];
-    // Per-creature produce cooldown (lastProduce[id] = epoch ms). Without
-    // clearing this, a chicken/cow that yielded an egg/milk earlier in
-    // the test run refuses to be fed again for an hour, breaking the
-    // "feeding plant produce yields an egg" tests.
+    // Per-creature produce cooldown (lastProduce[id] = epoch ms); else a fed
+    // chicken/cow refuses to produce again for an hour.
     sv.lastProduce = {};
     sv.inv = [];
     sv.selSlot = -1;
     sv.eatReadyAt = 0;
     Energy.set(sv, sv.maxEnergy ?? 100);
     sv.relics = sv.relics || {};
-    // Clear in-memory `chopped` flag on every cached tree object so prior
-    // chop_tree runs don't poison nearestObject's filter.
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind === 'tree') o.chopped = false;
       }
-      // Clear the in-memory produce-cooldown timestamp on every creature so
-      // tests that re-feed a chicken/cow don't hit the 1-hour cooldown set
-      // by a prior tap. save.lastProduce was zeroed above; this is the
-      // mirror that lives on the creature object itself.
+      // The mirror of save.lastProduce on the creature object itself.
       for (const c of (e.creatures || [])) {
         if (c._lastProduceT) c._lastProduceT = 0;
       }
     }
-    // Teleport back to the sandbox player plot so all "nearest X" lookups
-    // start from the same anchor.
+    // Back to the sandbox player plot so "nearest X" lookups share an anchor.
     if (typeof Sandbox !== 'undefined' && Sandbox.detect()) Sandbox.install(s);
     s.cancelWorkProgress?.();
     s.buildInventoryDOM?.();
@@ -436,7 +393,6 @@
     const out = [];
     for (const name of Object.keys(VERIFY)) {
       try {
-        // Reset between scenarios so each one starts from a known state.
         resetTestState();
         const r = await VERIFY[name]();
         out.push(r);

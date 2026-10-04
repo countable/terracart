@@ -99,8 +99,7 @@ function loadPng(rel) {
   return _pngCache.get(rel);
 }
 
-// Opaque (trimmed) bounding box of one frame, in frame-local pixels.
-// Returns {minX,minY, maxX,maxY} with max EXCLUSIVE; null if fully transparent.
+// Opaque (trimmed) bounding box of one frame, frame-local, max EXCLUSIVE; null if fully transparent.
 function trimFrame(img, fx, fy, fw, fh) {
   let minX = fw, minY = fh, maxX = 0, maxY = 0, any = false;
   for (let y = 0; y < fh; y++) {
@@ -119,12 +118,9 @@ function trimFrame(img, fx, fy, fw, fh) {
 }
 
 // Longest run of fully transparent rows BETWEEN opaque rows of one frame. A
-// seated sprite is one piece of art — a tree is canopy over trunk over roots
-// with no gap — so a gap means the frame box reaches past its own art into a
-// neighbour on the sheet. That is how the birch went wrong: sliced 32×64 on
-// a 96px sheet, its frame took in the tip of the red tree from the band
-// below, the trimmed bounds ran to the frame's bottom, and the seat pass
-// stood the birch on the wrong tree's crown, 16px too high in its cell.
+// seated sprite is one piece of art with no gap, so a gap means the frame box
+// reaches past its own art into a neighbour on the sheet (the birch once took
+// in the tip of the red tree below and was seated 16px too high).
 function frameRowGap(img, fx, fy, fw, fh) {
   let gap = 0, run = 0, seen = false;
   for (let y = 0; y < fh; y++) {
@@ -148,15 +144,13 @@ const MAX_ROW_GAP = 4;
 
 // ── The CROWN of a fruit tree: the canopy, without the trunk ───────────────
 // A bearing fruit tree wears a fruit sprite on its crown (render.js's fruit
-// pass, seated by SpriteLayout.fruitCrownOffset over CROWN_BOUNDS), so "where
-// do the leaves end and the trunk begin" is drawn geometry now and has to be
-// derived from the art rather than eyeballed.
+// pass, seated by SpriteLayout.fruitCrownOffset over CROWN_BOUNDS), so where
+// the leaves end and the trunk begins is derived from the art.
 //
 // The rule: walk down from the canopy's WIDEST row; the crown ends at the
-// first row whose opaque span drops under half that width — that narrowing is
-// the trunk. (Reading the art's full bounds instead would put the "crown"
-// midline on bare bark: the bounds run on down through the trunk to the root
-// base, which is wide again and would drag the midline lower still.)
+// first row whose opaque span drops under half that width (the trunk). The
+// art's full bounds would put the midline on bare bark (the root base is wide
+// again and drags it lower still).
 // Returns the canopy's box in frame pixels, max EXCLUSIVE, or null.
 function crownBox(file, fw, fh, frameIdx) {
   const img = loadPng(file);
@@ -205,18 +199,14 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   treeCtx, { filename: 'util.js' });
 const treeScale = treeCtx.treeScale;
 
-// ── And the bush's scale from items.js, for the same reason ────────────────
-// A bush is one species at one size, so the bush-tier TREE and the `shrub`
-// wildplant must draw at the same size — CROP_SPRITE.shrub.scale is the one
-// number both render.js branches read. Copying it here as a literal made a
-// third place to change it, which is how a table drifts.
-// A top-level `const` in a script lands in the script scope, not on the global
-// object (unlike a `function`, which is why treeScale above needs no bridge),
-// so hand it over explicitly.
+// ── And the bush's scale from items.js ──────────────────────────────────────
+// The bush-tier TREE and the `shrub` wildplant draw at the same size:
+// CROP_SPRITE.shrub.scale is the one number both render.js branches read.
+// A top-level `const` lands in the script scope, not on the global object
+// (unlike a `function`, hence no bridge for treeScale above), so hand it over.
 const itemsCtx = { Math, console, EnemyRoster: require('../src/enemy_roster.js') };
 vm.createContext(itemsCtx);
-// util.js first, as index.html orders them: the catalog formats a ✦ line with
-// util.js' shortDuration at load time.
+// util.js first, as index.html orders them (the catalog uses shortDuration at load).
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   itemsCtx, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
@@ -225,9 +215,8 @@ vm.runInContext('globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONT
 const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
 const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 
-// ── …and the texture table from assets.js, so the wildplant-frame audit below
-//    reads the SAME sheet geometry the game loads (path + frame size) rather
-//    than a third copy of it. The onLoad hooks are never called here.
+// ── …and the texture table from assets.js, so the wildplant-frame audit reads
+//    the SAME sheet geometry the game loads. The onLoad hooks are never called.
 const assetsCtx = { Math, console, window: {}, EnemyRoster: require('../src/enemy_roster.js'),
   SpriteLayout: require('../src/sprite_layout.js') };
 vm.createContext(assetsCtx);
@@ -239,15 +228,14 @@ const ASSETS = assetsCtx.window.ASSETS;
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
-  // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
-  // band and picked up the tip of the red autumn tree (see assets.js).
+  // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
+  beach_palms: { file: ASSETS.beach_palms.path, fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5] },
   bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
-  // bearing tree now keeps its mature frame and wears a fruit sprite instead,
-  // so nothing ever seats them (see FRUIT_FRAMES in render.js).
+  // bearing tree keeps its mature frame and wears a fruit sprite (FRUIT_FRAMES in render.js).
   apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
-  peach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
+  worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0] },
   box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
   crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
@@ -283,13 +271,8 @@ const SHEETS = {
 //    the ART_BOUNDS entry; scale mirrors the RENDER_SPEC branch the renderer
 //    seats with (scaleYMul covers fruit trees' 1.10 Y stretch).
 //
-//    There is deliberately no `origin` column. The seat maths measures the art
-//    relative to the anchor and then subtracts exactly that, so the ORIGIN
-//    CANCELS: a seated frame lands in the same place at [0.5,0.5] as at
-//    [0.406,0.62]. A column that cannot change an outcome only invites drift,
-//    and it had: this table said the pole anchored at 0.25 while RENDER_SPEC
-//    said 0.5, and nothing noticed for the good reason that nothing could.
-//    SEAT_ANCHOR below stands in for all of them.
+//    There is deliberately no `origin` column: the seat maths subtracts the
+//    anchor it measures from, so the ORIGIN CANCELS. SEAT_ANCHOR stands in for all.
 const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
@@ -301,11 +284,12 @@ const SCENARIOS = [
   { name: 'pine small',      key: 'pine_tree',     frameIdx: 1, scale: t('pine', 'small') },
   { name: 'pine medium',     key: 'pine_tree',     frameIdx: 2, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
+  ...[0, 1, 2, 3, 4, 5].map(frameIdx => ({ name: `beach palm ${frameIdx}`, key: 'beach_palms', frameIdx, scale: itemsCtx.WILDPLANT_CONTEXT_ART.palm.scale })),
   { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
   { name: 'giant mushroom', key: 'zone_objects', frameIdx: 40, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
-  { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
+  { name: 'peach (wild)',    key: 'worldpeach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
   { name: 'chest',           key: 'chest',         frameIdx: 0, scale: CHEST_SCALE },
   { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
   { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
@@ -355,8 +339,7 @@ function evaluate(s) {
              table.fw !== sheet.fw || table.fh !== sheet.fh) {
     violations.push(`ART_BOUNDS "${lookup}" stale (run --emit-bounds)`);
   }
-  // One frame, one piece of art: a gap of empty rows inside the frame means
-  // the slice reaches into a neighbouring sprite on the sheet (see frameRowGap).
+  // One frame, one piece of art (see frameRowGap).
   const gap = sheetFrameRowGap(sheet.file, sheet.fw, sheet.fh, s.frameIdx);
   if (gap > MAX_ROW_GAP) {
     violations.push(`frame holds two pieces of art (${gap} empty rows between opaque rows) — ` +
@@ -386,41 +369,30 @@ function evaluate(s) {
 }
 
 // ── Creature check ─────────────────────────────────────────────────────────
-// Creatures are exempt from the seat rule (moving actors), but their entries in
-// CREATURE_ART still have to describe the real art: the work-progress wheel is
-// centred on each kind's CROWN from that table, so a resized or repainted
-// creature sheet must not be able to leave its wheel floating in the air.
-// Enemy atlases reference their first downward idle pose; other sheets use frame 0.
-// Atlas kinds start elsewhere; pinning their rest pose keeps the wheel from
-// bobbing with the idle animation.
+// Creatures are exempt from the seat rule, but their CREATURE_ART entries must
+// describe the real art: the work wheel is placed from that table, so a
+// repainted sheet must not leave it floating. Enemy atlases reference their
+// first downward idle pose (pinning the rest pose keeps the wheel from bobbing);
+// other sheets use frame 0.
 //
-// The rule checked below is that the ring RESTS ON the crown — its top edge on
-// the art's top row — not that its centre sits there. Centring on the crown put
-// a full radius of ring in the sky above every animal, which is what read as
-// "the wheel is too high".
-// DERIVED, never a fourth copy of the paths. Each CREATURE_ART row names the
-// assets.js texture key it is drawn from (`sheet`), and assets.js owns where
-// that key's PNG lives — so this audit decodes exactly the file the renderer
-// puts on screen. It used to be a hand-written kind → path table beside them,
-// which is how the cave slime's row came to be commented "tinted reuse of the
-// slime sheet" while nothing in the renderer tinted it at all.
+// The rule checked is that the ring RESTS ON the crown (its top edge on the
+// art's top row), not that its centre sits there.
+// Paths are DERIVED: each CREATURE_ART row names its assets.js texture key
+// (`sheet`), and assets.js owns where that PNG lives.
 const CREATURE_SHEETS = Object.fromEntries(
   Object.entries(CREATURE_ART).map(([kind, a]) => {
     const asset = ASSETS[a.sheet];
     if (!asset || !asset.path) {
       throw new Error(`CREATURE_ART.${kind}.sheet = '${a.sheet}' is not an assets.js texture key`);
     }
-    // The FRAME SIZE is the other half of "which sprite": assets.js is what
-    // Phaser actually cuts the sheet with, so a CREATURE_ART row that disagrees
-    // is measuring a window the game never draws.
+    // assets.js is what Phaser cuts the sheet with; a disagreeing row measures a window never drawn.
     if (asset.frameWidth !== a.fw || asset.frameHeight !== a.fh) {
       throw new Error(`CREATURE_ART.${kind} is ${a.fw}x${a.fh} but assets.js cuts `
                     + `'${a.sheet}' at ${asset.frameWidth}x${asset.frameHeight}`);
     }
     return [kind, asset.path];
   }));
-// Outer radius of the wheel — the backing disc, one px past the stroked ring.
-// Taken from the shared table so this can't drift from what app.js draws.
+// Outer radius of the wheel: the backing disc, one px past the stroked ring.
 const WHEEL_R = CREATURE_WHEEL_R + 1;
 
 function evaluateCreature(kind) {
@@ -442,19 +414,18 @@ function evaluateCreature(kind) {
   const artBottom = frameTop + fresh.maxY * a.scale;
   const cy = creatureWheelDy(kind);
   const artH = artBottom - artTop;
-  // The ring's top edge rests on the crown — or, on an animal too short to
-  // give up a full radius, the wheel centres on its midline instead.
+  // The ring's top edge rests on the crown, or on an animal too short for a
+  // full radius the wheel centres on its midline.
   const want = artTop + Math.min(WHEEL_R, artH / 2);
   if (Math.abs(cy - want) > 0.5) {
     violations.push(`wheel off its seating by ${(cy - want).toFixed(1)}px ` +
                     `(want ${want.toFixed(1)}, got ${cy.toFixed(1)})`);
   }
-  // No part of the ring may float above the crown on an animal tall enough to
-  // seat it — that overshoot is the bug this rule exists to prevent.
+  // No part of the ring may float above the crown on an animal tall enough to seat it.
   if (artH >= 2 * WHEEL_R && cy - WHEEL_R < artTop - 0.5) {
     violations.push(`wheel overshoots the crown by ${(artTop - (cy - WHEEL_R)).toFixed(1)}px`);
   }
-  // And it must still touch the body it reports on.
+  // It must still touch the body it reports on.
   if (cy + WHEEL_R <= artTop) violations.push('wheel floats clear above the art');
   if (cy - WHEEL_R >= artBottom) violations.push('wheel sits below the art');
   return { kind, artTop, artBottom, cy, violations };
@@ -482,15 +453,13 @@ function emitBounds() {
 }
 
 // ── Wildplant frames: every frame a crop DECLARES must carry art ──────────
-// A wildplant's sprite is picked from its CROP_SPRITE entry (`frame`, the
-// per-cell `frames` list, or `caveFrames`), and nothing in the renderer can
-// tell a frame index that holds a shell from one that holds nothing: a blank
-// frame draws a pickup the player can tap but not see. That is exactly how
-// the beaches emptied — `shell` declared `variants: 12` on a sheet whose 12
-// cells are 3 shells, 3 keyline duplicates, 2 flat masks and 4 blanks — so
-// this decodes the real PNG behind each declared frame and fails if it is
-// off the end of the sheet, transparent, or a single flat colour (a mask row
-// is opaque but it is a silhouette, not art).
+// A wildplant's sprite comes from its CROP_SPRITE entry (`frame`, `frames`, or
+// `caveFrames`), and the renderer can't tell a frame holding a shell from one
+// holding nothing: a blank frame draws a pickup the player can tap but not see
+// (the beaches emptied when `shell` declared `variants: 12` on a sheet with 4
+// blanks and 5 duplicate/mask cells). This decodes the PNG behind each declared
+// frame and fails if it is off the sheet, transparent, or one flat colour (a
+// mask silhouette, not art).
 function frameInk(img, fw, fh, frameIdx) {
   const cols = Math.floor(img.w / fw), rows = Math.floor(img.h / fh);
   if (frameIdx < 0 || frameIdx >= cols * rows) return null;   // off the sheet
@@ -519,8 +488,7 @@ function wildFrameRows() {
     for (const f of (ov.frames || [])) declared.push(['frames', f]);
     for (const f of (ov.caveFrames || [])) declared.push(['caveFrames', f]);
     if (typeof ov.variants === 'number') {
-      // A COUNT can't be checked against the art without asserting that every
-      // cell of the sheet is a sprite, which is the assumption that broke.
+      // A COUNT can't be checked without assuming every sheet cell is a sprite (the assumption that broke).
       rows.push({ name: `${crop}`, violations: [
         `CROP_SPRITE.${crop} declares a variant COUNT (${ov.variants}); ` +
         'list the frames that carry art instead (`frames: [...]`)'] });
@@ -565,8 +533,7 @@ function evaluateCrowns() {
         `minX ${fresh.minX} minY ${fresh.minY} maxX ${fresh.maxX} maxY ${fresh.maxY} ` +
         `(run --emit-bounds)`);
     }
-    // The fruit hangs at the crown's midline: it has to land on leaves, not on
-    // the trunk under them or the sky over them.
+    // The fruit hangs at the crown's midline: on leaves, not trunk or sky.
     if (fresh && table && !violations.length) {
       const art = trimSheetFrame(sh.file, sh.fw, sh.fh, sh.crownFrame);
       const mid = (table.minY + table.maxY) / 2;

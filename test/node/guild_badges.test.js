@@ -5,7 +5,7 @@
 
 (function () {
 
-const BADGES = { blacksmith: 'guild_blacksmith', market: 'guild_market', trader: 'guild_trader' };
+const BADGES = { blacksmith: 'smiths_guild_badge', market: 'marketeers_guild_badge', trader: 'traders_guild_badge' };
 const carrying = (id) => ({ inv: id ? [{ id, count: 1 }] : [], relics: {} });
 
 test('guild badges: each guild has one carried treasure with shipped art and a description', () => {
@@ -18,7 +18,7 @@ test('guild badges: each guild has one carried treasure with shipped art and a d
     assert.truthy(PRICES[id] > 0, `${id}: priced`);
     assert.truthy(ITEM_EFFECTS[id], `${id}: description`);
     const src = inventoryIconSource(id);
-    assert.truthy(APP_JS_SRC.includes(`  ${src.sheet}: { url: 'assets/Icons/Items/${id}.png', cols: 1, srcW: 16, srcH: 16 }`),
+    assert.truthy(SCENE_SRC.includes(`  ${src.sheet}: { url: 'assets/Icons/Items/${id}.png', cols: 1, srcW: 16, srcH: 16 }`),
       `${id}: DOM icon sheet points at its art`);
     assert.truthy(pngDims(`assets/Icons/Items/${id}.png`), `${id}: PNG shipped`);
   }
@@ -30,7 +30,7 @@ test('guild badges: found in treasure like every other unique relic', () => {
 });
 
 test('guildDiscounted: ten percent off its own guild only, half a unit to the player, never below one', () => {
-  const smith = carrying('guild_blacksmith');
+  const smith = carrying('smiths_guild_badge');
   assert.eq(guildDiscounted(carrying(null), 'blacksmith', 50), 50, 'no badge, no discount');
   assert.eq(guildDiscounted(smith, 'market', 50), 50, 'another guild pays full');
   assert.eq(guildDiscounted(smith, null, 50), 50, 'no guild at all');
@@ -38,8 +38,8 @@ test('guildDiscounted: ten percent off its own guild only, half a unit to the pl
   assert.eq(guildDiscounted(smith, 'blacksmith', 5), 4, 'five bars become four');
   assert.eq(guildDiscounted(smith, 'blacksmith', 3), 3, 'a sub-half saving rounds away');
   assert.eq(guildDiscounted(smith, 'blacksmith', 1), 1, 'never below one');
-  assert.eq(guildDiscount(carrying('guild_trader'), 'trader'), 0.1);
-  assert.eq(guildDiscount(carrying('guild_market'), 'market'), 0.1);
+  assert.eq(guildDiscount(carrying('traders_guild_badge'), 'trader'), 0.1);
+  assert.eq(guildDiscount(carrying('marketeers_guild_badge'), 'market'), 0.1);
 });
 
 test('Houses.guildRole: a house by its role, a peddler by its trade', () => {
@@ -100,8 +100,8 @@ const HOUSE = { id: 'h', kind: 'house', tier: 9 };
 
 test('guild badge: the market badge cuts a themed shop’s cash price', () => {
   const plain = scene('market', null).buildShopOffer('potato_seed', 100, { house: HOUSE });
-  const badged = scene('market', 'guild_market').buildShopOffer('potato_seed', 100, { house: HOUSE });
-  const wrong = scene('market', 'guild_trader').buildShopOffer('potato_seed', 100, { house: HOUSE });
+  const badged = scene('market', 'marketeers_guild_badge').buildShopOffer('potato_seed', 100, { house: HOUSE });
+  const wrong = scene('market', 'traders_guild_badge').buildShopOffer('potato_seed', 100, { house: HOUSE });
   const full = Number(plain.label);
   assert.eq(Number(badged.label), full - Math.round(full * 0.1));
   assert.eq(Number(wrong.label), full, 'the wrong guild’s badge buys nothing');
@@ -113,15 +113,15 @@ test('guild badge: the trader badge trims the ask', () => {
     s.save.inv.push({ id: 'wood', count: 500 });
     return s.peekOrBuildTraderOffer(HOUSE);
   };
-  const plain = ask(null), badged = ask('guild_trader');
+  const plain = ask(null), badged = ask('traders_guild_badge');
   assert.eq(badged.askId, plain.askId, 'the same deal');
-  assert.eq(badged.askQty, guildDiscounted(carrying('guild_trader'), 'trader', plain.askQty));
+  assert.eq(badged.askQty, guildDiscounted(carrying('traders_guild_badge'), 'trader', plain.askQty));
 });
 
 test('guild badge: the smiths’ badge trims every forge ingredient', () => {
   const offer = { kind: 'relic', slot: 'axe', tier: 3 };
   const listed = Gear.blacksmithRecipe('relic', 'axe', 3);
-  const s = scene('blacksmith', 'guild_blacksmith');
+  const s = scene('blacksmith', 'smiths_guild_badge');
   s.presentBlacksmithOffer(0, 0, offer, () => {}, HOUSE);
   for (const r of listed) {
     assert.includes(s.offer.cost, `${guildDiscounted(s.save, 'blacksmith', r.qty)}× `);
@@ -130,7 +130,7 @@ test('guild badge: the smiths’ badge trims every forge ingredient', () => {
 });
 
 test('guild badge: repeated single-bar smelting charges the displayed discounted recipe', () => {
-  const s = scene('blacksmith', 'guild_blacksmith');
+  const s = scene('blacksmith', 'smiths_guild_badge');
   s.save.inv.push({ id: 'sunflower', count: 9 }, { id: 'gold_bar', count: 9 });
   s.presentSmeltOffer(0, 0, HOUSE, () => {}, () => {}, 'platinum_bar');
   assert.eq(s.offer.quantity, undefined, 'smelting stays one bar per tap');

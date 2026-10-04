@@ -75,12 +75,12 @@ test('building scale: no area (trailer / sandbox house) draws the default', () =
 
 test('building scale: Home draws a tenth wider than the village, on its own row', () => {
   // The trailer has no footprint, so it draws its row's def — and that row
-  // is the house row's default × 1.1 (Oct 2026), still under the smallest
+  // is the house row's default × 1.331 (Oct 2026, three 10% steps), still under the smallest
   // fort so Home never reads as a civic block.
   const trailerCells = (area) => cellsWide(houseArtScale(area, HOUSE_FRAMES.trailer, 'trailer', CELL_M, CELL_PX), HOUSE_FRAMES.trailer);
-  nearCells(trailerCells(undefined), HOUSE.def * 1.21, 'Home: house default × 1.21');
-  nearCells(trailerCells(10), HOUSE.def * 1.21, 'and a stray area neither shrinks it');
-  nearCells(trailerCells(50000), HOUSE.def * 1.21, 'nor grows it');
+  nearCells(trailerCells(undefined), HOUSE.def * 1.331, 'Home: house default × 1.331');
+  nearCells(trailerCells(10), HOUSE.def * 1.331, 'and a stray area neither shrinks it');
+  nearCells(trailerCells(50000), HOUSE.def * 1.331, 'nor grows it');
   assert.eq(TRAILER.def, TRAILER.min); assert.eq(TRAILER.def, TRAILER.max);
   assert.lt(TRAILER.max, FORT.min, 'Home stays under the smallest fort');
   // Every residential role without a row of its own shares the house row.
@@ -187,12 +187,9 @@ test('building scale: a fort outdraws a house at every footprint they share', ()
 // ── Tree size is DISCRETE ───────────────────────────────────────────────────
 // Not really a building rule, but the same discipline and the same file: a
 // sprite's size comes from a table, not from a continuous measurement that
-// nothing downstream can act on. treeBaseScale used to scale by crown_m/5 when
-// a tree had no discrete `size`; every detected tree has one (the detector
-// buckets that same crown_m before writing the geojson), so it never fired —
-// and its 0.8 floor was nearly twice the 0.42 bush multiplier, so a tree that
-// DID reach it would have drawn bush-sized art at small-tree size and could
-// never have classed as a bush at all.
+// nothing downstream can act on. Every detected tree has a discrete `size`
+// (the detector buckets crown_m before writing the geojson), so there is no
+// continuous fallback.
 
 test('tree scale: a crown diameter no longer sets a sprite size', () => {
   // Same species, same (absent) size class, wildly different crowns → one size.

@@ -1,0 +1,165 @@
+{
+  "status": "Basic-zone tuning implemented with the latest user overrides. These are design coverage targets; actual generated coverage is measured separately. Signature gaps and suggestions are not implemented.",
+  "metric": "Percentage of eligible 7 m ground cells occupied by stationary elements. Targets are occupied-cell budgets, not direct per-attempt spawn probabilities.",
+  "zones": {
+    "GRASS": {
+      "targetPct": {
+        "longgrass": 28,
+        "flowers": 1.5,
+        "marigold": 0
+      },
+      "intent": "Open grass clumps and ordinary flowers; no marigolds."
+    },
+    "FOREST": {
+      "targetPct": {
+        "tree": 32,
+        "shrub": 3,
+        "nut": 1.5,
+        "mushroom": 5,
+        "wildrose": 0.2,
+        "starflower": 0.3
+      },
+      "intent": "Canopy and fungi: tree stands, nut litter and mushrooms; fewer shrubs so the canopy reads clearly."
+    },
+    "SAND": {
+      "targetPct": {
+        "shell": 3,
+        "driftwood": 0.7
+      },
+      "intent": "Mostly open sand, with shells and driftwood concentrated along the tide line."
+    },
+    "FARMLAND": {
+      "targetPct": {},
+      "intent": "Private ground: no generated plants, objects, wildlife or enemies, including edges and POI rewards."
+    },
+    "RESIDENTIAL": {
+      "targetPct": {
+        "longgrass": 0,
+        "shrub": 2
+      },
+      "intent": "Keep mushrooms and existing rock-lined street verges. Remove long grass; retain sparse shrubs. Street rubble follows the road network rather than a new residential scatter.",
+      "preserveElements": [
+        "mushroom",
+        "street_plain_rock",
+        "street_ore_rock"
+      ]
+    },
+    "PARK": {
+      "targetPct": {},
+      "intent": "Keep the four park characters distinct. Targets below apply only outside nexus coverage."
+    },
+    "ROCK": {
+      "targetPct": {
+        "plain_rock": 40,
+        "ore_rock": 3
+      },
+      "intent": "Natural outcrop clusters: stone with visible ore pockets and broad clear gaps."
+    },
+    "SCHOOL": {
+      "targetPct": {
+        "longgrass": 2,
+        "forgetmenot": 1.5,
+        "marigold": 0
+      },
+      "intent": "Open grounds with small blue forget-me-not beds at accessible edges; no marigold scatter."
+    },
+    "COMMERCIAL": {
+      "targetPct": {
+        "shrub": 15,
+        "clay_pot": 2,
+        "marigold": 0
+      },
+      "intent": "Geometric hedge and pot rows around clear plazas; avoid a meadow-like flower scatter."
+    },
+    "INDUSTRIAL": {
+      "targetPct": {
+        "plain_rock": 20,
+        "ore_rock": 2.5,
+        "shrub": 1,
+        "barrel": 1
+      },
+      "intent": "Worked rubble and salvage barrels with clear aisles; fewer stone piles than natural rock. Ore stays uncommon."
+    },
+    "PLAYGROUND": {
+      "targetPct": {
+        "longgrass": 1,
+        "flowers": 1,
+        "marigold": 0
+      },
+      "intent": "Open play space; a few ordinary flowers and grass tufts at the edges."
+    },
+    "PITCH": {
+      "targetPct": {
+        "longgrass": 0.5
+      },
+      "intent": "Keep the field centre clear; only sparse edge grass."
+    },
+    "WETLAND": {
+      "targetPct": {
+        "longgrass": 18,
+        "shrub": 4,
+        "mushroom": 6,
+        "flowers": 0.5
+      },
+      "intent": "Reedy grass bands and damp mushrooms around open channels; fewer flowers and dry-looking shrubs."
+    },
+    "GOLF": {
+      "targetPct": {},
+      "intent": "Private ground: no generated plants, objects, wildlife or enemies, including edges and POI rewards."
+    },
+    "ORCHARD": {
+      "targetPct": {
+        "fruittree": 20,
+        "longgrass": 2,
+        "marigold": 0
+      },
+      "intent": "Regular fruit-tree rows with an open, lightly grassy understory. Source farmland restrictions still take priority."
+    },
+    "WASTELAND": {
+      "targetPct": {
+        "plain_rock": 18,
+        "ore_rock": 1,
+        "shrub": 4,
+        "longgrass": 2,
+        "mushroom": 0
+      },
+      "intent": "Irregular rubble and scrub patches, visibly rougher than residential frontage."
+    }
+  },
+  "parkCharacters": {
+    "meadow": {
+      "targetPct": {
+        "longgrass": 6,
+        "flowers": 2,
+        "marigold": 0.4,
+        "shrub": 0.3
+      },
+      "intent": "Open lawn with concentrated wildflower patches."
+    },
+    "wooded": {
+      "targetPct": {
+        "tree": 4,
+        "shrub": 1,
+        "mushroom": 0,
+        "flowers": 0.2
+      },
+      "intent": "Small tree stands and sparse shrubs. No ordinary park mushrooms."
+    },
+    "formal": {
+      "targetPct": {
+        "shrub": 7,
+        "marigold": 1
+      },
+      "intent": "Straight clipped hedge rows and bounded marigold beds."
+    },
+    "common": {
+      "targetPct": {
+        "longgrass": 2,
+        "shrub": 0.4,
+        "flowers": 0.3,
+        "marigold": 0
+      },
+      "intent": "Mostly open lawn with a few irregular tufts."
+    }
+  }
+}

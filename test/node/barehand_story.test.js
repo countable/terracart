@@ -42,7 +42,7 @@ test('chicken catch story uses its original art and voice with bare hands, once 
   s._catchStory({ kind: 'chicken' });
   assert.eq(s.modals.length, 1);
   assert.falsy(s.save.storySeen['tool:catch']);
-  s.save.relics.bugnet = { tier: 1 };
+  s.save.relics.net = { tier: 1 };
   s._catchStory({ kind: 'cow' });
   assert.eq(s.modals[1].art, 'tool_catch', 'other targets keep generic net art');
   assert.truthy(/if \(catchCost && !scene\.spendEnergy[\s\S]{0,400}scene\._catchStory\?\.\(victim\)/.test(INTERACT_SRC), 'story follows the successful energy spend');
@@ -54,7 +54,7 @@ test('barehand story shares one independent key, tree artwork only for a tree', 
   assert.eq(s.modals[0].art, 'barehand_tree');
   assert.eq(s.save.storySeen['work:barehands'], 1);
   assert.falsy(s.save.storySeen['tool:chop']);
-  s._barehandWorkStory('pick', 0);
+  s._barehandWorkStory('pickaxe', 0);
   assert.eq(s.modals.length, 1);
   s.save.relics.axe = { tier: 1 };
   s._toolActionStory('chop');
@@ -67,11 +67,11 @@ test('barehand story shares one independent key, tree artwork only for a tree', 
     assert.truthy(/disbelief\. \(but to be honest tools would be much less tiring!\)$/.test(body), 'ends on the aside: ' + body);
   }
   const equipped = sceneFor();
-  equipped._barehandWorkStory('pick', 1);
-  equipped._barehandWorkStory('bugnet', 0);
+  equipped._barehandWorkStory('pickaxe', 1);
+  equipped._barehandWorkStory('net', 0);
   assert.eq(equipped.modals.length, 0);
   equipped.depth = 1;
-  equipped._barehandWorkStory('pick', 0);
+  equipped._barehandWorkStory('pickaxe', 0);
   assert.eq(equipped.modals.length, 0, 'surface witness painting is not used underground');
 });
 
@@ -82,7 +82,7 @@ test('barehand mining story waits for completion and uses starting equipment', (
   s.startWorkProgress = (x, y, callback) => { complete = callback; };
   runInteractable(makeCtx(s, s.save), rock('barehand-story-1'));
   assert.eq(s.modals.length, 0, 'running or cancelled work tells no success story');
-  s.save.relics.pick = { tier: 1 };
+  s.save.relics.pickaxe = { tier: 1 };
   complete();
   assert.eq(s.modals[0].art, 'barehand_work', 'newly acquired pick did not perform this job');
   const failed = sceneFor();
@@ -103,12 +103,12 @@ test('barehand mining story waits for completion and uses starting equipment', (
 });
 
 test('equipped mining keeps its tool story if equipment changes mid-job', () => {
-  const s = sceneFor({ pick: { tier: 1 } });
+  const s = sceneFor({ pickaxe: { tier: 1 } });
   let complete;
   s.startWorkProgress = (x, y, callback) => { complete = callback; };
   runInteractable(makeCtx(s, s.save), rock('barehand-story-3'));
   assert.eq(s.modals[0].art, 'tool_dig');
-  delete s.save.relics.pick;
+  delete s.save.relics.pickaxe;
   complete();
   assert.eq(s.modals.length, 1);
   assert.falsy(s.save.storySeen['work:barehands']);
@@ -148,19 +148,19 @@ test('barehand mutter: a tool-less job grunts on its cell, in turn; an owned too
   });
   const bare = scene({});
   const at = (CELL => (CELL + 0.5) * CELL_M)(3);
-  for (const tool of ['pick', 'axe', 'hoe']) assert.truthy(bare._barehandMutter(tool, at, at), tool + ' grunts');
+  for (const tool of ['pickaxe', 'axe', 'hoe']) assert.truthy(bare._barehandMutter(tool, at, at), tool + ' grunts');
   assert.eq(bare.pops.map(p => p.text).join('|'), BAREHAND_MUTTERS.join('|'), 'the lines come in turn');
   assert.eq(bare.pops[0].ix, 3); assert.eq(bare.pops[0].iy, 3);
   for (const p of bare.pops) assert.eq(p.color, UI_DANGER_INK, 'in the hurt ink');
-  assert.truthy(bare._barehandMutter('pick', at, at), 'and wrap round');
+  assert.truthy(bare._barehandMutter('pickaxe', at, at), 'and wrap round');
   assert.eq(bare.pops[3].text, BAREHAND_MUTTERS[0]);
   for (const line of BAREHAND_MUTTERS) assert.lte(line.length, MAP_MSG_MAX, 'fits a map line: ' + line);
-  const owned = scene({ pick: { tier: 1 } });
-  assert.falsy(owned._barehandMutter('pick', at, at), 'a Wood pick is a tool');
-  assert.falsy(owned._barehandMutter('bugnet', at, at), 'the catch is bare-handed by nature');
+  const owned = scene({ pickaxe: { tier: 1 } });
+  assert.falsy(owned._barehandMutter('pickaxe', at, at), 'a Wood pick is a tool');
+  assert.falsy(owned._barehandMutter('net', at, at), 'the catch is bare-handed by nature');
   assert.falsy(owned._barehandMutter(null, at, at), 'a wheel with no tool slot');
   assert.eq(owned.pops.length, 0);
-  assert.eq(BAREHAND_MUTTER_TOOLS.join(), 'axe,pick,hoe', 'the work tools the bare-hands story tells of');
+  assert.eq(BAREHAND_MUTTER_TOOLS.join(), 'axe,pickaxe,hoe', 'the work tools the bare-hands story tells of');
   // Wired into the one wheel starter, right beside the badge it shares its gate with.
   assert.truthy(/startWorkProgress\(worldX, worldY, onComplete[^)]*\) \{\n\s+this\._setWorkProgressIcon\(toolSlot\);\n\s+this\._barehandMutter\?\.\(toolSlot, worldX, worldY\);/.test(SCENE_SRC),
     'every wheel start asks for the grunt');

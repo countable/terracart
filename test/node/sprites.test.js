@@ -60,9 +60,9 @@ test('MINERAL_ICON_SHEET: wood uses the wood sheet, frame 2', () => {
   assert.eq(MINERAL_ICON_SHEET['wood'].frame, 2);
 });
 
-test('MINERAL_ICON_SHEET: coal uses coal_icon sheet, frame 0', () => {
-  assert.eq(MINERAL_ICON_SHEET['coal'].sheet, 'coal_icon');
-  assert.eq(MINERAL_ICON_SHEET['coal'].frame, 0);
+test('MINERAL_ICON_SHEET: flint_shard uses icon_flint_shard sheet, frame 0', () => {
+  assert.eq(MINERAL_ICON_SHEET['flint_shard'].sheet, 'icon_flint_shard');
+  assert.eq(MINERAL_ICON_SHEET['flint_shard'].frame, 0);
 });
 
 test('MINERAL_ICON_SHEET: gem frames — diamond 0, ruby 1, sapphire 3, emerald 5 (all on gems sheet)', () => {
@@ -83,24 +83,24 @@ test('MINERAL_ICON_SHEET: gem frames — diamond 0, ruby 1, sapphire 3, emerald 
 test('MINERAL_ICON_SHEET: fruit-tree saplings use the species tree sheet at frame 2', () => {
   assert.eq(MINERAL_ICON_SHEET['apple_sapling'].sheet, 'apple_tree');
   assert.eq(MINERAL_ICON_SHEET['apple_sapling'].frame, 2);
-  assert.eq(MINERAL_ICON_SHEET['peach_sapling'].sheet, 'peach_tree');
-  assert.eq(MINERAL_ICON_SHEET['peach_sapling'].frame, 2);
+  assert.eq(MINERAL_ICON_SHEET['worldpeach_sapling'].sheet, 'worldpeach_tree');
+  assert.eq(MINERAL_ICON_SHEET['worldpeach_sapling'].frame, 2);
 });
 
 test('MINERAL_ICON_SHEET: apple and peach saplings use DIFFERENT sheets (bug 5bb9e66)', () => {
   // apple≠peach frames: both are frame 2 (young sapling frame) but on different species sheets.
   assert.truthy(
-    MINERAL_ICON_SHEET['apple_sapling'].sheet !== MINERAL_ICON_SHEET['peach_sapling'].sheet,
+    MINERAL_ICON_SHEET['apple_sapling'].sheet !== MINERAL_ICON_SHEET['worldpeach_sapling'].sheet,
     'apple_sapling and peach_sapling must use different species sheets'
   );
   assert.eq(MINERAL_ICON_SHEET['apple_sapling'].sheet, 'apple_tree');
-  assert.eq(MINERAL_ICON_SHEET['peach_sapling'].sheet, 'peach_tree');
+  assert.eq(MINERAL_ICON_SHEET['worldpeach_sapling'].sheet, 'worldpeach_tree');
 });
 
 test('MINERAL_ICON_SHEET: boot junk pickup is frame 88 on the pickup sheet', () => {
   // row 6, col 4 of 7_Pickup_Items_16x16 (14 cols): frame = 6*14 + 4 = 88
-  assert.eq(MINERAL_ICON_SHEET['boot'].sheet, 'pickup');
-  assert.eq(MINERAL_ICON_SHEET['boot'].frame, 88);
+  assert.eq(MINERAL_ICON_SHEET['old_boot'].sheet, 'pickup');
+  assert.eq(MINERAL_ICON_SHEET['old_boot'].frame, 88);
   assert.eq(6 * 14 + 4, 88, 'frame derivation check');
 });
 
@@ -257,7 +257,7 @@ test('CROP_ROW: every crop key has an ITEM_BY_ID entry for its seed', () => {
 });
 
 test('CROP_ROW: rows 0..9 cover the main Crops.png crops (not spring-crop overrides)', () => {
-  const mainCrops = ['rainberry', 'pairy', 'gemfruit', 'nut', 'rockfruit', 'coffee',
+  const mainCrops = ['rainberry', 'pairy', 'gemfruit', 'nut', 'rubble', 'coffee',
                      'potato', 'iceflower', 'fireflower', 'sunflower'];
   for (const key of mainCrops) {
     assert.truthy(CROP_ROW[key] != null, `${key} has a CROP_ROW entry`);
@@ -481,10 +481,10 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   assert.truthy(1024 * art.scale <= 3 * SpriteLayout.CELL_PX);
   assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
   assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
-  assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
+  assert.eq(wildplantSprite({crop:'rubble',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
   assert.eq(wildplantSprite({crop:'driftwood'}).sheet, 'driftwood');
-  assert.eq(inventoryIconSource('rockfruit').sheet, 'crops');
-  assert.eq(iconBadgeItem('rockfruit_seed'), 'rockfruit');
+  assert.eq(inventoryIconSource('rubble').sheet, 'crops');
+  assert.eq(iconBadgeItem('rubble_seed'), 'rubble');
 });
 
 
@@ -624,4 +624,28 @@ test('selected zone appearances keep mineral interactions and global art separat
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
   assert.eq(art.resolveAppearance(pot).scl*24,32);
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
+});
+
+
+test('quarry broken stone shrinks while mineral shadows stay under every resolved art', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  for (const o of [
+    {kind:'mineralrock',yieldTier:1,rockVariant:3},
+    {kind:'mineralrock',yieldTier:4},
+    {kind:'mineralrock',deposit:'crystal'},
+    {kind:'mineralrock',zone:'quarry',zoneVariant:'quarry-strip-mine',_zoneObjectFrame:65},
+    {kind:'mineralrock',deposit:'crystal',_zoneObjectFrame:59},
+  ]) {
+    const p = art.resolveAppearance(o);
+    const shadowHeight = Math.max(8,p.foot.w*0.9)*0.42;
+    const shadowBottom = p.foot.footFromCentre-p.foot.shadowInsetPx+shadowHeight/2;
+    assert.eq(shadowBottom,p.foot.footFromCentre,'shadow ends at the seated art bottom');
+    const b = SpriteLayout.ART_BOUNDS[`${p.texKey}:${p.frameVal}`];
+    assert.truthy(Math.abs(p.dyPx+(b.maxY-b.fh/2)*p.scl-p.foot.footFromCentre)<1e-10,'depth keeps the true art foot');
+  }
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,1.1);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4/3);
 });

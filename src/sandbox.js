@@ -11,13 +11,13 @@
 //   into one walkable area a tester can sweep in seconds.
 //
 // Design:
-//   The old sandbox was a 5×5 grid of flat colour swatches - one solid biome
-//   per plot. But worldgen never produces a pure "residential square"; a real
-//   residential polygon is a SCENE: a road threads through it, houses (shop
-//   type set by address digit) line the road, mineral rocks sit at the curb. So this version is built from SCENES — small realistic
-//   composites - arranged in horizontal bands, separated by named connective
-//   roads. Each road also carries decoded vector geometry, so the sandbox uses
-//   the same overlay, restoration, lamp and street-dressing lanes as a map tile.
+// Worldgen never produces a pure "residential square"; a real residential
+// polygon is a SCENE: a road threads through it, houses (shop type set by
+// address digit) line the road, mineral rocks sit at the curb. So the sandbox
+// is built from SCENES arranged in horizontal bands, separated by named
+// connective roads. Each road also carries decoded vector geometry, so the
+// sandbox uses the same overlay, restoration, lamp and street-dressing lanes as
+// a map tile.
 //
 //   Layout (north → south):
 //     Band 1  COUNTRYSIDE     FOREST · ORCHARD · ROCK
@@ -109,9 +109,9 @@
   const ORCHARD = {
     name: 'ORCHARD', label: 'ORCHARD', w: 7, h: 7, fill: T.ORCHARD,
     populate(s) {
-      s.fruitTree('apple', 0, 0);   s.fruitTree('apple', 3, 0);  s.fruitTree('peach', 6, 0);
-      s.fruitTree('apple', 0, 3);   s.fruitTree('peach', 6, 3);
-      s.fruitTree('apple', 0, 6);   s.fruitTree('apple', 3, 6);  s.fruitTree('peach', 6, 6);
+      s.fruitTree('apple', 0, 0);   s.fruitTree('apple', 3, 0);  s.fruitTree('worldpeach', 6, 0);
+      s.fruitTree('apple', 0, 3);   s.fruitTree('worldpeach', 6, 3);
+      s.fruitTree('apple', 0, 6);   s.fruitTree('apple', 3, 6);  s.fruitTree('worldpeach', 6, 6);
       s.chest('park', 'Sandbox Orchard', 3, 3);   // round pad
     },
   };
@@ -158,7 +158,9 @@
   //    without first taming anything. The pets are runtime state (save.released).
   const PADDOCK = {
     name: 'PADDOCK', label: 'PETTING PADDOCK', w: 5, h: 7, fill: T.GRASS,
-    populate(s) {},
+    populate(s) {
+      s.wildplant('shrub', 0, 5, { _sandboxProbe: 'nest' });
+    },
   };
 
   // ── BEACH — SAND + WATER + a plank PIER you stride out on + a WELL on the
@@ -176,7 +178,8 @@
       s.creature('cat', 1, 1, 1);           // a cat sunning on the sand
       s.creature('giant_crab', 2, 3, 1);     // representative shore enemy
       s.creature('gull', 3, 1, 1);           // scenic-shore scavenger
-      s.creature('turtle', 1, 4, 1);         // the rabbit of the beach
+      s.creature('sea_turtle', 1, 4, 1);         // the rabbit of the beach
+      s.object('bottle', 0, 4, { _sandboxProbe: 'shore-bottle' });
       s.well(3, 6);                          // fountain on dry land
     },
   };
@@ -226,7 +229,7 @@
 
   // ── RESIDENTIAL STREET — the headline scene. A ROAD runs across the middle
   //    (with street-name labels); a house of EACH shop type lines it:
-  //    blacksmith (addr 9), market (6), trader (8), plain/delivery (3). Yards
+  //    blacksmith, market, trader and plain/delivery via explicit cards. Yards
   //    carry mushroom decals + pickable mushrooms; a mineral rock sits at the
   //    curb (worldgen drops residential rocks only ≤1 cell from a road); cats
   //    & dogs roam (their primary biome). Houses are marked restored in seed.
@@ -251,9 +254,9 @@
       p.rect(4, 5, 3, 2, T.WASTELAND);
     },
     populate(s) {
-      s.house(1, 0, 9);   // blacksmith — top-left
-      s.house(7, 0, 6);   // market     — top
-      s.house(1, 7, 8);   // trader     — bottom-left
+      s.house(1, 0, 9, 9, { _sandboxBuild: 'blacksmith:1' });   // blacksmith — top-left
+      s.house(7, 0, 6, 9, { _sandboxBuild: 'market:seed:1' });   // market     — top
+      s.house(1, 7, 8, 9, { _sandboxBuild: 'trader:1' });   // trader     — bottom-left
       s.house(7, 7, 3);   // plain/delivery (produce plaque) — bottom
       s.wildplant('mushroom', 3, 6); s.wildplant('mushroom', 10, 6);
       s.mineralRock(1, 5, 2);                                         // curbside rock
@@ -383,16 +386,20 @@
   };
 
   const ZONES = {
-    name: 'ZONES', label: 'INFLUENCE ZONES', w: 11, h: 21, fill: T.RESIDENTIAL,
+    name: 'ZONES', label: 'INFLUENCE ZONES', w: 11, h: 40, fill: T.RESIDENTIAL,
     zoneStrips: [
       { kind: 'grove', variant: 'ancient_grove', y: 0, h: 7, terrain: T.GROVE },
       { kind: 'stones', variant: 'ordered_graves', y: 7, h: 7, terrain: T.CHURCHYARD },
       { kind: 'tar', variant: 'black_ring', y: 14, h: 7, terrain: T.TAR_YARD },
+      { kind: 'grove', variant: 'meadow', y: 21, h: 9, terrain: T.GROVE, owned: true },
+      { kind: 'quarry', variant: 'quarry-crater', y: 30, h: 10, terrain: T.ROCK, owned: true },
     ],
     subLabels: [
       { label: 'SACRED GROVE', dx: 5, dy: 3 },
       { label: 'OLD STONES', dx: 5, dy: 10 },
       { label: 'TAR YARD', dx: 5, dy: 17 },
+      { label: 'MEADOW', dx: 5, dy: 25 },
+      { label: 'CRATER', dx: 5, dy: 35 },
     ],
     paint(p) {
       for (const z of this.zoneStrips) p.rect(0, z.y, this.w, z.h, z.terrain);
@@ -436,6 +443,42 @@
     },
   };
 
+  // Standing ranks, untouched wrecks and recent foes remain repeatable on reload.
+  const RESTORATION = {
+    name: 'RESTORATION', label: 'RESTORATION · ENCOUNTERS', w: 16, h: 40, fill: T.GRASS,
+    ambientFlora: false, spawn: { dx: 4, dy: 13 },
+    subLabels: [{ label: 'RANKED SHOPS', dx: 7, dy: 3 },
+      { label: 'RESTORE A WRECK', dx: 7, dy: 13 }, { label: 'RECENT ENEMIES', dx: 7, dy: 25 }],
+    populate(s) {
+      const picks = ['blacksmith:1', 'blacksmith:2', 'blacksmith:3', 'trader:2',
+        'market:seed:2', 'market:supply:2', 'petshop', 'bookshop', 'turret'];
+      picks.forEach((key, i) => s.house(2 + (i % 4) * 3, 2 + Math.floor(i / 4) * 5,
+        0, 9, { _sandboxBuild: key }));
+      s.house(3, 14, 0, 9, { _sandboxWreck: true });
+      s.house(10, 14, 0, 9, { _sandboxWreck: true });
+      ['lodging', 'place_of_worship', 'school', 'sports_centre', 'town_hall', 'museum', 'shop', 'library', 'pharmacy']
+        .forEach((poiClass, i) => s.chest(poiClass, `Sandbox ${poiClass}`, 15, 2 + i * 4));
+      s.chest('bus', 'Sandbox Mimic Chest', 2, 18, { _sandboxProbe: 'mimic' });
+      s.chest('bus', 'Sandbox Repeatable Crate', 5, 18, { tierSeed: 1, _sandboxProbe: 'daily-crate' });
+      s.chest('bus', 'Sandbox Barrel', 8, 18, { barrel: true });
+      s.chest('bus', 'Sandbox Clay Pot', 11, 18, { barrel: true, barrelStyle: 'clay_pot' });
+      ['mushroom_monster', 'treant', 'fire_elemental', 'mimic', 'wurm', 'zombie'].forEach((kind, i) =>
+        s.creature(kind, 3 + (i % 2) * 8, 22 + Math.floor(i / 2) * 7, 1,
+          kind === 'zombie' ? { emergeFromGround: true, _burrowed: true }
+            : kind === 'wurm' ? { burrowSeats: [[2, 35], [4, 35], [2, 37], [4, 37]] } : {}));
+    },
+  };
+
+  const QUARRY = {
+    name: 'QUARRY', label: 'QUARRY FINDS · RUINS', w: 16, h: 28, fill: T.ROCK,
+    zoneStrips: [
+      { kind: 'quarry', variant: 'quarry-strip-mine', y: 0, h: 14, terrain: T.ROCK, owned: true },
+      { kind: 'quarry', variant: 'quarry-stronghold', y: 14, h: 14, terrain: T.ROCK, owned: true },
+    ],
+    subLabels: [{ label: 'STRIP MINE', dx: 8, dy: 7 }, { label: 'RUIN WALLS', dx: 8, dy: 21 }],
+    populate(s) {},
+  };
+
   // Bands run north to south. Each connective road owns both its painted
   // cells and its vector/variant row through the same record.
   const BANDS = [
@@ -444,7 +487,7 @@
     { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE] },
-    { roadAfter: null, scenes: [SHOWCASE, ZONES] },
+    { roadAfter: null, scenes: [SHOWCASE, ZONES, RESTORATION, QUARRY] },
   ];
 
   // Resolve each scene's grid-local origin (lx, ly) and the road rows. Sizes
@@ -526,7 +569,7 @@
     const ownerKeys = [null];
     const buildingShapes = [];
 
-    // Helper: cell index → world metres at cell centre.
+    // Cell index → world metres at cell centre.
     const wmAt = (ix, iy) => ({
       x: tx * tileEdgeM + (ix + 0.5) * cellM,
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
@@ -572,8 +615,7 @@
       // refreshes real tiles whose Overpass bin landed late) never evicts a
       // synthetic sandbox tile in favour of real-world geometry.
       hadBin: true,
-      // loadTile awaits entry.promise when status === 'loading'; ours is
-      // ready so it's never awaited, but harmless to satisfy the shape.
+      // Satisfies the shape; never awaited since status is ready.
       promise: Promise.resolve(null),
     };
     // The live renderer draws source polygons, not building terrain cells.
@@ -615,14 +657,24 @@
     const { objects, wildplants, creatures } = arrays;
     const at = (dx, dy) => wmAt(ix0 + dx, iy0 + dy);
     return {
-      creature(kind, dx, dy, n) {
+      creature(kind, dx, dy, n, extra = {}) {
         const { x, y } = at(dx, dy);
-        creatures.push(WorldGen.makeCreature(kind, x, y, `${baseId}_${tag}_${kind}_${n}`));
+        const options = { ...extra };
+        if (options.burrowSeats) {
+          options.burrowCells = options.burrowSeats.map(([bx, by]) => at(bx, by));
+          delete options.burrowSeats;
+        }
+        creatures.push(WorldGen.makeCreature(kind, x, y, `${baseId}_${tag}_${kind}_${n}`, options));
       },
-      wildplant(crop, dx, dy) {
+      wildplant(crop, dx, dy, extra = {}) {
         const { x, y } = at(dx, dy);
-        wildplants.push(WorldGen.makeWildplant(crop, x, y,
-          `${baseId}_wp_${tag}_${crop}_${dx}_${dy}`, { _ix: ix0 + dx, _iy: iy0 + dy }));
+        const plant = WorldGen.makeWildplant(crop, x, y,
+          `${baseId}_wp_${tag}_${crop}_${dx}_${dy}`, { _ix: ix0 + dx, _iy: iy0 + dy, ...extra });
+        if (extra._sandboxProbe === 'nest') {
+          const id = plant.id;
+          for (let n = 0; !isNestBush(crop, plant.id); n++) plant.id = `${id}_nest_${n}`;
+        }
+        wildplants.push(plant);
       },
       tree(variant, dx, dy, species) {
         const { x, y } = at(dx, dy);
@@ -638,8 +690,13 @@
       },
       chest(poiClass, name, dx, dy, extra) {
         const { x, y } = at(dx, dy);
-        objects.push(WorldGen.makeObject('chest', x, y,
-          `${baseId}_chest_${tag}_${dx}_${dy}`, { poiClass, name, ...(extra || {}) }));
+        const chest = WorldGen.makeObject('chest', x, y,
+          `${baseId}_chest_${tag}_${dx}_${dy}`, { poiClass, name, ...(extra || {}) });
+        if (extra?._sandboxProbe === 'mimic') {
+          const id = chest.id;
+          for (let n = 0; !chestHidesMimic(chest); n++) chest.id = `${id}_mimic_${n}`;
+        }
+        objects.push(chest);
       },
       object(kind, dx, dy, extra) {
         const { x, y } = at(dx, dy);
@@ -654,10 +711,10 @@
         objects.push(WorldGen.makeObject('chest', x, y,
           `${baseId}_startchest_${tag}_${dx}_${dy}`, { name, fixedLoot: loot }));
       },
-      house(dx, dy, address = 0, tier = 9) {
+      house(dx, dy, address = 0, tier = 9, extra = {}) {
         const { x, y } = at(dx, dy);
         objects.push(WorldGen.makeObject('house', x, y,
-          `${baseId}_house_${tag}_${dx}_${dy}`, { tier, address }));
+          `${baseId}_house_${tag}_${dx}_${dy}`, { tier, address, ...extra }));
       },
       wood(dx, dy, qty = 2) {
         const { x, y } = at(dx, dy);
@@ -823,9 +880,7 @@
           tier: terrain, areaM2: (x1 - x0) * (y1 - y0),
           key: `${baseId}_building_${s.name}_${dx}_${dy}` });
       };
-      // 1. base terrain fill
       rect(0, 0, s.w, s.h, s.fill);
-      // 2. composite terrain overrides (roads / water / pads / paths)
       if (s.paint) {
         s.paint({
           cell: setCell,
@@ -833,7 +888,6 @@
           roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
         });
       }
-      // 3. static interactables
       s.populate(makeScenePush(ix0, iy0, s.name, baseId, { objects, wildplants, creatures }, wmAt));
     }
 
@@ -968,16 +1022,17 @@
 
   function buildZones(entry, originIX, originIY, c, spawnOpts) {
     const N = c.cellsPerEdge, idx = new Uint8Array(N * N), strength = new Uint8Array(N * N);
-    const under = new Uint8Array(N * N), anchors = [], zoneScene = sceneByName('ZONES');
+    const under = new Uint8Array(N * N), anchors = [];
     const upm = N * WorldGen.CELL_M / SANDBOX_EXTENT;
-    zoneScene.zoneStrips.forEach((z, ai) => {
+    for (const zoneScene of LAYOUT.scenes.filter(s => s.zoneStrips)) zoneScene.zoneStrips.forEach(z => {
+      const ai = anchors.length;
       const ix = originIX + zoneScene.lx + Math.floor(zoneScene.w / 2);
       const iy = originIY + zoneScene.ly + z.y + Math.floor(z.h / 2);
       const lx = Math.round((ix + 0.5) * SANDBOX_EXTENT / N);
       const ly = Math.round((iy + 0.5) * SANDBOX_EXTENT / N);
       anchors.push({ kind: z.kind, variant: z.variant, gx: c.tx * SANDBOX_EXTENT + lx,
-        gy: c.ty * SANDBOX_EXTENT + ly, lx, ly, key: `sandbox-zone-${z.kind}`,
-        owned: false, generated: false, upm, R: Math.max(zoneScene.w, z.h) * WorldGen.CELL_M,
+        gy: c.ty * SANDBOX_EXTENT + ly, lx, ly, key: `sandbox-zone-${z.variant}`,
+        owned: !!z.owned, generated: false, upm, R: Math.max(zoneScene.w, z.h) * WorldGen.CELL_M,
         code: Zones.ZONE_KINDS[z.kind].code, rotation: 0 });
       for (let dy = 0; dy < z.h; dy++) for (let dx = 0; dx < zoneScene.w; dx++) {
         const x = originIX + zoneScene.lx + dx, y = originIY + zoneScene.ly + z.y + dy, i = y * N + x;
@@ -989,6 +1044,7 @@
     const dressing = ZoneDressing.dress({ field, tx: c.tx, ty: c.ty, N, tileEdgeM: c.tileEdgeM,
       grid: entry.grid, chests: entry.objects, spawnOpts });
     entry.zoneDress = dressing;
+    entry.extraTreasures.push(...(dressing.treasures || []));
     entry.objects.push(...dressing.objects);
     entry.wildplants.push(...dressing.wildplants);
     entry.traps.push(...(dressing.traps || []));
@@ -998,7 +1054,7 @@
     entry.slowCells = slow.size ? slow : null;
     for (const guard of (dressing.guards || [])) {
       entry.creatures.push(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
-        ...guard, shiny: false, immobile: true, lair: guard.lair || guard.id,
+        ...guard, shiny: false, immobile: !guard.burrowCells, lair: guard.burrowCells ? null : (guard.lair || guard.id),
         lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
         lairR: 0, seatX: guard.x, seatY: guard.y,
       }));
@@ -1238,7 +1294,8 @@
     for (const slot of Object.keys(RELIC_DEFS)) relics[slot] = { tier: TIER };
     // Frost (T7) pickaxe so every ore tier in the ROCK band can be mined and
     // verified (each ore's bar drop + matching ore-stone sprite).
-    relics.pick = { tier: 7 };
+    relics.pickaxe = { tier: 7 };
+    relics.axe = { tier: 7 };
     scene.save.relics = relics;
     const armor = {};
     for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: TIER };
@@ -1266,6 +1323,41 @@
   // Drop runtime-state interactables into the scenes. All live in save.* arrays
   // / scene-side Sets, so we mutate the scene directly. Clobber-and-rebuild for
   // a predictable baseline across reloads.
+  function seedHouseState(save, entry) {
+    const houses = (entry?.objects || []).filter(o => o.kind === 'house');
+    save.restoredHouses ||= {};
+    save.memories = Math.max(save.memories || 0, 20);
+    save.discovered ||= {};
+    for (const item of ITEMS) {
+      if (Shops.memoryTotal(save) >= Shops.tierUnlockMemories(4)) break;
+      save.discovered[item.id] = true;
+    }
+    // Remove only authored fixture progress; other visited tiles retain theirs.
+    for (const house of houses) {
+      for (const ledger of ['restoredHouses', 'shopTiers', 'shopLines', 'shinyHouses']) {
+        if (save[ledger]) delete save[ledger][house.id];
+      }
+      if (save.starterBlacksmithId === house.id) delete save.starterBlacksmithId;
+    }
+    const ids = new Set(houses.map(h => h.id));
+    if (ids.has(save.bookshopId)) delete save.bookshopId;
+    if (ids.has(save.petshopId)) delete save.petshopId;
+    if (ids.has(save.wizardTowers?.firstId)) delete save.wizardTowers;
+    // Prior restorations unlock the current first tower without crowding the map.
+    for (let i = 0; Houses.restoredCount(save) < Houses.STORY_RESTORES.firstTower; i++) {
+      const id = `sandbox-history-${i}`;
+      if (!save.restoredHouses[id]) Houses.restoreAs(save, { kind: 'house', id }, 'plain');
+    }
+    // Build ordinary houses first to unlock the story's restoration cards.
+    for (const house of houses.filter(h => !h._sandboxWreck)) Houses.restoreAs(save, house, 'plain');
+    for (const house of houses.filter(h => !h._sandboxWreck)) {
+      const pick = house._wizardRole ? 'wizard' : house._sandboxBuild;
+      if (!pick || pick === 'plain') continue;
+      delete save.restoredHouses[house.id];
+      if (!Houses.restoreAs(save, house, pick)) throw new Error(`Sandbox building card unavailable: ${pick}`);
+    }
+  }
+
   function seedSandboxState(scene, originIX, originIY, centreTX, centreTY,
                             cellsPerEdge, tileEdgeM, cellM) {
     const save = scene.save;
@@ -1298,16 +1390,7 @@
       centreTX, centreTY, cellM);
     seedMechanicsState(scene, centreEntry);
 
-    // ── Restore every house in the sandbox tile. Tier-9 houses render as a
-    //    generic "wreck" until restored — so without this, the blacksmith /
-    //    market / trader sprites + signs + the plain-house produce plaque would
-    //    never appear. Mark them all restored on load. Wizard houses get their
-    //    role string ('wizard') so houseShopRole resolves correctly.
-    for (const o of (centreEntry?.objects || [])) {
-      if (o.kind === 'house' && o.id) {
-        save.restoredHouses[o.id] = o._wizardRole ? 'wizard' : true;
-      }
-    }
+    seedHouseState(save, centreEntry);
 
     // ── Pin Home to a synthetic trailer away from every test house, BEFORE
     //    app.js's ensureStarterShopId() gets a chance to run. That function
@@ -1328,7 +1411,7 @@
     // ── FARMLAND: a row of crops at every growth stage 0..4. The cell must be
     //    tilled first; the renderer reads each entry's `stage` directly so we
     //    don't have to wait for real game time.
-    const CROPS_AT_STAGE = ['rainberry', 'pairy', 'nut', 'potato', 'rockfruit'];
+    const CROPS_AT_STAGE = ['rainberry', 'pairy', 'nut', 'potato', 'rubble'];
     for (let stage = 0; stage < 5; stage++) {
       const { cellIX, cellIY } = sceneCell('FARMLAND', 2 + stage, 2);
       const key = absKey(cellIX, cellIY);
@@ -1377,6 +1460,13 @@
       save.released.push({ x, y, kind, id: `released_${kind}_sandbox_${i}`,
         tx: centreTX, ty: centreTY });
     });
+
+    for (const [i, extra] of [{ raised: true, born: Date.now(), favouriteFeeds: 0, shiny: true },
+      { shiny: true }].entries()) {
+      const { cellIX, cellIY } = sceneCell('PADDOCK', 1 + i * 2, 6);
+      save.released.push({ ...cellCenter(cellIX, cellIY), kind: 'chicken',
+        id: `released_chicken_sandbox_growth_${i}`, tx: centreTX, ty: centreTY, ...extra });
+    }
 
     // ── RECREATION (park): a scarecrow beside the crow so its aversion ring is
     //    visible against a real pest.
@@ -1470,6 +1560,9 @@
     save.potionEffects = {};
     scene._groundFireSave = null;
     delete save.tomeDays;
+    delete save.tomeReadyAt;
+    delete save.tomeMagicCd;
+    save.conditions = {};
     const targets = (entry?.creatures || []).filter(c => c.id.includes('_PRACTICE_plant_'));
     for (const [i, id] of ['giant_potion', 'shrinking_potion'].entries()) {
       if (targets[i]) PotionEffects.apply(scene, targets[i], id);
@@ -1551,6 +1644,7 @@
   global.Sandbox.seedCoverageState = seedCoverageState;
   global.Sandbox.layoutForTest = LAYOUT;
   global.Sandbox.seedMechanicsState = seedMechanicsState;
+  global.Sandbox.seedHouseState = seedHouseState;
   global.Sandbox.stockInventoryForTest = stockSandboxInventory;
   global.Sandbox.resolveDestination = resolveDestination;
 })(window);

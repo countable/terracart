@@ -63,7 +63,7 @@ function add(id,label,group,object,usage,note='') {
 for (const species of ['maple','pine']) {
   for (const size of ['small','medium','large']) add(`tree-${species}-${size}`,`${species} · ${{small:'sprout',medium:'young',large:'mature'}[size]} (${size})`,'Trees',{kind:'tree',species,size},'Detected / generated timber tree','Authored sprout, young or mature artwork; fixed scale per species.');
 }
-for (const species of ['apple','peach']) {
+for (const species of ['apple','worldpeach']) {
   for (let stage=0;stage<=4;stage++) add(`fruit-${species}-${stage}`,`${species} · ${['sprout','young','green','blossom','bearing'][stage]}`,'Fruit trees',{kind:'fruittree',species,planted:true,planted_t:now-(stage+0.1)*ctx.Crops.FRUIT_STAGE_MS},'Planted fruit tree');
   const id=`fruit-${species}-picked`;
   ctx.scene.save.fruitPicked[id]=now;
@@ -72,9 +72,9 @@ for (const species of ['apple','peach']) {
 function plant(id,label,crop,extra={},group='Foliage and ground cover',usage='Wild / zone plant',note='') {
   add(id,label,group,{kind:'wildplant',crop,stage:registry.maxStage,wildId:id,...extra},usage,note);
 }
-const natural = ['giant_mushroom','shrub','longgrass','mushroom','forgetmenot','marigold','wildrose','starflower','rockfruit','flint','shell','driftwood'];
+const natural = ['giant_mushroom','shrub','longgrass','mushroom','forgetmenot','marigold','wildrose','starflower','rubble','flint','shell','driftwood'];
 for (const crop of natural) {
-  const group = ['rockfruit','flint','shell','driftwood'].includes(crop) ? 'Loose stones and beach' : 'Foliage and ground cover';
+  const group = ['rubble','flint','shell','driftwood'].includes(crop) ? 'Loose stones and beach' : 'Foliage and ground cover';
   plant(`plant-${crop}`,registry.names[crop] || crop,crop,{},group,crop==='shrub'?'Basic shrub':'Wild / zone plant',crop==='shrub'?'The basic bush and cut hedge share the same harvesting mechanics.':'');
   for (const look of Object.keys(registry.crops[crop]?.looks || {})) plant(`plant-${crop}-${look}`,`${crop} · ${look}`,crop,{_plantArt:look},group,'Authored zone / road look',crop==='shrub' ? 'Cut hedge, 20% smaller than the former residential hedge. Same harvesting mechanics as the basic bush.' : 'Same harvest mechanics as the base crop.');
   for (const cave of [false,true]) {
@@ -88,15 +88,15 @@ for (const crop of natural) {
     }
   }
 }
-for (const [look,row] of Object.entries(registry.contexts)) plant(`context-${look}`,`${row.crop} · ${look}`,row.crop,{_plantArt:look},row.crop==='rockfruit'?'Loose stones and beach':'Foliage and ground cover','Context-specific art');
+for (const [look,row] of Object.entries(registry.contexts)) plant(`context-${look}`,`${row.crop} · ${look}`,row.crop,{_plantArt:look},row.crop==='rubble'?'Loose stones and beach':'Foliage and ground cover','Context-specific art');
 for(let rockVariant=0;rockVariant<4;rockVariant++) add(`rock-plain-${rockVariant}`,`plain rock · shape ${rockVariant+1}`,'Mineral rocks',{kind:'mineralrock',rockVariant,yieldTier:1},'Surface / cave plain rock');
 add('crystal-deposit','Crystal deposit','Mineral rocks',{kind:'mineralrock',deposit:'crystal',yieldTier:registry.crystal.yieldTier,requiredTier:registry.crystal.requiredTier},'Quarry crystal deposit',`Harvest ${registry.crystal.quantity} ${registry.crystal.item}; shared rock scale and cell seating.`);
 // Ore tiers keep their material-specific artwork.
 for(const tier of Object.keys(registry.tiers)) add(`ore-${tier}`,`${registry.tiers[tier].barId.replace('_bar','')} ore`,'Mineral rocks',{kind:'mineralrock',yieldTier:Number(tier)},'Tiered ore');
 for(const crop of Object.keys(registry.rows).filter(k=>!natural.includes(k))) for(let stage=0;stage<=registry.maxStage;stage++) add(`crop-${crop}-${stage}`,`${registry.names[crop]||crop} · stage ${stage}`,'Crop growth',{kind:'wildplant',crop,stage},'Player-planted crop','Includes the runtime planted-crop scale reduction and vertical offset.');
-add('placed-rockfruit','Placed stone','Loose stones and beach',{kind:'wildplant',crop:'rockfruit',_placedRock:true},'Player-placed rock','Uses the shipping produce-icon frame, distinct from loose wild rockfruit.');
+add('placed-rockfruit','Placed stone','Loose stones and beach',{kind:'wildplant',crop:'rubble',_placedRock:true},'Player-placed rock','Uses the shipping produce-icon frame, distinct from loose wild rockfruit.');
 add('wood-stack-2','Fallen wood · look 2','Loose stones and beach',{kind:'groundstack',itemId:'wood',qty:2},'Dropped wood stack','The same artwork is used for every stack quantity.');
-for(let stage=0;stage<=registry.maxStage;stage++) add(`crop-rockfruit-${stage}`,`Stone · stage ${stage}`,'Crop growth',{kind:'wildplant',crop:'rockfruit',stage},'Player-planted stone crop','Includes the runtime planted-crop scale reduction and vertical offset.');
+for(let stage=0;stage<=registry.maxStage;stage++) add(`crop-rockfruit-${stage}`,`Stone · stage ${stage}`,'Crop growth',{kind:'wildplant',crop:'rubble',stage},'Player-planted stone crop','Includes the runtime planted-crop scale reduction and vertical offset.');
 for(let frame=0;frame<ctx.SpriteLayout.creatureFrames('plant');frame++) add(`carnivorous-plant-${frame}`,`Carnivorous plant · idle ${frame+1}`,'Carnivorous plants',{kind:'plant',_auditTime:frame*ctx.SpriteLayout.creatureFrameMs('plant')},'Static zone pattern / rooted enemy','Actual idle animation frame at runtime creature scale; enemy mechanics.');
 // Organize the audit by gameplay family, keeping growth and contextual art
 // together rather than scattering one mechanic across unrelated sections.

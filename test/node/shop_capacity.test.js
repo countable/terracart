@@ -56,7 +56,7 @@
   });
   test('seed shop: equipping a larger bag permits the same pack', () => {
     const s = fixture(8);
-    s.save.relics.bags = { tier: 1 };
+    s.save.relics.bag = { tier: 1 };
     s._presentThemedItem(0, 0, { id: 'seed-shop' }, () => s.deals++, 'potato_seed');
     assert.falsy(s.offer.disabledReason);
     s.offer.onAccept();

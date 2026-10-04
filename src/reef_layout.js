@@ -36,7 +36,7 @@
     };
     for (const s of states) {
       const config=s.variant.reef, salt=`reef|${s.a.key}`;
-      const extra={ zone:'beach',zoneVariant:'mystic_reef',zoneAnchor:s.a.key };
+      const extra={ zoneKind:'beach',zoneVariant:'mystic_reef',zoneAnchor:s.a.key };
       // Tide generation reserves every potential pickup cell, including the
       // inactive majority. These ground pickups do not obstruct standing on
       // the shore; only water-seat occupancy blocks reef scenery/rewards.
@@ -101,7 +101,7 @@
       // Park-shore anchors have no POI chest to become the site's daily
       // shrine. Give only those owner sites one ordinary shrine on free dry
       // ground, after protecting treasure approaches and the finite ore budget.
-      const nexus = out.nexus?.find(n => n.zoneAnchor === s.a.key && n.variant === s.variant.id && n.kind === s.a.kind);
+      const nexus = out.nexus?.find(n => n.zoneAnchor === s.a.key && n.zoneVariant === s.variant.id && n.zoneKind === s.a.kind);
       const hasShrine = !!nexus?.poiId || out.objects.some(o =>
         o.kind === 'grove_shrine' && o.zoneAnchor === s.a.key && o.zoneVariant === s.variant.id);
       if (!hasShrine && s.variant.shrineFrame != null) {

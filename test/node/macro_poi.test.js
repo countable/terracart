@@ -138,14 +138,14 @@
   });
 
   // ── Inn ───────────────────────────────────────────────────────────────────
-  test('inn: the price is the Vigor potion\'s coins per energy × INN_RATE, and it rests once a day', () => {
-    assert.eq(VIGOR_POTION_ENERGY, 65, 'a Vigor restores 65');
-    assert.eq(Macros.innCoinsPerEnergy(), PRICES.vigor_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE, 'derived');
+  test('inn: the price is the Healing potion\'s coins per energy × INN_RATE, and it rests once a day', () => {
+    assert.eq(HEALING_POTION_ENERGY, 65, 'a Healing potion restores 65');
+    assert.eq(Macros.innCoinsPerEnergy(), PRICES.healing_potion / HEALING_POTION_ENERGY * Macros.INN_RATE, 'derived');
     assert.eq(Macros.INN_RATE, 0.5, 'half the potion (the Book says "half")');
     assert.eq(Macros.innPrice(0), 0, 'nothing to rest');
     assert.eq(Macros.innPrice(1), 1, 'never under a coin');
-    assert.eq(Macros.innPrice(40), Math.ceil(40 * PRICES.vigor_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE), 'a potion\'s worth');
-    assert.lt(Macros.innPrice(40), PRICES.vigor_potion, 'cheaper than the potion');
+    assert.eq(Macros.innPrice(40), Math.ceil(40 * PRICES.healing_potion / HEALING_POTION_ENERGY * Macros.INN_RATE), 'a potion\'s worth');
+    assert.lt(Macros.innPrice(40), PRICES.healing_potion, 'cheaper than the potion');
     const o = poi('lodging');
     const save = { energy: 30, money: 100 };
     const r = Macros.innRest(save, o, 100, T0);
@@ -228,11 +228,11 @@
       assert.truthy(Macros.APOTHECARY_POTIONS.includes(stock[0]), stock[0]);
       assert.eq(stock[1], 'antidote', 'the cure');
       seen.add(stock[0]);
-      const remedyTiers = { vigor_potion: 2, revive_potion: 3, protection_potion: 2, reach_potion: 4, antidote: 1 };
+      const remedyTiers = { healing_potion: 2, revival_potion: 3, protection_potion: 2, reach_potion: 4, antidote: 1 };
       for (const id of stock) assert.eq(tiers(id), remedyTiers[id], `${id} stays in its remedy tier`);
     }
     assert.eq(seen.size, Macros.APOTHECARY_POTIONS.length, 'every remedy turns up somewhere');
-    assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Healing');
+    assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'healing_potion', 'a dentist is Healing');
     const o = poi('pharmacy', { id: 3 });
     assert.eq(Macros.apothecaryStock(o).join(), Macros.apothecaryStock({ ...o }).join(), 'the same for everyone');
     const save = { relics: {} };
@@ -241,16 +241,35 @@
     }
   });
 
-  test('sundries: one supply item off the Supply Shop line, never the Book', () => {
-    const line = Shops.THEME_POOL.supply();
+  test('sundries: one supply item off the Supply Shop line or one gear line, never the Book', () => {
+    const line = [...Shops.THEME_POOL.supply(), ...Macros.SUNDRIES_GEAR.map(g => 'gear:' + g)];
     assert.falsy(line.includes('book'), 'the Supply Shop leaves the Book to the Bookshop');
     const seen = new Set();
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 160; i++) {
       const [id] = Macros.sundriesStock(poi('shop', { id: 'x' + i }));
       assert.truthy(line.includes(id) && id !== 'book', id);
       seen.add(id);
     }
-    assert.eq(seen.size, line.length, 'every supply item turns up');
+    assert.eq(seen.size, line.length, 'every supply item and gear line turns up');
+  });
+
+  test('sundries gear: the next rung above what is held, at three times list before the stall discount', () => {
+    const save = { relics: {}, armor: {}, inv: [] };
+    const lance = Macros.sundriesGear(save, 'gear:lance');
+    assert.eq(lance.kind, 'relic'); assert.eq(lance.slot, 'lance'); assert.eq(lance.tier, 1, 'Rusty first');
+    assert.eq(lance.price, ShopsMath.standPrice(save, gearPrice('relic', 'lance', 1) * Macros.SUNDRIES_GEAR_PRICE_MUL));
+    save.relics.lance = { tier: 1 };
+    assert.eq(Macros.sundriesGear(save, 'gear:lance').tier, 3, 'Fine over a Rusty one (no T2 rung)');
+    save.relics.lance = { tier: 5 };
+    assert.eq(Macros.sundriesGear(save, 'gear:lance'), null, 'nothing past Magic');
+    assert.eq(Macros.sundriesGear(save, 'gear:shield').id, 'wood_shield');
+    save.inv.push({ id: 'wood_shield', count: 1 });
+    const metal = Macros.sundriesGear(save, 'gear:shield');
+    assert.eq(metal.id, 'metal_shield', 'the Metal Shield over a carried Wood one');
+    assert.eq(metal.price, ShopsMath.standPrice(save, itemValue('metal_shield') * 3));
+    save.inv.push({ id: 'gold_shield', count: 1 });
+    assert.eq(Macros.sundriesGear(save, 'gear:shield'), null, 'the Gold Shield is the finest');
+    for (const line of ['dagger', 'musket']) assert.eq(Macros.sundriesGear(save, 'gear:' + line).tier, 1);
   });
 
   test('scriptorium: a plain stall — Books (and a torch) at the stall price, no free page', () => {
@@ -263,7 +282,7 @@
     assert.falsy(/_presentScriptorium/.test(SCENE_SRC), 'the free-page dialog is gone');
     // presentMacro routes by the kind's `present` column (Macros.KIND_DIALOG);
     // a stall with a `stock` opens the shared counter with that stock.
-    assert.truthy(/return d\.stock \? this\[d\.present\]\(sx, sy, \{ \.\.\.dress, items: d\.stock\(o\), title: d\.title \}\)/.test(SCENE_SRC),
+    assert.truthy(/if \(!d\.stock\) return this\[d\.present\]\(sx, sy, o, dress\);[\s\S]{0,400}?const opts = \{ \.\.\.dress, items: stock, title: d\.title \};/.test(SCENE_SRC),
       'the scriptorium opens the stall counter');
     assert.falsy(/_presentBookRead\(\)/.test(SCENE_SRC.slice(SCENE_SRC.indexOf('presentMacro('), SCENE_SRC.indexOf('buildingFlavorTitle('))),
       'no macro reads a Book page for free');
@@ -276,6 +295,11 @@
     assert.truthy(/presentMarketStandOffer\(sx, sy, stand\) \{\s*this\._presentStallOffer\(/.test(SCENE_SRC), 'the stall is the counter');
     assert.truthy(/if \(!d\?\.present\) return undefined;/.test(SCENE_SRC) && !/case 'apothecary'/.test(SCENE_SRC),
       'the counters route by the row, never a switch');
+    // Sundries' stock may name a gear line ('gear:<slot>', Macros.SUNDRIES_GEAR);
+    // that entry opens its own buy (_presentStallGear — a rung of equipment,
+    // not a stack) off the same row, never a switch of its own.
+    assert.truthy(/_presentStallGear\(sx, sy, \{[^}]*entry: stock\[0\] \}\)/.test(SCENE_SRC),
+      'a gear line at the sundries counter opens the gear buy');
     assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'priced by ShopsMath.standPrice off the list price (the Book\'s ladder rides in listPrice)');
   });
@@ -432,14 +456,14 @@
     assert.eq(list.length, Macros.CURIO_COLLECTION.length, 'every listed id is a real item');
     assert.inRange(list.length, 20, 30, 'a real collection');
     assert.eq(new Set(list).size, list.length, 'no duplicates');
-    const keeps = new Set(['shell', 'crow_feather', 'rabbit_pelt', 'boot']);
+    const keeps = new Set(['shell', 'crow_feather', 'rabbit_pelt', 'old_boot']);
     for (const id of list) {
       const it = ITEM_BY_ID[id];
       assert.falsy(id in FOOD_ENERGY, `${id} is not food`);
       assert.falsy(['seed', 'sapling', 'magic', 'animal'].includes(it.kind), `${id} is no seed, sapling, potion or animal`);
       assert.truthy(['mineral', 'supply', 'unique_relic'].includes(it.kind) || keeps.has(id), `${id} is a lasting thing (${it.kind})`);
     }
-    for (const id of ['potato', 'apple', 'flowers', 'vigor_potion', 'egg', 'potato_seed', 'acorn']) {
+    for (const id of ['potato', 'apple', 'flowers', 'healing_potion', 'egg', 'potato_seed', 'acorn']) {
       assert.falsy(Macros.curioEligible(id), `${id} is not collected`);
     }
     assert.eq(Macros.CURIO_MILESTONES.join(), '5,10,15', 'the milestones');
@@ -533,10 +557,10 @@
 
   test('training: each attack type reads its own discipline, and speed shortens every beat', () => {
     assert.truthy(/_attackFlat\(kind\) \{\s*const training = Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(SCENE_SRC), '_attackFlat, by type');
-    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass, Gear\.activeWeapon\(this\.save\)\)\s*\+ this\._attackFlat\('melee'\)\)/.test(SCENE_SRC), 'melee blows take melee');
+    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass, Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\)\s*\+ this\._attackFlat\('melee'\)\)/.test(SCENE_SRC), 'melee blows take melee');
     assert.truthy(/\* dmgMul\s*\+ this\._attackFlat\(Combat\.TRAINING_SLOT_KIND\[slot\]\),/.test(SCENE_SRC), 'shots take their slot\'s');
     assert.eq(Combat.TRAINING_SLOT_KIND.bow, 'ranged'); assert.eq(Combat.TRAINING_SLOT_KIND.staff, 'magic');
-    assert.truthy(/this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
+    assert.truthy(/this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
     const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), SCENE_SRC.indexOf('  buildingFlavorTitle('));
     assert.truthy(/memories required/.test(body), 'the lesson states its requirement');
     assert.truthy(/Macros\.buyLesson\(this\.save, kind, this\.memoriesTotal\(\)\)/.test(body), 'gated on memories RECOVERED');
@@ -706,7 +730,7 @@
     const pres = SCENE_SRC.slice(SCENE_SRC.indexOf('_presentScholar(sx, sy, o, dress) {'));
     assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true, deferRefresh: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
       'the prize is handed over notWild');
-    assert.truthy(/: this\[d\.present\]\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it by the row');
+    assert.truthy(/if \(!d\.stock\) return this\[d\.present\]\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it by the row');
     assert.eq(Macros.KIND_DIALOG.scholar.label, 'Book Club');
     assert.lte('Tome collected'.length, MAP_MSG_MAX);
     assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');
@@ -740,7 +764,7 @@
     const markets = Object.keys(rh).filter((id) => rh[id] === 'market' && id !== 'b');
     markets.forEach((id, n) => assert.eq(Shops.shopOrder(save, { id }), n, `${id} keeps place ${n}`));
     const lines = Shops.marketLines(save), mine = lines.find((r) => r.id === 'm');
-    assert.eq(mine.tier, 1 + lines.filter((r) => r.theme === mine.theme && r.id !== 'm').length, 'a picked line\'s tier counts the shops before it on that line');
+    assert.eq(mine.tier, 1, 'a picked T1 line is T1 however many stand on it (the stamped rank)');
     assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(SCENE_SRC), 'the restore path freezes the pick');
     assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'marketTheme reads lineFor');
     assert.falsy(/Shops\.themeAt\(Shops\.shopOrder/.test(SCENE_SRC), 'and nothing reads the cycle directly');
@@ -784,7 +808,23 @@
     assert.inRange(books / N, 0.15, 0.25, 'about a fifth of T2 food chests hand a Book: ' + (books / N).toFixed(3));
   });
 
-  test('scholar: an open-ground school raises a block and the booth stands at its wall — no pyramid', () => {
+  test('scholar: the Casorso field keeps its book club without a fabricated school wall', () => {
+    const tx=2754, ty=5566, N=WorldGen.cellsPerEdgeForTile(ty);
+    const edge=WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty)), cellM=edge/N;
+    const r=WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES['2754_5566']),N,tx,ty,edge);
+    const booths=r.objects.filter(o=>o.kind==='chest' && o._poiAt==='1312,3693');
+    assert.eq(booths.length,1,'the source school survives occupancy and POI deduplication');
+    const booth=booths[0];
+    assert.eq(chestLook(booth).texKey,'macro_scholar');
+    assert.falsy(isSpent(booth,spentSets(null,{opened:[booth.id]})),'legacy opened saves keep the counter visible');
+    const ix=Math.floor(booth.x/cellM)-tx*N, iy=Math.floor(booth.y/cellM)-ty*N;
+    assert.falsy(WorldGen.isBuildingTerrain(r.grid[iy*N+ix]),'outside the school');
+    const sourceX=Math.floor(1312*N/4096), sourceY=Math.floor(3693*N/4096);
+    const owner=r.owners[sourceY*N+sourceX];
+    assert.eq(owner,0,'the school POI marks open ground, not a physical building');
+  });
+
+  test('scholar: an open-ground school keeps its booth without inventing a building', () => {
     const T = WorldGen.T;
     const r = WorldGen.rasterizeTile([
       { name: 'landcover', features: [{ type: 3, tags: { class: 'grass' },
@@ -801,13 +841,9 @@
     assert.falsy(WorldGen.isBuildingTerrain(at(ix, iy)), 'the booth is not inside the block');
     let block = 0, commercial = 0;
     for (let i = 0; i < N * N; i++) { if (r.grid[i] === T.BUILDING_LARGE) block++; if (r.grid[i] === T.COMMERCIAL) commercial++; }
-    assert.eq(block, 9 * 7, 'the civic block (9×7) stands where the school is');
+    assert.eq(block, 0, 'a school POI does not establish a building footprint');
     assert.eq(commercial, 0, 'no concrete pyramid pad any more');
-    let touches = false;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (at(ix + dx, iy + dy) === T.BUILDING_LARGE) touches = true;
-    assert.truthy(touches, 'the booth stands against the school\'s outer wall');
-    assert.falsy(/rows = \[1, 3, 5, 7\]/.test(WORLDGEN_SRC), 'the pyramid rows are gone');
-    assert.truthy(/POI_CIVIC_BUILDING = new Set\(\[[^\]]*'school'/.test(WORLDGEN_SRC), 'a school raises the civic block');
+    assert.eq(r.objects.filter(o => o.kind === 'tower').length, 0, 'no invented castle towers');
   });
 
   test('macro: a chapel is minted for a church only — a synagogue, mosque or temple mints nothing', () => {

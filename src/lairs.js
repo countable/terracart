@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Lairs — the monsters nesting in a derelict structure, HARD MODE ONLY.
+// Lairs — the monsters nesting in a derelict structure, in EVERY mode.
 //
 // A ruin you walk past is scenery. A ruin with something living in it is a
-// decision: go around, or go in for what the building is worth. On hard
-// (Difficulty.get().derelictLairs) an unclaimed structure may hold a small
+// decision: go around, or go in for what the building is worth. In both
+// modes (Difficulty.get().derelictLairs) an unclaimed structure may hold a small
 // garrison, and BOTH what is in it and how many there are come off two facts
 // about THE BUILDING and no others — so every player meets the same garrison
 // in the same ruin:
@@ -18,8 +18,8 @@
 //   ITS OWN STRENGTH — a world-fixed value `t` in [0, 1] drawn from the
 //   structure's own stream (garrisonFor). t = 0 is the named figures, t = 1
 //   a castle holding LAIR_MAX_PER_STRUCTURE; the same t picks the rung of the
-//   kind ladder. It used to be distance from the player's HOME, which made a
-//   ruin's garrison depend on where each player happened to start.
+//   kind ladder; it is never distance from the player's HOME, which would make
+//   a ruin's garrison depend on where each player started.
 //
 //   HOME NEVER WEAKENS A GUARD. A ruin by the trailer is held exactly as it is
 //   for everyone else; the only thing Home does, for its own player, is HIDE a
@@ -125,26 +125,23 @@
   //     not scale it — a hoard with five giants is a fort);
   //   · ALWAYS held (OCCUPANCY rate 1, never thinned — the dressing only
   //     hands in a guarded hoard);
-  //   · held in EVERY mode (ALWAYS_AWAKE_TIERS): the building lairs stay a
-  //     hard-mode thing (stepResidency's `buildings` option), these are the
-  //     street's own.
+  //   · held in EVERY mode (ALWAYS_AWAKE_TIERS), whatever stepResidency's
+  //     `buildings` option says: these are the street's own.
   // They are NOT buildings: no footprint, no claim key, no part of the tile
   // budget (tileThin reads building shapes only). Street tiers are strings so
   // no terrain code can collide with them.
   // A BARRICADE (StreetVariants.dress, one per barricade on a barricade
   // road) and a BURNED ROW's stretch (one per (street key, stretch square) —
   // StreetVariants.BANDIT_STRETCH_UNITS) are the same reason again: one guard
-  // each, always held, every mode. (Until Sep 2026 a 'wagon' tier put a goblin
-  // at a third of the bus stops on every major road; the owner's safety pass
-  // removed it — a stop is on the kerb by definition. The hoard's tier was
-  // 'close', the head of a hedgerow's residential dead end.)
+  // each, always held, every mode. (There is no 'wagon' tier: a bus stop is on
+  // the kerb by definition.)
   const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
   // like a barricade, woken in EVERY mode, and the one tier whose count scales
-  // with the mode (MODE_SCALED_TIERS: Difficulty.slimeCountMul — 2 on easy,
-  // 4 on hard), because what holds it is slimes.
+  // with the mode (MODE_SCALED_TIERS: Difficulty.slimeCountMul — 1 in both
+  // modes today), because what holds it is slimes.
   const ZONE_TIER_GUARDS = { tar: 2 };
   Object.assign(TIER_GUARDS, ZONE_TIER_GUARDS);
   // ── A GATE — the same reason again (Sep 2026): an OSM barrier=gate is no
@@ -197,10 +194,8 @@
   // facts the count is already made of, saying a second thing.
   //
   //   A WRECKED HOUSE IS INFESTED. Nobody holds it; slimes are nesting in
-  //   the damp — the SURFACE slime and nothing else. Until Sep 2026 the
-  //   ladder climbed on to the cave slime and the purple, which put cave
-  //   kinds on the surface; the cave keeps its own now, so a wreck's
-  //   escalation is its COUNT (countFor), not its kind.
+  //   the damp — the SURFACE slime and nothing else (the cave keeps its own
+  //   kinds), so a wreck's escalation is its COUNT (countFor), not its kind.
   //
   //   A FORT OR A CASTLE IS HELD. A fortification with nobody in it is not
   //   derelict, it is empty — so what holds a ruined keep is a GARRISON: a
@@ -216,7 +211,7 @@
   //
   // THE RUNGS ARE EVENLY SPACED, not authored. A ladder is just its kinds in
   // order, weakest first, and rung `i` of `n` unlocks at `i / n` of `t` —
-  // which reproduces the thirds the slime ladder used to carry as literals
+  // which gives the slime ladder its thirds
   // (0, 0.34, 0.67) — and the two-rung garrison ladders (goblin, archer;
   // skeleton, giant skeleton) take halves for free.
   // Adding a kind re-spaces its own ladder and nothing else.
@@ -507,11 +502,9 @@
   }
 
   // ── Is this ruin held AT ALL? ────────────────────────────────────────────
-  // Until Sep 2026 every eligible structure past a safe ring was, which made
-  // a garrison a property of the MAP rather than a discovery: on a suburban
-  // street the player learned within a minute that all of it was held and
-  // stopped looking. Looking in a building has to be a gamble, so each one
-  // rolls for it — and the odds are the TIER'S, the same axis that decides
+  // A garrison must be a discovery, not a property of the MAP: looking in a
+  // building has to be a gamble, so each one rolls for it — and the odds are
+  // the TIER'S, the same axis that decides
   // what is in there and how many:
   //
   //   a CASTLE is nearly always held. It is the landmark version of the whole
@@ -694,9 +687,9 @@
   const LAIR_CORE_SPREAD_CELLS = 1.5;
   const LAIR_CORE_AGGRO_CELLS = 3;
   const LAIR_LEASH_CELLS = 10;   // and this far out it gives up and goes home
-  //   THE LEASH IS WHAT ENDS A CHASE (Oct 2026 — the goblins and orcs run at
-  // twice their old pace, 7 and 3 m/s, so a walking player no longer opens
-  // the gap): a garrison follows to the leash and turns round there, whoever
+  //   THE LEASH IS WHAT ENDS A CHASE (goblins and orcs run at 7 and 3 m/s,
+  //   so a walking player cannot open the gap): a garrison follows to the
+  //   leash and turns round there, whoever
   // is running. lair_chase_sim.test.js walks it.
   //   A GUARD WALKING HOME CAN FREEZE, and it is meant to. Past
   // CREATURE_SIM_CELLS (creature_ai.js, 12) wanderCreatures (scene_creatures.js) culls a creature entirely,
@@ -1107,8 +1100,8 @@
         // THE ENTRY (spawnInTile stashes the very object it spawned the tile's
         // fauna, traps and treasure with), never rebuilt here: a second
         // reading of "is this a road" is how the two drift. Only the VERDICT
-        // changed (Sep 2026): the draws are the same, so every seat that
-        // passes both rules is the seat it always was.
+        // changed: the draws are the same, so every seat that passes both rules is
+        // the seat it always was.
         if (!WG.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, guardClass)) continue;
         seat = (p.core || p.over) ? { x: ox + lx, y: oy + ly, ix, iy }   // a knot, not a stack
           : { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };
@@ -1128,7 +1121,7 @@
       // faunaShiny exception.
       // SHINY_RATE by bare name: a top-level `const` in util.js is a script-
       // global binding, never a property of window, so reading it off root is
-      // undefined in the browser (the node bridge used to hide that).
+      // undefined in the browser.
       // A GROUP's `elite` member is stamped shiny outright (the kind must be
       // eliteEligible — guard_groups.test.js pins the table); every other
       // guard rolls the world's rate.

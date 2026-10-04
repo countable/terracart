@@ -1,12 +1,8 @@
 // _starterGuidanceGoal — the (light-green) starter arrow's per-step target.
 //
-// Patch-history motivation: every ladder step past "Break ground" used to aim
-// the arrow at the nearest unopened `chest_start_*`. Once the supply crates
-// packed into the near part of the walk (TRAIL_SPAN) a player opened all four
-// early, leaving the relic chest — a full screen away — as the only unopened
-// target, so for most of the ladder the one arrow on screen pointed at the
-// horizon while the chip asked them to tap their tilled soil, their crop, a
-// wreck or their own house. The arrow did not point at the intended space.
+// Motivation: aiming every step at the nearest unopened `chest_start_*` left
+// the arrow pointing at the horizon (the relic chest, a screen away) while the
+// chip asked for tilled soil, a crop, a wreck or the player's house.
 // These tests pin the per-step aiming rules to the space each chip step is
 // actually talking about.
 //
@@ -95,7 +91,7 @@
       const g = scene._starterGuidanceGoal(STEP.till);
       assert.eq(g.x, plotAt.x + CELL_M / 2, 'aims at the 2x2 middle (x)');
       assert.eq(g.y, plotAt.y + CELL_M / 2, 'aims at the 2x2 middle (y)');
-      // No plot carved (mid-river spawn) → the old crate bearing.
+      // No plot carved (mid-river spawn) → the crate bearing.
       const bare = makeScene();
       assert.eq(bare._starterGuidanceGoal(STEP.till).id, 'chest_start_test_1',
         'no plot → nearest crate');

@@ -9,7 +9,7 @@
 //      the modal-gate tick, with _dialogOpen the only busy test.
 (function () {
   const T0 = 1_700_000_000_000;
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;   // app.js plus its installSceneMixin mixins
   const kept = new Function(app.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0] + 'return kept;')();
   const tables = ['SUMMON_HOOK', 'TIMED_BUFF_HOOKS'].map((t) => {
     const m = app.match(new RegExp('\\nconst ' + t + ' = \\{[\\s\\S]*?\\n\\};'));
@@ -147,8 +147,10 @@
       assert.truthy(new RegExp(`_enqueueCeremony\\('${kind}'`).test(app), `${kind}: queued`);
     }
     assert.falsy(/_macroReceipts|_drainMacroTransactions|_trailPrizeQueue|_drainTrailPrizes/.test(app), 'no second queue');
-    assert.eq((app.match(/classList\??\.contains\('modal-open'\)/g) || []).length, 1,
-      '_dialogOpen is the one place the class is read (its headless fallback)');
+    // (The modal shell's entrance animation asks the same class from module
+    // code with no scene in hand; it is not a scene busy test.)
+    assert.eq((app.replace(MODAL_SHELL_SRC, '').match(/classList\??\.contains\('modal-open'\)/g) || []).length, 1,
+      '_dialogOpen is the one place the scene reads the class (its headless fallback)');
     assert.truthy(/this\._drainBadgeStories\(\);/.test(app) && /if \(this\._drainCeremonies\(\)\) return;\s*MemoryStory\.drain\(this\);/.test(app),
       'the modal-gate tick drains the queue before the memories');
   });

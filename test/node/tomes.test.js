@@ -1,23 +1,24 @@
 // THE TOMES (Oct 2026, expanded).
 //
 // Eight permanent books are scholar prizes. A tome's spell is HALF its
-// potion's (TOME_EFFECT_MUL: half duration, half damage or restore); its
+// potion's (items.js TOME_MUL, the row's `tome.mul`: half duration, half
+// damage or restore); its
 // cooldowns are the SHARED 1 h activation lock (TOME_COOLDOWN_MS, every tome
 // locked by reading any one) plus its OWN magic cooldown (CONSUMABLE_SPEC
 // cooldownMs, power-scaled: 2 h / 8 h / 24 h). Home refreshes both; the
 // enchanter halves both; nothing is ever consumed.
 (function () {
-  const APP = globalThis.APP_JS_SRC || '';
+  const APP = globalThis.SCENE_SRC || '';
 
   const ROSTER = [
-    ['tome_sight', 'Tome of Reach', 3, 160, 2 * 3600e3],
+    ['tome_reach', 'Tome of Reach', 3, 160, 2 * 3600e3],
     ['tome_speed', 'Tome of Speed', 3, 160, 2 * 3600e3],
-    ['tome_shield', 'Tome of Shielding', 3, 160, 2 * 3600e3],
+    ['tome_shielding', 'Tome of Shielding', 3, 160, 2 * 3600e3],
     ['tome_healing', 'Tome of Healing', 3, 160, 2 * 3600e3],
     ['tome_raven', 'Tome of the Raven', 4, 400, 8 * 3600e3],
     ['tome_blight', 'Tome of Blight', 4, 400, 8 * 3600e3],
-    ['tome_firewall', 'Wall of Fire Tome', 4, 400, 8 * 3600e3],
-    ['tome_storm', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
+    ['tome_fire_wall', 'Wall of Fire Tome', 4, 400, 8 * 3600e3],
+    ['tome_thunder', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
   ];
 
   test('tomes: eight registered, named, unique, tiered, priced, framed', () => {
@@ -57,9 +58,9 @@
     assert.truthy(/this\._tomeReady\(id\)/.test(read[1]), '_readTome: gated');
     assert.truthy(/spend: false/.test(read[1]), '_readTome: the potion lane spends nothing');
     for (const [id] of ROSTER) {
-      if (id === 'tome_firewall') {
+      if (id === 'tome_fire_wall') {
         const fw = m('readTomeFirewall\\(\\)');
-        assert.truthy(fw && /_tomeReady\('tome_firewall'\)/.test(fw[1]) && !/_finishConsumable/.test(fw[1]), 'the firewall tome: gated, never consumed');
+        assert.truthy(fw && /_tomeReady\('tome_fire_wall'\)/.test(fw[1]) && !/_finishConsumable/.test(fw[1]), 'the firewall tome: gated, never consumed');
         continue;
       }
       const t = CONSUMABLE_SPEC[id].tome;
@@ -87,8 +88,8 @@
   });
 
   test('vista: grails hold treasure only - no tools, produce or field supplies', () => {
-    const banned = new Set(['potato', 'berry', 'cress', 'egg', 'milk', 'rope', 'trap_kit', 'torch', 'honey',
-      'can', 'hoe', 'rod', 'bugnet', 'bags']);
+    const banned = new Set(['potato', 'berry', 'cress', 'egg', 'milk', 'rope', 'trap_disarm_kit', 'torch', 'taming_potion',
+      'watering_can', 'hoe', 'fishing_rod', 'net', 'bag']);
     const rng = seeded(4242);
     const save = { relics: {}, armor: {} };
     let rolled = 0;

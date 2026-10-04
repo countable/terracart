@@ -177,8 +177,7 @@ const widthOfWay = (tags) => {
 };
 
 test('road overlay: a residential street is stroked at its real 5.5 m width', () => {
-  // 5.5 m: the table was 5 until Sep 2026, when the band was measured ~10%
-  // narrower than the street underfoot (see roadWidthM in worldgen.js).
+  // 5.5 m: the measured street width (see roadWidthM in worldgen.js).
   assert.eq(widthOfWay({ class: 'street' }), px(5.5), 'street');
   assert.eq(widthOfWay({ class: 'minor' }), px(5.5), 'minor');
   // Which is a little under the one cell the rasterizer paints for it — the
@@ -941,8 +940,7 @@ test('clean tile: it is the same tile every session', () => {
 // it: gilded ironwork standing on its own point, a lit glass in it, and a flat
 // pool of its own violet on the ground at its foot — baked once and drawn
 // through the same recording 2D context paintCleanTile is pinned against
-// above. It was a lit COBBLE until Sep 2026: a shaded violet stone that lit
-// the street correctly and looked like a stone doing it.
+// above.
 //
 // The pool is painted inside a translate/scale (it lies flat on the road), so
 // every geometry check here walks the ops with the transform in force —
@@ -1037,14 +1035,9 @@ test('street lamp: it STANDS on its point — ironwork above the ground line, th
   const lowest = Math.max(...pts.map(([, y]) => y));
   const highest = Math.min(...pts.map(([, y]) => y));
   assert.inRange(lowest, gy, gy + r * RoadOverlay.LAMP_VIEW_K + 0.5, 'the ironwork stands ON the ground line');
-  // HOW FAR above it: enough to read as a post, and no further. The profile
-  // stood 0.578 of the square tall until Sep 2026 — a tree is 1.5 cells and
-  // the square is LAMP_DRAW_CELLS across, so a lamp was as tall as the trees
-  // it stood between and a restored street read as a row of masts. Every row
-  // of LAMP_PROFILE was pulled toward the ground line by one linear map (the
-  // widths untouched), which is why nothing else in this file moved. The 45°
-  // view (LAMP_TILT) shortened it again the same way: seen from above, a post
-  // is foreshortened by cos(view).
+  // HOW FAR above it: enough to read as a post, and no further (a tree is
+  // 1.5 cells; the square is LAMP_DRAW_CELLS across). The 45° view
+  // (LAMP_TILT) foreshortens a post by cos(view).
   const height = (gy - highest) / S;
   assert.gt(height, 0.33, 'it rises most of the way up the square — a post, not a stone');
   assert.lt(height, 0.45, 'and not a mast: shorter than the trees it stands between');
@@ -1159,7 +1152,7 @@ test('street lamp: gold ironwork, violet light — one constant each, and they a
 test('street lamp: the glow is a PARAMETER — a themed street bakes its own colour, the metal stays gold', () => {
   // paintLamp(cx, size, glowHex): the glass, bloom and pool shed the lamp's
   // own glow (the lamp entry's `glow`, StreetVariants.lampGlowFor off its
-  // street); absent or malformed it is UI_LAMP_GLOW, exactly as before.
+  // street); absent or malformed it is UI_LAMP_GLOW.
   const S = RoadOverlay.LAMP_TEX_PX;
   const stopsOf = (glow) => {
     const { ctx, ops } = roRecorder();
@@ -1318,11 +1311,9 @@ test('road overlay live: runs project through the camera anchor, minus the conta
 });
 
 // ── roundJoinFans ────────────────────────────────────────────────────────
-// The round-cap/join fill NEVER overlaps the stroke it dresses up — that was
-// the bug in the first cut of this (a full circle at every vertex, which
-// double-composited its own alpha over the stroke sitting under it: at the
-// preview's old 0.55 the overlap read at ~0.80). Pure, so the exact
-// geometry is pinned without a Phaser Graphics.
+// The round-cap/join fill NEVER overlaps the stroke it dresses up (a full
+// circle at every vertex would double-composite its alpha over the stroke).
+// Pure, so the exact geometry is pinned without a Phaser Graphics.
 const roadNear = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
 const nearPt = (p, x, y, eps, m) => {
   assert.inRange(p.x, x - eps, x + eps, m);
@@ -1727,4 +1718,21 @@ test('broken street lamp: shared plinth, shorter post and muted metal without an
     assert.eq(c.a, 1, 'opaque metal');
     assert.lte(Math.max(c.r,c.g,c.b)-Math.min(c.r,c.g,c.b), 55, 'weathered metal is desaturated');
   }
+});
+
+test('road overlay: Burned Row shares glowing ember cracks on weathered and restored pavement', () => {
+  const strokes = [];
+  const cx = { fillStyle: '', globalAlpha: 1, beginPath() {}, moveTo() {}, lineTo() {}, quadraticCurveTo() {}, closePath() {},
+    fillRect() {}, fill() {}, arc() {}, stroke() { strokes.push([this.strokeStyle, this.lineWidth, this.globalAlpha]); }, drawImage() {} };
+  const previousCreate = document.createElement;
+  document.createElement = () => ({ getContext: () => cx });
+  try { for (const restored of [false, true]) {
+    strokes.length = 0;
+    RoadOverlay.paintPavementTile(cx, 32, false, restored, 'burned');
+    const glow = strokes.find(([ink, width, alpha]) => ink === StreetVariants.VARIANT_BY_ID.burned.stone.accent && alpha === .3);
+    const core = strokes.find(([ink]) => ink === '#ffe7a0');
+    assert.truthy(glow, 'orange heat halo'); assert.truthy(core, 'yellow hot fissures');
+    assert.gt(glow[1], core[1], 'soft heat surrounds narrow hot core');
+    assert.eq(cx.globalAlpha, 1, 'subsequent pavement painting is opaque');
+  } } finally { document.createElement = previousCreate; }
 });

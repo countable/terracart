@@ -34,7 +34,7 @@ test('baby pets: one table of domestic kinds, each a real animal item off its ba
 
 test('nest bush: one shrub in twenty, off the id, only nesting crops', () => {
   assert.eq(SHINY_RATE.nest, 1 / 20);
-  assert.truthy(wildplantNests('shrub')); assert.falsy(wildplantNests('mushroom')); assert.falsy(wildplantNests('rockfruit'));
+  assert.truthy(wildplantNests('shrub')); assert.falsy(wildplantNests('mushroom')); assert.falsy(wildplantNests('rubble'));
   const all = bushIds(20000);
   const n = all.filter(id => isNestBush('shrub', id)).length;
   assert.inRange(n / all.length, 0.045, 0.055, `rate ${n / all.length}`);
@@ -149,7 +149,7 @@ test('egg: hatches a baby, never an adult', () => {
   save.eggHatchM = EggHatch.METERS;
   const r = EggHatch.hatch(save, () => 0.5);
   assert.truthy(r.ok); assert.truthy(ITEM_BY_ID[r.petId].baby, `${r.petId} is a baby`);
-  assert.includes(APP_JS_SRC, "this.showBabyFound(result.petId, 'egg')");
+  assert.includes(SCENE_SRC, "this.showBabyFound(result.petId, 'egg')");
 });
 
 test('release: a baby is set down as a raised, shiny, newborn tame pet', () => {

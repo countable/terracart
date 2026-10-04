@@ -13,11 +13,8 @@ const MemoryStory = (() => {
     body: 'You knock on the tower door. No one answers.' };
   // THE WARDEN'S FIRST WORDS, ON A TAP. This page is what the safe area's
   // warden says the first time the player talks to her, whenever she arrives
-  // (npcDialogue below; save.memoryStory.wardenMet). It
-  // used to be pushed onto the pending queue by the warden's own seating and
-  // splashed over the map on the first morning; it never is now (Sep 2026,
-  // owner's call): the player walks up to the one neighbour on screen and
-  // taps them.
+  // (npcDialogue below; save.memoryStory.wardenMet). Never a splash over the map
+  // (owner's call, Sep 2026): the player walks up to the neighbour and taps.
   // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
   // action in <em> on its own line, the body HTML; a talk that needs two
   // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The
@@ -432,21 +429,18 @@ const MemoryStory = (() => {
     if (c.role === 'scout' && act(scene.save) >= 2) return survivorLine(scene.save);
     return null;
   }
-  // The child needs two new roofs after meeting. Freeze the target per child;
-  // legacy children who already qualified for housing keep their home.
+  // The child moves in Houses.STORY_RESTORES.childHome roofs after the
+  // restore count she was first met at — derived, so retuning it reaches
+  // children already met.
   function wandererHoused(save, c) {
-    const target = save?.memoryStory?.childHomeAt?.[c.id];
-    return Number.isFinite(target) && Houses.restoredCount(save) >= target;
+    const met = save?.memoryStory?.met?.[c.id];
+    return Number.isFinite(met) && Houses.restoredCount(save) >= met + Houses.STORY_RESTORES.childHome;
   }
   function wandererLine(scene, c) {
-    const s = state(scene.save), mended = Houses.restoredCount(scene.save);
+    const s = state(scene.save);
     if (!s.met || typeof s.met !== 'object') s.met = {};
-    if (!s.childHomeAt || typeof s.childHomeAt !== 'object') s.childHomeAt = {};
-    if (!Number.isFinite(s.childHomeAt[c.id])) {
-      const met = Number.isFinite(s.met[c.id]);
-      if (!met) s.met[c.id] = mended;
-      s.childHomeAt[c.id] = met && mended > s.met[c.id]
-        ? s.met[c.id] + 1 : s.met[c.id] + Houses.STORY_RESTORES.childHome;
+    if (!Number.isFinite(s.met[c.id])) {
+      s.met[c.id] = Houses.restoredCount(scene.save);
       Save.persist(scene.save);
     }
     if (!wandererHoused(scene.save, c)) return NEIGHBOURS.wanderer.homeless;

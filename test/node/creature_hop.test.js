@@ -2,9 +2,8 @@
 // rise, airtime, squashed landing), so a slime plays that row across each
 // step it takes and oozes on row 0 between — no code bounce on top
 // (SpriteLayout.creatureHopRow). Ghosts bob with the code bounce
-// (creatureHop); goblins use their walk cycle. Slimes used to wear a bounce over
-// their idle ooze: two rhythms out of step, bouncing in place, reading as
-// rapid and airborne.
+// (creatureHop); goblins use their walk cycle. Slimes take no bounce over
+// their idle ooze (two rhythms out of step read as rapid and airborne).
 
 test('creature hop: purple slimes retain their sheet hop; new idle sheets do not read nonexistent frames', () => {
   for (const k of ['purple_slime', 'giant_purple_slime']) {

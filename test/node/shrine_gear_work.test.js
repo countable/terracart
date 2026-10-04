@@ -11,17 +11,17 @@
   test('Harvest: mine, chop, till, fish and catch wheels run at triple speed', () => {
     const scene = { save: { boonUntil: { work: Date.now() + 900000 } }, _setWorkProgressIcon() {} };
     const start = lift('startWorkProgress');
-    for (const slot of ['pick', 'axe', 'hoe', 'rod', 'bugnet', null]) {
+    for (const slot of ['pickaxe', 'axe', 'hoe', 'fishing_rod', 'net', null]) {
       start.call(scene, 0, 0, () => {}, 9000, 3, slot);
       assert.eq(scene._workProgress.durationMs, 3000, `${slot || 'untooled'} work is tripled`);
       assert.eq(scene._workProgress.energyRefund, 3, 'speed does not change the paid cost');
     }
-    lift('startCatchProgress').call(scene, { x: 1, y: 2 }, 6000, () => {}, () => {}, 'bugnet');
+    lift('startCatchProgress').call(scene, { x: 1, y: 2 }, 6000, () => {}, () => {}, 'net');
     assert.eq(scene._workProgress.durationMs, 2000, 'the separate live catch wheel is tripled too');
   });
 
   test('Harvest: expiry restores duration, with no tier or combat changes', () => {
-    const save = { relics: { pick: { tier: 1 }, axe: { tier: 1 }, sword: { tier: 2 } }, boonUntil: { work: 100 } };
+    const save = { relics: { pickaxe: { tier: 1 }, axe: { tier: 1 }, sword: { tier: 2 } }, boonUntil: { work: 100 } };
     const before = JSON.stringify(save.relics);
     assert.eq(Gear.workDurationMs(save, 9000, 99), 3000);
     assert.eq(Gear.workDurationMs(save, 9000, 100), 9000);

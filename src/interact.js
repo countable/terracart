@@ -285,23 +285,10 @@ function findClosestItem(layer, px, py, reach, accept, offset) {
 // (render.js drawCells) and the cell-resolve tap gate use. This keeps the lit
 // area byte-identical to the tappable area for objects/creatures/treasure too.
 //
-// Earlier this measured a raw Euclidean distance from (x, y) to the player CELL
-// CENTRE. For objects whose world point sits off its cell centre — e.g. a house
-// FOOT, up to ~0.7·cellM from the centre of its cell — a cell that was lit (and
-// passed the cell gate) could still trip this Euclidean gate at the reach edge,
-// flashing "Just out of reach" only some of the time depending on where the
-// foot sat and cardinal-vs-diagonal geometry. Going cell-based removes that drift.
-//
-// THERE IS ONE REACH GATE. This used to keep the Euclidean rule described above
-// alive behind a `typeof cellInReach === 'function'` guard, as a fallback for
-// the helpers "somehow" being unavailable — but coords.js declares them at the
-// top level of a classic script loaded before this file (in index.html and in
-// the headless suite alike), so the guard was always true and the second rule
-// had not decided a tap in a long time. Two gates that disagree is exactly the
-// bug the paragraph above describes; keeping the losing one behind an
-// unreachable condition just made it unfalsifiable. (It would not have survived
-// running, either: its REACH_FAR_M lived in app.js, which never loads headless;
-// the constant is gone now too.)
+// A Euclidean distance to the cell centre disagreed with the lit cells for
+// objects whose world point sits off-centre (a house FOOT, up to ~0.7·cellM),
+// so reach is cell-based only. THERE IS ONE REACH GATE: two gates that
+// disagree is the bug this avoids.
 function tooFar(ctx, x, y) {
   const { scene } = ctx;
   // Reach gate = "is it in a lit cell?" — byte-identical to the on-screen
@@ -401,12 +388,6 @@ const TERRAIN_FLAVOR = {
 // ── Naming things the player can see ────────────────────────────────────────
 // Two helpers behind the till refusal and the plant flash, both here for the
 // same reason: a raw INTERNAL ID must never reach the screen (QC_RULES §4).
-// The till refusal used to read `occupied: ${blocker}` — a debug register with
-// a colon in it — and `blocker` fell through to `oo.kind` for anything the
-// three-branch ternary above it didn't name, so the game would tell a player
-// their plot was "occupied: mineralrock", or "occupied: fruittree", or (via
-// the plant flash) that they had "planted rainberry".
-//
 // cropName resolves a crop/produce id the way every loot toast already does:
 // the catalog name first, CROP_NAMES second, and only then a Title-Cased
 // version of the id, so an id that slips through still reads as English.
@@ -735,14 +716,13 @@ const TAP_HANDLERS = [
     // per-kind half-width (HALF_W): tap FORGIVENESS, not art — the row carries
     // no horizontal trim — scaled with a giant like the drawn body.
     // Metres per screen pixel: one cell is scene.cellM metres and
-    // scene.cellPx (app.js CELL_PX) pixels. (This used to be derived from
-    // feetOffsetM / 14, which is 0 / 14 now that the feet sit on the fix.)
+    // scene.cellPx (app.js CELL_PX) pixels.
     const px2m = scene.cellM / scene.cellPx;
     const UNDER_FEET_PAD_M = 0.3;          // a little grace below the art's bottom row
-    // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
+    // Per-kind horizontal grab half-width (m).
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
-      chicken: 1.5, crab: 1.5, turtle: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7, raven: 1.7, horse: 2.2, boar: 1.7,
+      chicken: 1.5, crab: 1.5, sea_turtle: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7, raven: 1.7, horse: 2.2, boar: 1.7,
       slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
@@ -846,27 +826,20 @@ const TAP_HANDLERS = [
 
     // HUNTING — GAME only, which is crow and deer: SpriteLayout.isGame reads
     // the one creature table, so what may be hunted is written beside what
-    // that kill drops instead of in a set of its own here. The old DEFEAT_KINDS
-    // set also held 'slime', which is an enemy now and never reaches here; it
-    // also matched a TAME 'released_' animal, so tapping the slime you'd just
-    // befriended with a sapphire killed it. A pet of any kind falls through to
-    // petting below.
+    // that kill drops instead of in a set of its own here. A pet of any kind
+    // falls through to petting below.
     if (!isTame && SpriteLayout.isGame(target.kind)) {
       const r = save.relics || {};
-      // ONE TOOL TAKES ANIMALS: the BUG NET. Until Sep 2026 the hunt wheel was
-      // sped by the best of sword / bow / staff, so a weapon bought purely to
-      // fight also quietly made you a better hunter and the net — the tool the
-      // catalog actually sells for 'catch crows + butterflies' — was worth
-      // nothing on the two kinds you take by hunting. Weapons fight ENEMIES
+      // ONE TOOL TAKES ANIMALS: the BUG NET. Weapons fight ENEMIES
       // (combat.js); the net takes GAME and livestock alike, on the same slot
       // the catch wheel below already uses.
       // The net uses the shared spec tool ladder via toolDurationMs (wood 4s …
       // frost .3s). No net = tier 0 (bare hands): 9s — slow but always possible.
-      // Named plainly, not `r.bugnet ? 'bugnet' : null`: toolDurationMs already
+      // Named plainly, not `r.bugnet ? 'net' : null`: toolDurationMs already
       // answers an unowned slot with the bare-handed rung, and the wheel's tool
       // badge answers "you own no net, so wear none" in _setWorkProgressIcon —
       // the one place that test lives.
-      const netSlot = 'bugnet';
+      const netSlot = 'net';
       const durMs = toolDurationMs(r, netSlot);
       // Rare shiny fauna have DOUBLE HP — the work wheel takes twice as long,
       // so a shiny crow/deer is markedly tougher to bring down than its plain
@@ -933,7 +906,7 @@ const TAP_HANDLERS = [
     if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort',
-                      crab: 'click', horse: 'whinny', turtle: 'blink' };
+                      crab: 'click', horse: 'whinny', sea_turtle: 'blink' };
       const sound = SOUND[target.kind] || 'happy';
       // Petting accepts the favourite OR plant produce as a treat. Treats
       // get consumed; an empty-handed pet is free. animalLikesFood handles
@@ -1067,7 +1040,7 @@ const TAP_HANDLERS = [
     // the wheel by tier; bare hands take the tier-0 (9s) time — long enough
     // that a slow target usually slips out of reach and escapes. Butterflies
     // catch bare-handed too — no tool gate.
-    let catchMs = toolDurationMs(save.relics, 'bugnet') * CATCH_SPEED_MUL;
+    let catchMs = toolDurationMs(save.relics, 'net') * CATCH_SPEED_MUL;
     // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
     // a shiny animal (which also flees at SHINY_SPEED_MUL, app.js) is much harder to net: it
     // has more time to slip out of reach and escape. Plain kinds are unchanged.
@@ -1088,7 +1061,7 @@ const TAP_HANDLERS = [
       // On the cell the animal escaped FROM (where it stands now), not the
       // viewport centre.
       scene.flashAtWorld('🏃 it got away', victim.x, victim.y);
-    }, 'bugnet', catchCost);
+    }, 'net', catchCost);
     return true;
   }},
 
@@ -1096,7 +1069,7 @@ const TAP_HANDLERS = [
   { name: 'disarm-obstacle', try: (ctx) => {
     const { scene, save, wm } = ctx;
     const sel = getSelectedSlot(save);
-    if (!(sel?.id === 'trap_kit' && sel.count > 0)) return false;
+    if (!(sel?.id === 'trap_disarm_kit' && sel.count > 0)) return false;
     const spent = spentSets(scene, save);
     const accepts = o => isTrapKitObstacle(o) && !isSpent(o, spent);
     const o = findItemInTapCell(scene, 'wildplants', wm, accepts)
@@ -1129,14 +1102,11 @@ const TAP_HANDLERS = [
       const reqRelic = wildplantWorkRelic(wp.crop);
       // What this wild plant DOES — what it drops, whether it hides a bonus,
       // which relic times its wheel and what that wheel costs — is one table
-      // in items.js (WILDPLANT_RULES), read through the accessors below. It
-      // used to be three literals right here (HARVEST_OUTPUT, WORK_RELIC and a
-      // per-crop cost ternary on the shrub) plus WILD_TREASURE in loot.js, so
-      // a new wild plant with a rule of its own was four edits in two files.
+      // in items.js (WILDPLANT_RULES), read through the accessors below.
       // Some wild crops require physical work to harvest, mirroring their
       // hard-object cousins:
-      //   rockfruit (stone debris) → pick relic speeds up rock-breaking work
-      //   shrub     (woody bush)   → axe  relic speeds up chop work
+      //   rubble    (stone debris) → pickaxe relic speeds up rock-breaking work
+      //   shrub     (woody bush)   → axe relic speeds up chop work
       // Both run toolDurationMs of that relic (items.js TOOL_DURATION_MS —
       // 9s bare-handed, faster per tier). Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
@@ -1177,9 +1147,7 @@ const TAP_HANDLERS = [
           }
         }
         persistSave(save);
-        // Display NAMES, never raw ids — every other loot toast resolves the
-        // name first (QC_RULES §4), so this path used to be the one that
-        // flashed "+1 longgrass" instead of "+1 Long grass".
+        // Display NAMES, never raw ids (QC_RULES §4).
         const outName = itemName(outId);
         if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);
         else scene.flashLoot(wildplantHarvestLine(wp.crop), undefined, rewards[0].qty, outId);
@@ -1199,7 +1167,7 @@ const TAP_HANDLERS = [
       // The relic's work on the shared pipeline (interactables.js
       // startToolJob): the energy pre-spent, the wheel on the relic's tool
       // ladder, the cost refunded on cancel. Only the axe work tells the
-      // felling story — rockfruit debris gathers free, by hand.
+      // felling story — rubble debris gathers free, by hand.
       const work = (durationMs, cost) => startToolJob(ctx, {
         x: wp.x, y: wp.y, tool: reqRelic, durationMs, cost,
         action: reqRelic === 'axe' ? 'chop' : null, onDone: award,
@@ -1213,7 +1181,7 @@ const TAP_HANDLERS = [
         if (short > 0) return refuseToolGate(ctx, needToolLine(rule.hazardMinTier, rule.workRelic), short, work);
       }
       const selected = getSelectedSlot(save);
-      if (rule?.disarmWithKit && selected?.id === 'trap_kit' && selected.count > 0) {
+      if (rule?.disarmWithKit && selected?.id === 'trap_disarm_kit' && selected.count > 0) {
         save.picked = [...save.picked, wp.id];
         const kept = Math.random() < TRAP_KIT_KEEP_CHANCE;
         if (!kept) consumeSelected(save);
@@ -1347,11 +1315,8 @@ const TAP_HANDLERS = [
     return false;
   }},
 
-  // (There used to be a 'path-stone' handler here that claimed the cobble a
-  // tap landed on. A street is rebuilt by PROXIMITY now — app.js _sweepStreets
-  // restores every metre that has sat inside the player's reach for the dwell
-  // — so the tap has nothing left to do, and a handler bound to a single cell
-  // could not address a stretch of way measured in metres anyway.)
+  // No 'path-stone' handler: a street is rebuilt by PROXIMITY (app.js
+  // _sweepStreets), not by tapping a cobble.
 
   // 2-disarm-trap) With a Trap Disarm Kit selected, tap a trap's own cell —
   // the hidden scuff or the already-sprung jaw, surface or cave — to remove
@@ -1362,7 +1327,7 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cell } = ctx;
     if (typeof Traps === 'undefined') return false;
     const sel = getSelectedSlot(save);
-    if (!(sel && sel.id === 'trap_kit' && (sel.count ?? 0) > 0)) return false;
+    if (!(sel && sel.id === 'trap_disarm_kit' && (sel.count ?? 0) > 0)) return false;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
     const trap = entry ? Traps.trapAt(entry, cell.ix, cell.iy) : null;
     // isTrapDisarmed / disarmTrap: a goblin's LAID snare keeps its state on
@@ -1488,7 +1453,7 @@ const TAP_HANDLERS = [
     if (!scene.placedRockSet.has(cellKey)) return false;
     return startToolJob(ctx, { x: cwmx, y: cwmy, onDone: () => {
       scene.placedRockSet.delete(cellKey);
-      scene.addToInv('rockfruit', 1);
+      scene.addToInv('rubble', 1);
       persistSave(save);
       scene.flash('⛏ rock', sx, sy);
     } });
@@ -1541,7 +1506,7 @@ const TAP_HANDLERS = [
   // scarecrow repels crows/deer — and slowly restores energy to anyone resting
   // near it (see app.js). Coal is consumed; the fire persists until tapped out.
   { name: 'light-fire', try: (ctx) => placeOnEmptyCell(ctx, {
-    itemId: 'coal',
+    itemId: 'flint_shard',
     extraGuard: (ctx) => !occupantsOf(ctx).fireHere,
     place: ({ scene, save, cwmx, cwmy }) => {
       // Tag the level so it renders / wards only here (see src/placed_floor.js).
@@ -1591,7 +1556,7 @@ const TAP_HANDLERS = [
 
   // 2-place-rock) With rockfruit selected, drop a stone on an empty tillable cell.
   { name: 'place-rock', try: (ctx) => placeOnEmptyCell(ctx, {
-    itemId: 'rockfruit',
+    itemId: 'rubble',
     energyKey: 'rockPlace',
     place: ({ scene, cellKey }) => {
       scene.placedRockSet.add(cellKey);
@@ -1638,9 +1603,8 @@ const TAP_HANDLERS = [
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       ctx.dirty = true;
-      // This branch GREW the plant and cleared its watering — it did not water
-      // it, which is what it used to say. Report the stage it just reached and
-      // that it wants water again, the same shape the two branches below use.
+      // This branch GREW the plant and cleared its watering. Report the stage
+      // it just reached and that it wants water again, like the branches below.
       // (Rarely seen: the scene's once-a-second advanceGrowth tick normally
       // gets here first, so this only fires on a tap inside that window or
       // after the tab was backgrounded. Wrong either way.)
@@ -1694,7 +1658,7 @@ const TAP_HANDLERS = [
       // The can does ONE thing now: the growth jump above — how soon you get
       // it. WHAT you get (produce quality) is the bed's, set by the hoe that
       // tilled it and banked on the crop at planting (Crops.bedQuality).
-      const can = save.relics?.can;
+      const can = save.relics?.watering_can;
       ctx.dirty = true;
       // Say what the tap DID, like every other farm action does ('tilled',
       // 'planted …', 'harvested …'): until Sep 2026 this read only the stage
@@ -1736,7 +1700,7 @@ const TAP_HANDLERS = [
     // NOT the per-tier toolDurationMs ladder. Rod tier already scales the
     // catch table and the energy cost; letting it also shrink the cast to
     // 0.3s turned a Frost rod into a 3-casts-per-second money faucet.
-    const castMs = save.relics?.rod ? 3000 : 9000;
+    const castMs = save.relics?.fishing_rod ? 3000 : 9000;
     // Which spot this is, and whether a fish is secretly in it (items.js
     // FISH_STOCK_CHANCE / fishSpotStocked; the starter pond always is). A
     // spot already fished out is in save.fishedSpots for good.
@@ -1744,8 +1708,8 @@ const TAP_HANDLERS = [
     const stocked = inStarterPond(scene, cell) || fishSpotStocked(spotId);
     // The shared job (startToolJob) with a FIXED cancel refund of 5, whatever
     // the rod's cast cost.
-    return startToolJob(ctx, { x: ctx.cwmx, y: ctx.cwmy, tool: 'rod', durationMs: castMs, cost: fishCost, refund: 5, onDone: () => {
-      const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
+    return startToolJob(ctx, { x: ctx.cwmx, y: ctx.cwmy, tool: 'fishing_rod', durationMs: castMs, cost: fishCost, refund: 5, onDone: () => {
+      const tier = save.relics?.fishing_rod?.tier || 0;   // 0 = bare hands (worst odds)
       // An empty or fished-out spot looks and casts like any other and is
       // always an empty cast — the player learns where the fish are by
       // fishing. A spot still holding its fish always bites.
@@ -1801,15 +1765,15 @@ const TAP_HANDLERS = [
     if (cell.type !== TERRAIN.CAVE_WALL) return false;
     // The shared job (startToolJob): the pick's cost and ladder, the first
     // dig's story after the spend.
-    return startToolJob(ctx, { x: cwmx, y: cwmy, tool: 'pick', durationMs: toolDurationMs(save.relics, 'pick'),
+    return startToolJob(ctx, { x: cwmx, y: cwmy, tool: 'pickaxe', durationMs: toolDurationMs(save.relics, 'pickaxe'),
       cost: effectivePickCost(save.relics), action: 'dig', onDone: () => {
         scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);
         // A wall pays the wall's own table (interactables.js caveWallDrop) —
         // one stone, flint on 30 % — the same one the auto-mine pays.
         const qty = caveWallDrop(scene);
         persistSave(save);
-        const item = ITEM_BY_ID['rockfruit'];
-        scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
+        const item = ITEM_BY_ID['rubble'];
+        scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rubble');
       } });
   }},
 
@@ -1826,15 +1790,8 @@ const TAP_HANDLERS = [
 
   // 2c) Tilled empty cell: with a seed → plant. Without one, say so.
   //
-  // Tapping tilled soil with nothing selected used to UN-TILL it, handing the
-  // ground back to grass. It never earned its keep: the tap that fires it is
-  // the same tap a player makes to ask "what now?" of a plot they have just
-  // spent energy breaking, so the commonest way to meet the feature was to
-  // lose the plot to it — and it was already suppressed during the ladder's
-  // planting step for exactly that reason, which is the tell that the
-  // behaviour was wrong rather than the timing. Soil is never in the way
-  // (anything plantable can be planted on it, and it costs nothing to leave),
-  // so there is nothing to undo. The tap now only ever says what is missing.
+  // A tap on tilled soil never un-tills it (players tap it to ask "what now?");
+  // it only says what is missing.
   { name: 'plant', try: (ctx) => {
     const { scene, save, sx, sy, cellKey, cwmx, cwmy } = ctx;
     if (!scene.tilledSet.has(cellKey)) return false;
@@ -1873,7 +1830,7 @@ const TAP_HANDLERS = [
       Crops.clearBedQuality(save, cellKey);
       // Inject the growing fruittree straight into the covering tile's LIVE
       // cache entry (mirrors spawnInTile's fruittree block) so it appears at
-      // once. Deleting the cache entry instead — as this used to do — dropped
+      // once. Deleting the cache entry would drop
       // the tile's ground `grid`, so the synchronous ground render fell back to
       // grass for every cell (the "whole landscape goes green" crash) until the
       // async loadTile re-fetched the tile. See render.js GRASS_FALLBACK_COLOR.

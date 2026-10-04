@@ -1,13 +1,13 @@
 (function () {
 function method(name, deps = {}) {
-  const match = APP_JS_SRC.match(new RegExp('\\n  ' + name + '\\(([^\\n]*)\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n'));
+  const match = SCENE_SRC.match(new RegExp('\\n  ' + name + '\\(([^\\n]*)\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n'));
   assert.truthy(match, name + ' exists');
   return new Function(...Object.keys(deps), 'return function(' + match[1] + '){' + match[2] + '}')(...Object.values(deps));
 }
 // The casts (fear, sleep) are CAST_ROWS rows cast by _castOnFoes; the table
 // and the refusal formatter are lifted from app.js beside the methods.
 const TABLE = (deps) => new Function(...Object.keys(deps),
-  APP_JS_SRC.match(/\nconst CAST_ROWS = \{[\s\S]*?\n\};/)[0] + APP_JS_SRC.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0]
+  SCENE_SRC.match(/\nconst CAST_ROWS = \{[\s\S]*?\n\};/)[0] + SCENE_SRC.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0]
   + 'return { CAST_ROWS, kept };')(...Object.values(deps));
 function scene(id, creatures = []) {
   const s = {

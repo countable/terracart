@@ -5,7 +5,7 @@
 // Depends on:
 //   items.js (itemTierOf — lootFlashColor's tier for any item id). The 'flora'
 //   category below is just a POI-category label (florist/garden/garden_centre)
-//   consumed by rarity.js's classBias weighting — magical flower seeds are
+//   that picks the chest's theme (chest_themes.js) — magical flower seeds are
 //   gated by BASE_TIER in items.js, not a dedicated flower-id set here.
 //
 // Exports as globals:
@@ -28,9 +28,7 @@
 //   chestLook, chestOpeningArt
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade)
-// AND the old per-category loot tables (CATEGORY_LOOT /
-// DEFAULT_LOOT / getLootConfig / TIER_YIELD) have been migrated to / superseded
-// by rarity.js's pickReward + classBias engine.
+// live in rarity.js's pickReward + classBias engine.
 
 // === Rustic name transform ===
 // Maps modern words → medieval/farm equivalents. Whole-word, case-insensitive.
@@ -474,7 +472,7 @@ function isBikeRack(o) {
 // item → awning frame in the market_stand spritesheet (the product "family").
 const STAND_ITEM_FRAME = {
   // fruit (orange, 0)
-  apple: 0, cherry: 0, peach: 0, banana: 0, orange: 0, coconut: 0, apricot: 0, mango: 0, berry: 0,
+  apple: 0, cherry: 0, worldpeach: 0, banana: 0, orange: 0, coconut: 0, apricot: 0, mango: 0, berry: 0,
   // veg / grocer (green, 1)
   potato: 1, onion: 1, cress: 1, nut: 1, mushroom: 1,
   // meat (red, 2)
@@ -620,11 +618,9 @@ const STAND_GENERIC_ITEM = {
 // guess that can never fire (there is no `greengrocer` class in the tiles; that
 // word lives in the name table instead).
 //
-// EVERY CLASS SELLS SOMETHING DIFFERENT. Six of these used to collapse onto
-// potato and three more onto meat, so a street of unnamed shops was a row of
-// identical stalls — the fallback is what most stalls actually resolve by, so
-// the duplicates were most of the variety the player ever saw. One item each,
-// picked for what that kind of shop would put on the counter:
+// EVERY CLASS SELLS SOMETHING DIFFERENT: the fallback is what most stalls
+// resolve by, so duplicates would make a street of identical stalls. One item
+// each, picked for what that kind of shop would put on the counter:
 //
 //   butcher       meat      the only butchery there is
 //   fast_food     potato    chips, the fast-food staple
@@ -867,8 +863,5 @@ function chestOpeningArt(o) {
 
 // Wild debris on the map (no tilling needed). Tap within 4m + 18m of player to pick up.
 // Spawning is per-polygon in worldgen at a stable 5-30% density (see DEBRIS_CROP/spawnDebris).
-// The surprise treasure a wild plant may hide used to be WILD_TREASURE here —
-// a one-row map on the other side of the codebase from the three other one-row
-// maps that described the same plant. It is a `treasure` field on the crop's
-// row in items.js' WILDPLANT_RULES now (read through wildplantTreasure), beside
-// what it drops, what times its wheel and whether it glows.
+// The surprise treasure a wild plant may hide is a `treasure` field on the
+// crop's row in items.js' WILDPLANT_RULES (read through wildplantTreasure).

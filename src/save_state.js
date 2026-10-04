@@ -13,7 +13,7 @@
     magicTraps: [], donated: [],
     petBoost: {}, lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
     trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
-    castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, dragonStory: {}, tilledQuality: {},
+    castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
   });
   function defaults(save) {
     for (const k of Object.keys(SAVE_DEFAULTS)) {
@@ -30,7 +30,7 @@
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
     if (typeof Shrines !== 'undefined') Shrines.normalize(save);
     const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)
-      : ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+      : ['pickaxe', 'axe', 'sword', 'bow', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
     save.relics = save.relics || {};
     for (const slot of relicSlots) {
       if (save.relics[slot] === undefined) save.relics[slot] = null;
@@ -72,7 +72,7 @@
     }
     // Backfill armor slots (spread, not ||, so a save missing one slot key still
     // gets defaults rather than carrying gaps that crash armorReduction).
-    save.armor = { helmet: null, chest: null, legs: null, boots: null, ...(save.armor || {}) };
+    save.armor = { helmet: null, chestplate: null, leggings: null, boots: null, ...(save.armor || {}) };
     // Derive the energy maximum from current equipment, then clamp the reading.
     const _fallbackMaxE = (typeof STARTING_ENERGY !== 'undefined' ? STARTING_ENERGY : 100);
     let maxE = (typeof Energy !== 'undefined' && typeof Energy.maxEnergy === 'function')

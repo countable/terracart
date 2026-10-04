@@ -36,13 +36,13 @@ test('consumable confirmations: outcomes stay brief and enigmatic', () => {
 
 test('consumables: one action row names every button method', () => {
   const ids = [
-    'orb', 'egg', 'book', 'honey', 'reach_potion', 'antidote', 'elixir',
-    'vigor_potion', 'speed_potion', 'shield_potion', 'raven_scroll', 'skeleton_scroll', 'wraith_scroll',
+    'orb', 'egg', 'book', 'taming_potion', 'reach_potion', 'antidote', 'elixir',
+    'healing_potion', 'speed_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll',
     'giant_potion', 'fire_resistance_potion', 'protection_potion', 'time_potion', 'immortal_potion', 'shrinking_potion',
-    'thunder_scroll', 'blight_potion', 'revive_potion',
+    'thunder_scroll', 'blight_potion', 'revival_potion',
     'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
-    'frost_powder', 'torch', 'sapphire', 'rope', 'spear', 'javelin', 'rockfruit', 'forgetmenot', 'wildrose', 'horse', 'shiny_horse',
-    'tome_sight', 'tome_raven', 'tome_storm', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight', 'tome_firewall',
+    'frost_powder', 'torch', 'sapphire', 'rope', 'throwing_spear', 'javelin', 'rubble', 'forgetmenot', 'wildrose', 'horse', 'shiny_horse',
+    'tome_reach', 'tome_raven', 'tome_thunder', 'tome_speed', 'tome_shielding', 'tome_healing', 'tome_blight', 'tome_fire_wall',
     'fireball_scroll', 'explosive_flask', 'fear_scroll', 'treasure_map', 'sleep_powder', 'psychosis_powder', 'hardworking_potion', 'poison_flask',
   ];
   const actionIds = Object.keys(CONSUMABLE_SPEC).filter(id => CONSUMABLE_SPEC[id].verb);

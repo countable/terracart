@@ -3,20 +3,17 @@
 // wild flora (kinds + densities) and its dominant fauna. Worldgen reads
 // flora() + allows(), and the fauna spawner reads BIOME_FAUNA.
 //
-// WHY a registry: the per-biome content used to be scattered across worldgen
-// (DEBRIS_CROP / LONGGRASS_TYPES / MEADOW_FLORA / FOREST_FLORA / inline
-// branches), app.js (hardcoded fauna Sets), and textures.js. Several biomes
-// (commercial / wetland / farmland) fell through every one of those tables and
-// generated NOTHING. Centralising here gives every walkable biome an explicit
-// profile AND a base-family FALLBACK, so an unwired or unknown poly type can
-// never again be barren.
+// WHY a registry: several biomes (commercial / wetland / farmland) used to
+// fall through every scattered per-biome table and generate NOTHING. Here every
+// walkable biome has an explicit profile AND a base-family FALLBACK, so an
+// unwired types retain family defaults; farmland and golf are explicitly empty.
 //
 // Load order: BEFORE worldgen.js (worldgen calls flora()/allows() at rasterize
 // time). textures.js owns its own BIOME_TEX (texture draws are a render
 // concern); this file only references texture variant counts for documentation.
 //
 // Depends on: nothing. Pure data + small lookups. Exposes globals
-//   BiomeProfiles (accessors: T, flora, tint, atmos, mixHex, allows, yard,
+//   BiomeProfiles (accessors: T, flora, staticObjects, tint, atmos, mixHex, allows, faunaAllows, yard,
 //   yardAllows),
 //   BIOME_PROFILES (raw), BIOME_FAUNA, FAUNA_ORDER.
 
@@ -33,11 +30,10 @@
   };
 
   // RNG salts — one independent stream per flora kind per biome so finds scatter
-  // rather than co-locate. The first block reuses the exact salts the old
-  // scattered worldgen code used (so a biome whose flora list is unchanged
-  // reproduces its old placement); the rest are fresh for the newly-wired
-  // biomes. Density is seeded from (polyKey ^ salt), so identical salts on the
-  // same crop would draw identical patterns within one polygon.
+  // rather than co-locate. Density is seeded from (polyKey ^ salt), so identical
+  // salts on the same crop would draw identical patterns within one polygon.
+  // The first block keeps the salts of the old scattered worldgen code so an
+  // unchanged flora list reproduces its placement.
   const S = {
     SHRUB: 0x00000000,        // old DEBRIS_CROP shrub/shell used the bare polyKey
     SHELL: 0x00000000,
@@ -70,11 +66,9 @@
   // occupancy filter the combined density stays under ~30 % per zone.
   const D_MIN = 0.05, D_MAX = 0.15;
   // dyn(maxDensity): a per-polygon density in [DYN_MIN, max] — most polygons
-  // grow a light tuft, big areas cluster, and DYN_MIN keeps even the
-  // unluckiest roll from reading as barren (was [0, max]: a landuse polygon
-  // whose hashed seed landed near the bottom of that range grew nothing at
-  // all, permanently, since the seed is derived from the polygon's own
-  // location — the same school/park/pitch would read empty on every visit).
+  // grow a light tuft, big areas cluster, and DYN_MIN keeps the unluckiest
+  // roll from reading as barren (the seed derives from the polygon's own
+  // location, so a bare polygon would stay bare on every visit).
   const DYN_MIN = 0.04;
   const dyn = (crop, max, salt) => ({ crop, dynamic: true, dMin: DYN_MIN, dMax: max, salt });
 
@@ -87,16 +81,15 @@
   // (zones.test.js re-measures) — and `sparse` outside, `units` MVT units
   // (~25 m) to a lattice step. The scatter still takes exactly ONE draw per
   // candidate, so no rng stream moves: only which candidates survive.
-  // 0.3·2.0 + 0.7·0.15 ≈ 0.7 of the old blanket's plants, gathered into the
-  // clumps — the lawn between them nearly bare (sparse was 0.3 until the
-  // park-density pass, Sep 2026: "open ground between").
+  // 0.3·2.0 + 0.7·0.15 ≈ 0.7 of a uniform blanket's plants, gathered into
+  // clumps with the lawn between nearly bare.
   const FLORA_PATCH = { units: 64, salt: 5.1, share: 0.30, cut: 0.585, dense: 2.0, sparse: 0.15 };
   const fix = (crop, dMin, dMax, salt) => ({ crop, dMin, dMax, salt });
   // Ordinary grass, including ground with no mapped polygon. Each 24-cell
-  // region has a 10–40% background and one dense circular stand. Worldgen
+  // region has a sparse background and one dense circular stand. Worldgen
   // seats this once on the final GRASS grid, never once per overlapping polygon.
   const GRASS_FILL = { crop: 'longgrass', pattern: 'grassfill', salt: S.LONGGRASS,
-    dMin: 0.10, dMax: 0.40, spacing: 24, radiusMin: 3, radiusMax: 5, dense: 0.90 };
+    dMin: 0.09, dMax: 0.36, spacing: 24, radiusMin: 3, radiusMax: 5, dense: 0.90 };
 
   // ── Families ──────────────────────────────────────────────────────────────
   // Every biome belongs to a base family. Unknown / unwired types fall back to
@@ -140,12 +133,10 @@
     grassland: {
       flora: [dyn('longgrass', 0.15, S.LONGGRASS),
               // Ordinary flowers replace the school-only blue blooms. Parks/grass carry
-              // two stacked OSM polygons (landcover+landuse / landuse+park),
-              // each running its own scatter — observed density ~2x the window.
+              // two stacked OSM polygons, each running its own scatter (~2x density).
               fix('flowers', 0.003, 0.010, S.FORGETMENOT),
-              // Marigold halved (was 0.008–0.024 effective across stacked polys)
-              // and kept below ordinary flowers: it's the rarer flower (sell 3 vs 2)
-              // but grows in far more biomes, so it read as the most common bloom.
+              // Marigold is the rarer flower (sell 3 vs 2) but grows in far more
+              // biomes, so it is kept below ordinary flowers.
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
     },
     forest: {
@@ -153,27 +144,23 @@
               fix('mushroom', 0.04, 0.10, S.MUSH_FOREST)],
     },
     // Occasional beach finds; keep the sand and waterline mostly clear.
-    sand:  { flora: [fix('shell', 0.01, 0.0175, S.SHELL)] },
+    sand:  { flora: [fix('shell', 0.022, 0.035, S.SHELL), fix('driftwood', 0.0075, 0.0075, 0xd71f700d)] },
     rocky: { flora: [] },
     farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)] },
     urban: {
       flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)],
-      // YARD flora — NOT a debris scatter. A bit of long grass and scrub grown
-      // IN AMONG the yard rubble: worldgen scatters these around each fired
-      // residential rock-cluster pivot (_spawnYardFloraSteps, riding the rock
-      // lane's pivots) from this row's own salted stream, so the rocks never
-      // re-roll, and the post-pass culls them by the ROCK's rule (_mrDrop:
-      // road band, building moat, POI plaza, residential frontage). Deliberately
-      // NOT in `flora` and NOT in allows(): a lawn-wide longgrass scatter
-      // spilled from an overlapping grass landcover must still die on a
+      // YARD flora — NOT a debris scatter. Long grass and scrub grown IN AMONG
+      // the yard rubble: worldgen scatters these around each fired residential
+      // rock-cluster pivot (_spawnYardFloraSteps) from this row's own salted
+      // stream, and the post-pass culls them by the ROCK's rule (_mrDrop).
+      // Deliberately NOT in `flora` and NOT in allows(): a lawn-wide longgrass
+      // scatter spilled from an overlapping grass landcover must still die on a
       // residential cell — only yard-lane plants survive there (yardAllows).
       //   per cluster: min + floor(rng*span) tries within radiusK × the rock
-      //   cluster radius (the rocks carpet ~1×; the flora rings them), each try
-      //   picking a crop by `share`. Numbers chosen so surviving flora lands
-      //   near the surviving rock count (residential_flora.test.js measures it).
-      //   CUT (Sep 2026, owner's call): 14–25 tries → 4–7. With the lot rubble
-      //   gone (LOT_ROCK_DRY) the plants took the rocks' cells too, and an
-      //   ordinary street read as packed with grass and bushes.
+      //   cluster radius, each try picking a crop by `share`. Numbers chosen so
+      //   surviving flora lands near the surviving rock count
+      //   (residential_flora.test.js measures it), keeping streets from reading
+      //   as packed with grass and bushes.
       yard: { min: 4, span: 4, radiusK: 2, salt: S.YARD_FLORA,
               crops: [{ crop: 'longgrass', share: 0.5 }, { crop: 'shrub', share: 0.5 }] },
     },
@@ -187,67 +174,48 @@
   //        rock clusters) stay in worldgen — they're object spawns with their
   //        own placement maths — but their on/off is still biome-gated there.
   // A biome with no row here inherits its family's profile above —
-  // SAND, RESIDENTIAL, WASTELAND and ROCK are exactly their family defaults
-  // (grassland / sand / urban / urban / rocky), so they have no row.
+  // SAND uses its family default. Explicit rows override the other families.
   const BIOME_PROFILES = {
-    [T.GRASS]: { flora: [GRASS_FILL,
-      ...FAMILY_PROFILE.grassland.flora.filter((fl) => fl.crop !== 'longgrass')] },
-    [T.FOREST]: {
-      flora: [fix('shrub', D_MIN, D_MAX, S.SHRUB),
-              fix('nut', 0.005, 0.03, S.NUT),
-              fix('mushroom', 0.04, 0.10, S.MUSH_FOREST),
-              fix('wildrose', 0.004, 0.012, S.WILDROSE),
-              fix('starflower', 0.002, 0.006, S.STARFLOWER)],
+    [T.GRASS]: { blockedFlora: ['marigold'], flora: [GRASS_FILL,
+      fix('flowers', 0.012, 0.020, S.FORGETMENOT)] },
+    [T.FOREST]: { staticObjects: { treeSpacingM: 11.7 },
+      flora: [fix('shrub', 0.018, 0.052, S.SHRUB),
+              fix('nut', 0.008, 0.033, S.NUT),
+              fix('mushroom', 0.055, 0.125, S.MUSH_FOREST),
+              fix('wildrose', 0.0015, 0.0045, S.WILDROSE),
+              fix('starflower', 0.003, 0.009, S.STARFLOWER)],
     },
-    [T.FARMLAND]: {
-      // Muddy pasture — patches of grass + the odd wildflower (green, not the
-      // old golden wheat tint, to suit the churned-pasture look).
-      flora: [dyn('longgrass', 0.10, S.FARM_LG),
-              fix('marigold', 0.003, 0.009, S.FARM_MAR)],
+    [T.FARMLAND]: { flora: [] },
+    // Mushrooms remain on residential frontage; its yard lane grows shrubs.
+    [T.RESIDENTIAL]: { flora: FAMILY_PROFILE.urban.flora, blockedFlora: ['longgrass'],
+      yard: { ...FAMILY_PROFILE.urban.yard, min: 1, span: 1,
+        crops: [{crop: 'shrub', share: 1}] } },
+    [T.WASTELAND]: { staticObjects: { rockFireChance: 0.72, rockPlainKeep: 1, rockOreKeep: 0.75 }, flora: [], blockedFlora: ['mushroom'],
+      yard: { ...FAMILY_PROFILE.urban.yard, min: 3, span: 4,
+        crops: [{crop: 'longgrass', share: 0.33}, {crop: 'shrub', share: 0.67}] } },
+    [T.SCHOOL]: { blockedFlora: ['marigold'],
+      flora: [fix('longgrass', 0.015, 0.025, S.LONGGRASS),
+              { ...fix('forgetmenot', 0.011, 0.023, S.FORGETMENOT), terrainOnly: true }],
     },
-    // [T.PARK] is PARK_CHARACTERS.common — assigned below the table. A park
-    // POLYGON reads its own character's row (flora(T.PARK, character)).
-    [T.SCHOOL]: {
-      // School grounds are the exclusive source of wild forget-me-nots.
-      flora: [dyn('longgrass', 0.16, S.LONGGRASS),
-              { ...fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT), terrainOnly: true },
-              fix('marigold', 0.003, 0.008, S.SCH_MAR)],
+    [T.COMMERCIAL]: { blockedFlora: ['marigold'],
+      flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB }],
     },
-    [T.COMMERCIAL]: {
-      // Clipped hedge maze across the plaza paving — shrubs laid out in neat
-      // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js), regular
-      // clay pots replacing every fourth pillar, and a few marigolds.
-      flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB },
-              fix('marigold', 0.004, 0.010, S.COM_MAR)],
+    [T.ROCK]: { staticObjects: { rockPlainKeep: 0.75, rockOreKeep: 1 }, flora: [] },
+    [T.INDUSTRIAL]: { staticObjects: { rockPlainKeep: 0.48, rockOreKeep: 0.925, barrelDensity: 0.0135 }, flora: [fix('shrub', 0.009, 0.020, S.IND_SHRUB)] },
+    [T.PLAYGROUND]: { blockedFlora: ['marigold'],
+      flora: [fix('longgrass', 0.007, 0.013, S.LONGGRASS),
+              fix('flowers', 0.007, 0.015, S.FORGETMENOT)],
     },
-    [T.INDUSTRIAL]: {
-      // Hardy weeds breaking through the concrete; minerals (worldgen) dominate.
-      flora: [fix('shrub', 0.02, 0.05, S.IND_SHRUB)],
-    },
-    [T.PLAYGROUND]: {
-      flora: [dyn('longgrass', 0.12, S.LONGGRASS),
-              fix('flowers', 0.004, 0.014, S.FORGETMENOT),
-              fix('marigold', 0.002, 0.006, S.MARIGOLD)],
-    },
-    // PITCH + GOLF are deliberately manicured: long grass only, no wildflowers
-    // (this is intentional per-biome differentiation, not the old meadow pass).
-    [T.PITCH]: { flora: [dyn('longgrass', 0.06, S.LONGGRASS)] },
+    [T.PITCH]: { flora: [fix('longgrass', 0.003, 0.007, S.LONGGRASS)] },
     [T.WETLAND]: {
-      // Lush marsh — dense reedy grass, marsh scrub, damp mushrooms, the odd
-      // flowers at the water's edge.
-      flora: [dyn('longgrass', 0.10, S.WET_LG),
-              fix('shrub', 0.03, 0.08, S.WET_SHRUB),
-              fix('mushroom', 0.015, 0.04, S.WET_MUSH),
-              fix('flowers', 0.004, 0.010, S.WET_FMN)],
+      flora: [fix('longgrass', 0.15, 0.21, S.WET_LG),
+              fix('shrub', 0.035, 0.070, S.WET_SHRUB),
+              fix('mushroom', 0.055, 0.105, S.WET_MUSH),
+              fix('flowers', 0.004, 0.008, S.WET_FMN)],
     },
-    [T.GOLF]: {
-      flora: [dyn('longgrass', 0.05, S.LONGGRASS)],
-    },
-    // (T.GROVE takes the PARK row — assigned below the table.)
-    [T.ORCHARD]: {
-      // Fruit trees (worldgen canopy) + grassy understory with wildflowers.
-      flora: [dyn('longgrass', 0.08, S.ORCH_LG),
-              fix('marigold', 0.003, 0.008, S.ORCH_MAR)],
+    [T.GOLF]: { flora: [] },
+    [T.ORCHARD]: { staticObjects: { fruitTreeSpacingM: 15.2 }, blockedFlora: ['marigold'],
+      flora: [fix('longgrass', 0.019, 0.030, S.ORCH_LG)],
     },
   };
 
@@ -261,33 +229,29 @@
   // variants, never a second scatter. Every row keeps the FLORA_PATCH clumps.
   //   meadow  long grass + wildflowers, a few shrubs
   //   wooded  trees (`trees`: a per-cell chance, worldgen spawnParkTreesSteps)
-  //           + shrubs + mushrooms
+  //           + shrubs and a few flowers
   //   formal  clipped HEDGE ROWS of shrubs (`hedgeRows`, a lattice on the
   //           global cell grid — neat, no clumps) + marigold beds, sparse
   //   common  open lawn: light long grass, few shrubs
-  // PARK DENSITY: the rows are budgeted to ~60% of the old single PARK row
-  // (Σ mean density 0.141 → ~0.084 over the character shares) — parks read
-  // as clumps with open ground between (owner: "~40% lower"). `pad` is the
-  // park POI pad's greenery (worldgen, the same two draws per cell; was
-  // shrub 0.18 / long grass 0.10 for every park) and `filler` is what the
-  // PARK FRINGE smatters past the polygon's edge (src/zones.js fringe).
+  // Scattered rows retain clumps; their rates are calibrated against occupied
+  // eligible cells in tools/preview_basic_coverage.js. Trees, hedges and
+  // earlier plants compete for seats, so raw chances are not final coverage.
   // Salts: the PARK row's own streams (so a meadow's long grass is the
   // park's long grass stream) plus fresh ones for what is new.
-  const PARK_S = { TREE: 0x7ae5a001, MUSH: 0x7ae5a002 };
+  const PARK_S = { TREE: 0x7ae5a001 };
   const PARK_CHARACTERS = {
     meadow: {
       share: 0.30, filler: 'longgrass', pad: { shrub: 0.02, longgrass: 0.06 },
-      flora: [fix('longgrass', 0.025, 0.06, S.LONGGRASS),
-              fix('flowers', 0.004, 0.012, S.FORGETMENOT),
-              fix('marigold', 0.003, 0.007, S.MARIGOLD),
-              fix('shrub', 0.004, 0.010, S.SHRUB)],
+      flora: [fix('longgrass', 0.065, 0.115, S.LONGGRASS),
+              fix('flowers', 0.025, 0.045, S.FORGETMENOT),
+              fix('marigold', 0.004, 0.010, S.MARIGOLD),
+              fix('shrub', 0.002, 0.007, S.SHRUB)],
       patch: FLORA_PATCH,
     },
     wooded: {
       share: 0.25, filler: 'shrub', pad: { shrub: 0.07, longgrass: 0.015 },
-      trees: { p: 0.012, salt: PARK_S.TREE },
-      flora: [fix('shrub', 0.02, 0.045, S.SHRUB),
-              fix('mushroom', 0.01, 0.025, PARK_S.MUSH),
+      trees: { p: 0.060, salt: PARK_S.TREE },
+      flora: [fix('shrub', 0.008, 0.017, S.SHRUB),
               fix('flowers', 0.002, 0.004, S.FORGETMENOT)],
       patch: FLORA_PATCH,
     },
@@ -296,20 +260,22 @@
       // Rows every `period` global cells, cut into `seg`-cell runs of which
       // `on` stand (a stable per-run coin) — ~1/6 · 0.45 ≈ 7.5% of the park.
       hedgeRows: { period: 6, seg: 4, on: 0.45, salt: 0xf0a1ed01 },
-      flora: [fix('marigold', 0.006, 0.012, S.MARIGOLD)],
+      flora: [fix('marigold', 0.011, 0.019, S.MARIGOLD)],
       patch: FLORA_PATCH,
     },
     common: {
       share: 0.30, filler: 'longgrass', pad: { shrub: 0.03, longgrass: 0.05 },
-      flora: [dyn('longgrass', 0.06, S.LONGGRASS),
-              fix('shrub', 0.005, 0.012, S.SHRUB),
-              fix('flowers', 0.002, 0.004, S.FORGETMENOT),
-              fix('marigold', 0.001, 0.003, S.MARIGOLD)],
+      flora: [fix('longgrass', 0.020, 0.038, S.LONGGRASS),
+              fix('shrub', 0.003, 0.007, S.SHRUB),
+              fix('flowers', 0.003, 0.006, S.FORGETMENOT)],
       patch: FLORA_PATCH,
     },
   };
   const PARK_CHARACTER_IDS = Object.keys(PARK_CHARACTERS);
-  for (const id of PARK_CHARACTER_IDS) PARK_CHARACTERS[id].id = id;
+  for (const id of PARK_CHARACTER_IDS) {
+    PARK_CHARACTERS[id].id = id;
+    PARK_CHARACTERS[id].blockedFlora = ['mushroom'];
+  }
   // A cemetery is a lawn among the graves: always `common`.
   const CEMETERY_CHARACTER = 'common';
   // The character at a GLOBAL MVT point (tile·4096 + local, integers) — a
@@ -342,6 +308,7 @@
     if (character && (type === T.PARK || type === T.GROVE) && PARK_CHARACTERS[character]) return PARK_CHARACTERS[character];
     return BIOME_PROFILES[type] || FAMILY_PROFILE[familyOf(type)] || FAMILY_PROFILE.grassland;
   };
+  const staticObjects = type => get(type).staticObjects || {};
   const flora = (type, character) => get(type, character).flora || [];
   // The row's FLORA_PATCH (or null), and the density multiplier it gives the
   // candidate at GLOBAL MVT point (gx, gy).
@@ -375,7 +342,7 @@
   };
   for (const [type, profile] of Object.entries(BIOME_PROFILES)) addAllowed(profile, familyOf(Number(type)));
   // Every park character's crop grows on PARK / GROVE ground itself (a
-  // wooded park's mushrooms, a formal park's hedge shrubs) — per TERRAIN, not
+  // wooded park's flowers, a formal park's hedge shrubs) — per TERRAIN, not
   // widened to the whole grassland family, so a lawn or a verge spilled onto
   // keeps its old verdict.
   const ALLOWED_TYPES = {};      // crop -> Set(terrain code)
@@ -392,6 +359,7 @@
     T.FARMLAND, T.ROCK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF,
     T.ORCHARD, T.COMMERCIAL, T.INDUSTRIAL, T.GROVE, T.CHURCHYARD, T.TAR_YARD]);
   const allows = (crop, type) => {
+    if (type === T.FARMLAND || type === T.GOLF || get(type).blockedFlora?.includes(crop)) return false;
     if (EXCLUSIVE_TYPES[crop]) return EXCLUSIVE_TYPES[crop].has(type);
     if (ALLOWED_TYPES[crop] && ALLOWED_TYPES[crop].has(type)) return true;
     const fams = ALLOWED_FAMILIES[crop];
@@ -405,6 +373,7 @@
   // wild plant still goes through allows().
   const yard = (type) => get(type).yard || null;
   const yardAllows = (crop, type) => {
+    if (get(type).blockedFlora?.includes(crop)) return false;
     if (allows(crop, type)) return true;
     const y = yard(type);
     return !!(y && y.crops.some((c) => c.crop === crop));
@@ -491,16 +460,13 @@
   // in parks) while still scattering everywhere. Extending fallback sets to the
   // newly-wired biomes is what finally puts fauna in wetland / commercial /
   // industrial zones. count = base + floor(rng()*range).
-  // The RAVEN is last: it joined in Sep 2026 (the coin thief — a roster foe,
-  // EnemyRoster 'raven', seated here like an animal because it lives where
-  // animals live, not where the encounter budget rolls), and a species
-  // appended after every other one draws off the tile stream AFTER them, so
-  // no earlier animal's seat moved when it arrived. The HORSE followed it
-  // (Oct 2026) the same way.
+  // The RAVEN and HORSE are last: a species appended after every other draws
+  // off the tile stream AFTER them, so no earlier animal's seat moved when they
+  // arrived. (The raven is a roster foe seated here like an animal because it
+  // lives where animals live.)
   const FAUNA_ORDER = ['chicken', 'cow', 'cat', 'dog', 'deer', 'crow', 'butterfly', 'slime', 'raven', 'horse'];
   // Lot land (residential + the wasteland that used to be painted as it) —
-  // spread wherever a species lists residential ground, so wasteland keeps
-  // exactly the fauna it had before it had a code of its own.
+  // shared by ordinary urban fauna; cats and deer have narrower habitat limits.
   const LOT = [T.RESIDENTIAL, T.WASTELAND];
   // The zone halos (src/zones.js) join every "anywhere natural" list; a GROVE
   // also stands wherever a species lists the park (it plays like one).
@@ -510,9 +476,9 @@
   const BIOME_FAUNA = {
     chicken:   { base: 30, range: 15, share: 0.80, primary: [T.FARMLAND, T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.SCHOOL] },
     cow:       { base: 12, range: 12, share: 0.90, primary: [T.GRASS], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.PITCH, T.GOLF] },
-    cat:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT, T.COMMERCIAL], fallback: ALL_NATURAL },
+    cat:       { base: 6,  range: 8,  share: 0.80, primary: [T.RESIDENTIAL, T.COMMERCIAL], fallback: ALL_NATURAL.filter(t => t !== T.WASTELAND), excluded: [T.WASTELAND] },
     dog:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT], fallback: ALL_NATURAL },
-    deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.PARK, T.GROVE, T.ORCHARD, T.WETLAND], fallback: [T.FOREST, T.PARK, T.GROVE, T.ORCHARD, T.WETLAND, T.GOLF] },
+    deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.RESIDENTIAL], fallback: [T.FOREST, T.RESIDENTIAL], only: [T.FOREST, T.RESIDENTIAL] },
     crow:      { base: 200, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
     butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF], fallback: [T.PARK, T.GROVE, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF, T.SCHOOL, T.PLAYGROUND] },
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
@@ -523,6 +489,12 @@
     // The horse is rare: five a tile on the cow's ground, against the cow's 12–23.
     horse:     { base: 5,  range: 0,  share: 0.90, primary: [T.GRASS, T.FARMLAND], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.PITCH, T.GOLF] },
   };
+
+  // Generation-only habitat limits also apply to relocation and authored fauna.
+  function faunaAllows(kind, type) {
+    const row = BIOME_FAUNA[kind];
+    return !row || ((!row.only || row.only.includes(type)) && !row.excluded?.includes(type));
+  }
 
   // ── Shore fauna ─────────────────────────────────────────────────────────
   // The WATERFRONT's animals are seated by their OWN rule, not by a row
@@ -541,13 +513,13 @@
   // What this is NOT: an `attracts` pull — that moves a tile's existing
   // spawns of a species onto favourite ground; these species have no spawns
   // anywhere else to move.
-  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'turtle'];
+  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'sea_turtle'];
   const SHORE_FAUNA = {
     metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
     crab: { perShoreM: 35, max: 14, pier: false, salt: 'shorefauna|crab' },
     gull: { perShoreM: 90, max: 6,  pier: true,  salt: 'shorefauna|gull' },
     // The sea turtle: the rabbit's habits on the sand, fewer than the crabs.
-    turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
+    sea_turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
   };
 
   // The FAUNA ATTRACTOR column for GROUND (terrain code → { species: p }):
@@ -557,12 +529,11 @@
   // class: waste ground a zone halo repainted still counts.
   const BIOME_ATTRACTS = {
     [T.WASTELAND]: { slime: 0.5 },
-    [T.PITCH]: { deer: 0.5 },
   };
 
   // The accessors. The raw tables reach app.js as the bare globals below
   // (BIOME_FAUNA / FAUNA_ORDER for the fauna spawner), not through here.
-  const api = { T, flora, tint, atmos, mixHex, allows, yard, yardAllows, patch, patchMul, FLORA_PATCH, GRASS_FILL,
+  const api = { T, flora, staticObjects, tint, atmos, mixHex, allows, faunaAllows, yard, yardAllows, patch, patchMul, FLORA_PATCH, GRASS_FILL,
     PARK_CHARACTERS, PARK_CHARACTER_IDS, CEMETERY_CHARACTER, parkCharacterAt, parkCharacter, isParkPoi };
   global.BiomeProfiles = api;
   global.BIOME_PROFILES = BIOME_PROFILES;

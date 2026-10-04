@@ -261,6 +261,9 @@ Higher-priority placements and their access space take precedence in this order:
   traps, treasure and rooted enemies respect variant exclusions; a variant's
   own content does not use the general-fill veto. Fauna retain their intentional
   ability to share interactable cells and their terrain/road restrictions.
+  Nexus coverage also excludes ordinary beach bottles, tide reservations and
+  generic fauna. Within it, only the variant's declared fauna and `attracts`
+  row can add or attract animals; underlying shore/terrain rules do not apply.
 - Resolve equal-priority generated claims using stable world-space feature keys
   and buffered geometry, never iteration order, tile-load order or save state.
   Apply saved-player changes as overlays without rerolling the generated world.
@@ -465,8 +468,8 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   labels such as "Shop tier 1" or "T4".
 - Loot identity by place uses per-context `favourite`; general frequency uses
   `dropWeight`.
-- A neighbour's talk is its ROLE, a row of `NPC.PROFILES[zone].roles` with a
-  label in every `NPC.LABELS` zone and a branch in `NPC.dialogue` that reads
+- A neighbour's talk is its ROLE, a row of `NPC.CULTURES[culture].roles` with a
+  label in every `NPC.LABELS` culture and a branch in `NPC.dialogue` that reads
   an owning ledger (restoration, lamps), never a count of its own. A zone's
   story in a resident's voice is the `keeper` column of `Zones.ZONE_KINDS`.
   The story neighbours by the trailer (`NPC.STORY_ROLES`, seated by

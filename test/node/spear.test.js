@@ -3,7 +3,7 @@
 const CELL = 7;
 function throwScene(overrides = {}) {
   const scene = {
-    save: { energy: 50, inv: [{ id: 'spear', count: 2 }], selSlot: 0, relics: {} },
+    save: { energy: 50, inv: [{ id: 'throwing_spear', count: 2 }], selSlot: 0, relics: {} },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 3, y: 4 },
     facing: { x: 3, y: 0 }, cellM: CELL, _shots: [], now: 1000,
     _dragonUntil: Date.now() + 60000,
@@ -15,7 +15,7 @@ function throwScene(overrides = {}) {
   };
   const names = ['_consumeSelected', '_finishInventoryChange', 'throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useJavelin', 'useRock', '_tickThrowButton', 'useForgetmenot', 'useWildrose', '_friendlyShotHitsEnemy', '_shotCanHit', '_shotHitsTarget'];
   const methods = names.map(name => {
-    const method = APP_JS_SRC.match(new RegExp('\\n  (' + name + '\\([^\\n]*\\) \\{\\n[\\s\\S]*?\\n  \\})\\n'));
+    const method = SCENE_SRC.match(new RegExp('\\n  (' + name + '\\([^\\n]*\\) \\{\\n[\\s\\S]*?\\n  \\})\\n'));
     assert.truthy(method, `${name} exists`);
     return method[1];
   });
@@ -40,12 +40,12 @@ function fly(shot, enemies, blocked = () => false, onHit = () => {}) {
 }
 
 test('spear: available as a consumable with an active throwing action', () => {
-  assert.truthy(ITEM_BY_ID.spear, 'catalog entry');
-  assert.eq(CONSUMABLE_SPEC.spear.method, 'useSpear');
-  assert.eq(CONSUMABLE_SPEC.spear.damage, 20);
-  assert.gt(PRICES.spear, 0);
-  assert.truthy(ITEM_EFFECTS.spear);
-  assert.truthy(MINERAL_ICON_SHEET.spear, 'inventory art');
+  assert.truthy(ITEM_BY_ID.throwing_spear, 'catalog entry');
+  assert.eq(CONSUMABLE_SPEC.throwing_spear.method, 'useSpear');
+  assert.eq(CONSUMABLE_SPEC.throwing_spear.damage, 20);
+  assert.gt(PRICES.throwing_spear, 0);
+  assert.truthy(ITEM_EFFECTS.throwing_spear);
+  assert.truthy(MINERAL_ICON_SHEET.throwing_spear, 'inventory art');
 });
 
 test('spear: one use throws one 20-damage arrow-like shot without a bow or wood', () => {
@@ -54,7 +54,7 @@ test('spear: one use throws one 20-damage arrow-like shot without a bow or wood'
   assert.eq(scene._shots.length, 1);
   const shot = scene._shots[0];
   const arrow = Combat.spawnShot('bow', 103, 204, scene.facing, CELL, 20, 1, 4);
-  assert.eq(shot.projectile, 'spear', 'distinct flying art');
+  assert.eq(shot.projectile, 'throwing_spear', 'distinct flying art');
   for (const key of ['slot', 'x', 'y', 'vx', 'vy', 'speedMps', 'rangeM', 'pierce', 'damage']) {
     assert.eq(shot[key], arrow[key], key);
   }
@@ -66,7 +66,7 @@ test('spear: one use throws one 20-damage arrow-like shot without a bow or wood'
 
 test('spear: last throw empties the hand without selecting the next stack', () => {
   const { scene, result } = throwSpear({ save: {
-    energy: 50, inv: [{ id: 'spear', count: 1 }, { id: 'wood', count: 3 }], selSlot: 0,
+    energy: 50, inv: [{ id: 'throwing_spear', count: 1 }, { id: 'wood', count: 3 }], selSlot: 0,
   } });
   assert.eq(result, true);
   assert.eq(scene.save.inv.length, 1);
@@ -79,8 +79,8 @@ test('spear: invalid selection, empty stack, downed or shadowed player, or absen
   for (const overrides of [
     { save: { energy: 50, inv: [], selSlot: -1 } },
     { save: { energy: 50, inv: [{ id: 'wood', count: 2 }], selSlot: 0 } },
-    { save: { energy: 50, inv: [{ id: 'spear', count: 0 }], selSlot: 0 } },
-    { save: { energy: 0, inv: [{ id: 'spear', count: 2 }], selSlot: 0 } },
+    { save: { energy: 50, inv: [{ id: 'throwing_spear', count: 0 }], selSlot: 0 } },
+    { save: { energy: 0, inv: [{ id: 'throwing_spear', count: 2 }], selSlot: 0 } },
     { facing: { x: 0, y: 0 } },
     { isShadowActive: () => true },
   ]) {
@@ -115,9 +115,9 @@ test('spear: terrain stops it and a miss expires at arrow range', () => {
 });
 
 test('throws: rock does fixed 2 damage with arrow collision and consumes exactly one even on a miss', () => {
-  const scene = throwScene({ save: { energy: 50, inv: [{ id: 'rockfruit', count: 3 }], selSlot: 0 } });
-  assert.truthy(CONSUMABLE_SPEC.rockfruit.immediate);
-  assert.truthy(CONSUMABLE_SPEC.rockfruit.usable(scene));
+  const scene = throwScene({ save: { energy: 50, inv: [{ id: 'rubble', count: 3 }], selSlot: 0 } });
+  assert.truthy(CONSUMABLE_SPEC.rubble.immediate);
+  assert.truthy(CONSUMABLE_SPEC.rubble.usable(scene));
   assert.truthy(scene.useRock());
   assert.eq(scene._shots[0].damage, 2);
   assert.eq(scene._shots[0].projectile, 'rock');
@@ -133,7 +133,7 @@ test('throws: rock does fixed 2 damage with arrow collision and consumes exactly
 
 test('throws: shared cooldown follows the last weapon and survives stack switches', () => {
   const scene = throwScene({ save: { energy: 50,
-    inv: [{ id: 'spear', count: 3 }, { id: 'rockfruit', count: 3 }, { id: 'spear', count: 2 }], selSlot: 0 } });
+    inv: [{ id: 'throwing_spear', count: 3 }, { id: 'rubble', count: 3 }, { id: 'throwing_spear', count: 2 }], selSlot: 0 } });
   assert.truthy(scene.useSpear());
   assert.eq(scene.throwCooldownLeft(), 3000);
   assert.includes(scene.throwActionLabel(), shortDuration(3000));
@@ -141,8 +141,8 @@ test('throws: shared cooldown follows the last weapon and survives stack switche
   assert.falsy(scene.useSpear(), 'another stack cannot bypass cooldown');
   scene.save.selSlot = 1;
   scene.now += 2999;
-  assert.falsy(CONSUMABLE_SPEC.rockfruit.usable(scene));
-  assert.truthy(CONSUMABLE_SPEC.rockfruit.disabled(scene));
+  assert.falsy(CONSUMABLE_SPEC.rubble.usable(scene));
+  assert.truthy(CONSUMABLE_SPEC.rubble.disabled(scene));
   assert.falsy(scene.useRock(), 'rocks must wait out the preceding spear');
   assert.eq(scene.save.inv[1].count, 3);
   scene.now++;
@@ -161,7 +161,7 @@ test('throws: shared cooldown follows the last weapon and survives stack switche
 test('throws: refused rocks preserve inventory and do not start a cooldown', () => {
   for (const override of [{ energy: 0 }, { shadow: true }, { facing: { x: 0, y: 0 } }]) {
     const scene = throwScene({ save: { energy: override.energy ?? 50,
-      inv: [{ id: 'rockfruit', count: 2 }], selSlot: 0 },
+      inv: [{ id: 'rubble', count: 2 }], selSlot: 0 },
       isShadowActive: () => !!override.shadow, ...(override.facing ? { facing: override.facing } : {}) });
     assert.falsy(scene.useRock());
     assert.eq(scene.save.inv[0].count, 2);
@@ -187,7 +187,7 @@ test('throws: cooldown button refreshes at displayed changes and re-enables with
   scene._tickThrowButton();
   assert.eq(refreshed, first + 2);
   assert.eq(scene.throwActionLabel(), 'Throw');
-  assert.falsy(CONSUMABLE_SPEC.spear.disabled(scene));
+  assert.falsy(CONSUMABLE_SPEC.throwing_spear.disabled(scene));
 });
 
 test('flowers: a landed throw applies sleep or charm without dealing damage', () => {
@@ -218,7 +218,7 @@ test('flowers: a landed throw applies sleep or charm without dealing damage', ()
 
 test('flowers: cooldown from a spear blocks flowers and flower cooldown blocks rocks', () => {
   const scene = throwScene({ save: { energy: 50,
-    inv: [{ id: 'spear', count: 2 }, { id: 'forgetmenot', count: 2 }, { id: 'rockfruit', count: 2 }], selSlot: 0 } });
+    inv: [{ id: 'throwing_spear', count: 2 }, { id: 'forgetmenot', count: 2 }, { id: 'rubble', count: 2 }], selSlot: 0 } });
   assert.truthy(scene.useSpear());
   scene.save.selSlot = 1;
   assert.falsy(scene.useForgetmenot());
@@ -261,13 +261,13 @@ test('charmed allies: hostile impacts damage the creature rather than the player
 });
 
 test('javelin: T4 supply and renamed T1 spear keep separate damage and shared recovery', () => {
-  assert.eq(ITEM_BY_ID.spear.name, 'Throwing Spear');
-  assert.eq(ITEM_BY_ID.spear.baseTier, 1);
+  assert.eq(ITEM_BY_ID.throwing_spear.name, 'Throwing Spear');
+  assert.eq(ITEM_BY_ID.throwing_spear.baseTier, 1);
   assert.eq(ITEM_BY_ID.javelin.baseTier, 4);
   assert.eq(CONSUMABLE_SPEC.javelin.damage, 40);
   assert.truthy(Shops.themedStock('supply', 4).includes('javelin'));
   const scene = throwScene({ save: { energy: 50,
-    inv: [{ id: 'javelin', count: 2 }, { id: 'spear', count: 2 }], selSlot: 0 } });
+    inv: [{ id: 'javelin', count: 2 }, { id: 'throwing_spear', count: 2 }], selSlot: 0 } });
   assert.truthy(scene.useJavelin());
   const shot = scene._shots[0];
   assert.eq(shot.projectile, 'javelin'); assert.eq(shot.damage, 40);
@@ -308,18 +308,18 @@ test('javelin: runtime steel recolour preserves alpha and registers the same she
   assert.eq(canvas.width, 32); assert.eq(canvas.height, 16);
   assert.eq(written[3], 255); assert.eq(written[7], 128); assert.eq(written[11], 0);
   assert.gt(written[6], written[4], 'steel blue replaces the original warm shaft');
-  assert.truthy(APP_JS_SRC.includes("ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16)"),
+  assert.truthy(SCENE_SRC.includes("ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16)"),
     'all DOM surfaces bake the same recoloured texture');
 });
 
 test('javelin: projectile sprite pool switches between both inventory art sheets', () => {
-  const m = APP_JS_SRC.match(/\n  (_drawShots\(\) \{\n[\s\S]*?\n  \})\n/);
+  const m = SCENE_SRC.match(/\n  (_drawShots\(\) \{\n[\s\S]*?\n  \})\n/);
   const draw = new Function('SHOT_DRAW_LIFT_PX', 'return ({' + m[1] + '})._drawShots;')(10);
   const sprite = { setTexture(sheet) { this.sheet = sheet; return this; },
     setScale() { return this; }, setVisible() { return this; }, setPosition() { return this; }, setRotation() { return this; } };
   const scene = { projGfx: { clear() {} }, _spearPool: [sprite], _boltPool: [], _drawStaffCharge() {},
     worldMetersToScreen: (x, y) => ({ x, y }), _shots: [] };
-  for (const projectile of ['javelin', 'spear', 'javelin']) {
+  for (const projectile of ['javelin', 'throwing_spear', 'javelin']) {
     scene._shots = [{ projectile, slot: 'bow', x: 0, y: 0, vx: 1, vy: 0 }];
     draw.call(scene);
     assert.eq(sprite.sheet, inventoryIconSource(projectile).sheet, 'pooled sprite uses the current item art');

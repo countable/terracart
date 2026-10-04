@@ -67,8 +67,7 @@ test('spirit raven: a slime\'s stats, derived — and never an enemy', () => {
   assert.eq(stride, 0.7, 'seven tenths of a cell a hop');
   const mps = faunaTopMps('spirit_raven', WorldGen.CELL_M);
   assert.eq(mps, stride * WorldGen.CELL_M, 'its top speed is that stride over the one-second beat');
-  // Over every ground foe's chase but the goblins', which run at twice their
-  // old pace since Oct 2026 (7 m/s — and a goblin pursues, so it comes to the
+  // Over every ground foe's chase but the goblins', which run at 7 m/s (and a goblin pursues, so it comes to the
   // raven anyway); the orc, the quickest of the rest, is still caught.
   const orc = foeChaseMps({ kind: 'orc', id: 'mon_orc_1_1_1_0' }, WorldGen.CELL_M);
   assert.gt(mps, orc, 'still faster than the quickest ground pursuer that does not come to it');

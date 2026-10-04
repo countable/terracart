@@ -22,6 +22,12 @@
       | (x > 0 && cells.has(i - 1) ? 8 : 0);
     return WALL_FRAME_BY_MASK[mask] ?? null;
   }
+  // Fractional budgets round deterministically per site: retain the same
+  // leading shafts while reducing the population average by the table scale.
+  function entranceCount(s) {
+    const scaled = (s.variant.entrances?.count || 0) * root.ZoneVariantData.quarryLayouts.entranceCountScale;
+    return Math.floor(scaled) + (noise(s.a.key, 0, 0xca7e) < scaled % 1 ? 1 : 0);
+  }
   // Authored mine mouths are ordinary generated stairs, so cave loading
   // mirrors their return ladders and gives each shaft a route farther down.
   function* entrancesSteps(s, ctx) {
@@ -36,7 +42,7 @@
       && !WG.nearPoiCell(opts.pois || [], i % N, Math.floor(i / N));
     const cells = s.cells.slice().sort((a, b) => noise(tx*N+a%N, ty*N+Math.floor(a/N), 0xca7e)
       - noise(tx*N+b%N, ty*N+Math.floor(b/N), 0xca7e) || a-b);
-    for (let n = 0; n < cells.length && result.length < settings.count; n++) {
+    for (let n = 0; n < cells.length && result.length < entranceCount(s); n++) {
       if ((n & 255) === 0) yield 'quarry mine entrances';
       const i = cells[n], ix = i % N, iy = Math.floor(i / N);
       if (!free(i) || selected.some(j => Math.max(Math.abs(ix-j%N),
@@ -47,7 +53,7 @@
       const step = tileEdgeM / N;
       result.push(WG.makeObject('staircase', (tx*N+ix+.5)*step, (ty*N+iy+.5)*step,
         WG.caveStairId('down', 0, tx, ty, ix, iy), { dir:'down', depth:0,
-          zone:'quarry', zoneVariant:s.variant.id, zoneLayer:'entrance', _ix:ix, _iy:iy }));
+          zoneKind:'quarry', zoneVariant:s.variant.id, zoneLayer:'entrance', _ix:ix, _iy:iy }));
       selected.push(i);
       for (const cell of [i, approach[1]*N+approach[0]]) {
         opts.occupied.add(cell); s.clear.add(cell); ctx.reservedCells?.add(cell);
@@ -76,9 +82,8 @@
         if ((n & 255) === 0) yield 'quarry clipped benches';
         const i = cells[n], x = i % N, y = Math.floor(i / N);
         const h = hash(x, y, 113), d = settings.clippedMaterialDensity;
-        // Crystal first, then stone, then the barrels (Oct 2026) past them —
-        // the bands stone and crystal held before the barrels joined are the
-        // same cells, so no bench moved when they did.
+        // Crystal first, then stone, then the barrels past them, so the earlier
+        // bands keep the same cells.
         // One fixed cell owns each sparse inhabitant. Never choose the first
         // surviving cell in a clipped fragment: that would duplicate it when
         // another piece of the same site arrives.
@@ -170,13 +175,13 @@
       }
       bowl.sort((a, b) => hash(a % N, Math.floor(a / N), 59) - hash(b % N, Math.floor(b / N), 59) || a - b);
       if (s.a.owned) for (const i of bowl.slice(0, s.variant.finds.count)) { plan.finds.push({ i, material: 'crimson_ore' }); plan.clear.add(i); }
-      // A dry altar island sits inside a continuous lava moat. Reserve the
-      // entire square, including the south approach; entrances end at lava.
+      // A dry altar island sits inside a rounded, continuous lava moat. Reserve
+      // its bounding square so clipped corners stay bare; entrances end at lava.
       plan.shrineSeat = centre;
       for (let dy=-poolRadius;dy<=poolRadius;dy++) for (let dx=-poolRadius;dx<=poolRadius;dx++) {
         const i=(cy+dy)*N+cx+dx;
         plan.background.delete(i); plan.clear.add(i);
-        if (dx || dy) plan.hazards.push(i);
+        if ((dx || dy) && Math.hypot(dx, dy) <= settings.craterPoolSizeCells / 2) plan.hazards.push(i);
       }
       return plan;
     }
@@ -369,5 +374,5 @@
   function siteHash(tx, ty, first) {
     return (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
   }
-  root.QuarryLayout = { entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
+  root.QuarryLayout = { entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
 })(typeof window !== 'undefined' ? window : globalThis);

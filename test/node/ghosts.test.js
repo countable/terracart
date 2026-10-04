@@ -170,9 +170,8 @@ test('ghost pump: nothing by day', () => {
 });
 
 test('ghost pump: no churchyard reason — dusk is dusk at a church too (safety, Sep 2026)', () => {
-  // The Old Stones used to raise the dead from DUSK round a church or a
-  // cemetery, twice as often, fanned from the stones — pulling players to
-  // graveyards at closing time. Gone: one predicate, the same night everywhere.
+  // No church/cemetery dusk boost (it pulled players to graveyards at closing
+  // time): one predicate, the same night everywhere.
   assert.falsy(__ghost.ghostsHaunt(0, 0.4, 'crypt'), 'a cave habitat does not accelerate surface dusk');
   assert.falsy('GHOST_ZONE_DUSK' in __ghost || 'GHOST_ZONE_CADENCE_MUL' in __ghost, 'the boost constants are gone');
   assert.falsy(/ghostAnchorAt|Zones\./.test(CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function ghostSpawnPass('),

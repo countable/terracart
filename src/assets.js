@@ -7,7 +7,7 @@ const ASSETS = {
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
   icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },
-  icon_honey: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
+  icon_taming_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
   orrin_idle: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_idle.png', frameWidth: 48, frameHeight: 48 },
   orrin_walk: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_0_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_idle.png', frameWidth: 48, frameHeight: 48 },
@@ -91,9 +91,7 @@ const ASSETS = {
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'assets/Objects/Approved/springcrops.png',  frameWidth: 16, frameHeight: 16 },
-  // The legacy 16px cobble sheet. The game draws nothing from it any more
-  // (Oct 2026: the dark street lamp is baked at runtime from
-  // RoadOverlay.paintBrokenLamp, like the lit one); it stays loaded for the
+  // The legacy 16px cobble sheet. The game draws nothing from it; it stays loaded for the
   // art review tools (tools/world-art.js, tools/preview_map_art.py) that
   // still read its frames.
   cobble:      { kind: 'spritesheet', path: 'assets/Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
@@ -134,7 +132,7 @@ const ASSETS = {
   horse:       { kind: 'spritesheet', path: 'assets/Farm Animals/Horse.png',                frameWidth: 32, frameHeight: 32 },
   // Sea turtle — 2 cols x 4 rows of 16px frames (up, left, right, down), cut
   // from the marine-animals sheet; the fish columns were not used.
-  turtle:      { kind: 'spritesheet', path: 'assets/Farm Animals/Turtle.png',               frameWidth: 16, frameHeight: 16 },
+  sea_turtle:      { kind: 'spritesheet', path: 'assets/Farm Animals/Turtle.png',               frameWidth: 16, frameHeight: 16 },
   // Underground monster sheets. Goblins: 32×32 frames, 6 cols × 3 rows — row 0 (frames 0-5) is the walk cycle.
   purple_slime:  { kind: 'spritesheet', path: 'assets/Enemy/Purple Slime.png',  frameWidth: 32, frameHeight: 32 },
   ghost:         { kind: 'spritesheet', path: 'assets/Enemy/Ghost/1Fullsheet_Ghost.png', frameWidth: 16, frameHeight: 16 },
@@ -145,7 +143,7 @@ const ASSETS = {
   // Maple (32 wide). Each tree spans a 32px column; slicing at 16 split every
   // tree in half (the odd 16px frame was just the right half of a tree).
   apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Approved/apple_tree.png',   frameWidth: 32, frameHeight: 48 },
-  peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Approved/peach_tree.png',   frameWidth: 32, frameHeight: 48 },
+  worldpeach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Approved/peach_tree.png',   frameWidth: 32, frameHeight: 48 },
   // Pine uses the upper 32×48 growth strip; the lower band is separate
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
@@ -177,6 +175,7 @@ const ASSETS = {
   // plants — items.js CROP_SPRITE).
   zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
   zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
+  beach_palms: { kind: 'spritesheet', path: 'assets/Objects/Beach/palms.png', frameWidth: 16, frameHeight: 16 },
   zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Approved/approved_clipped_hedge.png', frameWidth: 16, frameHeight: 16 },
   zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png?v=b465bfa1', frameWidth: 24, frameHeight: 24 },
   stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
@@ -237,7 +236,7 @@ const ASSETS = {
   // CROP_SPRITE.torch). Not the wall `torch` stake below, which is a light.
   icon_torch:  { kind: 'spritesheet', path: 'assets/Icons/Items/Torch.png', frameWidth: 16, frameHeight: 16 },
   // Shared inventory and projectile art: frame 0 faces right, frame 1 down.
-  icon_spear:  { kind: 'spritesheet', path: 'assets/Icons/Items/Spear.png', frameWidth: 16, frameHeight: 16 },
+  icon_throwing_spear:  { kind: 'spritesheet', path: 'assets/Icons/Items/Spear.png', frameWidth: 16, frameHeight: 16 },
   // The stronger throwing weapon keeps the spear silhouette, in cold steel.
   // Recolour source pixels so Canvas and WebGL, plus baked DOM icons, agree.
   icon_javelin: {
@@ -262,7 +261,7 @@ const ASSETS = {
   // of them renders through inventoryIconSource → the same key. Only the two
   // species the world grows are loaded; the rest stay DOM-only icons.
   icon_apple:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Apple.png', frameWidth: 16, frameHeight: 16 },
-  icon_peach:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Peach.png', frameWidth: 16, frameHeight: 16 },
+  icon_worldpeach:  { kind: 'spritesheet', path: 'assets/Icons/Food Icons/Peach.png', frameWidth: 16, frameHeight: 16 },
   // Scarecrow — 48×48 single-image prop (straw-man on a cross-pole). Pole base
   // anchors at origin (0.5, 1) so it stands on its placement cell; the render
   // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.

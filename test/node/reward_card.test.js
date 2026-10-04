@@ -65,9 +65,7 @@ test('reward card: the ceremony key never reaches the roll', () => {
 });
 
 // ── The road pick shows what was KEPT ─────────────────────────────────────
-// Take used to close the pick and flash the kept card as a toast — on the
-// first road prize, the only word the player got of what they had taken.
-// Now Take opens the kept reward as its own card under the same banner, and
+// Take opens the kept reward as its own card under the same banner, and
 // the prize queue (the caller's onDismiss) walks on when THAT card closes:
 // draining on the pick's close would open the next ceremony on the same shell
 // id and replace the card (makeModalShell drops a same-id dialog).

@@ -77,7 +77,7 @@
 
   // ── The numbers (owner picks, Sep 2026) ────────────────────────────────
   // What a scenic metre banks on the ladder, per kind: water 2×, park and
-  // greenway 1.75× (owner's pick, Sep 2026 — up from 1.5×, shore stays 2×).
+  // greenway 1.75×, shore stays 2×.
   // One table: _ripenStreets banks through bonusMetres, the Book tip prints it.
   const SCENIC_MUL = { shore: 2.0, greenway: 1.75, park: 1.75 };
   // Which kind wins a sample several apply to: the richest first.
@@ -120,8 +120,7 @@
   const VISTA_SEAT_CELLS = 3;
   // loot.js chestBaseTier reads o.vista through this table. Every vista chest
   // for a viewpoint or path is T5; reef discoveries are T2–T3. The grail uses the treasure-only vista pool, while a scenic
-  // stretch keeps the park theme through POI_CATEGORY.vista. Until Oct 2026,
-  // the grail was T4 and stretches were T2-T3 by kind.
+  // stretch keeps the park theme through POI_CATEGORY.vista.
   const VISTA_CHEST_TIER = { grail: 5, shore: 5, greenway: 5, park: 5, reef2: 2, reef3: 3 };
   const VISTA_POI_CLASS = 'vista';
 
@@ -136,7 +135,7 @@
   // The vista treasure context retained for the shared treasure value table.
   const VISTA_CONTEXT = 'treasure:vista';
   // The first vista a save ever taps: a relic, once (save.vistaRelic).
-  const FIRST_VISTA_SLOT = 'bags';
+  const FIRST_VISTA_SLOT = 'bag';
   // The vista's story (its painting stem and the _storySplashOnce key).
   const VISTA_STORY = {
     story: 'zone_viewpoint', title: 'A vista',
@@ -549,8 +548,8 @@
   // shoreM } or null when the tile has no shore sand. One yield per 16 rows.
   // SAND is the LAND's class (Zones.landAt over the zone paint's `under`
   // ledger): a zone's coverage repaints a beach's look but it is still the
-  // beach — measured on Vancouver's Kits / English Bay, three quarters of the
-  // dry sand wears a grove's ground.
+  // beach (measured on Vancouver's Kits / English Bay: three quarters of the
+  // dry sand wears a grove's ground).
   function* shoreSandSteps(geo, grid, under) {
     const WG = root.WorldGen, Z = root.Zones;
     const N = geo.N, u = geo.ext / N;
@@ -658,6 +657,10 @@
     // step to the kerb of a major road), off the road mask and whatever the
     // tile already put there.
     const rewardOk = (ix, iy) => inSq(ix, iy) && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
+    // Mapped viewpoints keep landmark priority. Procedural scenic rewards
+    // yield the full nexus area, including cells its layout leaves empty.
+    const zoneCoverage = ctx.zone && (ctx.zone.coverage || ctx.zone.idx);
+    const ambientRewardOk = (ix, iy) => !zoneCoverage?.[iy * N + ix] && rewardOk(ix, iy);
     const rc = spawnOpts.roadClass || null;
     const seatOffsets = WG.discOffsets(VISTA_SEAT_CELLS);
 
@@ -707,7 +710,7 @@
       const p = st.at;
       if (!p) continue;
       const pix = Math.floor(p.x * N / ext), piy = Math.floor(p.y * N / ext);
-      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, rewardOk) : null;
+      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, ambientRewardOk) : null;
       if (!s) continue;
       claim(s.ix, s.iy);
       res.objects.push(WG.makeObject('chest', cx(s.ix), cy(s.iy), WG.cellId('vista', tx, ty, s.ix, s.iy),
@@ -726,7 +729,7 @@
       if (shrinesSeated >= Sh.SCENIC_SHRINES_PER_TILE) break;
       yield 'scenic shrines';
       const pix = Math.floor(st.at.x * N / ext), piy = Math.floor(st.at.y * N / ext);
-      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, rewardOk) : null;
+      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, ambientRewardOk) : null;
       if (!s) continue;
       claim(s.ix, s.iy);
       shrinesSeated++;
@@ -737,6 +740,8 @@
     // MESSAGE BOTTLES: before the tide pool, so a bottle's cell is claimed
     // and never doubles as a tide seat.
     const sh = sc.shore;
+    // A nexus owns even its empty cells. Ordinary beach rewards must not
+    // reserve its waterline before the authored layout gets a chance to seat.
     if (sh && sh.waterline.length) {
       yield 'scenic bottles';
       const seats = [];
@@ -744,7 +749,7 @@
       for (const i of sh.waterline) {
         if ((scanned++ & 255) === 0) yield 'scenic bottle eligibility';
         const ix = i % N, iy = Math.floor(i / N);
-        if (!rewardOk(ix, iy)) continue;
+        if (!ambientRewardOk(ix, iy)) continue;
         const id = WG.cellId('bottle', tx, ty, ix, iy);
         seats.push({ ix, iy, id, h: hash01('bottle|' + id) });
       }
@@ -765,7 +770,7 @@
       for (const i of sh.waterline) {
         if ((scanned++ & 255) === 0) yield 'scenic tide eligibility';
         const ix = i % N, iy = Math.floor(i / N);
-        if (rewardOk(ix, iy)) pool.push(i);
+        if (ambientRewardOk(ix, iy)) pool.push(i);
       }
       const want = tideCount(sh.shoreM);
       const p = pool.length ? Math.min(1, want / pool.length) : 0;
@@ -788,7 +793,7 @@
     for (const p of sc.grassSeats || []) {
       if ((grassCount++ % 128) === 0) yield 'scenic greenway grass';
       const ix = Math.floor(p.x * N / ext), iy = Math.floor(p.y * N / ext);
-      if (!inSq(ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor')) continue;
+      if (!inSq(ix, iy) || zoneCoverage?.[iy * N + ix] || !WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor')) continue;
       claim(ix, iy);
       res.wildplants.push(WG.makeWildplant('longgrass', cx(ix), cy(iy), WG.cellId('greenway_grass', tx, ty, ix, iy),
         { _street: 'greenway' }));

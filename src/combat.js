@@ -1,12 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Combat — the ONE place the fight maths lives.
 //
-// Before this module a fight was a TIMER: you tapped a foe, a work wheel ran
-// for `toolDurationMs × hp/15`, and when the arc closed the creature died. The
-// weapon you carried only ever changed how long that arc took, and all three
-// weapons (sword / bow / staff) did the identical thing.
-//
-// Now a fight is HIT POINTS, and the three weapons reach them differently:
+// A fight is HIT POINTS, and the three weapons reach them differently:
 //
 //   sword          — melee. The combat wheel lands one BLOW per
 //                    MELEE_INTERVAL_MS on the engaged foe (app.js
@@ -37,26 +32,20 @@
 //
 // KILL TIMES ARE INHERITED, NOT RE-TUNED. The old wheel spent
 // `toolDurationMs × hp/15` ms on a target, so the damage per second that
-// reproduces it exactly is `15000 / toolDurationMs` — see `dpsForDurationMs`.
-// That rate is the MELEE rung, and everything below is derived from it;
-// nothing here is a magic number picked to feel right.
+// reproduces it is `15000 / toolDurationMs` — see `dpsForDurationMs`. That is
+// the MELEE rung; everything below derives from it.
 //
 // ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (app.js) picks which
 // of sword/bow/staff auto-engages or auto-fires; the other owned weapons sit
 // inert — no auto-engage, no auto-fire — until the player switches to them
 // (the Equip button under the Relics inventory tab, or obtaining/forging a
-// new one, which becomes active automatically). MELEE NEEDS NO WEAPON: with
-// no bow or staff equipped the hands auto-engage exactly as a sword does, on
-// the tier-0 rung (Gear.meleeActive). Because only one weapon can ever
-// be in play, there is no split across ranged slots any more: there used to
-// be one (bow and staff fired simultaneously and stacked, so their shares
-// were priced to sum to one sword), but exclusivity already prevents the
-// double-dip the split existed to fix. What's left is SHOT_DMG_MUL, a
-// deliberate difference in KIND rather than a stacking guard: the bow (an
-// arrow) delivers its tier's full melee-equivalent rate, same as the sword;
-// the staff (a piercing, seeking bolt) delivers 4/15 of it — 5 damage every
-// 5 s at Wood — and still costs energy per bolt; see the SHOT table below.
-// (It was DOUBLE the bow until Sep 2026.)
+// MELEE NEEDS NO WEAPON: with no bow or staff equipped the hands auto-engage
+// exactly as a sword does, on the tier-0 rung (Gear.meleeActive). Only one
+// weapon is in play, so ranged slots do not split a share. SHOT_DMG_MUL is a
+// difference in KIND: the bow (an arrow) delivers its tier's full
+// melee-equivalent rate; the staff (a piercing, seeking bolt) delivers 4/15 of
+// it — 5 damage every 5 s at Wood — and still costs energy per bolt; see the
+// SHOT table below.
 //
 // WHAT COUNTS AS AN ENEMY (`isEnemy`): things that attack YOU — the cave
 // monsters and the wild surface slime. Crows and deer are NOT enemies: they're
@@ -65,12 +54,9 @@
 // bow and staff included — a bow-only player can still bring down a deer).
 //
 // Node-testable: no DOM, no Phaser, no WorldGen. The monster stat table lives
-// HERE, beside the maths that reads it — it IS enemy data, and this is the one
-// module that answers "is this an enemy", "how much HP" and "what does the kill
-// pay". It used to live in app.js and arrive through `registerMonsters` at
-// boot, which meant every headless test of a real foe ran on a table lifted out
-// of app.js by regex. The shipping table is the DEFAULT registration now;
-// `registerMonsters` stays for the tests that swap in a synthetic kind.
+// HERE, beside the maths that reads it: this is the one module that answers
+// "is this an enemy", "how much HP" and "what does the kill pay".
+// `registerMonsters` lets tests swap in a synthetic kind.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
@@ -90,9 +76,8 @@
   // like any other; every enemy moves by rosterEnemyMove (creature_ai.js).
   const MONSTERS = Object.fromEntries(roster.ROWS.map(row => [row.id, row]));
 
-  // The registered table — the shipping MONSTERS by default. Kept as a
-  // reference (not a copy) so a kind added above is an enemy here the same
-  // instant; tests swap in a synthetic table through registerMonsters.
+  // The registered table — the shipping MONSTERS by default, kept by reference
+  // so a kind added above is an enemy at once; tests swap via registerMonsters.
   let MONSTER_STATS = MONSTERS;
   function registerMonsters(table) { MONSTER_STATS = table || {}; }
   // One row of the registered table, or undefined. The one read for a kind's
@@ -145,13 +130,9 @@
   // non-monster kind that is also an ENEMY. app.js reads this through
   // creatureMaxHp so the pet fight and the player fight can't drift apart.
   //
-  // The surface slime is 10, not the 15 it carried until Sep 2026. It is the
-  // FIRST enemy — met on the surface, often with no sword at all — and at 15
-  // it was nine seconds of bare-handed swinging for the one foe a new player
-  // is guaranteed to meet. Ten is six seconds. Nothing else moves with it: the
-  // bounty is derived from this number (enemyBounty below — a slime pays $2
-  // now rather than $3), and BASELINE_HP below is a fixed anchor, not a
-  // reading of this table.
+// The surface slime is 10: it is the FIRST enemy, often met with no sword at
+// all. The bounty is derived from this number (enemyBounty below), and
+// BASELINE_HP below is a fixed anchor, not a reading of this table.
   const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10 };
   // A SUMMONED ally borrows a kind's stats rather than carrying its own: the
   // spirit raven (the Scroll of the Raven) is "equal to a slime", so
@@ -189,16 +170,10 @@
   // and MIN_PLAYER_DAMAGE is the floor: no attack ever lands for zero, however
   // good the armour.
   //
-  // THE POOL IS SPENT, NOT RE-CHARGED — the single most important line here.
-  // It shipped for a day handing each round the whole halved pool afresh, so a
-  // pool of P could soak P + P/2 + P/4 + P/8 ≈ 1.9P in total: a full Wood set
-  // (4) removed SEVEN points from a blow, which is most of anything this game
-  // throws, and every tier above Wood was indistinguishable because they all
-  // bottomed out at the floor. Now what survives a round is halved before the
-  // next one, so the total soak can never exceed the pool and a piece is worth
-  // exactly what it says it is worth. The halving still bites: it decays the
-  // UNSPENT remainder, which is what stops a big pool carrying its full weight
-  // into every round of a long blow.
+// THE POOL IS SPENT, NOT RE-CHARGED: what survives a round is halved before
+// the next one, so the total soak can never exceed the pool and a piece is
+// worth exactly what it says. (Handing each round the whole halved pool
+// afresh soaked ~1.9P and flattened every tier above Wood to the floor.)
   //
   // Between the two rules — a linear per-piece tier and a pool spent once —
   // armour lives on the same scale as the damage (1..16 across the whole
@@ -348,22 +323,15 @@
   }
 
   // ── DOWNED: the bar is empty ─────────────────────────────────────────────
-  // At zero energy the player has collapsed. They cannot reach (coords.js's
-  // reachRadiusM returns 0 at 0 energy, so no cell is tappable), and none of
-  // the three places a foe reaches the player can take another point off an
-  // empty bar — every one of them already refuses. A hostile that goes on
-  // stalking a body it is forbidden to bite is chasing nothing: it just
-  // parks on the wreck, and on hard mode (where nothing but Home lifts the
-  // bar off zero) it escorts the player the whole way home.
-  //
-  // So a downed player is simply NOT THERE to be hunted, exactly as a
-  // Shadow Powder makes them: scene_creatures.js's wanderCreatures reads this beside
-  // `shadowed` and every hostile falls back to an aimless wander — no stalk,
-  // no charge, no leech, no arrow — until the bar lifts off zero.
-  // ONE expression, both sides: the test that drops the pursuit is the same
-  // one that refuses the damage, so a foe can never be chasing a player it
-  // cannot hurt. Written negated so a NaN bar counts as down, like the
-  // `> 0` guards it replaces.
+  // At zero energy the player has collapsed: no reach (reachRadiusM returns 0),
+  // and every place a foe reaches the player already refuses to take another
+  // point. A hostile stalking a body it may not bite would only park on the
+  // wreck (and on hard mode escort the player all the way home), so a downed
+  // player is NOT THERE to be hunted, exactly as Shadow Powder makes them:
+  // wanderCreatures reads this beside `shadowed` and every hostile wanders
+  // aimlessly until the bar lifts. ONE expression, both sides: the test that
+  // drops the pursuit also refuses the damage. Written negated so a NaN bar
+  // counts as down.
   function playerDowned(energy) { return !((energy ?? 0) > 0); }
 
   // ── Elites ───────────────────────────────────────────────────────────────
@@ -418,13 +386,8 @@
     return isMonster(kind) || kind === 'slime';
   }
   // EVERY hostile kind, in the order the board should offer them: the surface
-  // slime first (the only foe you can meet without going underground), then the
-  // registered table in ITS OWN order (enemy_roster.js row order).
-  //
-  // A FUNCTION, never a constant: registerMonsters can swap the table under it
-  // (a test's synthetic kind), so the list is read at call time. quests.js'
-  // board is the caller — it used to hand-type these nine kinds, which is how
-  // a kind added to MONSTERS could quietly fail to be worth a bounty.
+  // slime first, then the registered table in ITS OWN order. A FUNCTION, never
+  // a constant: registerMonsters can swap the table, so it is read at call time.
   function enemyKinds() {
     return [...new Set(['slime', ...Object.keys(MONSTER_STATS)])];
   }
@@ -444,18 +407,11 @@
   }
 
   // ── What a kill pays ─────────────────────────────────────────────────────
-  // A defeated enemy used to drop NOTHING: you paid the work wheel and the
-  // energy it drained off you and got a flash message, so the only rational
-  // play was to walk around every foe you met. Now a kill pays coins, always.
-  //
-  // EVERY ENEMY DRAWS ONE, not just the cave monsters. `isEnemyKind` is the
-  // single definition of "a thing that attacks you" — the cave monsters and
-  // the surface slime — and it is what this reads, so a hostile kind added to
-  // MONSTERS is priced the moment it has stats and can never end up fought for
-  // free. The surface slime was exactly that gap: it fights you, it eats your
-  // crops, and killing one paid nothing at all. Crow and deer are NOT enemies
-  // (they're game) and still pay in feathers and meat instead.
-  //
+  // Every kill pays coins, always. EVERY ENEMY DRAWS ONE, not just cave
+  // monsters: `isEnemyKind` is the single definition of "a thing that attacks
+  // you", so a hostile kind added to MONSTERS is priced the moment it has
+  // stats. Crow and deer are NOT enemies (they're game) and still pay in
+  // feathers and meat instead.
   // The bounty is DERIVED from `hp` — the same number that sets the wheel
   // length — rather than hand-tuned per kind, so a tougher foe can never
   // quietly pay less than an easier one. Roughly a coin per 5 HP, floored at 1:
@@ -862,22 +818,16 @@
   }
 
   // ── Damage ladders ───────────────────────────────────────────────────────
-  // The identity described at the top: a wheel that took `durMs` to strip a
-  // 15-HP foe was dealing 15000/durMs HP per second. Bare hands (tier 0,
-  // 9000 ms) → 1.67 dps; wood (4000) → 3.75; frost (300) → 50.
-  //
-  // This 15 is the OLD WHEEL'S reference pool and nothing else — it is the
-  // constant the whole weapon ladder is scaled against, so it is frozen even
-  // though the slime it was named after is 10 HP now (FAUNA_HP above). Moving
-  // it would silently re-rate every weapon in the game; to change how long a
-  // given foe takes, move that kind's `hp` or TOOL_DURATION_MS instead.
+  // A wheel that took `durMs` to strip a 15-HP foe dealt 15000/durMs HP per
+  // second: bare hands (9000 ms) 1.67 dps; wood (4000) 3.75; frost (300) 50.
+  // This 15 is the OLD WHEEL'S reference pool and nothing else: it scales the
+  // whole weapon ladder, so it is frozen. Moving it would re-rate every weapon;
+  // change a foe's `hp` or TOOL_DURATION_MS instead.
   const BASELINE_HP = 15;
   function dpsForDurationMs(durMs) { return (BASELINE_HP * 1000) / Math.max(1, durMs); }
 
-  // Melee is the SWORD's job now. Bow and staff shoot instead of swinging, so
-  // they no longer shorten the combat wheel — carrying one and no sword fights
-  // at the bare-handed rung, and the shots are what make up the difference.
-  //
+  // Melee is the SWORD's job. Carrying a bow or staff and no sword fights at
+  // the bare-handed rung.
   // `playerClass` (optional — save.playerClass, the wizard's one-time calling,
   // src/wizard.js CLASSES) is the PLAYER's own melee only: an ENFORCER lands
   // ENFORCER_MELEE_DPS more HP a second on top of the tier's rung. It is a
@@ -887,60 +837,45 @@
   // (1.67 dps) nearly quadruple, a Frost blade (50 dps) barely notices.
   // Pets, turrets and monsters never pass a class.
   const ENFORCER_MELEE_DPS = 5;
-  function meleeDps(relics, playerClass, weapon = 'sword') {
+  function meleeDps(relics, playerClass, weapon = 'sword', mounted = false) {
     const slot = MELEE_WEAPONS[weapon] && relics?.[weapon] ? weapon : null;
     const bonus = playerClass === 'enforcer' ? ENFORCER_MELEE_DPS : 0;
-    return (dpsForDurationMs(toolDurationMs(relics, slot)) + bonus) / (MELEE_WEAPONS[weapon]?.intervalMul || 1);
+    return (dpsForDurationMs(toolDurationMs(relics, slot)) + bonus) / meleeIntervalMul(weapon, mounted);
   }
 
   // ── Melee cadence ────────────────────────────────────────────────────────
-  // How often a blow LANDS on the enemy the player has engaged, in ms. A
-  // sword fight is a sequence of swings, not a hose: the wheel used to drain
-  // the foe's pool every frame at meleeDps and merely DRAW a slash twice a
-  // second (app.js borrowed DMG_POPUP_BEAT_MS, 500 ms, because the damage
-  // itself had no cadence of its own to borrow). Two blows a second read as a
-  // blur, and a fight broken off mid-beat had still banked every frame of it.
-  //
-  // For the sword the interval CANCELS OUT of the delivered rate, exactly the way
-  // FIRE_INTERVAL_MS does for a shot: one blow is one interval's worth of the
-  // tier's melee rung (meleeSwingDamage below), so halving the attack rate
-  // doubles what a blow lands and the kill-time identity at the top of this
-  // file still holds at every tier. Slow it to change how a fight READS;
-  // to change how LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
+  // How often a blow LANDS on the engaged enemy, in ms. For the sword the
+  // interval CANCELS OUT of the delivered rate, as FIRE_INTERVAL_MS does for a
+  // shot: one blow is one interval's worth of the tier's melee rung
+  // (meleeSwingDamage below), so the kill-time identity at the top of this file
+  // holds at every tier. Slow it to change how a fight READS; to change how
+  // LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
   const MELEE_INTERVAL_MS = 1000;
-  // Off-weapons keep the matching sword's per-hit damage. Spear trades
-  // half its attack speed for twice the reach.
+  // Off-weapons keep the matching sword's per-hit damage. Lance trades
+  // half its attack speed for twice the reach — on foot. Mounted
+  // (`mountedIntervalMul`, `mounted` = isRiding) it swings at the sword's
+  // pace, so a rider's lance deals twice its walking damage a second.
   const MELEE_WEAPONS = {
     sword: { reachMul: 1, intervalMul: 1 },
     // A dagger stays inside the gap a closing foe stops at (creature_ai.js
     // rosterEnemyMove: 0.35 cell), or it could never land a blow.
     dagger: { reachMul: 0.75, intervalMul: 1 },
-    spear: { reachMul: 2, intervalMul: 2 },
+    lance: { reachMul: 2, intervalMul: 2, mountedIntervalMul: 1 },
   };
-  function meleeIntervalMs(slot) { return MELEE_INTERVAL_MS * (MELEE_WEAPONS[slot]?.intervalMul || 1); }
+  function meleeIntervalMul(slot, mounted = false) {
+    const row = MELEE_WEAPONS[slot];
+    return (mounted && row?.mountedIntervalMul) || row?.intervalMul || 1;
+  }
+  function meleeIntervalMs(slot, mounted = false) { return MELEE_INTERVAL_MS * meleeIntervalMul(slot, mounted); }
 
   // ── How far a melee attacker reaches ───────────────────────────────────
-  // 0.6 CELL (owner, Oct 2026 — the foe-spacing gap: a crowd spread round the
-  // player bites from arm's length, not from a cell off), for the player and
-  // for a melee monster alike — and ONE number,
-  // read by both sides, for the roadOverlayWidthM reason: a reach the player
-  // has and the thing biting them does not is a difference nobody can see on
-  // the screen and everybody feels in the fight.
-  //
-  // Until Sep 2026 melee reached the player's LIT reach — 2.5 cells at the
-  // start and up to 5.5 with the six Inner Light upgrades — while every melee
-  // monster (MONSTERS[kind].range 1) and the surface slime's leech had to be
-  // ADJACENT. So you could stand three cells off a goblin and punch it to
-  // death while it walked, and the Inner Light's reach upgrades quietly
-  // doubled as combat range. Closing to arm's length is the whole cost of
-  // choosing to melee something; the lit reach is about what you can WORK,
-  // and it kept paying for a fight it was never priced for.
-  //
-  // The RANGED weapons are untouched: a bow or a staff is the thing you buy
-  // to hit what you cannot punch (SHOT[].rangeCells).
-  // The kinds whose roster row reaches further are named there: the spear
-  // goblin's pole, a swooping flier's pass, a big body's arms (brutes, orc,
-  // minotaur, the giants, the crab) — enemy_roster.js `range`.
+  // 0.6 CELL (owner, Oct 2026: a crowd bites from arm's length), for the
+  // player and for a melee monster alike, ONE number read by both sides: a
+  // reach one side has and the other does not is invisible on screen and felt
+  // in the fight. The lit reach is about what you can WORK, not fight.
+  // RANGED weapons are untouched (SHOT[].rangeCells). Kinds whose roster row
+  // reaches further (spear goblin, fliers, big bodies) are named by
+  // enemy_roster.js `range`.
   const MELEE_REACH_CELLS = 0.6;
   // The reach in metres, and the test both sides run. Centre-to-centre, which
   // is what the monster's own attack gate measures (scene_creatures.js wanderCreatures
@@ -1034,13 +969,11 @@
     return trainingIntervalMul(save, now) * Conditions.attackIntervalMul(save);
   }
 
-  function meleeSwingDamage(relics, mul = 1, playerClass, slot = 'sword') {
-    return meleeDps(relics, playerClass, slot) * (mul || 1) * meleeIntervalMs(slot) / 1000;
+  function meleeSwingDamage(relics, mul = 1, playerClass, slot = 'sword', mounted = false) {
+    return meleeDps(relics, playerClass, slot, mounted) * (mul || 1) * meleeIntervalMs(slot, mounted) / 1000;
   }
 
   // The BASE fire beat — one shot every two seconds, and what the bow keeps.
-  // Was 1000 — halving the cadence makes each shot a visible event instead of
-  // a stream; shotDamage scales per-shot damage by the interval, so the
   // delivered rate is cadence-independent.
   //
   // A slot may fire on its own beat (SHOT[slot].fireIntervalMs, read through
@@ -1053,10 +986,7 @@
   const FIRE_INTERVAL_MS = 2000;
   const STAFF_BEAT_MUL = 2.5;   // a bolt every 5 s
   const RANGED_SLOTS = ['bow', 'staff', 'musket'];
-  // Per-slot shot geometry. (A `phaseMs` once staggered the staff half a beat
-  // off the bow; only one ranged slot can ever be the active weapon now, so it
-  // was 0 for both and the field is gone — app.js arms a newly active weapon
-  // to fire on the next pass.) Ranges/speeds
+  // Per-slot shot geometry. Ranges/speeds
   // are in CELLS and cells-per-second so they hold at any cell size; the
   // viewport is 11 cells wide, so a bow shot crosses the screen and a staff
   // bolt very nearly does.
@@ -1159,12 +1089,8 @@
   const SHOT_DMG_MUL = { bow: 1, staff: 4 / 15 };
   // How close a shot has to pass to a foe's feet to count as a hit, in cells.
   // Both weapons now sweep the SAME tight radius: a shot has to actually
-  // reach a foe, not just pass somewhere in its neighbourhood. The bow used
-  // to carry a much wider radius (0.9 cells) to forgive a phone COMPASS
-  // heading being coarse and jittery, but that forgiveness is exactly what
-  // made a shot look like it "hit" a foe it visibly missed — so the bow now
-  // takes the same collision precision the staff does, at the cost of the
-  // compass needing to actually be lined up.
+  // Both weapons sweep the SAME tight radius, so a shot has to actually reach a
+  // foe; a wide forgiving radius made shots look like they hit foes they missed.
   const HIT_RADIUS_CELLS = 0.35;
 
   // ── Bolt size by tier ────────────────────────────────────────────────────
@@ -1218,9 +1144,7 @@
   // delivered per-second rate entirely; it only paces how chunky each hit
   // looks. An empty slot fires nothing at all.
   //
-  // The floor of 1 is what keeps a wooden weapon firing at all once the
-  // rounding is through; it only ever binds on rungs whose full rate is
-  // already under two per second.
+  // The floor of 1 keeps a wooden weapon firing at all after rounding.
   //
   // `playerClass` (optional — save.playerClass, src/wizard.js CLASSES): a
   // HUNTER's BOW shots carry HUNTER_BOW_MUL of the rate. A CLASS BONUS the
@@ -1238,12 +1162,9 @@
   }
 
   // The heading a 'nearest'-aimed slot fires along from (x, y): a vector to
-  // the closest of `enemies`, or null when there is none — or none within
-  // `maxRangeM` (optional; the slot's own rangeCells × cellM is what the
-  // caller hands over, so the staff never spends a bolt on a foe it can't
-  // reach). Ties go to the first listed, so the pick is stable frame to frame.
-  // `enemies` is the caller's already-filtered hostile list, exactly as
-  // stepShots takes it — a crow or a pet can no more be aimed at than hit.
+  // the closest of `enemies` (the caller's already-filtered hostile list), or
+  // null when none, or none within optional `maxRangeM`. Ties go to the first
+  // listed, so the pick is stable frame to frame.
   function aimAtNearest(x, y, enemies, maxRangeM) {
     let best = null, bestD2 = maxRangeM != null ? maxRangeM * maxRangeM : Infinity;
     for (const e of enemies || []) {
@@ -1257,9 +1178,8 @@
     return best;
   }
 
-  // Resolve the heading a slot fires along: the compass `facing` for a
-  // 'compass' slot, the line to the nearest foe for a 'nearest' one. Returns
-  // null when there is nothing to fire at, and app.js fires nothing then.
+  // The heading a slot fires along: compass `facing` for 'compass' slots, the
+  // line to the nearest foe for 'nearest' ones; null when nothing to fire at.
   function shotHeading(slot, x, y, facing, enemies, cellM, reachCells) {
     const spec = SHOT[slot];
     if (!spec) return null;
@@ -1267,15 +1187,11 @@
     return facing || null;
   }
 
-  // A shot in flight. `dir` is the heading (need not be normalised) — the
-  // compass or the line to a foe, per shotHeading; a zero-length heading is
-  // refused rather than firing a shot that sits on the player's feet forever.
-  // `tier` is the firing relic's tier and sizes the shot (boltScale above):
-  // `radiusM` is what stepShots sweeps foes with and `dotPx` what app.js
-  // draws, both stamped here so they can't disagree. Omitted, it is tier 1.
-  // `reachCells` is the caster's live reach, for the slots whose range is
-  // derived from it (rangeCellsFor) — the same value shotHeading was handed,
-  // so the bolt flies exactly as far as the check that loosed it.
+  // A shot in flight. `dir` need not be normalised; a zero-length heading is
+  // refused. `tier` sizes the shot (boltScale): `radiusM` (hit sweep) and
+  // `dotPx` (draw) are both stamped here so they can't disagree. `reachCells`
+  // is the caster's live reach, the same value shotHeading was handed, so the
+  // bolt flies exactly as far as the check that loosed it.
   // `rangeCellsOverride` flies the shot a range of its own (the turret's).
   function spawnShot(slot, x, y, dir, cellM, dmg, tier, reachCells, rangeCellsOverride) {
     const mag = Math.hypot(dir?.x || 0, dir?.y || 0);
@@ -1400,10 +1316,9 @@
     return true;
   }
 
-  // How finely a shot's flight is sampled against the world when the caller
-  // supplies a `blocked` test, in cells. Half a cell is well under the
-  // thinnest thing that can stop a shot (a cave wall is a whole cell), so a
-  // frame long enough to carry a shot several cells still can't step over one.
+  // How finely a shot's flight is sampled against the world (`blocked`), in
+  // cells: half a cell is under the thinnest thing that stops a shot (a cave
+  // wall), so a long frame can't step over one.
   const BLOCK_SAMPLE_CELLS = 0.5;
 
   // Advance every shot by `dt` seconds and resolve the first enemy each one
@@ -1517,23 +1432,15 @@
   }
 
   // ── Castle turrets ───────────────────────────────────────────────────────
-  // A castle's turrets (worldgen's `tower` objects, one per ~5 rim cells) are
-  // archers. While an enemy is on screen, every turret ALSO on screen looses a
-  // WOOD-TIER BOW ARROW at the nearest foe inside TURRET.rangeCells (3 cells,
-  // owner's call Sep 2026 — the walls guard their own ground, not the street
-  // beyond; the arrow flies that far and no further) — at ONE
-  // FIFTH the player's cadence, so a rim of six covers the approach without
-  // fighting the fight for you. Nothing here is tuned: the arrow IS the
-  // player's bow arrow (SHOT.bow — same speed, range, streak, and it stops in
-  // timber and rock the same way), its damage is what a Wood bow deals
-  // (shotDamage over TURRET_RELICS, so a re-shaped tool ladder moves the
-  // turrets with it), and the interval is the player's times TURRET_RATE_DIV.
-  // A turret has no compass, so it aims the staff's way (aimAtNearest) and,
-  // like the staff, holds fire — clock left due — while the nearest foe is
-  // beyond the arrow's range, so it fires the instant one steps in.
-  // "Enemy" is the caller's already-filtered list, exactly as stepShots takes
-  // it: a turret can no more shoot a crow, a deer or a tamed slime than the
-  // player's auto-fire can.
+  // A castle's turrets (worldgen's `tower` objects) are archers: while an enemy
+  // is on screen, every on-screen turret looses a WOOD-TIER BOW ARROW at the
+  // nearest foe inside TURRET.rangeCells (3 — the walls guard their own ground,
+  // owner's call Sep 2026) at ONE FIFTH the player's cadence. Nothing here is
+  // tuned: the arrow IS the player's bow arrow (SHOT.bow), its damage is a Wood
+  // bow's (shotDamage over TURRET_RELICS) and the interval is the player's
+  // times TURRET_RATE_DIV. A turret aims the staff's way (aimAtNearest) and
+  // holds fire — clock left due — while the nearest foe is out of range.
+  // `enemies` is the caller's already-filtered list, as stepShots takes it.
   const TURRET_RATE_DIV = 5;
   const TURRET = {
     slot: 'bow',
@@ -1545,6 +1452,14 @@
   };
   const TURRET_RELICS = { bow: { tier: TURRET.tier } };
   function turretShotDamage() { return shotDamage(TURRET_RELICS, TURRET.slot); }
+  // A SHINY turret — a house raised as a turret under the Magic Hammer
+  // (houses.js hammerTakes, Houses.isShinyHouse): its arrow deals double,
+  // through the same powerMul a shiny creature's blow does (no turret
+  // multiplier of its own), and flies as LIGHT: stamped `shiny` and coloured
+  // like the shine itself (Lighting.KINDS.shiny's gold), app.js _drawShots
+  // halos it and lighting.js collectBolts lets it light the ground.
+  const SHINY_ARROW_COLOR = 0xfff0a0;
+  function shinyTurretDamage() { return turretShotDamage() * powerMul({ shiny: true }); }
 
   // Where in its cadence a turret starts, in ms — a deterministic hash of its
   // id spread over one interval, so the six turrets of a rim that all sight a
@@ -1559,13 +1474,17 @@
   // line to the nearest foe within the bow's range, or null when there is
   // none. `aimDistM` is stamped on for the draw — the arrow leaves the
   // battlements and comes down to chest height over that distance.
-  function turretShot(x, y, enemies, cellM) {
+  // `shiny` (the turret's, see shinyTurretDamage) doubles the blow and
+  // lights the arrow.
+  function turretShot(x, y, enemies, cellM, shiny = false) {
     const heading = aimAtNearest(x, y, enemies, TURRET.rangeCells * cellM);
     if (!heading) return null;
-    const shot = spawnShot(TURRET.slot, x, y, heading, cellM, turretShotDamage(), TURRET.tier, null, TURRET.rangeCells);
+    const dmg = shiny ? shinyTurretDamage() : turretShotDamage();
+    const shot = spawnShot(TURRET.slot, x, y, heading, cellM, dmg, TURRET.tier, null, TURRET.rangeCells);
     if (!shot) return null;
     shot.source = 'turret';   // not the player's: see isPlayerKill
     shot.aimDistM = Math.hypot(heading.x, heading.y);
+    if (shiny) { shot.shiny = true; shot.color = SHINY_ARROW_COLOR; }
     return shot;
   }
 
@@ -1581,7 +1500,7 @@
       let due = clocks[t.id];
       if (due == null) due = clocks[t.id] = now + turretPhaseMs(t.id);
       if (now < due) continue;
-      const shot = turretShot(t.x, t.y, enemies, cellM);
+      const shot = turretShot(t.x, t.y, enemies, cellM, !!t.shiny);
       if (!shot) continue;
       clocks[t.id] = now + TURRET.fireIntervalMs;
       shot.castle = t.castle;
@@ -1617,16 +1536,10 @@
     return shot;
   }
 
-  // Is there a clear line from (x0,y0) to (x1,y1)? Sampled at the same
-  // resolution a shot's flight is, through the same caller-supplied world
-  // test, so what stops an arrow stops a line of fire.
-  //
-  // For a RANGED MONSTER's attack. The goblin archer reaches three cells, and
-  // without this it reaches them through solid rock — taking exactly the shot
-  // the player is no longer allowed to take, from somewhere they often cannot
-  // even see. Melee kinds are adjacent by definition and never consult it.
-  // The endpoints are skipped: those are the two bodies, and a body is
-  // standing on floor by definition.
+  // Is there a clear line from (x0,y0) to (x1,y1)? Sampled like a shot's
+  // flight through the same caller-supplied world test. For a RANGED MONSTER's
+  // attack: without it an archer shoots through solid rock. Endpoints are
+  // skipped (both bodies stand on floor).
   function lineOfFire(x0, y0, x1, y1, blocked, cellM) {
     if (!blocked) return true;
     const dx = x1 - x0, dy = y1 - y0;
@@ -1641,8 +1554,7 @@
     return true;
   }
 
-  // Health-bar tint. The bar has to read as health at a glance without a
-  // number: full green, bloodied amber, nearly-dead red.
+  // Health-bar tint: full green, bloodied amber, nearly-dead red.
   function healthColor(frac) {
     if (frac > 0.5) return 0x6fdc6f;
     if (frac > 0.25) return 0xffc23d;
@@ -1677,7 +1589,7 @@
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, spawnFireball, spawnExplosiveFlask, stepShots, lineOfFire, healthColor,
-    TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
+    TURRET, TURRET_RATE_DIV, turretShotDamage, SHINY_ARROW_COLOR, shinyTurretDamage, turretPhaseMs, turretShot, turretTick,
     HOSTILE_ARROW_COLOR, monsterShot,
   };
   root.Combat = api;

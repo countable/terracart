@@ -446,13 +446,9 @@ test('lighting: a POI breathes slowly, on its own phase', () => {
 });
 
 test('lighting: the cobble row is the street lamp\'s own violet, steady, and there is still no cell-light list', () => {
-  // A `cobble` row used to carry a small violet pool per lit trail stone,
-  // offered by drawCells onto its own `_cellLights` list — gone when streets
-  // started restoring by arclength instead of per cobble. The row is BACK now
-  // for the street-lamp feature (one glowing cobble every
-  // Streets.lampSpacingM() metres of RESTORED street), but as a proper light
-  // row a plain point list feeds through collectLamps — never as a revival of
-  // the old per-cell scan.
+  // The row serves the street-lamp feature (one glowing cobble every
+  // Streets.lampSpacingM() metres of RESTORED street): a plain point list fed
+  // through collectLamps, never a per-cell scan.
   const cobble = Lighting.KINDS.cobble;
   assert.truthy(cobble, 'the cobble row exists');
   // The old lit-pebble violet is back for the lamp specifically (UI_LAMP_GLOW
@@ -573,10 +569,8 @@ test('lighting: a lamp throws its STREET\'s glow — a hue, keyed in frameKey, d
 test('lighting: a BLAST is a transient light on its own clock, at any size', () => {
   // A restoration moment — a stretch of street rebuilt, a wreck pulled back
   // into a house — throws one wide near-white flash that fades as it swells.
-  // It used to be a per-cobble side effect re-offered by drawCells on every
-  // frame of the stone's scale-pop; it is one entry on scene._blasts now,
-  // fired once by the code that did the thing, carrying its OWN radius,
-  // colour and duration.
+  // It is one entry on scene._blasts, fired once by the code that did the
+  // thing, carrying its OWN radius, colour and duration.
   const f = Lighting.KINDS.blast;
   assert.truthy(f, 'the blast row exists');
   assert.falsy(Lighting.KINDS.cobbleFlash, 'and the per-cobble flash row is gone');
@@ -586,18 +580,13 @@ test('lighting: a BLAST is a transient light on its own clock, at any size', () 
   for (const sh of [16, 8, 0]) assert.gt(ch(f.colour, sh), 200, 'near-white');
   assert.gte(ch(f.colour, 0), ch(f.colour, 16), 'cool, not warm');
 
-  // THE DEFAULTS ARE THE OLD PER-COBBLE NUMBERS EXACTLY: 2.5 cells across for
-  // the 900 ms the lit stone's scale-pop used to run, so a restoration flashes
-  // precisely as one always did.
+  // The defaults: 2.5 cells across for 900 ms.
   assert.eq(Lighting.BLAST_RADIUS_CELLS, 2.5, "a restoration's blast is 2.5 cells");
   assert.eq(Lighting.radiusCells('blast'), Lighting.BLAST_RADIUS_CELLS, 'and the row default matches');
   assert.eq(Lighting.BLAST_MS, 900, 'and it runs for the old scale-pop\'s own 900 ms');
-  // The white SHINE app.js runs down a stretch it has just rebuilt used to
-  // borrow this exact clock; it now runs longer and on its own (a street
-  // repair reads as slower and more deliberate than a house's snap-back),
-  // and app.js hands _blastAt that length explicitly (durationMs) at its one
-  // call site so the flash still ends exactly when the shine does — just on
-  // the street's own beat, not this default.
+  // The white SHINE app.js runs down a rebuilt stretch has its own, longer
+  // clock; app.js hands _blastAt that length (durationMs) so the flash ends
+  // with the shine.
   assert.gt(STREET_SHINE_MS, Lighting.BLAST_MS,
     'the street\'s own shine runs longer than a generic blast');
 
@@ -686,8 +675,7 @@ test('lighting: a blast is stored in WORLD metres and re-anchored every frame, s
 
 test('lighting: draw() stamps a light with its own alpha and scale', () => {
   // A blast drives both multipliers off its own clock; every other row leaves
-  // them null and gets the flicker curve alone. `_cellLights` used to be
-  // stamped after `_lights` here; there is only one list now.
+  // them null and gets the flicker curve alone.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/\* \(L\.a == null \? 1 : L\.a\)/.test(d), 'a light\'s own alpha multiplies in');

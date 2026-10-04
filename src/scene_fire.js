@@ -201,9 +201,8 @@ class SceneFire {
   }
 
   readTomeFirewall() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_firewall' || !(sel.count > 0) || Combat.playerDowned(this.save.energy)) return false;
-    if (!this._tomeReady('tome_firewall')) return false;
+    if (!this._selectedConsumable('tome_fire_wall') || Combat.playerDowned(this.save.energy)) return false;
+    if (!this._tomeReady('tome_fire_wall')) return false;
     const facing = this.facing;
     if (!facing || !Number.isFinite(facing.x) || !Number.isFinite(facing.y) || !Math.hypot(facing.x, facing.y)) return false;
     // The compass is continuous; snap its heading to the eight cell directions.
@@ -211,7 +210,7 @@ class SceneFire {
     const dx = Math.round(Math.cos(angle)), dy = Math.round(Math.sin(angle));
     const feet = playerWorldM(this);
     const player = worldMetersToAbsCell(this, feet.x, feet.y);
-    const radius = (CONSUMABLE_SPEC.tome_firewall.lengthCells - 1) / 2;
+    const radius = (CONSUMABLE_SPEC.tome_fire_wall.lengthCells - 1) / 2;
     const now = Date.now();
     let lit = 0;
     const mid = absCellOffset(this, player.cellIX, player.cellIY, dx, dy);
@@ -221,10 +220,10 @@ class SceneFire {
       if (this._igniteGroundCell(cell, now)) lit++;
     }
     if (!lit) {
-      this.flash('No fresh ground — tome kept', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer('No fresh ground — tome kept');
       return false;
     }
-    this._tomeSpent('tome_firewall');
+    this._tomeSpent('tome_fire_wall');
     this.flashAtCell('A wall of fire rises', mid.cellIX, mid.cellIY);
     return true;
   }
@@ -238,9 +237,7 @@ class SceneFire {
       Fog.REVEAL_CELLS * this.cellM, CONSUMABLE_SPEC.explosive_flask);
     if (!shot) return false;
     this._shots.push(shot);
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
+    this._consumeSelected();
     return true;
   }
 }

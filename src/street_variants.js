@@ -153,12 +153,12 @@
   const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
   const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
   const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
-  const TOADSTOOL_GIANT_EVERY_GROUPS = 3;
+  const TOADSTOOL_GIANT_EVERY_GROUPS = 3, TOADSTOOL_GIANT_GROUPS = 2;
   const BURNED_STEP_M = 8, BURNED_MAX = 100;
   const BURNED_TORCH_STEP_M = 32;
   // Stop starting new barricade lines at this budget; finish the last line
   // so a count cutoff cannot leave a gap halfway across its road.
-  const BARRICADE_STEP_M = 12, BARRICADE_MAX = 80;
+  const BARRICADE_STEP_M = 50, BARRICADE_MAX = 80;
   const BARRICADE_VERGE_MAX_CELLS = 4;
   // How finely a burned row is walked for its one fire slime per stretch.
   const BURNED_GUARD_STEP_M = 10;
@@ -176,6 +176,7 @@
   const TERRAIN_VERGE_CELLS = 1.5;
   const THORNY_SHRINE_RADIUS_CELLS = 2;
   const THORNY_VERGE_MAX_CELLS = 4;
+  const THORNY_CLUSTER_DENSITY = 0.6;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
@@ -191,7 +192,7 @@
   // (scene_creatures.js _seatFaunaOnFavouriteGround): each of the tile's own
   // spawns of that species moves onto this street's verge with probability p.
   // `share` is the neutral-name probability for a key of that size. Minor
-  // shares total 40%; name nudges redistribute ordinary themes inside that
+  // selection stays at 40%; name nudges redistribute ordinary themes inside that
   // fixed budget, while Golden Road remains 2% of all minor keys.
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
@@ -232,7 +233,9 @@
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
       flash: 'A waystone, worn smooth.' },
-    { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'major', share: 0.07, rung: 'common',
+    // Lantern Row takes Burned Row's former major-road weight. Burned Row
+    // now joins the minor pool; its overall themed-street budget stays fixed.
+    { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'major', share: 0.12, rung: 'common',
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
@@ -243,13 +246,14 @@
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts line the road, close enough to light the whole street. You walk between the rows of lamps.',
       flash: 'Lamp posts, cold and waiting.' },
-    { id: 'burned', terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'major', share: 0.05, rung: 'uncommon',
-      stone: { weathered: '#583c35', restored: '#865041' }, lampDensity: 0.5,
+    { id: 'burned', terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'minor', share: 0.05, rung: 'uncommon',
+      stone: { weathered: '#321b18', restored: '#49241b', pattern: 'embers', accent: '#ff6a20' }, lampDensity: 0.5,
+      hotRoad: true,
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
       lampGlow: '#ff5a3c',
       story: 'street_burned', title: 'Burned Row',
-      body: 'Tar fills the gutters, and iron stakes jut from the verge. You keep to the clear stones between them.',
-      flash: 'Tar underfoot. Go slow.' },
+      body: 'Hot embers glow between the road stones, burning like lava underfoot. Tar fills the gutters, and iron stakes jut from the verge.',
+      flash: 'Hot embers burn underfoot.' },
     { id: 'barricade', terrain: 'WASTELAND', affinities: ['ruined'], size: 'major', share: 0.04, rung: 'rare',
       stone: { weathered: '#706047', restored: '#a38754' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
@@ -362,13 +366,13 @@
         D.WG.cellId('tree_og', D.tx, D.ty, c.ix, c.iy),
         { species: 'maple', variant: 1 + Math.min(2, Math.floor(3 * at.s / Math.max(1, D.lengthM()))), _street: D.v })) }],
     // Repeating loose scallops: three caps, a breathing gap, then the opposite
-    // verge. Every third group has a giant at its set-back centre.
+    // verge. Two of every three groups have a giant at its set-back centre.
     toadstool: [{ step: TOADSTOOL_STEP_M, max: TOADSTOOL_MAX,
       skip: (at) => at.n % 4 === 3,
       side: (at) => Math.floor(at.n / 4) % 2 ? -1 : 1,
       start: (at) => at.n % 4 === 1 ? 2 : 1,
       emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant(
-        at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS === 0 ? 'giant_mushroom' : 'mushroom',
+        at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS < TOADSTOOL_GIANT_GROUPS ? 'giant_mushroom' : 'mushroom',
         D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy), { _street: D.v })) }],
     // Alternate along each verge, with the opposite species across the road:
     // half apples, half mature deciduous maples on clear ground.
@@ -1362,9 +1366,13 @@
           if (ix < 0 || iy < 0 || ix >= N || iy >= N) break;
           const i = iy * N + ix;
           if (owned.has(i)) continue;
-          // Classify the cell center, not the sub-cell sampling point.
+          // A diagonal road's rasterized tile can overlap the band while its
+          // center sits outside it. Include that tile in a barricade crossing,
+          // or the ordinary road exclusion stops the line at the pavement.
           const normalDistance = Math.abs(((ix + .5) * CELL_M - x) * nx + ((iy + .5) * CELL_M - y) * ny);
-          const road = normalDistance <= rec.halfW;
+          const cellReach = rec.variant === 'barricade' && WG.isRoadTerrain(grid[i])
+            ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
+          const road = normalDistance <= rec.halfW + cellReach;
           if (road) roadSeats.add(i);
           if (!(road ? WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle') : cellOk(ix,iy))) break;
           owned.add(i); emit(ix,iy);
@@ -1541,12 +1549,14 @@
             }
           });
         }
-        // Dense irregular thickets grow from the kerb, ending at the first
+        // Irregular thickets leave gaps within each cluster, ending at the first
         // obstruction. A ray never jumps a building, occupied seat or road.
         sampleLine(rec.line, gM, CELL_M / 2, CELL_M / 4, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           const depth = side => 2 + Math.floor(hash01(`thorny-depth|${rec.key}|${Math.floor(s / CELL_M)}|${side}`) * (THORNY_VERGE_MAX_CELLS - 1));
-          crossSection(rec,x,y,nx,ny,depth,brambleSeats,bramble);
+          crossSection(rec,x,y,nx,ny,depth,brambleSeats,(ix,iy)=>{
+            if (hash01(WG.cellId('bramble-density',tx,ty,ix,iy)) < THORNY_CLUSTER_DENSITY) bramble(ix,iy);
+          });
         });
       } else if (v === 'pilgrim' || v === 'barricade') {
         if (v === 'barricade') {
@@ -1698,6 +1708,32 @@
     return VARIANT_BY_ID[variant]?.stone?.[restored ? 'restored' : 'weathered'] || null;
   }
 
+  // Use the same source intervals and round-ended band as the paving, not
+  // dressing marks (which include the safe verge) or the coarser road mask.
+  function hotRoadAt(entry, cx, cy) {
+    const N = entry?.cellsPerEdge, index = entry?.streetIndex;
+    if (!index || !(N > 0) || !(entry.tileEdgeM > 0)
+        || cx < 0 || cy < 0 || cx >= N || cy >= N) return false;
+    const t = entry.grid?.[Math.floor(cy) * N + Math.floor(cx)];
+    if (t == null || t === root.WorldGen.T.WATER || root.WorldGen.isBuildingTerrain(t)) return false;
+    const cellM = entry.tileEdgeM / N, scale = entry.tileEdgeM / (index.extent || 4096);
+    const x = cx * cellM, y = cy * cellM;
+    for (const rec of index.lines || []) {
+      if (!VARIANT_BY_ID[rec.variant]?.hotRoad) continue;
+      for (const part of lineParts(rec, scale)) {
+        if (!VARIANT_BY_ID[part.variant]?.hotRoad) continue;
+        const line = root.Streets.subLineM(rec.line, scale, part.a, part.b);
+        for (let i = 1; i < line.length; i++) {
+          const a = line[i - 1], b = line[i], dx = b.x - a.x, dy = b.y - a.y;
+          const len2 = dx * dx + dy * dy;
+          const u = len2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len2)) : 0;
+          if (Math.hypot(x - a.x - u * dx, y - a.y - u * dy) <= rec.halfW) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   // One line's themed metre intervals, shared by paving, lamps and previews.
   // Scenic classifications can change partway along a path; never let one
   // scenic stretch repaint or change the lamp spacing on its plain remainder.
@@ -1771,10 +1807,10 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
-    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, isSlowKind,
+    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, hotRoadAt, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -18,8 +18,8 @@ test('fishing: a cast costs double the shared tool ladder', () => {
   // takes the floor, so the spend is floor(mult × the curve's expectation).
   const always = () => 0;
   assert.eq(effectiveFishCost({}, always), Math.floor(2 * toolEnergyExpected(0)), 'bare-handed');
-  assert.eq(effectiveFishCost({ rod: { tier: 1 } }, always), Math.floor(2 * toolEnergyExpected(1)), 'Wood rod');
-  assert.eq(effectiveFishCost({ rod: { tier: 7 } }, always), Math.floor(2 * toolEnergyExpected(7)), 'Frost rod');
+  assert.eq(effectiveFishCost({ fishing_rod: { tier: 1 } }, always), Math.floor(2 * toolEnergyExpected(1)), 'Wood rod');
+  assert.eq(effectiveFishCost({ fishing_rod: { tier: 7 } }, always), Math.floor(2 * toolEnergyExpected(7)), 'Frost rod');
   // …and it is fishing's OWN multiplier: the other jobs on the shared curve
   // are untouched, or this would have been a global energy change.
   assert.eq(effectivePickCost({}, always), Math.floor(toolEnergyExpected(0, ENERGY_COST.rockBreak)), 'mining unchanged');
@@ -155,7 +155,7 @@ test('fishing: about one spot in three is stocked, and the same for everyone', (
 });
 
 test('fished spots persist as an id set bound at scene boot', () => {
-  const app = ALL_SRC['app.js'];
+  const app = ALL_SRC['scene_create.js'];
   assert.truthy(app.includes("this.fishedSpotSet = bindIdSet(this.save, 'fishedSpots')"), 'bound');
   assert.falsy(/'fishedSpots'/.test(ALL_SRC['save_state.js'] || ''), 'never capped: gone forever');
 });
@@ -180,7 +180,7 @@ test('fished spots persist as an id set bound at scene boot', () => {
       addToInv: (id) => inv.push(id),
       spawnFishedSlime: () => false,
     };
-    const ctx = { scene, save: Object.assign(save, { relics: tier ? { rod: { tier } } : {} }),
+    const ctx = { scene, save: Object.assign(save, { relics: tier ? { fishing_rod: { tier } } : {} }),
       sx: 0, sy: 0, cwmx: 0, cwmy: 0,
       cell: { type: TERRAIN.WATER, tx: 0, ty: 0, ix, iy: 0 } };
     const rnd = Math.random;
@@ -280,7 +280,7 @@ test('tilling: a furrow turns up flint 1 in 10, a stone 1 in 10, treasure hoe ti
   assert.eq(rollTillFind(() => 0, 0)?.kind === 'treasure', false, 'bare hands never find treasure');
   assert.eq(TILL_FLINT_CHANCE, 1 / 10);
   assert.eq(TILL_ROCK_CHANCE, 1 / 10);
-  assert.eq(ITEM_BY_ID.coal.name, 'Flint', "flint is item id 'coal'");
+  assert.eq(ITEM_BY_ID.flint_shard.name, 'Flint', "flint is item id 'flint_shard'");
   let r = 7;
   const rng = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
   const k = {};
@@ -292,8 +292,8 @@ test('tilling: a furrow turns up flint 1 in 10, a stone 1 in 10, treasure hoe ti
     if (f && f.kind === 'treasure') assert.inRange(f.tier, 1, FOUND_TREASURE_TIER_MAX);
   }
   assert.inRange(k.treasure / N, 0.03, 0.04, 'about 3.5 in 100 at tier 7');
-  assert.inRange(k.coal / N, 0.08, 0.12, 'about 1 in 10 flint');
-  assert.inRange(k.rockfruit / N, 0.08, 0.12, 'about 1 in 10 stone');
+  assert.inRange(k.flint_shard / N, 0.08, 0.12, 'about 1 in 10 flint');
+  assert.inRange(k.rubble / N, 0.08, 0.12, 'about 1 in 10 stone');
   assert.truthy(/const find = rollTillFind\(Math\.random, save\.relics\?\.hoe\?\.tier \|\| 0\);/.test(INTERACT_SRC), 'rolled when the furrow finishes');
   assert.truthy(/grantFoundTreasure\(scene, save, sx, sy, '⛏', find\.tier, /.test(INTERACT_SRC),
     'buried treasure pays through the found-treasure lane');

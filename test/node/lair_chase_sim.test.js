@@ -72,11 +72,9 @@ function tick(scene, ms) {
   const realForEach = WorldGen.forEachItem;
   const realNear = WorldGen.forEachItemNear;
   const realNow = performance.now;
-  // ONE clock per scene, advanced by `ms` a tick. Re-reading the real clock
-  // here would leave `now` standing still between ticks, and the movement
-  // block only runs when its own `_nextChooseT` comes due — so nothing would
-  // ever take a step and every assertion below would pass for the wrong
-  // reason. (It did, the first time this file was written.)
+  // ONE clock per scene, advanced by `ms` a tick. Re-reading the real clock would
+  // leave `now` standing still, and the movement block only runs when its own
+  // `_nextChooseT` comes due, so every assertion would pass for the wrong reason.
   scene._simT = (scene._simT || 1e6) + ms;
   const t = scene._simT;
   const walk = (what, fn) => {

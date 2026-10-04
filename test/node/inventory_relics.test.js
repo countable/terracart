@@ -79,16 +79,16 @@
   });
 
   test('inventory relics: a pickup page includes preceding equipment and tab counts include both', () => {
-    const relics = Object.fromEntries(['pick', 'axe', 'sword', 'bow', 'staff', 'can'].map(slot => [slot, { tier: 1 }]));
+    const relics = Object.fromEntries(['pickaxe', 'axe', 'sword', 'bow', 'staff', 'watering_can'].map(slot => [slot, { tier: 1 }]));
     const s = harness({ inv: [], relics, armor: {}, invCat: 'seed', invPage: 0, selSlot: -1 });
-    assert.eq(s.addToInv('telescope', 1), 1);
+    assert.eq(s.addToInv('field_scope', 1), 1);
     assert.eq(s.save.invCat, 'relic'); assert.eq(s.save.invPage, 1);
     assert.truthy(s.slots().some(slot => slot.dataset.slot === 0), 'pickup visible after six equipped slots');
     const tab = s.document.getElementById('inv-tabs').children.find(e => e.dataset.cat === 'relic');
     assert.eq(tab.children.at(-1).textContent, '7', 'six equipped plus one carried');
     assert.eq(s.save.selSlot, -1, 'pickup does not auto-select the carried item');
     s.click(s.slots().find(slot => slot.dataset.slot === 0));
-    Inventory.remove(s.save, 'telescope', 1);
+    Inventory.remove(s.save, 'field_scope', 1);
     s._clampSelSlot(); s.buildInventoryDOM();
     assert.eq(s.save.selSlot, -1); assert.eq(s.invEntriesForCat('relic').length, 0);
     assert.eq(s.gearEntriesForCat('relic').length, 6, 'dropping/removing a carried item preserves gear');
@@ -96,16 +96,16 @@
 
   test('inventory relics: alternate weapons have separate selectable slots and one active badge', () => {
     const s = harness({ inv: [], relics: { sword: { tier: 3 }, dagger: { tier: 1 },
-      spear: { tier: 3 }, musket: { tier: 5 } }, armor: {}, activeWeapon: 'spear',
+      lance: { tier: 3 }, musket: { tier: 5 } }, armor: {}, activeWeapon: 'lance',
       invCat: 'relic', invPage: 0, selSlot: -1 });
     s.buildInventoryDOM();
-    for (const slot of ['sword', 'dagger', 'spear', 'musket']) {
+    for (const slot of ['sword', 'dagger', 'lance', 'musket']) {
       const button = s.slots().find(b => b.dataset.gear === `relic:${slot}`);
       assert.truthy(button, `${slot} appears in Relics`);
-      assert.eq(button.children.some(child => child.textContent === 'E'), slot === 'spear');
+      assert.eq(button.children.some(child => child.textContent === 'E'), slot === 'lance');
       s.click(button);
       assert.eq(s.save.selGear.slot, slot);
-      assert.eq(s.save.activeWeapon, 'spear', 'highlight alone does not equip');
+      assert.eq(s.save.activeWeapon, 'lance', 'highlight alone does not equip');
     }
   });
 
@@ -121,3 +121,11 @@
     assert.eq(s.document.getElementById('inv-name').textContent, 'Select a relic');
   });
 })();
+
+// The inventory's gear tabs list slots from these two arrays, so a slot
+// missing from one (a renamed id left behind) never shows in the bag.
+test('inventory relics: the gear tab orders name every relic and armour slot', () => {
+  const order = (name) => (0, eval)(SCENE_SRC.match(new RegExp('const ' + name + ' = (\\[[^\\]]+\\]);'))[1]);
+  assert.eq(order('INV_RELIC_ORDER').slice().sort().join(), Object.keys(RELIC_DEFS).sort().join());
+  assert.eq(order('INV_ARMOR_ORDER').slice().sort().join(), Object.keys(ARMOR_DEFS).sort().join());
+});

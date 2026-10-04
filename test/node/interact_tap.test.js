@@ -104,7 +104,7 @@ test('TAP_HANDLERS: disarm-trap runs right after cell-resolve, before till/plant
 test('disarm-trap: disarms the trap on the tapped cell, and usually keeps the kit', () => {
   const src = INTERACT_SRC.slice(INTERACT_SRC.indexOf("{ name: 'disarm-trap'"),
     INTERACT_SRC.indexOf("{ name: 'building-zone'"));
-  assert.truthy(/sel\.id === 'trap_kit'/.test(src), 'gated on the kit being selected');
+  assert.truthy(/sel\.id === 'trap_disarm_kit'/.test(src), 'gated on the kit being selected');
   assert.truthy(/Traps\.trapAt\(entry, cell\.ix, cell\.iy\)/.test(src),
     'looks the trap up on the TAPPED cell, not the player\'s');
   // disarmTrap / isTrapDisarmed: a generated trap's state is its id on the
@@ -117,7 +117,7 @@ test('disarm-trap: disarms the trap on the tapped cell, and usually keeps the ki
   const finish = INTERACT_SRC.slice(INTERACT_SRC.indexOf('function finishTrapKit'), INTERACT_SRC.indexOf('function consumeSelected'));
   assert.truthy(/Math\.random\(\) < TRAP_KIT_KEEP_CHANCE/.test(finish));
   assert.truthy(/if \(!kept\) consumeSelected\(save\)/.test(finish));
-  assert.falsy(/%/.test(ITEM_EFFECTS.trap_kit), 'the story leaves the chance for discovery');
+  assert.falsy(/%/.test(ITEM_EFFECTS.trap_disarm_kit), 'the story leaves the chance for discovery');
   assert.truthy(/if \(!trap \|\| Traps\.isTrapDisarmed\(save, trap\)\) return false;/.test(src),
     'a cell with no trap (or an already-disarmed one) falls through instead of eating the tap');
 });
@@ -372,14 +372,14 @@ test('work-progress: aborts and returns true after 150ms', () => {
 // ─── 5. consumeSelected helper ───────────────────────────────────────────────
 
 test('consumeSelected: decrements stack count by 1', () => {
-  const save = { inv: [{ id: 'coal', count: 3 }], selSlot: 0 };
+  const save = { inv: [{ id: 'flint_shard', count: 3 }], selSlot: 0 };
   consumeSelected(save);
   assert.eq(save.inv[0].count, 2, 'count decremented');
   assert.eq(save.inv.length, 1, 'stack still exists');
 });
 
 test('consumeSelected: splices out the stack when count reaches 0', () => {
-  const save = { inv: [{ id: 'coal', count: 1 }, { id: 'wood', count: 2 }], selSlot: 0 };
+  const save = { inv: [{ id: 'flint_shard', count: 1 }, { id: 'wood', count: 2 }], selSlot: 0 };
   consumeSelected(save);
   assert.eq(save.inv.length, 1, 'exhausted stack removed');
   assert.eq(save.inv[0].id, 'wood', 'remaining stack is wood');
@@ -388,14 +388,14 @@ test('consumeSelected: splices out the stack when count reaches 0', () => {
 test('consumeSelected: spending the last of a stack empties the hand', () => {
   // selSlot points at the last item; splicing it leaves NOTHING selected —
   // never the neighbouring stack the player didn't pick.
-  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'coal', count: 1 }], selSlot: 1 };
+  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'flint_shard', count: 1 }], selSlot: 1 };
   consumeSelected(save);
   assert.eq(save.inv.length, 1, 'coal stack removed');
   assert.eq(save.selSlot, -1, 'nothing in hand');
 });
 
 test('consumeSelected: the stack that slides into the emptied index is not auto-selected', () => {
-  const save = { inv: [{ id: 'coal', count: 1 }, { id: 'wood', count: 2 }], selSlot: 0 };
+  const save = { inv: [{ id: 'flint_shard', count: 1 }, { id: 'wood', count: 2 }], selSlot: 0 };
   consumeSelected(save);
   assert.eq(save.inv.length, 1, 'coal stack removed');
   assert.eq(save.inv[0].id, 'wood', 'wood now sits at index 0');
@@ -409,7 +409,7 @@ test('consumeSelected: no-op when selSlot points to an empty slot', () => {
 });
 
 test('consumeSelected: n=2 decrements by 2', () => {
-  const save = { inv: [{ id: 'coal', count: 5 }], selSlot: 0 };
+  const save = { inv: [{ id: 'flint_shard', count: 5 }], selSlot: 0 };
   consumeSelected(save, 2);
   assert.eq(save.inv[0].count, 3, 'count decremented by 2');
 });
@@ -830,15 +830,8 @@ test('creature: a tap two cells to the side finds nothing (false)', () => {
 });
 
 // ── ONE REACH GATE ──────────────────────────────────────────────────────────
-// tooFar used to carry a second, older rule — a Euclidean distance from the
-// player's CELL CENTRE — behind a `typeof cellInReach === 'function'` guard,
-// as a fallback for the coords.js helpers being unavailable. They never are:
-// coords.js declares them at the top level of a classic script that loads
-// before interact.js, in index.html and in this suite alike. So the guard was
-// always true and the losing rule could not be falsified by playing the game.
-//
-// It mattered because the two rules DISAGREE, which is why the cell rule
-// replaced it: an object whose world point sits off its cell centre (a house
+// tooFar has no Euclidean fallback behind a `typeof cellInReach` guard
+// (coords.js always loads first). The two rules DISAGREE: an object whose world point sits off its cell centre (a house
 // FOOT, up to ~0.7·cellM away) could pass the cell gate and still trip the
 // Euclidean one at the reach edge, flashing "just out of reach" only sometimes,
 // depending on where the foot sat and on cardinal-vs-diagonal geometry.
@@ -871,10 +864,7 @@ test('reach: the removed rule leaves nothing behind to feed it', () => {
 })();
 
 // ─── ONE TOOL TAKES ANIMALS: THE BUG NET ────────────────────────────────────
-// Until Sep 2026 the crow/deer HUNT wheel was sped by the best of sword / bow
-// / staff, so a weapon bought purely to fight also quietly made you a better
-// hunter — and the net, the tool the catalog sells for exactly this, was worth
-// nothing on the two kinds you take by hunting. Weapons fight ENEMIES
+// Weapons must not speed the crow/deer HUNT wheel. Weapons fight ENEMIES
 // (combat.js); the net takes GAME and livestock alike, on the same slot the
 // catch wheel already used. app.js/interact.js can't be driven headlessly this
 // deep, so the wiring is pinned as source text.
@@ -893,7 +883,7 @@ test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   // toolDurationMs, and "you own no net, so wear no badge" is answered once in
   // app.js _setWorkProgressIcon rather than re-tested here (see
   // work_badge.test.js — the duplicate is how the catch wheel came to disagree).
-  assert.truthy(/const netSlot = 'bugnet';/.test(hunt),
+  assert.truthy(/const netSlot = 'net';/.test(hunt),
     'the hunt resolves the BUG NET slot');
   assert.truthy(/toolDurationMs\(r, netSlot\)/.test(hunt),
     'and times the wheel off it');
@@ -912,13 +902,13 @@ test('hunt: the net times the wheel the same way the catch does', () => {
   // Both wheels read the same slot off the same ladder, so a net upgrade is
   // felt identically whether the animal is caught or hunted, and bare hands
   // stay possible at the tier-0 rung.
-  assert.eq(toolDurationMs({}, 'bugnet'), toolDurationMs({}, null),
+  assert.eq(toolDurationMs({}, 'net'), toolDurationMs({}, null),
     'no net = the bare-handed rung, never a refusal');
-  assert.eq(toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'), TOOL_DURATION_MS[1], 'wood net');
-  assert.eq(toolDurationMs({ bugnet: { tier: 7 } }, 'bugnet'), TOOL_DURATION_MS[7], 'frost net');
+  assert.eq(toolDurationMs({ net: { tier: 1 } }, 'net'), TOOL_DURATION_MS[1], 'wood net');
+  assert.eq(toolDurationMs({ net: { tier: 7 } }, 'net'), TOOL_DURATION_MS[7], 'frost net');
   // A weapon must not move it at all any more.
-  assert.eq(toolDurationMs({ sword: { tier: 7 }, bow: { tier: 7 }, staff: { tier: 7 } }, 'bugnet'),
-    toolDurationMs({}, 'bugnet'), 'a full weapon rack does nothing for a hunt');
+  assert.eq(toolDurationMs({ sword: { tier: 7 }, bow: { tier: 7 }, staff: { tier: 7 } }, 'net'),
+    toolDurationMs({}, 'net'), 'a full weapon rack does nothing for a hunt');
 });
 
 
@@ -994,7 +984,7 @@ test('barricade: T4 tree work, weaker-tool gate and selected disarm kit', () => 
       assert.eq(save.picked.filter(id => id === plant.id).length, 1);
       assert.falsy(save.chopped, 'wildplant removal uses its picked ledger');
     }
-    const save = {picked:[], energy:100, inv:[{id:'trap_kit',count:1}], selSlot:0};
+    const save = {picked:[], energy:100, inv:[{id:'trap_disarm_kit',count:1}], selSlot:0};
     let worked = false;
     const scene = makeGridScene({save, buildInventoryDOM() {},
       startWorkProgress() { worked=true; }, spendEnergy() { throw Error('kit work is free'); }});

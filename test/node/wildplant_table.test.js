@@ -1,26 +1,14 @@
 // A WILD PLANT SAYS WHAT IT IS, AND ONE TABLE SAYS WHAT IT DOES.
 //
-// Two shapes were tangled together here until Sep 2026.
-//
-// 1. `entry.wildplants` records carried `{x, y, crop, _ix, _iy, id}` and NO
-//    `kind`, so the only way to recognise one was the ABSENCE of a kind:
-//    `Lighting.sourceKind` tested `o.kind === undefined && o.crop`. That is a
-//    field's absence standing in for a fact, and it could only be fixed at
-//    every mint site at once — there were seven, across worldgen.js, app.js
-//    and sandbox.js, and nothing would have reminded the eighth. So each of a
-//    tile's three streams (`objects`, `wildplants`, `creatures`) has ONE
-//    factory now — `WorldGen.makeWildplant` / `makeCreature` / `makeObject` —
-//    and a field every record of a stream must carry lands there, once.
+// 1. A wild plant record carries an explicit `kind` (never recognised by the
+//    ABSENCE of one). Each of a tile's three streams (`objects`, `wildplants`,
+//    `creatures`) has ONE factory — `WorldGen.makeWildplant` / `makeCreature` /
+//    `makeObject` — so a field every record must carry lands there, once.
 //    (The ID is still the caller's: the save's delta lists key off ids that
 //    must be a pure function of position, so a re-rasterized or rebuilt tile
 //    reproduces them exactly. A factory takes an id; it never mints one.)
 //
-// 2. What a wild plant DOES was five one-row literals in four files —
-//    `HARVEST_OUTPUT = { shrub: 'wood' }`, `WORK_RELIC = { rockfruit: 'pick',
-//    shrub: 'axe' }` and a `wp.crop === 'shrub'` cost ternary in interact.js,
-//    `WILD_TREASURE` in loot.js, and `crop === 'mushroom'` in BOTH
-//    lighting.js' sourceKind and render.js' light-offer gate. One table now:
-//    items.js' `WILDPLANT_RULES`, beside `CROP_SPRITE` (which is already keyed
+// 2. What a wild plant DOES is one table: items.js' `WILDPLANT_RULES`, beside `CROP_SPRITE` (which is already keyed
 //    on crop and says what the same plant LOOKS like), read through small
 //    accessors. A second glowing plant is one row, not five edits.
 //
@@ -101,14 +89,14 @@ test('wildplant: nothing mints one by hand any more', () => {
 test('wildplant table: the old one-row maps, re-read from the table', () => {
   // HARVEST_OUTPUT = { shrub: 'wood' }
   assert.eq(wildplantOutput('shrub'), 'wood', 'a bush drops the wood mineral');
-  // WORK_RELIC = { rockfruit: 'pick', shrub: 'axe' }
+  // WORK_RELIC = { rockfruit: 'pickaxe', shrub: 'axe' }
   assert.eq(wildplantWorkRelic('shrub'), 'axe', 'a bush is felling work');
-  assert.eq(wildplantWorkRelic('rockfruit'), 'pick', 'debris is rock work');
+  assert.eq(wildplantWorkRelic('rubble'), 'pickaxe', 'debris is rock work');
   // The `crop === 'mushroom'` light literals (lighting.js + render.js).
   assert.eq(wildplantLight('mushroom'), 'mushroom', 'a mushroom is a light');
   assert.eq(wildplantLight('shrub'), null, 'a bush is not');
   // WILD_TREASURE = { rockfruit: { chance: 0.1, bonus: 'gemfruit' } }
-  const t = wildplantTreasure('rockfruit');
+  const t = wildplantTreasure('rubble');
   assert.eq(t && t.bonus, 'gemfruit', 'debris still hides a gemfruit');
   assert.eq(t && t.chance, 0.1, 'at the same rate');
   assert.eq(wildplantTreasure('shrub'), null, 'a shrub has no treasure roll');
@@ -135,11 +123,11 @@ test('wildplant table: the work cost is the shared 9/3/1 tool curve', () => {
   assert.eq(wildplantWorkCost('shrub', {}, lo), 9, 'bare-handed chop is 9');
   assert.eq(wildplantWorkCost('shrub', { axe: { tier: 1 } }, lo), 3, 'a Wood axe is 3');
   assert.eq(wildplantWorkCost('shrub', { axe: { tier: 7 } }, lo), 1, 'a Frost axe is 1');
-  assert.eq(wildplantWorkCost('shrub', { pick: { tier: 7 } }, lo), 9,
+  assert.eq(wildplantWorkCost('shrub', { pickaxe: { tier: 7 } }, lo), 9,
     'and it reads the AXE tier, not whatever else is worn');
   // A relic-gated crop that is not CHARGED stays free: gathering loose rubble
   // off the ground costs nothing, it is only slow.
-  assert.eq(wildplantWorkCost('rockfruit', { pick: { tier: 0 } }, hi), 0, 'debris is free to gather');
+  assert.eq(wildplantWorkCost('rubble', { pickaxe: { tier: 0 } }, hi), 0, 'debris is free to gather');
 });
 
 // --- 3. The light asks the table, on both sides ----------------------------

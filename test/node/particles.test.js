@@ -519,9 +519,7 @@ test('particles: a crop reaching its next stage bursts on every path that grows 
 });
 
 test('particles: watering a crop says so and sprinkles the cell', () => {
-  // The tap on a dry plant used to flash only the stage readout — the same
-  // line an already-watered plant gives — with no burst, so nothing showed
-  // the watering had happened. Now it names the action like till / plant /
+  // The tap on a dry plant names the action like till / plant /
   // harvest do, says HOW when there is no can (the only hint one exists), and
   // throws the water burst on the cell, before the jump's sprout burst.
   const inter = INTERACT_JS_SRC;
@@ -556,7 +554,7 @@ test('particles: Crops.advanceGrowth / waterWithin report the plants they moved'
   assert.eq(Crops.advanceGrowth(save, 1000 + HOLD), false, 'the plain call still returns the boolean');
   const jumped = [];
   const s2 = { planted: [{ x: 0, y: 0, crop: 'berry', stage: 0, watered_t: 0 }] };
-  const out = Crops.waterWithin(s2, 0, 0, 10, 5000, { can: { tier: Crops.CAN_TOP_TIER } }, () => 0, jumped);
+  const out = Crops.waterWithin(s2, 0, 0, 10, 5000, { watering_can: { tier: Crops.CAN_TOP_TIER } }, () => 0, jumped);
   assert.eq(out.jumped, 1);
   assert.eq(jumped[0], s2.planted[0], 'the jumped plant is reported');
 });

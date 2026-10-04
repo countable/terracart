@@ -216,7 +216,7 @@ test('thieves: the theft is ONE lane — the hit site and the scene writer (sour
   const branch = body.slice(body.indexOf('} else if (row.steals) {'), body.indexOf('} else {', body.indexOf('} else if (row.steals) {')));
   assert.falsy(/_losePlayerEnergy|incomingDamage|Energy\.set|_losePlayerCoins|_losePlayerFood/.test(branch),
     'the theft branch never touches energy, and never picks the writer itself');
-  const lift = (sig) => { const a = APP_JS_SRC.slice(APP_JS_SRC.indexOf(sig)); return a.slice(0, a.indexOf('\n  }\n')); };
+  const lift = (sig) => { const a = SCENE_SRC.slice(SCENE_SRC.indexOf(sig)); return a.slice(0, a.indexOf('\n  }\n')); };
   const dispatch = lift('  _losePlayerToThief(take, thief) {');
   assert.truthy(/take\.what === 'coins'\) return this\._losePlayerCoins\(take\.n, thief\)/.test(dispatch), 'coins to the purse writer');
   assert.truthy(/take\.what === 'food'\) return this\._losePlayerFood\(take\.id, take\.n, thief\)/.test(dispatch), 'food to the bag writer');

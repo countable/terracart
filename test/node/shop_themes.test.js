@@ -1,19 +1,24 @@
-// THEMED SHOPS. A shop (role key 'market') sells one LINE, chosen by its place
-// in the save's restore order of shops: seed, supply, potion, ore, relic, pet,
-// then round again a tier up (shops.js themeAt / shopOrder). Each visit sells
+// THEMED SHOPS. A shop (role key 'market') sells one LINE at one rank, the
+// player's pick (shop_lines.test.js). A market from before lines were stored
+// takes its line from its place in the save's restore order of shops: seed,
+// supply, potion, relic, then round again a tier up (shops.js themeAt /
+// shopOrder; the Book and Pet lines are one-off stamps, Shops.SOLO_LINES).
+// Each visit sells
 // one random item from the line at the shop's tier, priced above list, with a
 // re-roll that starts at $2 and grows ×1.5 rounded down.
 
-test('themed shops: the lines come in order, then round again a tier up', () => {
-  assert.eq(Shops.THEMES.join(), 'seed,supply,potion,ore,relic,pet');
-  const want = ['seed', 'supply', 'potion', 'ore', 'relic', 'pet'];
-  for (let i = 0; i < 6; i++) {
+test('themed shops: the legacy cycle walks the lines in order, then round again a tier up', () => {
+  assert.eq(Shops.THEMES.join(), 'seed,supply,potion,relic');
+  assert.falsy(Shops.THEMES.includes('pet'), 'pets are a one-off shop, not a line of the table');
+  assert.falsy(Shops.THEMES.includes('ore'), 'the Ore Shop is gone');
+  const want = ['seed', 'supply', 'potion', 'relic'];
+  for (let i = 0; i < 4; i++) {
     assert.eq(Shops.themeAt(i).theme, want[i], 'shop #' + (i + 1));
     assert.eq(Shops.themeAt(i).tier, 1, 'the first round is tier 1');
   }
-  assert.eq(Shops.themeAt(6).theme, 'seed', 'the seventh shop starts round two');
-  assert.eq(Shops.themeAt(6).tier, 2, 'one tier higher');
-  assert.eq(Shops.themeAt(17).tier, 3);
+  assert.eq(Shops.themeAt(4).theme, 'seed', 'the fifth shop starts round two');
+  assert.eq(Shops.themeAt(4).tier, 2, 'one tier higher');
+  assert.eq(Shops.themeAt(11).tier, 3);
 });
 
 test('themed shops: the order is the save\'s restore order of SHOPS — old markets convert in place', () => {
@@ -27,11 +32,11 @@ test('themed shops: the order is the save\'s restore order of SHOPS — old mark
   // A market the record doesn't name still gets a stable first-round line.
   const a = Shops.shopOrder(save, { id: 'legacy_x' });
   assert.eq(Shops.shopOrder(save, { id: 'legacy_x' }), a, 'stable');
-  assert.inRange(a, 0, 5, 'within the first round');
+  assert.inRange(a, 0, Shops.THEMES.length - 1, 'within the first round');
 });
 
 test('themed shops: stock is the line at the nearest tier it carries (ties lower)', () => {
-  for (const t of ['seed', 'supply', 'potion', 'ore', 'pet']) {
+  for (const t of ['seed', 'supply', 'potion', 'pet']) {
     for (let tier = 1; tier <= 8; tier++) {
       const stock = Shops.themedStock(t, tier);
       assert.truthy(stock.length, `${t} T${tier} has stock`);
@@ -42,10 +47,10 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
   // them (owner, Oct 2026: a T1 supply like the torch); rope and the disarm
   // kit wait for the T2 round.
   const s1 = Shops.themedStock('supply', 1);
-  for (const id of ['wood', 'rockfruit', 'torch', 'spear']) assert.truthy(s1.includes(id), `T1 supply shop stocks ${id}`);
+  for (const id of ['wood', 'rubble', 'torch', 'throwing_spear']) assert.truthy(s1.includes(id), `T1 supply shop stocks ${id}`);
   assert.falsy(s1.includes('rope'), 'rope is the T2 round');
   assert.truthy(Shops.themedStock('supply', 2).includes('rope'));
-  for (const [tier, id] of [[2, 'shield_wood'], [4, 'shield_metal'], [5, 'telescope'], [6, 'shield_gold'], [7, 'orb']]) {
+  for (const [tier, id] of [[2, 'wood_shield'], [4, 'metal_shield'], [5, 'field_scope'], [6, 'gold_shield'], [7, 'orb']]) {
     assert.falsy(Shops.themedStock('supply', tier).includes(id), `${id} is reward-only`);
   }
   // Antidote fills the T1 Magic shop; other medicines follow at their tiers.
@@ -70,9 +75,10 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
 
 test('themed shops: the pick is off the caller\'s seeded rng', () => {
   const seq = (v) => () => v;
-  const stock = Shops.themedStock('ore', 4);
-  assert.eq(Shops.pickThemed('ore', 4, seq(0)), stock[0]);
-  assert.eq(Shops.pickThemed('ore', 4, seq(0.9999)), stock[stock.length - 1]);
+  const stock = Shops.themedStock('potion', 4);
+  assert.gt(stock.length, 1, 'a tier with a choice');
+  assert.eq(Shops.pickThemed('potion', 4, seq(0)), stock[0]);
+  assert.eq(Shops.pickThemed('potion', 4, seq(0.9999)), stock[stock.length - 1]);
 });
 
 test('themed shops: the re-roll is $2, then ×1.5 rounded down — cheaper than the smith', () => {
@@ -92,7 +98,7 @@ test('smithy: the re-roll is $5, then ×1.5 rounded down, and the forge offer us
 
 test('themed shops: prices sit above list', () => {
   const save = { relics: {} };
-  for (const id of ['torch', 'vigor_potion', 'iron_bar', 'cow', 'potato_seed']) {
+  for (const id of ['torch', 'healing_potion', 'iron_bar', 'cow', 'potato_seed']) {
     const base = itemValue(id);
     for (const r of [0, 0.5, 0.999]) {
       assert.gte(ShopsMath.buyPrice(save, base, () => r), base, id + ' at or above list');
@@ -131,12 +137,12 @@ test('themed shops: the wiring — the tap, the stock, the price and the re-roll
 });
 
 test('themed shops: no re-roll where the tier stocks one item', () => {
-  // The ore line is one bar a tier — a re-roll would sell the same bar again.
+  // Some ranks of a line stock one item — a re-roll would sell it again.
   const single = [];
-  for (const t of ['seed', 'supply', 'potion', 'ore', 'pet']) {
+  for (const t of ['seed', 'supply', 'potion', 'pet']) {
     for (let tier = 1; tier <= 8; tier++) if (Shops.themedStock(t, tier).length === 1) single.push(`${t} T${tier}`);
   }
-  assert.truthy(single.some(k => k.startsWith('ore')), `some ore tier is a single item: ${single.join(', ')}`);
+  assert.truthy(single.length, 'some rank of some line is a single item');
   const app = SCENE_SRC;
   assert.truthy(/secondary: this\._themedStockCount\(house\) > 1\s*\?\s*this\._makeRerollSecondary/.test(app),
     'the themed item offers its re-roll only when the stock has another item');
@@ -154,9 +160,9 @@ test('themed shops: three market digits and one blacksmith digit on small houses
 });
 
 test('themed shops: Potion of Taming and magic traps fill tier 3 supplies; dragon powder stays tier 4 Magic', () => {
-  assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'honey,magic_trap');
-  assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'javelin', 'T4 has its own supply stock');
-  for (const id of ['honey', 'magic_trap']) {
+  assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'magic_trap,taming_potion');
+  assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'javelin,renovation_permit', 'T4 has its own supply stock');
+  for (const id of ['taming_potion', 'magic_trap']) {
     assert.eq(ITEM_BY_ID[id].baseTier, 3);
     assert.eq(ITEM_BY_ID[id].kind, 'supply');
     assert.falsy(Shops.themedStock('supply', 2).includes(id), 'no early supply stock');
