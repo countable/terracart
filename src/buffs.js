@@ -43,6 +43,7 @@
     dragon:  { name: 'Dragon',  color: GOLD,      stroke: '#5a1400', scene: '_dragonUntil' },
     shadow:  { name: 'Shadow',  color: '#d9b3ff', stroke: '#2a1040', scene: '_shadowUntil' },
     torch:   { name: 'Torch',   color: '#ffb347', stroke: '#3a1600', scene: '_torchUntil' },
+    frostAura: { name: 'Frost aura', color: '#9ad8ff', stroke: '#10233c', save: 'frostAuraUntil' },
     blight:  { name: 'Blight',  color: '#ff6f9a', stroke: '#3a0418', save: 'blightPotionUntil' },
     speed:   { name: 'Speed',   color: '#9fe8ff', stroke: '#0b2a3a', save: 'speedPotionUntil' },
     protection: { name: 'Protection', color: '#c9d6ff', stroke: '#1a2250', save: 'protectionPotionUntil' },

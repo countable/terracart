@@ -766,20 +766,17 @@ class SceneCreate {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
-    // The Potion of Blight's aura. A canvas radial gradient rather than
-    // stacked fillCircles: the aura is BLIGHT_R_CELLS across the ground, big
-    // enough that ring steps would show, and it has to read as one smooth
-    // disc. Faint in the middle (you can still see what you're standing on),
-    // densest just inside the rim, then falling to nothing AT the rim — the
-    // texture's edge is the damage radius (see _tickBlightAura).
     // The ghost's glow (SpriteLayout.GHOST_GLOW): a soft disc in GHOST_TINT,
     // opaque at the centre and gone at the rim; the renderer scales it to the
     // row's px and fades it to the row's alpha.
     const t = SpriteLayout.GHOST_TINT, rgb = `${(t >> 16) & 255}, ${(t >> 8) & 255}, ${t & 255}`;
     this._ensureCanvasTex('ghost_glow', 64, (ctx, S) => paintRadialDisc(ctx, S,
       [[0, `rgba(${rgb}, 1)`], [0.4, `rgba(${rgb}, 0.45)`], [1, `rgba(${rgb}, 0)`]]));
-    this._ensureCanvasTex('aura_blight', 128, (ctx, S) => paintRadialDisc(ctx, S,
-      [[0, 'rgba(120, 10, 60, 0.12)'], [0.55, 'rgba(170, 20, 70, 0.26)'], [0.85, 'rgba(210, 40, 90, 0.42)'], [1, 'rgba(210, 40, 90, 0)']]));
+    // Every influence circle shares its baked fill and boundary; the drawn
+    // outer edge is the gameplay radius. Baking also preserves colour in Canvas.
+    for (const [key, color] of [['aura_blight', 0xd2285a], ['aura_frost', FROZEN_TINT]]) {
+      this._ensureCanvasTex(key, 128, (ctx, S) => paintAuraDisc(ctx, S, color));
+    }
     // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
     // below). An open ring with four ticks crossing it, deliberately NOT a
     // filled disc: a small gold disc IS a coin in this game, and the map is

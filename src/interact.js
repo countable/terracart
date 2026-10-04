@@ -1818,7 +1818,6 @@ const TAP_HANDLERS = [
       }
       scene.fishedSpotSet?.add(spotId);   // one fish a spot, gone for good
       scene.addToInv(pick, 1);
-      scene.questEvent?.('fish');     // the castle board's 'Fish for the table'
       persistSave(save);
       const item = ITEM_BY_ID[pick];
       scene.flashLoot(`🐟 ${item?.name || pick}`, '#7adcff', 1, pick);

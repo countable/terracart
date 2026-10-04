@@ -744,6 +744,19 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
   hidePoolFrom(pool, i);
 };
 
+// Ground discs share their reach with gameplay, regardless of the source's
+// sprite size. The baked circle marks the boundary of each source's effect.
+Render.renderAuras = function renderAuras(scene, pool, list, project) {
+  Render.renderPool(scene, pool, scene.auraContainer, list, (s, item) => {
+    const { x, y } = project(item.dx, item.dy);
+    const diameter = 2 * auraRadiusCells(item.aura) * CELL_PX;
+    setTextureIfDifferent(s, item.aura.texture || 'aura_blight');
+    s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
+      .setPosition(x, y).setAlpha(0.9);
+    if (item.aura.tint != null) s.setTintFill(item.aura.tint);
+  });
+};
+
 // A persistent gold halo makes shinies visible even on fully lit ground,
 // where the multiply lightmap cannot brighten them further. The SHINE is
 // a bright band sweeping the sprite's own pixels (Phaser 3.60+ preFX Shine).
@@ -4267,21 +4280,32 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
 
-  // Use the player's Blight disc: its visible edge is the actual damage
-  // radius. Instance size never changes the aura's reach.
-  if (scene.auraContainer && typeof EnemyRoster !== 'undefined') {
+  // Plants and creatures use the same ground discs and gameplay radii.
+  if (scene.auraContainer) {
     scene.enemyAuraPool ||= [];
-    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura
-      || (typeof PotionEffects !== 'undefined' && PotionEffects.active(it.c, 'blight_potion')));
-    Render.renderPool(scene, scene.enemyAuraPool, scene.auraContainer, auraList, (s, item) => {
+    const auraList = [];
+    for (const item of creatureList) {
       const aura = (typeof PotionEffects !== 'undefined' && PotionEffects.active(item.c, 'blight_potion'))
-        ? CONSUMABLE_SPEC.blight_potion : EnemyRoster.get(item.c.kind).aura;
-      const { x: sx, y: sy } = project(item.dx, item.dy);
-      const diameter = 2 * aura.radiusCells * CELL_PX;
-      setTextureIfDifferent(s, 'aura_blight');
-      s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
-       .setPosition(sx, sy).setAlpha(0.9);
-    });
+        ? CONSUMABLE_SPEC.blight_potion
+        : (typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(item.c.kind)?.aura : null);
+      if (aura) auraList.push({ ...item, aura });
+    }
+    Render.renderAuras(scene, scene.enemyAuraPool, auraList, project);
+    scene.plantAuraPool ||= [];
+    const plantAuras = [];
+    for (const item of plantedList) {
+      const aura = Crops.effectFor(item.p)?.aura;
+      if (aura) plantAuras.push({ ...item, aura });
+    }
+    Render.renderAuras(scene, scene.plantAuraPool, plantAuras, project);
+    scene.playerAuraPool ||= [];
+    const playerAuras = [];
+    if (Buffs.until('frostAura', scene.save, scene) > Date.now()) {
+      const player = playerWorldM(scene);
+      playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
+        aura: CONSUMABLE_SPEC.tome_frost_aura.aura });
+    }
+    Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays

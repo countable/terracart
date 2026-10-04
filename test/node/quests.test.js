@@ -112,8 +112,7 @@ test('starter chain: skipAll retires the ladder for a veteran save', () => {
 // ── Isolation from the castle chain ─────────────────────────────────────────
 //
 // The two ladders share this file and nothing else. The starter chain is the
-// first-session guidance chip; the castle BOARD is three generated jobs that
-// never run out. Neither may move the other.
+// first-session guidance chip; each castle keeps its assigned quest. Neither may move the other.
 test('isolation: finishing the starter chain does not touch the castle board', () => {
   const save = {};
   for (const step of STARTER_CHAIN) Quests.onStarterEvent(save, step.event);
@@ -123,19 +122,19 @@ test('isolation: finishing the starter chain does not touch the castle board', (
 
 test('isolation: claiming castle quests does not retire the starter chip', () => {
   const save = {};
-  for (let i = 0; i < QUEST_SLOTS; i++) {
-    const q = Quests.slot(save, i);
+  for (const variant of ['bastion', 'archive', 'ruin']) {
+    const q = Quests.assign(save, variant, variant);
     q.have = q.need;
-    Quests.claim(save, i);
+    Quests.claim(save, variant);
   }
-  assert.eq(Quests.completedCount(save), QUEST_SLOTS, 'three claimed');
+  assert.eq(Quests.completedCount(save), 3, 'three claimed');
   assert.falsy(Quests.starterAllDone(save), 'starter chip still guiding');
 });
 
 test('isolation: the two ladders keep their state in separate save keys', () => {
   const save = {};
   Quests.onStarterEvent(save, STARTER_CHAIN[0].event);
-  Quests.slot(save, 0);
+  Quests.assign(save, 'first', 'bastion');
   assert.truthy(save.starter, 'starter state');
   assert.truthy(save.quests, 'board state');
   assert.falsy(save.starter.slots, 'the chip has no board');

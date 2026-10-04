@@ -364,6 +364,10 @@ const SHINY_TINT = 0xffd23a;
 // is chilled (Combat.isChilled, the `frozen` status row; render.js drawCreatures).
 const FROZEN_TINT = 0x9ad8ff;
 
+// Aura reach is measured from its centre; gameplay and the visible disc
+// share this default unless the source declares a different radius.
+function auraRadiusCells(aura) { return aura?.radiusCells ?? 1; }
+
 // === Tree size tiers =========================================================
 // Canopy size and growth stage come from stable record fields. Explicit size
 // classes preserve their harvest rules while selecting the matching artwork.

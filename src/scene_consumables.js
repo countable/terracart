@@ -177,8 +177,8 @@ class SceneConsumables {
   _useConsumable(id) {
     const row = CONSUMABLE_SPEC[id];
     if (!row) return false;
-    if (row.buff) return this._useTimedBuff(id);
     if (row.tome) return this._readTome(id);
+    if (row.buff) return this._useTimedBuff(id);
     if (CAST_ROWS[id]) return this._castOnFoes(id);
     return typeof this[row.method] === 'function' ? this[row.method]() : false;
   }
@@ -320,7 +320,7 @@ class SceneConsumables {
   // ── The Tomes ─────────────────────────────────────────────────────────────
   // Story books' rarer siblings: READ for the effect of the potion one tier
   // below the tome, never consumed. Every tome but the Wall of Fire is its
-  // row's `tome` column — _readTome gives `mul` of the potion `of`'s effect
+  // row's `tome` column — _readTome gives its own buff or `mul` of `of`'s effect
   // (a timed buff's dose, the heal's energy, the storm's damage) and says
   // `flash`. TWO cooldowns: the SHARED activation lock (TOME_COOLDOWN_MS,
   // save.tomeReadyAt - food's eat-cooldown shape, but one hour and spanning
@@ -352,7 +352,8 @@ class SceneConsumables {
     const t = CONSUMABLE_SPEC[id]?.tome;
     if (!t || !this._selectedConsumable(id) || !this._tomeReady(id)) return false;
     const of = CONSUMABLE_SPEC[t.of];
-    if (of.buff) this._useTimedBuff(t.of, { mul: t.mul, spend: false });
+    if (CONSUMABLE_SPEC[id].buff) this._useTimedBuff(id, { spend: false });
+    else if (of.buff) this._useTimedBuff(t.of, { mul: t.mul, spend: false });
     else if (of.energy) this._restoreEnergy(Math.floor(of.energy * t.mul));
     else if (!this._castOnFoes(t.of, { damage: Math.floor(of.damage * t.mul), spend: false, noun: 'tome' })) return false;
     this._tomeSpent(id);
@@ -491,6 +492,19 @@ class SceneConsumables {
       const rate = Combat.mitigate(BLIGHT_DPS, Combat.monster(c.kind)?.armor || 0);
       this._damageEnemy(c, rate * dt, 'player', { bypassArmor: true });
     }
+  }
+
+  // Frost follows the caster and reaches every other nearby body, using the
+  // same non-refreshing ten-second debuff as an iceflower.
+  _tickFrostAura() {
+    const now = Date.now();
+    if (Buffs.until('frostAura', this.save, this) <= now) return;
+    const pc = this.playerToWorldCell(), creatures = [], caught = setOf(this.save.caught);
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
+      if (!caught.has(c.id) && !c._surfaceInactive) creatures.push(c);
+    });
+    Combat.applyFrostAura(playerWorldM(this), creatures, this.cellM,
+      CONSUMABLE_SPEC.tome_frost_aura.aura, now);
   }
 
   // True while a Dragon Powder is active. The buff is a 1-minute in-memory

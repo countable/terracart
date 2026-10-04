@@ -535,7 +535,7 @@
     charm:     Object.freeze({ label: 'Charm',     color: '#ff91b8', field: '_charmUntil',      clock: 'wall', cancels: true, ally: true }),
     // The ice the body wears while it holds (util.js FROZEN_TINT). A SLOW:
     // half pace, half cadence, never pinned in place.
-    frozen:    Object.freeze({ label: 'Chilled',   color: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), field: '_frozenUntil', clock: 'wall', cancels: false, slow: 0.5 }),
+    frozen:    Object.freeze({ label: 'Chilled',   color: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), field: '_frozenUntil', clock: 'wall', cancels: false, slow: Conditions.DEFINITIONS.frozen.moveSpeedMul }),
     fear:      Object.freeze({ label: 'Fear',      color: '#c77dff', field: '_fearUntilT',      clock: 'perf', cancels: true, turnsNow: true }),
     psychosis: Object.freeze({ label: 'Psychosis', color: '#c6ff4d', field: '_psychosisUntilT', clock: 'perf', cancels: true, turnsNow: true }),
   });
@@ -578,6 +578,11 @@
   function applyStatus(c, id, durationMs, now) {
     const row = STATUS_LOOKS[id];
     if (!row || !flowerTarget(c)) return false;
+    return landStatus(c, id, durationMs, now);
+  }
+  // Shared landing path for targeted magic and indiscriminate environmental auras.
+  function landStatus(c, id, durationMs, now) {
+    const row = STATUS_LOOKS[id];
     const t = statusNow(row, now);
     c[row.field] = Math.max(c[row.field] || 0, t + durationMs);
     if (row.cancels) cancelCreatureAction(c);
@@ -642,6 +647,21 @@
   function applyFear(c, durationMs, now) { return applyStatus(c, 'fear', durationMs, now); }
   function isChilled(c, now = Date.now()) { return hasStatus(c, 'frozen', now); }
   function applyFrost(c, durationMs, now) { return applyStatus(c, 'frozen', durationMs, now); }
+  // An ice aura reaches every body. Overlapping auras never refresh an active
+  // chill, including a longer one already applied by frost powder.
+  function applyAuraFrost(c, now = Date.now()) {
+    if (!c || isChilled(c, now)) return false;
+    return landStatus(c, 'frozen', Conditions.DEFINITIONS.frozen.durationMs, now);
+  }
+
+  // Shared by iceflowers and the frost tome. The caller supplies the player
+  // only when that source can chill them; the source itself is always spared.
+  function applyFrostAura(source, creatures, cellM, spec, now = Date.now(), save, player) {
+    const radius = auraRadiusCells(spec) * cellM;
+    const within = c => c !== source && Math.hypot(c.x - source.x, c.y - source.y) <= radius;
+    for (const c of creatures) if (within(c)) applyAuraFrost(c, now);
+    if (save && player && within(player)) Conditions.apply(save, 'frozen', now);
+  }
 
   // ── YOURS, not the world's ───────────────────────────────────────────────
   // A TAME creature: one the player released (save.released — pickUpPet /
@@ -1579,7 +1599,7 @@
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
-    isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, cancelCreatureAction,
+    isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, applyFrostAura, cancelCreatureAction,
     TAME_ID_PREFIX, isTame, isAlly,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction,
     ENVIRONMENT_SOURCES, isEnvironmentSource,
