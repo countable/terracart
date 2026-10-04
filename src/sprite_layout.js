@@ -652,7 +652,7 @@
     summoned_skeleton: { wanders: true, summoned: true, preysOnFoes: true,
       get stepMs() { return EnemyRoster.get('skeleton').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     summoned_wraith: { wanders: true, summoned: true, preysOnFoes: true, stepMs: 1000, stepCells: 0.7 },
-    mercenary: { wanders: true, summoned: true, preysOnFoes: true, meleeWeapon: 'sword',
+    mercenary: { wanders: true, summoned: true, preysOnFoes: true, meleeWeapon: 'sword', biteMul: 1 / 3,
       get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (a butterfly never outpaces
     // 6 m/s) — over its gait, its bolt and the net wheel's flee. A shiny's cap

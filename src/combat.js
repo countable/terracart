@@ -695,7 +695,8 @@
   }
   function petBite(kind) {
     const model = SUMMONED_AS[kind];
-    return model ? enemyBlow(model) : PET_BITE;
+    const base = model ? enemyBlow(model) : PET_BITE;
+    return base * (SpriteLayout.CREATURE_BEHAVIOUR[kind]?.biteMul ?? 1);
   }
   // THE MELEE FORMULA — what ONE contact blow of `c` carries, before the
   // defender's shield, armour and mode: its `baseDmg` (the row's dmg, a pet's

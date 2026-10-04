@@ -93,7 +93,7 @@
     assert.falsy(huntsPrey('mercenary', { kind: 'dog', id: 'released_dog' }));
     assert.falsy(Combat.isEnemy({ kind: 'mercenary' }));
     assert.eq(Combat.creatureMaxHp('mercenary'), Combat.creatureMaxHp('goblin'));
-    assert.eq(Combat.petBlow({ kind: 'mercenary' }), Combat.enemyBlow('goblin'));
+    assert.eq(Combat.petBlow({ kind: 'mercenary' }), Combat.enemyBlow('goblin') / 3);
     assert.eq(SpriteLayout.CREATURE_BEHAVIOUR.mercenary.stepMs, EnemyRoster.get('goblin').damageIntervalSeconds * 1000);
     assert.eq(Companions.KINDS.mercenary.durationMs, 24 * 60 * 60 * 1000);
     assert.eq(Companions.KINDS.mercenary.hireCost, 50);
