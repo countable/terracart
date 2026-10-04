@@ -18,7 +18,7 @@
 //   · THE WAKE, END TO END: the real garrisonFor through stepResidency on a
 //     synthetic tile — a horde of runts round the walls, the decoy out front
 //     with its orcs opposite and told different notice rings, the elite shiny
-//     in the knot, the ghosts over the roof, the gulls only by the shore.
+//     in the knot, the ghosts over the roof, and bats in the rafters.
 //   · THE SPLIT: enemySplit on a stub scene — half the pool each side, a cell
 //     away, the twin's id and lair fields, the bounty share, the cooldown and
 //     the floor; and the two damage lanes that call it.
@@ -107,8 +107,7 @@
     has('splitter', 'split_slime');              // the slime that replicates when damaged
     has('bats', 'bat');                          // a swarm of bats
     has('roost', 'bat');                         // …and a wreck's pair
-    has('gulls', 'storm_gull');                  // a swarm of seagulls
-    assert.truthy(G.gulls.coastal, 'the gulls are a shore wreck\'s');
+    assert.falsy(Object.values(G).some(row=>row.members.some(m=>m.kind==='storm_gull')), 'retired storm gulls have no generated guard group');
     has('elite_orc', 'orc');                     // one strong guy, elite
     has('elite_soldier', 'skeleton_soldier');
     has('warband', 'orc,goblin_runt');           // an elite with minions
@@ -203,9 +202,9 @@
     assert.falsy(Lairs.groupRows(12, 0.1, false).includes('horde'), 'a weak castle has no horde');
     assert.falsy(Lairs.groupRows(12, 0.1, false).includes('elite_orc'), 'nor an elite');
     assert.truthy(Lairs.groupRows(12, 0.9, false).includes('horde'), 'a strong one does');
-    // The gulls only by the shore.
+    // Storm gull guard groups are retired everywhere.
     assert.falsy(Lairs.groupRows(9, 1, false).includes('gulls'), 'inland: no gulls');
-    assert.truthy(Lairs.groupRows(9, 1, true).includes('gulls'), 'by the shore: gulls');
+    assert.falsy(Lairs.groupRows(9, 1, true).includes('gulls'), 'shore wrecks also leave birds to the beach habitat');
   });
 
   test('guard groups: seatPolar takes two draws a try for every placement, and places as it says', () => {
@@ -307,7 +306,7 @@
     assert.eq(band.guards[0].kind, 'orc', 'the elite is guard 0, so easy mode wakes it');
   });
 
-  test('guard groups: the ghosts hang over the roof, dormant until approached; the bats and gulls cloud the ruin', () => {
+  test('guard groups: the ghosts hang over the roof, dormant until approached; the bats cloud the ruin', () => {
     const ghosts = wakeGroup('ghosts', 12, 2 * HALF);
     assert.gte(ghosts.guards.length, 5, 'the burst woke');
     const cloudR = Lairs.seatRadii(HALF, HALF, CELL_M).cloud * 1.2 + 1e-6;
@@ -322,16 +321,7 @@
     assert.gte(bats.guards.length, 8, `the swarm woke ${bats.guards.length}`);
     for (const b of bats.guards) assert.eq(b.kind, 'bat');
     assert.eq(wakeGroup('roost', 9).guards.length, 2, 'a wreck roosts a pair');
-    // The gulls: a shore wreck only — the same ruin inland rolls something else.
-    const shore = new Uint8Array(N * N).fill(1);
-    const gulls = wakeGroup('gulls', 9, 4 * CELL_M, { shore });
-    assert.gte(gulls.guards.length, 3, 'the flock woke');
-    for (const g of gulls.guards) assert.eq(g.kind, 'storm_gull');
-    const inland = mkEntry([gulls.shape]);
-    step(inland, { x: gulls.cx, y: gulls.cy });
-    assert.falsy(guardsOf(inland).some((g) => g.kind === 'storm_gull'), 'no shore, no gulls');
-    assert.falsy(Lairs.nearShore(inland, { ix: 20, iy: 20, halfW: 14, halfH: 14 }, N, CELL_M));
-    assert.truthy(Lairs.nearShore(gulls.entry, { ix: 20, iy: 20, halfW: 14, halfH: 14 }, N, CELL_M));
+
   });
 
   test('guard groups: a grouped ruin is the same ruin for everyone, and the easy cap wakes its head', () => {

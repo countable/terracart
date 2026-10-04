@@ -972,7 +972,7 @@ class SceneCreatures {
       let placed = 0;
       for (let attempt = 0; attempt < want * 8 && placed < want; attempt++) {
         const cell = pool[Math.floor(srng() * pool.length)];
-        if (taken.has(cell)) continue;
+        if (taken.has(cell) || !BiomeProfiles.faunaAllows(kind, genGrid[cell])) continue;
         const cx = cell % N, cy = Math.floor(cell / N);
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, 'minor')) continue;
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, spClass)) continue;

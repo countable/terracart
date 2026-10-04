@@ -205,6 +205,9 @@ test('rocks: only along the chosen minor street — none by the hedgerow, none i
   assert.gt(rocks.length, 5, 'the rock street is lined');
   for (const o of rocks) {
     assert.truthy(o._street, `${o.id} is a street rock`);
+    assert.truthy(o.caveVariant != null, `${o.id} is plain stone, never street ore`);
+    assert.eq(o.requiredTier, 1);
+    assert.eq(o.yieldTier, undefined);
     const iy = cellOf(o.y, TY);
     assert.inRange(iy, 12 - 5, 12 + 5, `${o.id} sits on the rock street's verge, not elsewhere`);
     assert.eq(r.roadMask[iy * CPE + cellOf(o.x, TX)], 0, `${o.id} is off the band`);

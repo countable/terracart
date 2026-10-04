@@ -311,9 +311,6 @@
     roost: { label: 'Bat roost', tiers: [9], minT: 0,
       story: 'A pair in the rafters: they hang still until the wreck notices you, then both swoop.',
       members: [{ kind: 'bat', n: 2, place: 'cloud' }] },
-    gulls: { label: 'Gull swarm', tiers: [9], minT: 0, coastal: true,
-      story: 'A shore wreck under a storm of gulls. Each peck is small; the flock is not.',
-      members: [{ kind: 'storm_gull', n: 4, place: 'cloud' }] },
     // ── A castle: the big ones, inside the keep ──
     horde: { label: 'Goblin horde', tiers: [12], minT: 0.35,
       story: 'Fifteen runts fill the keep: nothing alone, a wall of teeth together.',

@@ -101,6 +101,27 @@ Render.shopTierBadge = (scene, house, role) => {
     color: (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0',
   };
 };
+// Market signs identify the line, not the randomly selected stock item.
+// Reuse inventory/gear art so the sign and the goods share their identity.
+Render.MARKET_SIGN_ICONS = Object.freeze({
+  seed: { item: 'potato_seed' },
+  supply: { item: 'rope' },
+  potion: { item: 'healing_potion' },
+  relic: { gear: 'sword' },
+  pet: { item: 'rabbit' },
+  book: { item: 'book' },
+});
+Render.marketSignTheme = (scene, house, role) => {
+  if (house.kind !== 'house' || role !== 'market') return null;
+  const theme = scene.marketTheme(house).theme;
+  return Render.MARKET_SIGN_ICONS[theme] ? theme : null;
+};
+Render.marketSignIconHTML = (scene, theme, size) => {
+  const icon = Render.MARKET_SIGN_ICONS[theme];
+  if (!icon) return '';
+  return icon.gear ? scene.gearIconHTML('relic', icon.gear, 1, size)
+    : scene.renderItemIcon(icon.item, size);
+};
 const COIN_DROP_PX = 9;
 Render.COIN_DROP_PX = COIN_DROP_PX;
 // Low-detail ground sprites show the amount waiting on the map. Each width is
@@ -3565,7 +3586,7 @@ Render.drawObjects = function drawObjects(scene) {
     fadeLabelOverPlayer(chip, _playerBox);
   }, labelFactory('badge'));
 
-  // Residential delivery plaques — the wanted-produce wishlist drawn as real
+  // Market signboards and residential delivery plaques use real
   // item ICONS instead of emoji text. Uses the same mechanism as flashLoot's
   // loot icon: pooled <div>s appended to <body> (NOT #game, whose CSS
   // transform would become the containing block for position:fixed) and
@@ -3609,11 +3630,13 @@ Render.drawObjects = function drawObjects(scene) {
         .map((t) => t.getBounds());
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout: the wishlist of produce icons
-        // while hungry, a smiling face for good once a bundle is delivered.
-        // Non-host buildings get nothing here.
-        if (it.wide || !_houseIsHost(it.o)) continue;
-        const happy = _houseSatisfied(it.o);
-        const wanted = happy ? null : scene.wantedProduce(it.o);
+        // while hungry, a smiling face once a bundle is delivered; a market
+        // building shows its line's item-icon signboard instead.
+        if (it.wide || it.o.kind !== 'house') continue;
+        const market = Render.marketSignTheme(scene, it.o, _houseRole(it.o));
+        if (!market && !_houseIsHost(it.o)) continue;
+        const happy = !market && _houseSatisfied(it.o);
+        const wanted = market || happy ? null : scene.wantedProduce(it.o);
         const { x: sx, y: sy } = project(it.dx, it.dy);
         let slot = pool[psi];
         if (!slot) {
@@ -3633,10 +3656,21 @@ Render.drawObjects = function drawObjects(scene) {
         // Rebuild contents only when the wishlist / happy state / icon size
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
-        const key = it.o.id + '|' + (happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
+        const key = it.o.id + '|' + (market || (happy ? 'happy' : wanted.join(','))) + '|' + sizePx;
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          if (happy) {
+          slot.el.className = market ? 'market-sign' : 'delivery-callout';
+          slot.el.setAttribute('aria-label', market ? Shops.roleLabel('market', market) : 'House delivery');
+          Object.assign(slot.el.style, {
+            background: market ? '#ead4a0' : '#fff',
+            border: market ? '2px solid #654628' : '1px solid rgba(0,0,0,0.18)',
+            borderRadius: market ? '3px' : '7px',
+            padding: market ? '3px' : '3px 5px',
+            boxShadow: market ? '1px 2px 0 #382719' : '0 1px 3px rgba(0,0,0,0.4)',
+          });
+          if (market) {
+            slot.el.innerHTML = Render.marketSignIconHTML(scene, market, sizePx);
+          } else if (happy) {
             // Smiling face — non-item UI, so emoji is allowed here (see QC §1).
             const face = document.createElement('div');
             face.textContent = '😊';
@@ -3654,24 +3688,34 @@ Render.drawObjects = function drawObjects(scene) {
             + 'border-left:5px solid transparent;border-right:5px solid transparent;'
             + 'border-top:6px solid #fff;transform:translateX(-50%);'
             + 'filter:drop-shadow(0 1px 0 rgba(0,0,0,0.18));';
+          if (market) {
+            // A short hanger ties the little board to the storefront.
+            tail.style.cssText = 'position:absolute;left:50%;top:-7px;width:3px;height:6px;'
+              + 'background:#654628;transform:translateX(-50%);';
+          }
           slot.el.appendChild(tail);
           slot.key = key;
         }
         // Float the bubble ABOVE the house roof: translate(-50%,-100%) anchors it
         // by its bottom-centre at sy-18.
-        const px = rect.left + sx * scale;
-        const py = rect.top  + (sy - 18) * scale;
+        const signX = sx + (market ? 18 : 0);
+        const signY = sy - (market ? 3 : 18);
+        const px = rect.left + signX * scale;
+        const py = rect.top  + signY * scale;
         setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`);
         setStyleOnce(slot.el, 'display', 'flex');
         // Bubble box in game px: n icons + 3px gaps, 5px/3px padding, 1px
         // border, 6px tail (CSS px ÷ scale).
-        const n = happy ? 1 : Math.max(1, wanted.length);
+        const n = market || happy ? 1 : Math.max(1, wanted.length);
         const bw = n * ICON_GAME + ((n - 1) * 3 + 12) / scale;
         const bh = ICON_GAME + (8 + 6) / scale;
-        const bl = sx - bw / 2, bb = sy - 18 + 6 / scale, bt = bb - bh;
+        const bl = signX - bw / 2, bb = signY + 6 / scale, bt = bb - bh;
         const covered = toastRects.some((r) =>
           !(bl + bw <= r.left || bl >= r.right || bb <= r.top || bt >= r.bottom));
         setStyleOnce(slot.el, 'visibility', covered ? 'hidden' : 'visible');
+        const overPlayer = market && _playerBox
+          && !(bl + bw <= _playerBox.x0 || bl >= _playerBox.x1 || bb <= _playerBox.y0 || bt >= _playerBox.y1);
+        setStyleOnce(slot.el, 'opacity', overPlayer ? String(LABEL_OVER_PLAYER_ALPHA) : '1');
         psi++;
       }
     }
