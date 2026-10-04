@@ -1208,7 +1208,7 @@ const FIRE_FULL_REST_S = 360;
 const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
 // What a house says when the feet walk through it (_houseMutter). Each line
 // fits MAP_MSG_MAX.
-const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'Needs a little TLC.'];
+const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'I would fix that.', 'Needs a little TLC.'];
 // What the Hood grunts when a job STARTS with nothing in hand (_barehandMutter,
 // owner's copy, Oct 2026). The bare-handed rung of the tool ladder
 // (toolDurationMs: 9 s against a Wood tool's 3) is the slow way, and the grunt
