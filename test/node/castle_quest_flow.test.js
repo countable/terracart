@@ -3,6 +3,9 @@
   const start = SCENE_SRC.indexOf('\n  showQuestBoard(sx, sy, house) {');
   const end = SCENE_SRC.indexOf('\n  }\n', start);
   const methods = (0, eval)('({' + SCENE_SRC.slice(start + 1, end + 4) + '})');
+  const expiryStart = SCENE_SRC.indexOf('\n  _expireCitadelBattles(now = Date.now()) {');
+  const expiryEnd = SCENE_SRC.indexOf('\n  }\n', expiryStart);
+  Object.assign(methods, (0, eval)('({' + SCENE_SRC.slice(expiryStart + 1, expiryEnd + 4) + '})'));
   const house = key => ({ id: 'tower:' + key, kind: 'tower', castle: key });
   const scene = () => Object.assign(Object.create(methods), {
     save: { money: 0, claimedCastles: {} }, offers: [], guardChecks: 0,
@@ -91,6 +94,22 @@
     assert.falsy(Houses.startCitadelBattle(s.save, 'citadel'), 'accepting again cannot restart it');
     assert.falsy(Houses.startCitadelBattle(s.save, 'archive'));
     assert.falsy(s.save.quests);
+  });
+
+  test('castle conversation: expiry resets persisted defeats and wounds without unlocking', () => {
+    const s = scene(), now = 1000000;
+    Houses.startCitadelBattle(s.save, 'citadel', now);
+    s.save.citadelBattles.citadel.guardIds = ['guard'];
+    s.save.caught = ['guard', 'guard_s1', 'guard_summon_0', 'unrelated'];
+    s._lairHp = new Map([['guard', 1]]);
+    s._expireCitadelBattles(now + Houses.CITADEL_BATTLE_MS - 1);
+    assert.eq(s.save.caught.length, 4);
+    s._expireCitadelBattles(now + Houses.CITADEL_BATTLE_MS);
+    assert.eq(s.save.caught.join(), 'unrelated');
+    assert.falsy(s._lairHp.has('guard'));
+    assert.falsy(s.isCastleClaimed(house('citadel')));
+    assert.falsy(s.save.citadelBattles.citadel);
+    assert.truthy(Houses.startCitadelBattle(s.save, 'citadel', now + Houses.CITADEL_BATTLE_MS));
   });
 
   test('castle conversation: newly cleared citadel opens without a guarded offer', () => {

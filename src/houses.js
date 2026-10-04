@@ -503,15 +503,29 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return true;
   }
 
-  // Citadels stay dormant until the player chooses Fight at their gate.
-  function citadelBattleActive(save, key) {
-    return !!save.citadelBattles?.[key];
+  // The wall clock keeps the deadline running while the player is away.
+  const CITADEL_BATTLE_MS = 10 * 60 * 1000;
+  function citadelBattleActive(save, key, now = Date.now()) {
+    const battle = save.citadelBattles?.[key];
+    return Number.isFinite(battle?.startedAt) && now < battle.startedAt + CITADEL_BATTLE_MS;
   }
-  function startCitadelBattle(save, key) {
+  function startCitadelBattle(save, key, now = Date.now()) {
     if (!key || !CastleStyles.get(key).guards || isCastleClaimed(save, { castle: key })
-        || citadelBattleActive(save, key)) return false;
-    (save.citadelBattles ||= {})[key] = true;
+        || save.citadelBattles?.[key]) return false;
+    (save.citadelBattles ||= {})[key] = { startedAt: now, guardIds: [] };
     return true;
+  }
+  function expireCitadelBattles(save, now = Date.now()) {
+    const expired = [];
+    for (const [key, battle] of Object.entries(save.citadelBattles || {})) {
+      if (isCastleClaimed(save, { castle: key })) {
+        delete save.citadelBattles[key];
+      } else if (!citadelBattleActive(save, key, now)) {
+        expired.push({ key, guardIds: battle.guardIds || [] });
+        delete save.citadelBattles[key];
+      }
+    }
+    return expired;
   }
 
   // The castle's favour, gated to once per castle per CASTLE_SERVICE_MS —
@@ -548,7 +562,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     guildRole,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
-    castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle,
+    castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle, expireCitadelBattles, CITADEL_BATTLE_MS,
     CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

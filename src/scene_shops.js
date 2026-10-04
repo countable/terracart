@@ -1552,13 +1552,15 @@ class SceneShops {
     if (!key || this.isCastleClaimed(house)) return;
     const style = CastleStyles.get(key);
     if (style.guards) {
+      this._expireCitadelBattles();
       this._checkCitadelClaims();
       if (this.isCastleClaimed(house)) return;
       this.showOfferModal({
         kind: 'quest', title: style.name, get: 'Defeat the guards',
-        blurb: 'Face the guards now, or return when you are ready.',
+        blurb: `Defeat the guards within ${shortDuration(Houses.CITADEL_BATTLE_MS)}. If time runs out, they withdraw and the fight resets.`,
         canAfford: true, acceptLabel: 'Fight', cancelLabel: 'Later',
         onAccept: () => {
+          this._expireCitadelBattles();
           if (!Houses.startCitadelBattle(this.save, key)) return;
           persistSave(this.save);
           this._lastLairT = -Infinity;
@@ -1597,6 +1599,19 @@ class SceneShops {
         }
       },
     });
+  }
+
+  _expireCitadelBattles(now = Date.now()) {
+    const expired = Houses.expireCitadelBattles(this.save, now);
+    if (!expired.length) return;
+    const resetIds = new Set(expired.flatMap(battle => battle.guardIds));
+    // Split and summoned ids extend their original guard's id.
+    this.save.caught = (this.save.caught || []).filter(id =>
+      !resetIds.has(id) && ![...resetIds].some(root => id.startsWith(root + '_')));
+    for (const battle of expired) {
+      Lairs.resetCitadel(WorldGen.tileCache.values(), battle.key, battle.guardIds, this._lairHp);
+    }
+    persistSave(this.save);
   }
 
   _claimCitadel(key) {

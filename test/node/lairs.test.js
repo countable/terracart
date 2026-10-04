@@ -408,6 +408,43 @@
     assert.eq(guardsOf(reloaded).map(c => c.id).join(), ids, 'accepted battle survives reload');
   });
 
+  test('lairs: timed out citadels despawn descendants and restart with every guard healthy', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const entry = mkEntry([shape]), save = {}, now = 1000000;
+    const hpMemo = new Map(), caughtSet = new Set();
+    Houses.startCitadelBattle(save, 'citadel', now);
+    const opts = { hpMemo, caughtSet,
+      isCitadelActive: key => Houses.citadelBattleActive(save, key, now),
+      onCitadelGenerated: (key, ids) => { save.citadelBattles[key].guardIds = ids; } };
+    step(entry, CENTRE, opts);
+    const original = guardsOf(entry).slice(), ids = original.map(c => c.id);
+    assert.gt(ids.length, 0);
+    caughtSet.add(ids[0]);
+    hpMemo.set(ids[0], 1);
+    const neighbour = { creatures: [{ id: 'child', castle: 'citadel', lair: original[0].lair },
+      { id: 'other', lair: 'unrelated' }] };
+    const restored = JSON.parse(JSON.stringify(save));
+    assert.truthy(Houses.citadelBattleActive(restored, 'citadel', now + Houses.CITADEL_BATTLE_MS - 1));
+    assert.falsy(Houses.citadelBattleActive(restored, 'citadel', now + Houses.CITADEL_BATTLE_MS));
+    const expired = Houses.expireCitadelBattles(save, now + Houses.CITADEL_BATTLE_MS);
+    assert.eq(expired.length, 1);
+    Lairs.resetCitadel([entry, neighbour], 'citadel', expired[0].guardIds, hpMemo);
+    for (const id of expired[0].guardIds) caughtSet.delete(id);
+    assert.eq(guardsOf(entry).length, 0);
+    assert.eq(neighbour.creatures.map(c => c.id).join(), 'other');
+    assert.eq(hpMemo.size, 0);
+    step(entry, CENTRE, opts);
+    assert.eq(guardsOf(entry).length, 0, 'timeout leaves the gate dormant');
+    Houses.startCitadelBattle(save, 'citadel', now);
+    step(entry, CENTRE, opts);
+    assert.eq(guardsOf(entry).map(c => c.id).join(), ids.join());
+    assert.truthy(guardsOf(entry).every(c => c._hp !== 1));
+    Houses.claimCastle(save, { castle: 'citadel' });
+    assert.eq(Houses.expireCitadelBattles(save, now + Houses.CITADEL_BATTLE_MS).length, 0,
+      'victory never resets');
+    assert.truthy(Houses.isCastleClaimed(save, { castle: 'citadel' }));
+  });
+
   test('lairs: citadel unlock waits for generation and every reachable guard defeat', () => {
     const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
     const entry = mkEntry([shape]), ring = [{ entry, tx: 0, ty: 0 }];

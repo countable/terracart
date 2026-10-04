@@ -709,6 +709,8 @@ ECONOMY (buying & selling)
    separately. Counters start at first conversation. One delivery or hunt
    advances every matching active quest. Earlier actions never count. Claiming never rerolls
    the job, and there are no shared quest slots or random quest templates.
+   Citadel fights expire 10 minutes after activation, including time away.
+   On expiry their guards despawn and all battle progress resets for a fresh attempt.
    Citadels offer Fight or Later at their gate. Only choosing Fight activates
    their guards; walking nearby, reading the dialog, or choosing Later leaves
    them dormant. The choice survives reloads; clearing the guards opens them. Other castle

@@ -1166,6 +1166,7 @@
       if (hpMemo && hpMemo.has(id)) g._hp = hpMemo.get(id);
       out.push(g);
     }
+    if (citadelIds) o.onCitadelGenerated?.(cand.key, citadelIds);
     return out;
   }
 
@@ -1260,6 +1261,27 @@
         if (!livingGuard) onClear(key);
       }
     }
+  }
+
+  // Remove every cached body, including split/summoned guards in other tiles.
+  // Stable guard identities can then be reused by a completely fresh attempt.
+  function resetCitadel(entries, key, ids, hpMemo) {
+    const guardIds = new Set(ids);
+    for (const entry of entries) {
+      for (const c of entry.creatures || []) {
+        if (c.castle === key || guardIds.has(c.id) || guardIds.has(c._splitRoot)) {
+          entry._lairResident?.delete(c.lair);
+          hpMemo?.delete(c.id);
+        }
+      }
+      if (entry.creatures) entry.creatures = entry.creatures.filter(c =>
+        c.castle !== key && !guardIds.has(c.id) && !guardIds.has(c._splitRoot));
+      for (const bucket of entry._lairIndex?.buckets.values() || []) {
+        for (const cand of bucket) if (cand.key === key) entry._lairResident?.delete(cand.sid);
+      }
+      entry._citadelGuards?.delete(key);
+    }
+    for (const id of guardIds) hpMemo?.delete(id);
   }
 
   function stepResidency(ring, opts) {
@@ -1447,7 +1469,7 @@
     GROUPS, GROUP_RATE, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,
     hashKey, ringBox,
     bucketKey,
-    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency, claimClearedCitadels,
+    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency, claimClearedCitadels, resetCitadel,
     assertRingsClear,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

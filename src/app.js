@@ -3333,6 +3333,8 @@ class MapScene extends Phaser.Scene {
       this.advanceGrowth();
     }
 
+    this._expireCitadelBattles();
+
     // DERELICT LAIRS — the ruins are hard mode's; the STREET structures (a
     // a barricade, a café's hoard — lairs.js ALWAYS_AWAKE_TIERS)
     // are held in every mode, so the pass runs in both and `buildings` says
@@ -3370,6 +3372,14 @@ class MapScene extends Phaser.Scene {
           isClaimed: (key) => this.isClaimedKey(key),
           onCitadelCleared: (key) => this._claimCitadel(key),
           isCitadelActive: (key) => Houses.citadelBattleActive(this.save, key),
+          onCitadelGenerated: (key, ids) => {
+            const battle = this.save.citadelBattles?.[key];
+            if (!battle) return;
+            const allIds = [...new Set([...battle.guardIds, ...ids])];
+            if (allIds.length === battle.guardIds.length) return;
+            battle.guardIds = allIds;
+            persistSave(this.save);
+          },
           caughtSet: setOf(this.save.caught),
           hpMemo: this._lairHp,
           // A gate's guard re-rises each UTC day (lairs.js DAILY_TIERS).
