@@ -107,6 +107,9 @@ const scene = (subject, lore) => {
 // or { subject, size, width } for a different frame - the safety screen's
 // fullscreen mobile backdrop is portrait.
 const PIECES = {
+  // Runtime adds the actual creature frame and tint (PetStoryArt), preserving
+  // every species palette rather than painting approximate pet colours.
+  pet_clearing: scene('An EMPTY grassy clearing in a ruined medieval village, low weathered stone walls and olive foliage at the sides. Leave a neutral brown earth patch empty at the centre of the upper 40% for a pet sprite. No animals or people. The lower 60% is dark, quiet brown earth.'),
   temple_activated: scene('An ancient low grey limestone temple in a woodland park, with a broad stone courtyard and continuous smooth-coped walls. No towers, turrets, spires or crenellations. Geometric engraved runes awaken with icy cyan light over the stone; a modest tied scroll lies beside the central diamond rune. Respectful and peaceful, subdued painterly stone and moss. All architecture and light in the top 40 percent; empty dark earth below.'),
   // Paired macro booths: built-in reference edits, never independent text-only
   // calls. After-use paintings focus closely on the transaction object.
