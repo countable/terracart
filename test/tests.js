@@ -2220,14 +2220,14 @@ test('combat: equipped melee art renders and expires for sword, dagger and lance
   }
 });
 
-test('combat: bare hands animate a punch without retaining the equipped weapon sprite', (scene) => {
+test('combat: bare hands animate a sweep without retaining the equipped weapon sprite', (scene) => {
   scene._swing = { startT: performance.now() - 80, dir: { x: 0, y: -1 }, weapon: 'fist' };
   scene._drawSwordSwing();
-  assert.truthy(scene._swing, 'unarmed punch is active');
+  assert.truthy(scene._swing, 'unarmed sweep is active');
   assert.falsy(scene._meleeWeaponSprite?.visible, 'previous equipped art hidden');
   scene._swing.startT -= 10000;
   scene._drawSwordSwing();
-  assert.falsy(scene._swing, 'punch expires');
+  assert.falsy(scene._swing, 'sweep expires');
 });
 
 test('defeat: deer with a weapon → finishing the queue drops meat and removes the deer', (scene) => {

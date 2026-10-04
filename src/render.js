@@ -52,47 +52,44 @@ const Render = {};
 // Shared, short-lived melee art. The event is authored by the damage lane;
 // drawing never changes attack cadence or reach.
 Render.MELEE_LOOKS = {
-  fist: { ms: 220, reach: 10 },
-  sword: { ms: 260, reach: 15, sweep: Math.PI * 0.75 },
-  dagger: { ms: 180, reach: 13 },
-  lance: { ms: 300, reach: 22 },
-  claw: { ms: 240, reach: 15, sweep: Math.PI * 0.65 },
+  sword: { ms: 260, sweep: Math.PI * 0.75 },
+  dagger: { ms: 180 },
+  lance: { ms: 300 },
 };
-Render.meleePose = function (sw, now, weapon = 'claw', scale = 1) {
-  const look = Render.MELEE_LOOKS[weapon] || Render.MELEE_LOOKS.claw;
+Render.meleePose = function (sw, now, weapon = 'sword', reachPx = Combat.meleeReachM(CELL_PX, weapon)) {
+  // Bare hands and every creature share the mercenary's single sweep.
+  const look = Render.MELEE_LOOKS[weapon] || Render.MELEE_LOOKS.sword;
   const t = (now - sw.startT) / look.ms;
   if (t < 0 || t >= 1) return null;
   const base = Math.atan2(sw.dir.y, sw.dir.x);
   const advance = Math.sin(Math.PI * t);
   const angle = base + (look.sweep ? look.sweep * (t - 0.5) : 0);
-  const radius = (look.sweep ? look.reach : 5 + look.reach * advance) * scale;
+  const radius = reachPx * (look.sweep ? 1 : 0.35 + 0.65 * advance);
   return { t, angle, radius, tail: angle - (look.sweep || 0) * Math.min(t, 0.3),
-    alpha: Math.min(1, (1 - t) / 0.3), scale, weapon, look };
+    alpha: Math.min(1, (1 - t) / 0.3), weapon, look, reachPx };
+};
+Render.meleeWeaponPose = function (pose) {
+  // Keep the actual 16px icon compact. Its tip meets the reach boundary at
+  // full extension; the grip slides forward instead of stretching the art.
+  const grip = pose.weapon === 'lance' ? 0.25 : 0.3;
+  const scale = Math.min(pose.weapon === 'lance' ? 0.9 : 0.8,
+    pose.reachPx / (16 * Math.SQRT2));
+  const tipLength = (1 - grip) * 16 * Math.SQRT2 * scale;
+  return { grip, scale, handRadius: Math.max(0, pose.radius - tipLength) };
 };
 Render.drawMelee = function (g, pose, x, y, color = 0xe8ecf0) {
   if (!pose) return;
-  const { angle, radius, alpha, scale, weapon, look } = pose;
-  const ux = Math.cos(angle), uy = Math.sin(angle);
-  g.lineStyle(2 * scale, color, alpha * 0.8);
+  const { angle, radius, alpha, look } = pose;
+  g.lineStyle(2, color, alpha * 0.8);
+  g.beginPath();
   if (look.sweep) {
-    const count = weapon === 'claw' ? 3 : 1;
-    for (let i = 0; i < count; i++) {
-      g.beginPath();
-      g.arc(x, y, radius - i * 4 * scale, pose.tail, angle, false);
-      g.strokePath();
-    }
+    g.arc(x, y, radius, pose.tail, angle, false);
   } else {
-    g.beginPath();
-    g.moveTo(x + ux * 5 * scale, y + uy * 5 * scale);
+    const ux = Math.cos(angle), uy = Math.sin(angle);
+    g.moveTo(x + ux * radius * 0.35, y + uy * radius * 0.35);
     g.lineTo(x + ux * radius, y + uy * radius);
-    g.strokePath();
-    if (weapon === 'fist') {
-      g.fillStyle(0xf2c69d, alpha);
-      g.fillCircle(x + ux * radius, y + uy * radius, 3 * scale);
-      g.lineStyle(scale, 0x8a5d44, alpha);
-      g.strokeCircle(x + ux * radius, y + uy * radius, 3 * scale);
-    }
   }
+  g.strokePath();
 };
 Render.enemyMeleeColor = function (c) {
   const colors = { fire_elemental: 0xff863f, ice_elemental: 0x8de5ff,
@@ -4136,8 +4133,8 @@ Render.drawObjects = function drawObjects(scene) {
     // halo rides the hover and the bob with the sprite.
     item._bodyY = s.y - (s.originY - 0.5) * s.displayHeight;
     if (c._meleeSwing) {
-      const scale = Math.max(0.7, s.displayHeight / 24);
-      const pose = Render.meleePose(c._meleeSwing, performance.now(), c.kind === 'mercenary' ? 'sword' : 'claw', scale);
+      const pose = Render.meleePose(c._meleeSwing, performance.now(), 'sword',
+        c._meleeSwing.reachCells * CELL_PX);
       if (pose) {
         let effect = scene._creatureMeleePool[meleeUsed];
         if (!effect) {

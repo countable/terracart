@@ -1999,7 +1999,7 @@ class SceneCreatures {
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + 1000;   // one bite a second
-          creatureMeleeSwing(c, px, py);
+          creatureMeleeSwing(c, px, py, STEAL_R / this.cellM);
           const slimeBite = (SLIME_LEECH_ENERGY * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
           const slimeDmg = Combat.incomingDamage(this.save, slimeBite);
           if (slimeDmg > 0) {
@@ -2017,7 +2017,7 @@ class SceneCreatures {
         const BUTT_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + fightsBack.hitMs;
-          creatureMeleeSwing(c, px, py);
+          creatureMeleeSwing(c, px, py, BUTT_R / this.cellM);
           const raw = fightsBack.dmg * Combat.powerMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
@@ -2077,7 +2077,7 @@ class SceneCreatures {
           c._nextStealT = now + MONSTER_HIT_MS;
           c._attackT0 = now;
           c._attackUntil = now + 600;
-          creatureMeleeSwing(c, px, py);
+          creatureMeleeSwing(c, px, py, rangeCells);
           // Elite and lair power scale the attack before shield and armour.
           const dmg = (m.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
           const monDmg = Combat.incomingDamage(this.save, dmg);
@@ -2347,15 +2347,16 @@ class SceneCreatures {
         if (c._chaseTarget) {
           const tgt = c._chaseTarget;
           const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
-          const FIGHT_R2 = (PotionEffects.range(c, 1.5) * this.cellM) ** 2;
+          const fightRange = PotionEffects.range(c, 1.5);
+          const FIGHT_R2 = (fightRange * this.cellM) ** 2;
           if (fd2 <= FIGHT_R2) {
             // One HP table for every fight (combat.js): the bite is Combat.petBite (a
             // point for a tame pet, the slime's own blow for the spirit raven). The prey
             // bites back a point either way.
             tgt._hp = Combat.damage(tgt, Combat.petBlow(c));
             c._hp   = Combat.damage(c, 1);
-            creatureMeleeSwing(c, tgt.x, tgt.y);
-            creatureMeleeSwing(tgt, c.x, c.y);
+            creatureMeleeSwing(c, tgt.x, tgt.y, fightRange);
+            creatureMeleeSwing(tgt, c.x, c.y, fightRange);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();
             // A pet's bite is a blow too: a splitting slime divides under it
