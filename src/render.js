@@ -4541,7 +4541,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: (o) => o.deposit === 'crystal' ? 'crystal_cluster' : 'mineralrock',
+    mineralrock: { key: (o) => mineralDeposit(o)?.art.sheet || 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
@@ -4560,7 +4560,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
               //           so the rock you see matches the bar it drops.
               frame: (o) => {
-                if (o.deposit === 'crystal') return 0;
+                const deposit = mineralDeposit(o);
+                if (deposit) return deposit.art.frame;
                 const tier = o.yieldTier || o.requiredTier || 1;
                 // Cave rock and T1 ore both render as a plain rock variant.
                 if (o.caveVariant != null || tier <= 1) {
@@ -4574,7 +4575,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // sits low in the 16px frame). origin (0.5, 0.5)/dyPx below are the
               // no-SpriteLayout fallback; a foot-anchor would shove a flat ground rock ~11 px
               // into the cell above. scale 1.28 draws the 16px frame at ~20px.
-              origin: [0.5, 0.5], scale: 1.28, seat: true, shadow: true,
+              origin: [0.5, 0.5], scale: o => mineralDeposit(o)?.art.scale || 1.28, seat: true, shadow: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },

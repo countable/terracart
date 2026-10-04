@@ -2,7 +2,17 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
-  cave_props: { kind: 'spritesheet', path: 'assets/Objects/Cave/props.png', frameWidth: 24, frameHeight: 24 },
+  cave_props: { kind: 'spritesheet', path: 'assets/Objects/Cave/props.png', frameWidth: 24, frameHeight: 24,
+    // The ruby and emerald grid cells catch a strip of the preceding row.
+    // Register only their own art; previews and seating audits read these rectangles.
+    frameRects: { 24: { x: 0, y: 99, width: 24, height: 21 }, 25: { x: 24, y: 97, width: 24, height: 23 } },
+    onLoad: scene => {
+      const texture = scene.textures.get('cave_props');
+      for (const [frame, rect] of Object.entries(ASSETS.cave_props.frameRects)) {
+        texture.remove(frame);
+        texture.add(frame, 0, rect.x, rect.y, rect.width, rect.height);
+      }
+    } },
   cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
   bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },

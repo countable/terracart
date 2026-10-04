@@ -1,6 +1,6 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 13,
+  "revision": 14,
   "date": "2026-10-03",
   "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave levels 1 and 2; roads and buildings remain cave walls.",
   "scope": {
@@ -370,7 +370,7 @@
       ],
       "layout": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
       "interaction": "Mine mixed gemstone pockets under their existing deposit or ore-rock rules.",
-      "reward": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "reward": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
       "encounterByDepth": {
         "1": [
           "cave_slime",
@@ -382,7 +382,7 @@
           "spider"
         ]
       },
-      "depthPolicy": "Cave levels 1 and 2 only. Mixed-gem design preview; per-gem mining requirements, rarity and finite budgets must be defined when integrating the new deposit rows.",
+      "depthPolicy": "Cave levels 1 and 2 only. Mixed-gem design preview; registered per-gem mining requirements apply; zone density and finite placement budgets remain proposed.",
       "surfaceNexusKind": "grove",
       "depths": [
         1,
@@ -510,7 +510,7 @@
       "id": "gemstone_path",
       "name": "Gemstone Path",
       "layout": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment.",
-      "reward": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "reward": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
       "source": "walking_path",
       "depths": [
         1,
@@ -568,7 +568,7 @@
     "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
     "Reuse quarry rock and sapphire appearances without importing surface quarry first-rock guarantees, buried finds or extra site rewards. Underground placements retain their declared rock/deposit rules and depth-qualified budgets.",
     "Mine Tunnels is a simple finite ore-rich deposit per quarry anchor and depth. It creates no extra cache, shrine, temple or imported surface quarry first-rock guarantee.",
-    "Dedicated gemstone art is present for all seven previewed gems. Deposits must pay their pictured gem; integrating non-sapphire deposit rows and new amethyst/topaz/rose-quartz items remains runtime work."
+    "All seven gems now have registered items and gem-only mining definitions with matching world art and inventory icons. Underground zone generation remains a separate implementation."
   ],
   "implementation": [
     {
@@ -775,34 +775,46 @@
       "color": "#8ccfe3"
     },
     "ruby_deposit": {
-      "caveArt": "ruby_rock",
       "color": "#c76475",
-      "proposedGemYield": "ruby"
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "deposit": "ruby"
+      }
     },
     "emerald_deposit": {
-      "caveArt": "emerald_rock",
       "color": "#67b67c",
-      "proposedGemYield": "emerald"
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "deposit": "emerald"
+      }
     },
     "diamond_deposit": {
-      "caveArt": "diamond_rock",
       "color": "#c4e5eb",
-      "proposedGemYield": "diamond"
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "deposit": "diamond"
+      }
     },
     "amethyst_deposit": {
-      "caveArt": "amethyst_rock",
       "color": "#b389d6",
-      "proposedGemYield": "amethyst"
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "deposit": "amethyst"
+      }
     },
     "topaz_deposit": {
-      "caveArt": "topaz_rock",
       "color": "#dcae68",
-      "proposedGemYield": "topaz"
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "deposit": "topaz"
+      }
     },
     "quartz_deposit": {
-      "caveArt": "quartz_rock",
       "color": "#dda4c5",
-      "proposedGemYield": "quartz"
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "deposit": "quartz"
+      }
     }
   },
   "previewRows": [
@@ -2058,7 +2070,7 @@
       }
     },
     {
-      "poi": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "poi": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
       "artNote": "Quarry sapphire plus the approved cave_props ruby, emerald, diamond, amethyst, topaz and rose-quartz rocks from main. All deposit art is now available; ore-rock placeholders are removed.",
       "id": "gemstone_cavern",
@@ -2136,7 +2148,7 @@
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock and stony-ground affinities.",
       "atmosphere": "Sapphire, ruby, emerald, diamond, amethyst, topaz and rose-quartz deposits gather among quarry stone around an open central chamber.",
       "connection": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
-      "depthNote": "Cave levels 1 and 2 only. Mixed-gem design preview; per-gem mining requirements, rarity and finite budgets must be defined when integrating the new deposit rows.",
+      "depthNote": "Cave levels 1 and 2 only. Mixed-gem design preview; registered per-gem mining requirements apply; zone density and finite placement budgets remain proposed.",
       "depths": [
         1,
         2
@@ -2585,7 +2597,7 @@
       }
     },
     {
-      "poi": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "poi": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
       "artNote": "Quarry sapphire plus the approved cave_props ruby, emerald, diamond, amethyst, topaz and rose-quartz rocks from main. All deposit art is now available; ore-rock placeholders are removed.",
       "id": "gemstone_path",
@@ -2663,7 +2675,7 @@
       "source": "All path classes on cave levels 1\u20132; no roads. Stony surroundings favor this theme.",
       "atmosphere": "Mixed gemstone seams line the passage: sapphire and six newly approved gem-rock varieties, separated by broken and worked quarry stone.",
       "connection": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment.",
-      "depthNote": "Cave levels 1 and 2 only. Mixed-gem design preview; per-gem mining requirements, rarity and finite budgets must be defined when integrating the new deposit rows.",
+      "depthNote": "Cave levels 1 and 2 only. Mixed-gem design preview; registered per-gem mining requirements apply; zone density and finite placement budgets remain proposed.",
       "depths": [
         1,
         2

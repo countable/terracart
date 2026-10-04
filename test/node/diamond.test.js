@@ -61,7 +61,7 @@ test('diamond: two-table icon rule — MINERAL_ICON_SHEET → ICON_SHEETS → th
 test('diamond: the four gems are four DIFFERENT stones on row 0 of the sheet', () => {
   // Row 0 order (pixel-verified, see the header): 0 diamond, 1 ruby, 3
   // sapphire, 5 emerald. Frames 2 / 4 / 6 are a purple shard, an orange
-  // topaz and a pink quartz — no item wears those.
+  // topaz and a pink quartz — registered as their own minerals.
   const expect = { diamond: 0, ruby: 1, sapphire: 3, emerald: 5 };
   const cols = 7;
   const seen = new Set();

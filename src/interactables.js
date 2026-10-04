@@ -362,7 +362,9 @@ const INTERACTABLES = {
       const deposit = mineralDeposit(o);
       if (deposit) {
         addLoot(deposit.item, deposit.quantity);
-        quarrySapphire(ctx, o, sapphireFound);
+        // Sapphire retains its quarry discovery; other pictured gems do not
+        // secretly add a second mineral from the surface quarry bonus.
+        if (deposit.item === 'sapphire') quarrySapphire(ctx, o, sapphireFound);
         persistSave(save);
         scene.flashLoot(`+${deposit.quantity} ${ITEM_BY_ID[deposit.item]?.name || deposit.item}`, '#a7ffb0', 1, deposit.item);
         return;

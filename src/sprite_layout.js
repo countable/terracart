@@ -38,6 +38,12 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
+    'cave_props:29': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:28': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:27': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:24': { fw: 24, fh: 21, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:25': { fw: 24, fh: 23, minX: 2, minY: 5, maxX: 22, maxY: 22 },
+    'cave_props:26': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
     'beach_palms:0': { fw: 16, fh: 16, minX: 4, minY: 9, maxX: 10, maxY: 15 },
     'beach_palms:1': { fw: 16, fh: 16, minX: 6, minY: 9, maxX: 12, maxY: 15 },
     'beach_palms:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },

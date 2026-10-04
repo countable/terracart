@@ -541,11 +541,11 @@ test('crystal deposits use their cluster art at ordinary rock scale and centered
   const crystal={kind:'mineralrock',deposit:'crystal',yieldTier:1};
   assert.eq(spec.key(crystal),'crystal_cluster');assert.eq(spec.frame(crystal),0);
   assert.eq(spec.key({yieldTier:6}),'mineralrock');assert.eq(spec.frame({yieldTier:6}),mineralRockFrame(6));
-  assert.eq(spec.scale,1.28);assert.truthy(spec.seat);
+  assert.eq(spec.scale(crystal),1.28);assert.truthy(spec.seat);
   const b=SpriteLayout.ART_BOUNDS['crystal_cluster:0'];
-  const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale,spec.scale);
-  assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale,0);
-  assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale,0);
+  const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale(crystal),spec.scale(crystal));
+  assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale(crystal),0);
+  assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale(crystal),0);
 });
 
 

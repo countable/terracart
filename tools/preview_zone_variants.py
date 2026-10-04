@@ -38,6 +38,9 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=No
         w, h = row['frameWidth'], row['frameHeight']
         cols = image.width // w
         x, y = frame % cols * w, frame // cols * h
+        rect = row.get('frameRects',{}).get(str(frame))
+        if rect:
+            x,y,w,h = rect['x'],rect['y'],rect['width'],rect['height']
         assert y + h <= image.height, (sheet, frame)
         image = image.crop((x, y, x + w, y + h))
     if sheet == 'stair_down':
@@ -120,11 +123,13 @@ def material_art(material):
     elif kind == 'coindrop':
         sheet, frames = 'coin_drop', [0]
     elif kind == 'mineralrock':
-        tier = material.get('yieldTier', 1)
-        sheet = 'mineralrock'
-        frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
-        if material.get('deposit') == 'crystal':
-            sheet, frames = 'crystal_cluster', [0]
+        deposit = r['mineralDeposits'].get(material.get('deposit'))
+        if deposit:
+            sheet, frames = deposit['art']['sheet'], [deposit['art']['frame']]
+        else:
+            tier = material.get('yieldTier', 1)
+            sheet = 'mineralrock'
+            frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
     elif kind == 'tree':
         species = material.get('species', 'maple')
         sheet = 'trees' if species == 'maple' else species + '_tree'
