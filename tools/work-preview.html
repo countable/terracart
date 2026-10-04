@@ -5,18 +5,18 @@
 <script src="game-loader.js"></script><script>
 (async()=>{
 await loadGame();
-const slots=['axe','hoe','pickaxe','net','watering_can'];
+const slots=['axe','hoe','pickaxe','net','fishing_rod','watering_can'];
 const paths=Object.fromEntries(slots.map(slot=>[slot,gearAssetPath('relic',slot,3)]));
 const impactAssets={trees:ASSETS.trees,mineralrock:ASSETS.mineralrock};
 const drawTool=MapScene.prototype._drawWorkTool, drawWater=MapScene.prototype._drawWatering;
 await new Promise((res,rej)=>{const s=document.createElement('script');s.src='../vendor/phaser.js';s.onload=res;s.onerror=rej;document.head.append(s);});
 let previewStart=performance.now();
-new Phaser.Game({type:Phaser.CANVAS,width:900,height:300,parent:'stage',backgroundColor:'#17231f',audio:{noAudio:true},scene:{
+new Phaser.Game({type:Phaser.CANVAS,width:1080,height:300,parent:'stage',backgroundColor:'#17231f',audio:{noAudio:true},scene:{
  preload(){for(const slot of slots)this.load.spritesheet(slot,'../'+paths[slot],{frameWidth:16,frameHeight:16});for(const [key,a] of Object.entries(impactAssets))this.load.spritesheet(key,'../'+a.path,{frameWidth:a.frameWidth,frameHeight:a.frameHeight});},
  create(){this.examples=slots.map((slot,i)=>{
   const x=90+i*180,y=130;
   this.add.rectangle(x,y,96,96,0x3b5140).setStrokeStyle(1,0x779477);
-  this.add.text(x,y+85,{axe:'Chop',hoe:'Hoe',pickaxe:'Mine',net:'Net',watering_can:'Water'}[slot],{fontSize:'16px',color:'#e8ecdf'}).setOrigin(.5);
+  this.add.text(x,y+85,{axe:'Chop',hoe:'Hoe',pickaxe:'Mine',net:'Net',fishing_rod:'Fish',watering_can:'Water'}[slot],{fontSize:'16px',color:'#e8ecdf'}).setOrigin(.5);
   const root=this.add.container(x,y).setScale(3);
   const object=slot==='axe'?{kind:'tree',x:0,y:0}:slot==='pickaxe'?{kind:'mineralrock',x:0,y:0}:null;
   const target=object?this.add.image(0,14,slot==='axe'?'trees':'mineralrock',slot==='axe'?3:0).setOrigin(.5,1).setScale(slot==='axe'?.7:1.4):null;
@@ -35,7 +35,7 @@ new Phaser.Game({type:Phaser.CANVAS,width:900,height:300,parent:'stage',backgrou
   const e=ctx._wateringEffects[0];e.startT=now-(bare?(pause?130:phase):phase);e.texture=bare?null:slot;e.durationMs=bare?260:800;
   drawWater.call(ctx);
 
- }else{const age=pause?235:elapsed;if(row.target){row.target.setPosition(0,14).setRotation(0);Render.applyWorkImpact(row.target,Render.workImpactPose({toolSlot:slot,startT:0,durationMs:Infinity,worldX:0,worldY:0},row.object,age),0,14);}Render.drawWorkWheel(row.wheel,0,0,pause?.55:(elapsed%4000)/4000);drawTool.call(ctx,{toolSlot:slot,startT:0},0,0,age);}
+ }else{const age=pause?(slot==='fishing_rod'?550:235):elapsed;if(row.target){row.target.setPosition(0,14).setRotation(0);Render.applyWorkImpact(row.target,Render.workImpactPose({toolSlot:slot,startT:0,durationMs:Infinity,worldX:0,worldY:0},row.object,age),0,14);}Render.drawWorkWheel(row.wheel,0,0,pause?.55:(elapsed%4000)/4000);drawTool.call(ctx,{toolSlot:slot,startT:0},0,0,age);}
  }
  }
 }});

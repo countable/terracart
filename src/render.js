@@ -96,12 +96,22 @@ Render.WORK_WHEEL = { radius: 7, alpha: 0.5 };
 Render.WORK_LOOKS = {
   axe: { ms: 360, beatMs: 700, impact: { kind: 'tree', atMs: 180, ms: 360 } }, hoe: { ms: 360, beatMs: 700 },
   pickaxe: { ms: 360, beatMs: 700, impact: { kind: 'mineralrock', atMs: 180, ms: 300 } }, net: { ms: 440, beatMs: 850 },
+  fishing_rod: { ms: 1100, beatMs: 1400 },
 };
 Render.workToolPose = function (slot, elapsed) {
   const look = Render.WORK_LOOKS[slot];
   if (!look || elapsed < 0) return null;
   const t = (elapsed % look.beatMs) / look.ms;
   if (t >= 1) return null;
+  if (slot === 'fishing_rod') {
+    const cast = Math.min(1, t / 0.25);
+    const reel = Math.max(0, (t - 0.8) / 0.2);
+    return { rotation: -0.9 + 1.1 * (1 - (1 - cast) ** 3) - reel * 0.55
+        + (t > 0.25 && t < 0.8 ? Math.sin(t * Math.PI * 6) * 0.04 : 0),
+      alpha: Math.min(1, (1 - t) / 0.15), scale: 0.9,
+      x: -10, y: 3, gripX: 0.25, gripY: 0.75,
+      ripple: t > 0.25 && t < 0.8 ? ((t - 0.25) / 0.55) : null };
+  }
   const strike = 1 - (1 - t) ** 3;
   return { rotation: -0.9 + 1.7 * strike, alpha: Math.min(1, (1 - t) / 0.2),
     scale: 0.9, x: -10, y: 3, gripX: 0.25, gripY: 0.75 };

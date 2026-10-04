@@ -5016,6 +5016,13 @@ class MapScene extends Phaser.Scene {
       icon.setTexture(key, 0).setVisible(true).setOrigin(pose.gripX, pose.gripY)
         .setScale(pose.scale).setRotation(pose.rotation).setAlpha(pose.alpha)
         .setPosition(cx + pose.x, cy + pose.y);
+      if (pose.ripple != null) {
+        const g = this._workToolGfx;
+        g.lineStyle(1, 0x8ed3e6, 0.5 * (1 - pose.ripple));
+        g.beginPath();
+        g.arc(cx - 2, cy + 6, 2 + pose.ripple * 4, 0, Math.PI * 2, false);
+        g.strokePath();
+      }
     } else {
       const age = ((now - wp.startT) % look.beatMs) / look.ms * Render.MELEE_LOOKS.sword.ms;
       const sweep = Render.meleePose({ startT: 0, dir: { x: 1, y: 0 } }, age, 'sword', 12);
