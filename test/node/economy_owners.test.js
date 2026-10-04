@@ -156,8 +156,8 @@ test('economy: CONSUMABLE_SPEC names each timed buff\'s Buffs row, each tome\'s 
   }
   assert.eq(CONSUMABLE_SPEC.hardworking_potion.buff, 'work', 'the idol\'s lever row');
   for (const id of ['coffee', 'dawnfruit', 'miracle_lettuce', 'pairy']) assert.truthy(CONSUMABLE_SPEC[id].buff, `${id}: the eat lane\'s buffs too`);
-  const tomes = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.tome);
-  assert.eq(tomes.length, 7, 'every tome but the firewall mirrors a potion');
+  const tomes = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.tome?.of);
+  assert.eq(tomes.length, 7, 'seven tomes mirror potions; standalone aura and firewall spells own their effect');
   for (const [id, { tome }] of tomes) {
     assert.eq(tome.mul, 0.5, `${id}: half the potion`);
     assert.truthy(CONSUMABLE_SPEC[tome.of], `${id}: of a real row`);

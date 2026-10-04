@@ -1572,9 +1572,10 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     SpriteLayout.faceCreature(c, px - c.x, py - c.y);
     return;
   }
-  if (row.aura && clear && dist <= row.aura.radiusCells * scene.cellM) {
-    if (npcTarget) { NPC.hit(scene, npcTarget, Date.now(), row.aura.rawDps * Combat.powerMul(c) * dt); return; }
-    if (creatureTarget) {
+  if (row.aura && clear && dist <= auraRadiusCells(row.aura) * scene.cellM) {
+    if (npcTarget) {
+      NPC.hit(scene, npcTarget, Date.now(), row.aura.rawDps * Combat.powerMul(c) * dt);
+    } else if (creatureTarget) {
       scene._damageEnemy(creatureTarget, row.aura.rawDps * Combat.powerMul(c) * dt,
         Combat.isCharmed(c) ? 'ally' : 'enemy', { bypassArmor: true });
     } else {

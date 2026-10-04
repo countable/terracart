@@ -42,7 +42,7 @@
     assert.eq(hits[0].damage, CONSUMABLE_SPEC.fireball_scroll.damage);
   });
   test('iceflower: radius reaches all bodies and overlapping blooms do not stack', () => {
-    const p = plant('iceflower'), r = Crops.EFFECTS.iceflower.aura.radiusCells * CELL;
+    const p = plant('iceflower'), r = auraRadiusCells(Crops.EFFECTS.iceflower.aura) * CELL;
     const units = [foe(r), foe(2, { kind: 'npc' }), foe(3, { kind: 'cow', id: 'released_cow' }), foe(r + 0.01)];
     const save = {}, player = { x: r, y: 0 }, clocks = new WeakMap();
     Crops.tickPlantEffect(p, units, save, player, CELL, 1000, clocks);

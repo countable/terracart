@@ -21,7 +21,7 @@ test('blight potion: 1.5 cells, 2 HP a second, one minute', () => {
   assert.eq(CONSUMABLE_SPEC.blight_potion.radiusCells, 1.5, 'radius');
   assert.eq(CONSUMABLE_SPEC.blight_potion.damagePerSecond, 2, 'damage per second');
   assert.eq(CONSUMABLE_SPEC.blight_potion.durationMs, 60 * 1000, 'duration');
-  assert.truthy(/const BLIGHT_R_CELLS = CONSUMABLE_SPEC\.blight_potion\.radiusCells;/.test(app),
+  assert.truthy(/const BLIGHT_R_CELLS = auraRadiusCells\(CONSUMABLE_SPEC\.blight_potion\);/.test(app),
     'runtime derives the radius');
 });
 

@@ -356,7 +356,11 @@
   test('NPC melee: monster windup hits neighbour without draining player and cannot strike resting body', () => {
     const s = scene(), c = neighbour(), foe = {kind:'zombie', id:'attacker', x:0,y:0};
     const row = EnemyRoster.get('zombie');
+    const initialHp = Combat.hp(c);
     rosterEnemyAttack(s, foe, row, 10000, c.x, c.y, false, 0.1, c);
+    assert.lt(Combat.hp(c), initialHp, 'blight damages the neighbour during melee windup');
+    assert.falsy(NPC.isDormant(c), 'the aura tick alone does not end the melee windup');
+    assert.eq(foe._attackWindupUntil, 10000 + row.windupSeconds * 1000);
     rosterEnemyAttack(s, foe, row, 10000 + row.windupSeconds * 1000, c.x, c.y, false, 0.1, c);
     assert.truthy(NPC.isDormant(c));
     assert.eq(s.save.energy, 100);

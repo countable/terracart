@@ -1,6 +1,6 @@
 // THE TOMES (Oct 2026, expanded).
 //
-// Eight permanent books are scholar prizes. A tome's spell is HALF its
+// Nine permanent books are scholar prizes. A tome's spell is HALF its
 // potion's (items.js TOME_MUL, the row's `tome.mul`: half duration, half
 // damage or restore); its
 // cooldowns are the SHARED 1 h activation lock (TOME_COOLDOWN_MS, every tome
@@ -19,9 +19,10 @@
     ['tome_blight', 'Tome of Blight', 4, 400, 8 * 3600e3],
     ['tome_fire_wall', 'Wall of Fire Tome', 4, 400, 8 * 3600e3],
     ['tome_thunder', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
+    ['tome_frost_aura', 'Tome of Frost Aura', 6, 2400, 24 * 3600e3],
   ];
 
-  test('tomes: eight registered, named, unique, tiered, priced, framed', () => {
+  test('tomes: nine registered, named, unique, tiered, priced, framed', () => {
     for (const [id, name, tier, price, cd] of ROSTER) {
       const it = ITEM_BY_ID[id];
       assert.truthy(it, `${id} registered`);
@@ -64,7 +65,7 @@
         continue;
       }
       const t = CONSUMABLE_SPEC[id].tome;
-      assert.truthy(t && CONSUMABLE_SPEC[t.of] && typeof t.flash === 'string', `${id}: a tome column (of, flash)`);
+      assert.truthy(t && (CONSUMABLE_SPEC[t.of] || CONSUMABLE_SPEC[id].buff) && typeof t.flash === 'string', `${id}: a tome column (of, flash)`);
     }
     assert.truthy(/const TOME_COOLDOWN_MS = 60 \* 60 \* 1000;/.test(APP), 'the shared lock is one hour');
     assert.truthy(/save\.tomeReadyAt = now \+ TOME_COOLDOWN_MS \* mul/.test(APP), 'stamped once per read, all tomes');
@@ -78,7 +79,7 @@
 
   test('tomes: a tome\'s spell is HALF its potion\'s', () => {
     assert.eq(TOME_MUL, 0.5, 'one owning multiplier (items.js)');
-    for (const [id] of ROSTER) if (CONSUMABLE_SPEC[id].tome) assert.eq(CONSUMABLE_SPEC[id].tome.mul, TOME_MUL, `${id}: the one multiplier`);
+    for (const [id] of ROSTER) if (CONSUMABLE_SPEC[id].tome?.of) assert.eq(CONSUMABLE_SPEC[id].tome.mul, TOME_MUL, `${id}: the one multiplier`);
     const read = SCENE_SRC.match(/\n  _readTome\(id\) \{\n([\s\S]*?)\n  \}\n/)[1];
     assert.truthy(/this\._useTimedBuff\(t\.of, \{ mul: t\.mul, spend: false \}\)/.test(read), 'a timed buff: the dose halves');
     assert.truthy(/spec\.durationMs \* mul/.test(SCENE_SRC), '…in _useTimedBuff');

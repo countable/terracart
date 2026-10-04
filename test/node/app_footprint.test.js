@@ -40,7 +40,7 @@
   test('footprint: every timed consumable EXTENDS through Buffs.extend — a second dose is banked on the first', () => clock((setNow) => {
     let covered = 0;
     for (const [id, spec] of Object.entries(CONSUMABLE_SPEC)) {
-      if (!spec.buff) continue;
+      if (!spec.buff || spec.tome) continue; // tomes use their cooldown-gated, unspent lane
       const row = Buffs.KINDS[spec.buff];
       assert.truthy(row, `${id}: its buff ${spec.buff} is a row of Buffs.KINDS`);
       assert.truthy(spec.durationMs > 0, `${id}: a length`);

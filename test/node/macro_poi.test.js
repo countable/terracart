@@ -637,7 +637,7 @@
   test('scholar: the shelf contains every tome once, humblest first, independent of chests', () => {
     const shelf = Macros.scholarShelf();
     const tomes = ITEMS.filter(item => isTome(item.id)).map(item => item.id);
-    assert.eq(shelf.length, 8);
+    assert.eq(shelf.length, 9);
     assert.eq(new Set(shelf).size, shelf.length, 'one of each per cycle');
     for (const id of shelf) assert.truthy(isTome(id), `${id} is a tome`);
     for (const id of tomes) assert.includes(shelf, id);

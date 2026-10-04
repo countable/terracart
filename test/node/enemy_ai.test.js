@@ -170,6 +170,33 @@
     rosterEnemyAttack(s, c, row, 13000, 1, 0, false, 1);
     assert.eq(s.save.energy, 0);
   });
+  test('zombie blight aura drains through the shared rate inside its default one-cell radius', () => {
+    const row = EnemyRoster.get('zombie');
+    for (const cellM of [5, 10]) {
+      for (const radius of [0.75, 1, 1.01]) {
+        const s = scene(cellM), c = foe('zombie');
+        for (let i = 0; i < 60; i++) {
+          rosterEnemyAttack(s, c, row, 10000 + i * 1000 / 60, radius * cellM, 0, false, 1 / 60);
+        }
+        const expected = radius <= 1
+          ? Math.floor(Combat.playerDamageRate(row.aura.rawDps * Combat.powerMul(c), {}, 1) + 1e-9) : 0;
+        assert.eq(100 - s.save.energy, expected, `${cellM}m cells at ${radius} cells`);
+      }
+    }
+  });
+  test('zombie blight aura respects concealment, emergence, walls and inactive targets', () => {
+    const row = EnemyRoster.get('zombie');
+    for (const state of ['hidden', 'buried', 'emerging', 'wall', 'downed']) {
+      const s = scene(), c = foe('zombie');
+      if (state === 'buried') c._burrowed = true;
+      if (state === 'emerging') c._emergeUntil = 11000;
+      if (state === 'wall') s._cellBlocked = x => x > 1 && x < 4;
+      if (state === 'downed') s.save.energy = 0;
+      const before = s.save.energy;
+      rosterEnemyAttack(s, c, row, 10000, 5, 0, state === 'hidden', 1);
+      assert.eq(s.save.energy, before, state);
+    }
+  });
   test('enemy AI: draining aura shield expires on the wall-clock boundary', () => {
     const realDateNow = Date.now;
     const wallNow = 1800000000000;

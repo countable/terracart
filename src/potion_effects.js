@@ -209,7 +209,7 @@
       const wards = scene._npcWardContext;
       if (Combat.isEnemy(c) && wards && wardTrip(c, wards.home, wards.castles, wards.radius2)) return false;
       for (const target of opponents(scene, c, units(scene))) {
-        if (Math.hypot(target.x - c.x, target.y - c.y) <= spec.radiusCells * scene.cellM) {
+        if (Math.hypot(target.x - c.x, target.y - c.y) <= auraRadiusCells(spec) * scene.cellM) {
           damage(scene, target, spec.damagePerSecond * seconds, c, true);
         }
       }
