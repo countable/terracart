@@ -449,6 +449,8 @@ const MINERAL_ICON_SHEET = {
   frost_powder:  { sheet: 'icon_potions', frame: 9 },
   // Unique jewelry uses spare 16px frames from the old tier sheets.
   stealth_ring:      { sheet: 'icon_rings',   frame: 8 },
+  portal_stone: { sheet: 'icon_progression', frame: 0 },
+  depth_key: { sheet: 'icon_progression', frame: 1 },
   coin_ring:         { sheet: 'icon_rings',   frame: 7 },
   invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
   ember_ring:        { sheet: 'icon_rings',   frame: 9 },
@@ -654,6 +656,7 @@ const BASE_TIER = {
   // a T2 utility like the protection potion, under the T3 explosive flask.
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
+  portal_stone: 3, depth_key: 4,
   stealth_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
@@ -879,6 +882,8 @@ const ITEMS = [
   // Unique jewelry works while carried. Its designation keeps magic shops and
   // ordinary class rolls from selling it; named chest pools remain its source.
   { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'portal_stone', name: 'Portal Stone', kind: 'unique_relic', progressionOnly: true },
+  { id: 'depth_key', name: 'Key of the Fourth Depth', kind: 'unique_relic', progressionOnly: true },
   { id: 'coin_ring',         name: 'Ring of Gathering',     kind: 'unique_relic', uniqueJewelry: true },
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
@@ -1377,6 +1382,10 @@ const CONSUMABLE_SPEC = {
     verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?',
     get: 'A blue doorway opens below. Tap Return within one minute to come back.',
   },
+  portal_stone: {
+    immediate: true, verb: 'Portal', method: 'usePortalStone', title: 'Place the arena portal',
+    get: 'A quiet place far from roads gives this stone room to open.',
+  },
   rope: {
     verb: 'Climb', method: 'useRopeDown', acceptLabel: 'Down', title: 'Use the rope — which way?',
     get: scene => scene.depth > 0
@@ -1687,6 +1696,8 @@ const ITEM_EFFECTS = {
   crimson_bar: 'An iceflower’s chill waits beneath its red sheen.',
   frost_bar: 'A smith’s breath turns white above this cold metal.',
   stealth_ring: 'Hungry eyes slide past the stone in its band.',
+  portal_stone: 'A pale doorway waits inside the stone for quiet ground beneath the sky.',
+  depth_key: 'The metal warms in your palm, answering a lock far below.',
   coin_ring: 'Loose coins slide across the ground toward its golden band.',
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',

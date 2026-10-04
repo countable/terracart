@@ -106,6 +106,78 @@
     return { candidates: nearby.length, rebuiltEntries };
   }
 
+  // Mature magical flowers share the scroll projectile and the ordinary
+  // frost status. Wild flowers are already grown; planted ones must ripen.
+  const EFFECT_SCAN_MS = 250;
+  const EFFECTS = Object.freeze({
+    fireflower: Object.freeze({ rangeCells: 4, intervalMs: 3000, projectile: 'fireball_scroll' }),
+    iceflower: Object.freeze({ aura: Object.freeze({ radiusCells: 1.5, tint: FROZEN_TINT }) }),
+  });
+  function effectFor(p) {
+    return p && (p.kind === 'wildplant' || p.wildId || isMature(p)) ? EFFECTS[p.crop] || null : null;
+  }
+
+  // Each source has a firing clock; no saved crop fields or accumulated volley
+  // while away. Ice sources share the recipient's non-refreshing frost timer.
+  function tickPlantEffect(p, creatures, save, player, cellM, now, nextFire, blocked) {
+    const row = effectFor(p);
+    if (!row) return null;
+    if (row.aura) {
+      const r = row.aura.radiusCells * cellM;
+      const within = c => Math.hypot(c.x - p.x, c.y - p.y) <= r;
+      for (const c of creatures) if (within(c)) Combat.applyAuraFrost(c, now);
+      if (player && within(player)) Conditions.apply(save, 'frozen', now);
+      return null;
+    }
+    if ((nextFire.get(p) || 0) > now) return null;
+    let target = null, nearest = row.rangeCells * cellM;
+    for (const c of creatures) {
+      if (!Combat.isEnemy(c)) continue;
+      const distance = Math.hypot(c.x - p.x, c.y - p.y);
+      if (distance > nearest || !Combat.lineOfFire(p.x, p.y, c.x, c.y, blocked, cellM)) continue;
+      target = c; nearest = distance;
+    }
+    if (!target) return null;
+    const dir = { x: target.x - p.x, y: target.y - p.y };
+    if (!dir.x && !dir.y) dir.x = 1;
+    const shot = Combat.spawnFireball(p.x, p.y, dir, cellM, CONSUMABLE_SPEC[row.projectile]);
+    shot.rangeM = row.rangeCells * cellM;
+    shot.source = 'flower';
+    nextFire.set(p, now + row.intervalMs);
+    return shot;
+  }
+
+  function tickEffects(scene, now = Date.now()) {
+    if ((scene._flowerScanAt || 0) > now) return;
+    scene._flowerScanAt = now + EFFECT_SCAN_MS;
+    const player = playerWorldM(scene), pc = scene.playerToWorldCell();
+    const radius = CREATURE_SIM_CELLS * scene.cellM;
+    const x0 = player.x - radius, y0 = player.y - radius;
+    const x1 = player.x + radius, y1 = player.y + radius;
+    const plants = [], creatures = [], caught = setOf(scene.save.caught);
+    const spent = spentSets(scene);
+    const addPlant = p => {
+      if (p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1 && effectFor(p) && !isSpent(p, spent)) plants.push(p);
+    };
+    forEachInBox(scene.save, scene.depth ?? 0, x0, y0, x1, y1, addPlant);
+    eachTile3x3(pc.tx, pc.ty, (tx, ty) => {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (!entry) return;
+      WorldGen.forEachItemInBox(entry, 'wildplants', x0, y0, x1, y1, addPlant);
+      for (const c of entry.creatures || []) {
+        if (!caught.has(c.id) && !c._surfaceInactive && c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1) creatures.push(c);
+      }
+    });
+    scene._flowerNextFire ||= new WeakMap();
+    const frozenBefore = Conditions.active(scene.save, 'frozen');
+    for (const p of plants) {
+      const shot = tickPlantEffect(p, creatures, scene.save, player, scene.cellM, now,
+        scene._flowerNextFire, (x, y) => scene._cellBlocked(x, y));
+      if (shot) scene._shots.push(shot);
+    }
+    if (!frozenBefore && Conditions.active(scene.save, 'frozen')) persistSave(scene.save);
+  }
+
   // Fruit and timber saplings share one growth window (PLANTED_TREE_GROW_MS,
   // one day) so their copy and art cannot drift when tree growth changes.
   const FRUIT_STAGE_MS = PLANTED_TREE_GROW_MS / 4;
@@ -275,5 +347,5 @@
   root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, markFruitPicked, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
-                 forEachInBox, invalidateSpatialIndex };
+                 forEachInBox, invalidateSpatialIndex, EFFECTS, EFFECT_SCAN_MS, effectFor, tickPlantEffect, tickEffects };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

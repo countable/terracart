@@ -2,6 +2,8 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
+  icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
   pet_story_clearing: { kind: 'image', path: 'assets/art/pet_clearing.webp' },
   cave_props: { kind: 'spritesheet', path: 'assets/Objects/Cave/props.png', frameWidth: 24, frameHeight: 24 },
   cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },

@@ -360,7 +360,7 @@
   function traderPrices() {
     if (!prices) {
       const gearIds = new Set(Gear.uniqueRelics().map(item => item.id));
-      prices = Object.fromEntries(ITEMS.filter(item => !gearIds.has(item.id)).map(item => [item.id, itemValue(item.id)]));
+      prices = Object.fromEntries(ITEMS.filter(item => !item.progressionOnly && !gearIds.has(item.id)).map(item => [item.id, itemValue(item.id)]));
     }
     return prices;
   }

@@ -257,6 +257,19 @@ Render.coinPile = (coin) => {
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
 const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
+// Underground palettes travel through the same ground accent lane as surface
+// zones: fills, rounded seams and border comparisons all see one colour.
+// Cave grit remains an alpha overlay, preserving its existing baked textures.
+Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760 };
+Render.undergroundGroundColor = (entry, ix, iy, type) => {
+  if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
+  if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
+  if (entry.undergroundBiome !== 'deep_stone') return null;
+  const area = entry.undergroundAreas?.[iy * entry.cellsPerEdge + ix];
+  return area === 1 ? Render.UNDERGROUND_GROUND.grove
+    : area === 2 ? Render.UNDERGROUND_GROUND.dwarven_city : null;
+};
+
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
 // Wall faces recover half the pre-recolour contrast against their floors — deep
@@ -729,6 +742,19 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
     i++;
   }
   hidePoolFrom(pool, i);
+};
+
+// Ground discs share their reach with gameplay, regardless of the source's
+// sprite size. Tint lets frost reuse the existing soft Blight aura texture.
+Render.renderAuras = function renderAuras(scene, pool, list, project) {
+  Render.renderPool(scene, pool, scene.auraContainer, list, (s, item) => {
+    const { x, y } = project(item.dx, item.dy);
+    const diameter = 2 * item.aura.radiusCells * CELL_PX;
+    setTextureIfDifferent(s, 'aura_blight');
+    s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
+      .setPosition(x, y).setAlpha(0.9);
+    if (item.aura.tint != null) s.setTintFill(item.aura.tint);
+  });
 };
 
 // A persistent gold halo makes shinies visible even on fully lit ground,
@@ -1723,8 +1749,9 @@ Render.drawCells = function drawCells(scene) {
       // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
       // that's the tile-loading indicator; see the _ringVeil comment above).
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
-      _ringGroundColor[si] = typeof zoneGroundColor === 'function'
-        ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1;
+      _ringGroundColor[si] = Render.undergroundGroundColor(e2, ix2, iy2, types[si])
+        ?? (typeof zoneGroundColor === 'function'
+          ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
@@ -4253,21 +4280,24 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
 
-  // Use the player's Blight disc: its visible edge is the actual damage
-  // radius. Instance size never changes the aura's reach.
-  if (scene.auraContainer && typeof EnemyRoster !== 'undefined') {
+  // Plants and creatures use the same ground discs and gameplay radii.
+  if (scene.auraContainer) {
     scene.enemyAuraPool ||= [];
-    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura
-      || (typeof PotionEffects !== 'undefined' && PotionEffects.active(it.c, 'blight_potion')));
-    Render.renderPool(scene, scene.enemyAuraPool, scene.auraContainer, auraList, (s, item) => {
+    const auraList = [];
+    for (const item of creatureList) {
       const aura = (typeof PotionEffects !== 'undefined' && PotionEffects.active(item.c, 'blight_potion'))
-        ? CONSUMABLE_SPEC.blight_potion : EnemyRoster.get(item.c.kind).aura;
-      const { x: sx, y: sy } = project(item.dx, item.dy);
-      const diameter = 2 * aura.radiusCells * CELL_PX;
-      setTextureIfDifferent(s, 'aura_blight');
-      s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
-       .setPosition(sx, sy).setAlpha(0.9);
-    });
+        ? CONSUMABLE_SPEC.blight_potion
+        : (typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(item.c.kind)?.aura : null);
+      if (aura) auraList.push({ ...item, aura });
+    }
+    Render.renderAuras(scene, scene.enemyAuraPool, auraList, project);
+    scene.plantAuraPool ||= [];
+    const plantAuras = [];
+    for (const item of plantedList) {
+      const aura = Crops.effectFor(item.p)?.aura;
+      if (aura) plantAuras.push({ ...item, aura });
+    }
+    Render.renderAuras(scene, scene.plantAuraPool, plantAuras, project);
   }
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays
@@ -4568,9 +4598,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
-    staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
-                 ground: (o) => o.dir !== 'up',
-                 frame: (o) => (o.dir === 'up' ? '__BASE' : 'down'),
+    staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 ground: (o) => !o.elevator && o.dir !== 'up',
+                 frame: (o, scene) => o.elevator ? (Elevators.isRepaired(scene?.save) ? 1 : 0) : (o.dir === 'up' ? '__BASE' : 'down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
     // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
