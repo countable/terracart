@@ -1,0 +1,2991 @@
+{
+  "status": "design_draft_not_runtime",
+  "revision": 14,
+  "date": "2026-10-04",
+  "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave levels 1 and 2; medium/large roads and buildings remain cave walls; sm_road receives underground street variants.",
+  "scope": {
+    "surfaceChanges": false,
+    "otherPOIRegions": "future explicit mapping rows",
+    "activation": "separate implementation after design review",
+    "nexusDepths": [
+      1,
+      2
+    ],
+    "pathDepths": [
+      1,
+      2
+    ],
+    "pathCoverage": "All eligible path geometry on levels 1 and 2, independent of park/nexus proximity; including sm_road streets; never medium/large roads or levels 3+.",
+    "undergroundTemples": false,
+    "buildingAndRoadTerrain": "Houses, temples, md_road and lg_road footprints remain CAVE_WALL. Explicit exception: carve eligible sm_road footprints for underground streets on depths 1 and 2; building, protected water and access exclusions still win.",
+    "standaloneShrines": "Retain the explicitly designed Ember altar and Toad idol as freestanding cave interactables, not temple buildings or mirrored houses. Every existing path theme and sm_road street variant also has a 50% shrine roll per canonical route and depth, using existing shrine boons and daily ledgers.",
+    "roadDepths": [
+      1,
+      2
+    ]
+  },
+  "source": {
+    "regions": "Stable generated surface nexus anchors and their original coverage; select by nexus kind rather than any nearby park, seep or rock terrain.",
+    "walkingPaths": [
+      "path",
+      "footway",
+      "track",
+      "pedestrian",
+      "cycleway",
+      "steps"
+    ],
+    "exclude": [
+      "parking aisles pruned by current pipeline",
+      "private driveway access",
+      "unknown road class fallback",
+      "md_road and lg_road; sm_road is explicitly eligible",
+      "water crossings and bridge spans without an explicit underground connector"
+    ],
+    "pathSelection": "Use the existing path-class predicate plus explicit sm_road terrain eligibility. Context selects a theme, not whether an eligible route receives one.",
+    "nexusMapping": {
+      "grove": [
+        "spring_cave",
+        "goblin_warrens",
+        "mushroom_cavern",
+        "gemstone_cavern"
+      ],
+      "quarry": [
+        "mine_tunnels"
+      ],
+      "seep": []
+    },
+    "nexusMappingPolicy": "The four grove variants apply only beneath grove nexuses. Quarry regions always use Mine Tunnels; seep regions receive none of these nexus variants.",
+    "streetTerrain": [
+      "sm_road"
+    ]
+  },
+  "identity": {
+    "region": "underground/{sourceFeatureId}/{depth}",
+    "route": "underground-route/{canonicalWayOrSegmentId}/{depth}",
+    "inputs": "generated surface metadata at every depth; independent of player position, tile clipping, restoration and dug walls"
+  },
+  "nexusVariants": [
+    {
+      "id": "spring_cave",
+      "name": "Underground Spring Cave",
+      "source": "grove",
+      "affinities": [
+        "water",
+        "wetland",
+        "woodland"
+      ],
+      "layout": "central spring feeding a surrounding pool, dry circular bank, mushroom ring, outer stone ring; four open radial approaches",
+      "depths": [
+        1,
+        2
+      ],
+      "interaction": "proposed watering-can refill from the nearest reachable pool bank; source and pool share one interaction identity; no free healing",
+      "encounterByDepth": {
+        "1": [
+          "skeleton"
+        ],
+        "2": [
+          "skeleton"
+        ]
+      },
+      "reward": "reuse a surviving mirrored POI cache; no extra daily chest",
+      "surfaceNexusKind": "grove",
+      "encounters": {
+        "placement": "spring_offsets",
+        "kind": "skeleton",
+        "seats": [
+          {
+            "at": [
+              -4,
+              -2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              4,
+              -2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              -4,
+              2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              -6,
+              0
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              0,
+              6
+            ],
+            "kind": "skeleton"
+          }
+        ],
+        "hidden": true,
+        "dormant": true,
+        "revealDistanceCells": 1,
+        "countPolicy": "Six fixed dormant skeleton seats in this reference spring; finite once per region and depth. Hidden seats are not extra ambient spawns.",
+        "activation": "Reveal and wake only when player distance is at most one cell (Euclidean world distance <= cellM). No movement, targeting, attack, visible body or health marker before proximity activation. Reveal remains latched; preserve defeated IDs and do not respawn on tile reload.",
+        "mechanicStatus": "Main pulled at f119a723. General hidden-until-proximity enemy mechanic is not present there; visible ghost proximityCells is not equivalent. Reuse the shared hidden/disguise mechanic when it lands, with revealDistanceCells=1 and no prop disguise, rather than adding a spring-specific AI path."
+      }
+    },
+    {
+      "id": "goblin_warrens",
+      "name": "Goblin Warrens",
+      "source": "grove",
+      "affinities": [
+        "formal",
+        "worked",
+        "built_edge"
+      ],
+      "layout": "Vary room width and depth independently across offset rows: 3\u00d73 to 5\u00d75 interiors, including narrow rectangles. Connect shared-wall doors into loops; reserve entrance, exit, stairs and shrine approaches before fitting corner stores.",
+      "depths": [
+        1,
+        2
+      ],
+      "interaction": "Clear sentries, visit Ember altar for existing fireball boon, break stores and mine optional collapse.",
+      "encounterByDepth": {
+        "1": [
+          "club_goblin"
+        ],
+        "2": [
+          "club_goblin",
+          "spear_goblin"
+        ]
+      },
+      "reward": "reuse a surviving mirrored POI cache; barrels replace allocated finite containers",
+      "shrineKind": "ember_altar",
+      "surfaceNexusKind": "grove",
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              2,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              12,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              22,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              8,
+              7
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              18,
+              7
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              2,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              13,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              22,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              9,
+              17
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              18,
+              17
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              2,
+              22
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              11,
+              22
+            ],
+            "kind": "club_goblin"
+          }
+        ],
+        "targetByDepth": {
+          "1": 12,
+          "2": 16
+        },
+        "countPolicy": "Representative 25-room warren: 12 goblins on level 1 and 16 on level 2. Scale by usable room count, capped once per region and depth; omit blocked seats."
+      }
+    },
+    {
+      "id": "mushroom_cavern",
+      "name": "Underground Mushroom Cavern",
+      "source": "grove",
+      "affinities": [
+        "woodland",
+        "shade",
+        "damp"
+      ],
+      "layout": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
+      "depths": [
+        1,
+        2
+      ],
+      "shrineKind": "toad_idol",
+      "interaction": "Harvest cave mushrooms and visit the Toad idol for its existing Mending boon.",
+      "encounterByDepth": {
+        "1": [
+          "mushroom_monster"
+        ],
+        "2": [
+          "mushroom_monster"
+        ]
+      },
+      "reward": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
+      "surfaceNexusKind": "grove",
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              4,
+              7
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              8,
+              5
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              16,
+              6
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              20,
+              9
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              5,
+              17
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              9,
+              19
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              16,
+              19
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              20,
+              16
+            ],
+            "kind": "mushroom_monster"
+          }
+        ],
+        "surfaceReference": "mushroom_grove",
+        "surfaceDensityMultiplier": 2,
+        "minimumPerStandardRegion": 8,
+        "countPolicy": "At equal usable area, target max(8 per 25\u00d725-cell reference region, twice the configured surface mushroom-monster count). Eight shown; omit blocked seats. This is a proposed zone population, not measured surface density."
+      }
+    },
+    {
+      "id": "gemstone_cavern",
+      "name": "Gemstone Cavern",
+      "source": "grove",
+      "affinities": [
+        "rock",
+        "stony_ground"
+      ],
+      "layout": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
+      "interaction": "Mine mixed gemstone pockets under their existing deposit or ore-rock rules.",
+      "reward": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "encounterByDepth": {
+        "1": [
+          "cave_slime",
+          "bat"
+        ],
+        "2": [
+          "cave_slime",
+          "bat",
+          "spider"
+        ]
+      },
+      "depthPolicy": "Cave levels 1 and 2 only. Only show and yield gems with gemTier <= depth: D1 rose quartz, D2 rose quartz and amethyst. Higher tiers remain unavailable until their matching depth; finite budgets and mining rules still need runtime integration.",
+      "surfaceNexusKind": "grove",
+      "depths": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "mine_tunnels",
+      "name": "Mine Tunnels",
+      "source": "quarry",
+      "surfaceNexusKind": "quarry",
+      "depths": [
+        1,
+        2
+      ],
+      "layout": "Fit ore pockets around existing walkable cave routes and stairs within quarry coverage. House and md_road/lg_road footprints stay rock walls; eligible sm_road streets may connect deposits.",
+      "interaction": "Mine a simple ore-rich deposit using existing floor-tier ore and mining rules.",
+      "reward": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple, cache or surface quarry first-rock reward."
+    }
+  ],
+  "routeVariants": [
+    {
+      "id": "root_passage",
+      "source": "walking_path_or_sm_road",
+      "context": "spring or wooded park",
+      "mechanic": "sparse harvestable mushroom edges; uninterrupted central lane",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths_and_sm_roads",
+      "contextPolicy": "Theme affinity only; eligible paths and sm_road streets outside this context still receive an underground variant.",
+      "layout": "One-cell clear centre; follows actual path bends and junctions.",
+      "shrineChance": 0.5
+    },
+    {
+      "id": "seep_passage",
+      "source": "walking_path_or_sm_road",
+      "context": "spring or wet park",
+      "mechanic": "bank beside small impassable pools; always retain a dry connection",
+      "layout": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
+      "reward": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths_and_sm_roads",
+      "contextPolicy": "Theme affinity only; eligible paths and sm_road streets outside this context still receive an underground variant.",
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          12,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              7,
+              17
+            ],
+            "kind": "gelatinous_cube"
+          }
+        ],
+        "countPolicy": "One gelatinous cube per qualifying connected seep route and depth, not one per motif or tile segment. Place on reachable cave floor beside the channel."
+      },
+      "shrineChance": 0.5
+    },
+    {
+      "id": "miners_way",
+      "source": "walking_path_or_sm_road",
+      "context": "neutral or mineral",
+      "mechanic": "mineable side alcoves; rare existing supply cache allocation",
+      "layout": "Dress both cells on each side of the two-cell path: six cells across in total. Keep the path, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
+      "reward": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Gem pockets obey gemTier <= depth: D1 rose quartz, D2 rose quartz/amethyst; no shallow sapphire. Count finite finds once per canonical route and depth; carts use the existing container budget.",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths_and_sm_roads",
+      "contextPolicy": "Theme affinity only; eligible paths and sm_road streets outside this context still receive an underground variant.",
+      "shrineChance": 0.5
+    },
+    {
+      "id": "warren_run",
+      "source": "walking_path_or_sm_road",
+      "context": "goblin_warrens",
+      "mechanic": "stone-walled passage, open doorways to sentry and storage alcoves, optional traps with bypasses",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths_and_sm_roads",
+      "contextPolicy": "Theme affinity only; eligible paths and sm_road streets outside this context still receive an underground variant.",
+      "layout": "Two-cell central passage with stone-walled side alcoves and two-cell door openings.",
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          12,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              5,
+              4
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              6,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              5,
+              20
+            ],
+            "kind": "club_goblin"
+          }
+        ],
+        "countPolicy": "A three-goblin patrol in this passage example. Route-owned patrol budget, not a new group per repeated motif or tile fragment."
+      },
+      "shrineChance": 0.5
+    },
+    {
+      "id": "gemstone_path",
+      "name": "Gemstone Path",
+      "layout": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache per segment; roll one shrine at 50% per canonical route and depth.",
+      "reward": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "source": "walking_path_or_sm_road",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths_and_sm_roads",
+      "contextPolicy": "Theme affinity only; eligible paths and sm_road streets outside this context still receive an underground variant.",
+      "shrineChance": 0.5
+    },
+    {
+      "id": "sm_road_passage",
+      "source": "sm_road",
+      "context": "ordinary small street",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_sm_roads",
+      "layout": "Carve eligible sm_road footprints while reserving a connected through lane, stairs, junctions and reachable shrine seats.",
+      "mechanic": "Combined 10% eligible-floor coverage of inactive poison vents, charred-stakes-equivalent stalagmites and separate fall holes. Hidden snare-equivalent pits occupy separate optional trap seats.",
+      "shrineChance": 0.5,
+      "contextPolicy": "Street-specific default; other eligible path themes may also dress sm_road streets with the shared street scatter policy."
+    }
+  ],
+  "proposedTuning": {
+    "weights": "relative before existing soft affinity adjustments; proposal only",
+    "walkingLaneMinCells": 1,
+    "repeatMotifPreferredMaxCells": 6,
+    "repeatMotifHardMaxCells": 8,
+    "routeRewards": "budget per canonical connected route component and depth, never per tile or segment",
+    "nexusCacheMax": 1,
+    "pathLaneTargetCells": 2,
+    "pathThemeCoverage": 1,
+    "groveNexusWeightsByDepth": {
+      "1": {
+        "spring_cave": 35,
+        "goblin_warrens": 30,
+        "mushroom_cavern": 30,
+        "gemstone_cavern": 5
+      },
+      "2": {
+        "spring_cave": 20,
+        "goblin_warrens": 45,
+        "mushroom_cavern": 25,
+        "gemstone_cavern": 10
+      }
+    },
+    "quarryNexusVariant": "mine_tunnels",
+    "streetThemeCoverage": 1,
+    "streetHazardCoverage": 0.1,
+    "routeShrineChance": 0.5,
+    "ordinaryGemReplacementChanceD2": 0.08,
+    "gemSpawnBonusMultiplier": 2
+  },
+  "terrainContract": [
+    "Apply a path theme to every eligible path on cave levels 1 and 2 before generic cave dressing. Use existing cave-floor path geometry; eligible sm_road streets are explicitly selected and carved for these variants. Parks and nexus proximity influence theme choice only.",
+    "No carve through building or water provenance, md_road and lg_road bands (sm_road is the explicit shallow-depth carve exception), saved structures, or excluded access regions.",
+    "Keep a per-depth geology base separate from the projected design overlay, so a shallow corridor does not silently propagate deeper.",
+    "Plan original staircase identities from the existing unmodified geology. Preserve actual stairs and reserve clear approaches before adding zone pieces.",
+    "Connect a park chamber only to a route that intersects or reaches it through eligible park floor; no straight-line connection across unrelated obstructions.",
+    "Do not close existing reachable routes to force a warren maze. Use wall-adjacent rooms and removable obstacles outside the through lane.",
+    "At seams use canonical source geometry and world positions; ambiguous or missing geometry keeps ordinary cave generation.",
+    "Seep Passage intentionally replaces eligible underground route floor with WATER. Preserve dry bank connectivity and crossings before decorating; do not paint surface roads or inherited protected water/building provenance.",
+    "Only grove surface anchors may select spring cave, goblin warrens, mushroom cavern or gemstone cavern. Seep anchors do not select these variants; quarry anchors select Mine Tunnels.",
+    "Underground nexus areas have no temple buildings. Houses and md_road/lg_road remain CAVE_WALL, including inside nexus coverage; eligible sm_road streets are carved on depths 1 and 2. Standalone Ember and Toad shrines remain small cave interactables."
+  ],
+  "economy": [
+    "Anchor regions from surface geography, even when POI mirrors are pruned at an earlier depth.",
+    "Style at most one surviving mirror as the cache; retain its current chest-tier and depth rules in the first slice.",
+    "If no mirror survives, keep a spring or encounter landmark without minting a replacement chest.",
+    "Zone finds and containers replace ordinary cave resource seats. The newly requested dense goblin and mushroom encounters use explicit finite zone budgets; measure their additional combat loot before activation.",
+    "Path intersections confer connectivity, not extra rewards or extra daily ledgers.",
+    "Use existing picked/opened/caught/treasure persistence with stable depth-qualified IDs.",
+    "One shrine per qualifying nexus region and depth, using the existing daily shrine ledger and boon rules. The boon replaces its shrine treasure gift; tile fragments never duplicate it.",
+    "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
+    "Reuse quarry rock and depth-eligible gem appearances without importing surface quarry first-rock guarantees, buried finds or extra site rewards. Underground placements retain their declared rock/deposit rules and depth-qualified budgets.",
+    "Mine Tunnels is a simple finite ore-rich deposit per quarry anchor and depth. It creates no extra cache, shrine, temple or imported surface quarry first-rock guarantee.",
+    "Dedicated gemstone art is present for all seven catalogued gems; only depth-eligible gems appear in each preview. Deposits must pay their pictured gem; integrating non-sapphire deposit rows and new amethyst/topaz/rose-quartz items remains runtime work.",
+    "Ordinary D2 low-tier gems replace existing non-suppressed rock seats; proposed bonus areas increase selection chance, not rock density or reset frequency.",
+    "All walking-path and sm_road variants roll a shrine at 50% once per canonical route/depth, using existing boon and daily ledger rules.",
+    "Gemstone cavern/mine and path, including Miners\u2019 Way pockets, never render or yield gems above the current depth tier."
+  ],
+  "implementation": [
+    {
+      "step": 1,
+      "deliverable": "Preview source-kind mapping: grove anchors to the four grove variants, quarry anchors to Mine Tunnels, and no nexus mapping from seep. Independently theme all path geometry on cave levels 1 and 2."
+    },
+    {
+      "step": 2,
+      "deliverable": "Add nexus and path masks with separate depth scopes. Path themes cover every eligible path only on levels 1 and 2; include eligible sm_road streets; exclude md_road and lg_road. Preserve staircase topology and inherited geology."
+    },
+    {
+      "step": 3,
+      "deliverable": "Place mapped grove layouts and quarry ore deposits before generic rocks, mushrooms and enemies; preserve routes and keep house and md_road/lg_road walls intact."
+    },
+    {
+      "step": 4,
+      "deliverable": "Override local EnemyHabitats.caveAt context with zone context, intersect enemy roster depth rules and reallocate existing encounter budget."
+    },
+    {
+      "step": 5,
+      "deliverable": "Register only selected art frames, interactions and footprints; audit economy, reachability, persistence and frame-time cost."
+    },
+    {
+      "step": 6,
+      "deliverable": "Implement depth-filtered gems and non-suppressed D2 rock replacements; sm_road scatter and 50% route shrines; separate inert vents, stakes-equivalent stalagmites, story-driven fall holes and proximity-revealed snare-equivalent pits. These draft fields are not runtime registration."
+    }
+  ],
+  "checks": [
+    "Same source region and route across adjacent tiles and reversed load order.",
+    "Reload, player digging and surface restoration never reroll generated anchors.",
+    "Every active nexus and stair has a walkable approach; all required through routes remain connected.",
+    "No carves under excluded roads, buildings or water; no surface terrain change.",
+    "No duplicate finds, guards or caches at seams and junctions.",
+    "Depth 1 never uses deeper goblin roster entries; no empty habitat silently produces illegal enemies.",
+    "Compare capped chest totals and expected resource value against baseline cave seeds.",
+    "Check inspected art at game scale, transparent margins, frame rectangles, readable interactions and shared footprint reservation.",
+    "Every eligible path receives one theme on cave levels 1 and 2, including paths outside parks and away from nexus regions.",
+    "Underground path/street variants apply to walking paths and sm_road only on depths 1 and 2; exclude md_road, lg_road and depths 3+.",
+    "Only grove anchors select the four grove nexus variants; quarry anchors select Mine Tunnels and seep anchors select none of them.",
+    "No temple or house interiors appear underground; house and md_road/lg_road cells remain cave walls after nexus placement; eligible sm_road cells form streets.",
+    "Neither nexus variants nor path themes apply at cave levels 3 or deeper.",
+    "Dense goblin and mushroom counts are owned once per source region/depth; route goblin patrols and seep cubes do not multiply at seams.",
+    "Spring skeletons remain invisible and inactive beyond one cell, reveal at the one-cell boundary, remain revealed after retreat, and do not reappear after defeat/reload.",
+    "Named-zone skeleton, mushroom and cube exceptions do not change ambient cave enemy eligibility.",
+    "D1 gem previews and drops are quartz only; D2 uses only quartz/amethyst, including Miners\u2019 Way.",
+    "D2 ordinary gems never bypass suppression; beaches, commercial landcover and sm_road use the declared bonus without stacking.",
+    "Inactive vents emit no gas; stalagmites match charred-stakes mechanics. Combined vent/stalagmite/hole street coverage targets 10%, keeping safe routes.",
+    "Entering a hole shows exactly one falling panel, applies 25% maximum energy once, and safely descends exactly one floor, including D2 to D3. No valid deeper floor means no hole.",
+    "Hidden pits have no sprite before adjacency/entry; discovery persists and damage matches surface snares.",
+    "All existing paths and sm_road variants use one 50% shrine roll per canonical route/depth; no duplicate shrine at seams or junctions.",
+    "High-tier palette motif slots resolve to depth-eligible gems before rendering; no preview exposes locked gem tiers."
+  ],
+  "art": [
+    {
+      "id": "cave_pool",
+      "name": "Spring source",
+      "mechanic": "Refill a watering can through a proposed spring interaction. Keep the centre impassable and its bank reachable; no healing or fishing in the first slice.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/cave_pool.png",
+      "preview": "/underground-zones-design/art/cave_pool.png",
+      "status": "Preferred"
+    },
+    {
+      "id": "cave_shrooms",
+      "name": "Mushroom beds",
+      "mechanic": "Harvest existing cave mushrooms along chamber edges. Replace ordinary mushroom seats within the zone.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/cave_shrooms.png",
+      "preview": "/underground-zones-design/art/cave_shrooms.png",
+      "status": "Superseded in previews by shipping game art",
+      "previewNote": "Archived candidate only; current underground cards use the registered game mineral rock, cave mushroom or barrel sprites."
+    },
+    {
+      "id": "crystal_cluster",
+      "name": "Crystal seam",
+      "mechanic": "A finite mineable find using existing ore requirements and drops; one existing rock seat changes appearance. Colour must match its actual yield.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/crystal_cluster.png",
+      "preview": "/underground-zones-design/art/crystal_cluster.png",
+      "status": "Candidate"
+    },
+    {
+      "id": "rubble_pile",
+      "name": "Collapsed side room",
+      "mechanic": "Mine rubble to open an optional cache alcove. The main passage stays open; use existing mineral-rock removal.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_pile.png",
+      "preview": "/underground-zones-design/art/rubble_pile.png",
+      "status": "Superseded in previews by shipping game art",
+      "previewNote": "Archived candidate only; current underground cards use the registered game mineral rock, cave mushroom or barrel sprites."
+    },
+    {
+      "id": "barrel",
+      "name": "Warren stores",
+      "mechanic": "Breakable supply cache. Spend the zone\u2019s existing finite container budget; no repeated cache on every path segment.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/barrel.png",
+      "preview": "/underground-zones-design/art/barrel.png",
+      "status": "Superseded in previews by shipping game art",
+      "previewNote": "Archived candidate only; current underground cards use the registered game mineral rock, cave mushroom or barrel sprites."
+    },
+    {
+      "id": "stalagmite",
+      "name": "Stalagmites",
+      "mechanic": "Reuse charred-stakes mechanics with registered cave stalagmites art.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/stalagmite.png",
+      "preview": "/underground-zones-design/art/stalagmite.png",
+      "status": "Superseded by registered cave_props stalagmites",
+      "previewNote": "Current preview uses cave_props stalagmites; archived candidate is not used."
+    },
+    {
+      "id": "spike_trap",
+      "name": "Warren choke point",
+      "mechanic": "Reuse the trap system in an optional flank with a visible alternate route. Review animation frames and timing before importing.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/Fantasy City ver1.3/Animation/Spike_trap.png",
+      "preview": "/underground-zones-design/art/spike_trap.png",
+      "status": "Sheet review"
+    },
+    {
+      "id": "mine_mouth",
+      "name": "Timbered entrance",
+      "mechanic": "Possible staircase appearance. Sheet contains multiple entrances; choose and register one frame rather than placing the sheet.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/MiniWorldSprites/Buildings/Wood/CaveV2.png",
+      "preview": "/underground-zones-design/art/mine_mouth.png",
+      "status": "Sheet review"
+    },
+    {
+      "id": "bone_pile",
+      "name": "Bone pile",
+      "mechanic": "Hold until it has an explicit interaction and yield. It should not become decorative standing clutter.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/bone_pile.png",
+      "preview": "/underground-zones-design/art/bone_pile.png",
+      "status": "Hold"
+    },
+    {
+      "id": "underworld",
+      "name": "Zoria underworld sheet",
+      "mechanic": "Inspected: strongly limited palette and uncertain compatibility. Hold as reference; the accompanying readme describes unfinished underworld work.",
+      "source": "/home/claude/.artifacts/terracart-art/unused_art/Zoria Tileset/underworld.png",
+      "preview": "/underground-zones-design/art/underworld.png",
+      "status": "Hold"
+    }
+  ],
+  "openDecisions": [
+    "First slice proposes water refill only; healing springs would need a separate economy decision.",
+    "Levels 3+ retain ordinary caves; these nexus and path designs apply only at levels 1 and 2.",
+    "Point-only POI coverage needs a reviewed influence radius before activation."
+  ],
+  "previewMaterials": {
+    "cave_pool": {
+      "path": "docs/art/underground-proposals/cave_pool.png",
+      "color": "#53a6c6"
+    },
+    "crystal_cluster": {
+      "path": "docs/art/underground-proposals/crystal_cluster.png",
+      "color": "#a4dbe6"
+    },
+    "barrel": {
+      "gameMaterial": {
+        "kind": "barrel"
+      },
+      "color": "#b77d4c"
+    },
+    "game_mushroom": {
+      "gameMaterial": {
+        "kind": "wildplant",
+        "crop": "mushroom"
+      },
+      "color": "#bea480"
+    },
+    "charred_stakes": {
+      "gameMaterial": {
+        "kind": "stakes"
+      },
+      "color": "#706453"
+    },
+    "minecart": {
+      "gameMaterial": {
+        "kind": "zone_prop",
+        "spawnClass": "minor",
+        "color": "#aaa48e",
+        "_zoneObjectFrame": 61
+      },
+      "color": "#867860"
+    },
+    "floor_ore": {
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "yieldTier": 2
+      },
+      "color": "#b38458"
+    },
+    "gem_deposit": {
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "deposit": "crystal"
+      },
+      "color": "#87ccda",
+      "gemTier": 4
+    },
+    "rock": {
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "yieldTier": 1
+      },
+      "color": "#98968c"
+    },
+    "quarry_broken_rock": {
+      "quarryVariant": "quarry-abandoned",
+      "quarryMaterial": "stone",
+      "color": "#928b77"
+    },
+    "quarry_worked_rock": {
+      "quarryVariant": "quarry-strip-mine",
+      "quarryMaterial": "stone",
+      "color": "#aaa293"
+    },
+    "quarry_sapphire": {
+      "quarryVariant": "quarry-strip-mine",
+      "quarryMaterial": "crystal",
+      "color": "#8ccfe3",
+      "gemTier": 4
+    },
+    "ruby_deposit": {
+      "caveArt": "ruby_rock",
+      "color": "#c76475",
+      "proposedGemYield": "ruby",
+      "gemTier": 5
+    },
+    "emerald_deposit": {
+      "caveArt": "emerald_rock",
+      "color": "#67b67c",
+      "proposedGemYield": "emerald",
+      "gemTier": 6
+    },
+    "diamond_deposit": {
+      "caveArt": "diamond_rock",
+      "color": "#c4e5eb",
+      "proposedGemYield": "diamond",
+      "gemTier": 7
+    },
+    "amethyst_deposit": {
+      "caveArt": "amethyst_rock",
+      "color": "#b389d6",
+      "proposedGemYield": "amethyst",
+      "gemTier": 2
+    },
+    "topaz_deposit": {
+      "caveArt": "topaz_rock",
+      "color": "#dcae68",
+      "proposedGemYield": "topaz",
+      "gemTier": 3
+    },
+    "quartz_deposit": {
+      "caveArt": "quartz_rock",
+      "color": "#dda4c5",
+      "proposedGemYield": "quartz",
+      "gemTier": 1
+    },
+    "inactive_poison_vent": {
+      "path": "docs/art/underground-proposals/poison_vent_inactive.png",
+      "color": "#68785b",
+      "active": false
+    },
+    "stalagmites": {
+      "caveArt": "stalagmites",
+      "color": "#aaa18e",
+      "mechanic": "charred_stakes"
+    },
+    "ground_hole": {
+      "caveArt": "ground_hole",
+      "color": "#39342f",
+      "mechanic": "fall_one_floor"
+    },
+    "hidden_pit": {
+      "caveArt": "pit",
+      "color": "#756652",
+      "hidden": true,
+      "revealDistanceCells": 1,
+      "mechanic": "surface_snare"
+    }
+  },
+  "previewRows": [
+    {
+      "id": "spring_cave",
+      "kind": "nexus",
+      "name": "Underground Spring Cave",
+      "slots": [],
+      "atmosphere": "The spring rises at the centre of a pool. A clear bank circles the water, followed by a ring of cave mushrooms and an outer ring of mineable stone. Four openings connect the rings to the surrounding cave.",
+      "poi": "Central source supplies one surrounding pool. Refill from a reachable bank cell; any surviving mirrored cache sits on dry ground.",
+      "connection": "Concentric water, clear bank, mushroom ring and outer stone ring, with four radial approaches. No bridge across the pool is required.",
+      "monsters": "Six hidden, dormant Skeletons in dry pockets around the spring. They appear and wake only when you walk within one cell. Authored spring encounters on levels 1 and 2; no visible slime patrol.",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wet and wooded affinities.",
+      "layout": {
+        "type": "concentric_rings",
+        "extentCells": [
+          25,
+          25
+        ],
+        "poolRadiusCells": 3,
+        "sourceIslandRadiusCells": 0.65,
+        "rings": [
+          {
+            "radiusCells": 5,
+            "material": "game_mushroom"
+          },
+          {
+            "radiusCells": 8,
+            "material": "rock"
+          }
+        ],
+        "ringBandHalfWidthCells": 0.4,
+        "approachHalfWidthCells": 0.6,
+        "cacheOffset": [
+          4,
+          0
+        ]
+      },
+      "depths": [
+        1,
+        2
+      ],
+      "encounters": {
+        "placement": "spring_offsets",
+        "kind": "skeleton",
+        "seats": [
+          {
+            "at": [
+              -4,
+              -2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              4,
+              -2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              -4,
+              2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              -6,
+              0
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              0,
+              6
+            ],
+            "kind": "skeleton"
+          }
+        ],
+        "hidden": true,
+        "dormant": true,
+        "revealDistanceCells": 1,
+        "countPolicy": "Six fixed dormant skeleton seats in this reference spring; finite once per region and depth. Hidden seats are not extra ambient spawns.",
+        "activation": "Reveal and wake only when player distance is at most one cell (Euclidean world distance <= cellM). No movement, targeting, attack, visible body or health marker before proximity activation. Reveal remains latched; preserve defeated IDs and do not respawn on tile reload.",
+        "mechanicStatus": "Main pulled at f119a723. General hidden-until-proximity enemy mechanic is not present there; visible ghost proximityCells is not equivalent. Reuse the shared hidden/disguise mechanic when it lands, with revealDistanceCells=1 and no prop disguise, rather than adding a spring-specific AI path."
+      }
+    },
+    {
+      "id": "goblin_warrens",
+      "kind": "nexus",
+      "name": "Goblin Warrens",
+      "motifCells": [
+        6,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "rock"
+        }
+      ],
+      "atmosphere": "Small 3\u00d73 stores, narrow 3\u00d75 rooms and larger 5\u00d75 chambers form an enclosed network. Barrel stacks occupy room corners, leaving door approaches and the Ember shrine clear.",
+      "poi": "Ember altar inside a small inner room grants the existing fireball boon. One surviving mirrored cache stays inside the warren; shrine boon replaces the shrine gift.",
+      "connection": "Vary room width and depth independently across offset rows: 3\u00d73 to 5\u00d75 interiors, including narrow rectangles. Connect shared-wall doors into loops; reserve entrance, exit, stairs and shrine approaches before fitting corner stores.",
+      "monsters": "A populated goblin den: about one goblin per two rooms on level 1 (12 in this sample), rising to 16 on level 2. Club goblins on level 1; club and spear goblins on level 2. Spread groups among rooms instead of piling them at the shrine.",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. worked and built-edge affinities.",
+      "walls": {
+        "sheet": "stronghold_wall",
+        "manifest": "assets/Objects/Stronghold/manifest.json",
+        "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
+        "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
+      },
+      "layout": {
+        "type": "rooms",
+        "extentCells": [
+          25,
+          25
+        ],
+        "rooms": [
+          {
+            "bounds": [
+              0,
+              0,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                2
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              4,
+              0,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                4,
+                2
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                8,
+                4
+              ],
+              [
+                10,
+                2
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              10,
+              0,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                10,
+                2
+              ],
+              [
+                12,
+                0
+              ],
+              [
+                12,
+                4
+              ],
+              [
+                14,
+                2
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              14,
+              0,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                14,
+                2
+              ],
+              [
+                15,
+                4
+              ],
+              [
+                18,
+                4
+              ],
+              [
+                20,
+                2
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              0,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                20,
+                2
+              ],
+              [
+                22,
+                4
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              0,
+              4,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                2,
+                4
+              ],
+              [
+                2,
+                10
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                5,
+                10
+              ],
+              [
+                6,
+                7
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              6,
+              4,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                6,
+                7
+              ],
+              [
+                8,
+                4
+              ],
+              [
+                8,
+                10
+              ],
+              [
+                10,
+                7
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              10,
+              4,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                10,
+                7
+              ],
+              [
+                12,
+                4
+              ],
+              [
+                13,
+                10
+              ],
+              [
+                15,
+                4
+              ],
+              [
+                16,
+                7
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              16,
+              4,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                16,
+                7
+              ],
+              [
+                18,
+                4
+              ],
+              [
+                18,
+                10
+              ],
+              [
+                20,
+                7
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              4,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                20,
+                7
+              ],
+              [
+                22,
+                4
+              ],
+              [
+                22,
+                10
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              0,
+              10,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                2,
+                10
+              ],
+              [
+                2,
+                14
+              ],
+              [
+                4,
+                12
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              4,
+              10,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                4,
+                12
+              ],
+              [
+                5,
+                10
+              ],
+              [
+                5,
+                14
+              ],
+              [
+                8,
+                10
+              ],
+              [
+                8,
+                14
+              ],
+              [
+                10,
+                12
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              10,
+              10,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                10,
+                12
+              ],
+              [
+                11,
+                14
+              ],
+              [
+                13,
+                10
+              ],
+              [
+                14,
+                14
+              ],
+              [
+                16,
+                12
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              16,
+              10,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                16,
+                12
+              ],
+              [
+                18,
+                10
+              ],
+              [
+                18,
+                14
+              ],
+              [
+                20,
+                12
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              10,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                20,
+                12
+              ],
+              [
+                22,
+                10
+              ],
+              [
+                22,
+                14
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              0,
+              14,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                2,
+                14
+              ],
+              [
+                2,
+                20
+              ],
+              [
+                5,
+                14
+              ],
+              [
+                5,
+                20
+              ],
+              [
+                6,
+                17
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              6,
+              14,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                6,
+                17
+              ],
+              [
+                7,
+                20
+              ],
+              [
+                8,
+                14
+              ],
+              [
+                10,
+                20
+              ],
+              [
+                11,
+                14
+              ],
+              [
+                12,
+                17
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              12,
+              14,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                12,
+                17
+              ],
+              [
+                13,
+                20
+              ],
+              [
+                14,
+                14
+              ],
+              [
+                15,
+                20
+              ],
+              [
+                16,
+                17
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              16,
+              14,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                16,
+                17
+              ],
+              [
+                18,
+                14
+              ],
+              [
+                18,
+                20
+              ],
+              [
+                20,
+                17
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              14,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                20,
+                17
+              ],
+              [
+                22,
+                14
+              ],
+              [
+                22,
+                20
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              0,
+              20,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                2,
+                20
+              ],
+              [
+                4,
+                22
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              4,
+              20,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                4,
+                22
+              ],
+              [
+                5,
+                20
+              ],
+              [
+                7,
+                20
+              ],
+              [
+                8,
+                22
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              8,
+              20,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                8,
+                22
+              ],
+              [
+                10,
+                20
+              ],
+              [
+                12,
+                24
+              ],
+              [
+                13,
+                20
+              ],
+              [
+                14,
+                22
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              14,
+              20,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                14,
+                22
+              ],
+              [
+                15,
+                20
+              ],
+              [
+                18,
+                20
+              ],
+              [
+                20,
+                22
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              20,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                20,
+                22
+              ],
+              [
+                22,
+                20
+              ]
+            ]
+          }
+        ],
+        "enclosed": true,
+        "interiorSizeCells": {
+          "min": [
+            3,
+            3
+          ],
+          "max": [
+            5,
+            5
+          ]
+        },
+        "props": [
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              3
+            ],
+            "material": "rock"
+          },
+          {
+            "at": [
+              9,
+              3
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              13,
+              1
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              15,
+              1
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              21,
+              1
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              9
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              5
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              9,
+              5
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              11,
+              9
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              11,
+              5
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              17,
+              5
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              23,
+              9
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              3,
+              11
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              3,
+              13
+            ],
+            "material": "rock"
+          },
+          {
+            "at": [
+              9,
+              13
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              11,
+              11
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              19,
+              13
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              23,
+              11
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              19
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              15
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              7,
+              15
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              11,
+              19
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              15,
+              15
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              19,
+              15
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              21,
+              19
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              21
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              23
+            ],
+            "material": "rock"
+          },
+          {
+            "at": [
+              7,
+              23
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              9,
+              23
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              15,
+              23
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              21,
+              21
+            ],
+            "material": "barrel"
+          }
+        ]
+      },
+      "shrineKind": "ember_altar",
+      "encounterOffset": [
+        0,
+        1
+      ],
+      "depths": [
+        1,
+        2
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              2,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              12,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              22,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              8,
+              7
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              18,
+              7
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              2,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              13,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              22,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              9,
+              17
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              18,
+              17
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              2,
+              22
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              11,
+              22
+            ],
+            "kind": "club_goblin"
+          }
+        ],
+        "targetByDepth": {
+          "1": 12,
+          "2": 16
+        },
+        "countPolicy": "Representative 25-room warren: 12 goblins on level 1 and 16 on level 2. Scale by usable room count, capped once per region and depth; omit blocked seats."
+      }
+    },
+    {
+      "id": "mushroom_cavern",
+      "kind": "nexus",
+      "name": "Underground Mushroom Cavern",
+      "motifCells": [
+        6,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            5,
+            3
+          ],
+          "material": "game_mushroom"
+        }
+      ],
+      "shrineKind": "toad_idol",
+      "atmosphere": "Beds of the two underground mushroom varieties surround a clear Toad shrine court. Open lanes divide the beds and connect to cave paths; no surface mushroom caps appear here.",
+      "poi": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
+      "connection": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
+      "monsters": "Mushroom Monsters occupy the gaps between fungal beds: eight in this reference cavern, with a target of at least twice the surface mushroom-monster density for equal usable area. Both cave levels 1 and 2 use this authored encounter pool.",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wooded, shaded and damp affinities.",
+      "artNote": "Only the two caveFrames from the game mushroom registry; no surface mushroom or giant-mushroom sprites.",
+      "depths": [
+        1,
+        2
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              4,
+              7
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              8,
+              5
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              16,
+              6
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              20,
+              9
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              5,
+              17
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              9,
+              19
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              16,
+              19
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              20,
+              16
+            ],
+            "kind": "mushroom_monster"
+          }
+        ],
+        "surfaceReference": "mushroom_grove",
+        "surfaceDensityMultiplier": 2,
+        "minimumPerStandardRegion": 8,
+        "countPolicy": "At equal usable area, target max(8 per 25\u00d725-cell reference region, twice the configured surface mushroom-monster count). Eight shown; omit blocked seats. This is a proposed zone population, not measured surface density."
+      }
+    },
+    {
+      "poi": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
+      "artNote": "Seven gem frames are catalogued; preview selection is restricted to gemTier <= depth. D1 uses rose quartz; D2 uses rose quartz and amethyst. Higher-tier palette slots resolve to eligible gems before rendering.",
+      "id": "gemstone_cavern",
+      "kind": "nexus",
+      "name": "Gemstone Cavern",
+      "motifCells": [
+        8,
+        8
+      ],
+      "slots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "quarry_sapphire"
+        },
+        {
+          "at": [
+            2,
+            1
+          ],
+          "material": "ruby_deposit"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "quarry_broken_rock"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "emerald_deposit"
+        },
+        {
+          "at": [
+            6,
+            5
+          ],
+          "material": "diamond_deposit"
+        },
+        {
+          "at": [
+            5,
+            6
+          ],
+          "material": "quarry_worked_rock"
+        },
+        {
+          "at": [
+            4,
+            1
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            6,
+            2
+          ],
+          "material": "quartz_deposit"
+        }
+      ],
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock and stony-ground affinities.",
+      "atmosphere": "Depth-eligible gems gather among quarry stone around an open chamber: rose quartz on D1, rose quartz and amethyst on D2.",
+      "connection": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
+      "depthNote": "Cave levels 1 and 2 only. Only show and yield gems with gemTier <= depth: D1 rose quartz, D2 rose quartz and amethyst. Higher tiers remain unavailable until their matching depth; finite budgets and mining rules still need runtime integration.",
+      "depths": [
+        1,
+        2
+      ],
+      "maxGemTier": "depth"
+    },
+    {
+      "id": "mine_tunnels",
+      "kind": "nexus",
+      "name": "Mine Tunnels",
+      "surfaceNexusKind": "quarry",
+      "motifCells": [
+        6,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "quarry_broken_rock"
+        },
+        {
+          "at": [
+            4,
+            0
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            5,
+            1
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            1,
+            4
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "quarry_worked_rock"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "floor_ore"
+        }
+      ],
+      "showCache": false,
+      "centralReserveCells": 0,
+      "source": "Beneath surface quarry regions only, using their stable generated quarry anchor and original coverage.",
+      "atmosphere": "A simple ore-rich deposit cut by clear cave passages. Dense metal-ore pockets and quarry stone line the tunnels; there are no buildings or temple chambers.",
+      "poi": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple, cache or surface quarry first-rock reward.",
+      "connection": "Fit ore pockets around existing walkable cave routes and stairs within quarry coverage. House and md_road/lg_road footprints stay rock walls; eligible sm_road streets may connect deposits.",
+      "monsters": "Existing depth-legal cave encounters only; no additional authored guards.",
+      "artNote": "Game floor-tier ore plus the same broken and worked stone variants as the surface quarries. No new art required.",
+      "depths": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "root_passage",
+      "kind": "path",
+      "name": "Root Passage",
+      "motifCells": [
+        3,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            2,
+            4
+          ],
+          "material": "game_mushroom"
+        }
+      ],
+      "atmosphere": "Harvestable mushroom pockets frame an uninterrupted walking lane.",
+      "poi": "No extra nexus or cache per route segment.",
+      "connection": "One-cell clear centre; follows actual path bends and junctions.",
+      "monsters": "Level-1/2-legal spring family; reallocate existing ambient seats.",
+      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Wooded or spring surroundings favor this theme.",
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; md_road, lg_road and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ],
+      "shrineChance": 0.5,
+      "shrineKind": "wayfarer_post"
+    },
+    {
+      "id": "seep_passage",
+      "kind": "path",
+      "name": "Seep Passage",
+      "motifCells": [
+        6,
+        8
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            2,
+            3
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            0,
+            6
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            5,
+            2
+          ],
+          "material": "rock"
+        }
+      ],
+      "atmosphere": "A few rocks break the surface of the seep channel and lie along its edges, with occasional cave mushrooms. Dry banks follow both sides, and crossings stay clear.",
+      "poi": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
+      "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
+      "monsters": "One Gelatinous Cube haunts the waterway, moving along a dry bank and crossing. Authored zone encounter on cave levels 1 and 2; it does not spawn in impassable water.",
+      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Wet or spring surroundings favor this theme.",
+      "waterChannel": {
+        "widthCells": 2,
+        "crossingEveryCells": 12,
+        "crossingWidthCells": 2
+      },
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; md_road, lg_road and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          12,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              7,
+              17
+            ],
+            "kind": "gelatinous_cube"
+          }
+        ],
+        "countPolicy": "One gelatinous cube per qualifying connected seep route and depth, not one per motif or tile segment. Place on reachable cave floor beside the channel."
+      },
+      "shrineChance": 0.5,
+      "shrineKind": "wayfarer_post"
+    },
+    {
+      "id": "miners_way",
+      "kind": "path",
+      "name": "Miners\u2019 Way",
+      "motifCells": [
+        6,
+        8
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            0
+          ],
+          "material": "charred_stakes"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            0,
+            4
+          ],
+          "material": "quarry_broken_rock"
+        },
+        {
+          "at": [
+            1,
+            6
+          ],
+          "material": "minecart"
+        },
+        {
+          "at": [
+            5,
+            1
+          ],
+          "material": "quarry_worked_rock"
+        },
+        {
+          "at": [
+            4,
+            3
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "charred_stakes"
+        },
+        {
+          "at": [
+            4,
+            6
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            5,
+            7
+          ],
+          "material": "floor_ore"
+        }
+      ],
+      "atmosphere": "A clear two-cell mine path runs between two-cell-wide working verges. Floor-tier metal ore, broken quarry rock, worked stone and depth-eligible gemstone pockets fill the side space, with charred stakes and parked ore carts.",
+      "poi": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Gem pockets obey gemTier <= depth: D1 rose quartz, D2 rose quartz/amethyst; no shallow sapphire. Count finite finds once per canonical route and depth; carts use the existing container budget.",
+      "connection": "Dress both cells on each side of the two-cell path: six cells across in total. Keep the path, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
+      "monsters": "Level-1/2 cave family; no extra guard budget from route length.",
+      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Mineral surroundings favor this theme.",
+      "artNote": "Reuse quarry-abandoned stone, quarry-strip-mine stone directly from the game materialFrames table, with depth-eligible cave gem frames. Floor ore keeps its own tier art. The game handcart stands in for a dedicated minecart sprite.",
+      "vergeWidthCells": 2,
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; md_road, lg_road and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ],
+      "pathWidthCells": 2,
+      "shrineChance": 0.5,
+      "shrineKind": "wayfarer_post",
+      "maxGemTier": "depth"
+    },
+    {
+      "id": "warren_run",
+      "kind": "path",
+      "name": "Warren Run",
+      "motifCells": [
+        8,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "barrel"
+        },
+        {
+          "at": [
+            6,
+            4
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "rock"
+        }
+      ],
+      "atmosphere": "Stone walls line a two-cell passage. Open doorways lead into narrow sentry and storage alcoves; supplies and optional traps stay out of the through lane.",
+      "poi": "Containers spend the parent region / route finite budget.",
+      "connection": "Two-cell central passage with stone-walled side alcoves and two-cell door openings.",
+      "monsters": "Goblin patrols: three shown along the passage. Club goblins on level 1; club and spear goblins on level 2. Allocate patrols once per connected route and depth.",
+      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Goblin Warrens proximity favors this theme.",
+      "wallSlots": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          7,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          7,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          7,
+          5
+        ]
+      ],
+      "walls": {
+        "sheet": "stronghold_wall",
+        "manifest": "assets/Objects/Stronghold/manifest.json",
+        "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
+        "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
+      },
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; md_road, lg_road and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          12,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              5,
+              4
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              6,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              5,
+              20
+            ],
+            "kind": "club_goblin"
+          }
+        ],
+        "countPolicy": "A three-goblin patrol in this passage example. Route-owned patrol budget, not a new group per repeated motif or tile fragment."
+      },
+      "shrineChance": 0.5,
+      "shrineKind": "wayfarer_post"
+    },
+    {
+      "poi": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
+      "artNote": "Seven gem frames are catalogued; preview selection is restricted to gemTier <= depth. D1 uses rose quartz; D2 uses rose quartz and amethyst. Higher-tier palette slots resolve to eligible gems before rendering.",
+      "id": "gemstone_path",
+      "kind": "path",
+      "name": "Gemstone Path",
+      "motifCells": [
+        6,
+        8
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "quarry_sapphire"
+        },
+        {
+          "at": [
+            5,
+            4
+          ],
+          "material": "ruby_deposit"
+        },
+        {
+          "at": [
+            1,
+            6
+          ],
+          "material": "quarry_broken_rock"
+        },
+        {
+          "at": [
+            4,
+            2
+          ],
+          "material": "quarry_worked_rock"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "emerald_deposit"
+        },
+        {
+          "at": [
+            5,
+            0
+          ],
+          "material": "diamond_deposit"
+        },
+        {
+          "at": [
+            1,
+            3
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            4,
+            6
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            5,
+            7
+          ],
+          "material": "quartz_deposit"
+        }
+      ],
+      "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Stony surroundings favor this theme.",
+      "atmosphere": "Depth-eligible gemstone seams line the passage: rose quartz on D1; rose quartz and amethyst on D2, separated by broken and worked quarry stone.",
+      "connection": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache per segment; roll one shrine at 50% per canonical route and depth.",
+      "depthNote": "Cave levels 1 and 2 only. Only show and yield gems with gemTier <= depth: D1 rose quartz, D2 rose quartz and amethyst. Higher tiers remain unavailable until their matching depth; finite budgets and mining rules still need runtime integration.",
+      "depths": [
+        1,
+        2
+      ],
+      "shrineChance": 0.5,
+      "shrineKind": "wayfarer_post",
+      "maxGemTier": "depth"
+    },
+    {
+      "id": "sm_road_passage",
+      "kind": "path",
+      "name": "Underground Small Street",
+      "sourceTerrain": "sm_road",
+      "depths": [
+        1,
+        2
+      ],
+      "motifCells": [
+        8,
+        8
+      ],
+      "pathWidthCells": 2,
+      "vergeWidthCells": 3,
+      "slots": [
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "hidden_pit"
+        },
+        {
+          "at": [
+            6,
+            7
+          ],
+          "material": "rock"
+        }
+      ],
+      "scatterCoverage": 0.1,
+      "scatterMaterials": [
+        "inactive_poison_vent",
+        "stalagmites",
+        "ground_hole"
+      ],
+      "shrineChance": 0.5,
+      "shrineKind": "wayfarer_post",
+      "source": "Eligible sm_road footprints on cave levels 1 and 2; buildings and md_road/lg_road remain walls.",
+      "atmosphere": "Compact inactive vents, stalagmites and separate open holes together cover about 10% of eligible street floor. Hidden pits appear only beside or under the player.",
+      "poi": "50% chance of one route-owned shrine. Hole: falling story panel, 25% maximum-energy fall damage, then safe landing one floor below. Pit: surface-snare damage without descending.",
+      "connection": "Carve sm_road streets while preserving building/water exclusions, stairs, a clear through lane and hazard bypasses.",
+      "monsters": "Existing depth-legal cave encounter budget.",
+      "depthNote": "D1 and D2 street variants; a D2 hole may land on ordinary D3 cave floor.",
+      "artNote": "Registered ground_hole, stalagmites and pit frames; dedicated compact inactive vent proposal."
+    },
+    {
+      "id": "depth2_rock_scatter",
+      "kind": "nexus",
+      "name": "Level 2 Rock and Gem Scatter",
+      "depths": [
+        2
+      ],
+      "ordinaryScatter": true,
+      "maxGemTier": "depth",
+      "showCache": false,
+      "centralReserveCells": 0,
+      "motifCells": [
+        8,
+        8
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            3,
+            0
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            6,
+            2
+          ],
+          "material": "quartz_deposit"
+        },
+        {
+          "at": [
+            1,
+            4
+          ],
+          "material": "quarry_broken_rock"
+        },
+        {
+          "at": [
+            4,
+            3
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            7,
+            5
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            2,
+            7
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            5,
+            6
+          ],
+          "material": "rock"
+        }
+      ],
+      "source": "Ordinary non-suppressed D2 rock-scatter areas; beaches, commercial landcover and sm_road receive the proposed 2x gem spawn bonus.",
+      "atmosphere": "Sparse rose quartz and amethyst mix into existing ordinary rocks. Illustration emphasizes both eligible gems; actual replacement is 8% baseline and 16% in bonus areas.",
+      "poi": "Finite gems replace ordinary rock seats. Suppression, occupied cells, stairs and reserved routes still exclude placement.",
+      "connection": "Use ordinary reachable cave floor; this is a scatter example, not a new nexus chamber.",
+      "monsters": "Unchanged ordinary D2 cave population.",
+      "depthNote": "Level 2 only. Gem tiers 1 and 2; never topaz, sapphire, ruby, emerald or diamond here."
+    }
+  ],
+  "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews.",
+  "encounterPolicy": {
+    "scope": "Authored underground zone encounters on levels 1 and 2 only. Skeletons and gelatinous cubes ordinarily start at level 3, while Mushroom Monster has no ambient cave pool; explicitly permit them in these named zones without changing global ambient depth rules.",
+    "population": "Warrens and mushroom caverns intentionally have denser authored populations than ordinary cave dressing. Region and route ownership prevents duplication across fragments.",
+    "hiddenMechanic": "Reuse the shared hidden enemy state when available on main. Dormancy must also suppress rendering and targeting, not just movement."
+  },
+  "gemDepthPolicy": {
+    "maxGemTier": "depth",
+    "appliesTo": [
+      "gemstone_cavern",
+      "gemstone_path",
+      "miners_way",
+      "depth2_rock_scatter"
+    ],
+    "tiers": {
+      "quartz": 1,
+      "amethyst": 2,
+      "topaz": 3,
+      "sapphire": 4,
+      "ruby": 5,
+      "emerald": 6,
+      "diamond": 7
+    },
+    "status": "Quartz/amethyst/topaz tier assignments are proposed defaults; sapphire through diamond retain existing tiers.",
+    "selection": "Filter before weighted selection or rendering; reward matches visible gem. No reroll can select a gem above depth. D1 quartz only; D2 quartz/amethyst. This rule does not activate authored variants on depths 3+."
+  },
+  "ordinaryGemScatter": {
+    "depths": [
+      2
+    ],
+    "replacementChance": 0.08,
+    "eligibleGems": [
+      "quartz",
+      "amethyst"
+    ],
+    "gemWeights": {
+      "quartz": 3,
+      "amethyst": 1
+    },
+    "spawnBonus": {
+      "beach": 2,
+      "commercial": 2,
+      "sm_road": 2
+    },
+    "bonusCombination": "Use highest matching multiplier, not their product; proposal defaults give 8% ordinary and 16% bonus gem replacement per eligible rock seat.",
+    "eligibility": "Only non-suppressed ordinary rock-scatter seats. Never repopulate authored-zone suppression masks, protected terrain, stairs, reserved approaches, occupied cells or required through lanes.",
+    "ownership": "Replace an existing rock seat with a finite, stable depth-qualified gem seat; derive choice from world seed and canonical cell, not load order."
+  },
+  "undergroundHazards": {
+    "depths": [
+      1,
+      2
+    ],
+    "terrain": [
+      "sm_road"
+    ],
+    "combinedCoverage": 0.1,
+    "coverageDenominator": "Eligible non-reserved street floor cells, measured once per canonical route and depth; combined total, not 10% for each object.",
+    "weights": {
+      "inactive_poison_vent": 1,
+      "stalagmites": 1,
+      "ground_hole": 1
+    },
+    "placement": "Deterministic world-cell scatter in eligible street areas. Reserve dry through lanes, junctions, stairs, shrine approaches and safe bypasses first; omit blocked seats rather than filling protected cells.",
+    "inactive_poison_vent": {
+      "active": false,
+      "mechanic": "Inert vent: no poison emission, damage or automatic activation. Use dedicated compact vent art; ground_hole remains a separate object."
+    },
+    "stalagmites": {
+      "mechanic": "Reuse charred-stakes collision, contact damage, cooldown and removal mechanics; only the appearance changes."
+    },
+    "ground_hole": {
+      "hidden": false,
+      "trigger": "Player enters the hole cell, including accidental/backward movement. Latch one transition before showing the panel.",
+      "storyPanel": {
+        "title": "The ground gives way",
+        "body": "Your footing slips at the edge of a dark opening. You tumble through the cave floor and land hard in the chamber below."
+      },
+      "sequence": [
+        "Show falling story panel and pause movement",
+        "On acknowledgement apply 25% of maximum player energy as fall damage using existing damage/depletion handling",
+        "Place player on a safe reachable landing one floor deeper"
+      ],
+      "fallDamageFraction": 0.25,
+      "fallDamageBasis": "maximum_energy",
+      "destinationDepthOffset": 1,
+      "landing": "Resolve a valid floor below before placing the hole. Use a non-hazard, non-wall landing near the corresponding world position; prevent immediate retrigger until the player leaves the destination. Omit holes when no lower floor exists."
+    },
+    "hidden_pit": {
+      "hidden": true,
+      "revealDistanceCells": 1,
+      "reveal": "Reveal when adjacent to or on the pit, latch visibility and persist discovery. Hidden pits have no visible sprite or marker.",
+      "damage": "Reuse surface snare damage, trigger timing and persistence exactly; do not invent a separate damage amount.",
+      "descends": false,
+      "allocation": "Separate optional hidden cave-trap seats; not part of the three-object 10% street dressing quota."
+    }
+  },
+  "routeShrinePolicy": {
+    "chance": 0.5,
+    "scope": "All walking-path and sm_road underground variants, including every existing path theme, on depths 1 and 2.",
+    "ownership": "One deterministic roll and at most one shrine per canonical connected route and depth; never per motif, tile fragment or intersection.",
+    "mechanic": "Reuse existing shrine kinds, boons and daily ledger. Omit if no reachable reserved side seat exists; prevent duplicates with nexus-owned shrine seats."
+  }
+}
