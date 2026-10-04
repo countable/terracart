@@ -207,14 +207,14 @@
       flora: [fix('longgrass', 0.007, 0.013, S.LONGGRASS),
               fix('flowers', 0.007, 0.015, S.FORGETMENOT)],
     },
-    [T.PITCH]: { flora: [fix('longgrass', 0.003, 0.007, S.LONGGRASS)] },
+    [T.PITCH]: { staticObjects: { noRocks: true }, flora: [fix('longgrass', 0.003, 0.007, S.LONGGRASS)] },
     [T.WETLAND]: { staticObjects: { noRocks: true }, blockedFlora: ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower'],
       flora: [fix('longgrass', 0.15, 0.21, S.WET_LG),
               fix('shrub', 0.035, 0.070, S.WET_SHRUB),
               fix('mushroom', 0.055, 0.105, S.WET_MUSH)],
     },
     [T.GOLF]: { flora: [] },
-    [T.ORCHARD]: { staticObjects: { fruitTreeSpacingM: 15.2 }, blockedFlora: ['marigold'],
+    [T.ORCHARD]: { staticObjects: { fruitTreeSpacingM: 15.2, noRocks: true }, blockedFlora: ['marigold'],
       flora: [fix('longgrass', 0.019, 0.030, S.ORCH_LG)],
     },
   };
@@ -480,7 +480,7 @@
     dog:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT], fallback: ALL_NATURAL },
     deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.RESIDENTIAL], fallback: [T.FOREST, T.RESIDENTIAL], only: [T.FOREST, T.RESIDENTIAL] },
     crow:      { base: 200, range: 0, share: 1.00, primary: [T.PARK], fallback: [T.PARK], only: [T.PARK] },
-    butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.ORCHARD, T.GOLF], fallback: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.ORCHARD, T.GOLF, T.SCHOOL, T.PLAYGROUND], excluded: [T.FOREST] },
+    butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.GOLF], fallback: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.GOLF, T.SCHOOL, T.PLAYGROUND], excluded: [T.FOREST, T.ORCHARD] },
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
     storm_gull: { only: [] }, // Retired guard bird; keep its art/roster available for authored previews.
     // Surface corvid identities are exclusive to their named ground.

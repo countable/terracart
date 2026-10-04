@@ -3555,10 +3555,10 @@
     return runSteps(commercialPoiFieldSteps(layers, w, mvtToCell, mvtToM, grid));
   }
   // ORCHARDS: only the EDGE hosts — a cell within
-  // FARM_EDGE_CELLS (Chebyshev) of any other ground carries no reason at all
+  // FARM_EDGE_CELLS (Chebyshev) of the source field footprint boundary is open
   // (every class may spawn there, same as any other open ground, since the
   // typed FARM reason was dropped Sep 2026); deeper in is the hard
-  // FARM_INTERIOR reason. Draws and foes never stand on a field at all.
+  // FARM_INTERIOR reason. Later road / POI paint cannot create internal edges.
   const FARM_TYPES = new Set([T.FARMLAND, T.ORCHARD]);
   // Which `park`-layer polygons supply park ground, coverage and house-rule
   // eligibility. The layer also carries protected_area, historic and
@@ -3668,7 +3668,7 @@
     for (const L of layers || []) if (L && L.name) byName[L.name] = L;
     const feats = (n) => (byName[n] && byName[n].features) || [];
     const churchM = churchyardBufferM();
-    const M = Math.ceil(Math.max(SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M);
+    const M = Math.max(FARM_EDGE_CELLS, Math.ceil(Math.max(SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M));
     const E = w + 2 * M, EE = E * E;
     const extOf = (p) => {
       const x = Math.floor(p.x * mvtToCell) + M, y = Math.floor(p.y * mvtToCell) + M;
@@ -3683,6 +3683,9 @@
     // Per-cell land reasons stamped straight off a polygon (RESTRICTED,
     // KINDERGARTEN).
     const land = new Uint16Array(NN);
+    // Preserve field geometry beyond the tile edge: paint and tile seams do
+    // not create public orchard frontage. Adjacent fields share one footprint.
+    const fieldSource = new Uint8Array(EE);
     // ── Landuse polygons: cemetery (sensitive land), restricted land,
     // kindergarten grounds.
     let k = 0;
@@ -3713,6 +3716,11 @@
     for (const name of ['landcover', 'landuse']) for (const f of feats(name)) {
       if (f.type !== 3 || !f.geom || !f.tags) continue;
       const terrain = classifyPolygon(name, f.tags);
+      if (FARM_TYPES.has(terrain)) {
+        yield* forEachPolygonCellSteps(E, E, f.geom, mvtToCell, (x, y) => {
+          fieldSource[y * E + x] = 1;
+        }, M);
+      }
       const why = terrain === T.FARMLAND ? W_.FARMLAND : terrain === T.GOLF ? W_.GOLF : 0;
       if (!why) continue;
       yield 'spawn gate private grounds';
@@ -3858,33 +3866,34 @@
       }
       return false;
     };
-    // ── FIELDS: an orchard / farmland cell is an EDGE when any other ground
-    // lies within FARM_EDGE_CELLS (Chebyshev, the frontage's separable
-    // window), else its INTERIOR.
+    // ── FIELDS: only the outer band of the source footprint is open.
+    // Keep a final-terrain fallback for synthetic field cells, but never let
+    // roads, POI pads or later nexus paint punch new edges through an orchard.
     const FE = FARM_EDGE_CELLS;
-    const notFarm = (i) => !FARM_TYPES.has(grid[i]);
-    const farmRow = new Uint8Array(NN), farmEdge = new Uint8Array(NN);
-    for (let y = 0; y < h; y++) {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (FARM_TYPES.has(grid[y * w + x])) fieldSource[(y + M) * E + x + M] = 1;
+    }
+    const farmRow = new Uint8Array(EE), farmEdge = new Uint8Array(NN);
+    for (let y = 0; y < E; y++) {
       if ((y & 31) === 31) yield 'spawn gate field rows';
-      const row = y * w;
+      const row = y * E;
       let run = 0;
-      for (let x = 0; x < Math.min(FE, w); x++) if (notFarm(row + x)) run++;
-      for (let x = 0; x < w; x++) {
+      for (let x = 0; x < Math.min(FE, E); x++) if (!fieldSource[row + x]) run++;
+      for (let x = 0; x < E; x++) {
         const add = x + FE, drop = x - FE - 1;
-        if (add < w && notFarm(row + add)) run++;
-        if (drop >= 0 && notFarm(row + drop)) run--;
+        if (add < E && !fieldSource[row + add]) run++;
+        if (drop >= 0 && !fieldSource[row + drop]) run--;
         farmRow[row + x] = run > 0 ? 1 : 0;
       }
     }
     for (let x = 0; x < w; x++) {
       if ((x & 31) === 31) yield 'spawn gate field cols';
       let run = 0;
-      for (let y = 0; y < Math.min(FE, h); y++) run += farmRow[y * w + x];
+      for (let y = M - FE; y < M + FE; y++) run += farmRow[y * E + x + M];
       for (let y = 0; y < h; y++) {
-        const add = y + FE, drop = y - FE - 1;
-        if (add < h) run += farmRow[add * w + x];
-        if (drop >= 0) run -= farmRow[drop * w + x];
+        run += farmRow[(y + M + FE) * E + x + M];
         farmEdge[y * w + x] = run > 0 ? 1 : 0;
+        run -= farmRow[(y + M - FE) * E + x + M];
       }
     }
     // ── COMMERCIAL GROUND's nearest-POI field (null: none on this tile).
@@ -3916,7 +3925,7 @@
         if (t === T.FARMLAND) v |= W_.FARMLAND;
         if (t === T.GOLF) v |= W_.GOLF;
         if (t === T.PIER && !publicPier[i]) v |= W_.PIER_ACCESS;
-        if (FARM_TYPES.has(t) && !farmEdge[i]) v |= W_.FARM_INTERIOR;
+        if (fieldSource[(y + M) * E + x + M] && !farmEdge[i]) v |= W_.FARM_INTERIOR;
         const e = (y + M) * E + (x + M);
         if (roadClass && (roadClass[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_MAJOR_BAND))) v |= W_.KERB;
         if (sensD[e] <= sensR || churchD[e] <= churchR) v |= W_.SENSITIVE;
