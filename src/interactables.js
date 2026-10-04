@@ -541,17 +541,10 @@ const INTERACTABLES = {
         scene.presentMarketStandOffer(sx, sy, stand);
         return true;
       }
-      // MACRO STALLS (loot.js macroFor — an inn, chapel, apothecary, …): a
-      // place you come back to, never a chest. A tap is a VISIT, so a Scouting
-      // report aimed at its class (QUEST_POIS: library, museum,
-      // place_of_worship) is credited here, on every tap — a macro never opens. Every kind but
-      // the chapel is a dialog (app.js presentMacro); the chapel pays through
-      // THIS ceremony below, once a UTC day (the macro-service lane,
-      // Macros.serviceUsedToday) and a tier humbler (Macros.chapelRollTier), and
-      // never touches save.opened.
+      // Macro venues reopen their own services. Chapels use the daily reward
+      // ceremony below; the other venues present their own dialog.
       const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
       if (macro) {
-        if (typeof Quests !== 'undefined' && o.poiClass && Quests.onPoiVisit(save, o.poiClass)) ctx.dirty = true;
         if (macro.kind !== 'chapel') {
           if (typeof scene.presentMacro === 'function') scene.presentMacro(sx, sy, o, macro);
           return true;
@@ -602,36 +595,14 @@ const INTERACTABLES = {
       // matter which branch (item / relic / gold / partial take) claimed it.
       // A recurring row spends into its ledger lane (Macros.markUsed), never
       // save.opened. The chapel is no chest for the 'chest' quest (its visit
-      // was credited above); a crate is still a chest for both quest credits
-      // below — once per crate per UTC day, because the gate above refuses a
-      // second open the same day.
+      // has its own daily reward). Chest openings still advance the starter tutorial.
       const markOpened = () => {
         if (row) Macros.markUsed(save, row, o);
         else save.opened.push(o.id);
         if (chapel) return;
         if (typeof DungeonProgression !== 'undefined' && Inventory.count(save, 'portal_stone') > 0) DungeonProgression.state(save).portalStoneFound = true;
         scene.questEvent?.('chest');
-        // BUG (Scouting report / QUEST_POIS): Quests.onPoiVisit is the only
-        // thing that can credit a 'poi' quest, and its ONLY call site used to
-        // be the well interactable below, hardcoded to the literal 'well'.
-        // Six of QUEST_POIS's seven targets (fountain/library/museum/park/
-        // place_of_worship/playground) never reach a well object — they land
-        // on the world as plain kind:'chest' objects carrying that class as
-        // o.poiClass (worldgen.js's POI 'USEFUL' set + loot.js POI_CATEGORY /
-        // chestTier), so those quest slots sat on the board permanently
-        // uncompletable (~1 in 20 generated slots, given the 'poi' template's
-        // weight). Crediting from every chest open — not just from well — is
-        // the fix: onEvent() only advances a poi-quest slot when its target
-        // matches o.poiClass, so this is a no-op on every chest that isn't
-        // the one a live quest is scouting for, and it can't double-credit
-        // the 'chest' quest above (different `event` string, separate loop).
-        // Firing it INSIDE markOpened (not the coin-burst / market-stand
-        // shortcuts above, and not the "Picked clean already" / "leave for
-        // later" paths that return before this runs) means a chest can only
-        // ever award this once — exactly the same guarantee save.opened
-        // already gives the 'chest' quest (a daily crate: once per UTC day,
-        // the day ledger's guarantee).
-        if (typeof Quests !== 'undefined' && o.poiClass) Quests.onPoiVisit(save, o.poiClass);
+
       };
       // A chest previously left-for-later has its exact loot saved in chestHold;
       // reopening replays that same roll. Fresh opens go through pickReward
@@ -765,14 +736,6 @@ const INTERACTABLES = {
   well: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      if (typeof Quests !== 'undefined') {
-        const done = Quests.onPoiVisit(save, 'well');
-        if (done) {
-          ctx.dirty = true;
-          scene.flashAtWorld('Quest done — see the castle.', o.x, o.y);
-          return true;
-        }
-      }
       scene.flash('Cool, clear water.', sx, sy);
       return true;
     },

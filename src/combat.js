@@ -654,6 +654,15 @@
     return landStatus(c, 'frozen', Conditions.DEFINITIONS.frozen.durationMs, now);
   }
 
+  // Shared by iceflowers and the frost tome. The caller supplies the player
+  // only when that source can chill them; the source itself is always spared.
+  function applyFrostAura(source, creatures, cellM, spec, now = Date.now(), save, player) {
+    const radius = auraRadiusCells(spec) * cellM;
+    const within = c => c !== source && Math.hypot(c.x - source.x, c.y - source.y) <= radius;
+    for (const c of creatures) if (within(c)) applyAuraFrost(c, now);
+    if (save && player && within(player)) Conditions.apply(save, 'frozen', now);
+  }
+
   // ── YOURS, not the world's ───────────────────────────────────────────────
   // A TAME creature: one the player released (save.released — pickUpPet /
   // release mint its id with TAME_ID_PREFIX). THE one test; a tame slime is
@@ -1590,7 +1599,7 @@
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
-    isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, cancelCreatureAction,
+    isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, applyFrostAura, cancelCreatureAction,
     TAME_ID_PREFIX, isTame, isAlly,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction,
     ENVIRONMENT_SOURCES, isEnvironmentSource,

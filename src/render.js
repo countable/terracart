@@ -745,12 +745,12 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
 };
 
 // Ground discs share their reach with gameplay, regardless of the source's
-// sprite size. Tint lets frost reuse the existing soft Blight aura texture.
+// sprite size. The baked circle marks the boundary of each source's effect.
 Render.renderAuras = function renderAuras(scene, pool, list, project) {
   Render.renderPool(scene, pool, scene.auraContainer, list, (s, item) => {
     const { x, y } = project(item.dx, item.dy);
-    const diameter = 2 * item.aura.radiusCells * CELL_PX;
-    setTextureIfDifferent(s, 'aura_blight');
+    const diameter = 2 * auraRadiusCells(item.aura) * CELL_PX;
+    setTextureIfDifferent(s, item.aura.texture || 'aura_blight');
     s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
       .setPosition(x, y).setAlpha(0.9);
     if (item.aura.tint != null) s.setTintFill(item.aura.tint);
@@ -4298,6 +4298,14 @@ Render.drawObjects = function drawObjects(scene) {
       if (aura) plantAuras.push({ ...item, aura });
     }
     Render.renderAuras(scene, scene.plantAuraPool, plantAuras, project);
+    scene.playerAuraPool ||= [];
+    const playerAuras = [];
+    if (Buffs.until('frostAura', scene.save, scene) > Date.now()) {
+      const player = playerWorldM(scene);
+      playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
+        aura: CONSUMABLE_SPEC.tome_frost_aura.aura });
+    }
+    Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays

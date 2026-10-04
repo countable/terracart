@@ -286,9 +286,9 @@ const NPC = (() => {
   function warden(id) { return storyNeighbour(id, 'warden'); }
   function memoriesOf(save) { return MemoryStory.total(save); }
   // "One roof stands" / "3 roofs stand": a counted noun and its verb, the
-  // noun through the quest board's plural (quests.js _plural).
+  // roof/lamp nouns in the local dialogue.
   function countOf(n, noun, verb) {
-    return `${n === 1 ? 'One' : n} ${_plural(noun, n)} ${n === 1 ? verb + 's' : verb}`;
+    return `${n === 1 ? 'One' : n} ${n === 1 ? noun : noun + 's'} ${n === 1 ? verb + 's' : verb}`;
   }
   function storyNeighbourDue(save, role) {
     return memoriesOf(save) >= (STORY_ROLES[role]?.minMemories ?? 0);

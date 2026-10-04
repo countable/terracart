@@ -44,7 +44,12 @@
       found.add(first.id);
     }
     assert.eq(found.size, 4);
-    assert.eq(CastleStyles.get('bastion').guards, false);
+    for (const id of ['bastion', 'ruin', 'archive']) assert.eq(CastleStyles.get(id).guards, false);
+    assert.eq(CastleStyles.get('citadel').guards, true);
+    assert.eq(CastleStyles.get('citadel').questType, null);
+    assert.eq(CastleStyles.get('bastion').questType, 'kill');
+    assert.eq(CastleStyles.get('ruin').questType, 'hunt');
+    assert.eq(CastleStyles.get('archive').questType, 'deliver');
     assert.eq(CastleStyles.get('citadel').name, 'Citadel');
     assert.eq(CastleStyles.ids.includes('mended'), false);
   });

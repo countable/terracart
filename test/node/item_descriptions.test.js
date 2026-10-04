@@ -42,7 +42,7 @@ test('consumables: one action row names every button method', () => {
     'thunder_scroll', 'blight_potion', 'revival_potion',
     'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
     'frost_powder', 'torch', 'sapphire', 'rope', 'throwing_spear', 'javelin', 'rubble', 'forgetmenot', 'wildrose', 'horse', 'shiny_horse',
-    'tome_reach', 'tome_raven', 'tome_thunder', 'tome_speed', 'tome_shielding', 'tome_healing', 'tome_blight', 'tome_fire_wall',
+    'tome_reach', 'tome_raven', 'tome_thunder', 'tome_speed', 'tome_shielding', 'tome_healing', 'tome_blight', 'tome_fire_wall', 'tome_frost_aura',
     'fireball_scroll', 'explosive_flask', 'fear_scroll', 'treasure_map', 'sleep_powder', 'psychosis_powder', 'hardworking_potion', 'poison_flask',
   ];
   const actionIds = Object.keys(CONSUMABLE_SPEC).filter(id => CONSUMABLE_SPEC[id].verb);

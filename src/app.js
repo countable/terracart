@@ -942,7 +942,7 @@ const THUNDER_FLASH_MS = 350;
 // purpose — it is a smooth circle, not the per-cell reach staircase — and the
 // baked 'aura_blight' texture is drawn exactly that wide, so the edge the
 // player sees is the edge that bites.
-const BLIGHT_R_CELLS = CONSUMABLE_SPEC.blight_potion.radiusCells;
+const BLIGHT_R_CELLS = auraRadiusCells(CONSUMABLE_SPEC.blight_potion);
 const BLIGHT_DPS = CONSUMABLE_SPEC.blight_potion.damagePerSecond;
 // SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
 // line that quotes it.
@@ -1008,13 +1008,14 @@ const MARKERS = [
 const KILL_LEDGERS = [
   (s, v, source) => StoryEncounters.defeated(s, v, source),
   (s, v, source) => DragonStory.defeated(s, v, source),
-  // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
+  // The kind as-is: each enemy or game animal is its own quest target,
   // never credit toward its base kind's. A turret's kill is not the player's job done.
   (s, v, source) => {
     if (typeof Quests === 'undefined' || !Macros.slainByPlayer(s.save, v.id, source)) return;
-    if (Quests.onKill(s.save, v.kind)) s.flashAtPlayer('Quest done — see the castle.');
+    if (Quests.onKill(s.save, v.kind)) s.flashAtPlayer('Castle quest progress.');
   },
   (s, v) => { if (v.bounty) s._guildBountyDefeat(v); },
+  (s, v) => { if (v.lair) s._checkCitadelClaims?.(); },
 ];
 // The day-ledger ids (Macros.markToday / usedToday) of the guild bounty out
 // today and the dusk safety card — a UTC day each, in the one ledger.
@@ -1028,6 +1029,17 @@ function paintRadialDisc(ctx, S, stops) {
   for (const [at, rgba] of stops) grad.addColorStop(at, rgba);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, S, S);
+}
+// Bake the boundary with the fill so every aura marks its exact reach,
+// including Canvas rendering where sprite tint is unavailable.
+function paintAuraDisc(ctx, S, color) {
+  const rgb = `${(color >> 16) & 255}, ${(color >> 8) & 255}, ${color & 255}`;
+  paintRadialDisc(ctx, S, [[0, `rgba(${rgb}, 0.12)`], [0.8, `rgba(${rgb}, 0.3)`], [1, `rgba(${rgb}, 0)`]]);
+  ctx.strokeStyle = `rgba(${rgb}, 0.85)`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(S / 2, S / 2, S / 2 - ctx.lineWidth / 2, 0, Math.PI * 2);
+  ctx.stroke();
 }
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
@@ -3356,6 +3368,7 @@ class MapScene extends Phaser.Scene {
           playerM: playerWorldM(this),
           homeM: lairHome,
           isClaimed: (key) => this.isClaimedKey(key),
+          onCitadelCleared: (key) => this._claimCitadel(key),
           caughtSet: setOf(this.save.caught),
           hpMemo: this._lairHp,
           // A gate's guard re-rises each UTC day (lairs.js DAILY_TIERS).
@@ -3373,6 +3386,7 @@ class MapScene extends Phaser.Scene {
     Crops.tickEffects(this);
     this._combatTick(dt);
     this._tickBlightAura();
+    this._tickFrostAura();
     Companions.tickAll(this);
     tickGroundCoins(this);
     this._tickArena(dt);
@@ -8629,7 +8643,7 @@ class MapScene extends Phaser.Scene {
   // True iff `house` is a castle still sealed — see Houses.isBuildingSealed.
   _isBuildingSealed(house) { return Houses.isBuildingSealed(this.save, house); }
 
-  // The sealed castle gate — now delegates to the quest board.
+  // The sealed castle gate offers its permanent quest or names its guards.
   presentSealedBuildingModal(sx, sy, house) {
     this.showQuestBoard(sx, sy, house);
   }

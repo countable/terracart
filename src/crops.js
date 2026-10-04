@@ -111,7 +111,7 @@
   const EFFECT_SCAN_MS = 250;
   const EFFECTS = Object.freeze({
     fireflower: Object.freeze({ rangeCells: 4, intervalMs: 3000, projectile: 'fireball_scroll' }),
-    iceflower: Object.freeze({ aura: Object.freeze({ radiusCells: 1.5, tint: FROZEN_TINT }) }),
+    iceflower: Object.freeze({ aura: Object.freeze({ texture: 'aura_frost' }) }),
   });
   function effectFor(p) {
     return p && (p.kind === 'wildplant' || p.wildId || isMature(p)) ? EFFECTS[p.crop] || null : null;
@@ -123,10 +123,7 @@
     const row = effectFor(p);
     if (!row) return null;
     if (row.aura) {
-      const r = row.aura.radiusCells * cellM;
-      const within = c => Math.hypot(c.x - p.x, c.y - p.y) <= r;
-      for (const c of creatures) if (within(c)) Combat.applyAuraFrost(c, now);
-      if (player && within(player)) Conditions.apply(save, 'frozen', now);
+      Combat.applyFrostAura(p, creatures, cellM, row.aura, now, save, player);
       return null;
     }
     if ((nextFire.get(p) || 0) > now) return null;

@@ -461,23 +461,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return (house && house.castle) || null;
   }
 
-  // True iff `house` is a castle still sealed: a castle opens by solving the
-  // job on ITS quest board and nothing else. (Until Sep 2026 a lifetime
-  // delivery tally of 2..5 also unsealed it, left behind when the quest board
-  // replaced that gate — so five deliveries opened every castle in the world
-  // and the board was skipped. Reaching a delivery count is a quest VERB now,
-  // quests.js 'deliver', never a gate of its own.)
+  // Quest castles open on their assigned job; citadels open when their
+  // generated garrison is cleared. Both record the same permanent claim.
   function isBuildingSealed(save, house) {
-    if (!house || !isCastle(house)) return false;
-    // Claimed outright — the player solved a quest at THIS castle, so it is
-    // theirs for good and the quest board never comes back here.
-    if (isCastleClaimed(save, house)) return false;
-    // PER CASTLE, now that the board never runs dry. This was global — finish
-    // the three-quest chain and every castle in the world opened at once —
-    // which was the only thing it could be while there were exactly three
-    // quests. With a generator behind the board there is always a job at every
-    // castle, so each one is earned where it stands.
-    return true;
+    return !!house && isCastle(house) && !isCastleClaimed(save, house);
   }
 
   // IS THE BUILDING UNDER THIS CELL THE PLAYER'S? One predicate over every way
@@ -498,10 +485,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return false;
   }
 
-  // Has the player solved a quest AT this castle? Claiming is per castle and
-  // permanent: the vault opens, the banner goes up, and the quest board never
-  // comes back here — the next job is somewhere else, which is what makes the
-  // map worth walking.
+  // Claims belong to this footprint, whether earned by a quest or a battle.
   function isCastleClaimed(save, house) {
     const key = castleKey(house);
     // PRESENCE, not truthiness: the value is the last hearth draw and a castle
@@ -514,6 +498,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   function claimCastle(save, house) {
     const key = castleKey(house);
     if (!key) return false;
+    save.claimedCastles ||= {};
     if (save.claimedCastles[key] != null) return false;
     save.claimedCastles[key] = 0;
     return true;

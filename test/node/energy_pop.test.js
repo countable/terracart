@@ -290,15 +290,13 @@ test('a note about a cell seats on the cell, not the camera (interact / interact
   assert.truthy(/this\.flashAtCell\(text, c\.cellIX, c\.cellIY, color\)/.test(fc[1]), 'seated on that cell');
   const cc = app.match(/\n  flashAtCell\(text, ix, iy, color\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(cc && /this\._energyPopAt\(ix, iy\)/.test(cc[1]), 'by _energyPopAt');
-  // The escaped catch and the well's quest tick used to sit at the viewport
-  // centre minus 60px — the camera, not the cell they are about.
+  // Catch feedback belongs to the animal's cell, not the camera centre.
   for (const [name, src] of [['interact.js', INTERACT_SRC], ['interactables.js', INTERACTABLES_SRC]]) {
     assert.falsy(/flash\([^;]*viewCenter[XY]/.test(src), name + ' flashes no note at the viewport centre');
   }
   assert.truthy(/scene\.flashAtWorld\('🏃 it got away', victim\.x, victim\.y\)/.test(INTERACT_SRC),
     'a slipped catch names the animal\'s cell');
-  assert.truthy(/scene\.flashAtWorld\('Quest done — see the castle\.', o\.x, o\.y\)/.test(INTERACTABLES_SRC),
-    'the well\'s quest tick names the well\'s cell');
+
 });
 
 })();

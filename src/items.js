@@ -397,6 +397,7 @@ const MINERAL_ICON_SHEET = {
   tome_shielding:  { sheet: 'icon_book', frame: 4 },
   tome_healing: { sheet: 'icon_book', frame: 5 },
   tome_blight:  { sheet: 'icon_book', frame: 6 },
+  tome_frost_aura: { sheet: 'icon_book', frame: 9 },
   tome_fire_wall: { sheet: 'icon_book', frame: 7 },
   // Books.png ends with five scrolls on row 3 (15 columns).
   blank_scroll:    { sheet: 'icon_book', frame: 45 },
@@ -662,7 +663,7 @@ const BASE_TIER = {
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
   blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4, magic_hammer: 4,
-  tome_speed: 3, tome_shielding: 3, tome_healing: 3, tome_blight: 4,
+  tome_speed: 3, tome_shielding: 3, tome_healing: 3, tome_blight: 4, tome_frost_aura: 6,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -822,6 +823,7 @@ const ITEMS = [
   { id: 'tome_shielding',   name: 'Tome of Shielding',   kind: 'unique_relic', tome: true },
   { id: 'tome_healing',  name: 'Tome of Healing',     kind: 'unique_relic', tome: true },
   { id: 'tome_blight',   name: 'Tome of Blight',      kind: 'unique_relic', tome: true },
+  { id: 'tome_frost_aura', name: 'Tome of Frost Aura', kind: 'unique_relic', tome: true },
   { id: 'tome_fire_wall', name: 'Wall of Fire Tome', kind: 'unique_relic', tome: true },
   { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
   { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
@@ -1208,6 +1210,13 @@ const CONSUMABLE_SPEC = {
     cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_blight'),
     tome: { of: 'blight_potion', mul: TOME_MUL, flash: '✨ The blight tome opens' },
     get: 'The margin ink crawls. What it touches sickens.' },
+  // An aura-only tome has its own timed buff; no corresponding potion.
+  tome_frost_aura: { verb: 'Read', title: 'Read the Tome of Frost Aura?',
+    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_frost_aura'),
+    buff: 'frostAura', durationMs: _CONSUMABLE_MINUTE_MS * TOME_MUL,
+    aura: { texture: 'aura_frost' },
+    tome: { flash: '❄ Cold gathers around you' },
+    get: 'Cold spills from the pages, sparing the hands that hold them.' },
   tome_fire_wall: { lengthCells: 5,
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
     cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_fire_wall'),
@@ -1718,6 +1727,7 @@ const ITEM_EFFECTS = {
   tome_shielding: 'Old boards, well nailed, between you and the blow.',
   tome_healing: 'It has been read through many fevers.',
   tome_blight: 'Do not read it near the crops.',
+  tome_frost_aura: CONSUMABLE_SPEC.tome_frost_aura.get,
   tome_fire_wall: CONSUMABLE_SPEC.tome_fire_wall.get,
   blank_scroll: 'At the trailer, remembered scrolls can be written upon this empty page.',
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,

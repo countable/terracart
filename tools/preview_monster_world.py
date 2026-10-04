@@ -4,7 +4,7 @@ import argparse
 import base64
 import html
 import json
-import re
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,8 +12,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('output', type=Path)
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
-source = (ROOT / 'src/enemy_roster.js').read_text()
-rows = json.loads(re.sub(r',\s*\]', ']', source.split('const ROWS = ', 1)[1].split(';\n  const ALL', 1)[0]))
+rows = json.loads(subprocess.check_output(
+    ['node', '-e', "console.log(JSON.stringify(require('./src/enemy_roster.js').ROWS))"],
+    cwd=ROOT, text=True))
 new_paths = ('/Pirates/', '/Orcs/', '/Demons/', '/Dragons/', '/GiantCrab.png', '/Necromancer.png', '/Skeleton-Soldier.png')
 selected = [r for r in rows if any(p in r['art']['path'] for p in new_paths) or r['id'] in ('plant', 'bone_plant', 'ghost')]
 for row in selected:

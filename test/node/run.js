@@ -183,7 +183,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
   // Pocketing a tame pet and the carried raised row — pet_pickup.test.js.
   pickUpPet, petPickupItemId, carriedRaisedRow,
-  Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
+  Quests, questEnemies, questAnimals, STARTER_CHAIN,
 });`;
 try {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/map-review-gameplay.js'), 'utf8'), ctx,
