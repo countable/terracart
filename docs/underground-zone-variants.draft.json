@@ -1,6 +1,6 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 1,
+  "revision": 2,
   "date": "2026-10-03",
   "purpose": "Project underground chambers from park POI regions and route zones from small roads and walking paths.",
   "scope": {
@@ -84,13 +84,13 @@
         "worked",
         "built_edge"
       ],
-      "layout": "connected stone-walled rooms around a central store; two-cell doors and open main approaches",
+      "layout": "Generate closed rectangular room perimeters, then cut door gaps toward connecting corridors. Reserve stairs and existing through routes before fitting rooms; recompute stone-wall joins after clipping.",
       "depths": [
         1,
         2,
         3
       ],
-      "interaction": "clear sentry, break stores, mine optional collapse",
+      "interaction": "Clear sentries, visit Ember altar for existing fireball boon, break stores and mine optional collapse.",
       "encounterByDepth": {
         "1": [
           "club_goblin"
@@ -104,7 +104,74 @@
           "archer_goblin"
         ]
       },
-      "reward": "reuse a surviving mirrored POI cache; barrels replace allocated finite containers"
+      "reward": "reuse a surviving mirrored POI cache; barrels replace allocated finite containers",
+      "shrineKind": "ember_altar"
+    },
+    {
+      "id": "mushroom_cavern",
+      "name": "Underground Mushroom Cavern",
+      "source": "park",
+      "affinities": [
+        "woodland",
+        "shade",
+        "damp"
+      ],
+      "layout": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
+      "depths": [
+        1,
+        2,
+        3
+      ],
+      "shrineKind": "toad_idol",
+      "interaction": "Harvest cave mushrooms and visit the Toad idol for its existing Mending boon.",
+      "encounterByDepth": {
+        "1": [
+          "cave_slime",
+          "bat"
+        ],
+        "2": [
+          "cave_slime",
+          "bat",
+          "spider"
+        ],
+        "3": [
+          "spider",
+          "purple_slime"
+        ]
+      },
+      "reward": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats."
+    },
+    {
+      "id": "gemstone_cavern",
+      "name": "Gemstone Cavern",
+      "source": "park",
+      "affinities": [
+        "rock",
+        "stony_ground"
+      ],
+      "layout": "Four clear approaches and a central court. Seams occupy side pockets; preserve any surviving mirrored cache on reachable floor.",
+      "depths": [
+        1,
+        2,
+        3
+      ],
+      "interaction": "Mine sapphire crystal deposits using existing pick gates.",
+      "reward": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
+      "encounterByDepth": {
+        "1": [
+          "cave_slime",
+          "bat"
+        ],
+        "2": [
+          "cave_slime",
+          "bat",
+          "spider"
+        ],
+        "3": [
+          "spider",
+          "purple_slime"
+        ]
+      }
     }
   ],
   "routeVariants": [
@@ -118,43 +185,59 @@
       "id": "seep_passage",
       "source": "walking_path",
       "context": "spring or wet park",
-      "mechanic": "bank beside small impassable pools; always retain a dry connection"
+      "mechanic": "bank beside small impassable pools; always retain a dry connection",
+      "layout": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Preview shows a representative crossing; final positions follow topology.",
+      "reward": "Water channel can refill from reachable banks; no extra daily reward or cache."
     },
     {
       "id": "miners_way",
       "source": "small_road",
       "context": "neutral or mineral",
-      "mechanic": "mineable side alcoves; rare existing supply cache allocation"
+      "mechanic": "mineable side alcoves; rare existing supply cache allocation",
+      "layout": "Two-cell clear lane beneath eligible small roads. Stakes are non-reward structural markers; carts and ore occupy accessible side bays.",
+      "reward": "Sparse bonus ore uses the floor level tier and existing mining requirements; illustration shows depth 2 copper. Count a finite bonus budget once per canonical route and depth, never per tile or clipped segment. Cart stores use the existing finite container budget."
     },
     {
       "id": "warren_run",
       "source": "small_road_or_walking_path",
       "context": "goblin_warrens",
       "mechanic": "stone-walled passage, open doorways to sentry and storage alcoves, optional traps with bypasses"
+    },
+    {
+      "id": "gemstone_path",
+      "name": "Gemstone Path",
+      "layout": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment.",
+      "reward": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art."
     }
   ],
   "proposedTuning": {
-    "springVsWarrenByDepth": {
-      "1": [
-        65,
-        35
-      ],
-      "2": [
-        40,
-        60
-      ],
-      "3": [
-        25,
-        75
-      ]
-    },
     "weights": "relative before existing soft affinity adjustments; proposal only",
     "walkingLaneMinCells": 1,
     "roadLaneTargetCells": 2,
     "repeatMotifPreferredMaxCells": 6,
     "repeatMotifHardMaxCells": 8,
     "routeRewards": "budget per canonical connected route component and depth, never per tile or segment",
-    "nexusCacheMax": 1
+    "nexusCacheMax": 1,
+    "nexusWeightsByDepth": {
+      "1": {
+        "spring_cave": 35,
+        "goblin_warrens": 30,
+        "mushroom_cavern": 30,
+        "gemstone_cavern": 5
+      },
+      "2": {
+        "spring_cave": 20,
+        "goblin_warrens": 45,
+        "mushroom_cavern": 25,
+        "gemstone_cavern": 10
+      },
+      "3": {
+        "spring_cave": 15,
+        "goblin_warrens": 55,
+        "mushroom_cavern": 20,
+        "gemstone_cavern": 10
+      }
+    }
   },
   "terrainContract": [
     "Project eligible route lines before generic cave dressing. Small-road corridors explicitly carve CAVE_WALL; walking paths already yield CAVE_FLOOR.",
@@ -163,7 +246,8 @@
     "Plan original staircase identities from the existing unmodified geology. Preserve actual stairs and reserve clear approaches before adding zone pieces.",
     "Connect a park chamber only to a route that intersects or reaches it through eligible park floor; no straight-line connection across unrelated obstructions.",
     "Do not close existing reachable routes to force a warren maze. Use wall-adjacent rooms and removable obstacles outside the through lane.",
-    "At seams use canonical source geometry and world positions; ambiguous or missing geometry keeps ordinary cave generation."
+    "At seams use canonical source geometry and world positions; ambiguous or missing geometry keeps ordinary cave generation.",
+    "Seep Passage intentionally replaces eligible underground route floor with WATER. Preserve dry bank connectivity and crossings before decorating; do not paint surface roads or inherited protected water/building provenance."
   ],
   "economy": [
     "Anchor regions from surface geography, even when POI mirrors are pruned at an earlier depth.",
@@ -171,7 +255,10 @@
     "If no mirror survives, keep a spring or encounter landmark without minting a replacement chest.",
     "Zone finds and containers replace allocated ordinary cave seats; measure total loot before tuning additional rewards.",
     "Path intersections confer connectivity, not extra rewards or extra daily ledgers.",
-    "Use existing picked/opened/caught/treasure persistence with stable depth-qualified IDs."
+    "Use existing picked/opened/caught/treasure persistence with stable depth-qualified IDs.",
+    "One shrine per qualifying nexus region and depth, using the existing daily shrine ledger and boon rules. The boon replaces its shrine treasure gift; tile fragments never duplicate it.",
+    "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
+    "Gemstone zones concentrate existing crystal-deposit allocations; they do not use metal ore rocks. First preview uses sapphire art and existing yield/pick gates; ruby, emerald and diamond deposits are outside this first slice."
   ],
   "implementation": [
     {
@@ -316,6 +403,49 @@
     "stalagmite": {
       "path": "docs/art/underground-proposals/stalagmite.png",
       "color": "#858d9c"
+    },
+    "game_mushroom": {
+      "gameMaterial": {
+        "kind": "wildplant",
+        "crop": "mushroom"
+      },
+      "color": "#bea480"
+    },
+    "giant_mushroom": {
+      "gameMaterial": {
+        "kind": "wildplant",
+        "crop": "giant_mushroom"
+      },
+      "color": "#bd8386"
+    },
+    "charred_stakes": {
+      "gameMaterial": {
+        "kind": "stakes"
+      },
+      "color": "#706453"
+    },
+    "minecart": {
+      "gameMaterial": {
+        "kind": "zone_prop",
+        "spawnClass": "minor",
+        "color": "#aaa48e",
+        "_zoneObjectFrame": 61
+      },
+      "color": "#867860"
+    },
+    "floor_ore": {
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "yieldTier": 2
+      },
+      "color": "#b38458"
+    },
+    "gem_deposit": {
+      "gameMaterial": {
+        "kind": "mineralrock",
+        "deposit": "crystal"
+      },
+      "color": "#87ccda"
     }
   },
   "previewRows": [
@@ -397,47 +527,252 @@
           "material": "stalagmite"
         }
       ],
-      "atmosphere": "Connected stone walls divide the warren into small rooms around a guarded store. Two-cell doorways keep the main routes open; rubble blocks only optional alcoves.",
-      "poi": "One store chamber around an existing mirrored POI cache.",
-      "connection": "Connected 6 \u00d7 6 stone-room grid; two-cell doorways on each side, with a clear nexus approach.",
+      "atmosphere": "Five stone-walled rooms open through deliberate two-cell door gaps. The central room holds an Ember altar; outer rooms hold goblin sentries and stores.",
+      "poi": "Ember altar grants the existing fireball boon. One surviving mirrored cache remains in the store chamber; shrine boon replaces the shrine gift.",
+      "connection": "Generate closed rectangular room perimeters, then cut door gaps toward connecting corridors. Reserve stairs and existing through routes before fitting rooms; recompute stone-wall joins after clipping.",
       "monsters": "D1: club goblin; D2: club / spear goblin; D3: spear / archer goblin.",
       "source": "Park POI region; worked and built-edge affinities.",
-      "wallSlots": [
-        [
-          0,
-          0
-        ],
-        [
-          1,
-          0
-        ],
-        [
-          4,
-          0
-        ],
-        [
-          5,
-          0
-        ],
-        [
-          0,
-          1
-        ],
-        [
-          0,
-          4
-        ],
-        [
-          0,
-          5
-        ]
-      ],
       "walls": {
         "sheet": "stronghold_wall",
         "manifest": "assets/Objects/Stronghold/manifest.json",
         "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
         "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
-      }
+      },
+      "layout": {
+        "type": "rooms",
+        "extentCells": [
+          25,
+          25
+        ],
+        "rooms": [
+          {
+            "bounds": [
+              1,
+              1,
+              8,
+              8
+            ],
+            "doors": [
+              [
+                4,
+                8
+              ],
+              [
+                5,
+                8
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              16,
+              1,
+              8,
+              8
+            ],
+            "doors": [
+              [
+                19,
+                8
+              ],
+              [
+                20,
+                8
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              1,
+              16,
+              8,
+              8
+            ],
+            "doors": [
+              [
+                4,
+                16
+              ],
+              [
+                5,
+                16
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              16,
+              16,
+              8,
+              8
+            ],
+            "doors": [
+              [
+                19,
+                16
+              ],
+              [
+                20,
+                16
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              9,
+              9,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                11,
+                15
+              ],
+              [
+                12,
+                15
+              ],
+              [
+                11,
+                9
+              ],
+              [
+                12,
+                9
+              ],
+              [
+                9,
+                11
+              ],
+              [
+                9,
+                12
+              ],
+              [
+                15,
+                11
+              ],
+              [
+                15,
+                12
+              ]
+            ]
+          }
+        ]
+      },
+      "shrineKind": "ember_altar"
+    },
+    {
+      "id": "mushroom_cavern",
+      "kind": "nexus",
+      "name": "Underground Mushroom Cavern",
+      "motifCells": [
+        6,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "game_mushroom"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "giant_mushroom"
+        },
+        {
+          "at": [
+            5,
+            3
+          ],
+          "material": "game_mushroom"
+        }
+      ],
+      "shrineKind": "toad_idol",
+      "atmosphere": "Small mushroom beds and broad mushroom caps surround a clear shrine court. Open lanes divide the beds and connect to the cave paths.",
+      "poi": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
+      "connection": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
+      "source": "Park POI region; wooded, shaded and damp affinities."
+    },
+    {
+      "poi": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
+      "artNote": "Shipping crystal_cluster sprite: sapphire deposit. Retain existing mining requirements even on a shallow floor; no metal ore in the gemstone motif.",
+      "id": "gemstone_cavern",
+      "kind": "nexus",
+      "name": "Gemstone Cavern",
+      "motifCells": [
+        8,
+        8
+      ],
+      "slots": [
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "gem_deposit"
+        },
+        {
+          "at": [
+            2,
+            1
+          ],
+          "material": "gem_deposit"
+        },
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "stalagmite"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "gem_deposit"
+        },
+        {
+          "at": [
+            6,
+            5
+          ],
+          "material": "gem_deposit"
+        },
+        {
+          "at": [
+            5,
+            6
+          ],
+          "material": "stalagmite"
+        }
+      ],
+      "source": "Park POI region; exposed rock and stony-ground affinities.",
+      "atmosphere": "Sapphire crystal clusters gather in exposed side seams around an open central chamber. Stone separates the crystal pockets; the main approaches remain clear.",
+      "connection": "Four clear approaches and a central court. Seams occupy side pockets; preserve any surviving mirrored cache on reachable floor."
     },
     {
       "id": "root_passage",
@@ -474,7 +809,7 @@
       "kind": "path",
       "name": "Seep Passage",
       "motifCells": [
-        4,
+        6,
         6
       ],
       "slots": [
@@ -483,72 +818,85 @@
             0,
             1
           ],
-          "material": "cave_pool"
+          "material": "cave_shrooms"
         },
         {
           "at": [
-            3,
+            5,
             4
-          ],
-          "material": "cave_pool"
-        },
-        {
-          "at": [
-            0,
-            5
           ],
           "material": "cave_shrooms"
         }
       ],
-      "atmosphere": "Small pools sit beside a continuous dry bank. Refilling is proposed; water never seals the through route.",
-      "poi": "Reachable water banks; no extra daily reward.",
-      "connection": "Two-cell dry middle where geometry permits.",
+      "atmosphere": "The underground route tiles become a flowing seep channel. Water occupies the middle; dry banks follow both sides, with stone crossings at connections.",
+      "poi": "Water channel can refill from reachable banks; no extra daily reward or cache.",
+      "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Preview shows a representative crossing; final positions follow topology.",
       "monsters": "Depth-legal spring family; keep water-bank approaches clear.",
-      "source": "Walking path adjoining a spring or wet park region."
+      "source": "Walking path adjoining a spring or wet park region.",
+      "waterChannel": {
+        "widthCells": 2,
+        "crossingEveryCells": 12,
+        "crossingWidthCells": 2
+      }
     },
     {
       "id": "miners_way",
       "kind": "path",
       "name": "Miners\u2019 Way",
       "motifCells": [
-        6,
-        4
+        8,
+        8
       ],
       "slots": [
         {
           "at": [
-            0,
+            1,
             0
           ],
-          "material": "rubble_pile"
+          "material": "charred_stakes"
         },
         {
           "at": [
-            5,
+            6,
+            4
+          ],
+          "material": "charred_stakes"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "minecart"
+        },
+        {
+          "at": [
+            6,
             1
           ],
-          "material": "stalagmite"
+          "material": "floor_ore"
         },
         {
           "at": [
-            0,
+            1,
             3
           ],
           "material": "rubble_pile"
         },
         {
           "at": [
-            5,
-            3
+            6,
+            7
           ],
-          "material": "crystal_cluster"
+          "material": "floor_ore"
         }
       ],
-      "atmosphere": "A broad tunnel with mineable side alcoves. Its larger width distinguishes the small-road route from a footpath.",
-      "poi": "Finite finds replace existing cave-rock allocations.",
-      "connection": "Two-cell clear lane; explicit carve beneath eligible small roads.",
+      "atmosphere": "A broad mine tunnel with a few charred timber stakes, parked ore carts and bonus ore rocks in side bays. The two-cell central lane stays clear.",
+      "poi": "Sparse bonus ore uses the floor level tier and existing mining requirements; illustration shows depth 2 copper. Count a finite bonus budget once per canonical route and depth, never per tile or clipped segment. Cart stores use the existing finite container budget.",
+      "connection": "Two-cell clear lane beneath eligible small roads. Stakes are non-reward structural markers; carts and ore occupy accessible side bays.",
       "monsters": "Existing cave family; no extra guard budget from route length.",
-      "source": "Public minor / street / service lines; never unknown road fallback."
+      "source": "Public minor / street / service lines; never unknown road fallback.",
+      "artNote": "Shipping charred stakes and mineral rocks. Shipping handcart art stands in for an ore minecart pending a dedicated sprite."
     },
     {
       "id": "warren_run",
@@ -682,6 +1030,44 @@
         "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
         "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
       }
+    },
+    {
+      "poi": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
+      "artNote": "Shipping crystal_cluster sprite: sapphire deposit. Retain existing mining requirements even on a shallow floor; no metal ore in the gemstone motif.",
+      "id": "gemstone_path",
+      "kind": "path",
+      "name": "Gemstone Path",
+      "motifCells": [
+        6,
+        8
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "gem_deposit"
+        },
+        {
+          "at": [
+            5,
+            4
+          ],
+          "material": "gem_deposit"
+        },
+        {
+          "at": [
+            0,
+            6
+          ],
+          "material": "stalagmite"
+        }
+      ],
+      "source": "Walking paths and eligible small roads through stony underground regions.",
+      "atmosphere": "Small crystal seams punctuate both sides of a clear passage. This is the gemstone route; Miners\u2019 Way carries metal ore.",
+      "connection": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment."
     }
   ],
   "previewNote": "Authored representative patterns, not generated live cave placement. Nominal motif occupancy is calculated from listed slots; POI, encounter and optional trap seats are separate. Existing geology clips all patterns."
