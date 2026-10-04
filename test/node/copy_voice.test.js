@@ -419,7 +419,7 @@ test('copy: item descriptions explain effects without tier jargon', () => {
 });
 
 test('copy: the Drink / Use descriptions omit tiers and keep numeric durations derived', () => {
-  const timed = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.method && row.durationMs);
+  const timed = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.verb && row.durationMs);
   assert.gt(timed.length, 5, 'timed action rows are in the shared spec');
   for (const [id, row] of timed) {
     const text = typeof row.get === 'function' ? row.get({

@@ -46,7 +46,7 @@ test('hardworking potion: a T1 magic item, drunk and never thrown', () => {
   assert.eq(src.sheet, 'icon_potions'); assert.eq(src.frame, 14);
   assert.falsy(Object.entries(MINERAL_ICON_SHEET).some(([id, r]) => id !== ID && r.sheet === src.sheet && r.frame === src.frame), 'its own frame');
   const row = CONSUMABLE_SPEC[ID];
-  assert.eq(row.verb, 'Drink'); assert.eq(row.method, 'drinkHardworkingPotion');
+  assert.eq(row.verb, 'Drink'); assert.eq(row.buff, 'work');
   assert.eq(row.durationMs, 5 * 60 * 1000, 'five minutes');
   assert.lt(row.durationMs, Shrines.SHRINE_KINDS.harvest_idol.durationMs, 'shorter than the idol\'s visit');
   assert.includes(Shops.themedStock('potion', 1), ID, 'the T1 magic shop stocks it');

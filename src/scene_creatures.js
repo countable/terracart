@@ -2406,17 +2406,8 @@ class SceneCreatures {
       c.x = nx; c.y = ny;
     });
     this._foeHeadsUp?.(interestedFoeM, now);
-    // One throttled roll-up for everything the foes took off the bar this
-    // window, so a pack reads as a single "-N⚡" pop rather than one flash per
-    // blow. Persist here too (debounced in save.js) so the loss survives a
-    // reload.
-    if (this._monsterDmgAccum > 0 && now - (this._lastMonsterFlashT || 0) > 1200) {
-      this._lastMonsterFlashT = now;
-      const hit = this._monsterDmgAccum;
-      this._monsterDmgAccum = 0;
-      this._popEnergy(-hit, { label: '⚔️ monsters' });
-      if (typeof persistSave === 'function') persistSave(this.save);
-    }
+    // What the foes took off the bar this window pops as one "⚔️ monsters"
+    // roll-up from the scene's drain lane (app.js _flushDrainPops).
   }
 
   // Per-tick movement for wild crows. Two-phase state machine:

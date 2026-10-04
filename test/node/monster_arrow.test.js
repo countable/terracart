@@ -127,7 +127,7 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   const body = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/)[1];
   assert.truthy(/return foeBlowLands\(this, shot\._sourceGuard, [\s\S]*\{ mitigated: true, condition: shot\.condition \}\) > 0;/.test(body),
     'it lands through the one blow writer (creature_ai.js foeBlowLands): off energy, into the monsters-hit roll-up, the condition with it');
-  assert.truthy(/const lost = scene\._losePlayerEnergy\(dmg, \{ closeShop: true \}\);\s*scene\._monsterDmgAccum = \(scene\._monsterDmgAccum \|\| 0\) \+ lost;/.test(CREATURE_AI_SRC),
+  assert.truthy(/const lost = scene\._losePlayerEnergy\(dmg, \{ closeShop: true \}\);\s*scene\._bankDrain\?\.\('monsters', -lost, \{ label: '⚔️ monsters' \}\);/.test(CREATURE_AI_SRC),
     'which comes off energy and rolls into the monsters-hit flash');
 });
 

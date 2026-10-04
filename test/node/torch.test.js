@@ -207,7 +207,7 @@ test('torch: its readout is a chip of the status row (Buffs.KINDS), via shortDur
 
 test('torch: the Light confirmation distinguishes fresh and renewed flame', () => {
   const row = CONSUMABLE_SPEC.torch;
-  assert.eq(row.method, 'useTorch', '→ useTorch');
+  assert.eq(row.buff, 'torch', '→ the torch buff row');
   assert.eq(row.verb, 'Light', 'the button reads Light');
   const now = Date.now();
   const lit = row.get({ isTorchActive: () => true, _torchUntil: now + 30_000 }, row);

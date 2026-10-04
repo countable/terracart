@@ -1187,14 +1187,14 @@ function enemyWalkHazardTick(scene, c, now) {
 // their say through Combat.incomingDamage unless the caller already
 // mitigated a packet rate (`mitigated`: Combat.playerDamageRate, fractional
 // — the scene's writer banks the pips: _losePlayerEnergy, Energy.set, the
-// flinch, a shop shut). What was lost joins the ONE roll-up
-// (_monsterDmgAccum, popped after the loop as "⚔️ monsters"), never a pop of
-// its own; a row's `condition` lands with a blow that cost something.
+// flinch, a shop shut). What was lost joins the scene's ONE drain roll-up
+// (app.js _bankDrain, the 'monsters' lane popped as "⚔️ monsters"), never a
+// pop of its own; a row's `condition` lands with a blow that cost something.
 function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {}) {
   const dmg = mitigated ? raw : Combat.incomingDamage(scene.save, raw);
   if (!(dmg > 0)) return 0;
   const lost = scene._losePlayerEnergy(dmg, { closeShop: true });
-  scene._monsterDmgAccum = (scene._monsterDmgAccum || 0) + lost;
+  scene._bankDrain?.('monsters', -lost, { label: '⚔️ monsters' });
   if (lost > 0 && condition) scene._applyCondition(condition);
   return lost;
 }

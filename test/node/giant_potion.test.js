@@ -43,7 +43,7 @@
     assert.eq(ITEM_BY_ID.giant_potion.kind, 'magic');
     assert.eq(ITEM_BY_ID.giant_potion.potion, true);
     assert.eq(PRICES.giant_potion, 100);
-    assert.eq(CONSUMABLE_SPEC.giant_potion.method, 'drinkGiantPotion');
+    assert.eq(CONSUMABLE_SPEC.giant_potion.buff, 'giant');
     assert.eq(CONSUMABLE_SPEC.giant_potion.durationMs, 180_000);
     assert.eq(CONSUMABLE_SPEC.giant_potion.damageBonus, 5);
     assert.eq(CONSUMABLE_SPEC.giant_potion.maxHpBonus, 100);

@@ -19,7 +19,7 @@
     assert.falsy(CONSUMABLE_SPEC.blank_scroll, 'blank parchment is a material');
     assert.eq(CONSUMABLE_SPEC.treasure_map.durationMs, 15 * 60 * 1000, 'map lasts fifteen minutes');
     assert.eq(CONSUMABLE_SPEC.sleep_powder.durationMs, Combat.FLOWER_STATUS_MS, 'sleep reuses the existing flower debuff duration');
-    assert.eq(CONSUMABLE_SPEC.sleep_powder.method, 'useSleepPowder', 'sleep has its own use action');
+    assert.truthy(SCENE_SRC.includes('\n  sleep_powder: { noun:'), 'sleep is a cast row of its own');
     assert.eq(CONSUMABLE_SPEC.fireball_scroll.immediate, true, 'fireball throws on use like the spear');
   });
   test('scrolls: themed chests offer the new items without replacing tomes', () => {

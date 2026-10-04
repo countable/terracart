@@ -14,7 +14,7 @@ test('blight potion: an item with a price, a tier, an icon and a ✦ line', () =
   assert.eq(ITEM_BY_ID.blight_potion.kind, 'magic', 'drunk, not eaten');
   assert.eq(FOOD_ENERGY.blight_potion, undefined, 'it can never reach the Eat button');
   assert.truthy(ITEM_EFFECTS.blight_potion, 'its effect is written on the item');
-  assert.eq(CONSUMABLE_SPEC.blight_potion.method, 'drinkBlightPotion', 'the Drink button offers it');
+  assert.eq(CONSUMABLE_SPEC.blight_potion.buff, 'blight', 'the Drink button routes it by its buff column');
 });
 
 test('blight potion: 1.5 cells, 2 HP a second, one minute', () => {

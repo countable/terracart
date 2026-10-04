@@ -182,7 +182,7 @@ test('coin pop: the "+N" lands on the cell the coin was picked from', () => {
 test('energy pop: every energy readout goes through _popEnergy, on a cell', () => {
   assert.truthy(/_splashEnergyGain\(amount\) \{[\s\S]*?this\._popEnergy\(amount\);/.test(app),
     'the rest / offline splash is a pop on the player');
-  assert.truthy(/this\._popEnergy\(-hit, \{ label: /.test(app), 'every foe\'s blow rolls up into the one monsters pop');
+  assert.truthy(/_bankDrain\?\.\('monsters', -lost, \{ label: '⚔️ monsters' \}\)/.test(CREATURE_AI_SRC), 'every foe\'s blow rolls up into the one monsters drain lane');
   assert.falsy(/this\._popEnergy\(-drained, \{ label: |'👻 ghost'/.test(app), 'no second roll-up for the slimes or the ghost');
   assert.falsy(/this\.flash\(`[^`]*⚡[^`]*`, this\.viewCenterX/.test(app),
     'no energy number is flashed at the viewport centre any more');

@@ -1139,7 +1139,7 @@ const CONSUMABLE_SPEC = {
   },
   fear_scroll: {
     durationMs: 30 * 1000,
-    verb: 'Read', method: 'useFearScroll', title: 'Read the Scroll of Fear?',
+    verb: 'Read', title: 'Read the Scroll of Fear?',
     get: 'The words send a shiver through every watching foe.',
   },
   treasure_map: {
@@ -1149,7 +1149,7 @@ const CONSUMABLE_SPEC = {
   },
   sleep_powder: {
     get durationMs() { return Combat.FLOWER_STATUS_MS; },
-    verb: 'Use', method: 'useSleepPowder', title: 'Scatter the Sleep Powder?',
+    verb: 'Use', title: 'Scatter the Sleep Powder?',
     get: 'Dream dust settles over every foe in sight.',
   },
   // Powder of Psychosis: every foe in sight loses its head for durationMs —
@@ -1159,7 +1159,7 @@ const CONSUMABLE_SPEC = {
   // blow in.
   psychosis_powder: {
     durationMs: 10 * 1000,
-    verb: 'Use', method: 'usePsychosisPowder', title: 'Scatter the Powder of Psychosis?',
+    verb: 'Use', title: 'Scatter the Powder of Psychosis?',
     get: 'A giddy haze takes every foe in sight, and they run every which way.',
   },
   // Potion of Hardworking: the Harvest Idol's boon (shrines.js `work` lever,
@@ -1168,7 +1168,7 @@ const CONSUMABLE_SPEC = {
   // on top of the idol's visit extends the one countdown and never stacks.
   hardworking_potion: {
     durationMs: 5 * _CONSUMABLE_MINUTE_MS, buff: 'work',
-    verb: 'Drink', method: 'drinkHardworkingPotion', title: 'Drink the Potion of Hardworking?',
+    verb: 'Drink', title: 'Drink the Potion of Hardworking?',
     get: 'Your weariness lifts, and your hands move swiftly through their work.',
     used: { title: 'You drink the Potion of Hardworking', body: (scene, spec) => spec.get },
   },
@@ -1201,7 +1201,7 @@ const CONSUMABLE_SPEC = {
     usable: scene => EggHatch.ready(scene.save),
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
-  tome_sight: { verb: 'Read', method: 'readTomeSight', title: 'Read the Tome of Reach?',
+  tome_sight: { verb: 'Read', title: 'Read the Tome of Reach?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_sight'),
     tome: { of: 'reach_potion', mul: TOME_MUL, flash: '✨ The sight tome opens' },
     get: 'The far edge of the world leans closer with every page.' },
@@ -1240,7 +1240,7 @@ const CONSUMABLE_SPEC = {
   },
   reach_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'reach',
-    verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?',
+    verb: 'Drink', title: 'Drink the Potion of Reach?',
     get: 'The far edges of the world draw close enough to touch.',
     used: { title: '✨ You drink the Potion of Reach',
       body: 'A shiver runs through your fingers. Even the far edge of the world feels close enough to touch.' },
@@ -1263,20 +1263,20 @@ const CONSUMABLE_SPEC = {
   },
   speed_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9, buff: 'speed',
-    verb: 'Drink', method: 'drinkSpeedPotion', title: 'Drink the Potion of Speed?',
+    verb: 'Drink', title: 'Drink the Potion of Speed?',
     get: 'Warmth rushes into your legs. For a little while, your steps are light and swift.',
     used: { title: '✨ You drink the Potion of Speed',
       body: 'Warmth races down to your toes. The road slips beneath your feet.' },
   },
   protection_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.75, buff: 'protection',
-    verb: 'Drink', method: 'drinkProtectionPotion', title: 'Drink the Potion of Protection?',
+    verb: 'Drink', title: 'Drink the Potion of Protection?',
     get: 'A pale ward softens the blows that reach you.',
     used: { title: 'You drink the Potion of Protection', body: (scene, spec) => spec.get },
   },
   immortal_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'immortal',
-    verb: 'Drink', method: 'drinkImmortalPotion', title: 'Drink the Potion of Immortal?',
+    verb: 'Drink', title: 'Drink the Potion of Immortal?',
     get: 'For a brief while, no wound can reach you.',
     used: { title: 'You drink the Potion of Immortal',
       body: (scene, spec) => `Immune to all damage for ${shortDuration(spec.durationMs)}.` },
@@ -1287,59 +1287,59 @@ const CONSUMABLE_SPEC = {
   },
   fire_resistance_potion: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, buff: 'fireResistance',
-    verb: 'Drink', method: 'drinkFireResistancePotion', title: 'Drink the Potion of Fire Resistance?',
+    verb: 'Drink', title: 'Drink the Potion of Fire Resistance?',
     get: 'Flames curl harmlessly around your skin.',
     used: { title: 'You drink the Potion of Fire Resistance',
       body: (scene, spec) => `Immune to fire for ${shortDuration(spec.durationMs)}.` },
   },
   shrinking_potion: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, scaleMul: 0.5, maxHpMul: 0.5, meleeDamageMul: 0.5, visionCells: 1, buff: 'shrinking',
-    verb: 'Drink', method: 'drinkShrinkingPotion', title: 'Drink the Potion of Shrinking?',
+    verb: 'Drink', title: 'Drink the Potion of Shrinking?',
     get: 'You dwindle beneath the grass, small and easily overlooked.',
     used: { title: 'You drink the Potion of Shrinking',
       body: (scene, spec) => `Half size, maximum HP and melee damage; +${spec.visionCells} stealth for ${shortDuration(spec.durationMs)}.` },
   },
   giant_potion: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, damageBonus: 5, maxHpBonus: 100, scaleMul: 1.5, buff: 'giant',
-    verb: 'Drink', method: 'drinkGiantPotion', title: 'Drink the Potion of Giant?',
+    verb: 'Drink', title: 'Drink the Potion of Giant?',
     get: 'Your body rises tall, and strength swells through your limbs.',
     used: { title: 'You drink the Potion of Giant',
       body: (scene, spec) => `+${spec.maxHpBonus} maximum HP and +${spec.damageBonus} melee damage for ${shortDuration(spec.durationMs)}.` },
   },
   shield_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5, buff: 'shield',
-    verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
+    verb: 'Drink', title: 'Drink the Potion of Shielding?',
     get: 'A shimmering veil softens the blows of beasts.',
     used: { title: '✨ You drink the Potion of Shielding',
       body: 'A cool shimmer settles over your skin, taking the sting from claw and fang.' },
   },
   skeleton_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_skeleton', buff: 'skeleton',
-    verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of Bones?',
+    verb: 'Read', title: 'Read the Scroll of Bones?',
     get: 'A bone-white guardian rises to fight beside you.',
     used: { title: 'You read the Scroll of Bones', body: (scene, spec) => spec.get },
   },
   wraith_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_wraith', buff: 'wraith',
-    verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of the Wraith?',
+    verb: 'Read', title: 'Read the Scroll of the Wraith?',
     get: 'A cold shade slips from the ink to hunt your foes.',
     used: { title: 'You read the Scroll of the Wraith', body: (scene, spec) => spec.get },
   },
   raven_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'raven',
-    verb: 'Read', method: 'readRavenScroll', title: 'Read the Scroll of the Raven?',
+    verb: 'Read', title: 'Read the Scroll of the Raven?',
     get: 'A raven of pale smoke takes wing against your foes.',
     used: { title: 'You read the Scroll of the Raven',
       body: 'A raven of smoke and starlight shakes itself out of the parchment. It settles beside you, watching the beasts with hungry eyes.' },
   },
   thunder_scroll: {
     damage: 25,
-    verb: 'Read', method: 'readThunderScroll', title: 'Read the Scroll of Thunder?',
+    verb: 'Read', title: 'Read the Scroll of Thunder?',
     get: 'Thunder breaks over the foes before you.',
   },
   blight_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2, buff: 'blight',
-    verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',
+    verb: 'Drink', title: 'Drink the Potion of Blight?',
     get: 'A sickly haze clings to you, withering foes that stray too close.',
     used: { title: '✨ You drink the Potion of Blight',
       body: 'A crimson haze seeps from your skin. Nearby beasts shudder in its wake.' },
@@ -1358,7 +1358,7 @@ const CONSUMABLE_SPEC = {
   },
   dragon_powder: {
     durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2, buff: 'dragon',
-    verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',
+    verb: 'Use', title: 'Use the Dragon Powder?',
     get: 'The powder lets you soar in dragon form, for a short time.',
     used: { title: '🐉 You toss the Dragon Powder',
       body: 'Scales ripple across your skin. Heat swells in your chest, and the ground shakes beneath your claws.' },
@@ -1370,18 +1370,18 @@ const CONSUMABLE_SPEC = {
   },
   shadow_powder: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, buff: 'shadow',
-    verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',
+    verb: 'Use', title: 'Use the Shadow Powder?',
     get: 'The shadows gather around you, hiding you from hungry eyes — and muffling your own strikes.',
     used: { title: '🌑 You cast the Shadow Powder', body: 'The dark folds around you. Hungry eyes pass you by.' },
   },
   frost_powder: {
     durationMs: 30 * 1000,
-    verb: 'Use', method: 'useFrostPowder', title: 'Use the Frost Powder?',
+    verb: 'Use', title: 'Use the Frost Powder?',
     get: 'Frost closes around the foes within your reach.',
   },
   torch: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'torch',
-    verb: 'Light', method: 'useTorch', title: 'Light the Torch?',
+    verb: 'Light', title: 'Light the Torch?',
     get: scene => scene.isTorchActive()
       ? 'Fresh flame feeds the light already around you.'
       : 'Firelight opens the dark around you.',

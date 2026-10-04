@@ -33,7 +33,7 @@ test('spirit raven: a scroll with an icon, a tier, a price and a story hint', ()
   assert.truthy(line && line.length <= 55, `the ✦ line fits its row (${line && line.length} chars)`);
   assert.falsy(/\d/.test(line), 'the raven description leaves its duration for discovery');
   assert.eq(SPIRIT_RAVEN_MS, 60 * 1000, 'one minute');
-  assert.eq(CONSUMABLE_SPEC.raven_scroll.method, 'readRavenScroll', 'the Read button offers it');
+  assert.eq(CONSUMABLE_SPEC.raven_scroll.buff, 'raven', 'the Read button routes it by its buff column');
   assert.truthy(/foes/.test(CONSUMABLE_SPEC.raven_scroll.get), 'the confirmation hints at an ally');
   assert.truthy(Shops.themedStock('potion', 2).includes('raven_scroll'), 'a T2 potion shop stocks it');
 });

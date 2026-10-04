@@ -30,7 +30,7 @@
     assert.eq(spec.maxHpMul, 0.5);
     assert.eq(spec.meleeDamageMul, 0.5);
     assert.eq(spec.visionCells, 1);
-    assert.eq(spec.method, 'drinkShrinkingPotion');
+    assert.eq(spec.buff, 'shrinking');
   });
 
   test('shrinking potion: max HP rounds up and composes with Giant and permanent upgrades', () => {

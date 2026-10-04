@@ -74,7 +74,7 @@ test('psychosis powder: the first Magic shop and the combat chests hand it out',
 test('psychosis powder: the action row, its duration and the app constant', () => {
   const row = CONSUMABLE_SPEC[ID];
   assert.truthy(row, 'a CONSUMABLE_SPEC row');
-  assert.eq(row.verb, 'Use'); assert.eq(row.method, 'usePsychosisPowder');
+  assert.eq(row.verb, 'Use'); assert.truthy(SCENE_SRC.includes(`\n  ${ID}: { noun:`), 'a CAST_ROWS row');
   assert.eq(row.durationMs, 10 * 1000, 'ten seconds');
   assert.truthy(/^Scatter the .*\?$/.test(row.title), 'the confirm title');
   assert.eq(ITEM_EFFECTS[ID], row.get, 'the description is the outcome line');

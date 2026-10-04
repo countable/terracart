@@ -34,7 +34,7 @@ test('thunder scroll: a T4 scroll with a price, an icon and a ✦ line quoting i
   assert.truthy(cast.includes('this._spendScroll(id);'), 'successful cast teaches its recipe');
   assert.truthy(CONSUMABLE_SPEC.thunder_scroll.damage > 0 && !CONSUMABLE_SPEC.thunder_scroll.buff, 'a cast, not a timed buff');
   assert.falsy(/\d/.test(ITEM_EFFECTS.thunder_scroll), 'the storm hints at its power');
-  assert.eq(CONSUMABLE_SPEC.thunder_scroll.method, 'readThunderScroll', 'the Read button offers it');
+  assert.truthy(SCENE_SRC.includes('\n  thunder_scroll: { noun:'), 'the Read button routes it as a cast row');
   assert.truthy(Shops.themedStock('potion', 4).includes('thunder_scroll'), 'a T4 potion shop stocks it');
 });
 
