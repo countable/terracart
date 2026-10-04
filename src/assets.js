@@ -136,6 +136,9 @@ const ASSETS = {
   // Underground monster sheets. Goblins: 32×32 frames, 6 cols × 3 rows — row 0 (frames 0-5) is the walk cycle.
   purple_slime:  { kind: 'spritesheet', path: 'assets/Enemy/Purple Slime.png',  frameWidth: 32, frameHeight: 32 },
   ghost:         { kind: 'spritesheet', path: 'assets/Enemy/Ghost/1Fullsheet_Ghost.png', frameWidth: 16, frameHeight: 16 },
+  // Friendly shrine discovery: supplied jfranci_px ghost artwork, separate
+  // texture identity so it never acquires the hostile ghost's gameplay kind.
+  shrine_spirit: { kind: 'spritesheet', path: 'assets/Enemy/Ghost/1Fullsheet_Ghost.png', frameWidth: 16, frameHeight: 16 },
   plant:         { kind: 'spritesheet', path: 'assets/Enemy/Plant/1Fullsheet_Plant.png', frameWidth: 16, frameHeight: 16 },
   goblin:        { kind: 'spritesheet', path: 'assets/Enemy/Goblin.png',        frameWidth: 32, frameHeight: 32 },
   goblin_archer: { kind: 'spritesheet', path: 'assets/Enemy/Goblin Archer.png', frameWidth: 32, frameHeight: 32 },
@@ -160,7 +163,6 @@ const ASSETS = {
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
-  stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
@@ -188,7 +190,6 @@ const ASSETS = {
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
   barrel: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/barrel.png', frameWidth: 24, frameHeight: 24 },
-  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/broken_barrel.png', frameWidth: 24, frameHeight: 24 },
   clay_pot: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_cracked.png', frameWidth: 24, frameHeight: 24 },
   clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },

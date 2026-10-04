@@ -3919,6 +3919,8 @@
     // indexed by the same 1-based id `owners` stamps, so a cell resolves to the
     // building it belongs to in two hops and nothing has to search polygons.
     const ownerKeys = [];
+    const templeOwners = new Set();
+    const buildingSeats = new Map();
     const castleHalo = new Map();
     const castleSourceRings = [];
     // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
@@ -5185,10 +5187,57 @@
         yield 'building block start';
         const footprints = yield* assignBuildingFootprintsSteps(buildingPolys, mvtToCell, w, h, 3);
         yield 'assignBuildingFootprints';
+        // Nexus geography is ready before building quotas. Classify every
+        // overlapping footprint now, so temples never take a house/fort slot
+        // or enter the castle turret pass. Chest relocation changes dressing
+        // origins only; the final zone pass still owns terrain and dressing.
+        let templeField = null;
+        if (typeof Zones !== 'undefined' && typeof ZoneCoverage !== 'undefined') {
+          templeField = yield* Zones.fieldSteps(layersByName.poi, tx, ty, w);
+          templeField = yield* ZoneCoverage.buildSteps({ field: templeField,
+            poiLayer: layersByName.poi, parks: parkPolys,
+            beachLayer: layersByName.landcover, waterLayer: layersByName.water,
+            tx, ty, N: w, tileEdgeM, grid });
+        }
+        const templeFields = new Map([['0,0', templeField]]);
+        // Buffered source geometry gives a seam footprint the same zone on
+        // both tiles, even when its only overlap is across the boundary.
+        const shiftRings = (rings, dx, dy) => rings.map(ring => ring.map(p =>
+          ({ x: p.x - dx * TILE_EXTENT, y: p.y - dy * TILE_EXTENT })));
+        const shiftLayer = (layer, dx, dy) => layer && ({ ...layer,
+          features: layer.features.map(f => ({ ...f,
+            geom: f.geom && shiftRings(f.geom, dx, dy) })) });
+        for (let i = 0; i < buildingPolys.length; i++) {
+          if ((i & 15) === 0) yield 'temple footprint classification';
+          const candidates = new Map();
+          for (const [x, y] of footprints[i]) {
+            const dx = Math.floor(x / w), dy = Math.floor(y / h);
+            const fieldKey = `${dx},${dy}`;
+            if (!templeFields.has(fieldKey) && typeof Zones !== 'undefined' && typeof ZoneCoverage !== 'undefined') {
+              const poiLayer = shiftLayer(layersByName.poi, dx, dy);
+              let neighbor = yield* Zones.fieldSteps(poiLayer, tx + dx, ty + dy, w);
+              neighbor = yield* ZoneCoverage.buildSteps({ field: neighbor, poiLayer,
+                parks: parkPolys.map(p => ({ ...p, rings: shiftRings(p.rings, dx, dy) })),
+                beachLayer: shiftLayer(layersByName.landcover, dx, dy),
+                waterLayer: shiftLayer(layersByName.water, dx, dy),
+                tx: tx + dx, ty: ty + dy, N: w, tileEdgeM });
+              templeFields.set(fieldKey, neighbor);
+            }
+            const field = templeFields.get(fieldKey);
+            const a = field?.anchors[field.coverage?.[(y - dy * h) * w + x - dx * w] - 1];
+            if (a) candidates.set(String(a.key ?? Zones.anchorKey(a.gx, a.gy)), a);
+          }
+          const key = [...candidates.keys()].sort()[0];
+          if (key) {
+            buildingPolys[i].templeAnchor = candidates.get(key);
+            buildingPolys[i].templeZone = key;
+            buildingPolys[i].tier = T.BUILDING_LARGE;
+          }
+        }
         // Tier floors are enforced AFTER assignment, over the buildings that
         // actually landed on the tile — a building that got no cell at all
         // mustn't consume the tile's one guaranteed castle/fort slot.
-        const _placed = buildingPolys.filter((bp, i) => footprints[i].some(
+        const _placed = buildingPolys.filter((bp, i) => !bp.templeZone && footprints[i].some(
           ([fx, fy]) => fx >= 0 && fy >= 0 && fx < w && fy < h));
         enforceBuildingDistribution(_placed);
         yield 'enforceBuildingDistribution';
@@ -5205,7 +5254,8 @@
           // the same ownerKey after the loop (a house's key is minted further
           // down, past two `continue`s, so it can't be read here).
           bp._ownerId = ownerId;
-          if (bp.tier === T.BUILDING_LARGE) {
+          if (bp.templeZone) templeOwners.add(ownerId);
+          if (bp.tier === T.BUILDING_LARGE && !bp.templeZone) {
             castleSourceRings.push({ ownerId, ring: bp.ring });
             let haloCells = 0;
             for (const [fx, fy] of footprints[_bi]) {
@@ -5246,7 +5296,6 @@
           // Civic / industrial slabs (schools / malls / hospitals) read as a
           // cement pad — a residential house roof on top of one looks wrong,
           // so skip the sprite.
-          if (bp.tier === T.BUILDING_LARGE) continue;
           // No cell on this tile (a building clipped to a sliver at the seam,
           // or one too small to claim anywhere) → no sprite either. The old
           // code fell back to the ring centroid here, which planted a house
@@ -5291,8 +5340,11 @@
           const otx = tx + Math.floor(best[0] / w), oty = ty + Math.floor(best[1] / h);
           const oix = best[0] - Math.floor(best[0] / w) * w;
           const oiy = best[1] - Math.floor(best[1] / h) * h;
+          buildingSeats.set(ownerId, { tx: otx, ty: oty, ix: oix, iy: oiy,
+            x: cellCenterMeters(best[0], best[1]).mx, y: cellCenterMeters(best[0], best[1]).my });
+          if (bp.tier === T.BUILDING_LARGE && !bp.templeZone) continue;
           // Stable id for per-house shop state (deal rate-limit, future ledger).
-          const id = cellId('h', otx, oty, oix, oiy);
+          const id = cellId(bp.templeZone ? 'tp' : 'h', otx, oty, oix, oiy);
           // House / fort cells resolve to the house object's own id — the key
           // save.restoredHouses and save.unlockedForts are stored under — so
           // "is the building under this cell claimed" is one lookup, from
@@ -5306,8 +5358,9 @@
           // tile + cell (→ shop type), so its shop role is the same in every
           // save. Houses whose address ends in 9 become blacksmiths (~10%).
           const address = cellHash(otx, oty, oix, oiy) % 1000;
-          objects.push(makeObject('house', cx, cy, id,
-            { area: bp.areaM2, tier: bp.tier, address }));
+          objects.push(makeObject(bp.templeZone ? 'temple' : 'house', cx, cy, id,
+            { area: bp.areaM2, tier: bp.tier, address,
+              ...(bp.templeZone ? { templeZone: bp.templeZone, templeKind: bp.templeAnchor.kind, templeAnchor: { ...bp.templeAnchor } } : {}) }));
         }
         yield 'building paint (all footprints)';
         // Export the SOURCE rings for the polygonal footprint overlay. Done
@@ -5323,6 +5376,7 @@
           buildingShapes.push({
             ring,
             tier: bp.tier,
+            ...(bp.templeZone ? { kind: 'temple', templeZone: bp.templeZone, templeKind: bp.templeAnchor.kind } : {}),
             areaM2: bp.areaM2,
             key: (bp._ownerId && ownerKeys[bp._ownerId]) || null,
           });
@@ -5498,7 +5552,7 @@
       // by virtue of OSM data and never something the player wades into a
       // back yard for. Keep them exempt from the residential proximity
       // check below.
-      const _mrSkipKind = (k) => isBuilding(k);
+      const _mrSkipKind = (k) => isBuilding(k) || k === 'temple';
       // POI chests are real-world destinations and count as public anchors for
       // the shared isSpawnCell rule below. Snapshot their cell coords now,
       // before we start splicing `objects`.
@@ -5654,7 +5708,8 @@
     // clipping edge cannot manufacture corners or an interior row of towers.
     const castleOwnerAt = (x, y) => {
       if (x >= 0 && y >= 0 && x < w && y < h) {
-        return grid[y * w + x] === T.BUILDING_LARGE ? owners[y * w + x] : null;
+        const owner = owners[y * w + x];
+        return grid[y * w + x] === T.BUILDING_LARGE && !templeOwners.has(owner) ? owner : null;
       }
       const key = `${x}_${y}`;
       if (castleHalo.has(key)) return castleHalo.get(key);
@@ -5708,7 +5763,7 @@
     //    of a contested cell must be fixed by data, not array order — JS sort
     //    stability isn't guaranteed across engines, and an arbitrary tie-break
     //    would let the same seed resolve a collision differently between reloads.
-    const STRUCT_PRIO = { chest: 6, house: 5, tower: 5, infoboard: 5, gatepost: 5, fruittree: 4, tree: 3, mineralrock: 2 };
+    const STRUCT_PRIO = { temple: 7, chest: 6, house: 5, tower: 5, infoboard: 5, gatepost: 5, fruittree: 4, tree: 3, mineralrock: 2 };
     const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
     structs.sort((a, b) => {
       const dp = (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0);
@@ -5908,6 +5963,13 @@
     // Capture after ordinary dedupe, before either street or zone replacement.
     const caveSource = { grid: grid.slice(), objects: deduped.slice(),
       wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
+    // Surface shrines change POI kind, theme and sometimes position in place.
+    // A slice alone would let those mutations rewrite the cave snapshot.
+    for (let i = 0; i < caveSource.objects.length; i++) {
+      if ((i & 255) === 0) yield 'cave source objects';
+      const { templeAnchor, templeZone, templeKind, ...physical } = caveSource.objects[i];
+      caveSource.objects[i] = physical;
+    }
     const ownStreetLines = hasStreetArea
       ? new Set(streetIndex.lines.filter(r => r.variant).map(r => r.lineKey)) : null;
     if (hasStreetArea) yield* clearStreetAmbientSteps({ area: streetArea, objects: deduped,
@@ -5959,6 +6021,45 @@
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.quarrySteps({
         field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
         tx, ty, N: w, grid, tileEdgeM, roadMask, spawnWhy });
+    }
+    // Quarries have building-shaped holes in their walkable layout. Their
+    // logical source footprint still owns those buildings: convert the whole
+    // owner block and remove every ordinary roof/turret before it can spawn.
+    if (zone?.buildingCoverage) {
+      const converted = new Map(), oldKeys = new Set();
+      for (let i = 0; i < owners.length; i++) {
+        if ((i & 511) === 0) yield 'quarry temple ownership';
+        const owner = owners[i], slot = zone.buildingCoverage[i];
+        if (!owner || !slot || templeOwners.has(owner) || converted.has(owner)) continue;
+        const anchor = zone.anchors[slot - 1], seat = buildingSeats.get(owner);
+        if (!anchor || !seat) continue;
+        const oldKey = ownerKeys[owner], id = cellId('tp', seat.tx, seat.ty, seat.ix, seat.iy);
+        const templeZone = String(anchor.key);
+        converted.set(owner, { anchor, id, templeZone });
+        oldKeys.add(oldKey);
+        ownerKeys[owner] = id;
+        templeOwners.add(owner);
+        for (const shape of buildingShapes) if (shape.key === oldKey) {
+          shape.kind = 'temple'; shape.tier = T.BUILDING_LARGE;
+          shape.key = id; shape.templeZone = templeZone; shape.templeKind = anchor.kind;
+        }
+        if (seat.tx === tx && seat.ty === ty) deduped.push(makeObject('temple', seat.x, seat.y, id,
+          { tier: T.BUILDING_LARGE, templeZone, templeKind: anchor.kind, templeAnchor: { ...anchor } }));
+      }
+      if (converted.size) {
+        for (let i = 0; i < owners.length; i++) if (converted.has(owners[i])) grid[i] = T.BUILDING_LARGE;
+        let kept = 0;
+        for (const o of deduped) {
+          if ((o.kind === 'house' && oldKeys.has(o.id)) || (o.kind === 'tower' && oldKeys.has(o.castle))) continue;
+          deduped[kept++] = o;
+        }
+        deduped.length = kept;
+      }
+    }
+    if (zone) for (const o of deduped) {
+      if (o.kind !== 'temple') continue;
+      const anchor = zone.anchors.find(a => String(a.key ?? Zones.anchorKey(a.gx, a.gy)) === o.templeZone);
+      if (anchor) o.templeAnchor = { ...anchor };
     }
     if (streetIndex && typeof StreetVariants.applyAffinitiesSteps === 'function') {
       // Geography changes the selected theme, never whether the corridor is
@@ -6634,7 +6735,7 @@
     // lost to set dressing ("I never see chests at POIs"). Evict the
     // scenery instead; only another chest or a structure (house / tower /
     // staircase) genuinely blocks the cell.
-    const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'tower', 'staircase']);
+    const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'temple', 'tower', 'staircase']);
     //
     // O(n) BY CONSTRUCTION — this post-rasterize path has no slicer (see
     // CLAUDE.md, "A tile build stutters on its WORST BLOCK"). The blocker
@@ -6707,7 +6808,7 @@
     const detectedTree = t => t._treeSource === 'deepforest' ||
       (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
     const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
-      !['chest', 'grove_shrine', 'house', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
+      !['chest', 'grove_shrine', 'house', 'temple', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
       !!(o._street || o.zoneVariant || o._scenic);
     const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set();
     const objectCells = o => {

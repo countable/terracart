@@ -49,7 +49,7 @@
 // turret sprite": a `tower` IS the castle's turret, so the kind and the tier
 // are two spellings of the same building, not two conditions.
 function isCastle(o) {
-  return !!o && (o.kind === 'tower' || o.tier === 12);
+  return !!o && o.kind !== 'temple' && (o.kind === 'tower' || o.tier === 12);
 }
 
 // The two kinds that draw as a TREE — a shiny sheen, a canopy against a wall,
@@ -261,6 +261,11 @@ function pageStone({ title, art, spent, read }) {
 }
 
 const INTERACTABLES = {
+  temple: { custom: (ctx, o) => Temples.interact(ctx, o) },
+  shrine_spirit: { custom: ({ scene, sx, sy }) => {
+    scene.flash('The spirit guards the shrine.', sx, sy);
+    return true;
+  } },
   // ---- Tree: chop with an axe for wood -------------------------------------
   // Bigger / harder trees demand a sturdier axe and pay out proportionally more
   // wood (treeWoodMul); softwood fells a tier easier, hardwood a tier harder

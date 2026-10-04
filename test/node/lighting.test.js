@@ -832,13 +832,13 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // remembered here.
   // (+ the grove shrine, src/zones.js — a standing light like the torch.)
   // One closure offers them, for the sprite walk and the light walk alike.
-  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
+  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
     'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
   const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
+  assert.truthy(/return isBuilding\(k\) \|\| k === 'temple' \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
     'and the per-tile light list is derived by the same kinds');
   assert.truthy(pred.includes('Macros.visitKindForObject(o)'), 'daily sites join the shared pre-cull predicate');
   assert.truthy(body.includes("o.kind === 'chest' && !offersPreCullLight(o) && poiLit(o, spentIds)"),

@@ -55,6 +55,10 @@
     'worldpeach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'chest:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
     'box:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
+    'shrine_spirit:0': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
+    'shrine_spirit:1': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 14, maxY: 14 },
+    'shrine_spirit:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 14, maxY: 14 },
+    'shrine_spirit:3': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
     'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1, minY: 5, maxX: 16, maxY: 15 },
     'mineralrock:169': { fw: 16, fh: 16, minX: 3, minY: 6, maxX: 12, maxY: 14 },
@@ -65,7 +69,7 @@
     'mineralrock:2': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'mineralrock:3': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'mineralrock:5': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
-    'mineralrock:6': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
+    'mineralrock:7': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'approved_charred_stakes:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
     'well:0': { fw: 30, fh: 32, minX: 2, minY: 0, maxX: 30, maxY: 32 },
     'pillar:0': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
@@ -73,7 +77,6 @@
     'bonfire:0': { fw: 16, fh: 32, minX: 1, minY: 9, maxX: 14, maxY: 31 },
     'torch:0': { fw: 16, fh: 32, minX: 5, minY: 5, maxX: 12, maxY: 32 },
     'waystone:0': { fw: 16, fh: 16, minX: 0, minY: 1, maxX: 16, maxY: 16 },
-    'stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
     'tar:0': { fw: 16, fh: 16, minX: 1, minY: 6, maxX: 15, maxY: 15 },
     'grove_votive:0': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 21, maxY: 23 },
     'zone_objects:1': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
@@ -119,7 +122,6 @@
     'shrines:8': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
     'shrines:9': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
     'barrel:0': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 20, maxY: 23 },
-    'barrel_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
     'clay_pot:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
     'clay_pot_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 19 },
     'bike_rack:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 15, maxY: 16 },
@@ -515,6 +517,9 @@
   }
   CREATURE_ART.summoned_skeleton = { ...CREATURE_ART.skeleton };
   CREATURE_ART.summoned_wraith = { ...CREATURE_ART.ghost };
+  // A revealed shrine spirit is a stationary discovery object, not a foe.
+  // Preserve the native blue-white sprite and its four-frame idle cycle.
+  const SHRINE_SPIRIT_ART = { ...CREATURE_ART.ghost, sheet: 'shrine_spirit' };
   const _giantArt = {};
   function creatureArt(kind) {
     if (CREATURE_ART[kind]) return CREATURE_ART[kind];
@@ -975,7 +980,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt, CHEST_SCALE,
-    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, groveShrineArt,
+    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, SHRINE_SPIRIT_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,

@@ -185,6 +185,7 @@
     // produce, then a magic item — and the growth powder as its FAVOURITE,
     // the way a school is known for its Book: a grove is where things grow.
     // Tree seeds use the same seed class and their normal tier eligibility.
+    'treasure:temple':  { classBias: { magic: 1 }, chainSteps: 0, chainMax: 2, maxTier: 2, relicCap: 0 },
     'treasure:shrine':  { classBias: { seed:0.55, produce:0.30, magic:0.15 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
                           favourite: { id: 'growth_powder', p: 0.5 } },

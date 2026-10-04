@@ -3339,6 +3339,11 @@ class MapScene extends Phaser.Scene {
     // …and which STREET are the feet on — a variant's first-entry story, and
     // whether tar or stakes are slowing the body (the same feet cell).
     this._tickStreetFeet();
+    HiddenObjects.tick(this);
+    if (!this._templeObserveAt || performance.now() - this._templeObserveAt >= 500) {
+      this._templeObserveAt = performance.now();
+      Temples.observe(this);
+    }
     // …and is the player standing in lava (the lava level only)?
     this._tickLava(dt);
     // …or in a campfire?

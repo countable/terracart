@@ -107,6 +107,7 @@ const scene = (subject, lore) => {
 // or { subject, size, width } for a different frame - the safety screen's
 // fullscreen mobile backdrop is portrait.
 const PIECES = {
+  temple_activated: scene('An ancient low grey limestone temple in a woodland park, with a broad stone courtyard and continuous smooth-coped walls. No towers, turrets, spires or crenellations. Geometric engraved runes awaken with icy cyan light over the stone; a modest tied scroll lies beside the central diamond rune. Respectful and peaceful, subdued painterly stone and moss. All architecture and light in the top 40 percent; empty dark earth below.'),
   // Paired macro booths: built-in reference edits, never independent text-only
   // calls. After-use paintings focus closely on the transaction object.
   // scene() owns export framing; see docs/ART_SOURCES.md.

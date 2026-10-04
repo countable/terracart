@@ -103,7 +103,7 @@ const FILES = [
   'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
-  'interactables.js', 'houses.js',
+  'hidden_objects.js', 'temples.js', 'interactables.js', 'houses.js',
   // The starter-area placers. They read the scene they are handed plus app.js's
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
@@ -119,7 +119,7 @@ const FILES = [
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
   'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
-  'castle_styles.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',

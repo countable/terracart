@@ -70,6 +70,7 @@
     // Restored-houses / forts default to empty objects.
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};
+    if (!save.temples || typeof save.temples !== 'object' || Array.isArray(save.temples)) save.temples = {};
     // Soft cap on unbounded history fields so a heavy player can't balloon the
     // save past the localStorage quota and silently break writes. `placedRocks`
     // is deliberately EXEMPT: unlike the others (which just re-arm a respawn —

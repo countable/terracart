@@ -148,6 +148,15 @@ class SceneCreatures {
     const testMode = !!window.__TEST_MODE;
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
     const creatures = [];
+    // Keep generated enemy provenance before applying the defeat ledger.
+    // Temples distinguish a cleared park from one that never had enemies,
+    // including after reload when defeated creatures no longer have bodies.
+    const templeEnemySites = [];
+    const rememberTempleEnemy = c => {
+      if (Combat.isEnemyKind(c.kind) && !c._surfaceInactive)
+        templeEnemySites.push({ id: c.id, kind: c.kind, x: c.x, y: c.y });
+    };
+    entry.templeEnemySites = templeEnemySites;
     const N = entry.cellsPerEdge;
     // Frame metres per cell of THIS tile's grid (its row's N, not the save's
     // cellsPerTile, and never the nominal cellM — CLAUDE.md "Every player sees
@@ -436,7 +445,6 @@ class SceneCreatures {
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           if (!fauna) enemyGroundSeats.add(cy * N + cx);
-          if (caughtSet.has(id)) return;
           // AN ANIMAL (or a wild slime) IS SEATED BY ITS OWN CLASS (the spawn
           // gate, creatureSpawnClass): every class keeps off the hard reasons
           // and sensitive ground; a FAST one (animal or foe) off the kerb
@@ -456,6 +464,10 @@ class SceneCreatures {
           // through tame/release/re-catch. The slime exception (an energy pest
           // with no catch payout never goes shiny) lives in faunaShiny, so the
           // doorstep greeter below obeys it through the same call.
+          if (kindStr !== 'slime') {
+            if (Combat.isEnemyKind(kindStr)) rememberTempleEnemy({ kind: kindStr, x: wmx, y: wmy, id });
+            if (caughtSet.has(id)) return;
+          }
           creatures.push(WorldGen.makeCreature(kindStr, wmx, wmy, id,
             { shiny: faunaShiny(kindStr, id) }));
           return;
@@ -509,12 +521,14 @@ class SceneCreatures {
       const cx = Math.floor((plant.x - tx * this.tileEdgeM) / cellM);
       const cy = Math.floor((plant.y - ty * this.tileEdgeM) / cellM);
       plantCells.add(cy * N + cx);
-      if (caughtSet.has(plant.id) || (pestFree && pestFree.has(cx, cy))) continue;
+      if (pestFree && pestFree.has(cx, cy)) continue;
       // (A biting plant is a foe: spawnParkPlants seats it as an 'enemy'.)
       // Keep the park stream's stable seat and id; habitat is a per-player
       // overlay just as it is for the ordinary surface encounter budget.
       plant._surfaceSpawn = { x: plant.x, y: plant.y, tx, ty, cx, cy };
       EnemySpawns.surfaceActive(this, plant);
+      rememberTempleEnemy(plant);
+      if (caughtSet.has(plant.id)) continue;
       creatures.push(plant);
     }
     // FAUNA ATTRACTORS. A species' favourite ground pulls the tile's OWN
@@ -547,7 +561,7 @@ class SceneCreatures {
       const cx = Math.floor((creature.x - tx * this.tileEdgeM) / cellM);
       const cy = Math.floor((creature.y - ty * this.tileEdgeM) / cellM);
       const id = EnemySpawns.surfaceId(tx, ty, cx, cy);
-      if (caughtSet.has(id) || enemySeats.has(id)) continue;
+      if (enemySeats.has(id)) continue;
       // Drop generic enemies in authored zone/road areas after the draw,
       // preserving every subsequent RNG draw and each variant's own guards.
       if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;
@@ -563,6 +577,8 @@ class SceneCreatures {
         _surfaceSpawn: { x: creature.x, y: creature.y, tx, ty, cx, cy },
       });
       EnemySpawns.surfaceActive(this, replacement);
+      rememberTempleEnemy(replacement);
+      if (caughtSet.has(id)) continue;
       creatures[enemyWrite++] = replacement;
     }
     creatures.length = enemyWrite;
@@ -574,15 +590,15 @@ class SceneCreatures {
     for (const c of themedEnemies) {
       const at = c._surfaceSpawn;
       _spawnOpts.occupied.add(at.cy * N + at.cx);
-      if (caughtSet.has(c.id)) continue;
       EnemySpawns.surfaceActive(this, c);
+      rememberTempleEnemy(c);
+      if (caughtSet.has(c.id)) continue;
       creatures.push(c);
     }
     // Zone guards already have an authored species and seat. Append after
     // attraction and surface-roster replacement so neither can move or turn
     // them into an unrelated enemy. Their kills use the usual caught ledger.
     for (const guard of zoneGuards) {
-      if (caughtSet.has(guard.id)) continue;
       const creature = WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
         ...guard, shiny: false, immobile: !guard.burrowCells,
         ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
@@ -591,11 +607,14 @@ class SceneCreatures {
         lairR: 0, seatX: guard.x, seatY: guard.y,
       });
       if (creature._surfaceSpawn) EnemySpawns.surfaceActive(this, creature);
+      rememberTempleEnemy(creature);
+      if (caughtSet.has(guard.id)) continue;
       creatures.push(creature);
     }
     for (const c of habitatGuards) {
-      if (caughtSet.has(c.id)) continue;
       EnemySpawns.surfaceActive(this, c);
+      rememberTempleEnemy(c);
+      if (caughtSet.has(c.id)) continue;
       creatures.push(c);
     }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)

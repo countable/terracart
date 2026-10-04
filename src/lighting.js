@@ -157,6 +157,7 @@
     // derelict wash uses (scene.isClaimedKey), so a house lights the frame its
     // wash lifts.
     building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.95, flicker: 0 },
+    temple:   { radiusCells: 4, colour: 0x65dfff, peak: 0.95, flicker: 0.035 },
     // A placed campfire (burned from a coal). Breathes.
     ground_fire: { radiusCells: 1.5, colour: 0xff852b, peak: 0.75, flicker: 0.12 },
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
@@ -709,6 +710,7 @@
     if (o.kind === 'tower') {
       return (scene.isClaimedKey && scene.isClaimedKey(o.castle)) ? 'building' : null;
     }
+    if (o.kind === 'temple') return window.Temples?.isActive(scene.save, o) ? 'temple' : null;
     if (o.kind === '_fire') return 'fire';
     if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';

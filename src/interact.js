@@ -222,6 +222,7 @@ function findItemInTapCell(scene, layer, wm, accept) {
   const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
   let best = null, bestD2 = Infinity;
   WorldGen.forEachItem(layer, (item) => {
+    if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, item)) return;
     if (accept && !accept(item)) return;
     if (!itemContainsTapCell(scene, item, tapCell)) return;
     const d2 = distM2(item.x, item.y, wm.x, wm.y);
@@ -1247,7 +1248,12 @@ const TAP_HANDLERS = [
     const allObjs = [];
     // Wrap push in a block so we don't return its truthy result —
     // forEachItem treats any truthy return as "stop iterating".
-    WorldGen.forEachItem('objects', (o) => { allObjs.push(o); });
+    const addVisible = o => {
+      if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(save, o)) return;
+      allObjs.push(o);
+    };
+    WorldGen.forEachItem('objects', addVisible);
+    if (typeof HiddenObjects !== 'undefined') for (const o of HiddenObjects.saved(scene)) addVisible(o);
     allObjs.sort((a, b) => {
       const ao = a.kind === 'chest' && isSpent(a, spentTap) ? 1 : 0;
       const bo = b.kind === 'chest' && isSpent(b, spentTap) ? 1 : 0;
@@ -1371,6 +1377,17 @@ const TAP_HANDLERS = [
   { name: 'building-zone', try: (ctx) => {
     const { scene, sx, sy, cwmx, cwmy, cell } = ctx;
     if (!BUILDING_TYPES.has(cell.type)) return false;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    const owner = entry?.ownerKeys?.[entry.owners?.[cell.iy * entry.cellsPerEdge + cell.ix]];
+    let temple = owner && entry?.objects?.find(o => o.kind === 'temple' && o.id === owner);
+    if (owner && !temple) for (const neighbor of WorldGen.tileCache.values()) {
+      temple = neighbor.objects?.find(o => o.kind === 'temple' && o.id === owner);
+      if (temple) break;
+    }
+    if (temple) return INTERACTABLES.temple.custom(ctx, temple);
+    // A temple footprint never snaps to a nearby ordinary shop, including
+    // while its object's tile dressing is still loading.
+    if (owner && entry?.buildingShapes?.some(s => s.key === owner && s.kind === 'temple')) return true;
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind));
     if (!best) return false;

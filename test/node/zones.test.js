@@ -179,6 +179,12 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
       assert.falsy(zoneCodes.has(on.grid[i]), 'a zone code only where the halo painted');
       continue;
     }
+    if (WorldGen.isBuildingTerrain(off.grid[i])) {
+      assert.truthy(WorldGen.isBuildingTerrain(on.grid[i]), 'nexus conversion preserves the building footprint');
+      const shape = on.buildingShapes.find(s => s.key === on.ownerKeys[on.owners[i]]);
+      if (shape?.kind === 'temple') assert.eq(on.grid[i], T.BUILDING_LARGE, 'temples use their own stone footprint');
+      continue;
+    }
     changed++;
     assert.truthy(WorldGen.isWalkable(off.grid[i]) && !WorldGen.isRoadTerrain(off.grid[i]) &&
       !WorldGen.isBuildingTerrain(off.grid[i]) && ![T.PATH, T.PIER].includes(off.grid[i]),
@@ -218,7 +224,10 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
   const sig = (arr) => arr.map((o) => `${o.kind === 'grove_shrine' ? 'chest' : o.kind}|${o.id}|${o.x.toFixed(3)}|${o.y.toFixed(3)}|${o.crop || ''}`).join('\n');
   const authoredStairs = new Set(on.zoneDress.objects.filter(o => o.kind === 'staircase' && o.zoneLayer === 'entrance'));
   for (const o of authoredStairs) assert.eq(on.objects.filter(p => p === o).length, 1, 'each authored shaft joins the generated layer exactly once');
-  assert.eq(sig(on.objects.filter(o => !authoredStairs.has(o))), sig(off.objects.filter(keep)), 'preserved objects keep ids and positions');
+  const templeSeats = new Set(on.objects.filter(o => o.kind === 'temple').map(o => `${o.x}|${o.y}`));
+  const ordinary = o => !['house', 'tower', 'temple'].includes(o.kind) && !templeSeats.has(`${o.x}|${o.y}`);
+  assert.eq(sig(on.objects.filter(o => !authoredStairs.has(o) && ordinary(o))),
+    sig(off.objects.filter(o => keep(o) && ordinary(o))), 'preserved non-building objects keep ids and positions');
   assert.eq(sig(on.wildplants), sig(off.wildplants.filter(keep)), 'preserved wild plants keep ids and positions');
   assert.gt(off.wildplants.length - on.wildplants.length, 0, 'covered legacy flora is actually replaced');
   assert.eq(JSON.stringify(on.streetDress && on.streetDress.objects.map((o) => o.id)),

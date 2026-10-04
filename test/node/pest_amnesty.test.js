@@ -96,7 +96,8 @@
     const caught = src.indexOf('if (caughtSet.has(id)) return;', tp);
     assert.lt(drawY, guardAt, 'after the cell is drawn');
     assert.lt(spawnRule, guardAt, 'after the shared spawn rule accepts it');
-    assert.lt(caught, guardAt, 'beside the per-player caught cull');
+    assert.lt(drawY, caught, 'defeat filtering also follows the deterministic draw');
+    assert.falsy(/rng\(\)/.test(src.slice(Math.min(caught, guardAt), Math.max(caught, guardAt))), 'moving the defeat filter past provenance recording adds no random draws');
     // And nothing between the draw and the push re-draws on the zone's say.
     const body = src.slice(tp, src.indexOf('creatures.push(', tp));
     assert.eq((body.match(/pestFree\.has\(/g) || []).length, 1, 'the zone is asked once, in the guard');

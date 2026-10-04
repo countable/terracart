@@ -2698,7 +2698,7 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
+  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
     || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
@@ -2848,7 +2848,7 @@ Render.drawObjects = function drawObjects(scene) {
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
     const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
-    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -2875,6 +2875,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (entry.objects) {
         WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
           _boot_scanned++;
+          if (HiddenObjects.isHidden(scene.save, o)) return;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           // Past the sprite box the only thing an object could still do is
           // throw a pre-cull light, and the light walk below offers exactly
@@ -2917,6 +2918,7 @@ Render.drawObjects = function drawObjects(scene) {
         if (LIGHTS && lM > sM && preCullLightList(entry)) {
           WorldGen.forEachItemInBox(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX + lM, pWorldY + lM, (o) => {
             _boot_scanned++;
+            if (HiddenObjects.isHidden(scene.save, o)) return;
             const dx = o.x - pWorldX, dy = o.y - pWorldY;
             if (Math.abs(dx) <= sM && Math.abs(dy) <= sM) return;   // the sprite walk's
             offerPreCullLights(o, dx, dy);
@@ -3083,6 +3085,11 @@ Render.drawObjects = function drawObjects(scene) {
   // already."; the pad + label persist via objList).
   // Only containers with broken art remain after collection (clay pots).
   // Wooden barrels disappear through the ordinary spent-object filter.
+  for (const o of HiddenObjects.saved(scene)) {
+    if (HiddenObjects.isHidden(scene.save, o)) continue;
+    const dx = o.x - pWorldX, dy = o.y - pWorldY;
+    if (Math.abs(dx) <= halfM && Math.abs(dy) <= halfM) objList.push({o, dx, dy});
+  }
   const filteredObj = objList.filter(({ o }) => {
     const spent = isSpent(o, spentIds);
     if (o.kind === 'chest' && isBarrel(o) && chestLook(o).smashedKey) { o._smashed = spent; return true; }
@@ -3151,6 +3158,7 @@ Render.drawObjects = function drawObjects(scene) {
     const shadowList = [];
     for (const item of filteredObj) {
       const k = item.o.kind;
+      if (k === 'temple') continue;
       if (isBuilding(k)) { shadowList.push(item); continue; }
       if (!RENDER_SPEC[k]?.shadow) continue;
       const foot = item._appearance?.foot;
@@ -4381,6 +4389,15 @@ Render.objectAppearance = function (scene, houseRoles) {
   const fruitList = [];
 
   const RENDER_SPEC = {
+    // Temples use their entire source polygon; no house sprite covers the runes.
+    temple: { key: null, ground: true },
+    shrine_spirit: {
+      key: 'shrine_spirit',
+      frame: () => { const art = SpriteLayout.SHRINE_SPIRIT_ART; return Math.floor(performance.now() / art.frameMs) % art.frames; },
+      scale: () => SpriteLayout.SHRINE_SPIRIT_ART.scale,
+      origin: [0.5, 0.5], seat: true, seatFrame: 0,
+      after: s => s.setAlpha(SpriteLayout.SHRINE_SPIRIT_ART.alpha),
+    },
     // Water scenery is drawn separately from tappable objects.
     // Connected wall tiles preserve frame alignment, including off-center corners.
     // Seating by trimmed art would move their endpoints away from adjacent cells.
@@ -4627,7 +4644,7 @@ Render.objectAppearance = function (scene, houseRoles) {
               //   ORE   → row 0, the ore-stone per yield tier. The top row is
               //           ore stones in tier order starting at copper — copper
               //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
-              //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
+              //           (T5), crimson 5 (T6), frost blue 7 (T7) —
               //           so the rock you see matches the bar it drops.
               frame: (o) => {
                 if (o.deposit === 'crystal') return 0;

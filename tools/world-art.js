@@ -132,7 +132,7 @@
     painted('tilled','Tilled soil','Ground',c=>{c.width=c.height=32;drawTilledTex(c.getContext('2d'),32,seededRand(7919));});
     for(const path of [false,true])for(const restored of [false,true])painted(`road:${path}:${restored}`,`${path?'Path':'Road'} · ${restored?'restored':'weathered'}`,'Roads & lighting',c=>RoadOverlay.paintPavementTile(c.getContext('2d'),96,path,restored,0));
     painted('lamp','Street lamp','Roads & lighting',c=>{c.width=c.height=RoadOverlay.LAMP_TEX_PX;RoadOverlay.paintLamp(c.getContext('2d'),c.width);});
-    for(const tier of [9,10,11])for(const unclaimed of [false,true]) {
+    for(const tier of [WorldGen.T.BUILDING,WorldGen.T.BUILDING_MED,WorldGen.T.BUILDING_LARGE])for(const unclaimed of [false,true]) {
       painted(`building:${tier}:${unclaimed}`,`${terrainNames[tier]||'Building'} · ${unclaimed?'unclaimed':'claimed'}`,'Buildings & landmarks',c=>{
         const key=`biome${tier}_0`;const tile=store.createCanvas(key,32,32);BIOME_TEX[tier].draw(tile.getContext(),32,seededRand((tier+1)*1000+1));
         const sample={...scene,viewSize:128,viewLeft:0,viewTop:0,viewCenterX:0,viewCenterY:0,startWorldM:{x:0,y:0},playerM:{x:0,y:0},cellM:32,buildingGeomContainer:{add(){}},add:{image(){return {setOrigin(){return this;}};}},isClaimedKey:()=>!unclaimed};
@@ -141,6 +141,10 @@
         c.width=c.height=128;c.getContext('2d').drawImage(store.get('buildinggeom_overlay').getSourceImage(),64,64,128,128,0,0,128,128);
       });
     }
+    for (const dark of [false, true]) for (const activated of [false, true]) painted(`temple:${dark ? 'tar:' : ''}${activated}`, `Temple${dark ? ' · tar' : ''} · ${activated ? 'activated' : 'dormant'}`, 'Buildings & landmarks', c => {
+      c.width = c.height = 128;
+      TempleArt.draw(c.getContext('2d'), [12,12,116,12,116,82,82,82,82,110,12,110], {activated, dark});
+    });
     const names=new Map(ZoneVariantData.variants.map(z=>[z.id,z.name]));
     for(const zone of [...ZoneVariantData.variants].sort((a,b)=>a.name.localeCompare(b.name)))$('zone').add(new Option(zone.name,zone.id));
     for(const cat of [...new Set(rows.map(r=>r.category))].sort())$('category').add(new Option(cat,cat));

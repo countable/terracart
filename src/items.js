@@ -297,7 +297,7 @@ const COOKED_FOODS = {
 // Ore-bearing rock identity. One row owns the material shown, paid and
 // catalogued because changing any one without the others lies to the player.
 // The mineralrock sheet's top row orders copper through platinum at columns
-// 0..3, leaves column 4 for unrelated art, then puts crimson/frost at 5/6.
+// 0..3, puts crimson at 5 and frost blue at 7; columns 4 and 6 are unused.
 // Yield tier 1 is a plain rock and therefore has no row or namesake bar.
 // A crystal deposit is mined like a rock but pays only its visible gem.
 const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3 });
@@ -309,7 +309,7 @@ const MINERAL_TIERS = Object.freeze({
   4: Object.freeze({ barId: 'gold_bar',     rockFrame: 2 }),
   5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3 }),
   6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5 }),
-  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 6 }),
+  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 7 }),
 });
 function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }

@@ -1,0 +1,22 @@
+LICENSE AGREEMENT
+
+Copyright (c) 2026 jfranci_px
+
+Permission is granted to use these assets in both free and commercial projects, including games, prototypes, videos, and other interactive media.
+
+You may:
+- Use the assets in personal or commercial projects
+- Modify or edit the assets for use within your projects
+- Include the assets in released games or applications
+
+You may NOT:
+- Redistribute, resell, or reupload the assets as standalone files
+- Redistribute modified versions of the assets as asset packs
+- Claim the assets as your own original work
+- Sell the assets separately, whether modified or unmodified
+
+The assets are provided "as is", without warranty of any kind.
+
+Credit is appreciated but not required.
+
+By using these assets, you agree to the terms above.
