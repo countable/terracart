@@ -1,6 +1,6 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 11,
+  "revision": 13,
   "date": "2026-10-03",
   "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave levels 1 and 2; roads and buildings remain cave walls.",
   "scope": {
@@ -75,17 +75,68 @@
       "interaction": "proposed watering-can refill from the nearest reachable pool bank; source and pool share one interaction identity; no free healing",
       "encounterByDepth": {
         "1": [
-          "cave_slime",
-          "bat"
+          "skeleton"
         ],
         "2": [
-          "cave_slime",
-          "bat",
-          "spider"
+          "skeleton"
         ]
       },
       "reward": "reuse a surviving mirrored POI cache; no extra daily chest",
-      "surfaceNexusKind": "grove"
+      "surfaceNexusKind": "grove",
+      "encounters": {
+        "placement": "spring_offsets",
+        "kind": "skeleton",
+        "seats": [
+          {
+            "at": [
+              -4,
+              -2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              4,
+              -2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              -4,
+              2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              -6,
+              0
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              0,
+              6
+            ],
+            "kind": "skeleton"
+          }
+        ],
+        "hidden": true,
+        "dormant": true,
+        "revealDistanceCells": 1,
+        "countPolicy": "Six fixed dormant skeleton seats in this reference spring; finite once per region and depth. Hidden seats are not extra ambient spawns.",
+        "activation": "Reveal and wake only when player distance is at most one cell (Euclidean world distance <= cellM). No movement, targeting, attack, visible body or health marker before proximity activation. Reveal remains latched; preserve defeated IDs and do not respawn on tile reload.",
+        "mechanicStatus": "Main pulled at f119a723. General hidden-until-proximity enemy mechanic is not present there; visible ghost proximityCells is not equivalent. Reuse the shared hidden/disguise mechanic when it lands, with revealDistanceCells=1 and no prop disguise, rather than adding a spring-specific AI path."
+      }
     },
     {
       "id": "goblin_warrens",
@@ -113,7 +164,105 @@
       },
       "reward": "reuse a surviving mirrored POI cache; barrels replace allocated finite containers",
       "shrineKind": "ember_altar",
-      "surfaceNexusKind": "grove"
+      "surfaceNexusKind": "grove",
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              2,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              12,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              22,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              8,
+              7
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              18,
+              7
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              2,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              13,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              22,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              9,
+              17
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              18,
+              17
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              2,
+              22
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              11,
+              22
+            ],
+            "kind": "club_goblin"
+          }
+        ],
+        "targetByDepth": {
+          "1": 12,
+          "2": 16
+        },
+        "countPolicy": "Representative 25-room warren: 12 goblins on level 1 and 16 on level 2. Scale by usable room count, capped once per region and depth; omit blocked seats."
+      }
     },
     {
       "id": "mushroom_cavern",
@@ -133,17 +282,83 @@
       "interaction": "Harvest cave mushrooms and visit the Toad idol for its existing Mending boon.",
       "encounterByDepth": {
         "1": [
-          "cave_slime",
-          "bat"
+          "mushroom_monster"
         ],
         "2": [
-          "cave_slime",
-          "bat",
-          "spider"
+          "mushroom_monster"
         ]
       },
       "reward": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
-      "surfaceNexusKind": "grove"
+      "surfaceNexusKind": "grove",
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              4,
+              7
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              8,
+              5
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              16,
+              6
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              20,
+              9
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              5,
+              17
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              9,
+              19
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              16,
+              19
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              20,
+              16
+            ],
+            "kind": "mushroom_monster"
+          }
+        ],
+        "surfaceReference": "mushroom_grove",
+        "surfaceDensityMultiplier": 2,
+        "minimumPerStandardRegion": 8,
+        "countPolicy": "At equal usable area, target max(8 per 25\u00d725-cell reference region, twice the configured surface mushroom-monster count). Eight shown; omit blocked seats. This is a proposed zone population, not measured surface density."
+      }
     },
     {
       "id": "gemstone_cavern",
@@ -155,7 +370,7 @@
       ],
       "layout": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
       "interaction": "Mine mixed gemstone pockets under their existing deposit or ore-rock rules.",
-      "reward": "Sapphire clusters use the existing gem-only deposit. Ruby, emerald and diamond seats currently show the corresponding shipping gem-bearing ore rocks, retaining their metal and chance-gem drops. Dedicated gem-only versions need new world art and deposit rows.",
+      "reward": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
       "encounterByDepth": {
         "1": [
           "cave_slime",
@@ -167,7 +382,7 @@
           "spider"
         ]
       },
-      "depthPolicy": "Levels 1 and 2 only. The mixed-tier art showcase must be filtered by floor eligibility and existing mining rules before activation.",
+      "depthPolicy": "Cave levels 1 and 2 only. Mixed-gem design preview; per-gem mining requirements, rarity and finite budgets must be defined when integrating the new deposit rows.",
       "surfaceNexusKind": "grove",
       "depths": [
         1,
@@ -214,7 +429,24 @@
         2
       ],
       "coverage": "all_paths",
-      "contextPolicy": "Theme affinity only; paths outside this context still receive an underground path variant."
+      "contextPolicy": "Theme affinity only; paths outside this context still receive an underground path variant.",
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          12,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              7,
+              17
+            ],
+            "kind": "gelatinous_cube"
+          }
+        ],
+        "countPolicy": "One gelatinous cube per qualifying connected seep route and depth, not one per motif or tile segment. Place on reachable cave floor beside the channel."
+      }
     },
     {
       "id": "miners_way",
@@ -241,13 +473,44 @@
       ],
       "coverage": "all_paths",
       "contextPolicy": "Theme affinity only; paths outside this context still receive an underground path variant.",
-      "layout": "Two-cell central passage with stone-walled side alcoves and two-cell door openings."
+      "layout": "Two-cell central passage with stone-walled side alcoves and two-cell door openings.",
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          12,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              5,
+              4
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              6,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              5,
+              20
+            ],
+            "kind": "club_goblin"
+          }
+        ],
+        "countPolicy": "A three-goblin patrol in this passage example. Route-owned patrol budget, not a new group per repeated motif or tile fragment."
+      }
     },
     {
       "id": "gemstone_path",
       "name": "Gemstone Path",
       "layout": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment.",
-      "reward": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
+      "reward": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
       "source": "walking_path",
       "depths": [
         1,
@@ -298,14 +561,14 @@
     "Anchor regions from surface geography, even when POI mirrors are pruned at an earlier depth.",
     "Style at most one surviving mirror as the cache; retain its current chest-tier and depth rules in the first slice.",
     "If no mirror survives, keep a spring or encounter landmark without minting a replacement chest.",
-    "Zone finds and containers replace allocated ordinary cave seats; measure total loot before tuning additional rewards.",
+    "Zone finds and containers replace ordinary cave resource seats. The newly requested dense goblin and mushroom encounters use explicit finite zone budgets; measure their additional combat loot before activation.",
     "Path intersections confer connectivity, not extra rewards or extra daily ledgers.",
     "Use existing picked/opened/caught/treasure persistence with stable depth-qualified IDs.",
     "One shrine per qualifying nexus region and depth, using the existing daily shrine ledger and boon rules. The boon replaces its shrine treasure gift; tile fragments never duplicate it.",
     "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
-    "Gemstone Cavern previews mixed shipping deposits and gem-bearing ore rocks. Keep their actual drop identities and mining rules; dedicated ruby, emerald and diamond deposits require new art and explicit mechanics. Gemstone Path remains sapphire-focused in this first preview.",
     "Reuse quarry rock and sapphire appearances without importing surface quarry first-rock guarantees, buried finds or extra site rewards. Underground placements retain their declared rock/deposit rules and depth-qualified budgets.",
-    "Mine Tunnels is a simple finite ore-rich deposit per quarry anchor and depth. It creates no extra cache, shrine, temple or imported surface quarry first-rock guarantee."
+    "Mine Tunnels is a simple finite ore-rich deposit per quarry anchor and depth. It creates no extra cache, shrine, temple or imported surface quarry first-rock guarantee.",
+    "Dedicated gemstone art is present for all seven previewed gems. Deposits must pay their pictured gem; integrating non-sapphire deposit rows and new amethyst/topaz/rose-quartz items remains runtime work."
   ],
   "implementation": [
     {
@@ -342,7 +605,10 @@
     "No underground path variant applies to roads or cave levels 3 and deeper.",
     "Only grove anchors select the four grove nexus variants; quarry anchors select Mine Tunnels and seep anchors select none of them.",
     "No temple or house interiors appear underground; house and road cells remain cave walls after nexus placement.",
-    "Neither nexus variants nor path themes apply at cave levels 3 or deeper."
+    "Neither nexus variants nor path themes apply at cave levels 3 or deeper.",
+    "Dense goblin and mushroom counts are owned once per source region/depth; route goblin patrols and seep cubes do not multiply at seams.",
+    "Spring skeletons remain invisible and inactive beyond one cell, reveal at the one-cell boundary, remain revealed after retreat, and do not reappear after defeat/reload.",
+    "Named-zone skeleton, mushroom and cube exceptions do not change ambient cave enemy eligibility."
   ],
   "art": [
     {
@@ -493,27 +759,6 @@
       },
       "color": "#98968c"
     },
-    "ruby_bearing_rock": {
-      "gameMaterial": {
-        "kind": "mineralrock",
-        "yieldTier": 5
-      },
-      "color": "#c67b87"
-    },
-    "emerald_bearing_rock": {
-      "gameMaterial": {
-        "kind": "mineralrock",
-        "yieldTier": 6
-      },
-      "color": "#77b68c"
-    },
-    "diamond_bearing_rock": {
-      "gameMaterial": {
-        "kind": "mineralrock",
-        "yieldTier": 7
-      },
-      "color": "#a7d3e3"
-    },
     "quarry_broken_rock": {
       "quarryVariant": "quarry-abandoned",
       "quarryMaterial": "stone",
@@ -528,6 +773,36 @@
       "quarryVariant": "quarry-strip-mine",
       "quarryMaterial": "crystal",
       "color": "#8ccfe3"
+    },
+    "ruby_deposit": {
+      "caveArt": "ruby_rock",
+      "color": "#c76475",
+      "proposedGemYield": "ruby"
+    },
+    "emerald_deposit": {
+      "caveArt": "emerald_rock",
+      "color": "#67b67c",
+      "proposedGemYield": "emerald"
+    },
+    "diamond_deposit": {
+      "caveArt": "diamond_rock",
+      "color": "#c4e5eb",
+      "proposedGemYield": "diamond"
+    },
+    "amethyst_deposit": {
+      "caveArt": "amethyst_rock",
+      "color": "#b389d6",
+      "proposedGemYield": "amethyst"
+    },
+    "topaz_deposit": {
+      "caveArt": "topaz_rock",
+      "color": "#dcae68",
+      "proposedGemYield": "topaz"
+    },
+    "quartz_deposit": {
+      "caveArt": "quartz_rock",
+      "color": "#dda4c5",
+      "proposedGemYield": "quartz"
     }
   },
   "previewRows": [
@@ -539,7 +814,7 @@
       "atmosphere": "The spring rises at the centre of a pool. A clear bank circles the water, followed by a ring of cave mushrooms and an outer ring of mineable stone. Four openings connect the rings to the surrounding cave.",
       "poi": "Central source supplies one surrounding pool. Refill from a reachable bank cell; any surviving mirrored cache sits on dry ground.",
       "connection": "Concentric water, clear bank, mushroom ring and outer stone ring, with four radial approaches. No bridge across the pool is required.",
-      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
+      "monsters": "Six hidden, dormant Skeletons in dry pockets around the spring. They appear and wake only when you walk within one cell. Authored spring encounters on levels 1 and 2; no visible slime patrol.",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wet and wooded affinities.",
       "layout": {
         "type": "concentric_rings",
@@ -564,16 +839,66 @@
         "cacheOffset": [
           4,
           0
-        ],
-        "encounterOffset": [
-          -6,
-          3
         ]
       },
       "depths": [
         1,
         2
-      ]
+      ],
+      "encounters": {
+        "placement": "spring_offsets",
+        "kind": "skeleton",
+        "seats": [
+          {
+            "at": [
+              -4,
+              -2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              4,
+              -2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              -4,
+              2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              -6,
+              0
+            ],
+            "kind": "skeleton"
+          },
+          {
+            "at": [
+              0,
+              6
+            ],
+            "kind": "skeleton"
+          }
+        ],
+        "hidden": true,
+        "dormant": true,
+        "revealDistanceCells": 1,
+        "countPolicy": "Six fixed dormant skeleton seats in this reference spring; finite once per region and depth. Hidden seats are not extra ambient spawns.",
+        "activation": "Reveal and wake only when player distance is at most one cell (Euclidean world distance <= cellM). No movement, targeting, attack, visible body or health marker before proximity activation. Reveal remains latched; preserve defeated IDs and do not respawn on tile reload.",
+        "mechanicStatus": "Main pulled at f119a723. General hidden-until-proximity enemy mechanic is not present there; visible ghost proximityCells is not equivalent. Reuse the shared hidden/disguise mechanic when it lands, with revealDistanceCells=1 and no prop disguise, rather than adding a spring-specific AI path."
+      }
     },
     {
       "id": "goblin_warrens",
@@ -602,7 +927,7 @@
       "atmosphere": "Small 3\u00d73 stores, narrow 3\u00d75 rooms and larger 5\u00d75 chambers form an enclosed network. Barrel stacks occupy room corners, leaving door approaches and the Ember shrine clear.",
       "poi": "Ember altar inside a small inner room grants the existing fireball boon. One surviving mirrored cache stays inside the warren; shrine boon replaces the shrine gift.",
       "connection": "Vary room width and depth independently across offset rows: 3\u00d73 to 5\u00d75 interiors, including narrow rectangles. Connect shared-wall doors into loops; reserve entrance, exit, stairs and shrine approaches before fitting corner stores.",
-      "monsters": "D1: club goblin; D2: club / spear goblin.",
+      "monsters": "A populated goblin den: about one goblin per two rooms on level 1 (12 in this sample), rising to 16 on level 2. Club goblins on level 1; club and spear goblins on level 2. Spread groups among rooms instead of piling them at the shrine.",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. worked and built-edge affinities.",
       "walls": {
         "sheet": "stronghold_wall",
@@ -1506,7 +1831,105 @@
       "depths": [
         1,
         2
-      ]
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              2,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              12,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              22,
+              2
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              8,
+              7
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              18,
+              7
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              2,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              13,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              22,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              9,
+              17
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              18,
+              17
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              2,
+              22
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              11,
+              22
+            ],
+            "kind": "club_goblin"
+          }
+        ],
+        "targetByDepth": {
+          "1": 12,
+          "2": 16
+        },
+        "countPolicy": "Representative 25-room warren: 12 goblins on level 1 and 16 on level 2. Scale by usable room count, capped once per region and depth; omit blocked seats."
+      }
     },
     {
       "id": "mushroom_cavern",
@@ -1557,18 +1980,87 @@
       "atmosphere": "Beds of the two underground mushroom varieties surround a clear Toad shrine court. Open lanes divide the beds and connect to cave paths; no surface mushroom caps appear here.",
       "poi": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
       "connection": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
-      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
+      "monsters": "Mushroom Monsters occupy the gaps between fungal beds: eight in this reference cavern, with a target of at least twice the surface mushroom-monster density for equal usable area. Both cave levels 1 and 2 use this authored encounter pool.",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wooded, shaded and damp affinities.",
       "artNote": "Only the two caveFrames from the game mushroom registry; no surface mushroom or giant-mushroom sprites.",
       "depths": [
         1,
         2
-      ]
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          25,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              4,
+              7
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              8,
+              5
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              16,
+              6
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              20,
+              9
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              5,
+              17
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              9,
+              19
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              16,
+              19
+            ],
+            "kind": "mushroom_monster"
+          },
+          {
+            "at": [
+              20,
+              16
+            ],
+            "kind": "mushroom_monster"
+          }
+        ],
+        "surfaceReference": "mushroom_grove",
+        "surfaceDensityMultiplier": 2,
+        "minimumPerStandardRegion": 8,
+        "countPolicy": "At equal usable area, target max(8 per 25\u00d725-cell reference region, twice the configured surface mushroom-monster count). Eight shown; omit blocked seats. This is a proposed zone population, not measured surface density."
+      }
     },
     {
-      "poi": "Sapphire clusters use the existing gem-only deposit. Ruby, emerald and diamond seats currently show the corresponding shipping gem-bearing ore rocks, retaining their metal and chance-gem drops. Dedicated gem-only versions need new world art and deposit rows.",
+      "poi": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
-      "artNote": "Quarry sapphire, broken quarry rock and worked quarry stone use the same materialFrames as the quarry cards. Ruby-, emerald- and diamond-bearing ore, where shown, keeps its existing game frames; dedicated gem-only art for those three is still missing.",
+      "artNote": "Quarry sapphire plus the approved cave_props ruby, emerald, diamond, amethyst, topaz and rose-quartz rocks from main. All deposit art is now available; ore-rock placeholders are removed.",
       "id": "gemstone_cavern",
       "kind": "nexus",
       "name": "Gemstone Cavern",
@@ -1589,7 +2081,7 @@
             2,
             1
           ],
-          "material": "ruby_bearing_rock"
+          "material": "ruby_deposit"
         },
         {
           "at": [
@@ -1603,14 +2095,14 @@
             5,
             5
           ],
-          "material": "emerald_bearing_rock"
+          "material": "emerald_deposit"
         },
         {
           "at": [
             6,
             5
           ],
-          "material": "diamond_bearing_rock"
+          "material": "diamond_deposit"
         },
         {
           "at": [
@@ -1621,16 +2113,30 @@
         },
         {
           "at": [
-            3,
+            4,
+            1
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            1,
+            5
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            6,
             2
           ],
-          "material": "quarry_broken_rock"
+          "material": "quartz_deposit"
         }
       ],
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock and stony-ground affinities.",
-      "atmosphere": "Quarry sapphire pockets, broken quarry rock and worked stone surround an open central chamber, mixed with the existing ruby-, emerald- and diamond-bearing rocks.",
+      "atmosphere": "Sapphire, ruby, emerald, diamond, amethyst, topaz and rose-quartz deposits gather among quarry stone around an open central chamber.",
       "connection": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
-      "depthNote": "Cave levels 1 and 2 only. Mixed-tier art showcase; final deposits must respect floor eligibility and existing mining rules.",
+      "depthNote": "Cave levels 1 and 2 only. Mixed-gem design preview; per-gem mining requirements, rarity and finite budgets must be defined when integrating the new deposit rows.",
       "depths": [
         1,
         2
@@ -1792,7 +2298,7 @@
       "atmosphere": "A few rocks break the surface of the seep channel and lie along its edges, with occasional cave mushrooms. Dry banks follow both sides, and crossings stay clear.",
       "poi": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
       "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
-      "monsters": "Level-1/2-legal spring family; keep water-bank approaches clear.",
+      "monsters": "One Gelatinous Cube haunts the waterway, moving along a dry bank and crossing. Authored zone encounter on cave levels 1 and 2; it does not spawn in impassable water.",
       "source": "All path classes on cave levels 1\u20132; no roads. Wet or spring surroundings favor this theme.",
       "waterChannel": {
         "widthCells": 2,
@@ -1803,7 +2309,24 @@
       "depths": [
         1,
         2
-      ]
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          12,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              7,
+              17
+            ],
+            "kind": "gelatinous_cube"
+          }
+        ],
+        "countPolicy": "One gelatinous cube per qualifying connected seep route and depth, not one per motif or tile segment. Place on reachable cave floor beside the channel."
+      }
     },
     {
       "id": "miners_way",
@@ -1926,7 +2449,7 @@
       "atmosphere": "Stone walls line a two-cell passage. Open doorways lead into narrow sentry and storage alcoves; supplies and optional traps stay out of the through lane.",
       "poi": "Containers spend the parent region / route finite budget.",
       "connection": "Two-cell central passage with stone-walled side alcoves and two-cell door openings.",
-      "monsters": "D1: club; D2: club / spear.",
+      "monsters": "Goblin patrols: three shown along the passage. Club goblins on level 1; club and spear goblins on level 2. Allocate patrols once per connected route and depth.",
       "source": "All path classes on cave levels 1\u20132; no roads. Goblin Warrens proximity favors this theme.",
       "wallSlots": [
         [
@@ -2028,12 +2551,43 @@
       "depths": [
         1,
         2
-      ]
+      ],
+      "encounters": {
+        "placement": "fixed",
+        "extentCells": [
+          12,
+          25
+        ],
+        "seats": [
+          {
+            "at": [
+              5,
+              4
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              6,
+              12
+            ],
+            "kind": "club_goblin"
+          },
+          {
+            "at": [
+              5,
+              20
+            ],
+            "kind": "club_goblin"
+          }
+        ],
+        "countPolicy": "A three-goblin patrol in this passage example. Route-owned patrol budget, not a new group per repeated motif or tile fragment."
+      }
     },
     {
-      "poi": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
+      "poi": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
-      "artNote": "Quarry sapphire, broken quarry rock and worked quarry stone use the same materialFrames as the quarry cards. Ruby-, emerald- and diamond-bearing ore, where shown, keeps its existing game frames; dedicated gem-only art for those three is still missing.",
+      "artNote": "Quarry sapphire plus the approved cave_props ruby, emerald, diamond, amethyst, topaz and rose-quartz rocks from main. All deposit art is now available; ore-rock placeholders are removed.",
       "id": "gemstone_path",
       "kind": "path",
       "name": "Gemstone Path",
@@ -2054,11 +2608,11 @@
             5,
             4
           ],
-          "material": "quarry_sapphire"
+          "material": "ruby_deposit"
         },
         {
           "at": [
-            0,
+            1,
             6
           ],
           "material": "quarry_broken_rock"
@@ -2069,17 +2623,57 @@
             2
           ],
           "material": "quarry_worked_rock"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "emerald_deposit"
+        },
+        {
+          "at": [
+            5,
+            0
+          ],
+          "material": "diamond_deposit"
+        },
+        {
+          "at": [
+            1,
+            3
+          ],
+          "material": "amethyst_deposit"
+        },
+        {
+          "at": [
+            4,
+            6
+          ],
+          "material": "topaz_deposit"
+        },
+        {
+          "at": [
+            5,
+            7
+          ],
+          "material": "quartz_deposit"
         }
       ],
       "source": "All path classes on cave levels 1\u20132; no roads. Stony surroundings favor this theme.",
-      "atmosphere": "Quarry sapphire pockets sit among broken and worked quarry rocks along both sides of a clear passage.",
+      "atmosphere": "Mixed gemstone seams line the passage: sapphire and six newly approved gem-rock varieties, separated by broken and worked quarry stone.",
       "connection": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment.",
-      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; roads and levels 3+ are excluded.",
+      "depthNote": "Cave levels 1 and 2 only. Mixed-gem design preview; per-gem mining requirements, rarity and finite budgets must be defined when integrating the new deposit rows.",
       "depths": [
         1,
         2
       ]
     }
   ],
-  "previewNote": "Design-only layouts. Rocks, mushrooms, barrels, walls, shrines, ore and crystal deposits use game art. Only the spring-source prop remains an archived candidate; minecarts use the labeled game handcart placeholder."
+  "previewNote": "Design-only layouts. Rocks, mushrooms, barrels, walls, shrines, ore and crystal deposits use game art. Only the spring-source prop remains an archived candidate; minecarts use the labeled game handcart placeholder.",
+  "encounterPolicy": {
+    "scope": "Authored underground zone encounters on levels 1 and 2 only. Skeletons and gelatinous cubes ordinarily start at level 3, while Mushroom Monster has no ambient cave pool; explicitly permit them in these named zones without changing global ambient depth rules.",
+    "population": "Warrens and mushroom caverns intentionally have denser authored populations than ordinary cave dressing. Region and route ownership prevents duplication across fragments.",
+    "hiddenMechanic": "Reuse the shared hidden enemy state when available on main. Dormancy must also suppress rendering and targeting, not just movement."
+  }
 }

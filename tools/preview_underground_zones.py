@@ -21,7 +21,11 @@ def _quarry_material(variant_id, material):
 
 def _image(material, x, y, unit, materials, helpers):
     row = materials[material]
-    if 'gameMaterial' in row or 'quarryVariant' in row:
+    if 'caveArt' in row:
+        manifest=json.loads((ROOT/'assets/Objects/Cave/manifest.json').read_text())
+        entry=next(e for e in manifest['sheets']['cave_props']['entries'] if e['id']==row['caveArt'])
+        uri=helpers['art_image']({'sheet':'cave_props','frames':entry['frames']},f'class="sprite-cell" x="{x}" y="{y}" width="{unit}" height="{unit}"')
+    elif 'gameMaterial' in row or 'quarryVariant' in row:
         definition = (_quarry_material(row['quarryVariant'],row['quarryMaterial']) if 'quarryVariant' in row else dict(row['gameMaterial']))
         if material == 'game_mushroom':
             mushroom = helpers['art_registry']()['crops']['mushroom']
@@ -105,7 +109,7 @@ def _spring_sample(row, data, helpers, detail=False):
     centre = side//2
     c = (centre+.5)*unit
     prefix = 'spring-rings-' + ('detail' if detail else 'wide')
-    parts = [f'<svg role="img" aria-label="Spring feeding a pool with concentric bank, mushrooms and stone" viewBox="0 0 {side*unit} {side*unit}">',
+    parts = [f'<svg data-spring-explore="{centre}" data-pool-radius="{layout["poolRadiusCells"]}" role="img" aria-label="Spring feeding a pool with concentric bank, mushrooms and stone" viewBox="0 0 {side*unit} {side*unit}">',
              helpers['ground_pattern']('CAVE_FLOOR',prefix,unit),
              helpers['ground_pattern']('WATER',prefix+'-water',unit),
              f'<rect width="100%" height="100%" fill="url(#{prefix})"/>', '<g class="background">']
@@ -123,8 +127,13 @@ def _spring_sample(row, data, helpers, detail=False):
     dx,dy=layout['cacheOffset'];x,y=(centre+dx)*unit,(centre+dy)*unit
     parts.append(helpers['art_image']({'sheet':'chest','frames':[0]},f'class="sprite-cell" x="{x}" y="{y}" width="10" height="10"'))
     parts.append(f'<rect class="geometry-cell" x="{x+2}" y="{y+2}" width="6" height="6" fill="#e6c779"><title>Existing mirrored cache · on the dry bank</title></rect></g>')
-    dx,dy=layout['encounterOffset']
-    parts.append(helpers['creature_at']('cave_slime',(centre+dx+.5)*unit,(centre+dy+.5)*unit,unit,'Outer encounter pocket; spring bank stays clear'))
+    for seat in row['encounters']['seats']:
+        dx,dy=seat['at'];x,y=centre+dx,centre+dy
+        if 0 <= x < side and 0 <= y < side:
+            parts.append(f'<g class="hidden-encounter" data-cell-x="{x}" data-cell-y="{y}" style="visibility:hidden">')
+            parts.append(helpers['creature_at']('skeleton',(x+.5)*unit,(y+.5)*unit,unit,'Dormant skeleton; reveals within one cell'))
+            parts.append('</g>')
+    parts.append('<circle class="spring-walker" r="3" fill="#f7eed0" stroke="#111" style="visibility:hidden"><title>Preview player position</title></circle>')
     parts.append(f'<path d="M 6 {side*unit-6} h 50" stroke="#e5ecdf"/><text x="6" y="{side*unit-10}" fill="#e5ecdf" font-size="5">35 m · 5 cells</text></svg>')
     return ''.join(parts)
 
@@ -136,6 +145,8 @@ def _spring_card(row,data,helpers):
     detail_rows=[('Source region',row['source']),('Depth','Cave levels 1 and 2 only; deeper floors retain ordinary caves.'),
         ('Pattern','One concentric composition around the spring, not a repeating motif. Pool radius 3 cells; mushroom ring at 5 cells; rock ring at 8 cells.'),
         ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
+        ('Hidden encounters',row['encounters']['activation']),
+        ('Mechanic status',row['encounters']['mechanicStatus']),
         ('Water','Pool surrounds the source. The water is impassable; refilling uses the nearest reachable bank, not the distant centre.'),
         ('Placement','The clear bank and four radial openings take precedence over ring pieces. Pool and source share one POI identity; the cache stays dry.'),
         ('Lighting','Existing cave and player light; water does not add a new light source.'),
@@ -145,7 +156,7 @@ def _spring_card(row,data,helpers):
         f'<p class="mix"><b>Spring → pool → clear bank → mushrooms → stone</b><br>{counts} before terrain clipping; water and POI counted separately.</p>'
         f'<div class="visual"><figure>{_spring_sample(row,data,helpers)}<figcaption>Concentric spring chamber · four open approaches</figcaption></figure>'
         f'<figure class="detail">{_spring_sample(row,data,helpers,True)}<figcaption>Spring, pool and bank close-up<br>1 cell = 7 m</figcaption></figure></div>'
-        f'<p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+        f'<p>Click a dry cell in either spring view to move the preview marker. Skeletons reveal only within one cell. <button type="button" data-reset-spring>Reset hidden skeletons</button></p><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
 
 
 def _sample(row, data, helpers, detail=False):
@@ -221,12 +232,20 @@ def _sample(row, data, helpers, detail=False):
             parts.append(helpers['art_image']({'sheet':'chest','frames':[0]},f'class="sprite-cell" x="{(cx+1)*unit}" y="{(cy+1)*unit}" width="10" height="10"'))
             parts.append(f'<rect class="geometry-cell" x="{(cx+1)*unit+2}" y="{(cy+1)*unit+2}" width="6" height="6" fill="#e6c779"><title>Existing mirrored cache, only if one survives</title></rect>')
         parts.append('</g>')
-    enemy = 'club_goblin' if row['id'] in ('goblin_warrens','warren_run') else 'cave_slime'
-    if not path or row['id']=='warren_run':
-        ex,ey = ((cx+1)*unit, (cy+2)*unit) if not path else ((cx-3)*unit,(cy+2)*unit)
-        if row.get('encounterOffset'):
-            ex,ey = (cx+row['encounterOffset'][0])*unit,(cy+row['encounterOffset'][1])*unit
-        parts.append(helpers['creature_at'](enemy,ex,ey,unit,'Proposed depth-1 encounter seat; reallocated from existing budget'))
+    if row.get('encounters'):
+        ew,eh=row['encounters']['extentCells']
+        ox,oy=ew//2-cx,eh//2-cy
+        for seat in row['encounters']['seats']:
+            x,y=seat['at'][0]-ox,seat['at'][1]-oy
+            if 0 <= x < width and 0 <= y < height:
+                parts.append(helpers['creature_at'](seat['kind'],(x+.5)*unit,(y+.5)*unit,unit,row['encounters']['countPolicy']))
+    else:
+        enemy = 'club_goblin' if row['id'] in ('goblin_warrens','warren_run') else 'cave_slime'
+        if not path or row['id']=='warren_run':
+            ex,ey = ((cx+1)*unit, (cy+2)*unit) if not path else ((cx-3)*unit,(cy+2)*unit)
+            if row.get('encounterOffset'):
+                ex,ey = (cx+row['encounterOffset'][0])*unit,(cy+row['encounterOffset'][1])*unit
+            parts.append(helpers['creature_at'](enemy,ex,ey,unit,'Proposed depth-1 encounter seat; reallocated from existing budget'))
     parts.append(f'<path d="M 6 {height*unit-6} h 50" stroke="#e5ecdf"/><text x="6" y="{height*unit-10}" fill="#e5ecdf" font-size="5">35 m · 5 cells</text></svg>')
     return ''.join(parts)
 
@@ -256,6 +275,8 @@ def underground_section(helpers, out):
                    ('Art',('Existing Stronghold stone wall set; ' if row.get('walls') else '') + 'game rock, cave mushroom, barrel, chest, shrine and enemy sprites. Layouts and interactions are proposals.')]
         if row.get('walls'):
             details.append(('Stone walls', 'Stronghold stone wall set; connected straight, corner, junction and end frames. Structural cave walls, not reward-bearing props. Doorways and through lanes stay open.'))
+        if row.get('encounters'):
+            details.append(('Encounter population',row['encounters']['countPolicy']))
         if row.get('shrineKind'):
             shrine=helpers['art_registry']()['shrineKinds'][row['shrineKind']]
             details.append(('Shrine', f'{shrine["name"]} · {shrine["boon"]}; existing daily boon replaces the shrine gift. One stable shrine identity per region and depth.'))
@@ -281,8 +302,37 @@ def underground_section(helpers, out):
             '<p>On cave levels 1 and 2 only, grove nexuses become spring caves, goblin warrens, mushroom caverns or gemstone caverns. Beneath quarries, Mine Tunnels form simple ore-rich deposits. Seep regions do not select these nexus variants. Underground nexuses have no temple buildings; houses and roads remain rock walls. The requested Ember altar and Toad idol are standalone cave shrines. All paths on cave levels 1 and 2 receive an underground path theme, including paths outside parks. Roads are excluded; nearby terrain and nexus regions influence theme choice only. These ten authored patterns use the same card format and art controls as the surface designs; they are not live cave generation.</p>'
             '<p><a href="underground-zone-variants.draft.json">Draft data and implementation contract</a> · <a href="underground-art-license.txt">Candidate art license</a></p>'
             '<details><summary>Placement, rewards and depth rules</summary><p>Path themes use the existing path geometry on cave levels 1 and 2 only. Cover all eligible paths; never select or carve roads for these variants, and do not carry themes to level 3 or deeper. Preserve stairs, water and building provenance and excluded access; reserve clear lanes before dressing. Seep Passage replaces underground route tiles with water, preserving dry side banks and crossings at required connections.</p>'
-            '<p>Regions keep stable surface POI identities at each depth, even when chest mirrors are pruned. Style at most one surviving mirror as the nexus cache, with existing tier rules. Ordinary finds, stores and encounter seats replace existing cave allocations. Miners’ Way adds a sparse, finite bonus ore budget at the floor tier; route fragments do not multiply it. Junctions and tile fragments never mint another reward.</p>'
+            '<p>Regions keep stable surface POI identities at each depth, even when chest mirrors are pruned. Style at most one surviving mirror as the nexus cache, with existing tier rules. Ordinary finds and stores replace existing cave allocations. Warrens and mushroom caverns have explicit denser encounter budgets; route patrols and cubes are owned once per route. Named-zone skeleton, mushroom-monster and cube placements are deliberate level-1/2 exceptions to ambient roster depth rules. Miners’ Way adds a sparse, finite bonus ore budget at the floor tier; route fragments do not multiply it. Junctions and tile fragments never mint another reward.</p>'
             '<p>For grove anchors only, suggested spring : warren : mushroom : gemstone weights are 35 : 30 : 30 : 5 at depth 1, 20 : 45 : 25 : 10 at depth 2, before geographic affinities. Warrens and mushroom caverns have one daily shrine each, using the existing boon and ledger rules. Spring water refills a watering can through a proposed interaction; free healing is not part of this draft. Optional warren traps need a bypass and are not drawn as a repeating background slot.</p>'
             '<ul>'+checks+'</ul></details>'
             '<section id="underground-nexus"><h2>Underground nexus</h2><div class="cards">'+''.join(cards['nexus'])+'</div></section>'
-            '<section id="underground-paths"><h2>Underground paths</h2><div class="cards">'+''.join(cards['path'])+'</div></section></section>')
+            '<section id="underground-paths"><h2>Underground paths</h2><div class="cards">'+''.join(cards['path'])+'</div></section></section>' + _ambush_script())
+
+
+def _ambush_script():
+    return """<script>(()=>{
+const card=document.getElementById('underground-spring_cave');
+if(!card)return;
+for(const svg of card.querySelectorAll('[data-spring-explore]')){
+  svg.style.cursor='crosshair';
+  svg.addEventListener('click',event=>{
+    const p=svg.createSVGPoint();p.x=event.clientX;p.y=event.clientY;
+    const point=p.matrixTransform(svg.getScreenCTM().inverse());
+    const x=Math.floor(point.x/10),y=Math.floor(point.y/10),centre=Number(svg.dataset.springExplore);
+    if(Math.hypot(x-centre,y-centre)<=Number(svg.dataset.poolRadius))return;
+    const blocked=[...svg.querySelectorAll('.proposal-prop image, .poi-layer image')].some(image=>Math.floor(Number(image.getAttribute('x'))/10)===x&&Math.floor(Number(image.getAttribute('y'))/10)===y);
+    if(blocked)return;
+    const marker=svg.querySelector('.spring-walker');marker.setAttribute('cx',(x+.5)*10);marker.setAttribute('cy',(y+.5)*10);marker.style.visibility='visible';
+    for(const enemy of svg.querySelectorAll('.hidden-encounter')){
+      if(Math.hypot(x-Number(enemy.dataset.cellX),y-Number(enemy.dataset.cellY))<=1){enemy.style.visibility='visible';enemy.dataset.revealed='true';}
+    }
+  });
+}
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-reset-spring]');
+  if(!button)return;
+  const current=button.closest('article');
+  for(const enemy of current.querySelectorAll('.hidden-encounter')){enemy.style.visibility='hidden';delete enemy.dataset.revealed;}
+  for(const marker of current.querySelectorAll('.spring-walker'))marker.style.visibility='hidden';
+},true);
+})();</script>"""
