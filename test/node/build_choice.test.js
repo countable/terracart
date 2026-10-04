@@ -53,6 +53,12 @@ test('build choice: type, tier price, back and final payment are separate steps'
   assert.eq(modal.acceptLabel, 'Next');
   assert.truthy(modal.choices.every((c) => c.cost == null && !c.label.includes('quality-')));
   assert.eq(modal.secondary, undefined, 'hammer is only offered at confirmation');
+  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'an affordable tier enables its type');
+  stock.rubble = 0;
+  present.call(scene, 0, 0, house);
+  assert.truthy(modal.choices.every(c => c.disabled), 'empty inventory disables types before the tier screen');
+  stock.rubble = 100;
+  present.call(scene, 0, 0, house);
   modal.onAccept('blacksmith');
   assert.eq(scene.save.restoredHouses.new, undefined, 'Next does not restore');
   assert.eq(stock.rubble, 100, 'Next does not charge');
@@ -91,6 +97,15 @@ test('build choice: type, tier price, back and final payment are separate steps'
   assert.gt(offeredSmiths.length, 1, 'fixture offers multiple smith ranks');
   present.call(scene, 0, 0, house);
   assert.eq(modal.choices.filter(c => c.key === 'blacksmith').length, 1, 'one building-type card');
+  const prices = offeredSmiths.map(r => Houses.buildCost(scene.save, house, r).qty);
+  stock.rubble = Math.min(...prices);
+  present.call(scene, 0, 0, house);
+  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'one affordable tier is enough even when others cost more');
+  stock.rubble--;
+  present.call(scene, 0, 0, house);
+  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'all offered tiers unaffordable disables the type');
+  stock.rubble = 100;
+  present.call(scene, 0, 0, house);
   modal.onAccept('blacksmith');
   assert.eq(modal.choices.length, offeredSmiths.length, 'every offered rank remains selectable');
   for (const row of offeredSmiths) {

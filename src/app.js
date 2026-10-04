@@ -8491,6 +8491,7 @@ class MapScene extends Phaser.Scene {
       get: 'Restore this wreck as…',
       choices: types.map((row) => ({
         key: typeOf(row),
+        disabled: !options.some(r => typeOf(r) === typeOf(row) && affords(costFor(r))),
         label: labelFor(row, null) + (options.some(r => typeOf(r) === typeOf(row) && Houses.isNewPick(this.save, r)) ? newBadgeHTML() : ''),
         iconHTML: iconFor(row),
         suggested: options.some(r => typeOf(r) === typeOf(row) && r.suggested?.(this.save)),
