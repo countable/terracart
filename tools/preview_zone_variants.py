@@ -18,6 +18,7 @@ import subprocess
 import sys
 
 from PIL import Image
+from preview_signature_candidates import signature_candidate
 
 
 @functools.lru_cache(maxsize=1)
@@ -43,6 +44,19 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff):
     # Match ASSETS.crops.onLoad; raw Crops.png has an opaque white key.
     if row['whiteKey']:
         image.putdata([(r, g, b, 0 if min(r, g, b) > 240 else a) for r, g, b, a in image.getdata()])
+    palette = art_registry().get('enemyPalettes', {}).get(sheet)
+    if palette:
+        # Match assets.js recolorEnemyPixels: luminance ramp, not RGB tinting.
+        stops = [tuple(bytes.fromhex(value.lstrip('#'))) for value in ['#000000', palette['shadow'], palette['mid'], palette['highlight']]]
+        def recolor(pixel):
+            r, g, b, alpha = pixel
+            if not alpha:
+                return pixel
+            t = ((.2126*r + .7152*g + .0722*b) / 255) ** palette.get('gamma', 1) * 3
+            segment = min(2, math.floor(t))
+            fraction = t - segment
+            return tuple(math.floor(a + (b-a)*fraction + .5) for a, b in zip(stops[segment], stops[segment+1])) + (alpha,)
+        image.putdata([recolor(pixel) for pixel in image.getdata()])
     if tint != 0xffffff:
         tr, tg, tb = (tint >> 16) & 255, (tint >> 8) & 255, tint & 255
         image.putdata([(r*tr//255, g*tg//255, b*tb//255, a) for r,g,b,a in image.getdata()])
@@ -779,6 +793,8 @@ def basic_signatures():
     for level in ['common', 'uncommon', 'rare']:
         ids = [row['slots'][level]['proposedThing']['id'] for row in data['zones'].values() if not row['excluded']]
         assert len(ids) == len(set(ids)), f'Duplicate {level} signature'
+        alternatives = [row['slots'][level]['newItemAlternative']['id'] for row in data['zones'].values() if not row['excluded'] and row['slots'][level].get('newItemAlternative')]
+        assert len(ids + alternatives) == len(set(ids + alternatives)), f'Duplicate {level} alternative'
     return data
 
 
@@ -800,16 +816,42 @@ def proposal_art_uri(relative_path):
     return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
 
 
-def signature_proposal_details(slot):
+def signature_proposal_details(slot, compact=False):
     parts = []
     art = slot.get('artProposal')
     if art:
-        parts.append(f'<p class="proposal-art"><img src="{proposal_art_uri(art["path"])}" width="64" height="64" alt="{html.escape(slot["proposedThing"]["label"], quote=True)} proposal sprite"><span><b>Unused art candidate</b><br>{html.escape(art["note"])}</span></p>')
+        art_note = '' if compact else '<br>' + html.escape(art['note'])
+        parts.append(f'<p class="proposal-art"><img src="{proposal_art_uri(art["path"])}" width="64" height="64" alt="{html.escape(slot["proposedThing"]["label"], quote=True)} proposal sprite"><span><b>Unused art candidate</b>{art_note}</span></p>')
     interaction = slot.get('interactionProposal')
     if interaction:
         status = {'new_behavior': 'New behavior required', 'existing_handler_new_placement': 'Existing interaction; new placement'}[interaction['mechanicStatus']]
-        parts.append(f'<p><b>Interaction:</b> {html.escape(interaction["action"])}</p><p><small>{status}. {html.escape(interaction["requires"])}</small></p>')
+        requirements = '' if compact else ' ' + html.escape(interaction['requires'])
+        parts.append(f'<p><b>Interaction:</b> {html.escape(interaction["action"])}</p><p><small>{status}.{requirements}</small></p>')
     return ''.join(parts)
+
+
+def signature_candidate_visual(slot, terrain, compact=False):
+    candidate = signature_candidate(slot, terrain)
+    if not candidate:
+        return signature_proposal_details(slot, compact)
+    art = candidate.get('art') or material_art(candidate['material'])
+    picture = '<svg class="signature-sprite" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="' + html.escape(slot['proposedThing']['label'], quote=True) + '">' + art_image(art, 'width="64" height="64"') + '</svg>'
+    note = f'<small>{html.escape(candidate["note"])}</small>' if candidate.get('note') else ''
+    return f'<div class="signature-existing-art">{picture}<p><b>Interaction:</b> {html.escape(candidate["mechanic"])}</p>{note}</div>'
+
+
+def signature_alternative(slot, compact=False):
+    alternate = slot.get('newItemAlternative')
+    if not alternate:
+        return ''
+    proposed = {**alternate, 'proposedThing': {'label': alternate['label']}}
+    return '<div class="signature-alternative"><h5>New item proposal · ' + html.escape(alternate['label']) + '</h5>' + signature_proposal_details(proposed, compact) + '</div>'
+
+
+def signature_overview_cell(slot, terrain):
+    return ('<td data-signature-candidate="' + html.escape(slot['proposedThing']['id'], quote=True) + '"><b>'
+            + html.escape(slot['proposedThing']['label']) + '</b><br>' + signature_status(slot)
+            + signature_candidate_visual(slot, terrain, True) + signature_alternative(slot, True) + '</td>')
 
 
 def basic_signature_card(terrain):
@@ -819,7 +861,7 @@ def basic_signature_card(terrain):
     parts = ['<div class="signature-card"><h4>Distinctive finds · ideas</h4>']
     for level, slot in row['slots'].items():
         condition = f'<p><small>{html.escape(slot["condition"])}</small></p>' if slot.get('condition') else ''
-        parts.append(f'<details data-signature-level="{level}" data-signature-status="{slot["currentStatus"]}"><summary><b>{level.title()}</b> · {html.escape(slot["proposedThing"]["label"])}<br>{signature_status(slot)}</summary><p><b>Current:</b> {html.escape(slot["currentEvidence"])}</p><p><b>Suggestion:</b> {html.escape(slot["proposalAction"])}</p>{condition}{signature_proposal_details(slot)}</details>')
+        parts.append(f'<details data-signature-level="{level}" data-signature-status="{slot["currentStatus"]}"><summary><b>{level.title()}</b> · {html.escape(slot["proposedThing"]["label"])}<br>{signature_status(slot)}</summary><p><b>Current:</b> {html.escape(slot["currentEvidence"])}</p><p><b>Suggestion:</b> {html.escape(slot["proposalAction"])}</p>{condition}{signature_candidate_visual(slot, terrain)}{signature_alternative(slot)}</details>')
     return ''.join(parts) + '</div>'
 
 
@@ -830,9 +872,9 @@ def basic_signature_overview():
     for terrain, row in data['zones'].items():
         if row['excluded']:
             continue
-        cells = ''.join(f'<td>{html.escape(row["slots"][level]["proposedThing"]["label"])}<br>{signature_status(row["slots"][level])}</td>' for level in ['common', 'uncommon', 'rare'])
+        cells = ''.join(signature_overview_cell(row['slots'][level], terrain) for level in ['common', 'uncommon', 'rare'])
         rows.append(f'<tr><th><a href="#tile-{terrain.lower()}">{terrain.replace("_", " ").title()}</a></th>{cells}</tr>')
-    return f'<details class="signature-overview" id="basic-signatures"><summary><strong>Common / uncommon / rare signature audit</strong> · {counts["existing_exclusive"]} existing habitats · {counts["shared"]} shared gaps · {counts["gap"]} placement ideas</summary><p>These are encounter-frequency proposals, separate from item quality and enemy tier. Each proposed thing is assigned to only one zone at the same encounter level. Existing habitat means the thing already has a distinctive ordinary habitat or stated context; it does not mean the proposed frequency band is enforced. Shared candidates need distribution changes; new placements need implementation. General chest loot, player planting and nexus contents do not establish basic-zone exclusivity.</p><div class="signature-scroll"><table class="signature-table"><thead><tr><th>Zone</th><th>Common</th><th>Uncommon</th><th>Rare</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div><p>Open a zone’s individual slots below for evidence, unused-art thumbnails and proposed interactions. Art proposals are not new live spawns; each states whether an existing interaction can be reused or new behavior is needed. <a href="basic-zone-signatures.json">Full audit</a> · <a href="proposal-art-license.txt">Proposal art license</a></p></details><style>.signature-overview{{margin:24px 0;padding:18px;border:1px solid #405745;border-radius:12px}}.signature-overview summary,.signature-card summary{{cursor:pointer}}.signature-scroll{{overflow:auto}}.signature-table{{width:100%;border-collapse:collapse;font-size:13px}}.signature-table td,.signature-table th{{text-align:left;padding:10px;border-bottom:1px solid #405745;min-width:135px}}.signature-status{{display:inline-block;font-size:10px;margin:5px 0;color:#e6c779}}.signature-status.existing_exclusive{{color:#95d7d1}}.signature-status.gap{{color:#efb5a2}}.signature-card{{border-top:1px solid #405745;margin:16px 0;padding-top:4px}}.signature-card details{{margin:12px 0;font-size:13px}}.proposal-art{{display:flex;gap:12px;align-items:center}}.proposal-art img{{image-rendering:pixelated;flex:none}}.signature-card p,.signature-note{{font-size:12px}}</style>'
+    return f'<details class="signature-overview" id="basic-signatures"><summary><strong>Common / uncommon / rare signature audit</strong> · {counts["existing_exclusive"]} existing habitats · {counts["shared"]} shared gaps · {counts["gap"]} placement ideas</summary><p>These are encounter-frequency proposals, separate from item quality and enemy tier. Each proposed thing is assigned to only one zone at the same encounter level. Existing habitat means the thing already has a distinctive ordinary habitat or stated context; it does not mean the proposed frequency band is enforced. Shared candidates need distribution changes; new placements need implementation. General chest loot, player planting and nexus contents do not establish basic-zone exclusivity. Each slot below shows its existing candidate or first proposal, with an art-backed new item alongside every unresolved shared slot. New-item mechanics are ideas, not live behavior.</p><div class="signature-scroll"><table class="signature-table"><thead><tr><th>Zone</th><th>Common</th><th>Uncommon</th><th>Rare</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div><p>Open a zone’s individual slots below for evidence, unused-art thumbnails and proposed interactions. Art proposals are not new live spawns; each states whether an existing interaction can be reused or new behavior is needed. <a href="basic-zone-signatures.json">Full audit</a> · <a href="proposal-art-license.txt">Proposal art license</a></p></details><style>.signature-overview{{margin:24px 0;padding:18px;border:1px solid #405745;border-radius:12px}}.signature-overview summary,.signature-card summary{{cursor:pointer}}.signature-scroll{{overflow:auto}}.signature-table{{width:100%;border-collapse:collapse;font-size:13px}}.signature-table td,.signature-table th{{text-align:left;padding:10px;border-bottom:1px solid #405745;min-width:280px;vertical-align:top}}.signature-table td{{width:30%}}.signature-table th{{min-width:100px}}.signature-sprite{{image-rendering:pixelated;display:block;margin:8px 0}}.signature-existing-art p{{margin:6px 0}}.signature-alternative{{border-top:1px dashed #6c7550;margin-top:16px;padding-top:8px}}.signature-alternative h5{{font-size:13px;color:#e6c779;margin:8px 0}}.signature-status{{display:inline-block;font-size:10px;margin:5px 0;color:#e6c779}}.signature-status.existing_exclusive{{color:#95d7d1}}.signature-status.gap{{color:#efb5a2}}.signature-card{{border-top:1px solid #405745;margin:16px 0;padding-top:4px}}.signature-card details{{margin:12px 0;font-size:13px}}.proposal-art{{display:flex;gap:12px;align-items:center}}.proposal-art img{{image-rendering:pixelated;flex:none}}.signature-card p,.signature-note{{font-size:12px}}</style>'
 
 
 def basic_tile_section():
@@ -861,6 +903,8 @@ def basic_tile_section():
             note += ' Cave level 1: mushrooms and eligible cave enemies.'
         elif tile['name'] == 'PIER':
             note += ' Confirmed public piers only; private and unknown access exclude population.'
+        elif tile['name'] == 'ORCHARD':
+            note += ' Orchard edges only (about 14 m); interiors have no spawns. No rocks, bats, butterflies or spiders.'
         elif tile['name'] == 'PARK':
             note += ' One generated park character; other parks vary.'
         if tile['enemies']:
@@ -945,6 +989,7 @@ def viewer_navigation_script():
       if (tab.dataset.view === active.id) tab.setAttribute('aria-current', 'page');
       else tab.removeAttribute('aria-current');
     }
+    if (id === 'basic-signatures' && target) target.open = true;
     if (target && target !== active) requestAnimationFrame(() => target.scrollIntoView());
   }
   addEventListener('hashchange', selectView);

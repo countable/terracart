@@ -205,6 +205,43 @@ test('spawn gate: orchard edges remain open while orchard interiors are hard', (
   }
 });
 
+test('spawn gate: source orchard interiors stay closed across road and POI paint', () => {
+  const r = build([
+    { name: 'landcover', features: [
+      { type: 3, tags: { class: 'grass' }, geom: [whole()] },
+      { type: 3, tags: { class: 'farmland', subclass: 'orchard' }, geom: [box(10,10,50,50)] },
+    ] },
+    { name: 'transportation', features: [
+      { type: 2, tags: { class: 'path' }, geom: [line([[0,30],[63,30]])] },
+    ] },
+    poiLayer({ type: 1, tags: { class: 'park', name: 'Orchard interior' }, geom: [[pt(30,20)]] }),
+  ]);
+  assert.eq(r.grid[30*CPE+30], T.PATH, 'a path repaints the source orchard');
+  assert.truthy(r.grid[20*CPE+30] !== T.ORCHARD, 'POI pad repaints the source orchard');
+  for (const [x,y] of [[30,30],[30,29],[30,20],[30,22]]) {
+    const i = y*CPE+x;
+    assert.truthy(has(r,x,y,WHY.FARM_INTERIOR), 'source interior stays excluded, including road shoulders');
+    r.grid[i] = T.PARK; // later nexus repaint cannot reopen the source footprint
+    for (const cls of W.SPAWN_CLASSES) {
+      assert.falsy(W.isSpawnCell(r.grid,CPE,CPE,x,y,{spawnWhy:r.spawnWhy},cls), `${cls}: later paint remains excluded`);
+    }
+  }
+  assert.falsy(has(r,11,20,WHY.FARM_INTERIOR), 'true outer edge stays eligible');
+  assert.falsy(r.objects.some(o => {
+    const x = Math.floor(o.x), y = Math.floor(o.y);
+    return x >= 14 && x <= 46 && y >= 14 && y <= 46;
+  }), 'no objects in the source orchard interior');
+});
+
+test('spawn gate: buffered orchard geometry does not invent tile-boundary edges', () => {
+  const r = build([{ name: 'landcover', features: [
+    { type: 3, tags: { class: 'farmland', subclass: 'orchard' }, geom: [box(-8,-8,72,72)] },
+  ] }]);
+  for (const [x,y] of [[0,0],[0,30],[63,30],[30,0],[30,63],[63,63]]) {
+    assert.truthy(has(r,x,y,WHY.FARM_INTERIOR), 'orchard continues beyond the tile; seam is interior');
+  }
+});
+
 test('spawn gate: farmland edges reject every class, even without a generated mask', () => {
   const r = build([{name:'landcover',features:[
     {type:3,tags:{class:'grass'},geom:[whole()]},

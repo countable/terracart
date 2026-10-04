@@ -27,7 +27,9 @@
     "Butterflies move out of forest into grass; other permitted butterfly habitats remain.",
     "Corvid-like birds: seagulls on beach sand, crows in park, ravens in residential only. No pier gulls.",
     "Only positively identified public piers can spawn; private or unknown-access piers stay empty.",
-    "Wetland has no rocks, ores or flowers."
+    "Wetland has no rocks, ores or flowers.",
+    "Pitch has no basic rock spawns.",
+    "Orchard has no bats, rocks, butterflies or spiders; orchard content is limited to a 14 m inside boundary band."
   ],
   "residentialRockAudit": {
     "mechanism": "LOT_ROCK_DRY suppresses independent residential yard rock clusters. Generic _street:true rocks line selected 25% of minor streets through spawnStreetRocksSteps, now plain rubble only: no street ore. They remain eligible basic frontage content outside wetlands; string-valued themed street dressing is different.",
@@ -57,7 +59,24 @@
             "src/scene_creatures.js catchCreature"
           ],
           "itemQuality": null,
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:meadow_fern",
+            "label": "Forage fern",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/fern.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Cut fern fronds for useful plant fibre (long grass).",
+              "mechanicStatus": "existing_handler_new_placement",
+              "reuse": "src/items.js WILDPLANT_RULES.longgrass",
+              "requires": "Register fern art and a harvest row yielding the existing longgrass item; assign grass-only seats."
+            }
+          }
         },
         "uncommon": {
           "currentStatus": "shared",
@@ -77,7 +96,24 @@
             "badge": "Rare",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:feeding_bale",
+            "label": "Feeding bale",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/hay_bale.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Spend harvested grass to refill a bale and attract a nearby cow for taming.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/scene_creatures.js fauna attraction; src/items.js longgrass",
+              "requires": "Add refill costs, a bounded attraction effect and persistent empty/full state. Do not introduce deer to grass."
+            }
+          }
         },
         "rare": {
           "currentStatus": "shared",
@@ -97,7 +133,24 @@
             "badge": "Rare",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:meadow_trough",
+            "label": "Meadow water trough",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/water_trough.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Repair and fill a dry trough to briefly calm nearby horses for a taming attempt.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/scene_creatures.js creature interaction; src/macros.js dailyVisit",
+              "requires": "Add repair/fill interaction and bounded calm duration; reuse existing taming rather than award a free horse."
+            }
+          }
         }
       }
     },
@@ -118,7 +171,24 @@
             "src/worldgen.js TREE_SPECIES; spawnForestTreesSteps"
           ],
           "itemQuality": null,
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:fallen_timber",
+            "label": "Fallen timber",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/log_fallen.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Chop a fallen log for wood, leaving a cleared footprint.",
+              "mechanicStatus": "existing_handler_new_placement",
+              "reuse": "src/items.js WILDPLANT_RULES.shrub",
+              "requires": "Register a log harvest row and art, reuse axe work and harvested-object persistence; tune yield and work separately from shrubs."
+            }
+          }
         },
         "uncommon": {
           "currentStatus": "existing_exclusive",
@@ -261,7 +331,24 @@
             "badge": "Rare",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:community_woodpile",
+            "label": "Community woodpile",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/woodpile.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Collect a small daily wood allocation from a marked communal pile.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/macros.js dailyVisit; src/items.js wood",
+              "requires": "Add an explicitly communal interaction, fixed wood reward and spent state. Place only in eligible public frontage, never treat private supplies as harvestable."
+            }
+          }
         },
         "rare": {
           "currentStatus": "shared",
@@ -281,7 +368,24 @@
             "badge": "Uncommon",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:wayfarer_lantern",
+            "label": "Wayfarer lantern",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/lantern_post.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Repair an unlit lantern; it lights the nearby route and grants one daily recovery visit.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/lighting.js; src/macros.js dailyVisit",
+              "requires": "Register a repairable prop, fuel/material cost, active light and a modest energy reward. Archive art is a static concept frame; lit/unlit states need art wiring."
+            }
+          }
         }
       }
     },
@@ -372,7 +476,24 @@
             "src/worldgen.js spawn rock clusters; LOT_ROCK_DRY"
           ],
           "itemQuality": null,
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:layered_seam",
+            "label": "Layered stone seam",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/ore_vein_rock.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Mine a seam in stages to expose a small, visible resource pocket.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js mineralrock; src/items.js MINERAL_TIERS",
+              "requires": "Add staged depletion and exposed-pocket state; use existing stone/copper rewards. This is a new seam mechanic, not an assertion that ordinary copper is exclusive."
+            }
+          }
         },
         "uncommon": {
           "currentStatus": "shared",
@@ -393,7 +514,24 @@
             "badge": "Common",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:stone_spire",
+            "label": "Stone spire",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/stalagmite.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Break a narrow stone spire with a pickaxe for stone.",
+              "mechanicStatus": "existing_handler_new_placement",
+              "reuse": "src/interactables.js mineralrock",
+              "requires": "Map this distinct art to a mineable plain-stone variant; add deterministic placement and tool-work tuning. Reserve these surface spires for rock terrain."
+            }
+          }
         },
         "rare": {
           "currentStatus": "shared",
@@ -414,7 +552,24 @@
             "badge": "Godly",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:frost_splinter",
+            "label": "Frost splinter",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/ice_shard.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Mine a brittle frozen splinter for a small frost resource reward.",
+              "mechanicStatus": "existing_handler_new_placement",
+              "reuse": "src/interactables.js mineralrock; src/items.js MINERAL_TIERS",
+              "requires": "Register the sprite as a distinct mineable frost variant with a restricted yield. No new chilling hazard is implied."
+            }
+          }
         }
       }
     },
@@ -489,7 +644,24 @@
             "badge": "Rare",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:riddle_trail",
+            "label": "Riddle trail marker",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/signpost.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Read a clue, visit the indicated nearby marker and return for a daily reward.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/macros.js dailyVisit; src/quests.js",
+              "requires": "Add deterministic paired clue/answer locations and completion state. Use reachable public-edge school seats only. Existing signposts do not implement this puzzle."
+            }
+          }
         }
       }
     },
@@ -560,7 +732,24 @@
             "badge": "Rare",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": "The shiny catch adds3 item tiers, capped at7; current shiny probability is global, not commercial-specific."
+          "condition": "The shiny catch adds3 item tiers, capped at7; current shiny probability is global, not commercial-specific.",
+          "newItemAlternative": {
+            "id": "proposal:travelling_anvil",
+            "label": "Travelling anvil",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/anvil.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Trade stored metal and coins for one selected equipment upgrade.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/gear.js blacksmith recipes",
+              "requires": "Reuse existing smith costs and upgrade eligibility through a new prop interaction; do not grant free upgrades or invent tool durability. Archive anvil is proposal art, not a registered forge."
+            }
+          }
         }
       }
     },
@@ -632,7 +821,24 @@
             "badge": "Legendary",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:reclamation_brazier",
+            "label": "Reclamation brazier",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/brazier_cold.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Fuel a cold brazier to process one batch of scrap into an existing metal resource.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/items.js metal resources; src/macros.js dailyVisit",
+              "requires": "Define accepted scrap inputs, conversion recipe, energy cost and lit/spent state. Cap processing using existing daily state; new behavior and lit art are required."
+            }
+          }
         }
       }
     },
@@ -688,7 +894,24 @@
             "badge": "Basic",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:buried_bucket",
+            "label": "Buried play bucket",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/bucket.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Dig out a half-buried bucket and search it once for a modest supply find.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/interactables.js chest; src/items.js tool work",
+              "requires": "Add a dig-then-open sequence and opened state; use existing low-tier supply loot. Reuse this single bucket art with placement offset, not a claim that digging already exists."
+            }
+          }
         },
         "rare": {
           "currentStatus": "shared",
@@ -709,7 +932,24 @@
             "badge": "Uncommon",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": "Shiny butterfly item quality is base3+3=6 (Legendary), not the proposed encounter label."
+          "condition": "Shiny butterfly item quality is base3+3=6 (Legendary), not the proposed encounter label.",
+          "newItemAlternative": {
+            "id": "proposal:puzzle_pedestal",
+            "label": "Puzzle pedestal",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/statue_base.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Fit found tokens into a pedestal in the shown order for a daily reward.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/macros.js dailyVisit; src/interactables.js chest",
+              "requires": "Add puzzle UI, token rules and completion state. Base art is available; puzzle symbols and solved-state presentation still need authoring."
+            }
+          }
         }
       }
     },
@@ -730,7 +970,24 @@
             "src/biome_profiles.js BIOME_PROFILES.PITCH"
           ],
           "itemQuality": null,
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:course_marker",
+            "label": "Practice course marker",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/fence_post.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Repair a broken course marker with wood to earn a small one-time supply reward.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/items.js wood; src/interactables.js chest",
+              "requires": "Add repair cost and repaired state; place at pitch perimeter and preserve the playing surface. No rock reward or mineral placement."
+            }
+          }
         },
         "uncommon": {
           "currentStatus": "shared",
@@ -746,7 +1003,24 @@
             "src/sprite_layout.js CREATURE_BEHAVIOUR.horse"
           ],
           "itemQuality": null,
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:field_banner",
+            "label": "Field trial banner",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/banner_pole_f0.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Start a short timed perimeter course and claim a daily completion reward.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/macros.js dailyVisit",
+              "requires": "Add reachable deterministic checkpoints, progress UI and completion timing. Keep all course markers at the pitch edge; no rocks. Preview shows the first archived animation frame."
+            }
+          }
         },
         "rare": {
           "currentStatus": "gap",
@@ -800,7 +1074,24 @@
             "badge": "Basic",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:bundled_reeds",
+            "label": "Harvestable reed clump",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/reed_clump.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Cut a reed clump for long-grass fibre.",
+              "mechanicStatus": "existing_handler_new_placement",
+              "reuse": "src/items.js WILDPLANT_RULES.longgrass",
+              "requires": "Register this standalone reed art and a wetland harvest row yielding existing longgrass; no flowers, stones or ore. Wetland already has reeds visually, so distinction comes from a readable harvestable clump and its yield."
+            }
+          }
         },
         "uncommon": {
           "currentStatus": "gap",
@@ -844,7 +1135,24 @@
             "src/enemy_spawns.js surfaceRows"
           ],
           "itemQuality": null,
-          "condition": "Existing home-distance and time/encounter gates still apply."
+          "condition": "Existing home-distance and time/encounter gates still apply.",
+          "newItemAlternative": {
+            "id": "proposal:floating_cache",
+            "label": "Waterlogged log cache",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/bog_log.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Pry open a waterlogged hollow log to find a one-time seed cache.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/items.js WILDPLANT_RULES.shrub; src/interactables.js chest",
+              "requires": "Add axe-work-then-loot state and a restricted seed profile. Keep the seat on walkable wetland; no rocks, ores or flowers are spawned."
+            }
+          }
         }
       }
     },
@@ -870,7 +1178,7 @@
             "badge": "Common",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": "Eligible orchard edges only, within the outer two-cell band (about 14 m); never the interior or private farmland."
         },
         "uncommon": {
           "currentStatus": "gap",
@@ -886,7 +1194,7 @@
             "docs/ART_SOURCES.md"
           ],
           "itemQuality": null,
-          "condition": null,
+          "condition": "Eligible orchard edges only, within the outer two-cell band (about 14 m); never the interior or private farmland.",
           "artProposal": {
             "path": "docs/proposal-art/beehive_skep.png",
             "status": "archived_unused",
@@ -919,7 +1227,7 @@
             "badge": "Godly",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": "Eligible orchard edges only, within the outer two-cell band (about 14 m); never the interior or private farmland."
         }
       }
     },
@@ -968,7 +1276,24 @@
             "src/worldgen.js LOT_ROCK_DRY; lot rock clusters"
           ],
           "itemQuality": null,
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:masonry_salvage",
+            "label": "Masonry salvage",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/rubble_masonry.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Break down abandoned masonry into a modest stone supply.",
+              "mechanicStatus": "existing_handler_new_placement",
+              "reuse": "src/interactables.js mineralrock",
+              "requires": "Register a plain-stone salvage appearance and deterministic seats using existing mining/depletion. No ore pocket is added by this alternative."
+            }
+          }
         },
         "rare": {
           "currentStatus": "shared",
@@ -989,7 +1314,24 @@
             "badge": "Epic",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": null
+          "condition": null,
+          "newItemAlternative": {
+            "id": "proposal:ember_vent",
+            "label": "Ember vent",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/ash_vent_f0.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Wait for a vent to cool, then extract a rare mineral; approaching during a flare burns.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/conditions.js burning; src/interactables.js mineralrock",
+              "requires": "Add deterministic flare/cool timing, clear hazard telegraph, safe interaction window and reward tuning. Full archived animation exists; only its first frame is previewed."
+            }
+          }
         }
       }
     },
@@ -1038,7 +1380,24 @@
             "src/biome_profiles.js SHORE_FAUNA.metal_slime"
           ],
           "itemQuality": null,
-          "condition": "Only positively identified public piers; unknown and private piers remain empty. Fishing rewards additionally require reachable water."
+          "condition": "Only positively identified public piers; unknown and private piers remain empty. Fishing rewards additionally require reachable water.",
+          "newItemAlternative": {
+            "id": "proposal:public_mooring_rope",
+            "label": "Public mooring rope",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/rope_coil.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Untangle a communal rope coil to repair a mooring point and earn a small daily supply reward.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/macros.js dailyVisit",
+              "requires": "Add a short untangling interaction, reset/reward state and explicit public ownership. Spawn only on positively identified public piers; do not harvest private boat ropes."
+            }
+          }
         },
         "rare": {
           "currentStatus": "shared",
@@ -1059,7 +1418,24 @@
             "badge": "Godly",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": "Only positively identified public piers; unknown and private piers remain empty. Fishing rewards additionally require reachable water."
+          "condition": "Only positively identified public piers; unknown and private piers remain empty. Fishing rewards additionally require reachable water.",
+          "newItemAlternative": {
+            "id": "proposal:washed_up_urn",
+            "label": "Washed-up sealed urn",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/urn_stone.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Open a salvaged sealed urn once for a small treasure find.",
+              "mechanicStatus": "existing_handler_new_placement",
+              "reuse": "src/interactables.js chest; src/loot.js chest contents",
+              "requires": "Register urn art and a one-time loot profile, with deterministic public-pier-only placement. Requires an opened visual; no new fishing species or birds."
+            }
+          }
         }
       }
     },
@@ -1081,7 +1457,24 @@
             "src/enemy_spawns.js caveRows"
           ],
           "itemQuality": null,
-          "condition": "Depths1\u20132 only for this candidate."
+          "condition": "Depths1\u20132 only for this candidate.",
+          "newItemAlternative": {
+            "id": "proposal:cave_bone_cache",
+            "label": "Cave bone cache",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/bone_pile.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Search old bones for a small one-time supply find.",
+              "mechanicStatus": "existing_handler_new_placement",
+              "reuse": "src/interactables.js chest; src/loot.js chest contents",
+              "requires": "Register searchable bone-pile art and a low-tier supply profile; reuse opened persistence. No new bone resource is required."
+            }
+          }
         },
         "uncommon": {
           "currentStatus": "shared",
@@ -1102,7 +1495,24 @@
             "badge": "Basic",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": "Cave depths have their own mushroom density; do not apply surface coverage targets."
+          "condition": "Cave depths have their own mushroom density; do not apply surface coverage targets.",
+          "newItemAlternative": {
+            "id": "proposal:spring_pool",
+            "label": "Cave spring pool",
+            "implementationState": "proposal_only",
+            "artProposal": {
+              "path": "docs/proposal-art/cave_pool.png",
+              "status": "archived_unused",
+              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            },
+            "interactionProposal": {
+              "action": "Take one daily restorative drink from a clear underground spring.",
+              "mechanicStatus": "new_behavior",
+              "reuse": "src/macros.js dailyVisit; src/interactables.js well",
+              "requires": "Add a pool interaction and small daily energy recovery, including a drained-for-today state. Existing wells only advance quests/display text; recovery is new behavior."
+            }
+          }
         },
         "rare": {
           "currentStatus": "existing_exclusive",
@@ -1196,8 +1606,8 @@
     }
   },
   "artAudit": {
-    "method": "Inspected the standalone archive sprites visually, searched runtime source for candidate names, and compared PNG SHA-256 values against shipped assets. These ten selected files are not byte-identical to any shipped PNG and have no named runtime registration. This does not assert that their visual concepts are unique across all atlases.",
-    "selection": "Prefer new player actions over recolors or another shiny animal. Existing distinctive slots are retained; proposals fill gaps or replace prohibited birds. Cattails were rejected as an unused-art suggestion because wetland reeds already use that art.",
+    "method": "Visually reviewed the standalone archive sprites and checked selected PNG SHA-256 values against shipped PNGs. The 34 selected proposal files are not byte-identical to shipped PNGs. Existing atlas crops or similar prop concepts may still exist; archived_unused describes the selected standalone file, not proven global visual uniqueness.",
+    "selection": "Keep each current candidate and its evidence visible. Every shared slot now has an art-backed interactive new-item alternative; the two gap candidates without earlier art/mechanics have alternatives too. The ten earlier art-backed gap proposals remain. Alternatives are proposals, not new runtime spawns. Wetland reeds already exist visually; the proposed harvestable clump is explicitly a mechanical variant.",
     "copyPolicy": "Small selected art set copied into docs/proposal-art for reproducible proposal previews only; no runtime art registration, new placements or new mechanics are implemented.",
     "license": "docs/proposal-art/VERDANT-LICENSE.txt",
     "candidates": [
@@ -1270,7 +1680,200 @@
         "path": "docs/proposal-art/crab_pot.png",
         "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/crab_pot.png",
         "sha256": "79c90a5f3e4991dce506ad16d17339b93cc6a28f208d91764909a7b81001dcfe"
+      },
+      {
+        "zone": "GRASS",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/fern.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/fern.png",
+        "sha256": "42a86eda2afe7aada7628274b882f95556f6ebb56481bbbfe8790212fc4dd698"
+      },
+      {
+        "zone": "GRASS",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/hay_bale.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/hay_bale.png",
+        "sha256": "aa07f304c1fa5eb13e181b76994f2392c3797f1b46fccbb10d4b5a5d4880d1d6"
+      },
+      {
+        "zone": "GRASS",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/water_trough.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/water_trough.png",
+        "sha256": "975e5ca435339d32beae4565b29679d8cde727f601a32d9f8b96883b3aa342c9"
+      },
+      {
+        "zone": "FOREST",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/log_fallen.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/log_fallen.png",
+        "sha256": "63b383df4bcd10775b97db558684f1eb30c97a81a9ace38a76e2331d2d0ac8dd"
+      },
+      {
+        "zone": "RESIDENTIAL",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/woodpile.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/woodpile.png",
+        "sha256": "2d1bff6cebdcdbc7b06250a56fce76f331d667108e2fe7489230230f4dcc816d"
+      },
+      {
+        "zone": "RESIDENTIAL",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/lantern_post.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/lantern_post.png",
+        "sha256": "1a89cdffc239ff2b680bb4700939f3ccf038da9cd5bcb5504d1f5a249cce217d"
+      },
+      {
+        "zone": "ROCK",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/ore_vein_rock.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/ore_vein_rock.png",
+        "sha256": "d356d18c7409f2b7882acf8d5639a24a93133cbdd63719287cbbed061dabdc2a"
+      },
+      {
+        "zone": "ROCK",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/stalagmite.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/stalagmite.png",
+        "sha256": "89ac58c988dc1cd6c4edf3125c5f4d2672b5bfa246920c41c83b1780daa88a0d"
+      },
+      {
+        "zone": "ROCK",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/ice_shard.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/ice_shard.png",
+        "sha256": "e78f0593b6900d37fe8d816093963ff085db70a1935e6df9596db458368961a2"
+      },
+      {
+        "zone": "SCHOOL",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/signpost.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/signpost.png",
+        "sha256": "272ee635eb5c78ef7e36fb63bb04d76e543e3c4ab38e1ce273b7932a16a86e04"
+      },
+      {
+        "zone": "COMMERCIAL",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/anvil.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/anvil.png",
+        "sha256": "0eb17cced17da6440190d9491f557dd5a7c5e8437084e97877d018731755a76f"
+      },
+      {
+        "zone": "INDUSTRIAL",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/brazier_cold.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/brazier_cold.png",
+        "sha256": "4227184316a91ef74acd26e4f417906f6de3049c6ae3aee3d48f8a8552d249f2"
+      },
+      {
+        "zone": "PLAYGROUND",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/bucket.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/bucket.png",
+        "sha256": "d364e8e9365f8deae8400d3ce0d82edf673c2d376e4a783dda83f363c989efce"
+      },
+      {
+        "zone": "PLAYGROUND",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/statue_base.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/statue_base.png",
+        "sha256": "df45aef740a723d4eb13991d6d9e7acf6ea34fc741a53a100baadb9f7d57f596"
+      },
+      {
+        "zone": "PITCH",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/fence_post.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/fence_post.png",
+        "sha256": "8b011cb7a9635e53b6a2de9c2211f97435970615a3cf3e9d8d2349cf0b9539b7"
+      },
+      {
+        "zone": "PITCH",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/banner_pole_f0.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/banner_pole_f0.png",
+        "sha256": "18be9322e5ac4b5a0b04d9e4e73b1aa48b945670c0eded075240c6410782b80f"
+      },
+      {
+        "zone": "WETLAND",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/reed_clump.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/reed_clump.png",
+        "sha256": "f45aee74635ded2189ec51cb9008c417aa15f72a77d658f790c748fca6ac1fa6"
+      },
+      {
+        "zone": "WETLAND",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/bog_log.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/bog_log.png",
+        "sha256": "29a0abb863f4d92da36903e1882d3632116e3aef06ecf34399c2f612570f43a4"
+      },
+      {
+        "zone": "WASTELAND",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/rubble_masonry.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_masonry.png",
+        "sha256": "5abab3beb517a9490fb54c67157cfdfd4f04d0d81c25968705c5968d48a9b82c"
+      },
+      {
+        "zone": "WASTELAND",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/ash_vent_f0.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/ash_vent_f0.png",
+        "sha256": "407bc9e6abdb02a0597324e417a88ff3564759d7af14c5dcb0e3c8cdc073bd00"
+      },
+      {
+        "zone": "PIER",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/rope_coil.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rope_coil.png",
+        "sha256": "ffd8f518e2ac524b0b469efd3883a305014bb66cec13dae00df20b5e57d4e24b"
+      },
+      {
+        "zone": "PIER",
+        "level": "rare",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/urn_stone.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/urn_stone.png",
+        "sha256": "6c5a830f00f0c5f67fb471f7c1f2a3acb72cae81fb8fbecd22d3dd3c8a7cd326"
+      },
+      {
+        "zone": "CAVE_FLOOR",
+        "level": "common",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/bone_pile.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/bone_pile.png",
+        "sha256": "84e097ba7a92e6fc67dd134f8ebf0a51b538202099e704e3451054697775b9aa"
+      },
+      {
+        "zone": "CAVE_FLOOR",
+        "level": "uncommon",
+        "role": "newItemAlternative",
+        "path": "docs/proposal-art/cave_pool.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cave_pool.png",
+        "sha256": "a28ac935a903ec31e2bc96c039105ed98356f37ce60677ad8ca9b1eab819066a"
       }
     ]
-  }
+  },
+  "alternativeRule": "Each newItemAlternative.id is used once per encounter band. Show alongside the existing proposedThing and its audit status; never replace or imply the existing shared candidate is exclusive. Where a gap already has artProposal and interactionProposal, that existing proposal is the new item option. All 34 shared/gap slots therefore have a pictured interactive option."
 }

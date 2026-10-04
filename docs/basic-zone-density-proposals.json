@@ -90,9 +90,13 @@
     },
     "PITCH": {
       "targetPct": {
-        "longgrass": 0.5
+        "longgrass": 0.5,
+        "plain_rock": 0,
+        "ore_rock": 0,
+        "street_plain_rock": 0,
+        "street_ore_rock": 0
       },
-      "intent": "Keep the field centre clear; only sparse edge grass."
+      "intent": "Keep the field centre clear; only sparse edge grass. No rocks or ores, including roadside rubble."
     },
     "WETLAND": {
       "targetPct": {
@@ -115,9 +119,13 @@
       "targetPct": {
         "fruittree": 20,
         "longgrass": 2,
-        "marigold": 0
+        "marigold": 0,
+        "plain_rock": 0,
+        "ore_rock": 0,
+        "street_plain_rock": 0,
+        "street_ore_rock": 0
       },
-      "intent": "Regular fruit-tree rows with an open, lightly grassy understory. Source farmland restrictions still take priority."
+      "intent": "Fruit trees and light grass only along eligible orchard edges; interiors stay empty. No rocks, ores, bats, butterflies or spiders. Source farmland restrictions still take priority."
     },
     "WASTELAND": {
       "targetPct": {

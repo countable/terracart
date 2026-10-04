@@ -51,6 +51,8 @@ const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, contextLook
 for (const row of Object.values(data.assets)) {
   row.whiteKey = !!(row.onLoad && /data\.data\[i\] > 240/.test(row.onLoad.toString()));
 }
+data.assets.icon_goldenfish = {whiteKey:false,kind:'spritesheet',path:'assets/Icons/Fish/River/Golden Fish.png',frameWidth:16,frameHeight:16};
+data.enemyPalettes = Object.fromEntries(ctx.EnemyRoster.ROWS.filter(row => row.palette).map(row => [row.id, row.palette]));
 data.painters = painters;
 data.chestPainter = vm.runInContext("'const CHEST_TIER_COLOR = '+JSON.stringify(CHEST_TIER_COLOR)+'; const ASSETS={chest:{frameWidth:16}}; const chestTierMaxFor=()=>'+chestTierMaxFor(9)+';\\n'+recolorEnemyPixels.toString()+'\\n'+muteSpritePixels.toString()+'\\n'+makeChestTierSheet.toString()", ctx);
 // Basic terrain samples use the same base colours and texture painter as the map.
