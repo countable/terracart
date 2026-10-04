@@ -634,7 +634,7 @@ class SceneModals {
   //                 small ‹ › arrows flank the `get` line with an "i / n"
   //                 under it (paging is not an action, so no extra button).
   //                 `showIndex: false` drops the "i / n" line and keeps the arrows.
-  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested?, cost?, canAfford? }]
+  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested?, cost?, canAfford?, disabled? }]
   //                 — the offer is ONE OF several things (what a wreck is
   //                 restored as). Laid out as cards between the headline and
   //                 the cost; a tap SELECTS a card (outlined, its `info` on
@@ -767,17 +767,18 @@ class SceneModals {
       };
       for (const c of choices) {
         const b = mkBtn((c.iconHTML ? `<div style="font-size:0;margin-bottom:2px">${c.iconHTML}</div>` : '') + c.label,
-          { variant: 'ghost', css: (fullscreen
+          { variant: 'ghost', disabled: !!c.disabled, css: (fullscreen
             ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
             : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px ui-monospace,monospace;')
             + 'border-radius:7px;' });
-        b.addEventListener('click', (e) => { e.stopPropagation(); selected = c; paint(); });
+        b.addEventListener('click', (e) => { e.stopPropagation(); if (c.disabled) return; selected = c; paint(); });
         cardRow.appendChild(b);
         cards.push({ c, b });
       }
       box.appendChild(cardRow);
       if (!priced) box.appendChild(infoLine);
       selected = choices.length === 1 ? choices[0] : (choices.find((c) => c.key === choice) || null);
+      if (selected?.disabled) selected = null;
       paint();
     }
     // `cost` is what the player PAYS, the second half of "you get X FOR y";
