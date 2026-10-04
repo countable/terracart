@@ -14,6 +14,14 @@
 (function (root) {
   'use strict';
 
+  function coinMagnetCells(save) {
+    let cells = 0;
+    for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+      if (row.coinMagnetCells && carriesItem(save, id)) cells = Math.max(cells, row.coinMagnetCells);
+    }
+    return cells;
+  }
+
   // The combat weapons — the ONLY slots `save.activeWeapon` ever holds.
   // Shared with app.js (inventory tap-to-activate) and combat.js (what
   // auto-engages / auto-fires); kept here too since equip() is what flips it
@@ -308,7 +316,7 @@
     if (save.activeWeapon === piece.slot) unequipWeapon(save);
   }
 
-  root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
+  root.Gear = { coinMagnetCells, effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
                 TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
