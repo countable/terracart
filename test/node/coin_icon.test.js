@@ -64,14 +64,14 @@ test('coin icon: the three helpers exist beside iconSpanHTML', () => {
 });
 
 test('coin icon: pure-money flashLoots wear the coin element', () => {
-  assert.truthy(/this\.flashLoot\(`Scattered \$\{drops\.length\} coins!`, '#ffe066', 1, null, this\.coinIconEl\(\)\)/.test(app),
+  assert.truthy(/this\.flashLoot\(`Scattered \$\{drops\.length\} coins!`, UI_GOLD, 1, null, this\.coinIconEl\(\)\)/.test(app),
     'the coin-burst toast');
-  assert.truthy(/this\.flashLoot\(`\+\$\{CASTLE_TAX_GOLD\} taxes`, '#ffe066', 1, null, this\.coinIconEl\?\.\(\)\)/.test(app),
+  assert.truthy(/this\.flashLoot\(`\+\$\{CASTLE_TAX_GOLD\} taxes`, UI_GOLD, 1, null, this\.coinIconEl\?\.\(\)\)/.test(app),
     'the castle taxes toast');
-  assert.truthy(/this\.flashLoot\(`\+\$\{finished\.reward\}`, '#ffe066', 1, null, this\.coinIconEl\(\)\)/.test(app),
+  assert.truthy(/this\.flashLoot\(`\+\$\{finished\.reward\}`, UI_GOLD, 1, null, this\.coinIconEl\(\)\)/.test(app),
     'the quest-board reward toast');
-  assert.truthy(/scene\.flashLoot\(`\$\{mark\} → \$\{reward\.amount\}`, '#ffe066', 1, null, scene\.coinIconEl\?\.\(\)\)/.test(INTERACT_SRC),
-    'the treasure gold toast');
+  assert.truthy(/scene\.flashLoot\(text \?\? `\$\{lead\}→ \$\{reward\.amount\}`, UI_GOLD, 1, null, scene\.coinIconEl\?\.\(\)\)/.test(Rewards.present.toString()),
+    'the treasure gold toast (Rewards.present, the one presenter)');
 });
 
 test('coin icon: money amounts in HTML go through moneyHTML', () => {
@@ -84,9 +84,11 @@ test('coin icon: money amounts in HTML go through moneyHTML', () => {
     'the quest-board reward line wears the coin');
   assert.truthy(/iconHTML: this\.coinIconHTML \? this\.coinIconHTML\(48\) : '',/.test(app),
     'a money reward card wears the 48px coin');
-  assert.truthy(/iconHTML: scene\.coinIconHTML \? scene\.coinIconHTML\(48\) : '',/.test(INTERACTABLES_SRC),
-    'the chest cash modal wears the coin');
-  assert.truthy(/name: `\+\$\{result\.amount \|\| 0\}`, color: UI_GOLD,/.test(INTERACTABLES_SRC),
+  const cardSrc = Rewards.card.toString();
+  assert.truthy(/iconHTML: scene\.coinIconHTML \? scene\.coinIconHTML\(Math\.round\(iconPx \* 0\.75\)\) : '',/.test(cardSrc),
+    'the cash card wears the coin (48px of a 64px card)');
+  assert.eq(Rewards.card({ coinIconHTML: (px) => `coin${px}` }, { kind: 'gold', amount: 3 }).iconHTML, 'coin48');
+  assert.truthy(/name: `\+\$\{reward\.amount \|\| 0\}`,/.test(cardSrc),
     'and its name is a bare amount, no $');
 });
 

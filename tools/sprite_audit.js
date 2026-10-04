@@ -230,11 +230,13 @@ const SHEETS = {
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
+  beach_palms: { file: ASSETS.beach_palms.path, fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5] },
   bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree keeps its mature frame and wears a fruit sprite (FRUIT_FRAMES in render.js).
   apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
   worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
+  beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
   chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0] },
   box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
   shrine_spirit: { file: ASSETS.shrine_spirit.path, fw: 16, fh: 16, frames: [0, 1, 2, 3] },
@@ -282,6 +284,7 @@ const SCENARIOS = [
   { name: 'pine small',      key: 'pine_tree',     frameIdx: 1, scale: t('pine', 'small') },
   { name: 'pine medium',     key: 'pine_tree',     frameIdx: 2, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
+  ...[0, 1, 2, 3, 4, 5].map(frameIdx => ({ name: `beach palm ${frameIdx}`, key: 'beach_palms', frameIdx, scale: itemsCtx.WILDPLANT_CONTEXT_ART.palm.scale })),
   { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
   { name: 'giant mushroom', key: 'zone_objects', frameIdx: 40, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },

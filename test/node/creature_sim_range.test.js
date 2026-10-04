@@ -44,8 +44,8 @@
     // The camera rule (CLAUDE.md): a peek drag moves where the world is DRAWN
     // from, never where the player IS. Waking creatures on the anchor would let
     // a drag start a stalk three cells further out than the player can reach.
-    assert.truthy(CREATURE_FEET_SRC.includes('this.startWorldM.x + this.playerM.x'),
-      'the sim origin must be the player, not viewAnchorWorldM');
+    assert.truthy(CREATURE_FEET_SRC.includes('playerWorldM(this)'),
+      'the sim origin must be the player (coords.js playerWorldM), not viewAnchorWorldM');
     assert.falsy(/viewAnchor|peekM|viewCenter/.test(CREATURE_FEET_SRC),
       'the camera crept into the sim origin');
   });

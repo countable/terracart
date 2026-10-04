@@ -77,11 +77,11 @@ test('residential yard flora: street ownership only removes older plants inside 
   assert.eq(older.join('|'), expected.join('|'), 'only owned corridor plants are cleared');
 });
 
-test('residential yard flora: both long grass and shrubs grow on residential cells', () => {
+test('residential yard flora: shrubs grow on residential cells without long grass', () => {
   const { wildplants, grid } = rasterize();
   const yard = wildplants.filter(isYard);
   const onRes = (crop) => yard.filter((p) => p.crop === crop && grid[cellIdx(p)] === T.RESIDENTIAL).length;
-  assert.gt(onRes('longgrass'), 0, 'long grass grows in the yards');
+  assert.eq(onRes('longgrass'), 0, 'residential yards have no long grass');
   assert.gt(onRes('shrub'), 0, 'shrubs grow in the yards');
   for (const p of yard) {
     // A try at the polygon's rim can land on a cell painted as something
@@ -92,12 +92,12 @@ test('residential yard flora: both long grass and shrubs grow on residential cel
   }
 });
 
-test('residential yard flora: still grows, roughly half grass half scrub', () => {
+test('residential yard flora: still grows sparse scrub without long grass', () => {
   const { wildplants } = rasterize();
   const yard = wildplants.filter(isYard);
   const grass = yard.filter((p) => p.crop === 'longgrass').length;
-  assert.gt(yard.length, 50, 'the yards still grow (the dry lot walk keeps its pivots)');
-  assert.inRange(grass / yard.length, 0.35, 0.65, 'long grass share of the yard flora');
+  assert.gt(yard.length, 0, 'the yards still grow (the dry lot walk keeps its pivots)');
+  assert.eq(grass, 0, 'no long grass in residential yards');
 });
 
 test('residential yard flora: the rocks that remain sit on a kerb — within four cells of a road band', () => {

@@ -50,6 +50,40 @@ const withDocument = (fn) => {
   try { fn(); } finally { globalThis.document = g; }
 };
 
+test('restored starter smith: keeps its pair and advances to the regular forge', () => withDocument(() => {
+  const s = scene({ role: 'blacksmith' });
+  const methods = ['starterSmithSlots()', 'starterBlacksmithOffer()', 'starterBlacksmithRecipe(slot)'];
+  Object.assign(s, (0, eval)('({\n' + methods.map(sig => lift(sig + ' {')).join(',\n') + '\n})'));
+  s.isStarterBlacksmith = h => Houses.isStarterBlacksmith(s.save, h);
+  s.houseShopRole = h => Houses.houseShopRole(s.save, h);
+  Houses.restoreAs(s.save, { ...HOUSE, id: 'first-home' }, 'plain');
+  Houses.restoreAs(s.save, HOUSE, 'blacksmith:1');
+  const offers = [];
+  s.presentBlacksmithOffer = (sx, sy, offer, record, house, opts) => offers.push({ offer, opts });
+
+  s.shopInteract(0, 0, HOUSE);
+  const pair = s.save.starterSmithSlots;
+  assert.eq(pair.length, 2);
+  assert.eq(new Set(pair).size, 2, 'two distinct tools');
+  for (const slot of pair) assert.includes(STARTER_SMITH_SLOTS, slot);
+  assert.eq(offers[0].offer.slot, pair[0]);
+  assert.eq(offers[0].offer.tier, 1);
+  assert.eq(JSON.stringify(offers[0].opts.recipe), JSON.stringify([{ id: 'wood', qty: 5 }]));
+  assert.truthy(offers[0].opts.noReroll);
+
+  s.save = JSON.parse(JSON.stringify(s.save));
+  s.shopInteract(0, 0, HOUSE);
+  assert.eq(offers[1].offer.slot, pair[0], 'reload keeps the first offer');
+  assert.eq(JSON.stringify(s.save.starterSmithSlots), JSON.stringify(pair));
+  s.save.relics = { [pair[0]]: { tier: 1 } };
+  s.shopInteract(0, 0, HOUSE);
+  assert.eq(offers[2].offer.slot, pair[1], 'owning the first advances to the second');
+  s.save.relics[pair[1]] = { tier: 3 };
+  s.shopInteract(0, 0, HOUSE);
+  assert.eq(offers[3].offer.tier, 2, 'both owned falls through to the regular forge');
+  assert.eq(offers[3].opts, undefined, 'regular forge has no starter override');
+}));
+
 test('always open: a heap of deals this hour shuts no door', () => withDocument(() => {
   for (const [opts, key] of [
     [{ role: 'market' }, 'themed'],

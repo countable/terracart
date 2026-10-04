@@ -57,10 +57,12 @@ test('cave torches: a cave level hands the FULL site list down, so depth N does 
   assert.truthy(/const torchSites = caveTorchSites\(above\);/.test(body), 'the sites are read off the level above');
   assert.truthy(/caveTorchesFrom\(torchSites, grid, N, x, y, tileEdgeM, depth, occupied\)/.test(body), 'and rolled for this level');
   assert.truthy(/roadLabels: \{\}, pathUnder: \{\}, torchSites,/.test(body), 'and stored on the entry for the level below');
-  assert.truthy(/spawnCaveMushrooms\(grid, N, x, y, tileEdgeM, depth, wildplants, occupied\)/.test(body), 'mushrooms are rolled too');
+  const order = WorldGen.CAVE_PASSES.map(r => r.id);
+  assert.truthy(order.includes('mushrooms'), 'mushrooms are rolled too (a row of CAVE_PASSES)');
+  assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(body), 'loadCaveTile runs the table');
   assert.truthy(/objects, wildplants, parkingTreasures: \[\]/.test(body), 'and shipped as the level\'s wildplants');
-  assert.truthy(body.indexOf('caveTorchesFrom(') < body.indexOf('spawnCaveRocks('), 'torches claim their cells before the rocks are rolled');
-  assert.truthy(body.indexOf('spawnCaveRocks(') < body.indexOf('spawnCaveMushrooms('), 'mushrooms come after the rocks, so the mineral layout is untouched');
+  assert.truthy(body.indexOf('caveTorchesFrom(') < body.indexOf('for (const row of CAVE_PASSES)'), 'torches claim their cells before the rocks are rolled');
+  assert.truthy(order.indexOf('rocks') < order.indexOf('mushrooms'), 'mushrooms come after the rocks, so the mineral layout is untouched');
 });
 
 // ── Torches: a random subset of the sites, seated on floor ─────────────────

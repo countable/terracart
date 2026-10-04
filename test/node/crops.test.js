@@ -170,7 +170,7 @@ test('bed quality: an untilled cell is quality 0, and a missing save never throw
 });
 
 test('bed quality: tilling banks the hoe tier on that cell alone', () => {
-  const save = {};
+  const save = SaveState.defaults({});
   assert.eq(Crops.setBedQuality(save, '3_4', 5), 5, 'returns what it banked');
   assert.eq(Crops.bedQuality(save, '3_4'), 5, 'the tilled cell carries it');
   assert.eq(Crops.bedQuality(save, '3_5'), 0, 'the cell next door does not');
@@ -186,7 +186,7 @@ test('bed quality: a bare-handed till banks nothing rather than a zero entry', (
 });
 
 test('bed quality: re-tilling a cell overwrites it, in both directions', () => {
-  const save = {};
+  const save = SaveState.defaults({});
   Crops.setBedQuality(save, '1_1', 2);
   Crops.setBedQuality(save, '1_1', 7);
   assert.eq(Crops.bedQuality(save, '1_1'), 7, 'a better hoe upgrades the bed');
@@ -195,7 +195,7 @@ test('bed quality: re-tilling a cell overwrites it, in both directions', () => {
 });
 
 test('bed quality: planting SPENDS the bed — the crop carries it, the cell stops', () => {
-  const save = {};
+  const save = SaveState.defaults({});
   Crops.setBedQuality(save, '2_2', 4);
   assert.eq(Crops.takeBedQuality(save, '2_2'), 4, 'the crop takes the bed with it');
   assert.eq(Crops.bedQuality(save, '2_2'), 0, 'and the cell is no longer holding it');
@@ -203,7 +203,7 @@ test('bed quality: planting SPENDS the bed — the crop carries it, the cell sto
 });
 
 test('bed quality: clearing follows the tilled marker off the cell', () => {
-  const save = {};
+  const save = SaveState.defaults({});
   Crops.setBedQuality(save, '5_5', 3);
   Crops.clearBedQuality(save, '5_5');
   assert.eq(Crops.bedQuality(save, '5_5'), 0, 'harvest / sapling / un-till drops it');
@@ -212,7 +212,7 @@ test('bed quality: clearing follows the tilled marker off the cell', () => {
 });
 
 test('bed quality: a fractional or junk tier floors to a whole number of tiers', () => {
-  const save = {};
+  const save = SaveState.defaults({});
   Crops.setBedQuality(save, '0_0', 3.9);
   assert.eq(Crops.bedQuality(save, '0_0'), 3, 'quality is whole tiers');
   Crops.setBedQuality(save, '0_1', 'nonsense');

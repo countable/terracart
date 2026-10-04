@@ -18,6 +18,7 @@ import subprocess
 import sys
 
 from PIL import Image
+from preview_signature_candidates import signature_candidate
 
 
 @functools.lru_cache(maxsize=1)
@@ -27,7 +28,7 @@ def art_registry():
 
 
 @functools.lru_cache(maxsize=None)
-def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff):
+def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=None):
     row = art_registry()['assets'][sheet]
     path = pathlib.Path(__file__).resolve().parents[1] / row['path'].split('?')[0]
     with Image.open(path) as source:
@@ -38,9 +39,26 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff):
         x, y = frame % cols * w, frame // cols * h
         assert y + h <= image.height, (sheet, frame)
         image = image.crop((x, y, x + w, y + h))
+    if sheet == 'stair_down':
+        image = image.crop((0, 16, 32, 32))  # ASSETS.stair_down named down frame.
     # Match ASSETS.crops.onLoad; raw Crops.png has an opaque white key.
     if row['whiteKey']:
         image.putdata([(r, g, b, 0 if min(r, g, b) > 240 else a) for r, g, b, a in image.getdata()])
+    palette = art_registry().get('enemyPalettes', {}).get(sheet)
+    if palette_key:
+        palette = next(row['palette'] for row in basic_signatures()['acceptedMechanics']['butterflies']['variants'] if row['id'] == palette_key)
+    if palette:
+        # Match assets.js recolorEnemyPixels: luminance ramp, not RGB tinting.
+        stops = [tuple(bytes.fromhex(value.lstrip('#'))) for value in ['#000000', palette['shadow'], palette['mid'], palette['highlight']]]
+        def recolor(pixel):
+            r, g, b, alpha = pixel
+            if not alpha:
+                return pixel
+            t = ((.2126*r + .7152*g + .0722*b) / 255) ** palette.get('gamma', 1) * 3
+            segment = min(2, math.floor(t))
+            fraction = t - segment
+            return tuple(math.floor(a + (b-a)*fraction + .5) for a, b in zip(stops[segment], stops[segment+1])) + (alpha,)
+        image.putdata([recolor(pixel) for pixel in image.getdata()])
     if tint != 0xffffff:
         tr, tg, tb = (tint >> 16) & 255, (tint >> 8) & 255, tint & 255
         image.putdata([(r*tr//255, g*tg//255, b*tb//255, a) for r,g,b,a in image.getdata()])
@@ -96,6 +114,8 @@ def material_art(material):
             sheet, frames = 'springcrops', [ov['row'] * 14 + r['matureStage']]
         else:
             sheet, frames = 'crops', [r['cropRows'][crop] * r['cropColumns'] + r['matureStage']]
+    elif kind == 'staircase':
+        sheet, frames = ('stair_up' if material.get('dir') == 'up' else 'stair_down'), [0]
     elif kind == 'coindrop':
         sheet, frames = 'coin_drop', [0]
     elif kind == 'mineralrock':
@@ -125,7 +145,7 @@ def art_image(art, extra='', frame=None):
         return f'<image data-chest-tier="{art["frames"][0] if frame is None else frame}" href="{sprite_png("chest", 0)}" {extra}/>'
     if art.get('procedural'):
         return f'<image data-procedural="{art["procedural"]}" {extra}/>'
-    return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame, art.get("preserveFrame", False), art.get("tint", 0xffffff))}" {extra}/>'
+    return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame, art.get("preserveFrame", False), art.get("tint", 0xffffff), art.get("paletteKey"))}" {extra}/>'
 
 
 def sprite_symbols(materials, prefix):
@@ -291,7 +311,7 @@ def validate(d):
     assert len(ids) == len(set(ids))
     affinities = [v for v in d['variants'] if v.get('attracts')]
     for v in affinities:
-        assert set(v['attracts']) <= {'rabbit','butterfly','deer','crow'}
+        assert set(v['attracts']) <= art_registry()['creatures'].keys()
         assert all(0 < chance <= 1 for chance in v['attracts'].values())
     for v in d['variants']:
         b = v['background']
@@ -362,9 +382,11 @@ def ground_pattern(terrain_name, prefix, unit):
             f'<image data-ground-type="{tile["type"]}" width="{unit}" height="{unit}"/></pattern></defs>')
 
 
-def svg_for(v, d, detail=False):
+def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None):
     b = v['background']
     side = 9 if detail else (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['previewPlots'][0] + 1 if b['type'] in ('line_grid', 'bounded_line_grid') else 25)
+    if sample_cells is not None:
+        side = sample_cells
     unit = 10
     center = side // 2
     aligned = b['type'] in ('line_grid','bounded_line_grid','concentric_rings')
@@ -380,8 +402,8 @@ def svg_for(v, d, detail=False):
         return shipwreck and (max(abs(x),abs(y)) <= reserve or (x == 0 and y == -reserve - 1))
     slots = [s for s in v['poi']['slots'] if not reserved(*s['at'])]
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} {"POI pattern" if detail else "background and POI"}" viewBox="0 0 {side*unit} {side*unit}">', '<rect width="100%" height="100%" fill="#172820"/>']
-    ground_id = f'zone-ground-{v["id"]}-{int(detail)}'
-    parts.append(ground_pattern(registry['zoneKinds'][v['zone']]['terrain'], ground_id, unit))
+    ground_id = f'{prefix}zone-ground-{v["id"]}-{int(detail)}'
+    parts.append(ground_pattern(ground or v.get('ground') or ('SAND' if v['zone'] == 'beach' else registry['zoneKinds'][v['zone']]['terrain']), ground_id, unit))
     parts.append(f'<rect width="100%" height="100%" fill="url(#{ground_id})"/>')
     accent = registry['groundAccents'].get(v['id'])
     if accent:
@@ -390,7 +412,7 @@ def svg_for(v, d, detail=False):
                 material = background_at(v, x + poi_x - draw_x, y + poi_y - draw_y)
                 if accent.get('fullCoverage') or (v['id'] == 'silent_circle' and [x,y] == [draw_x,draw_y]) or (v['id'] == 'ancient_grove' and material in ('tree','shrub')):
                     parts.append(f'<rect x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="#{accent["color"]:06x}"/><image data-ground-type="{accent["terrain"]}" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"/>')
-    art_prefix = f'zone-art-{v["id"]}-{int(detail)}'
+    art_prefix = f'{prefix}zone-art-{v["id"]}-{int(detail)}'
     materials = {name: dict(m, **({('_plantArt' if m['kind'] == 'wildplant' else '_objectArt'): v['materialLooks'][name]} if name in v.get('materialLooks', {}) else {})) for name, m in d['materials'].items() if m.get('recordType') != 'treasure'}
     for name, frames in v.get('materialFrames', {}).items():
         if name in materials: materials[name]['_zoneObjectFrame'] = frames[0]
@@ -413,10 +435,23 @@ def svg_for(v, d, detail=False):
                     parts.append(f'<rect class="geometry-cell" x="{x*unit+gap}" y="{y*unit+gap}" width="{unit-2*gap}" height="{unit-2*gap}" fill="{color}"><title>{material}</title></rect>')
                     parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2, definition))
         parts.append('</g>')
+    # Finite dressing has its own budget in the runtime row, outside the motif.
+    if not detail and v.get('decorations'):
+        seats = [(x, y) for y in range(2, side-2) for x in range(2, side-2)
+                 if not reserved(x-draw_x, y-draw_y) and max(abs(x-draw_x), abs(y-draw_y)) > 3
+                 and not background_at(v, x + poi_x - draw_x, y + poi_y - draw_y)]
+        seats.sort(key=lambda cell: hash_unit(v['id'], *cell, 'decoration'))
+        parts.append('<g class="background">')
+        for decoration in v['decorations']:
+            material = decoration['material']
+            for _ in range(min(decoration['count'], len(seats))):
+                x, y = seats.pop()
+                parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
+        parts.append('</g>')
     cx, cy = draw_x * unit + unit / 2, draw_y * unit + unit / 2
     parts.append('<g class="poi-layer">')
     for x,y in [(0,0)] + [slot['at'] for slot in slots]:
-        parts.append(f'<rect x="{(draw_x+x)*unit}" y="{(draw_y+y)*unit}" width="10" height="10" fill="#172820"/>')
+        parts.append(f'<rect x="{(draw_x+x)*unit}" y="{(draw_y+y)*unit}" width="10" height="10" fill="url(#{ground_id})"/>')
     for slot in slots:
         x, y = slot['at']; material = slot['material']; color = materials[material]['color']
         parts.append(f'<rect class="geometry-cell" x="{(draw_x+x)*unit+1}" y="{(draw_y+y)*unit+1}" width="8" height="8" fill="{color}"><title>POI: {material} ({x}, {y})</title></rect>')
@@ -426,7 +461,7 @@ def svg_for(v, d, detail=False):
     parts.append(light_guide(cx,cy,unit*light['radiusCells'],color))
     if shrine:
         art = wreck if shipwreck else registry['groveShrines'][0]
-        mapped = next((row for row in registry['shrineKinds'].values() if v['id'] in row['zones']), None)
+        mapped = next((row for row in registry['shrineKinds'].values() if v['id'] in row['zoneVariants']), None)
         if not shipwreck and v.get('shrineFrame') is not None:
             art = {'key': 'zone_objects', 'frame': v['shrineFrame'], 'scale': 4 / 3}
         elif not shipwreck and mapped:
@@ -690,13 +725,228 @@ def quarry_draft_section(d):
     return f'<div id="quarry-drafts"><h3>Parking-lot remnants · four stories</h3><p>Runtime layouts on one shared fixture, with the variant forced for comparison. In live play, narrow lots use compact quarry layouts or readable ruined wall fragments. Craters require at least {q["largeSiteMinCells"]} usable cells and a clear {q["broadPatchSizeCells"]}×{q["broadPatchSizeCells"]}-cell pocket. Ruins use nominal {q["foundationSizeCells"]}×{q["foundationSizeCells"]}-cell foundations; readable wall fragments can stop at buildings or site edges. Short gaps join only with supporting source geometry; roads, paths and water separate sites, while building holes stay clear.</p><label class="art-switch"><input id="show-quarry-source" type="checkbox"> Show original parking lanes</label><style>.quarry-source{{display:none}}body:has(#show-quarry-source:checked) .quarry-source{{display:inline}}</style></div>'
 
 
+@functools.lru_cache(maxsize=1)
+def basic_density_proposals():
+    path = pathlib.Path(__file__).resolve().parents[1] / 'docs/basic-zone-density-proposals.json'
+    data = json.loads(path.read_text())
+    for group in ['zones', 'parkCharacters']:
+        for row in data[group].values():
+            assert all(0 <= value <= 100 for value in row['targetPct'].values())
+            assert sum(row['targetPct'].values()) <= 100
+    return data
+
+
+def basic_density_table(current, proposal):
+    targets = dict(proposal['targetPct'])
+    for key, value in current['elements'].items():
+        if key.startswith('street_') or key in proposal.get('preserveElements', []):
+            targets[key] = value['coveragePct']
+    keys = list(dict.fromkeys([*current['elements'], *targets]))
+    labels = {'tree': 'Trees', 'fruittree': 'Fruit trees', 'plain_rock': 'Plain stone',
+              'ore_rock': 'Ore rocks', 'street_plain_rock': 'Street rubble', 'street_ore_rock': 'Street ore', 'longgrass': 'Long grass', 'shrub': 'Shrubs / hedges',
+              'forgetmenot': 'Forget-me-nots', 'clay_pot': 'Clay pots', 'barrel': 'Salvage barrels'}
+    rows = []
+    for key in keys:
+        now = current['elements'].get(key, {}).get('coveragePct', 0)
+        target = targets.get(key, 0)
+        label = labels.get(key, key.replace('_', ' ').capitalize())
+        rows.append(f'<tr><th scope="row">{html.escape(label)}</th><td>{now:.2f}%</td><td>{target:.2f}%</td></tr>')
+    now, target = current['coveragePct'], sum(targets.values())
+    rows.append(f'<tr class="density-total"><th scope="row">Occupied cells</th><td>{now:.2f}%</td><td>{target:.2f}%</td></tr>')
+    rows.append(f'<tr><th scope="row">Open cells</th><td>{100-now:.2f}%</td><td>{100-target:.2f}%</td></tr>')
+    bars = ''.join(f'<div class="density-bar-row density-{label.lower()}"><span>{label}</span><span class="density-bar" role="img" aria-label="{label}: {value:.2f}% occupied"><i style="width:{value:.3f}%"></i></span></div>' for label, value in [('Current', now), ('Target', target)])
+    return bars + '<table class="density-table"><thead><tr><th>Element</th><th>Current</th><th>Target</th></tr></thead><tbody>' + ''.join(rows) + '</tbody></table>'
+
+
+def basic_density_summary(terrain):
+    registry = art_registry()
+    samples = [r for r in registry['basicCoverage']['rows'] if r['terrain'] == terrain]
+    proposals = basic_density_proposals()
+    if terrain in ('FARMLAND', 'GOLF'):
+        assert samples and not samples[0]['occupiedCells'] and not samples[0]['eligibleCells']
+        return f'<div class="density-block" data-density="{terrain}"><strong>Private ground · empty</strong><p>All generated spawns: <b>0%</b>. Edges and mapped POI rewards are excluded too; a road or nexus overlay cannot reopen this ground.</p></div>'
+    if not samples:
+        note = 'Cave population uses separate level-dependent rules; not measured by these surface samples. No changes proposed.' if terrain.startswith('CAVE_') else 'No ordinary stationary biome fill; no changes proposed. Mapped places and roaming creatures are separate.'
+        return '<div class="density-block"><p>' + note + '</p></div>'
+    row = samples[0]
+    proposal = proposals['zones'][terrain]
+    details = ''
+    if terrain == 'PARK':
+        row = {'elements': {}, 'coveragePct': 0}
+        targets = {}
+        for sample in samples:
+            character = sample['character']
+            weight = registry['parkCharacterShares'][character]
+            plan = proposals['parkCharacters'][character]
+            row['coveragePct'] += sample['coveragePct'] * weight
+            for key, value in sample['elements'].items():
+                row['elements'].setdefault(key, {'coveragePct': 0})['coveragePct'] += value['coveragePct'] * weight
+            for key, value in plan['targetPct'].items():
+                targets[key] = targets.get(key, 0) + value * weight
+            details += f'<details class="park-density" data-park-density="{character}"><summary>{character.title()} park · {weight*100:g}% selection weight</summary><p>{html.escape(plan["intent"])}</p>{basic_density_table(sample, plan)}</details>'
+        proposal = {**proposal, 'targetPct': targets}
+        details = '<p><small>Above: average weighted by park-character selection. Individual characters:</small></p>' + details
+    return f'<div class="density-block" data-density="{terrain}"><h4>Coverage · measured vs target</h4>{basic_density_table(row, proposal)}<p class="density-intent">{html.escape(proposal["intent"])}</p>{details}</div>'
+
+
+@functools.lru_cache(maxsize=1)
+def basic_signatures():
+    data = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'docs/basic-zone-signatures.json').read_text())
+    for level in ['common', 'uncommon', 'rare']:
+        ids = [row['slots'][level]['proposedThing']['id'] for row in data['zones'].values() if not row['excluded']]
+        assert len(ids) == len(set(ids)), f'Duplicate {level} signature'
+        alternatives = [row['slots'][level]['newItemAlternative']['id'] for row in data['zones'].values() if not row['excluded'] and row['slots'][level].get('newItemAlternative')]
+        assert len(ids + alternatives) == len(set(ids + alternatives)), f'Duplicate {level} alternative'
+    return data
+
+
+def signature_status(slot):
+    labels = {'existing_exclusive': 'Existing habitat', 'shared': 'Shared · gap', 'gap': 'New placement idea'}
+    return f'<span class="signature-status {slot["currentStatus"]}">{labels[slot["currentStatus"]]}</span>'
+
+
+@functools.lru_cache(maxsize=None)
+def proposal_art_uri(relative_path):
+    root = pathlib.Path(__file__).resolve().parents[1]
+    path = (root / relative_path).resolve()
+    assert path.is_relative_to(root / 'docs/proposal-art'), 'Proposal art must be checked into docs/proposal-art'
+    with Image.open(path) as source:
+        image = source.convert('RGBA')
+    assert image.getbbox(), f'Blank proposal art: {relative_path}'
+    buf = io.BytesIO()
+    image.save(buf, format='PNG')
+    return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+
+def signature_proposal_details(slot, compact=False):
+    parts = []
+    art = slot.get('artProposal')
+    if art:
+        art_note = ('<br><small>Item icon; world sprite still needed.</small>' if 'inventory-sized icon' in art['note'] else '') if compact else '<br>' + html.escape(art['note'])
+        parts.append(f'<p class="proposal-art"><img src="{proposal_art_uri(art["path"])}" width="64" height="64" alt="{html.escape(slot["proposedThing"]["label"], quote=True)} proposal sprite"><span><b>Unused art candidate</b>{art_note}</span></p>')
+    interaction = slot.get('interactionProposal')
+    if interaction:
+        status = {'new_behavior': 'New behavior required', 'new_loot_profile_existing_opened_state': 'New loot and ambush; existing one-time state', 'existing_handler_new_placement': 'Existing interaction; new placement', 'existing_path_new_art': 'Existing POI path; new altar treatment'}[interaction['mechanicStatus']]
+        requirements = '' if compact else ' ' + html.escape(interaction['requires'])
+        parts.append(f'<p><b>Interaction:</b> {html.escape(interaction["action"])}</p><p><small>{status}.{requirements}</small></p>')
+    return ''.join(parts)
+
+
+def signature_candidate_visual(slot, terrain, compact=False):
+    candidate = signature_candidate(slot, terrain)
+    if not candidate:
+        return signature_proposal_details(slot, compact)
+    art = candidate.get('art') or material_art(candidate['material'])
+    picture = '<svg class="signature-sprite" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="' + html.escape(slot['proposedThing']['label'], quote=True) + '">' + art_image(art, 'width="64" height="64"') + '</svg>'
+    note = f'<small>{html.escape(candidate["note"])}</small>' if candidate.get('note') else ''
+    return f'<div class="signature-existing-art">{picture}<p><b>Interaction:</b> {html.escape(candidate["mechanic"])}</p>{note}</div>'
+
+
+def signature_alternative(slot, compact=False):
+    alternate = slot.get('newItemAlternative')
+    if not alternate:
+        return ''
+    proposed = {**alternate, 'proposedThing': {'label': alternate['label']}}
+    return '<div class="signature-alternative"><h5>New item proposal · ' + html.escape(alternate['label']) + '</h5>' + signature_proposal_details(proposed, compact) + '</div>'
+
+
+def signature_overview_cell(slot, terrain):
+    return ('<td data-signature-candidate="' + html.escape(slot['proposedThing']['id'], quote=True) + '"><b>'
+            + html.escape(slot['proposedThing']['label']) + '</b><br>' + signature_status(slot)
+            + signature_candidate_visual(slot, terrain, True) + signature_alternative(slot, True) + '</td>')
+
+
+def basic_signature_card(terrain):
+    row = basic_signatures()['zones'][terrain]
+    if row['excluded']:
+        return '<p class="signature-note">No signature slots: keep this ground unpopulated.</p>'
+    parts = ['<div class="signature-card"><h4>Distinctive finds · ideas</h4>']
+    for level, slot in row['slots'].items():
+        condition = f'<p><small>{html.escape(slot["condition"])}</small></p>' if slot.get('condition') else ''
+        parts.append(f'<details data-signature-level="{level}" data-signature-status="{slot["currentStatus"]}"><summary><b>{level.title()}</b> · {html.escape(slot["proposedThing"]["label"])}<br>{signature_status(slot)}</summary><p><b>Current:</b> {html.escape(slot["currentEvidence"])}</p><p><b>Suggestion:</b> {html.escape(slot["proposalAction"])}</p>{condition}{signature_candidate_visual(slot, terrain)}{signature_alternative(slot)}</details>')
+    return ''.join(parts) + '</div>'
+
+
+def accepted_signature_directions():
+    data = basic_signatures()
+    accepted = data.get('acceptedMechanics', {})
+    if not accepted:
+        return ''
+    hive = data['zones']['ORCHARD']['slots']['uncommon']
+    hive_picture = f'<img src="{proposal_art_uri(hive["artProposal"]["path"])}" width="64" height="64" alt="Orchard hive">'
+    butterflies = accepted.get('butterflies', {})
+    variants = []
+    for row in butterflies.get('variants', []):
+        art = {'sheet': 'butterfly', 'frames': [0]}
+        if row.get('palette'):
+            art['paletteKey'] = row['id']
+        picture = '<svg width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="' + html.escape(row['label']) + '">' + art_image(art, 'width="64" height="64"') + '</svg>'
+        variants.append('<figure data-butterfly-preview="' + row['id'] + '">' + picture + '<figcaption><b>' + html.escape(row['label']) + '</b><br>' + html.escape(', '.join(row['zones']).replace('_', ' ').title()) + '</figcaption></figure>')
+    bone = accepted.get('boneCache', {})
+    bone_slot = data['zones']['CAVE_FLOOR']['slots']['common']
+    bone_proposal = bone_slot.get('newItemAlternative', bone_slot)
+    bone_picture = f'<img src="{proposal_art_uri(bone_proposal["artProposal"]["path"])}" width="64" height="64" alt="Cave bone cache">'
+    profiles = art_registry()['containerLootProfiles']
+    def shipping_mix(name):
+        return ', '.join(f'{row["w"]*100:g}% {row["kind"]}' for row in profiles[name])
+    bone_mix = ', '.join(f'{row["percent"]:g}% {row["kind"]}' for row in bone.get('loot', []))
+    spring_cards = []
+    for proposal in data.get('poiProposals', []):
+        adapted = {**proposal, 'proposedThing': {'label': proposal['label']}}
+        spring_cards.append('<article class="accepted-direction" data-accepted="spring"><h4>' + html.escape(proposal['label']) + ' · POI altar</h4>' + signature_proposal_details(adapted, True) + '<p><b>Placement:</b> Underground mirror of a surface park POI. Keep its identity through deeper cave levels; reuse the existing daily-visit and shrine reward helpers. Replaces that POI’s ordinary cave chest. No uncommon floor scatter.</p></article>')
+    return ('<section id="accepted-signature-directions"><h3>Accepted directions · mechanic and art review</h3><p>These are design specifications, not new live spawns. Hive and bone art are retained; the spring moves to the park POI’s underground mirror. Colored butterflies share the existing capture and pollination behavior.</p><div class="accepted-directions">'
+        + '<article class="accepted-direction" data-accepted="hive"><h4>Orchard hive</h4>' + hive_picture + '<p>' + html.escape(butterflies.get('beeAudit', '')) + '</p><p>' + html.escape(hive['interactionProposal']['action']) + '</p><small>Hive interaction and honey rewards still need implementation. A bee creature would require new art and behavior. Orchard edges only.</small></article>'
+        + '<article class="accepted-direction" data-accepted="butterflies"><h4>Butterfly colors by habitat</h4><div class="butterfly-preview-grid">' + ''.join(variants) + '</div><p>' + html.escape(butterflies.get('mechanic', '')) + '</p><small>Color previews use the existing butterfly sprite. Keep forest, orchard and golf exclusions. Captured colors must survive inventory and release.</small></article>'
+        + '<article class="accepted-direction" data-accepted="bone"><h4>Cave bone cache</h4>' + bone_picture + '<p><b>Proposed loot:</b> ' + html.escape(bone_mix) + '.</p><p><b>Skeleton: 25%</b> on first search, independently of the loot roll. One skeleton at most; opening and defeat persist through reloads.</p><p><b>Cave supplies:</b> torch, rope or trap-disarming kit. Magic finds are Scrolls of Bones. No produce, seeds, coins or mineral pool.</p><details><summary>Compare existing containers</summary><p><b>Barrel:</b> ' + html.escape(shipping_mix('barrel')) + '.</p><p><b>Clay pot:</b> ' + html.escape(shipping_mix('clay_pot')) + '.</p></details></article>'
+        + ''.join(spring_cards) + '</div></section><style>.accepted-directions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;margin:20px 0}.accepted-direction{padding:16px;min-width:0}.accepted-direction img,.accepted-direction svg{image-rendering:pixelated}.butterfly-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.butterfly-preview-grid figure{margin:0}.accepted-direction h4{margin:0 0 12px}.accepted-direction p{font-size:13px}</style>')
+
+
+def basic_signature_overview():
+    data = basic_signatures()
+    counts = collections.Counter(s['currentStatus'] for row in data['zones'].values() for s in row.get('slots', {}).values())
+    rows = []
+    for terrain, row in data['zones'].items():
+        if row['excluded']:
+            continue
+        cells = ''.join(signature_overview_cell(row['slots'][level], terrain) for level in ['common', 'uncommon', 'rare'])
+        rows.append(f'<tr><th><a href="#tile-{terrain.lower()}">{terrain.replace("_", " ").title()}</a></th>{cells}</tr>')
+    return f'<details class="signature-overview" id="basic-signatures"><summary><strong>Common / uncommon / rare signature audit</strong> · {counts["existing_exclusive"]} existing habitats · {counts["shared"]} shared gaps · {counts["gap"]} placement ideas</summary><p>These are encounter-frequency proposals, separate from item quality and enemy tier. Each proposed thing is assigned to only one zone at the same encounter level. Existing habitat means the thing already has a distinctive ordinary habitat or stated context; it does not mean the proposed frequency band is enforced. Shared candidates need distribution changes; new placements need implementation. General chest loot, player planting and nexus contents do not establish basic-zone exclusivity. Each slot below shows its existing candidate or first proposal, with an art-backed new item alongside every unresolved shared slot. New-item mechanics are ideas, not live behavior.</p>{accepted_signature_directions()}<div class="signature-scroll"><table class="signature-table"><thead><tr><th>Zone</th><th>Common</th><th>Uncommon</th><th>Rare</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div><p>Open a zone’s individual slots below for evidence, unused-art thumbnails and proposed interactions. Art proposals are not new live spawns; each states whether an existing interaction can be reused or new behavior is needed. <a href="basic-zone-signatures.json">Full audit</a> · <a href="proposal-art-license.txt">Proposal art licenses</a></p></details><style>.signature-overview{{margin:24px 0;padding:18px;border:1px solid #405745;border-radius:12px}}.signature-overview summary,.signature-card summary{{cursor:pointer}}.signature-scroll{{overflow:auto}}.signature-table{{width:100%;border-collapse:collapse;font-size:13px}}.signature-table td,.signature-table th{{text-align:left;padding:10px;border-bottom:1px solid #405745;min-width:280px;vertical-align:top}}.signature-table td{{width:30%}}.signature-table th{{min-width:100px}}.signature-sprite{{image-rendering:pixelated;display:block;margin:8px 0}}.signature-existing-art p{{margin:6px 0}}.signature-alternative{{border-top:1px dashed #6c7550;margin-top:16px;padding-top:8px}}.signature-alternative h5{{font-size:13px;color:#e6c779;margin:8px 0}}.signature-status{{display:inline-block;font-size:10px;margin:5px 0;color:#e6c779}}.signature-status.existing_exclusive{{color:#95d7d1}}.signature-status.gap{{color:#efb5a2}}.signature-card{{border-top:1px solid #405745;margin:16px 0;padding-top:4px}}.signature-card details{{margin:12px 0;font-size:13px}}.proposal-art{{display:flex;gap:12px;align-items:center}}.proposal-art img{{image-rendering:pixelated;flex:none}}.signature-card p,.signature-note{{font-size:12px}}</style>'
+
+
 def basic_tile_section():
     cards = []
     for tile in art_registry()['basicTiles']:
         name = tile['name'].replace('_', ' ').title()
-        plants = ', '.join(dict.fromkeys(row['crop'].replace('_', ' ') for row in tile['flora'])) or 'No ambient flora'
-        cards.append(f'<article id="tile-{tile["name"].lower()}"><p data-sandbox="{tile["name"]}"></p><h3>{name}</h3><canvas data-terrain="{tile["type"]}" width="192" height="96" role="img" aria-label="{name} ground texture preview"></canvas><p>{html.escape(plants)}</p><small>Terrain {tile["type"]} · {tile["variants"]} texture variants</small></article>')
-    return '<section id="basic-zones"><h2>Basic tile zones</h2><p>Shipping ground colours and texture painters, tiled at 32 pixels per cell. Flora is listed from the runtime biome profile. These samples show ground only; buildings, vegetation, lighting and map geometry are not overlaid.</p><div class="tile-grid">' + ''.join(cards) + '</div></section>'
+        examples = tile['examples'] + tile['creatureExamples']
+        prefix = 'basic-' + tile['name'].lower()
+        sample_height = max(144, math.ceil(len(examples)/4)*48)
+        parts = [f'<svg data-basic-sample="{tile["name"]}" data-example-count="{len(examples)}" role="img" aria-label="{name}: representative spawned objects" viewBox="0 0 192 {sample_height}">',
+                 ground_pattern(tile['name'], prefix, 32), f'<rect width="192" height="{sample_height}" fill="url(#{prefix})"/>']
+        labels = []
+        for i, example in enumerate(examples):
+            label = example.get('crop') or example.get('species') or example['kind']
+            if example['kind'] == 'mineralrock':
+                label = 'beach rock' if example.get('_zoneObjectFrame') == 34 else 'plain rock' if example.get('caveVariant') is not None or example.get('yieldTier', 1) <= 1 else 'ore rock'
+            if example.get('barrel'):
+                label = 'clay pot' if example.get('barrelStyle') == 'clay_pot' else 'salvage barrel'
+            label = label.replace('_', ' ')
+            labels.append(label)
+            x, y = (i % 4) * 48 + 8, (i // 4) * 48 + 8
+            parts.append(f'<g data-example-kind="{example["kind"]}"><title>{html.escape(label)}</title>' + art_image(material_art(example), f'class="sprite-cell" x="{x}" y="{y}" width="32" height="32"') + '</g>')
+        parts.append('</svg>')
+        note = 'Examples: ' + ', '.join(dict.fromkeys(labels)) + '.' if labels else 'No ordinary objects or creatures spawn on this ground.'
+        if tile['name'] == 'CAVE_FLOOR':
+            note += ' Cave level 1: mushrooms and eligible cave enemies.'
+        elif tile['name'] == 'PIER':
+            note += ' Confirmed public piers only; private and unknown access exclude population.'
+        elif tile['name'] == 'ORCHARD':
+            note += ' Orchard edges only (about 14 m); interiors have no spawns. No rocks, bats, butterflies or spiders.'
+        elif tile['name'] == 'PARK':
+            note += ' One generated park character; other parks vary.'
+        if tile['enemies']:
+            note += ' Enemy appearance also depends on distance, time or cave depth.'
+        cards.append(f'<article id="tile-{tile["name"].lower()}"><p data-sandbox="{tile["name"]}"></p><h3>{name}</h3>{"".join(parts)}<p>{html.escape(note)}</p>{basic_density_summary(tile["name"])}{basic_signature_card(tile["name"])}<small>Terrain {tile["type"]} · {tile["variants"]} texture variants</small></article>')
+    return '<section id="basic-zones"><h2>Basic tile zones</h2><p>Shipping ground textures with representative spawned objects. Plants, trees and minerals come from the real world generator on small public-frontage terrain fixtures; wildlife and enemies use the owning spawn tables. Examples are arranged for visibility, not to predict density. Access restrictions, nearby buildings, roads and occupied cells still control live placement. Special nexus and road layouts have their own tabs.</p><p><strong>Measured coverage after tuning:</strong> percentage of eligible 7 m ground cells occupied by stationary plants, trees, rocks or pots. Current values come from eight generated public-frontage plots per terrain or park character, after spawn gates and collisions. They are comparison samples, not measured Kelowna coverage or visual canopy area. Roaming creatures above are not included in these percentages.</p><p><strong>Basic-zone updates are implemented.</strong> Targets are approximate occupied-cell budgets; the measured column shows what the generator actually placed. Ordinary street rubble is counted separately; it contains no ore and does not spawn in wetlands. Farm and golf have no spawns. Park splitting is deferred. The signature ideas below remain proposals. <a href="basic-zone-coverage.json">Measured counts and method</a> · <a href="basic-zone-density-proposals.json">Tuning targets</a></p>' + basic_signature_overview() + '<div class="tile-grid">' + ''.join(cards) + '</div></section>'
 
 
 def basic_tile_script():
@@ -729,9 +979,64 @@ document.documentElement.dataset.tilesReady='true';
     return '<script>(()=>{\n' + script.replace('</script', '<\\/script') + '\n})();</script>'
 
 
+def beach_park_section(d):
+    meadow = next((v for v in d['variants'] if v['id'] == 'marine_meadow'), None)
+    if not meadow:
+        return ''
+    cards = []
+    for beach in (v for v in d['variants'] if v['zone'] == 'beach'):
+        prefix = 'adjoining-' + beach['id'] + '-'
+        parts = [f'<svg role="img" aria-label="Marine Meadow adjoining {html.escape(beach["name"])} and water" viewBox="0 0 480 290">']
+        for variant, x, width, ground in [(meadow, 0, 260, 'GRASS'), (beach, 260, 160, 'SAND')]:
+            diagram = svg_for(variant, d, prefix=prefix, ground=ground, sample_cells=13)
+            diagram = diagram.replace('width="100%" height="100%"', 'width="130" height="130"')
+            diagram = diagram.replace('<svg role=', f'<svg x="{x}" y="25" width="{width}" height="260" style="overflow:hidden" role=', 1)
+            # Thirteen rows at twice the old cell size; the eight-cell sand
+            # strip keeps the meadow and waterline together in the close-up.
+            if ground == 'SAND':
+                diagram = diagram.replace('viewBox="0 0 130 130"', 'viewBox="25 0 80 130"', 1)
+            parts.append(diagram)
+        water_id = prefix + 'water'
+        parts.append(ground_pattern('WATER', water_id, 20))
+        parts.append(f'<rect x="420" y="25" width="60" height="260" fill="url(#{water_id})"/>')
+        treasure = beach.get('shoreTreasure')
+        tiers = [treasure['tier']] * treasure['count'] if treasure else beach.get('reef', {}).get('chestTiers', [])
+        for i, tier in enumerate(tiers):
+            y = 85 + i * 75
+            parts.append(art_image({'sheet': 'chest', 'frames': [tier-1]}, f'class="sprite-cell" x="421" y="{y}" width="18" height="18"'))
+            parts.append(f'<rect class="geometry-cell" x="421" y="{y}" width="18" height="18" fill="#f6d483"><title>T{tier} water-edge chest</title></rect>')
+        parts.append('<g fill="#e5ecdf" font-size="11"><text x="8" y="16">Marine Meadow · grass</text>' + f'<text x="268" y="16">{html.escape(beach["name"])} · sand</text><text x="427" y="16">Water</text></g></svg>')
+        chest_note = (' Water-edge finds: ' + ', '.join(f'T{tier}' for tier in tiers) + '.') if tiers else ''
+        cards.append(f'<article id="adjoining-{beach["id"]}"><h3>Marine Meadow + {html.escape(beach["name"])}</h3><figure>{"".join(parts)}<figcaption>Close-up · 8-cell beach strip · one cell = 7 m</figcaption></figure><p>Grass keeps the meadow’s mixed coastal plants and objects; the adjoining sand keeps its beach identity.{chest_note}</p></article>')
+    return '<section id="beach-parks"><h2>Beach parks · Marine Meadow</h2><p>A park adjoining a beach becomes a Marine Meadow. These representative layouts use the current grass, beach and shoreline definitions. Live boundaries, access restrictions and occupied cells clip placement; the samples do not reproduce a surveyed site.</p><div class="cards">' + ''.join(cards) + '</div></section>'
+
+
+def viewer_navigation_script():
+    return """<script>
+(() => {
+  const panels = [...document.querySelectorAll('[data-view-panel]')];
+  const tabs = [...document.querySelectorAll('[data-view]')];
+  function selectView() {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const target = document.getElementById(id);
+    const active = target?.closest('[data-view-panel]') || panels.find(p => p.id === 'basic-zones');
+    for (const panel of panels) panel.hidden = panel !== active;
+    for (const tab of tabs) {
+      if (tab.dataset.view === active.id) tab.setAttribute('aria-current', 'page');
+      else tab.removeAttribute('aria-current');
+    }
+    if (id === 'basic-signatures' && target) target.open = true;
+    if (target && target !== active) requestAnimationFrame(() => target.scrollIntoView());
+  }
+  addEventListener('hashchange', selectView);
+  selectView();
+})();
+</script>"""
+
+
 def render(d, out):
     validate(d)
-    d = {**d, 'variants': [v for v in d['variants'] if v.get('selectable', True)]}
+    d = {**d, 'variants': [v for v in d['variants'] if v.get('selectable', True) or v['id'] == 'marine_meadow']}
     helper = pathlib.Path(__file__).with_name('preview_street_variants.js')
     streets = json.loads(subprocess.check_output(['node', str(helper)], text=True))
     out.mkdir(parents=True, exist_ok=True)
@@ -772,7 +1077,7 @@ def render(d, out):
             source = art_registry()['wildplantRules'].get(crop, {}).get('light')
             if source: light_text += f'; {crop} glow {art_registry()["lighting"][source]["radiusCells"]:g} cells'
         light_text += '; street lamps ' + (f'use zone tint {v["lampGlow"]} (overrides street)' if v.get('lampGlow') else 'retain street variant colour')
-        shrine_row = next((r for r in art_registry()['shrineKinds'].values() if v['id'] in r['zones']), None)
+        shrine_row = next((r for r in art_registry()['shrineKinds'].values() if v['id'] in r['zoneVariants']), None)
         reward_row = art_registry()['shrineRewards'].get(v['id'])
         if reward_row:
             shrine_text = reward_row['name'] + ': ' + ('a full-screen coin burst, once per UTC day' if reward_row.get('fillScreen') else reward_row['reward'])
@@ -786,7 +1091,7 @@ def render(d, out):
             reef_note = f'<p>Up to {reef["landOre"]["count"]} scattered pick-gated ore rocks on land; coral extends into nearby water with up to {len(reef["chestTiers"])} one-time T2–T3 chests within dry-shore reach.</p><svg viewBox="0 0 192 48">' + ''.join(f'<g transform="translate({i*48},0)">'+art_image({'sheet':'reef_coral','frames':[i]}, 'width="48" height="48"')+'</g>' for i in range(4)) + '</svg><p><a href="/zone-object-sheets/#live-mystic_reef">See the water treatment at a real site</a></p>'
         cards.append(f'''<article id="{v['id']}"><p data-sandbox="{v['zone']}"></p><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p>{reef_note}<dl><dt>Traits</dt><dd>{html.escape(", ".join(art_registry()["zoneTraits"].get(v["id"], []))) or "Neutral"}</dd><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Shrine</dt><dd>{html.escape(shrine_text)}</dd><dt>Finds</dt><dd>{html.escape(find_text)} · {v['finds']['rarity']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Monsters</dt><dd>{guard_text}</dd><dt>Lighting</dt><dd><span class="swatch" style="background:{light_color}"></span>{light_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
     page = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Zone and street variants · pattern review</title><style>
-*{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
+*{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}[hidden]{display:none!important}.view-tabs a[aria-current="page"]{background:#95d7d1;color:#101a15;font-weight:700}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;align-items:start;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}.density-block{margin:18px 0;padding-top:12px;border-top:1px solid #405745}.density-block h4{margin:0 0 12px}.density-table{width:100%;border-collapse:collapse;font-size:12px;margin:12px 0}.density-table th,.density-table td{padding:6px 3px;border-bottom:1px solid #354b3d;text-align:right}.density-table th:first-child{text-align:left;font-weight:400}.density-table td:last-child{color:#e6c779}.density-total{font-weight:700}.density-bar-row{display:flex;gap:8px;align-items:center;font-size:11px;margin:5px 0}.density-bar-row>span:first-child{width:58px}.density-bar{flex:1;height:8px;background:#101a15;border-radius:3px;overflow:hidden}.density-bar i{display:block;height:100%;background:#95d7d1}.density-bar-row.density-target i{background:#e6c779}.density-intent{font-size:13px}.park-density{margin:12px 0;font-size:13px}.park-density summary{cursor:pointer}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
     page = page.replace('</style>', art_styles() + '</style>')
     counts = collections.Counter(v['zone'] for v in d['variants'])
     category_names = {'grove': 'Groves and gardens', 'stones': 'Churchyards and stone', 'tar': 'Tar yards', 'beach': 'Beaches', 'quarry': 'Quarries'}
@@ -794,12 +1099,12 @@ def render(d, out):
     quick_links = ''.join(f'<a href="#category-{key}">{category_names.get(key, key.title())} ({counts[key]})</a>' for key in categories)
     if 'quarry' in categories:
         quick_links += '<a href="#quarry-drafts">Parking-lot stories (4)</a>'
-    quick_links += '<a href="#roads-minor">Minor roads</a><a href="#roads-major">Major roads</a><a href="#roads-path">Scenic paths</a><a href="#basic-zones">Basic tile zones</a>'
-    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav" aria-label="Zone categories">{quick_links}</nav>'
+    quick_links += '<a href="#beach-parks">Beach parks</a>'
+    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav view-tabs" aria-label="Viewer sections"><a href="#basic-zones" data-view="basic-zones">Basic zones</a><a href="#streets" data-view="streets">Roads</a><a href="#zones" data-view="zones">Nexus</a></nav>'
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
     generated_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
     page += f'<p>Static snapshot generated {generated_at} from the checked-out game definitions and shipped art. This page does not fetch live game data; regenerate it after changes.</p>'
-    page += '<section id="zones"><h2>Special zones</h2><p>Runtime definitions at generation time. Previews show representative patterns before terrain and occupied cells clip placement. <a href="zone-variants.json">Zone data</a></p>'
+    page += '<section id="zones" data-view-panel hidden><h2>Nexus</h2><nav class="page-nav" aria-label="Nexus categories">' + quick_links + '</nav><p>Runtime definitions at generation time. Previews show representative patterns before terrain and occupied cells clip placement. <a href="zone-variants.json">Zone data</a></p>'
     for key in categories:
         page += f'<section id="category-{key}"><h2>{category_names.get(key, key.title())}</h2>'
         if key == 'quarry':
@@ -807,8 +1112,23 @@ def render(d, out):
         page += '<div class="cards">'
         page += ''.join(card for variant, card in zip(d['variants'], cards) if variant['zone'] == key)
         page += '</div></section>'
-    page += '</section>' + street_section(streets) + basic_tile_section() + art_script() + basic_tile_script() + '</body></html>'
+    page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + viewer_navigation_script() + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
+    def art_licenses(value):
+        if isinstance(value, dict):
+            if isinstance(value.get('artProposal'), dict) and value['artProposal'].get('license'):
+                yield value['artProposal']['license']
+            for child in value.values():
+                yield from art_licenses(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from art_licenses(child)
+    repo = pathlib.Path(__file__).resolve().parents[1]
+    license_paths = sorted(set(art_licenses(basic_signatures())))
+    (out/'proposal-art-license.txt').write_text('\n\n'.join(path + '\n' + (repo/path).read_text() for path in license_paths))
+    (out/'basic-zone-signatures.json').write_text(json.dumps(basic_signatures(), indent=2)+'\n')
+    (out/'basic-zone-coverage.json').write_text(json.dumps(art_registry()['basicCoverage'], indent=2)+'\n')
+    (out/'basic-zone-density-proposals.json').write_text(json.dumps(basic_density_proposals(), indent=2)+'\n')
     (out/'street-variants.json').write_text(json.dumps(streets, indent=2)+'\n')
     (out/'zone-variants.json').write_text(json.dumps(d,indent=2)+'\n')
     for variant in d['variants']:

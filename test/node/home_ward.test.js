@@ -142,7 +142,8 @@ const wander = (() => {
 })();
 
 test('ward: what is warded is what the game calls an ENEMY', () => {
-  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0 \|\| haunts\) && !isTame\s*&& \(Combat\.isEnemy\(c\) \|\| enraged\);/.test(wander),
+  assert.truthy(/const enemy = Combat\.isEnemy\(c\);/.test(wander), 'Combat.isEnemy, read once per creature per tick');
+  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0 \|\| haunts\) && !isTame\s*&& \(enemy \|\| enraged\);/.test(wander),
     'Combat.isEnemy — the registered-hostile test, so a kind added to the '
     + 'monster table is warded the day it ships, and a tamed slime is not');
   assert.truthy(/const homePos = this\.homeWorldPos\(\);/.test(wander),
@@ -162,10 +163,14 @@ test('ward: a warded foe turns AWAY FROM HOME, and cannot bite on the way out', 
   assert.truthy(branch, 'the ward branch has a branch after it');
   assert.falsy(/dxp|dyp/.test(branch[1]), 'not away-from-player');
   // It still outranks everything that chases: a foe being walked out of the
-  // ring goes, whatever else it would rather be doing.
-  assert.lt(wander.indexOf('} else if (warded) {'),
-    wander.indexOf("} else if (lairState === 'hunt') {"),
+  // ring goes, whatever else it would rather be doing — the roster mover
+  // asks `routed` (Home's ward among its reasons) before a garrison's walk
+  // home and before every stalk pattern.
+  const move = CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyMove('));
+  assert.lt(move.indexOf('if (routed) {'), move.indexOf("} else if (lairState === 'return') {"),
     'the ward outranks a garrison\'s chase');
+  assert.truthy(/if \(routed\) \{\s*const from = c\._wardFrom \|\| \{ x: px, y: py \};\s*angle = Math\.atan2\(c\.y - from\.y, c\.x - from\.x\);/.test(move),
+    'a routed foe runs away from the WARD that tripped it, else from the player');
   // And it is an ANGLE, never a refused target cell — a foe deep inside the
   // ring would have all six attempts rejected by a cell test and freeze on
   // the doorstep (the stall the scarecrow comment warns about).
@@ -225,7 +230,7 @@ test('ward: it is a LATCH — tripped at the ring, released at the bubble', () =
     'and the bubble edge is the ONLY thing that releases it');
   assert.truthy(/const warded = wardFoe && !!c\._wardFrom;/.test(wander),
     'the ward IS the latch — no second radius test to fall out of');
-  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0 \|\| haunts\) && !isTame\s*&& \(Combat\.isEnemy\(c\) \|\| enraged\);/.test(wander),
+  assert.truthy(/const wardFoe = \(!!homePos \|\| castleWards\.length > 0 \|\| haunts\) && !isTame\s*&& \(enemy \|\| enraged\);/.test(wander),
     'a pet is never routed from its own home, and there is no ward off the surface');
 
   // A blow no longer routs on its own: a foe close enough to hit at Home is
@@ -251,7 +256,7 @@ test('ward: a routed foe RUNS — the rout is distance, not just a heading', () 
   // `hurry` is the rout on a kind NOT already sprinting (speed_ceiling.test.js:
   // a bolt is its own hurry, and the pair never stacks on one).
   assert.truthy(/const hurry = routed && !sprinting;/.test(wander), 'the rout, on what was not already running');
-  assert.truthy(/\* shinyFast \* \(hurry \? FLEE_BEAT_MUL : 1\);/.test(wander),
+  assert.truthy(/\/ paceMul \* \(hurry \? FLEE_BEAT_MUL : 1\);/.test(wander),
     'a routed foe steps more often');
   assert.truthy(/\* \(hurry \? FLEE_STRIDE_MUL : 1\);/.test(wander),
     'and carries further with each step — a charge quickens the beat alone');
@@ -260,19 +265,18 @@ test('ward: a routed foe RUNS — the rout is distance, not just a heading', () 
   // (a kind with one runs its bolt instead: speed_ceiling.test.js).
   assert.truthy(/const hurryM = bolt \? STEP_M \* \(bolt\.stepCells \?\? 1\) : base\.m \* FLEE_STRIDE_MUL;/.test(wander),
     'the struck-prey flee override reads the same stride');
-  assert.truthy(/const hurryMs = bolt \? \(bolt\.stepMs \?\? STEP_MS\) \* shinyFast : base\.ms \* FLEE_BEAT_MUL;/.test(wander),
+  assert.truthy(/const hurryMs = bolt \? \(bolt\.stepMs \?\? STEP_MS\) \/ paceMul : base\.ms \* FLEE_BEAT_MUL;/.test(wander),
     'and the same beat');
   assert.eq(FLEE_STRIDE_MUL * (1 / FLEE_BEAT_MUL), 4,
     'four times the ground — if this changes, both fleers change together');
 
   // What that buys, in the units the player experiences: the slowest thing in
-  // the game clears Home's ring in seconds rather than a minute, and reaches
-  // the bubble's edge — where it freezes — well inside a minute.
-  const slimeCellsPerSec = (cells, ms) => cells / (ms / 1000);
-  const amble = slimeCellsPerSec(SLIME_HOP_CELLS, 5000 * SLIME_STEP_MUL);
-  const rout = slimeCellsPerSec(SLIME_HOP_CELLS * FLEE_STRIDE_MUL,
-    5000 * SLIME_STEP_MUL * FLEE_BEAT_MUL);
-  assert.eq(rout / amble, 4, 'a routed slime covers four times the ground');
+  // the game (the surface slime, by its roster row and rosterEnemyMove's rout
+  // pace, hurryMps) clears Home's ring in seconds rather than a minute, and
+  // reaches the bubble's edge — where it freezes — well inside a minute.
+  const amble = EnemyRoster.get('slime').movement.speedMetersPerSecond / COMBAT_CELL_M;   // cells/s
+  const rout = hurryMps({ kind: 'slime' }, amble * COMBAT_CELL_M) / COMBAT_CELL_M;
+  assert.eq(rout / amble, FLEE_STRIDE_MUL / FLEE_BEAT_MUL, 'a routed slime covers four times the ground');
   assert.lt(HOME_R / rout, 20, 'it is out of the ring in under twenty seconds');
   assert.lt(CREATURE_SIM_CELLS / rout, 60, 'and out of the bubble inside a minute');
 });
@@ -325,31 +329,40 @@ test('ward: the ring is one number, and Home out-rests and out-reaches a fire', 
 
 test('fire ward: the depth cap is a named number, and the real table agrees with it', () => {
   assert.eq(FIRE_WARD_MAX_DEPTH, 1, 'only the first cave level is warded off by fire');
-  assert.lte(MONSTERS.cave_slime.minDepth, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
+  assert.lte(MONSTERS.cave_slime.cave.minDepth, FIRE_WARD_MAX_DEPTH, 'cave slime is warded');
+  assert.lte(MONSTERS.club_goblin.cave.minDepth, FIRE_WARD_MAX_DEPTH, 'so is the club goblin (tier 2, a depth-1 kind)');
   assert.lte(MONSTERS.purple_slime.tier, FIRE_WARD_MAX_DEPTH, 'a purple slime is tier 1...');
-  assert.gt(MONSTERS.purple_slime.minDepth, FIRE_WARD_MAX_DEPTH,
+  assert.gt(MONSTERS.purple_slime.cave.minDepth, FIRE_WARD_MAX_DEPTH,
     '...but a depth-3 kind, so it is not warded: the cap is depth, not tier');
-  assert.gt(MONSTERS.goblin.minDepth, FIRE_WARD_MAX_DEPTH, "a goblin is past a campfire's reach");
-  assert.gt(MONSTERS.goblin_archer.minDepth, FIRE_WARD_MAX_DEPTH, 'so is its archer');
+  assert.gt(MONSTERS.goblin.cave.minDepth, FIRE_WARD_MAX_DEPTH, "a goblin is past a campfire's reach");
+  assert.gt(MONSTERS.goblin_archer.cave.minDepth, FIRE_WARD_MAX_DEPTH, 'so is its archer');
   // The roster's giants all start deeper than the fire ward reaches.
   for (const kind of Object.keys(MONSTERS)) {
-    if (!MONSTERS[kind].giant) continue;
-    assert.gt(MONSTERS[kind].minDepth, FIRE_WARD_MAX_DEPTH, `${kind} is never warded by a campfire`);
+    if (MONSTERS[kind].variantType !== 'Giant') continue;
+    assert.gt(MONSTERS[kind].cave.minDepth, FIRE_WARD_MAX_DEPTH, `${kind} is never warded by a campfire`);
+    assert.falsy(fireAverse({ kind }, MONSTERS[kind]));
   }
 });
 
-test('fire ward: roster movement checks the depth cap and excludes lair guards', () => {
+test('fire ward: ONE derived predicate — the depth cap, never a lair guard — on the one mover', () => {
   const scene = { cellM: 7, _cellBlocked: () => false,
     cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _nearAny: () => true };
-  for (const kind of ['slime', 'cave_slime']) {
+  for (const kind of ['slime', 'cave_slime', 'club_goblin']) {
+    assert.truthy(fireAverse({ kind }, EnemyRoster.get(kind)), kind + ' is fire-averse');
     assert.falsy(enemyCanStep(scene, { kind }, EnemyRoster.get(kind), 0, 0), kind + ' refuses the fire ring');
     assert.truthy(enemyCanStep(scene, { kind, lair: 'guard' }, EnemyRoster.get(kind), 0, 0), kind + ' guard can return through fire');
   }
   // The swept step and the wander target loop read ONE predicate
-  // (creature_ai.js campfireAverts); the step used to read the power tier,
-  // so a tier-1 purple slime was refused the ring it had just targeted.
+  // (creature_ai.js fireAverse); the step used to read the power tier, so
+  // a tier-1 purple slime was refused the ring it had just targeted.
+  assert.falsy(fireAverse({ kind: 'purple_slime' }, EnemyRoster.get('purple_slime')), 'a purple slime (tier 1, depth 3) is not fire-averse');
   assert.truthy(enemyCanStep(scene, { kind: 'purple_slime' }, EnemyRoster.get('purple_slime'), 0, 0),
     'a purple slime (depth 3) walks through firelight');
+  for (const row of EnemyRoster.ROWS) {
+    assert.eq(fireAverse({ kind: row.id }, row), (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH, `${row.id}: the row's cave depth decides`);
+  }
   assert.truthy(enemyCanStep(scene, { kind: 'goblin' }, EnemyRoster.get('goblin'), 0, 0));
+  const loop = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'), SCENE_SRC.indexOf('  _crowDepart('));
+  assert.eq(loop.match(/_nearAny\(['"]fires['"]/g), null, 'the sim loop keeps no fire ward of its own');
 });
 })();

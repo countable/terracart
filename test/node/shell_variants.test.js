@@ -37,9 +37,9 @@ test('beach: a sand tile scatters shells over its cells', () => {
   for (const t of beach.grid) if (t === T.SAND) sand++;
   assert.gt(sand, 0, 'the sand polygon painted SAND');
   assert.gt(shells.length, 0, 'shells spawned on the sand');
-  // Allow sampling slack around 1–1.75 %, while rejecting the old 4–7 %
-  // scatter that crowded the beach and waterline.
-  assert.inRange(shells.length / sand, 0.005, 0.025, 'shell density');
+  // Allow sampling slack around the approved 3% occupied-cell target;
+  // the beach remains predominantly open sand.
+  assert.inRange(shells.length / sand, 0.02, 0.04, 'shell density near the three-percent target');
 });
 
 // --- Every shell draws a shell ---------------------------------------------

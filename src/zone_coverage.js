@@ -2,24 +2,42 @@
 (function (root) {
   'use strict';
   const EXT = 4096;
-  function contains(rings, x, y) {
-    let inside = false;
-    for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const a = ring[i], b = ring[j];
-      if ((a.y > y) !== (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x) inside = !inside;
-    }
-    return inside;
-  }
+  // The ray test and the row crossings are WorldGen's (one spelling for the
+  // flora scatter, the scenic index and this fill).
+  const contains = (rings, x, y) => root.WorldGen.pointInRings(rings, x, y);
   function geometry(park) {
     const edges = [];
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const ring of park.rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const a = ring[i], b = ring[j];
-      x0 = Math.min(x0, a.x); y0 = Math.min(y0, a.y);
-      x1 = Math.max(x1, a.x); y1 = Math.max(y1, a.y);
-      edges.push([a, b]);
+    for (const ring of park.rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) edges.push([ring[i], ring[j]]);
+    const { minX: x0, minY: y0, maxX: x1, maxY: y1 } = root.WorldGen.bboxOf(park.rings);
+    return { edges, rings: park.rings, x0, y0, x1, y1 };
+  }
+  // Read buffered source polygons, not the visible raster or a clipped
+  // centroid, so a park can recognise its adjoining shore across a tile edge.
+  function* adjoinsBeachSteps(park, beaches, margin) {
+    const g = geometry(park);
+    const distance2 = (p, a, b) => {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      return (p.x - a.x - t * dx) ** 2 + (p.y - a.y - t * dy) ** 2;
+    };
+    const cross = (a, b, p) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    let scanned = 0;
+    for (const beach of beaches) {
+      const h = geometry({ rings: beach.geom });
+      if (g.x1 + margin < h.x0 || h.x1 + margin < g.x0 || g.y1 + margin < h.y0 || h.y1 + margin < g.y0) continue;
+      if (h.edges.some(([p]) => contains(park.rings, p.x, p.y))
+          || g.edges.some(([p]) => contains(beach.geom, p.x, p.y))) return true;
+      for (const [a, b] of g.edges) for (const [c, d] of h.edges) {
+        if ((++scanned & 255) === 0) yield 'beach park adjacency';
+        if (Math.max(a.x, b.x) + margin < Math.min(c.x, d.x)
+            || Math.max(c.x, d.x) + margin < Math.min(a.x, b.x)
+            || Math.max(a.y, b.y) + margin < Math.min(c.y, d.y)
+            || Math.max(c.y, d.y) + margin < Math.min(a.y, b.y)) continue;
+        if ((cross(a, b, c) * cross(a, b, d) < 0 && cross(c, d, a) * cross(c, d, b) < 0)
+            || Math.min(distance2(a, c, d), distance2(b, c, d), distance2(c, a, b), distance2(d, a, b)) <= margin * margin) return true;
+      }
     }
-    return { edges, x0, y0, x1, y1 };
+    return false;
   }
   // Scanline fill reads each edge once per row, rather than twice per cell.
   // Fringe checks visit only the small strip around an edge, even on long
@@ -28,9 +46,7 @@
     const mask = new Uint8Array(N * N);
     for (let y = Math.max(0, Math.ceil(g.y0 / unit - .5)); y <= Math.min(N - 1, Math.floor(g.y1 / unit - .5)); y++) {
       if ((y & 15) === 0) yield 'zone coverage fill';
-      const py = (y + .5) * unit, crossings = [];
-      for (const [a, b] of g.edges) if ((a.y > py) !== (b.y > py)) crossings.push((b.x - a.x) * (py - a.y) / (b.y - a.y) + a.x);
-      crossings.sort((a, b) => a - b);
+      const py = (y + .5) * unit, crossings = root.WorldGen.rowCrossings(g.rings, py);
       for (let k = 0; k + 1 < crossings.length; k += 2) {
         const from = Math.max(0, Math.ceil(crossings[k] / unit - .5));
         const to = Math.min(N, Math.ceil(crossings[k + 1] / unit - .5));
@@ -139,11 +155,11 @@
     }
     const unit = EXT / N, margin = Z.FRINGE_FILL_M / (N * WG.CELL_M / EXT);
     // Polygon evidence refines coverage, never the canonical park anchor.
-    // A companion's identity and pattern depend only on that existing POI;
-    // clipped beaches cannot change the inland grove or create another POI.
+    // Companions retain the existing POI identity; geometry never mints a POI.
     const shore = new Uint8Array(N * N);
-    for (const feature of beachLayer?.features || []) {
-      if (feature.type !== 3 || !feature.geom || Z.anchorOf(feature.tags)?.kind !== 'beach') continue;
+    const beaches = (beachLayer?.features || []).filter(feature =>
+      feature.type === 3 && feature.geom && Z.anchorOf(feature.tags)?.kind === 'beach');
+    for (const feature of beaches) {
       const mask = yield* parkMask(geometry({ rings: feature.geom }), N, unit, 0);
       for (let i = 0; i < shore.length; i++) {
         if (i % (N * 32) === 0) yield 'mapped beach union';
@@ -154,7 +170,7 @@
     const shoreFor = a => {
       if (!companions.has(key(a))) {
         const beach = { ...a, kind: 'beach', code: Z.ZONE_KINDS.beach.code,
-          R: Z.radiusFor('beach', 0), q: 0, aspect: 'tree_ring',
+          R: Z.radiusFor('beach', 0), q: 0, nexusPattern: 'tree_ring',
           parkShore: true };
         delete beach.variant; delete beach.character;
         beach.variant = V.pick(beach).id;
@@ -165,10 +181,38 @@
     const associated = [];
     for (const park of parks || []) {
       if (park.cemetery) continue;
-      const inPark = a => contains(park.rings, a.gx - tx * EXT, a.gy - ty * EXT);
-      const a = sorted.find(a => a.kind === 'beach' && inPark(a))
-        || sorted.find(a => a.kind === 'grove' && inPark(a));
+      const inPark = a => {
+        const x = a.gx - tx * EXT, y = a.gy - ty * EXT;
+        if (contains(park.rings, x, y)) return true;
+        if (a.owned) return false;
+        // POIs have a wider buffer than source polygons. Continue only a
+        // short distance across the artificial 64-unit polygon clip edge;
+        // ordinary park boundaries never admit a nearby outside POI.
+        for (const ring of park.rings) for (let j = 0, k = ring.length - 1; j < ring.length; k = j++) {
+          const p = ring[k], q = ring[j];
+          if (p.x === q.x && (p.x === -64 || p.x === EXT + 64)
+              && y > Math.min(p.y, q.y) && y < Math.max(p.y, q.y)) {
+            const sign = p.x < 0 ? -1 : 1, distance = (x - p.x) * sign;
+            if (distance > 0 && distance <= margin && contains(park.rings, p.x - sign * 1e-6, y)) return true;
+          }
+          if (p.y === q.y && (p.y === -64 || p.y === EXT + 64)
+              && x > Math.min(p.x, q.x) && x < Math.max(p.x, q.x)) {
+            const sign = p.y < 0 ? -1 : 1, distance = (y - p.y) * sign;
+            if (distance > 0 && distance <= margin && contains(park.rings, x, p.y - sign * 1e-6)) return true;
+          }
+        }
+        return false;
+      };
+      const beachAnchor = sorted.find(a => a.kind === 'beach' && inPark(a));
+      let a = sorted.find(a => a.kind === 'grove' && inPark(a)) || beachAnchor;
       if (!a) continue;
+      const coastal = yield* adjoinsBeachSteps(park, beaches, margin);
+      if (coastal) {
+        if (a.kind === 'beach') {
+          a = { ...a, kind: 'grove', code: Z.ZONE_KINDS.grove.code, generated: true, parkMeadow: true };
+        }
+        a.variant = 'marine_meadow';
+      }
       const g = geometry(park);
       associated.push({ a, g });
       const slot = slotFor(a), mask = yield* parkMask(g, N, unit, margin);
@@ -179,7 +223,7 @@
           if (!mask[i]) continue;
           const land = sourceLand(i);
           const beach = grid && a.kind === 'grove' && shore[i]
-            && [WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land) ? shoreFor(a) : null;
+            && [WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land) ? (beachAnchor || shoreFor(a)) : null;
           if (beach) {
             const previous = coverage[i] && f.anchors[coverage[i] - 1];
             if (!previous || previous.kind === 'grove' || (previous.parkShore
@@ -250,7 +294,7 @@
   function* paintSteps(field, grid, N, pathUnder, roadMask, spawnWhy) {
     if (!field || !field.coverage) return 0;
     const WG = root.WorldGen, T = WG.T, coverage = field.coverage;
-    const codes = field.anchors.map(a => root.Zones.terrainOf(a.kind));
+    const codes = field.anchors.map(a => T[root.ZoneVariants.pick(a)?.ground] ?? root.Zones.terrainOf(a.kind));
     const zoneGround = new Set(root.Zones.zoneTerrains());
     const under = field.under || (field.under = new Uint8Array(N * N));
     const present = under.present || (under.present = new Uint8Array(N * N));
@@ -457,13 +501,12 @@
         const i = queue[head], x = i % N, y = Math.floor(i / N);
         if (usable[i]) cells.push(i);
         // Diagonal buffers can join, but never across a travel barrier's corner.
-        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-          const nx = x + dx, ny = y + dy;
-          if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
-          if (dx && dy && (separator[y * N + nx] || separator[ny * N + x])) continue;
-          const next = ny * N + nx;
+        root.WorldGen.boxCells(N, N, x, y, 1, (nx, ny, next) => {
+          const dx = nx - x, dy = ny - y;
+          if (!dx && !dy) return;
+          if (dx && dy && (separator[y * N + nx] || separator[ny * N + x])) return;
           if (mask[next] === 1 && labels[next] === labels[start]) { mask[next] = 2; queue.push(next); }
-        }
+        });
       }
       if (!cells.length) continue;
       if (!result) result = { anchors: [], allAnchors: [], reach: [] };
@@ -486,7 +529,7 @@
       // Border components use reward-free benches until a complete footprint
       // is available; never invent a second crater or duplicate finite finds.
       const variants = root.ZoneVariants.forKind('quarry').map(v => v.id);
-      const variantHash = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
+      const variantHash = root.QuarryLayout.siteHash(tx, ty, first);
       const variantIndex = root.QuarryLayout.weightedIndexForHash(variantHash);
       const requestedVariant = variants[variantIndex];
       const variant = clipped ? 'quarry-strip-mine'
@@ -498,7 +541,7 @@
       const words = root.ZoneVariantData.quarryLayouts.siteNames;
       const nameHash = fnv1a(`quarry-name|${gx}|${gy}`);
       const name = clipped ? 'Quarry edge' : `${words.first[nameHash % words.first.length]} ${words.last[(nameHash >>> 16) % words.last.length]} Quarry`;
-      const anchor = { kind: 'quarry', variant, aspect: 'quarry', generated: 'parking_lanes',
+      const anchor = { kind: 'quarry', variant, nexusPattern: 'quarry', generated: 'parking_lanes',
         clipped, cluster: { sourceCells: cells.filter(i => !additions[i]).length,
           filledCells: cells.filter(i => additions[i]).length },
         requestedVariant: clipped ? undefined : requestedVariant,

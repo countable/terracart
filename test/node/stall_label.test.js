@@ -17,3 +17,23 @@ test('stall label: no space between the lines', () => {
     'set on every pooled label, cancelling the stroke');
   assert.eq(Macros.KIND_DIALOG.inn.label, 'Inn', 'the kind label table');
 });
+
+test('stall dialog: every booth kind names its presenter in KIND_DIALOG, shelf counters with their stock and title', () => {
+  // The `present` column is the scene method presentMacro calls, `(sx, sy, o,
+  // dress)`; a counter that sells off a shelf goes through _presentStallOffer
+  // with its own `stock(o)` (an array of item ids) and `title`. The chapel is
+  // interactables.js' daily visit, no dialog of its own.
+  const stub = { id: 'stall_1', macro: {} };
+  for (const [kind, row] of Object.entries(Macros.KIND_DIALOG)) {
+    if (kind === 'chapel') { assert.eq(row.present, undefined, 'the chapel names no presenter'); continue; }
+    assert.truthy(/^_present[A-Z]\w+$/.test(row.present), `${kind}: a scene presenter (${row.present})`);
+    if (row.present === '_presentStallOffer') {
+      assert.truthy(Array.isArray(row.stock(stub)) && row.stock(stub).every((id) => ITEM_BY_ID[id]), `${kind}: stock(o) is item ids`);
+      assert.truthy(typeof row.title === 'string' && row.title.endsWith(':'), `${kind}: a shelf title`);
+    } else {
+      assert.eq(row.stock, undefined, `${kind}: no shelf`);
+    }
+  }
+  assert.eq(['apothecary', 'scriptorium', 'sundries'].map((k) => Macros.KIND_DIALOG[k].present).join(),
+    '_presentStallOffer,_presentStallOffer,_presentStallOffer', 'the three shelf counters share the offer presenter');
+});

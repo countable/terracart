@@ -36,13 +36,14 @@
 const app = SCENE_SRC;
 const POWDERS = {
   growth_powder: { tier: 2, price: 60,  frame: 6, method: 'useGrowthPowder' },
-  shadow_powder: { tier: 2, price: 110, frame: 8, method: 'useShadowPowder' },
-  frost_powder:  { tier: 3, price: 100, frame: 9, method: 'useFrostPowder'  },
+  shadow_powder: { tier: 2, price: 110, frame: 8 },
+  frost_powder:  { tier: 3, price: 100, frame: 9 },
 };
 const methodBody = (name) => {
-  const m = app.match(new RegExp(`\\n  ${name}\\(\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
-  assert.truthy(m, `${name}() exists`);
-  return m[1];
+  const sig = name.includes('(') ? name + ') {' : name + '() {';
+  const a = app.indexOf('\n  ' + sig + '\n');
+  assert.truthy(a > 0, `${name}() exists`);
+  return app.slice(a + sig.length + 4, app.indexOf('\n  }\n', a));
 };
 
 // ── Registry ────────────────────────────────────────────────────────────────
@@ -116,11 +117,17 @@ test('powders: each has a CONSUMABLE_SPEC action row and the method exists', () 
     const row = CONSUMABLE_SPEC[id];
     assert.truthy(row, `${id}: a row`);
     assert.eq(row.verb, 'Use', `${id}: Use verb`);
-    assert.eq(row.method, want.method, `${id}: method`);
+    if (want.method) assert.eq(row.method, want.method, `${id}: method`);
     assert.truthy(/^Use the \w+ Powder\?$/.test(row.title), `${id}: the confirm title`);
-    const body = methodBody(want.method);
-    assert.truthy(new RegExp(`sel\\.id !== '${id}'`).test(body), `${want.method}: only a selected ${id}`);
+    // Shadow is a `buff` row and Frost a CAST_ROWS row (both reached through
+    // _useConsumable, guarded by _selectedConsumable there); Growth keeps a
+    // method of its own with the same guard.
+    if (row.buff) assert.truthy(Buffs.KINDS[row.buff], `${id}: a timed buff row`);
+    else if (/_powder: \{ noun:/.test(app) && app.includes(`\n  ${id}: { noun:`)) assert.truthy(true, `${id}: a cast row`);
+    else assert.truthy(methodBody(want.method).includes(`this._selectedConsumable('${id}')`), `${want.method}: only a selected ${id}`);
   }
+  const use = methodBody('_useTimedBuff(id, { mul = 1, spend = true } = {}'), cast = methodBody('_castOnFoes(id, { damage = CONSUMABLE_SPEC[id]?.damage, spend = true, noun } = {}');
+  assert.truthy(/this\._selectedConsumable\(id\)/.test(use) && /this\._selectedConsumable\(id\)/.test(cast), 'the one slot guard, in both lanes');
 });
 
 // ── Growth ─────────────────────────────────────────────────────────────────
@@ -160,7 +167,7 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
   const body = methodBody('useGrowthPowder');
   assert.truthy(/const n = this\.advanceCropsWithin\(GROWTH_POWDER_R_M\);/.test(body), 'sweeps the radius');
   const refuseAt = body.indexOf('if (n <= 0) {');
-  const consumeAt = body.indexOf('consumeSelected(this.save);');
+  const consumeAt = body.indexOf('this._consumeSelected();');
   assert.truthy(refuseAt >= 0, 'refuses on zero');
   assert.truthy(body.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns before the consume');
   assert.truthy(consumeAt > refuseAt, 'the powder is consumed AFTER the refusal');
@@ -173,20 +180,23 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
     'thrown off the scatter radius, in px');
   assert.truthy(/radiusCells: GROWTH_POWDER_R_M \/ this\.cellM,/.test(body),
     'and the light flash covers the same ground');
-  assert.truthy(body.indexOf('this._blastAt(') < body.indexOf('consumeSelected(this.save);'),
+  assert.truthy(body.indexOf('this._blastAt(') < body.indexOf('this._consumeSelected();'),
     'the blast goes off on a use that actually moved something');
 });
 
 // ── Shadow ─────────────────────────────────────────────────────────────────
 test('shadow: a 3-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
-  const body = methodBody('useShadowPowder');
-  assert.truthy(/this\._shadowUntil = Date\.now\(\) \+ SHADOW_POWDER_MS;/.test(body), 'one SHADOW_POWDER_MS on this._shadowUntil');
-  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 3 * 60 * 1000, 'and that is three minutes');
-  assert.truthy(/if \(this\._workProgress\?\.combat\) this\.cancelWorkProgress\(\);/.test(body),
+  // A `buff` row: _useTimedBuff extends Buffs.KINDS.shadow (this._shadowUntil)
+  // by the row's durationMs; its own work is the TIMED_BUFF_HOOKS.shadow hook.
+  assert.eq(CONSUMABLE_SPEC.shadow_powder.buff, 'shadow', 'a timed buff row');
+  const hooks = app.match(/\nconst TIMED_BUFF_HOOKS = \{[\s\S]*?\n\};/)[0];
+  assert.truthy(/shadow: \{ after: \(s\) => \{ if \(s\._workProgress\?\.combat\) s\.cancelWorkProgress\(\); \} \}/.test(hooks),
     'the truce ends the fight you are in: the wheel drops');
-  assert.truthy(/const SHADOW_POWDER_MS = CONSUMABLE_SPEC\.shadow_powder\.durationMs;/.test(app),
-    'runtime derives the duration');
-  assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared tail');
+  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 3 * 60 * 1000, 'and that is three minutes');
+  assert.falsy(/SHADOW_POWDER_MS/.test(app), 'no duration alias: the row is read at the use');
+  const body = methodBody('_useTimedBuff(id, { mul = 1, spend = true } = {}');
+  assert.truthy(/Buffs\.extend\(this\.save, this, buff, spec\.durationMs \* mul\);/.test(body), 'extended through the one writer');
+  assert.truthy(/this\._spendScroll\(id\);/.test(body), 'consumed through the shared spend');
   assert.truthy(/isShadowActive\(\) \{\n    return \(this\._shadowUntil \?\? 0\) > Date\.now\(\);/.test(app),
     'isShadowActive reads the timer');
   assert.truthy(!/save\.shadowUntil|save\._shadowUntil|shadowPowderUntil/.test(app), 'never written to the save');
@@ -209,16 +219,13 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   // The hits.
   // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),
   // so pin that !unnoticed is IN the gate, not that it is the whole of it.
-  assert.truthy(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/.test(w), 'the slime leech is gated');
-  assert.truthy(/if \(Combat\.isMonster\(c\.kind\) && !isTame && !unnoticed[^)]*\) \{\n\s*const m = Combat\.monster\(c\.kind\);/.test(w),
-    'the monster drain is gated');
-  // The pursuits.
-  // (through `unseen`, which is `unnoticed` plus the foe's own sight).
-  assert.truthy(/const unseen = unnoticed \|\|/.test(w), 'unseen carries unnoticed');
-  assert.truthy(/if \(!unseen && Math\.random\(\) < 0\.5 && distToPlayer > 0\.5 \* this\.cellM\) \{/.test(w),
-    'the slime\'s meander toward the player is gated');
-  assert.truthy(/if \(!unseen && distToPlayer > 0\.5 \* this\.cellM\) \{\n\s*angle = Math\.atan2\(dyp, dxp\)/.test(w),
-    'the monsters\' stalk is gated');
+  assert.truthy(/rosterEnemyAttack\(this, c, rosterRow, now, px, py, unnoticed \|\| standDown, enemyDt\)/.test(w),
+    'every foe\'s leech, blow, arrow and snare is gated');
+  // The pursuits: the roster mover is told the same (`inactive`), and a
+  // foe that is told so neither sees nor stalks.
+  assert.truthy(/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\)/.test(w),
+    'every foe\'s stalk is gated');
+  assert.truthy(/let sees = !inactive && /.test(CREATURE_AI_SRC), 'an inactive foe sees nothing');
   // And the player's own weapons, quiet BOTH ways: the cadence holds its fire
   // (and re-arms, so the first shot flies the instant the shadow lifts), and
   // the ONE lane both swing paths flow through refuses to spin a wheel up.
@@ -234,34 +241,65 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
 });
 
 // ── Frost ──────────────────────────────────────────────────────────────────
-test('frost: freezes every Combat.isEnemy in cellInReach for 30 s, refusing BEFORE consuming when none is', () => {
+test('frost: chills every Combat.isEnemy in cellInReach for 30 s, refusing BEFORE consuming when none is', () => {
   assert.eq(CONSUMABLE_SPEC.frost_powder.durationMs, 30 * 1000, '30 s');
-  assert.truthy(/const FROST_POWDER_MS = CONSUMABLE_SPEC\.frost_powder\.durationMs;/.test(app),
-    'runtime derives the duration');
-  const body = methodBody('useFrostPowder');
-  assert.truthy(/if \(!Combat\.isEnemy\(c\)\) return;/.test(body), 'enemies only — never crow, deer or a pet');
-  assert.truthy(/caughtSet\.has\(c\.id\)\) return;/.test(body), 'not a caught one');
-  assert.truthy(/if \(!cellInReach\(this, fc\.cellIX, fc\.cellIY\)\) return;/.test(body),
+  assert.falsy(/FROST_POWDER_MS/.test(app), 'no duration alias: the row is read at the cast');
+  // A CAST_ROWS row with `scope: 'reach'`, cast by _castOnFoes over _enemiesInReach.
+  const a = app.indexOf('  frost_powder: { noun:');
+  assert.truthy(a > 0, 'the frost row of CAST_ROWS');
+  const row = app.slice(a, app.indexOf('\n};', a));
+  const cast = methodBody('_castOnFoes(id, { damage = CONSUMABLE_SPEC[id]?.damage, spend = true, noun } = {}');
+  const where = methodBody('_enemiesWhere(where'), reach = methodBody('_enemiesInReach');
+  assert.truthy(/Combat\.isEnemy\(c\) && !caught\.has\(c\.id\)/.test(where), 'enemies only — never crow, deer, a pet or a caught one');
+  assert.truthy(/scope: 'reach'/.test(row) && /return cellInReach\(this, fc\.cellIX, fc\.cellIY\);/.test(reach)
+    && /row\.scope === 'reach'/.test(cast) && /this\._enemiesInReach\(\)/.test(cast),
     'the shipping reach test — the lit plateau the tap gate accepts');
-  const refuseAt = body.indexOf('if (targets.length === 0) {');
-  const consumeAt = body.indexOf('consumeSelected(this.save);');
+  const refuseAt = cast.indexOf('if (!targets.length) {');
+  const consumeAt = cast.indexOf('this._spendScroll(id);');
   assert.truthy(refuseAt >= 0 && consumeAt > refuseAt, 'consumed AFTER the refusal');
-  assert.truthy(body.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns');
-  assert.truthy(/c\._frozenUntil = until;/.test(body) && /const until = Date\.now\(\) \+ FROST_POWDER_MS;/.test(body),
-    'stamps _frozenUntil = now + 30 s');
-  assert.truthy(/c\._startX = c\._targetX = c\.x;/.test(body), 'pins the in-flight hop so the thaw does not snap it on');
-  assert.truthy(/shortDuration\(FROST_POWDER_MS\)/.test(body), 'the flash prints the freeze with shortDuration');
+  assert.truthy(cast.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns');
+  assert.truthy(/Combat\.applyFrost\(c, CONSUMABLE_SPEC\.frost_powder\.durationMs, now\)/.test(row),
+    'lands the frost status (Combat.applyFrost — a slow, never a pin) for the row\'s 30 s');
+  assert.truthy(/chilled for \$\{shortDuration\(CONSUMABLE_SPEC\.frost_powder\.durationMs\)\}/.test(row),
+    'the flash says chilled, with shortDuration');
 });
 
-test('frost: a frozen creature is skipped in the wander step before it can hit or move', () => {
+test('frost: a chilled creature is SLOWED, never pinned — half pace, half cadence, its tell untouched', () => {
+  // FROST IS A SLOW (owner, Oct 2026): the `frozen` row of Combat.STATUS_LOOKS
+  // carries `slow`, Combat.paceMul folds it into every speed site and the
+  // attack / ability cadence stretches by it; nothing skips the foe's tick.
   const m = app.match(/\n  wanderCreatures\(\) \{\n([\s\S]*?)\n  \}\n/);
-  const w = m[1];
-  const gate = w.indexOf('if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;');
-  assert.truthy(gate >= 0, 'the frozen gate');
-  assert.truthy(gate < w.search(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/), 'before the slime leech');
-  assert.truthy(gate < w.search(/if \(Combat\.isMonster\(c\.kind\) && !isTame && !unnoticed[^)]*\) \{/), 'before the monster drain');
-  assert.truthy(gate < w.indexOf('if (now >= c._nextChooseT) {'), 'before the step is chosen');
-  assert.truthy(gate < w.indexOf('const nx = c._startX + (c._targetX - c._startX) * u;'), 'before the hop is interpolated');
+  assert.falsy(/_frozenUntil/.test(m[1]), 'no frozen gate in the sim loop');
+  const row = Combat.STATUS_LOOKS.frozen;
+  assert.eq(row.field, '_frozenUntil'); assert.eq(row.clock, 'wall'); assert.eq(row.slow, 0.5);
+  assert.falsy(row.cancels, 'a slow does not interrupt a wind-up');
+  const until = Date.now() + 60000;
+  const c = { id: 'mon_cold', kind: 'goblin', _frozenUntil: until, _attackWindupUntil: 5000 };
+  assert.truthy(Combat.isChilled(c));
+  assert.eq(Combat.slowMul(c), 0.5);
+  assert.eq(Combat.paceMul(c), 0.5, 'half pace');
+  assert.eq(Combat.paceMul({ ...c, shiny: true }), 0.75, 'a shiny chilled: 1.5 × 0.5');
+  assert.eq(Combat.paceMul({ kind: 'goblin' }), 1);
+  // The cadence: the row's interval over the slow; the wind-up itself as declared.
+  const g = EnemyRoster.get('goblin');
+  const warm = { id: 'w', kind: 'goblin' }, cold = { id: 'c', kind: 'goblin', _frozenUntil: until };
+  enemyAttackReady(warm, g, 10000, true); enemyAttackReady(cold, g, 10000, true);
+  assert.eq(warm._attackNextT, 10000 + g.damageIntervalSeconds * 1000);
+  assert.eq(cold._attackNextT, 10000 + g.damageIntervalSeconds * 1000 / row.slow, 'a chilled foe attacks half as often');
+  assert.eq(cold._attackWindupUntil, warm._attackWindupUntil, 'the tell is as long as ever');
+  // Landing it does not cancel what the foe was winding up, and it EXTENDS.
+  const d = { id: 'mon_tell', kind: 'goblin', _attackWindupUntil: 7000, _frozenUntil: until + 5000 };
+  assert.truthy(Combat.applyFrost(d, 1000));
+  assert.eq(d._attackWindupUntil, 7000, 'the wind-up stands');
+  assert.eq(d._frozenUntil, until + 5000, 'a shorter chill never cuts a longer one short');
+  assert.falsy(Combat.applyFrost({ id: 'released_slime', kind: 'slime' }, 1000), 'never a pet');
+  // The roster mover moves a chilled foe at half its pace.
+  const s = { cellM: 7, depth: 2, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _cellBlocked: () => false,
+    _nearAny: () => false, isUnnoticed: () => false, save: { energy: 100 }, placedRockSet: null };
+  const quick = { id: 'q', kind: 'zombie', x: 0, y: 0 }, slow = { id: 's', kind: 'zombie', x: 0, y: 0, _frozenUntil: until };
+  for (const z of [quick, slow]) rosterEnemyMove(s, z, EnemyRoster.get('zombie'), 10000, 20, 0, false, false, null, 0.1);
+  assert.gt(slow.x, 0, 'it still moves');
+  assert.inRange(slow.x / quick.x, 0.5 - 1e-9, 0.5 + 1e-9, 'at half pace');
   // The ice tint rides the same flag.
   assert.truthy(typeof FROZEN_TINT === 'number' && FROZEN_TINT !== SHINY_TINT, 'FROZEN_TINT is its own colour');
 });

@@ -107,9 +107,10 @@ test('chunk index: drawObjects queries each walk with its own reach — sprites,
     'the object light box is the cull plus the widest scanned light');
   assert.truthy(/WorldGen\.forEachItemInBox\(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX \+ lM, pWorldY \+ lM, \(o\) => \{/.test(body),
     'and walks the derived light list, not every object');
-  assert.truthy(/if \(Math\.abs\(dx\) <= sM && Math\.abs\(dy\) <= sM\) return;   \/\/ the sprite walk's/.test(body),
+  // (The box test is coords.js inViewBox — the one cull every pass shares.)
+  assert.truthy(/if \(inViewBox\(dx, dy, sM\)\) return;   \/\/ the sprite walk's/.test(body),
     'what the sprite walk already offered is not offered twice');
-  assert.truthy(/if \(Math\.abs\(dx\) > sM \|\| Math\.abs\(dy\) > sM\) return;/.test(body),
+  assert.truthy(/if \(!inViewBox\(dx, dy, sM\)\) return;/.test(body),
     'and the sprite walk leaves everything past its box to the light walk');
   // The plant walk: the cull plus the widest plant light.
   assert.truthy(/const wM = halfM \+ \(LIGHTS \? LIGHTS\.wildplantLightPadCells\(\) \* scene\.cellM : 0\);/.test(body),
@@ -250,7 +251,8 @@ test('chunk index: drawObjects indexes generated traps and keeps laid traps flat
   assert.falsy(/for \(const tr of entry\.traps\)/.test(body), 'the generated flat scan is gone');
   const generated = body.slice(body.indexOf("WorldGen.forEachItemInBox(entry, 'traps'"), body.indexOf('if (entry.laidTraps'));
   assert.truthy(/\}, true\);/.test(generated), 'the indexed query preserves the old source-array draw order');
-  assert.truthy(/for \(const tr of entry\.laidTraps\)/.test(body), 'mutable laid traps keep their flat scan');
+  assert.truthy(/cullToView\(entry\.laidTraps, pWorldX, pWorldY, halfM,/.test(body),
+    'mutable laid traps keep their flat scan (coords.js cullToView over the whole list)');
 });
 
 })();

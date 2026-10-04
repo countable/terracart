@@ -68,7 +68,7 @@ test('fire resistance: lava uses the same fractional reduction as burning', () =
       const scene = { depth: 0, startWorldM: {},
         save: { energy: 100, inv: resistant ? [{ id: 'ember_ring', count: 1 }] : [] },
         playerToWorldCell: () => ({ tx: 19371, ty: 29371, cx: 0, cy: 0 }),
-        _lastLavaFlashT: Infinity, _popEnergy() {}, _ignitePlayer() {},
+        _bankDrain() {}, _popEnergy() {}, _ignitePlayer() {},
         _losePlayerEnergy(n) { this.save.energy -= n; return n; } };
       for (let i = 0; i < 20; i++) tick.call(scene, .25, () => ({ cellIX: 0, cellIY: 0 }));
       assert.eq(scene.save.energy, resistant ? 96 : 90, 'five seconds of lava respects resistance');

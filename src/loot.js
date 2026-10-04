@@ -3,7 +3,7 @@
 // to one another and away from rendering / scene code.
 //
 // Depends on:
-//   items.js (SEED_TIER — tierInfo's fallback for raw seed ids). The 'flora'
+//   items.js (itemTierOf — lootFlashColor's tier for any item id). The 'flora'
 //   category below is just a POI-category label (florist/garden/garden_centre)
 //   that picks the chest's theme (chest_themes.js) — magical flower seeds are
 //   gated by BASE_TIER in items.js, not a dedicated flower-id set here.
@@ -129,28 +129,17 @@ function rusticifyName(name) {
   return out;
 }
 
-// Loot FLASH colours by rarity bracket: 1 = basic, 2 = common, 3 = uncommon
-// and rarer (baseTier clamped to three colours). Used by every loot flash
-// (chest, treasure) so the player gets consistent visual feedback. The one
-// WORD ladder is items.js TIER_BADGE_NAMES; nothing reads a label here.
-const SEED_TIER_INFO = {
-  1: { color: '#ffe066' },
-  2: { color: '#7adcff' },
-  3: { color: '#ff8aff' },
-};
-function tierInfo(id) {
-  // Resolve a 1..3 flash tier for ANY loot id — seed OR produce. pickReward
-  // returns bare produce ids (e.g. 'gemfruit', 'pairy') which never appear in
-  // SEED_TIER (it's keyed by `${crop}_seed` only), so the old
-  // `SEED_TIER[id] || 1` collapsed every produce reward to tier-1 "common".
-  // ITEM_BY_ID[id].baseTier carries the real rarity for both the seed and its
-  // produce (filled for every catalog entry in items.js), so prefer it and
-  // fall back to SEED_TIER for raw seed ids / unknowns. SEED_TIER_INFO only
-  // defines 1..3, while baseTier climbs to 7 (flowers/bars), so clamp.
-  const raw = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.baseTier)
-    || SEED_TIER[id] || 1;
-  const tier = Math.min(3, Math.max(1, raw));
-  return SEED_TIER_INFO[tier];
+// The colour a loot toast or card wears for item `id`: the rarity badge's
+// own (items.js tierBadgeColor — the seven-rung ladder the badge beside it
+// reads, so a toast and its badge can never disagree), as a CSS colour. An
+// unranked id reads as T1 (itemTierOf's fallback — seeds carry their crop's
+// tier as items, so SEED_TIER needs no second look).
+// (Until Oct 2026 a separate three-rung scale clamped everything over T3 to
+// pink and called T1 "common" where the badge says "basic".)
+function lootFlashColor(id) {
+  const tier = itemTierOf(id, 1);
+  const c = tierBadgeColor(tier);
+  return c == null ? UI_TREASURE : '#' + c.toString(16).padStart(6, '0');
 }
 
 // POI class → category, drives chest loot type (produce vs seed) and tier weights.

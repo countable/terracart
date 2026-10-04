@@ -562,22 +562,14 @@
     const a = Math.max(LOW_ENERGY_A * w, CRITICAL_PLAYER_TINT_A) * heartbeatMul(w, now);
     return Object.assign({}, prof, { litColour: mixToWhite(LOW_ENERGY_TINT, Math.min(1, a)) });
   }
-  // `a` lerped `t` of the way to `b`, per channel.
-  function mixColour(a, b, t) {
-    const ch = (sh) => Math.round(((a >> sh) & 255) * (1 - t) + ((b >> sh) & 255) * t);
-    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-  }
-
+  // Colour maths is BiomeProfiles.mixHex, the one channel lerp every module
+  // shares. `a` lerped `t` of the way to `b`, per channel:
+  const mixColour = (a, b, t) => BiomeProfiles.mixHex(a, b, t);
   // White lerped `alpha` of the way to `colour` — the multiply tint that
   // stands in for painting `colour` at `alpha` over the ground.
-  function mixToWhite(colour, alpha) {
-    const ch = (sh) => Math.round(255 * (1 - alpha) + ((colour >> sh) & 255) * alpha);
-    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-  }
-  function scaleColour(colour, k) {
-    const ch = (sh) => Math.round(((colour >> sh) & 255) * k);
-    return (ch(16) << 16) | (ch(8) << 8) | ch(0);
-  }
+  const mixToWhite = (colour, alpha) => BiomeProfiles.mixHex(0xffffff, colour, alpha);
+  // `colour` scaled by `k`: the lerp from black.
+  const scaleColour = (colour, k) => BiomeProfiles.mixHex(0x000000, colour, k);
   // Rec. 601 luminance of a colour, 0..1 — "how bright is this, to an eye".
   // (the util.js copy — `lum` stays the local/exported name, both here and on
   // window.Lighting, which lighting.test.js reads directly).
@@ -814,8 +806,7 @@
       if (!(t < 1)) continue;                       // burned out — pruned
       list[w++] = b;
       const dx = b.wmx - ax, dy = b.wmy - ay;
-      const pad = b.radiusCells * scene.cellM;
-      if (Math.abs(dx) > halfM + pad || Math.abs(dy) > halfM + pad) continue;
+      if (!inViewBox(dx, dy, halfM + b.radiusCells * scene.cellM)) continue;
       const u = Math.max(0, t);
       scene._lights.push({
         kind: 'blast', dx, dy, id: `blast_${b.t0}_${i}`,
@@ -856,9 +847,25 @@
     return m;
   }
 
+  // The cull every source shares (coords.js inViewBox): the view box widened
+  // by the row's own radius, so a light just past the rim still reaches it.
   function inRange(scene, dx, dy, kind, halfM) {
-    const pad = radiusCells(kind) * scene.cellM;
-    return Math.abs(dx) <= halfM + pad && Math.abs(dy) <= halfM + pad;
+    return inViewBox(dx, dy, halfM + radiusCells(kind) * scene.cellM);
+  }
+  // The shape every placed-point collector shares: each item's world point
+  // (`at(item)`, or the item itself) against the anchor, culled by inRange
+  // for `kind`, and `make(item, dx, dy)` pushed as the frame's entry. Returns
+  // how many were kept.
+  function collectPoints(scene, items, ax, ay, halfM, kind, make, at) {
+    let n = 0;
+    for (const it of items) {
+      const p = at ? at(it) : it;
+      const dx = p.x - ax, dy = p.y - ay;
+      if (!inRange(scene, dx, dy, kind, halfM)) continue;
+      scene._lights.push(make(it, dx, dy));
+      n++;
+    }
+    return n;
   }
 
   // Offer one scanned object. Returns true if it was kept as a light.
@@ -893,24 +900,17 @@
   function collectFires(scene, ax, ay, halfM) {
     const PF = window.PlacedFloor;
     const fires = scene.save && scene.save.fires;
-    let n = 0;
-    const now = Date.now();
+    const now = Date.now(), depth = scene.depth ?? 0;
+    const ground = [];
     for (const fire of scene._groundFireIndex?.().values() || []) {
-      if (fire.depth !== (scene.depth ?? 0) || !GroundFire.active(fire, now)) continue;
-      const p = absCellCenterMeters(scene, fire.cellIX, fire.cellIY);
-      const dx = p.x - ax, dy = p.y - ay;
-      if (!inRange(scene, dx, dy, 'ground_fire', halfM)) continue;
-      scene._lights.push({ kind: 'ground_fire', dx, dy, id: GroundFire.key(fire.depth, fire.cellIX, fire.cellIY) });
-      n++;
+      if (fire.depth === depth && GroundFire.active(fire, now)) ground.push(fire);
     }
+    const n = collectPoints(scene, ground, ax, ay, halfM, 'ground_fire',
+      (fire, dx, dy) => ({ kind: 'ground_fire', dx, dy, id: GroundFire.key(fire.depth, fire.cellIX, fire.cellIY) }),
+      (fire) => absCellCenterMeters(scene, fire.cellIX, fire.cellIY));
     if (!PF || !fires || !fires.length) return n;
-    for (const fr of PF.forDepth(fires, scene.depth ?? 0)) {
-      const dx = fr.x - ax, dy = fr.y - ay;
-      if (!inRange(scene, dx, dy, 'fire', halfM)) continue;
-      scene._lights.push({ kind: 'fire', dx, dy, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` });
-      n++;
-    }
-    return n;
+    return n + collectPoints(scene, PF.forDepth(fires, depth), ax, ay, halfM, 'fire',
+      (fr, dx, dy) => ({ kind: 'fire', dx, dy, id: `fire_${fr.x.toFixed(2)}_${fr.y.toFixed(2)}` }));
   }
 
   // The MAGIC TRAPS set on this depth, within light range of the view — the
@@ -922,14 +922,8 @@
     const PF = window.PlacedFloor;
     const list = scene.save && scene.save.magicTraps;
     if (!PF || !list || !list.length) return 0;
-    let n = 0;
-    for (const t of PF.forDepth(list, scene.depth ?? 0)) {
-      const dx = t.x - ax, dy = t.y - ay;
-      if (!inRange(scene, dx, dy, 'magic_trap', halfM)) continue;
-      scene._lights.push({ kind: 'magic_trap', dx, dy, id: t.id });
-      n++;
-    }
-    return n;
+    return collectPoints(scene, PF.forDepth(list, scene.depth ?? 0), ax, ay, halfM, 'magic_trap',
+      (t, dx, dy) => ({ kind: 'magic_trap', dx, dy, id: t.id }));
   }
 
   // The STREET LAMPS in range. app.js keeps the live list on
@@ -1032,8 +1026,7 @@
       const shinyArrow = !s.dotPx && !!s.shiny;
       const r = shinyArrow ? radiusCells('shiny')
         : radiusCells('bolt') * (C ? C.boltScale(s.slot, s.tier) : 1);
-      const pad = r * scene.cellM;
-      if (Math.abs(dx) > halfM + pad || Math.abs(dy) > halfM + pad) continue;
+      if (!inViewBox(dx, dy, halfM + r * scene.cellM)) continue;
       if (s._lightId == null) s._lightId = `bolt_${++boltSeq}`;
       scene._lights.push({ kind: 'bolt', dx, dy, dyPx: -liftPx, id: s._lightId,
         r, colour: s.color != null ? s.color : undefined,
@@ -1053,8 +1046,8 @@
   function collectPlayer(scene, ax, ay, halfM, now) {
     const kind = sourceKind(scene, PLAYER_OBJ);
     if (kind === 'player') return kind;
-    const dx = scene.startWorldM.x + scene.playerM.x - ax;
-    const dy = scene.startWorldM.y + scene.playerM.y - ay;
+    const w = playerWorldM(scene);
+    const dx = w.x - ax, dy = w.y - ay;
     if (!inRange(scene, dx, dy, kind, halfM)) return kind;
     // The entry's own alpha (the blast's lane): the torch dimmed by the sun.
     // The row flickers, so it repaints on the light clock anyway, and the
@@ -1109,8 +1102,9 @@
   function playerLightAt(scene, wx, wy, prof) {
     if (!scene.playerM || !scene.startWorldM) return 0;
     const cellM = scene.cellM;
-    const d = Math.hypot(wx - (scene.startWorldM.x + scene.playerM.x),
-                         wy - (scene.startWorldM.y + scene.playerM.y));
+    const pw = playerWorldM(scene);
+    const d = Math.hypot(wx - pw.x,
+                         wy - pw.y);
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     let inReach = false;
     if (reachM > 0 && prof.lit > prof.edge) {
@@ -1225,11 +1219,9 @@
   // A light's centre on the lightmap canvas (before the origin comes off),
   // in whole px: the sprite's own rounding of the same projection. Without a
   // view centre to place it by (a bare scene), the raw offsets.
-  function lightCentrePx(scene, L, k) {
-    return {
-      x: Math.round(scene.viewCenterX + L.dx * k),
-      y: Math.round(scene.viewCenterY + L.dy * k + (L.dyPx || 0)),
-    };
+  function lightCentrePx(scene, L) {
+    const c = deltaMToScreen(scene, L.dx, L.dy);   // coords.js — the sprites' own projection
+    return { x: Math.round(c.x), y: Math.round(c.y + (L.dyPx || 0)) };
   }
   function placesInPx(scene) {
     return Number.isFinite(scene.viewCenterX) && Number.isFinite(scene.viewCenterY) && scene.cellM > 0;
@@ -1243,8 +1235,8 @@
     const half = (VIEW_CELLS - 1) / 2;
     const fracX = pc.cx - Math.floor(pc.cx);
     const fracY = pc.cy - Math.floor(pc.cy);
-    const x0 = (ph) => Math.round(scene.viewCenterX + (-1 - half - fracX + 0.5) * CELL_PX - CELL_PX / 2 + ph);
-    const y0 = Math.round(scene.viewCenterY + (-1 - half - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+    const x0 = (ph) => cellScreenXY(scene, -1 - half, 0, fracX, 0, ph).x;   // coords.js — drawCells' own slot
+    const y0 = cellScreenXY(scene, 0, -1 - half, 0, fracY).y;
     let k = `${Math.floor(pc.cx)},${Math.floor(pc.cy)},${x0(0)},${y0}`;
     const baseCellIY = viewAnchorAbsCell(scene, pc).cellIY;
     for (let r = -2; r <= VIEW_CELLS + 1; r++) {
@@ -1280,10 +1272,9 @@
     // Each light where the paint puts it: its whole-px centre (the offsets
     // themselves only for a scene with no view centre to place by).
     const inPx = placesInPx(scene);
-    const kPx = inPx ? CELL_PX / scene.cellM : 0;
     for (const L of scene._lights) {
       let at;
-      if (inPx) { const c = lightCentrePx(scene, L, kPx); at = `${c.x},${c.y}`; }
+      if (inPx) { const c = lightCentrePx(scene, L); at = `${c.x},${c.y}`; }
       else at = `${L.dx},${L.dy}`;
       k += `|${L.kind},${L.id},${at},${L.dyPx},${L.r},${L.colour},${L.a},${L.s},${L.g}`;
     }
@@ -1293,13 +1284,22 @@
   function rgba(colour, a) {
     return rgbaOf(colour, clamp01(a).toFixed(4));
   }
-  function hex(colour) {
-    return '#' + (colour & 0xffffff).toString(16).padStart(6, '0');
-  }
   function makeCanvas(S) {
     const c = document.createElement('canvas');
     c.width = S; c.height = S;
     return c;
+  }
+  // Paint a radial cookie onto `canvas` (square, cleared first): a gradient
+  // from its centre out to `radius` px through `stops` — [offset 0..1,
+  // colour, alpha] — filled edge to edge. Both cookies below are this.
+  function bakeRadialCookie(canvas, radius, stops) {
+    const S = canvas.width, c = S / 2;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, S, S);
+    const g = ctx.createRadialGradient(c, c, 0, c, c, radius);
+    for (const [t, colour, a] of stops) g.addColorStop(t, rgba(colour, a));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S, S);
   }
 
   // One cookie canvas per kind, baked once: peak at the centre, (1 - r/R)^2
@@ -1322,16 +1322,13 @@
     if (store[key]) return store[key];
     const cellPx = (typeof CELL_PX !== 'undefined') ? CELL_PX : 32;
     const R = Math.ceil(r * cellPx);
-    const S = 2 * R;
-    const canvas = makeCanvas(S);
-    const ctx = canvas.getContext('2d');
-    const g = ctx.createRadialGradient(R, R, 0, R, R, R);
+    const canvas = makeCanvas(2 * R);
+    const stops = [];
     for (let i = 0; i <= KIND_STOPS; i++) {
       const t = i / KIND_STOPS;
-      g.addColorStop(t, rgba(col, row.peak * (1 - t) * (1 - t)));
+      stops.push([t, col, row.peak * (1 - t) * (1 - t)]);
     }
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, S, S);
+    bakeRadialCookie(canvas, R, stops);
     store[key] = { canvas, R };
     return store[key];
   }
@@ -1363,23 +1360,18 @@
     const r0T = Math.min(r0, rMax) / K;
     const S = 2 * Math.ceil(rMaxT);
     if (!st.canvas || st.S !== S) { st.canvas = makeCanvas(S); st.S = S; }
-    const c = S / 2;
-    const ctx = st.canvas.getContext('2d');
-    ctx.clearRect(0, 0, S, S);
-    const g = ctx.createRadialGradient(c, c, 0, c, c, rMaxT);
     const fr = (r) => clamp01(r / rMaxT);
     const white = KINDS.player.colour;
-    g.addColorStop(0, rgba(white, prof.edge));
+    const stops = [[0, white, prof.edge]];
     // The ramp starts at r0 with `edge` and lands on 0 at rMax. Sample the
     // super-linear curve at RAMP_STOPS points so the gradient's linear
     // segments track it.
     const span = rMaxT - r0T;
     for (let i = 0; i <= RAMP_STOPS; i++) {
       const t = i / RAMP_STOPS;
-      g.addColorStop(fr(r0T + t * span), rgba(white, playerCookieAlpha(t, prof)));
+      stops.push([fr(r0T + t * span), white, playerCookieAlpha(t, prof)]);
     }
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, S, S);
+    bakeRadialCookie(st.canvas, rMaxT, stops);
     return st;
   }
 
@@ -1481,7 +1473,7 @@
   function paintStaticLayer(ctx, W, H, scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0) {
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
-    ctx.fillStyle = hex(prof.ambient);
+    ctx.fillStyle = cssOf(prof.ambient);
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
     ctx.imageSmoothingEnabled = true;
@@ -1531,10 +1523,9 @@
       for (let row = -1; row <= VIEW_CELLS; row++) {
         for (let col = -1; col <= VIEW_CELLS; col++) {
           if (!inReach(col, row)) continue;
-          // cellScreenXY's expression (render.js), in lightmap-local px.
-          const sx = Math.round(scene.viewCenterX + (col - half - fracX + 0.5) * CELL_PX - CELL_PX / 2
-            + (bandPh[row + 2] || 0)) - ox;
-          const sy = Math.round(scene.viewCenterY + (row - half - fracY + 0.5) * CELL_PX - CELL_PX / 2) - oy;
+          // drawCells' own slot (coords.js cellScreenXY), in lightmap-local px.
+          const c = cellScreenXY(scene, col - half, row - half, fracX, fracY, bandPh[row + 2]);
+          const sx = c.x - ox, sy = c.y - oy;
           plateauCellPath(ctx, sx, sy,
             !inReach(col, row - 1), !inReach(col, row + 1), !inReach(col - 1, row), !inReach(col + 1, row),
             inReach(col - 1, row - 1), inReach(col + 1, row - 1), inReach(col - 1, row + 1), inReach(col + 1, row + 1));
@@ -1660,7 +1651,7 @@
       const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
       // Centred on the whole px frameKey names (WHOLE PIXELS, above).
-      const c = lightCentrePx(scene, L, k);
+      const c = lightCentrePx(scene, L);
       // A steady GAIN `g` (a living lamp) scales the stamp; past 1 it is
       // stamped again — the composite is 'lighter', so two stamps ADD, which
       // is the only way over the cookie's own alpha ceiling.

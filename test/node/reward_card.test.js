@@ -7,11 +7,13 @@ test('reward card: showRewardCard frames the one reward card on the chest shell'
   const at = SCENE_SRC.indexOf('\n  showRewardCard(reward, extra = {}) {');
   assert.gt(at, 0, 'the method exists');
   const body = SCENE_SRC.slice(at, SCENE_SRC.indexOf('\n  }\n', at));
-  assert.truthy(/const card = this\._trailRewardCard\(reward\);/.test(body), 'one card builder for every reward');
-  assert.truthy(/this\.showChestRewardModal\(\{ \.\.\.card, \.\.\.extra, sub \}\);/.test(body),
+  assert.truthy(/return Rewards\.present\(this, \{ \.\.\.reward, jackpot: 0 \}, \{ extra \}\);/.test(body), 'one presenter for every reward (Rewards.present — no fanfare of its own)');
+  const present = Rewards.present.toString();
+  assert.truthy(/scene\.showChestRewardModal\(\{ \.\.\.c, \.\.\.extra, sub \}\);/.test(present),
     'the caller frames it, the card fills it');
-  assert.truthy(/const sub = \[extra\.sub, own\]\.filter\(Boolean\)\.join\(' '\) \|\| undefined;/.test(body),
+  assert.truthy(/const sub = \[extra\.sub, own\]\.filter\(Boolean\)\.join\(' '\) \|\| undefined;/.test(present),
     'a relic\'s "equipped" follows the framing line rather than being dropped');
+  assert.falsy(/_trailRewardCard\(reward, iconPx/.test(SCENE_SRC), 'the scene keeps no card builder of its own');
 });
 
 function rollScene(save) {
@@ -21,7 +23,8 @@ function rollScene(save) {
     addToInv: (id, n) => Inventory.add(save, id, n).accepted,
     flashLoot: (...a) => calls.toasts.push(a),
     flashJackpot: () => { calls.jackpots++; },
-    showRewardCard: (reward, extra) => { calls.cards.push({ reward, extra }); return true; },
+    // The card lands on the chest shell (Rewards.present → showChestRewardModal).
+    showChestRewardModal: (card) => { calls.cards.push({ reward: calls.lastReward, extra: card }); },
     coinIconEl: () => null, markRelicsDirty() {},
   });
   return { scene, calls };
@@ -33,7 +36,10 @@ test('reward card: a roll with a ceremony shows the card and no toast; without, 
     for (let i = 0; i < 30; i++) {
       const save = { inv: [], money: 0, relics: {}, armor: {}, caught: [] };
       const { scene, calls } = rollScene(save);
-      grantTreasureRoll(scene, save, 0, 0, '💀', 'treasure:default', ceremony ? { ceremony } : undefined);
+      const realPick = globalThis.pickReward;
+      globalThis.pickReward = (...a) => (calls.lastReward = realPick(...a));
+      try { grantTreasureRoll(scene, save, 0, 0, '💀', 'treasure:default', ceremony ? { ceremony } : undefined); }
+      finally { globalThis.pickReward = realPick; }
       if (calls.cards.length) {
         shown++;
         assert.eq(calls.cards.length, 1);
@@ -92,7 +98,9 @@ test('reward card: the first vista\'s relic is a card after the story, never a t
       const cards = [], loot = [], menus = [];
       const scene = makeScene({ save, flashLoot: (t) => loot.push(t),
         presentTelescopeMenu: () => menus.push(true),
-        showRewardCard: (reward, extra) => { cards.push({ reward, extra }); return true; }, ...over });
+        // The card lands on the chest shell (Rewards.present); the reward's
+        // shape is read back off the relic it equipped.
+        showChestRewardModal: (card) => { cards.push({ reward: { kind: 'relic', slot: Scenic.FIRST_VISTA_SLOT }, extra: card }); }, ...over });
       scene.save = save;
       runInteractable({ scene, save, sx: 0, sy: 0 }, { kind: 'vista_scope', id: 'scope_1_2_3_4', x: 0, y: 0 });
       return { cards, loot, menus };
@@ -121,7 +129,7 @@ test('reward card: the first vista\'s relic is a card after the story, never a t
     assert.eq(a.menus.length, 1, 'the menu follows the bag');
     // A scene without the card shell still reaches the menu.
     const save3 = { relics: {}, coinBurstClaimed: {}, inv: [] };
-    const c = vista(save3, { showRewardCard: undefined, _storySplashOnce() { return false; } });
+    const c = vista(save3, { showChestRewardModal: undefined, _storySplashOnce() { return false; } });
     assert.eq(c.cards.length, 0);
     assert.eq(c.menus.length, 1, 'no missing card can swallow the menu');
     // Once per save: a second vista shows nothing.

@@ -1719,3 +1719,20 @@ test('broken street lamp: shared plinth, shorter post and muted metal without an
     assert.lte(Math.max(c.r,c.g,c.b)-Math.min(c.r,c.g,c.b), 55, 'weathered metal is desaturated');
   }
 });
+
+test('road overlay: Burned Row shares glowing ember cracks on weathered and restored pavement', () => {
+  const strokes = [];
+  const cx = { fillStyle: '', globalAlpha: 1, beginPath() {}, moveTo() {}, lineTo() {}, quadraticCurveTo() {}, closePath() {},
+    fillRect() {}, fill() {}, arc() {}, stroke() { strokes.push([this.strokeStyle, this.lineWidth, this.globalAlpha]); }, drawImage() {} };
+  const previousCreate = document.createElement;
+  document.createElement = () => ({ getContext: () => cx });
+  try { for (const restored of [false, true]) {
+    strokes.length = 0;
+    RoadOverlay.paintPavementTile(cx, 32, false, restored, 'burned');
+    const glow = strokes.find(([ink, width, alpha]) => ink === StreetVariants.VARIANT_BY_ID.burned.stone.accent && alpha === .3);
+    const core = strokes.find(([ink]) => ink === '#ffe7a0');
+    assert.truthy(glow, 'orange heat halo'); assert.truthy(core, 'yellow hot fissures');
+    assert.gt(glow[1], core[1], 'soft heat surrounds narrow hot core');
+    assert.eq(cx.globalAlpha, 1, 'subsequent pavement painting is opaque');
+  } } finally { document.createElement = previousCreate; }
+});

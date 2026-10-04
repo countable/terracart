@@ -11,7 +11,7 @@
   }
   function fixture(over = {}) {
     const s = {
-      save: { inv: [], money: 10000, relics: {}, energy: 20, selSlot: 0 },
+      save: SaveState.defaults({ inv: [], money: 10000, relics: {}, energy: 20, selSlot: 0 }),
       offers: [], messages: [], events: [],
       showOfferModal(o) { this.offers.push(o); },
       showMessageModal(o) { this.messages.push(o); },
@@ -23,8 +23,8 @@
       _revealPendingBookReads() { this.events.push('read'); },
       ...over,
     };
-    for (const name of ['_macroStory', '_storySplashOnce', '_macroTransaction', '_drainMacroTransactions', '_presentInn',
-      '_presentCurio', '_presentTraining', '_presentStallOffer', '_guildBountyDefeat']) s[name] = method(name);
+    for (const name of ['_macroStory', '_storySplashOnce', '_macroTransaction', '_enqueueCeremony', '_drainCeremonies', '_dialogOpen', '_presentInn',
+      '_presentCurio', '_presentTraining', '_presentStallOffer', '_settleDeal', '_guildBountyDefeat']) s[name] = method(name);
     s.invRoomFor = id => Inventory.roomFor(s.save, id);
     s.addToInv = (id, n, flash, opts) => { s.grantOptions = opts; return Inventory.add(s.save, id, n).accepted; };
     return s;
@@ -50,6 +50,7 @@
       assert.eq(m.kind, Macros.KIND_DIALOG[kind].modal);
       assert.eq(m.kindLabel, Macros.KIND_DIALOG[kind].label);
       assert.eq(m.body, 'An actual outcome.');
+      m.onDismiss();   // one receipt at a time: the next waits in the ceremony queue
     }
     assert.eq(s.messages.length, 9);
   });
@@ -105,9 +106,14 @@
     assert.eq(Combat.trainingLevel(s.save, kind), 1);
     assert.includes(s.messages[0].body, 'level 1');
     assert.includes(s.messages[0].body, 'permanent');
+    s.messages[0].onDismiss();   // each receipt waits for the last to close
     s.offers[0].secondary.onClick();
     assert.includes(s.messages[1].body, shortDuration(Combat.TRAINING_BUFF_MS));
-    s.offers[0].secondary.onClick(); assert.eq(s.messages.length, 2);
+    const until = s.save.trainingDrills[kind];
+    // A drill bought while one runs EXTENDS it (Buffs.laterOf) and is receipted again.
+    s.messages[1].onDismiss();
+    s.offers[0].secondary.onClick(); assert.eq(s.messages.length, 3);
+    assert.eq(s.save.trainingDrills[kind], until + Combat.TRAINING_BUFF_MS, 'another day on top');
   });
   boothTest('booth curio: milestone is banked before receipt and duplicate donations have no receipt', () => {
     const s = fixture();
@@ -127,6 +133,7 @@
       s.save.guildBounty = { id: 'hunt' + i, pay: 30, foes: [{ id: 'foe' + i }] };
       const victim = { id: 'foe' + i, bounty: 'hunt' + i };
       s._guildBountyDefeat(victim); s._guildBountyDefeat(victim);
+      s.messages.at(-1).onDismiss();   // the next receipt waits for this one
     }
     assert.eq(s.messages.length, 2);
     assert.eq(s.save.money, 10060);
@@ -142,13 +149,14 @@
       s._guildBountyDefeat({ id: 'busy-foe', bounty: 'busy-hunt' });
       assert.eq(s.save.money, 10030);
       assert.eq(s.messages.length, 0, 'the open shop has not been replaced');
-      assert.eq(s._macroReceipts.length, 1);
-      assert.falsy(s._drainMacroTransactions());
+      assert.eq(s._ceremonies.length, 1, 'the receipt waits in the ceremony queue');
+      assert.eq(s._ceremonies[0].kind, 'receipt');
+      assert.falsy(s._drainCeremonies());
       busy = false;
-      assert.truthy(s._drainMacroTransactions());
+      assert.truthy(s._drainCeremonies());
       assert.eq(s.messages.length, 1);
       assert.eq(s.messages[0].art, 'booth_guildhall_used');
-      assert.falsy(s._drainMacroTransactions());
+      assert.falsy(s._drainCeremonies());
     } finally { document.body = previous; }
   });
   boothTest('booth chapel: full-fit blessing uses receipt art; leaving a full bag keeps the gift unclaimed', () => {

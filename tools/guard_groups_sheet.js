@@ -46,8 +46,10 @@ if (!recolorSrc) throw new Error('assets.js recolorEnemyPixels not found');
 const { Lairs, EnemyRoster, SpriteLayout } = ctx;
 
 // ── The footprints a sheet shows, by tier (cells; a cell is 7 m) ─────────────
-const TIER_NAMES = { 9: 'wrecked house', 11: 'fort', 12: 'castle' };
-const FOOTPRINTS = { 9: { halfW: 1.5, halfH: 1.5 }, 11: { halfW: 2.5, halfH: 2 }, 12: { halfW: 4, halfH: 3.5 } };
+const TIER_NAMES = { 9: 'wrecked house', 11: 'fort', 12: 'castle', habitat_marsh: 'hungry marsh', habitat_stronghold: 'orc stronghold' };
+// A habitat site is a point (no footprint): its ring is the one-cell pad.
+const FOOTPRINTS = { 9: { halfW: 1.5, halfH: 1.5 }, 11: { halfW: 2.5, halfH: 2 }, 12: { halfW: 4, halfH: 3.5 },
+  habitat_marsh: { halfW: 0, halfH: 0 }, habitat_stronghold: { halfW: 0, halfH: 0 } };
 
 // ── Kinds: stats and sprite geometry ─────────────────────────────────────────
 const pngDims = (p) => { const b = fs.readFileSync(path.join(ROOT, p)); return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };

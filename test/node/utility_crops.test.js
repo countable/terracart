@@ -95,7 +95,7 @@
     }
   });
 
-  test('utility crops: saved timers expire exactly and refresh without stacking or shortening', () => {
+  test('utility crops: saved timers expire exactly and a second bite EXTENDS (banked, never shortened)', () => {
     for (const { id, field, duration, buff } of cases) {
       const s = scene(id);
       effects.call(s, id, false, T0);
@@ -105,10 +105,10 @@
       assert.eq(Buffs.active(saved, {}, T0 + 1000).find(b => b.id === buff).remainingMs, duration - 1000);
       assert.falsy(Buffs.active(saved, {}, T0 + duration).some(b => b.id === buff));
       effects.call(s, id, false, T0 + 10000);
-      assert.eq(s.save[field], T0 + duration + 10000, 'refresh from this bite, not add another whole duration');
+      assert.eq(s.save[field], T0 + 2 * duration, 'the second bite is banked on the first\'s end (Buffs.extend)');
       s.save[field] = T0 + duration * 3;
       effects.call(s, id, false, T0 + 20000);
-      assert.eq(s.save[field], T0 + duration * 3, 'a longer existing timer survives');
+      assert.eq(s.save[field], T0 + duration * 4, 'a longer existing timer is extended, never shortened');
     }
   });
 
@@ -146,14 +146,15 @@
     const s = scene('miracle_lettuce');
     s.save.luckUpgrades = 7;
     s.save.inv.push({ id: 'lucky_key', count: 1 });
-    s.save.boonUntil = { fortune: T0 + 1200000 };
+    s.save.boonUntil = { fortune: T0 + 2400000 };   // outlasts both leaves below
     const before = upgradeLuck(s.save, T0);
     effects.call(s, 'miracle_lettuce', false, T0);
     const bonus = CONSUMABLE_SPEC.miracle_lettuce.luckBonus * RARITY_TUNING.luckPerUpgrade;
     assert.inRange(upgradeLuck(s.save, T0) - before, bonus - 1e-9, bonus + 1e-9);
     effects.call(s, 'miracle_lettuce', false, T0 + 10000);
     assert.inRange(upgradeLuck(s.save, T0 + 10000) - before, bonus - 1e-9, bonus + 1e-9);
-    assert.eq(upgradeLuck(s.save, T0 + 610000), before, 'expiry drops only the meal');
+    assert.inRange(upgradeLuck(s.save, T0 + 610000) - before, bonus - 1e-9, bonus + 1e-9, 'the second leaf is banked on the first');
+    assert.eq(upgradeLuck(s.save, T0 + 1210000), before, 'expiry drops only the meal');
     assert.eq(s.save.luckUpgrades, 7);
   });
 })();

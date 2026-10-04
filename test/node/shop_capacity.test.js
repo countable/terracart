@@ -1,5 +1,5 @@
 (function () {
-  const methods = ['_presentThemedItem', '_shopBagSpaceReason', 'buildShopOffer'].map(name => {
+  const methods = ['_presentThemedItem', '_shopBagSpaceReason', 'buildShopOffer', '_settleDeal'].map(name => {
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     return SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4);
   });
@@ -7,7 +7,7 @@
   function fixture(held, money = 100) {
     const save = { money, inv: [{ id: 'potato_seed', count: held }], relics: {} };
     const scene = Object.assign(Object.create(proto), {
-      save, shopRng: () => () => 0, shopCharmMul: () => 1, priceMul: () => 1, guildPrice: (_h, n) => n,
+      save, marketTheme: () => ({ theme: 'seed', tier: 1 }), shopRng: () => () => 0, shopCharmMul: () => 1, priceMul: () => 1, guildPrice: (_h, n) => n,
       moneyHTML: n => String(n), iconSpanHTML: () => '',
       buildingFlavorTitle: () => 'Seed Shop', shopTierBadgeHTML: () => '',
       invRoomFor: id => Inventory.roomFor(save, id), _themedStockCount: () => 1,

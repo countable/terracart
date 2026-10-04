@@ -5,7 +5,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const root = path.resolve(__dirname, '..'), ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'loot', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'coords', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'loot', 'macros', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8'), ctx, { filename: name + '.js' });
 }
 // Select a runtime row for comparison while retaining the real generator,
@@ -36,8 +36,8 @@ if (!coverage.length) throw new Error('Parking lanes produced no Quarry coverage
 if ((tile.streetIndex?.lines || []).length) throw new Error('Removed parking lanes survived as roads');
 const position = o => [Math.floor((o.x-tx*tileEdgeM)/WG.CELL_M)-origin,
   Math.floor((o.y-ty*tileEdgeM)/WG.CELL_M)-origin];
-const material = o => o.kind === 'stakes' ? 'stakes' : o.kind === 'zone_prop' ? 'zone_prop' : o.kind === 'grove_shrine' ? 'shrine' : o.kind === 'stronghold_wall' ? 'stronghold_wall' : o.quarryCrate ? 'tool_crate' : o.barrelStyle === 'clay_pot' ? 'clay_pot' : o.barrel ? 'barrel' : o.kind === 'chest' ? 'chest'
-  : ['goblin', 'split_slime'].includes(o.kind) ? o.kind : o.kind === 'wildplant' ? o.crop
+const material = o => o.kind === 'staircase' ? 'staircase' : o.kind === 'stakes' ? 'stakes' : o.kind === 'zone_prop' ? 'zone_prop' : o.kind === 'grove_shrine' ? 'shrine' : o.kind === 'stronghold_wall' ? 'stronghold_wall' : o.quarryCrate ? 'tool_crate' : o.barrelStyle === 'clay_pot' ? 'clay_pot' : o.barrel ? 'barrel' : o.kind === 'chest' ? 'chest'
+  : (ctx.SpriteLayout.CREATURE_ART[o.kind] || ctx.EnemyRoster.get(o.kind)) ? o.kind : o.kind === 'wildplant' ? o.crop
   : o.kind === 'lava_vent' ? 'lava' : o.deposit === 'crystal' ? 'crystal'
   : o.kind === 'mineralrock' && o.yieldTier === 2 ? 'copper_rock'
   : o.kind === 'mineralrock' && o.yieldTier === 6 ? 'crimson_ore'
@@ -56,7 +56,7 @@ for (const o of dress.treasures || []) if (o.zoneVariant === variantId) {
 }
 const terrain = coverage.filter(([x,y]) => tile.grid[(origin+y)*N+origin+x] === WG.T.CAVE_LAVA)
   .map(cell => ({cell,kind:'lava'}));
-const diagnostics = (dress.diagnostics || []).filter(row => row.variant === variantId);
+const diagnostics = (dress.diagnostics || []).filter(row => row.zoneVariant === variantId);
 const landmarks = diagnostics.flatMap(row => row.landmarks || []).map(row => ({...row,
   bounds: row.bounds?.map((n,i) => n-origin),
   centre: row.centre?.map(n => n-origin),

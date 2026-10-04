@@ -568,7 +568,7 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.eq(spec.frame({kind:'chest', poiClass:'atm'}), undefined, 'procedural gold pot has no sheet frame');
   assert.falsy(/CHEST_TIER_COLOR|chestObjs|tier diamond/.test(RENDER_SRC), 'tier colours are in the chest art, without floating gems');
   assert.truthy(/const g = scene\.tierGfx;\s*g\.clear\(\);/.test(RENDER_SRC), 'attack warning layer still clears each draw');
-  assert.truthy(/g\.strokeCircle\(centre\.sx, centre\.sy, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
+  assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
 test('wooden barrels render at half their former size and have no broken art', () => {

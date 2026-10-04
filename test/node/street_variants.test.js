@@ -136,6 +136,19 @@ test('variants: each row dresses ONE size, at its share (±1.5%) over 40k keys',
   assert.eq(SV.variantFor('x|0,0', 'x', null), null, 'a way of neither size is plain');
 });
 
+test('variants: Burned Row stays on small roads; Lantern Row takes its major-road share', () => {
+  assert.eq(SV.VARIANT_BY_ID.burned.size, 'minor');
+  assert.eq(SV.VARIANT_BY_ID.lantern.size, 'major');
+  assert.eq(SV.VARIANT_BY_ID.lantern.share, 0.12);
+  for (const klass of ['primary', 'secondary', 'tertiary']) {
+    const size = SV.sizeOfTags({ class: klass });
+    for (let i = 0; i < 1000; i++) {
+      assert.falsy(SV.variantFor(`burn-swap-${i}`, 'Ember Kiln Road', size) === 'burned',
+        'even a matching name cannot put Burned Row on a major/medium road');
+    }
+  }
+});
+
 test('variants: a name word nudges its row (the sign foreshadows the street)', () => {
   let plain = 0, cherry = 0;
   for (let i = 0; i < 20000; i++) {
@@ -192,6 +205,9 @@ test('rocks: only along the chosen minor street — none by the hedgerow, none i
   assert.gt(rocks.length, 5, 'the rock street is lined');
   for (const o of rocks) {
     assert.truthy(o._street, `${o.id} is a street rock`);
+    assert.truthy(o.caveVariant != null, `${o.id} is plain stone, never street ore`);
+    assert.eq(o.requiredTier, 1);
+    assert.eq(o.yieldTier, undefined);
     const iy = cellOf(o.y, TY);
     assert.inRange(iy, 12 - 5, 12 + 5, `${o.id} sits on the rock street's verge, not elsewhere`);
     assert.eq(r.roadMask[iy * CPE + cellOf(o.x, TX)], 0, `${o.id} is off the band`);
@@ -474,7 +490,7 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   assert.eq(Zones.ZONE_KINDS.grove.attracts.deer, 0.5, 'grove → deer');
   assert.eq(Zones.ZONE_KINDS.grove.attracts.butterfly, 0.5, 'grove → butterflies');
   assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
-  assert.eq(BIOME_ATTRACTS[WorldGen.T.PITCH].deer, 0.5, 'sports pitch → deer');
+  assert.falsy(BIOME_ATTRACTS[WorldGen.T.PITCH]?.deer, 'sports pitches do not attract deer');
   // The spawner reads the columns; it names no species of its own.
   const src = SCENE_SRC;
   const body = src.slice(src.indexOf('\n  _seatFaunaOnFavouriteGround('), src.indexOf('\n  }\n', src.indexOf('\n  _seatFaunaOnFavouriteGround(')));
@@ -516,24 +532,26 @@ test('fauna attractors: half of a species moves onto its ground, the rest stay; 
   assert.falsy(m2.slime, 'no slime moves into the starting area\'s amnesty');
 });
 
-test('sports pitch affinity relocates existing deer without creating more animals', () => {
+test('sports pitches do not pull deer out of their forest habitat', () => {
   const N = CPE, cellM = TILE_EDGE_M / N;
-  const grid = new Uint8Array(N * N).fill(T.GRASS);
+  const grid = new Uint8Array(N * N).fill(T.FOREST);
   for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) grid[y * N + x] = T.PITCH;
   const deer = Array.from({ length: 60 }, (_, i) => WorldGen.makeCreature('deer',
     TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i + .5) * cellM, `pitch_deer_${i}`));
+  const before = deer.map(d => [d.x, d.y]);
   const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, liftAttract());
   const moved = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) },
     TX, TY, N, cellM, grid, { occupied: new Set(), roadMask: new Uint8Array(N * N), pois: [] }, deer, null);
   assert.eq(deer.length, 60, 'affinity never adds deer');
-  assert.inRange(moved.deer, 18, 42, 'approximately half the existing deer choose the pitch');
-  assert.eq(deer.filter(d => grid[cellOf(d.y, TY) * N + cellOf(d.x, TX)] === T.PITCH).length, moved.deer);
+  assert.eq(moved.deer || 0, 0, 'no deer are attracted to the pitch');
+  assert.eq(JSON.stringify(deer.map(d => [d.x, d.y])), JSON.stringify(before), 'existing forest seats stay unchanged');
+  assert.eq(deer.filter(d => grid[cellOf(d.y, TY) * N + cellOf(d.x, TX)] === T.PITCH).length, 0);
 });
 
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──
 const TOAD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'toadstool', 'Pale Lane');
 const BARR = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'barricade', 'Gate Road');
-const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'burned', 'Kiln Road');
+const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'burned', 'Kiln Road');
 function variantLayers() {
   const toad = pts([[0, 20], [CPE - 1, 20]]);
   const barr = pts([[40, 30], [40, CPE - 1]]);     // one owned end inside (row 30)
@@ -543,7 +561,7 @@ function variantLayers() {
     { name: 'transportation', extent: EXTENT, features: [
       { type: 2, tags: { class: 'minor' }, geom: [toad] },
       { type: 2, tags: { class: 'secondary' }, geom: [barr] },
-      { type: 2, tags: { class: 'secondary' }, geom: [burn] },
+      { type: 2, tags: { class: 'minor' }, geom: [burn] },
     ] },
     { name: 'transportation_name', extent: EXTENT, features: [
       { type: 2, tags: { name: TOAD }, geom: [toad] },
@@ -576,7 +594,8 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   assert.gt(plants.length, 4, 'the lane is dressed');
   const mush = plants.filter((w) => w.crop === 'mushroom').length;
   assert.truthy(plants.every((w) => ['mushroom', 'giant_mushroom'].includes(w.crop)), 'mushrooms only');
-  assert.gt(plants.filter((w) => w.crop === 'giant_mushroom').length, 0, 'occasional giant caps');
+  assert.inRange(plants.filter((w) => w.crop === 'giant_mushroom').length / plants.length, 0.17, 0.35,
+    'large caps appear in two of every three groups while small caps remain the majority');
   assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
   for (const w of plants) assert.eq(wildplantSprite(w), CROP_SPRITE[w.crop], 'small and giant caps use their distinct crop art');
   assert.truthy(wildplantLight('mushroom'), 'and a mushroom glows');
@@ -803,7 +822,7 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
   // Deterministic, and off a hash of the street + the end's GLOBAL point.
   const again = dressed(WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M)).d;
   assert.eq(again.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery)[0].id, bars[0].id, 'the same end every build');
-  assert.truthy(/u01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
+  assert.truthy(/hash01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
     'the pick hashes variant, street key and the global end point');
 });
 
@@ -1064,7 +1083,7 @@ test('thorny path: dense deterministic brambles cross their minor road and enclo
   assert.eq(SV.VARIANT_BY_ID.thorny.title, 'Thorny Way');
   assert.eq(SV.VARIANT_BY_ID.thorny.code, SV.VARIANT_BY_ID.snare.code + 1, 'append preserves existing codes');
   assert.eq(SV.THORNY_VERGE_MAX_CELLS, 4);
-  assert.inRange(result.wildplants.length / 264, 0.6, 0.95, 'dense irregular verges reach up to four cells');
+  assert.inRange(result.wildplants.length / 264, 0.35, 0.57, 'thicket clusters retain about 60% of their former fill');
   assert.eq(new Set(result.wildplants.map(p => p.id)).size, result.wildplants.length, 'unique shrubs');
   assert.eq(JSON.stringify(result), JSON.stringify(build(name, [[line[1],mid],[mid,line[0]]]).result),
     'reversal and fragments keep identical generated content');
@@ -1103,13 +1122,14 @@ test('thorny path: dense deterministic brambles cross their minor road and enclo
 test('snare lane: a deterministic central T3 cave cache surrounded by reserved traps', () => {
   const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'snare', 'Snare Street');
   const line = pts([[10,25],[54,25]]), middle = pts([[32,25]])[0];
-  const build = (lines, blocked = false, occupied = new Set()) => {
+  const build = (lines, blocked = false, occupied = new Set(), major = false) => {
     const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
     const spawnWhy = new Uint16Array(CPE*CPE);
-    if (blocked) spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    if (blocked) spawnWhy.fill(blocked === true ? WorldGen.SPAWN_WHY.RESTRICTED : blocked);
     const roadMask = new Uint8Array(CPE*CPE), roadClass = new Uint8Array(CPE*CPE);
     const grid = new Uint8Array(CPE*CPE).fill(T.PARK);
     for (let x=10; x<=54; x++) { roadMask[25*CPE+x]=1; grid[25*CPE+x]=T.ROAD; }
+    if (major) roadClass.fill(WorldGen.ROAD_CLASS_MAJOR_BAND | WorldGen.ROAD_CLASS_MAJOR_BUFFER);
     const opts = {roadMask, roadClass, spawnWhy, occupied};
     return {result: SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}), opts, grid};
   };
@@ -1123,19 +1143,29 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
   assert.eq(chestLootDepth(chest),1,'the reward picker uses the canonical cave mix');
   assert.eq(chestLootDepth({depth:4}),4,'ordinary underground chests retain their depth');
   assert.eq(cellOf(chest.x,TX),32,'reward halfway along the street');
-  assert.eq(result.traps.length,24,'two complete trap rings around the central reward');
+  assert.gt(result.traps.length,24,'dense cluster spans the road and both verges');
+  for (let x=30; x<=34; x++) {
+    assert.truthy(result.traps.some(t=>t._ix===x && t._iy===25),'no road passage through the cluster');
+  }
+  assert.truthy(result.traps.some(t=>t._iy<25),'traps reach the opposite verge');
+  assert.truthy(result.traps.some(t=>t._iy>25),'traps cover the reward verge');
   const occupied=new Set();
   for(const o of [chest,...result.traps]) {
     const ix=cellOf(o.x,TX),iy=cellOf(o.y,TY),i=iy*CPE+ix;
     assert.falsy(occupied.has(i)); occupied.add(i);
-    assert.truthy(opts.occupied.has(i)); assert.falsy(opts.roadMask[i]);
-    assert.truthy(WorldGen.isSpawnCell(grid,CPE,CPE,ix,iy,{...opts,occupied:new Set()},'fastEnemy'));
+    assert.truthy(opts.occupied.has(i));
+    if(o===chest) assert.falsy(opts.roadMask[i],'reward stays off the road');
+    const gate={...opts,occupied:new Set(),streetObstacleCells:new Set([i]),streetObstacleKind:'snare'};
+    assert.truthy(WorldGen.isSpawnCell(grid,CPE,CPE,ix,iy,gate,opts.roadMask[i]?'streetObstacle':'fastEnemy'));
     if(o!==chest) { assert.eq(o._ix,ix); assert.eq(o._iy,iy); }
   }
   assert.eq(deterministicSnapshot,JSON.stringify(build([[line[1],middle],[middle,line[0]]]).result),
     'reversed, fragmented geometry keeps the cache and traps');
   assert.eq(build([line],true).result.objects.length,0,'restricted ground holds no reward');
   assert.eq(build([line],true).result.traps.length,0);
+  assert.eq(build([line],WorldGen.SPAWN_WHY.PRIVATE).result.traps.length,0,'private land stays excluded');
+  assert.eq(build([line],false,new Set(),true).result.traps.length,0,'major roads and their buffers stay excluded');
+  assert.inRange(Math.abs(cellOf(chest.y,TY)-25),1,2,'cache sits immediately beside its own road');
   assert.eq(build([line],false,new Set(Array.from({length:CPE*CPE},(_,i)=>i))).result.objects.length,0,
     'occupied ground holds no reward');
   const picked=build([line]).result;
@@ -1454,6 +1484,45 @@ test('barricade scenery: perpendicular lines reach four cells from the verge', (
   assert.truthy(pieces.some(o=>o.kind==='stakes'));
   assert.truthy(pieces.some(o=>o.crop==='barricade'));
   assert.eq(SV.BARRICADE_VERGE_MAX_CELLS,4);
+  const crossingRows = [...rows.keys()].sort((a, b) => a - b);
+  assert.gt(crossingRows.length, 1, 'the road has repeated crossings');
+  for (let i = 1; i < crossingRows.length; i++) {
+    const gapM = (crossingRows[i] - crossingRows[i - 1]) * WorldGen.CELL_M;
+    assert.inRange(gapM, 43, 57, 'single barricade layers sit about 50 m apart after cell snapping');
+  }
+});
+
+test('barricades cross rasterized major roads, including diagonal pavement beyond the band center', () => {
+  for (const roadClass of ['secondary', 'primary', 'motorway']) {
+    for (const diagonal of [false, true]) {
+      const line = diagonal
+        ? [{ x: (32 - 23 / Math.hypot(23, 23.5)) * CELL_MVT,
+            y: (32 - 23.5 / Math.hypot(23, 23.5)) * CELL_MVT },
+            { x: 55 * CELL_MVT, y: 55.5 * CELL_MVT }]
+        : pts([[32, 32], [32, 63]]);
+      const r = WorldGen.rasterizeTile([
+        { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+        { name: 'transportation', extent: EXTENT, features: [
+          { type: 2, tags: { class: roadClass }, geom: [line] },
+        ] },
+        { name: 'transportation_name', extent: EXTENT, features: [
+          { type: 2, tags: { name: BARR }, geom: [line] },
+        ] },
+      ], CPE, TX, TY, TILE_EDGE_M);
+      const pieces = [...r.streetDress.objects, ...r.streetDress.wildplants]
+        .filter(o => o._street === 'barricade' && o._streetScenery);
+      const occupied = new Set(pieces.map(o => cellOf(o.y, TY) * CPE + cellOf(o.x, TX)));
+      // The first diagonal crossing reaches this paved tile whose center
+      // is outside a secondary road's 4.5 m half-width. Treating it as verge
+      // used to reject its road terrain and stop the barrier mid-crossing.
+      const x = diagonal ? 34 : 32, y = diagonal ? 33 : 36, i = y * CPE + x;
+      assert.truthy(WorldGen.isRoadTerrain(r.grid[i]), `${roadClass}: fixture checks actual pavement`);
+      assert.truthy(r.spawnWhy[i] & WorldGen.SPAWN_WHY.TERRAIN, 'ordinary terrain spawn exclusion remains');
+      assert.truthy(occupied.has(i), `${roadClass}: barrier covers ${diagonal ? 'diagonal' : 'straight'} road tile`);
+      assert.truthy(pieces.some(o => r.roadMask[cellOf(o.y, TY) * CPE + cellOf(o.x, TX)]),
+        'barriers survive the full terrain/mask/dressing pipeline on the drawn band');
+    }
+  }
 });
 
 })();

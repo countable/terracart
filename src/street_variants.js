@@ -153,12 +153,12 @@
   const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
   const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
   const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
-  const TOADSTOOL_GIANT_EVERY_GROUPS = 3;
+  const TOADSTOOL_GIANT_EVERY_GROUPS = 3, TOADSTOOL_GIANT_GROUPS = 2;
   const BURNED_STEP_M = 8, BURNED_MAX = 100;
   const BURNED_TORCH_STEP_M = 32;
   // Stop starting new barricade lines at this budget; finish the last line
   // so a count cutoff cannot leave a gap halfway across its road.
-  const BARRICADE_STEP_M = 12, BARRICADE_MAX = 80;
+  const BARRICADE_STEP_M = 50, BARRICADE_MAX = 80;
   const BARRICADE_VERGE_MAX_CELLS = 4;
   // How finely a burned row is walked for its one fire slime per stretch.
   const BURNED_GUARD_STEP_M = 10;
@@ -176,6 +176,7 @@
   const TERRAIN_VERGE_CELLS = 1.5;
   const THORNY_SHRINE_RADIUS_CELLS = 2;
   const THORNY_VERGE_MAX_CELLS = 4;
+  const THORNY_CLUSTER_DENSITY = 0.6;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
@@ -191,7 +192,7 @@
   // (scene_creatures.js _seatFaunaOnFavouriteGround): each of the tile's own
   // spawns of that species moves onto this street's verge with probability p.
   // `share` is the neutral-name probability for a key of that size. Minor
-  // shares total 40%; name nudges redistribute ordinary themes inside that
+  // selection stays at 40%; name nudges redistribute ordinary themes inside that
   // fixed budget, while Golden Road remains 2% of all minor keys.
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
@@ -232,7 +233,9 @@
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
       flash: 'A waystone, worn smooth.' },
-    { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'major', share: 0.07, rung: 'common',
+    // Lantern Row takes Burned Row's former major-road weight. Burned Row
+    // now joins the minor pool; its overall themed-street budget stays fixed.
+    { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'major', share: 0.12, rung: 'common',
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
@@ -243,13 +246,14 @@
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts line the road, close enough to light the whole street. You walk between the rows of lamps.',
       flash: 'Lamp posts, cold and waiting.' },
-    { id: 'burned', terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'major', share: 0.05, rung: 'uncommon',
-      stone: { weathered: '#583c35', restored: '#865041' }, lampDensity: 0.5,
+    { id: 'burned', terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'minor', share: 0.05, rung: 'uncommon',
+      stone: { weathered: '#321b18', restored: '#49241b', pattern: 'embers', accent: '#ff6a20' }, lampDensity: 0.5,
+      hotRoad: true,
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
       lampGlow: '#ff5a3c',
       story: 'street_burned', title: 'Burned Row',
-      body: 'Tar fills the gutters, and iron stakes jut from the verge. You keep to the clear stones between them.',
-      flash: 'Tar underfoot. Go slow.' },
+      body: 'Hot embers glow between the road stones, burning like lava underfoot. Tar fills the gutters, and iron stakes jut from the verge.',
+      flash: 'Hot embers burn underfoot.' },
     { id: 'barricade', terrain: 'WASTELAND', affinities: ['ruined'], size: 'major', share: 0.04, rung: 'rare',
       stone: { weathered: '#706047', restored: '#a38754' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
@@ -310,7 +314,7 @@
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
       stone: { weathered: '#594a3f', restored: '#897051' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
-      body: 'A chest sits beside the lane, surrounded by iron traps. You stop short of the open jaws in the grass.',
+      body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
       flash: 'Iron teeth around a chest.' },
     // Append so saved mark codes retain their existing meanings.
     { id: 'thorny', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
@@ -322,6 +326,90 @@
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
+  // ── THE VERGE DRESSING (VERGE_ROWS) ──────────────────────────────────────
+  // What a variant lays along its verges: rows walked by dressSteps'
+  // dressVerge, one sampleLine over each line piece (every `step` metres from
+  // step / 2), each sample taking THE FIRST FREE VERGE CELL on its chosen side
+  // the same way (verge(): k = 1..walk cells out from the band's edge, the
+  // spawn gate's 'minor' class, claimed as it is laid). The columns:
+  //   step     metres between samples (a function: read at call time — the
+  //            hedgerow's cell width is WorldGen's, which loads after this);
+  //   max      pieces per line piece (none: no cap);
+  //   side     1 (the left verge), -1, 'both', or a function of the sample
+  //            ({ s: arclength, n: sample index, rng: the row's stream });
+  //   walk     verge cells out the first free one is taken from (default
+  //            VERGE_MAX_CELLS); 1 is the kerb cell alone — the hedgerow's
+  //            tidy row, where an obstacle leaves a GAP rather than pushing a
+  //            hedge out of line;
+  //   fill     EVERY free verge cell within walk, not the first (the golden
+  //            road's ribbon of coins);
+  //   retry    the other side when the chosen one has no free cell (the
+  //            burned row's torches: a torch every so often, whichever side);
+  //   start    the first k to try (the toadstool giant's set-back seat);
+  //   skip     a sample that lays nothing (the hedgerow's gate stations, the
+  //            toadstool's breathing gap);
+  //   draw     per-sample draws off the row's `stream`, taken BEFORE the
+  //            covers test so an uncovered sample spends them too (the burned
+  //            row's side and tar rolls — the stream is pinned);
+  //   emit(D, at, c, side)  lays the piece at cell c — D is the dressing
+  //            (WG, res, tx, ty, cx, cy, rec, v, N, lengthM()).
+  // A variant may have several rows (burned: the debris, then the torches),
+  // walked in order; what is not a verge walk (the snare cache, the thorny
+  // thickets, the barricade's cross-sections, the guards) stays in dressSteps.
+  const VERGE_ROWS = {
+    hedgerow: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1,
+      skip: (at) => Math.floor(at.s / root.WorldGen.CELL_M) % HEDGE_GATE_EVERY_CELLS === HEDGE_GATE_EVERY_CELLS - 1,
+      emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant('shrub', D.cx(c.ix), D.cy(c.iy),
+        D.WG.cellId('hedge', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _streetArt: 'clipped' })) }],
+    overgrown: [{ step: OVERGROWN_STEP_M, max: OVERGROWN_MAX, side: () => 1,
+      emit: (D, at, c) => D.res.objects.push(D.WG.makeObject('tree', D.cx(c.ix), D.cy(c.iy),
+        D.WG.cellId('tree_og', D.tx, D.ty, c.ix, c.iy),
+        { species: 'maple', variant: 1 + Math.min(2, Math.floor(3 * at.s / Math.max(1, D.lengthM()))), _street: D.v })) }],
+    // Repeating loose scallops: three caps, a breathing gap, then the opposite
+    // verge. Two of every three groups have a giant at its set-back centre.
+    toadstool: [{ step: TOADSTOOL_STEP_M, max: TOADSTOOL_MAX,
+      skip: (at) => at.n % 4 === 3,
+      side: (at) => Math.floor(at.n / 4) % 2 ? -1 : 1,
+      start: (at) => at.n % 4 === 1 ? 2 : 1,
+      emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant(
+        at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS < TOADSTOOL_GIANT_GROUPS ? 'giant_mushroom' : 'mushroom',
+        D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy), { _street: D.v })) }],
+    // Alternate along each verge, with the opposite species across the road:
+    // half apples, half mature deciduous maples on clear ground.
+    orchard: [{ step: ORCHARD_STEP_M, max: ORCHARD_MAX, side: 'both',
+      emit: (D, at, c, side) => {
+        const apple = (Math.floor(at.s / ORCHARD_STEP_M) + (side === 1 ? 0 : 1)) % 2 === 0;
+        D.res.objects.push(D.WG.makeObject(apple ? 'fruittree' : 'tree', D.cx(c.ix), D.cy(c.iy),
+          D.WG.cellId(apple ? 'ft_lane' : 'tree_lane', D.tx, D.ty, c.ix, c.iy),
+          apple ? { species: D.WG.fruitTreeSpecies(D.WG.cellHash(D.tx, D.ty, c.ix, c.iy)), wild: true, _street: D.v }
+            : { species: 'maple', variant: 3, _street: D.v }));
+      } }],
+    // Dense ribbons on both verges, one pickup per free cell; sampling below
+    // cell width also covers diagonal roads. Cell ids survive reloads on the
+    // existing foundTreasures ledger.
+    golden: [{ step: GOLDEN_STEP_M, side: 'both', fill: true,
+      emit: (D, at, c) => D.res.coins.push({ kind: 'coindrop', x: D.cx(c.ix), y: D.cy(c.iy),
+        id: D.WG.cellId('golden_coin', D.tx, D.ty, c.ix, c.iy),
+        amount: GOLDEN_COIN_AMOUNT, seeded: true, _street: D.v }) }],
+    burned: [
+      // The debris: tar pits and stakes, side and kind off the row's stream.
+      { step: BURNED_STEP_M, max: BURNED_MAX, stream: true,
+        draw: (at) => { at.side = at.rng() < 0.5 ? 1 : -1; at.tar = at.rng() < 0.5; },
+        side: (at) => at.side,
+        emit: (D, at, c) => {
+          const kind = at.tar ? 'tar' : 'stakes';
+          D.res.objects.push(D.WG.makeObject(kind, D.cx(c.ix), D.cy(c.iy),
+            D.WG.cellId(kind, D.tx, D.ty, c.ix, c.iy), { _street: D.v }));
+          D.res.slowCells.set(c.iy * D.N + c.ix, kind);
+        } },
+      // Placed torches reuse the cave torch's animated art and warm light,
+      // dressed after the debris without disturbing its stream or seats.
+      { step: BURNED_TORCH_STEP_M, retry: true,
+        side: (at) => Math.floor(at.s / BURNED_TORCH_STEP_M) % 2 ? -1 : 1,
+        emit: (D, at, c) => D.res.objects.push(D.WG.makeObject('torch', D.cx(c.ix), D.cy(c.iy),
+          D.WG.cellId('torch_burned', D.tx, D.ty, c.ix, c.iy), { _street: D.v })) },
+    ],
+  };
   // The OLD TRADE ROAD (internally "bandit"): every MAJOR road, variant or
   // not. Not a row of the table (it dresses nothing of its own — the wagon
   // look is loot.js chestLook's); its story is here beside the others. A LOOK
@@ -352,7 +440,6 @@
     const a = path[0], z = path[path.length - 1];
     return `~${tx},${ty}|${a.x},${a.y}|${z.x},${z.y}|${path.length}`;
   }
-  const u01 = (s) => (fnv1a(s) >>> 0) / 4294967296;
 
   // Which size a way is, off its terrain tier. Rail/transit/ferry are not
   // streets (classifyLine's fallback would call them ROAD).
@@ -396,8 +483,8 @@
     if (!key || !size) return null;
     const weights = selectionWeights(name, size, context);
     const share = size === 'minor' ? MINOR_VARIANT_SHARE : weights.reduce((sum, row) => sum + row.baseWeight, 0);
-    if (u01('street|' + key) >= share || !weights.length) return null;
-    let ticket = u01(size === 'minor' ? 'street-kind|' + key : 'street-choice|' + key);
+    if (hash01('street|' + key) >= share || !weights.length) return null;
+    let ticket = hash01(size === 'minor' ? 'street-kind|' + key : 'street-choice|' + key);
     const golden = weights.find(row => row.id === 'golden');
     if (golden) {
       if (ticket < golden.probability) return golden.id;
@@ -415,7 +502,7 @@
   // Surface rocks are reconciled against the final theme after zone coverage.
   function substrateVariantFor(key, name, size) {
     let cumulative = 0;
-    const roll = u01('street|' + key);
+    const roll = hash01('street|' + key);
     for (const row of STREET_VARIANTS) {
       if (row.size !== size || row.id === 'golden' || row.id === 'thorny') continue;
       const share = row.id === 'hedgerow' || row.id === 'overgrown' ? 0.10 : row.share;
@@ -523,7 +610,7 @@
   // Is this street one of the rock-lined ones? Minor only, never a hedgerow.
   function rocksFor(key, size, variant) {
     return size === 'minor' && variant !== 'hedgerow' && !!key
-      && u01('rocks|' + key) < ROCK_STREET_SHARE;
+      && hash01('rocks|' + key) < ROCK_STREET_SHARE;
   }
 
   // Is the stretch of street `key` through lattice square (sx, sy) a bandit
@@ -532,7 +619,7 @@
     return { sx: Math.floor(gx / BANDIT_STRETCH_UNITS), sy: Math.floor(gy / BANDIT_STRETCH_UNITS) };
   }
   function isBanditStretch(key, sx, sy) {
-    return !!key && u01(`bandit|${key}|${sx},${sy}`) < BANDIT_STRETCH_SHARE;
+    return !!key && hash01(`bandit|${key}|${sx},${sy}`) < BANDIT_STRETCH_SHARE;
   }
 
   // ── The name vote ───────────────────────────────────────────────────────
@@ -887,10 +974,7 @@
     return out;
   }
   function buildIndex(layers, tx, ty, mvtToM) {
-    const it = buildIndexSteps(layers, tx, ty, mvtToM);
-    let r = it.next();
-    while (!r.done) r = it.next();
-    return r.value;
+    return root.WorldGen.runSteps(buildIndexSteps(layers, tx, ty, mvtToM));
   }
 
   // Squared distance from a line segment to one cell square. A clipped MVT
@@ -957,12 +1041,7 @@
     }
     return area;
   }
-  function area(index, N) {
-    const it = areaSteps(index, N);
-    let r = it.next();
-    while (!r.done) r = it.next();
-    return r.value;
-  }
+  function area(index, N) { return root.WorldGen.runSteps(areaSteps(index, N)); }
 
   function terrainFor(variant) {
     return root.WorldGen?.T[VARIANT_BY_ID[variant]?.terrain] ?? null;
@@ -1041,7 +1120,7 @@
 
   // The café hoard's pick: a pure hash of the POI's GLOBAL MVT point, the
   // same for every player and whichever tile asks.
-  function hoardPick(gk) { return u01('hoard|' + gk); }
+  function hoardPick(gk) { return hash01('hoard|' + gk); }
   // The tile's own hoard POIs (see buildIndexSteps' hoardPois). Linear in
   // the poi layer.
   function hoardPoisOf(poiLayer, tx, ty, ext) {
@@ -1123,7 +1202,7 @@
   // kerb of a major road by definition). Returns the lair candidates it adds
   // — always NONE now; kept an (empty) array so a caller that still iterates
   // it (scene_creatures.js spawnInTile) needs no change.
-  function isWagonStop(id) { return !!id && u01('wagon|' + id) < WAGON_STOP_SHARE; }
+  function isWagonStop(id) { return !!id && hash01('wagon|' + id) < WAGON_STOP_SHARE; }
   function markBanditStops(objects, roadClass, N, tx, ty, tileEdgeM) {
     const WG = root.WorldGen;
     const lairs = [];
@@ -1135,14 +1214,7 @@
       const ix = Math.floor((o.x - tx * tileEdgeM) / cellM);
       const iy = Math.floor((o.y - ty * tileEdgeM) / cellM);
       if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
-      let near = false;
-      for (let dy = -R; dy <= R && !near; dy++) {
-        for (let dx = -R; dx <= R; dx++) {
-          const x = ix + dx, y = iy + dy;
-          if (x < 0 || y < 0 || x >= N || y >= N) continue;
-          if (roadClass[y * N + x] & WG.ROAD_CLASS_MAJOR_BAND) { near = true; break; }
-        }
-      }
+      const near = !!WG.boxCells(N, N, ix, iy, R, (x, y, i) => roadClass[i] & WG.ROAD_CLASS_MAJOR_BAND);
       if (!near || !isWagonStop(o.id)) continue;
       o.banditStop = true;
       delete o._chestLook;
@@ -1152,20 +1224,10 @@
 
   // ── Seating a foe back from the kerb ────────────────────────────────────
   // The offsets within FOE_SEAT_BACK_CELLS / HOARD_SEAT_CELLS, nearest first
-  // (ties row-major) — built once, so the search order is a constant.
-  function offsetsWithin(R) {
-    const out = [];
-    for (let dy = -R; dy <= R; dy++) {
-      for (let dx = -R; dx <= R; dx++) {
-        const d2 = dx * dx + dy * dy;
-        if (d2 <= R * R) out.push({ dx, dy, d2 });
-      }
-    }
-    out.sort((a, b) => a.d2 - b.d2 || a.dy - b.dy || a.dx - b.dx);
-    return out;
-  }
-  const BACK_OFFSETS = offsetsWithin(FOE_SEAT_BACK_CELLS);
-  const HOARD_OFFSETS = offsetsWithin(HOARD_SEAT_CELLS);
+  // (ties row-major) — WorldGen.discOffsets, built once per radius, so the
+  // search order is a constant. Read at call time (worldgen.js loads after).
+  const backOffsets = () => root.WorldGen.discOffsets(FOE_SEAT_BACK_CELLS);
+  const hoardOffsets = () => root.WorldGen.discOffsets(HOARD_SEAT_CELLS);
   // Does the straight walk from cell (x0, y0) to (x1, y1) touch a MAJOR band
   // cell? Sampled four times a cell, so a band a cell wide is never stepped
   // over. The "same side of the road" test: a seat reached without crossing
@@ -1208,12 +1270,7 @@
   // index → 'tar' | 'stakes'), marks } —
   // marks is a Uint8Array (N*N) of variant codes on each dressed line's band
   // and verge (the story trigger reads it), or null when nothing is dressed.
-  function dress(ctx) {
-    const it = dressSteps(ctx);
-    let r = it.next();
-    while (!r.done) r = it.next();
-    return r.value;
-  }
+  function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
   // The same, as a generator — rasterizeTileSteps drives it (one yield per
   // dressed line), so the dressing is paid inside the sliced tile build and
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
@@ -1222,20 +1279,19 @@
     const res = { objects: [], wildplants: [], treasures: [], coins: [], traps: [], lairs: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
-    const { tx, ty, N, tileEdgeM, grid, spawnOpts } = ctx;
+    const { tx, ty, N, grid, spawnOpts } = ctx;
     const ext = idx.extent || 4096;
     const CELL_M = WG.CELL_M;
     const gM = (N * CELL_M) / ext;            // GENERATION metres per MVT unit
-    const frameCellM = tileEdgeM / N;
-    const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
-    const occ = spawnOpts.occupied || (spawnOpts.occupied = new Set());
+    // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
+    // metres and the occupancy this pass claims into.
+    const { cellM: frameCellM, cx, cy, claim } = WG.dressFrame(ctx);
     // The verge dressing is scenery — a MINOR spawn (the spawn gate).
     const cellOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
       && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor');
     // A hoard is an ATTRACTOR: OPEN ground only.
     const hoardOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
       && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
-    const claim = (ix, iy) => { occ.add(iy * N + ix); };
     // THE KERB BUFFER: the caller's roadClass, else the one the stamp pass
     // left on the index (nearestSeat keeps a seat on its side of the band).
     // A STREET GUARD'S POINT (a waystone's, a barricade's, a guarded hoard's)
@@ -1249,24 +1305,59 @@
     // Seat a foe BACK: its natural cell if it is a foe cell, else the nearest
     // within FOE_SEAT_BACK_CELLS on the same side of any major band — or null
     // (the foe is dropped).
-    const foeSeat = (ix, iy) => nearestSeat(ix, iy, N, rc, BACK_OFFSETS, foeOk);
-    const cx = (ix) => ox + (ix + 0.5) * frameCellM;
-    const cy = (iy) => oy + (iy + 0.5) * frameCellM;
+    const foeSeat = (ix, iy) => nearestSeat(ix, iy, N, rc, backOffsets(), foeOk);
     const cellOfM = (m) => Math.floor(m / CELL_M);
-    // The first spawnable verge cell k = 1..VERGE_MAX_CELLS out from the
-    // band's edge at arclength point (x, y) with left normal (nx, ny).
-    const verge = (rec, x, y, nx, ny, side, start = 1) => {
-      for (let k = start; k <= VERGE_MAX_CELLS; k++) {
-        const off = side * (rec.halfW + (k - 0.5) * CELL_M);
-        const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
-        if (cellOk(ix, iy)) return { ix, iy };
+    // The k-th verge cell out from the band's edge at arclength point (x, y)
+    // with left normal (nx, ny), on `side` (1 the left, -1 the right).
+    const vergeCell = (rec, x, y, nx, ny, side, k) => {
+      const off = side * (rec.halfW + (k - 0.5) * CELL_M);
+      return { ix: cellOfM(x + nx * off), iy: cellOfM(y + ny * off) };
+    };
+    // The first spawnable verge cell k = start..kMax out from the band.
+    const verge = (rec, x, y, nx, ny, side, start = 1, kMax = VERGE_MAX_CELLS) => {
+      for (let k = start; k <= kMax; k++) {
+        const c = vergeCell(rec, x, y, nx, ny, side, k);
+        if (cellOk(c.ix, c.iy)) return c;
       }
       return null;
+    };
+    // ONE WALK of a VERGE_ROWS row down a line piece (the table says how).
+    const dressVerge = (rec, spans, row) => {
+      const v = rec.variant;
+      let lengthM = null;
+      const D = { WG, res, tx, ty, cx, cy, rec, v, N,
+        lengthM: () => (lengthM ??= rec.line.slice(1).reduce((m, p, i) => m + Math.hypot(p.x - rec.line[i].x, p.y - rec.line[i].y) * gM, 0)) };
+      const rng = row.stream ? streamFor(rec, v) : null;
+      const step = typeof row.step === 'function' ? row.step() : row.step;
+      let placed = 0, n = 0;
+      sampleLine(rec.line, gM, step, step / 2, (s, x, y, nx, ny) => {
+        const at = { s, n: n++, rng };
+        if (row.max != null && placed >= row.max) return false;
+        if (row.draw) row.draw(at);
+        if (!S.covers(spans, s)) return;
+        if (row.skip && row.skip(at)) return;
+        const sides = row.side === 'both' ? [1, -1] : [row.side(at)];
+        const k0 = row.start ? row.start(at) : 1, kMax = row.walk || VERGE_MAX_CELLS;
+        for (const side of sides) {
+          if (row.fill) {
+            for (let k = k0; k <= kMax; k++) {
+              const c = vergeCell(rec, x, y, nx, ny, side, k);
+              if (!cellOk(c.ix, c.iy)) continue;
+              claim(c.ix, c.iy); row.emit(D, at, c, side); placed++;
+            }
+            continue;
+          }
+          const c = verge(rec, x, y, nx, ny, side, k0, kMax)
+            || (row.retry ? verge(rec, x, y, nx, ny, -side, k0, kMax) : null);
+          if (!c) continue;
+          claim(c.ix, c.iy); row.emit(D, at, c, side); placed++;
+        }
+      });
     };
     // Cross the authored road only, then extend along each normal.
     // Existing pieces from this pass are transparent to repeated samples;
     // every unrelated obstacle terminates the ray instead of being skipped.
-    const crossSection = (rec, x, y, nx, ny, depth, owned, emit) => {
+    const crossSection = (rec, x, y, nx, ny, depth, owned, emit, groundOk = cellOk) => {
       const roadSeats = new Set(), gate = { ...spawnOpts, roadClass: rc, streetObstacleCells: roadSeats, streetObstacleKind: rec.variant };
       for (const side of [1, -1]) {
         const start = 0;
@@ -1275,11 +1366,15 @@
           if (ix < 0 || iy < 0 || ix >= N || iy >= N) break;
           const i = iy * N + ix;
           if (owned.has(i)) continue;
-          // Classify the cell center, not the sub-cell sampling point.
+          // A diagonal road's rasterized tile can overlap the band while its
+          // center sits outside it. Include that tile in a barricade crossing,
+          // or the ordinary road exclusion stops the line at the pavement.
           const normalDistance = Math.abs(((ix + .5) * CELL_M - x) * nx + ((iy + .5) * CELL_M - y) * ny);
-          const road = normalDistance <= rec.halfW;
+          const cellReach = rec.variant === 'barricade' && WG.isRoadTerrain(grid[i])
+            ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
+          const road = normalDistance <= rec.halfW + cellReach;
           if (road) roadSeats.add(i);
-          if (!(road ? WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle') : cellOk(ix,iy))) break;
+          if (!(road ? WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle') : groundOk(ix,iy))) break;
           owned.add(i); emit(ix,iy);
         }
       }
@@ -1362,25 +1457,25 @@
         });
       }
       if (v === 'snare' && !snareSeats.has(rec.key)) {
-        // One cache at the canonical street patch's midpoint, on one verge.
-        // The dense two-cell ring stays off roads and outside major buffers;
-        // every seat also obeys occupied, private-ground and restriction masks.
+        // Keep the reward on a verge, but span the minor road with the traps:
+        // the road must not form a clear bypass through the encounter.
+        // Cross-sections retain land, occupancy and major-road exclusions.
         const length = S.lineLengthM(rec.line, gM);
         sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
-            const off = side * (rec.halfW + (SNARE_TRAP_RADIUS_CELLS + 1.5) * CELL_M);
+            const off = side * (rec.halfW + CELL_M / 2);
             const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
             if (!hoardOk(ix, iy) || !foeOk(ix, iy)) continue;
-            const traps = [];
-            for (let dy = -SNARE_TRAP_RADIUS_CELLS; dy <= SNARE_TRAP_RADIUS_CELLS; dy++) {
-              for (let dx = -SNARE_TRAP_RADIUS_CELLS; dx <= SNARE_TRAP_RADIUS_CELLS; dx++) {
-                if (!dx && !dy) continue;
-                const ax = ix + dx, ay = iy + dy;
-                if (!foeOk(ax, ay)) continue;
-                traps.push({ id: WG.cellId('trap_snare', tx, ty, ax, ay),
-                  x: cx(ax), y: cy(ay), _ix: ax, _iy: ay, _street: v });
-              }
+            const traps = [], seats = new Set([iy * N + ix]);
+            // Sample densely along the tangent so diagonal roads also have
+            // a solid cluster, deduplicated by the same cross-section helper.
+            for (let along = -SNARE_TRAP_RADIUS_CELLS; along <= SNARE_TRAP_RADIUS_CELLS; along += 0.5) {
+              crossSection(rec, x + ny * along * CELL_M, y - nx * along * CELL_M, nx, ny,
+                () => SNARE_TRAP_RADIUS_CELLS + 1, seats, (ax, ay) => {
+                  traps.push({ id: WG.cellId('trap_snare', tx, ty, ax, ay),
+                    x: cx(ax), y: cy(ay), _ix: ax, _iy: ay, _street: v });
+                }, foeOk);
             }
             // Do not generate an undefended reward on cramped ground.
             if (traps.length < SNARE_MIN_TRAPS) continue;
@@ -1393,21 +1488,33 @@
             break;
           }
         });
-      } else if (v === 'hedgerow') {
-        // One tidy row at the band's edge; obstacles leave a gap instead of
-        // pushing individual hedges out of line. Both sides share gate stations.
-        sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
-          if (!S.covers(spans, s)) return;
-          if (Math.floor(s / CELL_M) % HEDGE_GATE_EVERY_CELLS === HEDGE_GATE_EVERY_CELLS - 1) return;
-          for (const side of [1, -1]) {
-            const off = side * (rec.halfW + CELL_M / 2);
-            const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
-            if (!cellOk(ix, iy)) continue;
-            claim(ix, iy);
-            res.wildplants.push(WG.makeWildplant('shrub', cx(ix), cy(iy),
-              WG.cellId('hedge', tx, ty, ix, iy), { _street: v, _streetArt: 'clipped' }));
-          }
-        });
+      } else if (VERGE_ROWS[v]) {
+        for (const row of VERGE_ROWS[v]) dressVerge(rec, spans, row);
+        if (v === 'burned') {
+          // ONE FIRE SLIME PER STRETCH (lairs.js 'burned' tier): the first
+          // spawnable verge cell of each (street key, stretch square) this piece
+          // walks through inside the tile. The squares are tile-aligned, so a
+          // stretch belongs to one tile; `burnedSeen` keeps a street that is
+          // several line pieces here to one guard per stretch. No draws.
+          sampleLine(rec.line, gM, BURNED_GUARD_STEP_M, BURNED_GUARD_STEP_M / 2, (s, x, y, nx, ny) => {
+            if (!S.covers(spans, s)) return;
+            const st = stretchOf(tx * ext + x / gM, ty * ext + y / gM);
+            const sk = `burned:${rec.key}|${st.sx},${st.sy}`;
+            if (burnedSeen.has(sk)) return;
+            // Seated BACK beyond the kerb buffer (foeSeat), from whichever
+            // verge side seats; neither → try the stretch's next sample.
+            let c = null;
+            for (const side of [1, -1]) {
+              const v = verge(rec, x, y, nx, ny, side);
+              c = v && foeSeat(v.ix, v.iy);
+              if (c) break;
+            }
+            if (!c) return;
+            burnedSeen.add(sk);
+            res.lairs.push({ tier: 'burned', sid: sk,
+              lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+          });
+        }
       } else if (v === 'thorny') {
         const brambleSeats = new Set();
         const bramble = (ix, iy) => {
@@ -1442,81 +1549,14 @@
             }
           });
         }
-        // Dense irregular thickets grow from the kerb, ending at the first
+        // Irregular thickets leave gaps within each cluster, ending at the first
         // obstruction. A ray never jumps a building, occupied seat or road.
         sampleLine(rec.line, gM, CELL_M / 2, CELL_M / 4, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
-          const depth = side => 2 + Math.floor(u01(`thorny-depth|${rec.key}|${Math.floor(s / CELL_M)}|${side}`) * (THORNY_VERGE_MAX_CELLS - 1));
-          crossSection(rec,x,y,nx,ny,depth,brambleSeats,bramble);
-        });
-      } else if (v === 'overgrown') {
-        let placed = 0;
-        const length = rec.line.slice(1).reduce((m, p, i) => m + Math.hypot(p.x - rec.line[i].x, p.y - rec.line[i].y) * gM, 0);
-        sampleLine(rec.line, gM, OVERGROWN_STEP_M, OVERGROWN_STEP_M / 2, (s, x, y, nx, ny) => {
-          if (placed >= OVERGROWN_MAX) return false;
-          if (!S.covers(spans, s)) return;
-          const c = verge(rec, x, y, nx, ny, 1);
-          if (!c) return;
-          claim(c.ix, c.iy);
-          res.objects.push(WG.makeObject('tree', cx(c.ix), cy(c.iy),
-            WG.cellId('tree_og', tx, ty, c.ix, c.iy),
-            { species: 'maple', variant: 1 + Math.min(2, Math.floor(3 * s / Math.max(1, length))), _street: v }));
-          placed++;
-        });
-      } else if (v === 'toadstool') {
-        // Repeating loose scallops: three caps, a breathing gap, then the
-        // opposite verge. Every third group has a giant at its set-back center;
-        // setback changes within each group, all spawn-gated.
-        let placed = 0, sample = 0;
-        sampleLine(rec.line, gM, TOADSTOOL_STEP_M, TOADSTOOL_STEP_M / 2, (s, x, y, nx, ny) => {
-          const n = sample++;
-          if (placed >= TOADSTOOL_MAX) return false;
-          if (n % 4 === 3 || !S.covers(spans, s)) return;
-          const side = Math.floor(n / 4) % 2 ? -1 : 1;
-          const c = verge(rec, x, y, nx, ny, side, n % 4 === 1 ? 2 : 1);
-          if (!c) return;
-          claim(c.ix, c.iy);
-          const crop = n % 4 === 1 && Math.floor(n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS === 0
-            ? 'giant_mushroom' : 'mushroom';
-          res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy),
-            WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v }));
-          placed++;
-        });
-      } else if (v === 'orchard') {
-        let placed = 0;
-        sampleLine(rec.line, gM, ORCHARD_STEP_M, ORCHARD_STEP_M / 2, (s, x, y, nx, ny) => {
-          if (placed >= ORCHARD_MAX) return false;
-          if (!S.covers(spans, s)) return;
-          for (const side of [1, -1]) {
-            const c = verge(rec, x, y, nx, ny, side);
-            if (!c) continue;
-            claim(c.ix, c.iy);
-            // Alternate along each verge, with the opposite species across
-            // the road: half apples, half mature deciduous maples on clear ground.
-            const apple = (Math.floor(s / ORCHARD_STEP_M) + (side === 1 ? 0 : 1)) % 2 === 0;
-            res.objects.push(WG.makeObject(apple ? 'fruittree' : 'tree', cx(c.ix), cy(c.iy),
-              WG.cellId(apple ? 'ft_lane' : 'tree_lane', tx, ty, c.ix, c.iy),
-              apple ? { species: WG.fruitTreeSpecies(WG.cellHash(tx, ty, c.ix, c.iy)), wild: true, _street: v }
-                : { species: 'maple', variant: 3, _street: v }));
-            placed++;
-          }
-        });
-      } else if (v === 'golden') {
-        // Dense ribbons on both verges, one pickup per free cell. Sampling
-        // below cell width also covers diagonal roads; the shared gate and
-        // immediate claim keep roadway, restricted and occupied cells empty.
-        // Cell ids survive reloads and use the existing foundTreasures ledger.
-        sampleLine(rec.line, gM, GOLDEN_STEP_M, GOLDEN_STEP_M / 2, (s, x, y, nx, ny) => {
-          if (!S.covers(spans, s)) return;
-          for (const side of [1, -1]) for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
-            const off = side * (rec.halfW + (k - 0.5) * CELL_M);
-            const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
-            if (!cellOk(ix, iy)) continue;
-            claim(ix, iy);
-            res.coins.push({ kind: 'coindrop', x: cx(ix), y: cy(iy),
-              id: WG.cellId('golden_coin', tx, ty, ix, iy),
-              amount: GOLDEN_COIN_AMOUNT, seeded: true, _street: v });
-          }
+          const depth = side => 2 + Math.floor(hash01(`thorny-depth|${rec.key}|${Math.floor(s / CELL_M)}|${side}`) * (THORNY_VERGE_MAX_CELLS - 1));
+          crossSection(rec,x,y,nx,ny,depth,brambleSeats,(ix,iy)=>{
+            if (hash01(WG.cellId('bramble-density',tx,ty,ix,iy)) < THORNY_CLUSTER_DENSITY) bramble(ix,iy);
+          });
         });
       } else if (v === 'pilgrim' || v === 'barricade') {
         if (v === 'barricade') {
@@ -1528,7 +1568,7 @@
             crossSection(rec,x,y,nx,ny,()=>BARRICADE_VERGE_MAX_CELLS,barricadeSeats,(ix,iy)=>{
               claim(ix,iy);
               const extra = { _street: v, _streetScenery: true };
-              if (u01(WG.cellId('barr-kind',tx,ty,ix,iy)) < 1/3) res.objects.push(WG.makeObject('stakes',cx(ix),cy(iy),
+              if (hash01(WG.cellId('barr-kind',tx,ty,ix,iy)) < 1/3) res.objects.push(WG.makeObject('stakes',cx(ix),cy(iy),
                 WG.cellId('stakes_barr',tx,ty,ix,iy),extra));
               else res.wildplants.push(WG.makeWildplant('barricade',cx(ix),cy(iy),
                 WG.cellId('barr_scenery',tx,ty,ix,iy),extra));
@@ -1542,57 +1582,6 @@
         let arr = streetEnds.get(v + '|' + rec.key);
         if (!arr) streetEnds.set(v + '|' + rec.key, arr = { v, key: rec.key, ends: [] });
         for (const p of ownedEnds(rec)) arr.ends.push(p);
-      } else if (v === 'burned') {
-        const rng = streamFor(rec, v);
-        let placed = 0;
-        sampleLine(rec.line, gM, BURNED_STEP_M, BURNED_STEP_M / 2, (s, x, y, nx, ny) => {
-          if (placed >= BURNED_MAX) return false;
-          const side = rng() < 0.5 ? 1 : -1;
-          const tar = rng() < 0.5;
-          if (!S.covers(spans, s)) return;
-          const c = verge(rec, x, y, nx, ny, side);
-          if (!c) return;
-          claim(c.ix, c.iy);
-          const kind = tar ? 'tar' : 'stakes';
-          res.objects.push(WG.makeObject(kind, cx(c.ix), cy(c.iy),
-            WG.cellId(kind, tx, ty, c.ix, c.iy), { _street: v }));
-          res.slowCells.set(c.iy * N + c.ix, kind);
-          placed++;
-        });
-        // Placed torches reuse the cave torch's animated art and warm light.
-        // Dress after the debris without disturbing its random stream or seats.
-        sampleLine(rec.line, gM, BURNED_TORCH_STEP_M, BURNED_TORCH_STEP_M / 2, (s, x, y, nx, ny) => {
-          if (!S.covers(spans, s)) return;
-          const side = Math.floor(s / BURNED_TORCH_STEP_M) % 2 ? -1 : 1;
-          const c = verge(rec, x, y, nx, ny, side) || verge(rec, x, y, nx, ny, -side);
-          if (!c) return;
-          claim(c.ix, c.iy);
-          res.objects.push(WG.makeObject('torch', cx(c.ix), cy(c.iy),
-            WG.cellId('torch_burned', tx, ty, c.ix, c.iy), { _street: v }));
-        });
-        // ONE FIRE SLIME PER STRETCH (lairs.js 'burned' tier): the first
-        // spawnable verge cell of each (street key, stretch square) this piece
-        // walks through inside the tile. The squares are tile-aligned, so a
-        // stretch belongs to one tile; `burnedSeen` keeps a street that is
-        // several line pieces here to one guard per stretch. No draws.
-        sampleLine(rec.line, gM, BURNED_GUARD_STEP_M, BURNED_GUARD_STEP_M / 2, (s, x, y, nx, ny) => {
-          if (!S.covers(spans, s)) return;
-          const st = stretchOf(tx * ext + x / gM, ty * ext + y / gM);
-          const sk = `burned:${rec.key}|${st.sx},${st.sy}`;
-          if (burnedSeen.has(sk)) return;
-          // Seated BACK beyond the kerb buffer (foeSeat), from whichever
-          // verge side seats; neither → try the stretch's next sample.
-          let c = null;
-          for (const side of [1, -1]) {
-            const v = verge(rec, x, y, nx, ny, side);
-            c = v && foeSeat(v.ix, v.iy);
-            if (c) break;
-          }
-          if (!c) return;
-          burnedSeen.add(sk);
-          res.lairs.push({ tier: 'burned', sid: sk,
-            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
-        });
       }
       // lantern: nothing seated here — denser street lamps (lampSpacingFor).
     }
@@ -1617,7 +1606,7 @@
         const gk = `${tx * ext + p.x},${ty * ext + p.y}`;
         if (seen.has(gk)) continue;
         seen.add(gk);
-        cands.push({ p, u: u01(`end|${grp.v}|${grp.key}|${gk}`) });
+        cands.push({ p, u: hash01(`end|${grp.v}|${grp.key}|${gk}`) });
       }
       cands.sort((a, b) => a.u - b.u);
       for (const { p } of cands) {
@@ -1647,7 +1636,7 @@
     // Hash order gives competing streets stable priority for safe seats.
     // A shrine stands back from the road on an ATTRACTOR cell, on the same
     // side of every major band. Unsafe streets simply receive no shrine.
-    const shrineKeys = [...shrineStreets.keys()].sort((a, b) => u01('shrine|' + a) - u01('shrine|' + b));
+    const shrineKeys = [...shrineStreets.keys()].sort((a, b) => hash01('shrine|' + a) - hash01('shrine|' + b));
     for (const key of shrineKeys) {
       if (!streetShrineChosen(key)) continue;
       yield 'street shrines';
@@ -1659,7 +1648,7 @@
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
             const k = verge(rec, x, y, nx, ny, side);
-            c = k && nearestSeat(k.ix, k.iy, N, rc, HOARD_OFFSETS, hoardOk);
+            c = k && nearestSeat(k.ix, k.iy, N, rc, hoardOffsets(), hoardOk);
             if (c) break;
           }
         });
@@ -1687,9 +1676,9 @@
       if (hoards >= HOARDS_PER_TILE) break;
       yield 'street hoards';
       const pix = cellOfM(hp.x * gM), piy = cellOfM(hp.y * gM);
-      let h = nearestSeat(pix, piy, N, rc, HOARD_OFFSETS, foeOk);
+      let h = nearestSeat(pix, piy, N, rc, hoardOffsets(), foeOk);
       const guarded = !!h;
-      if (!h) h = nearestSeat(pix, piy, N, rc, HOARD_OFFSETS, hoardOk);
+      if (!h) h = nearestSeat(pix, piy, N, rc, hoardOffsets(), hoardOk);
       if (!h) continue;
       claim(h.ix, h.iy);
       hoards++;
@@ -1717,6 +1706,32 @@
 
   function stoneColorFor(variant, restored = true) {
     return VARIANT_BY_ID[variant]?.stone?.[restored ? 'restored' : 'weathered'] || null;
+  }
+
+  // Use the same source intervals and round-ended band as the paving, not
+  // dressing marks (which include the safe verge) or the coarser road mask.
+  function hotRoadAt(entry, cx, cy) {
+    const N = entry?.cellsPerEdge, index = entry?.streetIndex;
+    if (!index || !(N > 0) || !(entry.tileEdgeM > 0)
+        || cx < 0 || cy < 0 || cx >= N || cy >= N) return false;
+    const t = entry.grid?.[Math.floor(cy) * N + Math.floor(cx)];
+    if (t == null || t === root.WorldGen.T.WATER || root.WorldGen.isBuildingTerrain(t)) return false;
+    const cellM = entry.tileEdgeM / N, scale = entry.tileEdgeM / (index.extent || 4096);
+    const x = cx * cellM, y = cy * cellM;
+    for (const rec of index.lines || []) {
+      if (!VARIANT_BY_ID[rec.variant]?.hotRoad) continue;
+      for (const part of lineParts(rec, scale)) {
+        if (!VARIANT_BY_ID[part.variant]?.hotRoad) continue;
+        const line = root.Streets.subLineM(rec.line, scale, part.a, part.b);
+        for (let i = 1; i < line.length; i++) {
+          const a = line[i - 1], b = line[i], dx = b.x - a.x, dy = b.y - a.y;
+          const len2 = dx * dx + dy * dy;
+          const u = len2 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / len2)) : 0;
+          if (Math.hypot(x - a.x - u * dx, y - a.y - u * dy) <= rec.halfW) return true;
+        }
+      }
+    }
+    return false;
   }
 
   // One line's themed metre intervals, shared by paving, lamps and previews.
@@ -1778,13 +1793,13 @@
   }
 
   function streetShrineChosen(key) {
-    return !!root.Shrines && u01('shrine|' + key) < root.Shrines.STREET_SHRINE_CHANCE;
+    return !!root.Shrines && hash01('shrine|' + key) < root.Shrines.STREET_SHRINE_CHANCE;
   }
 
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, VERGE_MAX_CELLS,
+    VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
@@ -1792,10 +1807,10 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
-    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, isSlowKind,
+    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, hotRoadAt, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

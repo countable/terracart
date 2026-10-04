@@ -7,7 +7,9 @@ const poly = (cls, geom) => ({ type: 3, tags: { class: cls }, geom });
 const build = (layers = [], edge = EDGE) => W.rasterizeTile(layers, N, TX, TY, edge);
 const grass = (r) => r.wildplants.filter((p) => p.crop === 'longgrass' && p._biome === T.GRASS);
 const signature = (r) => grass(r).map((p) => p.id).sort().join(',');
-const cellKey = (p) => p.id.split('_').slice(-2).join('_');
+// Plants from an overlapping polygon can carry an id suffix; geometry, not
+// id spelling, identifies their cell and the structures they compete with.
+const cellKey = p => `${Math.floor((p.x - TX * EDGE) / (EDGE / N))}_${Math.floor((p.y - TY * EDGE) / (EDGE / N))}`;
 
 test('grass fill: unmapped ground has sparse fill and dense circular stands', () => {
   const r = build(), plants = grass(r), occupied = new Set(plants.map(cellKey));

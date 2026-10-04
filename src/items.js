@@ -5,7 +5,7 @@
 // Depends on:
 //   util.js (fnv1a, for the per-cell sprite-variant hash). Pure data + small
 //   lookup helpers otherwise. Must load BEFORE
-//   loot.js (tierInfo falls back to SEED_TIER for raw seed ids) and app.js.
+//   loot.js (lootFlashColor reads itemTierOf) and app.js.
 //
 // Exports as globals:
 //   CROP_ROW, MAX_GROWTH_STAGE, PRODUCE_COL, SEEDBOX_COL, CROPS_SHEET_COLS
@@ -15,7 +15,6 @@
 //   PRICES, BUY_LIST, STARTING_MONEY
 //   NON_TILLABLE, isTillable, isTillableCell   (which ground takes a hoe)
 //   INV_CATS, INV_CAT_BY_KEY, invCatForItem    (the inventory's type tabs)
-//   SEED_TIER  (loot tier config; co-located with the crops it describes)
 
 // Crops sheet (assets/Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
 // Each crop = 1 row. In-world growth: col 0 (sprout) → col 4 (harvestable).
@@ -149,6 +148,7 @@ const WILDPLANT_CONTEXT_ART = {
   zone_rock_pirate_cove: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 71, scale: 4 / 3 },
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
   zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
+  palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 2, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
@@ -157,9 +157,13 @@ function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];
   const rawLook = p && (p._plantArt || p._streetArt);
   const look = rawLook === 'trimmed' ? 'clipped' : rawLook;
+  // An authored ordinary look takes precedence over inferred biome styling.
+  if (look === 'ordinary') return base;
   const context = WILDPLANT_CONTEXT_ART[look];
   if (context && context.crop === p.crop) return look === 'zone_hedge'
     ? { ...context, frame: p._hedgeFrame ?? 0 } : context;
+  // Unnamed beach sand uses the same palms as authored coastal shrub placements.
+  if (p && !p._cave && p.crop === 'shrub' && p._biome === 2 && !look) return WILDPLANT_CONTEXT_ART.palm;
   if (base?.looks?.[look]) return base.looks[look];
   if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return base.looks.clipped;
   if (base?.mature && (p.kind === 'wildplant' || p.wildId != null || p.stage >= MAX_GROWTH_STAGE)) return base.mature;
@@ -303,16 +307,22 @@ const COOKED_FOODS = {
 const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3 });
 function mineralDeposit(o) { return o.deposit === 'crystal' ? CRYSTAL_DEPOSIT : null; }
 
+// `smeltFrom` is the flower a T5+ bar is SMELTED from (one flower plus the
+// bar one tier below — Gear.smeltingRecipe); T2..T4 bars are mined, not smelted.
 const MINERAL_TIERS = Object.freeze({
   2: Object.freeze({ barId: 'copper_bar',   rockFrame: 0 }),
   3: Object.freeze({ barId: 'iron_bar',     rockFrame: 1 }),
   4: Object.freeze({ barId: 'gold_bar',     rockFrame: 2 }),
-  5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3 }),
-  6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5 }),
-  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 7 }),
+  5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3, smeltFrom: 'sunflower' }),
+  6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5, smeltFrom: 'fireflower' }),
+  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 7, smeltFrom: 'iceflower' }),
 });
 function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
+// THE BAR LADDER, by gear tier: T1 is plain wood (no ore row), T2..T7 the
+// row's bar. Every forge recipe, ore shelf and bar list reads it here.
+function barForTier(tier) { return tier === 1 ? 'wood' : mineralBarId(tier); }
+const BAR_IDS = Object.freeze([1, 2, 3, 4, 5, 6, 7].map(barForTier));
 
 const MINERAL_ICON_SHEET = {
   field_scope: { sheet: 'icon_field_scope', frame: 0 },
@@ -377,6 +387,7 @@ const MINERAL_ICON_SHEET = {
   // Consumables — honey is a single 16×16 jar (Icons/Items/Honey.png, an
   // amber fill of the potion pack's empty flask); books are a 240×64
   // multi-frame sheet, frame 0 the basic variant.
+  syrup: { sheet: 'icon_potions', frame: 0 },
   taming_potion:      { sheet: 'icon_taming_potion',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
   tome_reach: { sheet: 'icon_book',   frame: 2 },
@@ -393,6 +404,8 @@ const MINERAL_ICON_SHEET = {
   explosive_flask: { sheet: 'icon_potions', frame: 22 },
   fear_scroll:     { sheet: 'icon_book', frame: 47 },
   treasure_map:    { sheet: 'icon_book', frame: 49 },
+  // The Renovation Permit — the sealed scroll beside the maps (Books.png).
+  renovation_permit: { sheet: 'icon_book', frame: 48 },
   // The Magic Hammer — the RPG pack's glowing hammer (Icons/Items/MagicHammer.png, see SOURCES.md).
   magic_hammer:    { sheet: 'icon_magic_hammer', frame: 0 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
@@ -612,7 +625,7 @@ const BASE_TIER = {
   dog: 5,
   // Consumables
   antidote: 1, elixir: 7,
-  taming_potion: 3, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
+  syrup: 2, taming_potion: 3, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
@@ -656,6 +669,9 @@ const BASE_TIER = {
   // first Supply Shop could not sell it): one thrown shot, a staple of the
   // first cave trips, so the initial supply shop stocks it beside the torch.
   throwing_spear: 1, javelin: 4,
+  // Renovation Permit — a T4 supply spent on a standing shop, smithy or
+  // trader to raise it one rank (houses.js renovate).
+  renovation_permit: 4,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
@@ -854,9 +870,10 @@ const ITEMS = [
   // stalk nor drain you, and your own arm stays quiet: no swing, no shot
   // (useShadowPowder).
   { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'magic' },
-  // Frost Powder: every enemy within reach is frozen solid for 30 s — no
-  // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
-  // hostile is in reach.
+  // Frost Powder: every enemy within reach is CHILLED for 30 s — a SLOW
+  // (Combat.applyFrost, the `frozen` status row: half pace, half attack
+  // cadence), never a freeze in place (useFrostPowder). Refused — and kept —
+  // when nothing hostile is in reach.
   { id: 'frost_powder',  name: 'Frost Powder',        kind: 'magic' },
   // Unique jewelry works while carried. Its designation keeps magic shops and
   // ordinary class rolls from selling it; named chest pools remain its source.
@@ -892,6 +909,7 @@ const ITEMS = [
   { id: 'magic_trap',    name: 'Magic Trap',          kind: 'supply', caveOnly: true },
   { id: 'throwing_spear',        name: 'Throwing Spear',      kind: 'supply' },
   { id: 'javelin',      name: 'Javelin',             kind: 'supply' },
+  { id: 'renovation_permit', name: 'Renovation Permit', kind: 'supply' },
   // Animal byproducts — kind: 'produce' alongside egg / milk, so they sit in
   // the produce pool of the rarity picker, not the mineral pool.
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
@@ -926,6 +944,7 @@ const ITEMS = [
   { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     dropWeight: 0.4 },
   { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', dropWeight: 0.4 },
   // Fruit from fruit trees in orchard tiles
+  { id: 'syrup', name: 'Syrup', kind: 'produce', dropWeight: 0 },
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
   { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry' },
   { id: 'worldpeach',   name: 'Worldpeach',   kind: 'produce', crop: 'worldpeach' },
@@ -1035,7 +1054,16 @@ function fireBurnOutcome(id) {
 // Runtime methods, item copy and the Drink / Use dialog all read these rows,
 // so a balance edit cannot leave one surface behind. Function fields receive
 // the live scene at click time; items.js loads before those scene dependencies.
+//
+// A TIMED BUFF names its row of Buffs.KINDS (`buff`): that row says where the
+// expiry lives (save.<field> / scene.<field> / Shrines' boonUntil), and using
+// the item EXTENDS it by durationMs — max(now, until) + durationMs, the
+// torch's rule, never a reset (owner, Oct 2026). `used` is the dialog the
+// Drink / Use closes on ({ title, body }; either may be a function of the
+// live scene and the row). A TOME (`tome: { of, mul, flash }`) is read, never
+// spent, for `mul` of the potion `of`'s effect (TOME_MUL) and says `flash`.
 const _CONSUMABLE_MINUTE_MS = 60 * 1000;
+const TOME_MUL = 0.5;
 const CONSUMABLE_SPEC = {
   orb: {
     chestRevealMs: 6000,
@@ -1043,43 +1071,31 @@ const CONSUMABLE_SPEC = {
     verb: 'Use', method: 'useOrb', title: 'Gaze into the orb?',
     get: 'Unopened chests gleam, and hidden things stir within view.',
   },
+  // THROWABLES (`throwable: true`): the shared cooldown gates their button —
+  // usable / disabled / label are installed once below, off the scene's
+  // canThrowItem / throwActionLabel, never retyped per row.
   throwing_spear: {
-    damage: 20, throwCooldownMs: 3000, projectile: 'throwing_spear', immediate: true,
-    usable: scene => scene.canThrowItem('throwing_spear'),
-    disabled: scene => !scene.canThrowItem('throwing_spear'),
-    label: scene => scene.throwActionLabel(),
+    damage: 20, throwCooldownMs: 3000, projectile: 'throwing_spear', immediate: true, throwable: true,
     verb: 'Throw', method: 'useSpear', title: 'Throw the spear?',
     get: 'One sharp throw sends the spear flying toward your foes.',
   },
   javelin: {
-    damage: 40, throwCooldownMs: 3000, projectile: 'javelin', immediate: true,
-    usable: scene => scene.canThrowItem('javelin'),
-    disabled: scene => !scene.canThrowItem('javelin'),
-    label: scene => scene.throwActionLabel(),
+    damage: 40, throwCooldownMs: 3000, projectile: 'javelin', immediate: true, throwable: true,
     verb: 'Throw', method: 'useJavelin', title: 'Throw the javelin?',
     get: 'A heavy steel point flies straight toward your foes.',
   },
   rubble: {
-    damage: 2, throwCooldownMs: 1000, projectile: 'rock', immediate: true,
-    usable: scene => scene.canThrowItem('rubble'),
-    disabled: scene => !scene.canThrowItem('rubble'),
-    label: scene => scene.throwActionLabel(),
+    damage: 2, throwCooldownMs: 1000, projectile: 'rock', immediate: true, throwable: true,
     verb: 'Throw', method: 'useRock', title: 'Throw the rock?',
     get: 'A stone flies toward your foes.',
   },
   forgetmenot: {
-    damage: 0, throwCooldownMs: 1000, projectile: 'forgetmenot', effect: 'sleep', immediate: true,
-    usable: scene => scene.canThrowItem('forgetmenot'),
-    disabled: scene => !scene.canThrowItem('forgetmenot'),
-    label: scene => scene.throwActionLabel(),
+    damage: 0, throwCooldownMs: 1000, projectile: 'forgetmenot', effect: 'sleep', immediate: true, throwable: true,
     verb: 'Throw', method: 'useForgetmenot', title: 'Throw the forget-me-not?',
     get: 'A blue bloom settles a restless foe.',
   },
   wildrose: {
-    damage: 0, throwCooldownMs: 1000, projectile: 'wildrose', effect: 'charm', immediate: true,
-    usable: scene => scene.canThrowItem('wildrose'),
-    disabled: scene => !scene.canThrowItem('wildrose'),
-    label: scene => scene.throwActionLabel(),
+    damage: 0, throwCooldownMs: 1000, projectile: 'wildrose', effect: 'charm', immediate: true, throwable: true,
     verb: 'Throw', method: 'useWildrose', title: 'Throw the wild rose?',
     get: 'A fragrant bloom wins a foe to your side.',
   },
@@ -1095,7 +1111,7 @@ const CONSUMABLE_SPEC = {
   },
   fear_scroll: {
     durationMs: 30 * 1000,
-    verb: 'Read', method: 'useFearScroll', title: 'Read the Scroll of Fear?',
+    verb: 'Read', title: 'Read the Scroll of Fear?',
     get: 'The words send a shiver through every watching foe.',
   },
   treasure_map: {
@@ -1105,7 +1121,7 @@ const CONSUMABLE_SPEC = {
   },
   sleep_powder: {
     get durationMs() { return Combat.FLOWER_STATUS_MS; },
-    verb: 'Use', method: 'useSleepPowder', title: 'Scatter the Sleep Powder?',
+    verb: 'Use', title: 'Scatter the Sleep Powder?',
     get: 'Dream dust settles over every foe in sight.',
   },
   // Powder of Psychosis: every foe in sight loses its head for durationMs —
@@ -1115,7 +1131,7 @@ const CONSUMABLE_SPEC = {
   // blow in.
   psychosis_powder: {
     durationMs: 10 * 1000,
-    verb: 'Use', method: 'usePsychosisPowder', title: 'Scatter the Powder of Psychosis?',
+    verb: 'Use', title: 'Scatter the Powder of Psychosis?',
     get: 'A giddy haze takes every foe in sight, and they run every which way.',
   },
   // Potion of Hardworking: the Harvest Idol's boon (shrines.js `work` lever,
@@ -1123,9 +1139,10 @@ const CONSUMABLE_SPEC = {
   // durationMs, pulled through the same lever (Shrines.extend), so a potion
   // on top of the idol's visit extends the one countdown and never stacks.
   hardworking_potion: {
-    durationMs: 5 * _CONSUMABLE_MINUTE_MS,
-    verb: 'Drink', method: 'drinkHardworkingPotion', title: 'Drink the Potion of Hardworking?',
+    durationMs: 5 * _CONSUMABLE_MINUTE_MS, buff: 'work',
+    verb: 'Drink', title: 'Drink the Potion of Hardworking?',
     get: 'Your weariness lifts, and your hands move swiftly through their work.',
+    used: { title: 'You drink the Potion of Hardworking', body: (scene, spec) => spec.get },
   },
   // Poison Flask: whoever it touches carries the `poison` row of
   // Conditions.DEFINITIONS for its minute — a struck creature through
@@ -1143,10 +1160,10 @@ const CONSUMABLE_SPEC = {
   // player's own can when that is better (app.js waterCropsWithin). So the
   // jump roll and the shortened hold are a Gold can's, whoever eats it.
   rainberry: { radiusM: 20, canTier: 4 },
-  pairy: { durationMs: 5 * _CONSUMABLE_MINUTE_MS },
-  coffee: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, speedTierBoost: 2 },
-  dawnfruit: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, eatLabel: 'Vision' },
-  miracle_lettuce: { durationMs: 10 * _CONSUMABLE_MINUTE_MS, luckBonus: 1, eatLabel: 'Luck' },
+  pairy: { durationMs: 5 * _CONSUMABLE_MINUTE_MS, buff: 'compass' },
+  coffee: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, speedTierBoost: 2, buff: 'coffee' },
+  dawnfruit: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, eatLabel: 'Vision', buff: 'dawnfruit' },
+  miracle_lettuce: { durationMs: 10 * _CONSUMABLE_MINUTE_MS, luckBonus: 1, eatLabel: 'Luck', buff: 'lettuce' },
 
   egg: {
     verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
@@ -1156,26 +1173,33 @@ const CONSUMABLE_SPEC = {
     usable: scene => EggHatch.ready(scene.save),
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
-  tome_reach: { verb: 'Read', method: 'readTomeSight', title: 'Read the Tome of Reach?',
+  tome_reach: { verb: 'Read', title: 'Read the Tome of Reach?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_reach'),
+    tome: { of: 'reach_potion', mul: TOME_MUL, flash: '✨ The sight tome opens' },
     get: 'The far edge of the world leans closer with every page.' },
-  tome_raven: { verb: 'Read', method: 'readTomeRaven', title: 'Read the Tome of the Raven?',
+  tome_raven: { verb: 'Read', title: 'Read the Tome of the Raven?',
     cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_raven'),
+    tome: { of: 'raven_scroll', mul: TOME_MUL, flash: '✨ A raven leaves the page' },
     get: 'A raven of smoke and starlight waits between the lines.' },
-  tome_thunder: { verb: 'Read', method: 'readTomeStorm', title: 'Read the Tome of Thunder?',
+  tome_thunder: { verb: 'Read', title: 'Read the Tome of Thunder?',
     cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_thunder'),
+    tome: { of: 'thunder_scroll', mul: TOME_MUL, flash: '⚡ The storm tome speaks' },
     get: 'Storm writings. The sky leans in to listen.' },
-  tome_speed: { verb: 'Read', method: 'readTomeSpeed', title: 'Read the Tome of Speed?',
+  tome_speed: { verb: 'Read', title: 'Read the Tome of Speed?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_speed'),
+    tome: { of: 'speed_potion', mul: TOME_MUL, flash: '✨ The speed tome opens' },
     get: 'Every line quickens. The road unwinds faster beneath you.' },
-  tome_shielding: { verb: 'Read', method: 'readTomeShield', title: 'Read the Tome of Shielding?',
+  tome_shielding: { verb: 'Read', title: 'Read the Tome of Shielding?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_shielding'),
+    tome: { of: 'shielding_potion', mul: TOME_MUL, flash: '✨ The shield tome opens' },
     get: 'The words settle around you like layered plates.' },
-  tome_healing: { verb: 'Read', method: 'readTomeHealing', title: 'Read the Tome of Healing?',
+  tome_healing: { verb: 'Read', title: 'Read the Tome of Healing?',
     cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_healing'),
+    tome: { of: 'healing_potion', mul: TOME_MUL, flash: '✨ The healing tome opens' },
     get: 'A warmth gathers where the page is worn softest.' },
-  tome_blight: { verb: 'Read', method: 'readTomeBlight', title: 'Read the Tome of Blight?',
+  tome_blight: { verb: 'Read', title: 'Read the Tome of Blight?',
     cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_blight'),
+    tome: { of: 'blight_potion', mul: TOME_MUL, flash: '✨ The blight tome opens' },
     get: 'The margin ink crawls. What it touches sickens.' },
   tome_fire_wall: { lengthCells: 5,
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
@@ -1187,9 +1211,11 @@ const CONSUMABLE_SPEC = {
     get: 'Sweetness draws curious noses through the grass.',
   },
   reach_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS,
-    verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?',
+    durationMs: _CONSUMABLE_MINUTE_MS, buff: 'reach',
+    verb: 'Drink', title: 'Drink the Potion of Reach?',
     get: 'The far edges of the world draw close enough to touch.',
+    used: { title: '✨ You drink the Potion of Reach',
+      body: 'A shiver runs through your fingers. Even the far edge of the world feels close enough to touch.' },
   },
   antidote: {
     verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?',
@@ -1208,68 +1234,87 @@ const CONSUMABLE_SPEC = {
     get: 'A little strength returns to your limbs.',
   },
   speed_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9,
-    verb: 'Drink', method: 'drinkSpeedPotion', title: 'Drink the Potion of Speed?',
+    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9, buff: 'speed',
+    verb: 'Drink', title: 'Drink the Potion of Speed?',
     get: 'Warmth rushes into your legs. For a little while, your steps are light and swift.',
+    used: { title: '✨ You drink the Potion of Speed',
+      body: 'Warmth races down to your toes. The road slips beneath your feet.' },
   },
   protection_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.75,
-    verb: 'Drink', method: 'drinkProtectionPotion', title: 'Drink the Potion of Protection?',
+    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.75, buff: 'protection',
+    verb: 'Drink', title: 'Drink the Potion of Protection?',
     get: 'A pale ward softens the blows that reach you.',
+    used: { title: 'You drink the Potion of Protection', body: (scene, spec) => spec.get },
   },
   immortal_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS,
-    verb: 'Drink', method: 'drinkImmortalPotion', title: 'Drink the Potion of Immortal?',
+    durationMs: _CONSUMABLE_MINUTE_MS, buff: 'immortal',
+    verb: 'Drink', title: 'Drink the Potion of Immortal?',
     get: 'For a brief while, no wound can reach you.',
+    used: { title: 'You drink the Potion of Immortal',
+      body: (scene, spec) => `Immune to all damage for ${shortDuration(spec.durationMs)}.` },
   },
   time_potion: {
     verb: 'Drink', method: 'drinkTimePotion', title: 'Drink the Potion of Time?',
     get: 'Every spell falls away. Your rested belongings are ready once more.',
   },
   fire_resistance_potion: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS,
-    verb: 'Drink', method: 'drinkFireResistancePotion', title: 'Drink the Potion of Fire Resistance?',
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, buff: 'fireResistance',
+    verb: 'Drink', title: 'Drink the Potion of Fire Resistance?',
     get: 'Flames curl harmlessly around your skin.',
+    used: { title: 'You drink the Potion of Fire Resistance',
+      body: (scene, spec) => `Immune to fire for ${shortDuration(spec.durationMs)}.` },
   },
   shrinking_potion: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS, scaleMul: 0.5, maxHpMul: 0.5, meleeDamageMul: 0.5, visionCells: 1,
-    verb: 'Drink', method: 'drinkShrinkingPotion', title: 'Drink the Potion of Shrinking?',
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, scaleMul: 0.5, maxHpMul: 0.5, meleeDamageMul: 0.5, visionCells: 1, buff: 'shrinking',
+    verb: 'Drink', title: 'Drink the Potion of Shrinking?',
     get: 'You dwindle beneath the grass, small and easily overlooked.',
+    used: { title: 'You drink the Potion of Shrinking',
+      body: (scene, spec) => `Half size, maximum HP and melee damage; +${spec.visionCells} stealth for ${shortDuration(spec.durationMs)}.` },
   },
   giant_potion: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS, damageBonus: 5, maxHpBonus: 100, scaleMul: 1.5,
-    verb: 'Drink', method: 'drinkGiantPotion', title: 'Drink the Potion of Giant?',
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, damageBonus: 5, maxHpBonus: 100, scaleMul: 1.5, buff: 'giant',
+    verb: 'Drink', title: 'Drink the Potion of Giant?',
     get: 'Your body rises tall, and strength swells through your limbs.',
+    used: { title: 'You drink the Potion of Giant',
+      body: (scene, spec) => `+${spec.maxHpBonus} maximum HP and +${spec.damageBonus} melee damage for ${shortDuration(spec.durationMs)}.` },
   },
   shielding_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5,
-    verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
+    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5, buff: 'shield',
+    verb: 'Drink', title: 'Drink the Potion of Shielding?',
     get: 'A shimmering veil softens the blows of beasts.',
+    used: { title: '✨ You drink the Potion of Shielding',
+      body: 'A cool shimmer settles over your skin, taking the sting from claw and fang.' },
   },
   bones_scroll: {
-    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_skeleton',
-    verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of Bones?',
+    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_skeleton', buff: 'skeleton',
+    verb: 'Read', title: 'Read the Scroll of Bones?',
     get: 'A bone-white guardian rises to fight beside you.',
+    used: { title: 'You read the Scroll of Bones', body: (scene, spec) => spec.get },
   },
   wraith_scroll: {
-    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_wraith',
-    verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of the Wraith?',
+    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_wraith', buff: 'wraith',
+    verb: 'Read', title: 'Read the Scroll of the Wraith?',
     get: 'A cold shade slips from the ink to hunt your foes.',
+    used: { title: 'You read the Scroll of the Wraith', body: (scene, spec) => spec.get },
   },
   raven_scroll: {
-    durationMs: _CONSUMABLE_MINUTE_MS,
-    verb: 'Read', method: 'readRavenScroll', title: 'Read the Scroll of the Raven?',
+    durationMs: _CONSUMABLE_MINUTE_MS, buff: 'raven',
+    verb: 'Read', title: 'Read the Scroll of the Raven?',
     get: 'A raven of pale smoke takes wing against your foes.',
+    used: { title: 'You read the Scroll of the Raven',
+      body: 'A raven of smoke and starlight shakes itself out of the parchment. It settles beside you, watching the beasts with hungry eyes.' },
   },
   thunder_scroll: {
     damage: 25,
-    verb: 'Read', method: 'readThunderScroll', title: 'Read the Scroll of Thunder?',
+    verb: 'Read', title: 'Read the Scroll of Thunder?',
     get: 'Thunder breaks over the foes before you.',
   },
   blight_potion: {
-    durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2,
-    verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',
+    durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2, buff: 'blight',
+    verb: 'Drink', title: 'Drink the Potion of Blight?',
     get: 'A sickly haze clings to you, withering foes that stray too close.',
+    used: { title: '✨ You drink the Potion of Blight',
+      body: 'A crimson haze seeps from your skin. Nearby beasts shudder in its wake.' },
   },
   revival_potion: {
     energyFrac: 0.30,
@@ -1284,9 +1329,11 @@ const CONSUMABLE_SPEC = {
     usable: scene => Combat.playerDowned(scene.save.energy),
   },
   dragon_powder: {
-    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2,
-    verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',
+    durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2, buff: 'dragon',
+    verb: 'Use', title: 'Use the Dragon Powder?',
     get: 'The powder lets you soar in dragon form, for a short time.',
+    used: { title: '🐉 You toss the Dragon Powder',
+      body: 'Scales ripple across your skin. Heat swells in your chest, and the ground shakes beneath your claws.' },
   },
   growth_powder: {
     get radiusM() { return CONSUMABLE_SPEC.rainberry.radiusM; },
@@ -1294,21 +1341,24 @@ const CONSUMABLE_SPEC = {
     get: 'The crops around you stir as though spring has hurried past.',
   },
   shadow_powder: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS,
-    verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, buff: 'shadow',
+    verb: 'Use', title: 'Use the Shadow Powder?',
     get: 'The shadows gather around you, hiding you from hungry eyes — and muffling your own strikes.',
+    used: { title: '🌑 You cast the Shadow Powder', body: 'The dark folds around you. Hungry eyes pass you by.' },
   },
   frost_powder: {
     durationMs: 30 * 1000,
-    verb: 'Use', method: 'useFrostPowder', title: 'Use the Frost Powder?',
+    verb: 'Use', title: 'Use the Frost Powder?',
     get: 'Frost closes around the foes within your reach.',
   },
   torch: {
-    durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2,
-    verb: 'Light', method: 'useTorch', title: 'Light the Torch?',
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'torch',
+    verb: 'Light', title: 'Light the Torch?',
     get: scene => scene.isTorchActive()
       ? 'Fresh flame feeds the light already around you.'
       : 'Firelight opens the dark around you.',
+    used: { title: scene => (scene.isTorchActive() ? '🔥 You light another Torch' : '🔥 You light the Torch'),
+      body: 'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps.' },
   },
   // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
   // riding only counts while a horse is in the bag (isRiding). Mounted, the
@@ -1333,6 +1383,14 @@ const CONSUMABLE_SPEC = {
     secondary: { label: 'Up', method: 'useRopeUp', disabled: scene => !(scene.depth > 0) },
   },
 };
+
+// The throwables' button (see the rows): one install, read at click time.
+for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
+  if (!row.throwable) continue;
+  row.usable = scene => scene.canThrowItem(id);
+  row.disabled = scene => !scene.canThrowItem(id);
+  row.label = scene => scene.throwActionLabel();
+}
 
 // Compatibility names keep existing consumers concise while the table remains
 // the only numeric owner.
@@ -1373,7 +1431,7 @@ const PRICES = {
   // the trailer's 2-produce harvest clears the seed cost by 25% of the
   // payout (Oct 2026). Starfruit and gemfruit were the T3 crops under it.
   starfruit: 29,   // the rescued neighbour’s crop, between Pairy and Gemfruit
-  gemfruit: 30,    // T2 + occasional rockfruit bonus
+  gemfruit: 30,    // T2 + occasional rubble bonus
   coffee: 40,      // T2, no wild source
   sunflower: 150,  // T4 magical flower — commonest of the trio
   fireflower: 300, // T5 magical flower
@@ -1404,6 +1462,7 @@ const PRICES = {
   milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
+  syrup: 7,
   taming_potion: 12,
   book:  20,
   tome_reach: 90,   // T3 — a reach potion's sight, once a day, forever
@@ -1444,7 +1503,7 @@ const PRICES = {
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
-  frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
+  frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
   stealth_ring: 0, invisibility_ring: 0, ember_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
@@ -1453,6 +1512,7 @@ const PRICES = {
   throwing_spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
+  renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
   scarecrow: 20,   // crow/deer ward — crafted at Home (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
@@ -1495,6 +1555,13 @@ function itemValue(id) {
   if (PRICES[id] != null) return PRICES[id];
   const t = ITEM_BY_ID[id]?.baseTier || 1;
   return TIER_VALUE[t] || TIER_VALUE[TIER_VALUE.length - 1];
+}
+// Every catalogue item's value by id (the trader's ask map —
+// ShopsMath.traderAsk reads prices[id] and walks the keys as its wishlist).
+// Built once, on first ask: PRICES is finished long before a shop opens.
+let _itemValues = null;
+function itemValues() {
+  return _itemValues || (_itemValues = Object.fromEntries(ITEMS.map((it) => [it.id, itemValue(it.id)])));
 }
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + memory.
@@ -1541,10 +1608,6 @@ const REVIVE_ITEM_FRAC = {
 // The Crow Feather stands you up with a flat 1 energy — enough to crawl, not
 // to fight: its pocket resurrection only buys the walk home.
 const FEATHER_REVIVE_ENERGY = 1;
-// The wild (green) surface slime's leech: energy per bite, one bite a second
-// (scene_creatures.js wanderCreatures), before the shield potion, its power,
-// the mode and armour. Here so the pest tip quotes the live number.
-const SLIME_LEECH_ENERGY = EnemyRoster.get('slime').dmg;
 
 // Book guides tell a small story about an item, with one useful hint.
 // Exact effects belong to gameplay owners and the dedicated stat readouts.
@@ -1631,6 +1694,7 @@ const ITEM_EFFECTS = {
   iceflower: 'Its frozen petals cool even crimson metal.',
   diamond: 'A sliver of winter waits for a jeweller’s hand.',
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
+  syrup: 'Sweet amber syrup clings to the lip of the jar.',
   taming_potion: 'Its sweet scent draws curious noses through the grass.',
   book: 'An elder’s faded words wait beneath the worn cover.',
   tome_reach: 'Page by page, the horizon walks closer.',
@@ -1662,10 +1726,11 @@ const ITEM_EFFECTS = {
   revival_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',
   growth_powder: 'Spring stirs in the dust, impatient with the sleeping crops.',
-  frost_powder: 'A pinch chills the air until foes within reach stand still.',
+  frost_powder: 'A pinch chills the air, and foes within reach move and strike slowly.',
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
   trap_disarm_kit: 'Iron tools loosen snares, barricades and spikes.',
+  renovation_permit: 'A guild seal that lets masons raise a shop a rank, once the lane has remembered enough to deserve it.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
   throwing_spear: CONSUMABLE_SPEC.throwing_spear.get,
   javelin: CONSUMABLE_SPEC.javelin.get,
@@ -1703,6 +1768,7 @@ const STARTING_ENERGY = 100;
 // The numbers below are the rows themselves; cooked rows follow through GRILL_ENERGY_MUL.
 const FOOD_ENERGY = {
   goblet: 5,
+  syrup: 13,
   longgrass:  3,
   nut:        10,
   potato:     10,
@@ -1823,9 +1889,12 @@ const TIER_BADGE_NAMES = {
 // little purple — rarity displays wear this lavender-platinum; the material
 // colour that relics, arrows and bolts read stays MATERIAL_TIERS' own.
 const TIER_BADGE_TINT = { 5: 0xc9a6f2 };
-function itemTierOf(id) {
+// THE tier lookup (1..7) for a catalogue item; `fallback` (0: no badge) for
+// an id with no tier. Every other tier reader (fishTier, Shops.itemTier)
+// is this with a fallback of 1.
+function itemTierOf(id, fallback = 0) {
   const t = ITEM_BY_ID[id]?.baseTier;
-  return t > 0 ? Math.min(7, Math.floor(t)) : 0;
+  return t > 0 ? Math.min(7, Math.floor(t)) : fallback;
 }
 // Shared rarity color for badges, chest art and chest light sources.
 function tierBadgeColor(tier) {
@@ -1845,6 +1914,14 @@ function tierBadgeHTML(tier, fontPx = 10, paddingPx = 5) {
     + `font:700 ${fontPx}px ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase;`
     + `line-height:1.35;vertical-align:middle;background:${bg};color:${ink};">${name}</span>`;
 }
+// THE NEW BADGE: the pill a restore card wears when the player has nothing
+// like it yet (houses.js isNewPick) — the accept green, same cut as the
+// rarity badge so the two sit on one line.
+function newBadgeHTML(fontPx = 9) {
+  return `<span class="new-badge" style="display:inline-block;padding:0 4px;margin-left:3px;border-radius:4px;`
+    + `font:700 ${fontPx}px ui-monospace,monospace;letter-spacing:.06em;line-height:1.35;vertical-align:middle;`
+    + `background:${UI_GREEN};color:#1a1612;">NEW</span>`;
+}
 // Relic SLOT defs. icon=file under Icons/RPG icons/Weapons and Armor/<folder>/.
 // effectKey is read by gameplay code (interact.js / loot.js) to apply bonuses.
 const RELIC_DEFS = {
@@ -1860,8 +1937,8 @@ const RELIC_DEFS = {
   // the staff at the nearest foe in range every 5 s (5 damage a bolt at Wood),
   // the next bolt charging by the player's hand in between.
   // They fight ENEMIES and nothing else: the crow/deer hunt wheel is the BUG
-  // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
-  // values and the Bow lowers buy prices; the Staff bends no prices at all.
+  // NET's job, not a weapon's. No weapon bends a price: selling is one flat
+  // rate (sellMultiplier) and buying one mode-scaled band (buyMarkupRange).
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'melee',         blurb: 'Its edge answers a foe that comes too close.' },
   dagger:  { slot: 'dagger', name: 'Dagger', icon: 'Dagger.png', baseCost: 80,
@@ -2128,7 +2205,7 @@ function rollEmptyCast(rng = Math.random, rodTier = 0) {
   if (rng() < FISH_EMPTY_TREASURE_PER_TIER * rodTier) return { kind: 'treasure', tier: rollFoundTreasureTier(rng) };
   if (rng() < FISH_SLIME_CHANCE) return { kind: 'slime' };
   if (rng() < FISH_EMPTY_JUNK_CHANCE) {
-    return { kind: 'junk', id: FISH_EMPTY_JUNK[Math.floor(rng() * FISH_EMPTY_JUNK.length)] };
+    return { kind: 'junk', id: pickFromArray(FISH_EMPTY_JUNK, rng) };
   }
   return null;
 }
@@ -2162,7 +2239,7 @@ for (const { id } of FISH_SPECIES) {
   ITEM_EFFECTS[id] = 'Its nourishment returns your strength little by little.';
   ITEM_EFFECTS[COOKED_FOODS[id].id] = 'Warm from the fire, it restores your strength little by little.';
 }
-function fishTier(id) { return BASE_TIER[id] || 1; }
+function fishTier(id) { return itemTierOf(id, 1); }
 // Shiny fish use the same +3 tier uplift as shiny inventory animals.
 // The uplift stops at T7, matching the item and rod ceiling.
 const SHINY_FISH_TIER_UP = SHINY_TIER_UP;
@@ -2323,7 +2400,7 @@ const UNIQUE_JEWELRY = Object.freeze({
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
 function carriesItem(save, id) {
-  return !!(save?.inv || []).find((st) => st?.id === id && (st.count ?? 0) > 0);
+  return Inventory.count(save, id) > 0;
 }
 // The fraction a carried guild badge takes off deals with `role` (a
 // Houses.houseShopRole key), 0 without one. Read from CARRIED_ITEM_SPEC.
@@ -2445,14 +2522,6 @@ function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
   const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().buyMul : 1;
   return { lo: 1.2 * modeMul, hi: 3.0 * modeMul };
 }
-
-// === Per-crop loot tier config (used by chests + treasure marks) ===
-// Crop seed id → BASE_TIER (1..7); chest yields come from rarity.js, not a
-// per-tier count. Sourced from BASE_TIER so rarity stays single-source. The legacy callers
-// (loot.js pickLoot, REG tests) keep working unchanged.
-const SEED_TIER = Object.fromEntries(
-  Object.keys(CROP_ROW).map(c => [`${c}_seed`, BASE_TIER[c] || 1])
-);
 
 // Low-tier seeds (baseTier ≤ 2 — the cheap starter crops) are planted in bulk,
 // so the places that hand out seeds — trader barter, treasure X, and cash

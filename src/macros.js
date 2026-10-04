@@ -31,7 +31,7 @@
 // coin-positive taps left.
 //
 // Depends on (call time): items.js (PRICES, ITEMS, ITEM_BY_ID,
-// HEALING_POTION_ENERGY), util.js (fnv1a, makeRng32), delivery.js (Delivery),
+// HEALING_POTION_ENERGY), util.js (fnv1a, makeRng32, utcDayIndex, utcDayKey),
 // shops.js (Shops.THEME_POOL), shops_math.js (ShopsMath.standPrice),
 // combat.js (Combat.enemyBounty — the bounty's wage),
 // loot.js (chestTier), combat.js (Combat.training*), energy.js (Energy),
@@ -49,61 +49,203 @@
   // for a week: long enough for a crate that restocks after several days
   // (loot.js crateRestoreDays, capped at CRATE_RESTORE_MAX_DAYS — the same
   // week) to know how long ago it was taken (daysSinceTaken / restockWaitMs),
-  // and short enough that the save does not grow.
-  const DAY_MS = 24 * 60 * 60 * 1000;
+  // and short enough that the save does not grow. The day is util.js's UTC
+  // owner (utcDayIndex / utcDayKey, a Date or epoch ms either way).
+  const DAY_MS = UTC_DAY_MS;
   const LEDGER_KEEP_DAYS = (typeof CRATE_RESTORE_MAX_DAYS === 'number') ? CRATE_RESTORE_MAX_DAYS : 7;
-  function _date(now) { return now instanceof Date ? now : new Date(now ?? Date.now()); }
-  function _day(now) { return Delivery.dayKey(_date(now)); }
   // A ledger key's day as a UTC day number (days since the epoch), or NaN.
+  // The key ends in YYYYMMDD; each distinct tail is parsed once and kept (the
+  // sprite pass asks for every key every frame — interactables.js
+  // dayLedgerAges — and a ledger holds at most a week of days).
+  const _tailDays = new Map();
   function ledgerKeyDay(key) {
-    const m = /(\d{4})(\d{2})(\d{2})$/.exec(String(key));
-    return m ? Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3]) / DAY_MS) : NaN;
+    const k = String(key);
+    if (k.length < 8) return NaN;
+    const tail = k.slice(-8);
+    let d = _tailDays.get(tail);
+    if (d === undefined) {
+      d = /^\d{8}$/.test(tail)
+        ? Math.floor(Date.UTC(+tail.slice(0, 4), +tail.slice(4, 6) - 1, +tail.slice(6)) / DAY_MS) : NaN;
+      if (_tailDays.size > 64) _tailDays.clear();
+      _tailDays.set(tail, d);
+    }
+    return d;
   }
   function usedToday(save, id, now) {
     const m = save && save.coinBurstClaimed;
-    return !!m && m[id + _day(now)] === 1;
+    return !!m && m[id + utcDayKey(now)] === 1;
   }
   function markToday(save, id, now) {
-    const day = _day(now);
     const ledger = save.coinBurstClaimed = save.coinBurstClaimed || {};
-    ledger[id + day] = 1;
-    const today = Math.floor(_date(now).getTime() / DAY_MS);
+    ledger[id + utcDayKey(now)] = 1;
+    const today = utcDayIndex(now);
     for (const k of Object.keys(ledger)) {
-      const d = ledgerKeyDay(k);
-      if (!(today - d < LEDGER_KEEP_DAYS)) delete ledger[k];
+      if (!(today - ledgerKeyDay(k) < LEDGER_KEEP_DAYS)) delete ledger[k];
     }
   }
-  // Daily places share one ledger and one story ceremony. Pending dialogs
-  // are scene state only: leaving loot behind never spends the day's visit.
+  const serviceLedgerId = (id) => 'macro:' + id;
+  function serviceUsedToday(save, id, now) {
+    return usedToday(save, serviceLedgerId(id), now);
+  }
+  function markServiceToday(save, id, now) {
+    markToday(save, serviceLedgerId(id), now);
+  }
+  // Whole UTC days since `id` was last taken: 0 = today, 1 = yesterday, …;
+  // Infinity when the ledger holds no take within LEDGER_KEEP_DAYS.
+  function daysSinceTaken(save, id, now) {
+    const m = save && save.coinBurstClaimed;
+    if (!m) return Infinity;
+    const today = utcDayIndex(now);
+    for (let k = 0; k < LEDGER_KEEP_DAYS; k++) {
+      if (m[id + utcDayKey((today - k) * DAY_MS)] === 1) return k;
+    }
+    return Infinity;
+  }
+  // Is `id` still bare, restocking after `days` UTC days? (days 1 = daily.)
+  function stillBare(save, id, days, now) {
+    return daysSinceTaken(save, id, now) < Math.max(1, days || 1);
+  }
+  // How long until `id` restocks, in ms (0 when it is already there): the
+  // rest of today plus every whole day still to run. What a refusal prints,
+  // through shortDuration.
+  function restockWaitMs(save, id, days, now) {
+    const k = daysSinceTaken(save, id, now);
+    const n = Math.max(1, days || 1);
+    if (!(k < n)) return 0;
+    return msToNextUtcDay(now) + (n - 1 - k) * DAY_MS;
+  }
+  // THE ONE REFUSAL SHAPE for a timed wait, on the map: "<prefix> — <wait>"
+  // (shortDuration), within MAP_MSG_MAX. A pot, a chapel, a crate, a fruit
+  // tree, a cow and a page stone all say it this way, so the rule is learned
+  // once: glowing means available, the line says the wait.
+  function waitLine(prefix, ms) {
+    return `${prefix} — ${shortDuration(ms)}`;
+  }
+
+  // ── THE RECURRING SITES ───────────────────────────────────────────────────
+  // One row per thing the player comes BACK to: the tap (interactables.js
+  // chest.custom), the per-frame spent / glow tests (isSpent / poiLit via
+  // takenBy) and the pot's burst (app.js) all read the row
+  // visitKindForObject resolves. Columns: `ledger` — 'day' (the UTC-day
+  // ledger above), 'service' (its `macro:` lane: the chapel, a building's
+  // service independent of a pickup there) or 'ms' (a rolling clock,
+  // save.js Ledger: the castle, houses.js reads cooldownMs); `days(o)` — a
+  // 'day' row's bare spell (a crate's crateRestoreDays; 1 when absent);
+  // `spent` — the refusal prefix (waitLine adds the wait); `open(ctx, o)` —
+  // the whole tap when the row owns it (a hook answering null hands it
+  // back); name / art / body / sprite / light — the ceremony
+  // (beginDailyVisit) and the design sheet (tools/idols.html). The shrine
+  // rows (Shrines.SHRINE_KINDS / REWARD_KINDS) are 'day' rows of this table
+  // too, resolved first. Pending dialogs are scene state only: leaving loot
+  // behind never spends the day's visit.
+  const SPENT_DEFAULT = 'Already visited';
   const DAILY_VISIT_KINDS = {
-    wagon: { name: 'Mercenary wagon', art: 'visit_wagon', sprite: 'wagon', light: 0xf2d9a0,
+    hive: { name: 'Forest hive', art: 'visit_hive', sprite: 'beehive', light: 0xe8b95a, ledger: 'day',
+      reward: 'syrup', effect: 'Syrup, guarded by bees', locations: ['Forest'],
+      spent: 'Hive already tapped',
+      body: 'Thick syrup fills your jars. Angry bees pour from the hive.' },
+    wagon: { name: 'Mercenary wagon', art: 'visit_wagon', sprite: 'wagon', light: 0xf2d9a0, ledger: 'day',
       reward: 'companion', effect: 'A mercenary fights beside you',
       get price() { return root.Companions.KINDS.mercenary.hireCost; },
       get durationMs() { return root.Companions.KINDS.mercenary.durationMs; },
       locations: ['Old-trade-road bus stops'],
-      body: 'The mercenary takes your coins and lifts his sword. He falls into step beside you.' },
-    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1,
+      body: 'The mercenary takes your coins and lifts his sword. He falls into step beside you.',
+      open: (ctx, o) => hireMercenary(ctx, o) },
+    // A BIKE RACK: a push in the stick-walk speed lane (Buffs.KINDS.bike —
+    // save.bikeUntil, app.js _walkRelics → items.js steerSpeedMul).
+    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1, ledger: 'day',
       reward: 'bike', effect: 'Faster walking', locations: ['Mapped bicycle parking'], get durationMs() { return BIKE_RACK_MS; },
-      spent: 'Horse is out.',
-      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.' },
-    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778,
+      spent: 'Horse is out',
+      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.',
+      open: (ctx, o) => dailyVisit(ctx, o, { grant: () => {
+        Buffs.extend(ctx.save, ctx.scene, 'bike', BIKE_RACK_MS);
+        ctx.scene.flash(bikeRackFlash(), ctx.sx, ctx.sy);
+      } }) },
+    // A POT OF GOLD (an ATM): scattered coin pickups (app.js _coinBurstInteract).
+    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778, ledger: 'day',
       reward: 'coins', effect: 'Scattered coins', durationMs: 0,
       locations: ['Mapped ATMs'],
-      body: 'You lift the heavy lid. Coins spill across the ground.' },
+      body: 'You lift the heavy lid. Coins spill across the ground.',
+      open: (ctx, o) => typeof ctx.scene._coinBurstInteract === 'function'
+        ? (ctx.scene._coinBurstInteract(ctx.sx, ctx.sy, o), true) : null },
+    // The CHAPEL's blessing: the chest ceremony a tier humbler (chapelRollTier).
+    chapel: { name: 'Chapel', get art() { return KIND_DIALOG.chapel.art; }, sprite: 'macro_chapel', light: 0xf2d9a0, ledger: 'service',
+      reward: 'treasure', effect: 'A daily blessing, a tier under the chest it replaced', durationMs: 0,
+      locations: ['Mapped churches'], spent: 'The chapel is quiet',
+      body: 'You leave a small offering beneath the bell and are given a blessing in return.' },
+    // A CRATE (interactables.js restocks): the one chest that comes back.
+    crate: { name: 'Crate', art: 'chest_t1', sprite: 'box', light: 0xf2d9a0, ledger: 'day',
+      days: (o) => crateRestoreDays(o), reward: 'treasure', effect: 'A chest roll; bare for a day, up to a week where its kind crowds the tile', durationMs: 0,
+      locations: ['Mapped POIs the tile left at the plain tier'], spent: 'The crate is bare',
+      body: 'You lift the lid of the crate.' },
+    // The PAGE STONES (interactables.js pageStone): one Book page a UTC day;
+    // `read` is the map line for a scene with no dialog.
+    board: { name: 'A notice board', art: 'book_read', sprite: 'signpost', light: 0xf2d9a0, ledger: 'day',
+      reward: 'book', effect: 'Read one page of the Book', durationMs: 0,
+      locations: ['Mapped information boards'], spent: 'Read it already', read: 'You read the notice.',
+      body: 'You read the notice.' },
+    bottle: { name: 'A message in a bottle', art: 'bottle_read', sprite: 'bottle', light: 0xf2d9a0, ledger: 'day',
+      reward: 'book', effect: 'Read one page of the Book', durationMs: 0,
+      locations: ['The waterline'], spent: 'Only sand here now', read: 'You read the message.',
+      body: 'You read the message.' },
+    // The CASTLE's favour (scene_shops.js): twelve hours, a rolling clock in
+    // save.castleServiceClaimed (houses.js; owner, Sep 2026).
+    castle: { name: 'Castle favour', art: 'castle_favour', sprite: { key: 'castle_tower_shapes', frame: 0, scale: 0.5 }, light: 0xf2d9a0,
+      ledger: 'ms', cooldownMs: 12 * 60 * 60 * 1000, reward: 'favour', effect: 'A castellan\'s favour: rest, a meal or the hearth', durationMs: 0,
+      locations: ['Claimed castles'], spent: 'The castellan is away',
+      body: 'The castellan receives you in the hall.' },
   };
+  // THE RESOLVER: the row `o` is, or null — a pure function of the object,
+  // remembered per object for the per-frame readers.
+  const _rowOf = new WeakMap();
   function visitKindForObject(o) {
+    if (!o || typeof o !== 'object') return null;
+    let row = _rowOf.get(o);
+    if (row === undefined) {
+      row = _resolveRow(o);
+      _rowOf.set(o, row);
+    }
+    return row;
+  }
+  function _resolveRow(o) {
+    if (o?.kind === 'hive') return DAILY_VISIT_KINDS.hive;
     const shrine = root.Shrines?.kindForObject(o);
     if (shrine) return shrine;
-    if (!o || o.kind !== 'chest' || typeof chestLook !== 'function') return null;
+    if (o.kind === 'infoboard') return DAILY_VISIT_KINDS.board;
+    if (o.kind === 'bottle') return DAILY_VISIT_KINDS.bottle;
+    if (o.kind !== 'chest' || typeof chestLook !== 'function') return null;
     const look = chestLook(o);
-    return look.wagon ? DAILY_VISIT_KINDS.wagon : look.bike ? DAILY_VISIT_KINDS.bike
-      : look.coin ? DAILY_VISIT_KINDS.gold : null;
+    if (look.wagon) return DAILY_VISIT_KINDS.wagon;
+    if (look.bike) return DAILY_VISIT_KINDS.bike;
+    if (look.coin) return DAILY_VISIT_KINDS.gold;
+    if (look.macro?.kind === 'chapel') return DAILY_VISIT_KINDS.chapel;
+    if (typeof restocks === 'function' && restocks(o)) return DAILY_VISIT_KINDS.crate;
+    return null;
+  }
+  // The ledger id a row's take is written under.
+  function rowLedgerId(row, o) { return row?.ledger === 'service' ? serviceLedgerId(o.id) : o.id; }
+  // Is the row's take gone right now (the tap's question)?
+  function rowUsed(save, row, o, now) {
+    if (row.days) return stillBare(save, o.id, row.days(o), now);
+    return usedToday(save, rowLedgerId(row, o), now);
+  }
+  // …and for how long (ms) — what waitLine prints.
+  function rowWaitMs(save, row, o, now) {
+    return row.days ? restockWaitMs(save, o.id, row.days(o), now) : msToNextUtcDay(now);
+  }
+  function markUsed(save, row, o, now) { markToday(save, rowLedgerId(row, o), now); }
+  // The per-frame form of rowUsed, off the frame's ledger ages
+  // (interactables.js spentSets → dayLedgerAges): Map lookups only.
+  function takenBy(row, o, ages) {
+    if (!ages) return false;
+    const age = ages.get(rowLedgerId(row, o));
+    return age !== undefined && age < (row.days ? row.days(o) : 1);
   }
   function beginDailyVisit(ctx, o, { row = visitKindForObject(o), held = false } = {}) {
     const { scene, save, sx, sy } = ctx;
     const pending = scene._dailyVisits || (scene._dailyVisits = new Set());
     if (!held && usedToday(save, o.id)) {
-      scene.flash(`${row?.spent || 'Already visited.'} ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+      scene.flash(waitLine(row?.spent || SPENT_DEFAULT, msToNextUtcDay()), sx, sy);
       return null;
     }
     if (pending.has(o.id)) return null;
@@ -129,7 +271,7 @@
           dismissed = true;
           if (afterStory) afterStory(visit);
           else visit.finish();
-          if (ctx.dirty && typeof persistSave === 'function') persistSave(save);
+          if (ctx.dirty) Save.persist(save);
         };
         if (row && typeof scene.showMessageModal === 'function') {
           scene.showMessageModal({ title: row.name, body: row.body, art: row.art, kind: 'story', onDismiss });
@@ -179,44 +321,12 @@
           return;
         }
         visit.claim();
-        if (typeof persistSave === 'function') persistSave(save);
+        Save.persist(save);
         scene._finishInventoryChange?.();
         visit.present();
       },
     });
     return true;
-  }
-  const serviceLedgerId = (id) => 'macro:' + id;
-  function serviceUsedToday(save, id, now) {
-    return usedToday(save, serviceLedgerId(id), now);
-  }
-  function markServiceToday(save, id, now) {
-    markToday(save, serviceLedgerId(id), now);
-  }
-  // Whole UTC days since `id` was last taken: 0 = today, 1 = yesterday, …;
-  // Infinity when the ledger holds no take within LEDGER_KEEP_DAYS.
-  function daysSinceTaken(save, id, now) {
-    const m = save && save.coinBurstClaimed;
-    if (!m) return Infinity;
-    const t = _date(now).getTime();
-    for (let k = 0; k < LEDGER_KEEP_DAYS; k++) {
-      if (m[id + Delivery.dayKey(new Date(t - k * DAY_MS))] === 1) return k;
-    }
-    return Infinity;
-  }
-  // Is `id` still bare, restocking after `days` UTC days? (days 1 = daily.)
-  function stillBare(save, id, days, now) {
-    return daysSinceTaken(save, id, now) < Math.max(1, days || 1);
-  }
-  // How long until `id` restocks, in ms (0 when it is already there): the
-  // rest of today plus every whole day still to run. What a refusal prints,
-  // through shortDuration.
-  function restockWaitMs(save, id, days, now) {
-    const k = daysSinceTaken(save, id, now);
-    const n = Math.max(1, days || 1);
-    if (!(k < n)) return 0;
-    const t = _date(now).getTime();
-    return msToNextUtcDay(t) + (n - 1 - k) * DAY_MS;
   }
 
   // What every stall counter charges for `id`: the market stall's price
@@ -358,7 +468,7 @@
     const t = bountyWeaponTier(save);
     const rung = BOUNTY_LADDER[Math.min(BOUNTY_LADDER.length - 1, Math.floor(t / BOUNTY_TIERS_PER_RUNG))];
     const n = Math.min(BOUNTY_MAX_FOES, 1 + Math.floor(t / BOUNTY_TIERS_PER_FOE));
-    const day = _day(now);
+    const day = utcDayKey(now);
     const rng = makeRng32(fnv1a(String(o && o.id) + '|bounty|' + day));
     const kinds = [];
     for (let i = 0; i < n; i++) kinds.push(rung[Math.floor(rng() * rung.length)]);
@@ -369,11 +479,18 @@
   function bountyPay(kinds) {
     return Math.max(1, Math.round(kinds.reduce((sum, k) => sum + Combat.enemyBounty(k, 0), 0) * BOUNTY_MATCH));
   }
-  // Is a posted bounty cleared? Every foe id is in save.caught (resolveDefeat's
-  // one mark).
+  // ── Kill credit ───────────────────────────────────────────────────────────
+  // ONE answer to "did this foe fall to the player's side?": its id in
+  // save.caught (app.js resolveDefeat's mark, written for every defeat) and
+  // a blow of the player's or an ally's (Combat.isPlayerKill). The guild
+  // bounty, Maud's archer (StoryEncounters) and the fire-breath demon
+  // (DragonStory) all ask this.
+  function slainByPlayer(save, id, source = 'player') {
+    return id != null && Combat.isPlayerKill(source) && ((save && save.caught) || []).includes(id);
+  }
+  // Is a posted bounty cleared? Every foe of the pack fell to the player's side.
   function bountyCleared(save, foeIds) {
-    const caught = new Set((save && save.caught) || []);
-    return foeIds.length > 0 && foeIds.every((id) => caught.has(id));
+    return foeIds.length > 0 && foeIds.every((id) => slainByPlayer(save, id));
   }
 
   // ── CURIO HALL: one shared collection, paid in MEMORIES ──────────────────
@@ -388,7 +505,7 @@
   // `curio:<n>`) when the count reaches each of CURIO_MILESTONES — once per
   // save, because the memory ledger pays each key once.
   const CURIO_COLLECTION = [
-    'flint_shard', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar',
+    'flint_shard', ...BAR_IDS.slice(1),   // the six forge bars (items.js BAR_IDS; T1 is plain wood)
     'sapphire', 'ruby', 'emerald', 'diamond',
     'shell', 'crow_feather', 'rabbit_pelt', 'old_boot', 'book', 'taming_potion',
     'rope', 'torch', 'trap_disarm_kit', 'magic_trap', 'scarecrow',
@@ -466,20 +583,17 @@
     if ((Number(memories) || 0) < need) return { ok: false, why: 'memories', need };
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
     addMoney(save, -price);
-    save.training = save.training || {};
     save.training[kind] = Combat.trainingLevel(save, kind) + 1;
     return { ok: true, price };
   }
-  // One drill at a time per discipline: the hall refuses another while one
-  // runs (the dialog names the time left), so it can never be bought twice over.
+  // A drill bought while one runs EXTENDS it (the one buff rule,
+  // Buffs.laterOf: another day on top of what is left), never refused.
   function buyDrill(save, kind, now = Date.now()) {
     if (!Combat.TRAINING_KINDS[kind]) return { ok: false, why: 'kind' };
-    if (Combat.trainingBuffActive(save, kind, now)) return { ok: false, why: 'active' };
     const price = drillPrice();
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
     addMoney(save, -price);
-    save.trainingDrills = save.trainingDrills || {};
-    save.trainingDrills[kind] = now + Combat.TRAINING_BUFF_MS;
+    save.trainingDrills[kind] = Buffs.laterOf(Combat.trainingDrillUntil(save, kind), Combat.TRAINING_BUFF_MS, now);
     return { ok: true, price };
   }
   // Time left on a discipline's drill, ms (0 when none runs).
@@ -521,16 +635,25 @@
     return { ok: true, id: next.id, index: next.index };
   }
 
+  // One row per booth kind: `label` (its sign and dialog word), `modal` (the
+  // modal_shell kind), `art` (the introduction painting) and `present` — the
+  // scene method (app.js) that opens its dialog, `(sx, sy, o, dress)`. A
+  // counter that sells off a shelf presents through `_presentStallOffer` with
+  // its `stock(o)` and `title` columns; the chapel is no dialog of its own
+  // (interactables.js' daily visit), so it names no presenter.
   const KIND_DIALOG = {
-    inn:         { label: 'Inn',         modal: 'shop',     art: 'booth_inn_intro' },
+    inn:         { label: 'Inn',         modal: 'shop',     art: 'booth_inn_intro',         present: '_presentInn' },
     chapel:      { label: 'Chapel',      modal: 'treasure', art: 'booth_chapel_intro' },
-    apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'booth_apothecary_intro' },
-    scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'booth_scriptorium_intro' },
-    guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'booth_guildhall_intro' },
-    curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'booth_curio_intro' },
-    sundries:    { label: 'Sundries',    modal: 'shop',     art: 'booth_sundries_intro' },
-    training:    { label: 'Training',    modal: 'shop',     art: 'booth_training_intro' },
-    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'booth_scholar_intro' },
+    apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'booth_apothecary_intro',  present: '_presentStallOffer',
+      stock: (o) => apothecaryStock(o), title: 'The apothecary has on the shelf:' },
+    scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'booth_scriptorium_intro', present: '_presentStallOffer',
+      stock: () => scriptoriumStock(), title: 'The scriptorium sells:' },
+    guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'booth_guildhall_intro',   present: '_presentGuildhall' },
+    curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'booth_curio_intro',       present: '_presentCurio' },
+    sundries:    { label: 'Sundries',    modal: 'shop',     art: 'booth_sundries_intro',    present: '_presentStallOffer',
+      stock: (o) => sundriesStock(o), title: 'The counter has in stock:' },
+    training:    { label: 'Training',    modal: 'shop',     art: 'booth_training_intro',    present: '_presentTraining' },
+    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'booth_scholar_intro',     present: '_presentScholar' },
   };  // The word a stall's sign and dialog wear: its kind's label, except a
   // training hall, which names its discipline ("Archery Training").
   function stallLabel(kind, o) {
@@ -569,7 +692,8 @@
 
   root.Macros = {
     usedToday, markToday, serviceLedgerId, serviceUsedToday, markServiceToday,
-    DAILY_VISIT_KINDS, visitKindForObject, beginDailyVisit, dailyVisit, hireMercenary,
+    DAILY_VISIT_KINDS, visitKindForObject, rowUsed, rowWaitMs, markUsed, takenBy, waitLine,
+    beginDailyVisit, dailyVisit, hireMercenary,
     daysSinceTaken, stillBare, restockWaitMs, ledgerKeyDay, LEDGER_KEEP_DAYS, stallPrice,
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,
@@ -577,7 +701,7 @@
     SUNDRIES_GEAR, SUNDRIES_SHIELDS, SUNDRIES_GEAR_PRICE_MUL, sundriesStock, isSundriesGear, sundriesGear,
     SCRIPTORIUM_BOOK, SCRIPTORIUM_STOCK, scriptoriumStock,
     BOUNTY_LADDER, BOUNTY_TIERS_PER_RUNG, BOUNTY_TIERS_PER_FOE, BOUNTY_MAX_FOES, BOUNTY_MATCH, BOUNTY_DIST_CELLS,
-    bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
+    bountyWeaponTier, bountyFor, bountyPay, slainByPlayer, bountyCleared,
     CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
     TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,

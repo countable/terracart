@@ -3,7 +3,7 @@
 //   · street lamps: textures, per-tile lists, visits and restoration;
 //   · the trail's intro, prizes and reward cards, and the treasure pick.
 //
-// Moved verbatim out of app.js. The methods live on `class SceneStreets`, a MIXIN:
+// Moved out of app.js. The methods live on `class SceneStreets`, a MIXIN:
 // app.js installs them onto MapScene.prototype right after the class closes
 // (installSceneMixin, from modal_shell.js), so callers still say `this.x()`.
 // This file loads BEFORE app.js: the methods read app.js names and this.* at
@@ -230,15 +230,15 @@ class SceneStreets {
   _ensureBrokenLampTex() {
     const key = STREET_LAMP_BROKEN_TEX;
     if (this.textures.exists(key)) return key;
-    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintBrokenLamp || typeof document === 'undefined') return key;
-    const S = RoadOverlay.LAMP_TEX_PX;
-    const cvs = document.createElement('canvas');
-    cvs.width = cvs.height = S;
-    const lctx = cvs.getContext('2d');
-    if (lctx) {
-      RoadOverlay.paintBrokenLamp(lctx, S);
-      this.textures.addCanvas(key, cvs);
-    }
+    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintBrokenLamp) return key;
+    return this._ensureCanvasTex(key, RoadOverlay.LAMP_TEX_PX, (ctx, S) => RoadOverlay.paintBrokenLamp(ctx, S));
+  }
+  // ONE canvas-texture bake for a square piece (the lamps, the ghost's
+  // glow, the Blight aura): skip a key the texture manager holds, else a
+  // sizePx canvas, `paint(ctx, sizePx)`, uploaded once (textures.js
+  // bakeCanvas). Returns the key.
+  _ensureCanvasTex(key, sizePx, paint) {
+    bakeCanvas(this, key, sizePx, sizePx, (ctx) => paint(ctx, sizePx));
     return key;
   }
 
@@ -249,16 +249,8 @@ class SceneStreets {
   _ensureStreetLampTex(glow) {
     const key = streetLampTexKey(glow);
     if (this.textures.exists(key)) return key;
-    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintLamp || typeof document === 'undefined') return key;
-    const S = RoadOverlay.LAMP_TEX_PX;
-    const cvs = document.createElement('canvas');
-    cvs.width = cvs.height = S;
-    const lctx = cvs.getContext('2d');
-    if (lctx) {
-      RoadOverlay.paintLamp(lctx, S, glow || UI_LAMP_GLOW);
-      this.textures.addCanvas(key, cvs);
-    }
-    return key;
+    if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintLamp) return key;
+    return this._ensureCanvasTex(key, RoadOverlay.LAMP_TEX_PX, (ctx, S) => RoadOverlay.paintLamp(ctx, S, glow || UI_LAMP_GLOW));
   }
 
   // Every lamp of ONE tile, in ABSOLUTE world metres — lit or not. Cached on
@@ -594,8 +586,7 @@ class SceneStreets {
     const pt = absCellToTile(this, p.cellIX, p.cellIY);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pt.tx, pt.ty));
     if (!entry || !entry.layers) { this._mutterCell = null; return; }   // still loading: retry
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     const r = this.cellM;
     let house = null;
     WorldGen.forEachItemInBox(entry, 'objects', px - r, py - r, px + r, py + r, (o) => {
@@ -628,8 +619,7 @@ class SceneStreets {
     const p = playerReachCell(this);
     const key = `${p.cellIX},${p.cellIY}|${Math.round(reachM)}|${Streets.epoch(this.save)}`;
     if (this._lampVisitKey === key) return 0;
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     const lightR = ((typeof Lighting !== 'undefined' && Lighting.radiusCells)
       ? Lighting.radiusCells('cobble') : 2.5) * this.cellM;
     const R = Math.max(lightR, reachM);
@@ -678,7 +668,7 @@ class SceneStreets {
     }
     this._lampVisitEpoch = (this._lampVisitEpoch | 0) + 1;
     if (paid > 0) this._bankStreetMetres(paid, null, now, { quiet: true });
-    if (typeof persistSave === 'function') persistSave(this.save);
+    Save.persist(this.save);
     return paid;
   }
 
@@ -790,9 +780,12 @@ class SceneStreets {
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
     // time rather than stacking modals on top of each other. Each entry is the
     // prize's ORDINAL, which is what decides how good its roll is.
-    this._trailPrizeQueue = this._trailPrizeQueue || [];
-    for (let n = out.prizes - out.owed + 1; n <= out.prizes; n++) this._trailPrizeQueue.push(n);
-    if (!greeting) this._drainTrailPrizes();
+    // Each is a `prize` ceremony; one owed a greeting holds until the greeting
+    // has opened (its beat passes, _openTrailIntroIfDue queues it ahead).
+    const hold = greeting ? () => !!this._trailIntroAt : undefined;
+    for (let n = out.prizes - out.owed + 1; n <= out.prizes; n++) {
+      this._enqueueCeremony('prize', (done) => this._fireTrailPrize(n, done), { hold });
+    }
   }
 
   // ARM the first-repair dialog, and say whether a greeting is owed. A walker
@@ -817,49 +810,35 @@ class SceneStreets {
     return true;
   }
 
-  // …and the other half: open it once the beat has passed. Read from the top
-  // of _sweepStreets — before that pass's own surface and reach gates, because
-  // a greeting armed by a repair the player then walked away from (into a
-  // cave, onto an empty bar) is still owed.
-  //
-  // The SCREEN is asked here, at the moment it opens, never when it was armed:
-  // two seconds is long enough for a card to have opened in front of it. A
-  // refusal drops the deadline and leaves `greeted` false, so the next sweep
-  // that banks metres arms it again — and the prizes it was holding back are
-  // let go, exactly as they are on a sweep that never armed one.
+  // …and the other half: queue it once the beat has passed. Read from the
+  // top of _sweepStreets — before that pass's own surface and reach gates,
+  // because a greeting armed by a repair the player then walked away from
+  // (into a cave, onto an empty bar) is still owed. The dialog is an `intro`
+  // ceremony (app.js _enqueueCeremony): it waits for a clear screen (the
+  // first sweep can land seconds into a brand new session, exactly when the
+  // how-to card is up) and opens ahead of any prize the same sweep paid,
+  // never beside it.
   _openTrailIntroIfDue() {
     if (!this._trailIntroAt || Date.now() < this._trailIntroAt) return;
     this._trailIntroAt = 0;
-    if (!this._showTrailIntro()) { this._drainTrailPrizes(); return; }
-    const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
-    st.greeted = true;
-    persistSave(this.save);
+    this._enqueueCeremony('intro', (done) => this._showTrailIntro(done), { key: 'trail:intro' });
   }
 
-  // The one-time "you start repairing roads" dialog. Opened by the wait above,
-  // a beat after the sweep that banks a save's first metres. Returns whether
-  // it actually opened —
-  // the caller only spends the save's one greeting on a dialog the player saw.
-  //
-  // NEVER ON TOP OF ANOTHER. The first sweep can land seconds into a brand new
-  // session, which is exactly when the how-to card is up — so this refuses a
-  // busy screen (body.modal-open, the same live signal _installModalPadGate
-  // keeps for the pads) and the next sweep that banks metres arms it again.
-  //
-  // A prize on this same sweep would need GOAL_STEP_M of street inside one
-  // reach, which no reach is wide enough for — but if it ever happened the
-  // ceremony would open on top of this, so the queue is drained on dismiss
-  // instead of beside it.
-  _showTrailIntro() {
-    if (document.body?.classList?.contains('modal-open')) return false;
+  // The one-time "you start repairing roads" dialog, a beat after the sweep
+  // that banks a save's first metres. The save's one greeting is spent as it
+  // opens — on a dialog the player sees.
+  _showTrailIntro(onDone) {
     this.showMessageModal({
       title: TRAIL_INTRO_TITLE,
       body: trailIntroBody(this.save.playerClass),
       // The banner the promise is made in: survivors watching the repair —
       // the story this dialog tells, drawn rather than described.
       art: 'trail_intro',
-      onDismiss: () => this._drainTrailPrizes(),
+      onDismiss: onDone,
     });
+    const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
+    st.greeted = true;
+    persistSave(this.save);
     return true;
   }
 
@@ -959,22 +938,6 @@ class SceneStreets {
     return this._worldToastAt(c.x, c.y, liftPx);
   }
 
-  // Hand out queued trail prizes one at a time, each ceremony opening as the
-  // previous one is dismissed. Two showChestRewardModal calls in the same
-  // frame would put one modal on top of the other and the player would never
-  // see the one underneath.
-  _drainTrailPrizes() {
-    if (this._trailPrizeOpen) return;
-    const q = this._trailPrizeQueue;
-    if (!q || !q.length) return;
-    this._trailPrizeOpen = true;
-    const n = q.shift();
-    this._fireTrailPrize(n, () => {
-      this._trailPrizeOpen = false;
-      this._drainTrailPrizes();
-    });
-  }
-
   // Reward fired when the lit-stone count reaches its goal. `n` is the prize's
   // ORDINAL — the 1st, 2nd, 3rd… — which is both what it took to get here
   // (Trail.GOAL_STEP × n stones) and how good the roll is.
@@ -988,7 +951,8 @@ class SceneStreets {
   // own standard roll, not something the walk inflates (a bonus that fell
   // through to a quantity bracket is what pinned the ceremony at "× 2").
   // Routed through showChestRewardModal so it shares the same fanfare +
-  // sparkles as chest opens. `onDismiss` walks the prize queue on.
+  // sparkles as chest opens. `onDismiss` is the ceremony queue's `done`
+  // (one prize opens as the last is dismissed, never on top of it).
   //
   // PRIZE #1 LEADS WITH THE ONION SEED: Trail.firstPrize is the first card,
   // so the first thing a road ever offers names what roads pay in — and the
@@ -1071,7 +1035,7 @@ class SceneStreets {
     // sits in a button, stacked under the banner and the "Take your pick"
     // copy, and at 64px the choice row was the last straw that pushed the
     // ceremony past the viewport height into a scroll.
-    const card = this._trailRewardCard(reward, 44);
+    const card = Rewards.card(this, reward, 44);
     if (!card) return '';
     const qty = card.qty
       ? `<div style="font-size:12px;font-weight:700;color:${card.color}">${card.qty}</div>` : '';
@@ -1081,45 +1045,11 @@ class SceneStreets {
            qty + '</div>';
   }
 
-  // How ONE reward PRESENTS: icon, name, quantity, colour. Display only — it
-  // grants nothing, because an option the player didn't take still has to be
-  // drawn. _claimTrailReward is the half that pays out. `iconPx` defaults to
-  // the single-reward ceremony's size (64); the choice row asks for a
-  // smaller one (see _trailChoiceLabel) so the choice row doesn't push the
-  // ceremony past the viewport height.
-  _trailRewardCard(reward, iconPx = 64) {
-    if (!reward) return null;
-    if (reward.kind === 'item') {
-      const item = ITEM_BY_ID[reward.id];
-      return {
-        iconHTML: this.iconSpanHTML ? this.iconSpanHTML(reward.id, iconPx) : '',
-        name: item?.name || reward.id,
-        qty: reward.qty > 1 ? `× ${reward.qty}` : null,
-        color: (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff'),
-        tier: (typeof itemTierOf === 'function') ? itemTierOf(reward.id) : 0,
-      };
-    }
-    if (reward.kind === 'gold') {
-      return {
-        iconHTML: this.coinIconHTML ? this.coinIconHTML(Math.round(iconPx * 0.75)) : '',
-        name: `+${reward.amount}`,
-        color: UI_GOLD,
-      };
-    }
-    if (reward.kind === 'relic' || reward.kind === 'armor') {
-      return {
-        iconHTML: this.gearIconHTML
-          ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, iconPx) : '★',
-        name: (typeof gearName === 'function')
-          ? gearName(reward.kind, reward.slot, reward.tier)
-          : reward.slot,
-        sub: 'equipped',
-        color: UI_TREASURE,
-        tier: reward.tier,
-      };
-    }
-    return null;   // an unrecognised kind draws no card and opens no modal
-  }
+  // How ONE reward PRESENTS (icon, name, quantity, colour) is Rewards.card —
+  // display only, it grants nothing, because an option the player didn't
+  // take still has to be drawn; _claimTrailReward is the half that pays out.
+  // The choice row asks for a smaller icon (_trailChoiceLabel) so it doesn't
+  // push the ceremony past the viewport height.
 
   // What ONE reward DOES, the line under the pick row while its card is
   // selected — the same line the item already carries elsewhere (the ✦
@@ -1151,12 +1081,9 @@ class SceneStreets {
   // short sentence, so a relic's card still says it is worn. False, and
   // nothing shown, for a reward that draws no card.
   showRewardCard(reward, extra = {}) {
-    const card = this._trailRewardCard(reward);
-    if (!card) return false;
-    const own = card.sub ? card.sub[0].toUpperCase() + card.sub.slice(1) + '.' : '';
-    const sub = [extra.sub, own].filter(Boolean).join(' ') || undefined;
-    this.showChestRewardModal({ ...card, ...extra, sub });
-    return true;
+    // No fanfare of its own: the moment was framed by the caller (a pick
+    // refuses it; an elite's roll fanfares from grantTreasureRoll).
+    return Rewards.present(this, { ...reward, jackpot: 0 }, { extra });
   }
 
   // Pay out the reward the player KEPT — item into the bag, gold into the
@@ -1164,7 +1091,7 @@ class SceneStreets {
   // arrived. Consolation coins ride along with whatever was taken; a roll
   // nobody claimed pays none.
   _claimTrailReward(reward, opts = {}) {
-    const card = this._trailRewardCard(reward);
+    const card = Rewards.card(this, reward);
     if (!card) return null;
     Rewards.apply(this.save, reward, this, opts);
     return card;

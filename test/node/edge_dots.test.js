@@ -1,6 +1,10 @@
 // Compass dots use the visible map boundary, and saved sightings survive reloads.
 (function () {
-  const names = ['_drawEdgeDot(targetWX, targetWY, fillColor) {', '_drawTrackedEdgeDot(key, color) {'];
+  // The rim bearings are rows of MARKERS, each drawn by _drawMarker (the
+  // table is lifted beside the two methods; its predicates read globals).
+  const names = ['_drawEdgeDot(targetWX, targetWY, fillColor) {', '_drawMarker(row) {'];
+  const MARKERS = new Function(SCENE_SRC.match(/\nconst _markClaimed = [\s\S]*?\nconst MARKERS = \[[\s\S]*?\n\];/)[0] + 'return MARKERS;')();
+  const row = (key) => MARKERS.find((r) => r.key === key);
   const methods = new Function('W', 'H', 'persistSave', 'return ({' + names.map(signature => {
     const start = SCENE_SRC.indexOf('\n  ' + signature);
     const end = SCENE_SRC.indexOf('\n  }\n', start);
@@ -48,20 +52,27 @@
     s._drawEdgeDot = (...args) => drawn.push(args);
     s._telescopeTrackedTarget = () => ({ x: 450, y: 300 });
     s.save.telescopeCompass = { depth: 0, until: Date.now() + 86400000, x: 100, y: 100 };
-    s._drawTrackedEdgeDot('telescopeCompass', 0xffd24a);
-    assert.eq(drawn[0].join(','), [450, 300, 0xffd24a].join(','));
+    s._drawMarker(row('telescopeCompass'));
+    assert.eq(drawn[0].join(','), [450, 300, 0xffd24a].join(','), 'the row\'s colour');
     s.depth = 1;
-    s._drawTrackedEdgeDot('telescopeCompass', 0xffd24a);
+    s._drawMarker(row('telescopeCompass'));
     assert.eq(drawn.length, 1);
     assert.truthy(s.save.telescopeCompass);
     s.depth = 0; s._telescopeTrackedTarget = () => null;
     s._edgeDotTargets.telescopeCompass.at -= 500;
-    s._drawTrackedEdgeDot('telescopeCompass', 0xffd24a);
+    s._drawMarker(row('telescopeCompass'));
     assert.eq(s.save.telescopeCompass, undefined);
     assert.truthy(s.save.persisted);
     s.save.wayfarerCompass = { depth: 0, until: Date.now() - 1 };
-    s._drawTrackedEdgeDot('wayfarerCompass', 0x4488ff);
+    s._drawMarker(row('wayfarerCompass'));
     assert.eq(s.save.wayfarerCompass, undefined);
     assert.eq(drawn.length, 1);
+    // A scene-side mark (the Pairy's) clears without a persist; a claimed one goes too.
+    s.pairyCompass = { targetId: 'c', x: 1, y: 2, until: Date.now() + 1000 };
+    s.save.opened = ['c'];
+    s._drawMarker(row('pairyCompass'));
+    assert.eq(s.pairyCompass, null, 'claimed: cleared');
+    assert.eq(drawn.length, 1);
+    assert.eq(MARKERS.map((r) => r.key).join(), 'pairyCompass,telescopeCompass,wayfarerCompass,treasureCompass,deliveryCompass', 'the five rim bearings, one table');
   });
 })();

@@ -22,6 +22,12 @@
       | (x > 0 && cells.has(i - 1) ? 8 : 0);
     return WALL_FRAME_BY_MASK[mask] ?? null;
   }
+  // Fractional budgets round deterministically per site: retain the same
+  // leading shafts while reducing the population average by the table scale.
+  function entranceCount(s) {
+    const scaled = (s.variant.entrances?.count || 0) * root.ZoneVariantData.quarryLayouts.entranceCountScale;
+    return Math.floor(scaled) + (noise(s.a.key, 0, 0xca7e) < scaled % 1 ? 1 : 0);
+  }
   // Authored mine mouths are ordinary generated stairs, so cave loading
   // mirrors their return ladders and gives each shaft a route farther down.
   function* entrancesSteps(s, ctx) {
@@ -36,7 +42,7 @@
       && !WG.nearPoiCell(opts.pois || [], i % N, Math.floor(i / N));
     const cells = s.cells.slice().sort((a, b) => noise(tx*N+a%N, ty*N+Math.floor(a/N), 0xca7e)
       - noise(tx*N+b%N, ty*N+Math.floor(b/N), 0xca7e) || a-b);
-    for (let n = 0; n < cells.length && result.length < settings.count; n++) {
+    for (let n = 0; n < cells.length && result.length < entranceCount(s); n++) {
       if ((n & 255) === 0) yield 'quarry mine entrances';
       const i = cells[n], ix = i % N, iy = Math.floor(i / N);
       if (!free(i) || selected.some(j => Math.max(Math.abs(ix-j%N),
@@ -47,7 +53,7 @@
       const step = tileEdgeM / N;
       result.push(WG.makeObject('staircase', (tx*N+ix+.5)*step, (ty*N+iy+.5)*step,
         WG.caveStairId('down', 0, tx, ty, ix, iy), { dir:'down', depth:0,
-          zone:'quarry', zoneVariant:s.variant.id, zoneLayer:'entrance', _ix:ix, _iy:iy }));
+          zoneKind:'quarry', zoneVariant:s.variant.id, zoneLayer:'entrance', _ix:ix, _iy:iy }));
       selected.push(i);
       for (const cell of [i, approach[1]*N+approach[0]]) {
         opts.occupied.add(cell); s.clear.add(cell); ctx.reservedCells?.add(cell);
@@ -169,13 +175,13 @@
       }
       bowl.sort((a, b) => hash(a % N, Math.floor(a / N), 59) - hash(b % N, Math.floor(b / N), 59) || a - b);
       if (s.a.owned) for (const i of bowl.slice(0, s.variant.finds.count)) { plan.finds.push({ i, material: 'crimson_ore' }); plan.clear.add(i); }
-      // A dry altar island sits inside a continuous lava moat. Reserve the
-      // entire square, including the south approach; entrances end at lava.
+      // A dry altar island sits inside a rounded, continuous lava moat. Reserve
+      // its bounding square so clipped corners stay bare; entrances end at lava.
       plan.shrineSeat = centre;
       for (let dy=-poolRadius;dy<=poolRadius;dy++) for (let dx=-poolRadius;dx<=poolRadius;dx++) {
         const i=(cy+dy)*N+cx+dx;
         plan.background.delete(i); plan.clear.add(i);
-        if (dx || dy) plan.hazards.push(i);
+        if ((dx || dy) && Math.hypot(dx, dy) <= settings.craterPoolSizeCells / 2) plan.hazards.push(i);
       }
       return plan;
     }
@@ -358,10 +364,14 @@
     }
     // Slivers that cannot seat an authored composition remain ordinary ground.
     if (!fitting.length) return null;
-    const siteHash = context.variantHash ?? ((Math.imul(context.tx || 0, 73856093)
-      ^ Math.imul(context.ty || 0, 19349663) ^ Math.imul(sorted[0], 83492791)) >>> 0);
-    const fallbackHash = Math.floor(noise(siteHash, 0, 193) * 4294967296);
+    const fallbackHash = Math.floor(noise(context.variantHash ?? siteHash(context.tx || 0, context.ty || 0, sorted[0]), 0, 193) * 4294967296);
     return fitting[weightedIndexForHash(fallbackHash, fitting)].id;
   }
-  root.QuarryLayout = { entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash };
+  // A quarry site's one hash: its tile and the first (lowest) cell of its
+  // component — what zone_coverage seeds the variant pick with, and what the
+  // fit fallback above reads when a caller hands in none.
+  function siteHash(tx, ty, first) {
+    return (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
+  }
+  root.QuarryLayout = { entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
 })(typeof window !== 'undefined' ? window : globalThis);

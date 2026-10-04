@@ -67,7 +67,10 @@ test('nest bush: wiggles once every 10-30 s on its own beat, off the shared beat
 test('nest bush: the renderer wiggles off the harvest predicate and resets every plant', () => {
   assert.includes(RENDER_SRC, 'isNestBush(p.crop, p.wildId)');
   assert.includes(RENDER_SRC, 'nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId))');
-  assert.includes(RENDER_SRC, 's.setAngle(wig >= 0 ?');
+  // Only a bush mid-wiggle sets an angle; every other plant stands at the
+  // pool's identity reset (render.js resetSlot), which is what "resets" means now.
+  assert.includes(RENDER_SRC, 'if (wig >= 0) s.setAngle(');
+  assert.includes(RENDER_SRC, 's.setAlpha(1).setAngle(0).setScale(1).setFlipX(false);');
   assert.includes(INTERACT_SRC, 'isNestBush(wp.crop, wp.id)');
 });
 
