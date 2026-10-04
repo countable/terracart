@@ -988,11 +988,11 @@ function swallowTaps(el) {
 const _markClaimed = (s, m) => setOf(s.save.opened).has(m.targetId) || dayLedgerAges(s.save).get(m.targetId) === 0;
 const MARKERS = [
   // The Pairy marks its chest in cyan until opened or its food effect expires.
-  { key: 'pairyCompass', store: 'scene', color: 0x45e5ff, shape: 'dot', clearWhen: _markClaimed },
-  { key: 'telescopeCompass', store: 'save', color: 0xffd24a, shape: 'dot', tracked: true },
-  { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, shape: 'dot', tracked: true },
+  { key: 'pairyCompass', store: 'scene', color: 0x45e5ff, source: 'Pairy', label: 'Chest', shape: 'dot', clearWhen: _markClaimed },
+  { key: 'telescopeCompass', store: 'save', color: 0xffd24a, source: 'Telescope', label: 'Find', shape: 'dot', tracked: true },
+  { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, source: 'Wayfarer', label: 'Find', shape: 'dot', tracked: true },
   // A map keeps its original level and expires by wall clock, including reloads.
-  { key: 'treasureCompass', store: 'save', color: 0xff5555, shape: 'dot', clearWhen: _markClaimed },
+  { key: 'treasureCompass', store: 'save', color: 0xff5555, source: 'Map', label: 'Treasure', shape: 'dot', clearWhen: _markClaimed },
   // The delivery waypoint — a solid WHITE arrow at the house the player picked
   // (openDeliveryMenu), cleared once they arrive or the house has been fed.
   { key: 'deliveryCompass', store: 'scene', color: 0xffffff, shape: 'arrow',
@@ -2599,10 +2599,44 @@ class MapScene extends Phaser.Scene {
     this.facingGfx.fillCircle(px, py, 4);
     this.facingGfx.fillStyle(fillColor, 1);
     this.facingGfx.fillCircle(px, py, 3);
+    return { x: px, y: py, left, right, top, bottom };
   }
 
   // Every row of MARKERS, each frame.
-  _drawMarkers() { for (const row of MARKERS) this._drawMarker(row); }
+  _drawMarkers() {
+    for (const text of Object.values(this._edgeDotLabels || {})) text.setVisible(false);
+    this._edgeDotLabelBounds = [];
+    for (const row of MARKERS) this._drawMarker(row);
+  }
+
+  _drawEdgeDotLabel(row, target, marker, point) {
+    if (!point) return;
+    const labels = (this._edgeDotLabels ||= {});
+    const text = labels[row.key] ||= this.add.text(0, 0, '', {
+      fontFamily: 'sans-serif', fontSize: '11px', color: '#ffffff',
+      stroke: '#151920', strokeThickness: 3,
+    }).setDepth(12).setOrigin(0, 0);
+    // Names and roles belong to the target; anonymous finds use their kind.
+    const raw = target.name || target.roleLabel || marker.label || target.kind || row.label;
+    const name = String(raw).replace(/_/g, ' ');
+    const destination = name.charAt(0).toUpperCase() + name.slice(1);
+    text.setText(row.source + '\n' + (destination.length > 16 ? destination.slice(0, 15) + '…' : destination));
+    const { left, right, top, bottom } = point;
+    let x = point.x <= (left + right) / 2 ? point.x + 8 : point.x - text.width - 8;
+    let y = point.y - text.height / 2;
+    x = Math.max(left, Math.min(right - text.width, x));
+    y = Math.max(top, Math.min(bottom - text.height, y));
+    const bounds = (this._edgeDotLabelBounds ||= []);
+    // Stack nearby bearings inward without moving their actual dots.
+    const step = text.height + 2;
+    const direction = point.y > (top + bottom) / 2 ? -1 : 1;
+    for (let i = 0; i < MARKERS.length; i++) {
+      if (!bounds.some(b => x < b.right && x + text.width > b.left && y < b.bottom && y + text.height > b.top)) break;
+      y = Math.max(top, Math.min(bottom - text.height, y + step * direction));
+    }
+    text.setPosition(x, y).setVisible(true);
+    bounds.push({ left: x, right: x + text.width, top: y, bottom: y + text.height });
+  }
   _drawMarker(row) {
     const marker = (row.store === 'scene' ? this : this.save)[row.key];
     if (!marker) return;
@@ -2625,7 +2659,10 @@ class MapScene extends Phaser.Scene {
       if (!target) { clear(); return; }
     }
     if (row.shape === 'arrow') this._drawEdgeCompass(target.x, target.y, row.color, 0.9);
-    else this._drawEdgeDot(target.x, target.y, row.color);
+    else {
+      const point = this._drawEdgeDot(target.x, target.y, row.color);
+      this._drawEdgeDotLabel(row, target, marker, point);
+    }
   }
 
   // The nearest starter supply crate the player has not opened yet, or null.

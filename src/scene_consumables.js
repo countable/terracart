@@ -1117,6 +1117,7 @@ class SceneConsumables {
       } else if (isSpent(target, spentSets(this, this.save))) return null;
       marker.x = target.x;
       marker.y = target.y;
+      marker.label = target.name || target.roleLabel || target.kind || marker.label;
       return target;
     }
     return marker;
