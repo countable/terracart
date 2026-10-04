@@ -1606,7 +1606,7 @@ class SceneCreatures {
     this._setWorkProgressIcon(toolSlot);
     this._workProgress = {
       worldX: creature.x, worldY: creature.y, onComplete, durationMs,
-      energyRefund, startT: t, _lastT: t, flee: creature, onFail,
+      energyRefund, toolSlot, startT: t, _lastT: t, flee: creature, onFail,
     };
   }
 

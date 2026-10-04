@@ -285,8 +285,9 @@ Higher-priority placements and their access space take precedence in this order:
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
   When art depicts quantity, rendering and drops share the variant table
   (`PLAIN_ROCK_VARIANTS`); loot messages report the actual quantity rolled.
-- Seat creature work wheels and enemy health bars from `CREATURE_ART` helpers,
-  not fixed pixel offsets. The work wheel rests on the crown; health is a bar.
+- Centre work wheels in the target cell, including net captures. Use a small,
+  solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART` helpers,
+  not fixed pixel offsets. Work tools animate at the target cell.
 - Bake repeated cell geometry into textures (e.g. tilled beds). Reset mutable
   properties such as watered tint whenever pooled sprites are reused.
 - Respect `FPS_LIMIT` and its derived `PHASER_FPS_LIMIT`. Per-frame tile scans

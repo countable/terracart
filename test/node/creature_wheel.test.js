@@ -130,17 +130,23 @@ test('CREATURE_ART entries are complete and sane', () => {
   }
 });
 
-// ── A STATIC target's wheel is centred in its cell ─────────────────────────
-// Rocks, trees, crops, fish and a cave wall are all worked in ONE cell, and
-// the wheel over them is centred on that cell: the anchor is snapped to the
-// cell centre and no offset is added (a flat lift would read as riding up
-// the cell rather than on it).
-// app.js can't load headlessly, so the placement is pinned as source text.
-test('static wheel: centred on the cell — snapped to its centre, no flat lift', () => {
-  const app = SCENE_SRC;
-  const m = app.match(/const dyWheel = creature \? SpriteLayout\.creatureWheelDy\(creature\.kind(?:, [^;]*?\))? : (-?\d+);/);
-  assert.truthy(m, 'the static branch of dyWheel is a literal');
-  assert.eq(Number(m[1]), 0, 'and that literal is 0 — no flat lift off the cell centre');
-  assert.truthy(/if \(!creature\) \{\s*const ac = worldMetersToAbsCell\(this, ax, ay\);\s*const cc = absCellCenterMeters\(this, ac\.cellIX, ac\.cellIY\);/.test(app),
-    'a static anchor is snapped to its cell centre before projection');
+// Work targets now use the centre of the occupied cell, including captures.
+// The legacy crown helper above remains available to other sprite consumers.
+// Exercise the actual placement block with intentionally off-centre anchors.
+test('work wheel: static and creature targets snap to the occupied cell centre', () => {
+  const start = SCENE_SRC.indexOf('    const progress = elapsed / dur;');
+  const end = SCENE_SRC.indexOf('    const g = this._workProgressGfx;', start);
+  assert.truthy(start >= 0 && end > start, 'found work wheel placement');
+  const place = new Function('wp', 'elapsed', 'dur', 'worldMetersToAbsCell', 'absCellCenterMeters',
+    SCENE_SRC.slice(start, end) + '\nreturn {cx, cy};');
+  const scene = { worldMetersToScreen: (x, y) => ({ x: x * 2, y: y * 3 }) };
+  const cell = (_scene, x, y) => ({ cellIX: Math.floor(x / 10), cellIY: Math.floor(y / 10) });
+  const center = (_scene, x, y) => ({ x: x * 10 + 5, y: y * 10 + 5 });
+  for (const kind of [null, 'butterfly', 'cow', 'crow']) {
+    const wp = { worldX: 22, worldY: 34 };
+    if (kind) wp.flee = { kind, x: 22, y: 34 };
+    const result = place.call(scene, wp, 50, 100, cell, center);
+    assert.eq(result.cx, 50, `${kind || 'static'} cell centre x`);
+    assert.eq(result.cy, 105, `${kind || 'static'} cell centre y without crown lift`);
+  }
 });
