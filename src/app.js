@@ -1362,8 +1362,7 @@ if (typeof document !== 'undefined' && document.body) IconNet.observe();
 // The memories chip's rule (app.js _buildMemoriesChip). It lives here, not in
 // index.html, because the chip is built from JS: the box restates the shared
 // top-row chip box (#menu summary, #energy, #money) off the same --hud-chip-*
-// variables, the rim is the control rim (--ctl-rim) because the chip is
-// tappable, and body.modal-open dims it with its neighbours.
+// variables; body.modal-open dims it with its neighbours.
 const MEMORIES_CHIP_CSS = `
 #memories {
   box-sizing: border-box; position: relative;
@@ -1372,7 +1371,6 @@ const MEMORIES_CHIP_CSS = `
   display: flex; flex-direction: row; align-items: center; gap: 5px;
   background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
   font: 700 14px ui-monospace, monospace;
-  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
@@ -1383,7 +1381,7 @@ const MEMORIES_CHIP_CSS = `
   min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: 8px; background: var(--gold); color: #3a3322;
   font: 700 10px/16px ui-monospace, monospace; text-align: center; text-shadow: none;
-  box-shadow: var(--chrome-key); pointer-events: none;
+  pointer-events: none;
 }
 body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 `;
@@ -1431,7 +1429,6 @@ const ROAD_CHIP_CSS = `
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   background: var(--chrome-scuff), var(--chrome-panel); color: #e8e2d6;
   font: 700 9px ui-monospace, monospace;
-  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
@@ -1453,7 +1450,6 @@ const BOOK_CHIP_CSS = `
   display: flex; flex-direction: row; align-items: center; gap: 5px;
   background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
   font: 700 14px ui-monospace, monospace;
-  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
