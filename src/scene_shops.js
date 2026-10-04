@@ -1556,8 +1556,13 @@ class SceneShops {
       if (this.isCastleClaimed(house)) return;
       this.showOfferModal({
         kind: 'quest', title: style.name, get: 'Defeat the guards',
-        blurb: 'Clear the garrison to open this citadel.',
-        canAfford: false, acceptLabel: 'Guarded', cancelLabel: 'Later',
+        blurb: 'Face the guards now, or return when you are ready.',
+        canAfford: true, acceptLabel: 'Fight', cancelLabel: 'Later',
+        onAccept: () => {
+          if (!Houses.startCitadelBattle(this.save, key)) return;
+          persistSave(this.save);
+          this._lastLairT = -Infinity;
+        },
       });
       return;
     }
@@ -1595,6 +1600,7 @@ class SceneShops {
   }
 
   _claimCitadel(key) {
+    if (!Houses.citadelBattleActive(this.save, key)) return false;
     if (!Houses.claimCastle(this.save, { castle: key })) return false;
     persistSave(this.save);
     this.flashAtPlayer('The citadel is yours.');

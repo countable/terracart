@@ -3369,6 +3369,7 @@ class MapScene extends Phaser.Scene {
           homeM: lairHome,
           isClaimed: (key) => this.isClaimedKey(key),
           onCitadelCleared: (key) => this._claimCitadel(key),
+          isCitadelActive: (key) => Houses.citadelBattleActive(this.save, key),
           caughtSet: setOf(this.save.caught),
           hpMemo: this._lairHp,
           // A gate's guard re-rises each UTC day (lairs.js DAILY_TIERS).
