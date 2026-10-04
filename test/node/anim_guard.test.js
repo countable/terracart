@@ -17,7 +17,12 @@ test('anim guard: every animation goes through _createAnim, which refuses an emp
   const m = app.match(/\n  _createAnim\(key, texKey, start, end, frameRate\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_createAnim exists');
   assert.truthy(/if \(!frames\.length\) \{[\s\S]*?return false;/.test(m[1]), 'no frames, no animation');
-  assert.eq((app.match(/this\._createAnim\('/g) || []).length, 5, 'the five fixed animations the game plays (the player sheets build theirs from SpriteLayout.PLAYER_ART)');
+  assert.eq((app.match(/this\._createAnim\('/g) || []).length, 4, 'four fixed core animations; player sheets build theirs from SpriteLayout.PLAYER_ART');
+  const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
+  const created = [];
+  assets.dragon.onLoad({ _createAnim(...args) { created.push(args); }, isDragonActive: () => false });
+  assert.eq(created.length, 1, 'deferred dragon also uses the guarded helper');
+  assert.eq(created[0].join(','), 'dragon-fly,dragon,0,7,10');
 });
 
 test('anim guard: preload retries a failed catalog asset once, under the same key', () => {

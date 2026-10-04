@@ -629,6 +629,34 @@ function hidePoolFrom(pool, startIdx) {
   for (let i = startIdx; i < pool.length; i++) pool[i].setVisible(false);
 }
 
+// Pooled sprites remain in Phaser's update list even while invisible.
+// Deactivate the unused tail, then release peak capacity after five seconds.
+// Keep a small reserve for camera movement and spread destruction across steps.
+// Manually managed pools still use hidePoolFrom and only restore visibility.
+function retireSpritePoolFrom(pool, used) {
+  const now = performance.now();
+  for (let i = used; i < pool.length; i++) {
+    const s = pool[i];
+    s.setVisible(false);
+    s.setActive?.(false);
+    if (s._poolIdleSince == null) {
+      s._poolIdleSince = now;
+      Render.setShine(s, false);
+    }
+  }
+  const keep = Math.max(32, used + 16);
+  let destroyed = 0;
+  while (pool.length > keep && destroyed < 32) {
+    const s = pool[pool.length - 1];
+    if (now - s._poolIdleSince < 5000) break;
+    // Phaser destroy removes the object from its container and update list,
+    // and releases its animation state and optional FX pipelines.
+    s.destroy();
+    pool.pop();
+    destroyed++;
+  }
+}
+
 // Pets share one neutral copy per species sheet. Keep alpha, dark eyes and
 // the original shading; remove baked hue once, so an individual's saved tint
 // reads clearly instead of multiplying two competing colours into mud.
@@ -796,12 +824,14 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
       container.add(s);
       pool.push(s);
     }
+    s._poolIdleSince = null;
+    s.setActive?.(true);
     s.setVisible(true);
     resetSlot(s);
     configure(s, item);
     i++;
   }
-  hidePoolFrom(pool, i);
+  retireSpritePoolFrom(pool, i);
 };
 
 // Ground discs share their reach with gameplay, regardless of the source's
@@ -4326,11 +4356,14 @@ Render.drawObjects = function drawObjects(scene) {
           scene._creatureMeleePool.push(effect);
         }
         meleeUsed++;
-        effect.setVisible(true).setDepth((item._z ?? 0) + 0.1);
+        effect._poolIdleSince = null;
+        effect.setActive(true).setVisible(true).setDepth((item._z ?? 0) + 0.1);
         Render.drawMelee(effect, pose, s.x, item._bodyY, Render.enemyMeleeColor(c));
       } else delete c._meleeSwing;
     }
   });
+
+  retireSpritePoolFrom(scene._creatureMeleePool, meleeUsed);
 
   // THE GHOST'S GLOW — a non-lighting halo on each glowing kind, on its body
   // centre, in the layer ABOVE the lightmap (app.js ghostGlowContainer), so it

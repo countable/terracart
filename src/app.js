@@ -1597,18 +1597,8 @@ class MapScene extends Phaser.Scene {
     // / mineralrock / etc., and item icons that should be sprites silently
     // resolve to Crops.png frame 0.
     if (typeof ASSETS !== 'undefined') {
-      for (const [key, a] of Object.entries(ASSETS)) {
-        if (this.textures.exists(key)) continue;
-        if (a.kind === 'spritesheet') {
-          this.load.spritesheet(key, a.path, { frameWidth: a.frameWidth, frameHeight: a.frameHeight });
-        } else if (a.kind === 'image') {
-          this.load.image(key, a.path);
-        }
-        if (a.onLoad) {
-          const tag = a.kind === 'spritesheet'
-            ? `filecomplete-spritesheet-${key}` : `filecomplete-image-${key}`;
-          this.load.once(tag, () => a.onLoad(this));
-        }
+      for (const [key, asset] of Object.entries(ASSETS)) {
+        if (!asset.deferred) this._queueAsset(key);
       }
     }
     // ONE RETRY PER FAILED ASSET. A cold boot fetches the whole catalog at
@@ -1640,6 +1630,34 @@ class MapScene extends Phaser.Scene {
     // only ever appear inside DOM modals via `<img src="${gearAssetPath(...)}">`,
     // so the browser fetches each one on demand and caches it. Eagerly loading
     // ~50 PNGs at startup blocked the splash screen for several seconds.
+  }
+
+  _queueAsset(key) {
+    const asset = ASSETS[key];
+    if (!asset || this.textures.exists(key)) return;
+    if (asset.onLoad) {
+      this.load.once(`filecomplete-${asset.kind}-${key}`, () => asset.onLoad(this));
+    }
+    if (asset.kind === 'spritesheet') {
+      this.load.spritesheet(key, asset.path, { frameWidth: asset.frameWidth, frameHeight: asset.frameHeight });
+    } else if (asset.kind === 'image') {
+      this.load.image(key, asset.path);
+    }
+  }
+
+  // Optional art joins the existing loader and its one-retry policy. Keep the
+  // current appearance until the texture and its onLoad processing are ready.
+  _ensureAsset(key) {
+    if (this.textures.exists(key)) return true;
+    const asset = ASSETS[key];
+    if (!asset?.deferred) return false;
+    this._requestedAssets ||= new Set();
+    if (!this._requestedAssets.has(key)) {
+      this._requestedAssets.add(key);
+      this._queueAsset(key);
+      this.load.start();
+    }
+    return false;
   }
 
   // Has this save written anything into the world yet? Each of these is a
@@ -8862,6 +8880,7 @@ class MapScene extends Phaser.Scene {
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
   // and rescales the 96×96 dragon frames down to roughly the human's size.
   _applyDragonSkin(on) {
+    if (on) this._ensureAsset('dragon');
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
     // on currentFrame.duration. Degrade to no visual transform — the flight

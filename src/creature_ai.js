@@ -1476,6 +1476,9 @@ function enemySplit(scene, c, fromX, fromY, now) {
   const share = (c._splitShare ?? 1) / 2;
   c._hp = hp - half; c._splitShare = share; c._splitRoot = root; c._splitNextT = now + a.cooldownSeconds * 1000;
   c.x = seats[0].x; c.y = seats[0].y;
+  // Another character can split this slime during its own turn. Refresh the
+  // original now; the newborn joins the next pass's body list as before.
+  if (scene._characterSpacingIndex) updateCharacterSpacingIndex(scene._characterSpacingIndex, c);
   const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false });
   for (const key of [...garrisonInherit(), '_lastDamagedT']) if (c[key] != null) twin[key] = c[key];
   twin._hp = half; twin._splitShare = share; twin._splitRoot = root; twin._splitNextT = c._splitNextT;
@@ -1668,12 +1671,59 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
 // occupies space; only its own movement is held. Spacing never teleports or
 // spends more than the mover's usual step budget.
 const FOE_SPACING_CELLS = 0.6;
+// Rebuilt for each wander pass. Refresh a body's bucket after its movement,
+// including early-return lanes, so later foes see its new position this tick.
+function buildCharacterSpacingIndex(scene) {
+  const index = { bodies: scene._characterBodies || scene._foeBodies, radius: FOE_SPACING_CELLS * scene.cellM,
+    buckets: new Map(), records: new Map() };
+  for (let order = 0; order < index.bodies.length; order++) {
+    const body = index.bodies[order];
+    index.records.set(body, { body, order, key: null });
+    updateCharacterSpacingIndex(index, body);
+  }
+  return index;
+}
+
+function updateCharacterSpacingIndex(index, body) {
+  const record = index.records.get(body);
+  if (!record) return;
+  const key = Math.floor(body.x / index.radius) + ',' + Math.floor(body.y / index.radius);
+  if (key === record.key) return;
+  if (record.key !== null) {
+    const old = index.buckets.get(record.key);
+    old.delete(record);
+    if (!old.size) index.buckets.delete(record.key);
+  }
+  let bucket = index.buckets.get(key);
+  if (!bucket) index.buckets.set(key, bucket = new Set());
+  bucket.add(record);
+  record.key = key;
+}
+
+function characterSpacingCandidates(index, c) {
+  const bx = Math.floor(c.x / index.radius), by = Math.floor(c.y / index.radius);
+  const nearby = [];
+  for (let y = by - 1; y <= by + 1; y++) {
+    for (let x = bx - 1; x <= bx + 1; x++) {
+      const bucket = index.buckets.get(x + ',' + y);
+      if (bucket) for (const record of bucket) nearby.push(record);
+    }
+  }
+  // Preserve the original summation order, including exact-overlap tie breaks.
+  nearby.sort((a, b) => a.order - b.order);
+  return nearby;
+}
+
 function characterSpacingPush(scene, c) {
   const bodies = scene._characterBodies || scene._foeBodies;
   if (!bodies || bodies.length < 2) return null;
   const r = FOE_SPACING_CELLS * scene.cellM;
   let x = 0, y = 0;
-  for (const o of bodies) {
+  const index = scene._characterSpacingIndex;
+  const candidates = index && index.bodies === bodies && index.radius === r
+    ? characterSpacingCandidates(index, c) : null;
+  for (const candidate of candidates || bodies) {
+    const o = candidates ? candidate.body : candidate;
     if (o === c || (o.id && o.id === c.id)) continue;
     const dx = c.x - o.x, dy = c.y - o.y;
     if (Math.abs(dx) >= r || Math.abs(dy) >= r) continue;
