@@ -1479,6 +1479,12 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
   for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
+// Cache lifecycle checks use the real worker with isolated network and storage.
+{
+  const worker = require('../../tools/service_worker_checks.js');
+  for (const c of worker.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
 // ── Cache-bust audit (tools/cachebust.js) ─────────────────────────────────
 // Every module's ?v= is a hash of its bytes, so a changed file cannot be served
 // stale beside a fresh app.js ("Combat.playerDowned is not a function").

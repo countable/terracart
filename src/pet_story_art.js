@@ -2,6 +2,7 @@
 // palette-swapped butterflies and enemies must never inherit another's colour.
 const PetStoryArt = (() => {
   function forKind(scene, kind) {
+    scene._ensureAsset?.('pet_story_clearing');
     const art = SpriteLayout.creatureArt(kind);
     if (!art || !scene.textures?.exists(art.sheet)
         || !scene.textures.exists('pet_story_clearing')) return null;

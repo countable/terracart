@@ -146,7 +146,7 @@
   ];
   // One centered shrine object, reserving a 3×3-cell footprint.
   const SHIPWRECK_SHRINE_ART = { key: 'shipwreck_shrine', frame: 0, extentCells: 3,
-    scale: CELL_PX * 3 / 1536, name: 'Shipwreck' };
+    scale: CELL_PX * 3 / 192, name: 'Shipwreck' };
   // The ten shrine kinds (src/shrines.js — a row's `frame` picks its art on
   // this one sheet). The frames are listed for the sprite audit, which loads
   // this file without Shrines; shrines.test.js pins every row's frame here.
@@ -505,6 +505,10 @@
     || (typeof kind === 'string' && kind.startsWith(GIANT_PREFIX)); }
   function baseKind(kind) { return roster?.get(kind) ? roster.baseKind(kind)
     : isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  // Identical unmodified atlases share one Phaser texture and its frame table.
+  // Palette copies stay independent; authored frame numbers and roster paths
+  // remain unchanged for DOM icons, tools and directional animation.
+  const rosterSheets = new Map();
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;
     const old = CREATURE_ART[row.id];
@@ -523,6 +527,12 @@
           alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
     Object.assign(CREATURE_ART[row.id], CREATURE_DIRECTION_LAYOUTS[row.art.directionLayout]);
     if (row.art.directions) Object.assign(CREATURE_ART[row.id], { directions: row.art.directions, directionSideFacing: row.art.directionSideFacing });
+    const art = CREATURE_ART[row.id];
+    if (!row.palette && art.sheet === row.id) {
+      const source = `${row.art.path}:${fw}:${fh}`;
+      if (!rosterSheets.has(source)) rosterSheets.set(source, art.sheet);
+      art.sheet = rosterSheets.get(source);
+    }
     CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : (fw === 32 && old?.tint) || 0xffffff;
   }
   CREATURE_ART.summoned_skeleton = { ...CREATURE_ART.skeleton };

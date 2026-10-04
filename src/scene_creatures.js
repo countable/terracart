@@ -1768,7 +1768,7 @@ class SceneCreatures {
     // creatures just to discover there are no temporary allies to target.
     this._charmedOpponents = [];
     // The same pass gathers the live foes in the sim bubble once a tick, so
-    // each foe's spacing (creature_ai.js foeSpacingPush) reads a short list.
+    // each character's spacing reads only adjacent spatial bins.
     this._foeBodies = [];
     this._characterBodies = [{id:'player', x:px, y:py}];
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
@@ -1779,7 +1779,8 @@ class SceneCreatures {
       if (ddx * ddx + ddy * ddy <= RANGE_SQ && Combat.isEnemy(c) && EnemyRoster.get(c.kind)) this._foeBodies.push(c);
     });
 
-    WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
+    const spacingIndex = this._characterSpacingIndex = buildCharacterSpacingIndex(this);
+    const tickCreature = (c) => {
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
@@ -2371,7 +2372,12 @@ class SceneCreatures {
         characterMove(this,c,nx,ny,now,{pace});
       }
       else { c.x = nx; c.y = ny; }
+    };
+    WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
+      tickCreature(c);
+      updateCharacterSpacingIndex(spacingIndex, c);
     });
+    this._characterSpacingIndex = null;
     this._foeHeadsUp?.(interestedFoeM, now);
     // What the foes took off the bar this window pops as one "⚔️ monsters"
     // roll-up from the scene's drain lane (app.js _flushDrainPops).

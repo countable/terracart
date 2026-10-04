@@ -972,7 +972,7 @@ class SceneCreate {
     // starts on, the callings, the bicycle) authors all four directions.
     // Dragon transform — single non-directional flap, mirrored by heading in
     // _playDirected (the art faces right at rest). Used for both idle and fly.
-    this._createAnim('dragon-fly', 'dragon', 0, 7, 10);
+    // Dragon Powder's optional sheet builds its animation when loaded.
     for (const art of Object.values(SpriteLayout.PLAYER_ART)) {
       if (!this.textures.exists(art.sheet)) continue;
       for (const [dir, states] of Object.entries(art.directions)) {

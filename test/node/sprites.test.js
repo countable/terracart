@@ -477,8 +477,8 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   const art = SpriteLayout.groveShrineArt({_shrineArt:'shipwreck'});
   assert.eq(art.key, 'shipwreck_shrine');
   assert.eq(art.extentCells, 3);
-  assert.eq(1536 * art.scale, 3 * SpriteLayout.CELL_PX);
-  assert.truthy(1024 * art.scale <= 3 * SpriteLayout.CELL_PX);
+  assert.eq(192 * art.scale, 3 * SpriteLayout.CELL_PX);
+  assert.truthy(128 * art.scale <= 3 * SpriteLayout.CELL_PX);
   assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
   assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
   assert.eq(wildplantSprite({crop:'rubble',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');

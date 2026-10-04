@@ -4,7 +4,7 @@
 const ASSETS = {
   progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
   icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
-  pet_story_clearing: { kind: 'image', path: 'assets/art/pet_clearing.webp' },
+  pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },
   cave_props: { kind: 'spritesheet', path: 'assets/Objects/Cave/props.png', frameWidth: 24, frameHeight: 24 },
   cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
@@ -26,7 +26,11 @@ const ASSETS = {
   // callings, the bicycle) are derived from SpriteLayout.PLAYER_ART below.
   // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
   // row 0 (frames 0-7) is the wing-flap we loop while transformed.
-  dragon:  { kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96 },
+  dragon:  { deferred: true, kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96,
+    onLoad: scene => {
+      scene._createAnim('dragon-fly', 'dragon', 0, 7, 10);
+      if (scene.isDragonActive()) scene._applyDragonSkin(true);
+    } },
   trees:   { kind: 'spritesheet', path: 'assets/Objects/Approved/trees.png',       frameWidth: 32, frameHeight: 48 },
   house:   {
     kind: 'image', path: 'assets/Objects/Approved/house.png',
@@ -191,7 +195,7 @@ const ASSETS = {
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
-  shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine.png', frameWidth: 1536, frameHeight: 1024 },
+  shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine_runtime.png', frameWidth: 192, frameHeight: 128 },
   // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
@@ -444,7 +448,7 @@ ASSETS.fire_slime = { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',
   frameWidth: 32, frameHeight: 32 };
 if (typeof EnemyRoster !== 'undefined') {
   for (const row of EnemyRoster.ROWS) {
-    // Size variants and trapper reuse their base texture; palette variants
+    // Size variants, identical atlases and trapper reuse their base texture; palette variants
     // resolve to their own sheet so their recolour hook still runs.
     if (SpriteLayout.creatureArt(row.id).sheet !== row.id) continue;
     const { path, frameWidth, frameHeight } = row.art;
