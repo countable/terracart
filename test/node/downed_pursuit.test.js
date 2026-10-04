@@ -168,7 +168,7 @@ test('downed: pursuit and incoming damage agree on whether the player is down', 
   const melee = wander.indexOf('c._nextStealT = now + MONSTER_HIT_MS;');
   assert.truthy(leech > 0 && melee > 0, 'found both melee cooldown stamps');
   for (const [at, what] of [[leech, "the slime's leech"], [melee, "the monster's melee"]]) {
-    assert.truthy(/Combat\.incomingDamage\(this\.save,/.test(wander.slice(at, at + 400)),
+    assert.truthy(/Combat\.incomingDamage\(this\.save,/.test(wander.slice(at, wander.indexOf('if (', at))),
       `${what} uses the shared incoming damage guard`);
   }
   const arrow = methodBody('_shotHitsPlayer');

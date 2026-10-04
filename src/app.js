@@ -4846,7 +4846,8 @@ class MapScene extends Phaser.Scene {
     this._meleeWeaponSprite?.setVisible(false);
     const sw = this._swing;
     if (!sw) return;
-    const pose = Render.meleePose(sw, performance.now(), sw.weapon || 'fist');
+    const pose = Render.meleePose(sw, performance.now(), sw.weapon || 'sword',
+      (sw.reachCells ?? Combat.meleeReachM(1, sw.weapon)) * CELL_PX);
     if (!pose) { this._swing = null; return; }
     const ps = this.playerScreen();
     const cx = ps.x, cy = ps.y + this.playerBodyDy();
@@ -4858,10 +4859,9 @@ class MapScene extends Phaser.Scene {
         this.playerWorldContainer.sort('depth');
       }
       // The existing icons point northeast, with the grip at bottom-left.
-      const handRadius = sw.weapon === 'lance' ? pose.radius * 0.4 : pose.radius - 7;
-      const grip = sw.weapon === 'lance' ? 0.25 : 0.3;
+      const { handRadius, grip, scale } = Render.meleeWeaponPose(pose);
       this._meleeWeaponSprite.setTexture(sw.texture, 0).setVisible(true)
-        .setOrigin(grip, 1 - grip).setScale(sw.weapon === 'lance' ? 1.7 : 1.3)
+        .setOrigin(grip, 1 - grip).setScale(scale)
         .setPosition(cx + Math.cos(pose.angle) * handRadius,
           cy + Math.sin(pose.angle) * handRadius)
         .setRotation(pose.angle + Math.PI / 4).setAlpha(pose.alpha);
@@ -5027,7 +5027,7 @@ class MapScene extends Phaser.Scene {
         const dx = c.x - px, dy = c.y - py;
         const d = Math.hypot(dx, dy);
         this._swing = { startT: now, dir: d ? { x: dx / d, y: dy / d } : { x: 0, y: 1 },
-          weapon: equipped ? weapon : 'fist',
+          weapon: equipped ? weapon : 'sword', reachCells: Combat.meleeReachM(1, weapon),
           texture: equipped ? this._toolTexture(weapon, equipped.tier) : null };
         const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
           + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
