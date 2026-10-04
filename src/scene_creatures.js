@@ -1405,6 +1405,15 @@ class SceneCreatures {
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       if (ox >= 0 && oy >= 0 && ox < N && oy < N) occupiedIdx.add(oy * N + ox);
     }
+    for (const i of entry.undergroundReserved || []) occupiedIdx.add(i);
+    for (const resident of entry.undergroundResidents || []) {
+      const { x, y, id, culture, dwarf } = resident;
+      const identity = NPC.identity(id, culture);
+      creatures.push(WorldGen.makeCreature('npc', x, y, id, {
+        ...identity, depth, homeX: x, homeY: y,
+        ...(dwarf ? { name: 'Dwarf ' + identity.name, role: 'merchant', roleLabel: 'Dwarven Smith', shopTheme: 'supply', artScale: 0.8 } : {}),
+      }));
+    }
     // Cave spawners share this generated occupancy because terrain alone
     // cannot reveal a rock, mushroom or floor torch seated on its floor cell.
     entry._spawnOpts = { roadMask: null, occupied: occupiedIdx, pois: [] };
@@ -1756,7 +1765,9 @@ class SceneCreatures {
     }
 
     // The night's ghosts: a group now and then in the dark about the player.
-    ghostSpawnPass(this, now, px, py, pcW, homePos, castleWards, HOME_WARD_R2, caughtSet);
+    // The arena owns its trials; the cave's timed crypt haunt cannot run here.
+    if (this.depth !== WorldGen.ARENA_DEPTH)
+      ghostSpawnPass(this, now, px, py, pcW, homePos, castleWards, HOME_WARD_R2, caughtSet);
 
     // Most ticks have no charm active: avoid scanning every foe against all
     // creatures just to discover there are no temporary allies to target.

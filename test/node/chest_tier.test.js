@@ -302,9 +302,7 @@
       }
       const lvl2 = await WorldGen.loadTile.atDepth(2, tx, ty, lat);
       const deep = lvl2.objects.filter(o => o.kind === 'chest');
-      assert.eq(deep.length, 2, 'and depth 2');
-      assert.eq(deep.find(c => c.caveOf === 'c_lib').id, 'c_lib_d2', 'own id at depth 2');
-      assert.eq(chestTier(deep.find(c => c.caveOf === 'c_lib')), 5, 'the lone library is T5 two levels down');
+      assert.eq(deep.length, 0, 'L2 solid stone has no floor for these non-clearing mirrors');
     } finally {
       WorldGen.setDepth(0);
       WorldGen.tileCache.delete(key);

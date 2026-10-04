@@ -828,6 +828,10 @@ class SceneConsumables {
     }
     const fromDepth = this.depth || 0;
     const depth = fromDepth + 1;
+    if (typeof DungeonProgression !== 'undefined' && !DungeonProgression.canUseDescent(this.save, fromDepth, depth, 'sapphire')) {
+      this.flashAtPlayer(fromDepth === 1 ? 'Use a rope or repair the elevator to go deeper.' : 'Solve five arena challenges to earn the Level 4 key.');
+      return false;
+    }
     const feet = playerWorldM(this), stair = { x: feet.x, y: feet.y + this.feetOffsetM };
     // A mined entry may still be solid rock below. Open that landing just as
     // rope does, before changeDepth asks the destination tile to render.
@@ -889,6 +893,10 @@ class SceneConsumables {
   useRope(delta) {
     if (!this._selectedConsumable('rope')) return false;
     const target = (this.depth || 0) + delta;
+    if (delta > 0 && typeof DungeonProgression !== 'undefined' && !DungeonProgression.canEnterDepth(this.save, target)) {
+      this.flashAtPlayer('Solve five arena challenges to earn the Level 4 key.');
+      return false;
+    }
     if (target < 0) {
       this.flashAtPlayer('Nowhere to climb up here.');
       return false;
@@ -900,14 +908,16 @@ class SceneConsumables {
     // Synthetic "stair" at the player's own world cell, as the portal does:
     // changeDepth GPS-mirrors the feet onto it, so the move is straight up or
     // down with no sideways step.
-    const feet = playerWorldM(this), anchor = { x: feet.x, y: feet.y + this.feetOffsetM };
+    const feet = playerWorldM(this), anchor = { x: feet.x, y: feet.y + this.feetOffsetM, descentSource: 'rope' };
     if (target > 0) {
       const c = this.cellAt(anchor.x, anchor.y);
       this.dugWallSet.add(`${target}:${cellKeyFromAbsCell(c.cellIX, c.cellIY)}`);
     }
-    consumeSelected(this.save);
-    this.buildInventoryDOM();
     this.changeDepth(delta, anchor);
+    if (this.depth !== target) return false;
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
     return true;
   }
   useRopeUp()   { return this.useRope(-1); }

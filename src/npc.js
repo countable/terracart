@@ -232,7 +232,7 @@ const NPC = (() => {
       c._targetX = c.x + c._npcDX * scene.cellM;
       c._targetY = c.y + c._npcDY * scene.cellM;
     }
-    const step = WALK_MPS * dt * (typeof PotionEffects !== 'undefined' ? PotionEffects.speedMul(c) : 1);
+    const step = WALK_MPS * dt * Combat.paceMul(c);
     const x = c.x + c._npcDX * step, y = c.y + c._npcDY * step;
     const dest = scene.cellAt(x, y);
     const blocked = !dest.loaded || dest.underRoad || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)

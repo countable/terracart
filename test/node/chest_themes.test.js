@@ -257,7 +257,7 @@ test('chest themes: all authored pools exclude tomes and retain other unique rel
     }
   }
   const relics = ChestThemes.eligible('uniqueRelics', 7);
-  for (const item of ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id))) {
+  for (const item of ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id) && !item.progressionOnly)) {
     assert.includes(relics, item.id, item.id + ' remains treasure');
   }
   for (const kind of Object.values(ITEMS_BY_CLASS_TIER)) for (const ids of Object.values(kind)) {

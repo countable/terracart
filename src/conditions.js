@@ -31,6 +31,8 @@
       label: 'Confused', tint: 0xc68ee8, flicker: false, ink: '#e8c2ff', bg: '#321b40e8' }),
     jellyfish_stun: Object.freeze({ durationMs: 5000, attackSpeedMul: 0.5,
       label: 'Stunned', tint: 0x89d9ff, flicker: false, ink: '#b9eaff', bg: '#102a3ae8' }),
+    frozen: Object.freeze({ durationMs: 10000, moveSpeedMul: 0.5, attackSpeedMul: 0.5, refresh: false,
+      label: 'Chilled', tint: FROZEN_TINT, flicker: false, ink: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), bg: '#102a3ae8' }),
     pinned: Object.freeze({ durationMs: 3000,
       label: 'Pinned', tint: 0xb8bcc8, flicker: false, ink: '#d6dae6', bg: '#1c1f28e8' }),
   });
@@ -52,7 +54,14 @@
   }
   function active(save, id) { return (save?.conditions?.[id]?.remainingMs || 0) > 0; }
   function attackIntervalMul(save) {
-    return active(save, 'jellyfish_stun') ? 1 / DEFINITIONS.jellyfish_stun.attackSpeedMul : 1;
+    let mul = 1;
+    for (const [id, def] of Object.entries(DEFINITIONS)) if (def.attackSpeedMul && active(save, id)) mul /= def.attackSpeedMul;
+    return mul;
+  }
+  function movementMul(save) {
+    let mul = 1;
+    for (const [id, def] of Object.entries(DEFINITIONS)) if (def.moveSpeedMul && active(save, id)) mul *= def.moveSpeedMul;
+    return mul;
   }
   function fireRemainder(save) {
     const value = save.fireDamageRemainder;
@@ -94,7 +103,7 @@
     save.conditions ||= {};
     if (fresh) save.conditions[id] = def.intervalMs
       ? { remainingMs: def.durationMs, nextTickMs: def.intervalMs } : { remainingMs: def.durationMs };
-    else if (id !== 'burning') save.conditions[id].remainingMs = def.durationMs;
+    else if (id !== 'burning' && def.refresh !== false) save.conditions[id].remainingMs = def.durationMs;
     return fresh;
   }
   function cure(save, id) {
@@ -192,5 +201,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, attackIntervalMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, attackIntervalMul, movementMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -1275,7 +1275,8 @@ const TAP_HANDLERS = [
     const stair = findItemInTapCell(scene, 'objects', wm, (o) => o.kind === 'staircase');
     if (!stair) return false;
     if (tooFar(ctx, stair.x, stair.y)) return 'far';
-    scene.changeDepth(stair.dir === 'up' ? -1 : +1, stair);
+    if (stair.elevator) scene.openElevator(stair);
+    else scene.changeDepth(stair.dir === 'up' ? -1 : +1, stair);
     return true;
   }},
 

@@ -1534,6 +1534,7 @@ const ICON_SHEETS = {
   icon_throwing_spear:    { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   icon_javelin:  { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
+  icon_progression: { url: 'assets/Objects/Progression/icons.png', cols: 2, srcW: 32, srcH: 16 },
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
   icon_torch:    { url: 'assets/Icons/Items/Torch.png',                      cols: 1,  srcW: 16,  srcH: 16 },
@@ -3371,10 +3372,12 @@ class MapScene extends Phaser.Scene {
     // Runs AFTER the creatures have moved (so shots resolve against where the
     // foes actually are this frame) and BEFORE the wheel, which is where melee
     // damage lands.
+    Crops.tickEffects(this);
     this._combatTick(dt);
     this._tickBlightAura();
     Companions.tickAll(this);
     tickGroundCoins(this);
+    this._tickArena(dt);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -3405,6 +3408,7 @@ class MapScene extends Phaser.Scene {
     this.drawBuildingGeometry();
     if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
     this.drawObjects();
+    this._drawArena();
     this._drawWorkProgress();
     this.updateHUD();
     } catch (e) {
@@ -5413,6 +5417,7 @@ class MapScene extends Phaser.Scene {
   // ride's pace — the one gate in front of every world tap.
   handleWorldTap(sx, sy) {
     if (this.isTooFast?.()) { this.flash('Too fast — on foot only.', sx, sy); return; }
+    if (this._tapArenaPortal(sx, sy)) return;
     interactTap(this, sx, sy);
   }
 
@@ -5653,6 +5658,7 @@ class MapScene extends Phaser.Scene {
     return fishedSlimeSpawn(this, performance.now(), px, py, this.playerToWorldCell());
   }
   _cellBlocked(wmx, wmy) {
+    if (this.depth === Arena.DEPTH) return !this._arenaCanWalk(wmx, wmy);
     if (this.depth === 0) return false;
     const c = this.cellAt(wmx, wmy);
     if (!c.loaded) return false;
@@ -5893,7 +5899,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const relics = this._walkRelics();
-    const step = WALK_M_S * steerSpeedMul(relics) * dt;
+    const step = WALK_M_S * steerSpeedMul(relics) * Conditions.movementMul(this.save) * dt;
     const dx = (vx / n) * step, dy = (vy / n) * step;
     if (!this._targetM) this._targetM = { x: this.playerM.x, y: this.playerM.y };
     // TAKE THE WHEEL AT ONCE. The stick nudges the TARGET, and _followStep
@@ -6281,7 +6287,7 @@ class MapScene extends Phaser.Scene {
     };
     const loop = this._confusedLoop;
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
-    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul;
+    const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul * Conditions.movementMul(this.save);
     let remaining = dt;
     while (remaining > 0) {
       const step = Math.min(remaining, 0.05);
@@ -6346,7 +6352,7 @@ class MapScene extends Phaser.Scene {
     // SLOW (_bodyHold): tar or stakes underfoot cap the body's pace.
     if (this._confusedRecover) capMS = Math.min(capMS ?? Infinity, WALK_M_S);
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
-    const moveSpeed = Math.min(WALK_M_S * mul, capMS > 0 ? capMS : Infinity) * balanceMul;
+    const moveSpeed = Math.min(WALK_M_S * mul, capMS > 0 ? capMS : Infinity) * balanceMul * Conditions.movementMul(this.save);
     const move = Math.min(moveSpeed * dt, dist);
     const ux = dx / dist, uy = dy / dist;
     const foot = this.feetOffsetM;
@@ -6467,6 +6473,12 @@ class MapScene extends Phaser.Scene {
   changeDepth(delta, stair) {
     const target = Math.max(0, (this.depth || 0) + delta);
     if (target === this.depth) return;
+    if (this.depth === Arena.DEPTH) { this.flashAtPlayer('Return through the arena portal first.'); return false; }
+    const source = stair.elevator ? 'elevator' : stair.descentSource || 'stairs';
+    if (!DungeonProgression.canUseDescent(this.save, this.depth || 0, target, source)) {
+      this.flashAtPlayer(target >= 4 ? 'Complete five arena trials to unlock the fourth depth.' : 'Use a rope or repair the elevator to go deeper.');
+      return false;
+    }
     // Can't descend on an empty tank — you'd just pass out down there. Climbing
     // up is always allowed (it's how you escape exhaustion).
     if (delta > 0 && (this.save.energy ?? 0) <= 0) {
@@ -6506,7 +6518,11 @@ class MapScene extends Phaser.Scene {
     // down (stairs, rope, the sapphire portal) comes through here, and a busy
     // screen returns false unmarked (the story ledger), so the next descent
     // asks again.
-    if (delta > 0) {
+    if (delta > 0 && target === 2) {
+      this._storySplashOnce('dungeon_stone', { art: 'progression_elevator', title: 'Beneath the roots', body: 'Your pick strikes solid stone. Dwarven lamps and pale groves glimmer beyond the passages you dig.' });
+    } else if (delta > 0 && target === 3) {
+      this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Your footsteps carry across the open waste.' });
+    } else if (delta > 0) {
       this._storySplashOnce('cave', {
         art: 'cave_first',
         title: 'Into the dark',
@@ -6531,6 +6547,7 @@ class MapScene extends Phaser.Scene {
   // tank dry is what makes "rest first" a warning worth heeding rather than a
   // free teleport home.
   _passOutToSurface() {
+    if (this.depth === Arena.DEPTH) this.exitArena();
     this._passingOut = true;
     if (this._workProgress) this.cancelWorkProgress();
     this._autoMineKey = null;
@@ -10169,6 +10186,8 @@ installSceneMixin(MapScene, SceneFire);
 // street restoration, lamps and the trail's prizes are scene_streets.js.
 installSceneMixin(MapScene, SceneCreate);
 installSceneMixin(MapScene, SceneConsumables);
+installSceneMixin(MapScene, SceneElevators);
+installSceneMixin(MapScene, SceneArena);
 installSceneMixin(MapScene, SceneVenues);
 installSceneMixin(MapScene, SceneStreets);
 
