@@ -180,7 +180,12 @@ def _sample(row, data, helpers, detail=False):
                 rx = x - (cx - mw // 2)
                 if not 0 <= rx < mw:
                     continue
-                at = [rx, y % mh]
+                world_y = y + (25-height)//2 if row.get('waterChannel') else y
+                at = [rx, world_y % mh]
+                if row.get('waterChannel') and rx in (mw//2-1,mw//2):
+                    channel = row['waterChannel']
+                    if world_y % channel['crossingEveryCells'] < channel['crossingWidthCells']:
+                        continue
             else:
                 # The centre and approach lanes take precedence over background slots.
                 if abs(x-cx) <= 2 and abs(y-cy) <= 2 or x == cx or y == cy:

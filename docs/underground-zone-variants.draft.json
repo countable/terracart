@@ -1,6 +1,6 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 6,
+  "revision": 7,
   "date": "2026-10-03",
   "purpose": "Project underground chambers from park POI regions and route zones from small roads and walking paths.",
   "scope": {
@@ -182,8 +182,8 @@
       "source": "walking_path",
       "context": "spring or wet park",
       "mechanic": "bank beside small impassable pools; always retain a dry connection",
-      "layout": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Preview shows a representative crossing; final positions follow topology.",
-      "reward": "Water channel can refill from reachable banks; no extra daily reward or cache."
+      "layout": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
+      "reward": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache."
     },
     {
       "id": "miners_way",
@@ -1578,7 +1578,7 @@
       "name": "Seep Passage",
       "motifCells": [
         6,
-        6
+        8
       ],
       "slots": [
         {
@@ -1594,11 +1594,32 @@
             4
           ],
           "material": "game_mushroom"
+        },
+        {
+          "at": [
+            2,
+            3
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            0,
+            6
+          ],
+          "material": "rock"
+        },
+        {
+          "at": [
+            5,
+            2
+          ],
+          "material": "rock"
         }
       ],
-      "atmosphere": "The underground route tiles become a flowing seep channel. Water occupies the middle; dry banks follow both sides, with stone crossings at connections.",
-      "poi": "Water channel can refill from reachable banks; no extra daily reward or cache.",
-      "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Preview shows a representative crossing; final positions follow topology.",
+      "atmosphere": "A few rocks break the surface of the seep channel and lie along its edges, between cave mushroom pockets. Dry banks follow both sides, and crossings stay clear.",
+      "poi": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
+      "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
       "monsters": "Depth-legal spring family; keep water-bank approaches clear.",
       "source": "Walking path adjoining a spring or wet park region.",
       "waterChannel": {
