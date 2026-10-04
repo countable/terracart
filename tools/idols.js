@@ -17,6 +17,7 @@
         hidden: () => 'Monsters ignore you until attacked. Fauna and pets do not flee while being caught.',
         melee: () => `+${Combat.TRAINING_KINDS.melee.drill} melee damage and +${Combat.TRAINING_KINDS.ranged.drill} bow damage.`,
         fortune: () => `+${Math.round(Shrines.FORTUNE_LUCK_BONUS * 100)} percentage points of luck on treasure rolls.`,
+        mining: () => 'Frost mining speed. Tool-tier access limits are unchanged.',
         work: () => `${Shrines.WORK_SPEED_MUL}× all work speed. Tool-tier access limits are unchanged.`,
         regen: () => `Regenerate ${Shrines.REGEN_PER_SECOND} HP per second.`,
         wand: () => `Virtual T${Shrines.WAND_TIER} wand; a stronger owned wand is preserved. Choose another weapon freely.`,
@@ -33,11 +34,11 @@
     const rows = [
       ...Object.entries(Shrines.SHRINE_KINDS).map(([id, row]) => ({ ...row, id, group:'boon',
         sprites:[SpriteLayout.groveShrineArt({ shrineKind:id })],
-        locations:[...(row.zoneVariants || []).map(id => `Zone: ${zoneVariantName(id)}`), ...(row.streets || []).map(id => `Street/path: ${streetName(id)}`)] })),
+        locations:[...(row.locations || []), ...(row.zoneVariants || []).map(id => `Zone: ${zoneVariantName(id)}`), ...(row.streets || []).map(id => `Street/path: ${streetName(id)}`)] })),
       ...Object.entries(Shrines.REWARD_KINDS).map(([id, row]) => ({ ...row, id, group:'reward',
-        sprites:id === 'grove' ? SpriteLayout.GROVE_SHRINE_ART : [{ key:'waystone', frame:0, scale:1.6 }],
+        sprites:row.sprite ? [{ key:row.sprite, frame:0, scale:1.6 }] : id === 'grove' ? SpriteLayout.GROVE_SHRINE_ART : [{ key:'waystone', frame:0, scale:1.6 }],
         locations:row.locations || (id === 'grove' ? ['Mapped parks and sacred groves without a named idol variant'] : ['Pilgrim street endpoints']) })),
-      ...Object.entries(Macros.DAILY_VISIT_KINDS).map(([id, row]) => ({ ...row, id:`visit_${id}`, group:'daily',
+      ...Object.entries(Macros.DAILY_VISIT_KINDS).filter(([, row]) => !Object.values(Shrines.REWARD_KINDS).includes(row)).map(([id, row]) => ({ ...row, id:`visit_${id}`, group:'daily',
         sprites:[typeof row.sprite === 'string' ? { key:row.sprite, frame:0, scale:1.6 } : row.sprite],
         locations:row.locations || [] })),
     ].map((row, order) => ({ ...row, order, effect:effect(row), duration:row.durationMs ? shortDuration(row.durationMs) : 'Immediate reward' }));

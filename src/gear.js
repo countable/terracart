@@ -69,7 +69,10 @@
 
   // Applied at the two work-wheel entry points, after the owned tool has
   // passed its access gate. Combat uses its own damage clock, not this rate.
-  function workDurationMs(save, durationMs, now = Date.now()) {
+  function workDurationMs(save, durationMs, now = Date.now(), toolSlot = null) {
+    if (toolSlot === 'pickaxe' && Shrines.leverActive(save, 'mining', now)) {
+      durationMs = Math.min(durationMs, toolDurationMs({ pickaxe: { tier: Shrines.MINING_TIER } }, 'pickaxe'));
+    }
     return durationMs / (Shrines.leverActive(save, 'work', now) ? Shrines.WORK_SPEED_MUL : 1);
   }
 

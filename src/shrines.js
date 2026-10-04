@@ -29,6 +29,7 @@
   const WORK_SPEED_MUL = 3;
   const REGEN_PER_SECOND = 1;
   const WAND_TIER = 6;
+  const MINING_TIER = 7;
   // Each special street independently receives a shrine with this chance;
   // safe seating still decides whether it can stand there. Scenic paths keep
   // their separate per-tile limit.
@@ -40,6 +41,10 @@
   // `flash` is the map line on a visit (≤ MAP_MSG_MAX); `body` the one-fact
   // description (a hint, never the number). Frames are the sheet's order.
   const SHRINE_KINDS = {
+    drill: { art: 'underground_miners_way', light: 0x9fdcff, lever: 'mining', durationMs: MIN, boon: 'Mining',
+      zoneVariants: [], streets: [], locations: ['Underground'], perTile: 10,
+      name: 'Drill shrine', flash: 'Your pick feels weightless.',
+      body: 'You touch the humming drill. Your hands tingle, and your pick feels weightless.' },
     wayfarer_post: { art: 'shrine_wayfarer_post', frame: 0, light: 0xf2d9a0, lever: 'pairy', get durationMs() { return CONSUMABLE_SPEC.pairy.durationMs; },
       zoneVariants: ['formal_garden'], streets: ['pilgrim', 'parkpath'],
       name: "Wayfarer's post", flash: 'The bell rings. Seek treasure.',
@@ -82,6 +87,21 @@
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
   };
   const REWARD_KINDS = {
+    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1, ledger: 'day',
+      reward: 'bike', effect: 'Faster walking', locations: ['Mapped bicycle parking'], get durationMs() { return BIKE_RACK_MS; },
+      spent: 'Horse is out',
+      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.',
+      open: (ctx, o) => root.Macros.dailyVisit(ctx, o, { grant: () => {
+        Buffs.extend(ctx.save, ctx.scene, 'bike', BIKE_RACK_MS);
+        ctx.scene.flash(bikeRackFlash(), ctx.sx, ctx.sy);
+      } }) },
+    // A POT OF GOLD (an ATM): scattered coin pickups (app.js _coinBurstInteract).
+    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778, ledger: 'day',
+      reward: 'coins', effect: 'Scattered coins', durationMs: 0,
+      locations: ['Mapped ATMs'],
+      body: 'You lift the heavy lid. Coins spill across the ground.',
+      open: (ctx, o) => typeof ctx.scene._coinBurstInteract === 'function'
+        ? (ctx.scene._coinBurstInteract(ctx.sx, ctx.sy, o), true) : null },
     mystic_reef: { name: 'Reef treasury', art: 'visit_gold', reward: 'coins', fillScreen: true,
       body: 'You touch the sea-worn stone. Gold washes out across the shore.', light: 0x9fdcff },
     waystone: { name: 'Waystone', art: 'shrine_waystone', reward: 'book',
@@ -92,6 +112,8 @@
   // Resolve the shared presentation row without changing generation identities.
   // Returns the row itself; callers use its art/reward or boon lever.
   function kindForObject(o) {
+    if (typeof isBikeRack === 'function' && isBikeRack(o)) return REWARD_KINDS.bike;
+    if (typeof isPotOfGold === 'function' && isPotOfGold(o)) return REWARD_KINDS.gold;
     if (o?.kind === 'waystone') return REWARD_KINDS.waystone;
     if (o?.kind !== 'grove_shrine') return null;
     return REWARD_KINDS[o.zoneVariant] || SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
@@ -110,6 +132,7 @@
   // from this table (save.boonUntil[lever]). `null` is instant (the pairy's
   // food effects), nothing to extend. Where an expiry LIVES is the row's.
   const LEVERS = {
+    mining: 'mining',
     pairy: null,
     shield: 'shield', reach: 'reach', light: 'torch',
     hidden: 'hidden', melee: 'melee', fortune: 'fortune', work: 'work', regen: 'regen', wand: 'wand',
@@ -156,7 +179,7 @@
   }
 
   root.Shrines = {
-    SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
+    SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, MINING_TIER, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
     kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, extend, boonFlash, normalize,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
