@@ -150,10 +150,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   (creature_ai.js `creatureSpawnClass`: fast = top speed over
   `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
   reason bit plus its column in the table, never a separate check at a
-  spawner. Authored Thorny Path and Barricade Road cross-sections are the
+  spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
-  of its own road band. Thorny paths cross minor roads only; removable
-  barricade/spike lines also cross their own major band and kerb. Both keep
+  of its own road band. Thorny paths and snare clusters cross minor roads only; removable
+  barricade/spike lines also cross their own major band and kerb. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary
   spawn classes cannot use that declaration to cross a road.
   POI chests are the place itself (`landRefused` —

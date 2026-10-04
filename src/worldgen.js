@@ -644,7 +644,7 @@
     const here = grid[cy * w + cx];
     if (here === T.FARMLAND || here === T.GOLF) return false;
     if (here === T.PIER && !(opts && opts.spawnWhy)) return false;
-    // Only authored thorny/barricade cross-sections may occupy their own
+    // Only authored thorny/barricade/snare cross-sections may occupy their own
     // road band. Declared seats never relax any other spawn class.
     const obstacle = cls === 'streetObstacle' && opts?.streetObstacleCells?.has(cy * w + cx);
     const barricade = obstacle && opts.streetObstacleKind === 'barricade';
