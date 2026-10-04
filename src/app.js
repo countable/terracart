@@ -1362,8 +1362,7 @@ if (typeof document !== 'undefined' && document.body) IconNet.observe();
 // The memories chip's rule (app.js _buildMemoriesChip). It lives here, not in
 // index.html, because the chip is built from JS: the box restates the shared
 // top-row chip box (#menu summary, #energy, #money) off the same --hud-chip-*
-// variables, the rim is the control rim (--ctl-rim) because the chip is
-// tappable, and body.modal-open dims it with its neighbours.
+// variables; body.modal-open dims it with its neighbours.
 const MEMORIES_CHIP_CSS = `
 #memories {
   box-sizing: border-box; position: relative;
@@ -1372,7 +1371,6 @@ const MEMORIES_CHIP_CSS = `
   display: flex; flex-direction: row; align-items: center; gap: 5px;
   background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
   font: 700 14px ui-monospace, monospace;
-  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
@@ -1383,7 +1381,7 @@ const MEMORIES_CHIP_CSS = `
   min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: 8px; background: var(--gold); color: #3a3322;
   font: 700 10px/16px ui-monospace, monospace; text-align: center; text-shadow: none;
-  box-shadow: var(--chrome-key); pointer-events: none;
+  pointer-events: none;
 }
 body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 `;
@@ -1431,7 +1429,6 @@ const ROAD_CHIP_CSS = `
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   background: var(--chrome-scuff), var(--chrome-panel); color: #e8e2d6;
   font: 700 9px ui-monospace, monospace;
-  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
@@ -1453,7 +1450,6 @@ const BOOK_CHIP_CSS = `
   display: flex; flex-direction: row; align-items: center; gap: 5px;
   background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
   font: 700 14px ui-monospace, monospace;
-  box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
@@ -2606,11 +2602,29 @@ class MapScene extends Phaser.Scene {
   _drawMarkers() {
     for (const text of Object.values(this._edgeDotLabels || {})) text.setVisible(false);
     this._edgeDotLabelBounds = [];
+    this._edgeDotPoints = {};
     for (const row of MARKERS) this._drawMarker(row);
+  }
+
+  // A generous hit area keeps the small rim dots usable on touchscreens.
+  _tapEdgeDot(sx, sy) {
+    let key = null, nearest = 16 * 16;
+    for (const [candidate, point] of Object.entries(this._edgeDotPoints || {})) {
+      const d2 = (sx - point.x) ** 2 + (sy - point.y) ** 2;
+      if (d2 <= nearest) { key = candidate; nearest = d2; }
+    }
+    if (key === null) return false;
+    const hidden = (this._hiddenEdgeDotLabels ||= new Set());
+    if (hidden.has(key)) hidden.delete(key);
+    else hidden.add(key);
+    this._edgeDotLabels?.[key]?.setVisible(!hidden.has(key));
+    return true;
   }
 
   _drawEdgeDotLabel(row, target, marker, point) {
     if (!point) return;
+    (this._edgeDotPoints ||= {})[row.key] = point;
+    if (this._hiddenEdgeDotLabels?.has(row.key)) return;
     const labels = (this._edgeDotLabels ||= {});
     const text = labels[row.key] ||= this.add.text(0, 0, '', {
       fontFamily: 'sans-serif', fontSize: '11px', color: '#ffffff',
@@ -3358,6 +3372,7 @@ class MapScene extends Phaser.Scene {
     this._combatTick(dt);
     this._tickBlightAura();
     Companions.tickAll(this);
+    tickGroundCoins(this);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -4718,7 +4733,7 @@ class MapScene extends Phaser.Scene {
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._setWorkProgressIcon(toolSlot);
     this._barehandMutter?.(toolSlot, worldX, worldY);
-    durationMs = Gear.workDurationMs(this.save, durationMs);
+    durationMs = Gear.workDurationMs(this.save, durationMs, Date.now(), toolSlot);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, toolSlot, startT: performance.now(), track: trackCreature };
   }
   // The grunt a bare-handed job starts with (BAREHAND_MUTTERS), on the job's

@@ -1892,7 +1892,7 @@
     let placed = 0;
     for (const role of roles) {
       const id = `npc_${role}_${tx}_${ty}`;
-      if (entry.creatures.some(c => c.id === id)) continue;
+      if (entry.creatures.some(c => c.id === id) || scene.save.npcHomes?.[id]?.houseId) continue;
       if (!NPC.storyNeighbourDue(scene.save, role)) continue;
       const maxR = role === 'warden' ? WARDEN_MAX_CELLS : NEIGHBOUR_MAX_CELLS;
       // The nearest ring cell (WorldGen.nearestRingCell — a fixed order)
@@ -1906,7 +1906,7 @@
       if (!seat) continue;
       const { x, y } = f.centre(seat.ix, seat.iy);
       if (seating.offscreen && !seating.offscreen(x, y)) continue;
-      const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y });
+      const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y, _homeAnchor: '' });
       entry.creatures.push(neighbour);
       occupied.add(seat.iy * N + seat.ix);
       seated.push(seat);

@@ -586,7 +586,8 @@ class SceneCreatures {
     // attraction and surface-roster replacement so neither can move or turn
     // them into an unrelated enemy. Their kills use the usual caught ledger.
     for (const guard of zoneGuards) {
-      const fauna = ['fauna', 'fastFauna'].includes(creatureSpawnClass(guard.kind));
+      const fauna = ['fauna', 'fastFauna'].includes(creatureSpawnClass(guard.kind))
+        || ITEM_BY_ID[guard.kind]?.kind === 'animal';
       const creature = WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
         ...guard, shiny: fauna ? faunaShiny(guard.kind, guard.id) : false, immobile: !fauna && !guard.burrowCells,
         ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
@@ -658,6 +659,7 @@ class SceneCreatures {
     entry._residents = NPC.spawn(this, entry, tx, ty, _spawnOpts);
     entry._residentsTile = { tx, ty };
     entry._spawnOpts = _spawnOpts;
+    for (const c of creatures) c._discovered = !HiddenObjects.isHidden(this.save, c);
     entry._spawned = true;
     // KEEP creatures the entry already carries. On a rebuild they are the live
     // ones — mid-wander positions, tamed pets, work in progress — handed over
@@ -674,6 +676,7 @@ class SceneCreatures {
     }
     this._restoreMimics(entry, tx, ty);
     NPC.shrineResidents(this, entry, tx, ty);
+    NPC.houseNeighbours(this, { offscreen: NPC.offscreenAt(this) });
     NPC.arrivals(this, entry, tx, ty);
 
     entry.objects = entry.objects || [];
@@ -999,7 +1002,7 @@ class SceneCreatures {
         const id = WorldGen.cellId(kind, tx, ty, cx, cy);
         if (caughtSet.has(id)) continue;
         const seat = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-        const c = WorldGen.makeCreature(kind, seat.x, seat.y, id, { shiny: fauna ? faunaShiny(kind, id) : false });
+        const c = WorldGen.makeCreature(kind, seat.x, seat.y, id, { shiny: fauna || ITEM_BY_ID[kind]?.kind === 'animal' ? faunaShiny(kind, id) : false });
         creatures.push(c);
         out.push(c);
       }
@@ -1581,6 +1584,7 @@ class SceneCreatures {
         anchors, occupiedIdx, Traps.DUNGEON_DENSITY_MUL)
         .filter(t => !heldByPlayer.has(t._iy * N + t._ix));
     }
+    for (const c of creatures) c._discovered = !HiddenObjects.isHidden(this.save, c);
     entry._spawned = true;
     entry.creatures = entry.creatures || creatures;
   }
@@ -1791,6 +1795,7 @@ class SceneCreatures {
         if (c.kind === 'npc') c._moving = false;
         return;
       }
+      if (enemyConcealmentTick(this, c)) return;
       if (enemyDisguiseTick(this, c, px, py)) return;
       if (enemyBurrowTick(this, c, EnemyRoster.get(c.kind), now)) return;
       if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;

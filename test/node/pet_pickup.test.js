@@ -215,3 +215,26 @@ test('pickup: a carried raised pet drops its tracked body before re-release at H
     assert.falsy(Companions.follows(entry.creatures[0]));
   } finally {globalThis.WorldGen=original;}
 });
+
+test('hostile shore crab still accepts its favourite food and mango', () => {
+  for (const food of ['minnow', 'mango']) {
+    const crab = {kind:'crab', id:'wild_crab_'+food, x:2.5, y:2.5};
+    const save = saveWith();
+    assert.truthy(Combat.isEnemy(crab));
+    assert.eq(tapPet(crab, save, food).r, true);
+    assert.truthy(crab.id.startsWith('released_'), food+' tames the crab');
+    assert.falsy(Combat.isEnemy(crab));
+    assert.eq(Inventory.count(save, food), 0);
+  }
+});
+
+test('hostile shore crab can still be caught with an empty hand', () => {
+  const crab = {kind:'crab', id:'wild_crab_net', x:2.5, y:2.5};
+  const save = saveWith();
+  let caught;
+  assert.eq(tapPet(crab, save, null, {
+    startCatchProgress: (target, ms, done) => done(),
+    catchCreature: target => { caught = target; },
+  }).r, true);
+  assert.eq(caught, crab);
+});

@@ -126,6 +126,7 @@ const ART_THUMBS = {
   trail_prize: 'data:image/webp;base64,UklGRuoAAABXRUJQVlA4IN4AAABwBQCdASoWABwAPp1Cmkmlo6IhKA1QsBOJZgCdMuN6b2ArjEygvw1hPHE0Rh7P+nI5IokEAP48RCXSH8OpDHPmfeqba5YHtOLNX3nRUq6y8wE+xXKtKJOE4l3tX95Uk0h8k6tTKrGHdMhniIEUwH9s0MeaEvjLLpFb91ycqvCHLGN95XayF/ZMwACvGbeSq4aul2HwhrBJop1kDmUsgIXF+bNPJwpUaG580lU3ZCwxKVhKW6rEmCBO2Y7mXoyAs/lI9fOdZcTPu7yrST580gef+rddYClDLMqySvzQAAA=',
   trap_free: 'data:image/webp;base64,UklGRr4AAABXRUJQVlA4ILIAAADQBACdASoWABwAPp0+nEmloyKhMBgIALATiWYArC+g7NUA8vZJPU/awuY/n8kSgAD2QaaZuLZMNX/NIXSE2iS/lLypbTHod/Y6MannMlq4Gsi7ftl6eAKN150uQfML1/+kU5n+5X4mYO69aE3P+6sU58vUk6Akuc/j6TE+Q6wo9y4c6Li6TeGsuaWgqgq1gYY+Y6/e0PZtr2x4JRgVCEIbRr2uxDnQsWAJGK89KBtgAAAA',
   trap_jaw: 'data:image/webp;base64,UklGRvwAAABXRUJQVlA4IPAAAADQBQCdASoWABwAPp1GnUslo6KhqAgAsBOJagCdMoR+N6rEgBA/BerWUYFQ/obKt5zI1qQfHvF4AP7xoL5WqoMiKDGD9GRzpUy3quBguKgitep2pKynK5YPde8kA5whbaW5dKoQFbfPYgl72FaQR0kVLf7M9jm5SpA2dfvvRpA1Fc0LcnY81VbggABeDQI0uJpVylfP96ffP20+AIP5mUv24tI70lUdtFsBoA8+2FbpoPK5H860NxuuwqUP2UvMY6P1PdSevfz7ciB2mokKsqYuyvpaO/oyXNclggFbHL0uyS8LeOvCAiTyN/Wa9vB4AAA=',
+  underground_miners_way: 'data:image/webp;base64,UklGRn4AAABXRUJQVlA4IHIAAACQBACdASoWABwAPp1Em0qlo6IrqAqpcBOJZwCuHBBZWo0/vSHmUjlixj7bvwAA/u0aupHupBMhS0BdQTsiuhfzR8QuN49NdhAn41g/awZ0qJmne4IIwiT6UH/JShlM9k2NiP92EE70k7FeLsKwxCGkOAA=',
   visit_bike: 'data:image/webp;base64,UklGRqYAAABXRUJQVlA4IJoAAAAwBACdASoWABwAPp1Enkmlo6MmqAqo0BOJYwAD5XENGHMkxBII22/0TpgA/vGB6YGF+Fc1u2p2boWZj3xNY3c8hMCQ979tDoqmjOUxpiFjjWLpXRf/12xs9TuIHsfxz+99SoqFR//wbhhSsIXq2uLm8wTmhfV3aAj2JzqjEwBlDcYl3RPU77BgSTiCXe+Z/v+MHwYV5dsrYAAA',
   visit_gold: 'data:image/webp;base64,UklGRp4AAABXRUJQVlA4IJIAAACwBACdASoWABwAPp0+nEmloyKhMBgIALATiWMAd8ACJdEXmCDL51VH1Z1MxW8AAP70nk16I8VBYoyJbu3gwme0tikHV0qOdgjNJ/0YUMa3WcLM/733e1vbMWH96vnI8msX5zTg8b0CaxCpepY5A39pXSgwuof79t9EUJUp9mWICjh84DEKRY2Nv18xwYf+NSAAAA==',
   visit_hive: 'data:image/webp;base64,UklGRsAAAABXRUJQVlA4ILQAAADwBACdASoWABwAPp0+nEmloyKhMBgIALATiWIAv0n/4tiItjyqbPu7jBsUMsy+EAAA/vGdw+WJoyT0I9cu77AvC0YumMZXe1qTMN5KMxvUW6eN9sKRC0sa8IGOTJziO1k1+fL4rGVWPzWPyO64WIfek/BNnfXtdawpKOqsOjc/+jJsLO7RpXJqiXr4ayryNwkak4w4qd0e8d3Z8fG+jIadHcPO585DMLJPioSxfqw096AAAAA=',
@@ -264,6 +265,7 @@ const ART_TONES = {
   trail_prize: '#904e17',
   trap_free: '#a4581d',
   trap_jaw: '#915122',
+  underground_miners_way: '#3d2d27',
   visit_bike: '#6c4b30',
   visit_gold: '#543a19',
   visit_hive: '#62461c',
@@ -895,6 +897,11 @@ const ART_CUTS = {
     'data:image/webp;base64,UklGRkIAAABXRUJQVlA4IDYAAADwAQCdASoDAAQAAkA4JagCdLoAAwkG/UgA/vNVLrbFQvryEsu/o/J56+NP0f9arTmpAIT5YAA=',
     'data:image/webp;base64,UklGRlIAAABXRUJQVlA4IEYAAAAQAgCdASoGAAgAAkA4JbACdLoAAzpPwq3wAP7tK3qF5pMUf36balBQNFnMM83jtr/8uRyT5yM68S7/SAMQfcdYNx+DwAAA',
     'data:image/webp;base64,UklGRmYAAABXRUJQVlA4IFoAAAAwAgCdASoLAA4AAkA4JbACdLoAAs2/nrPSQAD+9fxTPdw89U63fS5wPsRxzFi29gAn1/NhLpCvBt4o0EmnjznOqja1P/zsvjrkb9ltPgUv/EoMJxatwM5oqAA=',
+  ],
+  underground_miners_way: [
+    'data:image/webp;base64,UklGRjIAAABXRUJQVlA4ICYAAABwAQCdASoDAAQAAkA4JZyzAAARmgD++cGW2yyP1nnvIJfSqALgAA==',
+    'data:image/webp;base64,UklGRjgAAABXRUJQVlA4ICwAAADwAQCdASoGAAgAAkA4JZwCdAD0so0yEAAA/vncuhYV4h5fOCQgK0B/WfwAAA==',
+    'data:image/webp;base64,UklGRkAAAABXRUJQVlA4IDQAAADwAQCdASoLAA4AAkA4JZQCdAEDen3FGAAA/vfIJl2p74mAwuN6GOvNuC6IdQZjkDzmwAAA',
   ],
   visit_bike: [
     'data:image/webp;base64,UklGRjgAAABXRUJQVlA4ICwAAADQAQCdASoDAAQAAkA4JYwCdAEPClmUAAD++d5oWZdQIZgHDveOnDBWl54AAA==',

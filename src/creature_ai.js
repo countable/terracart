@@ -1688,6 +1688,14 @@ function foeSpacingPush(scene, c) {
   return len > 1 ? { x: x / len, y: y / len } : { x, y };
 }
 
+// Discovery gates movement and effects for wild animals as well as enemies.
+function enemyConcealmentTick(scene, c) {
+  if (!c.hidden && !c.stealthy) return false;
+  HiddenObjects.reveal(scene, c);
+  c._discovered = !HiddenObjects.isHidden(scene.save, c);
+  return !c._discovered;
+}
+
 // A camouflaged foe holds its authored seat until the player gets close.
 // The same predicate keeps weapons and the renderer on the disguised state.
 function enemyDisguiseTick(scene, c, px, py) {

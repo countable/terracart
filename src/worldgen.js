@@ -80,7 +80,12 @@
     return { kind: 'wildplant', crop, x, y, id, ...extra };
   }
   function makeCreature(kind, x, y, id, extra) {
-    return { kind, x, y, id, ...extra };
+    // Wild animals wait for discovery; released pets are already known.
+    const behaviour = SpriteLayout.creatureBehaviour(kind);
+    const concealment = typeof id === 'string' && id.startsWith('released_') ? null
+      : behaviour?.concealment || (extra?.shiny && typeof ITEM_BY_ID !== 'undefined'
+        && ITEM_BY_ID[kind]?.kind === 'animal' ? 'hidden' : null);
+    return { kind, x, y, id, ...(concealment ? { [concealment]: true } : {}), ...extra };
   }
   function makeObject(kind, x, y, id, extra) {
     return { kind, x, y, id, ...extra };
@@ -8489,6 +8494,33 @@
       count: (rng) => CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN), tries: CAVE_BARREL_TRIES, pick: anyCell,
       emit: (L, c, p) => L.objects.push(makeObject('chest', p.x, p.y,
         cellId(`cbarrel_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { barrel: true, depth: L.depth })) },
+    // Sample free floor without replacement so every tile has its full quota
+    // whenever enough eligible cells remain. Appending preserves older finds.
+    { id: 'drills', salt: 0xD4115A7E,
+      setup: (L) => {
+        const reserved = new Set(), seats = [];
+        for (const o of L.objects) if (o.kind === 'staircase') {
+          const { lix, liy } = cellIndexOf(L.tx, L.ty, o.x, o.y, L.tileEdgeM, L.N);
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+            const x = lix + dx, y = liy + dy;
+            if (x >= 0 && x < L.N && y >= 0 && y < L.N) reserved.add(y * L.N + x);
+          }
+        }
+        for (let i = 0; i < L.grid.length; i++) {
+          if (L.grid[i] === T.CAVE_FLOOR && !L.occupied.has(i) && !reserved.has(i)) seats.push(i);
+        }
+        return seats;
+      },
+      count: () => global.Shrines.SHRINE_KINDS.drill.perTile, tries: 1,
+      pick: (rng, px, py, L, seats) => {
+        if (!seats.length) return null;
+        const at = Math.floor(rng() * seats.length), idx = seats[at];
+        seats[at] = seats[seats.length - 1];
+        seats.pop();
+        return { lix: idx % L.N, liy: Math.floor(idx / L.N) };
+      },
+      emit: (L, c, p) => L.objects.push(makeObject('grove_shrine', p.x, p.y,
+        cellId(`cdrill_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { shrineKind: 'drill', depth: L.depth })) },
   ];
   // One pass over a level — see CAVE_PASSES for the two walks. `L` is the
   // level: { grid, N, tx, ty, tileEdgeM, depth, occupied (flat cell indices,

@@ -71,7 +71,7 @@ test('enemy habitats: actual beach spawn pass includes pirates and hostile crabs
   assert.falsy(run(false).some(c => /pirate|giant_crab/.test(c.kind)));
   const sig = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
   assert.eq(sig(run(true, [beach[0].id])), sig(beach.slice(1)), 'defeat removes one seat without rerolling survivors');
-  assert.falsy(Combat.isEnemyKind('crab'), 'the tameable shore crab remains fauna');
+  assert.truthy(Combat.isEnemyKind('crab'), 'the tameable shore crab attacks while wild');
 });
 
 test('enemy habitats: every selected cave theme has an eligible family through deep levels', () => {
