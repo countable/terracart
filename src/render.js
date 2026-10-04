@@ -212,13 +212,13 @@ Render.shopTierBadge = (scene, house, role) => {
   };
 };
 // Market signs identify the line, not the randomly selected stock item.
-// Reuse inventory/gear art so the sign and the goods share their identity.
+// Category symbols come from the inventory tabs; books keep their item icon.
 Render.MARKET_SIGN_ICONS = Object.freeze({
-  seed: { item: 'potato_seed' },
-  supply: { item: 'rope' },
-  potion: { item: 'healing_potion' },
-  relic: { gear: 'sword' },
-  pet: { item: 'rabbit' },
+  seed: { tab: 'seed' },
+  supply: { tab: 'supplies' },
+  potion: { tab: 'magic' },
+  relic: { tab: 'relic' },
+  pet: { tab: 'animal' },
   book: { item: 'book' },
 });
 Render.marketSignTheme = (scene, house, role) => {
@@ -229,8 +229,8 @@ Render.marketSignTheme = (scene, house, role) => {
 Render.marketSignIconHTML = (scene, theme, size) => {
   const icon = Render.MARKET_SIGN_ICONS[theme];
   if (!icon) return '';
-  return icon.gear ? scene.gearIconHTML('relic', icon.gear, 1, size)
-    : scene.renderItemIcon(icon.item, size);
+  if (icon.tab) return `<span style="display:block;font-size:${size}px;line-height:1">${INV_CAT_BY_KEY[icon.tab].sym}</span>`;
+  return scene.iconSpanHTML(icon.item, size);
 };
 const COIN_DROP_PX = 9;
 Render.COIN_DROP_PX = COIN_DROP_PX;
@@ -3803,7 +3803,7 @@ Render.drawObjects = function drawObjects(scene) {
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout: the wishlist of produce icons
         // while hungry, a smiling face once a bundle is delivered; a market
-        // building shows its line's item-icon signboard instead.
+        // building shows its line's inventory-tab symbol instead.
         if (it.wide || it.o.kind !== 'house') continue;
         const market = Render.marketSignTheme(scene, it.o, _houseRole(it.o));
         if (!market && !_houseIsHost(it.o)) continue;
