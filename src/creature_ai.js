@@ -1398,6 +1398,14 @@ function enemyAreaContains(c, row, px, py, cellM) {
   return Math.hypot(px - c.x, py - c.y) <= PotionEffects.range(c, row.range) * cellM
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
+// Render time is monotonic even when the combat caller supplies a simulation clock.
+function creatureMeleeSwing(c, targetX, targetY) {
+  const dx = targetX - c.x, dy = targetY - c.y;
+  const length = Math.hypot(dx, dy);
+  c._meleeSwing = { startT: performance.now(),
+    dir: length > 0 ? { x: dx / length, y: dy / length } : { x: 0, y: 1 } };
+}
+
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
   if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
   if (creatureTarget && (Combat.isConcealed(creatureTarget)
@@ -1495,6 +1503,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   if (!ready) return;
   c._attackT0 = now;
   c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
+  if (row.attackType === 'melee') creatureMeleeSwing(c, px, py);
   const raw = row.attackType === 'melee' || row.attackType === 'touch'
     ? (row.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c)
     : row.dmg * Combat.powerMul(c);

@@ -1160,7 +1160,7 @@ class SceneCreate {
     this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
     // Sword-swing slash — a short arc drawn near the player, toward whatever
     // it's engaged with, on the same beat the melee wheel's damage numbers
-    // pop (see SWORD_SWING_MS / _drawSwordSwing). Depth 11: same tier as the
+    // pop (see Render.MELEE_LOOKS / _drawSwordSwing). Depth 11: same tier as the
     // facing arrow, above the body (10).
     this.swordSwingGfx = this.add.graphics().setDepth(11);
     this.playerWorldContainer.add(this.swordSwingGfx);
