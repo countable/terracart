@@ -1,6 +1,6 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 8,
+  "revision": 9,
   "date": "2026-10-03",
   "purpose": "Project underground chambers from park POI regions and route zones from small roads and walking paths.",
   "scope": {
@@ -1613,13 +1613,6 @@
         },
         {
           "at": [
-            5,
-            4
-          ],
-          "material": "game_mushroom"
-        },
-        {
-          "at": [
             2,
             3
           ],
@@ -1640,7 +1633,7 @@
           "material": "rock"
         }
       ],
-      "atmosphere": "A few rocks break the surface of the seep channel and lie along its edges, between cave mushroom pockets. Dry banks follow both sides, and crossings stay clear.",
+      "atmosphere": "A few rocks break the surface of the seep channel and lie along its edges, with occasional cave mushrooms. Dry banks follow both sides, and crossings stay clear.",
       "poi": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
       "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
       "monsters": "Depth-legal spring family; keep water-bank approaches clear.",
