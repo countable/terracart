@@ -596,7 +596,7 @@
     // The shore crab is the chicken's row on the beach: tamed with its
     // favourite (items.js ANIMAL_FOOD.crab) or netted; a fed one gives a SHELL.
     // Seated only on shore sand (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
-    crab:          { wanders: true, produce: { item: 'shell', verb: 'shed' } },
+    crab:          { wanders: true, concealment: 'stealthy', produce: { item: 'shell', verb: 'shed' } },
     // The horse is the cow's row without the milk: twice the netting, tamed
     // with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag it is
     // a mount (items.js HORSE_RIDE).
@@ -604,7 +604,7 @@
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
-    cat:           { wanders: true, pet: true, follows: true, prey: new Set(['crow']) },
+    cat:           { wanders: true, concealment: 'stealthy', pet: true, follows: true, prey: new Set(['crow']) },
     dog:           { wanders: true, pet: true, prey: new Set(['deer', 'slime']) },
     // `fightsBack`: GAME that turns on the hunter. Starting a hunt on it
     // (interact.js) enrages it for `rageMs`; while enraged it charges at its

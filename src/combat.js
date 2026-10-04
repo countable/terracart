@@ -598,7 +598,9 @@
   function isDisguised(c) {
     return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
   }
-  function isConcealed(c) { return isBurrowed(c) || isDisguised(c); }
+  function isConcealed(c) {
+    return !!((c?.hidden || c?.stealthy) && !c._discovered) || isBurrowed(c) || isDisguised(c);
+  }
   // What a status may land on: a HOSTILE instance whether or not it is
   // charmed right now (isEnemy, with the charm's clock pushed past every
   // charm) — a sleep or a fresh charm reaches a charmed foe too; never a pet,
