@@ -59,7 +59,7 @@ test('story splash: the first shiny splash precedes the fanfare toasts', () => {
 });
 
 test('story splash: a castle claim splashes once per castle, flash as fallback', () => {
-  const splash = app.indexOf("this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {");
+  const splash = app.indexOf("this._storySplashOnce('castle:' + key, {");
   assert.truthy(splash > 0, 'the castle splash is keyed on the castle itself');
   assert.truthy(/art: 'castle_claim'/.test(app.slice(splash, splash + 400)),
     'the splash carries the castle_claim banner');

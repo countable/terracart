@@ -1586,7 +1586,9 @@ class SceneShops {
             art: 'castle_claim', title: 'The castle is yours',
             body: "The vault door grinds open, and your banner rises above the gate. You step inside.",
           });
-          if (!splashed) this.flash('The castle vault is yours.', sx, sy);
+          if (!splashed) {
+            this.flash('The castle vault is yours.', sx, sy);
+          }
         }
       },
     });
