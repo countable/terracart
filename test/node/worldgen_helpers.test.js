@@ -79,7 +79,7 @@
 
   test('cave floor passes: one ordered table, each scatter row off its own stream salt', () => {
     const ids = W.CAVE_PASSES.map((r) => r.id);
-    assert.eq(ids.join(), 'rocks,mushrooms,rings,wallTorches,coins,treasureMarks,floorTorches,barrels', 'the order the level is laid in');
+    assert.eq(ids.join(), 'rocks,mushrooms,rings,wallTorches,coins,treasureMarks,floorTorches,barrels,drills', 'the order the level is laid in');
     const salts = new Set();
     for (const r of W.CAVE_PASSES) {
       if (r.run) continue;
