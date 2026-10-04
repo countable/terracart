@@ -257,6 +257,19 @@ Render.coinPile = (coin) => {
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
 const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
+// Underground palettes travel through the same ground accent lane as surface
+// zones: fills, rounded seams and border comparisons all see one colour.
+// Cave grit remains an alpha overlay, preserving its existing baked textures.
+Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760 };
+Render.undergroundGroundColor = (entry, ix, iy, type) => {
+  if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
+  if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
+  if (entry.undergroundBiome !== 'deep_stone') return null;
+  const area = entry.undergroundAreas?.[iy * entry.cellsPerEdge + ix];
+  return area === 1 ? Render.UNDERGROUND_GROUND.grove
+    : area === 2 ? Render.UNDERGROUND_GROUND.dwarven_city : null;
+};
+
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
 // Wall faces recover half the pre-recolour contrast against their floors — deep
@@ -1736,8 +1749,9 @@ Render.drawCells = function drawCells(scene) {
       // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
       // that's the tile-loading indicator; see the _ringVeil comment above).
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
-      _ringGroundColor[si] = typeof zoneGroundColor === 'function'
-        ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1;
+      _ringGroundColor[si] = Render.undergroundGroundColor(e2, ix2, iy2, types[si])
+        ?? (typeof zoneGroundColor === 'function'
+          ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
@@ -4584,9 +4598,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
-    staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
-                 ground: (o) => o.dir !== 'up',
-                 frame: (o) => (o.dir === 'up' ? '__BASE' : 'down'),
+    staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 ground: (o) => !o.elevator && o.dir !== 'up',
+                 frame: (o, scene) => o.elevator ? (Elevators.isRepaired(scene?.save) ? 1 : 0) : (o.dir === 'up' ? '__BASE' : 'down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
     // rises up out of the cell (like a small tree). The 6-frame sheet is cycled

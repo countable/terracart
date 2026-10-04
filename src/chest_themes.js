@@ -8,7 +8,7 @@
     && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id)).map(i => i.id);
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && !i.plants && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
-    uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id)).map(i => i.id), mixedTiers: true, fallback: 'magic' },
+    uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id) && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'magic' },
     supplies: { ids: { torch: 3, rope: 1, trap_disarm_kit: 1, throwing_spear: 1, taming_potion: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'lance', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_disarm_kit', 'throwing_spear'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'taming_potion'], fallback: 'torch' },
