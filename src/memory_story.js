@@ -19,17 +19,16 @@ const MemoryStory = (() => {
   // action in <em> on its own line, the body HTML; a talk that needs two
   // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The
   // vocabulary is the story bible's (docs/story.txt): the Breaking, fifty
-  // years, Mending Lane, the wizard the old folk call Tim. The hood is
-  // looked at and never asked about twice.
+  // years, Mending Lane, the wizard the old folk call Tim.
   const HOME = {
     title: 'A neighbour at the gate', art: 'revive_found',
-    body: '<em>Looks at your hood, then past it, down the lane.</em>\n“Nobody comes to Mending Lane any more, stranger.”\n<em>Holds up a key.</em>\n“My children still ask when we can go home. I kept this, though there is hardly a door left for it.”',
+    body: '“My children still ask when we can go home. I kept the key.”',
   };
-  // The second page of the warden's first talk — the safe area, after the
-  // plea. NPC.WARDEN_LINE is the one owner of the safe-area sentence.
-  const wardenWelcome = () => '“Mend one house and we come back. We still have hands.”\n<em>Nods at the quiet grass round the trailer.</em>\n' + NPC.WARDEN_LINE;
-  const FIRST_ROOF = '<em>Eyes red, and not hiding it.</em>\n“Lamplight, in a window that was dark fifty years. My children saw it first. We can begin again.”';
-  const RUMOUR = '<em>Lowers their voice.</em>\n“They say a wise man lives somewhere round here. Old Tim, the elders call him. Nobody I know has seen him.”\n“You walk these roads like you have walked them before. Perhaps he knows why.”';
+  const MEND_HOME = '“Mend a house. We’ll help.”';
+  // The safety hint is told once, on the second page of the first meeting.
+  const wardenWelcome = () => MEND_HOME + '\n' + NPC.WARDEN_LINE;
+  const FIRST_ROOF = '“My children saw lamplight in those windows. We can begin again.”';
+  const RUMOUR = '“They say Old Tim lives nearby. A wise man. Perhaps he knows why these roads feel familiar to you.”';
   // THE STORY NEIGHBOURS by the starting trailer (NPC.STORY_ROLES; Starter
   // placeSafeAreaWarden seats them). Each keeps to one thread of the story
   // and moves with the act, never ahead of it: the survivor knows the
@@ -414,11 +413,11 @@ const MemoryStory = (() => {
         Save.persist(scene.save);
         return [HOME.body, wardenWelcome()];
       }
-      if (repaired < Houses.STORY_RESTORES.earlyMending) return wardenWelcome();
+      if (repaired < Houses.STORY_RESTORES.house) return MEND_HOME;
       if (total(scene.save) >= 9 && act(scene.save) === 1) return RUMOUR;
       if (act(scene.save) >= 2) return survivorLine(scene.save);
       return FIRST_ROOF + (archaeologistState(scene.save).seen.introduction
-        ? '\n\n“Orrin means well. Most of us call him a crackpot; I worry someone will trust his dragon talk and get hurt.”' : '');
+        ? '\n\n“Orrin means well. His dragon talk could get someone hurt.”' : '');
     }
     if (c.role === 'witness') return NEIGHBOURS.witness[act(scene.save)];
     if (c.role === 'wanderer') return wandererLine(scene, c);

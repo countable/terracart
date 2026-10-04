@@ -978,3 +978,43 @@ test('lighting: the reach area is as bright as noon leaves room for', () => {
 });
 
 })();
+
+test('lighting: reach changes fade across cells without dimming their overlap', () => {
+  const s = { depth: 0, cellM: 7 };
+  const a = { cellIX: 10, cellIY: 20 }, b = { cellIX: 11, cellIY: 20 };
+  const frames = (cell, now) => Lighting.reachFrames(s, cell, 17.5, now);
+  assert.eq(frames(a, 0)[0].weight, 1, 'initial light appears immediately');
+  const start = frames(b, 100);
+  assert.eq(start[0].rp.cellIX, 10, 'crossing starts with the previous visible mask');
+  assert.eq(start[0].weight, 1);
+  const mid = frames(b, 100 + Lighting.REACH_FADE_MS / 2);
+  assert.eq(mid.length, 2);
+  assert.eq(mid[0].weight, 0.5, 'departing cells half lit');
+  assert.eq(mid[1].weight, 0.5, 'arriving cells half lit');
+  assert.eq(mid.reduce((sum, f) => sum + f.weight, 0), 1, 'shared cells keep full light');
+  assert.falsy(Lighting.reachFramesKey(start) === Lighting.reachFramesKey(mid), 'both lightmap caches repaint through the fade');
+  const end = frames(b, 100 + Lighting.REACH_FADE_MS);
+  assert.eq(end.length, 1, 'settled light keeps only the exact current reach mask');
+  assert.eq(end[0].rp.cellIX, 11);
+  assert.eq(end[0].weight, 1);
+  assert.eq(Lighting.reachFramesKey(end), Lighting.reachFramesKey(frames(b, 1000)), 'standing still reuses the cache');
+});
+
+test('lighting: reversing during a reach fade preserves the displayed brightness', () => {
+  const s = { depth: 0, cellM: 7 };
+  const a = { cellIX: 10, cellIY: 20 }, b = { cellIX: 11, cellIY: 20 };
+  Lighting.reachFrames(s, a, 17.5, 0);
+  Lighting.reachFrames(s, b, 17.5, 100);
+  const midTime = 100 + Lighting.REACH_FADE_MS / 2;
+  const before = Lighting.reachFrames(s, b, 17.5, midTime);
+  const reverse = Lighting.reachFrames(s, a, 17.5, midTime);
+  assert.eq(Lighting.reachFramesKey(before), Lighting.reachFramesKey(reverse));
+  const after = Lighting.reachFrames(s, a, 17.5, midTime + Lighting.REACH_FADE_MS / 2);
+  assert.eq(after.find(f => f.rp.cellIX === 10).weight, 0.75);
+  assert.eq(after.find(f => f.rp.cellIX === 11).weight, 0.25);
+  s.depth = 1;
+  const cave = Lighting.reachFrames(s, a, 10.5, midTime + Lighting.REACH_FADE_MS / 2);
+  assert.eq(cave.length, 1, 'changing depth cannot carry old surface cells into cave light');
+  assert.eq(cave[0].weight, 1);
+  assert.eq(cave[0].reachM, 10.5);
+});

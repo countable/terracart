@@ -251,7 +251,7 @@ const NPC = (() => {
   // weak monsters are ever met, and nobody knows why (the bible: memory 30
   // answers it). The one owner of that sentence; MemoryStory.npcDialogue
   // closes the warden's first talk with it.
-  const WARDEN_LINE = '“You picked a good spot. Only the weak things come near here. Nobody knows why.”';
+  const WARDEN_LINE = '“It’s less dangerous around here. Almost as if danger is afraid to come near.”';
   // THE STORY NEIGHBOURS — placed by the starting trailer (Starter
   // placeSafeAreaWarden seats them in this order, the warden first so its
   // seat never moves). What each says is MemoryStory.npcDialogue's, by act:

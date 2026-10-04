@@ -59,7 +59,8 @@
 //
 // The player's PLATEAU is painted per reach cell with cellInReach's own
 // maths, so the sharp edge of the lit area IS the staircase the tap gate
-// accepts. Only the falloff outside it is a circle. That edge is the WHOLE
+// accepts once its brief cell-change crossfade settles. Only the falloff
+// outside it is a circle. That edge is the WHOLE
 // affordance (no outline is stroked over it; if the boundary stops reading,
 // widen the step at its edge). Inside the staircase the plateau is the
 // player's own lamp, full at the feet and easing down PLATEAU_FALL of the way
@@ -1467,10 +1468,43 @@
     ctx.closePath();
   }
 
+  // Reach remains discrete for taps. Its picture eases between the old and new
+  // cell masks, so cells entering/leaving the light do not flash on a crossing.
+  // Keep the current mixture when interrupted (including turning back), rather
+  // than restarting from a fully lit old mask. Weights always sum to one, so
+  // overlapping cells retain their brightness under additive blending.
+  const REACH_FADE_MS = 240;
+  function reachFrames(scene, rp, reachM, now) {
+    if (!rp) { scene._lightReachFade = null; return []; }
+    const key = `${rp.cellIX}|${rp.cellIY}|${reachM}`;
+    const space = `${scene.depth ?? 0}|${scene.cellM}`;
+    const target = { key, rp: { cellIX: rp.cellIX, cellIY: rp.cellIY }, reachM, weight: 1 };
+    let st = scene._lightReachFade;
+    if (!st || st.space !== space) {
+      scene._lightReachFade = { space, target, from: [], at: now };
+      return [target];
+    }
+    const t = clamp01((now - st.at) / REACH_FADE_MS);
+    const ease = t * t * (3 - 2 * t);
+    const frames = st.from.length && t < 1
+      ? st.from.map(f => ({ ...f, weight: f.weight * (1 - ease) })) : [];
+    const existing = frames.find(f => f.key === st.target.key);
+    const weight = frames.length ? ease : 1;
+    if (existing) existing.weight += weight;
+    else frames.push({ ...st.target, weight });
+    if (st.target.key !== key) {
+      st = scene._lightReachFade = { space, target, from: frames.filter(f => f.weight > 0), at: now };
+    } else if (t >= 1) st.from = [];
+    return frames;
+  }
+  function reachFramesKey(frames) {
+    return frames.map(f => `${f.key}:${f.weight}`).join(';');
+  }
+
   // The static layer (see draw()): the ambient floor, then — added — the
   // player's ramp and the reach plateau, painted onto `ctx` (the lightmap
   // itself, or the baked copy's canvas).
-  function paintStaticLayer(ctx, W, H, scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0) {
+  function paintStaticLayer(ctx, W, H, scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0, frames) {
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
     ctx.fillStyle = cssOf(prof.ambient);
@@ -1488,6 +1522,16 @@
     // frame; 169 calls of the allocating helper is churn for nothing). This
     // edge is the affordance now, so it has to be exactly that test.
     if (plateau) {
+      for (const frame of frames) {
+        if (frame.weight <= 0) continue;
+        ctx.globalAlpha = frame.weight;
+        paintReachCells(ctx, scene, prof, ps, ox, oy, frame.rp, pc, frame.reachM, r0);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function paintReachCells(ctx, scene, prof, ps, ox, oy, rp, pc, reachM, r0) {
       const reachM2 = reachM * reachM;
       const fracX = pc.cx - Math.floor(pc.cx);
       const fracY = pc.cy - Math.floor(pc.cy);
@@ -1532,7 +1576,6 @@
         }
       }
       ctx.fill();
-    }
   }
   // One exact copy of the baked static layer onto the lightmap. The layer is
   // opaque (its floor is), so source-over replaces every pixel outright.
@@ -1592,8 +1635,10 @@
     const rp = plateau ? playerReachCell(scene) : null;
     const pc = plateau ? viewAnchorCell(scene) : null;
     const pcPx = plateau ? plateauPxKey(scene, pc) : null;
+    const frames = reachFrames(scene, rp, reachM, wall);
+    const fadeKey = reachFramesKey(frames);
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx);
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey;
     if (key === tex.__lightKey) {
       scene._boot_lightMs = 0;
       if (B) B.count('lightmap painted', 0);
@@ -1614,8 +1659,8 @@
     // paint after that — until they move — starts from ONE copy of it. The
     // floor is opaque, so the copy is exact: the same pixels the direct
     // paint would have left for the lights to add onto.
-    const sk = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx);
-    const args = [scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0];
+    const sk = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx) + '|' + fadeKey;
+    const args = [scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0, frames];
     let st = scene._lightStatic;
     if (st && st.key === sk && st.canvas.width === W && st.canvas.height === H) {
       blitStatic(ctx, st.canvas);
@@ -1685,7 +1730,7 @@
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
-    flickerAlpha, plateauCellPath, draw,
+    flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, draw,
     LIGHT_TICK_MS, lightClock, staticFrameKey, lightCentrePx, plateauPxKey, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);
