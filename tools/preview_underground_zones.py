@@ -1,6 +1,7 @@
 """Draft underground cards for the shared zone viewer; never runtime placement."""
 import base64
 import collections
+import functools
 import html
 import json
 import math
@@ -10,10 +11,18 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'docs/underground-zone-variants.draft.json'
 
 
+@functools.lru_cache(maxsize=None)
+def _quarry_material(variant_id, material):
+    data = json.loads((ROOT/'docs/zone-variants.json').read_text())
+    variant = next(row for row in data['variants'] if row['id'] == variant_id)
+    return {**data['materials'][material], 'previewArt': {
+        'sheet':'zone_objects', 'frames':variant['materialFrames'][material]}}
+
+
 def _image(material, x, y, unit, materials, helpers):
     row = materials[material]
-    if 'gameMaterial' in row:
-        definition = dict(row['gameMaterial'])
+    if 'gameMaterial' in row or 'quarryVariant' in row:
+        definition = (_quarry_material(row['quarryVariant'],row['quarryMaterial']) if 'quarryVariant' in row else dict(row['gameMaterial']))
         if material == 'game_mushroom':
             mushroom = helpers['art_registry']()['crops']['mushroom']
             frames = mushroom['caveFrames']
@@ -159,7 +168,7 @@ def _sample(row, data, helpers, detail=False):
     if path:
         motif_width, _ = row['motifCells']
         start = cx - motif_width // 2
-        parts.append(f'<path d="M {cx*unit+unit/2} 0 V {height*unit}" stroke="#707668" stroke-opacity=".25" stroke-width="{10 if motif_width==3 else 20}"/>')
+        parts.append(f'<path d="M {cx*unit+(unit/2 if motif_width%2 else 0)} 0 V {height*unit}" stroke="#707668" stroke-opacity=".25" stroke-width="{10 if motif_width==3 else 20}"/>')
         parts.append(f'<path d="M {start*unit} 0 V {height*unit} M {(start+motif_width)*unit} 0 V {height*unit}" stroke="#a6b6a7" stroke-dasharray="2 3" stroke-opacity=".5"/>')
     parts.append('<g class="background">')
     mw, mh = row['motifCells']

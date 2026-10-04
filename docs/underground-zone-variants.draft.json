@@ -1,6 +1,6 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 7,
+  "revision": 8,
   "date": "2026-10-03",
   "purpose": "Project underground chambers from park POI regions and route zones from small roads and walking paths.",
   "scope": {
@@ -190,8 +190,8 @@
       "source": "small_road",
       "context": "neutral or mineral",
       "mechanic": "mineable side alcoves; rare existing supply cache allocation",
-      "layout": "Two-cell clear lane beneath eligible small roads. Stakes are non-reward structural markers; carts and ore occupy accessible side bays.",
-      "reward": "Sparse bonus ore uses the floor level tier and existing mining requirements; illustration shows depth 2 copper. Count a finite bonus budget once per canonical route and depth, never per tile or clipped segment. Cart stores use the existing finite container budget."
+      "layout": "Dress both cells on each side of the two-cell road: six cells across in total. Keep the road, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
+      "reward": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Quarry sapphire pockets retain their existing crystal-deposit yield and mining requirements. Count finite finds once per canonical route and depth; carts use the existing container budget."
     },
     {
       "id": "warren_run",
@@ -254,7 +254,8 @@
     "Use existing picked/opened/caught/treasure persistence with stable depth-qualified IDs.",
     "One shrine per qualifying nexus region and depth, using the existing daily shrine ledger and boon rules. The boon replaces its shrine treasure gift; tile fragments never duplicate it.",
     "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
-    "Gemstone Cavern previews mixed shipping deposits and gem-bearing ore rocks. Keep their actual drop identities and mining rules; dedicated ruby, emerald and diamond deposits require new art and explicit mechanics. Gemstone Path remains sapphire-focused in this first preview."
+    "Gemstone Cavern previews mixed shipping deposits and gem-bearing ore rocks. Keep their actual drop identities and mining rules; dedicated ruby, emerald and diamond deposits require new art and explicit mechanics. Gemstone Path remains sapphire-focused in this first preview.",
+    "Reuse quarry rock and sapphire appearances without importing surface quarry first-rock guarantees, buried finds or extra site rewards. Underground placements retain their declared rock/deposit rules and depth-qualified budgets."
   ],
   "implementation": [
     {
@@ -457,6 +458,21 @@
         "yieldTier": 7
       },
       "color": "#a7d3e3"
+    },
+    "quarry_broken_rock": {
+      "quarryVariant": "quarry-abandoned",
+      "quarryMaterial": "stone",
+      "color": "#928b77"
+    },
+    "quarry_worked_rock": {
+      "quarryVariant": "quarry-strip-mine",
+      "quarryMaterial": "stone",
+      "color": "#aaa293"
+    },
+    "quarry_sapphire": {
+      "quarryVariant": "quarry-strip-mine",
+      "quarryMaterial": "crystal",
+      "color": "#8ccfe3"
     }
   },
   "previewRows": [
@@ -1485,7 +1501,7 @@
     {
       "poi": "Sapphire clusters use the existing gem-only deposit. Ruby, emerald and diamond seats currently show the corresponding shipping gem-bearing ore rocks, retaining their metal and chance-gem drops. Dedicated gem-only versions need new world art and deposit rows.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
-      "artNote": "Existing sapphire cluster plus platinum (ruby chance), crimson (emerald chance) and frost (diamond / emerald chance) rock frames. All four gems have item icons; dedicated ruby, emerald and diamond world-deposit sprites are missing.",
+      "artNote": "Quarry sapphire, broken quarry rock and worked quarry stone use the same materialFrames as the quarry cards. Ruby-, emerald- and diamond-bearing ore, where shown, keeps its existing game frames; dedicated gem-only art for those three is still missing.",
       "id": "gemstone_cavern",
       "kind": "nexus",
       "name": "Gemstone Cavern",
@@ -1499,7 +1515,7 @@
             1,
             1
           ],
-          "material": "gem_deposit"
+          "material": "quarry_sapphire"
         },
         {
           "at": [
@@ -1513,7 +1529,7 @@
             1,
             2
           ],
-          "material": "rock"
+          "material": "quarry_broken_rock"
         },
         {
           "at": [
@@ -1534,11 +1550,18 @@
             5,
             6
           ],
-          "material": "rock"
+          "material": "quarry_worked_rock"
+        },
+        {
+          "at": [
+            3,
+            2
+          ],
+          "material": "quarry_broken_rock"
         }
       ],
       "source": "Park POI region; exposed rock and stony-ground affinities.",
-      "atmosphere": "Mixed gemstone pockets surround an open central chamber: sapphire crystal deposits and rocks that can yield ruby, emerald or diamond. Clear approaches run between the pockets.",
+      "atmosphere": "Quarry sapphire pockets, broken quarry rock and worked stone surround an open central chamber, mixed with the existing ruby-, emerald- and diamond-bearing rocks.",
       "connection": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
       "depthNote": "Mixed-tier art showcase. Runtime placement must filter each deposit by cave depth and existing mining rules; this sample does not authorize high-tier rocks on every shallow floor."
     },
@@ -1633,59 +1656,82 @@
       "kind": "path",
       "name": "Miners\u2019 Way",
       "motifCells": [
-        8,
+        6,
         8
       ],
       "slots": [
         {
           "at": [
-            1,
+            0,
             0
           ],
           "material": "charred_stakes"
         },
         {
           "at": [
-            6,
+            1,
+            2
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            0,
             4
           ],
-          "material": "charred_stakes"
+          "material": "quarry_broken_rock"
         },
         {
           "at": [
             1,
-            5
+            6
           ],
           "material": "minecart"
         },
         {
           "at": [
-            6,
+            5,
             1
+          ],
+          "material": "quarry_worked_rock"
+        },
+        {
+          "at": [
+            4,
+            3
           ],
           "material": "floor_ore"
         },
         {
           "at": [
-            1,
-            3
+            5,
+            5
           ],
-          "material": "rock"
+          "material": "charred_stakes"
         },
         {
           "at": [
-            6,
+            4,
+            6
+          ],
+          "material": "quarry_sapphire"
+        },
+        {
+          "at": [
+            5,
             7
           ],
           "material": "floor_ore"
         }
       ],
-      "atmosphere": "A broad mine tunnel with a few charred timber stakes, parked ore carts and bonus ore rocks in side bays. The two-cell central lane stays clear.",
-      "poi": "Sparse bonus ore uses the floor level tier and existing mining requirements; illustration shows depth 2 copper. Count a finite bonus budget once per canonical route and depth, never per tile or clipped segment. Cart stores use the existing finite container budget.",
-      "connection": "Two-cell clear lane beneath eligible small roads. Stakes are non-reward structural markers; carts and ore occupy accessible side bays.",
+      "atmosphere": "A clear two-cell mine road runs between two-cell-wide working verges. Floor-tier metal ore, broken quarry rock, worked stone and occasional sapphire pockets fill the side space, with charred stakes and parked ore carts.",
+      "poi": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Quarry sapphire pockets retain their existing crystal-deposit yield and mining requirements. Count finite finds once per canonical route and depth; carts use the existing container budget.",
+      "connection": "Dress both cells on each side of the two-cell road: six cells across in total. Keep the road, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
       "monsters": "Existing cave family; no extra guard budget from route length.",
       "source": "Public minor / street / service lines; never unknown road fallback.",
-      "artNote": "Shipping charred stakes and mineral rocks. Shipping handcart art stands in for an ore minecart pending a dedicated sprite."
+      "artNote": "Reuse quarry-abandoned stone, quarry-strip-mine stone and the quarry sapphire frame directly from the game materialFrames table. Floor ore keeps its own tier art. The game handcart stands in for a dedicated minecart sprite.",
+      "roadWidthCells": 2,
+      "vergeWidthCells": 2
     },
     {
       "id": "warren_run",
@@ -1823,7 +1869,7 @@
     {
       "poi": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
-      "artNote": "Shipping crystal_cluster sprite: sapphire deposit. Retain existing mining requirements even on a shallow floor; no metal ore in the gemstone motif.",
+      "artNote": "Quarry sapphire, broken quarry rock and worked quarry stone use the same materialFrames as the quarry cards. Ruby-, emerald- and diamond-bearing ore, where shown, keeps its existing game frames; dedicated gem-only art for those three is still missing.",
       "id": "gemstone_path",
       "kind": "path",
       "name": "Gemstone Path",
@@ -1837,25 +1883,32 @@
             0,
             1
           ],
-          "material": "gem_deposit"
+          "material": "quarry_sapphire"
         },
         {
           "at": [
             5,
             4
           ],
-          "material": "gem_deposit"
+          "material": "quarry_sapphire"
         },
         {
           "at": [
             0,
             6
           ],
-          "material": "rock"
+          "material": "quarry_broken_rock"
+        },
+        {
+          "at": [
+            4,
+            2
+          ],
+          "material": "quarry_worked_rock"
         }
       ],
       "source": "Walking paths and eligible small roads through stony underground regions.",
-      "atmosphere": "Small crystal seams punctuate both sides of a clear passage. This is the gemstone route; Miners\u2019 Way carries metal ore.",
+      "atmosphere": "Quarry sapphire pockets sit among broken and worked quarry rocks along both sides of a clear passage.",
       "connection": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment."
     }
   ],
