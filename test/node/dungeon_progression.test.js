@@ -144,4 +144,119 @@
     scene._homePosMemo = {id: 'home',pos: memo};
     assert.eq(position.call(scene), memo, 'a matching real memo remains usable');
   });
+
+  function chestHarness(over = {}) {
+    const save = { inv: [], opened: [], relics: {}, armor: {}, money: 0 };
+    const harness = {save, modal: null, room: null};
+    const scene = makeScene({
+      depth: 3, save, _elevatorHomePosition: () => ({x: 0,y: 0}),
+      invRoomFor: id => harness.room ?? Inventory.roomFor(save,id),
+      addToInv: (id,qty) => Inventory.add(save,id,qty).accepted,
+      showChestRewardModal(value) { harness.modal = value; }, ...over,
+    });
+    harness.open = (chestOver = {}) => {
+      const original = globalThis.pickReward;
+      try {
+        globalThis.pickReward = () => ({kind: 'item',id: 'potato',qty: 1});
+        return INTERACTABLES.chest.custom(makeCtx(scene,save), {
+          kind: 'chest',id: 'boundary_chest',x: 1000,y: 0,depth: scene.depth,tierSeed: 3,...chestOver,
+        });
+      } finally { globalThis.pickReward = original; }
+    };
+    return harness;
+  }
+  test('dungeon progression: actual chest boundaries reject near-home, other depths and low-tier treasure', () => {
+    for (const candidate of [
+      {name: 'just short', scene: {}, chest: {x: 999.999}},
+      {name: 'surface', scene: {depth: 0}, chest: {}},
+      {name: 'L2', scene: {depth: 2}, chest: {}},
+      {name: 'L4', scene: {depth: 4}, chest: {}},
+      {name: 'T2', scene: {}, chest: {tierSeed: 1}},
+      {name: 'supply box', scene: {}, chest: {crate: true}},
+    ]) {
+      const h = chestHarness(candidate.scene);
+      h.open(candidate.chest);
+      assert.eq(Inventory.count(h.save,'portal_stone'),0,candidate.name);
+      assert.falsy(h.save.dungeonProgression?.portalStoneFound,candidate.name);
+      assert.eq(Inventory.count(h.save,'potato'),1,candidate.name+' keeps normal reward');
+    }
+    for (const point of [{x: 1000,y: 0},{x: 600,y: 800},{x: -1000,y: 0}]) {
+      const h = chestHarness(); h.open({...point,tierSeed: 2});
+      assert.eq(Inventory.count(h.save,'portal_stone'),1,'exact one kilometre at effective T3');
+    }
+  });
+  test('dungeon progression: searched chest and unknown home cannot award the portal stone', () => {
+    const opened = chestHarness(); opened.save.opened.push('boundary_chest'); opened.open();
+    assert.eq(Inventory.count(opened.save,'portal_stone'),0);
+    const originalHome = HomeArea.worldM;
+    try {
+      HomeArea.worldM = null;
+      const unknown = chestHarness({_elevatorHomePosition: () => null}); unknown.open();
+      assert.eq(Inventory.count(unknown.save,'portal_stone'),0);
+    } finally { HomeArea.worldM = originalHome; }
+  });
+  test('dungeon progression: full ordinary stacks do not prevent a unique portal reward', () => {
+    const h = chestHarness();
+    Inventory.add(h.save,'potato',Inventory.stackCap(h.save));
+    Inventory.add(h.save,'wood',Inventory.stackCap(h.save));
+    h.open();
+    assert.eq(Inventory.count(h.save,'portal_stone'),1,'capacity is per item, not a global bag limit');
+    assert.truthy(h.save.dungeonProgression.portalStoneFound);
+  });
+  test('dungeon progression: deferred portal reward survives leave, retry and repeated chest taps', () => {
+    const h = chestHarness(); h.room = 0; h.open();
+    assert.eq(Inventory.count(h.save,'portal_stone'),0);
+    assert.falsy(h.save.dungeonProgression?.portalStoneFound);
+    h.modal.actions[0].onClick();
+    assert.eq(h.save.chestHold.boundary_chest.id,'portal_stone');
+    assert.falsy(h.save.opened.includes('boundary_chest'));
+    h.room = 1; h.open(); h.open();
+    assert.eq(Inventory.count(h.save,'portal_stone'),1);
+    assert.truthy(h.save.dungeonProgression.portalStoneFound);
+    assert.eq(h.save.opened.filter(id => id === 'boundary_chest').length,1);
+    assert.falsy(h.save.chestHold.boundary_chest);
+  });
+  test('dungeon progression: every repaired elevator route reaches the requested stop at the home anchor', () => {
+    for (const from of Elevators.FLOORS) for (const to of Elevators.FLOORS) {
+      if (from === to) continue;
+      const scene = ropeScene(from);
+      scene.save.elevators = {repaired: true};
+      scene.save.homeElevator = {x: 123,y: 456};
+      const buttons = [];
+      const node = label => ({label,style: {},addEventListener(type,handler) { this.click = handler; }});
+      scene.makeModalShell = () => ({wrap: {remove() {}},box: {appendChild() {}},mount() {},mkBtn(label) {const button = node(label);buttons.push(button);return button;}});
+      const open = liftedMethod('openElevator', {
+        Elevators, document: {createElement: () => node('description')}, persistSave() {}, cellKeyFromAbsCell: (x,y) => `${x}_${y}`,
+      });
+      open.call(scene, {});
+      const destination = buttons.find(button => button.label === (to === 0 ? 'Home' : `Floor ${to}`));
+      assert.truthy(destination,`${from} has a menu route to ${to}`);
+      destination.click({stopPropagation() {}});
+      assert.eq(scene.depth,to,`${from} to ${to}`);
+      assert.eq(scene.playerM.x,123); assert.eq(scene.playerM.y,456);
+      assert.eq(scene.save.inv[0].count,1,'lift uses no rope');
+      if (to > 0) assert.truthy(scene.dugWallSet.has(`${to}:1_2`),'arrival is open');
+    }
+  });
+  test('dungeon progression: rope early refusals preserve both supplies and terrain', () => {
+    for (const [depth,delta,setup] of [
+      [0,-1,() => {}], [1,1,s => {s.save.energy = 0;}], [1,1,s => {s._selectedConsumable = () => false;}],
+    ]) {
+      const scene = ropeScene(depth); setup(scene);
+      assert.eq(scene.useRope(delta),false);
+      assert.eq(scene.depth,depth); assert.eq(scene.save.inv[0].count,1); assert.eq(scene.dugWallSet.size,0);
+    }
+    const escape = ropeScene(1); escape.save.energy = 0;
+    assert.eq(escape.useRope(-1),true,'exhaustion never traps the player underground');
+    assert.eq(escape.depth,0); assert.eq(escape.save.inv[0].count,0);
+  });
+  test('dungeon progression: refused rope travel rolls back only its new landing', () => {
+    for (const wasDug of [false,true]) {
+      const scene = ropeScene(1); scene.changeDepth = () => false;
+      if (wasDug) scene.dugWallSet.add('2:1_2');
+      assert.eq(scene.useRope(1),false);
+      assert.eq(scene.depth,1); assert.eq(scene.save.inv[0].count,1);
+      assert.eq(scene.dugWallSet.has('2:1_2'),wasDug,'preexisting terrain survives; failed new landing does not');
+    }
+  });
 })();

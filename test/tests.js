@@ -2938,3 +2938,103 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (each tier its own n
   }
   assert.eq(testedTiers, Object.keys(expected).length, 'every yield tier was seated and mined');
 });
+
+// Real Phaser integration: world tap -> arena menu -> trial button -> spatial
+// victory -> reward dismissal -> surface exit. Keep the scene paused so test
+// movement and simulation ticks are deterministic; modal arming uses real time.
+test('arena: portal tap, actual menu buttons, trial victory and safe return', async (scene) => {
+  const original = {
+    save: scene.save, depth: scene.depth, playerM: { ...scene.playerM },
+    gpsM: scene.gpsM && { ...scene.gpsM }, isTooFast: scene.isTooFast,
+    active: scene.scene.isActive(), trial: scene._arenaTrial,
+  };
+  const closeArenaModals = () => {
+    for (const id of ['arena-modal', 'message-modal', 'confirm-modal'])
+      document.getElementById(id)?.remove();
+  };
+  const clickButton = async (id, text) => {
+    const modal = document.getElementById(id);
+    assert.truthy(modal, id + ' is mounted');
+    const until = performance.now() + 4000;
+    while (modal.classList.contains('modal-arming') && performance.now() < until)
+      await new Promise(resolve => setTimeout(resolve, 25));
+    assert.falsy(modal.classList.contains('modal-arming'), id + ' became interactive');
+    const button = [...modal.querySelectorAll('button')].find(b => b.textContent.trim() === text);
+    assert.truthy(button, 'actual ' + text + ' button exists');
+    button.click();
+  };
+  scene.scene.pause();
+  try {
+    scene.save = JSON.parse(JSON.stringify(original.save));
+    scene.save.energy = 100;
+    scene.save.dungeonProgression = {};
+    scene.save.depth = scene.depth = 0;
+    WorldGen.setDepth(0);
+    scene.isTooFast = () => false;
+    const portal = { x: scene.__bootWX, y: scene.__bootWY + scene.feetOffsetM };
+    scene.save.arena = { portal };
+    delete scene.save.arenaRun;
+    teleport(scene, portal.x, portal.y - scene.feetOffsetM);
+    const surfaceCache = WorldGen.tileCache;
+    tapWorld(scene, portal.x, portal.y);
+    assert.eq(scene.depth, Arena.DEPTH, 'a world tap enters the separate arena realm');
+    assert.truthy(scene.save.arenaRun?.return, 'surface return is persisted');
+    await scene.ensureTilesAround();
+    assert.falsy(WorldGen.tileCache === surfaceCache, 'arena owns a separate tile cache');
+    assert.truthy(document.getElementById('arena-modal'), 'challenge chooser is visible');
+    const challenge = Arena.CHALLENGES.find(c => c.id === 'sparks');
+    await clickButton('arena-modal', challenge.name);
+    assert.eq(scene._arenaTrial?.id, challenge.id, 'menu button started the selected trial');
+    assert.falsy(document.getElementById('arena-modal'), 'chooser closes for play');
+    scene._drawArena();
+    assert.truthy(scene._arenaGraphics.mask, 'trial visuals are clipped to the map');
+    assert.truthy(scene._arenaPortalSprite.mask, 'portal is clipped to the map');
+    assert.gt(Lighting.lum(Lighting.profile(scene, 0).ambient), .65, 'arena remains readable at night');
+    assert.truthy(scene._arenaLabels.some(label => label.visible && label.text.includes(challenge.name)), 'trial progress is rendered');
+    // Exercise the actual boundary guard while a trial is active.
+    teleport(scene, portal.x + 80, portal.y - scene.feetOffsetM);
+    scene._tickArena(.1);
+    assert.approx(playerWorldM(scene).x - portal.x, 50, .001, 'escaped position returns to boundary');
+    scene._drawArena();
+    assert.truthy(scene._arenaRails.some(rail => rail.visible && rail.mask), 'boundary tiles are visible and clipped near the edge');
+    // Repeated contact with one spark cannot stand in for all eight.
+    const visit = point => {
+      teleport(scene, portal.x + point.x, portal.y + point.y - scene.feetOffsetM);
+      scene._tickArena(.1);
+    };
+    visit(challenge.points[0]);
+    visit(challenge.points[0]);
+    assert.eq(scene._arenaTrial.collected.length, 1, 'spark pickup is distinct');
+    for (const point of challenge.points.slice(1)) visit(point);
+    assert.truthy(scene.save.dungeonProgression.challenges.includes(challenge.id), 'real victory is saved');
+    assert.falsy(scene.save.dungeonProgression.level4Key, 'one trial does not grant the fifth-trial key');
+    assert.truthy(document.getElementById('message-modal'), 'victory story appears');
+    await clickButton('message-modal', 'OK');
+    assert.truthy(document.getElementById('arena-modal'), 'dismissing victory restores the chooser');
+    await clickButton('arena-modal', 'Return to the surface');
+    await scene.ensureTilesAround();
+    assert.eq(scene.depth, 0, 'exit button returns to the surface');
+    assert.eq(WorldGen.tileCache, surfaceCache, 'original surface cache is restored');
+    assert.falsy(scene.save.arenaRun, 'return session is cleared');
+    assert.approx(playerWorldM(scene).x, portal.x, .001, 'returned to the portal longitude');
+    assert.approx(playerWorldM(scene).y + scene.feetOffsetM, portal.y, .001, 'returned to the portal latitude');
+    assert.truthy(scene.save.dungeonProgression.challenges.includes(challenge.id), 'exiting preserves the earned win');
+    scene._drawArena();
+    assert.falsy(scene._arenaRails.some(rail => rail.visible), 'arena boundary disappears on surface');
+  } finally {
+    closeArenaModals();
+    scene.save = original.save;
+    scene.depth = original.depth;
+    WorldGen.setDepth(original.depth);
+    scene.playerM = original.playerM;
+    scene.gpsM = original.gpsM;
+    scene.isTooFast = original.isTooFast;
+    scene._arenaTrial = original.trial;
+    scene.syncMoveTarget();
+    scene.cameras.main.setBackgroundColor(original.depth > 0 ? '#0a0a12' : '#000');
+    await scene.ensureTilesAround();
+    scene._drawArena();
+    persistSave(scene.save);
+    if (original.active) scene.scene.resume();
+  }
+});
