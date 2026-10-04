@@ -1,25 +1,25 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 9,
+  "revision": 10,
   "date": "2026-10-03",
-  "purpose": "Project underground chambers from park POI regions and route zones from small roads and walking paths.",
+  "purpose": "Project underground nexus chambers from park POI regions and apply underground path themes to all paths on cave levels 1 and 2; roads are excluded.",
   "scope": {
-    "initialDepths": [
+    "surfaceChanges": false,
+    "otherPOIRegions": "future explicit mapping rows",
+    "activation": "separate implementation after design review",
+    "nexusDepths": [
       1,
       2,
       3
     ],
-    "surfaceChanges": false,
-    "otherPOIRegions": "future explicit mapping rows",
-    "activation": "separate implementation after design review"
+    "pathDepths": [
+      1,
+      2
+    ],
+    "pathCoverage": "All eligible path geometry on levels 1 and 2, independent of park/nexus proximity; never roads or levels 3+."
   },
   "source": {
     "regions": "stable park POI + associated original park polygon; bounded POI influence only if no reliable polygon",
-    "smallRoads": [
-      "minor",
-      "street",
-      "service"
-    ],
     "walkingPaths": [
       "path",
       "footway",
@@ -32,9 +32,10 @@
       "parking aisles pruned by current pipeline",
       "private driveway access",
       "unknown road class fallback",
-      "major and medium roads",
+      "all roads, including minor, street and service roads",
       "water crossings and bridge spans without an explicit underground connector"
-    ]
+    ],
+    "pathSelection": "Use the existing path-class predicate for every path; context selects a theme, not whether a path receives one."
   },
   "identity": {
     "region": "underground/{sourceFeatureId}/{depth}",
@@ -175,7 +176,14 @@
       "id": "root_passage",
       "source": "walking_path",
       "context": "spring or wooded park",
-      "mechanic": "sparse harvestable mushroom edges; uninterrupted central lane"
+      "mechanic": "sparse harvestable mushroom edges; uninterrupted central lane",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths",
+      "contextPolicy": "Theme affinity only; paths outside this context still receive an underground path variant.",
+      "layout": "One-cell clear centre; follows actual path bends and junctions."
     },
     {
       "id": "seep_passage",
@@ -183,33 +191,58 @@
       "context": "spring or wet park",
       "mechanic": "bank beside small impassable pools; always retain a dry connection",
       "layout": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
-      "reward": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache."
+      "reward": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths",
+      "contextPolicy": "Theme affinity only; paths outside this context still receive an underground path variant."
     },
     {
       "id": "miners_way",
-      "source": "small_road",
+      "source": "walking_path",
       "context": "neutral or mineral",
       "mechanic": "mineable side alcoves; rare existing supply cache allocation",
-      "layout": "Dress both cells on each side of the two-cell road: six cells across in total. Keep the road, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
-      "reward": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Quarry sapphire pockets retain their existing crystal-deposit yield and mining requirements. Count finite finds once per canonical route and depth; carts use the existing container budget."
+      "layout": "Dress both cells on each side of the two-cell path: six cells across in total. Keep the path, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
+      "reward": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Quarry sapphire pockets retain their existing crystal-deposit yield and mining requirements. Count finite finds once per canonical route and depth; carts use the existing container budget.",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths",
+      "contextPolicy": "Theme affinity only; paths outside this context still receive an underground path variant."
     },
     {
       "id": "warren_run",
-      "source": "small_road_or_walking_path",
+      "source": "walking_path",
       "context": "goblin_warrens",
-      "mechanic": "stone-walled passage, open doorways to sentry and storage alcoves, optional traps with bypasses"
+      "mechanic": "stone-walled passage, open doorways to sentry and storage alcoves, optional traps with bypasses",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths",
+      "contextPolicy": "Theme affinity only; paths outside this context still receive an underground path variant.",
+      "layout": "Two-cell central passage with stone-walled side alcoves and two-cell door openings."
     },
     {
       "id": "gemstone_path",
       "name": "Gemstone Path",
       "layout": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment.",
-      "reward": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art."
+      "reward": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
+      "source": "walking_path",
+      "depths": [
+        1,
+        2
+      ],
+      "coverage": "all_paths",
+      "contextPolicy": "Theme affinity only; paths outside this context still receive an underground path variant."
     }
   ],
   "proposedTuning": {
     "weights": "relative before existing soft affinity adjustments; proposal only",
     "walkingLaneMinCells": 1,
-    "roadLaneTargetCells": 2,
     "repeatMotifPreferredMaxCells": 6,
     "repeatMotifHardMaxCells": 8,
     "routeRewards": "budget per canonical connected route component and depth, never per tile or segment",
@@ -233,11 +266,13 @@
         "mushroom_cavern": 20,
         "gemstone_cavern": 10
       }
-    }
+    },
+    "pathLaneTargetCells": 2,
+    "pathThemeCoverage": 1
   },
   "terrainContract": [
-    "Project eligible route lines before generic cave dressing. Small-road corridors explicitly carve CAVE_WALL; walking paths already yield CAVE_FLOOR.",
-    "No carve through building or water provenance, medium/large road bands, saved structures, or excluded access regions.",
+    "Apply a path theme to every eligible path on cave levels 1 and 2 before generic cave dressing. Use existing cave-floor path geometry; roads are never selected or carved for these variants. Parks and nexus proximity influence theme choice only.",
+    "No carve through building or water provenance, all road bands, saved structures, or excluded access regions.",
     "Keep a per-depth geology base separate from the projected design overlay, so a shallow corridor does not silently propagate deeper.",
     "Plan original staircase identities from the existing unmodified geology. Preserve actual stairs and reserve clear approaches before adding zone pieces.",
     "Connect a park chamber only to a route that intersects or reaches it through eligible park floor; no straight-line connection across unrelated obstructions.",
@@ -260,11 +295,11 @@
   "implementation": [
     {
       "step": 1,
-      "deliverable": "Preview projection of parks and small-road/path geometry over existing cave terrain, including seams and blocked connections."
+      "deliverable": "Preview park nexus projection separately from all path geometry on cave levels 1 and 2, including seams and blocked connections."
     },
     {
       "step": 2,
-      "deliverable": "Add depth-scoped zone and route masks; explicit small-road carve; preserve staircase topology and inherited geology."
+      "deliverable": "Add nexus and path masks with separate depth scopes. Path themes cover every eligible path only on levels 1 and 2; exclude all roads. Preserve staircase topology and inherited geology."
     },
     {
       "step": 3,
@@ -287,7 +322,9 @@
     "No duplicate finds, guards or caches at seams and junctions.",
     "Depth 1 never uses deeper goblin roster entries; no empty habitat silently produces illegal enemies.",
     "Compare capped chest totals and expected resource value against baseline cave seeds.",
-    "Check inspected art at game scale, transparent margins, frame rectangles, readable interactions and shared footprint reservation."
+    "Check inspected art at game scale, transparent margins, frame rectangles, readable interactions and shared footprint reservation.",
+    "Every eligible path receives one theme on cave levels 1 and 2, including paths outside parks and away from nexus regions.",
+    "No underground path variant applies to roads or cave levels 3 and deeper."
   ],
   "art": [
     {
@@ -1592,8 +1629,13 @@
       "atmosphere": "Harvestable mushroom pockets frame an uninterrupted walking lane.",
       "poi": "No extra nexus or cache per route segment.",
       "connection": "One-cell clear centre; follows actual path bends and junctions.",
-      "monsters": "Depth-legal spring family; reallocate existing ambient seats.",
-      "source": "Walking path beneath wooded parks or approaching a spring."
+      "monsters": "Level-1/2-legal spring family; reallocate existing ambient seats.",
+      "source": "All path classes on cave levels 1\u20132; no roads. Wooded or spring surroundings favor this theme.",
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; roads and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ]
     },
     {
       "id": "seep_passage",
@@ -1636,13 +1678,18 @@
       "atmosphere": "A few rocks break the surface of the seep channel and lie along its edges, with occasional cave mushrooms. Dry banks follow both sides, and crossings stay clear.",
       "poi": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
       "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
-      "monsters": "Depth-legal spring family; keep water-bank approaches clear.",
-      "source": "Walking path adjoining a spring or wet park region.",
+      "monsters": "Level-1/2-legal spring family; keep water-bank approaches clear.",
+      "source": "All path classes on cave levels 1\u20132; no roads. Wet or spring surroundings favor this theme.",
       "waterChannel": {
         "widthCells": 2,
         "crossingEveryCells": 12,
         "crossingWidthCells": 2
-      }
+      },
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; roads and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ]
     },
     {
       "id": "miners_way",
@@ -1717,14 +1764,19 @@
           "material": "floor_ore"
         }
       ],
-      "atmosphere": "A clear two-cell mine road runs between two-cell-wide working verges. Floor-tier metal ore, broken quarry rock, worked stone and occasional sapphire pockets fill the side space, with charred stakes and parked ore carts.",
+      "atmosphere": "A clear two-cell mine path runs between two-cell-wide working verges. Floor-tier metal ore, broken quarry rock, worked stone and occasional sapphire pockets fill the side space, with charred stakes and parked ore carts.",
       "poi": "Bonus metal ore follows the floor level tier; the illustration shows depth 2 copper. Quarry sapphire pockets retain their existing crystal-deposit yield and mining requirements. Count finite finds once per canonical route and depth; carts use the existing container budget.",
-      "connection": "Dress both cells on each side of the two-cell road: six cells across in total. Keep the road, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
-      "monsters": "Existing cave family; no extra guard budget from route length.",
-      "source": "Public minor / street / service lines; never unknown road fallback.",
+      "connection": "Dress both cells on each side of the two-cell path: six cells across in total. Keep the path, junctions and stairs clear; carts and mineable rocks occupy reachable side pockets.",
+      "monsters": "Level-1/2 cave family; no extra guard budget from route length.",
+      "source": "All path classes on cave levels 1\u20132; no roads. Mineral surroundings favor this theme.",
       "artNote": "Reuse quarry-abandoned stone, quarry-strip-mine stone and the quarry sapphire frame directly from the game materialFrames table. Floor ore keeps its own tier art. The game handcart stands in for a dedicated minecart sprite.",
-      "roadWidthCells": 2,
-      "vergeWidthCells": 2
+      "vergeWidthCells": 2,
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; roads and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ],
+      "pathWidthCells": 2
     },
     {
       "id": "warren_run",
@@ -1760,8 +1812,8 @@
       "atmosphere": "Stone walls line a two-cell passage. Open doorways lead into narrow sentry and storage alcoves; supplies and optional traps stay out of the through lane.",
       "poi": "Containers spend the parent region / route finite budget.",
       "connection": "Two-cell central passage with stone-walled side alcoves and two-cell door openings.",
-      "monsters": "D1: club; D2: club / spear; D3: spear / archer goblins.",
-      "source": "Small road or walking path entering Goblin Warrens.",
+      "monsters": "D1: club; D2: club / spear.",
+      "source": "All path classes on cave levels 1\u20132; no roads. Goblin Warrens proximity favors this theme.",
       "wallSlots": [
         [
           0,
@@ -1857,11 +1909,16 @@
         "manifest": "assets/Objects/Stronghold/manifest.json",
         "mechanic": "Proposed blocking cave structure; no item drop or extra reward. Reuse the stone wall art, with topology chosen from surviving cardinal neighbors.",
         "placement": "Preserve open doorways, stairs and the through route; walls are structural and counted separately from harvestable objects."
-      }
+      },
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; roads and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ]
     },
     {
       "poi": "Mineable sapphire crystal deposits use the existing crystal-deposit yield and pick requirement. Concentrate a finite allocation once per region or canonical route and depth; no gem loot from decorative stone. Higher gem types need matching deposits and are not implied by this art.",
-      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
       "artNote": "Quarry sapphire, broken quarry rock and worked quarry stone use the same materialFrames as the quarry cards. Ruby-, emerald- and diamond-bearing ore, where shown, keeps its existing game frames; dedicated gem-only art for those three is still missing.",
       "id": "gemstone_path",
       "kind": "path",
@@ -1900,9 +1957,14 @@
           "material": "quarry_worked_rock"
         }
       ],
-      "source": "Walking paths and eligible small roads through stony underground regions.",
+      "source": "All path classes on cave levels 1\u20132; no roads. Stony surroundings favor this theme.",
       "atmosphere": "Quarry sapphire pockets sit among broken and worked quarry rocks along both sides of a clear passage.",
-      "connection": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment."
+      "connection": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache or shrine per segment.",
+      "depthNote": "Cave levels 1 and 2 only. Apply a theme to all paths; roads and levels 3+ are excluded.",
+      "depths": [
+        1,
+        2
+      ]
     }
   ],
   "previewNote": "Design-only layouts. Rocks, mushrooms, barrels, walls, shrines, ore and crystal deposits use game art. Only the spring-source prop remains an archived candidate; minecarts use the labeled game handcart placeholder."
