@@ -51,13 +51,13 @@
         "wetland",
         "woodland"
       ],
-      "layout": "loop around a spring, mushroom edges, optional mineral alcove",
+      "layout": "central spring feeding a surrounding pool, dry circular bank, mushroom ring, outer stone ring; four open radial approaches",
       "depths": [
         1,
         2,
         3
       ],
-      "interaction": "proposed watering-can refill adapter; reachable bank; no free healing",
+      "interaction": "proposed watering-can refill from the nearest reachable pool bank; source and pool share one interaction identity; no free healing",
       "encounterByDepth": {
         "1": [
           "cave_slime",
@@ -323,52 +323,41 @@
       "id": "spring_cave",
       "kind": "nexus",
       "name": "Underground Spring Cave",
-      "motifCells": [
-        6,
-        6
-      ],
-      "slots": [
-        {
-          "at": [
-            0,
-            0
-          ],
-          "material": "cave_shrooms"
-        },
-        {
-          "at": [
-            1,
-            0
-          ],
-          "material": "cave_shrooms"
-        },
-        {
-          "at": [
-            5,
-            4
-          ],
-          "material": "cave_shrooms"
-        },
-        {
-          "at": [
-            0,
-            5
-          ],
-          "material": "stalagmite"
-        },
-        {
-          "at": [
-            5,
-            0
-          ],
-          "material": "rubble_pile"
-        }
-      ],
-      "atmosphere": "A loop around a cool spring, mushroom beds at the wall and a short mineral alcove.",
-      "poi": "One reachable spring bank; at most one surviving mirrored POI cache.",
-      "connection": "Open loop; two approaches when geography permits.",
+      "slots": [],
+      "atmosphere": "The spring rises at the centre of a pool. A clear bank circles the water, followed by a ring of cave mushrooms and an outer ring of mineable stone. Four openings connect the rings to the surrounding cave.",
+      "poi": "Central source supplies one surrounding pool. Refill from a reachable bank cell; any surviving mirrored cache sits on dry ground.",
+      "connection": "Concentric water, clear bank, mushroom ring and outer stone ring, with four radial approaches. No bridge across the pool is required.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
-      "source": "Park POI region; wet and wooded affinities."
+      "source": "Park POI region; wet and wooded affinities.",
+      "layout": {
+        "type": "concentric_rings",
+        "extentCells": [
+          25,
+          25
+        ],
+        "poolRadiusCells": 3,
+        "sourceIslandRadiusCells": 0.65,
+        "rings": [
+          {
+            "radiusCells": 5,
+            "material": "cave_shrooms"
+          },
+          {
+            "radiusCells": 8,
+            "material": "stalagmite"
+          }
+        ],
+        "ringBandHalfWidthCells": 0.4,
+        "approachHalfWidthCells": 0.6,
+        "cacheOffset": [
+          4,
+          0
+        ],
+        "encounterOffset": [
+          -6,
+          3
+        ]
+      }
     },
     {
       "id": "goblin_warrens",

@@ -3,6 +3,7 @@ import base64
 import collections
 import html
 import json
+import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +53,70 @@ def _wall_art(cells, width, height, unit, helpers):
             continue
         parts.append(f'<g class="warren-wall"><title>Stone wall · structural · frame {frame}</title><rect class="geometry-cell" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="#989986"/>' + helpers['art_image']({'sheet':'stronghold_wall','frames':[frame],'preserveFrame':True},f'class="sprite-cell" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"') + '</g>')
     return ''.join(parts)
+
+
+def _spring_slots(row):
+    layout = row['layout']
+    out = []
+    for ring in layout['rings']:
+        radius = ring['radiusCells']
+        bound = math.ceil(radius + layout['ringBandHalfWidthCells'])
+        for dy in range(-bound,bound+1):
+            for dx in range(-bound,bound+1):
+                if abs(dx) <= layout['approachHalfWidthCells'] or abs(dy) <= layout['approachHalfWidthCells']:
+                    continue
+                if abs(math.hypot(dx,dy)-radius) <= layout['ringBandHalfWidthCells']:
+                    out.append({'at':[dx,dy],'material':ring['material']})
+    return out
+
+
+def _spring_sample(row, data, helpers, detail=False):
+    layout = row['layout']
+    side,unit = (13 if detail else layout['extentCells'][0]),10
+    centre = side//2
+    c = (centre+.5)*unit
+    prefix = 'spring-rings-' + ('detail' if detail else 'wide')
+    parts = [f'<svg role="img" aria-label="Spring feeding a pool with concentric bank, mushrooms and stone" viewBox="0 0 {side*unit} {side*unit}">',
+             helpers['ground_pattern']('CAVE_FLOOR',prefix,unit),
+             helpers['ground_pattern']('WATER',prefix+'-water',unit),
+             f'<rect width="100%" height="100%" fill="url(#{prefix})"/>', '<g class="background">']
+    # The bank remains dry all around the pool; rings have four open approaches.
+    radius = layout['poolRadiusCells']*unit
+    parts.append(f'<circle class="spring-bank" cx="{c}" cy="{c}" r="{radius+unit}" fill="#8e8770" fill-opacity=".25"/>')
+    parts.append(f'<circle class="spring-water" cx="{c}" cy="{c}" r="{radius}" fill="url(#{prefix}-water)" stroke="#669a9d" stroke-width="1"><title>Pool supplied by the central spring · refill from its reachable bank</title></circle>')
+    for slot in _spring_slots(row):
+        x,y = (centre+slot['at'][0])*unit,(centre+slot['at'][1])*unit
+        if 0 <= x < side*unit and 0 <= y < side*unit:
+            parts.append(_image(slot['material'],x,y,unit,data['previewMaterials']))
+    parts.append('</g><g class="poi-layer">')
+    parts.append(f'<circle cx="{c}" cy="{c}" r="{layout["sourceIslandRadiusCells"]*unit}" fill="#77786b" stroke="#a5a78f" stroke-width=".7"><title>Central spring source</title></circle>')
+    parts.append(_image('cave_pool',centre*unit,centre*unit,unit,data['previewMaterials']))
+    dx,dy=layout['cacheOffset'];x,y=(centre+dx)*unit,(centre+dy)*unit
+    parts.append(helpers['art_image']({'sheet':'chest','frames':[0]},f'class="sprite-cell" x="{x}" y="{y}" width="10" height="10"'))
+    parts.append(f'<rect class="geometry-cell" x="{x+2}" y="{y+2}" width="6" height="6" fill="#e6c779"><title>Existing mirrored cache · on the dry bank</title></rect></g>')
+    dx,dy=layout['encounterOffset']
+    parts.append(helpers['creature_at']('cave_slime',(centre+dx+.5)*unit,(centre+dy+.5)*unit,unit,'Outer encounter pocket; spring bank stays clear'))
+    parts.append(f'<path d="M 6 {side*unit-6} h 50" stroke="#e5ecdf"/><text x="6" y="{side*unit-10}" fill="#e5ecdf" font-size="5">35 m · 5 cells</text></svg>')
+    return ''.join(parts)
+
+
+def _spring_card(row,data,helpers):
+    mix=collections.Counter(s['material'] for s in _spring_slots(row))
+    counts=', '.join(f'{n} {m.replace("_"," ")}' for m,n in mix.items())
+    layout=row['layout']
+    detail_rows=[('Source region',row['source']),('Depth','1–3 proposal; deeper floors retain ordinary caves.'),
+        ('Pattern','One concentric composition around the spring, not a repeating motif. Pool radius 3 cells; mushroom ring at 5 cells; stone ring at 8 cells.'),
+        ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
+        ('Water','Pool surrounds the source. The water is impassable; refilling uses the nearest reachable bank, not the distant centre.'),
+        ('Placement','The clear bank and four radial openings take precedence over ring pieces. Pool and source share one POI identity; the cache stays dry.'),
+        ('Lighting','Existing cave and player light; water does not add a new light source.'),
+        ('Art','Existing water terrain plus unused cave pool, mushroom and stalagmite sprites. Design proposal only.')]
+    dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in detail_rows)
+    return (f'<article id="underground-{row["id"]}"><header><small>Underground nexus · draft · concentric rings</small><h2>{html.escape(row["name"])}</h2></header>'
+        f'<p class="mix"><b>Spring → pool → clear bank → mushrooms → stone</b><br>{counts} before terrain clipping; water and POI counted separately.</p>'
+        f'<div class="visual"><figure>{_spring_sample(row,data,helpers)}<figcaption>Concentric spring chamber · four open approaches</figcaption></figure>'
+        f'<figure class="detail">{_spring_sample(row,data,helpers,True)}<figcaption>Spring, pool and bank close-up<br>1 cell = 7 m</figcaption></figure></div>'
+        f'<p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
 
 
 def _sample(row, data, helpers, detail=False):
@@ -115,6 +180,9 @@ def underground_section(helpers, out):
     data = json.loads(SOURCE.read_text())
     cards = {'nexus': [], 'path': []}
     for row in data['previewRows']:
+        if row.get('layout',{}).get('type') == 'concentric_rings':
+            cards[row['kind']].append(_spring_card(row,data,helpers))
+            continue
         mw,mh = row['motifCells']
         assert 0 < mw <= 8 and 0 < mh <= 8
         assert len({tuple(s['at']) for s in row['slots']}) == len(row['slots'])
