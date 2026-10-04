@@ -716,7 +716,7 @@
     assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'the stall counter prices off the ladder');
     assert.truthy(/const want = 1;/.test(SCENE_SRC), 'and sells a Book one at a time');
-    assert.truthy(/this\.buildShopOffer\(id, ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
+    assert.truthy(/this\.buildShopOffer\(id, units \* ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
       'the themed shop prices off the ladder');
     assert.eq((SCENE_SRC.match(/if \(id === 'book'\) ShopsMath\.bookBought\(this\.save, (?:take|buyQty)\);/g) || []).length, 2,
       'both counters climb the ladder on a sale');
@@ -758,7 +758,7 @@
     const markets = Object.keys(rh).filter((id) => rh[id] === 'market' && id !== 'b');
     markets.forEach((id, n) => assert.eq(Shops.shopOrder(save, { id }), n, `${id} keeps place ${n}`));
     const lines = Shops.marketLines(save), mine = lines.find((r) => r.id === 'm');
-    assert.eq(mine.tier, 1 + lines.filter((r) => r.theme === mine.theme && r.id !== 'm').length, 'a picked line\'s tier counts the shops before it on that line');
+    assert.eq(mine.tier, Shops.lineTier(mine.theme, lines.filter((r) => r.theme === mine.theme && r.id !== 'm').length), 'a picked line\'s tier counts the shops before it on that line');
     assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(SCENE_SRC), 'the restore path freezes the pick');
     assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'marketTheme reads lineFor');
     assert.falsy(/Shops\.themeAt\(Shops\.shopOrder/.test(SCENE_SRC), 'and nothing reads the cycle directly');

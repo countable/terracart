@@ -32,18 +32,13 @@ test('shop tiers: a trader takes the rank of the restore number that raised it',
   assert.eq(Shops.shopTier(save, h('r9'), 'turret'), null);
 });
 
-test('shop tiers: the lean halves per rank away, and the trader draws through it on its one lane', () => {
-  assert.eq(Shops.tierAffinity(3, 3), 1);
-  assert.eq(Shops.tierAffinity(1, 3), 1 / 4);
-  assert.eq(Shops.tierAffinity(5, 3), 1 / 4);
+test('shop tiers: the trader draws only its own tier on its one lane', () => {
   assert.eq(Shops.itemTier('potato_seed'), 1);
   assert.eq(Shops.itemTier('rainberry'), 4);
   const pick = SCENE_SRC.slice(SCENE_SRC.indexOf('  traderGivePick(house) {'));
   const body = pick.slice(0, pick.indexOf('\n  }\n'));
-  assert.truthy(/const giveId = weightedPickBy\(ids, \(id\) => Shops\.tierAffinity\(Shops\.itemTier\(id\), tier\), rng\)/.test(body),
-    'one weighted draw off the trader lane');
-  assert.truthy(/const tier = Shops\.traderTier\(this\.save, house\);/.test(body), 'at the trader\'s own rank');
-  assert.falsy(/Math\.floor\(rng\(\) \*/.test(body), 'the uniform draw is gone');
+  assert.includes(body, 'Shops.traderStock(tier)');
+  assert.includes(body, 'Shops.traderTier(this.save, house)');
   // The smithy hands its tier to the forge roll; every badge reads shopTier.
   assert.truthy(/const smithTier = isBlacksmith \? Shops\.smithTier\(this\.save, house\) : undefined;/.test(SCENE_SRC));
   assert.truthy(/const tier = role === 'market' \? this\.marketTheme\(house\)\.tier : Shops\.shopTier\(this\.save, house, role\);/.test(SCENE_SRC), 'the offer blurb badge');
@@ -51,4 +46,39 @@ test('shop tiers: the lean halves per rank away, and the trader draws through it
   assert.truthy(/const tier = Shops\.shopTier\(this\.save, house, row\.role\) \|\| 0;/.test(SCENE_SRC), 'the Restored! card');
   assert.truthy(/const tier = tierOf\(row\);/.test(SCENE_SRC) && /tierBadgeHTML\(tier, 11\)/.test(SCENE_SRC), 'and the second-step restore card');
 });
+test('trader stock: every non-gear item is available at exactly its own tier', () => {
+  const equipment = new Set(Gear.uniqueRelics().map(item => item.id));
+  for (const item of Object.values(ITEM_BY_ID)) {
+    const tier = Shops.itemTier(item.id);
+    if (tier < 1 || tier > Shops.SHOP_TIER_MAX) continue;
+    assert.eq(Shops.traderStock(tier).includes(item.id), !equipment.has(item.id), item.id);
+    if (!equipment.has(item.id)) assert.eq(Shops.traderPrices()[item.id], itemValue(item.id), item.id + ' value');
+  }
+  for (let tier = 1; tier <= Shops.SHOP_TIER_MAX; tier++) {
+    assert.gt(Shops.traderStock(tier).length, 0);
+    for (const id of Shops.traderStock(tier)) assert.eq(Shops.itemTier(id), tier, id);
+  }
+});
+
+test('trader offers: sign and barter share the full tier pool and never ask for gear', () => {
+  const names = ['traderGivePick', 'traderGoodsName', 'peekTraderGearSwap', 'peekOrBuildTraderOffer'];
+  const methods = names.map(name => {
+    const start = SCENE_SRC.indexOf('\n  ' + name + '(');
+    return SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4);
+  });
+  const proto = (0, eval)('({' + methods.join(',') + '})');
+  const gear = Gear.uniqueRelics()[0];
+  const scene = Object.assign(Object.create(proto), {
+    save: { inv: [{ id: gear.id, count: 1 }], relics: {}, restoredHouses: {} },
+    shopRng: () => () => 0.99, priceMul: () => 1, guildPrice: (_, n) => n,
+  });
+  const house = { id: 'trader' };
+  const offer = scene.peekOrBuildTraderOffer(house);
+  assert.truthy(offer);
+  assert.eq(Shops.itemTier(offer.giveId), 1);
+  assert.eq(scene.traderGoodsName(house), itemName(offer.giveId));
+  assert.truthy(Object.hasOwn(Shops.traderPrices(), offer.askId));
+  assert.truthy(offer.askId !== offer.giveId);
+});
+
 })();

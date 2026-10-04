@@ -888,7 +888,7 @@ class SceneShops {
     };
   }
 
-  // A THEMED SHOP's visit: one item from its line at its tier (marketTheme),
+  // A THEMED SHOP's visit: its own tier or a batch from one tier below,
   // seeded on the shop's hour like every offer, priced through buildShopOffer
   // (the 1.2–3.0× markup over PRICES, so a shop always asks above list), with a
   // re-roll that starts at $2 and grows ×1.5 (ShopsMath.themedRerollCost). The
@@ -922,7 +922,7 @@ class SceneShops {
   // draws from.
   _themedStockCount(house) {
     const { theme, tier } = this.marketTheme(house);
-    return Shops.themedStock(theme, tier).length;
+    return Shops.themedOfferStock(theme, tier).length;
   }
 
   // The rank badge under an offer — a shop's line tier, a smithy's, a
@@ -947,9 +947,12 @@ class SceneShops {
     const item = ITEM_BY_ID[id];
     // The base is the ladder's (ShopsMath.listPrice — the Book climbs with
     // every one bought; everything else is its itemValue).
-    const offer = this.buildShopOffer(id, ShopsMath.listPrice(this.save, id, itemValue(id)), { house });
-    // One unit, as every cash buy — low-tier seeds keep their bulk bonus.
-    const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
+    const { tier } = this.marketTheme(house);
+    const quantityRng = house?.id ? this.shopRng(house, 'theme-quantity') : Math.random;
+    const units = Shops.themedQuantity(id, tier, quantityRng);
+    const offer = this.buildShopOffer(id, units * ShopsMath.listPrice(this.save, id, itemValue(id)), { house });
+    // Lower-tier batches buy multiple units; seed units retain their bonus.
+    const buyQty = units * (1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0));
     this.showOfferModal({
       kind: 'shop',
       title: this.buildingFlavorTitle(house, 'buy'),
@@ -973,9 +976,8 @@ class SceneShops {
         this._finishInventoryChange();
         this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
-      // A re-roll can only land on another item of the same stock, so a line
-      // that carries ONE item at this tier (an ore shop is one bar a tier)
-      // has nothing to re-roll to — paying would hand back the same item.
+      // Include lower-tier batch stock when deciding whether another item
+      // is available to re-roll to.
       secondary: this._themedStockCount(house) > 1
         ? this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
             (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
@@ -1299,15 +1301,10 @@ class SceneShops {
   traderGivePick(house) {
     if (!house?.id) return null;
     const rng = this.shopRng(house, 'trader');
-    // Same houseSeed produce-vs-buylist coin flip the generic path uses.
-    const houseSeed = this._houseSeed(house);
-    const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
-    // The pool leans to the trader's own tier (Shops.traderTier /
-    // tierAffinity): one draw off the lane either way, so the ask side that
-    // follows reads the same stream it always did.
-    const ids = sellsProduce ? Object.keys(CROP_ROW) : BUY_LIST;
+    // Every non-gear item at this trader's rank can appear on the counter.
     const tier = Shops.traderTier(this.save, house);
-    const giveId = weightedPickBy(ids, (id) => Shops.tierAffinity(Shops.itemTier(id), tier), rng) || ids[0];
+    const ids = Shops.traderStock(tier);
+    const giveId = ids[Math.floor(rng() * ids.length)];
     if (!giveId) return null;
     return { rng, giveId };
   }
@@ -1325,7 +1322,7 @@ class SceneShops {
   // `id` names the swap for ShopsMath.offerKey, so a re-roll moves past it.
   peekTraderGearSwap(house) {
     if (!house?.id) return null;
-    const swap = Gear.traderGearSwap(this.save, this.shopRng(house, 'trader_gear'));
+    const swap = Gear.traderGearSwap(this.save, this.shopRng(house, 'trader_gear'), Shops.traderTier(this.save, house));
     if (!swap) return null;
     const key = (p) => [p.kind, p.slot || p.id, p.tier].join(':');
     return { ...swap, gearSwap: true, id: `swap/${key(swap.give)}/${key(swap.get)}` };
@@ -1344,7 +1341,7 @@ class SceneShops {
     const pick = this.traderGivePick(house);
     if (!pick) return null;
     const { rng, giveId } = pick;
-    const baseValue = Math.max(1, PRICES[giveId] ?? 1);
+    const baseValue = itemValue(giveId);
     // Target trade value the trader considers appropriate — a shiny trader's
     // (the Magic Hammer's) asks for less of your stack, priceMul.
     const target = baseValue * (1.0 + rng()) * this.priceMul(house);
@@ -1354,8 +1351,8 @@ class SceneShops {
     const ask = ShopsMath.traderAsk({
       rng, giveId, target,
       inv: this.save.inv,
-      prices: PRICES,
-      isItem: (id) => !!ITEM_BY_ID[id],
+      prices: Shops.traderPrices(),
+      isItem: (id) => Object.hasOwn(Shops.traderPrices(), id),
       capFor: (id) => Inventory.stackCapFor(this.save, id),
     });
     if (!ask) return null;

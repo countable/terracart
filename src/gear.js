@@ -279,9 +279,10 @@
   }
   // The chance roll is drawn first, every time, so what is owned never
   // changes how many numbers the stream spends before it.
-  function traderGearSwap(save, rng = Math.random) {
+  function traderGearSwap(save, rng = Math.random, tier) {
     if (rng() >= TRADER_GEAR_CHANCE) return null;
     const options = traderGivablePieces(save)
+      .filter(give => tier == null || give.tier === tier)
       .map(give => ({ give, gets: traderTakeablePieces(save, give.tier, give) }))
       .filter(o => o.gets.length);
     if (!options.length) return null;
