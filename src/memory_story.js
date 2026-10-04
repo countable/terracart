@@ -432,6 +432,7 @@ const MemoryStory = (() => {
   // restore count she was first met at — derived, so retuning it reaches
   // children already met.
   function wandererHoused(save, c) {
+    if (save?.npcHomes?.[c.id]?.houseId) return true;
     const met = save?.memoryStory?.met?.[c.id];
     return Number.isFinite(met) && Houses.restoredCount(save) >= met + Houses.STORY_RESTORES.childHome;
   }

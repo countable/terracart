@@ -1226,6 +1226,7 @@ class SceneCreate {
       if (wasDrag) return;             // dragged the map; nothing was tapped
       const up = this._gamePt(p);
       if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, up.x, up.y)) return;
+      if (this._tapEdgeDot(up.x, up.y)) return;
       this._resetWalkHome();           // a tap on the world is interacting
       this.handleWorldTap(up.x, up.y);
     };
