@@ -8,7 +8,7 @@
         "flowers": 1.5,
         "marigold": 0
       },
-      "intent": "Open grass clumps and ordinary flowers; no marigolds."
+      "intent": "Open grass clumps and ordinary flowers; no marigolds. Butterflies now favor grass instead of forest."
     },
     "FOREST": {
       "targetPct": {
@@ -19,14 +19,14 @@
         "wildrose": 0.2,
         "starflower": 0.3
       },
-      "intent": "Canopy and fungi: tree stands, nut litter and mushrooms; fewer shrubs so the canopy reads clearly."
+      "intent": "Canopy and fungi: tree stands, nut litter and mushrooms; fewer shrubs so the canopy reads clearly. No crimson ore or butterflies."
     },
     "SAND": {
       "targetPct": {
         "shell": 3,
         "driftwood": 0.7
       },
-      "intent": "Mostly open sand, with shells and driftwood concentrated along the tide line."
+      "intent": "Mostly open sand, with shells and driftwood concentrated along the tide line. Plain rocks use the beach rock appearance."
     },
     "FARMLAND": {
       "targetPct": {},
@@ -35,13 +35,13 @@
     "RESIDENTIAL": {
       "targetPct": {
         "longgrass": 0,
-        "shrub": 2
+        "shrub": 2,
+        "street_ore_rock": 0
       },
-      "intent": "Keep mushrooms and existing rock-lined street verges. Remove long grass; retain sparse shrubs. Street rubble follows the road network rather than a new residential scatter.",
+      "intent": "Keep mushrooms and existing rock-lined street verges. Remove long grass; retain sparse shrubs. Street rubble follows the road network rather than a new residential scatter. Street rocks contain no ore.",
       "preserveElements": [
         "mushroom",
-        "street_plain_rock",
-        "street_ore_rock"
+        "street_plain_rock"
       ]
     },
     "PARK": {
@@ -99,9 +99,13 @@
         "longgrass": 18,
         "shrub": 4,
         "mushroom": 6,
-        "flowers": 0.5
+        "flowers": 0,
+        "plain_rock": 0,
+        "ore_rock": 0,
+        "street_plain_rock": 0,
+        "street_ore_rock": 0
       },
-      "intent": "Reedy grass bands and damp mushrooms around open channels; fewer flowers and dry-looking shrubs."
+      "intent": "Reedy grass bands and damp mushrooms around open channels; no flowers, rocks or ores, including roadside scatter."
     },
     "GOLF": {
       "targetPct": {},

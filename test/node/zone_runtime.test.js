@@ -178,7 +178,7 @@
       tileEdgeM: N * 10, save: { caught: [] }, startWorldM: { x: -5000, y: 0 },
       _pestFreeZone: () => null,
     });
-    const entry = { cellsPerEdge: N, grid: new Array(N * N).fill(WorldGen.T.GRASS),
+    const entry = { cellsPerEdge: N, grid: new Array(N * N).fill(WorldGen.T.PARK),
       objects: Array.from({ length: N * N }, (_, i) => ({ kind: 'mineralrock', id: `rock_${i}`,
         x: (i % N + .5) * 10, y: (Math.floor(i / N) + .5) * 10 })),
       roadClass: new Uint8Array(N * N),

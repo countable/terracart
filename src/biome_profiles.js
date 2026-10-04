@@ -185,6 +185,7 @@
               fix('wildrose', 0.0015, 0.0045, S.WILDROSE),
               fix('starflower', 0.003, 0.009, S.STARFLOWER)],
     },
+    [T.SAND]: { ...FAMILY_PROFILE.sand, staticObjects: { plainRockFrame: 34, plainRockVariant: 3 } },
     [T.FARMLAND]: { flora: [] },
     // Mushrooms remain on residential frontage; its yard lane grows shrubs.
     [T.RESIDENTIAL]: { flora: FAMILY_PROFILE.urban.flora, blockedFlora: ['longgrass'],
@@ -207,11 +208,10 @@
               fix('flowers', 0.007, 0.015, S.FORGETMENOT)],
     },
     [T.PITCH]: { flora: [fix('longgrass', 0.003, 0.007, S.LONGGRASS)] },
-    [T.WETLAND]: {
+    [T.WETLAND]: { staticObjects: { noRocks: true }, blockedFlora: ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower'],
       flora: [fix('longgrass', 0.15, 0.21, S.WET_LG),
               fix('shrub', 0.035, 0.070, S.WET_SHRUB),
-              fix('mushroom', 0.055, 0.105, S.WET_MUSH),
-              fix('flowers', 0.004, 0.008, S.WET_FMN)],
+              fix('mushroom', 0.055, 0.105, S.WET_MUSH)],
     },
     [T.GOLF]: { flora: [] },
     [T.ORCHARD]: { staticObjects: { fruitTreeSpacingM: 15.2 }, blockedFlora: ['marigold'],
@@ -479,20 +479,19 @@
     cat:       { base: 6,  range: 8,  share: 0.80, primary: [T.RESIDENTIAL, T.COMMERCIAL], fallback: ALL_NATURAL.filter(t => t !== T.WASTELAND), excluded: [T.WASTELAND] },
     dog:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT], fallback: ALL_NATURAL },
     deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.RESIDENTIAL], fallback: [T.FOREST, T.RESIDENTIAL], only: [T.FOREST, T.RESIDENTIAL] },
-    crow:      { base: 200, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
-    butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF], fallback: [T.PARK, T.GROVE, T.FOREST, T.WETLAND, T.ORCHARD, T.GOLF, T.SCHOOL, T.PLAYGROUND] },
+    crow:      { base: 200, range: 0, share: 1.00, primary: [T.PARK], fallback: [T.PARK], only: [T.PARK] },
+    butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.ORCHARD, T.GOLF], fallback: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.ORCHARD, T.GOLF, T.SCHOOL, T.PLAYGROUND], excluded: [T.FOREST] },
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
-    // Ravens keep to the dark places — woods, rock, the churchyard, the grove
-    // — and a few range wider. A fast flier (creatureSpawnClass: 'fastEnemy'
-    // off its roster speed), so it keeps off the kerb like every fast foe.
-    raven:     { base: 6,  range: 5,  share: 0.75, primary: [T.FOREST, T.ROCK, T.CHURCHYARD, T.GROVE], fallback: ALL_NATURAL },
+    storm_gull: { only: [] }, // Retired guard bird; keep its art/roster available for authored previews.
+    // Surface corvid identities are exclusive to their named ground.
+    raven:     { base: 6, range: 5, share: 1, primary: [T.RESIDENTIAL], fallback: [T.RESIDENTIAL], only: [T.RESIDENTIAL] },
     // The horse is rare: five a tile on the cow's ground, against the cow's 12–23.
     horse:     { base: 5,  range: 0,  share: 0.90, primary: [T.GRASS, T.FARMLAND], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.PITCH, T.GOLF] },
   };
 
   // Generation-only habitat limits also apply to relocation and authored fauna.
   function faunaAllows(kind, type) {
-    const row = BIOME_FAUNA[kind];
+    const row = BIOME_FAUNA[kind] || SHORE_FAUNA[kind];
     return !row || ((!row.only || row.only.includes(type)) && !row.excluded?.includes(type));
   }
 
@@ -517,7 +516,7 @@
   const SHORE_FAUNA = {
     metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
     crab: { perShoreM: 35, max: 14, pier: false, salt: 'shorefauna|crab' },
-    gull: { perShoreM: 90, max: 6,  pier: true,  salt: 'shorefauna|gull' },
+    gull: { perShoreM: 90, max: 6,  pier: false, only: [T.SAND],  salt: 'shorefauna|gull' },
     // The sea turtle: the rabbit's habits on the sand, fewer than the crabs.
     sea_turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
   };

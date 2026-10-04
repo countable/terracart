@@ -19,4 +19,28 @@
       'retained rocks never move or reroll their resource');
     assert.eq(new Set(reduced.map(o=>`${o.x},${o.y}`)).size,reduced.length,'thinning cannot create overlapping replacements');
   });
+  test('basic habitats: corvids stay exclusive and butterflies leave forest for grass', () => {
+    const T=WorldGen.T;
+    for (const [kind,ground] of [['crow',T.PARK],['raven',T.RESIDENTIAL],['gull',T.SAND]]) {
+      for (const type of Object.values(T)) assert.eq(BiomeProfiles.faunaAllows(kind,type),type===ground,kind+' habitat '+type);
+    }
+    assert.falsy(BiomeProfiles.faunaAllows('butterfly',T.FOREST));
+    assert.truthy(BIOME_FAUNA.butterfly.primary.includes(T.GRASS));
+    for (const flower of ['flowers','forgetmenot','marigold','wildrose','starflower'])
+      assert.falsy(BiomeProfiles.allows(flower,T.WETLAND),flower+' cannot leak through overlapping wetland polygons');
+  });
+  test('basic rocks: wetland rejects overlap rubble; sand uses single shell stone art', () => {
+    const W=WorldGen,N=64,edge=N*W.CELL_M;
+    const polygon=tags=>({type:3,tags,geom:[[{x:0,y:0},{x:4096,y:0},{x:4096,y:4096},{x:0,y:4096},{x:0,y:0}]]});
+    const render=type=>W.rasterizeTile([{name:'landcover',features:[polygon({class:'rock'}),polygon({class:type})]}],N,12,5615,edge);
+    const wet=render('wetland');
+    assert.truthy(wet.grid.every(t=>t===W.T.WETLAND));
+    assert.eq(wet.objects.filter(o=>o.kind==='mineralrock').length,0);
+    const sand=render('sand'), rocks=sand.objects.filter(o=>o.kind==='mineralrock'&&(o.caveVariant!=null||(o.yieldTier||1)<=1));
+    assert.gt(rocks.length,0,'overlapping rock source exercises beach appearance');
+    for(const rock of rocks) { assert.eq(rock._zoneObjectFrame,34); assert.eq(SpriteLayout.plainRockStones(rock),1); }
+    const forest=render('wood');
+    assert.truthy(forest.grid.every(t=>t===W.T.FOREST));
+    assert.falsy(forest.objects.some(o=>o.kind==='mineralrock'&&o.caveVariant==null&&o.yieldTier===6));
+  });
 })();
