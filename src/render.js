@@ -177,6 +177,7 @@ Render.towerCrownHeight = function (textures, castle) {
 Render.objectGroundOffsetPx = function (appearance, textures) {
   if (!appearance?.visible) return 0;
   if (appearance.foot) return appearance.foot.footFromCentre;
+  if (appearance.spec?.groundAtOrigin) return appearance.dyPx;
   const frame = textures?.getFrame?.(appearance.texKey, appearance.frameVal);
   // Unseated buildings use their rendered base; their centroid is not their
   // ground line. Short props retain their actual art placement as well.
@@ -4547,6 +4548,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // `scale`: the art is sized in CELLS (LAMP_DRAW_CELLS) via setDisplaySize.
     _streetlamp: {
       ground: (o) => !o.lit,
+      // The origin is the painted plinth's ground line. Canvas padding below
+      // it belongs to the glow, not the base used to sort against feet.
+      groundAtOrigin: true,
       // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
       // STREET_LAMP_TEX for the default, one texture per colour otherwise,
       // baked by app.js _ensureStreetLampTex before this pass runs); a dark

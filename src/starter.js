@@ -1313,6 +1313,15 @@
       }
       return false;
     };
+    const claimsByEntry = new Map();
+    const claimSeat = (e, claim) => {
+      if (!claimsByEntry.has(e)) claimsByEntry.set(e, []);
+      claimsByEntry.get(e).push(claim);
+    };
+    const reconcileClaims = () => {
+      for (const [e, claims] of claimsByEntry) SpawnOwnership.reconcileEntry(scene, e, claims);
+      claimsByEntry.clear();
+    };
     const inject = (rec) => {
       if (!avoidPlayer(rec)) {
         for (const e of [entry, ...WorldGen.tileCache.values()]) {
@@ -1331,7 +1340,7 @@
           s.list.push(s.make());
           present.add(rec.id);
         }
-        SpawnOwnership.reconcileEntry(scene, entry, [s.list.find(o => o.id === rec.id)]);
+        claimSeat(entry, s.list.find(o => o.id === rec.id));
         return;
       }
       // Seated across a seam: put it in whichever loaded tile owns it, so a
@@ -1348,11 +1357,12 @@
       } else if (claim.x !== rec.x || claim.y !== rec.y) {
         claim.x = rec.x; claim.y = rec.y;
       }
-      SpawnOwnership.reconcileEntry(scene, e, [claim]);
+      claimSeat(e, claim);
     };
     const frozen = scene.save.starterHome;
     if (frozen) {
       for (const rec of (frozen.placed || [])) inject(rec);
+      reconcileClaims();
       // A tamed natural is regenerated at its original tier on every rebuild,
       // so the downgrade has to be re-applied or the player's one choppable
       // street tree turns back into a hardwood on the next reload.
@@ -1699,6 +1709,7 @@
       tries: ((prev && prev.tries) || 0) + 1,
     };
     for (const rec of placed) inject(rec);
+    reconcileClaims();
     if (typeof persistSave === 'function') persistSave(scene.save);
   }
 

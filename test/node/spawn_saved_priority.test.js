@@ -49,6 +49,39 @@
     assert.truthy(e.objects.includes(ship) && e.objects.some(o => o.id === 'outside'), 'declared claim survives');
   });
 
+  test('saved spawn: batched claims preserve overlap rules with one footprint read per object', () => {
+    const s = scene();
+    const claims = Array.from({ length: 24 }, (_, i) => ({ id: `claim_${i}`, ...at(20 + i, 30) }));
+    claims.push({ id: 'shared', ...at(30, 30) }, { ...at(19, 30) });
+    let reads = 0;
+    const objects = Array.from({ length: 60 }, (_, i) => ({ id: `object_${i}`, ...at(i, 30),
+      get _footprintCells() { reads++; return { width: 3, height: 1 }; } }));
+    objects.push(...claims, { id: 'protected', planted: true, ...at(30, 30) });
+    const expected = objects.filter(o => SpawnOwnership.isProtected(o, s.save)
+      || !claims.some(c => c.id !== o.id && SpawnOwnership.overlaps(s, c, o)));
+    reads = 0;
+    const entry = { objects: objects.slice(), wildplants: [], genObjects: objects };
+    SpawnOwnership.reconcileEntry(s, entry, claims);
+    assert.eq(JSON.stringify(entry.objects), JSON.stringify(expected), 'same IDs, order and footprints survive');
+    assert.eq(entry.genObjects, objects, 'generated snapshot stays intact');
+    // Serialization above also reads each surviving object's getter once.
+    assert.lte(reads, objects.length * 3, 'work scales with objects, not objects multiplied by claims');
+  });
+
+  test('saved spawn: frozen Home reconciles all its claims in one tile scan', () => {
+    const placed = Array.from({ length: 12 }, (_, i) => ({ k: 'rock', id: `saved_${i}`, ...at(20 + i, 30) }));
+    const s = scene({ starterHome: { placed, done: true } });
+    const entry = { cellsPerEdge: N, grid: new Uint8Array(N * N), objects: [], wildplants: [] };
+    const real = SpawnOwnership.reconcileEntry;
+    const scans = [];
+    SpawnOwnership.reconcileEntry = (sc, e, claims) => { scans.push(claims.length); return real(sc, e, claims); };
+    try {
+      s._provisionStarterHome(entry, 0, 0, 30, 30, new Set());
+      assert.eq(scans.join(','), String(placed.length), 'one scan for the whole saved home');
+      assert.eq(entry.objects.length, placed.length, 'all saved records are restored');
+    } finally { SpawnOwnership.reconcileEntry = real; }
+  });
+
   test('saved spawn: footprint follows the neighbouring row grid across a seam', () => {
     const s = scene();
     s.cellsForRow = ty => ty === 1 ? 40 : N;
