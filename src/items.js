@@ -449,6 +449,7 @@ const MINERAL_ICON_SHEET = {
   frost_powder:  { sheet: 'icon_potions', frame: 9 },
   // Unique jewelry uses spare 16px frames from the old tier sheets.
   stealth_ring:      { sheet: 'icon_rings',   frame: 8 },
+  coin_ring:         { sheet: 'icon_rings',   frame: 7 },
   invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
   ember_ring:        { sheet: 'icon_rings',   frame: 9 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
@@ -653,7 +654,7 @@ const BASE_TIER = {
   // a T2 utility like the protection potion, under the T3 explosive flask.
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
-  stealth_ring: 2, invisibility_ring: 4, ember_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -878,6 +879,7 @@ const ITEMS = [
   // Unique jewelry works while carried. Its designation keeps magic shops and
   // ordinary class rolls from selling it; named chest pools remain its source.
   { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'coin_ring',         name: 'Ring of Gathering',     kind: 'unique_relic', uniqueJewelry: true },
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
@@ -1505,7 +1507,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, invisibility_ring: 0, ember_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -1685,6 +1687,7 @@ const ITEM_EFFECTS = {
   crimson_bar: 'An iceflower’s chill waits beneath its red sheen.',
   frost_bar: 'A smith’s breath turns white above this cold metal.',
   stealth_ring: 'Hungry eyes slide past the stone in its band.',
+  coin_ring: 'Loose coins slide across the ground toward its golden band.',
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
@@ -2394,6 +2397,7 @@ function steerEnergyCost(gear) {
 // both variants takes the stronger effect; values never stack.
 const UNIQUE_JEWELRY = Object.freeze({
   stealth_ring: Object.freeze({ visionCells: 1 }),
+  coin_ring: Object.freeze({ coinMagnetCells: 3 }),
   invisibility_ring: Object.freeze({ visionCells: 2 }),
   ember_ring: Object.freeze({ fireDamageMul: 0.4 }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
