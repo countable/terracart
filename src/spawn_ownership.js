@@ -83,8 +83,21 @@
     const ids = savedIds(scene.save);
     const claims = (protectedObjects || []).filter(o => o && Number.isFinite(o.x) && Number.isFinite(o.y));
     if (!claims.length) return;
-    const keep = (o) => isProtected(o, scene.save, ids) ||
-      !claims.some(claim => claim.id !== o.id && overlaps(scene, claim, o));
+    // Resolve each footprint once. Comparing every object with every saved
+    // claim repeatedly projected the same cells during background tile loads.
+    const owners = new Map();
+    for (const claim of claims) for (const cell of footprintCells(scene, claim)) {
+      const key = `${cell.cellIX},${cell.cellIY}`;
+      if (!owners.has(key)) owners.set(key, new Set());
+      owners.get(key).add(claim.id);
+    }
+    const keep = (o) => {
+      if (isProtected(o, scene.save, ids)) return true;
+      return !footprintCells(scene, o).some(cell => {
+        const claimed = owners.get(`${cell.cellIX},${cell.cellIY}`);
+        return claimed && (claimed.size > 1 || !claimed.has(o.id));
+      });
+    };
     if (entry.objects) entry.objects = entry.objects.filter(keep);
     if (entry.wildplants) entry.wildplants = entry.wildplants.filter(keep);
   }
