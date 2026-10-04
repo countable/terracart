@@ -25,7 +25,8 @@ function slice(source, from, to) {
 const shadowLook = render.match(/const SHADOW_LOOK = \{[\s\S]*?\n\};/);
 if (shadowLook) vm.runInContext(shadowLook[0], ctx);
 vm.runInContext('const Render = {}; ' + slice(render, 'Render.wildplantShadow =', 'Render.objectAppearance ='), ctx);
-const painters = slice(read('textures'), 'const TRAP_PX =', '// === Animated biome textures ===');
+const painters = slice(read('textures'), 'function seededRand(', 'function drawGrassTex(') + '\n'
+  + slice(read('textures'), 'const TRAP_PX =', '// === Animated biome textures ===');
 const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, contextLooks: WILDPLANT_CONTEXT_ART, cropRows: CROP_ROW,
   cropColumns: CROPS_SHEET_COLS, matureStage: MAX_GROWTH_STAGE,
   plantPlacements: Object.fromEntries([CROP_SPRITE.shrub, CROP_SPRITE.giant_mushroom, ...Object.values(CROP_SPRITE.shrub.looks), ...Object.values(WILDPLANT_CONTEXT_ART)].flatMap(art => (art.frames || [art.frame]).map(frame => ({...art, frame}))).map(art => {
