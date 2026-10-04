@@ -341,7 +341,7 @@ const PIECES = {
   trail_prize: scene(
     'Grateful survivors hand a small cloth bundle of seeds to a young traveller on a freshly restored cobbled road at dusk, a lamp post glowing beside them.'),
   kind_quest: scene(
-    'A castle notice board by a stone gate, pinned with three parchment quests and a wax seal, a torch burning beside it at dusk.', 'claws'),
+    'A castle notice board by a stone gate, pinned with a single parchment quest and a wax seal, a torch burning beside it at dusk.', 'claws'),
   kind_treasure: scene(
     'An old wooden treasure chest, lid thrown open, a glowing gem and a few jade-green star coins inside, nothing spilled on the ground, dusty light falling on it in a ruined cottage.'),
   // The seven source chest tiers, matching the world sprites and chestOpeningArt.

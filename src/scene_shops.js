@@ -237,8 +237,8 @@ class SceneShops {
       this.presentFortUnlockModal(sx, sy, house);
       return;
     }
-    // Castle → sealed until the player solves the job on its quest board
-    // (_isBuildingSealed); the sealed modal IS that board.
+    // Quest castles stay sealed until their job is claimed; citadels open
+    // when their guards are cleared. The sealed modal explains that goal.
     if (house && this._isBuildingSealed && this._isBuildingSealed(house)) {
       this.presentSealedBuildingModal(sx, sy, house);
       return;

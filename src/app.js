@@ -8329,9 +8329,8 @@ class MapScene extends Phaser.Scene {
   // so the call sites can fire unconditionally and stay ignorant of the chain.
   questEvent(event) {
     if (typeof Quests === 'undefined') return;
-    // The castle board listens to the SAME events the starter ladder does —
-    // that shared bus is most of what made a generator cheap to build. All
-    // three slots see every event; none of them has an accept step.
+    // Each active castle quest receives matching actions after its first
+    // conversation. The starter tutorial independently reads the same events.
     if (Quests.onEvent(this.save, event)) persistSave(this.save);
     const done = Quests.onStarterEvent(this.save, event);
     if (!done) return;
