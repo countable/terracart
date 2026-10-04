@@ -165,6 +165,13 @@ def _sample(row, data, helpers, detail=False):
     mw, mh = row['motifCells']
     walls = _wall_cells(row, width, height)
     occupied = set()
+    if row.get('layout',{}).get('type') == 'rooms':
+        ox,oy = (row['layout']['extentCells'][0]-width)//2,(row['layout']['extentCells'][1]-height)//2
+        for slot in row['layout'].get('props',[]):
+            x,y = slot['at'][0]-ox,slot['at'][1]-oy
+            if 0 <= x < width and 0 <= y < height:
+                parts.append(_image(slot['material'],x*unit,y*unit,unit,data['previewMaterials'],helpers))
+                occupied.add((x,y))
     for y in range(height):
         for x in range(width):
             if (x,y) in walls:
@@ -179,11 +186,7 @@ def _sample(row, data, helpers, detail=False):
                 if abs(x-cx) <= 2 and abs(y-cy) <= 2 or x == cx or y == cy:
                     continue
                 if row.get('layout',{}).get('type') == 'rooms':
-                    # Dress only room interiors, keeping every door approach free.
-                    ox,oy = (25-width)//2,(25-height)//2
-                    room = next((r for r in row['layout']['rooms'] if r['bounds'][0]+1 < x+ox < r['bounds'][0]+r['bounds'][2]-2 and r['bounds'][1]+1 < y+oy < r['bounds'][1]+r['bounds'][3]-2),None)
-                    if room is None:
-                        continue
+                    continue
                 at = [(x-cx+3) % mw, (y-cy+3) % mh] if row.get('walls') else [(x+(25-width)//2) % mw, (y+(25-height)//2) % mh]
             for slot in row['slots']:
                 if slot['at'] == at:
@@ -205,6 +208,8 @@ def _sample(row, data, helpers, detail=False):
     enemy = 'club_goblin' if row['id'] in ('goblin_warrens','warren_run') else 'cave_slime'
     if not path or row['id']=='warren_run':
         ex,ey = ((cx+1)*unit, (cy+2)*unit) if not path else ((cx-3)*unit,(cy+2)*unit)
+        if row.get('encounterOffset'):
+            ex,ey = (cx+row['encounterOffset'][0])*unit,(cy+row['encounterOffset'][1])*unit
         parts.append(helpers['creature_at'](enemy,ex,ey,unit,'Proposed depth-1 encounter seat; reallocated from existing budget'))
     parts.append(f'<path d="M 6 {height*unit-6} h 50" stroke="#e5ecdf"/><text x="6" y="{height*unit-10}" fill="#e5ecdf" font-size="5">35 m · 5 cells</text></svg>')
     return ''.join(parts)
@@ -241,7 +246,7 @@ def underground_section(helpers, out):
         if row.get('artNote'):
             details.append(('Art note', row['artNote']))
         if row.get('layout',{}).get('type') == 'rooms':
-            details[2] = ('Pattern','Room interiors range from 3 × 3 to 5 × 5 cells, excluding walls. This 25 × 25 cell sample fits 25 adjoining rooms with offset partitions and open door gaps. The Ember shrine occupies an inner room.')
+            details[2] = ('Pattern','Room interiors range from 3 × 3 to 5 × 5 cells, excluding walls. This 25 × 25 cell sample fits 25 adjoining rooms with offset partitions, narrow rectangles and open door gaps. Barrels sit in room corners, clear of door approaches; the Ember shrine occupies an inner room.')
         dl=''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
         overview = _sample(row,data,helpers)
         if row.get('layout',{}).get('type') == 'rooms':

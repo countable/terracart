@@ -1,6 +1,6 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 5,
+  "revision": 6,
   "date": "2026-10-03",
   "purpose": "Project underground chambers from park POI regions and route zones from small roads and walking paths.",
   "scope": {
@@ -84,7 +84,7 @@
         "worked",
         "built_edge"
       ],
-      "layout": "Fill the enclosed footprint with adjoining 3\u00d73 to 5\u00d75 room interiors, allowing varied rectangles. Doors connect neighboring rooms through shared walls, with loops and multiple routes. Reserve entrance, exit, stairs and shrine approaches before adding props.",
+      "layout": "Vary room width and depth independently across offset rows: 3\u00d73 to 5\u00d75 interiors, including narrow rectangles. Connect shared-wall doors into loops; reserve entrance, exit, stairs and shrine approaches before fitting corner stores.",
       "depths": [
         1,
         2,
@@ -514,13 +514,6 @@
             1,
             1
           ],
-          "material": "rock"
-        },
-        {
-          "at": [
-            2,
-            1
-          ],
           "material": "barrel"
         },
         {
@@ -529,18 +522,11 @@
             4
           ],
           "material": "rock"
-        },
-        {
-          "at": [
-            1,
-            4
-          ],
-          "material": "rock"
         }
       ],
-      "atmosphere": "A tight network of adjoining stone rooms, each with a 3\u20135 cell wide and 3\u20135 cell deep walkable interior. Offset partitions and door gaps connect stores, sentry rooms and the Ember shrine room; there is no outside courtyard.",
+      "atmosphere": "Small 3\u00d73 stores, narrow 3\u00d75 rooms and larger 5\u00d75 chambers form an enclosed network. Barrel stacks occupy room corners, leaving door approaches and the Ember shrine clear.",
       "poi": "Ember altar inside a small inner room grants the existing fireball boon. One surviving mirrored cache stays inside the warren; shrine boon replaces the shrine gift.",
-      "connection": "Fill the enclosed footprint with adjoining 3\u00d73 to 5\u00d75 room interiors, allowing varied rectangles. Doors connect neighboring rooms through shared walls, with loops and multiple routes. Reserve entrance, exit, stairs and shrine approaches before adding props.",
+      "connection": "Vary room width and depth independently across offset rows: 3\u00d73 to 5\u00d75 interiors, including narrow rectangles. Connect shared-wall doors into loops; reserve entrance, exit, stairs and shrine approaches before fitting corner stores.",
       "monsters": "D1: club goblin; D2: club / spear goblin; D3: spear / archer goblin.",
       "source": "Park POI region; worked and built-edge affinities.",
       "walls": {
@@ -576,219 +562,27 @@
           },
           {
             "bounds": [
-              0,
               4,
-              5,
-              6
+              0,
+              7,
+              5
             ],
             "doors": [
               [
-                2,
+                4,
+                2
+              ],
+              [
+                5,
                 4
               ],
               [
-                2,
-                9
-              ],
-              [
-                4,
-                5
-              ],
-              [
-                4,
-                7
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              0,
-              9,
-              5,
-              7
-            ],
-            "doors": [
-              [
-                2,
-                9
-              ],
-              [
-                2,
-                15
-              ],
-              [
-                4,
-                12
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              0,
-              15,
-              5,
-              5
-            ],
-            "doors": [
-              [
-                2,
-                15
-              ],
-              [
-                2,
-                19
-              ],
-              [
-                4,
-                17
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              0,
-              19,
-              5,
-              6
-            ],
-            "doors": [
-              [
-                2,
-                19
-              ],
-              [
-                4,
-                21
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              4,
-              0,
-              7,
-              7
-            ],
-            "doors": [
-              [
-                4,
-                2
-              ],
-              [
-                4,
-                5
-              ],
-              [
-                7,
-                6
+                8,
+                4
               ],
               [
                 10,
                 2
-              ],
-              [
-                10,
-                5
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              4,
-              6,
-              7,
-              5
-            ],
-            "doors": [
-              [
-                4,
-                7
-              ],
-              [
-                7,
-                6
-              ],
-              [
-                7,
-                10
-              ],
-              [
-                10,
-                8
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              4,
-              10,
-              7,
-              6
-            ],
-            "doors": [
-              [
-                4,
-                12
-              ],
-              [
-                7,
-                10
-              ],
-              [
-                7,
-                15
-              ],
-              [
-                10,
-                12
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              4,
-              15,
-              7,
-              5
-            ],
-            "doors": [
-              [
-                4,
-                17
-              ],
-              [
-                7,
-                15
-              ],
-              [
-                7,
-                19
-              ],
-              [
-                10,
-                17
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              4,
-              19,
-              7,
-              6
-            ],
-            "doors": [
-              [
-                4,
-                21
-              ],
-              [
-                7,
-                19
-              ],
-              [
-                10,
-                22
               ]
             ]
           },
@@ -796,7 +590,7 @@
             "bounds": [
               10,
               0,
-              6,
+              5,
               5
             ],
             "doors": [
@@ -813,8 +607,108 @@
                 4
               ],
               [
-                15,
+                14,
                 2
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              14,
+              0,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                14,
+                2
+              ],
+              [
+                15,
+                4
+              ],
+              [
+                18,
+                4
+              ],
+              [
+                20,
+                2
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              0,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                20,
+                2
+              ],
+              [
+                22,
+                4
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              0,
+              4,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                2,
+                4
+              ],
+              [
+                2,
+                10
+              ],
+              [
+                5,
+                4
+              ],
+              [
+                5,
+                10
+              ],
+              [
+                6,
+                7
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              6,
+              4,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                6,
+                7
+              ],
+              [
+                8,
+                4
+              ],
+              [
+                8,
+                10
+              ],
+              [
+                10,
+                7
               ]
             ]
           },
@@ -822,98 +716,414 @@
             "bounds": [
               10,
               4,
-              6,
+              7,
               7
             ],
             "doors": [
               [
                 10,
-                5
-              ],
-              [
-                10,
-                8
+                7
               ],
               [
                 12,
                 4
               ],
               [
-                12,
+                13,
                 10
               ],
               [
                 15,
-                6
+                4
+              ],
+              [
+                16,
+                7
               ]
             ]
           },
           {
             "bounds": [
-              10,
-              10,
-              6,
-              6
+              16,
+              4,
+              5,
+              7
             ],
             "doors": [
               [
-                10,
-                12
+                16,
+                7
               ],
               [
-                12,
+                18,
+                4
+              ],
+              [
+                18,
                 10
               ],
               [
-                12,
-                15
-              ],
-              [
-                15,
-                12
+                20,
+                7
               ]
             ]
           },
           {
             "bounds": [
-              10,
-              15,
-              6,
-              6
-            ],
-            "doors": [
-              [
-                10,
-                17
-              ],
-              [
-                12,
-                15
-              ],
-              [
-                12,
-                20
-              ],
-              [
-                15,
-                17
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              10,
               20,
-              6,
+              4,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                20,
+                7
+              ],
+              [
+                22,
+                4
+              ],
+              [
+                22,
+                10
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              0,
+              10,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                2,
+                10
+              ],
+              [
+                2,
+                14
+              ],
+              [
+                4,
+                12
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              4,
+              10,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                4,
+                12
+              ],
+              [
+                5,
+                10
+              ],
+              [
+                5,
+                14
+              ],
+              [
+                8,
+                10
+              ],
+              [
+                8,
+                14
+              ],
+              [
+                10,
+                12
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              10,
+              10,
+              7,
               5
             ],
             "doors": [
               [
                 10,
-                22
+                12
+              ],
+              [
+                11,
+                14
+              ],
+              [
+                13,
+                10
+              ],
+              [
+                14,
+                14
+              ],
+              [
+                16,
+                12
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              16,
+              10,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                16,
+                12
+              ],
+              [
+                18,
+                10
+              ],
+              [
+                18,
+                14
+              ],
+              [
+                20,
+                12
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              10,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                20,
+                12
+              ],
+              [
+                22,
+                10
+              ],
+              [
+                22,
+                14
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              0,
+              14,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                2,
+                14
+              ],
+              [
+                2,
+                20
+              ],
+              [
+                5,
+                14
+              ],
+              [
+                5,
+                20
+              ],
+              [
+                6,
+                17
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              6,
+              14,
+              7,
+              7
+            ],
+            "doors": [
+              [
+                6,
+                17
+              ],
+              [
+                7,
+                20
+              ],
+              [
+                8,
+                14
+              ],
+              [
+                10,
+                20
+              ],
+              [
+                11,
+                14
               ],
               [
                 12,
+                17
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              12,
+              14,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                12,
+                17
+              ],
+              [
+                13,
+                20
+              ],
+              [
+                14,
+                14
+              ],
+              [
+                15,
+                20
+              ],
+              [
+                16,
+                17
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              16,
+              14,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                16,
+                17
+              ],
+              [
+                18,
+                14
+              ],
+              [
+                18,
+                20
+              ],
+              [
+                20,
+                17
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              14,
+              5,
+              7
+            ],
+            "doors": [
+              [
+                20,
+                17
+              ],
+              [
+                22,
+                14
+              ],
+              [
+                22,
+                20
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              0,
+              20,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                2,
+                20
+              ],
+              [
+                4,
+                22
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              4,
+              20,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                4,
+                22
+              ],
+              [
+                5,
+                20
+              ],
+              [
+                7,
+                20
+              ],
+              [
+                8,
+                22
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              8,
+              20,
+              7,
+              5
+            ],
+            "doors": [
+              [
+                8,
+                22
+              ],
+              [
+                10,
                 20
               ],
               [
@@ -921,231 +1131,55 @@
                 24
               ],
               [
-                15,
-                22
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              15,
-              0,
-              5,
-              5
-            ],
-            "doors": [
-              [
-                15,
-                2
-              ],
-              [
-                17,
-                4
-              ],
-              [
-                19,
-                2
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              15,
-              4,
-              5,
-              6
-            ],
-            "doors": [
-              [
-                15,
-                6
-              ],
-              [
-                17,
-                4
-              ],
-              [
-                17,
-                9
-              ],
-              [
-                19,
-                7
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              15,
-              9,
-              5,
-              7
-            ],
-            "doors": [
-              [
-                15,
-                12
-              ],
-              [
-                17,
-                9
-              ],
-              [
-                17,
-                15
-              ],
-              [
-                19,
-                11
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              15,
-              15,
-              5,
-              5
-            ],
-            "doors": [
-              [
-                15,
-                17
-              ],
-              [
-                17,
-                15
-              ],
-              [
-                17,
-                19
-              ],
-              [
-                19,
-                17
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              15,
-              19,
-              5,
-              6
-            ],
-            "doors": [
-              [
-                15,
-                22
-              ],
-              [
-                17,
-                19
-              ],
-              [
-                19,
-                22
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              19,
-              0,
-              6,
-              6
-            ],
-            "doors": [
-              [
-                19,
-                2
-              ],
-              [
-                21,
-                5
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              19,
-              5,
-              6,
-              5
-            ],
-            "doors": [
-              [
-                19,
-                7
-              ],
-              [
-                21,
-                5
-              ],
-              [
-                21,
-                9
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              19,
-              9,
-              6,
-              6
-            ],
-            "doors": [
-              [
-                19,
-                11
-              ],
-              [
-                21,
-                9
-              ],
-              [
-                21,
-                14
-              ]
-            ]
-          },
-          {
-            "bounds": [
-              19,
-              14,
-              6,
-              7
-            ],
-            "doors": [
-              [
-                19,
-                17
-              ],
-              [
-                21,
-                14
-              ],
-              [
-                21,
+                13,
                 20
+              ],
+              [
+                14,
+                22
               ]
             ]
           },
           {
             "bounds": [
-              19,
+              14,
               20,
-              6,
+              7,
               5
             ],
             "doors": [
               [
-                19,
+                14,
                 22
               ],
               [
-                21,
+                15,
+                20
+              ],
+              [
+                18,
+                20
+              ],
+              [
+                20,
+                22
+              ]
+            ]
+          },
+          {
+            "bounds": [
+              20,
+              20,
+              5,
+              5
+            ],
+            "doors": [
+              [
+                20,
+                22
+              ],
+              [
+                22,
                 20
               ]
             ]
@@ -1161,9 +1195,239 @@
             5,
             5
           ]
-        }
+        },
+        "props": [
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              3
+            ],
+            "material": "rock"
+          },
+          {
+            "at": [
+              9,
+              3
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              13,
+              1
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              15,
+              1
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              21,
+              1
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              9
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              5
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              9,
+              5
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              11,
+              9
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              11,
+              5
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              17,
+              5
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              23,
+              9
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              3,
+              11
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              3,
+              13
+            ],
+            "material": "rock"
+          },
+          {
+            "at": [
+              9,
+              13
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              11,
+              11
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              19,
+              13
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              23,
+              11
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              19
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              15
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              7,
+              15
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              11,
+              19
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              15,
+              15
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              19,
+              15
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              21,
+              19
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              21
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              1,
+              23
+            ],
+            "material": "rock"
+          },
+          {
+            "at": [
+              7,
+              23
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              9,
+              23
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              15,
+              23
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              21,
+              21
+            ],
+            "material": "barrel"
+          }
+        ]
       },
-      "shrineKind": "ember_altar"
+      "shrineKind": "ember_altar",
+      "encounterOffset": [
+        0,
+        1
+      ]
     },
     {
       "id": "mushroom_cavern",
