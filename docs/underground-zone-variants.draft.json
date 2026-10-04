@@ -1,25 +1,27 @@
 {
   "status": "design_draft_not_runtime",
-  "revision": 10,
+  "revision": 11,
   "date": "2026-10-03",
-  "purpose": "Project underground nexus chambers from park POI regions and apply underground path themes to all paths on cave levels 1 and 2; roads are excluded.",
+  "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave levels 1 and 2; roads and buildings remain cave walls.",
   "scope": {
     "surfaceChanges": false,
     "otherPOIRegions": "future explicit mapping rows",
     "activation": "separate implementation after design review",
     "nexusDepths": [
       1,
-      2,
-      3
+      2
     ],
     "pathDepths": [
       1,
       2
     ],
-    "pathCoverage": "All eligible path geometry on levels 1 and 2, independent of park/nexus proximity; never roads or levels 3+."
+    "pathCoverage": "All eligible path geometry on levels 1 and 2, independent of park/nexus proximity; never roads or levels 3+.",
+    "undergroundTemples": false,
+    "buildingAndRoadTerrain": "Houses, temples and road footprints remain CAVE_WALL. Do not mirror building interiors or carve these footprints for nexus layouts.",
+    "standaloneShrines": "Retain the explicitly designed Ember altar and Toad idol as freestanding cave interactables, not temple buildings or mirrored houses."
   },
   "source": {
-    "regions": "stable park POI + associated original park polygon; bounded POI influence only if no reliable polygon",
+    "regions": "Stable generated surface nexus anchors and their original coverage; select by nexus kind rather than any nearby park, seep or rock terrain.",
     "walkingPaths": [
       "path",
       "footway",
@@ -35,7 +37,20 @@
       "all roads, including minor, street and service roads",
       "water crossings and bridge spans without an explicit underground connector"
     ],
-    "pathSelection": "Use the existing path-class predicate for every path; context selects a theme, not whether a path receives one."
+    "pathSelection": "Use the existing path-class predicate for every path; context selects a theme, not whether a path receives one.",
+    "nexusMapping": {
+      "grove": [
+        "spring_cave",
+        "goblin_warrens",
+        "mushroom_cavern",
+        "gemstone_cavern"
+      ],
+      "quarry": [
+        "mine_tunnels"
+      ],
+      "seep": []
+    },
+    "nexusMappingPolicy": "The four grove variants apply only beneath grove nexuses. Quarry regions always use Mine Tunnels; seep regions receive none of these nexus variants."
   },
   "identity": {
     "region": "underground/{sourceFeatureId}/{depth}",
@@ -46,7 +61,7 @@
     {
       "id": "spring_cave",
       "name": "Underground Spring Cave",
-      "source": "park",
+      "source": "grove",
       "affinities": [
         "water",
         "wetland",
@@ -55,8 +70,7 @@
       "layout": "central spring feeding a surrounding pool, dry circular bank, mushroom ring, outer stone ring; four open radial approaches",
       "depths": [
         1,
-        2,
-        3
+        2
       ],
       "interaction": "proposed watering-can refill from the nearest reachable pool bank; source and pool share one interaction identity; no free healing",
       "encounterByDepth": {
@@ -68,18 +82,15 @@
           "cave_slime",
           "bat",
           "spider"
-        ],
-        "3": [
-          "spider",
-          "purple_slime"
         ]
       },
-      "reward": "reuse a surviving mirrored POI cache; no extra daily chest"
+      "reward": "reuse a surviving mirrored POI cache; no extra daily chest",
+      "surfaceNexusKind": "grove"
     },
     {
       "id": "goblin_warrens",
       "name": "Goblin Warrens",
-      "source": "park",
+      "source": "grove",
       "affinities": [
         "formal",
         "worked",
@@ -88,8 +99,7 @@
       "layout": "Vary room width and depth independently across offset rows: 3\u00d73 to 5\u00d75 interiors, including narrow rectangles. Connect shared-wall doors into loops; reserve entrance, exit, stairs and shrine approaches before fitting corner stores.",
       "depths": [
         1,
-        2,
-        3
+        2
       ],
       "interaction": "Clear sentries, visit Ember altar for existing fireball boon, break stores and mine optional collapse.",
       "encounterByDepth": {
@@ -99,19 +109,16 @@
         "2": [
           "club_goblin",
           "spear_goblin"
-        ],
-        "3": [
-          "spear_goblin",
-          "archer_goblin"
         ]
       },
       "reward": "reuse a surviving mirrored POI cache; barrels replace allocated finite containers",
-      "shrineKind": "ember_altar"
+      "shrineKind": "ember_altar",
+      "surfaceNexusKind": "grove"
     },
     {
       "id": "mushroom_cavern",
       "name": "Underground Mushroom Cavern",
-      "source": "park",
+      "source": "grove",
       "affinities": [
         "woodland",
         "shade",
@@ -120,8 +127,7 @@
       "layout": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
       "depths": [
         1,
-        2,
-        3
+        2
       ],
       "shrineKind": "toad_idol",
       "interaction": "Harvest cave mushrooms and visit the Toad idol for its existing Mending boon.",
@@ -134,18 +140,15 @@
           "cave_slime",
           "bat",
           "spider"
-        ],
-        "3": [
-          "spider",
-          "purple_slime"
         ]
       },
-      "reward": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats."
+      "reward": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
+      "surfaceNexusKind": "grove"
     },
     {
       "id": "gemstone_cavern",
       "name": "Gemstone Cavern",
-      "source": "park",
+      "source": "grove",
       "affinities": [
         "rock",
         "stony_ground"
@@ -162,13 +165,27 @@
           "cave_slime",
           "bat",
           "spider"
-        ],
-        "3": [
-          "spider",
-          "purple_slime"
         ]
       },
-      "depthPolicy": "Mixed-tier art showcase. Runtime placement must filter each deposit by cave depth and existing mining rules; this sample does not authorize high-tier rocks on every shallow floor."
+      "depthPolicy": "Levels 1 and 2 only. The mixed-tier art showcase must be filtered by floor eligibility and existing mining rules before activation.",
+      "surfaceNexusKind": "grove",
+      "depths": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "mine_tunnels",
+      "name": "Mine Tunnels",
+      "source": "quarry",
+      "surfaceNexusKind": "quarry",
+      "depths": [
+        1,
+        2
+      ],
+      "layout": "Fit ore pockets around existing walkable cave routes and stairs within quarry coverage. House and road footprints stay rock walls; do not carve them to join deposits.",
+      "interaction": "Mine a simple ore-rich deposit using existing floor-tier ore and mining rules.",
+      "reward": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple, cache or surface quarry first-rock reward."
     }
   ],
   "routeVariants": [
@@ -247,7 +264,9 @@
     "repeatMotifHardMaxCells": 8,
     "routeRewards": "budget per canonical connected route component and depth, never per tile or segment",
     "nexusCacheMax": 1,
-    "nexusWeightsByDepth": {
+    "pathLaneTargetCells": 2,
+    "pathThemeCoverage": 1,
+    "groveNexusWeightsByDepth": {
       "1": {
         "spring_cave": 35,
         "goblin_warrens": 30,
@@ -259,16 +278,9 @@
         "goblin_warrens": 45,
         "mushroom_cavern": 25,
         "gemstone_cavern": 10
-      },
-      "3": {
-        "spring_cave": 15,
-        "goblin_warrens": 55,
-        "mushroom_cavern": 20,
-        "gemstone_cavern": 10
       }
     },
-    "pathLaneTargetCells": 2,
-    "pathThemeCoverage": 1
+    "quarryNexusVariant": "mine_tunnels"
   },
   "terrainContract": [
     "Apply a path theme to every eligible path on cave levels 1 and 2 before generic cave dressing. Use existing cave-floor path geometry; roads are never selected or carved for these variants. Parks and nexus proximity influence theme choice only.",
@@ -278,7 +290,9 @@
     "Connect a park chamber only to a route that intersects or reaches it through eligible park floor; no straight-line connection across unrelated obstructions.",
     "Do not close existing reachable routes to force a warren maze. Use wall-adjacent rooms and removable obstacles outside the through lane.",
     "At seams use canonical source geometry and world positions; ambiguous or missing geometry keeps ordinary cave generation.",
-    "Seep Passage intentionally replaces eligible underground route floor with WATER. Preserve dry bank connectivity and crossings before decorating; do not paint surface roads or inherited protected water/building provenance."
+    "Seep Passage intentionally replaces eligible underground route floor with WATER. Preserve dry bank connectivity and crossings before decorating; do not paint surface roads or inherited protected water/building provenance.",
+    "Only grove surface anchors may select spring cave, goblin warrens, mushroom cavern or gemstone cavern. Seep anchors do not select these variants; quarry anchors select Mine Tunnels.",
+    "Underground nexus areas have no temple buildings. Houses and roads remain CAVE_WALL, including inside nexus coverage. Standalone Ember and Toad shrines remain small cave interactables."
   ],
   "economy": [
     "Anchor regions from surface geography, even when POI mirrors are pruned at an earlier depth.",
@@ -290,12 +304,13 @@
     "One shrine per qualifying nexus region and depth, using the existing daily shrine ledger and boon rules. The boon replaces its shrine treasure gift; tile fragments never duplicate it.",
     "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
     "Gemstone Cavern previews mixed shipping deposits and gem-bearing ore rocks. Keep their actual drop identities and mining rules; dedicated ruby, emerald and diamond deposits require new art and explicit mechanics. Gemstone Path remains sapphire-focused in this first preview.",
-    "Reuse quarry rock and sapphire appearances without importing surface quarry first-rock guarantees, buried finds or extra site rewards. Underground placements retain their declared rock/deposit rules and depth-qualified budgets."
+    "Reuse quarry rock and sapphire appearances without importing surface quarry first-rock guarantees, buried finds or extra site rewards. Underground placements retain their declared rock/deposit rules and depth-qualified budgets.",
+    "Mine Tunnels is a simple finite ore-rich deposit per quarry anchor and depth. It creates no extra cache, shrine, temple or imported surface quarry first-rock guarantee."
   ],
   "implementation": [
     {
       "step": 1,
-      "deliverable": "Preview park nexus projection separately from all path geometry on cave levels 1 and 2, including seams and blocked connections."
+      "deliverable": "Preview source-kind mapping: grove anchors to the four grove variants, quarry anchors to Mine Tunnels, and no nexus mapping from seep. Independently theme all path geometry on cave levels 1 and 2."
     },
     {
       "step": 2,
@@ -303,7 +318,7 @@
     },
     {
       "step": 3,
-      "deliverable": "Place spring and warren layouts before generic rocks, mushrooms, extras and enemy seats; reserve whole clear lanes."
+      "deliverable": "Place mapped grove layouts and quarry ore deposits before generic rocks, mushrooms and enemies; preserve routes and keep house/road walls intact."
     },
     {
       "step": 4,
@@ -324,7 +339,10 @@
     "Compare capped chest totals and expected resource value against baseline cave seeds.",
     "Check inspected art at game scale, transparent margins, frame rectangles, readable interactions and shared footprint reservation.",
     "Every eligible path receives one theme on cave levels 1 and 2, including paths outside parks and away from nexus regions.",
-    "No underground path variant applies to roads or cave levels 3 and deeper."
+    "No underground path variant applies to roads or cave levels 3 and deeper.",
+    "Only grove anchors select the four grove nexus variants; quarry anchors select Mine Tunnels and seep anchors select none of them.",
+    "No temple or house interiors appear underground; house and road cells remain cave walls after nexus placement.",
+    "Neither nexus variants nor path themes apply at cave levels 3 or deeper."
   ],
   "art": [
     {
@@ -414,7 +432,7 @@
   ],
   "openDecisions": [
     "First slice proposes water refill only; healing springs would need a separate economy decision.",
-    "Depths 4+ remain ordinary caves until explicit deeper variants and legal enemy pools are designed.",
+    "Levels 3+ retain ordinary caves; these nexus and path designs apply only at levels 1 and 2.",
     "Point-only POI coverage needs a reviewed influence radius before activation."
   ],
   "previewMaterials": {
@@ -521,8 +539,8 @@
       "atmosphere": "The spring rises at the centre of a pool. A clear bank circles the water, followed by a ring of cave mushrooms and an outer ring of mineable stone. Four openings connect the rings to the surrounding cave.",
       "poi": "Central source supplies one surrounding pool. Refill from a reachable bank cell; any surviving mirrored cache sits on dry ground.",
       "connection": "Concentric water, clear bank, mushroom ring and outer stone ring, with four radial approaches. No bridge across the pool is required.",
-      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
-      "source": "Park POI region; wet and wooded affinities.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wet and wooded affinities.",
       "layout": {
         "type": "concentric_rings",
         "extentCells": [
@@ -551,7 +569,11 @@
           -6,
           3
         ]
-      }
+      },
+      "depths": [
+        1,
+        2
+      ]
     },
     {
       "id": "goblin_warrens",
@@ -580,8 +602,8 @@
       "atmosphere": "Small 3\u00d73 stores, narrow 3\u00d75 rooms and larger 5\u00d75 chambers form an enclosed network. Barrel stacks occupy room corners, leaving door approaches and the Ember shrine clear.",
       "poi": "Ember altar inside a small inner room grants the existing fireball boon. One surviving mirrored cache stays inside the warren; shrine boon replaces the shrine gift.",
       "connection": "Vary room width and depth independently across offset rows: 3\u00d73 to 5\u00d75 interiors, including narrow rectangles. Connect shared-wall doors into loops; reserve entrance, exit, stairs and shrine approaches before fitting corner stores.",
-      "monsters": "D1: club goblin; D2: club / spear goblin; D3: spear / archer goblin.",
-      "source": "Park POI region; worked and built-edge affinities.",
+      "monsters": "D1: club goblin; D2: club / spear goblin.",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. worked and built-edge affinities.",
       "walls": {
         "sheet": "stronghold_wall",
         "manifest": "assets/Objects/Stronghold/manifest.json",
@@ -1480,6 +1502,10 @@
       "encounterOffset": [
         0,
         1
+      ],
+      "depths": [
+        1,
+        2
       ]
     },
     {
@@ -1531,13 +1557,17 @@
       "atmosphere": "Beds of the two underground mushroom varieties surround a clear Toad shrine court. Open lanes divide the beds and connect to cave paths; no surface mushroom caps appear here.",
       "poi": "Toad idol grants its existing Mending regeneration boon. At most one surviving mirrored cache; mushroom harvests replace ordinary cave mushroom seats.",
       "connection": "Clear central court and four open approaches. Harvestable beds remain outside the walking lanes.",
-      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
-      "source": "Park POI region; wooded, shaded and damp affinities.",
-      "artNote": "Only the two caveFrames from the game mushroom registry; no surface mushroom or giant-mushroom sprites."
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wooded, shaded and damp affinities.",
+      "artNote": "Only the two caveFrames from the game mushroom registry; no surface mushroom or giant-mushroom sprites.",
+      "depths": [
+        1,
+        2
+      ]
     },
     {
       "poi": "Sapphire clusters use the existing gem-only deposit. Ruby, emerald and diamond seats currently show the corresponding shipping gem-bearing ore rocks, retaining their metal and chance-gem drops. Dedicated gem-only versions need new world art and deposit rows.",
-      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider; D3: spider / purple slime.",
+      "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
       "artNote": "Quarry sapphire, broken quarry rock and worked quarry stone use the same materialFrames as the quarry cards. Ruby-, emerald- and diamond-bearing ore, where shown, keeps its existing game frames; dedicated gem-only art for those three is still missing.",
       "id": "gemstone_cavern",
       "kind": "nexus",
@@ -1597,10 +1627,94 @@
           "material": "quarry_broken_rock"
         }
       ],
-      "source": "Park POI region; exposed rock and stony-ground affinities.",
+      "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. exposed rock and stony-ground affinities.",
       "atmosphere": "Quarry sapphire pockets, broken quarry rock and worked stone surround an open central chamber, mixed with the existing ruby-, emerald- and diamond-bearing rocks.",
       "connection": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
-      "depthNote": "Mixed-tier art showcase. Runtime placement must filter each deposit by cave depth and existing mining rules; this sample does not authorize high-tier rocks on every shallow floor."
+      "depthNote": "Cave levels 1 and 2 only. Mixed-tier art showcase; final deposits must respect floor eligibility and existing mining rules.",
+      "depths": [
+        1,
+        2
+      ]
+    },
+    {
+      "id": "mine_tunnels",
+      "kind": "nexus",
+      "name": "Mine Tunnels",
+      "surfaceNexusKind": "quarry",
+      "motifCells": [
+        6,
+        6
+      ],
+      "slots": [
+        {
+          "at": [
+            0,
+            1
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            1,
+            1
+          ],
+          "material": "quarry_broken_rock"
+        },
+        {
+          "at": [
+            4,
+            0
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            5,
+            1
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            1,
+            4
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            0,
+            5
+          ],
+          "material": "quarry_worked_rock"
+        },
+        {
+          "at": [
+            4,
+            4
+          ],
+          "material": "floor_ore"
+        },
+        {
+          "at": [
+            5,
+            5
+          ],
+          "material": "floor_ore"
+        }
+      ],
+      "showCache": false,
+      "centralReserveCells": 0,
+      "source": "Beneath surface quarry regions only, using their stable generated quarry anchor and original coverage.",
+      "atmosphere": "A simple ore-rich deposit cut by clear cave passages. Dense metal-ore pockets and quarry stone line the tunnels; there are no buildings or temple chambers.",
+      "poi": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple, cache or surface quarry first-rock reward.",
+      "connection": "Fit ore pockets around existing walkable cave routes and stairs within quarry coverage. House and road footprints stay rock walls; do not carve them to join deposits.",
+      "monsters": "Existing depth-legal cave encounters only; no additional authored guards.",
+      "artNote": "Game floor-tier ore plus the same broken and worked stone variants as the surface quarries. No new art required.",
+      "depths": [
+        1,
+        2
+      ]
     },
     {
       "id": "root_passage",

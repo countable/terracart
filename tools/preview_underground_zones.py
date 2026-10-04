@@ -133,7 +133,7 @@ def _spring_card(row,data,helpers):
     mix=collections.Counter(s['material'] for s in _spring_slots(row))
     counts=', '.join(f'{n} {m.replace("_"," ")}' for m,n in mix.items())
     layout=row['layout']
-    detail_rows=[('Source region',row['source']),('Depth','1–3 proposal; deeper floors retain ordinary caves.'),
+    detail_rows=[('Source region',row['source']),('Depth','Cave levels 1 and 2 only; deeper floors retain ordinary caves.'),
         ('Pattern','One concentric composition around the spring, not a repeating motif. Pool radius 3 cells; mushroom ring at 5 cells; rock ring at 8 cells.'),
         ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
         ('Water','Pool surrounds the source. The water is impassable; refilling uses the nearest reachable bank, not the distant centre.'),
@@ -197,7 +197,8 @@ def _sample(row, data, helpers, detail=False):
                         continue
             else:
                 # The centre and approach lanes take precedence over background slots.
-                if abs(x-cx) <= 2 and abs(y-cy) <= 2 or x == cx or y == cy:
+                reserve = row.get('centralReserveCells',2)
+                if abs(x-cx) <= reserve and abs(y-cy) <= reserve or x == cx or y == cy:
                     continue
                 if row.get('layout',{}).get('type') == 'rooms':
                     continue
@@ -216,8 +217,9 @@ def _sample(row, data, helpers, detail=False):
             parts.append(f'<g class="nexus-shrine"><title>{html.escape(shrine["name"])} · {html.escape(shrine["boon"])}</title>')
             parts.append(helpers['art_image'](art,f'class="sprite-cell" x="{cx*unit}" y="{cy*unit}" width="{unit}" height="{unit}"'))
             parts.append(f'<rect class="geometry-cell" x="{cx*unit+1}" y="{cy*unit+1}" width="8" height="8" fill="#{shrine["light"]:06x}"/></g>')
-        parts.append(helpers['art_image']({'sheet':'chest','frames':[0]},f'class="sprite-cell" x="{(cx+1)*unit}" y="{(cy+1)*unit}" width="10" height="10"'))
-        parts.append(f'<rect class="geometry-cell" x="{(cx+1)*unit+2}" y="{(cy+1)*unit+2}" width="6" height="6" fill="#e6c779"><title>Existing mirrored cache, only if one survives</title></rect>')
+        if row.get('showCache',True):
+            parts.append(helpers['art_image']({'sheet':'chest','frames':[0]},f'class="sprite-cell" x="{(cx+1)*unit}" y="{(cy+1)*unit}" width="10" height="10"'))
+            parts.append(f'<rect class="geometry-cell" x="{(cx+1)*unit+2}" y="{(cy+1)*unit+2}" width="6" height="6" fill="#e6c779"><title>Existing mirrored cache, only if one survives</title></rect>')
         parts.append('</g>')
     enemy = 'club_goblin' if row['id'] in ('goblin_warrens','warren_run') else 'cave_slime'
     if not path or row['id']=='warren_run':
@@ -246,7 +248,7 @@ def underground_section(helpers, out):
         coverage = len(row['slots']) / (mw*mh) * 100
         wall_text = f'; {len(_wall_cells(row,25,25))/625*100:.2f}% structural stone-wall footprint in overview' if row.get('walls') and row['kind']=='nexus' else f'; {len(row.get("wallSlots", []))/(mw*mh)*100:.2f}% structural stone-wall footprint' if row.get('walls') else ''
         mix_text = ', '.join(f'{count} {key.replace("_", " ")}' for key,count in mix.items())
-        details = [('Source region / route',row['source']),('Depth',row.get('depthNote','1–3 proposal; deeper floors retain ordinary caves.')),
+        details = [('Source region / route',row['source']),('Depth',row.get('depthNote','Cave levels 1 and 2 only; deeper floors retain ordinary caves.')),
                    ('Pattern',f'{mw} × {mh} cells; {mix_text}. Nominal occupancy before clipping and reserved approaches.'),
                    ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
                    ('Lighting','Existing cave torches and player light. Additional glowing water or crystal art is not an enabled light source.'),
@@ -275,12 +277,12 @@ def underground_section(helpers, out):
     (out/'underground-art-license.txt').write_text((ROOT/'docs/art/underground-proposals/LICENSE.txt').read_text())
     checks=''.join(f'<li>{html.escape(item)}</li>' for item in data['checks'])
     return ('<section id="underground" data-view-panel hidden><h2>Underground · design proposals</h2>'
-            '<nav class="page-nav" aria-label="Underground categories"><a href="#underground-nexus">Nexus (4)</a><a href="#underground-paths">Paths (5)</a></nav>'
-            '<p>Park POI regions become spring caves, goblin warrens, mushroom caverns or gemstone caverns. All paths on cave levels 1 and 2 receive an underground path theme, including paths outside parks. Roads are excluded; nearby terrain and nexus regions influence theme choice only. These nine authored patterns use the same card format and art controls as the surface designs; they are not live cave generation.</p>'
+            '<nav class="page-nav" aria-label="Underground categories"><a href="#underground-nexus">Nexus (5)</a><a href="#underground-paths">Paths (5)</a></nav>'
+            '<p>On cave levels 1 and 2 only, grove nexuses become spring caves, goblin warrens, mushroom caverns or gemstone caverns. Beneath quarries, Mine Tunnels form simple ore-rich deposits. Seep regions do not select these nexus variants. Underground nexuses have no temple buildings; houses and roads remain rock walls. The requested Ember altar and Toad idol are standalone cave shrines. All paths on cave levels 1 and 2 receive an underground path theme, including paths outside parks. Roads are excluded; nearby terrain and nexus regions influence theme choice only. These ten authored patterns use the same card format and art controls as the surface designs; they are not live cave generation.</p>'
             '<p><a href="underground-zone-variants.draft.json">Draft data and implementation contract</a> · <a href="underground-art-license.txt">Candidate art license</a></p>'
             '<details><summary>Placement, rewards and depth rules</summary><p>Path themes use the existing path geometry on cave levels 1 and 2 only. Cover all eligible paths; never select or carve roads for these variants, and do not carry themes to level 3 or deeper. Preserve stairs, water and building provenance and excluded access; reserve clear lanes before dressing. Seep Passage replaces underground route tiles with water, preserving dry side banks and crossings at required connections.</p>'
             '<p>Regions keep stable surface POI identities at each depth, even when chest mirrors are pruned. Style at most one surviving mirror as the nexus cache, with existing tier rules. Ordinary finds, stores and encounter seats replace existing cave allocations. Miners’ Way adds a sparse, finite bonus ore budget at the floor tier; route fragments do not multiply it. Junctions and tile fragments never mint another reward.</p>'
-            '<p>Suggested spring : warren : mushroom : gemstone weights are 35 : 30 : 30 : 5 at depth 1, 20 : 45 : 25 : 10 at depth 2 and 15 : 55 : 20 : 10 at depth 3, before geographic affinities. Warrens and mushroom caverns have one daily shrine each, using the existing boon and ledger rules. Spring water refills a watering can through a proposed interaction; free healing is not part of this draft. Optional warren traps need a bypass and are not drawn as a repeating background slot.</p>'
+            '<p>For grove anchors only, suggested spring : warren : mushroom : gemstone weights are 35 : 30 : 30 : 5 at depth 1, 20 : 45 : 25 : 10 at depth 2, before geographic affinities. Warrens and mushroom caverns have one daily shrine each, using the existing boon and ledger rules. Spring water refills a watering can through a proposed interaction; free healing is not part of this draft. Optional warren traps need a bypass and are not drawn as a repeating background slot.</p>'
             '<ul>'+checks+'</ul></details>'
             '<section id="underground-nexus"><h2>Underground nexus</h2><div class="cards">'+''.join(cards['nexus'])+'</div></section>'
             '<section id="underground-paths"><h2>Underground paths</h2><div class="cards">'+''.join(cards['path'])+'</div></section></section>')
