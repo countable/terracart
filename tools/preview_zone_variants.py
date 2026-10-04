@@ -787,6 +787,31 @@ def signature_status(slot):
     return f'<span class="signature-status {slot["currentStatus"]}">{labels[slot["currentStatus"]]}</span>'
 
 
+@functools.lru_cache(maxsize=None)
+def proposal_art_uri(relative_path):
+    root = pathlib.Path(__file__).resolve().parents[1]
+    path = (root / relative_path).resolve()
+    assert path.is_relative_to(root / 'docs/proposal-art'), 'Proposal art must be checked into docs/proposal-art'
+    with Image.open(path) as source:
+        image = source.convert('RGBA')
+    assert image.getbbox(), f'Blank proposal art: {relative_path}'
+    buf = io.BytesIO()
+    image.save(buf, format='PNG')
+    return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
+
+
+def signature_proposal_details(slot):
+    parts = []
+    art = slot.get('artProposal')
+    if art:
+        parts.append(f'<p class="proposal-art"><img src="{proposal_art_uri(art["path"])}" width="64" height="64" alt="{html.escape(slot["proposedThing"]["label"], quote=True)} proposal sprite"><span><b>Unused art candidate</b><br>{html.escape(art["note"])}</span></p>')
+    interaction = slot.get('interactionProposal')
+    if interaction:
+        status = {'new_behavior': 'New behavior required', 'existing_handler_new_placement': 'Existing interaction; new placement'}[interaction['mechanicStatus']]
+        parts.append(f'<p><b>Interaction:</b> {html.escape(interaction["action"])}</p><p><small>{status}. {html.escape(interaction["requires"])}</small></p>')
+    return ''.join(parts)
+
+
 def basic_signature_card(terrain):
     row = basic_signatures()['zones'][terrain]
     if row['excluded']:
@@ -794,7 +819,7 @@ def basic_signature_card(terrain):
     parts = ['<div class="signature-card"><h4>Distinctive finds · ideas</h4>']
     for level, slot in row['slots'].items():
         condition = f'<p><small>{html.escape(slot["condition"])}</small></p>' if slot.get('condition') else ''
-        parts.append(f'<details data-signature-level="{level}" data-signature-status="{slot["currentStatus"]}"><summary><b>{level.title()}</b> · {html.escape(slot["proposedThing"]["label"])}<br>{signature_status(slot)}</summary><p><b>Current:</b> {html.escape(slot["currentEvidence"])}</p><p><b>Suggestion:</b> {html.escape(slot["proposalAction"])}</p>{condition}</details>')
+        parts.append(f'<details data-signature-level="{level}" data-signature-status="{slot["currentStatus"]}"><summary><b>{level.title()}</b> · {html.escape(slot["proposedThing"]["label"])}<br>{signature_status(slot)}</summary><p><b>Current:</b> {html.escape(slot["currentEvidence"])}</p><p><b>Suggestion:</b> {html.escape(slot["proposalAction"])}</p>{condition}{signature_proposal_details(slot)}</details>')
     return ''.join(parts) + '</div>'
 
 
@@ -807,7 +832,7 @@ def basic_signature_overview():
             continue
         cells = ''.join(f'<td>{html.escape(row["slots"][level]["proposedThing"]["label"])}<br>{signature_status(row["slots"][level])}</td>' for level in ['common', 'uncommon', 'rare'])
         rows.append(f'<tr><th><a href="#tile-{terrain.lower()}">{terrain.replace("_", " ").title()}</a></th>{cells}</tr>')
-    return f'<details class="signature-overview" id="basic-signatures"><summary><strong>Common / uncommon / rare signature audit</strong> · {counts["existing_exclusive"]} existing habitats · {counts["shared"]} shared gaps · {counts["gap"]} placement ideas</summary><p>These are encounter-frequency proposals, separate from item quality and enemy tier. Each proposed thing is assigned to only one zone at the same encounter level. Existing habitat means the thing already has a distinctive ordinary habitat or stated context; it does not mean the proposed frequency band is enforced. Shared candidates need distribution changes; new placements need implementation. General chest loot, player planting and nexus contents do not establish basic-zone exclusivity.</p><div class="signature-scroll"><table class="signature-table"><thead><tr><th>Zone</th><th>Common</th><th>Uncommon</th><th>Rare</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div><p>Open a zone’s individual slots below for the evidence, conditions and suggested change. <a href="basic-zone-signatures.json">Full audit</a></p></details><style>.signature-overview{{margin:24px 0;padding:18px;border:1px solid #405745;border-radius:12px}}.signature-overview summary,.signature-card summary{{cursor:pointer}}.signature-scroll{{overflow:auto}}.signature-table{{width:100%;border-collapse:collapse;font-size:13px}}.signature-table td,.signature-table th{{text-align:left;padding:10px;border-bottom:1px solid #405745;min-width:135px}}.signature-status{{display:inline-block;font-size:10px;margin:5px 0;color:#e6c779}}.signature-status.existing_exclusive{{color:#95d7d1}}.signature-status.gap{{color:#efb5a2}}.signature-card{{border-top:1px solid #405745;margin:16px 0;padding-top:4px}}.signature-card details{{margin:12px 0;font-size:13px}}.signature-card p,.signature-note{{font-size:12px}}</style>'
+    return f'<details class="signature-overview" id="basic-signatures"><summary><strong>Common / uncommon / rare signature audit</strong> · {counts["existing_exclusive"]} existing habitats · {counts["shared"]} shared gaps · {counts["gap"]} placement ideas</summary><p>These are encounter-frequency proposals, separate from item quality and enemy tier. Each proposed thing is assigned to only one zone at the same encounter level. Existing habitat means the thing already has a distinctive ordinary habitat or stated context; it does not mean the proposed frequency band is enforced. Shared candidates need distribution changes; new placements need implementation. General chest loot, player planting and nexus contents do not establish basic-zone exclusivity.</p><div class="signature-scroll"><table class="signature-table"><thead><tr><th>Zone</th><th>Common</th><th>Uncommon</th><th>Rare</th></tr></thead><tbody>{"".join(rows)}</tbody></table></div><p>Open a zone’s individual slots below for evidence, unused-art thumbnails and proposed interactions. Art proposals are not new live spawns; each states whether an existing interaction can be reused or new behavior is needed. <a href="basic-zone-signatures.json">Full audit</a> · <a href="proposal-art-license.txt">Proposal art license</a></p></details><style>.signature-overview{{margin:24px 0;padding:18px;border:1px solid #405745;border-radius:12px}}.signature-overview summary,.signature-card summary{{cursor:pointer}}.signature-scroll{{overflow:auto}}.signature-table{{width:100%;border-collapse:collapse;font-size:13px}}.signature-table td,.signature-table th{{text-align:left;padding:10px;border-bottom:1px solid #405745;min-width:135px}}.signature-status{{display:inline-block;font-size:10px;margin:5px 0;color:#e6c779}}.signature-status.existing_exclusive{{color:#95d7d1}}.signature-status.gap{{color:#efb5a2}}.signature-card{{border-top:1px solid #405745;margin:16px 0;padding-top:4px}}.signature-card details{{margin:12px 0;font-size:13px}}.proposal-art{{display:flex;gap:12px;align-items:center}}.proposal-art img{{image-rendering:pixelated;flex:none}}.signature-card p,.signature-note{{font-size:12px}}</style>'
 
 
 def basic_tile_section():
@@ -823,7 +848,7 @@ def basic_tile_section():
         for i, example in enumerate(examples):
             label = example.get('crop') or example.get('species') or example['kind']
             if example['kind'] == 'mineralrock':
-                label = 'plain rock' if example.get('caveVariant') is not None or example.get('yieldTier', 1) <= 1 else 'ore rock'
+                label = 'beach rock' if example.get('_zoneObjectFrame') == 34 else 'plain rock' if example.get('caveVariant') is not None or example.get('yieldTier', 1) <= 1 else 'ore rock'
             if example.get('barrel'):
                 label = 'clay pot' if example.get('barrelStyle') == 'clay_pot' else 'salvage barrel'
             label = label.replace('_', ' ')
@@ -835,13 +860,13 @@ def basic_tile_section():
         if tile['name'] == 'CAVE_FLOOR':
             note += ' Cave level 1: mushrooms and eligible cave enemies.'
         elif tile['name'] == 'PIER':
-            note += ' Public piers only; private access excludes population.'
+            note += ' Confirmed public piers only; private and unknown access exclude population.'
         elif tile['name'] == 'PARK':
             note += ' One generated park character; other parks vary.'
         if tile['enemies']:
             note += ' Enemy appearance also depends on distance, time or cave depth.'
         cards.append(f'<article id="tile-{tile["name"].lower()}"><p data-sandbox="{tile["name"]}"></p><h3>{name}</h3>{"".join(parts)}<p>{html.escape(note)}</p>{basic_density_summary(tile["name"])}{basic_signature_card(tile["name"])}<small>Terrain {tile["type"]} · {tile["variants"]} texture variants</small></article>')
-    return '<section id="basic-zones"><h2>Basic tile zones</h2><p>Shipping ground textures with representative spawned objects. Plants, trees and minerals come from the real world generator on small public-frontage terrain fixtures; wildlife and enemies use the owning spawn tables. Examples are arranged for visibility, not to predict density. Access restrictions, nearby buildings, roads and occupied cells still control live placement. Special nexus and road layouts have their own tabs.</p><p><strong>Measured coverage after tuning:</strong> percentage of eligible 7 m ground cells occupied by stationary plants, trees, rocks or pots. Current values come from eight generated public-frontage plots per terrain or park character, after spawn gates and collisions. They are comparison samples, not measured Kelowna coverage or visual canopy area. Roaming creatures above are not included in these percentages.</p><p><strong>Basic-zone updates are implemented.</strong> Targets are approximate occupied-cell budgets; the measured column shows what the generator actually placed. Ordinary street rubble is counted separately and kept at its existing rate. Farm and golf have no spawns. Park splitting is deferred. The signature ideas below remain proposals. <a href="basic-zone-coverage.json">Measured counts and method</a> · <a href="basic-zone-density-proposals.json">Tuning targets</a></p>' + basic_signature_overview() + '<div class="tile-grid">' + ''.join(cards) + '</div></section>'
+    return '<section id="basic-zones"><h2>Basic tile zones</h2><p>Shipping ground textures with representative spawned objects. Plants, trees and minerals come from the real world generator on small public-frontage terrain fixtures; wildlife and enemies use the owning spawn tables. Examples are arranged for visibility, not to predict density. Access restrictions, nearby buildings, roads and occupied cells still control live placement. Special nexus and road layouts have their own tabs.</p><p><strong>Measured coverage after tuning:</strong> percentage of eligible 7 m ground cells occupied by stationary plants, trees, rocks or pots. Current values come from eight generated public-frontage plots per terrain or park character, after spawn gates and collisions. They are comparison samples, not measured Kelowna coverage or visual canopy area. Roaming creatures above are not included in these percentages.</p><p><strong>Basic-zone updates are implemented.</strong> Targets are approximate occupied-cell budgets; the measured column shows what the generator actually placed. Ordinary street rubble is counted separately; it contains no ore and does not spawn in wetlands. Farm and golf have no spawns. Park splitting is deferred. The signature ideas below remain proposals. <a href="basic-zone-coverage.json">Measured counts and method</a> · <a href="basic-zone-density-proposals.json">Tuning targets</a></p>' + basic_signature_overview() + '<div class="tile-grid">' + ''.join(cards) + '</div></section>'
 
 
 def basic_tile_script():
@@ -1008,6 +1033,7 @@ def render(d, out):
         page += '</div></section>'
     page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + viewer_navigation_script() + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
+    (out/'proposal-art-license.txt').write_text((pathlib.Path(__file__).resolve().parents[1] / 'docs/proposal-art/VERDANT-LICENSE.txt').read_text())
     (out/'basic-zone-signatures.json').write_text(json.dumps(basic_signatures(), indent=2)+'\n')
     (out/'basic-zone-coverage.json').write_text(json.dumps(art_registry()['basicCoverage'], indent=2)+'\n')
     (out/'basic-zone-density-proposals.json').write_text(json.dumps(basic_density_proposals(), indent=2)+'\n')

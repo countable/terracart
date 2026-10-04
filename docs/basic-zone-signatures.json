@@ -12,7 +12,7 @@
   "statusLegend": {
     "existing_exclusive": "Candidate already has an exclusive ordinary basic habitat or a stated exclusive context; the proposed encounter-frequency band is not automatically implemented.",
     "shared": "Candidate exists here or through an explicitly stated existing conditional lane, but also occurs elsewhere. This is a differentiation gap, not a completed exclusive slot.",
-    "gap": "Candidate has shipping art/items/behavior but no current ordinary placement in this terrain. Suggested future placement only."
+    "gap": "Candidate has existing art but no current ordinary placement in this terrain. Some proposals additionally need new interaction behavior or rewards; each states that work explicitly."
   },
   "uniquenessRule": "Each proposedThing.id is assigned at most once at each encounter level across all populated cards. Reuse at a different level is deliberate. This guarantees unique proposed assignments, not current runtime frequency exclusivity; shared candidates require a future distribution decision.",
   "userConstraints": [
@@ -21,10 +21,16 @@
     "No mushrooms in ordinary parks.",
     "No residential long grass.",
     "No marigolds on ordinary grass.",
-    "Farm and golf remain excluded."
+    "Farm and golf remain excluded.",
+    "No ore in ordinary street rubble, and no crimson ore in forest.",
+    "Sand uses the beach-rock appearance.",
+    "Butterflies move out of forest into grass; other permitted butterfly habitats remain.",
+    "Corvid-like birds: seagulls on beach sand, crows in park, ravens in residential only. No pier gulls.",
+    "Only positively identified public piers can spawn; private or unknown-access piers stay empty.",
+    "Wetland has no rocks, ores or flowers."
   ],
   "residentialRockAudit": {
-    "mechanism": "LOT_ROCK_DRY suppresses independent residential yard rock clusters. Existing generic _street:true rocks line selected25% of minor streets through spawnStreetRocksSteps. They are eligible basic frontage content; string-valued themed street dressing is different.",
+    "mechanism": "LOT_ROCK_DRY suppresses independent residential yard rock clusters. Generic _street:true rocks line selected 25% of minor streets through spawnStreetRocksSteps, now plain rubble only: no street ore. They remain eligible basic frontage content outside wetlands; string-valued themed street dressing is different.",
     "measurementCorrection": "The earlier fixture helper discarded every truthy _street record and therefore missed these existing residential rocks. Fix measurement classification; do not invent a replacement yard-rock spawner.",
     "sourceRefs": [
       "src/worldgen.js LOT_ROCK_DRY; spawnStreetRocksSteps",
@@ -38,15 +44,17 @@
       "slots": {
         "common": {
           "currentStatus": "shared",
-          "currentEvidence": "Grass has its own dense grass-fill pattern, but long grass also grows on several other basic terrains.",
+          "currentEvidence": "Butterflies now include grass and exclude forest. They remain in other allowed flower habitats, so grass does not yet own this frequency band.",
           "proposedThing": {
-            "id": "wildplant:longgrass",
-            "label": "Long grass"
+            "id": "creature:butterfly",
+            "label": "Meadow butterfly"
           },
-          "proposalAction": "Use broad grass clumps as the common signature; uniqueness of the encounter band is not yet enforced.",
+          "proposalAction": "Use net-catching butterflies as the common moving grass signature. Keep long grass as ground cover rather than filling a signature slot with it.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/biome_profiles.js GRASS_FILL"
+            "src/biome_profiles.js BIOME_FAUNA.butterfly",
+            "src/sprite_layout.js CREATURE_BEHAVIOUR.butterfly",
+            "src/scene_creatures.js catchCreature"
           ],
           "itemQuality": null,
           "condition": null
@@ -166,11 +174,12 @@
             "id": "wildplant:shell",
             "label": "Shell"
           },
-          "proposalAction": "Retain shells as the repeating beach identity.",
+          "proposalAction": "Retain shells as the repeating beach identity. Ordinary rocks on this ground use the beach-rock appearance; that visual change does not create a new reward.",
           "implementationState": "proposal_only",
           "sourceRefs": [
             "src/biome_profiles.js FAMILY_PROFILE.sand",
-            "src/items.js CROP_SPRITE.shell"
+            "src/items.js CROP_SPRITE.shell",
+            "src/worldgen.js sand plain-rock appearance"
           ],
           "itemQuality": null,
           "condition": null
@@ -220,16 +229,16 @@
       "excluded": false,
       "slots": {
         "common": {
-          "currentStatus": "shared",
-          "currentEvidence": "Residential yard flora now contains shrubs, not long grass. Shrubs are shared with many terrains.",
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "The raven primary, fallback and habitat gate now permit residential only.",
           "proposedThing": {
-            "id": "wildplant:shrub",
-            "label": "Yard shrub"
+            "id": "creature:raven",
+            "label": "Residential raven"
           },
-          "proposalAction": "Use short hedge/yard clusters as the recurring signature; do not restore residential grass.",
+          "proposalAction": "Retain the raven as the residential bird identity; do not add it to other basic zones. The common label remains a future encounter-frequency choice, not a density increase.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/biome_profiles.js BIOME_PROFILES.RESIDENTIAL.yard"
+            "src/biome_profiles.js BIOME_FAUNA.raven; faunaAllows"
           ],
           "itemQuality": null,
           "condition": null
@@ -281,16 +290,17 @@
       "excluded": false,
       "slots": {
         "common": {
-          "currentStatus": "shared",
-          "currentEvidence": "Meadow/common parks and other basic terrains share ordinary flowers. Park characters remain distinct.",
+          "currentStatus": "existing_exclusive",
+          "currentEvidence": "The crow primary, fallback and habitat gate now permit park only.",
           "proposedThing": {
-            "id": "wildplant:flowers",
-            "label": "Ordinary flowers"
+            "id": "creature:crow",
+            "label": "Park crow"
           },
-          "proposalAction": "Use bounded flower patches as the common park signature; keep all four park characters, and keep mushrooms excluded.",
+          "proposalAction": "Use the existing park crow and its crop-pest/scarecrow behavior as the common park signature. Ordinary flowers remain background cover.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/biome_profiles.js PARK_CHARACTERS"
+            "src/biome_profiles.js BIOME_FAUNA.crow; faunaAllows",
+            "src/scene_creatures.js crow pest behavior"
           ],
           "itemQuality": null,
           "condition": null
@@ -317,23 +327,31 @@
         },
         "rare": {
           "currentStatus": "gap",
-          "currentEvidence": "Sunflower has existing crop art, harvest rules and a Rare item, but no ordinary park spawn row.",
+          "currentEvidence": "The archived Verdant well stone sprite exists, but this object is not registered or placed as an ordinary park interactable.",
           "proposedThing": {
-            "id": "wildplant:sunflower",
-            "label": "Sunflower"
+            "id": "interactable:restoration_well",
+            "label": "Restoration well"
           },
-          "proposalAction": "Consider a very sparse sunflower pocket using the existing wildplant lane; this would be new placement and is NOT implemented.",
+          "proposalAction": "Restore a dry well with wood and stone, then take a small daily energy recovery.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/items.js CROP_ROW.sunflower; BASE_TIER.sunflower"
+            "src/interactables.js well; src/macros.js dailyVisit",
+            "docs/ART_SOURCES.md"
           ],
-          "itemQuality": {
-            "itemId": "sunflower",
-            "baseTier": 4,
-            "badge": "Rare",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
+          "itemQuality": null,
+          "condition": null,
+          "artProposal": {
+            "path": "docs/proposal-art/well_stone.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
           },
-          "condition": null
+          "interactionProposal": {
+            "action": "Restore a dry well with wood and stone, then take a small daily energy recovery.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/interactables.js well; src/macros.js dailyVisit",
+            "requires": "New repair cost/state and daily energy reward. The existing well only advances quests and displays text; it does not refill anything. Use the existing daily ledger and energy feedback, not a new timer."
+          }
         }
       }
     },
@@ -427,23 +445,31 @@
         },
         "uncommon": {
           "currentStatus": "gap",
-          "currentEvidence": "Berry bushes have shipping art and crop/harvest rules, but no ordinary school flora row.",
+          "currentEvidence": "The archived Verdant crate sprite exists, but this object is not registered or placed as an ordinary school interactable.",
           "proposedThing": {
-            "id": "wildplant:berry",
-            "label": "Berry bush"
+            "id": "container:seed_exchange",
+            "label": "Seed-exchange crate"
           },
-          "proposalAction": "Consider occasional berry beds on eligible school ground using existing crop assets; no placement is implemented.",
+          "proposalAction": "Open a community seed crate for a small, recurring seed allocation.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/items.js CROP_SPRITE.berry; BASE_TIER.berry"
+            "src/interactables.js chest; src/loot.js crateRestoreDays",
+            "docs/ART_SOURCES.md"
           ],
-          "itemQuality": {
-            "itemId": "berry",
-            "baseTier": 2,
-            "badge": "Common",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
+          "itemQuality": null,
+          "condition": "Accessible public frontage only; retain school-sensitive spawn gates.",
+          "artProposal": {
+            "path": "docs/proposal-art/crate.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
           },
-          "condition": null
+          "interactionProposal": {
+            "action": "Open a community seed crate for a small, recurring seed allocation.",
+            "mechanicStatus": "existing_handler_new_placement",
+            "reuse": "src/interactables.js chest; src/loot.js crateRestoreDays",
+            "requires": "Register the art and deterministic placement; assign a narrow seed loot profile and reuse crate restock state. Existing generic crates do not yet have this school-specific profile."
+          }
         },
         "rare": {
           "currentStatus": "gap",
@@ -489,23 +515,31 @@
         },
         "uncommon": {
           "currentStatus": "gap",
-          "currentEvidence": "Coffee has existing crop art and effects but explicitly has no wild source.",
+          "currentEvidence": "The archived Verdant cart hand sprite exists, but this object is not registered or placed as an ordinary commercial interactable.",
           "proposedThing": {
-            "id": "wildplant:coffee",
-            "label": "Coffee plant"
+            "id": "interactable:abandoned_handcart",
+            "label": "Abandoned handcart"
           },
-          "proposalAction": "Consider a sparse existing coffee crop near commercial gardens; this would add a wild source and requires a separate economy decision.",
+          "proposalAction": "Dismantle an abandoned handcart for wood and a modest supply find, with a visible emptied state.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/items.js CROP_ROW.coffee; PRICES.coffee"
+            "src/items.js WILDPLANT_RULES.shrub; src/interactables.js chest",
+            "docs/ART_SOURCES.md"
           ],
-          "itemQuality": {
-            "itemId": "coffee",
-            "baseTier": 3,
-            "badge": "Uncommon",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
+          "itemQuality": null,
+          "condition": "Public commercial frontage only.",
+          "artProposal": {
+            "path": "docs/proposal-art/cart_hand.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
           },
-          "condition": null
+          "interactionProposal": {
+            "action": "Dismantle an abandoned handcart for wood and a modest supply find, with a visible emptied state.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/items.js WILDPLANT_RULES.shrub; src/interactables.js chest",
+            "requires": "New salvage object/loot row combining existing axe work with a one-time supply reward. Art and reward state need registration; the cart is not a currently working vehicle."
+          }
         },
         "rare": {
           "currentStatus": "shared",
@@ -552,29 +586,36 @@
           "condition": null
         },
         "uncommon": {
-          "currentStatus": "shared",
-          "currentEvidence": "Tier3 ore appears in industrial and other mineral distributions.",
+          "currentStatus": "gap",
+          "currentEvidence": "The archived Verdant cart wheel sprite exists, but this object is not registered or placed as an ordinary industrial interactable.",
           "proposedThing": {
-            "id": "mineralrock:iron",
-            "label": "Iron-bearing rock"
+            "id": "interactable:salvage_wheel",
+            "label": "Salvage wheel"
           },
-          "proposalAction": "Consider iron as the industrial intermittent ore identity; existing shared ore weights do not enforce this.",
+          "proposalAction": "Break down a discarded iron-rimmed wheel for wood and an occasional iron resource.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/worldgen.js industrial mineral cluster tier table",
-            "src/items.js MINERAL_TIERS"
+            "src/items.js WILDPLANT_RULES.giant_mushroom; MINERAL_TIERS",
+            "docs/ART_SOURCES.md"
           ],
-          "itemQuality": {
-            "itemId": "iron_bar",
-            "baseTier": 3,
-            "badge": "Uncommon",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
+          "itemQuality": null,
+          "condition": null,
+          "artProposal": {
+            "path": "docs/proposal-art/cart_wheel.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
           },
-          "condition": null
+          "interactionProposal": {
+            "action": "Break down a discarded iron-rimmed wheel for wood and an occasional iron resource.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/items.js WILDPLANT_RULES.giant_mushroom; MINERAL_TIERS",
+            "requires": "Add a salvage output row and object registration using the existing tool work and multi-output harvest pipeline. This is salvage, not a new ore patch."
+          }
         },
         "rare": {
           "currentStatus": "shared",
-          "currentEvidence": "Tier6 ore is possible in several surface mineral habitats.",
+          "currentEvidence": "Crimson ore remains available in permitted surface mineral habitats; forest and ordinary street rubble now exclude it.",
           "proposedThing": {
             "id": "mineralrock:crimson",
             "label": "Crimson-bearing rock"
@@ -600,24 +641,32 @@
       "excluded": false,
       "slots": {
         "common": {
-          "currentStatus": "shared",
-          "currentEvidence": "Playground is a butterfly fallback habitat; parks, forest, wetland and orchard are primary habitats.",
+          "currentStatus": "gap",
+          "currentEvidence": "The archived Verdant sack sprite exists, but this object is not registered or placed as an ordinary playground interactable.",
           "proposedThing": {
-            "id": "creature:butterfly",
-            "label": "Butterfly"
+            "id": "container:lost_supplies",
+            "label": "Lost supply sack"
           },
-          "proposalAction": "Consider butterflies the recurring playground wildlife identity; the existing fallback allocation does not guarantee this.",
+          "proposalAction": "Search an abandoned supply sack once for a small useful supply, leaving a spent sack.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/biome_profiles.js BIOME_FAUNA.butterfly"
+            "src/interactables.js chest; src/loot.js chest contents",
+            "docs/ART_SOURCES.md"
           ],
-          "itemQuality": {
-            "itemId": "butterfly",
-            "baseTier": 3,
-            "badge": "Uncommon",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
+          "itemQuality": null,
+          "condition": null,
+          "artProposal": {
+            "path": "docs/proposal-art/sack.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
           },
-          "condition": null
+          "interactionProposal": {
+            "action": "Search an abandoned supply sack once for a small useful supply, leaving a spent sack.",
+            "mechanicStatus": "existing_handler_new_placement",
+            "reuse": "src/interactables.js chest; src/loot.js chest contents",
+            "requires": "A sack art mapping, deterministic placement and a modest fixed-loot profile. Reuse the one-time opened ledger. Existing unrelated sacks/containers elsewhere would need ownership review before exclusivity is claimed."
+          }
         },
         "uncommon": {
           "currentStatus": "gap",
@@ -670,32 +719,12 @@
       "slots": {
         "common": {
           "currentStatus": "shared",
-          "currentEvidence": "Crows are a widespread natural-terrain population, including pitches.",
-          "proposedThing": {
-            "id": "creature:crow",
-            "label": "Crow"
-          },
-          "proposalAction": "Use crows as the recurring open-field wildlife identity while keeping the playing surface sparse.",
-          "implementationState": "proposal_only",
-          "sourceRefs": [
-            "src/biome_profiles.js BIOME_FAUNA.crow"
-          ],
-          "itemQuality": {
-            "itemId": "crow",
-            "baseTier": 1,
-            "badge": "Basic",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
-          },
-          "condition": null
-        },
-        "uncommon": {
-          "currentStatus": "shared",
-          "currentEvidence": "Pitch supports only sparse long grass as ordinary flora; other habitats also use it.",
+          "currentEvidence": "Pitch flora is sparse long grass. Crows are now park-only and cannot fill this slot.",
           "proposedThing": {
             "id": "wildplant:longgrass",
             "label": "Boundary grass"
           },
-          "proposalAction": "Keep occasional boundary tufts, rather than adding reward props to the playing surface.",
+          "proposalAction": "Keep clipped playing fields mostly clear; concentrate gatherable grass around the boundary. Shared grass elsewhere remains a frequency-ownership gap.",
           "implementationState": "proposal_only",
           "sourceRefs": [
             "src/biome_profiles.js BIOME_PROFILES.PITCH"
@@ -703,26 +732,49 @@
           "itemQuality": null,
           "condition": null
         },
-        "rare": {
+        "uncommon": {
           "currentStatus": "shared",
-          "currentEvidence": "Pitch is a horse fallback habitat; a shiny horse uses the global animal shiny roll.",
+          "currentEvidence": "Horse fallback habitats include pitch; primary placement favors grass and rejects inaccessible farm ground. Horses also occur on other accessible ground.",
           "proposedThing": {
-            "id": "creature:horse:shiny",
-            "label": "Shiny horse"
+            "id": "creature:horse",
+            "label": "Field horse"
           },
-          "proposalAction": "Consider a rare shiny horse on eligible field margins; there is no pitch-specific rarity rule yet.",
+          "proposalAction": "Keep an occasional tameable horse at the field margin. Grass retains the proposed rare horse band; these are different encounter-frequency assignments.",
           "implementationState": "proposal_only",
           "sourceRefs": [
             "src/biome_profiles.js BIOME_FAUNA.horse",
-            "src/util.js faunaShiny"
+            "src/sprite_layout.js CREATURE_BEHAVIOUR.horse"
           ],
-          "itemQuality": {
-            "itemId": "horse",
-            "baseTier": 4,
-            "badge": "Rare",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
+          "itemQuality": null,
+          "condition": null
+        },
+        "rare": {
+          "currentStatus": "gap",
+          "currentEvidence": "The archived Verdant scarecrow sprite exists, but this object is not registered or placed as an ordinary pitch interactable.",
+          "proposedThing": {
+            "id": "interactable:practice_dummy",
+            "label": "Practice dummy"
           },
-          "condition": "Shiny catch item quality is capped at7; do not imply every pitch receives a horse."
+          "proposalAction": "Complete a short timed target-practice challenge for a daily small reward.",
+          "implementationState": "proposal_only",
+          "sourceRefs": [
+            "src/interact.js place-scarecrow; src/macros.js dailyVisit; src/combat.js",
+            "docs/ART_SOURCES.md"
+          ],
+          "itemQuality": null,
+          "condition": "Place at the field boundary, outside play lines.",
+          "artProposal": {
+            "path": "docs/proposal-art/scarecrow.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+          },
+          "interactionProposal": {
+            "action": "Complete a short timed target-practice challenge for a daily small reward.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/interact.js place-scarecrow; src/macros.js dailyVisit; src/combat.js",
+            "requires": "New training interaction and challenge rules. The current scarecrow only wards fauna; it is not an attackable training dummy. Use the existing daily reward ledger."
+          }
         }
       }
     },
@@ -752,23 +804,31 @@
         },
         "uncommon": {
           "currentStatus": "gap",
-          "currentEvidence": "Cress has existing crop art and harvest rules, but no basic wetland flora row.",
+          "currentEvidence": "The archived Verdant rotten stump sprite exists, but this object is not registered or placed as an ordinary wetland interactable.",
           "proposedThing": {
-            "id": "wildplant:cress",
-            "label": "Watercress"
+            "id": "wildplant:rotting_stump",
+            "label": "Rotting stump"
           },
-          "proposalAction": "Consider watercress along eligible marsh margins through the existing wildplant lane; no runtime placement is added.",
+          "proposalAction": "Split a rotten stump with an axe to collect wood and mushrooms.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/items.js CROP_SPRITE.cress; BASE_TIER.cress"
+            "src/items.js WILDPLANT_RULES.giant_mushroom",
+            "docs/ART_SOURCES.md"
           ],
-          "itemQuality": {
-            "itemId": "cress",
-            "baseTier": 1,
-            "badge": "Basic",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
+          "itemQuality": null,
+          "condition": null,
+          "artProposal": {
+            "path": "docs/proposal-art/rotten_stump.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
           },
-          "condition": null
+          "interactionProposal": {
+            "action": "Split a rotten stump with an axe to collect wood and mushrooms.",
+            "mechanicStatus": "existing_handler_new_placement",
+            "reuse": "src/items.js WILDPLANT_RULES.giant_mushroom",
+            "requires": "A wetland stump art/rule row and deterministic placement reusing axe work and the existing wood-plus-mushroom outputs. No rock, ore or flower placement."
+          }
         },
         "rare": {
           "currentStatus": "shared",
@@ -813,24 +873,32 @@
           "condition": null
         },
         "uncommon": {
-          "currentStatus": "shared",
-          "currentEvidence": "Orchards are one of several primary butterfly habitats.",
+          "currentStatus": "gap",
+          "currentEvidence": "The archived Verdant beehive skep sprite exists, but this object is not registered or placed as an ordinary orchard interactable.",
           "proposedThing": {
-            "id": "creature:butterfly",
-            "label": "Orchard butterfly"
+            "id": "interactable:orchard_hive",
+            "label": "Orchard hive"
           },
-          "proposalAction": "Use intermittent pollinator activity as the second orchard signature; no new flower crop is required.",
+          "proposalAction": "Tend a hive, then collect a small daily honey harvest; careless collection can sting.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/biome_profiles.js BIOME_FAUNA.butterfly"
+            "src/macros.js dailyVisit; src/items.js consumable definitions; src/conditions.js",
+            "docs/ART_SOURCES.md"
           ],
-          "itemQuality": {
-            "itemId": "butterfly",
-            "baseTier": 3,
-            "badge": "Uncommon",
-            "source": "src/items.js BASE_TIER; independent of encounter label"
+          "itemQuality": null,
+          "condition": null,
+          "artProposal": {
+            "path": "docs/proposal-art/beehive_skep.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
           },
-          "condition": null
+          "interactionProposal": {
+            "action": "Tend a hive, then collect a small daily honey harvest; careless collection can sting.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/macros.js dailyVisit; src/items.js consumable definitions; src/conditions.js",
+            "requires": "New hive interaction, honey food/reward definition and sting behavior. Existing Potion of Taming is not edible honey; do not silently reuse that item. This is the highest-effort proposal."
+          }
         },
         "rare": {
           "currentStatus": "existing_exclusive",
@@ -860,19 +928,32 @@
       "excluded": false,
       "slots": {
         "common": {
-          "currentStatus": "shared",
-          "currentEvidence": "Ravens can reach wasteland through a broad fallback set; forest and rock remain primary habitats.",
+          "currentStatus": "gap",
+          "currentEvidence": "The archived Verdant charred stump sprite exists, but this object is not registered or placed as an ordinary wasteland interactable.",
           "proposedThing": {
-            "id": "creature:raven",
-            "label": "Raven"
+            "id": "wildplant:charred_stump",
+            "label": "Charred stump"
           },
-          "proposalAction": "Consider ravens the repeating wasteland wildlife signature; do not reintroduce cats.",
+          "proposalAction": "Chop charred timber for wood, with a visible ember warning on the occasional still-hot stump.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/biome_profiles.js BIOME_FAUNA.raven; BIOME_FAUNA.cat.excluded"
+            "src/items.js WILDPLANT_RULES.shrub; src/conditions.js burning",
+            "docs/ART_SOURCES.md"
           ],
           "itemQuality": null,
-          "condition": null
+          "condition": null,
+          "artProposal": {
+            "path": "docs/proposal-art/charred_stump.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+          },
+          "interactionProposal": {
+            "action": "Chop charred timber for wood, with a visible ember warning on the occasional still-hot stump.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/items.js WILDPLANT_RULES.shrub; src/conditions.js burning",
+            "requires": "Reuse ordinary axe harvesting and wood output; add a charred art/rule row. Optional hot-stump behavior requires explicit hazard/light/interaction wiring and a readable warning. No raven placement."
+          }
         },
         "uncommon": {
           "currentStatus": "shared",
@@ -917,20 +998,32 @@
       "excluded": false,
       "slots": {
         "common": {
-          "currentStatus": "shared",
-          "currentEvidence": "Gulls use both coastal shore seats and eligible public pier cells.",
+          "currentStatus": "gap",
+          "currentEvidence": "The archived Verdant crab pot sprite exists, but this object is not registered or placed as an ordinary pier interactable.",
           "proposedThing": {
-            "id": "creature:gull",
-            "label": "Gull"
+            "id": "interactable:public_crab_pot",
+            "label": "Public crab pot"
           },
-          "proposalAction": "Keep gulls as the ordinary public-pier wildlife identity.",
+          "proposalAction": "Bait a communal crab pot and return later to collect a shell or crab catch.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "src/biome_profiles.js SHORE_FAUNA.gull",
-            "src/scene_creatures.js spawnShoreFauna"
+            "src/interact.js fishing; src/macros.js dailyVisit; src/sprite_layout.js CREATURE_BEHAVIOUR.crab",
+            "docs/ART_SOURCES.md"
           ],
           "itemQuality": null,
-          "condition": "Private/restricted piers remain excluded."
+          "condition": "Only positively identified public piers; unknown and private piers remain empty. No gull placement on piers.",
+          "artProposal": {
+            "path": "docs/proposal-art/crab_pot.png",
+            "status": "archived_unused",
+            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+          },
+          "interactionProposal": {
+            "action": "Bait a communal crab pot and return later to collect a shell or crab catch.",
+            "mechanicStatus": "new_behavior",
+            "reuse": "src/interact.js fishing; src/macros.js dailyVisit; src/sprite_layout.js CREATURE_BEHAVIOUR.crab",
+            "requires": "New bait/wait/claim state and catch table using existing catch items and persistent ledgers. This is a managed communal object, never permission to open a real private fishing trap."
+          }
         },
         "uncommon": {
           "currentStatus": "shared",
@@ -945,7 +1038,7 @@
             "src/biome_profiles.js SHORE_FAUNA.metal_slime"
           ],
           "itemQuality": null,
-          "condition": null
+          "condition": "Only positively identified public piers; unknown and private piers remain empty. Fishing rewards additionally require reachable water."
         },
         "rare": {
           "currentStatus": "shared",
@@ -966,7 +1059,7 @@
             "badge": "Godly",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": "Fishing interaction only, never static-cell coverage. The 1-in-8 species weight and 5% shiny roll have stocked fishing spots as their denominator. Item quality remains capped at Godly 7."
+          "condition": "Only positively identified public piers; unknown and private piers remain empty. Fishing rewards additionally require reachable water."
         }
       }
     },
@@ -1101,5 +1194,83 @@
       "reason": "Hazardous lava; no ordinary floor population.",
       "slots": {}
     }
+  },
+  "artAudit": {
+    "method": "Inspected the standalone archive sprites visually, searched runtime source for candidate names, and compared PNG SHA-256 values against shipped assets. These ten selected files are not byte-identical to any shipped PNG and have no named runtime registration. This does not assert that their visual concepts are unique across all atlases.",
+    "selection": "Prefer new player actions over recolors or another shiny animal. Existing distinctive slots are retained; proposals fill gaps or replace prohibited birds. Cattails were rejected as an unused-art suggestion because wetland reeds already use that art.",
+    "copyPolicy": "Small selected art set copied into docs/proposal-art for reproducible proposal previews only; no runtime art registration, new placements or new mechanics are implemented.",
+    "license": "docs/proposal-art/VERDANT-LICENSE.txt",
+    "candidates": [
+      {
+        "zone": "PARK",
+        "level": "rare",
+        "path": "docs/proposal-art/well_stone.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/well_stone.png",
+        "sha256": "b1f9727ae66c7324896f0fbbc1ce3059f3c9f40e0ba40dc7550e9ff6b0ca1539"
+      },
+      {
+        "zone": "SCHOOL",
+        "level": "uncommon",
+        "path": "docs/proposal-art/crate.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/crate.png",
+        "sha256": "d672046f30fe11dcf15e02d3fa07f54f5d7127dffa34a07f029bf2fbd39aaa17"
+      },
+      {
+        "zone": "COMMERCIAL",
+        "level": "uncommon",
+        "path": "docs/proposal-art/cart_hand.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cart_hand.png",
+        "sha256": "49e2aafe60ab77726d461a704064cadc60cf6fc077dea2e554dc874bf318b9ff"
+      },
+      {
+        "zone": "INDUSTRIAL",
+        "level": "uncommon",
+        "path": "docs/proposal-art/cart_wheel.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cart_wheel.png",
+        "sha256": "21f60ed4a65a9f389da093fee2f23a6ff66c8e52ab47fa5b8c141079825df02c"
+      },
+      {
+        "zone": "PLAYGROUND",
+        "level": "common",
+        "path": "docs/proposal-art/sack.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/sack.png",
+        "sha256": "713df8385f1b18592825748b1081d57c6e481e5d9bf683f363aef01aeb8f8582"
+      },
+      {
+        "zone": "PITCH",
+        "level": "rare",
+        "path": "docs/proposal-art/scarecrow.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/scarecrow.png",
+        "sha256": "29e400dad53498cab25249f166c84222e5c8e98848283ac78f7aa05973ffc278"
+      },
+      {
+        "zone": "WETLAND",
+        "level": "uncommon",
+        "path": "docs/proposal-art/rotten_stump.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rotten_stump.png",
+        "sha256": "25e421cb6603311abf4387f96ffb54276941fd9dba719d9ae49ceb98fb230947"
+      },
+      {
+        "zone": "ORCHARD",
+        "level": "uncommon",
+        "path": "docs/proposal-art/beehive_skep.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/beehive_skep.png",
+        "sha256": "d89820edbd2e6dc4bddfb47fd17c6abd8c6447c6e44f848200af2ef1ab3240fe"
+      },
+      {
+        "zone": "WASTELAND",
+        "level": "common",
+        "path": "docs/proposal-art/charred_stump.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/charred_stump.png",
+        "sha256": "d68e65d6e635d427ff5ee5b4689cb7d79f6dd235aea8bc141353c7dc707d9c45"
+      },
+      {
+        "zone": "PIER",
+        "level": "common",
+        "path": "docs/proposal-art/crab_pot.png",
+        "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/crab_pot.png",
+        "sha256": "79c90a5f3e4991dce506ad16d17339b93cc6a28f208d91764909a7b81001dcfe"
+      }
+    ]
   }
 }

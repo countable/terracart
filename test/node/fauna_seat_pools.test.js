@@ -199,8 +199,8 @@
     }
     assert.gt(movedAny, 40, 'the fixtures actually move animals');
   });
-  test('fauna seat pools: attracted shore crows leave space around birds and beach interactables', () => {
-    const N = 16, cellM = 7, grid = new Uint8Array(N * N).fill(WorldGen.T.SAND);
+  test('fauna seat pools: attracted park crows leave space around birds and interactables', () => {
+    const N = 16, cellM = 7, grid = new Uint8Array(N * N).fill(WorldGen.T.PARK);
     const mask = new Uint8Array(N * N).fill(1), occupied = new Set();
     for (let y = 0; y < N; y++) occupied.add(y * N + 7);
     const entry = { scenic:{shore:{mask}},
@@ -218,7 +218,7 @@
     assert.eq(JSON.stringify(a), JSON.stringify(b), 'stable landings across rebuilds');
     assert.eq(a.creatures.length,301,'failed attraction retains every animal');
     const landed = a.creatures.filter(c => c.id !== 'resident' && c.x >= 0);
-    assert.gt(landed.length,0,'beach still attracts birds');
+    assert.gt(landed.length,0,'park still attracts crows');
     assert.lt(landed.length,70,'crowding limits arrivals without deleting birds');
     const seat = c => [Math.floor(c.x/cellM),Math.floor(c.y/cellM)];
     for (let i=0;i<landed.length;i++) {
