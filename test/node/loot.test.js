@@ -43,6 +43,17 @@ test('pickReward: treasure context also yields a valid reward', () => {
   assert.truthy(r && REWARD_KINDS.has(r.kind), 'treasure produced a valid reward');
 });
 
+test('treasure X: surface and cave digs never award produce', () => {
+  for (const opts of [{}, { depth: 1, tier: 2 }, { depth: 4, tier: 5 }]) {
+    const rng = seeded(23);
+    for (let i = 0; i < 2000; i++) {
+      const reward = pickReward('treasure:default', { relics: {}, armor: {}, inv: [] }, rng, opts);
+      assert.truthy(reward, 'dig pays a reward');
+      if (reward.kind === 'item') assert.falsy(ITEM_BY_ID[reward.id].kind === 'produce', reward.id);
+    }
+  }
+});
+
 // A surface X pays equipment a fifth of the time: a tool or weapon, armour,
 // or a unique relic (a cashed-out duplicate counts — it was a gear roll).
 test('treasure X: a fifth of surface digs are equipment, from all three kinds', () => {

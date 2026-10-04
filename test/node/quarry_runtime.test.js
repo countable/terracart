@@ -39,7 +39,7 @@
     }
   });
   test('quarry runtime: all four compositions ship their finite site budgets and stable identities', () => {
-    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 3], ['quarry-stronghold', 3, 3]]) {
+    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 0, 0], ['quarry-strip-mine', 0, 3], ['quarry-stronghold', 3, 3]]) {
       const a = ZoneDressing.dress(context(id)), b = ZoneDressing.dress(context(id));
       assert.eq(records(a).filter(o => o.zoneLayer === 'find').length, finds, id);
       assert.eq(a.guards.length, guards, id);
@@ -128,13 +128,11 @@
         assert.falsy(EnemySpawns.surfaceRows(biome).some(c => c.id === 'wurm'), 'wurms stay authored mine inhabitants');
     } finally { window.__TEST_MODE = was; }
   });
-  test('quarry runtime: abandoned finds are fixed-loot persistent crates, not daily POIs', () => {
-    const out = ZoneDressing.dress(context('quarry-abandoned'));
-    const crates = out.objects.filter(o => o.zoneLayer === 'find');
-    assert.eq(crates.length, 2);
-    for (const crate of crates) {
-      assert.eq(crate.kind, 'chest'); assert.truthy(crate.fixedLoot);
-      assert.truthy(crate.quarryCrate); assert.falsy(crate.daily); assert.falsy(crate._poiAt);
+  test('quarry runtime: quarries never generate fixed pickaxe rewards', () => {
+    for (const row of ZoneVariants.forKind('quarry')) {
+      const out = ZoneDressing.dress(context(row.id));
+      assert.falsy(out.objects.some(o => o.fixedLoot?.slot === 'pickaxe'), row.id);
+      assert.falsy(out.objects.some(o => o.quarryCrate), row.id);
     }
   });
   test('quarry runtime: crater hazards and finds respect preoccupied and protected cells', () => {

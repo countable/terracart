@@ -4269,7 +4269,7 @@ Render.objectAppearance = function (scene, houseRoles) {
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.
-  const WAGON_SCALE = 1.6;
+  const WAGON_SCALE = 1.28;
   const WAGON_DY_PX = CELL_PX * 0.5 - 1 + WAGON_SCALE;
   // Render-spec callbacks receive the world object, while the object walk
   // carries the role on its frame item. This map bridges those APIs without

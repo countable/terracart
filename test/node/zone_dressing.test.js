@@ -275,7 +275,7 @@
     const barrels = out.objects.filter(o => o.barrel);
     assert.gt(barrels.length, 0);
     assert.truthy(barrels.every(o => o.barrelStyle === 'barrel' && barrelProfile(o).texKey === 'barrel'), 'abandoned quarries contain barrels, never pots');
-    assert.eq(finds(out).filter(o => o.quarryCrate).length, 2, 'the separate Iron-pick crates remain');
+    assert.falsy(out.objects.some(o => o.fixedLoot?.slot === 'pickaxe'), 'no quarry pickaxe rewards');
   });
   function pirateShrine() {
     const ctx = context('pirate_cove'), a = ctx.field.anchors[0], cell = WorldGen.CELL_M;

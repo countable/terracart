@@ -183,7 +183,7 @@
   });
   test('quarry layout: finite site budgets never multiply with modules or observers', () => {
     const cells = rect(48, 48);
-    assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
+    assert.eq(plan('quarry-abandoned', cells).finds.length, 0);
     const strip = plan('quarry-strip-mine', cells);
     assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
     assert.eq(strip.guards.length, 3, 'inhabitant budget does not grow with the number of benches');

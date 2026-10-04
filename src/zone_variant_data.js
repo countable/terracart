@@ -273,17 +273,6 @@
       "spawnClass": "attractor",
       "color": "#8ccfe3"
     },
-    "tool_crate": {
-      "kind": "chest",
-      "spawnClass": "attractor",
-      "quarryCrate": true,
-      "fixedLoot": {
-        "kind": "relic",
-        "slot": "pickaxe",
-        "tier": 3
-      },
-      "color": "#977851"
-    },
     "barrel": {
       "kind": "chest",
       "spawnClass": "minor",
@@ -7603,16 +7592,9 @@
       },
       "finds": {
         "rarity": "finite",
-        "material": "tool_crate",
-        "targets": [
-          {
-            "id": "0"
-          },
-          {
-            "id": "1"
-          }
-        ],
-        "count": 2
+        "material": "barrel",
+        "targets": [],
+        "count": 0
       },
       "connection": {
         "shape": "none"
@@ -7620,7 +7602,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Loose stone, copper ore and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
+      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Loose stone, copper ore and barrels lie where the last shift dropped them. Nothing here has been worked since the fire.",
       "attracts": {},
       "quarryLayout": "abandoned",
       "entrances": {

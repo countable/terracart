@@ -164,7 +164,7 @@
     // `gear` (any equipment: a tool or weapon, armour, a unique relic) is a
     // fifth of the draws above ground: 0.25 of a 1.25 total. A cave X adds its
     // supply skew to the total, so the share is smaller down there.
-    'treasure:default': { classBias: { seed:0.45, produce:0.30, mineral:0.10, supply:0.15, gear:0.25 },
+    'treasure:default': { classBias: { seed:0.45, mineral:0.40, supply:0.15, gear:0.25 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
     // ── The ROAD ladder's prize ─────────────────────────────────────────
     // What restoring a street pays (src/trail.js, app.js _fireTrailPrize).
