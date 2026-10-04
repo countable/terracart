@@ -40,7 +40,7 @@
       const graves = ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone');
       assert.truthy(graves.every(o => [4, 5].includes(o._zoneObjectFrame)));
     }
-    for (const id of ['quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef', 'pirate_cove']) {
+    for (const id of ['quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef']) {
       const c = context(id), out = ZoneDressing.dress(c), props = out.objects.filter(o => o.kind === 'zone_prop');
       assert.gt(props.length, 0, id);
       assert.lte(props.length, 2, 'finite site accents');
@@ -66,7 +66,7 @@
     for(const o of pots)assert.eq(barrelProfile(o).texKey,'clay_pot','pots retain normal smash rewards');
   });
   test('zone guard additions: finite enemies respect ownership, sensitive ground and distinct seats', () => {
-    for(const [id,kind,count] of [['broken_depot','bat',5],['seep','split_slime',1],['work_yard','goblin',2]]) {
+    for(const [id,kind,count] of [['broken_depot','bat',5],['seep','split_slime',1],['work_yard','split_slime',2]]) {
       const out=ZoneDressing.dress(context(id));
       assert.eq(out.guards.length,count);assert.truthy(out.guards.every(o=>o.kind===kind));
       assert.eq(new Set(all(out).map(o=>`${o._ix},${o._iy}`)).size,all(out).length);
@@ -102,7 +102,7 @@
     for (const row of ZoneVariants.rows) {
       const a = ZoneDressing.dress(context(row.id)), b = ZoneDressing.dress(context(row.id));
       assert.eq(finds(a).length, row.finds.count, row.id);
-      assert.eq(a.guards.filter(g => g.zoneLayer !== 'background').length, row.guards.count || 0, row.id);
+      assert.eq(a.guards.filter(g => g.zoneLayer !== 'background' && g.zoneLayer !== 'decoration').length, row.guards.count || 0, row.id);
       for (const mark of a.treasures.filter(o => o.coverRockId)) {
         const cover = a.objects.find(o => o.id === mark.coverRockId);
         assert.truthy(cover && cover.kind === 'mineralrock', 'buried mark has its specific covering rock');
@@ -339,6 +339,46 @@
     }
     assert.eq(out.diagnostics[0].shortfalls.length, 0);
   });
+  test('Pirate Cove companion owns a wreck without borrowing the park shrine', () => {
+    const make = () => {
+      const ctx = pirateShrine();
+      ctx.field.anchors[0].parkShore = true;
+      return ctx;
+    };
+    const ctx = make(), parkChest = { ...ctx.chests[0] }, out = ZoneDressing.dress(ctx);
+    const shrine = out.objects.find(o => o._shrineArt === 'shipwreck');
+    assert.truthy(shrine); assert.eq(shrine.kind, 'grove_shrine');
+    assert.eq(JSON.stringify(ctx.chests[0]), JSON.stringify(parkChest), 'park daily gift stays separate');
+    assert.eq(out.objects.filter(o => o.zoneLayer === 'wreck').length, 1);
+    assert.eq(JSON.stringify(out.objects), JSON.stringify(ZoneDressing.dress(make()).objects));
+    const blocked = make(); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    assert.falsy(ZoneDressing.dress(blocked).objects.some(o => o._shrineArt === 'shipwreck'));
+  });
+  test('Pirate Cove T2 chests stay in water beside eligible shore', () => {
+    const make = () => {
+      const ctx = pirateShrine();
+      for (let y = 0; y < ctx.N; y++) for (let x = 45; x < ctx.N; x++) {
+        const i = y * ctx.N + x;
+        ctx.grid[i] = WorldGen.T.WATER; ctx.field.coverage[i] = 0;
+        ctx.spawnOpts.spawnWhy[i] = WorldGen.SPAWN_WHY.TERRAIN;
+      }
+      return ctx;
+    };
+    const ctx = make(), out = ZoneDressing.dress(ctx);
+    const chests = out.objects.filter(o => o.zoneLayer === 'shore_find');
+    assert.eq(chests.length, 2);
+    assert.truthy(chests.every(o => o._ix === 45 && chestTier(o) === 2));
+    assert.eq(JSON.stringify(chests), JSON.stringify(ZoneDressing.dress(make()).objects.filter(o => o.zoneLayer === 'shore_find')));
+    const blocked = make();
+    for (let y = 0; y < ctx.N; y++) blocked.spawnOpts.spawnWhy[y * ctx.N + 44] |= WorldGen.SPAWN_WHY.RESTRICTED;
+    assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o.zoneLayer === 'shore_find').length, 0);
+    const ownedWater = make();
+    for (let y = 0; y < ctx.N; y++) ownedWater.field.coverage[y * ctx.N + 45] = 2;
+    assert.eq(ZoneDressing.dress(ownedWater).objects.filter(o => o.zoneLayer === 'shore_find').length, 0, 'another nexus owns the water');
+    const privateWater = make();
+    for (let y = 0; y < ctx.N; y++) privateWater.spawnOpts.spawnWhy[y * ctx.N + 45] |= WorldGen.SPAWN_WHY.RESTRICTED;
+    assert.eq(ZoneDressing.dress(privateWater).objects.filter(o => o.zoneLayer === 'shore_find').length, 0);
+  });
   test('zone dressing: narrow or gated sand retains the existing accessible daily shrine', () => {
     for (const mode of ['narrow', 'gated']) {
       const ctx = pirateShrine(), before = { ...ctx.chests[0] };
@@ -392,7 +432,19 @@
     assert.eq(wildplantSprite({crop:'mushroom',_plantArt:'cap_cluster'}), CROP_SPRITE.mushroom, 'saved cluster tags fall back to ordinary mushroom art');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
-    assert.truthy(ordinary.every(o => o._plantArt == null && wildplantSprite(o) === CROP_SPRITE.shrub && walkHazardDamageRate(o) === 0), 'meadow shrubs are ordinary harmless bushes');
+    assert.truthy(ordinary.every(o => o._plantArt === 'ordinary' && wildplantSprite(o) === CROP_SPRITE.shrub && walkHazardDamageRate(o) === 0), 'meadow shrubs are ordinary harmless bushes');
+  });
+  test('Meadow: ordinary bushes retain their look over residential and commercial terrain', () => {
+    const bushes = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
+    assert.gt(bushes.filter(o => o.zoneLayer === 'background').length, 0);
+    assert.gt(bushes.filter(o => o.zoneLayer === 'poi').length, 0, 'shrine rim keeps its bushes');
+    for (const bush of bushes) for (const biome of [WorldGen.T.PARK, WorldGen.T.RESIDENTIAL, WorldGen.T.COMMERCIAL]) {
+      const stamped = { ...bush, _biome: biome };
+      assert.eq(wildplantSprite(stamped), CROP_SPRITE.shrub, 'ordinary art wins over later terrain stamping');
+      assert.eq(walkHazardDamageRate(stamped), 0, 'bushes never deal bramble damage');
+    }
+    assert.eq(wildplantSprite({ crop: 'shrub', _biome: WorldGen.T.RESIDENTIAL }).sheet, 'approved_clipped_hedge', 'ordinary residential fill retains its inferred hedge');
+    assert.eq(wildplantSprite({ crop: 'shrub', _plantArt: 'bramble', _biome: WorldGen.T.RESIDENTIAL }).sheet, 'bramble', 'authored brambles retain their look');
   });
   test('zone hedges: joins follow surviving shrubs, never blocked cells or unrelated plants', () => {
     const c = context('hedge_garden');
@@ -681,7 +733,7 @@
   });
   test('zone encounters: species, stationary plants and a finite proximity ghost follow the theme', () => {
     const kinds = id => ZoneDressing.dress(context(id)).guards.filter(g => g.zoneLayer !== 'background').map(g => g.kind).join();
-    assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner');
+    assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner,crab,crab,crab');
     assert.eq(kinds('orchard'), 'farmer_goblin');
     assert.eq(kinds('ancient_grove'), 'treant,spider');
     assert.eq(kinds('ordered_graves'), 'skeleton_soldier');
@@ -689,7 +741,7 @@
     assert.eq(kinds('broken_masonry'), 'club_goblin');
     assert.eq(kinds('broken_depot'), 'bat,bat,bat,bat,bat');
     assert.eq(kinds('seep'), 'split_slime');
-    assert.eq(kinds('work_yard'), 'goblin,goblin');
+    assert.eq(kinds('work_yard'), 'split_slime,split_slime');
     assert.eq(kinds('mystic_reef'), 'giant_crab');
     assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
     const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
@@ -741,7 +793,7 @@
  test('bramble groves keep shrub harvests and leave ordinary bushes alone', () => {
    for (const id of ['meadow', 'ancient_grove']) {
      const row = ZoneVariantData.variants.find(v => v.id === id);
-     assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : undefined);
+     assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : 'ordinary');
      assert.eq(wildplantSprite({crop:'shrub', _plantArt:row.materialLooks?.shrub}).sheet, id === 'ancient_grove' ? 'bramble' : 'bushes');
    }
    assert.eq(wildplantSprite({crop:'shrub'}).sheet, 'bushes');

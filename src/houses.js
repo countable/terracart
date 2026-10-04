@@ -70,43 +70,42 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   //              registerSoloShop; lineFor sells the line off it), so old
   //              readers of the role string never meet a new one. Once built
   //              the card leaves the offer for good, and the line never
-  //              returns at a higher tier — it is not in the Shop cycle.
+  //              returns at a higher tier.
   //   turret   — a single castle tower on a house lot: it draws the castle
   //              tower sheet (render.js houseTextureKey) and its archer
   //              fires through the castle turret lane (app.js _turretFire).
+  //              Any number may stand.
   //   wizard   — Tim's tower; `offered` reads the tower ledger and the
-  //              memory ledger, never a count of its own.
-  // `tier(save, order)` is the rank the pick would carry (the badge on its
-  // card and on the Restored! card): a shop's line tier, the next smithy's
-  // tier, a trader's by restore number — all shops.js shopTier's arithmetic.
-  // `variants(save, order)` splits a row into several cards (the Shop row,
-  // one per line on offer); each variant's fields lie over the row's.
+  //              memory ledger, never a count of its own. `pinned`, like
+  //              the House: canon never waits on the offer's rotation.
+  // A RANKED role (`ranked`: a smithy, a shop, a trader) is laid out by
+  // `variants(save, order)` as ONE CARD PER RANK the ladder has unlocked
+  // (Shops.tierCap — by MEMORIES: T2 at five, a rank more every five), a
+  // Shop's per line it may still open at that rank (Shops.lineBuildable:
+  // LINE_RULES' ceiling and per-tier cap). Each card carries its numeric
+  // `tier` (the badge on it and on the Restored! card, its price per rank in
+  // buildCost, the rank restoreAs stamps) and, for a Shop, its `theme`. Any
+  // number of a card may stand — the modal tells a NEW one from a duplicate
+  // (isNewPick, offerCards).
   const BUILD_OPTIONS = Object.freeze([
-    { key: 'plain', role: 'plain', from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
+    { key: 'plain', role: 'plain', pinned: true, from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
       blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
-    // ONE SMITHY PER TIER (shops.js smithTier): the Nth blacksmith is tier N,
-    // and after the first (the ladder's own slot) the next is offered only
-    // from restore number N × SMITH_TIER_EVERY — a T2 smith from the tenth.
-    { key: 'blacksmith', role: 'blacksmith', from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
+    { key: 'blacksmith', role: 'blacksmith', ranked: true, from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
       blurb: 'A family returns to the forge. They offer to make the tools you need.',
-      tier: (save) => Shops.nextSmithTier(save),
-      offered: (save, order) => {
-        const t = Shops.nextSmithTier(save);
-        return t === 1 ? true : Shops.smithCount(save) < Shops.SHOP_TIER_MAX && order + 1 >= Shops.smithUnlockAt(t);
-      },
-      suggested: (save) => !hasBlacksmith(save) },
-    // The Shop row is one card per LINE on offer (shops.js marketOffers: the
-    // cycle's next line, then from the ninth rebuild a rotating pair), each a
-    // variant with its `theme`; restoreAs stores the pick in save.shopLines.
-    { key: 'market', role: 'market', from: STORY_RESTORES.market, art: 'restore_market',
+      variants: (save) => ranks(save).map((tier) => ({
+        key: 'blacksmith:' + tier, tier,
+        // The T1 card is SUGGESTED (outlined) while the lane has no smithy:
+        // the wooden tools come from nowhere else.
+        suggested: (s) => tier === 1 && !hasBlacksmith(s),
+      })) },
+    { key: 'market', role: 'market', ranked: true, from: STORY_RESTORES.market, art: 'restore_market',
       blurb: 'A family opens the market shutters again. ',
-      variants: (save, order) => Shops.marketOffers(save, order).map(({ theme, tier }) =>
-        ({ key: 'market:' + theme, theme, tier: () => tier })) },
-    // Traders take the tier of the restore number that raises them (shops.js
-    // traderTierAt): any number at a tier, a rank higher every five rebuilds.
-    { key: 'trader', role: 'trader', from: STORY_RESTORES.trader, art: 'restore_trader',
+      variants: (save) => Shops.THEMES.flatMap((theme) => ranks(save)
+        .filter((tier) => Shops.lineBuildable(save, theme, tier))
+        .map((tier) => ({ key: `market:${theme}:${tier}`, theme, tier }))) },
+    { key: 'trader', role: 'trader', ranked: true, from: STORY_RESTORES.trader, art: 'restore_trader',
       blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.',
-      tier: (save, order) => Shops.traderTierAt(order + 1) },
+      variants: (save) => ranks(save).map((tier) => ({ key: 'trader:' + tier, tier })) },
     { key: 'turret', role: 'turret', from: STORY_RESTORES.turret, art: 'castle_claim',
       blurb: 'Masons raise a single tower on the old footings. An archer climbs to the battlement and strings a bow.' },
     { key: 'petshop', role: 'market', solo: 'pet', from: STORY_RESTORES.petshop, name: 'Pet Shop', art: 'restore_market',
@@ -115,7 +114,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     { key: 'bookshop', role: 'market', solo: 'book', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
       blurb: 'A family opens the market shutters again. Shelves of books line the walls.',
       offered: (save) => save.bookshopId == null },
-    { key: 'wizard', role: 'wizard', from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
+    { key: 'wizard', role: 'wizard', pinned: true, from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
       blurb: 'You step into the tower. An old wizard asks about your memories.',
       offered: (save, order) => {
         const towers = wizardTowerIds(save);
@@ -124,12 +123,70 @@ const FORT_UNLOCK_WOOD_STEP = 6;
           && Object.keys(save.discovered || {}).length >= 21;
       } },
   ]);
+  // The ranks on offer: 1..Shops.tierCap(save) — the memory ladder.
+  function ranks(save) {
+    return Array.from({ length: Shops.tierCap(save) }, (_, i) => i + 1);
+  }
+  // THE RENOVATION PERMIT (items.js renovation_permit, a T4 supply): spent
+  // on a standing ranked building (a smithy, a shop, a trader — never a
+  // one-off shop, a House, a turret or the tower), it climbs to the next allowed rank, if
+  // that rank is actually open to the player: under the memory ladder
+  // (Shops.tierCap) and, for a shop, still buildable on its line
+  // (Shops.lineBuildable — Seed and Supply end at T3, one Magic Shop a
+  // tier). renovateTo is the question (the rank it would reach, or null and
+  // why); renovate writes it — save.shopTiers, the rank ledger restoreAs
+  // stamps, so every badge and shelf reads the new rank at once.
+  const PERMIT_ID = 'renovation_permit';
+  function renovateTo(save, house) {
+    const role = houseShopRole(save, house);
+    if (!role || !buildOption(role)?.ranked) return { tier: null, why: 'unranked' };
+    if (role === 'market' && Shops.isSoloShop(save, house.id)) return { tier: null, why: 'unranked' };
+    const now = Shops.shopTier(save, house, role);
+    const theme = role === 'market' ? Shops.lineFor(save, house).theme : null;
+    const allowed = Shops.LINE_RULES[theme]?.tiers;
+    const next = allowed ? allowed.find(tier => tier > now) : now + 1;
+    if (next == null) return { tier: null, why: 'line' };
+    if (next > Shops.SHOP_TIER_MAX) return { tier: null, why: 'top' };
+    if (next > Shops.tierCap(save)) return { tier: null, why: 'memories', need: Shops.tierUnlockMemories(next) };
+    if (role === 'market' && !Shops.lineBuildable(save, Shops.lineFor(save, house).theme, next)) return { tier: null, why: 'line' };
+    return { tier: next, why: null };
+  }
+  function renovate(save, house) {
+    const to = renovateTo(save, house);
+    if (!to.tier) return null;
+    (save.shopTiers = save.shopTiers || {})[house.id] = to.tier;
+    return to.tier;
+  }
   const buildOption = (key) => BUILD_OPTIONS.find((row) => row.key === key) || null;
+  // THE NEW BADGE (owner, Oct 2026): a card is NEW when nothing the player has
+  // raised matches it — no building of its role at all, or, for a ranked
+  // role, none at the rank the card carries: a shop's LINE and tier
+  // (Shops.lineFor), a smithy's or a trader's tier (Shops.shopTier — the one
+  // tier every badge reads). A solo shop (`solo`) is a line of its own and
+  // is only offered while none stands. `row` is a card as buildOptions lays
+  // it out.
+  function isNewPick(save, row) {
+    if (!row) return false;
+    const rh = (save && save.restoredHouses) || {};
+    const tier = row.tier || null;
+    const theme = row.role === 'market' ? (row.solo || row.theme || null) : null;
+    for (const id of Object.keys(rh)) {
+      if (rh[id] !== row.role) continue;
+      const house = { kind: 'house', id };
+      if (theme) {
+        const line = Shops.lineFor(save, house);
+        if (line.theme !== theme || (tier != null && line.tier !== tier)) continue;
+        return false;
+      }
+      if (tier == null || Shops.shopTier(save, house, row.role) === tier) return false;
+    }
+    return true;
+  }
   // How many wrecks already stand: the 0-based restore ORDER of the next one.
   function restoredCount(save) { return Object.keys(save?.restoredHouses || {}).length; }
-  // The cards on offer for the next restore. Pure: reads the ledgers, never
-  // writes. The first restore offers one card (the House), so the modal
-  // reads as the plain price tag it always was.
+  // THE CATALOGUE: every card that may be raised at restore `order`. Pure:
+  // reads the ledgers, never writes. restoreAs validates a pick against it;
+  // the modal shows the slice offerCards cuts from it.
   function buildOptions(save, house, order = restoredCount(save)) {
     save = save || {};
     const out = [];
@@ -140,7 +197,32 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     }
     return out;
   }
-
+  // THE OFFER (owner, Oct 2026): N = order + 1 cards — one more with every
+  // wreck that stands. The pinned cards first (the House always; the wizard's
+  // tower while its story offers it), then up to NEW_SLOTS cards the player
+  // has nothing like yet (isNewPick), then the rest of the slots over the
+  // buildable DUPLICATES. Both pools are a WINDOW over the catalogue in its
+  // table order, and the window slides ONE card along with every completed
+  // wreck (the order is the offset), so every card comes round; a pool
+  // smaller than its slots shows whole and the spare slots go unfilled.
+  const NEW_SLOTS = 3;
+  function slide(pool, count, offset) {
+    if (count <= 0 || !pool.length) return [];
+    if (count >= pool.length) return pool.slice();
+    const start = ((offset | 0) % pool.length + pool.length) % pool.length;
+    return Array.from({ length: count }, (_, i) => pool[(start + i) % pool.length]);
+  }
+  function offerCards(save, house, order = restoredCount(save)) {
+    const all = buildOptions(save, house, order);
+    const n = order + 1;
+    const out = all.filter((r) => r.pinned).slice(0, n);
+    const rest = all.filter((r) => !r.pinned);
+    const fresh = rest.filter((r) => isNewPick(save, r));
+    const dups = rest.filter((r) => !isNewPick(save, r));
+    out.push(...slide(fresh, Math.min(NEW_SLOTS, n - out.length), order));
+    out.push(...slide(dups, n - out.length, order));
+    return out;
+  }
   // THE MAGIC HAMMER (owner, Oct 2026): a T4 magic item (items.js) spent on a
   // restore. The wreck raised under it is SHINY — it glints and glows like a
   // shiny tree (render.js, Lighting.KINDS.shiny) — and everything its keepers
@@ -217,9 +299,9 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   // RESTORE THIS WRECK AS THE PICKED CARD. The one writer of the restoration
   // ledger: freezes the row's role onto the house, then stamps what the pick
-  // owns — the first blacksmith (starterBlacksmithId), a solo shop (the Book
-  // Shop's bookshopId, the Pet Shop's petshopId), a wizard tower
-  // (wizardTowers). Refuses (null) a card not on
+  // owns — its line (shopLines) and rank (shopTiers), the first blacksmith
+  // (starterBlacksmithId), a solo shop (the Book Shop's bookshopId, the Pet
+  // Shop's petshopId), a wizard tower (wizardTowers). Refuses (null) a card not on
   // offer, so a stale modal can't raise a tower early. Returns the row.
   // `opts.hammer` marks the house shiny (the caller spends the Magic Hammer).
   function restoreAs(save, house, key, opts = {}) {
@@ -230,6 +312,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (typeof save.restoredHouses[house.id] === 'string') return null;   // never relabel a restored house
     save.restoredHouses[house.id] = row.role;
     if (row.theme) (save.shopLines = save.shopLines || {})[house.id] = row.theme;
+    if (row.tier) (save.shopTiers = save.shopTiers || {})[house.id] = row.tier;
     if (opts.hammer && hammerTakes(row)) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
     if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
     if (row.solo) registerSoloShop(save, house, row.solo);
@@ -344,7 +427,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (row.role === 'turret') return { id: 'rubble', qty: TURRET_ROCKS, material: 'stone' };
     const per = BUILD_ROCKS_PER_TIER[row.role];
     if (!per) return wreckRestoreCost(save, house);
-    const tier = Math.max(1, (typeof row.tier === 'function' ? row.tier(save, order) : 1) | 0);
+    const tier = Math.max(1, (row.tier || 1) | 0);
     return { id: 'rubble', qty: per * tier, material: 'stone' };
   }
 
@@ -472,6 +555,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
     BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
+    isNewPick, offerCards, NEW_SLOTS, ranks, PERMIT_ID, renovateTo, renovate,
     HAMMER_ID, HAMMER_PRICE_MUL, hammerTakes, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerSoloShop,

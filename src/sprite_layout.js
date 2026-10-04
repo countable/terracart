@@ -38,6 +38,12 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
+    'beach_palms:0': { fw: 16, fh: 16, minX: 4, minY: 9, maxX: 10, maxY: 15 },
+    'beach_palms:1': { fw: 16, fh: 16, minX: 6, minY: 9, maxX: 12, maxY: 15 },
+    'beach_palms:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
+    'beach_palms:3': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
+    'beach_palms:4': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 15 },
+    'beach_palms:5': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 15 },
     'trees:1': { fw: 32, fh: 48, minX: 11, minY: 37, maxX: 21, maxY: 48 },
     'trees:2': { fw: 32, fh: 48, minX: 7, minY: 16, maxX: 25, maxY: 48 },
     'trees:3': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 48 },
@@ -365,7 +371,7 @@
     { role: 'wanderer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
     { role: 'archaeologist', idle: 'orrin_idle', walk: 'orrin_walk', path: 'assets/NPC/Orrin_old_man_idle.png', cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY: 90 },
     // Every neighbour role has its own look: one sheet per label, so a role
-    // shown in several zones (Peddler, Lamplighter) looks the same in each.
+    // shown in several cultures (Peddler, Lamplighter) looks the same in each.
     // tools/art/import_npc_art.py seats them in 4x4 cells of 48px and bakes
     // the citizen palette into them; assets.js preloads them from here.
     // `portraitY` lowers the smaller heads in the dialog portrait, as Orrin's.
@@ -380,11 +386,11 @@
       ['mason', ['village'], 'mason', 90], ['mason', ['farm'], 'barn_raiser', 99], ['mason', ['market'], 'stonemason', 99],
       ['lamplighter', ['village', 'market'], 'lamplighter', 99],
       ['keeper', ['shrine'], 'shrine_keeper', 99], ['keeper', ['grove'], 'den_keeper', 90],
-    ].map(([role, zones, slug, portraitY]) => ({ role, zones, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
+    ].map(([role, cultures, slug, portraitY]) => ({ role, cultures, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
       path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY })),
   ];
   function npcSheet(c) {
-    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.zones || sheet.zones.includes(c.zone)))
+    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.cultures || sheet.cultures.includes(c.culture)))
       || NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
   }
   function npcAppearance(c, now) {

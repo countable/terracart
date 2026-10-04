@@ -1987,7 +1987,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── Lava ──────────────────────────────────────────────────────────────────
-  // Surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
+  // Burned Row embers, surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
@@ -2007,8 +2007,10 @@ class MapScene extends Phaser.Scene {
     const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     const N = entry && entry.cellsPerEdge;
+    const embers = this.depth === 0 && typeof StreetVariants !== 'undefined'
+      && StreetVariants.hotRoadAt(entry, pc.cx, pc.cy);
     if (!entry || !entry.grid || lix < 0 || liy < 0 || lix >= N || liy >= N
-        || entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA) {
+        || (entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA && !embers)) {
       this._lavaAccum = 0;   // stepping out ends the burn: no partial second carries
       return;
     }
@@ -2026,7 +2028,7 @@ class MapScene extends Phaser.Scene {
       this._lastLavaFlashT = now;
       const burned = this._lavaPop;
       this._lavaPop = 0;
-      this._popEnergy(-burned, { ix, iy, label: '🔥 lava' });
+      this._popEnergy(-burned, { ix, iy, label: embers ? '🔥 embers' : '🔥 lava' });
       if (typeof persistSave === 'function') persistSave(this.save);
     }
   }
@@ -8409,12 +8411,15 @@ class MapScene extends Phaser.Scene {
 
   presentWreckRestoreModal(sx, sy, house) {
     // WHAT THE WRECK BECOMES IS THE PLAYER'S PICK: the cards on offer are
-    // Houses.buildOptions (one owning table, unlocked by how many wrecks
-    // already stand), each named the way its sign will be (Shops.roleLabel —
-    // the Shop card promises the line the next shop sells, Shops.nextLine).
+    // Houses.offerCards — one more card with every wreck that stands, cut
+    // from the catalogue (Houses.buildOptions, one owning table unlocked by
+    // how many wrecks already stand): the House always, up to three NEW
+    // cards, the rest duplicates, each pool a window that slides along with
+    // every restore. Each card is named the way its sign will be
+    // (Shops.roleLabel — a Shop card for its line) and wears its rank.
     // The single-modal guard keeps the count stable while the modal is open;
-    // restoreAs re-checks the offer at accept anyway.
-    const options = Houses.buildOptions(this.save, house);
+    // restoreAs re-checks the catalogue at accept anyway.
+    const options = Houses.offerCards(this.save, house);
     const order = Houses.restoredCount(this.save);
     // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
     // shop's stones per tier, the turret's flat five): the cost line shows
@@ -8436,18 +8441,20 @@ class MapScene extends Phaser.Scene {
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
       return this.worldIconHTML(texKey, 36, frame);
     };
-    const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
-    // Pick the type first; the second step quotes only that type's available
-    // rank. Progression still owns the rank and restoreAs validates the pick.
+    const tierOf = (row) => row.tier || 0;
+    const typeOf = (row) => row.ranked ? [row.role, row.theme].filter(Boolean).join(':') : row.key;
+    const types = [...new Map(options.map(row => [typeOf(row), row])).values()];
+    // Pick the type first; the second step quotes its offered ranks.
+    // Progression still owns the ranks and restoreAs validates the pick.
     const showTypes = (choice = null) => this.showOfferModal({
       kind: 'build',
       title: 'Step 1 of 2 · Building type',
       get: 'Restore this wreck as…',
-      choices: options.map((row) => ({
-        key: row.key,
-        label: labelFor(row, null),
+      choices: types.map((row) => ({
+        key: typeOf(row),
+        label: labelFor(row, null) + (options.some(r => typeOf(r) === typeOf(row) && Houses.isNewPick(this.save, r)) ? newBadgeHTML() : ''),
         iconHTML: iconFor(row),
-        suggested: !!row.suggested?.(this.save),
+        suggested: options.some(r => typeOf(r) === typeOf(row) && r.suggested?.(this.save)),
       })),
       choice,
       pickHint: 'Choose a building type',
@@ -8457,18 +8464,23 @@ class MapScene extends Phaser.Scene {
       onAccept: (key) => showTiers(key),
     });
     const showTiers = (typeKey) => {
-      const row = options.find((r) => r.key === typeKey);
+      const ranks = options.filter((r) => typeOf(r) === typeKey);
+      const row = ranks[0];
       if (!row) return;
       const c = costFor(row);
       const tier = tierOf(row);
-      const choices = [{
-        key: row.key,
-        label: (tier ? tierBadgeHTML(tier, 11) : labelFor(row, null))
-          + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
-        iconHTML: iconFor(row),
-        cost: costLine(c),
-        canAfford: affords(c),
-      }];
+      const choices = ranks.map((row) => {
+        const c = costFor(row), tier = tierOf(row);
+        return {
+          key: row.key,
+          label: (tier ? tierBadgeHTML(tier, 11) : labelFor(row, null))
+            + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
+            + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
+          iconHTML: iconFor(row),
+          cost: costLine(c),
+          canAfford: affords(c),
+        };
+      });
       const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
       const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
       this.showOfferModal({

@@ -411,7 +411,7 @@ class SceneCreatures {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
         const t = genGrid[cy * N + cx];
-        if (classesOK.has(t)) {
+        if (classesOK.has(t) && BiomeProfiles.faunaAllows(kindStr, t)) {
           // Route EVERY candidate cell through the shared spawn rule, not just
           // RESIDENTIAL ones. isSpawnCell checks opts.roadMask FIRST — before
           // its residential-frontage logic — so gating the call on `t === 5`
@@ -437,6 +437,9 @@ class SceneCreatures {
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           if (!fauna) enemyGroundSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
+          // Nexus layouts own empty ground as well as occupied seats.
+          // Row-authored attraction and fauna decorations are separate passes.
+          if ((entry.zone?.coverage || entry.zone?.idx)?.[cy * N + cx]) return;
           // AN ANIMAL (or a wild slime) IS SEATED BY ITS OWN CLASS (the spawn
           // gate, creatureSpawnClass): every class keeps off the hard reasons
           // and sensitive ground; a FAST one (animal or foe) off the kerb
@@ -583,10 +586,11 @@ class SceneCreatures {
     // them into an unrelated enemy. Their kills use the usual caught ledger.
     for (const guard of zoneGuards) {
       if (caughtSet.has(guard.id)) continue;
+      const fauna = ['fauna', 'fastFauna'].includes(creatureSpawnClass(guard.kind));
       const creature = WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
-        ...guard, shiny: false, immobile: !guard.burrowCells,
+        ...guard, shiny: fauna ? faunaShiny(guard.kind, guard.id) : false, immobile: !fauna && !guard.burrowCells,
         ...(guard.kind === 'wurm' ? { _burrowed: true } : {}),
-        lair: guard.burrowCells ? null : (guard.lair || guard.id),
+        lair: fauna || guard.burrowCells ? null : (guard.lair || guard.id),
         lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
         lairR: 0, seatX: guard.x, seatY: guard.y,
       });
@@ -954,7 +958,7 @@ class SceneCreatures {
     // waterline; each seat is the kind's own spawn class (creatureSpawnClass)
     // through the shared gate, and its id is the seat cell. See spawnShoreFauna.
     const shoreFauna = this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
-      faunaSpawnOpts, _spawnOpts, caughtSet);
+      faunaSpawnOpts, _spawnOpts, caughtSet, entry.zone && (entry.zone.coverage || entry.zone.idx));
     Object.assign(entry.faunaAttracted, this._seatFaunaOnFavouriteGround(entry, tx, ty, N,
       cellM, genGrid, _spawnOpts, shoreFauna, pestFree, null, plantCells));
 
@@ -973,10 +977,11 @@ class SceneCreatures {
   //           kind's class is spent, not re-rolled past the attempt budget
   //   ids     WorldGen.cellId(kind, tx, ty, cx, cy) — position, so a caught
   //           crab / felled gull stays gone (save.caught)
-  spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid, faunaOpts, foeOpts, caughtSet) {
+  spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid, faunaOpts, foeOpts, caughtSet, zoneCoverage) {
     const out = [];
     if (typeof SHORE_FAUNA === 'undefined') return out;
-    const shoreCells = (shore && shore.cells) || [];
+    const shoreCells = ((shore && shore.cells) || []).filter(i => !zoneCoverage?.[i]);
+    pierCells = pierCells.filter(i => !zoneCoverage?.[i]);
     const shoreM = (shore && shore.shoreM) || 0;
     for (const kind of SHORE_FAUNA_ORDER) {
       const row = SHORE_FAUNA[kind];
@@ -993,7 +998,7 @@ class SceneCreatures {
       let placed = 0;
       for (let attempt = 0; attempt < want * 8 && placed < want; attempt++) {
         const cell = pool[Math.floor(srng() * pool.length)];
-        if (taken.has(cell)) continue;
+        if (taken.has(cell) || !BiomeProfiles.faunaAllows(kind, genGrid[cell])) continue;
         const cx = cell % N, cy = Math.floor(cell / N);
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, 'minor')) continue;
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, spClass)) continue;
@@ -1069,8 +1074,8 @@ class SceneCreatures {
     const zf = entry.zone;
     const coverage = (zf && zf.anchors && (zf.coverage || zf.idx)) || null;
     // A zone owner's row. An explicit empty affinity is intentional: it must
-    // not inherit the old grove/churchyard defaults. Terrain and street pulls
-    // still apply.
+    // not inherit the old grove/churchyard defaults or underlying terrain,
+    // scenic and street pulls inside that nexus.
     const ownerRow = (owner) => {
       const anchor = zf.anchors[owner - 1];
       if (!anchor) return null;
@@ -1144,12 +1149,13 @@ class SceneCreatures {
         if (coverage) {
           const o = coverage[i];
           if (o > 0 && o <= nA) {
-            m |= byOwner[o];
+            m = byOwner[o];
             if (first && !ownerSeen[o]) { ownerSeen[o] = 1; ownerFirst.push(o); }
           }
         }
         const land = under && (under[i] || (underPresent && underPresent[i])) ? under[i] : genGrid[i];
-        if (land >= 0 && land < 256) m |= byLand[land];
+        if (coverage?.[i] && coverage[i] > nA) m = 0;
+        if (!coverage?.[i] && land >= 0 && land < 256) m |= byLand[land];
         while (m) {
           const b = 31 - Math.clz32(m & -m);
           lists[b].push(i);
@@ -1217,7 +1223,7 @@ class SceneCreatures {
       const seatOpts = spClass === 'fauna' || spClass === 'fastFauna'
         ? { ...spawnOpts, occupied: null } : spawnOpts;
       const free = (idx) => {
-        if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
+        if (taken.has(idx) || (blocked && blocked.has(idx)) || !BiomeProfiles.faunaAllows(sp, genGrid[idx])) return false;
         if (shoreBird && shoreMask[idx] && (spawnOpts.occupied?.has(idx) || birdLandings.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
@@ -1750,7 +1756,8 @@ class SceneCreatures {
               const angle = base + (k * Math.PI * 2) / 8;
               const sx = px + Math.cos(angle) * SPAWN_R, sy = py + Math.sin(angle) * SPAWN_R;
               const dest = this.cellAt(sx, sy);
-              if (!dest.loaded || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)) continue;
+              if (!dest.loaded || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)
+                  || !BiomeProfiles.faunaAllows('deer', dest.type)) continue;
               entry.creatures.push(WorldGen.makeCreature('deer', sx, sy,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
               break;

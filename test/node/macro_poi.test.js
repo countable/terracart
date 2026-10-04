@@ -758,7 +758,7 @@
     const markets = Object.keys(rh).filter((id) => rh[id] === 'market' && id !== 'b');
     markets.forEach((id, n) => assert.eq(Shops.shopOrder(save, { id }), n, `${id} keeps place ${n}`));
     const lines = Shops.marketLines(save), mine = lines.find((r) => r.id === 'm');
-    assert.eq(mine.tier, Shops.lineTier(mine.theme, lines.filter((r) => r.theme === mine.theme && r.id !== 'm').length), 'a picked line\'s tier counts the shops before it on that line');
+    assert.eq(mine.tier, 1, 'a picked T1 line is T1 however many stand on it (the stamped rank)');
     assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(SCENE_SRC), 'the restore path freezes the pick');
     assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'marketTheme reads lineFor');
     assert.falsy(/Shops\.themeAt\(Shops\.shopOrder/.test(SCENE_SRC), 'and nothing reads the cycle directly');

@@ -95,9 +95,28 @@
     assert.truthy(large.landmarks[0].radii[1] > small.landmarks[0].radii[1]);
     assert.eq(large.finds.length, 2, 'finite ore does not grow with area');
     assert.truthy(large.hazards.length > 0);
-    assert.eq(large.hazards.length, 24, 'five by five pool surrounds its dry central island');
+    assert.eq(large.hazards.length, 20, 'rounded five by five pool surrounds its dry central island');
     for (const i of large.clear) assert.falsy(large.background.has(i), 'entrance and rewards stay clear');
     for (const f of large.finds) assert.falsy(large.hazards.includes(f.i), 'ore avoids lava');
+  });
+  test('quarry layout: rounded lava clips all four corners without opening the altar moat', () => {
+    for (const cells of [rect(12, 8), rect(36, 28)]) {
+      const p = plan('quarry-crater', cells), [cx, cy] = p.landmarks[0].centre;
+      const lava = new Set(p.hazards), radius = Math.floor(ZoneVariantData.quarryLayouts.craterPoolSizeCells / 2);
+      assert.eq(p.shrineSeat, cy * N + cx);
+      assert.falsy(lava.has(p.shrineSeat), 'altar island stays dry');
+      for (const dx of [-radius, radius]) for (const dy of [-radius, radius]) {
+        const i = (cy + dy) * N + cx + dx;
+        assert.falsy(lava.has(i), 'pool corners are clipped');
+        assert.truthy(p.clear.has(i), 'clipped corners stay reserved from fill');
+        assert.falsy(p.background.has(i), 'clipped corners remain bare ground');
+      }
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (dx || dy) assert.truthy(lava.has((cy + dy) * N + cx + dx), 'lava closes every approach to the island');
+      }
+      assert.truthy(lava.has((cy + radius) * N + cx), 'south entrance ends at lava');
+      assert.eq(JSON.stringify(p.hazards), JSON.stringify(plan('quarry-crater', cells.slice().reverse()).hazards), 'pool stays deterministic');
+    }
   });
   test('quarry layout: crater chooses intact ground beside holes and irregular arms', () => {
     const footprints = [
@@ -145,7 +164,7 @@
           if ((axis === 'x' ? x : y) === middle) assert.falsy(p.background.has(y * N + x), 'cross-cut stays open');
         }
       }
-      assert.eq(p.guards.length, 3, 'narrow modules do not multiply inhabitants');
+      assert.eq(p.guards.length, 1, 'narrow modules do not multiply inhabitants');
       assert.eq(p.finds.length, 0, 'buried finds roll beneath actual stones after layout placement');
     }
   });
@@ -186,11 +205,11 @@
     assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
     const strip = plan('quarry-strip-mine', cells);
     assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
-    assert.eq(strip.guards.length, 3, 'inhabitant budget does not grow with the number of benches');
-    assert.eq(strip.guards.filter(g => g.material === 'split_slime').length, 2);
+    assert.eq(strip.guards.length, 1, 'inhabitant budget does not grow with the number of benches');
+    assert.eq(strip.guards.filter(g => g.material === 'split_slime').length, 0);
     assert.eq(strip.guards.filter(g => g.material === 'wurm').length, 1);
     for (const guard of strip.guards) {
-      assert.includes(['split_slime', 'wurm'], guard.material);
+      assert.eq(guard.material, 'wurm');
       assert.falsy(strip.background.has(guard.i), 'inhabitants occupy open cuts');
     }
     const stronghold = plan('quarry-stronghold', cells);
@@ -264,7 +283,7 @@
       variant: ZoneVariants.byId('quarry-strip-mine'), cells: list }, { N, tx: 4, ty: 5 }));
     const whole = make(cells), left = make(cells.filter(i => i % N < 24)), right = make(cells.filter(i => i % N >= 24));
     const inhabitants = [...whole.background].filter(([, material]) => ['split_slime', 'wurm'].includes(material));
-    assert.gt(inhabitants.filter(([, material]) => material === 'split_slime').length, 0);
+    assert.eq(inhabitants.filter(([, material]) => material === 'split_slime').length, 0);
     assert.gt(inhabitants.filter(([, material]) => material === 'wurm').length, 0);
     const spacing = ZoneVariantData.quarryLayouts.clippedInhabitantSpacingCells;
     const blocks = inhabitants.map(([i]) => `${Math.floor((4 * N + i % N) / spacing)},${Math.floor((5 * N + Math.floor(i / N)) / spacing)}`);

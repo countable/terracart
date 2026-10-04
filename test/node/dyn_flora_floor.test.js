@@ -1,61 +1,47 @@
-// Regression guard: a grassy landuse polygon never rolls ZERO longgrass.
-//
-// biome_profiles.js' dyn() gives a `dynamic` flora entry (longgrass on every
-// grassland-family biome, farmland, wetland, orchard) a per-polygon density
-// drawn from that polygon's own hashed seed. Before this fix the roll was
-// uniform over [0, dMax] with no floor, so a polygon whose seed happened to
-// land near the bottom of that range grew nothing at all — and since the
-// seed is derived from the polygon's location, the SAME school/park/pitch
-// read barren on every single visit, forever. dyn() now floors the roll at
-// DYN_MIN (0.04) so even the unluckiest polygon still grows a light tuft.
-//
-// This drives the REAL rasterizer over many synthetic school polygons (one
-// real school is one polygon, one seed, so a sweep across many stands in for
-// "many different real schools") and asserts none of them ever comes up
-// empty.
+// Sparse basic grounds use measured occupied-cell budgets, not a universal
+// four-percent minimum. Small fields may be completely open for a given seed.
 (function () {
-const T = WorldGen.T;
-
-const CPE = 32;
-const TILE_EDGE_M = CPE * 7;
-const EXTENT = 4096;
-const CELL_MVT = EXTENT / CPE;
-const cellToMvt = (c) => c * CELL_MVT;
-const ring = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMvt(cy) }));
-
-// A school-grounds polygon comfortably inside the tile (26x26 cells), so
-// every sample tile has the same shape and only the tile offset — which
-// feeds the polygon's hashed seed — varies the roll.
-const schoolRing = () => ring([[2, 2], [28, 2], [28, 28], [2, 28]]);
-
-// (School grounds are NOT restricted: the spawn gate treats them as ordinary
-// open ground; only KINDERGARTEN is a hard reason. The floor is pinned on a
-// sports pitch, the open-field flora row family; the polygon is merely school-sized.)
-test('a landuse=pitch polygon never grows zero longgrass, across many locations', () => {
-  const N = 400;
-  let zeroCount = 0;
-  for (let tx = 0; tx < N; tx++) {
-    const out = WorldGen.rasterizeTile([
-      { name: 'landuse', features: [{ type: 3, tags: { class: 'pitch' }, geom: [schoolRing()] }] },
-    ], CPE, tx, 5, TILE_EDGE_M);
-    const longgrass = out.wildplants.filter((wp) => wp.crop === 'longgrass' && wp._biome === T.PITCH).length;
-    if (longgrass === 0) zeroCount++;
+test('basic flora: sparse pitches stay open over many deterministic seeds', () => {
+  const N = 32, ring = [{x:256,y:256},{x:3584,y:256},{x:3584,y:3584},{x:256,y:3584}];
+  let total = 0, cells = 0;
+  for (let tx = 0; tx < 40; tx++) {
+    const out = WorldGen.rasterizeTile([{name:'landuse',features:[{type:3,tags:{class:'pitch'},geom:[ring]}]}], N, tx, 5, N * 7);
+    total += out.wildplants.filter(w => w.crop === 'longgrass' && w._biome === WorldGen.T.PITCH).length;
+    cells += out.grid.filter(t => t === WorldGen.T.PITCH).length;
   }
-  assert.eq(zeroCount, 0, `${zeroCount}/${N} synthetic pitch tiles grew no longgrass at all`);
+  assert.inRange(total / cells, .001, .015, 'pitch tufts occupy a small fraction, without a four-percent floor');
 });
-
-test('BiomeProfiles.flora floors every dynamic longgrass entry at DYN_MIN (0.04)', () => {
-  // Every grassy biome that lists a dynamic longgrass entry — the family
-  // default plus every biome with its own BIOME_PROFILES row.
-  const biomesWithDynLonggrass = [
-    T.PARK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.GOLF,
-    T.FARMLAND, T.WETLAND, T.ORCHARD,
-  ];
-  for (const t of biomesWithDynLonggrass) {
-    const entry = BiomeProfiles.flora(t).find((fl) => fl.dynamic && fl.crop === 'longgrass');
-    assert.truthy(entry, `terrain ${t} has a dynamic longgrass flora entry`);
-    assert.eq(entry.dMin, 0.04, `terrain ${t}'s longgrass floor is 4%`);
-    assert.lt(entry.dMin, entry.dMax, `terrain ${t}'s floor stays below its own ceiling (${entry.dMax})`);
+test('basic flora: approved exclusions survive overlapping source polygons', () => {
+  const T = WorldGen.T;
+  for (const type of [T.GRASS,T.SCHOOL,T.COMMERCIAL,T.PLAYGROUND,T.ORCHARD]) {
+    assert.falsy(BiomeProfiles.flora(type).some(f => f.crop === 'marigold'));
+    assert.falsy(BiomeProfiles.allows('marigold',type));
   }
+  for (const character of BiomeProfiles.PARK_CHARACTER_IDS)
+    assert.falsy(BiomeProfiles.flora(T.PARK,character).some(f => f.crop === 'mushroom'));
+  assert.falsy(BiomeProfiles.allows('mushroom',T.PARK));
+  assert.falsy(BiomeProfiles.allows('mushroom',T.WASTELAND));
+  assert.falsy(BiomeProfiles.yardAllows('longgrass',T.RESIDENTIAL));
+  assert.truthy(BiomeProfiles.allows('mushroom',T.RESIDENTIAL));
+  assert.truthy(BiomeProfiles.flora(T.RESIDENTIAL).some(f => f.crop === 'mushroom'));
+  for (const type of [T.FARMLAND,T.GOLF]) {
+    assert.eq(BiomeProfiles.flora(type).length,0);
+    assert.falsy(BiomeProfiles.allows('longgrass',type));
+  }
+  // Special motifs are authored directly; the basic profile filter must not
+  // remove their declared fungi or flower beds.
+  assert.truthy(Object.values(ZoneVariants.materials).some(m => m.crop === 'mushroom'));
+  assert.truthy(Object.values(ZoneVariants.materials).some(m => m.crop === 'marigold'));
+});
+test('basic fauna: deer stay in forest and residential, cats cannot use wasteland', () => {
+  const T = WorldGen.T;
+  for (const type of Object.values(T)) {
+    assert.eq(BiomeProfiles.faunaAllows('deer',type), type === T.FOREST || type === T.RESIDENTIAL);
+  }
+  for (const pool of [BIOME_FAUNA.deer.primary,BIOME_FAUNA.deer.fallback])
+    assert.eq([...pool].sort().join(),[T.FOREST,T.RESIDENTIAL].sort().join());
+  for (const pool of [BIOME_FAUNA.cat.primary,BIOME_FAUNA.cat.fallback]) assert.falsy(pool.includes(T.WASTELAND));
+  assert.falsy(BiomeProfiles.faunaAllows('cat',T.WASTELAND));
+  assert.truthy(BiomeProfiles.faunaAllows('cat',T.RESIDENTIAL));
 });
 })();

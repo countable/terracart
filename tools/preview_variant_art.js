@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'loot', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
+for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'sprite_layout', 'assets', 'items', 'chest_themes', 'loot', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
@@ -26,7 +26,7 @@ vm.runInContext('const Render = {}; ' + slice(render, 'Render.wildplantShadow ='
 const painters = slice(read('textures'), 'const TRAP_PX =', '// === Animated biome textures ===');
 const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, contextLooks: WILDPLANT_CONTEXT_ART, cropRows: CROP_ROW,
   cropColumns: CROPS_SHEET_COLS, matureStage: MAX_GROWTH_STAGE,
-  plantPlacements: Object.fromEntries([CROP_SPRITE.shrub, CROP_SPRITE.giant_mushroom, ...Object.values(CROP_SPRITE.shrub.looks), ...Object.values(WILDPLANT_CONTEXT_ART)].map(art => {
+  plantPlacements: Object.fromEntries([CROP_SPRITE.shrub, CROP_SPRITE.giant_mushroom, ...Object.values(CROP_SPRITE.shrub.looks), ...Object.values(WILDPLANT_CONTEXT_ART)].flatMap(art => (art.frames || [art.frame]).map(frame => ({...art, frame}))).map(art => {
     const asset = ASSETS[art.sheet], box = SpriteLayout.ART_BOUNDS[art.sheet+':'+art.frame];
     const offset = art.seat && box ? SpriteLayout.seatInCell(box,.5,.5,art.scale,art.scale) : {dxPx:0,dyPx:0};
     return [art.sheet+':'+art.frame, {width:asset.frameWidth*art.scale,height:asset.frameHeight*art.scale,shadow:Render.wildplantShadow(null,art),...offset}];
@@ -64,7 +64,31 @@ data.terrainTiles = vm.runInContext(`Object.entries(BiomeProfiles.T)
 }))`, ctx);
 // These ground types exist only as special-zone overlays; rock also occurs naturally.
 data.groundAccents = vm.runInContext('ZONE_GROUND_ACCENTS', ctx);
+const basicExamples = require('./preview_basic_tiles')(ctx);
+data.basicCoverage = require('./preview_basic_coverage')(ctx);
+data.parkCharacterShares = Object.fromEntries(Object.entries(ctx.BiomeProfiles.PARK_CHARACTERS).map(([k,row]) => [k,row.share]));
 data.basicTiles = data.terrainTiles.filter(tile => !['GROVE', 'CHURCHYARD', 'TAR_YARD'].includes(tile.name));
+for (const tile of data.basicTiles) {
+  tile.examples = basicExamples[tile.name]?.objects || [];
+  tile.fauna = Object.entries(ctx.BIOME_FAUNA).filter(([kind, row]) => kind !== 'slime' && basicExamples[tile.name]?.creatureSeats && row.primary?.includes(tile.type) && ctx.BiomeProfiles.faunaAllows(kind, tile.type)).map(([kind]) => kind);
+  tile.enemies = ctx.EnemySpawns.surfaceRows(tile.type).filter(row => basicExamples[tile.name]?.creatureSeats).filter(row => row.surface.weight > 0).map(row => row.id);
+  if (tile.name === 'SAND' || tile.name === 'PIER') tile.fauna = Object.entries(ctx.SHORE_FAUNA)
+    .filter(([kind, row]) => (tile.name === 'SAND' || row.pier) && ctx.BiomeProfiles.faunaAllows(kind, tile.type)).map(([kind]) => kind);
+  if (tile.name === 'CAVE_FLOOR') {
+    const plants = [], grid = new Uint8Array(32*32).fill(tile.type);
+    ctx.WorldGen.spawnCaveMushrooms(grid, 32, 2622, 5615, 32*ctx.WorldGen.CELL_M, 1, plants, new Set());
+    tile.examples = plants.slice(0, 1);
+    tile.enemies = ctx.EnemySpawns.caveRows(1).map(row => row.id);
+  }
+  for (const o of tile.examples) if (o.kind === 'mineralrock' && o._zoneObjectFrame == null && (o.caveVariant != null || (o.yieldTier || 1) <= 1)) {
+    o.previewArt = {sheet:'mineralrock', frames:[ctx.SpriteLayout.plainRockFrame(o)]};
+  }
+  tile.creatureExamples = [...new Set([...tile.fauna, ...tile.enemies.slice(0,2)])].map(kind => {
+    const art = ctx.SpriteLayout.creatureArt(kind);
+    return {kind, previewArt:{sheet:art.sheet,frames:[art.directions?.down?.idle?.[0] || 0],tint:art.tint ?? 0xffffff}};
+  });
+
+}
 data.biomePainter = vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.
 data.roadPainter = read('road_overlay');

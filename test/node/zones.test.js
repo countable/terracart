@@ -8,7 +8,7 @@
 //     nothing: WorldGen.isSensitivePoi answers first).
 //   · THE FIELD: R = clamp(R_kind / (1 + q), R_MIN, R_kind), the merge
 //     survivor rule, the window, and — on the real Kelowna 3×3 fixtures —
-//     every anchor gets the same key, q, R and aspect from every tile that
+//     every anchor gets the same key, q, R and pattern from every tile that
 //     sees it (the seam rule), with the poi buffer the design relies on.
 //   · THE HALO: a zone repaints ONLY lot / commercial ground (RESIDENTIAL,
 //     COMMERCIAL, WASTELAND); the full coverage then styles walkable ground
@@ -89,10 +89,11 @@ test('zones: which POIs anchor which kind', () => {
 
 // ── The formula ─────────────────────────────────────────────────────────────
 test('zones: R is the kind\'s cap shrunk by crowding, clamped to R_MIN', () => {
-  assert.eq(Z.ZONE_KINDS.grove.R, 60); assert.eq(Z.ZONE_KINDS.stones.R, 80); assert.eq(Z.ZONE_KINDS.tar.R, 100);
+  assert.eq(Z.ZONE_KINDS.grove.R, 60); assert.eq(Z.ZONE_KINDS.stones.R, 80); assert.eq(Z.ZONE_KINDS.tar.R, 50);
   assert.eq(Z.R_MIN_M, 30); assert.eq(Z.MERGE_M, 40); assert.eq(Z.W_MAX_M, 200);
   assert.eq(Z.radiusFor('grove', 0), 60, 'alone: the cap');
-  assert.eq(Z.radiusFor('tar', 1), 50, 'one full neighbour halves it');
+  assert.eq(Z.radiusFor('tar', 0), 50, 'isolated fuel station has a 50 m halo');
+  assert.eq(Z.radiusFor('tar', 1), 30, 'crowded fuel station respects the shared floor');
   assert.eq(Z.radiusFor('grove', 5), 30, 'crowded: the floor');
   // The window fits the buffer at play latitudes (Berlin's row is the tightest).
   for (const ty of [5370, 5566, 5700]) assert.eq(Z.windowM(ty), 200, `row ${ty}: W = 200`);
@@ -112,7 +113,7 @@ test('zones: the merge drops the later key within MERGE_M, and q is symmetric', 
   assert.truthy(out.every((a) => !(a.gx === gx0 + u(20) && a.gy === gy0)), 'the LATER key goes');
   near(out[0].q, out[1].q, 1e-9, 'each is the other\'s crowding');
   near(out[0].q, 1 - 100 / 200, 0.01, 'q = 1 − d/W');
-  near(out[0].R, 100 / (1 + out[0].q), 1e-9, 'R = R_kind / (1 + q)');
+  near(out[0].R, 50 / (1 + out[0].q), 1e-9, 'R = R_kind / (1 + q)');
 });
 function near(a, b, eps, m) { assert.truthy(Math.abs(a - b) <= eps, `${m}: ${a} vs ${b}`); }
 
@@ -128,7 +129,7 @@ test('zones: the poi buffer the field relies on is there (−1024 … 5120)', ()
   assert.gte(hi, EXT + Z.POI_BUFFER_UNITS - 64, `on both sides (max ${hi})`);
 });
 
-test('zones: every anchor gets the same key, q, R and aspect from every tile that sees it', () => {
+test('zones: every anchor gets the same key, q, R and pattern from every tile that sees it', () => {
   const seen = new Map();
   let shared = 0;
   for (const k of fixtureKeys()) {
@@ -140,7 +141,7 @@ test('zones: every anchor gets the same key, q, R and aspect from every tile tha
       const pad = a.R * (1 + Z.EDGE_JITTER) / a.upm;
       if (lx < -pad || ly < -pad || lx > EXT + pad || ly > EXT + pad) continue;
       const id = `${a.kind}|${a.gx}|${a.gy}`;
-      const sig = `${a.key}|${a.q.toFixed(9)}|${a.R.toFixed(9)}|${a.aspect}`;
+      const sig = `${a.key}|${a.q.toFixed(9)}|${a.R.toFixed(9)}|${a.nexusPattern}`;
       if (seen.has(id)) { shared++; assert.eq(sig, seen.get(id), `${id} seen alike from ${k}`); }
       else seen.set(id, sig);
     }
@@ -296,10 +297,10 @@ test('zones: every nexus piece is off the road band and off anything already the
     assert.falsy(before.has(i), `${p.id} is not on anything already there`);
     assert.falsy(mine.has(i), `${p.id} is one per cell`);
     assert.truthy(WorldGen.isWalkable(on.grid[i]), `${p.id} stands on walkable ground`);
-    if (p.zone === 'quarry' && p.zoneLayer === 'find') {
+    if (p.zoneKind === 'quarry' && p.zoneLayer === 'find') {
       assert.truthy(on.zone.anchors.some(a => a.kind === 'quarry' &&
         p.id.startsWith(`zq_${ZoneVariants.pick(a).id}_${a.gx}_${a.gy}_find_`) && /_find_\d+$/.test(p.id)), `${p.id} uses its source anchor's identity`);
-    } else if (p.zone === 'quarry' && p.zoneLayer === 'shrine') {
+    } else if (p.zoneKind === 'quarry' && p.zoneLayer === 'shrine') {
       assert.truthy(on.zone.anchors.some(a => a.owned && !a.clipped &&
         p.zoneVariant === ZoneVariants.pick(a).id && p.id === `zsh_${ZoneVariants.identity(a)}`),
         `${p.id} uses its complete source anchor's identity`);
@@ -324,7 +325,7 @@ test('zones: every nexus piece is off the road band and off anything already the
       assert.eq(on.grid[cellOf(o)], T.CAVE_LAVA, 'vent marks damaging terrain');
       assert.eq(Lighting.sourceKind({}, o), 'lava_vent', 'vent lights its hazard');
     } else if (o.kind === 'stronghold_wall') {
-      assert.eq(o.zone, 'quarry');
+      assert.eq(o.zoneKind, 'quarry');
       assert.eq(o.zoneVariant, 'quarry-stronghold');
       assert.eq(o.zoneLayer, 'background');
       assert.truthy(Number.isInteger(o.variant));
@@ -370,24 +371,24 @@ test('zones: the nexus chest keeps its id and wears one tier more, capped', () =
 });
 
 test('zones: the patterns — groves by character, graves are a per-cell rule, no other stones pattern', () => {
-  assert.gte(Z.ASPECTS.grove.length, 3);
-  assert.inRange(Z.ASPECTS.tar.length, 2, 3);
+  assert.gte(Z.NEXUS_PATTERNS.grove.length, 3);
+  assert.inRange(Z.NEXUS_PATTERNS.tar.length, 2, 3);
   // A church lays no fixed pattern: its headstones are the per-cell GRAVE
   // rule over the churchyard halo (zone_ground.test.js). The other faiths'
   // rock squares / rings went with their anchors.
-  assert.eq(Z.ASPECTS.stones.join(), 'graves');
+  assert.eq(Z.NEXUS_PATTERNS.stones.join(), 'graves');
   assert.eq(Z.patternPieces('graves').length, 0, 'no fixed stones pattern');
-  assert.eq(Z.ASPECTS.stones_quiet, undefined, 'no quiet-faith pattern left');
-  assert.eq(Object.keys(Z.ASPECTS).sort().join(), 'beach,grove,quarry,stones,tar');
-  // Every grove character's aspects are grove aspects.
-  for (const [ch, list] of Object.entries(Z.GROVE_ASPECTS)) {
+  assert.eq(Z.NEXUS_PATTERNS.stones_quiet, undefined, 'no quiet-faith pattern left');
+  assert.eq(Object.keys(Z.NEXUS_PATTERNS).sort().join(), 'beach,grove,quarry,stones,tar');
+  // Every grove character's patterns are grove patterns.
+  for (const [ch, list] of Object.entries(Z.GROVE_PATTERNS)) {
     assert.truthy(BiomeProfiles.PARK_CHARACTERS[ch], `${ch} is a park character`);
-    for (const [asp, wt] of list) { assert.includes(Z.ASPECTS.grove, asp); assert.gt(wt, 0); }
+    for (const [pat, wt] of list) { assert.includes(Z.NEXUS_PATTERNS.grove, pat); assert.gt(wt, 0); }
   }
-  for (const asp of [...Z.ASPECTS.grove, ...Z.ASPECTS.tar]) {
-    const P = Z.patternPieces(asp);
-    assert.gt(P.length, 3, `${asp} lays a pattern`);
-    assert.falsy(P.some((p) => p.dx === 0 && p.dy === 0), `${asp} leaves the chest's cell alone`);
+  for (const pat of [...Z.NEXUS_PATTERNS.grove, ...Z.NEXUS_PATTERNS.tar]) {
+    const P = Z.patternPieces(pat);
+    assert.gt(P.length, 3, `${pat} lays a pattern`);
+    assert.falsy(P.some((p) => p.dx === 0 && p.dy === 0), `${pat} leaves the chest's cell alone`);
   }
 });
 
@@ -472,15 +473,15 @@ function checkSeam(tag, A, Bt, gx, gy, label) {
   if (ra.kind === 'grove') {
     assert.eq(a.res.objects.filter((o) => o.kind === 'grove_shrine').length, 1, `${label}: one shrine`);
   }
-  return ra.aspect;
+  return ra.nexusPattern;
 }
-// An anchor point near the seam whose aspect is one of `want` (the aspect is a
+// An anchor point near the seam whose pattern is one of `want` (the pattern is a
 // hash of the point, so step along the seam until one fits).
 function seamPoint(tag, want, base, step) {
   for (let k = 0; k < 400; k++) {
     const gx = base[0] + step[0] * k, gy = base[1] + step[1] * k;
     const r = Z.resolveAnchors(Z.collectAnchors({ features: [{ type: 1, geom: [[{ x: gx - TILE_TX * EXT, y: gy - TILE_TY * EXT }]], tags: SEAM_TAGS[tag] }] }, TILE_TX, TILE_TY));
-    if (r.length && want.includes(r[0].aspect)) return [gx, gy];
+    if (r.length && want.includes(r[0].nexusPattern)) return [gx, gy];
   }
   throw new Error(`no ${want} point near the seam`);
 }
@@ -491,19 +492,19 @@ test('zones: a nexus straddling an east/west seam is laid whole, once, by the ti
   const cellU = EXT / N;
   const cases = [
     ['grove', ['tree_ring', 'rose_in_trees', 'rose_rings']],
-    ['tar', Z.ASPECTS.tar],
+    ['tar', Z.NEXUS_PATTERNS.tar],
   ];
   // (A church's graves are per cell — each cell one tile's — and the
   // grove's SYMMETRIC figures are the owner's alone: zone_ground.test.js.)
   const seen = new Set();
   for (const [tag, want] of cases) {
-    for (const asp of want) {
+    for (const pat of want) {
       // 1.5 cells west of the seam: the pattern reaches ±4 cells, both sides.
-      const [gx, gy] = seamPoint(tag, [asp], [seamX - Math.round(1.5 * cellU), TILE_TY * EXT + 2000], [0, 7]);
-      seen.add(checkSeam(tag, [TILE_TX, TILE_TY], [TILE_TX + 1, TILE_TY], gx, gy, `${tag}/${asp} east seam`));
+      const [gx, gy] = seamPoint(tag, [pat], [seamX - Math.round(1.5 * cellU), TILE_TY * EXT + 2000], [0, 7]);
+      seen.add(checkSeam(tag, [TILE_TX, TILE_TY], [TILE_TX + 1, TILE_TY], gx, gy, `${tag}/${pat} east seam`));
     }
   }
-  assert.gte(seen.size, 6, `every aspect crossed a seam (${[...seen].join(', ')})`);
+  assert.gte(seen.size, 6, `every pattern crossed a seam (${[...seen].join(', ')})`);
 });
 
 test('zones: a nexus straddling a north/south seam where the rows\' grids differ is laid whole', () => {
@@ -517,7 +518,7 @@ test('zones: a nexus straddling a north/south seam where the rows\' grids differ
   const base = [TILE_TX * EXT + 1500, seamY - Math.round(2.5 * cellU)];
   for (const [tag, want] of [['grove', ['tree_ring', 'rose_in_trees']], ['tar', ['tar_grid', 'tar_cross']]]) {
     // resolveAnchors' row rule reads the anchor's row — seamPoint only picks
-    // the aspect (a function of the point alone).
+    // the pattern (a function of the point alone).
     const [gx, gy] = seamPoint(tag, want, base, [7, 0]);
     checkSeam(tag, [TILE_TX, ty], [TILE_TX, ty + 1], gx, gy, `${tag} south seam (N ${N} / ${WorldGen.cellsPerEdgeForTile(ty + 1)})`);
     // …and the neighbour laying the north side, anchor in the southern row.
@@ -753,7 +754,7 @@ test('grove variants: dense geometry preserves existing cells without a neighbou
   const cellOf = o => Math.floor((o.y - TILE_TY * edge) / (edge / N)) * N + Math.floor((o.x - TILE_TX * edge) / (edge / N));
   const base = new Set([...on.objects, ...on.wildplants].map(cellOf));
   if (on.streetDress) for (const o of [...on.streetDress.objects, ...on.streetDress.wildplants, ...on.streetDress.treasures]) base.add(cellOf(o));
-  const pieces = [...on.zoneDress.objects, ...on.zoneDress.wildplants].filter(p => p.zone === 'grove');
+  const pieces = [...on.zoneDress.objects, ...on.zoneDress.wildplants].filter(p => p.zoneKind === 'grove');
   assert.gt(pieces.length, 0);
   for (const p of pieces) assert.falsy(base.has(cellOf(p)), `${p.id} leaves existing flora intact`);
 });
@@ -787,7 +788,7 @@ test('zones: every zone terrain is enumerated — colour, texture, family, walka
     assert.truthy(Z.zoneTerrains().includes(code));
   }
   assert.eq(BiomeProfiles.flora(T.GROVE), BiomeProfiles.flora(T.PARK), 'a grove plays like a park');
-  assert.truthy(BIOME_FAUNA.deer.primary.includes(T.GROVE), 'deer take to a grove');
+  assert.falsy(BIOME_FAUNA.deer.primary.includes(T.GROVE), 'deer are confined to forest and residential ground');
   assert.truthy(/FLAT_ROUNDABLE = new Set\(\[[^\]]*\b29\b[^\]]*\b31\b/.test(RENDER_SRC), 'the two flat halos round their corners');
   assert.eq(T.GROVE !== 30 && T.CHURCHYARD !== 30 && T.TAR_YARD !== 30, true, '30 stays the unmapped veil');
 });
@@ -823,7 +824,7 @@ test('beach anchors: source tags choose the theme without beach-name heuristics'
 
 // Real source data tags these places as parks while their sand polygons carry
 // subclass=beach. Changing those polygon tags is the control: terrain stays sand.
-test('beach parks: Kelowna mapped shores get beach variants while inland groves and POIs survive', () => {
+test('beach parks: Kelowna mapped shores pair beach variants with marine meadows and preserve POIs', () => {
   const named = new Set(), variants = new Set();
   let shoreCells = 0, inlandCells = 0, pieces = 0;
   for (const [tx, ty] of [[2753,5565], [2753,5566], [2753,5567], [2754,5567]]) {
@@ -834,6 +835,20 @@ test('beach parks: Kelowna mapped shores get beach variants while inland groves 
     }
     const on = WorldGen.rasterizeTile(source, N, tx, ty, edge);
     const off = WorldGen.rasterizeTile(control, N, tx, ty, edge);
+    const rotary = on.zone?.anchors.find(a => a.name === 'Rotary Beach Park' && a.kind === 'grove');
+    if (rotary) {
+      assert.eq(rotary.variant, 'marine_meadow', 'Rotary grass is coastal meadow, never mushroom grove ' + key + ' ' + JSON.stringify({owned:rotary.owned, gx:rotary.gx, gy:rotary.gy, anchors:on.zone.anchors.filter(a=>a.name===rotary.name).map(a=>({kind:a.kind,variant:a.variant,owned:a.owned}))}));
+      const shore = on.zone.anchors.find(a => a.name === rotary.name && a.parkShore);
+      assert.eq(shore?.variant, 'pirate_cove');
+      if (shore.owned) {
+        const objects = on.zoneDress.objects.filter(o => o.zoneVariant === 'pirate_cove');
+        assert.truthy(objects.some(o => o._shrineArt === 'shipwreck'), 'Rotary has its ship: ' + JSON.stringify(on.zoneDress.diagnostics.filter(d => d.variant === 'pirate_cove')));
+        assert.eq(objects.filter(o => o.zoneLayer === 'shore_find').length, 2, 'Rotary has two shoreline chests');
+        assert.eq(objects.filter(o => o.barrel).length, 3, 'Rotary has authored barrels');
+        assert.eq(on.zoneDress.wildplants.filter(o => o.zoneVariant === 'pirate_cove' && o.crop === 'driftwood' && o.zoneLayer === 'decoration').length, 4, 'Rotary has authored driftwood');
+        assert.eq(on.zoneDress.guards.filter(o => o.zoneVariant === 'pirate_cove' && o.kind === 'crab').length, 3, 'Rotary has authored crabs');
+      }
+    }
     const beaches = (source.find(l => l.name === 'landcover')?.features || [])
       .filter(f => f.type === 3 && f.tags.subclass === 'beach');
     const inside = (p, rings) => {
@@ -859,9 +874,9 @@ test('beach parks: Kelowna mapped shores get beach variants while inland groves 
     }
     const poiIds = r => r.objects.filter(o => o._poiAt).map(o => o.id).sort().join(',');
     assert.eq(poiIds(on), poiIds(off), 'existing park POI ids survive without an extra POI');
-    assert.eq(JSON.stringify(on.zone?.caveSource), JSON.stringify(off.zone?.caveSource), 'beach dressing preserves cave inputs');
+    assert.truthy(JSON.stringify(on.zone?.caveSource) === JSON.stringify(off.zone?.caveSource), 'beach dressing preserves cave inputs');
     pieces += [...(on.zoneDress?.objects || []), ...(on.zoneDress?.wildplants || [])]
-      .filter(o => o.zone === 'beach').length;
+      .filter(o => o.zoneKind === 'beach').length;
   }
   for (const name of ['Boyce-Gyro Beach Park', 'Rotary Beach Park', 'Strathcona Beach Park']) {
     assert.truthy(named.has(name), `${name}: mapped shore activates beach variants`);

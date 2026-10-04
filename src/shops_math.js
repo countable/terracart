@@ -218,9 +218,9 @@
     return next;
   }
 
-  // Cash price to BUY an item worth baseValue. The Bow relic shrinks the markup:
-  // no bow → 1.2..3.0× base; Bow T7 → a flat 1.0× (par). `r` defaults to
-  // Math.random — pass a seeded one for a stable per-bucket price.
+  // Cash price to BUY an item worth baseValue: a random markup inside the one
+  // mode-scaled band (items.js buyMarkupRange; no relic bends it). `r`
+  // defaults to Math.random — pass a seeded one for a stable per-bucket price.
   function buyPrice(save, baseValue, r = Math.random) {
     const { lo, hi } = (typeof buyMarkupRange === 'function')
       ? buyMarkupRange(save.relics) : { lo: 1.2, hi: 3.0 };

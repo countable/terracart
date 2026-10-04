@@ -1,7 +1,6 @@
-// Stress the shipping scheduler with a dense lower-priority layout. Scenic's
-// real placer must retain its named landmark and tide seats before that fill.
+// Named landmarks retain priority, while ordinary shoreline fill yields to a nexus.
 (() => {
-  test('scenic priority: a dense zone cannot consume viewpoint, bottle and tide seats', () => {
+  test('scenic priority: landmarks survive but nexus owns ordinary bottle and tide seats', () => {
     const N = 32, extent = 4096, edge = N * WorldGen.CELL_M;
     const point = (x,y) => ({ x: (x + .5) * extent/N, y: (y + .5) * extent/N });
     const layers = [
@@ -16,7 +15,8 @@
     try {
       Scenic.buildSteps = function* () {
         return { ext: extent, vistas: [{ owned:true, id:'test_viewpoint', lx:point(20,16).x, ly:point(20,16).y }],
-          stretches: [], shore: { waterline, shoreM: 200 } };
+          stretches: [{ key:'test_stretch', kind:'shore', at:point(16,16) }],
+          shore: { waterline, shoreM: 200 }, grassSeats:[point(16,17)] };
       };
       ZoneDressing.dressSteps = function* (ctx) {
         const wildplants = [];
@@ -36,12 +36,14 @@
     assert.gt(result.zone.coverage.filter(Boolean).length, 0, 'fixture has actual special-zone coverage');
     assert.eq(result.scenicDress.objects.filter(o=>o.kind==='vista_scope').length,1);
     assert.eq(result.scenicDress.objects.filter(o=>o.vista==='grail').length,1);
+    assert.eq(result.scenicDress.objects.length,2,'procedural scenic chests and shrines yield to nexus');
+    assert.eq(result.scenicDress.wildplants.length,0,'procedural scenic grass and tide yield to nexus');
     const cell = o => Math.floor(o.y/WorldGen.CELL_M)*N+Math.floor(o.x/WorldGen.CELL_M);
     const bottleCells = result.scenicDress.objects.filter(o=>o.kind==='bottle').map(cell);
-    assert.eq(bottleCells.length, Scenic.BEACH_BOTTLES_PER_TILE, 'the shore washes up its bottles first');
-    const tidePool = waterline.filter(i=>!bottleCells.includes(i));
-    assert.eq(result.scenicDress.wildplants.filter(o=>o.tide).length,tidePool.length);
-    assert.eq([...result.scenicDress.tideSeats].sort().join(), tidePool.slice().sort().join(), 'reservation is exactly the daily pool beside the bottles');
+    assert.eq(bottleCells.length, 0, 'nexus excludes ordinary beach bottles');
+    assert.eq(result.scenicDress.wildplants.filter(o=>o.tide).length, 0);
+    assert.eq(result.scenicDress.tideSeats.size, 0, 'no invisible global reservations block the nexus');
+    assert.truthy(waterline.every(i => result.zoneDress.wildplants.some(o => cell(o) === i)), 'nexus can use the full shoreline');
     const landmarkCells = new Set([...result.scenicDress.objects,...result.scenicDress.wildplants].map(cell));
     assert.gt(result.zoneDress.wildplants.length,10,'the competing layout actually places content');
     assert.falsy(result.zoneDress.wildplants.some(o=>landmarkCells.has(cell(o))), 'no lower-priority overlap');

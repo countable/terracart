@@ -142,6 +142,28 @@ test('scenic: a park path needs a NAMED park or one of PARK_MIN_M2', () => {
   assert.eq(S.ringsAreaU2([[{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }]]), 100);
 });
 
+test('scenic: ordinary bottles and tide reservations yield the entire nexus shoreline', () => {
+  const n = 16, waterline = Array.from({ length: n }, (_, x) => 8 * n + x);
+  const scenic = { shore: { waterline, shoreM: 100 }, grassSeats: [] };
+  const coverage = new Uint16Array(n * n);
+  for (const i of waterline.slice(0, 8)) coverage[i] = 1;
+  const run = zone => S.dress({ scenic, zone, tx: 0, ty: 0, N: n,
+    tileEdgeM: n * WorldGen.CELL_M, grid: new Uint8Array(n * n).fill(WorldGen.T.SAND),
+    chests: [], spawnOpts: { occupied: new Set() } });
+  const ordinary = run(null), nexus = run({ coverage });
+  assert.gt(ordinary.objects.length, 0);
+  assert.gt(ordinary.tideSeats.size, 0);
+  assert.gt(nexus.tideSeats.size, 0, 'ordinary shore beyond nexus still has tide finds');
+  for (const i of nexus.tideSeats) assert.falsy(coverage[i], 'no reserved tide seat inside nexus');
+  for (const o of [...nexus.objects, ...nexus.wildplants]) {
+    const i = Math.floor(o.y / WorldGen.CELL_M) * n + Math.floor(o.x / WorldGen.CELL_M);
+    assert.falsy(coverage[i], 'global beach rewards never occupy nexus cells');
+  }
+  coverage.fill(1);
+  const full = run({ coverage });
+  assert.eq(full.objects.length + full.wildplants.length + full.tideSeats.size, 0);
+});
+
 test('scenic: greenway grass lines both verges deterministically and respects blocked or occupied cells', () => {
   const pts = [[800, 2000], [3200, 2000]];
   const spec = { transportation: [line(FOOT, pts)],

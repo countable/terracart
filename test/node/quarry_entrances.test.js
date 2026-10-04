@@ -11,9 +11,9 @@
   }
   const stairs = out => out.objects.filter(o => o.kind === 'staircase');
   const cell = o => o._iy*N+o._ix;
-  test('quarry entrances: three deterministic functional shafts reserve their approaches before props', () => {
+  test('quarry entrances: reduced deterministic functional shafts reserve their approaches before props', () => {
     const a=ZoneDressing.dress(context()), b=ZoneDressing.dress(context()), down=stairs(a);
-    assert.eq(down.length,3);
+    assert.eq(down.length,2);
     assert.eq(JSON.stringify(down),JSON.stringify(stairs(b)));
     const objects=[...a.objects,...a.wildplants,...a.guards];
     for (const o of down) {
@@ -29,14 +29,30 @@
     const first=stairs(ZoneDressing.dress(context())), ctx=context();
     ctx.spawnOpts.occupied.add(cell(first[0]));
     ctx.spawnOpts.roadMask[cell(first[1])]=1;
-    ctx.spawnOpts.spawnWhy[cell(first[2])]=W.SPAWN_WHY.SENSITIVE;
+    ctx.spawnOpts.spawnWhy[cell(first[1])]=W.SPAWN_WHY.SENSITIVE;
     const relocated=stairs(ZoneDressing.dress(ctx));
-    assert.eq(relocated.length,3);
+    assert.eq(relocated.length,2);
     for (const o of relocated) assert.falsy(first.some(old=>old.id===o.id));
     const blocked=context(); blocked.spawnOpts.spawnWhy.fill(W.SPAWN_WHY.SENSITIVE);
     const out=ZoneDressing.dress(blocked);
     assert.eq(stairs(out).length,0);
     assert.truthy(out.diagnostics.some(d=>d.shortfalls.includes('entrance:no-safe-seat')));
+  });
+  test('quarry entrances: site budgets retain 70% of shafts without moving the surviving identities', () => {
+    const ctx=context(), variant=ZoneVariants.byId('quarry-abandoned');
+    let count=0;
+    for (let key=0;key<10000;key++) count+=QuarryLayout.entranceCount({variant,a:{key}});
+    assert.inRange(count / (10000 * variant.entrances.count), .69, .71, '30% fewer shafts across sites');
+    const reduced=stairs(ZoneDressing.dress(ctx));
+    const settings=ZoneVariantData.quarryLayouts, original=settings.entranceCountScale;
+    try {
+      settings.entranceCountScale=1;
+      const full=stairs(ZoneDressing.dress(context()));
+      assert.eq(full.length,3);
+      assert.eq(JSON.stringify(reduced),JSON.stringify(full.slice(0,reduced.length)), 'retained stairs keep their IDs and positions');
+    } finally { settings.entranceCountScale=original; }
+    assert.falsy(ZoneDressing.dress(context()).diagnostics.some(d=>d.shortfalls.includes('entrance:no-safe-seat')),
+      'intentional reduction is not a placement shortfall');
   });
   test('quarry entrances: legacy cave pass respects authored shafts despite pre-dressing source', () => {
     const ctx=context(), down=stairs(ZoneDressing.dress(ctx));
@@ -55,9 +71,9 @@
     try {
       const cave=await W.loadTile.atDepth(1,tx,ty,49.85);
       const up=cave.objects.filter(o=>o.kind==='staircase'&&o.dir==='up');
-      assert.eq(up.length,3);
+      assert.eq(up.length,2);
       for (const shaft of objects) assert.truthy(up.some(o=>o.x===shaft.x&&o.y===shaft.y),'return ladder mirrors its shaft');
-      assert.eq(cave.objects.filter(o=>o.kind==='staircase'&&o.dir==='down').length,3);
+      assert.eq(cave.objects.filter(o=>o.kind==='staircase'&&o.dir==='down').length,2);
     } finally { for (const depth of [0,1]) W.setDepth(depth).delete(key); W.setDepth(0); }
   });
 })();
