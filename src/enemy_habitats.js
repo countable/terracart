@@ -202,7 +202,7 @@
       x: (o.x - tx * entry.tileEdgeM) / cellM - .5,
       y: (o.y - ty * entry.tileEdgeM) / cellM - .5,
     }));
-    const opts = { roadMask: null, occupied, pois: [] }, out = [];
+    const opts = { roadMask: null, spawnWhy: entry.spawnWhy, occupied, pois: [] }, out = [];
     const cls = root.creatureSpawnClass?.('red_dragon') || 'enemy';
     for (let by = 0; by < EXT / REGION; by++) for (let bx = 0; bx < EXT / REGION; bx++) {
       const rx = tx * EXT / REGION + bx, ry = ty * EXT / REGION + by;

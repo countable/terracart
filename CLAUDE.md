@@ -73,6 +73,11 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
 
+- Farmland and golf-course no-spawn exclusions apply at every dungeon depth.
+  `WorldGen.SPAWN_WHY_ALL_FLOORS` owns the inherited reasons; `floorSpawnWhy`
+  derives them from immutable surface evidence. Preserve that mask through cave
+  generation and runtime spawns; repainting or digging never grants spawn access.
+
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.

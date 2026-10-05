@@ -611,6 +611,16 @@
   const W_ = SPAWN_WHY;
   const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
     | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR | W_.FARMLAND | W_.GOLF | W_.PIER_ACCESS;
+  // Geographic exclusions survive every dungeon floor. Terrain, roads and
+  // frontage are evaluated separately for the floor on which a spawn sits.
+  const SPAWN_WHY_ALL_FLOORS = W_.FARMLAND | W_.GOLF;
+  function floorSpawnWhy(surface) {
+    const source = surface.zone?.caveSource || surface.caveSource || surface;
+    const grid = source.baseGrid || source.grid;
+    const why = source.spawnWhy || surface.spawnWhy;
+    return Uint16Array.from(grid, (terrain, i) => ((why?.[i] || 0) & SPAWN_WHY_ALL_FLOORS)
+      | (terrain === T.FARMLAND ? W_.FARMLAND : terrain === T.GOLF ? W_.GOLF : 0));
+  }
   const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE;
   // The hard reasons that are about the LAND (not terrain, not the band).
   const SPAWN_WHY_LAND = SPAWN_WHY_HARD & ~(W_.TERRAIN | W_.ROAD);
@@ -7935,10 +7945,11 @@
   // Uniformly random CAVE_FLOOR cell on the tile, excluding `skipIdx` (so a
   // down-stair never lands on the up-stair it descends from). Deterministic via
   // the supplied rng. Returns its world centre, or null if there's no floor.
-  function randomFloorCell(grid, N, tx, ty, tileEdgeM, rng, skipIdx) {
+  function randomFloorCell(grid, N, tx, ty, tileEdgeM, rng, skipIdx, spawnWhy) {
     const floors = [];
     for (let i = 0; i < grid.length; i++) {
-      if (grid[i] === T.CAVE_FLOOR && i !== skipIdx) floors.push(i);
+      if (grid[i] === T.CAVE_FLOOR && i !== skipIdx
+          && isSpawnCell(grid, N, N, i % N, Math.floor(i / N), { spawnWhy }, 'cave')) floors.push(i);
     }
     if (!floors.length) return null;
     const idx = floors[Math.floor(rng() * floors.length)];
@@ -8729,6 +8740,8 @@
     const surface = depth >= 2 ? await loadTile.atDepth(0, x, y, lat) : above;
     if (surface.status === 'loading') await surface.promise;
     const { grid, areas } = undergroundTerrain(surface, aboveGrid, depth);
+    const spawnWhy = floorSpawnWhy(surface);
+    for (let i = 0; i < areas.length; i++) if (spawnWhy[i]) areas[i] = 0;
     // THE LAVA LEVEL. By here a building's footprint is indistinguishable from
     // a road's or a lake's — every cave level carries them all as CAVE_WALL —
     // so ask the SURFACE, the one grid that still knows (its generated layer,
@@ -8756,6 +8769,7 @@
     for (const s of downAbove) {
       const { lix: ulix, liy: uliy } = cellIndexOf(x, y, s.x, s.y, tileEdgeM, N);
       const inTile = ulix >= 0 && ulix < N && uliy >= 0 && uliy < N;
+      if (!inTile || spawnWhy[uliy * N + ulix]) continue;
       // Way back up: stand on it the moment you descend.
       objects.push(makeObject('staircase', s.x, s.y, caveStairId('up', depth, x, y, ulix, uliy),
         { dir: 'up', depth }));
@@ -8765,7 +8779,7 @@
       // and across saves (the old seed was the stair's frame metres).
       const skipIdx = inTile ? uliy * N + ulix : -1;
       const dnRng = makeRng((cellHash(x, y, ulix, uliy) ^ Math.imul(depth, 0x9E3779B1)) >>> 0);
-      const dn = depth === 1 ? null : randomFloorCell(grid, N, x, y, tileEdgeM, dnRng, skipIdx);
+      const dn = depth === 1 ? null : randomFloorCell(grid, N, x, y, tileEdgeM, dnRng, skipIdx, spawnWhy);
       if (dn) {
         objects.push(makeObject('staircase', dn.x, dn.y, caveStairId('down', depth, x, y, dn.lix, dn.liy),
           { dir: 'down', depth }));
@@ -8775,10 +8789,11 @@
     // shaft onward to the Underdark after arrival by rope or elevator.
     if (depth >= 2 && !objects.some(o => o.kind === 'staircase' && o.dir === 'down')) {
       const rng = makeRng((cellHash(x, y, 0, 0) ^ Math.imul(depth, 0x9E3779B1)) >>> 0);
-      const floor = randomFloorCell(grid, N, x, y, tileEdgeM, rng, -1);
+      const floor = randomFloorCell(grid, N, x, y, tileEdgeM, rng, -1, spawnWhy);
       const seat = floor || { lix: Math.floor(N / 2), liy: Math.floor(N / 2) };
       const p = floor || cellCentreM(x, y, seat.lix, seat.liy, tileEdgeM, N);
-      objects.push(makeObject('staircase', p.x, p.y, caveStairId('down', depth, x, y, seat.lix, seat.liy), { dir: 'down', depth }));
+      if (!spawnWhy[seat.liy * N + seat.lix])
+        objects.push(makeObject('staircase', p.x, p.y, caveStairId('down', depth, x, y, seat.lix, seat.liy), { dir: 'down', depth }));
     }
     const landingCells = new Set();
     for (const o of objects) if (o.kind === 'staircase') {
@@ -8795,6 +8810,9 @@
     // The POI chests overhead, mirrored down to this level (they claim their
     // cells in `occupied` before the rocks are rolled).
     for (const i of landingCells) occupied.add(i);
+    // Every cave placement pass shares these reservations, including mirrors,
+    // torches, gem seams and rewards. Keep the actual terrain walkable.
+    for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i]) occupied.add(i);
     const { clearings, residents } = undergroundClearings(areas, grid, N, x, y, tileEdgeM, objects, occupied);
     const chestSources = depth === 3 ? (surface.genObjects || surface.objects || []) : aboveObjects;
     for (const c of caveChestsFrom(chestSources, grid, N, x, y, tileEdgeM, depth, occupied)) {
@@ -8820,7 +8838,7 @@
     stampCaveQuarryRocks(objects, above, N, x, y, tileEdgeM, depth);
     const extraTreasures = level.treasures, caveCoinSeeds = level.coins;
     const entry = {
-      status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
+      status: 'ready', grid, spawnWhy, cellsPerEdge: N, tileEdgeM, depth,
       undergroundBiome: depth === 3 ? 'underdark' : depth === 2 ? 'deep_stone' : 'cave',
       undergroundAreas: areas, undergroundClearings: clearings, undergroundResidents: residents,
       undergroundReserved: occupied, surfaceRoadMask: surface.roadMask,
@@ -9011,7 +9029,7 @@
     hedgeMazeCell, hedgeMazePotCell, HEDGE_LATTICE_P,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
-    SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
+    SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_ALL_FLOORS, floorSpawnWhy, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
     SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, spawnClassOf,
     landRefused, stampSpawnWhySteps, isPrivateWay, isPublicPier, churchyardBufferM, SPAWN_FRONTAGE,
     SPAWN_SENSITIVE_BUFFER_M,

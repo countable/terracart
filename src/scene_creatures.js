@@ -1396,6 +1396,9 @@ class SceneCreatures {
     // an object sitting on top of it, same as the surface roadMask can't see
     // an object sitting on top of a grass cell.
     const occupiedIdx = new Set();
+    for (let i = 0; i < (entry.spawnWhy?.length || 0); i++) {
+      if (entry.spawnWhy[i] & WorldGen.SPAWN_WHY_ALL_FLOORS) occupiedIdx.add(i);
+    }
     for (const o of [...genObjects, ...genWildplants]) {
       const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
@@ -1412,7 +1415,7 @@ class SceneCreatures {
     }
     // Cave spawners share this generated occupancy because terrain alone
     // cannot reveal a rock, mushroom or floor torch seated on its floor cell.
-    entry._spawnOpts = { roadMask: null, occupied: occupiedIdx, pois: [] };
+    entry._spawnOpts = { roadMask: null, spawnWhy: entry.spawnWhy, occupied: occupiedIdx, pois: [] };
     // Cells THIS player's live entry holds that the generated layer doesn't —
     // their stairs. A seat drawn onto one is dropped (the attempt still ends
     // exactly where it would for anyone else).
@@ -1476,11 +1479,13 @@ class SceneCreatures {
     }
     // Rabbits: anchored like the pack, not multiplied by anchor count.
     const rabbitN = 10 + Math.floor(rng() * 8);
+    const spClass = creatureSpawnClass('rabbit');
     for (let i = 0; i < rabbitN; i++) {
       for (let attempt = 0; attempt < 20; attempt++) {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { spawnWhy: entry.spawnWhy }, spClass)) continue;
         // Cave rabbits share interactable cells, like surface fauna.
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
         if (caughtSet.has(id)) break;   // already caught — stays gone
