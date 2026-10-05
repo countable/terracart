@@ -4,4 +4,4 @@ Author: ARoachIFoundOnMyPillow
 License: CC0 1.0
 Source: https://opengameart.org/content/16x16-rpg-items-db32
 License: https://creativecommons.org/publicdomain/zero/1.0/
-Copied from docs/proposal-art/round2/grass_rare_item_compass.png.
+Copied from docs/art/proposal-art/round2/grass_rare_item_compass.png.

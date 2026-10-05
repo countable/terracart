@@ -65,7 +65,7 @@
             "label": "Tender shoot patch",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/grass_common_item_frond.png",
+              "path": "docs/art/proposal-art/round2/grass_common_item_frond.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_frond.png",
               "sourcePath": "db32_rpg_items/item_frond.png",
@@ -77,7 +77,7 @@
               ],
               "sha256": "f9e65a04bf7c98c936bf3b7ba1d42a20821679b1edf3e686df8ab6fc096f04e6",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Cut a tender shoot for plant fibre; leave the roots for a daily regrowth.",
@@ -111,7 +111,7 @@
             "label": "Naturalist lens",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/grass_uncommon_item_magnifying_glass.png",
+              "path": "docs/art/proposal-art/round2/grass_uncommon_item_magnifying_glass.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_magnifying_glass.png",
               "sourcePath": "db32_rpg_items/item_magnifying_glass.png",
@@ -123,7 +123,7 @@
               ],
               "sha256": "76a9efa043a18702cf71d8a4ead77cb4f254e8cf9aa87b43796a0a3655172e48",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Inspect three nearby plants in order to earn a seed sample.",
@@ -157,7 +157,7 @@
             "label": "Wayfinder compass",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/grass_rare_item_compass.png",
+              "path": "docs/art/proposal-art/round2/grass_rare_item_compass.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_compass.png",
               "sourcePath": "db32_rpg_items/item_compass.png",
@@ -169,7 +169,7 @@
               ],
               "sha256": "34c47a57bf8ffd9d533a26784393e69a33d26ac7ff8ffbdcc9cb45f7a7c36a1e",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Align the compass and follow a short public-ground bearing to a buried find.",
@@ -204,7 +204,7 @@
             "label": "Resin pocket",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/forest_common_item_gem_amber.png",
+              "path": "docs/art/proposal-art/round2/forest_common_item_gem_amber.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_gem_amber.png",
               "sourcePath": "db32_rpg_items/item_gem_amber.png",
@@ -216,7 +216,7 @@
               ],
               "sha256": "0f82fa5475cbc041b0b042be00cf293cf892e2d5684aa5df41c220b78b523d82",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Chip amber resin from a fallen twig for a small crafting ingredient yield.",
@@ -373,7 +373,7 @@
             "label": "Undelivered letter",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/residential_uncommon_item_envelope.png",
+              "path": "docs/art/proposal-art/round2/residential_uncommon_item_envelope.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_envelope.png",
               "sourcePath": "db32_rpg_items/item_envelope.png",
@@ -385,7 +385,7 @@
               ],
               "sha256": "8b9555257e0f4ad4c6f0779d4286cfd5931a799b4bc0f7e3502edf6ebc0a29ee",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Read a lost letter and deliver it to a nearby public noticeboard for a reward.",
@@ -419,7 +419,7 @@
             "label": "Signal mirror",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/residential_rare_item_mirror.png",
+              "path": "docs/art/proposal-art/round2/residential_rare_item_mirror.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_mirror.png",
               "sourcePath": "db32_rpg_items/item_mirror.png",
@@ -431,7 +431,7 @@
               ],
               "sha256": "33fe2f7b9146cc6a653162e788b51bf2c4f89005739cc7e9517fa9d4272a4c35",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Turn a mounted mirror toward a nearby marker to reveal a concealed supply cache.",
@@ -493,13 +493,13 @@
           "proposalAction": "Focus on a sequence of distant park markers to reveal a hidden nature-cache clue.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/park_rare_telescope2.png",
+            "path": "docs/art/proposal-art/round2/park_rare_telescope2.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/telescope2.png",
             "sourcePath": "db32_rpg_items/telescope2.png",
@@ -511,7 +511,7 @@
             ],
             "sha256": "7db91527322df3d21acb5403a8123ed5bd3c5ea2db3cf9ceb8a1b85cb0956fcc",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Focus on a sequence of distant park markers to reveal a hidden nature-cache clue.",
@@ -545,7 +545,7 @@
             "label": "Peridot seam",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/rock_common_item_gem_peridot.png",
+              "path": "docs/art/proposal-art/round2/rock_common_item_gem_peridot.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_gem_peridot.png",
               "sourcePath": "db32_rpg_items/item_gem_peridot.png",
@@ -557,7 +557,7 @@
               ],
               "sha256": "bba931d4e167a7b611720a00019074a4a8176e4d8dbff0b610bf404987382533",
               "note": "Visually inspected unchanged archive icon. A grounded rock mount/composite is needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Expose a green seam with carefully placed mining strikes for a small crafting-mineral yield.",
@@ -592,7 +592,7 @@
             "label": "Resonant quartz",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/rock_uncommon_item_gem_quartz.png",
+              "path": "docs/art/proposal-art/round2/rock_uncommon_item_gem_quartz.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_gem_quartz.png",
               "sourcePath": "db32_rpg_items/item_gem_quartz.png",
@@ -604,7 +604,7 @@
               ],
               "sha256": "02b198aa08882006c4fa16fdde2b210d2e6392f9177424838a0295f3b8385418",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Tap the quartz in its repeating rhythm to release a small mineral reward.",
@@ -639,7 +639,7 @@
             "label": "Uncut prism",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/rock_rare_item_gem_diamond_rough.png",
+              "path": "docs/art/proposal-art/round2/rock_rare_item_gem_diamond_rough.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_gem_diamond_rough.png",
               "sourcePath": "db32_rpg_items/item_gem_diamond_rough.png",
@@ -651,7 +651,7 @@
               ],
               "sha256": "3b77a07c2b3f63ca8c05d54e43d201449670e0d5077f45132bf91697b5baee4c",
               "note": "Visually inspected unchanged archive icon. A grounded rock mount/composite is needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Rotate an uncut prism to align its light and uncover a rare find.",
@@ -698,13 +698,13 @@
           "proposalAction": "Match map symbols to three nearby public markers and claim a supply reward.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/school_uncommon_item_paper_map.png",
+            "path": "docs/art/proposal-art/round2/school_uncommon_item_paper_map.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/item_paper_map.png",
             "sourcePath": "db32_rpg_items/item_paper_map.png",
@@ -716,7 +716,7 @@
             ],
             "sha256": "3b50ea522803ed6e067c75c00df584271a6e8fd62896b63eab4d64d618f0d1a9",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Match map symbols to three nearby public markers and claim a supply reward.",
@@ -749,7 +749,7 @@
             "label": "Field lesson book",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/school_rare_item_book_red_lines.png",
+              "path": "docs/art/proposal-art/round2/school_rare_item_book_red_lines.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_book_red_lines.png",
               "sourcePath": "db32_rpg_items/item_book_red_lines.png",
@@ -761,7 +761,7 @@
               ],
               "sha256": "4d13592a5238636ba23bc73afbc1b0c9a1f59adc02f0d10ec92ecb4d6df92150",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Read a short illustrated lesson, then identify the matching nearby plant to earn seeds.",
@@ -803,13 +803,13 @@
           "proposalAction": "Find the matching public locker symbol and open its small supply cache.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/commercial_uncommon_key4.png",
+            "path": "docs/art/proposal-art/round2/commercial_uncommon_key4.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/key4.png",
             "sourcePath": "db32_rpg_items/key4.png",
@@ -821,7 +821,7 @@
             ],
             "sha256": "85bcd9fd707a7a3bcfaee5b562d422693fae9aafedb2569d310d720305ed2e45",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Find the matching public locker symbol and open its small supply cache.",
@@ -855,7 +855,7 @@
             "label": "Recipe ledger",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/commercial_rare_item_book_brown_square.png",
+              "path": "docs/art/proposal-art/round2/commercial_rare_item_book_brown_square.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_book_brown_square.png",
               "sourcePath": "db32_rpg_items/item_book_brown_square.png",
@@ -867,7 +867,7 @@
               ],
               "sha256": "7be61a62825b304f4b24d86b758dcdb99b607c0e9c0241468ec7944950352704",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Spend a listed ingredient to complete a recipe and gain a one-time crafted item.",
@@ -910,13 +910,13 @@
           "proposalAction": "Free a rusted tool from scrap, choosing safe leverage to recover metal.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/industrial_uncommon_pickaxe_crusty.png",
+            "path": "docs/art/proposal-art/round2/industrial_uncommon_pickaxe_crusty.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/pickaxe_crusty.png",
             "sourcePath": "db32_rpg_items/pickaxe_crusty.png",
@@ -928,7 +928,7 @@
             ],
             "sha256": "4ad26b86b5d4a8f260f0eb7bc3879be351344a5f74dc334a8b074531ee2f777b",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Free a rusted tool from scrap, choosing safe leverage to recover metal.",
@@ -962,7 +962,7 @@
             "label": "Grounding rod",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/industrial_rare_lance_crusty.png",
+              "path": "docs/art/proposal-art/round2/industrial_rare_lance_crusty.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/lance_crusty.png",
               "sourcePath": "db32_rpg_items/lance_crusty.png",
@@ -974,7 +974,7 @@
               ],
               "sha256": "1d0b2cc6dcc5f82531a486ab604f1d7ebd9ee0241bf8bda95821a1b8fea70880",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Connect a loose grounding rod to discharge a live salvage pile before opening it.",
@@ -1000,13 +1000,13 @@
           "proposalAction": "Follow and catch a drifting feather before it settles for a small energy reward.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/playground_common_item_feather.png",
+            "path": "docs/art/proposal-art/round2/playground_common_item_feather.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/item_feather.png",
             "sourcePath": "db32_rpg_items/item_feather.png",
@@ -1018,7 +1018,7 @@
             ],
             "sha256": "638d8a1b53b16f758a0e59bdf75d037af1ed07540f7ae7ec690fa8eb33eda795",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Follow and catch a drifting feather before it settles for a small energy reward.",
@@ -1053,7 +1053,7 @@
             "label": "Trail wand",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/playground_uncommon_stave1.png",
+              "path": "docs/art/proposal-art/round2/playground_uncommon_stave1.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/stave1.png",
               "sourcePath": "db32_rpg_items/stave1.png",
@@ -1065,7 +1065,7 @@
               ],
               "sha256": "abaa4d18a0894e47993a933947ac389c8059ba3a2a9d6cfd9f248094a8799380",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Touch a play wand and follow its sequence of glowing stepping spots.",
@@ -1100,7 +1100,7 @@
             "label": "Story puzzle book",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/playground_rare_item_book_purple_square.png",
+              "path": "docs/art/proposal-art/round2/playground_rare_item_book_purple_square.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_book_purple_square.png",
               "sourcePath": "db32_rpg_items/item_book_purple_square.png",
@@ -1112,7 +1112,7 @@
               ],
               "sha256": "450051a3592adc654df49c0c4831a87f78f58d67e373a28d607d05e65163c041",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Arrange three pictured story events to unlock a toy-sized supply cache.",
@@ -1147,7 +1147,7 @@
             "label": "Practice arrow marker",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/pitch_common_item_arrow.png",
+              "path": "docs/art/proposal-art/round2/pitch_common_item_arrow.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_arrow.png",
               "sourcePath": "db32_rpg_items/item_arrow.png",
@@ -1159,7 +1159,7 @@
               ],
               "sha256": "2bc9f65d95ab22df7a4fb08d7509a77c53396cc4cb0e04e78237e01274c2a353",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Retrieve an arrow after a short target-aiming exercise.",
@@ -1189,7 +1189,7 @@
             "label": "Sprint boots marker",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/pitch_uncommon_armor_boots_crusty.png",
+              "path": "docs/art/proposal-art/round2/pitch_uncommon_armor_boots_crusty.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/armor_boots_crusty.png",
               "sourcePath": "db32_rpg_items/armor_boots_crusty.png",
@@ -1201,7 +1201,7 @@
               ],
               "sha256": "3fa5b5b5ebd369ff785feb7f2924c6e74db5d428f142fa70fcc050c48816898e",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Start a short timed circuit between accessible pitch-edge markers.",
@@ -1221,13 +1221,13 @@
           "proposalAction": "Complete three precision targets to claim a commemorative reward.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/pitch_rare_armor_helmet_gold.png",
+            "path": "docs/art/proposal-art/round2/pitch_rare_armor_helmet_gold.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/armor_helmet_gold.png",
             "sourcePath": "db32_rpg_items/armor_helmet_gold.png",
@@ -1239,7 +1239,7 @@
             ],
             "sha256": "da47de78b83791e6ade502f502edbf747cf278453cdd27c05c895debdfafbd38",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Complete three precision targets to claim a commemorative reward.",
@@ -1278,7 +1278,7 @@
             "label": "Harvestable cattails",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/wetland_common_cattails.png",
+              "path": "docs/art/proposal-art/round2/wetland_common_cattails.png",
               "status": "archived_unused",
               "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cattails.png",
               "sourcePath": "verdant-props-tileset-16x16/tiles/16x16/cattails.png",
@@ -1290,7 +1290,7 @@
               ],
               "sha256": "7e51e97de85ccb50eabb822ed12ed45f9fb92289f917aa5d47341b58cde3c76c",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. World prop art is already present.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "license": "docs/art/proposal-art/VERDANT-LICENSE.txt"
             },
             "interactionProposal": {
               "action": "Cut a ripe cattail head for fibre while leaving the plant standing.",
@@ -1310,13 +1310,13 @@
           "proposalAction": "Pull exposed roots in the right order to free a medicinal ingredient.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/wetland_uncommon_item_root.png",
+            "path": "docs/art/proposal-art/round2/wetland_uncommon_item_root.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/item_root.png",
             "sourcePath": "db32_rpg_items/item_root.png",
@@ -1328,7 +1328,7 @@
             ],
             "sha256": "eb8317e3b20e48841f2e18dc41bd7a74b442c3426bf0b99a4706986b337dba2c",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Pull exposed roots in the right order to free a medicinal ingredient.",
@@ -1357,7 +1357,7 @@
             "label": "Filtering flask",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/wetland_rare_potion_murkygreen.png",
+              "path": "docs/art/proposal-art/round2/wetland_rare_potion_murkygreen.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/potion_murkygreen.png",
               "sourcePath": "db32_rpg_items/potion_murkygreen.png",
@@ -1369,7 +1369,7 @@
               ],
               "sha256": "a7c97730ba4a1249a7753706a343178804e99fb67c5f3cf2a31199ec61d1a4ac",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Filter murky water through gathered fibre to prepare a cleansing dose.",
@@ -1416,15 +1416,15 @@
           "implementationState": "superseded_by_forest_hive",
           "sourceRefs": [
             "src/macros.js dailyVisit; src/items.js consumable definitions; src/conditions.js",
-            "docs/ART_SOURCES.md"
+            "docs/art/ART_SOURCES.md"
           ],
           "itemQuality": null,
           "condition": "Eligible orchard edges only, within the outer two-cell band (about 14 m); never the interior or private farmland.",
           "artProposal": {
-            "path": "docs/proposal-art/beehive_skep.png",
+            "path": "docs/art/proposal-art/beehive_skep.png",
             "status": "archived_unused",
             "note": "Unused standalone 16×16 archive sprite, copied here for proposal review only. Not a runtime asset.",
-            "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+            "license": "docs/art/proposal-art/VERDANT-LICENSE.txt"
           },
           "interactionProposal": {
             "action": "Tend a hive, then collect a small daily honey harvest; careless collection can sting.",
@@ -1471,13 +1471,13 @@
           "proposalAction": "Dig a rusted axe head out of ash and break it down into scrap.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/wasteland_common_axe_crusty.png",
+            "path": "docs/art/proposal-art/round2/wasteland_common_axe_crusty.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/axe_crusty.png",
             "sourcePath": "db32_rpg_items/axe_crusty.png",
@@ -1489,7 +1489,7 @@
             ],
             "sha256": "836b2bda7ee7679dfd8c63d1729527070e1fadec73a3d48f92517c3be2d766ea",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Dig a rusted axe head out of ash and break it down into scrap.",
@@ -1517,7 +1517,7 @@
             "label": "Hot slag pail",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/wasteland_uncommon_item_bucket_narrow_lava.png",
+              "path": "docs/art/proposal-art/round2/wasteland_uncommon_item_bucket_narrow_lava.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_bucket_narrow_lava.png",
               "sourcePath": "db32_rpg_items/item_bucket_narrow_lava.png",
@@ -1529,7 +1529,7 @@
               ],
               "sha256": "df90a587871c47fa317f8794e845250df6d1a48e0debb259fb3f7815af06090b",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Cool a pail of glowing slag before extracting metal.",
@@ -1564,7 +1564,7 @@
             "label": "Memory stone",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/wasteland_rare_gravestone.png",
+              "path": "docs/art/proposal-art/round2/wasteland_rare_gravestone.png",
               "status": "archived_unused",
               "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/gravestone.png",
               "sourcePath": "verdant-props-tileset-16x16/tiles/16x16/gravestone.png",
@@ -1576,7 +1576,7 @@
               ],
               "sha256": "78ed875e731c3780d19366a823cbc5f21d0b91cbe56c810f6ed838951003972e",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. World prop art is already present.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "license": "docs/art/proposal-art/VERDANT-LICENSE.txt"
             },
             "interactionProposal": {
               "action": "Trace worn markings in sequence to release a brief memory and a relic reward.",
@@ -1602,13 +1602,13 @@
           "proposalAction": "Place bait in a pail at a public pier and return after a daily reset for a small fishing supply yield.",
           "implementationState": "proposal_only",
           "sourceRefs": [
-            "docs/ART_SOURCES.md",
-            "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "docs/art/ART_SOURCES.md",
+            "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           ],
           "itemQuality": null,
           "condition": null,
           "artProposal": {
-            "path": "docs/proposal-art/round2/pier_common_item_bucket_wide_empty.png",
+            "path": "docs/art/proposal-art/round2/pier_common_item_bucket_wide_empty.png",
             "status": "archived_unused",
             "archivePath": "unused_art/db32_rpg_items/item_bucket_wide_empty.png",
             "sourcePath": "db32_rpg_items/item_bucket_wide_empty.png",
@@ -1620,7 +1620,7 @@
             ],
             "sha256": "e2ee79cfce4cebb9b3fdf24a39c2fa7c3663e76b151a6232704fbadcacd4b74d",
             "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-            "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+            "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
           },
           "interactionProposal": {
             "action": "Place bait in a pail at a public pier and return after a daily reset for a small fishing supply yield.",
@@ -1648,7 +1648,7 @@
             "label": "Tangled pearl line",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/pier_uncommon_item_pearl_necklace.png",
+              "path": "docs/art/proposal-art/round2/pier_uncommon_item_pearl_necklace.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_pearl_necklace.png",
               "sourcePath": "db32_rpg_items/item_pearl_necklace.png",
@@ -1660,7 +1660,7 @@
               ],
               "sha256": "21a971dec1842605d9670b82df87a2bb602f3cdc1d2814a83cbf815e16e535c5",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Untangle a submerged line in the correct sequence to recover a small pearl find.",
@@ -1695,7 +1695,7 @@
             "label": "Tide chart",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/pier_rare_item_scroll.png",
+              "path": "docs/art/proposal-art/round2/pier_rare_item_scroll.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_scroll.png",
               "sourcePath": "db32_rpg_items/item_scroll.png",
@@ -1707,7 +1707,7 @@
               ],
               "sha256": "bded95a3456e1e6f0176f0b743817c3c284c7b394e3efbd27f028cd956e69301",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Read the tide symbols and cast at the marked reachable water edge for one special catch.",
@@ -1743,10 +1743,10 @@
             "label": "Cave bone cache",
             "implementationState": "implemented_as_road_variant",
             "artProposal": {
-              "path": "docs/proposal-art/bone_pile.png",
+              "path": "docs/art/proposal-art/bone_pile.png",
               "status": "archived_unused",
               "note": "Existing archived 16×16 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-              "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+              "license": "docs/art/proposal-art/VERDANT-LICENSE.txt"
             },
             "interactionProposal": {
               "action": "Search each bone cache once; Clusters in the Bone Gallery small cave-road variant on shallow cave levels, with one strong depth-appropriate guardian. No ordinary cave-floor scatter.",
@@ -1783,7 +1783,7 @@
             "label": "Echo crystal",
             "implementationState": "proposal_only",
             "artProposal": {
-              "path": "docs/proposal-art/round2/cave_floor_uncommon_item_gem_amethyst.png",
+              "path": "docs/art/proposal-art/round2/cave_floor_uncommon_item_gem_amethyst.png",
               "status": "archived_unused",
               "archivePath": "unused_art/db32_rpg_items/item_gem_amethyst.png",
               "sourcePath": "db32_rpg_items/item_gem_amethyst.png",
@@ -1795,7 +1795,7 @@
               ],
               "sha256": "e46e2a077095bb276f20023f30b4322a113eb43e458cd6eddae335f9b9c8eebe",
               "note": "Visually inspected archive sprite, unchanged. Proposal preview only. This is an inventory-sized icon; a grounded world mount/composite is still needed before runtime use.",
-              "license": "docs/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
+              "license": "docs/art/proposal-art/round2/DB32-LICENSE-SOURCE.txt"
             },
             "interactionProposal": {
               "action": "Repeat a crystal tone pattern to reveal nearby cave supplies.",
@@ -1906,7 +1906,7 @@
         "zone": "GRASS",
         "level": "common",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/grass_common_item_frond.png",
+        "path": "docs/art/proposal-art/round2/grass_common_item_frond.png",
         "archivePath": "unused_art/db32_rpg_items/item_frond.png",
         "sha256": "f9e65a04bf7c98c936bf3b7ba1d42a20821679b1edf3e686df8ab6fc096f04e6"
       },
@@ -1914,7 +1914,7 @@
         "zone": "GRASS",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/grass_uncommon_item_magnifying_glass.png",
+        "path": "docs/art/proposal-art/round2/grass_uncommon_item_magnifying_glass.png",
         "archivePath": "unused_art/db32_rpg_items/item_magnifying_glass.png",
         "sha256": "76a9efa043a18702cf71d8a4ead77cb4f254e8cf9aa87b43796a0a3655172e48"
       },
@@ -1922,7 +1922,7 @@
         "zone": "GRASS",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/grass_rare_item_compass.png",
+        "path": "docs/art/proposal-art/round2/grass_rare_item_compass.png",
         "archivePath": "unused_art/db32_rpg_items/item_compass.png",
         "sha256": "34c47a57bf8ffd9d533a26784393e69a33d26ac7ff8ffbdcc9cb45f7a7c36a1e"
       },
@@ -1930,7 +1930,7 @@
         "zone": "FOREST",
         "level": "common",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/forest_common_item_gem_amber.png",
+        "path": "docs/art/proposal-art/round2/forest_common_item_gem_amber.png",
         "archivePath": "unused_art/db32_rpg_items/item_gem_amber.png",
         "sha256": "0f82fa5475cbc041b0b042be00cf293cf892e2d5684aa5df41c220b78b523d82"
       },
@@ -1938,7 +1938,7 @@
         "zone": "RESIDENTIAL",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/residential_uncommon_item_envelope.png",
+        "path": "docs/art/proposal-art/round2/residential_uncommon_item_envelope.png",
         "archivePath": "unused_art/db32_rpg_items/item_envelope.png",
         "sha256": "8b9555257e0f4ad4c6f0779d4286cfd5931a799b4bc0f7e3502edf6ebc0a29ee"
       },
@@ -1946,7 +1946,7 @@
         "zone": "RESIDENTIAL",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/residential_rare_item_mirror.png",
+        "path": "docs/art/proposal-art/round2/residential_rare_item_mirror.png",
         "archivePath": "unused_art/db32_rpg_items/item_mirror.png",
         "sha256": "33fe2f7b9146cc6a653162e788b51bf2c4f89005739cc7e9517fa9d4272a4c35"
       },
@@ -1954,7 +1954,7 @@
         "zone": "PARK",
         "level": "rare",
         "role": "slot",
-        "path": "docs/proposal-art/round2/park_rare_telescope2.png",
+        "path": "docs/art/proposal-art/round2/park_rare_telescope2.png",
         "archivePath": "unused_art/db32_rpg_items/telescope2.png",
         "sha256": "7db91527322df3d21acb5403a8123ed5bd3c5ea2db3cf9ceb8a1b85cb0956fcc"
       },
@@ -1962,7 +1962,7 @@
         "zone": "ROCK",
         "level": "common",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/rock_common_item_gem_peridot.png",
+        "path": "docs/art/proposal-art/round2/rock_common_item_gem_peridot.png",
         "archivePath": "unused_art/db32_rpg_items/item_gem_peridot.png",
         "sha256": "bba931d4e167a7b611720a00019074a4a8176e4d8dbff0b610bf404987382533"
       },
@@ -1970,7 +1970,7 @@
         "zone": "ROCK",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/rock_uncommon_item_gem_quartz.png",
+        "path": "docs/art/proposal-art/round2/rock_uncommon_item_gem_quartz.png",
         "archivePath": "unused_art/db32_rpg_items/item_gem_quartz.png",
         "sha256": "02b198aa08882006c4fa16fdde2b210d2e6392f9177424838a0295f3b8385418"
       },
@@ -1978,7 +1978,7 @@
         "zone": "ROCK",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/rock_rare_item_gem_diamond_rough.png",
+        "path": "docs/art/proposal-art/round2/rock_rare_item_gem_diamond_rough.png",
         "archivePath": "unused_art/db32_rpg_items/item_gem_diamond_rough.png",
         "sha256": "3b77a07c2b3f63ca8c05d54e43d201449670e0d5077f45132bf91697b5baee4c"
       },
@@ -1986,7 +1986,7 @@
         "zone": "SCHOOL",
         "level": "uncommon",
         "role": "slot",
-        "path": "docs/proposal-art/round2/school_uncommon_item_paper_map.png",
+        "path": "docs/art/proposal-art/round2/school_uncommon_item_paper_map.png",
         "archivePath": "unused_art/db32_rpg_items/item_paper_map.png",
         "sha256": "3b50ea522803ed6e067c75c00df584271a6e8fd62896b63eab4d64d618f0d1a9"
       },
@@ -1994,7 +1994,7 @@
         "zone": "SCHOOL",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/school_rare_item_book_red_lines.png",
+        "path": "docs/art/proposal-art/round2/school_rare_item_book_red_lines.png",
         "archivePath": "unused_art/db32_rpg_items/item_book_red_lines.png",
         "sha256": "4d13592a5238636ba23bc73afbc1b0c9a1f59adc02f0d10ec92ecb4d6df92150"
       },
@@ -2002,7 +2002,7 @@
         "zone": "COMMERCIAL",
         "level": "uncommon",
         "role": "slot",
-        "path": "docs/proposal-art/round2/commercial_uncommon_key4.png",
+        "path": "docs/art/proposal-art/round2/commercial_uncommon_key4.png",
         "archivePath": "unused_art/db32_rpg_items/key4.png",
         "sha256": "85bcd9fd707a7a3bcfaee5b562d422693fae9aafedb2569d310d720305ed2e45"
       },
@@ -2010,7 +2010,7 @@
         "zone": "COMMERCIAL",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/commercial_rare_item_book_brown_square.png",
+        "path": "docs/art/proposal-art/round2/commercial_rare_item_book_brown_square.png",
         "archivePath": "unused_art/db32_rpg_items/item_book_brown_square.png",
         "sha256": "7be61a62825b304f4b24d86b758dcdb99b607c0e9c0241468ec7944950352704"
       },
@@ -2018,7 +2018,7 @@
         "zone": "INDUSTRIAL",
         "level": "uncommon",
         "role": "slot",
-        "path": "docs/proposal-art/round2/industrial_uncommon_pickaxe_crusty.png",
+        "path": "docs/art/proposal-art/round2/industrial_uncommon_pickaxe_crusty.png",
         "archivePath": "unused_art/db32_rpg_items/pickaxe_crusty.png",
         "sha256": "4ad26b86b5d4a8f260f0eb7bc3879be351344a5f74dc334a8b074531ee2f777b"
       },
@@ -2026,7 +2026,7 @@
         "zone": "INDUSTRIAL",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/industrial_rare_lance_crusty.png",
+        "path": "docs/art/proposal-art/round2/industrial_rare_lance_crusty.png",
         "archivePath": "unused_art/db32_rpg_items/lance_crusty.png",
         "sha256": "1d0b2cc6dcc5f82531a486ab604f1d7ebd9ee0241bf8bda95821a1b8fea70880"
       },
@@ -2034,7 +2034,7 @@
         "zone": "PLAYGROUND",
         "level": "common",
         "role": "slot",
-        "path": "docs/proposal-art/round2/playground_common_item_feather.png",
+        "path": "docs/art/proposal-art/round2/playground_common_item_feather.png",
         "archivePath": "unused_art/db32_rpg_items/item_feather.png",
         "sha256": "638d8a1b53b16f758a0e59bdf75d037af1ed07540f7ae7ec690fa8eb33eda795"
       },
@@ -2042,7 +2042,7 @@
         "zone": "PLAYGROUND",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/playground_uncommon_stave1.png",
+        "path": "docs/art/proposal-art/round2/playground_uncommon_stave1.png",
         "archivePath": "unused_art/db32_rpg_items/stave1.png",
         "sha256": "abaa4d18a0894e47993a933947ac389c8059ba3a2a9d6cfd9f248094a8799380"
       },
@@ -2050,7 +2050,7 @@
         "zone": "PLAYGROUND",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/playground_rare_item_book_purple_square.png",
+        "path": "docs/art/proposal-art/round2/playground_rare_item_book_purple_square.png",
         "archivePath": "unused_art/db32_rpg_items/item_book_purple_square.png",
         "sha256": "450051a3592adc654df49c0c4831a87f78f58d67e373a28d607d05e65163c041"
       },
@@ -2058,7 +2058,7 @@
         "zone": "PITCH",
         "level": "common",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/pitch_common_item_arrow.png",
+        "path": "docs/art/proposal-art/round2/pitch_common_item_arrow.png",
         "archivePath": "unused_art/db32_rpg_items/item_arrow.png",
         "sha256": "2bc9f65d95ab22df7a4fb08d7509a77c53396cc4cb0e04e78237e01274c2a353"
       },
@@ -2066,7 +2066,7 @@
         "zone": "PITCH",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/pitch_uncommon_armor_boots_crusty.png",
+        "path": "docs/art/proposal-art/round2/pitch_uncommon_armor_boots_crusty.png",
         "archivePath": "unused_art/db32_rpg_items/armor_boots_crusty.png",
         "sha256": "3fa5b5b5ebd369ff785feb7f2924c6e74db5d428f142fa70fcc050c48816898e"
       },
@@ -2074,7 +2074,7 @@
         "zone": "PITCH",
         "level": "rare",
         "role": "slot",
-        "path": "docs/proposal-art/round2/pitch_rare_armor_helmet_gold.png",
+        "path": "docs/art/proposal-art/round2/pitch_rare_armor_helmet_gold.png",
         "archivePath": "unused_art/db32_rpg_items/armor_helmet_gold.png",
         "sha256": "da47de78b83791e6ade502f502edbf747cf278453cdd27c05c895debdfafbd38"
       },
@@ -2082,7 +2082,7 @@
         "zone": "WETLAND",
         "level": "common",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/wetland_common_cattails.png",
+        "path": "docs/art/proposal-art/round2/wetland_common_cattails.png",
         "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cattails.png",
         "sha256": "7e51e97de85ccb50eabb822ed12ed45f9fb92289f917aa5d47341b58cde3c76c"
       },
@@ -2090,7 +2090,7 @@
         "zone": "WETLAND",
         "level": "uncommon",
         "role": "slot",
-        "path": "docs/proposal-art/round2/wetland_uncommon_item_root.png",
+        "path": "docs/art/proposal-art/round2/wetland_uncommon_item_root.png",
         "archivePath": "unused_art/db32_rpg_items/item_root.png",
         "sha256": "eb8317e3b20e48841f2e18dc41bd7a74b442c3426bf0b99a4706986b337dba2c"
       },
@@ -2098,7 +2098,7 @@
         "zone": "WETLAND",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/wetland_rare_potion_murkygreen.png",
+        "path": "docs/art/proposal-art/round2/wetland_rare_potion_murkygreen.png",
         "archivePath": "unused_art/db32_rpg_items/potion_murkygreen.png",
         "sha256": "a7c97730ba4a1249a7753706a343178804e99fb67c5f3cf2a31199ec61d1a4ac"
       },
@@ -2106,7 +2106,7 @@
         "zone": "ORCHARD",
         "level": "uncommon",
         "role": "slot",
-        "path": "docs/proposal-art/beehive_skep.png",
+        "path": "docs/art/proposal-art/beehive_skep.png",
         "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/beehive_skep.png",
         "sha256": "d89820edbd2e6dc4bddfb47fd17c6abd8c6447c6e44f848200af2ef1ab3240fe"
       },
@@ -2114,7 +2114,7 @@
         "zone": "WASTELAND",
         "level": "common",
         "role": "slot",
-        "path": "docs/proposal-art/round2/wasteland_common_axe_crusty.png",
+        "path": "docs/art/proposal-art/round2/wasteland_common_axe_crusty.png",
         "archivePath": "unused_art/db32_rpg_items/axe_crusty.png",
         "sha256": "836b2bda7ee7679dfd8c63d1729527070e1fadec73a3d48f92517c3be2d766ea"
       },
@@ -2122,7 +2122,7 @@
         "zone": "WASTELAND",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/wasteland_uncommon_item_bucket_narrow_lava.png",
+        "path": "docs/art/proposal-art/round2/wasteland_uncommon_item_bucket_narrow_lava.png",
         "archivePath": "unused_art/db32_rpg_items/item_bucket_narrow_lava.png",
         "sha256": "df90a587871c47fa317f8794e845250df6d1a48e0debb259fb3f7815af06090b"
       },
@@ -2130,7 +2130,7 @@
         "zone": "WASTELAND",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/wasteland_rare_gravestone.png",
+        "path": "docs/art/proposal-art/round2/wasteland_rare_gravestone.png",
         "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/gravestone.png",
         "sha256": "78ed875e731c3780d19366a823cbc5f21d0b91cbe56c810f6ed838951003972e"
       },
@@ -2138,7 +2138,7 @@
         "zone": "PIER",
         "level": "common",
         "role": "slot",
-        "path": "docs/proposal-art/round2/pier_common_item_bucket_wide_empty.png",
+        "path": "docs/art/proposal-art/round2/pier_common_item_bucket_wide_empty.png",
         "archivePath": "unused_art/db32_rpg_items/item_bucket_wide_empty.png",
         "sha256": "e2ee79cfce4cebb9b3fdf24a39c2fa7c3663e76b151a6232704fbadcacd4b74d"
       },
@@ -2146,7 +2146,7 @@
         "zone": "PIER",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/pier_uncommon_item_pearl_necklace.png",
+        "path": "docs/art/proposal-art/round2/pier_uncommon_item_pearl_necklace.png",
         "archivePath": "unused_art/db32_rpg_items/item_pearl_necklace.png",
         "sha256": "21a971dec1842605d9670b82df87a2bb602f3cdc1d2814a83cbf815e16e535c5"
       },
@@ -2154,7 +2154,7 @@
         "zone": "PIER",
         "level": "rare",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/pier_rare_item_scroll.png",
+        "path": "docs/art/proposal-art/round2/pier_rare_item_scroll.png",
         "archivePath": "unused_art/db32_rpg_items/item_scroll.png",
         "sha256": "bded95a3456e1e6f0176f0b743817c3c284c7b394e3efbd27f028cd956e69301"
       },
@@ -2162,7 +2162,7 @@
         "zone": "CAVE_FLOOR",
         "level": "common",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/bone_pile.png",
+        "path": "docs/art/proposal-art/bone_pile.png",
         "archivePath": "unused_art/verdant-props-tileset-16x16/tiles/16x16/bone_pile.png",
         "sha256": "84e097ba7a92e6fc67dd134f8ebf0a51b538202099e704e3451054697775b9aa"
       },
@@ -2170,12 +2170,12 @@
         "zone": "CAVE_FLOOR",
         "level": "uncommon",
         "role": "newItemAlternative",
-        "path": "docs/proposal-art/round2/cave_floor_uncommon_item_gem_amethyst.png",
+        "path": "docs/art/proposal-art/round2/cave_floor_uncommon_item_gem_amethyst.png",
         "archivePath": "unused_art/db32_rpg_items/item_gem_amethyst.png",
         "sha256": "e46e2a077095bb276f20023f30b4322a113eb43e458cd6eddae335f9b9c8eebe"
       }
     ],
-    "retainedPoiArt": "docs/proposal-art/cave_pool.png"
+    "retainedPoiArt": "docs/art/proposal-art/cave_pool.png"
   },
   "alternativeRule": "Existing candidates stay visible beside interactive alternatives. Forest hives and colored butterflies are implemented. Bone caches belong to clustered underground small-road Bone Galleries, not ordinary cave-floor scatter. Cave spring remains a separate park-POI proposal.",
   "poiProposals": [
@@ -2184,10 +2184,10 @@
       "label": "Cave spring pool",
       "implementationState": "proposal_only",
       "artProposal": {
-        "path": "docs/proposal-art/cave_pool.png",
+        "path": "docs/art/proposal-art/cave_pool.png",
         "status": "archived_unused",
         "note": "Existing archived 16×16 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
-        "license": "docs/proposal-art/VERDANT-LICENSE.txt"
+        "license": "docs/art/proposal-art/VERDANT-LICENSE.txt"
       },
       "interactionProposal": {
         "action": "Use a cave spring altar at the underground mirror of an aboveground park POI.",

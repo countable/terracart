@@ -76,7 +76,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: grass, meadow and default landcover.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -123,7 +123,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: wood and forest landcover.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -171,7 +171,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: sand and beach landcover; separate from adjoining park coverage.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -219,7 +219,7 @@
       "prevalenceReason": "All water-layer polygons; also the base beneath piers.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -266,7 +266,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: farmland, farmyard and allotments.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -314,7 +314,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: residential, neighbourhood and quarter.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -361,7 +361,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: park, garden, cemetery and dog park plus park layer.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -408,7 +408,7 @@
       "prevalenceReason": "drawCells uses this only if pathUnder has no usable biome; road overlay supplies normal path appearance.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -455,7 +455,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: rock/scree; exposed rock and excavation context.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -503,7 +503,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: school, college, university, kindergarten and education.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -550,7 +550,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: commercial, retail, hospital.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -597,7 +597,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: industrial.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -645,7 +645,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: playground; present once in the small local selected OSM sample, not a prevalence estimate.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -693,7 +693,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: pitch, stadium, sports centre, recreation ground and track.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -741,7 +741,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: wetland landcover.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -789,7 +789,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: grass landcover subclass golf_course.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -837,7 +837,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: farmland subclass orchard; actual orchard zone trees use their grove floor.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -885,7 +885,7 @@
       "prevalenceReason": "WorldGen.loadCaveTile: every walkable surface cell becomes cave floor below ground.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -933,7 +933,7 @@
       "prevalenceReason": "WorldGen.loadCaveTile: roads, buildings and water mirror as walls underground.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -981,7 +981,7 @@
       "prevalenceReason": "WorldGen.loadCaveTile on LAVA_DEPTH: building footprints become lava.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -1028,7 +1028,7 @@
       "prevalenceReason": "WorldGen.classifyPolygon: brownfield, construction, railway and unmatched landuse; broad fallback class.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {
@@ -1076,7 +1076,7 @@
       "prevalenceReason": "Zones.haloSteps + park fringe; six implemented grove variants selected with equal stable weights.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [
         {
@@ -1137,7 +1137,7 @@
       "prevalenceReason": "Zones.haloSteps: place-of-worship/old-stone coverage; five implemented stone variants.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [
         {
@@ -1199,7 +1199,7 @@
       "prevalenceReason": "Zones.haloSteps: fuel-yard coverage; five implemented tar variants.",
       "prevalenceEvidence": {
         "basis": "generator coverage heuristic; not measured population",
-        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/data/zone-variants.json"
       },
       "usageVariants": [],
       "preview": {

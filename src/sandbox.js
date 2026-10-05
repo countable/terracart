@@ -32,7 +32,7 @@
 //     Band 6  NEW MECHANICS   STREET VARIANTS · GROVE/OLD STONES/TAR YARD
 //
 //   Every surface terrain, every rolled street variant and representative
-//   interactables, fauna and foes have a home. See docs/SANDBOX.md for the
+//   interactables, fauna and foes have a home. See docs/process/SANDBOX.md for the
 //   coverage matrix and the cave-only exclusions.
 //
 // How it works:
@@ -1402,7 +1402,7 @@
     //    (loop just above) on a house planted right next to PLAYER SPAWN, so
     //    without this it wins the "nearest house" search: it renders as the
     //    Home trailer instead of the wizard tower, and tapping it opens the
-    //    sell modal instead of the tower's offers (docs/SANDBOX.md).
+    //    sell modal instead of the tower's offers (docs/process/SANDBOX.md).
     {
       const { cellIX, cellIY } = sceneCell('PLAZA', 0, 3);
       const { x, y } = cellCenter(cellIX, cellIY);

@@ -159,8 +159,9 @@ responds with "too far" or the wrong action.
 - [ ] **Run `node test/node/run.js`** (it includes `tools/sprite_audit.js`).
 - [ ] **Cache-bust is derived, never typed:** the parent runs
       `node tools/cachebust.js --write` once after the last edit.
-- [ ] **Drive the change in `?sandbox=true`** (docs/SANDBOX.md) and eyeball the
+- [ ] **Drive the change in `?sandbox=true`** (docs/process/SANDBOX.md) and eyeball the
       item on every relevant surface (map, item bar, shop, toast).
+- [ ] Run the sandbox browser probe across viewport sizes before UI work; the commands sit in SANDBOX.md.
 - [ ] **Shared-logic invariants didn't drift.** Where one helper backs two
       behaviours (e.g. `cellInReach()` for the light AND the tap), confirm both
       still agree.

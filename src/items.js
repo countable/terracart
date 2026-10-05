@@ -725,7 +725,7 @@ const BASE_TIER = {
 // NOTE: items carry NO `icon` (emoji) field — items always render as their
 // game-art sprite via renderItemIcon on every surface (map / inventory / shop /
 // toast / house sign). Emoji is reserved for non-item UI only. See
-// docs/QC_RULES.md §1. (Gear in RELIC_DEFS / ARMOR_DEFS keeps an `icon:` field,
+// docs/process/QC_RULES.md §1. (Gear in RELIC_DEFS / ARMOR_DEFS keeps an `icon:` field,
 // but that's a PNG filename for gearAssetPath — not an emoji.)
 // ── BABY PETS ──────────────────────────────────────────────────────────────
 // The domestic kinds a baby can be. A baby is found in a NEST BUSH (one shrub

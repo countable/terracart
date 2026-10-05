@@ -17,7 +17,7 @@ scripts, imports and documentation continue to work. The game has no build step.
 | `npm run test:relay` | Run the relay's own test suite. |
 
 An inventory candidate may still be a generator input. Follow
-[ASSET_INVENTORY.md](../docs/ASSET_INVENTORY.md) before moving or deleting art.
+[ASSET_INVENTORY.md](../docs/art/ASSET_INVENTORY.md) before moving or deleting art.
 
 ## Prerequisites
 

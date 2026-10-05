@@ -15,7 +15,7 @@ This file records the encounter design; the tables are code and data.
   (`EnemyHabitats.FAMILIES`, `THEME_BANDS`, `SURFACE_FAMILIES`,
   `BUILDING_FAMILIES`, `SURFACE_ENCOUNTERS`, `surfaceSites`, `caveSites`).
 - Finite guards of a composed zone: the `guards` column of each variant row
-  in [zone-variants.json](zone-variants.json).
+  in [zone-variants.json](../data/zone-variants.json).
 - Street and lair guards: `Lairs.STREET_TIER_GUARDS` and `KIND_ORDER`
   (`src/lairs.js`); authored garrisons are rows of `Lairs.GROUPS` (CLAUDE.md).
 

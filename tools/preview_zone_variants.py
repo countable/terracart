@@ -733,7 +733,7 @@ def quarry_draft_section(d):
 
 @functools.lru_cache(maxsize=1)
 def basic_density_proposals():
-    path = pathlib.Path(__file__).resolve().parents[1] / 'docs/basic-zone-density-proposals.json'
+    path = pathlib.Path(__file__).resolve().parents[1] / 'docs/data/basic-zone-density-proposals.json'
     data = json.loads(path.read_text())
     for group in ['zones', 'parkCharacters']:
         for row in data[group].values():
@@ -797,7 +797,7 @@ def basic_density_summary(terrain):
 
 @functools.lru_cache(maxsize=1)
 def basic_signatures():
-    data = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'docs/basic-zone-signatures.json').read_text())
+    data = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'docs/data/basic-zone-signatures.json').read_text())
     for level in ['common', 'uncommon', 'rare']:
         ids = [row['slots'][level]['proposedThing']['id'] for row in data['zones'].values() if not row['excluded']]
         assert len(ids) == len(set(ids)), f'Duplicate {level} signature'
@@ -815,7 +815,7 @@ def signature_status(slot):
 def proposal_art_uri(relative_path):
     root = pathlib.Path(__file__).resolve().parents[1]
     path = (root / relative_path).resolve()
-    assert path.is_relative_to(root / 'docs/proposal-art'), 'Proposal art must be checked into docs/proposal-art'
+    assert path.is_relative_to(root / 'docs/art/proposal-art'), 'Proposal art must be checked into docs/art/proposal-art'
     with Image.open(path) as source:
         image = source.convert('RGBA')
     assert image.getbbox(), f'Blank proposal art: {relative_path}'
@@ -1144,6 +1144,6 @@ def render(d, out):
 
 
 if __name__ == '__main__':
-    source = pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path(__file__).resolve().parents[1]/'docs/zone-variants.json'
+    source = pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path(__file__).resolve().parents[1]/'docs/data/zone-variants.json'
     output = pathlib.Path(sys.argv[2]) if len(sys.argv)>2 else pathlib.Path('/tmp/zone-variants-preview')
     render(json.loads(source.read_text()), output)

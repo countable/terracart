@@ -4,7 +4,7 @@
 // 128-colour PNG they used to be, and indistinguishable at dialog size —
 // lossless WebP saves nothing, the dithering reads as noise to it). Trimmed
 // ICON pieces (the coin) stay PNG in assets/Icons/. Full-resolution masters
-// live outside the checkout; see docs/ART_SOURCES.md.
+// live outside the checkout; see docs/art/ART_SOURCES.md.
 //
 // Reads OPENAI_API_KEY from ~/.env (or the environment), renders each piece at
 // 1536x1024, then downscales to 512px wide (the size the dialogs lazy-load)
@@ -113,7 +113,7 @@ const PIECES = {
   temple_activated: scene('An ancient low grey limestone temple in a woodland park, with a broad stone courtyard and continuous smooth-coped walls. No towers, turrets, spires or crenellations. Geometric engraved runes awaken with icy cyan light over the stone; a modest tied scroll lies beside the central diamond rune. Respectful and peaceful, subdued painterly stone and moss. All architecture and light in the top 40 percent; empty dark earth below.'),
   // Paired macro booths: built-in reference edits, never independent text-only
   // calls. After-use paintings focus closely on the transaction object.
-  // scene() owns export framing; see docs/ART_SOURCES.md.
+  // scene() owns export framing; see docs/art/ART_SOURCES.md.
   booth_inn_intro: scene('Humble rebuilt timber inn booth with a moss green awning and ivory bed sign. Innkeeper welcomes a survivor to a clean bed, explaining paid rest. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
   booth_inn_used: scene('Close-up of the existing inn bed: hooded player under its green blanket, face concealed, pale light swirling away. Frame only the bed and its immediate surroundings, no keeper or full booth view. Preserve the introduction’s darker painterly style and bed design. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
   booth_chapel_intro: scene('A humble wooden chapel booth with a blue pointed canopy and small gold bell in its niche. A peaceful keeper welcomes a brown-hooded visitor for a free daily blessing. Respectful sacred place, no sinister imagery. Keep the hood raised and the entire face and hair concealed. All subject detail stays in the top band; the lower area is empty dark ground. No text.'),
