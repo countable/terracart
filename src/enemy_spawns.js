@@ -24,7 +24,8 @@
   function surfaceRows(type, context) {
     const biome = typeof type === 'string' ? type : biomeName(type);
     const eligible = rows().filter(row => !row.retired && row.surface && row.tier <= 3 && row.attackType !== 'touch' && row.surface.biomes.includes(biome))
-      .filter(row => !['pirate_grunt', 'pirate_gunner', 'pirate_captain', 'giant_crab', 'jellyfish'].includes(row.id) || context?.beach);
+      .filter(row => !['pirate_grunt', 'pirate_gunner', 'pirate_captain', 'giant_crab', 'jellyfish'].includes(row.id) || context?.beach)
+      .filter(row => !row.surface.nearMinorRoad || context?.nearMinorRoad);
     const replaced = new Set(eligible.filter(row => row.variantType === 'Tint').map(row => row.variantOf));
     return eligible.filter(row => !replaced.has(row.id));
   }

@@ -3325,6 +3325,7 @@ class MapScene extends Phaser.Scene {
     // the player's FEET in — and answers it the same way (playerToWorldCell,
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
+    Whirlwinds.tick(this, dt);
     this._tickTraps(dt);
     // …and is a guildhall bounty's pack still about (its leash)?
     this._tickGuildBounty();

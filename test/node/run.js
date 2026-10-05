@@ -96,7 +96,7 @@ const FILES = [
   'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
-  'traps.js',
+  'traps.js', 'whirlwinds.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'worldgen.js', 'save.js',

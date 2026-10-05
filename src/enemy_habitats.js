@@ -4,7 +4,7 @@
   'use strict';
   const EXT = 4096, REGION = 1024;
   const FAMILIES = {
-    natural: ['slime', 'cave_slime', 'bat', 'spider', 'purple_slime', 'gelatinous_cube'],
+    natural: ['slime', 'cave_slime', 'bat', 'spider', 'purple_slime', 'gelatinous_cube', 'troll'],
     roots: ['plant', 'spider', 'poison_spider', 'dryad', 'bone_plant'],
     warren: ['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper', 'bomb_goblin', 'orc'],
     crypt: ['zombie', 'skeleton', 'skeleton_soldier', 'necromancer', 'lich', 'bone_plant', 'vampire_bat', 'sword_spirit'],
@@ -27,17 +27,19 @@
     pirate_cove: ['pirate_grunt', 'pirate_gunner', 'pirate_captain'],
     mystic_reef: ['giant_crab', 'jellyfish'],
     orchard: ['farmer_goblin', 'club_goblin'],
-    hedge_garden: ['plant', 'spider'], ancient_grove: ['treant', 'spider'],
-    overgrown: ['plant', 'spider'], ordered_graves: ['zombie', 'skeleton', 'skeleton_soldier'],
-    silent_circle: ['skeleton', 'skeleton_soldier'], overgrown_graves: ['zombie', 'spider', 'skeleton'],
-    broken_masonry: ['club_goblin', 'spear_goblin', 'archer_goblin'],
+    hedge_garden: ['plant', 'spider'], ancient_grove: ['treant', 'spider', 'giant_bear'],
+    overgrown: ['plant', 'spider'], ordered_graves: ['zombie', 'skeleton', 'skeleton_soldier', 'giant_reaper'],
+    stone_garden: ['slime', 'skeleton', 'giant_reaper'],
+    silent_circle: ['skeleton', 'skeleton_soldier', 'giant_reaper'], overgrown_graves: ['zombie', 'spider', 'skeleton', 'giant_reaper'],
+    broken_masonry: ['club_goblin', 'spear_goblin', 'archer_goblin', 'giant_reaper'],
     barricade: ['spear_goblin', 'archer_goblin'],
     hungry_marsh: ['plant', 'slime'], orc_stronghold: ['orc', 'orc_shaman', 'orc_mage'],
   };
+  const CASTLE_FAMILIES = { citadel: ['bugbear'] };
   const SURFACE_FAMILIES = {
     ...BUILDING_FAMILIES,
     meadow: ['slime', 'plant'], mushroom_grove: ['mushroom_monster', 'spider', 'slime'],
-    formal_garden: ['slime', 'plant'], stone_garden: ['slime', 'skeleton'],
+    formal_garden: ['slime', 'plant'],
     flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
     seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin', 'archer_goblin'],
     black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'slime', 'jellyfish'],
@@ -78,8 +80,23 @@
     return site?.theme || null;
   }
   function surfaceAt(entry, cx, cy) {
-    const i = cy * entry.cellsPerEdge + cx;
-    return { theme: variantAt(entry, cx, cy), beach: !!entry.scenic?.shore?.mask?.[i] };
+    const WG = root.WorldGen, N = entry.cellsPerEdge, i = cy * N + cx;
+    const grid = entry.baseGrid || entry.grid;
+    let nearMinorRoad = false;
+    // This is a habitat preference, not permission to stand on a road or lot.
+    // The caller's ordinary spawn gate still owns private yards and road bands.
+    if (grid[i] === WG.T.RESIDENTIAL && !WG.inMajorBuffer(entry.roadClass, N, cx, cy)) {
+      const radius = WG.SPAWN_FRONTAGE;
+      for (let y = Math.max(0, cy - radius); y <= Math.min(N - 1, cy + radius) && !nearMinorRoad; y++) {
+        for (let x = Math.max(0, cx - radius); x <= Math.min(N - 1, cx + radius); x++) {
+          if (grid[y * N + x] === WG.T.ROAD && !WG.onMajorBand(entry.roadClass, N, x, y)) {
+            nearMinorRoad = true;
+            break;
+          }
+        }
+      }
+    }
+    return { theme: variantAt(entry, cx, cy), beach: !!entry.scenic?.shore?.mask?.[i], nearMinorRoad };
   }
   function surfaceEncounters(entry, tx, ty, occupied) {
     return root.WorldGen.runSteps(surfaceEncountersSteps(entry, tx, ty, occupied));
@@ -138,6 +155,8 @@
     return out;
   }
   function buildingKinds(entry, cand) {
+    const castle = cand.tier === 12 && root.CastleStyles?.get(cand.key);
+    if (CASTLE_FAMILIES[castle?.id]) return CASTLE_FAMILIES[castle.id];
     const N = entry.cellsPerEdge, cellM = entry.tileEdgeM / N;
     const cx = Number.isFinite(cand.ix) ? cand.ix : Math.floor(cand.lx / cellM);
     const cy = Number.isFinite(cand.iy) ? cand.iy : Math.floor(cand.ly / cellM);
@@ -248,7 +267,7 @@
     }
     return out;
   }
-  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS,
+  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS,
     unit, caveAt, surfaceAt, surfaceEncounters, surfaceEncountersSteps, variantAt, emergesFromGround, buildingKinds, surfaceSites, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);

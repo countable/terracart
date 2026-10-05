@@ -99,7 +99,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
   test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
     // Captured before adding yields: include graveyard emergence flags and
     // habitat metadata, as well as the seeded seats and identities.
-    const expected = { orchard: 193103011, ordered_graves: 904005234, mystic_reef: 3886995405 };
+    const expected = { orchard: 193103011, ordered_graves: 3933454638, mystic_reef: 3886995405 };
     for (const [theme, hash] of Object.entries(expected)) {
       const occupied = new Set();
       const it = EnemyHabitats.surfaceEncountersSteps(entry(theme), 0, 0, occupied);

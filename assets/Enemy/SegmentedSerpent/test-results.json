@@ -1,0 +1,70 @@
+{
+  "generated": "2026-10-05T08:18:18.982Z",
+  "scope": "standalone draft, not game runtime",
+  "results": [
+    {
+      "name": "Frame rate independence: 30 / 60 / 144 FPS, 18 seconds",
+      "pass": true,
+      "ticks": 2160,
+      "maxDrift": 0
+    },
+    {
+      "name": "Idle preserves complete history and body positions",
+      "pass": true,
+      "idleSeconds": 10
+    },
+    {
+      "name": "Straight line has constant spacing and stops at target",
+      "pass": true,
+      "spacing": 7
+    },
+    {
+      "name": "winding route: finite positions, no joint gaps, bounded history",
+      "pass": true,
+      "seconds": 60,
+      "maxCenterGap": 7.000000000002208
+    },
+    {
+      "name": "sharp route: finite positions, no joint gaps, bounded history",
+      "pass": true,
+      "seconds": 60,
+      "maxCenterGap": 7.000000000002231
+    },
+    {
+      "name": "reverse route: finite positions, no joint gaps, bounded history",
+      "pass": true,
+      "seconds": 60,
+      "maxCenterGap": 7.000000000002309
+    },
+    {
+      "name": "Turn back preserves body; steering makes a bounded U-turn",
+      "pass": true,
+      "instantFlip": false
+    },
+    {
+      "name": "Distance history is independent of input sample frequency on a line",
+      "pass": true,
+      "sampleSteps": [
+        1,
+        15
+      ]
+    },
+    {
+      "name": "Native atlas has transparency, 32 populated frames and safe borders",
+      "pass": true,
+      "size": [
+        256,
+        128
+      ],
+      "frames": 32,
+      "transparentPixels": 22077,
+      "nontransparentPixels": 10691
+    },
+    {
+      "name": "Authored body frames cover every centerline junction at default spacing",
+      "pass": true,
+      "testedSamples": 232,
+      "uncovered": 0
+    }
+  ]
+}

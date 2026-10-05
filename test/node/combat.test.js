@@ -761,7 +761,7 @@ test('combat: melee reaches exactly as far as a melee monster does', () => {
   // out-reach the player's fist; nothing reaches less.
   const LONG = new Set(['bat', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'sword_spirit', 'brute', 'hell_brute', 'obsidian_brute',
     'orc', 'minotaur', 'giant_slime', 'giant_spider', 'giant_skeleton', 'giant_cave_slime', 'giant_crab',
-    'red_demon', 'armoured_demon']);
+    'red_demon', 'armoured_demon', 'bugbear', 'troll', 'giant_bear', 'ogre', 'giant_reaper']);
   for (const [kind, m] of melee) {
     if (LONG.has(kind)) assert.gte(m.range, Combat.MELEE_REACH_CELLS, kind);
     else assert.eq(m.range, Combat.MELEE_REACH_CELLS, `${kind}: a melee monster reaches exactly what the player does`);

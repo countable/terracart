@@ -35,6 +35,7 @@ const ASSETS = {
     onLoad: (scene) => { scene.textures.get('stair_down').add('down', 0, 0, 16, 32, 16); },
   },
   stair_up:   { kind: 'image', path: 'assets/Objects/Approved/stair_up.png' },
+  whirlwind: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/tornado.png', frameWidth: 48, frameHeight: 48 },
   crystal_cluster: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/crystal_cluster.png', frameWidth: 16, frameHeight: 16 },
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
