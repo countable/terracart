@@ -170,7 +170,7 @@ test('shiny deer: the live charging hit deals twice the damage', () => {
   assert.gt(losses[0], 0);
   assert.eq(losses[1], 2 * losses[0]);
 });
-test('shiny crow: panic and retreat flights cover the same leg in two-thirds the time', () => {
+test('shiny crow: panic and retreat flights use the 1.3 escape modifier', () => {
   const random = Math.random;
   try {
     Math.random = () => 0.5;
@@ -182,7 +182,7 @@ test('shiny crow: panic and retreat flights cover the same leg in two-thirds the
         crowTick(crowScene(), c, 1, 0, 0);
         return c;
       });
-      assert.inRange((legs[0]._flightUntilT - 1) / (legs[1]._flightUntilT - 1), 1.5 - 1e-9, 1.5 + 1e-9);
+      assert.inRange((legs[0]._flightUntilT - 1) / (legs[1]._flightUntilT - 1), 1.3 - 1e-9, 1.3 + 1e-9);
       assert.eq(legs[0]._targetX, legs[1]._targetX);
       assert.eq(legs[0]._targetY, legs[1]._targetY);
     }
