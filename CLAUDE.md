@@ -15,12 +15,12 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - [Art direction brief](docs/art/art-direction-brief.md): camera, pixel scale,
   palette, restoration, and visible elevation; follow it when adding or revising art.
 - [test/node/README.md](test/node/README.md): test harness and module registration.
-- [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
+- [docs/process/QC_RULES.md](docs/process/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
-- [docs/spec.txt](docs/spec.txt): game design; code owns current numeric values.
-- [docs/story.txt](docs/story.txt): the story bible (Dragon Hood); it wins over
+- [docs/design/spec.txt](docs/design/spec.txt): game design; code owns current numeric values.
+- [docs/design/story.txt](docs/design/story.txt): the story bible (Dragon Hood); it wins over
   story copy in `src/`, and its open [Q#] items are not yet canon.
-- [docs/SANDBOX.md](docs/SANDBOX.md): hand-built world for visual checks.
+- [docs/process/SANDBOX.md](docs/process/SANDBOX.md): hand-built world for visual checks.
 - Preserve the `terracart.*` storage keys despite the game's name change.
 
 ## Workflow
@@ -218,7 +218,7 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   (`test/node/roadside_run.test.js`).
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
-  (`docs/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
+  (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
   procedural dressing; roads and buildings remain visible. Painted ground
   drops inferred PRIVATE / BEHIND_HOUSE reasons, retaining all site and
   geometry restrictions. Cave generation retains the original ground,
@@ -469,7 +469,7 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   excerpts and keep `ITEM_GUIDE_TIPS` as the owner of shared item parables. Authors
   describe their world, not interface elements such as work circles or health bars.
 - Story delivery separates required, ordered canon from optional, asynchronous
-  lore (docs/story.txt, ACT STRUCTURE). Memory and restoration are independent
+  lore (docs/design/story.txt, ACT STRUCTURE). Memory and restoration are independent
   progress tracks; required events join them through prerequisites and world
   context. A painted panel can carry either layer. Lore never blocks canon.
 - Story panels use a direct second-person narrator focused on the current

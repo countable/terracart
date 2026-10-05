@@ -84,7 +84,8 @@ def diagram(v, data, motif=False):
 
 
 def render(out):
-    data = json.loads((ROOT / 'docs/beach-zone-variants.draft.json').read_text())
+    source = ROOT / 'docs/data/beach-zone-variants.draft.json'
+    data = json.loads(source.read_text())
     validate(data)
     out.mkdir(parents=True, exist_ok=True)
     cards = []
@@ -105,7 +106,7 @@ def render(out):
     scale_checks=''.join(f'<figure><svg style="width:{px}px;height:{px}px;background:#cfb982" viewBox="0 0 3 3" role="img" aria-label="Shipwreck at {px} pixels">{ship_image(ship_art,0,0)}</svg><figcaption>{px} px</figcaption></figure>' for px in [48,72])
     page=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Beach zone drafts</title><style>{css}{art_styles()}</style></head><body>
 <h1>Three beach zones</h1><p><b>Draft · not active in-game.</b> Prefer 6 × 6 repeats, allow up to 8 × 8, and use smaller rectangles where they suit the pattern. Sand defines the beach; directly adjoining parkland may join its landward edge.</p>
-<p><a href="beach-zone-variants.draft.json">Design table</a> · <a href="beach-zone-variants.draft.md">Placement contract</a> · <a href="index.html">Other zones</a></p>
+<p><a href="beach-zone-variants.draft.json">Design table</a> · <a href="index.html">Other zones</a></p>
 <label class="art-switch"><input id="show-art" type="checkbox" checked> Show game art</label> <label><input id="show-grid" type="checkbox" checked> Show cell grid</label>
 <p>Water is toward the top; land is toward the bottom. Pirate Cove has one shipwreck shrine with a 3 × 3-cell maximum extent, one interaction, and one daily gift. Its dashed boundary reserves the whole extent; the arrow marks its landward approach. Finds and guards are listed, not drawn.</p>
 <main class="cards">{''.join(cards)}</main>
@@ -116,8 +117,7 @@ def render(out):
 <p>Preserve the single daily tide stream and its waterline seats. Keep roses on vegetated landward ground. Whole-ship placement, beach ownership and runtime integration remain implementation work.</p>{art_script()}</body></html>'''
     (out/'beach-drafts.html').write_text(page)
     shutil.copy2(ROOT/ship,out/'shipwreck-shrine-draft.png')
-    for name in ['beach-zone-variants.draft.json','beach-zone-variants.draft.md']:
-        shutil.copy2(ROOT/'docs'/name,out/name)
+    shutil.copy2(source, out/'beach-zone-variants.draft.json')
     print(f'Validated and rendered {len(cards)} beach drafts')
 
 

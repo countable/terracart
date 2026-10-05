@@ -4,7 +4,7 @@ An influence zone's kind is a row of `Zones.ZONE_KINDS` (`src/zones.js`):
 `quarry`, `beach`, `grove`, `stones` (the old stones / churchyard) and `tar`
 (the tar yard). Each anchor of a kind resolves to one zone VARIANT
 (`anchor.variant`; placed objects carry it as `zoneVariant`). The variant rows
-are declarative data in [zone-variants.json](zone-variants.json): background
+are declarative data in [zone-variants.json](../data/zone-variants.json): background
 motif, materials, POI arrangement, finite finds, guards, connection shape,
 fauna pull and atmosphere. That file owns every count, density, offset,
 weight and material; this file states the rules the data and runtime keep.
@@ -133,9 +133,10 @@ the existing progress ledgers and never refill.
 The beach rows are live. Shoreline orientation derives from buffered mapped
 water at the canonical anchor, with a reported deterministic fallback. Zone
 placement reserves the daily tide-pool seats, including seats empty today.
-The Pirate Cove shipwreck reserves its whole footprint and has a
-whole-footprint fallback. The [beach draft](beach-zone-variants.draft.md) keeps
-design rationale only.
+
+- The shipwreck is one interaction; reserve its whole footprint, never just the anchor cell.
+- If an authored footprint cannot fit, take the deterministic fallback or report the shortfall; never spill into higher-priority space.
+- Beach rewards come from the variant rows; nothing double-dips the grove shrine or tide seats.
 
 ## Building-aware fitting
 
@@ -148,7 +149,7 @@ a composition shortfall.
 ## Review tools
 
 - Preview straight from the table (Node.js, Python 3, Pillow):
-  `python3 tools/preview_zone_variants.py docs/zone-variants.json <out>` and
+  `python3 tools/preview_zone_variants.py docs/data/zone-variants.json <out>` and
   `python3 tools/preview_beach_variants.py <out>`. The generator validates
   densities over full cycles, POI positions, grid continuity and find counts;
   its coverage diagram is schematic.

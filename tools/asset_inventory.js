@@ -11,7 +11,7 @@ const IMAGE = /\.(?:png|webp|jpe?g|gif|svg|avif)$/i;
 const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
 // Preserve quoted strings and line numbers while removing ordinary comments.
-// This is a conservative scan, not a JS parser (see docs/ASSET_INVENTORY.md).
+// This is a conservative scan, not a JS parser (see docs/art/ASSET_INVENTORY.md).
 function uncomment(source) {
   return source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/g,
     (m) => m.startsWith('//') || m.startsWith('/*') ? m.replace(/[^\n]/g, ' ') : m);
@@ -132,7 +132,7 @@ try {
     console.log(`Unreferenced candidates: ${result.candidates.length} (review before deleting)`);
     for (const row of result.candidates) console.log(`  ${row.status.padEnd(9)} ${String(row.bytes).padStart(9)} B  ${row.path}`);
     console.log(`Preserved source/reserve images outside runtime assets: ${result.sources.length}`);
-    console.log('Scope and limitations: docs/ASSET_INVENTORY.md');
+    console.log('Scope and limitations: docs/art/ASSET_INVENTORY.md');
   }
   if (result.missing.length) process.exitCode = 1;
 } catch (error) {

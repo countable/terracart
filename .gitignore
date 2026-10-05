@@ -26,7 +26,7 @@ tiles_cache/
 data/game_*.png
 data/g[0-9]*_*.png
 
-# Source art belongs outside the checkout (see docs/ART_SOURCES.md).
+# Source art belongs outside the checkout (see docs/art/ART_SOURCES.md).
 /art-source/
 /assets/art/raw/
 /unused_art/

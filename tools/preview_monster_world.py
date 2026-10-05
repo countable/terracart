@@ -19,7 +19,7 @@ new_paths = ('/Pirates/', '/Orcs/', '/Demons/', '/Dragons/', '/GiantCrab.png', '
 selected = [r for r in rows if any(p in r['art']['path'] for p in new_paths) or r['id'] in ('plant', 'bone_plant', 'ghost')]
 for row in selected:
     row['image'] = 'data:image/png;base64,' + base64.b64encode((ROOT / row['art']['path']).read_bytes()).decode()
-variants = json.loads((ROOT / 'docs/zone-variants.json').read_text())['variants']
+variants = json.loads((ROOT / 'docs/data/zone-variants.json').read_text())['variants']
 placements = []
 for v in variants:
     g = v.get('guards', {})
@@ -53,7 +53,7 @@ for(const row of rows){const el=document.createElement('article');const title=do
 let clock=0,last=0;function draw(now){if(document.querySelector('#animate').checked)clock+=now-last;last=now;const dir=document.querySelector('#direction').value,state=document.querySelector('#state').value;
 for(const c of cards){const a=c.row.art;let frames=a.directions?.[dir]?.[state];let fallback=false;if(!frames&&a.directionLayout==='enemy48'){const d={down:0,left:4,right:4,up:8}[dir];const s={idle:0,move:12,attack:24}[state];frames=[0,1,2,3].map(n=>s+d+n);}if(!frames){frames=a.directions?.[dir]?.idle||[0];fallback=state==='attack';}const f=frames[Math.floor(clock/(a.frameMs||180))%frames.length];const ctx=c.canvas.getContext('2d');ctx.clearRect(0,0,192,144);ctx.imageSmoothingEnabled=false;if(c.image.complete&&c.image.naturalWidth){const cols=c.image.naturalWidth/a.frameWidth;const scale=a.frameWidth>16?3:5;ctx.drawImage(c.image,f%cols*a.frameWidth,Math.floor(f/cols)*a.frameHeight,a.frameWidth,a.frameHeight,(192-a.frameWidth*scale)/2,132-a.frameHeight*scale,a.frameWidth*scale,a.frameHeight*scale);}c.note.textContent=fallback?'Attack pose fallback — art gap':'';}requestAnimationFrame(draw);}requestAnimationFrame(draw);
 </script></html>'''
-page = page.replace('PLACEMENTS', ''.join(placements)).replace('NOTES', html.escape((ROOT / 'docs/monster-world.md').read_text())).replace('DATA', json.dumps(selected).replace('</', '<\\/'))
+page = page.replace('PLACEMENTS', ''.join(placements)).replace('NOTES', html.escape((ROOT / 'docs/design/monster-world.md').read_text())).replace('DATA', json.dumps(selected).replace('</', '<\\/'))
 (args.output / 'index.html').write_text(page)
-(args.output / 'monster-world.md').write_text((ROOT / 'docs/monster-world.md').read_text())
+(args.output / 'monster-world.md').write_text((ROOT / 'docs/design/monster-world.md').read_text())
 print(f'Wrote {len(selected)} creature previews to {args.output}')

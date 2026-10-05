@@ -21,7 +21,7 @@ python -m http.server 8000      # then visit http://localhost:8000
 
 GPS drives the player on mobile; WASD / arrow keys (or the on-screen stick) on
 desktop. `?sandbox=true` swaps the start tile for a hand-laid test world with
-one of everything — see [docs/SANDBOX.md](docs/SANDBOX.md).
+one of everything — see [docs/process/SANDBOX.md](docs/process/SANDBOX.md).
 
 ## Test it
 
@@ -93,9 +93,9 @@ the base value, read at the site that owns that value;
 
 - **[CLAUDE.md](CLAUDE.md)** — working rules and the QC invariants. It is the
   authority: when a note and CLAUDE.md disagree, CLAUDE.md wins.
-- **[docs/spec.txt](docs/spec.txt)** — the design spec: what each system does
+- **[docs/design/spec.txt](docs/design/spec.txt)** — the design spec: what each system does
   and why. The code is the authority on numbers.
-- **[docs/QC_RULES.md](docs/QC_RULES.md)** — the art/asset checklist.
+- **[docs/process/QC_RULES.md](docs/process/QC_RULES.md)** — the art/asset checklist.
 
 ## Conventions
 

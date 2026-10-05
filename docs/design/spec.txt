@@ -853,7 +853,7 @@ INVENTORY
    rejected (`inventory.js`).
  - starter inventory: empty bag (the crate trail seeds the first items).
  - ITEMS ALWAYS RENDER AS THEIR GAME-ART SPRITE on every surface. Emoji is
-   reserved for non-item UI (`docs/QC_RULES.md` §1).
+   reserved for non-item UI (`docs/process/QC_RULES.md` §1).
 
 ================================================================================
 ITEMS & RARITY

@@ -1423,7 +1423,7 @@ for (const f of testFiles) {
 
 // The editable table and the shipped browser module must always agree.
 ctx.__tests.push({ name: 'zone variants: generated browser data matches the canonical table', fn: () => {
-  const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/zone-variants.json'), 'utf8'));
+  const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/data/zone-variants.json'), 'utf8'));
   if (JSON.stringify(ctx.ZoneVariantData) !== JSON.stringify(expected)) {
     throw new Error('Zone data is stale; run node tools/zone_variant_data.js --write');
   }

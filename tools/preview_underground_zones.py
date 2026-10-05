@@ -12,12 +12,12 @@ from PIL import Image
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'docs/underground-zone-variants.draft.json'
+SOURCE = ROOT / 'docs/data/underground-zone-variants.draft.json'
 
 
 @functools.lru_cache(maxsize=None)
 def _quarry_material(variant_id, material):
-    data = json.loads((ROOT/'docs/zone-variants.json').read_text())
+    data = json.loads((ROOT/'docs/data/zone-variants.json').read_text())
     variant = next(row for row in data['variants'] if row['id'] == variant_id)
     return {**data['materials'][material], 'previewArt': {
         'sheet':'zone_objects', 'frames':variant['materialFrames'][material]}}

@@ -18,7 +18,7 @@ const MemoryStory = (() => {
   // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
   // action in <em> on its own line, the body HTML; a talk that needs two
   // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The
-  // vocabulary is the story bible's (docs/story.txt): the Breaking, fifty
+  // vocabulary is the story bible's (docs/design/story.txt): the Breaking, fifty
   // years, Mending Lane, the wizard the old folk call Tim.
   const HOME = {
     title: 'A neighbour at the gate', art: 'revive_found',

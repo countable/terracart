@@ -4,7 +4,8 @@ Design intent and invariants for themed chest loot. The live tables are code:
 this file states what they are for and which rules they must keep. It was
 first written as an approved proposal; numbers, weights, item lists and
 per-tier odds from that proposal are retired here because the code has moved
-on (see [CHEST_BALANCE.md](CHEST_BALANCE.md) for the measured history).
+on. Simulate reward value before any change that sharply raises it; edit the
+tool or the baseline, not the report.
 
 ## Purpose
 
