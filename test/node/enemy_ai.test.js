@@ -5,7 +5,12 @@
     return { cellM, depth: 2, save: { energy: 100, armor: {} },
       cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }),
       _cellBlocked: () => false, _nearAny: () => false, _shots: [],
-      _losePlayerEnergy(n) { this.save.energy -= n; return n; } };
+      // The scene's writer banks fractions into whole pips (app.js
+      // _losePlayerEnergy); an aura's rate arrives fractional.
+      _losePlayerEnergy(n) {
+        const whole = bankWhole(this, '_incomingDamageFraction', n);
+        this.save.energy -= whole; return whole;
+      } };
   }
   function foe(kind, x = 0, y = 0) { return { kind, id: `ai_${kind}`, x, y }; }
 
@@ -113,18 +118,19 @@
     assert.falsy(enemyAttackReady(c, row, 15101, true));
   });
   test('enemy rendering: attack wind-ups keep the body palette and status tints', () => {
-    const body = RENDER_SRC.match(/    const frozen = c\._frozenUntil[\s\S]*?Render\.setShine\(s, [^;]+;/);
+    const body = RENDER_SRC.match(/    const chilled = Combat\.isChilled\(c, Date\.now\(\)\);[\s\S]*?Render\.setShine\(s, [^;]+;/);
     assert.truthy(body, 'live creature tint block exists');
     const paint = new Function('c', 's', 'performance', 'Date', 'Combat', 'Conditions',
-      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', body[0]);
+      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', 'pet', body[0]);
     const renderTint = (c, now) => {
       const sprite = { tint: null, fill: false,
         setTint(tint) { this.tint = tint; this.fill = false; },
         setTintFill(tint) { this.tint = tint; this.fill = true; } };
       paint(c, sprite, { now: () => now }, { now: () => now },
-        { burning: () => !!c.burning, statusFlashTint: () => null, poisoned: () => !!c.poisoned },
+        { burning: () => !!c.burning, statusFlashTint: () => null, poisoned: () => !!c.poisoned,
+          isChilled: (x, t) => x._frozenUntil != null && t < x._frozenUntil },
         { conditionTintOn: () => true, DEFINITIONS: { burning: { tint: 0xff5500 }, poison: { tint: 0x9fdc8c } } },
-        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {});
+        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {}, !!c.pet);
       return sprite;
     };
     for (const windup of ['_attackWindupUntil', '_lungeWindupUntil', '_abilityWindupUntil']) {
@@ -132,6 +138,7 @@
         const c = { kind: 'goblin', [windup]: 2000 };
         const normal = renderTint(c, now);
         assert.eq(normal.tint, 0x123456, `${windup} keeps its palette`);
+        assert.eq(renderTint({ ...c, pet: true, tint: 0xc5ddf2 }, now).tint, 0xc5ddf2, 'a pet keeps its saved individual palette');
         assert.falsy(normal.fill, 'no attack tint fill');
         assert.eq(renderTint({ ...c, shiny: true }, now).tint, 0xffd23a, 'elite sheen remains');
         assert.eq(renderTint({ ...c, burning: true }, now).tint, 0xff5500, 'burning remains visible');
@@ -163,6 +170,33 @@
     s.save.energy = 0;
     rosterEnemyAttack(s, c, row, 13000, 1, 0, false, 1);
     assert.eq(s.save.energy, 0);
+  });
+  test('zombie blight aura drains through the shared rate inside its default one-cell radius', () => {
+    const row = EnemyRoster.get('zombie');
+    for (const cellM of [5, 10]) {
+      for (const radius of [0.75, 1, 1.01]) {
+        const s = scene(cellM), c = foe('zombie');
+        for (let i = 0; i < 60; i++) {
+          rosterEnemyAttack(s, c, row, 10000 + i * 1000 / 60, radius * cellM, 0, false, 1 / 60);
+        }
+        const expected = radius <= 1
+          ? Math.floor(Combat.playerDamageRate(row.aura.rawDps * Combat.powerMul(c), {}, 1) + 1e-9) : 0;
+        assert.eq(100 - s.save.energy, expected, `${cellM}m cells at ${radius} cells`);
+      }
+    }
+  });
+  test('zombie blight aura respects concealment, emergence, walls and inactive targets', () => {
+    const row = EnemyRoster.get('zombie');
+    for (const state of ['hidden', 'buried', 'emerging', 'wall', 'downed']) {
+      const s = scene(), c = foe('zombie');
+      if (state === 'buried') c._burrowed = true;
+      if (state === 'emerging') c._emergeUntil = 11000;
+      if (state === 'wall') s._cellBlocked = x => x > 1 && x < 4;
+      if (state === 'downed') s.save.energy = 0;
+      const before = s.save.energy;
+      rosterEnemyAttack(s, c, row, 10000, 5, 0, state === 'hidden', 1);
+      assert.eq(s.save.energy, before, state);
+    }
   });
   test('enemy AI: draining aura shield expires on the wall-clock boundary', () => {
     const realDateNow = Date.now;
@@ -432,6 +466,27 @@
       const reloaded={...c};
       assert.falsy(enemySummon(s,reloaded,a));
       assert.eq(entry.creatures.length,1);
+    } finally {
+      WorldGen.forEachItemNear=previous;
+      if(old) WorldGen.tileCache.set(key,old); else WorldGen.tileCache.delete(key);
+    }
+  });
+  test('enemy AI: a summon inherits its master\'s garrison, ground and hunt — the one list a split twin reads', () => {
+    const s=scene(), c=foe('necromancer',14,14), n=WorldGen.TILE_PX;
+    Object.assign(s,{startWorldM:{x:0,y:0},originPx:{x:0,y:0},mPerPx:7,cellsPerTile:n});
+    Object.assign(c, { lair: 'ruin', aggroCells: 3, homeX: 14, homeY: 14, _surfaceSpawn: { x: 14, y: 14, tx: 0, ty: 0, cx: 2, cy: 2 },
+      habitat: 'crypt', zoneVariant: 'tar', _hunting: true });
+    const key=WorldGen.tileKey(0,0), old=WorldGen.tileCache.get(key), previous=WorldGen.forEachItemNear;
+    const entry={cellsPerEdge:n,grid:new Uint8Array(n*n).fill(WorldGen.T.CAVE_FLOOR),creatures:[c],_spawnOpts:{}};
+    WorldGen.tileCache.set(key,entry);
+    WorldGen.forEachItemNear=(what,tx,ty,fn)=>entry.creatures.forEach(fn);
+    try {
+      assert.truthy(enemySummon(s,c,EnemyRoster.get(c.kind).ability));
+      const child = entry.creatures[1];
+      for (const key of garrisonInherit()) assert.eq(child[key], c[key], `${key} inherited`);
+      assert.includes(garrisonInherit(), '_surfaceSpawn'); assert.includes(garrisonInherit(), 'habitat');
+      assert.includes(garrisonInherit(), 'zoneVariant'); assert.includes(garrisonInherit(), '_hunting');
+      if (typeof Lairs !== 'undefined' && Lairs.GARRISON_INHERIT) assert.eq(garrisonInherit(), Lairs.GARRISON_INHERIT, 'lairs.js owns the list');
     } finally {
       WorldGen.forEachItemNear=previous;
       if(old) WorldGen.tileCache.set(key,old); else WorldGen.tileCache.delete(key);

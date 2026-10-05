@@ -1,21 +1,23 @@
-// The horse (a rare mount kept in the bag) and the sea turtle (the rabbit of
+// The horse (an individually owned mount) and the sea turtle (the rabbit of
 // the beach). Riding reads one row, items.js CONSUMABLE_SPEC.horse.
-test('horse: riding counts only while a horse is in the bag', () => {
-  const bag = id => [{ id, count: 1 }];
-  assert.falsy(isRiding({ inv: bag('horse') }), 'carried, not ridden');
-  assert.falsy(isRiding({ riding: true, inv: bag('cow') }), 'no horse, no ride');
-  assert.falsy(isRiding({ riding: true, inv: [{ id: 'horse', count: 0 }] }), 'an empty stack is no horse');
-  assert.truthy(isRiding({ riding: true, inv: bag('horse') }));
-  assert.truthy(isRiding({ riding: true, inv: bag('shiny_horse') }), 'a shiny horse rides the same');
-  assert.eq(CONSUMABLE_SPEC.shiny_horse, CONSUMABLE_SPEC.horse, 'one row for both stacks');
-  assert.truthy(CONSUMABLE_SPEC.horse.immediate, 'riding spends nothing');
+test('horse: riding requires an owned horse that is not resting', () => {
+  const horse = kind => ({ id: 'pet_horse', pet: true, kind, hp: 4, carried: true });
+  assert.falsy(isRiding({ riding: true, inv: [{ id: 'horse', count: 1 }] }), 'retired stacks cannot ride');
+  for (const kind of ['horse', 'shiny_horse']) {
+    const save = { released: [horse(kind)] };
+    assert.falsy(isRiding(save));
+    save.riding = true;
+    assert.truthy(isRiding(save));
+    save.released[0].recoverUntil = Date.now() + 60000;
+    assert.falsy(isRiding(save), 'resting mounts cannot ride');
+  }
 });
 
 test('horse: the rider wears the knight skin the bike rack lends', () => {
-  const save = { playerClass: 'farmer', riding: true, inv: [{ id: 'horse', count: 1 }] };
+  const save = { playerClass: 'farmer', riding: true, released: [{ id: 'pet_horse', kind: 'horse', pet: true, hp: 4 }] };
   assert.eq(SpriteLayout.playerArt(save), SpriteLayout.PLAYER_ART.mounted);
-  save.inv = [];
-  assert.eq(SpriteLayout.playerArt(save), SpriteLayout.PLAYER_ART.farmer, 'sold or released: back on foot');
+  save.released = [];
+  assert.eq(SpriteLayout.playerArt(save), SpriteLayout.PLAYER_ART.farmer, 'released: back on foot');
 });
 
 test('horse: the stick walk goes speedMul as fast and costs energyMul as much', () => {

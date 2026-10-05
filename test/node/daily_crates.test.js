@@ -30,8 +30,8 @@
     try { return fn(); } finally { HomeArea.worldM = prev; }
   };
   const DAY = 24 * 60 * 60 * 1000;
-  const today = () => String(Delivery.dayKey());
-  const yesterday = () => String(Delivery.dayKey(new Date(Date.now() - DAY)));
+  const today = () => String(utcDayKey());
+  const yesterday = () => String(utcDayKey(new Date(Date.now() - DAY)));
   const ledger = (entries) => ({ coinBurstClaimed: Object.fromEntries(entries.map(([id, d]) => [id + d, 1])) });
 
   test('daily crate: the predicate is the crate look, on the surface, off a real POI', () => {
@@ -80,8 +80,8 @@
       assert.eq(tiers.length, 1, 'no second roll today');
       assert.eq(events.length, 1, 'no second credit today');
       const bare = flashes[flashes.length - 1];
-      assert.truthy(/^The crate is bare\. \d+[smhd]\.$/.test(bare), `the wait is shortDuration: ${bare}`);
-      assert.lte(`The crate is bare. ${shortDuration(DAY)}.`.length, MAP_MSG_MAX, 'fits a map line');
+      assert.truthy(/^The crate is bare — \d+[smhd]$/.test(bare), `the wait is shortDuration: ${bare}`);
+      assert.lte(Macros.waitLine('The crate is bare', DAY).length, MAP_MSG_MAX, 'fits a map line');
       // The day rolls: yesterday's entry is stale.
       save.coinBurstClaimed = { [crate.id + yesterday()]: 1 };
       runInteractable(makeCtx(scene, save), crate);

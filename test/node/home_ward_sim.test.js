@@ -181,7 +181,7 @@ test('ward: only a CLAIMED castle\'s turrets ward, and only on the surface', () 
 });
 
 test('ward: a tamed slime is a pet and is not driven from its own home', () => {
-  const pet = mkSlime({ id: 'released_slime_1757000000000_424242' });
+  const pet = mkSlime({ pet: true, id: 'released_slime_1757000000000_424242' });
   const scene = wardScene(pet);
   run(scene, 90);
   assert.lt(fromHome(pet), CREATURE_SIM_CELLS - 1, 'a pet lives at Home like you do');

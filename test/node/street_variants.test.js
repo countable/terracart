@@ -136,6 +136,19 @@ test('variants: each row dresses ONE size, at its share (±1.5%) over 40k keys',
   assert.eq(SV.variantFor('x|0,0', 'x', null), null, 'a way of neither size is plain');
 });
 
+test('variants: Burned Row stays on small roads; Lantern Row takes its major-road share', () => {
+  assert.eq(SV.VARIANT_BY_ID.burned.size, 'minor');
+  assert.eq(SV.VARIANT_BY_ID.lantern.size, 'major');
+  assert.eq(SV.VARIANT_BY_ID.lantern.share, 0.12);
+  for (const klass of ['primary', 'secondary', 'tertiary']) {
+    const size = SV.sizeOfTags({ class: klass });
+    for (let i = 0; i < 1000; i++) {
+      assert.falsy(SV.variantFor(`burn-swap-${i}`, 'Ember Kiln Road', size) === 'burned',
+        'even a matching name cannot put Burned Row on a major/medium road');
+    }
+  }
+});
+
 test('variants: a name word nudges its row (the sign foreshadows the street)', () => {
   let plain = 0, cherry = 0;
   for (let i = 0; i < 20000; i++) {
@@ -154,22 +167,16 @@ test('variants: sizes follow the terrain tiers — major = ROAD_MD + ROAD_LG, mi
   assert.eq(SV.sizeOfTags({ class: 'rail' }), null, 'a railway is not a street');
 });
 
-test('variants: bare minor streets get more rocks, and hedgerows get none', () => {
-  let rocks = 0, bare = 0, bareRocks = 0, themed = 0, hedgeRocks = 0;
+test('variants: a quarter of minor streets are rock-lined, and never a hedgerow', () => {
+  let rocks = 0, hedgeRocks = 0;
   const N = 20000;
   for (let i = 0; i < N; i++) {
     const k = `st ${i}|0,0`, v = SV.variantFor(k, null, 'minor');
-    if (v == null) bare++;
-    else if (v !== 'hedgerow') themed++;
-    if (SV.rocksFor(k, 'minor', v)) {
-      if (v == null) bareRocks++;
-      else if (v === 'hedgerow') hedgeRocks++;
-      else rocks++;
-    }
+    if (SV.rocksFor(k, 'minor', v)) { rocks++; if (v === 'hedgerow') hedgeRocks++; }
   }
   assert.eq(hedgeRocks, 0, 'no hedgerow is ever rock-lined');
-  assert.inRange(rocks / themed, 0.23, 0.27, 'themed streets keep their quarter share');
-  assert.inRange(bareRocks / bare, 0.33, 0.37, '35% of bare streets are rock-lined');
+  assert.inRange(rocks / N, SV.ROCK_STREET_SHARE * 0.9 - 0.02, SV.ROCK_STREET_SHARE + 0.02,
+    'about ROCK_STREET_SHARE of the (non-hedgerow) minor streets');
   assert.falsy(SV.rocksFor('st 1|0,0', 'major', null), 'a major road never is');
 });
 
@@ -196,12 +203,11 @@ test('rocks: only along the chosen minor street — none by the hedgerow, none i
   const r = rasterize();
   const rocks = r.objects.filter((o) => o.kind === 'mineralrock');
   assert.gt(rocks.length, 5, 'the rock street is lined');
-  const ore = rocks.filter(o => o.caveVariant == null && o.yieldTier > 1);
-  assert.gt(ore.length, 0, 'bare streets include occasional surface ore');
-  assert.gt(rocks.filter(o => o.caveVariant != null).length, ore.length * 5, 'stone remains the majority');
   for (const o of rocks) {
     assert.truthy(o._street, `${o.id} is a street rock`);
-    assert.eq(o.requiredTier, Math.max(1, (o.yieldTier || 1) - 1));
+    assert.truthy(o.caveVariant != null, `${o.id} is plain stone, never street ore`);
+    assert.eq(o.requiredTier, 1);
+    assert.eq(o.yieldTier, undefined);
     const iy = cellOf(o.y, TY);
     assert.inRange(iy, 12 - 5, 12 + 5, `${o.id} sits on the rock street's verge, not elsewhere`);
     assert.eq(r.roadMask[iy * CPE + cellOf(o.x, TX)], 0, `${o.id} is off the band`);
@@ -545,7 +551,7 @@ test('sports pitches do not pull deer out of their forest habitat', () => {
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──
 const TOAD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'toadstool', 'Pale Lane');
 const BARR = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'barricade', 'Gate Road');
-const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'burned', 'Kiln Road');
+const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'burned', 'Kiln Road');
 function variantLayers() {
   const toad = pts([[0, 20], [CPE - 1, 20]]);
   const barr = pts([[40, 30], [40, CPE - 1]]);     // one owned end inside (row 30)
@@ -555,7 +561,7 @@ function variantLayers() {
     { name: 'transportation', extent: EXTENT, features: [
       { type: 2, tags: { class: 'minor' }, geom: [toad] },
       { type: 2, tags: { class: 'secondary' }, geom: [barr] },
-      { type: 2, tags: { class: 'secondary' }, geom: [burn] },
+      { type: 2, tags: { class: 'minor' }, geom: [burn] },
     ] },
     { name: 'transportation_name', extent: EXTENT, features: [
       { type: 2, tags: { name: TOAD }, geom: [toad] },
@@ -816,7 +822,7 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
   // Deterministic, and off a hash of the street + the end's GLOBAL point.
   const again = dressed(WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M)).d;
   assert.eq(again.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery)[0].id, bars[0].id, 'the same end every build');
-  assert.truthy(/u01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
+  assert.truthy(/hash01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
     'the pick hashes variant, street key and the global end point');
 });
 
@@ -1483,6 +1489,39 @@ test('barricade scenery: perpendicular lines reach four cells from the verge', (
   for (let i = 1; i < crossingRows.length; i++) {
     const gapM = (crossingRows[i] - crossingRows[i - 1]) * WorldGen.CELL_M;
     assert.inRange(gapM, 43, 57, 'single barricade layers sit about 50 m apart after cell snapping');
+  }
+});
+
+test('barricades cross rasterized major roads, including diagonal pavement beyond the band center', () => {
+  for (const roadClass of ['secondary', 'primary', 'motorway']) {
+    for (const diagonal of [false, true]) {
+      const line = diagonal
+        ? [{ x: (32 - 23 / Math.hypot(23, 23.5)) * CELL_MVT,
+            y: (32 - 23.5 / Math.hypot(23, 23.5)) * CELL_MVT },
+            { x: 55 * CELL_MVT, y: 55.5 * CELL_MVT }]
+        : pts([[32, 32], [32, 63]]);
+      const r = WorldGen.rasterizeTile([
+        { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+        { name: 'transportation', extent: EXTENT, features: [
+          { type: 2, tags: { class: roadClass }, geom: [line] },
+        ] },
+        { name: 'transportation_name', extent: EXTENT, features: [
+          { type: 2, tags: { name: BARR }, geom: [line] },
+        ] },
+      ], CPE, TX, TY, TILE_EDGE_M);
+      const pieces = [...r.streetDress.objects, ...r.streetDress.wildplants]
+        .filter(o => o._street === 'barricade' && o._streetScenery);
+      const occupied = new Set(pieces.map(o => cellOf(o.y, TY) * CPE + cellOf(o.x, TX)));
+      // The first diagonal crossing reaches this paved tile whose center
+      // is outside a secondary road's 4.5 m half-width. Treating it as verge
+      // used to reject its road terrain and stop the barrier mid-crossing.
+      const x = diagonal ? 34 : 32, y = diagonal ? 33 : 36, i = y * CPE + x;
+      assert.truthy(WorldGen.isRoadTerrain(r.grid[i]), `${roadClass}: fixture checks actual pavement`);
+      assert.truthy(r.spawnWhy[i] & WorldGen.SPAWN_WHY.TERRAIN, 'ordinary terrain spawn exclusion remains');
+      assert.truthy(occupied.has(i), `${roadClass}: barrier covers ${diagonal ? 'diagonal' : 'straight'} road tile`);
+      assert.truthy(pieces.some(o => r.roadMask[cellOf(o.y, TY) * CPE + cellOf(o.x, TX)]),
+        'barriers survive the full terrain/mask/dressing pipeline on the drawn band');
+    }
   }
 });
 

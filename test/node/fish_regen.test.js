@@ -147,7 +147,7 @@
       const s = scene('worldpeach');
       Conditions.apply(s.save, 'poison');
       if (refusal === 'cooldown') Energy.startEatCooldown(s.save);
-      if (refusal === 'locked') s.save.energy = 0;
+      if (refusal === 'locked') s._zeroEnergyLocked = () => true;
       if (refusal === 'empty') s.save.inv[0].count = 0;
       const before = JSON.stringify(s.save);
       assert.falsy(eat.call(s));

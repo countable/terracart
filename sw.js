@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-796472dc';
+const SHELL_VERSION = 'shell-1cfc7b05';
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
 /* ASSET_HASHES_START */
@@ -399,8 +399,11 @@ const ASSET_HASHES = {
   "assets/Objects/Castle/tower_master.png": "195b2576",
   "assets/Objects/Castle/tower_ruin_master.png": "42d55bee",
   "assets/Objects/Castle/tower_shapes.png": "0b7d9e6d",
+  "assets/Objects/Cave/mechanisms.png": "5d1896d8",
   "assets/Objects/Cave/poison_vent_inactive.png": "b42d2b64",
   "assets/Objects/Cave/props.png": "6b6f2cc3",
+  "assets/Objects/Cave/source/selected.png": "b82da57c",
+  "assets/Objects/Cave/source/supplement.png": "7958b7b6",
   "assets/Objects/Chests.png": "392948a7",
   "assets/Objects/Crops.png": "b151e77a",
   "assets/Objects/DailyVisits/potofgold.png": "68ee01c6",
@@ -504,6 +507,8 @@ const ASSET_HASHES = {
   "assets/Objects/Pets/dog.png": "aa2839e6",
   "assets/Objects/Pickup_Items.png": "e2dbff8b",
   "assets/Objects/Portal.png": "ccf366a4",
+  "assets/Objects/Progression/icons.png": "24092ac1",
+  "assets/Objects/Progression/tiles.png": "8b0bfb1b",
   "assets/Objects/Reef/coral.png": "88a65d20",
   "assets/Objects/Reef/reef_atlas.png": "5f9e1716",
   "assets/Objects/Road copiar.png": "eb7417d4",
@@ -701,6 +706,9 @@ const ASSET_HASHES = {
   "assets/art/npc_tilly.webp": "bfdf44e8",
   "assets/art/npc_tilly_happy.webp": "a699b472",
   "assets/art/pet_clearing.webp": "288767eb",
+  "assets/art/progression_arena.webp": "4191c31c",
+  "assets/art/progression_elevator.webp": "3873b121",
+  "assets/art/progression_portal.webp": "78541c16",
   "assets/art/quarry_sapphire.webp": "250a3bb2",
   "assets/art/restore_blacksmith.webp": "ced57dbb",
   "assets/art/restore_house.webp": "b1147404",

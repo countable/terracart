@@ -29,12 +29,12 @@
       if (row.reward === 'treasure') return 'Receive a sacred-grove treasure roll.';
       return row.effect || 'See game definition.';
     };
-    const zoneName = id => ZoneVariants.byId(id)?.name || label(id);
+    const zoneVariantName = id => ZoneVariants.byId(id)?.name || label(id);
     const streetName = id => StreetVariants.VARIANT_BY_ID[id]?.name || label(id);
     const rows = [
       ...Object.entries(Shrines.SHRINE_KINDS).map(([id, row]) => ({ ...row, id, group:'boon',
         sprites:[SpriteLayout.groveShrineArt({ shrineKind:id })],
-        locations:[...(row.locations || []), ...(row.zones || []).map(id => `Zone: ${zoneName(id)}`), ...(row.streets || []).map(id => `Street/path: ${streetName(id)}`)] })),
+        locations:[...(row.locations || []), ...(row.zoneVariants || []).map(id => `Zone: ${zoneVariantName(id)}`), ...(row.streets || []).map(id => `Street/path: ${streetName(id)}`)] })),
       ...Object.entries(Shrines.REWARD_KINDS).map(([id, row]) => ({ ...row, id, group:'reward',
         sprites:row.sprite ? [{ key:row.sprite, frame:0, scale:1.6 }] : id === 'grove' ? SpriteLayout.GROVE_SHRINE_ART : [{ key:'waystone', frame:0, scale:1.6 }],
         locations:row.locations || (id === 'grove' ? ['Mapped parks and sacred groves without a named idol variant'] : ['Pilgrim street endpoints']) })),

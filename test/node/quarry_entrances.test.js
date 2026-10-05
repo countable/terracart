@@ -62,7 +62,7 @@
     const cells=entry.objects.filter(o=>o.kind==='staircase').map(o=>Math.floor(o.y/W.CELL_M)*N+Math.floor(o.x/W.CELL_M));
     assert.eq(new Set(cells).size,cells.length,'no generic stair overlaps a quarry shaft');
   });
-  test('quarry entrances: generated shafts receive matching return ladders and deeper descents', async () => {
+  test('quarry entrances: generated shafts receive matching return ladders without bypassing the L1 gate', async () => {
     const ctx=context(), down=stairs(ZoneDressing.dress(ctx));
     const tx=920001,ty=920002,key=W.tileKey(tx,ty);
     const objects=down.map(o=>({...o,x:o.x+tx*edge,y:o.y+ty*edge}));
@@ -73,7 +73,7 @@
       const up=cave.objects.filter(o=>o.kind==='staircase'&&o.dir==='up');
       assert.eq(up.length,2);
       for (const shaft of objects) assert.truthy(up.some(o=>o.x===shaft.x&&o.y===shaft.y),'return ladder mirrors its shaft');
-      assert.eq(cave.objects.filter(o=>o.kind==='staircase'&&o.dir==='down').length,2);
+      assert.eq(cave.objects.filter(o=>o.kind==='staircase'&&o.dir==='down').length,0);
     } finally { for (const depth of [0,1]) W.setDepth(depth).delete(key); W.setDepth(0); }
   });
 })();

@@ -3,7 +3,8 @@ const lift = sig => {
   const start = SCENE_SRC.indexOf('\n  ' + sig);
   return SCENE_SRC.slice(start + 1, SCENE_SRC.indexOf('\n  }\n', start) + 4);
 };
-const methods = ['_queueLowHealthStory() {', '_lowHealthStory() {', '_storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {'].map(lift).join('\n');
+const methods = ['_queueLowHealthStory() {', '_lowHealthStory() {', '_storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {',
+  '_enqueueCeremony(kind, open, { key, hold, defer = false } = {}) {', '_drainCeremonies() {', '_dialogOpen() {'].map(lift).join('\n');
 const K = new Function('persistSave', 'Energy', `return class { ${methods} };`)(() => {}, Energy);
 function run(fn) {
   const body = document.body;

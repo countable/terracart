@@ -172,11 +172,13 @@ test('cave extras: loadCaveTile rolls them after the rocks and mushrooms, and sh
   const src = WORLDGEN_SRC;
   const start = src.indexOf('async function loadCaveTile(');
   const body = src.slice(start, src.indexOf('\n  }\n', start));
-  const i = (s) => body.indexOf(s);
-  assert.gt(i('caveChestRings('), i('spawnCaveMushrooms('), 'rings after the mushrooms');
-  assert.gt(i('caveWallTorches('), i('spawnCaveMushrooms('), 'wall torches after the rocks + mushrooms');
-  assert.gt(i('caveCoins('), i('spawnCaveMushrooms('), 'coins after');
-  assert.gt(i('caveTreasureMarks('), i('spawnCaveMushrooms('), 'X marks after');
+  const order = WorldGen.CAVE_PASSES.map(r => r.id);
+  const i = (s) => order.indexOf(s);
+  assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(body), 'loadCaveTile runs the table in order');
+  assert.gt(i('rings'), i('mushrooms'), 'rings after the mushrooms');
+  assert.gt(i('wallTorches'), i('mushrooms'), 'wall torches after the rocks + mushrooms');
+  assert.gt(i('coins'), i('mushrooms'), 'coins after');
+  assert.gt(i('treasureMarks'), i('mushrooms'), 'X marks after');
   assert.truthy(/extraTreasures, caveCoinSeeds,/.test(body), 'X marks ride extraTreasures; coins ride caveCoinSeeds');
 });
 

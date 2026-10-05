@@ -10,6 +10,8 @@
         anims: { isPlaying: true },
         setActive(on) { this.active = on; return this; },
         setVisible(on) { this.visible = on; return this; },
+        setAlpha() { return this; }, setAngle() { return this; },
+        setScale() { return this; }, setFlipX() { return this; }, clearTint() { return this; },
         tick() { if (this.active && this.anims.isPlaying) this.animationFrame++; },
         destroy() { children.delete(this); destroyed.push(this); this.anims = null; },
       };

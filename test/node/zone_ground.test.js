@@ -108,7 +108,7 @@ test('park characters: a named park keeps its character while declarative covera
   const a = on.zone.reach.find((x) => x.kind === 'grove');
   assert.truthy(a, 'the grove');
   assert.eq(a.character, 'formal', 'the grove reads the same character');
-  assert.truthy(Z.GROVE_ASPECTS.formal.some(([asp]) => asp === a.aspect), `a formal aspect (${a.aspect})`);
+  assert.truthy(Z.GROVE_PATTERNS.formal.some(([pat]) => pat === a.nexusPattern), `a formal pattern (${a.nexusPattern})`);
 });
 
 test('park density: covered parks replace ambience and unrelated park ground keeps it', () => {
@@ -275,19 +275,19 @@ function groveDress(gx, gy, tx, ty, block) {
   }
   const res = fld ? Z.dress({ field: fld, tx, ty, N, tileEdgeM: edge, grid, chests: [],
     spawnOpts: { roadMask: new Uint8Array(N * N), occupied: new Set() } }) : null;
-  const offsets = (res ? [...res.objects, ...res.wildplants] : []).filter((p) => p.zone === 'grove').map((p) => {
+  const offsets = (res ? [...res.objects, ...res.wildplants] : []).filter((p) => p.zoneKind === 'grove').map((p) => {
     const ix = Math.floor((p.x - tx * edge) / (edge / N)), iy = Math.floor((p.y - ty * edge) / (edge / N));
     return { p, dx: ix - c.ax0, dy: iy - c.ay0 };
   });
   return { a, res, offsets, N };
 }
-function groveAt(aspect, base, step) {
+function groveAt(pattern, base, step) {
   for (let k = 0; k < 20000; k++) {
     const gx = base[0] + step[0] * k, gy = base[1] + step[1] * k;
     const r = Z.resolveAnchors(Z.collectAnchors({ features: [{ type: 1, geom: [[{ x: gx - TX * EXT, y: gy - TY * EXT }]], tags: GROVE_TAGS }] }, TX, TY));
-    if (r.length && r[0].aspect === aspect) return [gx, gy];
+    if (r.length && r[0].nexusPattern === pattern) return [gx, gy];
   }
-  throw new Error('no ' + aspect);
+  throw new Error('no ' + pattern);
 }
 
 test('rescue: a blocked pattern piece walks outward along its ray', () => {
@@ -320,16 +320,16 @@ test('symmetric figures: compass roses laid whole about the POI, shifted togethe
   const ray = []; for (let k = 2; k <= 2 + Z.RESCUE_CELLS; k++) ray.push([0, -k]);
   const dropped = groveDress(gx, gy, TX, TY, ray).offsets.filter((o) => o.p.crop === 'wildrose');
   assert.eq(dropped.length, 0, 'dropped whole');
-  // Every aspect's figure is mirror-symmetric in its offsets.
-  for (const asp of Z.SYMMETRIC_ASPECTS) {
-    const P = Z.patternPieces(asp);
+  // Every pattern's figure is mirror-symmetric in its offsets.
+  for (const pat of Z.SYMMETRIC_PATTERNS) {
+    const P = Z.patternPieces(pat);
     const set = new Set(P.map((p) => `${p.what}:${p.dx},${p.dy}`));
-    for (const p of P) assert.truthy(set.has(`${p.what}:${-p.dx},${p.dy}`), `${asp}: mirrored left-right`);
+    for (const p of P) assert.truthy(set.has(`${p.what}:${-p.dx},${p.dy}`), `${pat}: mirrored left-right`);
     for (let k = 1; k <= Z.RESCUE_CELLS; k++) {
       const moved = new Set(P.map((p) => `${p.what}:${Z.rayStep(p.dx, p.dy, k).join()}`));
       for (const p of P) {
         const [x, y] = Z.rayStep(p.dx, p.dy, k);
-        assert.truthy(moved.has(`${p.what}:${-x},${y}`), `${asp} step ${k}: still mirrored`);
+        assert.truthy(moved.has(`${p.what}:${-x},${y}`), `${pat} step ${k}: still mirrored`);
       }
     }
   }
@@ -343,17 +343,17 @@ test('symmetric figures: the anchor\'s own tile lays them; a figure that crosses
   assert.eq((nb.res ? nb.res.wildplants : []).filter((w) => w.crop === 'wildrose').length, 0, 'the neighbour never lays half');
 });
 
-test('grove aspects: weighted so roses stay the rarer prize; compass roses ~1 named park in 6-7', () => {
+test('grove patterns: weighted so roses stay the rarer prize; compass roses ~1 named park in 6-7', () => {
   const got = {};
   let n = 0;
   for (let k = 0; k < 6000; k++) {
     const gx = TX * EXT + 100 + (k * 53) % 3900, gy = TY * EXT + 100 + Math.floor(k / 70) * 43;
     const r = Z.resolveAnchors(Z.collectAnchors({ features: [{ type: 1, geom: [[{ x: gx - TX * EXT, y: gy - TY * EXT }]], tags: GROVE_TAGS }] }, TX, TY));
-    got[r[0].aspect] = (got[r[0].aspect] || 0) + 1; n++;
+    got[r[0].nexusPattern] = (got[r[0].nexusPattern] || 0) + 1; n++;
   }
   const compass = (got.compass_roses || 0) / n;
   assert.inRange(compass, 1 / 8, 1 / 5.5, `compass roses at ${(compass * 100).toFixed(1)}%`);
-  const roseAspects = ['rose_rings', 'rose_in_trees', 'compass_roses'].reduce((t, a) => t + (got[a] || 0), 0) / n;
-  assert.lt(roseAspects, 0.5, `rose-bearing aspects at ${(roseAspects * 100).toFixed(0)}% (were two in three)`);
+  const rosePatterns = ['rose_rings', 'rose_in_trees', 'compass_roses'].reduce((t, a) => t + (got[a] || 0), 0) / n;
+  assert.lt(rosePatterns, 0.5, `rose-bearing patterns at ${(rosePatterns * 100).toFixed(0)}% (were two in three)`);
 });
 })();

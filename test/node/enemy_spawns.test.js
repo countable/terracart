@@ -1,17 +1,4 @@
 (() => {
-  test('enemy spawns: home eligibility ignores temporary night and amnesty visibility', () => {
-    const scene = { save: { starterCratesAt: { x: -2000, y: 0 } },
-      _pestFreeZone: () => new Set([1]) };
-    const c = { id: 'night-zombie', kind: 'zombie', x: 15, y: 15,
-      _surfaceSpawn: { x: 15, y: 15, tx: 0, ty: 0, cx: 1, cy: 0 },
-      _surfaceInactive: true, hidden: true };
-    assert.truthy(EnemySpawns.homeEligible(scene, c));
-    assert.truthy(c._surfaceInactive, 'eligibility must not reveal a sleeping foe');
-    scene.save.starterCratesAt = { x: 15, y: 15 };
-    assert.falsy(EnemySpawns.homeEligible(scene, c));
-    assert.truthy(EnemySpawns.homeEligible(scene, { id: 'visitor', kind: 'treant', x: 15, y: 15 }),
-      'an active visitor without surface provenance is not suppressed by position');
-  });
   test('enemy spawns: retired tints leave ordinary pools and surface candidates cap at T3', () => {
     for (const biome of ['GRASS', 'FOREST', 'ROCK', 'SAND', 'FARMLAND', 'RESIDENTIAL', 'PARK', 'COMMERCIAL', 'INDUSTRIAL', 'WETLAND', 'ORCHARD']) {
       const pool = EnemySpawns.surfaceRows(biome);

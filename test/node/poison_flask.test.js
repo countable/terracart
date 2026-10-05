@@ -76,7 +76,7 @@ test('poison flask: thrown, it poisons the struck creature; a thrown Antidote cu
   assert.truthy(Combat.poisoned(c)); assert.eq(c._poisonBy, 'player', 'the player\'s flask: a player kill');
   assert.truthy(PotionEffects.apply(scene, c, 'antidote'));
   assert.falsy(Combat.poisoned(c));
-  const p = { id: 'released_pet', kind: 'slime', x: 0, y: 0 };
+  const p = { pet: true, id: 'released_pet', kind: 'slime', x: 0, y: 0 };
   assert.truthy(PotionEffects.apply(scene, p, ID), 'a careless throw poisons a pet too — it is a thrown potion');
   assert.truthy(Combat.poisoned(p));
 });
@@ -94,7 +94,7 @@ test('poison flask: the scene levies the bite through the burn\'s dispatch, aske
   foe._hp = 1;
   assert.truthy(s._tickUnitPoison(foe, 1000 + def.intervalMs * 2), 'the bite that kills says so');
   // A poisoned pet is worried down and retreats; an NPC rests.
-  const pet = { id: 'released_dog', kind: 'dog', x: 0, y: 0 };
+  const pet = { pet: true, id: 'released_dog', kind: 'dog', x: 0, y: 0 };
   Combat.poison(pet, 1000, 'player');
   s._tickUnitPoison(pet, 1000 + def.intervalMs);
   assert.eq(s.pops[0], def.energyLoss, 'a pet\'s hurt pops like any other');
@@ -111,7 +111,7 @@ test('poison flask: the scene levies the bite through the burn\'s dispatch, aske
   // Asked wherever the burn is asked, right after it.
   assert.truthy(/if \(this\._tickUnitFire\?\.\(c, now\)\) return;\s*\n\s*if \(this\._tickUnitPoison\?\.\(c, now\)\) return;/.test(app), 'wanderCreatures');
   assert.truthy(/if \(scene\._tickUnitFire\?\.\(c, now\)\) return true;\s*\n\s*if \(scene\._tickUnitPoison\?\.\(c, now\)\) return true;/.test(CREATURE_AI_SRC), 'the flower tick (a sleeper, an ally)');
-  assert.truthy(/const poisoned = !frozen && !afire && Combat\.poisoned\(c, performance\.now\(\)\);/.test(RENDER_SRC), 'the body wears the row\'s tint');
+  assert.truthy(/const poisoned = !chilled && !afire && Combat\.poisoned\(c, performance\.now\(\)\);/.test(RENDER_SRC), 'the body wears the row\'s tint');
 });
 
 test('poison flask: drunk, it is the player\'s own poison, and the flask is spent either way', () => {
@@ -121,6 +121,7 @@ test('poison flask: drunk, it is the player\'s own poison, and the flask is spen
   const applied = [];
   const s = { save: { energy: 100, inv: [{ id: ID, count: 2 }], selSlot: 0 }, consumed: 0,
     _applyCondition(id) { applied.push(id); Conditions.apply(this.save, id); },
+    _selectedConsumable(id) { const sel = this.save.inv[0]; return sel && sel.id === id && sel.count > 0 ? sel : null; },
     _finishConsumable() { this.consumed++; return true; } };
   const call = () => drink.call(s, save => save.inv[save.selSlot], CONSUMABLE_SPEC);
   assert.truthy(call());

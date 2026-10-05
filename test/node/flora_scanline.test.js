@@ -7,6 +7,9 @@
   const pointStart = WORLDGEN_SRC.indexOf('  function pointInRings(');
   const pointEnd = WORLDGEN_SRC.indexOf('\n  }', pointStart) + 4;
   const contains = new Function(WORLDGEN_SRC.slice(pointStart, pointEnd) + '\nreturn pointInRings;')();
+  const rowStart = WORLDGEN_SRC.indexOf('  function rowCrossings(');
+  const rowEnd = WORLDGEN_SRC.indexOf('\n  }', rowStart) + 4;
+  const rowCrossings = new Function(WORLDGEN_SRC.slice(rowStart, rowEnd) + '\nreturn rowCrossings;')();
   const rngStart = WORLDGEN_SRC.indexOf('  function makeRng(');
   const rngEnd = WORLDGEN_SRC.indexOf('\n  }', rngStart) + 4;
   const makeRng = new Function('_reviewSalt', WORLDGEN_SRC.slice(rngStart, rngEnd) + '\nreturn makeRng;')(0);
@@ -18,7 +21,7 @@
     const bb = { minX: Math.min(...points.map(p => p.x)), maxX: Math.max(...points.map(p => p.x)),
       minY: Math.min(...points.map(p => p.y)), maxY: Math.max(...points.map(p => p.y)) };
     const env = {
-      makeRng, bboxOf: () => bb, tx: 0, ty: 0, TILE_EXTENT: 4096,
+      makeRng, rowCrossings, bboxOf: () => bb, tx: 0, ty: 0, TILE_EXTENT: 4096,
       CELL_M: step, mvtToM: 1, mvtToCell: 1 / step, w: 64, h: 64,
       cellCenterMeters: (ix, iy) => ({ mx: ix + .5, my: iy + .5 }),
       cellId: (_, tx, ty, ix, iy) => `${tx}/${ty}/${ix}/${iy}`,

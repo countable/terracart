@@ -5,7 +5,8 @@
     const s = { save: { discovered: remembered(memories), restoredHouses: {}, caught: [] },
       depth: 0, cellM: 7, tileEdgeM: 224, startWorldM: { x: 0, y: 0 }, playerM: { x: 112, y: 112 },
       _dialogOpen: () => false, showMessageModal: p => s.lastDialog = p,
-      showRewardCard: (reward, extra) => { s.lastCard = { reward, extra }; return true; },
+      // The gift lands on the chest shell (Rewards.present → showChestRewardModal).
+      showChestRewardModal: (card) => { s.lastCard = card; },
       addToInv: (id, n) => { const accepted = Inventory.add(s.save, id, n).accepted; s.gifts = (s.gifts || 0) + accepted; s.giftId = id; return accepted; } };
     return s;
   }
@@ -31,6 +32,7 @@
     try {
       assert.truthy(StoryEncounters.interact(s, maud));
       assert.eq(s.lastDialog.title, 'Maud · Survivor');
+      s.save.caught.push(q.enemyId);   // resolveDefeat's mark, then the credit
       StoryEncounters.defeated(s, { id: q.enemyId });
       StoryEncounters.interact(s, maud);
       assert.eq(q.status, 'rewarded');
@@ -42,7 +44,10 @@
     const q = s.save.storyEncounter, c = { id: q.npcId, name: 'Neighbour' };
     const portrait = NPC.portrait; NPC.portrait = () => 'portrait';
     try {
+      s.save.caught.push('other-archer');
       assert.falsy(StoryEncounters.defeated(s, { id: 'other-archer' }));
+      assert.falsy(StoryEncounters.defeated(s, { id: q.enemyId }), 'her archer, but not yet fallen');
+      assert.falsy(StoryEncounters.defeated(s, { id: q.enemyId }, 'turret'), 'and never to a turret');
       StoryEncounters.interact(s, c);
       assert.eq(s.gifts || 0, 0);
       assert.eq(s.lastDialog.body, StoryEncounters.WORRIED);
@@ -52,9 +57,9 @@
       assert.eq(s.gifts, 1); assert.eq(s.giftId, 'starfruit_seed');
       assert.eq(q.status, 'rewarded');
       // The seed is SHOWN as a card under her portrait, her thanks its line.
-      assert.eq(s.lastCard.reward.id, 'starfruit_seed'); assert.eq(s.lastCard.reward.kind, 'item');
-      assert.eq(s.lastCard.extra.sub, StoryEncounters.THANKS); assert.eq(s.lastCard.extra.art, 'portrait');
-      assert.eq(s.lastCard.extra.kind, 'story'); assert.eq(s.lastDialog, notes, 'no note on top of the card');
+      assert.eq(s.lastCard.name, itemName('starfruit_seed')); assert.eq(s.lastCard.tier, itemTierOf('starfruit_seed'));
+      assert.eq(s.lastCard.sub, StoryEncounters.THANKS); assert.eq(s.lastCard.art, 'portrait');
+      assert.eq(s.lastCard.kind, 'story'); assert.eq(s.lastDialog, notes, 'no note on top of the card');
       s.save = JSON.parse(JSON.stringify(s.save));
       StoryEncounters.interact(s, c);
       assert.eq(s.gifts, 1);
@@ -63,6 +68,7 @@
   test('hunted-neighbour full bag and a busy modal do not spend the gift', () => {
     const s = scene(); StoryEncounters.arm(s);
     const q = s.save.storyEncounter, c = { id: q.npcId, name: 'Neighbour' };
+    s.save.caught.push(q.enemyId);
     StoryEncounters.defeated(s, { id: q.enemyId });
     s.addToInv = () => 0;
     const portrait = NPC.portrait; NPC.portrait = () => 'portrait';

@@ -377,7 +377,7 @@
       ],
       "layout": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
       "interaction": "Mine mixed gemstone pockets under their existing deposit or ore-rock rules.",
-      "reward": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "reward": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
       "encounterByDepth": {
         "1": [
           "cave_slime",
@@ -521,7 +521,7 @@
       "id": "gemstone_path",
       "name": "Gemstone Path",
       "layout": "Two-cell clear middle with accessible crystal pockets at the edges. No extra cache per segment; roll one shrine at 50% per canonical route and depth.",
-      "reward": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "reward": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
       "source": "walking_path_or_sm_road",
       "depths": [
         1,
@@ -2136,7 +2136,7 @@
       }
     },
     {
-      "poi": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "poi": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
       "artNote": "Seven gem frames are catalogued; preview selection is restricted to gemTier <= depth. D1 uses rose quartz; D2 uses rose quartz and amethyst. Higher-tier palette slots resolve to eligible gems before rendering.",
       "id": "gemstone_cavern",
@@ -2673,7 +2673,7 @@
       "shrineKind": "wayfarer_post"
     },
     {
-      "poi": "Each deposit is designed to yield the gem shown, with finite per-region or per-route ownership. Sapphire already has a gem-only deposit rule. Other deposit rows still need runtime integration; amethyst, topaz and rose quartz also need item/reward definitions. No metal-bar rewards from these dedicated gem rocks.",
+      "poi": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
       "monsters": "D1: cave slime / bat; D2: cave slime / bat / spider.",
       "artNote": "Seven gem frames are catalogued; preview selection is restricted to gemTier <= depth. D1 uses rose quartz; D2 uses rose quartz and amethyst. Higher-tier palette slots resolve to eligible gems before rendering.",
       "id": "gemstone_path",

@@ -35,6 +35,19 @@ function scene(over) {
 }
 const HALF_M = (11 / 2 + 1) * 5;   // drawObjects' halfM at cellM 5
 
+
+test('lighting: arena ambient illuminates distant boundaries at every hour without changing caves', () => {
+  const arena = scene({ depth: WorldGen.ARENA_DEPTH });
+  const day = Lighting.profile(arena, 1), night = Lighting.profile(arena, 0);
+  assert.eq(day.ambient, night.ambient, 'a separate realm has no surface night cycle');
+  assert.gt(Lighting.lum(day.ambient), .65, 'the full arena floor remains readable outside player reach');
+  assert.gt(ch(day.ambient, 0), ch(day.ambient, 16), 'ambient is gently violet');
+  assert.gt(ch(day.ambient, 16), ch(day.ambient, 8), 'violet retains more red than green');
+  const cave = Lighting.profile(scene({ depth: 3 }), 1);
+  assert.lt(Lighting.lum(cave.ambient), .05, 'Underdark retains ordinary cave darkness');
+  assert.gt(cave.lit, day.lit, 'caves still depend on a strong player torch bubble');
+});
+
 test('lighting: daily sites retain ambient light after the availability pulse is spent', () => {
   const start = RENDER_SRC.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
   const end = RENDER_SRC.indexOf('\n  };', start);
@@ -522,11 +535,11 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('    const stamp = (L) => {'));
   // (Both through lightCentrePx — the stamp's whole-px centre is the key's.)
   const lc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightCentrePx('));
-  assert.truthy(/y: Math\.round\(scene\.viewCenterY \+ L\.dy \* k \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
-    'the stamp lifts the cookie by dyPx, on top of the anchored metres');
-  assert.truthy(/const c = lightCentrePx\(scene, L, k\);/.test(st) && /ctx\.drawImage\(ck\.canvas, c\.x - ox - d \/ 2, c\.y - oy - d \/ 2, d, d\);/.test(st),
+  assert.truthy(/const c = deltaMToScreen\(scene, L\.dx, L\.dy\);[\s\S]{0,120}y: Math\.round\(c\.y \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
+    'the stamp lifts the cookie by dyPx, on top of the anchored metres — the sprites\' own projection (coords.js)');
+  assert.truthy(/const c = lightCentrePx\(scene, L\);/.test(st) && /ctx\.drawImage\(ck\.canvas, c\.x - ox - d \/ 2, c\.y - oy - d \/ 2, d, d\);/.test(st),
     'the stamp is placed at that centre');
-  assert.truthy(/const c = lightCentrePx\(scene, L, kPx\); at = `\$\{c\.x\},\$\{c\.y\}`;/.test(LIGHTING_SRC)
+  assert.truthy(/const c = lightCentrePx\(scene, L\); at = `\$\{c\.x\},\$\{c\.y\}`;/.test(LIGHTING_SRC)
     && /\$\{L\.id\},\$\{at\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
     'and frameKey names the lifted centre (and dyPx), so a lift that moves repaints');
   // No list, or an empty one, is a no-op — like collectFires with no fires.
@@ -835,7 +848,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
     'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
   const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
-  const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
+  const cull = body.indexOf('if (!inViewBox(dx, dy, lim)) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
   assert.truthy(/return isBuilding\(k\) \|\| k === 'temple' \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
@@ -847,7 +860,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // before that loop's cull, so its little glow can still show from a cell
   // off-screen.
   const wpOffer = body.indexOf('if (LIGHTS && wildplantLight(wp.crop)) LIGHTS.consider(scene, wp, dx, dy, halfM);');
-  const wpCull = body.indexOf('if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;', wpOffer);
+  const wpCull = body.indexOf('if (!inViewBox(dx, dy, halfM)) return;', wpOffer);
   assert.truthy(wpOffer > 0 && wpCull > wpOffer, 'mushrooms are offered BEFORE the wildplant cull');
   assert.truthy(/LIGHTS\.draw\(scene, pWorldX, pWorldY, halfM\);\s*$/.test(body),
     'the map is drawn last, from the camera anchor drawObjects measures with');
@@ -855,14 +868,14 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
 
 test('lighting: the map multiplies, the cookies add, and the plateau is per cell', () => {
   const a = SCENE_SRC;
-  assert.truthy(/this\.lightTex = this\.textures\.exists\('lightmap'\)/.test(a), 'the lightmap is a canvas texture');
+  assert.truthy(/this\.lightTex = Render\.viewportCanvas\(this, 'lightmap', 0\)\.tex;/.test(a), 'the lightmap is a viewport canvas texture (the one layer shell)');
   assert.truthy(/this\.lightMap = this\.add\.image\(this\.viewLeft, this\.viewTop, 'lightmap'\)\s*\n\s*\.setOrigin\(0, 0\)\.setBlendMode\(Phaser\.BlendModes\.MULTIPLY\)/.test(a),
     'shown as a viewport-sized image multiplied over the world');
   assert.falsy(/atmosFalloffGfx|renderTexture\(/.test(a), 'the ring layer and the render texture are gone');
   const L = LIGHTING_SRC;
   assert.truthy(/globalCompositeOperation = 'lighter'/.test(L), 'the cookies ADD');
   assert.falsy(/\brt\.|batchDraw\(|BlendModes\.ADD/.test(L), 'nothing goes through the render-texture batch');
-  assert.truthy(/ctx\.fillStyle = hex\(prof\.ambient\)/.test(L), 'the floor is the derived ambient');
+  assert.truthy(/ctx\.fillStyle = cssOf\(prof\.ambient\)/.test(L), 'the floor is the derived ambient');
   assert.truthy(/scene\.playerScreen\(\)/.test(L), 'the ramp is centred on the feet-on-the-fix point');
   assert.truthy(/tex\.refresh\(\)/.test(L), 'and the texture is refreshed each frame');
   // The plateau uses cellInReach's own expressions (whole cells from the reach
@@ -978,3 +991,43 @@ test('lighting: the reach area is as bright as noon leaves room for', () => {
 });
 
 })();
+
+test('lighting: reach changes fade across cells without dimming their overlap', () => {
+  const s = { depth: 0, cellM: 7 };
+  const a = { cellIX: 10, cellIY: 20 }, b = { cellIX: 11, cellIY: 20 };
+  const frames = (cell, now) => Lighting.reachFrames(s, cell, 17.5, now);
+  assert.eq(frames(a, 0)[0].weight, 1, 'initial light appears immediately');
+  const start = frames(b, 100);
+  assert.eq(start[0].rp.cellIX, 10, 'crossing starts with the previous visible mask');
+  assert.eq(start[0].weight, 1);
+  const mid = frames(b, 100 + Lighting.REACH_FADE_MS / 2);
+  assert.eq(mid.length, 2);
+  assert.eq(mid[0].weight, 0.5, 'departing cells half lit');
+  assert.eq(mid[1].weight, 0.5, 'arriving cells half lit');
+  assert.eq(mid.reduce((sum, f) => sum + f.weight, 0), 1, 'shared cells keep full light');
+  assert.falsy(Lighting.reachFramesKey(start) === Lighting.reachFramesKey(mid), 'both lightmap caches repaint through the fade');
+  const end = frames(b, 100 + Lighting.REACH_FADE_MS);
+  assert.eq(end.length, 1, 'settled light keeps only the exact current reach mask');
+  assert.eq(end[0].rp.cellIX, 11);
+  assert.eq(end[0].weight, 1);
+  assert.eq(Lighting.reachFramesKey(end), Lighting.reachFramesKey(frames(b, 1000)), 'standing still reuses the cache');
+});
+
+test('lighting: reversing during a reach fade preserves the displayed brightness', () => {
+  const s = { depth: 0, cellM: 7 };
+  const a = { cellIX: 10, cellIY: 20 }, b = { cellIX: 11, cellIY: 20 };
+  Lighting.reachFrames(s, a, 17.5, 0);
+  Lighting.reachFrames(s, b, 17.5, 100);
+  const midTime = 100 + Lighting.REACH_FADE_MS / 2;
+  const before = Lighting.reachFrames(s, b, 17.5, midTime);
+  const reverse = Lighting.reachFrames(s, a, 17.5, midTime);
+  assert.eq(Lighting.reachFramesKey(before), Lighting.reachFramesKey(reverse));
+  const after = Lighting.reachFrames(s, a, 17.5, midTime + Lighting.REACH_FADE_MS / 2);
+  assert.eq(after.find(f => f.rp.cellIX === 10).weight, 0.75);
+  assert.eq(after.find(f => f.rp.cellIX === 11).weight, 0.25);
+  s.depth = 1;
+  const cave = Lighting.reachFrames(s, a, 10.5, midTime + Lighting.REACH_FADE_MS / 2);
+  assert.eq(cave.length, 1, 'changing depth cannot carry old surface cells into cave light');
+  assert.eq(cave[0].weight, 1);
+  assert.eq(cave[0].reachM, 10.5);
+});

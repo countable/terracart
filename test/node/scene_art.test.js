@@ -119,8 +119,8 @@ test('cave story: the first descent below the surface tells its story, once', ()
   const src = SCENE_SRC;
   const i = src.indexOf('  changeDepth(delta, stair, options = {}) {');
   const body = src.slice(i, src.indexOf('\n  }\n', i));
-  assert.truthy(/if \(delta > 0 && !options.fall\) \{\s*this\._storySplashOnce\('cave', \{\s*art: 'cave_first'/.test(body),
-    'voluntary descents open the cave story; a forced fall already tells its own story');
+  assert.truthy(/if \(delta > 0 && !caveFall\) \{\s*this\._storySplashOnce\('cave', \{\s*art: 'cave_first'/.test(body),
+    'changeDepth (every way down: stairs, rope, portal) opens the cave story on a descent');
   assert.truthy(body.indexOf("_storySplashOnce('cave'") > body.indexOf('this.depth = target;'),
     'only after the descent actually happened (not on a refused one)');
 });

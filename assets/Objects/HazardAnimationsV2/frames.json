@@ -1,5 +1,5 @@
 {
-  "status": "Whirlwind integrated in gameplay; sinkhole and complete vent cycle are reusable art assets.",
+  "status": "Vents, sinkholes and whirlwind integrated in gameplay.",
   "sinkhole": {
     "image": "sinkhole.png",
     "frameWidth": 48,
@@ -164,5 +164,25 @@
     ],
     "inactiveImage": "vent-inactive.png",
     "packing": "pack-vents.cjs preserves approved ring pixels; only plume-colored aperture pixels change in inactive state."
+  },
+  "gameplayTiming": {
+    "vent": {
+      "inactiveMs": 5000,
+      "warningMs": 3000,
+      "activeMs": 3000,
+      "burningMs": 6000,
+      "poisonMs": 30000,
+      "paralysisMs": 5000
+    },
+    "sinkhole": {
+      "widthCells": 2,
+      "heightCells": 2,
+      "warningMs": 5000,
+      "openingMs": 240,
+      "openMinMs": 5000,
+      "openMaxMs": 20000,
+      "closingMs": 600
+    },
+    "owner": "src/environment_hazards.js"
   }
 }

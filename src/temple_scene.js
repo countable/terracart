@@ -49,10 +49,10 @@
     this.labels = this.add.container();
     this.labelPool = [];
     this.actorPool = [];
-    this.title = this.add.text(0, 0, '', { fontFamily: 'Georgia, serif', fontSize: '25px', color: '#fff8df', align: 'center' }).setOrigin(.5, 0);
-    this.help = this.add.text(0, 0, HELP[this.plan.kind], { fontFamily: 'sans-serif', fontSize: '13px', color: '#c8d7d9', align: 'center', lineSpacing: 4 }).setOrigin(.5, 0);
-    this.statusText = this.add.text(0, 0, '', { fontFamily: 'sans-serif', fontSize: '14px', color: '#f6e1a7', align: 'center', lineSpacing: 5 }).setOrigin(.5, 0);
-    const button = (label, callback) => this.add.text(0, 0, label, { fontFamily: 'sans-serif', fontSize: '15px', color: '#ffffff', backgroundColor: '#345454', padding: { x: 18, y: 12 } })
+    this.title = this.add.text(0, 0, '', { fontFamily: FONT_UI_STACK, fontSize: '25px', color: '#fff8df', align: 'center' }).setOrigin(.5, 0);
+    this.help = this.add.text(0, 0, HELP[this.plan.kind], { fontFamily: FONT_UI_STACK, fontSize: '13px', color: '#c8d7d9', align: 'center', lineSpacing: 4 }).setOrigin(.5, 0);
+    this.statusText = this.add.text(0, 0, '', { fontFamily: FONT_UI_STACK, fontSize: '14px', color: '#f6e1a7', align: 'center', lineSpacing: 5 }).setOrigin(.5, 0);
+    const button = (label, callback) => this.add.text(0, 0, label, { fontFamily: FONT_UI_STACK, fontSize: '15px', color: '#ffffff', backgroundColor: '#345454', padding: { x: 18, y: 12 } })
       .setOrigin(.5).setInteractive({ useHandCursor: true }).on('pointerdown', (_p, _x, _y, event) => { event?.stopPropagation(); callback(); });
     this.exitButton = button('Return to park', () => this.leave());
     this.retryButton = button('Retry trial', () => this.restartTrial());
@@ -168,7 +168,7 @@
     const label = (x, y, text, color = '#263d42', size = 13) => {
       let item = this.labelPool[labelCount++];
       if (!item) {
-        item = this.add.text(0, 0, '', { fontFamily: 'sans-serif', fontStyle: 'bold' }).setOrigin(.5);
+        item = this.add.text(0, 0, '', { fontFamily: FONT_UI_STACK, fontStyle: 'bold' }).setOrigin(.5);
         this.labelPool.push(item); this.labels.add(item);
       }
       item.setPosition(x, y).setText(text).setColor(color).setFontSize(size).setVisible(true);

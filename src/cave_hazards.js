@@ -28,7 +28,7 @@
     return best;
   }
   async function fall(scene, hole, latitude = 0) {
-    if (scene._caveFallPending || !(scene.depth > 0) || (hole.depth || 0) !== scene.depth) return false;
+    if (scene._caveFallPending || scene._hazardFallPending || !(scene.depth > 0) || (hole.depth || 0) !== scene.depth) return false;
     const depth = scene.depth;
     scene._caveFallPending = true;
     try {
@@ -72,7 +72,7 @@
     }
   }
   function tick(scene, latitude) {
-    if (!(scene.depth > 0) || scene._caveFallPending || !scene.startWorldM
+    if (!(scene.depth > 0) || scene._caveFallPending || scene._hazardFallPending || !scene.startWorldM
         || root.Combat.playerDowned(scene.save.energy) || scene._dialogOpen?.()) return;
     const p = scene.playerToWorldCell();
     const entry = root.WorldGen.tileCache.get(root.WorldGen.tileKey(p.tx, p.ty));

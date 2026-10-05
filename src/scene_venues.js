@@ -4,7 +4,9 @@
 //   · Home's sell / craft tabs, the fort's slot machine and castle wards;
 //   · where Home is (homeWorldPos / inHomeRing) and the starter trailer.
 //
-// Moved verbatim out of app.js. The methods live on `class SceneVenues`, a MIXIN:
+// Moved out of app.js (bodies as the consolidation branch left them: receipts
+// ride the ceremony queue, the bounty the one day ledger, Home's Craft the
+// recipe counter). The methods live on `class SceneVenues`, a MIXIN:
 // app.js installs them onto MapScene.prototype right after the class closes
 // (installSceneMixin, from modal_shell.js), so callers still say `this.x()`.
 // This file loads BEFORE app.js: the methods read app.js names and this.* at
@@ -21,21 +23,17 @@ class SceneVenues {
   }
 
   // Successful services share one receipt surface, after the state is committed.
-  // A bounty can complete while a shop or story is open: keep its receipt
-  // until that dialog ends, ahead of queued memories in _drainBadgeStories.
+  // A bounty can complete while a shop or story is open: the ceremony queue
+  // keeps its receipt until that dialog ends, ahead of queued memories
+  // (_drainBadgeStories drains the queue before MemoryStory).
   _macroTransaction(kind, body, onDismiss) {
     const d = Macros.KIND_DIALOG[kind], receipt = Macros.KIND_TRANSACTION[kind];
     if (!d || !receipt) return;
-    (this._macroReceipts ||= []).push({ kind: d.modal, kindLabel: d.label,
-      art: receipt.art, title: receipt.title, body, onDismiss });
-    this._drainMacroTransactions();
-  }
-  _drainMacroTransactions() {
-    if (!this._macroReceipts?.length) return false;
-    this._syncModalGate?.();
-    if (document.body?.classList?.contains('modal-open')) return false;
-    this.showMessageModal(this._macroReceipts.shift());
-    return true;
+    this._enqueueCeremony('receipt', (done) => {
+      this.showMessageModal({ kind: d.modal, kindLabel: d.label, art: receipt.art, title: receipt.title, body,
+        onDismiss: () => { onDismiss?.(); done(); } });
+      return true;
+    });
   }
 
   // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
@@ -93,7 +91,7 @@ class SceneVenues {
     if (this._guildBountyNow()) { this.flash('Finish the hunt first.', sx, sy); return; }
     if (Macros.serviceUsedToday(this.save, o.id)) { this.flash(`Board empty. Back in ${wait}.`, sx, sy); return; }
     const b = Macros.bountyFor(this.save, o);
-    const names = b.kinds.map((k) => Combat.monster(k)?.name || 'Slime');
+    const names = b.kinds.map((k) => EnemyRoster.get(k)?.name || 'Slime');
     const counts = {};
     for (const n of names) counts[n] = (counts[n] || 0) + 1;
     const list = Object.entries(counts).map(([n, c]) => (c > 1 ? `${c}× ${n}` : n)).join(', ');
@@ -122,7 +120,9 @@ class SceneVenues {
   // rule, each seat claimed so none stack). Ordinary enemies — the kind's own
   // row, not shiny — tagged `bounty` with the bounty id, with ids minted off
   // the clock (`guildfoe_<tx>_<ty>_…`, pruned from save.caught like a ghost's).
-  // Returns how many were seated (0: no ground; nothing is posted).
+  // Returns how many were seated (0: no ground; nothing is posted). The day it
+  // belongs to is the one day ledger's GUILD_BOUNTY_LEDGER mark (app.js), not
+  // a day field of its own.
   _spawnGuildBounty(b, now = Date.now()) {
     const homePos = this.homeWorldPos();
     const packClass = b.kinds.some((k) => creatureSpawnClass(k) === 'fastEnemy') ? 'fastEnemy' : 'enemy';
@@ -158,16 +158,18 @@ class SceneVenues {
       foes.push({ id, tx, ty, kind, x, y });
     });
     if (!foes.length) return 0;
-    this._guildBounty = { id: b.id, pay: b.pay, day: utcDayKey(now), foes };
+    this._guildBounty = { id: b.id, pay: b.pay, foes };
+    Macros.markToday(this.save, GUILD_BOUNTY_LEDGER, now);   // today's, in the one day ledger
     this.save.guildBounty = this._guildBounty;
     return foes.length;
   }
   // Today's bounty, if one is out: the live one, or the one the save kept
-  // (a reload). A bounty from another UTC day is dropped here.
+  // (a reload). A bounty from another UTC day (the day ledger's
+  // GUILD_BOUNTY_LEDGER mark has lapsed) is dropped here.
   _guildBountyNow() {
     if (!this._guildBounty && this.save.guildBounty) this._guildBounty = this.save.guildBounty;
     const gb = this._guildBounty;
-    if (gb && gb.day !== utcDayKey()) {
+    if (gb && !Macros.usedToday(this.save, GUILD_BOUNTY_LEDGER)) {
       this._guildBounty = null;
       delete this.save.guildBounty;
       return null;
@@ -189,7 +191,7 @@ class SceneVenues {
     addMoney(this.save, gb.pay);
     this.updateHUD?.();
     persistSave(this.save);
-    this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
+    this.flashLoot(`Bounty paid! +${gb.pay}`, UI_GOLD, 1);
     this._macroTransaction('guildhall', `The hunt is complete. You received ${this.moneyHTML(gb.pay)}, in addition to the coins from each defeated foe.`);
   }
   // THE BOUNTY WAITS, asked each frame there is one: it stands down only when
@@ -200,7 +202,7 @@ class SceneVenues {
   _tickGuildBounty() {
     const gb = this._guildBounty || this.save.guildBounty;
     if (!gb) return;
-    if (gb.day !== utcDayKey()) {
+    if (!Macros.usedToday(this.save, GUILD_BOUNTY_LEDGER)) {
       const caught = new Set(this.save.caught || []);
       let left = 0;
       for (const f of gb.foes) {
@@ -212,7 +214,7 @@ class SceneVenues {
       }
       this._guildBounty = null;
       delete this.save.guildBounty;
-      if (left) this.flash('The bounty got away.', this.viewCenterX, this.viewCenterY - 40);
+      if (left) this.flashAtPlayer('The bounty got away.');
       return;
     }
     this._guildBounty = gb;
@@ -271,7 +273,7 @@ class SceneVenues {
         }
         const nx = Macros.curioNextMilestone(r.count);
         const line = nx != null ? `Donated! ${r.count} / ${nx}` : `Donated! ${r.count} given`;
-        this.flashLoot(line, '#ffe066', 1, id);
+        this.flashLoot(line, UI_GOLD, 1, id);
         this._macroTransaction('curio', `You donated ${itemName(id)}. The collection now holds ${r.count} curios${r.milestone ? ', and a memory has returned' : ''}.`);
       },
     });
@@ -315,7 +317,7 @@ class SceneVenues {
         if (!this.addToInv(next.id, 1, false, { notWild: true, deferRefresh: true })) return;
         Macros.scholarClaim(this.save, shelf);
         this._finishInventoryChange();
-        this.flashLoot('Tome collected', '#ffe066', 1, next.id);
+        this.flashLoot('Tome collected', UI_GOLD, 1, next.id);
         this._macroTransaction('scholar', `You received ${itemName(next.id)} for ${next.booksAt} books collected. Your books remain yours.`);
       },
     });
@@ -334,9 +336,7 @@ class SceneVenues {
     const need = Macros.lessonMemories(this.save, kind);
     const have = this.memoriesTotal();
     const dp = Macros.drillPrice();
-    const left = Macros.drillLeftMs(this.save, kind);
     const money = this.save.money ?? 0;
-    const drillLine = left > 0 ? ` Drill again in ${shortDuration(left)}.` : '';
     const hint = row.unit === 'energy' ? 'Your breath deepens with each lesson.'
       : row.unit !== 'dmg' ? 'Your hands begin to move before you think.'
       : 'The master adjusts your stance. The next strike feels surer.';
@@ -349,13 +349,13 @@ class SceneVenues {
       title: `The master teaches ${row.label.toLowerCase()}:`,
       get: lp != null ? 'A lesson that stays with you' : 'The master has taught you all they can',
       cost: lp != null ? `${this.moneyHTML(lp)} · ${need} memories required` : undefined,
-      blurb: `${hint}${drillLine}`,
+      blurb: hint,
       canAfford: lp != null && money >= lp && have >= need,
       acceptLabel: 'Train',
       cancelLabel: 'Later',
       secondary: {
         label: `Drill ${this.moneyHTML(dp, 12)}`,
-        disabled: left > 0 || money < dp,
+        disabled: money < dp,   // a drill bought mid-drill EXTENDS it (Macros.buyDrill)
         onClick: () => {
           const r = Macros.buyDrill(this.save, kind);
           if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
@@ -446,7 +446,11 @@ class SceneVenues {
       });
       return;
     }
-    const unitPrice = trailerSellPrice(PRICES[sel.id] ?? 1);
+    if (ITEM_BY_ID[sel.id]?.progressionOnly) {
+      this.showMessageModal({ kind: 'story', art: 'progression_portal', title: 'A journey still ahead', body: 'Keep this relic. There are places only it can open.' });
+      return;
+    }
+    const unitPrice = trailerSellPrice(itemValue(sel.id));
     const item = ITEM_BY_ID[sel.id];
     const sellId = sel.id;
     const iconHTML = this.iconSpanHTML(sellId);
@@ -469,7 +473,7 @@ class SceneVenues {
         addMoney(this.save, gain);
         if (!this.save.storySeen?.['sale:first']) this.save.firstSalePending = true;
         this._finishInventoryChange();
-        this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
+        this.flashLoot(`+${gain}`, UI_GOLD, 1, sellId);
         this.questEvent('sell');
         this._firstSaleStory();
       },
@@ -482,32 +486,28 @@ class SceneVenues {
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
     const held = (id) => Inventory.count(this.save, id);
-    const ingredientCap = (r) => recipeCap(r.cost, held);
-    const capOf = (r) => Math.min(ingredientCap(r), Math.max(0, this.invRoomFor(r.id)));
+    const capOf = (r) => Math.min(recipeCap(r.cost, held), Math.max(0, this.invRoomFor(r.id)));
     const locked = (r) => homeRecipeLocked(this.save, r.id);
     const recipes = HOME_RECIPES.filter(r => !locked(r));
     const rec = recipes.find(r => r.id === targetId)
       || recipes.find(r => capOf(r) >= 1) || recipes[0];
-    const cap = capOf(rec);
     const outName = itemName(rec.id);
     const learnVerb = ITEM_BY_ID[rec.id]?.scroll ? 'Use' : 'Find';
-    const costLine = rec.cost.map(c => {
-      const ok = held(c.id) >= c.qty;
-      return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
-        + `${c.qty}× ${this.iconSpanHTML(c.id)} ${itemName(c.id)}</span>`;
-    }).join(' + ');
     const idx = recipes.indexOf(rec);
     const n = recipes.length;
     const pageTo = (r) => () => this.presentHomeCraft(sx, sy, r.id);
-    this.showOfferModal({
+    // The one ingredient-recipe offer (scene_shops.js _presentRecipeOffer:
+    // the coloured cost line, the shortfall flash, the consume), pointed at
+    // Home; the bag-room and the recipe lock are this page's own refusals.
+    this._presentRecipeOffer(sx, sy, {
+      recipe: rec.cost,
       kind: 'craft', kindIcon: this._homeKindIcon(),
       tabs: this._homeTabs('craft', sx, sy),
       title: 'Make something at home:',
       cancelLabel: 'Leave',
       get: `1× ${this.iconSpanHTML(rec.id)} ${outName}`,
       blurb: ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined,
-      cost: costLine,
-      canAfford: cap >= 1,
+      canAfford: this.invRoomFor(rec.id) >= 1,
       acceptLabel: 'Craft',
       getLabel: 'You make', costLabel: 'You use',
       repeat: () => this.presentHomeCraft(sx, sy, rec.id),
@@ -516,24 +516,15 @@ class SceneVenues {
         onPrev: pageTo(recipes[(idx - 1 + n) % n]),
         onNext: pageTo(recipes[(idx + 1) % n]),
       },
-      onAccept: () => {
-        if (locked(rec)) { this.flash(`${learnVerb} a ${outName} first.`, sx, sy); return; }
-        if (this.invRoomFor(rec.id) < 1) {
-          this.flash(`Bag full for ${outName}.`, sx, sy);
-          return;
-        }
-        if (ingredientCap(rec) < 1) {
-          const missing = rec.cost.find(c => held(c.id) < c.qty);
-          const short = missing ? missing.qty - held(missing.id) : 0;
-          this.flash(missing ? `Need ${short} more ${itemName(missing.id)}.`
-                             : 'Not enough to craft.', sx, sy);
-          return;
-        }
-        for (const c of rec.cost) Inventory.remove(this.save, c.id, c.qty);
-        this._clampSelSlot();
+      refuse: () => {
+        if (locked(rec)) { this.flash(`${learnVerb} a ${outName} first.`, sx, sy); return true; }
+        if (this.invRoomFor(rec.id) < 1) { this.flash(bagFullFor(rec.id), sx, sy); return true; }
+        return false;
+      },
+      produce: () => {
         this.addToInv(rec.id, 1, false, { notWild: true, deferRefresh: true });
         this._finishInventoryChange();
-        this.flashLoot(`✨ ${outName} ×1`, '#ffe066', 1.25, rec.id);
+        this.flashLoot(`✨ ${outName} ×1`, UI_GOLD, 1.25, rec.id);
       },
     });
   }
@@ -726,7 +717,7 @@ class SceneVenues {
         } else if (out.won >= 0) {
           const p = m.symbols[out.won];
           const name = itemName(p.id);
-          const rim = p.jackpot ? GOLD : '#a7ffb0';
+          const rim = p.jackpot ? GOLD : UI_GREEN;
           light(rim, () => true);
           // As many as fit go in the bag; the rest is paid in coin at the
           // worth the stake was priced on.
@@ -758,7 +749,7 @@ class SceneVenues {
           result.textContent = (twoStars ? `Two stars! +${out.coins} coin` : `So close! +${out.coins} coin`)
             + (wasDeluxe ? ' (deluxe ×2)' : '');
         } else {
-          result.style.color = '#ff8a7a';
+          result.style.color = UI_DANGER_INK;
           result.textContent = 'No match.';
         }
         paintDeluxe(false);
@@ -805,25 +796,9 @@ class SceneVenues {
   // nine tiles' WHOLE object lists (tens of thousands in a town) for the
   // handful of turrets. The turrets are derived once per tile instead
   // (util.js derivedObjects), so a rebuilt or edited tile re-derives by itself.
-  _forEachTowerNear(pc, fn) {
-    for (let dty = -1; dty <= 1; dty++) {
-      for (let dtx = -1; dtx <= 1; dtx++) {
-        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
-        if (!e) continue;
-        for (const o of derivedObjects(e, '_towers', (o) => o.kind === 'tower')) fn(o);
-      }
-    }
-  }
-  // The houses of the 3×3 ring, off the same per-tile derived index idiom.
-  _forEachHouseNear(pc, fn) {
-    for (let dty = -1; dty <= 1; dty++) {
-      for (let dtx = -1; dtx <= 1; dtx++) {
-        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
-        if (!e) continue;
-        for (const o of derivedObjects(e, '_houses', (o) => o.kind === 'house')) fn(o);
-      }
-    }
-  }
+  _forEachTowerNear(pc, fn) { this._forEachDerivedNear(pc, 'tower', fn); }
+  // The houses of the 3×3 ring, off the same per-tile derived index.
+  _forEachHouseNear(pc, fn) { this._forEachDerivedNear(pc, 'house', fn); }
 
   homeWorldPos() {
     if ((this.depth || 0) !== 0) return null;
@@ -1021,7 +996,7 @@ class SceneVenues {
         addMoney(this.save, -cost);
         this.moveHomeTrailerHere();
         this.updateHUD();
-        if (typeof persistSave === 'function') persistSave(this.save);
+        Save.persist(this.save);
         this.flashLoot('🏠 Home moved!');
       },
     });
@@ -1042,8 +1017,7 @@ class SceneVenues {
       if (i >= 0) e.objects.splice(i, 1);
     }
     // playerM → absolute world metres (the space every object's x/y lives in).
-    const ax = this.startWorldM.x + this.playerM.x;
-    const ay = this.startWorldM.y + this.playerM.y;
+    const { x: ax, y: ay } = playerWorldM(this);
     this._makeStarterTrailer(ax, ay);
     this._starterShopOk = true;
   }

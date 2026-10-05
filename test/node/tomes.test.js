@@ -1,7 +1,8 @@
 // THE TOMES (Oct 2026, expanded).
 //
-// Eight permanent books are scholar prizes. A tome's spell is HALF its
-// potion's (TOME_EFFECT_MUL: half duration, half damage or restore); its
+// Nine permanent books are scholar prizes. A tome's spell is HALF its
+// potion's (items.js TOME_MUL, the row's `tome.mul`: half duration, half
+// damage or restore); its
 // cooldowns are the SHARED 1 h activation lock (TOME_COOLDOWN_MS, every tome
 // locked by reading any one) plus its OWN magic cooldown (CONSUMABLE_SPEC
 // cooldownMs, power-scaled: 2 h / 8 h / 24 h). Home refreshes both; the
@@ -18,9 +19,10 @@
     ['tome_blight', 'Tome of Blight', 4, 400, 8 * 3600e3],
     ['tome_fire_wall', 'Wall of Fire Tome', 4, 400, 8 * 3600e3],
     ['tome_thunder', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
+    ['tome_frost_aura', 'Tome of Frost Aura', 6, 2400, 24 * 3600e3],
   ];
 
-  test('tomes: eight registered, named, unique, tiered, priced, framed', () => {
+  test('tomes: nine registered, named, unique, tiered, priced, framed', () => {
     for (const [id, name, tier, price, cd] of ROSTER) {
       const it = ITEM_BY_ID[id];
       assert.truthy(it, `${id} registered`);
@@ -47,32 +49,43 @@
     for (const [, , , , cd] of ROSTER.slice(0, 3)) {
       assert.eq(cd, 2 * 3600e3, 'the T3 ladder rung');
     }
-    const m = (name) => SCENE_SRC.match(new RegExp(`\\n  ${name}\\(\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
+    // Every tome but the Wall of Fire is read by ONE method, _readTome, off
+    // its row's `tome` column; the firewall keeps its own geometry spell.
+    const m = (sig) => SCENE_SRC.match(new RegExp(`\\n  ${sig} \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
+    const read = m('_readTome\\(id\\)');
+    assert.truthy(read, '_readTome exists');
+    assert.falsy(/_finishConsumable|_spendScroll|_consumeSelected/.test(read[1]), '_readTome: never consumed');
+    assert.truthy(/this\._selectedConsumable\(id\)/.test(read[1]), '_readTome: only the selected tome');
+    assert.truthy(/this\._tomeReady\(id\)/.test(read[1]), '_readTome: gated');
+    assert.truthy(/spend: false/.test(read[1]), '_readTome: the potion lane spends nothing');
     for (const [id] of ROSTER) {
-      const method = ['tome_reach', 'tome_raven', 'tome_thunder'].includes(id)
-        ? { tome_reach: 'readTomeSight', tome_raven: 'readTomeRaven', tome_thunder: 'readTomeStorm' }[id]
-        : { tome_speed: 'readTomeSpeed', tome_shielding: 'readTomeShield', tome_healing: 'readTomeHealing', tome_blight: 'readTomeBlight', tome_fire_wall: 'readTomeFirewall' }[id];
-      const r = m(method);
-      assert.truthy(r, `${method} exists`);
-      assert.falsy(/_finishConsumable/.test(r[1]), `${method}: never consumed`);
-      assert.truthy(new RegExp(`sel\\.id !== '${id}'`).test(r[1]), `${method}: only a selected ${id}`);
-      assert.truthy(/_tomeReady\('/.test(r[1]), `${method}: gated`);
+      if (id === 'tome_fire_wall') {
+        const fw = m('readTomeFirewall\\(\\)');
+        assert.truthy(fw && /_tomeReady\('tome_fire_wall'\)/.test(fw[1]) && !/_finishConsumable/.test(fw[1]), 'the firewall tome: gated, never consumed');
+        continue;
+      }
+      const t = CONSUMABLE_SPEC[id].tome;
+      assert.truthy(t && (CONSUMABLE_SPEC[t.of] || CONSUMABLE_SPEC[id].buff) && typeof t.flash === 'string', `${id}: a tome column (of, flash)`);
     }
     assert.truthy(/const TOME_COOLDOWN_MS = 60 \* 60 \* 1000;/.test(APP), 'the shared lock is one hour');
     assert.truthy(/save\.tomeReadyAt = now \+ TOME_COOLDOWN_MS \* mul/.test(APP), 'stamped once per read, all tomes');
     assert.truthy(/tomeMagicCd \|\|= \{\}\)\[id\] = now \+ \(CONSUMABLE_SPEC\[id\]\?\.cooldownMs \|\| 0\) \* mul/.test(APP),
       'the own cooldown stamps the spec length');
-    assert.truthy(/shortDuration\(shared\)|shortDuration\(own\)/.test(APP), 'refusals show their wait');
-    assert.truthy(/isRestingAtHome\(px, py\)/.test(APP), 'Home refreshes both');
-    assert.truthy(/No foe in sight — tome kept/.test(APP), 'the storm tome refuses an empty screen');
+    assert.truthy(/this\.flashAtPlayer\(Macros\.waitLine\(wait\.line, wait\.ms\)\)/.test(APP), 'refusals show their wait, on the player');
+    assert.truthy(/tomeUsable\(id\) \{ return !this\._tomeWait\(id\); \}/.test(APP), 'the button greys on the same wait');
+    assert.truthy(/isRestingAtHome\(x, y\)\) return null;/.test(APP), 'Home refreshes both');
+    assert.truthy(/noun: 'tome'/.test(read[1]), 'the storm tome refuses an empty screen with "tome kept"');
   });
 
   test('tomes: a tome\'s spell is HALF its potion\'s', () => {
-    assert.truthy(/const TOME_EFFECT_MUL = 0\.5;/.test(APP), 'one owning multiplier');
-    for (const c of ['REACH_POTION_MS', 'SPIRIT_RAVEN_MS', 'SPEED_POTION_MS', 'SHIELD_POTION_MS', 'BLIGHT_MS'])
-      assert.truthy(new RegExp(c + ' \\* TOME_EFFECT_MUL').test(APP), `${c} halves in the tome`);
-    assert.truthy(/const TOME_THUNDER_DMG = Math\.floor\(THUNDER_DMG \* TOME_EFFECT_MUL\);/.test(APP), 'thunder damage halves');
-    assert.truthy(/const TOME_HEALING_ENERGY = Math\.floor\(HEALING_POTION_ENERGY \* TOME_EFFECT_MUL\);/.test(APP), 'the heal halves');
+    assert.eq(TOME_MUL, 0.5, 'one owning multiplier (items.js)');
+    for (const [id] of ROSTER) if (CONSUMABLE_SPEC[id].tome?.of) assert.eq(CONSUMABLE_SPEC[id].tome.mul, TOME_MUL, `${id}: the one multiplier`);
+    const read = SCENE_SRC.match(/\n  _readTome\(id\) \{\n([\s\S]*?)\n  \}\n/)[1];
+    assert.truthy(/this\._useTimedBuff\(t\.of, \{ mul: t\.mul, spend: false \}\)/.test(read), 'a timed buff: the dose halves');
+    assert.truthy(/spec\.durationMs \* mul/.test(SCENE_SRC), '…in _useTimedBuff');
+    assert.truthy(/this\._restoreEnergy\(Math\.floor\(of\.energy \* t\.mul\)\)/.test(read), 'the heal halves');
+    assert.truthy(/damage: Math\.floor\(of\.damage \* t\.mul\)/.test(read), 'thunder damage halves');
+    assert.falsy(/TOME_EFFECT_MUL|TOME_THUNDER_DMG|TOME_HEALING_ENERGY/.test(APP), 'no second multiplier or derived constant in app.js');
   });
 
   test('vista: grails hold treasure only - no tools, produce or field supplies', () => {

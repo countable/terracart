@@ -1,5 +1,5 @@
 (() => {
-  test('quarry crystal art: generated deposits keep sapphire and never the quartz-looking variant', () => {
+  test('quarry crystal art: generated deposits use their assigned gem art', () => {
     let crystals = 0;
     for (const row of ZoneVariants.forKind('quarry')) {
       assert.eq(JSON.stringify(row.materialFrames.crystal), '[59]', row.id);
@@ -14,9 +14,12 @@
         chests: [], spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(N * N), roadMask: new Uint8Array(N * N) } });
       for (const o of out.objects) {
         assert.falsy(o._zoneObjectFrame === 58, 'quartz appearance is disabled');
-        if (o.deposit !== 'crystal') continue;
+        if (!mineralDeposit(o)) continue;
         crystals++;
-        assert.eq(o._zoneObjectFrame, 59, 'sapphire clusters still spawn');
+        assert.eq(o.deposit, quarryGemDeposit(`${anchor.gx},${anchor.gy}`));
+        assert.eq(o._zoneObjectFrame, undefined, 'legacy frame cannot override assigned art');
+        const gem = mineralDeposit(o);
+        if (gem.item === 'sapphire') assert.eq(gem.art.frame, 59);
       }
     }
     assert.gt(crystals, 0, 'the artwork change does not remove the deposits');

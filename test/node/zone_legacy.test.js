@@ -112,7 +112,7 @@
     assert.eq(poi.kind, 'grove_shrine', 'park POI is the shrine');
     assert.falsy(r.objects.some(o => o.kind === 'chest' && o._poiAt === poi._poiAt));
     // (A churchyard or tar yard on the tile may stand its own shrine kind.)
-    assert.falsy(r.zoneDress.objects.some(o => o.kind === 'grove_shrine' && o.zone === 'grove'), 'no second shrine beside the POI');
+    assert.falsy(r.zoneDress.objects.some(o => o.kind === 'grove_shrine' && o.zoneKind === 'grove'), 'no second shrine beside the POI');
     const anchor = r.zone.anchors.find(a => `${a.lx},${a.ly}` === poi._poiAt);
     assert.truthy(anchor, 'park anchor');
     const slot = r.zone.anchors.indexOf(anchor) + 1;

@@ -59,17 +59,7 @@ test('home ladder: the stair is the PLAYER\'s, flagged _synthetic', () => {
     .call(self(WorldGen), entry, 0, 0, { worldM: { x: 2.5, y: 3.5 } }, WorldGen);
   const st = entry.objects.find((o) => o.kind === 'staircase');
   assert.truthy(st && st._synthetic, 'the home up-stair is _synthetic');
-  assert.truthy(st.elevator, 'the guaranteed home exit uses the elevator picker');
   assert.truthy(/^homeup_1_0_0_2_3$/.test(st.id), 'id from tile + local cell: ' + (st && st.id));
-});
-
-test('home elevator: a generated up stair on its cell is converted without a duplicate', () => {
-  const stair = { kind: 'staircase', dir: 'up', x: 2.5, y: 3.5, id: 'generated' };
-  const entry = { grid: new Array(64).fill(24), cellsPerEdge: 8, tileEdgeM: 8, depth: 3, objects: [stair] };
-  new Function('entry', 'tx', 'ty', 'HomeArea', 'WorldGen', homeBody)
-    .call(self({}), entry, 0, 0, { worldM: { x: 2.5, y: 3.5 } }, {});
-  assert.eq(entry.objects.length, 1);
-  assert.truthy(stair.elevator);
 });
 
 test('starter ladder: every cave level gets its own way back up under it', () => {
@@ -91,7 +81,6 @@ test('starter ladder: every cave level gets its own way back up under it', () =>
     assert.eq(ups.length, 1, 'one up-stair at depth ' + depth);
     assert.eq(Math.floor(ups[0].x) + ',' + Math.floor(ups[0].y), '6,4', 'at the ladder cell');
     assert.truthy(ups[0]._synthetic, 'a player overlay');
-    assert.falsy(ups[0].elevator, 'ordinary starter stairs keep their normal route');
     assert.eq(entry.grid[4 * N + 6], 24, 'on floor');
   }
   // A tile the ladder isn't on is left alone.

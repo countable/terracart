@@ -48,7 +48,7 @@ test('sandbox coverage: the synthetic tile uses real map pipelines', () => {
   assert.truthy(Array.from(e.roadClass).some((v) => v & WorldGen.ROAD_CLASS_BANDIT_VERGE),
     'old-trade-road verges are stamped');
 
-  assert.eq(e.zone.anchors.map((a) => a.kind).sort().join(','), 'grove,stones,tar',
+  assert.eq([...new Set(e.zone.anchors.map((a) => a.kind))].sort().join(','), 'grove,quarry,stones,tar',
     'all influence-zone kinds are present');
   assert.truthy(e.scenic.shore && e.scenic.lines.size > 0,
     'shore and park-path scenic data are present');
@@ -155,7 +155,7 @@ test('sandbox coverage: practice yard stocks current mechanics and seeds real ef
       'authored tar participates in movement slowing');
   }
   const scene = { save: { energy: 100, groundFire: { old: {} }, burnedObjects: ['old'],
-    potionEffects: { old: {} }, tomeDays: { tome_fire_wall: 'today' } } };
+    potionEffects: { old: {} }, tomeDays: { tome_fire_wall: 'today' }, tomeReadyAt: Date.now() + 99999, tomeMagicCd: { tome_fire_wall: Date.now() + 99999 } } };
   // Coordinate/scene fire integration is exercised in the browser probe; this
   // fixture drives the actual recipient path and verifies reload cleanup.
   Sandbox.seedMechanicsState(scene, { creatures: plants, objects: [] });
@@ -166,6 +166,8 @@ test('sandbox coverage: practice yard stocks current mechanics and seeds real ef
   assert.eq(scene.save.burnedObjects.length, 0);
   assert.falsy(scene.save.potionEffects.old);
   assert.falsy(scene.save.tomeDays);
+  assert.falsy(scene.save.tomeReadyAt);
+  assert.falsy(scene.save.tomeMagicCd);
   Sandbox.stockInventoryForTest(scene);
   for (const id of ['explosive_flask', 'tome_fire_wall', 'ember_ring', 'sleep_powder',
     'blank_scroll', ...ITEMS.filter(i => i.potion || i.scroll).map(i => i.id)]) {
@@ -196,4 +198,69 @@ test('sandbox coverage: authored castle, fort and house floors reach the live po
       assert.truthy(e.buildingShapes.some((s) => s.key === house.id), `residential house ${house.id} also keeps its floor`);
     }
   }
+});
+
+
+test('sandbox coverage: current restoration choices and repeatable wrecks use real ledgers', () => {
+  const { entry } = Sandbox.buildForTest({ cellsPerEdge: 128 });
+  const save = {};
+  Sandbox.seedHouseState(save, entry);
+  const houses = entry.objects.filter(o => o.kind === 'house');
+  const wrecks = houses.filter(o => o._sandboxWreck);
+  assert.eq(wrecks.length, 2);
+  for (const house of houses.filter(o => !o._sandboxWreck)) {
+    assert.eq(typeof save.restoredHouses[house.id], 'string');
+    if (house._sandboxBuild?.includes(':')) {
+      assert.eq(Shops.shopTier(save, house, Houses.houseShopRole(save, house)), Number(house._sandboxBuild.split(':').pop()));
+    }
+  }
+  assert.truthy(save.bookshopId && save.petshopId);
+  assert.truthy(houses.some(h => Houses.houseShopRole(save, h) === 'turret'));
+  assert.truthy(Houses.restoreAs(save, wrecks[0], 'blacksmith:1', { hammer: true }));
+  assert.truthy(save.shinyHouses[wrecks[0].id]);
+  Sandbox.seedHouseState(save, entry);
+  for (const house of wrecks) {
+    assert.falsy(save.restoredHouses[house.id]);
+    assert.falsy(save.shinyHouses[house.id]);
+  }
+});
+
+test('sandbox coverage: recent zone layouts and enemy recipients are authored', () => {
+  const { entry: e } = Sandbox.buildForTest({ cellsPerEdge: 128 });
+  for (const variant of ['meadow', 'quarry-crater', 'quarry-strip-mine', 'quarry-stronghold']) {
+    assert.truthy(e.zone.anchors.some(a => a.variant === variant && a.owned));
+    assert.truthy(e.zoneDress.diagnostics.some(d => d.zoneVariant === variant && d.placed > 0));
+  }
+  assert.truthy(chestHidesMimic(e.objects.find(o => o._sandboxProbe === 'mimic')));
+  assert.truthy(e.objects.some(o => o.zoneVariant === 'quarry-crater' && o.shrineKind === 'ember_altar'));
+  assert.truthy(Array.from(e.grid).includes(WorldGen.T.CAVE_LAVA), 'crater creates real surface lava');
+  for (const kind of ['mushroom_monster', 'treant', 'fire_elemental', 'mimic', 'wurm']) {
+    assert.truthy(e.creatures.some(c => c.kind === kind), kind);
+  }
+  assert.truthy(e.creatures.some(c => c.kind === 'zombie' && c.emergeFromGround));
+  assert.truthy(e.creatures.some(c => c.kind === 'wurm' && c.burrowCells?.length > 1));
+  for (const kind of MACRO_KINDS) assert.truthy(e.objects.some(o => macroFor(o)?.kind === kind), kind);
+});
+
+
+test('sandbox coverage: authored fixtures stay within their scene and tile bounds', () => {
+  const built = Sandbox.buildForTest({ cellsPerEdge: 128 });
+  const { entry, originIX, originIY, cellM, tx, ty } = built;
+  const layout = Sandbox.layoutForTest;
+  assert.lte(layout.width, entry.cellsPerEdge);
+  assert.lte(layout.height, entry.cellsPerEdge);
+  for (const scene of layout.scenes) {
+    const records = [...entry.objects, ...entry.creatures, ...entry.wildplants]
+      .filter(o => o.id.includes(`_${scene.name}_`));
+    for (const o of records) {
+      const dx = (o.x - tx * entry.tileEdgeM) / cellM - originIX - scene.lx;
+      const dy = (o.y - ty * entry.tileEdgeM) / cellM - originIY - scene.ly;
+      assert.inRange(dx, 0, scene.w, o.id);
+      assert.inRange(dy, 0, scene.h, o.id);
+    }
+  }
+  assert.truthy(entry.wildplants.some(p => p._sandboxProbe === 'nest' && isNestBush(p.crop, p.id)));
+  assert.truthy(entry.extraTreasures.some(o => o.zoneVariant === 'quarry-strip-mine' && o.coverRockId));
+  assert.truthy(entry.objects.some(o => o.kind === 'stronghold_wall'));
+  assert.truthy(entry.objects.some(o => o._sandboxProbe === 'daily-crate' && restocks(o)));
 });

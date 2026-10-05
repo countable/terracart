@@ -37,24 +37,22 @@
     return { tracker: fresh, added: save.eggHatchM - before, changed: true };
   }
 
-  // Choose once and check room before touching the egg or its progress. A full
-  // pet stack leaves a ready egg intact so the player can free space and retry.
-  // What hatches is a BABY (items.js babyItems — one of BABY_KINDS): released,
-  // it grows for a week at half size, then is a shiny adult of double
-  // strength (SpriteLayout.isBabyPet, combat.js raisedMul).
-  function hatch(save, rng = Math.random) {
+  // Hatching reveals a wild baby; favourite food and catching are still required.
+  function hatch(save, rng = Math.random, location = { x: 0, y: 0, tx: 0, ty: 0 }) {
     if (!Inventory.count(save, 'egg')) return { ok: false, reason: 'no_egg' };
     if (!ready(save)) return { ok: false, reason: 'not_ready' };
     const pets = babyItems().filter(id => ITEM_BY_ID[id]);
     if (!pets.length) return { ok: false, reason: 'no_pets' };
     const petId = pets[Math.min(pets.length - 1, Math.max(0, Math.floor(rng() * pets.length)))];
-    if (Inventory.roomFor(save, petId) < 1) return { ok: false, reason: 'full', petId };
-    Inventory.add(save, petId, 1);
+    const kind = ITEM_BY_ID[petId].base;
+    const creature = { ...location, kind, id: `hatch_${Date.now()}_${Math.floor(Math.random() * 1e9)}`,
+      pet: false, raised: true, born: Date.now(), favouriteFeeds: 0, shiny: true };
+    (save.wildAnimals ||= []).push(creature);
     Inventory.remove(save, 'egg', 1);
     save.eggHatchM = 0;
     // Reset the GPS anchor even when another egg remains in the stack.
     save.eggHatchSession = (Number(save.eggHatchSession) || 0) + 1;
-    return { ok: true, petId };
+    return { ok: true, petId, creature };
   }
 
   root.EggHatch = { METERS, remaining, ready, track, hatch };

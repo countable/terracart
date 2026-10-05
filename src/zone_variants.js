@@ -4,6 +4,8 @@
   'use strict';
   const data = root.ZoneVariantData;
   const rows = data.variants;
+  // A row's `zone` column is its ZONE KIND (the data key in
+  // docs/zone-variants.json stays as authored); a row IS a zone variant.
   const indexed = new Map(rows.map(row => [row.id, row]));
   const kinds = new Map();
   for (const row of rows) {
@@ -20,6 +22,19 @@
   function identity(anchor) {
     return Number.isFinite(anchor.gx) && Number.isFinite(anchor.gy)
       ? `${anchor.kind}|${anchor.gx}|${anchor.gy}` : `${anchor.kind}|${anchor.key}`;
+  }
+  // Canonical anchor frame shared by surface dressing and underground areas.
+  // Snap in the source tile, never in an observer's clipped coverage bounds.
+  function anchorFrame(anchor, { N, tx, ty }) {
+    const EXT = 4096;
+    const unit = root.WorldGen.CELL_M / (anchor.upm || N * root.WorldGen.CELL_M / EXT);
+    const gx = anchor.originGX == null ? anchor.gx : anchor.originGX;
+    const gy = anchor.originGY == null ? anchor.gy : anchor.originGY;
+    const ownerX = Math.floor(gx / EXT), ownerY = Math.floor(gy / EXT);
+    const originX = ownerX * EXT + (Math.floor((gx - ownerX * EXT) / unit) + 0.5) * unit;
+    const originY = ownerY * EXT + (Math.floor((gy - ownerY * EXT) / unit) + 0.5) * unit;
+    const local = (x, y) => [Math.floor((x - tx * EXT) * N / EXT), Math.floor((y - ty * EXT) * N / EXT)];
+    return { unit, originX, originY, local };
   }
   // Traits describe appearance, not eligibility: unusual combinations remain possible.
   const TRAITS = {
@@ -114,7 +129,7 @@
     const fixed = byId(anchor.variant);
     if (fixed && fixed.zone === anchor.kind) return fixed;
     const { choices: candidates, total } = weightedChoices(anchor);
-    let ticket = (fnv1a(`zone-variant|${identity(anchor)}`) / 4294967296) * total;
+    let ticket = hash01(`zone-variant|${identity(anchor)}`) * total;
     for (const choice of candidates) {
       ticket -= choice.weight;
       if (ticket < 0) return choice.row;
@@ -165,13 +180,9 @@
     return map.get(`${x},${y}`) || null;
   }
   // Separate hash lanes make occupancy independent of material choice. Mix the
-  // FNV result to avoid its low-bit structure showing up as rows in a scatter.
-  function unitHash(key) {
-    let h = fnv1a(key);
-    h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
-    h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
-  }
+  // FNV result (util.js avalanche32) so its low-bit structure never shows up
+  // as rows in a scatter.
+  function unitHash(key) { return u01(avalanche32(fnv1a(key))); }
   function sample(variant, u, v, anchorKey) {
     const b = variant.background;
     if (b.type === 'seeded_scatter') {
@@ -236,6 +247,6 @@
     });
   }
   root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, findOffsets,
-    identity, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt,
+    identity, anchorFrame, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt,
     traitsFor, affinityMultiplier, geographyTraits, contextFor, selectionWeights };
 })(typeof window !== 'undefined' ? window : globalThis);

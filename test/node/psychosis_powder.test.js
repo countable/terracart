@@ -23,7 +23,7 @@ function scene(creatures = []) {
     save: { energy: 50, inv: [{ id: ID, count: 2 }], selSlot: 0, caught: [] },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 0, y: 0 }, depth: 3,
     cellM: 7, persisted: 0, rebuilt: 0, loot: [],
-    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashLoot(...a) { this.loot.push(a); },
+    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashAtPlayer() {}, flashLoot(...a) { this.loot.push(a); },
     playerToWorldCell() { return { tx: 0, ty: 0 }; },
     worldMetersToScreen(x, y) { return { x, y }; },
   };
@@ -32,9 +32,15 @@ function scene(creatures = []) {
     persistSave: () => s.persisted++, setOf: arr => new Set(arr || []),
     WorldGen: { forEachItemNear: (_kind, _tx, _ty, visit) => creatures.forEach(visit) },
     Particles: { onScreen: (_scene, x, y) => x >= 0 && x < 100 && y >= 0 && y < 100 },
-    PSYCHOSIS_POWDER_MS: CONSUMABLE_SPEC[ID].durationMs, shortDuration,
+    shortDuration, monsterRout: () => {}, THUNDER_FLASH_MS: 350,
   };
-  for (const name of ['_onscreenEnemies', 'usePsychosisPowder']) s[name] = method(name, deps);
+  // The powder is a CAST_ROWS row cast by _castOnFoes: the table and the
+  // refusal formatter are lifted from app.js beside the methods.
+  Object.assign(deps, new Function(...Object.keys(deps),
+    app.match(/\nconst CAST_ROWS = \{[\s\S]*?\n\};/)[0] + app.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0]
+    + 'return { CAST_ROWS, kept };')(...Object.values(deps)));
+  for (const name of ['_selectedConsumable', '_consumeSelected', '_finishInventoryChange', '_spendScroll', '_enemiesWhere', '_onscreenEnemies', '_castOnFoes']) s[name] = method(name, deps);
+  s.usePsychosisPowder = () => s._castOnFoes(ID);
   return s;
 }
 
@@ -68,12 +74,12 @@ test('psychosis powder: the first Magic shop and the combat chests hand it out',
 test('psychosis powder: the action row, its duration and the app constant', () => {
   const row = CONSUMABLE_SPEC[ID];
   assert.truthy(row, 'a CONSUMABLE_SPEC row');
-  assert.eq(row.verb, 'Use'); assert.eq(row.method, 'usePsychosisPowder');
+  assert.eq(row.verb, 'Use'); assert.truthy(SCENE_SRC.includes(`\n  ${ID}: { noun:`), 'a CAST_ROWS row');
   assert.eq(row.durationMs, 10 * 1000, 'ten seconds');
   assert.truthy(/^Scatter the .*\?$/.test(row.title), 'the confirm title');
   assert.eq(ITEM_EFFECTS[ID], row.get, 'the description is the outcome line');
-  assert.truthy(/const PSYCHOSIS_POWDER_MS = CONSUMABLE_SPEC\.psychosis_powder\.durationMs;/.test(app),
-    'app derives the duration from the spec');
+  assert.truthy(/psychosis_powder: [\s\S]*?Combat\.applyPsychosis\(c, CONSUMABLE_SPEC\.psychosis_powder\.durationMs, now\)/.test(app),
+    'the cast reads the row\'s duration');
 });
 
 test('psychosis: Combat.applyPsychosis is fear\'s shape — hostile only, drops the wind-up, turns now', () => {
@@ -87,7 +93,7 @@ test('psychosis: Combat.applyPsychosis is fear\'s shape — hostile only, drops 
   assert.eq(c._nextChooseT, now, 'turns now rather than finishing a hop at the player');
   assert.truthy(Combat.isEnemy(c), 'still hostile — it is mad, not charmed');
   assert.eq(c._statusPop?.label, Combat.STATUS_LOOKS.psychosis.label, 'announces itself');
-  assert.falsy(Combat.applyPsychosis({ id: 'released_pet', kind: 'slime' }, 10000, now), 'never a pet');
+  assert.falsy(Combat.applyPsychosis({ pet: true, id: 'released_pet', kind: 'slime' }, 10000, now), 'never a pet');
   assert.falsy(Combat.applyPsychosis({ id: 'cow', kind: 'cow' }, 10000, now), 'never game');
   // A cleansing (Antidote thrown, Potion of Time) clears it with the rest.
   PotionEffects.clearDebuffs(c);
@@ -101,7 +107,7 @@ test('psychosis powder: use takes every foe on screen, spends once, and is kept 
     { id: 'offscreen', kind: 'goblin', x: 101, y: 20 },
     { id: 'caught', kind: 'goblin', x: 20, y: 20 },
     { id: 'crow', kind: 'crow', x: 20, y: 20 },
-    { id: 'released_pet', kind: 'slime', x: 20, y: 20 }];
+    { pet: true, id: 'released_pet', kind: 'slime', x: 20, y: 20 }];
   const s = scene(creatures);
   s.save.caught = ['caught'];
   const before = performance.now();
@@ -131,19 +137,15 @@ test('psychosis powder: use takes every foe on screen, spends once, and is kept 
 
 test('psychosis: one more reason in the rout lane of wanderCreatures, with a random angle (source pins)', () => {
   const w = app;
-  assert.truthy(/const psychotic = Combat\.isEnemy\(c\) && Combat\.isPsychotic\(c, now\);/.test(w), 'read once per tick, beside fear');
+  assert.truthy(/const psychotic = enemy && Combat\.isPsychotic\(c, now\);/.test(w), 'read once per tick, beside fear');
+  assert.truthy(/const frightened = enemy && Combat\.isFrightened\(c, now\);/.test(w), 'fear through the same table');
   assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened \|\| psychotic;/.test(w), 'it runs at the rout pace');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded/.test(w), 'it lands no blow, shoots nothing, lays nothing');
   assert.truthy(/const lairState = c\.lair && !frightened && !psychotic \? Lairs\.guardState\(/.test(w), 'a mad guard is not holding its seat');
   assert.truthy(/if \(c\.immobile && !frightened && !psychotic && lairState/.test(w), 'and an immobile one still runs about');
-  // In the step chain: below the ward (Home still drives it out), above fear.
-  const chain = w.slice(w.indexOf('} else if (warded) {'), w.indexOf("} else if (lairState === 'hunt') {"));
-  const mad = chain.indexOf('} else if (psychotic) {');
-  const fear = chain.indexOf('} else if (frightened || wanderOff');
-  assert.truthy(mad > 0 && fear > mad, 'the mad branch sits between the ward and fear');
-  assert.truthy(/\} else if \(psychotic\) \{[\s\S]{0,400}?angle = Math\.random\(\) \* Math\.PI \* 2;/.test(chain), 'a fresh random heading each hop');
-  // The roster mover rolls the same random heading inside its routed branch.
-  assert.truthy(/if \(!c\._wardFrom && Combat\.isPsychotic\(c, now\)\) \{/.test(CREATURE_AI_SRC), 'rosterEnemyMove: mad, and not warded');
+  // The roster mover (every foe's) rolls the random heading inside its routed
+  // branch: below the ward (Home still drives it out — `_wardFrom` wins).
+  assert.truthy(/if \(!c\._wardFrom && Combat\.isPsychotic\(c, now\)\) \{[\s\S]{0,300}?c\._madAngle = Math\.random\(\) \* Math\.PI \* 2;/.test(CREATURE_AI_SRC), 'rosterEnemyMove: mad, and not warded — a fresh random heading');
   assert.truthy(/if \(!charmed && \(c\._fearUntilT > now \|\| Combat\.isPsychotic\(c, now\)\)\) return false;/.test(CREATURE_AI_SRC),
     'flowerCreatureTick hands a mad foe to the ordinary lanes like a frightened one');
 });

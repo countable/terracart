@@ -302,9 +302,7 @@
       }
       const lvl2 = await WorldGen.loadTile.atDepth(2, tx, ty, lat);
       const deep = lvl2.objects.filter(o => o.kind === 'chest');
-      assert.eq(deep.length, 2, 'and depth 2');
-      assert.eq(deep.find(c => c.caveOf === 'c_lib').id, 'c_lib_d2', 'own id at depth 2');
-      assert.eq(chestTier(deep.find(c => c.caveOf === 'c_lib')), 5, 'the lone library is T5 two levels down');
+      assert.eq(deep.length, 0, 'L2 solid stone has no floor for these non-clearing mirrors');
     } finally {
       WorldGen.setDepth(0);
       WorldGen.tileCache.delete(key);
@@ -324,8 +322,8 @@
       assert.falsy(isPotOfGold(o) || isBikeRack(o) || isBarrel(o), cls + ' underground is none of its surface selves');
       assert.eq(chestLook(o).texKey, 'chest', 'and wears the trunk');
     }
-    assert.eq(Shrines.kindForObject({ kind: 'chest', poiClass: 'atm' }), Shrines.REWARD_KINDS.gold, 'the surface pot resolves through the shared shrine predicate');
-    assert.eq(Shrines.kindForObject({ kind: 'chest', poiClass: 'atm', depth: 2 }), null, 'the underground mirror is not a shrine');
+    assert.truthy(/if \(look\.coin\) return DAILY_VISIT_KINDS\.gold;/.test(ALL_SRC['macros.js']), 'the pot hijack asks the one look (chestLook → isPotOfGold)');
+    assert.eq(Macros.visitKindForObject({ kind: 'chest', poiClass: 'atm', x: 0, y: 0, depth: 2 }), null, 'underground: no row');
     assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
       'an ATM on the surface wears the pot of gold');
     assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),

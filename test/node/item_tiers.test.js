@@ -11,11 +11,11 @@ test('item tiers: fish span T1–T7 with no gap larger than two', () => {
 });
 
 test('item tiers: ordinary fauna span the approved catch and utility bands', () => {
-  const tiers = { crow: 1, rabbit: 1, chicken: 2, crab: 2, deer: 3,
+  const tiers = { slime: 1, cave_slime: 1, purple_slime: 1, fire_slime: 1, crow: 1, rabbit: 1, chicken: 2, crab: 2, deer: 3,
     butterfly: 3, sea_turtle: 3, cat: 4, cow: 4, horse: 4, dog: 5 };
   const seen = new Set();
   for (const item of ITEMS.filter(it => it.kind === 'animal' && !it.shiny)) {
-    assert.eq(item.baseTier, tiers[SpriteLayout.baseKind(item.base || item.id)], item.id);
+    assert.eq(item.baseTier, tiers[item.base || item.id], item.id);
     seen.add(item.baseTier);
   }
   assert.eq(seen.size, 5, 'all five ordinary fauna tiers are populated');

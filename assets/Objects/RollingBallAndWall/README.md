@@ -18,4 +18,6 @@ sprite in the screen plane.
 
 Generated with built-in imagegen. Sources and prompts are retained;
 `frames.json` records mappings and `export-checks.json` records packing.
-No gameplay integration is included.
+Integrated in `src/pressure_traps.js` on dungeon level 1. A neutral pressure plate (existing `cave_mechanisms` frames 2/3) releases a ball or cardinal spike wall toward the player when stepped on. Each encounter fires once. The trap travels at 0.25 cells per second for up to six cells, stopping at blocked ground. Moving trap contact pushes the body safely along its travel direction. Activated traps deal 5 damage per second while touching the player, with fractional damage carried between frames; stopped traps cease pushing. Invulnerability prevents damage. Raw GPS stays unchanged.
+
+Placement is seeded independently, respects cave floor/exclusion/occupancy rules, and reserves space from the other new hazards. Ball rotation follows actual travel, including reversed rows for opposite directions; a stopped ball stops rolling. Plates and traps use the existing world depth ordering.

@@ -149,9 +149,9 @@ test('save state: retired data is not converted into current progress', () => {
   assert.eq(save.luckUpgrades, 0);
   assert.eq(save.memories, 0);
   assert.eq(save.trail.metres, 0);
-  assert.eq(save.coinBurstClaimed, undefined);
+  assert.eq(Object.keys(save.coinBurstClaimed).length, 0, 'seeded empty (SAVE_DEFAULTS), no take invented');
   assert.eq(Object.keys(save.foundWild).length, 0, 'ownership does not imply a wild find');
-  Quests.board(save);
-  assert.eq(save.quests.done, 0, 'no retired quest progress transfer');
+  Quests.assign(save, 'first', 'bastion');
+  assert.eq(Quests.completedCount(save), 0, 'no retired quest progress transfer');
   assert.falsy(save.castlesLegacyOpen);
 });

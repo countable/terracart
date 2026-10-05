@@ -29,9 +29,13 @@
       label: 'Poison', tint: 0x9fdc8c, flicker: false, ink: '#d9b1ff', bg: '#22132ee8' }),
     confused: Object.freeze({ durationMs: 10000,
       label: 'Confused', tint: 0xc68ee8, flicker: false, ink: '#e8c2ff', bg: '#321b40e8' }),
-    jellyfish_stun: Object.freeze({ durationMs: 5000, attackSpeedMul: 0.5,
+    jellyfish_stun: Object.freeze({ durationMs: 5000, attackSpeedMul: 0.5, blocksMovement: true,
       label: 'Stunned', tint: 0x89d9ff, flicker: false, ink: '#b9eaff', bg: '#102a3ae8' }),
-    pinned: Object.freeze({ durationMs: 3000,
+    frozen: Object.freeze({ durationMs: 10000, moveSpeedMul: 0.5, attackSpeedMul: 0.5, refresh: false,
+      label: 'Chilled', tint: FROZEN_TINT, flicker: false, ink: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), bg: '#102a3ae8' }),
+    paralysis: Object.freeze({ durationMs: 5000, blocksMovement: true, blocksAttacks: true,
+      label: 'Paralysed', tint: 0xffdf38, flicker: false, ink: '#fff08a', bg: '#39300ce8' }),
+    pinned: Object.freeze({ durationMs: 3000, blocksMovement: true,
       label: 'Pinned', tint: 0xb8bcc8, flicker: false, ink: '#d6dae6', bg: '#1c1f28e8' }),
   });
   const CONTEXT_STATUS = Object.freeze({
@@ -51,8 +55,22 @@
     return save.conditions;
   }
   function active(save, id) { return (save?.conditions?.[id]?.remainingMs || 0) > 0; }
+  function movementBlocked(save) {
+    return Object.entries(DEFINITIONS).some(([id, def]) => def.blocksMovement && active(save, id));
+  }
+  function attacksBlocked(save) {
+    return Object.entries(DEFINITIONS).some(([id, def]) => def.blocksAttacks && active(save, id));
+  }
   function attackIntervalMul(save) {
-    return active(save, 'jellyfish_stun') ? 1 / DEFINITIONS.jellyfish_stun.attackSpeedMul : 1;
+    let mul = 1;
+    for (const [id, def] of Object.entries(DEFINITIONS)) if (def.attackSpeedMul && active(save, id)) mul /= def.attackSpeedMul;
+    return mul;
+  }
+  function movementMul(save) {
+    if (movementBlocked(save)) return 0;
+    let mul = 1;
+    for (const [id, def] of Object.entries(DEFINITIONS)) if (def.moveSpeedMul && active(save, id)) mul *= def.moveSpeedMul;
+    return mul;
   }
   function fireRemainder(save) {
     const value = save.fireDamageRemainder;
@@ -72,10 +90,8 @@
       return 0;
     }
     if (!Number.isFinite(raw) || raw <= 0) return 0;
-    const total = raw * jewelryFireDamageMul(save) + fireRemainder(save);
-    const damage = Math.floor(total + 1e-9);
-    save.fireDamageRemainder = total - damage > 1e-9 ? total - damage : 0;
-    return damage;
+    save.fireDamageRemainder = fireRemainder(save);
+    return bankWhole(save, 'fireDamageRemainder', raw * jewelryFireDamageMul(save));
   }
   // Does the row's tint show at this instant? A `flicker` row alternates
   // every FLICKER_MS (a burn licks); a steady row always shows. One clock for
@@ -86,17 +102,23 @@
     if (!def) return false;
     return !def.flicker || Math.floor(now / FLICKER_MS) % 2 === 0;
   }
-  function apply(save, id, now = Date.now()) {
+  function apply(save, id, now = Date.now(), options = {}) {
     const def = DEFINITIONS[id];
     if (!def) return false;
+    const explicit = options.durationMs != null;
+    if (explicit && (!Number.isFinite(options.durationMs) || options.durationMs <= 0)) return false;
+    const duration = explicit ? Math.min(options.durationMs, def.maxDurationMs || def.durationMs) : def.durationMs;
     if (id === 'burning' && fireImmune(save, now)) return false;
     // A Toad Idol's boon (src/shrines.js 'antidote'): poison cannot take hold.
     if (id === 'poison' && root.Shrines && root.Shrines.leverActive(save, 'antidote')) return false;
     const fresh = !active(save, id);
     save.conditions ||= {};
     if (fresh) save.conditions[id] = def.intervalMs
-      ? { remainingMs: def.durationMs, nextTickMs: def.intervalMs } : { remainingMs: def.durationMs };
-    else if (id !== 'burning') save.conditions[id].remainingMs = def.durationMs;
+      ? { remainingMs: duration, nextTickMs: def.intervalMs } : { remainingMs: duration };
+    // A short hazard exposure must not shorten an existing longer condition.
+    // Keep the damage-tick phase; default applications retain their old rules.
+    else if (explicit && def.refresh !== false) save.conditions[id].remainingMs = Math.max(save.conditions[id].remainingMs, duration);
+    else if (id !== 'burning' && def.refresh !== false) save.conditions[id].remainingMs = def.durationMs;
     return fresh;
   }
   function cure(save, id) {
@@ -194,5 +216,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, attackIntervalMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

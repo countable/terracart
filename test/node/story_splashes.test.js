@@ -59,7 +59,7 @@ test('story splash: the first shiny splash precedes the fanfare toasts', () => {
 });
 
 test('story splash: a castle claim splashes once per castle, flash as fallback', () => {
-  const splash = app.indexOf("this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {");
+  const splash = app.indexOf("this._storySplashOnce('castle:' + key, {");
   assert.truthy(splash > 0, 'the castle splash is keyed on the castle itself');
   assert.truthy(/art: 'castle_claim'/.test(app.slice(splash, splash + 400)),
     'the splash carries the castle_claim banner');
@@ -129,7 +129,7 @@ test('story splash: every art stem app.js names exists as a WebP in assets/art/'
 // new Function inside the vm resolves persistSave / document against the
 // context globals at call time, so the test can spy on the one and stub the
 // other.
-const splashMethods = new Function(`return {\n${SPLASH_SRC}\n};`)();
+const splashMethods = new Function(`return {\n${SPLASH_SRC},\n${lift('_dialogOpen() {', '_dialogOpen')}\n};`)();
 
 const mkScene = () => {
   const modals = [];
@@ -138,6 +138,7 @@ const mkScene = () => {
     modals,
     showMessageModal(opts) { modals.push(opts); },
     _storySplashOnce: splashMethods._storySplashOnce,
+    _dialogOpen: splashMethods._dialogOpen,
   };
 };
 
@@ -187,23 +188,22 @@ test('story splash (behaviour): a busy screen returns false unmarked, then recov
   assert.eq(s.modals.length, 1, 'the retry shows the modal');
 });
 
-test('story splash (behaviour): the re-sync lets a splash out of a just-closed modal', () => {
+test('story splash (behaviour): the live DOM read lets a splash out of a just-closed modal', () => {
   // The accept handler removes the offer modal's wrap and fires onAccept in
   // the same click - body.modal-open still latches on until the observer's
-  // microtask. The stub's _syncModalGate does what the real one does: read
-  // the DOM and correct the class. Without that call the splash could never
-  // leave a modal's accept handler.
+  // microtask. The busy test is _dialogOpen, which reads the DOM itself (the
+  // one predicate every deferred dialog asks), never the lagging class.
   const s = mkScene();
-  const classes = new Set(['modal-open']);
   const realBody = globalThis.document.body;
-  globalThis.document.body = { classList: { contains: (c) => classes.has(c) } };
-  let syncs = 0;
-  s._syncModalGate = () => { syncs++; classes.delete('modal-open'); };
+  globalThis.document.body = { classList: { contains: (c) => c === 'modal-open' } };   // the stale class
+  let asked = 0;
+  s._dialogOpen = () => { asked++; return false; };   // the DOM: nothing shown
   try {
     const out = s._storySplashOnce('delivery', { art: 'delivery_first', title: 'T', body: 'B' });
-    assert.eq(out, true, 'the splash opens once the class is re-synced');
-    assert.eq(syncs, 1, 'the re-sync ran');
+    assert.eq(out, true, 'the splash opens off the live DOM, not the class');
+    assert.eq(asked, 1, '_dialogOpen was the test');
     assert.eq(s.modals.length, 1, 'the modal opened');
+    assert.falsy(/_syncModalGate|modal-open/.test(SPLASH_SRC), 'no class read, no re-sync of its own');
   } finally {
     globalThis.document.body = realBody;
   }

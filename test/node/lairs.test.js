@@ -180,7 +180,7 @@
     for (const tier of [11, 12]) {
       const ks = all(tier);
       for (let i = 1; i < ks.length; i++) {
-        assert.gte(MONSTERS[ks[i]].minDepth, MONSTERS[ks[i - 1]].minDepth,
+        assert.gte(MONSTERS[ks[i]].cave.minDepth, MONSTERS[ks[i - 1]].cave.minDepth,
           `tier ${tier}: ${ks[i]} is introduced shallower than ${ks[i - 1]}`);
       }
     }
@@ -272,9 +272,9 @@
     // the ice and the sheen: it says something about the instance too.)
     // (A status that has JUST landed — `flick`, Combat.statusFlashTint —
     // flicks over all of them for the instant: it is the event, not a state.)
-    assert.truthy(/s\.setTint\(flick != null \? flick : frozen \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : poisoned \? Conditions\.DEFINITIONS\.poison\.tint : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
+    assert.truthy(/s\.setTint\(flick != null \? flick : chilled \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : poisoned \? Conditions\.DEFINITIONS\.poison\.tint : c\.shiny \? SHINY_TINT : pet && Number\.isFinite\(c\.tint\) \? c\.tint : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
       .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
-    assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
+    assert.truthy(/const baseSheet = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
       'and picks the monster sheet from the table, not an if-else chain');
   });
 
@@ -299,7 +299,7 @@
   function mkShape(tier, cxM, cyM, sizeM, key) {
     const h = sizeM / 2;
     return {
-      tier, areaM2: sizeM * sizeM, key: key || `k_${tier}_${Math.round(cxM)}_${Math.round(cyM)}`,
+      tier, areaM2: sizeM * sizeM, key: key || (tier === 12 ? 'citadel' : `k_${tier}_${Math.round(cxM)}_${Math.round(cyM)}`),
       ring: new Float32Array([cxM - h, cyM - h, cxM + h, cyM - h, cxM + h, cyM + h, cxM - h, cyM + h]),
     };
   }
@@ -313,7 +313,7 @@
   function step(entry, at, over = {}) {
     return Lairs.stepResidency([{ entry, tx: 0, ty: 0 }], Object.assign({
       cellM: CELL_M, tileEdgeM: TILE_M, playerM: at, homeM: HOME,
-      isClaimed: () => false, caughtSet: new Set(),
+      isClaimed: () => false, isCitadelActive: () => true, caughtSet: new Set(),
     }, over));
   }
   const guardsOf = (entry) => entry.creatures.filter((c) => c.lair);
@@ -356,7 +356,7 @@
     throw new Error(`no plain held seat for tier ${tier} near ${cxM},${cyM}`);
   }
 
-  test('lairs: an intact bastion stays unguarded while other castle families can wake', () => {
+  test('lairs: only citadels have castle guards; houses and forts keep theirs', () => {
     const base = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);
     let bastionKey;
     for (let i = 0; i < 100; i++) {
@@ -364,7 +364,7 @@
       if (CastleStyles.variantFor(key) === 'bastion') { bastionKey = key; break; }
     }
     assert.truthy(bastionKey, 'fixture uses a real hashed owner identity');
-    for (const key of ['citadel', bastionKey]) {
+    for (const key of ['citadel', 'ruin', 'archive', bastionKey]) {
       const shape = { ...base, key }, entry = mkEntry([shape]);
       const index = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
       const cand = [...index.buckets.values()].flat()[0];
@@ -377,11 +377,166 @@
         assert.eq(guardsOf(entry).length, 0, 'residency also leaves the bastion empty');
       }
     }
-    const fort = mkHeldShape(11, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M, bastionKey);
-    const entry = mkEntry([fort]);
-    const cand = [...Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
-    assert.gt(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME }).length, 0,
-      'castle family policy does not change fort guards');
+    for (const tier of [9, 11]) {
+      const shape = mkHeldShape(tier, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M, bastionKey);
+      const entry = mkEntry([shape]);
+      const cand = [...Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
+      assert.gt(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME }).length, 0,
+        `castle family policy does not change tier ${tier} guards`);
+    }
+  });
+
+  test('lairs: dormant citadels never spawn or unlock before Fight, even on return', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const entry = mkEntry([shape]), save = {}, claimed = new Set();
+    const opts = { isCitadelActive: key => Houses.citadelBattleActive(save, key),
+      onCitadelCleared: key => claimed.add(key) };
+    step(entry, CENTRE, opts);
+    step(entry, { x: CENTRE.x + 1000, y: CENTRE.y }, opts);
+    step(entry, CENTRE, opts);
+    assert.eq(guardsOf(entry).length, 0);
+    assert.falsy(entry._citadelGuards?.has('citadel'));
+    assert.eq(claimed.size, 0);
+    Houses.startCitadelBattle(save, 'citadel');
+    step(entry, CENTRE, opts);
+    assert.gt(guardsOf(entry).length, 0);
+    const ids = guardsOf(entry).map(c => c.id).join();
+    step(entry, CENTRE, opts);
+    assert.eq(guardsOf(entry).map(c => c.id).join(), ids, 'no duplicate garrison');
+    const reloaded = mkEntry([shape]), restored = JSON.parse(JSON.stringify(save));
+    step(reloaded, CENTRE, { ...opts, isCitadelActive: key => Houses.citadelBattleActive(restored, key) });
+    assert.eq(guardsOf(reloaded).map(c => c.id).join(), ids, 'accepted battle survives reload');
+  });
+
+  test('lairs: choosing Fight makes the citadel garrison visible near Home in both modes', () => {
+    const previous = Difficulty.mode();
+    try {
+      for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
+        Difficulty.setMode(mode);
+        const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+        const entry = mkEntry([shape]), save = {};
+        const scene = { save, startWorldM: CENTRE, homeWorldPos: () => CENTRE };
+        const opts = { homeM: CENTRE, isCitadelActive: key => Houses.citadelBattleActive(save, key) };
+        step(entry, CENTRE, opts);
+        assert.eq(guardsOf(entry).length, 0, 'the encounter stays opt-in');
+        assert.truthy(Houses.startCitadelBattle(save, 'citadel'));
+        step(entry, CENTRE, opts);
+        const guards = guardsOf(entry);
+        assert.gt(guards.length, 0, mode + ': the accepted encounter actually spawns');
+        for (const guard of guards) {
+          assert.eq(guard.castle, 'citadel');
+          assert.truthy(EnemySpawns.surfaceActive(scene, guard), 'accepted guards reach renderer and AI');
+          assert.falsy(guard._surfaceInactive);
+          assert.truthy(Combat.isEnemy(guard), 'the visible guard can be fought');
+        }
+        const ordinary = { kind: 'skeleton', lair: 'ordinary', lairX: CENTRE.x, lairY: CENTRE.y };
+        assert.falsy(EnemySpawns.surfaceActive(scene, ordinary), 'ambient guards still respect Home');
+        assert.falsy(EnemySpawns.surfaceActive(scene, { ...ordinary, castle: 'another-citadel' }),
+          'accepting one castle never enables a different castle');
+        save.citadelBattles.citadel.startedAt = Date.now() - Houses.CITADEL_BATTLE_MS;
+        for (const guard of guards) assert.falsy(EnemySpawns.surfaceActive(scene, guard), 'expired battles lose the exception');
+      }
+    } finally { Difficulty.setMode(previous); }
+  });
+
+  test('lairs: timed out citadels despawn descendants and restart with every guard healthy', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const entry = mkEntry([shape]), save = {}, now = 1000000;
+    const hpMemo = new Map(), caughtSet = new Set();
+    Houses.startCitadelBattle(save, 'citadel', now);
+    const opts = { hpMemo, caughtSet,
+      isCitadelActive: key => Houses.citadelBattleActive(save, key, now),
+      onCitadelGenerated: (key, ids) => { save.citadelBattles[key].guardIds = ids; } };
+    step(entry, CENTRE, opts);
+    const original = guardsOf(entry).slice(), ids = original.map(c => c.id);
+    assert.gt(ids.length, 0);
+    caughtSet.add(ids[0]);
+    hpMemo.set(ids[0], 1);
+    const neighbour = { creatures: [{ id: 'child', castle: 'citadel', lair: original[0].lair },
+      { id: 'other', lair: 'unrelated' }] };
+    const restored = JSON.parse(JSON.stringify(save));
+    assert.truthy(Houses.citadelBattleActive(restored, 'citadel', now + Houses.CITADEL_BATTLE_MS - 1));
+    assert.falsy(Houses.citadelBattleActive(restored, 'citadel', now + Houses.CITADEL_BATTLE_MS));
+    const expired = Houses.expireCitadelBattles(save, now + Houses.CITADEL_BATTLE_MS);
+    assert.eq(expired.length, 1);
+    Lairs.resetCitadel([entry, neighbour], 'citadel', expired[0].guardIds, hpMemo);
+    for (const id of expired[0].guardIds) caughtSet.delete(id);
+    assert.eq(guardsOf(entry).length, 0);
+    assert.eq(neighbour.creatures.map(c => c.id).join(), 'other');
+    assert.eq(hpMemo.size, 0);
+    step(entry, CENTRE, opts);
+    assert.eq(guardsOf(entry).length, 0, 'timeout leaves the gate dormant');
+    Houses.startCitadelBattle(save, 'citadel', now);
+    step(entry, CENTRE, opts);
+    assert.eq(guardsOf(entry).map(c => c.id).join(), ids.join());
+    assert.truthy(guardsOf(entry).every(c => c._hp !== 1));
+    Houses.claimCastle(save, { castle: 'citadel' });
+    assert.eq(Houses.expireCitadelBattles(save, now + Houses.CITADEL_BATTLE_MS).length, 0,
+      'victory never resets');
+    assert.truthy(Houses.isCastleClaimed(save, { castle: 'citadel' }));
+  });
+
+  test('lairs: citadel unlock waits for generation and every reachable guard defeat', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const entry = mkEntry([shape]), ring = [{ entry, tx: 0, ty: 0 }];
+    const caughtSet = new Set(), claimed = new Set();
+    const onCitadelCleared = key => claimed.add(key);
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.eq(claimed.size, 0, 'unknown garrison does not unlock');
+    step(entry, CENTRE, { caughtSet, onCitadelCleared, buildings: false });
+    const guards = guardsOf(entry);
+    assert.gt(guards.length, 1, 'citadel has a garrison even with other building lairs off');
+    assert.eq(claimed.size, 0);
+    for (const guard of guards.slice(1)) caughtSet.add(guard.id);
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.eq(claimed.size, 0, 'one living member keeps the gate closed');
+    caughtSet.add(guards[0].id);
+    const child = { id: guards[0].id + '_s1', _splitRoot: guards[0].id };
+    ring.push({ entry: { creatures: [child] } });
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.eq(claimed.size, 0, 'living split offspring on another tile still guard the keep');
+    caughtSet.add(child.id);
+    const escort = { id: guards[0].id + '_summon_0', castle: 'citadel' };
+    ring[1].entry.creatures.push(escort);
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.eq(claimed.size, 0, 'summoned escorts also keep the gate closed');
+    caughtSet.add(escort.id);
+    Lairs.claimClearedCitadels(ring, caughtSet, onCitadelCleared);
+    assert.truthy(claimed.has('citadel'));
+    const reloaded = mkEntry([shape]);
+    claimed.clear();
+    step(reloaded, CENTRE, { caughtSet, onCitadelCleared });
+    assert.truthy(claimed.has('citadel'), 'prior defeats survive reload');
+    assert.eq(guardsOf(reloaded).length, 0);
+  });
+
+  test('lairs: blocked citadels open after generation; deferred ones stay sealed', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const entry = mkEntry([shape]);
+    entry.grid.fill(3);
+    const claimed = new Set(), onCitadelCleared = key => claimed.add(key);
+    step(entry, CENTRE, { onCitadelCleared, liveMax: 0 });
+    assert.eq(claimed.size, 0, 'live cap is not proof the garrison is empty');
+    step(entry, CENTRE, { onCitadelCleared, homeM: null });
+    assert.eq(claimed.size, 0, 'waiting for Home is not proof the garrison is empty');
+    step(entry, CENTRE, { onCitadelCleared });
+    assert.truthy(claimed.has('citadel'), 'unreachable seats cannot lock the castle forever');
+  });
+
+  test('lairs: rebuilt resident citadels recover their complete garrison before opening', () => {
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+    const original = mkEntry([shape]);
+    step(original, CENTRE);
+    const guards = guardsOf(original), entry = mkEntry([shape]);
+    entry.creatures = guards.slice(0, 1);
+    const caughtSet = new Set(guards.slice(1).map(g => g.id));
+    const claimed = new Set(), onCitadelCleared = key => claimed.add(key);
+    step(entry, CENTRE, { caughtSet, onCitadelCleared });
+    assert.eq(claimed.size, 0);
+    assert.eq(entry._citadelGuards.get('citadel').length, guards.length);
+    caughtSet.add(guards[0].id);
+    step(entry, CENTRE, { caughtSet, onCitadelCleared });
+    assert.truthy(claimed.has('citadel'));
   });
 
   test('lairs: a building garrison is never rooted plants; a road variant may be', () => {
@@ -451,7 +606,7 @@
   });
 
   test('lairs: a live-grid blocker drops its guard without moving the others', () => {
-    const castle = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'live-grid-cull');
+    const castle = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
     const wake = (entry) => {
       const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
       const cand = [...idx.buckets.values()].flat()[0];
@@ -584,7 +739,7 @@
     // opposite orders, with different neighbours, and read back the same
     // guards — kinds, ids and seats.
     const far = { x: -FAR_HOME_M, y: 0 };
-    const target = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
+    const target = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'citadel');
     const decoys = [
       mkShape(9, 6 * CELL_M, 6 * CELL_M, CELL_M),
       mkShape(11, 30 * CELL_M, 12 * CELL_M, 2 * CELL_M),
@@ -595,7 +750,7 @@
       for (const bucket of idx.buckets.values()) {
         for (const cand of bucket) {
           cand.sid = Lairs.structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
-          if (cand.key !== 'target') continue;
+          if (cand.key !== 'citadel') continue;
           return Lairs.garrisonFor(entry, cand, {
             cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
           }).map((g) => `${g.id}:${g.kind}:${g.seatX.toFixed(3)},${g.seatY.toFixed(3)}`);
@@ -619,7 +774,7 @@
   // seat as a TILE-LOCAL CELL — plus the nerf it carries.
   function garrisonIn(edgeM, tx, ty, fx, fy, sizeCells, homeM) {
     const cM = edgeM / N;
-    const entry = mkEntry([mkShape(12, fx * cM, fy * cM, sizeCells * cM, 'target')]);
+    const entry = mkEntry([mkShape(12, fx * cM, fy * cM, sizeCells * cM, 'citadel')]);
     entry.tileEdgeM = edgeM;
     const idx = Lairs.buildIndex(entry, tx, ty, cM, edgeM);
     const [cand] = [...idx.buckets.values()][0];
@@ -895,7 +1050,7 @@
   test('lairs: a garrison depends on its own building and nothing else', () => {
     // Same footprint, wildly different neighbours and list order. If the seed
     // had any tile-level ordering left in it, these would differ.
-    const target = mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
+    const target = mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'citadel');
     const alone = mkEntry([target]);
     const crowded = mkEntry([
       mkShape(9, 8 * CELL_M, 8 * CELL_M, CELL_M),
@@ -932,7 +1087,7 @@
     // The polygon list is not stable — a rebuild that adds an Overpass
     // building shifts every index after it — so an index-keyed id would let a
     // guard the player had killed come back under a new name.
-    const target = mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
+    const target = mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'citadel');
     const first = mkEntry([target]);
     const shifted = mkEntry([mkShape(9, 8 * CELL_M, 8 * CELL_M, CELL_M), target]);
     step(first, CENTRE);
@@ -1364,7 +1519,7 @@
     assert.truthy(/_lastLairT/.test(call), 'the pass must be throttled, not run every frame');
     // The camera rule: a peek drag must not wake a ruin the player has not
     // walked to, so the pass is measured off playerM and never the anchor.
-    assert.truthy(call.includes('this.startWorldM.x + this.playerM.x'),
+    assert.truthy(call.includes('playerWorldM(this)'),
       'residency must be measured from the feet');
     assert.falsy(/viewAnchor|peekM|viewCenter/.test(call), 'the camera crept into the wake ring');
     assert.truthy(call.includes('this._starterTrailAnchor()'),
@@ -1422,28 +1577,25 @@
   });
 
   test('lairs: hunting and walking home are branches of the ONE movement chain', () => {
-    // Not a mover of their own: a chase and a walk back are ordinary steps, so
-    // they are two more `else if`s in the angle chain every creature shares —
-    // which is what keeps them subject to the blocked-cell, placed-rock and
-    // water rules the rest of the fauna obeys.
-    const w = APP.slice(APP.indexOf('  wanderCreatures() {'));
-    const body = w.slice(0, w.indexOf('\n  }\n'));
-    const hunt = body.indexOf("} else if (lairState === 'hunt') {");
+    // Not a mover of their own: a chase and a walk back are ordinary steps of
+    // rosterEnemyMove's one chain (creature_ai.js) — which is what keeps them
+    // subject to the blocked-cell, placed-rock, water and kerb rules every
+    // foe obeys (enemySweep → creatureStepRefused).
+    const body = CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyMove('));
     const home = body.indexOf("} else if (lairState === 'return') {");
-    const ward = body.indexOf('} else if (warded) {');
-    const slime = body.indexOf("} else if (c.kind === 'slime') {");
-    assert.gt(hunt, ward, "Home's ward outranks a garrison's chase");
-    assert.gt(home, hunt, 'the chase is asked before the walk home');
-    assert.lt(home, slime, 'and both are asked before the kinds\' own idle logic');
+    const ward = body.indexOf('if (routed) {');
+    const idle = body.indexOf('} else if (!sees) {');
+    assert.gt(home, ward, "Home's ward outranks a garrison's walk home");
+    assert.lt(home, idle, 'and it is asked before the kinds\' own idle logic');
     // The walk home aims at the SEAT and lands on it — an away-from-player
     // angle would scatter the garrison, and a full stride would overshoot and
     // orbit forever.
-    const branch = body.slice(home, slime);
-    assert.truthy(/Math\.atan2\(c\.seatY - c\.y, c\.seatX - c\.x\)/.test(branch), 'toward its own seat');
-    assert.falsy(/dxp|dyp/.test(branch), 'not away from the player');
-    assert.truthy(/stepLen = Math\.min\(stepM, Math\.hypot\(c\.seatX - c\.x, c\.seatY - c\.y\)\);/.test(branch),
+    const branch = body.slice(home, idle);
+    assert.truthy(/angle = Math\.atan2\(c\.seatY - c\.y, c\.seatX - c\.x\);/.test(branch), 'toward its own seat');
+    assert.falsy(/px - c\.x|py - c\.y/.test(branch), 'not away from the player');
+    assert.truthy(/maxDistance = Math\.hypot\(c\.seatX - c\.x, c\.seatY - c\.y\);/.test(branch),
       'the last step lands exactly on the seat');
-    assert.truthy(/tx = c\.x \+ Math\.cos\(angle\) \* stepLen;/.test(body),
+    assert.truthy(/let step = Math\.min\(maxDistance, pace\);/.test(body),
       'and the step the chain takes is that one');
   });
 

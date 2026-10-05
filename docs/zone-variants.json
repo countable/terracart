@@ -399,14 +399,17 @@
       "id": "meadow",
       "zone": "grove",
       "name": "Meadow",
+      "materialLooks": {
+        "shrub": "ordinary"
+      },
       "weight": 1,
       "background": {
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_global_cell_hash",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.5,
+        "nominalDensity": 0.35,
         "materialDensity": {
-          "shrub": 0.5
+          "shrub": 0.35
         },
         "type": "seeded_scatter",
         "seed": "anchor_key + variant_id + global_cell_coordinates",
@@ -1194,7 +1197,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 50% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 35% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
@@ -2398,7 +2401,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Sixteen garden rooms form a clear 4 \u00d7 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms. A stationary carnivorous plant replaces one hedge seat in each repeated garden plot.",
+      "atmosphere": "Sixteen garden rooms form a clear 4 × 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms. A stationary carnivorous plant replaces one hedge seat in each repeated garden plot.",
       "attracts": {
         "rabbit": 0.6
       }
@@ -4789,7 +4792,7 @@
         "fallback": "omit_guard_keep_find",
         "headstoneGhostChance": 0.3333333333333333
       },
-      "atmosphere": "Three weathered grave markers mingle with grass and shrubs in each 6 \u00d7 6-cell patch, with open aisles through the overgrowth.",
+      "atmosphere": "Three weathered grave markers mingle with grass and shrubs in each 6 × 6-cell patch, with open aisles through the overgrowth.",
       "attracts": {
         "butterfly": 0.35
       },
@@ -6684,7 +6687,7 @@
       },
       "guards": {
         "mode": "guard_find",
-        "kind": "goblin",
+        "kind": "split_slime",
         "count": 2,
         "offsetCells": [
           [
@@ -7236,7 +7239,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "attracts": {},
-      "atmosphere": "Compact stone crescents, shell inlays and a pale wildflower center repeat every 6 \u00d7 6 cells. The single starflower remains the rare luminous find.",
+      "atmosphere": "Compact stone crescents, shell inlays and a pale wildflower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find.",
       "reef": {
         "landOre": {
           "count": 3,
@@ -7427,7 +7430,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "attracts": {},
-      "atmosphere": "Scattered driftwood and shell fragments surround one shipwreck shrine. Its 3 \u00d7 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. The shipwreck offers pirate mercenaries for hire. A pirate grunt and gunner patrol beside it. If the full wreck cannot fit on dry sand, the accessible small hiring shrine remains. Four buried treasure spots wait nearby, hidden until discovered.",
+      "atmosphere": "Scattered driftwood and shell fragments surround one shipwreck shrine. Its 3 × 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. The shipwreck offers pirate mercenaries for hire. A pirate grunt and gunner patrol beside it. If the full wreck cannot fit on dry sand, the accessible small hiring shrine remains. Four buried treasure spots wait nearby, hidden until discovered.",
       "decorations": [
         {
           "material": "barrel",
@@ -7435,7 +7438,7 @@
         },
         {
           "material": "driftwood",
-          "count": 2
+          "count": 4
         },
         {
           "material": "crab",
@@ -7614,7 +7617,7 @@
       "attracts": {
         "butterfly": 0.35
       },
-      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 \u00d7 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation.",
+      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 × 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation.",
       "materialFrames": {
         "stone": [
           34
@@ -7817,15 +7820,13 @@
       },
       "guards": {
         "mode": "quarry_layout",
-        "kind": "split_slime",
-        "count": 3,
+        "kind": "wurm",
+        "count": 1,
         "kinds": [
-          "split_slime",
-          "wurm",
-          "split_slime"
+          "wurm"
         ]
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Blue slimes divide and gather in the open cuts. Beneath them, wurms tunnel through the loose earth.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Wurms tunnel through the loose earth beneath the open cuts.",
       "attracts": {},
       "quarryLayout": "strip_mine",
       "affinities": [

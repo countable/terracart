@@ -114,7 +114,7 @@ const MapReviewArt = (() => {
     },
     _prepare() {
       if(!this._world||!this._assets)return;
-      const scene={save:{},textures:this._assets.textures,cellM:WorldGen.CELL_M};
+      const scene={save:{},depth:this._world.scene.depth,textures:this._assets.textures,cellM:WorldGen.CELL_M};
       const roles=new WeakMap();
       for(const e of this._world.tiles)for(const o of e.objects||[])if(o.kind==='house')roles.set(o,Houses.displayRole(scene.save,o));
       const {resolveAppearance:resolve,fruitList}=Render.objectAppearance(scene,roles);

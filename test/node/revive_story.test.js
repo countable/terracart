@@ -11,7 +11,7 @@ const lift = (sig) => {
   assert.truthy(i > 0, `found ${sig}`);
   return app.slice(i + 1, app.indexOf('\n  }\n', i) + 4);
 };
-const SRC = lift('_reviveStoryboard() {');
+const SRC = lift('_reviveStoryboard() {') + '\n' + lift('_dialogOpen() {');
 
 function mkScene() {
   const K = new Function('persistSave', 'Energy', `return class { ${SRC} }`)(() => {}, { REVIVE_FRAC: 0.25 });
@@ -69,10 +69,9 @@ test('revive story: three panels in order, Next between them, once per save', ()
     assert.eq(s.modals[1].art, 'revive_found');
     s.modals[1].onDismiss();
     assert.eq(s.modals[2].art, 'revive_wake');
-    assert.eq(s.modals[2].okLabel, 'OK');
+    assert.eq(s.modals[2].okLabel, 'OK', 'the last page ends it (MemoryStory.showPages)');
     assert.truthy(/farmhand|carer/.test(s.modals[2].body), 'a silent carer');
     assert.falsy(/\d|%|energy|strength/i.test(s.modals[2].body), 'no numbers — the energy pop says what was restored');
-    assert.eq(s.modals[2].onDismiss, undefined, 'the last panel ends it');
     for (const m of s.modals) assert.eq(m.kind, 'story');
     s._reviveStoryboard();
     assert.eq(s.modals.length, 3, 'a second revival tells nothing');

@@ -102,9 +102,11 @@ test('steady state: movement, combat and render share the active creature bubble
     'combat reuses the same bubble');
 
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  const loop = body.slice(body.indexOf('for (const c of frameCreatures || fallbackCreatures) {'), body.indexOf('creatureList.push({ c, dx, dy });'));
+  const loop = body.slice(body.indexOf('const consideredCreatures = frameCreatures || fallbackCreatures;'), body.indexOf('creatureList.push({ c, dx, dy });'));
   assert.truthy(loop.includes('frameCreatures || fallbackCreatures'), 'the live sim bubble feeds the draw pass');
-  const cull = loop.indexOf('if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;');
+  // The cull is coords.js cullToView: only a creature inside the view box is
+  // handed to the callback that asks.
+  const cull = loop.indexOf('cullToView(consideredCreatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {');
   const ask = loop.indexOf('EnemySpawns.surfaceActive(scene, c)');
   assert.truthy(cull > 0 && ask > cull, 'render culls before the surface gate');
 });
@@ -114,10 +116,13 @@ function towerHelper() {
   const src = SCENE_SRC;
   const start = src.indexOf('  _forEachTowerNear(pc, fn) {');
   assert.truthy(start > 0, 'the helper exists');
-  const end = src.indexOf('\n  }\n', start);
-  const text = src.slice(start, end + 4).trim();
-  // A class method, lifted as an object-literal method (the __wander trick).
-  return (new Function(`return ({ ${text} });`))()._forEachTowerNear;
+  // The one-line wrapper and the shared derived-near scan it rides.
+  const one = src.slice(start, src.indexOf('\n', start)).trim();
+  const d = src.indexOf('  _forEachDerivedNear(pc, kind, fn) {');
+  const text = one + ',\n' + src.slice(d, src.indexOf('\n  }\n', d) + 4).trim();
+  // Class methods, lifted as object-literal methods (the __wander trick).
+  const o = (new Function(`return ({ ${text} });`))();
+  return o._forEachTowerNear.bind(o);
 }
 
 test('steady state: the turret scans read a per-tile tower list that re-derives on every mutation', () => {

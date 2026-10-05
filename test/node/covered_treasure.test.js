@@ -56,7 +56,7 @@
   });
   test('covered treasure: mining exposes the same saved mark and permits only one dig', () => {
     const {dress}=fixture(),mark=dress.treasures[0],cover=dress.objects.find(o=>o.id===mark.coverRockId);
-    const save={brokenRocks:[],foundTreasures:[],hiddenDiscoveries:{[mark.id]:true}};
+    const save={brokenRocks:[],foundTreasures:[]};
     const scene=makeScene({save,cellM:C,cellsPerTile:N,tileEdgeM:N*C,startWorldM:{x:0,y:0},originPx:{x:0,y:0},mPerPx:N*C/WorldGen.TILE_PX,brokenRockSet:bindIdSet(save,'brokenRocks')});
     const ctx={...makeCtx(scene,save),wm:{x:mark.x,y:mark.y}};
     const handler=TAP_HANDLERS.find(h=>h.name==='treasure');
@@ -72,7 +72,7 @@
       assert.truthy(treasureExposed(mark,scene));
       const reloaded=JSON.parse(JSON.stringify(save));
       assert.truthy(treasureExposed(mark,{save:reloaded}),'reload preserves exposure');
-      assert.falsy(treasureExposed({id:'ordinary'},scene),'unseen ordinary X remains hidden');
+      assert.truthy(treasureExposed({id:'ordinary'},scene),'ordinary X remains exposed');
       assert.eq(handler.try(ctx),true);assert.eq(rolls,1);
       assert.eq(handler.try(ctx),false);assert.eq(rolls,1);
       assert.truthy(RENDER_SRC.includes('if (!treasureExposed(tr, scene) || found.has(tr.id)) return;'),'render uses the same exposure gate');

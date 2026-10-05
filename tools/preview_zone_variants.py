@@ -38,6 +38,9 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=No
         w, h = row['frameWidth'], row['frameHeight']
         cols = image.width // w
         x, y = frame % cols * w, frame // cols * h
+        rect = row.get('frameRects',{}).get(str(frame))
+        if rect:
+            x,y,w,h = rect['x'],rect['y'],rect['width'],rect['height']
         assert y + h <= image.height, (sheet, frame)
         image = image.crop((x, y, x + w, y + h))
     if sheet == 'stair_down':
@@ -120,11 +123,13 @@ def material_art(material):
     elif kind == 'coindrop':
         sheet, frames = 'coin_drop', [0]
     elif kind == 'mineralrock':
-        tier = material.get('yieldTier', 1)
-        sheet = 'mineralrock'
-        frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
-        if material.get('deposit') == 'crystal':
-            sheet, frames = 'crystal_cluster', [0]
+        deposit = r['mineralDeposits'].get(material.get('deposit'))
+        if deposit:
+            sheet, frames = deposit['art']['sheet'], [deposit['art']['frame']]
+        else:
+            tier = material.get('yieldTier', 1)
+            sheet = 'mineralrock'
+            frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
     elif kind == 'tree':
         species = material.get('species', 'maple')
         sheet = 'trees' if species == 'maple' else species + '_tree'
@@ -703,7 +708,7 @@ def quarry_card(v, d):
     else:
         metadata += f'<dt>Finite finds</dt><dd>Up to {v["finds"]["count"]} per complete site; actual placements counted below.</dd>'
     rules = art_registry()['quarryRockRules']
-    metadata += f'<dt>Mining</dt><dd>Ordinary quarry stones cost {rules["energyMul"]:g}× mining energy and yield {rules["stones"]} stone. The first mined rock guarantees a Sapphire; later rocks have an additional {art_registry()["quarrySapphireChance"]*100:g}% Sapphire chance.</dd>'
+    metadata += f'<dt>Mining</dt><dd>Ordinary quarry stones cost {rules["energyMul"]:g}× mining energy and yield {rules["stones"]} stone. The first mined surface rock guarantees the quarry’s assigned gem; later rocks have an additional {art_registry()["quarryGemChance"]*100:g}% chance for that gem.</dd>'
     if v['layout'] == 'crater':
         metadata += '<dt>Shrine</dt><dd>Ember altar on the dry centre of the lava pool. Cross hazardous lava to reach its daily boon.</dd>'
     elif v.get('shrineChance'):
@@ -873,8 +878,8 @@ def accepted_signature_directions():
     accepted = data.get('acceptedMechanics', {})
     if not accepted:
         return ''
-    hive = accepted['hive']
-    hive_picture = f'<img src="{sprite_png('beehive', 0)}" width="64" height="64" alt="Forest hive">'
+    hive = data['zones']['ORCHARD']['slots']['uncommon']
+    hive_picture = f'<img src="{proposal_art_uri(hive["artProposal"]["path"])}" width="64" height="64" alt="Orchard hive">'
     butterflies = accepted.get('butterflies', {})
     variants = []
     for row in butterflies.get('variants', []):
@@ -895,10 +900,10 @@ def accepted_signature_directions():
     for proposal in data.get('poiProposals', []):
         adapted = {**proposal, 'proposedThing': {'label': proposal['label']}}
         spring_cards.append('<article class="accepted-direction" data-accepted="spring"><h4>' + html.escape(proposal['label']) + ' · POI altar</h4>' + signature_proposal_details(adapted, True) + '<p><b>Placement:</b> Underground mirror of a surface park POI. Keep its identity through deeper cave levels; reuse the existing daily-visit and shrine reward helpers. Replaces that POI’s ordinary cave chest. No uncommon floor scatter.</p></article>')
-    return ('<section id="accepted-signature-directions"><h3>Accepted directions · mechanic and art review</h3><p>Forest hives and colored butterfly stacks are implemented. Bone caches form guarded clusters in the Bone Gallery small cave-road variant. The cave spring remains a separate proposal.</p><div class="accepted-directions">'
-        + '<article class="accepted-direction" data-accepted="hive"><h4>Forest hive · implemented</h4>' + hive_picture + '<p>' + html.escape(butterflies.get('beeAudit', '')) + '</p><p>' + html.escape(hive['mechanic']) + '</p><small>Basic forest outside nexus coverage. Uses the shared daily-visit ledger.</small></article>'
-        + '<article class="accepted-direction" data-accepted="butterflies"><h4>Butterfly colors by habitat</h4><div class="butterfly-preview-grid">' + ''.join(variants) + '</div><p>' + html.escape(butterflies.get('mechanic', '')) + '</p><small>Each color has a separate inventory stack, including shiny catches. Capture and release preserve color. Forest, orchard and golf remain excluded.</small></article>'
-        + '<article class="accepted-direction" data-accepted="bone"><h4>Bone Gallery · cave bone caches</h4>' + bone_picture + '<p>Clusters along a small cave road, guarded by a strong monster for the level.</p><p><em>The floor is littered with bones. Perhaps you should go another way...</em></p><p><b>Cache loot:</b> ' + html.escape(bone_mix) + '.</p><p><b>Skeleton: 25%</b> on first search, independently of the loot roll. One skeleton at most; opening and defeat persist through reloads.</p><p><b>Cave supplies:</b> torch, rope or trap-disarming kit. Magic finds are Scrolls of Bones. No produce, seeds, coins or mineral pool.</p><details><summary>Compare existing containers</summary><p><b>Barrel:</b> ' + html.escape(shipping_mix('barrel')) + '.</p><p><b>Clay pot:</b> ' + html.escape(shipping_mix('clay_pot')) + '.</p></details></article>'
+    return ('<section id="accepted-signature-directions"><h3>Accepted directions · mechanic and art review</h3><p>These are design specifications, not new live spawns. Hive and bone art are retained; the spring moves to the park POI’s underground mirror. Colored butterflies share the existing capture and pollination behavior.</p><div class="accepted-directions">'
+        + '<article class="accepted-direction" data-accepted="hive"><h4>Orchard hive</h4>' + hive_picture + '<p>' + html.escape(butterflies.get('beeAudit', '')) + '</p><p>' + html.escape(hive['interactionProposal']['action']) + '</p><small>Hive interaction and honey rewards still need implementation. A bee creature would require new art and behavior. Orchard edges only.</small></article>'
+        + '<article class="accepted-direction" data-accepted="butterflies"><h4>Butterfly colors by habitat</h4><div class="butterfly-preview-grid">' + ''.join(variants) + '</div><p>' + html.escape(butterflies.get('mechanic', '')) + '</p><small>Color previews use the existing butterfly sprite. Keep forest, orchard and golf exclusions. Captured colors must survive inventory and release.</small></article>'
+        + '<article class="accepted-direction" data-accepted="bone"><h4>Cave bone cache</h4>' + bone_picture + '<p><b>Proposed loot:</b> ' + html.escape(bone_mix) + '.</p><p><b>Skeleton: 25%</b> on first search, independently of the loot roll. One skeleton at most; opening and defeat persist through reloads.</p><p><b>Cave supplies:</b> torch, rope or trap-disarming kit. Magic finds are Scrolls of Bones. No produce, seeds, coins or mineral pool.</p><details><summary>Compare existing containers</summary><p><b>Barrel:</b> ' + html.escape(shipping_mix('barrel')) + '.</p><p><b>Clay pot:</b> ' + html.escape(shipping_mix('clay_pot')) + '.</p></details></article>'
         + ''.join(spring_cards) + '</div></section><style>.accepted-directions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px;margin:20px 0}.accepted-direction{padding:16px;min-width:0}.accepted-direction img,.accepted-direction svg{image-rendering:pixelated}.butterfly-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.butterfly-preview-grid figure{margin:0}.accepted-direction h4{margin:0 0 12px}.accepted-direction p{font-size:13px}</style>')
 
 

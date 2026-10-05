@@ -31,9 +31,9 @@
       assert.falsy(Combat.isConcealed(c), 'visible in vision');
     }
   });
-  test('pet concealment: released animals are already known and explicit defaults can be overridden', () => {
+  test('pet concealment: owned animals are already known and explicit defaults can be overridden', () => {
     for (const kind of ['dog', 'cat', 'crab']) {
-      const c = WorldGen.makeCreature(kind, 0, 0, `released_${kind}`, { shiny: true });
+      const c = WorldGen.makeCreature(kind, 0, 0, `pet_${kind}`, { shiny: true, pet: true });
       assert.falsy(Combat.isConcealed(c));
       assert.falsy(enemyConcealmentTick(scene(), c));
     }

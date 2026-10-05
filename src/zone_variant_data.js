@@ -401,14 +401,17 @@
       "id": "meadow",
       "zone": "grove",
       "name": "Meadow",
+      "materialLooks": {
+        "shrub": "ordinary"
+      },
       "weight": 1,
       "background": {
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_global_cell_hash",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.5,
+        "nominalDensity": 0.35,
         "materialDensity": {
-          "shrub": 0.5
+          "shrub": 0.35
         },
         "type": "seeded_scatter",
         "seed": "anchor_key + variant_id + global_cell_coordinates",
@@ -1196,7 +1199,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 50% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 35% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
@@ -6686,7 +6689,7 @@
       },
       "guards": {
         "mode": "guard_find",
-        "kind": "goblin",
+        "kind": "split_slime",
         "count": 2,
         "offsetCells": [
           [
@@ -7437,7 +7440,7 @@
         },
         {
           "material": "driftwood",
-          "count": 2
+          "count": 4
         },
         {
           "material": "crab",
@@ -7819,15 +7822,13 @@
       },
       "guards": {
         "mode": "quarry_layout",
-        "kind": "split_slime",
-        "count": 3,
+        "kind": "wurm",
+        "count": 1,
         "kinds": [
-          "split_slime",
-          "wurm",
-          "split_slime"
+          "wurm"
         ]
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Blue slimes divide and gather in the open cuts. Beneath them, wurms tunnel through the loose earth.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Wurms tunnel through the loose earth beneath the open cuts.",
       "attracts": {},
       "quarryLayout": "strip_mine",
       "affinities": [

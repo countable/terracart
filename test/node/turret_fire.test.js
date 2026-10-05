@@ -90,7 +90,7 @@ test('turret art: atlas variants bake shared stone and wood in both restoration 
   assert.eq(JSON.stringify(CastleStyles.ids.map(id => [CastleStyles.get(id), CastleStyles.get(id, false)])), before,
     'baking must not recolour walls or floors');
   const spec = Render.objectAppearance({ textures: scene.textures, save: {} }, new Map()).RENDER_SPEC.tower;
-  assert.eq(spec.scale, 1); assert.eq(spec.dyPx, CELL_PX / 2);
+  assert.eq(spec.scale, 1); assert.eq(spec.dyPx(), CELL_PX / 2, "the nudge reads CELL_PX lazily (app.js loads after the table)");
   for (const id of CastleStyles.ids) {
     assert.eq(spec.frame({ castle: id }), CastleStyles.get(id).towerFrame);
     assert.eq(Render.towerCrownHeight(scene.textures, id), H - CastleStyles.get(id).towerFrame - 2);
@@ -247,7 +247,7 @@ test('ranged weapons: wake only for a foe within the reach plus a cell', () => {
   assert.eq(Combat.SHOT.staff.rangeFromReach, 0, 'magic stops at the vision range itself');
   assert.truthy(Combat.anyEnemyWithin(0, 0, [goblin('in', trig - 1, 0)], trig), 'inside: armed');
   assert.falsy(Combat.anyEnemyWithin(0, 0, [goblin('out', trig + 1, 0)], trig), 'on screen but beyond: silent');
-  assert.truthy(/const rangedArmed = !this\.isShadowActive\(\)\s*\n\s*&& Combat\.anyEnemyWithin\(px, py, enemies, Combat\.rangedTriggerM\(reachCells\(this\), this\.cellM\)\);\s*\n\s*if \(rangedArmed\)/.test(SCENE_SRC),
+  assert.truthy(/const rangedArmed = !Conditions\.attacksBlocked\(this\.save\) && !this\.isShadowActive\(\)\s*\n\s*&& Combat\.anyEnemyWithin\(px, py, enemies, Combat\.rangedTriggerM\(reachCells\(this\), this\.cellM\)\);\s*\n\s*if \(rangedArmed\)/.test(SCENE_SRC),
     'the auto-fire loop is gated on it (and holds its fire under a Shadow Powder)');
 });
 

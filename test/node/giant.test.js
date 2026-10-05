@@ -5,8 +5,7 @@
 (() => {
   // A giant is a CAVE kind's: a row with its own `spawn` (the ghost, which
   // rises on the surface at night) has none, and is pinned so below.
-  const baseKinds = Object.keys(MONSTERS).filter((k) => !MONSTERS[k].giant && Combat.spawnsUnderground(k));
-  const giantKinds = Object.keys(MONSTERS).filter((k) => MONSTERS[k].giant);
+  const giantKinds = Object.keys(MONSTERS).filter((k) => MONSTERS[k].variantType === 'Giant');
 
   test('giants: only declared variants enter the roster, with their own final stats', () => {
     const declared = EnemyRoster.ROWS.filter(row => row.variantType === 'Giant');
@@ -14,7 +13,7 @@
     for (const row of declared) {
       const live = Combat.monster(row.id);
       assert.eq(live.hp, row.hp);
-      assert.eq(live.giant, row.variantOf);
+      assert.eq(live.variantOf, row.variantOf);
       const plain = { kind: row.id }, shiny = { kind: row.id, shiny: true };
       assert.eq(Combat.maxHp(plain), row.hp, 'giant size is already included in its authored stats');
       assert.eq(Combat.maxHp(shiny), row.hp * 2, 'universal shiny strength doubles the giant row once');
@@ -40,28 +39,22 @@
     // name, with a name to print.
     // (Less a row that says `board: false` — the zone-only fire slime.)
     for (const kind of Object.keys(MONSTERS)) {
-      if (!Combat.onQuestBoard(kind)) { assert.falsy(QUEST_ENEMIES.includes(kind), kind + ' is kept off the board'); continue; }
-      assert.includes(QUEST_ENEMIES, kind, kind + ' is a quest target');
+      if (!Combat.onQuestBoard(kind)) { assert.falsy(questEnemies().includes(kind), kind + ' is kept off the board'); continue; }
+      assert.includes(questEnemies(), kind, kind + ' is a quest target');
     }
     for (const kind of giantKinds) {
-      assert.falsy(QUEST_ENEMIES.includes(kind), kind + ' remains compatible but no new quest requests it');
+      assert.falsy(questEnemies().includes(kind), kind + ' remains compatible but no new quest requests it');
       assert.truthy(Combat.monster(kind), 'saved discoveries and kills still resolve');
     }
-    for (let g = 0; g < 200; g++) {
-      const q = Quests.generate(g % QUEST_SLOTS, g + 3, 100, 11);
-      if (q.verb === 'kill') {
-        assert.falsy(EnemyRoster.get(q.target)?.retired, 'new quests never require a retired enemy');
-        assert.falsy(/undefined/.test(q.body), 'the enemy has a name');
-      }
-    }
-    // Rank 0 still opens with the surface slime only.
-    for (let g = 3; g < 40; g++) {
-      const q = Quests.generate(g % QUEST_SLOTS, g, 0, 11);
-      if (q.verb === 'kill') assert.eq(q.target, 'slime', 'rank 0 asks for the surface slime');
+    const assigned = {};
+    for (let g = 0; g < questEnemies().length; g++) {
+      const q = Quests.assign(assigned, `castle-${g}`, 'bastion');
+      assert.falsy(EnemyRoster.get(q.target)?.retired, 'new quests never require a retired enemy');
+      assert.falsy(/undefined/.test(q.body), 'the enemy has a name');
     }
     // No cross-credit either way.
-    const save = { quests: { slots: [], gen: 0, done: 0 }, relicSalt: 1 };
-    const q = Quests.board(save)[0];
+    const save = {};
+    const q = Quests.assign(save, 'first', 'bastion');
     q.verb = 'kill'; q.event = 'kill'; q.target = 'goblin'; q.need = 2; q.have = 0;
     assert.falsy(Quests.onKill(save, 'giant_goblin'), 'a giant goblin is not a goblin');
     assert.eq(q.have, 0, 'no credit');
@@ -72,7 +65,7 @@
     // The kill path credits the kind as-is, and the elite badge is keyed the
     // same way — so an elite giant goblin is a discovery of its own.
     const app = SCENE_SRC;
-    assert.truthy(/const qDone = Quests\.onKill\(save, victim\.kind\);/.test(app), 'quest credit is the kind as-is');
+    assert.truthy(/if \(Quests\.onKill\(s\.save, v\.kind\)\)/.test(app), 'quest credit is the kind as-is (KILL_LEDGERS)');
     assert.falsy(/\.giant \|\| victim\.kind/.test(app), 'no fold to the base kind anywhere');
     assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(app), 'the elite badge is keyed by the kind as-is');
   });
@@ -87,7 +80,7 @@
       'a giant goblin draws the goblin sheet');
     assert.eq(SpriteLayout.creatureFrames('giant_goblin'), SpriteLayout.creatureFrames('goblin'),
       'and runs the same cycle');
-    assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(render),
+    assert.truthy(/const baseSheet = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(render),
       'render.js picks the sheet from the table');
     assert.truthy(/CRITTER_SHADOW_W\[baseKind\(c\.kind\)\] \|\| 18\) \* giantMul\(c\.kind\)/.test(render),
       'the shadow follows the giant scale');

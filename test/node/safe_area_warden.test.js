@@ -1,9 +1,8 @@
 // THE SAFE AREA'S WARDEN — one placed neighbour by the starting trailer who
-// explains the safe area (EnemySpawns.homeAllows): only weak monsters live
-// near Home, and nobody knows why.
+// hints at the safe area (EnemySpawns.homeAllows) without explaining its cause.
 (function () {
 test('warden: explains safety and why rebuilding matters, as a talker not a shop', () => {
-  assert.truthy(/weak things/.test(NPC.WARDEN_LINE) && /Nobody knows why/.test(NPC.WARDEN_LINE), 'only weak monsters, and nobody knows why: ' + NPC.WARDEN_LINE);
+  assert.truthy(/less dangerous/.test(NPC.WARDEN_LINE) && /danger is afraid/.test(NPC.WARDEN_LINE), 'safety remains a mystery: ' + NPC.WARDEN_LINE);
   const w = { id: 'npc_warden_1_2', kind: 'npc', ...NPC.warden('npc_warden_1_2') };
   assert.eq(w.role, 'warden'); assert.eq(w.roleLabel, 'Warden');
   const talk = NPC.dialogue({ save: {} }, w);   // the first talk, whenever she arrives
@@ -33,13 +32,13 @@ test('warden: placed once by the starting trailer, a few cells out, off the spaw
   assert.truthy(/this\._placeSafeAreaWarden\(entry, tx, ty\)/.test(SCENE_SRC), 'the starter tile seats it');
 });
 
-test('warden: the opening is her first talk even after roofs are mended, then the safe area stays', () => {
+test('warden: the opening is her first talk even after roofs are mended, then repeats only the repair reminder', () => {
   const w = { id: 'npc_warden_1_2', kind: 'npc', ...NPC.warden('npc_warden_1_2') };
   const save = { restoredHouses: { a: 'plain' } };
   const first = NPC.dialogue({ save }, w);
   assert.truthy(first.body.includes(MemoryStory.HOME.body) && first.body.includes(NPC.WARDEN_LINE), 'Bryn opens with the plea and the safe area');
   assert.truthy(save.memoryStory.wardenMet, 'remembered');
   assert.falsy(NPC.dialogue({ save }, w).body.includes(MemoryStory.HOME.body), 'said once');
-  assert.truthy(NPC.dialogue({ save: { memoryStory: { wardenMet: true } } }, w).body.includes(NPC.WARDEN_LINE), 'nothing mended: the safe area again');
+  assert.eq(NPC.dialogue({ save: { memoryStory: { wardenMet: true } } }, w).body, '“Mend a house. We’ll help.”', 'nothing mended: only the short reminder');
 });
 })();

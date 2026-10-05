@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=2a42c06e" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=64626a04" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -238,22 +238,16 @@
       --chrome-key:   0 0 0 1px rgba(0,0,0,0.5);                  /* keyline   */
       --chrome-gold:  0 0 12px rgba(255,224,102,0.38);            /* selected  */
       --chrome-rim:   #5c5340;   /* warm steel rim — for surfaces you can't touch */
-      /* ── Top HUD row geometry ─────────────────────────────────────────
-         The ☰, the energy gauge and the money chip are three different roles
-         but ONE ROW, and a row whose chips are 30 / 35 / 27 px tall with two
-         rim weights between them reads as three widgets that happen to be
-         near each other. So the BOX is shared — height, rim weight, radius,
-         padding — and only the accent colour and the ink differ. Unlike the
-         paint tokens above (deliberately geometry-free), these ARE geometry:
-         they live here so the row can only ever change as a row. */
+      /* Shared height and spacing for the borderless top navigation chips. */
       --hud-chip-h:   32px;
       --hud-chip-pad: 0 10px;
-      --hud-chip-rim: 2px;
+      --hud-chip-rim: 0px;
     }
+    :root { --font-ui: system-ui, sans-serif; }
     html, body {
       margin: 0; padding: 0; height: 100%;
       background: #000; color: #ddd;
-      font-family: system-ui, sans-serif;
+      font-family: var(--font-ui);
       overflow: hidden;
       /* Block iOS Safari's elastic rubber-band overscroll on fast swipes —
          touch-action: none alone doesn't suppress it. */
@@ -369,7 +363,7 @@
       color: #fff; padding: 8px 12px; border-radius: 6px;
       font-size: 12px; display: none; z-index: 10;
       pointer-events: auto; cursor: pointer; min-height: 32px;
-      font-family: ui-monospace, monospace;
+      font-family: var(--font-ui);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #0008;
     }
@@ -388,7 +382,7 @@
       position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
       max-width: min(92vw, 560px); max-height: 60vh; overflow: auto;
       background: var(--danger); color: #fff; padding: 8px 10px; border-radius: 8px;
-      font: 12px/1.45 ui-monospace, monospace; display: none; z-index: 20;
+      font: 12px/1.45 var(--font-ui); display: none; z-index: 20;
       box-shadow: 0 4px 16px #0008;
       white-space: pre-wrap; word-break: break-word;
       -webkit-user-select: text; user-select: text;
@@ -402,7 +396,7 @@
       position: sticky; bottom: 0;
     }
     #errbar button {
-      font: 700 12px ui-monospace, monospace; color: var(--danger); background: #fff;
+      font: 700 12px var(--font-ui); color: var(--danger); background: #fff;
       border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer;
     }
     /* Sits in the 8..21px strip, well below #inv-name (now its own plate at
@@ -428,22 +422,14 @@
       left:  calc(var(--phone-left,  0px) + 8px);
       right: calc(var(--phone-right, 0px) + 8px);
       font-size: 11px; color: var(--dust); pointer-events: none; z-index: 5;
-      font-family: ui-monospace, monospace; text-align: center;
+      font-family: var(--font-ui); text-align: center;
       text-shadow: 0 1px 2px #000, 0 0 3px #000;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     /* Top-row HUD is position:fixed and lives outside #game (see the comment
        on #hud below) so it anchors to the visual viewport instead of #game's
        scaled box. env(safe-area-inset-top) clears the iPhone notch. */
-    /* ONE BOX for the three chips of the top HUD row — the ☰, the energy gauge
-       and the money chip. Height, rim weight, radius and padding live here and
-       only here; each chip's own rule below keeps just what makes it itself —
-       its position, its face, its ink, and its rim COLOUR, which overrides the
-       steel default because those rules come after this one. The energy gauge
-       stacks a readout over a bar inside the shared height, centred, so the
-       row's baseline doesn't move when the bar is there. Steel (--chrome-rim)
-       is the default because it's the rim for a surface you can't touch; the
-       two you CAN touch repaint it. */
+    /* Menu, energy and money share a borderless box with the dynamic chips. */
     #menu summary, #energy, #money {
       box-sizing: border-box;
       height: var(--hud-chip-h);
@@ -467,16 +453,10 @@
     }
     #money {
       background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
-      font: 700 16px ui-monospace, monospace;
+      font: 700 16px var(--font-ui);
       /* Row, not the shared column: coin icon and number sit side by side on
          the chip's one line. */
       display: flex; flex-direction: row; align-items: center; gap: 6px;
-      /* A real 2px rim, like every other chip in the row (it used to fake one
-         with an inset ring, which left it visibly thinner than its neighbours).
-         Steel, not gold: --chrome-rim is the rim for a surface you can't touch,
-         and this chip is a readout — the gold here is the CURRENCY, not an
-         invitation to tap. */
-      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000, 0 0 10px rgba(255,224,102,0.35);
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
@@ -489,12 +469,9 @@
        do nothing (UX audit §20). Tapping explains where energy comes from. */
     #energy {
       background: var(--chrome-scuff), var(--chrome-panel); color: var(--green);
-      border-color: #4a8c4a;
-      font: 700 14px ui-monospace, monospace;
+      font: 700 14px var(--font-ui);
       pointer-events: auto; cursor: pointer;
       gap: 3px; align-items: stretch;
-      /* border-color is repainted per energy level by updateEnergyDOM. */
-      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
@@ -533,7 +510,7 @@
       border: 2px solid var(--chrome-rim); border-radius: 8px;
       padding: 6px 8px; z-index: 6;
       pointer-events: none;
-      font-family: ui-monospace, monospace;
+      font-family: var(--font-ui);
       box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
@@ -549,11 +526,11 @@
       color: #1a1612;
       background: linear-gradient(180deg, var(--green), #6fbf7d);
       border-radius: 4px; padding: 1px 5px;
-      font: 700 10px ui-monospace, monospace; flex: none;
+      font: 700 10px var(--font-ui); flex: none;
       box-shadow: inset 0 -1px 0 #0006, 0 1px 2px #0008;
     }
     #objective .title {
-      color: var(--bone); font: 700 13px ui-monospace, monospace;
+      color: var(--bone); font: 700 13px var(--font-ui);
       flex: 1; min-width: 0; text-shadow: 0 1px 0 #000;
     }
     /* 13×15px was a stray-thumb away from ending the onboarding ladder for a
@@ -562,12 +539,12 @@
     #objective .close {
       pointer-events: auto; cursor: pointer; flex: none;
       background: transparent; color: var(--green); border: 0;
-      font: 700 15px ui-monospace, monospace; line-height: 1;
+      font: 700 15px var(--font-ui); line-height: 1;
       min-width: 44px; min-height: 44px; margin: -14px -10px -14px 0;
       display: flex; align-items: center; justify-content: center;
     }
     #objective .body {
-      color: var(--dust); font: 11px/1.35 ui-monospace, monospace; margin-top: 3px;
+      color: var(--dust); font: 11px/1.35 var(--font-ui); margin-top: 3px;
     }
     /* Brief green flash when a step is completed, before the next one renders. */
     #objective.done { border-color: var(--green); box-shadow:
@@ -583,15 +560,13 @@
       position: relative;
       list-style: none; cursor: pointer; user-select: none;
       background: var(--chrome-scuff), var(--chrome-face); color: var(--gold-dark);
-      border-color: var(--ctl-rim);
-      font: 700 16px ui-monospace, monospace;
+      font: 700 16px var(--font-ui);
       align-items: center;
       /* The button is the size of the glyph, open or closed. Without this it
          is a block inside <details> and stretches to the width of the PANEL it
          opens — a 38px square that turns into a 150px bar the moment you tap
          it, which is not the same control any more. */
       width: fit-content;
-      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
       text-shadow: 0 1px 0 #000;
     }
     #menu summary::-webkit-details-marker { display: none; }
@@ -601,9 +576,9 @@
        a fresh save has actually answered the how-to card's mode question. */
     .mode-badge {
       position: absolute; right: -5px; bottom: -5px;
-      font: 700 8px ui-monospace, monospace; letter-spacing: 0.02em;
+      font: 700 8px var(--font-ui); letter-spacing: 0.02em;
       padding: 1px 3px; border-radius: 4px; line-height: 1.2;
-      background: #1a1612; border: 1px solid currentColor;
+      background: #1a1612; border: 0;
       pointer-events: none;
     }
     .mode-badge.easy { color: var(--gold); }
@@ -611,9 +586,8 @@
     /* Open = pressed in: the button sinks into the HUD and the panel it
        opened takes over the raised look. */
     #menu[open] summary {
-      border-color: var(--gold); color: var(--gold-pale);
+      color: var(--gold-pale);
       background: var(--chrome-sunk);
-      box-shadow: var(--chrome-well), var(--chrome-key);
     }
     /* OPAQUE, not #000c: 80% black over bright pixel art let map detail bleed
        through behind 12px text, and on a 360-wide phone the panel overlaps the
@@ -636,7 +610,7 @@
     #devtools summary {
       list-style: none; cursor: pointer; user-select: none;
       color: #888; padding: 4px 8px; border-radius: 4px;
-      font: 700 10px ui-monospace, monospace;
+      font: 700 10px var(--font-ui);
     }
     #devtools summary::-webkit-details-marker { display: none; }
     #devtools summary::before { content: '▸ '; }
@@ -656,7 +630,7 @@
     .menu-items button {
       background: transparent; color: var(--bone); border: 0;
       text-align: left; padding: 4px 8px; border-radius: 4px;
-      font: 12px ui-monospace, monospace; cursor: pointer;
+      font: 12px var(--font-ui); cursor: pointer;
       min-height: 26px;
     }
     .menu-items button:hover {
@@ -681,22 +655,15 @@
        out. app.js sets geometry inline and hangs these classes off it; nothing
        here sets a size, so the two can't fight. */
 
-    /* Category tab — raised, and joined to the slot bar below it (square
-       bottom corners, no bottom edge on the selected one). Inactive tabs sit
-       DARKER than the brown panel under them (#inv, painted --tab-brown in
-       buildInventoryDOM), so the selected tab — which shares the panel's
-       colour and drops its bottom edge — reads as part of the open drawer
-       and the rest read as closed ones behind it. */
+    /* Borderless category tabs; the selected fill joins the inventory panel. */
     .hud-tab {
       background: var(--chrome-scuff), linear-gradient(180deg, #3a2e15, #261e0c);
-      border: 2px solid var(--ctl-rim); color: var(--bone);
-      box-shadow: var(--chrome-lip), var(--chrome-lift), var(--chrome-key);
+      border: 0; color: var(--bone);
       text-shadow: 0 1px 0 #000;
     }
     .hud-tab.sel {
       background: linear-gradient(180deg, #6b5426, var(--tab-brown));
-      border-color: var(--gold); border-bottom-color: var(--tab-brown); color: #fff;
-      box-shadow: var(--chrome-lip), var(--chrome-gold), var(--chrome-key);
+      color: #fff;
     }
     /* Count pip riding the tab's top-right corner. */
     .hud-pip {
@@ -769,7 +736,7 @@
       max-width: 320px; background: #1a1612; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
-      font: 14px ui-monospace, monospace; line-height: 1.45;
+      font: 14px var(--font-ui); line-height: 1.45;
     }
     /* Viewport too SHORT to carry the game's column — see fitGame's
        syncTooShort(). Above every other overlay (z 103): whatever else is on
@@ -785,7 +752,7 @@
       max-width: 340px; background: #1a1612; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
-      font: 14px ui-monospace, monospace; line-height: 1.45;
+      font: 14px var(--font-ui); line-height: 1.45;
     }
     #tooshort .glyph { font-size: 34px; line-height: 1; margin-bottom: 12px; }
     #tooshort p { margin: 0 0 14px; }
@@ -793,14 +760,14 @@
     #tooshort button {
       background: transparent; color: var(--gold-dark);
       border: 1px solid #6b5a2c; border-radius: 8px;
-      padding: 10px 18px; font: 400 13px ui-monospace, monospace; cursor: pointer;
+      padding: 10px 18px; font: 400 13px var(--font-ui); cursor: pointer;
       min-height: 44px;
     }
     #locating p { margin: 0 0 18px; }
     #safety button, #locating button {
       background: var(--gold-dark); color: #1a1612; border: 0;
       padding: 12px 22px; border-radius: 8px;
-      font: 700 15px ui-monospace, monospace; cursor: pointer;
+      font: 700 15px var(--font-ui); cursor: pointer;
     }
     /* "Skip" is a secondary action — don't dress it up like the CTA. */
     #locating button {
@@ -860,7 +827,7 @@
     #bootload.done { opacity: 0; pointer-events: none; }
     #bootload .box {
       max-width: 360px; text-align: center;
-      font: 14px ui-monospace, monospace; color: #fff; line-height: 1.45;
+      font: 14px var(--font-ui); color: #fff; line-height: 1.45;
       background-color: rgba(26, 22, 18, .86);
     }
     #bootload .opening-copy { padding: 20px 20px 18px; }
@@ -874,7 +841,7 @@
        The orange heading and bold instructions keep the warning easy to scan. */
     #safety { display: flex; flex-direction: column; align-items: stretch; margin-bottom: 24px; }
     #safety .warn-title {
-      font: 900 22px ui-monospace, monospace; color: #ff8c3b;
+      font: 900 22px var(--font-ui); color: #ff8c3b;
       letter-spacing: .06em; margin-bottom: 10px;
       display: flex; align-items: center; justify-content: center; gap: 10px;
     }
@@ -884,7 +851,7 @@
        reads as the warning sign it is, first, before the words. */
     #safety .warn-sign { font-size: 40px; line-height: 1; }
     #safety .warn-line {
-      font: 400 16px/1.45 system-ui, sans-serif; color: #fff4e0;
+      font: 400 16px/1.45 var(--font-ui); color: #fff4e0;
       text-align: left; margin: 6px 0;
     }
     #safety button { margin-top: 20px; width: 100%; min-height: 48px; }
@@ -946,7 +913,7 @@
     }
     #story .box {
       text-align: center;
-      font: 15px ui-monospace, monospace; line-height: 1.5;
+      font: 15px var(--font-ui); line-height: 1.5;
     }
     #story .art {
       width: 100%; aspect-ratio: 512 / 341;
@@ -960,7 +927,7 @@
     #story button {
       background: var(--gold-dark); color: #1a1612; border: 0;
       padding: 12px 22px; border-radius: 8px;
-      font: 700 15px ui-monospace, monospace; cursor: pointer;
+      font: 700 15px var(--font-ui); cursor: pointer;
       width: 100%; min-height: 48px;
     }
     #story.nightmare { background: #000; }
@@ -1005,12 +972,12 @@
       background: #1a1612; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 20px; text-align: left;
-      font: 13px ui-monospace, monospace; line-height: 1.45;
+      font: 13px var(--font-ui); line-height: 1.45;
       max-height: 80vh; overflow-y: auto;
     }
     #howto h2 {
       margin: 0 0 14px; text-align: center;
-      font: 700 17px ui-monospace, monospace; color: var(--gold);
+      font: 700 17px var(--font-ui); color: var(--gold);
     }
     /* Auto-walk-home demo strip at the top of the card: the player sprite
        walking (FarmerCyan.png row 2, the authored RIGHT-facing row —
@@ -1032,7 +999,7 @@
     }
     #howto .demo .labels {
       margin-top: 4px; color: #8d8d8d; text-align: center;
-      font: 400 10px ui-monospace, monospace;
+      font: 400 10px var(--font-ui);
     }
     #howto .demo .sprite {
       width: 64px; height: 64px;
@@ -1098,7 +1065,7 @@
       display: block; width: 100%;
       background: var(--gold-dark); color: #1a1612; border: 0;
       padding: 12px 22px; border-radius: 8px;
-      font: 700 15px ui-monospace, monospace; cursor: pointer;
+      font: 700 15px var(--font-ui); cursor: pointer;
     }
     /* Opt-out for players who don't want the guided ladder. Deliberately
        under-dressed next to "Got it" — taking the tutorial is the default. */
@@ -1106,7 +1073,7 @@
       margin-top: 8px;
       background: transparent; color: #999;
       border: 1px solid #4a4238;
-      padding: 9px 18px; font: 400 13px ui-monospace, monospace;
+      padding: 9px 18px; font: 400 13px var(--font-ui);
     }
     #howto button.secondary[hidden] { display: none; }
     /* The mode choice. Two stacked CTAs in the gold the card's one button
@@ -1115,9 +1082,9 @@
     #howto-modes { display: flex; flex-direction: column; gap: 8px; }
     #howto-modes[hidden] { display: none; }
     #howto-modes button { text-align: left; padding: 10px 14px; }
-    #howto-modes button .mode-name { display: block; font: 700 15px ui-monospace, monospace; }
+    #howto-modes button .mode-name { display: block; font: 700 15px var(--font-ui); }
     #howto-modes button .mode-sub {
-      display: block; margin-top: 3px; font: 400 12px ui-monospace, monospace;
+      display: block; margin-top: 3px; font: 400 12px var(--font-ui);
       line-height: 1.35; color: #3b3227;
     }
     /* Hard wears ember, not gold — it is the other answer, not the second
@@ -1127,7 +1094,7 @@
     /* Which game this save plays — shown on the ☰ reopen, where the choice
        is already made and the card is a reference again. */
     #howto-mode-current {
-      margin: 0 0 10px; font: 700 13px ui-monospace, monospace; color: var(--gold);
+      margin: 0 0 10px; font: 700 13px var(--font-ui); color: var(--gold);
     }
     #howto-mode-current[hidden] { display: none; }
     #howto-mode-current span { font-weight: 400; color: #bbb; }
@@ -1194,7 +1161,7 @@
       <button id="player-name-btn" style="display:none;">Player name: —</button>
       <button id="move-home">Move Home here</button>
       <div id="saves-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
-        <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Saved games</div>
+        <div style="font:700 10px var(--font-ui);color:#888;padding:2px 8px 4px;">Saved games</div>
         <div id="saves-list"><!-- one row per slot, injected from the save registry --></div>
         <button id="new-save">+ New game</button>
       </div>
@@ -1216,7 +1183,7 @@
           <button id="debug-variant-labels" aria-pressed="false">Variant labels: off</button>
           <button id="debug-load-profile">Load profile</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
-            <div style="font:700 10px ui-monospace,monospace;color:#888;padding:2px 8px 4px;">Teleport</div>
+            <div style="font:700 10px var(--font-ui);color:#888;padding:2px 8px 4px;">Teleport</div>
             <!-- buttons injected from window.TELEPORT_PRESETS -->
           </div>
         </div>
@@ -1267,7 +1234,7 @@
        gate at the bottom of this file. -->
   <div id="locating" class="game-modal" style="display:none">
     <div class="box">
-      <p style="margin:0 0 6px;font:700 15px ui-monospace,monospace;color:var(--gold);">Finding your location…</p>
+      <p style="margin:0 0 6px;font:700 15px var(--font-ui);color:var(--gold);">Finding your location…</p>
       <p style="font-size:13px;opacity:.85;">Your farm is built around where you are right now.</p>
       <button id="locating-skip">Skip</button>
     </div>
@@ -2780,107 +2747,116 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=919b21d0"></script>
-  <script src="src/enemy_roster.js?v=feaa4c02"></script>
-  <script src="src/enemy_spawns.js?v=e47c4663"></script>
-  <script src="src/enemy_habitats.js?v=f804b22e"></script>
+  <script src="src/enemy_roster.js?v=96a07cc0"></script>
+  <script src="src/enemy_spawns.js?v=b4316486"></script>
+  <script src="src/enemy_habitats.js?v=93ef7b69"></script>
   <script src="src/difficulty.js?v=e9bcaacf"></script>
-  <script src="src/util.js?v=7b4bfe90"></script>
-  <script src="src/particles.js?v=f9014317"></script>
+  <script src="src/util.js?v=cf1b1b14"></script>
+  <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=0a1d8648"></script>
   <script src="src/streets.js?v=959b140a"></script>
-  <script src="src/street_variants.js?v=62051c35"></script>
-  <script src="src/scenic.js?v=07ffabd9"></script>
-  <script src="src/zones.js?v=4915f466"></script>
-  <script src="src/zone_variant_data.js?v=5d25dce5"></script>
-  <script src="src/zone_variants.js?v=8b68d018"></script>
-  <script src="src/shrines.js?v=2c996e3c"></script>
-  <script src="src/buffs.js?v=8ad4e463"></script>
-  <script src="src/zone_coverage.js?v=24ae8e70"></script>
-  <script src="src/quarry_layout.js?v=1035b967"></script>
-  <script src="src/zone_dressing.js?v=f64de13f"></script>
-  <script src="src/reef_layout.js?v=4f859489"></script>
-  <script src="src/sprite_layout.js?v=9fa44b7d"></script>
+  <script src="src/street_variants.js?v=e40a4ef7"></script>
+  <script src="src/scenic.js?v=ae155138"></script>
+  <script src="src/zones.js?v=fec7d655"></script>
+  <script src="src/zone_variant_data.js?v=a02005bf"></script>
+  <script src="src/zone_variants.js?v=784986ba"></script>
+  <script src="src/shrines.js?v=229eaff6"></script>
+  <script src="src/buffs.js?v=198dde65"></script>
+  <script src="src/zone_coverage.js?v=730488b9"></script>
+  <script src="src/quarry_layout.js?v=29b76e5d"></script>
+  <script src="src/zone_dressing.js?v=90611269"></script>
+  <script src="src/reef_layout.js?v=5ac55392"></script>
+  <script src="src/sprite_layout.js?v=f7eec0bc"></script>
   <script src="src/placed_floor.js?v=d2b70405"></script>
-  <script src="src/elevators.js?v=ca41f29b"></script>
-  <script src="src/home.js?v=356f03b4"></script>
-  <script src="src/coords.js?v=c69b5e06"></script>
+  <script src="src/home.js?v=aee09082"></script>
+  <script src="src/coords.js?v=9f69f77e"></script>
   <script src="src/fog.js?v=e5c1de4f"></script>
-  <script src="src/biome_profiles.js?v=43e3ee43"></script>
-  <script src="src/traps.js?v=762aa7be"></script>
-  <script src="src/lairs.js?v=c2d62282"></script>
-  <script src="src/underground.js?v=b91f50ad"></script>
+  <script src="src/biome_profiles.js?v=6e5c4eba"></script>
+  <script src="src/traps.js?v=88d1beaa"></script>
+  <script src="src/whirlwinds.js?v=64367d97"></script>
+  <script src="src/hazard_falls.js?v=c08ca9da"></script>
+  <script src="src/environment_hazards.js?v=064858db"></script>
+  <script src="src/pressure_traps.js?v=c95d186f"></script>
+  <script src="src/lairs.js?v=530845a5"></script>
+  <script src="src/dungeon_progression.js?v=3ee53fdf"></script>
+  <script src="src/elevators.js?v=e02a2b01"></script>
+  <script src="src/arena.js?v=e1e49ed1"></script>
+  <script src="src/cave_hazards.js?v=1006f6f3"></script>
+  <script src="src/cave_areas.js?v=e3de2a03"></script>
+  <script src="src/underground.js?v=aa98fb6b"></script>
   <script src="src/underground_stories.js?v=3567dd7a"></script>
-  <script src="src/worldgen.js?v=da94499e"></script>
-  <script src="src/castle_styles.js?v=e9952bb2"></script>
-  <script src="src/textures.js?v=6f8e6bc1"></script>
-  <script src="src/save.js?v=016a2c0f"></script>
-  <script src="src/items.js?v=1ba01371"></script>
-  <script src="src/inventory.js?v=3c8c492f"></script>
-  <script src="src/energy.js?v=91552941"></script>
-  <script src="src/conditions.js?v=f09c034b"></script>
+  <script src="src/worldgen.js?v=4d4b0e9f"></script>
+  <script src="src/castle_styles.js?v=ee4eb71c"></script>
+  <script src="src/textures.js?v=35339d50"></script>
+  <script src="src/save.js?v=aad839f9"></script>
+  <script src="src/items.js?v=d60ecbfe"></script>
+  <script src="src/inventory.js?v=26134d06"></script>
+  <script src="src/energy.js?v=10dc51a3"></script>
+  <script src="src/conditions.js?v=9c0550a9"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
-  <script src="src/potion_effects.js?v=6da47d5b"></script>
-  <script src="src/crops.js?v=5be0ff60"></script>
-  <script src="src/delivery.js?v=7c6f4b80"></script>
-  <script src="src/save_state.js?v=98752c6e"></script>
-  <script src="src/gear.js?v=174ee812"></script>
-  <script src="src/rewards.js?v=0a2582f3"></script>
-  <script src="src/shops_math.js?v=acb604c0"></script>
-  <script src="src/shops.js?v=751cebf8"></script>
-  <script src="src/egg_hatch.js?v=6b07e768"></script>
-  <script src="src/chest_themes.js?v=94546e3a"></script>
-  <script src="src/rarity.js?v=221e5e39"></script>
-  <script src="src/loot.js?v=1dc35e4f"></script>
-  <script src="src/macros.js?v=211e9746"></script>
-  <script src="src/quests.js?v=3ba7962e"></script>
+  <script src="src/potion_effects.js?v=2273f1d1"></script>
+  <script src="src/crops.js?v=fbc9ff13"></script>
+  <script src="src/delivery.js?v=66bf194d"></script>
+  <script src="src/save_state.js?v=c7afaf6e"></script>
+  <script src="src/gear.js?v=a5181537"></script>
+  <script src="src/rewards.js?v=28bc8c13"></script>
+  <script src="src/shops_math.js?v=70451937"></script>
+  <script src="src/shops.js?v=c27bc73f"></script>
+  <script src="src/egg_hatch.js?v=31bee6f8"></script>
+  <script src="src/chest_themes.js?v=f3a8f979"></script>
+  <script src="src/rarity.js?v=bbc8f921"></script>
+  <script src="src/loot.js?v=771677dc"></script>
+  <script src="src/macros.js?v=8beb2743"></script>
+  <script src="src/quests.js?v=3c753357"></script>
   <script src="src/hidden_objects.js?v=9fac9ae0"></script>
-  <script src="src/cave_hazards.js?v=294b7b37"></script>
-  <script src="src/whirlwinds.js?v=056d4d78"></script>
   <script src="src/temple_puzzles.js?v=951c41b2"></script>
   <script src="src/temple_layout.js?v=61401107"></script>
-  <script src="src/temple_scene.js?v=c51cd7eb"></script>
+  <script src="src/temple_scene.js?v=353696ab"></script>
   <script src="src/temples.js?v=605d2037"></script>
-  <script src="src/interactables.js?v=7175a18e"></script>
-  <script src="src/houses.js?v=0d1db0f3"></script>
+  <script src="src/interactables.js?v=b6dddd10"></script>
+  <script src="src/houses.js?v=f35a77a2"></script>
   <script src="src/obstacle_step.js?v=783f40dc"></script>
   <script src="src/spawn_ownership.js?v=d56c6afa"></script>
-  <script src="src/starter.js?v=d0f97b30"></script>
+  <script src="src/starter.js?v=bb08dd01"></script>
   <script src="src/ground_fire.js?v=5db34ead"></script>
-  <script src="src/combat.js?v=976ee50c"></script>
-  <script src="src/pirates.js?v=4c362f10"></script>
-  <script src="src/companions.js?v=fb3183da"></script>
-  <script src="src/creature_ai.js?v=77d13834"></script>
+  <script src="src/combat.js?v=47eb1470"></script>
+  <script src="src/pirates.js?v=07b1386a"></script>
+  <script src="src/pets.js?v=02b62ae4"></script>
+  <script src="src/companions.js?v=eced2bd5"></script>
+  <script src="src/creature_ai.js?v=f1289b52"></script>
   <script src="src/wizard.js?v=0353401c"></script>
-  <script src="src/dragon_story.js?v=c392538b"></script>
-  <script src="src/memory_story.js?v=a855ea0e"></script>
+  <script src="src/dragon_story.js?v=0ebfab03"></script>
+  <script src="src/memory_story.js?v=64a37032"></script>
   <script src="src/pet_story_art.js?v=4bf942ec"></script>
   <script src="src/pet_stories.js?v=4c078df6"></script>
-  <script src="src/story_encounters.js?v=86a4c845"></script>
-  <script src="src/interact.js?v=40ea39c9"></script>
+  <script src="src/story_encounters.js?v=1b05c924"></script>
+  <script src="src/interact.js?v=2e5dab30"></script>
   <script src="src/play_tips.js?v=81e0ab73"></script>
-  <script src="src/lighting.js?v=840e5bb1"></script>
-  <script src="src/render.js?v=3592be99"></script>
-  <script src="src/multiplayer.js?v=87e65863"></script>
-  <script src="src/road_overlay.js?v=484ce2f8"></script>
+  <script src="src/lighting.js?v=5af1744e"></script>
+  <script src="src/render.js?v=71985673"></script>
+  <script src="src/multiplayer.js?v=ace912c7"></script>
+  <script src="src/road_overlay.js?v=05a0426b"></script>
   <script src="src/temple_art.js?v=e92e8263"></script>
-  <script src="src/building_overlay.js?v=b41a4e4c"></script>
-  <script src="src/assets.js?v=4bf81cdb"></script>
-  <script src="src/sandbox_destinations.js?v=92d1e32d"></script>
-  <script src="src/sandbox.js?v=7cba5508"></script>
-  <script src="src/testtools.js?v=fa3dbdaf"></script>
+  <script src="src/building_overlay.js?v=c0ca3340"></script>
+  <script src="src/assets.js?v=b05ad742"></script>
+  <script src="src/sandbox_destinations.js?v=1c3bf1c7"></script>
+  <script src="src/sandbox.js?v=4faa8ba0"></script>
+  <script src="src/testtools.js?v=39e80bd1"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=42dbce37"></script>
-  <script src="src/modal_shell.js?v=82bc8ab5"></script>
-  <script src="src/scene_geo.js?v=3f900026"></script>
-  <script src="src/npc.js?v=aea3453d"></script>
-  <script src="src/scene_creatures.js?v=d44fe84f"></script>
-  <script src="src/scene_fire.js?v=0884f81d"></script>
-  <script src="src/scene_shops.js?v=7b69dffa"></script>
-  <script src="src/scene_create.js?v=c115b14d"></script>
-  <script src="src/scene_consumables.js?v=9de40f88"></script>
-  <script src="src/scene_elevators.js?v=dbee26aa"></script>
-  <script src="src/scene_venues.js?v=f0550ab7"></script>
-  <script src="src/scene_streets.js?v=8f11c09c"></script>
+  <script src="src/art_thumbs.js?v=1b4241c5"></script>
+  <script src="src/modal_shell.js?v=c4ac4e76"></script>
+  <script src="src/scene_geo.js?v=4b9fdf83"></script>
+  <script src="src/npc.js?v=341b91fc"></script>
+  <script src="src/scene_creatures.js?v=3d314b63"></script>
+  <script src="src/scene_fire.js?v=f0792d1a"></script>
+  <script src="src/scene_shops.js?v=416d38fd"></script>
+  <script src="src/scene_create.js?v=48c0c59a"></script>
+  <script src="src/scene_elevators.js?v=db4a70c9"></script>
+  <script src="src/scene_arena.js?v=a36139a0"></script>
+  <script src="src/scene_consumables.js?v=5c39def1"></script>
+  <script src="src/scene_pets.js?v=817c1e2f"></script>
+  <script src="src/scene_venues.js?v=25f4a500"></script>
+  <script src="src/scene_streets.js?v=822fff96"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2941,7 +2917,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=2a42c06e';
+      const APP_SRC = 'src/app.js?v=64626a04';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

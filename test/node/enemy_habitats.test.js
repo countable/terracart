@@ -96,18 +96,22 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     grid: new Array(N * N).fill(WorldGen.T.PARK), objects: [],
     zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
   const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+  test('surface encounters: Work Yard has no ranged roaming enemies', () => {
+    const creatures = EnemyHabitats.surfaceEncounters(entry('work_yard'), 0, 0, new Set());
+    assert.gt(creatures.length, 0, 'the calm melee habitat remains populated');
+    for (const creature of creatures) assert.eq(EnemyRoster.get(creature.kind).attackType, 'melee');
+  });
   test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
-    // Include graveyard emergence flags, habitat metadata and seeded seats.
-    // Ordered Graves includes its approved large reaper; reservation order
-    // stays identical even though the expanded family changes species draws.
-    const expected = { orchard: 193103011, ordered_graves: 3933454638, mystic_reef: 3886995405 };
+    // Main's zone naming and seat metadata remain intact. Ordered Graves
+    // additionally includes the approved reaper in its species family.
+    const expected = { orchard: 1679667825, ordered_graves: 4215728589, mystic_reef: 837559558 };
     for (const [theme, hash] of Object.entries(expected)) {
       const occupied = new Set();
       const it = EnemyHabitats.surfaceEncountersSteps(entry(theme), 0, 0, occupied);
       let r = it.next(), yields = 0;
       while (!r.done) { yields++; r = it.next(); }
       assert.eq(yields, Math.ceil(N / EnemyHabitats.SURFACE_ENCOUNTERS.blockCells) ** 2);
-      assert.eq(fnv1a(JSON.stringify(r.value.map(({ hidden, stealthy, ...c }) => c))), hash, theme + ' keeps its generated records');
+      assert.eq(fnv1a(JSON.stringify(r.value)), hash, theme + ' keeps every generated field');
       assert.eq(fnv1a(JSON.stringify([...occupied])), 1042003491, theme + ' keeps reservation order');
       assert.eq(JSON.stringify(r.value), JSON.stringify(EnemyHabitats.surfaceEncounters(entry(theme), 0, 0, new Set())));
     }
@@ -193,8 +197,7 @@ test('new monsters: jellyfish stay on beaches and graveyard zombies start buried
     const creatures = EnemyHabitats.surfaceEncounters(entry, 0, 0, new Set());
     const zombies = creatures.filter(c => c.kind === 'zombie');
     assert.gt(zombies.length, 0, variant + ' has zombies');
-    for (const c of zombies) { assert.truthy(c.emergeFromGround); assert.truthy(c._burrowed); assert.truthy(c.hidden); }
-    for (const c of creatures.filter(c => ['skeleton', 'skeleton_soldier'].includes(c.kind))) assert.truthy(c.hidden);
+    for (const c of zombies) { assert.truthy(c.emergeFromGround); assert.truthy(c._burrowed); }
     for (const c of creatures.filter(c => c.kind !== 'zombie')) assert.falsy(c.emergeFromGround);
   }
 });

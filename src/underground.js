@@ -12,7 +12,8 @@
   }
   const roll = key => hash(key) / 4294967296;
   function gem(depth, key) {
-    const rows = typeof GEM_DEPOSITS === 'undefined' ? [] : Object.values(GEM_DEPOSITS);
+    const rows = typeof GEM_DEPOSITS === 'undefined' ? []
+      : [...new Map(Object.values(GEM_DEPOSITS).map(g => [g.item, g])).values()];
     const eligible = rows.filter(g => g.yieldTier <= depth);
     if (!eligible.length) return null;
     // Ordinary low gems favor quartz 3:1; themed pockets use the same finite pool.

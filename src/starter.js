@@ -113,6 +113,7 @@
     // before there was an anchor to measure it from — run the pass over
     // everything already in the cache.
     scene._carveStarterPondAround();
+    EnemySpawns.refreshHomeFauna(scene);
   }
 
   // Starter crate trail + tutorial-pocket clearing around the frozen anchor
@@ -148,29 +149,18 @@
   // from _setStarterCratesAt when the anchor resolves after the tile already
   // spawned.
   function placeStarterTrail(scene, entry, tx, ty) {
-    const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
     const anchor = scene.save.starterCratesAt || scene._starterTrailAnchor();
     if (!anchor || entry._starterTrail) return;
     entry._starterTrail = true;             // once per build (rebuilds re-run)
     entry.objects = entry.objects || [];
-    const N = entry.cellsPerEdge;
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
-    const ROAD_TYPES = new Set([7 /* ROAD */, 13 /* ROAD_LG */, 14 /* ROAD_MD */, 8 /* PATH */]);
-    const BLOCKED_FOR_X = new Set([3 /* WATER */, 9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
-    // THE SPAWN GATE (WorldGen.isSpawnCell), a 'minor' spawn — a crate is
-    // scenery, same as the relic chest below (_placeStarterRelicChest's
-    // spawnOpts). Not a bare entry.roadMask read: "which cells are the road"
-    // has to mean the ground the player SEES as road (the drawn band, not
-    // just the one cell per way the rasterizer paints), and the gate catches
-    // the same reasons the relic chest already avoids (a churchyard corner, a
-    // yard behind a house) that a roadMask-only test let through here.
-    // Undefined roadMask/spawnWhy on a tile built before the mask existed (or
-    // underground) falls back to isSpawnCell's own no-mask reading.
-    const spawnOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
-    const onRoadBand = (cx, cy) =>
-      !WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'minor');
-    const spawnIX = Math.floor((anchor.x - tx0) / cellM);
-    const spawnIY = Math.floor((anchor.y - ty0) / cellM);
+    // THIS tile's cells (its row's grid): the tile frame.
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);
+    const { N } = f;
+    // The ground: a WAY (a road of any tier or a path — the trail follows
+    // it, nothing stands on it) and SOLID ground (water, a building).
+    const isWay = (t) => WorldGen.isCobbleTerrain(t);
+    const isSolid = (t) => t === WorldGen.T.WATER || WorldGen.isBuildingTerrain(t);
+    const { ix: spawnIX, iy: spawnIY } = f.cellOf(anchor.x, anchor.y);
     // Forensics for the ☰ Dump-tile readout (dumpTileDebug): which mode this
     // pass took and why, one compact line recorded as it runs. The trail has
     // three fallbacks, so "the crates aren't where the objective said" is
@@ -198,9 +188,8 @@
       isTreeLike(o.kind) &&
       (o.individual || o.crown_color || o.size);
     const _nearSpawn = (wx, wy) => {
-      const oIx = Math.floor((wx - tx0) / cellM);
-      const oIy = Math.floor((wy - ty0) / cellM);
-      return Math.max(Math.abs(oIx - spawnIX), Math.abs(oIy - spawnIY)) <= CLEAR_R;
+      const c = f.cellOf(wx, wy);
+      return Math.max(Math.abs(c.ix - spawnIX), Math.abs(c.iy - spawnIY)) <= CLEAR_R;
     };
     entry.objects = entry.objects.filter(o =>
       _isRealTree(o) || !STRIP_KINDS.has(o.kind) || !_nearSpawn(o.x, o.y));
@@ -210,12 +199,21 @@
       entry.wildplants = entry.wildplants.filter(w => !_nearSpawn(w.x, w.y));
     }
     // Cells with something standing on them — a crate seated on top of a tree
-    // reads as a bug whichever one the renderer draws second.
-    const occupied = new Set();
-    const cellKeyAt = (wx, wy) =>
-      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM);
-    for (const o of entry.objects) occupied.add(cellKeyAt(o.x, o.y));
-    for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
+    // reads as a bug whichever one the renderer draws second. Handed to THE
+    // SPAWN GATE (WorldGen.isSpawnCell, a 'minor' spawn — a crate is scenery,
+    // same as the relic chest below) through the entry's full spawn options
+    // (WorldGen.spawnOptsOf: the tile's masks, kerb class, quiet land and POI
+    // frontage — the same gate everything else on the tile is judged by),
+    // with this pass's own LIVE occupancy in place of the generated one (the
+    // pocket was just cleared). Not a bare entry.roadMask read: "which cells
+    // are the road" has to mean the ground the player SEES as road (the drawn
+    // band), and the gate catches the reasons the relic chest already avoids
+    // (a churchyard corner, a yard behind a house). Undefined masks on a tile
+    // built before they existed fall back to isSpawnCell's no-mask reading.
+    const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
+    const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
+    const onRoadBand = (cx, cy) =>
+      !WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'minor');
     // BFS from the anchor cell for the nearest road cell within 15 cells.
     let roadCell = null;
     const visited = new Set();
@@ -227,7 +225,7 @@
       const dist = Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY));
       if (dist > 15) continue;
       const t = entry.grid[cy * N + cx];
-      if (ROAD_TYPES.has(t)) { roadCell = { cx, cy }; break; }
+      if (isWay(t)) { roadCell = { cx, cy }; break; }
       for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
         const k = (cx + ddx) + ',' + (cy + ddy);
         if (!visited.has(k)) { visited.add(k); queue.push([cx + ddx, cy + ddy]); }
@@ -261,9 +259,8 @@
       // chest ~0.8 m off the centre cellAt() resolves it to. Round-tripping
       // through worldMetersToAbsCell → absCellCenterMeters (the same basis
       // POI chests and every cell tap use) keeps the chest exactly on-grid.
-      const rawX = tx * scene.tileEdgeM + (cx + 0.5) * cellM;
-      const rawY = ty * scene.tileEdgeM + (cy + 0.5) * cellM;
-      const { cellIX, cellIY } = worldMetersToAbsCell(scene, rawX, rawY);
+      const raw = f.centre(cx, cy);
+      const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
       const { x: wmx, y: wmy } = absCellCenterMeters(scene, cellIX, cellIY);
       // A real chest with hardcoded contents — opens via the standard chest
       // handler (interact.js), which reads o.fixedLoot and shows the same
@@ -300,11 +297,11 @@
     // moat and occupied cells are all out, and dropping one over them would
     // break the chain the player is following.
     const seatOK = (cx, cy) => {
-      if (cx < 0 || cx >= N || cy < 0 || cy >= N) return false;
+      if (!f.inTile(cx, cy)) return false;
       const t = entry.grid[cy * N + cx];
-      if (ROAD_TYPES.has(t) || BLOCKED_FOR_X.has(t)) return false;
-      if (onRoadBand(cx, cy)) return false;
-      if (usedSeats.has(cx + ',' + cy) || occupied.has(cx + ',' + cy)) return false;
+      if (isWay(t) || isSolid(t)) return false;
+      if (onRoadBand(cx, cy)) return false;             // (the gate reads `occupied` too)
+      if (usedSeats.has(cx + ',' + cy)) return false;
       return !inTrailerMoat(cx, cy);
     };
     // A road or path within NEAR_ROAD_CELLS of the anchor takes the trail
@@ -343,7 +340,7 @@
           if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
           const k = nx + ',' + ny;
           if (from.has(k)) continue;
-          if (!ROAD_TYPES.has(entry.grid[ny * N + nx])) continue;
+          if (!isWay(entry.grid[ny * N + nx])) continue;
           from.set(k, [cx, cy]);
           rq.push([nx, ny]);
         }
@@ -427,7 +424,7 @@
       while (rQueue.length > 0 && roadCells.length < 120) {
         const [cx, cy] = rQueue.shift();
         if (cx < 0 || cx >= N || cy < 0 || cy >= N) continue;
-        if (!ROAD_TYPES.has(entry.grid[cy * N + cx])) continue;
+        if (!isWay(entry.grid[cy * N + cx])) continue;
         roadCells.push([cx, cy]);
         for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
           const k = (cx + ddx) + ',' + (cy + ddy);
@@ -443,12 +440,12 @@
           const nx = rcx + adx, ny = rcy + ady;
           if (nx < 0 || nx >= N || ny < 0 || ny >= N) continue;
           const tt = entry.grid[ny * N + nx];
-          if (ROAD_TYPES.has(tt) || BLOCKED_FOR_X.has(tt)) continue;
+          if (isWay(tt) || isSolid(tt)) continue;
+          // The gate reads `occupied` too: the pocket keeps the player's real
+          // street trees (see the CLEAR_R exception), and a crate seated on
+          // one reads as a bug whichever the renderer draws second.
           if (onRoadBand(nx, ny)) continue;
-          // occupied too: the pocket keeps the player's real street trees
-          // (see the CLEAR_R exception), and a crate seated on one reads as
-          // a bug whichever the renderer draws second.
-          if (usedSeats.has(nx + ',' + ny) || occupied.has(nx + ',' + ny)) continue;
+          if (usedSeats.has(nx + ',' + ny)) continue;
           if (inTrailerMoat(nx, ny)) continue;
           // Enforce a minimum gap from the previous crate so the trail
           // spreads out instead of clustering on adjacent road cells.
@@ -475,18 +472,14 @@
         while (ringPos < RING.length && !seated) {
           const [bdx, bdy] = RING[ringPos++];
           let ncx = spawnIX + bdx, ncy = spawnIY + bdy;
+          const ringOK = (x, y) => !isSolid(entry.grid[y * N + x]) && !isWay(entry.grid[y * N + x])
+            && !onRoadBand(x, y) && !usedSeats.has(x + ',' + y);
           for (let step = 0; step < 5; step++) {
-            if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) break;
-            const t = entry.grid[ncy * N + ncx];
-            if (!BLOCKED_FOR_X.has(t) && !ROAD_TYPES.has(t) && !onRoadBand(ncx, ncy)
-                && !usedSeats.has(ncx + ',' + ncy) && !occupied.has(ncx + ',' + ncy)) break;
+            if (!f.inTile(ncx, ncy) || ringOK(ncx, ncy)) break;
             ncx += Math.sign(bdx) || 0;
             ncy += Math.sign(bdy) || 0;
           }
-          if (ncx < 0 || ncx >= N || ncy < 0 || ncy >= N) continue;
-          const tt = entry.grid[ncy * N + ncx];
-          if (BLOCKED_FOR_X.has(tt) || ROAD_TYPES.has(tt) || onRoadBand(ncx, ncy)
-              || usedSeats.has(ncx + ',' + ncy) || occupied.has(ncx + ',' + ncy)) continue;
+          if (!f.inTile(ncx, ncy) || !ringOK(ncx, ncy)) continue;
           seatCrate(ncx, ncy, i);
           seated = true;
         }
@@ -517,15 +510,15 @@
   // all that remembers one was taken. Only cells in THIS tile are used; a
   // stash crate whose seat falls off the tile edge tries another angle.
   function scatterStarterStash(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats) {
-    const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
-    const N = entry.cellsPerEdge;
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
-    const BLOCKED = new Set([3 /* WATER */, 7, 8, 9, 11, 12, 13, 14]);
-    const occupied = new Set(usedSeats);
-    const mark = (wx, wy) => occupied.add(
-      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM));
-    for (const o of (entry.objects || [])) mark(o.x, o.y);
-    for (const w of (entry.wildplants || [])) mark(w.x, w.y);
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
+    const { N } = f;
+    // Water, a building or a way: nothing stands here.
+    const isBlocked = (t) => t === WorldGen.T.WATER || WorldGen.isBuildingTerrain(t) || WorldGen.isCobbleTerrain(t);
+    // THE SPAWN GATE, a 'minor' spawn (the stash crate is scenery, same as
+    // the trail's), through the entry's full options with this pass's own
+    // live occupancy (the crates seated so far claim into it).
+    const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
+    const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
     const rng = WorldGen.makeRng(fnv1a(`starter_stash:${tx}:${ty}:${spawnIX}:${spawnIY}`));
     const [R0, R1] = STARTER_STASH_R_CELLS;
     const n = STARTER_STASH.length;
@@ -537,21 +530,17 @@
         const r = R0 + rng() * (R1 - R0);
         const cx = spawnIX + Math.round(Math.cos(ang) * r);
         const cy = spawnIY + Math.round(Math.sin(ang) * r);
-        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-        if (BLOCKED.has(entry.grid[cy * N + cx])) continue;
-        // THE SPAWN GATE, a 'minor' spawn (the stash crate is scenery, same
-        // as the trail's) — off the road band AND out of a quiet corner or a
-        // yard behind a house, not a bare roadMask read.
-        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy,
-          { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy }, 'minor')) continue;
-        if (occupied.has(cx + ',' + cy)) continue;
-        const { cellIX, cellIY } = worldMetersToAbsCell(scene,
-          tx0 + (cx + 0.5) * cellM, ty0 + (cy + 0.5) * cellM);
+        if (!f.inTile(cx, cy)) continue;
+        if (isBlocked(entry.grid[cy * N + cx])) continue;
+        if (usedSeats.has(cx + ',' + cy)) continue;
+        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'minor')) continue;
+        const raw = f.centre(cx, cy);
+        const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
         const { x, y } = absCellCenterMeters(scene, cellIX, cellIY);
         entry.objects.push(WorldGen.makeObject('chest', x, y,
           `stash_start_${tx}_${ty}_${i + 1}`,
           { fixedLoot: STARTER_STASH[i], crate: true }));
-        occupied.add(cx + ',' + cy);
+        occupied.add(cy * N + cx);
         break;
       }
     }
@@ -573,8 +562,8 @@
   // including the way the trail does not go. Following the crates is what
   // opens the map up; this only makes the crates themselves findable.
   function revealStarterTrail(scene, entry, tx, ty, spawnIX, spawnIY) {
-    const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
     if (typeof Fog === 'undefined' || scene.depth !== 0) return;
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
     // Tile-local cell → the ABSOLUTE cell Fog takes (coords.js encoding —
     // never tx * N + cx by hand: the rows' grids differ).
     const abs = (cx, cy) => {
@@ -592,9 +581,8 @@
     // can't disagree about what the trail consists of.
     for (const o of (entry.objects || [])) {
       if (!o.id || !String(o.id).startsWith('chest_start_')) continue;
-      const cx = Math.floor((o.x - tx * scene.tileEdgeM) / cellM);
-      const cy = Math.floor((o.y - ty * scene.tileEdgeM) / cellM);
-      const a = abs(cx, cy);
+      const c = f.cellOf(o.x, o.y);
+      const a = abs(c.ix, c.iy);
       if (Fog.revealDisc(a.ix, a.iy, TRAIL_REVEAL_CELLS)) changed = true;
     }
     if (!changed) return;
@@ -638,10 +626,10 @@
     return WorldGen.isWalkable(type) || WorldGen.isRoadTerrain(type);
   }
   function placeStarterRelicChest(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {
-    const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
     if (!grid || typeof WorldGen === 'undefined') return null;
-    const N = entry.cellsPerEdge;
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
+    const { N } = f;
     entry.objects = entry.objects || [];
     const id = `chest_start_relic_${tx}_${ty}`;
     if (entry.objects.some(o => o.id === id)) return null;   // already seated
@@ -650,21 +638,20 @@
     // "another neighbourhood" instead of "just off the opening screen".
     const RELIC_MIN_R = VIEW_CELLS;
     const RELIC_MAX_R = HomeArea.RING_MAX_CELLS;
-    // Cells already spoken for — a crate seat, or anything standing on the
-    // tile. Nothing but the chest may share the cell it seats on.
+    // Cells already spoken for — a crate seat (`taken`), or anything standing
+    // on the tile (`occupied`, handed to the gate). Nothing but the chest may
+    // share the cell it seats on.
     const taken = new Set(usedSeats || []);
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
-    const markTaken = (wx, wy) => taken.add(
-      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM));
-    for (const o of entry.objects) markTaken(o.x, o.y);
-    for (const w of (entry.wildplants || [])) markTaken(w.x, w.y);
+    const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
     // The shared spawn rule — walkable, off anyone's road BAND (not merely off
     // the one cell per way the grid paints), out of the back gardens. A chest
-    // in the street is the bug this mask exists to stop.
+    // in the street is the bug this mask exists to stop. The entry's full
+    // options (WorldGen.spawnOptsOf: masks, kerb class, quiet land, the POI
+    // frontage lift), with this pass's live occupancy.
     // (THE STARTING AREA is the player's own — the placed bucket — so its
     // things are MINOR spawns: out of the land the spawn gate refuses, but
     // free of the buffers round the player's own street.)
-    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy };
+    const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
     const cellKey = (cx, cy) => cx + ',' + cy;
     // ── The walk there ──────────────────────────────────────────────────
     // Flood out from the anchor over ground a ROUTE may be drawn across. This
@@ -726,13 +713,7 @@
     // a fixed scan order, so the pick is reproducible.
     for (let r = RELIC_MIN_R; r <= RELIC_MAX_R && !seat; r++) {
       const ring = [];
-      for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
-          const cx = spawnIX + dx, cy = spawnIY + dy;
-          if (free(cx, cy)) ring.push({ cx, cy });
-        }
-      }
+      WorldGen.ringCells(spawnIX, spawnIY, r, r, (cx, cy) => { if (free(cx, cy)) ring.push({ cx, cy }); return null; });
       if (ring.length) seat = ring[Math.floor(rng() * ring.length)];
     }
     // Nothing seated: every ring cell in reach is water, road, floor or taken —
@@ -744,9 +725,8 @@
     if (!seat) return null;
     // Snap to the canonical global cell centre, the basis seatCrate and every
     // cell tap share (the tile-relative basis drifts off it — see seatCrate).
-    const rawX = tx0 + (seat.cx + 0.5) * cellM;
-    const rawY = ty0 + (seat.cy + 0.5) * cellM;
-    const { cellIX, cellIY } = worldMetersToAbsCell(scene, rawX, rawY);
+    const raw = f.centre(seat.cx, seat.cy);
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
     const { x: wmx, y: wmy } = absCellCenterMeters(scene, cellIX, cellIY);
     const chest = {
       kind: 'chest', x: wmx, y: wmy, id,
@@ -789,7 +769,6 @@
   // the tile, so the plot can never drift out from under a player who has
   // already tilled it.
   function carveStarterPlot(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats) {
-    const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
     if (!grid) return;
     // Only for a player the ladder is still guiding. A veteran save has no use
@@ -799,12 +778,11 @@
     // back into whatever was under it.
     if (!scene.save.starterPlotAt &&
         (typeof Quests === 'undefined' || Quests.starterHidden(scene.save))) return;
-    const N = entry.cellsPerEdge;
-    const GRASS = 0;
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
+    const { N } = f;
     const paint = (cx, cy) => {
       for (let dy = 0; dy < 2; dy++) {
-        for (let dx = 0; dx < 2; dx++) grid[(cy + dy) * N + (cx + dx)] = GRASS;
+        for (let dx = 0; dx < 2; dx++) grid[(cy + dy) * N + (cx + dx)] = WorldGen.T.GRASS;
       }
     };
     const inTile = (cx, cy) => cx >= 0 && cy >= 0 && cx + 1 < N && cy + 1 < N;
@@ -814,28 +792,23 @@
     // neighbour and is that tile's job to paint.
     const frozen = scene.save.starterPlotAt;
     if (frozen && Number.isFinite(frozen.x)) {
-      const fcx = Math.floor((frozen.x - tx0) / cellM);
-      const fcy = Math.floor((frozen.y - ty0) / cellM);
-      if (inTile(fcx, fcy)) paint(fcx, fcy);
+      const c = f.cellOf(frozen.x, frozen.y);
+      if (inTile(c.ix, c.iy)) paint(c.ix, c.iy);
       return;
     }
 
     // Cells a plot must never overwrite: the street, anyone's floor, open
-    // water and the decking over it. Everything else the world puts under
-    // your feet — yards, lots, scrub, sand, bare rock — is fair game to turn
-    // into a patch of soil.
-    const UNPAINTABLE = new Set([3 /* WATER */, 7 /* ROAD */, 8 /* PATH */,
-      9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */,
-      13 /* ROAD_LG */, 14 /* ROAD_MD */, 23 /* PIER */,
-      24 /* CAVE_FLOOR */, 25 /* CAVE_WALL */]);
+    // water and the decking over it, and the cave layers. Everything else
+    // the world puts under your feet — yards, lots, scrub, sand, bare rock —
+    // is fair game to turn into a patch of soil.
+    const unpaintable = (t) => t === WorldGen.T.WATER || WorldGen.isBuildingTerrain(t) || WorldGen.isCobbleTerrain(t)
+      || t === WorldGen.T.PIER || t === WorldGen.T.CAVE_FLOOR || t === WorldGen.T.CAVE_WALL;
     // Anything still standing in a cell blocks the till handler, so the plot
     // has to avoid the objects and wild plants the clearing pass kept (real
-    // street trees, houses, the crates themselves).
-    const occupied = new Set();
-    const mark = (wx, wy) => occupied.add(
-      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM));
-    for (const o of (entry.objects || [])) mark(o.x, o.y);
-    for (const w of (entry.wildplants || [])) mark(w.x, w.y);
+    // street trees, houses, the crates themselves) — the live occupancy,
+    // handed to the gate with the entry's full options.
+    const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
+    const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
 
     const usable = (cx, cy) => {
       // The Home trailer covers the anchor cell and spills into all eight
@@ -843,15 +816,14 @@
       // under the building art.
       if (Math.max(Math.abs(cx - spawnIX), Math.abs(cy - spawnIY)) <= 1) return false;
       if (usedSeats.has(cx + ',' + cy)) return false;
-      if (occupied.has(cx + ',' + cy)) return false;
-      // UNPAINTABLE is the road TERRAIN; THE SPAWN GATE (a 'minor' spawn —
+      // `unpaintable` is the road TERRAIN; THE SPAWN GATE (a 'minor' spawn —
       // the plot is placed scenery like the trail crates) catches the rest
       // of the band the player sees drawn over it (entry.roadMask) plus a
-      // quiet corner or a yard behind a house. Soil tilled under the asphalt
-      // reads as a plot in the middle of the street either way.
-      if (!WorldGen.isSpawnCell(grid, N, N, cx, cy,
-        { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy }, 'minor')) return false;
-      return !UNPAINTABLE.has(grid[cy * N + cx]);
+      // quiet corner or a yard behind a house, and the live occupancy. Soil
+      // tilled under the asphalt reads as a plot in the middle of the street
+      // either way.
+      if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, spawnOpts, 'minor')) return false;
+      return !unpaintable(grid[cy * N + cx]);
     };
     const blockUsable = (cx, cy) => inTile(cx, cy) &&
       usable(cx, cy) && usable(cx + 1, cy) && usable(cx, cy + 1) && usable(cx + 1, cy + 1);
@@ -860,27 +832,17 @@
     // the trailer as the surroundings allow. The scan order is fixed (not
     // seeded), so a rebuild of the same tile would reach the same answer even
     // if the freeze above were somehow missing.
-    let found = null;
-    for (let r = 2; r <= 8 && !found; r++) {
-      for (let dy = -r; dy <= r && !found; dy++) {
-        for (let dx = -r; dx <= r && !found; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
-          const cx = spawnIX + dx, cy = spawnIY + dy;
-          if (blockUsable(cx, cy)) found = { cx, cy };
-        }
-      }
-    }
+    const found = WorldGen.nearestRingCell(spawnIX, spawnIY, 2, 8, blockUsable);
     // Nothing within 8 cells can host one (mid-river, deep inside a block of
     // buildings). Leave the grid alone and freeze nothing — the arrow falls
     // back to the crates, which is where it pointed before this existed.
     if (!found) return;
-    paint(found.cx, found.cy);
+    paint(found.ix, found.iy);
     // Snap the frozen point to the canonical global cell centre, the same
     // basis seatCrate uses, so the arrow and the tap grid agree on where the
     // plot is.
-    const rawX = tx0 + (found.cx + 0.5) * cellM;
-    const rawY = ty0 + (found.cy + 0.5) * cellM;
-    const { cellIX, cellIY } = worldMetersToAbsCell(scene, rawX, rawY);
+    const raw = f.centre(found.ix, found.iy);
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
     const { x: wmx, y: wmy } = absCellCenterMeters(scene, cellIX, cellIY);
     scene.save.starterPlotAt = { x: wmx, y: wmy };
     if (typeof persistSave === 'function') persistSave(scene.save);
@@ -915,13 +877,14 @@
   // fixed (no RNG), so a rebuild reaching this path again reaches the same
   // answer even if the freeze were somehow missing.
   function carveStarterPond(scene, entry, tx, ty) {
-    const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
     if (!grid || (scene.depth || 0) !== 0 || scene._sandboxMode) return;
-    const N = entry.cellsPerEdge;
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
-    const localCell = (wx, wy) => ({
-      cx: Math.floor((wx - tx0) / cellM), cy: Math.floor((wy - ty0) / cellM) });
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
+    const { N, cellM, ox: tx0, oy: ty0 } = f;
+    // (This pass works in cells RELATIVE to this tile that may lie outside
+    // it — the band crosses seams — so its sets are keyed 'cx,cy', not by
+    // the tile's flat index.)
+    const localCell = (wx, wy) => { const c = f.cellOf(wx, wy); return { cx: c.ix, cy: c.iy }; };
     const inTile = (cx, cy) => cx >= 0 && cy >= 0 && cx + 1 < N && cy + 1 < N;
 
     // Already frozen — repaint in place when this tile owns it. A pond on a
@@ -963,8 +926,7 @@
     // (an unloaded neighbour) reads as refused, like every other cellAt read.
     const spawnOkAt = (cx, cy, cls) => cellAt(cx, cy, (e, i) => {
       const eN = e.cellsPerEdge;
-      return WorldGen.isSpawnCell(e.grid, eN, eN, i % eN, Math.floor(i / eN),
-        { roadMask: e.roadMask, spawnWhy: e.spawnWhy }, cls);
+      return WorldGen.isSpawnCell(e.grid, eN, eN, i % eN, Math.floor(i / eN), WorldGen.spawnOptsOf(e), cls);
     }, false);
     // A synthesized POI plaza (the hospital cross) —
     // a pond punched into one reads as a bug.
@@ -1035,8 +997,7 @@
     // water and buildings no (the relic chest's rule) — so the pond is never
     // seated across a river or inside a walled block. A cell the flood never
     // reached is no place for it.
-    const UNCROSSABLE = new Set([3 /* WATER */, 9 /* BUILDING */,
-      11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
+    const uncrossable = (t) => t === WorldGen.T.WATER || WorldGen.isBuildingTerrain(t);
     const FLOOD_R = POND_MAX_CELLS + 2;
     const reached = new Set([key(a.cx, a.cy)]);
     const flood = [[a.cx, a.cy]];
@@ -1048,7 +1009,7 @@
         const k = key(nx, ny);
         if (reached.has(k)) continue;
         const t = gridAt(nx, ny);
-        if (t == null || UNCROSSABLE.has(t)) continue;
+        if (t == null || uncrossable(t)) continue;
         reached.add(k);
         flood.push([nx, ny]);
       }
@@ -1056,12 +1017,10 @@
 
     // Cells the pond may fill: soft ground the player can walk to — never
     // the street (terrain OR the drawn band), anyone's floor, existing water,
-    // the decking over it, a POI plaza, or a cell something stands on. The
-    // set of terrain it refuses is the starter plot's UNPAINTABLE.
-    const UNPAINTABLE = new Set([3 /* WATER */, 7 /* ROAD */, 8 /* PATH */,
-      9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */,
-      13 /* ROAD_LG */, 14 /* ROAD_MD */, 23 /* PIER */,
-      24 /* CAVE_FLOOR */, 25 /* CAVE_WALL */]);
+    // the decking over it, the cave layers, a POI plaza, or a cell something
+    // stands on. The terrain it refuses is the starter plot's `unpaintable`.
+    const unpaintable = (t) => uncrossable(t) || WorldGen.isCobbleTerrain(t)
+      || t === WorldGen.T.PIER || t === WorldGen.T.CAVE_FLOOR || t === WorldGen.T.CAVE_WALL;
     const fillable = (cx, cy) => {
       if (!reached.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
       // THE SPAWN GATE, a 'minor' spawn (the pond is placed scenery, like the
@@ -1069,16 +1028,15 @@
       // house, not a bare roadMask read.
       if (!spawnOkAt(cx, cy, 'minor') || padAt(cx, cy)) return false;
       const t = gridAt(cx, cy);
-      return t != null && !UNPAINTABLE.has(t);
+      return t != null && !unpaintable(t);
     };
     // The shore: every cell ringing the 2x2 is ground to stand on — not water
     // (the pond would read as a bay of some lake), not the street, not a wall
     // — so a cast can be made from any side and the pond reads as its own
     // thing.
-    const SHORE_BLOCKED = new Set([3, 7, 9, 11, 12, 13, 14]);
     const shoreOK = (cx, cy) => {
       const t = gridAt(cx, cy);
-      return t != null && !SHORE_BLOCKED.has(t) && spawnOkAt(cx, cy, 'minor');
+      return t != null && !uncrossable(t) && !WorldGen.isRoadTerrain(t) && spawnOkAt(cx, cy, 'minor');
     };
     // Chebyshev distance from the 2x2 (top-left cx,cy) to the nearest POI
     // chest; Infinity when there is none in range.
@@ -1111,27 +1069,21 @@
     // anywhere else, and among those the closest to it; otherwise the nearest
     // to Home. Fixed order, no RNG.
     let found = null, foundScore = Infinity;
-    for (let r = POND_MIN_CELLS; r <= POND_MAX_CELLS; r++) {
-      for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
-          const cx = a.cx + dx, cy = a.cy + dy;
-          if (!blockOK(cx, cy)) continue;
-          const dp = poiDist(cx, cy);
-          const score = dp <= POND_POI_CELLS ? dp * 100 + r : 10000 + r;
-          if (score < foundScore) { foundScore = score; found = { cx, cy, r, dp }; }
-        }
-      }
-    }
+    WorldGen.ringCells(a.cx, a.cy, POND_MIN_CELLS, POND_MAX_CELLS, (cx, cy, r) => {
+      if (!blockOK(cx, cy)) return null;
+      const dp = poiDist(cx, cy);
+      const score = dp <= POND_POI_CELLS ? dp * 100 + r : 10000 + r;
+      if (score < foundScore) { foundScore = score; found = { cx, cy, r, dp }; }
+      return null;
+    });
     if (!found) {
       scene._pondDebug = `no seat in band ${POND_MIN_CELLS}..${POND_MAX_CELLS} from tile ${tx}/${ty} (anchor ${a.cx},${a.cy}, ${pois.length} POI)`;
       return;
     }
     // Freeze the top-left on the canonical global cell centre — the basis
     // every tap uses — so the fishing tap and the painted cell agree.
-    const rawX = tx0 + (found.cx + 0.5) * cellM;
-    const rawY = ty0 + (found.cy + 0.5) * cellM;
-    const { cellIX, cellIY } = worldMetersToAbsCell(scene, rawX, rawY);
+    const raw = f.centre(found.cx, found.cy);
+    const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
     const { x: wmx, y: wmy } = absCellCenterMeters(scene, cellIX, cellIY);
     scene.save.starterPondAt = { x: wmx, y: wmy };
     if (typeof persistSave === 'function') persistSave(scene.save);
@@ -1156,19 +1108,16 @@
   // and sweep the four cells clear: a rebuild regenerates the rocks and scrub
   // the seat pass avoided, and nothing stands in open water.
   function paintPond(scene, entry, tx, ty, cx, cy) {
-    const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
-    const N = entry.cellsPerEdge;
-    const WATER = 3;
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
+    const { N } = f;
     const cells = new Set();
     for (let dy = 0; dy < 2; dy++) {
       for (let dx = 0; dx < 2; dx++) {
-        entry.grid[(cy + dy) * N + (cx + dx)] = WATER;
-        cells.add((cx + dx) + ',' + (cy + dy));
+        entry.grid[(cy + dy) * N + (cx + dx)] = WorldGen.T.WATER;
+        cells.add((cy + dy) * N + (cx + dx));
       }
     }
-    const on = (wx, wy) =>
-      cells.has(Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM));
+    const on = (wx, wy) => cells.has(f.idxOf(wx, wy));
     if (entry.objects) entry.objects = entry.objects.filter(o => !on(o.x, o.y));
     if (entry.wildplants) entry.wildplants = entry.wildplants.filter(w => !on(w.x, w.y));
     if (entry.extraTreasures) entry.extraTreasures = entry.extraTreasures.filter(t => !on(t.x, t.y));
@@ -1269,7 +1218,6 @@
   // token tree and one token rock so the first thing to chop and mine is in
   // sight of Home; everything else seats in the ring just outside it.
   function provisionStarterHome(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats) {
-    const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
     if (!grid || typeof HomeArea === 'undefined' || typeof WorldGen === 'undefined') return;
     // Same gate as the starter plot: provision only while the ladder is still
@@ -1277,17 +1225,17 @@
     // who finishes it doesn't watch their home dissolve back into bare map.
     if (!scene.save.starterHome &&
         (typeof Quests === 'undefined' || Quests.starterHidden(scene.save))) return;
-    const N = entry.cellsPerEdge;
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
+    const { N, cellM, ox: tx0, oy: ty0 } = f;
     entry.objects = entry.objects || [];
     // Callable from any tile's spawn, not just the starter trail's own pass:
     // without the spawn cell, derive it from the frozen anchor. It may land
-    // outside this tile, which is fine — everything below works in world space.
+    // outside this tile, which is fine — everything below works in world
+    // space (so this pass's sets are keyed 'cx,cy', not by the flat index).
     if (spawnIX == null || spawnIY == null) {
       const a = scene.save.starterCratesAt;
       if (!a || !Number.isFinite(a.x)) return;
-      spawnIX = Math.floor((a.x - tx0) / cellM);
-      spawnIY = Math.floor((a.y - ty0) / cellM);
+      ({ ix: spawnIX, iy: spawnIY } = f.cellOf(a.x, a.y));
     }
     if (!usedSeats) usedSeats = new Set();
 
@@ -1331,8 +1279,7 @@
           const t = absCellToTile(scene, cell.cellIX, cell.cellIY);
           if (t.tx !== sourceTile.tx || t.ty !== sourceTile.ty) return false;
           if (!WorldGen.isSpawnCell(origin.baseGrid || origin.grid,
-            origin.cellsPerEdge, origin.cellsPerEdge, t.ix, t.iy,
-            { roadMask: origin.roadMask, spawnWhy: origin.spawnWhy }, 'minor')) return false;
+            origin.cellsPerEdge, origin.cellsPerEdge, t.ix, t.iy, WorldGen.spawnOptsOf(origin), 'minor')) return false;
         }
         const trailer = scene.save.starterTrailer;
         if (trailer) {
@@ -1343,23 +1290,23 @@
           .some(o => o.id !== rec.id && Number.isFinite(o.x) && Number.isFinite(o.y) &&
             SpawnOwnership.overlaps(scene, probe, o));
       };
-      for (let r = 1; r <= 8; r++) {
-        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-          const c = absCellOffset(scene, old.cellIX, old.cellIY, dx, dy);
-          if (!check(c)) continue;
-          const p = absCellCenterMeters(scene, c.cellIX, c.cellIY);
-          rec.sourceX = sourceX; rec.sourceY = sourceY;
-          rec.x = p.x; rec.y = p.y;
-          for (const live of [entry, ...WorldGen.tileCache.values()]) {
-            if (live.objects) live.objects = live.objects.filter(o => o.id !== rec.id);
-            if (live.wildplants) live.wildplants = live.wildplants.filter(o => o.id !== rec.id);
-          }
-          present.delete(rec.id);
-          if (origin.spawnShortfalls) origin.spawnShortfalls = origin.spawnShortfalls.filter(s => s.id !== rec.id);
-          if (typeof persistSave === 'function') persistSave(scene.save);
-          return true;
+      // The nearest eligible cell round the old seat, in fixed ring order.
+      const moved = WorldGen.ringCells(0, 0, 1, 8, (dx, dy) => {
+        const c = absCellOffset(scene, old.cellIX, old.cellIY, dx, dy);
+        return check(c) ? c : null;
+      });
+      if (moved) {
+        const p = absCellCenterMeters(scene, moved.cellIX, moved.cellIY);
+        rec.sourceX = sourceX; rec.sourceY = sourceY;
+        rec.x = p.x; rec.y = p.y;
+        for (const live of [entry, ...WorldGen.tileCache.values()]) {
+          if (live.objects) live.objects = live.objects.filter(o => o.id !== rec.id);
+          if (live.wildplants) live.wildplants = live.wildplants.filter(o => o.id !== rec.id);
         }
+        present.delete(rec.id);
+        if (origin.spawnShortfalls) origin.spawnShortfalls = origin.spawnShortfalls.filter(s => s.id !== rec.id);
+        if (typeof persistSave === 'function') persistSave(scene.save);
+        return true;
       }
       origin.spawnShortfalls = origin.spawnShortfalls || [];
       if (!origin.spawnShortfalls.some(s => s.id === rec.id)) {
@@ -1438,8 +1385,7 @@
     // plans. (The ring reaches 16 cells and a tile is ~222, so the area sits
     // inside one tile except right on a seam — where the audit simply sees
     // less of the neighbourhood and errs toward providing a little extra.)
-    const anchorX = tx0 + (spawnIX + 0.5) * cellM;
-    const anchorY = ty0 + (spawnIY + 0.5) * cellM;
+    const { x: anchorX, y: anchorY } = f.centre(spawnIX, spawnIY);
     // Audit every loaded tile the home area touches. Reading this tile alone
     // would miss both the neighbourhood across a seam and the items an earlier
     // pass already seated there, and would re-provision them all over again.
@@ -1483,12 +1429,10 @@
 
     // Cells nothing may be seated on: the street, anyone's floor, water and
     // the decking over it, and the cave layers. Mirrors the starter plot's
-    // UNPAINTABLE set — the difference is that a plot REPLACES a cell whereas
+    // `unpaintable` — the difference is that a plot REPLACES a cell whereas
     // an object has to stand on one, so bare rock is fine for both.
-    const BLOCKED = new Set([3 /* WATER */, 7 /* ROAD */, 8 /* PATH */,
-      9 /* BUILDING */, 11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */,
-      13 /* ROAD_LG */, 14 /* ROAD_MD */, 23 /* PIER */,
-      24 /* CAVE_FLOOR */, 25 /* CAVE_WALL */]);
+    const blocked = (t) => t === WorldGen.T.WATER || WorldGen.isBuildingTerrain(t) || WorldGen.isCobbleTerrain(t)
+      || t === WorldGen.T.PIER || t === WorldGen.T.CAVE_FLOOR || t === WorldGen.T.CAVE_WALL;
     const key = (cx, cy) => cx + ',' + cy;
     const taken = new Set();
     const mark = (wx, wy) => taken.add(key(
@@ -1530,8 +1474,7 @@
     const spawnOkAt = (cx, cy, cls) => cellAt(cx, cy, (e, i) => {
       if (!e.grid) return false;
       const eN = e.cellsPerEdge;
-      return WorldGen.isSpawnCell(e.grid, eN, eN, i % eN, Math.floor(i / eN),
-        { roadMask: e.roadMask, spawnWhy: e.spawnWhy }, cls);
+      return WorldGen.isSpawnCell(e.grid, eN, eN, i % eN, Math.floor(i / eN), WorldGen.spawnOptsOf(e), cls);
     }, false);
     // The anchor's own tile has to be readable before anything can be planned.
     if (gridAt(spawnIX, spawnIY) == null) return;
@@ -1585,7 +1528,7 @@
       // cannot be standing in the street.
       if (!spawnOkAt(cx, cy, 'minor')) return false;
       const t = gridAt(cx, cy);
-      return t != null && !BLOCKED.has(t);
+      return t != null && !blocked(t);
     };
 
     // Seating spreads items around the COMPASS, not along one edge. The
@@ -1601,16 +1544,10 @@
     // Every free cell in a radius band, with its bearing from the anchor.
     const bandCells = (rMin, rMax) => {
       const out = [];
-      for (let r = rMin; r <= rMax; r++) {
-        for (let dy = -r; dy <= r; dy++) {
-          for (let dx = -r; dx <= r; dx++) {
-            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // ring edge only
-            const cx = spawnIX + dx, cy = spawnIY + dy;
-            if (!free(cx, cy)) continue;
-            out.push({ cx, cy, r, bearing: Math.atan2(dy, dx) });
-          }
-        }
-      }
+      WorldGen.ringCells(spawnIX, spawnIY, rMin, rMax, (cx, cy, r) => {
+        if (free(cx, cy)) out.push({ cx, cy, r, bearing: Math.atan2(cy - spawnIY, cx - spawnIX) });
+        return null;
+      });
       return out;
     };
     // Cells within one step of something already seeded. Keeping this as a set
@@ -1638,7 +1575,7 @@
       }
       if (!best) return false;
       best.used = true;
-      const raw = { x: tx0 + (best.cx + 0.5) * cellM, y: ty0 + (best.cy + 0.5) * cellM };
+      const raw = f.centre(best.cx, best.cy);
       // Snap to the canonical global cell centre, the basis every tap and
       // every other placed object uses (see seatCrate).
       const abs = worldMetersToAbsCell(scene, raw.x, raw.y);
@@ -1836,25 +1773,20 @@
     const idFor = (dir) => `${kind || ''}${dir ? '_' + dir : ''}${tag}`;
     const wanted = new Set(dirs.map(idFor));
     const stale = entry.creatures.filter(c => typeof c.id === 'string'
-      && c.id.endsWith(tag) && !wanted.has(c.id) && !c.id.startsWith('released_'));
+      && c.id.endsWith(tag) && !wanted.has(c.id) && !Combat.isTame(c));
     if (stale.length) entry.creatures = entry.creatures.filter(c => !stale.includes(c));
     if (!kind) return;                                   // a mode with no greeter
 
-    const N = entry.cellsPerEdge;
-    const cellM = scene.tileEdgeM / N;   // THIS tile's cells (its row's grid)
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
-    const ax = Math.floor((anchor.x - tx0) / cellM);
-    const ay = Math.floor((anchor.y - ty0) / cellM);
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
+    const { N } = f;
+    const { ix: ax, iy: ay } = f.cellOf(anchor.x, anchor.y);
     // Cells already carrying something drawn — a chicken standing inside a
     // starter crate reads as a bug whichever the renderer draws second.
-    const occupied = new Set();
-    const cellKeyAt = (wx, wy) =>
-      Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM);
-    for (const o of (entry.objects || [])) occupied.add(cellKeyAt(o.x, o.y));
-    for (const w of (entry.wildplants || [])) occupied.add(cellKeyAt(w.x, w.y));
+    const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
     // The doorstep greeter is the starting area's (a MINOR spawn — see the
-    // starter trail's note): the land the spawn gate refuses, not its buffers.
-    const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
+    // starter trail's note): the land the spawn gate refuses, not its
+    // buffers — the entry's full options with this pass's live occupancy.
+    const opts = WorldGen.spawnOptsOf(entry, { occupied });
     // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): NOT the seat
     // test (that's `pickaxe`'s primary pass below, THE SPAWN GATE via
     // isSpawnCell(..., opts, 'minor')). This is the "always" greeter's
@@ -1866,8 +1798,8 @@
     // still fill. See the doorstep-greeter comment above.
     const onRoad = (cx, cy) => !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
     const standable = (cx, cy) =>
-      cx >= 0 && cx < N && cy >= 0 && cy < N &&
-      !occupied.has(cx + ',' + cy) &&
+      f.inTile(cx, cy) &&
+      !occupied.has(cy * N + cx) &&
       !Combat.faunaBlocksCell(entry.grid[cy * N + cx]) &&
       !WorldGen.isRoadTerrain(entry.grid[cy * N + cx]);   // a seat is never on a street
     // The mode's own distance, never nearer than the placer's floor.
@@ -1906,11 +1838,9 @@
       const seat = pick(ix, iy, slack, (cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'minor'))
                 || pick(ix, iy, slack, (cx, cy) => !onRoad(cx, cy));
       if (!seat) continue;
-      occupied.add(seat.cx + ',' + seat.cy);   // no two seats on the one cell
-      entry.creatures.push(WorldGen.makeCreature(kind,
-        tx0 + (seat.cx + 0.5) * cellM,
-        ty0 + (seat.cy + 0.5) * cellM,
-        id, { shiny: faunaShiny(kind, id) }));
+      occupied.add(seat.cy * N + seat.cx);   // no two seats on the one cell
+      const at = f.centre(seat.cx, seat.cy);
+      entry.creatures.push(WorldGen.makeCreature(kind, at.x, at.y, id, { shiny: faunaShiny(kind, id) }));
     }
   }
 
@@ -1946,49 +1876,40 @@
     if (!anchor || !Number.isFinite(anchor.x)) return 0;
     entry._starterTile = true;   // the arrivals pass knows where to call back
     entry.creatures = entry.creatures || [];
-    const N = entry.cellsPerEdge;
-    const cellM = scene.tileEdgeM / N;
-    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
-    const ax = Math.floor((anchor.x - tx0) / cellM), ay = Math.floor((anchor.y - ty0) / cellM);
-    const occupied = new Set();
-    const cellOf = (wx, wy) => ({ cx: Math.floor((wx - tx0) / cellM), cy: Math.floor((wy - ty0) / cellM) });
-    const key = (wx, wy) => { const c = cellOf(wx, wy); return c.cx + ',' + c.cy; };
-    for (const o of (entry.objects || [])) occupied.add(key(o.x, o.y));
-    for (const w of (entry.wildplants || [])) occupied.add(key(w.x, w.y));
-    for (const c of entry.creatures) occupied.add(key(c.x, c.y));
-    const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);
+    const { N } = f;
+    const { ix: ax, iy: ay } = f.cellOf(anchor.x, anchor.y);
+    // Everything standing on the tile, creatures included — the live
+    // occupancy, handed to the gate with the entry's full options (the
+    // same gate every other seat on the tile is judged by).
+    const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants, entry.creatures);
+    const opts = WorldGen.spawnOptsOf(entry, { occupied });
     const roles = (NPC.STORY_NEIGHBOURS || ['warden']).filter(role => !NPC.STORY_ROLES[role]?.radiusM && !NPC.STORY_ROLES[role]?.arrives);
     const seated = [];   // story neighbours' cells, present already or seated now
     for (const role of roles) {
       const c = entry.creatures.find(o => o.id === `npc_${role}_${tx}_${ty}`);
-      if (c) seated.push(cellOf(c.x, c.y));
+      if (c) seated.push(f.cellOf(c.x, c.y));
     }
     let placed = 0;
     for (const role of roles) {
       const id = `npc_${role}_${tx}_${ty}`;
-      if (entry.creatures.some(c => c.id === id)) continue;
+      if (entry.creatures.some(c => c.id === id) || scene.save.npcHomes?.[id]?.houseId) continue;
       if (!NPC.storyNeighbourDue(scene.save, role)) continue;
       const maxR = role === 'warden' ? WARDEN_MAX_CELLS : NEIGHBOUR_MAX_CELLS;
-      let seat = null;
-      for (let r = WARDEN_MIN_CELLS; r <= maxR && !seat; r++) {
-        for (let dy = -r; dy <= r && !seat; dy++) {
-          for (let dx = -r; dx <= r && !seat; dx++) {
-            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // this ring only
-            const cx = ax + dx, cy = ay + dy;
-            if (cx < 0 || cy < 0 || cx >= N || cy >= N || occupied.has(cx + ',' + cy)) continue;
-            if (role !== 'warden' && seated.some(s => Math.max(Math.abs(s.cx - cx), Math.abs(s.cy - cy)) < NEIGHBOUR_GAP_CELLS)) continue;
-            if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
-            if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'npc')) continue;
-            seat = { cx, cy };
-          }
-        }
-      }
+      // The nearest ring cell (WorldGen.nearestRingCell — a fixed order)
+      // that the gate admits and no story neighbour crowds.
+      const seat = WorldGen.nearestRingCell(ax, ay, WARDEN_MIN_CELLS, maxR, (cx, cy) => {
+        if (!f.inTile(cx, cy)) return false;
+        if (role !== 'warden' && seated.some(s => Math.max(Math.abs(s.ix - cx), Math.abs(s.iy - cy)) < NEIGHBOUR_GAP_CELLS)) return false;
+        if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) return false;
+        return WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'npc');
+      });
       if (!seat) continue;
-      const x = tx0 + (seat.cx + 0.5) * cellM, y = ty0 + (seat.cy + 0.5) * cellM;
+      const { x, y } = f.centre(seat.ix, seat.iy);
       if (seating.offscreen && !seating.offscreen(x, y)) continue;
-      const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y });
+      const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y, _homeAnchor: '' });
       entry.creatures.push(neighbour);
-      occupied.add(seat.cx + ',' + seat.cy);
+      occupied.add(seat.iy * N + seat.ix);
       seated.push(seat);
       placed++;
     }
@@ -2009,10 +1930,9 @@
       const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
       const entry = tiles.get(WorldGen.tileKey(tx, ty));
       if (!entry?._spawned || !entry.grid) return null;
-      const N = entry.cellsPerEdge, cellM = edge / N;
-      const cx = Math.floor((x - tx * edge) / cellM), cy = Math.floor((y - ty * edge) / cellM);
-      return { entry, tx, ty, N, cellM, cx, cy, x: tx * edge + (cx + 0.5) * cellM,
-        y: ty * edge + (cy + 0.5) * cellM, key: `${tx}:${ty}:${cx}:${cy}` };
+      const fr = WorldGen.tileFrame(entry, tx, ty, edge);
+      const { ix: cx, iy: cy } = fr.cellOf(x, y), c = fr.centre(cx, cy);
+      return { entry, tx, ty, N: fr.N, cellM: fr.cellM, cx, cy, x: c.x, y: c.y, key: `${tx}:${ty}:${cx}:${cy}` };
     };
     const around = c => [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) =>
       at(c.x + dx * (c.cellM / 2 + 0.001), c.y + dy * (c.cellM / 2 + 0.001))).filter(Boolean);
@@ -2029,8 +1949,8 @@
         for (const o of c.entry.creatures || []) { const p = at(o.x, o.y); if (p) all.add(p.key); }
         occupied.set(c.entry, { fixed, all });
       }
-      return !occupied.get(c.entry)[includeCreatures ? 'all' : 'fixed'].has(c.key) && WorldGen.isSpawnCell(c.entry.grid, c.N, c.N, c.cx, c.cy,
-        { ...c.entry._spawnOpts, roadMask: c.entry.roadMask, quiet: c.entry.quietMask, spawnWhy: c.entry.spawnWhy }, 'npc');
+      return !occupied.get(c.entry)[includeCreatures ? 'all' : 'fixed'].has(c.key)
+        && WorldGen.isSpawnCell(c.entry.grid, c.N, c.N, c.cx, c.cy, WorldGen.spawnOptsOf(c.entry), 'npc');
     };
     let placed = 0;
     for (const [role, row] of Object.entries(NPC.STORY_ROLES)) {
@@ -2107,7 +2027,120 @@
     if (kept.length !== entry.objects.length) entry.objects = kept;
   }
 
+  // Ground hints only: the route uses the placement gate (including suppressed
+  // land), never changes terrain, reach, fog, or where the player can walk.
+  const TRAIL_STYLE = Object.freeze({ colour: 0xf5dda2, alpha: 0.45, width: 1.5, dash: 6, gap: 5, bendCells: 0.28 });
+  const trailCellKey = c => `${c.cellIX},${c.cellIY}`;
+  const TRAIL_STEPS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
+  function trailRoute(start, goal, passable, neighbour, seed = 0) {
+    const sk = trailCellKey(start), gk = goal && trailCellKey(goal);
+    if (!passable(start) || (goal && !passable(goal))) return [];
+    const queue = [start], parents = new Map([[sk, null]]), cells = new Map([[sk, start]]);
+    const steps = new Map([[sk, 0]]), candidates = [];
+    const unwind = key => {
+      const route = [];
+      for (let k = key; k != null; k = parents.get(k)) route.push(cells.get(k));
+      return route;
+    };
+    for (let head = 0; head < queue.length && head < 1200; head++) {
+      const c = queue[head], ck = trailCellKey(c), distance = steps.get(ck);
+      if (ck === gk) return unwind(ck).reverse();
+      // An extra trail begins at a seeded reachable point 4–7 walking cells
+      // from its chest. One reverse flood chooses it; no repeated pathfinding.
+      if (!goal && distance >= 4) candidates.push(ck);
+      if (!goal && distance >= 7) continue;
+      for (const [dx, dy] of TRAIL_STEPS) {
+        const next = neighbour(c, dx, dy), nk = trailCellKey(next);
+        if (parents.has(nk) || !passable(next)) continue;
+        parents.set(nk, ck); cells.set(nk, next); steps.set(nk, distance + 1); queue.push(next);
+      }
+    }
+    return !goal && candidates.length ? unwind(candidates[(seed >>> 0) % candidates.length]) : [];
+  }
+
+  // Round a bend INSIDE its own cell. Unlike smoothing the whole polyline,
+  // this quadratic cannot cut through the blocked cell beside an L-turn.
+  function smoothTrail(points, cellM) {
+    if (points.length < 3) return points.slice();
+    const out = [points[0]], radius = cellM * TRAIL_STYLE.bendCells;
+    for (let i = 1; i < points.length - 1; i++) {
+      const a = points[i - 1], b = points[i], c = points[i + 1];
+      const ab = Math.hypot(b.x - a.x, b.y - a.y), bc = Math.hypot(c.x - b.x, c.y - b.y);
+      if (!ab || !bc) continue;
+      const r = Math.min(radius, ab / 3, bc / 3);
+      const p = { x: b.x + (a.x - b.x) * r / ab, y: b.y + (a.y - b.y) * r / ab };
+      const q = { x: b.x + (c.x - b.x) * r / bc, y: b.y + (c.y - b.y) * r / bc };
+      out.push(p);
+      for (let step = 1; step <= 6; step++) {
+        const t = step / 6, u = 1 - t;
+        out.push({ x: u * u * p.x + 2 * u * t * b.x + t * t * q.x,
+          y: u * u * p.y + 2 * u * t * b.y + t * t * q.y });
+      }
+    }
+    out.push(points[points.length - 1]);
+    return out;
+  }
+
+  function trailPaths(scene, now) {
+    const anchor = scene.save.starterCratesAt;
+    const player = playerWorldM(scene), radius = HomeArea.RING_MAX_CELLS;
+    if ((scene.depth || 0) !== 0 || !anchor || !Number.isFinite(anchor.x)
+      || !HomeArea.isNear(player.x, player.y, radius * scene.cellM, anchor)) return [];
+    const start = worldMetersToAbsCell(scene, player.x, player.y);
+    const key = `${trailCellKey(start)}|${anchor.x},${anchor.y}|${(scene.save.opened || []).length}|${WorldGen.tileCache.size}`;
+    const old = scene._starterTrailPaths;
+    if (old && old.key === key && now - old.at < 1000) return old.paths;
+    const paths = [];
+    scene._starterTrailPaths = { key, at: now, paths };
+    const target = scene._nearestStarterCrate?.();
+    const extra = HomeArea.chestTrailCandidates?.(scene, anchor) || [];
+    if (!target && !extra.length) return paths;
+    const targets = [target, ...extra].filter(Boolean);
+    const targetIds = new Set(targets.map(o => o.id));
+    const spent = spentSets(scene, scene.save);
+    const tiles = new Map(), checked = new Map();
+    const passable = c => {
+      const ck = trailCellKey(c);
+      if (checked.has(ck)) return checked.get(ck);
+      const world = absCellCenterMeters(scene, c.cellIX, c.cellIY);
+      let ok = HomeArea.isNear(world.x, world.y, radius * scene.cellM, anchor);
+      if (ok) {
+        const t = absCellToTile(scene, c.cellIX, c.cellIY), tk = WorldGen.tileKey(t.tx, t.ty);
+        if (!tiles.has(tk)) {
+          const entry = WorldGen.tileCache.get(tk);
+          let opts = null;
+          if (entry?.grid && (!entry.status || entry.status === 'ready')) {
+            const frame = WorldGen.tileFrame(entry, t.tx, t.ty, scene.tileEdgeM);
+            const objects = (entry.objects || []).filter(o => !targetIds.has(o.id) && !isSpent(o, spent));
+            const occupied = WorldGen.occupiedIndexSet(frame, objects);
+            opts = WorldGen.spawnOptsOf(entry, { occupied });
+          }
+          tiles.set(tk, { entry, opts });
+        }
+        const { entry, opts } = tiles.get(tk);
+        // 'reward' refuses both KERB and SENSITIVE, as well as all hard
+        // reasons. The guide never invites a walk through suppressed land.
+        ok = !!opts && WorldGen.isSpawnCell(entry.grid, t.n, t.n, t.ix, t.iy, opts, 'reward');
+      }
+      checked.set(ck, ok);
+      return ok;
+    };
+    const neighbour = (c, dx, dy) => absCellOffset(scene, c.cellIX, c.cellIY, dx, dy);
+    const add = (route, id) => {
+      if (route.length > 1) paths.push({ id, points: smoothTrail(route.map(c => absCellCenterMeters(scene, c.cellIX, c.cellIY)), scene.cellM) });
+    };
+    if (target) add(trailRoute(start, worldMetersToAbsCell(scene, target.x, target.y), passable, neighbour), target.id);
+    for (const chest of extra) {
+      if (paths.length >= HomeArea.CHEST_TRAIL_LIMIT) break;
+      const end = worldMetersToAbsCell(scene, chest.x, chest.y);
+      add(trailRoute(end, null, passable, neighbour, strHash31(chest.id)), chest.id);
+    }
+    return paths;
+  }
+
   root.Starter = {
+    TRAIL_STYLE, trailRoute, smoothTrail, trailPaths,
     STARTER_LOOT,
     starterTrailAnchor,
     pestFreeZone,

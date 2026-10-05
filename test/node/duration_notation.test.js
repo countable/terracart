@@ -74,8 +74,7 @@ test('UTC day identity and countdown share the same midnight', () => {
   assert.eq(utcDayKey(new Date(midnight)), '20260905', 'Date inputs use the same UTC key');
   assert.eq(utcDayIndex(midnight) - utcDayIndex(before), 1, 'the index advances at midnight');
   assert.eq(utcDayIndex(new Date(midnight)), utcDayIndex(midnight), 'Date and epoch inputs agree');
-  assert.eq(Delivery.dayKey(new Date(before)), utcDayKey(before), 'Delivery keeps a compatibility alias');
-  assert.eq(Delivery.dayKey(new Date(midnight)), utcDayKey(midnight), 'the alias flips at the same instant');
+  assert.eq(Delivery.dayKey, undefined, 'Delivery no longer carries a day-key alias');
   assert.eq(msToNextUtcDay(midnight), DN_DAY, 'a full day stands at the stroke of midnight');
   assert.eq(msToNextUtcDay(midnight + DN_HOUR), 23 * DN_HOUR);
   assert.eq(msToNextUtcDay(midnight + DN_DAY - DN_MIN), DN_MIN, 'a minute before the roll');
@@ -83,9 +82,11 @@ test('UTC day identity and countdown share the same midnight', () => {
 });
 
 test('UTC day consumers read util.js instead of inventing another boundary', () => {
-  assert.truthy(/function dayKey\(now = new Date\(\)\) \{\s*return utcDayKey\(now\);\s*\}/.test(ALL_SRC['delivery.js']),
-    'Delivery.dayKey delegates to the UTC owner');
-  assert.falsy(/Delivery\.dayKey/.test(ALL_SRC['houses.js']), 'houses read utcDayKey directly');
+  for (const f of ['delivery.js', 'scene_creatures.js', 'lairs.js', 'houses.js', 'macros.js']) {
+    assert.falsy(/Delivery\.dayKey|function dayKey\(/.test(ALL_SRC[f]), `${f} reads utcDayKey directly`);
+  }
+  assert.truthy(/gateDay === utcDayKey\(\)/.test(ALL_SRC['scene_creatures.js']), 'the gate guard\'s day is the UTC owner\'s');
+  assert.truthy(/String\(o\.dayKey \|\| utcDayKey\(\)\)/.test(ALL_SRC['lairs.js']), 'a daily guard\'s id carries the UTC owner\'s day');
   assert.falsy(/Delivery\.dayKey/.test(ALL_SRC['app.js']), 'app reads utcDayKey directly');
   assert.truthy(/const today = utcDayIndex\(Date\.now\(\)\);/.test(ALL_SRC['interactables.js']),
     'the spent ledger shares the UTC day index');
@@ -135,7 +136,7 @@ test('each timed readout that lost its hand-rolled ladder gained the helper', ()
   // One assertion per file that owns a countdown the player reads.
   const needs = {
     'interactables.js': 1,   // shared fruit state covers growth and regrowth
-    'interact.js': 3,        // produce cooldown, pet boost, crop stage wait
+    'interact.js': 2,        // crop stage waits; pet management no longer grants a timed petting boost
     'render.js': 1,          // crop stage badge (the shop's busy plaque is gone: no shop is ever busy)
     'app.js': 6,             // day gates, dragon, move pad, castle favour …
   };
@@ -164,10 +165,12 @@ test('the day-gated messages name the wait to the UTC roll', () => {
   // key for its own twelve-hour clock, Houses.CASTLE_SERVICE_MS.)
   const n = (src.match(/msToNextUtcDay\(\)/g) || []).length;
   assert.gte(n, 2, `expected the 2 service day-gated messages, found ${n}`);
-  assert.truthy(/shortDuration\(msToNextUtcDay\(\)\)/.test(Macros.beginDailyVisit.toString()),
+  assert.truthy(/waitLine\(row\?\.spent \|\| SPENT_DEFAULT, msToNextUtcDay\(\)\)/.test(Macros.beginDailyVisit.toString()),
     'shared daily visits show the wait to the UTC roll');
+  assert.eq(Macros.waitLine('Already visited', 90 * 60 * 1000), 'Already visited — 2h', 'the one refusal shape, shortDuration');
   const castle = SCENE_SRC.slice(SCENE_SRC.indexOf('  presentCastleServiceOffer('), SCENE_SRC.indexOf('  showQuestBoard('));
-  assert.truthy(/spokenDuration\(this\._castleServiceWaitMs\(house\)\)/.test(castle), 'the castellan says the twelve-hour wait');
+  assert.truthy(/Macros\.waitLine\(Macros\.DAILY_VISIT_KINDS\.castle\.spent, this\._castleServiceWaitMs\(house\)\)/.test(castle),
+    'the castellan\'s refusal is the one shape, off the castle row\'s prefix and its twelve-hour wait');
   assert.truthy(/shortDuration\(Houses\.CASTLE_SERVICE_MS\)/.test(castle), 'and the blurb its length');
   assert.falsy(/msToNextUtcDay/.test(castle), 'neither counts to the UTC roll');
 });
@@ -187,15 +190,12 @@ test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
         `${id}: numeric effect duration uses the owning value`);
     }
   }
-  const app = DURATION_SOURCES['app.js'];
-  const aliases = {
-    REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
-    SHIELD_POTION_MS: 'shielding_potion', DRAGON_POWDER_MS: 'dragon_powder',
-    SHADOW_POWDER_MS: 'shadow_powder', FROST_POWDER_MS: 'frost_powder',
-    BLIGHT_MS: 'blight_potion', COFFEE_BUFF_MS: 'coffee', TORCH_MS: 'torch',
-  };
-  for (const [name, id] of Object.entries(aliases)) {
-    assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(app),
-      `${name}: app derives from CONSUMABLE_SPEC.${id}`);
-  }
+  // The scene keeps no alias of a row's length: a timed buff is extended by
+  // spec.durationMs at the use (_useTimedBuff), a cast reads its row
+  // (CAST_ROWS), the eat lane reads CONSUMABLE_SPEC.<id>.durationMs.
+  const app = DURATION_SOURCES['app.js'] + DURATION_SOURCES['scene_consumables.js'];
+  assert.falsy(/const \w+_MS = CONSUMABLE_SPEC\.\w+\.durationMs;/.test(app), 'no duration alias in app.js');
+  assert.truthy(/Buffs\.extend\(this\.save, this, buff, spec\.durationMs \* mul\);/.test(app), 'the row\'s length extends the buff');
+  for (const id of ['frost_powder', 'sleep_powder', 'psychosis_powder', 'fear_scroll', 'coffee', 'dawnfruit'])
+    assert.truthy(app.includes(`CONSUMABLE_SPEC.${id}.durationMs`), `${id}: app reads the row`);
 });

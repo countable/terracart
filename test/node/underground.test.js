@@ -97,10 +97,13 @@
       assert.eq(drillArt.key, 'cave_props'); assert.eq(drillArt.frame, 6);
       const road = 32 * s.N + 20;
       assert.eq(first.grid[road], T.CAVE_FLOOR); assert.eq(second.grid[road], T.CAVE_FLOOR);
-      assert.eq(first.geologyGrid[road], T.CAVE_WALL); assert.eq(third.grid[road], T.CAVE_WALL);
-      const down = first.genObjects.find(o => o.kind === 'staircase' && o.dir === 'down');
+      assert.eq(first.geologyGrid[road], T.CAVE_WALL);
+      assert.eq(third.grid[road], T.CAVE_FLOOR, 'the Underdark remains the owning open stratum');
+      assert.falsy(first.genObjects.some(o => o.kind === 'staircase' && o.dir === 'down'),
+        'the first cave retains main’s deliberate break in the generated stair chain');
+      const down = second.genObjects.find(o => o.kind === 'staircase' && o.dir === 'down');
       assert.truthy(down);
-      assert.truthy(second.genObjects.some(o => o.kind === 'staircase' && o.dir === 'up' && o.x === down.x && o.y === down.y));
+      assert.truthy(third.genObjects.some(o => o.kind === 'staircase' && o.dir === 'up' && o.x === down.x && o.y === down.y));
       // Live digging and restoration cannot affect an uncached next floor.
       first.grid[road] = T.WATER; surface.grid[road] = T.GRASS;
       WorldGen.setDepth(2).delete(key);

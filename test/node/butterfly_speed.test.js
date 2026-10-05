@@ -20,8 +20,8 @@ test('shiny animals use a reduced speed bonus when escaping', () => {
 test('butterfly speed: every mover in the loop and the net wheel is held to it', () => {
   const w = SCENE_SRC;
   assert.eq(6 * SHINY_SPEED_MUL, 9, 'a shiny butterfly tops out at 9 m/s');
-  assert.truthy(/const maxMps = SpriteLayout\.creatureMaxMps\(c\.kind\) \/ shinyFast \* PotionEffects\.speedMul\(c\);/.test(w),
-    'the loop\'s cap rises with the shiny beat');
+  assert.truthy(/const maxMps = SpriteLayout\.creatureMaxMps\(c\.kind\) \* paceMul;/.test(w),
+    'the loop\'s cap rises with the shiny beat (Combat.paceMul)');
   assert.truthy(/stepMs = Math\.max\(stepMs, stepM \/ maxMps \* 1000\)/.test(w),
     'the wander glide stretches to the cap');
   assert.truthy(/c\._hopMs = Math\.max\(hurryMs, hurryM \/ maxMps \* 1000\);/.test(w),

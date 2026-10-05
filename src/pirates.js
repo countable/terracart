@@ -22,7 +22,7 @@
   function onHit(scene, c) {
     if (!isPirate(c) || Combat.isPacified(c) || Combat.isCharmed(c) || !(scene.save.money > 0)) return 0;
     // Use the purse's normal loss/feedback path without a thief's daily satiation.
-    return scene._losePlayerCoins(HIT_COINS);
+    return typeof scene._losePlayerCoins === 'function' ? scene._losePlayerCoins(HIT_COINS) : 0;
   }
   function peaceUntil(scene) {
     const until = scene.save.piratePeaceUntil;

@@ -88,22 +88,32 @@
     assert.eq(plant.x, 2 * CELL);
     assert.eq(plant.y, 0);
   });
-  test('park plant: Home, castle, shadow, downed, frozen and released safety', () => {
-    for (const guard of ['home', 'castle', 'shadow', 'downed', 'frozen', 'released']) {
+  test('park plant: Home, castle, shadow, downed and released safety', () => {
+    for (const guard of ['home', 'castle', 'shadow', 'downed', 'released']) {
       const { plant, scene } = setup();
       if (guard === 'home') scene.homeWorldPos = () => ({ x: 0, y: 0 });
       if (guard === 'castle') scene._castleWardPoints = () => [{ x: 0, y: 0 }];
       if (guard === 'shadow') scene.isShadowActive = () => true;
       if (guard === 'downed') scene.save.energy = 0;
-      if (guard === 'frozen') plant._frozenUntil = Date.now() + 60000;
-      if (guard === 'released') plant.id = 'released_plant';
+      if (guard === 'released') { plant.id = 'released_plant'; plant.pet=true; }
       const energy = scene.save.energy;
       for (let i = 0; i < 32; i++) tick(scene);
       assert.eq(scene.save.energy, energy, guard + ' prevents damage');
       assert.eq(scene._shots.length, 0, guard + ' prevents shooting');
       if (guard === 'home' || guard === 'castle') assert.eq(plant.x, 2 * CELL, guard + ' suppresses the rooted plant without moving it');
-      if (guard === 'frozen') { assert.eq(plant.x, 2 * CELL); assert.eq(plant.y, 0); }
     }
+  });
+  test('park plant: a chilled plant still spits, half as often (the frost is a slow)', () => {
+    const shots = (chilled) => {
+      const { plant, scene } = setup(chilled ? { _frozenUntil: Date.now() + 10 * 60 * 1000 } : {});
+      for (let i = 0; i < 200; i++) tick(scene);
+      assert.eq(plant.x, 2 * CELL); assert.eq(plant.y, 0);
+      return scene._shots.length;
+    };
+    const warm = shots(false), cold = shots(true);
+    assert.gt(cold, 0, 'it still shoots');
+    assert.lt(cold, warm, 'but less often');
+    assert.lte(cold, Math.ceil(warm / 2) + 1, 'about half as often');
   });
   test('park plant: a blocked line cancels wind-up; rooted foes cannot wander off', () => {
     const { plant, scene } = setup();

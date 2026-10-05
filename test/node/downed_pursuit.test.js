@@ -68,25 +68,24 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
   // silently miss, so re-introducing the name here is the bug.
   assert.eq((code.match(/shadowed/g) || []).length, 0,
     'the Shadow Powder is never read on its own inside the sim loop');
-  // The five branches, by the expression each is gated on.
+  // The branches, by the expression each is gated on. `standDown` joins
+  // `unnoticed` (Home's ward, or a garrison that is not hunting you): same
+  // lane, one more reason.
   const gates = [
-    // The `!warded` half of these three became `!standDown` when the lair
-    // guards learned to give up and walk home: same lane, one more reason
-    // (Home's ward, or a garrison that is not hunting you).
-    [/c\.kind === 'slime' && !isTame && !unnoticed && !standDown/, 'the slime leech'],
-    [/isMonster\(c\.kind\) && !isTame && !unnoticed && !standDown/, "the monster's hit and arrow"],
-    [/const charging = !isTame && !standDown && !unnoticed && slimeCharging\(c\)/,
-     "the struck slime's charge"],
-    // The two STALKS read `unseen` — `unnoticed` with the foe's own sight
-    // ORed in (Combat.seesPlayer), so a downed player is unseen by all.
-    [/!unseen && Math\.random\(\) < 0\.5 && distToPlayer/, "the slime's meander"],
-    [/if \(!unseen && distToPlayer > 0\.5 \* this\.cellM\)/, "the monsters' stalk"],
+    [/rosterEnemyAttack\(this, c, rosterRow, now, px, py, unnoticed \|\| standDown, enemyDt\)/, "every roster foe's blow, arrow and snare"],
+    [/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\)/, "every roster foe's stalk"],
+    [/\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| kerbTurn, warded, pace\)/, "the ghost's rush"],
+    [/const gameCharge = enraged && !standDown && !unnoticed;/, "the hunted deer's charge and butt"],
   ];
   for (const [re, what] of gates) {
     assert.truthy(re.test(code), `${what} is gated on unnoticed`);
   }
-  assert.truthy(/const unseen = unnoticed \|\| !Combat\.seesPlayer\(c\.kind, distToPlayer, this\.cellM, this\.save\);/.test(code),
-    '`unseen` is `unnoticed` plus the foe\'s sight, never a lane of its own');
+  // The roster mover and attack read the foe's own sight through the one
+  // helper (Combat.seesPlayer) beside `inactive` — never a lane of their own.
+  assert.truthy(/const attentive = !inactive && \(creatureTarget \|\| npcTarget \|\| !Combat\.playerDowned\(scene\.save\.energy\)\)\s*&& inTerritory && \(creatureTarget \|\| npcTarget \|\| Combat\.seesPlayer\(c\.kind, dist, scene\.cellM, scene\.save\)\);/.test(CREATURE_AI_SRC),
+    'the attack is attentive only to a player it can see and who is not down');
+  assert.truthy(/let sees = !inactive && \(creatureTarget\s*\? dist <= Combat\.sightCells\(c\.kind\) \* scene\.cellM\s*: Combat\.seesPlayer\(c\.kind, dist, scene\.cellM, scene\.save\)\);/.test(CREATURE_AI_SRC),
+    'and the mover stalks only what it sees');
 });
 
 test('downed: the body FADES on the same expression the hunt drops', () => {
@@ -164,13 +163,18 @@ test('downed: everything hung on the body\'s centre goes down WITH it', () => {
 
 test('downed: pursuit and incoming damage agree on whether the player is down', () => {
   const wander = methodBody('wanderCreatures');
-  const leech = wander.indexOf("c._nextStealT = now + 1000;");
-  const melee = wander.indexOf('c._nextStealT = now + MONSTER_HIT_MS;');
-  assert.truthy(leech > 0 && melee > 0, 'found both melee cooldown stamps');
-  for (const [at, what] of [[leech, "the slime's leech"], [melee, "the monster's melee"]]) {
-    assert.truthy(/Combat\.incomingDamage\(this\.save,/.test(wander.slice(at, wander.indexOf('if (', at))),
-      `${what} uses the shared incoming damage guard`);
-  }
+  // Every foe's blow is rosterEnemyAttack's (creature_ai.js): its melee lane
+  // and its aura both pass the shared incoming-damage guard; the deer's butt
+  // in the sim loop does too.
+  const attack = CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyAttack('),
+    CREATURE_AI_SRC.indexOf('\n}\n', CREATURE_AI_SRC.indexOf('function rosterEnemyAttack(')));
+  assert.truthy(/foeBlowLands\(scene, c, raw, \{ condition: /.test(attack)
+    && /const dmg = mitigated \? raw : Combat\.incomingDamage\(scene\.save, raw\);/.test(CREATURE_AI_SRC),
+    "the foe's melee uses the shared incoming damage guard (through the one blow writer)");
+  assert.truthy(/Combat\.playerDamageRate\(/.test(attack), 'and so does the aura');
+  const butt = wander.indexOf('c._nextStealT = now + fightsBack.hitMs;');
+  assert.truthy(butt > 0 && /foeBlowLands\(this, c, Combat\.meleeBlow\(c, fightsBack\.dmg\)\);/.test(wander.slice(butt, butt + 200)),
+    "the deer's butt uses the shared incoming damage guard (the one blow writer)");
   const arrow = methodBody('_shotHitsPlayer');
   assert.truthy(/Combat\.incomingProjectileDamage\(this\.save, shot\.damage/.test(arrow),
     'an arrow already in flight uses the same damage guard');
