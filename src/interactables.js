@@ -596,14 +596,26 @@ const INTERACTABLES = {
       // A recurring row spends into its ledger lane (Macros.markUsed), never
       // save.opened. The chapel is no chest for the 'chest' quest (its visit
       // has its own daily reward). Chest openings still advance the starter tutorial.
+      const liftChest = !row && !stand && iconLook?.texKey === 'chest' && (scene.depth ?? o.depth ?? 0) === 1;
       const markOpened = () => {
         if (row) Macros.markUsed(save, row, o);
         else save.opened.push(o.id);
+        if (liftChest) Elevators.recordChest(save);
         if (chapel) return;
         if (typeof DungeonProgression !== 'undefined' && Inventory.count(save, 'portal_stone') > 0) DungeonProgression.state(save).portalStoneFound = true;
         scene.questEvent?.('chest');
 
       };
+      if (liftChest && Elevators.partsDue(save)) {
+        markOpened();
+        delete save.chestHold[o.id];
+        ctx.dirty = true;
+        scene.showMessageModal({ kind: 'note', header: 'Elevator parts', art: 'progression_elevator',
+          body: Elevators.isRepaired(save)
+            ? 'You found the missing elevator parts. The lift can now reach levels 2 and 3.'
+            : 'You found the missing elevator parts. Repair the lift with 9 wood and 9 stone to reach all three underground levels.' });
+        return true;
+      }
       // A chest previously left-for-later has its exact loot saved in chestHold;
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).

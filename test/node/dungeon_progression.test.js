@@ -15,7 +15,7 @@
     assert.falsy(DungeonProgression.canUseDescent({}, 1, 2, 'stairs'));
     assert.truthy(DungeonProgression.canUseDescent({}, 1, 2, 'rope'));
     assert.falsy(DungeonProgression.canUseDescent({}, 1, 2, 'elevator'));
-    assert.truthy(DungeonProgression.canUseDescent({ elevators: { repaired: true } }, 1, 2, 'elevator'));
+    assert.truthy(DungeonProgression.canUseDescent({ elevators: { repaired: true, partsFound: true } }, 1, 2, 'elevator'));
     assert.truthy(DungeonProgression.canUseDescent({}, 1, 0, 'stairs'));
     assert.falsy(DungeonProgression.canUseDescent({}, 3, 4, 'rope'));
     assert.truthy(DungeonProgression.canUseDescent({}, 5, 4, 'rope'), 'older saves can still climb out');
@@ -37,8 +37,49 @@
     assert.eq(Inventory.count(save, 'wood'), 0);
     assert.eq(Inventory.count(save, 'rubble'), 0);
     assert.truthy(Elevators.isRepaired(JSON.parse(JSON.stringify(save))));
-    assert.eq(Elevators.unlockedFloors(save).join(','), '1,2,3');
+    assert.eq(Elevators.unlockedFloors(save).join(','), '1');
+    assert.falsy(DungeonProgression.canUseDescent(save, 1, 2, 'elevator'));
+    assert.truthy(DungeonProgression.canUseDescent(save, 0, 1, 'elevator'));
     assert.falsy(Elevators.repair(save), 'repair cannot charge twice');
+  });
+  test('lift: tenth L1 chest grants permanent parts despite a full bag, once only', () => {
+    const original = globalThis.pickReward;
+    const save = { inv: [], opened: [], relics: {}, armor: {}, money: 0, elevators: { repaired: true } };
+    let story, rolls = 0;
+    const scene = makeScene({ depth: 1, save, invRoomFor: () => 0,
+      showMessageModal(value) { story = value; } });
+    const ctx = makeCtx(scene, save);
+    const open = (id, depth = 1, extra = {}) => {
+      scene.depth = depth;
+      INTERACTABLES.chest.custom(ctx, { kind: 'chest', id, depth, tierSeed: 5, x: 0, y: 0, ...extra });
+    };
+    try {
+      globalThis.pickReward = () => { rolls++; return {kind: 'cash', amount: 1}; };
+      open('surface', 0); open('deeper', 2); open('barrel', 1, {barrel: true});
+      assert.falsy(save.elevators.level1Chests);
+      for (let n = 0; n < 9; n++) open('lift_' + n);
+      assert.eq(save.elevators.level1Chests, 9);
+      open('lift_0');
+      assert.eq(save.elevators.level1Chests, 9, 'reopening never counts');
+      assert.eq(Elevators.unlockedFloors(save).join(','), '1');
+      const before = rolls;
+      open('lift_parts');
+      assert.eq(rolls, before, 'parts replace the tenth reward regardless of rarity');
+      assert.eq(story.header, 'Elevator parts');
+      assert.eq(Elevators.unlockedFloors(save).join(','), '1,2,3');
+      assert.eq(Elevators.unlockedFloors(JSON.parse(JSON.stringify(save))).join(','), '1,2,3');
+      open('lift_parts');
+      assert.eq(save.elevators.level1Chests, 10);
+      open('lift_next');
+      assert.eq(rolls, before + 1, 'ordinary rewards resume');
+    } finally { globalThis.pickReward = original; }
+  });
+  test('lift: parts found before the wood and stone repair survive it', () => {
+    const save = { inv: [{id: 'wood', count: 9}, {id: 'rubble', count: 9}] };
+    for (let n = 0; n < 10; n++) Elevators.recordChest(save);
+    assert.eq(Elevators.unlockedFloors(save).length, 0);
+    assert.truthy(Elevators.repair(save));
+    assert.eq(Elevators.unlockedFloors(save).join(','), '1,2,3');
   });
   test('dungeon progression: first eligible chest grants one stone and ordinary loot resumes', () => {
     const original = globalThis.pickReward;
@@ -106,7 +147,7 @@
     assert.eq(scene.depth, 1);
     scene.changeDepth(2, { ...anchor, elevator: true });
     assert.eq(scene.depth, 1);
-    scene.save.elevators = {repaired: true};
+    scene.save.elevators = {repaired: true, partsFound: true};
     scene.changeDepth(2, { ...anchor, elevator: true });
     assert.eq(scene.depth, 3);
     scene.save.dungeonProgression.level4Key = true;
@@ -217,10 +258,10 @@
     assert.falsy(h.save.chestHold.boundary_chest);
   });
   test('dungeon progression: every repaired elevator route reaches the requested stop at the home anchor', () => {
-    for (const from of Elevators.FLOORS) for (const to of Elevators.FLOORS) {
+    for (const partsFound of [false, true]) for (const from of Elevators.FLOORS) for (const to of (partsFound ? Elevators.FLOORS : [0, 1])) {
       if (from === to) continue;
       const scene = ropeScene(from);
-      scene.save.elevators = {repaired: true};
+      scene.save.elevators = {repaired: true, partsFound};
       scene.save.homeElevator = {x: 123,y: 456};
       const buttons = [];
       const node = label => ({label,style: {},addEventListener(type,handler) { this.click = handler; }});
@@ -229,6 +270,9 @@
         Elevators, document: {createElement: () => node('description')}, persistSave() {}, cellKeyFromAbsCell: (x,y) => `${x}_${y}`,
       });
       open.call(scene, {});
+      if (!partsFound) {
+        assert.falsy(buttons.some(button => button.label === 'Floor 2' || button.label === 'Floor 3'));
+      }
       const destination = buttons.find(button => button.label === (to === 0 ? 'Home' : `Floor ${to}`));
       assert.truthy(destination,`${from} has a menu route to ${to}`);
       destination.click({stopPropagation() {}});
