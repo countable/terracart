@@ -12,6 +12,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   shared global scope. Preserve that order when adding modules; keep `sw.js`
   at the repository root for its service-worker scope.
 - [README.md](README.md): setup and source map.
+- [Art direction brief](docs/art/art-direction-brief.md): camera, pixel scale,
+  palette, restoration, and visible elevation; follow it when adding or revising art.
 - [test/node/README.md](test/node/README.md): test harness and module registration.
 - [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
