@@ -220,6 +220,7 @@
   // rasterizer; streetDress.marks only records story/visual dressing.
   function variantOwnerAt(entry, idx) {
     if (!entry || idx < 0) return null;
+    if (entry.caveAreas?.reserved.has(idx)) return 'cave';
     if (entry.zone && entry.zone.coverage && entry.zone.coverage[idx]) return 'zone';
     return entry.streetArea && entry.streetArea[idx] ? 'road' : null;
   }
@@ -8342,7 +8343,7 @@
       if (o.kind === 'mineralrock') {
         const { lix, liy } = cellOf(o);
         const idx = liy * N + lix;
-        if (sweep.has(idx)) { occupied.delete(idx); continue; }
+        if (sweep.has(idx) && !o.caveArea) { occupied.delete(idx); continue; }
       }
       objects[w++] = o;
     }
@@ -8735,7 +8736,7 @@
     // into it for this one player (the home up-stair, the starter ladder, dug
     // walls, a well's repaint). A live read made the cave under a tile depend
     // on who descended into it and when.
-    const aboveGrid = above.baseGrid || above.grid;
+    const aboveGrid = above.geologyGrid || above.baseGrid || above.grid;
     const aboveObjects = above.genObjects || above.objects || [];
     const surface = depth >= 2 ? await loadTile.atDepth(0, x, y, lat) : above;
     if (surface.status === 'loading') await surface.promise;
@@ -8833,15 +8834,22 @@
     // The floor passes (CAVE_PASSES), in table order: the rocks, then the
     // mushrooms, then the level's own extras — each only takes what is left.
     const wildplants = [];
-    const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, occupied, { objects, wildplants });
+    const geologyGrid = grid.slice();
+    const caveAreas = global.CaveAreas.plan({ surface, grid, N, tx: x, ty: y, tileEdgeM, depth,
+      objects, occupied, spawnWhy });
+    global.CaveAreas.apply(caveAreas, grid, objects, wildplants, occupied);
+    // Area ownership includes its empty banks and approaches. Own placements
+    // use real occupancy; ordinary floor passes also respect the whole area.
+    const ambientOccupied = new Set([...occupied, ...caveAreas.reserved]);
+    const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, ambientOccupied, { objects, wildplants });
     for (const row of CAVE_PASSES) runCavePass(row, level);
     stampCaveQuarryRocks(objects, above, N, x, y, tileEdgeM, depth);
     const extraTreasures = level.treasures, caveCoinSeeds = level.coins;
     const entry = {
-      status: 'ready', grid, spawnWhy, cellsPerEdge: N, tileEdgeM, depth,
+      status: 'ready', grid, spawnWhy, geologyGrid, caveAreas, cellsPerEdge: N, tileEdgeM, depth,
       undergroundBiome: depth === 3 ? 'underdark' : depth === 2 ? 'deep_stone' : 'cave',
       undergroundAreas: areas, undergroundClearings: clearings, undergroundResidents: residents,
-      undergroundReserved: occupied, surfaceRoadMask: surface.roadMask,
+      undergroundReserved: ambientOccupied, surfaceRoadMask: surface.roadMask,
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
       roadLabels: {}, pathUnder: {}, torchSites,
       // The generated layer, frozen for the level below (see loadTile): app.js

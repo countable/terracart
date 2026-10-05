@@ -67,13 +67,9 @@
     const initialOccupied = new Set(occ);
     const position = (ix, iy) => [cx(ix), cy(iy)];
     const states = (field.anchors || []).map((a, ai) => {
-      const variant = V.pick(a), unit = WG.CELL_M / (a.upm || N * WG.CELL_M / EXT);
-      const gx = a.originGX == null ? a.gx : a.originGX, gy = a.originGY == null ? a.gy : a.originGY;
-      const ownerX = Math.floor(gx / EXT), ownerY = Math.floor(gy / EXT);
-      const originX = ownerX * EXT + (Math.floor((gx - ownerX * EXT) / unit) + 0.5) * unit;
-      const originY = ownerY * EXT + (Math.floor((gy - ownerY * EXT) / unit) + 0.5) * unit;
+      const variant = V.pick(a);
+      const { unit, originX, originY, local } = V.anchorFrame(a, { N, tx, ty });
       const chest = a.owned && !a.parkShore && !a.generated && !variant.generated ? chests.get(`${a.lx},${a.ly}`) : null;
-      const local = (x, y) => [Math.floor((x - tx * EXT) * N / EXT), Math.floor((y - ty * EXT) * N / EXT)];
       let poi = local(originX, originY);
       if (chest) poi = [Math.floor((chest.x - ox) / step), Math.floor((chest.y - oy) / step)];
       const source = local(a.gx, a.gy);
