@@ -151,7 +151,7 @@ def _spring_sample(row, data, helpers, detail=False):
     # The bank remains dry all around the pool; rings have four open approaches.
     radius = layout['poolRadiusCells']*unit
     parts.append(f'<circle class="spring-bank" cx="{c}" cy="{c}" r="{radius+unit}" fill="#8e8770" fill-opacity=".25"/>')
-    parts.append(f'<circle class="spring-water" cx="{c}" cy="{c}" r="{radius}" fill="url(#{prefix}-water)" stroke="#669a9d" stroke-width="1"><title>Pool supplied by the central spring · refill from its reachable bank</title></circle>')
+    parts.append(f'<circle class="spring-water" cx="{c}" cy="{c}" r="{radius}" fill="url(#{prefix}-water)" stroke="#669a9d" stroke-width="1"><title>Pool supplied by the central spring</title></circle>')
     for slot in _spring_slots(row):
         x,y = (centre+slot['at'][0])*unit,(centre+slot['at'][1])*unit
         if 0 <= x < side*unit and 0 <= y < side*unit:
@@ -182,7 +182,7 @@ def _spring_card(row,data,helpers):
         ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters']),
         ('Hidden encounters',row['encounters']['activation']),
         ('Mechanic status',row['encounters']['mechanicStatus']),
-        ('Water','Pool surrounds the source. The water is impassable; refilling uses the nearest reachable bank, not the distant centre.'),
+        ('Water','Pool surrounds the source. The water is impassable; a reachable dry bank circles it.'),
         ('Placement','The clear bank and four radial openings take precedence over ring pieces. Pool and source share one POI identity; the cache stays dry.'),
         ('Lighting','Existing cave and player light; water does not add a new light source.'),
         ('Art','Game cave-floor and water textures, cave mushroom sprites and ordinary mineral-rock sprites. Only the spring-source prop is an archived candidate; bank and island outlines are preview geometry.')]
@@ -366,7 +366,7 @@ def underground_section(helpers, out):
             '<p><a href="underground-zone-variants.draft.json">Draft data and implementation contract</a> · <a href="underground-art-license.txt">Candidate art license</a></p>'
             '<details><summary>Placement, rewards and depth rules</summary><p>Path themes use the existing path geometry on cave levels 1 and 2 only. Cover all eligible paths; carve only explicitly eligible sm_road corridors, retaining medium/large roads and buildings as walls, and do not carry themes to level 3 or deeper. Preserve stairs, water and building provenance and excluded access; reserve clear lanes before dressing. Seep Passage replaces underground route tiles with water, preserving dry side banks and crossings at required connections.</p>'
             '<p>Regions keep stable surface POI identities at each depth, even when chest mirrors are pruned. Style at most one surviving mirror as the nexus cache, with existing tier rules. Ordinary finds and stores replace existing cave allocations. Warrens and mushroom caverns have explicit denser encounter budgets; route patrols and cubes are owned once per route. Named-zone skeleton, mushroom-monster and cube placements are deliberate level-1/2 exceptions to ambient roster depth rules. Miners’ Way adds a sparse, finite bonus ore budget at the floor tier; route fragments do not multiply it. Junctions and tile fragments never mint another reward.</p>'
-            '<p>For grove anchors only, suggested spring : warren : mushroom : gemstone weights are 35 : 30 : 30 : 5 at depth 1, 20 : 45 : 25 : 10 at depth 2, before geographic affinities. Warrens and mushroom caverns have one daily shrine each, using the existing boon and ledger rules. Spring water refills a watering can through a proposed interaction; free healing is not part of this draft. Optional warren traps need a bypass and are not drawn as a repeating background slot.</p>'
+            '<p>For grove anchors only, suggested spring : warren : mushroom : gemstone weights are 35 : 30 : 30 : 5 at depth 1, 20 : 45 : 25 : 10 at depth 2, before geographic affinities. Warrens and mushroom caverns have one daily shrine each, using the existing boon and ledger rules. Free healing is not part of this draft. Optional warren traps need a bypass and are not drawn as a repeating background slot.</p>'
             '<ul>'+checks+'</ul></details>'
             '<section id="underground-nexus"><h2>Underground nexus</h2><div class="cards">'+''.join(cards['nexus'])+'</div></section>'
             '<section id="underground-paths"><h2>Underground paths and small roads</h2><div class="cards">'+''.join(cards['path'])+'</div></section></section>' + _ambush_script() + _pit_script())
