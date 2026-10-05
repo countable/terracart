@@ -37,7 +37,10 @@ function scene(creatures) {
 }
 function tick(s, atMs) {
   const realNear = WorldGen.forEachItemNear, realNow = performance.now;
-  WorldGen.forEachItemNear = (what, tx, ty, fn) => { if (what === 'creatures') for (const c of s.creatures) fn(c, 0, 0); };
+  WorldGen.forEachItemNear = (what, tx, ty, fn) => {
+    if (what !== 'creatures') return;
+    for (const c of s.creatures) { s._nearVisits = (s._nearVisits || 0) + 1; fn(c, 0, 0); }
+  };
   try { performance.now = () => atMs; __wander.call(s); }
   finally { WorldGen.forEachItemNear = realNear; performance.now = realNow; }
 }
@@ -74,12 +77,36 @@ test('steady state: a surface foe outside the sim bubble is re-asked once a SURF
   assert.lte(SURFACE_RECHECK_MS, 2000, 'and never stale for longer than a couple of seconds');
 });
 
-test('steady state: drawObjects culls a creature to the viewport before asking whether it is here', () => {
+test('steady state: still feet reuse one active creature bubble between far-seat rechecks', () => {
+  const near = { kind: 'slime', id: 'near', x: 2 * CELL, y: 0 };
+  const far = { kind: 'slime', id: 'far', x: (CREATURE_SIM_CELLS + 5) * CELL, y: 0 };
+  const s = scene([near, far]);
+  const T0 = 1e6;
+  for (let i = 0; i < 10; i++) tick(s, T0 + i * 50);
+  // Other once-only setup (the night pump) may share the same neighbourhood
+  // walker on the first tick. The old per-tick bubble scan alone would visit
+  // these two seats 20 times here; the memo keeps the whole startup total low.
+  assert.lte(s._nearVisits, 6, 'the ring is not walked once per still tick');
+  assert.eq(s._activeCreatures.length, 1, 'only the near seat feeds movement, combat and render');
+  const beforeClock = s._nearVisits;
+  tick(s, T0 + SURFACE_RECHECK_MS);
+  assert.gt(s._nearVisits, beforeClock, 'the slow far-seat clock refreshes the ring');
+});
+
+test('steady state: movement, combat and render share the active creature bubble', () => {
+  const wander = String(__wander);
+  assert.truthy(/for \(const c of activeCreatures\) \{\s*tickCreature\(c\);/.test(wander),
+    'movement walks the bubble, not the whole ring');
+  const combat = SCENE_SRC.slice(SCENE_SRC.indexOf('  _combatTick(dt) {'), SCENE_SRC.indexOf('  _turretFire('));
+  assert.truthy(/for \(const c of this\._activeCreatures\) considerCreature\(c\);/.test(combat),
+    'combat reuses the same bubble');
+
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  const loop = body.slice(body.indexOf('for (const c of entry.creatures) {'), body.indexOf('creatureList.push({ c, dx, dy });'));
+  const loop = body.slice(body.indexOf('for (const c of frameCreatures || fallbackCreatures) {'), body.indexOf('creatureList.push({ c, dx, dy });'));
+  assert.truthy(loop.includes('frameCreatures || fallbackCreatures'), 'the live sim bubble feeds the draw pass');
   const cull = loop.indexOf('if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;');
   const ask = loop.indexOf('EnemySpawns.surfaceActive(scene, c)');
-  assert.truthy(cull > 0 && ask > cull, 'the cull comes first');
+  assert.truthy(cull > 0 && ask > cull, 'render culls before the surface gate');
 });
 
 // ── Turrets are derived per tile, not walked out of every object ──────────

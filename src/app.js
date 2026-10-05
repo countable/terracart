@@ -3489,7 +3489,7 @@ class MapScene extends Phaser.Scene {
     // Cheap box cull first, membership test last.
     const caughtSet = setOf(this.save.caught);
     const pcTick = this.playerToWorldCell();
-    WorldGen.forEachItemNear('creatures', pcTick.tx, pcTick.ty, (c) => {
+    const considerCreature = (c) => {
       // A blast can catch foes just beyond the viewport; auto-fire still
       // uses only the visible list below.
       if (explosiveTargets && !caughtSet.has(c.id) && Combat.isEnemy(c)) explosiveTargets.push(c);
@@ -3499,7 +3499,18 @@ class MapScene extends Phaser.Scene {
       if (Combat.isCharmed(c)) { charmedAllies.push(c); return; }
       if (!Combat.isEnemy(c)) return;
       enemies.push(c);
-    });
+    };
+    // wanderCreatures has just built the one live sim bubble for this frame.
+    // Its 12-cell radius covers the viewport corner and the largest fired
+    // blast (the furthest shot plus its two-cell burst), so combat can read
+    // those few live references instead of walking every frozen seat in the
+    // 3×3 ring again. Direct test/tool calls that skip wander keep the old
+    // neighbourhood fallback.
+    if (Array.isArray(this._activeCreatures)) {
+      for (const c of this._activeCreatures) considerCreature(c);
+    } else {
+      WorldGen.forEachItemNear('creatures', pcTick.tx, pcTick.ty, considerCreature);
+    }
 
     DragonStory.tick(this, now, px, py, enemies);
     const relics = Gear.effectiveRelics(this.save);

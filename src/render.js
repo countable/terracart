@@ -3037,6 +3037,13 @@ Render.drawObjects = function drawObjects(scene) {
     }
   };
   const connectedArt = new Map(), chasmObjects = [];
+  // wanderCreatures publishes the live 12-cell sim bubble before this pass.
+  // The viewport corner is about 7.8 cells away and the widest peek adds 3,
+  // still inside the 12-cell bubble, so every drawable creature is in that
+  // small list. A direct render test/tool call can skip
+  // the sim; collect the old ring-order fallback for that case only.
+  const frameCreatures = Array.isArray(scene._activeCreatures) ? scene._activeCreatures : null;
+  const fallbackCreatures = frameCreatures ? null : [];
   let _boot_scanned = 0, _boot_kept = 0, _boot_creatures = 0;
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
@@ -3108,25 +3115,7 @@ Render.drawObjects = function drawObjects(scene) {
           });
         }
       }
-      if (entry.creatures) {
-        for (const c of entry.creatures) {
-          _boot_scanned++; _boot_creatures++;
-          // The viewport cull FIRST — two subtractions against a Set lookup
-          // and a roster walk, over every creature of the ring (creatures
-          // move, so they are not chunk-indexed): only a creature that would
-          // be drawn is asked whether it was caught, or whether a surface
-          // foe is here for this player (its `_surfaceInactive` stamp;
-          // wanderCreatures keeps the rest of the ring's).
-          const dx = c.x - pWorldX, dy = c.y - pWorldY;
-          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
-          if (caughtSet.has(c.id)) continue;
-          if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
-          if (c._surfaceInactive) continue;
-          if ((c.hidden || c.stealthy) && !c._discovered) continue;
-          if (!c._burrowed) creatureList.push({ c, dx, dy });
-          _boot_kept++;
-        }
-      }
+      if (!frameCreatures && entry.creatures) fallbackCreatures.push(...entry.creatures);
       // Wild plants render as planted crops at the mature stage (col 4).
       if (entry.wildplants) {
         WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
@@ -3187,6 +3176,20 @@ Render.drawObjects = function drawObjects(scene) {
         }
       }
     }
+  }
+  for (const c of frameCreatures || fallbackCreatures) {
+    _boot_scanned++; _boot_creatures++;
+    // The viewport cull FIRST — two subtractions against a Set lookup and a
+    // roster walk. In the live game wanderCreatures has already removed the
+    // frozen ring seats; the fallback preserves standalone render callers.
+    const dx = c.x - pWorldX, dy = c.y - pWorldY;
+    if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+    if (caughtSet.has(c.id)) continue;
+    if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+    if (c._surfaceInactive) continue;
+    if ((c.hidden || c.stealthy) && !c._discovered) continue;
+    if (!c._burrowed) creatureList.push({ c, dx, dy });
+    _boot_kept++;
   }
   // B.count keeps n/sum/worst like B.tick, just printed without 'ms' — the
   // peak answers "how bad does the densest tile get", the average answers
