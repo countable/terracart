@@ -10,6 +10,8 @@
   }
   function canUseDescent(save, from, target, source) {
     if (!Number.isInteger(from) || !Number.isInteger(target) || from < 0 || target < 0) return false;
+    // Falling is involuntary and cannot be stopped by a locked stair route.
+    if (source === 'sinkhole') return target === from + 1 && target !== Arena.DEPTH && from !== Arena.DEPTH;
     if (source === 'elevator') {
       if (!Elevators.isRepaired(save) || !Elevators.FLOORS.includes(from)
           || (target !== 0 && !Elevators.unlockedFloors(save).includes(target))) return false;

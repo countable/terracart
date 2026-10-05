@@ -3492,7 +3492,13 @@ Render.drawObjects = function drawObjects(scene) {
   const whirlwindList = (scene.depth === 0 ? scene._whirlwinds || [] : []).map(h => ({
     h, dx: h.x - pWorldX, dy: h.y - pWorldY,
   })).filter(it => Math.abs(it.dx) <= halfM && Math.abs(it.dy) <= halfM);
+  const hazardState = EnvironmentHazards.lists(scene);
+  const environmentList = [...hazardState.vents, ...hazardState.sinkholes].map(h => ({
+    h, dx: h.x - pWorldX, dy: h.y - pWorldY,
+  })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const zList = [];
+  for (const it of environmentList) zList.push({ it, rank: 1,
+    ground: it.h.type === 'sinkhole', groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
@@ -4414,10 +4420,20 @@ Render.drawObjects = function drawObjects(scene) {
     Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }
 
+  scene._environmentHazardPool ||= [];
+  Render.renderPool(scene, scene._environmentHazardPool, scene.creaturesContainer, environmentList, (s, it) => {
+    const { x: sx, y: sy } = project(it.dx, it.dy), h = it.h;
+    const cfg = EnvironmentHazards.CONFIG[h.type];
+    s.anims?.stop();
+    s.setTexture(h.type === 'vent' ? 'vent_cycle' : 'sinkhole', h.frame)
+      .setOrigin(...cfg.renderAnchor).setDisplaySize(cfg.widthCells * CELL_PX, cfg.heightCells * CELL_PX)
+      .setPosition(Math.round(sx), Math.round(sy)).setDepth(it._z).setAlpha(1).setTint(0xffffff);
+  });
+
   // Whirlwinds share ground-anchor depth ordering with actors and trees.
   scene._whirlwindPool ||= [];
   Render.renderPool(scene, scene._whirlwindPool, scene.creaturesContainer, whirlwindList, (s, it) => {
-    const { sx, sy } = project(it.dx, it.dy);
+    const { x: sx, y: sy } = project(it.dx, it.dy);
     s.anims?.stop();
     const { frameSize, anchor } = Whirlwinds.CONFIG;
     s.setTexture('whirlwind', it.h.frame).setOrigin(anchor[0] / frameSize, anchor[1] / frameSize)

@@ -24,8 +24,8 @@
     "curve": 2,
     "tail": 3
   },
-  "tailRule": "Select opposite direction of travel: tail tips point toward column direction.",
-  "spacingPixels": 7,
+  "tailRule": "Select opposite direction of travel; place the measured broad-base socket on the final trail sample.",
+  "spacingPixels": 9,
   "bodyPieces": 19,
   "projection": "square top-down; south45 artwork; no diamond transform",
   "frames": [
@@ -253,5 +253,39 @@
       "x": 224,
       "y": 96
     }
-  ]
+  ],
+  "tailAnchorsByTipDirection": {
+    "E": [
+      10,
+      12
+    ],
+    "SE": [
+      15,
+      11
+    ],
+    "S": [
+      16,
+      11
+    ],
+    "SW": [
+      18,
+      11
+    ],
+    "W": [
+      21,
+      12
+    ],
+    "NW": [
+      18,
+      16
+    ],
+    "N": [
+      16,
+      17
+    ],
+    "NE": [
+      13,
+      16
+    ]
+  }
 }

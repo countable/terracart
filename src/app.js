@@ -1953,7 +1953,7 @@ class MapScene extends Phaser.Scene {
         capMS = Math.min(capMS ?? Infinity, WALK_M_S * contact.speedMul);
       }
     }
-    const held = pinned || Conditions.active(this.save, 'jellyfish_stun');
+    const held = Conditions.movementBlocked(this.save);
     const balancing = typeof ObstacleStep !== 'undefined' && ObstacleStep.speedMul(this._obstacleStep) < 1;
     return { pinned: held, capMS, slowed: !held && (capMS > 0 || balancing) };
 
@@ -3424,6 +3424,7 @@ class MapScene extends Phaser.Scene {
     // the player's FEET in — and answers it the same way (playerToWorldCell,
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
+    EnvironmentHazards.tick(this, dt);
     Whirlwinds.tick(this, dt);
     this._tickTraps(dt);
     // …and is a guildhall bounty's pack still about (its leash)?
@@ -3567,7 +3568,7 @@ class MapScene extends Phaser.Scene {
     // The Shadow Powder is a truce, not a flank: while it hides the player,
     // the cadence holds its fire too. The else-branch re-arms, so the first
     // arrow flies the instant the shadow lifts.
-    const rangedArmed = !this.isShadowActive()
+    const rangedArmed = !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
       && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
@@ -3740,7 +3741,7 @@ class MapScene extends Phaser.Scene {
     // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
-    if (Gear.meleeActive(this.save) && (!this._workProgress || this._workProgress.combat)) {
+    if (!Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && (!this._workProgress || this._workProgress.combat)) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
@@ -3758,11 +3759,11 @@ class MapScene extends Phaser.Scene {
     this._drawEnemyHealth(enemies);
   }
 
-  _applyCondition(id) {
+  _applyCondition(id, options = {}) {
     // A fresh row pops its word and flicks the body from _announceStatuses
     // (the next condition tick), as every status does; poison keeps its
     // one-time lesson.
-    const fresh = Conditions.apply(this.save, id);
+    const fresh = Conditions.apply(this.save, id, Date.now(), options);
     this._syncAttackConditionSpeed();
     if (fresh && id === 'confused') this._confusedRecover = true;
     if (fresh && id === 'poison') {
@@ -4602,6 +4603,7 @@ class MapScene extends Phaser.Scene {
   // since every other damage source only makes the fight shorter, that
   // estimate is a true upper bound.
   startCombat(victim, opts = {}) {
+    if (Conditions.attacksBlocked(this.save)) return false;
     // A Shadow Powder is a truce: no wheel spins up while it hides the player.
     if (this.isShadowActive()) {
       if (!opts.auto) {
@@ -4908,6 +4910,7 @@ class MapScene extends Phaser.Scene {
     this._drawWatering?.();
     const wp = this._workProgress;
     if (!wp) return;
+    if ((wp.combat || wp.flee) && Conditions.attacksBlocked(this.save)) return;
     // A rose can change allegiance while a melee wheel is already running.
     if (wp.combat && (!Combat.isEnemy(wp.combat) || !Gear.meleeActive(this.save))) { this.cancelWorkProgress(); return; }
     const now = performance.now();
@@ -6525,7 +6528,7 @@ class MapScene extends Phaser.Scene {
     }
     // Can't descend on an empty tank — you'd just pass out down there. Climbing
     // up is always allowed (it's how you escape exhaustion).
-    if (delta > 0 && (this.save.energy ?? 0) <= 0) {
+    if (source !== 'sinkhole' && delta > 0 && (this.save.energy ?? 0) <= 0) {
       this.flashAtPlayer('Too tired to go down.');
       return;
     }
@@ -6558,6 +6561,7 @@ class MapScene extends Phaser.Scene {
     this.flash(target > 0 ? `Descended — depth ${target}` : 'Back on the surface',
                this.viewCenterX, this.viewCenterY);
     persistSave(this.save);
+    if (source === 'sinkhole') return true;
     // The FIRST time a save goes below the surface tells its story. Every way
     // down (stairs, rope, the sapphire portal) comes through here, and a busy
     // screen returns false unmarked (the story ledger), so the next descent

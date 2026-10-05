@@ -34,6 +34,7 @@ const DragonStory = (() => {
   // No world scan: the caller already collected visible, living hostiles.
   // The cooldown gates even the nearest-target and line-of-fire work.
   function tick(scene, now, px, py, enemies) {
+    if (Conditions.attacksBlocked(scene.save)) return null;
     if (!unlocked(scene.save) || Combat.playerDowned(scene.save.energy)
         || now < (scene._fireBreathNextT || 0)) return null;
     const dragon = EnemyRoster.get('red_dragon');

@@ -1,7 +1,10 @@
 /* Standalone prototype; no game runtime dependencies. */
 (function(root){
 'use strict';
-const STEP=1/120, SPACING=7, COUNT=21, SPEED=42;
+const STEP=1/120, SPACING=9, COUNT=21, SPEED=42;
+// Tail sockets are the centres of the broad bases, measured in native atlas pixels.
+// Column order is the tail-tip heading: E, SE, S, SW, W, NW, N, NE.
+const TAIL_ANCHORS=[[10,12],[15,11],[16,11],[18,11],[21,12],[18,16],[16,17],[13,16]];
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 class Trail {
@@ -26,5 +29,5 @@ class Model {
  }
  chain(){const p=this.trail.chain();p[0].angle=this.heading;return p;}
 }
-const api={Model,Trail,STEP,SPACING,COUNT,SPEED,angleDelta};if(typeof module!=='undefined')module.exports=api;root.SerpentPrototype=api;
+const api={Model,Trail,STEP,SPACING,COUNT,SPEED,angleDelta,TAIL_ANCHORS};if(typeof module!=='undefined')module.exports=api;root.SerpentPrototype=api;
 })(typeof window==='undefined'?globalThis:window);

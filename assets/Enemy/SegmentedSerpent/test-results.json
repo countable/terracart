@@ -1,5 +1,5 @@
 {
-  "generated": "2026-10-05T08:18:18.982Z",
+  "generated": "2026-10-05T08:50:13.675Z",
   "scope": "standalone draft, not game runtime",
   "results": [
     {
@@ -16,25 +16,25 @@
     {
       "name": "Straight line has constant spacing and stops at target",
       "pass": true,
-      "spacing": 7
+      "spacing": 9
     },
     {
       "name": "winding route: finite positions, no joint gaps, bounded history",
       "pass": true,
       "seconds": 60,
-      "maxCenterGap": 7.000000000002208
+      "maxCenterGap": 9.000000000002835
     },
     {
       "name": "sharp route: finite positions, no joint gaps, bounded history",
       "pass": true,
       "seconds": 60,
-      "maxCenterGap": 7.000000000002231
+      "maxCenterGap": 9.000000000002895
     },
     {
       "name": "reverse route: finite positions, no joint gaps, bounded history",
       "pass": true,
       "seconds": 60,
-      "maxCenterGap": 7.000000000002309
+      "maxCenterGap": 9.000000000002935
     },
     {
       "name": "Turn back preserves body; steering makes a bounded U-turn",
@@ -63,8 +63,86 @@
     {
       "name": "Authored body frames cover every centerline junction at default spacing",
       "pass": true,
-      "testedSamples": 232,
+      "testedSamples": 296,
       "uncovered": 0
+    },
+    {
+      "name": "Tail sockets overlap preceding body in all eight headings",
+      "pass": true,
+      "headings": [
+        {
+          "heading": 0,
+          "overlapPixels": 80,
+          "tailSocket": [
+            21,
+            12
+          ]
+        },
+        {
+          "heading": 1,
+          "overlapPixels": 91,
+          "tailSocket": [
+            18,
+            16
+          ]
+        },
+        {
+          "heading": 2,
+          "overlapPixels": 92,
+          "tailSocket": [
+            16,
+            17
+          ]
+        },
+        {
+          "heading": 3,
+          "overlapPixels": 85,
+          "tailSocket": [
+            13,
+            16
+          ]
+        },
+        {
+          "heading": 4,
+          "overlapPixels": 64,
+          "tailSocket": [
+            10,
+            12
+          ]
+        },
+        {
+          "heading": 5,
+          "overlapPixels": 120,
+          "tailSocket": [
+            15,
+            11
+          ]
+        },
+        {
+          "heading": 6,
+          "overlapPixels": 94,
+          "tailSocket": [
+            16,
+            11
+          ]
+        },
+        {
+          "heading": 7,
+          "overlapPixels": 120,
+          "tailSocket": [
+            18,
+            11
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Winding, sharp and reverse body/tail junctions retain actual alpha coverage",
+      "pass": true,
+      "secondsPerRoute": 30,
+      "centerlineSamples": 307800,
+      "uncovered": 0,
+      "includesTail": true
     }
   ]
 }

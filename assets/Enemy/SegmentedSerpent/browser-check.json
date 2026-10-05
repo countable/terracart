@@ -17,5 +17,18 @@
     "parts.png",
     "preview.png",
     "hairpin screenshot"
+  ],
+  "spacingPixels": 9,
+  "revisionExercised": [
+    "winding",
+    "sharp",
+    "reverse",
+    "straight",
+    "all eight native tail headings"
+  ],
+  "revisionVisualInspected": [
+    "preview.png",
+    "tail-directions.png",
+    "hairpin screenshot"
   ]
 }

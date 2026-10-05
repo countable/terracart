@@ -1,5 +1,5 @@
 'use strict';
-const {Model,SPACING,angleDelta}=SerpentPrototype;
+const {Model,SPACING,angleDelta,TAIL_ANCHORS}=SerpentPrototype;
 const $=id=>document.getElementById(id), atlas=new Image();
 let model=new Model(),last=0,pending=0;
 const contexts=['native','rotated'].map(id=>$(id).getContext('2d'));
@@ -15,7 +15,10 @@ function draw(ctx,rotated){
  if(row===3)angle+=Math.PI;
  if(row===1&&$('curves').checked){const prev=chain[Math.max(0,p.index-1)],next=chain[Math.min(chain.length-1,p.index+1)];if(Math.abs(angleDelta(prev.angle,next.angle))>.32)row=2;}
  const x=Math.round(p.x),y=Math.round(p.y);ctx.save();ctx.translate(x,y-(row===0?3:0));
- if(rotated&&row!==0){ctx.rotate(angle);ctx.scale(1.08,1);ctx.drawImage(atlas,0,row*32,32,32,-16,-16,32,32);}else ctx.drawImage(atlas,octant(angle)*32,row*32,32,32,-16,-16,32,32);
+ const col=rotated&&row!==0?0:octant(angle);
+ const anchor=row===3?TAIL_ANCHORS[col]:[16,16];
+ if(rotated&&row!==0){ctx.rotate(angle);ctx.scale(1.08,1);}
+ ctx.drawImage(atlas,col*32,row*32,32,32,-anchor[0],-anchor[1],32,32);
  ctx.restore();
  }
  if($('debug').checked){ctx.strokeStyle='#f1d292';ctx.beginPath();chain.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.stroke();for(const p of chain){ctx.fillStyle='#edbf67';ctx.fillRect(Math.round(p.x)-1,Math.round(p.y)-1,2,2);}}

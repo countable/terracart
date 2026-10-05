@@ -717,6 +717,7 @@ class SceneConsumables {
   // and the item kept — when none is there, or while downed (no reach). A
   // tome passes its own `damage`, `noun` and `spend: false`.
   _castOnFoes(id, { damage = CONSUMABLE_SPEC[id]?.damage, spend = true, noun } = {}) {
+    if (Conditions.attacksBlocked(this.save)) return false;
     const row = CAST_ROWS[id];
     if (!row || (spend && !this._selectedConsumable(id)) || Combat.playerDowned(this.save.energy)) return false;
     const reach = row.scope === 'reach';
@@ -773,6 +774,7 @@ class SceneConsumables {
   }
 
   canThrowItem(id) {
+    if (Conditions.attacksBlocked(this.save)) return false;
     const sel = getSelectedSlot(this.save);
     return sel?.id === id && (sel.count ?? 0) > 0
       && !Combat.playerDowned(this.save.energy) && !this.isShadowActive()
