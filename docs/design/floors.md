@@ -22,7 +22,7 @@ its terrain rule, its content windows, and its route in.
 | --- | --- | --- | --- | --- |
 | 1 | Natural caves with some engineered tunnels | Cave: the negative of the surface's walkable cells | Street and path mirror routes with themes, authored spring caves, barrels, floor torches, rolling-ball pressure plates, quarry gem seams, double mushroom growth, a thin copper seam; pits, holes and sinkhole cave-ins drop into the goblin city below; the only floor where campfires ward monsters (`FIRE_WARD_MAX_DEPTH = 1`) | Bats and slimes, a few goblins (window 1-2) |
 | 2 | Goblin city | Only buildings turn to rock wall - roads stay open, unlike every other floor - and goblin-warren rooms laid out nexus-style cover the rest of the floor | The warrens are the floor: rooms claim everything except small clearings, which appear only on road variants and at non-goblin nexus places, the same anchors as floor 1; falls from floor 1's pits land in those clearings; a thin copper seam (the floor 1 share) | The warren family: club, spear and archer goblins, goblin trappers (city window 2-3) |
-| 3 | Deep stone | Only surface park, grove, playground, pitch and commercial ground opens; the rest is stone the player must dig through to get anywhere | Digging is the way around: most places need it, and road variants keep about half the roads cleared as tunnels; clearings settle as Deep groves and Dwarven cities with residents, caches and shrines; copper is its mine; ghosts walk the even depths from here | Spider, zombie, spear goblin (3-4) |
+| 3 | Deep stone | Only surface park, grove, playground, pitch and commercial ground opens; the rest is stone the player must dig through to get anywhere | Digging is the way around: most places need it, and road variants keep about half the roads cleared as tunnels; the only way down to floor 4 is a shaft dug through the stone; clearings settle as Deep groves and Dwarven cities with residents, caches and shrines; copper is its mine; ghosts walk the even depths from here | Spider, zombie, spear goblin (3-4) |
 | 4 | Underdark: a fungal world, open like the surface | Every cell opens into one cavern - no corridor maze, open ground under the fungi | The portal stone waits here (the first chest of tier 3 or better found a kilometre or more from home); first floor where chest tiers can reach T6; crypt ghosts appear; double mushroom growth returns with the fungi; the arrival story plays here ("The walls fall away into a barren cavern") | Purple slime, mushroom monsters, troll (4-5, troll 4-4) |
 | 5 | Haunted layer: a dead city | Mirrors the surface grid - the city above, repeated in ruin and silence | Arena-locked hatches from floor 4 - the five tower trials mint the key that opens them; the dead city keeps the shape of home, and its ghosts keep theirs | Ghosts, sword spirits, vampire bats (5-6) |
 | 6 | Lava stratum | Rock under surface buildings turns to lava | Infernal kinds enter the pools; fire elementals appear only here | Fire elemental (6-6), fiend, brute (6-7) |
@@ -33,15 +33,19 @@ Beyond 8 the dungeon stays open rather than ending: liches, minotaurs, hell
 brutes and armoured demons hold depth 9 and deeper, and ore and chest tiers
 hold at their ceilings.
 
-Routes in:
+Routes in - three gated descents sit between floors 2 and 5; everything else is open:
 
-- Downward ladders and pits sit on every floor except 3 and 4. Ladders climb
-  down on purpose; pits, holes and sinkholes drop one floor by accident.
-  Up-ladders always mirror the ladder above.
-- Floors 3 and 4 are sealed against casual descent: no downward ladders, no
-  pits, and the rope refuses to go down from them. Down from floor 3 you dig -
-  the stone must be broken through. Down from floor 4 the arena-locked
-  hatches are the only way.
+| Segment | Ways down | Ways back up |
+| --- | --- | --- |
+| 1 → 2 | Ladders, pits and sinkhole cave-ins, rope | Up-ladders (always mirrored) |
+| 2 → 3 | The elevator only - its floor 3 stop needs the ten-chest parts find. No ladders or pits drop into floor 3, and the rope refuses | The elevator |
+| 3 → 4 | Dig - the stone must be broken through. No ladders, no pits, rope refuses | The shaft you dug stays open; climb back up it |
+| 4 → 5 | The arena-locked hatches only - the portal stone found here opens the arena on the surface, five trial wins mint the key | The hatches, once unlocked |
+| 5 → 6 and below | Ladders, pits, rope | Up-ladders (always mirrored) |
+
+So floors 2, 3 and 4 own no downward ladders and no pits: the goblin city
+ends at the elevator, the deep stone at the dig, the Underdark at the
+hatches.
 - The elevator stands at Home. Repair it only from floor 1 - on the surface
   it says the elevator is broken, and nothing can be repaired from there.
   The first fix says: "The elevator machinery whirs to life. It can carry you
