@@ -4947,8 +4947,11 @@ class MapScene extends Phaser.Scene {
       const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, SpriteLayout.creatureMaxMps(c.kind)) * shinyFast;
       // Moss also conceals the catch: fauna and pets do not flee the net.
       if (!Shrines.leverActive(this.save, 'hidden')) {
-        c.x += (dx / dist) * FLEE_MPS * dt;
-        c.y += (dy / dist) * FLEE_MPS * dt;
+        const nx = c.x + (dx / dist) * FLEE_MPS * dt;
+        const ny = c.y + (dy / dist) * FLEE_MPS * dt;
+        if (EnemySpawns.homeFaunaAllows(this, c, nx, ny)) {
+          c.x = nx; c.y = ny;
+        }
       }
       wp.worldX = c.x; wp.worldY = c.y;
       // Escape: once the animal has been OUTSIDE the player's reach (the lit
@@ -8526,28 +8529,42 @@ class MapScene extends Phaser.Scene {
     const tierOf = (row) => row.tier || 0;
     const typeOf = (row) => row.ranked ? [row.role, row.theme].filter(Boolean).join(':') : row.key;
     const types = [...new Map(options.map(row => [typeOf(row), row])).values()];
-    // Pick the type first; the second step quotes its offered ranks.
-    // Progression still owns the ranks and restoreAs validates the pick.
+    const ranksFor = (key) => options.filter(r => typeOf(r) === key);
+    const soleRank = (key) => { const ranks = ranksFor(key); return ranks.length === 1 ? ranks[0] : null; };
+    const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
+    // A sole offered rank restores directly; multiple ranks keep their chooser.
+    // Offer availability, not affordability, determines whether a choice exists.
     const showTypes = (choice = null) => this.showOfferModal({
       kind: 'build',
-      title: 'Step 1 of 2 · Building type',
+      title: 'Building type',
       get: 'Restore this wreck as…',
-      choices: types.map((row) => ({
-        key: typeOf(row),
-        disabled: !options.some(r => typeOf(r) === typeOf(row) && affords(costFor(r))),
-        label: labelFor(row, null) + (options.some(r => typeOf(r) === typeOf(row) && Houses.isNewPick(this.save, r)) ? newBadgeHTML() : ''),
-        iconHTML: iconFor(row),
-        suggested: options.some(r => typeOf(r) === typeOf(row) && r.suggested?.(this.save)),
-      })),
+      choices: types.map((row) => {
+        const ranks = ranksFor(typeOf(row));
+        const minCost = ranks.map(costFor).reduce((min, cost) => cost.qty < min.qty ? cost : min);
+        return {
+          key: typeOf(row),
+          acceptLabel: ranks.length === 1 ? 'Restore' : 'Choose tier',
+          disabled: !ranks.some(r => affords(costFor(r))),
+          label: labelFor(row, null) + (ranks.some(r => Houses.isNewPick(this.save, r)) ? newBadgeHTML() : '')
+            + `<div style="margin-top:6px;font-size:11px">${ranks.length > 1 ? 'From ' : ''}${costLine(minCost)}</div>`,
+          iconHTML: iconFor(row),
+          suggested: ranks.some(r => r.suggested?.(this.save)),
+        };
+      }),
       choice,
       pickHint: 'Choose a building type',
       canAfford: true,
-      acceptLabel: 'Next',
+      acceptLabel: 'Restore',
       cancelLabel: 'Later',
-      onAccept: (key) => showTiers(key),
+      secondary: hasHammer
+        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
+            takes: (key) => Houses.hammerTakes(soleRank(key)),
+            onClick: (key) => { const row = soleRank(key); if (row) restore(row.key, true); } }
+        : undefined,
+      onAccept: (key) => { const row = soleRank(key); if (row) restore(row.key, false); else showTiers(key); },
     });
     const showTiers = (typeKey) => {
-      const ranks = options.filter((r) => typeOf(r) === typeKey);
+      const ranks = ranksFor(typeKey);
       const row = ranks[0];
       if (!row) return;
       const c = costFor(row);
@@ -8564,11 +8581,10 @@ class MapScene extends Phaser.Scene {
           canAfford: affords(c),
         };
       });
-      const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
       const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
       this.showOfferModal({
         kind: 'build',
-        title: tier ? 'Step 2 of 2 · Tier and cost' : 'Step 2 of 2 · Confirm cost',
+        title: 'Tier and cost',
         get: labelFor(row, null),
         choices,
         pickHint: 'Choose a tier',

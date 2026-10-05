@@ -1228,6 +1228,7 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
 // (scene._cellBlocked), a building's wall and a campfire's ward
 // (fireAverse); a flier (orbit_swoop) crosses low terrain.
 function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, escaping = false } = {}) {
+  if (typeof EnemySpawns !== 'undefined' && !EnemySpawns.homeFaunaAllows(scene, c, x, y)) return true;
   if (!fireStepAllowed(scene, c, x, y, escaping)) return true;
   const trap = characterTrapAt(scene, x, y);
   if (trap && trap !== characterTrapAt(scene, c.x, c.y)) return true;

@@ -48,3 +48,36 @@ test('modal buttons: the legacy (label, primary, disabled) spelling still reads'
   assert.truthy(/const o = \(opts && typeof opts === 'object'\) \? opts : \{ variant: opts \? 'primary' : 'ghost', disabled \};/.test(src),
     'a boolean second argument is read as the variant');
 });
+
+test('modal buttons: choice action labels update on selection and retain the modal default', () => {
+  const oldCreate = document.createElement;
+  const el = () => ({ style: {}, children: [], events: {},
+    appendChild(child) { this.children.push(child); },
+    addEventListener(name, fn) { this.events[name] = fn; },
+    remove() {}, click() { this.events.click({ stopPropagation() {} }); },
+  });
+  document.createElement = el;
+  try {
+    const scene = new SceneModals(), buttons = [];
+    scene.makeModalShell = () => ({ wrap: el(), box: el(), mount() {},
+      mkBtn(label) {
+        const b = Object.assign(el(), { innerHTML: label, _setEnabled(on) { this.disabled = !on; } });
+        buttons.push(b); return b;
+      },
+    });
+    const choices = [{ key: 'single', label: 'Single', acceptLabel: 'Restore' },
+      { key: 'multi', label: 'Multiple', acceptLabel: 'Choose tier' }, { key: 'default', label: 'Other' }];
+    let accepted;
+    scene.showOfferModal({ get: 'Building', choices, canAfford: true,
+      acceptLabel: 'Continue', onAccept: key => { accepted = key; } });
+    const accept = buttons[buttons.length - 1];
+    assert.eq(accept.innerHTML, 'Continue'); assert.truthy(accept.disabled);
+    buttons[0].click(); assert.eq(accept.innerHTML, 'Restore'); assert.falsy(accept.disabled);
+    buttons[1].click(); assert.eq(accept.innerHTML, 'Choose tier');
+    buttons[2].click(); assert.eq(accept.innerHTML, 'Continue', 'unlabelled choices use modal default');
+    buttons[1].click(); accept.click(); assert.eq(accepted, 'multi');
+    buttons.length = 0;
+    scene.showOfferModal({ get: 'Single', choices: [choices[0]], canAfford: true, acceptLabel: 'Continue', onAccept() {} });
+    assert.eq(buttons[buttons.length - 1].innerHTML, 'Restore', 'automatically selected sole choice updates immediately');
+  } finally { document.createElement = oldCreate; }
+});

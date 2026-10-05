@@ -3102,6 +3102,7 @@ const CRITTER_SHADOW_W = {
 };
 
 Render.drawObjects = function drawObjects(scene) {
+  if (typeof EnemySpawns !== 'undefined') EnemySpawns.refreshHomeFauna(scene, false);
   // Canvas width, for keeping centred labels on screen (see clampTextX in
   // util.js). Computed HERE, not at script top level: VIEW_CELLS / CELL_PX come
   // from app.js, which loads AFTER render.js.
@@ -3304,7 +3305,7 @@ Render.drawObjects = function drawObjects(scene) {
       // wanderCreatures keeps the rest of the ring's).
       cullToView(entry.creatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
         if (caughtSet.has(c.id)) return;
-        if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+        if (typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
         if (c._surfaceInactive) return;
         if ((c.hidden || c.stealthy) && !c._discovered) return;
         if (!c._burrowed) creatureList.push({ c, dx, dy });

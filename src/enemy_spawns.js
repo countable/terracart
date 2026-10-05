@@ -80,6 +80,67 @@
     const home = scene?._starterTrailAnchor?.() || scene?.save?.starterCratesAt || scene?.startWorldM;
     return home && Number.isFinite(home.x) && Number.isFinite(home.y) ? home : null;
   }
+  // The first Home circle admits chickens and one wild deer. This is a
+  // per-player overlay: generated identities, positions and RNG stay intact.
+  const HOME_FAUNA_RADIUS_M = root.EnemyRoster.SURFACE_TIERS[0].maxDistance;
+  function homeFaunaAnchor(scene) {
+    return (scene?.depth || 0) === 0 ? homeAnchor(scene) : null;
+  }
+  function homeFaunaSubject(c) {
+    return !!c && c.kind !== 'npc' && !root.Combat.isTame(c)
+      && !root.SpriteLayout.isSummoned(c.kind) && root.SpriteLayout.creatureWanders(c.kind)
+      && (!root.Combat.isEnemyKind(c.kind) || root.SpriteLayout.creatureBehaviour(c.kind)?.animal);
+  }
+  function inHomeFaunaCircle(anchor, x, y) {
+    return !!anchor && Math.hypot(x - anchor.x, y - anchor.y) <= HOME_FAUNA_RADIUS_M;
+  }
+  function liveHomeDeer(scene, c, anchor, caught) {
+    return homeFaunaSubject(c) && root.SpriteLayout.baseKind(c.kind) === 'deer'
+      && !caught.has(c.id) && !(c._hp <= 0) && !(c.hp <= 0)
+      && inHomeFaunaCircle(anchor, c.x, c.y);
+  }
+  function homeFaunaAllows(scene, c, x = c?.x, y = c?.y) {
+    if (!homeFaunaSubject(c)) return true;
+    const anchor = homeFaunaAnchor(scene);
+    if (!inHomeFaunaCircle(anchor, x, y)) return true;
+    const kind = root.SpriteLayout.baseKind(c.kind);
+    return kind === 'chicken' || (kind === 'deer' && c.id === scene._homeFaunaDeerId);
+  }
+  // Once per simulation step. Drawing can reuse the result unless a tile,
+  // catch, death or Home change invalidated it since that step. No per-body
+  // query scans the world. Retain the chosen deer while it remains eligible.
+  function refreshHomeFauna(scene, force = true) {
+    const anchor = homeFaunaAnchor(scene), caughtArray = scene.save?.caught || [];
+    const entries = [...root.WorldGen.tileCache.values()];
+    const previous = scene._homeFaunaState;
+    const unchanged = previous && previous.x === anchor?.x && previous.y === anchor?.y
+      && previous.caught === caughtArray && previous.caughtLength === caughtArray.length
+      && previous.entries.length === entries.length
+      && entries.every((entry, i) => previous.entries[i] === entry
+        && previous.arrays[i] === entry.creatures && previous.lengths[i] === (entry.creatures?.length || 0));
+    if (!force && unchanged && (!previous.deer || homeFaunaSubject(previous.deer)
+      && !(previous.deer._hp <= 0) && !(previous.deer.hp <= 0)
+      && !caughtArray.includes(previous.deer.id) && inHomeFaunaCircle(anchor, previous.deer.x, previous.deer.y))) {
+      return scene._homeFaunaDeerId || null;
+    }
+    const caught = new Set(caughtArray), bodies = [];
+    let deer = null, retained = null;
+    for (const entry of entries) for (const c of entry.creatures || []) {
+      bodies.push(c);
+      if (!liveHomeDeer(scene, c, anchor, caught)) continue;
+      if (c.id === scene._homeFaunaDeerId) retained = c;
+      if (!deer || String(c.id) < String(deer.id)) deer = c;
+    }
+    deer = retained || deer;
+    scene._homeFaunaDeerId = deer?.id || null;
+    scene._homeFaunaState = { x: anchor?.x, y: anchor?.y, caught: caughtArray,
+      caughtLength: caughtArray.length, entries, arrays: entries.map(e => e.creatures),
+      lengths: entries.map(e => e.creatures?.length || 0), deer };
+    for (const c of bodies) {
+      if (homeFaunaSubject(c) || c._homeFaunaInactive) surfaceActive(scene, c);
+    }
+    return scene._homeFaunaDeerId;
+  }
   // Is this SURFACE FOE here for this player? One lane, several reasons, all
   // per-player overlays that HIDE a generated foe and never re-roll it: the
   // SAFE AREA (homeAllows, above — every surface foe), then
@@ -94,6 +155,24 @@
   //     (lairX/lairY), so a guard that chases you in does not blink out.
   // Stamps `_surfaceInactive`, which the draw, the AI and Combat.isEnemy read.
   function surfaceActive(scene, creature) {
+    if (!creature) return true;
+    // Remove only this overlay's stamp before recomputing other policies.
+    // A pre-existing inactive reason survives leaving Home or entering a cave.
+    if (creature._homeFaunaInactive) {
+      creature._surfaceInactive = creature._surfaceInactiveBeforeHomeFauna;
+      delete creature._surfaceInactiveBeforeHomeFauna;
+      delete creature._homeFaunaInactive;
+    }
+    const active = surfaceEnemyActive(scene, creature);
+    if (!homeFaunaAllows(scene, creature)) {
+      creature._surfaceInactiveBeforeHomeFauna = creature._surfaceInactive;
+      creature._homeFaunaInactive = true;
+      creature._surfaceInactive = true;
+      return false;
+    }
+    return active && !creature._surfaceInactive;
+  }
+  function surfaceEnemyActive(scene, creature) {
     const at = creature?._surfaceSpawn;
     const guard = !at && creature?.lair ? creature : null;
     if (!at && !guard) return true;
@@ -166,7 +245,7 @@
     return { pack, cells };
   }
   const caveContextAt = (entry, tx, ty, cx, cy, depth) => root.EnemyHabitats.caveAt(entry, tx, ty, cx, cy, depth);
-  const api = { caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
+  const api = { HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
   root.EnemySpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

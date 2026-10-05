@@ -27,7 +27,7 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   assert.truthy(/_worldIconUrl\(texKey, frame = 0\) \{[\s\S]{0,900}?drawImage\(src, fr\.cutX, fr\.cutY, fr\.width, fr\.height/.test(SCENE_SRC), 'a world icon is cut from the frame\'s rect');
 });
 
-test('build choice: type, tier price, back and final payment are separate steps', () => {
+test('build choice: sole ranks restore directly and multiple ranks retain price selection', () => {
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4).trim();
   const stock = { rubble: 100, magic_hammer: 1 };
@@ -50,41 +50,41 @@ test('build choice: type, tier price, back and final payment are separate steps'
   };
   const house = { kind: 'house', tier: 9, id: 'new' };
   present.call(scene, 0, 0, house);
-  assert.eq(modal.acceptLabel, 'Next');
-  assert.truthy(modal.choices.every((c) => c.cost == null && !c.label.includes('quality-')));
-  assert.eq(modal.secondary, undefined, 'hammer is only offered at confirmation');
-  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'an affordable tier enables its type');
-  stock.rubble = 0;
-  present.call(scene, 0, 0, house);
-  assert.truthy(modal.choices.every(c => c.disabled), 'empty inventory disables types before the tier screen');
-  stock.rubble = 100;
-  present.call(scene, 0, 0, house);
-  modal.onAccept('blacksmith');
-  assert.eq(scene.save.restoredHouses.new, undefined, 'Next does not restore');
-  assert.eq(stock.rubble, 100, 'Next does not charge');
   assert.eq(modal.acceptLabel, 'Restore');
-  const smith = Houses.buildOptions(scene.save, house).find((r) => r.key === 'blacksmith:1');
+  assert.eq(modal.choices.find(c => c.key === 'blacksmith').acceptLabel, 'Restore');
+  const smith = Houses.buildOptions(scene.save, house).find(r => r.key === 'blacksmith:1');
   const cost = Houses.buildCost(scene.save, house, smith);
-  assert.truthy(modal.choices[0].label.includes('quality-1'));
-  assert.truthy(modal.choices[0].cost.startsWith(`${cost.qty}×`));
-  assert.truthy(modal.secondary.takes('blacksmith:1'));
-  modal.onCancel();
-  assert.eq(modal.choice, 'blacksmith', 'Back retains the building pick');
-  modal.onAccept('plain');
-  assert.falsy(modal.secondary.takes('plain'));
-  modal.onCancel();
+  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').label.includes(`${cost.qty}×`), 'price appears below the type');
+  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').disabled);
+  assert.truthy(modal.secondary.takes('blacksmith'), 'sole tier keeps the hammer option');
+  assert.falsy(modal.secondary.takes('plain'), 'a house still refuses the hammer');
   stock.rubble = 0;
   modal.onAccept('blacksmith');
-  assert.falsy(modal.choices[0].canAfford, 'unaffordable rank still displays its price');
-  modal.onAccept('blacksmith:1');
-  assert.eq(scene.save.restoredHouses.new, undefined, 'unaffordable confirmation never restores');
+  assert.eq(scene.save.restoredHouses.new, undefined, 'stock is rechecked before direct restoration');
+  present.call(scene, 0, 0, house);
+  assert.truthy(modal.choices.every(c => c.disabled), 'empty inventory disables all types');
   stock.rubble = 100;
-  modal.onCancel();
+  present.call(scene, 0, 0, house);
+  const singleModal = modal;
   modal.onAccept('blacksmith');
-  modal.onAccept('blacksmith:1');
+  assert.eq(modal, singleModal, 'no tier dialog appears for the only offered tier');
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
-  assert.eq(stock.rubble, 100 - cost.qty, 'only the confirmed price is charged');
+  assert.eq(stock.rubble, 100 - cost.qty);
   assert.eq(stock.magic_hammer, 1, 'normal Restore keeps the hammer');
+  scene.save = { restoredHouses: { first: 'plain' } };
+  stock.rubble = 100;
+  present.call(scene, 0, 0, house);
+  modal.secondary.onClick('blacksmith');
+  assert.eq(scene.save.restoredHouses.new, 'blacksmith');
+  assert.truthy(Houses.isShinyHouse(scene.save, house), 'direct hammer restore stamps shine');
+  assert.eq(stock.magic_hammer, 0, 'direct hammer restore spends one hammer');
+  assert.eq(stock.rubble, 100 - cost.qty);
+  scene.save = { restoredHouses: {} };
+  present.call(scene, 0, 0, house);
+  const houseModal = modal;
+  modal.onAccept('plain');
+  assert.eq(modal, houseModal, 'unranked House also skips redundant confirmation');
+  assert.eq(scene.save.restoredHouses.new, 'plain');
   // Main's numeric rank cards share one type card, with each offered price
   // preserved on the second step after integrating the two-step dialog.
   scene.save = {
@@ -97,10 +97,20 @@ test('build choice: type, tier price, back and final payment are separate steps'
   assert.gt(offeredSmiths.length, 1, 'fixture offers multiple smith ranks');
   present.call(scene, 0, 0, house);
   assert.eq(modal.choices.filter(c => c.key === 'blacksmith').length, 1, 'one building-type card');
+  assert.eq(modal.choices.find(c => c.key === 'blacksmith').acceptLabel, 'Choose tier');
   const prices = offeredSmiths.map(r => Houses.buildCost(scene.save, house, r).qty);
+  stock.magic_hammer = 1;
   stock.rubble = Math.min(...prices);
   present.call(scene, 0, 0, house);
   assert.falsy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'one affordable tier is enough even when others cost more');
+  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').label.includes(`From ${Math.min(...prices)}×`), 'first step quotes cheapest offered tier');
+  assert.falsy(modal.secondary.takes('blacksmith'), 'multiple tiers need a selection before hammer restoration');
+  modal.onAccept('blacksmith');
+  assert.eq(modal.choices.length, offeredSmiths.length, 'one affordable tier does not hide other offered tiers');
+  assert.truthy(modal.choices.some(c => !c.canAfford));
+  assert.eq(scene.save.restoredHouses.new, undefined, 'multiple tiers still require confirmation');
+  modal.onCancel();
+  assert.eq(modal.choice, 'blacksmith', 'Back retains the type');
   stock.rubble--;
   present.call(scene, 0, 0, house);
   assert.truthy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'all offered tiers unaffordable disables the type');
@@ -113,6 +123,12 @@ test('build choice: type, tier price, back and final payment are separate steps'
     assert.truthy(choice.label.includes('quality-' + row.tier));
     assert.truthy(choice.cost.startsWith(Houses.buildCost(scene.save, house, row).qty + '×'));
   }
+  const selected = offeredSmiths[offeredSmiths.length - 1];
+  const selectedCost = Houses.buildCost(scene.save, house, selected);
+  modal.onAccept(selected.key);
+  assert.eq(scene.save.restoredHouses.new, 'blacksmith');
+  assert.eq(scene.save.shopTiers.new, selected.tier);
+  assert.eq(stock.rubble, 100 - selectedCost.qty, 'multi-tier confirmation charges selected rank');
 
 });
 

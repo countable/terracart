@@ -113,6 +113,7 @@
     // before there was an anchor to measure it from — run the pass over
     // everything already in the cache.
     scene._carveStarterPondAround();
+    EnemySpawns.refreshHomeFauna(scene);
   }
 
   // Starter crate trail + tutorial-pocket clearing around the frozen anchor

@@ -954,6 +954,7 @@ class SceneCreatures {
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
+    EnemySpawns.refreshHomeFauna(this);
   }
 
   // THE SHORE FAUNA pass (see the call in spawnInTile). Pure in the tile:
@@ -1599,6 +1600,8 @@ class SceneCreatures {
   // the fleeing creature. _beingCaught flags it so wanderCreatures leaves its
   // movement to the wheel.
   startCatchProgress(creature, durationMs, onComplete, onFail, toolSlot = null, energyRefund = 0) {
+    EnemySpawns.refreshHomeFauna(this, false);
+    if (!EnemySpawns.surfaceActive(this, creature)) return;
     creature._beingCaught = true;
     durationMs = Gear.workDurationMs(this.save, durationMs);
     const t = performance.now();
@@ -1708,6 +1711,7 @@ class SceneCreatures {
     // event rather than a drain. (The dispatched pest
     // was a CROW until Sep 2026. Wild crows raid fields again, from their
     // own tick, but the pump sends only deer.)
+    EnemySpawns.refreshHomeFauna(this);
     this._lastPestT = this._lastPestT || 0;
     // Only crops a deer actually eats (not potato) justify spawning a pest —
     // and only on HARD (Difficulty.get().cropPests). The pump is not a
@@ -1728,7 +1732,7 @@ class SceneCreatures {
         // Count nearby wild (non-released, not-yet-caught) deer.
         let wildDeer = 0;
         WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
-          if (c.kind !== 'deer') return;
+          if (c.kind !== 'deer' || c._surfaceInactive) return;
           if (Combat.isTame(c)) return;
           if (caughtSet.has(c.id)) return;
           const dx = c.x - px, dy = c.y - py;
@@ -1753,6 +1757,7 @@ class SceneCreatures {
             if (seat) {
               entry.creatures.push(WorldGen.makeCreature('deer', seat.x, seat.y,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
+              EnemySpawns.refreshHomeFauna(this);
             }
           }
         }
@@ -1781,6 +1786,7 @@ class SceneCreatures {
 
     const spacingIndex = this._characterSpacingIndex = buildCharacterSpacingIndex(this);
     const tickCreature = (c) => {
+      if ((EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) && !EnemySpawns.surfaceActive(this, c)) return;
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
@@ -2375,6 +2381,7 @@ class SceneCreatures {
     };
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
       tickCreature(c);
+      if (EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) EnemySpawns.surfaceActive(this, c);
       updateCharacterSpacingIndex(spacingIndex, c);
     });
     this._characterSpacingIndex = null;

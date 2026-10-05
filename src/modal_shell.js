@@ -878,6 +878,7 @@ class SceneModals {
     if (hasChoices) {
       syncAccept = () => {
         const armed = liveCanAfford && !disabledReason && !!selected;
+        accept.innerHTML = selected?.acceptLabel || acceptLabel;
         accept._setEnabled(armed);
         if (sec && secondary.withChoice) {
           sec._setEnabled(armed && !secondary.disabled && (!secondary.takes || !!secondary.takes(selected.key)));

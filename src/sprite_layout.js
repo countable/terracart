@@ -602,7 +602,7 @@
     // The shore crab is the chicken's row on the beach: tamed with its
     // favourite (items.js ANIMAL_FOOD.crab) or netted; a fed one gives a SHELL.
     // Seated only on shore sand (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
-    crab:          { wanders: true, concealment: 'stealthy', produce: { item: 'shell', verb: 'shed' } },
+    crab:          { animal: true, wanders: true, concealment: 'stealthy', produce: { item: 'shell', verb: 'shed' } },
     // The horse is the cow's row without the milk: twice the netting, tamed
     // with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag it is
     // a mount (items.js HORSE_RIDE).
@@ -631,6 +631,9 @@
                      stepMs: 900, stepCells: 0.5, pauseMs: [700, 1300],
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
+    // These birds also have hostile roster movement, but remain wild animals.
+    gull:          { animal: true },
+    raven:         { animal: true },
     crow:          { wanders: true, game: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
     // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
