@@ -117,9 +117,9 @@ test('scene art: no lore hint on a chapel, church, shrine or grave painting', ()
 
 test('cave story: the first descent below the surface tells its story, once', () => {
   const src = SCENE_SRC;
-  const i = src.indexOf('  changeDepth(delta, stair) {');
+  const i = src.indexOf('  changeDepth(delta, stair, options = {}) {');
   const body = src.slice(i, src.indexOf('\n  }\n', i));
-  assert.truthy(/if \(delta > 0\) \{\s*this\._storySplashOnce\('cave', \{\s*art: 'cave_first'/.test(body),
+  assert.truthy(/if \(delta > 0 && !caveFall\) \{\s*this\._storySplashOnce\('cave', \{\s*art: 'cave_first'/.test(body),
     'changeDepth (every way down: stairs, rope, portal) opens the cave story on a descent');
   assert.truthy(body.indexOf("_storySplashOnce('cave'") > body.indexOf('this.depth = target;'),
     'only after the descent actually happened (not on a refused one)');
