@@ -453,6 +453,17 @@ function drawTilledTex(ctx, size, rng) {
   speckle(ctx, size, rng, 8, (rng) => [rng() < 0.5
     ? 'rgba(64,44,22,0.35)'
     : 'rgba(206,190,162,0.22)']);
+  // The far bank exposes two pixels of earth above the lowered bed. Paint
+  // after the furrows so its contact seam stays continuous, within the same
+  // rounded clip: the transparent two-pixel ground gutter is untouched.
+  ctx.fillStyle = '#715333';
+  ctx.fillRect(x0, y0, w, 2);
+  ctx.fillStyle = 'rgba(45,29,15,0.65)';
+  ctx.fillRect(x0, y0 + 2, w, 1);
+  // A restrained near lip catches the light at ground level. No raised slab
+  // face here: this is a shallow depression, with crops anchored as before.
+  ctx.fillStyle = 'rgba(209,181,137,0.28)';
+  ctx.fillRect(x0, y0 + h - 1, w, 1);
   ctx.restore();
 }
 
@@ -1256,6 +1267,9 @@ function makeBiomeTextures(scene, size) {
 //
 // Coordinate convention: [col, row] with col=x, row=y. (0,0) = top-left.
 const PAD_CELL = 32;
+// Shared with render.js: seat the shrine's south-facing feet farther inside
+// the pedestal's top plane, while the pad itself stays centred on its ground cell.
+const SHRINE_PAD = { sizePx: PAD_CELL, facePx: 6, seatLiftPx: 11 };
 // The pad is drawn a touch larger than its cell so it spills ~10% past the
 // cell boundary into neighbouring cells, reading as a soft oversized base
 // rather than a tile-aligned square.
@@ -1341,6 +1355,41 @@ function makePadShapeTexture(scene, shapeKey) {
   makeRoundPadTexture(scene, key);
 }
 
+// A shrine gets a full-height stone plinth inside its existing one-cell
+// footprint. Its top centre is (16, 13), three pixels above ground centre;
+// render at origin (0.5, 0.5). SHRINE_PAD.seatLiftPx seats its feet on the
+// inner top plane, leaving visible stone in front of the shrine.
+function makeShrinePadTexture(scene) {
+  const key = 'pad_shrine';
+  if (scene.textures.exists(key)) return;
+  const size = SHRINE_PAD.sizePx;
+  const tex = scene.textures.createCanvas(key, size, size);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, size, size);
+  const x = 2, y = 2, w = size - 4, depth = SHRINE_PAD.facePx;
+  const h = size - 4 - depth, radius = 5;
+  // Darker front masonry remains distinct at the renderer's pad opacity.
+  roundRectPath(ctx, x, y + depth, w, h, radius);
+  ctx.fillStyle = '#74766e';
+  ctx.fill();
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.fillStyle = '#aaa7a4';
+  ctx.fill();
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillRect(x, y, w, 1);
+  ctx.fillStyle = 'rgba(74,87,76,0.22)';
+  ctx.fillRect(x, y + h - 1, w, 1);
+  ctx.restore();
+  // One front-face joint reinforces the vertical face without adding steps.
+  ctx.fillStyle = 'rgba(55,68,58,0.28)';
+  ctx.fillRect(size / 2, y + h + 1, 1, depth - 2);
+  tex.refresh();
+}
+
 function makeAllPadShapes(scene) {
   for (const k of Object.keys(PAD_SHAPES)) makePadShapeTexture(scene, k);
+  makeShrinePadTexture(scene);
 }

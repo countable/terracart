@@ -274,8 +274,8 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
 // south-facing edge gets a darker wall projected downward onto the row below.
 // Wall faces recover half the pre-recolour contrast against their floors — deep
 // shadow under the lit top surface, but with enough hue to read as the
-// building's own material rather than a generic dark stripe. Houses get a 4px
-// wall; civic slabs (LARGE) keep a thicker 5px one to read at their bigger
+// building's own material rather than a generic dark stripe. Houses get a 7px
+// wall; civic slabs (LARGE) keep a thicker 11px one to read at their bigger
 // footprint scale.
 //
 // Module scope, and exported on Render, because the TILED pass below is not
@@ -284,11 +284,28 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
 const BUILDING_FACE_COLOR = { 9: 0x613833, 11: 0x625441, 12: 0x5a5e58 };
-const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+const BUILDING_FACE_PX = { 9: 7, 11: 7, 12: 11 };
 // Building tiers, as a predicate; module scope because the base terrain fill needs it too.
 const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
 Render.BUILDING_FACE_COLOR = BUILDING_FACE_COLOR;
 Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
+
+// Short courses on tiled fronts echo the polygon painter. All marks are local
+// to the face, so fractional camera motion cannot slide its masonry pattern.
+Render.paintMasonryFace = function (g, x, y, width, height, face, cap, seam) {
+  g.fillStyle(face, 1); g.fillRect(x, y, width, height);
+  g.fillStyle(seam, 0.35);
+  for (let row = 3; row < height; row += 3) {
+    g.fillRect(x, y + row, width, 1);
+    for (let col = (row % 6 ? 8 : 0); col < width; col += 16) {
+      g.fillRect(x + col, y + row - 2, 1, 2);
+    }
+  }
+  g.fillStyle(cap, 1); g.fillRect(x, y, width, 1);
+  g.fillStyle(seam, 1); g.fillRect(x, y + height - 1, width, 1);
+};
+
+Render.hasShrineFooting = o => o.kind === 'grove_shrine' && o._shrineArt !== 'shipwreck';
 // The dashed cell grid: a hairline black at 8%, 4 on / 4 off. Faint on
 // purpose — it says "the world is on a lattice" without competing with
 // anything drawn on it. Shared, because the grid is drawn in TWO places: the
@@ -2500,8 +2517,8 @@ Render.drawCells = function drawCells(scene) {
         // South boundary projects its stone face beyond the floor.
         if (wallEdge(col, row, 0, 1)) {
           const gw = Render.rampartPiece(scene, northY + cm + WALL * cm / CELL_PX);
-          gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          Render.paintMasonryFace(gw, sx, sy + CELL_PX, CELL_PX, WALL,
+            _DBG ? 0x30a030 : STONE_FACE, STONE_LITE, STONE_DARK);
           crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
           wallChip(gw, sx, sy + CELL_PX);
         }
@@ -2517,8 +2534,8 @@ Render.drawCells = function drawCells(scene) {
           const gb = Render.rampartPiece(scene, northY);
           const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
           const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
-          gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
-          gb.fillRect(sx - extL, sy - WALL, CELL_PX + extL + extR, WALL);
+          Render.paintMasonryFace(gb, sx - extL, sy - WALL, CELL_PX + extL + extR, WALL,
+            _DBG ? 0x3060c0 : STONE_FACE, STONE_LITE, STONE_DARK);
           crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
           wallChip(gb, sx, sy - WALL);
           // SOLID crest-height shoulders over the widened columns — the crest
@@ -2566,8 +2583,8 @@ Render.drawCells = function drawCells(scene) {
         const hex = UNCLAIMED(col, row) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined'
           ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.faces[type]))
           : SOUTH_FACE_COLOR[type] || 0x444444;
-        g.fillStyle(hex, 0.95);
-        g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
+        Render.paintMasonryFace(g, sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 7,
+          hex, BiomeProfiles.mixHex(hex, 0xffffff, 0.16), BiomeProfiles.mixHex(0x000000, hex, 0.65));
       }
       // Outer border — fillRect for independent H (4 px) / V (2 px) thickness.
       // Vertical bars start below the top bar so corners are never double-painted
@@ -3659,6 +3676,10 @@ Render.drawObjects = function drawObjects(scene) {
   const padList = [];
   for (const item of objList) {
     const { o, dx, dy } = item;
+    if (Render.hasShrineFooting(o)) {
+      padList.push({ o, dx, dy, texKey: 'pad_shrine', shrine: true });
+      continue;
+    }
     if (o.kind !== 'chest') continue;
     // Produce/food stands render their own 80×80 stall structure — a concrete
     // slab poking out from under the stall reads wrong, so they skip the pad.
@@ -3695,9 +3716,14 @@ Render.drawObjects = function drawObjects(scene) {
   // No POI "ping" ring here: a live POI is a LIGHT (kind 'poi' in src/lighting.js),
   // offered to the lightmap from the tile scan above.
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
-    const { o, dx, dy, texKey, shape, mini } = item;
+    const { o, dx, dy, texKey, shape, mini, shrine } = item;
     const { x: sx, y: sy } = project(dx, dy);
     setTextureIfDifferent(s, texKey);
+    if (shrine) {
+      s.setOrigin(0.5, 0.5).setScale(CELL_PX / SHRINE_PAD.sizePx)
+        .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).clearTint();
+      return;
+    }
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;
@@ -5043,6 +5069,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         // Keep the true art foot for depth sorting; inset only the shadow.
         if (o.kind === 'mineralrock') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2;
       }
+    }
+    if (foot && Render.hasShrineFooting(o)) {
+      const lift = SHRINE_PAD.seatLiftPx * CELL_PX / SHRINE_PAD.sizePx;
+      dyPx -= lift;
+      foot.footFromCentre -= lift;
     }
     const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;
     return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, ground };
