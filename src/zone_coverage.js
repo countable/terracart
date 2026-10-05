@@ -561,10 +561,6 @@
       result.anchors.push(anchor);
       if (result.allAnchors) result.allAnchors.push(anchor);
       const slot = result.anchors.length;
-      // Walkable coverage excludes buildings, but the nexus still replaces
-      // buildings inside its source area with temples.
-      result.buildingCoverage ||= new Uint16Array(N * N);
-      for (const i of queue) if (WG.isBuildingTerrain(grid[i])) result.buildingCoverage[i] = slot;
       for (const i of cells) {
         result.coverage[i] = slot; result.idx[i] = slot; result.s[i] = 255;
       }
