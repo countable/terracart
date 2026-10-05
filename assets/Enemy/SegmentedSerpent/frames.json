@@ -1,0 +1,257 @@
+{
+  "sheet": "parts.png",
+  "frameWidth": 32,
+  "frameHeight": 32,
+  "columns": 8,
+  "rows": 4,
+  "anchor": [
+    16,
+    16
+  ],
+  "directions": [
+    "E",
+    "SE",
+    "S",
+    "SW",
+    "W",
+    "NW",
+    "N",
+    "NE"
+  ],
+  "rowsByPart": {
+    "head": 0,
+    "body": 1,
+    "curve": 2,
+    "tail": 3
+  },
+  "tailRule": "Select opposite direction of travel: tail tips point toward column direction.",
+  "spacingPixels": 7,
+  "bodyPieces": 19,
+  "projection": "square top-down; south45 artwork; no diamond transform",
+  "frames": [
+    {
+      "index": 0,
+      "part": "head",
+      "direction": "E",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "index": 1,
+      "part": "head",
+      "direction": "SE",
+      "x": 32,
+      "y": 0
+    },
+    {
+      "index": 2,
+      "part": "head",
+      "direction": "S",
+      "x": 64,
+      "y": 0
+    },
+    {
+      "index": 3,
+      "part": "head",
+      "direction": "SW",
+      "x": 96,
+      "y": 0
+    },
+    {
+      "index": 4,
+      "part": "head",
+      "direction": "W",
+      "x": 128,
+      "y": 0
+    },
+    {
+      "index": 5,
+      "part": "head",
+      "direction": "NW",
+      "x": 160,
+      "y": 0
+    },
+    {
+      "index": 6,
+      "part": "head",
+      "direction": "N",
+      "x": 192,
+      "y": 0
+    },
+    {
+      "index": 7,
+      "part": "head",
+      "direction": "NE",
+      "x": 224,
+      "y": 0
+    },
+    {
+      "index": 8,
+      "part": "body",
+      "direction": "E",
+      "x": 0,
+      "y": 32
+    },
+    {
+      "index": 9,
+      "part": "body",
+      "direction": "SE",
+      "x": 32,
+      "y": 32
+    },
+    {
+      "index": 10,
+      "part": "body",
+      "direction": "S",
+      "x": 64,
+      "y": 32
+    },
+    {
+      "index": 11,
+      "part": "body",
+      "direction": "SW",
+      "x": 96,
+      "y": 32
+    },
+    {
+      "index": 12,
+      "part": "body",
+      "direction": "W",
+      "x": 128,
+      "y": 32
+    },
+    {
+      "index": 13,
+      "part": "body",
+      "direction": "NW",
+      "x": 160,
+      "y": 32
+    },
+    {
+      "index": 14,
+      "part": "body",
+      "direction": "N",
+      "x": 192,
+      "y": 32
+    },
+    {
+      "index": 15,
+      "part": "body",
+      "direction": "NE",
+      "x": 224,
+      "y": 32
+    },
+    {
+      "index": 16,
+      "part": "curve",
+      "direction": "E",
+      "x": 0,
+      "y": 64
+    },
+    {
+      "index": 17,
+      "part": "curve",
+      "direction": "SE",
+      "x": 32,
+      "y": 64
+    },
+    {
+      "index": 18,
+      "part": "curve",
+      "direction": "S",
+      "x": 64,
+      "y": 64
+    },
+    {
+      "index": 19,
+      "part": "curve",
+      "direction": "SW",
+      "x": 96,
+      "y": 64
+    },
+    {
+      "index": 20,
+      "part": "curve",
+      "direction": "W",
+      "x": 128,
+      "y": 64
+    },
+    {
+      "index": 21,
+      "part": "curve",
+      "direction": "NW",
+      "x": 160,
+      "y": 64
+    },
+    {
+      "index": 22,
+      "part": "curve",
+      "direction": "N",
+      "x": 192,
+      "y": 64
+    },
+    {
+      "index": 23,
+      "part": "curve",
+      "direction": "NE",
+      "x": 224,
+      "y": 64
+    },
+    {
+      "index": 24,
+      "part": "tail",
+      "direction": "E",
+      "x": 0,
+      "y": 96
+    },
+    {
+      "index": 25,
+      "part": "tail",
+      "direction": "SE",
+      "x": 32,
+      "y": 96
+    },
+    {
+      "index": 26,
+      "part": "tail",
+      "direction": "S",
+      "x": 64,
+      "y": 96
+    },
+    {
+      "index": 27,
+      "part": "tail",
+      "direction": "SW",
+      "x": 96,
+      "y": 96
+    },
+    {
+      "index": 28,
+      "part": "tail",
+      "direction": "W",
+      "x": 128,
+      "y": 96
+    },
+    {
+      "index": 29,
+      "part": "tail",
+      "direction": "NW",
+      "x": 160,
+      "y": 96
+    },
+    {
+      "index": 30,
+      "part": "tail",
+      "direction": "N",
+      "x": 192,
+      "y": 96
+    },
+    {
+      "index": 31,
+      "part": "tail",
+      "direction": "NE",
+      "x": 224,
+      "y": 96
+    }
+  ]
+}
