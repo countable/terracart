@@ -79,7 +79,7 @@
         1,
         2
       ],
-      "interaction": "proposed watering-can refill from the nearest reachable pool bank; source and pool share one interaction identity; no free healing",
+      "interaction": "Explore the dry banks around the central spring and pool; no free healing",
       "encounterByDepth": {
         "1": [
           "skeleton"
@@ -431,7 +431,7 @@
       "context": "spring or wet park",
       "mechanic": "bank beside small impassable pools; always retain a dry connection",
       "layout": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
-      "reward": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
+      "reward": "Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
       "depths": [
         1,
         2
@@ -659,7 +659,7 @@
     {
       "id": "cave_pool",
       "name": "Spring source",
-      "mechanic": "Refill a watering can through a proposed spring interaction. Keep the centre impassable and its bank reachable; no healing or fishing in the first slice.",
+      "mechanic": "Keep the centre impassable and its bank reachable; no healing or fishing in the first slice.",
       "source": "/home/claude/.artifacts/terracart-art/unused_art/verdant-props-tileset-16x16/tiles/16x16/cave_pool.png",
       "preview": "/underground-zones-design/art/cave_pool.png",
       "status": "Preferred"
@@ -742,7 +742,6 @@
     }
   ],
   "openDecisions": [
-    "First slice proposes water refill only; healing springs would need a separate economy decision.",
     "Levels 3+ retain ordinary caves; these nexus and path designs apply only at levels 1 and 2.",
     "Point-only POI coverage needs a reviewed influence radius before activation."
   ],
@@ -887,7 +886,7 @@
       "name": "Underground Spring Cave",
       "slots": [],
       "atmosphere": "The spring rises at the centre of a pool. A clear bank circles the water, followed by a ring of cave mushrooms and an outer ring of mineable stone. Four openings connect the rings to the surrounding cave.",
-      "poi": "Central source supplies one surrounding pool. Refill from a reachable bank cell; any surviving mirrored cache sits on dry ground.",
+      "poi": "Central source supplies one surrounding pool. Any surviving mirrored cache sits on dry ground.",
       "connection": "Concentric water, clear bank, mushroom ring and outer stone ring, with four radial approaches. No bridge across the pool is required.",
       "monsters": "Six hidden, dormant Skeletons in dry pockets around the spring. They appear and wake only when you walk within one cell. Authored spring encounters on levels 1 and 2; no visible slime patrol.",
       "source": "Beneath grove nexuses only; exclude surface seep and quarry regions. wet and wooded affinities.",
@@ -2374,7 +2373,7 @@
         }
       ],
       "atmosphere": "A few rocks break the surface of the seep channel and lie along its edges, with occasional cave mushrooms. Dry banks follow both sides, and crossings stay clear.",
-      "poi": "Refill from reachable banks. Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
+      "poi": "Scattered rocks use game mineral-rock art and existing finite cave-rock allocations; water rocks can be mined from the adjacent dry bank. No extra daily reward or cache.",
       "connection": "Replace underground route floor with actual WATER tiles; keep one-cell dry banks on both sides and two-cell crossings at junctions, stairs and nexus approaches. Omit water rocks at crossings and reserve bank walking lanes before scattering rocks.",
       "monsters": "One Gelatinous Cube haunts the waterway, moving along a dry bank and crossing. Authored zone encounter on cave levels 1 and 2; it does not spawn in impassable water.",
       "source": "All path classes on cave levels 1\u20132; including eligible sm_road streets. Wet or spring surroundings favor this theme.",
