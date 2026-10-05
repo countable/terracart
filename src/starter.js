@@ -1601,14 +1601,9 @@
           const t = WorldGen.rollSurfaceRockTier(rollRng);
           if (t.yieldTier > 1) { rec.yieldTier = t.yieldTier; rec.requiredTier = t.requiredTier; }
         } else {
-          // Trees have no tier table, so they borrow the deposits' rarity
-          // SHAPE: the same ~10% that would have rolled ore instead grows a
-          // size up — mostly medium (Wood-axe pine, 2× wood), rarely large
-          // (Copper axe, 4×). Species stays the home softwood, so the find is
-          // a bigger payday, not a wall.
-          const r = rollRng();
-          const plainP = WorldGen.SURFACE_PLAIN_ROCK_P ?? 0.90;
-          if (r >= plainP) rec.size = (r >= 1 - (1 - plainP) * 0.3) ? 'large' : 'medium';
+          // Home trees have their own size mix, independent of ore rarity.
+          // Keep the roll in the saved placement so rebuilds preserve it.
+          rec.size = HomeArea.starterTreeSize(rollRng);
         }
       }
       taken.add(key(best.cx, best.cy));

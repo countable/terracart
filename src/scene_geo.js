@@ -269,7 +269,7 @@ class SceneGeo {
     nub.textContent = 'GPS';
     nub.style.cssText = `position:absolute;left:29px;top:29px;width:48px;height:48px;
       border-radius:50%;display:grid;place-items:center;pointer-events:none;
-      font:bold 12px ui-monospace,monospace;color:#e4faff;
+      font:bold 12px var(--font-ui);color:#e4faff;
       background:radial-gradient(circle at 40% 30%,#79bac9,#285a70);
       box-shadow:0 3px 6px #0008;`;
     pad.appendChild(nub);

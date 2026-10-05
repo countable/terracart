@@ -684,12 +684,7 @@ class SceneCreate {
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
-      // The serif face is the cartographic cue (street names on a paper map),
-      // but the family has to be PINNED: a bare `serif` resolves to whatever
-      // the platform picked — Times on iOS/macOS, Liberation/DejaVu Serif on
-      // Linux, Cambria on Windows — so the one label in the game that should
-      // look like a map label rendered differently on every device, at
-      // different widths. Same stack the shop-ready plaque already pins.
+      // Street names share the native UI face used by other small labels.
       // Alpha 0.88, not the old 0.72: at three-quarter alpha the dark ink
       // washed toward its own pale halo and the street name read as a smudge
       // rather than as lettering. Still short of full opacity so it stays
@@ -698,7 +693,7 @@ class SceneCreate {
         // 11px, up one from 10: at dpr 3 on a phone the street name was
         // legible but not comfortably so, and a map label the player has to
         // squint at is doing half its job.
-        font: fontSerif('bold 11px'), color: UI_SHADOW,
+        font: fontUI('bold 11px'), color: UI_SHADOW,
         stroke: '#d8cdb4', strokeThickness: 3,
       }).setOrigin(0.5, 0.5).setAlpha(0.88).setDepth(0).setVisible(false);
       this.letterContainer.add(t);

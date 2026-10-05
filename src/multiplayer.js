@@ -300,7 +300,7 @@ const Multiplayer = (function () {
     p.spr = scene.add.sprite(0, 0, art.sheet, 0).setScale(art.scale).setTint(p.color);
     playDirected(p.spr, 'idle', 0, 1);
     p.lbl = scene.add.text(0, 0, p.name, {
-      font: fontMono('bold 10px'), color: cssOf(p.color),
+      font: fontUI('bold 10px'), color: cssOf(p.color),
       stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
     }).setOrigin(0.5, 1);
     scene.shadowContainer.add(p.sh);
@@ -400,7 +400,7 @@ const Multiplayer = (function () {
       if (!q.gfx) {
         q.gfx = scene.add.graphics();
         q.txt = scene.add.text(0, 0, '', {
-          font: fontMono('bold 10px'), color: cssOf(q.color),
+          font: fontUI('bold 10px'), color: cssOf(q.color),
           stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
         }).setOrigin(0.5, 1);
         S.container.add([q.gfx, q.txt]);
@@ -488,7 +488,7 @@ const Multiplayer = (function () {
       'display:none;align-items:center;gap:6px;' +   // shown by paintButton; body.modal-open hides it (index.html)
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
       'color:#9fd8ff;border:2px solid #3a6c8c;background:rgba(10,20,30,.85);' +
-      'font:700 12px ui-monospace,monospace;';
+      'font:700 12px var(--font-ui);';
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (S.status !== 'online') return;

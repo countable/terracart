@@ -1396,7 +1396,7 @@ const MEMORIES_CHIP_CSS = `
   border: var(--hud-chip-rim) solid var(--chrome-rim); border-radius: 8px;
   display: flex; flex-direction: row; align-items: center; gap: 5px;
   background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
-  font: 700 14px ui-monospace, monospace;
+  font: 700 14px var(--font-ui);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
@@ -1406,7 +1406,7 @@ const MEMORIES_CHIP_CSS = `
   position: absolute; top: -7px; right: -7px;
   min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
   border-radius: 8px; background: var(--gold); color: #3a3322;
-  font: 700 10px/16px ui-monospace, monospace; text-align: center; text-shadow: none;
+  font: 700 10px/16px var(--font-ui); text-align: center; text-shadow: none;
   pointer-events: none;
 }
 body.modal-open #memories { opacity: 0.25; pointer-events: none; }
@@ -1435,7 +1435,7 @@ const STATUS_ROW_CSS = `
 }
 #status-row .status-chip {
   white-space: nowrap; padding: 3px 7px; border-radius: 6px;
-  font: 700 11px ui-monospace, monospace;
+  font: 700 11px var(--font-ui);
   text-shadow: 0 1px 0 #000;
   box-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
@@ -1454,7 +1454,7 @@ const ROAD_CHIP_CSS = `
   border: var(--hud-chip-rim) solid var(--ctl-rim); border-radius: 8px;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   background: var(--chrome-scuff), var(--chrome-panel); color: #e8e2d6;
-  font: 700 9px ui-monospace, monospace;
+  font: 700 9px var(--font-ui);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
@@ -1475,7 +1475,7 @@ const BOOK_CHIP_CSS = `
   border: var(--hud-chip-rim) solid var(--chrome-rim); border-radius: 8px;
   display: flex; flex-direction: row; align-items: center; gap: 5px;
   background: var(--chrome-scuff), var(--chrome-panel); color: var(--gold);
-  font: 700 14px ui-monospace, monospace;
+  font: 700 14px var(--font-ui);
   text-shadow: 0 1px 0 #000;
   -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
   pointer-events: auto; cursor: pointer; user-select: none;
@@ -1736,12 +1736,12 @@ class MapScene extends Phaser.Scene {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('energy-help',
       { textAlign: 'left', onClose: () => {}, kind: 'energy' });
     const h = document.createElement('div');
-    h.style.cssText = 'font:700 14px ui-monospace,monospace;color:var(--green);'
+    h.style.cssText = 'font:700 14px var(--font-ui);color:var(--green);'
       + 'margin-bottom:8px;text-align:center;';
     h.textContent = `${cur} / ${max}`;   // the kind header already says ENERGY
     box.appendChild(h);
     const body = document.createElement('div');
-    body.style.cssText = 'font:12px/1.5 ui-monospace,monospace;color:#ddd;';
+    body.style.cssText = 'font:12px/1.5 var(--font-ui);color:#ddd;';
     body.innerHTML =
       'Energy pays for tilling, chopping, mining and walking off the GPS.<br><br>'
       + '• <b>Eat</b> — select any food in the bag and use the Eat button.<br>'
@@ -2706,7 +2706,7 @@ class MapScene extends Phaser.Scene {
     if (this._hiddenEdgeDotLabels?.has(row.key)) return;
     const labels = (this._edgeDotLabels ||= {});
     const text = labels[row.key] ||= this.add.text(0, 0, '', {
-      fontFamily: 'sans-serif', fontSize: '11px', color: '#ffffff',
+      fontFamily: FONT_UI_STACK, fontSize: '11px', color: '#ffffff',
       stroke: '#151920', strokeThickness: 3,
     }).setDepth(12).setOrigin(0, 0);
     // Names and roles belong to the target; anonymous finds use their kind.
@@ -6931,7 +6931,7 @@ class MapScene extends Phaser.Scene {
     const bg = opts.bg !== undefined ? opts.bg
              : (S.bg !== undefined ? S.bg : TOAST_BG);
     const style = {
-      font: fontMono(S.font),
+      font: fontUI(S.font),
       color: opts.color || UI_INK,
       stroke: UI_SHADOW, strokeThickness: S.stroke,
       padding: {
@@ -7566,7 +7566,7 @@ class MapScene extends Phaser.Scene {
     el.className = 'dom-fanfare';
     el.textContent = text;
     el.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;z-index:300;pointer-events:none;`
-      + `white-space:nowrap;font:700 ${DOM_FANFARE_PX}px ui-monospace,monospace;color:${color};`
+      + `white-space:nowrap;font:700 ${DOM_FANFARE_PX}px var(--font-ui);color:${color};`
       + `background:${bg};padding:8px 18px;border-radius:12px;border:2px solid ${color};`
       + `text-shadow:0 2px 0 #000,0 0 12px ${color}99;box-shadow:0 0 28px ${color}88;`
       + 'transform:translate(-50%,-50%);';
@@ -7597,7 +7597,7 @@ class MapScene extends Phaser.Scene {
       const sp = document.createElement('div');
       sp.textContent = '✦';
       sp.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;z-index:301;pointer-events:none;`
-        + `font:700 ${14 + Math.round(Math.random() * 10)}px ui-monospace,monospace;color:${color};`
+        + `font:700 ${14 + Math.round(Math.random() * 10)}px var(--font-ui);color:${color};`
         + 'text-shadow:0 0 6px #fff;transform:translate(-50%,-50%);';
       host.appendChild(sp);
       const a = Math.random() * Math.PI * 2;
@@ -8230,7 +8230,7 @@ class MapScene extends Phaser.Scene {
       b.className = 'book-row';
       b.textContent = `${page + 1}. ${bookPageLabel(page)}`;
       b.style.cssText = 'text-align:left;padding:8px 10px;border-radius:6px;background:transparent;color:#eee;' +
-        'border:1px solid #6b5a2c;font:600 13px ui-monospace,monospace;cursor:pointer;';
+        'border:1px solid #6b5a2c;font:600 13px var(--font-ui);cursor:pointer;';
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         wrap.remove();
@@ -8952,7 +8952,7 @@ class MapScene extends Phaser.Scene {
   _prewarmFx() {
     if (typeof Particles !== 'undefined') Particles.warm(this, ['stone', 'trailspark', 'stonegather']);
     try {
-      const fonts = new Set(Object.values(TOAST_TIER).map((t) => fontMono(t.font)));
+      const fonts = new Set(Object.values(TOAST_TIER).map((t) => fontUI(t.font)));
       for (const font of fonts) this.add.text(-999, -999, '0m', { font }).setVisible(false).destroy();
     } catch (e) { /* a warm-up never breaks the game */ }
   }
@@ -9339,7 +9339,7 @@ class MapScene extends Phaser.Scene {
         box-sizing: border-box;
         width: ${NUB}px; height: ${NUB}px; line-height: ${NUB}px;
         text-align: center; pointer-events: none;
-        font: ${fontMono(`700 18px/${NUB}px`)};
+        font: ${fontUI(`700 18px/${NUB}px`)};
         color: ${UI_GOLD};
         text-shadow: 0 0 2px rgba(12,9,4,0.95), 0 0 5px rgba(12,9,4,0.8);
         display: none;
@@ -9707,7 +9707,7 @@ class MapScene extends Phaser.Scene {
       const caption = document.createElement('span');
       caption.textContent = c.label;
       caption.style.cssText =
-        'font:700 7px ui-monospace,monospace;letter-spacing:-0.2px;line-height:1;' +
+        'font:700 7px var(--font-ui);letter-spacing:-0.2px;line-height:1;' +
         'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
         (active ? `color:${UI_GOLD};` : 'color:#999;');
       tab.appendChild(caption);
@@ -9720,7 +9720,7 @@ class MapScene extends Phaser.Scene {
         const pip = document.createElement('span');
         pip.textContent = count;
         pip.className = 'hud-pip';
-        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px ui-monospace,monospace;padding:0 3px;border-radius:7px;line-height:13px;';
+        pip.style.cssText = 'position:absolute;top:-2px;right:1px;font:700 9px var(--font-ui);padding:0 3px;border-radius:7px;line-height:13px;';
         tab.appendChild(pip);
       }
       tab.addEventListener('click', (e) => { e.stopPropagation(); this.selectInvCat(c.key); });
@@ -9912,7 +9912,7 @@ class MapScene extends Phaser.Scene {
       const pageLbl = document.createElement('span');
       pageLbl.textContent = `${this.save.invPage + 1}/${pageCount}`;
       pageLbl.className = 'hud-page';
-      pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px ui-monospace,monospace;margin-left:4px;';
+      pageLbl.style.cssText = 'min-width:28px;height:22px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #4a4238;border-radius:11px;font:700 11px var(--font-ui);margin-left:4px;';
       bar.appendChild(pageLbl);
     }
 
@@ -9930,7 +9930,7 @@ class MapScene extends Phaser.Scene {
     nameLbl = document.createElement('div');
     nameLbl.id = 'inv-name';
     nameLbl.className = 'hud-name';
-    nameLbl.style.cssText = 'position:fixed;bottom:calc(40px + env(safe-area-inset-bottom, 0px));left:calc(var(--phone-left, 0px) + 6px);right:calc(var(--phone-right, 0px) + 6px);height:26px;border-radius:6px;box-sizing:border-box;padding:0 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center;font:12px/14px ui-monospace,monospace;pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
+    nameLbl.style.cssText = 'position:fixed;bottom:calc(40px + env(safe-area-inset-bottom, 0px));left:calc(var(--phone-left, 0px) + 6px);right:calc(var(--phone-right, 0px) + 6px);height:26px;border-radius:6px;box-sizing:border-box;padding:0 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;text-align:center;font:12px/14px var(--font-ui);pointer-events:none;z-index:6;text-shadow:1px 1px 2px #000,0 0 3px #000;';
     document.body.appendChild(nameLbl);
 
     this.refreshInventoryHighlight();
@@ -9943,7 +9943,7 @@ class MapScene extends Phaser.Scene {
   _effectLineEl(text, titleHTML) {
     const fx = document.createElement('div');
     fx.textContent = `✦ ${text}`;
-    fx.style.cssText = 'font:10px/12px ui-monospace,monospace;color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:auto;cursor:pointer;';
+    fx.style.cssText = 'font:10px/12px var(--font-ui);color:#9fe6ff;opacity:0.92;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:auto;cursor:pointer;';
     fx.addEventListener('pointerdown', (e) => e.stopPropagation());
     fx.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -10063,7 +10063,7 @@ class MapScene extends Phaser.Scene {
       'display:flex;align-items:center;gap:6px;' +
       'padding:6px 10px;border-radius:8px;cursor:pointer;' +
       `color:${ink};border:2px solid ${border};` +
-      'font:700 12px ui-monospace,monospace;' + css;
+      'font:700 12px var(--font-ui);' + css;
     btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(e); });
     document.body.appendChild(btn);
     return btn;

@@ -204,7 +204,7 @@ class SceneModals {
       ? 'position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;' +
         'background:#1a1612;color:#fff;border:0;border-radius:0;' +
         'padding:max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));' +
-        'font:13px ui-monospace,monospace;overflow-y:auto;overscroll-behavior:contain;' +
+        'font:13px var(--font-ui);overflow-y:auto;overscroll-behavior:contain;' +
         (textAlign ? `text-align:${textAlign};` : '') + boxExtra
       :
       // Seated on the map square, in #game's own (game px) space; the wrap
@@ -214,7 +214,7 @@ class SceneModals {
       `box-sizing:border-box;display:flex;flex-direction:column;` +
       `background:#1a1612;color:#fff;` +
       `border:2px solid ${frameBorder};border-radius:10px;padding:14px 16px;` +
-      `font:13px ui-monospace,monospace;` +
+      `font:13px var(--font-ui);` +
       // Content that outgrows the square scrolls INSIDE it — the box never
       // grows to fit. (Stats & Relics is the long one.)
       `overflow-y:auto;overscroll-behavior:contain;` +
@@ -321,7 +321,7 @@ class SceneModals {
         'position:absolute;top:10px;left:10px;z-index:1;padding:3px 8px;border-radius:4px;' +
         'display:flex;align-items:center;gap:6px;' +
         `background:rgba(20,16,12,.72);border:1px solid ${borderColor}8c;` +
-        'font:700 10px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;' +
+        'font:700 10px var(--font-ui);letter-spacing:.14em;text-transform:uppercase;' +
         `color:${borderColor};`;
       kindNode.textContent = kindLabel ?? k.label;
     } else if (k) {
@@ -353,7 +353,7 @@ class SceneModals {
       }
       const lbl = document.createElement('span');
       lbl.style.cssText =
-        'font:700 11px ui-monospace,monospace;letter-spacing:.14em;' +
+        'font:700 11px var(--font-ui);letter-spacing:.14em;' +
         `text-transform:uppercase;color:${borderColor};`;
       lbl.textContent = kindLabel ?? k.label;
       kindNode.appendChild(ico);
@@ -439,7 +439,7 @@ class SceneModals {
       const b = document.createElement('button');
       b.innerHTML = label;
       b.style.cssText =
-        `padding:8px 14px;border-radius:6px;font:700 13px ui-monospace,monospace;cursor:pointer;` +
+        `padding:8px 14px;border-radius:6px;font:700 13px var(--font-ui);cursor:pointer;` +
         'transition:transform 60ms,box-shadow 60ms,background-color 120ms;' +
         (primary ? `color:#1a1612;border:0;` : GHOST) +
         (o.css || '');
@@ -649,7 +649,7 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, fullscreen });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -661,7 +661,7 @@ class SceneModals {
       tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:8px;';
       for (const t of tabs) {
         const tb = mkBtn(t.label, { variant: 'ghost', css:
-          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px ui-monospace,monospace;border-bottom:none;'
+          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px var(--font-ui);border-bottom:none;'
           + (t.active
               ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
               : 'color:#999;') });
@@ -685,7 +685,7 @@ class SceneModals {
     // guess; `costLabel` REPLACES the "for" row rather than stacking on it.
     const mkCaption = (text) => {
       const c = document.createElement('div');
-      c.style.cssText = 'font:700 10px ui-monospace,monospace;letter-spacing:.12em;'
+      c.style.cssText = 'font:700 10px var(--font-ui);letter-spacing:.12em;'
         + 'text-transform:uppercase;opacity:.6;margin:6px 0 2px';
       c.textContent = text;
       return c;
@@ -699,7 +699,7 @@ class SceneModals {
       pageRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;';
       const mkArrow = (glyph, aria, fn) => {
         const b = mkBtn(glyph, { variant: 'ghost', css:
-          'flex:none;width:32px;height:32px;border-radius:50%;line-height:1;font:700 18px ui-monospace,monospace;' });
+          'flex:none;width:32px;height:32px;border-radius:50%;line-height:1;font:700 18px var(--font-ui);' });
         b.setAttribute('aria-label', aria);
         b.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); fn(); });
         return b;
@@ -711,7 +711,7 @@ class SceneModals {
       box.appendChild(pageRow);
       if (pager.showIndex !== false) {
         const pageNo = document.createElement('div');
-        pageNo.style.cssText = 'font:700 10px ui-monospace,monospace;opacity:.55;margin-bottom:2px';
+        pageNo.style.cssText = 'font:700 10px var(--font-ui);opacity:.55;margin-bottom:2px';
         pageNo.textContent = `${pager.index + 1} / ${pager.count}`;
         box.appendChild(pageNo);
       }
@@ -769,8 +769,8 @@ class SceneModals {
       for (const c of choices) {
         const b = mkBtn((c.iconHTML ? `<div style="font-size:0;margin-bottom:2px">${c.iconHTML}</div>` : '') + c.label,
           { variant: 'ghost', disabled: !!c.disabled, css: (fullscreen
-            ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
-            : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px ui-monospace,monospace;')
+            ? 'padding:12px 6px 10px;font:700 13px var(--font-ui);'
+            : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px var(--font-ui);')
             + 'border-radius:7px;' });
         b.addEventListener('click', (e) => { e.stopPropagation(); if (c.disabled) return; selected = c; paint(); });
         cardRow.appendChild(b);
@@ -825,12 +825,12 @@ class SceneModals {
       stepRow.style.cssText =
         'display:flex;gap:10px;justify-content:center;align-items:center;margin:2px 0 10px;';
       const mkStep = (label) => mkBtn(label, { variant: 'ghost', css:
-        'width:44px;height:44px;border-radius:6px;font:700 20px ui-monospace,monospace;line-height:1;' });
+        'width:44px;height:44px;border-radius:6px;font:700 20px var(--font-ui);line-height:1;' });
       const minusBtn = mkStep('−');
       const plusBtn  = mkStep('+');
       const countSpan = document.createElement('span');
       countSpan.style.cssText =
-        'min-width:72px;text-align:center;font:700 14px ui-monospace,monospace;color:#fff';
+        'min-width:72px;text-align:center;font:700 14px var(--font-ui);color:#fff';
       stepRow.appendChild(minusBtn);
       stepRow.appendChild(countSpan);
       stepRow.appendChild(plusBtn);
@@ -862,6 +862,15 @@ class SceneModals {
     }
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
+    // A repeating counter covers canvas loot toasts. Keep its last completed
+    // transaction visible beside the controls in the refreshed dialog.
+    if (receipt) {
+      const status = document.createElement('div');
+      status.setAttribute('role', 'status');
+      status.style.cssText = `color:${UI_GOLD};font-size:12px;margin:6px 0;`;
+      status.textContent = `✓ ${receipt}`;
+      box.appendChild(status);
+    }
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled || !!(secondary.withChoice && hasChoices && !selected)) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
@@ -1060,7 +1069,7 @@ class SceneModals {
       let take = null;
       // The card buttons: a primary word in the ceremony's accent (the shell's
       // raised control), the rest ghosts. A card row's buttons share the row.
-      const cardCss = 'position:relative;border-radius:7px;font:700 12px ui-monospace,monospace;' +
+      const cardCss = 'position:relative;border-radius:7px;font:700 12px var(--font-ui);' +
         (cards ? 'flex:1 1 0;min-width:0;padding:12px 4px 9px;' : 'padding:9px 14px;');
       for (const a of actions) {
         const b = mkBtn(a.label, a.primary ? { accent, css: cardCss } : { variant: 'ghost', css: cardCss });
@@ -1082,7 +1091,7 @@ class SceneModals {
         // The one button that pays: the shell's primary in the ceremony's
         // accent, dead until a card is selected.
         take = mkBtn(confirmLabel, { accent, css:
-          'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px ui-monospace,monospace;' });
+          'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px var(--font-ui);' });
         take._setEnabled(false);
         take.addEventListener('click', (e) => {
           e.stopPropagation();
