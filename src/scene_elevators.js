@@ -16,9 +16,11 @@ class SceneElevators {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('elevator-modal', {
       kind: 'note', kindLabel: 'Elevator', art: 'progression_elevator', onClose: () => {},
     });
-    const destinations = Elevators.isRepaired(this.save) ? Elevators.FLOORS.filter(floor => floor !== depth) : [];
+    const destinations = Elevators.isRepaired(this.save) ? [0, ...Elevators.unlockedFloors(this.save)].filter(floor => floor !== depth) : [];
     const description = document.createElement('p');
-    description.textContent = Elevators.isRepaired(this.save) ? 'The lift hums again. Beyond the first caves lie solid stone and the open Underdark. Where would you like to go?' : 'The old lift is broken. Repair it with 9 wood and 9 stone to connect Home and the first three underground levels.';
+    description.textContent = Elevators.isRepaired(this.save)
+      ? (Elevators.hasParts(this.save) ? 'The lift is fully repaired. Where would you like to go?' : 'The lift connects Home and level 1. Find the elevator parts in your tenth chest on level 1 to restore the deeper stops.')
+      : 'Repair the lift with 9 wood and 9 stone to connect Home and level 1. Elevator parts from your tenth chest on level 1 restore the deeper stops.';
     box.appendChild(description);
     if (!Elevators.isRepaired(this.save) && (depth === 0 || depth === 1)) {
       const repair = mkBtn('Repair — 9 wood + 9 stone', true);

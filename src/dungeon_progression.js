@@ -11,7 +11,8 @@
   function canUseDescent(save, from, target, source) {
     if (!Number.isInteger(from) || !Number.isInteger(target) || from < 0 || target < 0) return false;
     if (source === 'elevator') {
-      if (save?.elevators?.repaired !== true || !Elevators.FLOORS.includes(from) || !Elevators.FLOORS.includes(target)) return false;
+      if (!Elevators.isRepaired(save) || !Elevators.FLOORS.includes(from)
+          || (target !== 0 && !Elevators.unlockedFloors(save).includes(target))) return false;
     } else if (Math.abs(target - from) !== 1) return false;
     return (target <= from || canEnterDepth(save, target)) && !(from === 1 && target > from && source !== 'rope' && source !== 'elevator');
   }
