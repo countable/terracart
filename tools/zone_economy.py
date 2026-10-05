@@ -18,7 +18,9 @@ const rocks=fs.readFileSync('src/interactables.js','utf8');
 const fn=(source,name)=>source.match(new RegExp('^function '+name+'\\([^]*?^}', 'm'))[0];
 const ctx={};vm.createContext(ctx);
 vm.runInContext(items.match(/const PRICES = [^]*?^};/m)[0]+'\n'+
+ items.match(/const SELL_MUL = [^;]+;/)[0]+'\n'+
  items.match(/const TRAILER_SELL_MUL = [^;]+;/)[0]+'\n'+
+ items.match(/const GEM_DEPOSITS = [^;]+;/)[0]+'\n'+
  items.match(/const CRYSTAL_DEPOSIT = [^;]+;/)[0]+'\n'+
  ['sellMultiplier','trailerSellMultiplier','trailerSellPrice'].map(name=>fn(items,name)).join('\n')+'\n'+
  fn(rocks,'plainRockBarChance')+'\n'+

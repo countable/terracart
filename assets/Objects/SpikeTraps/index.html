@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rolling spikeball and sliding spike wall</title>
+<style>body{margin:32px auto;padding:0 24px;max-width:1040px;background:#171d24;color:#edf0e6;font:16px system-ui}p{color:#b5c1c7;line-height:1.5}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}article{background:#252e35;padding:24px;border:1px solid #45525b;border-radius:12px}canvas{width:100%;image-rendering:pixelated;background:#303c36}select,button{font:inherit;background:#34444f;color:inherit;border:1px solid #607581;border-radius:6px;padding:8px;margin:0 6px 16px 0}a{color:#aed8ff}footer{margin-top:28px}img{image-rendering:pixelated;max-width:100%}</style>
+<h1>Spike traps · 24×24</h1><p>Eight rolling directions for the spikeball. Four isometric facings for a wall that slides across one cell.</p>
+<button id="pause">Pause</button><button id="restart">Restart</button>
+<main><article><h2>Giant spikeball</h2><label>Roll direction <select id="ballDirection"><option>north</option><option>northeast</option><option selected>east</option><option>southeast</option><option>south</option><option>southwest</option><option>west</option><option>northwest</option></select></label><canvas id="ball" width="96" height="96" aria-label="Animated rolling spikeball"></canvas><p>Four-frame loop per direction. Translation and rolling play together.</p><a href="spikeball.png" download>Download 24×24 sprite sheet</a></article>
+<article><h2>Directional spike wall</h2><label>Spikes face <select id="wallDirection"><option>southeast</option><option>southwest</option><option>northwest</option><option>northeast</option></select></label><canvas id="wall" width="96" height="96" aria-label="Spike wall sliding across an isometric cell"></canvas><p>A fixed sprite slides forward one cell, pauses, then retracts with its spikes still facing the same way.</p><a href="spike-wall.png" download>Download 24×24 sprite sheet</a></article></main>
+<footer><a href="frames.json">Frame mapping and motion notes</a> · <a href="prompts.json">Imagegen prompts</a><p>Artwork saved in assets/Objects/SpikeTraps/. These previews demonstrate motion; gameplay integration is separate.</p></footer>
+<script>
+const directions=['north','northeast','east','southeast','south','southwest','west','northwest'];
+const velocity=[[0,-1],[.707,-.707],[1,0],[.707,.707],[0,1],[-.707,.707],[-1,0],[-.707,-.707]];
+const wallMoves=[[16,8],[-16,8],[-16,-8],[16,-8]];
+let time=0,last=0,paused=false;
+document.querySelector('#pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'Play':'Pause';};document.querySelector('#restart').onclick=()=>time=0;
+for(const select of document.querySelectorAll('select'))select.onchange=()=>time=0;
+const bc=document.querySelector('#ball').getContext('2d'),wc=document.querySelector('#wall').getContext('2d');bc.imageSmoothingEnabled=wc.imageSmoothingEnabled=false;
+function load(src){return new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error(src));image.src=src;});}
+function grid(c){c.clearRect(0,0,96,96);c.strokeStyle='#536058';c.lineWidth=.4;for(let y=-3;y<4;y++)for(let x=-3;x<4;x++){const px=48+(x-y)*16,py=55+(x+y)*8;c.beginPath();c.moveTo(px,py-8);c.lineTo(px+16,py);c.lineTo(px,py+8);c.lineTo(px-16,py);c.closePath();c.stroke();}}
+function sprite(c,img,frame,cols,x,y,ax,ay){c.drawImage(img,(frame%cols)*24,Math.floor(frame/cols)*24,24,24,Math.round(x-ax),Math.round(y-ay),24,24);}
+Promise.all([load('spikeball.png'),load('spike-wall.png')]).then(([ball,wall])=>{document.body.dataset.ready='true';function tick(now){if(last&&!paused)time+=now-last;last=now;grid(bc);grid(wc);const d=directions.indexOf(document.querySelector('#ballDirection').value),v=velocity[d],travel=((time%2200)/2200-.5)*50;sprite(bc,ball,d*4+Math.floor(time/110)%4,4,48+v[0]*travel,48+v[1]*travel,12,12);const wi=document.querySelector('#wallDirection').selectedIndex,wv=wallMoves[wi],phase=time%2600;let t=phase<1000?phase/1000:phase<1300?1:phase<2300?1-(phase-1300)/1000:0;sprite(wc,wall,wi,2,48+wv[0]*(t-.5),55+wv[1]*(t-.5),12,19);requestAnimationFrame(tick);}requestAnimationFrame(tick);}).catch(e=>document.body.dataset.error=e.message);
+</script></html>

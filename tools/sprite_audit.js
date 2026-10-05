@@ -30,7 +30,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART, GROVE_SHRINE_ART, SHRINE_KIND_ART, CHEST_SCALE,
+const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART, GROVE_SHRINE_ART, SHRINE_KIND_ART, SHRINE_SPIRIT_ART, CHEST_SCALE,
         CREATURE_WHEEL_R, creatureWheelDy } =
   require(path.join(ROOT, 'src', 'sprite_layout.js'));
 const EnemyRoster = require(path.join(ROOT, 'src', 'enemy_roster.js'));
@@ -204,7 +204,7 @@ const treeScale = treeCtx.treeScale;
 // CROP_SPRITE.shrub.scale is the one number both render.js branches read.
 // A top-level `const` lands in the script scope, not on the global object
 // (unlike a `function`, hence no bridge for treeScale above), so hand it over.
-const itemsCtx = { Math, console, EnemyRoster: require('../src/enemy_roster.js') };
+const itemsCtx = { Math, console, SpriteLayout: require('../src/sprite_layout.js'), EnemyRoster: require('../src/enemy_roster.js') };
 vm.createContext(itemsCtx);
 // util.js first, as index.html orders them (the catalog uses shortDuration at load).
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
@@ -230,15 +230,20 @@ const SHEETS = {
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
+  beach_palms: { file: ASSETS.beach_palms.path, fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5] },
   bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree keeps its mature frame and wears a fruit sprite (FRUIT_FRAMES in render.js).
   apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
   worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
+  beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
   chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0] },
   box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
+  shrine_spirit: { file: ASSETS.shrine_spirit.path, fw: 16, fh: 16, frames: [0, 1, 2, 3] },
+  cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [0, 1, 6, 17, 24, 25, 26, 27, 28, 29] },
+  poison_vent_inactive: { file: ASSETS.poison_vent_inactive.path, fw: 24, fh: 24, frames: [0] },
   crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
-  mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 6] },
+  mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 7] },
   approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 24, fh: 24, frames: [0] },
   well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
@@ -246,7 +251,6 @@ const SHEETS = {
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
   torch:         { file: 'assets/Objects/Wilderness/torch.png',              fw: 16, fh: 32, frames: [0] },
   waystone:      { file: 'assets/Objects/Approved/waystone.png',            fw: 16, fh: 16, frames: [0] },
-  stakes:        { file: 'assets/Objects/Approved/stakes.png',            fw: 16, fh: 16, frames: [0] },
   tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
@@ -258,7 +262,6 @@ const SHEETS = {
   [SHRINE_KIND_ART.key]: { file: ASSETS[SHRINE_KIND_ART.key].path, fw: ASSETS[SHRINE_KIND_ART.key].frameWidth,
     fh: ASSETS[SHRINE_KIND_ART.key].frameHeight, frames: SHRINE_KIND_ART.frames },
   barrel: { file: ASSETS.barrel.path, fw: 24, fh: 24, frames: [0] },
-  barrel_smashed: { file: ASSETS.barrel_smashed.path, fw: 24, fh: 24, frames: [0] },
   clay_pot: { file: ASSETS.clay_pot.path, fw: 24, fh: 24, frames: [0] },
   clay_pot_smashed: { file: ASSETS.clay_pot_smashed.path, fw: 24, fh: 24, frames: [0] },
   bike_rack:      { file: 'assets/Objects/Approved/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
@@ -283,6 +286,7 @@ const SCENARIOS = [
   { name: 'pine small',      key: 'pine_tree',     frameIdx: 1, scale: t('pine', 'small') },
   { name: 'pine medium',     key: 'pine_tree',     frameIdx: 2, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
+  ...[0, 1, 2, 3, 4, 5].map(frameIdx => ({ name: `beach palm ${frameIdx}`, key: 'beach_palms', frameIdx, scale: itemsCtx.WILDPLANT_CONTEXT_ART.palm.scale })),
   { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
   { name: 'giant mushroom', key: 'zone_objects', frameIdx: 40, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
@@ -290,7 +294,11 @@ const SCENARIOS = [
   { name: 'peach (wild)',    key: 'worldpeach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
   { name: 'chest',           key: 'chest',         frameIdx: 0, scale: CHEST_SCALE },
   { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
+  ...[0, 1, 2, 3].map(frameIdx => ({ name: `shrine spirit idle ${frameIdx}`, key: 'shrine_spirit', frameIdx,
+    scale: SHRINE_SPIRIT_ART.scale })),
   { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
+  ...[0, 1, 6, 17, 24, 25, 26, 27, 28, 29].map(frameIdx => ({ name: `cave prop ${frameIdx}`, key: 'cave_props', frameIdx, scale: 4 / 3 })),
+  { name: 'inactive vent', key: 'poison_vent_inactive', frameIdx: 0, scale: 4 / 3 },
   { name: 'crystal deposit', key: 'crystal_cluster', frameIdx: 0, scale: 1.28 },
   { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.28 },
   { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
@@ -299,7 +307,6 @@ const SCENARIOS = [
   { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
   { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
   { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 1.6 },
-  { name: 'stakes',          key: 'stakes',        frameIdx: 0, scale: 1.6 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'zone_objects',  frameIdx: 1, scale: 4 / 3 },
@@ -314,7 +321,6 @@ const SCENARIOS = [
   { name: 'barrel',          key: 'barrel',        frameIdx: 0, scale: 4 / 3 },
   { name: 'clay pot', key: 'clay_pot', frameIdx: 0, scale: 4 / 3 },
   { name: 'clay pot smashed', key: 'clay_pot_smashed', frameIdx: 0, scale: 4 / 3 },
-  { name: 'barrel smashed',  key: 'barrel_smashed', frameIdx: 0, scale: 4 / 3 },
   { name: 'bike rack',       key: 'bike_rack',     frameIdx: 0, scale: 1.3 },
   { name: 'notice board',    key: 'signpost',      frameIdx: 0, scale: 1.6 },
   { name: 'gate post',       key: 'gatepost',      frameIdx: 0, scale: 1.6 },

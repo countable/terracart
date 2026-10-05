@@ -84,7 +84,7 @@ const CROP_SPRITE = {
   mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.1016, caveFrames: [127, 128] },
   // Shell keeps its original pink cowrie on every surface. The unused
   // colour variants and duplicate frames are cleared without changing sheet geometry.
-  shell: { sheet: 'shell_sheet', custom: true, frames: [0] },
+  shell: { sheet: 'shell_sheet', custom: true, frames: [0], scale: 1.5 },
   // Torch — the consumable lying on a level-1 cave floor (worldgen.js
   // caveFloorTorches); the floor pickup uses the shared crop renderer.
   torch: { sheet: 'icon_torch', custom: true, frame: 0, scale: 1.36 },
@@ -149,6 +149,7 @@ const WILDPLANT_CONTEXT_ART = {
   zone_rock_pirate_cove: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 71, scale: 4 / 3 },
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
   zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
+  palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 2, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
@@ -160,6 +161,8 @@ function wildplantSprite(p) {
   const context = WILDPLANT_CONTEXT_ART[look];
   if (context && context.crop === p.crop) return look === 'zone_hedge'
     ? { ...context, frame: p._hedgeFrame ?? 0 } : context;
+  // Unnamed beach sand uses the same palms as authored coastal shrub placements.
+  if (p && !p._cave && p.crop === 'shrub' && p._biome === 2 && !look) return WILDPLANT_CONTEXT_ART.palm;
   if (base?.looks?.[look]) return base.looks[look];
   if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return base.looks.clipped;
   if (base?.mature && (p.kind === 'wildplant' || p.wildId != null || p.stage >= MAX_GROWTH_STAGE)) return base.mature;
@@ -297,11 +300,19 @@ const COOKED_FOODS = {
 // Ore-bearing rock identity. One row owns the material shown, paid and
 // catalogued because changing any one without the others lies to the player.
 // The mineralrock sheet's top row orders copper through platinum at columns
-// 0..3, leaves column 4 for unrelated art, then puts crimson/frost at 5/6.
+// 0..3, puts crimson at 5 and frost blue at 7; columns 4 and 6 are unused.
 // Yield tier 1 is a plain rock and therefore has no row or namesake bar.
 // A crystal deposit is mined like a rock but pays only its visible gem.
-const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3 });
-function mineralDeposit(o) { return o.deposit === 'crystal' ? CRYSTAL_DEPOSIT : null; }
+const GEM_DEPOSITS = Object.freeze(Object.fromEntries([
+  ['quartz', 1, 'cave_props', 29], ['amethyst', 2, 'cave_props', 27],
+  ['topaz', 3, 'cave_props', 28], ['sapphire', 4, 'crystal_cluster', 0],
+  ['ruby', 5, 'cave_props', 24], ['emerald', 6, 'cave_props', 25],
+  ['diamond', 7, 'cave_props', 26],
+].map(([item, yieldTier, artKey, artFrame]) => [item, Object.freeze({
+  item, quantity: 1, yieldTier, requiredTier: Math.max(1, yieldTier - 1), artKey, artFrame,
+})])));
+const CRYSTAL_DEPOSIT = GEM_DEPOSITS.sapphire;
+function mineralDeposit(o) { return o?.deposit === 'crystal' ? CRYSTAL_DEPOSIT : GEM_DEPOSITS[o?.deposit] || null; }
 
 const MINERAL_TIERS = Object.freeze({
   2: Object.freeze({ barId: 'copper_bar',   rockFrame: 0 }),
@@ -309,13 +320,14 @@ const MINERAL_TIERS = Object.freeze({
   4: Object.freeze({ barId: 'gold_bar',     rockFrame: 2 }),
   5: Object.freeze({ barId: 'platinum_bar', rockFrame: 3 }),
   6: Object.freeze({ barId: 'crimson_bar',  rockFrame: 5 }),
-  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 6 }),
+  7: Object.freeze({ barId: 'frost_bar',    rockFrame: 7 }),
 });
 function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
 
 const MINERAL_ICON_SHEET = {
   field_scope: { sheet: 'icon_field_scope', frame: 0 },
+  compass: { sheet: 'icon_compass', frame: 0 },
   orb: { sheet: 'icon_orb', frame: 0 },
   goblet: { sheet: 'icon_goblet', frame: 0 },
   lucky_key: { sheet: 'icon_lucky_key', frame: 0 },
@@ -334,6 +346,9 @@ const MINERAL_ICON_SHEET = {
   // diamond, 1 red ruby, 2 purple shard, 3 blue sapphire, 4 orange topaz,
   // 5 green emerald cluster, 6 pink quartz. (Rows 1-3 are outlined / mask
   // duplicates.) Pinned by test/node/diamond.test.js.
+  quartz:   { sheet: 'gems', frame: 6 },
+  amethyst: { sheet: 'gems', frame: 2 },
+  topaz:    { sheet: 'gems', frame: 4 },
   sapphire: { sheet: 'gems',      frame: 3 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 1 },   // red gem
   emerald:  { sheet: 'gems',      frame: 5 },   // green gem cluster
@@ -377,6 +392,8 @@ const MINERAL_ICON_SHEET = {
   // Consumables — honey is a single 16×16 jar (Icons/Items/Honey.png, an
   // amber fill of the potion pack's empty flask); books are a 240×64
   // multi-frame sheet, frame 0 the basic variant.
+  // Unused amber-filled pot, distinct from the taming potion's honey jar.
+  syrup: { sheet: 'icon_potions', frame: 0 },
   taming_potion:      { sheet: 'icon_taming_potion',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
   tome_reach: { sheet: 'icon_book',   frame: 2 },
@@ -436,6 +453,8 @@ const MINERAL_ICON_SHEET = {
   frost_powder:  { sheet: 'icon_potions', frame: 9 },
   // Unique jewelry uses spare 16px frames from the old tier sheets.
   stealth_ring:      { sheet: 'icon_rings',   frame: 8 },
+  perception_ring:   { sheet: 'icon_rings',   frame: 10 },
+  coin_ring:         { sheet: 'icon_rings',   frame: 7 },
   invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
   ember_ring:        { sheet: 'icon_rings',   frame: 9 },
   regeneration_amulet:      { sheet: 'icon_amulets', frame: 10 },
@@ -562,7 +581,7 @@ const CROP_NAMES = {
 // items SHOULD get a baseTier; rarity.js defaults missing entries to 1.
 const SHINY_TIER_UP = 3;
 const BASE_TIER = {
-  field_scope: 5, orb: 7, goblet: 6, lucky_key: 3,
+  field_scope: 5, compass: 2, orb: 7, goblet: 6, lucky_key: 3,
   wood_shield: 2, metal_shield: 4, gold_shield: 6,
   smiths_guild_badge: 4, marketeers_guild_badge: 4, traders_guild_badge: 4,
   // Crops (same tier for seed & produce; the seed id uses the suffix).
@@ -612,7 +631,7 @@ const BASE_TIER = {
   dog: 5,
   // Consumables
   antidote: 1, elixir: 7,
-  taming_potion: 3, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
+  syrup: 2, taming_potion: 3, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
@@ -640,7 +659,7 @@ const BASE_TIER = {
   // a T2 utility like the protection potion, under the T3 explosive flask.
   poison_flask: 2,
   // Unique jewelry is intrinsically magical, never a metal rung.
-  stealth_ring: 2, invisibility_ring: 4, ember_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, perception_ring: 2, coin_ring: 2, invisibility_ring: 4, ember_ring: 3, regeneration_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_reach: 3, tome_raven: 4, tome_thunder: 5, tome_fire_wall: 4,
@@ -664,6 +683,7 @@ const BASE_TIER = {
   // Grilled at a campfire (CAMPFIRE_MAKES) — one step up from the raw cut.
   grilled_meat: 4,
   crow_feather: 3,
+  quartz: 1, amethyst: 2, topaz: 3,
   sapphire: 4, ruby: 5, emerald: 6,
   // Diamond tops the gem ladder at the Frost tier — the T7 rock's headline gem.
   diamond: 7,
@@ -691,6 +711,7 @@ function babyItems() { return BABY_KINDS.map(babyItemId); }
 // Passive benefits apply while carried, without stacking duplicate items.
 const CARRIED_ITEM_SPEC = {
   field_scope: { peekMultiplier: 2 },
+  compass: { treasureCompass: true },
   lucky_key: { luckBonus: 1 },
   wood_shield: { projectileReduction: 3 },
   metal_shield: { projectileReduction: 6 },
@@ -705,6 +726,7 @@ const CARRIED_ITEM_SPEC = {
 };
 const ITEMS = [
   { id: 'field_scope', name: 'Field Scope', kind: 'unique_relic' },
+  { id: 'compass', name: 'Compass', kind: 'unique_relic' },
   { id: 'orb', name: 'Orb', kind: 'unique_relic', reusable: true },
   { id: 'goblet', name: 'Goblet', kind: 'unique_relic', reusable: true },
   { id: 'lucky_key', name: 'Lucky Key', kind: 'unique_relic' },
@@ -734,6 +756,8 @@ const ITEMS = [
   { id: 'rabbit',    name: 'Rabbit',    kind: 'animal' },
   { id: 'crow',      name: 'Crow',      kind: 'animal' },
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
+  ...SpriteLayout.BUTTERFLY_VARIANTS.map(row => ({ id: row.id, name: row.name, kind: 'animal', baseTier: BASE_TIER.butterfly })),
+  ...SpriteLayout.BUTTERFLY_VARIANTS.map(row => ({ id: `shiny_${row.id}`, name: `Shiny ${row.name}`, kind: 'animal', base: row.id, shiny: true, baseTier: Math.min(7, BASE_TIER.butterfly + SHINY_TIER_UP) })),
   // The shore crab — the chicken of the beach (SpriteLayout CREATURE_BEHAVIOUR.crab).
   { id: 'crab',      name: 'Crab',      kind: 'animal' },
   // The horse — kept in the bag it is a mount (HORSE_RIDE, isRiding).
@@ -861,6 +885,8 @@ const ITEMS = [
   // Unique jewelry works while carried. Its designation keeps magic shops and
   // ordinary class rolls from selling it; named chest pools remain its source.
   { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'perception_ring',   name: 'Ring of Perception',    kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'coin_ring',         name: 'Ring of Gathering',     kind: 'unique_relic', uniqueJewelry: true },
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
   { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regeneration_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
@@ -926,6 +952,7 @@ const ITEMS = [
   { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     dropWeight: 0.4 },
   { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', dropWeight: 0.4 },
   // Fruit from fruit trees in orchard tiles
+  { id: 'syrup', name: 'Syrup', kind: 'produce', dropWeight: 0 },
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
   { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry' },
   { id: 'worldpeach',   name: 'Worldpeach',   kind: 'produce', crop: 'worldpeach' },
@@ -952,6 +979,9 @@ const ITEMS = [
   // Sapphire doubles as a one-shot descent charge: tap the Portal button with
   // it selected to descend in place. A Return status action leads back to
   // the entry for one minute, including after the last gem is spent.
+  { id: 'quartz',   name: 'Rose quartz', kind: 'mineral' },
+  { id: 'amethyst', name: 'Amethyst', kind: 'mineral' },
+  { id: 'topaz',    name: 'Topaz', kind: 'mineral' },
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
@@ -1101,7 +1131,7 @@ const CONSUMABLE_SPEC = {
   treasure_map: {
     durationMs: 15 * _CONSUMABLE_MINUTE_MS,
     verb: 'Read', method: 'useTreasureMap', title: 'Read the Treasure Map?',
-    get: 'A glimmer points toward a rich chest along this level.',
+    get: 'A glimmer leads to buried treasure on this level.',
   },
   sleep_powder: {
     get durationMs() { return Combat.FLOWER_STATUS_MS; },
@@ -1349,7 +1379,7 @@ function isRiding(save) {
     && ((ITEM_BY_ID[s.id]?.base || s.id) === 'horse'));
 }
 const PRICES = {
-  field_scope: 80, orb: 180, goblet: 180, lucky_key: 100,
+  field_scope: 80, compass: 0, orb: 180, goblet: 180, lucky_key: 100,
   wood_shield: 40, metal_shield: 160, gold_shield: 500,
   // ── Seeds ────────────────────────────────────────────────
   // A seed's price is also its chest allowance divisor (chest_themes.js
@@ -1404,6 +1434,7 @@ const PRICES = {
   milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
+  syrup: 7,
   taming_potion: 12,
   book:  20,
   tome_reach: 90,   // T3 — a reach potion's sight, once a day, forever
@@ -1446,7 +1477,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, invisibility_ring: 0, ember_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, perception_ring: 0, coin_ring: 0, invisibility_ring: 0, ember_ring: 0, regeneration_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_disarm_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -1458,6 +1489,7 @@ const PRICES = {
 
   // ── Rock-break minerals ──────────────────────────────────
   flint_shard:      3,
+  quartz: 3, amethyst: 7, topaz: 15,
   sapphire:  30,
   ruby:      80,
   emerald:  200,
@@ -1496,6 +1528,10 @@ function itemValue(id) {
   const t = ITEM_BY_ID[id]?.baseTier || 1;
   return TIER_VALUE[t] || TIER_VALUE[TIER_VALUE.length - 1];
 }
+for (const row of SpriteLayout.BUTTERFLY_VARIANTS) {
+  PRICES[row.id] = PRICES.butterfly;
+  PRICES[`shiny_${row.id}`] = PRICES.butterfly * 10;
+}
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + memory.
 for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'sea_turtle']) {
@@ -1529,7 +1565,7 @@ const STARTING_MONEY = 50;
 const SHOP_CHARM_MS = 5 * 60 * 1000;
 // ITEMS THAT REVIVE: the fraction of the bar each one stands you back up
 // with (through Energy.reviveLevel, so it rounds like Home's quarter). The
-// Crow Feather is EATEN, and only through the hard-mode lockout (eatSelected);
+// Crow Feather is EATEN, and only while down in either mode (eatSelected);
 // the revival potions are DRUNK, only while down (Combat.playerDowned — zero
 // energy, either mode), because above zero they would just be Healing potions.
 // One table, read by the eat / drink, the ✦ lines below, the Eat button and
@@ -1580,6 +1616,7 @@ const EGG_HATCH_METERS = 500;
 
 const ITEM_EFFECTS = {
   field_scope: 'Distant branches sharpen into view through its worn brass tube.',
+  compass: 'While carried, a red needle points toward the nearest unclaimed X-marks-the-spot on screen.',
   orb: CONSUMABLE_SPEC.orb.get,
   goblet: 'A little warmth gathers in its bowl after every sip.',
   lucky_key: 'Fortune seems to turn with this little golden key.',
@@ -1604,6 +1641,9 @@ const ITEM_EFFECTS = {
   worldpeach: 'Its soft sweetness washes every affliction away.',
   longgrass: 'Its tough fibres hold fast when twisted together.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
+  quartz: 'Pale pink crystals catch the light along their edges.',
+  amethyst: 'A violet shard glitters in your palm.',
+  topaz: 'Amber light shines through the clear stone.',
   sapphire: 'A blue depth opens inside it, like a doorway beneath your feet.',
   emerald: 'A green light waits for a staff to carry it.',
   ruby: 'A small red fortune warms your palm.',
@@ -1622,6 +1662,8 @@ const ITEM_EFFECTS = {
   crimson_bar: 'An iceflower’s chill waits beneath its red sheen.',
   frost_bar: 'A smith’s breath turns white above this cold metal.',
   stealth_ring: 'Hungry eyes slide past the stone in its band.',
+  perception_ring: 'While carried, hidden creatures and objects reveal themselves within your vision.',
+  coin_ring: 'Loose coins slide across the ground toward its golden band.',
   ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regeneration_amulet: 'A slow warmth mends what the day takes.',
@@ -1631,6 +1673,7 @@ const ITEM_EFFECTS = {
   iceflower: 'Its frozen petals cool even crimson metal.',
   diamond: 'A sliver of winter waits for a jeweller’s hand.',
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
+  syrup: 'Sweet amber syrup clings to the lip of the jar.',
   taming_potion: 'Its sweet scent draws curious noses through the grass.',
   book: 'An elder’s faded words wait beneath the worn cover.',
   tome_reach: 'Page by page, the horizon walks closer.',
@@ -1703,6 +1746,7 @@ const STARTING_ENERGY = 100;
 // The numbers below are the rows themselves; cooked rows follow through GRILL_ENERGY_MUL.
 const FOOD_ENERGY = {
   goblet: 5,
+  syrup: 13,
   longgrass:  3,
   nut:        10,
   potato:     10,
@@ -2317,6 +2361,8 @@ function steerEnergyCost(gear) {
 // both variants takes the stronger effect; values never stack.
 const UNIQUE_JEWELRY = Object.freeze({
   stealth_ring: Object.freeze({ visionCells: 1 }),
+  perception_ring: Object.freeze({ perception: true }),
+  coin_ring: Object.freeze({ coinMagnetCells: 3 }),
   invisibility_ring: Object.freeze({ visionCells: 2 }),
   ember_ring: Object.freeze({ fireDamageMul: 0.4 }),
   regeneration_amulet: Object.freeze({ regenMs: 4000 }),
@@ -2530,6 +2576,7 @@ const CHARRED_SPIKE_DAMAGE_PER_S = 2;
 const WALK_HAZARD_ENTRY_DAMAGE = 5;
 function walkHazardDamageRate(o) {
   if (!o) return 0;
+  if (o.kind === 'stalagmites') return CHARRED_SPIKE_DAMAGE_PER_S;
   if (o.kind === 'stakes') return o._street === 'burned' ? CHARRED_SPIKE_DAMAGE_PER_S : 0;
   if (o.kind && o.kind !== 'wildplant' && o.kind !== 'shrub') return 0;
   if (o.crop === 'barricade') return CHARRED_SPIKE_DAMAGE_PER_S;
@@ -2540,5 +2587,5 @@ function isWalkHazard(o) { return walkHazardDamageRate(o) > 0; }
 
 // The same kit removes authored obstacles; tar and natural thorns stay put.
 function isTrapKitObstacle(o) {
-  return !!o && (o.kind === 'stakes' || (o.kind === 'wildplant' && o.crop === 'barricade'));
+  return !!o && (o.kind === 'stakes' || o.kind === 'stalagmites' || (o.kind === 'wildplant' && o.crop === 'barricade'));
 }

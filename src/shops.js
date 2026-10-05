@@ -93,9 +93,9 @@
   // The order is the save's own record (save.restoredHouses keeps insertion
   // order, the delivery.js houseOrder idiom), so a restored shop keeps its line.
   //
-  // Each visit sells ONE random item from the line at the shop's tier — the
-  // nearest tier the line actually stocks (ties go LOWER), since no line has
-  // an item at every tier. The relic line is gear, rolled by Gear.buildRelicOffer
+  // Each visit sells one item type: half the rolls favour batches from one
+  // tier below; otherwise the nearest stocked tier (ties go LOWER). The relic
+  // line is gear, rolled by Gear.buildRelicOffer
   // (never at or below what the player already wears), so it has no pool here.
   // THE CYCLE: the lines a Shop card offers, round and round a tier up
   // (themeAt). The Book and Pet lines are NOT in it — see SOLO_LINES.
@@ -134,10 +134,17 @@
     potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry).map(item => item.id),
     ore:    () => ['flint_shard', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
                    'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],
-    pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
+    pet:    () => ['chicken', 'dog', 'rabbit', 'cat', ...SpriteLayout.BUTTERFLY_VARIANTS.map(row => row.id), 'crow', 'deer', 'cow'],
     // The bookshop's line: only the Book, at the price ladder (shops_math.js listPrice).
     book:   () => ['book'],
   };
+
+  const LINE_TIERS = { relic: [2, 4, 6], potion: [1, 3, 5, 7] };
+  function lineTier(theme, index) {
+    const tiers = LINE_TIERS[theme];
+    return tiers ? tiers[Math.min(Math.max(0, index), tiers.length - 1)] : index + 1;
+  }
+  const knownLine = theme => THEMES.includes(theme) || !!THEME_POOL[theme];
 
   // Shared by pet shops and egg hatching; callers receive their own array.
   function petItems() { return THEME_POOL.pet(); }
@@ -145,7 +152,8 @@
   // The line + tier for the Nth shop restored (0-based).
   function themeAt(order) {
     const o = Math.max(0, order | 0);
-    return { theme: THEMES[o % THEMES.length], tier: 1 + Math.floor(o / THEMES.length) };
+    const theme = THEMES[o % THEMES.length];
+    return { theme, tier: lineTier(theme, Math.floor(o / THEMES.length)) };
   }
 
   // 0-based place of this shop among the save's restored shops, in restore
@@ -181,8 +189,8 @@
   function isBookshop(save, houseId) { return soloLine(save, houseId) === 'book'; }
   // THE LINE IS THE PLAYER'S PICK: a market restored off the Shop cards carries
   // its chosen line in save.shopLines[id] (houses.js restoreAs); its TIER is one
-  // more than the markets before it on the same line. A market with no stored
-  // line keeps the cycle's answer, themeAt(shopOrder). One walk over the ledger
+  // step along its tier ladder per earlier market on the same line. No stored
+  // line means the cycle's answer, themeAt(shopOrder). One walk over the ledger
   // resolves every market's line and tier in restore order (marketLines).
   function marketLines(save) {
     const rh = (save && save.restoredHouses) || {};
@@ -195,7 +203,7 @@
       let theme, tier;
       // Any line the pools know (a market picked as a Pet Shop before the
       // line left the cycle keeps selling pets), else the cycle's answer.
-      if (THEME_POOL[stored[id]]) { theme = stored[id]; tier = 1 + (seen[theme] || 0); }
+      if (knownLine(stored[id])) { theme = stored[id]; tier = lineTier(theme, seen[theme] || 0); }
       else ({ theme, tier } = themeAt(n));
       seen[theme] = (seen[theme] || 0) + 1;
       out.push({ id, theme, tier });
@@ -207,15 +215,15 @@
     const solo = house ? soloLine(save, house.id) : null;
     if (solo) return { theme: solo, tier: 1 };
     const stored = save?.shopLines?.[house?.id];
-    if (house && THEME_POOL[stored]) {
+    if (house && knownLine(stored)) {
       const row = marketLines(save).find((r) => r.id === String(house.id));
       if (row) return { theme: row.theme, tier: row.tier };
     }
     return themeAt(shopOrder(save, house));
   }
-  // The tier a NEW market of `theme` would carry: one past those already on the line.
+  // The tier a NEW market would carry: the next step on its line's ladder.
   function lineTierFor(save, theme) {
-    return 1 + marketLines(save).filter((r) => r.theme === theme).length;
+    return lineTier(theme, marketLines(save).filter((r) => r.theme === theme).length);
   }
   // The line the next shop would sell: the one Shop card before the pairs begin
   // (marketOffers); counts every restored market but the solo shops.
@@ -259,7 +267,7 @@
   //   TRADER  — any number per tier. A trader's tier is the restore number it
   //             was raised at over TRADER_TIER_EVERY (floored, at least 1), so
   //             the fifth to ninth rebuild raise T1 traders, the tenth a T2.
-  //             Its barter leans toward goods of its tier (tierAffinity).
+  //             Its barter offers goods at exactly its tier (traderStock).
   // The map badge, the offer blurb, the restore card and the Restored! card
   // all read shopTier.
   const SMITH_TIER_EVERY = 5, TRADER_TIER_EVERY = 5, SHOP_TIER_MAX = 7;
@@ -294,8 +302,8 @@
     return null;
   }
   // How much a shop of tier `tier` wants to carry an item of tier `itemT`:
-  // full weight at its own tier, halved per tier away. A lean, not a wall —
-  // a T1 trader still hands over the odd T3 seed.
+  // full weight at its own tier, halved per tier away. Exact-tier trader
+  // stock uses traderStock instead.
   function tierAffinity(itemT, tier) { return 1 / Math.pow(2, Math.abs((itemT | 0) - (tier | 0))); }
 
   // What a shop of this line and tier can stock: every item of the line at the
@@ -314,16 +322,44 @@
     return ids.filter((id) => itemTier(id) === best.t);
   }
 
+  // Half the shelves carry a batch from exactly one tier below, when the
+  // line has such items. Sparse lines retain their nearest-tier fallback.
+  const THEMED_BATCH_CHANCE = 0.5;
+  function batchStock(theme, tier) {
+    return tier > 1 ? (THEME_POOL[theme]?.() || []).filter(id => itemTier(id) === tier - 1) : [];
+  }
+  function themedOfferStock(theme, tier) {
+    return [...new Set([...themedStock(theme, tier), ...batchStock(theme, tier)])];
+  }
+  function themedQuantity(id, tier, rng = Math.random) {
+    return itemTier(id) === tier - 1 ? 2 + Math.floor(rng() * 3) : 1;
+  }
   // The one item this shop sells right now, off the caller's seeded rng.
   function pickThemed(theme, tier, rng = Math.random) {
-    const stock = themedStock(theme, tier);
+    const lower = batchStock(theme, tier);
+    const stock = lower.length && rng() < THEMED_BATCH_CHANCE ? lower : themedStock(theme, tier);
     if (!stock.length) return null;
     return stock[Math.floor(rng() * stock.length) % stock.length];
+  }
+
+  let prices = null;
+  const traderStocks = new Map();
+  function traderPrices() {
+    if (!prices) {
+      const gearIds = new Set(Gear.uniqueRelics().map(item => item.id));
+      prices = Object.fromEntries(ITEMS.filter(item => !gearIds.has(item.id)).map(item => [item.id, itemValue(item.id)]));
+    }
+    return prices;
+  }
+  function traderStock(tier) {
+    if (!traderStocks.has(tier)) traderStocks.set(tier, Object.keys(traderPrices()).filter(id => itemTier(id) === tier));
+    return traderStocks.get(tier);
   }
 
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
+    LINE_TIERS, lineTier, THEMED_BATCH_CHANCE, batchStock, themedOfferStock, themedQuantity, traderPrices, traderStock,
     THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineTierFor, nextLine, MARKET_PAIR_FROM, marketOffers, themedStock, itemTier,
     SMITH_TIER_EVERY, TRADER_TIER_EVERY, SHOP_TIER_MAX, smithCount, smithTier, nextSmithTier, smithUnlockAt, traderTierAt, traderTier, shopTier, tierAffinity, pickThemed, petItems,
   };

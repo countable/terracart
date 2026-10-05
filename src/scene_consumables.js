@@ -956,13 +956,13 @@ class SceneConsumables {
   useTreasureMap() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'treasure_map' || !(sel.count > 0)) return false;
-    const target = this.findNearestUnopenedChest([4, 5]);
+    const target = this.findNearestTreasureMark();
     if (!target) {
       this.flash('No treasure found — map kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     this.save.treasureCompass = { x: target.x, y: target.y, targetId: target.id,
-      depth: this.depth || 0, until: Date.now() + CONSUMABLE_SPEC.treasure_map.durationMs };
+      kind: 'treasure', depth: this.depth || 0, until: Date.now() + CONSUMABLE_SPEC.treasure_map.durationMs };
     this._spendScroll(sel.id);
     this.flashLoot(`Treasure marked for ${shortDuration(CONSUMABLE_SPEC.treasure_map.durationMs)}.`, '#ffd166', 1.8, sel.id);
     return true;
@@ -1219,12 +1219,9 @@ class SceneConsumables {
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
-    // Hard mode's zero-energy lockout (see _zeroEnergyLocked): once the tank
-    // is empty, a Crow Feather is the one food that still works — it revives
-    // to REVIVE_ITEM_FRAC of the bar, less than reaching the trailer gives
-    // (see the Home rest in update()). Every other food refuses outright while locked,
-    // so eating around the lockout isn't an option.
-    const locked = this._zeroEnergyLocked();
+    // Ordinary food never revives a downed player, in either mode. Only a
+    // Crow Feather can be eaten at zero energy, restoring its flat one point.
+    const locked = Combat.playerDowned(this.save.energy);
     const featherRevive = locked && sel.id === 'crow_feather';
     if (locked && !featherRevive) return false;
     // The bite cooldown (Energy.canEat — ten seconds between mouthfuls). The
@@ -1389,6 +1386,52 @@ class SceneConsumables {
       return target;
     }
     return marker;
+  }
+
+  // Treasure bearings include unrevealed and rock-covered marks, but never a
+  // claimed mark or another level. tileCache belongs to the current level.
+  findNearestTreasureMark(onscreen = false) {
+    const found = setOf(this.save.foundTreasures);
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    let best = null, distance = Infinity;
+    let entries = WorldGen.tileCache.values();
+    if (onscreen) {
+      const pc = this.playerToWorldCell();
+      entries = [];
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dx, pc.ty + dy));
+        if (entry) entries.push(entry);
+      }
+    }
+    for (const entry of entries) {
+      for (const tr of [entry.treasure, ...(entry.parkingTreasures || []), ...(entry.extraTreasures || [])]) {
+        if (!tr || found.has(tr.id) || (tr.depth != null && tr.depth !== (this.depth || 0))) continue;
+        if (onscreen) {
+          const p = this.worldMetersToScreen(tr.x, tr.y);
+          if (Math.abs(p.x - this.viewCenterX) > this.viewSize / 2
+              || Math.abs(p.y - this.viewCenterY) > this.viewSize / 2) continue;
+        }
+        const d = (tr.x - px) ** 2 + (tr.y - py) ** 2;
+        if (d < distance) { best = tr; distance = d; }
+      }
+    }
+    return best;
+  }
+
+  // A short needle stays attached to the player's feet, even while peeking.
+  // Stop at a nearby mark instead of drawing past it.
+  _drawTreasureNeedle(target) {
+    if (!target) return;
+    const player = this.playerScreen();
+    const point = this.worldMetersToScreen(target.x, target.y);
+    const dx = point.x - player.x, dy = point.y - player.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 1) return;
+    const length = Math.min(CELL_PX * 0.7, distance);
+    this.facingGfx.lineStyle(2, 0xff5555, 0.95);
+    this.facingGfx.lineBetween(player.x, player.y,
+      player.x + dx / distance * length, player.y + dy / distance * length);
   }
 
   // Find the nearest chest the player hasn't opened. Used by the pairy compass.

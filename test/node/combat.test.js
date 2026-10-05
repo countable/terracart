@@ -231,7 +231,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   for (const ward of ['!isTame', '!standDown', '!unnoticed']) {
     assert.truthy(gate.includes(ward), `the charge is off when ${ward}`);
   }
-  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\| sated \|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
+  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\| sated \|\| \(!!lairState && lairState !== 'hunt'\) \|\| Combat\.isPacified\(c\);/.test(app),
     'and standDown is still built from Home\'s ward, the wander-off, the kerb (creature_ai.js THE KERB), a sated thief (Combat.theftSated) and the lair state');
   // Home's ward is checked EARLIER in the same chain, so a warded slime is
   // walking out whether or not it has been hit.
@@ -759,9 +759,9 @@ test('combat: melee reaches exactly as far as a melee monster does', () => {
   assert.gt(melee.length, 3, 'found the melee monsters');
   // Only a declared long reach (a swooping pass, a big body's arms) may
   // out-reach the player's fist; nothing reaches less.
-  const LONG = new Set(['bat', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'sword_spirit', 'brute', 'hell_brute', 'obsidian_brute',
+  const LONG = new Set(['bat', 'bee', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'sword_spirit', 'brute', 'hell_brute', 'obsidian_brute',
     'orc', 'minotaur', 'giant_slime', 'giant_spider', 'giant_skeleton', 'giant_cave_slime', 'giant_crab',
-    'red_demon', 'armoured_demon']);
+    'red_demon', 'armoured_demon', 'bugbear', 'troll', 'giant_bear', 'ogre', 'giant_reaper']);
   for (const [kind, m] of melee) {
     if (LONG.has(kind)) assert.gte(m.range, Combat.MELEE_REACH_CELLS, kind);
     else assert.eq(m.range, Combat.MELEE_REACH_CELLS, `${kind}: a melee monster reaches exactly what the player does`);
@@ -793,7 +793,7 @@ test('combat: every melee gate the player has runs the shared test', () => {
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
   // Enemy taps are handled without choosing a combat target. Feeding,
   // catching, petting and hunting keep their existing tap interactions.
-  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
+  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target) && !catchableAnimal) {'));
   const head = code(tap.slice(0, tap.indexOf('\n    }')));
   assert.falsy(/startCombat/.test(head), 'tapping a foe cannot select a melee target');
   assert.truthy(/return true/.test(head), 'the enemy tap is consumed');

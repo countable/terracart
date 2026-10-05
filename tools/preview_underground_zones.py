@@ -303,12 +303,24 @@ def _sample(row, data, helpers, detail=False):
     return ''.join(parts)
 
 
+def story_panel(row, helpers):
+    story = helpers['art_registry']().get('undergroundStories', {}).get(row['id'])
+    if not story:
+        return ''
+    path = ROOT / 'assets' / 'art' / (story['art'] + '.webp')
+    import base64
+    picture = base64.b64encode(path.read_bytes()).decode()
+    return ('<figure class="underground-story" style="max-width:352px;margin:16px auto">'
+            f'<img src="data:image/webp;base64,{picture}" alt="{html.escape(story["title"])}" style="width:100%;border-radius:12px">'
+            f'<figcaption>{html.escape(story["body"])}</figcaption></figure>')
+
+
 def underground_section(helpers, out):
     data = json.loads(SOURCE.read_text())
     cards = {'nexus': [], 'path': []}
     for row in data['previewRows']:
         if row.get('layout',{}).get('type') == 'concentric_rings':
-            cards[row['kind']].append(_spring_card(row,data,helpers))
+            cards[row['kind']].append(_spring_card(row,data,helpers).replace('</header>', '</header>' + story_panel(row, helpers), 1))
             continue
         mw,mh = row['motifCells']
         assert 0 < mw <= 8 and 0 < mh <= 8
@@ -354,7 +366,7 @@ def underground_section(helpers, out):
         close='Nexus close-up' if row['kind']=='nexus' else 'Passage close-up'
         motif_label = 'generated rooms' if row.get('layout',{}).get('type') == 'rooms' else f'{mw} × {mh} motif'
         coverage_label = '10% hazard scatter + ' + f'{coverage:.2f}% motif objects' if row.get('scatterCoverage') else f'{coverage:.2f}% object occupancy{wall_text}'
-        cards[row['kind']].append(f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · draft · {motif_label}</small><h2>{html.escape(row["name"])}</h2></header><p class="mix"><b>{coverage_label}</b><br>{html.escape(mix_text)}; nexus and encounter seats counted separately.</p><div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{depth_views}</div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
+        cards[row['kind']].append(f'<article id="underground-{row["id"]}"><header><small>Underground {row["kind"]} · draft · {motif_label}</small><h2>{html.escape(row["name"])}</h2></header>{story_panel(row, helpers)}<p class="mix"><b>{coverage_label}</b><br>{html.escape(mix_text)}; nexus and encounter seats counted separately.</p><div class="visual underground-depths" style="grid-template-columns:1fr 1fr">{depth_views}</div><p>{html.escape(row["atmosphere"])}</p><dl>{dl}</dl></article>')
     # Keep the reviewed design alongside the preview without enabling it in runtime data.
     (out/'underground-zone-variants.draft.json').write_text(json.dumps(data,indent=2)+'\n')
     (out/'underground-art-license.txt').write_text((ROOT/'docs/art/underground-proposals/LICENSE.txt').read_text())

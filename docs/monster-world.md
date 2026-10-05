@@ -26,8 +26,8 @@ Retired variants remain readable in old saves but leave ordinary spawn pools.
 | Broken Masonry | One club goblin replaces the slime |
 | Silent Circle | One ghost wakes when approached; its defeat persists |
 | Pirate Cove | Pirate grunt and gunner flank the gold-ore find |
-| Mystic Reef | One giant crab; ordinary shore crabs remain passive fauna |
-| Shellwater Strand | No authored guards |
+| Mystic Reef | One giant crab and eight stealthy shore crabs |
+| Shellwater Strand | Eight stealthy shore crabs |
 
 Meadow, Formal Garden and Stone Garden receive no authored guards. All five tar
 variants retain their existing encounter rules. These budgets belong to the
@@ -44,6 +44,19 @@ place an orc and shaman on rock. Each site has a finite budget and stays outside
 other variants' owned ground. Large ruin garrisons can use the local faction.
 Existing home safety rules hide unsuitable encounters without rerolling them.
 
+The approved large enemies use separate 32×32 sheets with north, east, south
+and west walking and attack frames. They render wider than one cell in the
+same overhead, south-tilted view as the other characters. Giant bears join
+surface forest encounters and Ancient Grove roamers. Citadels use bugbear
+guards for ordinary garrisons; authored special groups keep their members.
+Giant reapers join encounters and local garrisons in all five Old Stones
+variants. Ogres lumber beside minor roads on residential ground, outside the
+major-road buffer. These surface foes are tier 3 and remain hidden within
+750 m of the starter anchor, through the existing Home safety rules. Road,
+private-land and occupied-cell exclusions still apply.
+
+The giant serpent remains a draft prototype and has no live spawn entry.
+
 ## Caves
 
 | Depth | Habitat mix |
@@ -59,6 +72,8 @@ the roster's depth limits, so neighboring rooms can differ without mixing every
 eligible enemy into one bag. Demons never appear before depth 5. The existing
 lava level at depth 5 marks that transition. Infernal creatures have explicit
 lava immunity.
+
+Trolls inhabit natural cave pockets on level 3 only; they are not surface foes.
 
 Ghost haunting belongs to crypt habitats rather than every even-numbered floor.
 A dragon is a finite chamber encounter from depth 9, outside the ambient pool.

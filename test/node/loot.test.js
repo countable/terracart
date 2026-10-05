@@ -54,6 +54,39 @@ test('treasure X: surface and cave digs never award produce', () => {
   }
 });
 
+test('beach treasure X: three quarters pay cash, one gold bar or one sapphire', () => {
+  const rng = seeded(671), counts = { cash: 0, gold_bar: 0, sapphire: 0, ordinary: 0 };
+  const save = { relics: {}, armor: {}, inv: [] }, n = 12000;
+  for (let i = 0; i < n; i++) {
+    const r = pickReward('treasure:default', save, rng,
+      { beachTreasure: true, hiddenTreasure: true, rollBonus: 1 });
+    assert.truthy(r, 'one valid reward');
+    if (r.cls === 'cash') counts.cash++;
+    else if (r.kind === 'item' && ['gold_bar', 'sapphire'].includes(r.id)) {
+      counts[r.id]++; assert.eq(r.qty, 1, 'one bar or gem even on a jackpot');
+    } else counts.ordinary++;
+  }
+  for (const [kind, count] of Object.entries(counts)) assert.inRange(count / n, .23, .27, kind);
+});
+
+test('beach treasure X: cave rewards and other reward contexts keep their existing pools', () => {
+  const save = { relics: {}, armor: {}, inv: [] };
+  for (const depth of [0, 1, 5]) for (let seed = 0; seed < 50; seed++) {
+    const opts = { depth, tier: 2 + depth, hiddenTreasure: true, rollBonus: 1 };
+    assert.eq(JSON.stringify(pickReward('treasure:beach', save, seeded(seed), opts)),
+      JSON.stringify(pickReward('treasure:default', save, seeded(seed), { ...opts, beachTreasure: true })),
+      'direct beach context keeps discovery bonuses and underground skew');
+  }
+  for (const [context, opts] of [
+    ['treasure:default', { depth: 1, tier: 2, hiddenTreasure: true, rollBonus: 1 }],
+    ['treasure:default', { depth: 5, tier: 6 }], ['treasure:road', {}], ['chest:park', { tier: 2 }],
+  ]) for (let seed = 0; seed < 100; seed++) {
+    const a = pickReward(context, save, seeded(seed), opts);
+    const b = pickReward(context, save, seeded(seed), { ...opts, beachTreasure: true });
+    assert.eq(JSON.stringify(a), JSON.stringify(b), context + ': same seeded reward');
+  }
+});
+
 // A surface X pays equipment a fifth of the time: a tool or weapon, armour,
 // or a unique relic (a cashed-out duplicate counts — it was a gear roll).
 test('treasure X: a fifth of surface digs are equipment, from all three kinds', () => {
@@ -555,8 +588,8 @@ test('cave X: a dig underground leans the cave way, a surface dig does not', () 
   assert.truthy(deep > surfH * 2, `hoard ${surfH.toFixed(3)} → ${deep.toFixed(3)} deep down`);
   assert.truthy(/digTreasureOpts\(\) \{[\s\S]{0,400}?return \{ depth, tier: 2 \+ bonus \};/.test(SCENE_SRC),
     'app.js hands a cave dig its depth and the depth\'s tier');
-  assert.truthy(/const dig = scene\.digTreasureOpts\?\.\(\);\s*grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default',\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\)/.test(INTERACT_SRC),
-    'the fallback dig passes them too');
+  assert.truthy(INTERACT_SRC.includes('hiddenTreasure: true, rollBonus: 1 + Math.max(0, tr.rollBonus || 0) + Math.max(0, dig?.rollBonus || 0)'),
+    'X digs keep cave options and add the discovery tier to existing bonuses');
 });
 
 // The bike rack is a COURIER'S POST in the world (copy must not imply riding a
@@ -568,4 +601,17 @@ test('courier\'s post: the rack\'s name and flash say walk, never ride', () => {
   assert.lte([...line].length, MAP_MSG_MAX, line);
   assert.falsy(/pedal|bike|cycl|ride/i.test(line + POI_CLASS_FALLBACK.bicycle_parking), 'no bicycle in the copy');
   assert.eq(chestLook({ kind: 'chest', poiClass: 'bicycle_parking', x: 0, y: 0 }).texKey, 'bike_rack', 'the key is unchanged');
+});
+
+
+test('hidden X treasure: discovery lifts ordinary reward tier and jackpot ceiling by one', () => {
+  const save = { relics: {}, armor: {}, inv: [] };
+  const plain = pickReward('treasure:default', save, () => 0.9, { classes: ['gear'] });
+  const hidden = pickReward('treasure:default', save, () => 0.9,
+    { classes: ['gear'], hiddenTreasure: true, rollBonus: 1 });
+  assert.eq(plain.tier, 1);
+  assert.eq(hidden.tier, 2);
+  // The original context stays unchanged for fishing and other finds.
+  assert.eq(LOOT_CONTEXTS['treasure:default'].chainMax, 1);
+  assert.eq(LOOT_CONTEXTS['treasure:default'].maxTier, 2);
 });

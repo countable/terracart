@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const context = vm.createContext({ assert, console, addEventListener() {} });
 context.window = context;
-for (const file of ['src/util.js', 'src/difficulty.js', 'src/conditions.js', 'src/enemy_roster.js', 'src/items.js', 'src/crops.js', 'src/loot.js', 'src/chest_themes.js', 'src/rarity.js', 'src/starter.js', 'tools/item-catalog-data.js']) {
+for (const file of ['src/util.js', 'src/difficulty.js', 'src/conditions.js', 'src/enemy_roster.js', 'src/sprite_layout.js', 'src/items.js', 'src/crops.js', 'src/loot.js', 'src/chest_themes.js', 'src/rarity.js', 'src/starter.js', 'tools/item-catalog-data.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context, { filename: file });
 }
 vm.runInContext(`

@@ -76,22 +76,21 @@
   // Daily places share one ledger and one story ceremony. Pending dialogs
   // are scene state only: leaving loot behind never spends the day's visit.
   const DAILY_VISIT_KINDS = {
+    hive: { name: 'Forest hive', art: 'visit_hive', sprite: 'beehive', light: 0xe8b95a,
+      reward: 'syrup', effect: 'Syrup, guarded by bees', locations: ['Forest'],
+      spent: 'Hive already tapped.',
+      body: 'Thick syrup fills your jars. Angry bees pour from the hive.' },
     wagon: { name: 'Mercenary wagon', art: 'visit_wagon', sprite: 'wagon', light: 0xf2d9a0,
-      reward: 'companion', effect: 'A mercenary fights beside you',
+      reward: 'companion', companion: 'mercenary', effect: 'A mercenary fights beside you',
       get price() { return root.Companions.KINDS.mercenary.hireCost; },
       get durationMs() { return root.Companions.KINDS.mercenary.durationMs; },
       locations: ['Old-trade-road bus stops'],
       body: 'The mercenary takes your coins and lifts his sword. He falls into step beside you.' },
-    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1,
-      reward: 'bike', effect: 'Faster walking', locations: ['Mapped bicycle parking'], get durationMs() { return BIKE_RACK_MS; },
-      spent: 'Horse is out.',
-      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.' },
-    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778,
-      reward: 'coins', effect: 'Scattered coins', durationMs: 0,
-      locations: ['Mapped ATMs'],
-      body: 'You lift the heavy lid. Coins spill across the ground.' },
+    bike: root.Shrines.REWARD_KINDS.bike,
+    gold: root.Shrines.REWARD_KINDS.gold,
   };
   function visitKindForObject(o) {
+    if (o?.kind === 'hive') return DAILY_VISIT_KINDS.hive;
     const shrine = root.Shrines?.kindForObject(o);
     if (shrine) return shrine;
     if (!o || o.kind !== 'chest' || typeof chestLook !== 'function') return null;
@@ -148,32 +147,29 @@
   }
   function hireMercenary(ctx, o) {
     const { scene, save, sx, sy } = ctx;
-    const row = DAILY_VISIT_KINDS.wagon;
+    const row = visitKindForObject(o);
+    const kind = row.companion;
     if (scene._mercenaryHirePending) return true;
     const visit = beginDailyVisit(ctx, o, { row });
     if (!visit) return true;
-    if (root.Companions.active(save, 'mercenary')) {
-      scene.flash('Your mercenary is still with you.', sx, sy);
-      visit.finish();
-      return true;
-    }
-    if ((save.money || 0) < row.price) {
-      scene.flash(`Need ${row.price} coins to hire.`, sx, sy);
+    if (root.Companions.active(save, kind)) {
+      scene.flash('Your mercenary is still here.', sx, sy);
       visit.finish();
       return true;
     }
     if (typeof scene.showConfirmModal !== 'function') { visit.finish(); return true; }
     let settled = false;
     scene._mercenaryHirePending = true;
-    scene.showConfirmModal({ id: 'mercenary-hire', title: row.name, art: row.art,
-      body: `Hire a mercenary for ${row.price} coins? He follows you and fights enemies for ${shortDuration(row.durationMs)}.`,
+    scene.showConfirmModal({ id: 'mercenary-hire', kind: 'trade', title: row.name, art: row.art,
+      body: `${row.offerIntro || ''}Hire ${row.hireName || 'a mercenary'} for ${row.price} coins? He follows you and fights enemies for ${shortDuration(row.durationMs)}. ${Combat.creatureMaxHp(kind)} health · ${Combat.petBite(kind)} damage.`,
       acceptLabel: `Hire · ${row.price} coins`, cancelLabel: 'Later',
+      canAfford: (save.money || 0) >= row.price,
       onCancel: () => { if (!settled) { settled = true; scene._mercenaryHirePending = false; visit.finish(); } },
       onAccept: () => {
         if (settled) return;
         settled = true;
         scene._mercenaryHirePending = false;
-        if (!root.Companions.hire(scene, 'mercenary')) {
+        if (!root.Companions.hire(scene, kind)) {
           visit.finish();
           scene.flash('Unable to hire right now.', sx, sy);
           return;

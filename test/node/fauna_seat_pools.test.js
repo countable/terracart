@@ -80,7 +80,12 @@
       const p = pOf(sp);
       const pool = [];
       for (let i = 0; i < NN; i++) {
-        for (const g of grounds) if (g.test(i)) { pool.push(i); break; }
+        const owner = entry.zone && (entry.zone.coverage || entry.zone.idx)?.[i];
+        if (owner) {
+          const a = entry.zone.anchors[owner - 1];
+          const row = a && (a.variant ? ZoneVariants.byId(a.variant) : Zones.ZONE_KINDS[a.kind]);
+          if (row?.attracts?.[sp] > 0) pool.push(i);
+        } else for (const g of grounds) if (g.test(i)) { pool.push(i); break; }
       }
       if (!pool.length) continue;
       const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
@@ -89,7 +94,7 @@
       const seatOpts = spClass === 'fauna' || spClass === 'fastFauna'
         ? { ...spawnOpts, occupied: null } : spawnOpts;
       const free = (idx) => {
-        if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
+        if (taken.has(idx) || (blocked && blocked.has(idx)) || !BiomeProfiles.faunaAllows(sp, genGrid[idx])) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
         // The seat rule for anything alive: its own spawn class.
@@ -194,13 +199,13 @@
     }
     assert.gt(movedAny, 40, 'the fixtures actually move animals');
   });
-  test('fauna seat pools: attracted shore crows leave space around birds and beach interactables', () => {
-    const N = 16, cellM = 7, grid = new Uint8Array(N * N).fill(WorldGen.T.SAND);
+  test('fauna seat pools: attracted park crows leave space around birds and interactables', () => {
+    const N = 16, cellM = 7, grid = new Uint8Array(N * N).fill(WorldGen.T.PARK);
     const mask = new Uint8Array(N * N).fill(1), occupied = new Set();
     for (let y = 0; y < N; y++) occupied.add(y * N + 7);
     const entry = { scenic:{shore:{mask}},
       streetMarks:new Uint8Array(N*N).fill(StreetVariants.VARIANT_BY_ID.pilgrim.code),
-      zone:{coverage:new Uint16Array(N * N).fill(1),
+      zone:{coverage:new Uint16Array(N * N),
       anchors:[{kind:'beach',variant:'pirate_cove'}]} };
     const scene = Object.assign(new SceneCreatures(), {tileEdgeM:N * cellM});
     const run = () => {
@@ -213,7 +218,7 @@
     assert.eq(JSON.stringify(a), JSON.stringify(b), 'stable landings across rebuilds');
     assert.eq(a.creatures.length,301,'failed attraction retains every animal');
     const landed = a.creatures.filter(c => c.id !== 'resident' && c.x >= 0);
-    assert.gt(landed.length,0,'beach still attracts birds');
+    assert.gt(landed.length,0,'park still attracts crows');
     assert.lt(landed.length,70,'crowding limits arrivals without deleting birds');
     const seat = c => [Math.floor(c.x/cellM),Math.floor(c.y/cellM)];
     for (let i=0;i<landed.length;i++) {
@@ -224,6 +229,33 @@
         const [px,py]=seat(landed[j]);
         assert.gt(Math.max(Math.abs(x-px),Math.abs(y-py)),1,'new landings are not adjacent');
       }
+    }
+  });
+  test('fauna attraction: nexus permits only its authored species over global terrain and street pulls', () => {
+    const N=16, cellM=7, grid=new Uint8Array(N*N).fill(WorldGen.T.PARK);
+    const scene=Object.assign(new SceneCreatures(),{tileEdgeM:N*cellM});
+    const entry={ streetMarks:new Uint8Array(N*N).fill(StreetVariants.VARIANT_BY_ID.pilgrim.code),
+      zone:{coverage:new Uint16Array(N*N).fill(1),anchors:[{kind:'beach',variant:'pirate_cove'}]} };
+    const crows=Array.from({length:100},(_,i)=>({kind:'crow',id:`c${i}`,x:-1,y:-1}));
+    scene._seatFaunaOnFavouriteGround(entry,0,0,N,cellM,grid,{},crows,null,[],new Set());
+    assert.truthy(crows.every(c=>c.x===-1),'empty pirate affinity refuses global birds');
+    const authored=ZoneVariants.rows.find(r=>Object.values(r.attracts||{}).some(p=>p>0));
+    const species=Object.keys(authored.attracts).find(sp=>authored.attracts[sp]>0);
+    entry.zone.anchors[0]={kind:authored.zone,variant:authored.id};
+    const fauna=Array.from({length:100},(_,i)=>({kind:species,id:`f${i}`,x:-1,y:-1}));
+    scene._seatFaunaOnFavouriteGround(entry,0,0,N,cellM,grid,{},fauna,null,[],new Set());
+    assert.truthy(fauna.some(c=>c.x>=0),'explicit row attraction can enter its nexus');
+  });
+  test('fauna attraction: authored groves and walking-path lamps respect habitat restrictions', () => {
+    const N=12, cellM=7, scene=Object.assign(new SceneCreatures(),{tileEdgeM:N*cellM,
+      _pathLampCells:()=>new Set(Array.from({length:N*N},(_,i)=>i))});
+    for (const [kind,terrain,allowed] of [['deer',WorldGen.T.PARK,false],['deer',WorldGen.T.FOREST,true],
+      ['cat',WorldGen.T.WASTELAND,false],['cat',WorldGen.T.GRASS,true]]) {
+      const grid=new Uint8Array(N*N).fill(terrain);
+      const entry=kind==='deer'?{zone:{coverage:new Uint16Array(N*N).fill(1),anchors:[{kind:'grove'}]}}:{};
+      const animals=Array.from({length:80},(_,i)=>({kind,id:`${kind}${i}`,x:-1,y:-1}));
+      scene._seatFaunaOnFavouriteGround(entry,0,0,N,cellM,grid,{spawnWhy:new Uint16Array(N*N)},animals,null,[],new Set());
+      assert.eq(animals.some(c=>c.x>=0),allowed,`${kind} attracted onto terrain ${terrain}`);
     }
   });
 })();

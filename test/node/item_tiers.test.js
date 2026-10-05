@@ -15,7 +15,7 @@ test('item tiers: ordinary fauna span the approved catch and utility bands', () 
     butterfly: 3, sea_turtle: 3, cat: 4, cow: 4, horse: 4, dog: 5 };
   const seen = new Set();
   for (const item of ITEMS.filter(it => it.kind === 'animal' && !it.shiny)) {
-    assert.eq(item.baseTier, tiers[item.base || item.id], item.id);
+    assert.eq(item.baseTier, tiers[SpriteLayout.baseKind(item.base || item.id)], item.id);
     seen.add(item.baseTier);
   }
   assert.eq(seen.size, 5, 'all five ordinary fauna tiers are populated');

@@ -437,7 +437,7 @@ function urlNumParam(name) {
 // and the GPU's fill all scale with the step count, so this cap is the
 // single biggest CPU/battery lever the game has. Phaser still takes a rAF
 // every vsync and skips the step until the cap's interval has accumulated
-// (TimeStep.stepLimitFPS in vendor/phaser.js), so `delta` stays honest and
+// (with installFrameCadence below), so `delta` stays honest and
 // nothing time-based (tweens, anims, the peek spring) changes speed.
 // Device preference: opt in before Phaser allocates its FX framebuffer pool.
 const GRAPHICS_FX_ENABLED = (() => {
@@ -446,15 +446,35 @@ const GRAPHICS_FX_ENABLED = (() => {
 })();
 const FPS_LIMIT_DEFAULT = 30;
 const FPS_LIMIT = (() => { const v = urlNumParam('fps'); return v == null ? FPS_LIMIT_DEFAULT : Math.max(0, v); })();
-// What Phaser is actually handed. stepLimitFPS sums the rAF deltas and steps
-// once the sum reaches 1000 / limit, then drops the remainder — so a cap that
-// is an exact multiple of the vsync (30 on a 60 Hz display: two 16.67 ms
-// frames sum to 33.33 against a 33.33 gate) fires on the second frame or the
-// third as the float falls, and the first phone profile measured ~23 steps/s
-// under a "30" cap. One fps of slack puts the gate a millisecond under the
-// two-frame sum, so it fires on the second frame every time: 30/s on a 60,
-// 90 or 120 Hz display alike. ?fps=0 stays 0 — no cap.
-const PHASER_FPS_LIMIT = FPS_LIMIT > 0 ? FPS_LIMIT + 1 : 0;
+// Phaser 3.87 drops its limiter's remainder and gates on smoothed deltas.
+// Threshold slack handles rounding but still loses steps under irregular
+// vsync. Keep scheduling phase separately from elapsed simulation time.
+// The original driver still owns its clocks, frame counters and callback;
+// this adapter only decides which display frames may run that callback.
+function installFrameCadence(loop) {
+  if (!loop.hasFpsLimit) return;       // ?fps=0 retains Phaser's uncapped loop
+  const originalStep = loop.stepLimitFPS;
+  const originalReset = loop.resetDelta;
+  let phase = 0;
+  // A smoothed display delta is not elapsed game time. Accumulate raw deltas
+  // once in Phaser's delta; the scheduling remainder never enters that sum.
+  loop.smoothStep = false;
+  loop.resetDelta = function () {
+    phase = 0;                       // boot, focus and resume discard old debt
+    return originalReset.apply(this, arguments);
+  };
+  loop.stepLimitFPS = function (time) {
+    const interval = this._limitRate;
+    phase += Math.max(0, time - this.lastTime);
+    const due = phase + 1e-7 >= interval;
+    // Skip missed deadlines after a stall; never run catch-up updates. A
+    // tiny rounding tolerance prevents an exact vsync multiple slipping.
+    if (due) phase = Math.max(0, phase - Math.floor((phase + 1e-7) / interval) * interval);
+    this._limitRate = due ? 0 : Infinity;
+    try { originalStep.call(this, time); }
+    finally { this._limitRate = interval; }
+  };
+}
 if (typeof window !== 'undefined') window.__renderScaleCap = urlNumParam('rscale');
 
 // ── Canvas resolution ─────────────────────────────────────────────────
@@ -1145,7 +1165,7 @@ const FIRE_FULL_REST_S = 360;
 const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
 // What a house says when the feet walk through it (_houseMutter). Each line
 // fits MAP_MSG_MAX.
-const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'Needs a little TLC.'];
+const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'I would fix that.', 'Needs a little TLC.'];
 // What the Hood grunts when a job STARTS with nothing in hand (_barehandMutter,
 // owner's copy, Oct 2026). The bare-handed rung of the tool ladder
 // (toolDurationMs: 9 s against a Wood tool's 3) is the slow way, and the grunt
@@ -1417,6 +1437,7 @@ const ROAD_CHIP_SVG =
 const ICON_SHEETS = {
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_field_scope: { url: 'assets/Icons/Items/field_scope.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_compass: { url: 'assets/Icons/Items/compass.png', cols: 1, srcW: 16, srcH: 16 },
   icon_orb: { url: 'assets/Icons/Items/orb.png', cols: 1, srcW: 16, srcH: 16 },
   icon_goblet: { url: 'assets/Icons/Items/goblet.png', cols: 1, srcW: 16, srcH: 16 },
   icon_lucky_key: { url: 'assets/Icons/Items/lucky_key.png', cols: 1, srcW: 16, srcH: 16 },
@@ -1525,18 +1546,8 @@ class MapScene extends Phaser.Scene {
     // / mineralrock / etc., and item icons that should be sprites silently
     // resolve to Crops.png frame 0.
     if (typeof ASSETS !== 'undefined') {
-      for (const [key, a] of Object.entries(ASSETS)) {
-        if (this.textures.exists(key)) continue;
-        if (a.kind === 'spritesheet') {
-          this.load.spritesheet(key, a.path, { frameWidth: a.frameWidth, frameHeight: a.frameHeight });
-        } else if (a.kind === 'image') {
-          this.load.image(key, a.path);
-        }
-        if (a.onLoad) {
-          const tag = a.kind === 'spritesheet'
-            ? `filecomplete-spritesheet-${key}` : `filecomplete-image-${key}`;
-          this.load.once(tag, () => a.onLoad(this));
-        }
+      for (const [key, asset] of Object.entries(ASSETS)) {
+        if (!asset.deferred) this._queueAsset(key);
       }
     }
     // ONE RETRY PER FAILED ASSET. A cold boot fetches the whole catalog at
@@ -1568,6 +1579,34 @@ class MapScene extends Phaser.Scene {
     // only ever appear inside DOM modals via `<img src="${gearAssetPath(...)}">`,
     // so the browser fetches each one on demand and caches it. Eagerly loading
     // ~50 PNGs at startup blocked the splash screen for several seconds.
+  }
+
+  _queueAsset(key) {
+    const asset = ASSETS[key];
+    if (!asset || this.textures.exists(key)) return;
+    if (asset.onLoad) {
+      this.load.once(`filecomplete-${asset.kind}-${key}`, () => asset.onLoad(this));
+    }
+    if (asset.kind === 'spritesheet') {
+      this.load.spritesheet(key, asset.path, { frameWidth: asset.frameWidth, frameHeight: asset.frameHeight });
+    } else if (asset.kind === 'image') {
+      this.load.image(key, asset.path);
+    }
+  }
+
+  // Optional art joins the existing loader and its one-retry policy. Keep the
+  // current appearance until the texture and its onLoad processing are ready.
+  _ensureAsset(key) {
+    if (this.textures.exists(key)) return true;
+    const asset = ASSETS[key];
+    if (!asset?.deferred) return false;
+    this._requestedAssets ||= new Set();
+    if (!this._requestedAssets.has(key)) {
+      this._requestedAssets.add(key);
+      this._queueAsset(key);
+      this.load.start();
+    }
+    return false;
   }
 
   // Has this save written anything into the world yet? Each of these is a
@@ -1760,6 +1799,7 @@ class MapScene extends Phaser.Scene {
   // same cell says whether a Burned Row's tar pit or iron stakes are under
   // the body: `_slowHere`, which _bodyHold reads as the SLOW reason.
   _tickStreetFeet() {
+    if ((this.depth || 0) > 0 && typeof UndergroundStories !== 'undefined') UndergroundStories.tick(this);
     if ((this.depth || 0) !== 0 || typeof StreetVariants === 'undefined' || !this.startWorldM) {
       this._slowHere = null;
       this._streetStoryHere = null;
@@ -1863,7 +1903,7 @@ class MapScene extends Phaser.Scene {
         capMS = Math.min(capMS ?? Infinity, WALK_M_S * contact.speedMul);
       }
     }
-    const held = pinned || Conditions.active(this.save, 'jellyfish_stun');
+    const held = pinned || this._caveFallPending || Conditions.active(this.save, 'jellyfish_stun');
     const balancing = typeof ObstacleStep !== 'undefined' && ObstacleStep.speedMul(this._obstacleStep) < 1;
     return { pinned: held, capMS, slowed: !held && (capMS > 0 || balancing) };
 
@@ -1882,7 +1922,7 @@ class MapScene extends Phaser.Scene {
     }
     const pc = this.playerToWorldCell();
     const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
-    const key = `${pc.tx}_${pc.ty}_${lix}_${liy}`;
+    const key = `${this.depth || 0}_${pc.tx}_${pc.ty}_${lix}_${liy}`;
     if (key !== this._trapCellKey) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
       if (!entry || !entry.traps) { this._trapHere = null; return; }   // retry next frame
@@ -1901,6 +1941,7 @@ class MapScene extends Phaser.Scene {
     }
     const trap = this._trapHere;
     if (!trap) return;
+    HiddenObjects.reveal(this, trap);
     // A goblin's snare EXPIRES (Traps.LAID_LIFE_MS) — and is disarmed on its
     // record — under a player who may still be standing on the cell the memo
     // was taken for; a snare that is gone stops biting then, not at the next
@@ -1980,7 +2021,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── Lava ──────────────────────────────────────────────────────────────────
-  // Surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
+  // Burned Row embers, surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
@@ -2000,8 +2041,10 @@ class MapScene extends Phaser.Scene {
     const lix = Math.floor(pc.cx), liy = Math.floor(pc.cy);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     const N = entry && entry.cellsPerEdge;
+    const embers = this.depth === 0 && typeof StreetVariants !== 'undefined'
+      && StreetVariants.hotRoadAt(entry, pc.cx, pc.cy);
     if (!entry || !entry.grid || lix < 0 || liy < 0 || lix >= N || liy >= N
-        || entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA) {
+        || (entry.grid[liy * N + lix] !== WorldGen.T.CAVE_LAVA && !embers)) {
       this._lavaAccum = 0;   // stepping out ends the burn: no partial second carries
       return;
     }
@@ -2019,7 +2062,7 @@ class MapScene extends Phaser.Scene {
       this._lastLavaFlashT = now;
       const burned = this._lavaPop;
       this._lavaPop = 0;
-      this._popEnergy(-burned, { ix, iy, label: '🔥 lava' });
+      this._popEnergy(-burned, { ix, iy, label: embers ? '🔥 embers' : '🔥 lava' });
       if (typeof persistSave === 'function') persistSave(this.save);
     }
   }
@@ -2764,6 +2807,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
       this._lowHealthStory();
       this._firstSaleStory();
+      PetStories.drain(this);
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
       NPC.tickArrivals(this, Date.now());
@@ -3189,8 +3233,13 @@ class MapScene extends Phaser.Scene {
     const treasure = this.save.treasureCompass;
     if (treasure && Date.now() < treasure.until && treasure.depth === (this.depth || 0)
         && !setOf(this.save.opened).has(treasure.targetId)
-        && dayLedgerAges(this.save).get(treasure.targetId) !== 0) {
+        && dayLedgerAges(this.save).get(treasure.targetId) !== 0
+        && !setOf(this.save.foundTreasures).has(treasure.targetId)) {
       this._drawEdgeDot(treasure.x, treasure.y, 0xff5555);
+      this._drawTreasureNeedle(treasure);
+    }
+    if (Gear.hasCompass(this.save)) {
+      this._drawTreasureNeedle(this.findNearestTreasureMark(true));
     }
 
     // Delivery waypoint — a solid WHITE arrow at the viewport edge pointing at
@@ -3312,6 +3361,7 @@ class MapScene extends Phaser.Scene {
       }
     }
 
+    Pirates.tick(this);
     this.wanderCreatures();
     // Fight tick — bow/staff auto-fire, shots in flight, sword auto-engage.
     // Runs AFTER the creatures have moved (so shots resolve against where the
@@ -3320,11 +3370,14 @@ class MapScene extends Phaser.Scene {
     this._combatTick(dt);
     this._tickBlightAura();
     Companions.tickAll(this);
+    tickGroundCoins(this);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
     // never the camera anchor: a peek drag must not spring a trap two cells
     // away, nor stop one under you from biting).
+    CaveHazards.tick(this, START_LAT);
+    Whirlwinds.tick(this, dt);
     this._tickTraps(dt);
     // …and is a guildhall bounty's pack still about (its leash)?
     this._tickGuildBounty();
@@ -3332,6 +3385,12 @@ class MapScene extends Phaser.Scene {
     // …and which STREET are the feet on — a variant's first-entry story, and
     // whether tar or stakes are slowing the body (the same feet cell).
     this._tickStreetFeet();
+    HiddenObjects.tick(this);
+    // Spread automatic temple checks over frames while a census is pending.
+    if (Temples.hasPending(this) || !this._templeObserveAt || performance.now() - this._templeObserveAt >= 500) {
+      this._templeObserveAt = performance.now();
+      Temples.observe(this);
+    }
     // …and is the player standing in lava (the lava level only)?
     this._tickLava(dt);
     // …or in a campfire?
@@ -3902,6 +3961,7 @@ class MapScene extends Phaser.Scene {
   }
 
   _shotCanHit(target, shot) {
+    if (Combat.isPacified(target) || Combat.isPacified(shot._sourceGuard)) return false;
     if (Combat.isConcealed(target)) return false;
     if (shot.potionId) return target.id !== 'player';
     // Recheck at impact: an earlier flower in this same frame may have changed
@@ -3942,6 +4002,7 @@ class MapScene extends Phaser.Scene {
     const dmg = Combat.incomingProjectileDamage(this.save, shot.damage, shot.hits);
     if (!(dmg > 0)) return false;
     const lost = this._losePlayerEnergy(dmg, { closeShop: true });
+    if (lost > 0) Pirates.onHit(this, shot._sourceGuard || { kind: shot.enemyKind });
     this._monsterDmgAccum = (this._monsterDmgAccum || 0) + lost;
     if (lost > 0 && shot.condition) this._applyCondition(shot.condition);
     return lost > 0;
@@ -4433,6 +4494,7 @@ class MapScene extends Phaser.Scene {
   // and abandon does heal back up. `source` names the killer for
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
+    if (Combat.isPacified(c) && (Combat.isPlayerKill(source) || source === 'turret')) return false;
     if (!(amount > 0)) return false;
     const dealt = Combat.damageDealt(c, amount, (['lava', 'light', 'burn', 'obstacle'].includes(source)) ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
@@ -4706,7 +4768,7 @@ class MapScene extends Phaser.Scene {
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._setWorkProgressIcon(toolSlot);
     this._barehandMutter?.(toolSlot, worldX, worldY);
-    durationMs = Gear.workDurationMs(this.save, durationMs);
+    durationMs = Gear.workDurationMs(this.save, durationMs, Date.now(), toolSlot);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, toolSlot, startT: performance.now(), track: trackCreature };
   }
   // The grunt a bare-handed job starts with (BAREHAND_MUTTERS), on the job's
@@ -4867,10 +4929,9 @@ class MapScene extends Phaser.Scene {
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
       // Butterflies bolt 2.7× faster than other fauna while the net wheel runs.
-      // Rare shiny animals flee at SHINY_SPEED_MUL too — the same factor as
-      // their wander, making them a slippery catch.
-      const isButterfly = c.kind === 'butterfly';
-      const shinyFast = Combat.shinySpeedMul(c);
+      // Shiny animals use their reduced escape bonus while being caught.
+      const isButterfly = SpriteLayout.baseKind(c.kind) === 'butterfly';
+      const shinyFast = Combat.shinySpeedMul(c, true);
       const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, SpriteLayout.creatureMaxMps(c.kind)) * shinyFast;
       // Moss also conceals the catch: fauna and pets do not flee the net.
       if (!Shrines.leverActive(this.save, 'hidden')) {
@@ -4963,6 +5024,7 @@ class MapScene extends Phaser.Scene {
     // blow of a fight still lands at once.
     if (wp.combat) {
       const c = wp.combat;
+      if (Combat.isPacified(c)) { this.cancelWorkProgress(); return; }
       // Killed by something else mid-swing (a shot, a tame dog) — nothing left
       // to fight, and the kill has already paid out.
       if (this.save.caught?.includes(c.id)) { this.cancelWorkProgress(); return; }
@@ -5859,11 +5921,7 @@ class MapScene extends Phaser.Scene {
     // walk you any further off the GPS until you rest. Throttle the nag so it
     // doesn't fire every frame the player keeps pushing.
     if ((this.save.energy ?? 0) <= 0) {
-      const now = Date.now();
-      if (now - (this._steerTiredFlashAt || 0) > 3000) {
-        this._steerTiredFlashAt = now;
-        this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
-      }
+      this._flashTooTired(this.viewCenterX, this.viewCenterY);
       return;
     }
     const relics = this._walkRelics();
@@ -6412,7 +6470,7 @@ class MapScene extends Phaser.Scene {
     // Charge at COMPLETION instead (in the wheel callback below): a dug wall
     // always costs, an interrupted one costs nothing — and isn't dug.
     if (cost > (this.save.energy ?? 0)) {
-      this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
+      this._flashTooTired(this.viewCenterX, this.viewCenterY);
       this._followPaused = true;   // out of energy — stop chewing the wall
       return;
     }
@@ -6445,12 +6503,12 @@ class MapScene extends Phaser.Scene {
   // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
   // staircase's cell at the new depth (where a matching stair sits), swaps the
   // active tile cache, repaints the background, and loads the new level.
-  changeDepth(delta, stair) {
+  changeDepth(delta, stair, options = {}) {
     const target = Math.max(0, (this.depth || 0) + delta);
     if (target === this.depth) return;
     // Can't descend on an empty tank — you'd just pass out down there. Climbing
     // up is always allowed (it's how you escape exhaustion).
-    if (delta > 0 && (this.save.energy ?? 0) <= 0) {
+    if (delta > 0 && (this.save.energy ?? 0) <= 0 && !options.fall) {
       this.flash('Too tired to go down.', this.viewCenterX, this.viewCenterY);
       return;
     }
@@ -6487,7 +6545,7 @@ class MapScene extends Phaser.Scene {
     // down (stairs, rope, the sapphire portal) comes through here, and a busy
     // screen returns false unmarked (the story ledger), so the next descent
     // asks again.
-    if (delta > 0) {
+    if (delta > 0 && !options.fall) {
       this._storySplashOnce('cave', {
         art: 'cave_first',
         title: 'Into the dark',
@@ -6560,9 +6618,9 @@ class MapScene extends Phaser.Scene {
       onDismiss: () => { this._passingOut = false; },
     }));
   }
-  // Guarantee an UP staircase (and never a DOWN one) on the home cell of every
-  // cave level, so the player can always climb back toward the surface from the
-  // starting house. Idempotent — runs on each (re)load of the home tile.
+  // Guarantee an elevator on the home cell of every cave level. It always
+  // returns home, even before this floor has been unlocked from the surface.
+  // Idempotent — runs on each (re)load of the home tile.
   //   NOTHING ELSE STANDS ON A LADDER. The cave build (loadCaveTile) seated
   // its rocks, chests, mushrooms and torches before this cell was a stair, so
   // whatever landed here is cleared; the spawn pass runs AFTER this (buildOne)
@@ -6609,10 +6667,12 @@ class MapScene extends Phaser.Scene {
     // object on this cell but an up-stair, and any wildplant.
     entry.objects = entry.objects.filter(o => !atCell(o) || (o.kind === 'staircase' && o.dir === 'up'));
     if (entry.wildplants) entry.wildplants = entry.wildplants.filter(w => !atCell(w));
-    if (!entry.objects.some(o => o.kind === 'staircase' && o.dir === 'up' && atCell(o))) {
+    const existing = entry.objects.find(o => o.kind === 'staircase' && o.dir === 'up' && atCell(o));
+    if (existing && prefix === 'homeup') existing.elevator = true;
+    if (!existing) {
       entry.objects.push(WorldGen.makeObject('staircase', cx, cy,
         WorldGen.cellId(`${prefix}_${entry.depth}`, tx, ty, lix, liy),
-        { dir: 'up', depth: entry.depth, _synthetic: true }));
+        { dir: 'up', depth: entry.depth, _synthetic: true, elevator: prefix === 'homeup' }));
     }
   }
   cellAt(wmx, wmy) {
@@ -7351,6 +7411,7 @@ class MapScene extends Phaser.Scene {
   // class is synced by a MutationObserver AFTER the tap's handler, and the
   // fanfare fires in the same handler that just mounted the dialog.
   _dialogOpen() {
+    if (this._templeSceneActive) return true;
     if (typeof document === 'undefined') return false;
     return [...document.querySelectorAll('.game-modal')]
       .some((el) => el.isConnected && el.style.display !== 'none' && el.getClientRects().length > 0);
@@ -7759,12 +7820,12 @@ class MapScene extends Phaser.Scene {
     return Energy.maxEnergy(this.save);
   }
 
-  // Hard mode's zero-energy lockout. Once the tank reads empty on hard, food
-  // (eatSelected), campfire rest and offline/passive rest (applyOfflineRest)
+  // Hard mode's zero-energy rest lockout. Once the tank reads empty on hard,
+  // campfire rest and offline/passive rest (applyOfflineRest)
   // all refuse — the ways back are reaching the trailer (the Home rest branch
   // in update(), a quarter bar), eating a Crow Feather or drinking a revival
   // potion (REVIVE_ITEM_FRAC) — never a free full tank. Easy mode has no floor:
-  // this is always false there, so every existing recovery path is untouched.
+  // this is always false there. Ordinary food refuses while down in either mode.
   _zeroEnergyLocked() {
     return Difficulty.isHard() && (this.save.energy ?? 0) <= 0;
   }
@@ -8350,6 +8411,15 @@ class MapScene extends Phaser.Scene {
     }, 1400);
   }
 
+  // Steering, automatic mining and taps share a cooldown so repeated failed
+  // work cannot stack the same warning every frame. The first refusal is immediate.
+  _flashTooTired(sx, sy) {
+    const now = Date.now();
+    if (this._tiredFlashAt != null && now - this._tiredFlashAt < 3000) return;
+    this._tiredFlashAt = now;
+    this.flash(TOO_TIRED_MSG, sx, sy);
+  }
+
   // Spend energy if the player has enough, returning true on success.
   // Callers (interact.js handlers) refuse the action when this returns false.
   // `cell` ({ ix, iy }, absolute) is the cell the price is shown on; without
@@ -8361,7 +8431,7 @@ class MapScene extends Phaser.Scene {
     if (cost <= 0) return true;
     const r = Energy.spend(this.save, cost);
     if (!r.ok) {
-      if (sx != null && sy != null) this.flash(TOO_TIRED_MSG, sx, sy);
+      if (sx != null && sy != null) this._flashTooTired(sx, sy);
       return false;
     }
     const at = cell || this._cellAtScreen(sx, sy);
@@ -8787,6 +8857,7 @@ class MapScene extends Phaser.Scene {
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
   // and rescales the 96×96 dragon frames down to roughly the human's size.
   _applyDragonSkin(on) {
+    if (on) this._ensureAsset('dragon');
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
     // on currentFrame.duration. Degrade to no visual transform — the flight
@@ -9310,6 +9381,7 @@ class MapScene extends Phaser.Scene {
     }
     const r = Inventory.add(this.save, id, n);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
+    if (r.accepted > 0) PetStories.queue(this, id);
     // The wild-finds ledger (items.js homeRecipeLocked): every grant counts
     // unless its caller says it was bought, bartered, forged or crafted.
     if (!opts.notWild) (this.save.foundWild = this.save.foundWild || {})[id] = 1;
@@ -9859,11 +9931,8 @@ class MapScene extends Phaser.Scene {
   // explicit affordance below the inventory bar.
   syncEatButton() {
     const sel = this.save.inv?.[this.save.selSlot];
-    // A Crow Feather carries no ordinary FOOD_ENERGY — it only works through
-    // the hard-mode zero-energy lockout (eatSelected), reviving to a tenth of
-    // the bar, so the button only appears for it while that lockout actually
-    // holds (never in easy mode, never above 0 energy).
-    const featherRevive = !!sel && sel.id === 'crow_feather' && this._zeroEnergyLocked();
+    // The feather is a revival item, usable only while down in either mode.
+    const featherRevive = !!sel && sel.id === 'crow_feather' && Combat.playerDowned(this.save.energy);
     const restore = (sel && typeof FOOD_ENERGY !== 'undefined') ? FOOD_ENERGY[sel.id] : null;
     const existing = document.getElementById('eat-btn');
     if (restore == null && !featherRevive) { existing?.remove(); return; }
@@ -9880,12 +9949,12 @@ class MapScene extends Phaser.Scene {
     const cooling = cdLeft > 0;
     const fishWait = Energy.fishRegenWait(this.save, sel?.id);
     this._eatFishShown = fishWait > 0 ? shortDuration(fishWait) : '';
-    // DOWN AND LOCKED OUT (hard mode, empty bar — _zeroEnergyLocked): every
+    // DOWN (either mode, empty bar — Combat.playerDowned): every
     // food but the feather is refused by eatSelected, so the button wears the
     // same dimmed face the cooldown does. Same expression both sides read, so
     // the grey button and the refused tap can't disagree.
     // _eatLockShown holds the raw lockout for _tickEatButton's change check.
-    this._eatLockShown = this._zeroEnergyLocked();
+    this._eatLockShown = Combat.playerDowned(this.save.energy);
     const locked = this._eatLockShown && !featherRevive;
     const dim = cooling || locked || fishWait > 0;
     // Held so _tickEatButton knows when the readout has actually changed and
@@ -9996,7 +10065,7 @@ class MapScene extends Phaser.Scene {
     this._paintEatCooldownBar(btn, left);
     const shown = left > 0 ? shortDuration(left) : '';
     // Also rebuild when the bar empties or refills, which greys / un-greys it.
-    const locked = this._zeroEnergyLocked();
+    const locked = Combat.playerDowned(this.save.energy);
     const fishWait = Energy.fishRegenWait(this.save, getSelectedSlot(this.save)?.id);
     const fishShown = fishWait > 0 ? shortDuration(fishWait) : '';
     if (shown !== this._eatCdShown || locked !== this._eatLockShown || fishShown !== this._eatFishShown) this.syncEatButton();
@@ -10014,6 +10083,7 @@ class MapScene extends Phaser.Scene {
       return false;
     }
     this._eggHatchTracker = null;
+    PetStories.queue(this, result.petId);
     this.save.selSlot = this.save.inv.findIndex(item => item.id === selectedId);
     this._clampSelSlot();
     persistSave(this.save);
@@ -10158,6 +10228,7 @@ installSceneMixin(MapScene, SceneFire);
 installSceneMixin(MapScene, SceneCreate);
 installSceneMixin(MapScene, SceneConsumables);
 installSceneMixin(MapScene, SceneVenues);
+installSceneMixin(MapScene, SceneElevators);
 installSceneMixin(MapScene, SceneStreets);
 
 const game = window.__game = new Phaser.Game({
@@ -10179,8 +10250,9 @@ const game = window.__game = new Phaser.Game({
   // Default to the light/spark fallback; the menu can opt in on this device.
   disablePreFX: !GRAPHICS_FX_ENABLED,
   disablePostFX: true,
-  // See FPS_LIMIT / PHASER_FPS_LIMIT: 30 steps/s on any display, 0 = uncapped (?fps=0).
-  fps: { limit: PHASER_FPS_LIMIT },
+  // Keep the 30/s schedule across display rates; 0 = uncapped (?fps=0).
+  fps: { limit: FPS_LIMIT },
+  callbacks: { preBoot: (game) => installFrameCadence(game.loop) },
   scene: [MapScene],
   scale: { mode: Phaser.Scale.NONE },
   // Phaser's loader defaults to maxParallelDownloads: 32. ASSETS in

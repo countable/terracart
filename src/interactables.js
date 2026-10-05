@@ -49,7 +49,7 @@
 // turret sprite": a `tower` IS the castle's turret, so the kind and the tier
 // are two spellings of the same building, not two conditions.
 function isCastle(o) {
-  return !!o && (o.kind === 'tower' || o.tier === 12);
+  return !!o && o.kind !== 'temple' && (o.kind === 'tower' || o.tier === 12);
 }
 
 // The two kinds that draw as a TREE — a shiny sheen, a canopy against a wall,
@@ -74,6 +74,18 @@ function chestHidesMimic(o) {
     && !o.fixedLoot && !o.crate && !restocks(o) && !macroFor(o)
     && !isPotOfGold(o) && !isBikeRack(o) && !isBarrel(o) && !produceStandFor(o)
     && chestTier(o) === 2 && makeRng32(fnv1a(o.id + '#mimic'))() < 0.15;
+}
+
+// Bone-cache loot and disturbance use independent stable streams. Retrying with
+// a full bag cannot reroll either result; only opened/caught need persisting.
+function boneCacheReward(o) {
+  const rng = makeRng32(fnv1a(o.id + '#bone-loot')), roll = rng();
+  if (roll < .5) return { kind: 'empty' };
+  return { kind: 'item', id: roll < .9
+    ? ['torch', 'rope', 'trap_disarm_kit'][Math.floor(rng() * 3)] : 'bones_scroll', qty: 1 };
+}
+function boneCacheSkeleton(o) {
+  return makeRng32(fnv1a(o.id + '#bone-skeleton'))() < .25;
 }
 
 // ---- Slow grind ------------------------------------------------------------
@@ -261,6 +273,11 @@ function pageStone({ title, art, spent, read }) {
 }
 
 const INTERACTABLES = {
+  temple: { custom: (ctx, o) => Temples.interact(ctx, o) },
+  shrine_spirit: { custom: ({ scene, sx, sy }) => {
+    scene.flash('The spirit guards the shrine.', sx, sy);
+    return true;
+  } },
   // ---- Tree: chop with an axe for wood -------------------------------------
   // Bigger / harder trees demand a sturdier axe and pay out proportionally more
   // wood (treeWoodMul); softwood fells a tier easier, hardwood a tier harder
@@ -513,30 +530,8 @@ const INTERACTABLES = {
     // that would have made them so shipped switched OFF and was removed.
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      // A POT OF GOLD (an ATM — loot.js isPotOfGold) hijacks the chest tap
-      // before the standard open-and-loot path. It never goes into
-      // save.opened — it is gated by the day ledger (Macros.usedToday) so it
-      // refreshes daily, and produces world-scattered coin pickups instead
-      // of inventory loot. A cave-level mirror is a plain chest.
-      if (isPotOfGold(o)) {
-        if (typeof scene._coinBurstInteract === 'function') {
-          scene._coinBurstInteract(sx, sy, o);
-          return true;
-        }
-        // Fall through to default chest behaviour if the method isn't wired
-        // (defensive — keeps these POIs usable if app.js is out of sync).
-      }
-      // A BIKE RACK (loot.js isBikeRack): a stick-walk speed boost, once a
-      // UTC day per rack — the day ledger, lit while it is there (poiLit).
-      // The boost itself is a REASON in the stick-walk speed lane
-      // (save.bikeUntil, read by app.js _walkRelics → items.js
-      // steerSpeedMul), not a speed system of its own.
-      if (isBikeRack(o) && typeof Macros !== 'undefined') {
-        return Macros.dailyVisit(ctx, o, { grant: () => {
-          save.bikeUntil = Math.max(save.bikeUntil || 0, Date.now() + BIKE_RACK_MS);
-          scene.flash(bikeRackFlash(), sx, sy);
-        } });
-      }
+      // Shrine-shaped POIs retain their map identity but share the shrine visit.
+      if (Shrines.kindForObject(o)) return INTERACTABLES.grove_shrine.custom(ctx, o);
       if (Macros.visitKindForObject(o) === Macros.DAILY_VISIT_KINDS.wagon) {
         return Macros.hireMercenary(ctx, o);
       }
@@ -641,6 +636,7 @@ const INTERACTABLES = {
       const markOpened = chapel ? () => { Macros.markServiceToday(save, o.id); } : () => {
         if (daily) Macros.markToday(save, o.id);
         else save.opened.push(o.id);
+        Elevators.recordChest(save, o.depth, chestBaseTier(o));
         scene.questEvent?.('chest');
         // BUG (Scouting report / QUEST_POIS): Quests.onPoiVisit is the only
         // thing that can credit a 'poi' quest, and its ONLY call site used to
@@ -670,6 +666,16 @@ const INTERACTABLES = {
       const held = held0;
       const chestT = chapel ? Macros.chapelRollTier(o)
         : ((typeof chestTier === 'function') ? chestTier(o) : 2);
+      // The quota tier stays low on every floor; the displayed/loot tier also
+      // includes depth bonuses, which would otherwise make deep floors impossible
+      // to unlock. Parts replace the random payload and never need bag space.
+      if (Elevators.partsDue(save, o.depth, chestBaseTier(o))) {
+        markOpened();
+        if (save.chestHold) delete save.chestHold[o.id];
+        ctx.dirty = true;
+        scene.showMessageModal({ title: 'Elevator parts', body: Elevators.PARTS_STORY, kind: 'story' });
+        return true;
+      }
       const theme = chestThemeFor(o);
       let result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
@@ -879,6 +885,26 @@ const INTERACTABLES = {
   // hold a one-off find, rolled once from the low-tier chest table and spent
   // in save.opened, the POI delta. The stone itself stays. A variant may
   // keep its pillars quiet through its optional headstones policy.
+  bone_cache: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      if ((save.opened || []).includes(o.id)) {
+        scene.flash('Already searched.', sx, sy); return true;
+      }
+      const got = boneCacheReward(o);
+      if (got.kind === 'item' && Inventory.roomFor(save, got.id) < 1) {
+        scene.flash('Make room in your bag first.', sx, sy); return true;
+      }
+      (save.opened ||= []).push(o.id);
+      ctx.dirty = true;
+      if (got.kind === 'item') {
+        Rewards.apply(save, got, scene);
+        scene.flashLoot?.(`Found ${ITEM_BY_ID[got.id].name}.`, '#e5dfc5', 1, got.id);
+      } else scene.flash('Only old bones remain.', sx, sy);
+      if (boneCacheSkeleton(o)) scene._raiseBoneCacheSkeleton?.(o);
+      return true;
+    },
+  },
   headstone: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
@@ -907,17 +933,47 @@ const INTERACTABLES = {
   // While the gift is there it wears the
   // POI light (poiLit) on top of its own; not a rest ring, not a ward — its
   // own light (Lighting.KINDS.shrine) is what keeps the night off.
+  hive: {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      const visit = Macros.beginDailyVisit(ctx, o);
+      if (!visit) return true;
+      if (Inventory.roomFor(save, 'syrup') < WorldGen.HIVE_SPEC.syrup) {
+        visit.finish();
+        scene.flash(`Make room for ${WorldGen.HIVE_SPEC.syrup} syrup.`, sx, sy);
+        return true;
+      }
+      // Reserve the whole swarm before claiming the day: a blocked site must
+      // never award syrup without its three defenders.
+      const bees = planHiveBees(scene, o);
+      if (bees.length !== WorldGen.HIVE_SPEC.bees) {
+        visit.finish();
+        scene.flash('No room around the hive.', sx, sy);
+        return true;
+      }
+      if (!visit.claim()) { visit.finish(); return true; }
+      scene.addToInv('syrup', WorldGen.HIVE_SPEC.syrup);
+      for (const { entry, creature } of bees) (entry.creatures ||= []).push(creature);
+      scene.flashLoot(`${WorldGen.HIVE_SPEC.syrup} syrup; bees awaken!`, '#f4ce75', WorldGen.HIVE_SPEC.syrup, 'syrup');
+      visit.present();
+      return true;
+    },
+  },
   grove_shrine: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
       const row = Shrines.kindForObject(o);
+      if (row.reward === 'companion') return Macros.hireMercenary(ctx, o);
       if (row.reward === 'coins') {
         scene._coinBurstInteract(sx, sy, o);
         return true;
       }
       return Macros.dailyVisit(ctx, o, {
         row,
-        grant: row.reward ? null : () => {
+        grant: row.reward === 'bike' ? () => {
+          save.bikeUntil = Math.max(save.bikeUntil || 0, Date.now() + row.durationMs);
+          scene.flash(bikeRackFlash(), sx, sy);
+        } : row.reward ? null : () => {
           Shrines.grant(save, o.shrineKind, Date.now(), scene);
           scene.flash(Shrines.boonFlash(o.shrineKind), sx, sy);
         },
@@ -1113,9 +1169,11 @@ function isSpent(o, sets) {
     case 'mineralrock': return sets.broken.has(o.id);
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
+    case 'stalagmites':
     case 'stakes':
     case 'groundstack': return sets.picked.has(o.id);
     // A message bottle is picked up as it is read (INTERACTABLES.bottle).
+    case 'bone_cache':
     case 'bottle':      return sets.opened.has(o.id);
     // A wild plant is spent once picked (save.picked) — except a TIDE pickup
     // (src/scenic.js): the day's, so it is spent when it is not on the

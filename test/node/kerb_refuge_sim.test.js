@@ -65,6 +65,7 @@ function mkScene(entry, creature, feet) {
     _applyCondition(id) { Conditions.apply(this.save, id); },
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
+    _losePlayerCoins(n) { const taken = Math.min(this.save.money, n); this.save.money -= taken; return taken; },
     _trapperLay() { this._laid++; },
     // A THIEF'S snatch (the raven's coins, the gull's food —
     // Combat.incomingTheft) banked the way app.js _losePlayerToThief banks
@@ -257,7 +258,7 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   const w = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'));
   assert.truthy(/const kerbLeash = inKerbAt\(this, px, py\);/.test(w), 'read once per tick, off the FEET');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\|/.test(w), 'a reason in standDown');
-  assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed && !kerbTurn\)/.test(w), 'a guard gives up');
+  assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed && !kerbTurn && !Combat\.isPacified\(c\)\)/.test(w), 'a guard gives up');
   assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) continue;/.test(w), 'the band is a refused cell');
   const spawn = SCENE_SRC.slice(SCENE_SRC.indexOf('  spawnInTile(entry, tx, ty) {'));
   assert.truthy(/roadClass: entry\.roadClass,/.test(spawn), 'the shared spawn options carry the bits');

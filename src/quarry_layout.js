@@ -22,6 +22,12 @@
       | (x > 0 && cells.has(i - 1) ? 8 : 0);
     return WALL_FRAME_BY_MASK[mask] ?? null;
   }
+  // Fractional budgets round deterministically per site: retain the same
+  // leading shafts while reducing the population average by the table scale.
+  function entranceCount(s) {
+    const scaled = (s.variant.entrances?.count || 0) * root.ZoneVariantData.quarryLayouts.entranceCountScale;
+    return Math.floor(scaled) + (noise(s.a.key, 0, 0xca7e) < scaled % 1 ? 1 : 0);
+  }
   // Authored mine mouths are ordinary generated stairs, so cave loading
   // mirrors their return ladders and gives each shaft a route farther down.
   function* entrancesSteps(s, ctx) {
@@ -36,7 +42,7 @@
       && !WG.nearPoiCell(opts.pois || [], i % N, Math.floor(i / N));
     const cells = s.cells.slice().sort((a, b) => noise(tx*N+a%N, ty*N+Math.floor(a/N), 0xca7e)
       - noise(tx*N+b%N, ty*N+Math.floor(b/N), 0xca7e) || a-b);
-    for (let n = 0; n < cells.length && result.length < settings.count; n++) {
+    for (let n = 0; n < cells.length && result.length < entranceCount(s); n++) {
       if ((n & 255) === 0) yield 'quarry mine entrances';
       const i = cells[n], ix = i % N, iy = Math.floor(i / N);
       if (!free(i) || selected.some(j => Math.max(Math.abs(ix-j%N),
@@ -363,5 +369,5 @@
     const fallbackHash = Math.floor(noise(siteHash, 0, 193) * 4294967296);
     return fitting[weightedIndexForHash(fallbackHash, fitting)].id;
   }
-  root.QuarryLayout = { entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash };
+  root.QuarryLayout = { entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash };
 })(typeof window !== 'undefined' ? window : globalThis);

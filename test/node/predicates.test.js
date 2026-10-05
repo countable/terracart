@@ -216,7 +216,7 @@ test('the literal spellings are gone from the readers', () => {
     assert.eq(flagged.size, inSpec, 'one flag per flagged row');
     for (const k of flagged) assert.includes(keys, k, `${k} is a RENDER_SPEC key`);
 
-    // The nine that cast one, and the four that deliberately do not:
+    // Standing objects cast contact shadows; ground marks deliberately do not:
     // house/tower take the bespoke footprint math, groundstack already lies on
     // the ground, staircase is a hole cut into it.
     // (+ the street variants' standing props: the waystone and the stakes;
@@ -224,10 +224,10 @@ test('the literal spellings are gone from the readers', () => {
     // the headstone and the grove shrine. + the POI props: the notice board
     // and the gate post. + the scenic viewpoint's scope.)
     const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well',
-                      '_scarecrow', '_fire', 'torch', 'waystone', 'stakes',
-                      'headstone', 'grove_shrine', 'infoboard', 'gatepost', 'vista_scope'];
+                      '_scarecrow', '_fire', 'torch', 'waystone', 'stakes', 'stalagmites',
+                      'headstone', 'bone_cache', 'grove_shrine', 'hive', 'infoboard', 'gatepost', 'vista_scope'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);
-    for (const k of ['house', 'tower', 'groundstack', 'staircase']) {
+    for (const k of ['house', 'tower', 'groundstack', 'staircase', 'ground_hole', 'inactive_poison_vent']) {
       assert.falsy(flagged.has(k), `${k} does not`);
     }
     assert.eq(flagged.size, expected.length, 'and no others');

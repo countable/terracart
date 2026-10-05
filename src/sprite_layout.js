@@ -38,6 +38,13 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
+    'bone_cache:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 14 },
+    'beach_palms:0': { fw: 16, fh: 16, minX: 4, minY: 9, maxX: 10, maxY: 15 },
+    'beach_palms:1': { fw: 16, fh: 16, minX: 6, minY: 9, maxX: 12, maxY: 15 },
+    'beach_palms:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
+    'beach_palms:3': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
+    'beach_palms:4': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 15 },
+    'beach_palms:5': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 15 },
     'trees:1': { fw: 32, fh: 48, minX: 11, minY: 37, maxX: 21, maxY: 48 },
     'trees:2': { fw: 32, fh: 48, minX: 7, minY: 16, maxX: 25, maxY: 48 },
     'trees:3': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 48 },
@@ -55,6 +62,21 @@
     'worldpeach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'chest:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
     'box:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
+    'shrine_spirit:0': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
+    'shrine_spirit:1': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 14, maxY: 14 },
+    'shrine_spirit:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 14, maxY: 14 },
+    'shrine_spirit:3': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
+    'cave_props:0': { fw: 24, fh: 24, minX: 3, minY: 8, maxX: 24, maxY: 24 },
+    'cave_props:1': { fw: 24, fh: 24, minX: 3, minY: 2, maxX: 24, maxY: 24 },
+    'cave_props:6': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 24, maxY: 23 },
+    'cave_props:17': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 23 },
+    'cave_props:24': { fw: 24, fh: 24, minX: 1, minY: 0, maxX: 24, maxY: 23 },
+    'cave_props:25': { fw: 24, fh: 24, minX: 2, minY: 6, maxX: 22, maxY: 23 },
+    'cave_props:26': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:27': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:28': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:29': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'poison_vent_inactive:0': { fw: 24, fh: 24, minX: 4, minY: 14, maxX: 20, maxY: 23 },
     'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1, minY: 5, maxX: 16, maxY: 15 },
     'mineralrock:169': { fw: 16, fh: 16, minX: 3, minY: 6, maxX: 12, maxY: 14 },
@@ -65,7 +87,7 @@
     'mineralrock:2': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'mineralrock:3': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'mineralrock:5': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
-    'mineralrock:6': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
+    'mineralrock:7': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'approved_charred_stakes:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
     'well:0': { fw: 30, fh: 32, minX: 2, minY: 0, maxX: 30, maxY: 32 },
     'pillar:0': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
@@ -73,7 +95,6 @@
     'bonfire:0': { fw: 16, fh: 32, minX: 1, minY: 9, maxX: 14, maxY: 31 },
     'torch:0': { fw: 16, fh: 32, minX: 5, minY: 5, maxX: 12, maxY: 32 },
     'waystone:0': { fw: 16, fh: 16, minX: 0, minY: 1, maxX: 16, maxY: 16 },
-    'stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
     'tar:0': { fw: 16, fh: 16, minX: 1, minY: 6, maxX: 15, maxY: 15 },
     'grove_votive:0': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 21, maxY: 23 },
     'zone_objects:1': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
@@ -118,8 +139,8 @@
     'shrines:7': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
     'shrines:8': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
     'shrines:9': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
+    'beehive:0': { fw: 16, fh: 16, minX: 2, minY: 3, maxX: 14, maxY: 14 },
     'barrel:0': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 20, maxY: 23 },
-    'barrel_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
     'clay_pot:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
     'clay_pot_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 19 },
     'bike_rack:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 15, maxY: 16 },
@@ -136,13 +157,14 @@
   ];
   // One centered shrine object, reserving a 3×3-cell footprint.
   const SHIPWRECK_SHRINE_ART = { key: 'shipwreck_shrine', frame: 0, extentCells: 3,
-    scale: CELL_PX * 3 / 1536, name: 'Shipwreck' };
+    scale: CELL_PX * 3 / 192, name: 'Shipwreck' };
   // The ten shrine kinds (src/shrines.js — a row's `frame` picks its art on
   // this one sheet). The frames are listed for the sprite audit, which loads
   // this file without Shrines; shrines.test.js pins every row's frame here.
   const SHRINE_KIND_ART = { key: 'shrines', scale: 1.6, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] };
   function groveShrineArt(o) {
     if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;
+    if (o?.shrineKind === 'drill') return { key: 'cave_props', frame: 6, scale: 4 / 3, name: 'Drill construct' };
     const kind = o?.shrineKind && root.Shrines && root.Shrines.SHRINE_KINDS[o.shrineKind];
     if (kind) return { key: SHRINE_KIND_ART.key, frame: kind.frame, scale: SHRINE_KIND_ART.scale, name: kind.name };
     return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
@@ -487,12 +509,27 @@
   const enemyBounds = { bat: [3, 11],
     vampire_bat: [3, 11], spider: [1, 16], poison_spider: [1, 16],
     ghost: [1, 15], pink_ghost: [1, 15] };
+  // Color is a species identity, so catching and releasing keep distinct stacks.
+  const BUTTERFLY_VARIANTS = [
+    { id: 'amber_butterfly', name: 'Amber Butterfly', zones: ['GRASS'], palette: { shadow: '#594014', mid: '#e6a62d', highlight: '#fff1ae', gamma: 0.65 } },
+    { id: 'pink_butterfly', name: 'Rose Butterfly', zones: ['PARK', 'GROVE'], palette: { shadow: '#592344', mid: '#df719f', highlight: '#ffe4ef', gamma: 0.65 } },
+    { id: 'azure_butterfly', name: 'Azure Butterfly', zones: ['WETLAND'], palette: null },
+    { id: 'violet_butterfly', name: 'Violet Butterfly', zones: ['SCHOOL', 'PLAYGROUND'], palette: { shadow: '#38245e', mid: '#9975dc', highlight: '#eee1ff', gamma: 0.65 } },
+  ];
+  const butterflyByKind = Object.fromEntries(BUTTERFLY_VARIANTS.map(row => [row.id, row]));
+  function butterflyKindForTerrain(terrain, terrainKinds) {
+    return BUTTERFLY_VARIANTS.find(row => row.zones.some(zone => terrainKinds[zone] === terrain))?.id || 'azure_butterfly';
+  }
   const GIANT_PREFIX = 'giant_';
   const GIANT_ART_SCALE = roster?.GIANT_SCALE ?? 1.6;
   function isGiantKind(kind) { return roster?.get(kind)?.variantType === 'Giant'
     || (typeof kind === 'string' && kind.startsWith(GIANT_PREFIX)); }
-  function baseKind(kind) { return roster?.get(kind) ? roster.baseKind(kind)
+  function baseKind(kind) { if (butterflyByKind[kind]) return 'butterfly'; return roster?.get(kind) ? roster.baseKind(kind)
     : isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
+  // Identical unmodified atlases share one Phaser texture and its frame table.
+  // Palette copies stay independent; authored frame numbers and roster paths
+  // remain unchanged for DOM icons, tools and directional animation.
+  const rosterSheets = new Map();
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;
     const old = CREATURE_ART[row.id];
@@ -511,14 +548,25 @@
           alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
     Object.assign(CREATURE_ART[row.id], CREATURE_DIRECTION_LAYOUTS[row.art.directionLayout]);
     if (row.art.directions) Object.assign(CREATURE_ART[row.id], { directions: row.art.directions, directionSideFacing: row.art.directionSideFacing });
+    const art = CREATURE_ART[row.id];
+    if (!row.palette && art.sheet === row.id) {
+      const source = `${row.art.path}:${fw}:${fh}`;
+      if (!rosterSheets.has(source)) rosterSheets.set(source, art.sheet);
+      art.sheet = rosterSheets.get(source);
+    }
     CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : (fw === 32 && old?.tint) || 0xffffff;
   }
   CREATURE_ART.summoned_skeleton = { ...CREATURE_ART.skeleton };
   CREATURE_ART.summoned_wraith = { ...CREATURE_ART.ghost };
+  CREATURE_ART.pirate_mercenary = { ...CREATURE_ART.pirate_captain };
+  // A revealed shrine spirit is a stationary discovery object, not a foe.
+  // Preserve the native blue-white sprite and its four-frame idle cycle.
+  const SHRINE_SPIRIT_ART = { ...CREATURE_ART.ghost, sheet: 'shrine_spirit' };
   const _giantArt = {};
   function creatureArt(kind) {
     if (CREATURE_ART[kind]) return CREATURE_ART[kind];
     if (_giantArt[kind]) return _giantArt[kind];
+    if (butterflyByKind[kind]) return (_giantArt[kind] = { ...CREATURE_ART.butterfly, sheet: butterflyByKind[kind].palette ? kind : 'butterfly' });
     const row = roster?.get(kind);
     const base = CREATURE_ART[baseKind(kind)];
     if (!base || (!row?.variantOf && !isGiantKind(kind))) return undefined;
@@ -580,7 +628,7 @@
     // The shore crab is the chicken's row on the beach: tamed with its
     // favourite (items.js ANIMAL_FOOD.crab) or netted; a fed one gives a SHELL.
     // Seated only on shore sand (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
-    crab:          { wanders: true, produce: { item: 'shell', verb: 'shed' } },
+    crab:          { wanders: true, concealment: 'stealthy', produce: { item: 'shell', verb: 'shed' } },
     // The horse is the cow's row without the milk: twice the netting, tamed
     // with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag it is
     // a mount (items.js HORSE_RIDE).
@@ -588,7 +636,7 @@
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
-    cat:           { wanders: true, pet: true, follows: true, prey: new Set(['crow']) },
+    cat:           { wanders: true, concealment: 'stealthy', pet: true, follows: true, prey: new Set(['crow']) },
     dog:           { wanders: true, pet: true, prey: new Set(['deer', 'slime']) },
     // `fightsBack`: GAME that turns on the hunter. Starting a hunt on it
     // (interact.js) enrages it for `rageMs`; while enraged it charges at its
@@ -661,6 +709,7 @@
   // biome_profiles.js SHORE_FAUNA): the same hops, bolt and settling, read
   // from the rabbit's row so the two cannot drift.
   CREATURE_BEHAVIOUR.sea_turtle = CREATURE_BEHAVIOUR.rabbit;
+  CREATURE_BEHAVIOUR.pirate_mercenary = CREATURE_BEHAVIOUR.mercenary;
   // The behaviour row for `kind` — the base row for a giant, like its art.
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;
@@ -975,7 +1024,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt, CHEST_SCALE,
-    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, groveShrineArt,
+    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, SHRINE_SPIRIT_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
@@ -986,7 +1035,7 @@
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
-    GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
+    BUTTERFLY_VARIANTS, butterflyKindForTerrain, GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, TRAPPER_TINT, FIRE_SLIME_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
     creatureFoot, creatureScale, creatureInstScale, PET_BABY, isBabyPet, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };

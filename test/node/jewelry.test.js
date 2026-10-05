@@ -1,7 +1,21 @@
 // Unique carried jewelry: intrinsic effects, no material-tier gear slot.
 
 (function () {
-  const ids = ['stealth_ring', 'invisibility_ring', 'ember_ring', 'regeneration_amulet', 'vigor_amulet'];
+  const ids = ['perception_ring', 'coin_ring', 'stealth_ring', 'invisibility_ring', 'ember_ring', 'regeneration_amulet', 'vigor_amulet'];
+
+  test('coin ring: carrying it attracts coins without consumption or stacking', () => {
+    assert.eq(Gear.coinMagnetCells({}), 0);
+    for (const count of [0, -1]) assert.eq(Gear.coinMagnetCells({ inv: [{ id: 'coin_ring', count }] }), 0);
+    const save = { inv: [{ id: 'coin_ring', count: 2 }] };
+    assert.eq(Gear.coinMagnetCells(save), 3);
+    assert.eq(save.inv[0].count, 2);
+    assert.eq(Gear.coinMagnetCells({ inv: [{ id: 'stealth_ring', count: 1 }] }), 0);
+    assert.eq(ITEM_BY_ID.coin_ring.baseTier, 2);
+    assert.gt(PRICES.coin_ring, 0);
+    assert.truthy(Gear.uniqueRelics().some(item => item.id === 'coin_ring'));
+    assert.eq(inventoryIconSource('coin_ring').sheet, 'icon_rings');
+    assert.eq(inventoryIconSource('coin_ring').frame, 7);
+  });
 
   test('unique jewelry: carried unique relics replace tiered ring and amulet gear', () => {
     assert.falsy(RELIC_DEFS.ring, 'ring is not a tiered gear slot');

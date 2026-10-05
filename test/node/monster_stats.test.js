@@ -15,11 +15,11 @@
     for (const row of EnemyRoster.ROWS) {
       assert.gt(row.hp, 0);
       if (row.surface) assert.lte(row.tier, 3, row.id);
-      if (row.cave && !row.surface) dungeonOnly++;
-      // A row with neither pool (the gull, the raven) is seated by its own
-      // rule (SHORE_FAUNA, BIOME_FAUNA), so it is no part of the
-      // surface/dungeon split.
-      if (row.cave || row.surface) rolled++;
+      const ambientSurface = row.surface?.weight > 0 && row.surface.biomes.length > 0;
+      if (row.cave && !ambientSurface) dungeonOnly++;
+      // Authored-only surface encounters have no biome weight. Like fauna
+      // with their own seating rule, they are outside the ambient pool split.
+      if (row.cave || ambientSurface) rolled++;
     }
     assert.gte(dungeonOnly, rolled / 2);
   });

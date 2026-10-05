@@ -167,6 +167,72 @@
     assert.truthy(start >= 0 && end > start);
     return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   }
+  test('companions: pirate mercenary is a friendly sword fighter with distinct pirate stats and art', () => {
+    const kind = 'pirate_mercenary', c = { kind };
+    assert.eq(Combat.creatureMaxHp(kind), 65);
+    assert.eq(Combat.petBlow(c), 12);
+    assert.truthy(Combat.creatureMaxHp(kind) !== Combat.creatureMaxHp('mercenary'));
+    assert.truthy(Combat.petBlow(c) !== Combat.petBlow({ kind: 'mercenary' }));
+    assert.eq(SpriteLayout.creatureArt(kind).sheet, SpriteLayout.creatureArt('pirate_captain').sheet);
+    assert.eq(SpriteLayout.CREATURE_BEHAVIOUR[kind], SpriteLayout.CREATURE_BEHAVIOUR.mercenary);
+    assert.truthy(SpriteLayout.isSummoned(kind));
+    assert.truthy(huntsPrey(kind, { kind: 'pirate_grunt', id: 'enemy' }));
+    assert.falsy(huntsPrey(kind, { kind: 'mercenary', id: 'ally' }));
+    assert.falsy(Combat.isEnemy(c));
+    assert.falsy(Pirates.isPirate(c), 'friendly pirate is never a bribe target');
+    const s = { save: { money: 100 } };
+    assert.eq(Pirates.onHit(s, c), 0);
+    assert.eq(s.save.money, 100, 'ally cannot charge pirate hit tax');
+    assert.eq(Combat.petReachCells(c), Combat.petReachCells({ kind: 'mercenary' }));
+  });
+  test('companions: pirate contract retains wounds through reload and tile loss, recovers and expires', () => withScene((s, entry, advance) => {
+    const kind = 'pirate_mercenary', row = Companions.KINDS[kind];
+    s.save.money = 74;
+    assert.falsy(Companions.hire(s, kind));
+    assert.eq(s.save.money, 74);
+    s.save.money = 100;
+    assert.truthy(Companions.hire(s, kind));
+    assert.eq(s.save.money, 25);
+    assert.eq(s.save[row.field], T0 + 24 * 60 * 60 * 1000);
+    assert.falsy(Companions.hire(s, kind));
+    assert.eq(s.save.money, 25);
+    assert.truthy(Companions.follows(s[row.instance]));
+    assert.falsy(pickUpPet(s, s.save, s[row.instance], 0, 0));
+    s[row.instance]._hp = 11;
+    Companions.tickAll(s);
+    s.save = JSON.parse(JSON.stringify(s.save));
+    s[row.instance] = null; entry.creatures = [];
+    Companions.tickAll(s);
+    assert.eq(Combat.hp(s[row.instance]), 11, 'reload keeps wounds');
+    const old = s[row.instance];
+    entry.creatures = [];
+    Companions.tickAll(s);
+    assert.truthy(s[row.instance] !== old, 'tile replacement restores the ally');
+    assert.includes(s.save.caught, old.id);
+    assert.eq(Combat.hp(s[row.instance]), 11, 'tile replacement keeps wounds');
+    s[row.instance]._spent = true; s[row.instance]._hp = 0;
+    Companions.tickAll(s);
+    assert.eq(s[row.instance], null);
+    advance(29999); Companions.tickAll(s);
+    assert.eq(s[row.instance], null);
+    advance(1); Companions.tickAll(s);
+    assert.eq(Combat.hp(s[row.instance]), 65);
+    advance(row.durationMs); Companions.tickAll(s);
+    assert.eq(s[row.instance], null);
+    assert.falsy(Companions.active(s.save, kind));
+  }));
+  test('companions: pirate mercenary keeps collected coins in its own saved purse', () => withScene((s, entry) => {
+    Companions.hire(s, 'pirate_mercenary');
+    const c = s._pirateMercenary;
+    s.flash = () => {};
+    entry.coinDrops = [{ kind: 'coindrop', id: 'pirate_wages', x: c.x, y: c.y, amount: 9, seeded: true }];
+    tickGroundCoins(s, T0);
+    assert.eq(entry.coinDrops.length, 0);
+    assert.eq(s.save.money, 25, 'mercenary keeps the purse, just like the ordinary mercenary');
+    assert.eq(s.save.companionState.pirate_mercenary.coins, 9);
+    assert.eq(JSON.parse(JSON.stringify(s.save)).companionState.pirate_mercenary.coins, 9);
+    assert.includes(s.save.foundTreasures, 'pirate_wages');
+  }));
   for (const [id, kind, model, tier] of [
     ['bones_scroll', 'summoned_skeleton', 'skeleton', 3],
     ['wraith_scroll', 'summoned_wraith', 'ghost', 4],

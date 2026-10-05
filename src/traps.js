@@ -414,8 +414,8 @@
         if (taken.has(idx)) continue;
         if (occupiedIdx && occupiedIdx.has(idx)) continue;
         taken.add(idx);
-        traps.push(makeTrap(tx, ty, tileEdgeM, N, lix, liy,
-          WG.cellId(`trap_d${depth}`, tx, ty, lix, liy)));
+        traps.push({ ...makeTrap(tx, ty, tileEdgeM, N, lix, liy,
+          WG.cellId(`trap_d${depth}`, tx, ty, lix, liy)), kind: 'pit_trap', hidden: true, depth });
         break;
       }
     }

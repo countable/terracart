@@ -78,17 +78,36 @@ function scriptUrls(html = expectedIndex()) {
   return urls.filter(isOwn);
 }
 
+// All shipped media, including DOM-only icons and deferred story art. Embed
+// hashes in the worker so media changes also trigger its browser update check.
+function assetHashes() {
+  const out = {};
+  function walk(dir) {
+    for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
+      const rel = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(rel);
+      else if (/\.(png|webp|jpe?g|gif|svg|ico|mp3|ogg|wav|woff2?)$/i.test(rel)) out[rel] = hashOf(rel);
+    }
+  }
+  walk('assets');
+  return out;
+}
+function assetManifestHash() {
+  return crypto.createHash('sha256').update(JSON.stringify(assetHashes())).digest('hex').slice(0, HASH_LEN);
+}
+
 // SHELL_VERSION is derived from that list, so it moves whenever any module's
-// hash moves — and ONLY then. It is the service worker's own cache key: the
-// activate handler deletes every shell cache that isn't this one, so a changed
-// module rebuilds the worker's shell on the same deploy that changes its URL.
+// hash or media bytes move. Unchanged resources retain their individual
+// content-addressed cache keys across these shell generations.
 function expectedShellVersion(urls = scriptUrls()) {
-  const h = crypto.createHash('sha256').update(urls.join('\n')).digest('hex').slice(0, HASH_LEN);
+  const h = crypto.createHash('sha256').update(urls.join('\n') + '\n' + assetManifestHash()).digest('hex').slice(0, HASH_LEN);
   return `shell-${h}`;
 }
 
 function expectedSw(sw = readFile(SW), version = expectedShellVersion()) {
-  return sw.replace(/(const SHELL_VERSION = ')[^']*(')/, `$1${version}$2`);
+  return sw.replace(/(const SHELL_VERSION = ')[^']*(')/, `$1${version}$2`)
+    .replace(/\/\* ASSET_HASHES_START \*\/[\s\S]*?\/\* ASSET_HASHES_END \*\//,
+      '/* ASSET_HASHES_START */\nconst ASSET_HASHES = ' + JSON.stringify(assetHashes(), null, 2) + ';\n/* ASSET_HASHES_END */');
 }
 
 // Every tag whose ?v= disagrees with the file it points at, as { url, want }.
@@ -112,6 +131,10 @@ function check() {
     problems.push(`${url} → ${want}`);
   }
   const sw = readFile(SW);
+  if (!sw.includes('/* ASSET_HASHES_START */') || !sw.includes('/* ASSET_HASHES_END */')) {
+    problems.push('sw.js is missing generated asset hash markers');
+  }
+  if (sw !== expectedSw(sw)) problems.push('sw.js asset manifest/version needs refresh');
   const want = expectedShellVersion();
   const has = (sw.match(/const SHELL_VERSION = '([^']*)'/) || [])[1];
   if (has !== want) problems.push(`sw.js SHELL_VERSION ${has} → ${want}`);
@@ -212,6 +235,22 @@ const CHECKS = [
     },
   },
   {
+    name: 'cache-bust: changed media changes the worker generation without script edits',
+    run() {
+      const rel = 'assets/.cachebust_probe.png';
+      const abs = path.join(ROOT, rel);
+      try {
+        fs.writeFileSync(abs, 'media bytes one');
+        const first = expectedShellVersion(['script.js?v=12345678']);
+        const hash = assetHashes()[rel];
+        if (!hash) throw new Error('media missing from asset hash map');
+        fs.writeFileSync(abs, 'media bytes two');
+        if (assetHashes()[rel] === hash) throw new Error('changed media retained its hash');
+        if (expectedShellVersion(['script.js?v=12345678']) === first) throw new Error('media change did not update worker');
+      } finally { fs.rmSync(abs, { force: true }); }
+    },
+  },
+  {
     // Not ours to version, and not ours to cache — sw.js filters the same way.
     name: 'cache-bust: a CDN url is left alone',
     run() {
@@ -238,7 +277,7 @@ const CHECKS = [
 ];
 
 module.exports = {
-  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, versioned, HASH_LEN,
+  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, versioned, HASH_LEN, assetHashes, assetManifestHash,
 };
 
 if (require.main === module) {

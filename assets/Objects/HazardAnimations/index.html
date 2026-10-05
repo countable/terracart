@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hazard animation studies</title>
+<style>
+body{background:#181d24;color:#eef0e6;font:16px system-ui;margin:0;padding:32px;max-width:1100px;margin:auto}h1{margin-bottom:8px}p{color:#b7c2c8;line-height:1.5}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}article{background:#252d34;border:1px solid #414c53;border-radius:12px;padding:20px}canvas{width:240px;height:240px;image-rendering:pixelated;background:repeating-conic-gradient(#354039 0% 25%,#303b34 0% 50%) 0/32px 32px;display:block;margin:auto}h2{font-size:20px}a{color:#b4ddff}button{padding:9px 14px;margin:16px 8px 20px 0;border:1px solid #60717b;background:#303d47;color:inherit;border-radius:6px;cursor:pointer}.phase{height:24px;text-align:center;color:#d6c69a;margin:12px 0}footer{margin-top:24px;line-height:1.9}
+</style>
+<h1>Hazard animation studies</h1>
+<p>Sinkhole and tornado: 48×48 frames. Vent warnings: 24×24, followed by the active plume frames, with an identical rock base throughout.</p>
+<button id="pause">Pause</button><button id="restart">Restart</button>
+<main id="cards"></main>
+<footer><a href="frames.json">Frame mapping and suggested timing</a> · <a href="prompts.json">Generation prompts</a><p>The sinkhole art contains no occupant: gameplay must lower or hide the object during the open phase before the ground closes.</p></footer>
+<script>
+const specs=[
+ {name:'Sinkhole',file:'sinkhole.png',size:48,cols:4,frames:[0,1,2,3,4,5,6,7,8,9,10,11],times:[350,300,250,120,120,220,220,140,140,120,160,650],phases:['Warning · 1','Warning · 2','Warning · 3','Opening','Collapse','Open / swallow','Open / swallow','Closing','Closing','Closing','Settling','Closed']},
+ {name:'Tornado',file:'tornado.png',size:48,cols:4,frames:[0,1,2,3,...Array.from({length:24},(_,i)=>4+i%4)],times:[180,180,180,180,...Array(24).fill(110)],phases:['Formation · 1','Formation · 2','Formation · 3','Formation · 4',...Array(24).fill('Active loop')]},
+ ...['Poison','Fire','Paralysis'].map((name,i)=>({name:name+' vent',file:'vent-cycle.png',size:24,cols:4,frames:[i*4,i*4+1,i*4+2,i*4+3,i*4+2,i*4+3],times:[350,250,180,180,180,650],phases:['Warning · 1','Warning · 2','Active · 1','Active · 2','Active · 1','Active · 2'],reference:false}))
+];
+const images=new Map();function load(file){if(!images.has(file)){images.set(file,new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error(file));image.src=file;}));}return images.get(file);}
+let elapsed=0,last=0,paused=false;document.querySelector('#pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'Play':'Pause';};document.querySelector('#restart').onclick=()=>elapsed=0;
+Promise.all(specs.map(async s=>{const art=document.createElement('article');art.innerHTML=`<h2>${s.name}</h2><canvas width="48" height="48" aria-label="${s.name} animation"></canvas><div class="phase"></div><a href="${s.file}" download>Download sprite sheet</a>`;document.querySelector('#cards').append(art);s.ctx=art.querySelector('canvas').getContext('2d');s.label=art.querySelector('.phase');s.image=await load(s.file);if(s.reference)s.active=await load('vent-active-reference.png');s.duration=s.times.reduce((a,b)=>a+b,0);return s;})).then(()=>{document.body.dataset.ready='true';requestAnimationFrame(tick);}).catch(e=>{document.body.dataset.error=e.message;});
+function tick(now){if(last&&!paused)elapsed+=now-last;last=now;for(const s of specs){let time=elapsed%s.duration,i=0;while(time>=s.times[i]){time-=s.times[i++];}const isActive=s.reference&&i>=2,image=isActive?s.active:s.image,cols=isActive?6:s.cols,frame=s.frames[i];s.ctx.clearRect(0,0,48,48);s.ctx.imageSmoothingEnabled=false;s.ctx.drawImage(image,(frame%cols)*s.size,Math.floor(frame/cols)*s.size,s.size,s.size,0,0,48,48);s.label.textContent=s.phases[i];}requestAnimationFrame(tick);}
+</script></html>

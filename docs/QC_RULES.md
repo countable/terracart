@@ -62,6 +62,12 @@ other renders as the **wrong sprite, not an error**.
 
 ## 2. Scale consistency (map)
 
+- [ ] **View and artwork follow CLAUDE.md's shared design rule:** top-down
+      square-cell placement, with an overhead view tilted roughly 45 degrees
+      toward a camera to the south. Crown, top and back surfaces dominate;
+      front-facing planes are compressed and upright forms foreshortened.
+      Walls and directional traps retain legible upright height and follow
+      the cardinal grid axes.
 - [ ] **New creature/object scale is sane against its neighbours.** Cross-check
       against the cow (the visual size anchor). Creature scale lives in
       `SpriteLayout.CREATURE_ART`, not a per-call literal.

@@ -22,7 +22,7 @@
     depth: 0, save: {},
     viewCenterX: 176, viewCenterY: 176, viewLeft: 0, viewTop: 0, viewSize: 352,
     roadGeomGfx: gfx(),
-    roadGeomContainer: { setVisible() { return this; }, setPosition() { return this; } },
+    roadGeomContainer: { setVisible() { return this; }, setPosition(x, y) { this.x = x; this.y = y; return this; } },
     playerToWorldCell() {
       const tilePx = WorldGen.TILE_PX;
       const wx = this.originPx.x + this.playerM.x / this.mPerPx;
@@ -71,6 +71,63 @@
       assert.truthy(s._roadGeomKey !== key, 'the key names the neighbour now in hand');
       assert.eq(s.roadGeomGfx.cleared, n + 1, 'and the canvas is rebuilt with it');
       assert.eq(overlayFrame(s, (e) => !!e.layers).tiles.length, 2, 'the two tiles the view reaches');
+    });
+  });
+
+  test('overlay paint: walking across and back over a cell boundary scrolls retained paint', () => {
+    withCache(() => {
+      const s = scene(EDGE / 2, EDGE / 2);
+      put(0, 0);
+      RoadOverlay.draw(s);
+      const painted = s.roadGeomGfx.cleared;
+      s.playerM.x += s.cellM;
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, painted, 'cell crossing does not repaint');
+      assert.eq(s.roadGeomContainer.x, -CELL_PX, 'world moved exactly one cell');
+      s.playerM.x -= s.cellM * 1.25;
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, painted, 'crossing back reuses the same paint');
+      assert.eq(s.roadGeomContainer.x, CELL_PX / 4, 'negative motion preserves alignment');
+      s.playerM.x += s.cellM * 1.75;
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, painted + 1, 'repaint before the padded canvas edge enters the view');
+      assert.eq(s.roadGeomContainer.x, -CELL_PX / 2, 'new snapped paint keeps its subcell offset');
+    });
+  });
+
+  test('overlay paint: teleports, peek and view changes cannot reuse an exhausted canvas', () => {
+    withCache(() => {
+      const s = scene(EDGE / 2, EDGE / 2);
+      put(0, 0);
+      RoadOverlay.draw(s);
+      s.peekM = { x: 0, y: -s.cellM };
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, 1, 'peek uses the padded paint');
+      assert.eq(s.roadGeomContainer.y, CELL_PX, 'peek scrolls in world metres');
+      s.peekM.y = -s.cellM * 2;
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, 2, 'negative pad exhausted');
+      s.playerM.x += s.cellM * 20;
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, 3, 'teleport repaints immediately');
+      s.viewCenterX += 1;
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, 4, 'changed projection repaints while still');
+    });
+  });
+
+  test('overlay paint: replacing a ready tile or its geometry invalidates retained paint', () => {
+    withCache(() => {
+      const s = scene(EDGE / 2, EDGE / 2);
+      put(0, 0);
+      RoadOverlay.draw(s);
+      put(0, 0);
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, 2, 'replacement entry repaints even with the same ready coordinates');
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(0, 0));
+      entry.layers = entry.layers.slice();
+      RoadOverlay.draw(s);
+      assert.eq(s.roadGeomGfx.cleared, 3, 'replacement geometry repaints within the same entry');
     });
   });
 

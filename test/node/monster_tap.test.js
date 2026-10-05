@@ -1,4 +1,4 @@
-test('monster taps: hostile and charmed creatures show only their name within the map copy budget', () => {
+test('monster taps: noncatchable foes and charmed creatures show only their name within the map copy budget', () => {
   const original = { world: globalThis.WorldGen, reach: globalThis.cellInReach,
     cell: globalThis.worldMetersToAbsCell };
   const handler = TAP_HANDLERS.find(h => h.name === 'creature');
@@ -6,8 +6,10 @@ test('monster taps: hostile and charmed creatures show only their name within th
     globalThis.cellInReach = () => true;
     globalThis.worldMetersToAbsCell = () => ({ cellIX: 0, cellIY: 0 });
     for (const kind of Combat.enemyKinds()) {
-      if (SpriteLayout.isSummoned(kind)) continue;
+      if (SpriteLayout.isSummoned(kind) || Pirates.isPirate({ kind })) continue;
       for (const charmed of [false, true]) {
+        // Wild catchable enemies use the net/feeding lane; charm still shows a name.
+        if (!charmed && ITEM_BY_ID[kind]?.kind === 'animal') continue;
         const target = { kind, id: `test_${kind}`, x: 0, y: 0, _disguiseRevealed: true,
           _charmUntil: charmed ? Date.now() + 60000 : 0 };
         globalThis.WorldGen = { ...original.world,

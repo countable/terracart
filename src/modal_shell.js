@@ -460,7 +460,7 @@ class SceneModals {
   // trusted body HTML because feed icons and prices are richer than plain
   // text; this method owns dismissal so every exit closes before one callback.
   showConfirmModal({ id = 'confirm-modal', kind = 'note', title, body,
-    acceptLabel = 'OK', cancelLabel = 'Cancel', onAccept, onCancel, art, kindIcon }) {
+    acceptLabel = 'OK', cancelLabel = 'Cancel', canAfford = true, onAccept, onCancel, art, kindIcon }) {
     // A rapid second tap must not replace the first decision or transfer its
     // action to a fresh set of buttons.
     if (document.getElementById(id)) return;
@@ -499,9 +499,9 @@ class SceneModals {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:8px;justify-content:center';
     const cancel = mkBtn(cancelLabel, false);
-    const accept = mkBtn(acceptLabel, true);
+    const accept = mkBtn(acceptLabel, true, !canAfford);
     cancel.addEventListener('click', (e) => { e.stopPropagation(); settle(onCancel); });
-    accept.addEventListener('click', (e) => { e.stopPropagation(); settle(onAccept); });
+    accept.addEventListener('click', (e) => { e.stopPropagation(); if (!accept.disabled) settle(onAccept); });
     row.appendChild(cancel);
     row.appendChild(accept);
     box.appendChild(row);
@@ -558,7 +558,7 @@ class SceneModals {
     // for those, so it can't be used here).
     const shown = (el) => el.getClientRects().length > 0;
     const sync = () => {
-      const any = [...document.querySelectorAll('.game-modal')].some(shown);
+      const any = this._templeSceneActive || [...document.querySelectorAll('.game-modal')].some(shown);
       document.body.classList.toggle('modal-open', any);
       // The ☰ menu is hidden under the class (index.html); fold it shut as
       // well, so a menu left open behind a dialog doesn't spring back open

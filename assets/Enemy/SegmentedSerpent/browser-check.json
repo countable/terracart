@@ -1,0 +1,34 @@
+{
+  "browser": "Chromium",
+  "errors": [],
+  "canvases": 2,
+  "exercised": [
+    "winding",
+    "sharp",
+    "reverse",
+    "straight",
+    "turn back",
+    "show joints",
+    "curved pieces",
+    "30 FPS"
+  ],
+  "visualInspected": [
+    "parts-source.png",
+    "parts.png",
+    "preview.png",
+    "hairpin screenshot"
+  ],
+  "spacingPixels": 9,
+  "revisionExercised": [
+    "winding",
+    "sharp",
+    "reverse",
+    "straight",
+    "all eight native tail headings"
+  ],
+  "revisionVisualInspected": [
+    "preview.png",
+    "tail-directions.png",
+    "hairpin screenshot"
+  ]
+}

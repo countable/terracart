@@ -192,7 +192,7 @@
       flash: 'The old stones. Walk softly.',
       keeper: ['“These stones are older than the chapel, and the chapel is older than the town. Someone has lit its lantern every night since the Breaking.”\n<em>Lifts the lantern.</em>\n“Tonight it is me.”',
         '<em>Speaks barely above a whisper.</em>\n“Walk softly. The names on these stones remember a quieter world than ours.”'] },
-    tar: { code: 3, R: 100, terrain: 'TAR_YARD', story: 'zone_tar', title: 'The tar yard',
+    tar: { code: 3, R: 50, terrain: 'TAR_YARD', story: 'zone_tar', title: 'The tar yard',
       body: 'Thick tar pools across the old fuel yard. It drags at your boots as you cross.',
       flash: 'The tar yard. Mind your feet.',
       keeper: ['“Nobody keeps this yard. The tar keeps itself.”'] },

@@ -166,6 +166,11 @@
     // supply skew to the total, so the share is smaller down there.
     'treasure:default': { classBias: { seed:0.45, mineral:0.40, supply:0.15, gear:0.25 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
+    // Beach Xs: 25% cash, 25% one gold bar, 25% one sapphire. The other
+    // quarter keeps the ordinary X pool (9 seed / 8 mineral / 3 supply / 5 gear).
+    'treasure:beach': { classBias: { seed:9, mineral:58, supply:3, gear:5, cash:25 },
+                        chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
+                        favourite: { p: 50 / 58, ids: { gold_bar: 1, sapphire: 1 }, singleItem: true } },
     // ── The ROAD ladder's prize ─────────────────────────────────────────
     // What restoring a street pays (src/trail.js, app.js _fireTrailPrize).
     // The ceremony rolls ONE card per group (Trail.PRIZE_CARDS: cash / seed or
@@ -185,6 +190,7 @@
     // produce, then a magic item — and the growth powder as its FAVOURITE,
     // the way a school is known for its Book: a grove is where things grow.
     // Tree seeds use the same seed class and their normal tier eligibility.
+    'treasure:temple':  { classBias: { magic: 1 }, chainSteps: 0, chainMax: 2, maxTier: 2, relicCap: 0 },
     'treasure:shrine':  { classBias: { seed:0.55, produce:0.30, magic:0.15 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
                           favourite: { id: 'growth_powder', p: 0.5 } },
@@ -431,7 +437,10 @@
   }
 
   function lootContext(contextKey, opts) {
-    const baseCtx = LOOT_CONTEXTS[contextKey];
+    const beach = (contextKey === 'treasure:beach' || (contextKey === 'treasure:default' && opts?.beachTreasure))
+      && !(opts?.depth > 0);
+    if (contextKey === 'treasure:beach') contextKey = 'treasure:default';
+    const baseCtx = LOOT_CONTEXTS[beach ? 'treasure:beach' : contextKey];
     if (!baseCtx) return null;
     // Chest contexts merge in the per-tier modifier (default T2); non-chest
     // contexts ignore opts.tier. Biome × tier stay two independent axes.
@@ -441,6 +450,10 @@
       const mod = (RARITY_TUNING.chestTierMod && RARITY_TUNING.chestTierMod[t])
         || RARITY_TUNING.chestTierMod?.[2] || {};
       ctx = { ...baseCtx, ...mod };
+    }
+    // Finding a concealed X buys one better tier, including its jackpot ceiling.
+    if (contextKey === 'treasure:default' && opts?.hiddenTreasure) {
+      ctx = { ...ctx, chainMax: ctx.chainMax + 1, maxTier: ctx.maxTier + 1 };
     }
     const caveSkew = caveSupplyApplies(contextKey, opts) ? CAVE_SUPPLY_SKEW
       : caveDeepApplies(contextKey, opts) ? CAVE_DEEP_SKEW : null;
@@ -703,7 +716,7 @@
       // Shops sell one item at a time, EXCEPT seed packs (5 for T1-T3, 1 for T4
       // Frost flowers). Rolled bumps are discarded, with no consolation.
       if (cls === 'seed') qty = itemTier >= 4 ? 1 : 5;
-    } else if ((RARITY_TUNING.singleStackClasses || []).includes(cls) || _ITEM_BY_ID[id]?.plants === 'fruittree') {
+    } else if ((favId && fav.singleItem) || (RARITY_TUNING.singleStackClasses || []).includes(cls) || _ITEM_BY_ID[id]?.plants === 'fruittree') {
       wastedQtyBumps += bracket;          // bracket is dead for these classes
     } else {
       const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(itemTier, 7)] || 1;

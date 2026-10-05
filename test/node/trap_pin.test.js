@@ -166,7 +166,7 @@ function trapScene() {
     startWorldM: { x: 0, y: 0 },
     originPx: { x: 0, y: 0 },
     cellsPerTile: 16,
-    _trapCellKey: '0_0_3_4',
+    _trapCellKey: '0_0_0_3_4',
     _trapHere: { id: 'trap_a', x: 15, y: 20 },
     _tickTraps: tickMethods._tickTraps,
     _storySplashOnce: storyMethods._storySplashOnce,

@@ -107,6 +107,10 @@ const scene = (subject, lore) => {
 // or { subject, size, width } for a different frame - the safety screen's
 // fullscreen mobile backdrop is portrait.
 const PIECES = {
+  // Runtime adds the actual creature frame and tint (PetStoryArt), preserving
+  // every species palette rather than painting approximate pet colours.
+  pet_clearing: scene('An EMPTY grassy clearing in a ruined medieval village, low weathered stone walls and olive foliage at the sides. Leave a neutral brown earth patch empty at the centre of the upper 40% for a pet sprite. No animals or people. The lower 60% is dark, quiet brown earth.'),
+  temple_activated: scene('An ancient low grey limestone temple in a woodland park, with a broad stone courtyard and continuous smooth-coped walls. No towers, turrets, spires or crenellations. Geometric engraved runes awaken with icy cyan light over the stone; a modest tied scroll lies beside the central diamond rune. Respectful and peaceful, subdued painterly stone and moss. All architecture and light in the top 40 percent; empty dark earth below.'),
   // Paired macro booths: built-in reference edits, never independent text-only
   // calls. After-use paintings focus closely on the transaction object.
   // scene() owns export framing; see docs/ART_SOURCES.md.
@@ -143,6 +147,7 @@ const PIECES = {
   shrine_waystone: scene("A short ancient weathered stone waystone with an indistinct shallow carved mark, beside an intact lonely cobbled road and overgrown meadow. Soft warm ivory magical light emerges from the stone; a faint suggestion of parchment-shaped light hints at remembered stories. No readable words or text."),
   shrine_grove: scene("A small ancient moss-covered stone sanctuary beneath mature forest trees, with a weathered carved stone votive figure and a humble wrapped gift at its feet. Soft green sacred light, ferns and fallen leaves, fifty years of wild regrowth. Peaceful and respectful, no demons or horns."),
   visit_wagon: scene("A medieval hired guard in worn steel armour and a closed helmet concealing the entire face stands beside a weathered covered wooden wagon and a warm lantern. The guard rests a hand on a sheathed sword, ready to accompany a traveller. Wild grass, ruined medieval buildings, intact old trade road. No player, no visible faces."),
+  visit_hive: scene("Close view of a golden straw bee skep on a rough wooden stand in a deep forest. Three thick amber syrup jars and cropped gloved hands at the top of the image, three large angry bees rising beside the hive, green canopy and moss. No face or full body. Quiet dark empty forest floor fills the bottom sixty percent."),
   visit_bike: scene("A saddled chestnut horse waits at a weathered courier's hitching post beside an intact cobbled trade road, small blue courier pennant and warm lantern, ruined medieval buildings and wild vegetation behind. No rider or people, no bicycle. A faint blue magical gleam suggests swift borrowed travel."),
   visit_gold: scene("An old black iron pot filled with muted cool teal-jade metal coins bearing embossed five-point stars, matching assets/Icons/coin.png exactly, never lime or yellow-green, in a mossy nook beside an intact cobbled path. A handful of green star coins glimmers in the surrounding grass. The coins give a restrained pale cool teal glimmer. Absolutely no yellow or gold-colored coins despite the traditional pot-of-gold name."),
 
@@ -302,6 +307,19 @@ const PIECES = {
     'A rough wooden crate brimming with fresh produce - potatoes, onions, apples and a few ' +
     'wheat bundles - set out on the grass beside a small travelling home wagon at golden hour, a little ' +
     'hand-painted wooden sign propped against it showing a jade-green star coin, meaning for sale.' + HOME_WAGON),
+  underground_spring_cave: scene("A clear subterranean spring pool ringed by damp pale mushrooms and dark stones, open dry banks."),
+  underground_goblin_warrens: scene("Low crude stone rooms and narrow open doorways, barrel stacks, a distant small goblin shadow."),
+  underground_mushroom_cavern: scene("Dense pale ivory and muted purple underground mushroom beds, a clear winding walking lane, moist cave walls."),
+  underground_gemstone_cavern: scene("An open cave chamber with restrained pale rose quartz crystals embedded in rough rock, no blue or green gems."),
+  underground_mine_tunnels: scene("Rough hand-worked mine tunnels with metal ore pockets, broken quarry stone, abandoned mining tools, no buildings."),
+  underground_root_passage: scene("Thick tree roots hanging into an earthy cave corridor, small pale mushroom pockets along a clear path."),
+  underground_seep_passage: scene("A narrow shallow stream through a rocky cave corridor with dry banks on both sides and a few pale mushrooms."),
+  underground_miners_way: scene("A small wooden ore cart parked beside a clear mining path, metal ore seams and broken worked stone along its verges."),
+  underground_warren_run: scene("A narrow low cave passage lined with crude stone walls, tiny open side doorways and supply alcoves."),
+  underground_gemstone_path: scene("A narrow cave passage lined with small rose quartz crystal seams among broken rock, subtle pink glimmer."),
+  underground_sm_road_passage: scene("A broad rough underground passage with a few stalagmites, a small inert stone vent and separate dark floor openings."),
+  underground_depth2_rock_scatter: scene("Sparse small rose quartz and violet amethyst clusters scattered among ordinary cave rocks, no other gems."),
+  underground_bone_gallery: scene("A cave passage with clustered pale dry animal bones and skulls and an ominous bulky creature shadow deep beyond. No gore."),
   cave_first: scene(
     'A young survivor holding a lantern steps down worn stone stairs into a cave, the cold dark ' +
     'closing in beyond the small circle of lantern light, glints of ore in the rough walls, a ' +

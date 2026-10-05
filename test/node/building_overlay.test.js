@@ -848,8 +848,10 @@ test('building overlay: a cell crossing reuses baked wall pieces instead of reba
   assert.eq(log.refreshes, 1, 'uploaded once, not once per piece');
   assert.truthy(first.every(p => p.sprite.key === log.pages[0].key && p.sprite.frame === p.frame), 'sprites draw their frame of the page');
   const x0 = first[0].sprite.x;
+  const painted = scene.buildingGeomGfx.cleared;
   scene.playerM.x = 5;                     // one whole cell east
   BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.cleared, painted, 'crossing scrolls the retained floor paint');
   assert.eq(log.frames.length, 8, 'crossing a cell bakes nothing new');
   assert.eq(log.refreshes, 1, 'and uploads nothing');
   assert.eq(log.removedFrames.length, 0, 'and releases nothing still in view');

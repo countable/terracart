@@ -11,11 +11,11 @@ test('themed shops: the lines come in order, then round again a tier up', () => 
   const want = ['seed', 'supply', 'potion', 'ore', 'relic'];
   for (let i = 0; i < 5; i++) {
     assert.eq(Shops.themeAt(i).theme, want[i], 'shop #' + (i + 1));
-    assert.eq(Shops.themeAt(i).tier, 1, 'the first round is tier 1');
+    assert.eq(Shops.themeAt(i).tier, want[i] === 'relic' ? 2 : 1, 'line starting tier');
   }
   assert.eq(Shops.themeAt(5).theme, 'seed', 'the sixth shop starts round two');
   assert.eq(Shops.themeAt(5).tier, 2, 'one tier higher');
-  assert.eq(Shops.themeAt(14).tier, 3);
+  assert.eq(Shops.themeAt(14).tier, 6);
 });
 
 test('themed shops: the order is the save\'s restore order of SHOPS — old markets convert in place', () => {
@@ -60,7 +60,7 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
   // A pet shop stocks every pet across its rounds.
   const pets = new Set();
   for (let tier = 1; tier <= 7; tier++) for (const id of Shops.themedStock('pet', tier)) pets.add(id);
-  for (const id of ['chicken', 'cow', 'cat', 'dog', 'deer', 'rabbit', 'crow', 'butterfly']) {
+  for (const id of ['chicken', 'cow', 'cat', 'dog', 'deer', 'rabbit', 'crow', 'amber_butterfly', 'pink_butterfly', 'azure_butterfly', 'violet_butterfly']) {
     assert.truthy(pets.has(id), 'the pet shop sells ' + id);
   }
   // The magical flower seeds stay find-only.
@@ -72,9 +72,9 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
 
 test('themed shops: the pick is off the caller\'s seeded rng', () => {
   const seq = (v) => () => v;
-  const stock = Shops.themedStock('ore', 4);
-  assert.eq(Shops.pickThemed('ore', 4, seq(0)), stock[0]);
-  assert.eq(Shops.pickThemed('ore', 4, seq(0.9999)), stock[stock.length - 1]);
+  const stock = Shops.themedStock('ore', 1);
+  assert.eq(Shops.pickThemed('ore', 1, seq(0)), stock[0]);
+  assert.eq(Shops.pickThemed('ore', 1, seq(0.9999)), stock[stock.length - 1]);
 });
 
 test('themed shops: the re-roll is $2, then ×1.5 rounded down — cheaper than the smith', () => {
@@ -124,7 +124,7 @@ test('themed shops: the wiring — the tap, the stock, the price and the re-roll
   assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(app), 'one resolver (lineFor — the bookshop override, then the cycle)');
   assert.truthy(/const rng = house\?\.id \? this\.shopRng\(house, 'theme'\) : Math\.random;/.test(app),
     'the stock holds for the hour on its own lane');
-  assert.truthy(/this\.buildShopOffer\(id, ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(app),
+  assert.truthy(/this\.buildShopOffer\(id, units \* ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(app),
     'priced by the shared markup off the list price (only the Book climbs)');
   assert.truthy(/\{ cost: ShopsMath\.themedRerollCost, peek: \(\) => this\.themedShopPick\(house\), current: id \}/.test(app),
     'the cheap re-roll moves the item on');
@@ -142,7 +142,7 @@ test('themed shops: no re-roll where the tier stocks one item', () => {
   const app = SCENE_SRC;
   assert.truthy(/secondary: this\._themedStockCount\(house\) > 1\s*\?\s*this\._makeRerollSecondary/.test(app),
     'the themed item offers its re-roll only when the stock has another item');
-  assert.truthy(/_themedStockCount\(house\) \{[\s\S]{0,200}?Shops\.themedStock\(theme, tier\)\.length/.test(app),
+  assert.truthy(/_themedStockCount\(house\) \{[\s\S]{0,200}?Shops\.themedOfferStock\(theme, tier\)\.length/.test(app),
     'counted off the same stock the pick draws from');
 });
 
@@ -168,4 +168,21 @@ test('themed shops: Potion of Taming and magic traps fill tier 3 supplies; drago
   assert.truthy(Shops.themedStock('potion', 4).includes('dragon_powder'));
   assert.falsy(Shops.themedStock('potion', 3).includes('dragon_powder'));
   assert.falsy(Shops.THEME_POOL.supply().includes('dragon_powder'));
+});
+
+test('themed shops: lower-tier batches share the shelf and quantities remain seeded', () => {
+  for (const theme of ['seed', 'supply', 'potion', 'ore']) {
+    for (let tier = 2; tier <= 7; tier++) {
+      const lower = Shops.batchStock(theme, tier);
+      if (!lower.length) continue;
+      const id = Shops.pickThemed(theme, tier, () => 0);
+      assert.eq(Shops.itemTier(id), tier - 1);
+      assert.eq(Shops.themedQuantity(id, tier, () => 0), 2);
+      assert.eq(Shops.themedQuantity(id, tier, () => 0.999), 4);
+      assert.truthy(Shops.themedOfferStock(theme, tier).includes(id));
+      const current = Shops.pickThemed(theme, tier, () => 0.999);
+      assert.truthy(Shops.themedStock(theme, tier).includes(current));
+    }
+  }
+  assert.eq(Shops.themedQuantity('torch', 1, () => 0), 1);
 });

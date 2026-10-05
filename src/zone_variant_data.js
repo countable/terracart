@@ -384,6 +384,16 @@
       "recordType": "enemy",
       "spawnClass": "enemy",
       "color": "#99754b"
+    },
+    "crab": {
+      "recordType": "enemy",
+      "kind": "crab",
+      "spawnClass": "enemy"
+    },
+    "gull": {
+      "recordType": "enemy",
+      "kind": "gull",
+      "spawnClass": "fastEnemy"
     }
   },
   "variants": [
@@ -1190,6 +1200,137 @@
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
+      }
+    },
+    {
+      "id": "marine_meadow",
+      "zone": "grove",
+      "name": "Marine meadow",
+      "weight": 1,
+      "selectable": false,
+      "ground": "GRASS",
+      "background": {
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_global_cell_hash",
+        "orientation": "quarter_turn_toward_approach",
+        "nominalDensity": 0.28,
+        "materialDensity": {
+          "grass": 0.14,
+          "shrub": 0.06,
+          "shell": 0.03,
+          "driftwood": 0.03,
+          "barrel": 0.02
+        },
+        "type": "seeded_scatter",
+        "seed": "anchor_key + variant_id + global_cell_coordinates",
+        "sampling": "one_hash_for_occupancy_then_independent_hash_for_material",
+        "previewCells": [
+          24,
+          24
+        ],
+        "poiOrigin": {
+          "cell": [
+            0,
+            0
+          ],
+          "role": "scatter_seed_origin"
+        }
+      },
+      "poi": {
+        "id": "marine_meadow_clearing",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "shell"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true
+        }
+      },
+      "finds": {
+        "rarity": "medium",
+        "material": "shell",
+        "targets": [
+          {
+            "id": "shell-1",
+            "radiusFraction": [
+              -0.4,
+              0.3
+            ]
+          },
+          {
+            "id": "shell-2",
+            "radiusFraction": [
+              0.4,
+              0.3
+            ]
+          }
+        ],
+        "spawnClass": "attractor",
+        "owner": "anchor",
+        "relocation": {
+          "unit": "group",
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "count": 2
+      },
+      "connection": {
+        "shape": "none"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "A grassy beach park with open walking space, low shrubs, washed-up shells, driftwood and barrels. The adjoining sand keeps its own beach nexus.",
+      "attracts": {
+        "rabbit": 0.4,
+        "butterfly": 0.4,
+        "crab": 0.5
+      },
+      "materialLooks": {
+        "shrub": "palm"
       }
     },
     {
@@ -7132,11 +7273,22 @@
       },
       "decorations": [
         {
+          "material": "crab",
+          "count": 8
+        },
+        {
           "material": "amphora",
           "count": 1
+        },
+        {
+          "material": "gull",
+          "count": 3
         }
       ],
-      "shrineFrame": 38
+      "shrineFrame": 38,
+      "materialLooks": {
+        "shrub": "palm"
+      }
     },
     {
       "id": "pirate_cove",
@@ -7160,36 +7312,8 @@
           },
           {
             "at": [
-              2,
-              3
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              2,
-              4
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
               3,
               5
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              4,
-              5
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              5,
-              4
             ],
             "material": "driftwood"
           },
@@ -7236,11 +7360,11 @@
             "material": "rubble"
           }
         ],
-        "nominalDensity": 0.1875,
+        "nominalDensity": 0.125,
         "materialDensity": {
           "shell": 0.046875,
           "rubble": 0.03125,
-          "driftwood": 0.109375
+          "driftwood": 0.046875
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -7261,28 +7385,19 @@
           "unit": "fixed_to_poi",
           "maxCells": 0
         },
-        "reward": "existing_one_daily_grove_gift"
+        "reward": "hire_pirate_mercenary"
       },
       "finds": {
         "rarity": "rare",
         "material": "gold_ore",
-        "count": 1,
-        "targets": [
-          {
-            "id": "1",
-            "radiusFraction": [
-              0.45,
-              0.35
-            ]
-          }
-        ],
+        "count": 0,
+        "targets": [],
         "owner": "anchor",
         "spawnClass": "attractor",
         "relocation": {
           "maxCells": 4,
           "stayInZone": true
-        },
-        "extraEligibility": "dry_eligible_ground; standard_gold_ore_pick_requirement"
+        }
       },
       "connection": {
         "shape": "clear_aisle",
@@ -7293,7 +7408,7 @@
         "cutPriority": "use_existing_open_motif_lanes_before_removing_slots"
       },
       "guards": {
-        "mode": "guard_find",
+        "mode": "guard_poi",
         "kind": "pirate_grunt",
         "kinds": [
           "pirate_grunt",
@@ -7314,15 +7429,37 @@
         "fallback": "omit_guard_keep_find"
       },
       "attracts": {},
-      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine. Its 3 × 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. A one-time T3 treasure chest sits inside the hull alongside the shrine's daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains.",
+      "atmosphere": "Scattered driftwood and shell fragments surround one shipwreck shrine. Its 3 × 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. The shipwreck offers pirate mercenaries for hire. A pirate grunt and gunner patrol beside it. If the full wreck cannot fit on dry sand, the accessible small hiring shrine remains. Four buried treasure spots wait nearby, hidden until discovered.",
       "decorations": [
         {
-          "material": "amphora",
-          "count": 1
+          "material": "barrel",
+          "count": 3
+        },
+        {
+          "material": "driftwood",
+          "count": 2
+        },
+        {
+          "material": "crab",
+          "count": 3
+        },
+        {
+          "material": "gull",
+          "count": 3
+        },
+        {
+          "material": "treasure_x",
+          "count": 4
         }
       ],
       "materialLooks": {
-        "rubble": "zone_rock_pirate_cove"
+        "rubble": "zone_rock_pirate_cove",
+        "shrub": "palm"
+      },
+      "shoreTreasure": {
+        "count": 2,
+        "tier": 2,
+        "spacingCells": 3
       }
     },
     {
@@ -7487,10 +7624,21 @@
       },
       "decorations": [
         {
+          "material": "crab",
+          "count": 8
+        },
+        {
           "material": "stone",
           "count": 1
+        },
+        {
+          "material": "gull",
+          "count": 3
         }
-      ]
+      ],
+      "materialLooks": {
+        "shrub": "palm"
+      }
     },
     {
       "id": "quarry-crater",
@@ -7779,6 +7927,7 @@
     }
   ],
   "quarryLayouts": {
+    "entranceCountScale": 0.7,
     "patchSizeCells": {
       "min": 3,
       "max": 8

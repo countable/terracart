@@ -200,6 +200,13 @@
     "zone_hedge:12": 196,
     "zone_hedge:13": 197,
     "zone_hedge:14": 198,
-    "look:bramble": 199
+    "look:bramble": 199,
+    "building:12:false": 200,
+    "building:12:true": 201,
+    "shrine_spirit": 202,
+    "temple:false": 203,
+    "temple:tar:false": 204,
+    "temple:tar:true": 205,
+    "temple:true": 206
   }
 }

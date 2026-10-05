@@ -13,9 +13,12 @@
       get durationMs() { return CONSUMABLE_SPEC.wraith_scroll.durationMs; }, persistHealth: true,
       expired: 'The wraith dissolves.', defeated: 'The wraith is spent.' },
     mercenary: { field: 'mercenaryUntil', instance: '_mercenary', durationMs: 24 * 60 * 60 * 1000,
-      hireCost: 50, recoveryMs: RECOVERY_MS, persistHealth: true,
+      hireCost: 50, coinPickupCells: 0.75, recoveryMs: RECOVERY_MS, persistHealth: true,
       expired: 'The mercenary heads home.', defeated: 'The mercenary rests a moment.' },
   };
+  KINDS.pirate_mercenary = { ...KINDS.mercenary,
+    field: 'pirateMercenaryUntil', instance: '_pirateMercenary', hireCost: 75,
+    expired: 'The pirate heads back to sea.', defeated: 'The pirate rests a moment.' };
   const HOME_PET_CELLS = 2;
   function releasePolicy(scene, x, y) {
     const home = scene.homeWorldPos?.();

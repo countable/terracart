@@ -100,7 +100,7 @@
   };
   const facePx = (tier) => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
-    return (tbl && tbl[tier] != null) ? tbl[tier] : (tier === CASTLE ? 5 : 4);
+    return (tbl && tbl[tier] != null) ? tbl[tier] : (tier === CASTLE ? 11 : 7);
   };
 
   // The silhouette: the tiled pass draws black at 50% over the floor; mixing
@@ -470,6 +470,12 @@
           Math.round(p.x - originX - 8), Math.round(p.y - originY - p.height), 16, p.height);
         ctx.restore();
       },
+      templePoly(pts, activated, dark) {
+        ctx.save();
+        ctx.translate(-originX, -originY);
+        TempleArt.draw(ctx, pts, { activated, dark, faces: false });
+        ctx.restore();
+      },
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
       commit() { tex.refresh(); },
     };
@@ -567,9 +573,10 @@
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine), depth = facePx(d.tier);
-    const stone = d.tier === CASTLE ? castleStone(isMine, d.key) : null;
-    const face = stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
-    const outline = stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
+    const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar') : null;
+    const face = temple ? temple.face : stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
+    const outline = temple ? temple.outline : stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
     const points = d.pts;
     // Only outward south-facing edges retain the downward face after the
     // floor is erased from the piece. Their physical base includes that
@@ -603,7 +610,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.templeZone || ''}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -628,6 +635,38 @@
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
         ctx.lineTo(q.x, q.y + depth); ctx.lineTo(p.x, p.y + depth); ctx.closePath();
         ctx.fillStyle = cssOf(face); ctx.fill();
+        // Work inside the face quadrilateral, then erase the floor below.
+        // This keeps angled courses out of the court and caps every short
+        // piece at the same height without changing its physical sort foot.
+        ctx.save(); ctx.clip();
+        const faceLine = (offset, color) => {
+          ctx.beginPath(); ctx.moveTo(p.x, p.y + offset);
+          ctx.lineTo(q.x, q.y + offset);
+          ctx.lineWidth = 1; ctx.strokeStyle = cssOf(color); ctx.stroke();
+        };
+        const lip = temple ? temple.coping : stone ? stone.top
+          : mix(face, tune(shade(floorColor(d.tier, isMine))), 0.48);
+        const joint = mix(face, outline, 0.32);
+        faceLine(0.5, lip);
+        // Shallow courses give the taller face a material scale. The fort's
+        // wooden footing keeps its grain as long horizontal seams.
+        for (let course = 3; course < depth - 1; course += 3) {
+          faceLine(course + 0.5, joint);
+          if (d.tier === 11 && !temple) continue;
+          const length = Math.hypot(b.x - a.x, b.y - a.y);
+          const spacing = 16, stagger = (Math.floor(course / 3) % 2) * spacing / 2;
+          const first = Math.max(0, Math.ceil((length * j / count - stagger) / spacing));
+          const last = Math.ceil((length * (j + 1) / count - stagger) / spacing);
+          for (let jointIndex = first; jointIndex < last; jointIndex++) {
+            const along = stagger + jointIndex * spacing;
+            const t = along / length;
+            const jx = a.x + (b.x - a.x) * t, jy = a.y + (b.y - a.y) * t;
+            ctx.beginPath(); ctx.moveTo(jx, jy + Math.max(1, course - 3));
+            ctx.lineTo(jx, jy + course); ctx.stroke();
+          }
+        }
+        faceLine(depth - 0.5, outline);
+        ctx.restore();
         ctx.globalCompositeOperation = 'destination-out';
         trace(ctx); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
@@ -724,15 +763,17 @@
 
     // Camera anchor, not the body — a peek drag slides these footprints with
     // the ground they're painted on (coords.js overlayFrame → viewAnchorCell).
-    // Rebuild key: the snapped camera cell, which of the 3×3 tiles have their
-    // shapes in hand (so a tile that finishes loading repaints even while the
-    // player stands still), and the claim epoch — restoring a wreck or taking
-    // a castle has to lift the shade off that footprint on the next frame.
-    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
-      overlayFrame(scene, (entry) => !!entry.buildingShapes);
-    const key = `${baseCellIX},${baseCellIY},${ready},${claimEpoch(scene)}`;
-    if (key !== scene._buildingGeomKey) {
-      scene._buildingGeomKey = key;
+    // Keep padded paint across crossings. New tile inputs and the claim epoch
+    // still repaint immediately: restoring a wreck or taking a castle must
+    // lift the shade off that footprint on the next frame.
+    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes);
+    const { tiles } = frame;
+    const paint = overlayPaintFrame(scene, frame,
+      scene._buildingGeomKey ? scene._buildingGeomFrame : null, claimEpoch(scene));
+    const { fracX, fracY } = paint;
+    if (paint.rebuild) {
+      scene._buildingGeomFrame = paint;
+      scene._buildingGeomKey = paint.key;
       scene._buildingGeomPainted = true;
       timedOverlayRebuild('building overlay rebuild',
         () => rebuild(scene, tiles, fracX, fracY));
@@ -759,7 +800,7 @@
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
-      + ',' + (s.starterShopId || '');
+      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length;
   }
 
   function rebuild(scene, tiles, fracX, fracY) {
@@ -819,9 +860,9 @@
         if (bx1 < minX || bx0 > maxX || by1 + facePx(shape.tier) < minY || by0 > maxY) continue;
         draws.push({
           pts, south: by1, left: bx0, north: by0, right: bx1,
-          tier: shape.tier, key: shape.key,
+          tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
-          columns: shape.tier === CASTLE ? CastleStyles.columnSites(shape.key, r,
+          columns: shape.tier === CASTLE && !shape.templeZone ? CastleStyles.columnSites(shape.key, r,
             entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile))
             .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
           seed: seedOf(tx, ty, r, shape.key),
@@ -839,6 +880,15 @@
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
+      if (d.templeZone) {
+        const active = Temples.isActive(scene.save, d);
+        const palette = TempleArt.palette(active, d.templeKind === 'tar');
+        if (!separateUprights) g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
+        if (g.templePoly) g.templePoly(d.pts, active, d.templeKind === 'tar');
+        else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
+        if (separateUprights) uprightEdges(scene, d, active, projX, projY, seen);
+        continue;
+      }
       const isMine = claimed(d.key);
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —

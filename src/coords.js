@@ -28,6 +28,7 @@
 //   viewAnchorCell(scene)                    — that point's { tx, ty, cx, cy }
 //   overlayFrame(scene, entryReady)          — a geometry overlay's draw frame
 //   overlayProjection(scene, fracX, fracY)   — …and its cell-snapped projection
+//   overlayPaintFrame(scene, frame, old, revision) — retain its padded paint
 //   timedOverlayRebuild(label, fn)           — one rebuild under the boot profiler
 //   lonLatToLocalM(scene, lon, lat)          — a GPS fix in playerM's frame
 //   localMToLonLat(scene, mx, my)            — and back out to lon/lat
@@ -508,9 +509,37 @@ function overlayProjection(scene, fracX, fracY) {
   };
 }
 
+// Retain a painted overlay across cell boundaries. Both canvases and their
+// cull bounds have two cells of padding; stop half a cell short of that edge
+// so filtering and outlines stay covered. World displacement (rather than
+// cell-index subtraction) also handles peek motion and changing row grids.
+// Repainting halfway through a cell separates the overlay work from the
+// terrain's crossing rebuild, and reversing over a boundary reuses the paint.
+function overlayPaintFrame(scene, frame, previous, revision) {
+  const { pc, ready, fracX, fracY } = frame;
+  const key = [pc.tx, pc.ty, ready, revision, scene.cellM,
+    scene.viewLeft, scene.viewTop, scene.viewSize, scene.viewCenterX, scene.viewCenterY].join('|');
+  const anchor = viewAnchorWorldM(scene);
+  const sameInputs = previous && previous.inputs.length === frame.tiles.length
+    && frame.tiles.every(({ entry }, i) => {
+      const old = previous.inputs[i];
+      return old[0] === entry && old[1] === entry.layers && old[2] === entry.buildingShapes;
+    });
+  if (sameInputs && previous.key === key) {
+    const x = (anchor.x - previous.x) / scene.cellM;
+    const y = (anchor.y - previous.y) / scene.cellM;
+    if (Math.abs(x) < 1.5 && Math.abs(y) < 1.5) {
+      return { ...previous, fracX: x, fracY: y, rebuild: false };
+    }
+  }
+  return { key, inputs: frame.tiles.map(({ entry }) => [entry, entry.layers, entry.buildingShapes]),
+    x: anchor.x - fracX * scene.cellM,
+    y: anchor.y - fracY * scene.cellM, fracX, fracY, rebuild: true };
+}
+
 // One overlay rebuild, ticked into the boot profiler under `label` when the
 // profiler is on. Only the rebuild is timed — draw() runs every frame, but
-// the key check only rebuilds on a cell crossing or a tile load, so the
+// retained paint only rebuilds after scrolling its pad or changing inputs, so the
 // cheap early-out frames never touch the tick.
 function timedOverlayRebuild(label, fn) {
   const B = window.__boot;

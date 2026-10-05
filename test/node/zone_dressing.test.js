@@ -13,6 +13,70 @@
   }
   const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
   const finds = out => all(out).filter(o => o.zoneLayer === 'find');
+  function nexusContext(id, obstruction) {
+    const c = context(id), a = c.field.anchors[0], cell = WorldGen.CELL_M;
+    c.chests.push({ kind: 'chest', id: 'source_poi', name: 'Original place',
+      _poiAt: `${a.lx},${a.ly}`, x: 32.5 * cell, y: 32.5 * cell });
+    c.spawnOpts.occupied.add(32 * c.N + 32);
+    c.spawnOpts.pois = [{ ix: 32, iy: 32 }];
+    for (let y = 31; y <= 33; y++) for (let x = 31; x <= 33; x++) {
+      const i = y * c.N + x;
+      if (obstruction === 'mask') c.spawnOpts.roadMask[i] = 1;
+      else c.grid[i] = obstruction;
+    }
+    return c;
+  }
+  test('nexus POIs: road and building source seats relocate before shrine conversion', () => {
+    for (const id of ['sacred_grove', 'ordered_graves', 'black_ring']) {
+      for (const obstruction of [WorldGen.T.ROAD, WorldGen.T.ROAD_MD, WorldGen.T.ROAD_LG,
+        WorldGen.T.BUILDING, WorldGen.T.BUILDING_MED, WorldGen.T.BUILDING_LARGE, 'mask']) {
+        const c = nexusContext(id, obstruction);
+        ZoneDressing.dress(c);
+        const poi = c.chests[0];
+        assert.truthy(poi, id + ': keeps the place on eligible ground');
+        assert.eq(poi.id, 'source_poi', 'relocation preserves the save identity');
+        assert.eq(poi.name, 'Original place');
+        assert.truthy(WorldGen.isSpawnCell(c.grid, c.N, c.N, poi._ix, poi._iy,
+          { ...c.spawnOpts, occupied: null }, 'attractor'), 'new seat passes live geometry and access gates');
+        assert.truthy(c.spawnOpts.occupied.has(poi._iy * c.N + poi._ix), 'new seat reserved before dressing');
+        assert.eq(c.spawnOpts.pois[0].ix, poi._ix); assert.eq(c.spawnOpts.pois[0].iy, poi._iy);
+        const again = nexusContext(id, obstruction); ZoneDressing.dress(again);
+        assert.eq(JSON.stringify(poi), JSON.stringify(again.chests[0]), 'stable fallback');
+        if (id === 'sacred_grove') assert.eq(poi.kind, 'grove_shrine');
+        else assert.truthy(poi.zoneNexus);
+      }
+    }
+  });
+  test('nexus POIs: no safe coverage omits the reward and reports a shortfall', () => {
+    const c = nexusContext('sacred_grove', WorldGen.T.BUILDING);
+    c.spawnOpts.roadMask.fill(1);
+    const out = ZoneDressing.dress(c);
+    assert.eq(c.chests.length, 0, 'no shrine left on a building or road');
+    assert.eq(c.spawnOpts.pois.length, 0, 'removed reward no longer grants public frontage');
+    assert.includes(out.diagnostics[0].shortfalls, 'poi:no-safe-seat');
+    assert.eq(out.nexus[0].poiId, null);
+    assert.eq(all(out).length, 0);
+  });
+  test('nexus POIs: eligible occupied source seat stays in place', () => {
+    const c = nexusContext('sacred_grove', WorldGen.T.PARK), before = { ...c.chests[0] };
+    ZoneDressing.dress(c);
+    assert.eq(c.chests[0].x, before.x); assert.eq(c.chests[0].y, before.y);
+    assert.eq(c.chests[0].id, before.id);
+  });
+  test('beach variants: seagulls populate authored sand and respect habitat and road gates', () => {
+    for (const row of ZoneVariants.forKind('beach')) {
+      const make = () => { const c = context(row.id); c.grid.fill(WorldGen.T.SAND); return c; };
+      const gulls = c => ZoneDressing.dress(c).guards.filter(o => o.kind === 'gull');
+      const birds = gulls(make());
+      assert.eq(birds.length, 3, row.id + ': seagulls inside nexus coverage');
+      assert.eq(JSON.stringify(birds), JSON.stringify(gulls(make())), 'stable seats and identities');
+      assert.eq(gulls(context(row.id)).length, 0, 'gulls stay on sand');
+      const blocked = make(); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.KERB);
+      assert.eq(gulls(blocked).length, 0, 'fast birds respect the major-road buffer');
+      const neighbor = make(); neighbor.field.anchors[0].owned = false;
+      assert.eq(gulls(neighbor).length, 0, 'neighbor tiles cannot duplicate the flock');
+    }
+  });
   test('Sacred Grove: ordinary harmless bushes and trees without authored enemies', () => {
     const out = ZoneDressing.dress(context('sacred_grove'));
     const bushes = out.wildplants.filter(o => o.crop === 'shrub');
@@ -40,7 +104,7 @@
       const graves = ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone');
       assert.truthy(graves.every(o => [4, 5].includes(o._zoneObjectFrame)));
     }
-    for (const id of ['quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef', 'pirate_cove']) {
+    for (const id of ['quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef']) {
       const c = context(id), out = ZoneDressing.dress(c), props = out.objects.filter(o => o.kind === 'zone_prop');
       assert.gt(props.length, 0, id);
       assert.lte(props.length, 2, 'finite site accents');
@@ -102,7 +166,7 @@
     for (const row of ZoneVariants.rows) {
       const a = ZoneDressing.dress(context(row.id)), b = ZoneDressing.dress(context(row.id));
       assert.eq(finds(a).length, row.finds.count, row.id);
-      assert.eq(a.guards.filter(g => g.zoneLayer !== 'background').length, row.guards.count || 0, row.id);
+      assert.eq(a.guards.filter(g => g.zoneLayer !== 'background' && g.zoneLayer !== 'decoration').length, row.guards.count || 0, row.id);
       for (const mark of a.treasures.filter(o => o.coverRockId)) {
         const cover = a.objects.find(o => o.id === mark.coverRockId);
         assert.truthy(cover && cover.kind === 'mineralrock', 'buried mark has its specific covering rock');
@@ -289,20 +353,25 @@
     const ctx = pirateShrine(), out = ZoneDressing.dress(ctx), shrine = ctx.chests[0];
     assert.eq(shrine.kind, 'grove_shrine'); assert.eq(shrine.id, 'beach_daily');
     assert.eq(shrine._shrineArt, 'shipwreck'); assert.eq(shrine._shrineExtentCells, 3);
-    assert.eq(out.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'no second reward');
+    assert.eq(out.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'no second hiring service');
     assert.eq(out.diagnostics[0].shortfalls.length, 0);
     const reserved = new Set();
     for (let y = 31; y <= 33; y++) for (let x = 31; x <= 33; x++) reserved.add(y * ctx.N + x);
     reserved.add(30 * ctx.N + 32);
     for (const i of reserved) assert.truthy(ctx.spawnOpts.occupied.has(i), 'whole footprint reserved');
-    for (const o of all(out).filter(o => o.zoneLayer !== 'wreck')) assert.falsy(reserved.has(o._iy * ctx.N + o._ix), 'scenery and guards cannot overlap hull or approach');
-    const chests = out.objects.filter(o => o.zoneLayer === 'wreck');
-    assert.eq(chests.length, 1); assert.eq(chests[0].kind, 'chest');
-    assert.eq(chestTier(chests[0]), 3);
-    assert.truthy(reserved.has(chests[0]._iy * ctx.N + chests[0]._ix));
-    assert.falsy(chests[0].zoneNexus, 'no extra nexus tier');
+    for (const o of all(out)) assert.falsy(reserved.has(o._iy * ctx.N + o._ix), 'scenery and guards cannot overlap hull or approach');
+    assert.falsy(out.objects.some(o => o.kind === 'chest' && reserved.has(o._iy * ctx.N + o._ix)), 'hiring service has no bonus chest inside the hull');
     assert.eq(out.wildplants.filter(o => o.zoneLayer === 'poi').length, 0, 'wreck replaces small shrine composition');
     assert.eq(finds(out).length, ZoneVariants.byId('pirate_cove').finds.count);
+    assert.falsy(out.objects.some(o => o.kind === 'mineralrock' && o.yieldTier === ZoneVariants.materials.gold_ore.yieldTier),
+      'the beach no longer has a gold-ore rock');
+    assert.eq(out.guards.filter(o => o.kind === 'pirate_grunt' || o.kind === 'pirate_gunner').length, 2,
+      'pirates guard the shrine without needing an ore find');
+    const buried = out.treasures.filter(o => o.zoneLayer === 'decoration');
+    assert.eq(buried.length, 4, 'four extra buried X marks per cove');
+    for (const mark of buried) {
+      assert.truthy(HiddenObjects.isHidden({}, { ...mark, kind: 'treasure' }), 'ordinary treasure discovery hides the mark');
+    }
   });
   test('zone dressing: early wreck reservations block competitors and survive the later dressing pass', () => {
     const ctx = pirateShrine(), run = ZoneDressing.reserveWrecksSteps(ctx);
@@ -315,7 +384,7 @@
     }
     const out = ZoneDressing.dress(ctx);
     assert.eq(ctx.chests[0]._ix, 32); assert.eq(ctx.chests[0]._iy, 32);
-    assert.eq(out.objects.filter(o => o.zoneLayer === 'wreck').length, 1);
+    assert.eq(out.objects.filter(o => o.zoneLayer === 'wreck').length, 0, 'no bonus wreck chest');
     assert.eq(out.diagnostics[0].shortfalls.length, 0);
   });
   test('zone dressing: blocked Pirate Cove wreck relocates deterministically without moving obstacles', () => {
@@ -339,7 +408,47 @@
     }
     assert.eq(out.diagnostics[0].shortfalls.length, 0);
   });
-  test('zone dressing: narrow or gated sand retains the existing accessible daily shrine', () => {
+  test('Pirate Cove companion owns a wreck without borrowing the park shrine', () => {
+    const make = () => {
+      const ctx = pirateShrine();
+      ctx.field.anchors[0].parkShore = true;
+      return ctx;
+    };
+    const ctx = make(), parkChest = { ...ctx.chests[0] }, out = ZoneDressing.dress(ctx);
+    const shrine = out.objects.find(o => o._shrineArt === 'shipwreck');
+    assert.truthy(shrine); assert.eq(shrine.kind, 'grove_shrine');
+    assert.eq(JSON.stringify(ctx.chests[0]), JSON.stringify(parkChest), 'park daily gift stays separate');
+    assert.eq(out.objects.filter(o => o.zoneLayer === 'wreck').length, 0, 'no bonus wreck chest');
+    assert.eq(JSON.stringify(out.objects), JSON.stringify(ZoneDressing.dress(make()).objects));
+    const blocked = make(); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    assert.falsy(ZoneDressing.dress(blocked).objects.some(o => o._shrineArt === 'shipwreck'));
+  });
+  test('Pirate Cove T2 chests stay in water beside eligible shore', () => {
+    const make = () => {
+      const ctx = pirateShrine();
+      for (let y = 0; y < ctx.N; y++) for (let x = 45; x < ctx.N; x++) {
+        const i = y * ctx.N + x;
+        ctx.grid[i] = WorldGen.T.WATER; ctx.field.coverage[i] = 0;
+        ctx.spawnOpts.spawnWhy[i] = WorldGen.SPAWN_WHY.TERRAIN;
+      }
+      return ctx;
+    };
+    const ctx = make(), out = ZoneDressing.dress(ctx);
+    const chests = out.objects.filter(o => o.zoneLayer === 'shore_find');
+    assert.eq(chests.length, 2);
+    assert.truthy(chests.every(o => o._ix === 45 && chestTier(o) === 2));
+    assert.eq(JSON.stringify(chests), JSON.stringify(ZoneDressing.dress(make()).objects.filter(o => o.zoneLayer === 'shore_find')));
+    const blocked = make();
+    for (let y = 0; y < ctx.N; y++) blocked.spawnOpts.spawnWhy[y * ctx.N + 44] |= WorldGen.SPAWN_WHY.RESTRICTED;
+    assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o.zoneLayer === 'shore_find').length, 0);
+    const ownedWater = make();
+    for (let y = 0; y < ctx.N; y++) ownedWater.field.coverage[y * ctx.N + 45] = 2;
+    assert.eq(ZoneDressing.dress(ownedWater).objects.filter(o => o.zoneLayer === 'shore_find').length, 0, 'another nexus owns the water');
+    const privateWater = make();
+    for (let y = 0; y < ctx.N; y++) privateWater.spawnOpts.spawnWhy[y * ctx.N + 45] |= WorldGen.SPAWN_WHY.RESTRICTED;
+    assert.eq(ZoneDressing.dress(privateWater).objects.filter(o => o.zoneLayer === 'shore_find').length, 0);
+  });
+  test('zone dressing: narrow or gated sand retains the existing accessible hiring shrine', () => {
     for (const mode of ['narrow', 'gated']) {
       const ctx = pirateShrine(), before = { ...ctx.chests[0] };
       if (mode === 'narrow') {
@@ -681,7 +790,7 @@
   });
   test('zone encounters: species, stationary plants and a finite proximity ghost follow the theme', () => {
     const kinds = id => ZoneDressing.dress(context(id)).guards.filter(g => g.zoneLayer !== 'background').map(g => g.kind).join();
-    assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner');
+    assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner,crab,crab,crab');
     assert.eq(kinds('orchard'), 'farmer_goblin');
     assert.eq(kinds('ancient_grove'), 'treant,spider');
     assert.eq(kinds('ordered_graves'), 'skeleton_soldier');
@@ -690,13 +799,14 @@
     assert.eq(kinds('broken_depot'), 'bat,bat,bat,bat,bat');
     assert.eq(kinds('seep'), 'split_slime');
     assert.eq(kinds('work_yard'), 'goblin,goblin');
-    assert.eq(kinds('mystic_reef'), 'giant_crab');
+    assert.eq(kinds('mystic_reef'), 'giant_crab,' + Array(8).fill('crab').join(','));
+    assert.eq(kinds('shellwater_strand'), Array(8).fill('crab').join(','));
     assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
     const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
     assert.truthy(plant.stationary);
     const ghost = ZoneDressing.dress(context('silent_circle')).guards;
     assert.eq(ghost.length, 1); assert.eq(ghost[0].kind, 'ghost'); assert.eq(ghost[0].proximityCells, 4);
-    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'shellwater_strand', 'black_ring']) assert.eq(kinds(id), '');
+    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'black_ring']) assert.eq(kinds(id), '');
     for (const id of ['ordered_graves', 'overgrown_graves']) {
       assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
     }

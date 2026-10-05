@@ -877,6 +877,10 @@
       "hidden": true,
       "revealDistanceCells": 1,
       "mechanic": "surface_snare"
+    },
+    "bone_cache": {
+      "path": "assets/Objects/Approved/bone_pile.png",
+      "color": "#d8d2bf"
     }
   },
   "previewRows": [
@@ -2882,6 +2886,88 @@
       "connection": "Use ordinary reachable cave floor; this is a scatter example, not a new nexus chamber.",
       "monsters": "Unchanged ordinary D2 cave population.",
       "depthNote": "Level 2 only. Gem tiers 1 and 2; never topaz, sapphire, ruby, emerald or diamond here."
+    },
+    {
+      "id": "bone_gallery",
+      "kind": "path",
+      "name": "Bone Gallery",
+      "sourceTerrain": "sm_road",
+      "depths": [
+        1,
+        2
+      ],
+      "motifCells": [
+        6,
+        8
+      ],
+      "slots": [
+        {
+          "at": [
+            1,
+            2
+          ],
+          "material": "bone_cache"
+        },
+        {
+          "at": [
+            2,
+            2
+          ],
+          "material": "bone_cache"
+        },
+        {
+          "at": [
+            4,
+            2
+          ],
+          "material": "bone_cache"
+        },
+        {
+          "at": [
+            1,
+            3
+          ],
+          "material": "bone_cache"
+        },
+        {
+          "at": [
+            4,
+            3
+          ],
+          "material": "bone_cache"
+        },
+        {
+          "at": [
+            2,
+            4
+          ],
+          "material": "bone_cache"
+        }
+      ],
+      "source": "25% of eligible small-road cave routes on levels 1 and 2; excluded from ordinary walking paths.",
+      "atmosphere": "The floor is littered with bones. Perhaps you should go another way...",
+      "poi": "Search each cache once: 50% empty; 40% torch, rope or trap-disarm kit; 10% Scroll of Bones. Independent 25% skeleton disturbance. Opened and defeated states persist.",
+      "connection": "A compact cluster of 3\u20136 passable caches; preserve stairs and chest approaches. One cluster and defender per canonical route.",
+      "monsters": "One elite strongest eligible monster for the cave level, plus the independent cache skeleton rolls.",
+      "encounters": {
+        "extentCells": [
+          6,
+          8
+        ],
+        "seats": [
+          {
+            "at": [
+              3,
+              3
+            ],
+            "kind": "bat"
+          }
+        ],
+        "countPolicy": "One elite strongest depth-eligible defender per route; ordinary Bat art represents the level-1 guard here."
+      },
+      "shrineChance": 0.5,
+      "shrineKind": "wayfarer_post",
+      "artNote": "Accepted bone-pile art is shipped as bone_cache; runtime clusters and one-time rewards are implemented."
     }
   ],
   "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews.",

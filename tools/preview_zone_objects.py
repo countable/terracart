@@ -57,7 +57,6 @@ for frame, zone in zip(range(16,22), ['Stone Garden','Ordered Graves','Overgrown
     rows[frame]['zones'] = [zone]
 
 assign(22,22,'Total-replacement','Abandoned Quarry; Global barrel locations','Intact barrel appearance; existing loot and restock behavior.',('barrel',0),'Current intact barrel')
-assign(23,23,'Total-replacement','Abandoned Quarry; Global barrel locations','Broken/restocking appearance paired with the intact barrel, not a separate loot object.',('barrel_smashed',0),'Current smashed barrel')
 assign(24,27,'Variant','Mystic Reef','Installed as noninteractive water scenery at scale 4/3: a 24px source frame occupies a 32px game cell.')
 old = Image.open(ROOT / 'assets/Objects/Reef/reef_atlas.png').convert('RGBA')
 for i in range(24,28):

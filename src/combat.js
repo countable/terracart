@@ -159,7 +159,7 @@
   // (petBite). One row, derived — a retune of the slime retunes the raven.
   // Its pool is the slime's BASE (FAUNA_HP), never the hard-mode enemy scale:
   // creatureMaxHp only scales Combat.isEnemy kinds, and the raven is yours.
-  const SUMMONED_AS = { spirit_raven: 'slime', mercenary: 'goblin', summoned_skeleton: 'skeleton', summoned_wraith: 'ghost' };
+  const SUMMONED_AS = { spirit_raven: 'slime', mercenary: 'goblin', pirate_mercenary: 'pirate_captain', summoned_skeleton: 'skeleton', summoned_wraith: 'ghost' };
   for (const [kind, model] of Object.entries(SUMMONED_AS)) {
     if (FAUNA_HP[model] != null) FAUNA_HP[kind] = FAUNA_HP[model];
   }
@@ -364,7 +364,9 @@
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
   const SHINY_SPEED_MUL = 1.5;
   function shinyMul(c) { return c?.shiny ? ELITE_MUL : 1; }
-  function shinySpeedMul(c) { return c?.shiny ? SHINY_SPEED_MUL : 1; }
+  function shinySpeedMul(c, escaping = false) {
+    return c?.shiny ? (escaping && !isEnemyKind(c.kind) ? 1.3 : SHINY_SPEED_MUL) : 1;
+  }
   // Raised adults retain their double strength, without stacking that same
   // shiny identity twice. Shiny babies also receive the universal bonus.
   const RAISED_MUL = 2;
@@ -552,11 +554,18 @@
   const FLOWER_STATUS_MS = 60 * 1000;
   function isSleeping(c, now = Date.now()) { return !!c && (c._sleepUntil || 0) > now; }
   function isCharmed(c, now = Date.now()) { return !!c && (c._charmUntil || 0) > now; }
+  // Paid peace and an open negotiation are neutral, never a charmed ally.
+  function isPacified(c, now = Date.now()) {
+    return !!monster(c?.kind)?.pirate
+      && (!!c._pirateParleyPending || (c._piratePeaceUntil || 0) > now);
+  }
   function isBurrowed(c) { return !!c?._burrowed; }
   function isDisguised(c) {
     return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
   }
-  function isConcealed(c) { return isBurrowed(c) || isDisguised(c); }
+  function isConcealed(c) {
+    return !!((c?.hidden || c?.stealthy) && !c._discovered) || isBurrowed(c) || isDisguised(c);
+  }
   function flowerTarget(c) {
     return !!c && !c._surfaceInactive && !isConcealed(c) && isEnemyKind(c.kind)
       && !(typeof c.id === 'string' && c.id.startsWith('released_'));
@@ -615,7 +624,7 @@
   // targeting exclusion while its charm lasts; buried creatures are likewise
   // unavailable until they surface. Their species remains unchanged.
   function isEnemy(c, now = Date.now()) {
-    if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now)) return false;
+    if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now) || isPacified(c, now)) return false;
     if (typeof c.id === 'string' && c.id.startsWith('released_')) return false;
     return isEnemyKind(c.kind);
   }
@@ -1513,7 +1522,7 @@
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
+    FLOWER_STATUS_MS, isSleeping, isCharmed, isPacified, cancelCreatureAction, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, isPsychotic, applyPsychosis,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
     canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,

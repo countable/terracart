@@ -324,7 +324,8 @@
       assert.falsy(isPotOfGold(o) || isBikeRack(o) || isBarrel(o), cls + ' underground is none of its surface selves');
       assert.eq(chestLook(o).texKey, 'chest', 'and wears the trunk');
     }
-    assert.truthy(/if \(isPotOfGold\(o\)\) \{/.test(INTERACTABLES_SRC), 'the pot hijack asks the one predicate');
+    assert.eq(Shrines.kindForObject({ kind: 'chest', poiClass: 'atm' }), Shrines.REWARD_KINDS.gold, 'the surface pot resolves through the shared shrine predicate');
+    assert.eq(Shrines.kindForObject({ kind: 'chest', poiClass: 'atm', depth: 2 }), null, 'the underground mirror is not a shrine');
     assert.eq(chestLook({ kind: 'chest', poiClass: 'atm', x: 0, y: 0 }).texKey, 'potofgold',
       'an ATM on the surface wears the pot of gold');
     assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),

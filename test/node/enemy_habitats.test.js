@@ -71,7 +71,7 @@ test('enemy habitats: actual beach spawn pass includes pirates and hostile crabs
   assert.falsy(run(false).some(c => /pirate|giant_crab/.test(c.kind)));
   const sig = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
   assert.eq(sig(run(true, [beach[0].id])), sig(beach.slice(1)), 'defeat removes one seat without rerolling survivors');
-  assert.falsy(Combat.isEnemyKind('crab'), 'the tameable shore crab remains fauna');
+  assert.truthy(Combat.isEnemyKind('crab'), 'the tameable shore crab attacks while wild');
 });
 
 test('enemy habitats: every selected cave theme has an eligible family through deep levels', () => {
@@ -97,16 +97,17 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
   const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
   test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
-    // Captured before adding yields: include graveyard emergence flags and
-    // habitat metadata, as well as the seeded seats and identities.
-    const expected = { orchard: 193103011, ordered_graves: 904005234, mystic_reef: 3886995405 };
+    // Include graveyard emergence flags, habitat metadata and seeded seats.
+    // Ordered Graves includes its approved large reaper; reservation order
+    // stays identical even though the expanded family changes species draws.
+    const expected = { orchard: 193103011, ordered_graves: 3933454638, mystic_reef: 3886995405 };
     for (const [theme, hash] of Object.entries(expected)) {
       const occupied = new Set();
       const it = EnemyHabitats.surfaceEncountersSteps(entry(theme), 0, 0, occupied);
       let r = it.next(), yields = 0;
       while (!r.done) { yields++; r = it.next(); }
       assert.eq(yields, Math.ceil(N / EnemyHabitats.SURFACE_ENCOUNTERS.blockCells) ** 2);
-      assert.eq(fnv1a(JSON.stringify(r.value)), hash, theme + ' keeps every generated field');
+      assert.eq(fnv1a(JSON.stringify(r.value.map(({ hidden, stealthy, ...c }) => c))), hash, theme + ' keeps its generated records');
       assert.eq(fnv1a(JSON.stringify([...occupied])), 1042003491, theme + ' keeps reservation order');
       assert.eq(JSON.stringify(r.value), JSON.stringify(EnemyHabitats.surfaceEncounters(entry(theme), 0, 0, new Set())));
     }
@@ -192,7 +193,8 @@ test('new monsters: jellyfish stay on beaches and graveyard zombies start buried
     const creatures = EnemyHabitats.surfaceEncounters(entry, 0, 0, new Set());
     const zombies = creatures.filter(c => c.kind === 'zombie');
     assert.gt(zombies.length, 0, variant + ' has zombies');
-    for (const c of zombies) { assert.truthy(c.emergeFromGround); assert.truthy(c._burrowed); }
+    for (const c of zombies) { assert.truthy(c.emergeFromGround); assert.truthy(c._burrowed); assert.truthy(c.hidden); }
+    for (const c of creatures.filter(c => ['skeleton', 'skeleton_soldier'].includes(c.kind))) assert.truthy(c.hidden);
     for (const c of creatures.filter(c => c.kind !== 'zombie')) assert.falsy(c.emergeFromGround);
   }
 });

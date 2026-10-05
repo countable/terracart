@@ -1,3 +1,4 @@
+extra_assets
 .claude/settings.local.json
 *.pbf
 !test/fixtures/*.pbf

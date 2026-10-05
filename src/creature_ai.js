@@ -766,6 +766,27 @@ function spawnNestBushCreature(scene, bush, type) {
   return creature;
 }
 
+// A hive's daily defenders use ordinary enemy seating and combat. Plan the
+// entire swarm first so a refused placement cannot partially spend a visit.
+function planHiveBees(scene, hive) {
+  const out = [], seats = new Set();
+  const day = Delivery.dayKey(new Date(Date.now()));
+  for (let i = 0; i < WorldGen.HIVE_SPEC.bees; i++) {
+    const id = `hivebee_${hive.id}_${day}_${i}`;
+    const point = walkableDestination(scene, hive.x, hive.y, 1, {
+      seed: id, cls: creatureSpawnClass('bee'),
+      accept(x, y) {
+        return !seats.has(`${x},${y}`) && !(x === hive.x && y === hive.y);
+      },
+    });
+    if (!point) return [];
+    seats.add(`${point.x},${point.y}`);
+    out.push({ entry: point.entry, creature: WorldGen.makeCreature('bee', point.x, point.y, id,
+      { shiny: false, homeX: hive.x, homeY: hive.y }) });
+  }
+  return out;
+}
+
 // A CAMPFIRE ROUTS A GHOST — Home's mechanism (the ward latch: turned onto
 // an away-from-the-fire angle and run to the sim bubble's edge), not the
 // fire's own ward on other foes (a refused target cell, which held a ghost
@@ -1344,6 +1365,9 @@ function enemySplit(scene, c, fromX, fromY, now) {
   const share = (c._splitShare ?? 1) / 2;
   c._hp = hp - half; c._splitShare = share; c._splitRoot = root; c._splitNextT = now + a.cooldownSeconds * 1000;
   c.x = seats[0].x; c.y = seats[0].y;
+  // A different creature may cause this split during its own turn. Refresh
+  // the original now; the newborn joins the next pass, like _foeBodies does.
+  if (scene._foeSpacingIndex) updateFoeSpacingIndex(scene._foeSpacingIndex, c);
   const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false });
   for (const key of ['lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells', 'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting', '_lastDamagedT']) {
     if (c[key] != null) twin[key] = c[key];
@@ -1407,6 +1431,7 @@ function creatureMeleeSwing(c, targetX, targetY, reachCells) {
 }
 
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
+  if (Combat.isPacified(c) || Combat.isPacified(creatureTarget)) return;
   if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
   if (creatureTarget && (Combat.isConcealed(creatureTarget)
       || Combat.isCharmed(c) === Combat.isCharmed(creatureTarget))) return;
@@ -1501,6 +1526,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     SpriteLayout.faceCreature(c, aim.x - c.x, aim.y - c.y);
   }
   if (!ready) return;
+  Pirates.say(scene, c);
   c._attackT0 = now;
   c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
   if (row.attackType === 'melee') creatureMeleeSwing(c, px, py, attackRange);
@@ -1539,6 +1565,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   } else {
     const damage = Combat.incomingDamage(scene.save, raw);
     const lost = scene._losePlayerEnergy(damage, { closeShop: true });
+    if (lost > 0) Pirates.onHit(scene, c);
     scene._monsterDmgAccum = (scene._monsterDmgAccum || 0) + lost;
     const condition = Combat.monster(c.kind)?.condition;
     if (lost > 0 && condition) scene._applyCondition(condition);
@@ -1555,12 +1582,59 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
 // gap. Exact overlap breaks the tie off the ids, so two stacked foes part.
 // A swooping flier (enemyBatMove) and a lair guard walking home are not pushed.
 const FOE_SPACING_CELLS = 0.6;
+// Rebuilt for each wander pass. Refresh a body's bucket after its movement,
+// including early-return lanes, so later foes see its new position this tick.
+function buildFoeSpacingIndex(scene) {
+  const index = { bodies: scene._foeBodies, radius: FOE_SPACING_CELLS * scene.cellM,
+    buckets: new Map(), records: new Map() };
+  for (let order = 0; order < index.bodies.length; order++) {
+    const body = index.bodies[order];
+    index.records.set(body, { body, order, key: null });
+    updateFoeSpacingIndex(index, body);
+  }
+  return index;
+}
+
+function updateFoeSpacingIndex(index, body) {
+  const record = index.records.get(body);
+  if (!record) return;
+  const key = Math.floor(body.x / index.radius) + ',' + Math.floor(body.y / index.radius);
+  if (key === record.key) return;
+  if (record.key !== null) {
+    const old = index.buckets.get(record.key);
+    old.delete(record);
+    if (!old.size) index.buckets.delete(record.key);
+  }
+  let bucket = index.buckets.get(key);
+  if (!bucket) index.buckets.set(key, bucket = new Set());
+  bucket.add(record);
+  record.key = key;
+}
+
+function foeSpacingCandidates(index, c) {
+  const bx = Math.floor(c.x / index.radius), by = Math.floor(c.y / index.radius);
+  const nearby = [];
+  for (let y = by - 1; y <= by + 1; y++) {
+    for (let x = bx - 1; x <= bx + 1; x++) {
+      const bucket = index.buckets.get(x + ',' + y);
+      if (bucket) for (const record of bucket) nearby.push(record);
+    }
+  }
+  // Preserve the original summation order, including exact-overlap tie breaks.
+  nearby.sort((a, b) => a.order - b.order);
+  return nearby;
+}
+
 function foeSpacingPush(scene, c) {
   const bodies = scene._foeBodies;
   if (!bodies || bodies.length < 2) return null;
   const r = FOE_SPACING_CELLS * scene.cellM;
   let x = 0, y = 0;
-  for (const o of bodies) {
+  const index = scene._foeSpacingIndex;
+  const candidates = index && index.bodies === bodies && index.radius === r
+    ? foeSpacingCandidates(index, c) : null;
+  for (const candidate of candidates || bodies) {
+    const o = candidates ? candidate.body : candidate;
     if (o === c) continue;
     const dx = c.x - o.x, dy = c.y - o.y;
     if (Math.abs(dx) >= r || Math.abs(dy) >= r) continue;
@@ -1574,6 +1648,15 @@ function foeSpacingPush(scene, c) {
   const len = Math.hypot(x, y);
   if (len < 1e-6) return null;
   return len > 1 ? { x: x / len, y: y / len } : { x, y };
+}
+
+// Discovery is permanent per save. Concealed enemies cannot move, attack,
+// burn or acquire status effects before the same discovery gate objects use.
+function enemyConcealmentTick(scene, c) {
+  if (!c.hidden && !c.stealthy) return false;
+  HiddenObjects.reveal(scene, c);
+  c._discovered = !HiddenObjects.isHidden(scene.save, c);
+  return !c._discovered;
 }
 
 // A camouflaged foe holds its authored seat until the player gets close.
@@ -1602,7 +1685,7 @@ function enemyBurrowTick(scene, c, row, now) {
   if (c.emergeFromGround && !c._hasEmerged) {
     c._burrowed = true;
     const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
-    if (scene.isUnnoticed(c) || !Combat.seesPlayer(c.kind, Math.hypot(px - c.x, py - c.y), scene.cellM, scene.save)) return true;
+    if (!((c.hidden || c.stealthy) && c._discovered) && (scene.isUnnoticed(c) || !Combat.seesPlayer(c.kind, Math.hypot(px - c.x, py - c.y), scene.cellM, scene.save))) return true;
     c._burrowed = false; c._hasEmerged = true;
     enemyStartEmerging(scene, c, row, now);
     return true;
@@ -1676,6 +1759,8 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
 }
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
+  if (c._pirateParleyPending) return;
+  if (Combat.isPacified(c)) { inactive = true; creatureTarget = null; }
   if (Combat.isConcealed(c) || Combat.isSleeping(c)) return;
   if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
     c._hp = Combat.maxHp(c); c._lastDamagedT = null;

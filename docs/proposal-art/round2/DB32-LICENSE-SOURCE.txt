@@ -1,0 +1,6 @@
+16x16 RPG Items (DB32)
+Author: ARoachIFoundOnMyPillow
+License: CC0 1.0
+Primary source: https://opengameart.org/content/16x16-rpg-items-db32
+License URL: https://creativecommons.org/publicdomain/zero/1.0/
+Verified 2026-10-03: the author upload lists CC0 and distributes db32_rpg_items.zip. Selected PNGs are unchanged files from the local archive of that pack.

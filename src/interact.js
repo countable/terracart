@@ -94,6 +94,7 @@ function tameInPlace(scene, save, target, flashMsg, flashIcon, flashScale) {
     'lairX', 'lairY', 'lairR', 'seatX', 'seatY', 'aggroCells', 'proximityCells',
     '_wardFrom', '_hunting', '_chaseTarget', '_wanderOffUntilT']) delete target[key];
   target.id = tameId;   // convert the in-world creature in place → now tame
+  PetStories.queue(scene, target.kind);
   scene.flashLoot(flashMsg, '#a7ffb0', flashScale, flashIcon);
   persistSave(save);
 }
@@ -222,6 +223,7 @@ function findItemInTapCell(scene, layer, wm, accept) {
   const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
   let best = null, bestD2 = Infinity;
   WorldGen.forEachItem(layer, (item) => {
+    if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, item)) return;
     if (accept && !accept(item)) return;
     if (!itemContainsTapCell(scene, item, tapCell)) return;
     const d2 = distM2(item.x, item.y, wm.x, wm.y);
@@ -395,6 +397,7 @@ const TILL_BLOCKER_LINE = {
   // shrine art as a house too — so both land on the `house` line above.
 };
 function tillBlockerLine(o) {
+  if (o.elevator) return 'An elevator stands here.';
   // NOT the chest's name: a POI name is arbitrary OSM text ('Saint Someone
   // Memorial Library and Reading Room'), and a line with a thirty-character
   // budget cannot interpolate something unbounded. The kind says enough.
@@ -413,9 +416,10 @@ const GRASSLAND_TILL = new Set([
   WorldGen.T.PITCH, WorldGen.T.GOLF, WorldGen.T.FARMLAND,
 ]);
 
-// Covered X marks become visible and tappable together after their rock is mined.
+// Hidden X marks become visible and tappable together; covered marks also need mining.
 function treasureExposed(treasure, scene, save = scene?.save) {
-  return !!treasure && (!treasure.coverRockId
+  return !!treasure && (typeof HiddenObjects === 'undefined'
+    || !HiddenObjects.isHidden(save, { ...treasure, kind: 'treasure' })) && (!treasure.coverRockId
     || (scene?.brokenRockSet || setOf(save?.brokenRocks)).has(treasure.coverRockId));
 }
 
@@ -441,6 +445,83 @@ function treasureExposed(treasure, scene, save = scene?.save) {
 function coinAmount(coin) {
   const n = Math.floor(coin?.amount);
   return n >= 1 ? n : 1;
+}
+
+// All ground-coin collectors share removal and the generated-coin ledger.
+// The caller batches persistence so a pile can only pay one recipient.
+function collectGroundCoin(scene, entry, coin, mercenary = null, sx, sy, save = scene.save) {
+  const index = entry.coinDrops.indexOf(coin);
+  if (index < 0 || (coin.expiresAt && coin.expiresAt <= Date.now())) return 0;
+  entry.coinDrops.splice(index, 1);
+  if (coin.seeded) {
+    if ((save.foundTreasures || []).includes(coin.id)) return 0;
+    (save.foundTreasures ||= []).push(coin.id);
+  }
+  const amount = coinAmount(coin);
+  if (mercenary) {
+    const purse = ((save.companionState ||= {})[mercenary.kind] ||= {});
+    purse.coins = (purse.coins || 0) + amount;
+  } else {
+    addMoney(save, amount);
+    if (typeof scene._popCellNumber === 'function') {
+      const cc = worldMetersToAbsCell(scene, coin.x, coin.y);
+      scene._popCellNumber(`+${amount}`, UI_GOLD, cc.cellIX, cc.cellIY);
+    } else {
+      scene.flash(`+${amount}`, sx, sy);
+    }
+  }
+  return amount;
+}
+
+// Coins are a small, transient array (also walked by their renderer). Run at
+// ten Hz, around the player's feet, independently of the camera's peek offset.
+const COIN_COLLECTION = { intervalMs: 100, pullCellsPerSecond: 6, arrivalCells: 0.25, speechMs: 3000 };
+function tickGroundCoins(scene, now = Date.now()) {
+  if (!scene.startWorldM || !scene.playerM || scene.isTooFast?.()) return;
+  if (now < (scene._nextCoinCollectionAt || 0)) return;
+  scene._nextCoinCollectionAt = now + COIN_COLLECTION.intervalMs;
+  const radius = Combat.playerDowned(scene.save.energy) ? 0 : Gear.coinMagnetCells(scene.save) * scene.cellM;
+  const collectors = Object.entries(Companions.KINDS).flatMap(([kind, row]) => {
+    const creature = scene[row.instance];
+    return row.coinPickupCells && creature && !creature._spent && Combat.hp(creature) > 0
+      && Companions.active(scene.save, kind, now)
+      ? [{ creature, radius: row.coinPickupCells * scene.cellM, coins: 0 }] : [];
+  });
+  if (!radius && !collectors.length) return;
+  const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+  const pc = scene.playerToWorldCell();
+  let playerCoins = 0, mercCoins = 0;
+  eachTile3x3(pc.tx, pc.ty, (tx, ty) => {
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry?.coinDrops) return;
+    for (const coin of [...entry.coinDrops]) {
+      if (coin.expiresAt && coin.expiresAt <= now) continue;
+      const collector = collectors.find(({ creature, radius }) => Math.hypot(coin.x - creature.x, coin.y - creature.y) <= radius);
+      if (collector) {
+        const taken = collectGroundCoin(scene, entry, coin, collector.creature);
+        collector.coins += taken;
+        mercCoins += taken;
+        continue;
+      }
+      const distance = Math.hypot(coin.x - px, coin.y - py);
+      if (!radius || distance > radius) continue;
+      const step = COIN_COLLECTION.pullCellsPerSecond * scene.cellM * COIN_COLLECTION.intervalMs / 1000;
+      if (distance <= Math.max(step, COIN_COLLECTION.arrivalCells * scene.cellM)) {
+        playerCoins += collectGroundCoin(scene, entry, coin);
+      } else {
+        coin.x += (px - coin.x) * step / distance;
+        coin.y += (py - coin.y) * step / distance;
+      }
+    }
+  });
+  for (const { creature, coins } of collectors) {
+    if (!coins || now < (creature._coinSpeechAt || 0)) continue;
+    if (creature.kind === 'pirate_mercenary') Pirates.say(scene, creature);
+    else scene.flash('ooh, coins!');
+    creature._coinSpeechAt = now + COIN_COLLECTION.speechMs;
+  }
+  if (playerCoins) scene.updateMoneyDOM?.();
+  if (playerCoins || mercCoins) persistSave(scene.save);
 }
 
 // FOUND TREASURE (items.js FOUND_TREASURE_CONTEXT, a random chest tier): an
@@ -598,7 +679,8 @@ const TAP_HANDLERS = [
       // StreetVariants.dress) pays that many extra roll steps on top.
       const dig = scene.digTreasureOpts?.();
       grantTreasureRoll(scene, save, sx, sy, '✕', 'treasure:default',
-        tr.rollBonus > 0 ? { ...(dig || {}), rollBonus: tr.rollBonus } : dig);
+        { ...(dig || {}), beachTreasure: tr.zone === 'beach' || scene.cellAt?.(tr.x, tr.y)?.type === WorldGen.T.SAND,
+          hiddenTreasure: true, rollBonus: 1 + Math.max(0, tr.rollBonus || 0) + Math.max(0, dig?.rollBonus || 0) });
       ctx.dirty = true;
       return true;
     };
@@ -649,25 +731,7 @@ const TAP_HANDLERS = [
     // reach indicator could be grabbed (QC §7).
     const coin = bestEntry.coinDrops[bestIdx];
     if (tooFar(ctx, coin.x, coin.y)) return 'far';
-    bestEntry.coinDrops.splice(bestIdx, 1);
-    // A cave coin is GENERATED where it lies (worldgen.js caveCoins), so the
-    // pickup is the delta: the id goes in the X marks' found list, and the
-    // next build of the level leaves it out.
-    if (coin.seeded) save.foundTreasures = [...(save.foundTreasures || []), coin.id];
-    // A coin is worth its `amount` — a kill's bounty coin (app.js
-    // _dropBountyCoin) carries the whole wage; every other coin is a single.
-    const amount = coinAmount(coin);
-    addMoney(save, amount);
-    // The "+N" lands ON the cell the coin was picked from, like every other
-    // number on the map (app.js _popCellNumber) — not at the finger, which
-    // is over the coin only until it lifts. A stub scene has no cell pops.
-    // The real number, always: it is the amount just banked.
-    if (typeof scene._popCellNumber === 'function') {
-      const cc = worldMetersToAbsCell(scene, coin.x, coin.y);
-      scene._popCellNumber(`+${amount}`, UI_GOLD, cc.cellIX, cc.cellIY);
-    } else {
-      scene.flash(`+${amount}`, sx, sy);
-    }
+    collectGroundCoin(scene, bestEntry, coin, null, sx, sy, save);
     ctx.dirty = true;   // money changed — persist
     return true;
   }},
@@ -718,6 +782,7 @@ const TAP_HANDLERS = [
     // Metres per screen pixel: one cell is scene.cellM metres and
     // scene.cellPx (app.js CELL_PX) pixels.
     const px2m = scene.cellM / scene.cellPx;
+    const TAP_PAD_M = 4 * px2m;           // extra touch forgiveness around every creature
     const UNDER_FEET_PAD_M = 0.3;          // a little grace below the art's bottom row
     // Per-kind horizontal grab half-width (m).
     const HALF_W = {
@@ -729,7 +794,7 @@ const TAP_HANDLERS = [
     // distance to the body CENTRE so the most on-target animal wins overlaps.
     let target = null, bestD2 = Infinity;
     WorldGen.forEachItem('creatures', (c) => {
-      if (save.caught.includes(c.id) || Combat.isBurrowed(c) || Combat.isDisguised(c)) return;
+      if (save.caught.includes(c.id) || Combat.isConcealed(c)) return;
       // A SUMMONED ally (the spirit raven) is not a tap target: nothing to
       // catch, tame, feed or pet — a tap goes through it to whatever is there.
       if (SpriteLayout.isSummoned(c.kind)) return;
@@ -743,9 +808,9 @@ const TAP_HANDLERS = [
       const gMul = SpriteLayout.creatureScale(c.kind) / SpriteLayout.creatureScale(bk) * inst;
       const span = SpriteLayout.creatureTapSpanPx(c.kind, inst)
         || SpriteLayout.creatureTapSpanPx('chicken', inst);
-      const halfW = (HALF_W[bk] ?? 2.0) * gMul;
-      const topY = c.y + span.top * px2m;                         // crown (or hop peak)
-      const botY = c.y + span.bottom * px2m + UNDER_FEET_PAD_M;   // under the feet
+      const halfW = (HALF_W[bk] ?? 2.0) * gMul + TAP_PAD_M;
+      const topY = c.y + span.top * px2m - TAP_PAD_M;                         // crown (or hop peak)
+      const botY = c.y + span.bottom * px2m + UNDER_FEET_PAD_M + TAP_PAD_M;   // under the feet
       const bodyCY = c.y + (span.top + span.bottom) / 2 * px2m;   // drawn centre
       if (Math.abs(wm.x - c.x) > halfW) return;
       if (wm.y < topY || wm.y > botY) return;
@@ -762,16 +827,19 @@ const TAP_HANDLERS = [
     // (target.x, target.y) so reach matches the lit highlight, not the body.
     if (tooFar(ctx, target.x, target.y)) return 'far';
     if (target.kind === 'npc') { NPC.interact(scene, target, sx, sy); return true; }
+    if (Pirates.isPirate(target)) { Pirates.present(scene, target); return true; }
 
-    // MANGO — the universal tame treat. Feeding a mango to ANY wild creature
-    // (livestock, cats/dogs, even pests like slimes / crows / deer) befriends
+    // MANGO — a tame treat for wild companions, excluding hunted game.
+    // Feeding livestock, cats/dogs or even slimes a mango befriends
     // it in place instead of catching or fighting. Checked before the slime /
     // DEFEAT / favourite-food paths so mango always wins. Already-tame pets
     // (id starts with 'released_') skip this and fall through to petting.
     const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
     const _mangoSel = getSelectedSlot(save);
-    // Underground monsters can't be befriended — they're DEFEAT-only foes.
-    if (!isTame && !Combat.isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
+    // Catchable animals retain feeding and netting even when hostile in the wild.
+    const catchableAnimal = ITEM_BY_ID[target.kind]?.kind === 'animal';
+    // Other monsters can't be befriended — they're DEFEAT-only foes.
+    if (!isTame && !SpriteLayout.isGame(target.kind) && (catchableAnimal || !Combat.isMonster(target.kind)) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {
       const doMangoTame = () => tameInPlace(scene, save, target,
         `🥭 tamed ${itemName(target.kind)}`, 'mango', 1.2);
       confirmFeed(scene, 'mango', target.kind, doMangoTame);
@@ -811,6 +879,7 @@ const TAP_HANDLERS = [
         save.released = save.released || [];
         save.released.push({ x: target.x, y: target.y, kind: 'slime', id: tameId, tx: tx2, ty: ty2 });
         target.id = tameId;
+        PetStories.queue(scene, target.kind);
         ctx.dirty = true;
         scene.flashLoot('💎 slime tamed!', '#aa88ff', 1.2, 'sapphire');
         return true;
@@ -826,7 +895,7 @@ const TAP_HANDLERS = [
 
     // Enemy taps do not choose a melee target. The combat tick continuously
     // selects the closest foe in weapon reach; feeding/taming above still works.
-    if (Combat.isEnemy(target)) {
+    if (Combat.isEnemy(target) && !catchableAnimal) {
       const name = Combat.monster(target.kind)?.name || itemName(target.kind);
       scene.flash(name, sx, sy);
       return true;
@@ -1092,7 +1161,7 @@ const TAP_HANDLERS = [
     // Re-evaluate slowing immediately, including while standing on the piece.
     scene._streetFeetKey = null;
     scene._tickStreetFeet?.();
-    finishTrapKit(ctx, o.kind === 'stakes' ? 'Spikes removed' : 'Barricade removed');
+    finishTrapKit(ctx, o.kind === 'stakes' || o.kind === 'stalagmites' ? 'Spikes removed' : 'Barricade removed');
     return true;
   }},
 
@@ -1235,7 +1304,8 @@ const TAP_HANDLERS = [
     const stair = findItemInTapCell(scene, 'objects', wm, (o) => o.kind === 'staircase');
     if (!stair) return false;
     if (tooFar(ctx, stair.x, stair.y)) return 'far';
-    scene.changeDepth(stair.dir === 'up' ? -1 : +1, stair);
+    if (stair.elevator) scene.openElevator(stair);
+    else scene.changeDepth(stair.dir === 'up' ? -1 : +1, stair);
     return true;
   }},
 
@@ -1247,7 +1317,12 @@ const TAP_HANDLERS = [
     const allObjs = [];
     // Wrap push in a block so we don't return its truthy result —
     // forEachItem treats any truthy return as "stop iterating".
-    WorldGen.forEachItem('objects', (o) => { allObjs.push(o); });
+    const addVisible = o => {
+      if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(save, o)) return;
+      allObjs.push(o);
+    };
+    WorldGen.forEachItem('objects', addVisible);
+    if (typeof HiddenObjects !== 'undefined') for (const o of HiddenObjects.saved(scene)) addVisible(o);
     allObjs.sort((a, b) => {
       const ao = a.kind === 'chest' && isSpent(a, spentTap) ? 1 : 0;
       const bo = b.kind === 'chest' && isSpent(b, spentTap) ? 1 : 0;
@@ -1351,6 +1426,7 @@ const TAP_HANDLERS = [
     // isTrapDisarmed / disarmTrap: a goblin's LAID snare keeps its state on
     // the record, never as a save id (traps.js) — the same kit shuts either.
     if (!trap || Traps.isTrapDisarmed(save, trap)) return false;
+    if (HiddenObjects.isHidden(save, trap)) return false;
     Traps.disarmTrap(save, trap);
     finishTrapKit(ctx, 'Trap disarmed');
     return true;
@@ -1371,6 +1447,17 @@ const TAP_HANDLERS = [
   { name: 'building-zone', try: (ctx) => {
     const { scene, sx, sy, cwmx, cwmy, cell } = ctx;
     if (!BUILDING_TYPES.has(cell.type)) return false;
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    const owner = entry?.ownerKeys?.[entry.owners?.[cell.iy * entry.cellsPerEdge + cell.ix]];
+    let temple = owner && entry?.objects?.find(o => o.kind === 'temple' && o.id === owner);
+    if (owner && !temple) for (const neighbor of WorldGen.tileCache.values()) {
+      temple = neighbor.objects?.find(o => o.kind === 'temple' && o.id === owner);
+      if (temple) break;
+    }
+    if (temple) return INTERACTABLES.temple.custom(ctx, temple);
+    // A temple footprint never snaps to a nearby ordinary shop, including
+    // while its object's tile dressing is still loading.
+    if (owner && entry?.buildingShapes?.some(s => s.key === owner && s.kind === 'temple')) return true;
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind));
     if (!best) return false;

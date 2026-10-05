@@ -143,10 +143,14 @@ test('cave extras: seeded coins cover the level, positional ids, never on a take
 });
 
 test('cave extras: a picked-up seeded coin is written to save.foundTreasures', () => {
-  const body = INTERACT_JS_SRC.slice(INTERACT_JS_SRC.indexOf("{ name: 'coindrop'"));
-  const handler = body.slice(0, body.indexOf('}},'));
-  assert.truthy(/if \(coin\.seeded\) save\.foundTreasures = \[\.\.\.\(save\.foundTreasures \|\| \[\]\), coin\.id\];/.test(handler),
-    'the coin tap records a seeded coin\'s id');
+  const scene = { save: { money: 0 }, flash() {} };
+  const coin = { id: 'cavecoin_test', kind: 'coindrop', x: 0, y: 0, seeded: true };
+  const entry = { coinDrops: [coin] };
+  assert.eq(collectGroundCoin(scene, entry, coin), 1);
+  assert.includes(scene.save.foundTreasures, coin.id);
+  assert.eq(entry.coinDrops.length, 0);
+  assert.eq(collectGroundCoin(scene, entry, coin), 0, 'already collected');
+  assert.eq(scene.save.money, 1);
 });
 
 // ── X marks ────────────────────────────────────────────────────────────────

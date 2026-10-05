@@ -2,6 +2,8 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },
+  beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
   bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
   // Potion projectiles use the same frames as inventory and shop icons.
@@ -20,7 +22,11 @@ const ASSETS = {
   // callings, the bicycle) are derived from SpriteLayout.PLAYER_ART below.
   // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
   // row 0 (frames 0-7) is the wing-flap we loop while transformed.
-  dragon:  { kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96 },
+  dragon:  { deferred: true, kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96,
+    onLoad: scene => {
+      scene._createAnim('dragon-fly', 'dragon', 0, 7, 10);
+      if (scene.isDragonActive()) scene._applyDragonSkin(true);
+    } },
   trees:   { kind: 'spritesheet', path: 'assets/Objects/Approved/trees.png',       frameWidth: 32, frameHeight: 48 },
   house:   {
     kind: 'image', path: 'assets/Objects/Approved/house.png',
@@ -35,6 +41,9 @@ const ASSETS = {
     onLoad: (scene) => { scene.textures.get('stair_down').add('down', 0, 0, 16, 32, 16); },
   },
   stair_up:   { kind: 'image', path: 'assets/Objects/Approved/stair_up.png' },
+  whirlwind: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/tornado.png', frameWidth: 48, frameHeight: 48 },
+  cave_props: { kind: 'spritesheet', path: 'assets/Objects/Cave/props.png', frameWidth: 24, frameHeight: 24 },
+  poison_vent_inactive: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/poison-vent-inactive.png', frameWidth: 24, frameHeight: 24 },
   crystal_cluster: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/crystal_cluster.png', frameWidth: 16, frameHeight: 16 },
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
@@ -136,6 +145,9 @@ const ASSETS = {
   // Underground monster sheets. Goblins: 32×32 frames, 6 cols × 3 rows — row 0 (frames 0-5) is the walk cycle.
   purple_slime:  { kind: 'spritesheet', path: 'assets/Enemy/Purple Slime.png',  frameWidth: 32, frameHeight: 32 },
   ghost:         { kind: 'spritesheet', path: 'assets/Enemy/Ghost/1Fullsheet_Ghost.png', frameWidth: 16, frameHeight: 16 },
+  // Friendly shrine discovery: supplied jfranci_px ghost artwork, separate
+  // texture identity so it never acquires the hostile ghost's gameplay kind.
+  shrine_spirit: { kind: 'spritesheet', path: 'assets/Enemy/Ghost/1Fullsheet_Ghost.png', frameWidth: 16, frameHeight: 16 },
   plant:         { kind: 'spritesheet', path: 'assets/Enemy/Plant/1Fullsheet_Plant.png', frameWidth: 16, frameHeight: 16 },
   goblin:        { kind: 'spritesheet', path: 'assets/Enemy/Goblin.png',        frameWidth: 32, frameHeight: 32 },
   goblin_archer: { kind: 'spritesheet', path: 'assets/Enemy/Goblin Archer.png', frameWidth: 32, frameHeight: 32 },
@@ -160,10 +172,10 @@ const ASSETS = {
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
-  stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
+  bone_cache: { kind: 'spritesheet', path: 'assets/Objects/Approved/bone_pile.png', frameWidth: 16, frameHeight: 16 },
   grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
@@ -175,6 +187,7 @@ const ASSETS = {
   // plants — items.js CROP_SPRITE).
   zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
   zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
+  beach_palms: { kind: 'spritesheet', path: 'assets/Objects/Beach/palms.png', frameWidth: 16, frameHeight: 16 },
   zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Approved/approved_clipped_hedge.png', frameWidth: 16, frameHeight: 16 },
   zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png?v=b465bfa1', frameWidth: 24, frameHeight: 24 },
   stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
@@ -182,13 +195,12 @@ const ASSETS = {
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
-  shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine.png', frameWidth: 1536, frameHeight: 1024 },
+  shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine_runtime.png', frameWidth: 192, frameHeight: 128 },
   // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
   barrel: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/barrel.png', frameWidth: 24, frameHeight: 24 },
-  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/broken_barrel.png', frameWidth: 24, frameHeight: 24 },
   clay_pot: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_cracked.png', frameWidth: 24, frameHeight: 24 },
   clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
@@ -436,7 +448,7 @@ ASSETS.fire_slime = { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',
   frameWidth: 32, frameHeight: 32 };
 if (typeof EnemyRoster !== 'undefined') {
   for (const row of EnemyRoster.ROWS) {
-    // Size variants and trapper reuse their base texture; palette variants
+    // Size variants, identical atlases and trapper reuse their base texture; palette variants
     // resolve to their own sheet so their recolour hook still runs.
     if (SpriteLayout.creatureArt(row.id).sheet !== row.id) continue;
     const { path, frameWidth, frameHeight } = row.art;
@@ -454,6 +466,21 @@ if (typeof EnemyRoster !== 'undefined') {
       scene.textures.addSpriteSheet(row.id, canvas, { frameWidth, frameHeight });
     };
   }
+}
+for (const row of SpriteLayout.BUTTERFLY_VARIANTS) {
+  if (!row.palette) continue;
+  ASSETS[row.id] = { ...ASSETS.butterfly, onLoad(scene) {
+    const src = scene.textures.get(row.id).getSourceImage();
+    const canvas = document.createElement('canvas');
+    canvas.width = src.width; canvas.height = src.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(src, 0, 0);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    recolorEnemyPixels(pixels.data, row.palette);
+    ctx.putImageData(pixels, 0, 0);
+    scene.textures.remove(row.id);
+    scene.textures.addSpriteSheet(row.id, canvas, { frameWidth: 16, frameHeight: 16 });
+  } };
 }
 window.recolorEnemyPixels = recolorEnemyPixels;
 window.ASSETS = ASSETS;

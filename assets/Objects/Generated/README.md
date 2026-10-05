@@ -15,7 +15,7 @@ with hand-drawn art when available.
 
 | File | Intended use | Status |
 |---|---|---|
-| barrel.png / barrel_smashed.png | waste-basket POI: a barrel you smash | generated placeholder (gpt-5.4-image-2 via OpenRouter, down-res'd) — replace with hand art when available |
+| barrel.png | waste-basket POI: a barrel you smash | generated placeholder (gpt-5.4-image-2 via OpenRouter, down-res'd) — replace with hand art when available |
 | pot.png / pot_smashed.png | waste-basket POI: a clay pot you smash | generated placeholder (gpt-5.4-image-2 via OpenRouter, down-res'd) — replace with hand art when available |
 | postbox.png | post-box POI (message box) | generated placeholder (gpt-5.4-image-2 via OpenRouter, down-res'd) — replace with hand art when available |
 | signpost.png | waystone / signpost | generated placeholder (gpt-5.4-image-2 via OpenRouter, down-res'd) — replace with hand art when available |

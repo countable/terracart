@@ -391,7 +391,7 @@ test('inventoryIconSource: copper_bar frame 0 (not iron_bar-adjacent frame 1)', 
 // ORE_COL_BY_TIER is render-side (not in items.js / not bridged), but its
 // logic is documented in the source comments. We test the documented mapping:
 // T2=copper→col0, T3=iron→col1, T4=gold→col2, T5=platinum→col3,
-// T6=crimson→col5 (col4 skipped), T7=frost→col6.
+// T6=crimson→col5 (col4 skipped), T7=frost→col7 (blue, skipping green col6).
 // These cols map to the same tier ladder as the bar frames in MINERAL_ICON_SHEET.
 
 test('MINERAL_ICON_SHEET bars are consistently ordered copper<iron<gold<platinum<crimson<frost', () => {
@@ -477,8 +477,8 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   const art = SpriteLayout.groveShrineArt({_shrineArt:'shipwreck'});
   assert.eq(art.key, 'shipwreck_shrine');
   assert.eq(art.extentCells, 3);
-  assert.eq(1536 * art.scale, 3 * SpriteLayout.CELL_PX);
-  assert.truthy(1024 * art.scale <= 3 * SpriteLayout.CELL_PX);
+  assert.eq(192 * art.scale, 3 * SpriteLayout.CELL_PX);
+  assert.truthy(128 * art.scale <= 3 * SpriteLayout.CELL_PX);
   assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
   assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
   assert.eq(wildplantSprite({crop:'rubble',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
@@ -541,11 +541,12 @@ test('crystal deposits use their cluster art at ordinary rock scale and centered
   const crystal={kind:'mineralrock',deposit:'crystal',yieldTier:1};
   assert.eq(spec.key(crystal),'crystal_cluster');assert.eq(spec.frame(crystal),0);
   assert.eq(spec.key({yieldTier:6}),'mineralrock');assert.eq(spec.frame({yieldTier:6}),mineralRockFrame(6));
-  assert.eq(spec.scale,1.28);assert.truthy(spec.seat);
+  const scale=spec.scale(crystal);
+  assert.eq(scale,1.28);assert.truthy(spec.seat);
   const b=SpriteLayout.ART_BOUNDS['crystal_cluster:0'];
-  const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale,spec.scale);
-  assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale,0);
-  assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale,0);
+  const offset=SpriteLayout.seatInCell(b,.5,.5,scale,scale);
+  assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*scale,0);
+  assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*scale,0);
 });
 
 
@@ -571,14 +572,14 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.sx, centre\.sy, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
-test('wooden barrels render at half their former size and have no broken art', () => {
+test('wooden barrels render at native size and have no broken art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (const smashed of [false, true]) {
     const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
     if (smashed) assert.falsy(look.visible, 'no broken barrel sprite');
-    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, 2 / 3); }
+    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, 1); }
   }
-  assert.eq(art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot'}).scl, 4 / 3);
+  assert.eq(art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot'}).scl, (4 / 3) * 0.85);
 });
 
 test('stronghold walls keep their tile frame alignment instead of centering corner art', () => {
@@ -622,7 +623,8 @@ test('selected zone appearances keep mineral interactions and global art separat
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
-  assert.eq(art.resolveAppearance(pot).scl*24,32);
+  assert.eq(art.resolveAppearance(pot).scl*24,27.2);
+  assert.eq(art.resolveAppearance({...pot,_smashed:true}).scl*24,27.2);
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
 

@@ -215,3 +215,81 @@ test('pickup: a carried raised pet drops its tracked body before re-release at H
     assert.falsy(Companions.follows(entry.creatures[0]));
   } finally {globalThis.WorldGen=original;}
 });
+
+
+test('butterfly colors keep separate plain and shiny stacks through release and pickup', () => {
+  const save = { inv: [], selSlot: -1, caught: [], released: [] };
+  for (const row of SpriteLayout.BUTTERFLY_VARIANTS) {
+    for (const shiny of [false, true]) {
+      const id = shiny ? `shiny_${row.id}` : row.id;
+      Inventory.add(save, id, 1);
+      save.selSlot = save.inv.findIndex(slot => slot && slot.id === id);
+      const pet = releaseAt(save, 12, 18);
+      assert.eq(pet.kind, row.id);
+      assert.eq(pet.shiny, shiny);
+      assert.truthy(SpriteLayout.creatureBehaviour(pet.kind).pollinates);
+      assert.eq(petPickupItemId(pet), id);
+      assert.truthy(pickUpPet(petScene(save), save, pet, 0, 0));
+      assert.eq(save.inv.find(slot => slot && slot.id === id).count, 1);
+    }
+  }
+  assert.eq(save.inv.filter(Boolean).length, 8);
+});
+
+test('butterfly colors inherit flight and pollination and match habitat', () => {
+  for (const row of SpriteLayout.BUTTERFLY_VARIANTS) {
+    assert.eq(SpriteLayout.baseKind(row.id), 'butterfly');
+    assert.eq(SpriteLayout.creatureBehaviour(row.id), SpriteLayout.creatureBehaviour('butterfly'));
+    assert.eq(SpriteLayout.creatureArt(row.id).frames, 7);
+    assert.eq(ITEM_BY_ID[row.id].baseTier, ITEM_BY_ID.butterfly.baseTier);
+    assert.eq(itemValue(row.id), itemValue('butterfly'));
+    for (const zone of row.zones) assert.eq(SpriteLayout.butterflyKindForTerrain(WorldGen.T[zone], WorldGen.T), row.id);
+  }
+});
+
+
+test('deer need no food and cannot be diverted into taming', () => {
+  const kind = 'deer';
+  for (const food of [null, 'apple', 'mango']) {
+    const animal = { kind, id: 'wild_' + kind, x: 2.5, y: 2.5 };
+    const save = saveWith();
+    let hunted, wheel;
+    assert.eq(tapPet(animal, save, food, {
+      startWorkProgress: (x, y, done, ms, cost, tool, target) => {
+        wheel = { ms, cost, tool, target };
+        done();
+      },
+      resolveDefeat: target => { hunted = target; },
+    }).r, true);
+    assert.eq(hunted, animal, `${kind}: ${food || 'empty hand'} hunts`);
+    assert.eq(wheel.target, animal);
+    assert.eq(wheel.tool, 'net');
+    assert.eq(wheel.ms, toolDurationMs({}, 'net'));
+    assert.eq(wheel.cost, 0);
+    assert.eq(animal.id, 'wild_' + kind, 'never tamed');
+    if (food) assert.eq(Inventory.count(save, food), 1, 'food is not consumed');
+  }
+});
+
+test('hostile shore crab still accepts its favourite food and mango', () => {
+  for (const food of ['minnow', 'mango']) {
+    const crab = {kind:'crab', id:'wild_crab_'+food, x:2.5, y:2.5};
+    const save = saveWith();
+    assert.truthy(Combat.isEnemy(crab));
+    assert.eq(tapPet(crab, save, food).r, true);
+    assert.truthy(crab.id.startsWith('released_'), food+' tames the crab');
+    assert.falsy(Combat.isEnemy(crab));
+    assert.eq(Inventory.count(save, food), 0);
+  }
+});
+
+test('hostile shore crab can still be caught with an empty hand', () => {
+  const crab = {kind:'crab', id:'wild_crab_net', x:2.5, y:2.5};
+  const save = saveWith();
+  let caught;
+  assert.eq(tapPet(crab, save, null, {
+    startCatchProgress: (target, ms, done) => done(),
+    catchCreature: target => { caught = target; },
+  }).r, true);
+  assert.eq(caught, crab);
+});

@@ -131,10 +131,9 @@ test('scroll actions: offensive consumables refuse use while downed or wrongly s
   }
 });
 
-test('scroll actions: map selects T4/T5, remembers depth, and lasts fifteen minutes', () => {
+test('scroll actions: map selects a treasure X, remembers depth, and lasts fifteen minutes', () => {
   const s = scene('treasure_map');
-  s.findNearestUnopenedChest = tiers => {
-    assert.eq(JSON.stringify(tiers), '[4,5]');
+  s.findNearestTreasureMark = () => {
     return { id: 'treasure', x: 300, y: 400 };
   };
   const before = Date.now();
@@ -148,10 +147,10 @@ test('scroll actions: map selects T4/T5, remembers depth, and lasts fifteen minu
   assert.truthy(s.save.treasureCompass.until <= Date.now() + 15 * 60 * 1000);
 });
 
-test('scroll actions: map without eligible chest retains item and existing marker', () => {
+test('scroll actions: map without unclaimed X retains item and existing marker', () => {
   const s = scene('treasure_map');
   const marker = s.save.treasureCompass = { targetId: 'old' };
-  s.findNearestUnopenedChest = () => null;
+  s.findNearestTreasureMark = () => null;
   assert.eq(s.useTreasureMap(), false);
   assert.eq(s.save.inv[0].count, 2);
   assert.eq(s.save.treasureCompass, marker);
@@ -180,4 +179,39 @@ test('scroll actions: nearest chest uses only active level cache, tier and unspe
   assert.eq(find.call(s, [5]), far);
   assert.eq(find.call(s).id, 'low', 'existing untiered compass stays compatible');
 });
+test('treasure bearings: nearest X includes hidden and covered marks, excludes claims and offscreen targets', () => {
+  const mark = (id, x, extra = {}) => ({ id, x, y: 200, ...extra });
+  const far = mark('far', 140), near = mark('near', 110, { coverRockId: 'rock' });
+  const world = { tileKey: (x, y) => `${x},${y}`, tileCache: new Map([['0,0', {
+    treasure: mark('claimed', 101), parkingTreasures: [far], extraTreasures: [near, mark('wrong-depth', 103, { depth: 0 })],
+    objects: [{ kind: 'chest', id: 'chest', x: 102, y: 200 }],
+  }]]) };
+  const find = method('findNearestTreasureMark', { WorldGen: world, setOf: a => new Set(a || []) });
+  const s = scene('compass');
+  s.save.foundTreasures = ['claimed'];
+  Object.assign(s, { viewCenterX: 140, viewCenterY: 200, viewSize: 20 });
+  assert.eq(find.call(s), near);
+  assert.eq(find.call(s, true), far, 'viewport uses camera while nearest uses feet');
+  s.save.foundTreasures.push('near', 'far');
+  assert.eq(find.call(s), null);
+  world.tileCache = new Map([['new-level', { treasure: mark('new', 170) }]]);
+  assert.eq(find.call(s).id, 'new', 'cache swap drops old level');
+});
+
+test('treasure bearings: short red needle points from feet and stops at close marks', () => {
+  const draw = method('_drawTreasureNeedle', { CELL_PX: 32 });
+  const lines = [], styles = [];
+  const s = { playerScreen: () => ({ x: 50, y: 70 }),
+    worldMetersToScreen: (x, y) => ({ x, y }),
+    facingGfx: { lineStyle: (...a) => styles.push(a), lineBetween: (...a) => lines.push(a) } };
+  draw.call(s, { x: 100, y: 70 });
+  assert.eq(styles[0][1], 0xff5555);
+  assert.eq(lines[0].join(','), '50,70,72.4,70');
+  draw.call(s, { x: 50, y: 75 });
+  assert.eq(lines[1].join(','), '50,70,50,75');
+  draw.call(s, null);
+  assert.eq(lines.length, 2);
+  assert.truthy(APP_JS_SRC.includes('!setOf(this.save.foundTreasures).has(treasure.targetId)'), 'map retires on digging');
+});
+
 })();

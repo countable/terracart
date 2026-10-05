@@ -209,8 +209,8 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // south-facing edge gets a darker wall projected downward onto the row below.
 // Wall faces recover half the pre-recolour contrast against their floors — deep
 // shadow under the lit top surface, but with enough hue to read as the
-// building's own material rather than a generic dark stripe. Houses get a 4px
-// wall; civic slabs (LARGE) keep a thicker 5px one to read at their bigger
+// building's own material rather than a generic dark stripe. Houses get a 7px
+// wall; civic slabs (LARGE) keep a thicker 11px one to read at their bigger
 // footprint scale.
 //
 // Module scope, and exported on Render, because the TILED pass below is not
@@ -219,11 +219,28 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
 const BUILDING_FACE_COLOR = { 9: 0x613833, 11: 0x625441, 12: 0x5a5e58 };
-const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+const BUILDING_FACE_PX = { 9: 7, 11: 7, 12: 11 };
 // Building tiers, as a predicate; module scope because the base terrain fill needs it too.
 const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
 Render.BUILDING_FACE_COLOR = BUILDING_FACE_COLOR;
 Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
+
+// Short courses on tiled fronts echo the polygon painter. All marks are local
+// to the face, so fractional camera motion cannot slide its masonry pattern.
+Render.paintMasonryFace = function (g, x, y, width, height, face, cap, seam) {
+  g.fillStyle(face, 1); g.fillRect(x, y, width, height);
+  g.fillStyle(seam, 0.35);
+  for (let row = 3; row < height; row += 3) {
+    g.fillRect(x, y + row, width, 1);
+    for (let col = (row % 6 ? 8 : 0); col < width; col += 16) {
+      g.fillRect(x + col, y + row - 2, 1, 2);
+    }
+  }
+  g.fillStyle(cap, 1); g.fillRect(x, y, width, 1);
+  g.fillStyle(seam, 1); g.fillRect(x, y + height - 1, width, 1);
+};
+
+Render.hasShrineFooting = o => o.kind === 'grove_shrine' && o._shrineArt !== 'shipwreck';
 // The dashed cell grid: a hairline black at 8%, 4 on / 4 off. Faint on
 // purpose — it says "the world is on a lattice" without competing with
 // anything drawn on it. Shared, because the grid is drawn in TWO places: the
@@ -570,6 +587,34 @@ function hidePoolFrom(pool, startIdx) {
   for (let i = startIdx; i < pool.length; i++) pool[i].setVisible(false);
 }
 
+// Sprite pools participate in Phaser's update list even while invisible.
+// Deactivate their unused tail, then release peak capacity after five seconds.
+// Keep a small reserve for camera movement and spread destruction across steps.
+// Text pools use hidePoolFrom: their callers only restore visibility on reuse.
+function retireSpritePoolFrom(pool, used) {
+  const now = performance.now();
+  for (let i = used; i < pool.length; i++) {
+    const s = pool[i];
+    s.setVisible(false);
+    s.setActive?.(false);
+    if (s._poolIdleSince == null) {
+      s._poolIdleSince = now;
+      Render.setShine(s, false);
+    }
+  }
+  const keep = Math.max(32, used + 16);
+  let destroyed = 0;
+  while (pool.length > keep && destroyed < 32) {
+    const s = pool[pool.length - 1];
+    if (now - s._poolIdleSince < 5000) break;
+    // Phaser destroy removes the sprite from its container and update list,
+    // and releases its animation state and optional FX pipelines.
+    s.destroy();
+    pool.pop();
+    destroyed++;
+  }
+}
+
 // Temporary flower effects sit above the health-bar line; the combat helpers
 // own their expiry. This pool is separate from permanent released-pet hearts.
 // The colours are the statuses' own rows (Combat.STATUS_LOOKS) — the ink the
@@ -683,11 +728,13 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
       container.add(s);
       pool.push(s);
     }
+    s._poolIdleSince = null;
+    s.setActive?.(true);
     s.setVisible(true);
     configure(s, item);
     i++;
   }
-  hidePoolFrom(pool, i);
+  retireSpritePoolFrom(pool, i);
 };
 
 // A persistent gold halo makes shinies visible even on fully lit ground,
@@ -776,7 +823,7 @@ const BORDER_DIM = 0.86;
 const BLUR_STEPS = 3;
 const BLUR_W     = 2;                      // px per step
 const BLUR_MIX   = [0.55, 0.32, 0.14];     // toward the neighbour, outermost first
-const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand now use procedural borders
+const BORDER_TRANS_SKIP = new Set([9, 11, 12, 25]); // buildings and solid cave walls have hard edges
 // Surf: the colour a WATER cell paints its biome-seam edge, in place of the
 // darkened own-colour edge every other terrain uses. Pale blue-white rather
 // than pure white so it reads as foam lit by the same flat daylight as the
@@ -787,7 +834,7 @@ const SURF_COLOR = 0xdff0f7;
 const LAVA_CRUST_COLOR = 0xb96628;
 // Does the edge between a cell painted `color` and a neighbour of terrain
 // `nbrType` painted `nbrColor` get the wavy biome border? Rule: the painted
-// colours differ, buildings opted out (their own outline draws the seam).
+// colours differ, raised buildings and cave walls opted out on both sides.
 // Road/path cells are painted the majority biome AROUND them
 // (neighborNonRoadColor), so two same-tier road cells can differ where a road
 // runs along a zone seam; the border must draw there. See drawCells.
@@ -825,7 +872,7 @@ const _WAVE_TABLE = (() => {
 // Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, churchyard, unmapped fog, tar yard
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the lightmap's out-of-reach
@@ -1711,6 +1758,8 @@ Render.drawCells = function drawCells(scene) {
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
   const TRANS_SKIP = BORDER_TRANS_SKIP;
+  const caveEdges = scene._caveEdgePool || (scene._caveEdgePool = []);
+  let caveEdgesUsed = 0;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -2135,6 +2184,35 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
+  // Level-one trial. Re-evaluate the live neighbour ring on each ground draw:
+  // mining and arriving tiles immediately update faces, including tile seams.
+  // Atlas sprites share the ground-decoration layer, beneath actors and lights.
+  if (scene.depth === 1 && scene.cobbleContainer) {
+    const open = (c, r) => T(c, r) !== WorldGen.T.CAVE_WALL && T(c, r) !== UNMAPPED_T;
+    for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
+      if (T(col, row) !== WorldGen.T.CAVE_WALL) continue;
+      let mask = (open(col, row - 1) ? 1 : 0) | (open(col + 1, row) ? 2 : 0)
+        | (open(col, row + 1) ? 4 : 0) | (open(col - 1, row) ? 8 : 0);
+      // A neighbouring south face also exposes the lower half of this cap's
+      // side, even though both data cells are solid rock.
+      if (!(mask & 4)) {
+        if (T(col - 1, row) === WorldGen.T.CAVE_WALL && open(col - 1, row + 1)) mask |= 16;
+        if (T(col + 1, row) === WorldGen.T.CAVE_WALL && open(col + 1, row + 1)) mask |= 32;
+      }
+      // Fully enclosed cells use the dark cap frame as well.
+      let sprite = caveEdges[caveEdgesUsed++];
+      if (!sprite) {
+        sprite = scene.add.image(0, 0, 'cave_wall_edges', 0).setOrigin(0, 0);
+        scene.cobbleContainer.add(sprite); caveEdges.push(sprite);
+      }
+      const variant = (Math.imul(AX(col, row), 31) ^ AY(col, row)) & 3;
+      const at = cellScreenXY(scene, col - half, row - half, fracX, fracY, PHASE(row));
+      setTextureIfDifferent(sprite, 'cave_wall_edges', variant * CAVE_WALL_EDGE_FRAMES + mask);
+      sprite.setPosition(Math.round(at.x), Math.round(at.y) - CAVE_WALL_TOP_LIFT)
+        .setDisplaySize(CELL_PX, CELL_PX + CAVE_WALL_TOP_LIFT).setVisible(true);
+    }
+  }
+  for (let i = caveEdgesUsed; i < caveEdges.length; i++) caveEdges[i].setVisible(false);
   // Short broken columns are floor decoration: no object, collision or tap target.
   // Polygon mode draws these same source-ring sites into its floor canvas.
   const columnPool = scene._castleColumnPool || (scene._castleColumnPool = []);
@@ -2307,8 +2385,8 @@ Render.drawCells = function drawCells(scene) {
         // South boundary projects its stone face beyond the floor.
         if (wallEdge(col, row, 0, 1)) {
           const gw = Render.rampartPiece(scene, northY + cm + WALL * cm / CELL_PX);
-          gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          Render.paintMasonryFace(gw, sx, sy + CELL_PX, CELL_PX, WALL,
+            _DBG ? 0x30a030 : STONE_FACE, STONE_LITE, STONE_DARK);
           crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
           wallChip(gw, sx, sy + CELL_PX);
         }
@@ -2324,8 +2402,8 @@ Render.drawCells = function drawCells(scene) {
           const gb = Render.rampartPiece(scene, northY);
           const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
           const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
-          gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
-          gb.fillRect(sx - extL, sy - WALL, CELL_PX + extL + extR, WALL);
+          Render.paintMasonryFace(gb, sx - extL, sy - WALL, CELL_PX + extL + extR, WALL,
+            _DBG ? 0x3060c0 : STONE_FACE, STONE_LITE, STONE_DARK);
           crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
           wallChip(gb, sx, sy - WALL);
           // SOLID crest-height shoulders over the widened columns — the crest
@@ -2373,8 +2451,8 @@ Render.drawCells = function drawCells(scene) {
         const hex = UNCLAIMED(col, row) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined'
           ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.faces[type]))
           : SOUTH_FACE_COLOR[type] || 0x444444;
-        g.fillStyle(hex, 0.95);
-        g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
+        Render.paintMasonryFace(g, sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 7,
+          hex, BiomeProfiles.mixHex(hex, 0xffffff, 0.16), BiomeProfiles.mixHex(0x000000, hex, 0.65));
       }
       // Outer border — fillRect for independent H (4 px) / V (2 px) thickness.
       // Vertical bars start below the top bar so corners are never double-painted
@@ -2740,6 +2818,24 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
 // Art is a per-save view of surviving sections, never a mutation of the
 // generated tile. Include one cell beyond the viewport so off-screen joins
 // stay connected. The existing chunk index keeps this walk local.
+// Resolve chasm neighbours in absolute cells, across tile-cache boundaries.
+Render.chasmArtForObjects = function chasmArtForObjects(scene, holes) {
+  const cells = new Set(), positions = holes.map(o => {
+    const c = worldMetersToAbsCell(scene, o.x, o.y);
+    cells.add(`${c.cellIX}:${c.cellIY}`); return [o, c];
+  });
+  const result = new Map();
+  for (const [o, c] of positions) {
+    let mask = 0;
+    for (const [dx, dy, bit] of [[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]]) {
+      const n = absCellOffset(scene, c.cellIX, c.cellIY, dx, dy);
+      if (!cells.has(`${n.cellIX}:${n.cellIY}`)) mask |= bit;
+    }
+    result.set(o, { _chasmMask: mask });
+  }
+  return result;
+};
+
 Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, spent, x, y, halfM) {
   const result = new Map(), N = entry.cellsPerEdge;
   if (!N || !edge) return result;
@@ -2777,7 +2873,7 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
+  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
     || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
@@ -2815,6 +2911,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Re-inject the synthetic starter trailer (if any) into its owning tile —
   // worldgen never emits it, so it must be re-added after reloads / eviction.
   if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
+  if (scene.ensureHomeElevatorObject) scene.ensureHomeElevatorObject();
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   // Extra cull reach for house sprites — half the widest building art that can
   // be drawn (BUILDING_ART.fort.max: a fort tops out at 3.48 cells wide, so 2.2
@@ -2927,7 +3024,7 @@ Render.drawObjects = function drawObjects(scene) {
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
     const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
-    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -2939,7 +3036,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
     }
   };
-  const connectedArt = new Map();
+  const connectedArt = new Map(), chasmObjects = [];
   let _boot_scanned = 0, _boot_kept = 0, _boot_creatures = 0;
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
@@ -2947,6 +3044,13 @@ Render.drawObjects = function drawObjects(scene) {
       if (!entry) continue;   // tile not loaded yet
       for (const [o, art] of Render.connectedArtForTile(entry, pc.tx + dtx, pc.ty + dty,
           scene.tileEdgeM, spentIds, pWorldX, pWorldY, halfM)) connectedArt.set(o, art);
+      if (scene.depth > 0) {
+        const pad = halfM + scene.cellM;
+        WorldGen.forEachItemInBox(entry, 'objects', pWorldX-pad, pWorldY-pad,
+          pWorldX+pad, pWorldY+pad, o => {
+            if (o.kind === 'ground_hole' && !isSpent(o, spentIds)) chasmObjects.push(o);
+          });
+      }
       if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
         pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, o => {
           objList.push({ o, dx: o.x - pWorldX, dy: o.y - pWorldY });
@@ -2954,6 +3058,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (entry.objects) {
         WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
           _boot_scanned++;
+          if (HiddenObjects.isHidden(scene.save, o)) return;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           // Past the sprite box the only thing an object could still do is
           // throw a pre-cull light, and the light walk below offers exactly
@@ -2996,6 +3101,7 @@ Render.drawObjects = function drawObjects(scene) {
         if (LIGHTS && lM > sM && preCullLightList(entry)) {
           WorldGen.forEachItemInBox(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX + lM, pWorldY + lM, (o) => {
             _boot_scanned++;
+            if (HiddenObjects.isHidden(scene.save, o)) return;
             const dx = o.x - pWorldX, dy = o.y - pWorldY;
             if (Math.abs(dx) <= sM && Math.abs(dy) <= sM) return;   // the sprite walk's
             offerPreCullLights(o, dx, dy);
@@ -3016,6 +3122,7 @@ Render.drawObjects = function drawObjects(scene) {
           if (caughtSet.has(c.id)) continue;
           if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
           if (c._surfaceInactive) continue;
+          if ((c.hidden || c.stealthy) && !c._discovered) continue;
           if (!c._burrowed) creatureList.push({ c, dx, dy });
           _boot_kept++;
         }
@@ -3057,6 +3164,7 @@ Render.drawObjects = function drawObjects(scene) {
           pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, (tr) => {
             _boot_scanned++;
             if (disarmedSet.has(tr.id)) return;
+            if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, tr)) return;
             const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
             if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) return;
             trapList.push({ tr, dx, dy, sprung: sprungSet.has(tr.id) });
@@ -3162,6 +3270,11 @@ Render.drawObjects = function drawObjects(scene) {
   // already."; the pad + label persist via objList).
   // Only containers with broken art remain after collection (clay pots).
   // Wooden barrels disappear through the ordinary spent-object filter.
+  for (const o of HiddenObjects.saved(scene)) {
+    if (HiddenObjects.isHidden(scene.save, o)) continue;
+    const dx = o.x - pWorldX, dy = o.y - pWorldY;
+    if (Math.abs(dx) <= halfM && Math.abs(dy) <= halfM) objList.push({o, dx, dy});
+  }
   const filteredObj = objList.filter(({ o }) => {
     const spent = isSpent(o, spentIds);
     if (o.kind === 'chest' && isBarrel(o) && chestLook(o).smashedKey) { o._smashed = spent; return true; }
@@ -3174,6 +3287,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
   filteredObj.sort((a, b) => a.dy - b.dy);
+  for (const [o, art] of Render.chasmArtForObjects(scene, chasmObjects)) connectedArt.set(o, art);
   const { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
@@ -3200,7 +3314,11 @@ Render.drawObjects = function drawObjects(scene) {
   }
   scene._updateObstacleStep?.(stepObjects);
   const supports = new Set((scene._obstacleStep?.supports || []).map(o => o._stepSource || o));
+  const whirlwindList = (scene.depth === 0 ? scene._whirlwinds || [] : []).map(h => ({
+    h, dx: h.x - pWorldX, dy: h.y - pWorldY,
+  })).filter(it => Math.abs(it.dx) <= halfM && Math.abs(it.dy) <= halfM);
   const zList = [];
+  for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
@@ -3230,6 +3348,7 @@ Render.drawObjects = function drawObjects(scene) {
     const shadowList = [];
     for (const item of filteredObj) {
       const k = item.o.kind;
+      if (k === 'temple') continue;
       if (isBuilding(k)) { shadowList.push(item); continue; }
       if (!RENDER_SPEC[k]?.shadow) continue;
       const foot = item._appearance?.foot;
@@ -3381,6 +3500,10 @@ Render.drawObjects = function drawObjects(scene) {
   const padList = [];
   for (const item of objList) {
     const { o, dx, dy } = item;
+    if (Render.hasShrineFooting(o)) {
+      padList.push({ o, dx, dy, texKey: 'pad_shrine', shrine: true });
+      continue;
+    }
     if (o.kind !== 'chest') continue;
     // Produce/food stands render their own 80×80 stall structure — a concrete
     // slab poking out from under the stall reads wrong, so they skip the pad.
@@ -3408,9 +3531,11 @@ Render.drawObjects = function drawObjects(scene) {
     Render.renderPool(scene, scene.trapPool, scene.trapContainer, trapList, (s, item) => {
       const { dx, dy, sprung, tint } = item;
       const { sx, sy } = project(dx, dy);
-      setTextureIfDifferent(s, sprung ? 'trap_open' : 'trap_hidden');
+      const pit = item.tr.kind === 'pit_trap';
+      if (pit) setTextureIfDifferent(s, 'cave_props', 17);
+      else setTextureIfDifferent(s, sprung ? 'trap_open' : 'trap_hidden');
       s.setOrigin(0.5, 0.5)
-       .setScale(1)
+       .setScale(pit ? 4 / 3 : 1)
        .setPosition(Math.round(sx), Math.round(sy))
        .setAlpha(1).setTint(tint ?? 0xffffff);
     });
@@ -3419,9 +3544,14 @@ Render.drawObjects = function drawObjects(scene) {
   // No POI "ping" ring here: a live POI is a LIGHT (kind 'poi' in src/lighting.js),
   // offered to the lightmap from the tile scan above.
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
-    const { o, dx, dy, texKey, shape, mini } = item;
+    const { o, dx, dy, texKey, shape, mini, shrine } = item;
     const { sx, sy } = project(dx, dy);
     setTextureIfDifferent(s, texKey);
+    if (shrine) {
+      s.setOrigin(0.5, 0.5).setScale(CELL_PX / SHRINE_PAD.sizePx)
+        .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).clearTint();
+      return;
+    }
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;
@@ -4174,11 +4304,14 @@ Render.drawObjects = function drawObjects(scene) {
           scene._creatureMeleePool.push(effect);
         }
         meleeUsed++;
-        effect.setVisible(true).setDepth((item._z ?? 0) + 0.1);
+        effect._poolIdleSince = null;
+        effect.setActive(true).setVisible(true).setDepth((item._z ?? 0) + 0.1);
         Render.drawMelee(effect, pose, s.x, item._bodyY, Render.enemyMeleeColor(c));
       } else delete c._meleeSwing;
     }
   });
+
+  retireSpritePoolFrom(scene._creatureMeleePool, meleeUsed);
 
   // THE GHOST'S GLOW — a non-lighting halo on each glowing kind, on its body
   // centre, in the layer ABOVE the lightmap (app.js ghostGlowContainer), so it
@@ -4212,6 +4345,17 @@ Render.drawObjects = function drawObjects(scene) {
        .setPosition(sx, sy).setAlpha(0.9).setTint(0xffffff);
     });
   }
+
+  // Whirlwinds share ground-anchor depth ordering with actors and trees.
+  scene._whirlwindPool ||= [];
+  Render.renderPool(scene, scene._whirlwindPool, scene.creaturesContainer, whirlwindList, (s, it) => {
+    const { sx, sy } = project(it.dx, it.dy);
+    s.anims?.stop();
+    const { frameSize, anchor } = Whirlwinds.CONFIG;
+    s.setTexture('whirlwind', it.h.frame).setOrigin(anchor[0] / frameSize, anchor[1] / frameSize)
+      .setDisplaySize(frameSize, frameSize).setPosition(Math.round(sx), Math.round(sy))
+      .setDepth(it._z).setAlpha(1).setTint(0xffffff);
+  });
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays
   // pinned to the CELL — it never rides the hop/hover offset — so a bouncing
@@ -4393,9 +4537,10 @@ Render.objectAppearance = function (scene, houseRoles) {
   // 32px cell.
   const CRATE_SCALE = 0.8;
   // Bike racks use their original small-prop scale. Wooden barrels use a
-  // 24px frame at half their former size, including the smashed frame.
+  // 24px frame at native size.
   const SMALL_POI_SCALE = 1.3;
-  const BARREL_SCALE = 2 / 3;
+  const BARREL_SCALE = 1;
+  const CLAY_POT_SCALE = (4 / 3) * 0.85;
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.
@@ -4480,6 +4625,15 @@ Render.objectAppearance = function (scene, houseRoles) {
   const fruitList = [];
 
   const RENDER_SPEC = {
+    // Temples use their entire source polygon; no house sprite covers the runes.
+    temple: { key: null, ground: true },
+    shrine_spirit: {
+      key: 'shrine_spirit',
+      frame: () => { const art = SpriteLayout.SHRINE_SPIRIT_ART; return Math.floor(performance.now() / art.frameMs) % art.frames; },
+      scale: () => SpriteLayout.SHRINE_SPIRIT_ART.scale,
+      origin: [0.5, 0.5], seat: true, seatFrame: 0,
+      after: s => s.setAlpha(SpriteLayout.SHRINE_SPIRIT_ART.alpha),
+    },
     // Water scenery is drawn separately from tappable objects.
     // Connected wall tiles preserve frame alignment, including off-center corners.
     // Seating by trimmed art would move their endpoints away from adjacent cells.
@@ -4638,11 +4792,11 @@ Render.objectAppearance = function (scene, houseRoles) {
               // its scale. Crates (box, 16×16) sit at CRATE_SCALE (16 × 0.8 = ~13px) so a
               // crate reads as a small prop; the gold chest uses CHEST_SCALE (~22px wide).
               // The stall and the pot of gold are structures, not chests; the pot is a
-              // further 20% smaller. Wooden barrels fill 16px; clay pots keep their size.
+              // further 20% smaller. Wooden barrels fill 24px; clay pots shrink by 15%.
               // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : 4 / 3) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
+                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : CLAY_POT_SCALE) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5 centres the
               // FRAME box, but market_stand.png's opaque pixels are x:[12,80] in the 80px
               // frame. -3.24 (= 6px frame offset × 0.54 scale) centres the art; +3 on top per
@@ -4713,7 +4867,7 @@ Render.objectAppearance = function (scene, houseRoles) {
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: (o) => o.deposit === 'crystal' ? 'crystal_cluster' : 'mineralrock',
+    mineralrock: { key: (o) => mineralDeposit(o)?.artKey || 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
@@ -4729,10 +4883,10 @@ Render.objectAppearance = function (scene, houseRoles) {
               //   ORE   → row 0, the ore-stone per yield tier. The top row is
               //           ore stones in tier order starting at copper — copper
               //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
-              //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
+              //           (T5), crimson 5 (T6), frost blue 7 (T7) —
               //           so the rock you see matches the bar it drops.
               frame: (o) => {
-                if (o.deposit === 'crystal') return 0;
+                if (mineralDeposit(o)) return mineralDeposit(o).artFrame;
                 const tier = o.yieldTier || o.requiredTier || 1;
                 // Cave rock and T1 ore both render as a plain rock variant.
                 if (o.caveVariant != null || tier <= 1) {
@@ -4746,7 +4900,7 @@ Render.objectAppearance = function (scene, houseRoles) {
               // sits low in the 16px frame). origin (0.5, 0.5)/dyPx below are the
               // no-SpriteLayout fallback; a foot-anchor would shove a flat ground rock ~11 px
               // into the cell above. scale 1.28 draws the 16px frame at ~20px.
-              origin: [0.5, 0.5], scale: 1.28, seat: true, shadow: true,
+              origin: [0.5, 0.5], scale: (o) => mineralDeposit(o)?.artKey === 'cave_props' ? 4 / 3 : 1.28, seat: true, shadow: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
@@ -4756,6 +4910,9 @@ Render.objectAppearance = function (scene, houseRoles) {
     // and the iron stakes are the Burned Row's hazards (they SLOW the body —
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, ground: true },
+    inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, ground: true },
+    stalagmites: { key: 'cave_props', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
@@ -4771,6 +4928,8 @@ Render.objectAppearance = function (scene, houseRoles) {
     // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
     // pay a one-off find. Plain grove shrines use the cell-seated votive,
     // giving the daily gift and light (Lighting.KINDS.shrine).
+    hive: { key: 'beehive', frame: 0, origin: [0.5, 0.5], scale: 2, seat: true, shadow: true },
+    bone_cache: { key: 'bone_cache', frame: 0, origin: [0.5, 0.5], scale: 2, seat: true, shadow: true },
     headstone:    { key: 'zone_objects', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     grove_shrine: {
       key: o => SpriteLayout.groveShrineArt(o).key,
@@ -4853,6 +5012,11 @@ Render.objectAppearance = function (scene, houseRoles) {
         // Keep the true art foot for depth sorting; inset only the shadow.
         if (o.kind === 'mineralrock') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * 0.42 / 2;
       }
+    }
+    if (foot && Render.hasShrineFooting(o)) {
+      const lift = SHRINE_PAD.seatLiftPx * CELL_PX / SHRINE_PAD.sizePx;
+      dyPx -= lift;
+      foot.footFromCentre -= lift;
     }
     const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;
     return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, ground };

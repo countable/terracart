@@ -94,23 +94,23 @@ const FILES = [
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
   'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
-  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
+  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js', 'elevators.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
-  'worldgen.js', 'save.js',
+  'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
-  'interactables.js', 'houses.js',
+  'hidden_objects.js', 'cave_hazards.js', 'whirlwinds.js', 'temple_puzzles.js', 'temple_layout.js', 'temples.js', 'temple_scene.js', 'interactables.js', 'houses.js',
   // The starter-area placers. They read the scene they are handed plus app.js's
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
   // Fight maths (pure; combat.test.js registers a synthetic monster table).
-  'ground_fire.js', 'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
+  'ground_fire.js', 'combat.js', 'pirates.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure, so wizard.test.js drives the shipping rules.
-  'wizard.js', 'dragon_story.js', 'memory_story.js', 'story_encounters.js',
+  'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js',
   'interact.js',
   // The Book curriculum loads after the mechanic owners whose values it teaches.
   'play_tips.js',
@@ -119,7 +119,7 @@ const FILES = [
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
   'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
-  'castle_styles.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',
@@ -142,7 +142,7 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters, ObstacleStep,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
@@ -155,7 +155,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   plantedTreeStage, TREE_SAPLING_SCALE_MUL, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,
   // The building roof-scale rule — house_scale.test.js asserts against the SHIPPING table.
   houseArtScale, buildingBaseScale, buildingCellsToScale, buildingArt, BUILDING_ART,
-  HomeArea, SpawnOwnership,
+  HomeArea, SpawnOwnership, Elevators,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
   TRAILER_SELL_MUL, SELL_MUL,
   // The market-stall sign/stock tables (vendor_parity.test.js).
@@ -168,7 +168,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
-  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, mineralDeposit, mineralRockFrame, mineralBarId,
+  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, mineralDeposit, mineralRockFrame, mineralBarId,
   // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
   PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
   // Baby pets and the nest bush — pet_baby.test.js.
@@ -185,6 +185,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
 });`;
 try {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/map-review-gameplay.js'), 'utf8'), ctx,
+    { filename: 'map-review-gameplay.js' });
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
     { filename: 'src-bundle.js' });
 } catch (e) {
@@ -1214,6 +1216,7 @@ ctx.webpDims = (rel) => {
 // index.html MEASURES the screen (the CSS scale app.js sizes the canvas from is
 // published by its fitGame); canvas_scale.test.js pins the two halves together.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+ctx.PHASER_SRC = fs.readFileSync(path.join(ROOT, 'vendor/phaser.js'), 'utf8');
 // The browser harness page: harness_scripts.test.js pins its script list against
 // index.html's (a missing module once took the whole browser suite dark).
 ctx.HARNESS_HTML_SRC = fs.readFileSync(path.join(ROOT, 'test/harness.html'), 'utf8');
@@ -1239,10 +1242,11 @@ ctx.RENDER_SRC = readSrc('render.js');
 ctx.TILLED_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
   vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
-    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR };',
+    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD };',
     c, { filename: 'textures.js#tilled' });
   return c.__x;
 })();
+ctx.SHRINE_PAD = ctx.TILLED_TEX.SHRINE_PAD;
 // textures.js as TEXT: traps.test.js pins that both trap textures are baked one cell square off TRAP_PX.
 ctx.TEXTURES_SRC = readSrc('textures.js');
 // The trap art, in its own context like TILLED_TEX; these makers take a SCENE,
@@ -1471,6 +1475,12 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
 {
   const shell = require('../../tools/shell_audit.js');
   for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
+// Cache lifecycle checks use the real worker with isolated network and storage.
+{
+  const worker = require('../../tools/service_worker_checks.js');
+  for (const c of worker.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
 // ── Cache-bust audit (tools/cachebust.js) ─────────────────────────────────

@@ -42,12 +42,19 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 
 ## Shared design rules
 
-- World artwork uses a 45-degree downward viewing angle (isometric), showing
-  both top surfaces and front/side depth. Apply this consistently to bushes,
-  hedges, props, walls and buildings. Bushes show a broad rounded top canopy
-  over a shorter shaded front face; keep foliage full and softly clipped.
-  Preserve the existing cell placement and connected-tile joins when drawing
-  this perspective.
+- The viewport and movement use a top-down square grid. Artwork starts from
+  an overhead view tilted roughly 45 degrees toward a camera to the south.
+  Keep the overhead view dominant: show more crown, top and back surfaces,
+  with compressed front-facing planes and foreshortened upright forms.
+  This deliberately mixes perspectives;
+  it is not a physically correct projection or an isometric diamond grid.
+  Keep north/south along screen up/down and east/west along screen right/left.
+  Walls and directional traps align with those square-cell axes and retain
+  enough upright height for their faces and spikes to stay legible. Apply the
+  angled artwork consistently to bushes, hedges, props, walls and buildings.
+  Bushes show a broad rounded top canopy over a shorter shaded front face;
+  keep foliage full and softly clipped. Preserve cell placement and
+  connected-tile joins; do not change the map projection to match the art.
 - Search for an existing predicate, state flag or table before adding one.
   Extend it when the mechanism is the same; similar names alone do not justify
   combining mechanisms. Read its comments and regression tests before changing it.
@@ -73,6 +80,11 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Do not add save/data compatibility migrations until the user requests them.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
+
+- Farmland and golf-course no-spawn exclusions apply at every dungeon depth.
+  `WorldGen.SPAWN_WHY_ALL_FLOORS` owns the inherited reasons; `floorSpawnWhy`
+  derives them from immutable surface evidence. Preserve that mask through cave
+  generation and runtime spawns; repainting or digging never grants spawn access.
 
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
@@ -148,10 +160,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   (creature_ai.js `creatureSpawnClass`: fast = top speed over
   `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
   reason bit plus its column in the table, never a separate check at a
-  spawner. Authored Thorny Path and Barricade Road cross-sections are the
+  spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
-  of its own road band. Thorny paths cross minor roads only; removable
-  barricade/spike lines also cross their own major band and kerb. Both keep
+  of its own road band. Thorny paths and snare clusters cross minor roads only; removable
+  barricade/spike lines also cross their own major band and kerb. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary
   spawn classes cannot use that declaration to cross a road.
   POI chests are the place itself (`landRefused` —
@@ -182,8 +194,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   measures every lane). Retune the row, never add a cap; a hurry (the rout,
   a struck animal) never stacks on a bolt. The hunted crow's retreat hop
   (`CROW_DEPART_HOP`) is the base-speed exception, tied to the hunt's odds.
-  Every shiny creature moves at exactly 1.5 times its ordinary speed, even
-  above that ceiling; apply the multiplier after the base pace, never cap it.
+  Shiny creatures move at 1.5 times ordinary speed; escaping animals use
+  1.3 instead. Apply the multiplier after the base pace, never cap it.
   Shiny HP and attack are doubled through `Combat.powerMul`; raised pets
   do not stack their shiny and adult strength bonuses.
   A RETREAT among houses
@@ -259,6 +271,9 @@ Higher-priority placements and their access space take precedence in this order:
   traps, treasure and rooted enemies respect variant exclusions; a variant's
   own content does not use the general-fill veto. Fauna retain their intentional
   ability to share interactable cells and their terrain/road restrictions.
+  Nexus coverage also excludes ordinary beach bottles, tide reservations and
+  generic fauna. Within it, only the variant's declared fauna and `attracts`
+  row can add or attract animals; underlying shore/terrain rules do not apply.
 - Resolve equal-priority generated claims using stable world-space feature keys
   and buffered geometry, never iteration order, tile-load order or save state.
   Apply saved-player changes as overlays without rerolling the generated world.
@@ -292,7 +307,7 @@ Higher-priority placements and their access space take precedence in this order:
   not fixed pixel offsets. Work tools animate at the target cell.
 - Bake repeated cell geometry into textures (e.g. tilled beds). Reset mutable
   properties such as watered tint whenever pooled sprites are reused.
-- Respect `FPS_LIMIT` and its derived `PHASER_FPS_LIMIT`. Per-frame tile scans
+- Respect `FPS_LIMIT` and its elapsed-time cadence adapter. Per-frame tile scans
   use `WorldGen.forEachItemInBox`, not flat object arrays. Widen queries for
   offers/lights beyond the sprite cull. Indexed objects do not move in place.
 - Cached drawing keys must include every input. `Lighting.frameKey` uses the

@@ -26,7 +26,7 @@ function openConfirm(overrides = {}) {
       wrap: shell.wrap,
       box: shell.box,
       mount: () => { shell.mounted = true; },
-      mkBtn: (label, primary) => Object.assign(fakeEl('button'), { innerHTML: label, primary }),
+      mkBtn: (label, primary, disabled) => Object.assign(fakeEl('button'), { innerHTML: label, primary, disabled }),
     };
   };
   const realGet = document.getElementById;
@@ -36,7 +36,7 @@ function openConfirm(overrides = {}) {
   try {
     scene.showConfirmModal({
       id: 'confirm-fixture', kind: 'note', title: 'Proceed?', body: '<b>Details</b>',
-      acceptLabel: 'Yes', cancelLabel: 'No',
+      acceptLabel: 'Yes', cancelLabel: 'No', canAfford: overrides.canAfford,
       onAccept: overrides.onAccept, onCancel: overrides.onCancel,
     });
   } finally {
@@ -67,6 +67,17 @@ test('confirm modal: accept closes before one accept callback', () => {
   assert.truthy(closedAtCallback, 'the modal closes before acceptance runs');
   assert.eq(accepts, 1, 'accept fires once');
   assert.eq(cancels, 0, 'late dismissal cannot cancel an accepted choice');
+});
+
+test('confirm modal: unaffordable transactions disable acceptance but permit cancellation', () => {
+  let accepts = 0, cancels = 0;
+  const shell = openConfirm({ canAfford: false, onAccept: () => accepts++, onCancel: () => cancels++ });
+  assert.truthy(button(shell, 'Yes').disabled);
+  button(shell, 'Yes').click();
+  assert.eq(accepts, 0);
+  assert.falsy(shell.wrap.removed);
+  button(shell, 'No').click();
+  assert.eq(cancels, 1);
 });
 
 test('confirm modal: cancel closes before one cancel callback', () => {

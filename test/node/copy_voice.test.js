@@ -329,10 +329,9 @@ test('map copy: a line that names an item fits at the longest name', () => {
 
 test('copy: the out-of-energy refusal is one line, and it names the remedy', () => {
   assert.truthy(/const TOO_TIRED_MSG = '[^']+';/.test(SCENE_SRC), 'app.js owns one constant');
-  // Declared once, used at all three refusal sites (the stick, the cave dig,
-  // and the shared spendEnergy gate).
-  assert.eq((SCENE_SRC.match(/TOO_TIRED_MSG/g) || []).length, 4,
-    'one declaration, three call sites');
+  // Declared once and displayed by the shared throttled warning.
+  assert.eq((SCENE_SRC.match(/TOO_TIRED_MSG/g) || []).length, 2,
+    'one declaration, one shared warning');
   assert.falsy(/flash\('too tired'/.test(SCENE_SRC), 'the bare fragment is gone');
   const msg = SCENE_SRC.match(/const TOO_TIRED_MSG = '([^']+)';/)[1];
   assert.truthy(/^[A-Z]/.test(msg) && /\.$/.test(msg), 'it is a sentence: ' + msg);

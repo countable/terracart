@@ -84,3 +84,17 @@ test('pet shop: a one-off card from the 12th restore, a market plus its stamp, o
   assert.eq(Shops.lineFor(old, h('m')).theme, 'pet', 'an old Pet Shop still sells pets');
 });
 })();
+
+test('shop lines: relic and magic shops follow their allowed tier ladders', () => {
+  for (const [theme, expected] of [['relic', [2, 4, 6, 6]], ['potion', [1, 3, 5, 7, 7]]]) {
+    const save = { restoredHouses: {}, shopLines: {} };
+    for (let i = 0; i < expected.length; i++) {
+      assert.eq(Shops.lineTierFor(save, theme), expected[i]);
+      const id = theme + i;
+      save.restoredHouses[id] = 'market'; save.shopLines[id] = theme;
+      assert.eq(Shops.lineFor(save, { id }).theme, theme);
+      assert.eq(Shops.lineFor(save, { id }).tier, expected[i]);
+      assert.eq(Shops.themeAt(i * Shops.THEMES.length + Shops.THEMES.indexOf(theme)).tier, expected[i]);
+    }
+  }
+});

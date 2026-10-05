@@ -110,3 +110,35 @@ test('maxEnergy: each Vigour rung adds VIGOUR_ENERGY_STEP to the cap', () => {
   assert.eq(save.maxEnergy, STARTING_ENERGY + 23, 'and is written back');
   assert.eq(Energy.maxEnergy({ vigourUpgrades: -4 }), STARTING_ENERGY, 'a junk count adds nothing');
 });
+
+// Run the actual cave refusal repeatedly, as holding movement against a wall does.
+test('tired warning: repeated cave mining refusals share a cooldown with other work', () => {
+  const method = (name) => {
+    const start = SCENE_SRC.indexOf('\n  ' + name + '(');
+    const end = SCENE_SRC.indexOf('\n  }\n', start);
+    return new Function('TOO_TIRED_MSG', 'absCellCenterMeters', 'effectivePickCost',
+      'return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')(
+        'Too tired — eat or rest.', () => ({ x: 0, y: 0 }), () => 2);
+  };
+  const messages = [];
+  const scene = { save: { energy: 1, relics: {} }, viewCenterX: 100, viewCenterY: 100,
+    flash: (...args) => messages.push(args), _flashTooTired: method('_flashTooTired') };
+  const mine = method('_beginAutoMine');
+  const realNow = Date.now;
+  let now = 0;
+  Date.now = () => now;
+  try {
+    for (let i = 0; i < 180; i++) {
+      now = i * 16;
+      mine.call(scene, { cellIX: 0, cellIY: 0 });
+    }
+    assert.eq(messages.length, 1, 'one warning across many blocked frames');
+    assert.truthy(scene._followPaused, 'automatic mining still pauses');
+    assert.eq(scene.save.energy, 1, 'failed mining spends nothing');
+    scene._flashTooTired(10, 20);
+    assert.eq(messages.length, 1, 'other work shares the cooldown');
+    now = 3000;
+    mine.call(scene, { cellIX: 0, cellIY: 0 });
+    assert.eq(messages.length, 2, 'a later reminder is allowed');
+  } finally { Date.now = realNow; }
+});

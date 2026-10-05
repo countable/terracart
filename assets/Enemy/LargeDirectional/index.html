@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Large directional enemies</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 32px auto; padding: 0 24px; max-width: 1120px; background: #171d24; color: #edf0e6; font: 16px system-ui, sans-serif; }
+  p { color: #bbc5cc; line-height: 1.5; }
+  .controls { display: flex; align-items: end; flex-wrap: wrap; gap: 16px; margin: 24px 0; }
+  label { display: grid; gap: 6px; }
+  select, button { font: inherit; color: inherit; background: #34414d; border: 1px solid #657582; border-radius: 6px; padding: 9px 12px; }
+  main { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+  article { padding: 20px; border: 1px solid #46515c; border-radius: 12px; background: #252d36; }
+  h2 { margin: 0 0 14px; font-size: 20px; }
+  canvas { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; background: #303740; }
+  a { color: #add4ff; }
+  .frame { font-variant-numeric: tabular-nums; font-size: 14px; }
+  footer { margin: 28px 0; }
+  #enemy-load-status { min-height: 24px; }
+</style>
+<h1>Large directional enemies · 32×32</h1>
+<p>Top-down square-grid movement, with artwork drawn from the south at roughly 45°. This stylized view follows the game's character art; the grid stays square. Each sheet has four walking and four attacking frames for each cardinal direction.</p>
+<div class="controls">
+  <label>Direction <select id="direction"><option value="north">North ↑</option><option value="east">East →</option><option value="south" selected>South ↓</option><option value="west">West ←</option></select></label>
+  <label>Animation <select id="mode"><option value="walk">Walk</option><option value="attack">Attack</option></select></label>
+  <button id="pause" type="button" aria-pressed="false">Pause</button>
+</div>
+<p id="enemy-load-status" role="status">Loading six sprite sheets…</p>
+<main id="enemies"></main>
+<footer><a href="frames.json">Frame mapping and timings</a> · <a href="prompts.json">Generation prompts</a><p>Draft art, not integrated into gameplay. The preview enlarges source pixels and repeats attacks for inspection. Each 32px sprite spans two 16px preview cells; game rendering and collision size are independent.</p></footer>
+<script>
+  const enemies = [ ['bugbear', 'Bugbear'], ['troll', 'Troll'], ['giant-bear', 'Giant bear'], ['ogre', 'Ogre'], ['giant-reaper', 'Giant reaper'], ['giant-serpent', 'Giant serpent'] ];
+  const directions = ['north', 'east', 'south', 'west'];
+  const timings = { walk: [140, 140, 140, 140], attack: [160, 160, 100, 180] };
+  const direction = document.querySelector('#direction');
+  const mode = document.querySelector('#mode');
+  const statusEl = document.querySelector('#enemy-load-status');
+  let elapsed = 0, last = null, paused = false;
+  document.body.dataset.ready = 'false';
+  const cards = enemies.map(([id, name]) => {
+    const card = document.createElement('article');
+    card.innerHTML = `<h2>${name}</h2><canvas width="64" height="64" aria-label="Animated ${name.toLowerCase()}"></canvas><p class="frame">Loading…</p><a href="${id}.png" download>Download 32×32 sprite sheet</a>`;
+    document.querySelector('#enemies').append(card);
+    const context = card.querySelector('canvas').getContext('2d');
+    context.imageSmoothingEnabled = false;
+    return { id, context, label: card.querySelector('.frame') };
+  });
+  document.querySelector('#pause').onclick = event => {
+    paused = !paused;
+    event.target.textContent = paused ? 'Play' : 'Pause';
+    event.target.setAttribute('aria-pressed', String(paused));
+  };
+  for (const control of [direction, mode]) control.onchange = () => { elapsed = 0; };
+  function grid(context) {
+    context.fillStyle = '#303740';
+    context.fillRect(0, 0, 64, 64);
+    context.fillStyle = '#414a54';
+    for (let offset = 0; offset < 64; offset += 16) {
+      context.fillRect(offset, 0, 1, 64);
+      context.fillRect(0, offset, 64, 1);
+    }
+  }
+  function tick(now) {
+    if (last !== null && !paused) elapsed += Math.min(now - last, 100);
+    last = now;
+    const durations = timings[mode.value];
+    let remaining = elapsed % durations.reduce((a, b) => a + b, 0);
+    let phase = 0;
+    while (remaining >= durations[phase] && phase < 3) remaining -= durations[phase++];
+    const row = directions.indexOf(direction.value);
+    const column = phase + (mode.value === 'attack' ? 4 : 0);
+    const frame = row * 8 + column;
+    for (const card of cards) {
+      grid(card.context);
+      card.context.drawImage(card.image, column * 32, row * 32, 32, 32, 16, 16, 32, 32);
+      card.label.textContent = `${direction.value} · ${mode.value} ${phase + 1}/4 · frame ${frame}`;
+      card.context.canvas.dataset.frame = String(frame);
+    }
+    requestAnimationFrame(tick);
+  }
+  Promise.all(cards.map(card => new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      if (image.naturalWidth !== 256 || image.naturalHeight !== 128) return reject(new Error(`${card.id}.png must be 256×128 pixels`));
+      card.image = image;
+      resolve();
+    };
+    image.onerror = () => reject(new Error(`Could not load ${card.id}.png`));
+    image.src = `${card.id}.png`;
+  }))).then(() => {
+    document.body.dataset.ready = 'true';
+    statusEl.textContent = 'Six sheets loaded · 32 frames per enemy · nearest-neighbor display';
+    requestAnimationFrame(tick);
+  }).catch(error => {
+    document.body.dataset.error = error.message;
+    statusEl.textContent = error.message;
+    statusEl.style.color = '#ffad9f';
+  });
+</script>
+</html>

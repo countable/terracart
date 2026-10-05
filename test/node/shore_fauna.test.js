@@ -24,9 +24,10 @@ test('shore fauna: the crab is an animal row — art, behaviour, a shell when fe
   assert.truthy(ITEM_BY_ID.shiny_crab, 'and a shiny one keeps its own stack');
   assert.truthy(animalLikesFood('crab', 'minnow'), 'a minnow tames it');
   assert.truthy(ITEM_EFFECTS.minnow, 'the minnow has its own story hint');
-  assert.falsy(Combat.isEnemyKind('crab'), 'never a foe');
+  assert.truthy(Combat.isEnemyKind('crab'), 'wild crabs attack');
+  assert.falsy(Combat.isEnemy({kind:'crab',id:'released_crab'}), 'tamed crabs remain friendly');
   assert.falsy(SpriteLayout.isGame('crab'), 'never game');
-  assert.eq(creatureSpawnClass('crab'), 'fauna', 'a slow animal, off its own gait');
+  assert.eq(creatureSpawnClass('crab'), 'enemy', 'a slow shore enemy');
 });
 
 test('shore fauna: the gull is a roster foe on the crow\'s sheet, fast, off the board, thieving food not biting', () => {
@@ -81,7 +82,7 @@ function seat(b, caught = new Set(), order) {
   const was = globalThis.SHORE_FAUNA_ORDER;
   if (order) globalThis.SHORE_FAUNA_ORDER = order;
   try {
-    fn.call({ tileEdgeM: NB * CM }, creatures, b.shore, b.pierCells, NB, 3, 4, CM, b.grid, {}, {}, caught);
+    fn.call({ tileEdgeM: NB * CM }, creatures, b.shore, b.pierCells, NB, 3, 4, CM, b.grid, {spawnWhy:new Uint16Array(NB*NB)}, {spawnWhy:new Uint16Array(NB*NB)}, caught, b.coverage);
   } finally { globalThis.SHORE_FAUNA_ORDER = was; }
   return creatures;
 }
@@ -98,21 +99,22 @@ test('shore fauna: metal slimes use a sparse independent population with persist
     'defeated metal slimes do not respawn');
 });
 
-test('shore fauna: crabs on shore sand only, gulls on the shore or the pier, counted off the waterline', () => {
+test('shore fauna: crabs on shore sand only, gulls on the beach only, counted off the waterline', () => {
   const b = beach();
   const out = seat(b);
   const crabs = out.filter((c) => c.kind === 'crab'), gulls = out.filter((c) => c.kind === 'gull');
   const shore = new Set(b.shore.cells), pier = new Set(b.pierCells);
   const want = (k, lenM) => Math.min(SHORE_FAUNA[k].max, Math.floor(lenM / SHORE_FAUNA[k].perShoreM));
   assert.eq(crabs.length, want('crab', b.shore.shoreM), 'one crab per perShoreM of waterline, capped');
-  assert.eq(gulls.length, want('gull', b.shore.shoreM + b.pierCells.length * CM), 'gulls count the pier too');
-  assert.gt(crabs.length, 0);
+  assert.eq(gulls.length, want('gull', b.shore.shoreM), 'gulls count the beach waterline only');
+  assert.gt(crabs.length, 14, 'ordinary beaches have a common crab population');
+  for (const c of crabs) assert.eq(c.shiny, faunaShiny(c.kind, c.id), 'hostile crabs retain their animal shiny chance');
   assert.gt(gulls.length, 0);
   for (const c of crabs) {
     assert.truthy(shore.has(cellOf(c)), `crab ${c.id} on shore sand`);
     assert.eq(b.grid[cellOf(c)], T.SAND);
   }
-  for (const g of gulls) assert.truthy(shore.has(cellOf(g)) || pier.has(cellOf(g)), `gull ${g.id} on the shore or the pier`);
+  for (const g of gulls) assert.truthy(shore.has(cellOf(g)), `gull ${g.id} on the beach`);
   for (const c of out) {
     const i = cellOf(c);
     assert.eq(c.id, WorldGen.cellId(c.kind, 3, 4, i % NB, Math.floor(i / NB)), 'the id is the seat cell');
@@ -124,7 +126,7 @@ test('shore fauna: no shore, no crabs — inland sand and a tile without water h
   const b = beach();
   assert.eq(seat({ ...b, shore: null, pierCells: [] }).length, 0, 'the sandpit alone seats nothing');
   const pierOnly = seat({ ...b, shore: null });
-  assert.falsy(pierOnly.some((c) => c.kind === 'crab'), 'a pier holds no crab');
+  assert.falsy(pierOnly.some((c) => c.kind === 'crab' || c.kind === 'gull'), 'a pier holds neither crabs nor gulls');
 });
 
 test('shore fauna: deterministic, each species on its own stream, a catch hides without moving the rest', () => {
@@ -150,6 +152,17 @@ test('shore fauna: the shore pass runs inside spawnInTile, after every shared dr
   assert.lt(call, s.indexOf('this._cullOffLiveGround('), 'before the per-player cull');
   assert.gt(call, s.indexOf('const EXTRA_X_COUNT'), 'after the tile stream\'s last draw');
   assert.truthy(/else if \(t === WorldGen\.T\.PIER\) pierCells\.push/.test(s), 'the pier cells come out of the one grid pass');
+});
+
+test('shore fauna: beach nexus coverage excludes ambient shore and pier animals', () => {
+  const b = beach(); b.coverage = new Uint16Array(NB * NB);
+  for (const i of b.shore.cells) b.coverage[i] = 1;
+  for (const i of b.pierCells) b.coverage[i] = 1;
+  assert.eq(seat(b).length, 0);
+  for (const i of b.shore.cells) if (i < NB * 20) b.coverage[i] = 0;
+  const animals = seat(b);
+  assert.gt(animals.length, 0);
+  assert.truthy(animals.every(c => !b.coverage[cellOf(c)]));
 });
 
 })();

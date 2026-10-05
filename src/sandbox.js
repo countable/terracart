@@ -101,6 +101,7 @@
       s.creature('slime', 5, 2, 1);
       // Boar — charges in a line, rests, hurts only on contact.
       s.creature('boar', 7, 5, 1);
+      s.object('hive', 4, 4);
     },
   };
 
@@ -357,7 +358,7 @@
     { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
     { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
     { name: 'Thorny Way', class: 'minor', type: T.ROAD, y: 35, thick: 1, x0: 0, x1: 23, variant: 'thorny' },
-    { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 22, thick: 1, x0: 0, x1: 23, variant: 'snare' },
+    { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 18, thick: 1, x0: 0, x1: 23, variant: 'snare' },
     { name: 'Fort Road', class: 'tertiary', type: T.ROAD_MD, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
     { name: 'Old Trade Road', class: 'primary', type: T.ROAD_LG, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
   ];

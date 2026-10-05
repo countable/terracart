@@ -11,6 +11,25 @@
     return h >>> 0;
   };
   const roll = key => hash(key) / 4294967296;
+  // Each seat owns an independent concealment draw: adding ambushes never
+  // consumes the population RNG or moves another creature. Building garrisons
+  // do not call this lane; only ambient encounters and grove residents do.
+  const CONCEALMENT = {
+    skeleton: { hidden: .25 }, skeleton_soldier: { hidden: .25 }, zombie: { hidden: .25 },
+    spider: { hidden: .3 }, poison_spider: { hidden: .3 },
+    bat: { stealthy: .25 }, vampire_bat: { stealthy: .25 }, goblin_trapper: { stealthy: .25 },
+  };
+  function concealment(kind, id, theme) {
+    const base = root.EnemyRoster.get(kind)?.variantOf || kind;
+    if (['ordered_graves', 'overgrown_graves'].includes(theme)
+        && ['skeleton', 'skeleton_soldier', 'zombie'].includes(base)) return { hidden: true };
+    const row = CONCEALMENT[base];
+    if (!row) return {};
+    const r = roll(id + ':concealment');
+    if (r < (row.hidden || 0)) return { hidden: true };
+    if (r < (row.hidden || 0) + (row.stealthy || 0)) return { stealthy: true };
+    return {};
+  }
   function pick(weighted, r) {
     const total = weighted.reduce((sum, x) => sum + x.weight, 0);
     if (!(total > 0)) return null;
@@ -24,7 +43,8 @@
   function surfaceRows(type, context) {
     const biome = typeof type === 'string' ? type : biomeName(type);
     const eligible = rows().filter(row => !row.retired && row.surface && row.tier <= 3 && row.attackType !== 'touch' && row.surface.biomes.includes(biome))
-      .filter(row => !['pirate_grunt', 'pirate_gunner', 'pirate_captain', 'giant_crab', 'jellyfish'].includes(row.id) || context?.beach);
+      .filter(row => !['pirate_grunt', 'pirate_gunner', 'pirate_captain', 'giant_crab', 'jellyfish'].includes(row.id) || context?.beach)
+      .filter(row => !row.surface.nearMinorRoad || context?.nearMinorRoad);
     const replaced = new Set(eligible.filter(row => row.variantType === 'Tint').map(row => row.variantOf));
     return eligible.filter(row => !replaced.has(row.id));
   }
@@ -96,28 +116,35 @@
   //     anchor with the tier bands (lairs.test.js pins why). Measured from the RUIN
   //     (lairX/lairY), so a guard that chases you in does not blink out.
   // Stamps `_surfaceInactive`, which the draw, the AI and Combat.isEnemy read.
-  function surfaceActive(scene, creature) {
+  // Permanent player geography is separate from temporary daylight/amnesty
+  // visibility, so a temple can count sleeping foes without counting absent ones.
+  function homeEligible(scene, creature) {
     const at = creature?._surfaceSpawn;
     const guard = !at && creature?.lair ? creature : null;
     if (!at && !guard) return true;
-    let active = true;
     const anchor = homeAnchor(scene);
     if (guard) {
       const quietM = root.Difficulty?.get?.().quietHomeM || 0;
       const home = quietM > 0 && guard.kind !== 'slime' ? scene?.homeWorldPos?.() : null;
-      if (home && Number.isFinite(home.x) && Number.isFinite(guard.lairX)) {
-        active = Math.hypot(guard.lairX - home.x, guard.lairY - home.y) >= quietM;
-      }
-      if (active && anchor && Number.isFinite(guard.lairX) && Number.isFinite(guard.lairY)) {
-        active = homeAllows(guard.kind, Math.hypot(guard.lairX - anchor.x, guard.lairY - anchor.y));
-      }
+      if (home && Number.isFinite(home.x) && Number.isFinite(guard.lairX)
+          && Math.hypot(guard.lairX - home.x, guard.lairY - home.y) < quietM) return false;
+    }
+    const x = at ? at.x : guard.lairX;
+    const y = at ? at.y : guard.lairY;
+    return !anchor || !Number.isFinite(x) || !Number.isFinite(y)
+      || homeAllows(creature.kind, Math.hypot(x - anchor.x, y - anchor.y));
+  }
+  function surfaceActive(scene, creature) {
+    const at = creature?._surfaceSpawn;
+    const guard = !at && creature?.lair ? creature : null;
+    if (!at && !guard) return true;
+    let active = homeEligible(scene, creature);
+    if (guard) {
       creature._surfaceInactive = !active;
       return active;
     }
-    const row = root.EnemyRoster.get(creature.kind);
-    const habitat = row?.surface;
-    active = !!habitat;
-    if (active && anchor) active = homeAllows(creature.kind, Math.hypot(at.x - anchor.x, at.y - anchor.y));
+    const habitat = root.EnemyRoster.get(creature.kind)?.surface;
+    active = active && !!habitat;
     if (active && habitat.time === 'night') {
       active = !!root.Lighting && root.Lighting.daylight(scene, Date.now()) < SURFACE_NIGHT_DAYLIGHT;
     }
@@ -162,7 +189,7 @@
     return { pack, cells };
   }
   const caveContextAt = (entry, tx, ty, cx, cy, depth) => root.EnemyHabitats.caveAt(entry, tx, ty, cx, cy, depth);
-  const api = { caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
+  const api = { CONCEALMENT, concealment, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
   root.EnemySpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

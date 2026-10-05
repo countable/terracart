@@ -814,7 +814,7 @@
 
   // ── The families, end to end ─────────────────────────────────────────────
 
-  test('lairs: a real wreck wakes slimes, a fort goblins and a castle skeletons', () => {
+  test('lairs: real buildings wake their tier family, with bugbears in citadels', () => {
     // The ladder tests above run kindsAt/kindFor directly; this one drives the
     // shipping wake for each tier so the tier actually REACHES the roll —
     // `cand.tier` comes off the footprint in indexChunk, and a garrison seeded
@@ -823,12 +823,14 @@
     for (const tier of Lairs.TIERS) {
       // A HELD one, with the PLAIN garrison — a wreck is a 1-in-3 and this
       // test is about the ladder's families, not the authored groups.
-      const entry = mkEntry([mkPlainShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+      const shape = mkPlainShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M);
+      const entry = mkEntry([shape]);
       step(entry, CENTRE);
       const guards = guardsOf(entry);
       assert.gt(guards.length, 0, `tier ${tier}: the ruin woke empty`);
       for (const g of guards) {
-        assert.truthy(want[tier].test(g.kind),
+        const family = tier === 12 && CastleStyles.get(shape.key).id === 'citadel' ? /^bugbear$/ : want[tier];
+        assert.truthy(family.test(g.kind),
           `tier ${tier}: woke a ${g.kind}`);
       }
     }

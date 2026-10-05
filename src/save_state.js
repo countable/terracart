@@ -7,6 +7,7 @@
     let needsPersist = false;
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
     if (typeof Shrines !== 'undefined') Shrines.normalize(save);
+    if (typeof Elevators !== 'undefined') Elevators.normalize(save);
     const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)
       : ['pickaxe', 'axe', 'sword', 'bow', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
     save.relics = save.relics || {};
@@ -70,6 +71,7 @@
     // Restored-houses / forts default to empty objects.
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};
+    if (!save.temples || typeof save.temples !== 'object' || Array.isArray(save.temples)) save.temples = {};
     // Soft cap on unbounded history fields so a heavy player can't balloon the
     // save past the localStorage quota and silently break writes. `placedRocks`
     // is deliberately EXEMPT: unlike the others (which just re-arm a respawn —

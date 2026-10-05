@@ -1,0 +1,4 @@
+{
+  "tornado": "Edit only the tornado sprite sheet shown in this image. REMOVE all horizontal and vertical divider/grid lines entirely, replacing them with full transparency. Preserve all eight tornado sprites, their order, scale, positions, colors and poses exactly. Do not add any lines, borders, backgrounds or marks. Keep the same 4-column 2-row layout. True transparent background.",
+  "ventWarnings": "Edit the supplied 2-column 3-row vent warning sprite sheet. Remove ALL soft glow, bloom, haze, blurred shadows and dark background completely. Keep ONLY the hard-edged square pixel clusters making up the six rocky mouths and their small colored warning wisps/embers. Everything else must be fully alpha transparent. All retained pixels fully opaque. Preserve exact layout, poses, palette, rock base positions and original chunky 24x24-per-frame pixel design. No extra detail, no grid or dividers. Minimal crisp game sprites."
+}

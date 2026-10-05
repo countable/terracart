@@ -1,0 +1,103 @@
+{
+  "image": "large-enemies-32.png",
+  "frameWidth": 32,
+  "frameHeight": 32,
+  "columns": 6,
+  "rows": 6,
+  "phases": [
+    "idle",
+    "anticipation",
+    "windup",
+    "strike",
+    "follow_through",
+    "recovery"
+  ],
+  "enemies": [
+    {
+      "name": "bugbear",
+      "row": 0,
+      "idle": [
+        0
+      ],
+      "attack": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "name": "troll",
+      "row": 1,
+      "idle": [
+        6
+      ],
+      "attack": [
+        7,
+        8,
+        9,
+        10,
+        11
+      ]
+    },
+    {
+      "name": "giant_bear",
+      "row": 2,
+      "idle": [
+        12
+      ],
+      "attack": [
+        13,
+        14,
+        15,
+        16,
+        17
+      ]
+    },
+    {
+      "name": "ogre",
+      "row": 3,
+      "idle": [
+        18
+      ],
+      "attack": [
+        19,
+        20,
+        21,
+        22,
+        23
+      ]
+    },
+    {
+      "name": "giant_reaper",
+      "row": 4,
+      "idle": [
+        24
+      ],
+      "attack": [
+        25,
+        26,
+        27,
+        28,
+        29
+      ]
+    },
+    {
+      "name": "giant_serpent",
+      "row": 5,
+      "idle": [
+        30
+      ],
+      "attack": [
+        31,
+        32,
+        33,
+        34,
+        35
+      ]
+    }
+  ],
+  "generation": "Built-in imagegen; original preserved as source.png; nearest-neighbor size export.",
+  "status": "Art draft; not connected to gameplay."
+}

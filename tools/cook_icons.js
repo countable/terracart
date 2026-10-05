@@ -35,7 +35,7 @@ const CRUST = '#2a1208';
 // items.js leans on util.js; load the pair the way index.html does.
 const ctx = { console };
 vm.createContext(ctx);
-for (const f of ['src/util.js', 'src/items.js']) {
+for (const f of ['src/util.js', 'src/sprite_layout.js', 'src/items.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
 }
 const { COOKED_FOODS, inventoryIconSource } =

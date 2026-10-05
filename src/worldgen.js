@@ -80,7 +80,12 @@
     return { kind: 'wildplant', crop, x, y, id, ...extra };
   }
   function makeCreature(kind, x, y, id, extra) {
-    return { kind, x, y, id, ...extra };
+    // Wild animals wait for discovery; released pets are already known.
+    const behaviour = SpriteLayout.creatureBehaviour(kind);
+    const concealment = typeof id === 'string' && id.startsWith('released_') ? null
+      : behaviour?.concealment || (extra?.shiny && typeof ITEM_BY_ID !== 'undefined'
+        && ITEM_BY_ID[kind]?.kind === 'animal' ? 'hidden' : null);
+    return { kind, x, y, id, ...(concealment ? { [concealment]: true } : {}), ...extra };
   }
   function makeObject(kind, x, y, id, extra) {
     return { kind, x, y, id, ...extra };
@@ -127,9 +132,24 @@
     return plants;
   }
 
+  const HIVE_SPEC = { cellChance: 1 / 192, syrup: 3, bees: 3 };
+  function spawnForestHives(grid, w, h, tx, ty, tileEdgeM, opts = {}) {
+    const out = [];
+    for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
+      const i = cy * w + cx;
+      if (grid[i] !== T.FOREST || opts.zoneCoverage?.[i]) continue;
+      if (makeRng(cellHash(tx, ty, cx, cy) ^ 0xbee517)() >= HIVE_SPEC.cellChance) continue;
+      if (!isSpawnCell(grid, w, h, cx, cy, opts, 'minor')) continue;
+      out.push(makeObject('hive', tx * tileEdgeM + (cx + 0.5) * tileEdgeM / w,
+        ty * tileEdgeM + (cy + 0.5) * tileEdgeM / h, cellId('hive', tx, ty, cx, cy)));
+      opts.occupied?.add(i);
+    }
+    return out;
+  }
+
   function isGeneralAmbientRecord(o) {
     return !o.placed && !o.zoneVariant &&
-      /^(?:wp|hr|hm|hmpot|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
+      /^(?:wp|hr|hm|hmpot|ibarrel|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
   }
 
   // Zone layouts own the entire coverage, including intentionally empty motif
@@ -464,11 +484,13 @@
   //                   NEAREST_POI_MAX_M counts as private) — lifted by a POI
   //                   within SPAWN_FRONTAGE (opts.pois: a chest is a public
   //                   place)
+  //     FARMLAND      mapped farmland, including its edges and any later paint
+  //     GOLF          private golf grounds, including all later overlays
+  //     PIER_ACCESS   pier footprint without affirmative public access tags
   //     FARM_INTERIOR orchard / farmland further than FARM_EDGE_CELLS from
   //                   any other ground: nothing grows or stands in a field.
-  //                   The EDGE band (within FARM_EDGE_CELLS) carries no
-  //                   reason at all — every class may spawn there, same as
-  //                   any other open ground.
+  //                   Orchard edges remain open unless mapped farmland
+  //                   underneath them carries the FARMLAND reason.
   //   TYPED SUPPRESSION — refuse only the classes whose row names them:
   //     KERB          a major way's band touches the cell, or its kerb buffer
   //                   — refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
@@ -480,8 +502,8 @@
   // university grounds, plus the school-hours timing — are both dropped: the
   // owner reviewed the table and decided a house's yard is covered by
   // PRIVATE/BEHIND_HOUSE already and a school field is ordinary public ground.
-  // KINDERGARTEN stays hard. The FARM reason was inverted at the same time —
-  // see FARM_INTERIOR above.)
+  // KINDERGARTEN stays hard. Farmland is fully excluded; orchard edges
+  // retain their existing access rule.)
   // The spawn's class — isSpawnCell's 7th argument, required of every caller
   // (test/node/spawn_class.test.js sweeps the source) — is a ROW of
   // SPAWN_CLASS_BLOCKS: which typed reasons it refuses (hard ones always).
@@ -510,15 +532,25 @@
   // What this is NOT: a movement rule. A fast foe's leash at the kerb reads
   // roadClass (inMajorBuffer) because it is about where a chase may GO.
   // Bit values kept stable across the Sep 2026 drop of HOUSE (512), SCHOOL
-  // (2048) and FARM (8192) — the gaps cost nothing in a Uint16 mask.
+  // (2048). The former FARM bit now blocks all mapped FARMLAND.
   const SPAWN_WHY = {
     TERRAIN: 1, ROAD: 2, RESTRICTED: 4, QUIET: 8, KINDERGARTEN: 16,
     SENSITIVE_SITE: 32, BEHIND_HOUSE: 64, PRIVATE: 128, FARM_INTERIOR: 256,
-    KERB: 1024, SENSITIVE: 4096,
+    KERB: 1024, SENSITIVE: 4096, FARMLAND: 8192, GOLF: 16384, PIER_ACCESS: 32768,
   };
   const W_ = SPAWN_WHY;
   const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
-    | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR;
+    | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR | W_.FARMLAND | W_.GOLF | W_.PIER_ACCESS;
+  // Geographic exclusions survive every dungeon floor. Terrain, roads and
+  // frontage are evaluated separately for the floor on which a spawn sits.
+  const SPAWN_WHY_ALL_FLOORS = W_.FARMLAND | W_.GOLF;
+  function floorSpawnWhy(surface) {
+    const source = surface.zone?.caveSource || surface.caveSource || surface;
+    const grid = source.baseGrid || source.grid;
+    const why = source.spawnWhy || surface.spawnWhy;
+    return Uint16Array.from(grid, (terrain, i) => ((why?.[i] || 0) & SPAWN_WHY_ALL_FLOORS)
+      | (terrain === T.FARMLAND ? W_.FARMLAND : terrain === T.GOLF ? W_.GOLF : 0));
+  }
   const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE;
   // The hard reasons that are about the LAND (not terrain, not the band).
   const SPAWN_WHY_LAND = SPAWN_WHY_HARD & ~(W_.TERRAIN | W_.ROAD);
@@ -570,7 +602,9 @@
   function isSpawnCell(grid, w, h, cx, cy, opts, cls) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     const here = grid[cy * w + cx];
-    // Only authored thorny/barricade cross-sections may occupy their own
+    if (here === T.FARMLAND || here === T.GOLF) return false;
+    if (here === T.PIER && !(opts && opts.spawnWhy)) return false;
+    // Only authored thorny/barricade/snare cross-sections may occupy their own
     // road band. Declared seats never relax any other spawn class.
     const obstacle = cls === 'streetObstacle' && opts?.streetObstacleCells?.has(cy * w + cx);
     const barricade = obstacle && opts.streetObstacleKind === 'barricade';
@@ -878,9 +912,9 @@
   //                                              segment; both cells of a
   //                                              2-cell wall share the id)
   //   interior   (neither coord %P==0)            never a hedge (open path)
-  // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
+  // Pillars and sparse whole wall segments leave broad open passages.
   const HEDGE_LATTICE_P = 3;   // lattice period (cells between pillars)
-  const HEDGE_WALL_PCT = 30;   // % of wall segments that exist → ~25% fill
+  const HEDGE_WALL_PCT = 15;   // whole wall segments, with open plaza aisles
   function hedgeWallOn(sx, sy, k, salt) {
     const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
     return (hsh % 100) < HEDGE_WALL_PCT;
@@ -1018,6 +1052,7 @@
       if (c === 'sand' || c === 'beach') return T.SAND;
       if (c === 'rock' || c === 'scree') return T.ROCK;
       if (c === 'wetland') return T.WETLAND;
+      if (c === 'golf_course') return T.GOLF;
       if (c === 'farmland') return sub === 'orchard' ? T.ORCHARD : T.FARMLAND;
       if (c === 'grass') {
         if (sub === 'park' || sub === 'garden') return T.PARK;
@@ -1038,6 +1073,7 @@
       if (c === 'school' || c === 'college' || c === 'university' ||
           c === 'kindergarten' || c === 'education') return T.SCHOOL;
       if (c === 'farmland' || c === 'farmyard') return T.FARMLAND;
+      if (c === 'golf_course') return T.GOLF;
       if (c === 'pitch') return T.PITCH;
       if (c === 'playground') return T.PLAYGROUND;
       // Recreation / sports grounds (leisure=sports_centre, stadium,
@@ -3440,11 +3476,11 @@
     while (!r.done) r = g.next();
     return r.value;
   }
-  // FIELDS (orchard / farmland): only the EDGE hosts — a cell within
-  // FARM_EDGE_CELLS (Chebyshev) of any other ground carries no reason at all
+  // ORCHARDS: only the EDGE hosts — a cell within
+  // FARM_EDGE_CELLS (Chebyshev) of the source field footprint boundary is open
   // (every class may spawn there, same as any other open ground, since the
   // typed FARM reason was dropped Sep 2026); deeper in is the hard
-  // FARM_INTERIOR reason. Draws and foes never stand on a field at all.
+  // FARM_INTERIOR reason. Later road / POI paint cannot create internal edges.
   const FARM_TYPES = new Set([T.FARMLAND, T.ORCHARD]);
   // Which `park`-layer polygons supply park ground, coverage and house-rule
   // eligibility. The layer also carries protected_area, historic and
@@ -3496,6 +3532,14 @@
     if (tags.access === 'no' || tags.access === 'private') return true;
     return tags.foot === 'private' || tags.foot === 'no';
   }
+  // A missing access tag is unknown, never proof a pier welcomes visitors.
+  // Read pedestrian-specific permission when present; explicit prohibitions
+  // on either field win. Ownership/name/nearby park geometry do not prove access.
+  function isPublicPier(tags) {
+    if (!tags || tags.class !== 'pier' || isPrivateWay(tags)) return false;
+    const permission = tags.foot == null ? tags.access : tags.foot;
+    return permission === 'yes' || permission === 'public' || permission === 'designated';
+  }
   function churchyardBufferM() {
     const Z = (typeof Zones !== 'undefined') ? Zones : null;
     const k = Z && Z.ZONE_KINDS && Z.ZONE_KINDS.stones;
@@ -3546,7 +3590,7 @@
     for (const L of layers || []) if (L && L.name) byName[L.name] = L;
     const feats = (n) => (byName[n] && byName[n].features) || [];
     const churchM = churchyardBufferM();
-    const M = Math.ceil(Math.max(SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M);
+    const M = Math.max(FARM_EDGE_CELLS, Math.ceil(Math.max(SPAWN_SENSITIVE_BUFFER_M, churchM) / CELL_M));
     const E = w + 2 * M, EE = E * E;
     const extOf = (p) => {
       const x = Math.floor(p.x * mvtToCell) + M, y = Math.floor(p.y * mvtToCell) + M;
@@ -3561,6 +3605,9 @@
     // Per-cell land reasons stamped straight off a polygon (RESTRICTED,
     // KINDERGARTEN).
     const land = new Uint16Array(NN);
+    // Preserve field geometry beyond the tile edge: paint and tile seams do
+    // not create public orchard frontage. Adjacent fields share one footprint.
+    const fieldSource = new Uint8Array(EE);
     // ── Landuse polygons: cemetery (sensitive land), restricted land,
     // kindergarten grounds.
     let k = 0;
@@ -3585,6 +3632,37 @@
           if (grid[i] === expect) land[i] |= why;
         });
       }
+    }
+    // Farmland and golf courses remain private across their source footprints.
+    // A POI pad, road, orchard or nexus repaint cannot reopen this ground.
+    for (const name of ['landcover', 'landuse']) for (const f of feats(name)) {
+      if (f.type !== 3 || !f.geom || !f.tags) continue;
+      const terrain = classifyPolygon(name, f.tags);
+      if (FARM_TYPES.has(terrain)) {
+        yield* forEachPolygonCellSteps(E, E, f.geom, mvtToCell, (x, y) => {
+          fieldSource[y * E + x] = 1;
+        }, M);
+      }
+      const why = terrain === T.FARMLAND ? W_.FARMLAND : terrain === T.GOLF ? W_.GOLF : 0;
+      if (!why) continue;
+      yield 'spawn gate private grounds';
+      yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { land[y * w + x] |= why; });
+    }
+    // Only affirmatively public pier geometry can host spawns. Stamp the same
+    // width as the drawn planks; an overlapping restricted/unknown pier wins,
+    // even where a later park/POI/road paint hides its original footprint.
+    const publicPier = new Uint8Array(NN);
+    for (const f of feats('transportation')) {
+      if (f.type !== 2 || !f.geom || classifyLine('transportation', f.tags || {}) !== T.PIER) continue;
+      const accessible = isPublicPier(f.tags);
+      const width = Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M));
+      for (const line of f.geom) forEachLineCell(line, width, mvtToCell, (x, y) => {
+        if (x < 0 || x >= w || y < 0 || y >= h) return;
+        const i = y * w + x;
+        if (accessible) publicPier[i] = 1;
+        else land[i] |= W_.PIER_ACCESS;
+      });
+      yield 'spawn gate pier access';
     }
     // ── POI points: sensitive places (the point SENSITIVE_SITE, the ground round it
     // SENSITIVE), and a church on cemetery land.
@@ -3713,33 +3791,34 @@
       }
       return false;
     };
-    // ── FIELDS: an orchard / farmland cell is an EDGE when any other ground
-    // lies within FARM_EDGE_CELLS (Chebyshev, the frontage's separable
-    // window), else its INTERIOR.
+    // ── FIELDS: only the outer band of the source footprint is open.
+    // Keep a final-terrain fallback for synthetic field cells, but never let
+    // roads, POI pads or later nexus paint punch new edges through an orchard.
     const FE = FARM_EDGE_CELLS;
-    const notFarm = (i) => !FARM_TYPES.has(grid[i]);
-    const farmRow = new Uint8Array(NN), farmEdge = new Uint8Array(NN);
-    for (let y = 0; y < h; y++) {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (FARM_TYPES.has(grid[y * w + x])) fieldSource[(y + M) * E + x + M] = 1;
+    }
+    const farmRow = new Uint8Array(EE), farmEdge = new Uint8Array(NN);
+    for (let y = 0; y < E; y++) {
       if ((y & 31) === 31) yield 'spawn gate field rows';
-      const row = y * w;
+      const row = y * E;
       let run = 0;
-      for (let x = 0; x < Math.min(FE, w); x++) if (notFarm(row + x)) run++;
-      for (let x = 0; x < w; x++) {
+      for (let x = 0; x < Math.min(FE, E); x++) if (!fieldSource[row + x]) run++;
+      for (let x = 0; x < E; x++) {
         const add = x + FE, drop = x - FE - 1;
-        if (add < w && notFarm(row + add)) run++;
-        if (drop >= 0 && notFarm(row + drop)) run--;
+        if (add < E && !fieldSource[row + add]) run++;
+        if (drop >= 0 && !fieldSource[row + drop]) run--;
         farmRow[row + x] = run > 0 ? 1 : 0;
       }
     }
     for (let x = 0; x < w; x++) {
       if ((x & 31) === 31) yield 'spawn gate field cols';
       let run = 0;
-      for (let y = 0; y < Math.min(FE, h); y++) run += farmRow[y * w + x];
+      for (let y = M - FE; y < M + FE; y++) run += farmRow[y * E + x + M];
       for (let y = 0; y < h; y++) {
-        const add = y + FE, drop = y - FE - 1;
-        if (add < h) run += farmRow[add * w + x];
-        if (drop >= 0) run -= farmRow[drop * w + x];
+        run += farmRow[(y + M + FE) * E + x + M];
         farmEdge[y * w + x] = run > 0 ? 1 : 0;
+        run -= farmRow[(y + M - FE) * E + x + M];
       }
     }
     // ── COMMERCIAL GROUND's nearest-POI field (null: none on this tile).
@@ -3747,8 +3826,7 @@
     // ── The reasons, per cell (every one that applies — the classes decide).
     // BEHIND_HOUSE is about somebody's LOT: it never touches public ground (a
     // park-family polygon's cell, whatever paint won it, or any ground that
-    // is not lot / field). A field's EDGE band (within FARM_EDGE_CELLS)
-    // carries no reason at all — only its INTERIOR is refused.
+    // is not lot / field). Orchard edges remain open; all farmland is refused.
     for (let y = 0; y < h; y++) {
       if ((y & 15) === 15) yield 'spawn gate classify';
       for (let x = 0; x < w; x++) {
@@ -3769,7 +3847,10 @@
         if (lot && !front[i]) v |= W_.PRIVATE;
         // Commercial ground: the nearest POI decides (COMMERCIAL_GROUND).
         if (COMMERCIAL_GROUND.has(t) && (!comField || comField.kind[i] !== POI_PUBLIC)) v |= W_.PRIVATE;
-        if (FARM_TYPES.has(t) && !farmEdge[i]) v |= W_.FARM_INTERIOR;
+        if (t === T.FARMLAND) v |= W_.FARMLAND;
+        if (t === T.GOLF) v |= W_.GOLF;
+        if (t === T.PIER && !publicPier[i]) v |= W_.PIER_ACCESS;
+        if (fieldSource[(y + M) * E + x + M] && !farmEdge[i]) v |= W_.FARM_INTERIOR;
         const e = (y + M) * E + (x + M);
         if (roadClass && (roadClass[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_MAJOR_BAND))) v |= W_.KERB;
         if (sensD[e] <= sensR || churchD[e] <= churchR) v |= W_.SENSITIVE;
@@ -3919,6 +4000,8 @@
     // indexed by the same 1-based id `owners` stamps, so a cell resolves to the
     // building it belongs to in two hops and nothing has to search polygons.
     const ownerKeys = [];
+    const templeOwners = new Set();
+    const buildingSeats = new Map();
     const castleHalo = new Map();
     const castleSourceRings = [];
     // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
@@ -4089,7 +4172,7 @@
     //                 cells of a 2-cell wall share the segment id so a wall is
     //                 contiguous and the gaps read as passages.
     //   • interior  (neither coord %P==0)            → never a hedge (open path)
-    // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
+    // Pillars and sparse whole wall segments leave broad open passages.
     // The lattice decision lives in hedgeMazeCell (IIFE level, exported) so
     // the sandbox's flora mirror runs the SAME maze instead of a drifted copy.
     function* spawnHedgeMazeSteps(rings, crop, salt) {
@@ -4184,11 +4267,9 @@
       // species has its own real sprite sheet (no tint pass needed).
       const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
       const bb = bboxOf(rings);
-      // ~one candidate per 11.3m. Every in-polygon candidate becomes a tree
-      // (there is no thin-out roll), so tree density is set entirely by this
-      // grid pitch: 8m read as twice too dense, and 8·√2 halves the trees
-      // per area.
-      const stepMvt = 11.3 / mvtToM;
+      // The profile owns the canopy spacing. Every in-polygon candidate
+      // becomes a tree; the fixed pitch sets density without extra draws.
+      const stepMvt = BiomeProfiles.staticObjects(T.FOREST).treeSpacingM / mvtToM;
       // The polygon's OWN stream, like every other scatter (debris, rock
       // clusters, yard flora): drawing from the tile-wide rng made each
       // forest's jitter depend on how many draws every earlier forest on the
@@ -4233,7 +4314,7 @@
       // Each tree independently has a 1-in-50 Worldpeach chance. The cell
       // hash keeps its species stable across reloads and polygon boundaries.
       const bb = bboxOf(rings);
-      const stepMvt = 13 / mvtToM; // one fruit tree per ~13m — planted feel
+      const stepMvt = BiomeProfiles.staticObjects(T.ORCHARD).fruitTreeSpacingM / mvtToM; // planted rows
       let _row = 0;
       for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
         if ((++_row & 7) === 7) yield 'fruit tree scatter rows';
@@ -4290,9 +4371,10 @@
     // rock — denser cities lose more of a cluster to sidewalks and yards, 20
     // to 40 m), and each fired cluster drops its rocks
     // on the VERGE: STREET_ROCK_OUT_MIN..+SPAN cells out past the band's
-    // edge, jittered STREET_ROCK_ALONG_M along the way. The same tier roll
-    // and vein table the residential clusters used, and the same `rc` cluster
-    // id (the cave-entrance pass groups by it). Its OWN stream per piece
+    // edge, jittered STREET_ROCK_ALONG_M along the way. Consume the old tier
+    // and vein draws to preserve seats; bare streets keep their occasional ore,
+    // while themed streets emit only plain stone. Keep the
+    // original `rc` memberships for cave-entrance grouping. Its OWN stream per piece
     // (fnv1a of street key + tile + lineKey), so no other stream moves; and
     // pushed before the mineralrock cleanup, whose one filter (band, moat,
     // plaza, yard rule) decides what survives. A generator: one yield per line.
@@ -4326,11 +4408,13 @@
             const ix = Math.floor(px / CELL_M), iy = Math.floor(py / CELL_M);
             if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
             const { mx, my } = cellCenterMeters(ix, iy);
-            output.push(roll.plain
-              ? makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
-                  { requiredTier: 1, caveVariant: roll.caveVariant, _clusterId: clusterId, _street: true, _streetLine: rec.lineKey })
-              : makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
-                  { requiredTier: roll.requiredTier, yieldTier: roll.yieldTier, _street: true, _streetLine: rec.lineKey }));
+            // Bare streets use the surface ore mix without moving existing seats.
+            const mineral = output !== objects && rec.variant == null && !roll.plain
+              ? { requiredTier: roll.requiredTier, yieldTier: roll.yieldTier }
+              : { requiredTier: 1, caveVariant: roll.caveVariant ?? (cellHash(tx, ty, ix, iy) % 4) };
+            output.push(makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
+              { ...mineral,
+                ...(roll.plain ? { _clusterId: clusterId } : {}), _street: true, _streetLine: rec.lineKey }));
           }
         });
       }
@@ -4797,7 +4881,7 @@
               // names which lot ground is dry): waste ground is where rubble
               // belongs, same generator, same stream shape.
               yield* _spawnRockClustersSteps(resRng, f.geom, {
-                pivotStep, clusterR, fireChance: 0.585,
+                pivotStep, clusterR, fireChance: BiomeProfiles.staticObjects(t).rockFireChance ?? 0.585,
                 clusterMin: 25, clusterSpan: 16, tbl: SURFACE_ROCK_CUM, residential: true,
                 weights, veinChance: 0.30, pivots, dry: LOT_ROCK_DRY.has(t) });
               const yard = BiomeProfiles.yard(t);
@@ -5185,10 +5269,57 @@
         yield 'building block start';
         const footprints = yield* assignBuildingFootprintsSteps(buildingPolys, mvtToCell, w, h, 3);
         yield 'assignBuildingFootprints';
+        // Nexus geography is ready before building quotas. Classify every
+        // overlapping footprint now, so temples never take a house/fort slot
+        // or enter the castle turret pass. Chest relocation changes dressing
+        // origins only; the final zone pass still owns terrain and dressing.
+        let templeField = null;
+        if (typeof Zones !== 'undefined' && typeof ZoneCoverage !== 'undefined') {
+          templeField = yield* Zones.fieldSteps(layersByName.poi, tx, ty, w);
+          templeField = yield* ZoneCoverage.buildSteps({ field: templeField,
+            poiLayer: layersByName.poi, parks: parkPolys,
+            beachLayer: layersByName.landcover, waterLayer: layersByName.water,
+            tx, ty, N: w, tileEdgeM, grid });
+        }
+        const templeFields = new Map([['0,0', templeField]]);
+        // Buffered source geometry gives a seam footprint the same zone on
+        // both tiles, even when its only overlap is across the boundary.
+        const shiftRings = (rings, dx, dy) => rings.map(ring => ring.map(p =>
+          ({ x: p.x - dx * TILE_EXTENT, y: p.y - dy * TILE_EXTENT })));
+        const shiftLayer = (layer, dx, dy) => layer && ({ ...layer,
+          features: layer.features.map(f => ({ ...f,
+            geom: f.geom && shiftRings(f.geom, dx, dy) })) });
+        for (let i = 0; i < buildingPolys.length; i++) {
+          if ((i & 15) === 0) yield 'temple footprint classification';
+          const candidates = new Map();
+          for (const [x, y] of footprints[i]) {
+            const dx = Math.floor(x / w), dy = Math.floor(y / h);
+            const fieldKey = `${dx},${dy}`;
+            if (!templeFields.has(fieldKey) && typeof Zones !== 'undefined' && typeof ZoneCoverage !== 'undefined') {
+              const poiLayer = shiftLayer(layersByName.poi, dx, dy);
+              let neighbor = yield* Zones.fieldSteps(poiLayer, tx + dx, ty + dy, w);
+              neighbor = yield* ZoneCoverage.buildSteps({ field: neighbor, poiLayer,
+                parks: parkPolys.map(p => ({ ...p, rings: shiftRings(p.rings, dx, dy) })),
+                beachLayer: shiftLayer(layersByName.landcover, dx, dy),
+                waterLayer: shiftLayer(layersByName.water, dx, dy),
+                tx: tx + dx, ty: ty + dy, N: w, tileEdgeM });
+              templeFields.set(fieldKey, neighbor);
+            }
+            const field = templeFields.get(fieldKey);
+            const a = field?.anchors[field.coverage?.[(y - dy * h) * w + x - dx * w] - 1];
+            if (a) candidates.set(String(a.key ?? Zones.anchorKey(a.gx, a.gy)), a);
+          }
+          const key = [...candidates.keys()].sort()[0];
+          if (key) {
+            buildingPolys[i].templeAnchor = candidates.get(key);
+            buildingPolys[i].templeZone = key;
+            buildingPolys[i].tier = T.BUILDING_LARGE;
+          }
+        }
         // Tier floors are enforced AFTER assignment, over the buildings that
         // actually landed on the tile — a building that got no cell at all
         // mustn't consume the tile's one guaranteed castle/fort slot.
-        const _placed = buildingPolys.filter((bp, i) => footprints[i].some(
+        const _placed = buildingPolys.filter((bp, i) => !bp.templeZone && footprints[i].some(
           ([fx, fy]) => fx >= 0 && fy >= 0 && fx < w && fy < h));
         enforceBuildingDistribution(_placed);
         yield 'enforceBuildingDistribution';
@@ -5205,7 +5336,8 @@
           // the same ownerKey after the loop (a house's key is minted further
           // down, past two `continue`s, so it can't be read here).
           bp._ownerId = ownerId;
-          if (bp.tier === T.BUILDING_LARGE) {
+          if (bp.templeZone) templeOwners.add(ownerId);
+          if (bp.tier === T.BUILDING_LARGE && !bp.templeZone) {
             castleSourceRings.push({ ownerId, ring: bp.ring });
             let haloCells = 0;
             for (const [fx, fy] of footprints[_bi]) {
@@ -5246,7 +5378,6 @@
           // Civic / industrial slabs (schools / malls / hospitals) read as a
           // cement pad — a residential house roof on top of one looks wrong,
           // so skip the sprite.
-          if (bp.tier === T.BUILDING_LARGE) continue;
           // No cell on this tile (a building clipped to a sliver at the seam,
           // or one too small to claim anywhere) → no sprite either. The old
           // code fell back to the ring centroid here, which planted a house
@@ -5291,8 +5422,11 @@
           const otx = tx + Math.floor(best[0] / w), oty = ty + Math.floor(best[1] / h);
           const oix = best[0] - Math.floor(best[0] / w) * w;
           const oiy = best[1] - Math.floor(best[1] / h) * h;
+          buildingSeats.set(ownerId, { tx: otx, ty: oty, ix: oix, iy: oiy,
+            x: cellCenterMeters(best[0], best[1]).mx, y: cellCenterMeters(best[0], best[1]).my });
+          if (bp.tier === T.BUILDING_LARGE && !bp.templeZone) continue;
           // Stable id for per-house shop state (deal rate-limit, future ledger).
-          const id = cellId('h', otx, oty, oix, oiy);
+          const id = cellId(bp.templeZone ? 'tp' : 'h', otx, oty, oix, oiy);
           // House / fort cells resolve to the house object's own id — the key
           // save.restoredHouses and save.unlockedForts are stored under — so
           // "is the building under this cell claimed" is one lookup, from
@@ -5306,8 +5440,9 @@
           // tile + cell (→ shop type), so its shop role is the same in every
           // save. Houses whose address ends in 9 become blacksmiths (~10%).
           const address = cellHash(otx, oty, oix, oiy) % 1000;
-          objects.push(makeObject('house', cx, cy, id,
-            { area: bp.areaM2, tier: bp.tier, address }));
+          objects.push(makeObject(bp.templeZone ? 'temple' : 'house', cx, cy, id,
+            { area: bp.areaM2, tier: bp.tier, address,
+              ...(bp.templeZone ? { templeZone: bp.templeZone, templeKind: bp.templeAnchor.kind, templeAnchor: { ...bp.templeAnchor } } : {}) }));
         }
         yield 'building paint (all footprints)';
         // Export the SOURCE rings for the polygonal footprint overlay. Done
@@ -5323,6 +5458,7 @@
           buildingShapes.push({
             ring,
             tier: bp.tier,
+            ...(bp.templeZone ? { kind: 'temple', templeZone: bp.templeZone, templeKind: bp.templeAnchor.kind } : {}),
             areaM2: bp.areaM2,
             key: (bp._ownerId && ownerKeys[bp._ownerId]) || null,
           });
@@ -5498,7 +5634,7 @@
       // by virtue of OSM data and never something the player wades into a
       // back yard for. Keep them exempt from the residential proximity
       // check below.
-      const _mrSkipKind = (k) => isBuilding(k);
+      const _mrSkipKind = (k) => isBuilding(k) || k === 'temple';
       // POI chests are real-world destinations and count as public anchors for
       // the shared isSpawnCell rule below. Snapshot their cell coords now,
       // before we start splicing `objects`.
@@ -5519,10 +5655,10 @@
         const { ix, iy } = paintCellOf(o.x, o.y);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) return false;   // off-tile objects belong to a neighbour pass
         const here = ground[iy * w + ix];
-        // Quiet land hosts nothing at all — not even a POI chest (a café on
-        // railway land, a kiosk on a base): the mask's whole promise is that
+        // Quiet land, private grounds and unverified piers host nothing — not even a POI chest
+        // (a farm shop or kiosk): the mask's whole promise is that
         // nothing there asks to be walked to.
-        if (quietMask[iy * w + ix]) return true;
+        if (quietMask[iy * w + ix] || (spawnWhy[iy * w + ix] & (W_.FARMLAND | W_.GOLF | W_.PIER_ACCESS))) return true;
         // Blanket cull: nothing but a POI chest may sit on a road tier or a
         // building footprint. A chest is a real-world destination deliberately
         // placed at its coordinates — and a POI inside a building is allowed
@@ -5654,7 +5790,8 @@
     // clipping edge cannot manufacture corners or an interior row of towers.
     const castleOwnerAt = (x, y) => {
       if (x >= 0 && y >= 0 && x < w && y < h) {
-        return grid[y * w + x] === T.BUILDING_LARGE ? owners[y * w + x] : null;
+        const owner = owners[y * w + x];
+        return grid[y * w + x] === T.BUILDING_LARGE && !templeOwners.has(owner) ? owner : null;
       }
       const key = `${x}_${y}`;
       if (castleHalo.has(key)) return castleHalo.get(key);
@@ -5708,7 +5845,7 @@
     //    of a contested cell must be fixed by data, not array order — JS sort
     //    stability isn't guaranteed across engines, and an arbitrary tie-break
     //    would let the same seed resolve a collision differently between reloads.
-    const STRUCT_PRIO = { chest: 6, house: 5, tower: 5, infoboard: 5, gatepost: 5, fruittree: 4, tree: 3, mineralrock: 2 };
+    const STRUCT_PRIO = { temple: 7, chest: 6, house: 5, tower: 5, infoboard: 5, gatepost: 5, fruittree: 4, tree: 3, mineralrock: 2 };
     const structs = objects.filter(o => STRUCT_PRIO[o.kind] != null);
     structs.sort((a, b) => {
       const dp = (STRUCT_PRIO[b.kind] || 0) - (STRUCT_PRIO[a.kind] || 0);
@@ -5722,7 +5859,7 @@
       const ai = String(a.id ?? ''), bi = String(b.id ?? '');
       return ai < bi ? -1 : ai > bi ? 1 : 0;
     });
-    const keptStructs = [];
+    const keptStructs = [], sampledRockCells = new Set();
     yield 'structure sort';
     let structI = 0;
     for (const o of structs) {
@@ -5730,6 +5867,25 @@
       structI++;
       const k = cellKeyOfWorld(o.x, o.y);
       if (occupiedCells.has(k)) continue;
+      // Thin ordinary rubble by cell after its usual collision winner is
+      // known. Never reroll a rejected seat with another overlapping rock.
+      const pos = cellOfWorldM(o.x, o.y);
+      const biome = grid[pos.iy * w + pos.ix];
+      const tuning = BiomeProfiles.staticObjects(biome);
+      if (o.kind === 'mineralrock') {
+        if (tuning.noRocks || (biome === T.FOREST && o.caveVariant == null && o.yieldTier === 6)) continue;
+        if (tuning.plainRockFrame != null && (o.caveVariant != null || (o.yieldTier || 1) <= 1)) {
+          o._zoneObjectFrame = tuning.plainRockFrame;
+          o.rockVariant = tuning.plainRockVariant; // one pictured shell-covered stone pays one stone
+        }
+      }
+      if (o.kind === 'mineralrock' && !o._street && tuning.rockPlainKeep != null) {
+        if (sampledRockCells.has(k)) continue;
+        sampledRockCells.add(k);
+        const plain = o.caveVariant != null || (o.yieldTier || 1) <= 1;
+        const keep = plain ? tuning.rockPlainKeep : tuning.rockOreKeep;
+        if (((cellHash(tx, ty, pos.ix, pos.iy) ^ 0x4b34a) >>> 0) / 4294967296 >= keep) continue;
+      }
       occupiedCells.add(k);
       // Stamp the cell's terrain so the renderer can apply a per-biome tint to
       // primary interactables (e.g. rusty mineralrock on industrial lots).
@@ -5782,6 +5938,21 @@
         delete wp._ix; delete wp._iy; delete wp._yard;
         filtered.push(wp);
       }
+    }
+
+    // Public industrial salvage, independently seeded on empty ground.
+    // These are ordinary ambient barrels; street/nexus replacement removes
+    // them together with rubble, and private land never gains a POI anchor.
+    for (let i = 0; i < grid.length; i++) {
+      if ((i & 1023) === 0) yield 'industrial salvage';
+      const density = BiomeProfiles.staticObjects(grid[i]).barrelDensity;
+      if (!density) continue;
+      const ix = i % w, iy = Math.floor(i / w), key = `${ix}_${iy}`;
+      if (occupiedCells.has(key) || makeRng((cellHash(tx,ty,ix,iy) ^ 0x5a17a9e) >>> 0)() >= density) continue;
+      if (!isSpawnCell(grid,w,h,ix,iy,{roadMask,spawnWhy},'minor') || poiPadCells.has(i)) continue;
+      const {mx:x,my:y} = cellCenterMeters(ix,iy);
+      keptStructs.push(makeObject('chest',x,y,cellId('ibarrel',tx,ty,ix,iy),{barrel:true,_biome:grid[i]}));
+      occupiedCells.add(key);
     }
 
     // Rebuild objects = kept structures (preserve everything else
@@ -5908,6 +6079,13 @@
     // Capture after ordinary dedupe, before either street or zone replacement.
     const caveSource = { grid: grid.slice(), objects: deduped.slice(),
       wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
+    // Surface shrines change POI kind, theme and sometimes position in place.
+    // A slice alone would let those mutations rewrite the cave snapshot.
+    for (let i = 0; i < caveSource.objects.length; i++) {
+      if ((i & 255) === 0) yield 'cave source objects';
+      const { templeAnchor, templeZone, templeKind, ...physical } = caveSource.objects[i];
+      caveSource.objects[i] = physical;
+    }
     const ownStreetLines = hasStreetArea
       ? new Set(streetIndex.lines.filter(r => r.variant).map(r => r.lineKey)) : null;
     if (hasStreetArea) yield* clearStreetAmbientSteps({ area: streetArea, objects: deduped,
@@ -5960,6 +6138,45 @@
         field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
         tx, ty, N: w, grid, tileEdgeM, roadMask, spawnWhy });
     }
+    // Quarries have building-shaped holes in their walkable layout. Their
+    // logical source footprint still owns those buildings: convert the whole
+    // owner block and remove every ordinary roof/turret before it can spawn.
+    if (zone?.buildingCoverage) {
+      const converted = new Map(), oldKeys = new Set();
+      for (let i = 0; i < owners.length; i++) {
+        if ((i & 511) === 0) yield 'quarry temple ownership';
+        const owner = owners[i], slot = zone.buildingCoverage[i];
+        if (!owner || !slot || templeOwners.has(owner) || converted.has(owner)) continue;
+        const anchor = zone.anchors[slot - 1], seat = buildingSeats.get(owner);
+        if (!anchor || !seat) continue;
+        const oldKey = ownerKeys[owner], id = cellId('tp', seat.tx, seat.ty, seat.ix, seat.iy);
+        const templeZone = String(anchor.key);
+        converted.set(owner, { anchor, id, templeZone });
+        oldKeys.add(oldKey);
+        ownerKeys[owner] = id;
+        templeOwners.add(owner);
+        for (const shape of buildingShapes) if (shape.key === oldKey) {
+          shape.kind = 'temple'; shape.tier = T.BUILDING_LARGE;
+          shape.key = id; shape.templeZone = templeZone; shape.templeKind = anchor.kind;
+        }
+        if (seat.tx === tx && seat.ty === ty) deduped.push(makeObject('temple', seat.x, seat.y, id,
+          { tier: T.BUILDING_LARGE, templeZone, templeKind: anchor.kind, templeAnchor: { ...anchor } }));
+      }
+      if (converted.size) {
+        for (let i = 0; i < owners.length; i++) if (converted.has(owners[i])) grid[i] = T.BUILDING_LARGE;
+        let kept = 0;
+        for (const o of deduped) {
+          if ((o.kind === 'house' && oldKeys.has(o.id)) || (o.kind === 'tower' && oldKeys.has(o.castle))) continue;
+          deduped[kept++] = o;
+        }
+        deduped.length = kept;
+      }
+    }
+    if (zone) for (const o of deduped) {
+      if (o.kind !== 'temple') continue;
+      const anchor = zone.anchors.find(a => String(a.key ?? Zones.anchorKey(a.gx, a.gy)) === o.templeZone);
+      if (anchor) o.templeAnchor = { ...anchor };
+    }
     if (streetIndex && typeof StreetVariants.applyAffinitiesSteps === 'function') {
       // Geography changes the selected theme, never whether the corridor is
       // special. Its area and bandit mask are therefore already final. Keep
@@ -5974,8 +6191,10 @@
         })),
       });
       const finalRockLines = new Set(streetIndex.lines.filter(r => r.rocks).map(r => r.lineKey));
-      const added = streetIndex.lines.filter(r => r.rocks && !oldRockLines.has(r.lineKey));
+      // Rebuild bare surface streets after capturing the unchanged cave source.
+      const added = streetIndex.lines.filter(r => r.rocks && (!oldRockLines.has(r.lineKey) || r.variant == null));
       const removed = new Set([...oldRockLines].filter(key => !finalRockLines.has(key)));
+      for (const rec of added) removed.add(rec.lineKey);
       if (removed.size) {
         let keep = 0;
         for (let i = 0; i < deduped.length; i++) {
@@ -6047,7 +6266,7 @@
     const temporaryLampCells = [...lampReservations].filter(cell => !dressOcc.has(cell));
     for (const cell of temporaryLampCells) dressOcc.add(cell);
     if (scenic) {
-      scenicDress = yield* Scenic.dressSteps({ scenic, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+      scenicDress = yield* Scenic.dressSteps({ scenic, zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
     if (streetIndex && typeof StreetVariants !== 'undefined') {
@@ -6077,13 +6296,17 @@
       yield* ReefLayout.dressSteps({ field: zone, zoneDress, tx, ty, N: w, tileEdgeM, grid,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
+    // Hives are basic forest props; every nexus reserves its entire coverage.
+    deduped.push(...spawnForestHives(grid, w, h, tx, ty, tileEdgeM,
+      { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc,
+        pois: dressPois, zoneCoverage: zone?.coverage }));
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);
     const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM,
       spawnOpts: { roadMask, spawnWhy, roadClass, occupied: new Set([...dressOcc, ...lampReservations]), pois: dressPois } });
-    return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain || streetIndex?.lines.some(r => r.rocks && r.variant == null) ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -6634,7 +6857,7 @@
     // lost to set dressing ("I never see chests at POIs"). Evict the
     // scenery instead; only another chest or a structure (house / tower /
     // staircase) genuinely blocks the cell.
-    const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'tower', 'staircase']);
+    const SX_CHEST_BLOCKERS = new Set(['chest', 'house', 'temple', 'tower', 'staircase']);
     //
     // O(n) BY CONSTRUCTION — this post-rasterize path has no slicer (see
     // CLAUDE.md, "A tile build stutters on its WORST BLOCK"). The blocker
@@ -6707,7 +6930,7 @@
     const detectedTree = t => t._treeSource === 'deepforest' ||
       (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
     const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
-      !['chest', 'grove_shrine', 'house', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
+      !['chest', 'grove_shrine', 'house', 'temple', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
       !!(o._street || o.zoneVariant || o._scenic);
     const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set();
     const objectCells = o => {
@@ -7666,10 +7889,11 @@
   // Uniformly random CAVE_FLOOR cell on the tile, excluding `skipIdx` (so a
   // down-stair never lands on the up-stair it descends from). Deterministic via
   // the supplied rng. Returns its world centre, or null if there's no floor.
-  function randomFloorCell(grid, N, tx, ty, tileEdgeM, rng, skipIdx) {
+  function randomFloorCell(grid, N, tx, ty, tileEdgeM, rng, skipIdx, spawnWhy) {
     const floors = [];
     for (let i = 0; i < grid.length; i++) {
-      if (grid[i] === T.CAVE_FLOOR && i !== skipIdx) floors.push(i);
+      if (grid[i] === T.CAVE_FLOOR && i !== skipIdx
+          && isSpawnCell(grid, N, N, i % N, Math.floor(i / N), { spawnWhy }, 'cave')) floors.push(i);
     }
     if (!floors.length) return null;
     const idx = floors[Math.floor(rng() * floors.length)];
@@ -8343,6 +8567,38 @@
     }
   }
 
+  // Ten daily drill shrines per cave tile, sampled without replacement from
+  // free floor after other dressing. Its own stream keeps existing finds stable.
+  function caveDrillShrines(objects, grid, N, tx, ty, tileEdgeM, depth, occupied, lanes) {
+    const rng = makeRng(tileStreamSeed(tx, ty, 0xD4115A7E, depth));
+    const count = global.Shrines?.SHRINE_KINDS.drill?.perTile ?? 10;
+    const reserved = new Set(lanes || []), seats = [];
+    for (const o of objects) if (o.kind === 'staircase') {
+      const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const x = lix + dx, y = liy + dy;
+        if (x >= 0 && x < N && y >= 0 && y < N) reserved.add(y * N + x);
+      }
+    }
+    let seen = 0;
+    for (let i = 0; i < grid.length; i++) {
+      if (grid[i] !== T.CAVE_FLOOR || occupied.has(i) || reserved.has(i)) continue;
+      seen++;
+      if (seats.length < count) seats.push(i);
+      else {
+        const j = Math.floor(rng() * seen);
+        if (j < count) seats[j] = i;
+      }
+    }
+    for (const i of seats.sort((a, b) => a - b)) {
+      const lix = i % N, liy = Math.floor(i / N);
+      const { x, y } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+      occupied.add(i);
+      objects.push(makeObject('grove_shrine', x, y, cellId(`cdrill_${depth}`, tx, ty, lix, liy),
+        { shrineKind: 'drill', depth }));
+    }
+  }
+
   // The dungeon level whose rock under the town's BUILDINGS is lava (T.CAVE_LAVA).
   // Only this level: the one above and every one below keep plain rock there.
   const LAVA_DEPTH = 5;
@@ -8358,7 +8614,10 @@
     // into it for this one player (the home up-stair, the starter ladder, dug
     // walls, a well's repaint). A live read made the cave under a tile depend
     // on who descended into it and when.
-    const aboveGrid = above.baseGrid || above.grid;
+    const surface = depth === 1 ? above : await loadTile.atDepth(0, x, y, lat);
+    if (surface.status === 'loading') await surface.promise;
+    const spawnWhy = floorSpawnWhy(surface);
+    const aboveGrid = above.geologyGrid || above.baseGrid || above.grid;
     const aboveObjects = above.genObjects || above.objects || [];
     const grid = new Uint8Array(N * N);
     // Lava overhead is ROCK to the level below: walkable as it is, reading it
@@ -8395,6 +8654,7 @@
     for (const s of downAbove) {
       const { lix: ulix, liy: uliy } = cellIndexOf(x, y, s.x, s.y, tileEdgeM, N);
       const inTile = ulix >= 0 && ulix < N && uliy >= 0 && uliy < N;
+      if (!inTile || spawnWhy[uliy * N + ulix]) continue;
       // Way back up: stand on it the moment you descend.
       objects.push(makeObject('staircase', s.x, s.y, caveStairId('up', depth, x, y, ulix, uliy),
         { dir: 'up', depth }));
@@ -8404,15 +8664,24 @@
       // and across saves (the old seed was the stair's frame metres).
       const skipIdx = inTile ? uliy * N + ulix : -1;
       const dnRng = makeRng((cellHash(x, y, ulix, uliy) ^ Math.imul(depth, 0x9E3779B1)) >>> 0);
-      const dn = randomFloorCell(grid, N, x, y, tileEdgeM, dnRng, skipIdx);
+      const dn = randomFloorCell(grid, N, x, y, tileEdgeM, dnRng, skipIdx, spawnWhy);
       if (dn) {
         objects.push(makeObject('staircase', dn.x, dn.y, caveStairId('down', depth, x, y, dn.lix, dn.liy),
           { dir: 'down', depth }));
       }
     }
+    // Keep shallow street carving out of the geology inherited by deeper floors.
+    // Read immutable surface metadata even when arriving directly at level two.
+    const geologyGrid = grid.slice();
+    let underground = null;
+    if (depth <= 2 && global.Underground) {
+      underground = global.Underground.project(surface, grid, N, x, y, tileEdgeM, depth);
+    }
     // Fill the level with rock clusters, keeping the staircase cells clear so a
     // stair never spawns buried under a rock sprite.
     const occupied = new Set();
+    // Geographic exclusions reserve every placement pass without changing terrain.
+    for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i]) occupied.add(i);
     for (const o of objects) {
       const { lix, liy } = cellIndexOf(x, y, o.x, o.y, tileEdgeM, N);
       if (lix >= 0 && lix < N && liy >= 0 && liy < N) occupied.add(liy * N + lix);
@@ -8444,8 +8713,10 @@
     const extraTreasures = caveTreasureMarks(grid, N, x, y, tileEdgeM, depth, occupied);
     caveFloorTorches(objects, grid, N, x, y, tileEdgeM, depth, wildplants, occupied);
     caveBarrels(objects, grid, N, x, y, tileEdgeM, depth, occupied);
+    if (underground) global.Underground.decorate(underground, grid, objects, wildplants, occupied);
+    caveDrillShrines(objects, grid, N, x, y, tileEdgeM, depth, occupied, underground?.lane);
     const entry = {
-      status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
+      status: 'ready', grid, spawnWhy, geologyGrid, underground, cellsPerEdge: N, tileEdgeM, depth,
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
       roadLabels: {}, pathUnder: {}, torchSites,
       // The generated layer, frozen for the level below (see loadTile): app.js
@@ -8627,9 +8898,9 @@
     hedgeMazeCell, hedgeMazePotCell, HEDGE_LATTICE_P,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
-    SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
+    SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_ALL_FLOORS, floorSpawnWhy, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
     SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, spawnClassOf,
-    landRefused, stampSpawnWhySteps, isPrivateWay, churchyardBufferM, SPAWN_FRONTAGE,
+    landRefused, stampSpawnWhySteps, isPrivateWay, isPublicPier, churchyardBufferM, SPAWN_FRONTAGE,
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
@@ -8715,7 +8986,7 @@
     // sandbox.js as well as this file — one shape per stream, reachable from
     // all of them.
     makeWildplant, makeCreature, makeObject,
-    spawnParkPlants, PARK_PLANT_CELL_CHANCE, clearZoneAmbientSteps,
+    spawnParkPlants, PARK_PLANT_CELL_CHANCE, spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
     clearStreetAmbientSteps, variantOwnerAt, getTileBin,
   };
 })(window);

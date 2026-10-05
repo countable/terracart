@@ -3,16 +3,18 @@
   const K = Shrines.SHRINE_KINDS;
   const T0 = 1_700_000_000_000;
 
-  test('shrines: ten kinds, one frame each on the sheet, lit and seated', () => {
-    assert.eq(Shrines.KIND_IDS.length, 10);
-    const frames = Shrines.KIND_IDS.map(id => K[id].frame);
+  test('shrines: sheet idols and the drill share boon and light definitions', () => {
+    assert.eq(Shrines.KIND_IDS.length, 11);
+    const frames = Shrines.KIND_IDS.filter(id => K[id].frame != null).map(id => K[id].frame);
     assert.eq(new Set(frames).size, frames.length, 'one frame per kind');
     assert.eq(JSON.stringify([...frames].sort((a, b) => a - b)), JSON.stringify(SpriteLayout.SHRINE_KIND_ART.frames),
       'the sheet lists exactly the table\'s frames');
     for (const id of Shrines.KIND_IDS) {
       const art = SpriteLayout.groveShrineArt({ id: 'x', kind: 'grove_shrine', shrineKind: id });
-      assert.eq(art.key, SpriteLayout.SHRINE_KIND_ART.key, id);
-      assert.eq(art.frame, K[id].frame, id);
+      if (K[id].frame != null) {
+        assert.eq(art.key, SpriteLayout.SHRINE_KIND_ART.key, id);
+        assert.eq(art.frame, K[id].frame, id);
+      }
       assert.truthy(SpriteLayout.ART_BOUNDS[`${art.key}:${art.frame}`], `${id}: ART_BOUNDS`);
       assert.eq(Lighting.sourceKind({}, { kind: 'grove_shrine', shrineKind: id }), 'shrine_' + id);
       assert.eq(Lighting.KINDS['shrine_' + id].colour, K[id].light, `${id}: light colour from the table`);
@@ -28,7 +30,7 @@
     const zones = new Set(ZoneVariants.rows.map(r => r.id));
     const seenZ = new Set(), seenS = new Set();
     for (const id of Shrines.KIND_IDS) {
-      assert.gt(K[id].zones.length + K[id].streets.length, 0, `${id} stands somewhere`);
+      assert.gt(K[id].zones.length + K[id].streets.length + (K[id].perTile || 0), 0, `${id} stands somewhere`);
       for (const z of K[id].zones) {
         assert.truthy(zones.has(z), `${id}: zone variant ${z} exists`);
         assert.falsy(seenZ.has(z), `${z} has one kind`); seenZ.add(z);
@@ -42,7 +44,7 @@
         assert.eq(Shrines.kindForStreet(s), id);
       }
     }
-    assert.eq(Shrines.kindForZoneVariant('pirate_cove'), null, 'the wreck keeps its gift');
+    assert.eq(Shrines.kindForZoneVariant('pirate_cove'), null, 'the wreck hires a pirate instead of granting a boon');
   });
 
   test('shrines: copy fits the map and hints without numbers', () => {

@@ -27,3 +27,5 @@ asset records declare `unclaimedArt` to prevent a second runtime wash. Separate
 context sprites are selected by the game only in their declared zones. Moss
 stone retains the four quantity silhouettes, adding four moss-detail pixels
 immediately inside each contour without changing its alpha or reward mapping.
+
+`bone_pile.png` is the unchanged accepted 16×16 Verdant props bone-pile sprite, copied from `docs/proposal-art/bone_pile.png` for the cave bone cache. Source: `unused_art/verdant-props-tileset-16x16/tiles/16x16/bone_pile.png`; archive license provenance is recorded in `docs/basic-zone-signatures.json`.

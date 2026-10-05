@@ -4,16 +4,16 @@
   const variants = [
     { id: 'citadel', name: 'Citadel', floor: 0xaaa7a4,
       stone: { LITE: 0xc4c0bb, BODY: 0x999795, FACE: 0x858487, SIDE: 0x797a80, SHADOW: 0x5b5d67, DARK: 0x393d49 },
-      rampart: { merlons: 4, toothWidth: 4, toothHeight: 4, wallHeight: 8 } },
+      rampart: { merlons: 4, toothWidth: 4, toothHeight: 4, wallHeight: 12 } },
     { id: 'ruin', name: 'Weathered Ruin', floor: 0xa6a087,
       stone: { LITE: 0xbdb9a4, BODY: 0x959a85, FACE: 0x858c79, SIDE: 0x747e6c, SHADOW: 0x596957, DARK: 0x384b3f },
-      rampart: { merlons: 4, toothWidth: 4, toothHeight: 3, wallHeight: 7, broken: true } },
+      rampart: { merlons: 4, toothWidth: 4, toothHeight: 3, wallHeight: 11, broken: true } },
     { id: 'bastion', name: 'Intact Bastion', guards: false, floor: 0xc3b597,
       stone: { LITE: 0xd4cbb7, BODY: 0xb7aa91, FACE: 0xa2977f, SIDE: 0x968b77, SHADOW: 0x756d5d, DARK: 0x4f4a41 },
-      rampart: { merlons: 4, toothWidth: 5, toothHeight: 4, wallHeight: 8 } },
+      rampart: { merlons: 4, toothWidth: 5, toothHeight: 4, wallHeight: 12 } },
     { id: 'archive', name: 'Old Archive Court', floor: 0xb3a88c,
       stone: { LITE: 0xc6bca5, BODY: 0xa49c88, FACE: 0x928b7b, SIDE: 0x827e72, SHADOW: 0x656559, DARK: 0x444a43 },
-      rampart: { merlons: 4, toothWidth: 4, toothHeight: 3, wallHeight: 8, woodTop: true } },
+      rampart: { merlons: 4, toothWidth: 4, toothHeight: 3, wallHeight: 12, woodTop: true } },
   ];
   const wood = { LITE: 0xc2a16b, BODY: 0x967549, FACE: 0x80613e, SHADOW: 0x624e37, DARK: 0x423b2d };
   const ids = variants.map(v => v.id);

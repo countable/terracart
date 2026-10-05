@@ -1,0 +1,129 @@
+{
+  "status": "art draft; not integrated into gameplay",
+  "projection": "Square-grid placement; south-facing angled artwork; wall retains visible upright height",
+  "ball": {
+    "image": "ball.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "columns": 8,
+    "anchor": [
+      12,
+      12
+    ],
+    "directions": {
+      "north": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "northeast": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "east": [
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "southeast": [
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "south": [
+        0,
+        7,
+        6,
+        5,
+        4,
+        3,
+        2,
+        1
+      ],
+      "southwest": [
+        8,
+        15,
+        14,
+        13,
+        12,
+        11,
+        10,
+        9
+      ],
+      "west": [
+        16,
+        23,
+        22,
+        21,
+        20,
+        19,
+        18,
+        17
+      ],
+      "northwest": [
+        24,
+        31,
+        30,
+        29,
+        28,
+        27,
+        26,
+        25
+      ]
+    },
+    "radiusPixels": 10,
+    "rolling": "Advance phase by traveled distance / (2 * PI * displayed radius); choose one of eight screen directions. Opposite directions reverse the same frames. Stop phase advancement when stopped.",
+    "surface": "Smooth iron silhouette; surface seams and uneven contrasting patches move while world lighting remains fixed"
+  },
+  "wall": {
+    "image": "spike-wall.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "columns": 2,
+    "directions": {
+      "north": [
+        0
+      ],
+      "east": [
+        1
+      ],
+      "south": [
+        2
+      ],
+      "west": [
+        3
+      ]
+    },
+    "anchor": [
+      12,
+      12
+    ],
+    "motion": "Translate a fixed facing sprite forward and backward across a square cell."
+  },
+  "generation": {
+    "tool": "Built-in imagegen",
+    "prompts": "prompts.json",
+    "export": "Nearest-neighbor sprite extraction; ball uses a shared scale and fixed centers; complete wall silhouettes packed in 24x24 frames"
+  }
+}

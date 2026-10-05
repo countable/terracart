@@ -826,6 +826,17 @@ test('creature: a tap on the tile BELOW the foot does NOT grab the creature', ()
     'tap well below the animal falls through to the cell handler');
 });
 
+test('creature: touch padding accepts near misses for animals, NPCs and enemies', () => {
+  for (const [kind, halfW] of [['chicken', 1.5], ['npc', 1.8], ['slime', 2]]) {
+    const span = SpriteLayout.creatureTapSpanPx(kind);
+    const cy = (span.top + span.bottom) / 2 * 7 / 32;
+    assert.eq(runCreatureTap(kind, { x: halfW + 0.7, y: cy }, false), 'far');
+    assert.eq(runCreatureTap(kind, { x: halfW + 1, y: cy }, false), false);
+    assert.eq(runCreatureTap(kind, { x: 0, y: span.top * 7 / 32 - 0.7 }, false), 'far');
+    assert.eq(runCreatureTap(kind, { x: 0, y: span.bottom * 7 / 32 + 1 }, false), 'far');
+  }
+});
+
 test('creature: a tap two cells to the side finds nothing (false)', () => {
   assert.eq(runCreatureTap('chicken', { x: 14, y: 0 }, false), false,
     'far-side tap does not grab the creature');
@@ -876,8 +887,8 @@ test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   // creature table's `game` row, read through SpriteLayout.isGame — beside
   // what a kill of that kind drops (app.js resolveDefeat), so the two halves
   // of "crow and deer are hunted" cannot name different kinds.
-  const hunt = src.slice(src.indexOf("if (!isTame && SpriteLayout.isGame(target.kind)) {"),
-                         src.indexOf('// Catchable animals'));
+  const huntStart = src.indexOf("if (!isTame && SpriteLayout.isGame(target.kind)) {");
+  const hunt = src.slice(huntStart, src.indexOf('// Catchable animals', huntStart));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
   assert.eq(Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k)).join(),
     'deer,crow', 'and the table still calls exactly the crow and the deer game');
