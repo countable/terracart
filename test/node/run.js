@@ -207,6 +207,7 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
 // declarations (right-hand side as written: one is derived, some are tables),
 // in declaration order so a derived one sees what it derives from.
 ctx.STARTER_JS_SRC = readSrc('starter.js');
+ctx.TEMPLES_SRC = readSrc('temples.js');
 ctx.CREATURE_AI_SRC = readSrc('creature_ai.js');
 {
   // The creature-AI consts and helpers moved to creature_ai.js; look in both.

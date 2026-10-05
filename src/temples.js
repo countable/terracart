@@ -115,6 +115,12 @@
       }
     }
     return { active: false, ready: remaining.size === 0, remaining: remaining.size,
+      // AUTHORED is the proof half of `ready`: this census actually saw the
+      // park's authored foes and found every one defeated. Zero authored
+      // means they are hidden from this player (the quiet-home hold, the
+      // starter safe ring) or their lairs are derelict on this difficulty —
+      // never a clear, so a stale hadEnemies stamp must not awaken alone.
+      authored: authored.size,
       hadEnemies: authored.size > 0 || !!save.temples?.[key]?.hadEnemies,
       reason: remaining.size ? `Defeat the park's remaining enemies (${remaining.size}) to awaken the temple.` : null };
   }
@@ -231,7 +237,11 @@
       if (state.hadEnemies) {
         const record = (scene.save.temples ||= {})[key] ||= {};
         if (!record.hadEnemies) { record.hadEnemies = true; persistSave(scene.save); }
-        if (state.ready && activate(scene, o)) return; // one story at a time
+        // Hidden is not defeated: awaken only when this census SAW the
+        // authored foes and found them all defeated (authored > 0). A stamp
+        // from an earlier pass with nothing visible now waits, instead of
+        // telling an enemies-defeated story nobody earned.
+        if (state.ready && state.authored > 0 && activate(scene, o)) return; // one story at a time
       } else if (state.ready) root.HiddenObjects?.ensureSpirit(scene, o, state);
       return;
     }
