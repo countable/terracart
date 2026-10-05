@@ -772,7 +772,11 @@
     const paint = overlayPaintFrame(scene, frame, previous, claimEpoch(scene));
     let offset = paint;
     if (paint.rebuild) {
-      if (claimOverlayRebuild(scene, 'building')) {
+      // Null = the retained paint cannot follow the anchor (a teleport
+      // outran its pad): spend this update's upload rather than show stale
+      // geometry for a frame.
+      const retained = retainedOverlayOffset(scene, previous, frame);
+      if (claimOverlayRebuild(scene, 'building', !retained)) {
         scene._buildingGeomFrame = paint;
         scene._buildingGeomKey = paint.key;
         scene._buildingGeomPainted = true;
@@ -782,7 +786,7 @@
         // Road used this update's one canvas upload. Keep both the retained
         // footprint canvas and its upright sprites seated from their old
         // anchor; this module rebuilds from latest claims/tiles next frame.
-        offset = retainedOverlayOffset(scene, previous, frame);
+        offset = retained;
       }
     }
     if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);

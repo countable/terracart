@@ -2994,8 +2994,10 @@ Render.drawObjects = function drawObjects(scene) {
   };
   const pc = scene.playerToWorldCell();
   // Counted inline rather than derived after the loop (one increment per item).
-  // _boot_scanned is every object/creature/wildplant/trap the walk touches across
-  // the 3×3 tiles; _boot_kept is how many survived culling. Objects and wildplants
+  // _boot_scanned is every object/wildplant/trap the walk touches across the
+  // 3×3 tiles plus every creature the pass considers — in the live game the
+  // sim bubble's few dozen seats, the whole ring only for standalone callers;
+  // _boot_kept is how many survived culling. Objects and wildplants
   // come off WorldGen.forEachItemInBox (the per-tile chunk index).
   // THREE BOXES, one per kind of reach, so no walk opens chunks for a reason
   // it does not have:

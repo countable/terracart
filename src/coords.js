@@ -544,16 +544,18 @@ function overlayPaintFrame(scene, frame, previous, revision) {
 // exhaust the same pad together and used to put both uploads on one frame.
 // app.js advances `_overlayFrameSeq` once before drawing either overlay; the
 // first claimant owns that update and the other recomputes from latest state on
-// the next one. Direct/headless calls have no sequence and preserve the modules'
-// standalone synchronous contract.
-function claimOverlayRebuild(scene, owner) {
+// the next one. `force` spends a shared update anyway — only a teleport hands
+// it in (retainedOverlayOffset returned null), where the alternative is a
+// frame of blank world. Direct/headless calls have no sequence and preserve
+// the modules' standalone synchronous contract.
+function claimOverlayRebuild(scene, owner, force) {
   const seq = scene && scene._overlayFrameSeq;
   if (!Number.isFinite(seq)) return true;
   if (scene._overlayRebuildSeq !== seq) {
     scene._overlayRebuildSeq = seq;
     scene._overlayRebuildOwner = null;
   }
-  if (scene._overlayRebuildOwner) return false;
+  if (scene._overlayRebuildOwner && !force) return false;
   scene._overlayRebuildOwner = owner;
   return true;
 }
@@ -562,13 +564,17 @@ function claimOverlayRebuild(scene, owner) {
 // normal 1.5-cell repaint threshold inside a two-cell pad. Scroll that retained
 // paint from its own snapped anchor for the one waiting frame. Using the new
 // frame's fractional offset here would jump old geometry onto the new anchor.
+// A TELEPORT (SPACE/T demo jump, a save preset) breaks that picture: the anchor
+// lands whole tiles away and the retained paint covers only its pad, so seating
+// it would blank the screen behind stale geometry. Hand back null and let the
+// caller force this update's rebuild instead of deferring.
 function retainedOverlayOffset(scene, previous, frame) {
   if (!previous) return { fracX: frame.fracX, fracY: frame.fracY };
   const anchor = viewAnchorWorldM(scene);
-  return {
-    fracX: (anchor.x - previous.x) / scene.cellM,
-    fracY: (anchor.y - previous.y) / scene.cellM,
-  };
+  const fracX = (anchor.x - previous.x) / scene.cellM;
+  const fracY = (anchor.y - previous.y) / scene.cellM;
+  if (Math.abs(fracX) > 2 || Math.abs(fracY) > 2) return null;
+  return { fracX, fracY };
 }
 
 // One overlay rebuild, ticked into the boot profiler under `label` when the

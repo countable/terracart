@@ -1378,7 +1378,11 @@
     const paint = overlayPaintFrame(scene, frame, previous, epoch);
     let offset = paint;
     if (paint.rebuild) {
-      if (claimOverlayRebuild(scene, 'road')) {
+      // Null = the retained paint cannot follow the anchor (a teleport
+      // outran its pad): spend this update's upload rather than show stale
+      // geometry for a frame.
+      const retained = retainedOverlayOffset(scene, previous, frame);
+      if (claimOverlayRebuild(scene, 'road', !retained)) {
         scene._roadGeomFrame = paint;
         scene._roadGeomKey = paint.key;
         timedOverlayRebuild('road overlay rebuild',
@@ -1387,7 +1391,7 @@
         // Another overlay took this update's upload. Keep this padded road
         // paint aligned from ITS old anchor; next frame recomputes the newest
         // tiles/epoch rather than replaying a stale queued closure.
-        offset = retainedOverlayOffset(scene, previous, frame);
+        offset = retained;
       }
     }
     if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
