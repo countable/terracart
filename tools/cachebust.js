@@ -58,12 +58,15 @@ function versioned(url) {
   return `${file}?v=${hashOf(file)}`;
 }
 
-// index.html with every script URL rewritten to its content hash. Covers both
-// the plain <script src> tags and app.js, which the boot gate injects from the
-// APP_SRC string rather than a tag — the same two places sw.js reads.
+// index.html with every script URL rewritten to its content hash. Covers the
+// plain <script src> tags, the high-priority script preloads, and app.js, which
+// the boot gate injects from APP_SRC rather than a tag. One versioner keeps a
+// preload and the later request on the same cache key.
 function expectedIndex(html = readFile(INDEX)) {
   return html
     .replace(/(<script[^>]+src=["'])([^"']+)(["'])/g,
+      (_, a, url, b) => a + versioned(url) + b)
+    .replace(/(<link(?=[^>]*\brel=["']preload["'])(?=[^>]*\bas=["']script["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
       (_, a, url, b) => a + versioned(url) + b)
     .replace(/(APP_SRC\s*=\s*['"])([^'"]+)(['"])/,
       (_, a, url, b) => a + versioned(url) + b);
@@ -76,6 +79,17 @@ function scriptUrls(html = expectedIndex()) {
   const app = html.match(/APP_SRC\s*=\s*['"]([^'"]+)['"]/);
   if (app) urls.push(app[1]);
   return urls.filter(isOwn);
+}
+
+// Script preloads are fetch hints rather than execution requests, so they stay
+// out of the worker's ordered shell list. They still use the same version rule:
+// a stale hint downloads bytes the later script URL cannot reuse.
+function scriptPreloadUrls(html = expectedIndex()) {
+  const urls = [];
+  for (const m of html.matchAll(/<link(?=[^>]*\brel=["']preload["'])(?=[^>]*\bas=["']script["'])[^>]+\bhref=["']([^"']+)["'][^>]*>/g)) {
+    if (isOwn(m[1])) urls.push(m[1]);
+  }
+  return urls;
 }
 
 // All shipped media, including DOM-only icons and deferred story art. Embed
@@ -118,7 +132,8 @@ function expectedSw(sw = readFile(SW), version = expectedShellVersion()) {
 function staleTags() {
   const html = readFile(INDEX);
   const out = [];
-  for (const url of scriptUrls(html)) {
+  const urls = new Set([...scriptUrls(html), ...scriptPreloadUrls(html)]);
+  for (const url of urls) {
     const want = versioned(url);
     if (want !== url) out.push({ url, want });
   }
@@ -212,6 +227,17 @@ const CHECKS = [
     },
   },
   {
+    name: 'cache-bust: boot script preloads share the executed scripts content versions',
+    run() {
+      const urls = scriptPreloadUrls(readFile(INDEX));
+      for (const file of ['vendor/phaser.js', 'src/app.js']) {
+        const url = urls.find((u) => u.split('?')[0] === file);
+        if (!url) throw new Error(`${file} has no boot preload`);
+        if (versioned(url) !== url) throw new Error(`${url} does not match ${versioned(url)}`);
+      }
+    },
+  },
+  {
     // The whole point of the derivation: the number follows the CONTENT. A
     // counter records what somebody remembered instead, which is what drifted.
     // On a scratch file, never a real module — a suite that rewrites src/ can
@@ -277,7 +303,8 @@ const CHECKS = [
 ];
 
 module.exports = {
-  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, versioned, HASH_LEN, assetHashes, assetManifestHash,
+  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, scriptPreloadUrls,
+  versioned, HASH_LEN, assetHashes, assetManifestHash,
 };
 
 if (require.main === module) {

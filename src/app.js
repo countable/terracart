@@ -1579,6 +1579,38 @@ class MapScene extends Phaser.Scene {
     // only ever appear inside DOM modals via `<img src="${gearAssetPath(...)}">`,
     // so the browser fetches each one on demand and caches it. Eagerly loading
     // ~50 PNGs at startup blocked the splash screen for several seconds.
+
+    // Phaser starts its queued asset requests when preload() returns. Start the
+    // centre tile now, so its fetch/decode/rasterize overlaps those requests
+    // and create() instead of beginning after both have finished. The later
+    // ensureTilesAround pass still owns the loading overlay and spawn work; it
+    // consumes this exact promise through SceneGeo._loadTileEntry.
+    this._kickBootTile?.();
+  }
+
+  _kickBootTile() {
+    // The sandbox installs its authored 3×3 in create(), before ordinary tile
+    // loading. Starting a real tile here would claim its centre first. Browser
+    // tests likewise keep preload free of network work and exercise the normal
+    // ensureTilesAround path after their fixtures are installed.
+    if (window.__TEST_MODE || (typeof Sandbox !== 'undefined' && Sandbox.detect())) return;
+    let bootSave = null;
+    try { bootSave = (typeof loadSave === 'function') ? loadSave() : null; } catch (_) {}
+    const depth = bootSave?.depth || 0;
+    const { x: tx, y: ty } = WorldGen.tileXYForLonLat(START_LON, START_LAT);
+    // loadTile reads the active depth at call time. create() repeats this from
+    // its normalized save before any spawn pass, so the early build and the
+    // live scene always point at the same per-depth cache.
+    WorldGen.setDepth(depth);
+    const promise = WorldGen.loadTile(tx, ty, START_LAT);
+    this._bootTileKick = { tx, ty, depth, promise };
+    // Surface loadTile returns its in-flight entry immediately; observe that
+    // entry's eventual failure now so a fast network error cannot become an
+    // unhandled rejection before create() attaches the ordinary tile pass.
+    // The stored promises remain rejected for SceneGeo's retry classification.
+    promise.then((entry) => {
+      if (entry?.status === 'loading' && entry.promise) entry.promise.catch(() => {});
+    }, () => {});
   }
 
   _queueAsset(key) {

@@ -794,6 +794,26 @@ class SceneGeo {
     return true;
   }
 
+  async _loadTileEntry(tx, ty) {
+    const kick = this._bootTileKick;
+    if (kick && kick.tx === tx && kick.ty === ty && kick.depth === (this.depth || 0)) {
+      // preload() started this exact centre before Phaser fetched its assets.
+      // Consume it once instead of asking loadTile again. Surface loadTile
+      // already deduplicates through its in-flight cache entry; caves only
+      // enter their cache when complete, so this explicit hand-off also keeps
+      // a saved underground session from building its centre twice.
+      this._bootTileKick = null;
+      let entry = null;
+      try { entry = await kick.promise; } catch (_) { /* retry below */ }
+      const live = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (entry && live === entry) return entry;
+      // A freshly-landed Overpass bin can atomically replace the early surface
+      // entry before create() reaches it. Read that replacement through the
+      // normal cache path rather than spawning the detached old entry.
+    }
+    return WorldGen.loadTile(tx, ty, START_LAT);
+  }
+
   async ensureTilesAround() {
     const cell = this.playerToWorldCell();
     // ONE PASS PER CENTRE AT A TIME. create(), the warmOverpass re-entry, the walk
@@ -852,7 +872,7 @@ class SceneGeo {
       const [tx, ty] = k.split('/').map(Number);
       let entry = null;
       try {
-        entry = await WorldGen.loadTile(tx, ty, START_LAT);
+        entry = await this._loadTileEntry(tx, ty);
         if (entry.status === 'loading') await entry.promise;
         // A NEIGHBOUR's surface spawn pass runs SLICED (_spawnInTileSliced):
         // 20-70 ms of it used to ride this tile's build unbroken. The centre
