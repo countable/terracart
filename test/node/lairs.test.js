@@ -408,6 +408,37 @@
     assert.eq(guardsOf(reloaded).map(c => c.id).join(), ids, 'accepted battle survives reload');
   });
 
+  test('lairs: choosing Fight makes the citadel garrison visible near Home in both modes', () => {
+    const previous = Difficulty.mode();
+    try {
+      for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
+        Difficulty.setMode(mode);
+        const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
+        const entry = mkEntry([shape]), save = {};
+        const scene = { save, startWorldM: CENTRE, homeWorldPos: () => CENTRE };
+        const opts = { homeM: CENTRE, isCitadelActive: key => Houses.citadelBattleActive(save, key) };
+        step(entry, CENTRE, opts);
+        assert.eq(guardsOf(entry).length, 0, 'the encounter stays opt-in');
+        assert.truthy(Houses.startCitadelBattle(save, 'citadel'));
+        step(entry, CENTRE, opts);
+        const guards = guardsOf(entry);
+        assert.gt(guards.length, 0, mode + ': the accepted encounter actually spawns');
+        for (const guard of guards) {
+          assert.eq(guard.castle, 'citadel');
+          assert.truthy(EnemySpawns.surfaceActive(scene, guard), 'accepted guards reach renderer and AI');
+          assert.falsy(guard._surfaceInactive);
+          assert.truthy(Combat.isEnemy(guard), 'the visible guard can be fought');
+        }
+        const ordinary = { kind: 'skeleton', lair: 'ordinary', lairX: CENTRE.x, lairY: CENTRE.y };
+        assert.falsy(EnemySpawns.surfaceActive(scene, ordinary), 'ambient guards still respect Home');
+        assert.falsy(EnemySpawns.surfaceActive(scene, { ...ordinary, castle: 'another-citadel' }),
+          'accepting one castle never enables a different castle');
+        save.citadelBattles.citadel.startedAt = Date.now() - Houses.CITADEL_BATTLE_MS;
+        for (const guard of guards) assert.falsy(EnemySpawns.surfaceActive(scene, guard), 'expired battles lose the exception');
+      }
+    } finally { Difficulty.setMode(previous); }
+  });
+
   test('lairs: timed out citadels despawn descendants and restart with every guard healthy', () => {
     const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M, 'citadel');
     const entry = mkEntry([shape]), save = {}, now = 1000000;

@@ -100,6 +100,13 @@
     let active = true;
     const anchor = homeAnchor(scene);
     if (guard) {
+      // Fight is an explicit encounter, not an ambient threat near Home.
+      // Hiding its generated guards leaves an active battle impossible to
+      // complete. Only this castle's live battle bypasses the Home filters.
+      if (guard.castle && scene?.save && root.Houses?.citadelBattleActive(scene.save, guard.castle)) {
+        creature._surfaceInactive = false;
+        return true;
+      }
       const quietM = root.Difficulty?.get?.().quietHomeM || 0;
       const home = quietM > 0 && guard.kind !== 'slime' ? scene?.homeWorldPos?.() : null;
       if (home && Number.isFinite(home.x) && Number.isFinite(guard.lairX)) {
