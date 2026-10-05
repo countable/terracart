@@ -57,6 +57,7 @@ test('build choice: type, tier price, back and final payment are separate steps'
   stock.rubble = 0;
   present.call(scene, 0, 0, house);
   assert.truthy(modal.choices.every(c => c.disabled), 'empty inventory disables types before the tier screen');
+  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').label.includes('Need 0/4 Rock'), 'disabled type explains its material shortfall');
   stock.rubble = 100;
   present.call(scene, 0, 0, house);
   modal.onAccept('blacksmith');
@@ -76,6 +77,7 @@ test('build choice: type, tier price, back and final payment are separate steps'
   stock.rubble = 0;
   modal.onAccept('blacksmith');
   assert.falsy(modal.choices[0].canAfford, 'unaffordable rank still displays its price');
+  assert.truthy(modal.choices[0].cost.includes(`0/${cost.qty} Rock`), 'confirmation shows held versus required materials');
   modal.onAccept('blacksmith:1');
   assert.eq(scene.save.restoredHouses.new, undefined, 'unaffordable confirmation never restores');
   stock.rubble = 100;
@@ -104,6 +106,7 @@ test('build choice: type, tier price, back and final payment are separate steps'
   stock.rubble--;
   present.call(scene, 0, 0, house);
   assert.truthy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'all offered tiers unaffordable disables the type');
+  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').label.includes(`Need ${stock.rubble}/${Math.min(...prices)} Rock`), 'shortfall uses the cheapest offered rank');
   stock.rubble = 100;
   present.call(scene, 0, 0, house);
   modal.onAccept('blacksmith');
