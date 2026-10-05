@@ -87,6 +87,11 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   derives them from immutable surface evidence. Preserve that mask through cave
   generation and runtime spawns; repainting or digging never grants spawn access.
 
+- Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
+  floor passes. Keep their empty-ground reservations separate from object
+  occupancy (`CaveAreas`); ambient spawns must respect both. Derive deeper
+  floors from `geologyGrid`, before authored terrain changes.
+
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.

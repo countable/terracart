@@ -1,5 +1,5 @@
 {
-  "status": "art draft; not integrated into gameplay",
+  "status": "Integrated as level-1 pressure-plate encounters.",
   "projection": "Square-grid placement; south-facing angled artwork; wall retains visible upright height",
   "ball": {
     "image": "ball.png",
@@ -125,5 +125,17 @@
     "tool": "Built-in imagegen",
     "prompts": "prompts.json",
     "export": "Nearest-neighbor sprite extraction; ball uses a shared scale and fixed centers; complete wall silhouettes packed in 24x24 frames"
+  },
+  "gameplay": {
+    "owner": "src/pressure_traps.js",
+    "depth": 1,
+    "speedCellsPerSecond": 0.25,
+    "damagePerSecond": 5,
+    "trigger": "Step on plate; one launch toward player per encounter",
+    "plate": {
+      "sheet": "cave_mechanisms",
+      "unpressed": 2,
+      "pressed": 3
+    }
   }
 }

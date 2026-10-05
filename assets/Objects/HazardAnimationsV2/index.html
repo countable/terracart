@@ -9,7 +9,7 @@ body{background:#181d24;color:#eef0e6;font:16px system-ui;margin:0;padding:32px;
 <label>Ground <select id="ground"><option value="#486c35">Grass</option><option value="#777875">Stone</option><option value="#d9e4e2">Snow</option><option value="checker">Transparency grid</option></select></label>
 <button id="pause">Pause</button><button id="restart">Restart</button>
 <main id="cards"></main>
-<footer><a href="frames.json">Frame mapping and suggested timing</a> · <a href="prompts.json">Generation prompts</a><p>The sinkhole art contains no occupant: gameplay must lower or hide the object during the open phase before the ground closes.</p></footer>
+<footer><a href="frames.json">Frame mapping and suggested timing</a> · <a href="prompts.json">Generation prompts</a><p>Preview playback is compressed. In game, vents cycle 5s inactive / 3s warning / 3s active. Sinkholes warn for 5s, open for 5–20s, then close in 0.6s. Players standing over an open hole fall one level.</p></footer>
 <script>
 const specs=[
  {name:'Sinkhole',file:'sinkhole.png',size:48,cols:4,frames:[0,1,2,3,4,5,6,7,8,9,10,11],times:[350,300,250,120,120,220,220,140,140,120,160,650],phases:['Warning · 1','Warning · 2','Warning · 3','Opening','Collapse','Open / swallow','Open / swallow','Closing','Closing','Closing','Settling','Closed']},
