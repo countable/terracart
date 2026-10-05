@@ -8559,85 +8559,26 @@ class MapScene extends Phaser.Scene {
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
       return this.worldIconHTML(texKey, 36, frame);
     };
-    const tierOf = (row) => row.tier || 0;
-    const typeOf = (row) => row.ranked ? [row.role, row.theme].filter(Boolean).join(':') : row.key;
-    const types = [...new Map(options.map(row => [typeOf(row), row])).values()];
-    const ranksFor = (key) => options.filter(r => typeOf(r) === key);
-    const soleRank = (key) => { const ranks = ranksFor(key); return ranks.length === 1 ? ranks[0] : null; };
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
-    // A sole offered rank restores directly; multiple ranks keep their chooser.
-    // Offer availability, not affordability, determines whether a choice exists.
-    const showTypes = (choice = null) => this.showOfferModal({
-      kind: 'build',
-      title: 'Building type',
-      get: 'Restore this wreck as…',
-      choices: types.map((row) => {
-        const ranks = ranksFor(typeOf(row));
-        const minCost = ranks.map(costFor).reduce((min, cost) => cost.qty < min.qty ? cost : min);
-        return {
-          key: typeOf(row),
-          acceptLabel: ranks.length === 1 ? 'Restore' : 'Choose tier',
-          disabled: !ranks.some(r => affords(costFor(r))),
-          label: labelFor(row, null) + (ranks.some(r => Houses.isNewPick(this.save, r)) ? newBadgeHTML() : '')
-            + `<div style="margin-top:6px;font-size:11px">${ranks.length > 1 ? 'From ' : ''}${costLine(minCost)}</div>`,
-          iconHTML: iconFor(row),
-          suggested: ranks.some(r => r.suggested?.(this.save)),
-        };
-      }),
-      choice,
-      pickHint: 'Choose a building type',
-      canAfford: true,
-      acceptLabel: 'Restore',
-      cancelLabel: 'Later',
-      secondary: hasHammer
-        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
-            takes: (key) => Houses.hammerTakes(soleRank(key)),
-            onClick: (key) => { const row = soleRank(key); if (row) restore(row.key, true); } }
-        : undefined,
-      onAccept: (key) => { const row = soleRank(key); if (row) restore(row.key, false); else showTiers(key); },
-    });
-    const showTiers = (typeKey) => {
-      const ranks = ranksFor(typeKey);
-      const row = ranks[0];
-      if (!row) return;
+    // ONE STEP: every offered card is a row of the same list - the House, a
+    // shop line at each of its offered ranks (the tier badge says which), the
+    // turret - each with its own price and its own Restore. No type screen
+    // first: tapping the card is the whole choice. Offer availability, not
+    // affordability, decides what is listed.
+    const choices = options.map((row) => {
       const c = costFor(row);
-      const tier = tierOf(row);
-      const choices = ranks.map((row) => {
-        const c = costFor(row), tier = tierOf(row);
-        return {
-          key: row.key,
-          label: (tier ? tierBadgeHTML(tier, 11) : labelFor(row, null))
-            + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
-            + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
-          iconHTML: iconFor(row),
-          cost: costLine(c),
-          canAfford: affords(c),
-        };
-      });
-      const hammer = ITEM_BY_ID[Houses.HAMMER_ID];
-      this.showOfferModal({
-        kind: 'build',
-        title: 'Tier and cost',
-        get: labelFor(row, null),
-        choices,
-        pickHint: 'Choose a tier',
-        costLabel: 'Cost',
+      return {
+        key: row.key,
+        label: labelFor(row, null) + (row.tier ? ' ' + tierBadgeHTML(row.tier, 11) : '')
+          + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
+          + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
+        info: row.blurb,
+        iconHTML: iconFor(row),
+        cost: costLine(c),
         canAfford: affords(c),
-        acceptLabel: 'Restore',
-        cancelLabel: 'Back',
-        onCancel: () => showTypes(typeKey),
-        blurb: (tier ? 'This quality is available at your current progress.' : '')
-          + (hasHammer
-            ? `<span style="display:block;margin-top:4px">${this.iconSpanHTML(Houses.HAMMER_ID)} With the ${hammer?.name || 'Magic Hammer'} it gleams: folk deal kindly, archers strike hard.</span>`
-            : ''),
-        secondary: hasHammer
-          ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
-              takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
-              onClick: (key) => restore(key, true) }
-          : undefined,
-        onAccept: (key) => restore(key, false),
-      });
-    };
+        suggested: row.suggested?.(this.save),
+      };
+    });
     const restore = (key, hammer) => {
       const picked = options.find((r) => r.key === key);
       const cost = picked ? costFor(picked) : null;
@@ -8710,7 +8651,21 @@ class MapScene extends Phaser.Scene {
         }
       });
     };
-    showTypes();
+    this.showOfferModal({
+      kind: 'build',
+      title: 'Restore this wreck',
+      get: 'Choose what it becomes…',
+      choices,
+      canAfford: true,
+      acceptLabel: 'Restore',
+      cancelLabel: 'Later',
+      secondary: hasHammer
+        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
+            takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
+            onClick: (key) => restore(key, true) }
+        : undefined,
+      onAccept: (key) => restore(key, false),
+    });
   }
 
 
