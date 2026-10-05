@@ -3489,7 +3489,11 @@ Render.drawObjects = function drawObjects(scene) {
   }
   scene._updateObstacleStep?.(stepObjects);
   const supports = new Set((scene._obstacleStep?.supports || []).map(o => o._stepSource || o));
+  const whirlwindList = (scene.depth === 0 ? scene._whirlwinds || [] : []).map(h => ({
+    h, dx: h.x - pWorldX, dy: h.y - pWorldY,
+  })).filter(it => Math.abs(it.dx) <= halfM && Math.abs(it.dy) <= halfM);
   const zList = [];
+  for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
@@ -4409,6 +4413,17 @@ Render.drawObjects = function drawObjects(scene) {
     }
     Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }
+
+  // Whirlwinds share ground-anchor depth ordering with actors and trees.
+  scene._whirlwindPool ||= [];
+  Render.renderPool(scene, scene._whirlwindPool, scene.creaturesContainer, whirlwindList, (s, it) => {
+    const { sx, sy } = project(it.dx, it.dy);
+    s.anims?.stop();
+    const { frameSize, anchor } = Whirlwinds.CONFIG;
+    s.setTexture('whirlwind', it.h.frame).setOrigin(anchor[0] / frameSize, anchor[1] / frameSize)
+      .setDisplaySize(frameSize, frameSize).setPosition(Math.round(sx), Math.round(sy))
+      .setDepth(it._z).setAlpha(1).setTint(0xffffff);
+  });
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays
   // pinned to the CELL — it never rides the hop/hover offset — so a bouncing

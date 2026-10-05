@@ -44,6 +44,19 @@ Optional wetland and rock sites (`surfaceSites`) place a small finite group
 outside other variants' owned ground. Home safety rules hide unsuitable
 encounters without rerolling them.
 
+The approved large enemies use separate 32×32 sheets with north, east, south
+and west walking and attack frames. They render wider than one cell in the
+same overhead, south-tilted view as the other characters. Giant bears join
+surface forest encounters and Ancient Grove roamers. Citadels use bugbear
+guards for ordinary garrisons; authored special groups keep their members.
+Giant reapers join encounters and local garrisons in all five Old Stones
+variants. Ogres lumber beside minor roads on residential ground, outside the
+major-road buffer. These surface foes are tier 3 and remain hidden within
+750 m of the starter anchor, through the existing Home safety rules. Road,
+private-land and occupied-cell exclusions still apply.
+
+The giant serpent remains a draft prototype and has no live spawn entry.
+
 ## Caves
 
 A persistent spatial region selects a habitat theme from the depth band
@@ -58,6 +71,8 @@ not to every floor. A dragon is a finite chamber encounter in the deepest band
 (`caveSites`), outside the ambient pool. Its seat needs a clear chamber away
 from stairs; a blocked chamber means no dragon rather than one moved to a
 neighbouring tile.
+
+Trolls inhabit natural cave pockets on level 3 only; they are not surface foes.
 
 ## Behaviour and readability
 

@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-0ff0c485';
+const SHELL_VERSION = 'shell-2fd79fe6';
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
 /* ASSET_HASHES_START */
@@ -32,6 +32,11 @@ const ASSET_HASHES = {
   "assets/Enemy/GiantCrab.png": "633bd8b3",
   "assets/Enemy/Goblin Archer.png": "a594e74a",
   "assets/Enemy/Goblin.png": "c8485351",
+  "assets/Enemy/LargeDirectionalV2/bugbear.png": "a4dc849e",
+  "assets/Enemy/LargeDirectionalV2/giant-bear.png": "ae47c477",
+  "assets/Enemy/LargeDirectionalV2/giant-reaper.png": "fcea8eeb",
+  "assets/Enemy/LargeDirectionalV2/ogre.png": "fb95333c",
+  "assets/Enemy/LargeDirectionalV2/troll.png": "9dc7fce1",
   "assets/Enemy/Necromancer.png": "adb05ab6",
   "assets/Enemy/Orcs/ArcherGoblin.png": "462f756d",
   "assets/Enemy/Orcs/ClubGoblin.png": "44f45545",
@@ -48,6 +53,9 @@ const ASSET_HASHES = {
   "assets/Enemy/Plant/1Fullsheet_Plant.png": "6350265e",
   "assets/Enemy/Plant/Reskin/1Fullsheet_BonePlant.png": "fc72b100",
   "assets/Enemy/Purple Slime.png": "0b22864f",
+  "assets/Enemy/SegmentedSerpent/parts-source.png": "a4c8ce3a",
+  "assets/Enemy/SegmentedSerpent/parts.png": "4c7e813e",
+  "assets/Enemy/SegmentedSerpent/preview.png": "88279cc0",
   "assets/Enemy/Skeleton/1Fullsheet_Skeleton.png": "b10d4d1f",
   "assets/Enemy/Skeleton/Reskin/1Fullsheet_DrySkeleton.png": "4e842f47",
   "assets/Enemy/Skeleton/Skeleton-Soldier.png": "9040b30c",
@@ -410,6 +418,19 @@ const ASSET_HASHES = {
   "assets/Objects/Generated/wagon.png": "fa55ee5b",
   "assets/Objects/Generated/waystone.png": "f2a53bf1",
   "assets/Objects/Gold Chest.png": "877c117d",
+  "assets/Objects/HazardAnimationsV2/poison-vent-inactive.png": "ec1b834a",
+  "assets/Objects/HazardAnimationsV2/sinkhole-ground-patch.png": "f00aa093",
+  "assets/Objects/HazardAnimationsV2/sinkhole-source.png": "8544fbd7",
+  "assets/Objects/HazardAnimationsV2/sinkhole-transparent-source.png": "47b6d1c8",
+  "assets/Objects/HazardAnimationsV2/sinkhole.png": "03d9a0aa",
+  "assets/Objects/HazardAnimationsV2/tornado-source.png": "37705e16",
+  "assets/Objects/HazardAnimationsV2/tornado.png": "8a6f5393",
+  "assets/Objects/HazardAnimationsV2/vent-active-reference.png": "6b6f2cc3",
+  "assets/Objects/HazardAnimationsV2/vent-cycle-complete.png": "806d7641",
+  "assets/Objects/HazardAnimationsV2/vent-cycle.png": "f723deb1",
+  "assets/Objects/HazardAnimationsV2/vent-inactive-source.png": "e10c72bd",
+  "assets/Objects/HazardAnimationsV2/vent-inactive.png": "1fd11ef5",
+  "assets/Objects/HazardAnimationsV2/vent-warnings.png": "f3b03093",
   "assets/Objects/Hedges/bottom_left.png": "cc5d04c4",
   "assets/Objects/Hedges/bottom_right.png": "209c1984",
   "assets/Objects/Hedges/cross.png": "7211b1f2",

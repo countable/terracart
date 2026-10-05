@@ -1,0 +1,20 @@
+{
+  "tool": "built-in image_gen",
+  "intent": "Edit existing hazard source sheets to overhead-dominant south-camera artwork.",
+  "sinkhole": "Use case: precise-object-edit. Edit this sinkhole animation sprite sheet. Preserve fantasy pixel art palette, same twelve phases and exact 4-column by 3-row sheet, equal square frame cells and transparent background. Correct the view to strongly overhead-dominant top-down game art, tilted roughly 45 degrees toward the south camera: the top ground surface dominates, front-facing upright surfaces are compressed. Ground opening is nearly circular rather than the old flattened side-on ellipse. Show broad top rim and only a very narrow sliver of interior upright pit wall; mostly look down into darkness from above. No tall upright cliff walls. The map is a square cardinal grid, not isometric. Each frame represents a 48x48 native pixel-art tile; clean chunky pixels intended for nearest-neighbor export. Align every frame at a fixed center within its equal cell, with at least two native pixels of transparent margin on every edge and no neighboring overlap. Preserve exact row-major sequence: frames 0 1 2 increasing warning cracks; 3 small opening; 4 collapse falling slabs; 5 and 6 fully open deep pit swallowing loose rocks; 7 8 9 ground closes inward; 10 settling cracks; 11 closed ground. Keep the same outer ground footprint through all frames, about 42x40 native pixels. No people, no occupant, no text, no labels, no grid, no background.",
+  "tornado": "Use case: precise-object-edit. Edit this tornado animation sprite sheet. Preserve fantasy pixel-art silver blue swirling wind and brown loose debris palette, exactly eight frames laid out 4 columns by 2 rows of equal square cells on genuine transparency. Correct the view to strongly overhead-dominant top-down game art, tilted roughly 45 degrees toward a south camera. We should look deeply down onto a broad round spiral crown, with its concentric curling wind bands visible from above and a very short foreshortened funnel beneath, mostly hidden by the broad top. The broad spiral top must dominate each active sprite; NOT a tall front-facing cone. Active tornado should be roughly as wide as tall or wider, no long dangling point. Keep the ground contact anchored at the same location in every frame, with the spiral above it shifting very slightly toward screen up. The map is a square cardinal grid, not isometric. Each frame represents a 48x48 native pixel-art tile; clean chunky pixels for nearest-neighbor export, two native pixels of clear transparent border within every equal cell, nothing crosses cell boundaries. Row 1 left-to-right is four formation phases: small low ground whirl, small vortex crown, medium vortex crown, fully formed compact tornado. Row 2 is four evenly sized active loop frames with rotating highlights and debris and identical crown width and anchor, no size pulsing. Eight sprites total; no words, labels, grid, ground disk, or background.",
+  "transparencyRevision": {
+    "tool": "builtin imagegen",
+    "reference": "sinkhole-source.png",
+    "output": "sinkhole-transparent-source.png",
+    "instruction": "Remove filled soil outside the opaque dark pit. Keep only cracks/fragments in warning and closing frames; retain 4x3 grid,48px logical detail, overhead south camera; last frame fully transparent.",
+    "export": "export.cjs"
+  },
+  "inactiveVents": {
+    "tool": "builtin imagegen",
+    "reference": "vent-cycle.png",
+    "output": "vent-inactive-source.png",
+    "instruction": "Three-row single-column inactive poison/fire/paralysis vents, exact matching fixed stone ring, no plume, dark aperture, transparent background,24px logical cells.",
+    "export": "pack-vents.cjs retains original ring pixels and composites the generated inactive aperture."
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "browser": "Chromium",
+  "errors": [],
+  "canvases": 2,
+  "exercised": [
+    "winding",
+    "sharp",
+    "reverse",
+    "straight",
+    "turn back",
+    "show joints",
+    "curved pieces",
+    "30 FPS"
+  ],
+  "visualInspected": [
+    "parts-source.png",
+    "parts.png",
+    "preview.png",
+    "hairpin screenshot"
+  ]
+}

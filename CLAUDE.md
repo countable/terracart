@@ -12,6 +12,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   shared global scope. Preserve that order when adding modules; keep `sw.js`
   at the repository root for its service-worker scope.
 - [README.md](README.md): setup and source map.
+- [Art direction brief](docs/art/art-direction-brief.md): camera, pixel scale,
+  palette, restoration, and visible elevation; follow it when adding or revising art.
 - [test/node/README.md](test/node/README.md): test harness and module registration.
 - [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
@@ -40,12 +42,19 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 
 ## Shared design rules
 
-- World artwork uses a 45-degree downward viewing angle (isometric), showing
-  both top surfaces and front/side depth. Apply this consistently to bushes,
-  hedges, props, walls and buildings. Bushes show a broad rounded top canopy
-  over a shorter shaded front face; keep foliage full and softly clipped.
-  Preserve the existing cell placement and connected-tile joins when drawing
-  this perspective.
+- The viewport and movement use a top-down square grid. Artwork starts from
+  an overhead view tilted roughly 45 degrees toward a camera to the south.
+  Keep the overhead view dominant: show more crown, top and back surfaces,
+  with compressed front-facing planes and foreshortened upright forms.
+  This deliberately mixes perspectives;
+  it is not a physically correct projection or an isometric diamond grid.
+  Keep north/south along screen up/down and east/west along screen right/left.
+  Walls and directional traps align with those square-cell axes and retain
+  enough upright height for their faces and spikes to stay legible. Apply the
+  angled artwork consistently to bushes, hedges, props, walls and buildings.
+  Bushes show a broad rounded top canopy over a shorter shaded front face;
+  keep foliage full and softly clipped. Preserve cell placement and
+  connected-tile joins; do not change the map projection to match the art.
 - Search for an existing predicate, state flag or table before adding one.
   Extend it when the mechanism is the same; similar names alone do not justify
   combining mechanisms. Read its comments and regression tests before changing it.
