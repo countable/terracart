@@ -2,7 +2,21 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  progression_tiles: { kind: 'spritesheet', path: 'assets/Objects/Progression/tiles.png', frameWidth: 24, frameHeight: 24 },
+  icon_progression: { kind: 'spritesheet', path: 'assets/Objects/Progression/icons.png', frameWidth: 16, frameHeight: 16 },
   pet_story_clearing: { deferred: true, kind: 'image', path: 'assets/art/pet_clearing.webp' },
+  cave_props: { kind: 'spritesheet', path: 'assets/Objects/Cave/props.png', frameWidth: 24, frameHeight: 24,
+    // The ruby and emerald grid cells catch a strip of the preceding row.
+    // Register only their own art; previews and seating audits read these rectangles.
+    frameRects: { 24: { x: 0, y: 99, width: 24, height: 21 }, 25: { x: 24, y: 97, width: 24, height: 23 } },
+    onLoad: scene => {
+      const texture = scene.textures.get('cave_props');
+      for (const [frame, rect] of Object.entries(ASSETS.cave_props.frameRects)) {
+        texture.remove(frame);
+        texture.add(frame, 0, rect.x, rect.y, rect.width, rect.height);
+      }
+    } },
+  cave_mechanisms: { kind: 'spritesheet', path: 'assets/Objects/Cave/mechanisms.png', frameWidth: 24, frameHeight: 24 },
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
   bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
@@ -41,9 +55,11 @@ const ASSETS = {
     onLoad: (scene) => { scene.textures.get('stair_down').add('down', 0, 0, 16, 32, 16); },
   },
   stair_up:   { kind: 'image', path: 'assets/Objects/Approved/stair_up.png' },
+  rolling_ball: { kind: 'spritesheet', path: 'assets/Objects/RollingBallAndWall/ball.png', frameWidth: 24, frameHeight: 24 },
+  sliding_spike_wall: { kind: 'spritesheet', path: 'assets/Objects/RollingBallAndWall/spike-wall.png', frameWidth: 24, frameHeight: 24 },
+  vent_cycle: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/vent-cycle-complete.png', frameWidth: 24, frameHeight: 24 },
+  sinkhole: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/sinkhole.png', frameWidth: 48, frameHeight: 48 },
   whirlwind: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/tornado.png', frameWidth: 48, frameHeight: 48 },
-  cave_props: { kind: 'spritesheet', path: 'assets/Objects/Cave/props.png', frameWidth: 24, frameHeight: 24 },
-  poison_vent_inactive: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/poison-vent-inactive.png', frameWidth: 24, frameHeight: 24 },
   crystal_cluster: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/crystal_cluster.png', frameWidth: 16, frameHeight: 16 },
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
@@ -175,7 +191,6 @@ const ASSETS = {
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
-  bone_cache: { kind: 'spritesheet', path: 'assets/Objects/Approved/bone_pile.png', frameWidth: 16, frameHeight: 16 },
   grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
@@ -466,21 +481,6 @@ if (typeof EnemyRoster !== 'undefined') {
       scene.textures.addSpriteSheet(row.id, canvas, { frameWidth, frameHeight });
     };
   }
-}
-for (const row of SpriteLayout.BUTTERFLY_VARIANTS) {
-  if (!row.palette) continue;
-  ASSETS[row.id] = { ...ASSETS.butterfly, onLoad(scene) {
-    const src = scene.textures.get(row.id).getSourceImage();
-    const canvas = document.createElement('canvas');
-    canvas.width = src.width; canvas.height = src.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(src, 0, 0);
-    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    recolorEnemyPixels(pixels.data, row.palette);
-    ctx.putImageData(pixels, 0, 0);
-    scene.textures.remove(row.id);
-    scene.textures.addSpriteSheet(row.id, canvas, { frameWidth: 16, frameHeight: 16 });
-  } };
 }
 window.recolorEnemyPixels = recolorEnemyPixels;
 window.ASSETS = ASSETS;

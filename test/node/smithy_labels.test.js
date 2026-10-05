@@ -15,9 +15,14 @@ test('smithy: the modal category is Smithy, so Forge names only the action', () 
   assert.truthy(m, 'MODAL_KINDS.forge row');
   assert.eq(m[1], 'Smithy', 'category label');
   // The key stays `forge` — every call site and tools/modal_audit.js pin it.
-  // Neither offer carries a flavour title: the chip and the tab say it.
-  assert.truthy(/kind: 'forge',\n      cancelLabel: 'Leave',\n      get: first\.get,/.test(app), 'smelt offer still keys forge');
-  assert.truthy(/kind: 'forge',\n      cancelLabel: 'Later',\n      get: smithyPreviewHTML\(iconHtml, name\),/.test(app), 'forge offer still keys forge');
+  // Neither offer carries a flavour title: the chip and the tab say it. Both
+  // present through the one recipe counter (scene_shops.js
+  // _presentRecipeOffer), whose default kind is the smithy's.
+  assert.truthy(/_presentRecipeOffer\(sx, sy, \{ recipe, produce, refuse, canAfford = true, \.\.\.modal \}\) \{[\s\S]{0,700}?kind: 'forge',\n      costLabel: 'You give',\n      \.\.\.modal,/.test(app),
+    'the recipe counter keys forge');
+  assert.truthy(/this\._presentRecipeOffer\(sx, sy, \{\n      recipe: recipeFor\(target\),\n      cancelLabel: 'Leave',\n      get: smithyPreviewHTML\(/.test(app), 'the smelt offer rides it, untitled');
+  assert.truthy(/this\._presentRecipeOffer\(sx, sy, \{\n      recipe,\n      cancelLabel: 'Later',\n      get: smithyPreviewHTML\(iconHtml, name\),/.test(app), 'the forge offer rides it, untitled');
+  assert.falsy(/title: 'Forge/.test(app), 'no forge offer carries a title');
 });
 
 test('smithy: showOfferModal renders getLabel / costLabel captions, costLabel replacing the "for" row', () => {
@@ -34,9 +39,11 @@ test('smithy: showOfferModal renders getLabel / costLabel captions, costLabel re
 // The received item is a big picture over its name (smithyPreviewHTML), so a
 // "You receive" caption over it was clutter; the price keeps its caption.
 test('smithy: both the Forge and the Smelt offer caption the price', () => {
-  const smelt = app.match(/acceptLabel: 'Smelt',\n\s*costLabel: 'You give',/);
-  const forge = app.match(/acceptLabel: 'Forge',\n\s*costLabel: 'You give',/);
-  assert.truthy(smelt, 'smelt offer captions');
-  assert.truthy(forge, 'forge offer captions');
+  // The caption is the recipe counter's (one `costLabel: 'You give'`), so
+  // every recipe offer carries it — the smelt and the forge both ride it.
+  const shops = ENERGY_WRITE_SOURCES['scene_shops.js'];
+  assert.eq((shops.match(/costLabel: 'You give',/g) || []).length, 1, 'captioned once, in the counter');
+  assert.truthy(/acceptLabel: 'Smelt',/.test(shops) && /acceptLabel: 'Forge',/.test(shops), 'both offers are recipe offers');
+  assert.eq((shops.match(/this\._presentRecipeOffer\(/g) || []).length, 2, 'and nothing else in the smithy bypasses it');
 });
 })();

@@ -242,6 +242,7 @@ function tapScene(over) {
     _peekPointerId: 1,
     handleWorldTap(sx, sy) { taps.push({ sx, sy }); },
     _resetWalkHome() {},
+    _tapEdgeDot() { return false; },
   }, over || {}));
   s.taps = taps;
   return s;

@@ -47,6 +47,17 @@ function randInt(min, max, rng) {
 function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
 function clamp01(x) { return clamp(x, 0, 1); }
 function lerp(a, b, t) { return a * (1 - t) + b * t; }
+// Bank a fractional gain or loss in `obj[key]` and return the WHOLE pips it
+// carried past the line; the key keeps the remainder (0 ≤ r < 1, a sub-1e-9
+// residue zeroed). THE one float accumulator for every per-frame drain and
+// regen that pays in whole pips (a burn's fraction, the shrine regen, a foe
+// walking through thorns): `whole = bankWhole(this, '_acc', rate * dt)`.
+function bankWhole(obj, key, delta) {
+  const total = (obj[key] || 0) + delta;
+  const whole = Math.floor(total + 1e-9);
+  obj[key] = total - whole > 1e-9 ? total - whole : 0;
+  return whole;
+}
 // Fisher–Yates, in place; returns `arr`. One rng() call per swap step.
 function shuffleInPlace(arr, rng) {
   const r = rng ?? Math.random;
@@ -185,6 +196,28 @@ function fnv1aFrom(seed, str) {
   }
   return h >>> 0;
 }
+// A uint32 as a float in [0, 1) — the one division every hash-to-roll site
+// used to spell out — and the string form of it (fnv1a then u01), which the
+// street dressing, the zone layouts, the reef and the enemy rolls all take.
+function u01(h) { return (h >>> 0) / 4294967296; }
+function hash01(str) { return u01(fnv1a(str)); }
+// The two integer finalisers behind every per-coordinate hash in the game,
+// each byte-identical to the loops it replaces (a world re-rolls otherwise):
+//   murmurMix32 — murmur3's fmix (0x85ebca6b / 0xc2b2ae35): worldgen.js
+//     cellHash, zones.js cellU01 and the value-noise lattice below;
+//   avalanche32 — the 0x7feb352d / 0x846ca68b mix laid over an fnv1a so
+//     nearby string keys do not form runs (zone_variants.js's scatter
+//     occupancy, enemy_habitats.js's encounter rolls).
+function murmurMix32(h) {
+  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) >>> 0;
+}
+function avalanche32(h) {
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
+  return (h ^ (h >>> 16)) >>> 0;
+}
 
 // === Smooth value noise over the plane ========================================
 // A pure function of the point — no rng, no tile — so the same world point
@@ -196,10 +229,7 @@ function fnv1aFrom(seed, str) {
 // line up. Output 0..1, clustered about 0.5 (not uniform — a caller that
 // wants a share of the plane takes a measured quantile, see FLORA_PATCH).
 function _noiseLattice(ix, iy) {
-  let h = Math.imul(ix | 0, 0x27d4eb2d) ^ Math.imul(iy | 0, 0x165667b1);
-  h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
-  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  return u01(murmurMix32(Math.imul(ix | 0, 0x27d4eb2d) ^ Math.imul(iy | 0, 0x165667b1)));
 }
 function _valueNoise1(x, y) {
   const fx = Math.floor(x), fy = Math.floor(y);
@@ -330,9 +360,13 @@ function faunaShiny(kind, id) {
 }
 // Warm yellow multiply-tint used for every shiny sprite (flora, tree, animal).
 const SHINY_TINT = 0xffd23a;
-// A Frost Powder's victim — icy blue-white over the creature sprite while its
-// _frozenUntil is in the future (render.js drawCreatures).
+// A Frost Powder's victim — icy blue-white over the creature sprite while it
+// is chilled (Combat.isChilled, the `frozen` status row; render.js drawCreatures).
 const FROZEN_TINT = 0x9ad8ff;
+
+// Aura reach is measured from its centre; gameplay and the visible disc
+// share this default unless the source declares a different radius.
+function auraRadiusCells(aura) { return aura?.radiusCells ?? 1; }
 
 // === Tree size tiers =========================================================
 // Canopy size and growth stage come from stable record fields. Explicit size
@@ -448,6 +482,17 @@ function mulTint(a, b) {
 // here rather than a local per file. `>>> 0` keeps a sign-bit int positive.
 function cssOf(c) {
   return '#' + (c >>> 0).toString(16).padStart(6, '0');
+}
+// …and back: CSS '#rgb' / '#rrggbb' → packed 0xRRGGBB, or null for anything
+// else. The inks and sampled colours that arrive as strings go through here
+// to BiomeProfiles.mixHex and back out through cssOf.
+function parseHex(css) {
+  if (typeof css !== 'string' || css[0] !== '#') return null;
+  let h = css.slice(1);
+  if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+  if (h.length !== 6) return null;
+  const n = parseInt(h, 16);
+  return Number.isNaN(n) ? null : n;
 }
 // Packed 0xRRGGBB + alpha → CSS 'rgba(r,g,b,a)'. `a` is printed as given.
 function rgbaOf(c, a) {

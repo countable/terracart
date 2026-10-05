@@ -491,8 +491,7 @@
 
   // Generation-only habitat limits also apply to relocation and authored fauna.
   function faunaAllows(kind, type) {
-    const base = typeof SpriteLayout !== 'undefined' ? SpriteLayout.baseKind(kind) : kind;
-    const row = BIOME_FAUNA[base] || SHORE_FAUNA[base];
+    const row = BIOME_FAUNA[kind] || SHORE_FAUNA[kind];
     return !row || ((!row.only || row.only.includes(type)) && !row.excluded?.includes(type));
   }
 

@@ -1423,7 +1423,7 @@
           "artProposal": {
             "path": "docs/proposal-art/beehive_skep.png",
             "status": "archived_unused",
-            "note": "Unused standalone 16\u00d716 archive sprite, copied here for proposal review only. Not a runtime asset.",
+            "note": "Unused standalone 16×16 archive sprite, copied here for proposal review only. Not a runtime asset.",
             "license": "docs/proposal-art/VERDANT-LICENSE.txt"
           },
           "interactionProposal": {
@@ -1725,7 +1725,7 @@
       "slots": {
         "common": {
           "currentStatus": "shared",
-          "currentEvidence": "Bats are an existing cave encounter at depths1\u20132 and also occur on selected surface terrains at night.",
+          "currentEvidence": "Bats are an existing cave encounter at depths1–2 and also occur on selected surface terrains at night.",
           "proposedThing": {
             "id": "creature:bat",
             "label": "Cave bat"
@@ -1737,7 +1737,7 @@
             "src/enemy_spawns.js caveRows"
           ],
           "itemQuality": null,
-          "condition": "Depths1\u20132 only for this candidate.",
+          "condition": "Depths1–2 only for this candidate.",
           "newItemAlternative": {
             "id": "proposal:cave_bone_cache",
             "label": "Cave bone cache",
@@ -1745,7 +1745,7 @@
             "artProposal": {
               "path": "docs/proposal-art/bone_pile.png",
               "status": "archived_unused",
-              "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+              "note": "Existing archived 16×16 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
               "license": "docs/proposal-art/VERDANT-LICENSE.txt"
             },
             "interactionProposal": {
@@ -2186,7 +2186,7 @@
       "artProposal": {
         "path": "docs/proposal-art/cave_pool.png",
         "status": "archived_unused",
-        "note": "Existing archived 16\u00d716 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
+        "note": "Existing archived 16×16 art, visually reviewed; this named interactive variant is unimplemented. Static proposal preview only. Similar prop concepts may already appear in other atlases.",
         "license": "docs/proposal-art/VERDANT-LICENSE.txt"
       },
       "interactionProposal": {

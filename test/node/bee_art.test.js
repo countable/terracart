@@ -8,7 +8,7 @@ test('hive bees share bat combat and flight without entering ambient spawn bags'
   assert.falsy(bee.cave);
   assert.falsy(bee.eliteEligible);
   assert.truthy(Combat.isEnemy({ kind: 'bee' }));
-  assert.truthy(Combat.MONSTERS.bee.fly);
+  assert.truthy(Combat.MONSTERS.bee.movement.flightOnlyOverLowObstacles);
   assert.truthy(SpriteLayout.creatureWanders('bee'));
 });
 

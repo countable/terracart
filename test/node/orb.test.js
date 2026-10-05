@@ -21,6 +21,8 @@ function orbFixture() {
     startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 }, cellM: CELL_PX,
     viewLeft: 0, viewTop: 0, viewSize: 100, viewCenterX: 50, viewCenterY: 50,
     flash(message) { this.message = message; },
+    flashAtPlayer(message) { this.message = message; },
+    _selectedConsumable(id) { const sel = this.save.inv[this.save.selSlot]; return sel && sel.id === id && sel.count > 0 ? sel : null; },
   };
   plants[2].x = 1000; rocks[2].y = -1000;
   plants[3].crop = 'flowers'; rocks[3].yieldTier = 2;

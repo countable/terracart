@@ -4,12 +4,17 @@ function method(name, deps = {}) {
   assert.truthy(match, name + ' exists');
   return new Function(...Object.keys(deps), 'return function(' + match[1] + '){' + match[2] + '}')(...Object.values(deps));
 }
+// The casts (fear, sleep) are CAST_ROWS rows cast by _castOnFoes; the table
+// and the refusal formatter are lifted from app.js beside the methods.
+const TABLE = (deps) => new Function(...Object.keys(deps),
+  SCENE_SRC.match(/\nconst CAST_ROWS = \{[\s\S]*?\n\};/)[0] + SCENE_SRC.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0]
+  + 'return { CAST_ROWS, kept };')(...Object.values(deps));
 function scene(id, creatures = []) {
   const s = {
     save: { energy: 50, inv: [{ id, count: 2 }], selSlot: 0, caught: [] },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 0, y: 0 }, depth: 3,
     facing: { x: 1, y: 0 }, cellM: 7, _shots: [], persisted: 0, rebuilt: 0,
-    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashLoot() {},
+    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashAtPlayer() {}, flashLoot() {},
     playerToWorldCell() { return { tx: 0, ty: 0 }; },
     worldMetersToScreen(x, y) { return { x, y }; },
   };
@@ -19,10 +24,15 @@ function scene(id, creatures = []) {
     WorldGen: { forEachItemNear: (_kind, _tx, _ty, visit) => creatures.forEach(visit) },
     Particles: { onScreen: (_scene, x, y) => x >= 0 && x < 100 && y >= 0 && y < 100 },
     monsterRout: c => { c.routed = true; }, shortDuration: () => '15m',
+    THUNDER_FLASH_MS: 350,
   };
-  for (const name of ['_spendScroll', '_onscreenEnemies', 'useFireballScroll', 'useFearScroll', 'useSleepPowder', 'useTreasureMap']) {
+  Object.assign(deps, TABLE(deps));
+  for (const name of ['_selectedConsumable', '_consumeSelected', '_finishInventoryChange', '_spendScroll', '_enemiesWhere',
+    '_onscreenEnemies', '_castOnFoes', 'useFireballScroll', 'useTreasureMap']) {
     s[name] = method(name, deps);
   }
+  s.useFearScroll = () => s._castOnFoes('fear_scroll');
+  s.useSleepPowder = () => s._castOnFoes('sleep_powder');
   return s;
 }
 function assertSpent(s, id, learned) {
@@ -63,7 +73,7 @@ test('scroll actions: screen effects exclude offscreen enemies, caught foes, ani
     { id: 'offscreen', kind: 'goblin', x: 101, y: 20 },
     { id: 'caught', kind: 'goblin', x: 20, y: 20 },
     { id: 'crow', kind: 'crow', x: 20, y: 20 },
-    { id: 'released_pet', kind: 'slime', x: 20, y: 20 }];
+    { pet: true, id: 'released_pet', kind: 'slime', x: 20, y: 20 }];
   const s = scene('fear_scroll', creatures);
   s.save.caught = ['caught'];
   const targets = s._onscreenEnemies();
@@ -82,7 +92,8 @@ test('scroll actions: fear retreats every visible foe and cancels pending attack
   assert.truthy(c.routed);
   assert.truthy(c._fearUntilT >= before + CONSUMABLE_SPEC.fear_scroll.durationMs);
   assert.eq(c._startX, 20); assert.eq(c._targetY, 30);
-  assert.eq(c._attackWindupUntil, 0); assert.eq(c._lungeWindupUntil, 0); assert.eq(c._abilityWindupUntil, 0);
+  assert.falsy(c._attackWindupUntil); assert.falsy(c._lungeWindupUntil); assert.falsy(c._abilityWindupUntil);
+  assert.eq(c._statusPop?.label, Combat.STATUS_LOOKS.fear.label, 'the status announces itself (Combat.applyFear)');
 });
 
 test('scroll actions: sleep powder applies the existing sleep field without teaching a scroll', () => {
@@ -131,9 +142,10 @@ test('scroll actions: offensive consumables refuse use while downed or wrongly s
   }
 });
 
-test('scroll actions: map selects a treasure X, remembers depth, and lasts fifteen minutes', () => {
+test('scroll actions: map selects T4/T5, remembers depth, and lasts fifteen minutes', () => {
   const s = scene('treasure_map');
-  s.findNearestTreasureMark = () => {
+  s.findNearestUnopenedChest = tiers => {
+    assert.eq(JSON.stringify(tiers), '[4,5]');
     return { id: 'treasure', x: 300, y: 400 };
   };
   const before = Date.now();
@@ -147,10 +159,10 @@ test('scroll actions: map selects a treasure X, remembers depth, and lasts fifte
   assert.truthy(s.save.treasureCompass.until <= Date.now() + 15 * 60 * 1000);
 });
 
-test('scroll actions: map without unclaimed X retains item and existing marker', () => {
+test('scroll actions: map without eligible chest retains item and existing marker', () => {
   const s = scene('treasure_map');
   const marker = s.save.treasureCompass = { targetId: 'old' };
-  s.findNearestTreasureMark = () => null;
+  s.findNearestUnopenedChest = () => null;
   assert.eq(s.useTreasureMap(), false);
   assert.eq(s.save.inv[0].count, 2);
   assert.eq(s.save.treasureCompass, marker);
@@ -162,14 +174,16 @@ test('scroll actions: nearest chest uses only active level cache, tier and unspe
   const chest = (id, x, tier, extra = {}) => ({ id, kind: 'chest', x, y: 200, tier, ...extra });
   const surface = chest('surface', 101, 5);
   const far = chest('far', 130, 5), near = chest('near', 120, 4);
-  const world = { tileCache: new Map([['surface', { objects: [surface] }]]) };
+  const world = { tileCache: new Map([['surface', { objects: [surface] }]]),
+    forEachItem(prop, fn) { for (const e of this.tileCache.values()) for (const o of e[prop] || []) if (fn(o, e)) return; } };
+  const s = scene('treasure_map');
+  s._nearestObject = method('_nearestObject', { WorldGen: world });
   const find = method('findNearestUnopenedChest', {
     WorldGen: world, spentSets: () => new Set(['spent']),
     chestTier: c => c.tier, isSpent: (c, spent) => spent.has(c.id),
     macroFor: c => c.macro, isBarrel: c => c.barrel,
     isBikeRack: c => c.bike, isPotOfGold: c => c.gold,
   });
-  const s = scene('treasure_map');
   assert.eq(find.call(s, [4, 5]), surface);
   world.tileCache = new Map([['cave', { objects: [far, near,
     chest('low', 101, 3), chest('spent', 102, 5), chest('stall', 103, 5, { macro: true }),
@@ -179,39 +193,4 @@ test('scroll actions: nearest chest uses only active level cache, tier and unspe
   assert.eq(find.call(s, [5]), far);
   assert.eq(find.call(s).id, 'low', 'existing untiered compass stays compatible');
 });
-test('treasure bearings: nearest X includes hidden and covered marks, excludes claims and offscreen targets', () => {
-  const mark = (id, x, extra = {}) => ({ id, x, y: 200, ...extra });
-  const far = mark('far', 140), near = mark('near', 110, { coverRockId: 'rock' });
-  const world = { tileKey: (x, y) => `${x},${y}`, tileCache: new Map([['0,0', {
-    treasure: mark('claimed', 101), parkingTreasures: [far], extraTreasures: [near, mark('wrong-depth', 103, { depth: 0 })],
-    objects: [{ kind: 'chest', id: 'chest', x: 102, y: 200 }],
-  }]]) };
-  const find = method('findNearestTreasureMark', { WorldGen: world, setOf: a => new Set(a || []) });
-  const s = scene('compass');
-  s.save.foundTreasures = ['claimed'];
-  Object.assign(s, { viewCenterX: 140, viewCenterY: 200, viewSize: 20 });
-  assert.eq(find.call(s), near);
-  assert.eq(find.call(s, true), far, 'viewport uses camera while nearest uses feet');
-  s.save.foundTreasures.push('near', 'far');
-  assert.eq(find.call(s), null);
-  world.tileCache = new Map([['new-level', { treasure: mark('new', 170) }]]);
-  assert.eq(find.call(s).id, 'new', 'cache swap drops old level');
-});
-
-test('treasure bearings: short red needle points from feet and stops at close marks', () => {
-  const draw = method('_drawTreasureNeedle', { CELL_PX: 32 });
-  const lines = [], styles = [];
-  const s = { playerScreen: () => ({ x: 50, y: 70 }),
-    worldMetersToScreen: (x, y) => ({ x, y }),
-    facingGfx: { lineStyle: (...a) => styles.push(a), lineBetween: (...a) => lines.push(a) } };
-  draw.call(s, { x: 100, y: 70 });
-  assert.eq(styles[0][1], 0xff5555);
-  assert.eq(lines[0].join(','), '50,70,72.4,70');
-  draw.call(s, { x: 50, y: 75 });
-  assert.eq(lines[1].join(','), '50,70,50,75');
-  draw.call(s, null);
-  assert.eq(lines.length, 2);
-  assert.truthy(APP_JS_SRC.includes('!setOf(this.save.foundTreasures).has(treasure.targetId)'), 'map retires on digging');
-});
-
 })();

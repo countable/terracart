@@ -78,6 +78,23 @@
       last: now, until: now + CONFIG.pushMs, depth: scene.depth, epoch: scene._whirlwindEpoch || 0 };
     scene._whirlwindPushUntil = now + CONFIG.pushMs;
   }
+  // Shared forced movement ledger for wind and physical dungeon traps.
+  // Destination is absolute world BODY position; GPS remains untouched.
+  function displacePlayer(scene, end) {
+    const dx = end.x - scene.startWorldM.x - scene.playerM.x;
+    const dy = end.y - scene.startWorldM.y - scene.playerM.y;
+    const offset = scene._manualOffsetM ||= { x: 0, y: 0 };
+    const target = scene._targetM ||= { ...scene.playerM };
+    scene.playerM.x += dx; scene.playerM.y += dy;
+    offset.x += dx; offset.y += dy;
+    // Stop the old walk target pulling against the knockback. Reconcile
+    // its abandoned lead with the same GPS-offset ledger as stick takeover.
+    offset.x += scene.playerM.x - (target.x + dx);
+    offset.y += scene.playerM.y - (target.y + dy);
+    target.x = scene.playerM.x; target.y = scene.playerM.y;
+    scene._lastStickT = Date.now(); scene._followPaused = false;
+    return { x: dx, y: dy };
+  }
   function pushStep(scene, unit, dt, now, player = false) {
     const push = unit._whirlwindPush;
     if (!push) return;
@@ -95,18 +112,8 @@
     const y = player ? scene.startWorldM.y + scene.playerM.y : unit.y;
     const distance = CONFIG.pushCells * scene.cellM * seconds * 1000 / CONFIG.pushMs;
     const end = sweep(scene, { x, y }, push.x * distance, push.y * distance);
-    const dx = end.x - x, dy = end.y - y;
     if (player) {
-      const offset = scene._manualOffsetM ||= { x: 0, y: 0 };
-      const target = scene._targetM ||= { ...scene.playerM };
-      scene.playerM.x += dx; scene.playerM.y += dy;
-      offset.x += dx; offset.y += dy;
-      // Stop the old walk target pulling against the knockback. Reconcile
-      // its abandoned lead with the same GPS-offset ledger as stick takeover.
-      offset.x += scene.playerM.x - (target.x + dx);
-      offset.y += scene.playerM.y - (target.y + dy);
-      target.x = scene.playerM.x; target.y = scene.playerM.y;
-      scene._lastStickT = Date.now(); scene._followPaused = false;
+      displacePlayer(scene, end);
     } else {
       unit.x = end.x; unit.y = end.y;
       unit._startX = unit._targetX = unit.x; unit._startY = unit._targetY = unit.y;
@@ -177,5 +184,5 @@
     for (const c of live) pushStep(scene, c, dt, now);
     if (now >= (scene._whirlwindPushUntil || 0)) scene._whirlwindPushUntil = 0;
   }
-  root.Whirlwinds = { CONFIG, terrain, ground, frame, create, observe, sweep, impulse, pushStep, contact, tick };
+  root.Whirlwinds = { CONFIG, terrain, ground, frame, create, observe, sweep, impulse, displacePlayer, pushStep, contact, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

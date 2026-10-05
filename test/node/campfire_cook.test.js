@@ -126,9 +126,8 @@ test('campfire: empty-handed or off the fire, the handler stands aside', () => {
     'a fire on another level is not this one');
 });
 
-test('campfire: fire-held runs before release and extinguish-fire', () => {
+test('campfire: fire-held runs before extinguish-fire', () => {
   const names = TAP_HANDLERS.map(h => h.name);
-  assert.truthy(names.indexOf('fire-held') < names.indexOf('release'), 'a held animal over a fire is a burn question');
   assert.truthy(names.indexOf('fire-held') < names.indexOf('extinguish-fire'), 'holding something never just puts it out');
 });
 

@@ -298,11 +298,11 @@
   function canvasTarget(scene) {
     if (typeof document === 'undefined' || !scene.textures || !scene.buildingGeomContainer) return null;
     if (scene._buildingGeomTarget) return scene._buildingGeomTarget;
-    const pad = CELL_PX * 2;
-    const size = Math.ceil(scene.viewSize + pad * 2);
-    const originX = scene.viewLeft - pad, originY = scene.viewTop - pad;
+    // The padded viewport layer (render.js Render.viewportCanvas — the grid
+    // and border bakes open theirs the same way). A texture left by an
+    // earlier scene is dropped first, so this canvas is this scene's own.
     if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
-    const tex = scene.textures.createCanvas(TEX_KEY, size, size);
+    const { tex, x: originX, y: originY, cw: size } = Render.viewportCanvas(scene, TEX_KEY, CELL_PX * 2);
     if (!tex) return null;
     const ctx = tex.getContext();
     ctx.lineJoin = 'round';
@@ -763,17 +763,15 @@
 
     // Camera anchor, not the body — a peek drag slides these footprints with
     // the ground they're painted on (coords.js overlayFrame → viewAnchorCell).
-    // Keep padded paint across crossings. New tile inputs and the claim epoch
-    // still repaint immediately: restoring a wreck or taking a castle must
-    // lift the shade off that footprint on the next frame.
-    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes);
-    const { tiles } = frame;
-    const paint = overlayPaintFrame(scene, frame,
-      scene._buildingGeomKey ? scene._buildingGeomFrame : null, claimEpoch(scene));
-    const { fracX, fracY } = paint;
-    if (paint.rebuild) {
-      scene._buildingGeomFrame = paint;
-      scene._buildingGeomKey = paint.key;
+    // Rebuild key: the snapped camera cell, which of the 3×3 tiles have their
+    // shapes in hand (so a tile that finishes loading repaints even while the
+    // player stands still), and the claim epoch — restoring a wreck or taking
+    // a castle has to lift the shade off that footprint on the next frame.
+    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
+      overlayFrame(scene, (entry) => !!entry.buildingShapes);
+    const key = `${baseCellIX},${baseCellIY},${ready},${claimEpoch(scene)}`;
+    if (key !== scene._buildingGeomKey) {
+      scene._buildingGeomKey = key;
       scene._buildingGeomPainted = true;
       timedOverlayRebuild('building overlay rebuild',
         () => rebuild(scene, tiles, fracX, fracY));

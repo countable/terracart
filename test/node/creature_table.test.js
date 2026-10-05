@@ -79,12 +79,7 @@ test('creature table: a PET is exactly the cat and the dog, and each hunts its o
   // one row answers both halves of the wander loop's scan.
   assert.eq(ctKinds((k) => CT_BEH[k].prey), 'cat,dog');
   assert.eq(CT_SL.creaturePrey('chicken'), null, 'a chicken hunts nothing');
-  // FOLLOWING is the cat's (interact.js arms the timer, wanderCreatures
-  // honours it) and the spirit raven's (app.js _tickSpiritRaven arms it for
-  // the bird's whole life) — and it is not the same question as being a pet.
-  assert.eq(ctKinds((k) => CT_BEH[k].follows), 'cat,mercenary,pirate_mercenary,spirit_raven,summoned_skeleton,summoned_wraith');
-  assert.truthy(CT_SL.creatureFollows('cat'));
-  assert.falsy(CT_SL.creatureFollows('dog'), 'a dog does not trail you around');
+
 });
 
 test('creature table: what a kill drops is the kind\'s own row', () => {
@@ -124,14 +119,8 @@ test('creature table: animal interaction timing has one owner beside behaviour',
   const a = CT_SL.ANIMAL_INTERACTION;
   assert.truthy(a, 'the interaction table is exported');
   assert.eq(a.produceCooldownMs, 60 * 60 * 1000, 'one yield per hour');
-  assert.eq(a.petBoostMs, 10 * 60 * 1000, 'petting boosts the next yield for ten minutes');
-  assert.eq(a.doubleYieldChance, 0.5, 'the boosted yield has a coin-flip chance');
-  assert.eq(a.followMs, 5 * 60 * 1000, 'a following cat trails for five minutes');
-  assert.truthy(/ANIMAL_INTERACTION\.petBoostMs/.test(INTERACT_SRC)
-    && /ANIMAL_INTERACTION\.produceCooldownMs/.test(INTERACT_SRC)
-    && /ANIMAL_INTERACTION\.doubleYieldChance/.test(INTERACT_SRC)
-    && /ANIMAL_INTERACTION\.followMs/.test(INTERACT_SRC),
-    'interact.js reads every number from the owner');
+  assert.truthy(/ANIMAL_INTERACTION\.produceCooldownMs/.test(INTERACT_SRC),
+    'production reads its cooldown from the owner');
   assert.truthy(/SpriteLayout\.creatureProduce\(c\.kind\)/.test(SCENE_SRC),
     'honey asks the producer predicate instead of naming chicken and cow again');
 });
@@ -200,8 +189,9 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   const w = SCENE_SRC;
   assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
     'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
-  assert.truthy(/Combat\.incomingDamage\(this\.save, raw\)/.test(w)
-    && /const raw = fightsBack\.dmg \* Combat\.powerMul\(c\);/.test(w), 'the butt is shielded and soaked before recipient difficulty');
+  assert.truthy(/foeBlowLands\(this, c, Combat\.meleeBlow\(c, fightsBack\.dmg\)\);/.test(w)
+    && /const dmg = mitigated \? raw : Combat\.incomingDamage\(scene\.save, raw\);/.test(CREATURE_AI_SRC),
+    'the butt is the melee formula, shielded and soaked before recipient difficulty by the one blow writer');
   assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
 });
 

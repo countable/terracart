@@ -10,6 +10,7 @@ const methods = new Function('return ({' + [
   lift('_catchStory(creature) {'),
   lift('_barehandWorkStory(tool, startingTier, isTree = false) {'),
   lift('_storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {'),
+  lift('_dialogOpen() {'),
   lift('_barehandMutter(toolSlot, worldX, worldY) {'),
 ].join(',') + '});')();
 const sceneFor = (relics = {}) => {

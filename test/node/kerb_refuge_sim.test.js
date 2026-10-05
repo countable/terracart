@@ -65,7 +65,6 @@ function mkScene(entry, creature, feet) {
     _applyCondition(id) { Conditions.apply(this.save, id); },
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
-    _losePlayerCoins(n) { const taken = Math.min(this.save.money, n); this.save.money -= taken; return taken; },
     _trapperLay() { this._laid++; },
     // A THIEF'S snatch (the raven's coins, the gull's food —
     // Combat.incomingTheft) banked the way app.js _losePlayerToThief banks
@@ -258,8 +257,12 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   const w = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'));
   assert.truthy(/const kerbLeash = inKerbAt\(this, px, py\);/.test(w), 'read once per tick, off the FEET');
   assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\|/.test(w), 'a reason in standDown');
-  assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed && !kerbTurn && !Combat\.isPacified\(c\)\)/.test(w), 'a guard gives up');
-  assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) continue;/.test(w), 'the band is a refused cell');
+  assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed && !kerbTurn\)/.test(w), 'a guard gives up');
+  // The refused cells live in the ONE step test (creature_ai.js
+  // creatureStepRefused), which both movers ask.
+  assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) return true;/.test(CREATURE_AI_SRC), 'the band is a refused cell');
+  assert.truthy(/if \(creatureStepRefused\(this, c, tx, ty, \{ retreating: bolting \|\| routed \|\| kerbTurn \}\)\) continue;/.test(w), 'the step chain asks it');
+  assert.truthy(/return !creatureStepRefused\(scene, c, x, y, \{ row, escaping, retreating: !!c\._retreating \}\);/.test(CREATURE_AI_SRC), 'and so does the roster sweep');
   const spawn = SCENE_SRC.slice(SCENE_SRC.indexOf('  spawnInTile(entry, tx, ty) {'));
   assert.truthy(/roadClass: entry\.roadClass,/.test(spawn), 'the shared spawn options carry the bits');
   // The buffer is the spawn gate's KERB reason (entry.spawnWhy): each animal
@@ -269,7 +272,7 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   assert.truthy(/const spClass = creatureSpawnClass\(kindStr\);/.test(spawn), 'the class comes from each creature kind');
   assert.truthy(/if \(!WorldGen\.isSpawnCell\(genGrid, N, N, cx, cy, seatOpts, spClass\)\) return;/.test(spawn), 'fast fauna and foes are dropped from the buffer');
   assert.truthy(/const faunaSpawnOpts = \{ \.\.\._spawnOpts, occupied: null \};/.test(spawn), 'fauna overlap retains every ground and kerb restriction');
-  assert.truthy(/&& isFastMover\(c, this\.cellM\)/.test(w), 'only a FAST mover is kept out of the buffer');
+  assert.truthy(/&& isFastMover\(c, scene\.cellM\)\) return true;/.test(CREATURE_AI_SRC), 'only a FAST mover is kept out of the buffer');
   assert.truthy(/relocateToSpawnCell\(genGrid, N, N, ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor'\)/.test(spawn), 'and every lair candidate');
   assert.falsy(/BANDIT_STORY\.attracts/.test(SCENE_SRC), 'no animal is pulled onto a major verge');
 });
@@ -353,7 +356,7 @@ test('same side: the timed rewards read it, and none waits under ten minutes', (
   const tickB = app.slice(app.indexOf('  _tickGuildBounty() {'));
   const body = tickB.slice(0, tickB.indexOf('\n  }\n'));
   assert.falsy(/CREATURE_SIM_CELLS/.test(body), 'the bounty has no walk-away leash');
-  assert.truthy(/gb\.day !== utcDayKey\(\)/.test(body), 'it waits until the UTC day turns');
+  assert.truthy(/!Macros\.usedToday\(this\.save, GUILD_BOUNTY_LEDGER\)/.test(body), 'it waits until the UTC day turns (the one day ledger)');
 });
 
 })();

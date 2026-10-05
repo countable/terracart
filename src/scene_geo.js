@@ -201,7 +201,7 @@ class SceneGeo {
     this._gpsManualOverride = true;
     this.syncMoveTarget();   // drop the last GPS target so it can't keep pulling
     if (this.gpsAvailable) {
-      this.flash('GPS off — manual control', this.viewCenterX, this.viewCenterY - 40);
+      this.flashAtPlayer('GPS off — manual control');
     }
   }
 
@@ -313,7 +313,7 @@ class SceneGeo {
     const onVisibility = () => { if (document.hidden) reset(); };
     document.addEventListener('visibilitychange', onVisibility);
     const observer = new MutationObserver(() => {
-      if (document.body.classList.contains('modal-open')) reset();
+      if (this._dialogOpen()) reset();
     });
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     this._debugGpsReset = () => {
@@ -326,7 +326,7 @@ class SceneGeo {
   _stepDebugGps(dt) {
     const v = this._debugGpsVec;
     if (!this._debugGpsEnabled || !v || (!v.x && !v.y)) return;
-    if (document.hidden || document.body.classList.contains('modal-open')) return;
+    if (document.hidden || this._dialogOpen()) return;
     if (!this._gpsSimulated) {
       this._gpsSimulated = true;
       if (this.gpsWatchId != null) Geo.unsubscribe(this.gpsWatchId);
@@ -337,7 +337,7 @@ class SceneGeo {
       this._homeCapturePending = false;
       if (this._homeCaptureTimer) clearTimeout(this._homeCaptureTimer);
       this._homeCaptureTimer = null;
-      this.flash('Simulated GPS active', this.viewCenterX, this.viewCenterY - 40);
+      this.flashAtPlayer('Simulated GPS active');
     }
     this._gpsManualOverride = false;
     const off = this._manualOffsetM;
@@ -810,7 +810,7 @@ class SceneGeo {
     // already rasterized without it (cold cache — e.g. right after a save
     // reset) and evicted the stale entry; re-run so the rebuilt tile (now
     // with its real-world trees) loads even if the player is standing still.
-    const warmed = WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
+    const warmed = this.depth === Arena.DEPTH ? null : WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
     if (warmed && typeof warmed.then === 'function') {
       warmed.then((evicted) => { if (evicted) this.ensureTilesAround().catch(() => {}); });
     }
@@ -861,7 +861,7 @@ class SceneGeo {
         // neither anchors on them nor lets them refuse a seat (that would
         // reshuffle the cave for everyone else); it CULLS whatever it draws
         // onto one (heldByPlayer). Nothing spawns on a stair cell.
-        if (this.depth > 0) {
+        if (this.depth > 0 && this.depth !== Arena.DEPTH) {
           this._ensureHomeUpStair(entry, tx, ty);
           this._ensureLadderUpStairs(entry, tx, ty);
         }
@@ -869,7 +869,8 @@ class SceneGeo {
         else if (this.depth > 0 && !entry._spawned) this.spawnCaveCreatures(entry, tx, ty, this.depth);
         // Re-open any walls the player has already mined on this level (the
         // home up-staircase is guaranteed above, before the spawn pass).
-        if (this.depth > 0) {
+        this.ensureHomeElevatorObject();
+        if (this.depth > 0 && this.depth !== Arena.DEPTH) {
           this._applyDugWalls(entry, tx, ty);
           // A body placed on a far fix (_placeBodyOnFix) usually lands on a
           // tile that hasn't loaded yet; open the cell under it now if the

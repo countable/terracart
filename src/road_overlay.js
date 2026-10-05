@@ -1367,19 +1367,17 @@
     }
 
     // Camera anchor, not the body (coords.js overlayFrame → viewAnchorCell).
-    // Keep the padded paint across crossings; new tile inputs or restored
-    // streets still repaint immediately, even while the player stands still.
-    const frame = overlayFrame(scene, (entry) => !!entry.layers);
-    const { baseCellIX, baseCellIY, tiles } = frame;
+    // The rebuild key is the snapped anchor cell plus which of the 3×3 tiles
+    // have their MVT layers, so a tile that finishes loading (or is rebuilt)
+    // repaints even while the player stands still.
+    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
+      overlayFrame(scene, (entry) => !!entry.layers);
     // The STREETS epoch, bumped by Streets.restore, repaints the restored
     // canvas after a restore and moves only when something changed.
     const epoch = (typeof Streets !== 'undefined' && scene.save) ? Streets.epoch(scene.save) : 0;
-    const paint = overlayPaintFrame(scene, frame,
-      scene._roadGeomKey ? scene._roadGeomFrame : null, epoch);
-    const { fracX, fracY } = paint;
-    if (paint.rebuild) {
-      scene._roadGeomFrame = paint;
-      scene._roadGeomKey = paint.key;
+    const key = `${baseCellIX},${baseCellIY},${ready},${epoch}`;
+    if (key !== scene._roadGeomKey) {
+      scene._roadGeomKey = key;
       timedOverlayRebuild('road overlay rebuild',
         () => rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY));
     }

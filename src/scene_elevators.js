@@ -3,7 +3,7 @@ class SceneElevators {
   _elevatorHomePosition() {
     const save = this.save;
     if (save.starterTrailer && save.starterTrailer.id === save.starterShopId) return save.starterTrailer;
-    if (this._homePosMemo?.id === save.starterShopId) return this._homePosMemo.pos;
+    if (this._homePosMemo && this._homePosMemo.id === save.starterShopId) return this._homePosMemo.pos;
     for (const entry of WorldGen.tileCacheFor(0).values()) {
       const home = (entry.objects || []).find(o => o.id === save.starterShopId);
       if (home) return home;
@@ -14,13 +14,26 @@ class SceneElevators {
   openElevator(stair) {
     const depth = this.depth || 0;
     const { wrap, box, mount, mkBtn } = this.makeModalShell('elevator-modal', {
-      kind: 'note', kindLabel: 'Elevator', art: 'cave_first', onClose: () => {},
+      kind: 'note', kindLabel: 'Elevator', art: 'progression_elevator', onClose: () => {},
     });
     const destinations = Elevators.unlockedFloors(this.save).filter(floor => floor !== depth);
     if (depth > 0) destinations.unshift(0);
     const description = document.createElement('p');
     description.textContent = destinations.length ? 'Where would you like to go?' : 'No floors unlocked yet.';
     box.appendChild(description);
+    if (Elevators.isRepaired && !Elevators.isRepaired(this.save) && (depth === 0 || depth === 1)) {
+      const repair = mkBtn('Repair — 9 wood + 9 stone', true);
+      repair.disabled = !Elevators.canRepair(this.save);
+      repair.addEventListener('click', event => {
+        event.stopPropagation();
+        if ((this.depth || 0) !== depth || !Elevators.repair(this.save)) return;
+        persistSave(this.save);
+        this.buildInventoryDOM();
+        wrap.remove();
+        this.openElevator(stair);
+      });
+      box.appendChild(repair);
+    }
     for (const floor of destinations) {
       const button = mkBtn(floor === 0 ? 'Home' : `Floor ${floor}`, true);
       button.style.display = 'block';
@@ -30,9 +43,15 @@ class SceneElevators {
         event.stopPropagation();
         if ((this.depth || 0) !== depth) { wrap.remove(); return; }
         if (floor > 0 && !Elevators.unlockedFloors(this.save).includes(floor)) return;
-        const anchor = floor === 0 ? this._elevatorHomePosition() : HomeArea.worldM;
+        const anchor = floor === 0 ? (this.save.homeElevator || this._elevatorHomePosition())
+          : (this.save.homeElevator || HomeArea.worldM || this._elevatorHomePosition());
         if (!anchor) return;
         wrap.remove();
+        if (floor > 0 && this.cellAt && this.dugWallSet) {
+          const cell = this.cellAt(anchor.x, anchor.y);
+          this.dugWallSet.add(`${floor}:${cellKeyFromAbsCell(cell.cellIX, cell.cellIY)}`);
+        }
+        anchor.elevator = true;
         this.changeDepth(floor - depth, anchor);
       });
       box.appendChild(button);
@@ -44,7 +63,8 @@ class SceneElevators {
   }
 
   ensureHomeElevatorObject() {
-    if ((this.depth || 0) !== 0 || !Elevators.unlockedFloors(this.save).length) return;
+    if ((this.depth || 0) !== 0) { this.ensureDungeonElevatorObject(); return; }
+    if (!Elevators.unlockedFloors(this.save).length) return;
     const home = this._elevatorHomePosition();
     if (!home) return;
     const homeKey = `${this.save.starterShopId || 'home'}@${home.x},${home.y}`;
@@ -142,4 +162,22 @@ class SceneElevators {
     this._homeElevatorChecked = { entry: seat.entry, objects: seat.entry.objects,
       count: seat.entry.objects.length, ownedStamp };
   }
+  ensureDungeonElevatorObject() {
+    const depth = this.depth || 0;
+    if (depth !== 1 && !Elevators.unlockedFloors(this.save).includes(depth)) return;
+    const anchor = this.save.homeElevator || this._elevatorHomePosition();
+    if (!anchor) return;
+    const cell = this.cellAt(anchor.x, anchor.y);
+    this.dugWallSet.add(`${depth}:${cellKeyFromAbsCell(cell.cellIX, cell.cellIY)}`);
+    const tile = worldMetersToTile(this, anchor.x, anchor.y);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tile.tx, tile.ty));
+    if (!entry?._spawned) return;
+    const id = `dungeon_elevator:${depth}`;
+    if (!(entry.objects || []).some(o => o.id === id)) {
+      entry.objects = entry.objects || [];
+      entry.objects.push({ kind: 'staircase', elevator: true, dir: 'up', depth, id,
+        x: anchor.x, y: anchor.y, _synthetic: true, playerOwned: true });
+    }
+  }
+
 }

@@ -245,7 +245,7 @@ test('stories: animal pages hint at produce and companionship', () => {
   assert.truthy(/egg/.test(produce), 'feeding is told through its produce');
   assert.gt(a.produceCooldownMs, 0, 'produce retains a cooldown');
   assert.truthy(/follow/.test(follow), 'the cat story hints at companionship');
-  assert.gt(a.followMs, 0, 'companionship has a real duration');
+  assert.eq(a.followMs, undefined, 'owned companionship no longer expires on a petting timer');
 });
 
 test('mechanics: ranged weapons keep their cadence and sensory hints', () => {
@@ -291,8 +291,10 @@ test('mechanics: requested deliveries pay a premium', () => {
   assert.eq(Number(m[1]), 1.5, 'a set pays half again');
 });
 
-test('mechanics: the castle board holds three jobs', () => {
-  assert.eq(QUEST_SLOTS, 3, 'the board holds three jobs');
+test('mechanics: castles offer three quest types', () => {
+  const save = {};
+  const verbs = ['bastion', 'archive', 'ruin'].map(variant => Quests.assign(save, variant, variant).verb);
+  assert.eq(verbs.join(','), 'kill,deliver,hunt');
 });
 
 test('mechanics: tiers come from the quota seed; the ladder retired', () => {

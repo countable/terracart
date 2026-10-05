@@ -5,9 +5,8 @@
 // This is NOT the shop pricing/scheduling engine (shops_math.js ShopsMath) nor
 // the OSM-address → role lookup (shops.js Shops.shopType) — this module is
 // "what IS this building, and has the player made it theirs", the layer those
-// two sit on top of. It is also not quest/quest-board logic (quests.js) — a
-// castle's seal defers to the quest board (Scene.showQuestBoard) rather than
-// deciding anything about quests itself.
+// two sit on top of. Castle quests and citadel garrisons record claims here;
+// this module reads ownership without deciding quest or combat progress.
 //
 // Depends on globals from interactables.js (isCastle), shops.js (Shops),
 // and items.js (wreckRestoreQty) - all resolved
@@ -70,43 +69,42 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   //              registerSoloShop; lineFor sells the line off it), so old
   //              readers of the role string never meet a new one. Once built
   //              the card leaves the offer for good, and the line never
-  //              returns at a higher tier — it is not in the Shop cycle.
+  //              returns at a higher tier.
   //   turret   — a single castle tower on a house lot: it draws the castle
   //              tower sheet (render.js houseTextureKey) and its archer
   //              fires through the castle turret lane (app.js _turretFire).
+  //              Any number may stand.
   //   wizard   — Tim's tower; `offered` reads the tower ledger and the
-  //              memory ledger, never a count of its own.
-  // `tier(save, order)` is the rank the pick would carry (the badge on its
-  // card and on the Restored! card): a shop's line tier, the next smithy's
-  // tier, a trader's by restore number — all shops.js shopTier's arithmetic.
-  // `variants(save, order)` splits a row into several cards (the Shop row,
-  // one per line on offer); each variant's fields lie over the row's.
+  //              memory ledger, never a count of its own. `pinned`, like
+  //              the House: canon never waits on the offer's rotation.
+  // A RANKED role (`ranked`: a smithy, a shop, a trader) is laid out by
+  // `variants(save, order)` as ONE CARD PER RANK the ladder has unlocked
+  // (Shops.tierCap — by MEMORIES: T2 at five, a rank more every five), a
+  // Shop's per line it may still open at that rank (Shops.lineBuildable:
+  // LINE_RULES' ceiling and per-tier cap). Each card carries its numeric
+  // `tier` (the badge on it and on the Restored! card, its price per rank in
+  // buildCost, the rank restoreAs stamps) and, for a Shop, its `theme`. Any
+  // number of a card may stand — the modal tells a NEW one from a duplicate
+  // (isNewPick, offerCards).
   const BUILD_OPTIONS = Object.freeze([
-    { key: 'plain', role: 'plain', from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
+    { key: 'plain', role: 'plain', pinned: true, from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
       blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
-    // ONE SMITHY PER TIER (shops.js smithTier): the Nth blacksmith is tier N,
-    // and after the first (the ladder's own slot) the next is offered only
-    // from restore number N × SMITH_TIER_EVERY — a T2 smith from the tenth.
-    { key: 'blacksmith', role: 'blacksmith', from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
+    { key: 'blacksmith', role: 'blacksmith', ranked: true, from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
       blurb: 'A family returns to the forge. They offer to make the tools you need.',
-      tier: (save) => Shops.nextSmithTier(save),
-      offered: (save, order) => {
-        const t = Shops.nextSmithTier(save);
-        return t === 1 ? true : Shops.smithCount(save) < Shops.SHOP_TIER_MAX && order + 1 >= Shops.smithUnlockAt(t);
-      },
-      suggested: (save) => !hasBlacksmith(save) },
-    // The Shop row is one card per LINE on offer (shops.js marketOffers: the
-    // cycle's next line, then from the ninth rebuild a rotating pair), each a
-    // variant with its `theme`; restoreAs stores the pick in save.shopLines.
-    { key: 'market', role: 'market', from: STORY_RESTORES.market, art: 'restore_market',
+      variants: (save) => ranks(save).map((tier) => ({
+        key: 'blacksmith:' + tier, tier,
+        // The T1 card is SUGGESTED (outlined) while the lane has no smithy:
+        // the wooden tools come from nowhere else.
+        suggested: (s) => tier === 1 && !hasBlacksmith(s),
+      })) },
+    { key: 'market', role: 'market', ranked: true, from: STORY_RESTORES.market, art: 'restore_market',
       blurb: 'A family opens the market shutters again. ',
-      variants: (save, order) => Shops.marketOffers(save, order).map(({ theme, tier }) =>
-        ({ key: 'market:' + theme, theme, tier: () => tier })) },
-    // Traders take the tier of the restore number that raises them (shops.js
-    // traderTierAt): any number at a tier, a rank higher every five rebuilds.
-    { key: 'trader', role: 'trader', from: STORY_RESTORES.trader, art: 'restore_trader',
+      variants: (save) => Shops.THEMES.flatMap((theme) => ranks(save)
+        .filter((tier) => Shops.lineBuildable(save, theme, tier))
+        .map((tier) => ({ key: `market:${theme}:${tier}`, theme, tier }))) },
+    { key: 'trader', role: 'trader', ranked: true, from: STORY_RESTORES.trader, art: 'restore_trader',
       blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.',
-      tier: (save, order) => Shops.traderTierAt(order + 1) },
+      variants: (save) => ranks(save).map((tier) => ({ key: 'trader:' + tier, tier })) },
     { key: 'turret', role: 'turret', from: STORY_RESTORES.turret, art: 'castle_claim',
       blurb: 'Masons raise a single tower on the old footings. An archer climbs to the battlement and strings a bow.' },
     { key: 'petshop', role: 'market', solo: 'pet', from: STORY_RESTORES.petshop, name: 'Pet Shop', art: 'restore_market',
@@ -115,21 +113,79 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     { key: 'bookshop', role: 'market', solo: 'book', from: STORY_RESTORES.bookshop, name: 'Book Shop', art: 'restore_market',
       blurb: 'A family opens the market shutters again. Shelves of books line the walls.',
       offered: (save) => save.bookshopId == null },
-    { key: 'wizard', role: 'wizard', from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
+    { key: 'wizard', role: 'wizard', pinned: true, from: STORY_RESTORES.firstTower, name: 'Wizard Tower', art: 'restore_wizard',
       blurb: 'You step into the tower. An old wizard asks about your memories.',
       offered: (save, order) => {
         const towers = wizardTowerIds(save);
         if (!towers.firstId) return true;
         return !towers.secondId && order >= STORY_RESTORES.secondTower - 1
-          && Object.keys(save.discovered || {}).length >= 21;
+          && MemoryStory.total(save) >= MemoryStory.LEAVE_MEMORIES;
       } },
   ]);
+  // The ranks on offer: 1..Shops.tierCap(save) — the memory ladder.
+  function ranks(save) {
+    return Array.from({ length: Shops.tierCap(save) }, (_, i) => i + 1);
+  }
+  // THE RENOVATION PERMIT (items.js renovation_permit, a T4 supply): spent
+  // on a standing ranked building (a smithy, a shop, a trader — never a
+  // one-off shop, a House, a turret or the tower), it climbs to the next allowed rank, if
+  // that rank is actually open to the player: under the memory ladder
+  // (Shops.tierCap) and, for a shop, still buildable on its line
+  // (Shops.lineBuildable — Seed and Supply end at T3, one Magic Shop a
+  // tier). renovateTo is the question (the rank it would reach, or null and
+  // why); renovate writes it — save.shopTiers, the rank ledger restoreAs
+  // stamps, so every badge and shelf reads the new rank at once.
+  const PERMIT_ID = 'renovation_permit';
+  function renovateTo(save, house) {
+    const role = houseShopRole(save, house);
+    if (!role || !buildOption(role)?.ranked) return { tier: null, why: 'unranked' };
+    if (role === 'market' && Shops.isSoloShop(save, house.id)) return { tier: null, why: 'unranked' };
+    const now = Shops.shopTier(save, house, role);
+    const theme = role === 'market' ? Shops.lineFor(save, house).theme : null;
+    const allowed = Shops.LINE_RULES[theme]?.tiers;
+    const next = allowed ? allowed.find(tier => tier > now) : now + 1;
+    if (next == null) return { tier: null, why: 'line' };
+    if (next > Shops.SHOP_TIER_MAX) return { tier: null, why: 'top' };
+    if (next > Shops.tierCap(save)) return { tier: null, why: 'memories', need: Shops.tierUnlockMemories(next) };
+    if (role === 'market' && !Shops.lineBuildable(save, Shops.lineFor(save, house).theme, next)) return { tier: null, why: 'line' };
+    return { tier: next, why: null };
+  }
+  function renovate(save, house) {
+    const to = renovateTo(save, house);
+    if (!to.tier) return null;
+    (save.shopTiers ||= {})[house.id] = to.tier;
+    return to.tier;
+  }
   const buildOption = (key) => BUILD_OPTIONS.find((row) => row.key === key) || null;
+  // THE NEW BADGE (owner, Oct 2026): a card is NEW when nothing the player has
+  // raised matches it — no building of its role at all, or, for a ranked
+  // role, none at the rank the card carries: a shop's LINE and tier
+  // (Shops.lineFor), a smithy's or a trader's tier (Shops.shopTier — the one
+  // tier every badge reads). A solo shop (`solo`) is a line of its own and
+  // is only offered while none stands. `row` is a card as buildOptions lays
+  // it out.
+  function isNewPick(save, row) {
+    if (!row) return false;
+    const rh = (save && save.restoredHouses) || {};
+    const tier = row.tier || null;
+    const theme = row.role === 'market' ? (row.solo || row.theme || null) : null;
+    for (const id of Object.keys(rh)) {
+      if (rh[id] !== row.role) continue;
+      const house = { kind: 'house', id };
+      if (theme) {
+        const line = Shops.lineFor(save, house);
+        if (line.theme !== theme || (tier != null && line.tier !== tier)) continue;
+        return false;
+      }
+      if (tier == null || Shops.shopTier(save, house, row.role) === tier) return false;
+    }
+    return true;
+  }
   // How many wrecks already stand: the 0-based restore ORDER of the next one.
   function restoredCount(save) { return Object.keys(save?.restoredHouses || {}).length; }
-  // The cards on offer for the next restore. Pure: reads the ledgers, never
-  // writes. The first restore offers one card (the House), so the modal
-  // reads as the plain price tag it always was.
+  // THE CATALOGUE: every card that may be raised at restore `order`. Pure:
+  // reads the ledgers, never writes. restoreAs validates a pick against it;
+  // the modal shows the slice offerCards cuts from it.
   function buildOptions(save, house, order = restoredCount(save)) {
     save = save || {};
     const out = [];
@@ -140,7 +196,32 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     }
     return out;
   }
-
+  // THE OFFER (owner, Oct 2026): N = order + 1 cards — one more with every
+  // wreck that stands. The pinned cards first (the House always; the wizard's
+  // tower while its story offers it), then up to NEW_SLOTS cards the player
+  // has nothing like yet (isNewPick), then the rest of the slots over the
+  // buildable DUPLICATES. Both pools are a WINDOW over the catalogue in its
+  // table order, and the window slides ONE card along with every completed
+  // wreck (the order is the offset), so every card comes round; a pool
+  // smaller than its slots shows whole and the spare slots go unfilled.
+  const NEW_SLOTS = 3;
+  function slide(pool, count, offset) {
+    if (count <= 0 || !pool.length) return [];
+    if (count >= pool.length) return pool.slice();
+    const start = ((offset | 0) % pool.length + pool.length) % pool.length;
+    return Array.from({ length: count }, (_, i) => pool[(start + i) % pool.length]);
+  }
+  function offerCards(save, house, order = restoredCount(save)) {
+    const all = buildOptions(save, house, order);
+    const n = order + 1;
+    const out = all.filter((r) => r.pinned).slice(0, n);
+    const rest = all.filter((r) => !r.pinned);
+    const fresh = rest.filter((r) => isNewPick(save, r));
+    const dups = rest.filter((r) => !isNewPick(save, r));
+    out.push(...slide(fresh, Math.min(NEW_SLOTS, n - out.length), order));
+    out.push(...slide(dups, n - out.length, order));
+    return out;
+  }
   // THE MAGIC HAMMER (owner, Oct 2026): a T4 magic item (items.js) spent on a
   // restore. The wreck raised under it is SHINY — it glints and glows like a
   // shiny tree (render.js, Lighting.KINDS.shiny) — and everything its keepers
@@ -217,9 +298,9 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   // RESTORE THIS WRECK AS THE PICKED CARD. The one writer of the restoration
   // ledger: freezes the row's role onto the house, then stamps what the pick
-  // owns — the first blacksmith (starterBlacksmithId), a solo shop (the Book
-  // Shop's bookshopId, the Pet Shop's petshopId), a wizard tower
-  // (wizardTowers). Refuses (null) a card not on
+  // owns — its line (shopLines) and rank (shopTiers), the first blacksmith
+  // (starterBlacksmithId), a solo shop (the Book Shop's bookshopId, the Pet
+  // Shop's petshopId), a wizard tower (wizardTowers). Refuses (null) a card not on
   // offer, so a stale modal can't raise a tower early. Returns the row.
   // `opts.hammer` marks the house shiny (the caller spends the Magic Hammer).
   function restoreAs(save, house, key, opts = {}) {
@@ -229,8 +310,9 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     save.restoredHouses = save.restoredHouses || {};
     if (typeof save.restoredHouses[house.id] === 'string') return null;   // never relabel a restored house
     save.restoredHouses[house.id] = row.role;
-    if (row.theme) (save.shopLines = save.shopLines || {})[house.id] = row.theme;
-    if (opts.hammer && hammerTakes(row)) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
+    if (row.theme) (save.shopLines ||= {})[house.id] = row.theme;
+    if (row.tier) (save.shopTiers ||= {})[house.id] = row.tier;
+    if (opts.hammer && hammerTakes(row)) (save.shinyHouses ||= {})[house.id] = 1;
     if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
     if (row.solo) registerSoloShop(save, house, row.solo);
     if (row.role === 'wizard') registerWizardTower(save, house);
@@ -247,7 +329,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     const entries = Object.entries(save.restoredHouses || {});
     const firstId = stamped.firstId || (entries[LEGACY_FIRST_TOWER_INDEX]?.[1] === 'wizard'
       ? entries[LEGACY_FIRST_TOWER_INDEX][0] : entries.find(([, role]) => role === 'wizard')?.[0]) || null;
-    const secondId = stamped.secondId || (firstId && Object.keys(save.discovered || {}).length >= 21
+    const secondId = stamped.secondId || (firstId && MemoryStory.total(save) >= MemoryStory.LEAVE_MEMORIES
       ? entries.find(([id, role], order) => order >= LEGACY_SECOND_TOWER_INDEX && role === 'wizard' && id !== firstId)?.[0]
       : null) || null;
     return { firstId, secondId };
@@ -323,14 +405,13 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return houseShopRole(save, house) || 'plain';
   }
 
-  // Restoration cost: stone (rockfruit — wild residential debris, gatherable
+  // Restoration cost: stone (rubble — wild residential debris, gatherable
   // bare-handed): 2 for the first rebuild, one more per three houses already
   // restored, capped at 20 (wreckRestoreQty in items.js). A whole price, so
   // the dialog's quote is the accept's charge. Themed shops and plain
   // residential alike rebuild from the same masonry.
   function wreckRestoreCost(save, house) {
-    const restored = Object.keys(save?.restoredHouses || {}).length;
-    return { id: 'rubble', qty: wreckRestoreQty(restored), material: 'stone' };
+    return { id: 'rubble', qty: wreckRestoreQty(restoredCount(save)), material: 'stone' };
   }
   // WHAT EACH CARD COSTS (owner, Oct 2026). A House — and the wizard's tower,
   // a story building — keeps the ladder above. A shop is priced by the rank
@@ -344,7 +425,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (row.role === 'turret') return { id: 'rubble', qty: TURRET_ROCKS, material: 'stone' };
     const per = BUILD_ROCKS_PER_TIER[row.role];
     if (!per) return wreckRestoreCost(save, house);
-    const tier = Math.max(1, (typeof row.tier === 'function' ? row.tier(save, order) : 1) | 0);
+    const tier = Math.max(1, (row.tier || 1) | 0);
     return { id: 'rubble', qty: per * tier, material: 'stone' };
   }
 
@@ -379,23 +460,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return (house && house.castle) || null;
   }
 
-  // True iff `house` is a castle still sealed: a castle opens by solving the
-  // job on ITS quest board and nothing else. (Until Sep 2026 a lifetime
-  // delivery tally of 2..5 also unsealed it, left behind when the quest board
-  // replaced that gate — so five deliveries opened every castle in the world
-  // and the board was skipped. Reaching a delivery count is a quest VERB now,
-  // quests.js 'deliver', never a gate of its own.)
+  // Quest castles open on their assigned job; citadels open when their
+  // generated garrison is cleared. Both record the same permanent claim.
   function isBuildingSealed(save, house) {
-    if (!house || !isCastle(house)) return false;
-    // Claimed outright — the player solved a quest at THIS castle, so it is
-    // theirs for good and the quest board never comes back here.
-    if (isCastleClaimed(save, house)) return false;
-    // PER CASTLE, now that the board never runs dry. This was global — finish
-    // the three-quest chain and every castle in the world opened at once —
-    // which was the only thing it could be while there were exactly three
-    // quests. With a generator behind the board there is always a job at every
-    // castle, so each one is earned where it stands.
-    return true;
+    return !!house && isCastle(house) && !isCastleClaimed(save, house);
   }
 
   // IS THE BUILDING UNDER THIS CELL THE PLAYER'S? One predicate over every way
@@ -416,10 +484,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return false;
   }
 
-  // Has the player solved a quest AT this castle? Claiming is per castle and
-  // permanent: the vault opens, the banner goes up, and the quest board never
-  // comes back here — the next job is somewhere else, which is what makes the
-  // map worth walking.
+  // Claims belong to this footprint, whether earned by a quest or a battle.
   function isCastleClaimed(save, house) {
     const key = castleKey(house);
     // PRESENCE, not truthiness: the value is the last hearth draw and a castle
@@ -432,10 +497,35 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   function claimCastle(save, house) {
     const key = castleKey(house);
     if (!key) return false;
-    save.claimedCastles = save.claimedCastles || {};
+    save.claimedCastles ||= {};
     if (save.claimedCastles[key] != null) return false;
     save.claimedCastles[key] = 0;
     return true;
+  }
+
+  // The wall clock keeps the deadline running while the player is away.
+  const CITADEL_BATTLE_MS = 10 * 60 * 1000;
+  function citadelBattleActive(save, key, now = Date.now()) {
+    const battle = save.citadelBattles?.[key];
+    return Number.isFinite(battle?.startedAt) && now < battle.startedAt + CITADEL_BATTLE_MS;
+  }
+  function startCitadelBattle(save, key, now = Date.now()) {
+    if (!key || !CastleStyles.get(key).guards || isCastleClaimed(save, { castle: key })
+        || save.citadelBattles?.[key]) return false;
+    (save.citadelBattles ||= {})[key] = { startedAt: now, guardIds: [] };
+    return true;
+  }
+  function expireCitadelBattles(save, now = Date.now()) {
+    const expired = [];
+    for (const [key, battle] of Object.entries(save.citadelBattles || {})) {
+      if (isCastleClaimed(save, { castle: key })) {
+        delete save.citadelBattles[key];
+      } else if (!citadelBattleActive(save, key, now)) {
+        expired.push({ key, guardIds: battle.guardIds || [] });
+        delete save.citadelBattles[key];
+      }
+    }
+    return expired;
   }
 
   // The castle's favour, gated to once per castle per CASTLE_SERVICE_MS —
@@ -443,35 +533,28 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // the ONE timer left on any building the player trades at; shops never
   // wait — shops_math.js header). save.castleServiceClaimed[key] holds the
   // ms stamp of the last favour; anything else is no stamp (and is pruned).
-  const CASTLE_SERVICE_MS = 12 * 60 * 60 * 1000;
-  function _stampWaitMs(stamp, now) {
-    if (typeof stamp !== 'number') return 0;
-    return Math.max(0, stamp + CASTLE_SERVICE_MS - now);
-  }
+  // The row is the recurring-site table's (Macros.DAILY_VISIT_KINDS.castle —
+  // its cooldownMs) and the map is a rolling ledger (save.js Ledger: stamp +
+  // cooldown). macros.js loads before this module.
+  const CASTLE_SERVICE_MS = Macros.DAILY_VISIT_KINDS.castle.cooldownMs;
   // Milliseconds until this castle's favour is on offer again (0 = now). The
   // one number its refusal and its blurb print (shortDuration).
   function castleServiceWaitMs(save, house, now = Date.now()) {
     const key = castleKey(house);
-    return key ? _stampWaitMs(save.castleServiceClaimed?.[key], now) : 0;
+    return key ? Ledger.waitMs(save.castleServiceClaimed, key, now, CASTLE_SERVICE_MS) : 0;
   }
   function castleServiceUsed(save, house, now = Date.now()) {
     return castleServiceWaitMs(save, house, now) > 0;
   }
   function markCastleServiceUsed(save, house, now = Date.now()) {
     const key = castleKey(house);
-    if (!key) return;
-    save.castleServiceClaimed = save.castleServiceClaimed || {};
-    // Prune every OTHER castle's spent stamp while we're here — the map
-    // can't grow without bound across weeks of play.
-    for (const k of Object.keys(save.castleServiceClaimed)) {
-      if (k !== key && !_stampWaitMs(save.castleServiceClaimed[k], now)) delete save.castleServiceClaimed[k];
-    }
-    save.castleServiceClaimed[key] = now;
+    if (key) Ledger.stamp(save, 'castleServiceClaimed', key, now, now, CASTLE_SERVICE_MS);
   }
 
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
     BUILD_ROCKS_PER_TIER, TURRET_ROCKS, buildCost,
+    isNewPick, offerCards, NEW_SLOTS, ranks, PERMIT_ID, renovateTo, renovate,
     HAMMER_ID, HAMMER_PRICE_MUL, hammerTakes, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerSoloShop,
@@ -479,7 +562,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     guildRole,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
-    castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle,
+    castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle, expireCitadelBattles, CITADEL_BATTLE_MS,
     CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -19,17 +19,16 @@ const MemoryStory = (() => {
   // action in <em> on its own line, the body HTML; a talk that needs two
   // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The
   // vocabulary is the story bible's (docs/story.txt): the Breaking, fifty
-  // years, Mending Lane, the wizard the old folk call Tim. The hood is
-  // looked at and never asked about twice.
+  // years, Mending Lane, the wizard the old folk call Tim.
   const HOME = {
     title: 'A neighbour at the gate', art: 'revive_found',
-    body: '<em>Looks at your hood, then past it, down the lane.</em>\n“Nobody comes to Mending Lane any more, stranger.”\n<em>Holds up a key.</em>\n“My children still ask when we can go home. I kept this, though there is hardly a door left for it.”',
+    body: '“My children still ask when we can go home. I kept the key.”',
   };
-  // The second page of the warden's first talk — the safe area, after the
-  // plea. NPC.WARDEN_LINE is the one owner of the safe-area sentence.
-  const wardenWelcome = () => '“Mend one house and we come back. We still have hands.”\n<em>Nods at the quiet grass round the trailer.</em>\n' + NPC.WARDEN_LINE;
-  const FIRST_ROOF = '<em>Eyes red, and not hiding it.</em>\n“Lamplight, in a window that was dark fifty years. My children saw it first. We can begin again.”';
-  const RUMOUR = '<em>Lowers their voice.</em>\n“They say a wise man lives somewhere round here. Old Tim, the elders call him. Nobody I know has seen him.”\n“You walk these roads like you have walked them before. Perhaps he knows why.”';
+  const MEND_HOME = '“Mend a house. We’ll help.”';
+  // The safety hint is told once, on the second page of the first meeting.
+  const wardenWelcome = () => MEND_HOME + '\n' + NPC.WARDEN_LINE;
+  const FIRST_ROOF = '“My children saw lamplight in those windows. We can begin again.”';
+  const RUMOUR = '“They say Old Tim lives nearby. A wise man. Perhaps he knows why these roads feel familiar to you.”';
   // THE STORY NEIGHBOURS by the starting trailer (NPC.STORY_ROLES; Starter
   // placeSafeAreaWarden seats them). Each keeps to one thread of the story
   // and moves with the act, never ahead of it: the survivor knows the
@@ -164,7 +163,56 @@ const MemoryStory = (() => {
     if (!Number.isFinite(s.visits) || s.visits < 0) s.visits = 0;
     return s;
   }
-  function total(save) { return Object.keys(save.discovered || {}).length; }
+  function total(save) { return Object.keys(save?.discovered || {}).length; }
+
+  // ── THE BUSY SCREEN, and a panel that waits for it ────────────────────────
+  // One predicate for "is a dialog up": the scene's (app.js _dialogOpen —
+  // the DOM, not body.modal-open, which a MutationObserver syncs late); a
+  // scene without one (a test) falls back to the class. Every deferred story
+  // (a memory, the fire breath, Maud's arrival, a neighbour's talk) asks this
+  // and nothing else. drainPanel opens `panel` once under `flagKey` (the
+  // scene's own "mine is open" latch), clears it on dismiss (then onDone)
+  // and on a failed open, so a refused modal is retried.
+  function dialogOpen(scene) {
+    if (typeof scene?._dialogOpen === 'function') return !!scene._dialogOpen();
+    return typeof document !== 'undefined' && !!document.body?.classList?.contains('modal-open');
+  }
+  function drainPanel(scene, flagKey, panel, onDone) {
+    if (scene[flagKey] || dialogOpen(scene)) return false;
+    scene[flagKey] = true;
+    try {
+      scene.showMessageModal({ ...panel, mustAcknowledge: true, onDismiss: () => {
+        scene[flagKey] = false;
+        onDone?.();
+      } });
+    } catch (error) { scene[flagKey] = false; throw error; }
+    return true;
+  }
+  // ── A PAGED DIALOG ────────────────────────────────────────────────────────
+  // One dialog per page, "Next" between them, `lastLabel` on the last: a
+  // neighbour's talk (npc.js interact) and the wizard's visit (visitWizard).
+  // `pages` are bodies (strings) under one title / art / kind, or whole
+  // panels ({ art, title, body }). `from` resumes at a page; `onTurn(i)` runs
+  // as page i is dismissed and may answer false to stop (a stale visit);
+  // `onDone` runs after the last page; `onFail(error)` when a page would not
+  // open (the error is rethrown).
+  function showPages(scene, pages, { title, art, kind = 'note', nextLabel = 'Next', lastLabel = 'OK',
+    mustAcknowledge = false, from = 0, onTurn, onDone, onFail } = {}) {
+    const show = (i) => {
+      const page = pages[i], last = i + 1 >= pages.length;
+      try {
+        scene.showMessageModal({
+          title, art, kind, ...(typeof page === 'string' ? { body: page } : page),
+          mustAcknowledge, okLabel: last ? lastLabel : nextLabel,
+          onDismiss: () => {
+            if (onTurn && onTurn(i) === false) return;
+            if (last) onDone?.(); else show(i + 1);
+          },
+        });
+      } catch (error) { onFail?.(error); throw error; }
+    };
+    show(from);
+  }
   function enqueue(save, n, label) {
     const s = state(save), id = `memory:${n}`;
     if (!s.pending.some(p => p.id === id)) s.pending.push({ id, memory: n, label: label || 'something new' });
@@ -195,18 +243,11 @@ const MemoryStory = (() => {
       persistSave(scene.save);
       if (!s.pending.length) return false;
     }
-    if (document.body?.classList?.contains('modal-open')) return false;
     const record = s.pending[0];
-    const p = panel(record, scene.save);
-    scene._memoryStoryOpen = true;
-    try {
-      scene.showMessageModal({ ...p, mustAcknowledge: true, onDismiss: () => {
-        if (s.pending[0] === record) s.pending.shift();
-        scene._memoryStoryOpen = false;
-        persistSave(scene.save);
-      } });
-    } catch (error) { scene._memoryStoryOpen = false; throw error; }
-    return true;
+    return drainPanel(scene, '_memoryStoryOpen', panel(record, scene.save), () => {
+      if (s.pending[0] === record) s.pending.shift();
+      persistSave(scene.save);
+    });
   }
   // Orrin remembers acknowledged conversations, never taps or modal reads.
   // No affection score: questions and disagreement count as time spent together.
@@ -304,7 +345,7 @@ const MemoryStory = (() => {
   }
   function archaeologistConversation(save) {
     const s = archaeologistState(save);
-    const restored = Object.keys(save?.restoredHouses || {}).length;
+    const restored = Houses.restoredCount(save);
     // A high ledger alone does not mean the player ever met the wizard.
     // act3Started also supports old saves which completed the reveal before
     // the runtime enforced the first introduction; revealed alone does not.
@@ -354,7 +395,7 @@ const MemoryStory = (() => {
     s.visits++;
     s.lastChoice = choiceId;
     s.lastMemories = total(save);
-    s.lastRestored = Object.keys(save.restoredHouses || {}).length;
+    s.lastRestored = Houses.restoredCount(save);
     if (!save.memoryStory || typeof save.memoryStory !== 'object' || Array.isArray(save.memoryStory)) save.memoryStory = {};
     save.memoryStory.archaeologist = s;
     return { body: response, conversationId: id, choiceId };
@@ -363,20 +404,20 @@ const MemoryStory = (() => {
   function npcDialogue(scene, c) {
     if (c.role === 'archaeologist') return archaeologistConversation(scene.save).body;
     if (c.role === 'warden') {
-      const repaired = Object.keys(scene.save.restoredHouses || {}).length;
+      const repaired = Houses.restoredCount(scene.save);
       // Bryn arrives at three memories, usually after the first roof, so her
       // opening is keyed to meeting her, not to an unmended lane.
       const s = state(scene.save);
       if (!s.wardenMet) {
         s.wardenMet = true;
-        if (typeof persistSave === 'function') persistSave(scene.save);
+        Save.persist(scene.save);
         return [HOME.body, wardenWelcome()];
       }
-      if (repaired < Houses.STORY_RESTORES.earlyMending) return wardenWelcome();
+      if (repaired < Houses.STORY_RESTORES.house) return MEND_HOME;
       if (total(scene.save) >= 9 && act(scene.save) === 1) return RUMOUR;
       if (act(scene.save) >= 2) return survivorLine(scene.save);
       return FIRST_ROOF + (archaeologistState(scene.save).seen.introduction
-        ? '\n\n“Orrin means well. Most of us call him a crackpot; I worry someone will trust his dragon talk and get hurt.”' : '');
+        ? '\n\n“Orrin means well. His dragon talk could get someone hurt.”' : '');
     }
     if (c.role === 'witness') return NEIGHBOURS.witness[act(scene.save)];
     if (c.role === 'wanderer') return wandererLine(scene, c);
@@ -391,16 +432,16 @@ const MemoryStory = (() => {
   // restore count she was first met at — derived, so retuning it reaches
   // children already met.
   function wandererHoused(save, c) {
+    if (save?.npcHomes?.[c.id]?.houseId) return true;
     const met = save?.memoryStory?.met?.[c.id];
-    return Number.isFinite(met)
-      && Object.keys(save.restoredHouses || {}).length >= met + Houses.STORY_RESTORES.childHome;
+    return Number.isFinite(met) && Houses.restoredCount(save) >= met + Houses.STORY_RESTORES.childHome;
   }
   function wandererLine(scene, c) {
     const s = state(scene.save);
     if (!s.met || typeof s.met !== 'object') s.met = {};
     if (!Number.isFinite(s.met[c.id])) {
-      s.met[c.id] = Object.keys(scene.save.restoredHouses || {}).length;
-      if (typeof persistSave === 'function') persistSave(scene.save);
+      s.met[c.id] = Houses.restoredCount(scene.save);
+      Save.persist(scene.save);
     }
     if (!wandererHoused(scene.save, c)) return NEIGHBOURS.wanderer.homeless;
     return act(scene.save) >= 2 ? NEIGHBOURS.wanderer.settled : NEIGHBOURS.wanderer.housed;
@@ -492,37 +533,39 @@ const MemoryStory = (() => {
     const s = state(scene.save), visit = wizardSequence(scene.save, house);
     persistSave(scene.save);
     const pages = pagesFor(scene.save, visit), blocked = ['locked', 'abandoned', 'empty'].includes(visit.kind);
-    const show = () => {
-      scene._wizardStoryOpen = true;
-      const i = Math.max(0, Math.min(pages.length - 1, Math.floor(visit.page || 0)));
-      visit.page = i;
-      let dismissed = false;
-      const panel = pages[i];
-      try { scene.showMessageModal({ ...panel,
-        kind: visit.kind === 'reveal' ? 'memory' : 'wizard',
-        mustAcknowledge: true, okLabel: i + 1 < pages.length ? 'Next' : blocked ? 'Leave' : 'Continue', onDismiss: () => {
-          if (dismissed || (!blocked && (s.visit !== visit || visit.page !== i))) return;
-          dismissed = true;
-          if (blocked) { scene._wizardStoryOpen = false; return; }
-          visit.page = i + 1;
-          if (visit.page < pages.length) { persistSave(scene.save); show(); return; }
-          if (visit.kind === 'intro') s.introDone = true;
-          if (visit.kind === 'reveal') { s.revealed = true; s.act3Started = true; }
-          for (const id of visit.beats || (visit.beat ? [visit.beat] : [])) {
-            if (ACT2.some(beat => beat.id === id) && !s.act2Seen.includes(id)) s.act2Seen.push(id);
-          }
-          s.visits = (visit.count ?? s.visits) + 1;
-          s.visit = null;
-          scene._wizardStoryOpen = false;
-          persistSave(scene.save);
-          scene.updateObjectiveDOM?.();
-          offer();
-        } }); } catch (error) { scene._wizardStoryOpen = false; throw error; }
-    };
-    try { show(); } catch (error) { scene._wizardStoryOpen = false; throw error; }
+    scene._wizardStoryOpen = true;
+    visit.page = Math.max(0, Math.min(pages.length - 1, Math.floor(visit.page || 0)));
+    showPages(scene, pages, {
+      from: visit.page, kind: visit.kind === 'reveal' ? 'memory' : 'wizard', mustAcknowledge: true,
+      lastLabel: blocked ? 'Leave' : 'Continue',
+      // A blocked door closes on its one page; a stale visit (another begun,
+      // this page already turned) is left alone. Progress is saved page by
+      // page, so a visit resumes where it stopped.
+      onTurn: (i) => {
+        if (blocked) { scene._wizardStoryOpen = false; return false; }
+        if (s.visit !== visit || visit.page !== i) return false;
+        visit.page = i + 1;
+        if (visit.page < pages.length) persistSave(scene.save);
+        return true;
+      },
+      onDone: () => {
+        if (visit.kind === 'intro') s.introDone = true;
+        if (visit.kind === 'reveal') { s.revealed = true; s.act3Started = true; }
+        for (const id of visit.beats || (visit.beat ? [visit.beat] : [])) {
+          if (ACT2.some(beat => beat.id === id) && !s.act2Seen.includes(id)) s.act2Seen.push(id);
+        }
+        s.visits = (visit.count ?? s.visits) + 1;
+        s.visit = null;
+        scene._wizardStoryOpen = false;
+        persistSave(scene.save);
+        scene.updateObjectiveDOM?.();
+        offer();
+      },
+      onFail: () => { scene._wizardStoryOpen = false; },
+    });
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
     HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, drain, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
+    state, total, enqueue, panel, drain, dialogOpen, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

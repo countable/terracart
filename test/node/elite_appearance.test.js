@@ -10,7 +10,7 @@
     const item = (id, dx = 100, extra = {}) => ({ c: { id, kind: 'goblin', shiny: true, ...extra }, dx, dy: 100 });
     const project = (sx, sy) => ({ sx, sy });
     const list = [item('a'), item('b'), item('offscreen', 500), item('plain', 100, { shiny: false }),
-      item('released_pet'), item('hidden', 100, { _burrowed: true })];
+      item('pet_companion', 100, { pet: true }), item('hidden', 100, { _burrowed: true })];
     Render.announceElites(scene, list, project);
     assert.eq(scene._announcedElites.size, 0);
     ready = true;

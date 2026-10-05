@@ -29,6 +29,7 @@
   // Effective cap for ONE item id. Every id shares the bag's cap today; the
   // id stays in the signature so a per-item cap has one place to land.
   function stackCapFor(save, id) {
+    if (ITEM_BY_ID[id]?.kind === 'animal') return 0;
     return stackCap(save);
   }
 
@@ -56,7 +57,7 @@
   //   isNewStack — true iff this add created the stack
   function add(save, id, n = 1) {
     const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
-    if (!item || n <= 0) return { valid: false, accepted: 0, rejected: 0, isNewStack: false };
+    if (!item || item.kind === 'animal' || n <= 0) return { valid: false, accepted: 0, rejected: 0, isNewStack: false };
 
     const startingEgg = id === 'egg' && count(save, 'egg') === 0;
     const cap = stackCapFor(save, id);

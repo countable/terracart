@@ -3,11 +3,36 @@
 // normalize returns true only when initializing durable first-session fields.
 (function (root) {
   'use strict';
+  // THE COLLECTIONS THE GAME WRITES INTO: an id list or a keyed map, empty
+  // until the first entry. normalize seeds every one, so no writer carries a
+  // `save.x = save.x || []` of its own (the player's marks — caught, opened,
+  // picked —, the placed things, the rolling ledgers and the per-building
+  // stamps). A field already holding the right shape is left alone.
+  const SAVE_DEFAULTS = Object.freeze({
+    caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
+    magicTraps: [], donated: [],
+    animalFeeds: {}, lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
+    trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
+    castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
+  });
+  function defaults(save) {
+    for (const k of Object.keys(SAVE_DEFAULTS)) {
+      const v = save[k];
+      if (Array.isArray(SAVE_DEFAULTS[k]) ? !Array.isArray(v) : (!v || typeof v !== 'object' || Array.isArray(v))) {
+        save[k] = Array.isArray(SAVE_DEFAULTS[k]) ? [] : {};
+      }
+    }
+    return save;
+  }
   function normalize(save) {
     let needsPersist = false;
+    defaults(save);
+    if (typeof ITEM_BY_ID !== 'undefined' && Array.isArray(save.inv) && save.inv.some(row => ITEM_BY_ID[row.id]?.kind === 'animal')) {
+      save.inv = save.inv.filter(row => ITEM_BY_ID[row.id]?.kind !== 'animal');
+    }
+    save.released = save.released.filter(row => row?.pet === true && typeof row.id === 'string');
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
     if (typeof Shrines !== 'undefined') Shrines.normalize(save);
-    if (typeof Elevators !== 'undefined') Elevators.normalize(save);
     const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)
       : ['pickaxe', 'axe', 'sword', 'bow', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
     save.relics = save.relics || {};
@@ -31,10 +56,7 @@
     if (!save.foundWild) save.foundWild = {};
     // Self-heal: pre-fix, id-less trees pushed `undefined` into save.chopped,
     // and a choppedSet.has(undefined) match wiped whole groves. Strip falsy ids.
-    if (Array.isArray(save.chopped)) {
-      const cleaned = save.chopped.filter((id) => !!id);
-      if (cleaned.length !== save.chopped.length) save.chopped = cleaned;
-    }
+    if (save.chopped.some((id) => !id)) save.chopped = save.chopped.filter((id) => !!id);
     // Per-shop state and a once-per-save salt keep offers independent.
     if (!save.shopState) {
       save.shopState = {};
@@ -123,5 +145,5 @@
             && (save.money ?? STARTING_MONEY) !== STARTING_MONEY);
   }
 
-  root.SaveState = { normalize, hasPlayed };
+  root.SaveState = { SAVE_DEFAULTS, defaults, normalize, hasPlayed };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

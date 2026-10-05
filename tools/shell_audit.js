@@ -116,6 +116,9 @@ function providedTextureKeys() {
   // `const KEY = 'tower'` — and `const KEY = key || 'tower'`, the parameterised
   // form, whose literal is the DEFAULT key the no-argument call bakes.
   for (const m of tex.matchAll(/const KEY = (?:[A-Za-z_$][\w$]* \|\| )?'([^']+)'/g)) keys.add(m[1]);
+  // …and the shared shell, `bakeCanvas(scene, 'tower', …)` / `bakeCanvas(scene,
+  // key || 'tower', …)`, which most makers bake through now.
+  for (const m of tex.matchAll(/bakeCanvas\(scene, (?:[A-Za-z_$][\w$]* \|\| )?'([^']+)'/g)) keys.add(m[1]);
   // preload() only walks ASSETS today, but a sprite loaded straight from
   // app.js would be just as real, and missing it here would have this audit
   // cry wolf about it — so app.js's own load calls still count.

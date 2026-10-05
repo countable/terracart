@@ -6,7 +6,7 @@ test('monster taps: noncatchable foes and charmed creatures show only their name
     globalThis.cellInReach = () => true;
     globalThis.worldMetersToAbsCell = () => ({ cellIX: 0, cellIY: 0 });
     for (const kind of Combat.enemyKinds()) {
-      if (SpriteLayout.isSummoned(kind) || Pirates.isPirate({ kind })) continue;
+      if (SpriteLayout.isSummoned(kind)) continue;
       for (const charmed of [false, true]) {
         // Wild catchable enemies use the net/feeding lane; charm still shows a name.
         if (!charmed && ITEM_BY_ID[kind]?.kind === 'animal') continue;

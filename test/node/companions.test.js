@@ -9,7 +9,7 @@
     const scene = {
       save: { money: 100, caught: [] }, cellM: 7,
       startWorldM: { x: 0, y: 0 }, playerM: { x: 7, y: 7 },
-      playerToWorldCell: () => ({ tx: 0, ty: 0 }), flashAtWorld() {},
+      playerToWorldCell: () => ({ tx: 0, ty: 0 }), flashAtWorld() {}, cellAt:()=>({loaded:true,type:T.GRASS}),
     };
     try { fn(scene, entry, ms => { wall += ms; }); }
     finally {
@@ -22,20 +22,20 @@
     for (const distance of [0,14,14.01]) {
       const policy=Companions.releasePolicy(s,distance,0);
       assert.eq(policy.stayHome,distance<=14);
-      const c={kind:'dog',id:'released_dog',...policy};
+      const c={kind:'dog',pet:true,id:'released_dog',...policy};
       assert.eq(Companions.follows(c),distance>14);
       assert.eq(Companions.follows(JSON.parse(JSON.stringify(c))),distance>14,'reload preserves assignment');
     }
     Companions.hire(s,'mercenary');
     assert.truthy(Companions.follows(s._mercenary),'hiring near Home still follows');
-    assert.falsy(pickUpPet(s,s.save,s._mercenary,0,0),'mercenary cannot be pocketed');
-    const pet={kind:'dog',id:'released_dog_far',x:1000,y:1000,tx:1,ty:1,stayHome:false};
-    const stay={kind:'cat',id:'released_cat_home',x:0,y:0,tx:0,ty:0,stayHome:true};
+    assert.falsy(Pets.carry(s.save,s._mercenary),'mercenary cannot be pocketed');
+    const pet={kind:'dog',pet:true,id:'released_dog_far',x:1000,y:1000,tx:1,ty:1,stayHome:false};
+    const stay={kind:'cat',pet:true,id:'released_cat_home',x:0,y:0,tx:0,ty:0,stayHome:true};
     s.save.released=[pet,stay];
     Companions.tickPets(s);
     const live=entry.creatures.find(c=>c.id===pet.id);
     assert.truthy(live,'pet catches up when its old tile is unloaded');
-    assert.eq(live.x,s.playerM.x);
+    assert.gt(Math.hypot(live.x-s.playerM.x,live.y-s.playerM.y),0,'arrival is separated from player');
     assert.falsy(entry.creatures.find(c=>c.id===stay.id),'Home pet stays behind');
     live._hp=3; live.x=10000; s._petFollowCheck=0;
     Companions.tickPets(s);
@@ -50,13 +50,13 @@
     assert.falsy(surface.includes(live),'pet leaves prior level');
     assert.eq(entry.creatures.find(c=>c.id===pet.id)._hp,3,'level transition retains wounds');
 
-    s.save.caught.push(pet.id); entry.creatures=entry.creatures.filter(c=>c.id!==pet.id); s._petFollowCheck=0;
+    Pets.carry(s.save,live); entry.creatures=entry.creatures.filter(c=>c.id!==pet.id); s._petFollowCheck=0;
     Companions.tickPets(s);
     assert.falsy(entry.creatures.find(c=>c.id===pet.id),'carried pet stays in inventory');
   }));
   test('companions: Home pets save their wounds without joining travelling followers', () => withScene((s, entry) => {
-    const c=WorldGen.makeCreature('dog',0,0,'released_home_dog',{stayHome:true,_hp:3,_lastDamagedT:T0});
-    const row={kind:c.kind,id:c.id,x:0,y:0,tx:0,ty:0,stayHome:true};
+    const c=WorldGen.makeCreature('dog',0,0,'released_home_dog',{pet:true,stayHome:true,_hp:3,_lastDamagedT:T0});
+    const row={pet:true,kind:c.kind,id:c.id,x:0,y:0,tx:0,ty:0,stayHome:true};
     s.save.released=[row]; entry.creatures.push(c);
     Companions.tickPets(s);
     assert.eq(row.hp,3);
@@ -88,12 +88,12 @@
 
   test('companions: mercenary uses the existing summoned hunter and combat stats', () => {
     assert.truthy(SpriteLayout.isSummoned('mercenary'));
-    assert.truthy(SpriteLayout.creatureFollows('mercenary'));
+    assert.truthy(Companions.follows({kind:'mercenary',_followUntilT:Infinity}));
     assert.truthy(huntsPrey('mercenary', { kind: 'slime', id: 'enemy' }));
     assert.falsy(huntsPrey('mercenary', { kind: 'dog', id: 'released_dog' }));
     assert.falsy(Combat.isEnemy({ kind: 'mercenary' }));
     assert.eq(Combat.creatureMaxHp('mercenary'), Combat.creatureMaxHp('goblin'));
-    assert.eq(Combat.petBlow({ kind: 'mercenary' }), Combat.enemyBlow('goblin'));
+    assert.eq(Combat.petBlow({ kind: 'mercenary' }), Combat.enemyBlow('goblin') / 3);
     assert.eq(SpriteLayout.CREATURE_BEHAVIOUR.mercenary.stepMs, EnemyRoster.get('goblin').damageIntervalSeconds * 1000);
     assert.eq(Companions.KINDS.mercenary.durationMs, 24 * 60 * 60 * 1000);
     assert.eq(Companions.KINDS.mercenary.hireCost, 50);
@@ -126,17 +126,27 @@
     assert.eq(s._mercenary, null);
     assert.falsy(Companions.active(s.save, 'mercenary'));
   }));
-  test('companions: mercenary recovers like a pet; the raven still ends when spent', () => withScene((s, entry, advance) => {
+  test('companions: a downed mercenary DIES — its contract ends, hire again; the raven still ends when spent', () => withScene((s, entry, advance) => {
+    // ONE rule per kind (Companions.KINDS onDefeat, knockedOut): every timed
+    // ally is spent when its HP runs out (owner, Oct 2026 — a mercenary no
+    // longer rests and returns at full health); a released pet retreats home.
+    for (const row of Object.values(Companions.KINDS)) assert.eq(row.onDefeat, 'spent');
+    assert.falsy(Companions.KINDS.mercenary.recoveryMs, 'no rest-and-return column');
     Companions.hire(s, 'mercenary');
-    s._mercenary._hp = 0; s._mercenary._spent = true;
+    const hired = s._mercenary;
+    hired._hp = 0;
+    assert.truthy(Companions.knockedOut(s, hired, 1000), 'gone');
+    assert.truthy(hired._spent);
     Companions.tickAll(s);
     assert.eq(s._mercenary, null);
-    assert.truthy(Companions.active(s.save, 'mercenary'));
-    Companions.tickAll(s);
-    assert.eq(s._mercenary, null, 'waits through recovery');
+    assert.falsy(Companions.active(s.save, 'mercenary'), 'the contract is over');
+    assert.eq(s.save.mercenaryUntil, 0);
     advance(Companions.RECOVERY_MS);
     Companions.tickAll(s);
-    assert.eq(Combat.hp(s._mercenary), Combat.creatureMaxHp('mercenary'));
+    assert.eq(s._mercenary, null, 'nobody comes back');
+    s.save.money = 50;
+    assert.truthy(Companions.hire(s, 'mercenary'), 'hire again');
+    assert.truthy(s._mercenary && s._mercenary !== hired);
     s.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
     Companions.tickAll(s);
     assert.truthy(s._spiritRaven);
@@ -145,6 +155,11 @@
     Companions.tickAll(s);
     assert.eq(s._spiritRaven, null);
     assert.eq(s.save.spiritRavenUntil, 0);
+    // A released pet limps home at 1 HP for RECOVERY_MS.
+    const pet = { pet:true, kind: 'dog', id: 'released_dog_1', _hp: 0, _chaseTarget: {} };
+    s.save.released=[{...pet,hp:0}];
+    assert.falsy(Companions.knockedOut(s, pet, 5000));
+    assert.eq(pet._hp, 0); assert.eq(pet.recoverUntil, Date.now() + Companions.RECOVERY_MS); assert.eq(pet._chaseTarget, null);
   }));
   test('companions: insufficient funds or a loading tile never duplicates charges or creatures', () => withScene((s, entry) => {
     s.save.money = 49;
@@ -161,78 +176,20 @@
     assert.truthy(s._mercenary, 'contract spawns once tile finishes loading');
     assert.eq(entry.creatures.length, 1);
   }));
+  const APP_TABLES = (() => {
+  const grab = (name) => {
+    const m = SCENE_SRC.match(new RegExp('\\nconst ' + name + ' = \\{[\\s\\S]*?\\n\\};'));
+    assert.truthy(m, name + ' table in app.js');
+    return m[0];
+  };
+  return grab('SUMMON_HOOK') + grab('TIMED_BUFF_HOOKS');
+})();
   function method(name) {
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     const end = SCENE_SRC.indexOf('\n  }\n', start);
     assert.truthy(start >= 0 && end > start);
-    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+    return new Function(APP_TABLES + '\nreturn ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   }
-  test('companions: pirate mercenary is a friendly sword fighter with distinct pirate stats and art', () => {
-    const kind = 'pirate_mercenary', c = { kind };
-    assert.eq(Combat.creatureMaxHp(kind), 65);
-    assert.eq(Combat.petBlow(c), 12);
-    assert.truthy(Combat.creatureMaxHp(kind) !== Combat.creatureMaxHp('mercenary'));
-    assert.truthy(Combat.petBlow(c) !== Combat.petBlow({ kind: 'mercenary' }));
-    assert.eq(SpriteLayout.creatureArt(kind).sheet, SpriteLayout.creatureArt('pirate_captain').sheet);
-    assert.eq(SpriteLayout.CREATURE_BEHAVIOUR[kind], SpriteLayout.CREATURE_BEHAVIOUR.mercenary);
-    assert.truthy(SpriteLayout.isSummoned(kind));
-    assert.truthy(huntsPrey(kind, { kind: 'pirate_grunt', id: 'enemy' }));
-    assert.falsy(huntsPrey(kind, { kind: 'mercenary', id: 'ally' }));
-    assert.falsy(Combat.isEnemy(c));
-    assert.falsy(Pirates.isPirate(c), 'friendly pirate is never a bribe target');
-    const s = { save: { money: 100 } };
-    assert.eq(Pirates.onHit(s, c), 0);
-    assert.eq(s.save.money, 100, 'ally cannot charge pirate hit tax');
-    assert.eq(Combat.petReachCells(c), Combat.petReachCells({ kind: 'mercenary' }));
-  });
-  test('companions: pirate contract retains wounds through reload and tile loss, recovers and expires', () => withScene((s, entry, advance) => {
-    const kind = 'pirate_mercenary', row = Companions.KINDS[kind];
-    s.save.money = 74;
-    assert.falsy(Companions.hire(s, kind));
-    assert.eq(s.save.money, 74);
-    s.save.money = 100;
-    assert.truthy(Companions.hire(s, kind));
-    assert.eq(s.save.money, 25);
-    assert.eq(s.save[row.field], T0 + 24 * 60 * 60 * 1000);
-    assert.falsy(Companions.hire(s, kind));
-    assert.eq(s.save.money, 25);
-    assert.truthy(Companions.follows(s[row.instance]));
-    assert.falsy(pickUpPet(s, s.save, s[row.instance], 0, 0));
-    s[row.instance]._hp = 11;
-    Companions.tickAll(s);
-    s.save = JSON.parse(JSON.stringify(s.save));
-    s[row.instance] = null; entry.creatures = [];
-    Companions.tickAll(s);
-    assert.eq(Combat.hp(s[row.instance]), 11, 'reload keeps wounds');
-    const old = s[row.instance];
-    entry.creatures = [];
-    Companions.tickAll(s);
-    assert.truthy(s[row.instance] !== old, 'tile replacement restores the ally');
-    assert.includes(s.save.caught, old.id);
-    assert.eq(Combat.hp(s[row.instance]), 11, 'tile replacement keeps wounds');
-    s[row.instance]._spent = true; s[row.instance]._hp = 0;
-    Companions.tickAll(s);
-    assert.eq(s[row.instance], null);
-    advance(29999); Companions.tickAll(s);
-    assert.eq(s[row.instance], null);
-    advance(1); Companions.tickAll(s);
-    assert.eq(Combat.hp(s[row.instance]), 65);
-    advance(row.durationMs); Companions.tickAll(s);
-    assert.eq(s[row.instance], null);
-    assert.falsy(Companions.active(s.save, kind));
-  }));
-  test('companions: pirate mercenary keeps collected coins in its own saved purse', () => withScene((s, entry) => {
-    Companions.hire(s, 'pirate_mercenary');
-    const c = s._pirateMercenary;
-    s.flash = () => {};
-    entry.coinDrops = [{ kind: 'coindrop', id: 'pirate_wages', x: c.x, y: c.y, amount: 9, seeded: true }];
-    tickGroundCoins(s, T0);
-    assert.eq(entry.coinDrops.length, 0);
-    assert.eq(s.save.money, 25, 'mercenary keeps the purse, just like the ordinary mercenary');
-    assert.eq(s.save.companionState.pirate_mercenary.coins, 9);
-    assert.eq(JSON.parse(JSON.stringify(s.save)).companionState.pirate_mercenary.coins, 9);
-    assert.includes(s.save.foundTreasures, 'pirate_wages');
-  }));
   for (const [id, kind, model, tier] of [
     ['bones_scroll', 'summoned_skeleton', 'skeleton', 3],
     ['wraith_scroll', 'summoned_wraith', 'ghost', 4],
@@ -256,8 +213,12 @@
       s.save.inv = [{ id, count: 3 }]; s.save.selSlot = 0;
       s.buildInventoryDOM = () => {};
       s.showMessageModal = () => {};
-      s._spendScroll = method('_spendScroll');
-      const read = method('readSummoningScroll'), row = Companions.KINDS[kind];
+      for (const name of ['_selectedConsumable', '_spendScroll', '_consumeSelected', '_finishInventoryChange']) s[name] = method(name);
+      // The scroll is a `buff` row: _useTimedBuff extends the companion's own
+      // field (the Buffs row reads it) around Companions.tick (SUMMON_HOOK).
+      assert.eq(Buffs.KINDS[CONSUMABLE_SPEC[id].buff].save, Companions.KINDS[kind].field, `${id}: one expiry field`);
+      const use = method('_useTimedBuff'), row = Companions.KINDS[kind];
+      const read = { call: (scene) => use.call(scene, id) };
       assert.truthy(read.call(s));
       assert.eq(s.save.inv[0].count, 2);
       assert.falsy(homeRecipeLocked(s.save, id));
@@ -273,7 +234,7 @@
       assert.truthy(read.call(s), 'refresh immediately after reload');
       assert.eq(Combat.hp(s[row.instance]), 5, 'refresh after reload preserves wounds');
       assert.falsy(read.call(s), 'empty slot cannot summon');
-      advance(row.durationMs);
+      advance(3 * row.durationMs);   // three reads, each banked on the last (Buffs.laterOf)
       Companions.tickAll(s);
       assert.eq(s[row.instance], null);
       assert.falsy(Companions.active(s.save, kind));

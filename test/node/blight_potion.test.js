@@ -14,14 +14,14 @@ test('blight potion: an item with a price, a tier, an icon and a ✦ line', () =
   assert.eq(ITEM_BY_ID.blight_potion.kind, 'magic', 'drunk, not eaten');
   assert.eq(FOOD_ENERGY.blight_potion, undefined, 'it can never reach the Eat button');
   assert.truthy(ITEM_EFFECTS.blight_potion, 'its effect is written on the item');
-  assert.eq(CONSUMABLE_SPEC.blight_potion.method, 'drinkBlightPotion', 'the Drink button offers it');
+  assert.eq(CONSUMABLE_SPEC.blight_potion.buff, 'blight', 'the Drink button routes it by its buff column');
 });
 
 test('blight potion: 1.5 cells, 2 HP a second, one minute', () => {
   assert.eq(CONSUMABLE_SPEC.blight_potion.radiusCells, 1.5, 'radius');
   assert.eq(CONSUMABLE_SPEC.blight_potion.damagePerSecond, 2, 'damage per second');
   assert.eq(CONSUMABLE_SPEC.blight_potion.durationMs, 60 * 1000, 'duration');
-  assert.truthy(/const BLIGHT_R_CELLS = CONSUMABLE_SPEC\.blight_potion\.radiusCells;/.test(app),
+  assert.truthy(/const BLIGHT_R_CELLS = auraRadiusCells\(CONSUMABLE_SPEC\.blight_potion\);/.test(app),
     'runtime derives the radius');
 });
 
@@ -30,7 +30,7 @@ test('blight potion: the aura bites enemies from the feet, through _damageEnemy'
   const b = app.indexOf('\n  }\n', a);
   assert.truthy(a > 0 && b > a, 'found _tickBlightAura in app.js');
   const body = app.slice(a, b);
-  assert.truthy(/this\.startWorldM\.x \+ this\.playerM\.x/.test(body), 'measured from the player, not the camera');
+  assert.truthy(/playerWorldM\(this\)/.test(body), 'measured from the player (playerWorldM), not the camera');
   assert.truthy(/Combat\.isEnemy\(c\)/.test(body), 'enemies only');
   assert.truthy(/caughtSet\.has\(c\.id\)/.test(body), 'never a caught creature');
   assert.truthy(/this\._damageEnemy\(c, rate \* dt, 'player', \{ bypassArmor: true \}\)/.test(body), 'through the one damage lane');

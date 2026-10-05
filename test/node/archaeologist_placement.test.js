@@ -33,7 +33,7 @@
       assert.eq(c.name, 'Orrin'); assert.eq(c.role, 'archaeologist');
       assert.eq(c.roleLabel, 'Dragon Archaeologist');
       assert.eq(c.id, 'npc_archaeologist_0_0', 'identity belongs to original Home');
-      assert.eq(c.zone, 'village', 'existing human identity');
+      assert.eq(c.culture, 'village', 'existing human identity');
       assert.inRange(Math.hypot(c.x - s.save.starterCratesAt.x, c.y - s.save.starterCratesAt.y), 225, 275);
       assert.eq(c.homeX, c.x); assert.eq(c.homeY, c.y);
       assert.eq(home.creatures.length, 0);

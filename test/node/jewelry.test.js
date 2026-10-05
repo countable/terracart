@@ -1,7 +1,7 @@
 // Unique carried jewelry: intrinsic effects, no material-tier gear slot.
 
 (function () {
-  const ids = ['perception_ring', 'coin_ring', 'stealth_ring', 'invisibility_ring', 'ember_ring', 'regeneration_amulet', 'vigor_amulet'];
+  const ids = ['coin_ring', 'stealth_ring', 'invisibility_ring', 'ember_ring', 'regeneration_amulet', 'vigor_amulet'];
 
   test('coin ring: carrying it attracts coins without consumption or stacking', () => {
     assert.eq(Gear.coinMagnetCells({}), 0);
@@ -46,8 +46,8 @@
       'the reduced edge is still visible');
     assert.eq(Math.max(0, Combat.sightCells('slime', bag('invisibility_ring'))), Combat.sightCells('slime', bag('invisibility_ring')),
       'effective sight never goes below zero');
-    assert.truthy(/Combat\.seesPlayer\(c\.kind, distToPlayer, this\.cellM, this\.save\)/.test(SCENE_CREATURES_SRC),
-      'ordinary pursuit passes the save through the one sight helper');
+    assert.eq((CREATURE_AI_SRC.match(/Combat\.seesPlayer\(c\.kind, dist, scene\.cellM, scene\.save\)/g) || []).length, 2,
+      'ordinary pursuit (the roster attack and mover) passes the save through the one sight helper');
   });
 
   test('unique amulets: fastest carried regeneration cadence wins', () => {

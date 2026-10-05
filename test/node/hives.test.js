@@ -20,8 +20,8 @@
 
   const source = /function planHiveBees\(scene, hive\) \{[\s\S]*?\n\}/.exec(CREATURE_AI_SRC)[0];
   function planner(destination) {
-    return new Function('WorldGen', 'Delivery', 'creatureSpawnClass', 'walkableDestination',
-      `${source}; return planHiveBees;`)(WorldGen, Delivery, () => 'enemy', destination);
+    return new Function('WorldGen', 'utcDayKey', 'creatureSpawnClass', 'walkableDestination',
+      `${source}; return planHiveBees;`)(WorldGen, utcDayKey, () => 'enemy', destination);
   }
   test('hives: plans three distinct hostile bee births, or none when obstructed', () => {
     const entry = {}, hive = { id: 'testhive', x: 10, y: 10 };

@@ -56,25 +56,38 @@
     assert.eq(h.save.opened.length, 1, 'no added permanent opened flags');
   }));
 
-  test('daily visits: the notice board remains a one-time page', () => at(T0, () => {
+  test('daily visits: the notice board reads one page a UTC day, the waystone\'s lane', () => at(T0, () => {
     const h = harness({ opened: [] }), o = { kind: 'infoboard', id: 'board' };
+    assert.eq(Macros.visitKindForObject(o), Macros.DAILY_VISIT_KINDS.board, 'a recurring site');
+    assert.truthy(poiLit(o, spentSets(null, h.save)), 'lit while the page waits');
     h.tap(o);
     assert.eq(h.pages(), 1);
+    assert.eq(h.stories[0].title, 'A notice board');
+    assert.truthy(Macros.usedToday(h.save, o.id), 'the day ledger holds it');
+    assert.falsy(h.save.opened.includes(o.id), 'never save.opened');
+    assert.falsy(poiLit(o, spentSets(null, h.save)), 'dark once read today');
+    assert.falsy(isSpent(o, spentSets(null, h.save)), 'the board stands');
+    h.tap(o);
+    assert.eq(h.pages(), 1, 'one page a day');
+    assert.truthy(/^Read it already — \d+[smhd]$/.test(h.flashes[h.flashes.length - 1]), `the one refusal shape: ${h.flashes[h.flashes.length - 1]}`);
     at(T0 + DAY, () => h.tap(o));
-    assert.eq(h.pages(), 1);
-    assert.includes(h.save.opened, o.id);
-    assert.falsy(Macros.usedToday(h.save, o.id));
+    assert.eq(h.pages(), 2, 'another page the next day');
   }));
 
-  test('daily visits: a message bottle reads one page with its own painting, then is gone', () => at(T0, () => {
+  test('daily visits: a message bottle reads one page with its own painting, then is gone till tomorrow', () => at(T0, () => {
     const h = harness({ opened: [] }), o = { kind: 'bottle', id: 'bottle_1_2_3_4' };
     h.tap(o);
     assert.eq(h.pages(), 1);
     assert.eq(h.stories[0].art, 'bottle_read');
-    assert.includes(h.save.opened, o.id);
+    assert.truthy(Macros.usedToday(h.save, o.id));
     assert.truthy(isSpent(o, spentSets(null, h.save)), 'picked up: hidden and refused');
     h.tap(o);
     assert.eq(h.pages(), 1);
+    at(T0 + DAY, () => {
+      assert.falsy(isSpent(o, spentSets(null, h.save)), 'back with the next day\'s tide');
+      h.tap(o);
+      assert.eq(h.pages(), 2);
+    });
   }));
 
   test('daily visits: plain grove treasure waits for story dismissal and cannot pay twice', () => at(T0, () => {
@@ -121,9 +134,7 @@
   test('daily visits: poor or cancelled hires cost nothing; another wagon cannot duplicate an active ally', () => at(T0, () => {
     const h = harness({ money: 49 });
     h.tap(wagon);
-    assert.eq(h.offers.length, 1);
-    assert.falsy(h.offers[0].canAfford);
-    h.offers.pop().onCancel();
+    assert.eq(h.offers.length, 0);
     assert.eq(h.save.money, 49);
     assert.falsy(Macros.usedToday(h.save, wagon.id));
     h.save.money = 100;
@@ -145,72 +156,5 @@
     assert.falsy(Shrines.leverActive(h.save, 'fortune'));
     visit.present();
     assert.eq(h.stories[1].art, Macros.DAILY_VISIT_KINDS.gold.art);
-  }));
-  const shipwreck = { kind: 'grove_shrine', zoneVariant: 'pirate_cove', id: 'pirate-wreck' };
-  test('daily visits: shipwreck hires a pirate for 75 coins and one day, without a gift lottery', () => at(T0, () => {
-    const row = Shrines.kindForObject(shipwreck);
-    assert.eq(row, Shrines.REWARD_KINDS.pirate_cove);
-    assert.eq(row.reward, 'companion'); assert.eq(row.companion, 'pirate_mercenary');
-    assert.eq(row.price, 75); assert.eq(row.durationMs, DAY);
-    const h = harness({ money: 100, opened: [], inv: [], relics: {}, armor: {} });
-    h.scene.flashLoot = () => { throw new Error('Hiring must not grant a treasure roll'); };
-    h.scene.showRewardCard = () => { throw new Error('Hiring must not offer a gift'); };
-    h.tap(shipwreck); h.tap(shipwreck);
-    assert.eq(h.offers.length, 1); assert.eq(h.stories.length, 0);
-    assert.includes(h.offers[0].body, 'pirate mercenary');
-    assert.eq(h.save.money, 100); assert.falsy(Macros.usedToday(h.save, shipwreck.id));
-    h.offers[0].onCancel(); h.offers[0].onAccept();
-    assert.eq(h.save.money, 100); assert.falsy(h.save.pirateMercenaryUntil);
-    assert.falsy(Macros.usedToday(h.save, shipwreck.id));
-    h.tap(shipwreck); h.offers[1].onAccept(); h.offers[1].onAccept();
-    assert.eq(h.save.money, 25); assert.eq(h.save.pirateMercenaryUntil, T0 + DAY);
-    assert.falsy(h.save.mercenaryUntil, 'ship hires its own pirate companion');
-    assert.truthy(Macros.usedToday(h.save, shipwreck.id));
-    assert.eq(h.stories.length, 1); assert.eq(h.stories[0].art, row.art);
-    h.stories[0].onDismiss(); h.stories[0].onDismiss();
-    assert.eq(h.rewards.length, 0); assert.eq(h.save.inv.length, 0);
-    assert.eq(h.save.opened.length, 0, 'ship remains a repeatable hiring site');
-    assert.eq(h.save.money, 25, 'story dismissal does not pay out treasure');
-    h.tap(shipwreck); assert.eq(h.offers.length, 2);
-  }));
-
-  test('daily visits: shipwreck rechecks funds and never spends an unsuccessful hire', () => at(T0, () => {
-    const h = harness({ money: 74 });
-    h.tap(shipwreck); assert.eq(h.offers.length, 1); assert.eq(h.save.money, 74);
-    assert.falsy(h.offers[0].canAfford);
-    h.offers.pop().onCancel();
-    assert.falsy(Macros.usedToday(h.save, shipwreck.id));
-    h.save.money = 100; h.tap(shipwreck); h.save.money = 74;
-    h.offers[0].onAccept(); h.offers[0].onAccept();
-    assert.eq(h.save.money, 74); assert.falsy(h.save.pirateMercenaryUntil);
-    assert.falsy(Macros.usedToday(h.save, shipwreck.id)); assert.eq(h.stories.length, 0);
-    h.save.money = 75; h.tap(shipwreck); h.offers[1].onAccept();
-    assert.eq(h.save.money, 0); assert.truthy(Companions.active(h.save, 'pirate_mercenary'));
-  }));
-
-  test('daily visits: another wreck cannot duplicate an active pirate contract; expiry permits rehire', () => at(T0, () => {
-    const h = harness({ money: 225 });
-    h.tap(shipwreck); h.offers[0].onAccept(); h.stories[0].onDismiss();
-    const other = { ...shipwreck, id: 'second-pirate-wreck' };
-    h.tap(other); assert.eq(h.offers.length, 1); assert.eq(h.save.money, 150);
-    assert.falsy(Macros.usedToday(h.save, other.id));
-    at(T0 + DAY, () => {
-      h.tap(other); assert.eq(h.offers.length, 2); h.offers[1].onAccept();
-      assert.eq(h.save.money, 75); assert.eq(h.save.pirateMercenaryUntil, T0 + 2 * DAY);
-      assert.truthy(Macros.usedToday(h.save, other.id));
-    });
-  }));
-
-  test('daily visits: regular and pirate mercenaries have independent paid contracts', () => at(T0, () => {
-    for (const order of [[wagon, shipwreck], [shipwreck, wagon]]) {
-      const h = harness({ money: 125 });
-      h.tap(order[0]); h.offers[0].onAccept(); h.stories[0].onDismiss();
-      h.tap(order[1]); assert.eq(h.offers.length, 2); h.offers[1].onAccept();
-      assert.eq(h.save.money, 0);
-      assert.eq(h.save.mercenaryUntil, T0 + DAY);
-      assert.eq(h.save.pirateMercenaryUntil, T0 + DAY);
-      assert.truthy(Companions.active(h.save, 'mercenary'));
-      assert.truthy(Companions.active(h.save, 'pirate_mercenary'));
-    }
   }));
 })();

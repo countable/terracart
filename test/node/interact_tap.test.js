@@ -246,16 +246,8 @@ test('flavor handler: the same grass cell without the road band still tills', ()
   assert.falsy(flavor.try(ctx), 'missing underRoad field = tillable as before');
 });
 
-test('release handler: animals cannot be released onto a road-band cell', () => {
-  const release = TAP_HANDLERS.find(h => h.name === 'release');
-  const seen = [];
-  const scene = makeScene({ flash: (msg) => seen.push(msg) });
-  const save = { inv: [{ id: 'chicken', count: 4 }], selSlot: 0, released: [] };
-  const ctx = Object.assign(makeCtx(scene, save), { cwmx: 0, cwmy: 0 });
-  ctx.cell = { type: TERRAIN.GRASS, underRoad: true };
-  assert.truthy(release.try(ctx), 'release consumes the tap');
-  assert.eq(seen[0], "can't release here", 'refused on the road band');
-  assert.eq(save.inv[0].count, 4, 'no animal consumed');
+test('pet placement: animal inventory stacks have no release tap handler', () => {
+  assert.falsy(TAP_HANDLERS.some(h => h.name === 'release'));
 });
 
 test('TAP_HANDLERS: plant precedes till (a tilled cell is planted, not re-tilled)', () => {
@@ -638,7 +630,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'disarm-trap',
     'building-zone',
     'fire-held',
-    'release',
     'pickup-rock',
     'pickup-scarecrow',
     'place-scarecrow',
@@ -887,8 +878,8 @@ test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   // creature table's `game` row, read through SpriteLayout.isGame — beside
   // what a kill of that kind drops (app.js resolveDefeat), so the two halves
   // of "crow and deer are hunted" cannot name different kinds.
-  const huntStart = src.indexOf("if (!isTame && SpriteLayout.isGame(target.kind)) {");
-  const hunt = src.slice(huntStart, src.indexOf('// Catchable animals', huntStart));
+  const huntStart = src.indexOf("if (SpriteLayout.isGame(target.kind) && !Pets.fed(save, target)");
+  const hunt = src.slice(huntStart, src.indexOf('const selItem =', huntStart));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
   assert.eq(Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k)).join(),
     'deer,crow', 'and the table still calls exactly the crow and the deer game');
@@ -941,6 +932,27 @@ test('shipwreck shrine: every reserved cell taps the same reward, outside cells 
   } finally { globalThis.WorldGen = original; }
 });
 
+
+test('bush harvest takes five seconds bare-handed and keeps equipped axe speeds', () => {
+  const original = globalThis.WorldGen;
+  const plant = { kind: 'wildplant', crop: 'shrub', id: 'bush_harvest_timing', x: 2.5, y: 2.5 };
+  try {
+    globalThis.WorldGen = { ...original, forEachItem: (layer, cb) => { if (layer === 'wildplants') cb(plant); } };
+    for (const tier of [null, 0, 1, 7]) {
+      let duration, award;
+      const save = { picked: [], energy: 100, relics: tier == null ? {} : { axe: { tier } } };
+      const scene = makeGridScene({ save,
+        startWorkProgress: (x, y, cb, ms) => { award = cb; duration = ms; },
+      });
+      assert.eq(TAP_HANDLERS.find(h => h.name === 'wildplant').try({ scene, save, wm: { x: 2.5, y: 2.5 }, sx: 0, sy: 0 }), true);
+      assert.eq(duration, tier > 0 ? toolDurationMs(save.relics, 'axe') : 5000);
+      if (!(tier > 0)) assert.lt(duration, toolDurationMs(save.relics, 'axe'), 'quicker than regular tree work');
+      assert.eq(scene.invCount('wood'), 0, 'harvest waits for work to finish');
+      award();
+      assert.eq(save.picked.filter(id => id === plant.id).length, 1);
+    }
+  } finally { globalThis.WorldGen = original; }
+});
 
 test('giant mushroom harvest awards wood and mushroom once through axe work', () => {
   const original=globalThis.WorldGen;
@@ -1009,7 +1021,7 @@ test('barricade: T4 tree work, weaker-tool gate and selected disarm kit', () => 
 });
 
 
-test('spike bushes: minimum T1 axe, while ordinary bushes remain barehand work', () => {
+test('spike bushes: minimum T1 axe, the slow grind offered one tier short, ordinary bushes barehand work', () => {
   const original = globalThis.WorldGen;
   const handler = TAP_HANDLERS.find(h => h.name === 'wildplant');
   try {
@@ -1018,15 +1030,23 @@ test('spike bushes: minimum T1 axe, while ordinary bushes remain barehand work',
         const plant = {kind:'wildplant',crop:'shrub',id:'thorn_gate_test',x:2.5,y:2.5};
         if (art) plant[art] = 'bramble';
         globalThis.WorldGen = {...original, forEachItem:(layer,cb) => { if (layer === 'wildplants') cb(plant); }};
-        let worked = false, spent = false, offer = false;
+        let worked = null, spent = 0, offer = null;
         const save = {picked:[],energy:100,relics:{axe:{tier}}};
-        const scene = makeGridScene({save, startWorkProgress() { worked=true; },
-          spendEnergy() { spent=true; return true; }, showOfferModal() { offer=true; }});
+        const scene = makeGridScene({save, startWorkProgress(x, y, cb, ms, energy) { worked = { ms, energy }; },
+          spendEnergy(n) { spent += n; return true; }, showOfferModal(o) { offer = o; }});
         assert.eq(handler.try({scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0}),true);
-        assert.eq(worked, !art || tier >= 1);
-        assert.eq(spent, worked);
-        assert.falsy(offer, 'bare hands cannot slow-grind thorny bushes');
+        const gated = !!art && tier < 1;
+        assert.eq(!!worked, !gated, 'a bramble needs the Wood axe; a plain bush is barehand work');
+        assert.eq(!!offer, gated, 'exactly one tier short: the shared slow grind is offered, like a tree or a rock');
         assert.eq(save.picked.length,0,'starting or refusing work never removes the bush');
+        if (gated) {
+          assert.eq(spent, 0, 'nothing spent on the refusal');
+          offer.onAccept();
+          assert.eq(spent, SLOW_GRIND_ENERGY, 'accepting pays the grind');
+          assert.eq(worked.ms, SLOW_GRIND_MS); assert.eq(worked.energy, SLOW_GRIND_ENERGY);
+        } else {
+          assert.eq(spent, worked.energy, 'the cost is the refund');
+        }
       }
     }
   } finally { globalThis.WorldGen=original; }

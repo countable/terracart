@@ -2,8 +2,9 @@
 // ordinary recovery path (food, campfire rest, offline/passive rest) refuses.
 // What still works: reaching the trailer (a quarter of max), eating a Crow
 // Feather or drinking a revival potion (REVIVE_ITEM_FRAC) — never a free
-// full tank. Easy mode keeps its rest paths, but ordinary food cannot revive
-// a downed player in either mode.
+// full tank. Easy mode is untouched: _zeroEnergyLocked() is always false there,
+// so every existing path (all pinned by energy.test.js / rest_work.test.js)
+// behaves exactly as it did before this feature.
 //
 // app.js needs Phaser and can't load headlessly, so every gate here is
 // pinned as source text (SCENE_SRC, lifted by run.js).
@@ -25,8 +26,8 @@ test('lockout: eatSelected refuses every food while locked, except a feather rev
   const b = app.indexOf('\n  }\n', a);
   assert.truthy(a > 0 && b > a, 'found eatSelected in app.js');
   const body = app.slice(a, b);
-  assert.truthy(/const locked = Combat\.playerDowned\(this\.save\.energy\);/.test(body),
-    'eatSelected checks the shared downed state in either mode');
+  assert.truthy(/const locked = this\._zeroEnergyLocked\(\);/.test(body),
+    'eatSelected checks the lockout');
   assert.truthy(/featherRevive = locked && sel\.id === 'crow_feather'/.test(body),
     'only a Crow Feather gets through the lockout');
   assert.truthy(/if \(locked && !featherRevive\) return false;/.test(body),
@@ -47,7 +48,7 @@ test('lockout: the Eat button only offers the feather while the lockout actually
   const b = app.indexOf('\n  }\n', a);
   assert.truthy(a > 0 && b > a, 'found syncEatButton in app.js');
   const body = app.slice(a, b);
-  assert.truthy(/featherRevive = !!sel && sel\.id === 'crow_feather' && Combat\.playerDowned\(this\.save\.energy\)/.test(body),
+  assert.truthy(/featherRevive = !!sel && sel\.id === 'crow_feather' && this\._zeroEnergyLocked\(\)/.test(body),
     'the button computes the same feather-revive condition eatSelected uses');
 });
 

@@ -1,5 +1,5 @@
 (function () {
-  const gems = ['quartz', 'amethyst', 'topaz', 'sapphire', 'ruby', 'emerald', 'diamond'];
+  const gems = ['quartz', 'topaz', 'amethyst', 'sapphire', 'ruby', 'emerald', 'diamond'];
   test('cave gems: seven pictured deposits share their item rarity and mining requirement', () => {
     gems.forEach((id, i) => {
       const deposit = mineralDeposit({ deposit: id });

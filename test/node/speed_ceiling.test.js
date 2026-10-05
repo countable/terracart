@@ -56,6 +56,8 @@ test('speed ceiling: the crow\'s retreat hop is the ONE declared exception — o
 const crowScene = () => ({
   cellM: CM, cellAt: () => ({ loaded: true, type: 0 }), save: { planted: [] }, _nearAny: () => false,
   startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 }, mPerPx: 1, cellsPerTile: WorldGen.TILE_PX / CM, placedRockSet: null,
+  // Measure unrestricted flight away from Home's wildlife circle.
+  _starterTrailAnchor: () => ({ x: 10000, y: 10000 }),
 });
 const crowTick = (self, c, now, px, py) => new Function('c', 'now', 'px', 'py', WILD_CROW_TICK_SRC).call(self, c, now, px, py);
 const departBody = (() => {
@@ -190,9 +192,9 @@ test('shiny crow: panic and retreat flights use the 1.3 escape modifier', () => 
 test('speed ceiling: the hurry never stacks on a sprint (source pins)', () => {
   const w = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'));
   assert.truthy(/const hurry = routed && !sprinting;/.test(w), 'the rout quickens what was not already running');
-  assert.truthy(/\* shinyFast \* \(hurry \? FLEE_BEAT_MUL : 1\);/.test(w) && /\* \(hurry \? FLEE_STRIDE_MUL : 1\);/.test(w), 'both multipliers read it');
+  assert.truthy(/\/ paceMul \* \(hurry \? FLEE_BEAT_MUL : 1\);/.test(w) && /\* \(hurry \? FLEE_STRIDE_MUL : 1\);/.test(w), 'both multipliers read it');
   assert.truthy(/const hurryM = bolt \? STEP_M \* \(bolt\.stepCells \?\? 1\) : base\.m \* FLEE_STRIDE_MUL;/.test(w), 'a struck kind with a bolt runs its bolt');
-  assert.truthy(/const hurryMs = bolt \? \(bolt\.stepMs \?\? STEP_MS\) \* shinyFast : base\.ms \* FLEE_BEAT_MUL;/.test(w), 'over its own beat');
+  assert.truthy(/const hurryMs = bolt \? \(bolt\.stepMs \?\? STEP_MS\) \/ paceMul : base\.ms \* FLEE_BEAT_MUL;/.test(w), 'over its own beat');
   assert.truthy(/c\._hopMs = Math\.max\(hurryMs, hurryM \/ maxMps \* 1000\);/.test(w), 'and glides the shove over that beat');
   assert.truthy(/\(2 \* d \/ CROW_FLIGHT_MPS\) \* 1000/.test(WILD_CROW_TICK_SRC), 'the crow\'s dash is twice its distance over the peak');
 });

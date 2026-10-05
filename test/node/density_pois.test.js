@@ -16,7 +16,7 @@
 (function () {
   const DAY = 24 * 60 * 60 * 1000;
   const T0 = Date.UTC(2026, 8, 28, 12, 0, 0);
-  const dayKeyAt = (t) => Delivery.dayKey(new Date(t));
+  const dayKeyAt = (t) => utcDayKey(new Date(t));
   let seq = 0;
   const poi = (poiClass, over) => ({ kind: 'chest', id: `c_9_9_9_${++seq}`, poiClass, x: 0, y: 0, ...over });
 
@@ -65,8 +65,8 @@
     const flashes = [];
     runInteractable(makeCtx(makeScene({ flash: (m) => flashes.push(m) }), save), crate);
     const wait = shortDuration(Macros.restockWaitMs(save, crate.id, 3));
-    assert.eq(flashes[0], `The crate is bare. ${wait}.`, 'the refusal prints the wait');
-    assert.truthy(/^The crate is bare\. [12]d\.$/.test(flashes[0]), `a day and a bit: ${flashes[0]}`);
+    assert.eq(flashes[0], Macros.waitLine('The crate is bare', Macros.restockWaitMs(save, crate.id, 3)), 'the refusal prints the wait');
+    assert.truthy(/^The crate is bare — [12]d$/.test(flashes[0]), `a day and a bit: ${flashes[0]}`);
   });
 
   test('restock: the pot of gold, the bike rack, the chapel and the shrine stay DAILY', () => {
@@ -76,7 +76,9 @@
     assert.falsy(isSpent(rack, yday), 'so is a rack');
     assert.falsy(restocks(pot) || restocks(rack), 'neither is a crate');
     const src = INTERACTABLES_SRC;
-    assert.truthy(/Macros\.serviceUsedToday\(save, o\.id\)\) \{\s*scene\.flash\(`The chapel is quiet/.test(src), 'the chapel reads the service-day gate');
+    assert.eq(Macros.DAILY_VISIT_KINDS.chapel.ledger, 'service', 'the chapel is the service lane of the day ledger');
+    assert.eq(Macros.DAILY_VISIT_KINDS.chapel.spent, 'The chapel is quiet');
+    assert.truthy(/if \(!held0 && Macros\.rowUsed\(save, row, o\)\) \{\s*scene\.flash\(Macros\.waitLine\(row\.spent, Macros\.rowWaitMs\(save, row, o\)\)/.test(src), 'the chest reads the gate off the row');
     assert.truthy(INTERACTABLES.grove_shrine.custom.toString().includes('Macros.dailyVisit(ctx, o'), 'ordinary shrines use the daily visit gate');
   });
 
@@ -231,7 +233,7 @@
     save.bikeUntil = 0;
     runInteractable(makeCtx(scene, save), rack);
     assert.eq(save.bikeUntil, 0, 'no second bike today');
-    assert.truthy(/^Horse is out\. \d+[smhd]\.$/.test(flashes[1]), `the wait: ${flashes[1]}`);
+    assert.truthy(/^Horse is out — \d+[smhd]$/.test(flashes[1]), `the wait: ${flashes[1]}`);
     assert.truthy(poiLit(rack, spentSets(null, {})), 'lit while there');
     assert.falsy(poiLit(rack, spentSets(null, save)), 'dark once taken');
   });
@@ -259,7 +261,7 @@
     // debug readout's `${steerSpeedMul(…)}` only prints it.
     const calls = SCENE_SRC.match(/(?<!\$\{)steerSpeedMul\([^)]*\)/g) || [];
     assert.eq(calls.length, 3, 'three readers');
-    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
+    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* Conditions\.movementMul\(this\.save\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
     assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(SCENE_SRC),
       'the follow cap, only while the stick is pushed');
     assert.truthy(/const bike = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),
@@ -333,7 +335,7 @@
     // Yesterday's corpse is pruned from save.caught; today's is kept.
     assert.eq(Lairs.dailyGuardDay(d1[0].id), '20260928', 'the day reads back off the id');
     assert.eq(Lairs.dailyGuardDay('lair_wagon_1_2_3_4_0'), null, 'a wagon guard is no daily one');
-    assert.truthy(/const gateDay = Lairs\.dailyGuardDay\(id\);\s*if \(gateDay\) return gateDay === Delivery\.dayKey\(\);/.test(SCENE_SRC),
+    assert.truthy(/const gateDay = Lairs\.dailyGuardDay\(id\);\s*if \(gateDay\) return gateDay === utcDayKey\(\);/.test(SCENE_SRC),
       'scene_creatures.js prunes the other days');
     assert.truthy(/o\.kind !== 'gatepost' \|\| !o\.gateSid \|\| seen\.has\(o\.gateSid\)/.test(SCENE_SRC),
       'spawnInTile hands in one lair per gate');
@@ -386,11 +388,11 @@
     runInteractable(makeCtx(scene, save), boards[0]);
     assert.eq(reads, 1, 'a page is read');
     assert.eq(modal && modal.body, 'page 1', 'the next page of the Book');
-    assert.includes(save.opened, boards[0].id, 'spent in save.opened, the POI delta');
+    assert.truthy(Macros.usedToday(save, boards[0].id), 'spent in the day ledger, the waystone\'s lane');
     runInteractable(makeCtx(scene, save), boards[0]);
-    assert.eq(reads, 1, 'once per board');
-    assert.eq(flashes[0], 'Read it already.');
-    assert.truthy(/infoboard: pageStone\(/.test(INTERACTABLES_SRC), 'notice board keeps its one-time page lane');
+    assert.eq(reads, 1, 'once per board a day');
+    assert.truthy(/^Read it already — /.test(flashes[0]), flashes[0]);
+    assert.truthy(/infoboard: pageStone\(Macros\.DAILY_VISIT_KINDS\.board\)/.test(INTERACTABLES_SRC), 'notice board is a page stone off the recurring-site table');
     assert.truthy(/infoboard: \{ key: 'signpost'/.test(RENDER_SRC), 'drawn as the signpost');
   });
 

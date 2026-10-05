@@ -1,12 +1,14 @@
 // Exercise the actual scene transaction with real inventory operations.
 (() => {
-  const start = SCENE_SRC.indexOf('\n  presentDeliveryOffer(sx, sy, house, recordDeal) {');
-  const end = SCENE_SRC.indexOf('\n  }\n', start);
-  const method = SCENE_SRC.slice(start + 1, end + 4);
+  const lift = (name) => {
+    const start = SCENE_SRC.indexOf(`\n  ${name}(`);
+    return SCENE_SRC.slice(start + 1, SCENE_SRC.indexOf('\n  }\n', start) + 4);
+  };
   const bonus = Number(SCENE_SRC.match(/const DELIVERY_BONUS_MULT = ([\d.]+);/)[1]);
-  const offer = new Function('Inventory', 'PRICES', 'DELIVERY_BONUS_MULT', 'itemName', 'Delivery', 'addMoney',
-    `return ({${method}}).presentDeliveryOffer;`)(Inventory, PRICES, bonus, itemName, Delivery,
+  const methods = new Function('Inventory', 'itemValue', 'DELIVERY_BONUS_MULT', 'itemName', 'Delivery', 'addMoney',
+    `return ({${lift('presentDeliveryOffer')},${lift('_settleDeal')}});`)(Inventory, itemValue, bonus, itemName, Delivery,
       (save, amount) => { save.money = (save.money || 0) + amount; });
+  const offer = methods.presentDeliveryOffer;
   function scene(wanted) {
     const calls = { records: 0, quests: 0, discoveries: 0, flashes: [] };
     const s = {
@@ -19,6 +21,7 @@
       _clampSelSlot() {}, questEvent() { calls.quests++; },
       _bankDiscovery() { calls.discoveries++; return true; },
       _finishInventoryChange() {}, flashLoot() {}, flashShiny() {}, _storySplashOnce() {},
+      _settleDeal: methods._settleDeal,
     };
     offer.call(s, 0, 0, { id: 'house' }, () => calls.records++);
     return { s, calls };
@@ -31,7 +34,7 @@
       assert.eq((s.offer.cost.match(/×1/g) || []).length, wanted.length, 'each requested amount shown');
       s.offer.onAccept(99); // Old callers cannot multiply a household's order.
       for (const id of wanted) assert.eq(Inventory.count(s.save, id), 7);
-      assert.eq(s.save.money, Math.max(1, Math.round(wanted.reduce((n, id) => n + Math.max(1, PRICES[id] ?? 1), 0) * bonus)));
+      assert.eq(s.save.money, Math.max(1, Math.round(wanted.reduce((n, id) => n + Math.max(1, itemValue(id)), 0) * bonus)));
       assert.eq(s.save.deliveryCount, 3);
       assert.eq(calls.records, 1);
       assert.eq(calls.quests, 1);

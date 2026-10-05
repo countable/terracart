@@ -381,6 +381,8 @@ test('scenic: the scope opens its menu on every visit and gives one backpack', (
   const stories = [], rolls = [], loot = [], menus = [];
   const scene = makeScene({ save, flashLoot: (t) => loot.push(t),
     _storySplashOnce(key) { stories.push(key); return false; },
+    // The relic's card (Rewards.present) hands over to the menu on dismiss.
+    showChestRewardModal(card) { card.onDismiss?.(); },
     presentTelescopeMenu(x, y, o) { menus.push(o.id); } });
   scene.save = save;
   const realGrant = globalThis.grantTreasureRoll;
@@ -433,7 +435,7 @@ test('scenic: telescope chooses the nearest unopened real T3+ chest on this leve
 test('scenic: telescope danger ignores defeated, dormant, dead and friendly elites', () => {
   const enemy = (id, x, extra = {}) => ({ kind: 'goblin', id, x, y: 0, shiny: true, ...extra });
   const creatures = [enemy('caught', 1), enemy('dead', 2, { _hp: 0 }),
-    enemy('asleep-surface', 3, { _surfaceInactive: true }), enemy('released_pet', 4),
+    enemy('asleep-surface', 3, { _surfaceInactive: true }), enemy('released_pet', 4, {pet:true}),
     enemy('ordinary', 5, { shiny: false }), enemy('far', 30), enemy('nearest', 15)];
   const found = S.telescopeTarget('elite', { player: { x: 0, y: 0 }, creatures, save: { caught: ['caught'] } });
   assert.eq(found.targetId, 'nearest');
@@ -531,7 +533,9 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
   const src = INTERACT_SRC;
   const at = src.indexOf("{ name: 'wildplant', try: (ctx) => {");
   const body = src.slice(at, src.indexOf("{ name: 'coindrop'", at));
-  assert.truthy(/if \(wp\.tide\) \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return;\s*Macros\.markToday\(save, wp\.id\);/.test(body),
+  assert.truthy(/const award = \(\) => \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return false;/.test(body),
+    'the award asks the one spent predicate first');
+  assert.truthy(/if \(wp\.tide\) \{\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
   assert.truthy(/\(wp\) => !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
     'and the tap asks the one spent predicate');

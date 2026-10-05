@@ -1,330 +1,127 @@
-// The castle board: three generated slots that never run out.
-//
-// WHAT IT REPLACED, and why: a hand-written chain of three — defeat 10 slimes,
-// find a well, bring a sapphire up from depth 3. Ten slimes was most of an
-// evening for the FIRST thing the game asks of you, and when the three were
-// done the board had nothing left to say, which is why every castle in the
-// world had to unseal at once. Many small jobs beat three big ones.
+// Castle jobs belong to their first conversation, not a shared board.
 (() => {
-  const qbSave = () => ({});
-  const qbFill = (save, i) => { const q = Quests.slot(save, i); q.have = q.need; return q; };
-
-  // ── The opening ─────────────────────────────────────────────────────────
-
-  test('quest board: a fresh save opens with three jobs, one per slot', () => {
-    const save = qbSave();
-    const board = Quests.board(save);
-    assert.eq(board.length, QUEST_SLOTS, 'three slots');
-    for (let i = 0; i < QUEST_SLOTS; i++) {
-      assert.truthy(board[i], `slot ${i + 1} has a job`);
-      assert.eq(board[i].slot, i, 'and knows which slot it is in');
-      assert.eq(board[i].have, 0, 'starting from nothing');
-      assert.gt(board[i].need, 0, 'and asking for something');
-    }
+  test('castle quests: events and reads never assign quests', () => {
+    const save = {};
+    assert.eq(Quests.get(save, 'unvisited'), null);
+    assert.falsy(Quests.onKill(save, 'slime'));
+    assert.falsy(Quests.onEvent(save, 'deliver'));
+    assert.eq(Quests.completedCount(save), 0);
+    assert.falsy(save.quests);
+    assert.eq(Quests.assign(save, 'citadel', 'citadel'), null);
+    assert.falsy(save.quests);
+    assert.eq(Quests.assign(save, 'first', 'bastion').have, 0);
   });
 
-  test('quest board: pest control starts at THREE slimes, the stores at three crops', () => {
-    // The old opener wanted ten; one (the first rework) was over unnoticed.
-    const save = qbSave();
-    const first = Quests.slot(save, 0);
-    assert.eq(first.verb, 'kill', 'slot 1 opens on pest control');
-    assert.eq(first.target, 'slime', 'the surface slime — the only one you can meet up top');
-    assert.eq(first.need, 3, 'three slimes');
-    assert.truthy(/\b3 slimes\b/.test(first.body), `body reads plural: ${first.body}`);
-    const second = Quests.slot(save, 1);
-    assert.eq(second.verb, 'harvest');
-    assert.eq(second.need, 3, 'three crops');
+  test('castle quests: variants choose exactly the three quest types', () => {
+    const save = {};
+    const kill = Quests.assign(save, 'b', 'bastion');
+    const delivery = Quests.assign(save, 'a', 'archive');
+    const hunt = Quests.assign(save, 'r', 'ruin');
+    assert.eq(kill.verb, 'kill'); assert.eq(kill.need, 3);
+    assert.eq(delivery.verb, 'deliver'); assert.eq(delivery.need, 1);
+    assert.eq(hunt.verb, 'hunt'); assert.eq(hunt.need, 2);
+    assert.truthy(SpriteLayout.isGame(hunt.target));
   });
 
-  test('quest board: the whole opening trio is small', () => {
-    // A first impression is worth authoring. Nothing on the opening board may
-    // be an evening's work.
-    const save = qbSave();
-    for (const q of Quests.board(save)) {
-      assert.falsy(q.need > 3, `${q.verb} asks for ${q.need} — too much for a first board`);
-    }
-  });
-
-  // ── The generator ───────────────────────────────────────────────────────
-
-  test('quest board: the same save regenerates the same board', () => {
-    // A quest must not re-roll under a player who is halfway through it, so
-    // generation is seeded off (salt, slot, gen) and never Math.random.
-    const a = Quests.generate(1, 7, 4, 12345);
-    const b = Quests.generate(1, 7, 4, 12345);
-    assert.eq(JSON.stringify(a), JSON.stringify(b), 'same inputs, same quest');
-  });
-
-  test('quest board: two saves do not walk the same sequence', () => {
-    const a = [], b = [];
-    for (let g = 0; g < 12; g++) {
-      a.push(Quests.generate(g % QUEST_SLOTS, g, 3, 111).verb);
-      b.push(Quests.generate(g % QUEST_SLOTS, g, 3, 999).verb);
-    }
-    assert.falsy(a.join() === b.join(), 'a different salt is a different run');
-  });
-
-  test('quest board: jobs grow with the number you have finished', () => {
-    // One number drives every size, so there is no per-quest tuning to drift.
-    for (const t of QUEST_TEMPLATES) {
-      if (t.max <= t.base) continue;             // fixed-size verbs (a POI visit)
-      let prev = 0;
-      for (const rank of [0, 3, 8, 20]) {
-        const q = Quests.generate(0, 100, rank, 5);
-        const scaled = Math.max(1, Math.min(t.max, Math.ceil(t.base * (1 + rank * t.k))));
-        assert.gte(scaled, prev, `${t.id} never shrinks as rank climbs`);
-        prev = scaled;
+  test('castle quests: assignments advance enemy tiers independently of completion', () => {
+    const save = {}, enemies = questEnemies();
+    assert.eq(enemies[0], 'slime');
+    for (let i = 0; i < enemies.length + 2; i++) {
+      const q = Quests.assign(save, `b${i}`, 'bastion');
+      assert.eq(q.target, enemies[Math.min(i, enemies.length - 1)]);
+      assert.eq(q.need, 3);
+      if (i && i < enemies.length) {
+        assert.gte(Combat.monster(q.target)?.tier ?? 1, Combat.monster(enemies[i - 1])?.tier ?? 1);
       }
-      const top = Math.max(1, Math.min(t.max, Math.ceil(t.base * (1 + 100 * t.k))));
-      assert.eq(top, t.max, `${t.id} is capped, not unbounded`);
+    }
+    assert.eq(Quests.completedCount(save), 0);
+    assert.eq(Quests.assign(save, 'first-delivery', 'archive').need, 1);
+    assert.eq(Quests.assign(save, 'second-delivery', 'archive').need, 1);
+    assert.eq(Quests.assign(save, 'third-delivery', 'archive').need, 1);
+  });
+
+  test('castle quests: hunting cycles through game animals', () => {
+    const save = {}, animals = questAnimals();
+    assert.gt(animals.length, 0);
+    for (let i = 0; i < animals.length * 2; i++) {
+      assert.eq(Quests.assign(save, `r${i}`, 'ruin').target, animals[i % animals.length]);
     }
   });
 
-  test('quest board: a reward is never zero and grows with the job', () => {
-    const small = Quests.generate(0, 3, 0, 7);
-    const big = Quests.generate(0, 3, 15, 7);
-    assert.gt(small.reward, 0, 'a job pays something');
-    assert.gt(big.reward, small.reward, 'a bigger job pays more');
+  test('castle quests: repeated conversations and reload keep assignment and progress', () => {
+    const save = {}, first = Quests.assign(save, 'first', 'bastion');
+    Quests.onKill(save, first.target);
+    assert.eq(Quests.assign(save, 'first', 'archive'), first, 'the castle keeps its original quest');
+    assert.eq(save.quests.assigned.kill, 1);
+    const restored = JSON.parse(JSON.stringify(save));
+    assert.eq(Quests.assign(restored, 'first', 'bastion').have, 1);
+    assert.eq(Quests.assign(restored, 'next', 'bastion').target, questEnemies()[1]);
+    assert.eq(first.have, 1, 'the next assignment does not reset another castle');
   });
 
-  test('quest board: a reward at rank 0 cannot outrun a starting purse', () => {
-    // The old chain paid $200/$400/$600 against a STARTING_MONEY of 50 — 24x a
-    // new player's whole purse, in three lumps. A first job should read as
-    // pocket money, and the ladder should be where the money is.
-    for (let slot = 0; slot < QUEST_SLOTS; slot++) {
-      const q = Quests.generate(slot, slot, 0, 3);
-      assert.falsy(q.reward > 100, `${q.verb} pays ${q.reward} at rank 0 — too much`);
+  test('castle quests: only exact targets count and progress caps at the requirement', () => {
+    const save = {}, q = Quests.assign(save, 'b', 'bastion');
+    assert.falsy(Quests.onKill(save, 'goblin'));
+    assert.falsy(Quests.onEvent(save, 'kill'));
+    assert.falsy(Quests.onEvent(save, 'kill', { target: 'deer' }));
+    for (let i = 0; i < 3; i++) assert.truthy(Quests.onKill(save, q.target));
+    assert.falsy(Quests.onKill(save, q.target));
+    assert.eq(q.have, 3);
+    for (const event of ['harvest', 'chest', 'fish', 'sell', 'poi', 'plant', 'till', 'restore']) {
+      assert.falsy(Quests.onEvent(save, event));
     }
   });
 
-  test('quest board: every generated job is describable', () => {
-    for (let g = 0; g < 60; g++) {
-      const q = Quests.generate(g % QUEST_SLOTS, g, g, 42);
-      assert.truthy(q.title, `gen ${g} has a title`);
-      assert.truthy(q.body && q.body.length > 8, `gen ${g} has a body: ${q.body}`);
-      assert.falsy(/undefined|NaN/.test(q.title + q.body), `gen ${g} reads cleanly: ${q.body}`);
-      assert.truthy(QUEST_TEMPLATES.some(t => t.id === q.verb), `gen ${g} verb is a real template`);
-    }
+  test('castle quests: hunts use the shared defeat hook without enemy cross-credit', () => {
+    const save = {}, hunt = Quests.assign(save, 'r', 'ruin'), kill = Quests.assign(save, 'b', 'bastion');
+    assert.truthy(Quests.onKill(save, hunt.target));
+    assert.eq(hunt.have, 1); assert.eq(kill.have, 0);
+    Quests.onKill(save, kill.target);
+    assert.eq(hunt.have, 1); assert.eq(kill.have, 1);
   });
 
-  test('quest board: kill jobs name a real enemy', () => {
-    Combat.registerMonsters(MONSTERS);
-    for (let g = 0; g < 80; g++) {
-      const q = Quests.generate(g % QUEST_SLOTS, g, 9, 8);
-      if (q.verb !== 'kill') continue;
-      assert.includes(questEnemies(), q.target, `gen ${g} targets a registered enemy`);
-    }
+  test('castle quests: deliveries credit every assigned unfinished delivery quest', () => {
+    const save = {}, a = Quests.assign(save, 'a', 'archive'), b = Quests.assign(save, 'b', 'archive');
+    Quests.onEvent(save, 'deliver');
+    assert.eq(a.have, 1); assert.eq(b.have, 1);
+    assert.eq(a.have, a.need); assert.eq(b.have, b.need);
+    assert.falsy(Quests.onEvent(save, 'deliver'));
+    assert.eq(a.have, 1); assert.eq(b.have, 1);
+    assert.eq(Quests.assign(save, 'c', 'archive').have, 0, 'past deliveries do not count');
   });
 
-  // ── The board's foes are DERIVED, not listed ─────────────────────────────
-  // These nine kinds were hand-typed in quests.js beside the MONSTERS table
-  // that already had eight of them, so a kind added there was hostile
-  // everywhere in the game except the one board that pays a bounty for it.
-  // The list is Combat.enemyKinds() now — the surface slime, then the
-  // registered table in its own order — and this pins that the derivation
-  // still hands back exactly what was typed, in the order it was typed in.
-  // (Eleven since the goblin trapper and its giant joined the table; twelve
-  // since the ghost — a surface night kind, so it has no giant.)
-  test('quest board: the enemy list follows the declared roster, with no legacy-only targets', () => {
-    Combat.registerMonsters(MONSTERS);
-    // Every roster row but one that says `board: false` (the thieves: the
-    // gull — a shore bird a kill job inland could never be done on — and the
-    // raven, a pest, not a monster to hunt).
-    assert.eq(questEnemies().join(','), EnemyRoster.ROWS.filter(row => row.board !== false).map(row => row.id).join(','));
-    assert.truthy(Combat.isEnemyKind('gull'), 'the gull is an enemy');
-    assert.falsy(Combat.onQuestBoard('gull'), 'but its row keeps it off the board');
-    assert.truthy(Combat.isEnemyKind('raven'), 'the raven is an enemy');
-    assert.falsy(Combat.onQuestBoard('raven'), 'and its row keeps it off the board too');
-    assert.eq(questEnemies()[0], 'slime');
-    assert.falsy(questEnemies().includes('giant_goblin'));
-    assert.eq(Combat.enemyName('giant_plant'), 'giant plant');
-    // The fire slime is a registered enemy, kept off the board by its row.
-    assert.truthy(Combat.isEnemyKind('fire_slime'), 'the fire slime is still an enemy');
-    assert.falsy(questEnemies().includes('fire_slime'), 'but never a kill job');
-    assert.falsy(Combat.onQuestBoard('fire_slime'), 'its row says board: false');
-    for (let g = 0; g < 400; g++) {
-      const q = Quests.generate(g % QUEST_SLOTS, g, 30, 3);
-      assert.truthy(q.verb !== 'kill' || q.target !== 'fire_slime', `gen ${g} never names a fire slime`);
-    }
+  test('castle quests: one hunt advances all matching active jobs but never credits future jobs', () => {
+    const save = {};
+    Quests.onKill(save, 'deer');
+    const a = Quests.assign(save, 'a', 'ruin');
+    const other = Quests.assign(save, 'other', 'ruin');
+    assert.eq(a.have, 0, 'kills before activation do not count');
+    Quests.onKill(save, a.target);
+    const b = Quests.assign(save, 'b', 'ruin');
+    assert.eq(b.target, a.target);
+    assert.eq(b.have, 0, 'a later conversation starts a fresh counter');
+    Quests.onKill(save, a.target);
+    assert.eq(a.have, 2); assert.eq(b.have, 1); assert.eq(other.have, 0);
+    Quests.onKill(save, a.target);
+    assert.eq(a.have, 2); assert.eq(b.have, 2);
+    assert.truthy(Quests.claim(save, 'a'));
+    assert.truthy(Quests.claim(save, 'b'));
   });
 
-  test('quest board: a kind registered into Combat reaches the board on its own', () => {
-    // The point of the derivation. Nothing in quests.js is edited here — the
-    // kind is registered the way app.js registers its table, and the board
-    // offers it (at a rank high enough to have opened the whole list).
-    try {
-      Combat.registerMonsters({ ...MONSTERS, mud_golem: { name: 'Mud Golem', hp: 30, dmg: 2, minDepth: 4 } });
-      assert.includes(questEnemies(), 'mud_golem', 'the new kind is on the list');
-      assert.eq(questEnemies().length, EnemyRoster.ROWS.filter(row => row.board !== false).length + 1, 'appended, not swapped in');
-      assert.eq(Combat.enemyName('mud_golem'), 'mud golem', 'and it has a readable name');
-      const seen = new Set();
-      for (let g = 0; g < 400; g++) {
-        const q = Quests.generate(g % QUEST_SLOTS, g, 100, 3);
-        if (q.verb === 'kill') seen.add(q.target);
-      }
-      assert.truthy(seen.has('mud_golem'), 'and the generator offers it: ' + [...seen].join(', '));
-    } finally {
-      Combat.registerMonsters(MONSTERS);   // the real table back, for every test after this one
-    }
-  });
-
-  // ── Claiming, and the refill ────────────────────────────────────────────
-
-  test('quest board: an unfinished slot cannot be claimed', () => {
-    const save = qbSave();
-    assert.falsy(Quests.claim(save, 0), 'nothing to claim yet');
-    assert.eq(Quests.completedCount(save), 0, 'and nothing counted');
-  });
-
-  test('quest board: claiming refills THAT slot and no other', () => {
-    const save = qbSave();
-    const before = Quests.board(save).map(q => q.id);
-    qbFill(save, 1);
-    const finished = Quests.claim(save, 1);
-    assert.truthy(finished, 'the claim took');
-    const after = Quests.board(save).map(q => q.id);
-    assert.eq(after[0], before[0], 'slot 1 untouched');
-    assert.eq(after[2], before[2], 'slot 3 untouched');
-    assert.falsy(after[1] === before[1], 'slot 2 holds a new job');
-    assert.eq(Quests.slot(save, 1).slot, 1, 'and it took that slot number');
-    assert.eq(Quests.slot(save, 1).have, 0, 'starting fresh');
-  });
-
-  test('quest board: the board is never empty', () => {
-    // "There should always be 3 quests available" — through any amount of
-    // claiming, including claiming the same slot over and over.
-    const save = qbSave();
-    for (let n = 0; n < 40; n++) {
-      const i = n % QUEST_SLOTS;
-      qbFill(save, i);
-      Quests.claim(save, i);
-      const board = Quests.board(save);
-      assert.eq(board.length, QUEST_SLOTS, `still three after ${n + 1} claims`);
-      for (let k = 0; k < QUEST_SLOTS; k++) assert.truthy(board[k], `slot ${k + 1} filled`);
-    }
-    assert.eq(Quests.completedCount(save), 40, 'every claim counted toward rank');
-  });
-
-  test('quest board: a reload does not re-roll the board', () => {
-    const save = qbSave();
-    const before = JSON.stringify(Quests.board(save));
-    const reloaded = JSON.parse(JSON.stringify(save));      // through the save and back
-    assert.eq(JSON.stringify(Quests.board(reloaded)), before, 'same three jobs');
-  });
-
-  // ── Events ──────────────────────────────────────────────────────────────
-
-  test('quest board: all three slots track the same event stream', () => {
-    // No accept step, the way the starter ladder has none.
-    const save = qbSave();
-    // Force the overlap: same verb, and no named target (a kill job's target is
-    // a real filter — see the enemy test below).
-    for (const q of Quests.board(save)) { q.event = 'harvest'; q.target = null; delete q.active; }
-    Quests.onEvent(save, 'harvest');
-    for (const q of Quests.board(save)) assert.eq(q.have, 1, `${q.id} credited`);
-  });
-
-  test('quest board: an unrelated event credits nothing', () => {
-    const save = qbSave();
-    Quests.onEvent(save, 'not_a_verb');
-    for (const q of Quests.board(save)) assert.eq(q.have, 0, 'untouched');
-  });
-
-  test('quest board: a kill only counts for the enemy the job named', () => {
-    const save = qbSave();
-    const q = Quests.slot(save, 0);
-    q.verb = 'kill'; q.event = 'kill'; q.target = 'goblin'; q.need = 2; q.have = 0;
-    Quests.onKill(save, 'slime');
-    assert.eq(Quests.slot(save, 0).have, 0, 'wrong foe, no credit');
-    Quests.onKill(save, 'goblin');
-    assert.eq(Quests.slot(save, 0).have, 1, 'right foe, credited');
-  });
-
-  test('quest board: progress stops at what was asked for', () => {
-    const save = qbSave();
-    const q = Quests.slot(save, 0);
-    q.event = 'harvest'; q.target = null; q.need = 2; q.have = 0;
-    for (let i = 0; i < 9; i++) Quests.onEvent(save, 'harvest');
-    assert.eq(Quests.slot(save, 0).have, 2, 'capped at need');
-    assert.truthy(Quests.isSlotComplete(save, 0), 'and complete');
-  });
-
-  // ── Migration off the old chain ─────────────────────────────────────────
-
-
-
-  // ── Which castle offers which slot ──────────────────────────────────────
-
-  test('quest board: a castle keeps one slot for life', () => {
-    const key = 'b_12345_67890';
-    const a = Quests.slotForCastle(key);
-    assert.eq(Quests.slotForCastle(key), a, 'same castle, same slot, always');
-    assert.inRange(a, 0, QUEST_SLOTS - 1, 'and it is a real slot');
-  });
-
-  test('quest board: castles do not all offer the same slot', () => {
-    const seen = new Set();
-    for (let i = 0; i < 60; i++) seen.add(Quests.slotForCastle(`b_${i * 37}_${i * 11}`));
-    assert.eq(seen.size, QUEST_SLOTS, 'all three slots are handed out across the map');
-  });
-
-  // ── Deliveries are a VERB, not a gate ────────────────────────────────────
-
-  test('quest board: "deliver" is a verb, credited by the delivery accept', () => {
-    const t = QUEST_TEMPLATES.find(x => x.id === 'deliver');
-    assert.truthy(t, 'a deliver template exists');
-    const save = { quests: { slots: [
-      { id: 'q0', slot: 0, gen: 0, verb: 'deliver', event: 'deliver', need: 2, have: 0, reward: 60 },
-    ], gen: 1, done: 0 } };
-    assert.truthy(Quests.onEvent(save, 'deliver'), 'one delivery credits it');
-    assert.eq(save.quests.slots[0].have, 1);
-    assert.truthy(/this\.questEvent\('deliver'\)/.test(SCENE_SRC), 'the delivery accept fires the event');
-  });
-
-  test('quest board: no delivery count unseals a castle — the board replaced that gate', () => {
-    assert.falsy(/_deliveryGate|CASTLE_DELIVERY_GATE/.test(SCENE_SRC), 'the delivery gate is gone');
-    const i = SCENE_SRC.indexOf('  _isBuildingSealed(house) {');
-    const body = SCENE_SRC.slice(i, SCENE_SRC.indexOf('\n  }\n', i));
-    assert.falsy(/deliveryCount/.test(body), 'the seal never reads the delivery tally');
-    assert.falsy(/openedCastles\s*\[[^\]]+\]\s*=/.test(SCENE_SRC), 'nothing records a delivery-opened castle any more');
+  test('castle quests: claim happens once and never replaces the permanent job', () => {
+    const save = {}, q = Quests.assign(save, 'a', 'archive');
+    assert.eq(Quests.claim(save, 'a'), null);
+    assert.eq(Quests.claim(save, 'missing'), null);
+    Quests.onEvent(save, 'deliver');
+    assert.eq(Quests.claim(save, 'a'), q);
+    assert.truthy(q.claimed);
+    assert.eq(Quests.completedCount(save), 1);
+    assert.eq(Quests.claim(save, 'a'), null);
+    assert.falsy(Quests.onEvent(save, 'deliver'));
+    assert.eq(Quests.assign(save, 'a', 'archive'), q);
+    assert.eq(save.quests.assigned.deliver, 1);
+    const restored = JSON.parse(JSON.stringify(save));
+    assert.eq(Quests.claim(restored, 'a'), null);
+    assert.eq(Quests.assign(restored, 'next', 'archive').need, 1);
   });
 })();
-
-// ── Sep 2026 board trim: no sowing, tilling or rebuilding jobs; a fishing
-// job; salvage counts only once its castle has shown it. ──────────────────
-test('quest board: sow / break ground / rebuild are gone, fishing is in', () => {
-  const ids = QUEST_TEMPLATES.map(t => t.id);
-  for (const gone of ['plant', 'till', 'restore']) assert.falsy(ids.includes(gone), `${gone} is off the board`);
-  assert.includes(ids, 'fish', 'a fishing job');
-  for (let g = 3; g < 300; g++) {
-    const q = Quests.generate(g % QUEST_SLOTS, g, 4, 77);
-    assert.falsy(['plant', 'till', 'restore'].includes(q.verb), 'never rolled');
-    if (q.verb === 'fish') assert.truthy(/Land \d+ fish\./.test(q.body), `reads plainly: ${q.body}`);
-  }
-  assert.truthy(/scene\.questEvent\?\.\('fish'\)/.test(INTERACT_JS_SRC), 'a landed fish credits it');
-});
-
-test('quest board: a save holding a retired job has it rerolled', () => {
-  const save = {};
-  Quests.board(save);
-  save.quests.slots[2] = { id: 'qold', slot: 2, gen: 99, verb: 'till', event: 'till', need: 4, have: 1 };
-  const q = Quests.slot(save, 2);
-  assert.truthy(q.verb !== 'till', 'rerolled');
-});
-
-test('quest board: Salvage rights counts chests only after its castle shows it', () => {
-  const save = {};
-  const q = Quests.slot(save, 2);
-  assert.eq(q.verb, 'chest', 'the opener in slot 3');
-  assert.eq(q.active, false, 'not yet read at a castle');
-  Quests.onEvent(save, 'chest');
-  assert.eq(Quests.slot(save, 2).have, 0, 'a chest before the board is not salvage');
-  assert.truthy(Quests.activate(save, 2), 'the board shows it');
-  Quests.onEvent(save, 'chest');
-  assert.eq(Quests.slot(save, 2).have, 1, 'counted from then on');
-  assert.falsy(Quests.activate(save, 2), 'activating twice changes nothing');
-  assert.truthy(/Quests\.activate\(this\.save, mine\)/.test(SCENE_SRC), 'showQuestBoard activates its own slot');
-  // Other verbs track from the start, as before.
-  Quests.onEvent(save, 'kill', { target: 'slime' });
-  assert.eq(Quests.slot(save, 0).have, 1);
-});

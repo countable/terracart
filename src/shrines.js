@@ -15,8 +15,10 @@
 // Shield, reach and light share their existing item timers. Other timed
 // boons persist in save.boonUntil and never stack in strength; `boon` is
 // the word their countdown shows (src/buffs.js reads it — every running
-// boon shows over the head, each in the kind's light colour). Wayfarer's
-// post immediately applies the same food effects as a Pairy.
+// boon shows in the status row, each in the kind's light colour). A boon is
+// written through the one buff writer, Buffs.extend (LEVERS maps each lever
+// to its Buffs.KINDS row). Wayfarer's post immediately applies the same
+// food effects as a Pairy.
 // Pure apart from the scene food-effect callback; no Phaser or DOM.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
@@ -40,65 +42,66 @@
   // description (a hint, never the number). Frames are the sheet's order.
   const SHRINE_KINDS = {
     drill: { art: 'underground_miners_way', light: 0x9fdcff, lever: 'mining', durationMs: MIN, boon: 'Mining',
-      zones: [], streets: [], locations: ['Underground'], perTile: 10,
+      zoneVariants: [], streets: [], locations: ['Underground'], perTile: 10,
       name: 'Drill shrine', flash: 'Your pick feels weightless.',
       body: 'You touch the humming drill. Your hands tingle, and your pick feels weightless.' },
     wayfarer_post: { art: 'shrine_wayfarer_post', frame: 0, light: 0xf2d9a0, lever: 'pairy', get durationMs() { return CONSUMABLE_SPEC.pairy.durationMs; },
-      zones: ['formal_garden'], streets: ['pilgrim', 'parkpath'],
+      zoneVariants: ['formal_garden'], streets: ['pilgrim', 'parkpath'],
       name: "Wayfarer's post", flash: 'The bell rings. Seek treasure.',
       body: "You ring the bell. The taste of a Pairy fills your mouth, and you sense treasure nearby." },
     lantern_saint: { art: 'shrine_lantern_saint', frame: 1, light: 0xffb347, lever: 'light', durationMs: 5 * MIN,
-      zones: [], streets: ['lantern'],
+      zoneVariants: [], streets: ['lantern'],
       name: 'Lantern saint', flash: 'Her lantern warms your hand.',
       body: "A stone saint holds out a lantern. You pause beneath its warm light." },
     tide_bell: { art: 'shrine_tide_bell', frame: 2, light: 0x9fdcff, lever: 'reach', durationMs: 3 * MIN,
-      zones: ['shellwater_strand'], streets: ['promenade'],
+      zoneVariants: ['shellwater_strand'], streets: ['promenade'],
       name: 'Tide bell', flash: 'Your arms feel long as tides.',
       body: "You ring the bell and hear the rush of waves. The sound seems close, though the shore is far away." },
     bone_watcher: { art: 'shrine_bone_watcher', frame: 3, light: 0xd8d4e8, lever: 'shield', durationMs: 3 * MIN,
-      zones: ['ordered_graves', 'overgrown_graves'], streets: [],
+      zoneVariants: ['ordered_graves', 'overgrown_graves'], streets: [],
       name: 'Bone watcher', flash: 'Something watches your back.',
       body: "A hooded stone figure stands guard. You rest beside it, feeling safer." },
     moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN, boon: 'Unseen',
-      zones: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
+      zoneVariants: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
       body: "You touch the mossy stones. Nearby creatures look past you, unaware of your presence." },
     rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN, boon: 'Grip',
-      zones: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare'],
+      zoneVariants: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare'],
       name: 'Rust totem', flash: 'Your grip hardens like iron.',
       body: "You touch the rusted iron. Your arms feel stronger as you grip your weapon." },
     wishing_well: { art: 'shrine_wishing_well', frame: 6, light: 0xefc46a, lever: 'fortune', durationMs: 15 * MIN, boon: 'Luck',
-      zones: ['meadow', 'hedge_garden'], streets: ['golden', 'hedgerow'],
+      zoneVariants: ['meadow', 'hedge_garden'], streets: ['golden', 'hedgerow'],
       name: 'Wishing well', flash: 'A coin sinks. Luck stirs.',
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
     harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Hardworking',
-      zones: ['orchard'], streets: ['orchard'],
+      zoneVariants: ['orchard'], streets: ['orchard'],
       name: 'Harvest idol', flash: 'Your hands move swiftly.',
       body: "You lay your hand on the straw figure. Your weariness lifts, and your hands move swiftly through their work." },
     toad_idol: { art: 'shrine_toad_idol', frame: 8, light: 0x7fe0a0, lever: 'regen', durationMs: 8 * MIN, boon: 'Mending',
-      zones: ['mushroom_grove', 'seep'], streets: ['toadstool'],
+      zoneVariants: ['mushroom_grove', 'seep'], streets: ['toadstool'],
       name: 'Toad idol', flash: 'Your wounds begin to heal.',
       body: "You touch the cool stone toad. The pain eases as your wounds begin to heal." },
     ember_altar: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN, boon: 'Ember',
-      zones: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
+      zoneVariants: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
   };
   const REWARD_KINDS = {
-    pirate_cove: { name: 'Pirate crew', art: 'kind_trade', reward: 'companion',
-      companion: 'pirate_mercenary', hireName: 'a pirate mercenary', offerIntro: '“Arr!” ',
-      get price() { return root.Companions.KINDS.pirate_mercenary.hireCost; },
-      get durationMs() { return root.Companions.KINDS.pirate_mercenary.durationMs; },
-      effect: 'A pirate mercenary fights beside you', locations: ['Pirate Cove shipwrecks'], light: 0xf2d9a0,
-      body: '“Shiver me timbers!” The pirate pockets your coins and draws his blade. “Arr! Lead the way.”' },
-    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1,
+    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1, ledger: 'day',
       reward: 'bike', effect: 'Faster walking', locations: ['Mapped bicycle parking'], get durationMs() { return BIKE_RACK_MS; },
-      spent: 'Horse is out.',
-      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.' },
-    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778,
+      spent: 'Horse is out',
+      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.',
+      open: (ctx, o) => root.Macros.dailyVisit(ctx, o, { grant: () => {
+        Buffs.extend(ctx.save, ctx.scene, 'bike', BIKE_RACK_MS);
+        ctx.scene.flash(bikeRackFlash(), ctx.sx, ctx.sy);
+      } }) },
+    // A POT OF GOLD (an ATM): scattered coin pickups (app.js _coinBurstInteract).
+    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778, ledger: 'day',
       reward: 'coins', effect: 'Scattered coins', durationMs: 0,
       locations: ['Mapped ATMs'],
-      body: 'You lift the heavy lid. Coins spill across the ground.' },
+      body: 'You lift the heavy lid. Coins spill across the ground.',
+      open: (ctx, o) => typeof ctx.scene._coinBurstInteract === 'function'
+        ? (ctx.scene._coinBurstInteract(ctx.sx, ctx.sy, o), true) : null },
     mystic_reef: { name: 'Reef treasury', art: 'visit_gold', reward: 'coins', fillScreen: true,
       body: 'You touch the sea-worn stone. Gold washes out across the shore.', light: 0x9fdcff },
     waystone: { name: 'Waystone', art: 'shrine_waystone', reward: 'book',
@@ -116,65 +119,49 @@
     return REWARD_KINDS[o.zoneVariant] || SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
   }
   const KIND_IDS = Object.keys(SHRINE_KINDS);
-  const byZone = new Map(), byStreet = new Map();
+  const byZoneVariant = new Map(), byStreet = new Map();
   for (const id of KIND_IDS) {
-    for (const z of SHRINE_KINDS[id].zones) byZone.set(z, id);
+    for (const z of SHRINE_KINDS[id].zoneVariants) byZoneVariant.set(z, id);
     for (const s of SHRINE_KINDS[id].streets) byStreet.set(s, id);
   }
-  const kindForZoneVariant = (variantId) => byZone.get(variantId) || null;
+  const kindForZoneVariant = (variantId) => byZoneVariant.get(variantId) || null;
   const kindForStreet = (variantId) => byStreet.get(variantId) || null;
 
-  // Where each lever's expiry lives (see the header): a potion's save field,
-  // the Torch's in-memory scene field, or (no entry) save.boonUntil[lever].
-  // Buffs.KINDS reads this to seat each boon's countdown on the right row.
+  // Which Buffs.KINDS row each lever pulls: shield, reach and light are the
+  // potion's / torch's own rows; the rest are boon-only rows buffs.js derives
+  // from this table (save.boonUntil[lever]). `null` is instant (the pairy's
+  // food effects), nothing to extend. Where an expiry LIVES is the row's.
   const LEVERS = {
-    pairy:    { instant: true },
-    shield:   { save: 'shieldPotionUntil' },
-    reach:    { save: 'reachPotionUntil' },
-    light:    { scene: '_torchUntil' },
-    hidden:   {},
-    mining:   {},
-    melee:    {}, fortune: {}, work: {}, regen: {}, wand: {},
+    mining: 'mining',
+    pairy: null,
+    shield: 'shield', reach: 'reach', light: 'torch',
+    hidden: 'hidden', melee: 'melee', fortune: 'fortune', work: 'work', regen: 'regen', wand: 'wand',
   };
 
   function leverUntil(save, lever, scene) {
-    const L = LEVERS[lever];
-    if (!L) return 0;
-    if (L.save) return Number(save?.[L.save]) || 0;
-    if (L.scene) return Number(scene?.[L.scene]) || 0;
-    return Number(save?.boonUntil?.[lever]) || 0;
+    return LEVERS[lever] ? root.Buffs.until(LEVERS[lever], save, scene) : 0;
   }
   // The boon-only levers (their readers ask this).
   function leverActive(save, lever, now = Date.now()) {
     return (Number(save?.boonUntil?.[lever]) || 0) > now;
   }
 
-  // Lend kind's boon: the lever's expiry becomes the later of its own and
-  // now + durationMs. Returns false for an unknown kind.
+  // Lend kind's boon through the one buff writer (Buffs.extend — the expiry
+  // runs to max(now, until) + durationMs). Returns false for an unknown kind.
   function grant(save, kindId, now = Date.now(), scene = null) {
     const row = SHRINE_KINDS[kindId];
     if (!row || !save) return false;
-    const L = LEVERS[row.lever];
-    if (L.instant) {
+    if (LEVERS[row.lever] === null) {
       if (!scene?._consumeFoodEffects) return false;
       scene._consumeFoodEffects('pairy', false, now);
       return true;
     }
     return extend(save, row.lever, row.durationMs, now, scene);
   }
-  // Pull `lever` for durationMs from now: its expiry becomes the later of its
-  // own and now + durationMs (never stacking in strength). The one writer
-  // of every lever — a shrine's grant above, and a potion that lends the
-  // same boon (app.js drinkHardworkingPotion pulls `work` for its own
-  // shorter spell) — so the two can never keep separate clocks.
+  // Pull `lever` for durationMs: Buffs.extend on the lever's row (a shrine's
+  // grant above, and app.js drinkHardworkingPotion pulling `work`).
   function extend(save, lever, durationMs, now = Date.now(), scene = null) {
-    const L = LEVERS[lever];
-    if (!L || L.instant || !save) return false;
-    const until = Math.max(leverUntil(save, lever, scene), now + durationMs);
-    if (L.save) save[L.save] = until;
-    else if (L.scene) { if (scene) scene[L.scene] = until; }
-    else (save.boonUntil ||= {})[lever] = until;
-    return true;
+    return !!LEVERS[lever] && root.Buffs.extend(save, scene, LEVERS[lever], durationMs, now);
   }
 
   // The map line a visit shows (≤ MAP_MSG_MAX — shrines.test.js measures).

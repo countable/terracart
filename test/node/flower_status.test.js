@@ -36,7 +36,7 @@
     assert.truthy(Combat.isCharmed(c, wall + 59999)); assert.truthy(Combat.isEnemy(c, wall + 60000));
     assert.falsy(huntsPrey('dog', c)); assert.falsy(huntsPrey('spirit_raven', c));
     c.id = 'pest_slime_0_0'; assert.falsy(huntsPrey('spirit_raven', c), 'a charmed pest is still allied');
-    assert.falsy(Combat.applyCharm(foe('released_pet', 'slime'), wall));
+    assert.falsy(Combat.applyCharm({...foe('released_pet', 'slime'),pet:true}, wall));
     assert.falsy(Combat.applySleep(foe('cow', 'cow'), wall));
     assert.truthy(Combat.isPlayerKill('ally')); assert.falsy(Combat.isPlayerKill('enemy'));
     assert.eq(Combat.shotSource({ _sourceGuard: c }), 'ally');
@@ -49,9 +49,9 @@
     assert.eq(c.x, 0); assert.eq(s.save.energy, 100); assert.eq(s._shots.length, 0);
   }));
   test('flower status: charmed melee hits foes at its normal cadence and enemies retaliate', () => withClock(() => {
-    const ally = foe('ally'), hostile = foe('hostile', 'zombie', 1), s = scene();
+    const ally = foe('ally', 'brute'), hostile = foe('hostile', 'brute', 1), s = scene();
     Combat.applyCharm(ally, wall);
-    const row = EnemyRoster.get('zombie');
+    const row = EnemyRoster.get(ally.kind);
     rosterEnemyAttack(s, ally, row, 10000, hostile.x, 0, false, 0.1, null, hostile);
     rosterEnemyAttack(s, ally, row, 10000 + row.windupSeconds * 1000, hostile.x, 0, false, 0.1, null, hostile);
     assert.eq(s.hits.length, 1); assert.eq(s.hits[0].source, 'ally'); assert.eq(s.hits[0].n, row.dmg);
@@ -62,6 +62,22 @@
     assert.eq(s.hits.length, 2); assert.eq(s.hits[1].source, 'enemy'); assert.eq(s.save.energy, 100);
     rosterEnemyAttack(s, ally, row, 20000, 1, 0, false, 0.1);
     assert.eq(s.save.energy, 100, 'an ally cannot enter the player-damage lane');
+  }));
+  test('flower status: zombie blight follows charm allegiance without hurting the caster side', () => withClock(() => {
+    const ally = foe('ally'), fellow = foe('fellow', 'zombie', 5);
+    const hostile = foe('hostile', 'zombie', 5), s = scene();
+    Combat.applyCharm(ally, wall); Combat.applyCharm(fellow, wall);
+    const row = EnemyRoster.get('zombie');
+    rosterEnemyAttack(s, ally, row, 10000, hostile.x, 0, false, 1, null, hostile);
+    assert.eq(s.hits.length, 1); assert.eq(s.hits[0].c, hostile);
+    assert.eq(s.hits[0].source, 'ally'); assert.eq(s.hits[0].n, row.aura.rawDps);
+    rosterEnemyAttack(s, ally, row, 10000, fellow.x, 0, false, 1, null, fellow);
+    rosterEnemyAttack(s, ally, row, 10000, 5, 0, false, 1);
+    assert.eq(s.hits.length, 1, 'allied blight cannot hurt another ally');
+    assert.eq(s.save.energy, 100, 'allied blight cannot hurt the player');
+    rosterEnemyAttack(s, hostile, row, 10000, ally.x, 0, false, 1, null, ally);
+    assert.eq(s.hits.length, 2); assert.eq(s.hits[1].c, ally);
+    assert.eq(s.hits[1].source, 'enemy'); assert.eq(s.hits[1].n, row.aura.rawDps);
   }));
   test('flower status: charmed archers produce allied projectiles with their source identity', () => withClock(() => {
     const c = foe('archer', 'goblin_archer'), target = foe('target', 'zombie', 14), s = scene();
@@ -95,6 +111,23 @@
       s._cellBlocked = () => false;
       assert.eq(flowerOpponent(s, enemy, 100, 0, new Set(), wall + 60000), null);
     } finally { WorldGen.forEachItemNear = realEach; }
+  }));
+  test('flower status: a hostile attacks what is NEAREST — a charmed ally, a neighbour or the player', () => withClock(() => {
+    // One nearest scan (creature_ai.js nearestCreature) behind flowerOpponent
+    // and NPC.enemyTarget: a foe with a charmed slime four cells off and a
+    // neighbour one cell off goes for the neighbour; with the neighbour gone,
+    // the ally; with the player nearer than both, the player.
+    const hostile = foe('hostile'), ally = foe('ally', 'zombie', 28), s = scene();
+    Combat.applyCharm(ally, wall); s._charmedOpponents = [ally];
+    const neighbour = { kind: 'npc', id: 'npc_near', x: 7, y: 0, homeX: 7, homeY: 0 };
+    s._npcCombatTargets = [neighbour];
+    assert.eq(flowerOpponent(s, hostile, 1000, 0, new Set()), null, 'the neighbour one cell off wins over the ally four cells off');
+    assert.eq(NPC.enemyTarget(s, hostile, EnemyRoster.get('zombie'), 1000, 0, false), neighbour);
+    s._npcCombatTargets = [];
+    assert.eq(flowerOpponent(s, hostile, 1000, 0, new Set()), ally, 'no neighbour: the ally within sight');
+    assert.eq(flowerOpponent(s, hostile, 14, 0, new Set()), null, 'the player two cells off wins over the ally');
+    s.isUnnoticed = () => true;
+    assert.eq(flowerOpponent(s, hostile, 14, 0, new Set()), ally, 'unless the player is not there to be hunted');
   }));
   test('flower status: hostile ally pursuit keeps Home wards and lair stand-down', () => withClock(() => {
     const hostile = foe('hostile'), ally = foe('ally', 'zombie', 1), s = scene();

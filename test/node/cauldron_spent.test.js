@@ -3,7 +3,7 @@
 // UTC day rolls. Its ambient site light remains.
 
 test('cauldron: a pot tapped today is spent, yesterday\'s is not', () => {
-  const today = String(Delivery.dayKey());
+  const today = String(utcDayKey());
   const pot = { kind: 'chest', id: 'c_12_34', poiClass: 'atm' };
   const save = { coinBurstClaimed: { [pot.id + today]: 1, ['c_9_9' + '20000101']: 1 } };
   const sets = spentSets(null, save);
@@ -18,7 +18,7 @@ test('cauldron: a spent pot loses its availability pulse but keeps ambient light
   assert.truthy(/opened: openedSet,\s*burst: burstSet,/.test(src), 'the frame sets carry the day ledger');
   assert.truthy(/const spent = isSpent\(o, spentIds\);[\s\S]{0,120}return !spent;/.test(src), 'and isSpent culls the sprite');
   const pot = { kind: 'chest', id: 'c_12_34', poiClass: 'atm' };
-  const today = String(Delivery.dayKey());
+  const today = String(utcDayKey());
   const save = { coinBurstClaimed: { [pot.id + today]: 1 } };
   const spent = spentSets(null, save);
   assert.falsy(poiLit(pot, spent), 'a used pot has no availability pulse');

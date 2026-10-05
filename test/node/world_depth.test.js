@@ -20,7 +20,7 @@
     assert.truthy(SCENE_SRC.includes('this.worldContainer.add(this.playerWorldContainer)'));
     assert.truthy(SCENE_SRC.includes('this.playerWorldContainer.add(this.player)'));
     assert.truthy(SCENE_SRC.includes('this.playerWorldContainer.add(this.swordSwingGfx)'));
-    assert.truthy(RENDER_SRC.includes('const playerGroundY = Math.max(scene.startWorldM.y + scene.playerM.y,') && RENDER_SRC.includes('groundY: playerGroundY, rank: 3'),
+    assert.truthy(RENDER_SRC.includes('const playerGroundY = Math.max(playerWorldM(scene).y,') && RENDER_SRC.includes('groundY: playerGroundY, rank: 3'),
       'player uses world feet, not relative metres or the peek camera');
   });
   test('world depth: seated trees and centred houses use their visual ground base', () => {

@@ -35,7 +35,7 @@
   });
 
   test('work tools: axe, hoe, pickaxe and net swing, rest and repeat at the target', () => {
-    for (const slot of ['axe', 'hoe', 'pickaxe', 'net']) {
+    for (const slot of ['axe', 'hoe', 'pickaxe', 'net', 'fishing_rod']) {
       const look = Render.WORK_LOOKS[slot];
       assert.truthy(look, slot + ' has a work animation');
       assert.gt(look.beatMs, look.ms, 'each swing has a short rest');
@@ -89,7 +89,7 @@
   }
 
   test('work tools: owned art animates at the target; missing tools use the generic sweep', () => {
-    for (const slot of ['axe', 'hoe', 'pickaxe', 'net']) {
+    for (const slot of ['axe', 'hoe', 'pickaxe', 'net', 'fishing_rod']) {
       const { scene } = harness();
       const wp = { toolSlot: slot, startT: 100 };
       scene._workProgressToolKey = `${slot}:4`;
@@ -105,6 +105,23 @@
       assert.eq(icon.setVisibleArgs[0], false, 'old owned art is hidden');
       assert.eq(scene._workToolGfx.arcs, 1, 'unowned tool draws one mercenary-style sweep');
     }
+  });
+
+  test('fishing: rod casts, bobs over a ripple, then reels in before resting', () => {
+    const cast = Render.workToolPose('fishing_rod', 0);
+    const hold = Render.workToolPose('fishing_rod', 550);
+    const reel = Render.workToolPose('fishing_rod', 1050);
+    assert.lt(cast.rotation, hold.rotation, 'casts forward');
+    assert.lt(reel.rotation, hold.rotation, 'lifts the rod to reel in');
+    assert.eq(cast.ripple, null);
+    assert.gt(hold.ripple, 0);
+    assert.eq(reel.ripple, null);
+    const { scene } = harness();
+    scene._workProgressToolKey = 'fishing_rod:3';
+    scene._drawWorkTool({ toolSlot: 'fishing_rod', startT: 0 }, 100, 120, 550);
+    assert.eq(scene._workToolGfx.arcs, 1, 'one water ripple during the hold');
+    scene._drawWorkTool({ toolSlot: 'fishing_rod', startT: 0 }, 100, 120, 1250);
+    assert.eq(scene._workProgressIcon.setVisibleArgs[0], false, 'rod rests between casts');
   });
 
   test('watering: owned can pours once on the cell and destroys its transient art', () => {

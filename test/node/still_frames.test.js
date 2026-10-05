@@ -131,7 +131,7 @@ test('still frames: the loop steps on a cap, and the profile can tell the cap fr
   assert.truthy(/const FPS_LIMIT_DEFAULT = 30;/.test(a), 'thirty steps a second by default');
   const cfg = a.slice(a.indexOf('new Phaser.Game({'));
   assert.truthy(/fps: \{ limit: FPS_LIMIT \},/.test(cfg), 'the Phaser config carries the cap');
-  assert.truthy(/preBoot: \(game\) => installFrameCadence\(game.loop\)/.test(cfg),
+  assert.truthy(/preBoot: \(game\) => installFrameCadence\(game\.loop\)/.test(cfg),
     'the cadence adapter is installed before Phaser binds its display callback');
   assert.truthy(/urlNumParam\('fps'\)/.test(a) && /urlNumParam\('rscale'\)/.test(a), 'both A/B knobs read off the URL');
   // The profile: still steps apart from walking ones, the lightmap apart

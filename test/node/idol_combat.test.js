@@ -23,6 +23,8 @@
       _popDamageNumber() {}, resolveDefeat() {}, _drawSwordSwing() {},
       cancelWorkProgress() { this._workProgress = null; },
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
+      // These capture scenarios take place outside Home's wildlife circle.
+      _starterTrailAnchor: () => ({ x: 10000, y: 10000 }),
       worldMetersToScreen: (x, y) => ({ x, y }),
       _workProgressGfx: { clear() {} }, _strokeWorkRing() {}, _drawWorkTool() {},
     }, methods);

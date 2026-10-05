@@ -39,6 +39,17 @@
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
     'bone_cache:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 14 },
+    'cave_props:0': { fw: 24, fh: 24, minX: 3, minY: 8, maxX: 24, maxY: 24 },
+    'cave_props:1': { fw: 24, fh: 24, minX: 3, minY: 2, maxX: 24, maxY: 24 },
+    'cave_props:6': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 24, maxY: 23 },
+    'cave_props:17': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 23 },
+    'cave_props:24': { fw: 24, fh: 21, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:25': { fw: 24, fh: 23, minX: 2, minY: 5, maxX: 22, maxY: 22 },
+    'cave_props:26': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:27': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:28': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'cave_props:29': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
+    'poison_vent_inactive:0': { fw: 24, fh: 24, minX: 4, minY: 14, maxX: 20, maxY: 23 },
     'beach_palms:0': { fw: 16, fh: 16, minX: 4, minY: 9, maxX: 10, maxY: 15 },
     'beach_palms:1': { fw: 16, fh: 16, minX: 6, minY: 9, maxX: 12, maxY: 15 },
     'beach_palms:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
@@ -66,17 +77,6 @@
     'shrine_spirit:1': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 14, maxY: 14 },
     'shrine_spirit:2': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 14, maxY: 14 },
     'shrine_spirit:3': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
-    'cave_props:0': { fw: 24, fh: 24, minX: 3, minY: 8, maxX: 24, maxY: 24 },
-    'cave_props:1': { fw: 24, fh: 24, minX: 3, minY: 2, maxX: 24, maxY: 24 },
-    'cave_props:6': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 24, maxY: 23 },
-    'cave_props:17': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 23 },
-    'cave_props:24': { fw: 24, fh: 24, minX: 1, minY: 0, maxX: 24, maxY: 23 },
-    'cave_props:25': { fw: 24, fh: 24, minX: 2, minY: 6, maxX: 22, maxY: 23 },
-    'cave_props:26': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
-    'cave_props:27': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
-    'cave_props:28': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
-    'cave_props:29': { fw: 24, fh: 24, minX: 2, minY: 3, maxX: 22, maxY: 20 },
-    'poison_vent_inactive:0': { fw: 24, fh: 24, minX: 4, minY: 14, maxX: 20, maxY: 23 },
     'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1, minY: 5, maxX: 16, maxY: 15 },
     'mineralrock:169': { fw: 16, fh: 16, minX: 3, minY: 6, maxX: 12, maxY: 14 },
@@ -163,8 +163,8 @@
   // this file without Shrines; shrines.test.js pins every row's frame here.
   const SHRINE_KIND_ART = { key: 'shrines', scale: 1.6, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] };
   function groveShrineArt(o) {
-    if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;
     if (o?.shrineKind === 'drill') return { key: 'cave_props', frame: 6, scale: 4 / 3, name: 'Drill construct' };
+    if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;
     const kind = o?.shrineKind && root.Shrines && root.Shrines.SHRINE_KINDS[o.shrineKind];
     if (kind) return { key: SHRINE_KIND_ART.key, frame: kind.frame, scale: SHRINE_KIND_ART.scale, name: kind.name };
     return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
@@ -354,7 +354,8 @@
   //
   // Two beats are shared: CREATURE_FRAME_MS is what every stepped kind runs at
   // unless it says otherwise, and SLIME_FRAME_MS is HALF that rate (the ooze
-  // reads as a slow swell, not a flutter). Derived from the common beat, and
+  // reads as a slow swell, not a flutter — the surface slime covers ground at
+  // its row's pace, enemy_roster.js `slime`). Derived from the common beat, and
   // BOTH rows on the slime sheet read it.
   const CREATURE_FRAME_MS = 160;
   const SLIME_FRAME_MS = CREATURE_FRAME_MS * 2;
@@ -387,7 +388,7 @@
     { role: 'wanderer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
     { role: 'archaeologist', idle: 'orrin_idle', walk: 'orrin_walk', path: 'assets/NPC/Orrin_old_man_idle.png', cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY: 90 },
     // Every neighbour role has its own look: one sheet per label, so a role
-    // shown in several zones (Peddler, Lamplighter) looks the same in each.
+    // shown in several cultures (Peddler, Lamplighter) looks the same in each.
     // tools/art/import_npc_art.py seats them in 4x4 cells of 48px and bakes
     // the citizen palette into them; assets.js preloads them from here.
     // `portraitY` lowers the smaller heads in the dialog portrait, as Orrin's.
@@ -402,11 +403,11 @@
       ['mason', ['village'], 'mason', 90], ['mason', ['farm'], 'barn_raiser', 99], ['mason', ['market'], 'stonemason', 99],
       ['lamplighter', ['village', 'market'], 'lamplighter', 99],
       ['keeper', ['shrine'], 'shrine_keeper', 99], ['keeper', ['grove'], 'den_keeper', 90],
-    ].map(([role, zones, slug, portraitY]) => ({ role, zones, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
+    ].map(([role, cultures, slug, portraitY]) => ({ role, cultures, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
       path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY })),
   ];
   function npcSheet(c) {
-    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.zones || sheet.zones.includes(c.zone)))
+    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.cultures || sheet.cultures.includes(c.culture)))
       || NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
   }
   function npcAppearance(c, now) {
@@ -524,7 +525,7 @@
   const GIANT_ART_SCALE = roster?.GIANT_SCALE ?? 1.6;
   function isGiantKind(kind) { return roster?.get(kind)?.variantType === 'Giant'
     || (typeof kind === 'string' && kind.startsWith(GIANT_PREFIX)); }
-  function baseKind(kind) { if (butterflyByKind[kind]) return 'butterfly'; return roster?.get(kind) ? roster.baseKind(kind)
+  function baseKind(kind) { return butterflyByKind[kind] ? 'butterfly' : roster?.get(kind) ? roster.baseKind(kind)
     : isGiantKind(kind) ? kind.slice(GIANT_PREFIX.length) : kind; }
   // Identical unmodified atlases share one Phaser texture and its frame table.
   // Palette copies stay independent; authored frame numbers and roster paths
@@ -566,7 +567,8 @@
   function creatureArt(kind) {
     if (CREATURE_ART[kind]) return CREATURE_ART[kind];
     if (_giantArt[kind]) return _giantArt[kind];
-    if (butterflyByKind[kind]) return (_giantArt[kind] = { ...CREATURE_ART.butterfly, sheet: butterflyByKind[kind].palette ? kind : 'butterfly' });
+    if (butterflyByKind[kind]) return (_giantArt[kind] = { ...CREATURE_ART.butterfly,
+      sheet: butterflyByKind[kind].palette ? kind : 'butterfly' });
     const row = roster?.get(kind);
     const base = CREATURE_ART[baseKind(kind)];
     if (!base || (!row?.variantOf && !isGiantKind(kind))) return undefined;
@@ -608,16 +610,15 @@
   //   tameSettles  the quick gait above is a WILD animal's wariness; a tame
   //              one drops it and joins the base wander. A butterfly flits
   //              either way.
-  // The surface slime's gait is NOT here (SLIME_STEP_MUL / SLIME_HOP_CELLS are
-  // app.js's own), and a monster's cadence comes from its MONSTERS row.
+  // A FOE's gait is NOT here: every enemy_roster.js row moves by its own
+  // `movement` (creature_ai.js rosterEnemyMove); the loop below only gives
+  // each row `wanders` (and `haunts` for a ghost) so the sim thinks for it.
   //
-  // Animal feeding and petting read one timing row; the Book derives its
-  // lessons from it.
+  // Animal production and the Book read the same cooldown.
   const ANIMAL_INTERACTION = Object.freeze({
     produceCooldownMs: 60 * 60 * 1000,
     petBoostMs: 10 * 60 * 1000,
     doubleYieldChance: 0.5,
-    followMs: 5 * 60 * 1000,
   });
   const CREATURE_BEHAVIOUR = {
     npc:           { wanders: true },
@@ -628,7 +629,7 @@
     // The shore crab is the chicken's row on the beach: tamed with its
     // favourite (items.js ANIMAL_FOOD.crab) or netted; a fed one gives a SHELL.
     // Seated only on shore sand (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
-    crab:          { wanders: true, concealment: 'stealthy', produce: { item: 'shell', verb: 'shed' } },
+    crab:          { animal: true, wanders: true, concealment: 'stealthy', produce: { item: 'shell', verb: 'shed' } },
     // The horse is the cow's row without the milk: twice the netting, tamed
     // with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag it is
     // a mount (items.js HORSE_RIDE).
@@ -657,6 +658,9 @@
                      stepMs: 900, stepCells: 0.5, pauseMs: [700, 1300],
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
+    // These birds also have hostile roster movement, but remain wild animals.
+    gull:          { animal: true },
+    raven:         { animal: true },
     crow:          { wanders: true, game: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
     // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
@@ -678,7 +682,7 @@
     summoned_skeleton: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
       get stepMs() { return EnemyRoster.get('skeleton').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     summoned_wraith: { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
-    mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true, meleeWeapon: 'sword',
+    mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true, meleeWeapon: 'sword', biteMul: 1 / 3,
       get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (a butterfly never outpaces
     // 6 m/s) — over its gait, its bolt and the net wheel's flee. A shiny's cap
@@ -688,35 +692,32 @@
     // the cap is a stated number, not what paces it.
     butterfly:     { wanders: true, pollinates: true, stepMs: 1400, maxMps: 6,
                      flee: { escapes: true, jitter: 1.2, stepMs: 1350, stepCells: 1.15 } },
-    slime:         { wanders: true },
-    cave_slime:    { wanders: true },
-    purple_slime:  { wanders: true },
-    // A fire slime's kill (player or pet) hands over a flint (items.js 'flint_shard')
-    // — the tar yard's thematic prize, on top of its bounty coin.
+    // A fire slime's kill (player or pet) hands over a flint (items.js
+    // 'flint_shard') — the tar yard's thematic prize, on top of its bounty
+    // coin. (A Tint variant of the slime with a row of its own here: the drop
+    // is its.)
     fire_slime:    { wanders: true, drop: 'flint_shard' },
-    goblin:        { wanders: true },
-    goblin_archer: { wanders: true },
     // A trapper's kill (by the player or their pet — resolveDefeat pays a drop
-    // only then) hands over a Magic Trap, on top of the bounty coin.
+    // only then) hands over a Magic Trap, on top of the bounty coin; an
+    // enemy's drop is ON TOP of the wage, never instead of it.
     goblin_trapper: { wanders: true, drop: 'magic_trap' },
-    // THE GHOST has its own mover (creature_ai.js ghostTick — hover, then a committed
-    // rush at the player, over any terrain; a touch spends it; light burns
-    // it). `haunts` is what hands it there instead of the step chain.
-    ghost:         { wanders: true, haunts: true },
-    plant:         { wanders: true }, // thinks/attacks in the sim bubble; Combat keeps it rooted
   };
   // The sea turtle is the rabbit's row on the beach (seated by
   // biome_profiles.js SHORE_FAUNA): the same hops, bolt and settling, read
   // from the rabbit's row so the two cannot drift.
   CREATURE_BEHAVIOUR.sea_turtle = CREATURE_BEHAVIOUR.rabbit;
   CREATURE_BEHAVIOUR.pirate_mercenary = CREATURE_BEHAVIOUR.mercenary;
-  // The behaviour row for `kind` — the base row for a giant, like its art.
+  // Every roster base kind thinks (`wanders`); a ghost moves by its own mover
+  // (creature_ai.js ghostTick — hover, then a committed rush at the player,
+  // over any terrain; a touch spends it; light burns it): `haunts` is what
+  // hands it there instead of the step chain. A variant reads its base row
+  // unless it has a row of its own above (the fire slime's drop).
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;
     CREATURE_BEHAVIOUR[row.id] = { ...CREATURE_BEHAVIOUR[row.id], wanders: true,
       ...(row.movement.pattern === 'ghost_glide' ? { haunts: true } : {}) };
   }
-  function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[baseKind(kind)]; }
+  function creatureBehaviour(kind) { return CREATURE_BEHAVIOUR[kind] || CREATURE_BEHAVIOUR[baseKind(kind)]; }
   // Does this kind think at all? wanderCreatures culls on it before anything
   // else, so a kind with no row is furniture.
   function creatureWanders(kind) { return !!creatureBehaviour(kind)?.wanders; }
@@ -746,7 +747,7 @@
   // Does this hunter take every FOE (Combat.isEnemy) and every pest deer,
   // rather than a `prey` list of kinds? creature_ai.js huntsPrey answers it.
   function preysOnFoes(kind) { return !!creatureBehaviour(kind)?.preysOnFoes; }
-  // Does a petted one follow the player? ANIMAL_INTERACTION owns the window.
+  // Does a petted or hired follower trail the player while its timer is live?
   function creatureFollows(kind) { return !!creatureBehaviour(kind)?.follows; }
   // Is a target cell within a ward of `what` ('scarecrow') refused to it?
   function creatureAvoids(kind, what) {

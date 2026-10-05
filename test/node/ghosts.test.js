@@ -52,6 +52,7 @@ function ghostScene(creatures, over = {}) {
     },
     resolveDefeat: () => {},
     _popEnergy: (d, o) => pops.push({ d, o }),
+    _bankDrain(d, delta, o) { this._popEnergy(delta, o); },   // the roll-up lane, popped at once here
     _warnIfTiring: () => {}, _flashPlayerHit: (n) => hits.push(n), _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy ?? 0; this.save.energy = Math.max(0, b - d); const l = b - this.save.energy; this._flashPlayerHit(l); return l; },
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
@@ -106,7 +107,7 @@ test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   assert.truthy(g, 'registered in the monster table');
   assert.truthy(Combat.isEnemy({ kind: 'ghost', id: 'ghost_x' }), 'an enemy: wards, shots, bounty');
   assert.eq(Combat.GHOST_SPEED_MPS, 3, '3 m/s, per the ask');
-  assert.eq(g.mps, Combat.GHOST_SPEED_MPS, 'the live row carries it');
+  assert.eq(g.movement.speedMetersPerSecond, Combat.GHOST_SPEED_MPS, 'the live row carries it');
   assert.eq(Combat.GHOST_TOUCH_DMG, 12, 'halved from 25');
   assert.eq(g.dmg, Combat.GHOST_TOUCH_DMG, 'the touch before the mode, shield and armour');
   assert.falsy(Combat.spawnsUnderground('ghost'), 'never drawn by the cave bag');
@@ -118,7 +119,8 @@ test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   assert.eq(SpriteLayout.creatureAlpha('goblin'), 1, 'and nothing else is');
   assert.gt(Combat.enemyBounty('ghost', 0), 0, 'a kill pays a bounty');
   for (const row of EnemyRoster.ROWS) {
-    assert.gt(Combat.monster(row.id).speed, 0, `${row.id} keeps a positive legacy-step pace`);
+    assert.eq(Combat.monster(row.id), row, `${row.id}: the monster table IS the roster row`);
+    if (!row.movement.rooted) assert.gt(row.movement.speedMetersPerSecond, 0, `${row.id} declares a positive pace`);
   }
   assert.eq(EnemySpawns.SURFACE_NIGHT_DAYLIGHT, 0.25,
     'ordinary surface foes own their night threshold outside ghost tuning');

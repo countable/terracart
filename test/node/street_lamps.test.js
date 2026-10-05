@@ -108,13 +108,17 @@ test('street lamps: surface only — a cave has no streets to light', () => {
 test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with everything else', () => {
   // THE PAINTER RULE (CLAUDE.md): the lower object renders in front, and the
   // one place that implements it is drawObjects' screen-row z-order pass over
-  // the shared world layer. A lamp joins it the way the placed campfires and
-  // scarecrows do: an item on filteredObj, ranked by cell row (a pool of its
-  // own in cobbleContainer hid under every footprint and sprite).
-  assert.truthy(/const lampList = \(scene\._streetLamps \|\| \[\]\)\.map\(L => \(\{/.test(lampListSrc),
-    'the list comes off the one app.js keeps (scene._streetLamps)');
-  assert.truthy(/kind: '_streetlamp'/.test(lampListSrc), 'as items of its own RENDER_SPEC kind');
-  assert.truthy(/dx: L\.x - pWorldX, dy: L\.y - pWorldY/.test(lampListSrc),
+  // the shared world layer. A lamp had a pool of its own in cobbleContainer
+  // (ground decoration, below the building footprints and below every sprite)
+  // until Sep 2026, so it hid under any footprint or sprite on the map
+  // whatever row it stood in — which is exactly what a layer of its own buys
+  // you. It joins the pass the way the placed campfires and scarecrows do:
+  // an item on filteredObj, which the z-order pass ranks by cell row.
+  // (placedAs is the pass's one builder for a placed thing drawn as a
+  // synthetic object kind — scarecrows, campfires and the lamps alike.)
+  assert.truthy(/const lampList = placedAs\(scene\._streetLamps \|\| \[\], '_streetlamp', 'lamp',/.test(lampListSrc),
+    'the list comes off the one app.js keeps (scene._streetLamps), as items of its own RENDER_SPEC kind');
+  assert.truthy(/cullToView\(list, pWorldX, pWorldY, halfM, \(p, dx, dy\) => out\.push\(\{/.test(render),
     'measured from the CAMERA ANCHOR the whole pass projects from — a peek carries the lamps with the ground');
   assert.truthy(/for \(const L of lampList\) filteredObj\.push\(L\);/.test(render),
     'and pushed onto filteredObj, which is what the z-order pass ranks');
@@ -133,8 +137,8 @@ test('street lamps: an UNLIT lamp draws the BROKEN POST baked from the same pain
   // column snapped (RoadOverlay.paintBrokenLamp), baked at runtime exactly as
   // the lit lamp is, so restoring a stretch changes the lamp and nothing else.
   assert.truthy(/const STREET_LAMP_BROKEN_TEX = 'street_lamp_broken';/.test(app), 'one bake for every street\'s broken post');
-  assert.truthy(/_ensureBrokenLampTex\(\) \{[\s\S]{0,600}?RoadOverlay\.paintBrokenLamp\(lctx, S\);[\s\S]{0,80}?this\.textures\.addCanvas\(key, cvs\);/.test(app),
-    'baked by the real painter with `broken` set, into a canvas texture');
+  assert.truthy(/_ensureBrokenLampTex\(\) \{[\s\S]{0,600}?this\._ensureCanvasTex\(key, RoadOverlay\.LAMP_TEX_PX, \(ctx, S\) => RoadOverlay\.paintBrokenLamp\(ctx, S\)\)/.test(app),
+    'baked by the real painter with `broken` set, into a canvas texture (the one bake shell)');
   assert.truthy(/const key = STREET_LAMP_BROKEN_TEX;\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app), 'baked once');
   assert.truthy(/this\._ensureStreetLampTex\(UI_LAMP_GLOW\);\s*\n\s*this\._ensureBrokenLampTex\(\);/.test(app), 'baked at boot beside the lit lamp');
   // ONE RENDER_SPEC row, two bakes, picked by the one `lit` flag — and the
@@ -183,8 +187,8 @@ test('street lamps: which lamps are lit is settled before the pass that draws th
 
 
 test('street lamps: the texture is baked once with RoadOverlay.paintLamp, keyed off the module\'s own LAMP_TEX_PX', () => {
-  assert.truthy(/RoadOverlay\.paintLamp\(lctx, S, glow \|\| UI_LAMP_GLOW\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');
-  assert.truthy(/const S = RoadOverlay\.LAMP_TEX_PX;/.test(app), 'sized off road_overlay.js\'s own texture constant');
+  assert.truthy(/\(ctx, S\) => RoadOverlay\.paintLamp\(ctx, S, glow \|\| UI_LAMP_GLOW\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');
+  assert.truthy(/this\._ensureCanvasTex\(key, RoadOverlay\.LAMP_TEX_PX, /.test(app), 'sized off road_overlay.js\'s own texture constant');
   assert.truthy(/const key = streetLampTexKey\(glow\);\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app),
     'baked once per colour, not re-painted every boot or every lamp');
   assert.truthy(/this\._ensureStreetLampTex\(UI_LAMP_GLOW\);/.test(app), 'the default glow is baked at boot');
@@ -571,14 +575,20 @@ test('street lamps: the baked art is cached PER COLOUR — the default keeps the
   const keySrc = app.slice(app.indexOf('function streetLampTexKey(glow) {'));
   const keyFn = keySrc.slice(0, keySrc.indexOf('\n}\n') + 2);
   const ensSrc = app.slice(app.indexOf('  _ensureStreetLampTex(glow) {'), app.indexOf('  // Every lamp of ONE tile'));
+  const shellAt = app.indexOf('  _ensureCanvasTex(key, sizePx, paint) {');
+  const shellSrc = app.slice(shellAt, app.indexOf('\n  }\n', shellAt) + 4);
   const painted = [];
   const fakeRO = { LAMP_TEX_PX: 8, paintLamp: (cx, S, g) => painted.push(g) };
-  const fakeDoc = { createElement: () => ({ getContext: () => ({}) }) };
-  const mk = new Function('RoadOverlay', 'document', 'STREET_LAMP_TEX', 'UI_LAMP_GLOW',
-    `${keyFn}\nreturn { streetLampTexKey, host: { ${ensSrc.trimEnd()} } };`);
-  const { streetLampTexKey, host } = mk(fakeRO, fakeDoc, STREET_LAMP_TEX_NAME, UI_LAMP_GLOW);
+  const mk = new Function('RoadOverlay', 'STREET_LAMP_TEX', 'UI_LAMP_GLOW', 'bakeCanvas',
+    `${keyFn}\nreturn { streetLampTexKey, host: { ${ensSrc.trimEnd()},\n${shellSrc.trimEnd()} } };`);
+  // textures.js bakeCanvas (the shell the bake rides) is not loaded headlessly: lift it from its source.
+  const bakeSrc = (typeof TEXTURES_SRC === 'string' ? TEXTURES_SRC : '').match(/\nfunction bakeCanvas\(scene, key, w, h, paint\) \{[\s\S]*?\n\}\n/);
+  const bake = bakeSrc ? new Function(bakeSrc[0] + 'return bakeCanvas;')()
+    : (scene, key, w, h, paint) => { if (scene.textures.exists(key)) return; const tex = scene.textures.createCanvas(key, w, h); paint(tex.getContext(), tex); tex.refresh(); };
+  const { streetLampTexKey, host } = mk(fakeRO, STREET_LAMP_TEX_NAME, UI_LAMP_GLOW, bake);
   const store = new Map();
-  host.textures = { exists: (k) => store.has(k), addCanvas: (k, c) => store.set(k, c) };
+  host.textures = { exists: (k) => store.has(k),
+    createCanvas: (k) => { const c = { getContext: () => ({}), refresh() {} }; store.set(k, c); return c; } };
   assert.eq(streetLampTexKey(UI_LAMP_GLOW), STREET_LAMP_TEX_NAME, 'the default glow is the plain key, as before');
   assert.eq(streetLampTexKey(null), STREET_LAMP_TEX_NAME, 'and so is no glow');
   assert.eq(streetLampTexKey(UI_LAMP_GLOW.toUpperCase()), STREET_LAMP_TEX_NAME, 'case does not split a colour');

@@ -26,7 +26,7 @@ test('item guides: each guide belongs to the Book and keeps exact effects out of
 
 test('consumable confirmations: outcomes stay brief and enigmatic', () => {
   for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
-    if (!row.method) continue;
+    if (!row.verb) continue;
     const scene = { isTorchActive: () => false, depth: 0 };
     const line = typeof row.get === 'function' ? row.get(scene, row) : row.get;
     assert.truthy(typeof line === 'string' && line.length > 0, `${id}: an outcome`);
@@ -36,24 +36,29 @@ test('consumable confirmations: outcomes stay brief and enigmatic', () => {
 
 test('consumables: one action row names every button method', () => {
   const ids = [
-    'orb', 'egg', 'book', 'taming_potion', 'reach_potion', 'antidote', 'elixir',
+    'portal_stone', 'orb', 'egg', 'book', 'taming_potion', 'reach_potion', 'antidote', 'elixir',
     'healing_potion', 'speed_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll',
     'giant_potion', 'fire_resistance_potion', 'protection_potion', 'time_potion', 'immortal_potion', 'shrinking_potion',
     'thunder_scroll', 'blight_potion', 'revival_potion',
     'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
     'frost_powder', 'torch', 'sapphire', 'rope', 'throwing_spear', 'javelin', 'rubble', 'forgetmenot', 'wildrose', 'horse', 'shiny_horse',
-    'tome_reach', 'tome_raven', 'tome_thunder', 'tome_speed', 'tome_shielding', 'tome_healing', 'tome_blight', 'tome_fire_wall',
+    'tome_reach', 'tome_raven', 'tome_thunder', 'tome_speed', 'tome_shielding', 'tome_healing', 'tome_blight', 'tome_fire_wall', 'tome_frost_aura',
     'fireball_scroll', 'explosive_flask', 'fear_scroll', 'treasure_map', 'sleep_powder', 'psychosis_powder', 'hardworking_potion', 'poison_flask',
   ];
-  const actionIds = Object.keys(CONSUMABLE_SPEC).filter(id => CONSUMABLE_SPEC[id].method);
+  const actionIds = Object.keys(CONSUMABLE_SPEC).filter(id => CONSUMABLE_SPEC[id].verb);
   assert.eq(actionIds.slice().sort().join('|'), ids.slice().sort().join('|'),
     'the button action set and the spec are the same set');
   for (const id of ids) {
     const row = CONSUMABLE_SPEC[id];
     assert.truthy(ITEM_BY_ID[id], `${id}: real item`);
-    assert.truthy(row && row.verb && row.title && row.method, `${id}: complete action row`);
-    assert.truthy(new RegExp(`\\n  ${row.method}\\(`).test(SCENE_SRC),
-      `${id}: MapScene implements ${row.method}`);
+    assert.truthy(row && row.verb && row.title, `${id}: complete action row`);
+    assert.truthy(row.buff || row.tome || row.method || /\n  \w+_(scroll|powder): \{ noun:/.test(SCENE_SRC), `${id}: routed by a column or a method`);
+    // _useConsumable routes by column: a `buff` row to _useTimedBuff, a `tome`
+    // row to _readTome, a CAST_ROWS row to _castOnFoes; the rest by `method`.
+    if (row.buff) assert.truthy(Buffs.KINDS[row.buff], `${id}: a timed buff (Buffs row ${row.buff})`);
+    else if (row.tome) assert.truthy(CONSUMABLE_SPEC[row.tome.of], `${id}: a tome of ${row.tome.of}`);
+    else if (new RegExp(`\\n  ${id}: \\{ noun:`).test(SCENE_SRC)) assert.truthy(true, `${id}: a CAST_ROWS row`);
+    else assert.truthy(new RegExp(`\\n  (?:async )?${row.method}\\(`).test(SCENE_SRC), `${id}: MapScene implements ${row.method}`);
   }
   assert.truthy(/const cfg = sel && CONSUMABLE_SPEC\[sel\.id\];/.test(SCENE_SRC),
     'the button reads the static owner instead of rebuilding a local registry');
