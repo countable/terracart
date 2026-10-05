@@ -39,20 +39,28 @@
     assert.eq([...west.objects, ...east.objects].filter(o => o.kind === 'temple').length, 1);
     assert.falsy([...west.objects, ...east.objects].some(o => o.kind === 'tower' || o.kind === 'house'));
   });
-  test('temple generation: quarry building holes become temples without ordinary roofs or towers', () => {
+  test('temple generation: only nexus kinds raise temples - quarry holes and shore buildings stay ordinary', () => {
+    // The owning table: grove (generated marine groves included), stones, tar.
+    assert.truthy(Zones.ZONE_KINDS.grove.temple && Zones.ZONE_KINDS.stones.temple && Zones.ZONE_KINDS.tar.temple);
+    assert.falsy(Zones.ZONE_KINDS.beach.temple || Zones.ZONE_KINDS.quarry.temple, 'the shore and the quarry never claim a building');
+    // A quarry's building-shaped hole keeps its ordinary building.
     const lane = { f: { id: 1, type: 2, tags: { class: 'service', service: 'parking_aisle' } },
       extent: EXT, lines: [[{ x: 20.5 * 64, y: 20.5 * 64 }, { x: 30.5 * 64, y: 20.5 * 64 }]] };
     const out = WorldGen.rasterizeTile([
       { name: 'transportation', features: [], parkingLanes: [lane] },
       { name: 'building', features: [{ type: 3, tags: {}, geom: [rect(24 * 64, 20 * 64, 26 * 64, 22 * 64)] }] },
     ], N, 0, 0, edge);
-    const shape = out.buildingShapes[0];
-    assert.eq(shape.kind, 'temple');
-    assert.eq(shape.templeKind, 'quarry');
-    const temple = out.objects.find(o => o.kind === 'temple');
-    assert.truthy(temple);
-    assert.eq(shape.key, temple.id);
-    assert.falsy(out.objects.some(o => o.kind === 'house' || o.kind === 'tower'));
+    assert.falsy(out.buildingShapes[0].kind === 'temple', 'the quarry building is no temple');
+    assert.falsy(out.objects.some(o => o.kind === 'temple'), 'no temple is minted on quarry ground');
+    assert.truthy(out.objects.some(o => o.kind === 'house'), 'the building keeps its ordinary roof');
+    // A shore anchor's field may cover the ground, but never claims a building.
+    const shore = WorldGen.rasterizeTile([
+      { name: 'poi', features: [{ type: 1, tags: { class: 'beach', name: 'The shore' },
+        geom: [[{ x: 2100, y: 2100 }]] }] },
+      { name: 'building', features: [{ type: 3, tags: {}, geom: [rect(1900, 1900, 2300, 2300)] }] },
+    ], N, 0, 0, edge);
+    assert.falsy(shore.buildingShapes[0].kind === 'temple', 'the shore building is no temple');
+    assert.falsy(shore.objects.some(o => o.kind === 'temple'));
   });
 
   test('temple generation: a school building keeps its castle - education ground is never a zone temple', () => {

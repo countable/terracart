@@ -172,6 +172,10 @@
   // per zone kind with residents) says, rotating by day: the zone's story in
   // the voice of the one who tends it. The splash `body` is the narrator's;
   // this column is the resident's. Tar has no residents (NPC.cultureFor).
+  // `temple: true` marks the NEXUS kinds that raise their zone's temple by
+  // claiming a building (worldgen's footprint classification): the grove (a
+  // generated marine grove counts - it is a grove), the old stones and the
+  // tar yard. The shore and the quarry never claim a building.
   const ZONE_KINDS = {
     quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', art: 'zone_quarry', title: 'Quarry',
       body: 'Blue crystals glint among the broken stone. You step through the rubble for a closer look.',
@@ -181,18 +185,18 @@
       body: 'An old shrine stands above the sand. You pause beside it and listen to the waves.', flash: 'The shore opens ahead.',
       keeper: ['<em>Brushes salt off the shrine step.</em>\n“This shrine was here before the Breaking, and the sea never noticed the Breaking at all. I sweep the salt off each morning.”',
         '“The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.”'] },
-    grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove',
+    grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove', temple: true,
       attracts: { deer: 0.5, butterfly: 0.5 },
       body: 'Trees crowd around an old stone shrine. You approach along its carefully cleared steps.',
       flash: 'A sacred grove. Hush.',
       keeper: ['<em>Glances up at the leaning trunks.</em>\n“The trees leaned in to hide this shrine the night the roofs fell. They have not straightened since. I keep the stone swept and the lantern lit.”',
         '“The deer come here at dusk. They came before the Breaking and they came after. Nothing in this grove was ever the Warmonger’s.”'] },
-    stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones',
+    stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones', temple: true,
       body: 'Moss covers the stones around the old chapel. You walk towards the lantern by its door.',
       flash: 'The old stones. Walk softly.',
       keeper: ['“These stones are older than the chapel, and the chapel is older than the town. Someone has lit its lantern every night since the Breaking.”\n<em>Lifts the lantern.</em>\n“Tonight it is me.”',
         '<em>Speaks barely above a whisper.</em>\n“Walk softly. The names on these stones remember a quieter world than ours.”'] },
-    tar: { code: 3, R: 50, terrain: 'TAR_YARD', story: 'zone_tar', title: 'The tar yard',
+    tar: { code: 3, R: 50, terrain: 'TAR_YARD', story: 'zone_tar', title: 'The tar yard', temple: true,
       body: 'Thick tar pools across the old fuel yard. It drags at your boots as you cross.',
       flash: 'The tar yard. Mind your feet.',
       keeper: ['“Nobody keeps this yard. The tar keeps itself.”'] },

@@ -17,6 +17,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   share `Render.sortWorldDepth`: lower continuous ground/feet Y renders in
   front. Use stable seating geometry, never animation lift or whole cell rows.
   Add sprite appearances to `RENDER_SPEC`; ground surfaces stay underneath.
+  Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
+  renderers. Polygon corners use bounded bevel joins; depth seating follows
+  the rendered masonry base, including the lift on angled edges.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.

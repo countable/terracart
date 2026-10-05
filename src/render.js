@@ -2502,9 +2502,8 @@ Render.drawCells = function drawCells(scene) {
       }
       // Tier 12 (castle) — STONE RAMPART. The front (south) and back (north)
       // walls carry bold merlons that rise UP from the wall line with clear
-      // crenel gaps, aligned across cells. The side (east/west) walls aren't
-      // toothed — they read as a dashed shadow line hugging the wall edge, its
-      // dashes on the same merlon grid so they line up with the crests.
+      // crenel gaps, aligned across cells. Broad side-wall caps join the
+      // horizontal walks; merlon roofs share their grid.
       // Drawn INSTEAD of the tier-9/12 extrusion + outline below.
       if (type === 12) {
         // Resolve the same owner identity and condition as the tower and
@@ -2518,7 +2517,7 @@ Render.drawCells = function drawCells(scene) {
         const MERLONS = material.rampart.merlons, SPAN = CELL_PX / MERLONS;
         const MW = material.rampart.toothWidth, MOFF = (SPAN - MW) >> 1;
         const TOOTH_H = material.rampart.toothHeight;
-        const CREN = 2;
+        const CAP = material.rampart.topDepth;
         const WALL = material.rampart.wallHeight;
         // Each section sorts at its lowest masonry base in world metres.
         // Towers and actors use the same ordinary ground-depth pass.
@@ -2536,14 +2535,15 @@ Render.drawCells = function drawCells(scene) {
         // share the SPAN grid on every wall so front/back crenellations line up.
         const crestH = (gx, x, baseY, dbgTint) => {
           const body = dbgTint ?? STONE_BODY;
-          gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
+          gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CAP, CELL_PX, CAP);
+          gx.fillStyle(STONE_LITE, 1); gx.fillRect(x, baseY - CAP, CELL_PX, 1);
           gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             if ((material.rampart.broken && i === 2) || (damage && i === damage.missing)) continue;
             const mx = x + i * SPAN + MOFF;
-            gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
-            gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
-            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
+            gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - CAP + 2, MW, TOOTH_H);
+            gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - CAP - 2, MW, 4);
+            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - CAP + 2, 1, TOOTH_H);
           }
         };
         // South boundary projects its stone face beyond the floor.
@@ -2555,7 +2555,7 @@ Render.drawCells = function drawCells(scene) {
           wallChip(gw, sx, sy + CELL_PX);
         }
         // North boundary rises into the cell above from its own ground line.
-        const SIDE_W = 5;
+        const SIDE_W = CAP;
         if (wallEdge(col, row, 0, -1)) {
           // The lower ground anchor paints in front. This band belongs to THIS
           // cell and rises into the cell above — so it must also cover the FOOT
@@ -2576,21 +2576,22 @@ Render.drawCells = function drawCells(scene) {
           // is what makes the descending band end flush at the band's TOP.
           const shoulder = (x, w) => {
             gb.fillStyle(_DBG ? 0x5080e0 : STONE_BODY, 1);
-            gb.fillRect(x, sy - WALL - TOOTH_H, w, TOOTH_H);
+            gb.fillRect(x, sy - WALL - CAP - 2, w, CAP + 2);
             gb.fillStyle(STONE_LITE, 1);
-            gb.fillRect(x, sy - WALL - TOOTH_H, w, 1);
+            gb.fillRect(x, sy - WALL - CAP - 2, w, 1);
           };
           if (extL) shoulder(sx - extL, extL);
           if (extR) shoulder(sx + CELL_PX, extR);
         }
         // Side bands end at the south ground edge. At corners their tie
         // rank leaves horizontal walls in front of the band.
-        const bandY = sy;
-        const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
+        const bandY = sy - (wallEdge(col, row, 0, -1) ? WALL + CAP : 0);
+        const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - CAP : CELL_PX);
         const sideShade = (x, innerX) => {
           const gb = Render.rampartPiece(scene, northY + (bandBot - sy) * cm / CELL_PX, 0);
           gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
-          gb.fillStyle(_DBG ? 0xe06060 : STONE_SIDE, 1);
+          gb.fillStyle(STONE_LITE, 1); gb.fillRect(x, bandY, 1, bandBot - bandY);
+          gb.fillStyle(_DBG ? 0xe06060 : STONE_LITE, 1);
           // Crenel-grid dashes stay on the cell's own span; skip any dash the
           // shortened bottom would clip so a half-dash can't fray the band end.
           for (let i = 0; i < MERLONS; i++) {

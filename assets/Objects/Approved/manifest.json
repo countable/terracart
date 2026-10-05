@@ -642,7 +642,7 @@
       "source": "assets/Objects/Houses/fort.png",
       "width": 214,
       "height": 154,
-      "sha256": "acf6539ebbdbdef17375e3fc0a7513a8c72c0a79b5fc9495f3a5a7bf29f49240",
+      "sha256": "71567430dbb21c4f45108439b28d6acf7881fe1a9bbbc26b29c9ab6e45291b03",
       "rows": [
         "building-fort"
       ],
@@ -669,6 +669,18 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
+        }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "ART-2026-10-05-FORT-A-RESTORED",
+          "frame": 0,
+          "frameSize": [
+            214,
+            154
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/fort-a-restored.png",
+          "sourceSha256": "87b1f49324c54f7592c35f705e0427975f6953b1fe81c7e34c700a4be83da8b5"
         }
       ]
     },
@@ -5654,7 +5666,7 @@
       "source": "assets/Objects/Houses/fort.png",
       "width": 214,
       "height": 154,
-      "sha256": "0600863fd97a099cb165a29ee167cb3c966d0113c82e50b8e59fd8f0b36c31fc",
+      "sha256": "5f436fdeb0a610f21a1199656801af3c2e370a04569fe105e520226cdbcdf72c",
       "rows": [
         "building-fort-unclaimed"
       ],
@@ -5687,6 +5699,18 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
+        }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "ART-2026-10-05-FORT-A-UNRESTORED",
+          "frame": 0,
+          "frameSize": [
+            214,
+            154
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/fort-a-unrestored.png",
+          "sourceSha256": "13649be704091b3b4b9533b160068ed87c0589d4992e64f33d9b00cfdda79969"
         }
       ]
     },

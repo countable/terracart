@@ -4107,7 +4107,6 @@
     // building it belongs to in two hops and nothing has to search polygons.
     const ownerKeys = [];
     const templeOwners = new Set();
-    const buildingSeats = new Map();
     const castleHalo = new Map();
     const castleSourceRings = [];
     // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
@@ -5373,7 +5372,10 @@
             }
             const field = templeFields.get(fieldKey);
             const a = field?.anchors[field.coverage?.[(y - dy * h) * w + x - dx * w] - 1];
-            if (a) candidates.set(String(a.key ?? Zones.anchorKey(a.gx, a.gy)), a);
+            // Only NEXUS zones raise a temple (Zones.ZONE_KINDS `temple`):
+            // the grove (a generated marine grove counts), the old stones and
+            // the tar yard. The shore and the quarry never claim a building.
+            if (a && Zones.ZONE_KINDS[a.kind]?.temple) candidates.set(String(a.key ?? Zones.anchorKey(a.gx, a.gy)), a);
           }
           const key = [...candidates.keys()].sort()[0];
           if (key) {
@@ -5488,8 +5490,6 @@
           const otx = tx + Math.floor(best[0] / w), oty = ty + Math.floor(best[1] / h);
           const oix = best[0] - Math.floor(best[0] / w) * w;
           const oiy = best[1] - Math.floor(best[1] / h) * h;
-          buildingSeats.set(ownerId, { tx: otx, ty: oty, ix: oix, iy: oiy,
-            x: cellCenterMeters(best[0], best[1]).mx, y: cellCenterMeters(best[0], best[1]).my });
           if (bp.tier === T.BUILDING_LARGE && !bp.templeZone) continue;
           // Stable id for per-house shop state (deal rate-limit, future ledger).
           const id = cellId(bp.templeZone ? 'tp' : 'h', otx, oty, oix, oiy);
@@ -6201,40 +6201,6 @@
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.quarrySteps({
         field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
         tx, ty, N: w, grid, tileEdgeM, roadMask, spawnWhy });
-    }
-    // Quarries have building-shaped holes in their walkable layout. Their
-    // logical source footprint still owns those buildings: convert the whole
-    // owner block and remove every ordinary roof/turret before it can spawn.
-    if (zone?.buildingCoverage) {
-      const converted = new Map(), oldKeys = new Set();
-      for (let i = 0; i < owners.length; i++) {
-        if ((i & 511) === 0) yield 'quarry temple ownership';
-        const owner = owners[i], slot = zone.buildingCoverage[i];
-        if (!owner || !slot || templeOwners.has(owner) || converted.has(owner)) continue;
-        const anchor = zone.anchors[slot - 1], seat = buildingSeats.get(owner);
-        if (!anchor || !seat) continue;
-        const oldKey = ownerKeys[owner], id = cellId('tp', seat.tx, seat.ty, seat.ix, seat.iy);
-        const templeZone = String(anchor.key);
-        converted.set(owner, { anchor, id, templeZone });
-        oldKeys.add(oldKey);
-        ownerKeys[owner] = id;
-        templeOwners.add(owner);
-        for (const shape of buildingShapes) if (shape.key === oldKey) {
-          shape.kind = 'temple'; shape.tier = T.BUILDING_LARGE;
-          shape.key = id; shape.templeZone = templeZone; shape.templeKind = anchor.kind;
-        }
-        if (seat.tx === tx && seat.ty === ty) deduped.push(makeObject('temple', seat.x, seat.y, id,
-          { tier: T.BUILDING_LARGE, templeZone, templeKind: anchor.kind, templeAnchor: { ...anchor } }));
-      }
-      if (converted.size) {
-        for (let i = 0; i < owners.length; i++) if (converted.has(owners[i])) grid[i] = T.BUILDING_LARGE;
-        let kept = 0;
-        for (const o of deduped) {
-          if ((o.kind === 'house' && oldKeys.has(o.id)) || (o.kind === 'tower' && oldKeys.has(o.castle))) continue;
-          deduped[kept++] = o;
-        }
-        deduped.length = kept;
-      }
     }
     if (zone) for (const o of deduped) {
       if (o.kind !== 'temple') continue;
