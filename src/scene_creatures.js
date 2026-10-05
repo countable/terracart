@@ -1415,6 +1415,7 @@ class SceneCreatures {
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       if (ox >= 0 && oy >= 0 && ox < N && oy < N) occupiedIdx.add(oy * N + ox);
     }
+    const authoredBlocked = new Set(occupiedIdx);
     for (const i of entry.undergroundReserved || []) occupiedIdx.add(i);
     for (const resident of entry.undergroundResidents || []) {
       const { x, y, id, culture, dwarf } = resident;
@@ -1437,6 +1438,24 @@ class SceneCreatures {
       const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       if (ox >= 0 && oy >= 0 && ox < N && oy < N) heldByPlayer.add(oy * N + ox);
+    }
+    // Finite region seats are authored before the ambient passes. Their
+    // reservations survive defeat; caught IDs never free ground for a reroll.
+    for (const seat of entry.caveAreas?.encounters || []) {
+      if (seat.depth !== depth || monsterSeats.has(seat.id)) continue;
+      const cx = Math.floor((seat.x - tx * entry.tileEdgeM) / cellSizeM);
+      const cy = Math.floor((seat.y - ty * entry.tileEdgeM) / cellSizeM);
+      const idx = cy * N + cx;
+      if (cx < 0 || cy < 0 || cx >= N || cy >= N || genGrid[idx] !== 24
+          || authoredBlocked.has(idx)) continue;
+      occupiedIdx.add(idx);
+      monsterSeats.add(seat.id);
+      if (caughtSet.has(seat.id) || heldByPlayer.has(idx)) continue;
+      creatures.push(WorldGen.makeCreature(seat.kind, seat.x, seat.y, seat.id, {
+        depth, shiny: false, caveArea: seat.caveArea,
+        hidden: !!seat.hidden, dormant: !!seat.dormant,
+        revealDistanceCells: seat.revealDistanceCells,
+      }));
     }
     // A roost owns one fixed dragon seat even after defeat. Reserve before
     // ordinary pools so losing the dragon cannot regenerate another enemy.
@@ -1797,21 +1816,88 @@ class SceneCreatures {
     if (this.depth !== WorldGen.ARENA_DEPTH)
       ghostSpawnPass(this, now, px, py, pcW, homePos, castleWards, HOME_WARD_R2, caughtSet);
 
-    // Most ticks have no charm active: avoid scanning every foe against all
-    // creatures just to discover there are no temporary allies to target.
+    // THE ACTIVE BUBBLE is the one creature list every per-frame consumer
+    // needs: movement below, combat immediately after this method, and the
+    // sprite cull later in the same update. A dense town can hold more than a
+    // thousand frozen seats across the 3×3 ring while fewer than thirty are
+    // close enough to think or draw. Walking that whole ring separately in
+    // all three consumers was the steady-state phone cost.
+    //
+    // While the feet stand still, a creature outside RANGE cannot enter it:
+    // the rule above freezes it there. Reuse the bubble until the feet move,
+    // a ring array mutates, or the far-surface recheck clock lands. Active
+    // creatures remain object references and are range-checked each tick, so
+    // their movement and a caught/dead change are live. The array stamp uses
+    // the same identity/length/tail rule as WorldGen's derived chunk indexes;
+    // the one-second refresh also bounds an in-place mutation it cannot see.
+    const ringStamp = [];
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx + dtx, pcW.ty + dty));
+        const list = entry?.creatures || null;
+        ringStamp.push({ entry, list, n: list?.length || 0, last: list?.[list.length - 1] });
+      }
+    }
+    const oldBubble = this._activeCreatureMemo;
+    const sameRing = !!oldBubble && oldBubble.tx === pcW.tx && oldBubble.ty === pcW.ty
+      && oldBubble.depth === (this.depth || 0) && oldBubble.px === px && oldBubble.py === py
+      && oldBubble.stamp.length === ringStamp.length
+      && ringStamp.every((s, i) => {
+        const was = oldBubble.stamp[i];
+        return was.entry === s.entry && was.list === s.list && was.n === s.n && was.last === s.last;
+      });
+    const refreshBubble = !sameRing || now - oldBubble.scannedAt >= SURFACE_RECHECK_MS;
+    let bubble = refreshBubble ? [] : oldBubble.creatures;
+    if (refreshBubble) {
+      WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
+        if (caughtSet.has(c.id)) return;
+        const ddx = c.x - px, ddy = c.y - py;
+        if (ddx * ddx + ddy * ddy <= RANGE_SQ) {
+          bubble.push(c);
+          return;
+        }
+        // Frozen surface seats still re-evaluate their player/time gate on its
+        // existing slow clock. This is the only work the far ring needs.
+        if ((c._surfaceSpawn || c.lair)
+            && (c._surfaceAskedT == null || now - c._surfaceAskedT >= SURFACE_RECHECK_MS)) {
+          c._surfaceAskedT = now;
+          EnemySpawns.surfaceActive(this, c);
+        }
+        c._walkHazardPrevious = null;
+        if (c.kind === 'npc') c._moving = false;
+      });
+      this._activeCreatureMemo = {
+        tx: pcW.tx, ty: pcW.ty, depth: this.depth || 0, px, py,
+        stamp: ringStamp, scannedAt: now, creatures: bubble,
+      };
+    }
+
+    // A cached member can walk out of the bubble. Drop it now; frozen things
+    // cannot walk back in until the player moves and invalidates the memo.
+    // Most ticks have no charm active, and spacing only concerns live nearby
+    // foes, so both derived lists come from this same small pass.
+    const activeCreatures = [];
     this._charmedOpponents = [];
-    // The same pass gathers the live foes in the sim bubble once a tick, so
-    // each character's spacing reads only adjacent spatial bins.
+    // The same bubble pass gathers every live character once a tick, so
+    // movement, combat, rendering and spacing share the small nearby set.
     this._foeBodies = [];
-    this._characterBodies = [{id:'player', x:px, y:py}];
-    WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
-      if (caughtSet.has(c.id)) return;
+    this._characterBodies = [{ id: 'player', x: px, y: py }];
+    for (const c of bubble) {
+      if (caughtSet.has(c.id)) continue;
+      const ddx = c.x - px, ddy = c.y - py;
+      if (ddx * ddx + ddy * ddy > RANGE_SQ) {
+        c._walkHazardPrevious = null;
+        if (c.kind === 'npc') c._moving = false;
+        continue;
+      }
+      activeCreatures.push(c);
       Pirates.sync(this, c);
       if (Combat.isCharmed(c)) this._charmedOpponents.push(c);
-      if (!c._surfaceInactive && Math.hypot(c.x-px,c.y-py) <= Math.sqrt(RANGE_SQ)) this._characterBodies.push(c);
-      const ddx = c.x - px, ddy = c.y - py;
-      if (ddx * ddx + ddy * ddy <= RANGE_SQ && Combat.isEnemy(c) && EnemyRoster.get(c.kind)) this._foeBodies.push(c);
-    });
+      if (!c._surfaceInactive) this._characterBodies.push(c);
+      if (Combat.isEnemy(c) && EnemyRoster.get(c.kind)) this._foeBodies.push(c);
+    }
+    this._activeCreatures = activeCreatures;
+    this._activeCreatureMemo.creatures = activeCreatures;
 
     const spacingIndex = this._characterSpacingIndex = buildCharacterSpacingIndex(this);
     const tickCreature = (c) => {
@@ -2409,11 +2495,11 @@ class SceneCreatures {
       }
       else { c.x = nx; c.y = ny; }
     };
-    WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
+    for (const c of activeCreatures) {
       tickCreature(c);
       if (EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) EnemySpawns.surfaceActive(this, c);
       updateCharacterSpacingIndex(spacingIndex, c);
-    });
+    }
     this._characterSpacingIndex = null;
     this._foeHeadsUp?.(interestedFoeM, now);
     // What the foes took off the bar this window pops as one "⚔️ monsters"

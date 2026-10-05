@@ -1597,7 +1597,7 @@
       const wx = tx * tileEdgeM + (cellIX + 0.5) * cellM;
       const wy = ty * tileEdgeM + (cellIY + 0.5) * cellM;
       const t = scene.add.text(0, 0, text, {
-        font: fontMono('bold 8px'),
+        font: fontUI('bold 8px'),
         color: '#ffffff',
         backgroundColor: 'rgba(0,0,0,0.6)',
         padding: { x: 3, y: 1 },

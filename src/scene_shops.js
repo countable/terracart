@@ -119,9 +119,11 @@ class SceneShops {
       };
     };
     const first = fmt(1);
+    let receipt;
     this.showOfferModal({
       kind: kind, kindLabel, art,
       title,
+      receipt: opts.receipt,
       tabs: items.length > 1 ? items.map((it, i) => ({
         label: ITEM_BY_ID[it]?.name || it, active: i === index,
         onSelect: () => this._presentStallOffer(sx, sy, { ...opts, index: i }),
@@ -131,7 +133,7 @@ class SceneShops {
       canAfford: first.canAfford,
       acceptLabel: 'Buy',
       cancelLabel: 'Leave',
-      repeat: () => this._presentStallOffer(sx, sy, opts),
+      repeat: () => this._presentStallOffer(sx, sy, { ...opts, receipt }),
       onCancel: () => this._revealPendingBookReads(),
       onAccept: () => {
         const want = 1;
@@ -145,6 +147,7 @@ class SceneShops {
         addMoney(this.save, -pay);
         if (id === 'book') ShopsMath.bookBought(this.save, take);
         this._settleDeal(null, [`${take}× ${itemName}\n−${pay}`, UI_GOLD, 1, id]);
+        receipt = `Bought ${take}× ${itemName} for ${pay} coins.`;
       },
     });
   }
@@ -676,14 +679,14 @@ class SceneShops {
     const houses = this.knownDeliveryHouses();
     if (!houses.length) {
       const empty = document.createElement('div');
-      empty.style.cssText = 'opacity:.7;text-align:center;padding:10px 4px;font:12px ui-monospace,monospace;';
+      empty.style.cssText = 'opacity:.7;text-align:center;padding:10px 4px;font:12px var(--font-ui);';
       empty.textContent = 'No delivery requests nearby. Restore a house to start.';
       box.appendChild(empty);
     } else {
       // One row per house: a ghost button (modal_shell mkBtn — the one
       // factory) laid out as a two-line row, its label the HTML below.
       const rowCss = 'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
-        + 'background:#222a;color:#fff;font:12px ui-monospace,monospace;text-align:left;';
+        + 'background:#222a;color:#fff;font:12px var(--font-ui);text-align:left;';
       for (const h of houses) {
         // Icons alone told you nothing: three unlabelled sprites and a
         // distance, so you couldn't tell what a run needed, what it paid, or
@@ -1263,7 +1266,7 @@ class SceneShops {
       card.style.cssText =
         'display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;'
         + 'border-radius:8px;border:2px solid ' + (o.canAfford ? UI_CONTROL_DIM : '#444') + ';'
-        + 'background:#231d16;color:#fff;font:12px ui-monospace,monospace;cursor:pointer;';
+        + 'background:#231d16;color:#fff;font:12px var(--font-ui);cursor:pointer;';
       const what = o.sub;
       card.innerHTML =
         `<div style="font-size:24px;line-height:1.1">${o.icon}</div>`

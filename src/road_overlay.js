@@ -1370,18 +1370,32 @@
     // The rebuild key is the snapped anchor cell plus which of the 3×3 tiles
     // have their MVT layers, so a tile that finishes loading (or is rebuilt)
     // repaints even while the player stands still.
-    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
-      overlayFrame(scene, (entry) => !!entry.layers);
+    const frame = overlayFrame(scene, (entry) => !!entry.layers);
+    const { baseCellIX, baseCellIY, tiles } = frame;
     // The STREETS epoch, bumped by Streets.restore, repaints the restored
     // canvas after a restore and moves only when something changed.
     const epoch = (typeof Streets !== 'undefined' && scene.save) ? Streets.epoch(scene.save) : 0;
-    const key = `${baseCellIX},${baseCellIY},${ready},${epoch}`;
-    if (key !== scene._roadGeomKey) {
-      scene._roadGeomKey = key;
-      timedOverlayRebuild('road overlay rebuild',
-        () => rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY));
+    const previous = scene._roadGeomKey ? scene._roadGeomFrame : null;
+    const paint = overlayPaintFrame(scene, frame, previous, epoch);
+    let offset = paint;
+    if (paint.rebuild) {
+      // Null = the retained paint cannot follow the anchor (a teleport
+      // outran its pad): spend this update's upload rather than show stale
+      // geometry for a frame.
+      const retained = retainedOverlayOffset(scene, previous, frame);
+      if (claimOverlayRebuild(scene, 'road', !retained)) {
+        scene._roadGeomFrame = paint;
+        scene._roadGeomKey = paint.key;
+        timedOverlayRebuild('road overlay rebuild',
+          () => rebuild(scene, tiles, paint.fracX, paint.fracY, baseCellIX, baseCellIY));
+      } else {
+        // Another overlay took this update's upload. Keep this padded road
+        // paint aligned from ITS old anchor; next frame recomputes the newest
+        // tiles/epoch rather than replaying a stale queued closure.
+        offset = retained;
+      }
     }
-    if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
   }
 
   // ── Keep-out ─────────────────────────────────────────────────────────────

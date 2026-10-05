@@ -22,7 +22,8 @@
     const plan = entry.underground;
     const route = plan?.routeAt?.get(y * N + x);
     // Region/route authors name the same catalog; absent variants never show.
-    const variant = plan?.variantAt?.get(y * N + x) || route?.theme;
+    const nexus = entry.caveAreas?.areas.find(area => area.reserved.has(y * N + x));
+    const variant = nexus?.kind || plan?.variantAt?.get(y * N + x) || route?.theme;
     return KINDS[variant] || null;
   }
   function tick(scene) {

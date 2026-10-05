@@ -155,6 +155,18 @@ const HomeArea = {
   // the first crop matures. The residential flora window (biome_profiles.js) is
   // thin enough that a suburban spawn can have none in reach.
   QUOTA: { tree: 50, rock: 50, wreck: 6, ladder: 1, mushroom: 6 },
+  // Only the opening supply needs to be bare-hand harvestable. Preserve the
+  // remaining natural trees at their grown sizes for later axes.
+  BARE_HAND_TREE_MIN: 10,
+  STARTER_TREE_SIZE_WEIGHTS: { small: 0.7, medium: 0.2, large: 0.1 },
+  starterTreeSize(rng) {
+    let roll = rng();
+    for (const [size, weight] of Object.entries(this.STARTER_TREE_SIZE_WEIGHTS)) {
+      roll -= weight;
+      if (roll < 0) return size;
+    }
+    return 'large';
+  },
   // Of that quota, how many must sit inside the pocket as the visible example:
   // GUARANTEED, since the pocket is deliberately cleared of trees and rocks.
   TOKEN: { tree: 1, rock: 1 },
@@ -264,6 +276,7 @@ const HomeArea = {
     const radius = (opts && opts.radiusCells) || this.RING_MAX_CELLS;
     const have = { tree: 0, rock: 0, wreck: 0, ladder: 0, mushroom: 0 };
     const pocket = { tree: 0, rock: 0 };
+    let bareHandTrees = 0;
     // Tameable-but-currently-unusable naturals, kept with their distance so
     // the nearest can be preferred below.
     const candidates = { tree: [], rock: [] };
@@ -289,6 +302,7 @@ const HomeArea = {
       const kind = isTree ? 'tree' : 'rock';
       if (isTree ? this.isStarterTree(o) : this.isStarterRock(o)) {
         have[kind]++;
+        if (isTree) bareHandTrees++;
         if (d <= this.POCKET_CELLS) pocket[kind]++;
       } else if (o._synthetic) {
         // Seated by an earlier provisioning pass at a deliberately rolled
@@ -307,10 +321,17 @@ const HomeArea = {
       const short = Math.max(0, this.QUOTA[kind] - have[kind]);
       if (!short) continue;
       candidates[kind].sort((a, b) => a.d - b.d);
+      const tameLimit = kind === 'tree'
+        ? Math.max(0, Math.min(this.BARE_HAND_TREE_MIN, this.QUOTA.tree) - bareHandTrees)
+        : short;
+      let tamed = 0;
       for (const c of candidates[kind].slice(0, short)) {
-        downgrade.push(c.o);
         have[kind]++;
-        if (c.d <= this.POCKET_CELLS) pocket[kind]++;
+        if (tamed < tameLimit) {
+          downgrade.push(c.o);
+          tamed++;
+          if (c.d <= this.POCKET_CELLS) pocket[kind]++;
+        }
       }
     }
     // Food already growing in the area counts, like a usable tree. No

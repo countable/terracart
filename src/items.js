@@ -1977,7 +1977,7 @@ function tierBadgeHTML(tier, fontPx = 10, paddingPx = 5) {
   const ink = (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0';
   const bg = '#' + c.toString(16).padStart(6, '0');
   return `<span class="tier-badge" data-tier="${t}" style="display:inline-block;padding:1px ${paddingPx}px;border-radius:4px;`
-    + `font:700 ${fontPx}px ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase;`
+    + `font:700 ${fontPx}px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;`
     + `line-height:1.35;vertical-align:middle;background:${bg};color:${ink};">${name}</span>`;
 }
 // THE NEW BADGE: the pill a restore card wears when the player has nothing
@@ -1985,7 +1985,7 @@ function tierBadgeHTML(tier, fontPx = 10, paddingPx = 5) {
 // rarity badge so the two sit on one line.
 function newBadgeHTML(fontPx = 9) {
   return `<span class="new-badge" style="display:inline-block;padding:0 4px;margin-left:3px;border-radius:4px;`
-    + `font:700 ${fontPx}px ui-monospace,monospace;letter-spacing:.06em;line-height:1.35;vertical-align:middle;`
+    + `font:700 ${fontPx}px var(--font-ui);letter-spacing:.06em;line-height:1.35;vertical-align:middle;`
     + `background:${UI_GREEN};color:#1a1612;">NEW</span>`;
 }
 // Relic SLOT defs. icon=file under Icons/RPG icons/Weapons and Armor/<folder>/.

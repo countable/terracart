@@ -1,7 +1,7 @@
 {
-  "status": "design_draft_not_runtime",
-  "revision": 14,
-  "date": "2026-10-04",
+  "status": "nexus_runtime_with_route_design_reference",
+  "revision": 15,
+  "date": "2026-10-05",
   "purpose": "Project grove nexus variants and quarry Mine Tunnels from their matching surface regions. Apply path themes to all paths on cave levels 1 and 2; medium/large roads and buildings remain cave walls; sm_road receives underground street variants.",
   "scope": {
     "surfaceChanges": false,
@@ -142,7 +142,7 @@
         "revealDistanceCells": 1,
         "countPolicy": "Six fixed dormant skeleton seats in this reference spring; finite once per region and depth. Hidden seats are not extra ambient spawns.",
         "activation": "Reveal and wake only when player distance is at most one cell (Euclidean world distance <= cellM). No movement, targeting, attack, visible body or health marker before proximity activation. Reveal remains latched; preserve defeated IDs and do not respawn on tile reload.",
-        "mechanicStatus": "Main pulled at f119a723. General hidden-until-proximity enemy mechanic is not present there; visible ghost proximityCells is not equivalent. Reuse the shared hidden/disguise mechanic when it lands, with revealDistanceCells=1 and no prop disguise, rather than adding a spring-specific AI path."
+        "mechanicStatus": "Implemented using shared HiddenObjects discovery and existing enemy concealment gates; exact one-cell proximity overrides Perception for these dormant seats."
       }
     },
     {
@@ -377,7 +377,7 @@
       ],
       "layout": "Four clear approaches and a central court. Mixed mineral pockets occupy the edges; preserve any surviving mirrored cache on reachable floor.",
       "interaction": "Mine mixed gemstone pockets under their existing deposit or ore-rock rules.",
-      "reward": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Amethyst, Topaz and Rose Quartz now have item, icon, tier and price definitions. Zone placement remains a design proposal.",
+      "reward": "Each registered deposit yields exactly one pictured gem, using its shared pick requirement, mining energy and mined-rock ledger. Finite runtime budgets are scaled to usable region area.",
       "encounterByDepth": {
         "1": [
           "cave_slime",
@@ -389,7 +389,7 @@
           "spider"
         ]
       },
-      "depthPolicy": "Cave levels 1 and 2 only. Only show and yield gems with gemTier <= depth: D1 rose quartz, D2 rose quartz and amethyst. Higher tiers remain unavailable until their matching depth; finite budgets and mining rules still need runtime integration.",
+      "depthPolicy": "Levels 1 and 2 only. Filter the shared GEM_DEPOSITS catalog before placement: D1 Quartz; D2 Quartz and Topaz. Rendered and yielded gems cannot exceed the current depth tier.",
       "surfaceNexusKind": "grove",
       "depths": [
         1,
@@ -599,7 +599,7 @@
     "Miners\u2019 Way explicitly adds sparse bonus ore from the floor level tier. Depth 1 uses its existing copper exception; depth 2+ selects that floor tier, capped at the mineral maximum. Bonus totals need tuning before runtime activation.",
     "Reuse quarry rock and depth-eligible gem appearances without importing surface quarry first-rock guarantees, buried finds or extra site rewards. Underground placements retain their declared rock/deposit rules and depth-qualified budgets.",
     "Mine Tunnels is a simple finite ore-rich deposit per quarry anchor and depth. It creates no extra cache, shrine, temple or imported surface quarry first-rock guarantee.",
-    "Dedicated gemstone art is present for all seven catalogued gems; only depth-eligible gems appear in each preview. Deposits must pay their pictured gem; integrating non-sapphire deposit rows and new amethyst/topaz/rose-quartz items remains runtime work.",
+    "Dedicated gemstone art is present for all seven catalogued gems; only depth-eligible gems appear in each preview. Deposits must pay their pictured gem; runtime nexus placement uses the shared deposit and item catalog.",
     "Ordinary D2 low-tier gems replace existing non-suppressed rock seats; proposed bonus areas increase selection chance, not rock density or reset frequency.",
     "All walking-path and sm_road variants roll a shrine at 50% once per canonical route/depth, using existing boon and daily ledger rules.",
     "Gemstone cavern/mine and path, including Miners\u2019 Way pockets, never render or yield gems above the current depth tier."
@@ -647,7 +647,7 @@
     "Dense goblin and mushroom counts are owned once per source region/depth; route goblin patrols and seep cubes do not multiply at seams.",
     "Spring skeletons remain invisible and inactive beyond one cell, reveal at the one-cell boundary, remain revealed after retreat, and do not reappear after defeat/reload.",
     "Named-zone skeleton, mushroom and cube exceptions do not change ambient cave enemy eligibility.",
-    "D1 gem previews and drops are quartz only; D2 uses only quartz/amethyst, including Miners\u2019 Way.",
+    "D1 gem previews and drops are quartz only; D2 uses only quartz/topaz, including Miners\u2019 Way.",
     "D2 ordinary gems never bypass suppression; beaches, commercial landcover and sm_road use the declared bonus without stacking.",
     "Inactive vents emit no gas; stalagmites match charred-stakes mechanics. Combined vent/stalagmite/hole street coverage targets 10%, keeping safe routes.",
     "Entering a hole shows exactly one falling panel, applies 25% maximum energy once, and safely descends exactly one floor, including D2 to D3. No valid deeper floor means no hole.",
@@ -2986,15 +2986,15 @@
     ],
     "tiers": {
       "quartz": 1,
-      "amethyst": 2,
-      "topaz": 3,
+      "amethyst": 3,
+      "topaz": 2,
       "sapphire": 4,
       "ruby": 5,
       "emerald": 6,
       "diamond": 7
     },
-    "status": "Quartz/amethyst/topaz tier assignments are proposed defaults; sapphire through diamond retain existing tiers.",
-    "selection": "Filter before weighted selection or rendering; reward matches visible gem. No reroll can select a gem above depth. D1 quartz only; D2 quartz/amethyst. This rule does not activate authored variants on depths 3+."
+    "status": "Runtime uses authoritative GEM_DEPOSITS tier assignments.",
+    "selection": "Filter before weighted selection or rendering; reward matches visible gem. D1 Quartz only; D2 Quartz/Topaz. Authored nexus variants do not activate on depths 3+."
   },
   "ordinaryGemScatter": {
     "depths": [
@@ -3003,11 +3003,11 @@
     "replacementChance": 0.08,
     "eligibleGems": [
       "quartz",
-      "amethyst"
+      "topaz"
     ],
     "gemWeights": {
       "quartz": 3,
-      "amethyst": 1
+      "topaz": 1
     },
     "spawnBonus": {
       "beach": 2,
@@ -3072,5 +3072,24 @@
     "scope": "All walking-path and sm_road underground variants, including every existing path theme, on depths 1 and 2.",
     "ownership": "One deterministic roll and at most one shrine per canonical connected route and depth; never per motif, tile fragment or intersection.",
     "mechanic": "Reuse existing shrine kinds, boons and daily ledger. Omit if no reachable reserved side seat exists; prevent duplicates with nexus-owned shrine seats."
+  },
+  "nexusRuntime": {
+    "depths": [
+      1,
+      2
+    ],
+    "owner": "src/cave_areas.js",
+    "implemented": [
+      "spring_cave",
+      "goblin_warrens",
+      "mushroom_cavern",
+      "gemstone_cavern",
+      "mine_tunnels"
+    ],
+    "geometry": "Canonical source anchors and shared surface spawn gates. Layouts fit a radius-8.4-cell region; clipped tile-edge layouts fall back to ordinary caves. D2 chambers need existing floor access; Mine Tunnels only dress existing floor, including eligible projected small streets.",
+    "encounters": "Finite region/depth-qualified seats; caught IDs remain defeated. Spring skeletons use shared hidden discovery at Euclidean distance <= one cell. Ambient enemy depth rules are unchanged.",
+    "budgets": "Runtime BUDGETS owns counts scaled to usable ground or fitted rooms. Warrens consume the shared seeded 12\u201319-container shallow-floor allocation: L1 ambient barrels use its remainder; L2 has authored stores only. Shrine visits grant existing boons without a treasure gift. Existing mirrored caches retain their identity and tier.",
+    "gemCatalog": "Use current GEM_DEPOSITS tiers: Quartz 1, Topaz 2, Amethyst 3. D1 Quartz; D2 Quartz/Topaz. Deposits pay the pictured item using the existing mining ledger.",
+    "limitations": "Unsafe or undersized layouts decline without partial changes. Preview is a generated placement schematic, not an in-game screenshot."
   }
 }

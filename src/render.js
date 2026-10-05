@@ -3127,7 +3127,7 @@ const LABEL_STYLES = {
 function labelFactory(style) {
   const st = LABEL_STYLES[style];
   return (scene) => {
-    const cfg = { font: fontMono(`${st.weight ?? 'bold'} ${st.size || 10}px`.trim()), color: st.color || LABEL_INK };
+    const cfg = { font: fontUI(`${st.weight ?? 'bold'} ${st.size || 10}px`.trim()), color: st.color || LABEL_INK };
     if (st.stroke !== false) { cfg.stroke = LABEL_STROKE; cfg.strokeThickness = LABEL_STROKE_W; }
     if (st.background) cfg.backgroundColor = st.background;
     if (st.padding) cfg.padding = st.padding;
@@ -3258,8 +3258,10 @@ Render.drawObjects = function drawObjects(scene) {
   };
   const pc = scene.playerToWorldCell();
   // Counted inline rather than derived after the loop (one increment per item).
-  // _boot_scanned is every object/creature/wildplant/trap the walk touches across
-  // the 3×3 tiles; _boot_kept is how many survived culling. Objects and wildplants
+  // _boot_scanned is every object/wildplant/trap the walk touches across the
+  // 3×3 tiles plus every creature the pass considers — in the live game the
+  // sim bubble's few dozen seats, the whole ring only for standalone callers;
+  // _boot_kept is how many survived culling. Objects and wildplants
   // come off WorldGen.forEachItemInBox (the per-tile chunk index).
   // THREE BOXES, one per kind of reach, so no walk opens chunks for a reason
   // it does not have:
@@ -3301,6 +3303,12 @@ Render.drawObjects = function drawObjects(scene) {
     }
   };
   const connectedArt = new Map(), chasmObjects = [];
+  // wanderCreatures publishes the live 12-cell sim bubble before this pass.
+  // The viewport corner is about 7.8 cells away and the widest peek adds 3,
+  // still inside the bubble. Direct render tests can skip the sim, so only
+  // those callers collect the old ring-order fallback.
+  const frameCreatures = Array.isArray(scene._activeCreatures) ? scene._activeCreatures : null;
+  const fallbackCreatures = frameCreatures ? null : [];
   let _boot_scanned = 0, _boot_kept = 0, _boot_creatures = 0;
   forEachLoadedTile(pc.tx, pc.ty, (entry, etx, ety) => {
     for (const [o, art] of Render.connectedArtForTile(entry, etx, ety,
@@ -3368,23 +3376,7 @@ Render.drawObjects = function drawObjects(scene) {
         });
       }
     }
-    if (entry.creatures) {
-      _boot_scanned += entry.creatures.length; _boot_creatures += entry.creatures.length;
-      // The viewport cull FIRST — two subtractions against a Set lookup
-      // and a roster walk, over every creature of the ring (creatures
-      // move, so they are not chunk-indexed): only a creature that would
-      // be drawn is asked whether it was caught, or whether a surface
-      // foe is here for this player (its `_surfaceInactive` stamp;
-      // wanderCreatures keeps the rest of the ring's).
-      cullToView(entry.creatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
-        if (caughtSet.has(c.id)) return;
-        if (typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
-        if (c._surfaceInactive) return;
-        if ((c.hidden || c.stealthy) && !c._discovered) return;
-        if (!c._burrowed) creatureList.push({ c, dx, dy });
-        _boot_kept++;
-      });
-    }
+    if (!frameCreatures && entry.creatures) fallbackCreatures.push(...entry.creatures);
     // Wild plants render as planted crops at the mature stage (col 4).
     if (entry.wildplants) {
       WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
@@ -3442,12 +3434,26 @@ Render.drawObjects = function drawObjects(scene) {
       });
     }
   });
+  const consideredCreatures = frameCreatures || fallbackCreatures;
+  _boot_scanned += consideredCreatures.length;
+  _boot_creatures += consideredCreatures.length;
+  // The shared viewport cull runs before caught/surface/visibility checks.
+  // In the live game wanderCreatures has already removed the frozen ring
+  // seats; the fallback preserves standalone render callers.
+  cullToView(consideredCreatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
+    if (caughtSet.has(c.id)) return;
+    if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+    if (c._surfaceInactive) return;
+    if ((c.hidden || c.stealthy) && !c._discovered) return;
+    if (!c._burrowed) creatureList.push({ c, dx, dy });
+    _boot_kept++;
+  });
   // B.count keeps n/sum/worst like B.tick, just printed without 'ms' — the
   // peak answers "how bad does the densest tile get", the average answers
   // "what does a typical frame pay".
   window.__boot?.count?.('drawObjects scanned', _boot_scanned);
-  // …of which creatures: they move, so they are walked flat across the ring
-  // rather than off the chunk index, and they are most of a town's count.
+  // Creatures come from the small live bubble; standalone render callers fall
+  // back to the flat ring because they did not run the simulation first.
   window.__boot?.count?.('drawObjects scanned creatures', _boot_creatures);
   window.__boot?.count?.('drawObjects kept', _boot_kept);
   // Planted crops are tagged with the depth they were sown at (surface = 0 for

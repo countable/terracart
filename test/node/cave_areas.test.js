@@ -221,9 +221,9 @@
     }
   });
 
-  test('cave areas: generation is stable on reload and limited to level one', () => {
+  test('cave areas: generation is stable on reload and limited to shallow levels', () => {
     assert.eq(snapshot(CaveAreas.plan(fixture())), snapshot(CaveAreas.plan(fixture())));
-    for (const depth of [0, 2, 3, 10]) {
+    for (const depth of [0, 3, 10]) {
       const f = fixture(); f.depth = depth;
       const p = CaveAreas.plan(f);
       assert.eq(p.areas.length, 0); assert.eq(p.reserved.size, 0); assert.eq(p.terrain.size, 0);
@@ -243,15 +243,14 @@
       spawn.call({ tileEdgeM: edge, save: { caught: [] } }, entry, f.tx, f.ty, 1);
       for (const list of [entry.objects, entry.wildplants, entry.extraTreasures, entry.caveCoinSeeds,
         entry.creatures, entry.coinDrops, entry.traps]) for (const o of list || []) {
-        if (!ownedIds.has(o.id)) assert.falsy(entry.caveAreas.reserved.has(index(f, o)),
+        if (!ownedIds.has(o.id) && !o.caveArea) assert.falsy(entry.caveAreas.reserved.has(index(f, o)),
           `${o.kind || o.crop || 'reward'} respects empty reserved ground`);
       }
       const deeper = await W.loadTile.atDepth(2, f.tx, f.ty, 49);
       for (const i of entry.caveAreas.terrain.keys()) {
         assert.eq(entry.geologyGrid[i], T.CAVE_FLOOR, 'original geology is retained');
-        assert.eq(deeper.grid[i], T.CAVE_FLOOR, 'authored pool and source do not leak into the next floor');
+        assert.eq(deeper.geologyGrid[i], T.CAVE_FLOOR, 'authored pool and source do not leak into the next stratum');
       }
-      assert.eq(deeper.caveAreas.areas.length, 0);
       const first = snapshot(entry.caveAreas);
       W.setDepth(1).delete(key);
       const reloaded = await W.loadTile.atDepth(1, f.tx, f.ty, 49);

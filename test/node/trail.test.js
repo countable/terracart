@@ -992,7 +992,7 @@ test('streets: the sweep is memoised on the reach cell, and the ripen runs every
   // The live pass is NOT in the sweep: it strokes into the container
   // RoadOverlay.draw positions, and the sweep runs earlier in update() — so it
   // hangs off drawRoadGeometry, after the draw.
-  assert.truthy(/drawRoadGeometry\(\) \{\n\s+if \(typeof RoadOverlay === 'undefined'\) return;\n\s+RoadOverlay\.draw\(this\);[\s\S]{0,400}?this\._drawStreetLive\(\);/.test(SCENE_SRC),
+  assert.truthy(/drawRoadGeometry\(\) \{[\s\S]{0,600}?if \(typeof RoadOverlay === 'undefined'\) return;\n\s+RoadOverlay\.draw\(this\);[\s\S]{0,400}?this\._drawStreetLive\(\);/.test(SCENE_SRC),
     'and the live pass runs after the overlay draw, every frame');
   assert.falsy(/_drawStreetLive/.test(body), 'never from the sweep itself');
 });

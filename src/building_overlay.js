@@ -763,22 +763,35 @@
 
     // Camera anchor, not the body — a peek drag slides these footprints with
     // the ground they're painted on (coords.js overlayFrame → viewAnchorCell).
-    // Rebuild key: the snapped camera cell, which of the 3×3 tiles have their
-    // shapes in hand (so a tile that finishes loading repaints even while the
-    // player stands still), and the claim epoch — restoring a wreck or taking
-    // a castle has to lift the shade off that footprint on the next frame.
-    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
-      overlayFrame(scene, (entry) => !!entry.buildingShapes);
-    const key = `${baseCellIX},${baseCellIY},${ready},${claimEpoch(scene)}`;
-    if (key !== scene._buildingGeomKey) {
-      scene._buildingGeomKey = key;
-      scene._buildingGeomPainted = true;
-      timedOverlayRebuild('building overlay rebuild',
-        () => rebuild(scene, tiles, fracX, fracY));
+    // Keep padded paint across crossings. New tile inputs and the claim epoch
+    // still repaint immediately: restoring a wreck or taking a castle must
+    // lift the shade off that footprint on the next frame.
+    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes);
+    const { tiles } = frame;
+    const previous = scene._buildingGeomKey ? scene._buildingGeomFrame : null;
+    const paint = overlayPaintFrame(scene, frame, previous, claimEpoch(scene));
+    let offset = paint;
+    if (paint.rebuild) {
+      // Null = the retained paint cannot follow the anchor (a teleport
+      // outran its pad): spend this update's upload rather than show stale
+      // geometry for a frame.
+      const retained = retainedOverlayOffset(scene, previous, frame);
+      if (claimOverlayRebuild(scene, 'building', !retained)) {
+        scene._buildingGeomFrame = paint;
+        scene._buildingGeomKey = paint.key;
+        scene._buildingGeomPainted = true;
+        timedOverlayRebuild('building overlay rebuild',
+          () => rebuild(scene, tiles, paint.fracX, paint.fracY));
+      } else {
+        // Road used this update's one canvas upload. Keep both the retained
+        // footprint canvas and its upright sprites seated from their old
+        // anchor; this module rebuilds from latest claims/tiles next frame.
+        offset = retained;
+      }
     }
-    if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     for (const p of scene._buildingUprightPieces || []) {
-      const x = p.x - fracX * CELL_PX, y = p.y - fracY * CELL_PX;
+      const x = p.x - offset.fracX * CELL_PX, y = p.y - offset.fracY * CELL_PX;
       p.sprite.setPosition(x, y);
       // Keep the padded cache for the next crossing, but do not submit walls
       // wholly outside the world's viewport mask to the renderer. One pixel
