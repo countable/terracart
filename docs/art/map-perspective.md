@@ -17,3 +17,7 @@ the one-line version; this file owns the geometry. The
   Bushes show a broad rounded top canopy over a shorter shaded front face;
   keep foliage full and softly clipped. Preserve cell placement and
   connected-tile joins; do not change the map projection to match the art.
+- Both the north/back and south/front castle walls show a visible top surface
+  with a shaded vertical face below it. Give coping and battlements readable
+  tops, and join those top surfaces to the side walls. Avoid horizontal walls
+  that read as head-on brick facades with only a thin highlight at the crest.

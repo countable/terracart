@@ -22,6 +22,12 @@ Unrestored places use weathered materials, subdued colour, and signs of neglect.
 - The 24px grid is the art target. Source sprites may be 16px or 24px; the current runtime display cell is 32px (`src/sprite_layout.js` and `src/app.js`). These are separate sizes; assess assets together at their final display scale.
 - Characters and enemies have chunky proportions and move continuously, including between cells, to accommodate GPS movement. The art grid does not constrain movement.
 
+## Spritesheet generation
+- Generate spritesheets as an 8 × 8 grid of sprites: eight columns and eight rows, for 64 frames. Design each frame in a 24 × 24 px pixel-art style, with deliberate pixel clusters, crisp edges and restrained detail.
+- A sheet of single-cell sprites is 192 × 192 px at the target resolution. Higher-resolution generations are enlarged working images; they must not introduce finer detail than the 24 × 24 px style can support. Review the extracted frames at their final game scale.
+- Keep frame spacing, ground anchors and apparent pixel size consistent across the sheet. Use transparent backgrounds and keep artwork inside its assigned frame. Declare larger, multi-cell objects separately rather than squeezing them into a single-cell silhouette.
+- The 8 × 8 layout is the generation convention, not a requirement to repack existing runtime sheets. Preserve the camera and scale exceptions above for buildings, roads and characters.
+
 ## Colour, vectors, and light
 - Use a shared, restrained palette across terrain, props, buildings, and actors. Coordinate material colours and shadow tones; reserve stronger colour and contrast for useful focal points and restoration.
 - Vector art supports real-world road and building geometry. Smoother edges are acceptable; match the surrounding art's perspective, palette, and visual weight. A pixel-treated vector comparison is a future experiment.
