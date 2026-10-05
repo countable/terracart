@@ -3440,6 +3440,7 @@ class MapScene extends Phaser.Scene {
       Temples.observe(this);
     }
     // …and is the player standing in lava (the lava level only)?
+    CaveHazards.tick(this, START_LAT);
     this._tickLava(dt);
     // …or in a campfire?
     this._tickFireTouch();
@@ -6518,18 +6519,19 @@ class MapScene extends Phaser.Scene {
   // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
   // staircase's cell at the new depth (where a matching stair sits), swaps the
   // active tile cache, repaints the background, and loads the new level.
-  changeDepth(delta, stair) {
+  changeDepth(delta, stair, options = {}) {
     const target = Math.max(0, (this.depth || 0) + delta);
     if (target === this.depth) return;
     if (this.depth === Arena.DEPTH) { this.flashAtPlayer('Return through the arena portal first.'); return false; }
     const source = stair.elevator ? 'elevator' : stair.descentSource || 'stairs';
-    if (!DungeonProgression.canUseDescent(this.save, this.depth || 0, target, source)) {
+    const caveFall = options.fall && this.depth === 1 && target === 2;
+    if (!caveFall && !DungeonProgression.canUseDescent(this.save, this.depth || 0, target, source)) {
       this.flashAtPlayer(target >= 4 ? 'Complete five arena trials to unlock the fourth depth.' : 'Use a rope or repair the elevator to go deeper.');
       return false;
     }
     // Can't descend on an empty tank — you'd just pass out down there. Climbing
     // up is always allowed (it's how you escape exhaustion).
-    if (source !== 'sinkhole' && delta > 0 && (this.save.energy ?? 0) <= 0) {
+    if (source !== 'sinkhole' && delta > 0 && !caveFall && (this.save.energy ?? 0) <= 0) {
       this.flashAtPlayer('Too tired to go down.');
       return;
     }
@@ -6567,11 +6569,11 @@ class MapScene extends Phaser.Scene {
     // down (stairs, rope, the sapphire portal) comes through here, and a busy
     // screen returns false unmarked (the story ledger), so the next descent
     // asks again.
-    if (delta > 0 && target === 2) {
+    if (delta > 0 && !caveFall && target === 2) {
       this._storySplashOnce('dungeon_stone', { art: 'progression_elevator', title: 'Beneath the roots', body: 'Your pick strikes solid stone. Dwarven lamps and pale groves glimmer beyond the passages you dig.' });
     } else if (delta > 0 && target === 3) {
       this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Your footsteps carry across the open waste.' });
-    } else if (delta > 0) {
+    } else if (delta > 0 && !caveFall) {
       this._storySplashOnce('cave', {
         art: 'cave_first',
         title: 'Into the dark',

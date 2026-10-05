@@ -950,7 +950,7 @@ const BORDER_DIM = 0.86;
 const BLUR_STEPS = 3;
 const BLUR_W     = 2;                      // px per step
 const BLUR_MIX   = [0.55, 0.32, 0.14];     // toward the neighbour, outermost first
-const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand now use procedural borders
+const BORDER_TRANS_SKIP = new Set([9, 11, 12, 25]); // buildings and cave walls have hard boundaries
 // Surf: the colour a WATER cell paints its biome-seam edge, in place of the
 // darkened own-colour edge every other terrain uses. Pale blue-white rather
 // than pure white so it reads as foam lit by the same flat daylight as the
@@ -999,7 +999,7 @@ const _WAVE_TABLE = (() => {
 // Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, churchyard, unmapped fog, tar yard
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the lightmap's out-of-reach
@@ -1921,6 +1921,8 @@ Render.drawCells = function drawCells(scene) {
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
   const TRANS_SKIP = BORDER_TRANS_SKIP;
+  const caveEdges = scene._caveEdgePool || (scene._caveEdgePool = []);
+  let caveEdgesUsed = 0;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -2345,6 +2347,36 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
+  // Level-one trial. Re-evaluate the live neighbour ring on each ground draw:
+  // mining and arriving tiles immediately update faces, including tile seams.
+  // Atlas sprites share the ground-decoration layer, beneath actors and lights.
+  if (scene.depth === 1 && scene.cobbleContainer) {
+    const open = (c, r) => T(c, r) !== WorldGen.T.CAVE_WALL && T(c, r) !== UNMAPPED_T;
+    for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
+      if (T(col, row) !== WorldGen.T.CAVE_WALL) continue;
+      let mask = (open(col, row - 1) ? 1 : 0) | (open(col + 1, row) ? 2 : 0)
+        | (open(col, row + 1) ? 4 : 0) | (open(col - 1, row) ? 8 : 0);
+      // A neighbouring south face also exposes the lower half of this cap's
+      // side, even though both data cells are solid rock.
+      if (!(mask & 4)) {
+        if (T(col - 1, row) === WorldGen.T.CAVE_WALL && open(col - 1, row + 1)) mask |= 16;
+        if (T(col + 1, row) === WorldGen.T.CAVE_WALL && open(col + 1, row + 1)) mask |= 32;
+      }
+      // Fully enclosed cells use the dark cap frame as well.
+      let sprite = caveEdges[caveEdgesUsed++];
+      if (!sprite) {
+        sprite = scene.add.image(0, 0, 'cave_wall_edges', 0).setOrigin(0, 0);
+        scene.cobbleContainer.add(sprite); caveEdges.push(sprite);
+      }
+      const variant = (Math.imul(AX(col, row), 31) ^ AY(col, row)) & 3;
+      const at = cellScreenXY(scene, col - half, row - half, fracX, fracY, PHASE(row));
+      setTextureIfDifferent(sprite, 'cave_wall_edges', variant * CAVE_WALL_EDGE_FRAMES + mask);
+      sprite.setPosition(Math.round(at.x), Math.round(at.y) - CAVE_WALL_TOP_LIFT)
+        .setDisplaySize(CELL_PX, CELL_PX + CAVE_WALL_TOP_LIFT).setVisible(true);
+    }
+  }
+  for (let i = caveEdgesUsed; i < caveEdges.length; i++) caveEdges[i].setVisible(false);
+
   // Short broken columns are floor decoration: no object, collision or tap target.
   // Polygon mode draws these same source-ring sites into its floor canvas.
   const columnPool = scene._castleColumnPool || (scene._castleColumnPool = []);
@@ -2936,6 +2968,24 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
 // Art is a per-save view of surviving sections, never a mutation of the
 // generated tile. Include one cell beyond the viewport so off-screen joins
 // stay connected. The existing chunk index keeps this walk local.
+// Resolve chasm neighbours in absolute cells, across tile-cache boundaries.
+Render.chasmArtForObjects = function chasmArtForObjects(scene, holes) {
+  const cells = new Set(), positions = holes.map(o => {
+    const c = worldMetersToAbsCell(scene, o.x, o.y);
+    cells.add(`${c.cellIX}:${c.cellIY}`); return [o, c];
+  });
+  const result = new Map();
+  for (const [o, c] of positions) {
+    let mask = 0;
+    for (const [dx, dy, bit] of [[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]]) {
+      const n = absCellOffset(scene, c.cellIX, c.cellIY, dx, dy);
+      if (!cells.has(`${n.cellIX}:${n.cellIY}`)) mask |= bit;
+    }
+    result.set(o, { _chasmMask: mask });
+  }
+  return result;
+};
+
 Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, spent, x, y, halfM) {
   const result = new Map(), N = entry.cellsPerEdge;
   if (!N || !edge) return result;
@@ -3250,11 +3300,17 @@ Render.drawObjects = function drawObjects(scene) {
       if (poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
     }
   };
-  const connectedArt = new Map();
+  const connectedArt = new Map(), chasmObjects = [];
   let _boot_scanned = 0, _boot_kept = 0, _boot_creatures = 0;
   forEachLoadedTile(pc.tx, pc.ty, (entry, etx, ety) => {
     for (const [o, art] of Render.connectedArtForTile(entry, etx, ety,
         scene.tileEdgeM, spentIds, pWorldX, pWorldY, halfM)) connectedArt.set(o, art);
+    if (scene.depth > 0) {
+      const pad = halfM + scene.cellM;
+      WorldGen.forEachItemInBox(entry, 'objects', pWorldX-pad, pWorldY-pad, pWorldX+pad, pWorldY+pad, o => {
+        if (o.kind === 'ground_hole' && !isSpent(o, spentIds)) chasmObjects.push(o);
+      });
+    }
     if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
       pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, o => {
         objList.push({ o, dx: o.x - pWorldX, dy: o.y - pWorldY });
@@ -3481,6 +3537,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
   filteredObj.sort((a, b) => a.dy - b.dy);
+  for (const [o, art] of Render.chasmArtForObjects(scene, chasmObjects)) connectedArt.set(o, art);
   const { fruitList } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
@@ -5017,6 +5074,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
+    ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, ground: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);

@@ -30,7 +30,7 @@
     return root.EnvironmentHazards.overlaps(scene, hole);
   }
   async function fall(scene, hole) {
-    if (scene._hazardFallPending || scene.depth !== hole.depth || hole.phase !== 'open'
+    if (scene._hazardFallPending || scene._caveFallPending || scene.depth !== hole.depth || hole.phase !== 'open'
         || !over(scene, hole) || root.Combat.playerDowned(scene.save.energy)) return false;
     const depth = scene.depth;
     if (depth + 1 === root.WorldGen.ARENA_DEPTH || depth === root.WorldGen.ARENA_DEPTH) return false;

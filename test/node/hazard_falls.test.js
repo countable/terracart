@@ -30,6 +30,49 @@
     assert.eq(calls.length, 1); assert.eq(calls[0][0], depth + 1); assert.eq(transitions[0], depth + 1);
     assert.eq(scene.persisted, 1); assert.eq(scene._hazardFallPending, false);
   }, depth));
+  test('hazard falls: pending sinkhole blocks chasm fall and tick without consuming its visit', () => fixture(async f => {
+    const gate = deferred(); let loads = 0, messages = 0;
+    f.world.loadTile.atDepth = () => { loads++; return gate.promise; };
+    f.scene.showMessageModal = () => { messages++; };
+    f.scene.playerToWorldCell = () => { throw Error('pending fall must stop tick before cell lookup'); };
+    const pending = HazardFalls.fall(f.scene, f.hole);
+    assert.eq(await CaveHazards.fall(f.scene, { ...f.hole, kind: 'ground_hole' }), false);
+    CaveHazards.tick(f.scene, 49);
+    assert.eq(f.scene._caveHoleCell, undefined); assert.eq(loads, 1); assert.eq(messages, 0);
+    gate.reject(Error('offline')); assert.eq(await pending, false);
+    assert.eq(f.scene._hazardFallPending, false);
+    f.world.loadTile.atDepth = async () => f.ready;
+    assert.eq(await CaveHazards.fall(f.scene, { ...f.hole, kind: 'ground_hole' }), true);
+    assert.eq(messages, 1, 'chasm can retry once sinkhole request releases lock');
+  }, 1));
+  test('hazard falls: chasm loading and acknowledgement each exclude a second fall', () => fixture(async f => {
+    const gate = deferred(); let loads = 0, modal, damage = 0;
+    f.world.loadTile.atDepth = () => { loads++; return gate.promise; };
+    f.scene.showMessageModal = m => { modal = m; };
+    f.scene.save.energy = 1;
+    f.scene._losePlayerEnergy = () => { damage++; f.scene.save.energy = 0; return 1; };
+    f.scene._popEnergy = () => {};
+    const pending = CaveHazards.fall(f.scene, { ...f.hole, kind: 'ground_hole' });
+    assert.eq(await HazardFalls.fall(f.scene, f.hole), false);
+    assert.eq(loads, 1); assert.eq(f.scene.depth, 1);
+    gate.resolve(f.ready); assert.eq(await pending, true); assert.truthy(modal);
+    assert.eq(await HazardFalls.fall(f.scene, f.hole), false);
+    assert.eq(loads, 1); assert.eq(damage, 0); assert.eq(f.scene._caveFallPending, true);
+    modal.onDismiss(); modal.onDismiss();
+    assert.eq(damage, 1); assert.eq(f.scene.depth, 2, 'merged fall option permits depleted L1 to L2 transition');
+    assert.eq(f.scene.save.energy, 0); assert.eq(f.transitions.length, 1);
+    assert.eq(f.scene._caveFallPending, false);
+  }, 1));
+  test('hazard falls: failed chasm request releases the sinkhole path', () => fixture(async f => {
+    const gate = deferred(); f.world.loadTile.atDepth = () => gate.promise;
+    const pending = CaveHazards.fall(f.scene, { ...f.hole, kind: 'ground_hole' });
+    assert.eq(await HazardFalls.fall(f.scene, f.hole), false);
+    gate.reject(Error('offline')); assert.eq(await pending, false);
+    assert.eq(f.scene._caveFallPending, false); assert.eq(f.scene.depth, 1);
+    f.world.loadTile.atDepth = async () => f.ready;
+    assert.eq(await HazardFalls.fall(f.scene, f.hole), true);
+    assert.eq(f.scene.depth, 2); assert.eq(f.scene.save.energy, 50, 'retry remains damage free');
+  }, 1));
   test('hazard falls: loading entries await their promise and block duplicate descents', () => fixture(async f => {
     const gate = deferred(); f.world.loadTile.atDepth = async () => ({ status: 'loading', promise: gate.promise });
     const pending = HazardFalls.fall(f.scene, f.hole);
