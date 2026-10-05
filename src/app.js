@@ -2759,12 +2759,12 @@ class MapScene extends Phaser.Scene {
       const _dt = performance.now() - _ut0;
       _uB.tick('update (all)', _dt);
       if (_still) _uB.tick('update @still', _dt);
-      // Border/road/building/fog layers all rebuild on the same frame the
-      // player crosses a cell boundary (drawCells sets _boot_crossing from
-      // its own borderDirty — see render.js). A second tick under a
-      // different label, using the SAME measured span, separates those
-      // periodic hitches from steady-state frames instead of averaging them
-      // into invisibility.
+      // Terrain borders and fog rebuild on the frame the player crosses a
+      // cell boundary (drawCells sets _boot_crossing from its own borderDirty
+      // — see render.js). Road/building canvases retain padded paint and share
+      // one later upload slot, so their own profiler rows name those costs.
+      // This second tick still uses the SAME whole-update span to separate the
+      // crossing's terrain/fog work from steady-state frames.
       if (this._boot_crossing) _uB.tick('update @crossing', _dt);
     }
   }
@@ -5271,6 +5271,11 @@ class MapScene extends Phaser.Scene {
     if (this._boot_crossing) B.tick('drawCells @crossing', dt);
   }
   drawRoadGeometry() {
+    // Road and building canvases share one heavy rebuild slot per update. The
+    // road wrapper opens the slot because _updateTimed always calls it directly
+    // before the building wrapper; coords.js lets standalone module tests keep
+    // their synchronous draw contract when this sequence is absent.
+    this._overlayFrameSeq = (this._overlayFrameSeq || 0) + 1;
     if (typeof RoadOverlay === 'undefined') return;
     RoadOverlay.draw(this);
     // …and then the live pass on top of it: the dwell preview and the shine,

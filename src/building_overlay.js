@@ -768,19 +768,26 @@
     // lift the shade off that footprint on the next frame.
     const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes);
     const { tiles } = frame;
-    const paint = overlayPaintFrame(scene, frame,
-      scene._buildingGeomKey ? scene._buildingGeomFrame : null, claimEpoch(scene));
-    const { fracX, fracY } = paint;
+    const previous = scene._buildingGeomKey ? scene._buildingGeomFrame : null;
+    const paint = overlayPaintFrame(scene, frame, previous, claimEpoch(scene));
+    let offset = paint;
     if (paint.rebuild) {
-      scene._buildingGeomFrame = paint;
-      scene._buildingGeomKey = paint.key;
-      scene._buildingGeomPainted = true;
-      timedOverlayRebuild('building overlay rebuild',
-        () => rebuild(scene, tiles, fracX, fracY));
+      if (claimOverlayRebuild(scene, 'building')) {
+        scene._buildingGeomFrame = paint;
+        scene._buildingGeomKey = paint.key;
+        scene._buildingGeomPainted = true;
+        timedOverlayRebuild('building overlay rebuild',
+          () => rebuild(scene, tiles, paint.fracX, paint.fracY));
+      } else {
+        // Road used this update's one canvas upload. Keep both the retained
+        // footprint canvas and its upright sprites seated from their old
+        // anchor; this module rebuilds from latest claims/tiles next frame.
+        offset = retainedOverlayOffset(scene, previous, frame);
+      }
     }
-    if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     for (const p of scene._buildingUprightPieces || []) {
-      const x = p.x - fracX * CELL_PX, y = p.y - fracY * CELL_PX;
+      const x = p.x - offset.fracX * CELL_PX, y = p.y - offset.fracY * CELL_PX;
       p.sprite.setPosition(x, y);
       // Keep the padded cache for the next crossing, but do not submit walls
       // wholly outside the world's viewport mask to the renderer. One pixel

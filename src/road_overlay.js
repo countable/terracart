@@ -1374,16 +1374,23 @@
     // The STREETS epoch, bumped by Streets.restore, repaints the restored
     // canvas after a restore and moves only when something changed.
     const epoch = (typeof Streets !== 'undefined' && scene.save) ? Streets.epoch(scene.save) : 0;
-    const paint = overlayPaintFrame(scene, frame,
-      scene._roadGeomKey ? scene._roadGeomFrame : null, epoch);
-    const { fracX, fracY } = paint;
+    const previous = scene._roadGeomKey ? scene._roadGeomFrame : null;
+    const paint = overlayPaintFrame(scene, frame, previous, epoch);
+    let offset = paint;
     if (paint.rebuild) {
-      scene._roadGeomFrame = paint;
-      scene._roadGeomKey = paint.key;
-      timedOverlayRebuild('road overlay rebuild',
-        () => rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY));
+      if (claimOverlayRebuild(scene, 'road')) {
+        scene._roadGeomFrame = paint;
+        scene._roadGeomKey = paint.key;
+        timedOverlayRebuild('road overlay rebuild',
+          () => rebuild(scene, tiles, paint.fracX, paint.fracY, baseCellIX, baseCellIY));
+      } else {
+        // Another overlay took this update's upload. Keep this padded road
+        // paint aligned from ITS old anchor; next frame recomputes the newest
+        // tiles/epoch rather than replaying a stale queued closure.
+        offset = retainedOverlayOffset(scene, previous, frame);
+      }
     }
-    if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
   }
 
   // ── Keep-out ─────────────────────────────────────────────────────────────

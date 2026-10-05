@@ -130,6 +130,55 @@ test('boot profiler: building overlay draw does not throw with window.__boot abs
   WorldGen.tileCache.clear();
 });
 
+test('overlay rebuild slot: road and building canvas uploads land on separate updates', () => {
+  WorldGen.tileCache.clear();
+  WorldGen.tileCache.set(`${WorldGen.Z}/0/0`, {
+    tileEdgeM: TILE_EDGE_M,
+    layers: [{ name: 'transportation', extent: 4096,
+      features: [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])] }],
+    buildingShapes: [{ tier: 9, ownerKey: 'b1',
+      ring: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] }],
+  });
+  const scene = makeOverlayScene({ _overlayFrameSeq: 1 });
+  const boot = makeBootStub();
+  window.__boot = boot;
+  const tickCount = (name) => boot.ticks.filter(t => t.name === name).length;
+  try {
+    RoadOverlay.draw(scene);
+    BuildingOverlay.draw(scene);
+    assert.eq(tickCount('road overlay rebuild'), 1, 'road takes the first update slot');
+    assert.eq(tickCount('building overlay rebuild'), 0, 'building waits rather than sharing the upload frame');
+    assert.eq(scene._buildingGeomKey, undefined, 'a deferred first paint is not falsely marked current');
+
+    scene._overlayFrameSeq++;
+    RoadOverlay.draw(scene);
+    BuildingOverlay.draw(scene);
+    assert.eq(tickCount('road overlay rebuild'), 1, 'the current road cache does no work');
+    assert.eq(tickCount('building overlay rebuild'), 1, 'building takes the next update slot');
+
+    // Exhaust both 1.5-cell caches together. Road rebuilds now; the retained
+    // building paint keeps scrolling from its old anchor for this one frame.
+    scene.playerM.x += scene.cellM * 1.75;
+    scene._overlayFrameSeq++;
+    RoadOverlay.draw(scene);
+    BuildingOverlay.draw(scene);
+    assert.eq(tickCount('road overlay rebuild'), 2, 'road rebuilds at the pad threshold');
+    assert.eq(tickCount('building overlay rebuild'), 1, 'building is still deferred');
+    assert.eq(scene.buildingGeomContainer.x, -CELL_PX * 1.75,
+      'deferred paint remains aligned from its retained anchor');
+
+    scene._overlayFrameSeq++;
+    RoadOverlay.draw(scene);
+    BuildingOverlay.draw(scene);
+    assert.eq(tickCount('building overlay rebuild'), 2, 'building rebuilds from latest state one update later');
+    assert.eq(scene.buildingGeomContainer.x, -CELL_PX * 0.75,
+      'fresh paint returns to the current snapped-cell offset');
+  } finally {
+    window.__boot = undefined;
+    WorldGen.tileCache.clear();
+  }
+});
+
 // ── Render.drawObjects: entries scanned / kept ──────────────────────────────
 // Render.drawObjects draws real sprites via Phaser (scene.add, textures,
 // pools) well past the counting loop this test targets, so the fixture below
@@ -191,6 +240,8 @@ test('boot profiler (pin): update() ticks the whole frame and a crossing-frame l
 
 test('boot profiler (pin): drawCells forwarder ticks a crossing-frame label too', () => {
   assert.truthy(/B\.tick\('drawCells @crossing', dt\)/.test(SCENE_SRC), 'drawCells @crossing ticked');
+  assert.truthy(/this\._overlayFrameSeq = \(this\._overlayFrameSeq \|\| 0\) \+ 1/.test(SCENE_SRC),
+    'road wrapper opens one shared overlay rebuild slot per update');
 });
 
 test('boot profiler (pin): create() wires the game-level prerender/postrender events', () => {
