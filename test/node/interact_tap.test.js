@@ -922,6 +922,27 @@ test('shipwreck shrine: every reserved cell taps the same reward, outside cells 
 });
 
 
+test('bush harvest takes five seconds bare-handed and keeps equipped axe speeds', () => {
+  const original = globalThis.WorldGen;
+  const plant = { kind: 'wildplant', crop: 'shrub', id: 'bush_harvest_timing', x: 2.5, y: 2.5 };
+  try {
+    globalThis.WorldGen = { ...original, forEachItem: (layer, cb) => { if (layer === 'wildplants') cb(plant); } };
+    for (const tier of [null, 0, 1, 7]) {
+      let duration, award;
+      const save = { picked: [], energy: 100, relics: tier == null ? {} : { axe: { tier } } };
+      const scene = makeGridScene({ save,
+        startWorkProgress: (x, y, cb, ms) => { award = cb; duration = ms; },
+      });
+      assert.eq(TAP_HANDLERS.find(h => h.name === 'wildplant').try({ scene, save, wm: { x: 2.5, y: 2.5 }, sx: 0, sy: 0 }), true);
+      assert.eq(duration, tier > 0 ? toolDurationMs(save.relics, 'axe') : 5000);
+      if (!(tier > 0)) assert.lt(duration, toolDurationMs(save.relics, 'axe'), 'quicker than regular tree work');
+      assert.eq(scene.invCount('wood'), 0, 'harvest waits for work to finish');
+      award();
+      assert.eq(save.picked.filter(id => id === plant.id).length, 1);
+    }
+  } finally { globalThis.WorldGen = original; }
+});
+
 test('giant mushroom harvest awards wood and mushroom once through axe work', () => {
   const original=globalThis.WorldGen;
   let award, duration, cost, relic;

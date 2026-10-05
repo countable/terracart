@@ -194,11 +194,11 @@ function wildplantFrame(p) {
 const WILDPLANT_RULES = {
   // A woody bush. Chopping one yields the WOOD mineral, not a 'shrub' item
   // (tree + shrub have no inventory counterparts), and it is real felling
-  // work: the axe relic's ladder times the wheel and `workCharged` puts the
-  // shared 9/3/1 tool curve on the bar.
+  // work: bare hands take 5 seconds, axes use their usual ladder, and
+  // `workCharged` puts the shared energy cost on the bar.
   // `nest`: one shrub in twenty is a NEST BUSH (isNestBush) — it wiggles
   // now and then and may shelter a baby, slime or local animal.
-  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true, nest: true, hazardMinTier: 1 },
+  shrub:     { output: 'wood', workRelic: 'axe', barehandMs: 5000, workCharged: true, nest: true, hazardMinTier: 1 },
   giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
     workRelic: 'axe', workCharged: true },
   // Barricades dismantle with a kit, or chop like a full hardwood (T4).

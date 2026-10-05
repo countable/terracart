@@ -946,8 +946,8 @@ const TAP_HANDLERS = [
       // hard-object cousins:
       //   rubble    (stone debris) → pickaxe relic speeds up rock-breaking work
       //   shrub     (woody bush)   → axe relic speeds up chop work
-      // Both run toolDurationMs of that relic (items.js TOOL_DURATION_MS —
-      // 9s bare-handed, faster per tier). Other wildplants
+      // Both use the relic's tool ladder; the plant rule can shorten bare-hand
+      // work (5s for shrubs, versus the usual 9s). Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
       const award = () => {
         if (isSpent(wp, spentSets(scene, save))) return false;
@@ -1028,10 +1028,10 @@ const TAP_HANDLERS = [
       }
       if (rule?.timber) return runWildplantTimber(ctx, wp);
       if (reqRelic) {
-        // Chopping a shrub is real felling work — the table charges the shared
-        // 9/3/1 tool curve off the axe tier (9 bare-handed, 3 with a Wood axe
-        // … 1 frost). rockfruit debris stays free to gather.
-        return work(toolDurationMs(save.relics, reqRelic), wildplantWorkCost(wp.crop, save.relics));
+        // Bare-hand duration belongs to the plant; equipped tools keep their ladder.
+        const durationMs = !(save.relics?.[reqRelic]?.tier > 0) && rule?.barehandMs != null
+          ? rule.barehandMs : toolDurationMs(save.relics, reqRelic);
+        return work(durationMs, wildplantWorkCost(wp.crop, save.relics));
       }
       award();
       ctx.dirty = true;
