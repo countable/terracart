@@ -1485,6 +1485,7 @@ class SceneCreatures {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
+        if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;
         if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { spawnWhy: entry.spawnWhy }, spClass)) continue;
         // Cave rabbits share interactable cells, like surface fauna.
         const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
