@@ -8509,7 +8509,6 @@ class MapScene extends Phaser.Scene {
     // shop's stones per tier, the turret's flat five): the cost line shows
     // the selected card's, and the charge at accept is that card's too.
     const costFor = (row) => Houses.buildCost(this.save, house, row, order);
-    const costProgress = (c) => `${Inventory.count(this.save, c.id)}/${c.qty} ${ITEM_BY_ID[c.id]?.name || c.id}`;
     const costLine = (c) => {
       const it = ITEM_BY_ID[c.id];
       return `${c.qty}× ${this.iconSpanHTML(c.id)} ${it?.name || c.id}`;

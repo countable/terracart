@@ -30,8 +30,9 @@
     function add(key, source, spec) {
       const frames = new Map();
       const texture = {getSourceImage:()=>source, getContext:()=>source.getContext('2d'), refresh(){},
-        add(name, index, x, y, width, height){frames.set(name,{x,y,width,height});},
-        get(name){return frames.get(name ?? '__BASE') || frames.get(0) || frames.get('__BASE');}};
+        add(name, index, x, y, width, height){frames.set(String(name),{x,y,width,height});},
+        remove(name){return frames.delete(String(name));},
+        get(name){return frames.get(String(name ?? '__BASE')) || frames.get('0') || frames.get('__BASE');}};
       texture.add('__BASE',0,0,0,source.width,source.height);
       if(spec){let i=0;for(let y=0;y+spec.frameHeight<=source.height;y+=spec.frameHeight)for(let x=0;x+spec.frameWidth<=source.width;x+=spec.frameWidth)texture.add(i++,0,x,y,spec.frameWidth,spec.frameHeight);}
       textures.set(key,texture);return texture;
@@ -95,10 +96,17 @@
       if(connected)for(const frame of manifests[connected].frames){want(connected,frame.frame);use(connected,zoneVariant.id,frame.frame);}
     }
     want('castle_tower_shapes');
-    // Only the selected world textures are decoded; monsters and inventory-only
-    // assets are not included in this viewer.
+    const gemDeposits = Object.values(GEM_DEPOSITS);
+    for (const deposit of gemDeposits) {
+      want(deposit.art.sheet, deposit.art.frame);
+      const icon = MINERAL_ICON_SHEET[deposit.item];
+      want(icon.sheet, icon.frame);
+    }
+    // Decode selected world textures and matching inventory icons for deposits.
     await Promise.all([...wanted.keys()].map(async key=>{
-      const asset=ASSETS[key];if(!asset)return;
+      const iconSheet=ICON_SHEETS[key];
+      const asset=ASSETS[key] || (iconSheet && {path:iconSheet.url,kind:'spritesheet',
+        frameWidth:iconSheet.srcW/iconSheet.cols,frameHeight:iconSheet.srcW/iconSheet.cols});if(!asset)return;
       try{const img=new Image();img.src='../'+asset.path;await img.decode();add(key,img,asset.kind==='spritesheet'?asset:null);asset.onLoad?.(scene);}catch(error){failures.push(key);console.warn('World art asset:',key,error);}
     }));
     makeTowerTexture(scene);makePotOfGoldTexture(scene);makeTrapTextures(scene);
@@ -118,6 +126,7 @@
     const plantFrames=new Set(plantRows.flatMap(r=>r.frames.map(f=>`${r.key}:${f}`)));
     function category(key){return /house|tower|macro_|market_stand|shrine|well/.test(key)?'Buildings & landmarks':/tree|bush|mushroom/.test(key)?'Trees & foliage':/rock|ore/.test(key)?'Stone & minerals':/trap|tar/.test(key)?'Hazards':'Objects & props';}
     for(const [key,wantedFrames] of wanted) {
+      if(key==='gems')continue; // Inventory icons accompany their world deposits below.
       if(approvedSheets[key]) {
         for(const entry of approvedSheets[key].entries)rows.push({
           ...entry,id:`${key}:${entry.id}`,key,approved:true,
@@ -134,6 +143,27 @@
         const frameName=manifests[key]?.frames.find(f=>f.frame===frame)?.name;
         rows.push({id:individual?`${key}:${frame}`:key,name:(key==='stronghold_wall'?'Stronghold wall · ':key==='zone_hedge'?'Hedge · ':'')+title(frameName||(key==='cobble'?'broken_lamp_post':key.replace(/^approved_/,'')))+(individual&&!frameName?' '+frame:''),key,frames:group,
           images:group.map(frame=>image(key,frame)).filter(Boolean),category:category(key),zoneVariants:usage.get(individual?`${key}:${frame}`:key)||new Set(),source:ASSETS[key]?.path||'src/textures.js'});
+      }
+    }
+    const gemUses = {
+      quartz: 'Mining and value exchange only; no crafting recipe or direct action.',
+      topaz: 'Mining and value exchange only; no crafting recipe or direct action.',
+      amethyst: 'Mining and value exchange only; no crafting recipe or direct action.',
+      sapphire: 'Opens a portal one level down with a one-minute return window; can also tame a slime. Can be exchanged by value.',
+      ruby: 'Mining and value exchange only; no crafting recipe or direct action.',
+      emerald: 'Used to forge T2–T6 staffs: 1, 2, 4, 8 or 16 emeralds plus one tier-matched bar. Can be exchanged by value.',
+      diamond: 'Used to forge a T7 staff: 32 diamonds plus one frost bar. Can be exchanged by value.',
+    };
+    for (const deposit of gemDeposits) {
+      const row = rows.find(r => r.key === deposit.art.sheet && r.frames.includes(deposit.art.frame));
+      if (!row) throw new Error('Missing gem deposit catalog row: ' + deposit.item);
+      const icon = MINERAL_ICON_SHEET[deposit.item];
+      Object.assign(row, {name: itemName(deposit.item) + ' deposit', category: 'Stone & minerals',
+        gem: deposit.item, deposit, inventoryImage: image(icon.sheet, icon.frame),
+        inventorySource: `${icon.sheet}:${icon.frame}`, currentUse: gemUses[deposit.item], value: itemValue(deposit.item)});
+      if (deposit.yieldTier <= 4) {
+        row.approved = false;
+        row.zoneVariants = new Set(ZoneVariantData.variants.filter(z => z.zone === 'quarry').map(z => z.id));
       }
     }
     function painted(id,name,category,painter,zoneVariants=[]){const c=canvas(96);painter(c);rows.push({id,name,category,zoneVariants:new Set(zoneVariants),images:[c.toDataURL()],source:'Current game painter',frames:[]});}
@@ -181,12 +211,12 @@
     const art=(row,limit)=>row.images.slice(0,limit).map((src,i)=>`<img class="sprite" src="${src}" alt="${esc(row.name+(row.stateLabels?.[i]?' · '+row.stateLabels[i]:''))}" title="${esc(row.stateLabels?.[i]||row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
     function renderTable(){
       const words=$('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean),zoneVariant=$('zone').value,cat=$('category').value,sort=$('sort').value;
-      const visible=rows.filter(r=>(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
+      const visible=rows.filter(r=>(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,r.gem,r.currentUse,zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
       const value=r=>sort==='zone'?zoneVariantsText(r):r[sort];visible.sort((a,b)=>((sort==='reference'?(a.reference??Infinity)-(b.reference??Infinity):String(value(a)).localeCompare(String(value(b))))||a.name.localeCompare(b.name))*(descending?-1:1));
       if(!visible.some(r=>r.id===selected))selected=visible[0]?.id;
       $('sandbox-zone').innerHTML=zoneVariant && zoneVariant !== 'shared' ? SandboxLinks.link(sandboxZoneKind(zoneVariant)) : '';
       $('count').textContent=`${visible.length} of ${rows.length} artwork entries`;
-      $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><strong>${esc(r.referenceLabel)}</strong></td><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><button class="pickaxe" data-pick="${esc(r.id)}">${esc(r.name)}</button>${r.key?`<br><small>Texture: ${esc(r.key)}<br>Frames: ${esc(r.frames.join(', '))}</small>`:'<br><small>Painted: '+esc(r.id)+'</small>'}</td><td>${esc(r.category)}</td><td>${esc(zoneVariantsText(r))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No art matches these filters.</td></tr>';
+      $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><strong>${esc(r.referenceLabel)}</strong></td><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><button class="pickaxe" data-pick="${esc(r.id)}">${esc(r.name)}</button>${r.key?`<br><small>Texture: ${esc(r.key)}<br>Frames: ${esc(r.frames.join(', '))}</small>`:'<br><small>Painted: '+esc(r.id)+'</small>'}</td><td>${esc(r.category)}${r.gem?`<br><small>T${r.deposit.yieldTier} · ${r.value} coin value</small><div class="gem-icon"><img class="sprite" src="${r.inventoryImage}" alt="${esc(itemName(r.gem))} inventory icon"><small>${esc(itemName(r.gem))}</small></div>`:''}</td><td>${esc(zoneVariantsText(r))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No art matches these filters.</td></tr>';
       $('rows').querySelectorAll('[data-id]').forEach(tr=>tr.addEventListener('click',()=>{selected=tr.dataset.id;renderTable();}));
       document.querySelectorAll('[data-sort]').forEach(button=>{
         const active=button.dataset.sort===sort;
@@ -194,7 +224,8 @@
         button.textContent=`${title(button.dataset.sort)} ${active?(descending?'▼':'▲'):'↕'}`;
       });
       const row=rows.find(r=>r.id===selected);
-      $('detail').innerHTML=row?`<h2>${esc(row.referenceLabel)} · ${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div>${row.stateLabels?'<p><small>Frames, left to right: '+esc(row.stateLabels.join(', '))+'</small></p>':''}<h3>Zone use</h3><p>${esc(zoneVariantsText(row))}</p><small>${row.approved?'Approved art; placement and interactions are not yet enabled.':row.zoneVariants.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
+      $('detail').innerHTML=row?`<h2>${esc(row.referenceLabel)} · ${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div>${row.stateLabels?'<p><small>Frames, left to right: '+esc(row.stateLabels.join(', '))+'</small></p>':''}<h3>Zone use</h3><p>${esc(zoneVariantsText(row))}</p><small>${row.gem?(row.deposit.yieldTier<=4?'Assigned to quarry regions on the surface and at depth 1; mining yields the pictured gem.':'Mining yields the pictured gem when placed. Underground zone placement is being designed.'):row.approved?'Approved art; placement and interactions are not yet enabled.':row.zoneVariants.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
+      if(row?.gem)$('detail').insertAdjacentHTML('beforeend', `<h3>Mining reward</h3><div class="gem-icon"><img class="sprite" src="${row.inventoryImage}" alt="${esc(itemName(row.gem))} inventory icon"><p>${row.deposit.quantity} × ${esc(itemName(row.gem))}<br><small>Inventory icon: ${esc(row.inventorySource)}</small></p></div><p>T${row.deposit.yieldTier} gem · requires a T${row.deposit.requiredTier}+ pickaxe · ${row.value} coin base value.</p><h3>Current uses</h3><p>${esc(row.currentUse)}</p>`);
       if(row&&!row.approved){const keys=[...new Set([...row.zoneVariants].map(sandboxZoneKind))];$('detail').insertAdjacentHTML('beforeend', `<p>${keys.map(key=>SandboxLinks.link(key)).filter(Boolean).join('<br>')}</p>`);}
     }
     for(const id of ['search','zone','category'])$(id).addEventListener('input',renderTable);

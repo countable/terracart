@@ -63,7 +63,7 @@ test('build choice: sole ranks restore directly and multiple ranks retain price 
   assert.eq(scene.save.restoredHouses.new, undefined, 'stock is rechecked before direct restoration');
   present.call(scene, 0, 0, house);
   assert.truthy(modal.choices.every(c => c.disabled), 'empty inventory disables all types');
-  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').label.includes('Need 0/4 Rock'), 'disabled type explains its material shortfall');
+  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').label.includes('Need '), 'disabled type omits the redundant shortfall');
   stock.rubble = 100;
   present.call(scene, 0, 0, house);
   const singleModal = modal;
@@ -112,7 +112,7 @@ test('build choice: sole ranks restore directly and multiple ranks retain price 
   for (const row of offeredSmiths) {
     const required = Houses.buildCost(scene.save, house, row).qty;
     if (required > stock.rubble) {
-      assert.truthy(modal.choices.find(c => c.key === row.key).cost.includes(`${stock.rubble}/${required} Rock`), 'tier confirmation shows held versus required materials');
+      assert.falsy(modal.choices.find(c => c.key === row.key).cost.includes('Need '), 'tier confirmation omits the redundant shortfall');
     }
   }
   assert.eq(scene.save.restoredHouses.new, undefined, 'multiple tiers still require confirmation');
@@ -121,7 +121,7 @@ test('build choice: sole ranks restore directly and multiple ranks retain price 
   stock.rubble--;
   present.call(scene, 0, 0, house);
   assert.truthy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'all offered tiers unaffordable disables the type');
-  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').label.includes(`Need ${stock.rubble}/${Math.min(...prices)} Rock`), 'shortfall uses the cheapest offered rank');
+  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').label.includes('Need '), 'multiple ranks omit the redundant shortfall');
   stock.rubble = 100;
   present.call(scene, 0, 0, house);
   modal.onAccept('blacksmith');

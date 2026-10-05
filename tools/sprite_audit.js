@@ -133,10 +133,8 @@ function frameRowGap(img, fx, fy, fw, fh) {
   return gap;
 }
 function sheetFrameRowGap(file, fw, fh, frameIdx) {
-  const img = loadPng(file);
-  const cols = Math.floor(img.w / fw);
-  const col = frameIdx % cols, row = Math.floor(frameIdx / cols);
-  return frameRowGap(img, col * fw, row * fh, fw, fh);
+  const img = loadPng(file), r = sourceFrameRect(file, fw, fh, frameIdx, img.w);
+  return frameRowGap(img, r.x, r.y, r.width, r.height);
 }
 // A run of empty rows this long inside one frame is another sprite, not a
 // feature of this one (a flame lifting off its logs is a couple of rows).
@@ -185,11 +183,16 @@ function crownBox(file, fw, fh, frameIdx) {
 }
 
 // Trim a sheet by (textureKey, frameIndex) using the sheet metadata table.
+function sourceFrameRect(file, fw, fh, frameIdx, imageWidth) {
+  const asset = Object.values(ASSETS).find(row => row.path === file);
+  const rect = asset?.frameRects?.[frameIdx];
+  const cols = Math.floor(imageWidth / fw);
+  return rect || { x: frameIdx % cols * fw, y: Math.floor(frameIdx / cols) * fh, width: fw, height: fh };
+}
 function trimSheetFrame(file, fw, fh, frameIdx) {
-  const img = loadPng(file);
-  const cols = Math.floor(img.w / fw);
-  const col = frameIdx % cols, row = Math.floor(frameIdx / cols);
-  return trimFrame(img, col * fw, row * fh, fw, fh);
+  const img = loadPng(file), r = sourceFrameRect(file, fw, fh, frameIdx, img.w);
+  const bounds = trimFrame(img, r.x, r.y, r.width, r.height);
+  return bounds && { ...bounds, fw: r.width, fh: r.height };
 }
 
 // ── Pull live tree scales from util.js (so they never drift from gameplay) ──
@@ -211,7 +214,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   itemsCtx, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
-vm.runInContext('globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
+vm.runInContext('globalThis.GEM_DEPOSITS = GEM_DEPOSITS; globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
 const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
 const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 
@@ -226,8 +229,9 @@ const ASSETS = assetsCtx.window.ASSETS;
 
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
+const GEM_ROCKS = Object.values(itemsCtx.GEM_DEPOSITS).filter(row => row.art.sheet === 'cave_props');
 const SHEETS = {
-  cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [6] },
+  cave_props: { file: ASSETS.cave_props.path, fw: 24, fh: 24, frames: [6, ...GEM_ROCKS.map(row => row.art.frame)] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame picked up the tip of the red tree below (see assets.js).
   pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
@@ -278,6 +282,7 @@ const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
   { name: 'drill shrine', key: 'cave_props', frameIdx: 6, scale: 4 / 3 },
+  ...GEM_ROCKS.map(row => ({ name: row.item + ' deposit', key: row.art.sheet, frameIdx: row.art.frame, scale: row.art.scale })),
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
   { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
   { name: 'maple small',     key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
@@ -297,7 +302,7 @@ const SCENARIOS = [
   ...[0, 1, 2, 3].map(frameIdx => ({ name: `shrine spirit idle ${frameIdx}`, key: 'shrine_spirit', frameIdx,
     scale: SHRINE_SPIRIT_ART.scale })),
   { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
-  { name: 'crystal deposit', key: 'crystal_cluster', frameIdx: 0, scale: 1.28 },
+  { name: 'crystal deposit', key: itemsCtx.GEM_DEPOSITS.crystal.art.sheet, frameIdx: itemsCtx.GEM_DEPOSITS.crystal.art.frame, scale: itemsCtx.GEM_DEPOSITS.crystal.art.scale },
   { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.28 },
   { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
   { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 4 / 3 },
@@ -338,7 +343,7 @@ function evaluate(s) {
     violations.push(`ART_BOUNDS missing "${lookup}" (run --emit-bounds)`);
   } else if (table.minX !== fresh.minX || table.minY !== fresh.minY ||
              table.maxX !== fresh.maxX || table.maxY !== fresh.maxY ||
-             table.fw !== sheet.fw || table.fh !== sheet.fh) {
+             table.fw !== fresh.fw || table.fh !== fresh.fh) {
     violations.push(`ART_BOUNDS "${lookup}" stale (run --emit-bounds)`);
   }
   // One frame, one piece of art (see frameRowGap).
@@ -349,12 +354,12 @@ function evaluate(s) {
   }
 
   // Seat with the SAME maths the renderer uses, then measure the real art box.
-  const box = table || { ...fresh, fw: sheet.fw, fh: sheet.fh };
+  const box = table || fresh;
   const scaleX = s.scale, scaleY = s.scale * (s.scaleYMul || 1);
   const [ox, oy] = SEAT_ANCHOR;
   const { dxPx, dyPx, fits } = seatInCell(box, ox, oy, scaleX, scaleY);
-  const tlx = dxPx - ox * sheet.fw * scaleX;
-  const tly = dyPx - oy * sheet.fh * scaleY;
+  const tlx = dxPx - ox * fresh.fw * scaleX;
+  const tly = dyPx - oy * fresh.fh * scaleY;
   const left = tlx + fresh.minX * scaleX, right = tlx + fresh.maxX * scaleX;
   const top = tly + fresh.minY * scaleY, bottom = tly + fresh.maxY * scaleY;
   const artH = bottom - top, centerX = (left + right) / 2;
@@ -439,7 +444,7 @@ function emitBounds() {
   for (const [key, sh] of Object.entries(SHEETS)) {
     for (const fi of sh.frames) {
       const b = trimSheetFrame(sh.file, sh.fw, sh.fh, fi);
-      lines.push(`    '${key}:${fi}': { fw: ${sh.fw}, fh: ${sh.fh}, ` +
+      lines.push(`    '${key}:${fi}': { fw: ${b.fw}, fh: ${b.fh}, ` +
         `minX: ${b.minX}, minY: ${b.minY}, maxX: ${b.maxX}, maxY: ${b.maxY} },`);
     }
   }

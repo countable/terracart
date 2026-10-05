@@ -156,26 +156,38 @@ function quarryRockRules(o) {
 }
 
 // One first find per surface quarry, shared by every tile seeing its anchor.
-// Existing sapphire loot satisfies the find rather than duplicating it.
-const QUARRY_SAPPHIRE_CHANCE = 0.10;
-function quarrySapphire(ctx, rock, alreadyFound = false, rng = Math.random) {
-  const { scene, save } = ctx;
-  if ((scene.depth || 0) !== 0 || !scene.cellAt || typeof Zones === 'undefined') return false;
+// A matching gem already paid by mining satisfies the find without duplication.
+const QUARRY_GEM_CHANCE = 0.10;
+function quarryGemContext(scene, rock) {
+  const depth = scene.depth || 0;
+  if (depth === 1 && rock.quarryId) return rock.quarryId;
+  if (depth !== 0 || !scene.cellAt || typeof Zones === 'undefined') return null;
   const cell = scene.cellAt(rock.x, rock.y);
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
   const zone = Zones.at(entry, cell.ix, cell.iy);
-  if (zone?.kind !== 'quarry') return false;
-  const key = `${zone.anchor.gx},${zone.anchor.gy}`;
+  return zone?.kind === 'quarry' ? `${zone.anchor.gx},${zone.anchor.gy}` : null;
+}
+function quarryGem(ctx, rock, foundItems = new Set(), rng = Math.random) {
+  const { scene, save } = ctx;
+  const key = quarryGemContext(scene, rock);
+  if (key == null) return false;
+  const gem = GEM_DEPOSITS[quarryGemDeposit(key)].item;
+  const alreadyFound = foundItems.has(gem);
+  // Cave deposits pay their pictured gem, but do not roll the surface bonus.
+  if ((scene.depth || 0) !== 0 && !alreadyFound) return false;
   const mined = save.quarryMined;
-  const reward = !mined[key] || rng() < QUARRY_SAPPHIRE_CHANCE;
+  const reward = !mined[key] || rng() < QUARRY_GEM_CHANCE;
   mined[key] = true;
   if (!reward && !alreadyFound) return false;
+  const name = ITEM_BY_ID[gem].name;
   if (!alreadyFound) {
-    scene.addToInv('sapphire', 1);
-    scene.flashLoot('+1 Sapphire', '#a7ffb0', 1, 'sapphire');
+    scene.addToInv(gem, 1);
+    scene.flashLoot(`+1 ${name}`, '#a7ffb0', 1, gem);
   }
-  scene.showMessageModal?.({ art: 'quarry_sapphire', title: 'Inside the rock',
-    body: 'Inside the rock... a glowing sapphire.\n<em>precious...</em>' });
+  const icon = scene.renderItemIcon?.(gem, 64, 'inline') || '';
+  scene.showMessageModal?.({ art: gem === 'sapphire' ? 'quarry_sapphire' : undefined,
+    kind: 'story', title: 'Inside the rock',
+    body: `${icon ? icon + '\n' : ''}Inside the rock... ${name}.\n<em>precious...</em>` });
   return true;
 }
 
@@ -359,15 +371,19 @@ const INTERACTABLES = {
     complete: (ctx, o) => {
       const { scene, save } = ctx;
       scene.brokenRockSet.add(o.id);
-      let sapphireFound = false;
+      const foundItems = new Set();
+      const quarryId = quarryGemContext(scene, o);
+      const quarryItem = quarryId == null ? null : GEM_DEPOSITS[quarryGemDeposit(quarryId)].item;
       const addLoot = (id, n) => {
-        if (id === 'sapphire') sapphireFound = true;
+        foundItems.add(id);
         scene.addToInv(id, n);
       };
       const deposit = mineralDeposit(o);
       if (deposit) {
         addLoot(deposit.item, deposit.quantity);
-        quarrySapphire(ctx, o, sapphireFound);
+        // Only the assigned gem participates in this quarry's discovery.
+        if (quarryItem === deposit.item)
+          quarryGem(ctx, o, foundItems);
         persistSave(save);
         scene.flashLoot(`+${deposit.quantity} ${ITEM_BY_ID[deposit.item]?.name || deposit.item}`, '#a7ffb0', 1, deposit.item);
         return;
@@ -391,12 +407,13 @@ const INTERACTABLES = {
           // The glint's promise: one find, always, rolled AFTER the chance
           // rolls so it upstages them in the toast. A crystal is a gem find
           // and takes the ore rock's jackpot fanfare.
-          const find = glintRockFind();
+          let find = glintRockFind();
+          if (find === 'sapphire' && quarryItem) find = quarryItem;
           addLoot(find, 1);
           flashId = find;
           if (GEM_BY_TIER[4].includes(find) && typeof scene.flashJackpot === 'function') scene.flashJackpot(1);
         }
-        quarrySapphire(ctx, o, sapphireFound);
+        quarryGem(ctx, o, foundItems);
         persistSave(save);
         const item = ITEM_BY_ID[flashId];
         // Report the REAL count. A bar upstages the stones in the toast and
@@ -419,19 +436,19 @@ const INTERACTABLES = {
       // One gem per tier of the ladder (GEM_BY_TIER / GEM_P_BY_TIER above).
       const gems = GEM_BY_TIER[t];
       if (gems && Math.random() < (GEM_P_BY_TIER[t] || 0)) {
-        const gemId = pickFromArray(gems);
+        const gemId = quarryItem || pickFromArray(gems);
         addLoot(gemId, 1);
         flashId = gemId;
         gemsFound++;
       }
       // T7 rocks have a bonus 25% chance for a second ruby on top — a lesser
       // gem, so the diamond stays the T7 headline.
-      if (t === 7 && Math.random() < 0.25) {
+      if (t === 7 && !quarryItem && Math.random() < 0.25) {
         addLoot('ruby', 1);
         flashId = 'ruby';
         gemsFound++;
       }
-      quarrySapphire(ctx, o, sapphireFound);
+      quarryGem(ctx, o, foundItems);
       persistSave(save);
       // Finding a gem fires the jackpot fanfare on top of the loot flash.
       if (gemsFound >= 1 && typeof scene.flashJackpot === 'function') {

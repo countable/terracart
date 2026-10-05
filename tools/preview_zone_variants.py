@@ -19,6 +19,7 @@ import sys
 
 from PIL import Image
 from preview_signature_candidates import signature_candidate
+from preview_underground_zones import underground_section
 
 
 @functools.lru_cache(maxsize=1)
@@ -37,6 +38,9 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=No
         w, h = row['frameWidth'], row['frameHeight']
         cols = image.width // w
         x, y = frame % cols * w, frame // cols * h
+        rect = row.get('frameRects',{}).get(str(frame))
+        if rect:
+            x,y,w,h = rect['x'],rect['y'],rect['width'],rect['height']
         assert y + h <= image.height, (sheet, frame)
         image = image.crop((x, y, x + w, y + h))
     if sheet == 'stair_down':
@@ -119,11 +123,13 @@ def material_art(material):
     elif kind == 'coindrop':
         sheet, frames = 'coin_drop', [0]
     elif kind == 'mineralrock':
-        tier = material.get('yieldTier', 1)
-        sheet = 'mineralrock'
-        frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
-        if material.get('deposit') == 'crystal':
-            sheet, frames = 'crystal_cluster', [0]
+        deposit = r['mineralDeposits'].get(material.get('deposit'))
+        if deposit:
+            sheet, frames = deposit['art']['sheet'], [deposit['art']['frame']]
+        else:
+            tier = material.get('yieldTier', 1)
+            sheet = 'mineralrock'
+            frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
     elif kind == 'tree':
         species = material.get('species', 'maple')
         sheet = 'trees' if species == 'maple' else species + '_tree'
@@ -461,7 +467,7 @@ def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None):
     parts.append(light_guide(cx,cy,unit*light['radiusCells'],color))
     if shrine:
         art = wreck if shipwreck else registry['groveShrines'][0]
-        mapped = next((row for row in registry['shrineKinds'].values() if v['id'] in row['zoneVariants']), None)
+        mapped = next((row for row in registry['shrineKinds'].values() if v['id'] in row.get('zoneVariants', [])), None)
         if not shipwreck and v.get('shrineFrame') is not None:
             art = {'key': 'zone_objects', 'frame': v['shrineFrame'], 'scale': 4 / 3}
         elif not shipwreck and mapped:
@@ -702,7 +708,7 @@ def quarry_card(v, d):
     else:
         metadata += f'<dt>Finite finds</dt><dd>Up to {v["finds"]["count"]} per complete site; actual placements counted below.</dd>'
     rules = art_registry()['quarryRockRules']
-    metadata += f'<dt>Mining</dt><dd>Ordinary quarry stones cost {rules["energyMul"]:g}× mining energy and yield {rules["stones"]} stone. The first mined rock guarantees a Sapphire; later rocks have an additional {art_registry()["quarrySapphireChance"]*100:g}% Sapphire chance.</dd>'
+    metadata += f'<dt>Mining</dt><dd>Ordinary quarry stones cost {rules["energyMul"]:g}× mining energy and yield {rules["stones"]} stone. The first mined surface rock guarantees the quarry’s assigned gem; later rocks have an additional {art_registry()["quarryGemChance"]*100:g}% chance for that gem.</dd>'
     if v['layout'] == 'crater':
         metadata += '<dt>Shrine</dt><dd>Ember altar on the dry centre of the lava pool. Cross hazardous lava to reach its daily boon.</dd>'
     elif v.get('shrineChance'):
@@ -1077,7 +1083,7 @@ def render(d, out):
             source = art_registry()['wildplantRules'].get(crop, {}).get('light')
             if source: light_text += f'; {crop} glow {art_registry()["lighting"][source]["radiusCells"]:g} cells'
         light_text += '; street lamps ' + (f'use zone tint {v["lampGlow"]} (overrides street)' if v.get('lampGlow') else 'retain street variant colour')
-        shrine_row = next((r for r in art_registry()['shrineKinds'].values() if v['id'] in r['zoneVariants']), None)
+        shrine_row = next((r for r in art_registry()['shrineKinds'].values() if v['id'] in r.get('zoneVariants', [])), None)
         reward_row = art_registry()['shrineRewards'].get(v['id'])
         if reward_row:
             shrine_text = reward_row['name'] + ': ' + ('a full-screen coin burst, once per UTC day' if reward_row.get('fillScreen') else reward_row['reward'])
@@ -1100,7 +1106,7 @@ def render(d, out):
     if 'quarry' in categories:
         quick_links += '<a href="#quarry-drafts">Parking-lot stories (4)</a>'
     quick_links += '<a href="#beach-parks">Beach parks</a>'
-    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav view-tabs" aria-label="Viewer sections"><a href="#basic-zones" data-view="basic-zones">Basic zones</a><a href="#streets" data-view="streets">Roads</a><a href="#zones" data-view="zones">Nexus</a></nav>'
+    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav view-tabs" aria-label="Viewer sections"><a href="#basic-zones" data-view="basic-zones">Basic zones</a><a href="#streets" data-view="streets">Roads</a><a href="#zones" data-view="zones">Nexus</a><a href="#underground" data-view="underground">Underground</a></nav>'
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
     generated_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
     page += f'<p>Static snapshot generated {generated_at} from the checked-out game definitions and shipped art. This page does not fetch live game data; regenerate it after changes.</p>'
@@ -1112,7 +1118,7 @@ def render(d, out):
         page += '<div class="cards">'
         page += ''.join(card for variant, card in zip(d['variants'], cards) if variant['zone'] == key)
         page += '</div></section>'
-    page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + viewer_navigation_script() + art_script() + basic_tile_script() + '</body></html>'
+    page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + underground_section(globals(), out) + viewer_navigation_script() + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
     def art_licenses(value):
         if isinstance(value, dict):

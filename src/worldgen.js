@@ -8590,6 +8590,49 @@
     runCavePass(cavePass('barrels'), cavePassLevel(grid, N, tx, ty, tileEdgeM, depth, occupied, { objects }));
   }
 
+  // Gem seams follow their quarry's generated surface seats down once. They
+  // never copy player edits or repeat into a second cave floor; reservations
+  // win without moving a seam onto somebody else's cell.
+  function caveQuarryGemsFrom(aboveObjects, grid, N, tx, ty, tileEdgeM, depth, occupied) {
+    if (depth !== 1) return [];
+    const out = [];
+    for (const source of aboveObjects) {
+      if (source.kind !== 'mineralrock' || source.zoneKind !== 'quarry'
+          || !source.quarryId || !mineralDeposit(source)) continue;
+      const { lix, liy } = cellIndexOf(tx, ty, source.x, source.y, tileEdgeM, N);
+      if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+      const i = liy * N + lix;
+      if (grid[i] !== T.CAVE_FLOOR || occupied.has(i)) continue;
+      const deposit = quarryGemDeposit(source.quarryId), gem = GEM_DEPOSITS[deposit];
+      out.push(makeObject('mineralrock', source.x, source.y,
+        cellId('quarry_gem_1', tx, ty, lix, liy), {
+          deposit, yieldTier: gem.yieldTier, requiredTier: gem.requiredTier,
+          quarryId: source.quarryId, zoneKind: 'quarry', depth,
+          _ix: lix, _iy: liy,
+        }));
+      occupied.add(i);
+    }
+    return out;
+  }
+
+  // Ordinary rocks under a quarry share its gem identity as well. The
+  // surface field owns the boundary; this provenance ends on cave level 1.
+  function stampCaveQuarryRocks(objects, surface, N, tx, ty, tileEdgeM, depth) {
+    if (depth !== 1 || surface.cellsPerEdge !== N) return;
+    const field = surface.zone, coverage = field?.coverage || field?.idx;
+    if (!coverage) return;
+    for (const rock of objects) {
+      if (rock.kind !== 'mineralrock') continue;
+      const { lix, liy } = cellIndexOf(tx, ty, rock.x, rock.y, tileEdgeM, N);
+      if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
+      const anchor = field.anchors[coverage[liy * N + lix] - 1];
+      if (anchor?.kind !== 'quarry') continue;
+      rock.quarryId = `${anchor.gx},${anchor.gy}`;
+      rock.zoneKind = 'quarry';
+      rock.depth = depth;
+    }
+  }
+
   // The dungeon level whose rock under the town's BUILDINGS is lava (T.CAVE_LAVA).
   // Only this level: the one above and every one below keep plain rock there.
   const LAVA_DEPTH = 5;
@@ -8768,11 +8811,13 @@
     for (const t of caveTorchesFrom(torchSites, grid, N, x, y, tileEdgeM, depth, occupied)) {
       objects.push(t);
     }
+    objects.push(...caveQuarryGemsFrom(aboveObjects, grid, N, x, y, tileEdgeM, depth, occupied));
     // The floor passes (CAVE_PASSES), in table order: the rocks, then the
     // mushrooms, then the level's own extras — each only takes what is left.
     const wildplants = [];
     const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, occupied, { objects, wildplants });
     for (const row of CAVE_PASSES) runCavePass(row, level);
+    stampCaveQuarryRocks(objects, above, N, x, y, tileEdgeM, depth);
     const extraTreasures = level.treasures, caveCoinSeeds = level.coins;
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
@@ -8973,7 +9018,7 @@
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
     SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
-    ARENA_DEPTH, undergroundTerrain, undergroundClearings, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
+    ARENA_DEPTH, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
     caveBarrels, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,

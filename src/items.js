@@ -304,8 +304,31 @@ const COOKED_FOODS = {
 // 0..3, puts crimson at 5 and frost blue at 7; columns 4 and 6 are unused.
 // Yield tier 1 is a plain rock and therefore has no row or namesake bar.
 // A crystal deposit is mined like a rock but pays only its visible gem.
-const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3 });
-function mineralDeposit(o) { return o.deposit === 'crystal' ? CRYSTAL_DEPOSIT : null; }
+const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3,
+  art: Object.freeze({ sheet: 'zone_objects', frame: 59, scale: 1.28 * 16 / 24 }) });
+// Dedicated rocks pay their pictured gem. The approved cave sheet uses 24px
+// frames; keep all gem rocks at the same physical width.
+function caveGemDeposit(item, yieldTier, frame) {
+  return Object.freeze({ item, quantity: 1, yieldTier, requiredTier: Math.max(1, yieldTier - 1),
+    art: Object.freeze({ sheet: 'cave_props', frame, scale: 1.28 * 16 / 24 }) });
+}
+const GEM_DEPOSITS = Object.freeze({
+  crystal: CRYSTAL_DEPOSIT,
+  quartz: caveGemDeposit('quartz', 1, 29),
+  topaz: caveGemDeposit('topaz', 2, 28),
+  amethyst: caveGemDeposit('amethyst', 3, 27),
+  ruby: caveGemDeposit('ruby', 5, 24),
+  emerald: caveGemDeposit('emerald', 6, 25),
+  diamond: caveGemDeposit('diamond', 7, 26),
+});
+// One assignment per surface quarry anchor, shared with the first cave floor.
+const QUARRY_GEM_KEYS = Object.freeze(Object.keys(GEM_DEPOSITS).filter(key => GEM_DEPOSITS[key].yieldTier <= 4));
+function quarryGemDeposit(quarryId) {
+  return QUARRY_GEM_KEYS[avalanche32(fnv1a('quarry-gem:' + quarryId)) % QUARRY_GEM_KEYS.length];
+}
+function mineralDeposit(o) {
+  return o && Object.prototype.hasOwnProperty.call(GEM_DEPOSITS, o.deposit) ? GEM_DEPOSITS[o.deposit] : null;
+}
 
 // `smeltFrom` is the flower a T5+ bar is SMELTED from (one flower plus the
 // bar one tier below — Gear.smeltingRecipe); T2..T4 bars are mined, not smelted.
@@ -344,6 +367,9 @@ const MINERAL_ICON_SHEET = {
   // diamond, 1 red ruby, 2 purple shard, 3 blue sapphire, 4 orange topaz,
   // 5 green emerald cluster, 6 pink quartz. (Rows 1-3 are outlined / mask
   // duplicates.) Pinned by test/node/diamond.test.js.
+  amethyst: { sheet: 'gems',      frame: 2 },  // purple gem
+  topaz:    { sheet: 'gems',      frame: 4 },  // orange gem
+  quartz:   { sheet: 'gems',      frame: 6 },  // rose quartz
   sapphire: { sheet: 'gems',      frame: 3 },   // blue gem
   ruby:     { sheet: 'gems',      frame: 1 },   // red gem
   emerald:  { sheet: 'gems',      frame: 5 },   // green gem cluster
@@ -689,9 +715,7 @@ const BASE_TIER = {
   // Grilled at a campfire (CAMPFIRE_MAKES) — one step up from the raw cut.
   grilled_meat: 4,
   crow_feather: 3,
-  sapphire: 4, ruby: 5, emerald: 6,
-  // Diamond tops the gem ladder at the Frost tier — the T7 rock's headline gem.
-  diamond: 7,
+  ...Object.fromEntries(Object.values(GEM_DEPOSITS).map(deposit => [deposit.item, deposit.yieldTier])),
 };
 
 // NOTE: items carry NO `icon` (emoji) field — items always render as their
@@ -975,6 +999,9 @@ const ITEMS = [
   { id: 'acorn', name: 'Acorn', kind: 'seed', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   { id: 'flint_shard',     name: 'Flint',    kind: 'mineral' },   // id kept: saves carry 'flint_shard'
+  { id: 'quartz',   name: 'Rose Quartz', kind: 'mineral' },
+  { id: 'topaz',    name: 'Topaz', kind: 'mineral' },
+  { id: 'amethyst', name: 'Amethyst', kind: 'mineral' },
   // Sapphire doubles as a one-shot descent charge: tap the Portal button with
   // it selected to descend in place. A Return status action leads back to
   // the entry for one minute, including after the last gem is spent.
@@ -1537,6 +1564,9 @@ const PRICES = {
 
   // ── Rock-break minerals ──────────────────────────────────
   flint_shard:      3,
+  quartz:     5,
+  topaz:     10,
+  amethyst:  20,
   sapphire:  30,
   ruby:      80,
   emerald:  200,
@@ -1690,6 +1720,9 @@ const ITEM_EFFECTS = {
   worldpeach: 'Its soft sweetness washes every affliction away.',
   longgrass: 'Its tough fibres hold fast when twisted together.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
+  quartz: 'Soft pink light catches in the stone’s cloudy heart.',
+  topaz: 'A honey-gold gleam rests between its sharp edges.',
+  amethyst: 'Purple facets catch the faintest light beneath the earth.',
   sapphire: 'A blue depth opens inside it, like a doorway beneath your feet.',
   emerald: 'A green light waits for a staff to carry it.',
   ruby: 'A small red fortune warms your palm.',
