@@ -5,6 +5,7 @@ Run after legacy art generators/recolour bakers. Only manifest-listed frames are
 replaced; geometry, unrelated frames, and asset registration remain unchanged.
 The checked-in crops are from the generated originals, before review downsampling.
 """
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -20,7 +21,7 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def candidate_frame(source, size):
+def candidate_frame(source, size, fit_rect=None):
     """Use the review packer's hard alpha, nearest pixels and bottom alignment."""
     tile = Image.open(source).convert('RGBA')
     tile.putalpha(tile.getchannel('A').point(lambda a: 255 if a >= 128 else 0))
@@ -28,18 +29,28 @@ def candidate_frame(source, size):
     if not bounds:
         raise ValueError(f'Empty approved candidate: {source}')
     tile = tile.crop(bounds)
-    tile.thumbnail((size[0] - 2, size[1] - 2), Image.Resampling.NEAREST)
+    x, y, w, h = fit_rect or (1, 1, size[0] - 2, size[1] - 2)
+    if min(x, y) < 0 or min(w, h) <= 0 or x + w > size[0] or y + h > size[1]:
+        raise ValueError(f'Fit rectangle outside frame: {fit_rect}')
+    if fit_rect:
+        scale = min(w / tile.width, h / tile.height)
+        tile = tile.resize((max(1, round(tile.width * scale)), max(1, round(tile.height * scale))),
+                           Image.Resampling.NEAREST)
+    else:
+        tile.thumbnail((w, h), Image.Resampling.NEAREST)
     frame = Image.new('RGBA', size)
-    frame.alpha_composite(tile, ((size[0] - tile.width) // 2, size[1] - 1 - tile.height))
+    frame.alpha_composite(tile, (x + (w - tile.width) // 2, y + h - tile.height))
     return frame
 
 
-def apply_imports(root=ROOT):
+def apply_imports(root=ROOT, review_ids=None):
     root = Path(root)
     manifest_path = root / IMPORTS.relative_to(ROOT)
     spec = json.loads(manifest_path.read_text())
     grouped = {}
     for entry in spec['frames']:
+        if review_ids is not None and entry['reviewId'] not in review_ids:
+            continue
         grouped.setdefault(entry['sheet'], []).append(entry)
     report = []
     approved_path = root / APPROVED.relative_to(ROOT)
@@ -67,7 +78,7 @@ def apply_imports(root=ROOT):
                     raise ValueError(f'Native frame size mismatch: {source}')
                 sheet.paste(native, (x, y))
             else:
-                sheet.paste(candidate_frame(source, (w, h)), (x, y))
+                sheet.paste(candidate_frame(source, (w, h), entry.get('fitRect')), (x, y))
             selected.paste(255, (x, y, x + w, y + h))
         # Check all channels: RGBA.getbbox() alone can miss an RGB-only change.
         delta = ImageChops.difference(before, sheet)
@@ -89,4 +100,7 @@ def apply_imports(root=ROOT):
 
 
 if __name__ == '__main__':
-    print(json.dumps(apply_imports(), indent=2))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--review', action='append', help='Import only this review ID (repeatable).')
+    args = parser.parse_args()
+    print(json.dumps(apply_imports(review_ids=args.review), indent=2))

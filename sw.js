@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-143bca76';
+const SHELL_VERSION = 'shell-c5b1d34a';
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
 /* ASSET_HASHES_START */
@@ -322,11 +322,14 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png": "380d334c",
   "assets/Objects/Approved/Sources/WorldArt/barricade-native.png": "34456b11",
   "assets/Objects/Approved/Sources/WorldArt/bramble-native.png": "0b1fa85c",
+  "assets/Objects/Approved/Sources/WorldArt/fort-a-restored.png": "87b1f493",
+  "assets/Objects/Approved/Sources/WorldArt/fort-a-unrestored.png": "13649be7",
   "assets/Objects/Approved/Sources/WorldArt/general-0.png": "f7105cb2",
   "assets/Objects/Approved/Sources/WorldArt/general-1.png": "8b761af4",
   "assets/Objects/Approved/Sources/WorldArt/general-3.png": "69ce4145",
   "assets/Objects/Approved/Sources/WorldArt/general-5.png": "b88be3a4",
   "assets/Objects/Approved/Sources/WorldArt/general-6.png": "b32aaf1a",
+  "assets/Objects/Approved/Sources/WorldArt/shipwreck-a.png": "48293206",
   "assets/Objects/Approved/Sources/WorldArt/shrines-0.png": "ed588929",
   "assets/Objects/Approved/Sources/WorldArt/shrines-1.png": "2906f5ba",
   "assets/Objects/Approved/Sources/WorldArt/shrines-2.png": "2333894a",
@@ -368,8 +371,8 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/grove_votive.png": "3a142c5c",
   "assets/Objects/Approved/house.png": "6425b9d1",
   "assets/Objects/Approved/house_blacksmith.png": "00bf1d11",
-  "assets/Objects/Approved/house_fort.png": "acf6539e",
-  "assets/Objects/Approved/house_fort_unclaimed.png": "0600863f",
+  "assets/Objects/Approved/house_fort.png": "71567430",
+  "assets/Objects/Approved/house_fort_unclaimed.png": "5f436fde",
   "assets/Objects/Approved/house_market.png": "97a3c417",
   "assets/Objects/Approved/house_trader.png": "79246b87",
   "assets/Objects/Approved/house_wreck.png": "503c90e7",
@@ -395,7 +398,7 @@ const ASSET_HASHES = {
   "assets/Objects/Beach/driftwood.png": "f46727ec",
   "assets/Objects/Beach/palms.png": "e492058c",
   "assets/Objects/Beach/shipwreck_shrine.png": "4948c3c0",
-  "assets/Objects/Beach/shipwreck_shrine_runtime.png": "776e3b61",
+  "assets/Objects/Beach/shipwreck_shrine_runtime.png": "0eddaf3a",
   "assets/Objects/Castle/tower_master.png": "195b2576",
   "assets/Objects/Castle/tower_ruin_master.png": "42d55bee",
   "assets/Objects/Castle/tower_shapes.png": "0b7d9e6d",

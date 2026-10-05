@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "approval": "User approved WA-096, WA-098, WA-113, WA-120 (all), WA-125 and WA-133 on 2026-10-02.",
-  "packing": "Original generated crop; alpha threshold 128; nearest-neighbour fit with one pixel border; horizontally centred and bottom aligned.",
+  "approval": "User approved WA-096, WA-098, WA-113, WA-120 (all), WA-125 and WA-133 on 2026-10-02. User approved Fort A (both conditions) and Shipwreck A on 2026-10-05.",
+  "packing": "Original generated crop; alpha threshold 128; nearest-neighbour fit with one pixel border; horizontally centred and bottom aligned. Entries with fitRect preserve the approved visible footprint and base anchor inside the existing canvas; nearest-neighbour fit and hard alpha remain shared.",
   "wood": "The approved log is shared by all three quantity frames so map and item icon use the same art.",
   "frames": [
     {
@@ -362,6 +362,87 @@
       "source": "assets/Objects/Approved/Sources/WorldArt/bramble-native.png",
       "sourceSha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c",
       "native": true
+    },
+    {
+      "reviewId": "ART-2026-10-05-FORT-A-RESTORED",
+      "sheet": "assets/Objects/Approved/house_fort.png",
+      "frame": 0,
+      "frameSize": [
+        214,
+        154
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/fort-a-restored.png",
+      "sourceSha256": "87b1f49324c54f7592c35f705e0427975f6953b1fe81c7e34c700a4be83da8b5",
+      "generatedSheet": "dragon-hood-art-previews-2026-10-05/images/structures.png",
+      "generatedSheetSha256": "bb8eeba6594e1d9e27ee941fd131a4c5b85e0a61e23c5e894a29476f2078b18c",
+      "generatedRect": [
+        474,
+        80,
+        607,
+        202
+      ],
+      "selectedRow": 0,
+      "selectedColumn": 3,
+      "fitRect": [
+        0,
+        0,
+        214,
+        154
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-05-FORT-A-UNRESTORED",
+      "sheet": "assets/Objects/Approved/house_fort_unclaimed.png",
+      "frame": 0,
+      "frameSize": [
+        214,
+        154
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/fort-a-unrestored.png",
+      "sourceSha256": "13649be704091b3b4b9533b160068ed87c0589d4992e64f33d9b00cfdda79969",
+      "generatedSheet": "dragon-hood-art-previews-2026-10-05/images/structures.png",
+      "generatedSheetSha256": "bb8eeba6594e1d9e27ee941fd131a4c5b85e0a61e23c5e894a29476f2078b18c",
+      "generatedRect": [
+        474,
+        227,
+        607,
+        355
+      ],
+      "selectedRow": 1,
+      "selectedColumn": 3,
+      "fitRect": [
+        0,
+        0,
+        214,
+        154
+      ]
+    },
+    {
+      "reviewId": "ART-2026-10-05-SHIPWRECK-A",
+      "sheet": "assets/Objects/Beach/shipwreck_shrine_runtime.png",
+      "frame": 0,
+      "frameSize": [
+        192,
+        128
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shipwreck-a.png",
+      "sourceSha256": "48293206caa491239537296f4c042de4328c61347d49246f5a2926642d89ffaa",
+      "generatedSheet": "dragon-hood-art-previews-2026-10-05/images/structures.png",
+      "generatedSheetSha256": "bb8eeba6594e1d9e27ee941fd131a4c5b85e0a61e23c5e894a29476f2078b18c",
+      "generatedRect": [
+        479,
+        381,
+        603,
+        496
+      ],
+      "selectedRow": 2,
+      "selectedColumn": 3,
+      "fitRect": [
+        29,
+        24,
+        136,
+        98
+      ]
     }
   ]
 }

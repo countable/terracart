@@ -113,7 +113,7 @@ const WATER_ANIM_MS = 220;
 // picks the phase from the wall clock when it builds the key.
 const BIOME_TEX = {
   0:  { variants: 2, draw: drawGrassTex },        // grass: tufts
-  1:  { variants: 2, patternOpacity: 0.75, draw: drawForestTex },       // forest: dense leaf litter
+  1:  { variants: 2, patternOpacity: 0.75, draw: drawForestTex },       // forest: sparse leaf litter
   2:  { variants: 2, patternOpacity: 0.925, draw: drawSandTex },         // sand: horizontal ripple marks
   // Water animates: `animPhases` pre-baked frames per variant, stepped every
   // `animMs` (see the "Animated biome textures" note above makeBiomeTextures).
@@ -257,10 +257,10 @@ function drawGrassTex(ctx, size, rng) {
 }
 
 function drawForestTex(ctx, size, rng) {
-  // Dense leaf-litter clumps — small dark blobs + a few bright leaf specks.
+  // Sparse leaf-litter clumps — small dark blobs + a few bright leaf specks.
   ctx.clearRect(0, 0, size, size);
-  drawGroundMottle(ctx, size, rng, 0xF047, 14, 1.5, 1.5, 'rgba(15,28,12,0.35)');
-  grain(ctx, size, rng, 10, 'rgba(140,150,105,0.25)');
+  drawGroundMottle(ctx, size, rng, 0xF047, 7, 1.5, 1.5, 'rgba(15,28,12,0.35)');
+  grain(ctx, size, rng, 5, 'rgba(140,150,105,0.25)');
 }
 
 function drawSandTex(ctx, size, rng) {
@@ -354,7 +354,7 @@ function drawFarmlandTex(ctx, size, rng) {
   // gives the bottom/right halves) so borders carry the interior's mud density.
   const edge = seededRand(0xFA47);
   // Mud blobs straddling the edges.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const style = edge() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
     const along = edge() * size;                  // position along the edge
     const across = (edge() - 0.5) * 4;            // small offset across it
@@ -364,7 +364,7 @@ function drawFarmlandTex(ctx, size, rng) {
     wrapArc(ctx, size, x, y, 3 + edge() * 4, style);
   }
   // Grass tufts scattered over the edges.
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 5; i++) {
     const r = edge();
     const style = r < 0.5 ? 'rgba(88,100,58,0.30)'
                 : r < 0.8 ? 'rgba(52,62,38,0.28)'
@@ -377,7 +377,7 @@ function drawFarmlandTex(ctx, size, rng) {
     wrapRect(ctx, size, x, y, 1, edge() < 0.4 ? 2 : 1, style);
   }
   // Edge hoof marks.
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 1; i++) {
     const along = Math.floor(edge() * size);
     const across = Math.floor(edge() * 3) - 1;
     const horiz = edge() < 0.5;
@@ -388,13 +388,13 @@ function drawFarmlandTex(ctx, size, rng) {
 
   // ── Interior pass: per-variant rng, kept clear of the edges ──
   // Soft mud patches — irregular brown blobs, fully contained in the tile.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const r = 3 + rng() * 4;
     const style = rng() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
     dot(ctx, r + rng() * (size - 2 * r), r + rng() * (size - 2 * r), r, style);
   }
   // Grass tufts poking through — green specks, some 2px tall.
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 8; i++) {
     const r = rng();
     ctx.fillStyle = r < 0.5 ? 'rgba(88,100,58,0.30)'
                   : r < 0.8 ? 'rgba(52,62,38,0.28)'
@@ -403,7 +403,7 @@ function drawFarmlandTex(ctx, size, rng) {
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * (size - h + 1)), 1, h);
   }
   // A few dark churned / hoof marks.
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 1; i++) {
     ctx.fillStyle = 'rgba(40,25,12,0.30)';
     ctx.fillRect(Math.floor(rng() * (size - 1)), Math.floor(rng() * size), 2, 1);
   }

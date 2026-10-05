@@ -18,6 +18,10 @@ legacy sheet. It replaces only approved frames, preserves sheet geometry and
 all neighbouring pixels, and updates the Approved manifest hashes. The map-art
 baker calls this automatically after its older recolour recipes. The approved
 wood log fills all three quantity frames so the world and inventory stay aligned.
+Fort A (restored and unrestored) and Shipwreck A use the same importer. Their
+`fitRect` entries preserve the reviewed visible size and base anchor within
+the existing image canvases. Use repeatable `--review` arguments to import only
+selected replacements without rewriting other approved art.
 
 The palette was built from twelve current story paintings. Each contributes an
 equal sample: whole landscape paintings, but only the upper 40% of portrait
@@ -206,10 +210,12 @@ unchanged, orchard floor sits closer to its original colour, and sports pitch
 pattern strength stays near original - so randomly adjacent variants share
 compatible boundaries.
 
-Pirate Cove's active shipwreck shrine uses the unchanged generated PNG from
-`docs/art/shipwreck-shrine-draft.png`, copied to `assets/Objects/Beach/`.
-`SpriteLayout.SHIPWRECK_SHRINE_ART` fits its original aspect ratio inside the
-reserved 3 × 3 cells. It remains one daily shrine, not extra rewards.
+Pirate Cove's active shipwreck shrine uses the approved Shipwreck A crop,
+packed by `tools/import_world_art_candidates.py` into
+`assets/Objects/Beach/shipwreck_shrine_runtime.png`. Its 192 × 128 canvas and
+`SpriteLayout.SHIPWRECK_SHRINE_ART` scale retain the reserved 3 × 3 cells.
+It remains one daily shrine, not extra rewards. The original generated draft
+remains available as source art.
 The Beach folder's driftwood and beach rock come from Core Systems Asset
 Factory's Verdant Props 16×16 pack; its included license permits use in games.
 Beach rock and driftwood alternates are retired; pickups use their standard art
