@@ -100,7 +100,7 @@
   };
   const facePx = (tier) => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
-    return (tbl && tbl[tier] != null) ? tbl[tier] : (tier === CASTLE ? 5 : 4);
+    return (tbl && tbl[tier] != null) ? tbl[tier] : (tier === CASTLE ? 11 : 7);
   };
 
   // The silhouette: the tiled pass draws black at 50% over the floor; mixing
@@ -635,6 +635,38 @@
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
         ctx.lineTo(q.x, q.y + depth); ctx.lineTo(p.x, p.y + depth); ctx.closePath();
         ctx.fillStyle = cssOf(face); ctx.fill();
+        // Work inside the face quadrilateral, then erase the floor below.
+        // This keeps angled courses out of the court and caps every short
+        // piece at the same height without changing its physical sort foot.
+        ctx.save(); ctx.clip();
+        const faceLine = (offset, color) => {
+          ctx.beginPath(); ctx.moveTo(p.x, p.y + offset);
+          ctx.lineTo(q.x, q.y + offset);
+          ctx.lineWidth = 1; ctx.strokeStyle = cssOf(color); ctx.stroke();
+        };
+        const lip = temple ? temple.coping : stone ? stone.top
+          : mix(face, tune(shade(floorColor(d.tier, isMine))), 0.48);
+        const joint = mix(face, outline, 0.32);
+        faceLine(0.5, lip);
+        // Shallow courses give the taller face a material scale. The fort's
+        // wooden footing keeps its grain as long horizontal seams.
+        for (let course = 3; course < depth - 1; course += 3) {
+          faceLine(course + 0.5, joint);
+          if (d.tier === 11 && !temple) continue;
+          const length = Math.hypot(b.x - a.x, b.y - a.y);
+          const spacing = 16, stagger = (Math.floor(course / 3) % 2) * spacing / 2;
+          const first = Math.max(0, Math.ceil((length * j / count - stagger) / spacing));
+          const last = Math.ceil((length * (j + 1) / count - stagger) / spacing);
+          for (let jointIndex = first; jointIndex < last; jointIndex++) {
+            const along = stagger + jointIndex * spacing;
+            const t = along / length;
+            const jx = a.x + (b.x - a.x) * t, jy = a.y + (b.y - a.y) * t;
+            ctx.beginPath(); ctx.moveTo(jx, jy + Math.max(1, course - 3));
+            ctx.lineTo(jx, jy + course); ctx.stroke();
+          }
+        }
+        faceLine(depth - 0.5, outline);
+        ctx.restore();
         ctx.globalCompositeOperation = 'destination-out';
         trace(ctx); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';

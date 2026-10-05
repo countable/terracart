@@ -15,7 +15,7 @@ Unrestored places use weathered materials, subdued colour, and signs of neglect.
 
 ## Camera and scale
 - The viewport uses a top-down square grid. Artwork starts overhead, tilted roughly 45 degrees toward a south camera: show crowns, backs and top surfaces with compressed front faces. This deliberately mixes perspectives rather than using a physically correct projection. Raised walls and traps retain enough upright height to show their faces.
-- Raised surfaces reveal a front-facing wall or cliff below their top plane: a clear lip, shaded face, and grounded base. Roads and tilled plots can read as shallow depressions; selected zones and shrine footings can rise above their surroundings.
+- Raised surfaces reveal a front-facing wall or cliff below their top plane: a clear lip, shaded face, and grounded base. Tilled plots read as shallow depressions; shrine footings rise above their surroundings. Roads retain their softly blended edges without depression walls. Keep landscape terrain level for now.
 - Keep the square map axes aligned with the screen. This is not an isometric diamond grid.
 - Everything except roads, buildings, and game characters lives on a 24px tile grid, scaled to the device for a crisp pixel look. Larger tiled objects can span multiple cells.
 - Match apparent pixel size across assets. Use crisp scaling for raster art; avoid mixing tiny detailed pixels with enlarged coarse pixels in neighbouring objects.
