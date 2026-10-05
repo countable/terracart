@@ -176,11 +176,9 @@ row, so gameplay, zone previews and the foliage audit agree.
 `tools/preview_sandbox_art.py` captures matched before/applied views of the
 actual sandbox in an isolated browser. It freezes time and actors, uses neutral
 lighting, and stitches native 32px cells with a two-cell margin. The capture does not modify
-shipping textures or user saves. Installed art uses the dashboard's gentle colour transfer and lighter,
-moderately desaturated ground. Ground and water retain more of their original colour and depth, with the
-previous lightening and desaturation reduced by approximately 25%. The original closed chest is the shading reference; the
-new chest candidate keeps its shape with the original chest’s warm wood and
-muted metal colours at half strength, preserving all eleven source shades. Clipped hedges are limited to residential/commercial shrub cells.
+shipping textures or user saves. The sandbox has no vector roads/building polygons
+or assigned zone motifs, so the capture uses its intended tiled building mode.
+It demonstrates installed art present in that layout, not every audit entry.
 
 ```sh
 CHROMIUM_PATH=/path/to/chromium python3 tools/preview_sandbox_art.py \
@@ -190,33 +188,23 @@ CHROMIUM_PATH=/path/to/chromium python3 tools/preview_sandbox_art.py \
 ```
 
 Outputs include before/after PNGs, a static comparison, capture metadata and an
-interactive comparison page. The sandbox has no vector roads/building polygons
-or assigned zone motifs, so the capture uses its intended tiled building mode.
-It demonstrates installed art present in that layout, not every audit entry.
+interactive comparison page. The installed treatment strengths live in the
+runtime painters (see Applied map art); pass `--baseline` when generating into
+a new output directory after applying new art.
 
 ## Bush alternatives and texture seams
 
 `tools/preview_bush_options.py` renders eight bush studies from
 `bush-options.json`: the shipped woodland bush, gentler recolours, several
-chunky wild-bush alternatives and the context-only clipped hedge. This gallery
-marks the original green bush with 72% treatment as the selected proposal.
-Nut plants use a brighter olive treatment;
-rockfruit retains its shape while leaning toward the actual ore-stone colours.
-Forest spots use half-strength overlays; sand marks are 15% softer. Wetland
-marsh retains its original colour balance and full texture with a small base
-lightness lift. Golf fairway is unchanged. Orchard floor is 20% closer to its
-original colour than the earlier proposal; sports pitch pattern strength is 88%
-of original. Seam fixes live in the runtime
-terrain painters so randomly adjacent variants share compatible boundaries.
-
-The cut hedge uses the same muted green direction as the pine: its baked
-recipe shifts foliage hue 12 degrees toward pine, then reduces saturation
-and brightness by 10% each. Its silhouette, alpha and ground shadow stay intact.
-
-The pine foliage treatment includes cyan shadows that the general green mask
-missed, and warms mint highlights at the same shading luminance. Other flora
-strengths are unchanged.
-
+chunky wild-bush alternatives and the context-only clipped hedge. The selected
+ordinary bush is the original green source with the 72% apple-led treatment
+and softer interior contrast. The cut hedge keeps its own half-strength
+adjustment and the pine treatment covers the cyan shadows the general green
+mask missed; those recipes live in the runtime painters. Context grounds keep
+their own balance - wetland marsh keeps its original colour, golf fairway is
+unchanged, orchard floor sits closer to its original colour, and sports pitch
+pattern strength stays near original - so randomly adjacent variants share
+compatible boundaries.
 
 Pirate Cove's active shipwreck shrine uses the unchanged generated PNG from
 `docs/art/shipwreck-shrine-draft.png`, copied to `assets/Objects/Beach/`.

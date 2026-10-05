@@ -27,7 +27,7 @@ when a file moves.
 | data/zone-variants.json | implemented variant spec; tools read this path |
 | data/basic-zone-density-proposals.json | basic zone density targets |
 | data/basic-zone-signatures.json | basic zone signatures |
-| data/beach-zone-variants.draft.json | beach preview tool input |
+| data/beach-zone-variants.draft.json | superseded beach snapshot (rows live in zone-variants.json); kept as preview input and art provenance |
 | data/underground-zone-variants.draft.json | underground preview tool input |
 | reports/zone-economy.md | generated report; regenerate before trusting |
 | ../test/node/README.md | headless test harness |
