@@ -8430,7 +8430,43 @@
   const anyCell = (rng, px, py, L) => ({ lix: Math.floor(rng() * L.N), liy: Math.floor(rng() * L.N) });
   // A cell within ±R of a pivot (the clusters' seat): two draws.
   const jitter = (rng, px, py, R) => ({ lix: px + Math.round((rng() - 0.5) * 2 * R), liy: py + Math.round((rng() - 0.5) * 2 * R) });
+  const CHASM_SHAPES = [
+    [[0,0],[1,0],[0,1],[1,1]],
+    [[0,0],[0,1],[0,2],[1,2]],
+    [[0,0],[1,0],[1,1],[2,1],[2,2]],
+  ];
   const CAVE_PASSES = [
+    { id: 'chasms', salt: 0x43A51F27, when: L => L.depth === 1,
+      pivot: 18, from: 4, fire: () => .4,
+      setup: L => {
+        const protectedCells = new Set(L.occupied);
+        for (const o of L.objects) if (o.kind === 'staircase' || o.kind === 'chest') {
+          const c = cellIndexOf(L.tx, L.ty, o.x, o.y, L.tileEdgeM, L.N);
+          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+            const x = c.lix + dx, y = c.liy + dy;
+            if (x >= 0 && y >= 0 && x < L.N && y < L.N) protectedCells.add(y * L.N + x);
+          }
+        }
+        return protectedCells;
+      },
+      cluster: (rng, px, py, L, protectedCells) => {
+        const shape = CHASM_SHAPES[Math.floor(rng() * CHASM_SHAPES.length)];
+        const turns = Math.floor(rng() * 4), anchor = jitter(rng, px, py, 3);
+        const cells = shape.map(([x, y]) => {
+          for (let n = 0; n < turns; n++) [x, y] = [-y, x];
+          return { lix: anchor.lix + x, liy: anchor.liy + y };
+        });
+        // Keep an open floor margin and accept the whole footprint or none.
+        // Excluded terrain is already in occupied, inherited on every floor.
+        for (const c of cells) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const x = c.lix + dx, y = c.liy + dy, i = y * L.N + x;
+          if (x < 0 || y < 0 || x >= L.N || y >= L.N || L.grid[i] !== T.CAVE_FLOOR
+            || protectedCells.has(i) || L.occupied.has(i)) return [];
+        }
+        return cells;
+      },
+      emit: (L, c, p) => L.objects.push(makeObject('ground_hole', p.x, p.y,
+        cellId('chasm_1', L.tx, L.ty, c.lix, c.liy), { depth: 1 })) },
     { id: 'rocks', salt: 0x85EBCA6B, pivot: 6, from: 1, fire: () => 0.85,
       // The level's own ore — tier `depth` and the tier below (caveOreWeights).
       setup: (L) => { const weights = caveOreWeights(L.depth); return { plainP: caveRockP(L.depth), weights, baseTbl: cumWeights(weights) }; },
@@ -8797,12 +8833,16 @@
         objects.push(makeObject('staircase', p.x, p.y, caveStairId('down', depth, x, y, seat.lix, seat.liy), { dir: 'down', depth }));
     }
     const landingCells = new Set();
-    for (const o of objects) if (o.kind === 'staircase') {
+    // Holes preserve a safe empty landing pocket in L2's otherwise solid stone.
+    const fallSites = depth === 2 ? aboveObjects.filter(o => o.kind === 'ground_hole' && o.depth === 1) : [];
+    for (const o of [...objects.filter(o => o.kind === 'staircase'), ...fallSites]) {
       const c = cellIndexOf(x, y, o.x, o.y, tileEdgeM, N);
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
         const cx = c.lix + dx, cy = c.liy + dy;
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-        const i = cy * N + cx; grid[i] = T.CAVE_FLOOR; landingCells.add(i);
+        const i = cy * N + cx;
+        if (spawnWhy[i]) continue;
+        grid[i] = T.CAVE_FLOOR; landingCells.add(i);
       }
     }
     // Fill the level with rock clusters, keeping the staircase cells clear so a
