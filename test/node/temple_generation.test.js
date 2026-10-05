@@ -54,4 +54,25 @@
     assert.eq(shape.key, temple.id);
     assert.falsy(out.objects.some(o => o.kind === 'house' || o.kind === 'tower'));
   });
+
+  test('temple generation: a school building keeps its castle - education ground is never a zone temple', () => {
+    const layers = (education) => ([
+      { name: 'landuse', features: education
+        // No full-tile residential base here: paintCell is priority-gated, and
+        // residential (4) would block the education paint (1.5) that the guard
+        // reads. Real campuses paint school over grass, as here.
+        ? [{ type: 3, tags: { class: 'education' }, geom: [rect(1500, 1700, 2800, 2800)] }]
+        : [] },
+      { name: 'park', features: [{ type: 3, tags: { class: 'park' }, geom: [rect(1600, 1400, 4300, 2600)] }] },
+      { name: 'building', features: [{ type: 3, tags: {}, geom: [rect(1600, 1800, 2600, 2600)] }] },
+      { name: 'poi', features: [{ type: 1, tags: { class: 'park', subclass: 'park', name: 'Temple Park' },
+        geom: [[{ x: 2100, y: 2100 }]] }] },
+    ]);
+    const school = WorldGen.rasterizeTile(layers(true), N, 0, 0, edge);
+    assert.falsy(school.buildingShapes[0].kind === 'temple', 'the school castle is not claimed as the zone temple');
+    assert.falsy(school.objects.some(o => o.kind === 'temple'), 'no temple is minted on education ground');
+    assert.eq(school.buildingShapes[0].tier, WorldGen.T.BUILDING_LARGE, 'the building keeps its castle tier');
+    const control = WorldGen.rasterizeTile(layers(false), N, 0, 0, edge);
+    assert.eq(control.buildingShapes[0].kind, 'temple', 'without the education ground the same park claims the same building');
+  });
 })();

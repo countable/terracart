@@ -78,4 +78,32 @@
       assert.eq(builds, 1, 'the next census reuses the completed index');
     } finally { globalThis.Lairs = oldLairs; }
   });
+  test('temple census: hidden foes and a stale stamp never prove a clear', () => {
+    const oldSpawns = globalThis.EnemySpawns;
+    const center = tile(), cache = new Map();
+    center.zone.coverage[4] = 1;
+    center.creatures = [{ id: 'park-foe', kind: 'goblin', x: 15, y: 15, _surfaceSpawn: { x: 15, y: 15 } }];
+    at(cache, 0, 0, center);
+    let eligible = true;
+    globalThis.EnemySpawns = { homeEligible: () => eligible };
+    const options = { tileCache: cache, tileEdgeM: 30 };
+    try {
+      // Visible and defeated: authored proof exists, ready is true.
+      const cleared = Temples.status({ caught: ['park-foe'], temples: { park: { hadEnemies: true } } }, temple, options);
+      assert.truthy(cleared.ready);
+      assert.gt(cleared.authored, 0, 'a caught foe the census can still see is authored proof');
+      // Hidden (quiet-home hold / safe ring): the same save proves nothing.
+      eligible = false;
+      const hidden = Temples.status({ caught: ['park-foe'], temples: { park: { hadEnemies: true } } }, temple, options);
+      assert.truthy(hidden.ready, 'nothing remains that this player can see');
+      assert.eq(hidden.authored, 0, 'but hidden is not defeated - no authored proof');
+      // So observe must gate the awaken on authored > 0, not ready alone.
+      assert.truthy(/state\.ready && state\.authored > 0 && activate\(scene, o\)/.test(TEMPLES_SRC),
+        'the awaken requires authored proof, never the stamp alone');
+      eligible = true;
+      const standing = Temples.status({ temples: { park: { hadEnemies: true } } }, temple, options);
+      assert.falsy(standing.ready);
+      assert.eq(standing.remaining, 1, 'a live visible foe still blocks the awaken');
+    } finally { globalThis.EnemySpawns = oldSpawns; }
+  });
 })();

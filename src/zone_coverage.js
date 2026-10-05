@@ -262,6 +262,16 @@
         }
       }
     }
+    // SCHOOL GROUND IS ITS OWN GROUND: a zone's field circle or park
+    // polygon may overlap a campus, but it claims nothing there. Zeroing
+    // coverage on T.SCHOOL keeps the school's paint (and the class-look
+    // check behind the kindergarten spawn refusal) intact, and keeps a
+    // campus building — the school castle — out of the temple footprint
+    // claim, which reads this coverage.
+    if (grid) for (let i = 0; i < coverage.length; i++) {
+      if (i % (N * 16) === 0) yield 'zone coverage school ground';
+      if (coverage[i] && sourceLand(i) === WG.T.SCHOOL) coverage[i] = 0;
+    }
     // A settled outdoor POI may phase its pattern only when all its possible
     // coverage is local. Across seams the source point remains canonical:
     // neighbouring tiles cannot know this tile's chest relocation.

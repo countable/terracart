@@ -27,9 +27,10 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   assert.truthy(/_worldIconUrl\(texKey, frame = 0\) \{[\s\S]{0,900}?drawImage\(src, fr\.cutX, fr\.cutY, fr\.width, fr\.height/.test(SCENE_SRC), 'a world icon is cut from the frame\'s rect');
 });
 
-test('build choice: sole ranks restore directly and multiple ranks retain price selection', () => {
+test('build choice: every offered card restores in one step, each with its own price', () => {
   const start = SCENE_SRC.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4).trim();
+  assert.falsy(/Building type|Choose a tier|showTypes|showTiers/.test(body), 'no type screen and no tier screen - one flat list');
   const stock = { rubble: 100, magic_hammer: 1 };
   const inventory = {
     count: (save, id) => stock[id] || 0,
@@ -51,43 +52,36 @@ test('build choice: sole ranks restore directly and multiple ranks retain price 
   const house = { kind: 'house', tier: 9, id: 'new' };
   present.call(scene, 0, 0, house);
   assert.eq(modal.acceptLabel, 'Restore');
-  assert.eq(modal.choices.find(c => c.key === 'blacksmith').acceptLabel, 'Restore');
+  assert.eq(modal.cancelLabel, 'Later');
+  // The cards ARE the offered rows: the House first, the offered smith rank its own card.
+  const keys = modal.choices.map(c => c.key);
+  assert.eq(keys[0], 'plain');
+  assert.truthy(keys.includes('blacksmith:1'), 'the offered smith rank is its own card');
+  const smithCard = modal.choices.find(c => c.key === 'blacksmith:1');
   const smith = Houses.buildOptions(scene.save, house).find(r => r.key === 'blacksmith:1');
   const cost = Houses.buildCost(scene.save, house, smith);
-  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').label.includes(`${cost.qty}×`), 'price appears below the type');
-  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').disabled);
-  assert.truthy(modal.secondary.takes('blacksmith'), 'sole tier keeps the hammer option');
-  assert.falsy(modal.secondary.takes('plain'), 'a house still refuses the hammer');
+  assert.truthy(smithCard.label.includes(`${cost.qty}\u00d7`), 'its own price rides the card');
+  assert.truthy(smithCard.label.includes('quality-1'), 'a ranked card wears its tier badge');
+  assert.truthy(smithCard.info.includes('forge'), 'the pick line carries the row blurb');
+  assert.truthy(smithCard.suggested, 'the T1 smithy card is suggested while the lane has none');
+  assert.truthy(modal.secondary.takes('blacksmith:1'), 'a smithy card takes the hammer');
+  assert.falsy(modal.secondary.takes('plain'), 'the House card refuses it');
   stock.rubble = 0;
-  modal.onAccept('blacksmith');
-  assert.eq(scene.save.restoredHouses.new, undefined, 'stock is rechecked before direct restoration');
   present.call(scene, 0, 0, house);
-  assert.truthy(modal.choices.every(c => c.disabled), 'empty inventory disables all types');
-  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').label.includes('Need '), 'disabled type omits the redundant shortfall');
+  assert.truthy(modal.choices.every(c => c.canAfford === false), 'empty inventory disaffords every card');
   stock.rubble = 100;
-  present.call(scene, 0, 0, house);
   const singleModal = modal;
-  modal.onAccept('blacksmith');
-  assert.eq(modal, singleModal, 'no tier dialog appears for the only offered tier');
+  modal.onAccept('blacksmith:1');
+  assert.eq(modal, singleModal, 'one card, one step - no confirmation screen appears');
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
-  assert.eq(stock.rubble, 100 - cost.qty);
-  assert.eq(stock.magic_hammer, 1, 'normal Restore keeps the hammer');
+  assert.eq(stock.rubble, 100 - cost.qty, 'the picked card is the one charged');
+  assert.eq(stock.magic_hammer, 1, 'plain Restore keeps the hammer');
   scene.save = { restoredHouses: { first: 'plain' } };
-  stock.rubble = 100;
-  present.call(scene, 0, 0, house);
-  modal.secondary.onClick('blacksmith');
+  modal.secondary.onClick('blacksmith:1');
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
-  assert.truthy(Houses.isShinyHouse(scene.save, house), 'direct hammer restore stamps shine');
-  assert.eq(stock.magic_hammer, 0, 'direct hammer restore spends one hammer');
-  assert.eq(stock.rubble, 100 - cost.qty);
-  scene.save = { restoredHouses: {} };
-  present.call(scene, 0, 0, house);
-  const houseModal = modal;
-  modal.onAccept('plain');
-  assert.eq(modal, houseModal, 'unranked House also skips redundant confirmation');
-  assert.eq(scene.save.restoredHouses.new, 'plain');
-  // Main's numeric rank cards share one type card, with each offered price
-  // preserved on the second step after integrating the two-step dialog.
+  assert.truthy(Houses.isShinyHouse(scene.save, house), 'hammer restore stamps shine');
+  assert.eq(stock.magic_hammer, 0, 'hammer restore spends one hammer');
+  // Multi-rank offering: every rank stays its own card with its own price.
   scene.save = {
     restoredHouses: { s1: 'blacksmith', s2: 'blacksmith', s3: 'blacksmith',
       a: 'plain', b: 'plain', c: 'plain', d: 'plain', e: 'plain', f: 'plain', g: 'plain' },
@@ -96,47 +90,25 @@ test('build choice: sole ranks restore directly and multiple ranks retain price 
   };
   const offeredSmiths = Houses.offerCards(scene.save, house).filter(r => r.role === 'blacksmith');
   assert.gt(offeredSmiths.length, 1, 'fixture offers multiple smith ranks');
-  present.call(scene, 0, 0, house);
-  assert.eq(modal.choices.filter(c => c.key === 'blacksmith').length, 1, 'one building-type card');
-  assert.eq(modal.choices.find(c => c.key === 'blacksmith').acceptLabel, 'Choose tier');
   const prices = offeredSmiths.map(r => Houses.buildCost(scene.save, house, r).qty);
-  stock.magic_hammer = 1;
   stock.rubble = Math.min(...prices);
   present.call(scene, 0, 0, house);
-  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'one affordable tier is enough even when others cost more');
-  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').label.includes(`From ${Math.min(...prices)}×`), 'first step quotes cheapest offered tier');
-  assert.falsy(modal.secondary.takes('blacksmith'), 'multiple tiers need a selection before hammer restoration');
-  modal.onAccept('blacksmith');
-  assert.eq(modal.choices.length, offeredSmiths.length, 'one affordable tier does not hide other offered tiers');
-  assert.truthy(modal.choices.some(c => !c.canAfford));
-  for (const row of offeredSmiths) {
-    const required = Houses.buildCost(scene.save, house, row).qty;
-    if (required > stock.rubble) {
-      assert.falsy(modal.choices.find(c => c.key === row.key).cost.includes('Need '), 'tier confirmation omits the redundant shortfall');
-    }
-  }
-  assert.eq(scene.save.restoredHouses.new, undefined, 'multiple tiers still require confirmation');
-  modal.onCancel();
-  assert.eq(modal.choice, 'blacksmith', 'Back retains the type');
-  stock.rubble--;
-  present.call(scene, 0, 0, house);
-  assert.truthy(modal.choices.find(c => c.key === 'blacksmith').disabled, 'all offered tiers unaffordable disables the type');
-  assert.falsy(modal.choices.find(c => c.key === 'blacksmith').label.includes('Need '), 'multiple ranks omit the redundant shortfall');
-  stock.rubble = 100;
-  present.call(scene, 0, 0, house);
-  modal.onAccept('blacksmith');
-  assert.eq(modal.choices.length, offeredSmiths.length, 'every offered rank remains selectable');
+  const smithCards = modal.choices.filter(c => c.key.startsWith('blacksmith:'));
+  assert.eq(smithCards.length, offeredSmiths.length, 'every offered rank remains its own card');
+  assert.truthy(modal.choices.some(c => c.canAfford === false), 'a pricier rank is visibly unaffordable');
   for (const row of offeredSmiths) {
     const choice = modal.choices.find(c => c.key === row.key);
-    assert.truthy(choice.label.includes('quality-' + row.tier));
-    assert.truthy(choice.cost.startsWith(Houses.buildCost(scene.save, house, row).qty + '×'));
+    assert.truthy(choice.label.includes('quality-' + row.tier), 'each rank wears its own badge');
+    assert.truthy(choice.cost.startsWith(Houses.buildCost(scene.save, house, row).qty + '\u00d7'), 'each rank quotes its own price');
   }
   const selected = offeredSmiths[offeredSmiths.length - 1];
   const selectedCost = Houses.buildCost(scene.save, house, selected);
+  stock.rubble = 100;
+  present.call(scene, 0, 0, house);
   modal.onAccept(selected.key);
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
   assert.eq(scene.save.shopTiers.new, selected.tier);
-  assert.eq(stock.rubble, 100 - selectedCost.qty, 'multi-tier confirmation charges selected rank');
+  assert.eq(stock.rubble, 100 - selectedCost.qty, 'the picked rank is the one charged');
 
 });
 
