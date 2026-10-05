@@ -28,16 +28,33 @@
     const delta = cellDelta(scene, object);
     return delta.dx * delta.dx + delta.dy * delta.dy <= root.Fog.REVEAL_CELLS ** 2;
   }
+  // Authored ambushes can require an exact body-distance trigger. Ordinary
+  // discoveries keep their neighbouring-cell / Perception rules.
+  function proximity(scene, object) {
+    if ((object.depth || 0) !== (scene.depth || 0)) return false;
+    const x = scene.startWorldM.x + scene.playerM.x;
+    const y = scene.startWorldM.y + scene.playerM.y;
+    return Math.hypot(x - object.x, y - object.y) <= object.revealDistanceCells * scene.cellM;
+  }
+  function markDiscovered(object) {
+    object._discovered = true;
+    if (object.dormant) {
+      object.dormant = false;
+      object._hunting = true;
+    }
+  }
   function reveal(scene, object) {
     if (!isHidden(scene.save, object)) {
-      if (mode(object)) object._discovered = true;
+      if (mode(object)) markDiscovered(object);
       return false;
     }
     const bySight = object.kind !== 'pit_trap'
       && (mode(object) === 'stealthy' || root.Gear.hasPerception(scene.save));
-    if (!(bySight ? inVision(scene, object) : adjacent(scene, object))) return false;
+    const exactProximity = Number.isFinite(object.revealDistanceCells) && object.revealDistanceCells >= 0;
+    if (!(exactProximity ? proximity(scene, object)
+      : bySight ? inVision(scene, object) : adjacent(scene, object))) return false;
     (scene.save.hiddenDiscoveries ||= {})[object.id] = true;
-    object._discovered = true;
+    markDiscovered(object);
     scene._hiddenDiscoveryTick = null;
     persistSave(scene.save);
     KINDS[object.discovery || object.kind]?.discover?.(scene, object);

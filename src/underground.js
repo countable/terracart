@@ -110,7 +110,7 @@
         }
     }
     // Keep generated centre lanes open; remove only ordinary dressing, never stairs/finds.
-    for (let k = objects.length - 1; k >= 0; k--) if (objects[k].kind === 'mineralrock' && reserved.has(index(objects[k]))) {
+    for (let k = objects.length - 1; k >= 0; k--) if (objects[k].kind === 'mineralrock' && !objects[k].caveArea && reserved.has(index(objects[k]))) {
       occupied.delete(index(objects[k])); objects.splice(k, 1);
     }
     const coverage = data.zone?.coverage || data.zone?.idx;
@@ -120,7 +120,7 @@
       return roll(`underground/${anchor.key ?? `${anchor.gx},${anchor.gy}`}/${depth}/gemstone`) < (depth === 1 ? .05 : .10);
     };
     for (const o of objects) {
-      if (o.kind !== 'mineralrock') continue;
+      if (o.kind !== 'mineralrock' || o.caveArea) continue;
       const i = index(o), route = plan.routeAt.get(i), street = plan.streetCells.has(i);
       if (!allowed(data, i, street) || reserved.has(i)) continue;
       const key = keyAt(i), themed = route?.theme === 'gemstone_path' || gemstoneRegion(i);

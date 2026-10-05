@@ -10,10 +10,19 @@
     { id: 'spring_cave', weight: 35 }, { id: 'goblin_warrens', weight: 30 },
     { id: 'mushroom_cavern', weight: 30 }, { id: 'gemstone_cavern', weight: 5 }
   ]);
+  const DEPTH_WEIGHTS = { 1: GROVE_WEIGHTS, 2: [
+    { id: 'spring_cave', weight: 20 }, { id: 'goblin_warrens', weight: 45 },
+    { id: 'mushroom_cavern', weight: 25 }, { id: 'gemstone_cavern', weight: 10 }
+  ] };
+  const BUDGETS = Object.freeze({ referenceCells: 625, referenceRooms: 25,
+    goblins: { 1: 12, 2: 16 }, mushrooms: 8, harvest: 32, gems: 16, ore: 24 });
   function select(anchor, depth) {
-    if (depth !== 1 || anchor.kind !== 'grove') return null;
-    let ticket = fnv1a(`cave-area|${root.ZoneVariants.identity(anchor)}|${depth}`) / 4294967296 * GROVE_WEIGHTS.reduce((sum, row) => sum + row.weight, 0);
-    for (const row of GROVE_WEIGHTS) {
+    if (!DEPTH_WEIGHTS[depth]) return null;
+    if (anchor.kind === 'quarry') return 'mine_tunnels';
+    if (anchor.kind !== 'grove') return null;
+    const weights = DEPTH_WEIGHTS[depth];
+    let ticket = fnv1a(`cave-area|${root.ZoneVariants.identity(anchor)}|${depth}`) / 4294967296 * weights.reduce((sum, row) => sum + row.weight, 0);
+    for (const row of weights) {
       ticket -= row.weight;
       if (ticket < 0) return row.id;
     }
@@ -31,11 +40,11 @@
     return null;
   }
   function plan(ctx) {
-    const out = { reserved: new Set(), areas: [], diagnostics: [], terrain: new Map(), objects: [], wildplants: [], moves: [] };
+    const out = { reserved: new Set(), areas: [], diagnostics: [], terrain: new Map(), objects: [], wildplants: [], moves: [], encounters: [] };
     const WG = root.WorldGen, V = root.ZoneVariants;
     const { surface, grid, N, tx, ty, tileEdgeM, depth } = ctx;
     const field = surface && surface.zone, coverage = field && (field.coverage || field.idx);
-    if (depth !== 1 || !coverage || !V || !WG) return out;
+    if (!DEPTH_WEIGHTS[depth] || !coverage || !V || !WG) return out;
     const source = field.caveSource || surface.caveSource || surface;
     const sourceGrid = source.baseGrid || source.grid;
     if (!sourceGrid) return out;
@@ -56,9 +65,11 @@
     // Coverage resolves ownership; identity order also makes diagnostics and
     // output order stable when a tile's anchor array is reordered.
     const anchors = (field.anchors || []).map((anchor, index) => ({ anchor, index, key: V.identity(anchor) }))
-      .filter(s => select(s.anchor, depth) === SPRING.id).sort((a, b) => a.key.localeCompare(b.key));
+      .filter(s => select(s.anchor, depth)).sort((a, b) => a.key.localeCompare(b.key));
     for (const s of anchors) {
       const a = V.anchorFrame(s.anchor, { N, tx, ty });
+      const variant = select(s.anchor, depth);
+      if (variant !== SPRING.id) { planNexus(ctx, out, s, a, frame, sourceGrid, sourceOpts); continue; }
       const radius = SPRING.stoneRadius + SPRING.ringHalfWidth;
       const half = Math.ceil(radius);
       const [left, top] = a.local(a.originX - half * a.unit, a.originY - half * a.unit);
@@ -74,13 +85,16 @@
         if (!frame.inTile(ix, iy)) { reason = 'tile_boundary'; break; }
         const i = iy * N + ix;
         if (coverage[i] !== s.index + 1 || out.reserved.has(i)) { reason = 'ownership'; break; }
-        if (grid[i] !== WG.T.CAVE_FLOOR ||
+        if ((grid[i] !== WG.T.CAVE_FLOOR && !(depth === 2 && grid[i] === WG.T.CAVE_WALL)) ||
             !WG.isSpawnCell(sourceGrid, N, N, ix, iy, sourceOpts, 'minor') ||
-            !WG.isSpawnCell(grid, N, N, ix, iy, caveOpts, 'minor')) { reason = 'blocked_ground'; break; }
+            !WG.isSpawnCell(sourceGrid, N, N, ix, iy, caveOpts, 'minor')) { reason = 'blocked_ground'; break; }
         const material = materialAt(u, v);
         cells.push({ i, ix, iy, u, v, material });
       }
       if (reason) { diagnostic.reason = reason; continue; }
+      if (depth === 2 && !cells.some(c => grid[c.i] === WG.T.CAVE_FLOOR)) {
+        diagnostic.reason = 'no_floor_access'; continue;
+      }
       const byCell = new Map(cells.map(c => [c.i, c]));
       const wet = i => ['source', 'water'].includes(byCell.get(i)?.material);
       // A grove's own mirrored reward can move to its bank; unrelated caches
@@ -91,7 +105,7 @@
       const old = mirror && positionOf(mirror);
       const oldHalo = old && halo(old.ix, old.iy);
       const relocating = oldHalo && oldHalo.some(wet);
-      const dry = new Set(occupied);
+      const dry = new Set([...occupied, ...(ctx.routeLane || [])]);
       for (const move of out.moves) { dry.delete(move.from); dry.add(move.to); }
       if (relocating) dry.delete(old.iy * N + old.ix);
       for (const object of landmarks) {
@@ -126,6 +140,7 @@
         ...frame.centre(centreX, centreY), reserved });
       for (const c of cells) {
         out.reserved.add(c.i);
+        if (grid[c.i] === WG.T.CAVE_WALL) out.terrain.set(c.i, WG.T.CAVE_FLOOR);
         if (c.material === 'source' || c.material === 'water') {
           out.terrain.set(c.i, c.material === 'source' ? WG.T.CAVE_WALL : WG.T.WATER);
           continue;
@@ -137,9 +152,170 @@
         if (c.material === 'mushroom') out.wildplants.push(WG.makeWildplant('mushroom', p.x, p.y, slotId, extra));
         else out.objects.push(WG.makeObject('mineralrock', p.x, p.y, slotId, { ...extra, requiredTier: 1, caveVariant: 0 }));
       }
+      addEncounters(ctx, out, out.areas[out.areas.length - 1], cells, dry,
+        [[-4,-2],[4,-2],[-4,2],[4,2],[-6,0],[0,6]].map(([u,v]) => ({u,v,kind:'skeleton',hidden:true,dormant:true,revealDistanceCells:1})));
       diagnostic.status = 'placed';
     }
     return out;
+  }
+  function addEncounters(ctx, out, area, cells, dry, seats) {
+    const used = new Set([...out.objects, ...out.wildplants].map(o => o._iy * ctx.N + o._ix));
+    for (const [slot, seat] of seats.entries()) {
+      const c = cells.find(c => Math.abs(c.u - seat.u) < .51 && Math.abs(c.v - seat.v) < .51);
+      if (!c || dry.has(c.i) || used.has(c.i) ||
+          (out.terrain.get(c.i) ?? ctx.grid[c.i]) !== root.WorldGen.T.CAVE_FLOOR) continue;
+      const frame = root.WorldGen.tileFrame({ cellsPerEdge: ctx.N }, ctx.tx, ctx.ty, ctx.tileEdgeM);
+      out.encounters.push({ ...seat, ...frame.centre(c.ix, c.iy), id: `${area.id}|enemy|${slot}`,
+        _ix: c.ix, _iy: c.iy, caveArea: area.id, depth: ctx.depth });
+      used.add(c.i);
+    }
+  }
+  // All room plans share canonical cell coordinates and the same gates. A
+  // blocked building remains an island in a chamber, never a carving target.
+  // Mine regions claim only the existing floor: ore does not dig its own access.
+  function planNexus(ctx, out, state, anchor, frame, sourceGrid, sourceOpts) {
+    const W = root.WorldGen, { N, tx, ty, depth, grid, surface } = ctx;
+    const kind = select(state.anchor, depth), mine = kind === 'mine_tunnels';
+    const coverage = surface.zone.coverage || surface.zone.idx;
+    const id = `cave_area|${state.key}|${depth}`;
+    const diagnostic = { anchorKey: state.key, variant: kind, status: 'declined', reason: null };
+    out.diagnostics.push(diagnostic);
+    const cells = [], radius = SPRING.stoneRadius + SPRING.ringHalfWidth;
+    const [left, top] = anchor.local(anchor.originX - 9 * anchor.unit, anchor.originY - 9 * anchor.unit);
+    const [right, bottom] = anchor.local(anchor.originX + 9 * anchor.unit, anchor.originY + 9 * anchor.unit);
+    const source = root.Underground?.surfaceData(surface);
+    for (let iy = top; iy <= bottom; iy++) for (let ix = left; ix <= right; ix++) {
+      const u = ((tx * 4096 + (ix + .5) * 4096 / N) - anchor.originX) / anchor.unit;
+      const v = ((ty * 4096 + (iy + .5) * 4096 / N) - anchor.originY) / anchor.unit;
+      if (Math.hypot(u, v) > radius) continue;
+      if (!frame.inTile(ix, iy)) { diagnostic.reason = 'tile_boundary'; return; }
+      const i = iy * N + ix;
+      if (coverage[i] !== state.index + 1 || out.reserved.has(i)) continue;
+      if (grid[i] !== W.T.CAVE_FLOOR && (mine || depth !== 2 || grid[i] !== W.T.CAVE_WALL)) continue;
+      const projectedStreet = mine && ctx.routeStreetCells?.has(i);
+      if (projectedStreet) {
+        // The route prepass already proved this is an eligible small street;
+        // only its existing cave floor is usable, never the neighbouring walls.
+        if (!source || !root.Underground.allowed(source, i, true) ||
+            !W.isSpawnCell(grid, N, N, ix, iy, {spawnWhy:ctx.spawnWhy}, 'minor')) continue;
+      } else if (!W.isSpawnCell(sourceGrid, N, N, ix, iy, sourceOpts, 'minor') ||
+          !W.isSpawnCell(sourceGrid, N, N, ix, iy, {spawnWhy:ctx.spawnWhy}, 'minor') ||
+          (source && !root.Underground.allowed(source, i))) continue;
+      cells.push({ i, ix, iy, u: Math.round(u), v: Math.round(v) });
+    }
+    if (cells.length < (mine ? 8 : 45)) { diagnostic.reason = 'insufficient_ground'; return; }
+    // A chamber must be reachable from existing geology floor. Flood within
+    // candidate ground; disconnected fragments do not mint duplicate budgets.
+    const byCell = new Map(cells.map(c => [c.i, c]));
+    const seeds = cells.filter(c => grid[c.i] === W.T.CAVE_FLOOR);
+    if (!seeds.length) { diagnostic.reason = 'no_floor_access'; return; }
+    seeds.sort((a,b) => Math.hypot(a.u,a.v) - Math.hypot(b.u,b.v) || a.i-b.i);
+    const reached = new Set([seeds[0].i]), queue = [seeds[0]];
+    for (let k = 0; k < queue.length; k++) {
+      const c = queue[k];
+      for (const i of [c.i-1,c.i+1,c.i-N,c.i+N]) if (byCell.has(i) && !reached.has(i)) {
+        reached.add(i); queue.push(byCell.get(i));
+      }
+    }
+    const usable = cells.filter(c => reached.has(c.i));
+    if (usable.length < (mine ? 8 : 45)) { diagnostic.reason = 'insufficient_connected_ground'; return; }
+    const [ix, iy] = anchor.local(anchor.originX, anchor.originY);
+    const area = { id, kind, anchorKey: state.key, depth, ix, iy, ...frame.centre(ix, iy), reserved: reached };
+    out.areas.push(area);
+    for (const c of usable) {
+      out.reserved.add(c.i);
+      if (grid[c.i] === W.T.CAVE_WALL) out.terrain.set(c.i, W.T.CAVE_FLOOR);
+    }
+    const dry = new Set([...(ctx.occupied || []), ...(ctx.routeLane || [])]);
+    for (const object of ctx.objects || []) {
+      const p = frame.cellOf(object.x, object.y);
+      for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++)
+        if (frame.inTile(p.ix+dx,p.iy+dy)) dry.add((p.iy+dy)*N+p.ix+dx);
+    }
+    const used = new Set(dry);
+    const cross = c => Math.abs(c.u) <= 1 || Math.abs(c.v) <= 1;
+    const court = c => !mine && Math.hypot(c.u,c.v) < 3;
+    const free = c => !used.has(c.i) && (mine || !cross(c));
+    const order = (list, salt) => list.slice().sort((a,b) =>
+      fnv1a(`${id}|${salt}|${a.u},${a.v}`) - fnv1a(`${id}|${salt}|${b.u},${b.v}`));
+    const put = (c, objectKind, extra={}) => {
+      if (!c || used.has(c.i)) return false;
+      const p = frame.centre(c.ix,c.iy), slot = `${id}|${c.u},${c.v}|${objectKind}`;
+      const attrs = { _ix:c.ix, _iy:c.iy, _cave:true, caveArea:id, depth, ...extra };
+      if (objectKind === 'mushroom') out.wildplants.push(W.makeWildplant('mushroom',p.x,p.y,slot,attrs));
+      else out.objects.push(W.makeObject(objectKind,p.x,p.y,slot,attrs));
+      used.add(c.i); return true;
+    };
+    const shrine = kind === 'goblin_warrens' ? 'ember_altar' : kind === 'mushroom_cavern' ? 'toad_idol' : null;
+    if (shrine) {
+      const seat = usable.filter(free).sort((a,b) => Math.hypot(a.u,a.v)-Math.hypot(b.u,b.v) || a.i-b.i)
+        .find(c => [-1,0,1].every(dy => [-1,0,1].every(dx => {
+          const i=(c.iy+dy)*N+c.ix+dx; return reached.has(i) && !used.has(i);
+        })));
+      if (put(seat,'grove_shrine',{shrineKind:shrine})) {
+        for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++) used.add((seat.iy+dy)*N+seat.ix+dx);
+      }
+    }
+    const seats = [];
+    if (kind === 'goblin_warrens') {
+      // Independent row and column spans give 3x3, 3x5 and 5x3 rooms.
+      // Doors sit at each wall midpoint; the cardinal avenue always remains.
+      const rooms = [];
+      const ys=[-7,-3,3,7];
+      for (let row=0;row<3;row++) {
+        const xs=row===1 ? [-7,-1,3,7] : [-7,-3,3,7];
+        for (let col=0;col<3;col++) {
+          const r={left:xs[col],right:xs[col+1],top:ys[row],bottom:ys[row+1]};
+          r.u=Math.round((r.left+r.right)/2); r.v=Math.round((r.top+r.bottom)/2);
+          const interior=usable.filter(c=>c.u>r.left&&c.u<r.right&&c.v>r.top&&c.v<r.bottom);
+          if(interior.length >= 6) rooms.push(r);
+        }
+      }
+      area.roomCount=rooms.length;
+      area.rooms=rooms;
+      const roomLane = new Set(usable.filter(c => rooms.some(r =>
+        (c.u === r.u && c.v >= r.top && c.v <= r.bottom) ||
+        (c.v === r.v && c.u >= r.left && c.u <= r.right))).map(c => c.i));
+      const budget=Math.max(1,Math.round(rooms.length * BUDGETS.goblins[depth]/BUDGETS.referenceRooms));
+      for(const room of order(rooms.map((r,i)=>({...r,i})), 'rooms').slice(0,budget)) {
+        const c=usable.filter(c=>c.u>room.left&&c.u<room.right&&c.v>room.top&&c.v<room.bottom&&free(c))
+          .sort((a,b)=>Math.hypot(a.u-room.u,a.v-room.v)-Math.hypot(b.u-room.u,b.v-room.v))[0];
+        if(c) {seats.push({...c,kind:depth===2 && seats.length%2 ? 'spear_goblin':'club_goblin'}); used.add(c.i);}
+      }
+      for(const c of usable) {
+        if(!free(c)||court(c)||roomLane.has(c.i)) continue;
+        const wall=rooms.some(r=> ((c.u===r.left||c.u===r.right)&&c.v>=r.top&&c.v<=r.bottom&&c.v!==r.v)
+          ||((c.v===r.top||c.v===r.bottom)&&c.u>=r.left&&c.u<=r.right&&c.u!==r.u));
+        if(wall) put(c,'mineralrock',{requiredTier:1,caveVariant:0});
+      }
+      // One finite store per five fitted rooms replaces the ambient containers
+      // excluded by this area's reservation; no ordinary reward cache is added.
+      const allocated = W.caveContainerBudget(tx,ty,depth);
+      const spent = out.objects.filter(o => o.barrel).length;
+      const storeCount = Math.min(Math.ceil(rooms.length/5), Math.max(0, allocated-spent));
+      const stores=order(usable.filter(c=>free(c)&&!court(c)&&!roomLane.has(c.i)), 'stores').slice(0,storeCount);
+      for(const c of stores) put(c,'chest',{barrel:true});
+    } else if(kind === 'mushroom_cavern') {
+      const enemies=Math.max(1,Math.round(usable.length*BUDGETS.mushrooms/BUDGETS.referenceCells));
+      for(const c of order(usable.filter(c=>free(c)&&!court(c)), 'enemies').slice(0,enemies)) {
+        seats.push({...c,kind:'mushroom_monster'}); used.add(c.i);
+      }
+      const count=Math.max(1,Math.round(usable.length*BUDGETS.harvest/BUDGETS.referenceCells));
+      for(const c of order(usable.filter(c=>free(c)&&!court(c)), 'beds').slice(0,count)) put(c,'mushroom');
+    } else {
+      const pockets=order(usable.filter(c=>free(c)&&!court(c)&&
+        (mine || Math.hypot(c.u,c.v)>5)), 'pockets');
+      const count=Math.max(1,Math.round(usable.length*(mine?BUDGETS.ore:BUDGETS.gems)/BUDGETS.referenceCells));
+      for(const c of pockets.slice(0,count)) {
+        const mineral = mine ? {yieldTier:Math.max(2,depth),requiredTier:Math.max(1,depth-1)}
+          : root.Underground.gem(depth,`${id}|${c.u},${c.v}`);
+        if(mineral) put(c,'mineralrock',mineral);
+      }
+      if(!mine) for(const c of order(usable.filter(c=>free(c)&&!court(c)), 'enemies').slice(0,depth+1))
+        seats.push({...c,kind:['cave_slime','bat','spider'][seats.length]});
+    }
+    addEncounters(ctx,out,area,usable,dry,seats);
+    diagnostic.status='placed';
   }
   function apply(plan, grid, objects, wildplants, occupied) {
     for (const move of plan.moves) {
@@ -156,5 +332,5 @@
     for (const o of plan.objects.concat(plan.wildplants)) occupied.add(o._iy * N + o._ix);
     return plan;
   }
-  root.CaveAreas = { SPRING, GROVE_WEIGHTS, select, materialAt, plan, apply };
+  root.CaveAreas = { SPRING, GROVE_WEIGHTS, DEPTH_WEIGHTS, BUDGETS, select, materialAt, plan, apply };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -90,7 +90,9 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
   occupancy (`CaveAreas`); ambient spawns must respect both. Derive deeper
-  floors from `geologyGrid`, before authored terrain changes.
+  floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
+  and gem conversion must leave `caveArea` pieces intact. Authored warren
+  stores spend `WorldGen.caveContainerBudget` before ambient barrels.
 
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
