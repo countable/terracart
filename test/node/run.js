@@ -1243,10 +1243,11 @@ ctx.RENDER_SRC = readSrc('render.js');
 ctx.TILLED_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
   vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
-    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR };',
+    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD };',
     c, { filename: 'textures.js#tilled' });
   return c.__x;
 })();
+ctx.SHRINE_PAD = ctx.TILLED_TEX.SHRINE_PAD;
 // textures.js as TEXT: traps.test.js pins that both trap textures are baked one cell square off TRAP_PX.
 ctx.TEXTURES_SRC = readSrc('textures.js');
 // The trap art, in its own context like TILLED_TEX; these makers take a SCENE,

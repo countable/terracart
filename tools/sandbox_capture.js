@@ -40,7 +40,12 @@ window.setupSandboxCapture = async function setupSandboxCapture(options = {}) {
       obj?.setVisible?.(false);
       obj?.image?.setVisible?.(false);
     }
-    if (options.hideCreatures) {scene.creaturesContainer?.setVisible(false);scene.creatureShadowPool?.forEach(s=>s.setVisible(false));}
+    // Actors and building faces share worldContainer. Hide only creature
+    // sprites, so a terrain capture still includes props and upright walls.
+    if (options.hideCreatures) {
+      scene.creaturePool?.forEach(s=>s.setVisible(false));
+      scene.creatureShadowPool?.forEach(s=>s.setVisible(false));
+    }
     scene.plantedTimerPool?.forEach(t=>t.setVisible(false));
   }
   function draw(x,y) {
