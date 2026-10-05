@@ -4,6 +4,8 @@ const DAY = 24 * 60 * 60 * 1000;
 const petScene = (save, over = {}) => Object.assign(makeScene(), {
   save, cellM: 5, cellPx: 32, cellsPerTile: 32, mPerPx: 5 / (WorldGen.TILE_PX / 32), originPx: { x: 0, y: 0 },
   startWorldM: { x: 0, y: 0 }, playerM: { x: 2.5, y: 2.5 }, feetOffsetM: 0, depth: 0, tileEdgeM: 1000,
+  // Wild feeding and capture are tested outside Home's wildlife circle.
+  _starterTrailAnchor: () => ({ x: 10000, y: 10000 }),
   playerToWorldCell: () => ({ tx: 0, ty: 0 }), buildInventoryDOM: () => {}, _toolActionStory: () => {},
   // addToInv writes the REAL bag so Inventory.roomFor sees it.
   addToInv: (id, n = 1) => Inventory.add(save, id, n).accepted,

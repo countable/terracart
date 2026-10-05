@@ -20,6 +20,8 @@ const makeSelf = (over = {}) => Object.assign({
   cellM: 1,
   cellAt: () => ({ loaded: true, type: 0 }),   // 0 is not in FAUNA_BLOCKED_TYPES — never blocks a dash target
   save: { planted: [] },
+  // Exercise wild movement away from Home's chicken-and-deer circle.
+  _starterTrailAnchor: () => ({ x: 10000, y: 10000 }),
   _nearAny: () => false,
   // The roam's placed-rock check projects the target (worldMetersToAbsCell).
   startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 }, mPerPx: 1, cellsPerTile: WorldGen.TILE_PX, placedRockSet: null,
