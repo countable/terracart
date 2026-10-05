@@ -702,6 +702,15 @@ Object.assign(ctx, {
     process.exit(2);
   }
   const kindEnd = src.indexOf('\n  }\n', kindAt + kindHead.length);
+  // The walk-only settled predicate is lifted too: tile_retry.test.js runs its
+  // real nine cache lookups across marker, depth, ready and spawn changes.
+  const settledHead = '  _walkTileBlockSettled(cell) {\n';
+  const settledAt = src.indexOf(settledHead);
+  if (settledAt < 0) {
+    console.error('Could not find _walkTileBlockSettled in src/scene_geo.js — update run.js');
+    process.exit(2);
+  }
+  const settledEnd = src.indexOf('\n  }\n', settledAt + settledHead.length);
   // The call sites matter: the banner must be the CENTRE tile's verdict
   // alone, and a permanent answer must arm no retry.
   for (const [re, what] of [
@@ -709,11 +718,16 @@ Object.assign(ctx, {
     [/if \(kind !== 'permanent'\) anyRetry = true;/, 'skip the retry on a permanent failure'],
     [/if \(kind === 'failed' && k === centreKey\) \{ centreFailed = true; centreWhy = e\.message; \}/, 'banner only on the centre tile'],
     [/this\.showBanner\(centreFailed, centreWhy\);/, 'show the banner from centreFailed'],
+    [/if \(settle\(\)\) this\._settledTilePassKey = passKey;/, 'stamp only a complete current ring'],
   ]) {
     if (!re.test(src)) {
       console.error(`ensureTilesAround no longer appears to ${what} — update run.js`);
       process.exit(2);
     }
+  }
+  if (!/if \(!this\._walkTileBlockSettled\(tileCell\)\)/.test(SCENE_SRC)) {
+    console.error('the 20 m walk check no longer consults _walkTileBlockSettled — update run.js');
+    process.exit(2);
   }
   vm.runInContext(
     'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
@@ -721,7 +735,9 @@ Object.assign(ctx, {
     + 'globalThis.scheduleTileRetry = function (anyFailed) {\n'
     + src.slice(bodyStart, end) + '\n};\n'
     + 'globalThis.tileFailureKind = function (err, entry) {\n'
-    + src.slice(kindAt + kindHead.length, kindEnd) + '\n};',
+    + src.slice(kindAt + kindHead.length, kindEnd) + '\n};\n'
+    + 'globalThis.walkTileBlockSettled = function (cell) {\n'
+    + src.slice(settledAt + settledHead.length, settledEnd) + '\n};',
     ctx, { filename: 'scheduleTileRetry.js' });
 }
 

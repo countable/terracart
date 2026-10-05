@@ -3302,8 +3302,16 @@ class MapScene extends Phaser.Scene {
     if (!this._lastCheckM ||
         Math.hypot(this.playerM.x - this._lastCheckM.x, this.playerM.y - this._lastCheckM.y) > 20) {
       this._lastCheckM = { ...this.playerM };
-      window.__boot?.mark('walked 20m — checking tiles');
-      this.ensureTilesAround().catch(() => {});
+      // GPS jitter can carry the smoothed body 20 m inside one tile. Skip that
+      // walk re-check once SceneGeo has settled this depth's whole 3×3, or its
+      // eight idle waits cost about 3.2 s despite every tile already being ready.
+      // Missing, rebuilt and unspawned entries fail the predicate and still heal
+      // through this path; boot, retries and Overpass re-entry bypass it entirely.
+      const tileCell = this.playerToWorldCell();
+      if (!this._walkTileBlockSettled(tileCell)) {
+        window.__boot?.mark('walked 20m — checking tiles');
+        this.ensureTilesAround().catch(() => {});
+      }
     }
 
     // Watering + harvesting are still tap-driven. STAGE ADVANCEMENT, however,
