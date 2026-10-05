@@ -117,6 +117,11 @@
         if (!eligible(scene, h)) continue;
         const cells = new Set(footprint(scene, h).map(c => `${c.cellIX}:${c.cellIY}`));
         if ([...s.vents, ...s.sinkholes].some(other => footprint(scene, other).some(c => cells.has(`${c.cellIX}:${c.cellIY}`)))) continue;
+        const pressure = scene._pressureTraps;
+        if ([...(pressure?.plates || []), ...(pressure?.traps || [])].some(other => {
+          const c = scene.cellAt(other.x, other.y);
+          return cells.has(`${c.cellIX}:${c.cellIY}`);
+        })) continue;
         h.visitKey = visitKey; list.push(h); break;
       }
     }

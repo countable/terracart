@@ -55,6 +55,8 @@ const ASSETS = {
     onLoad: (scene) => { scene.textures.get('stair_down').add('down', 0, 0, 16, 32, 16); },
   },
   stair_up:   { kind: 'image', path: 'assets/Objects/Approved/stair_up.png' },
+  rolling_ball: { kind: 'spritesheet', path: 'assets/Objects/RollingBallAndWall/ball.png', frameWidth: 24, frameHeight: 24 },
+  sliding_spike_wall: { kind: 'spritesheet', path: 'assets/Objects/RollingBallAndWall/spike-wall.png', frameWidth: 24, frameHeight: 24 },
   vent_cycle: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/vent-cycle-complete.png', frameWidth: 24, frameHeight: 24 },
   sinkhole: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/sinkhole.png', frameWidth: 48, frameHeight: 48 },
   whirlwind: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/tornado.png', frameWidth: 48, frameHeight: 48 },

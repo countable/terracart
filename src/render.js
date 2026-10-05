@@ -3513,7 +3513,13 @@ Render.drawObjects = function drawObjects(scene) {
   const environmentList = [...hazardState.vents, ...hazardState.sinkholes].map(h => ({
     h, dx: h.x - pWorldX, dy: h.y - pWorldY,
   })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
+  const pressureState = PressureTraps.lists(scene);
+  const pressureList = [...pressureState.plates.map(h => ({ h, plate: true })),
+    ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
+      ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
+    })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const zList = [];
+  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate, groundY: groundY(it) });
   for (const it of environmentList) zList.push({ it, rank: 1,
     ground: it.h.type === 'sinkhole', groundY: groundY(it) });
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
@@ -4445,6 +4451,15 @@ Render.drawObjects = function drawObjects(scene) {
     }
     Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }
+
+  scene._pressureTrapPool ||= [];
+  Render.renderPool(scene, scene._pressureTrapPool, scene.creaturesContainer, pressureList, (s, it) => {
+    const { x: sx, y: sy } = project(it.dx, it.dy);
+    const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
+    s.anims?.stop();
+    s.setTexture(key, it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
+      .setPosition(Math.round(sx), Math.round(sy)).setDepth(it._z).setAlpha(1).setTint(0xffffff);
+  });
 
   scene._environmentHazardPool ||= [];
   Render.renderPool(scene, scene._environmentHazardPool, scene.creaturesContainer, environmentList, (s, it) => {
