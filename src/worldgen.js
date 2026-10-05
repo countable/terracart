@@ -8426,6 +8426,13 @@
   const FLOOR_TORCH_MIN = 24, FLOOR_TORCH_SPAN = 13, FLOOR_TORCH_TRIES = 8;
   const CAVE_BARREL_DEPTH = 1;
   const CAVE_BARREL_MIN = 12, CAVE_BARREL_SPAN = 8, CAVE_BARREL_TRIES = 8;
+  // Shallow floors share one finite container allocation. L1 fills the
+  // remainder ordinarily; L2 spends it only on authored warren stores.
+  function caveContainerBudget(tx, ty, depth) {
+    if (depth < 1 || depth > 2) return 0;
+    const rng = makeRng(tileStreamSeed(tx, ty, 0x7FEB352D, depth));
+    return CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN);
+  }
   // A uniformly random cell of the level (the TRIES rows' pick).
   const anyCell = (rng, px, py, L) => ({ lix: Math.floor(rng() * L.N), liy: Math.floor(rng() * L.N) });
   // A cell within ±R of a pivot (the clusters' seat): two draws.
@@ -8539,7 +8546,8 @@
       emit: (L, c, p) => L.wildplants.push(makeWildplant('torch', p.x, p.y,
         cellId(`ctorch_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { _ix: c.lix, _iy: c.liy })) },
     { id: 'barrels', salt: 0x7FEB352D, when: (L) => L.depth === CAVE_BARREL_DEPTH,
-      count: (rng) => CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN), tries: CAVE_BARREL_TRIES, pick: anyCell,
+      count: (rng, L) => Math.max(0, CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN)
+        - L.objects.filter(o => o.caveArea && o.barrel).length), tries: CAVE_BARREL_TRIES, pick: anyCell,
       emit: (L, c, p) => L.objects.push(makeObject('chest', p.x, p.y,
         cellId(`cbarrel_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { barrel: true, depth: L.depth })) },
     // Sample free floor without replacement so every tile has its full quota
@@ -8676,7 +8684,7 @@
     const field = surface.zone, coverage = field?.coverage || field?.idx;
     if (!coverage) return;
     for (const rock of objects) {
-      if (rock.kind !== 'mineralrock') continue;
+      if (rock.kind !== 'mineralrock' || rock.caveArea) continue;
       const { lix, liy } = cellIndexOf(tx, ty, rock.x, rock.y, tileEdgeM, N);
       if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
       const anchor = field.anchors[coverage[liy * N + lix] - 1];
@@ -8866,7 +8874,14 @@
     // Every cave placement pass shares these reservations, including mirrors,
     // torches, gem seams and rewards. Keep the actual terrain walkable.
     for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i]) occupied.add(i);
-    const { clearings, residents } = undergroundClearings(areas, grid, N, x, y, tileEdgeM, objects, occupied);
+    // Reuse the pure nexus planner as a reservation prepass: generic D2
+    // settlements must not consume its shrine/cache/encounter space first.
+    // Final planning below sees the surviving, tiered mirrored caches.
+    const proposedAreas = global.CaveAreas.plan({ surface, grid, N, tx: x, ty: y, tileEdgeM, depth,
+      objects, occupied, spawnWhy, routeLane: underground?.lane, routeStreetCells: underground?.streetCells });
+    const clearingOccupied = new Set([...occupied, ...proposedAreas.reserved]);
+    const { clearings, residents } = undergroundClearings(areas, grid, N, x, y, tileEdgeM, objects, clearingOccupied);
+    for (const i of clearingOccupied) if (!proposedAreas.reserved.has(i)) occupied.add(i);
     const chestSources = depth === 3 ? (surface.genObjects || surface.objects || []) : aboveObjects;
     for (const c of caveChestsFrom(chestSources, grid, N, x, y, tileEdgeM, depth, occupied)) {
       objects.push(c);
@@ -8882,16 +8897,16 @@
     for (const t of caveTorchesFrom(torchSites, grid, N, x, y, tileEdgeM, depth, occupied)) {
       objects.push(t);
     }
-    objects.push(...caveQuarryGemsFrom(aboveObjects, grid, N, x, y, tileEdgeM, depth, occupied));
     // The floor passes (CAVE_PASSES), in table order: the rocks, then the
     // mushrooms, then the level's own extras — each only takes what is left.
     const wildplants = [];
     const caveAreas = global.CaveAreas.plan({ surface, grid, N, tx: x, ty: y, tileEdgeM, depth,
-      objects, occupied, spawnWhy });
+      objects, occupied, spawnWhy, routeLane: underground?.lane, routeStreetCells: underground?.streetCells });
     global.CaveAreas.apply(caveAreas, grid, objects, wildplants, occupied);
     // Area ownership includes its empty banks and approaches. Own placements
     // use real occupancy; ordinary floor passes also respect the whole area.
     const ambientOccupied = new Set([...occupied, ...caveAreas.reserved]);
+    objects.push(...caveQuarryGemsFrom(aboveObjects, grid, N, x, y, tileEdgeM, depth, ambientOccupied));
     const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, ambientOccupied, { objects, wildplants });
     level.underground = underground;
     for (const row of CAVE_PASSES) runCavePass(row, level);
@@ -9099,7 +9114,7 @@
     ARENA_DEPTH, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
-    caveBarrels, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,
+    caveBarrels, caveContainerBudget, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,
     caveWallTorches, caveChestRings, CAVE_RING_CELLS, caveCoins, caveTreasureMarks,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule

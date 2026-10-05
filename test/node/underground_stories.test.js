@@ -35,3 +35,13 @@ test('underground stories: route discovery retries a busy modal and respects the
     if (previous) WorldGen.tileCache.set(key, previous); else WorldGen.tileCache.delete(key);
   }
 });
+
+test('underground stories: placed nexus takes priority over crossing routes', () => {
+  for (const kind of ['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'mine_tunnels']) {
+    const entry = { cellsPerEdge: 4, caveAreas: { areas: [{ kind, reserved: new Set([5]) }] },
+      underground: { routeAt: new Map([[5, { theme: 'root_passage' }], [6, { theme: 'root_passage' }]]) } };
+    assert.eq(UndergroundStories.at(entry, 1, 1), UndergroundStories.KINDS[kind]);
+    assert.eq(UndergroundStories.at(entry, 2, 1), UndergroundStories.KINDS.root_passage);
+    assert.eq(UndergroundStories.at(entry, 0, 0), null);
+  }
+});

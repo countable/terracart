@@ -1415,6 +1415,7 @@ class SceneCreatures {
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       if (ox >= 0 && oy >= 0 && ox < N && oy < N) occupiedIdx.add(oy * N + ox);
     }
+    const authoredBlocked = new Set(occupiedIdx);
     for (const i of entry.undergroundReserved || []) occupiedIdx.add(i);
     for (const resident of entry.undergroundResidents || []) {
       const { x, y, id, culture, dwarf } = resident;
@@ -1437,6 +1438,24 @@ class SceneCreatures {
       const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       if (ox >= 0 && oy >= 0 && ox < N && oy < N) heldByPlayer.add(oy * N + ox);
+    }
+    // Finite region seats are authored before the ambient passes. Their
+    // reservations survive defeat; caught IDs never free ground for a reroll.
+    for (const seat of entry.caveAreas?.encounters || []) {
+      if (seat.depth !== depth || monsterSeats.has(seat.id)) continue;
+      const cx = Math.floor((seat.x - tx * entry.tileEdgeM) / cellSizeM);
+      const cy = Math.floor((seat.y - ty * entry.tileEdgeM) / cellSizeM);
+      const idx = cy * N + cx;
+      if (cx < 0 || cy < 0 || cx >= N || cy >= N || genGrid[idx] !== 24
+          || authoredBlocked.has(idx)) continue;
+      occupiedIdx.add(idx);
+      monsterSeats.add(seat.id);
+      if (caughtSet.has(seat.id) || heldByPlayer.has(idx)) continue;
+      creatures.push(WorldGen.makeCreature(seat.kind, seat.x, seat.y, seat.id, {
+        depth, shiny: false, caveArea: seat.caveArea,
+        hidden: !!seat.hidden, dormant: !!seat.dormant,
+        revealDistanceCells: seat.revealDistanceCells,
+      }));
     }
     // A roost owns one fixed dragon seat even after defeat. Reserve before
     // ordinary pools so losing the dragon cannot regenerate another enemy.
