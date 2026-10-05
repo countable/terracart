@@ -31,7 +31,7 @@
     return null;
   }
   function plan(ctx) {
-    const out = { reserved: new Set(), areas: [], diagnostics: [], terrain: new Map(), objects: [], wildplants: [] };
+    const out = { reserved: new Set(), areas: [], diagnostics: [], terrain: new Map(), objects: [], wildplants: [], moves: [] };
     const WG = root.WorldGen, V = root.ZoneVariants;
     const { surface, grid, N, tx, ty, tileEdgeM, depth } = ctx;
     const field = surface && surface.zone, coverage = field && (field.coverage || field.idx);
@@ -41,15 +41,16 @@
     if (!sourceGrid) return out;
     const occupied = ctx.occupied || new Set();
     const frame = WG.tileFrame({ cellsPerEdge: N }, tx, ty, tileEdgeM);
-    const dry = new Set(occupied);
-    // Landmarks retain a one-cell approach on all sides, even if their caller
-    // has only registered their own cell in occupied.
-    for (const o of ctx.objects || []) {
-      const c = frame.cellOf(o.x, o.y);
+    const landmarks = ctx.objects || [];
+    const halo = (ix, iy) => {
+      const cells = [];
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        if (frame.inTile(c.ix + dx, c.iy + dy)) dry.add((c.iy + dy) * N + c.ix + dx);
+        if (!frame.inTile(ix + dx, iy + dy)) return null;
+        cells.push((iy + dy) * N + ix + dx);
       }
-    }
+      return cells;
+    };
+    const positionOf = object => out.moves.find(move => move.object === object) || frame.cellOf(object.x, object.y);
     const sourceOpts = { spawnWhy: source.spawnWhy || surface.spawnWhy, roadMask: surface.roadMask };
     const caveOpts = { spawnWhy: ctx.spawnWhy };
     // Coverage resolves ownership; identity order also makes diagnostics and
@@ -77,10 +78,47 @@
             !WG.isSpawnCell(sourceGrid, N, N, ix, iy, sourceOpts, 'minor') ||
             !WG.isSpawnCell(grid, N, N, ix, iy, caveOpts, 'minor')) { reason = 'blocked_ground'; break; }
         const material = materialAt(u, v);
-        if (dry.has(i) && (material === 'source' || material === 'water')) { reason = 'landmark_pool'; break; }
         cells.push({ i, ix, iy, u, v, material });
       }
       if (reason) { diagnostic.reason = reason; continue; }
+      const byCell = new Map(cells.map(c => [c.i, c]));
+      const wet = i => ['source', 'water'].includes(byCell.get(i)?.material);
+      // A grove's own mirrored reward can move to its bank; unrelated caches
+      // and stairs remain fixed. Surface dressing uses this same POI match.
+      const sourceChest = s.anchor.owned && (surface.genObjects || surface.objects || []).find(o =>
+        o.kind === 'chest' && o._poiAt === `${s.anchor.lx},${s.anchor.ly}`);
+      const mirror = sourceChest && landmarks.find(o => o.kind === 'chest' && o.caveOf === sourceChest.id);
+      const old = mirror && positionOf(mirror);
+      const oldHalo = old && halo(old.ix, old.iy);
+      const relocating = oldHalo && oldHalo.some(wet);
+      const dry = new Set(occupied);
+      for (const move of out.moves) { dry.delete(move.from); dry.add(move.to); }
+      if (relocating) dry.delete(old.iy * N + old.ix);
+      for (const object of landmarks) {
+        if (relocating && object === mirror) continue;
+        const p = positionOf(object);
+        // Preserve boundary landmarks too; their in-tile approach still counts.
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if (frame.inTile(p.ix + dx, p.iy + dy)) dry.add((p.iy + dy) * N + p.ix + dx);
+        }
+      }
+      let move = null;
+      if (relocating) {
+        // Prefer the east bank, then the other cardinal banks. The reward's
+        // dry approach suppresses authored mushrooms just like any landmark.
+        for (const [u, v] of [[5, 0], [0, 5], [-5, 0], [0, -5]]) {
+          const [ix, iy] = a.local(a.originX + u * a.unit, a.originY + v * a.unit);
+          const to = iy * N + ix, access = halo(ix, iy);
+          if (byCell.get(to)?.material || !access || access.some(i => !byCell.has(i) || wet(i) || dry.has(i))) continue;
+          move = { object: mirror, from: old.iy * N + old.ix, to, ...frame.centre(ix, iy), ix, iy };
+          for (const i of access) dry.add(i);
+          break;
+        }
+        if (!move) { diagnostic.reason = 'mirror_bank_blocked'; continue; }
+      }
+      if (cells.some(c => wet(c.i) && dry.has(c.i))) { diagnostic.reason = 'landmark_pool'; continue; }
+      // Commit proposed movement to the plan only after the whole area passes.
+      if (move) out.moves.push(move);
       const id = `cave_area|${s.key}|${depth}`;
       const reserved = new Set(cells.map(c => c.i));
       const [centreX, centreY] = a.local(a.originX, a.originY);
@@ -104,6 +142,11 @@
     return out;
   }
   function apply(plan, grid, objects, wildplants, occupied) {
+    for (const move of plan.moves) {
+      Object.assign(move.object, { x: move.x, y: move.y, _ix: move.ix, _iy: move.iy });
+      occupied.delete(move.from);
+      occupied.add(move.to);
+    }
     for (const [i, terrain] of plan.terrain) grid[i] = terrain;
     objects.push(...plan.objects);
     wildplants.push(...plan.wildplants);

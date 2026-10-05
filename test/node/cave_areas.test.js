@@ -107,8 +107,8 @@
   });
 
   test('cave areas: protected stairs and existing chests retain dry landings through the pool', () => {
-    for (const kind of ['staircase', 'chest']) {
-      const f = fixture(), x = f.cx + 1, y = f.cy + 1;
+    for (const kind of ['staircase', 'chest']) for (const delta of [0, 1]) {
+      const f = fixture(), x = f.cx + delta, y = f.cy + delta;
       const protectedObject = { kind, dir: 'up', id: `spring-protected-${kind}`, ...at(f, x, y) };
       f.objects.push(protectedObject); f.occupied.add(y * N + x);
       const p = CaveAreas.plan(f);
@@ -151,6 +151,74 @@
     for (const i of p.reserved) assert.truthy(occupied.has(i), 'sweep cannot reopen reserved banks');
     assert.eq(plants.filter(o => p.reserved.has(index(f, o))).map(o => o.id).sort().join(), before,
       'ordinary fairy-ring mushrooms cannot replace authored seats');
+  });
+
+  function groveChestFixture() {
+    const f = fixture(), anchor = f.surface.zone.anchors[0];
+    anchor.originGX = anchor.gx; anchor.originGY = anchor.gy;
+    const source = { kind: 'chest', poiClass: 'park', id: 'spring-grove-source', rank: 4,
+      _poiAt: `${anchor.lx},${anchor.ly}`, ...at(f, f.cx, f.cy) };
+    f.surface.objects.push(source); f.surface.genObjects.push(source);
+    return { f, source };
+  }
+
+  test('cave areas: canonical grove mirror relocation is transactional and retains its reward identity', () => {
+    for (const excluded of [false, true]) {
+      const { f, source } = groveChestFixture();
+      const mirror = { kind: 'chest', poiClass: 'park', id: `${source.id}_d1`, caveOf: source.id,
+        depth: 1, rank: source.rank, tierSeed: 3, ...at(f, f.cx, f.cy) };
+      const original = JSON.stringify(mirror), originalCell = index(f, mirror);
+      f.objects.push(mirror); f.occupied.add(originalCell);
+      if (excluded) f.spawnWhy[(f.cy + 5) * N + f.cx + 5] = W.SPAWN_WHY.FARMLAND;
+      const p = CaveAreas.plan(f);
+      assert.eq(JSON.stringify(mirror), original, 'planning never moves live chest');
+      assert.truthy(f.occupied.has(originalCell), 'planning leaves source occupancy intact');
+      assert.eq(p.moves.length, excluded ? 0 : 1);
+      assert.eq(p.areas.length, excluded ? 0 : 1);
+      CaveAreas.apply(p, f.grid, f.objects, [], f.occupied);
+      assert.eq(f.objects.filter(o => o.kind === 'chest').length, 1, 'no new reward allocation');
+      assert.includes(f.objects, mirror, 'existing object identity retained');
+      assert.eq(mirror.id, `${source.id}_d1`); assert.eq(mirror.caveOf, source.id);
+      assert.eq(mirror.rank, source.rank); assert.eq(mirror.tierSeed, 3);
+      if (excluded) {
+        assert.eq(JSON.stringify(mirror), original, 'declined area cannot move chest');
+      } else {
+        const destination = index(f, mirror), x = destination % N, y = Math.floor(destination / N);
+        assert.truthy(destination !== originalCell, 'central chest seats on dry bank');
+        assert.falsy(f.occupied.has(originalCell)); assert.truthy(f.occupied.has(destination));
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const i = (y + dy) * N + x + dx;
+          assert.eq(f.grid[i], T.CAVE_FLOOR, 'destination halo stays dry');
+          assert.falsy(p.objects.concat(p.wildplants).some(o => index(f, o) === i), 'destination halo stays clear');
+        }
+      }
+    }
+  });
+
+  test('cave areas: loader seats the existing canonical grove mirror on the Spring bank', async () => {
+    const { f, source } = groveChestFixture(), key = W.tileKey(f.tx, f.ty);
+    W.setDepth(0).set(key, f.surface);
+    try {
+      const entry = await W.loadTile.atDepth(1, f.tx, f.ty, 49);
+      assert.eq(entry.caveAreas.areas.length, 1);
+      const mirrors = entry.objects.filter(o => o.caveOf === source.id);
+      assert.eq(mirrors.length, 1);
+      const mirror = mirrors[0], i = index(f, mirror), x = i % N, y = Math.floor(i / N);
+      assert.eq(mirror.id, `${source.id}_d1`); assert.eq(mirror.rank, source.rank);
+      assert.gt(mirror.tierSeed, 0, 'quota tier survives relocation');
+      assert.truthy(i !== f.cy * N + f.cx);
+      assert.truthy(entry.caveAreas.reserved.has(i));
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const seat = (y + dy) * N + x + dx;
+        assert.eq(entry.grid[seat], T.CAVE_FLOOR);
+        for (const o of entry.objects.concat(entry.wildplants)) if (o !== mirror)
+          assert.truthy(index(f, o) !== seat, 'mirror retains a clear approach after ambient dressing');
+      }
+      assert.eq(index(f, source), f.cy * N + f.cx, 'surface chest stays at its own canonical origin');
+    } finally {
+      for (const depth of [0, 1]) W.setDepth(depth).delete(key);
+      W.setDepth(0);
+    }
   });
 
   test('cave areas: generation is stable on reload and limited to level one', () => {

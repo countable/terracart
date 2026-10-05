@@ -12,7 +12,8 @@ for (const name of ['util', 'zone_variant_data', 'zone_variants', 'worldgen', 'c
 const { WorldGen: W, ZoneVariants: V, CaveAreas: C } = ctx;
 const N = 64, ty = 20, tileEdgeM = N * W.CELL_M;
 const anchorFor = tx => ({ kind: 'grove', gx: tx * 4096 + 32.5 * 64,
-  gy: ty * 4096 + 32.5 * 64, upm: tileEdgeM / 4096 });
+  gy: ty * 4096 + 32.5 * 64, originGX: tx * 4096 + 32.5 * 64,
+  originGY: ty * 4096 + 32.5 * 64, lx: 32.5 * 64, ly: 32.5 * 64, owned: true, upm: tileEdgeM / 4096 });
 let tx = 0;
 while (C.select(anchorFor(tx), 1) !== 'spring_cave') {
   if (++tx > 10000) throw new Error('No Spring Cave fixture anchor found');
@@ -31,20 +32,37 @@ function fixture(title, description, setup) {
     objects.push({ kind, ...frame.centre(ix, iy), _ix: ix, _iy: iy });
     occupied.add(iy * N + ix);
   };
-  if (setup) setup({ grid, surface, landmark });
+  const sourceMirror = () => {
+    const source = { kind: 'chest', id: 'preview_grove_chest', poiClass: 'park',
+      _poiAt: `${anchor.lx},${anchor.ly}`, ...frame.centre(cx, cy) };
+    surface.genObjects = [source];
+    surface.objects = [source];
+    objects.push({ kind: 'chest', id: source.id + '_d1', caveOf: source.id,
+      poiClass: source.poiClass, depth: 1, ...frame.centre(cx, cy), _ix: cx, _iy: cy });
+    occupied.add(cell(0, 0));
+  };
+  if (setup) setup({ grid, surface, landmark, sourceMirror });
   const plan = C.plan({ surface, grid, N, tx, ty, tileEdgeM, depth: 1, objects, occupied });
   C.apply(plan, grid, objects, wildplants, occupied);
   return { title, description, grid, surface, plan, objects, wildplants };
 }
 const cases = [
-  fixture('01 / Open grove', 'A full Spring Cave on eligible ground. The tinted empty cells are reserved before ordinary cave dressing.'),
+  fixture('01 / Grove chest retained', 'The existing source-linked grove chest starts at the center. Placement moves that same chest onto the dry bank, keeping its identity and rewards.',
+    ({ sourceMirror }) => sourceMirror()),
   fixture('02 / Existing chest and stairs', 'A chest beside the pool and stairs in the outer ring keep a one-cell clear approach. Existing landmarks are neither moved nor duplicated.',
     ({ landmark }) => { landmark('chest', 3, -4); landmark('stairs', 5, 6); }),
-  fixture('03 / Excluded land', 'A farmland cell intersects the footprint. The whole area is declined: no partial pool, rings, or reservations.',
-    ({ surface }) => { surface.grid[cell(6, 0)] = W.T.FARMLAND; })
+  fixture('03 / Excluded land', 'Farmland intersects the footprint, so the whole area is declined. The source-linked chest stays at its original center position; no partial edits remain.',
+    ({ surface, sourceMirror }) => { sourceMirror(); surface.grid[cell(6, 0)] = W.T.FARMLAND; })
 ];
 if (cases[0].plan.areas.length !== 1 || cases[1].plan.areas.length !== 1 || cases[2].plan.areas.length !== 0) {
   throw new Error('Preview fixtures do not match expected placement outcomes');
+}
+const placedMirror = cases[0].objects.find(o => o.caveOf);
+const declinedMirror = cases[2].objects.find(o => o.caveOf);
+if (cases[0].plan.moves.length !== 1 || cases[2].plan.moves.length !== 0 ||
+    (placedMirror.x === declinedMirror.x && placedMirror.y === declinedMirror.y) ||
+    declinedMirror._ix !== cx || declinedMirror._iy !== cy) {
+  throw new Error('Preview source-linked chest movement did not match expected transaction');
 }
 const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 function draw(row) {
@@ -69,7 +87,7 @@ function draw(row) {
 const cards = cases.map(row => {
   const water = [...row.plan.terrain.values()].filter(t => t === W.T.WATER).length;
   const status = row.plan.diagnostics.map(d => d.status + (d.reason ? ': ' + d.reason : '')).join(', ');
-  return `<section><h2>${esc(row.title)}</h2><p>${esc(row.description)}</p>${draw(row)}<p class="status">${esc(status)}</p><dl><div><dt>Pool cells</dt><dd>${water}</dd></div><div><dt>Mushrooms</dt><dd>${row.plan.wildplants.length}</dd></div><div><dt>Rocks</dt><dd>${row.plan.objects.length}</dd></div><div><dt>Reserved cells</dt><dd>${row.plan.reserved.size}</dd></div></dl></section>`;
+  return `<section><h2>${esc(row.title)}</h2><p>${esc(row.description)}</p>${draw(row)}<p class="status">${esc(status)}</p><dl><div><dt>Pool cells</dt><dd>${water}</dd></div><div><dt>Mushrooms</dt><dd>${row.plan.wildplants.length}</dd></div><div><dt>Rocks</dt><dd>${row.plan.objects.length}</dd></div><div><dt>Reserved cells</dt><dd>${row.plan.reserved.size}</dd></div><div><dt>Chest moves</dt><dd>${row.plan.moves.length}</dd></div></dl></section>`;
 }).join('\n');
 const output = path.resolve(process.argv[2] || '/tmp/terracart-spring-preview.html');
 fs.writeFileSync(output, `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spring Cave — D1 placement review</title><style>
