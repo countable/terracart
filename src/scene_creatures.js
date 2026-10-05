@@ -2066,7 +2066,7 @@ class SceneCreatures {
       // The one pace multiplier (Combat.paceMul — a shiny's 1.5, a thrown
       // Speed potion's 2, the frost's slow) quickens the beat and lifts the
       // kind's top speed by the same factor.
-      const paceMul = Combat.paceMul(c);
+      const paceMul = Combat.paceMul(c, now, bolting || routed || c._fleeUntilT > now);
       // stepMs = animation duration of the hop itself (short burst); stepM is
       // how far it carries: the kind's gait row, or the loop's own base beat.
       // A ROUTED animal RUNS, at the same pace anything else in a hurry runs
@@ -2464,7 +2464,7 @@ class SceneCreatures {
         // panic is in the short legs and the turn, not a faster bird (it
         // used to cross two cells in 350 ms: 40 m/s). The one pace
         // multiplier (Combat.paceMul) quickens it like every flight.
-        c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.paceMul(c);
+        c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.paceMul(c, now, true);
         c._fleeDash = true;
         c._faceFlip = (to.x - c.x) < 0;
       }
@@ -2628,7 +2628,7 @@ class SceneCreatures {
     // over the roam's 0.4–1-cell hops); a departing leg takes its row's own time
     // — the pace the hunt's odds are tuned on, the one declared exception to
     // the speed ceiling (CROW_DEPART_HOP has the reasoning).
-    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000) / Combat.paceMul(c);
+    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000) / Combat.paceMul(c, now, departing);
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
     // This is a normal glide, not a flee dash — clear the marker so a FUTURE

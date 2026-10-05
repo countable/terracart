@@ -4940,10 +4940,9 @@ class MapScene extends Phaser.Scene {
       let dist = Math.hypot(dx, dy);
       if (dist < 0.001) { dx = 1; dy = 0; dist = 1; }   // degenerate — pick a heading
       // Butterflies bolt 2.7× faster than other fauna while the net wheel runs.
-      // Rare shiny animals flee at SHINY_SPEED_MUL too — the same factor as
-      // their wander, making them a slippery catch.
+      // Shiny animals use their reduced escape bonus while being caught.
       const isButterfly = c.kind === 'butterfly';
-      const shinyFast = Combat.shinySpeedMul(c);
+      const shinyFast = Combat.shinySpeedMul(c, true);
       const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, SpriteLayout.creatureMaxMps(c.kind)) * shinyFast;
       // Moss also conceals the catch: fauna and pets do not flee the net.
       if (!Shrines.leverActive(this.save, 'hidden')) {

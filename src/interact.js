@@ -658,6 +658,7 @@ const TAP_HANDLERS = [
     // Metres per screen pixel: one cell is scene.cellM metres and
     // scene.cellPx (app.js CELL_PX) pixels.
     const px2m = scene.cellM / scene.cellPx;
+    const TAP_PAD_M = 4 * px2m;           // extra touch forgiveness around every creature
     const UNDER_FEET_PAD_M = 0.3;          // a little grace below the art's bottom row
     // Per-kind horizontal grab half-width (m).
     const HALF_W = {
@@ -684,9 +685,9 @@ const TAP_HANDLERS = [
       const gMul = SpriteLayout.creatureScale(c.kind) / SpriteLayout.creatureScale(bk) * inst;
       const span = SpriteLayout.creatureTapSpanPx(c.kind, inst)
         || SpriteLayout.creatureTapSpanPx('chicken', inst);
-      const halfW = (HALF_W[bk] ?? 2.0) * gMul;
-      const topY = c.y + span.top * px2m;                         // crown (or hop peak)
-      const botY = c.y + span.bottom * px2m + UNDER_FEET_PAD_M;   // under the feet
+      const halfW = (HALF_W[bk] ?? 2.0) * gMul + TAP_PAD_M;
+      const topY = c.y + span.top * px2m - TAP_PAD_M;                         // crown (or hop peak)
+      const botY = c.y + span.bottom * px2m + UNDER_FEET_PAD_M + TAP_PAD_M;   // under the feet
       const bodyCY = c.y + (span.top + span.bottom) / 2 * px2m;   // drawn centre
       if (Math.abs(wm.x - c.x) > halfW) return;
       if (wm.y < topY || wm.y > botY) return;

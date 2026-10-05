@@ -345,15 +345,17 @@
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
   const SHINY_SPEED_MUL = 1.5;
   function shinyMul(c) { return c?.shiny ? ELITE_MUL : 1; }
-  function shinySpeedMul(c) { return c?.shiny ? SHINY_SPEED_MUL : 1; }
+  function shinySpeedMul(c, escaping = false) {
+    return c?.shiny ? (escaping && !isEnemyKind(c.kind) ? 1.3 : SHINY_SPEED_MUL) : 1;
+  }
   // THE ONE PACE MULTIPLIER, at every site a creature's speed is read (the
   // roster mover's step, a bat's leg, a ghost's glide, the crow's flights,
   // the fire escape, the animals' hop): a shiny's 1.5 (above the ceiling,
   // never capped) × a thrown Speed potion's 2 (PotionEffects.speedMul) × the
   // frost's slow (STATUS_LOOKS.frozen.slow while it holds). A crow a Speed
   // potion lands on flies faster, like everything else.
-  function paceMul(c, now) {
-    return shinySpeedMul(c) * (root.PotionEffects ? root.PotionEffects.speedMul(c) : 1) * slowMul(c, now);
+  function paceMul(c, now, escaping = false) {
+    return shinySpeedMul(c, escaping) * (root.PotionEffects ? root.PotionEffects.speedMul(c) : 1) * slowMul(c, now);
   }
   // Raised adults retain their double strength, without stacking that same
   // shiny identity twice. Shiny babies also receive the universal bonus.

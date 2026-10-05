@@ -817,6 +817,17 @@ test('creature: a tap on the tile BELOW the foot does NOT grab the creature', ()
     'tap well below the animal falls through to the cell handler');
 });
 
+test('creature: touch padding accepts near misses for animals, NPCs and enemies', () => {
+  for (const [kind, halfW] of [['chicken', 1.5], ['npc', 1.8], ['slime', 2]]) {
+    const span = SpriteLayout.creatureTapSpanPx(kind);
+    const cy = (span.top + span.bottom) / 2 * 7 / 32;
+    assert.eq(runCreatureTap(kind, { x: halfW + 0.7, y: cy }, false), 'far');
+    assert.eq(runCreatureTap(kind, { x: halfW + 1, y: cy }, false), false);
+    assert.eq(runCreatureTap(kind, { x: 0, y: span.top * 7 / 32 - 0.7 }, false), 'far');
+    assert.eq(runCreatureTap(kind, { x: 0, y: span.bottom * 7 / 32 + 1 }, false), 'far');
+  }
+});
+
 test('creature: a tap two cells to the side finds nothing (false)', () => {
   assert.eq(runCreatureTap('chicken', { x: 14, y: 0 }, false), false,
     'far-side tap does not grab the creature');

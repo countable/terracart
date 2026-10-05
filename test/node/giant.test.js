@@ -101,6 +101,6 @@
       assert.eq(s.top, anchor - (a.foot * a.fh - a.minY) * a.scale - hop, kind + ' tap top = art crown (+ hop)');
       assert.eq(s.bottom, anchor + (a.maxY - a.foot * a.fh) * a.scale, kind + ' tap bottom = art bottom row');
     }
-    assert.truthy(/const halfW = \(HALF_W\[bk\] \?\? 2\.0\) \* gMul;/.test(interact), 'and so is its half-width');
+    assert.truthy(/const halfW = \(HALF_W\[bk\] \?\? 2\.0\) \* gMul \+ TAP_PAD_M;/.test(interact), 'and so is its half-width');
   });
 })();
