@@ -72,6 +72,31 @@
     assert.truthy(typeof S.lineKey(a, 9) === 'string', 'an index past the end still keys');
   });
 
+  test('streets bounds: decoded line vertices are walked once', () => {
+    let reads = 0;
+    const watched = (x, y) => new Proxy({ x, y }, {
+      get(target, key) {
+        if (key === 'x' || key === 'y') reads++;
+        return target[key];
+      },
+    });
+    const f = feat(19, 'minor', [watched(8, 30), watched(-4, 12), watched(90, 44)]);
+    const first = S.lineBounds(f, 0), afterFirst = reads;
+    assert.eq(first.x0, -4, 'minimum x');
+    assert.eq(first.y0, 12, 'minimum y');
+    assert.eq(first.x1, 90, 'maximum x');
+    assert.eq(first.y1, 44, 'maximum y');
+    assert.gt(afterFirst, 0, 'the first lookup walked the vertices');
+    assert.eq(S.lineBounds(f, 0), first, 'the decoded feature owns one memoized bounds object');
+    assert.eq(reads, afterFirst, 'a repeated lookup never rereads a vertex');
+
+    const rebuilt = feat(19, 'minor', [watched(8, 30), watched(-4, 12), watched(90, 44)]);
+    const beforeRebuild = reads;
+    S.lineBounds(rebuilt, 0);
+    assert.gt(reads, beforeRebuild, 'a rebuilt tile has new feature objects and derives fresh bounds');
+    assert.eq(S.lineBounds(f, 9), null, 'a missing line has no bounds');
+  });
+
   // ── Lengths and points ────────────────────────────────────────────────
   test('streets: a line is as long as its segments', () => {
     const line = [pt(0, 0), pt(300, 400), pt(300, 500)];

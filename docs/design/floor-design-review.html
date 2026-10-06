@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dragon Hood - how floor designs work (cave levels overview)</title>
+<style>
+  :root { color-scheme: light; }
+  body { font: 15px/1.55 Georgia, 'Times New Roman', serif; margin: 0; background: #faf7f2; color: #26221c; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 32px 28px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin-top: 40px; border-bottom: 2px solid #d8cfc0; padding-bottom: 6px; }
+  h3 { font-size: 16px; margin-top: 26px; }
+  .sub { color: #6b6355; font-size: 13px; margin-bottom: 22px; }
+  .lede { background: #f1ead9; border-left: 4px solid #8a7b5c; padding: 12px 16px; margin: 18px 0; font-size: 15.5px; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0 22px; font-size: 13.5px; font-family: 'Segoe UI', system-ui, sans-serif; }
+  th { background: #e7dfcf; text-align: left; padding: 7px 9px; border: 1px solid #d3c9b4; font-size: 12.5px; letter-spacing: .02em; }
+  td { padding: 6px 9px; border: 1px solid #ddd4c2; vertical-align: top; }
+  tr:nth-child(even) td { background: #f6f1e6; }
+  code, .f { font-family: ui-monospace, 'Cascadia Code', Menlo, monospace; font-size: 12.5px; background: #efe8d8; padding: 0 4px; border-radius: 3px; }
+  .f { white-space: nowrap; color: #55503f; }
+  ol.pipeline { padding-left: 22px; }
+  ol.pipeline li { margin-bottom: 7px; }
+  .verdict { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+  .card { border-radius: 8px; padding: 14px 16px; font-size: 14px; }
+  .good { background: #e9f0e2; border: 1px solid #b7c9a4; }
+  .bad  { background: #f4e5df; border: 1px solid #d4b3a6; }
+  .card h3 { margin: 0 0 8px; font-size: 14.5px; font-family: 'Segoe UI', system-ui, sans-serif; }
+  .card ul { margin: 0; padding-left: 18px; }
+  .card li { margin-bottom: 5px; }
+  .foot { margin-top: 44px; color: #6b6355; font-size: 12.5px; border-top: 1px solid #d8cfc0; padding-top: 12px; }
+  .q { font-weight: bold; }
+  details { margin: 8px 0; }
+  summary { cursor: pointer; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13.5px; color: #55503f; }
+</style>
+</head>
+<body>
+<div style="background:#f4e5df;border-bottom:2px solid #d4b3a6;padding:10px 16px;font:13px/1.5 'Segoe UI',system-ui,sans-serif;color:#26221c;">
+  Note (Oct 2026): this review describes the floor system <strong>before</strong> the goblin-city rework. It is linked as background for the pending rework work. <strong>floors.md</strong> owns the current target design.
+</div><div class="wrap">
+
+<h1>How floor designs work</h1>
+<div class="sub">Dragon Hood / terracart - cave level architecture, shared vs per-floor definitions, scalability check. Evidence: file:line references from <code>src/</code> as read on 2026-10-05.</div>
+
+<div class="lede">
+<strong>One sentence:</strong> every underground floor is the procedurally derived "negative mirror" of the tile above it (recursing up to the real-world surface), so no floor is hand-drawn; per-floor identity comes from a handful of depth-keyed branches in <code>worldgen.js</code> plus well-tabled content windows (roster, habitats, loot, floor passes). The content layer scales cleanly; the terrain-identity layer does not, because floors 1-5 each have a bespoke branch where a table row should be.
+</div>
+
+<h2>1. The pipeline: how a floor gets made</h2>
+<p>A cave tile is generated on demand by <code>loadCaveTile</code> (<span class="f">worldgen.js:8768</span>) when the player first descends. It never loads stored map data; it derives everything from the level above, which derives from the surface, which derives from real OSM tiles. The core rule (<span class="f">worldgen.js:7914-7918</span>): a walkable cell above becomes <code>CAVE_FLOOR</code>, everything else becomes <code>CAVE_WALL</code>, recursively up to depth 0.</p>
+
+<ol class="pipeline">
+<li><strong>Recursion up:</strong> fetch the level above's <em>generated</em> layer only (<code>geologyGrid</code>/<code>baseGrid</code>/<code>genObjects</code>), never the live entry with player edits, so every player sees the same cave (<span class="f">worldgen.js:8780-8788</span>). Depth &ge; 2 also re-reads the surface tile (<span class="f">worldgen.js:8790-8792</span>).</li>
+<li><strong>Terrain:</strong> <code>undergroundTerrain(surface, aboveGrid, depth)</code> (<span class="f">worldgen.js:8703</span>) picks the rule per depth - see the table below.</li>
+<li><strong>Spawn gate:</strong> <code>floorSpawnWhy(surface)</code> (<span class="f">worldgen.js:618</span>) carries only the inherited hard reasons (<code>SPAWN_WHY_ALL_FLOORS = FARMLAND|GOLF</code>, <span class="f">worldgen.js:617</span>) from immutable surface evidence, then re-derives farmland/golf from the surface paint.</li>
+<li><strong>Stairs:</strong> every generated down-stair above becomes this floor's up-stair at the same world point; each gets a wandering down-stair seeded by <code>cellHash ^ depth</code> (<span class="f">worldgen.js:8822-8840</span>). L1 deliberately breaks the stair chain (rope/elevator descends instead); depth &ge; 2 gets a guaranteed fallback shaft (<span class="f">worldgen.js:8843-8854</span>).</li>
+<li><strong>Landing pockets:</strong> a 3x3 floor pocket around each stair and (on L2) each L1 <code>ground_hole</code> fall-site (<span class="f">worldgen.js:8856-8869</span>).</li>
+<li><strong>Geology freeze:</strong> <code>geologyGrid = grid.slice()</code> is snapshotted <em>before</em> <code>Underground.project</code> carves its street-mirror overlay (depth &le; 2), so carved streets never propagate to deeper floors (<span class="f">worldgen.js:8871-8875</span>).</li>
+<li><strong>Chest mirrors:</strong> POI chests above mirror down at the same GPS point (<code>caveChestsFrom</code>, <span class="f">worldgen.js:8195</span>); <code>rank</code> rides down, tiers do not. Each level then re-seats its <em>own</em> quota pyramid (<code>seedChestTiers(objects, {cave:true})</code>) and prunes to 50 lowest-tier mirrors (<code>capCaveChests</code>, <span class="f">worldgen.js:8232</span>).</li>
+<li><strong>Torches, gems, authored areas:</strong> torches seat where the low-tier POIs above stood (<code>caveTorchSites</code>, <span class="f">worldgen.js:8269</span>); quarry gem provenance stamps down one level (<span class="f">worldgen.js:8650-8688</span>); authored <code>CaveAreas</code> (spring caves) claim ground on L1 only (<span class="f">cave_areas.js:15-21</span>).</li>
+<li><strong>Floor passes:</strong> the <code>CAVE_PASSES</code> table (<span class="f">worldgen.js:8445</span>) scatters rocks, mushrooms, chasms, coins, X-marks, torches, barrels - each row on its own depth-salted stream, in table order.</li>
+<li><strong>Freeze for the next level:</strong> the entry stores <code>baseGrid</code>/<code>genObjects</code>/<code>genWildplants</code> copies, so player digging above never rerolls the level below (<span class="f">worldgen.js:8909-8913</span>).</li>
+</ol>
+
+<h2>2. What every floor shares</h2>
+<p>These run identically on every depth. One code path, one table, or one formula - no per-floor copies:</p>
+<table>
+<tr><th>Shared definition</th><th>Owner</th><th>What it does</th></tr>
+<tr><td>Spawn gate + inherited reasons</td><td class="f">worldgen.js:617-624, SPAWN_CLASS_BLOCKS</td><td>Same <code>isSpawnCell</code> classes on every floor; only FARMLAND/GOLF reasons survive from the surface.</td></tr>
+<tr><td>Stair mirroring + seeding</td><td class="f">worldgen.js:7920-7959, 8810-8854</td><td>Up-stairs mirror down-stairs exactly; down-stairs wander via depth-salted cell hash.</td></tr>
+<tr><td>Chest mirror + tier pyramid</td><td class="f">worldgen.js:8195-8247, loot.js:276-340</td><td>Same mirror logic every floor; each level re-seats its own pyramid over its own mirrors.</td></tr>
+<tr><td>Floor dressing passes</td><td class="f">CAVE_PASSES, worldgen.js:8445</td><td>One table drives rocks/mushrooms/coins/marks/torches/barrels on all depths (rows opt in/out per depth via <code>when</code>/<code>fire</code>).</td></tr>
+<tr><td>Ore ladder</td><td class="f">worldgen.js:2354-2387</td><td><code>caveOreTiers(depth) = [depth-1, depth]</code>, capped at T7 - one formula.</td></tr>
+<tr><td>Creature spawning</td><td class="f">enemy_spawns.js:247-267</td><td><code>caveRows(depth)</code>/<code>caveKind</code> filter the shared roster by each row's window.</td></tr>
+<tr><td>Lair garrisons</td><td class="f">lairs.js:112-373</td><td>Keyed by building tier, never by depth; the same machinery works wherever a lair stands.</td></tr>
+<tr><td>Hazard mechanics</td><td class="f">cave_hazards.js:14-48, environment_hazards.js:30-39</td><td>One fall/vent/sinkhole code path parameterised by <code>depth</code>; holes drop to <code>depth+1</code> generically.</td></tr>
+<tr><td>Player placements</td><td class="f">placed_floor.js</td><td>Depth-tagging of placed things, one module, any level.</td></tr>
+<tr><td>Tile caches + progress gates</td><td class="f">worldgen.js:6547, dungeon_progression.js</td><td>Per-depth cache slot; descent rules and challenge key are depth-generic formulas.</td></tr>
+</table>
+
+<h2>3. What differs per floor</h2>
+
+<h3>3a. Terrain identity - hard-coded branches</h3>
+<p><code>undergroundTerrain</code> (<span class="f">worldgen.js:8703-8716</span>) switches on the literal depth. This is the one place a floor's whole shape is decided:</p>
+<table>
+<tr><th>Depth</th><th>Biome label</th><th>Terrain rule</th><th>Extra features on this floor</th></tr>
+<tr><td>1</td><td>cave</td><td>Negative of the surface's walkability</td><td>Street/path mirror routes (<span class="f">underground.js:71</span>), authored spring caves (<span class="f">cave_areas.js:15</span>), chasms + barrels + floor torches + pressure plates (<span class="f">worldgen.js:8446</span>, <span class="f">pressure_traps.js:4</span>), quarry gems stamp down, L1 breaks the stair chain</td></tr>
+<tr><td>2</td><td>deep_stone</td><td>Only surface PARK/GROVE/PLAYGROUND/PITCH/COMMERCIAL cells that pass the npc-class gate open</td><td>Clearings settle as Deep groves / Dwarven cities with residents, caches, shrines (<span class="f">worldgen.js:8723-8771</span>); L1 fall-sites get landing pockets; street mirror still applies</td></tr>
+<tr><td>3</td><td>underdark</td><td>Every cell becomes CAVE_FLOOR</td><td>Chest mirrors read the <em>surface</em> objects instead of the level above (<span class="f">worldgen.js:8878</span>)</td></tr>
+<tr><td>4</td><td>cave (reused)</td><td>Mirrors the surface grid directly</td><td>Entry gated behind the level-4 key (5 challenge completions, <span class="f">dungeon_progression.js:16-25</span>)</td></tr>
+<tr><td>5</td><td>cave (reused)</td><td>Mirrors the level above</td><td>Lava stratum: walls under surface buildings become CAVE_LAVA (<span class="f">LAVA_DEPTH</span>, worldgen.js:8700)</td></tr>
+<tr><td>6+</td><td>cave (reused)</td><td>Mirrors the level above - recursion is unbounded</td><td>Nothing new; content keeps scaling (see 3b), look does not</td></tr>
+<tr><td>100</td><td>transcendent_arena</td><td>Flat open floor, no derivation</td><td>Synthetic arena tile (<span class="f">ARENA_DEPTH</span>, worldgen.js:8767)</td></tr>
+</table>
+
+<h3>3b. Content windows - table rows and formulas</h3>
+<table>
+<tr><th>Content</th><th>Owner</th><th>Shape</th></tr>
+<tr><td>Enemy kinds per floor</td><td class="f">enemy_roster.js rows, cave:{minDepth,maxDepth,weight,depthRule}</td><td>Two-level windows by owner convention (e.g. slime 1-2, purple_slime 3-4, lich 8-null); infernal kinds hard-gated to depth &ge; 5 in <span class="f">enemy_spawns.js:252</span></td></tr>
+<tr><td>Encounter themes per floor</td><td class="f">enemy_habitats.js:29-36 THEME_BANDS</td><td>Depth bands (max 2/4/6/8/Infinity), each a theme mix; families map themes to kinds</td></tr>
+<tr><td>Dragon roosts</td><td class="f">enemy_habitats.js:196-245</td><td>One red_dragon per region, depth &ge; 9, roost theme</td></tr>
+<tr><td>Chest tier cap</td><td class="f">loot.js:276 chestTierMaxFor</td><td>min(7, 5 + floor(depth/3)) - T6 from L3, T7 from L6</td></tr>
+<tr><td>Depth bonus</td><td class="f">loot.js:285-298</td><td>+floor(depth/2) on the base tier</td></tr>
+<tr><td>Ore tiers</td><td class="f">worldgen.js:2375</td><td>[depth-1, depth] capped 2..7</td></tr>
+<tr><td>Ghost scaling</td><td class="f">enemy_roster.js:118-125</td><td>Depth-banded rows, group sizes grow with depth</td></tr>
+<tr><td>Gem pockets</td><td class="f">underground.js:22-30</td><td>Gem rows filter by yieldTier &le; depth</td></tr>
+<tr><td>Dressing pass rates</td><td class="f">CAVE_PASSES rows: when/fire</td><td>Predicates on the level (e.g. mushrooms fire 2x on L1/L4, <span class="f">worldgen.js:8491</span>)</td></tr>
+</table>
+
+<h3>3c. Progression routes</h3>
+<table>
+<tr><th>Route</th><th>Floors</th><th>Owner</th></tr>
+<tr><td>Elevator (from Home, after repair)</td><td>0, 1, 2, 3 - hard list</td><td class="f">elevators.js:5 FLOORS, unlockedFloors</td></tr>
+<tr><td>Generated stairs</td><td>2 &rarr; deeper (L1 has none by design)</td><td class="f">worldgen.js:8810-8854</td></tr>
+<tr><td>Rope / sinkhole fall</td><td>any &rarr; depth+1 (involuntary; refused into the arena)</td><td class="f">dungeon_progression.js:14, hazard_falls.js:36</td></tr>
+<tr><td>Depth-4 gate</td><td>requires level4Key (5 challenges)</td><td class="f">dungeon_progression.js:11-25</td></tr>
+</table>
+
+<h2>4. Is the design scalable?</h2>
+
+<div class="verdict">
+<div class="card good">
+<h3>What scales well</h3>
+<ul>
+<li><strong>Adding depth is free.</strong> Generation recurses with no max depth; ore, chest tiers, enemy windows, theme bands and hazard mechanics are formulas or banded tables that already extend to Infinity.</li>
+<li><strong>Adding content is a row.</strong> A new kind with a <code>cave</code> window, a new band in <code>THEME_BANDS</code>, a new <code>CAVE_PASSES</code> row, a new loot formula input - each follows the project's stated rule (kinds as table rows, groups as predicates).</li>
+<li><strong>Cost stays flat per floor.</strong> Nothing iterates "all floors"; each floor derives from one parent plus the surface, and caches are per-depth.</li>
+<li><strong>Determinism holds.</strong> Depth-salted streams and the generated-layer freeze mean new floors never reroll old ones.</li>
+</ul>
+</div>
+<div class="card bad">
+<h3>What does not scale</h3>
+<ul>
+<li><strong>Terrain identity is branch code.</strong> <code>undergroundTerrain</code> hard-codes depth 1/2/3/4; lava is a special case at depth 5 inside <code>loadCaveTile</code>; chest sources branch on depth 3. A sixth distinct floor <em>type</em> means another branch in a 9,000-line file, not a new row.</li>
+<li><strong>Visual variety caps at three looks.</strong> <code>undergroundBiome</code> is a ternary with cave/deep_stone/underdark (<span class="f">worldgen.js:8902</span>); floors 4, 5, 6... all render as plain "cave".</li>
+<li><strong>Transport has a hard list.</strong> <code>Elevators.FLOORS = [0,1,2,3]</code>; every stop beyond 3 is another code change.</li>
+<li><strong>Authored areas are singletons.</strong> <code>CaveAreas</code> implements one geometry (spring) at one depth; the weighted table names three more ids (goblin_warrens, mushroom_cavern, gemstone_cavern) that have story panels (<span class="f">underground_stories.js:6-8</span>) but no layout code.</li>
+<li><strong>Per-depth features are scattered.</strong> L1-only flags live in four modules (<code>pressure_traps.js</code>, <code>CAVE_PASSES</code>, <code>cave_areas.js</code>, <code>underground.js</code>) instead of one per-depth profile.</li>
+</ul>
+</div>
+</div>
+
+<h3>Verdict</h3>
+<p><span class="q">Yes for depth, no for floor types.</span> The architecture scales to arbitrarily <em>deep</em> dungeons cheaply, because identity is data-driven windows over one shared derivation. It does not scale to many distinct floor <em>designs</em>: each new look today costs a bespoke branch in <code>undergroundTerrain</code>/<code>loadCaveTile</code> plus a biome ternary plus scattered per-depth flags. The mirror design itself (floors as derivatives of real-world surface data) is the load-bearing strength - keep it; the branches are the debt.</p>
+
+<p>If more floor types are ever wanted, the convergent refactor is a per-depth <em>floor profile</em> table - one row per depth owning: terrain rule, biome label, chest source, and feature flags - with the current branches becoming rows 1-5 and specials (lava, arena) becoming row properties. That matches the pattern the codebase already uses everywhere else (<code>CAVE_PASSES</code>, <code>THEME_BANDS</code>, roster windows). No such refactor is needed while floors 6+ staying visually plain is acceptable.</p>
+
+<div class="foot">
+Evidence: direct reads of <code>src/worldgen.js</code> (7914-7959, 8366-8560, 8650-8915), <code>src/underground.js</code>, <code>src/cave_areas.js</code>, <code>src/elevators.js</code>, <code>src/dungeon_progression.js</code>, <code>src/placed_floor.js</code>, plus three parallel scout reports over layouts, content and tests (runs 29b82c09, 15a6faea, f2d6f667). Quarry/reef/temple/castle modules checked and confirmed surface-only - they mint entrances and styling, not underground floors. Spot-checked line numbers against the working tree.
+</div>
+
+</div></body>
+</html>

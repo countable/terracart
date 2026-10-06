@@ -164,10 +164,22 @@ Render.enemyMeleeColor = function (c) {
 Render.sortWorldDepth = function (pieces) {
   pieces.sort((a, b) => Number(!!b.ground) - Number(!!a.ground)
     || (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
+  let changed = false;
   pieces.forEach((piece, depth) => {
+    // Frame items are fresh wrappers. Stamp their target depth, but do not
+    // call that a display-list change; the pooled sprite comparison below in
+    // drawObjects decides whether the real child moved.
     if (piece.it) piece.it._z = depth;
-    if (piece.sprite) piece.sprite.setDepth(depth);
+    if (piece.sprite && (piece.sprite._worldDepthOrder !== depth || piece.sprite.depth !== depth)) {
+      if (piece.sprite.depth !== depth) piece.sprite.setDepth(depth);
+      // Unlike Phaser's default depth (0), this marker is absent on a newly
+      // added child. It catches a one-for-one external pool swap even when the
+      // container length and the replacement's target depth are both unchanged.
+      piece.sprite._worldDepthOrder = depth;
+      changed = true;
+    }
   });
+  return changed;
 };
 
 // Restoration clears the skulls from every tower and keeps the player's
@@ -832,23 +844,32 @@ function resetSlot(s) {
   s.setAlpha(1).setAngle(0).setScale(1).setFlipX(false);
   s.clearTint();
 }
-Render.renderPool = function renderPool(scene, pool, container, list, configure, create) {
-  let i = 0;
+Render.renderPool = function renderPool(scene, pool, container, list, configure, create, reuse) {
+  let i = 0, membershipChanged = false;
   for (const item of list) {
     let s = pool[i];
     if (!s) {
       s = create ? create(scene) : scene.add.sprite(0, 0, 'idle', 0);
       container.add(s);
       pool.push(s);
+      membershipChanged = true;
     }
     s._poolIdleSince = null;
     s.setActive?.(true);
     s.setVisible(true);
-    resetSlot(s);
-    configure(s, item);
+    // A still camera can leave a generated prop on the same pool slot with
+    // identical appearance and style. Its caller proves that case here, so the
+    // slot avoids both identity reset and every redundant Phaser setter.
+    if (!reuse?.(s, item)) {
+      resetSlot(s);
+      configure(s, item);
+    }
     i++;
   }
+  const beforeRetire = pool.length;
   retireSpritePoolFrom(pool, i);
+  if (pool.length !== beforeRetire) membershipChanged = true;
+  if (membershipChanged && container === scene.worldContainer) scene._worldDepthMembershipDirty = true;
 };
 
 // Ground discs share their reach with gameplay, regardless of the source's
@@ -3304,6 +3325,13 @@ Render.drawObjects = function drawObjects(scene) {
     }
   };
   const connectedArt = new Map(), chasmObjects = [];
+  // Appearance resolution includes texture lookup and ART_BOUNDS seating. Most
+  // generated props never change those inputs, so Render.resolveObjectAppearance
+  // below stamps their resolved look on the record itself (_renderAppearance,
+  // non-enumerable and scene-owned) and counts only misses. Any in-place
+  // mutation of a stamped record must evict the stamp (see Home.makeStarterUsable).
+  // Animated/stateful kinds bypass the stamp entirely.
+  scene._appearanceResolveCount = 0;
   // wanderCreatures publishes the live 12-cell sim bubble before this pass.
   // The viewport corner is about 7.8 cells away and the widest peek adds 3,
   // still inside the bubble. Direct render tests can skip the sim, so only
@@ -3548,8 +3576,10 @@ Render.drawObjects = function drawObjects(scene) {
   const { fruitList } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
-    item._appearance = resolveAppearance(art ? { ...item.o, ...art } : item.o);
+    item._appearanceStable = Render.objectAppearanceIsStable(item.o, art);
+    item._appearance = Render.resolveObjectAppearance(scene, item.o, art);
   }
+  window.__boot?.count?.('object appearances resolved', scene._appearanceResolveCount);
   // Every upright piece shares one continuous ground-Y order. Pixel offsets
   // come from the same seating geometry as the art, converted back to metres.
   const groundY = (it, offsetPx = 0) => pWorldY + it.dy + offsetPx * scene.cellM / CELL_PX;
@@ -3602,7 +3632,19 @@ Render.drawObjects = function drawObjects(scene) {
     groundY: playerGroundY, rank: 3 });
   zList.push(...(scene._uprightPieces || []), ...(scene._buildingUprightPieces || []),
     ...(scene._peerUprightPieces || []));
-  Render.sortWorldDepth(zList);
+  const worldList = scene.worldContainer?.list;
+  const worldChildCountBefore = worldList?.length ?? 0;
+  let worldDepthDirty = Render.sortWorldDepth(zList) || !scene._worldDepthSorted
+    || scene._worldDepthChildCount !== worldChildCountBefore;
+  scene._worldDepthMembershipDirty = false;
+  // Phaser's Container.sort walks every pooled child. Mark the order dirty
+  // only when a visible sprite's assigned depth actually changes; camera
+  // motion changes screen positions but not the world-ground order.
+  const setWorldDepth = (sprite, depth) => {
+    if (sprite.depth === depth) return;
+    sprite.setDepth(depth);
+    worldDepthDirty = true;
+  };
   // Kinds that stand UP off the ground and therefore cast a contact shadow,
   // DERIVED from the table above (`shadow: true` beside `seat: true`). Buildings
   // (house/tower) get the bespoke footprint math below; every flagged row is a
@@ -3677,10 +3719,15 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
+  // Tree/rock alpha is the only saved-state style on a cacheable row. Fold the
+  // two tool tiers once per frame; a gear change invalidates every affected
+  // slot without a per-object key or map lookup.
+  const relics = scene.save.relics || {};
+  const objectStyleRevision = ((relics.axe?.tier || 0) << 4) | (relics.pickaxe?.tier || 0);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
-    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
     Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
       || (o.kind === 'house' && Houses.isShinyHouse(scene.save, o)), o.id);
@@ -3704,11 +3751,25 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof spec.after === 'function') spec.after(s, o, scene);
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
       Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
+    s._staticObject = o;
+    s._staticAppearance = appearance;
+    s._staticStyleRevision = objectStyleRevision;
+    s._staticHadWork = !!scene._workProgress;
+  };
+  const reuseStaticObject = (s, item) => {
+    if (!scene._boot_still || !item._appearanceStable || scene._workProgress || s._staticHadWork
+        || s._staticObject !== item.o || s._staticAppearance !== item._appearance
+        || s._staticStyleRevision !== objectStyleRevision) return false;
+    setWorldDepth(s, item._z ?? 0);
+    return true;
   };
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
-  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
-  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
+  const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
+  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
+    configureObject, undefined, objectReuse);
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList,
+    configureObject, undefined, objectReuse);
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
   // the inventory, drawn as its own small sprite on the tree's canopy. The
@@ -3723,8 +3784,8 @@ Render.drawObjects = function drawObjects(scene) {
     if (s.frame.name !== item.frame) s.setFrame(item.frame);
     s.setOrigin(0.5, 0.5)
      .setScale(item.scale)
-     .setDepth(item.depth)
      .setPosition(item.x, item.y);
+    setWorldDepth(s, item.depth);
   });
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
@@ -3740,7 +3801,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { x: sx, y: sy } = project(dx, dy);
     const towerH = Render.towerCrownHeight(scene.textures, item.o.castle);
     setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
-    s.setDepth((item._z ?? 0) + 0.1);
+    setWorldDepth(s, (item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
      .setPosition(Math.round(sx), Math.round(sy + CELL_PX * 0.5 - towerH + 2));
   });
@@ -4189,7 +4250,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
-    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
     // upright, swelling and dying over the beat's show (nestBushPhase, once
@@ -4359,7 +4420,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
-    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     if (Render.drawCreatureDisguise(s, c, sx, sy, performance.now())) return;
     // ONE BRANCH FOR EVERY CREATURE: the sheet, frame stepping and float all come
     // from the creature table (SpriteLayout: creatureSheet / anim / frameMs /
@@ -4461,10 +4522,12 @@ Render.drawObjects = function drawObjects(scene) {
           effect = scene.add.graphics();
           scene.creaturesContainer.add(effect);
           scene._creatureMeleePool.push(effect);
+          worldDepthDirty = true;
         }
         meleeUsed++;
         effect._poolIdleSince = null;
-        effect.setActive(true).setVisible(true).setDepth((item._z ?? 0) + 0.1);
+        effect.setActive(true).setVisible(true);
+        setWorldDepth(effect, (item._z ?? 0) + 0.1);
         Render.drawMelee(effect, pose, s.x, item._bodyY, Render.enemyMeleeColor(c));
       } else delete c._meleeSwing;
     }
@@ -4522,7 +4585,8 @@ Render.drawObjects = function drawObjects(scene) {
     const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
     s.anims?.stop();
     s.setTexture(key, it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
-      .setPosition(Math.round(sx), Math.round(sy)).setDepth(it._z).setAlpha(1).setTint(0xffffff);
+      .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
+    setWorldDepth(s, it._z);
   });
 
   scene._environmentHazardPool ||= [];
@@ -4532,7 +4596,8 @@ Render.drawObjects = function drawObjects(scene) {
     s.anims?.stop();
     s.setTexture(h.type === 'vent' ? 'vent_cycle' : 'sinkhole', h.frame)
       .setOrigin(...cfg.renderAnchor).setDisplaySize(cfg.widthCells * CELL_PX, cfg.heightCells * CELL_PX)
-      .setPosition(Math.round(sx), Math.round(sy)).setDepth(it._z).setAlpha(1).setTint(0xffffff);
+      .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
+    setWorldDepth(s, it._z);
   });
 
   // Whirlwinds share ground-anchor depth ordering with actors and trees.
@@ -4543,7 +4608,8 @@ Render.drawObjects = function drawObjects(scene) {
     const { frameSize, anchor } = Whirlwinds.CONFIG;
     s.setTexture('whirlwind', it.h.frame).setOrigin(anchor[0] / frameSize, anchor[1] / frameSize)
       .setDisplaySize(frameSize, frameSize).setPosition(Math.round(sx), Math.round(sy))
-      .setDepth(it._z).setAlpha(1).setTint(0xffffff);
+      .setAlpha(1).setTint(0xffffff);
+    setWorldDepth(s, it._z);
   });
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays
@@ -4671,11 +4737,18 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx), Math.round(yTop + halfH + bob));
   });
 
-  // Apply the screen-row z-order stamped above. Phaser renders a container's
-  // children in list order, so the shared world layer has to be re-sorted by
-  // depth once every sprite has been positioned. StableSort, so pooled slots
-  // that share a depth (all the hidden ones) keep a fixed relative order.
-  if (scene.worldContainer && scene.worldContainer.sort) scene.worldContainer.sort('depth');
+  // Apply screen-row order only when an assigned depth or the pool membership
+  // changed. Phaser renders a container's children in list order, but sorting
+  // hundreds of pooled (including hidden) children on every camera pixel adds
+  // no information while the ground order stands.
+  const worldChildCountAfter = worldList?.length ?? 0;
+  if (worldChildCountAfter !== worldChildCountBefore || scene._worldDepthMembershipDirty) worldDepthDirty = true;
+  if (worldDepthDirty && scene.worldContainer?.sort) {
+    scene.worldContainer.sort('depth');
+    scene._worldDepthSorted = true;
+  }
+  scene._worldDepthChildCount = worldChildCountAfter;
+  window.__boot?.count?.('world depth sorted', worldDepthDirty ? 1 : 0);
 
   // ── The lightmap ──────────────────────────────────────────────────────────
   // Last, once every light is known: the campfires on this depth, the
@@ -5202,4 +5275,39 @@ Render.objectAppearance = function (scene, houseRoles) {
   _pass.fruitNow = Date.now();
   _pass.fruitList = [];
   return { RENDER_SPEC, resolveAppearance, fruitList: _pass.fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale };
+};
+
+// Generated records in these rows keep their appearance inputs for their
+// lifetime. Cache the resolved texture/frame/seat tuple by object identity, so
+// strolling does not repeat texture lookups and ART_BOUNDS seating for every
+// visible prop. Stateful rows (houses, chests, planted fruit trees, animated
+// fires/torches and connected-art overrides) deliberately resolve every pass.
+// The non-enumerable stamp never enters saves, spreads or deterministic data;
+// its scene token prevents a review scene from reusing another scene's tuple.
+const CACHED_APPEARANCE_KINDS = new Set([
+  'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar',
+  'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
+  'groundstack',
+]);
+Render.objectAppearanceIsStable = function objectAppearanceIsStable(object, art) {
+  return !art && CACHED_APPEARANCE_KINDS.has(object.kind)
+    // Authored planted trees advance through growth frames on the clock.
+    && !(object.kind === 'tree' && object.planted_t);
+};
+Render.resolveObjectAppearance = function resolveObjectAppearance(scene, object, art) {
+  const cacheable = Render.objectAppearanceIsStable(object, art);
+  if (cacheable) {
+    const owner = scene._objectAppearanceOwner || (scene._objectAppearanceOwner = {});
+    const prior = object._renderAppearance;
+    if (prior?.owner === owner) return prior.appearance;
+    scene._appearanceResolveCount = (scene._appearanceResolveCount || 0) + 1;
+    const appearance = resolveAppearance(object);
+    // A texture may be registered lazily. Do not make an early miss permanent.
+    if (appearance?.visible) Object.defineProperty(object, '_renderAppearance', {
+      value: { owner, appearance }, writable: true, configurable: true,
+    });
+    return appearance;
+  }
+  scene._appearanceResolveCount = (scene._appearanceResolveCount || 0) + 1;
+  return resolveAppearance(art ? { ...object, ...art } : object);
 };

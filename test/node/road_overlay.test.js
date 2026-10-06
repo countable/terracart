@@ -558,6 +558,45 @@ test('road overlay: invalidate() forces the next draw to rebuild', () => {
   assert.eq(scene.roadGeomGfx.cleared, after1 + 1, 'rebuilt after invalidate');
 });
 
+test('road overlay: displacement inside the 1.5-cell pad scrolls without repainting', () => {
+  clearTiles();
+  putTile(0, 0, [line([{ x: 0, y: 0 }, { x: 16, y: 0 }])]);
+  const scene = makeOverlayScene();
+  RoadOverlay.draw(scene);
+  const painted = scene.roadGeomGfx.cleared;
+  scene.playerM.x += scene.cellM * 1.25;
+  RoadOverlay.draw(scene);
+  assert.eq(scene.roadGeomGfx.cleared, painted, 'sub-pad motion reuses the retained paint');
+  assert.eq(scene.roadGeomContainer.x, -CELL_PX * 1.25, 'retained paint scrolls from its old anchor');
+  scene.playerM.x += scene.cellM * 0.3;
+  RoadOverlay.draw(scene);
+  assert.eq(scene.roadGeomGfx.cleared, painted + 1, 'crossing 1.5 cells repaints exactly once');
+});
+
+test('road overlay: a full operation list is spread across bounded 120 Hz slices', () => {
+  function* fullBake() { for (let i = 0; i < 20; i++) yield i; }
+  const work = fullBake();
+  const slices = [];
+  let done = false, clock = 0;
+  const now = () => clock++;
+  while (!done) {
+    const slice = RoadOverlay.runRoadSlice(work, RoadOverlay.ROAD_REBUILD_SLICE_MS, now);
+    slices.push(slice); done = slice.done;
+  }
+  assert.gt(slices.length, 1, 'the bake spans more than one frame');
+  for (const slice of slices)
+    assert.lte(slice.ms, RoadOverlay.ROAD_REBUILD_SLICE_MS, 'no frame exceeds the road slice budget');
+  assert.eq(slices.reduce((n, s) => n + s.steps, 0), 21, 'all 20 operations plus generator completion were consumed');
+});
+
+test('road overlay: canvas passes retain scratch layers between rebuilds (source pin)', () => {
+  assert.truthy(/scratch:\s*\[\]/.test(ROAD_OVERLAY_SRC), 'each persistent pass owns a scratch pool');
+  assert.truthy(/scratchLayer\(size, pass\.scratch, 0\)/.test(ROAD_OVERLAY_SRC),
+    'base and restored paint reuse their layer slot');
+  assert.truthy(/softenEdge\(layer, size, ops, pass\.scratch, 1\)/.test(ROAD_OVERLAY_SRC),
+    'restored themes reuse a separate nested mask slot');
+});
+
 test('road overlay: a tile with no decoded layers is skipped, not thrown on', () => {
   clearTiles();
   WorldGen.tileCache.set(`${WorldGen.Z}/0/0`, { tileEdgeM: TILE_EDGE_M });  // still loading
@@ -1560,7 +1599,7 @@ test('restored patch: no blur available means a hard edge, never a fake feather'
 
 test('restored patch: the softening is the LAST thing the pass does', () => {
   const src = ROAD_OVERLAY_SRC;
-  const at = src.indexOf('function commitRestored(pass) {');
+  const at = src.indexOf('function* commitRestoredSteps(pass) {');
   assert.gt(at, 0, 'found the restored pass');
   const body = src.slice(at, src.indexOf('\n  }\n', at));
   // Crisp first, feathered last: the setts and the kerb are laid at full
@@ -1571,7 +1610,7 @@ test('restored patch: the softening is the LAST thing the pass does', () => {
   assert.gt(soften, lastFill, 'after the setts are laid, never before');
   assert.gt(body.indexOf('ctx.drawImage(layer.canvas'), soften, 'and before the layer lands');
   // The base band keeps its ragged bites; only the restored patch is soft.
-  const baseAt = src.indexOf('function commitBase(pass) {');
+  const baseAt = src.indexOf('function* commitBaseSteps(pass) {');
   const baseBody = src.slice(baseAt, src.indexOf('\n  }\n', baseAt));
   assert.falsy(/softenEdge\(/.test(baseBody), 'the dilapidated band is not feathered');
 });
@@ -1606,9 +1645,12 @@ test('road overlay: equal pavement colors retain distinct road and path canvas l
     const canvas = () => {
       const moves = [], fills = [], drawn = [];
       const cx = new Proxy({ moves, fills, drawn, filter: undefined,
+        clearRect() { moves.length = 0; fills.length = 0; drawn.length = 0; },
         moveTo(x, y) { moves.push([x, y]); },
         fillRect() { fills.push(this.fillStyle); },
-        drawImage(image) { drawn.push(image); },
+        // Real drawImage snapshots pixels immediately. Store the geometry now
+        // rather than retaining the pooled scratch canvas after its next use.
+        drawImage(image) { drawn.push({ cx: { moves: image.cx.moves.map((p) => p.slice()) } }); },
         createPattern(tile) { return { tile }; },
       }, { get(target, key) { return key in target ? target[key] : () => {}; } });
       return { width: 0, height: 0, cx, getContext: () => cx };

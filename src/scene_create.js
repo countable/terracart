@@ -1337,8 +1337,12 @@ class SceneCreate {
         // No launch card here: the STAY SAFE message is the loading screen
         // itself (index.html #safety), already read and acknowledged.
         // The map is the player's now, so responsiveness beats throughput:
-        // tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
-        WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS);
+        // Tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
+        // Phaser counts every display frame even when FPS_LIMIT skips game
+        // steps, so actualFps is the refresh interval the slice must fit.
+        const displayFps = this.game?.loop?.actualFps;
+        WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS, true,
+          displayFps > 0 ? 1000 / displayFps : 16.7);
       });
 
     // Network status

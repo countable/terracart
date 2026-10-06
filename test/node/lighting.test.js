@@ -532,7 +532,7 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   assert.eq(byId.edge.dyPx, byId.near.dyPx, 'every lamp by the same rise — one art, one lantern');
   // The stamp adds it to the anchored screen point, and the still-frame key
   // names it: a light the key does not name is a light that cannot repaint.
-  const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('    const stamp = (L) => {'));
+  const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function paintLight('));
   // (Both through lightCentrePx — the stamp's whole-px centre is the key's.)
   const lc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightCentrePx('));
   assert.truthy(/const c = deltaMToScreen\(scene, L\.dx, L\.dy\);[\s\S]{0,120}y: Math\.round\(c\.y \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
@@ -679,8 +679,9 @@ test('lighting: a blast is stored in WORLD metres and re-anchored every frame, s
   // The stamp reads the entry's radius and colour, so one row serves every size.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  assert.truthy(/ensureKindCookie\(scene, L\.kind, L\.r, colour\)/.test(d)
-    && /: L\.colour;/.test(d),
+  const stamp = L.slice(L.indexOf('  function paintLight('), L.indexOf('  function contributionKey('));
+  assert.truthy(/ensureKindCookie\(scene, L\.kind, L\.r, colour\)/.test(stamp)
+    && /: L\.colour;/.test(stamp),
     'the cookie is baked at the entry\'s own radius and colour');
   assert.truthy(/collectBlasts\(scene, ax, ay, halfM, now\)/.test(d),
     'and draw() collects the live blasts against this frame\'s anchor');
@@ -691,9 +692,13 @@ test('lighting: draw() stamps a light with its own alpha and scale', () => {
   // them null and gets the flicker curve alone.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  assert.truthy(/\* \(L\.a == null \? 1 : L\.a\)/.test(d), 'a light\'s own alpha multiplies in');
-  assert.truthy(/\* \(L\.s == null \? 1 : L\.s\)/.test(d), 'and its own scale');
-  assert.truthy(/for \(const L of scene\._lights\) stamp\(L\);/.test(d), 'the frame\'s lights are stamped');
+  const stamp = L.slice(L.indexOf('  function paintLight('), L.indexOf('  function contributionKey('));
+  assert.truthy(/\* \(L\.a == null \? 1 : L\.a\)/.test(stamp), 'a light\'s own alpha multiplies in');
+  assert.truthy(/\* \(L\.s == null \? 1 : L\.s\)/.test(stamp), 'and its own scale');
+  assert.truthy(/worldCookieFrames\(scene, W, H, ax, ay, ox, oy, crit, now, pnow\)/.test(d),
+    'steady world cookies enter the padded contribution cache');
+  assert.truthy(/for \(const L of cookies\.excluded\) paintLight\(/.test(d),
+    'only player, flickering, transient or overflow lights use the per-step painter');
   assert.falsy(/_cellLights/.test(d), 'and there is no second list');
 });
 
@@ -940,8 +945,8 @@ test('lighting: the plateau eases down toward the reach rim, and the step at the
   // draw() fills the reach-cell path with the gradient about the feet, out
   // to the furthest corner a reach cell can put on the plateau.
   const L = LIGHTING_SRC;
-  assert.truthy(/ctx\.fillStyle = plateauFill\(ctx, prof, ps\.x - ox, ps\.y - oy, r0\);/.test(L),
-    'the plateau fill is the gradient, centred on the feet-on-the-fix point');
+  assert.truthy(/m\.fillStyle = plateauFill\(m, prof, ps\.x - ox, ps\.y - oy, r0\);/.test(L),
+    'the cached cell mask is recoloured by a live gradient centred on the feet-on-the-fix point');
   assert.truthy(/const rim = r0 \+ CELL_PX \* Math\.SQRT1_2;/.test(L), 'the rim is the reach radius plus half a cell diagonal');
   assert.truthy(/g\.addColorStop\(t, rgba\(plateauCellColour\(prof, level\), level - prof\.edge\)\);/.test(L),
     'each stop is the cell colour at its level, over the ramp\'s edge');
