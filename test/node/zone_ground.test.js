@@ -248,9 +248,12 @@ test('churchyards: the selected variant dresses the Gospel Fellowship coverage b
   assert.truthy(ZoneVariants.byId(f.anchors[gospel].variant));
   const mine = [...d.objects, ...d.wildplants].filter(o => f.coverage[cellOf(o)] === gospel + 1);
   assert.gt(mine.filter(o => o.zoneLayer === 'background').length, 6, 'recognizable background beyond the old six POI pieces');
+  const pois = f.caveSource.objects.filter(o => o.kind === 'chest').map(o => {
+    const i = cellOf(o); return { ix: i % N, iy: Math.floor(i / N) };
+  });
   for (const o of mine) {
     const i = cellOf(o), cls = o.kind === 'headstone' ? 'headstone' : 'minor';
-    assert.truthy(WorldGen.isSpawnCell(r.grid, N, N, i % N, Math.floor(i / N), { roadMask: r.roadMask, spawnWhy: r.spawnWhy }, cls));
+    assert.truthy(WorldGen.isSpawnCell(r.grid, N, N, i % N, Math.floor(i / N), { roadMask: r.roadMask, spawnWhy: r.spawnWhy, pois }, cls));
     assert.eq(o.zoneVariant, f.anchors[gospel].variant);
     if (o.kind === 'mineralrock' && (o.yieldTier || 1) === 1) {
       assert.eq(o.rockVariant, SpriteLayout.CHURCHYARD_ROCK_VARIANT);

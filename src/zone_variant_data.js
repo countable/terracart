@@ -409,9 +409,9 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_global_cell_hash",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.35,
+        "nominalDensity": 0.315,
         "materialDensity": {
-          "shrub": 0.35
+          "shrub": 0.315
         },
         "type": "seeded_scatter",
         "seed": "anchor_key + variant_id + global_cell_coordinates",
@@ -1199,7 +1199,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 35% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 31.5% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
@@ -1216,12 +1216,12 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_global_cell_hash",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.28,
+        "nominalDensity": 0.274,
         "materialDensity": {
           "grass": 0.14,
           "shrub": 0.06,
           "shell": 0.03,
-          "driftwood": 0.03,
+          "driftwood": 0.024,
           "barrel": 0.02
         },
         "type": "seeded_scatter",
@@ -7363,11 +7363,11 @@
             "material": "rubble"
           }
         ],
-        "nominalDensity": 0.125,
+        "nominalDensity": 0.115625,
         "materialDensity": {
           "shell": 0.046875,
           "rubble": 0.03125,
-          "driftwood": 0.046875
+          "driftwood": 0.0375
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -7378,7 +7378,10 @@
           ],
           "role": "center_of_shore_aligned_motif"
         },
-        "orientation": "seeded_quarter_turn"
+        "orientation": "seeded_quarter_turn",
+        "materialKeepChance": {
+          "driftwood": 0.8
+        }
       },
       "poi": {
         "id": "pirate_shrine",
@@ -7500,10 +7503,10 @@
             "material": "driftwood"
           }
         ],
-        "nominalDensity": 0.2,
+        "nominalDensity": 0.18666666666666668,
         "materialDensity": {
           "shell": 0.13333333333333333,
-          "driftwood": 0.06666666666666667
+          "driftwood": 0.05333333333333334
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -7514,7 +7517,10 @@
           ],
           "role": "center_of_shore_aligned_motif"
         },
-        "orientation": "seeded_quarter_turn"
+        "orientation": "seeded_quarter_turn",
+        "materialKeepChance": {
+          "driftwood": 0.8
+        }
       },
       "poi": {
         "id": "open_shell_horseshoe",

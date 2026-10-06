@@ -119,7 +119,7 @@
     assert.eq(grid[0], T.CHURCHYARD); assert.eq(grid[1], T.CHURCHYARD);
   });
 
-  test('zone coverage: painted ground lifts only inferred lot reasons, including existing halo paint', () => {
+  test('zone coverage: painted ground preserves every exclusion, including existing halo paint', () => {
     const T = WorldGen.T, W = WorldGen.SPAWN_WHY;
     const original = [T.RESIDENTIAL, T.COMMERCIAL, T.GROVE, T.PATH, T.ROAD,
       T.BUILDING, T.WATER, T.PIER, T.RESIDENTIAL, T.RESIDENTIAL];
@@ -132,13 +132,13 @@
     const field = { anchors: [anchor(1000, 1000)], coverage };
     paint(field, grid, {}, roadMask, spawnWhy);
     for (let i = 0; i < original.length; i++) {
-      assert.eq(spawnWhy[i], i < 3 ? everyReason & ~(W.PRIVATE | W.BEHIND_HOUSE) : everyReason,
+      assert.eq(spawnWhy[i], everyReason,
         `cell ${i}: site restrictions survive; transport, structures and uncovered ground keep lot reasons too`);
     }
     spawnWhy[0] = W.PRIVATE | W.BEHIND_HOUSE;
     paint(field, grid, {}, roadMask, spawnWhy);
-    assert.truthy(WorldGen.isSpawnCell(grid, N, N, 0, 0, { spawnWhy, roadMask }, 'minor'),
-      'live spawn gate admits variant material on the repainted lot');
+    assert.falsy(WorldGen.isSpawnCell(grid, N, N, 0, 0, { spawnWhy, roadMask }, 'minor'),
+      'live spawn gate rejects variant material on the excluded lot');
     spawnWhy[0] = W.PRIVATE | W.RESTRICTED;
     paint(field, grid, {}, roadMask, spawnWhy);
     assert.falsy(WorldGen.isSpawnCell(grid, N, N, 0, 0, { spawnWhy, roadMask }, 'minor'),

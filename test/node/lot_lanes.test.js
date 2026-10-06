@@ -135,12 +135,12 @@ test('lot lanes: removed tagged and inferred geometry remains generation-only qu
     assert.falsy(removedLines.some(actual => sameLine(actual, road)), 'a surviving service road does not become quarry source');
   }
   const ownerAt = (x, y) => r.zone?.anchors[r.zone.coverage[y * CPE + x] - 1];
-  const owner = ownerAt(40, 41);
-  assert.eq(owner?.kind, 'quarry', 'the removed lot becomes a quarry zone');
-  const adjacent = ownerAt(40, 43);
-  assert.eq(adjacent?.kind, 'quarry', 'the adjacent removed lane also becomes quarry ground');
-  assert.truthy(adjacent.key !== owner.key, 'proximity evidence alone does not merge disconnected source lanes');
-  assert.eq(r.grid[41 * CPE + 40], WorldGen.T.ROCK, 'quarry has rocky ground');
+  for (const y of [41, 43]) {
+    assert.falsy(ownerAt(40, y), 'removed lanes cannot claim an excluded residential lot');
+    assert.truthy(r.spawnWhy[y * CPE + 40] & WorldGen.SPAWN_WHY.PRIVATE, 'lot retains its private-land exclusion');
+    assert.falsy(WorldGen.isSpawnCell(r.grid, CPE, CPE, 40, y,
+      { spawnWhy: r.spawnWhy, roadMask: r.roadMask }, 'minor'), 'no quarry dressing on excluded land');
+  }
   assert.eq(r.roadMask[41 * CPE + 40], 0, 'the lane never regains a carriageway');
   assert.falsy(hasLine(by.transportation, IN_LOT), 'lamps, restoration and road overlays still cannot see the lane');
 });

@@ -164,14 +164,18 @@ access or tile lifecycle mechanics.
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
-  procedural dressing; roads and buildings remain visible. Painted ground
-  drops inferred PRIVATE / BEHIND_HOUSE reasons, retaining all site and
-  geometry restrictions. Cave generation retains the original ground,
+  procedural dressing; roads and buildings remain visible. Nexus painting and
+  quarry coverage preserve all spawn exclusions, including PRIVATE and
+  BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
+  Gas-station influence uses the tar row’s own minimum and maximum radii.
+  Cave generation retains the original ground,
   objects and spawn reasons so surface dressing cannot reroll entrances.
   A park's POI becomes its daily grove shrine in place, preserving its name
   and id. Other nexus chests keep `zoneNexus` and its tier bonus. No decorative
   props: every standing piece is interactable or a hazard, one art per
-  interactable. Zone mechanics use existing lanes (tar slow, lair tier,
+  interactable. Repeating backgrounds can thin selected materials with a
+  deterministic `materialKeepChance`; fixed shrine slots and other materials
+  retain their positions. Zone mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
