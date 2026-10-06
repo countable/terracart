@@ -268,4 +268,20 @@
       assert.eq(EnvironmentHazards.lists(s).caveins.length, 0);
     } finally { PressureTraps.lists = original; }
   }));
+  test('flight: fire vents are harmless but poison and paralysis gas still affect the player', () => fixture(s => {
+    s.save.flightPotionUntil = Date.now() + 60000;
+    for (const kind of ['fire', 'poison', 'paralysis']) {
+      s.save.energy = 100; s.save.conditions = {};
+      const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, kind, () => .5, kind);
+      h.elapsedMs = 8000;
+      EnvironmentHazards.lists(s).vents = [h];
+      EnvironmentHazards.tick(s, .1);
+      if (kind === 'fire') {
+        assert.eq(s.save.energy, 100); assert.falsy(s.save.conditions.burning);
+      } else {
+        assert.lt(s.save.energy, 100); assert.truthy(s.save.conditions[kind]);
+      }
+    }
+  }));
+
 })();

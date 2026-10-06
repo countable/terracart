@@ -454,6 +454,7 @@ const MINERAL_ICON_SHEET = {
   protection_potion: { sheet: 'icon_potions', frame: 13 },
   time_potion: { sheet: 'icon_potions', frame: 34 },
   immortal_potion: { sheet: 'icon_potions', frame: 31 },
+  flight_potion: { sheet: 'icon_potions', frame: 24 },
   shrinking_potion: { sheet: 'icon_potions', frame: 18 },
   giant_potion: { sheet: 'icon_potions', frame: 27 },
   fire_resistance_potion: { sheet: 'icon_potions', frame: 32 },
@@ -668,7 +669,7 @@ const BASE_TIER = {
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
   bones_scroll: 3, wraith_scroll: 4,
-  dragon_powder: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
+  dragon_powder: 4, flight_potion: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
   // 30% of a bar is a T3 emergency; 60% of a bar is a T5 find.
   revival_potion: 3, resurrection_potion: 5,
@@ -879,6 +880,7 @@ const ITEMS = [
   { id: 'protection_potion', name: 'Potion of Protection', kind: 'magic', potion: true },
   { id: 'time_potion', name: 'Potion of Time', kind: 'magic', potion: true },
   { id: 'immortal_potion', name: 'Potion of Immortal', kind: 'magic', potion: true },
+  { id: 'flight_potion', name: 'Potion of Flight', kind: 'magic', potion: true },
   { id: 'shrinking_potion', name: 'Potion of Shrinking', kind: 'magic', potion: true },
   { id: 'giant_potion', name: 'Potion of Giant', kind: 'magic', potion: true },
   { id: 'fire_resistance_potion', name: 'Potion of Fire Resistance', kind: 'magic', potion: true },
@@ -1313,6 +1315,13 @@ const CONSUMABLE_SPEC = {
     used: { title: 'You drink the Potion of Fire Resistance',
       body: (scene, spec) => `Immune to fire for ${shortDuration(spec.durationMs)}.` },
   },
+  flight_potion: {
+    durationMs: _CONSUMABLE_MINUTE_MS, liftPx: 8, buff: 'flight',
+    verb: 'Drink', title: 'Drink the Potion of Flight?',
+    get: 'Float above harmful floors, holes and fire. Gases still reach you.',
+    used: { title: 'You drink the Potion of Flight',
+      body: (scene, spec) => `${spec.get} Lasts ${shortDuration(spec.durationMs)}.` },
+  },
   shrinking_potion: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, scaleMul: 0.5, maxHpMul: 0.5, meleeDamageMul: 0.5, visionCells: 1, buff: 'shrinking',
     verb: 'Drink', title: 'Drink the Potion of Shrinking?',
@@ -1540,6 +1549,7 @@ const PRICES = {
   healing_potion:  35,   // T2 — instant 65-energy restore
   speed_potion:  55,   // T2 — tier-9 boot stick-walking for 1 min
   fire_resistance_potion: 100, // T4 — three minutes of full fire immunity
+  flight_potion: 100, // T4 — one minute above floor hazards
   shrinking_potion: 100, // T4 — small, fragile and harder to notice
   giant_potion: 100, // T4 — three minutes of greater size, health capacity and melee strength
   protection_potion: 40, // T2 — one quarter less monster damage for 1 min
@@ -1814,6 +1824,7 @@ const ITEM_EFFECTS = {
   time_potion: CONSUMABLE_SPEC.time_potion.get,
   immortal_potion: CONSUMABLE_SPEC.immortal_potion.get,
   fire_resistance_potion: CONSUMABLE_SPEC.fire_resistance_potion.get,
+  flight_potion: CONSUMABLE_SPEC.flight_potion.get,
   shrinking_potion: CONSUMABLE_SPEC.shrinking_potion.get,
   giant_potion: CONSUMABLE_SPEC.giant_potion.get,
   shielding_potion: CONSUMABLE_SPEC.shielding_potion.get,

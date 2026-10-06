@@ -79,6 +79,9 @@
   function damageImmune(save, now = Date.now()) {
     return (save.immortalPotionUntil || 0) > now;
   }
+  function flying(save, now = Date.now()) {
+    return (save?.flightPotionUntil || 0) > now;
+  }
   function fireImmune(save, now = Date.now()) {
     return damageImmune(save, now) || (save.fireResistancePotionUntil || 0) > now;
   }
@@ -216,5 +219,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

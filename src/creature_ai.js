@@ -1042,7 +1042,7 @@ function creatureFlightEase(t) {
 // Check the whole segment: a long hop must not skip a burning cell. An
 // escape may cross existing flames only while its starting point is on fire.
 function fireStepAllowed(scene, c, x, y, escaping = false) {
-  if (!scene._groundFireAtWorld) return true;
+  if (!scene._groundFireAtWorld || Conditions.flying(c)) return true;
   const wallNow = Date.now();
   let leavingFire = escaping && GroundFire.active(scene._groundFireAtWorld(c.x, c.y), wallNow);
   const n = Math.max(1, Math.ceil(Math.hypot(x - c.x, y - c.y) / (scene.cellM * 0.2)));
@@ -1186,6 +1186,7 @@ function enemyWalkHazardRate(scene, x, y) {
 function enemyWalkHazardTick(scene, c, now) {
   const previous = c._walkHazardPrevious;
   c._walkHazardPrevious = { x: c.x, y: c.y, now };
+  if (Conditions.flying(c)) { c._walkHazardAccum = 0; return false; }
   if (!previous || !Combat.isEnemy(c) || !scene._walkHazardExposure) return false;
   if (previous.x === c.x && previous.y === c.y) return false;
   const dt = Math.min(0.1, Math.max(0, (now - previous.now) / 1000));
@@ -1231,7 +1232,7 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
 function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, escaping = false } = {}) {
   if (typeof EnemySpawns !== 'undefined' && !EnemySpawns.homeFaunaAllows(scene, c, x, y)) return true;
   if (!fireStepAllowed(scene, c, x, y, escaping)) return true;
-  const trap = characterTrapAt(scene, x, y);
+  const trap = Conditions.flying(c) ? null : characterTrapAt(scene, x, y);
   if (trap && trap !== characterTrapAt(scene, c.x, c.y)) return true;
   const cell = scene.cellAt(x, y);
   if (!cell.loaded) return true;
@@ -1275,13 +1276,13 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
 // The ward's ring is FIRE_REST_R, the ring the fire lights and warms, never
 // a literal of its own. Both movers read this one predicate through
 // creatureStepRefused (test/node/home_ward.test.js).
-function fireAverse(c, row) { return !c.lair && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH; }
+function fireAverse(c, row) { return !Conditions.flying(c) && !c.lair && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH; }
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false, allow = null) {
   let dx = x - c.x, dy = y - c.y;
   const distance = Math.hypot(dx, dy);
   // Sharp plants and spikes are passable. Prefer the body's same short jog
   // when it fits; a broad belt has no trivial detour, so keep going through.
-  if (!escaping && distance > 0 && scene._walkHazardExposure?.(c.x, c.y, x, y) > 0) {
+  if (!escaping && !Conditions.flying(c) && distance > 0 && scene._walkHazardExposure?.(c.x, c.y, x, y) > 0) {
     const open = (ox, oy) => {
       const nx = c.x + ox * scene.cellM, ny = c.y + oy * scene.cellM;
       return (!allow || allow(nx, ny)) && enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0;
@@ -1898,7 +1899,7 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
     }
   }
   if (expired && typeof persistSave === 'function') persistSave(scene.save);
-  if (!rawDps || Combat.playerDowned(scene.save.energy)) return;
+  if (!rawDps || Combat.playerDowned(scene.save.energy) || Conditions.flying(scene.save, now)) return;
   // One-second packets through the one blow writer (the aura's shape).
   foeBlowLands(scene, null, Combat.playerDamageRate(rawDps * PotionEffects.damageMul(scene.save),
     scene.save.armor, dt, { packetSeconds: 1 }), { mitigated: true });

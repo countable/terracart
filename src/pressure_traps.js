@@ -111,6 +111,7 @@
       && Math.abs(dx * trap.vy - dy * trap.vx) <= CONFIG.wallHalfWidthCells;
   }
   function contact(scene, trap, dt) {
+    if (root.Conditions.flying(scene.save)) { scene._pressureDamageFraction = 0; return; }
     if (trap.state === 'parked' || !touching(scene, trap) || root.Combat.playerDowned(scene.save.energy)) return;
     if (!root.Conditions.damageImmune(scene.save)) {
       const damage = bankWhole(scene, '_pressureDamageFraction', CONFIG.contactDps * dt);
@@ -131,7 +132,7 @@
     observe(scene);
     const s = lists(scene), p = feet(scene), cell = scene.cellAt(p.x, p.y);
     for (const plate of s.plates) {
-      if (plate.cellIX === cell.cellIX && plate.cellIY === cell.cellIY && !plate.pressed) {
+      if (!root.Conditions.flying(scene.save) && plate.cellIX === cell.cellIX && plate.cellIY === cell.cellIY && !plate.pressed) {
         plate.pressed = true;
         plate.frame = 3;
         const trap = s.traps.find(h => h.id === plate.trapId);

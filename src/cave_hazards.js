@@ -28,7 +28,7 @@
     return best;
   }
   async function fall(scene, hole, latitude = 0) {
-    if (scene._caveFallPending || scene._hazardFallPending || !(scene.depth > 0) || (hole.depth || 0) !== scene.depth) return false;
+    if (root.Conditions.flying(scene.save) || scene._caveFallPending || scene._hazardFallPending || !(scene.depth > 0) || (hole.depth || 0) !== scene.depth) return false;
     const depth = scene.depth;
     scene._caveFallPending = true;
     try {
@@ -40,6 +40,7 @@
         scene._ensureLadderUpStairs?.(entry, tx, ty);
         scene.spawnCaveCreatures?.(entry, tx, ty, depth + 1);
       }
+      if (root.Conditions.flying(scene.save)) { scene._caveFallPending = false; return false; }
       const destination = landing(entry, hole, edge);
       if (!destination || scene.depth !== depth) {
         scene._caveFallPending = false;
@@ -54,7 +55,7 @@
           if (resolved) return;
           resolved = true;
           try {
-            if (scene.depth !== depth) return;
+            if (scene.depth !== depth || root.Conditions.flying(scene.save)) return;
             const raw = root.Energy.maxEnergy(scene.save) * FALL_ENERGY_FRACTION;
             const lost = scene._losePlayerEnergy(root.Conditions.damageImmune(scene.save) ? 0
               : root.Combat.incomingDamage(scene.save, raw));
@@ -72,6 +73,7 @@
     }
   }
   function tick(scene, latitude) {
+    if (root.Conditions.flying(scene.save)) { scene._caveHoleCell = null; return; }
     if (!(scene.depth > 0) || scene._caveFallPending || scene._hazardFallPending || !scene.startWorldM
         || root.Combat.playerDowned(scene.save.energy) || scene._dialogOpen?.()) return;
     const p = scene.playerToWorldCell();

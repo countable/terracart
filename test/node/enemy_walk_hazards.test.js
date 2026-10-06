@@ -84,4 +84,14 @@ test('enemy walk hazards: real damage handler bypasses armour and keeps environm
   assert.eq(s.deathSource,'obstacle');
   assert.falsy(Combat.isPlayerKill(s.deathSource),'kill does not earn player quest or elite credit');
 });
+test('flight: thrown potion lets a foe cross spikes without detour or damage', () => {
+  const s = scene(() => 2), c = foe(); c.flightPotionUntil = Date.now() + 60000;
+  enemyWalkHazardTick(s, c, 0);
+  enemySweep(s, c, EnemyRoster.get(c.kind), 2.5, .5, 100);
+  enemyWalkHazardTick(s, c, 100);
+  assert.eq(c.x, 2.5); assert.eq(c.y, .5); assert.eq(c._hp, 100);
+  c.flightPotionUntil = 0;
+  for (let i = 2; i <= 11; i++) { c.x += .1; enemyWalkHazardTick(s, c, i * 100); }
+  assert.lt(c._hp, 100);
+});
 })();

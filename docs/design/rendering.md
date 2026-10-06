@@ -18,6 +18,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
 - The player's feet sit on the GPS fix. Ground marks use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.
+- Flight raises the body by the consumable row’s `liftPx` through `playerBodyDy()`;
+  the shadow, world position and ground sorting remain at the feet. Expiry lowers
+  the body automatically. Thrown flight potions also raise creature bodies.
 - Upright scenery, castle wall pieces and characters (including the player)
   share `Render.sortWorldDepth`: lower continuous ground/feet Y renders in
   front. Use stable seating geometry, never animation lift or whole cell rows.

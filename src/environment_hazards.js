@@ -204,6 +204,7 @@
         h.blocked = false;
       }
       if (h.blocked || !touching || root.Combat.playerDowned(scene.save.energy)) continue;
+      if (root.Conditions.flying(scene.save) && (h.type !== 'vent' || h.kind === 'fire')) continue;
       if (h.type === 'vent' && h.phase === 'active' && h.elapsedMs >= h.nextContactMs) {
         h.nextContactMs = h.elapsedMs + CONFIG.contactMs;
         const now = Date.now();
