@@ -38,7 +38,7 @@
   const CASTLE_FAMILIES = { citadel: ['bugbear'] };
   const SURFACE_FAMILIES = {
     ...BUILDING_FAMILIES,
-    meadow: ['slime', 'plant'], mushroom_grove: ['mushroom_monster', 'spider', 'slime'],
+    meadow: ['slime', 'plant'], mushroom_grove: ['mushroom_monster'],
     formal_garden: ['slime', 'plant'],
     flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
     seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin'],
@@ -47,6 +47,10 @@
   // One encounter roll per ~84 m square at the usual 7 m cell size.
   // Most are solitary; 25% are pairs and 10% are trios. No per-kind budget.
   const SURFACE_ENCOUNTERS = { blockCells: 12, chance: .6, pairAt: .65, trioAt: .9, tries: 12 };
+  // Grove mushrooms roam individually, scattered across smaller patches.
+  const SURFACE_ENCOUNTER_PROFILES = {
+    mushroom_grove: { ...SURFACE_ENCOUNTERS, blockCells: 6, pairAt: 1, trioAt: 1 },
+  };
   // Avalanche FNV (util.js avalanche32 over fnv1a): nearby spatial keys
   // must not form long same-theme runs.
   function unit(key) { return u01(avalanche32(root.EnemySpawns.hash(key))); }
@@ -111,14 +115,22 @@
   // between blocks. Failed placement attempts are work too, including on
   // tiles whose coverage never offers a seat.
   function* surfaceEncountersSteps(entry, tx, ty, occupied) {
+    if (!entry.zone?.coverage) return [];
+    const themes = [...new Set(entry.zone.anchors.map(a => a.variant))]
+      .filter(theme => SURFACE_ENCOUNTER_PROFILES[theme]);
+    const out = yield* surfaceEncounterProfileSteps(entry, tx, ty, occupied, null);
+    for (const theme of themes) out.push(...yield* surfaceEncounterProfileSteps(entry, tx, ty, occupied, theme));
+    return out;
+  }
+  function* surfaceEncounterProfileSteps(entry, tx, ty, occupied, theme) {
     const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
-    const out = [], cfg = SURFACE_ENCOUNTERS;
+    const out = [], cfg = SURFACE_ENCOUNTER_PROFILES[theme] || SURFACE_ENCOUNTERS;
     const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
       roadClass: entry.roadClass, occupied };
     if (!entry.zone?.coverage) return out;
     for (let by = 0; by < N; by += cfg.blockCells) for (let bx = 0; bx < N; bx += cfg.blockCells) {
       yield 'spawn habitat encounter blocks';
-      const id = WG.cellId('zone_encounter', tx, ty, bx, by);
+      const id = WG.cellId(theme ? `zone_encounter_${theme}` : 'zone_encounter', tx, ty, bx, by);
       if (unit(id + ':present') >= cfg.chance) continue;
       const size = unit(id + ':size'), count = size >= cfg.trioAt ? 3 : size >= cfg.pairAt ? 2 : 1;
       let anchor = null;
@@ -133,6 +145,7 @@
           const slot = entry.zone.coverage[cy * N + cx];
           if (!slot || (anchor && slot !== anchor.slot)) continue;
           const zoneVariant = entry.zone.anchors[slot - 1]?.variant;
+          if ((SURFACE_ENCOUNTER_PROFILES[zoneVariant] ? zoneVariant : null) !== theme) continue;
           const family = SURFACE_FAMILIES[zoneVariant];
           if (!family) continue;
           const kinds = family.filter(kind => {
