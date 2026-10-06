@@ -169,8 +169,9 @@ function defaultTiers() {
     return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ') || 'vista only'}</td>`
       + `<td style="text-align:left;white-space:normal">${surface}</td><td>${places.length ? (chestMirrorsUnderground(places[0]) ? 'yes' : 'no') : 'no'}</td></tr>`;
   }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>yes</td></tr>`));
-  $('tierRules').textContent = 'A chest\'s tier is its tile\'s QUOTA SEAT: each tile seeds ~1 T5, 7 T4, '
-    + '15 T3 and 25 T2 (x1..x2 over 100..1000 budgeted POIs) onto its best-ranked POIs '
+  const q = WorldGen.TIER_SEED_QUOTA;
+  $('tierRules').textContent = 'A chest\'s tier is its tile\'s QUOTA SEAT: each tile seeds '
+    + `~${q[5]} T5, ${q[4]} T4, ${q[3]} T3 and ${q[2]} T2 (x1..x2 over 100..1000 budgeted POIs) onto its best-ranked POIs `
     + '(the MVT rank tag), round-robin across chest categories - every other chest is T1. '
     + `Vistas are fixed T5; a zone nexus wins a seat without spending one (+${ZONE_NEXUS_TIER_BONUS}). `
     + `Each cave level re-seats its own pyramid; the cap CLIMBS underground `

@@ -26,7 +26,7 @@ access or tile lifecycle mechanics.
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
-  each tile seeds ~1 T5, 7 T4, 15 T3, 25 T2 (x1..x2 over 100..1000
+  each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
   round-robin across chest categories; everything else is T1. Vista chests
   are fixed T5 outside the budget; a zone nexus can win a seat without

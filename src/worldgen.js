@@ -838,9 +838,9 @@
   }
   // ── Tier seeds: the per-tile quota pyramid (Oct 2026) ─────────────────────
   // The count-threshold ladder is replaced by QUOTAS. Each tile seeds about
-  // 1 T5, 7 T4, 15 T3 and 25 T2 among its budgeted POI chests — every other
+  // 1 T5, 5 T4, 11 T3 and 18 T2 among its budgeted POI chests — every other
   // chest stays T1 — scaling x1..x2 as the budgeted count runs 100..1000, so
-  // a dense downtown holds up to 2/14/30/50 promoted chests where a suburb
+  // a dense downtown holds up to 2/10/22/36 promoted chests where a suburb
   // holds the base pyramid. Seats go to the BEST POIs first: the MVT rank
   // tag (every tile POI carries one; lower = more notable), then id as the
   // deterministic tiebreak. Within a tier the seats round-robin across chest
@@ -853,7 +853,7 @@
   // matter more than completeness. Runs at the end of the rasterize steps
   // (zones and scenic stamped already) and again when a settled tile restamps
   // (loadTile after bin injection).
-  const TIER_SEED_QUOTA = { 5: 1, 4: 7, 3: 15, 2: 25 };
+  const TIER_SEED_QUOTA = { 5: 1, 4: 5, 3: 11, 2: 18 };
   const TIER_SEED_DENSE_AT = 100, TIER_SEED_DENSE_MAX_AT = 1000;
   function seedChestTiers(objects, opts = {}) {
     // Underground, the pool is the CAVE MIRRORS (isDensityChest excludes
@@ -902,7 +902,7 @@
   // Low-tier supplies fill existing variant footprints after the POI pyramid.
   // Both tiers must be scarce. These surface-only additions keep their seed
   // on later density/restamp passes and never spend a higher-tier quota seat.
-  const CHEST_TOP_UP_MIN = { 1: 25, 2: 10 };
+  const CHEST_TOP_UP_MIN = { 1: 18, 2: 7 };
   function* topUpChestsSteps({ objects, dressings = [], zone, streetDress, grid, N, tx, ty, tileEdgeM, spawnOpts }) {
     const counts = { 1: 0, 2: 0 };
     for (const list of [objects, ...dressings.map(d => d?.objects || [])]) {
