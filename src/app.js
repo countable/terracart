@@ -392,13 +392,6 @@ const SAFETY_CARDS = {
     lines: ['Stay on lit pavements and paths, and be seen.',
       'Out of reach? Use the stick — never the street.'] },
 };
-// A HEADS-UP BUZZ (wanderCreatures): the phone vibrates when a hostile that
-// is taking an interest comes within SAFETY_FOE_BUZZ_CELLS of the feet, at
-// most once per SAFETY_FOE_BUZZ_GAP_MS — so a player whose eyes are on the
-// street still learns something is coming. The save's haptics switch mutes it.
-const SAFETY_FOE_BUZZ_CELLS = 5;
-const SAFETY_FOE_BUZZ_GAP_MS = 20000;
-const SAFETY_FOE_BUZZ = [70, 60, 70];
 // Save fields written by the passes that run BEFORE a home is captured — the
 // starter crate anchor, the guaranteed soil plot and the starter-home
 // provision. Every one of them is DERIVED from the projection origin and is
@@ -1729,7 +1722,7 @@ class MapScene extends Phaser.Scene {
       || (sv.tilled && sv.tilled.length) || (sv.planted && sv.planted.length));
   }
 
-  // === HUD help, haptics ===
+  // === HUD help ===
   // (Tile loading lives in scene_geo.js › ensureTilesAround.)
   // What the ⚡ chip does when tapped (UX audit §20): "how do I refill this?"
   // is the obvious gesture and it did nothing. Says where energy comes from,
@@ -1761,18 +1754,6 @@ class MapScene extends Phaser.Scene {
     box.appendChild(close);
     mount();
   }
-
-  // Short vibration on tap outcomes. An outdoor phone game in sunlight can't
-  // rely on a 12px flash label alone (UX audit §18), so a tap that lands and a
-  // tap that's rejected feel different. Off is remembered in the save; the API
-  // is absent on desktop and iOS Safari, hence the optional call.
-  haptic(ms) {
-    if (this.save?.haptics === false) return;
-    try { navigator.vibrate?.(ms); } catch (_) {}
-  }
-  hapticOk()     { this.haptic(15); }
-  hapticReject() { this.haptic(40); }
-  hapticHit()    { this.haptic(25); }   // between the two: not a pickup, not a refusal
 
   // `reason` is the failure as the tile path reported it ("HTTP 504",
   // "Failed to fetch", "offline"), shown in the banner so a report from a
@@ -2392,7 +2373,7 @@ class MapScene extends Phaser.Scene {
   // Depth 92: above the vignette (90) and below the work wheel (95), and
   // unmasked like both of them — it is UI about the body, not a world layer.
   _painFlash(dmg) {
-    // The BODY's own channel first — the red flick + haptic buzz + blood
+    // The BODY's own channel first — the red flick + blood
     // burst every other blow on the player uses (_flashPlayerHit). The rest
     // of this method is what a trap adds on top of that: it is the biggest
     // single hit in the game, so it also reaches the edges of the screen.
@@ -4130,8 +4111,7 @@ class MapScene extends Phaser.Scene {
   // _updatePlayerAura every frame: the sprite tint, which is invisible under
   // Phaser's Canvas fallback (setTint is a no-op there — the shiny cue and the
   // coloured icons both learned this), and the halo's red texture, a plain
-  // image that reads on every renderer. A haptic tick rides along, and so does
-  // a red chip burst off the BODY (Particles 'pain') — every one of these
+  // image that reads on every renderer. A red chip also bursts off the BODY (Particles 'pain') — every one of these
   // call sites is the player being hurt, so the burst belongs here rather
   // than duplicated at each one; it is already 0 under prefers-reduced-motion
   // by burstCount's own rule. `dmg` is the actual points this blow cost — the
@@ -4152,7 +4132,6 @@ class MapScene extends Phaser.Scene {
 
   _flashPlayerHit(dmg) {
     this._hitFlashUntilT = performance.now() + HIT_FLASH_MS;
-    if (this.hapticHit) this.hapticHit();
     if (typeof Particles !== 'undefined' && this.playerScreen) {
       const ps = this.playerScreen();
       if (ps && isFinite(ps.x) && isFinite(ps.y)) {
@@ -4693,7 +4672,6 @@ class MapScene extends Phaser.Scene {
       if (!opts.auto) {
         const ps = this.playerScreen();
         this.flash('The shadows hold your arm.', ps.x, ps.y + this.playerBodyDy());
-        this.hapticReject?.();
       }
       return false;
     }
@@ -7379,9 +7357,6 @@ class MapScene extends Phaser.Scene {
   // (pick / axe / armor), whose art comes from gearIconHTML rather than the
   // ITEM_BY_ID-only renderItemIcon that the `itemId` path uses.
   flashLoot(text, color = UI_GOLD, dwellMul = 1, itemId = null, iconEl = null) {
-    // Every "you got something" goes through here, so it's the one place a
-    // success buzz needs wiring (UX audit §18).
-    this.hapticOk();
     // Loot icon = DOM overlay using the same CSS-background renderer the
     // inventory uses. Going through scene.add.image(sheet) would demand
     // every icon sheet be preloaded into Phaser textures (egg / milk /
