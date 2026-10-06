@@ -18,8 +18,11 @@
 //   A small registry (SAVES_KEY) tracks named slots and which one is active.
 //   Each slot owns its own data key. The menu drives switchSave / createSave /
 //   deleteSave; each reloads the page so the scene + in-memory caches re-init.
-//   renameSave relabels a slot without a reload (index.html uses it to derive
-//   a fresh slot's name from the player name entered for multiplayer).
+//   Slot names stay unique, because two rows wearing the same name are
+//   indistinguishable in the menu. createSave de-duplicates a supplied name
+//   ("Ada" -> "Ada 2"), because callers pass it for convenience; renameSave
+//   refuses a name another slot wears, because a rename is an explicit choice
+//   the caller can re-prompt for.
 
 // Stable storage namespace for named save slots.
 const SAVE_VERSION_KEY = 'terracart.save.v4';
@@ -87,14 +90,27 @@ function isDefaultSaveName(name) {
   return /^Game \d+$/.test(String(name || ''));
 }
 
+// Free a desired slot name: while another slot wears it, walk " 2", " 3"...
+// A trailing counter is stripped first, so a taken "Ada 2" renumbers to
+// "Ada 3", never "Ada 2 2".
+function _dedupeName(reg, desired) {
+  const taken = new Set(reg.slots.map(s => s.name));
+  if (!taken.has(desired)) return desired;
+  const base = desired.replace(/ \d+$/, '') || desired;
+  let n = 2;
+  while (taken.has(base + ' ' + n)) n++;
+  return base + ' ' + n;
+}
+
 // Create a fresh, empty slot and make it active. Caller reloads the page so the
 // scene boots from the new (empty → fresh game) slot.
 function createSave(name) {
   const reg = _readSavesReg() || initSaves();
   const id = _newSaveId();
+  const clean = name && String(name).trim();
   reg.slots.push({
     id,
-    name: (name && String(name).trim()) || _defaultSaveName(reg),
+    name: clean ? _dedupeName(reg, clean) : _defaultSaveName(reg),
     key: SAVE_VERSION_KEY + '.' + id,
     createdAt: Date.now(),
     lastPlayedAt: Date.now(),
@@ -106,14 +122,16 @@ function createSave(name) {
 }
 
 // Rename a slot in place. Returns false (and changes nothing) for an unknown
-// id or a blank name. Pure registry write — the slot's data key never changes,
-// so it's safe mid-game.
+// id, a blank name, or a name another slot already wears; renaming to the
+// slot's own name is a no-op success. Pure registry write — the slot's data
+// key never changes, so it's safe mid-game.
 function renameSave(id, name) {
   const clean = name && String(name).trim();
   if (!clean) return false;
   const reg = _readSavesReg() || initSaves();
   const slot = reg.slots.find(s => s.id === id);
   if (!slot) return false;
+  if (reg.slots.some(s => s.id !== id && s.name === clean)) return false;
   slot.name = clean;
   _writeSavesReg(reg);
   return true;

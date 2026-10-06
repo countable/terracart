@@ -66,6 +66,29 @@
     });
   }
 
+  test('frame cadence: the phase adapter stays honest on a 120 Hz display', () => {
+    const d = driver(30);
+    let lastCount = 0;
+    for (let i = 0; i < 480; i++) {
+      d.advance(1000 / 120);
+      assert.lte(d.calls.length - lastCount, 1, 'at most one game step per 8.3ms display tick');
+      lastCount = d.calls.length;
+    }
+    assert.inRange(d.calls.length, 119, 120, 'four display ticks deliver each 30 fps game step');
+    const delivered = d.calls.reduce((sum, call) => sum + call.delta, 0);
+    assert.lt(Math.abs(delivered + d.loop.delta - d.now()), 1e-6,
+      'callbacks and pending phase preserve all 120 Hz elapsed time');
+
+    const reset = driver(30);
+    reset.advance(20);
+    reset.loop.resetDelta();
+    reset.advance(20);
+    assert.eq(reset.calls.length, 0, 'resetDelta discarded the pre-reset scheduling debt');
+    reset.advance(14);
+    assert.eq(reset.calls.length, 1, 'a fresh 33.3ms interval becomes due normally');
+    assert.eq(reset.calls[0].delta, 34, 'the callback receives only post-reset elapsed time');
+  });
+
   test('frame cadence: a long stall delivers elapsed time once without catch-up bursts', () => {
     const d = driver();
     d.advance(10);
@@ -94,13 +117,29 @@
     }
   });
 
-  test('frame cadence: uncapped mode keeps the original driver and smoothing', () => {
+  test('frame cadence: 120 Hz housekeeping keeps its 3 Hz wall-clock rate', () => {
+    assert.includes(APP_JS_SRC, 'const HOUSEKEEPING_POLL_MS = 1000 / 3;',
+      'one elapsed-time interval owns the modal/story backstop cadence');
+    assert.includes(APP_JS_SRC,
+      'this._housekeepingMs = (this._housekeepingMs || 0) + Math.max(0, dtMs);');
+    assert.includes(APP_JS_SRC, 'this._housekeepingMs %= HOUSEKEEPING_POLL_MS;',
+      'long frames keep phase but cannot trigger catch-up bursts');
+    assert.falsy(APP_JS_SRC.includes('_modalGateTick'),
+      'the old step-count throttle would run four times as often at 120 Hz');
+    assert.includes(APP_JS_SRC, 'WorldGen.noteSliceFrameTargetMs?.(1000 / displayFps);',
+      'Phaser display cadence reaches the tile-slice controller');
+  });
+
+  test('frame cadence: ?fps=0 keeps every 120 Hz display frame', () => {
     const d = driver(0, false), original = d.loop.stepLimitFPS, reset = d.loop.resetDelta;
     install(d.loop);
     assert.eq(d.loop.stepLimitFPS, original);
     assert.eq(d.loop.resetDelta, reset);
     assert.eq(d.loop.smoothStep, true);
     for (let i = 0; i < 120; i++) d.advance(1000 / 120);
-    assert.eq(d.calls.length, 120);
+    assert.eq(d.calls.length, 120, 'the sanctioned 120 fps path does not install a limiter');
+    assert.lt(Math.abs(d.calls[d.calls.length - 1].t - 1000), 1e-6,
+      'the uncapped path reaches one honest second without skipping a callback');
+    assert.lt(Math.abs(d.loop.time - 1000), 1e-6, 'Phaser time keeps the display clock');
   });
 })();

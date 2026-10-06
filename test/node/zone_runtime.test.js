@@ -261,8 +261,8 @@
       assert.eq(shrines[0].zoneKind, 'beach');
       assert.eq(a.objects.filter(o => o.kind === 'chest' && !o.chestTopUp).length, 0, 'the POI converts instead of duplicating');
       const topUps = a.objects.filter(o => o.chestTopUp);
-      assert.eq(topUps.filter(o => chestTier(o) === 1).length, 25, 'variant fills the T1 minimum');
-      assert.eq(topUps.filter(o => chestTier(o) === 2).length, 10, 'variant fills the T2 minimum');
+      assert.eq(topUps.filter(o => chestTier(o) === 1).length, WorldGen.CHEST_TOP_UP_MIN[1], 'variant fills the T1 minimum');
+      assert.eq(topUps.filter(o => chestTier(o) === 2).length, WorldGen.CHEST_TOP_UP_MIN[2], 'variant fills the T2 minimum');
       assert.eq(topUps.map(o => o.id).join(','), b.objects.filter(o => o.chestTopUp).map(o => o.id).join(','),
         'the full rasterization reproduces every top-up identity');
       assert.eq(b.objects.find(o => o.kind === 'grove_shrine').id, shrines[0].id);

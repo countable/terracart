@@ -35,17 +35,29 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   not fixed pixel offsets. Work tools animate at the target cell.
 - Bake repeated cell geometry into textures (e.g. tilled beds). Reset mutable
   properties such as watered tint whenever pooled sprites are reused.
-- Respect `FPS_LIMIT` and its elapsed-time cadence adapter. Per-frame tile scans
-  use `WorldGen.forEachItemInBox`, not flat object arrays. Widen queries for
+- Respect `FPS_LIMIT` and its elapsed-time cadence adapter. The default stays
+  30 fps for battery life; `?fps=0` follows the display, including 120 Hz.
+  Wall-clock housekeeping must not count game steps. Feed Phaser's measured
+  display interval to the adaptive tile-slice budget so a long slice cannot
+  hide an 8.3 ms refresh as a 16.7 ms frame. Per-frame tile scans use
+  `WorldGen.forEachItemInBox`, not flat object arrays. Widen queries for
   offers/lights beyond the sprite cull. Indexed objects do not move in place.
 - Cached drawing keys must include every input. `Lighting.frameKey` uses the
   quantised light clock; new tile arrays read per frame need a derived index.
+  `drawObjects` caches appearance by identity only for generation-immutable
+  records, reuses their configured pool slots while body and camera stand still,
+  and sorts the shared world container only when membership or assigned depth
+  changes; tool/work transitions invalidate reuse, while connected, clock-driven
+  and saved-state art stays live.
 - A cell-crossing rebuild never reads pixels back: no `getImageData`, no
   per-piece `textures.createCanvas` (Phaser reads the canvas back on
   creation). Bake short-lived canvas pieces into shared atlas pages
   (`building_overlay.js` wall atlas) and apply a colour treatment to the
-  colours (`unclaimedMaterialColor`), not to finished pixels. Measured: one
-  read-back per building per crossing was the walking stutter on iPhone.
+  colours (`unclaimedMaterialColor`), not to finished pixels. The road overlay
+  retains its visible base/restored pair while it paints a hidden pair in 2 ms
+  slices, then swaps both atomically; each pass reuses its full-size scratch
+  layers between rebuilds. Measured: one read-back per building per crossing
+  was the walking stutter on iPhone.
 
 Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
@@ -55,8 +67,19 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 - `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
   canvas multiplied over the world. Do not add darkness passes or dim sprites
-  again. Reach lighting follows `cellInReach`; light conveys reach and live POIs
-  without outline rings. Day/night leaves the reach plateau bright; caves ignore it.
+  again. Its screen-attached base (ambient plus player ramp) stays baked while
+  walking; transparent, padded reach-cell masks crop with the camera and rebuild
+  only when their geometry or validity edge changes. If the normal validity edge
+  lands on `drawCells`' crossing frame, the mask borrows the remaining physical
+  pad once and rebuilds on the next ordinary frame; it never crops past the
+  painted edge. A viewport scratch blends
+  old/new masks at their live fade weights and colours them with the radial
+  gradient still centred on the body. Stable world cookies join padded caches
+  by their exact whole-pixel phase. Player-attached, breathing, flickering and
+  transient lights keep the individual stamp path. The full-frame key gates
+  before every canvas call. Reach lighting follows `cellInReach`; light conveys
+  reach and live POIs without outline rings. Day/night leaves the reach plateau bright;
+  caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before
@@ -64,7 +87,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - Streets restore metre intervals along each transportation line, keyed by
   `Streets.lineKey(feature, lineIdx)`, clipped to tile spans. Keep reach tied
   to the player and visuals keyed by `Streets.epoch`; do not add per-cell road
-  state. Feather only the restored band's edge, with a hard-edge fallback.
+  state. The reach sweep rejects tile squares outside the padded reach, then
+  caches eligible line records, bounds and tile spans on each tile entry. A new
+  entry or replacement `layers` array invalidates the geometry, so a cell move
+  rejects distant lines without walking their vertices.
+  Feather only the restored band's edge, with a hard-edge fallback.
 - Generate lamps from `Streets.lampSpacingM()` (independent of trail goals).
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern

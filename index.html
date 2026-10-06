@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=72fadaf5" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=a8575658" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2781,12 +2781,12 @@
   <script src="src/mvt.js?v=919b21d0"></script>
   <script src="src/enemy_roster.js?v=96a07cc0"></script>
   <script src="src/enemy_spawns.js?v=b4316486"></script>
-  <script src="src/enemy_habitats.js?v=93ef7b69"></script>
+  <script src="src/enemy_habitats.js?v=6f3b8044"></script>
   <script src="src/difficulty.js?v=e9bcaacf"></script>
   <script src="src/util.js?v=b8bec906"></script>
   <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=0a1d8648"></script>
-  <script src="src/streets.js?v=959b140a"></script>
+  <script src="src/streets.js?v=714e8cfc"></script>
   <script src="src/street_variants.js?v=e40a4ef7"></script>
   <script src="src/scenic.js?v=1db0f8fe"></script>
   <script src="src/zones.js?v=f7d961d5"></script>
@@ -2800,7 +2800,7 @@
   <script src="src/reef_layout.js?v=5ac55392"></script>
   <script src="src/sprite_layout.js?v=f7eec0bc"></script>
   <script src="src/placed_floor.js?v=d2b70405"></script>
-  <script src="src/home.js?v=6483eace"></script>
+  <script src="src/home.js?v=2a2401ea"></script>
   <script src="src/coords.js?v=9f69f77e"></script>
   <script src="src/fog.js?v=e5c1de4f"></script>
   <script src="src/biome_profiles.js?v=13cb418e"></script>
@@ -2817,10 +2817,10 @@
   <script src="src/cave_areas.js?v=8737e9f6"></script>
   <script src="src/underground.js?v=77a06227"></script>
   <script src="src/underground_stories.js?v=deb09860"></script>
-  <script src="src/worldgen.js?v=6e7e74ba"></script>
+  <script src="src/worldgen.js?v=ddd710e8"></script>
   <script src="src/castle_styles.js?v=ea3cd17d"></script>
   <script src="src/textures.js?v=9beaed13"></script>
-  <script src="src/save.js?v=aad839f9"></script>
+  <script src="src/save.js?v=b103250b"></script>
   <script src="src/items.js?v=c8d2d104"></script>
   <script src="src/inventory.js?v=26134d06"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
@@ -2864,10 +2864,10 @@
   <script src="src/story_encounters.js?v=1b05c924"></script>
   <script src="src/interact.js?v=1a6bfa4a"></script>
   <script src="src/play_tips.js?v=81e0ab73"></script>
-  <script src="src/lighting.js?v=5af1744e"></script>
-  <script src="src/render.js?v=f0899b24"></script>
+  <script src="src/lighting.js?v=bc8da246"></script>
+  <script src="src/render.js?v=41d7fe51"></script>
   <script src="src/multiplayer.js?v=6f03c1cd"></script>
-  <script src="src/road_overlay.js?v=05a0426b"></script>
+  <script src="src/road_overlay.js?v=f66e6df1"></script>
   <script src="src/temple_art.js?v=e92e8263"></script>
   <script src="src/building_overlay.js?v=9c31fc55"></script>
   <script src="src/assets.js?v=3f0bf4a0"></script>
@@ -2882,13 +2882,13 @@
   <script src="src/scene_creatures.js?v=0153c55b"></script>
   <script src="src/scene_fire.js?v=f0792d1a"></script>
   <script src="src/scene_shops.js?v=70c6bffa"></script>
-  <script src="src/scene_create.js?v=4537265d"></script>
+  <script src="src/scene_create.js?v=cc77a951"></script>
   <script src="src/scene_elevators.js?v=db4a70c9"></script>
   <script src="src/scene_arena.js?v=76449b61"></script>
   <script src="src/scene_consumables.js?v=71d8e545"></script>
   <script src="src/scene_pets.js?v=817c1e2f"></script>
   <script src="src/scene_venues.js?v=25f4a500"></script>
-  <script src="src/scene_streets.js?v=822fff96"></script>
+  <script src="src/scene_streets.js?v=b9269b37"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2949,7 +2949,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=72fadaf5';
+      const APP_SRC = 'src/app.js?v=a8575658';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

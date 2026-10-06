@@ -239,12 +239,17 @@ const HomeArea = {
       if (this.isStarterTree(o)) return false;
       o.species = this.STARTER_TREE.species;
       o.size = this.STARTER_TREE.size;
+      // The renderer caches resolved art on the record (render.js
+      // _renderAppearance). Evict it here so an in-place downgrade cannot
+      // freeze the old hardwood look until a tile rebuild.
+      delete o._renderAppearance;
       return true;
     }
     if (o.kind === 'mineralrock') {
       if (this.isStarterRock(o)) return false;
       o.yieldTier = this.STARTER_ROCK.yieldTier;
       o.requiredTier = this.STARTER_ROCK.requiredTier;
+      delete o._renderAppearance;
       return true;
     }
     return false;

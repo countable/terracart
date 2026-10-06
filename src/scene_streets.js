@@ -114,55 +114,76 @@ class SceneStreets {
       const base = tileCellToAbs(this, tx, ty, 0, 0);
       const baseIX = base.cellIX, baseIY = base.cellIY;
       const lx = rc.x - tx * tileEdgeM, ly = rc.y - ty * tileEdgeM;
-      for (const layer of entry.layers) {
-        if (layer.name !== 'transportation') continue;
-        const extent = layer.extent || 4096;
-        const mvtToM = tileEdgeM / extent;
-        for (const f of layer.features) {
-          if (f.type !== 2 || !f.geom) continue;      // lines only
-          const cls = (f.tags && f.tags.class) || '';
-          if (cls === 'rail' || cls === 'transit') continue;
-          if (WorldGen.isParkingAisle(f.tags)) continue;
-          for (let i = 0; i < f.geom.length; i++) {
-            const line = f.geom[i];
-            if (!line || line.length < 2) continue;
-            // Bbox prefilter, in tile-local metres. A city tile carries
-            // hundreds of lines and the exact grid traversal below walks
-            // every vertex of one; this throws away all but the handful the
-            // reach circle can possibly touch, for one pass over the points.
-            let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-            for (const v of line) {
-              const vx = v.x * mvtToM, vy = v.y * mvtToM;
-              if (vx < x0) x0 = vx;
-              if (vx > x1) x1 = vx;
-              if (vy < y0) y0 = vy;
-              if (vy > y1) y1 = vy;
+      // Restoration is clipped to this tile's own square. Reject a neighbour
+      // whose square the padded reach cannot touch before building or walking
+      // its line catalogue; buffered MVT metres outside the square never count.
+      if (lx + pad < 0 || lx - pad > tileEdgeM || ly + pad < 0 || ly - pad > tileEdgeM) return;
+      // Build the immutable line catalogue once on the tile entry. A city
+      // tile can carry hundreds of lines; before this cache every reach-cell
+      // move walked every vertex merely to rediscover each bbox. New tile
+      // entries (and sandbox's replacement layers) miss by object identity,
+      // so rebuilds derive fresh geometry without a global epoch.
+      let reachLines = entry._streetReachLines;
+      if (!reachLines || entry._streetReachLinesLayers !== entry.layers
+          || entry._streetReachLinesEdgeM !== tileEdgeM) {
+        reachLines = [];
+        for (const layer of entry.layers) {
+          if (layer.name !== 'transportation') continue;
+          const extent = layer.extent || 4096;
+          const mvtToM = tileEdgeM / extent;
+          for (const f of layer.features) {
+            if (f.type !== 2 || !f.geom) continue;      // lines only
+            const cls = (f.tags && f.tags.class) || '';
+            if (cls === 'rail' || cls === 'transit') continue;
+            if (WorldGen.isParkingAisle(f.tags)) continue;
+            for (let i = 0; i < f.geom.length; i++) {
+              const line = f.geom[i];
+              if (!line || line.length < 2) continue;
+              const b = Streets.lineBounds(f, i);
+              if (!b) continue;
+              reachLines.push({
+                feature: f, lineIdx: i, line, lineKey: null, tags: f.tags,
+                mvtToM, extent,
+                x0: b.x0 * mvtToM, y0: b.y0 * mvtToM,
+                x1: b.x1 * mvtToM, y1: b.y1 * mvtToM,
+                tileSpans: null,
+              });
             }
-            if (x1 < lx - pad || x0 > lx + pad || y1 < ly - pad || y0 > ly + pad) continue;
-            const lineKey = Streets.lineKey(f, i);
-            let iv = Streets.reachIntervals(line, mvtToM, tileCellM,
-              (lix, liy) => cellInReach(this, baseIX + lix, baseIY + liy));
-            if (!iv.length) continue;
-            iv = Streets.intersect(iv, Streets.tileSpans(line, mvtToM, extent));
-            if (!iv.length) continue;
-            iv = Streets.subtract(iv, Streets.restoredList(this.save, tileKey, lineKey));
-            if (!iv.length) continue;
-            // One sight for every tile, so the key carries the tile too.
-            const key = `${tileKey}|${lineKey}`;
-            seen.add(key);
-            const prev = lines.get(key);
-            const meta = prev || { tileKey, lineKey, line, mvtToM, tx, ty, tileEdgeM, tags: f.tags, t0: now };
-            // A tile REBUILT under us hands back a new feature object, so
-            // the geometry is refreshed even on a key we already hold — but
-            // the clock is not: the player has been standing there the whole
-            // time (see the rebuild rule in CLAUDE.md).
-            meta.line = line; meta.mvtToM = mvtToM; meta.tags = f.tags;
-            meta.tileEdgeM = tileEdgeM;
-            this._setStreetPreview(meta, iv);
-            lines.set(key, meta);
-            sight.snapshot(now, key, iv);
           }
         }
+        entry._streetReachLines = reachLines;
+        entry._streetReachLinesLayers = entry.layers;
+        entry._streetReachLinesEdgeM = tileEdgeM;
+      }
+      for (const rec of reachLines) {
+        if (rec.x1 < lx - pad || rec.x0 > lx + pad || rec.y1 < ly - pad || rec.y0 > ly + pad) continue;
+        const line = rec.line, mvtToM = rec.mvtToM;
+        // Hash only the handful of lines whose cached bounds touch reach.
+        const lineKey = rec.lineKey || (rec.lineKey = Streets.lineKey(rec.feature, rec.lineIdx));
+        let iv = Streets.reachIntervals(line, mvtToM, tileCellM,
+          (lix, liy) => cellInReach(this, baseIX + lix, baseIY + liy));
+        if (!iv.length) continue;
+        // Tile clipping is immutable too, but only derive it for a line that
+        // survived the bbox. Most city lines never pay even this first pass.
+        const spans = rec.tileSpans || (rec.tileSpans = Streets.tileSpans(line, mvtToM, rec.extent));
+        iv = Streets.intersect(iv, spans);
+        if (!iv.length) continue;
+        iv = Streets.subtract(iv, Streets.restoredList(this.save, tileKey, lineKey));
+        if (!iv.length) continue;
+        // One sight for every tile, so the key carries the tile too.
+        const key = `${tileKey}|${lineKey}`;
+        seen.add(key);
+        const prev = lines.get(key);
+        const meta = prev || { tileKey, lineKey, line, mvtToM, tx, ty, tileEdgeM, tags: rec.tags, t0: now };
+        // A tile REBUILT under us hands back a new feature object, so
+        // the geometry is refreshed even on a key we already hold — but
+        // the clock is not: the player has been standing there the whole
+        // time (see the rebuild rule in CLAUDE.md).
+        meta.line = line; meta.mvtToM = mvtToM; meta.tags = rec.tags;
+        meta.tileEdgeM = tileEdgeM;
+        this._setStreetPreview(meta, iv);
+        lines.set(key, meta);
+        sight.snapshot(now, key, iv);
       }
     });
     // Anything that left the reach — or was fully restored — loses its clock

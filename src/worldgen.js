@@ -838,9 +838,9 @@
   }
   // ── Tier seeds: the per-tile quota pyramid (Oct 2026) ─────────────────────
   // The count-threshold ladder is replaced by QUOTAS. Each tile seeds about
-  // 1 T5, 7 T4, 15 T3 and 25 T2 among its budgeted POI chests — every other
+  // 1 T5, 5 T4, 11 T3 and 18 T2 among its budgeted POI chests — every other
   // chest stays T1 — scaling x1..x2 as the budgeted count runs 100..1000, so
-  // a dense downtown holds up to 2/14/30/50 promoted chests where a suburb
+  // a dense downtown holds up to 2/10/22/36 promoted chests where a suburb
   // holds the base pyramid. Seats go to the BEST POIs first: the MVT rank
   // tag (every tile POI carries one; lower = more notable), then id as the
   // deterministic tiebreak. Within a tier the seats round-robin across chest
@@ -853,7 +853,7 @@
   // matter more than completeness. Runs at the end of the rasterize steps
   // (zones and scenic stamped already) and again when a settled tile restamps
   // (loadTile after bin injection).
-  const TIER_SEED_QUOTA = { 5: 1, 4: 7, 3: 15, 2: 25 };
+  const TIER_SEED_QUOTA = { 5: 1, 4: 5, 3: 11, 2: 18 };
   const TIER_SEED_DENSE_AT = 100, TIER_SEED_DENSE_MAX_AT = 1000;
   function seedChestTiers(objects, opts = {}) {
     // Underground, the pool is the CAVE MIRRORS (isDensityChest excludes
@@ -902,7 +902,7 @@
   // Low-tier supplies fill existing variant footprints after the POI pyramid.
   // Both tiers must be scarce. These surface-only additions keep their seed
   // on later density/restamp passes and never spend a higher-tier quota seat.
-  const CHEST_TOP_UP_MIN = { 1: 25, 2: 10 };
+  const CHEST_TOP_UP_MIN = { 1: 18, 2: 7 };
   function* topUpChestsSteps({ objects, dressings = [], zone, streetDress, grid, N, tx, ty, tileEdgeM, spawnOpts }) {
     const counts = { 1: 0, 2: 0 };
     for (const list of [objects, ...dressings.map(d => d?.objects || [])]) {
@@ -3155,10 +3155,14 @@
   // The learned quantum. min() pulls it down the moment a fast frame proves the
   // device can do better; it relaxes back up slowly, so it tracks a device that
   // has genuinely dropped to 30 fps within a couple of seconds without one slow
-  // frame being able to move it.
+  // frame being able to move it. Phaser's measured display cadence seeds and
+  // caps that learning: a 12 ms slice can otherwise hide a 120 Hz display by
+  // making every 8.3 ms refresh arrive as 16.7 ms, leaving no fast sample from
+  // which the controller could discover the missing refresh.
   const SLICE_FRAME_SLACK_MS = 6;
   const SLICE_BASE_RELAX_MS = 0.25;
   let _sliceBaseMs = 16.7;
+  let _sliceFrameHintMs = Infinity;
   const SLICE_BACKOFF = 0.7;      // multiplicative decrease, on a missed frame
   const SLICE_CREEP_MS = 0.5;     // additive increase, on a frame that fitted
   const SLICE_SAFE_FRAC = 0.9;    // how far under a budget that missed we settle
@@ -3171,14 +3175,25 @@
   // is no frame rate worth protecting — a controller would only slow the boot
   // down. app.js turns it on with the map (setSliceBudgetMs).
   let _sliceAdapt = false;
-  function setSliceBudgetMs(ms, adapt = true) {
+  function setSliceBudgetMs(ms, adapt = true, frameTargetMs = null) {
     RASTER_SLICE_MS = clamp(+ms || RASTER_SLICE_LIVE_MS, 4, 60);
     _sliceMs = RASTER_SLICE_MS;
     _sliceSafeMs = Infinity;
-    _sliceBaseMs = 16.7;
+    _sliceFrameHintMs = frameTargetMs > 0 ? clamp(frameTargetMs, 4, 1000) : Infinity;
+    _sliceBaseMs = Number.isFinite(_sliceFrameHintMs) ? _sliceFrameHintMs : 16.7;
     _sliceAdapt = !!adapt;
   }
   function sliceBudgetMs() { return _sliceMs; }
+  // Phaser measures display frames even while FPS_LIMIT skips game steps. Feed
+  // that cadence here so a fat slice cannot disguise a 120 Hz refresh as 60 Hz.
+  // A faster display tightens immediately; a slower one still has to earn its
+  // larger quantum through the controller's gradual relaxation.
+  function noteSliceFrameTargetMs(frameMs) {
+    if (!(frameMs > 0)) return _sliceBaseMs;
+    _sliceFrameHintMs = clamp(frameMs, 4, 1000);
+    _sliceBaseMs = Math.min(_sliceBaseMs, _sliceFrameHintMs);
+    return _sliceBaseMs;
+  }
   // The frame time above which a slice is judged to have spilled into the next
   // frame. Exported so a test can drive the controller with a real device model
   // rather than a copy of this number.
@@ -3187,7 +3202,7 @@
   // everything between handing the thread back and getting it again.
   function noteSliceFrame(frameMs) {
     if (!_sliceAdapt || !(frameMs > 0)) return _sliceMs;
-    _sliceBaseMs = Math.min(frameMs, _sliceBaseMs + SLICE_BASE_RELAX_MS);
+    _sliceBaseMs = Math.min(frameMs, _sliceBaseMs + SLICE_BASE_RELAX_MS, _sliceFrameHintMs);
     const target = sliceFrameTargetMs();
     if (frameMs > target) {
       _sliceSafeMs = Math.max(SLICE_MIN_MS, _sliceMs * SLICE_SAFE_FRAC);
@@ -3195,8 +3210,13 @@
     } else {
       // It fitted inside the quantum. (No separate hysteresis band — the
       // remembered headroom below is what stops this walking into the wall.)
-      if (_sliceSafeMs < RASTER_SLICE_MS) _sliceSafeMs += SLICE_PROBE_MS;
-      _sliceMs = Math.min(RASTER_SLICE_MS, _sliceSafeMs, _sliceMs + SLICE_CREEP_MS);
+      // Keep recovery speed constant in wall-clock time. A 120 Hz controller
+      // sees twice as many fitting frames as a 60 Hz one, so per-frame creep
+      // and probing are half-sized rather than causing twice as many misses.
+      const cadenceScale = Math.min(1, _sliceBaseMs / 16.7);
+      if (_sliceSafeMs < RASTER_SLICE_MS) _sliceSafeMs += SLICE_PROBE_MS * cadenceScale;
+      _sliceMs = Math.min(RASTER_SLICE_MS, _sliceSafeMs,
+        _sliceMs + SLICE_CREEP_MS * cadenceScale);
     }
     return _sliceMs;
   }
@@ -9076,7 +9096,7 @@
     // a time — the only way to see the thing that actually stutters, which
     // is not the total but the longest stretch between two yields.
     rasterizeTileSteps, grassFillSteps,
-    setSliceBudgetMs, sliceBudgetMs, noteSliceFrame, sliceFrameTargetMs,
+    setSliceBudgetMs, sliceBudgetMs, noteSliceFrameTargetMs, noteSliceFrame, sliceFrameTargetMs,
     // The shared slice driver (see driveStepsSliced): a steps generator run
     // straight through, or sliced as a turn on the heavy chain — the scene's
     // spawn pass rides it too. STEPS_ABORTED is what an aborted pass returns.
