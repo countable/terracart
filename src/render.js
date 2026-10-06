@@ -3414,6 +3414,7 @@ Render.drawObjects = function drawObjects(scene) {
         // is not on the waterline today or was taken today — one predicate,
         // interactables.js isSpent, the tap asks the same.
         if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
+        if (HiddenObjects.isHidden(scene.save, wp)) return;
         const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
         // A mushroom is a (faint) light as well as a sprite — offered before
         // the cull like a building, with its own radius as the margin. The

@@ -3037,6 +3037,7 @@ class MapScene extends Phaser.Scene {
     // The gate is _bodyHold: the pin above, and SLOW (tar / stakes) as its
     // second reason — a cap on the follow step rather than a hold.
     const bodyHold = this._bodyHold();
+    if (this._confusedLoop && !Conditions.active(this.save, 'confused')) this._endConfusedWalk();
     if (bodyHold.pinned) {
       // Held still, but sharp ground continues hurting.
       const { x, y } = playerWorldM(this);
@@ -3047,7 +3048,6 @@ class MapScene extends Phaser.Scene {
       const after = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, after.x, after.y);
     } else {
-      if (this._confusedLoop) { this._confusedLoop = null; this._confusedRecover = true; }
       if ((stick && (stick.x || stick.y)) || vx || vy) this._confusedRecover = false;
       // Stick → walk yourself off the GPS (costs stamina, boots-scaled).
       if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
@@ -3472,6 +3472,7 @@ class MapScene extends Phaser.Scene {
     // away, nor stop one under you from biting).
     PressureTraps.tick(this, dt);
     EnvironmentHazards.tick(this, dt);
+    MushroomGas.tick(this, dt);
     Whirlwinds.tick(this, dt);
     this._tickTraps(dt);
     // …and is a guildhall bounty's pack still about (its leash)?
@@ -3499,6 +3500,7 @@ class MapScene extends Phaser.Scene {
     this.drawBuildingGeometry();
     if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
     this.drawObjects();
+    GasRender.draw(this);
     this._drawArena();
     this._drawWorkProgress();
     this.updateHUD();
@@ -6397,9 +6399,12 @@ class MapScene extends Phaser.Scene {
     if (!this._confusedLoop) this._confusedLoop = {
       angle: Math.random() * Math.PI * 2,
       turn: (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random()),
-      left: 2 + Math.random() * 2,
+      left: null,
+      compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing } },
     };
     const loop = this._confusedLoop;
+    // Keep each random turn for a complete circle before choosing another.
+    if (loop.left == null) loop.left = Math.PI * 2 / Math.abs(loop.turn);
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
     const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul * Conditions.movementMul(this.save);
     let remaining = dt;
@@ -6415,11 +6420,22 @@ class MapScene extends Phaser.Scene {
       } else { loop.angle += Math.PI / 2; }
       if (loop.left <= 0) {
         loop.turn = (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random());
-        loop.left = 2 + Math.random() * 2;
+        loop.left = Math.PI * 2 / Math.abs(loop.turn);
       }
     }
     this.facing = { x: Math.cos(loop.angle), y: Math.sin(loop.angle) };
+    this.compassDeg = (Math.atan2(this.facing.x, -this.facing.y) * 180 / Math.PI + 360) % 360;
     this._playDirected(this.player, 'walk', this.facing.x, this.facing.y);
+  }
+
+  _endConfusedWalk() {
+    // Sensor samples continue smoothing privately during confusion. Restore
+    // their latest heading, or the pre-effect fallback on devices without one.
+    const compass = this._deviceCompass || this._confusedLoop?.compassBefore;
+    this.compassDeg = compass?.deg ?? null;
+    if (compass?.facing) this.facing = { ...compass.facing };
+    this._confusedLoop = null;
+    this._confusedRecover = true;
   }
 
   _followStep(dt, capMS) {
