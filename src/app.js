@@ -392,13 +392,6 @@ const SAFETY_CARDS = {
     lines: ['Stay on lit pavements and paths, and be seen.',
       'Out of reach? Use the stick — never the street.'] },
 };
-// A HEADS-UP BUZZ (wanderCreatures): the phone vibrates when a hostile that
-// is taking an interest comes within SAFETY_FOE_BUZZ_CELLS of the feet, at
-// most once per SAFETY_FOE_BUZZ_GAP_MS — so a player whose eyes are on the
-// street still learns something is coming. The save's haptics switch mutes it.
-const SAFETY_FOE_BUZZ_CELLS = 5;
-const SAFETY_FOE_BUZZ_GAP_MS = 20000;
-const SAFETY_FOE_BUZZ = [70, 60, 70];
 // Save fields written by the passes that run BEFORE a home is captured — the
 // starter crate anchor, the guaranteed soil plot and the starter-home
 // provision. Every one of them is DERIVED from the projection origin and is
@@ -1729,7 +1722,7 @@ class MapScene extends Phaser.Scene {
       || (sv.tilled && sv.tilled.length) || (sv.planted && sv.planted.length));
   }
 
-  // === HUD help, haptics ===
+  // === HUD help ===
   // (Tile loading lives in scene_geo.js › ensureTilesAround.)
   // What the ⚡ chip does when tapped (UX audit §20): "how do I refill this?"
   // is the obvious gesture and it did nothing. Says where energy comes from,
@@ -1761,18 +1754,6 @@ class MapScene extends Phaser.Scene {
     box.appendChild(close);
     mount();
   }
-
-  // Short vibration on tap outcomes. An outdoor phone game in sunlight can't
-  // rely on a 12px flash label alone (UX audit §18), so a tap that lands and a
-  // tap that's rejected feel different. Off is remembered in the save; the API
-  // is absent on desktop and iOS Safari, hence the optional call.
-  haptic(ms) {
-    if (this.save?.haptics === false) return;
-    try { navigator.vibrate?.(ms); } catch (_) {}
-  }
-  hapticOk()     { this.haptic(15); }
-  hapticReject() { this.haptic(40); }
-  hapticHit()    { this.haptic(25); }   // between the two: not a pickup, not a refusal
 
   // `reason` is the failure as the tile path reported it ("HTTP 504",
   // "Failed to fetch", "offline"), shown in the banner so a report from a
@@ -2392,7 +2373,7 @@ class MapScene extends Phaser.Scene {
   // Depth 92: above the vignette (90) and below the work wheel (95), and
   // unmasked like both of them — it is UI about the body, not a world layer.
   _painFlash(dmg) {
-    // The BODY's own channel first — the red flick + haptic buzz + blood
+    // The BODY's own channel first — the red flick + blood
     // burst every other blow on the player uses (_flashPlayerHit). The rest
     // of this method is what a trap adds on top of that: it is the biggest
     // single hit in the game, so it also reaches the edges of the screen.
@@ -4130,8 +4111,7 @@ class MapScene extends Phaser.Scene {
   // _updatePlayerAura every frame: the sprite tint, which is invisible under
   // Phaser's Canvas fallback (setTint is a no-op there — the shiny cue and the
   // coloured icons both learned this), and the halo's red texture, a plain
-  // image that reads on every renderer. A haptic tick rides along, and so does
-  // a red chip burst off the BODY (Particles 'pain') — every one of these
+  // image that reads on every renderer. A red chip also bursts off the BODY (Particles 'pain') — every one of these
   // call sites is the player being hurt, so the burst belongs here rather
   // than duplicated at each one; it is already 0 under prefers-reduced-motion
   // by burstCount's own rule. `dmg` is the actual points this blow cost — the
@@ -4152,7 +4132,6 @@ class MapScene extends Phaser.Scene {
 
   _flashPlayerHit(dmg) {
     this._hitFlashUntilT = performance.now() + HIT_FLASH_MS;
-    if (this.hapticHit) this.hapticHit();
     if (typeof Particles !== 'undefined' && this.playerScreen) {
       const ps = this.playerScreen();
       if (ps && isFinite(ps.x) && isFinite(ps.y)) {
@@ -4693,7 +4672,6 @@ class MapScene extends Phaser.Scene {
       if (!opts.auto) {
         const ps = this.playerScreen();
         this.flash('The shadows hold your arm.', ps.x, ps.y + this.playerBodyDy());
-        this.hapticReject?.();
       }
       return false;
     }
@@ -7379,9 +7357,6 @@ class MapScene extends Phaser.Scene {
   // (pick / axe / armor), whose art comes from gearIconHTML rather than the
   // ITEM_BY_ID-only renderItemIcon that the `itemId` path uses.
   flashLoot(text, color = UI_GOLD, dwellMul = 1, itemId = null, iconEl = null) {
-    // Every "you got something" goes through here, so it's the one place a
-    // success buzz needs wiring (UX audit §18).
-    this.hapticOk();
     // Loot icon = DOM overlay using the same CSS-background renderer the
     // inventory uses. Going through scene.add.image(sheet) would demand
     // every icon sheet be preloaded into Phaser textures (egg / milk /
@@ -9316,58 +9291,36 @@ class MapScene extends Phaser.Scene {
       }
     `);
   }
-  // Dev tool (☰ › Developer): call a pack of wild slimes to the edge of the
-  // screen. They spawn as ORDINARY surface slimes — same kind, same HP table,
-  // same wander/leech/combat behaviour — pushed into the covering tile's
-  // creature list, so everything downstream (render, the sim loops, the
-  // combat tick) picks them up with no special path. The pack arrives
-  // clustered on one random side, just inside the view edge, and oozes in
-  // from there (slimes drift toward the player), which is what makes it a
-  // usable combat test: the fight starts a moment later, not on your feet.
-  // Returns how many actually landed (a spot with no walkable ground — open
-  // water, a cave wall — re-rolls a few times, then gives up on that slime).
-  debugSpawnSlimePack(n = 6) {
+  // Developer spawns enter the normal creature list at the visible edge.
+  // They are session-only and have their own ids, so killing one cannot
+  // consume a generated world spawn.
+  debugSpawnEnemy(kind) {
+    if (!Combat.isEnemyKind(kind)) return 0;
     const { x: px, y: py } = playerWorldM(this);
-    // Just inside the view edge: visible the moment they land (so the
-    // auto-fire gate sees them too), but a full screen-half from the player.
     const edgeM = (VIEW_CELLS / 2 - 0.5) * this.cellM;
-    const heading = Math.random() * Math.PI * 2;   // the side the pack comes from
-    let placed = 0;
-    for (let i = 0; i < n; i++) {
-      // Fan the pack ±~45° around the heading, one slot per slime, with a
-      // little jitter so it reads as a mob rather than a picket line. A spot
-      // a slime can't stand on re-rolls its jitter, then gives up.
-      const slot = (n > 1 ? i / (n - 1) - 0.5 : 0) * 1.6;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const a = heading + slot + (Math.random() - 0.5) * 0.35;
-        const r = edgeM - Math.random() * this.cellM;
-        const x = px + Math.cos(a) * r;
-        const y = py + Math.sin(a) * r;
-        const entry = this._devSlimeGroundAt(x, y);
-        if (!entry) continue;
-        entry.creatures = entry.creatures || [];
-        this._devSlimeSeq = (this._devSlimeSeq || 0) + 1;
-        // Unique per press — never a tile-data id, so a dev slime can't mark
-        // a real spawn as caught when it dies.
-        entry.creatures.push(WorldGen.makeCreature('slime', x, y,
-          `slime_dev_${Date.now()}_${this._devSlimeSeq}`, { shiny: false }));
-        placed++;
-        break;
-      }
+    const heading = Math.random() * Math.PI * 2;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const a = heading + attempt * Math.PI * 2 / 16;
+      const r = edgeM - Math.random() * this.cellM;
+      const x = px + Math.cos(a) * r;
+      const y = py + Math.sin(a) * r;
+      const entry = this._devEnemyGroundAt(x, y);
+      if (!entry) continue;
+      this._devEnemySeq = (this._devEnemySeq || 0) + 1;
+      const creature = WorldGen.makeCreature(kind, x, y,
+        `enemy_dev_${Date.now()}_${this._devEnemySeq}`, { shiny: false });
+      (entry.creatures ||= []).push(creature);
+      return 1;
     }
-    this.flash?.(placed ? `🟢 ${placed} slimes closing in!` : 'No ground for slimes here',
-      this.viewCenterX, this.viewCenterY - 40);
-    return placed;
+    return 0;
   }
-  // The cached tile entry covering a world-metre spot, but only if a slime
-  // can stand there — walkable terrain on a loaded tile (surface or the
-  // current cave level; the tile cache already reflects the active depth).
-  _devSlimeGroundAt(wmx, wmy) {
+  // Only use walkable ground in the loaded tiles of the active depth.
+  _devEnemyGroundAt(wmx, wmy) {
     const tx = Math.floor(wmx / this.tileEdgeM), ty = Math.floor(wmy / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.grid) return null;
     const N = entry.cellsPerEdge || rowCells(this, ty);
-    const cellM = this.tileEdgeM / N;   // THIS tile's cells (its row's grid)
+    const cellM = this.tileEdgeM / N;
     const ix = Math.floor((wmx - tx * this.tileEdgeM) / cellM);
     const iy = Math.floor((wmy - ty * this.tileEdgeM) / cellM);
     if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;

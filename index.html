@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=facac6bd" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=f863e50e" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1152,7 +1152,6 @@
       <!-- Only shown when the objective ladder has been dismissed but isn't
            finished — a dismissal used to be permanent with no way back. -->
       <button id="show-objectives" style="display:none;">Show objectives</button>
-      <button id="toggle-haptics">Vibration: on</button>
       <button id="toggle-graphics-fx" aria-pressed="false">Graphics FX: off (reloads)</button>
       <!-- Multiplayer is opt-in, per game. Turning it on is the one place the
            game asks for a name; the rename button only shows while it's on. -->
@@ -1173,8 +1172,8 @@
         <div class="devitems">
           <button id="debug-clear-relics">Remove all relics</button>
           <button id="debug-wood-relics">All wood relics (T1)</button>
-          <button id="debug-slime-pack">Call slime pack (6)</button>
-          <button id="debug-dragon-powder">Give 99 Dragon Powder</button>
+          <button id="debug-enemies">Spawn enemies</button>
+          <button id="debug-items">Item cheats</button>
           <button id="debug-nearby-foes">Nearby foes (debug)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <button id="debug-road-ids">Road IDs (debug)</button>
@@ -1728,8 +1727,6 @@
         location.reload();
       });
     })();
-    // Vibration toggle (UX audit §18). Label tracks the save both before the
-    // scene exists (read localStorage) and after each click.
     // The active slot's save, read straight out of the registry — for the
     // controls that paint BEFORE save.js has parsed (this script runs first).
     // Same registry shape save.js's initSaves/loadSave read; null when there
@@ -1741,30 +1738,8 @@
         return (slot && JSON.parse(localStorage.getItem(slot.key) || 'null')) || null;
       } catch { return null; }
     }
-    (function wireHaptics() {
-      const btn = document.getElementById('toggle-haptics');
-      if (!btn) return;
-      const read = () => {
-        const sc = window.__scene;
-        if (sc && sc.save) return sc.save.haptics !== false;
-        const d = readActiveSlotData();
-        return !d || d.haptics !== false;
-      };
-      const paint = () => { btn.textContent = `Vibration: ${read() ? 'on' : 'off'}`; };
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const sc = window.__scene;
-        if (sc && sc.save) {
-          sc.save.haptics = !(sc.save.haptics !== false);
-          if (typeof persistSave === 'function') persistSave(sc.save);
-          if (sc.save.haptics) sc.hapticOk?.();
-        }
-        paint();
-      });
-      paint();
-    })();
     // Mode badge on the ☰ button (difficulty.js). Same before/after-scene split
-    // as wireHaptics above: read the save straight out of the registry before
+    // reads the save straight out of the registry before
     // the scene exists, then window.__gameMode() once app.js has set it up.
     // Hidden while the save has no mode yet (fresh save, how-to card unanswered).
     (function wireModeBadge() {
@@ -2042,23 +2017,80 @@
       scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
     });
-    // A pack of wild slimes at the screen edge, on demand — combat can be
-    // tested without wandering around hoping to find a fight.
-    document.getElementById('debug-slime-pack').addEventListener('click', (e) => {
+    document.getElementById('debug-enemies').addEventListener('click', (e) => {
       e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
-      window.__scene?.debugSpawnSlimePack?.(6);
-    });
-    // 99 Dragon Powder — a minute of dragon legs (fast walk) and 2× damage per
-    // use, so a test run can cross the map and clear a fight without farming.
-    document.getElementById('debug-dragon-powder').addEventListener('click', (e) => {
-      e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
       const scene = window.__scene;
       if (!scene) return;
-      const got = scene.addToInv('dragon_powder', 99, false, { notWild: true });
-      scene.flash?.(got ? `+${got} Dragon Powder` : 'Bag full');
+      showDebugSearch(scene, {
+        id: 'enemy-cheats-modal', title: 'Spawn enemies', subject: 'enemies',
+        hint: 'Tap an enemy to spawn one nearby.',
+        catalog: Combat.enemyKinds().map(id => ({ id, name: Combat.MONSTERS[id]?.name || Combat.enemyName(id) })),
+        obtain: enemy => scene.debugSpawnEnemy(enemy.id)
+          ? `Spawned ${enemy.name}` : 'No clear ground nearby. Try moving.',
+      });
     });
+    document.getElementById('debug-items').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const scene = window.__scene;
+      if (!scene) return;
+      showDebugSearch(scene, {
+        id: 'item-cheats-modal', title: 'Item cheats', subject: 'items',
+        hint: 'Tap an item to obtain one.', catalog: Object.values(ITEM_BY_ID),
+        onClose: () => scene._revealPendingBookReads(),
+        obtain: item => {
+          const got = scene.addToInv(item.id, 1, false, { notWild: true, deferBookRead: true });
+          // Books are read on closing the picker rather than stacking dialogs.
+          persistSave(scene.save);
+          return got ? `+${got} ${item.name}` : 'Bag full';
+        },
+      });
+    });
+    function showDebugSearch(scene, { id, title, subject, hint, catalog, obtain, onClose = () => {} }) {
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const { wrap, box, mount, mkBtn } = scene.makeModalShell(id, {
+        kind: 'supplies', kindLabel: title, fullscreen: true, delayInput: false,
+        boxExtra: 'display:flex;flex-direction:column;gap:8px;overflow:hidden;', onClose,
+      });
+      const search = document.createElement('input');
+      search.type = 'search';
+      search.placeholder = `Search ${subject} by name`;
+      search.setAttribute('aria-label', search.placeholder);
+      search.style.cssText = 'box-sizing:border-box;width:100%;padding:10px;font:16px var(--font-ui);flex-shrink:0;';
+      const status = document.createElement('div');
+      status.setAttribute('role', 'status');
+      status.textContent = hint;
+      status.style.cssText = 'font:13px var(--font-ui);flex-shrink:0;';
+      const results = document.createElement('div');
+      results.style.cssText = 'overflow-y:auto;min-height:0;flex:1;display:flex;flex-direction:column;gap:6px;';
+      catalog = [...catalog].sort((a, b) => a.name.localeCompare(b.name));
+      const render = () => {
+        const query = search.value.trim().toLocaleLowerCase();
+        results.replaceChildren();
+        for (const item of catalog) {
+          if (!item.name.toLocaleLowerCase().includes(query)) continue;
+          const button = mkBtn('', { variant: 'ghost', css: 'flex-shrink:0;min-height:44px;text-align:left;' });
+          button.textContent = item.name;
+          button.addEventListener('click', () => { status.textContent = obtain(item); });
+          results.appendChild(button);
+        }
+        if (!results.childElementCount) results.textContent = `No ${subject} found.`;
+        results.scrollTop = 0;
+      };
+      const close = () => { wrap.remove(); onClose(); };
+      const closeButton = mkBtn('Close', { variant: 'ghost', css: 'flex-shrink:0;' });
+      closeButton.addEventListener('click', close);
+      wrap.addEventListener('keydown', event => {
+        event.stopPropagation();
+        if (event.key === 'Escape') { event.preventDefault(); close(); }
+      });
+      search.addEventListener('input', render);
+      box.append(search, status, results, closeButton);
+      render();
+      mount();
+      box.querySelector('.modal-body').style.cssText =
+        'display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow:hidden;';
+      search.focus();
+    }
     // Nearby foes — every hostile within ~80 m: its kind, where it came from
     // (the surface roster, a ruin's garrison, a zone guard), whether it is
     // hidden for this player, and how far it stands from the frozen starter
@@ -2117,6 +2149,7 @@
           try {
             if (isHome) localStorage.removeItem(TP_KEY);
             else localStorage.setItem(TP_KEY, JSON.stringify({ name: p.name, lat: p.lat, lon: p.lon }));
+            localStorage.setItem('terracart.debugGpsStick', '1');
           } catch {}
           location.reload();
         });
@@ -2147,7 +2180,7 @@
       try {
         if (typeof loadSave === 'function') return loadSave();
       } catch { return {}; }
-      // Before save.js has loaded: the registry, same as the haptics toggle.
+      // Before save.js has loaded: the active-slot registry.
       return readActiveSlotData() || {};
     }
     function readPlayerName() { return readActiveSave().playerName || ''; }
@@ -2748,7 +2781,7 @@
   <script src="src/mvt.js?v=919b21d0"></script>
   <script src="src/enemy_roster.js?v=96a07cc0"></script>
   <script src="src/enemy_spawns.js?v=b4316486"></script>
-  <script src="src/enemy_habitats.js?v=93ef7b69"></script>
+  <script src="src/enemy_habitats.js?v=6f3b8044"></script>
   <script src="src/difficulty.js?v=e9bcaacf"></script>
   <script src="src/util.js?v=b8bec906"></script>
   <script src="src/particles.js?v=4527614a"></script>
@@ -2829,7 +2862,7 @@
   <script src="src/pet_story_art.js?v=4bf942ec"></script>
   <script src="src/pet_stories.js?v=4c078df6"></script>
   <script src="src/story_encounters.js?v=1b05c924"></script>
-  <script src="src/interact.js?v=2e5dab30"></script>
+  <script src="src/interact.js?v=1a6bfa4a"></script>
   <script src="src/play_tips.js?v=81e0ab73"></script>
   <script src="src/lighting.js?v=bc8da246"></script>
   <script src="src/render.js?v=a9a507da"></script>
@@ -2846,13 +2879,13 @@
   <script src="src/modal_shell.js?v=657722d2"></script>
   <script src="src/scene_geo.js?v=9e3b1699"></script>
   <script src="src/npc.js?v=341b91fc"></script>
-  <script src="src/scene_creatures.js?v=b95aea3a"></script>
+  <script src="src/scene_creatures.js?v=0153c55b"></script>
   <script src="src/scene_fire.js?v=f0792d1a"></script>
   <script src="src/scene_shops.js?v=70c6bffa"></script>
   <script src="src/scene_create.js?v=cc77a951"></script>
   <script src="src/scene_elevators.js?v=db4a70c9"></script>
   <script src="src/scene_arena.js?v=a36139a0"></script>
-  <script src="src/scene_consumables.js?v=5c39def1"></script>
+  <script src="src/scene_consumables.js?v=9b9a7aa1"></script>
   <script src="src/scene_pets.js?v=817c1e2f"></script>
   <script src="src/scene_venues.js?v=25f4a500"></script>
   <script src="src/scene_streets.js?v=b9269b37"></script>
@@ -2916,7 +2949,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=facac6bd';
+      const APP_SRC = 'src/app.js?v=f863e50e';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -236,7 +236,7 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   assert.truthy(sc && /if \(this\.isShadowActive\(\)\) \{/.test(sc[1]), 'no melee wheel spins up while shadowed');
   assert.truthy(sc && /if \(!opts\.auto\) \{[\s\S]*?flash\('The shadows hold your arm\.'/.test(sc[1]),
     'a refused tap is told; the auto-engage stays silent');
-  assert.truthy(sc && sc[1].indexOf('this.hapticReject') < sc[1].indexOf("this._toolActionStory('sword');"),
+  assert.truthy(sc && sc[1].indexOf('if (this.isShadowActive())') < sc[1].indexOf("this._toolActionStory('sword');"),
     'the gate sits before the story hook the wheel spins up with');
 });
 

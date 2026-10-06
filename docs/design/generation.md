@@ -144,6 +144,10 @@ access or tile lifecycle mechanics.
   (`yardReasonAt` — the gate's BEHIND_HOUSE / PRIVATE) it is not already in.
   A new retreat reason takes that bend, never its own steering
   (`test/node/roadside_run.test.js`).
+- Mushroom groves use the themed surface encounter lane to scatter individual
+  mushroom monsters across six-cell patches, with a seeded 60% presence roll
+  per patch. Seats stay within grove coverage and obey the shared spawn gate,
+  occupied cells, defeat ledger and Home protections; they are not shrine guards.
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
