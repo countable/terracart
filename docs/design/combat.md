@@ -60,6 +60,14 @@ mechanics.
   Mushroom monsters only start and complete a puff shot when the target is at
   least one cell away. Closing that gap cancels the wind-up; their weak melee
   against an already confused target keeps its own close-range rule.
+- Melee strikes resolve individually in the combat tick, using the shared scene
+  cooldown and a fresh reach/allegiance check each time. They never enter the
+  work queue or hold movement. Ordinary work retains priority over auto-melee.
+- Death cancels current work without completion or refund, clears the swing and
+  staff charge, and blocks new melee and ranged attacks. Revival does not resume
+  the cancelled job. Already launched projectiles continue their flight.
+- Eating a raw mushroom applies three seconds of confusion through the shared
+  condition, preserving any longer confusion already active.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including

@@ -5,7 +5,7 @@
     return SCENE_SRC.slice(start + 1, SCENE_SRC.indexOf('\n  }\n', start) + 4);
   }
   const methods = new Function('return ({' + [
-    '_bodyHold() {', 'startCombat(victim, opts = {}) {', '_drawWorkProgress() {',
+    '_bodyHold() {', '_stopDownedActions() {', 'startCombat(victim, opts = {}) {', '_drawWorkProgress() {',
     'canThrowItem(id) {', 'readTomeFirewall() {', 'useExplosiveFlask() {',
   ].map(lift).join(',') + '});')();
   test('vent conditions: exact burn, poison and paralysis durations survive normalization and expire', () => {

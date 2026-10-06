@@ -1034,7 +1034,11 @@ class SceneConsumables {
     let extra = fish ? `\nRegen: ${fish}⚡ over ${shortDuration(Energy.FISH_REGEN_MS)}` : '';
     // Every timed effect a food lends EXTENDS (Buffs.extend / laterOf — the
     // one rule): a second coffee inside the first banks its three minutes.
-    if (id === 'pairy') {
+    if (CONSUMABLE_SPEC[id]?.condition) {
+      const spec = CONSUMABLE_SPEC[id];
+      this._applyCondition(spec.condition, { durationMs: spec.durationMs });
+      extra = `\nConfused: ${shortDuration(spec.durationMs)}`;
+    } else if (id === 'pairy') {
       const target = this.findNearestUnopenedChest();
       if (target) {
         this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
