@@ -33,10 +33,12 @@ def glossary_page():
     import markdown
     source = Path(__file__).resolve().parents[1] / 'docs/design/glossary.md'
     body = markdown.markdown(source.read_text().split('\n', 1)[1], extensions=['tables', 'toc'])
+    body = re.sub(r'<tr>\s*<td><em>(.*?)</em></td>(?:\s*<td></td>){5}\s*</tr>',
+                  r'<tr class="concept-group"><th colspan="6">\1</th></tr>', body, flags=re.S)
     # Evidence paths are relative to the source doc, not the dashboard directory.
     body = re.sub(r'href="([^"]+)"', lambda m: 'href="' + escape(urljoin('/docs/design/', m[1]), quote=True) + '"', body)
     body = '<p><a href="../docs/design/glossary.md">Markdown source</a></p>' + body
-    styles = '<style>table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #344545;padding:12px;text-align:left;vertical-align:top}th{background:#192525}td{min-width:160px}.glossary{overflow-x:auto}code{overflow-wrap:anywhere}main{padding-top:32px}</style>'
+    styles = '<style>table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #344545;padding:12px;text-align:left;vertical-align:top}th{background:#192525}.concept-group th{background:#30402b;color:#d9edb8;padding:10px 12px}td{min-width:160px}.glossary{overflow-x:auto}code{overflow-wrap:anywhere}main{padding-top:32px}</style>'
     return page('Game terminology glossary', '<div class="glossary">' + body + '</div>', True).replace('</head>', styles + '</head>')
 
 def views(title, intro, entries, extra=''):
