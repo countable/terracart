@@ -30,6 +30,12 @@
     assert.eq(calls.length, 1); assert.eq(calls[0][0], depth + 1); assert.eq(transitions[0], depth + 1);
     assert.eq(scene.persisted, 1); assert.eq(scene._hazardFallPending, false);
   }, depth));
+  test('hazard falls: a permanent one-cell quarry pit uses the same safe descent', () => fixture(async f => {
+    Object.assign(f.hole, { type: 'cavein', widthCells: 1, heightCells: 1 });
+    assert.eq(await HazardFalls.fall(f.scene, f.hole), true);
+    assert.eq(f.scene.depth, 1); assert.eq(f.scene.persisted, 1);
+    assert.eq(f.hole.phase, 'open', 'falling never closes the source pit');
+  }));
   for (const depth of [2, 3, 4, 6]) test(`hazard falls: a sealed floor (${depth} -> ${depth + 1}) never gives way`, () => fixture(async f => {
     const { scene, hole, calls, transitions } = f;
     assert.falsy(DungeonProgression.canUseDescent(scene.save, depth, depth + 1, 'rope'), 'sanity: the seal reads the same table');

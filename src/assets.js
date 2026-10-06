@@ -58,6 +58,7 @@ const ASSETS = {
   rolling_ball: { kind: 'spritesheet', path: 'assets/Objects/RollingBallAndWall/ball.png', frameWidth: 24, frameHeight: 24 },
   sliding_spike_wall: { kind: 'spritesheet', path: 'assets/Objects/RollingBallAndWall/spike-wall.png', frameWidth: 24, frameHeight: 24 },
   vent_cycle: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/vent-cycle-complete.png', frameWidth: 24, frameHeight: 24 },
+  cavein: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/cavein.png', frameWidth: 24, frameHeight: 24 },
   sinkhole: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/sinkhole.png', frameWidth: 48, frameHeight: 48 },
   whirlwind: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/tornado.png', frameWidth: 48, frameHeight: 48 },
   crystal_cluster: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/crystal_cluster.png', frameWidth: 16, frameHeight: 16 },

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quarry cave-in · Dragon Hood</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 system-ui;background:#191b1c;color:#e7e3d9}body{max-width:820px;margin:48px auto;padding:0 24px}h1{font-size:30px;margin-bottom:8px}p{color:#b9b9ae}main{display:flex;gap:32px;flex-wrap:wrap;align-items:start;margin:28px 0}canvas{background:#77756d;image-rendering:pixelated;border-radius:4px}button,a{font:inherit;color:inherit}button{background:#333c36;border:1px solid #73816b;padding:10px 16px;border-radius:5px;cursor:pointer;margin:4px 8px 4px 0}button:disabled{opacity:.5;cursor:default}#cavein-status{min-height:48px}progress{width:100%;accent-color:#bba270}img{image-rendering:pixelated;width:384px;max-width:100%;background:#77756d}small{color:#9c9e94}a{color:#c5d1b8}
+</style>
+<h1>Quarry cave-in</h1>
+<p>Step onto loose ground. A crack opens beneath your feet, then becomes a permanent hole after five seconds.</p>
+<main>
+<canvas id="cavein-animation" width="192" height="192" aria-label="Animated quarry cave-in"></canvas>
+<div><button id="cavein-step" disabled>Step on loose ground</button><button id="cavein-reset">Reset</button><p id="cavein-status" role="status">Loading art…</p><progress id="cavein-progress" max="5000" value="0"></progress><p><small>One cell · 24 × 24 px frames<br>The hole stays open until you reset this preview.</small></p><a href="../assets/Objects/HazardAnimationsV2/cavein.png" download>Download spritesheet</a></div>
+</main>
+<details><summary>Sprite sheet</summary><p><img src="../assets/Objects/HazardAnimationsV2/cavein.png" alt="Eight by eight cave-in animation sprite sheet"></p></details>
+<script src="../src/environment_hazards.js"></script>
+<script>
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),step=document.querySelector('#cavein-step'),status=document.querySelector('#cavein-status'),progress=document.querySelector('#cavein-progress');
+ctx.imageSmoothingEnabled=false;
+const art=new Image();art.src='../assets/Objects/HazardAnimationsV2/cavein.png';
+let hazard=null,start=null;
+function draw(){ctx.clearRect(0,0,192,192);if(!hazard)return;const frame=EnvironmentHazards.update(hazard);ctx.drawImage(art,(frame%8)*24,Math.floor(frame/8)*24,24,24,0,0,192,192)}
+function reset(){hazard=null;start=null;step.disabled=false;progress.value=0;status.textContent='Undisturbed ground';draw()}
+art.onload=reset;art.onerror=()=>status.textContent='The sprite sheet could not load.';
+step.onclick=()=>{hazard={type:'cavein',elapsedMs:0};start=performance.now();step.disabled=true;draw()};
+document.querySelector('#cavein-reset').onclick=reset;
+function tick(now){if(hazard){hazard.elapsedMs=Math.min(EnvironmentHazards.CONFIG.cavein.warningMs,now-start);draw();progress.value=hazard.elapsedMs;status.textContent=hazard.phase==='open'?'Permanent open hole':`Cracking · ${(hazard.elapsedMs/1000).toFixed(1)} / 5.0 seconds`;}requestAnimationFrame(tick)}requestAnimationFrame(tick);
+</script>
+</html>

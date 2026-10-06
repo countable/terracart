@@ -177,6 +177,13 @@ access or tile lifecycle mechanics.
   deterministic `materialKeepChance`; fixed shrine slots and other materials
   retain their positions. Zone mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
+- Surface quarry hazards use `EnvironmentHazards` and the shared spawn gate.
+  Strip mines can open temporary 2×2 sinkholes wholly inside their footprint.
+  Other quarries have deterministic hidden cave-in cells: stepping onto an
+  eligible cell starts a five-second crack animation, then leaves a permanent
+  one-cell hole. `save.caveIns` retains warning progress and opened holes across
+  reloads; foreground ticks own the clock. Open holes use `HazardFalls` for
+  landing and descent, including floor seals and retrying unavailable landings.
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
   day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the
