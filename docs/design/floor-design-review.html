@@ -95,13 +95,13 @@
 <p>Every input that defines a floor, its owning table, its shape, and whether it is declarative today. Define a floor by editing these rows - <span class="ok">&#10003;</span> is a table row or formula; <span class="warn">&#9888;</span> is a branch or literal that still wants a home (the FLOOR_PROFILES row).</p>
 <table>
 <tr><th>Input</th><th>Owner</th><th>Shape</th><th>Declarative</th></tr>
-<tr><td>Terrain rule</td><td class="f">undergroundTerrain, worldgen.js:8703</td><td>Per-depth if/else: negative-above / surface-clearings / open / surface-paint</td><td class="warn">&#9888; branch - fold into FLOOR_PROFILES.terrain</td></tr>
-<tr><td>Biome label + ground tint</td><td class="f">undergroundBiome, worldgen.js:8902; render.js UNDERGROUND_GROUND</td><td>Ternary: cave / deep_stone / underdark</td><td class="warn">&#9888; literal - fold into the row</td></tr>
-<tr><td>Lava stratum</td><td class="f">LAVA_DEPTH = 5, worldgen.js:8666</td><td>One depth constant + block in loadCaveTile</td><td class="warn">&#9888; literal - row flag <code>lava</code></td></tr>
-<tr><td>Chest mirror source</td><td class="f">worldgen.js:8878</td><td><code>depth === 3 ? surface : above</code></td><td class="warn">&#9888; branch - row field <code>chestSource</code></td></tr>
-<tr><td>Street mirror</td><td class="f">underground.js project/decorate</td><td><code>depth &le; 2</code> check</td><td class="warn">&#9888; literal - row flag <code>streetMirror</code></td></tr>
-<tr><td>Fall-site landings</td><td class="f">worldgen.js:8858</td><td><code>depth === 2</code> reads floor-1 holes</td><td class="warn">&#9888; literal - row flag</td></tr>
-<tr><td>Authored cave areas</td><td class="f">cave_areas.js select</td><td><code>depth === 1</code> + grove anchor + weighted table (one geometry implemented)</td><td class="warn">&#9888; singleton - row flag + per-area rows</td></tr>
+<tr><td>Terrain rule</td><td class="f">FLOOR_PROFILES, worldgen.js (undergroundTerrain)</td><td>Row per depth: <code>above</code> / <code>surfacePaint</code> / <code>clearings</code> / <code>open</code>; depths past the table inherit the default</td><td class="ok">&#10003; table</td></tr>
+<tr><td>Biome label + ground tint</td><td class="f">FLOOR_PROFILES.biome; render.js UNDERGROUND_GROUND</td><td>Row field; render maps the label</td><td class="ok">&#10003; table</td></tr>
+<tr><td>Lava stratum</td><td class="f">FLOOR_PROFILES.lava (LAVA_DEPTH derived), worldgen.js</td><td>Row flag; fire and ember rules read the derived depth</td><td class="ok">&#10003; table</td></tr>
+<tr><td>Chest mirror source</td><td class="f">FLOOR_PROFILES.chestSource, worldgen.js</td><td>Row field: 'above' | 'surface'</td><td class="ok">&#10003; table</td></tr>
+<tr><td>Street mirror</td><td class="f">FLOOR_PROFILES.streetMirror; underground.js</td><td>Row flag; project/decorate read it</td><td class="ok">&#10003; table</td></tr>
+<tr><td>Fall-site landings</td><td class="f">FLOOR_PROFILES.fallLandings, worldgen.js</td><td>Row flag; pockets under the floor above's holes</td><td class="ok">&#10003; table</td></tr>
+<tr><td>Authored cave areas</td><td class="f">cave_areas.js DEPTH_WEIGHTS + BUDGETS</td><td>Per-depth weighted table: spring / goblin warrens / mushroom / gemstone at grove anchors, mine tunnels at quarries (floors 1-2), with per-kind budgets</td><td class="ok">&#10003; table (full-floor goblin-city generator is the remaining gap)</td></tr>
 <tr><td>Floor dressing</td><td class="f">CAVE_PASSES, worldgen.js:8445</td><td>Rows with <code>when(level)</code>/<code>fire(level)</code> predicates, own salted streams</td><td class="ok">&#10003; table</td></tr>
 <tr><td>Chasms / barrels / floor torches</td><td class="f">CAVE_PASSES + FLOOR_TORCH_DEPTH, CAVE_BARREL_DEPTH</td><td>Row predicates on one depth constant each</td><td class="ok">&#10003; table (constants worldgen-local)</td></tr>
 <tr><td>Pressure plates</td><td class="f">pressure_traps.js CONFIG.depth</td><td>One depth field</td><td class="ok">&#10003; data (module-local)</td></tr>
@@ -126,6 +126,7 @@
 <div class="card good">
 <h3>Addressed</h3>
 <ul>
+<li><strong>Floor-scoped rules are one table.</strong> <code>FLOOR_PROFILES</code> now owns terrain mode, biome label, lava, street mirror, fall landings, chest source and quarry provenance; <code>underground.js</code> and <code>cave_areas.js</code> read <code>floorProfile(depth)</code> instead of depth literals; tests pin the shipped behavior. The remaining &#9888; rows are stair minting, arrival stories and the content-window shift - each has an owner and a plan.</li>
 <li><strong>Descent rules are one table.</strong> The rope seal, the sinkhole-minting seal and the fall seal all read <code>ROPE_SEALED_FLOORS</code>; the arena gate and the portal stone moved to floors 4/5 with tests. A new gate is a row, not a scattered check.</li>
 <li><strong>The portal-stone bar survived the move.</strong> Floor 4's depth bonus lifts every chest to effective T3, so the bar was retuned to T4 - intent (a good chest, far out) kept, drift caught by a test.</li>
 <li><strong>Content was never the problem.</strong> Roster windows, THEME_BANDS (to Infinity), CAVE_PASSES, loot and ore formulas, ghost bands, habitat geography: all rows and formulas already.</li>
@@ -135,7 +136,7 @@
 <div class="card bad">
 <h3>What does not scale - updated</h3>
 <ul>
-<li><strong>Terrain identity is still branch code.</strong> <code>undergroundTerrain</code> hard-codes depths 1/2/3/4; lava is a constant + block in <code>loadCaveTile</code>; chest sources branch on depth 3. <em>Address: the FLOOR_PROFILES row</em> - one row per depth owning terrain mode, biome label, chest source, lava/street-mirror/landing flags - a behavior-preserving refactor that turns every later depth shift into a row edit.</li>
+<li><strong>Terrain identity was branch code - no longer.</strong> The profiles table replaced the per-depth if/else, the lava constant and the chest-source branch. What remains branch-shaped is <em>scoped by plan</em>: stair minting (the stair rework), the arrival splashes, and the depth shift of content windows (roster bands, THEME_BANDS, infernal gate) that follows the terrain move.</li>
 <li><strong>Three looks, eight floors.</strong> The biome ternary still caps at cave/deep_stone/underdark; floors 4+ render plain. <em>Address: profile.biome</em> + the target labels (goblin city, haunted city, dragon).</li>
 <li><strong>Floor-locked features are scattered.</strong> Seals are table-driven now, but pressure plates, spring caves, the street mirror, splashes and the infernal gate each keep a depth literal in their own module. <em>Address: fold into the profile row</em> (each module reads <code>WorldGen.floorProfile(depth)</code>).</li>
 <li><strong>Authored areas are singletons.</strong> One geometry (spring) at one depth; the goblin city needs a generator, not a flag. <em>Address: the goblin-city feature itself.</em></li>
@@ -145,7 +146,7 @@
 </div>
 
 <h3>Verdict</h3>
-<p><span style="font-weight:bold">Adding depth is cheap; adding floor types now has a named path.</span> The gates-and-seals work proved the pattern: one owning table, three modules reading it, regression tests pinning it. The FLOOR_PROFILES row is the same move applied to terrain and floor flags - it converts the remaining &#9888; rows in section 4 into &#10003; rows and makes the floors.md ladder (goblin city, haunted city, dragons) a matter of editing rows rather than forks.</p>
+<p><span style="font-weight:bold">Adding depth is cheap; adding floor types is now a row edit with a checklist.</span> The gates-and-seals work proved the pattern, and FLOOR_PROFILES extends it to terrain and floor flags. What is left before the floors.md ladder can ship as rows: the open geometry decisions in <a href="floor-geometry-proposal.md">floor-geometry-proposal.md</a> (per-floor inputs, themes, activities - each gap carries a default for confirmation), the goblin-city full-floor generator, the stair rework and the content-window shift.</p>
 
 <div class="foot">
 Evidence: direct reads of src/worldgen.js (7914-7959, 8366-8560, 8650-8915), src/dungeon_progression.js, src/loot.js, src/enemy_spawns.js, src/enemy_habitats.js, src/underground.js, src/cave_areas.js, src/elevators.js, src/lighting.js, src/scene_creatures.js and the regression tests under test/node/ (dungeon_progression, arena_flow, environment_hazards, hazard_falls). Line numbers verified against the working tree, Oct 2026, after the tranche-1 gate commits.

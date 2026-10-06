@@ -6,16 +6,23 @@ what exists and what makes each floor its own.
 
 Rework status: in code now - the portal stone waits on floor 4 (a tier-4-or-better
 chest a kilometre out; this floor's depth bonus lifts every chest to effective
-T3, so T4 keeps the bar honest), the arena trials' key opens floor 5, and the
-rope, sinkhole and fall seals on floors 2, 3, 4 and 6 read one owning table
-(`DungeonProgression.ROPE_SEALED_FLOORS`). Still pending: the elevator rework
-(repair from floor 1, the descent module), the goblin city generator, the
-terrain shift (deep stone at 3, fungal Underdark at 4, haunted city at 5,
-lava at 6, with biome labels and arrival stories), the dragon layer at 7-8,
-the wizard-tower key for 6 -> 7, and the stair minting rules - generated
-down-ladders still connect the sealed floors today, so only the rope, pit and
-key gates of the matrix below are live. Every input that defines a floor is
-catalogued in [floor-design-review.html](floor-design-review.html).
+T3, so T4 keeps the bar honest), the arena trials' key opens floor 5, the rope,
+sinkhole and fall seals on floors 2, 3, 4 and 6 read one owning table
+(`DungeonProgression.ROPE_SEALED_FLOORS`), and `WorldGen.FLOOR_PROFILES` owns
+every floor-scoped cave rule (terrain mode, biome label, lava, street mirror,
+fall landings, chest source, quarry provenance). Authored warren, mushroom and
+gemstone areas already land on floors 1-2 around grove and quarry anchors
+(`cave_areas.js` `DEPTH_WEIGHTS`); the goblin city extends them to full-floor
+coverage. Still pending: the elevator rework (repair from floor 1, the descent
+module), the terrain shift (deep stone at 3, fungal Underdark at 4, haunted
+city at 5, lava at 6, with biome labels and arrival stories), the dragon layer
+at 7-8, the wizard-tower key for 6 -> 7, and the stair minting rules -
+generated down-ladders still connect the sealed floors today, so only the
+rope, pit and key gates of the matrix below are live. Every input that defines
+a floor is catalogued in
+[floor-design-review.html](floor-design-review.html); the open geometry
+decisions await confirmation in
+[floor-geometry-proposal.md](floor-geometry-proposal.md).
 
 Depth 0 is the surface. Each cave tile is the negative of the tile above it
 (`worldgen.js` `loadCaveTile`), so a floor's identity comes from three things:
