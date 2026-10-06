@@ -57,9 +57,10 @@
     assert.eq(scene._nextBlowT, 7500);
     assert.eq(scene._nextShotT.staff, 9500, 'remaining slow cooldown shrinks immediately on expiry');
   });
-  test('spider and jellyfish: combat rows carry their timed conditions', () => {
-    assert.eq(Combat.monster('spider').condition, 'poison');
-    assert.eq(Conditions.DEFINITIONS[Combat.monster('spider').condition].durationMs, 60000);
+  test('spider web and jellyfish: timed conditions follow their attack delivery', () => {
+    assert.eq(EnemyRoster.get('spider').attackType, 'web');
+    assert.falsy(Combat.monster('spider').condition, 'silk applies paralysis on ground contact');
+    assert.eq(SpiderWebs.CONFIG.paralysisMs, 6000);
     assert.eq(Combat.monster('jellyfish').condition, 'jellyfish_stun');
     assert.eq(Conditions.DEFINITIONS[Combat.monster('jellyfish').condition].durationMs, 5000);
   });

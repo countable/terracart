@@ -33,7 +33,7 @@
       label: 'Stunned', tint: 0x89d9ff, flicker: false, ink: '#b9eaff', bg: '#102a3ae8' }),
     frozen: Object.freeze({ durationMs: 10000, moveSpeedMul: 0.5, attackSpeedMul: 0.5, refresh: false,
       label: 'Chilled', tint: FROZEN_TINT, flicker: false, ink: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), bg: '#102a3ae8' }),
-    paralysis: Object.freeze({ durationMs: 5000, blocksMovement: true, blocksAttacks: true,
+    paralysis: Object.freeze({ durationMs: 5000, maxDurationMs: 6000, blocksMovement: true, blocksAttacks: true,
       label: 'Paralysed', tint: 0xffdf38, flicker: false, ink: '#fff08a', bg: '#39300ce8' }),
     pinned: Object.freeze({ durationMs: 3000, blocksMovement: true,
       label: 'Pinned', tint: 0xb8bcc8, flicker: false, ink: '#d6dae6', bg: '#1c1f28e8' }),

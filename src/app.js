@@ -3452,6 +3452,7 @@ class MapScene extends Phaser.Scene {
       }
     }
 
+    SpiderWebs.tick(this, dt);
     Pirates.tick(this);
     this.wanderCreatures();
     // Fight tick — bow/staff auto-fire, shots in flight, sword auto-engage.
