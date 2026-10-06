@@ -9283,58 +9283,36 @@ class MapScene extends Phaser.Scene {
       }
     `);
   }
-  // Dev tool (☰ › Developer): call a pack of wild slimes to the edge of the
-  // screen. They spawn as ORDINARY surface slimes — same kind, same HP table,
-  // same wander/leech/combat behaviour — pushed into the covering tile's
-  // creature list, so everything downstream (render, the sim loops, the
-  // combat tick) picks them up with no special path. The pack arrives
-  // clustered on one random side, just inside the view edge, and oozes in
-  // from there (slimes drift toward the player), which is what makes it a
-  // usable combat test: the fight starts a moment later, not on your feet.
-  // Returns how many actually landed (a spot with no walkable ground — open
-  // water, a cave wall — re-rolls a few times, then gives up on that slime).
-  debugSpawnSlimePack(n = 6) {
+  // Developer spawns enter the normal creature list at the visible edge.
+  // They are session-only and have their own ids, so killing one cannot
+  // consume a generated world spawn.
+  debugSpawnEnemy(kind) {
+    if (!Combat.isEnemyKind(kind)) return 0;
     const { x: px, y: py } = playerWorldM(this);
-    // Just inside the view edge: visible the moment they land (so the
-    // auto-fire gate sees them too), but a full screen-half from the player.
     const edgeM = (VIEW_CELLS / 2 - 0.5) * this.cellM;
-    const heading = Math.random() * Math.PI * 2;   // the side the pack comes from
-    let placed = 0;
-    for (let i = 0; i < n; i++) {
-      // Fan the pack ±~45° around the heading, one slot per slime, with a
-      // little jitter so it reads as a mob rather than a picket line. A spot
-      // a slime can't stand on re-rolls its jitter, then gives up.
-      const slot = (n > 1 ? i / (n - 1) - 0.5 : 0) * 1.6;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const a = heading + slot + (Math.random() - 0.5) * 0.35;
-        const r = edgeM - Math.random() * this.cellM;
-        const x = px + Math.cos(a) * r;
-        const y = py + Math.sin(a) * r;
-        const entry = this._devSlimeGroundAt(x, y);
-        if (!entry) continue;
-        entry.creatures = entry.creatures || [];
-        this._devSlimeSeq = (this._devSlimeSeq || 0) + 1;
-        // Unique per press — never a tile-data id, so a dev slime can't mark
-        // a real spawn as caught when it dies.
-        entry.creatures.push(WorldGen.makeCreature('slime', x, y,
-          `slime_dev_${Date.now()}_${this._devSlimeSeq}`, { shiny: false }));
-        placed++;
-        break;
-      }
+    const heading = Math.random() * Math.PI * 2;
+    for (let attempt = 0; attempt < 16; attempt++) {
+      const a = heading + attempt * Math.PI * 2 / 16;
+      const r = edgeM - Math.random() * this.cellM;
+      const x = px + Math.cos(a) * r;
+      const y = py + Math.sin(a) * r;
+      const entry = this._devEnemyGroundAt(x, y);
+      if (!entry) continue;
+      this._devEnemySeq = (this._devEnemySeq || 0) + 1;
+      const creature = WorldGen.makeCreature(kind, x, y,
+        `enemy_dev_${Date.now()}_${this._devEnemySeq}`, { shiny: false });
+      (entry.creatures ||= []).push(creature);
+      return 1;
     }
-    this.flash?.(placed ? `🟢 ${placed} slimes closing in!` : 'No ground for slimes here',
-      this.viewCenterX, this.viewCenterY - 40);
-    return placed;
+    return 0;
   }
-  // The cached tile entry covering a world-metre spot, but only if a slime
-  // can stand there — walkable terrain on a loaded tile (surface or the
-  // current cave level; the tile cache already reflects the active depth).
-  _devSlimeGroundAt(wmx, wmy) {
+  // Only use walkable ground in the loaded tiles of the active depth.
+  _devEnemyGroundAt(wmx, wmy) {
     const tx = Math.floor(wmx / this.tileEdgeM), ty = Math.floor(wmy / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry || !entry.grid) return null;
     const N = entry.cellsPerEdge || rowCells(this, ty);
-    const cellM = this.tileEdgeM / N;   // THIS tile's cells (its row's grid)
+    const cellM = this.tileEdgeM / N;
     const ix = Math.floor((wmx - tx * this.tileEdgeM) / cellM);
     const iy = Math.floor((wmy - ty * this.tileEdgeM) / cellM);
     if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
