@@ -1001,7 +1001,7 @@ test('building overlay: atlas slots fit the largest piece, and an emptied page i
   BuildingOverlay.draw(scene);
   const A = scene._buildingWallAtlas;
   assert.truthy(A && A.slotW > 0 && A.slotH > 0, 'the atlas geometry is on the scene');
-  const pad = 2 * (6 * 2 + 4) + 2;   // BAND_PX + OUTLINE_PX each side, plus the rounding pixel each end
+  const pad = 2 * (6 * 2 + 4 + 2) + 2; // lifted cap, full merlon face and roof, plus rounding
   assert.eq(A.slotW, CELL_PX + pad, 'a slot is a cell plus the bake padding wide');
   assert.eq(A.slotH, CELL_PX + Render.BUILDING_FACE_PX[T.BUILDING_LARGE] + pad, 'and the deepest face taller');
   assert.gt(log.frames.length, 4, 'the diamond cut into several pieces');

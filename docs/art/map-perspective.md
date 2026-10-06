@@ -21,3 +21,8 @@ the one-line version; this file owns the geometry. The
   with a shaded vertical face below it. Give coping and battlements readable
   tops, and join those top surfaces to the side walls. Avoid horizontal walls
   that read as head-on brick facades with only a thin highlight at the crest.
+  On the front wall, battlements crown the rear lip of the top plane; the
+  highlighted rear edge leads across visible coping to the shaded front face.
+  Do not put a dark groove behind a row of teeth on the front lip.
+  Merlon faces rise fully above the coping, with small lit tops and open
+  crenel gaps between them; they must not read as dashes painted on the cap.
