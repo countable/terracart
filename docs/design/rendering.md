@@ -65,6 +65,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 ## Lighting and streets
 
+- Gas uses a translucent cell-bound pixel cloud above world sprites and below
+  lighting and fog, clipped to the world viewport. `GasRender` eases density
+  changes over 320 ms while the simulation diffuses once per second. Drawing
+  reads a cached field snapshot and performs no texture creation or readback.
+
 - `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
   canvas multiplied over the world. Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while

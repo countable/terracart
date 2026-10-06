@@ -596,8 +596,14 @@ class SceneGeo {
       // produces a chord; without renormalising the smoothed vector shrinks
       // toward 0 during fast rotation).
       const m = Math.hypot(this._facingSmooth.x, this._facingSmooth.y) || 1;
-      this.facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
-      this.compassDeg = (Math.atan2(this.facing.x, -this.facing.y) * 180 / Math.PI + 360) % 360;
+      const facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
+      const heading = (Math.atan2(facing.x, -facing.y) * 180 / Math.PI + 360) % 360;
+      this._deviceCompass = { facing, deg: heading };
+      // Confusion owns the visible compass and walking direction. Continue
+      // sampling the real device so expiry restores its current orientation.
+      if (Conditions.active(this.save, 'confused') || this._confusedLoop) return;
+      this.facing = facing;
+      this.compassDeg = heading;
     };
     window.addEventListener('deviceorientationabsolute', onOrient, true);
     window.addEventListener('deviceorientation', onOrient, true);

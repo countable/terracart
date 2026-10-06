@@ -165,6 +165,10 @@ access or tile lifecycle mechanics.
   mushroom monsters across six-cell patches, with a seeded 60% presence roll
   per patch. Seats stay within grove coverage and obey the shared spawn gate,
   occupied cells, defeat ledger and Home protections; they are not shrine guards.
+  `MushroomGas` also selects concealed emitters from the grove's existing
+  mushrooms using stable plant IDs and the enemy spawn gate. Approaching one
+  reveals it and releases a burst; remaining nearby permits another burst after
+  eight foreground seconds. Picking or burning the plant stops its emission.
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and

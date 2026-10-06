@@ -6,6 +6,15 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Confusing mushroom gas refreshes the shared `confused` condition to five
+  seconds on contact, preserving any longer confusion already active. Gas
+  spreads to cardinal neighbours once per foreground second; rock, masonry and
+  intact stronghold walls block it. Thin gas disappears only when its connected
+  region reaches open terrain beyond the loaded area; sealed rooms conserve it.
+  Unloaded cells retain their share, and inconclusive bounded enclosure searches
+  preserve gas. Fields and emitter cooldowns are session-local, separated by
+  depth and paused while that depth is inactive.
+
 - Timed followers use `Companions.KINDS` and its shared lifecycle; register
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
   combat lane. Persist contract expiry and any durable health state, not live
@@ -34,6 +43,12 @@ mechanics.
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
   the HUD chip and the body tint all derive from it. A new status is a row
   there, never a timer, colour or label of its own.
+- Confusion chooses a random compass heading and turn direction, then forces
+  circular wandering along that rotating heading. Collision, holds and speed
+  caps still apply. Device headings keep sampling privately; expiry or cure
+  restores the latest real heading (or the prior movement fallback) and eases
+  the body back toward its GPS target. Enemy puffs retain their normal duration;
+  confusing gas supplies a five-second override to the same condition.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including

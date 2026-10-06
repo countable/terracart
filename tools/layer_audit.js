@@ -93,9 +93,22 @@ const FX = 'fxContainer';
 // of light, self-lit — above the lightmap like the bursts, below the labels.
 const SPARK = 'sparkContainer';
 const BELOW_FOG = [...GROUND, ...SPRITES,
-  'reachGfx', LIGHT, 'atmosRimGfx', FX, SPARK, 'labelContainer', 'tierGfx'];
+  'reachGfx', 'gasGfx', LIGHT, 'atmosRimGfx', FX, SPARK, 'labelContainer', 'tierGfx'];
 
 const CHECKS = [
+  {
+    name: 'layers: cell gas veils sprites and shares their lighting and viewport mask',
+    run: () => {
+      const layers = displayLayers();
+      if (idx(layers, 'gasGfx') <= idx(layers, 'worldContainer')) {
+        throw new Error('gasGfx must sit above world sprites');
+      }
+      const src = fs.readFileSync(path.resolve(ROOT, 'src/scene_create.js'), 'utf8');
+      if (!src.includes('this.gasGfx.setMask(mask)')) {
+        throw new Error('gasGfx must use the world viewport mask');
+      }
+    },
+  },
   {
     name: 'layers: the display list is actually parseable',
     run: () => {
@@ -138,7 +151,7 @@ const CHECKS = [
     run: () => {
       const layers = displayLayers();
       const light = idx(layers, LIGHT);
-      const above = [...GROUND, ...SPRITES, 'reachGfx'].filter((n) => idx(layers, n) > light);
+      const above = [...GROUND, ...SPRITES, 'reachGfx', 'gasGfx'].filter((n) => idx(layers, n) > light);
       if (above.length) {
         throw new Error(`${above.join(', ')} draw above ${LIGHT}, so they would stay lit outside ` +
           'every light — the darkness only reaches what is below it. This is how the biome seams ' +
