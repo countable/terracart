@@ -46,6 +46,30 @@
     rosterEnemyAttack(s,c,row,16700,14,0,false,.1);
     assert.eq(s._shots.length,2,'puff resumes after confusion ends');
   });
+  test('mushroom monster: puffs require at least one cell of target separation', () => {
+    const s=scene(), row=EnemyRoster.get('mushroom_monster'), c={kind:row.id,id:'range_mushroom',x:0,y:0};
+    rosterEnemyAttack(s,c,row,10000,s.cellM-.01,0,false,.1);
+    rosterEnemyAttack(s,c,row,11000,s.cellM-.01,0,false,.1);
+    assert.eq(s._shots.length,0,'no close-range puff');
+    assert.truthy(c._attackWindupUntil == null,'cannot begin winding up inside one cell');
+    rosterEnemyAttack(s,c,row,12000,s.cellM,0,false,.1);
+    rosterEnemyAttack(s,c,row,12700,s.cellM,0,false,.1);
+    assert.eq(s._shots.length,1,'exactly one cell permits the puff');
+  });
+  test('mushroom monster: moving inside one cell cancels a pending puff', () => {
+    const s=scene(), row=EnemyRoster.get('mushroom_monster'), c={kind:row.id,id:'cancel_mushroom',x:0,y:0};
+    rosterEnemyAttack(s,c,row,10000,s.cellM*2,0,false,.1);
+    assert.truthy(c._attackWindupUntil != null);
+    rosterEnemyAttack(s,c,row,10700,s.cellM/2,0,false,.1);
+    assert.eq(s._shots.length,0,'range is checked again when the shot would fire');
+    assert.truthy(c._attackWindupUntil == null);
+    rosterEnemyAttack(s,c,row,11000,s.cellM*2,0,false,.1);
+    assert.eq(s._shots.length,0,'moving away preserves the original cooldown');
+    rosterEnemyAttack(s,c,row,16000,s.cellM*2,0,false,.1);
+    assert.eq(s._shots.length,0,'the next eligible attack starts a fresh wind-up');
+    rosterEnemyAttack(s,c,row,16700,s.cellM*2,0,false,.1);
+    assert.eq(s._shots.length,1);
+  });
   test('mushroom monster: closes for weak melee only while player is confused and respects suppression', () => {
     const s=scene(), row=EnemyRoster.get('mushroom_monster'), c={kind:row.id,id:'test_mushroom',x:0,y:0,_attackTargetKey:'player'};
     rosterEnemyMove(s,c,row,10000,7,0,false,false,null,.1);

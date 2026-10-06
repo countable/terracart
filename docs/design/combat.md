@@ -49,6 +49,9 @@ mechanics.
   restores the latest real heading (or the prior movement fallback) and eases
   the body back toward its GPS target. Enemy puffs retain their normal duration;
   confusing gas supplies a five-second override to the same condition.
+  Mushroom monsters only start and complete a puff shot when the target is at
+  least one cell away. Closing that gap cancels the wind-up; their weak melee
+  against an already confused target keeps its own close-range rule.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including

@@ -4326,12 +4326,9 @@ class MapScene extends Phaser.Scene {
       }
       if (s.projectile === 'confusion_puff') {
         const phase = (s.travelledM || 0) * 3;
-        for (let i = 0; i < 5; i++) {
-          const angle = phase + i * Math.PI * 2 / 5;
-          g.fillStyle(i % 2 ? 0xe8d878 : 0xc68ee8, 0.45);
-          g.fillCircle(hx + Math.cos(angle) * 4, hy + Math.sin(angle) * 3, 4);
-        }
-        g.fillStyle(0xf2d8ff, 0.7); g.fillCircle(hx, hy, 2);
+        const size = CELL_PX * 0.75;
+        // A travelling puff of the same translucent lilac gas as the ground cloud.
+        GasRender.paintCell(g, hx - size / 2, hy - size / 2, size, 2, 0, phase);
         continue;
       }
       if (s.projectile === 'rock') {

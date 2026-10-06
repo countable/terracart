@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=7d82bc59" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=c8d638ea" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2779,7 +2779,7 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=919b21d0"></script>
-  <script src="src/enemy_roster.js?v=96a07cc0"></script>
+  <script src="src/enemy_roster.js?v=04d3ac9b"></script>
   <script src="src/enemy_spawns.js?v=b4316486"></script>
   <script src="src/enemy_habitats.js?v=6f3b8044"></script>
   <script src="src/difficulty.js?v=e9bcaacf"></script>
@@ -2857,7 +2857,7 @@
   <script src="src/pirates.js?v=07b1386a"></script>
   <script src="src/pets.js?v=02b62ae4"></script>
   <script src="src/companions.js?v=eced2bd5"></script>
-  <script src="src/creature_ai.js?v=f1289b52"></script>
+  <script src="src/creature_ai.js?v=f02b5570"></script>
   <script src="src/wizard.js?v=0353401c"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
   <script src="src/memory_story.js?v=44c22364"></script>
@@ -2952,7 +2952,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=7d82bc59';
+      const APP_SRC = 'src/app.js?v=c8d638ea';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
