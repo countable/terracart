@@ -111,7 +111,7 @@ test('still frames: a view that only BREATHES keys on the slower pulse clock', (
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/const pnow = pulseClock\(wall\);/.test(d), 'draw() reads the breath off the wall clock, on its own grid');
   assert.truthy(/frameKey\(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx\)/.test(d), 'and keys on it');
-  assert.truthy(/flickerAlpha\(row, L\.dx, L\.dy, now, L\.id, pnow\)/.test(d), 'and paints with it');
+  assert.truthy(/flickerAlpha\(row, L\.dx, L\.dy, now, L\.id, pnow\)/.test(LIGHTING_SRC), 'and the shared light painter uses it');
 });
 
 test('still frames: draw() reads the quantised clock and gates before it touches the canvas', () => {

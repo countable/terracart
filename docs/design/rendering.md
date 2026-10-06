@@ -61,8 +61,16 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 - `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
   canvas multiplied over the world. Do not add darkness passes or dim sprites
-  again. Reach lighting follows `cellInReach`; light conveys reach and live POIs
-  without outline rings. Day/night leaves the reach plateau bright; caves ignore it.
+  again. Its screen-attached base (ambient plus player ramp) stays baked while
+  walking; transparent, padded reach-cell masks crop with the camera and rebuild
+  only when their geometry or validity edge changes. A viewport scratch blends
+  old/new masks at their live fade weights and colours them with the radial
+  gradient still centred on the body. Point lights retain their own whole-pixel
+  centres and stamp their already-baked radial cookies after that crop. The
+  full-frame key gates before every canvas call. Reach lighting follows
+  `cellInReach`; light conveys reach
+  and live POIs without outline rings. Day/night leaves the reach plateau bright;
+  caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before

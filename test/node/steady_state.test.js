@@ -199,7 +199,10 @@ function fakeCanvasWorld() {
   const makeCtx = (name) => new Proxy({}, {
     get(t, prop) {
       if (prop in t) return t[prop];
-      if (prop === 'createRadialGradient' || prop === 'createLinearGradient') return () => ({ addColorStop() {} });
+      if (prop === 'createRadialGradient' || prop === 'createLinearGradient') return (...args) => {
+        log.push({ canvas: name, op: prop, args });
+        return { addColorStop() {} };
+      };
       return (...args) => { log.push({ canvas: name, op: prop, args }); };
     },
     set(t, prop, v) { t[prop] = v; return true; },
@@ -258,12 +261,13 @@ test('steady state: a still, breathing view bakes the lightmap\'s static layer o
     assert.truthy(c.painted);
     assert.eq(c.bakes + c.texFloor, 0, 'while they hold, no floor, ramp or plateau is painted at all');
     assert.eq(c.blits, 1, 'one copy of the baked layer');
-    // Walk a little: the static inputs move and the paint goes direct again.
+    // Walk a little: the screen-attached ambient + ramp do NOT move, so the
+    // base bake remains valid while the padded world contribution scrolls.
     scene.playerM = { x: 5, y: 3.5 };
     t += P;
     const d = paint();
-    assert.eq(d.texFloor, 1, 'a moved view paints its static layer directly');
-    assert.eq(d.blits, 0, 'the stale bake is not used');
+    assert.eq(d.texFloor, 0, 'a moved view does not repaint the screen-attached base');
+    assert.eq(d.blits, 1, 'the ambient + player-ramp bake survives the walk');
   } finally {
     document.createElement = realCreate;
     Date.now = realNow;
@@ -271,6 +275,53 @@ test('steady state: a still, breathing view bakes the lightmap\'s static layer o
   // frameKey is built on the static key, so the two cannot drift apart.
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function frameKey('));
   assert.truthy(/let k = staticFrameKey\(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx\);/.test(d), 'frameKey starts from staticFrameKey');
+});
+
+test('steady state: sub-pad walking crops the reach mask cache, and pad exhaustion rebuilds it once', () => {
+  const W = 352;
+  const fk = fakeCanvasWorld();
+  const realCreate = document.createElement, realNow = Date.now;
+  document.createElement = fk.createElement;
+  const tex = { width: W, height: W, context: fk.makeCtx('tex'), refresh() {} };
+  const scene = {
+    depth: 0, cellM: 8, cellsPerTile: WorldGen.TILE_PX,
+    startWorldM: { x: 0, y: 0 }, playerM: { x: 100, y: 100 }, originPx: { x: 0, y: 0 },
+    mPerPx: 1, feetOffsetM: 0,
+    save: { energy: 100, maxEnergy: 100, fires: [] },
+    _atmos: { dim: 0x1a2a1e }, isClaimedKey: () => false,
+    viewCenterX: W / 2, viewCenterY: W / 2, viewLeft: 0, viewTop: 0, viewSize: W,
+    peekM: { x: 0, y: 0 }, lightTex: tex,
+  };
+  const fixed = { x: 124, y: 100 };
+  const t = 1e12;
+  const paint = () => {
+    const ax = scene.playerM.x + scene.peekM.x, ay = scene.playerM.y + scene.peekM.y;
+    scene._lights = [{ kind: 'building', id: 'fixed', dx: fixed.x - ax, dy: fixed.y - ay }];
+    Date.now = () => t;
+    return Lighting.draw(scene, ax, ay, 50);
+  };
+  try {
+    assert.truthy(paint(), 'first frame paints');
+    assert.eq(scene._lightContribution.rebuilds, 1, 'and builds one padded reach mask');
+    assert.eq(scene._lightContribution.entries[0].canvas.width, W + 2 * Lighting.LIGHT_CACHE_PAD_CELLS * CELL_PX,
+      'the cache owns its two-sided pad');
+    scene.peekM.x += 1;                           // four whole screen pixels; the body/reach cell stays put
+    assert.truthy(paint(), 'walking still updates the viewport texture');
+    assert.eq(scene._lightContribution.rebuilds, 1,
+      'a sub-pad camera move crops the same reach mask - no path recomposition');
+    const gradients = fk.log.filter(e => e.canvas === scene._lightReachComposite.name && e.op === 'createRadialGradient');
+    const live = gradients[gradients.length - 1];
+    assert.eq(live.args[0], W / 2); assert.eq(live.args[1], W / 2,
+      'the cached reach mask is recoloured around the live body, not its old world point');
+    scene.peekM.x += 13;                          // 56 px total: past the 1.5-cell validity limit
+    assert.truthy(paint(), 'walking past the validity limit paints');
+    assert.eq(scene._lightContribution.rebuilds, 2, 'pad exhaustion rebuilds exactly once');
+    assert.falsy(paint(), 'an identical still step returns at the full-frame gate');
+    assert.eq(scene._lightContribution.rebuilds, 2, 'the still gate performs no hidden contribution work');
+  } finally {
+    document.createElement = realCreate;
+    Date.now = realNow;
+  }
 });
 
 // ── The footprint trail repaints only when a print moves ──────────────────
