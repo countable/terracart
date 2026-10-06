@@ -20,6 +20,8 @@ mechanics.
   that fixed cell, then spreads over it. Coming closer than two cells cancels
   a pending shot. It replaces their bite and poison.
 - `SpiderWebs` owns the silk flight, cell contact and 24-hour ground lifetime.
+  Flight advances by at most 100 ms per frame, preserving its dodge window
+  after a stall; saved ground webs still expire in wall time.
   Entering a web paralyzes any body (player, enemy, pet or neighbour) for six
   seconds through the shared paralysis status. Standing there does not refresh
   the hold; leaving and entering again does. Webs are not consumed by contact.

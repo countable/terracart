@@ -29,10 +29,25 @@
     assert.eq(SpiderWebs.lists(s, NOW).webs.length, 0);
     assert.eq(shot.fromX, 12); assert.eq(shot.targetX, 28);
     assert.gt(shot.x, 12); assert.lt(shot.x, 28);
-    SpiderWebs.tick(s, 1, NOW + 1000);
+    for (let i = 1; i <= 3; i++) SpiderWebs.tick(s, .1, NOW + i * 100);
     const landed = SpiderWebs.lists(s, NOW + 1000);
     assert.eq(landed.shots.length, 0); assert.eq(landed.webs.length, 1);
     assert.eq(landed.webs[0].cellIX, 3); assert.eq(landed.webs[0].cellIY, 3);
+  });
+
+  test('spider webs: a stalled frame preserves visible flight and does not pin the target immediately', () => {
+    const s = scene(); s.playerM = { x: 28, y: 28 };
+    SpiderWebs.launch(s, { x: 12, y: 28, kind: 'spider' }, 28, 28);
+    SpiderWebs.tick(s, 5, NOW);
+    const flying = SpiderWebs.lists(s, NOW);
+    assert.eq(flying.shots.length, 1, 'a long frame cannot skip the travelling strand');
+    assert.eq(flying.shots[0].x, 16, 'flight advances by at most 100 ms');
+    assert.eq(flying.webs.length, 0);
+    assert.falsy(s.save.conditions?.paralysis);
+    for (let i = 1; i <= 3; i++) SpiderWebs.tick(s, .1, NOW + i * 100);
+    assert.eq(SpiderWebs.lists(s, NOW + 300).shots.length, 0);
+    assert.eq(SpiderWebs.lists(s, NOW + 300).webs.length, 1);
+    assert.eq(s.save.conditions.paralysis.remainingMs, 6000, 'arrival still pins the waiting target');
   });
 
   test('spider webs: saved cell expires after one wall-clock day across reloads', () => {
@@ -71,7 +86,8 @@
       const s = scene();
       SpiderWebs.launch(s, { x: 12, y: 28, kind: 'spider' }, 28, 28);
       s.cellAt = () => ground;
-      SpiderWebs.tick(s, 1, NOW);
+      for (let i = 0; i < 4; i++) SpiderWebs.tick(s, .1, NOW);
+      assert.eq(SpiderWebs.lists(s, NOW).shots.length, 0);
       assert.eq(SpiderWebs.lists(s, NOW).webs.length, 0);
     }
   });
