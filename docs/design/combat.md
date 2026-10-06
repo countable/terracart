@@ -15,9 +15,10 @@ mechanics.
   preserve gas. Fields and emitter cooldowns are session-local, separated by
   depth and paused while that depth is inactive.
 
-- Spiders use the roster's `web` attack: a four-cell shot after a visible
+- Spiders use the roster's `web` attack from two to four cells away, after a visible
   wind-up, aimed at the cell occupied when aiming began. The silk travels to
-  that fixed cell, then spreads over it. It replaces their bite and poison.
+  that fixed cell, then spreads over it. Coming closer than two cells cancels
+  a pending shot. It replaces their bite and poison.
 - `SpiderWebs` owns the silk flight, cell contact and 24-hour ground lifetime.
   Entering a web paralyzes any body (player, enemy, pet or neighbour) for six
   seconds through the shared paralysis status. Standing there does not refresh

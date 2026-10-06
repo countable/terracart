@@ -1615,6 +1615,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   // A `chargeOnly` charger (the boar) has no blow of its own: it hurts only
   // what it runs into mid-charge, once a charge.
   const eligible = (fixedAim && winding ? attentive : clear && dist <= attackRange * scene.cellM)
+    && dist >= (row.minRange || 0) * scene.cellM
     && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit)
     && (!row.movement.chargeOnly || lunging);
   // The charge already warned before moving; contact lands once without
