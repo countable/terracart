@@ -296,7 +296,10 @@ test('steady state: sub-pad walking crops the reach mask cache, and pad exhausti
   const t = 1e12;
   const paint = () => {
     const ax = scene.playerM.x + scene.peekM.x, ay = scene.playerM.y + scene.peekM.y;
-    scene._lights = [{ kind: 'building', id: 'fixed', dx: fixed.x - ax, dy: fixed.y - ay }];
+    scene._lights = [
+      { kind: 'building', id: 'fixed', dx: fixed.x - ax, dy: fixed.y - ay },
+      { kind: 'fire', id: 'flicker', dx: fixed.x + 8 - ax, dy: fixed.y - ay },
+    ];
     Date.now = () => t;
     return Lighting.draw(scene, ax, ay, 50);
   };
@@ -309,6 +312,9 @@ test('steady state: sub-pad walking crops the reach mask cache, and pad exhausti
     assert.truthy(paint(), 'walking still updates the viewport texture');
     assert.eq(scene._lightContribution.rebuilds, 1,
       'a sub-pad camera move crops the same reach mask - no path recomposition');
+    assert.eq(scene._boot_lightCachedCookies, 1, 'the steady building rides the padded cookie cache');
+    assert.eq(scene._boot_lightExcludedStamps, 1, 'the flickering fire alone takes the dynamic stamp path');
+    assert.eq(scene._boot_lightWorldStamps, 1, 'per-step walking stamps only the excluded world light');
     const gradients = fk.log.filter(e => e.canvas === scene._lightReachComposite.name && e.op === 'createRadialGradient');
     const live = gradients[gradients.length - 1];
     assert.eq(live.args[0], W / 2); assert.eq(live.args[1], W / 2,
@@ -318,6 +324,43 @@ test('steady state: sub-pad walking crops the reach mask cache, and pad exhausti
     assert.eq(scene._lightContribution.rebuilds, 2, 'pad exhaustion rebuilds exactly once');
     assert.falsy(paint(), 'an identical still step returns at the full-frame gate');
     assert.eq(scene._lightContribution.rebuilds, 2, 'the still gate performs no hidden contribution work');
+  } finally {
+    document.createElement = realCreate;
+    Date.now = realNow;
+  }
+});
+
+test('steady state: a player-only pulse reuses every world cookie', () => {
+  const W = 352;
+  const fk = fakeCanvasWorld();
+  const realCreate = document.createElement, realNow = Date.now;
+  document.createElement = fk.createElement;
+  const tex = { width: W, height: W, context: fk.makeCtx('tex'), refresh() {} };
+  const scene = {
+    depth: 0, cellM: 8, cellsPerTile: WorldGen.TILE_PX,
+    startWorldM: { x: 0, y: 0 }, playerM: { x: 100, y: 100 }, originPx: { x: 0, y: 0 },
+    mPerPx: 1, feetOffsetM: 0, peekM: { x: 0, y: 0 },
+    save: { energy: 100, maxEnergy: 100, fires: [] },
+    _atmos: { dim: 0x1a2a1e }, isClaimedKey: () => false,
+    viewCenterX: W / 2, viewCenterY: W / 2, viewLeft: 0, viewTop: 0, viewSize: W,
+    lightTex: tex,
+  };
+  let t = 1e12;
+  const paint = () => {
+    scene._lights = [
+      { kind: 'building', id: 'home', dx: 16, dy: 0 },
+      { kind: 'handtorch', id: 'player', dx: 0, dy: 0 },
+    ];
+    Date.now = () => t;
+    return Lighting.draw(scene, scene.playerM.x, scene.playerM.y, 50);
+  };
+  try {
+    assert.truthy(paint(), 'first frame builds the steady world-cookie cache');
+    t += Lighting.LIGHT_TICK_MS;
+    assert.truthy(paint(), 'the player-attached torch pulse paints the next clock step');
+    assert.eq(scene._boot_lightCachedCookies, 1, 'the world cookie remains cached');
+    assert.eq(scene._boot_lightExcludedStamps, 1, 'only the player-attached cookie is stamped');
+    assert.eq(scene._boot_lightWorldStamps, 0, 'world-cookie stamps per player-only still paint are zero');
   } finally {
     document.createElement = realCreate;
     Date.now = realNow;

@@ -695,7 +695,10 @@ test('lighting: draw() stamps a light with its own alpha and scale', () => {
   const stamp = L.slice(L.indexOf('  function paintLight('), L.indexOf('  function contributionKey('));
   assert.truthy(/\* \(L\.a == null \? 1 : L\.a\)/.test(stamp), 'a light\'s own alpha multiplies in');
   assert.truthy(/\* \(L\.s == null \? 1 : L\.s\)/.test(stamp), 'and its own scale');
-  assert.truthy(/for \(const L of scene\._lights\) paintLight\(/.test(d), 'every point light is stamped by the shared painter');
+  assert.truthy(/worldCookieFrames\(scene, W, H, ax, ay, ox, oy, crit, now, pnow\)/.test(d),
+    'steady world cookies enter the padded contribution cache');
+  assert.truthy(/for \(const L of cookies\.excluded\) paintLight\(/.test(d),
+    'only player, flickering, transient or overflow lights use the per-step painter');
   assert.falsy(/_cellLights/.test(d), 'and there is no second list');
 });
 
