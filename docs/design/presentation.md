@@ -6,6 +6,15 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Feedback is visual; there is no vibration setting or device vibration.
+- Developer → Item cheats searches the full item catalog by name. Each tap
+  grants one through the inventory path, preserving bag limits and saving it.
+  Books are read after closing the picker. Switching teleport cities enables
+  the GPS stick before reloading, including a switch back Home.
+- Developer → Spawn enemies searches `Combat.enemyKinds()` by name. Each tap
+  adds one ordinary enemy on loaded walkable ground near the view edge in
+  the active depth. These debug spawns last for the session.
+
 - Daily sites share `Macros.visitKindForObject` and `beginDailyVisit` / `dailyVisit`.
   Claim the UTC-day ledger only when the benefit is granted; cancellation must
   leave the visit available. Keep presentation, light and effects in the owning

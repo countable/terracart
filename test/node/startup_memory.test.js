@@ -14,7 +14,7 @@ test('startup memory: WebGL FX pools require explicit device opt-in before boot'
 
 test('startup memory: graphics menu persists changes before reload and allows cancellation', () => {
   const code = INDEX_HTML_SRC.split('// FX pools are a renderer boot choice, shared by saves on this device.')[1]
-    .split('// Vibration toggle')[0];
+    .split("// The active slot's save")[0];
   for (const initial of [null, '1']) {
     for (const confirmed of [false, true]) {
       const events = [];

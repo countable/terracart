@@ -1678,10 +1678,6 @@ class SceneCreatures {
     const { x: px, y: py } = playerWorldM(this);
     const kerbLeash = inKerbAt(this, px, py);
     enemySlimeTrailTick(this, px, py, npcDt);
-    // The nearest hostile TAKING AN INTEREST this tick (not standing down, the
-    // player not unnoticed) — handed to app.js _foeHeadsUp after the loop,
-    // which buzzes the phone when it is close (SAFETY_FOE_BUZZ_CELLS).
-    let interestedFoeM = Infinity;
     // THE SIM BUBBLE — measured from the player's FEET, never the camera
     // anchor (a peek drag must not widen who is thinking).
     //   The viewport corner sits at VIEW_CELLS/2 * √2 ≈ 7.8 cells.
@@ -2069,9 +2065,6 @@ class SceneCreatures {
       // (`unnoticed` — a powder, or a body on an empty bar). Read by the butt
       // below, the stride and the angle chain, so the three agree.
       const gameCharge = enraged && !standDown && !unnoticed;
-      if (!isTame && !standDown && !unnoticed && (enemy || enraged)) {
-        interestedFoeM = Math.min(interestedFoeM, distM);
-      }
       // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
       // blow: ONE touch of its row's dmg (Combat.meleeBlow), through the mode,
       // the shield and the armour like every blow (foeBlowLands — the one
@@ -2501,7 +2494,6 @@ class SceneCreatures {
       updateCharacterSpacingIndex(spacingIndex, c);
     }
     this._characterSpacingIndex = null;
-    this._foeHeadsUp?.(interestedFoeM, now);
     // What the foes took off the bar this window pops as one "⚔️ monsters"
     // roll-up from the scene's drain lane (app.js _flushDrainPops).
   }
