@@ -40,6 +40,9 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   offers/lights beyond the sprite cull. Indexed objects do not move in place.
 - Cached drawing keys must include every input. `Lighting.frameKey` uses the
   quantised light clock; new tile arrays read per frame need a derived index.
+  `drawObjects` caches appearance by identity only for generation-immutable
+  records and sorts the shared world container only when membership or assigned
+  depth changes; connected, clock-driven and saved-state art stays live.
 - A cell-crossing rebuild never reads pixels back: no `getImageData`, no
   per-piece `textures.createCanvas` (Phaser reads the canvas back on
   creation). Bake short-lived canvas pieces into shared atlas pages
