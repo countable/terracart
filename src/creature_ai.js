@@ -1280,12 +1280,15 @@ function fireAverse(c, row) { return !Conditions.flying(c) && !c.lair && (row.ca
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false, allow = null) {
   let dx = x - c.x, dy = y - c.y;
   const distance = Math.hypot(dx, dy);
-  // Sharp plants and spikes are passable. Prefer the body's same short jog
+  // Sharp plants, spikes and visible cave-ins prefer the body's same short jog
   // when it fits; a broad belt has no trivial detour, so keep going through.
-  if (!escaping && !Conditions.flying(c) && distance > 0 && scene._walkHazardExposure?.(c.x, c.y, x, y) > 0) {
+  const collapseExposure = (nx, ny) => globalThis.EnvironmentHazards?.exposure?.(scene, c.x, c.y, nx, ny) || 0;
+  if (!escaping && !Conditions.flying(c) && distance > 0
+      && (scene._walkHazardExposure?.(c.x, c.y, x, y) > 0 || collapseExposure(x, y) > 0)) {
     const open = (ox, oy) => {
       const nx = c.x + ox * scene.cellM, ny = c.y + oy * scene.cellM;
-      return (!allow || allow(nx, ny)) && enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0;
+      return (!allow || allow(nx, ny)) && enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0
+        && !(globalThis.EnvironmentHazards?.exposure?.(scene, nx, ny, nx, ny) > 0);
     };
     const jog = committedDetourDir(c, dx / distance, dy / distance, open, now);
     if (jog) { dx = jog.x * distance; dy = jog.y * distance; }
@@ -1296,6 +1299,7 @@ function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = fal
   for (let i = 1; i <= n; i++) {
     const nx = sx + dx * i / n, ny = sy + dy * i / n;
     if ((allow && !allow(nx, ny)) || !enemyCanStep(scene, c, row, nx, ny, escaping)) { clear = false; break; }
+    globalThis.EnvironmentHazards?.touch?.(scene, c, c.x, c.y, nx, ny);
     c.x = nx; c.y = ny;
     if (row?.trail && c._laySlimeTrail) enemyLaySlimeTrail(scene, c, row);
   }

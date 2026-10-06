@@ -119,7 +119,7 @@
     return scene.depth === 0 && quarryVariant(e, cell.ix, cell.iy) === 'quarry-strip-mine';
   }
   function observeCaveIn(scene, s, at, key) {
-    if (!caveInGround(scene, at) || root.Conditions.flying?.(scene.save)) return;
+    if (!caveInGround(scene, at)) return;
     const id = `environment:cavein:${key}`;
     if (s.visits.has(id) || s.caveins.some(h => h.id === id)) return;
     s.visits.add(id);
@@ -143,7 +143,7 @@
       const point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY), tileCell = scene.cellAt(point.x, point.y);
       const cellId = `environment:cavein:${scene.depth}:${tileCell.tx}:${tileCell.ty}:${tileCell.ix}:${tileCell.iy}`;
       const h = create(scene, 'cavein', cell, cellId);
-      if (reserved.has(cellKey) || !caveInGround(scene, tileCell) || !eligible(scene, h)) continue;
+      if (reserved.has(cellKey) || !caveInGround(scene, tileCell) || !eligible(scene, h, false)) continue;
       cluster.push(h);
       // Only accepted cells extend the frontier, so a blocked cell never bridges a cluster.
       for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]])
@@ -153,6 +153,45 @@
     for (const h of cluster) { s.caveins.push(h); saveCaveIn(scene, h); }
     if (typeof persistSave === 'function') persistSave(scene.save);
   }
+  // Hidden seats are seeded by cell, not by the body which discovers them.
+  // Materialize a patch on first contact; no invisible sprites or idle clocks.
+  function touch(scene, actor, x0, y0, x1 = x0, y1 = y0) {
+    if (![0, CONFIG.cavein.dungeonDepth].includes(scene.depth || 0)
+        || !scene.cellAt || !scene.save || !(scene.cellM > 0) || root.Conditions.flying?.(actor)
+        || actor?._spent || actor?._surfaceInactive || ![x0, y0, x1, y1].every(Number.isFinite)) return;
+    const s = state(scene), steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (scene.cellM * .2)));
+    let previous = null;
+    for (let i = 0; i <= steps; i++) {
+      const at = scene.cellAt(x0 + (x1 - x0) * i / steps, y0 + (y1 - y0) * i / steps);
+      if (!at.loaded) continue;
+      const key = `${scene.depth}:${at.tx}:${at.ty}:${at.ix}:${at.iy}`;
+      if (key === previous) continue;
+      previous = key;
+      observeCaveIn(scene, s, at, key);
+    }
+  }
+  // Visible warning cells and permanent gaps use the same AI detour lane as
+  // walk hazards, without pretending that harmless cracks deal contact damage.
+  function exposure(scene, x0, y0, x1, y1) {
+    if (!scene.cellAt || !(scene.cellM > 0)) return 0;
+    const start = scene.cellAt(x0, y0), dx = x1 - x0, dy = y1 - y0;
+    for (const h of scene._environmentHazards?.get(scene.depth || 0)?.caveins || []) {
+      if (h.blocked || !['warning', 'open'].includes(h.phase)) continue;
+      // An actor already standing on a cracking cell must be able to escape.
+      if ((dx || dy) && start.cellIX === h.cellIX && start.cellIY === h.cellIY) continue;
+      let lo = 0, hi = 1;
+      const half = h.cellM / 2;
+      for (const [origin, delta, centre] of [[x0, dx, h.x], [y0, dy, h.y]]) {
+        if (!delta) { if (origin < centre - half || origin >= centre + half) { hi = -1; break; } }
+        else {
+          const a = (centre - half - origin) / delta, b = (centre + half - origin) / delta;
+          lo = Math.max(lo, Math.min(a, b)); hi = Math.min(hi, Math.max(a, b));
+        }
+      }
+      if (hi >= lo && hi >= 0 && lo <= 1) return 1;
+    }
+    return 0;
+  }
   function observe(scene) {
     const s = state(scene), px = scene.startWorldM.x + scene.playerM.x,
       py = scene.startWorldM.y + scene.playerM.y + (scene.feetOffsetM || 0), at = scene.cellAt(px, py);
@@ -161,7 +200,10 @@
     const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(at.tx, at.ty));
     if (!e?._spawnOpts) return;
     const quarry = scene.depth === 0 ? quarryVariant(e, at.ix, at.iy) : null;
-    observeCaveIn(scene, s, at, key);
+    touch(scene, scene.save, px, py);
+    for (const actor of scene._characterBodies || []) {
+      if (actor.id !== 'player') touch(scene, actor, actor.x, actor.y);
+    }
     // Keep the vent budget local. A deterministic evicted seat can be
     // rediscovered in its harmless inactive phase when the player returns.
     s.vents = s.vents.filter(h => {
@@ -256,5 +298,5 @@
     s.vents = s.vents.filter(h => !h.blocked);
     s.sinkholes = s.sinkholes.filter(h => h.phase !== 'closed');
   }
-  root.EnvironmentHazards = { CONFIG, VENTS, state, lists, footprint, suitable, eligible, create, update, overlaps, quarryVariant, observe, tick };
+  root.EnvironmentHazards = { CONFIG, VENTS, state, lists, footprint, suitable, eligible, create, update, overlaps, quarryVariant, touch, exposure, observe, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

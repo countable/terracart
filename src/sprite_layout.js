@@ -536,7 +536,7 @@
     const old = CREATURE_ART[row.id];
     const fw = row.art.frameWidth, fh = row.art.frameHeight;
     const [minY, maxY] = row.art.bounds || enemyBounds[row.id] || [0, 16];
-    const flying = ['orbit_swoop', 'ghost_glide'].includes(row.movement.pattern);
+    const flying = row.permanentBuffs?.includes('flight') === true;
     const ghost = row.movement.pattern === 'ghost_glide';
     CREATURE_ART[row.id] = fw === 32 && old ? { ...old, sheet: row.id === 'goblin_trapper' ? 'goblin' : row.id }
       : { sheet: row.id, frames: 4, frameMs: row.art.frameMs ?? (flying ? 120 : 240),

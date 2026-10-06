@@ -50,6 +50,10 @@ mechanics.
 - Potion of Flight lasts one minute, timed by the Flight buff. `Conditions.flying`
   skips harmful floor contact (including holes, flames and traps), while gases,
   attacks and existing conditions still affect the flyer. A second dose adds a minute.
+  Naturally flying enemies carry `permanentBuffs: ['flight']` on their roster row.
+  `SpriteLayout.creatureAirborne` inherits that flag for variants and summoned
+  wraiths and includes airborne fauna; the same `Conditions.flying` gate covers
+  them without saving an infinite potion expiry or showing an infinite countdown.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.

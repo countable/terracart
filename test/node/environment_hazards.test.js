@@ -314,4 +314,53 @@
     }
   }));
 
+  test('cave-in contact: grounded NPC and enemy bodies trigger the same seeded L1 patch', () => fixture((s, entries) => {
+    WorldGen.makeRng = () => () => 0;
+    let first;
+    for (const kind of ['npc', 'goblin', 'deer']) {
+      s.save.caveIns = {}; s._environmentHazards = new Map();
+      const actor = { id: kind, kind, x: 28, y: 28 };
+      entries[0].creatures = [actor];
+      EnvironmentHazards.touch(s, actor, actor.x, actor.y);
+      const cluster = EnvironmentHazards.lists(s).caveins;
+      assert.inRange(cluster.length, 2, 5, 'occupying actor does not veto its own trigger');
+      const cells = cluster.map(h => h.id).join(',');
+      if (first) assert.eq(cells, first); else first = cells;
+      assert.truthy(cluster.every(h => h.phase === 'warning' && h.elapsedMs === 0));
+    }
+  }));
+  test('cave-in contact: natural and potion flight never start a countdown', () => fixture(s => {
+    WorldGen.makeRng = () => () => 0;
+    for (const actor of [{ kind: 'bat' }, { kind: 'goblin', flightPotionUntil: Date.now() + 60000 }]) {
+      EnvironmentHazards.touch(s, actor, 28, 28);
+      assert.eq(EnvironmentHazards.lists(s).caveins.length, 0);
+    }
+    EnvironmentHazards.touch(s, { kind: 'goblin' }, 28, 28);
+    assert.truthy(EnvironmentHazards.lists(s).caveins.length >= 2, 'flying passage does not consume hidden seed');
+  }));
+  test('cave-in contact: standing bodies trigger and accepted paths cannot skip a seeded cell', () => fixture((s, entries) => {
+    WorldGen.makeRng = () => () => 0;
+    entries[0]._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    entries[0]._spawnOpts.spawnWhy[27] = entries[0]._spawnOpts.spawnWhy[28] = 0;
+    const actor = { kind: 'npc', id: 'resident', x: 28, y: 28 };
+    s.playerM = { x: 4, y: 4 }; s._characterBodies = [actor];
+    EnvironmentHazards.observe(s);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 2);
+    s._environmentHazards = new Map(); s.save.caveIns = {};
+    EnvironmentHazards.touch(s, actor, 12, 28, 44, 28);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 2);
+  }));
+  test('cave-in exposure: cracks and holes divert entrants but permit escape', () => fixture(s => {
+    const h = EnvironmentHazards.create(s, 'cavein', { cellIX: 3, cellIY: 3 }, 'visible');
+    EnvironmentHazards.lists(s).caveins.push(h);
+    for (const elapsed of [0, 2500, 5000]) {
+      h.elapsedMs = elapsed; EnvironmentHazards.update(h);
+      assert.eq(EnvironmentHazards.exposure(s, 12, 28, 44, 28), 1, 'swept crossing sees warning or gap');
+      assert.eq(EnvironmentHazards.exposure(s, 28, 28, 20, 28), 0, 'escape from underneath is allowed');
+      assert.eq(EnvironmentHazards.exposure(s, 12, 12, 44, 12), 0);
+    }
+    h.blocked = true;
+    assert.eq(EnvironmentHazards.exposure(s, 12, 28, 44, 28), 0);
+  }));
+
 })();

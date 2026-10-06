@@ -56,7 +56,7 @@ test('source: a lit torch\'s blow sets the foe alight after the blow lands, as t
     'the torch lights what the blow leaves standing');
 });
 
-test('fire contact: every unit catches fire and ticks through its damage path', () => {
+test('fire contact: grounded units catch fire; airborne units only tick existing burns', () => {
   const hurt = [];
   const scene = Object.assign(new SceneFire(), {
     save: {},
@@ -69,7 +69,7 @@ test('fire contact: every unit catches fire and ticks through its damage path', 
     { kind: 'slime', pet: true, id: 'released_1', x: 1, y: 0 },
     { kind: 'chicken', id: 'animal', x: 1, y: 0 },
     { kind: 'npc', id: 'neighbour', x: 1, y: 0 },
-    { kind: 'spirit_raven', id: 'ally', x: 1, y: 0 },
+    { kind: 'summoned_skeleton', id: 'ally', x: 1, y: 0 },
   ]) {
     scene._tickUnitFire(c, 0);
     assert.truthy(Combat.burning(c, 1), c.kind + ' catches fire');
@@ -78,6 +78,15 @@ test('fire contact: every unit catches fire and ticks through its damage path', 
     assert.eq(hurt.at(-1).dmg, def.energyLoss);
   }
   assert.eq(hurt.length, 5);
+  for (const kind of ['spirit_raven', 'bat', 'ghost']) {
+    const flyer = { kind, id: 'flyer-' + kind, x: 1, y: 0 };
+    scene._tickUnitFire(flyer, 0);
+    assert.falsy(Combat.burning(flyer, 1), kind + ' flies above campfire contact');
+    Combat.ignite(flyer, 0, 'player');
+    Combat.burnTick(flyer, 2000, true);
+    scene._tickUnitFire(flyer, 3000);
+    assert.eq(hurt.at(-1).kind, kind, 'already burning flyers still take damage');
+  }
   const demon = { kind: 'red_demon', x: 1, y: 0 };
   scene._tickUnitFire(demon, 0);
   assert.falsy(Combat.burning(demon, 1), 'existing fire immunity still applies');

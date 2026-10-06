@@ -344,7 +344,7 @@ test('fire ward: the depth cap is a named number, and the real table agrees with
   }
 });
 
-test('fire ward: ONE derived predicate — the depth cap, never a lair guard — on the one mover', () => {
+test('fire ward: grounded foes share the depth-cap predicate on the one mover', () => {
   const scene = { cellM: 7, _cellBlocked: () => false,
     cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _nearAny: () => true };
   for (const kind of ['slime', 'cave_slime', 'club_goblin']) {
@@ -359,7 +359,8 @@ test('fire ward: ONE derived predicate — the depth cap, never a lair guard —
   assert.truthy(enemyCanStep(scene, { kind: 'purple_slime' }, EnemyRoster.get('purple_slime'), 0, 0),
     'a purple slime (depth 3) walks through firelight');
   for (const row of EnemyRoster.ROWS) {
-    assert.eq(fireAverse({ kind: row.id }, row), (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH, `${row.id}: the row's cave depth decides`);
+    assert.eq(fireAverse({ kind: row.id }, row), !Conditions.flying({ kind: row.id }) && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH,
+      `${row.id}: flight bypasses fire contact; grounded foes use the cave-depth cap`);
   }
   assert.truthy(enemyCanStep(scene, { kind: 'goblin' }, EnemyRoster.get('goblin'), 0, 0));
   const loop = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'), SCENE_SRC.indexOf('  _crowDepart('));

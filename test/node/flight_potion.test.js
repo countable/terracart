@@ -48,4 +48,35 @@
     assert.truthy(Conditions.flying(rebuilt, now + 59999));
     assert.falsy(Conditions.flying(rebuilt, now + 60000));
   });
+  test('flight: natural flyers and inherited variants remain airborne after potion expiry and reload', () => {
+    const kinds = ['bat', 'bee', 'vampire_bat', 'gull', 'raven', 'storm_gull',
+      'sword_spirit', 'ghost', 'pink_ghost', 'giant_bat', 'giant_ghost',
+      'summoned_wraith', 'crow', 'spirit_raven', 'azure_butterfly'];
+    for (const kind of kinds) {
+      const restored = JSON.parse(JSON.stringify({ kind, flightPotionUntil: 1000 }));
+      assert.truthy(Conditions.flying(restored, 2000), kind);
+      assert.truthy(Conditions.flying(restored, Number.MAX_SAFE_INTEGER), kind + ': permanent');
+      assert.falsy(Conditions.damageImmune(restored, 2000), kind + ': attacks still hurt');
+      assert.falsy(Conditions.fireImmune(restored, 2000), kind + ': airborne is not fireproof');
+      assert.falsy(Buffs.active(restored, null, 2000).some(b => b.id === 'flight'), kind + ': no infinite countdown');
+    }
+    for (const kind of ['rat', 'spider', 'slime', 'giant_slime', 'npc', 'unknown']) {
+      assert.falsy(Conditions.flying({ kind }, 2000), kind + ': grounded');
+    }
+    assert.falsy(Conditions.flying(undefined, 2000));
+    assert.falsy(Conditions.flying({}, 2000));
+  });
+  test('flight: natural flyers take no ground walking damage with no potion timer', () => {
+    const scene = { _walkHazardExposure: () => 2,
+      _damageEnemy(c, amount) { c._hp -= amount; return false; } };
+    for (const kind of ['bat', 'ghost', 'giant_bat', 'zombie']) {
+      const c = { id: 'ground-contact-' + kind, kind, x: 0, y: 0, _hp: 100 };
+      enemyWalkHazardTick(scene, c, 0);
+      for (let i = 1; i <= 20; i++) {
+        c.x += .1;
+        enemyWalkHazardTick(scene, c, i * 100);
+      }
+      assert.eq(c._hp, kind === 'zombie' ? 96 : 100, kind);
+    }
+  });
 })();

@@ -94,4 +94,41 @@ test('flight: thrown potion lets a foe cross spikes without detour or damage', (
   for (let i = 2; i <= 11; i++) { c.x += .1; enemyWalkHazardTick(s, c, i * 100); }
   assert.lt(c._hp, 100);
 });
+test('enemy cave-ins: visible cracks steer grounded foes without causing walk damage', () => {
+  const original = EnvironmentHazards.exposure;
+  EnvironmentHazards.exposure = (s, x0, y0, x1, y1) =>
+    exposure.call({ ...s, _walkHazardCell: (tx, ty, x, y) => x === 1 && y === 0 ? 1 : 0 }, x0, y0, x1, y1);
+  try {
+    for (const flying of [false, true]) {
+      const s = scene(), c = foe();
+      if (flying) c.flightPotionUntil = Date.now() + 60000;
+      const x = c.x, y = c.y;
+      enemySweep(s, c, EnemyRoster.get(c.kind), 2.5, .5, 0);
+      const contact = EnvironmentHazards.exposure(s, x, y, c.x, c.y);
+      if (flying) {
+        assert.gt(contact, 0, 'flight crosses ground hazards directly');
+        assert.eq(c.y, .5);
+      } else {
+        assert.eq(contact, 0, 'grounded foe takes the clear diagonal detour');
+        assert.gt(Math.abs(c.y - .5), .5);
+      }
+      assert.eq(c._hp, 100, 'warning cracks cause no walk damage');
+    }
+  } finally { EnvironmentHazards.exposure = original; }
+});
+test('enemy cave-ins: accepted movement reports each swept contact before moving the body', () => {
+  const original = EnvironmentHazards.touch, contacts = [];
+  EnvironmentHazards.touch = (s, c, x, y, nx, ny) => {
+    assert.eq(c.x, x); assert.eq(c.y, y);
+    contacts.push([x, y, nx, ny]);
+  };
+  try {
+    const s = scene(), c = foe();
+    s._cellBlocked = x => x >= 1;
+    enemySweep(s, c, EnemyRoster.get(c.kind), 2.5, .5, 0);
+    assert.gt(contacts.length, 0);
+    assert.truthy(contacts.every(contact => contact[2] < 1), 'blocked cells never trigger');
+    assert.eq(contacts.at(-1)[2], c.x);
+  } finally { EnvironmentHazards.touch = original; }
+});
 })();

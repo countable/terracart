@@ -2237,6 +2237,7 @@ class MapScene extends Phaser.Scene {
   }
 
   _tickWalkHazards(dt, x0, y0, x1, y1) {
+    EnvironmentHazards.touch(this, this.save, x0, y0, x1, y1);
     if (Conditions.flying(this.save)) {
       this._walkHazardHere = null;
       this._walkHazardAccum = 0;

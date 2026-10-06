@@ -191,9 +191,15 @@ access or tile lifecycle mechanics.
   retain their positions. Zone mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
 - Strip mines and L1 use `EnvironmentHazards` for hidden cave-in clusters of
-  2–5 connected cells. Stepping onto an eligible cell starts the whole cluster's
+  2–5 connected cells scattered across general eligible ground. Their seeds are
+  cell-based and materialized on first contact. Any grounded entity (player,
+  enemy, animal, pet or NPC) stepping onto a seeded cell starts the whole cluster's
   five-second warning: half-cell cracks, full-cell cracks, then black gaps from
   fallen chunks. Every cell passes the shared spawn gate and occupancy checks.
+  Moving bodies sweep their accepted steps so crossing a cell triggers it too.
+  AI uses the ordinary hazard detour lane once cracks are visible, and can escape
+  the cell beneath it. Flight, including permanent natural flight, bypasses
+  contact and avoidance.
   Opened clusters use the connected L1 floor-gap texture and remain permanent.
   `save.caveIns` retains warning progress and opened cells across reloads;
   foreground ticks own the clock. `HazardFalls` owns landing and descent,
