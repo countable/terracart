@@ -845,7 +845,7 @@ class SceneConsumables {
     const fromDepth = this.depth || 0;
     const depth = fromDepth + 1;
     if (typeof DungeonProgression !== 'undefined' && !DungeonProgression.canUseDescent(this.save, fromDepth, depth, 'sapphire')) {
-      this.flashAtPlayer(fromDepth === 1 ? 'Use a rope or repair the elevator to go deeper.' : 'Solve five arena challenges to earn the Level 4 key.');
+      this.flashAtPlayer(fromDepth === 1 ? 'Use a rope or repair the elevator to go deeper.' : 'Solve five arena challenges to earn the Level 5 key.');
       return false;
     }
     const feet = playerWorldM(this), stair = { x: feet.x, y: feet.y + this.feetOffsetM };
@@ -910,7 +910,11 @@ class SceneConsumables {
     if (!this._selectedConsumable('rope')) return false;
     const target = (this.depth || 0) + delta;
     if (delta > 0 && typeof DungeonProgression !== 'undefined' && !DungeonProgression.canEnterDepth(this.save, target)) {
-      this.flashAtPlayer('Solve five arena challenges to earn the Level 4 key.');
+      this.flashAtPlayer('Solve five arena challenges to earn the Level 5 key.');
+      return false;
+    }
+    if (delta > 0 && typeof DungeonProgression !== 'undefined' && !DungeonProgression.ropeCanDescend(this.depth || 0)) {
+      this.flashAtPlayer('No anchor for the rope this deep.');
       return false;
     }
     if (target < 0) {

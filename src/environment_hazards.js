@@ -37,6 +37,9 @@
     if (h.depth !== scene.depth || (h.type === 'vent' && !scene.depth)) return false;
     const arenaDepth = W.ARENA_DEPTH;
     if (h.type === 'sinkhole' && (h.depth === arenaDepth || h.depth + 1 === arenaDepth)) return false;
+    // Nothing falls out of a sealed floor (DungeonProgression.ROPE_SEALED_FLOORS,
+    // docs/design/floors.md): its descent is gated - elevator, dig or key.
+    if (h.type === 'sinkhole' && root.DungeonProgression && !root.DungeonProgression.ropeCanDescend(h.depth)) return false;
     return footprint(scene, h).every(p => {
       if (!p.loaded || !suitable(p.type, scene.depth)) return false;
       const e = W.tileCache.get(W.tileKey(p.tx, p.ty));

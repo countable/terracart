@@ -102,7 +102,7 @@ class SceneArena {
     if(this.depth!==Arena.DEPTH || this._dialogOpen()) return;
     const {wrap,box,mount,mkBtn}=this.makeModalShell('arena-modal',{kind:'story',art:'progression_arena'});
     const title=document.createElement('h3');title.textContent='Transcendent Arena';box.appendChild(title);
-    const info=document.createElement('p');info.textContent='Solve five different trials to earn the key to Level 4. Violet hazards cost a strike; three strikes end a trial.';box.appendChild(info);
+    const info=document.createElement('p');info.textContent='Solve five different trials to earn the key to Level 5. Violet hazards cost a strike; three strikes end a trial.';box.appendChild(info);
     const wins=DungeonProgression.state(this.save).challenges || [];
     for(const c of Arena.CHALLENGES) {
       const b=mkBtn(`${wins.includes(c.id)?'✓ ':''}${c.name}`,true,false);
@@ -143,7 +143,7 @@ class SceneArena {
       DungeonProgression.completeChallenge(this.save,run.id);persistSave(this.save);
       const key=!hadKey&&DungeonProgression.state(this.save).level4Key;
       if(key) { this.addToInv('depth_key',1); persistSave(this.save); }
-      this.showMessageModal({kind:'story',art:'progression_arena',title:key?'The fourth seal opens':'Trial complete',body:key?'Five trials answered. The Level 4 key is yours forever. The dungeon opens below the Underdark.':'Your victory is remembered. Choose another trial at the portal.',onDismiss:()=>this.openArenaMenu()});
+      this.showMessageModal({kind:'story',art:'progression_arena',title:key?'The fifth seal opens':'Trial complete',body:key?'Five trials answered. The Level 5 key is yours forever. The dungeon opens below the Underdark.':'Your victory is remembered. Choose another trial at the portal.',onDismiss:()=>this.openArenaMenu()});
     } else this.showMessageModal({kind:'story',art:'progression_arena',title:'Try again',body:'The trial has ended. Your earlier victories are safe.',onDismiss:()=>this.openArenaMenu()});
   }
   _drawArena() {

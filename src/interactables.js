@@ -681,7 +681,7 @@ const INTERACTABLES = {
         result = { kind: 'item', id: 'portal_stone', qty: 1, consolation: 0 };
         dress.art = 'progression_portal';
         dress.header = 'A light beyond the Underdark';
-        dress.sub = 'Among the dust lies a portal stone. Bring it to the surface, at least 50 metres from a road. Beyond its light waits the Transcendent Arena: five different victories earn the key to Level 4.';
+        dress.sub = 'Among the dust lies a portal stone. Bring it to the surface, at least 50 metres from a road. Beyond its light waits the Transcendent Arena: five different victories earn the key to Level 5.';
       }
       result = Rewards.reconcileUnique(save, result);
       if (!result) {

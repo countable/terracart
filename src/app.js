@@ -6609,7 +6609,7 @@ class MapScene extends Phaser.Scene {
     const source = stair.elevator ? 'elevator' : stair.descentSource || 'stairs';
     const caveFall = !!options.fall;
     if (!caveFall && !DungeonProgression.canUseDescent(this.save, this.depth || 0, target, source)) {
-      const message = target >= 4 ? 'Complete five arena trials to unlock the fourth depth.' : 'Use a rope or repair the elevator to go deeper.';
+      const message = target >= 5 ? 'Complete five arena trials to unlock the fifth depth.' : 'Use a rope or repair the elevator to go deeper.';
       if (this.flashAtPlayer) this.flashAtPlayer(message); else this.flash?.(message);
       return false;
     }

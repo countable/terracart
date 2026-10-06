@@ -21,14 +21,23 @@
     try { await run({ scene, hole, ready, world, calls, transitions, cache }); }
     finally { globalThis.WorldGen = oldWorld; EnvironmentHazards.overlaps = oldOverlap; }
   }
-  for (const depth of [0, 1, 3]) test(`hazard falls: actual transition ${depth}→${depth + 1} preserves energy and bypasses voluntary locks`, () => fixture(async f => {
+  for (const depth of [0, 1, 5]) test(`hazard falls: actual transition ${depth}→${depth + 1} preserves energy and bypasses voluntary locks`, () => fixture(async f => {
     const { scene, hole, calls, transitions } = f;
-    if (depth === 1 || depth === 3) assert.falsy(DungeonProgression.canUseDescent(scene.save, depth, depth + 1, 'stairs'));
+    if (depth === 1 || depth === 5) assert.falsy(DungeonProgression.canUseDescent(scene.save, depth, depth + 1, 'stairs'));
     assert.eq(await HazardFalls.fall(scene, hole), true);
     assert.eq(scene.depth, depth + 1); assert.eq(scene.save.depth, depth + 1); assert.eq(scene.save.energy, 50);
     assert.eq(scene.playerM.x, 28); assert.eq(scene.playerM.y, 28);
     assert.eq(calls.length, 1); assert.eq(calls[0][0], depth + 1); assert.eq(transitions[0], depth + 1);
     assert.eq(scene.persisted, 1); assert.eq(scene._hazardFallPending, false);
+  }, depth));
+  for (const depth of [2, 3, 4, 6]) test(`hazard falls: a sealed floor (${depth} -> ${depth + 1}) never gives way`, () => fixture(async f => {
+    const { scene, hole, calls, transitions } = f;
+    assert.falsy(DungeonProgression.canUseDescent(scene.save, depth, depth + 1, 'rope'), 'sanity: the seal reads the same table');
+    assert.eq(await HazardFalls.fall(scene, hole), false);
+    assert.eq(scene.depth, depth, 'no fall leaves the sealed floor');
+    assert.eq(scene.save.energy, 50);
+    assert.eq(calls.length, 0, 'the level below is never even loaded');
+    assert.eq(transitions.length, 0);
   }, depth));
   test('hazard falls: pending sinkhole blocks chasm fall and tick without consuming its visit', () => fixture(async f => {
     const gate = deferred(); let loads = 0, messages = 0;

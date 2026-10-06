@@ -47,6 +47,17 @@
       assert.eq(s.save.conditions[condition].remainingMs, duration);
     }
   }));
+  test('environment hazards: sealed floors never open sinkholes', () => fixture((s) => {
+    s.depth = 2;
+    const sealed = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 3, cellIY: 3 }, 'hole');
+    assert.falsy(EnvironmentHazards.eligible(s, sealed), '2 -> 3 belongs to the elevator');
+    s.depth = 6;
+    const wizard = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 3, cellIY: 3 }, 'hole');
+    assert.falsy(EnvironmentHazards.eligible(s, wizard), '6 -> 7 belongs to the wizard key');
+    s.depth = 5;
+    const open = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 3, cellIY: 3 }, 'hole');
+    assert.truthy(EnvironmentHazards.eligible(s, open), '5 -> 6 keeps its pits');
+  }));
   test('environment hazards: sinkhole 2x2 footprint crosses seams and refuses every blocked cell', () => fixture((s, entries) => {
     const h = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 7, cellIY: 3 }, 'hole');
     assert.eq(h.x, 64); assert.eq(h.y, 32);
