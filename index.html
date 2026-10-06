@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=e0a69fdc" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=f863e50e" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1172,7 +1172,7 @@
         <div class="devitems">
           <button id="debug-clear-relics">Remove all relics</button>
           <button id="debug-wood-relics">All wood relics (T1)</button>
-          <button id="debug-slime-pack">Call slime pack (6)</button>
+          <button id="debug-enemies">Spawn enemies</button>
           <button id="debug-items">Item cheats</button>
           <button id="debug-nearby-foes">Nearby foes (debug)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
@@ -2017,35 +2017,52 @@
       scene.buildInventoryDOM?.();
       if (typeof persistSave === 'function') persistSave(scene.save);
     });
-    // A pack of wild slimes at the screen edge, on demand — combat can be
-    // tested without wandering around hoping to find a fight.
-    document.getElementById('debug-slime-pack').addEventListener('click', (e) => {
+    document.getElementById('debug-enemies').addEventListener('click', (e) => {
       e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
-      window.__scene?.debugSpawnSlimePack?.(6);
+      const scene = window.__scene;
+      if (!scene) return;
+      showDebugSearch(scene, {
+        id: 'enemy-cheats-modal', title: 'Spawn enemies', subject: 'enemies',
+        hint: 'Tap an enemy to spawn one nearby.',
+        catalog: Combat.enemyKinds().map(id => ({ id, name: Combat.MONSTERS[id]?.name || Combat.enemyName(id) })),
+        obtain: enemy => scene.debugSpawnEnemy(enemy.id)
+          ? `Spawned ${enemy.name}` : 'No clear ground nearby. Try moving.',
+      });
     });
     document.getElementById('debug-items').addEventListener('click', (e) => {
       e.stopPropagation();
-      const m = document.getElementById('menu'); if (m) m.open = false;
       const scene = window.__scene;
       if (!scene) return;
-      const onClose = () => scene._revealPendingBookReads();
-      const { wrap, box, mount, mkBtn } = scene.makeModalShell('item-cheats-modal', {
-        kind: 'supplies', kindLabel: 'Item cheats', fullscreen: true, delayInput: false,
+      showDebugSearch(scene, {
+        id: 'item-cheats-modal', title: 'Item cheats', subject: 'items',
+        hint: 'Tap an item to obtain one.', catalog: Object.values(ITEM_BY_ID),
+        onClose: () => scene._revealPendingBookReads(),
+        obtain: item => {
+          const got = scene.addToInv(item.id, 1, false, { notWild: true, deferBookRead: true });
+          // Books are read on closing the picker rather than stacking dialogs.
+          persistSave(scene.save);
+          return got ? `+${got} ${item.name}` : 'Bag full';
+        },
+      });
+    });
+    function showDebugSearch(scene, { id, title, subject, hint, catalog, obtain, onClose = () => {} }) {
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const { wrap, box, mount, mkBtn } = scene.makeModalShell(id, {
+        kind: 'supplies', kindLabel: title, fullscreen: true, delayInput: false,
         boxExtra: 'display:flex;flex-direction:column;gap:8px;overflow:hidden;', onClose,
       });
       const search = document.createElement('input');
       search.type = 'search';
-      search.placeholder = 'Search items by name';
-      search.setAttribute('aria-label', 'Search items by name');
+      search.placeholder = `Search ${subject} by name`;
+      search.setAttribute('aria-label', search.placeholder);
       search.style.cssText = 'box-sizing:border-box;width:100%;padding:10px;font:16px var(--font-ui);flex-shrink:0;';
       const status = document.createElement('div');
       status.setAttribute('role', 'status');
-      status.textContent = 'Tap an item to obtain one.';
+      status.textContent = hint;
       status.style.cssText = 'font:13px var(--font-ui);flex-shrink:0;';
       const results = document.createElement('div');
       results.style.cssText = 'overflow-y:auto;min-height:0;flex:1;display:flex;flex-direction:column;gap:6px;';
-      const catalog = Object.values(ITEM_BY_ID).sort((a, b) => a.name.localeCompare(b.name));
+      catalog = [...catalog].sort((a, b) => a.name.localeCompare(b.name));
       const render = () => {
         const query = search.value.trim().toLocaleLowerCase();
         results.replaceChildren();
@@ -2053,15 +2070,10 @@
           if (!item.name.toLocaleLowerCase().includes(query)) continue;
           const button = mkBtn('', { variant: 'ghost', css: 'flex-shrink:0;min-height:44px;text-align:left;' });
           button.textContent = item.name;
-          button.addEventListener('click', () => {
-            const got = scene.addToInv(item.id, 1, false, { notWild: true, deferBookRead: true });
-            // Books are read on closing the picker rather than stacking dialogs.
-            persistSave(scene.save);
-            status.textContent = got ? `+${got} ${item.name}` : 'Bag full';
-          });
+          button.addEventListener('click', () => { status.textContent = obtain(item); });
           results.appendChild(button);
         }
-        if (!results.childElementCount) results.textContent = 'No items found.';
+        if (!results.childElementCount) results.textContent = `No ${subject} found.`;
         results.scrollTop = 0;
       };
       const close = () => { wrap.remove(); onClose(); };
@@ -2078,7 +2090,7 @@
       box.querySelector('.modal-body').style.cssText =
         'display:flex;flex-direction:column;gap:8px;flex:1;min-height:0;overflow:hidden;';
       search.focus();
-    });
+    }
     // Nearby foes — every hostile within ~80 m: its kind, where it came from
     // (the surface roster, a ruin's garrison, a zone guard), whether it is
     // hidden for this player, and how far it stands from the frozen starter
@@ -2937,7 +2949,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=e0a69fdc';
+      const APP_SRC = 'src/app.js?v=f863e50e';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
