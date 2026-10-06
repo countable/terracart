@@ -10,6 +10,7 @@ when a file moves.
 | ../README.md | setup and source map |
 | process/QC_RULES.md | art and asset checklist |
 | process/SANDBOX.md | sandbox test world manual |
+| design/glossary.md | preferred terminology, aliases and unresolved naming scopes |
 | design/spec.txt | game design spec |
 | design/story.txt | story bible (wins over copy in src/) |
 | design/monster-world.md | encounter design |
