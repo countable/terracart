@@ -8622,7 +8622,7 @@
   // never copy player edits or repeat into a second cave floor; reservations
   // win without moving a seam onto somebody else's cell.
   function caveQuarryGemsFrom(aboveObjects, grid, N, tx, ty, tileEdgeM, depth, occupied) {
-    if (depth !== 1) return [];
+    if (!floorProfile(depth).quarryProvenance) return [];
     const out = [];
     for (const source of aboveObjects) {
       if (source.kind !== 'mineralrock' || source.zoneKind !== 'quarry'
@@ -8646,7 +8646,7 @@
   // Ordinary rocks under a quarry share its gem identity as well. The
   // surface field owns the boundary; this provenance ends on cave level 1.
   function stampCaveQuarryRocks(objects, surface, N, tx, ty, tileEdgeM, depth) {
-    if (depth !== 1 || surface.cellsPerEdge !== N) return;
+    if (!floorProfile(depth).quarryProvenance || surface.cellsPerEdge !== N) return;
     const field = surface.zone, coverage = field?.coverage || field?.idx;
     if (!coverage) return;
     for (const rock of objects) {
@@ -8661,17 +8661,58 @@
     }
   }
 
-  // The dungeon level whose rock under the town's BUILDINGS is lava (T.CAVE_LAVA).
-  // Only this level: the one above and every one below keep plain rock there.
-  const LAVA_DEPTH = 5;
+  // ── THE FLOOR PROFILES ───────────────────────────────────────────────
+  // ONE row per depth: every floor-scoped rule of cave generation reads this
+  // table, never a depth literal at its call site (the standing rule in
+  // docs/design/generation.md; the inputs checklist lives in
+  // docs/design/floor-design-review.html; the target catalog is
+  // docs/design/floors.md). Depths past the last row fall through to
+  // DEFAULT_FLOOR_PROFILE, so adding depth stays free, and shifting a floor's
+  // identity later is a row edit.
+  //   terrain      how cells open: 'above' the walkable level above (the
+  //                negative mirror), 'surfacePaint' the surface's own
+  //                generated paint, 'clearings' only the open-land surface
+  //                classes (this mode also seeds `areas` for settlements),
+  //                or 'open' every cell.
+  //   biome        the label render and lighting read (entry.undergroundBiome)
+  //   lava         this floor's walls under surface BUILDINGS turn to lava
+  //   streetMirror Underground projects surface paths/streets as an overlay
+  //   fallLandings 3x3 pockets under the floor above's ground holes
+  //   chestSource  whose POI chests mirror down: 'above' | 'surface'
+  //   quarryProvenance quarry gem seams and rock stamps descend one level
+  const FLOOR_PROFILES = Object.freeze([
+    Object.freeze({ depth: 1, biome: 'cave', terrain: 'above', streetMirror: true,
+      fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
+    Object.freeze({ depth: 2, biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
+      fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
+    Object.freeze({ depth: 3, biome: 'underdark', terrain: 'open', streetMirror: false,
+      fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
+    Object.freeze({ depth: 4, biome: 'cave', terrain: 'surfacePaint', streetMirror: false,
+      fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
+    Object.freeze({ depth: 5, biome: 'cave', terrain: 'above', streetMirror: false,
+      fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
+  ]);
+  const DEFAULT_FLOOR_PROFILE = Object.freeze({ biome: 'cave', terrain: 'above', streetMirror: false,
+    fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false });
+  const FLOOR_PROFILE_BY_DEPTH = new Map(FLOOR_PROFILES.map(row => [row.depth, row]));
+  function floorProfile(depth) {
+    return FLOOR_PROFILE_BY_DEPTH.get(depth) || DEFAULT_FLOOR_PROFILE;
+  }
+  // The ONE dungeon level whose rock under the town's BUILDINGS is lava
+  // (T.CAVE_LAVA); fire and ember rules elsewhere key on it. Derived from the
+  // profiles so the row stays the single owner.
+  const LAVA_DEPTH = (FLOOR_PROFILES.find(row => row.lava) || {}).depth;
 
   // The deep strata read immutable surface evidence, never player-dug cells.
   function undergroundTerrain(surface, aboveGrid, depth) {
+    const profile = floorProfile(depth);
     const source = surface.baseGrid || surface.grid;
     const grid = new Uint8Array(aboveGrid.length), areas = new Uint8Array(grid.length);
+    const open = profile.terrain === 'open', clearing = profile.terrain === 'clearings',
+      fromSurfacePaint = profile.terrain === 'surfacePaint';
     for (let i = 0; i < grid.length; i++) {
-      if (depth === 3) { grid[i] = T.CAVE_FLOOR; continue; }
-      if (depth === 2) {
+      if (open) { grid[i] = T.CAVE_FLOOR; continue; }
+      if (clearing) {
         const t = source[i];
         const width = surface.cellsPerEdge || source.length;
         const clear = isSpawnCell(source, width, Math.ceil(source.length / width), i % width, Math.floor(i / width), { roadMask: surface.roadMask, spawnWhy: surface.spawnWhy }, 'npc') &&
@@ -8679,7 +8720,7 @@
         grid[i] = clear ? T.CAVE_FLOOR : T.CAVE_WALL;
         if (clear) areas[i] = t === T.COMMERCIAL ? 2 : 1;
       } else {
-        const terrain = depth === 4 ? source[i] : aboveGrid[i];
+        const terrain = fromSurfacePaint ? source[i] : aboveGrid[i];
         grid[i] = isWalkable(terrain) && !isRoadTerrain(terrain) && terrain !== T.CAVE_LAVA
           ? T.CAVE_FLOOR : T.CAVE_WALL;
       }
@@ -8755,6 +8796,7 @@
     // on who descended into it and when.
     const aboveGrid = above.geologyGrid || above.baseGrid || above.grid;
     const aboveObjects = above.genObjects || above.objects || [];
+    const profile = floorProfile(depth);
     const surface = depth >= 2 ? await loadTile.atDepth(0, x, y, lat) : above;
     if (surface.status === 'loading') await surface.promise;
     const { grid, areas } = undergroundTerrain(surface, aboveGrid, depth);
@@ -8766,7 +8808,7 @@
     // like aboveGrid: the same tile bytes give every player the same lava).
     // Only wall cells turn: a building cell is never walkable overhead, so this
     // is every building cell, and never a floor something could stand on.
-    if (depth === LAVA_DEPTH) {
+    if (profile.lava) {
       const surf = await loadTile.atDepth(0, x, y, lat);
       if (surf.status === 'loading') await surf.promise;
       const sGrid = surf.baseGrid || surf.grid;
@@ -8814,8 +8856,9 @@
         objects.push(makeObject('staircase', p.x, p.y, caveStairId('down', depth, x, y, seat.lix, seat.liy), { dir: 'down', depth }));
     }
     const landingCells = new Set();
-    // Holes preserve a safe empty landing pocket in L2's otherwise solid stone.
-    const fallSites = depth === 2 ? aboveObjects.filter(o => o.kind === 'ground_hole' && o.depth === 1) : [];
+    // Holes preserve a safe empty landing pocket in the receiving floor's stone.
+    const fallSites = profile.fallLandings
+      ? aboveObjects.filter(o => o.kind === 'ground_hole' && o.depth === depth - 1) : [];
     for (const o of [...objects.filter(o => o.kind === 'staircase'), ...fallSites]) {
       const c = cellIndexOf(x, y, o.x, o.y, tileEdgeM, N);
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -8829,7 +8872,7 @@
     // Shallow street carving is an overlay, never geology inherited by the
     // next depth. Preserve the generated stratum first, then project routes.
     const geologyGrid = grid.slice();
-    const underground = depth <= 2 && global.Underground
+    const underground = profile.streetMirror && global.Underground
       ? global.Underground.project(surface, grid, N, x, y, tileEdgeM, depth) : null;
     // Fill the level with rock clusters, keeping the staircase cells clear so a
     // stair never spawns buried under a rock sprite.
@@ -8848,7 +8891,8 @@
     const clearingOccupied = new Set([...occupied, ...proposedAreas.reserved]);
     const { clearings, residents } = undergroundClearings(areas, grid, N, x, y, tileEdgeM, objects, clearingOccupied);
     for (const i of clearingOccupied) if (!proposedAreas.reserved.has(i)) occupied.add(i);
-    const chestSources = depth === 3 ? (surface.genObjects || surface.objects || []) : aboveObjects;
+    const chestSources = profile.chestSource === 'surface'
+      ? (surface.genObjects || surface.objects || []) : aboveObjects;
     for (const c of caveChestsFrom(chestSources, grid, N, x, y, tileEdgeM, depth, occupied)) {
       objects.push(c);
     }
@@ -8880,7 +8924,7 @@
     const extraTreasures = level.treasures, caveCoinSeeds = level.coins;
     const entry = {
       status: 'ready', grid, spawnWhy, geologyGrid, caveAreas, underground, cellsPerEdge: N, tileEdgeM, depth,
-      undergroundBiome: depth === 3 ? 'underdark' : depth === 2 ? 'deep_stone' : 'cave',
+      undergroundBiome: profile.biome,
       undergroundAreas: areas, undergroundClearings: clearings, undergroundResidents: residents,
       undergroundReserved: ambientOccupied, surfaceRoadMask: surface.roadMask,
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
@@ -9077,7 +9121,7 @@
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
     SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
-    ARENA_DEPTH, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
+    ARENA_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
     caveBarrels, caveContainerBudget, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,
