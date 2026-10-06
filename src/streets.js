@@ -96,6 +96,35 @@
     return `${f.id != null ? f.id : 0}:${hashHex(sig)}`;
   }
 
+  // The tile-local MVT bounds of one line. Decoded feature geometry is fixed
+  // for the life of a tile entry, so walking its vertices again on every
+  // reach-cell change only turns city density into frame time. The WeakMap
+  // follows the decoded feature: a rebuilt tile supplies new feature objects
+  // and therefore derives fresh bounds without an epoch or a stale side map.
+  const _lineBoundsMemo = new WeakMap();
+  function lineBounds(feature, lineIdx) {
+    if (feature && typeof feature === 'object') {
+      let bounds = _lineBoundsMemo.get(feature);
+      if (!bounds) _lineBoundsMemo.set(feature, bounds = []);
+      const i = lineIdx | 0;
+      if (bounds[i] !== undefined) return bounds[i];
+      return (bounds[i] = lineBoundsOf(feature, i));
+    }
+    return lineBoundsOf(feature, lineIdx);
+  }
+  function lineBoundsOf(feature, lineIdx) {
+    const line = (feature && feature.geom && feature.geom[lineIdx | 0]) || [];
+    if (!line.length) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const v of line) {
+      if (v.x < x0) x0 = v.x;
+      if (v.x > x1) x1 = v.x;
+      if (v.y < y0) y0 = v.y;
+      if (v.y > y1) y1 = v.y;
+    }
+    return { x0, y0, x1, y1 };
+  }
+
   // ── Geometry along a line ───────────────────────────────────────────────
   // Every function here takes MVT integer vertices and `mvtToM`
   // (= tileEdgeM / layer.extent) and answers in TILE-LOCAL METRES.
@@ -704,7 +733,7 @@
 
   root.Streets = {
     EPS,
-    lineKey, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
+    lineKey, lineBounds, lineLengthM, pointAtM, subLineM, tileSpans, reachIntervals,
     runPtsWorld, pointAtWorld,
     LAMP_SPACING_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
     LAMP_PATH_SPACING_DIV, LAMP_PATH_SPACING_M, LAMP_PATH_MIN_LEN_M, isWalkingPath, lampLayFor,

@@ -64,7 +64,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - Streets restore metre intervals along each transportation line, keyed by
   `Streets.lineKey(feature, lineIdx)`, clipped to tile spans. Keep reach tied
   to the player and visuals keyed by `Streets.epoch`; do not add per-cell road
-  state. Feather only the restored band's edge, with a hard-edge fallback.
+  state. The reach sweep rejects tile squares outside the padded reach, then
+  caches eligible line records, bounds and tile spans on each tile entry. A new
+  entry or replacement `layers` array invalidates the geometry, so a cell move
+  rejects distant lines without walking their vertices.
+  Feather only the restored band's edge, with a hard-edge fallback.
 - Generate lamps from `Streets.lampSpacingM()` (independent of trail goals).
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
