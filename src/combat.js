@@ -533,6 +533,8 @@
   // status landing on anybody looks the same.
   const STATUS_FLASH_MS = 400;
   const STATUS_LOOKS = Object.freeze({
+    paralysis: Object.freeze({ label: Conditions.DEFINITIONS.paralysis.label, color: Conditions.DEFINITIONS.paralysis.ink,
+      field: '_paralysisUntil', clock: 'wall', cancels: true }),
     sleep:     Object.freeze({ label: 'Sleep',     color: '#bcdfff', field: '_sleepUntil',      clock: 'wall', cancels: true }),
     charm:     Object.freeze({ label: 'Charm',     color: '#ff91b8', field: '_charmUntil',      clock: 'wall', cancels: true, ally: true }),
     // The ice the body wears while it holds (util.js FROZEN_TINT). A SLOW:
@@ -600,6 +602,12 @@
     return mul;
   }
   function isSleeping(c, now = Date.now()) { return hasStatus(c, 'sleep', now); }
+  function isParalyzed(c, now = Date.now()) { return hasStatus(c, 'paralysis', now); }
+  // Webs catch any body, including pets, neighbours and concealed creatures.
+  function paralyze(c, durationMs, now = Date.now()) {
+    if (!c || !Number.isFinite(durationMs) || durationMs <= 0) return false;
+    return landStatus(c, 'paralysis', durationMs, now);
+  }
   function isCharmed(c, now = Date.now()) { return hasStatus(c, 'charm', now); }
   // Paid passage and an open negotiation are neutral, never allied.
   function isPacified(c, now = Date.now()) {
@@ -1600,7 +1608,7 @@
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    FLOWER_STATUS_MS, isSleeping, isCharmed, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
+    FLOWER_STATUS_MS, isSleeping, isParalyzed, paralyze, isCharmed, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
     isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, applyFrostAura, cancelCreatureAction,
     isTame, isAlly,
