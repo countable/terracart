@@ -22,6 +22,23 @@ access or tile lifecycle mechanics.
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
 
+- Zone geometry is surface-owned and level-independent: zones, anchors,
+  coverage and the road mask are computed once on the surface, frozen in its
+  `caveSource` snapshot, and every floor reads that snapshot read-only - no
+  zone is re-rolled per level. A floor instead derives its terrain from a
+  class-to-terrain mapping over that inherited geometry (`undergroundTerrain`)
+  and its content from per-floor tables: enemy habitats mint their own
+  per-depth regions (`THEME_BANDS`), while chest mirrors, torch sites, quarry
+  provenance and spring caves inherit surface anchors. The street mirror and
+  any per-floor road clearings are level-scoped projections of surface lines.
+  `docs/design/floors.md` owns the per-floor catalog.
+
+- A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
+  one owning table keyed by floor, never a depth literal at a call site.
+  `DungeonProgression.ROPE_SEALED_FLOORS` is the pattern (the rope, the
+  sinkhole minting and the fall check all read it); lighting already derives
+  its per-floor ambience from depth (`Lighting.profile`, `litDim`).
+
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
