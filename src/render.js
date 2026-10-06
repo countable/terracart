@@ -2541,9 +2541,9 @@ Render.drawCells = function drawCells(scene) {
           for (let i = 0; i < MERLONS; i++) {
             if ((material.rampart.broken && i === 2) || (damage && i === damage.missing)) continue;
             const mx = x + i * SPAN + MOFF;
-            gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - CAP + 2, MW, TOOTH_H);
-            gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - CAP - 2, MW, 4);
-            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - CAP + 2, 1, TOOTH_H);
+            gx.fillStyle(STONE_FACE, 1); gx.fillRect(mx, baseY - CAP - TOOTH_H, MW, TOOTH_H);
+            gx.fillStyle(STONE_LITE, 1); gx.fillRect(mx, baseY - CAP - TOOTH_H - 2, MW, 2);
+            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - CAP - TOOTH_H, 1, TOOTH_H);
           }
         };
         // South boundary projects its stone face beyond the floor.
