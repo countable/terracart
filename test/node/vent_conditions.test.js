@@ -5,7 +5,7 @@
     return SCENE_SRC.slice(start + 1, SCENE_SRC.indexOf('\n  }\n', start) + 4);
   }
   const methods = new Function('return ({' + [
-    '_bodyHold() {', 'startCombat(victim, opts = {}) {', '_drawWorkProgress() {',
+    '_bodyHold() {', '_stopDownedActions() {', 'startCombat(victim, opts = {}) {', '_drawWorkProgress() {',
     'canThrowItem(id) {', 'readTomeFirewall() {', 'useExplosiveFlask() {',
   ].map(lift).join(',') + '});')();
   test('vent conditions: exact burn, poison and paralysis durations survive normalization and expire', () => {
@@ -52,7 +52,7 @@
   });
   test('vent paralysis: manual and automatic melee, pending blows and hand attacks refuse without spending', () => {
     const target = { kind: 'slime', _hp: 20 };
-    const s = Object.assign({ save: { energy: 100 }, _workProgress: { combat: target },
+    const s = Object.assign({ save: { energy: 100 }, _workProgress: null,
       _drawSwordSwing() {}, _drawWatering() {},
       _damageEnemy() { throw Error('A paralysed player must not hit'); },
     }, methods);

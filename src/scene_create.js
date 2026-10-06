@@ -519,6 +519,8 @@ class SceneCreate {
     this.creaturesContainer = this.worldContainer;
     // Castle walls, turrets and flags participate in the world foot sort.
     this.towerContainer = this.worldContainer;
+    // Cell gas veils standing objects, then shares their lighting and fog.
+    this.gasGfx = this.add.graphics();
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
@@ -886,6 +888,7 @@ class SceneCreate {
     this.auraContainer.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
+    this.gasGfx.setMask(mask);
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);

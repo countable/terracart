@@ -142,4 +142,12 @@
       if (old) WorldGen.tileCache.set(key, old); else WorldGen.tileCache.delete(key);
     }
   });
+  test('flight: cave holes do not load a destination or consume their cell visit', async () => {
+    const s = scene(); s.save.flightPotionUntil = Date.now() + 60000;
+    s._caveHoleCell = 'old';
+    assert.falsy(await CaveHazards.fall(s, hole));
+    CaveHazards.tick(s, 0);
+    assert.eq(s._caveHoleCell, null); assert.falsy(s.panel); assert.eq(s.depth, 2);
+  });
+
 })();

@@ -49,6 +49,7 @@
     protection: { name: 'Protection', color: '#c9d6ff', stroke: '#1a2250', save: 'protectionPotionUntil' },
     immortal: { name: 'Immortal', color: '#ffe066', stroke: '#4a3a00', save: 'immortalPotionUntil' },
     fireResistance: { name: 'Fireproof', color: '#ffb347', stroke: '#3a1600', save: 'fireResistancePotionUntil' },
+    flight: { name: 'Flight', color: '#9fe8ff', stroke: '#0b2a3a', save: 'flightPotionUntil' },
     shrinking: { name: 'Shrinking', color: '#d9b3ff', stroke: '#2a1040', save: 'shrinkingPotionUntil' },
     giant: { name: 'Giant', color: '#ffb18c', stroke: '#4a180b', save: 'giantPotionUntil' },
     shield:  { name: 'Shield',  color: '#c9d6ff', stroke: '#1a2250', save: 'shieldPotionUntil' },

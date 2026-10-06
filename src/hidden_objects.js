@@ -90,6 +90,10 @@
         if (!revealed && reveal(scene, o)) revealed = true;
       });
       if (revealed) return;
+      root.WorldGen.forEachItemInBox(entry, 'wildplants', x - pad, y - pad, x + pad, y + pad, plant => {
+        if (!revealed && reveal(scene, plant)) revealed = true;
+      });
+      if (revealed) return;
       for (const trap of entry.traps || []) {
         if (!root.Traps.isTrapDisarmed(scene.save, trap) && reveal(scene, trap)) return;
       }

@@ -30,6 +30,40 @@
       const down=body();down.save.energy=0;step.call(down,1,null,2);assert.eq(down.playerM.x,0);
     } finally {Math.random=random;}
   });
+  test('confused: compass rotates with the forced circular walk and restores the fallback', () => {
+    const s=body();s.facing={x:0,y:-1};s.compassDeg=null;
+    const finish=new Function(lift('_endConfusedWalk'));
+    step.call(s,.05,null,2);
+    const before=s.compassDeg;
+    for(let i=0;i<10;i++)step.call(s,.05,null,2);
+    assert.truthy(s.compassDeg!==before,'compass visibly rotates');
+    const rad=s.compassDeg*Math.PI/180;
+    assert.inRange(s.facing.x-Math.sin(rad),-1e-9,1e-9);
+    assert.inRange(s.facing.y+Math.cos(rad),-1e-9,1e-9);
+    finish.call(s);
+    assert.eq(s.compassDeg,null,'movement facing fallback restored without device compass');
+    assert.eq(s.facing.x,0);assert.eq(s.facing.y,-1);
+    assert.eq(s._confusedLoop,null);assert.truthy(s._confusedRecover);
+  });
+  test('confused: live orientation cannot overwrite spinning compass and latest heading restores', () => {
+    const callbacks={};
+    const win={screen:{orientation:{angle:0}},addEventListener(name,fn){callbacks[name]=fn;}};
+    const attach=new Function('window','performance',lift('_attachCompass'));
+    const finish=new Function(lift('_endConfusedWalk'));
+    const s=body();s.facing={x:0,y:-1};
+    let clock=100;
+    attach.call(s,win,{now:()=>clock+=100});
+    Conditions.apply(s.save,'confused');step.call(s,.05,null,2);
+    const spinning=s.compassDeg;
+    callbacks.deviceorientationabsolute({absolute:true,alpha:270});
+    assert.eq(s.compassDeg,spinning,'real east heading cannot steer confused body');
+    assert.inRange(s._deviceCompass.deg,89.999,90.001);
+    Conditions.cure(s.save,'confused');finish.call(s);
+    assert.inRange(s.compassDeg,89.999,90.001,'expiry restores the newest real sample');
+    assert.inRange(s.facing.x,.99999,1.00001);
+    callbacks.deviceorientationabsolute({absolute:true,alpha:180});
+    assert.gt(s.compassDeg,90,'sensor resumes visible compass updates');
+  });
   test('obstacle balance: Slowed is contextual and confusion applies its speed reduction once', () => {
     const plain=body(), balanced=body();
     plain._confusedLoop={angle:0,turn:1.2,left:3};

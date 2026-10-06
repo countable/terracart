@@ -9,7 +9,7 @@
   };
 
   test('Harvest: mine, chop, till, fish and catch wheels run at triple speed', () => {
-    const scene = { save: { boonUntil: { work: Date.now() + 900000 } }, _setWorkProgressIcon() {} };
+    const scene = { save: { energy: 100, boonUntil: { work: Date.now() + 900000 } }, _setWorkProgressIcon() {} };
     const start = lift('startWorkProgress');
     for (const slot of ['pickaxe', 'axe', 'hoe', 'fishing_rod', 'net', null]) {
       start.call(scene, 0, 0, () => {}, 9000, 3, slot);
@@ -21,7 +21,7 @@
   });
 
   test('Drill: the real work entry point speeds mining only', () => {
-    const scene = { save: { boonUntil: { mining: Date.now() + 60000 } }, _setWorkProgressIcon() {} };
+    const scene = { save: { energy: 100, boonUntil: { mining: Date.now() + 60000 } }, _setWorkProgressIcon() {} };
     const start = lift('startWorkProgress');
     start.call(scene, 0, 0, () => {}, 9000, 3, 'pickaxe');
     assert.eq(scene._workProgress.durationMs, toolDurationMs({ pickaxe: { tier: 7 } }, 'pickaxe'));

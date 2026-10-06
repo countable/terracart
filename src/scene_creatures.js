@@ -552,6 +552,7 @@ class SceneCreatures {
     // Replace the existing enemy budget, without adding a population per kind.
     // Identity depends on the candidate cell, never species or this player's Home.
     entry._spawnOpts = _spawnOpts;
+    MushroomGas.prepare(entry, tx, ty);
     const enemySeats = new Set();
     let enemyWrite = 0;
     for (const creature of creatures) {

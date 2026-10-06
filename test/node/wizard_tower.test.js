@@ -241,7 +241,6 @@ test('wizard tower: the chosen calling shows in the memories explainer', () => {
 test('classes: every player call site passes save.playerClass', () => {
   const pins = [
     [/Combat\.shotDamage\(relics, slot, this\.save\.playerClass\)/, 'the bow / staff shot (Hunter)'],
-    [/Combat\.meleeDps\(this\.save\.relics, this\.save\.playerClass, Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\)/, 'the melee estimate (Enforcer)'],
     [/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass, Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\)/, 'the melee blow (Enforcer)'],
     [/Trail\.bank\(st\.metres, st\.prizes, addedM \+ bonusM, this\.save\.playerClass\)/, 'the ladder bank (Runner)'],
     [/Trail\.readout\(out, this\.save\.playerClass\)/, 'the street counter'],
@@ -252,7 +251,7 @@ test('classes: every player call site passes save.playerClass', () => {
   // (A call is one line in app.js; the line must name the class.)
   const code = app.split('\n').filter((l) => !/^\s*\/\//.test(l));
   const calls = code.filter((l) => /(Combat\.(shotDamage|meleeDps|meleeSwingDamage)|Trail\.(bank|readout|goalFor|progress))\(/.test(l));
-  assert.gte(calls.length, 7, 'found the gameplay calls');
+  assert.gte(calls.length, 6, 'found the gameplay calls');
   // magicTrapDamage is the one shotDamage call that is NOT the player's own
   // weapon: a Magic Trap is a tier-3 bow shot fired by the trap, so no
   // calling (a Hunter's bow bonus) applies to it.

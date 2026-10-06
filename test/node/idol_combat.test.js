@@ -20,7 +20,7 @@
     return Object.assign({
       save: { energy: 100, boonUntil: { hidden: Date.now() + 180000 } },
       isShadowActive: () => false, isTooFast: () => false,
-      _popDamageNumber() {}, resolveDefeat() {}, _drawSwordSwing() {},
+      _popDamageNumber() {}, resolveDefeat() {}, _stopDownedActions() { return false; }, _drawSwordSwing() {},
       cancelWorkProgress() { this._workProgress = null; },
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
       // These capture scenarios take place outside Home's wildlife circle.

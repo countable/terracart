@@ -163,4 +163,15 @@
     const found = HazardFalls.landing(e, { x: 100, y: 86 }, 999);
     assert.eq(found.x, 104); assert.eq(found.y, 88);
   });
+  test('flight: sinkholes are ignored and taking flight during tile loading cancels a fall', () => fixture(async f => {
+    f.scene.save.flightPotionUntil = Date.now() + 60000;
+    assert.falsy(await HazardFalls.fall(f.scene, f.hole)); assert.eq(f.calls.length, 0);
+    f.scene.save.flightPotionUntil = 0;
+    const gate = deferred(); f.world.loadTile.atDepth = () => gate.promise;
+    const pending = HazardFalls.fall(f.scene, f.hole);
+    f.scene.save.flightPotionUntil = Date.now() + 60000;
+    gate.resolve(f.ready);
+    assert.falsy(await pending); assert.eq(f.scene.depth, 0); assert.falsy(f.scene._hazardFallPending);
+  }));
+
 })();
