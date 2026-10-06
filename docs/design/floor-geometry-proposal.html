@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dragon Hood - floor geometry proposals (scan view)</title>
+<style>
+  :root { color-scheme: light; }
+  body { font: 15px/1.55 Georgia, 'Times New Roman', serif; margin: 0; background: #faf7f2; color: #26221c; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 28px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin-top: 40px; border-bottom: 2px solid #d8cfc0; padding-bottom: 6px; }
+  .sub { color: #6b6355; font-size: 13px; margin-bottom: 18px; }
+  .lede { background: #f1ead9; border-left: 4px solid #8a7b5c; padding: 12px 16px; margin: 18px 0; font-size: 15px; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0 24px; font-size: 13.5px; font-family: 'Segoe UI', system-ui, sans-serif; }
+  th { background: #e7dfcf; text-align: left; padding: 7px 9px; border: 1px solid #d3c9b4; font-size: 12.5px; position: sticky; top: 0; }
+  td { padding: 7px 9px; border: 1px solid #ddd4c2; vertical-align: top; }
+  tbody tr:nth-child(even) td { background: #f6f1e6; }
+  tbody tr:hover td { background: #efe6d2; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #efe8d8; padding: 0 4px; border-radius: 3px; }
+  .pid { font-weight: bold; white-space: nowrap; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+  .f1 { background: #e8f0e4; } .f2 { background: #f4ead8; } .f3 { background: #e4ecf0; } .f4 { background: #ece4f0; }
+  .f5 { background: #e6e6ec; } .f6 { background: #f3e2dd; } .f78 { background: #f0e8d4; }
+  .floorcell { font-weight: bold; white-space: nowrap; }
+  .yes { color: #4c6b34; font-weight: bold; }
+  .pick { color: #a05a2c; font-weight: bold; }
+  .yes::before { content: "\2713 "; } .pick::before { content: "\25B8 "; }
+  details { margin: 10px 0; border: 1px solid #d8cfc0; border-radius: 8px; background: #f6f1e6; }
+  summary { cursor: pointer; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; padding: 10px 14px; }
+  details .body { padding: 4px 18px 14px; font-size: 14px; }
+  .controls { margin: 10px 0 4px; font-family: 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+  .controls button { font: inherit; border: 1px solid #b7a98a; background: #f1ead9; border-radius: 6px; padding: 4px 12px; margin-right: 6px; cursor: pointer; }
+  .controls button.active { background: #8a7b5c; color: #fff; }
+  .muted { color: #6b6355; }
+  .foot { margin-top: 40px; color: #6b6355; font-size: 12.5px; border-top: 1px solid #d8cfc0; padding-top: 12px; }
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Floor geometry proposals - scan view</h1>
+<div class="sub">The decision sheet for <a href="floor-geometry-proposal.md">floor-geometry-proposal.md</a> - one row per open decision, one grid per floor-input mapping. The markdown file owns the full text; confirm rows here by number.</div>
+
+<div class="lede">
+Every row below needs one word from you ("yes", or your edit). Defaults are chosen so "all yes" is a coherent game. Color bands group by floor; filter with the buttons.
+</div>
+
+<div class="controls" id="filters">
+  <button data-floor="all" class="active">All floors</button>
+  <button data-floor="2">Floor 2 · city</button>
+  <button data-floor="3">Floor 3 · deep stone</button>
+  <button data-floor="4">Floor 4 · fungal</button>
+  <button data-floor="5">Floor 5 · dead city</button>
+  <button data-floor="6">Floor 6 · lava</button>
+  <button data-floor="78">Floors 7-8 · dragons</button>
+</div>
+
+<h2>The decision table</h2>
+<table id="decisions">
+<thead><tr><th>ID</th><th>Floor</th><th>Area</th><th>Decision needed</th><th>Default</th></tr></thead>
+<tbody>
+<tr data-floor="2"><td class="pid">P1</td><td class="floorcell f2">2 - goblin city</td><td>Warren geometry</td><td>Warrens tile the full floor between roads and clearings: the existing nexus planner packs 5x5..9x7 chambers with 1-2 cell corridors; street-mirror routes become the main corridor net rooms hang off</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="2"><td class="pid">P2</td><td class="floorcell f2">2 - goblin city</td><td>Clearings</td><td>Clearings appear only where a projected road variant passes and at non-goblin nexus anchors (spring / mushroom / gemstone / mine picks) - the "same anchors as floor 1" rule made concrete</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="2"><td class="pid">P3</td><td class="floorcell f2">2 - goblin city</td><td>Water</td><td>Water in the city: none (the seep theme ends at floor 1) vs small pools</td><td><span class="pick">dry</span></td></tr>
+<tr data-floor="2"><td class="pid">P4</td><td class="floorcell f2">2 - goblin city</td><td>POIs</td><td>Chest mirrors land only in clearings; torch sites render as street lamps on open road cells</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="3"><td class="pid">P6</td><td class="floorcell f3">3 - deep stone</td><td>Digging</td><td>Every CAVE_WALL on this floor is diggable at the usual energy cost; clearings are pre-dug rooms. Floors 1-2 walls stay solid</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="3"><td class="pid">P7</td><td class="floorcell f3">3 - deep stone</td><td>Road tunnels</td><td>Each drawn road corridor crossing the tile gets a per-road coin (avalanche hash of its lineKey); cleared corridors become 2-cell tunnels joining clearings, target ~50% per tile</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="3"><td class="pid">P8</td><td class="floorcell f3">3 - deep stone</td><td>Down shaft</td><td>The dig route to floor 4: a "soft stratum" seam object, about one per tile at a clearing edge; digging it open (3x wall work) opens the climbable shaft. Needs art + interaction</td><td><span class="pick">one seam per tile</span></td></tr>
+<tr data-floor="4"><td class="pid">P9</td><td class="floorcell f4">4 - fungal Underdark</td><td>Fungal geometry</td><td>Fungal beds derive from the surface FOREST/GROVE paint above (woods above, fungus below); glow mushrooms inside them as light sources</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="4"><td class="pid">P10</td><td class="floorcell f4">4 - fungal Underdark</td><td>Hazards</td><td>Spore vents may mint on 4 with a fungal skin (same mechanic, new art)</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="4"><td class="pid">P11</td><td class="floorcell f4">4 - fungal Underdark</td><td>Foes</td><td>Add mushroom monsters to the roster at window 4-5 (surface-only today)</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="5"><td class="pid">P12</td><td class="floorcell f5">5 - dead city</td><td>Ruins</td><td>Building treatment: A - solid walls with ruin dressing (cheap, now); B - RUIN_WALL terrain with passable gaps, the city becomes lootable wreckage (later)</td><td><span class="pick">A now, B later</span></td></tr>
+<tr data-floor="5"><td class="pid">P13</td><td class="floorcell f5">5 - dead city</td><td>Dead dressing</td><td>POI chest mirrors render as gravestone caches (headstone interactable exists); roads get a cracked-pavement paint variant</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="5"><td class="pid">P14</td><td class="floorcell f5">5 - dead city</td><td>Hatch seat</td><td>One arena hatch per tile, seated at the best-ranked POI site (the plaza)</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="5"><td class="pid">P15</td><td class="floorcell f5">5 - dead city</td><td>Ghosts</td><td>The dead city ignores the even-depth ghost rule: ghosts walk floor 5 always</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="6"><td class="pid">P16</td><td class="floorcell f6">6 - lava</td><td>Water above</td><td>Surface water becomes obsidian crust (walkable, fire ticks) or stays wall</td><td><span class="pick">stays wall</span></td></tr>
+<tr data-floor="6"><td class="pid">P17</td><td class="floorcell f6">6 - lava</td><td>Heat</td><td>Slow energy drain floor-wide unless near a cool crystal or on crust; campfires refuse to light on 6</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="78"><td class="pid">P18</td><td class="floorcell f78">8 - dragon roosts</td><td>Roost seats</td><td>One roost per EnemyHabitats region on 8: the largest connected opening hosts the hoard (T7 chest), egg clutches and the red dragon; seats derive from the region id</td><td><span class="yes">yes</span></td></tr>
+<tr data-floor="78"><td class="pid">P19</td><td class="floorcell f78">7-8 - dragon layer</td><td>The split</td><td>Floor 7 is the hunting ground (dragon-kin patrols, scorched-bones dressing via a CAVE_PASSES row); floor 8 is the roosts</td><td><span class="yes">yes</span></td></tr>
+</tbody>
+</table>
+
+<h2>The floor x input grid</h2>
+<p class="muted">Which surface evidence each floor recognizes, and where it is still open. <b>&#10003;</b> decided and shipped &middot; <b>T</b> decided, ships with the rework &middot; <b>P#</b> open proposal &middot; <b>&mdash;</b> not recognized (or wall by default).</p>
+<table>
+<thead><tr>
+  <th>Floor</th><th>Terrain paint</th><th>Roads</th><th>Buildings</th><th>Nexus anchors</th><th>POIs</th><th>Road variants</th><th>Transp. lines</th><th>Spawn gate</th><th>Water</th><th>Authored areas</th><th>Above-floor objects</th>
+</tr></thead>
+<tbody>
+<tr><td class="floorcell f1">1 - caves</td><td>&#10003; above</td><td>&#10003; mirror</td><td>&mdash;</td><td>&#10003; areas</td><td>&#10003; chests + torches</td><td>&mdash;</td><td>&#10003; routes</td><td>&#10003;</td><td>&mdash;</td><td>&#10003; warrens etc.</td><td>&#10003; holes, quarry</td></tr>
+<tr><td class="floorcell f2">2 - goblin city</td><td>T city mode</td><td>T open streets</td><td>T only walls</td><td>P2 clearings</td><td>P4 in clearings</td><td>P2 clearings</td><td>&#10003; + P1 corridors</td><td>&#10003;</td><td>P3</td><td>P1 full-floor warrens</td><td>&#10003; landings</td></tr>
+<tr><td class="floorcell f3">3 - deep stone</td><td>&#10003; clearings (shifts to 3)</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; settlements</td><td>&#10003; chests</td><td>P7 tunnels</td><td>&mdash;</td><td>&#10003; npc gate</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; stairs, mirrors</td></tr>
+<tr><td class="floorcell f4">4 - fungal</td><td>&#10003; open + P9 beds</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; portal stone, T6</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f5">5 - dead city</td><td>&#10003; surface mirror</td><td>P13 pavement</td><td>P12 ruins</td><td>&mdash;</td><td>P13 graves, P14 hatch</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f6">6 - lava</td><td>&#10003; above + lava</td><td>&mdash;</td><td>&#10003; become lava</td><td>&mdash;</td><td>&#10003; chests</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>P16</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f78">7 - hunting grounds</td><td>&#10003; above mirror</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; T7 chests</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f78">8 - roosts</td><td>&#10003; above mirror</td><td>&mdash;</td><td>&mdash;</td><td>P18 roost seats</td><td>&#10003; + P18 hoards</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
+</tbody>
+</table>
+
+<h2>Floor notes</h2>
+<details open><summary>Floor 1 - natural caves (decided; nothing to confirm)</summary><div class="body">
+Recognizes terrain paint (negative mirror), roads (street mirror + gate), nexus anchors (spring / goblin warren / mushroom / gemstone areas at groves, mine tunnels at quarries), POIs (chest mirrors, torch seats), transportation lines (themed routes), the spawn gate, and above-floor objects (holes fall to floor 2, quarry seams stamp down). Everything shipped.
+</div></details>
+<details><summary>Floor 2 - goblin city (P1-P4)</summary><div class="body">
+Buildings are the only walls; roads stay open. Warren rooms exist today as anchor-local nexus areas (goblin weight 45 at depth 2, budget 16); P1 extends them to full-floor coverage with the street mirror as the corridor net. Theme and foes decided (floors.md): the warren family, city window 2-3.
+</div></details>
+<details><summary>Floor 3 - deep stone (P6-P8)</summary><div class="body">
+The clearings mode ships today at depth 2 and shifts to 3 with the rework: park / grove / playground / pitch / commercial ground opens and seeds Deep groves and Dwarven cities. Digging is the way around (P6); about half the roads clear as tunnels (P7); the down shaft to floor 4 is dug open at a soft-stratum seam (P8).
+</div></details>
+<details><summary>Floor 4 - fungal Underdark (P9-P11)</summary><div class="body">
+Open mode (shipped at depth 3 today, shifts to 4). The portal stone waits here (T4+ chest a kilometre out), chest tiers first reach T6, crypt ghosts appear. Fungal beds follow the surface woods (P9), spore vents (P10), mushroom monsters join at window 4-5 (P11).
+</div></details>
+<details><summary>Floor 5 - haunted dead city (P12-P15)</summary><div class="body">
+The surface-mirror mode (shipped at depth 4 today, shifts to 5): the city above repeated in ruin. Entry through the arena hatches only (P14 seats them); gravestone caches and cracked pavement (P13); ruins stay solid-walled for now (P12); the haunt is constant (P15).
+</div></details>
+<details><summary>Floor 6 - lava stratum (P16-P17)</summary><div class="body">
+The above mirror plus lava under surface buildings (shipped at depth 5 today, shifts to 6). Infernals enter, fire elementals appear only here. Water stays wall by default (P16); heat drains unless you stand near a cool crystal (P17).
+</div></details>
+<details><summary>Floors 7-8 - dragon layer (P18-P19)</summary><div class="body">
+Above-mirror recursion (the default profile row). First T7 chests and ghost growth at 7; ore reaches T7 at 8. The wizard-tower key gates 6 to 7. One roost per habitat region on 8 (P18); 7 reads as hunting grounds (P19).
+</div></details>
+
+<div class="foot">
+Source of truth: <a href="floor-geometry-proposal.md">floor-geometry-proposal.md</a> (full text per proposal) &middot; target catalog: <a href="floors.md">floors.md</a> &middot; inputs checklist: <a href="floor-design-review.html">floor-design-review.html</a>. Confirm rows by ID; defaults are chosen so "all yes" is coherent.
+</div>
+
+<script>
+(function () {
+  var buttons = document.querySelectorAll('#filters button');
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      buttons.forEach(function (x) { x.classList.remove('active'); });
+      b.classList.add('active');
+      var floor = b.dataset.floor;
+      document.querySelectorAll('#decisions tbody tr').forEach(function (tr) {
+        tr.style.display = (floor === 'all' || tr.dataset.floor === floor) ? '' : 'none';
+      });
+    });
+  });
+})();
+</script>
+</div></body>
+</html>

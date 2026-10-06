@@ -469,6 +469,15 @@
     },
   };
 
+  const HAZARDS = {
+    name: 'HAZARDS', label: 'WEBS · SINKHOLE / CAVE HAZARDS', w: 24, h: 12, fill: T.GRASS,
+    ambientFlora: false, spawn: { dx: 2, dy: 5 },
+    subLabels: [{ label: 'SPIDER WEB', dx: 5, dy: 3 }, { label: 'SINKHOLE', dx: 16, dy: 3 }, { label: 'CAVE-IN ARRIVAL', dx: 19, dy: 5 }],
+    populate(s) {
+      s.creature('spider', 8, 7, 1, { _sandboxProbe: 'web-spider' });
+    },
+  };
+
   const QUARRY = {
     name: 'QUARRY', label: 'QUARRY FINDS · RUINS', w: 16, h: 28, fill: T.ROCK,
     zoneStrips: [
@@ -486,7 +495,7 @@
     { roadAfter: { type: T.ROAD_LG, class: 'primary', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
     { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
-    { roadAfter: null, scenes: [RECREATION, CASTLE] },
+    { roadAfter: null, scenes: [RECREATION, CASTLE, HAZARDS] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES, RESTORATION, QUARRY] },
   ];
 
@@ -1193,6 +1202,8 @@
   function install(scene) {
     // Flag the scene so other systems (GPS, etc.) know to behave differently.
     scene._sandboxMode = true;
+    scene.depth = scene.save.depth = 0;
+    WorldGen.setDepth(0);
     // Authored buildings use the tile painter; only the castle also carries
     // a source ring for shared floor decoration such as ruined columns.
     if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.setEnabled(scene, false);
@@ -1283,6 +1294,19 @@
     // placed rocks, released pets, scarecrows, coin drops, extra treasures.
     seedSandboxState(scene, gridOriginIX, gridOriginIY, centreTX, centreTY,
                      cellsPerEdge, tileEdgeM, cellM);
+    const yard = sceneByName('HAZARDS');
+    const origin = tileCellToAbs(scene, centreTX, centreTY,
+      gridOriginIX + yard.lx, gridOriginIY + yard.ly);
+    installHazardFloors(scene, centreTX, centreTY);
+    if (SandboxDestinations.find(params.get('sandboxZone'))?.depth === 1) {
+      scene.depth = scene.save.depth = 1;
+      WorldGen.setDepth(1);
+      scene.cameras.main.setBackgroundColor('#0a0a12');
+    }
+    scene._sandboxHazardOrigin = origin;
+    scene._sandboxHazardFixtures = null;
+    if (scene.depth === 1 || SandboxDestinations.find(params.get('sandboxZone'))?.id === 'hazards'
+        || params.get('sandboxScene')?.toUpperCase() === 'HAZARDS') seedHazardState(scene, origin);
   }
 
   // Equip one of every relic + armor piece at T3 (see note above), and top the
@@ -1553,6 +1577,71 @@
     if (typeof scene.persistSave === 'function') scene.persistSave();
   }
 
+  // The hazard lab has real depth-one/two cache entries so falls exercise the
+  // ordinary landing/depth transition, without fetching an unrelated map.
+  function installHazardFloors(scene, tx, ty) {
+    for (const depth of [1, 2]) for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = tx + dx, y = ty + dy, n = rowCells(scene, y), edge = scene.tileEdgeM;
+      const surface = WorldGen.tileCacheFor(0).get(WorldGen.tileKey(x, y));
+      const entry = makeTileEntry({ tx: x, ty: y, cellsPerEdge: n, tileEdgeM: edge, cellM: edge / n,
+        populate(c) { c.grid.fill(T.CAVE_FLOOR); } });
+      entry.depth = depth;
+      // Retain inherited exclusions even though this is authored empty floor.
+      entry.spawnWhy = surface?.spawnWhy?.slice() || new Uint32Array(n * n);
+      entry.roadMask = surface?.roadMask?.slice() || new Uint8Array(n * n);
+      entry.roadClass = surface?.roadClass?.slice() || new Uint8Array(n * n);
+      entry._spawnOpts = { spawnWhy: entry.spawnWhy, roadMask: entry.roadMask,
+        roadClass: entry.roadClass, occupied: new Set() };
+      WorldGen.tileCacheFor(depth).set(WorldGen.tileKey(x, y), entry);
+    }
+  }
+
+  // Repeatable manual/probe entry point. Coordinates use the canonical absolute
+  // cell helpers, so this works in latitude rows with different cell counts.
+  function seedHazardState(scene, origin) {
+    const prefix = 'sandbox-hazard:';
+    scene.save.spiderWebs = (scene.save.spiderWebs || []).filter(w => !w._sandboxProbe);
+    for (const id of Object.keys(scene.save.caveIns || {})) {
+      if (id.startsWith(prefix)) delete scene.save.caveIns[id];
+    }
+    scene._environmentHazards = new Map();
+    scene._pressureTraps = null;
+    scene._spiderWebRuntime = null;
+    const at = (x, y) => absCellOffset(scene, origin.cellIX, origin.cellIY, x, y);
+    const env = EnvironmentHazards.lists(scene), fixtures = [];
+    const add = (type, x, y, kind = 'poison', tag = type) => {
+      const h = EnvironmentHazards.create(scene, type, at(x, y), prefix + tag, () => .5, kind);
+      h._sandboxProbe = tag;
+      if (!EnvironmentHazards.eligible(scene, h)) throw new Error('Ineligible sandbox hazard: ' + tag);
+      env[type === 'vent' ? 'vents' : type === 'cavein' ? 'caveins' : 'sinkholes'].push(h);
+      fixtures.push(h);
+    };
+    if (scene.depth === 1) {
+      const torch = CONSUMABLE_SPEC.torch;
+      Buffs.extend(scene.save, scene, torch.buff, torch.durationMs);
+      ['poison', 'fire', 'paralysis'].forEach((kind, i) => add('vent', 3 + i * 4, 4, kind, 'vent-' + kind));
+      ['ball', 'wall'].forEach((kind, i) => {
+        const pair = PressureTraps.create(scene, at(6 + i * 10, 7), at(3 + i * 10, 7), kind, prefix + 'pressure-' + kind);
+        pair.plate._sandboxProbe = 'plate-' + kind;
+        pair.trap._sandboxProbe = 'pressure-' + kind;
+        PressureTraps.lists(scene).plates.push(pair.plate);
+        PressureTraps.lists(scene).traps.push(pair.trap);
+        fixtures.push(pair.plate, pair.trap);
+      });
+      add('cavein', 20, 5, 'poison', 'cavein');
+      add('cavein', 21, 5, 'poison', 'cavein-neighbor');
+    } else {
+      add('sinkhole', 16, 6);
+      const cell = at(5, 6), point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
+      SpiderWebs.land(scene, { depth: scene.depth, ...cell, targetX: point.x, targetY: point.y });
+      const web = SpiderWebs.lists(scene).webs.find(w => w.cellIX === cell.cellIX && w.cellIY === cell.cellIY);
+      if (web) { web._sandboxProbe = 'ground-web'; fixtures.push(web); }
+    }
+    scene._sandboxHazardOrigin = origin;
+    scene._sandboxHazardFixtures = fixtures;
+    return fixtures;
+  }
+
   function seedMechanicsState(scene, entry) {
     const save = scene.save;
     // Fire history is permanent in normal play; keeping it here made a second
@@ -1593,7 +1682,7 @@
     // One caption per labelled zone. Scenes that pack several biomes into
     // sub-rects (MARSH, RECREATION, CIVIC) declare `subLabels` so each biome is
     // individually labelled at its own centre; others use the single centre label.
-    const addLabel = (text, cellIX, cellIY) => {
+    const addLabel = (text, cellIX, cellIY, depth = 0, reset = false) => {
       const wx = tx * tileEdgeM + (cellIX + 0.5) * cellM;
       const wy = ty * tileEdgeM + (cellIY + 0.5) * cellM;
       const t = scene.add.text(0, 0, text, {
@@ -1603,15 +1692,27 @@
         padding: { x: 3, y: 1 },
       }).setOrigin(0.5, 0).setVisible(false);
       scene._sandboxLabels.add(t);
-      scene._sandboxLabelData.push({ wx, wy, t });
+      scene._sandboxLabelData.push({ wx, wy, t, depth });
+      if (reset) t.setInteractive({ useHandCursor: true }).on('pointerdown', (_pointer, _x, _y, event) => {
+        event?.stopPropagation();
+        if (scene._sandboxHazardOrigin) seedHazardState(scene, scene._sandboxHazardOrigin);
+      });
     };
     for (const s of LAYOUT.scenes) {
       if (s.subLabels) {
-        for (const sub of s.subLabels) addLabel(sub.label, originIX + s.lx + sub.dx, originIY + s.ly + sub.dy);
+        for (const sub of s.subLabels.filter(sub => sub.label !== 'CAVE-IN ARRIVAL')) addLabel(sub.label, originIX + s.lx + sub.dx, originIY + s.ly + sub.dy);
       } else {
         addLabel(s.label, originIX + s.lx + Math.floor(s.w / 2), originIY + s.ly + Math.floor(s.h / 2));
       }
     }
+    const yard = sceneByName('HAZARDS');
+    const label = (text, x, y, depth, reset = false) => addLabel(text,
+      originIX + yard.lx + x, originIY + yard.ly + y, depth, reset);
+    for (const depth of [0, 1]) label('RESET HAZARDS', 2, 4, depth, true);
+    label('RESET HAZARDS', 20, 3, 1, true);
+    [['POISON', 3, 3], ['FIRE', 7, 3], ['PARALYSIS', 11, 3],
+      ['BALL → PLATE', 4, 8], ['WALL → PLATE', 14, 8], ['CAVE-IN', 20, 4]]
+      .forEach(([text, x, y]) => label(text, x, y, 1));
     // Re-position labels from their world coord every frame so they follow the
     // camera. wanderCreatures runs each scene tick and we own the reference, so
     // wrap it (a direct scene.update patch doesn't intercept Phaser's binding).
@@ -1624,9 +1725,15 @@
         // same way the sprites they name do (coords.js viewAnchorWorldM).
         const a = viewAnchorWorldM(scene);
         const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
+        if (!scene._sandboxHazardFixtures && scene._sandboxHazardOrigin && !scene.depth) {
+          const p = absCellCenterMeters(scene, scene._sandboxHazardOrigin.cellIX, scene._sandboxHazardOrigin.cellIY);
+          if (Math.hypot(p.x + 10 * cellM - a.x, p.y + 6 * cellM - a.y) < 12 * cellM) {
+            seedHazardState(scene, scene._sandboxHazardOrigin);
+          }
+        }
         for (const d of data) {
           const dx = d.wx - a.x, dy = d.wy - a.y;
-          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) { d.t.setVisible(false); continue; }
+          if ((scene.depth || 0) !== d.depth || Math.abs(dx) > halfM || Math.abs(dy) > halfM) { d.t.setVisible(false); continue; }
           const { x: sx, y: sy } = deltaMToScreen(scene, dx, dy);
           d.t.setVisible(true).setPosition(Math.round(sx), Math.round(sy));
         }
@@ -1647,6 +1754,7 @@
   global.Sandbox.layoutForTest = LAYOUT;
   global.Sandbox.seedMechanicsState = seedMechanicsState;
   global.Sandbox.seedHouseState = seedHouseState;
+  global.Sandbox.seedHazardState = seedHazardState;
   global.Sandbox.stockInventoryForTest = stockSandboxInventory;
   global.Sandbox.resolveDestination = resolveDestination;
 })(window);

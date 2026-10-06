@@ -1,5 +1,9 @@
 # Floor geometry proposal - inputs and open decisions
 
+Scan the open decisions in the HTML sheet:
+[floor-geometry-proposal.html](floor-geometry-proposal.html). This file owns
+the full text.
+
 Companion to [floors.md](floors.md) (the target catalog) and
 [floor-design-review.html](floor-design-review.html) (the inputs checklist).
 This page answers, per floor: which surface evidence does the floor
