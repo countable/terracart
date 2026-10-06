@@ -446,6 +446,9 @@ const GRAPHICS_FX_ENABLED = (() => {
 })();
 const FPS_LIMIT_DEFAULT = 30;
 const FPS_LIMIT = (() => { const v = urlNumParam('fps'); return v == null ? FPS_LIMIT_DEFAULT : Math.max(0, v); })();
+// DOM/story backstops keep a wall-clock cadence when ?fps=0 follows a 90 or
+// 120 Hz display. Counting steps made this four times more frequent at 120 Hz.
+const HOUSEKEEPING_POLL_MS = 1000 / 3;
 // Phaser 3.87 drops its limiter's remainder and gates on smoothed deltas.
 // Keep scheduling phase separate from elapsed simulation time so every
 // display rate delivers the configured cadence without catch-up bursts.
@@ -2934,12 +2937,17 @@ class MapScene extends Phaser.Scene {
     // _installModalPadGate misses an overlay that is REMOVED from the document
     // (the story and safety cards are), and a latched class hides the entire
     // bottom HUD. This is only a backstop for that case, and the sync forces a
-    // style/layout flush (getClientRects on every .game-modal), so it runs on
-    // a ~10-step throttle rather than every step — a removed overlay
-    // un-latches within ~330 ms at the FPS_LIMIT cadence, which the eye
-    // reads as instant.
-    this._modalGateTick = (this._modalGateTick || 0) + 1;
-    if (this._modalGateTick % 10 === 0) {
+    // style/layout flush (getClientRects on every .game-modal), so it runs at
+    // 3 Hz rather than every step. Elapsed time, not a step count, keeps that
+    // rate unchanged when ?fps=0 follows a 90 or 120 Hz display. A long frame
+    // runs it once and keeps only the phase remainder; it never catches up in
+    // a burst. The same cheap tick relays Phaser's measured display cadence to
+    // the sliced tile builder so a fat slice cannot hide a 120 Hz refresh.
+    this._housekeepingMs = (this._housekeepingMs || 0) + Math.max(0, dtMs);
+    if (this._housekeepingMs >= HOUSEKEEPING_POLL_MS) {
+      this._housekeepingMs %= HOUSEKEEPING_POLL_MS;
+      const displayFps = this.game?.loop?.actualFps;
+      if (displayFps > 0) WorldGen.noteSliceFrameTargetMs?.(1000 / displayFps);
       this._syncModalGate?.();
       this._drainBadgeStories();
       this._lowHealthStory();

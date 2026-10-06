@@ -35,8 +35,12 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   not fixed pixel offsets. Work tools animate at the target cell.
 - Bake repeated cell geometry into textures (e.g. tilled beds). Reset mutable
   properties such as watered tint whenever pooled sprites are reused.
-- Respect `FPS_LIMIT` and its elapsed-time cadence adapter. Per-frame tile scans
-  use `WorldGen.forEachItemInBox`, not flat object arrays. Widen queries for
+- Respect `FPS_LIMIT` and its elapsed-time cadence adapter. The default stays
+  30 fps for battery life; `?fps=0` follows the display, including 120 Hz.
+  Wall-clock housekeeping must not count game steps. Feed Phaser's measured
+  display interval to the adaptive tile-slice budget so a long slice cannot
+  hide an 8.3 ms refresh as a 16.7 ms frame. Per-frame tile scans use
+  `WorldGen.forEachItemInBox`, not flat object arrays. Widen queries for
   offers/lights beyond the sprite cull. Indexed objects do not move in place.
 - Cached drawing keys must include every input. `Lighting.frameKey` uses the
   quantised light clock; new tile arrays read per frame need a derived index.
