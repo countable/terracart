@@ -3326,9 +3326,11 @@ Render.drawObjects = function drawObjects(scene) {
   };
   const connectedArt = new Map(), chasmObjects = [];
   // Appearance resolution includes texture lookup and ART_BOUNDS seating. Most
-  // generated props never change those inputs, so keep their resolved look on
-  // the scene's WeakMap and count only misses. Animated/stateful kinds bypass
-  // it in Render.resolveObjectAppearance below.
+  // generated props never change those inputs, so Render.resolveObjectAppearance
+  // below stamps their resolved look on the record itself (_renderAppearance,
+  // non-enumerable and scene-owned) and counts only misses. Any in-place
+  // mutation of a stamped record must evict the stamp (see Home.makeStarterUsable).
+  // Animated/stateful kinds bypass the stamp entirely.
   scene._appearanceResolveCount = 0;
   // wanderCreatures publishes the live 12-cell sim bubble before this pass.
   // The viewport corner is about 7.8 cells away and the widest peek adds 3,

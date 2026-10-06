@@ -28,6 +28,29 @@ test('drawObjects cache: immutable props resolve and seat once per scene', () =>
   assert.falsy(Object.keys(object).includes('_renderAppearance'), 'the runtime stamp is absent from data spreads and saves');
 });
 
+test('drawObjects cache: starter taming downgrades a stamped natural in place', () => {
+  const scene = appearanceScene();
+  const tree = { kind: 'tree', id: 'tree_st', species: 'maple', size: 'large' };
+  const rock = { kind: 'mineralrock', id: 'rock_st', yieldTier: 3, requiredTier: 3 };
+  Render.objectAppearance(scene, new WeakMap());
+  const treeBefore = Render.resolveObjectAppearance(scene, tree);
+  const rockBefore = Render.resolveObjectAppearance(scene, rock);
+  assert.truthy(treeBefore.visible && rockBefore.visible);
+  assert.truthy(HomeArea.makeStarterUsable(tree), 'the tree is tamed down');
+  assert.truthy(HomeArea.makeStarterUsable(rock), 'the rock is tamed down');
+  scene._appearanceResolveCount = 0;
+  const treeAfter = Render.resolveObjectAppearance(scene, tree);
+  const rockAfter = Render.resolveObjectAppearance(scene, rock);
+  assert.eq(scene._appearanceResolveCount, 2, 'both downgraded records re-resolve their art');
+  assert.falsy(treeAfter === treeBefore, 'the tree does not keep its stamped hardwood look');
+  assert.falsy(rockAfter === rockBefore, 'the rock does not keep its stamped high-tier look');
+  // A second pass over the already-tamed record stays cached: eviction happens
+  // at the mutation point, not on every resolve.
+  scene._appearanceResolveCount = 0;
+  Render.resolveObjectAppearance(scene, tree);
+  assert.eq(scene._appearanceResolveCount, 0, 'the tamed record re-stamps and stays cached');
+});
+
 test('drawObjects cache: a warm still step has constant zero resolve bookkeeping', () => {
   const warmCount = (n) => {
     const scene = appearanceScene();
