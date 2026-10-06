@@ -99,6 +99,17 @@
     assert.truthy(s.startCombat(foe('a', 1)));
   });
 
+  test('death: ranged weapons refuse even an enemy standing on the player', () => {
+    const a = SCENE_SRC.indexOf('    const rangedArmed =');
+    const b = SCENE_SRC.indexOf('    if (rangedArmed)', a);
+    const armed = new Function('px', 'py', 'enemies', 'reachCells',
+      SCENE_SRC.slice(a, b) + 'return rangedArmed;');
+    const s = scene(), enemy = foe('near', 0);
+    assert.truthy(armed.call(s, 0, 0, [enemy], () => 2));
+    Energy.set(s.save, 0);
+    assert.falsy(armed.call(s, 0, 0, [enemy], () => 2));
+  });
+
   test('mushroom food: raw mushroom confuses for three seconds and preserves longer confusion', () => {
     const s = scene();
     const result = s._consumeFoodEffects('mushroom');
