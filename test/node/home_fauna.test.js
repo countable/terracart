@@ -170,7 +170,7 @@
         EnemySpawns.refreshHomeFauna(scene);
         const now = performance.now();
         Object.assign(scene, {
-          _drawSwordSwing() {}, _workProgressGfx: { clear() {} }, _strokeWorkRing() {}, _drawWorkTool() {},
+          _stopDownedActions() { return false; }, _drawSwordSwing() {}, _workProgressGfx: { clear() {} }, _strokeWorkRing() {}, _drawWorkTool() {},
           worldMetersToScreen: (x, y) => ({ x, y }),
           cancelWorkProgress() { this._workProgress = null; },
           _workProgress: { flee: creature, startT: now - 1000, _lastT: now - 100, durationMs: 10000 },

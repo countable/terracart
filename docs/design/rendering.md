@@ -7,6 +7,11 @@ rendering, lighting or street mechanics. Camera and art geometry live in
 
 ## Coordinates, rendering and performance
 
+- `Render.drawSpiderWebs` draws cell-sized ground silk below characters and
+  a strand from the fixed launch point to the moving projectile tip above
+  the world. It reuses two graphics layers, culls to the viewport and clears
+  both each frame, including depth changes; no cell-cache invalidation is needed.
+
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,
   taps, fog and tile loading use `playerM` / `playerToWorldCell()`.
   Draw player-attached effects at `scene.playerScreen()`, not viewport centre.
@@ -69,6 +74,8 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   lighting and fog, clipped to the world viewport. `GasRender` eases density
   changes over 320 ms while the simulation diffuses once per second. Drawing
   reads a cached field snapshot and performs no texture creation or readback.
+  Mushroom projectiles use the same cloud painter and lilac palette, at
+  three-quarters of a cell wide.
 
 - `lighting.js` owns the sole lighting pass: additive source cookies on a 2D
   canvas multiplied over the world. Do not add darkness passes or dim sprites

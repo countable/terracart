@@ -277,6 +277,79 @@
     }
     assert.eq(Combat.ghostSizeMul({ kind: 'brute', _artScale: 1.5 }), 1);
   });
+  test('enemy AI: every spider fires silk at its fixed aim without a melee hit', () => {
+    const original = SpiderWebs.launch, launches = [];
+    SpiderWebs.launch = (scene, creature, x, y) => launches.push({scene, creature, x, y});
+    try {
+      for (const kind of ['spider', 'poison_spider', 'mini_spider', 'giant_spider']) {
+        const s = scene(), c = foe(kind), row = EnemyRoster.get(kind);
+        assert.eq(row.attackType, 'web');
+        assert.eq(row.dmg, 0);
+        const before = launches.length;
+        rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
+        assert.eq(launches.length, before, 'silk waits for wind-up');
+        rosterEnemyAttack(s, c, row, 10000 + row.windupSeconds * 1000, 21, 7, false, 0.1);
+        assert.eq(launches.length, before + 1);
+        assert.eq(launches[before].x, 14, 'moving target cannot steer the aimed cell');
+        assert.eq(launches[before].y, 0);
+        assert.eq(s.save.energy, 100);
+        assert.eq(s._shots.length, 0, 'silk uses the web flight and landing lifecycle');
+        rosterEnemyAttack(s, c, row, 11000, 14, 0, false, 0.1);
+        assert.eq(launches.length, before + 1, 'ordinary attack cooldown is preserved');
+      }
+    } finally { SpiderWebs.launch = original; }
+  });
+  test('enemy AI: every spider requires two cells at aiming and firing, including diagonal targets', () => {
+    const original = SpiderWebs.launch, launches = [];
+    SpiderWebs.launch = (...args) => launches.push(args);
+    try {
+      for (const kind of ['spider', 'poison_spider', 'mini_spider', 'giant_spider']) {
+        const s = scene(), row = EnemyRoster.get(kind);
+        assert.eq(row.minRange, 2);
+        for (const [x, y] of [[0, 0], [7, 0], [13.99, 0], [7, 7]]) {
+          const c = foe(kind), before = launches.length;
+          rosterEnemyAttack(s, c, row, 10000, x, y, false, 0.1);
+          rosterEnemyAttack(s, c, row, 10600, x, y, false, 0.1);
+          assert.falsy(c._attackWindupUntil, 'close targets never start aiming');
+          assert.eq(launches.length, before);
+        }
+        const c = foe(kind), before = launches.length;
+        rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
+        assert.truthy(c._attackWindupUntil, 'exactly two cells starts aiming');
+        rosterEnemyAttack(s, c, row, 10600, 13.99, 0, false, 0.1);
+        assert.eq(launches.length, before, 'approaching during wind-up cancels the shot');
+        assert.falsy(c._attackWindupUntil);
+        rosterEnemyAttack(s, c, row, 15000, 14, 0, false, 0.1);
+        rosterEnemyAttack(s, c, row, 15600, 14, 0, false, 0.1);
+        assert.eq(launches.length, before + 1, 'exactly two cells permits firing');
+      }
+    } finally { SpiderWebs.launch = original; }
+  });
+  test('enemy AI: spider silk obeys range, visibility and target changes', () => {
+    const original = SpiderWebs.launch, launches = [];
+    SpiderWebs.launch = (...args) => launches.push(args);
+    try {
+      const s = scene(), c = foe('spider'), row = EnemyRoster.get(c.kind);
+      rosterEnemyAttack(s, c, row, 10000, 35, 0, false, 0.1);
+      assert.falsy(c._attackWindupUntil, 'outside four cells');
+      s._cellBlocked = () => true;
+      rosterEnemyAttack(s, c, row, 11000, 14, 0, false, 0.1);
+      assert.falsy(c._attackWindupUntil, 'blocked sight');
+      s._cellBlocked = () => false;
+      rosterEnemyAttack(s, c, row, 12000, 14, 0, false, 0.1);
+      rosterEnemyAttack(s, c, row, 12600, 14, 0, true, 0.1);
+      assert.eq(launches.length, 0, 'inactive target cancels the wind-up');
+      const target = foe('slime', 21, 0);
+      target._charmUntil = Date.now() + 10000;
+      rosterEnemyAttack(s, c, row, 17000, 14, 0, false, 0.1);
+      rosterEnemyAttack(s, c, row, 17600, 21, 0, false, 0.1, null, target);
+      assert.eq(launches.length, 0, 'new target gets a fresh wind-up');
+      rosterEnemyAttack(s, c, row, 21000, 21, 0, false, 0.1, null, target);
+      rosterEnemyAttack(s, c, row, 21600, 28, 0, false, 0.1, null, target);
+      assert.eq(launches.length, 1);
+      assert.eq(launches[0][2], 21);
+    } finally { SpiderWebs.launch = original; }
+  });
   test('enemy AI: scuttle has a real pause; anchored plant holds firing distance', () => {
     const s = scene(), c = foe('spider'), row = EnemyRoster.get('spider');
     rosterEnemyMove(s, c, row, 10000, 20, 0, false, false, null, 0.1);

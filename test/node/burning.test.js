@@ -49,7 +49,7 @@ test('burning foe: the demons\' lava immunity covers fire too — one flag', () 
 });
 
 test('source: a lit torch\'s blow sets the foe alight after the blow lands, as the player\'s kill', () => {
-  const i = SCENE_SRC.indexOf('if (this._damageEnemy(c, blow)) return;');
+  const i = SCENE_SRC.indexOf('if (this._damageEnemy(c, blow)) return true;');
   assert.truthy(i > 0);
   const after = code(SCENE_SRC.slice(i, i + 600));
   assert.truthy(/if \(this\.isTorchActive\(\)\) Combat\.ignite\(c, now, 'player'\);/.test(after),

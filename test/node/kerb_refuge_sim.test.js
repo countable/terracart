@@ -54,7 +54,7 @@ function mkScene(entry, creature, feet) {
     // nothing: this harness is about the kerb, not about Home.
     _starterTrailAnchor: () => ({ x: -1e6, y: 0 }),
     originPx: { x: 0, y: 0 }, mPerPx: CELL, cellsPerTile: WorldGen.TILE_PX,
-    viewCenterX: 0, viewCenterY: 0, _shots: [], _laid: 0,
+    viewCenterX: 0, viewCenterY: 0, _shots: [], _laid: 0, _webLaunches: 0,
     isShadowActive: () => false,
     isUnnoticed() { return this.isShadowActive() || Combat.playerDowned(this.save.energy); },
     homeWorldPos: () => null, _castleWardPoints: () => [],
@@ -81,17 +81,24 @@ function mkScene(entry, creature, feet) {
 }
 function tick(scene, entry) {
   const realNear = WorldGen.forEachItemNear, realGet = WorldGen.tileCache.get, realNow = performance.now;
+  const realLaunch = SpiderWebs.launch;
+  SpiderWebs.launch = (...args) => {
+    const launched = realLaunch(...args);
+    if (launched) scene._webLaunches++;
+    return launched;
+  };
   scene._simT = (scene._simT || 1e6) + TICK_MS;
   const t = scene._simT;
   WorldGen.forEachItemNear = (what, tx, ty, fn) => { if (what === 'creatures') for (const c of scene.creatures.slice()) fn(c, 0, 0); };
   WorldGen.tileCache.get = (k) => (k === WorldGen.tileKey(0, 0) ? entry : undefined);
   try { performance.now = () => t; __wander.call(scene); } finally {
     WorldGen.forEachItemNear = realNear; WorldGen.tileCache.get = realGet; performance.now = realNow;
+    SpiderWebs.launch = realLaunch;
   }
 }
 // Everything a hostile can do TO the player: energy off the bar, an arrow
-// loosed, a snare laid, coins snatched from the purse, food out of the bag.
-const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._laid + (1e6 - s.save.money) + (BAG_BERRIES - Inventory.count(s.save, 'berry'));
+// loosed, silk launched, a snare laid, coins snatched from the purse, food out of the bag.
+const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._webLaunches + s._laid + (1e6 - s.save.money) + (BAG_BERRIES - Inventory.count(s.save, 'berry'));
 
 // Every hostile the SURFACE can hold, off the tables that seat them (never a
 // hand list — a kind added to the roster or a lair ladder is audited here the
@@ -154,7 +161,8 @@ test('kerb: the harness bites — every mobile hostile attacks a player in open 
     // Circling trail-makers and buried ambushers do not chase a still target.
     // Their contact/ground hazards have separate behavioral tests.
     if (row?.attackType === 'none' || ['orbit_trail', 'burrow'].includes(row?.movement.pattern)) continue;
-    const r = walk(spec, at(10, OPEN_ROW + 1), () => at(10, OPEN_ROW), 30);
+    const separation = Math.max(1, (row?.minRange || 0) + 1);
+    const r = walk(spec, at(10, OPEN_ROW + separation), () => at(10, OPEN_ROW), 30);
     assert.gt(attacks(r.scene), 0, `${spec.label}: attacked a player standing in the open`);
   }
 });

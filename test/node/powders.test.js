@@ -230,7 +230,7 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   // (and re-arms, so the first shot flies the instant the shadow lifts), and
   // the ONE lane both swing paths flow through refuses to spin a wheel up.
   const combat = app.match(/\n  _combatTick\(dt\) \{\n([\s\S]*?)\n  \}\n/);
-  assert.truthy(combat && /const rangedArmed = !Conditions\.attacksBlocked\(this\.save\) && !this\.isShadowActive\(\)\n\s*&& Combat\.anyEnemyWithin/.test(combat[1]),
+  assert.truthy(combat && /const rangedArmed = !Combat\.playerDowned\(this\.save\.energy\) && !Conditions\.attacksBlocked\(this\.save\) && !this\.isShadowActive\(\)\n\s*&& Combat\.anyEnemyWithin/.test(combat[1]),
     'the bow/staff cadence stays quiet under the shadow');
   const sc = app.match(/\n  startCombat\(victim, opts = \{\}\) \{\n([\s\S]*?)\n  \}\n/);
   assert.truthy(sc && /if \(this\.isShadowActive\(\)\) \{/.test(sc[1]), 'no melee wheel spins up while shadowed');

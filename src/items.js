@@ -1106,6 +1106,7 @@ function fireBurnOutcome(id) {
 const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const TOME_MUL = 0.5;
 const CONSUMABLE_SPEC = {
+  mushroom: { condition: 'confused', durationMs: 3000 },
   orb: {
     chestRevealMs: 6000,
     immediate: true, reusable: true,

@@ -2938,6 +2938,7 @@ class MapScene extends Phaser.Scene {
       StoryEncounters.tick(this, Date.now());
       NPC.tickArrivals(this, Date.now());
     }
+    this._stopDownedActions();
     const dt = dtMs / 1000;
     this._tickConditions();
     // Spring the peek camera home (no-op unless a drag just ended). FIRST, so
@@ -3452,12 +3453,12 @@ class MapScene extends Phaser.Scene {
       }
     }
 
+    SpiderWebs.tick(this, dt);
     Pirates.tick(this);
     this.wanderCreatures();
     // Fight tick — bow/staff auto-fire, shots in flight, sword auto-engage.
     // Runs AFTER the creatures have moved (so shots resolve against where the
-    // foes actually are this frame) and BEFORE the wheel, which is where melee
-    // damage lands.
+    // foes actually are this frame). Each melee strike resolves here too.
     Crops.tickEffects(this);
     this._combatTick(dt);
     this._tickBlightAura();
@@ -3562,6 +3563,7 @@ class MapScene extends Phaser.Scene {
   // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
   // this method is the scene glue.
   _combatTick(dt) {
+    this._stopDownedActions();
     const { x: px, y: py } = playerWorldM(this);
     const now = performance.now();
     // "On screen" = inside the drawn viewport, measured as a box rather than a
@@ -3605,7 +3607,7 @@ class MapScene extends Phaser.Scene {
     const relics = Gear.effectiveRelics(this.save);
     const activeWeapon = Gear.activeWeapon(this.save);
     // The player's attack multiplier (_attackMul — Dragon Powder's ×2, the
-    // off-GPS third), the same one the melee wheel reads.
+    // off-GPS third), the same one each melee strike reads.
     const dmgMul = this._attackMul();
 
     // ── Bow / staff: one shot a second ──────────────────────────────────────
@@ -3629,7 +3631,7 @@ class MapScene extends Phaser.Scene {
     // The Shadow Powder is a truce, not a flank: while it hides the player,
     // the cadence holds its fire too. The else-branch re-arms, so the first
     // arrow flies the instant the shadow lifts.
-    const rangedArmed = !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
+    const rangedArmed = !Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
       && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
@@ -3678,6 +3680,7 @@ class MapScene extends Phaser.Scene {
           continue;
         }
         if (eCost && !this.spendEnergy(eCost)) continue;
+        if (Combat.playerDowned(this.save.energy)) continue;
         // A Speed hall shortens the beat (Combat.trainingIntervalMul); the
         // shot keeps its damage, so speed is more shots, not bigger ones.
         this._nextShotT[slot] = now + Combat.fireIntervalMs(slot) * Combat.playerAttackIntervalMul(this.save);
@@ -3799,10 +3802,7 @@ class MapScene extends Phaser.Scene {
     // already chewing on you: the nearest enemy IN REACH is picked up on its
     // own. That is the sword's lane AND bare hands'. An equipped bow or staff
     // turns it off — Gear.meleeActive — see the WEAPON_SLOTS note above.
-    // The wheel is flagged `auto`, which is what keeps it from behaving
-    // like a tapped action — it doesn't swallow taps, hold the body still, or
-    // block the walk home (see _busyWheel).
-    if (!Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && (!this._workProgress || this._workProgress.combat)) {
+    if (!Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && !this._workProgress) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
@@ -3811,10 +3811,7 @@ class MapScene extends Phaser.Scene {
         const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
         if (d2 < bestD2) { bestD2 = d2; best = c; }
       }
-      // Recheck distance while fighting too. Retargeting keeps the scene's
-      // swing deadline, so crossing targets cannot grant an extra blow.
-      if (best && this._workProgress?.combat !== best) this.startCombat(best, { auto: true });
-      else if (!best && this._workProgress?.combat) this.cancelWorkProgress();
+      if (best) this.startCombat(best, { auto: true });
     }
 
     this._drawEnemyHealth(enemies);
@@ -4326,12 +4323,9 @@ class MapScene extends Phaser.Scene {
       }
       if (s.projectile === 'confusion_puff') {
         const phase = (s.travelledM || 0) * 3;
-        for (let i = 0; i < 5; i++) {
-          const angle = phase + i * Math.PI * 2 / 5;
-          g.fillStyle(i % 2 ? 0xe8d878 : 0xc68ee8, 0.45);
-          g.fillCircle(hx + Math.cos(angle) * 4, hy + Math.sin(angle) * 3, 4);
-        }
-        g.fillStyle(0xf2d8ff, 0.7); g.fillCircle(hx, hy, 2);
+        const size = CELL_PX * 0.75;
+        // A travelling puff of the same translucent lilac gas as the ground cloud.
+        GasRender.paintCell(g, hx - size / 2, hy - size / 2, size, 2, 0, phase);
         continue;
       }
       if (s.projectile === 'rock') {
@@ -4503,19 +4497,14 @@ class MapScene extends Phaser.Scene {
     this._boltGlow(key, x, y, r * 2.2, (0.35 + 0.65 * f) * (0.5 + 0.5 * glow), this.playerWorldContainer);
   }
 
-  // A health bar over every enemy hurt in the last few seconds — the same bar
-  // the combat wheel's target wears, at the same crown seating, so a bow shot
-  // from across the street reports its damage exactly the way a sword swing
-  // does. The wheel's own target is skipped: it draws its own, brighter, on
-  // top (in _drawWorkProgress).
+  // Every recently hurt enemy uses the same crown-seated health bar, whether
+  // hit by a melee strike or a projectile.
   _drawEnemyHealth(enemies) {
     const g = this.enemyHealthGfx;
     if (!g) return;
     g.clear();
     const now = performance.now();
-    const engaged = this._workProgress?.combat || null;
     for (const c of enemies) {
-      if (c === engaged) continue;
       if (!c._hurtUntilT || now >= c._hurtUntilT) continue;
       const screen = this.worldMetersToScreen(c.x, c.y);
       this._drawEnemyHealthBar(g, Math.round(screen.x),
@@ -4549,7 +4538,7 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // A floating "-N" over a foe as damage lands — the sword's melee wheel and
+  // A floating "-N" over a foe as damage lands — individual melee strikes and
   // every bow/staff shot funnel through _damageEnemy, so they all pop the
   // same way. Spawned at the health bar (projected off the foe's own world
   // position, so a peek slides it with the foe) and drifting up into the sky
@@ -4651,25 +4640,14 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     }
-    if (this._workProgress?.combat === c) this.cancelWorkProgress();
     this.resolveDefeat(c, source);
     return true;
   }
 
-  // Start (or re-target) the COMBAT wheel on an enemy. Unlike the timed work
-  // wheel this one is driven by the target's HP: the foe wears its health bar
-  // (drawn bright in _drawWorkProgress), melee drains it every frame, and
-  // bow/staff shots drain the same pool — so an arrow landing mid-swing
-  // visibly shortens the fight.
-  //
-  // `durationMs` is still filled in, with the kill time at the CURRENT melee
-  // rate and WITHOUT the dragon bonus. Nothing reads it as a deadline (HP ends
-  // the fight), but the orphaned-wheel watchdog in _drawWorkProgress does, and
-  // since every other damage source only makes the fight shorter, that
-  // estimate is a true upper bound.
+  // One strike, never a work item. The scene clock survives target changes;
+  // every attempt checks the live position and allegiance before spending it.
   startCombat(victim, opts = {}) {
-    if (Conditions.attacksBlocked(this.save)) return false;
-    // A Shadow Powder is a truce: no wheel spins up while it hides the player.
+    if (Combat.playerDowned(this.save?.energy) || Conditions.attacksBlocked(this.save)) return false;
     if (this.isShadowActive()) {
       if (!opts.auto) {
         const ps = this.playerScreen();
@@ -4677,35 +4655,37 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     }
-    if (!Combat.isEnemy(victim) || !Gear.meleeActive(this.save)) return false;
-    // First melee the save ever starts tells its story in the auto-engage lane,
-    // fired
-    // regardless of an owned sword: bare hands fight on the tier-0 rung too.
-    this._toolActionStory('sword');
-    const dps = Combat.meleeDps(this.save.relics, this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save));
-    const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
+    if (!Combat.isEnemy(victim) || !Gear.meleeActive(this.save)
+        || this.save.caught?.includes(victim.id)) return false;
+    const c = victim;
     const now = performance.now();
-    // A fight shows the foe's health bar, not a progress arc, so the tool
-    // badge is the one place left that still says what you're hitting it WITH.
-    // Bare hands own no sword and draw no badge — _setWorkProgressIcon answers
-    // that for every wheel now, so the slot is passed plainly rather than
-    // re-testing ownership here.
-    this._setWorkProgressIcon(Gear.activeWeapon(this.save) || 'sword');
-    this._workProgress = {
-      worldX: victim.x, worldY: victim.y,
-      combat: victim,
-      track: victim,              // reuse the hunt wheel's follow + escape abort
-      auto: !!opts.auto,
-      onComplete: () => this.resolveDefeat(victim),
-      durationMs: estMs,
-      energyRefund: 0,
-      startT: now,
-    };
+    const { x: px, y: py } = playerWorldM(this);
+    const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
+    if (inSwing && now >= (this._nextBlowT ?? 0)) {
+      this._toolActionStory('sword');
+      this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save), isRiding(this.save)) * Combat.playerAttackIntervalMul(this.save);
+      const weapon = Gear.activeWeapon(this.save);
+      const equipped = this.save.relics?.[weapon];
+      const dx = c.x - px, dy = c.y - py;
+      const d = Math.hypot(dx, dy);
+      this._swing = { startT: now, dir: d ? { x: dx / d, y: dy / d } : { x: 0, y: 1 },
+        weapon: equipped ? weapon : 'sword', reachCells: Combat.meleeReachM(1, weapon),
+        texture: equipped ? this._toolTexture(weapon, equipped.tier) : null };
+      const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
+        + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
+      if (this._damageEnemy(c, blow)) return true;
+      // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
+      // the `burning` row of Conditions.DEFINITIONS, as the player's own
+      // kill. The blow lands first; the fire takes on what is left.
+      if (this.isTorchActive()) Combat.ignite(c, now, 'player');
+      return true;
+    }
+    return false;
   }
 
   // The kill payload — drops, bounty, quest tick, shiny fanfare. Every route
   // to a dead creature funnels through here (the tap-hunt wheel in interact.js,
-  // the combat wheel, a killing bow/staff shot, a pet's bite, a turret arrow)
+  // a melee strike, a killing bow/staff shot, a pet's bite, a turret arrow)
   // so they can't pay out differently.
   //
   // `source` is WHO felled it. The BOUNTY is paid on every death, as a coin on
@@ -4829,10 +4809,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // The wheel that BLOCKS things — taps, the body's footsteps, the walk home.
-  // An auto-engaged combat wheel is not one of those: the sword picks fights
-  // on its own, so if it also froze the character and ate every tap, walking
-  // past a slime would lock the game up until the slime died. So it fights in
-  // the background and the player keeps playing.
+  // Automatic work can continue in the background without swallowing taps.
+  // Melee never enters this queue.
   _busyWheel() {
     const wp = this._workProgress;
     return (wp && !wp.auto) ? wp : null;
@@ -4845,6 +4823,7 @@ class MapScene extends Phaser.Scene {
   // wander/flee AI does — track just re-anchors the wheel over it and cancels if
   // it slips out of reach. Omit it for static targets (rock / tree / fish).
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
+    if (Combat.playerDowned(this.save.energy)) return false;
     this._setWorkProgressIcon(toolSlot);
     this._barehandMutter?.(toolSlot, worldX, worldY);
     durationMs = Gear.workDurationMs(this.save, durationMs, Date.now(), toolSlot);
@@ -4893,6 +4872,18 @@ class MapScene extends Phaser.Scene {
     }
     return key;
   }
+  // Death cancels jobs and attack visuals without completing or refunding work.
+  _stopDownedActions() {
+    if (!Combat.playerDowned(this.save?.energy)) return false;
+    if (this._workProgress) this.cancelWorkProgress();
+    this._autoMineKey = null;
+    this._swing = null;
+    this._staffCharge = null;
+    this._meleeWeaponSprite?.setVisible(false);
+    this.swordSwingGfx?.clear();
+    return true;
+  }
+
   // Clear the wheel WITHOUT refunding energy. Used by the completion path and
   // test helpers — the work actually finished, so the up-front spend was earned.
   // Always releases a fleeing catch target so it resumes normal wandering.
@@ -4967,16 +4958,12 @@ class MapScene extends Phaser.Scene {
   }
 
   _drawWorkProgress() {
-    // Independent of wp — a killing blow clears _workProgress the instant it
-    // lands, and the swing that landed it should still finish its fade rather
-    // than being cut off mid-sweep by the early `if (!wp) return` below.
+    if (this._stopDownedActions()) return;
     this._drawSwordSwing();
     this._drawWatering?.();
     const wp = this._workProgress;
     if (!wp) return;
-    if ((wp.combat || wp.flee) && Conditions.attacksBlocked(this.save)) return;
-    // A rose can change allegiance while a melee wheel is already running.
-    if (wp.combat && (!Combat.isEnemy(wp.combat) || !Gear.meleeActive(this.save))) { this.cancelWorkProgress(); return; }
+    if (wp.flee && Conditions.attacksBlocked(this.save)) return;
     const now = performance.now();
     // Stuck-wheel watchdog. A wheel always resolves at wp.durationMs (complete,
     // fail, or cancel), so one that has outlived that by a wide margin is
@@ -5063,27 +5050,16 @@ class MapScene extends Phaser.Scene {
       // diamond, so a crow still sitting inside the lit range read as "got
       // away" while it hadn't visually left it.
       const tc = worldMetersToAbsCell(this, c.x, c.y);
-      // A FIGHT breaks off at arm's length (Combat.MELEE_REACH_CELLS), a HUNT
-      // at the lit reach. Same wheel, two ranges, because they are two things:
-      // a crow you are running down stays yours while it is in the light, but
-      // a foe that has backed out of swinging distance is no longer being hit
-      // — and without this you could engage at one cell and keep landing blows
-      // out to five as it walked away.
       const feet = playerWorldM(this);
-      const outOfRange = wp.combat
-        ? !Combat.inMeleeReach(c.x, c.y, feet.x, feet.y, this.cellM, Gear.activeWeapon(this.save))
-        : (typeof cellInReach === 'function')
-          ? !cellInReach(this, tc.cellIX, tc.cellIY)
-          : ((c.x - feet.x) ** 2 + (c.y - feet.y) ** 2) > (reachRadiusM(this)) ** 2;
+      const outOfRange = (typeof cellInReach === 'function')
+        ? !cellInReach(this, tc.cellIX, tc.cellIY)
+        : ((c.x - feet.x) ** 2 + (c.y - feet.y) ** 2) > (reachRadiusM(this)) ** 2;
       if (outOfRange) {
         wp._outSinceT = wp._outSinceT ?? now;
         if (now - wp._outSinceT >= 1000) {     // 1 s grace — matches the catch wheel
           const wasAuto = wp.auto;
           this.cancelWorkProgress();
-          // An AUTO-engaged sword fight breaks off constantly — you walk, the
-          // foe drifts, the reach diamond shrinks as energy drains. That's
-          // normal, not a failed hunt, so it says nothing; a hunt or a fight
-          // you actually chose still reports the getaway.
+          // Only a deliberately chosen hunt reports the getaway.
           if (!wasAuto && this.flash) this.flashAtWorld('It got away.', c.x, c.y);
           return;
         }
@@ -5091,54 +5067,9 @@ class MapScene extends Phaser.Scene {
         wp._outSinceT = null;
       }
     }
-    // COMBAT wheel: the target's HP, not the clock, ends this one. Melee lands
-    // as discrete BLOWS at Combat.MELEE_INTERVAL_MS — one interval's worth of
-    // the sword's rate each (bare hands at the tier-0 rung) — and bow/staff
-    // shots drain the same pool from _damageEnemy, so a fight you started with
-    // a swing can be finished by an arrow.
-    //
-    // The clock is on the SCENE, not the wheel: startCombat re-targets by
-    // building a fresh wheel, so a per-wheel clock would let a player flicking
-    // between two foes land a blow every frame. It also isn't reset on engage
-    // — after any gap longer than the interval it is already due, so the first
-    // blow of a fight still lands at once.
-    if (wp.combat) {
-      const c = wp.combat;
-      // Killed by something else mid-swing (a shot, a tame dog) — nothing left
-      // to fight, and the kill has already paid out.
-      if (this.save.caught?.includes(c.id)) { this.cancelWorkProgress(); return; }
-      // EVERY BLOW IS ARM'S LENGTH, not just the one that opened the fight.
-      // The three gates above (tap, auto-engage, break-off) all measure
-      // Combat.inMeleeReach, but the swing below must check it too: the break-off
-      // is a 1 s GRACE (== MELEE_INTERVAL_MS), and a foe hovering ON the boundary
-      // resets `_outSinceT` so the grace never ripens. The grace decides whether
-      // the FIGHT is still on, this decides whether a swing can LAND.
-      // `_nextBlowT` is deliberately NOT advanced when the swing misses: the
-      // clock is the scene's, so a foe that closes again is hit at once rather
-      // than being granted a fresh interval of safety by having stepped out.
-      const { x: px, y: py } = playerWorldM(this);
-      const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
-      if (inSwing && now >= this._nextBlowT) {
-        this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save), isRiding(this.save)) * Combat.playerAttackIntervalMul(this.save);
-        const weapon = Gear.activeWeapon(this.save);
-        const equipped = this.save.relics?.[weapon];
-        const dx = c.x - px, dy = c.y - py;
-        const d = Math.hypot(dx, dy);
-        this._swing = { startT: now, dir: d ? { x: dx / d, y: dy / d } : { x: 0, y: 1 },
-          weapon: equipped ? weapon : 'sword', reachCells: Combat.meleeReachM(1, weapon),
-          texture: equipped ? this._toolTexture(weapon, equipped.tier) : null };
-        const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
-          + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
-        if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
-        // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
-        // the `burning` row of Conditions.DEFINITIONS, as the player's own
-        // kill. The blow lands first; the fire takes on what is left.
-        if (this.isTorchActive()) Combat.ignite(c, now, 'player');
-      }
-    }
     const dur = wp.durationMs || 3000;
     const elapsed = now - wp.startT;
-    if (!wp.combat && elapsed >= dur) {
+    if (elapsed >= dur) {
       const cb = wp.onComplete;
       this.cancelWorkProgress();
       cb();
@@ -5146,27 +5077,17 @@ class MapScene extends Phaser.Scene {
     }
     const progress = elapsed / dur;
     // Every work wheel, including a fleeing net target, stays in its cell.
-    // Combat health bars retain their creature anchor.
-    let ax = wp.worldX, ay = wp.worldY;
-    if (!wp.combat) {
-      const ac = worldMetersToAbsCell(this, ax, ay);
-      const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
-      ax = cc.x; ay = cc.y;
-    }
+    const ac = worldMetersToAbsCell(this, wp.worldX, wp.worldY);
+    const cc = absCellCenterMeters(this, ac.cellIX, ac.cellIY);
+    const ax = cc.x, ay = cc.y;
     const screen = this.worldMetersToScreen(ax, ay);
     const cx = Math.round(screen.x), cy = Math.round(screen.y);
     const g = this._workProgressGfx;
     g.clear();
     this._workProgressIcon?.setVisible(false);
     this._workToolGfx?.clear();
-    if (wp.combat) {
-      this._drawEnemyHealthBar(g, cx,
-        Math.round(screen.y) + Math.round(SpriteLayout.creatureHealthBarTop(wp.combat.kind, SpriteLayout.creatureInstScale(wp.combat))),
-        Combat.hpFraction(wp.combat), 1);
-    } else {
-      this._strokeWorkRing(g, cx, cy, progress);
-      this._drawWorkTool(wp, cx, cy, now);
-    }
+    this._strokeWorkRing(g, cx, cy, progress);
+    this._drawWorkTool(wp, cx, cy, now);
   }
 
   _drawWorkTool(wp, cx, cy, now) {
@@ -6639,7 +6560,6 @@ class MapScene extends Phaser.Scene {
     // A fight doesn't follow you up the stairs: drop any auto-engaged wheel and
     // the shots still in the air, or they'd carry on against a foe on a level
     // you just left.
-    if (this._workProgress?.combat) this.cancelWorkProgress();
     this._shots = [];
     this._nextShotT = {};
     this._turretNextT = {};
@@ -7977,6 +7897,7 @@ class MapScene extends Phaser.Scene {
   }
 
   updateEnergyDOM() {
+    this._stopDownedActions?.();
     this._queueLowHealthStory();
     // Element refs are looked up once and kept: the energy widget is static
     // markup in index.html and is never rebuilt. Re-query until found, so a

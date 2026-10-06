@@ -1928,11 +1928,14 @@ class SceneCreatures {
       }
       if (enemyConcealmentTick(this, c)) return;
       if (enemyDisguiseTick(this, c, px, py)) return;
-      if (enemyBurrowTick(this, c, EnemyRoster.get(c.kind), now)) return;
+      if (!Combat.isParalyzed(c) && enemyBurrowTick(this, c, EnemyRoster.get(c.kind), now)) return;
       if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;
       if (this._tickUnitFire?.(c, now)) return;
       if (this._tickUnitPoison?.(c, now)) return;
       if (!caughtSet.has(c.id) && enemyWalkHazardTick(this, c, now)) return;
+      // Hazards keep ticking while web paralysis stops every movement and
+      // attack lane, including pets and neighbours.
+      if (Combat.isParalyzed(c)) { Combat.cancelCreatureAction(c); return; }
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const unnoticed = this.isUnnoticed(c);
       const isTame = Combat.isTame(c);
