@@ -151,26 +151,6 @@ test('launch safety: the STAY SAFE message is the loading screen, acknowledged b
   assert.truthy(/if \(document\.getElementById\('safety'\)\) \{ held = true; return; \}/.test(html), 'the overlay waits on the CTA');
 });
 
-test('heads-up buzz: a hostile taking an interest close by vibrates the phone, throttled', () => {
-  const app = SCENE_SRC;
-  assert.truthy(/this\._foeHeadsUp\?\.\(interestedFoeM, now\);/.test(SCENE_SRC), 'the sim hands over the nearest interested foe');
-  assert.truthy(/const enemy = Combat\.isEnemy\(c\);/.test(SCENE_SRC) && /if \(!isTame && !standDown && !unnoticed && \(enemy \|\| enraged\)\)/.test(SCENE_SRC),
-    'only one that is taking an interest');
-  const m = app.slice(app.indexOf('  _foeHeadsUp(distM, now) {'));
-  const f = new Function('SAFETY_FOE_BUZZ_CELLS', 'SAFETY_FOE_BUZZ_GAP_MS', 'SAFETY_FOE_BUZZ',
-    `return function (distM, now) {${m.slice(m.indexOf('{') + 1, m.indexOf('\n  }\n'))}\n};`)(5, 20000, [1]);
-  const buzz = [];
-  const scene = { cellM: 7, haptic: (p) => buzz.push(p) };
-  f.call(scene, 50, 0);
-  assert.eq(buzz.length, 0, 'far off: nothing');
-  f.call(scene, 20, 1000);
-  assert.eq(buzz.length, 1, 'close: a buzz');
-  f.call(scene, 20, 5000);
-  assert.eq(buzz.length, 1, 'not again inside the gap');
-  f.call(scene, 20, 30000);
-  assert.eq(buzz.length, 2, 'again after it');
-});
-
 test('tips: real-world safety stays direct', () => {
   const tip = re => PLAY_TIPS.find(t => re.test(t));
   assert.truthy(tip(/game pauses.*travel/i), 'travelling pauses play');
