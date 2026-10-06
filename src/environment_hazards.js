@@ -4,9 +4,8 @@
   const CONFIG = Object.freeze({ contactMs: 1000, damage: 8, maxStepMs: 100,
     vent: Object.freeze({ texture: 'vent_cycle', chance: .12, inactiveMs: 5000, warningMs: 3000, activeMs: 3000,
       frameSize: 24, renderAnchor: [0.5, 18.5 / 24], widthCells: 1, heightCells: 1, maxPresent: 24, retainRadiusCells: 24 }),
-    cavein: Object.freeze({ texture: 'cavein', chance: .08, warningMs: 5000, crackVariants: 3, openTexture: 'cave_chasm', openFrame: 15, frameSize: 24, renderAnchor: [0.5, 0.5],
-      widthCells: 1, heightCells: 1 }),
-    stripMine: Object.freeze({ sinkholeChance: .12 }),
+    cavein: Object.freeze({ texture: 'cavein', chance: .08, warningMs: 5000, crackStages: 3, openTexture: 'cave_chasm', openFrame: 15, frameSize: 24, renderAnchor: [0.5, 0.5],
+      widthCells: 1, heightCells: 1, clusterMinCells: 2, clusterMaxCells: 5, dungeonDepth: 1 }),
     sinkhole: Object.freeze({ texture: 'sinkhole', chance: .035, warningMs: 5000, openingMs: 240, openMinMs: 5000, openMaxMs: 20000,
       closingMs: 600, frameSize: 48, renderAnchor: [0.5, 0.5], widthCells: 2, heightCells: 2, maxPresent: 2 }),
   });
@@ -87,7 +86,7 @@
       h.frame = VENTS[h.kind].row * 5 + col;
     } else if (h.type === 'cavein') {
       h.phase = t < c.warningMs ? 'warning' : 'open';
-      h.frame = h.phase === 'open' ? c.openFrame : fnv1a(h.id) % c.crackVariants;
+      h.frame = h.phase === 'open' ? c.openFrame : Math.min(c.crackStages - 1, Math.floor(t * c.crackStages / c.warningMs));
     } else {
       const openAt = c.warningMs + c.openingMs, closeAt = openAt + h.openMs;
       h.phase = t < c.warningMs ? 'warning' : t < openAt ? 'opening' : t < closeAt ? 'open'
@@ -109,27 +108,50 @@
     if (anchor?.kind !== 'quarry') return null;
     return root.ZoneVariants.pick(anchor)?.id || null;
   }
-  function saveCaveIn(scene, h, flush = false) {
+  function saveCaveIn(scene, h) {
     scene.save.caveIns ||= {};
     scene.save.caveIns[h.id] = { depth: h.depth, cellIX: h.cellIX, cellIY: h.cellIY,
       elapsedMs: Math.min(CONFIG.cavein.warningMs, h.elapsedMs) };
-    if (flush && typeof persistSave === 'function') persistSave(scene.save);
   }
-  function observeCaveIn(scene, s, at, variant, key) {
-    if (!variant || variant === 'quarry-strip-mine' || scene.depth !== 0) return;
+  function caveInGround(scene, cell) {
+    if (scene.depth === CONFIG.cavein.dungeonDepth) return true;
+    const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(cell.tx, cell.ty));
+    return scene.depth === 0 && quarryVariant(e, cell.ix, cell.iy) === 'quarry-strip-mine';
+  }
+  function observeCaveIn(scene, s, at, key) {
+    if (!caveInGround(scene, at) || root.Conditions.flying?.(scene.save)) return;
     const id = `environment:cavein:${key}`;
     if (s.visits.has(id) || s.caveins.some(h => h.id === id)) return;
     s.visits.add(id);
-    if (root.WorldGen.makeRng(fnv1a(id))() >= CONFIG.cavein.chance) return;
-    const h = create(scene, 'cavein', at, id);
-    if (!eligible(scene, h)) return;
-    if ([...s.vents, ...s.sinkholes].some(other => overlaps(scene, other))) return;
-    const pressure = root.PressureTraps?.lists(scene);
-    if ([...(pressure?.plates || []), ...(pressure?.traps || [])].some(other => {
-      const cell = scene.cellAt(other.x, other.y);
-      return cell.cellIX === at.cellIX && cell.cellIY === at.cellIY;
-    })) return;
-    s.caveins.push(h); saveCaveIn(scene, h, true);
+    const rng = root.WorldGen.makeRng(fnv1a(id)), cfg = CONFIG.cavein;
+    if (rng() >= cfg.chance) return;
+    const count = cfg.clusterMinCells + Math.min(cfg.clusterMaxCells - cfg.clusterMinCells,
+      Math.floor(rng() * (cfg.clusterMaxCells - cfg.clusterMinCells + 1)));
+    const pressure = root.PressureTraps?.lists(scene), reserved = new Set();
+    for (const h of [...s.vents, ...s.sinkholes, ...s.caveins]) {
+      for (const c of footprint(scene, h)) reserved.add(`${c.cellIX}:${c.cellIY}`);
+    }
+    for (const h of [...(pressure?.plates || []), ...(pressure?.traps || [])]) {
+      const c = scene.cellAt(h.x, h.y); reserved.add(`${c.cellIX}:${c.cellIY}`);
+    }
+    const pending = [at], seen = new Set(), cluster = [];
+    while (pending.length && cluster.length < count) {
+      const cell = pending.splice(Math.floor(rng() * pending.length), 1)[0];
+      const cellKey = `${cell.cellIX}:${cell.cellIY}`;
+      if (seen.has(cellKey)) continue;
+      seen.add(cellKey);
+      const point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY), tileCell = scene.cellAt(point.x, point.y);
+      const cellId = `environment:cavein:${scene.depth}:${tileCell.tx}:${tileCell.ty}:${tileCell.ix}:${tileCell.iy}`;
+      const h = create(scene, 'cavein', cell, cellId);
+      if (reserved.has(cellKey) || !caveInGround(scene, tileCell) || !eligible(scene, h)) continue;
+      cluster.push(h);
+      // Only accepted cells extend the frontier, so a blocked cell never bridges a cluster.
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]])
+        pending.push(absCellOffset(scene, cell.cellIX, cell.cellIY, dx, dy));
+    }
+    if (cluster.length < cfg.clusterMinCells) return;
+    for (const h of cluster) { s.caveins.push(h); saveCaveIn(scene, h); }
+    if (typeof persistSave === 'function') persistSave(scene.save);
   }
   function observe(scene) {
     const s = state(scene), px = scene.startWorldM.x + scene.playerM.x,
@@ -139,7 +161,7 @@
     const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(at.tx, at.ty));
     if (!e?._spawnOpts) return;
     const quarry = scene.depth === 0 ? quarryVariant(e, at.ix, at.iy) : null;
-    observeCaveIn(scene, s, at, quarry, key);
+    observeCaveIn(scene, s, at, key);
     // Keep the vent budget local. A deterministic evicted seat can be
     // rediscovered in its harmless inactive phase when the player returns.
     s.vents = s.vents.filter(h => {
@@ -150,22 +172,21 @@
     });
     for (const type of ['vent', 'sinkhole']) {
       if (type === 'vent' && !scene.depth) continue;
-      if (type === 'sinkhole' && quarry && quarry !== 'quarry-strip-mine') continue;
+      if (type === 'sinkhole' && (quarry || scene.depth === CONFIG.cavein.dungeonDepth)) continue;
       const visitKey = `${type}:${key}`;
       if (s.visits.has(visitKey)) continue;
       const cfg = CONFIG[type], list = type === 'vent' ? s.vents : s.sinkholes;
       if (list.length >= cfg.maxPresent) continue;
       s.visits.add(visitKey);
       const id = `environment:${type}:${key}`, rng = root.WorldGen.makeRng(fnv1a(id));
-      const chance = type === 'sinkhole' && quarry === 'quarry-strip-mine' ? CONFIG.stripMine.sinkholeChance : cfg.chance;
-      if (rng() >= chance) continue;
+      if (rng() >= cfg.chance) continue;
       const kind = Object.keys(VENTS)[Math.min(2, Math.floor(rng() * 3))];
       for (let attempt = 0; attempt < 12; attempt++) {
         const cell = absCellOffset(scene, at.cellIX, at.cellIY, Math.floor(rng() * 5) - 2, Math.floor(rng() * 5) - 2);
         const h = create(scene, type, cell, id, rng, kind);
         if (!eligible(scene, h)) continue;
-        if (type === 'sinkhole' && quarry === 'quarry-strip-mine' && !footprint(scene, h).every(p =>
-          quarryVariant(root.WorldGen.tileCache.get(root.WorldGen.tileKey(p.tx, p.ty)), p.ix, p.iy) === quarry)) continue;
+        if (type === 'sinkhole' && footprint(scene, h).some(p =>
+          quarryVariant(root.WorldGen.tileCache.get(root.WorldGen.tileKey(p.tx, p.ty)), p.ix, p.iy) === 'quarry-strip-mine')) continue;
         const cells = new Set(footprint(scene, h).map(c => `${c.cellIX}:${c.cellIY}`));
         if ([...s.vents, ...s.sinkholes, ...s.caveins].some(other => footprint(scene, other).some(c => cells.has(`${c.cellIX}:${c.cellIY}`)))) continue;
         const pressure = root.PressureTraps?.lists(scene);
@@ -181,11 +202,20 @@
     if (!scene.startWorldM || !scene.playerM || !Number.isFinite(dt) || dt <= 0) return;
     const s = state(scene), ms = Math.min(CONFIG.maxStepMs, dt * 1000);
     s.elapsedMs += ms; observe(scene);
-    for (const h of [...s.vents, ...s.sinkholes, ...s.caveins]) {
-      const before = h.phase;
+    const hazards = [...s.vents, ...s.sinkholes, ...s.caveins], previous = new Map();
+    let persistCaveIns = false;
+    // Advance every cluster cell before a fall can switch floors.
+    for (const h of hazards) {
+      const before = h.phase; previous.set(h, before);
       h.elapsedMs += ms; update(h);
-      if (h.type === 'cavein' && before !== 'open') saveCaveIn(scene, h,
-        h.phase === 'open' || Math.floor(h.elapsedMs / 1000) !== Math.floor((h.elapsedMs - ms) / 1000));
+      if (h.type === 'cavein' && before !== 'open') {
+        saveCaveIn(scene, h);
+        persistCaveIns ||= h.phase === 'open' || Math.floor(h.elapsedMs / 1000) !== Math.floor((h.elapsedMs - ms) / 1000);
+      }
+    }
+    if (persistCaveIns && typeof persistSave === 'function') persistSave(scene.save);
+    for (const h of hazards) {
+      const before = previous.get(h);
       const touching = overlaps(scene, h);
       // Permanent pits remain dangerous on every return, not only their first fall.
       if (h.type === 'cavein') h.fallTriggered = false;

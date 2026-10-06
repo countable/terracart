@@ -3644,7 +3644,10 @@ Render.drawObjects = function drawObjects(scene) {
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
   filteredObj.sort((a, b) => a.dy - b.dy);
-  for (const [o, art] of Render.chasmArtForObjects(scene, chasmObjects)) connectedArt.set(o, art);
+  const hazardState = EnvironmentHazards.lists(scene);
+  const openCaveins = hazardState.caveins.filter(h => h.phase === 'open' && !h.blocked
+    && Math.abs(h.x - pWorldX) <= halfM + scene.cellM && Math.abs(h.y - pWorldY) <= halfM + scene.cellM);
+  for (const [o, art] of Render.chasmArtForObjects(scene, [...chasmObjects, ...openCaveins])) connectedArt.set(o, art);
   const { fruitList } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
@@ -3675,7 +3678,6 @@ Render.drawObjects = function drawObjects(scene) {
   const whirlwindList = (scene.depth === 0 ? scene._whirlwinds || [] : []).map(h => ({
     h, dx: h.x - pWorldX, dy: h.y - pWorldY,
   })).filter(it => Math.abs(it.dx) <= halfM && Math.abs(it.dy) <= halfM);
-  const hazardState = EnvironmentHazards.lists(scene);
   const environmentList = [...hazardState.vents, ...hazardState.sinkholes, ...hazardState.caveins].map(h => ({
     h, dx: h.x - pWorldX, dy: h.y - pWorldY,
   })).filter(it => !it.h.blocked && Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
@@ -4666,7 +4668,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { x: sx, y: sy } = project(it.dx, it.dy), h = it.h;
     const cfg = EnvironmentHazards.CONFIG[h.type];
     s.anims?.stop();
-    s.setTexture(h.phase === 'open' && cfg.openTexture || cfg.texture, h.frame)
+    s.setTexture(h.phase === 'open' && cfg.openTexture || cfg.texture, connectedArt.get(h)?._chasmMask ?? h.frame)
       .setOrigin(...cfg.renderAnchor).setDisplaySize(cfg.widthCells * CELL_PX, cfg.heightCells * CELL_PX)
       .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
     setWorldDepth(s, it._z);
