@@ -216,6 +216,7 @@ const NPC = (() => {
   }
   function tick(scene, c, now, dt) {
     restore(scene, c);
+    if (Combat.isParalyzed(c)) { Combat.cancelCreatureAction(c); return; }
     if (isDormant(c)) { c._moving = false; return; }
     standUp(c);
     // Integrate only active time: returning to a neighbour never jumps them

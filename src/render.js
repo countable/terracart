@@ -1695,8 +1695,80 @@ Render.drawChestTrails = function drawChestTrails(scene) {
   }
 };
 
+// Saved webs occupy exactly their target square; the travelling strand uses
+// its fixed launch point, so a moving spider cannot drag an airborne shot.
+// Both layers are reused and cleared every frame, including depth changes.
+Render.drawSpiderWebs = function drawSpiderWebs(scene) {
+  scene._spiderWebGfx?.clear();
+  scene._spiderWebShotGfx?.clear();
+  if (typeof SpiderWebs === 'undefined' || !scene.cobbleContainer) return;
+  const { webs, shots } = SpiderWebs.lists(scene);
+  const half = CELL_PX / 2;
+  const left = scene.viewLeft, top = scene.viewTop;
+  const right = left + scene.viewSize, bottom = top + scene.viewSize;
+  // Square-bound radial anchors, clockwise from the north-west corner.
+  const anchors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
+  for (const web of webs) {
+    const at = worldMetersToScreen(scene, web.x, web.y);
+    if (at.x + half < left || at.y + half < top || at.x - half > right || at.y - half > bottom) continue;
+    if (!scene._spiderWebGfx) {
+      scene._spiderWebGfx = scene.add.graphics();
+      scene.cobbleContainer.add(scene._spiderWebGfx);
+    }
+    const g = scene._spiderWebGfx;
+    g.fillStyle(0xe0e8ef, 0.1);
+    g.fillRect(at.x - half, at.y - half, CELL_PX, CELL_PX);
+    // Inset by half a stroke so no silk bleeds into neighbouring cells.
+    const radius = half - 1;
+    g.lineStyle(1, 0xe5edf4, 0.8);
+    g.beginPath();
+    for (const [ax, ay] of anchors) {
+      g.moveTo(at.x, at.y);
+      g.lineTo(at.x + ax * radius, at.y + ay * radius);
+    }
+    g.strokePath();
+    g.lineStyle(1, 0xd3e3ee, 0.65);
+    for (const fraction of [0.28, 0.56, 0.84, 1]) {
+      g.beginPath();
+      for (let i = 0; i <= anchors.length; i++) {
+        const a = anchors[i % anchors.length];
+        const x = at.x + a[0] * radius * fraction;
+        const y = at.y + a[1] * radius * fraction;
+        if (!i) { g.moveTo(x, y); continue; }
+        const prev = anchors[i - 1];
+        // A slight inward sag makes the rings read as silk, not a grid.
+        g.lineTo(at.x + (prev[0] + a[0]) * radius * fraction * 0.44,
+          at.y + (prev[1] + a[1]) * radius * fraction * 0.44);
+        g.lineTo(x, y);
+      }
+      g.strokePath();
+    }
+    g.fillStyle(0xf6f8ff, 0.85);
+    g.fillCircle(at.x, at.y, 1.5);
+  }
+  if (!scene.boltContainer) return;
+  for (const shot of shots) {
+    const from = worldMetersToScreen(scene, shot.fromX, shot.fromY);
+    const tip = worldMetersToScreen(scene, shot.x, shot.y);
+    if (Math.max(from.x, tip.x) < left || Math.max(from.y, tip.y) < top
+      || Math.min(from.x, tip.x) > right || Math.min(from.y, tip.y) > bottom) continue;
+    if (!scene._spiderWebShotGfx) {
+      scene._spiderWebShotGfx = scene.add.graphics();
+      scene.boltContainer.add(scene._spiderWebShotGfx);
+    }
+    const g = scene._spiderWebShotGfx;
+    g.lineStyle(3, 0x526678, 0.5);
+    g.lineBetween(from.x, from.y, tip.x, tip.y);
+    g.lineStyle(1, 0xf1f6ff, 0.95);
+    g.lineBetween(from.x, from.y, tip.x, tip.y);
+    g.fillStyle(0xf1f6ff, 1);
+    g.fillCircle(tip.x, tip.y, 2);
+  }
+};
+
 Render.drawCells = function drawCells(scene) {
   Render.drawChestTrails(scene);
+  Render.drawSpiderWebs(scene);
   const g = scene.cellGfx;
   g.clear();
   scene._groundFireGfx?.clear();

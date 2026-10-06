@@ -96,7 +96,9 @@
         owner.creatures.splice(owner.creatures.indexOf(cached),1);
       }
       const changedLevel = tracked && ![...WorldGen.tileCache.values()].includes(tracked.entry);
-      if (!c || changedLevel || Math.hypot(c.x - px, c.y - py) > CREATURE_SIM_CELLS * scene.cellM) {
+      // Catch-up transport must respect the same web hold as ordinary walking.
+      if (!Combat.isParalyzed(c, wall)
+        && (!c || changedLevel || Math.hypot(c.x - px, c.y - py) > CREATURE_SIM_CELLS * scene.cellM)) {
         if (tracked?.entry?.creatures) {
           const i = tracked.entry.creatures.indexOf(c);
           if (i >= 0) tracked.entry.creatures.splice(i,1);
@@ -113,7 +115,7 @@
         if (!bodies.includes(c)) bodies.push(c);
         owners.set(r.id,entry);
       }
-      travelling.set(r.id,{creature:c,entry:owners.get(r.id)});
+      travelling.set(r.id,{creature:c,entry:owners.get(r.id) || tracked?.entry});
       if (rememberPetHealth(r, c)) changed=true;
       const tx = Math.floor(c.x / scene.tileEdgeM), ty = Math.floor(c.y / scene.tileEdgeM);
       if (r.x !== c.x || r.y !== c.y || r.tx !== tx || r.ty !== ty) {
@@ -151,7 +153,8 @@
     if (creature) {
       const here = !!WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => c === creature);
       const simR = CREATURE_SIM_CELLS * scene.cellM;
-      const lost = !here || Math.hypot(creature.x - px, creature.y - py) > simR;
+      const lost = !Combat.isParalyzed(creature, wall)
+        && (!here || Math.hypot(creature.x - px, creature.y - py) > simR);
       if (row.persistHealth && state.hp !== Combat.hp(creature)) {
         state.hp = Combat.hp(creature);
         persistSave(save);

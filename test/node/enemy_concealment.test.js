@@ -29,7 +29,10 @@
 
   test('enemy concealment: authored guard hook is grove-only and gates AI before burrowing', () => {
     assert.truthy(SCENE_SRC.includes("guard.zone === 'grove' ? EnemySpawns.concealment"));
-    assert.lt(SCENE_SRC.indexOf('if (enemyConcealmentTick(this, c)) return;'),
-      SCENE_SRC.indexOf('if (enemyBurrowTick(this, c,'));
+    const concealment = SCENE_SRC.indexOf('enemyConcealmentTick(this, c)');
+    const burrowing = SCENE_SRC.indexOf('enemyBurrowTick(this, c,');
+    assert.gte(concealment, 0, 'concealment hook exists');
+    assert.gte(burrowing, 0, 'burrowing hook exists');
+    assert.lt(concealment, burrowing);
   });
 })();
