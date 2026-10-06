@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d861b8e3" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=47882e39" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2810,18 +2810,18 @@
   <script src="src/hazard_falls.js?v=6197325b"></script>
   <script src="src/environment_hazards.js?v=a911330d"></script>
   <script src="src/spider_webs.js?v=6ed9bb04"></script>
-  <script src="src/pressure_traps.js?v=66532e05"></script>
+  <script src="src/pressure_traps.js?v=01577ed2"></script>
   <script src="src/gas.js?v=a20c5b7d"></script>
   <script src="src/mushroom_gas.js?v=0eb2216a"></script>
   <script src="src/lairs.js?v=530845a5"></script>
-  <script src="src/dungeon_progression.js?v=ab9df3ae"></script>
+  <script src="src/dungeon_progression.js?v=3a8af653"></script>
   <script src="src/elevators.js?v=e02a2b01"></script>
   <script src="src/arena.js?v=e1e49ed1"></script>
   <script src="src/cave_hazards.js?v=49709923"></script>
-  <script src="src/cave_areas.js?v=8737e9f6"></script>
-  <script src="src/underground.js?v=77a06227"></script>
+  <script src="src/cave_areas.js?v=5f50aaef"></script>
+  <script src="src/underground.js?v=8bb23dd9"></script>
   <script src="src/underground_stories.js?v=deb09860"></script>
-  <script src="src/worldgen.js?v=ddd710e8"></script>
+  <script src="src/worldgen.js?v=10d2284a"></script>
   <script src="src/castle_styles.js?v=ea3cd17d"></script>
   <script src="src/textures.js?v=9beaed13"></script>
   <script src="src/save.js?v=b103250b"></script>
@@ -2955,7 +2955,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=d861b8e3';
+      const APP_SRC = 'src/app.js?v=47882e39';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

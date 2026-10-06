@@ -8700,19 +8700,37 @@
   //   fallLandings 3x3 pockets under the floor above's ground holes
   //   chestSource  whose POI chests mirror down: 'above' | 'surface'
   //   quarryProvenance quarry gem seams and rock stamps descend one level
+  //   arrivalStory story ID for the one-time floor arrival splash
+  //   entryKey     save key required to enter (null for ungated floors)
+  //   pressureTraps runtime pressure-plate encounters
+  //   caveAreas    authored grove selection, carving and garrison settings
+  //   streetGems   gemstone region and ordinary deposit probabilities
+  const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
+    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern']
+      .map((id, i) => Object.freeze({ id, weight: weights[i] }))),
+    carveWalls, goblins, spearGoblins
+  });
   const FLOOR_PROFILES = Object.freeze([
-    Object.freeze({ depth: 1, biome: 'cave', terrain: 'above', streetMirror: true,
+    Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null,
+      pressureTraps: true, caveAreas: caveAreaProfile([35, 30, 30, 5], false, 12, false),
+      streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
-    Object.freeze({ depth: 2, biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
+    Object.freeze({ depth: 2, arrivalStory: 'dungeon_stone', entryKey: null,
+      pressureTraps: false, caveAreas: caveAreaProfile([20, 45, 25, 10], true, 16, true),
+      streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 3, biome: 'underdark', terrain: 'open', streetMirror: false,
+    Object.freeze({ depth: 3, arrivalStory: 'dungeon_underdark', entryKey: null,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 4, biome: 'cave', terrain: 'surfacePaint', streetMirror: false,
+    Object.freeze({ depth: 4, arrivalStory: 'cave', entryKey: null,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'surfacePaint', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
-    Object.freeze({ depth: 5, biome: 'cave', terrain: 'above', streetMirror: false,
+    Object.freeze({ depth: 5, arrivalStory: 'cave', entryKey: 'level4Key',
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: true }),
   ]);
-  const DEFAULT_FLOOR_PROFILE = Object.freeze({ biome: 'cave', terrain: 'above', streetMirror: false,
+  const DEFAULT_FLOOR_PROFILE = Object.freeze({ arrivalStory: 'cave', entryKey: 'level4Key',
+    pressureTraps: false, caveAreas: null, streetGems: null, biome: 'cave', terrain: 'above', streetMirror: false,
     fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false });
   const FLOOR_PROFILE_BY_DEPTH = new Map(FLOOR_PROFILES.map(row => [row.depth, row]));
   function floorProfile(depth) {

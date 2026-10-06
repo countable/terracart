@@ -10,6 +10,17 @@
     }
     return { N, edge, grid, surface, plan: Underground.project(surface, grid, N, tx, 0, edge, depth) };
   }
+  test('underground: street projection and dressing follow a relocated profile', () => {
+    const original = WorldGen.floorProfile;
+    WorldGen.floorProfile = depth => depth === 4 ? original(2) : { ...original(depth), streetMirror: false };
+    try {
+      assert.eq(sample(2).plan.routes.length, 0, 'old floor loses projection');
+      const s = sample(4), objects = [];
+      assert.truthy(s.plan.streetCells.size > 0, 'new floor projects streets');
+      Underground.decorate(s.plan, s.grid, objects, [], new Set());
+      assert.truthy(objects.length > 0, 'new floor receives dressing');
+    } finally { WorldGen.floorProfile = original; }
+  });
   test('underground: narrow streets carve only small roads and leave room for side hazards', () => {
     const s = sample();
     assert.truthy(s.plan.streetCells.size > s.N * 2, 'side floor participates even with a one-cell physical band');

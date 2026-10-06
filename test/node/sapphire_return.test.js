@@ -23,7 +23,7 @@
       consumeSelected: save => { save.inv.splice(save.selSlot, 1); save.selSlot = -1; },
       persistSave: save => s.saved.push(JSON.parse(JSON.stringify(save))),
       CONSUMABLE_SPEC, cellKeyFromAbsCell: (x, y) => `${x}_${y}`,
-      WorldGen: { setDepth() {} },
+      WorldGen: { floorProfile: depth => WorldGen.floorProfile(depth), setDepth() {} },
     };
     for (const name of ['useSapphirePortal', 'sapphireReturnPortal', 'returnThroughSapphire']) s[name] = method(name, deps);
     s.changeDepth = over.changeDepth || method('changeDepth', deps);

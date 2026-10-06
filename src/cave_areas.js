@@ -6,21 +6,14 @@
     id: 'spring_cave', extentCells: 25, poolRadius: 3, sourceRadius: 0.65,
     mushroomRadius: 5, stoneRadius: 8, ringHalfWidth: 0.4, approachHalfWidth: 0.6
   });
-  const GROVE_WEIGHTS = Object.freeze([
-    { id: 'spring_cave', weight: 35 }, { id: 'goblin_warrens', weight: 30 },
-    { id: 'mushroom_cavern', weight: 30 }, { id: 'gemstone_cavern', weight: 5 }
-  ]);
-  const DEPTH_WEIGHTS = { 1: GROVE_WEIGHTS, 2: [
-    { id: 'spring_cave', weight: 20 }, { id: 'goblin_warrens', weight: 45 },
-    { id: 'mushroom_cavern', weight: 25 }, { id: 'gemstone_cavern', weight: 10 }
-  ] };
   const BUDGETS = Object.freeze({ referenceCells: 625, referenceRooms: 25,
-    goblins: { 1: 12, 2: 16 }, mushrooms: 8, harvest: 32, gems: 16, ore: 24 });
+    mushrooms: 8, harvest: 32, gems: 16, ore: 24 });
   function select(anchor, depth) {
-    if (!DEPTH_WEIGHTS[depth]) return null;
+    const profile = root.WorldGen.floorProfile(depth).caveAreas;
+    if (!profile) return null;
     if (anchor.kind === 'quarry') return 'mine_tunnels';
     if (anchor.kind !== 'grove') return null;
-    const weights = DEPTH_WEIGHTS[depth];
+    const weights = profile.weights;
     let ticket = fnv1a(`cave-area|${root.ZoneVariants.identity(anchor)}|${depth}`) / 4294967296 * weights.reduce((sum, row) => sum + row.weight, 0);
     for (const row of weights) {
       ticket -= row.weight;
@@ -44,7 +37,8 @@
     const WG = root.WorldGen, V = root.ZoneVariants;
     const { surface, grid, N, tx, ty, tileEdgeM, depth } = ctx;
     const field = surface && surface.zone, coverage = field && (field.coverage || field.idx);
-    if (!DEPTH_WEIGHTS[depth] || !coverage || !V || !WG) return out;
+    const profile = WG?.floorProfile(depth).caveAreas;
+    if (!profile || !coverage || !V || !WG) return out;
     const source = field.caveSource || surface.caveSource || surface;
     const sourceGrid = source.baseGrid || source.grid;
     if (!sourceGrid) return out;
@@ -85,14 +79,14 @@
         if (!frame.inTile(ix, iy)) { reason = 'tile_boundary'; break; }
         const i = iy * N + ix;
         if (coverage[i] !== s.index + 1 || out.reserved.has(i)) { reason = 'ownership'; break; }
-        if ((grid[i] !== WG.T.CAVE_FLOOR && !(depth === 2 && grid[i] === WG.T.CAVE_WALL)) ||
+        if ((grid[i] !== WG.T.CAVE_FLOOR && !(profile.carveWalls && grid[i] === WG.T.CAVE_WALL)) ||
             !WG.isSpawnCell(sourceGrid, N, N, ix, iy, sourceOpts, 'minor') ||
             !WG.isSpawnCell(sourceGrid, N, N, ix, iy, caveOpts, 'minor')) { reason = 'blocked_ground'; break; }
         const material = materialAt(u, v);
         cells.push({ i, ix, iy, u, v, material });
       }
       if (reason) { diagnostic.reason = reason; continue; }
-      if (depth === 2 && !cells.some(c => grid[c.i] === WG.T.CAVE_FLOOR)) {
+      if (profile.carveWalls && !cells.some(c => grid[c.i] === WG.T.CAVE_FLOOR)) {
         diagnostic.reason = 'no_floor_access'; continue;
       }
       const byCell = new Map(cells.map(c => [c.i, c]));
@@ -175,6 +169,7 @@
   // Mine regions claim only the existing floor: ore does not dig its own access.
   function planNexus(ctx, out, state, anchor, frame, sourceGrid, sourceOpts) {
     const W = root.WorldGen, { N, tx, ty, depth, grid, surface } = ctx;
+    const profile = W.floorProfile(depth).caveAreas;
     const kind = select(state.anchor, depth), mine = kind === 'mine_tunnels';
     const coverage = surface.zone.coverage || surface.zone.idx;
     const id = `cave_area|${state.key}|${depth}`;
@@ -191,7 +186,7 @@
       if (!frame.inTile(ix, iy)) { diagnostic.reason = 'tile_boundary'; return; }
       const i = iy * N + ix;
       if (coverage[i] !== state.index + 1 || out.reserved.has(i)) continue;
-      if (grid[i] !== W.T.CAVE_FLOOR && (mine || depth !== 2 || grid[i] !== W.T.CAVE_WALL)) continue;
+      if (grid[i] !== W.T.CAVE_FLOOR && (mine || !profile.carveWalls || grid[i] !== W.T.CAVE_WALL)) continue;
       const projectedStreet = mine && ctx.routeStreetCells?.has(i);
       if (projectedStreet) {
         // The route prepass already proved this is an eligible small street;
@@ -276,11 +271,11 @@
       const roomLane = new Set(usable.filter(c => rooms.some(r =>
         (c.u === r.u && c.v >= r.top && c.v <= r.bottom) ||
         (c.v === r.v && c.u >= r.left && c.u <= r.right))).map(c => c.i));
-      const budget=Math.max(1,Math.round(rooms.length * BUDGETS.goblins[depth]/BUDGETS.referenceRooms));
+      const budget=Math.max(1,Math.round(rooms.length * profile.goblins/BUDGETS.referenceRooms));
       for(const room of order(rooms.map((r,i)=>({...r,i})), 'rooms').slice(0,budget)) {
         const c=usable.filter(c=>c.u>room.left&&c.u<room.right&&c.v>room.top&&c.v<room.bottom&&free(c))
           .sort((a,b)=>Math.hypot(a.u-room.u,a.v-room.v)-Math.hypot(b.u-room.u,b.v-room.v))[0];
-        if(c) {seats.push({...c,kind:depth===2 && seats.length%2 ? 'spear_goblin':'club_goblin'}); used.add(c.i);}
+        if(c) {seats.push({...c,kind:profile.spearGoblins && seats.length%2 ? 'spear_goblin':'club_goblin'}); used.add(c.i);}
       }
       for(const c of usable) {
         if(!free(c)||court(c)||roomLane.has(c.i)) continue;
@@ -332,5 +327,5 @@
     for (const o of plan.objects.concat(plan.wildplants)) occupied.add(o._iy * N + o._ix);
     return plan;
   }
-  root.CaveAreas = { SPRING, GROVE_WEIGHTS, DEPTH_WEIGHTS, BUDGETS, select, materialAt, plan, apply };
+  root.CaveAreas = { SPRING, BUDGETS, select, materialAt, plan, apply };
 })(typeof window !== 'undefined' ? window : globalThis);
