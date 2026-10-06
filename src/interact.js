@@ -216,7 +216,6 @@ function tooFar(ctx, x, y) {
     if (cellInReach(scene, tap.cellIX, tap.cellIY)) return false;
   }
   scene.flash('Just out of reach.', ctx.sx, ctx.sy);
-  scene.hapticReject?.();
   return true;
 }
 
@@ -1146,7 +1145,7 @@ const TAP_HANDLERS = [
     const { x: cwmx, y: cwmy } = absCellCenterMeters(scene, cellIX, cellIY);
     // The one reach gate (tooFar → coords.js cellInReach: the same integer
     // cell math as the lit reach silhouette in render.js, so a cell that is
-    // visually lit is always tap-accepted), with the refusal's haptic.
+    // visually lit is always tap-accepted), with refusal feedback.
     if (tooFar(ctx, wm.x, wm.y)) return 'far';
     ctx.cell = cell;
     ctx.cellIX = cellIX;

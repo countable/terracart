@@ -599,15 +599,6 @@ class SceneConsumables {
     wrap.addEventListener('click', done);
     mount();
   }
-  // THE HEADS-UP BUZZ: wanderCreatures hands over the nearest hostile taking
-  // an interest this tick; inside SAFETY_FOE_BUZZ_CELLS the phone vibrates,
-  // at most once per SAFETY_FOE_BUZZ_GAP_MS (haptic — the save's switch).
-  _foeHeadsUp(distM, now) {
-    if (!(distM <= SAFETY_FOE_BUZZ_CELLS * this.cellM)) return;
-    if (now - (this._foeBuzzT ?? -Infinity) < SAFETY_FOE_BUZZ_GAP_MS) return;
-    this._foeBuzzT = now;
-    this.haptic(SAFETY_FOE_BUZZ);
-  }
   // The resume and dusk reminders. RESUME is stamped by the lifecycle's
   // visible transition (scene_geo.js onVis → _safetyOnResume); DUSK is read
   // here, throttled to SAFETY_TICK_MS, off Lighting.daylight — the same sun the

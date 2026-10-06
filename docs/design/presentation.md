@@ -6,6 +6,12 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Feedback is visual; there is no vibration setting or device vibration.
+- Developer → Item cheats searches the full item catalog by name. Each tap
+  grants one through the inventory path, preserving bag limits and saving it.
+  Books are read after closing the picker. Switching teleport cities enables
+  the GPS stick before reloading, including a switch back Home.
+
 - Daily sites share `Macros.visitKindForObject` and `beginDailyVisit` / `dailyVisit`.
   Claim the UTC-day ledger only when the benefit is granted; cancellation must
   leave the visit available. Keep presentation, light and effects in the owning
