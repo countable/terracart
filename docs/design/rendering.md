@@ -44,8 +44,11 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   per-piece `textures.createCanvas` (Phaser reads the canvas back on
   creation). Bake short-lived canvas pieces into shared atlas pages
   (`building_overlay.js` wall atlas) and apply a colour treatment to the
-  colours (`unclaimedMaterialColor`), not to finished pixels. Measured: one
-  read-back per building per crossing was the walking stutter on iPhone.
+  colours (`unclaimedMaterialColor`), not to finished pixels. The road overlay
+  retains its visible base/restored pair while it paints a hidden pair in 2 ms
+  slices, then swaps both atomically; each pass reuses its full-size scratch
+  layers between rebuilds. Measured: one read-back per building per crossing
+  was the walking stutter on iPhone.
 
 Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 `tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
