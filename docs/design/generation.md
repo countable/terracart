@@ -6,6 +6,11 @@ access or tile lifecycle mechanics.
 
 ## Generation, saves and tiles
 
+- Spider webs save their absolute cell, world position, depth and wall-clock
+  expiry in `save.spiderWebs`. They survive reloads and tile eviction until
+  24 hours after landing; another shot refreshes that cell without duplicating
+  it. Silk in flight is transient and is cleared when depth changes.
+
 - Do not add save/data compatibility migrations until the user requests them.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.

@@ -80,9 +80,9 @@ test('trapper: the hit and the arrow ask the row, never the kind', () => {
   const start = APP.indexOf('  wanderCreatures() {');
   const w = APP.slice(start, APP.indexOf('\n  }\n', start));
   // rosterEnemyAttack (creature_ai.js): a row that lands no blow and steals
-  // nothing lands nothing, and a 'trap' row lays instead — the row, never
+  // nothing lands nothing unless it launches a web; a 'trap' row lays instead — the row, never
   // the kind.
-  assert.truthy(CREATURE_AI_SRC.includes("if ((!row.dmg && !row.steals) || row.attackType === 'touch') return;"),
+  assert.truthy(CREATURE_AI_SRC.includes("if ((!row.dmg && !row.steals && row.attackType !== 'web') || row.attackType === 'touch') return;"),
     'the attack reads the row\'s dmg');
   assert.falsy(/goblin_trapper/.test(w), 'no kind literal in the sim loop');
   assert.falsy(/goblin_trapper/.test(CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyAttack('))), 'nor in the movers');

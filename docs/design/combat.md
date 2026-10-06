@@ -6,6 +6,14 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Spiders use the roster's `web` attack: a four-cell shot after a visible
+  wind-up, aimed at the cell occupied when aiming began. The silk travels to
+  that fixed cell, then spreads over it. It replaces their bite and poison.
+- `SpiderWebs` owns the silk flight, cell contact and 24-hour ground lifetime.
+  Entering a web paralyzes any body (player, enemy, pet or neighbour) for six
+  seconds through the shared paralysis status. Standing there does not refresh
+  the hold; leaving and entering again does. Webs are not consumed by contact.
+
 - Timed followers use `Companions.KINDS` and its shared lifecycle; register
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
   combat lane. Persist contract expiry and any durable health state, not live

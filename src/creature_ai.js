@@ -1538,7 +1538,7 @@ function creatureMeleeSwing(c, targetX, targetY, reachCells) {
 
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
   if (Combat.isPacified(c) || Combat.isPacified(creatureTarget)) return;
-  if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
+  if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || Combat.isParalyzed(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
   if (creatureTarget && (Combat.isConcealed(creatureTarget)
       || Combat.isCharmed(c) === Combat.isCharmed(creatureTarget))) return;
   if (row.attackType === 'none') return;
@@ -1606,29 +1606,35 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     }
     return;
   }
-  if ((!row.dmg && !row.steals) || row.attackType === 'touch') return;
+  if ((!row.dmg && !row.steals && row.attackType !== 'web') || row.attackType === 'touch') return;
   const swoop = row.movement.pattern === 'orbit_swoop';
   const lunging = row.movement.pattern === 'lunge_recover' && now < (c._lungeUntil || 0);
   const shaped = ['area', 'breath', 'blast'].includes(row.attackType);
+  const fixedAim = shaped || row.attackType === 'web';
   const winding = c._attackWindupUntil != null;
   // A `chargeOnly` charger (the boar) has no blow of its own: it hurts only
   // what it runs into mid-charge, once a charge.
-  const eligible = (shaped && winding ? attentive : clear && dist <= attackRange * scene.cellM)
+  const eligible = (fixedAim && winding ? attentive : clear && dist <= attackRange * scene.cellM)
     && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit)
     && (!row.movement.chargeOnly || lunging);
   // The charge already warned before moving; contact lands once without
   // starting a second melee wind-up that would stop the charge mid-stride.
   const ready = enemyAttackReady(c, lunging ? {...row, windupSeconds: 0} : row, now, eligible);
-  if (shaped && !winding && (c._attackWindupUntil != null || ready)) {
+  if (fixedAim && !winding && (c._attackWindupUntil != null || ready)) {
     c._attackAim = { x: px, y: py, angle: Math.atan2(py - c.y, px - c.x) };
   }
   if (ready || c._attackWindupUntil != null) {
-    const aim = shaped ? c._attackAim : {x: px, y: py};
+    const aim = fixedAim ? c._attackAim : {x: px, y: py};
     SpriteLayout.faceCreature(c, aim.x - c.x, aim.y - c.y);
   }
   if (!ready) return;
   c._attackT0 = now;
   c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
+  if (row.attackType === 'web') {
+    // Commit to the cell aimed at during wind-up; dodging never steers the silk.
+    SpiderWebs.launch(scene, c, c._attackAim.x, c._attackAim.y);
+    return;
+  }
   if (row.attackType === 'melee') creatureMeleeSwing(c, px, py, attackRange);
   const raw = row.attackType === 'melee' || row.attackType === 'touch'
     ? Combat.meleeBlow(c, row.dmg)
@@ -1900,7 +1906,7 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
   if (c._pirateParleyPending) return;
   if (Combat.isPacified(c)) { inactive = true; creatureTarget = null; }
-  if (Combat.isConcealed(c) || Combat.isSleeping(c)) return;
+  if (Combat.isConcealed(c) || Combat.isSleeping(c) || Combat.isParalyzed(c)) return;
   Combat.healIfRested(c);
   const m = row.meleeWhenCondition && c._attackTargetKey === 'player'
       && Conditions.active(scene.save, row.meleeWhenCondition.id)
