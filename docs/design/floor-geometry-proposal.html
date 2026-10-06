@@ -84,7 +84,7 @@ Every row below needs one word from you ("yes", or your edit). Defaults are chos
 <details><summary>What each column means</summary><div class="body">
 <table>
 <tbody>
-<tr><td style="width:160px"><b>Landcover</b></td><td>The land-use grid each tile paints from OSM - grass, forest, park, grove, playground, pitch, commercial, farmland, sand, water, road, buildings. This is the "terrain paint"; same thing as landcover.</td></tr>
+<tr><td style="width:160px"><b>Landcover</b></td><td>The land-use grid each tile paints from OSM - grass, forest, park, grove, playground, pitch, commercial, farmland, sand, water, road, buildings - dressed through per-zone scatter/fill definitions. This is the "terrain paint"; same thing as landcover. It applies on every floor the same way; the per-floor entries below are that floor's terrain overrides and exceptions.</td></tr>
 <tr><td><b>Roads</b></td><td>Drawn carriageway bands by class (the road mask, Streets) - distinct from the painted road cells.</td></tr>
 <tr><td><b>Buildings</b></td><td>Footprint polygons - sprites, moats and lairs above; walls, ruins or lava below.</td></tr>
 <tr><td><b>Nexus anchors</b></td><td>The zone system's anchor points (groves, quarries) where authored cave areas claim ground.</td></tr>
@@ -104,7 +104,7 @@ Every row below needs one word from you ("yes", or your edit). Defaults are chos
   <th>Floor</th><th>Landcover</th><th>Roads</th><th>Buildings</th><th>Nexus anchors</th><th>POIs</th><th>Road variants</th><th>Paths &amp; streets</th><th>Spawn gate</th><th>Water</th><th>Authored areas</th><th>Habitat regions</th><th>Above-floor objects</th>
 </tr></thead>
 <tbody>
-<tr><td class="floorcell f0">0 - surface</td><td>&#10003; the paint itself</td><td>&#10003; bands, lamps, restore</td><td>&#10003; sprites, lairs</td><td>&#10003; zone dressing</td><td>&#10003; the layer itself</td><td>&#10003; the only home</td><td>&#10003; streets, trails</td><td>&#10003; the full gate</td><td>&#10003;</td><td class="na"></td><td class="na"></td><td class="na"></td></tr>
+<tr><td class="floorcell f0">0 - surface</td><td>&#10003; per zone scatter/fill definitions</td><td>&#10003; bands, lamps, restore</td><td>&#10003; sprites, lairs</td><td>&#10003; zone dressing</td><td>&#10003; the layer itself</td><td>&#10003; the only home</td><td>&#10003; streets, trails</td><td>&#10003; the full gate</td><td>&#10003;</td><td class="na"></td><td class="na"></td><td class="na"></td></tr>
 <tr><td class="floorcell f1">1 - caves</td><td>&#10003; above</td><td>&#10003; mirror</td><td class="na"></td><td>&#10003; areas</td><td>&#10003; chests + torches</td><td class="na"></td><td>&#10003; routes</td><td>&#10003;</td><td class="na"></td><td>&#10003; warrens etc.</td><td>&#10003; foe themes</td><td>&#10003; holes, quarry</td></tr>
 <tr><td class="floorcell f2">2 - goblin city</td><td>T city mode</td><td>T open streets</td><td>T only walls</td><td>P2 clearings</td><td>P4 in clearings</td><td>P2 clearings</td><td>&#10003; + P1 corridors</td><td>&#10003;</td><td>P3</td><td>P1 full-floor warrens</td><td>&#10003; foe themes</td><td>&#10003; landings</td></tr>
 <tr><td class="floorcell f3">3 - deep stone</td><td>&#10003; clearings + settlements (shifts to 3)</td><td>P7 tunnels</td><td class="na"></td><td class="na"></td><td>&#10003; chests</td><td class="na"></td><td class="na"></td><td>&#10003; npc gate</td><td class="na"></td><td class="na"></td><td>&#10003; foe themes</td><td>&#10003; stairs, mirrors</td></tr>

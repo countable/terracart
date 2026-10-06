@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dragon Hood - floor viewer</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #14181a; color: #e8e4da;
+    font: 14px/1.4 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+  #bar { position: fixed; inset: 0 0 auto 0; display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    padding: 10px 16px; background: #1b2124e6; border-bottom: 1px solid #3a4146; z-index: 2; }
+  #bar h1 { font-size: 14px; margin: 0 4px 0 0; letter-spacing: .04em; color: #9fb8a4; }
+  .seg { display: flex; border: 1px solid #3a4146; border-radius: 7px; overflow: hidden; }
+  .seg button { font: inherit; border: 0; background: #22292d; color: #cfc9bc; padding: 5px 11px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid #3a4146; }
+  .seg button.on { background: #4c6b4a; color: #fff; }
+  .seg button.proposed.on { background: #7a5a3a; }
+  .variant { display: flex; align-items: center; gap: 7px; }
+  .variant button { font: inherit; width: 26px; height: 26px; border-radius: 6px; border: 1px solid #3a4146;
+    background: #22292d; color: #cfc9bc; cursor: pointer; }
+  .variant button:hover { border-color: #9fb8a4; }
+  #variantName { min-width: 150px; color: #c9b98a; }
+  label { color: #98a09a; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+  #legend { position: fixed; left: 16px; bottom: 14px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
+    border-radius: 8px; padding: 8px 12px; font-size: 12px; display: flex; gap: 12px; flex-wrap: wrap; max-width: 70vw; }
+  #legend span { display: inline-flex; align-items: center; gap: 5px; color: #b9b3a5; }
+  .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; border: 1px solid #0006; }
+  #note { position: fixed; right: 16px; bottom: 14px; z-index: 2; color: #7d867f; font-size: 11.5px; text-align: right; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; cursor: crosshair; }
+  #tag { position: fixed; top: 64px; left: 16px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
+    border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #cfc9bc; max-width: 300px; }
+  #tag b { color: #9fb8a4; }
+</style></head>
+<body>
+<div id="bar">
+  <h1>FLOOR VIEWER</h1>
+  <div><label>Floor</label><div class="seg" id="floorSeg"></div></div>
+  <div><label>View</label><div class="seg" id="modeSeg">
+    <button data-mode="current" class="on">Current code</button>
+    <button data-mode="proposed" class="proposed">Proposed design</button>
+  </div></div>
+  <div class="variant"><div><label>Variant index</label></div>
+    <button id="vMinus">&minus;</button><span id="variantName">0 &middot; plain road</span><button id="vPlus">+</button>
+  </div>
+</div>
+<div id="tag"></div>
+<div id="legend"></div>
+<div id="note">Representative synthetic region (grass, residential, commercial, water/beach, grove + quarry + reef + temple nexus anchors).<br>
+Current floors render through the game's own <code>WorldGen.undergroundTerrain</code>; proposed floors are the viewer's sketch of floors.md / the geometry proposal.</div>
+<canvas id="cv"></canvas>
+<script src="../src/worldgen.js"></script>
+<script>
+(() => {
+  'use strict';
+  const T = WorldGen.T, N = 96;
+  const ROAD_VARIANTS = ['plain road', 'thorny path', 'snare lane', 'barricade road'];
+  const GROVE_AREAS = ['spring cave', 'goblin warrens', 'mushroom cavern', 'gemstone cavern'];
+
+  // ── The region: one hand-composed tile of realistic composition ──────────
+  const grid = new Uint8Array(N * N).fill(T.GRASS);
+  const ix = (x, y) => y * N + x;
+  const fill = (x0, y0, x1, y1, t) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) grid[ix(x, y)] = t; };
+  // west: meadow, forest patch, grove park (nexus), playground
+  fill(2, 2, 26, 30, T.GRASS); fill(4, 4, 18, 16, T.FOREST);
+  fill(6, 20, 22, 30, T.PARK); fill(26, 6, 32, 12, T.PLAYGROUND);
+  // residential: two streets each way, lots with houses
+  fill(34, 2, 94, 60, T.RESIDENTIAL);
+  const roadsNS = [[38, 2, 94], [58, 2, 60], [78, 2, 60]], roadsEW = [[34, 14, 94], [34, 34, 94], [34, 50, 94]];
+  for (const [x, y0, y1] of roadsNS) fill(x, y0, x + 1, y1, T.ROAD);
+  for (const [y, x0, x1] of roadsEW) fill(x0, y, x1, y + 1, T.ROAD);
+  let house = 0;
+  for (let by = 4; by < 48; by += 8) for (let bx = 42; bx < 92; bx += 18) {
+    if (roadsNS.some(([x]) => bx + 4 > x - 1 && bx < x + 3)) continue;
+    fill(bx, by, bx + 5, by + 3, T.BUILDING); house++;
+  }
+  // commercial block north-east (nexus adjacent), plus its buildings
+  fill(62, 2, 92, 12, T.COMMERCIAL);
+  for (let bx = 64; bx < 90; bx += 9) fill(bx, 4, bx + 5, 10, T.BUILDING);
+  // south: lake + beach strip
+  fill(2, 64, 94, 93, T.WATER); fill(2, 62, 94, 63, T.SAND);
+  fill(8, 68, 20, 78, T.WATER); // depth variation hint
+  // farmland patch west-south (spawn-gate story) and pitch
+  fill(2, 34, 26, 58, T.FARMLAND); fill(28, 44, 34, 56, T.PITCH);
+
+  const ANCHORS = [
+    { kind: 'grove', name: 'grove nexus (park)', x: 14, y: 25, r: 8 },
+    { kind: 'quarry', name: 'quarry nexus (rock)', x: 30, y: 52, r: 6 },
+    { kind: 'reef', name: 'reef nexus (water)', x: 60, y: 80, r: 7 },
+    { kind: 'temple', name: 'temple nexus (forest)', x: 10, y: 8, r: 5 },
+  ];
+
+  const surface = { grid, baseGrid: grid.slice(), cellsPerEdge: N, roadMask: new Uint8Array(N * N),
+    spawnWhy: new Uint16Array(N * N) };
+  const rng = seed => { let h = 2166136261 ^ seed; return () => { h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d); h ^= h >>> 12; h = Math.imul(h ^ (h >>> 2), 0x297a2d39); h ^= h >>> 15; return (h >>> 0) / 4294967296; }; };
+
+  // ── Floor computation ────────────────────────────────────────────────────
+  const currentCache = {};
+  function currentGrid(depth) {
+    if (depth === 0) return grid;
+    if (currentCache[depth]) return currentCache[depth];
+    const above = currentGrid(depth - 1);
+    const out = WorldGen.undergroundTerrain(surface, above, depth).grid;
+    currentCache[depth] = out; return out;
+  }
+
+  function warrenRooms(r, clearings) {
+    const rooms = [], cellFree = new Uint8Array(N * N);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const t = grid[ix(x, y)];
+      cellFree[ix(x, y)] = (t !== T.BUILDING && t !== T.WATER && t !== T.ROAD) ? 1 : 0;
+    }
+    for (const c of clearings) { const [cx, cy, cr] = c;
+      for (let y = cy - cr - 1; y <= cy + cr + 1; y++) for (let x = cx - cr - 1; x <= cx + cr + 1; x++)
+        if (x >= 0 && y >= 0 && x < N && y < N) cellFree[ix(x, y)] = 0; }
+    for (let y = 2; y < N - 8; y += 7) for (let x = 2; x < N - 10; x += 9) {
+      const w = 5 + Math.floor(r() * 5), h = 4 + Math.floor(r() * 4);
+      const ox = x + Math.floor(r() * 3), oy = y + Math.floor(r() * 3);
+      let ok = ox + w < N - 1 && oy + h < N - 1;
+      for (let yy = oy - 1; ok && yy <= oy + h + 1; yy++) for (let xx = ox - 1; xx <= ox + w + 1; xx++)
+        if (xx < 0 || yy < 0 || xx >= N || yy >= N || !cellFree[ix(xx, yy)]) { ok = 0; break; }
+      if (!ok) continue;
+      rooms.push({ x: ox, y: oy, w, h });
+      for (let yy = oy; yy < oy + h; yy++) for (let xx = ox; xx < ox + w; xx++) cellFree[ix(xx, yy)] = 0;
+    }
+    return rooms;
+  }
+
+  function proposedGrid(depth, variantIndex) {
+    const r = rng(0xBEEF + variantIndex * 7919);
+    if (depth === 1) return { grid: currentGrid(1), extra: [] };
+    if (depth === 2) { // goblin city: buildings are the only walls; warrens cover the rest
+      const out = new Uint8Array(N * N);
+      const groveArea = GROVE_AREAS[variantIndex % GROVE_AREAS.length];
+      const clearings = ANCHORS.map(a => [a.x, a.y, a.r]);
+      const open = (x, y) => { out[ix(x, y)] = T.CAVE_FLOOR; };
+      for (const [x, y0, y1] of roadsNS) for (let y = y0; y <= y1; y++) { open(x, y); open(x + 1, y); }
+      for (const [y, x0, x1] of roadsEW) for (let x = x0; x <= x1; x++) { open(x, y); open(x, y + 1); }
+      for (const a of ANCHORS) for (let y = a.y - a.r; y <= a.y + a.r; y++) for (let x = a.x - a.r; x <= a.x + a.r; x++)
+        if (x >= 0 && y >= 0 && x < N && y < N && Math.hypot(x - a.x, y - a.y) <= a.r) open(x, y);
+      const rooms = warrenRooms(r, clearings);
+      for (const room of rooms) for (let y = room.y; y < room.y + room.h; y++) for (let x = room.x; x < room.x + room.w; x++) open(x, y);
+      return { grid: out, rooms, clearings, groveArea };
+    }
+    if (depth === 3) { // deep stone: clearings mode shifted + road tunnels
+      const base = WorldGen.undergroundTerrain(surface, currentGrid(2), 2).grid;
+      const out = base.slice();
+      const allRoads = roadsNS.map(([x, y0, y1]) => ({ vert: true, a: x, b: y0, c: y1 }))
+        .concat(roadsEW.map(([y, x0, x1]) => ({ vert: false, a: y, b: x0, c: x1 })));
+      allRoads.forEach((road, i) => { if ((i + variantIndex) % 2 === 0) return; // ~half cleared
+        for (let s = road.b; s <= road.c; s++) for (let d = 0; d < 2; d++) {
+          const x = road.vert ? road.a + d : s, y = road.vert ? s : road.a + d;
+          out[ix(x, y)] = T.CAVE_FLOOR;
+        } });
+      return { grid: out, tunnels: allRoads.length };
+    }
+    if (depth === 4) { // fungal underdark: open + beds under woods
+      const out = WorldGen.undergroundTerrain(surface, currentGrid(3), 3).grid;
+      const beds = [];
+      for (let i = 0; i < out.length; i++) if (grid[i] === T.FOREST || grid[i] === T.PARK) beds.push(i);
+      return { grid: out, beds };
+    }
+    if (depth === 5) { // dead city: surface mirror + ruins + graves + hatch
+      const out = WorldGen.undergroundTerrain(surface, currentGrid(4), 4).grid;
+      const graves = [], r2 = rng(51);
+      while (graves.length < 12) { const x = 36 + Math.floor(r2() * 56), y = 4 + Math.floor(r2() * 54);
+        if (out[ix(x, y)] === T.CAVE_FLOOR && !graves.some(g => Math.abs(g[0] - x) < 3 && Math.abs(g[1] - y) < 3)) graves.push([x, y]); }
+      return { grid: out, graves, hatch: [76, 8] };
+    }
+    if (depth === 6) { // lava stratum: above + lava under buildings
+      const out = currentGrid(5).slice();
+      for (let i = 0; i < out.length; i++) if (out[i] === T.CAVE_WALL && grid[i] === T.BUILDING) out[i] = T.CAVE_LAVA;
+      return { grid: out, lava: true };
+    }
+    if (depth === 7 || depth === 8) { // dragon layer: mirror + dressing + roost
+      const out = currentGrid(6).slice(), ash = [];
+      const r3 = rng(depth * 31 + variantIndex);
+      for (let i = 0; i < out.length; i++) if (out[i] === T.CAVE_FLOOR && r3() < .06) ash.push(i);
+      let roost = null;
+      if (depth === 8) { let best = 0;
+        for (let y = 6; y < N - 6; y += 2) for (let x = 6; x < N - 6; x += 2) {
+          let open = 0; for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) if (out[ix(x + dx, y + dy)] === T.CAVE_FLOOR) open++;
+          if (open > best) { best = open; roost = [x, y]; } } }
+      return { grid: out, ash, roost };
+    }
+    return { grid: currentGrid(depth), extra: [] };
+  }
+
+  // ── Palette + render ─────────────────────────────────────────────────────
+  const PAL = {};
+  PAL[T.GRASS] = '#7aa860'; PAL[T.FOREST] = '#4c7a43'; PAL[T.PARK] = '#679f63'; PAL[T.GROVE] = '#5d9b63';
+  PAL[T.PLAYGROUND] = '#8fae6b'; PAL[T.PITCH] = '#7fa05f'; PAL[T.RESIDENTIAL] = '#a3936f';
+  PAL[T.COMMERCIAL] = '#b3936f'; PAL[T.FARMLAND] = '#c2b06a'; PAL[T.SAND] = '#d8cfa0';
+  PAL[T.WATER] = '#5f8fb0'; PAL[T.ROAD] = '#6e6a66'; PAL[T.BUILDING] = '#8a7355';
+  const CAVE = { floor: '#8f8574', wall: '#38352f', lava: '#c8501e', water: '#4a6d86' };
+  const FLOOR_NAMES = { 0: 'Surface - the town', 1: 'Floor 1 - natural caves', 2: 'Floor 2 - goblin city',
+    3: 'Floor 3 - deep stone', 4: 'Floor 4 - fungal Underdark', 5: 'Floor 5 - the haunted dead city',
+    6: 'Floor 6 - the lava stratum', 7: 'Floor 7 - dragon hunting grounds', 8: 'Floor 8 - the roosts' };
+  const TAGS = {
+    current: { 0: 'The painted surface: landcover via per-zone scatter/fill, roads, buildings, water and beach.',
+      1: "Shipped: the negative mirror of the surface - the game's own undergroundTerrain.",
+      2: 'Shipped: deep-stone clearings (parks/groves/commercial open). The city design moves this to floor 3.',
+      3: 'Shipped: the open Underdark (all cells open; surface chest mirrors).',
+      4: 'Shipped: the surface-mirror floor.', 5: 'Shipped: plain mirror + lava under buildings.',
+      6: 'Shipped: plain mirror (default profile row).', 7: 'Shipped: plain mirror (default profile row).', 8: 'Shipped: plain mirror (default profile row).' },
+    proposed: { 0: 'The same painted surface - every floor below reads this evidence.',
+      1: "Same as current: the negative mirror, street-mirrored routes, chasms down to the city.",
+      2: 'The goblin city: buildings are the only walls, roads stay open, warren rooms tile the rest; clearings at nexus anchors and the variant corridor.',
+      3: 'Deep stone: clearings plus roughly half the roads cleared as tunnels; everything else is stone you dig.',
+      4: 'The fungal Underdark: open ground; fungal beds under the surface woods (green tint).',
+      5: 'The dead city: the surface repeated in ruin - grave markers on the open ground, the arena hatch at the old plaza.',
+      6: 'The lava stratum: lava under every building footprint (and nowhere else).',
+      7: 'Dragon hunting grounds: the mirror with ash-bone drifts.',
+      8: 'The roosts: one roost on the largest open ground - hoard, clutches and the dragon.' }
+  };
+
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  let floor = 0, mode = 'current', variantIndex = 0;
+
+  function draw() {
+    const W = cv.width = innerWidth, H = cv.height = innerHeight;
+    const s = Math.max(2, Math.floor(Math.min(W / N, (H - 0) / N)));
+    const offX = Math.floor((W - N * s) / 2), offY = Math.floor((H - N * s) / 2);
+    ctx.fillStyle = '#14181a'; ctx.fillRect(0, 0, W, H);
+    const isSurface = floor === 0;
+    const data = mode === 'current' || floor <= 1
+      ? { grid: isSurface ? grid : currentGrid(floor) }
+      : proposedGrid(floor, variantIndex);
+    const cells = data.grid;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const i = ix(x, y);
+      let color;
+      if (isSurface) color = PAL[cells[i]] || '#777';
+      else {
+        const v = cells[i];
+        if (mode === 'proposed' && floor === 2)
+          color = v === T.CAVE_FLOOR ? (grid[i] === T.ROAD ? '#9b8d6d' : CAVE.floor)
+            : (grid[i] === T.BUILDING ? CAVE.wall : '#464129');
+        else if (v === WorldGen.T.CAVE_FLOOR) color = CAVE.floor;
+        else if (v === WorldGen.T.CAVE_WALL) color = CAVE.wall;
+        else if (v === WorldGen.T.CAVE_LAVA) color = CAVE.lava;
+        else if (v === WorldGen.T.WATER) color = CAVE.water;
+        else color = PAL[v] || '#777';
+        if (mode === 'proposed') {
+          if (floor === 3) color = v === WorldGen.T.CAVE_FLOOR ? CAVE.floor : '#2e2b26';
+          if (floor === 4 && data.beds && data.beds.includes(i)) color = '#7fae9b';
+          if (floor === 7 || floor === 8) { if (data.ash && data.ash.includes(i)) color = '#6f6558'; }
+          if (floor === 5 && grid[i] === T.BUILDING) color = '#5c564d';
+        }
+      }
+      ctx.fillStyle = color; ctx.fillRect(offX + x * s, offY + y * s, s, s);
+    }
+    // variant corridor: the first N-S road carries the road variant
+    if (isSurface && variantIndex > 0) {
+      ctx.strokeStyle = ['#0000', '#c7743f', '#b8a53f', '#8f4a52'][variantIndex % 4];
+      ctx.lineWidth = Math.max(2, s * .45);
+      ctx.beginPath();
+      ctx.moveTo(offX + (38 + 1) * s, offY + 4 * s); ctx.lineTo(offX + 39 * s, offY + 92 * s);
+      ctx.stroke();
+    }
+    // anchors + markers
+    ctx.font = `${Math.max(10, s * 1.6)}px 'Segoe UI', sans-serif`; ctx.textBaseline = 'top';
+    for (const a of ANCHORS) {
+      ctx.strokeStyle = mode === 'proposed' && floor === 2 ? '#d8c979' : '#e8e4da';
+      ctx.setLineDash([4, 3]); ctx.beginPath();
+      ctx.arc(offX + (a.x + .5) * s, offY + (a.y + .5) * s, a.r * s, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+      if (isSurface) { ctx.fillStyle = '#e8e4da'; ctx.fillText(a.name, offX + (a.x - a.r) * s, offY + (a.y + a.r + .6) * s); }
+    }
+    if (mode === 'proposed') {
+      if (floor === 2 && data.clearings) for (const [cx, cy, cr] of data.clearings) {
+        ctx.fillStyle = '#d8c97944'; ctx.beginPath();
+        ctx.arc(offX + (cx + .5) * s, offY + (cy + .5) * s, cr * s, 0, 7); ctx.fill(); }
+      if (floor === 4) { ctx.fillStyle = '#c9e2c2'; ctx.fillText('fungal beds under the woods', offX + 6 * s, offY + 18 * s); }
+      if (floor === 5 && data.graves) { ctx.fillStyle = '#b9c2c9';
+        for (const [gx, gy] of data.graves) ctx.fillRect(offX + gx * s + s * .2, offY + gy * s, Math.max(2, s * .6), Math.max(2, s * .6));
+        if (data.hatch) { ctx.fillStyle = '#d8a53f'; ctx.fillRect(offX + data.hatch[0] * s, offY + data.hatch[1] * s, s * 2, s * 2);
+          ctx.fillStyle = '#d8a53f'; ctx.fillText('arena hatch', offX + (data.hatch[0] + 2.5) * s, offY + data.hatch[1] * s); } }
+      if (floor === 8 && data.roost) { const [rx, ry] = data.roost;
+        ctx.fillStyle = '#e7c24a'; ctx.beginPath(); ctx.arc(offX + (rx + .5) * s, offY + (ry + .5) * s, s * 2.4, 0, 7); ctx.fill();
+        ctx.fillStyle = '#e7c24a'; ctx.fillText('roost: hoard + dragon', offX + (rx + 3) * s, offY + ry * s); }
+    }
+    document.getElementById('tag').innerHTML =
+      `<b>${FLOOR_NAMES[floor]}</b> - ${mode === 'current' ? 'current code' : 'proposed design'}<br>${TAGS[mode][floor]}` +
+      (mode === 'proposed' && floor === 2 ? `<br>Grove anchor area pick: <b>${data.groveArea}</b>` : '');
+    document.getElementById('variantName').innerHTML =
+      `${variantIndex} &middot; ${ROAD_VARIANTS[variantIndex % 4]} / ${GROVE_AREAS[variantIndex % 4]}`;
+  }
+
+  // legend
+  const legendEl = document.getElementById('legend');
+  const legend = isCave => isCave
+    ? [[CAVE.floor, 'cave floor'], [CAVE.wall, 'wall'], [CAVE.lava, 'lava'], ['#9b8d6d', 'open street'], ['#464129', 'warren wall'], ['#d8c97944', 'clearing']]
+    : [['#7aa860', 'grass'], ['#4c7a43', 'forest'], ['#a3936f', 'residential'], ['#b3936f', 'commercial'], ['#8a7355', 'building'], ['#6e6a66', 'road'], ['#5f8fb0', 'water'], ['#d8cfa0', 'beach'], ['#c2b06a', 'farmland']];
+  function syncLegend() {
+    legendEl.innerHTML = legend(floor > 0)
+      .map(([c, n]) => `<span><i class="sw" style="background:${c}"></i>${n}</span>`).join('');
+  }
+  const floorSeg = document.getElementById('floorSeg');
+  for (const f of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
+    const b = document.createElement('button'); b.textContent = f === 0 ? 'S' : String(f);
+    b.onclick = () => { floor = f; [...floorSeg.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); draw(); syncLegend(); };
+    if (f === 0) b.classList.add('on');
+    floorSeg.appendChild(b);
+  }
+  document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => {
+    mode = b.dataset.mode;
+    document.querySelectorAll('#modeSeg button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); draw(); syncLegend();
+  });
+  document.getElementById('vMinus').onclick = () => { variantIndex = Math.max(0, variantIndex - 1); draw(); };
+  document.getElementById('vPlus').onclick = () => { variantIndex = variantIndex + 1; draw(); };
+  addEventListener('resize', draw);
+  syncLegend(); draw();
+})();
+</script>
+</body></html>
