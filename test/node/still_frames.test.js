@@ -117,12 +117,13 @@ test('still frames: a view that only BREATHES keys on the slower pulse clock', (
 test('still frames: draw() reads the quantised clock and gates before it touches the canvas', () => {
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/const now = lightClock\(wall\);/.test(d) && /const wall = Date\.now\(\);/.test(d), 'the frame clock is the lightmap\'s own, not the wall clock');
-  const gate = d.indexOf('if (key === tex.__lightKey)');
+  const gate = d.indexOf('if (key === tex.__lightKey');
   const paint = d.indexOf('const ctx = tex.context;');
   const refresh = d.indexOf('tex.refresh();');
   assert.truthy(gate > 0 && paint > gate && refresh > paint, 'the gate sits before the first canvas call, the upload last');
   assert.eq((d.match(/tex\.refresh\(\);/g) || []).length, 1, 'one upload per painted step, none on a reused one');
-  assert.truthy(/if \(key === tex\.__lightKey\) \{[\s\S]*?return false;/.test(d), 'a matching key returns without painting');
+  assert.truthy(/if \(key === tex\.__lightKey && !contributionPending\(scene\)\) \{[\s\S]*?return false;/.test(d),
+    'a matching key returns without painting unless a deferred contribution rebuild is due');
   assert.truthy(/tex\.__lightKey = key;/.test(d), 'and a painted key is remembered on the texture itself, so a rebuilt texture starts fresh');
 });
 

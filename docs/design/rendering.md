@@ -57,7 +57,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   canvas multiplied over the world. Do not add darkness passes or dim sprites
   again. Its screen-attached base (ambient plus player ramp) stays baked while
   walking; transparent, padded reach-cell masks crop with the camera and rebuild
-  only when their geometry or validity edge changes. A viewport scratch blends
+  only when their geometry or validity edge changes. If the normal validity edge
+  lands on `drawCells`' crossing frame, the mask borrows the remaining physical
+  pad once and rebuilds on the next ordinary frame; it never crops past the
+  painted edge. A viewport scratch blends
   old/new masks at their live fade weights and colours them with the radial
   gradient still centred on the body. Stable world cookies join padded caches
   by their exact whole-pixel phase. Player-attached, breathing, flickering and

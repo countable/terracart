@@ -1723,20 +1723,35 @@
   // sole refresh, preserving one-pass MULTIPLY and the Canvas fallback.
   function contributionFrames(scene, W, H, ox, oy, plateau, pc, frames) {
     const items = [];
-    if (!plateau) return { items, rebuilt: false };
+    if (!plateau) {
+      for (const e of scene._lightContribution?.entries || []) e.pending = false;
+      return { items, rebuilt: false, deferred: false };
+    }
     const pad = LIGHT_CACHE_PAD_CELLS * CELL_PX;
     const limit = LIGHT_CACHE_LIMIT_CELLS * CELL_PX;
     const placement = plateauPlacement(scene, pc);
     const st = scene._lightContribution || (scene._lightContribution = { entries: [], rebuilds: 0, serial: 0 });
-    let rebuilt = false;
+    let rebuilt = false, deferred = false;
     for (const frame of frames) {
       if (frame.weight <= 0) continue;
       const key = contributionKey(scene, frame, placement);
       let entry = st.entries.find(e => e.key === key);
       let qx = entry ? entry.placement.x - placement.x + ox - entry.ox : 0;
       let qy = entry ? entry.placement.y - placement.y + oy - entry.oy : 0;
-      let reusable = !!entry && entry.canvas.width === W + 2 * pad && entry.canvas.height === H + 2 * pad
-        && Math.abs(qx) < limit && Math.abs(qy) < limit;
+      const sized = !!entry && entry.canvas.width === W + 2 * pad && entry.canvas.height === H + 2 * pad;
+      const insideLimit = sized && Math.abs(qx) < limit && Math.abs(qy) < limit;
+      const insidePaint = sized && Math.abs(qx) < pad && Math.abs(qy) < pad;
+      let reusable = insideLimit && !entry.pending;
+      // drawCells owns crossing detection. When the ordinary 1.5-cell rebuild
+      // threshold lands on that already-heavy frame, use the remaining half-
+      // cell of painted pad once and rebuild on the next ordinary frame. The
+      // physical 2-cell edge is absolute: never crop outside it.
+      if (sized && scene._boot_crossing && insidePaint && (!insideLimit || entry.pending)) {
+        entry.pending = true;
+        reusable = true;
+        deferred = true;
+      }
+      if (entry && entry.pending && !scene._boot_crossing) reusable = false;
       if (!reusable) {
         if (!entry) {
           if (st.entries.length < 4) {
@@ -1758,6 +1773,7 @@
         entry.key = key;
         entry.placement = placement;
         entry.ox = ox; entry.oy = oy;
+        entry.pending = false;
         qx = qy = 0;
         st.rebuilds++;
         rebuilt = true;
@@ -1765,7 +1781,13 @@
       entry.used = ++st.serial;
       items.push({ canvas: entry.canvas, sx: pad + qx, sy: pad + qy, weight: frame.weight });
     }
-    return { items, rebuilt };
+    // A mask that left the fade before repayment needs no rebuild; do not let
+    // its stale pending bit bypass the still gate forever.
+    if (!scene._boot_crossing) for (const e of st.entries) e.pending = false;
+    return { items, rebuilt, deferred };
+  }
+  function contributionPending(scene) {
+    return !!scene._lightContribution?.entries?.some(e => e.pending);
   }
 
   // Combine the cached CELL SHAPES at their live fade weights, then colour
@@ -1859,7 +1881,10 @@
     const fadeKey = reachFramesKey(frames);
     const B = (typeof window !== 'undefined') ? window.__boot : null;
     const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey;
-    if (key === tex.__lightKey) {
+    // A crossing may have borrowed the cache's last half-cell of physical
+    // pad. Even if every visual key holds, the next ordinary frame must pay
+    // back that deferred rebuild before the still gate can return.
+    if (key === tex.__lightKey && !contributionPending(scene)) {
       scene._boot_lightMs = 0;
       if (B) B.count('lightmap painted', 0);
       return false;
@@ -1919,6 +1944,9 @@
       B.tick('lighting', dt);
       B.count('lightmap painted', 1);
       B.count('light contribution painted', contribution.rebuilt ? 1 : 0);
+      B.count('light contribution deferred', contribution.deferred ? 1 : 0);
+      B.count('light contribution rebuilt @crossing',
+        scene._boot_crossing && contribution.rebuilt ? 1 : 0);
       B.count('light cookie cache painted', cookies.rebuilt ? 1 : 0);
       B.count('light cookies stamped', cookies.excluded.length);
       B.count('light cookies cached', cookies.cached);
