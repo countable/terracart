@@ -277,7 +277,7 @@ test('steady state: a still, breathing view bakes the lightmap\'s static layer o
   assert.truthy(/let k = staticFrameKey\(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx\);/.test(d), 'frameKey starts from staticFrameKey');
 });
 
-test('steady state: sub-pad walking crops the reach mask cache, and pad exhaustion rebuilds it once', () => {
+test('steady state: a crossing borrows reach-pad slack, then the next ordinary frame rebuilds', () => {
   const W = 352;
   const fk = fakeCanvasWorld();
   const realCreate = document.createElement, realNow = Date.now;
@@ -286,7 +286,7 @@ test('steady state: sub-pad walking crops the reach mask cache, and pad exhausti
   const scene = {
     depth: 0, cellM: 8, cellsPerTile: WorldGen.TILE_PX,
     startWorldM: { x: 0, y: 0 }, playerM: { x: 100, y: 100 }, originPx: { x: 0, y: 0 },
-    mPerPx: 1, feetOffsetM: 0,
+    mPerPx: 8, feetOffsetM: 0,
     save: { energy: 100, maxEnergy: 100, fires: [] },
     _atmos: { dim: 0x1a2a1e }, isClaimedKey: () => false,
     viewCenterX: W / 2, viewCenterY: W / 2, viewLeft: 0, viewTop: 0, viewSize: W,
@@ -319,11 +319,21 @@ test('steady state: sub-pad walking crops the reach mask cache, and pad exhausti
     const live = gradients[gradients.length - 1];
     assert.eq(live.args[0], W / 2); assert.eq(live.args[1], W / 2,
       'the cached reach mask is recoloured around the live body, not its old world point');
-    scene.peekM.x += 13;                          // 56 px total: past the 1.5-cell validity limit
-    assert.truthy(paint(), 'walking past the validity limit paints');
-    assert.eq(scene._lightContribution.rebuilds, 2, 'pad exhaustion rebuilds exactly once');
+    scene.peekM.x += 13;                          // 56 px total: past 1.5 cells, inside the 2-cell paint
+    scene._boot_crossing = true;
+    assert.truthy(paint(), 'the crossing frame still composes from the padded cache');
+    assert.eq(scene._lightContribution.rebuilds, 1, 'a crossing with physical slack performs no full rebuild');
+    assert.truthy(scene._lightContribution.entries.some(e => e.pending), 'the borrowed pad is marked for repayment');
+    scene._boot_crossing = false;
+    assert.truthy(paint(), 'the next ordinary frame bypasses the still gate to repay the rebuild');
+    assert.eq(scene._lightContribution.rebuilds, 2, 'the next ordinary frame performs exactly one rebuild');
+    assert.falsy(scene._lightContribution.entries.some(e => e.pending), 'the pending mark clears');
     assert.falsy(paint(), 'an identical still step returns at the full-frame gate');
     assert.eq(scene._lightContribution.rebuilds, 2, 'the still gate performs no hidden contribution work');
+    scene.peekM.x += 16;                          // 64 px from the fresh anchor: no physical slack
+    scene._boot_crossing = true;
+    assert.truthy(paint());
+    assert.eq(scene._lightContribution.rebuilds, 3, 'physical pad exhaustion rebuilds even on a crossing');
   } finally {
     document.createElement = realCreate;
     Date.now = realNow;
