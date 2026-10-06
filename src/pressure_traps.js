@@ -74,7 +74,7 @@
       const end = clearSegment(scene, pair.trap, pair.plate);
       if (Math.hypot(end.x - pair.plate.x, end.y - pair.plate.y) > .001) continue;
       const env = root.EnvironmentHazards.lists(scene);
-      if ([...s.plates, ...s.traps, ...env.vents, ...env.sinkholes].some(h =>
+      if ([...s.plates, ...s.traps, ...env.vents, ...env.sinkholes, ...env.caveins].some(h =>
         Math.hypot(h.x - pair.plate.x, h.y - pair.plate.y) < scene.cellM * 1.5
         || Math.hypot(h.x - pair.trap.x, h.y - pair.trap.y) < scene.cellM * 1.5)) continue;
       pair.trap.visitKey = key;

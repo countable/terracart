@@ -144,7 +144,7 @@
               fix('mushroom', 0.04, 0.10, S.MUSH_FOREST)],
     },
     // Occasional beach finds; keep the sand and waterline mostly clear.
-    sand:  { flora: [fix('shell', 0.022, 0.035, S.SHELL), fix('driftwood', 0.0075, 0.0075, 0xd71f700d)] },
+    sand:  { flora: [fix('shell', 0.022, 0.035, S.SHELL), fix('driftwood', 0.006, 0.006, 0xd71f700d)] },
     rocky: { flora: [] },
     farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)] },
     urban: {

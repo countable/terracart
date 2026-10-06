@@ -34,6 +34,9 @@
         || !over(scene, hole) || root.Combat.playerDowned(scene.save.energy)) return false;
     const depth = scene.depth;
     if (depth + 1 === root.WorldGen.ARENA_DEPTH || depth === root.WorldGen.ARENA_DEPTH) return false;
+    // A sealed floor never opens beneath the player either (same table the
+    // minting side reads - DungeonProgression.ROPE_SEALED_FLOORS).
+    if (root.DungeonProgression && !root.DungeonProgression.ropeCanDescend(depth)) return false;
     scene._hazardFallPending = true;
     try {
       const edge = scene.tileEdgeM, tx = Math.floor(hole.x / edge), ty = Math.floor(hole.y / edge);

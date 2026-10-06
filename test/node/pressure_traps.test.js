@@ -101,4 +101,10 @@
     assert.eq(EnvironmentHazards.lists(s).vents.length, 0, 'vent cannot appear underneath the plate');
     assert.eq(EnvironmentHazards.lists(s).sinkholes.length, 0, 'pit cannot remove the pressure plate');
   }));
+  test('pressure traps: permanent cave-in seats reserve their ground', () => fixture(s => {
+    WorldGen.makeRng = () => () => 0;
+    EnvironmentHazards.lists(s).caveins.push(EnvironmentHazards.create(s, 'cavein', { cellIX: 5, cellIY: 3 }, 'permanent'));
+    PressureTraps.observe(s);
+    assert.eq(PressureTraps.lists(s).plates.length, 0);
+  }));
 })();

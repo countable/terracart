@@ -154,7 +154,7 @@
   const WATERLINE_CELLS = 1.5;
   // What the tide leaves, by one hash of (cell, day): driftwood this often,
   // else a shell.
-  const TIDE_DRIFTWOOD_P = 0.40;
+  const TIDE_DRIFTWOOD_P = 0.32;
   // MESSAGE BOTTLES: at most this many per tile, on waterline cells, the
   // lowest hashes of their cell ids — the same seats for every player. A
   // bottle is a ground pickup that reads one Book page (interactables.js

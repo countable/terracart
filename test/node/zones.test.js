@@ -89,11 +89,12 @@ test('zones: which POIs anchor which kind', () => {
 
 // ── The formula ─────────────────────────────────────────────────────────────
 test('zones: R is the kind\'s cap shrunk by crowding, clamped to R_MIN', () => {
-  assert.eq(Z.ZONE_KINDS.grove.R, 60); assert.eq(Z.ZONE_KINDS.stones.R, 80); assert.eq(Z.ZONE_KINDS.tar.R, 50);
+  assert.eq(Z.ZONE_KINDS.grove.R, 60); assert.eq(Z.ZONE_KINDS.stones.R, 80); assert.eq(Z.ZONE_KINDS.tar.R, 37.5);
   assert.eq(Z.R_MIN_M, 30); assert.eq(Z.MERGE_M, 40); assert.eq(Z.W_MAX_M, 200);
   assert.eq(Z.radiusFor('grove', 0), 60, 'alone: the cap');
-  assert.eq(Z.radiusFor('tar', 0), 50, 'isolated fuel station has a 50 m halo');
-  assert.eq(Z.radiusFor('tar', 1), 30, 'crowded fuel station respects the shared floor');
+  assert.eq(Z.radiusFor('tar', 0), 37.5, 'isolated fuel station has a 37.5 m halo');
+  assert.eq(Z.radiusFor('tar', 1), 22.5, 'crowded fuel station has a proportionally reduced floor');
+  for (const q of [0, .1, .5, 1, 5]) near(Z.radiusFor('tar', q), .75 * Math.max(30, 50 / (1 + q)), 1e-12, '25% reduction at every density');
   assert.eq(Z.radiusFor('grove', 5), 30, 'crowded: the floor');
   // The window fits the buffer at play latitudes (Berlin's row is the tightest).
   for (const ty of [5370, 5566, 5700]) assert.eq(Z.windowM(ty), 200, `row ${ty}: W = 200`);
@@ -113,7 +114,7 @@ test('zones: the merge drops the later key within MERGE_M, and q is symmetric', 
   assert.truthy(out.every((a) => !(a.gx === gx0 + u(20) && a.gy === gy0)), 'the LATER key goes');
   near(out[0].q, out[1].q, 1e-9, 'each is the other\'s crowding');
   near(out[0].q, 1 - 100 / 200, 0.01, 'q = 1 − d/W');
-  near(out[0].R, 50 / (1 + out[0].q), 1e-9, 'R = R_kind / (1 + q)');
+  near(out[0].R, 37.5 / (1 + out[0].q), 1e-9, 'R = R_kind / (1 + q)');
 });
 function near(a, b, eps, m) { assert.truthy(Math.abs(a - b) <= eps, `${m}: ${a} vs ${b}`); }
 

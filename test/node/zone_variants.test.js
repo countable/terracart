@@ -146,14 +146,14 @@ test('zone variants: repeated geometry preserves densities and phase across nega
   for (const row of V.rows.filter(v => v.background.type === 'repeat_motif')) {
     const b = row.background, [w, h] = b.repeatCells;
     // Four block phases include the full flower-bed color cycle.
-    const fixed = { ...row, background: { ...b, gapScatter: null } };
+    const fixed = { ...row, background: { ...b, gapScatter: null, materialKeepChance: null } };
     const counts = count(fixed, -2 * w, -h, 4 * w, h, 'anchor');
     const area = 4 * w * h;
     const empty = area - Object.values(counts).reduce((n, value) => n + value, 0);
     const expected = Object.assign({}, b.materialDensity, b.hazardDensity);
     for (const [material, density] of Object.entries(expected)) {
       const scatter = b.gapScatter && material === b.gapScatter.material ? empty / area * b.gapScatter.chance : 0;
-      assert.lt(Math.abs(counts[material] / area + scatter - density), 1e-12, `${row.id}/${material}`);
+      assert.lt(Math.abs(counts[material] / area * (b.materialKeepChance?.[material] ?? 1) + scatter - density), 1e-12, `${row.id}/${material}`);
     }
   }
   const formal = V.byId('formal_garden'), [w, h] = formal.background.repeatCells;
@@ -170,6 +170,23 @@ test('zone variants: repeated geometry preserves densities and phase across nega
     assert.gte(flowerBeds, 1, 'at least one pale flower bed per repeat');
     assert.lte(orangeBeds, 1, 'at most one accent bed per repeat');
     for (let y = 0; y < h; y++) assert.eq(V.sample(formal, bx * w + 3, y - h, 'a'), null, 'central aisle remains open');
+  }
+});
+test('zone variants: beach driftwood thins repeated seats by one fifth without changing other materials', () => {
+  for (const id of ['pirate_cove', 'shellwater_strand']) {
+    const row = V.byId(id), original = { ...row, background: { ...row.background, materialKeepChance: null } };
+    let before = 0, after = 0;
+    for (let y = -150; y < 150; y++) for (let x = -150; x < 150; x++) {
+      const was = V.sample(original, x, y, 'coast'), now = V.sample(row, x, y, 'coast');
+      if (was !== 'driftwood') assert.eq(now, was, `${id}: other materials retain their seats`);
+      else {
+        before++;
+        assert.truthy(now === null || now === 'driftwood');
+        if (now) after++;
+      }
+      assert.eq(now, V.sample(row, x, y, 'coast'), 'deterministic across repeat calls');
+    }
+    assert.inRange(after / before, 0.78, 0.82, `${id}: retains 80% of driftwood`);
   }
 });
 test('zone variants: seeded scatter has declared mix without dependence on traversal order', () => {
@@ -205,7 +222,7 @@ test('zone variants: Mushroom Grove avoids wide empty strips at every repeated p
 test('zone variants: Ancient Grove keeps rounded clusters and scatters grass only between them', () => {
   const row = V.byId('ancient_grove'), b = row.background;
   assert.eq(b.repeatCells.join(','), '6,6');
-  const fixed = { ...row, background: { ...b, gapScatter: null } };
+  const fixed = { ...row, background: { ...b, gapScatter: null, materialKeepChance: null } };
   let empty = 0, grass = 0, changed = 0;
   for (let y = -90; y < 90; y++) for (let x = -90; x < 90; x++) {
     const material = V.sample(row, x, y, 'one'), slot = V.sample(fixed, x, y, 'one');
@@ -341,7 +358,7 @@ test('bush groves keep their authored background density before placement exclus
    const row=ZoneVariants.byId(id); let shrubs=0;
    assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : 'ordinary');
    for(let y=0;y<120;y++) for(let x=0;x<120;x++) if(ZoneVariants.sample(row,x,y,'coverage')==='shrub')shrubs++;
-   const density = id === 'meadow' ? 0.35 : 0.5;
+   const density = id === 'meadow' ? 0.315 : 0.5;
    assert.eq(row.background.materialDensity.shrub, density);
    if (id === 'meadow') assert.eq(row.background.nominalDensity, density);
    assert.inRange(shrubs/14400, density - 0.02, density + 0.02, id);

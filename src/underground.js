@@ -50,7 +50,9 @@
     const W = root.WorldGen, data = surfaceData(surface), cellM = tileEdgeM / N;
     const routes = [], routeAt = new Map(), lane = new Set(), streetCells = new Set();
     const out = { routes, routeAt, lane, streetCells, data, depth, N, tx, ty, tileEdgeM };
-    if (depth < 1 || depth > 2) return out;
+    // Street mirroring is a floor-profile flag (WorldGen.FLOOR_PROFILES),
+    // not a depth literal: floors that opt in project surface routes down.
+    if (!root.WorldGen.floorProfile?.(depth)?.streetMirror) return out;
     for (const layer of surface.layers || []) {
       if (layer.name !== 'transportation') continue;
       const scale = tileEdgeM / (layer.extent || 4096);
@@ -97,7 +99,7 @@
   }
   function decorate(plan, grid, objects, wildplants, occupied) {
     const W = root.WorldGen, { N, tx, ty, tileEdgeM, depth, data } = plan, cellM = tileEdgeM / N;
-    if (depth < 1 || depth > 2) return;
+    if (!root.WorldGen.floorProfile?.(depth)?.streetMirror) return;
     const index = o => Math.floor((o.y - ty * tileEdgeM) / cellM) * N + Math.floor((o.x - tx * tileEdgeM) / cellM);
     const keyAt = i => `${tx}/${ty}/${i % N}/${Math.floor(i / N)}/${depth}`;
     const reserved = new Set(plan.lane), approaches = new Set();

@@ -74,16 +74,16 @@
     assert.eq(owner(f,32,20)?.kind,'quarry','ordinary ground remains eligible');
   });
 
-  test('quarry coverage: removed lot lanes can claim inferred private land without lifting genuine restrictions', () => {
+  test('quarry coverage: removed lot lanes preserve private land and site exclusions', () => {
     const T=WorldGen.T, W=WorldGen.SPAWN_WHY;
     const grid = new Uint8Array(N*N).fill(T.COMMERCIAL), spawnWhy = new Uint16Array(N*N).fill(W.PRIVATE|W.BEHIND_HOUSE);
     spawnWhy[20*N+25] |= W.RESTRICTED;
     const f = build([lane([[20,20],[30,20]])], {grid,spawnWhy});
-    assert.eq(owner(f,22,20)?.kind,'quarry','inferred commercial frontage no longer blocks the lot');
+    assert.falsy(owner(f,22,20),'private and behind-house land stays excluded');
     assert.falsy(owner(f,25,20),'restricted site remains protected');
     run(ZoneCoverage.paintSteps(f,grid,N,{},null,spawnWhy));
-    assert.eq(grid[20*N+22],T.ROCK);
-    assert.eq(spawnWhy[20*N+22] & (W.PRIVATE|W.BEHIND_HOUSE),0);
+    assert.eq(grid[20*N+22],T.COMMERCIAL);
+    assert.eq(spawnWhy[20*N+22],W.PRIVATE|W.BEHIND_HOUSE);
     assert.truthy(spawnWhy[20*N+25] & W.RESTRICTED,'painting preserves hard restriction');
   });
 

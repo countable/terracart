@@ -47,6 +47,17 @@
       assert.eq(s.save.conditions[condition].remainingMs, duration);
     }
   }));
+  test('environment hazards: sealed floors never open sinkholes', () => fixture((s) => {
+    s.depth = 2;
+    const sealed = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 3, cellIY: 3 }, 'hole');
+    assert.falsy(EnvironmentHazards.eligible(s, sealed), '2 -> 3 belongs to the elevator');
+    s.depth = 6;
+    const wizard = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 3, cellIY: 3 }, 'hole');
+    assert.falsy(EnvironmentHazards.eligible(s, wizard), '6 -> 7 belongs to the wizard key');
+    s.depth = 5;
+    const open = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 3, cellIY: 3 }, 'hole');
+    assert.truthy(EnvironmentHazards.eligible(s, open), '5 -> 6 keeps its pits');
+  }));
   test('environment hazards: sinkhole 2x2 footprint crosses seams and refuses every blocked cell', () => fixture((s, entries) => {
     const h = EnvironmentHazards.create(s, 'sinkhole', { cellIX: 7, cellIY: 3 }, 'hole');
     assert.eq(h.x, 64); assert.eq(h.y, 32);
@@ -159,5 +170,102 @@
       [5120, 'opening', 4], [5240, 'open', 5], [10240, 'closing', 7], [10840, 'closed', 11]]) {
       h.elapsedMs = time; EnvironmentHazards.update(h); assert.eq(h.phase, phase); assert.eq(h.frame, frame);
     }
+  }));
+  function quarry(s, entries, variant = 'quarry-abandoned') {
+    s.depth = 0;
+    for (const e of entries) {
+      e.grid.fill(WorldGen.T.ROCK);
+      e.zone = { anchors: [{ kind: 'quarry', variant }], coverage: new Uint16Array(64).fill(1) };
+    }
+    WorldGen.makeRng = () => () => 0;
+  }
+  test('environment hazards: stepped quarry cracks become permanent single-cell pits after exactly five foreground seconds', () => fixture((s, entries) => {
+    quarry(s, entries);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'hidden until stepped on');
+    EnvironmentHazards.observe(s);
+    const h = EnvironmentHazards.lists(s).caveins[0];
+    assert.truthy(h); assert.eq(h.cellIX, 3); assert.eq(h.cellIY, 3);
+    assert.eq(EnvironmentHazards.footprint(s, h).length, 1);
+    assert.eq(h.phase, 'warning'); assert.eq(h.frame, 0);
+    WorldGen.makeRng = () => () => .99; s.playerM = { x: 4, y: 4 };
+    advance(s, 4900); assert.eq(h.phase, 'warning'); assert.lt(h.frame, 56);
+    advance(s, 100); assert.eq(h.phase, 'open'); assert.eq(h.frame, 63);
+    advance(s, 30000); assert.eq(h.phase, 'open', 'pit never closes');
+    const saved = JSON.parse(JSON.stringify(s.save));
+    s.save = saved; s._environmentHazards = new Map();
+    const restored = EnvironmentHazards.lists(s).caveins[0];
+    assert.eq(restored.id, h.id); assert.eq(restored.phase, 'open'); assert.eq(restored.frame, 63);
+    assert.eq(restored.cellIX, 3); assert.eq(restored.widthCells, 1);
+  }));
+  test('environment hazards: saved quarry warnings resume their foreground clock without a new roll', () => fixture((s, entries) => {
+    quarry(s, entries); EnvironmentHazards.observe(s);
+    const h = EnvironmentHazards.lists(s).caveins[0];
+    WorldGen.makeRng = () => () => .99; s.playerM = { x: 4, y: 4 };
+    advance(s, 2200); s.save = JSON.parse(JSON.stringify(s.save)); s._environmentHazards = new Map();
+    const restored = EnvironmentHazards.lists(s).caveins[0];
+    assert.eq(restored.elapsedMs, 2200); assert.eq(restored.id, h.id);
+    advance(s, 2700); assert.eq(restored.phase, 'warning');
+    advance(s, 100); assert.eq(restored.phase, 'open');
+  }));
+  test('environment hazards: quarry cave-ins keep shared spawn exclusions and live structure protection', () => fixture((s, entries) => {
+    quarry(s, entries); const e = entries[0];
+    for (const reason of ['PRIVATE', 'BEHIND_HOUSE', 'RESTRICTED', 'FARMLAND', 'GOLF']) {
+      s._environmentHazards = new Map(); e._spawnOpts.spawnWhy[27] = WorldGen.SPAWN_WHY[reason];
+      EnvironmentHazards.observe(s); assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, reason);
+    }
+    e._spawnOpts.spawnWhy.fill(0); e.objects.push({ kind: 'house', x: 28, y: 28 });
+    s._environmentHazards = new Map(); EnvironmentHazards.observe(s);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'occupied quarry floor remains protected');
+    e.objects.length = 0; e.grid[27] = WorldGen.T.CAVE_LAVA;
+    s._environmentHazards = new Map(); EnvironmentHazards.observe(s);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'crater lava cannot cave in');
+  }));
+  test('environment hazards: strip mines mint random sinkholes instead of permanent cave-ins', () => fixture((s, entries) => {
+    quarry(s, entries, 'quarry-strip-mine'); EnvironmentHazards.observe(s);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0);
+    const holes = EnvironmentHazards.lists(s).sinkholes;
+    assert.eq(holes.length, 1); assert.eq(holes[0].widthCells, 2);
+    const first = JSON.stringify(holes);
+    s._environmentHazards = new Map(); EnvironmentHazards.observe(s);
+    assert.eq(JSON.stringify(EnvironmentHazards.lists(s).sinkholes), first, 'stable placement and duration');
+    s._environmentHazards = new Map(); entries[0].zone.coverage.fill(0); entries[0].zone.coverage[27] = 1;
+    EnvironmentHazards.observe(s);
+    assert.eq(EnvironmentHazards.lists(s).sinkholes.length, 0, 'whole sinkhole stays inside strip-mine coverage');
+  }));
+  test('environment hazards: live obstructions suppress permanent pits without erasing their save', () => fixture((s, entries) => {
+    quarry(s, entries); EnvironmentHazards.observe(s);
+    const h = EnvironmentHazards.lists(s).caveins[0];
+    WorldGen.makeRng = () => () => .99; s.playerM = { x: 4, y: 4 };
+    entries[0].objects.push({ kind: 'house', x: 28, y: 28 });
+    advance(s, 5000);
+    assert.eq(h.phase, 'open'); assert.truthy(h.blocked);
+    assert.eq(s.save.caveIns[h.id].elapsedMs, 5000);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 1);
+    entries[0].objects.length = 0; advance(s, 1000);
+    assert.falsy(h.blocked); assert.eq(h.phase, 'open');
+    assert.eq(EnvironmentHazards.lists(s).caveins[0].id, h.id);
+  }));
+  test('environment hazards: permanent cave-ins can cause another fall after returning', () => fixture(async (s, entries) => {
+    quarry(s, entries); EnvironmentHazards.observe(s);
+    const h = EnvironmentHazards.lists(s).caveins[0], old = globalThis.HazardFalls;
+    h.elapsedMs = 4900; let calls = 0;
+    globalThis.HazardFalls = { fall: async () => { calls++; s.depth = 1; return true; } };
+    try {
+      EnvironmentHazards.tick(s, .1); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+      assert.eq(calls, 1); assert.eq(h.phase, 'open');
+      s.depth = 0; advance(s, 1000);
+      await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+      assert.eq(calls, 2, 'returning to the same open pit falls again');
+      assert.eq(s.save.caveIns[h.id].elapsedMs, 5000);
+    } finally { globalThis.HazardFalls = old; }
+  }));
+  test('environment hazards: cave-ins cannot consume a live pressure feature', () => fixture((s, entries) => {
+    quarry(s, entries);
+    const original = PressureTraps.lists;
+    PressureTraps.lists = () => ({ plates: [{ x: 28, y: 28 }], traps: [] });
+    try {
+      EnvironmentHazards.observe(s);
+      assert.eq(EnvironmentHazards.lists(s).caveins.length, 0);
+    } finally { PressureTraps.lists = original; }
   }));
 })();

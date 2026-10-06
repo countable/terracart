@@ -1,14 +1,15 @@
 // These are game rules shared by every entrance, not UI snapshots.
 (function () {
-  test('dungeon progression: five distinct arena victories open L4', () => {
+  test('dungeon progression: five distinct arena victories open L5', () => {
     const save = {};
-    assert.falsy(DungeonProgression.canEnterDepth(save, 4));
+    assert.truthy(DungeonProgression.canEnterDepth(save, 4), 'the fourth depth is open');
+    assert.falsy(DungeonProgression.canEnterDepth(save, 5));
     for (let n = 0; n < 4; n++) DungeonProgression.completeChallenge(save, `trial${n}`);
     DungeonProgression.completeChallenge(save, 'trial0');
-    assert.falsy(DungeonProgression.canEnterDepth(save, 4), 'repeats never count');
+    assert.falsy(DungeonProgression.canEnterDepth(save, 5), 'repeats never count');
     DungeonProgression.completeChallenge(save, 'trial4');
-    assert.truthy(DungeonProgression.canEnterDepth(save, 4));
-    assert.truthy(DungeonProgression.canEnterDepth(JSON.parse(JSON.stringify(save)), 5));
+    assert.truthy(DungeonProgression.canEnterDepth(save, 5));
+    assert.truthy(DungeonProgression.canEnterDepth(JSON.parse(JSON.stringify(save)), 6));
   });
   test('dungeon progression: L1 descent requires rope or repaired lift route', () => {
     assert.falsy(DungeonProgression.canUseDescent({}, 1, 2, 'sapphire'));
@@ -19,13 +20,26 @@
     assert.truthy(DungeonProgression.canUseDescent({}, 1, 0, 'stairs'));
     assert.falsy(DungeonProgression.canUseDescent({}, 3, 4, 'rope'));
     assert.truthy(DungeonProgression.canUseDescent({}, 5, 4, 'rope'), 'older saves can still climb out');
+    assert.truthy(DungeonProgression.canUseDescent({ dungeonProgression: { level4Key: true } }, 5, 6, 'rope'), 'open segments keep the rope');
   });
-  test('dungeon progression: stone requires L3, T3+, and at least one kilometre', () => {
-    const eligible = { depth: 3, tier: 3, distanceM: 1000 };
+  test('dungeon progression: the rope never breaks a sealed segment', () => {
+    assert.falsy(DungeonProgression.canUseDescent({}, 2, 3, 'rope'), '2 -> 3 is the elevator');
+    assert.falsy(DungeonProgression.canUseDescent({}, 6, 7, 'rope'), '6 -> 7 is the wizard key');
+    assert.falsy(DungeonProgression.canUseDescent({ dungeonProgression: { level4Key: true } }, 6, 7, 'rope'),
+      'the arena key never lends the rope a seal');
+    assert.truthy(DungeonProgression.canUseDescent({ elevators: { repaired: true, partsFound: true } }, 2, 3, 'elevator'),
+      'the sealed segment keeps its elevator');
+    assert.truthy(DungeonProgression.ropeCanDescend(1) && DungeonProgression.ropeCanDescend(5)
+      && DungeonProgression.ropeCanDescend(7) && DungeonProgression.ropeCanDescend(8));
+    assert.falsy(DungeonProgression.ropeCanDescend(2) || DungeonProgression.ropeCanDescend(3)
+      || DungeonProgression.ropeCanDescend(4) || DungeonProgression.ropeCanDescend(6));
+  });
+  test('dungeon progression: stone requires L4, T3+, and at least one kilometre', () => {
+    const eligible = { depth: 4, tier: 4, distanceM: 1000 };
     assert.truthy(DungeonProgression.portalStoneDue({}, eligible));
     assert.falsy(DungeonProgression.portalStoneDue({}, { ...eligible, distanceM: 999.99 }));
-    assert.falsy(DungeonProgression.portalStoneDue({}, { ...eligible, tier: 2 }));
-    assert.falsy(DungeonProgression.portalStoneDue({}, { ...eligible, depth: 2 }));
+    assert.falsy(DungeonProgression.portalStoneDue({}, { ...eligible, tier: 3 }), 'effective T3 is the floor-4 minimum and never enough');
+    assert.falsy(DungeonProgression.portalStoneDue({}, { ...eligible, depth: 3 }));
     assert.falsy(DungeonProgression.portalStoneDue({ dungeonProgression: { portalStoneFound: true } }, eligible));
   });
   test('dungeon progression: elevator repair is atomic, permanent and opens its routes', () => {
@@ -86,7 +100,7 @@
     const save = { inv: [], opened: [], relics: {}, armor: {}, money: 0 };
     let modal;
     const scene = makeScene({
-      depth: 3, save, _elevatorHomePosition: () => ({ x: 0, y: 0 }),
+      depth: 4, save, _elevatorHomePosition: () => ({ x: 0, y: 0 }),
       invRoomFor: id => Inventory.roomFor(save, id),
       addToInv: (id, qty) => Inventory.add(save, id, qty).accepted,
       showChestRewardModal(value) { modal = value; },
@@ -94,7 +108,7 @@
     try {
       globalThis.pickReward = () => ({ kind: 'item', id: 'potato', qty: 1 });
       const ctx = makeCtx(scene, save);
-      const chest = { kind: 'chest', id: 'progression_first', x: 1000, y: 0, depth: 3, tierSeed: 3 };
+      const chest = { kind: 'chest', id: 'progression_first', x: 1000, y: 0, depth: 4, tierSeed: 3 };
       INTERACTABLES.chest.custom(ctx, chest);
       assert.eq(Inventory.count(save, 'portal_stone'), 1);
       assert.truthy(save.dungeonProgression.portalStoneFound);
@@ -127,17 +141,17 @@
     scene.useRope = liftedMethod('useRope', deps);
     return scene;
   }
-  test('dungeon progression: actual rope preserves inventory and walls at locked L4', () => {
-    const scene = ropeScene(3);
+  test('dungeon progression: actual rope preserves inventory and walls at locked L5', () => {
+    const scene = ropeScene(5);
     assert.eq(scene.useRope(1), false);
-    assert.eq(scene.depth, 3);
+    assert.eq(scene.depth, 5);
     assert.eq(scene.save.inv[0].count, 1);
     assert.eq(scene.dugWallSet.size, 0);
     scene.save.dungeonProgression.level4Key = true;
     assert.eq(scene.useRope(1), true);
-    assert.eq(scene.depth, 4);
+    assert.eq(scene.depth, 6);
     assert.eq(scene.save.inv[0].count, 0);
-    assert.truthy(scene.dugWallSet.has('4:1_2'));
+    assert.truthy(scene.dugWallSet.has('6:1_2'));
   });
   test('dungeon progression: central transition blocks stairs, multi-floor bypasses and unearned lift', () => {
     const scene = ropeScene(1), anchor = {x: 0,y: 0};
@@ -190,7 +204,7 @@
     const save = { inv: [], opened: [], relics: {}, armor: {}, money: 0 };
     const harness = {save, modal: null, room: null};
     const scene = makeScene({
-      depth: 3, save, _elevatorHomePosition: () => ({x: 0,y: 0}),
+      depth: 4, save, _elevatorHomePosition: () => ({x: 0,y: 0}),
       invRoomFor: id => harness.room ?? Inventory.roomFor(save,id),
       addToInv: (id,qty) => Inventory.add(save,id,qty).accepted,
       showChestRewardModal(value) { harness.modal = value; }, ...over,
@@ -210,8 +224,8 @@
     for (const candidate of [
       {name: 'just short', scene: {}, chest: {x: 999.999}},
       {name: 'surface', scene: {depth: 0}, chest: {}},
-      {name: 'L2', scene: {depth: 2}, chest: {}},
-      {name: 'L4', scene: {depth: 4}, chest: {}},
+      {name: 'L3', scene: {depth: 3}, chest: {}},
+      {name: 'L5', scene: {depth: 5}, chest: {}},
       {name: 'T2', scene: {}, chest: {tierSeed: 1}},
       {name: 'supply box', scene: {}, chest: {crate: true}},
     ]) {
@@ -223,7 +237,7 @@
     }
     for (const point of [{x: 1000,y: 0},{x: 600,y: 800},{x: -1000,y: 0}]) {
       const h = chestHarness(); h.open({...point,tierSeed: 2});
-      assert.eq(Inventory.count(h.save,'portal_stone'),1,'exact one kilometre at effective T3');
+      assert.eq(Inventory.count(h.save,'portal_stone'),1,'exact one kilometre at effective T4');
     }
   });
   test('dungeon progression: searched chest and unknown home cannot award the portal stone', () => {

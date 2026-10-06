@@ -225,7 +225,12 @@
     if (b.type === 'repeat_motif') {
       const [w, h] = b.repeatCells;
       const material = slotAt(b, mod(u, w), mod(v, h));
-      if (material) return cycle(material, Math.floor(u / w), Math.floor(v / h));
+      if (material) {
+        const resolved = cycle(material, Math.floor(u / w), Math.floor(v / h));
+        const keep = b.materialKeepChance?.[resolved] ?? 1;
+        return keep >= 1 || unitHash(`${anchorKey}|${variant.id}|${u}|${v}|material-keep`) < keep
+          ? resolved : null;
+      }
       const scatter = b.gapScatter;
       return scatter && unitHash(`${anchorKey}|${variant.id}|${u}|${v}|gap`) < scatter.chance
         ? scatter.material : null;

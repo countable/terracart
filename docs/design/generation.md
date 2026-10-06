@@ -22,6 +22,23 @@ access or tile lifecycle mechanics.
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
 
+- Zone geometry is surface-owned and level-independent: zones, anchors,
+  coverage and the road mask are computed once on the surface, frozen in its
+  `caveSource` snapshot, and every floor reads that snapshot read-only - no
+  zone is re-rolled per level. A floor instead derives its terrain from a
+  class-to-terrain mapping over that inherited geometry (`undergroundTerrain`)
+  and its content from per-floor tables: enemy habitats mint their own
+  per-depth regions (`THEME_BANDS`), while chest mirrors, torch sites, quarry
+  provenance and spring caves inherit surface anchors. The street mirror and
+  any per-floor road clearings are level-scoped projections of surface lines.
+  `docs/design/floors.md` owns the per-floor catalog.
+
+- A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
+  one owning table keyed by floor, never a depth literal at a call site.
+  `DungeonProgression.ROPE_SEALED_FLOORS` is the pattern (the rope, the
+  sinkhole minting and the fall check all read it); lighting already derives
+  its per-floor ambience from depth (`Lighting.profile`, `litDim`).
+
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
@@ -155,15 +172,26 @@ access or tile lifecycle mechanics.
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
-  procedural dressing; roads and buildings remain visible. Painted ground
-  drops inferred PRIVATE / BEHIND_HOUSE reasons, retaining all site and
-  geometry restrictions. Cave generation retains the original ground,
+  procedural dressing; roads and buildings remain visible. Nexus painting and
+  quarry coverage preserve all spawn exclusions, including PRIVATE and
+  BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
+  Gas-station influence uses the tar row’s own minimum and maximum radii.
+  Cave generation retains the original ground,
   objects and spawn reasons so surface dressing cannot reroll entrances.
   A park's POI becomes its daily grove shrine in place, preserving its name
   and id. Other nexus chests keep `zoneNexus` and its tier bonus. No decorative
   props: every standing piece is interactable or a hazard, one art per
-  interactable. Zone mechanics use existing lanes (tar slow, lair tier,
+  interactable. Repeating backgrounds can thin selected materials with a
+  deterministic `materialKeepChance`; fixed shrine slots and other materials
+  retain their positions. Zone mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
+- Surface quarry hazards use `EnvironmentHazards` and the shared spawn gate.
+  Strip mines can open temporary 2×2 sinkholes wholly inside their footprint.
+  Other quarries have deterministic hidden cave-in cells: stepping onto an
+  eligible cell starts a five-second crack animation, then leaves a permanent
+  one-cell hole. `save.caveIns` retains warning progress and opened holes across
+  reloads; foreground ticks own the clock. Open holes use `HazardFalls` for
+  landing and descent, including floor seals and retrying unavailable landings.
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
   day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the

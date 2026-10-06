@@ -123,7 +123,7 @@
       assert.eq(!!s.save.dungeonProgression.level4Key,i===4);
       // Simulate the save boundary between visits, retaining no object aliases.
       s.save=JSON.parse(JSON.stringify(s.save));
-      assert.eq(DungeonProgression.canEnterDepth(s.save,4),i===4);
+      assert.eq(DungeonProgression.canEnterDepth(s.save,5),i===4);
       if(i===0){play(s,'sparks');assert.eq(s.save.dungeonProgression.challenges.length,1);}
     }
     assert.eq(Inventory.count(s.save,'depth_key'),1);
@@ -151,7 +151,7 @@
       assert.eq(s.save.depth,0);assert.falsy(s.save.arenaRun);
       assert.eq(s.playerM.x,hasReturn?30:100);assert.eq(s.playerM.y,hasReturn?40:200);
       assert.eq(s.save.dungeonProgression.challenges.length,5);
-      assert.truthy(DungeonProgression.canEnterDepth(s.save,4));
+      assert.truthy(DungeonProgression.canEnterDepth(s.save,5));
       assert.eq(Inventory.count(s.save,'depth_key'),1);
       assert.eq(f.writes.at(-1).depth,0,'recovery is persisted before normal startup');
       const count=f.writes.length;s._recoverArenaRun();assert.eq(f.writes.length,count,'second boot is idempotent');
