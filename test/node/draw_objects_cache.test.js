@@ -25,6 +25,46 @@ test('drawObjects cache: immutable props resolve and seat once per scene', () =>
   assert.eq(second, first, 'the same generated record reuses the resolved tuple');
   assert.eq(scene._appearanceResolveCount, 1, 'only the first sight resolves appearance and seating');
   assert.truthy(first.visible, 'the cached tuple is a drawable appearance');
+  assert.falsy(Object.keys(object).includes('_renderAppearance'), 'the runtime stamp is absent from data spreads and saves');
+});
+
+test('drawObjects cache: a warm still step has constant zero resolve bookkeeping', () => {
+  const warmCount = (n) => {
+    const scene = appearanceScene();
+    const objects = Array.from({ length: n }, (_, i) => ({
+      kind: 'tree', id: `tree_${i}`, species: i & 1 ? 'pine' : 'maple', size: 'large',
+    }));
+    Render.objectAppearance(scene, new WeakMap());
+    for (const object of objects) Render.resolveObjectAppearance(scene, object);
+    scene._appearanceResolveCount = 0;
+    for (const object of objects) Render.resolveObjectAppearance(scene, object);
+    return scene._appearanceResolveCount;
+  };
+  assert.eq(warmCount(1), 0, 'one unchanged object causes no resolve work');
+  assert.eq(warmCount(1000), 0, 'one thousand unchanged objects still cause no resolve work');
+  const helper = String(Render.resolveObjectAppearance);
+  assert.falsy(/WeakMap|\.get\(|\.set\(/.test(helper), 'the warm path does no map hashing or bookkeeping');
+});
+
+test('drawObjects cache: a warm still pool configures zero objects regardless of visible count', () => {
+  const warmConfigCount = (n) => {
+    const makeSprite = () => {
+      const s = {};
+      for (const name of ['setAlpha', 'setAngle', 'setScale', 'setFlipX', 'clearTint', 'setActive', 'setVisible']) s[name] = () => s;
+      s.destroy = () => {};
+      return s;
+    };
+    const world = { add() {} }, scene = { worldContainer: world, add: { sprite: makeSprite } };
+    const list = Array.from({ length: n }, (_, id) => ({ id })), pool = [];
+    const configure = (s, item) => { s.item = item; };
+    const reuse = (s, item) => s.item === item;
+    Render.renderPool(scene, pool, world, list, configure, undefined, reuse);
+    let warm = 0;
+    Render.renderPool(scene, pool, world, list, () => { warm++; }, undefined, reuse);
+    return warm;
+  };
+  assert.eq(warmConfigCount(1), 0);
+  assert.eq(warmConfigCount(1000), 0, 'still-step Phaser configuration stays zero as object count grows');
 });
 
 test('drawObjects cache: animated, connected and not-yet-loaded appearances stay live', () => {
@@ -88,6 +128,14 @@ test('drawObjects depth: world-pool membership dirties only the shared world ord
   assert.falsy(scene._worldDepthMembershipDirty, 'reusing the same slot leaves membership clean');
   Render.renderPool(scene, [], overlay, [{}], () => {});
   assert.falsy(scene._worldDepthMembershipDirty, 'an overlay pool does not dirty world order');
+
+  let configured = 0;
+  const stable = [];
+  Render.renderPool(scene, stable, world, [{}], (s) => { configured++; s.ready = true; }, undefined,
+    (s) => !!s.ready);
+  Render.renderPool(scene, stable, world, [{}], () => { configured++; }, undefined,
+    (s) => !!s.ready);
+  assert.eq(configured, 1, 'a proven-stable slot skips reset and configure on the warm step');
 });
 
 test('drawObjects depth: the shared Phaser container sort is dirty-gated', () => {
@@ -98,6 +146,12 @@ test('drawObjects depth: the shared Phaser container sort is dirty-gated', () =>
     'the profiler reports how often the expensive sort ran');
   assert.eq((body.match(/worldContainer\.sort\('depth'\)/g) || []).length, 1,
     'no unconditional second sort remains');
+  assert.truthy(body.includes('scene._workProgress || s._staticHadWork'),
+    'the first still frame after a work animation resets its former rotation');
+  assert.truthy(body.includes('const objectReuse = scene._boot_still ? reuseStaticObject : undefined;'),
+    'walking never pays the still-slot reuse callback');
+  assert.truthy(body.includes('relics.pickaxe?.tier'),
+    'a pick upgrade invalidates cached mineral-rock alpha');
 });
 
 })();

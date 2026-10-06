@@ -844,7 +844,7 @@ function resetSlot(s) {
   s.setAlpha(1).setAngle(0).setScale(1).setFlipX(false);
   s.clearTint();
 }
-Render.renderPool = function renderPool(scene, pool, container, list, configure, create) {
+Render.renderPool = function renderPool(scene, pool, container, list, configure, create, reuse) {
   let i = 0, membershipChanged = false;
   for (const item of list) {
     let s = pool[i];
@@ -857,8 +857,13 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure,
     s._poolIdleSince = null;
     s.setActive?.(true);
     s.setVisible(true);
-    resetSlot(s);
-    configure(s, item);
+    // A still camera can leave a generated prop on the same pool slot with
+    // identical appearance and style. Its caller proves that case here, so the
+    // slot avoids both identity reset and every redundant Phaser setter.
+    if (!reuse?.(s, item)) {
+      resetSlot(s);
+      configure(s, item);
+    }
     i++;
   }
   const beforeRetire = pool.length;
@@ -3569,6 +3574,7 @@ Render.drawObjects = function drawObjects(scene) {
   const { fruitList } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
+    item._appearanceStable = Render.objectAppearanceIsStable(item.o, art);
     item._appearance = Render.resolveObjectAppearance(scene, item.o, art);
   }
   window.__boot?.count?.('object appearances resolved', scene._appearanceResolveCount);
@@ -3711,6 +3717,11 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
+  // Tree/rock alpha is the only saved-state style on a cacheable row. Fold the
+  // two tool tiers once per frame; a gear change invalidates every affected
+  // slot without a per-object key or map lookup.
+  const relics = scene.save.relics || {};
+  const objectStyleRevision = ((relics.axe?.tier || 0) << 4) | (relics.pickaxe?.tier || 0);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
@@ -3738,11 +3749,25 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof spec.after === 'function') spec.after(s, o, scene);
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
       Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
+    s._staticObject = o;
+    s._staticAppearance = appearance;
+    s._staticStyleRevision = objectStyleRevision;
+    s._staticHadWork = !!scene._workProgress;
+  };
+  const reuseStaticObject = (s, item) => {
+    if (!scene._boot_still || !item._appearanceStable || scene._workProgress || s._staticHadWork
+        || s._staticObject !== item.o || s._staticAppearance !== item._appearance
+        || s._staticStyleRevision !== objectStyleRevision) return false;
+    setWorldDepth(s, item._z ?? 0);
+    return true;
   };
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
-  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
-  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
+  const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
+  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
+    configureObject, undefined, objectReuse);
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList,
+    configureObject, undefined, objectReuse);
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
   // the inventory, drawn as its own small sprite on the tree's canopy. The
@@ -5255,24 +5280,30 @@ Render.objectAppearance = function (scene, houseRoles) {
 // strolling does not repeat texture lookups and ART_BOUNDS seating for every
 // visible prop. Stateful rows (houses, chests, planted fruit trees, animated
 // fires/torches and connected-art overrides) deliberately resolve every pass.
-// WeakMap lets an evicted tile release its records without a cleanup walk.
+// The non-enumerable stamp never enters saves, spreads or deterministic data;
+// its scene token prevents a review scene from reusing another scene's tuple.
 const CACHED_APPEARANCE_KINDS = new Set([
   'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar',
   'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
   'groundstack',
 ]);
-Render.resolveObjectAppearance = function resolveObjectAppearance(scene, object, art) {
-  const cacheable = !art && CACHED_APPEARANCE_KINDS.has(object.kind)
+Render.objectAppearanceIsStable = function objectAppearanceIsStable(object, art) {
+  return !art && CACHED_APPEARANCE_KINDS.has(object.kind)
     // Authored planted trees advance through growth frames on the clock.
     && !(object.kind === 'tree' && object.planted_t);
+};
+Render.resolveObjectAppearance = function resolveObjectAppearance(scene, object, art) {
+  const cacheable = Render.objectAppearanceIsStable(object, art);
   if (cacheable) {
-    const cache = scene._objectAppearanceCache || (scene._objectAppearanceCache = new WeakMap());
-    const prior = cache.get(object);
-    if (prior) return prior;
+    const owner = scene._objectAppearanceOwner || (scene._objectAppearanceOwner = {});
+    const prior = object._renderAppearance;
+    if (prior?.owner === owner) return prior.appearance;
     scene._appearanceResolveCount = (scene._appearanceResolveCount || 0) + 1;
     const appearance = resolveAppearance(object);
     // A texture may be registered lazily. Do not make an early miss permanent.
-    if (appearance?.visible) cache.set(object, appearance);
+    if (appearance?.visible) Object.defineProperty(object, '_renderAppearance', {
+      value: { owner, appearance }, writable: true, configurable: true,
+    });
     return appearance;
   }
   scene._appearanceResolveCount = (scene._appearanceResolveCount || 0) + 1;
