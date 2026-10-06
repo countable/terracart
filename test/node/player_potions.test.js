@@ -72,6 +72,7 @@
       ['speed_potion', 'speedPotionUntil', CONSUMABLE_SPEC.speed_potion.durationMs],
       ['blight_potion', 'blightPotionUntil', CONSUMABLE_SPEC.blight_potion.durationMs],
       ['immortal_potion', 'immortalPotionUntil', 60_000],
+      ['flight_potion', 'flightPotionUntil', 60_000],
       ['fire_resistance_potion', 'fireResistancePotionUntil', 180_000],
     ]) {
       setNow(T0);

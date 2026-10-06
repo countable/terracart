@@ -3486,6 +3486,7 @@ Render.drawObjects = function drawObjects(scene) {
         // is not on the waterline today or was taken today — one predicate,
         // interactables.js isSpent, the tap asks the same.
         if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
+        if (HiddenObjects.isHidden(scene.save, wp)) return;
         const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
         // A mushroom is a (faint) light as well as a sprite — offered before
         // the cull like a building, with its own radius as the margin. The
@@ -4526,7 +4527,8 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // How far off the ground the body is drawn: its constant float (a crow
     // perches high, a bat hovers) plus, for a hopping kind, the live bounce.
-    let lift = down ? 0 : creatureFloat(c.kind);
+    let lift = down ? 0 : Math.max(creatureFloat(c.kind),
+      Conditions.flying(c) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
     const hop = creatureHop(c.kind);
     if (hop && !down) {
       // Phase-offset per creature off a cached hash of its id, so a pack of

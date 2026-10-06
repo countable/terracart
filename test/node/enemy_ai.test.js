@@ -299,6 +299,32 @@
       }
     } finally { SpiderWebs.launch = original; }
   });
+  test('enemy AI: every spider requires two cells at aiming and firing, including diagonal targets', () => {
+    const original = SpiderWebs.launch, launches = [];
+    SpiderWebs.launch = (...args) => launches.push(args);
+    try {
+      for (const kind of ['spider', 'poison_spider', 'mini_spider', 'giant_spider']) {
+        const s = scene(), row = EnemyRoster.get(kind);
+        assert.eq(row.minRange, 2);
+        for (const [x, y] of [[0, 0], [7, 0], [13.99, 0], [7, 7]]) {
+          const c = foe(kind), before = launches.length;
+          rosterEnemyAttack(s, c, row, 10000, x, y, false, 0.1);
+          rosterEnemyAttack(s, c, row, 10600, x, y, false, 0.1);
+          assert.falsy(c._attackWindupUntil, 'close targets never start aiming');
+          assert.eq(launches.length, before);
+        }
+        const c = foe(kind), before = launches.length;
+        rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
+        assert.truthy(c._attackWindupUntil, 'exactly two cells starts aiming');
+        rosterEnemyAttack(s, c, row, 10600, 13.99, 0, false, 0.1);
+        assert.eq(launches.length, before, 'approaching during wind-up cancels the shot');
+        assert.falsy(c._attackWindupUntil);
+        rosterEnemyAttack(s, c, row, 15000, 14, 0, false, 0.1);
+        rosterEnemyAttack(s, c, row, 15600, 14, 0, false, 0.1);
+        assert.eq(launches.length, before + 1, 'exactly two cells permits firing');
+      }
+    } finally { SpiderWebs.launch = original; }
+  });
   test('enemy AI: spider silk obeys range, visibility and target changes', () => {
     const original = SpiderWebs.launch, launches = [];
     SpiderWebs.launch = (...args) => launches.push(args);

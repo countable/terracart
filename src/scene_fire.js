@@ -7,7 +7,7 @@
 const UNIT_CONDITIONS = {
   burning: { carries: c => Combat.canBurn(c), tickedAt: '_fireTickT', by: '_burnBy', source: 'burn',
     tick(scene, c, now) {
-      const exposure = scene._fireExposureAtWorld(c.x, c.y);
+      const exposure = !Conditions.flying(c) && scene._fireExposureAtWorld(c.x, c.y);
       if (exposure) Combat.ignite(c, now, exposure);
       return Combat.burnTick(c, now, !!exposure);
     } },
@@ -159,7 +159,7 @@ class SceneFire {
   }
 
   _playerFireExposure() {
-    if (!this.startWorldM || Combat.playerDowned(this.save.energy)) return false;
+    if (!this.startWorldM || Combat.playerDowned(this.save.energy) || Conditions.flying(this.save)) return false;
     const feet = playerWorldM(this);
     return !!this._fireExposureAtWorld(feet.x, feet.y);
   }

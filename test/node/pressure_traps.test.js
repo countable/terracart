@@ -107,4 +107,18 @@
     PressureTraps.observe(s);
     assert.eq(PressureTraps.lists(s).plates.length, 0);
   }));
+  test('flight: pressure plates remain unpressed and moving traps cannot hurt or push', () => fixture(s => {
+    s.save.flightPotionUntil = Date.now() + 60000;
+    s.playerM = { x: 28, y: 28 };
+    const pair = PressureTraps.create(s, { cellIX: 3, cellIY: 3 }, { cellIX: 1, cellIY: 3 }, 'ball', 'flight');
+    const list = PressureTraps.lists(s); list.plates.push(pair.plate); list.traps.push(pair.trap);
+    PressureTraps.tick(s, .1);
+    assert.falsy(pair.plate.pressed); assert.eq(pair.trap.state, 'parked');
+    PressureTraps.contact(s, { kind: 'ball', state: 'moving', x: 28, y: 28, vx: 1, vy: 0 }, 1);
+    assert.eq(s.save.energy, 100); assert.eq(s.playerM.x, 28);
+    s.save.flightPotionUntil = 0;
+    PressureTraps.tick(s, .1);
+    assert.truthy(pair.plate.pressed); assert.eq(pair.trap.state, 'moving');
+  }));
+
 })();

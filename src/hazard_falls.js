@@ -31,7 +31,7 @@
   }
   async function fall(scene, hole) {
     if (scene._hazardFallPending || scene._caveFallPending || scene.depth !== hole.depth || hole.phase !== 'open'
-        || !over(scene, hole) || root.Combat.playerDowned(scene.save.energy)) return false;
+        || !over(scene, hole) || root.Combat.playerDowned(scene.save.energy) || root.Conditions.flying(scene.save)) return false;
     const depth = scene.depth;
     if (depth + 1 === root.WorldGen.ARENA_DEPTH || depth === root.WorldGen.ARENA_DEPTH) return false;
     // A sealed floor never opens beneath the player either (same table the
@@ -44,7 +44,7 @@
       let entry = await root.WorldGen.loadTile.atDepth(depth + 1, tx, ty, latitude);
       if (entry.status === 'loading') { await entry.promise; entry = root.WorldGen.tileCacheFor(depth + 1).get(root.WorldGen.tileKey(tx, ty)); }
       if (scene.depth !== depth || hole.phase !== 'open' || !over(scene, hole)
-          || root.Combat.playerDowned(scene.save.energy)) return false;
+          || root.Combat.playerDowned(scene.save.energy) || root.Conditions.flying(scene.save)) return false;
       // Include the destination's seeded enemies and traps in occupancy before
       // choosing a landing. This pass accepts an explicit depth, so it does not
       // switch the current floor or reroll actors on arrival.

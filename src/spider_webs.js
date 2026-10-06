@@ -81,6 +81,7 @@
     const state = index(scene, now), player = unit === 'player';
     const actor = player ? scene.save : unit;
     if (!actor) return false;
+    if (root.Conditions.flying(actor, now)) { state.contacts.delete(actor); return false; }
     const position = player
       ? { x: scene.startWorldM.x + scene.playerM.x,
         y: scene.startWorldM.y + scene.playerM.y + (scene.feetOffsetM || 0) }

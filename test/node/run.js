@@ -97,6 +97,7 @@ const FILES = [
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'pressure_traps.js', 'spider_webs.js',
+  'gas.js', 'mushroom_gas.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
   'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
@@ -128,6 +129,7 @@ const FILES = [
   // The lightmap: only draw() touches Phaser, and no test calls it.
   'lighting.js', 'obstacle_step.js',
   'render.js',
+  'gas_render.js',
   // The modal shell: its methods are DOM work nobody runs here, but its top
   // level must load with no app.js in scope (as in the page).
   'modal_shell.js',
@@ -143,6 +145,7 @@ const FILES = [
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
   Arena,
+  GasRender,
   GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.

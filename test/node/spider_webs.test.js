@@ -150,4 +150,12 @@
     assert.eq(airborne[0].lines.length, 0, 'old-depth travelling silk is erased');
     assert.eq(ground[0].clears, 2); assert.eq(airborne[0].clears, 2);
   });
+  test('flight: ground webs do not paralyze until landing on them', () => {
+    const s = scene(); web(s); s.playerM = { x: 28, y: 28 };
+    s.save.flightPotionUntil = NOW + 60000;
+    assert.falsy(SpiderWebs.contact(s, 'player', NOW)); assert.falsy(s.save.conditions?.paralysis);
+    assert.truthy(SpiderWebs.contact(s, 'player', NOW + 60000));
+    assert.truthy(s.save.conditions.paralysis);
+  });
+
 })();
