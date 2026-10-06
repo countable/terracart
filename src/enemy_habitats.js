@@ -116,7 +116,7 @@
   // tiles whose coverage never offers a seat.
   function* surfaceEncountersSteps(entry, tx, ty, occupied) {
     if (!entry.zone?.coverage) return [];
-    const themes = [...new Set(entry.zone.anchors.map(a => a.variant))]
+    const themes = [...new Set((entry.zone.anchors || []).map(a => a.variant))]
       .filter(theme => SURFACE_ENCOUNTER_PROFILES[theme]);
     const out = yield* surfaceEncounterProfileSteps(entry, tx, ty, occupied, null);
     for (const theme of themes) out.push(...yield* surfaceEncounterProfileSteps(entry, tx, ty, occupied, theme));
