@@ -45,6 +45,9 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- Potion of Flight lasts one minute, timed by the Flight buff. `Conditions.flying`
+  skips harmful floor contact (including holes, flames and traps), while gases,
+  attacks and existing conditions still affect the flyer. A second dose adds a minute.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.

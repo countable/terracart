@@ -179,4 +179,14 @@ test('walk hazards: armour shield difficulty and immortality share incoming dama
   tick.call(s, 1, 4, 4, 4, 4);
   assert.eq(s.save.energy,99, 'immunity ending while inside does not invent a new entry');
 });
+test('flight: sharp ground causes no damage and landing restores entry contact', () => {
+  const s = scene(); s.save.flightPotionUntil = Date.now() + 60000;
+  s._walkHazardHere = 'old'; s._walkHazardAccum = .8;
+  tick.call(s, 1, 0, 4, 1, 4);
+  assert.eq(s.save.energy, 100); assert.eq(s._walkHazardHere, null); assert.eq(s._walkHazardAccum, 0);
+  s.save.flightPotionUntil = 0;
+  tick.call(s, 1, 1, 4, 1, 4);
+  assert.eq(s.save.energy, 94);
+});
+
 })();

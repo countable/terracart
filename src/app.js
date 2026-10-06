@@ -1995,7 +1995,7 @@ class MapScene extends Phaser.Scene {
     if (typeof Traps === 'undefined' || !this.startWorldM || !this.originPx) return;
     // The memo goes down with the tick, so the cell is read fresh the moment
     // the bar lifts: a player revived on top of a hidden trap steps on it then.
-    if (Combat.playerDowned(this.save.energy)) {
+    if (Combat.playerDowned(this.save.energy) || Conditions.flying(this.save)) {
       this._trapCellKey = null;
       this._trapHere = null;
       this._trapDrainAccum = 0;
@@ -2122,7 +2122,7 @@ class MapScene extends Phaser.Scene {
   // not being noticed; a Shadow Powder does not cool lava).
   _tickLava(dt) {
     if ((this.depth !== 0 && this.depth !== WorldGen.LAVA_DEPTH) || !this.startWorldM
-        || Combat.playerDowned(this.save.energy)) {
+        || Combat.playerDowned(this.save.energy) || Conditions.flying(this.save)) {
       this._lavaAccum = 0;
       return;
     }
@@ -2169,6 +2169,7 @@ class MapScene extends Phaser.Scene {
   }
 
   _walkHazardSlow() {
+    if (Conditions.flying(this.save)) return false;
     if (this._slowHere === 'tar') return true;
     if (!this.startWorldM) return false;
     const p = this.playerToWorldCell();
@@ -2236,6 +2237,11 @@ class MapScene extends Phaser.Scene {
   }
 
   _tickWalkHazards(dt, x0, y0, x1, y1) {
+    if (Conditions.flying(this.save)) {
+      this._walkHazardHere = null;
+      this._walkHazardAccum = 0;
+      return;
+    }
     if (!this.startWorldM || !(dt > 0)) return;
     const contacts = [];
     this._walkHazardExposure(x0, y0, x1, y1, (key, start, end, rate) => contacts.push({ key, start, end, rate }));
@@ -2342,7 +2348,7 @@ class MapScene extends Phaser.Scene {
     const pc = this.playerToWorldCell();
     const hits = [];
     WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
-      if (!Combat.isEnemy(c) || caughtSet.has(c.id)) return;
+      if (!Combat.isEnemy(c) || caughtSet.has(c.id) || Conditions.flying(c)) return;
       const a = worldMetersToAbsCell(this, c.x, c.y);
       const key = cellKeyFromAbsCell(a.cellIX, a.cellIY);
       const t = armed.get(key);
@@ -4049,7 +4055,7 @@ class MapScene extends Phaser.Scene {
   // avoiding a save every frame. Never off an empty bar (Combat.playerDowned).
   _ignitePlayer() {
     const now = performance.now();
-    if (now < (this._igniteNextT || 0) || Combat.playerDowned(this.save.energy)) return false;
+    if (now < (this._igniteNextT || 0) || Combat.playerDowned(this.save.energy) || Conditions.flying(this.save)) return false;
     this._igniteNextT = now + Conditions.DEFINITIONS.burning.intervalMs;
     this._applyCondition('burning');
     return true;
@@ -5350,7 +5356,8 @@ class MapScene extends Phaser.Scene {
   // midsection where its feet were (see PLAYER_DOWNED_ROTATION).
   playerBodyDy() {
     return Combat.playerDowned(this.save.energy) ? 0
-      : this.playerFeetNudgeY - (this._obstacleStep?.liftPx || 0);
+      : this.playerFeetNudgeY - Math.max(this._obstacleStep?.liftPx || 0,
+        Conditions.flying(this.save) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
   }
 
   // …and which way up it is. Same read, so the seat and the turn can never

@@ -419,7 +419,7 @@
   const CAVE_DEEP_SKEW = {
     classAdd:  { consumable: 0.25, mineral: 0.25 },
     favourite: { p: 0.75, tierCapped: true, ids: {
-      healing_potion: 1, shielding_potion: 1, reach_potion: 1, speed_potion: 1,
+      healing_potion: 1, shielding_potion: 1, reach_potion: 1, speed_potion: 1, flight_potion: 1,
       revival_potion: 1, blight_potion: 1, raven_scroll: 1, bones_scroll: 1, wraith_scroll: 1, thunder_scroll: 1, resurrection_potion: 1,
       growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1, sleep_powder: 1,
       fireball_scroll: 1, explosive_flask: 1, fear_scroll: 1, treasure_map: 1,

@@ -38,7 +38,7 @@ test('consumables: one action row names every button method', () => {
   const ids = [
     'portal_stone', 'orb', 'egg', 'book', 'taming_potion', 'reach_potion', 'antidote', 'elixir',
     'healing_potion', 'speed_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll',
-    'giant_potion', 'fire_resistance_potion', 'protection_potion', 'time_potion', 'immortal_potion', 'shrinking_potion',
+    'giant_potion', 'fire_resistance_potion', 'flight_potion', 'protection_potion', 'time_potion', 'immortal_potion', 'shrinking_potion',
     'thunder_scroll', 'blight_potion', 'revival_potion',
     'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
     'frost_powder', 'torch', 'sapphire', 'rope', 'throwing_spear', 'javelin', 'rubble', 'forgetmenot', 'wildrose', 'horse', 'shiny_horse',
