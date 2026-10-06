@@ -509,7 +509,8 @@
   // outline padding on every side, and the pixel of floor/ceil rounding at
   // each end. Derived from the constants the bake pads with, so a retune of
   // BAND_PX can't overflow a slot.
-  const SLOT_PAD = BAND_PX * 2 + 4;
+  const SLOT_PAD = BAND_PX * 2
+    + Math.max(...CastleStyles.ids.map(id => CastleStyles.get(id).rampart.toothHeight)) + 2;
   const slotSize = () => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
     const deepest = tbl ? Math.max(...Object.values(tbl)) : facePx(CASTLE);
@@ -679,8 +680,11 @@
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
             ctx.lineWidth = 1; ctx.strokeStyle = cssOf(color); ctx.stroke();
           };
-          line(op, oq, stone.lite);
-          line(ip, iq, stone.style.stone.SHADOW);
+          // Light the rear lip and shade the front lip. On the south wall
+          // those are the inner and outer edges respectively; reversing them
+          // makes the cap read as a trench behind the battlements.
+          line(op, oq, ny < 0 ? stone.style.stone.SHADOW : stone.lite);
+          line(ip, iq, ny < 0 ? stone.lite : stone.style.stone.SHADOW);
           // Roofed merlons continue on one 8px grid across atlas sections.
           const damage = CastleStyles.damageCell(d.key,
             Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
@@ -698,14 +702,17 @@
             if (rampart.broken && tooth % 4 === 2) continue;
             const t = (tooth * 8 + 2) / length;
             if (t >= 1) continue;
-            const v = outer({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+            // Crown the rear edge, leaving the top plane visible in front
+            // of the teeth, as in the tiled rampart's overhead profile.
+            const crest = ny < 0 ? inner : outer;
+            const v = crest({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
             if (damage && damage.missing === tooth % 4) continue;
-            ctx.fillStyle = cssOf(stone.top);
-            ctx.fillRect(Math.round(v.x), Math.round(v.y + 2), rampart.toothWidth, rampart.toothHeight);
+            ctx.fillStyle = cssOf(face);
+            ctx.fillRect(Math.round(v.x), Math.round(v.y - rampart.toothHeight), rampart.toothWidth, rampart.toothHeight);
             ctx.fillStyle = cssOf(stone.lite);
-            ctx.fillRect(Math.round(v.x), Math.round(v.y - 2), rampart.toothWidth, 4);
+            ctx.fillRect(Math.round(v.x), Math.round(v.y - rampart.toothHeight - 2), rampart.toothWidth, 2);
             ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
-            ctx.fillRect(Math.round(v.x) + rampart.toothWidth - 1, Math.round(v.y + 2), 1, rampart.toothHeight);
+            ctx.fillRect(Math.round(v.x) + rampart.toothWidth - 1, Math.round(v.y - rampart.toothHeight), 1, rampart.toothHeight);
           }
         } else {
         // Extrude this edge downward, then remove its part inside the floor.
