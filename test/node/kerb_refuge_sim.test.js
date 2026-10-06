@@ -161,7 +161,8 @@ test('kerb: the harness bites — every mobile hostile attacks a player in open 
     // Circling trail-makers and buried ambushers do not chase a still target.
     // Their contact/ground hazards have separate behavioral tests.
     if (row?.attackType === 'none' || ['orbit_trail', 'burrow'].includes(row?.movement.pattern)) continue;
-    const r = walk(spec, at(10, OPEN_ROW + 1), () => at(10, OPEN_ROW), 30);
+    const separation = Math.max(1, (row?.minRange || 0) + 1);
+    const r = walk(spec, at(10, OPEN_ROW + separation), () => at(10, OPEN_ROW), 30);
     assert.gt(attacks(r.scene), 0, `${spec.label}: attacked a player standing in the open`);
   }
 });
