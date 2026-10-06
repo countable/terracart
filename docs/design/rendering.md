@@ -71,11 +71,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   walking; transparent, padded reach-cell masks crop with the camera and rebuild
   only when their geometry or validity edge changes. A viewport scratch blends
   old/new masks at their live fade weights and colours them with the radial
-  gradient still centred on the body. Point lights retain their own whole-pixel
-  centres and stamp their already-baked radial cookies after that crop. The
-  full-frame key gates before every canvas call. Reach lighting follows
-  `cellInReach`; light conveys reach
-  and live POIs without outline rings. Day/night leaves the reach plateau bright;
+  gradient still centred on the body. Stable world cookies join padded caches
+  by their exact whole-pixel phase. Player-attached, breathing, flickering and
+  transient lights keep the individual stamp path. The full-frame key gates
+  before every canvas call. Reach lighting follows `cellInReach`; light conveys
+  reach and live POIs without outline rings. Day/night leaves the reach plateau bright;
   caves ignore it.
 - Add sources through `Lighting.KINDS` / `sourceKind`; point-source collectors
   cull by viewport plus light radius, not sprite bounds. Use the existing

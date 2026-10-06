@@ -1618,6 +1618,98 @@
     }
   }
 
+  // Stable world cookies share the padded-cache lane. Flickering, breathing,
+  // transient and player-attached lights stay as individual stamps because
+  // their shape/point changes independently of the camera.
+  function cacheableWorldLight(L) {
+    const row = KINDS[L.kind];
+    return L.kind !== 'handtorch' && L.kind !== 'bolt' && L.kind !== 'blast'
+      && row && !row.flicker && !row.pulse && L.a == null && L.s == null;
+  }
+  function cookiePhase(scene, L, ax, ay) {
+    const k = CELL_PX / scene.cellM;
+    const frac = (v) => Math.round(((v - Math.floor(v)) + 1) % 1 * 1e6);
+    return `${frac((ax + L.dx) * k)},${frac((ay + L.dy) * k + (L.dyPx || 0))}`;
+  }
+  function cookieGroupKey(scene, lights, ax, ay, crit) {
+    const k = CELL_PX / scene.cellM;
+    let out = `${scene.cellM}|${crit ? `${crit.mix},${crit.a}` : '-'}`;
+    for (const L of lights) {
+      const x = Math.round((ax + L.dx) * k * 1e6);
+      const y = Math.round(((ay + L.dy) * k + (L.dyPx || 0)) * 1e6);
+      out += `|${L.kind},${L.id},${x},${y},${L.dyPx},${L.r},${L.colour},${L.g}`;
+    }
+    return out;
+  }
+
+  // Cache up to three exact whole-pixel phase groups. Lights in one group
+  // cross every rounding boundary together, so one integer crop keeps each
+  // glow locked to its sprite. Smaller extra groups remain in `excluded` and
+  // take the old one-cookie stamp path instead of consuming an unbounded set
+  // of mobile canvases.
+  function worldCookieFrames(scene, W, H, ax, ay, ox, oy, crit, now, pnow) {
+    const pad = LIGHT_CACHE_PAD_CELLS * CELL_PX;
+    const limit = LIGHT_CACHE_LIMIT_CELLS * CELL_PX;
+    const groups = new Map(), excluded = [];
+    for (const L of scene._lights) {
+      if (!cacheableWorldLight(L)) { excluded.push(L); continue; }
+      const phase = cookiePhase(scene, L, ax, ay);
+      let g = groups.get(phase);
+      if (!g) groups.set(phase, g = { phase, lights: [] });
+      g.lights.push(L);
+    }
+    const selected = [...groups.values()].sort((a, b) => b.lights.length - a.lights.length).slice(0, 3);
+    const kept = new Set(selected.map(g => g.phase));
+    for (const g of groups.values()) if (!kept.has(g.phase)) excluded.push(...g.lights);
+    const st = scene._lightCookieContribution
+      || (scene._lightCookieContribution = { entries: [], rebuilds: 0, serial: 0 });
+    const items = [];
+    let rebuilt = false, cached = 0;
+    for (const g of selected) {
+      const key = cookieGroupKey(scene, g.lights, ax, ay, crit);
+      let entry = st.entries.find(e => e.key === key);
+      const centres = g.lights.map(L => lightCentrePx(scene, L));
+      let qx = 0, qy = 0, reusable = !!entry && entry.centres.length === centres.length
+        && entry.canvas.width === W + 2 * pad && entry.canvas.height === H + 2 * pad;
+      if (reusable && centres.length) {
+        qx = entry.centres[0].x - centres[0].x + ox - entry.ox;
+        qy = entry.centres[0].y - centres[0].y + oy - entry.oy;
+        if (Math.abs(qx) >= limit || Math.abs(qy) >= limit) reusable = false;
+        for (let i = 1; reusable && i < centres.length; i++) {
+          if (entry.centres[i].x - centres[i].x + ox - entry.ox !== qx
+              || entry.centres[i].y - centres[i].y + oy - entry.oy !== qy) reusable = false;
+        }
+      }
+      if (!reusable) {
+        if (!entry) {
+          if (st.entries.length < 3) {
+            entry = { canvas: document.createElement('canvas') };
+            st.entries.push(entry);
+          } else entry = st.entries.reduce((a, b) => a.used < b.used ? a : b);
+        }
+        if (entry.canvas.width !== W + 2 * pad) entry.canvas.width = W + 2 * pad;
+        if (entry.canvas.height !== H + 2 * pad) entry.canvas.height = H + 2 * pad;
+        const ctx = entry.canvas.getContext('2d');
+        ctx.clearRect(0, 0, entry.canvas.width, entry.canvas.height);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.imageSmoothingEnabled = true;
+        for (const L of g.lights) paintLight(ctx, scene, L, crit, now, pnow, ox - pad, oy - pad);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        entry.key = key;
+        entry.centres = centres;
+        entry.ox = ox; entry.oy = oy;
+        qx = qy = 0;
+        st.rebuilds++;
+        rebuilt = true;
+      }
+      entry.used = ++st.serial;
+      items.push({ canvas: entry.canvas, sx: pad + qx, sy: pad + qy });
+      cached += g.lights.length;
+    }
+    return { items, excluded, rebuilt, cached };
+  }
+
   // Everything that changes one reach mask except its blend weight and common
   // screen translation. Fade weights change every step for 240 ms; keeping a
   // canvas per old/new mask lets the main lightmap blend two cached crops
@@ -1641,8 +1733,8 @@
       if (frame.weight <= 0) continue;
       const key = contributionKey(scene, frame, placement);
       let entry = st.entries.find(e => e.key === key);
-      let qx = entry ? entry.placement.x - placement.x : 0;
-      let qy = entry ? entry.placement.y - placement.y : 0;
+      let qx = entry ? entry.placement.x - placement.x + ox - entry.ox : 0;
+      let qy = entry ? entry.placement.y - placement.y + oy - entry.oy : 0;
       let reusable = !!entry && entry.canvas.width === W + 2 * pad && entry.canvas.height === H + 2 * pad
         && Math.abs(qx) < limit && Math.abs(qy) < limit;
       if (!reusable) {
@@ -1665,6 +1757,7 @@
         ctx.globalCompositeOperation = 'source-over';
         entry.key = key;
         entry.placement = placement;
+        entry.ox = ox; entry.oy = oy;
         qx = qy = 0;
         st.rebuilds++;
         rebuilt = true;
@@ -1804,11 +1897,17 @@
     paintReachContribution(ctx, scene, contribution, prof, ps, ox, oy, r0, W, H);
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+    const cookies = worldCookieFrames(scene, W, H, ax, ay, ox, oy, crit, now, pnow);
+    for (const item of cookies.items) ctx.drawImage(item.canvas, item.sx, item.sy, W, H, 0, 0, W, H);
     ctx.imageSmoothingEnabled = true;
-    // Each point light keeps its own whole-pixel centre. The radial cookie is
-    // already baked; stamping it is cheaper than rebuilding the reach path and
-    // avoids forcing unrelated source phases through one crop shift.
-    for (const L of scene._lights) paintLight(ctx, scene, L, crit, now, pnow, ox, oy);
+    // Only independently flickering/transient/player lights and small overflow
+    // phase groups take the per-step stamp path. Stable world cookies move as
+    // exact whole-pixel crops above.
+    for (const L of cookies.excluded) paintLight(ctx, scene, L, crit, now, pnow, ox, oy);
+    scene._boot_lightExcludedStamps = cookies.excluded.length;
+    scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (L.kind === 'handtorch' ? 0 : 1), 0);
+    scene._boot_lightCachedCookies = cookies.cached;
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     const uploadT0 = B ? performance.now() : 0;
@@ -1820,6 +1919,9 @@
       B.tick('lighting', dt);
       B.count('lightmap painted', 1);
       B.count('light contribution painted', contribution.rebuilt ? 1 : 0);
+      B.count('light cookie cache painted', cookies.rebuilt ? 1 : 0);
+      B.count('light cookies stamped', cookies.excluded.length);
+      B.count('light cookies cached', cookies.cached);
     }
     return true;
   }
