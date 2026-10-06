@@ -9,21 +9,25 @@
 <h1>Quarry cave-in</h1>
 <p>Step onto loose ground. A crack opens beneath your feet, then becomes a permanent hole after five seconds.</p>
 <main>
-<canvas id="cavein-animation" width="192" height="192" aria-label="Animated quarry cave-in"></canvas>
-<div><button id="cavein-step" disabled>Step on loose ground</button><button id="cavein-reset">Reset</button><p id="cavein-status" role="status">Loading art…</p><progress id="cavein-progress" max="5000" value="0"></progress><p><small>One cell · 24 × 24 px frames<br>The hole stays open until you reset this preview.</small></p><a href="../assets/Objects/HazardAnimationsV2/cavein.png" download>Download spritesheet</a></div>
+<canvas id="cavein-animation" width="192" height="192" aria-label="Quarry crack and floor gap"></canvas>
+<div><button id="cavein-step" disabled>Step on loose ground</button><button id="cavein-reset">Reset</button><p id="cavein-status" role="status">Loading art…</p><progress id="cavein-progress" max="5000" value="0"></progress><p><small>Three static cracks · 24 × 24 px each<br>The hole stays open until you reset this preview.</small></p><a href="../assets/Objects/HazardAnimationsV2/cavein.png" download>Download spritesheet</a></div>
 </main>
-<details><summary>Sprite sheet</summary><p><img src="../assets/Objects/HazardAnimationsV2/cavein.png" alt="Eight by eight cave-in animation sprite sheet"></p></details>
+<details><summary>Sprite sheet</summary><p><img src="../assets/Objects/HazardAnimationsV2/cavein.png" alt="Three static quarry crack variants"></p></details>
+<script src="../src/util.js"></script>
+<script src="../src/textures.js"></script>
 <script src="../src/environment_hazards.js"></script>
 <script>
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),step=document.querySelector('#cavein-step'),status=document.querySelector('#cavein-status'),progress=document.querySelector('#cavein-progress');
 ctx.imageSmoothingEnabled=false;
 const art=new Image();art.src='../assets/Objects/HazardAnimationsV2/cavein.png';
-let hazard=null,start=null;
-function draw(){ctx.clearRect(0,0,192,192);if(!hazard)return;const frame=EnvironmentHazards.update(hazard);ctx.drawImage(art,(frame%8)*24,Math.floor(frame/8)*24,24,24,0,0,192,192)}
+let hazard=null,start=null,visit=0;
+let gap;
+makeCaveChasmTexture({textures:{exists:()=>false,createCanvas:(key,w,h)=>{gap=document.createElement('canvas');gap.width=w;gap.height=h;return {getContext:()=>gap.getContext('2d'),add:()=>{},refresh:()=>{}}}}},32);
+function draw(){ctx.clearRect(0,0,192,192);if(!hazard)return;const frame=EnvironmentHazards.update(hazard);if(hazard.phase==='open')ctx.drawImage(gap,frame*32,0,32,32,0,0,192,192);else ctx.drawImage(art,frame*24,0,24,24,0,0,192,192)}
 function reset(){hazard=null;start=null;step.disabled=false;progress.value=0;status.textContent='Undisturbed ground';draw()}
 art.onload=reset;art.onerror=()=>status.textContent='The sprite sheet could not load.';
-step.onclick=()=>{hazard={type:'cavein',elapsedMs:0};start=performance.now();step.disabled=true;draw()};
+step.onclick=()=>{hazard={type:'cavein',id:`preview-${visit++}`,elapsedMs:0};start=performance.now();step.disabled=true;draw()};
 document.querySelector('#cavein-reset').onclick=reset;
-function tick(now){if(hazard){hazard.elapsedMs=Math.min(EnvironmentHazards.CONFIG.cavein.warningMs,now-start);draw();progress.value=hazard.elapsedMs;status.textContent=hazard.phase==='open'?'Permanent open hole':`Cracking · ${(hazard.elapsedMs/1000).toFixed(1)} / 5.0 seconds`;}requestAnimationFrame(tick)}requestAnimationFrame(tick);
+function tick(now){if(hazard){hazard.elapsedMs=Math.min(EnvironmentHazards.CONFIG.cavein.warningMs,now-start);draw();progress.value=hazard.elapsedMs;status.textContent=hazard.phase==='open'?'Permanent open hole':`Cracked ground · ${(hazard.elapsedMs/1000).toFixed(1)} / 5.0 seconds`;}requestAnimationFrame(tick)}requestAnimationFrame(tick);
 </script>
 </html>

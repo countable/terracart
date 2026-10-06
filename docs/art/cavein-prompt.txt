@@ -1,4 +1,4 @@
-Built-in image_gen generation; then a layout refinement requesting all 64 cells. The generated source has 56 distinct frames; runtime packaging resamples frames to 24px and holds the final eight hole frames across the last row.
+Built-in image_gen source. Runtime uses only three static 24px crack variants (original first-row frames 2, 4, 7). Each site keeps one variant for its five-second warning, then uses the existing L1 cave_chasm texture, frame 15. The generated hole and continuous animation are not used.
 
 Use case: stylized-concept.
 Asset type: pixel-art animation sprite sheet for Dragon Hood, a top-down square-grid fantasy game.

@@ -186,15 +186,16 @@
     const h = EnvironmentHazards.lists(s).caveins[0];
     assert.truthy(h); assert.eq(h.cellIX, 3); assert.eq(h.cellIY, 3);
     assert.eq(EnvironmentHazards.footprint(s, h).length, 1);
-    assert.eq(h.phase, 'warning'); assert.eq(h.frame, 0);
+    assert.eq(h.phase, 'warning'); assert.inRange(h.frame, 0, 2);
+    const crackFrame = h.frame;
     WorldGen.makeRng = () => () => .99; s.playerM = { x: 4, y: 4 };
-    advance(s, 4900); assert.eq(h.phase, 'warning'); assert.lt(h.frame, 56);
-    advance(s, 100); assert.eq(h.phase, 'open'); assert.eq(h.frame, 63);
+    advance(s, 4900); assert.eq(h.phase, 'warning'); assert.eq(h.frame, crackFrame, 'one crack variant stays still until collapse');
+    advance(s, 100); assert.eq(h.phase, 'open'); assert.eq(h.frame, 15);
     advance(s, 30000); assert.eq(h.phase, 'open', 'pit never closes');
     const saved = JSON.parse(JSON.stringify(s.save));
     s.save = saved; s._environmentHazards = new Map();
     const restored = EnvironmentHazards.lists(s).caveins[0];
-    assert.eq(restored.id, h.id); assert.eq(restored.phase, 'open'); assert.eq(restored.frame, 63);
+    assert.eq(restored.id, h.id); assert.eq(restored.phase, 'open'); assert.eq(restored.frame, 15);
     assert.eq(restored.cellIX, 3); assert.eq(restored.widthCells, 1);
   }));
   test('environment hazards: saved quarry warnings resume their foreground clock without a new roll', () => fixture((s, entries) => {

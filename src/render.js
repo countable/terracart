@@ -4666,7 +4666,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { x: sx, y: sy } = project(it.dx, it.dy), h = it.h;
     const cfg = EnvironmentHazards.CONFIG[h.type];
     s.anims?.stop();
-    s.setTexture(cfg.texture, h.frame)
+    s.setTexture(h.phase === 'open' && cfg.openTexture || cfg.texture, h.frame)
       .setOrigin(...cfg.renderAnchor).setDisplaySize(cfg.widthCells * CELL_PX, cfg.heightCells * CELL_PX)
       .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
     setWorldDepth(s, it._z);

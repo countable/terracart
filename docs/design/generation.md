@@ -189,8 +189,8 @@ access or tile lifecycle mechanics.
 - Surface quarry hazards use `EnvironmentHazards` and the shared spawn gate.
   Strip mines can open temporary 2×2 sinkholes wholly inside their footprint.
   Other quarries have deterministic hidden cave-in cells: stepping onto an
-  eligible cell starts a five-second crack animation, then leaves a permanent
-  one-cell hole. `save.caveIns` retains warning progress and opened holes across
+  eligible cell starts a five-second warning with one of three static crack variants, then leaves a
+  permanent one-cell hole rendered with the existing L1 floor-gap texture. `save.caveIns` retains warning progress and opened holes across
   reloads; foreground ticks own the clock. Open holes use `HazardFalls` for
   landing and descent, including floor seals and retrying unavailable landings.
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a

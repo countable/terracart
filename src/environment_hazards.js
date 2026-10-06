@@ -4,7 +4,7 @@
   const CONFIG = Object.freeze({ contactMs: 1000, damage: 8, maxStepMs: 100,
     vent: Object.freeze({ texture: 'vent_cycle', chance: .12, inactiveMs: 5000, warningMs: 3000, activeMs: 3000,
       frameSize: 24, renderAnchor: [0.5, 18.5 / 24], widthCells: 1, heightCells: 1, maxPresent: 24, retainRadiusCells: 24 }),
-    cavein: Object.freeze({ texture: 'cavein', chance: .08, warningMs: 5000, warningFrames: 56, openFrame: 63, frameSize: 24, renderAnchor: [0.5, 0.5],
+    cavein: Object.freeze({ texture: 'cavein', chance: .08, warningMs: 5000, crackVariants: 3, openTexture: 'cave_chasm', openFrame: 15, frameSize: 24, renderAnchor: [0.5, 0.5],
       widthCells: 1, heightCells: 1 }),
     stripMine: Object.freeze({ sinkholeChance: .12 }),
     sinkhole: Object.freeze({ texture: 'sinkhole', chance: .035, warningMs: 5000, openingMs: 240, openMinMs: 5000, openMaxMs: 20000,
@@ -87,7 +87,7 @@
       h.frame = VENTS[h.kind].row * 5 + col;
     } else if (h.type === 'cavein') {
       h.phase = t < c.warningMs ? 'warning' : 'open';
-      h.frame = h.phase === 'open' ? c.openFrame : Math.min(c.warningFrames - 1, Math.floor(t * c.warningFrames / c.warningMs));
+      h.frame = h.phase === 'open' ? c.openFrame : fnv1a(h.id) % c.crackVariants;
     } else {
       const openAt = c.warningMs + c.openingMs, closeAt = openAt + h.openMs;
       h.phase = t < c.warningMs ? 'warning' : t < openAt ? 'opening' : t < closeAt ? 'open'
