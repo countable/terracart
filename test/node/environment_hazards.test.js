@@ -171,7 +171,7 @@
       h.elapsedMs = time; EnvironmentHazards.update(h); assert.eq(h.phase, phase); assert.eq(h.frame, frame);
     }
   }));
-  function quarry(s, entries, variant = 'quarry-abandoned') {
+  function quarry(s, entries, variant = 'quarry-strip-mine') {
     s.depth = 0;
     for (const e of entries) {
       e.grid.fill(WorldGen.T.ROCK);
@@ -179,7 +179,7 @@
     }
     WorldGen.makeRng = () => () => 0;
   }
-  test('environment hazards: stepped quarry cracks become permanent single-cell pits after exactly five foreground seconds', () => fixture((s, entries) => {
+  test('environment hazards: stepped strip-mine cluster cells become permanent pits after exactly five foreground seconds', () => fixture((s, entries) => {
     quarry(s, entries);
     assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'hidden until stepped on');
     EnvironmentHazards.observe(s);
@@ -188,16 +188,16 @@
     assert.eq(EnvironmentHazards.footprint(s, h).length, 1);
     assert.eq(h.phase, 'warning'); assert.eq(h.frame, 0);
     WorldGen.makeRng = () => () => .99; s.playerM = { x: 4, y: 4 };
-    advance(s, 4900); assert.eq(h.phase, 'warning'); assert.lt(h.frame, 56);
-    advance(s, 100); assert.eq(h.phase, 'open'); assert.eq(h.frame, 63);
+    advance(s, 4900); assert.eq(h.phase, 'warning'); assert.eq(h.frame, 2, 'chunks fall away before collapse');
+    advance(s, 100); assert.eq(h.phase, 'open'); assert.eq(h.frame, 15);
     advance(s, 30000); assert.eq(h.phase, 'open', 'pit never closes');
     const saved = JSON.parse(JSON.stringify(s.save));
     s.save = saved; s._environmentHazards = new Map();
     const restored = EnvironmentHazards.lists(s).caveins[0];
-    assert.eq(restored.id, h.id); assert.eq(restored.phase, 'open'); assert.eq(restored.frame, 63);
+    assert.eq(restored.id, h.id); assert.eq(restored.phase, 'open'); assert.eq(restored.frame, 15);
     assert.eq(restored.cellIX, 3); assert.eq(restored.widthCells, 1);
   }));
-  test('environment hazards: saved quarry warnings resume their foreground clock without a new roll', () => fixture((s, entries) => {
+  test('environment hazards: saved cluster warnings resume their foreground clock without a new roll', () => fixture((s, entries) => {
     quarry(s, entries); EnvironmentHazards.observe(s);
     const h = EnvironmentHazards.lists(s).caveins[0];
     WorldGen.makeRng = () => () => .99; s.playerM = { x: 4, y: 4 };
@@ -207,7 +207,7 @@
     advance(s, 2700); assert.eq(restored.phase, 'warning');
     advance(s, 100); assert.eq(restored.phase, 'open');
   }));
-  test('environment hazards: quarry cave-ins keep shared spawn exclusions and live structure protection', () => fixture((s, entries) => {
+  test('environment hazards: cluster cave-ins keep shared spawn exclusions and live structure protection', () => fixture((s, entries) => {
     quarry(s, entries); const e = entries[0];
     for (const reason of ['PRIVATE', 'BEHIND_HOUSE', 'RESTRICTED', 'FARMLAND', 'GOLF']) {
       s._environmentHazards = new Map(); e._spawnOpts.spawnWhy[27] = WorldGen.SPAWN_WHY[reason];
@@ -220,17 +220,42 @@
     s._environmentHazards = new Map(); EnvironmentHazards.observe(s);
     assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'crater lava cannot cave in');
   }));
-  test('environment hazards: strip mines mint random sinkholes instead of permanent cave-ins', () => fixture((s, entries) => {
-    quarry(s, entries, 'quarry-strip-mine'); EnvironmentHazards.observe(s);
-    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0);
-    const holes = EnvironmentHazards.lists(s).sinkholes;
-    assert.eq(holes.length, 1); assert.eq(holes[0].widthCells, 2);
-    const first = JSON.stringify(holes);
-    s._environmentHazards = new Map(); EnvironmentHazards.observe(s);
-    assert.eq(JSON.stringify(EnvironmentHazards.lists(s).sinkholes), first, 'stable placement and duration');
-    s._environmentHazards = new Map(); entries[0].zone.coverage.fill(0); entries[0].zone.coverage[27] = 1;
+  test('environment hazards: strip mines and L1 trigger deterministic connected cave-in clusters only', () => fixture((s, entries) => {
+    quarry(s, entries); EnvironmentHazards.observe(s);
+    const cluster = EnvironmentHazards.lists(s).caveins;
+    assert.inRange(cluster.length, 2, 5);
+    assert.eq(EnvironmentHazards.lists(s).sinkholes.length, 0, 'temporary holes cannot swallow a collapsing patch');
+    const first = JSON.stringify(cluster);
+    s.save.caveIns = {}; s._environmentHazards = new Map(); EnvironmentHazards.observe(s);
+    assert.eq(JSON.stringify(EnvironmentHazards.lists(s).caveins), first);
+    const joined = new Set([`${cluster[0].cellIX}:${cluster[0].cellIY}`]);
+    for (let n = 0; n < cluster.length; n++) for (const h of cluster)
+      if (cluster.some(c => joined.has(`${c.cellIX}:${c.cellIY}`) && Math.abs(c.cellIX - h.cellIX) + Math.abs(c.cellIY - h.cellIY) === 1))
+        joined.add(`${h.cellIX}:${h.cellIY}`);
+    assert.eq(joined.size, cluster.length, 'every patch cell has a cardinal connection');
+    for (const variant of ['quarry-abandoned', 'quarry-crater', 'quarry-stronghold']) {
+      s.save.caveIns = {}; s._environmentHazards = new Map(); quarry(s, entries, variant); EnvironmentHazards.observe(s);
+      assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, variant);
+    }
+    for (const depth of [1, 2, 3]) {
+      s.save.caveIns = {}; s._environmentHazards = new Map(); s.depth = depth;
+      entries.forEach(e => { e.grid.fill(WorldGen.T.CAVE_FLOOR); delete e.zone; });
+      EnvironmentHazards.observe(s);
+      assert.eq(EnvironmentHazards.lists(s).caveins.length > 0, depth === 1, `floor ${depth}`);
+    }
+  }));
+  test('environment hazards: cave-in clusters never cross exclusions or leave strip-mine coverage', () => fixture((s, entries) => {
+    quarry(s, entries); entries[0].zone.coverage.fill(0);
+    entries[0].zone.coverage[27] = 1;
     EnvironmentHazards.observe(s);
-    assert.eq(EnvironmentHazards.lists(s).sinkholes.length, 0, 'whole sinkhole stays inside strip-mine coverage');
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'one isolated cell is not a cluster');
+    entries[0].zone.coverage.fill(1); s._environmentHazards = new Map();
+    entries[0]._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    entries[0]._spawnOpts.spawnWhy[27] = entries[0]._spawnOpts.spawnWhy[28] = 0;
+    EnvironmentHazards.observe(s);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 2);
+    for (const h of EnvironmentHazards.lists(s).caveins)
+      assert.truthy(h.cellIY === 3 && (h.cellIX === 3 || h.cellIX === 4), 'only joined eligible cells collapse');
   }));
   test('environment hazards: live obstructions suppress permanent pits without erasing their save', () => fixture((s, entries) => {
     quarry(s, entries); EnvironmentHazards.observe(s);
@@ -240,7 +265,7 @@
     advance(s, 5000);
     assert.eq(h.phase, 'open'); assert.truthy(h.blocked);
     assert.eq(s.save.caveIns[h.id].elapsedMs, 5000);
-    assert.eq(EnvironmentHazards.lists(s).caveins.length, 1);
+    assert.inRange(EnvironmentHazards.lists(s).caveins.length, 2, 5);
     entries[0].objects.length = 0; advance(s, 1000);
     assert.falsy(h.blocked); assert.eq(h.phase, 'open');
     assert.eq(EnvironmentHazards.lists(s).caveins[0].id, h.id);
@@ -248,11 +273,16 @@
   test('environment hazards: permanent cave-ins can cause another fall after returning', () => fixture(async (s, entries) => {
     quarry(s, entries); EnvironmentHazards.observe(s);
     const h = EnvironmentHazards.lists(s).caveins[0], old = globalThis.HazardFalls;
-    h.elapsedMs = 4900; let calls = 0;
+    for (const member of EnvironmentHazards.lists(s).caveins) member.elapsedMs = 4900;
+    let calls = 0;
     globalThis.HazardFalls = { fall: async () => { calls++; s.depth = 1; return true; } };
     try {
       EnvironmentHazards.tick(s, .1); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
       assert.eq(calls, 1); assert.eq(h.phase, 'open');
+      for (const member of s._environmentHazards.get(0).caveins) {
+        assert.eq(member.phase, 'open', 'whole cluster opens before descent');
+        assert.eq(s.save.caveIns[member.id].elapsedMs, 5000);
+      }
       s.depth = 0; advance(s, 1000);
       await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
       assert.eq(calls, 2, 'returning to the same open pit falls again');
