@@ -136,6 +136,54 @@ test('save: renameSave rejects unknown ids and blank names', () => {
   }
 });
 
+test('save: renameSave refuses a name another slot already wears', () => {
+  const nameA = _uid('test_dupname_a');
+  const nameB = _uid('test_dupname_b');
+  const idA = createSave(nameA);
+  const idB = createSave(nameB);
+  try {
+    assert.falsy(renameSave(idB, nameA), 'name taken by another slot returns false');
+    const b = listSaves().find(s => s.id === idB);
+    assert.eq(b.name, nameB, 'name unchanged after refused rename');
+    assert.truthy(renameSave(idB, nameB), 'renaming to the slot\'s own name is a no-op success');
+  } finally {
+    deleteSave(idA);
+    deleteSave(idB);
+  }
+});
+
+test('save: createSave suffixes a name another slot already wears', () => {
+  const name = _uid('test_dupcreate');
+  const id1 = createSave(name);
+  const id2 = createSave(name);
+  try {
+    const list = listSaves();
+    assert.eq(list.find(s => s.id === id1).name, name, 'first creation keeps the name');
+    assert.eq(list.find(s => s.id === id2).name, name + ' 2', 'duplicate creation gets " 2"');
+    const id3 = createSave(name);
+    assert.eq(listSaves().find(s => s.id === id3).name, name + ' 3', 'third duplicate walks to " 3"');
+    deleteSave(id3);
+  } finally {
+    deleteSave(id1);
+    deleteSave(id2);
+  }
+});
+
+test('save: createSave renumbers a suffixed duplicate ("X 2" -> "X 3")', () => {
+  const base = _uid('test_dupcount');
+  const id1 = createSave(base);
+  const id2 = createSave(base + ' 2');   // free → kept as-is
+  const id3 = createSave(base + ' 2');   // taken → renumber, never "X 2 2"
+  try {
+    const c = listSaves().find(s => s.id === id3);
+    assert.eq(c.name, base + ' 3', 'trailing counter is stripped before renumbering');
+  } finally {
+    deleteSave(id1);
+    deleteSave(id2);
+    deleteSave(id3);
+  }
+});
+
 test('save: listSaves returns slots sorted newest-lastPlayedAt first', () => {
   // Create two saves, then explicitly re-activate id1 so switchSave bumps its
   // lastPlayedAt to "now" — ensuring id1 sorts ahead of id2 even when both
