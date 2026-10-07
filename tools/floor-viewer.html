@@ -18,6 +18,7 @@
   .variant button { font: inherit; width: 26px; height: 26px; border-radius: 6px; border: 1px solid #3a4146;
     background: #22292d; color: #cfc9bc; cursor: pointer; }
   .variant button:hover { border-color: #9fb8a4; }
+  .variant button.on { background: #4c6b4a; color: #fff; }
   #variantName { min-width: 170px; color: #c9b98a; }
   label { color: #98a09a; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
   #tag { position: fixed; top: 64px; left: 16px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
@@ -35,6 +36,7 @@
     <button data-mode="current" class="on">Current code</button>
     <button data-mode="proposed" class="proposed">Proposed design</button>
   </div></div>
+  <div class="variant"><div><label>Creatures</label></div><button id="creatureToggle" class="on" style="width:auto;padding:0 10px;">shown</button></div>
   <div class="variant"><div><label>Variant index</label></div>
     <button id="vMinus">&minus;</button><span id="variantName">0</span><button id="vPlus">+</button>
   </div>
@@ -53,7 +55,7 @@
     3: 'Floor 3 - the open Underdark (target: deep stone)', 4: 'Floor 4 - surface mirror (target: fungal Underdark)',
     5: 'Floor 5 - plain mirror + lava (target: the haunted dead city)', 6: 'Floor 6 - plain mirror (target: the lava stratum)',
     7: 'Floor 7 - plain mirror (target: dragon hunting grounds)', 8: 'Floor 8 - plain mirror (target: the roosts)' };
-  let floor = 0, mode = 'current', variantIndex = 0;
+  let floor = 0, mode = 'current', variantIndex = 0, showCreatures = true;
   const entries = {};   // depth -> built tile entry (real pipeline)
   const sprites = {};   // depth -> [{o, appearance, fruit}]
   let assets = null, world = null;
@@ -165,7 +167,7 @@
     for (const o of entry.objects || []) if (o.kind === 'house') { try { roles.set(o, Houses.displayRole(scene.save, o)); } catch (_) {} }
     const { resolveAppearance } = Render.objectAppearance(scene, roles);
     const out = [];
-    const push = (o, look) => { if (look?.visible) out.push({ o, appearance: look }); };
+    const push = (o, look, cat) => { if (look?.visible) out.push({ o, appearance: look, cat }); };
     for (const o of entry.objects || []) {
       let look;
       try { look = o.kind === 'trap' ? { visible: true, texKey: 'trap_hidden', scl: 1, scaleYMul: 1, origin: [.5, .5], dxPx: 0, dyPx: 0 }
@@ -181,9 +183,25 @@
         scl: spec?.scale ?? 2, scaleYMul: 1, origin: [.5, .5], dxPx: 0, dyPx: 0 });
     }
     for (const o of entry.creatures || []) {
-      const art2 = SpriteLayout.creatureArt(o.kind); if (!art2) continue;
-      push(o, { visible: true, texKey: art2.sheet, frameVal: 0, scl: SpriteLayout.creatureScale(o.kind, SpriteLayout.creatureInstScale(o)),
-        scaleYMul: 1, origin: [.5, art2.foot], dxPx: 0, dyPx: -(art2.float || 0) });
+      // NPCs have no roster row: they draw through npcAppearance (villager
+      // sheets with their own tint), exactly as map-review does. Everything
+      // else uses the roster's art (whose scale already folds in artScale).
+      let look = null;
+      try {
+        if (o.kind === 'npc') {
+          const npc = SpriteLayout.npcAppearance(o, 0);
+          look = { visible: true, texKey: npc.sheet, frameVal: npc.frame,
+            scl: SpriteLayout.creatureScale('npc', SpriteLayout.creatureInstScale(o)), scaleYMul: 1,
+            origin: [.5, SpriteLayout.creatureArt('npc').foot], dxPx: 0, dyPx: 0, tint: npc.tint };
+        } else {
+          const art2 = SpriteLayout.creatureArt(o.kind);
+          if (art2) look = { visible: true, texKey: art2.sheet, frameVal: 0,
+            scl: SpriteLayout.creatureScale(o.kind, SpriteLayout.creatureInstScale(o)),
+            scaleYMul: 1, origin: [.5, art2.foot], dxPx: 0, dyPx: -(art2.float || 0),
+            tint: SpriteLayout.creatureTint(o.kind), alpha: SpriteLayout.creatureAlpha(o.kind) };
+        }
+      } catch (_) { continue; }
+      push(o, look, 'creature');
     }
     out.sort((a, b) => a.o.y - b.o.y || a.o.x - b.o.x);
     return out;
@@ -280,7 +298,8 @@
     }
     // Sprites: the game's appearances, the game's scale rule (cell px / 32).
     const scale = s / 32;
-    for (const { o, appearance: p } of list) {
+    for (const { o, appearance: p, cat } of list) {
+      if (!showCreatures && cat === 'creature') continue;
       const at = { x: offX + o.x / R.EDGE * R.N * s, y: offY + o.y / R.EDGE * R.N * s };
       if (at.x < -40 || at.y < -40 || at.x > Wpx + 40 || at.y > Hpx + 40) continue;
       const t = assets.textures.get(p.texKey), f = t && t.get(p.frameVal);
@@ -311,6 +330,8 @@
     document.querySelectorAll('#modeSeg button').forEach(x => x.classList.remove('on'));
     b.classList.add('on'); draw();
   });
+  const ct = document.getElementById('creatureToggle');
+  ct.onclick = () => { showCreatures = !showCreatures; ct.classList.toggle('on', showCreatures); ct.textContent = showCreatures ? 'shown' : 'hidden'; draw(); };
   document.getElementById('vMinus').onclick = () => { variantIndex = Math.max(0, variantIndex - 1); draw(); };
   document.getElementById('vPlus').onclick = () => { variantIndex++; draw(); };
   addEventListener('resize', draw);
