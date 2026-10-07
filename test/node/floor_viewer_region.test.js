@@ -47,6 +47,11 @@
     for (const v of entry.grid) counts.set(v, (counts.get(v) || 0) + 1);
     const at = t => counts.get(T[t]) || 0;
     assert.gt(at('FOREST'), 40, 'forest patch paints');
+    assert.eq(entry.grid[25 * FloorViewerRegion.N + 45], T.FOREST, 'forest sits below the eastern grove');
+    const lot = entry.grid[12 * FloorViewerRegion.N + 7];
+    assert.truthy(lot === T.COMMERCIAL || lot === T.ROCK, 'parking lot is paved or quarry ground, not bare dirt');
+    assert.eq(entry.grid[3 * FloorViewerRegion.N + 5], T.COMMERCIAL, 'commercial fills the former northwest forest');
+    assert.eq(entry.grid[22 * FloorViewerRegion.N + 2], T.RESIDENTIAL, 'residential fills the west side above the medium road');
     assert.eq(at('FARMLAND'), 0, 'farmland is replaced by the parking lot');
     assert.eq(FloorViewerRegion.N, 50, 'the entire region stays compact');
     assert.gt(at('RESIDENTIAL'), 100, 'residential belt paints');

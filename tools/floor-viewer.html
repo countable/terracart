@@ -38,6 +38,7 @@
     <button data-mode="proposed" class="proposed">Proposed design</button>
   </div></div>
   <div class="variant"><div><label>Creatures</label></div><button id="creatureToggle" class="on" style="width:auto;padding:0 10px;">shown</button></div>
+  <div class="variant"><div><label>Labels</label></div><button id="labelToggle" class="on" aria-pressed="true" style="width:auto;padding:0 10px;">shown</button></div>
   <div class="variant"><div><label>Variant index</label></div>
     <button id="vMinus">&minus;</button><span id="variantName">0</span><button id="vPlus">+</button>
   </div>
@@ -55,7 +56,7 @@
     3: 'Floor 3 - the open Underdark (target: deep stone)', 4: 'Floor 4 - surface mirror (target: fungal Underdark)',
     5: 'Floor 5 - plain mirror + lava (target: the haunted dead city)', 6: 'Floor 6 - plain mirror (target: the lava stratum)',
     7: 'Floor 7 - plain mirror (target: dragon hunting grounds)', 8: 'Floor 8 - plain mirror (target: the roosts)' };
-  let floor = 0, mode = 'current', variantIndex = 0, showCreatures = true;
+  let floor = 0, mode = 'current', variantIndex = 0, showCreatures = true, showLabels = true;
   const entries = {};   // depth -> built tile entry (real pipeline)
   const sprites = {};   // depth -> [{o, appearance, fruit}]
   let assets = null, building = true;
@@ -337,6 +338,25 @@
         at.x + p.dxPx * scale - w * p.origin[0], at.y + p.dyPx * scale - h * p.origin[1], w, h);
       ctx.globalAlpha = 1;
     }
+    if (showLabels) {
+      const labels = depth === 0 ? R.labels : (entry.caveAreas?.areas || []).map(area => ({
+        text: area.kind.replace(/_/g, ' '), x: area.x / R.EDGE * R.N, y: area.y / R.EDGE * R.N
+      }));
+      ctx.save();
+      ctx.font = '600 12px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (const label of labels) {
+        const width = ctx.measureText(label.text).width + 14;
+        const x = Math.max(width / 2 + 4, Math.min(Wpx - width / 2 - 4, offX + label.x * s));
+        const y = offY + label.y * s;
+        ctx.fillStyle = '#14181ade';
+        ctx.fillRect(x - width / 2, y - 11, width, 22);
+        ctx.strokeStyle = '#9fb8a480'; ctx.lineWidth = 1;
+        ctx.strokeRect(x - width / 2, y - 11, width, 22);
+        ctx.fillStyle = '#f0eee6'; ctx.fillText(label.text, x, y);
+      }
+      ctx.restore();
+    }
     const extra = mode === 'proposed' && floor === 2
       ? '<br>Proposed floor 2 (goblin city) has no generator yet - the sketch lives in the geometry sheet.' : '';
     const selected = FloorViewerVariants.select(depth, variantIndex);
@@ -370,9 +390,18 @@
   });
   const ct = document.getElementById('creatureToggle');
   ct.onclick = () => { showCreatures = !showCreatures; ct.classList.toggle('on', showCreatures); ct.textContent = showCreatures ? 'shown' : 'hidden'; draw(); };
+  const lt = document.getElementById('labelToggle');
+  lt.onclick = () => {
+    showLabels = !showLabels;
+    lt.classList.toggle('on', showLabels);
+    lt.setAttribute('aria-pressed', String(showLabels));
+    lt.textContent = showLabels ? 'shown' : 'hidden';
+    draw();
+  };
   function updateControls() {
     document.querySelectorAll('#floorSeg button, #modeSeg button').forEach(b => { b.disabled = building; });
     document.getElementById('creatureToggle').disabled = building;
+    document.getElementById('labelToggle').disabled = building;
     const depth = displayDepth(), options = FloorViewerVariants.options(depth);
     const selected = FloorViewerVariants.select(depth, variantIndex);
     for (const id of ['vMinus', 'vPlus']) document.getElementById(id).disabled = building || options.length < 2;
