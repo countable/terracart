@@ -118,7 +118,7 @@ test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with 
   // synthetic object kind — scarecrows, campfires and the lamps alike.)
   assert.truthy(/const lampList = placedAs\(scene\._streetLamps \|\| \[\], '_streetlamp', 'lamp',/.test(lampListSrc),
     'the list comes off the one app.js keeps (scene._streetLamps), as items of its own RENDER_SPEC kind');
-  assert.truthy(/cullToView\(list, pWorldX, pWorldY, halfM, \(p, dx, dy\) => out\.push\(\{/.test(render),
+  assert.truthy(/cullToView\(list, pWorldX, pWorldY, halfM, \(p, dx, dy\) => \{[\s\S]{0,500}?out\.push\(\{ o, dx, dy \}\);/.test(render),
     'measured from the CAMERA ANCHOR the whole pass projects from — a peek carries the lamps with the ground');
   assert.truthy(/for \(const L of lampList\) filteredObj\.push\(L\);/.test(render),
     'and pushed onto filteredObj, which is what the z-order pass ranks');

@@ -968,7 +968,7 @@
     const N = c.cellsPerEdge;
     const roadBand = new Uint8Array(N * N);
     const roadClass = new Uint8Array(N * N);
-    const spawnWhy = new Uint16Array(N * N);
+    const spawnWhy = new Uint32Array(N * N);
     const quietMask = new Uint8Array(N * N);
     for (let i = 0; i < entry.grid.length; i++) {
       const t = entry.grid[i];
@@ -988,7 +988,7 @@
            y <= Math.min(N - 1, y1 + Math.ceil(WorldGen.MAJOR_BUFFER_CELLS) + 1); y++) {
         for (let x = Math.max(0, x0); x <= Math.min(N - 1, x1); x++) {
           const i = y * N + x;
-          if (y >= y0 && y <= y1) roadClass[i] |= WorldGen.ROAD_CLASS_MAJOR_BAND;
+          if (y >= y0 && y <= y1) roadClass[i] |= WorldGen.ROAD_CLASS_MAJOR_BAND | WorldGen.ROAD_CLASS_MAJOR_ROAD;
           else if (y === y0 - 1 || y === y1 + 1) roadClass[i] |= WorldGen.ROAD_CLASS_MAJOR_VERGE;
           roadClass[i] |= WorldGen.ROAD_CLASS_MAJOR_BUFFER;
           spawnWhy[i] |= WorldGen.SPAWN_WHY.KERB;

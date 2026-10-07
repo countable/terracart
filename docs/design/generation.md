@@ -119,8 +119,10 @@ access or tile lifecycle mechanics.
 - THE SPAWN GATE is `entry.spawnWhy` (`WorldGen.stampSpawnWhySteps`, beside
   the road mask in the sliced build): per cell, the REASONS it is refused
   (`WorldGen.SPAWN_WHY` bits), never a single verdict. HARD reasons refuse
-  every spawn: TERRAIN, ROAD (the roadMask only — ≥ half the cell under the
-  band; road proximity is KERB, never hard), RESTRICTED land, QUIET land,
+  every spawn: TERRAIN, ROAD (the roadMask only - at least half the cell under
+  the band; road proximity is KERB, never hard), JUNCTION (an intersection
+  involving an MD/LG road, including the overlapping bands and a 2-cell
+  buffer), RESTRICTED land, QUIET land,
   KINDERGARTEN grounds, a SENSITIVE_SITE point, BEHIND_HOUSE, PRIVATE (a
   lot with no public frontage; OR — Sep 2026, the Voronoi rule — exterior
   COMMERCIAL / INDUSTRIAL ground whose NEAREST POI, over the tile's whole poi
@@ -131,7 +133,8 @@ access or tile lifecycle mechanics.
   `FARM_EDGE_CELLS` of other ground — the EDGE band itself carries no reason
   at all: every class may spawn there). TYPED reasons refuse only the classes
   whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: KERB
-  (fast movers only), SENSITIVE. (Sep 2026, owner's call: the typed HOUSE
+  (fast movers only), JUNCTION_SOFT (fast movers and hazards), SENSITIVE.
+  (Sep 2026, owner's call: the typed HOUSE
   reason — a 40 m house buffer on lot land — and the typed SCHOOL reason —
   school / college grounds, plus its school-hours timing — are both dropped
   entirely; KINDERGARTEN stays hard. FARM was inverted the same day: the
@@ -151,7 +154,9 @@ access or tile lifecycle mechanics.
   (`spawnWhy`, `roadMask`, `occupied`) AND its class (the source sweep in
   `test/node/spawn_class.test.js`): `minor` (flora, rocks, scenery — hard
   reasons only), `headstone`, `cave`, `fauna` / `fastFauna`, `npc`,
-  `attractor`, `enemy` / `fastEnemy`. A creature's class is DERIVED
+  `attractor`, `enemy` / `fastEnemy`, and `hazard` (surface traps). Fast
+  movers and hazards refuse JUNCTION_SOFT, the overlapping bands and 1-cell
+  buffer at a Small-road junction. A creature's class is DERIVED
   (creature_ai.js `creatureSpawnClass`: fast = top speed over
   `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
   reason bit plus its column in the table, never a separate check at a
@@ -172,7 +177,14 @@ access or tile lifecycle mechanics.
   (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
-- The road is never a refuge and never a lure. The Major-and-Medium road group carries a kerb
+- The road is never a refuge and never a lure. `roadClass` derives all safety
+  geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
+  only when that group covers at least half of it, which gives runtime warnings
+  the same threshold as `roadMask`. `ROAD_CLASS_JUNCTION_EXCLUDE` marks every
+  MD/LG-involved junction's overlap plus 2 cells: every spawn and every
+  non-allied creature refuses it. `ROAD_CLASS_JUNCTION_SOFT` marks a Small-road
+  junction plus 1 cell: fast movers and hazards refuse it. Bridge, tunnel and
+  causeway crossings do not create ground-level junctions. The Major-and-Medium road group carries a kerb
   buffer (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
   mover (foe or animal over `BRISK_WALK_MPS` — `isFastMover`; the wild
   slime's charge is under it) spawns in or enters the buffer, and a player standing in
@@ -257,7 +269,7 @@ access or tile lifecycle mechanics.
   A profile's worst-block label identifies the block ending at that yield.
 
 Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
-`spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
+`road_junctions`, `spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
 `chest_tier`, `daily_crates`, `density_pois`, `spawn_class`, `guard_groups`
 (`test/node/*.test.js`).
 

@@ -126,7 +126,7 @@
     const grid = new Uint8Array(N * N).fill(T.GRASS); grid.set(original);
     const coverage = new Uint16Array(N * N); coverage.fill(1, 0, 9);
     const roadMask = new Uint8Array(N * N); roadMask[8] = 1;
-    const spawnWhy = new Uint16Array(N * N);
+    const spawnWhy = new Uint32Array(N * N);
     const everyReason = Object.values(W).reduce((bits, v) => bits | v, 0);
     spawnWhy.fill(everyReason, 0, original.length);
     const field = { anchors: [anchor(1000, 1000)], coverage };

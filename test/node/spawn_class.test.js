@@ -67,9 +67,9 @@ const poiAt = (cls, cx, cy) => ({ type: 1, tags: { class: cls }, geom: [[pt(cx, 
 const poiLayer = (...f) => ({ name: 'poi', features: f });
 const grass = () => ({ name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] }] });
 
-test('spawn gate: the mask rides the build and the entry — reason bits, a Uint16 a cell', () => {
+test('spawn gate: the mask rides the build and the entry — reason bits, a Uint32 a cell', () => {
   const r = build([{ name: 'landuse', features: [residential()] }, paths()]);
-  assert.truthy(r.spawnWhy instanceof Uint16Array, 'a Uint16Array of reasons');
+  assert.truthy(r.spawnWhy instanceof Uint32Array, 'a Uint32Array of reasons');
   assert.eq(r.spawnWhy.length, CPE * CPE, 'one per cell');
   assert.truthy(/entry\.spawnWhy = spawnWhy;/.test(WORLDGEN_SRC), 'loadTile carries it');
   assert.truthy(/const spawnWhy = yield\* stampSpawnWhySteps\(/.test(WORLDGEN_SRC), 'stamped in the sliced build (yields)');
@@ -477,22 +477,23 @@ test('spawn gate: cemetery land is INVALID, and a church ON it suppresses its wh
 // ── The classes ────────────────────────────────────────────────────────────
 
 test('isSpawnCell: each class refuses every hard reason and its own row\'s typed ones (SPAWN_CLASS_BLOCKS)', () => {
-  assert.eq(W.SPAWN_CLASSES.join(), 'minor,headstone,cave,fauna,fastFauna,npc,attractor,enemy,fastEnemy,reward,streetObstacle', 'the classes');
+  assert.eq(W.SPAWN_CLASSES.join(), 'minor,headstone,cave,fauna,fastFauna,npc,attractor,enemy,hazard,fastEnemy,reward,streetObstacle', 'the classes');
   const B = W.SPAWN_CLASS_BLOCKS;
   // The owner's table (Sep 2026).
   assert.eq(B.minor, 0, 'minor: hard reasons only');
   assert.eq(B.headstone, WHY.SENSITIVE, 'headstone: sensitive ground');
   assert.eq(B.cave, WHY.SENSITIVE, 'cave: sensitive ground');
   assert.eq(B.fauna, WHY.SENSITIVE, 'fauna: sensitive');
-  assert.eq(B.fastFauna, B.fauna | WHY.KERB, 'fast fauna: + the kerb');
+  assert.eq(B.fastFauna, B.fauna | WHY.KERB | WHY.JUNCTION_SOFT, 'fast fauna: + kerb and Small-road junctions');
   assert.eq(B.npc, WHY.SENSITIVE, 'npc: sensitive');
   assert.eq(B.attractor, WHY.SENSITIVE, 'attractor: sensitive (HOUSE / SCHOOL / FARM dropped Sep 2026)');
   assert.eq(B.enemy, B.attractor, 'enemy: the attractor row');
-  assert.eq(B.fastEnemy, B.enemy | WHY.KERB, 'fast enemy: + the kerb');
+  assert.eq(B.hazard, B.enemy | WHY.KERB | WHY.JUNCTION_SOFT, 'hazard: + kerb and Small-road junctions');
+  assert.eq(B.fastEnemy, B.enemy | WHY.KERB | WHY.JUNCTION_SOFT, 'fast enemy: + kerb and Small-road junctions');
   assert.eq(B.reward, B.attractor | WHY.KERB, 'reward (src/scenic.js): the attractor row + the kerb');
   const reasons = Object.values(WHY);
   const g = new Uint8Array(reasons.length + 1).fill(T.GRASS);
-  const mask = Uint16Array.from([0, ...reasons]);
+  const mask = Uint32Array.from([0, ...reasons]);
   const ok = (i, cls, extra) => W.isSpawnCell(g, g.length, 1, i, 0, { spawnWhy: mask, ...extra }, cls);
   for (const cls of W.SPAWN_CLASSES) {
     assert.truthy(ok(0, cls), `${cls}: a cell with no reason`);

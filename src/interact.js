@@ -156,6 +156,7 @@ function findItemInTapCell(scene, layer, wm, accept) {
   let best = null, bestD2 = Infinity;
   WorldGen.forEachItem(layer, (item) => {
     if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, item)) return;
+    if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, item)) return;
     if (accept && !accept(item)) return;
     if (!itemContainsTapCell(scene, item, tapCell)) return;
     const d2 = distM2(item.x, item.y, wm.x, wm.y);
@@ -559,7 +560,8 @@ const TAP_HANDLERS = [
     const { scene, save, wm, sx, sy } = ctx;
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
-      if (!treasureExposed(tr, scene, save) || found.has(tr.id)) return false;
+      if (!treasureExposed(tr, scene, save) || found.has(tr.id)
+          || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr))) return false;
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
@@ -608,6 +610,7 @@ const TAP_HANDLERS = [
         for (let i = 0; i < entry.coinDrops.length; i++) {
           const c = entry.coinDrops[i];
           if (c.expiresAt && c.expiresAt <= now) continue;
+          if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c)) continue;
           if (!sameAbsCell(scene, wm.x, wm.y, c.x, c.y)) continue;
           // Distance only picks a winner among coins sharing the tapped cell.
           const d2 = distM2(c.x, c.y, wm.x, wm.y);
@@ -884,6 +887,11 @@ const TAP_HANDLERS = [
     return true;
   }},
 
+  // Night road ground carries no object interaction. Creature taps already ran
+  // because creatures stay visible; every rooted or dropped thing stays quiet.
+  { name: 'night-road-hidden', try: ({ scene, wm }) =>
+    typeof RoadSafety !== 'undefined' && RoadSafety.nightRoadZone(scene, wm.x, wm.y) },
+
   // A selected kit dismantles one obstacle before its normal axe-work tap.
   { name: 'disarm-obstacle', try: (ctx) => {
     const { scene, save, wm } = ctx;
@@ -1049,6 +1057,7 @@ const TAP_HANDLERS = [
     // forEachItem treats any truthy return as "stop iterating".
     const addVisible = o => {
       if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(save, o)) return;
+      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)) return;
       allObjs.push(o);
     };
     WorldGen.forEachItem('objects', addVisible);
@@ -1176,9 +1185,11 @@ const TAP_HANDLERS = [
     if (!BUILDING_TYPES.has(cell.type)) return false;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
     const owner = entry?.ownerKeys?.[entry.owners?.[cell.iy * entry.cellsPerEdge + cell.ix]];
-    let temple = owner && entry?.objects?.find(o => o.kind === 'temple' && o.id === owner);
+    let temple = owner && entry?.objects?.find(o => o.kind === 'temple' && o.id === owner
+      && !(typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)));
     if (owner && !temple) for (const neighbor of WorldGen.tileCache.values()) {
-      temple = neighbor.objects?.find(o => o.kind === 'temple' && o.id === owner);
+      temple = neighbor.objects?.find(o => o.kind === 'temple' && o.id === owner
+        && !(typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)));
       if (temple) break;
     }
     if (temple) return INTERACTABLES.temple.custom(ctx, temple);
@@ -1186,7 +1197,8 @@ const TAP_HANDLERS = [
     // while its object's tile dressing is still loading.
     if (owner && entry?.buildingShapes?.some(s => s.key === owner && s.kind === 'temple')) return true;
     const best = findClosestItem('objects', cwmx, cwmy, 30,
-      (o) => isBuilding(o.kind));
+      (o) => isBuilding(o.kind)
+        && !(typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)));
     if (!best) return false;
     scene.shopInteract(sx, sy, best);
     return true;

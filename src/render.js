@@ -1392,6 +1392,7 @@ let _ringOwners = null;
 let _ringUnclaimed = null;
 let _ringGroundColor = null;
 let _ringSyntheticBuilding = null;
+let _ringRoadSafety = null;
 // Each ring slot's cell, resolved ONCE per pass: its absolute key (coords.js
 // encoding) and its tile + local cell on that tile's own grid — every per-cell
 // lookup below reads these rather than re-deriving a tile from cellsPerTile
@@ -1886,6 +1887,7 @@ Render.drawCells = function drawCells(scene) {
     _ringUnclaimed = new Uint8Array(RING * RING);
     _ringGroundColor = new Int32Array(RING * RING);
     _ringSyntheticBuilding = new Uint8Array(RING * RING);
+    _ringRoadSafety = new Uint8Array(RING * RING);
     _ringAX = new Int32Array(RING * RING);
     _ringAY = new Int32Array(RING * RING);
     _ringTX = new Int32Array(RING * RING);
@@ -1957,6 +1959,7 @@ Render.drawCells = function drawCells(scene) {
         ?? (typeof zoneGroundColor === 'function'
           ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
+      _ringRoadSafety[si] = e2?.roadClass?.[iy2 * N + ix2] & WorldGen.ROAD_CLASS_MAJOR_BUFFER ? 1 : 0;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
@@ -1969,6 +1972,39 @@ Render.drawCells = function drawCells(scene) {
   const AX = (c, r) => _ringAX[(r + 2) * RING + (c + 2)];
   const AY = (c, r) => _ringAY[(r + 2) * RING + (c + 2)];
   const PHASE = (r) => _ringPhase[r + 2];
+  // Night paints the whole Major-and-Medium road suppression zone red. The
+  // Graphics command list rebuilds only when the camera crosses a cell, night
+  // begins or ends, or a newly loaded tile changes the visible road bits.
+  // Between rebuilds the layer follows the camera's sub-cell fraction.
+  if (scene.roadSafetyGfx && typeof RoadSafety !== 'undefined') {
+    const sg = scene.roadSafetyGfx;
+    const active = RoadSafety.isNight(scene, Date.now());
+    let hash = 2166136261;
+    for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
+      hash ^= _ringRoadSafety[(row + 2) * RING + (col + 2)];
+      hash = Math.imul(hash, 16777619);
+    }
+    const key = `${active ? 1 : 0}|${baseCellIX}|${baseCellIY}|${_bandKey}|${hash >>> 0}`;
+    sg.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    if (key !== scene._roadSafetyDrawKey) {
+      scene._roadSafetyDrawKey = key;
+      sg.clear();
+      if (active) {
+        sg.fillStyle(RoadSafety.GROUND_COLOR, RoadSafety.GROUND_ALPHA);
+        for (let row = -1; row <= VIEW_CELLS; row++) {
+          let col = -1;
+          while (col <= VIEW_CELLS) {
+            while (col <= VIEW_CELLS && !_ringRoadSafety[(row + 2) * RING + (col + 2)]) col++;
+            if (col > VIEW_CELLS) break;
+            const start = col;
+            while (col <= VIEW_CELLS && _ringRoadSafety[(row + 2) * RING + (col + 2)]) col++;
+            const at = cellScreenXY(scene, start - half, row - half, 0, 0, PHASE(row));
+            sg.fillRect(at.x, at.y, (col - start) * CELL_PX, CELL_PX);
+          }
+        }
+      }
+    }
+  }
   // Atmosphere: re-sample the dominant biome on cell crossings only (borderDirty
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
@@ -2863,12 +2899,14 @@ Render.drawCells = function drawCells(scene) {
   const pWorldY = _anchor.y;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const found = setOf(scene.save.foundTreasures);
+  const hideNightRoadTreasure = typeof RoadSafety !== 'undefined' && RoadSafety.isNight(scene, Date.now());
   // Dark earth on the surface; pale scratched stone underground, where the
   // floor (0x2a2622) is darker than the surface ink and would swallow it.
   if ((scene.depth || 0) > 0) g.lineStyle(2, 0xc9b48a, 0.6);
   else g.lineStyle(2, 0x2a1d10, 0.55);
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
+    if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (!inViewBox(dx, dy, halfM)) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
@@ -3298,6 +3336,7 @@ Render.drawObjects = function drawObjects(scene) {
   const _anchor = viewAnchorWorldM(scene);
   const pWorldX = _anchor.x;
   const pWorldY = _anchor.y;
+  const hideNightRoadObjects = typeof RoadSafety !== 'undefined' && RoadSafety.isNight(scene, Date.now());
   // Per-object screen projection: world-meter delta (dx, dy from the anchor)
   // → screen pixels, coords.js deltaMToScreen — the one projection every
   // sprite, label, footprint and light in this frame shares.
@@ -3433,7 +3472,8 @@ Render.drawObjects = function drawObjects(scene) {
     if (entry.objects) {
       WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
         _boot_scanned++;
-        if (HiddenObjects.isHidden(scene.save, o)) return;
+        if (HiddenObjects.isHidden(scene.save, o)
+            || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
         const dx = o.x - pWorldX, dy = o.y - pWorldY;
         // Past the sprite box the only thing an object could still do is
         // throw a pre-cull light, and the light walk below offers exactly
@@ -3476,7 +3516,8 @@ Render.drawObjects = function drawObjects(scene) {
       if (LIGHTS && lM > sM && preCullLightList(entry)) {
         WorldGen.forEachItemInBox(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX + lM, pWorldY + lM, (o) => {
           _boot_scanned++;
-          if (HiddenObjects.isHidden(scene.save, o)) return;
+          if (HiddenObjects.isHidden(scene.save, o)
+              || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (inViewBox(dx, dy, sM)) return;   // the sprite walk's
           offerPreCullLights(o, dx, dy);
@@ -3492,7 +3533,8 @@ Render.drawObjects = function drawObjects(scene) {
         // is not on the waterline today or was taken today — one predicate,
         // interactables.js isSpent, the tap asks the same.
         if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
-        if (HiddenObjects.isHidden(scene.save, wp)) return;
+        if (HiddenObjects.isHidden(scene.save, wp)
+            || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, wp, hideNightRoadObjects))) return;
         const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
         // A mushroom is a (faint) light as well as a sprite — offered before
         // the cull like a building, with its own radius as the margin. The
@@ -3589,6 +3631,14 @@ Render.drawObjects = function drawObjects(scene) {
       plantedList.push({ p: { x, y, crop: 'rubble', _placedRock: true }, dx, dy });
     }
   }
+  if (hideNightRoadObjects) {
+    let kept = 0;
+    for (const item of plantedList) {
+      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, item.p, true)) continue;
+      plantedList[kept++] = item;
+    }
+    plantedList.length = kept;
+  }
   // Placed scarecrows render as world objects — 3-cell-tall single image,
   // anchored at the base so it appears to stand on the cell. Pool reuses
   // objectPool slots so it integrates with depth-sort and viewport clip.
@@ -3605,12 +3655,13 @@ Render.drawObjects = function drawObjects(scene) {
   // through the shared object pool so it depth-sorts and clips with
   // everything else: scarecrows, campfires (burned from a coal), lamps. The
   // id is the kind's bare name over the fixed point.
-  const placedAs = (list, kind, idWord, extra) => {
+  const placedAs = (list, kind, idWord, extra, hideAtNight = true) => {
     const out = [];
-    cullToView(list, pWorldX, pWorldY, halfM, (p, dx, dy) => out.push({
-      o: { kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) },
-      dx, dy,
-    }));
+    cullToView(list, pWorldX, pWorldY, halfM, (p, dx, dy) => {
+      const o = { kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) };
+      if (hideAtNight && typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects)) return;
+      out.push({ o, dx, dy });
+    });
     return out;
   };
   const scarecrowList = placedAs(PlacedFloor.forDepth(scene.save.scarecrows, _curDepth), '_scarecrow', 'scarecrow');
@@ -3621,7 +3672,8 @@ Render.drawObjects = function drawObjects(scene) {
   // app.js owns the live list (_updateStreetLamps, refreshed in
   // drawRoadGeometry a moment before this pass) and the same `lit` flag decides
   // the art here and the light in Lighting.collectLamps.
-  const lampList = placedAs(scene._streetLamps || [], '_streetlamp', 'lamp', (L) => ({ lit: L.lit, tier: L.tier, glow: L.glow }));
+  const lampList = placedAs(scene._streetLamps || [], '_streetlamp', 'lamp',
+    (L) => ({ lit: L.lit, tier: L.tier, glow: L.glow }), false);
 
   // Hide objects that are temporarily gone — an opened chest (its pad and label
   // go with it until it refills), a chopped tree, a mined-out mineralrock, a
@@ -3635,7 +3687,8 @@ Render.drawObjects = function drawObjects(scene) {
   // Only containers with broken art remain after collection (clay pots).
   // Wooden barrels disappear through the ordinary spent-object filter.
   for (const o of HiddenObjects.saved(scene)) {
-    if (HiddenObjects.isHidden(scene.save, o)) continue;
+    if (HiddenObjects.isHidden(scene.save, o)
+        || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) continue;
     const dx = o.x - pWorldX, dy = o.y - pWorldY;
     if (Math.abs(dx) <= halfM && Math.abs(dy) <= halfM) objList.push({o, dx, dy});
   }
@@ -4308,6 +4361,7 @@ Render.drawObjects = function drawObjects(scene) {
       const c = entry.coinDrops[r];
       if (c.expiresAt && c.expiresAt <= _coinNow) continue;
       entry.coinDrops[w++] = c;
+      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c, hideNightRoadObjects)) continue;
       const dx = c.x - pWorldX, dy = c.y - pWorldY;
       if (inViewBox(dx, dy, halfM)) coinList.push({ c, dx, dy });
     }

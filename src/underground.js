@@ -33,7 +33,7 @@
     if ((bits & ~ignored) || !(W.isWalkable(t) || (street && t === W.T.ROAD))
       || t === W.T.WATER || t === W.T.PIER) return false;
     if (!data.gateGrid) {
-      data.gateGrid = data.grid.slice(); data.gateWhy = Uint16Array.from(data.why || new Uint16Array(data.grid.length));
+      data.gateGrid = data.grid.slice(); data.gateWhy = Uint32Array.from(data.why || new Uint32Array(data.grid.length));
       for (let j = 0; j < data.grid.length; j++) if (data.grid[j] === W.T.ROAD) {
         data.gateGrid[j] = W.T.CAVE_FLOOR;
         data.gateWhy[j] &= ~(W.SPAWN_WHY.TERRAIN | W.SPAWN_WHY.ROAD);

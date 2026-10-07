@@ -382,7 +382,7 @@ const RAIN_MAX_POINTS = 32;
 // #bootload › #safety, owner, Sep 2026 — read while the wagon packs, and
 // acknowledged by the Go to my location tap), so these are the two REMINDERS.
 const SAFETY_RESUME_GAP_MS = 5 * 60 * 1000;   // back after 5+ minutes away
-const SAFETY_DUSK_DAYLIGHT = 0.5;             // Lighting.daylight: the sun on the horizon
+const SAFETY_DUSK_DAYLIGHT = RoadSafety.NIGHT_DAYLIGHT; // one horizon for the dusk card and night-road zone
 const SAFETY_TICK_MS = 30000;                 // how often dusk is asked
 const SAFETY_CARDS = {
   resume: { title: '⚠ LOOK UP',
@@ -2122,6 +2122,34 @@ class MapScene extends Phaser.Scene {
     if (pips > 0 && (this.save.energy ?? 0) > 0) this._bankDrain('trap', -this._losePlayerEnergy(pips), { ix, iy, label: '🪤 trap' });
   }
 
+  // Major-road safety reads the player's feet, never the camera anchor. Night
+  // exposure banks whole pips into the shared drain roll-up. The carriageway
+  // warning uses the UTC-day ledger; the night panel uses the story ledger.
+  _tickRoadSafety(dt, now = Date.now()) {
+    if (typeof RoadSafety === 'undefined' || !this.startWorldM) {
+      this._nightRoadDrainAccum = 0;
+      return;
+    }
+    const state = RoadSafety.playerState(this, now);
+    const pips = RoadSafety.drainPips(this, dt, state.nightZone);
+    if (pips > 0 && (this.save.energy ?? 0) > 0) {
+      const { cellIX: ix, cellIY: iy } = worldMetersToAbsCell(this, state.x, state.y);
+      this._bankDrain('nightroad', -this._losePlayerEnergy(pips), { ix, iy, label: '🌃 night road' });
+    }
+    if (!this._bootOverlayGone) return;
+    const warning = RoadSafety.ROAD_WARNING;
+    if (state.majorRoad && !Macros.usedToday(this.save, warning.ledger, now)) {
+      Macros.markToday(this.save, warning.ledger, now);
+      persistSave(this.save);
+      this._showSafetyCard(warning.card);
+      return;
+    }
+    if (state.nightZone) {
+      const row = RoadSafety.NIGHT_STORY;
+      this._storySplashOnce(row.key, row);
+    }
+  }
+
   // ── THE DRAIN ROLL-UP ──────────────────────────────────────────────────────
   // Every per-frame change to the bar the player should read as ONE number
   // banks here by LANE (`delta`: negative for a loss, positive for a rest's
@@ -3526,6 +3554,7 @@ class MapScene extends Phaser.Scene {
     // …and is a guildhall bounty's pack still about (its leash)?
     this._tickGuildBounty();
     this._tickSafetyReminders();
+    this._tickRoadSafety(dt);
     // …and which STREET are the feet on — a variant's first-entry story, and
     // whether tar or stakes are slowing the body (the same feet cell).
     this._tickStreetFeet();

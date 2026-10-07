@@ -1,0 +1,129 @@
+# Road safety research
+
+This file owns the research behind the game's road-safety mechanics, so every
+safety rule in the code can name its evidence. The mechanics live where they
+always do: [generation.md](generation.md) for zones and the spawn gate,
+[combat.md](combat.md) for the energy drain, [rendering.md](rendering.md) for
+the night ground cover, [presentation.md](presentation.md) for the safety
+copy. The exact player-facing strings are mirrored in the code's safety
+tables; if this file and the code disagree on copy, fix the code.
+
+The stakes: this game is played while walking in the real world. A mechanic
+that pushes a player toward traffic, or that rewards standing on a carriageway
+with a screen up, is a bug even when the game logic is correct.
+
+## 1. Night on arterial roads is where pedestrians die
+
+What the data shows (United States, latest full-year reports):
+
+| Finding | Figure | Source |
+| --- | --- | --- |
+| Pedestrian fatalities in dark conditions | 78% (19% daylight, 2% dusk, 2% dawn) | NHTSA, Traffic Safety Facts: Pedestrians, 2022 data (DOT HS 813 590) |
+| Peak fatal hours | 6-8:59pm (26%) and 9-11:59pm (25%) | same |
+| Pedestrian deaths on arterials | 59% (38% principal + 21% minor arterial) | USDOT Pedestrian Safety Action Plan, Nov 2020 (FARS 2018); PBIC webinar 2021 |
+| Arterials' share of road miles | 13% of non-interstate miles carry those 59% of deaths | PBIC/Toole Design, Pedestrian Safety on Arterial Streets, 2021 |
+| Urban share | 85% of pedestrian fatalities | NHTSA 2022 |
+
+So the overlap is real: most harm happens after dark, on wide, fast, urban
+arterials - exactly our ROAD_MD / ROAD_LG group. Nighttime arterial crashes
+also kill at vehicle speeds where survival is unlikely; the hot-spot study
+below found over three quarters of top pedestrian fatality corridors posted
+30 mph (48 km/h) or higher.
+
+Game rules this feeds (owner decisions, logged here):
+
+1. At night (the sun below the horizon, the same `SAFETY_DUSK_DAYLIGHT`
+   threshold the dusk safety card reads), the Major-and-Medium road
+   suppression zone (band + kerb buffer) becomes a no-play area:
+   interactive objects there are hidden and cannot be tapped, the whole zone
+   takes the red danger ground cover, and standing in it drains energy
+   slowly. The player should read the street, not the screen, there.
+2. The first time a player enters that zone at night, a story panel tells
+   them to stop playing there:
+   "Major roads at night are dangerous. It's best you ascend (turn off
+   device) to avoid energy drain and accidents."
+   "Ascend" is in-world for putting the phone away; the game's own metaphor
+   for ending a session.
+
+## 2. Wide crossings and junctions
+
+| Finding | Figure | Source |
+| --- | --- | --- |
+| Top US pedestrian fatality hot-spot corridors that are multilane | 97% | Schneider, Sanders & Proulx, TRB 2020 |
+| Hot-spot corridors where crossing means 5+ lanes | 70% | same |
+| Hot-spot corridors with speed limits 30 mph+ | over 75% | same |
+| Pedestrian fatalities at non-intersection locations | 75% (16% at intersections) | NHTSA 2022 |
+
+Crossing distance is the exposure: more lanes means more time in the road,
+and junction area is where turning conflicts stack on top of through
+traffic. NHTSA's own safety reminders tell pedestrians to cross at
+crosswalks or intersections and to be predictable.
+
+Game rules this feeds:
+
+1. Any junction involving an MD/LG road carries a full exclusion zone: the
+   overlapping road area plus a 2-cell buffer. Nothing spawns there and no
+   enemy ever steps into it. (generation.md owns the exact stamp.)
+2. Even small-road (SM) junctions carry a 1-cell suppression buffer: no
+   fast movers and no hazards spawn or enter there. The buffer is typed,
+   like the kerb, so slow flora-tier spawns and friendly fauna can still
+   use the corner.
+
+## 3. Research question: can we tell where sidewalks are?
+
+Short answer: partially, and not from our current tile feed.
+
+- OpenStreetMap records sidewalks two ways (OSM wiki, "Sidewalk"):
+  1. Inline tags on the road way: `sidewalk=left|right|both|no|separate`.
+     Cheap to map, common in Western Europe (53% of mapped sidewalk
+     distance there), but carries no geometry of its own.
+  2. Separate ways: `highway=footway` + `footway=sidewalk`. Spatially
+     accurate and the dominant scheme worldwide as of April 2025, but
+     harder to map and regionally uneven.
+- Coverage is patchy and region-dependent everywhere; neither scheme
+  reliably covers a given city, and absence of a tag does not mean absence
+  of a sidewalk.
+- Our MVT transportation layer carries `class` (and `brunnel` where the
+  provider includes it), not the `sidewalk` attribute. Separate sidewalk
+  ways DO arrive, but only as generic footway paths (`PATH_CLASSES` ->
+  `T.PATH`), indistinguishable from any other footway. So today we can
+  infer "a walkable way beside the road exists" but we cannot reliably
+  distinguish sidewalk from path, and we cannot see inline sidewalks at
+  all.
+- Why it matters: research going back to Knoblauch et al. (1987), cited in
+  FHWA's pedestrian synthesis, found sites without sidewalks were more
+  than twice as likely to have pedestrian crashes. Where we cannot see a
+  sidewalk, we must not assume one; the kerb buffer and the night zone are
+  the conservative substitute. If a future tile source exposes
+  `footway=sidewalk` subclassing, the kerb buffer could shrink onto the
+  sidewalk itself - a separate decision, not taken here.
+
+## 4. Standing on the roadway
+
+NHTSA's pedestrian reminders name device distraction directly: stay alert,
+do not be distracted by electronic devices, walk on a sidewalk or path when
+one is available. Our GPS gameplay anchors the player to their real
+position, so the game can detect the one state that must never be rewarded:
+the player standing on the carriageway of a major road.
+
+Game rule this feeds: when the player's own cell is majority-covered
+(>50%) by an MD/LG road band, the game shows a dismissable safety warning -
+"Do not play when standing on the road." - once per UTC day. The warning
+fires on the road band itself, not the kerb, because pavement is where the
+game expects play to happen; the carriageway is not.
+
+## Sources
+
+- NHTSA, Traffic Safety Facts: Pedestrians, 2022 data, DOT HS 813 590:
+  https://crashstats.nhtsa.dot.gov/Api/Public/ViewPublication/813590
+- USDOT, Pedestrian Safety Action Plan, November 2020:
+  https://highways.dot.gov/safety/pedestrian-bicyclist/pedestrian-safety-action-plan
+- PBIC / Toole Design, Pedestrian Safety on Arterial Streets (webinar, 2021):
+  https://www.pedbikeinfo.org/pdf/Webinar_PBIC_061521.pdf
+- Schneider, R.J., Sanders, K.R., Proulx, F.R., "United States Fatal
+  Pedestrian Crash Hot Spot Locations and Characteristics", TRB 2020.
+- FHWA, Synthesis of Methods for Estimating Pedestrian and Bicyclist
+  Exposure to Risk (sidewalk presence findings):
+  https://highways.dot.gov/safety/pedestrian-bicyclist/safety-tools/synthesis-methods-estimating-pedestrian-and-bicyclist-8
+- OSM wiki, Sidewalk (mapping schemes and regional split):
+  https://wiki.openstreetmap.org/wiki/Sidewalk
