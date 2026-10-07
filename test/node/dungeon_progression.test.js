@@ -22,6 +22,20 @@
     assert.truthy(DungeonProgression.canUseDescent({}, 5, 4, 'rope'), 'older saves can still climb out');
     assert.truthy(DungeonProgression.canUseDescent({ dungeonProgression: { level4Key: true } }, 5, 6, 'rope'), 'open segments keep the rope');
   });
+  test('dungeon progression: entry keys follow the floor profile, including deeper defaults', () => {
+    for (const depth of [0, 1, 2, 3, 4]) assert.truthy(DungeonProgression.canEnterDepth({}, depth));
+    for (const depth of [5, 6, 8, 40]) {
+      assert.falsy(DungeonProgression.canEnterDepth({}, depth));
+      assert.truthy(DungeonProgression.canEnterDepth({ dungeonProgression: { level4Key: true } }, depth));
+    }
+    const original = WorldGen.floorProfile;
+    try {
+      WorldGen.floorProfile = depth => ({ ...original(depth), entryKey: depth === 2 ? 'testKey' : null });
+      assert.falsy(DungeonProgression.canEnterDepth({}, 2), 'a relocated key locks its new floor');
+      assert.truthy(DungeonProgression.canEnterDepth({ dungeonProgression: { testKey: true } }, 2));
+      assert.truthy(DungeonProgression.canEnterDepth({}, 5), 'the previous floor no longer owns the gate');
+    } finally { WorldGen.floorProfile = original; }
+  });
   test('dungeon progression: the rope never breaks a sealed segment', () => {
     assert.falsy(DungeonProgression.canUseDescent({}, 2, 3, 'rope'), '2 -> 3 is the elevator');
     assert.falsy(DungeonProgression.canUseDescent({}, 6, 7, 'rope'), '6 -> 7 is the wizard key');
@@ -133,7 +147,7 @@
       cameras: {main: {setBackgroundColor() {}}}, ensureTilesAround: () => Promise.resolve(),
     };
     const deps = {
-      DungeonProgression, Arena, WorldGen: {setDepth() {}},
+      DungeonProgression, Arena, WorldGen: {floorProfile: depth => WorldGen.floorProfile(depth), setDepth() {}},
       playerWorldM: () => ({x: 0,y: 0}), cellKeyFromAbsCell: (x,y) => `${x}_${y}`,
       persistSave() {}, consumeSelected(save) { save.inv[0].count--; },
     };
@@ -141,6 +155,32 @@
     scene.useRope = liftedMethod('useRope', deps);
     return scene;
   }
+  test('dungeon progression: arrivals keep their stories and suppress them on ascent or falls', () => {
+    for (const [depth, key] of [[1, 'cave'], [2, 'dungeon_stone'], [3, 'dungeon_underdark'], [4, 'cave'], [5, 'cave'], [6, 'cave']]) {
+      const scene = ropeScene(depth - 1, { level4Key: true }), stories = [];
+      scene._storySplashOnce = (id, story) => stories.push({ id, story });
+      scene.changeDepth(1, { x: 0, y: 0, descentSource: depth === 2 ? 'rope' : 'stairs' });
+      assert.eq(scene.depth, depth);
+      assert.eq(stories.length, 1);
+      assert.eq(stories[0].id, key);
+      scene.changeDepth(-1, { x: 0, y: 0 });
+      assert.eq(stories.length, 1, 'ascent does not replay an arrival');
+      scene.changeDepth(1, { x: 0, y: 0 }, { fall: true });
+      assert.eq(stories.length, 1, 'falls keep their own presentation');
+    }
+  });
+  test('dungeon progression: arrival stories follow a relocated profile', () => {
+    const original = WorldGen.floorProfile;
+    try {
+      WorldGen.floorProfile = depth => ({ ...original(depth), arrivalStory: depth === 1 ? 'dungeon_underdark' : 'cave' });
+      const scene = ropeScene(0), stories = [];
+      scene._storySplashOnce = (key, story) => stories.push({ key, story });
+      scene.changeDepth(1, { x: 0, y: 0 });
+      assert.eq(stories[0].key, 'dungeon_underdark');
+      assert.eq(stories[0].story.art, 'progression_portal');
+      assert.eq(stories[0].story.title, 'The Underdark');
+    } finally { WorldGen.floorProfile = original; }
+  });
   test('dungeon progression: actual rope preserves inventory and walls at locked L5', () => {
     const scene = ropeScene(5);
     assert.eq(scene.useRope(1), false);

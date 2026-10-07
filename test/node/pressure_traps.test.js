@@ -37,6 +37,24 @@
     s._pressureTraps = null; entries[0]._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
     PressureTraps.observe(s); assert.eq(PressureTraps.lists(s).plates.length, 0, 'shared exclusion gate remains authoritative');
   }));
+  test('pressure traps: relocating the profile moves observation, visibility and ticking', () => fixture(s => {
+    const original = WorldGen.floorProfile;
+    WorldGen.floorProfile = depth => ({ ...original(depth), pressureTraps: depth === 4 });
+    WorldGen.makeRng = () => () => 0;
+    try {
+      PressureTraps.observe(s);
+      assert.eq(PressureTraps.lists(s).plates.length, 0);
+      s.depth = 4;
+      PressureTraps.observe(s);
+      const state = PressureTraps.lists(s);
+      assert.eq(state.plates.length, 1, 'profile enables seeding and ground checks');
+      s.playerM = { x: state.plates[0].x, y: state.plates[0].y };
+      PressureTraps.tick(s, .1);
+      assert.truthy(state.plates[0].pressed, 'profile enables ticking');
+      s.depth = 1;
+      assert.eq(PressureTraps.lists(s).plates.length, 0, 'old floor hides traps');
+    } finally { WorldGen.floorProfile = original; }
+  }));
   test('pressure traps: stepping onto a plate launches once toward the trigger position', () => fixture(s => {
     const pair = PressureTraps.create(s, {cellIX:3,cellIY:3}, {cellIX:1,cellIY:3}, 'wall', 'wall');
     PressureTraps.lists(s).plates.push(pair.plate); PressureTraps.lists(s).traps.push(pair.trap);

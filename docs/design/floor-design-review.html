@@ -138,7 +138,7 @@
 <ul>
 <li><strong>Terrain identity was branch code - no longer.</strong> The profiles table replaced the per-depth if/else, the lava constant and the chest-source branch. What remains branch-shaped is <em>scoped by plan</em>: stair minting (the stair rework), the arrival splashes, and the depth shift of content windows (roster bands, THEME_BANDS, infernal gate) that follows the terrain move.</li>
 <li><strong>Three looks, eight floors.</strong> The biome ternary still caps at cave/deep_stone/underdark; floors 4+ render plain. <em>Address: profile.biome</em> + the target labels (goblin city, haunted city, dragon).</li>
-<li><strong>Floor-locked features are scattered.</strong> Seals are table-driven now, but pressure plates, spring caves, the street mirror, splashes and the infernal gate each keep a depth literal in their own module. <em>Address: fold into the profile row</em> (each module reads <code>WorldGen.floorProfile(depth)</code>).</li>
+<li><strong>Floor-locked features read the profile.</strong> Pressure plates, authored cave areas (including springs), the street mirror, arrival splashes and the infernal entry gate read <code>WorldGen.floorProfile(depth)</code>. Cave weights, carving, garrisons and street gem probabilities live in those rows; story copy stays in presentation. Seals retain their owning progression table.</li>
 <li><strong>Authored areas are singletons.</strong> One geometry (spring) at one depth; the goblin city needs a generator, not a flag. <em>Address: the goblin-city feature itself.</em></li>
 <li><strong>Elevator stops are finite</strong> - and that is by design (a physical lift with parts lanes); the array is already data. Extending it is a row plus a parts lane, nothing structural.</li>
 </ul>

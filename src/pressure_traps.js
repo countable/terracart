@@ -1,7 +1,7 @@
 // First-floor pressure plates launch a single slow trap along its chosen line.
 (function (root) {
   'use strict';
-  const CONFIG = Object.freeze({ depth: 1, chance: .065, maxPresent: 8, retainRadiusCells: 24,
+  const CONFIG = Object.freeze({ chance: .065, maxPresent: 8, retainRadiusCells: 24,
     speedCellsPerSecond: .25, pushCellsPerSecond: .4, travelCells: 6,
     contactDps: 5, frameSize: 24, ballRadiusPixels: 10, ballFrames: 8, maxStepSeconds: .1,
     ballContactCells: .62, wallHalfWidthCells: .62, wallHalfDepthCells: .35 });
@@ -9,14 +9,14 @@
     [0, 1], [-Math.SQRT1_2, Math.SQRT1_2], [-1, 0], [-Math.SQRT1_2, -Math.SQRT1_2]];
   function lists(scene) {
     scene._pressureTraps ||= { plates: [], traps: [], visits: new Set() };
-    return scene.depth === CONFIG.depth ? scene._pressureTraps : { plates: [], traps: [] };
+    return root.WorldGen.floorProfile(scene.depth).pressureTraps ? scene._pressureTraps : { plates: [], traps: [] };
   }
   function feet(scene) {
     return { x: scene.startWorldM.x + scene.playerM.x,
       y: scene.startWorldM.y + scene.playerM.y + (scene.feetOffsetM || 0) };
   }
   function ground(scene, x, y) {
-    if (scene.depth !== CONFIG.depth) return false;
+    if (!root.WorldGen.floorProfile(scene.depth).pressureTraps) return false;
     const p = scene.cellAt(x, y), W = root.WorldGen;
     if (!p.loaded || p.type !== W.T.CAVE_FLOOR) return false;
     const e = W.tileCache.get(W.tileKey(p.tx, p.ty));
@@ -44,7 +44,7 @@
     return { plate, trap };
   }
   function observe(scene) {
-    if (scene.depth !== CONFIG.depth) return;
+    if (!root.WorldGen.floorProfile(scene.depth).pressureTraps) return;
     const s = lists(scene), p = feet(scene), cell = scene.cellAt(p.x, p.y);
     if (!cell.loaded || !ground(scene, p.x, p.y)) return;
     const retained = new Set();
@@ -127,7 +127,7 @@
     root.Whirlwinds.displacePlayer(scene, { x: end.x, y: end.y - (scene.feetOffsetM || 0) });
   }
   function tick(scene, dt) {
-    if (scene.depth !== CONFIG.depth || !scene.startWorldM || !Number.isFinite(dt) || dt <= 0) return;
+    if (!root.WorldGen.floorProfile(scene.depth).pressureTraps || !scene.startWorldM || !Number.isFinite(dt) || dt <= 0) return;
     dt = Math.min(CONFIG.maxStepSeconds, dt);
     observe(scene);
     const s = lists(scene), p = feet(scene), cell = scene.cellAt(p.x, p.y);

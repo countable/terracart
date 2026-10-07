@@ -6540,7 +6540,7 @@ class MapScene extends Phaser.Scene {
     const source = stair.elevator ? 'elevator' : stair.descentSource || 'stairs';
     const caveFall = !!options.fall;
     if (!caveFall && !DungeonProgression.canUseDescent(this.save, this.depth || 0, target, source)) {
-      const message = target >= 5 ? 'Complete five arena trials to unlock the fifth depth.' : 'Use a rope or repair the elevator to go deeper.';
+      const message = WorldGen.floorProfile(target).entryKey ? 'Complete five arena trials to unlock the fifth depth.' : 'Use a rope or repair the elevator to go deeper.';
       if (this.flashAtPlayer) this.flashAtPlayer(message); else this.flash?.(message);
       return false;
     }
@@ -6583,9 +6583,10 @@ class MapScene extends Phaser.Scene {
     // down (stairs, rope, the sapphire portal) comes through here, and a busy
     // screen returns false unmarked (the story ledger), so the next descent
     // asks again.
-    if (delta > 0 && !caveFall && target === 2) {
+    const arrivalStory = WorldGen.floorProfile(target).arrivalStory;
+    if (delta > 0 && !caveFall && arrivalStory === 'dungeon_stone') {
       this._storySplashOnce('dungeon_stone', { art: 'progression_elevator', title: 'Beneath the roots', body: 'Your pick strikes solid stone. Dwarven lamps and pale groves glimmer beyond the passages you dig.' });
-    } else if (delta > 0 && target === 3) {
+    } else if (delta > 0 && arrivalStory === 'dungeon_underdark') {
       this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Your footsteps carry across the open waste.' });
     } else if (delta > 0 && !caveFall) {
       this._storySplashOnce('cave', {

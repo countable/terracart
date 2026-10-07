@@ -15,7 +15,8 @@
     return !ROPE_SEALED_FLOORS.includes(from);
   }
   function canEnterDepth(save, depth) {
-    return depth < 5 || save?.dungeonProgression?.level4Key === true;
+    const entryKey = depth > 0 && root.WorldGen.floorProfile(depth).entryKey;
+    return !entryKey || save?.dungeonProgression?.[entryKey] === true;
   }
   function canUseDescent(save, from, target, source) {
     if (!Number.isInteger(from) || !Number.isInteger(target) || from < 0 || target < 0) return false;
