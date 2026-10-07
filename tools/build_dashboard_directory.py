@@ -33,10 +33,12 @@ def glossary_page():
     import markdown
     source = Path(__file__).resolve().parents[1] / 'docs/design/glossary.md'
     body = markdown.markdown(source.read_text().split('\n', 1)[1], extensions=['tables', 'toc'])
+    body = re.sub(r'<tr>\s*<td><em>(.*?)</em></td>(?:\s*<td></td>){5}\s*</tr>',
+                  r'<tr class="concept-group"><th colspan="6">\1</th></tr>', body, flags=re.S)
     # Evidence paths are relative to the source doc, not the dashboard directory.
     body = re.sub(r'href="([^"]+)"', lambda m: 'href="' + escape(urljoin('/docs/design/', m[1]), quote=True) + '"', body)
     body = '<p><a href="../docs/design/glossary.md">Markdown source</a></p>' + body
-    styles = '<style>table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #344545;padding:12px;text-align:left;vertical-align:top}th{background:#192525}td{min-width:160px}.glossary{overflow-x:auto}code{overflow-wrap:anywhere}main{padding-top:32px}</style>'
+    styles = '<style>table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #344545;padding:12px;text-align:left;vertical-align:top}th{background:#192525}.concept-group th{background:#30402b;color:#d9edb8;padding:10px 12px}td{min-width:160px}.glossary{overflow-x:auto}code{overflow-wrap:anywhere}main{padding-top:32px}</style>'
     return page('Game terminology glossary', '<div class="glossary">' + body + '</div>', True).replace('</head>', styles + '</head>')
 
 def views(title, intro, entries, extra=''):
@@ -88,11 +90,11 @@ def build(output):
             archive.write_text((proposal / 'index.html').read_text())
         (proposal / 'index.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Monsters</title><meta http-equiv="refresh" content="0;url=../tools/monster-roster.html"></head><body><a href="../tools/monster-roster.html">Open the live monster viewer</a></body></html>')
     primary=[
-      ('glossary.html','Terminology glossary','Shared game concepts, preferred names, alternate terminology and unresolved distinctions.','Design reference'),
+      ('glossary.html','Terminology glossary','Shared game concepts, preferred names, usage distinctions and scoped synonym replacements.','Design reference'),
       ('chests.html','Chest index','Live POI sources, chest artwork, vista and cave rewards, and four-city expectations.','Live game data'),
       ('../tools/monster-roster.html','Monsters','Current roster, habitats, combat comparisons and palette review in the approved table viewer.','Live game data'),
       ('world-art.html','World art','Current artwork in a sortable table, filtered by zone and category.','Live game data'),
-      ('zones.html','Zones','Special zones, road variants and basic tile previews, grouped by category.','Generated game data'),
+      ('zones.html','Nexuses and Landcover','Nexus variants, Road Variants and Landcover previews, grouped by category.','Generated game data'),
       ('../tools/map-distribution.html','Map distribution','Compare current placements in Kelowna, Vancouver, Seattle and Berlin.','Live game data'),
       ('../tools/treasure-balancing.html','Treasure balancing','Roll rewards by location and tier; compare chest, treasure and fishing results.','Live game data'),
       ('../tools/items.html','Items','Current item catalogue, equipment and source information.','Live game data'),
@@ -100,7 +102,7 @@ def build(output):
     (output/'index.html').write_text(page('Design dashboards','<p>Design tables for reviewing the game. Older proposals, implementation reports and candidate studies are in the archive.</p><p><a href="../tools/treasure-balancing.html">Open treasure roll simulator →</a></p><div class="grid">'+''.join(card(*row) for row in primary)+'</div>'+SANDBOX).replace('<meta charset="utf-8">','<meta charset="utf-8"><meta name="artifact-review" content="disabled">',1).replace('padding:80px 24px 32px','padding:32px 24px 32px'))
     (output/'chests.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>Chest index</title><meta http-equiv="refresh" content="0;url=../tools/chest-report.html"><a href="../tools/chest-report.html">Open the live chest index</a></html>')
     (output/'world-art.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>World art</title><meta http-equiv="refresh" content="0;url=../tools/world-art.html"></head><body><a href="../tools/world-art.html">Open current world art</a></body></html>')
-    (output/'zones.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Zones</title><meta http-equiv="refresh" content="0;url=../zone-variants/index.html"></head><body><a href="../zone-variants/index.html">Open zones and road variants</a></body></html>')
+    (output/'zones.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Nexuses and Landcover</title><meta http-equiv="refresh" content="0;url=../zone-variants/index.html"></head><body><a href="../zone-variants/index.html">Open Nexus variants, Road Variants and Landcover</a></body></html>')
     balance_links = [('../tools/map-distribution.html', 'Map distribution', 'Placement and value tables for Kelowna, Vancouver, Seattle and Berlin.'), ('../tools/treasure-balancing.html', 'Treasure balancing', 'Live reward simulator by location, tier and player equipment.')]
     (output/'balance.html').write_text(page('Balance', '<p>Choose the part of game balance to inspect.</p><div class="grid">'+''.join(card(*row) for row in balance_links)+'</div>').replace('<meta charset="utf-8">', '<meta charset="utf-8"><meta name="artifact-review" content="disabled">', 1).replace('padding:80px 24px 32px', 'padding:32px 24px 32px'))
     developer=[('../tools/building-poly-preview.html','Building footprints','Fixture preview using the current building renderer.'),('../tools/compass-test.html','Compass diagnostics','Device heading and orientation debugging.'),('../tools/poi-preview.html','Procedural POI ideas','Earlier procedural design experiments; not a shipping sprite catalogue.')]

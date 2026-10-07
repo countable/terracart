@@ -56,10 +56,10 @@ access or tile lifecycle mechanics.
   each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
   round-robin across chest categories; everything else is T1. Vista chests
-  are fixed T5 outside the budget; a zone nexus can win a seat without
-  spending one (+1 on top). Each cave level re-seats its own pyramid over
+  are fixed T5 outside the budget; a Nexus chest can win a seat without
+  spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground
-  (`loot.js chestTierMaxFor`: T6 from level 3, T7 from 6) while the depth
+  (`loot.js chestTierMaxFor`: T6 from depth 3, T7 from 6) while the depth
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
   now only feeds restock days and the pots of gold. Breakable pots and
@@ -128,8 +128,9 @@ access or tile lifecycle mechanics.
   reason bit plus its column in the table, never a separate check at a
   spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
-  of its own road band. Thorny paths and snare clusters cross minor roads only; removable
-  barricade/spike lines also cross their own major band and kerb. All keep
+  of its own road band. Thorny Path and snare clusters cross variant-eligible Small roads only; removable
+  barricade/spike lines also cross their own Major or Medium road band
+  and kerb buffer. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary
   spawn classes cannot use that declaration to cross a road.
   POI chests are the place itself (`landRefused` —
@@ -139,18 +140,18 @@ access or tile lifecycle mechanics.
   `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coins never land on road cells
   or in yards, and every timed reward (coin bursts, bounty packs,
   `findWalkableDestination`) stays on the player's SIDE of any MD/LG road
-  (`sameSideField`, creature_ai.js) — nothing urgent across a major road.
+  (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
-- The road is never a refuge and never a lure. MD/LG roads carry a KERB
-  BUFFER (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
+- The road is never a refuge and never a lure. The Major-and-Medium road group carries a kerb
+  buffer (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
   mover (foe or animal over `BRISK_WALK_MPS` — `isFastMover`; the wild
   slime's charge is under it) spawns in or enters the buffer, and a player standing in
   it is left alone — the pavement ends a chase, the street adds nothing
   (`test/node/kerb_refuge_sim.test.js`). Above a run (`util.js` speed helper,
   shared with egg hatching) nothing restores, pays or taps and foes ignore the
   player via `unnoticed`. Where a species prefers to stand
-  is an `attracts` column (street variant rows, `Zones.ZONE_KINDS`,
+  is an `attracts` column (road variant rows, `Zones.ZONE_KINDS`,
   `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
   spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
@@ -179,21 +180,21 @@ access or tile lifecycle mechanics.
   mushrooms using stable plant IDs and the enemy spawn gate. Approaching one
   reveals it and releases a burst; remaining nearby permits another burst after
   eight foreground seconds. Picking or burning the plant stops its emission.
-- Influence zones: `ZoneCoverage` owns the union of influence and the
-  associated park footprint plus fringe. Its ground and declarative layout
-  (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
-  procedural dressing; roads and buildings remain visible. Nexus painting and
+- Nexus coverage: `ZoneCoverage` owns the union of the influence footprint and the
+  associated park footprint plus park fringe. Its ground and declarative layout
+  (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and
+  ambient fill; roads and buildings remain visible. Nexus painting and
   quarry coverage preserve all spawn exclusions, including PRIVATE and
   BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
   Gas-station influence uses the tar row’s own minimum and maximum radii.
   Cave generation retains the original ground,
   objects and spawn reasons so surface dressing cannot reroll entrances.
   A park's POI becomes its daily grove shrine in place, preserving its name
-  and id. Other nexus chests keep `zoneNexus` and its tier bonus. No decorative
+  and id. Other Nexus chests keep `zoneNexus` and its tier bonus. No decorative
   props: every standing piece is interactable or a hazard, one art per
   interactable. Repeating backgrounds can thin selected materials with a
   deterministic `materialKeepChance`; fixed shrine slots and other materials
-  retain their positions. Zone mechanics use existing lanes (tar slow, lair tier,
+  retain their positions. Nexus mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
 - Strip mines and L1 use `EnvironmentHazards` for hidden cave-in clusters of
   2–5 connected cells scattered across general eligible ground. Their seeds are
@@ -241,28 +242,28 @@ Higher-priority placements and their access space take precedence in this order:
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
-   are general fill, not landmarks merely because they came from OSM.
-4. Special zone variants, including their deliberately empty pattern cells.
-5. Special road variants, across their defined corridor and verge, including
-   deliberately empty gaps. Zone variants override road variants where they
+   are ambient fill, not landmarks merely because they came from OSM.
+4. Nexus variants, including their deliberately empty layout cells.
+5. Road variants, across their defined corridor and verge, including
+   deliberately empty gaps. Nexus variants override road variants where they
    overlap; the physical road and its safety restrictions remain intact.
-6. General zone/biome fill: ordinary plants, rocks and generic scattered content.
+6. Ambient fill: ordinary plants, rocks and generic scattered content.
 
 - Hard terrain, land-access, road-safety and accessibility rules are prerequisites,
   separate from priority. Higher priority does not bypass them. Any authored
   terrain-carving exception must be explicit and confined to its existing rule.
-- Resolve area ownership before general fill. All lower-priority producers,
+- Resolve area ownership before ambient fill. All lower-priority producers,
   including later scenic, Overpass and runtime passes, respect the same full-area
   reservation. Protecting only occupied object cells is insufficient: a variant's
   empty lanes belong to it too. A higher-priority object can occupy a variant
-  area; its presence does not release that area to general fill.
+  area; its presence does not release that area to ambient fill.
 - Area ownership and object occupancy are separate. Inside the winning area,
   objects still obey collision and access rules. Reserve a large object's entire
   declared footprint (a 3 × 3 shipwreck is one interaction), not just its anchor.
 - Authored guards, finite finds, shrine gifts and tide pickups belong to their
   declared feature and retain their own budgets and placement rules. Generic
   traps, treasure and rooted enemies respect variant exclusions; a variant's
-  own content does not use the general-fill veto. Fauna retain their intentional
+  own content does not use the ambient-fill veto. Fauna retain their intentional
   ability to share interactable cells and their terrain/road restrictions.
   Nexus coverage also excludes ordinary beach bottles, tide reservations and
   generic fauna. Within it, only the variant's declared fauna and `attracts`

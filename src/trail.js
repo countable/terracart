@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Trail — the arithmetic behind the STREET RESTORATION ladder.
+// Trail — the arithmetic behind the restoration ladder (separate from the starter trail).
 //
 // The world is walked in METRES. A stretch of street or footpath that has sat
 // inside the player's lit reach for the dwell turns from dilapidated to clean

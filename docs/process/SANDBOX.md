@@ -60,18 +60,20 @@ wizard role.
 | System | Sandbox coverage |
 |---|---|
 | Vector roads | Decoded `transportation` and `transportation_name` layers drive the live road overlay. |
-| Spawn safety | `roadMask`, `roadClass`, `spawnWhy` and the major-road kerb buffer derive from the authored routes; the buffer is stamped one cell wider than the real one, so refusals stay conservative. |
+| Spawn safety | `roadMask`, `roadClass`, `spawnWhy` and the Major-and-Medium road group kerb buffer derive from the authored routes; the buffer is stamped one cell wider than the real one, so refusals stay conservative. |
 | Street restoration | Half of Lantern Row starts restored, so lit and unlit lamps appear on one road. |
-| Street dressing | The live `StreetVariants.dress` pass places hedges, trees, fruit trees, mushrooms, coins, waystones, barricades, tar, stakes and torches. |
-| Old trade road | A plain major road carries the bandit-verge bit and a hashed wagon-stop look. |
+| Road variant dressing | The live `StreetVariants.dress` pass places hedges, trees, fruit trees, mushrooms, coins, waystones, barricades, tar, stakes and torches. |
+| Old Trade Road | A plain Major or Medium road carries the bandit-verge bit and a hashed wagon-stop look. |
 | Street rewards | Golden Road coins, street lairs and a cafe hoard use their normal generated records. |
 | Scenic paths | Common Walk is a `parkpath`; the beach carries a scenic shore mask, tide pool and viewpoint scope. |
-| Influence zones | Grove, old-stones and tar anchors carry real zone coverage and run `ZoneDressing`. |
+| Nexuses | Grove, Old Stones and Tar Yard anchors carry real Nexus coverage and run `ZoneDressing`. |
 | Shrine kinds | The zones scene's east edge stands one shrine of each `Shrines.SHRINE_KINDS` row, north to south in table order; tap one for its boon. |
 | Surface traps | `Traps.spawnSurface` places traps beside paths and park edges from the shared spawn fields. |
 | Placed floor | One campfire joins the existing crops, tilled beds and scarecrows. |
 
-### Street variants
+<a id="street-variants"></a>
+
+### Road variants
 
 | Variant | Road | What it exposes |
 |---|---|---|
@@ -253,7 +255,7 @@ Generation-only chest top-ups and cave tier caps remain covered by node tests.
   in the fixture/browser tests.
 - Park polygon characters and residential lot-ring flora depend on source
   polygon stamps. The sandbox uses the common park profile and its existing
-  biome scatter instead.
+  ambient fill instead.
 - Scenic promenade and greenway classification still need coastal and corridor
   geometry beyond the one park path and shore authored here.
 

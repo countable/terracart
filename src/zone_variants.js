@@ -1,11 +1,11 @@
-// Pure interpretation of the shared zone table. Coordinates are integer game
+// Pure interpretation of the shared Nexus variant table. Coordinates are integer game
 // cells, phased from the settled POI; nothing here depends on tile load order.
 (function (root) {
   'use strict';
   const data = root.ZoneVariantData;
   const rows = data.variants;
-  // A row's `zone` column is its ZONE KIND (the data key in
-  // docs/data/zone-variants.json stays as authored); a row IS a zone variant.
+  // A row's `zone` column is its Nexus kind (the data key in
+  // docs/data/zone-variants.json stays as authored); a row IS a Nexus variant.
   const indexed = new Map(rows.map(row => [row.id, row]));
   const kinds = new Map();
   for (const row of rows) {
@@ -136,9 +136,9 @@
     }
     return candidates.length ? candidates[candidates.length - 1].row : null;
   }
-  // An explicit zone lamp tint wins over the street theme. Read the same
+  // An explicit Nexus lamp tint wins over the Road Variant. Read the same
   // coverage winner as the dressing, including associated park ground.
-  // Untinted zones leave the street's own palette intact.
+  // Untinted Nexuses leave the street's own palette intact.
   function lampGlowAt(entry, ix, iy) {
     const field = entry && entry.zone, n = entry && entry.cellsPerEdge;
     const coverage = field && (field.coverage || field.idx);
