@@ -40,7 +40,7 @@
       "spawnEvidence": [
         "src/biome_profiles.js:FAMILY_PROFILE.grassland/farm/urban",
         "src/worldgen.js:spawnDebrisSteps",
-        "docs/zone-variants.json:materials.grass"
+        "docs/data/zone-variants.json:materials.grass"
       ],
       "recommendation": {
         "action": "recolour",
@@ -117,7 +117,7 @@
       "spawnEvidence": [
         "src/biome_profiles.js:FAMILY_PROFILE.forest/urban; BIOME_PROFILES commercial/industrial",
         "src/render.js:tree bush size reads CROP_SPRITE.shrub",
-        "docs/zone-variants.json:materials.shrub"
+        "docs/data/zone-variants.json:materials.shrub"
       ],
       "recommendation": {
         "action": "swap",
@@ -600,7 +600,7 @@
         }
       ],
       "spawnEvidence": [
-        "docs/zone-variants.json:materials.rubble",
+        "docs/data/zone-variants.json:materials.rubble",
         "src/render.js:wildplant promotion to MAX_GROWTH_STAGE",
         "src/items.js:CROP_ROW.rockfruit"
       ],
@@ -668,7 +668,7 @@
       "spawnEvidence": [
         "src/biome_profiles.js:FAMILY_PROFILE.forest/urban",
         "src/items.js:CROP_SPRITE.mushroom",
-        "docs/zone-variants.json:mushroom_grove"
+        "docs/data/zone-variants.json:mushroom_grove"
       ],
       "recommendation": {
         "action": "recolour",
@@ -811,7 +811,7 @@
       ],
       "spawnEvidence": [
         "src/biome_profiles.js:FAMILY_PROFILE / BIOME_PROFILES",
-        "docs/zone-variants.json:materials",
+        "docs/data/zone-variants.json:materials",
         "src/items.js:CROP_SPRITE.forgetmenot"
       ],
       "recommendation": {
@@ -879,7 +879,7 @@
       ],
       "spawnEvidence": [
         "src/biome_profiles.js:FAMILY_PROFILE / BIOME_PROFILES",
-        "docs/zone-variants.json:materials",
+        "docs/data/zone-variants.json:materials",
         "src/items.js:CROP_SPRITE.marigold"
       ],
       "recommendation": {
@@ -948,7 +948,7 @@
       "spawnEvidence": [
         "src/items.js:MINERAL_TIERS",
         "src/worldgen.js:rollSurfaceRockTier / caveRockP",
-        "docs/zone-variants.json:ore find materials"
+        "docs/data/zone-variants.json:ore find materials"
       ],
       "recommendation": {
         "action": "recolour",
@@ -1010,7 +1010,7 @@
       "spawnEvidence": [
         "src/items.js:MINERAL_TIERS",
         "src/worldgen.js:rollSurfaceRockTier / caveRockP",
-        "docs/zone-variants.json:ore find materials"
+        "docs/data/zone-variants.json:ore find materials"
       ],
       "recommendation": {
         "action": "recolour",
@@ -1072,7 +1072,7 @@
       "spawnEvidence": [
         "src/worldgen.js:spawnFruitTreesSteps",
         "src/render.js:FRUIT_FRAMES",
-        "docs/zone-variants.json:orchard"
+        "docs/data/zone-variants.json:orchard"
       ],
       "recommendation": {
         "action": "recolour",
@@ -1213,7 +1213,7 @@
         }
       ],
       "spawnEvidence": [
-        "docs/zone-variants.json:materials.flint and flint_field",
+        "docs/data/zone-variants.json:materials.flint and flint_field",
         "src/zones.js:variant dressing"
       ],
       "recommendation": {
@@ -1267,7 +1267,7 @@
       ],
       "spawnEvidence": [
         "src/zones.js:zone classification fuel\u2192tar",
-        "docs/zone-variants.json:materials.tar"
+        "docs/data/zone-variants.json:materials.tar"
       ],
       "recommendation": {
         "action": "recolour",
@@ -1317,7 +1317,7 @@
       "spawnEvidence": [
         "src/traps.js:surface trap placement",
         "src/render.js:trap_hidden/trap_open",
-        "docs/zone-variants.json:materials.trap"
+        "docs/data/zone-variants.json:materials.trap"
       ],
       "recommendation": {
         "action": "keep",
@@ -1365,7 +1365,7 @@
       "spawnEvidence": [
         "src/traps.js:surface trap placement",
         "src/render.js:trap_hidden/trap_open",
-        "docs/zone-variants.json:materials.trap"
+        "docs/data/zone-variants.json:materials.trap"
       ],
       "recommendation": {
         "action": "keep",
@@ -1730,7 +1730,7 @@
       ],
       "spawnEvidence": [
         "src/biome_profiles.js:FAMILY_PROFILE / BIOME_PROFILES",
-        "docs/zone-variants.json:materials",
+        "docs/data/zone-variants.json:materials",
         "src/items.js:CROP_SPRITE.wildrose"
       ],
       "recommendation": {
@@ -2200,7 +2200,7 @@
       "spawnEvidence": [
         "src/items.js:MINERAL_TIERS",
         "src/worldgen.js:rollSurfaceRockTier / caveRockP",
-        "docs/zone-variants.json:ore find materials"
+        "docs/data/zone-variants.json:ore find materials"
       ],
       "recommendation": {
         "action": "recolour",
@@ -2319,7 +2319,7 @@
       "spawnEvidence": [
         "src/worldgen.js:spawnFruitTreesSteps",
         "src/render.js:FRUIT_FRAMES",
-        "docs/zone-variants.json:orchard"
+        "docs/data/zone-variants.json:orchard"
       ],
       "recommendation": {
         "action": "recolour",
@@ -2382,7 +2382,7 @@
       "spawnEvidence": [
         "src/items.js:MINERAL_TIERS",
         "src/worldgen.js:rollSurfaceRockTier / caveRockP",
-        "docs/zone-variants.json:ore find materials"
+        "docs/data/zone-variants.json:ore find materials"
       ],
       "recommendation": {
         "action": "recolour",
@@ -2505,7 +2505,7 @@
       ],
       "spawnEvidence": [
         "src/biome_profiles.js:FAMILY_PROFILE / BIOME_PROFILES",
-        "docs/zone-variants.json:materials",
+        "docs/data/zone-variants.json:materials",
         "src/items.js:CROP_SPRITE.starflower"
       ],
       "recommendation": {
@@ -2574,7 +2574,7 @@
       "spawnEvidence": [
         "src/items.js:MINERAL_TIERS",
         "src/worldgen.js:rollSurfaceRockTier / caveRockP",
-        "docs/zone-variants.json:ore find materials"
+        "docs/data/zone-variants.json:ore find materials"
       ],
       "recommendation": {
         "action": "recolour",
@@ -2632,7 +2632,7 @@
       "spawnEvidence": [
         "src/items.js:MINERAL_TIERS",
         "src/worldgen.js:rollSurfaceRockTier / caveRockP",
-        "docs/zone-variants.json:ore find materials"
+        "docs/data/zone-variants.json:ore find materials"
       ],
       "recommendation": {
         "action": "recolour",
@@ -2805,7 +2805,7 @@
         }
       ],
       "spawnEvidence": [
-        "docs/zone-variants.json:materials.gemfruit and finds",
+        "docs/data/zone-variants.json:materials.gemfruit and finds",
         "src/items.js:CROP_ROW.gemfruit"
       ],
       "recommendation": {

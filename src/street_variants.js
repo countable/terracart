@@ -312,9 +312,9 @@
       body: 'Green coins lie scattered in the grass on both sides of the road. You spot more with every step.',
       flash: 'The verges glitter with coins.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
-      stone: { weathered: '#594a3f', restored: '#897051' }, lampDensity: 1,
+      stone: { weathered: '#594a3f', restored: '#493b2e' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
-      body: 'A chest sits beside the lane, surrounded by iron traps. You stop short of the open jaws in the grass.',
+      body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
       flash: 'Iron teeth around a chest.' },
     // Append so saved mark codes retain their existing meanings.
     { id: 'thorny', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
@@ -1357,7 +1357,7 @@
     // Cross the authored road only, then extend along each normal.
     // Existing pieces from this pass are transparent to repeated samples;
     // every unrelated obstacle terminates the ray instead of being skipped.
-    const crossSection = (rec, x, y, nx, ny, depth, owned, emit) => {
+    const crossSection = (rec, x, y, nx, ny, depth, owned, emit, groundOk = cellOk) => {
       const roadSeats = new Set(), gate = { ...spawnOpts, roadClass: rc, streetObstacleCells: roadSeats, streetObstacleKind: rec.variant };
       for (const side of [1, -1]) {
         const start = 0;
@@ -1374,7 +1374,7 @@
             ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
           const road = normalDistance <= rec.halfW + cellReach;
           if (road) roadSeats.add(i);
-          if (!(road ? WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle') : cellOk(ix,iy))) break;
+          if (!(road ? WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle') : groundOk(ix,iy))) break;
           owned.add(i); emit(ix,iy);
         }
       }
@@ -1457,25 +1457,25 @@
         });
       }
       if (v === 'snare' && !snareSeats.has(rec.key)) {
-        // One cache at the canonical street patch's midpoint, on one verge.
-        // The dense two-cell ring stays off roads and outside major buffers;
-        // every seat also obeys occupied, private-ground and restriction masks.
+        // Keep the reward on a verge, but span the minor road with the traps:
+        // the road must not form a clear bypass through the encounter.
+        // Cross-sections retain land, occupancy and major-road exclusions.
         const length = S.lineLengthM(rec.line, gM);
         sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
-            const off = side * (rec.halfW + (SNARE_TRAP_RADIUS_CELLS + 1.5) * CELL_M);
+            const off = side * (rec.halfW + CELL_M / 2);
             const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
             if (!hoardOk(ix, iy) || !foeOk(ix, iy)) continue;
-            const traps = [];
-            for (let dy = -SNARE_TRAP_RADIUS_CELLS; dy <= SNARE_TRAP_RADIUS_CELLS; dy++) {
-              for (let dx = -SNARE_TRAP_RADIUS_CELLS; dx <= SNARE_TRAP_RADIUS_CELLS; dx++) {
-                if (!dx && !dy) continue;
-                const ax = ix + dx, ay = iy + dy;
-                if (!foeOk(ax, ay)) continue;
-                traps.push({ id: WG.cellId('trap_snare', tx, ty, ax, ay),
-                  x: cx(ax), y: cy(ay), _ix: ax, _iy: ay, _street: v });
-              }
+            const traps = [], seats = new Set([iy * N + ix]);
+            // Sample densely along the tangent so diagonal roads also have
+            // a solid cluster, deduplicated by the same cross-section helper.
+            for (let along = -SNARE_TRAP_RADIUS_CELLS; along <= SNARE_TRAP_RADIUS_CELLS; along += 0.5) {
+              crossSection(rec, x + ny * along * CELL_M, y - nx * along * CELL_M, nx, ny,
+                () => SNARE_TRAP_RADIUS_CELLS + 1, seats, (ax, ay) => {
+                  traps.push({ id: WG.cellId('trap_snare', tx, ty, ax, ay),
+                    x: cx(ax), y: cy(ay), _ix: ax, _iy: ay, _street: v });
+                }, foeOk);
             }
             // Do not generate an undefended reward on cramped ground.
             if (traps.length < SNARE_MIN_TRAPS) continue;

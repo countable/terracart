@@ -98,15 +98,14 @@
   // The order is the save's own record (save.restoredHouses keeps insertion
   // order, the delivery.js houseOrder idiom), so a restored shop keeps its line.
   //
-  // Each visit sells ONE random item from the line at the shop's tier — the
-  // nearest tier the line actually stocks (ties go LOWER), since no line has
-  // an item at every tier. The relic line is gear, rolled by Gear.buildRelicOffer
+  // Half the rolls offer batches from exactly one tier below, when stocked;
+  // otherwise the nearest stocked tier (ties go LOWER). The relic line is gear, rolled by Gear.buildRelicOffer
   // (never at or below what the player already wears), so it has no pool here.
   // THE LINES AND THEIR RULES (owner, Oct 2026): the one table of shop lines
   // a Shop card can open — the tiers a line exists at (`maxTier`) and how
   // many may stand at one tier (`perTier`; unlimited when absent). Seed and
   // Supply stop at T3, the Magic Shop is one per tier, the Relic Shop runs
-  // the full ladder any number deep. The Ore Shop is gone. The Book and Pet
+  // even tiers T2/T4/T6 any number deep; Magic uses T1/T3/T5/T7. The Ore Shop is gone. The Book and Pet
   // lines are NOT here — they are one-offs, SOLO_LINES. THEMES is the
   // table's keys, in this order: the legacy cycle (themeAt, for a market
   // restored before lines were stored) walks it.
@@ -114,8 +113,8 @@
   const LINE_RULES = Object.freeze({
     seed:   { maxTier: 3 },
     supply: { maxTier: 3 },
-    potion: { maxTier: SHOP_TIER_MAX, perTier: 1 },
-    relic:  { maxTier: SHOP_TIER_MAX },
+    potion: { maxTier: SHOP_TIER_MAX, tiers: [1, 3, 5, 7], perTier: 1 },
+    relic:  { maxTier: 6, tiers: [2, 4, 6] },
   });
   const THEMES = Object.keys(LINE_RULES);
   // ONE-OFF LINES (owner, Oct 2026): a line exactly ONE market per save
@@ -138,7 +137,7 @@
     supply: 'You find supplies for the road on the shelves.',
     potion: 'You watch strange colours swirl in bottles behind the counter.',
     relic:  'You inspect the tools and armour hanging behind the counter.',
-    pet:    'You hear paws and hooves shuffling nearby.',
+    pet:    'Soft collars and little charms hang above the counter.',
     book:   'Shelves of books line the walls.',
   };
   // Resolved at CALL time: items.js (BUY_LIST, the catalogue) is read when a
@@ -149,13 +148,11 @@
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
     supply: () => ['wood', 'rubble', 'torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'javelin', 'scarecrow', 'magic_trap', 'taming_potion', 'renovation_permit'],
     potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry).map(item => item.id),
-    pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
+    pet:    () => ITEMS.filter(it => it.petAccessory).map(it => it.id),
     // The bookshop's line: only the Book, at the price ladder (shops_math.js listPrice).
     book:   () => ['book'],
   };
 
-  // Shared by pet shops and egg hatching; callers receive their own array.
-  function petItems() { return THEME_POOL.pet(); }
 
   // The line + tier for the Nth shop restored (0-based).
   function themeAt(order) {
@@ -211,8 +208,8 @@
       if (rh[id] !== 'market' || isSoloShop(save, id)) continue;
       let theme, tier;
       // Any line the pools know (a market picked as a Pet Shop before the
-      // line became a one-off keeps selling pets), else the cycle's answer.
-      if (THEME_POOL[stored[id]]) { theme = stored[id]; tier = storedTier(save, id) ?? 1 + (seen[theme] || 0); }
+      // line became a one-off keeps its pet accessories), else the cycle's answer.
+      if (LINE_RULES[stored[id]] || THEME_POOL[stored[id]]) { theme = stored[id]; tier = storedTier(save, id) ?? 1 + (seen[theme] || 0); }
       else ({ theme, tier } = themeAt(n));
       seen[theme] = (seen[theme] || 0) + 1;
       out.push({ id, theme, tier });
@@ -224,7 +221,7 @@
     const solo = house ? soloLine(save, house.id) : null;
     if (solo) return { theme: solo, tier: 1 };
     const stored = save?.shopLines?.[house?.id];
-    if (house && THEME_POOL[stored]) {
+    if (house && (LINE_RULES[stored] || THEME_POOL[stored])) {
       const row = marketLines(save).find((r) => r.id === String(house.id));
       if (row) return { theme: row.theme, tier: row.tier };
     }
@@ -239,7 +236,8 @@
   // be full. The ladder (tierCap) is the caller's question.
   function lineBuildable(save, theme, tier) {
     const rule = LINE_RULES[theme];
-    if (!rule || !(tier >= 1) || tier > rule.maxTier) return false;
+    if (!rule || !Number.isInteger(tier) || tier < 1 || tier > rule.maxTier) return false;
+    if (rule.tiers && !rule.tiers.includes(tier)) return false;
     if (rule.perTier != null && lineCount(save, theme, tier) >= rule.perTier) return false;
     return true;
   }
@@ -264,7 +262,7 @@
   //   (houses.js STORY_RESTORES).
   //   A smithy's anvil favours its own tier and forges nothing more than one
   //   tier above or below it (gear.js relicOfferWeights, opts.smithTier); a
-  //   trader's barter leans toward goods of its tier (tierAffinity).
+  //   trader offers goods at exactly its tier (traderStock).
   // Houses from before ranks were stored keep the derivations that raised
   // them: the Nth smithy was tier N, a trader took the old restore-number
   // ladder's rank (traderTierAt). The map badge, the offer blurb, the
@@ -335,17 +333,45 @@
     return ids.filter((id) => itemTier(id) === best.t);
   }
 
+  // Half the shelves carry a batch from exactly one tier below, when the
+  // line has such items. Sparse lines retain their nearest-tier fallback.
+  const THEMED_BATCH_CHANCE = 0.5;
+  function batchStock(theme, tier) {
+    return tier > 1 ? (THEME_POOL[theme]?.() || []).filter(id => itemTier(id) === tier - 1) : [];
+  }
+  function themedOfferStock(theme, tier) {
+    return [...new Set([...themedStock(theme, tier), ...batchStock(theme, tier)])];
+  }
+  function themedQuantity(id, tier, rng = Math.random) {
+    return itemTier(id) === tier - 1 ? 2 + Math.floor(rng() * 3) : 1;
+  }
   // The one item this shop sells right now, off the caller's seeded rng.
   function pickThemed(theme, tier, rng = Math.random) {
-    const stock = themedStock(theme, tier);
+    const lower = batchStock(theme, tier);
+    const stock = lower.length && rng() < THEMED_BATCH_CHANCE ? lower : themedStock(theme, tier);
     if (!stock.length) return null;
     return pickFromArray(stock, rng);
+  }
+
+  let prices = null;
+  const traderStocks = new Map();
+  function traderPrices() {
+    if (!prices) {
+      const gearIds = new Set(Gear.uniqueRelics().map(item => item.id));
+      prices = Object.fromEntries(ITEMS.filter(item => !item.progressionOnly && !gearIds.has(item.id)).map(item => [item.id, itemValue(item.id)]));
+    }
+    return prices;
+  }
+  function traderStock(tier) {
+    if (!traderStocks.has(tier)) traderStocks.set(tier, Object.keys(traderPrices()).filter(id => itemTier(id) === tier));
+    return traderStocks.get(tier);
   }
 
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel, BUILDING_LABEL, TOWER_LABEL,
+    THEMED_BATCH_CHANCE, batchStock, themedOfferStock, themedQuantity, traderPrices, traderStock,
     LINE_RULES, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, marketLines, lineFor, lineCount, lineBuildable, themedStock, itemTier,
-    MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed, petItems,
+    MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, tierAffinity, pickThemed,
   };
 })(window);

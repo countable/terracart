@@ -100,7 +100,7 @@
   };
   const facePx = (tier) => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
-    return (tbl && tbl[tier] != null) ? tbl[tier] : (tier === CASTLE ? 5 : 4);
+    return (tbl && tbl[tier] != null) ? tbl[tier] : (tier === CASTLE ? 11 : 7);
   };
 
   // The silhouette: the tiled pass draws black at 50% over the floor; mixing
@@ -110,9 +110,9 @@
   const OUTLINE_PX = 1;
 
   // Castle rampart: a stone band run INSIDE the ring (the cell version's
-  // 5px side walls), with the merlon grid dashed along it — 4px tooth,
+  // 6px side walls), with the merlon grid dashed along it — 4px tooth,
   // 4px crenel, the same 8px rhythm the tiled battlements tile at.
-  const BAND_PX = 5;
+  const BAND_PX = Math.max(...CastleStyles.ids.map(id => CastleStyles.get(id).rampart.topDepth));
   // The teeth sit on the OUTER lip of that band, not across the whole of it:
   // a dashed stroke as wide as the band replaces the stone rather than
   // crowning it, and the wall reads as a dashed ribbon instead of masonry.
@@ -302,7 +302,7 @@
     // and border bakes open theirs the same way). A texture left by an
     // earlier scene is dropped first, so this canvas is this scene's own.
     if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
-    const { tex, x: originX, y: originY } = Render.viewportCanvas(scene, TEX_KEY, CELL_PX * 2);
+    const { tex, x: originX, y: originY, cw: size } = Render.viewportCanvas(scene, TEX_KEY, CELL_PX * 2);
     if (!tex) return null;
     const ctx = tex.getContext();
     ctx.lineJoin = 'round';
@@ -470,6 +470,12 @@
           Math.round(p.x - originX - 8), Math.round(p.y - originY - p.height), 16, p.height);
         ctx.restore();
       },
+      templePoly(pts, activated, dark) {
+        ctx.save();
+        ctx.translate(-originX, -originY);
+        TempleArt.draw(ctx, pts, { activated, dark, faces: false });
+        ctx.restore();
+      },
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
       commit() { tex.refresh(); },
     };
@@ -503,7 +509,8 @@
   // outline padding on every side, and the pixel of floor/ceil rounding at
   // each end. Derived from the constants the bake pads with, so a retune of
   // BAND_PX can't overflow a slot.
-  const SLOT_PAD = BAND_PX + OUTLINE_PX;
+  const SLOT_PAD = BAND_PX * 2
+    + Math.max(...CastleStyles.ids.map(id => CastleStyles.get(id).rampart.toothHeight)) + 2;
   const slotSize = () => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
     const deepest = tbl ? Math.max(...Object.values(tbl)) : facePx(CASTLE);
@@ -566,10 +573,12 @@
   }
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
-    const shade = shadeOf(isMine), tune = tuneOf(isMine), depth = facePx(d.tier);
-    const stone = d.tier === CASTLE ? castleStone(isMine, d.key) : null;
-    const face = stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
-    const outline = stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+    const shade = shadeOf(isMine), tune = tuneOf(isMine);
+    const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.key) : null;
+    const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar') : null;
+    const depth = stone ? stone.style.rampart.wallHeight : facePx(d.tier);
+    const face = temple ? temple.face : stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
+    const outline = temple ? temple.outline : stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
     const points = d.pts;
     // Only outward south-facing edges retain the downward face after the
     // floor is erased from the piece. Their physical base includes that
@@ -589,11 +598,12 @@
     };
     for (let i = 0; i < points.length; i++) {
       const a = points[i], b = points[(i + 1) % points.length];
+      if (a.x === b.x && a.y === b.y) continue;
       const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / CELL_PX));
       for (let j = 0; j < count; j++) {
         const at = (t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
         const p = at(j / count), q = at((j + 1) / count);
-        const pad = BAND_PX + OUTLINE_PX;
+        const pad = SLOT_PAD;
         const x = Math.floor(Math.min(p.x, q.x) - pad);
         const y = Math.floor(Math.min(p.y, q.y) - pad);
         const w = Math.ceil(Math.max(p.x, q.x) + pad) - x;
@@ -603,7 +613,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.templeZone || ''}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -624,53 +634,131 @@
         ctx.clearRect(sx, sy, A.slotW, A.slotH);
         ctx.beginPath(); ctx.rect(sx, sy, A.slotW, A.slotH); ctx.clip();
         ctx.translate(sx - x, sy - y);
+        let masonryBaseY = Math.max(p.y, q.y) + ((a.x - b.x) * winding > 1e-6 ? depth : 0);
+        if (stone) {
+          // The square map stays fixed. Lift the north edge and expose its
+          // inward, south-facing face; the south edge projects beyond the floor.
+          // For angled rings the inward normal blends those two profiles.
+          const rampart = stone.style.rampart, cap = rampart.topDepth;
+          const length = Math.hypot(b.x - a.x, b.y - a.y);
+          const nx = -(b.y - a.y) / length * winding;
+          const ny = (b.x - a.x) / length * winding;
+          const outer = v => ({ x: v.x, y: v.y - cap * (1 + ny) });
+          const inner = v => ({ x: v.x + nx * cap, y: v.y - cap });
+          const op = outer(p), oq = outer(q), ip = inner(p), iq = inner(q);
+          masonryBaseY = -Infinity;
+          const quad = (a, b, c, d, color) => {
+            masonryBaseY = Math.max(masonryBaseY, a.y, b.y, c.y, d.y);
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+            ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath();
+            ctx.fillStyle = cssOf(color); ctx.fill();
+          };
+          const down = (v, dy) => ({ x: v.x, y: v.y + dy });
+          const fp = ny > 0 ? ip : op, fq = ny > 0 ? iq : oq;
+          // Pure side edges have no south-facing vertical plane.
+          if (Math.abs(ny) > 1e-6) {
+            quad(fp, fq, down(fq, depth), down(fp, depth), face);
+            quad(down(fp, depth - 1), down(fq, depth - 1), down(fq, depth), down(fp, depth), outline);
+          }
+          // A bounded bevel bridges the two edge-local cap profiles at
+          // every convex or concave vertex. No miter can spike at acute bends.
+          if (j === 0) {
+            let previous = points[(i + points.length - 1) % points.length];
+            for (let back = 2; previous.x === a.x && previous.y === a.y && back < points.length; back++)
+              previous = points[(i + points.length - back) % points.length];
+            const previousLength = Math.hypot(a.x - previous.x, a.y - previous.y);
+            if (previousLength > 0) {
+              const previousNx = -(a.y - previous.y) / previousLength * winding;
+              const previousNy = (a.x - previous.x) / previousLength * winding;
+              const previousOuter = { x: a.x, y: a.y - cap * (1 + previousNy) };
+              const previousInner = { x: a.x + previousNx * cap, y: a.y - cap };
+              quad(previousOuter, op, ip, previousInner, stone.top);
+            }
+          }
+          quad(op, oq, iq, ip, stone.top);
+          const line = (a, b, color) => {
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+            ctx.lineWidth = 1; ctx.strokeStyle = cssOf(color); ctx.stroke();
+          };
+          // Light the rear lip and shade the front lip. On the south wall
+          // those are the inner and outer edges respectively; reversing them
+          // makes the cap read as a trench behind the battlements.
+          line(op, oq, ny < 0 ? stone.style.stone.SHADOW : stone.lite);
+          line(ip, iq, ny < 0 ? stone.lite : stone.style.stone.SHADOW);
+          // Roofed merlons continue on one 8px grid across atlas sections.
+          const damage = CastleStyles.damageCell(d.key,
+            Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
+            Math.floor(((p.y + q.y) / 2 + ny * 0.01 - d.damageOriginY) / CELL_PX));
+          if (damage) {
+            const at = damage.chip / CELL_PX;
+            const x = p.x + (q.x - p.x) * at + nx * cap / 2;
+            const y = p.y + (q.y - p.y) * at - cap * (1 + ny / 2);
+            ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
+            ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+          }
+          const first = Math.ceil(length * j / count / 8);
+          const last = Math.ceil(length * (j + 1) / count / 8);
+          for (let tooth = first; tooth < last; tooth++) {
+            if (rampart.broken && tooth % 4 === 2) continue;
+            const t = (tooth * 8 + 2) / length;
+            if (t >= 1) continue;
+            // Crown the rear edge, leaving the top plane visible in front
+            // of the teeth, as in the tiled rampart's overhead profile.
+            const crest = ny < 0 ? inner : outer;
+            const v = crest({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+            if (damage && damage.missing === tooth % 4) continue;
+            ctx.fillStyle = cssOf(face);
+            ctx.fillRect(Math.round(v.x), Math.round(v.y - rampart.toothHeight), rampart.toothWidth, rampart.toothHeight);
+            ctx.fillStyle = cssOf(stone.lite);
+            ctx.fillRect(Math.round(v.x), Math.round(v.y - rampart.toothHeight - 2), rampart.toothWidth, 2);
+            ctx.fillStyle = cssOf(stone.style.stone.SHADOW);
+            ctx.fillRect(Math.round(v.x) + rampart.toothWidth - 1, Math.round(v.y - rampart.toothHeight), 1, rampart.toothHeight);
+          }
+        } else {
         // Extrude this edge downward, then remove its part inside the floor.
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
         ctx.lineTo(q.x, q.y + depth); ctx.lineTo(p.x, p.y + depth); ctx.closePath();
         ctx.fillStyle = cssOf(face); ctx.fill();
+        // Work inside the face quadrilateral, then erase the floor below.
+        // This keeps angled courses out of the court and caps every short
+        // piece at the same height without changing its physical sort foot.
+        ctx.save(); ctx.clip();
+        const faceLine = (offset, color) => {
+          ctx.beginPath(); ctx.moveTo(p.x, p.y + offset);
+          ctx.lineTo(q.x, q.y + offset);
+          ctx.lineWidth = 1; ctx.strokeStyle = cssOf(color); ctx.stroke();
+        };
+        const lip = temple ? temple.coping : stone ? stone.top
+          : mix(face, tune(shade(floorColor(d.tier, isMine))), 0.48);
+        const joint = mix(face, outline, 0.32);
+        faceLine(0.5, lip);
+        // Shallow courses give the taller face a material scale. The fort's
+        // wooden footing keeps its grain as long horizontal seams.
+        for (let course = 3; course < depth - 1; course += 3) {
+          faceLine(course + 0.5, joint);
+          if (d.tier === 11 && !temple) continue;
+          const length = Math.hypot(b.x - a.x, b.y - a.y);
+          const spacing = 16, stagger = (Math.floor(course / 3) % 2) * spacing / 2;
+          const first = Math.max(0, Math.ceil((length * j / count - stagger) / spacing));
+          const last = Math.ceil((length * (j + 1) / count - stagger) / spacing);
+          for (let jointIndex = first; jointIndex < last; jointIndex++) {
+            const along = stagger + jointIndex * spacing;
+            const t = along / length;
+            const jx = a.x + (b.x - a.x) * t, jy = a.y + (b.y - a.y) * t;
+            ctx.beginPath(); ctx.moveTo(jx, jy + Math.max(1, course - 3));
+            ctx.lineTo(jx, jy + course); ctx.stroke();
+          }
+        }
+        faceLine(depth - 0.5, outline);
+        ctx.restore();
         ctx.globalCompositeOperation = 'destination-out';
         trace(ctx); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
-        if (stone) {
-          ctx.save(); trace(ctx); ctx.clip();
-          const stroke = (width, color, dash) => {
-            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
-            ctx.lineWidth = width; ctx.strokeStyle = cssOf(color);
-            ctx.setLineDash(dash || []);
-            ctx.lineDashOffset = -Math.hypot(p.x - a.x, p.y - a.y);
-            ctx.stroke();
-          };
-          stroke(BAND_PX * 2, stone.body);
-          const rampart = stone.style.rampart;
-          if (rampart.woodTop) stroke(6, stone.top);
-          const tooth = rampart.toothWidth;
-          const dash = rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
-          stroke(MERLON_PX * 2, stone.lite, dash);
-          // Sample just inside the edge, so east/south boundaries use the
-          // same owner's cell as the tiled wall rather than its neighbour.
-          const damageX = (p.x + q.x) / 2 - Math.sign(q.y - p.y) * winding * 0.01;
-          const damageY = (p.y + q.y) / 2 + Math.sign(q.x - p.x) * winding * 0.01;
-          const damage = CastleStyles.damageCell(d.key,
-            Math.floor((damageX - d.damageOriginX) / CELL_PX),
-            Math.floor((damageY - d.damageOriginY) / CELL_PX));
-          if (damage) {
-            const chip = damage.chip / CELL_PX;
-            const cx = Math.round(p.x + (q.x - p.x) * chip);
-            const cy = Math.round(p.y + (q.y - p.y) * chip);
-            ctx.fillStyle = cssOf(stone.style.stone.SHADOW); ctx.fillRect(cx - 1, cy - 3, 2, 6);
-            if (damage.missing >= 0) {
-              const t = (damage.missing + 0.5) / 4;
-              ctx.fillStyle = cssOf(stone.style.floor);
-              ctx.fillRect(Math.round(p.x + (q.x - p.x) * t) - 2,
-                Math.round(p.y + (q.y - p.y) * t) - 2, 4, 4);
-            }
-          }
-          ctx.restore();
-        }
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
         ctx.lineWidth = OUTLINE_PX;
         ctx.strokeStyle = cssOf(outline);
         ctx.stroke();
+        }
         ctx.restore();
         page.dirty = true;
         // The piece's frame on its page. The slot bounds the piece by
@@ -683,8 +771,7 @@
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
           // Lowest visible masonry, excluding transparent frame padding.
-          groundY: (Math.max(p.y, q.y) + ((a.x - b.x) * winding > 1e-6 ? depth : 0)
-            - projY(0)) * scene.cellM / CELL_PX,
+          groundY: (masonryBaseY - projY(0)) * scene.cellM / CELL_PX,
         };
         scene._buildingUprightCache.set(cacheKey, piece);
         seen.add(cacheKey);
@@ -724,22 +811,35 @@
 
     // Camera anchor, not the body — a peek drag slides these footprints with
     // the ground they're painted on (coords.js overlayFrame → viewAnchorCell).
-    // Rebuild key: the snapped camera cell, which of the 3×3 tiles have their
-    // shapes in hand (so a tile that finishes loading repaints even while the
-    // player stands still), and the claim epoch — restoring a wreck or taking
-    // a castle has to lift the shade off that footprint on the next frame.
-    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
-      overlayFrame(scene, (entry) => !!entry.buildingShapes);
-    const key = `${baseCellIX},${baseCellIY},${ready},${claimEpoch(scene)}`;
-    if (key !== scene._buildingGeomKey) {
-      scene._buildingGeomKey = key;
-      scene._buildingGeomPainted = true;
-      timedOverlayRebuild('building overlay rebuild',
-        () => rebuild(scene, tiles, fracX, fracY));
+    // Keep padded paint across crossings. New tile inputs and the claim epoch
+    // still repaint immediately: restoring a wreck or taking a castle must
+    // lift the shade off that footprint on the next frame.
+    const frame = overlayFrame(scene, (entry) => !!entry.buildingShapes);
+    const { tiles } = frame;
+    const previous = scene._buildingGeomKey ? scene._buildingGeomFrame : null;
+    const paint = overlayPaintFrame(scene, frame, previous, claimEpoch(scene));
+    let offset = paint;
+    if (paint.rebuild) {
+      // Null = the retained paint cannot follow the anchor (a teleport
+      // outran its pad): spend this update's upload rather than show stale
+      // geometry for a frame.
+      const retained = retainedOverlayOffset(scene, previous, frame);
+      if (claimOverlayRebuild(scene, 'building', !retained)) {
+        scene._buildingGeomFrame = paint;
+        scene._buildingGeomKey = paint.key;
+        scene._buildingGeomPainted = true;
+        timedOverlayRebuild('building overlay rebuild',
+          () => rebuild(scene, tiles, paint.fracX, paint.fracY));
+      } else {
+        // Road used this update's one canvas upload. Keep both the retained
+        // footprint canvas and its upright sprites seated from their old
+        // anchor; this module rebuilds from latest claims/tiles next frame.
+        offset = retained;
+      }
     }
-    if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     for (const p of scene._buildingUprightPieces || []) {
-      const x = p.x - fracX * CELL_PX, y = p.y - fracY * CELL_PX;
+      const x = p.x - offset.fracX * CELL_PX, y = p.y - offset.fracY * CELL_PX;
       p.sprite.setPosition(x, y);
       // Keep the padded cache for the next crossing, but do not submit walls
       // wholly outside the world's viewport mask to the renderer. One pixel
@@ -759,7 +859,7 @@
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
-      + ',' + (s.starterShopId || '');
+      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length;
   }
 
   function rebuild(scene, tiles, fracX, fracY) {
@@ -819,9 +919,9 @@
         if (bx1 < minX || bx0 > maxX || by1 + facePx(shape.tier) < minY || by0 > maxY) continue;
         draws.push({
           pts, south: by1, left: bx0, north: by0, right: bx1,
-          tier: shape.tier, key: shape.key,
+          tier: shape.tier, key: shape.key, templeZone: shape.templeZone, templeKind: shape.templeKind,
           damageOriginX: projX(originMx), damageOriginY: projY(originMy),
-          columns: shape.tier === CASTLE ? CastleStyles.columnSites(shape.key, r,
+          columns: shape.tier === CASTLE && !shape.templeZone ? CastleStyles.columnSites(shape.key, r,
             entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile))
             .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
           seed: seedOf(tx, ty, r, shape.key),
@@ -839,6 +939,15 @@
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
 
     for (const d of draws) {
+      if (d.templeZone) {
+        const active = Temples.isActive(scene.save, d);
+        const palette = TempleArt.palette(active, d.templeKind === 'tar');
+        if (!separateUprights) g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
+        if (g.templePoly) g.templePoly(d.pts, active, d.templeKind === 'tar');
+        else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
+        if (separateUprights) uprightEdges(scene, d, active, projX, projY, seen);
+        continue;
+      }
       const isMine = claimed(d.key);
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —

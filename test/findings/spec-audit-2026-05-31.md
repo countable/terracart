@@ -3,9 +3,9 @@
 > **Historical snapshot.** Kept because `test/node/spec_pins.test.js` pins code
 > behaviour against these numbered findings. Many have since been fixed or
 > superseded (e.g. path stones → street restoration, chest milestones removed);
-> `docs/spec.txt` has been revised since. Line numbers are as of the audit.
+> `docs/design/spec.txt` has been revised since. Line numbers are as of the audit.
 
-Audited the codebase (`src/*.js`, `index.html`) against `docs/spec.txt` using six
+Audited the codebase (`src/*.js`, `index.html`) against `docs/design/spec.txt` using six
 parallel subagents, each owning a disjoint set of spec sections and source files.
 Findings below are grouped by severity. Line numbers reflect state at the time of
 audit (branch `claude/code-audit-spec-7676q`).
@@ -32,6 +32,8 @@ armor and the bump is always `0`.
 Spec (ENERGY & FOOD): "ENERGY_COST … catch 5." The animal-catch path
 (`interact.js:557-570` → `app.js:2630-2653 catchCreature`) never calls
 `spendEnergy`. The `catch:5` entry in `items.js:502` is dead — catching is free.
+*(Oct 2026: fixed — the catch path now spends `catchCost` through
+`scene.spendEnergy`, `interact.js:893-894`.)*
 
 ### 3. Path-stone reward mechanic is wrong
 Spec (PATH STONES): "Every 10 consecutive claimed stones on the same named path
@@ -47,6 +49,8 @@ Spec (cells §, FARMING): "grassland biome cells till in half the time." Tilling
 (`interact.js:1350-1389`) is an instant tap with only an energy cost; there is no time/work
 component at all and no biome branch. `effectiveTillCost` (`items.js:666`) varies only by the
 Hoe relic, never by terrain class. *(Independently confirmed by two agents.)*
+*(Oct 2026: implemented — grassland cells now till at half rate via
+`GRASSLAND_TILL`, `interact.js:343-346`.)*
 
 ### 5. Fauna can walk onto roads
 Spec (fauna): "no fauna may move onto a building footing, or road." All three wander
@@ -110,11 +114,15 @@ Spec: "animals simulate when within viewport range (~7-8 cells)." `app.js:1968`
 Spec (CONSUMABLES): flute "lures wandering creatures within 15 cells toward you."
 `app.js:2980-3007 playFlute()` only re-anchors `chicken` and `cow` (ignores cat/dog/rabbit/
 deer/crow/butterfly), and uses a 30m = 6-cell radius, not 15 cells (75m).
+*(Oct 2026: resolved by removal — the flute and `playFlute` no longer exist in
+`src/`; do not re-audit.)*
 
 ### 14. Ghost energy cost is ~half the spec values
 Spec (GEAR): ghost drains "~2/cell at T1, falling to ~0.3/cell at T7."
 `items.js:704-707 ghostEnergyCost` returns 1.0/cell at T1 → 0.15/cell at T7
 (used per-cell at `app.js:1570`).
+*(Oct 2026: resolved by removal — `ghostEnergyCost` no longer exists in `src/`;
+do not re-audit.)*
 
 ### 15. Spec's chest yield/category tables are dead code
 Spec (CHESTS) documents tier yields (T1=10/T2=5/T3=2; lowtier 3/2/1) and category
@@ -161,6 +169,8 @@ Spec (ECONOMY) — there is no gear-selling path at all (gear isn't in the sell 
 Spec (GEAR): "Ring: +5%/tier chance to bump chest loot up a tier." `items.js:688-690
 ringTierBoost` (0.05×tier) is dead; the picker applies `ringLuck = 0.01×tier` (1%/tier) as a
 reduction to the qty-vs-tier split, not a +5%/tier tier-up chance (`rarity.js:204,320`).
+*(Oct 2026: resolved by removal — `ringTierBoost` no longer exists in `src/`;
+the ring's current effect is whatever the picker implements today.)*
 
 ### 24. Unified-picker shop contexts are dead code
 Spec implies the unified rarity picker drives shops. All `shop:*` LOOT_CONTEXTS in

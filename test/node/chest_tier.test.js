@@ -32,8 +32,11 @@
     const lone = [chest('art_gallery', 1)];
     WorldGen.seedChestTiers(lone);
     assert.eq(chestTier(lone[0]), 5, 'a lone mural takes the tile\'s T5 seat');
+    // A street sized to the pyramid plus one: every seat is spent and exactly
+    // one crate is left over, whatever the quotas of the day.
+    const promoted = Object.values(WorldGen.TIER_SEED_QUOTA).reduce((a, b) => a + b, 0);
     const street = [];
-    for (let i = 0; i < 49; i++) street.push(chest('art_gallery', 49, { id: 'ga' + i }));
+    for (let i = 0; i < promoted + 1; i++) street.push(chest('art_gallery', promoted + 1, { id: 'ga' + i }));
     WorldGen.seedChestTiers(street);
     assert.eq(street.filter((o) => chestTier(o) === 1).length, 1, 'a gallery street holds one T1 crate');
     assert.eq(chestLook(street.find((o) => chestTier(o) === 1)).texKey, 'box', 'which wears the crate');
@@ -120,11 +123,11 @@
       assert.eq(o.poiDensity, chests.filter((c) => c.poiClass === o.poiClass).length, o.id + ' carries its class count');
     }
     // Under the tier-quota pyramid a sparse tile fills from the TOP: seven
-    // chests = one T5 and the rest T4, whatever their classes (until Oct
+    // chests = one T5, five T4 and a T3, whatever their classes (until Oct
     // 2026 the lone florist read T4 off the count ladder).
     assert.eq(chests.filter((o) => chestTier(o) === 5).length, 1, 'one T5 seeds the tile');
     for (const o of chests) {
-      assert.truthy(chestTier(o) >= 4, o.id + ' rides the sparse tile top tiers');
+      assert.truthy(chestTier(o) >= 3, o.id + ' rides the sparse tile top tiers');
       assert.truthy(o.tierSeed, o.id + ' carries a quota seed');
     }
   });
@@ -302,9 +305,7 @@
       }
       const lvl2 = await WorldGen.loadTile.atDepth(2, tx, ty, lat);
       const deep = lvl2.objects.filter(o => o.kind === 'chest');
-      assert.eq(deep.length, 2, 'and depth 2');
-      assert.eq(deep.find(c => c.caveOf === 'c_lib').id, 'c_lib_d2', 'own id at depth 2');
-      assert.eq(chestTier(deep.find(c => c.caveOf === 'c_lib')), 5, 'the lone library is T5 two levels down');
+      assert.eq(deep.length, 0, 'L2 solid stone has no floor for these non-clearing mirrors');
     } finally {
       WorldGen.setDepth(0);
       WorldGen.tileCache.delete(key);

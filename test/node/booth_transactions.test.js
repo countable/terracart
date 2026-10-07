@@ -75,8 +75,11 @@
       assert.eq(offer.cancelLabel, 'Leave');
       assert.includes(offer.cost, s.moneyHTML(price()));
       paid += price();
+      const charged = price();
       offer.onAccept();
       offer.repeat();
+      assert.eq(s.offers.at(-1).receipt, `Bought 1× ${ITEM_BY_ID.book.name} for ${charged} coins.`,
+        'the refreshed counter confirms the actual purchase and paid price');
       assert.eq(s.save.money, 10000 - paid);
       assert.eq(Inventory.count(s.save, 'book'), i + 1);
     }
@@ -94,8 +97,10 @@
       else s.addToInv = () => 0;
       const before = s.save.money;
       s.offers[0].onAccept(1);
+      s.offers[0].repeat();
       assert.eq(s.save.money, before);
       assert.eq(s.messages.length, 0);
+      assert.falsy(s.offers.at(-1).receipt, 'a refused purchase has no success receipt');
     }
   });
   boothTest('booth training: lesson and drill report the paid price, level and duration', () => {

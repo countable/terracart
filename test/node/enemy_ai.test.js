@@ -121,7 +121,7 @@
     const body = RENDER_SRC.match(/    const chilled = Combat\.isChilled\(c, Date\.now\(\)\);[\s\S]*?Render\.setShine\(s, [^;]+;/);
     assert.truthy(body, 'live creature tint block exists');
     const paint = new Function('c', 's', 'performance', 'Date', 'Combat', 'Conditions',
-      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', body[0]);
+      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', 'pet', body[0]);
     const renderTint = (c, now) => {
       const sprite = { tint: null, fill: false,
         setTint(tint) { this.tint = tint; this.fill = false; },
@@ -130,7 +130,7 @@
         { burning: () => !!c.burning, statusFlashTint: () => null, poisoned: () => !!c.poisoned,
           isChilled: (x, t) => x._frozenUntil != null && t < x._frozenUntil },
         { conditionTintOn: () => true, DEFINITIONS: { burning: { tint: 0xff5500 }, poison: { tint: 0x9fdc8c } } },
-        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {});
+        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {}, !!c.pet);
       return sprite;
     };
     for (const windup of ['_attackWindupUntil', '_lungeWindupUntil', '_abilityWindupUntil']) {
@@ -138,6 +138,7 @@
         const c = { kind: 'goblin', [windup]: 2000 };
         const normal = renderTint(c, now);
         assert.eq(normal.tint, 0x123456, `${windup} keeps its palette`);
+        assert.eq(renderTint({ ...c, pet: true, tint: 0xc5ddf2 }, now).tint, 0xc5ddf2, 'a pet keeps its saved individual palette');
         assert.falsy(normal.fill, 'no attack tint fill');
         assert.eq(renderTint({ ...c, shiny: true }, now).tint, 0xffd23a, 'elite sheen remains');
         assert.eq(renderTint({ ...c, burning: true }, now).tint, 0xff5500, 'burning remains visible');
@@ -169,6 +170,33 @@
     s.save.energy = 0;
     rosterEnemyAttack(s, c, row, 13000, 1, 0, false, 1);
     assert.eq(s.save.energy, 0);
+  });
+  test('zombie blight aura drains through the shared rate inside its default one-cell radius', () => {
+    const row = EnemyRoster.get('zombie');
+    for (const cellM of [5, 10]) {
+      for (const radius of [0.75, 1, 1.01]) {
+        const s = scene(cellM), c = foe('zombie');
+        for (let i = 0; i < 60; i++) {
+          rosterEnemyAttack(s, c, row, 10000 + i * 1000 / 60, radius * cellM, 0, false, 1 / 60);
+        }
+        const expected = radius <= 1
+          ? Math.floor(Combat.playerDamageRate(row.aura.rawDps * Combat.powerMul(c), {}, 1) + 1e-9) : 0;
+        assert.eq(100 - s.save.energy, expected, `${cellM}m cells at ${radius} cells`);
+      }
+    }
+  });
+  test('zombie blight aura respects concealment, emergence, walls and inactive targets', () => {
+    const row = EnemyRoster.get('zombie');
+    for (const state of ['hidden', 'buried', 'emerging', 'wall', 'downed']) {
+      const s = scene(), c = foe('zombie');
+      if (state === 'buried') c._burrowed = true;
+      if (state === 'emerging') c._emergeUntil = 11000;
+      if (state === 'wall') s._cellBlocked = x => x > 1 && x < 4;
+      if (state === 'downed') s.save.energy = 0;
+      const before = s.save.energy;
+      rosterEnemyAttack(s, c, row, 10000, 5, 0, state === 'hidden', 1);
+      assert.eq(s.save.energy, before, state);
+    }
   });
   test('enemy AI: draining aura shield expires on the wall-clock boundary', () => {
     const realDateNow = Date.now;
@@ -248,6 +276,79 @@
       assert.eq(Combat.shinySpeedMul(deep), 1, 'size alone does not quicken ghosts');
     }
     assert.eq(Combat.ghostSizeMul({ kind: 'brute', _artScale: 1.5 }), 1);
+  });
+  test('enemy AI: every spider fires silk at its fixed aim without a melee hit', () => {
+    const original = SpiderWebs.launch, launches = [];
+    SpiderWebs.launch = (scene, creature, x, y) => launches.push({scene, creature, x, y});
+    try {
+      for (const kind of ['spider', 'poison_spider', 'mini_spider', 'giant_spider']) {
+        const s = scene(), c = foe(kind), row = EnemyRoster.get(kind);
+        assert.eq(row.attackType, 'web');
+        assert.eq(row.dmg, 0);
+        const before = launches.length;
+        rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
+        assert.eq(launches.length, before, 'silk waits for wind-up');
+        rosterEnemyAttack(s, c, row, 10000 + row.windupSeconds * 1000, 21, 7, false, 0.1);
+        assert.eq(launches.length, before + 1);
+        assert.eq(launches[before].x, 14, 'moving target cannot steer the aimed cell');
+        assert.eq(launches[before].y, 0);
+        assert.eq(s.save.energy, 100);
+        assert.eq(s._shots.length, 0, 'silk uses the web flight and landing lifecycle');
+        rosterEnemyAttack(s, c, row, 11000, 14, 0, false, 0.1);
+        assert.eq(launches.length, before + 1, 'ordinary attack cooldown is preserved');
+      }
+    } finally { SpiderWebs.launch = original; }
+  });
+  test('enemy AI: every spider requires two cells at aiming and firing, including diagonal targets', () => {
+    const original = SpiderWebs.launch, launches = [];
+    SpiderWebs.launch = (...args) => launches.push(args);
+    try {
+      for (const kind of ['spider', 'poison_spider', 'mini_spider', 'giant_spider']) {
+        const s = scene(), row = EnemyRoster.get(kind);
+        assert.eq(row.minRange, 2);
+        for (const [x, y] of [[0, 0], [7, 0], [13.99, 0], [7, 7]]) {
+          const c = foe(kind), before = launches.length;
+          rosterEnemyAttack(s, c, row, 10000, x, y, false, 0.1);
+          rosterEnemyAttack(s, c, row, 10600, x, y, false, 0.1);
+          assert.falsy(c._attackWindupUntil, 'close targets never start aiming');
+          assert.eq(launches.length, before);
+        }
+        const c = foe(kind), before = launches.length;
+        rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
+        assert.truthy(c._attackWindupUntil, 'exactly two cells starts aiming');
+        rosterEnemyAttack(s, c, row, 10600, 13.99, 0, false, 0.1);
+        assert.eq(launches.length, before, 'approaching during wind-up cancels the shot');
+        assert.falsy(c._attackWindupUntil);
+        rosterEnemyAttack(s, c, row, 15000, 14, 0, false, 0.1);
+        rosterEnemyAttack(s, c, row, 15600, 14, 0, false, 0.1);
+        assert.eq(launches.length, before + 1, 'exactly two cells permits firing');
+      }
+    } finally { SpiderWebs.launch = original; }
+  });
+  test('enemy AI: spider silk obeys range, visibility and target changes', () => {
+    const original = SpiderWebs.launch, launches = [];
+    SpiderWebs.launch = (...args) => launches.push(args);
+    try {
+      const s = scene(), c = foe('spider'), row = EnemyRoster.get(c.kind);
+      rosterEnemyAttack(s, c, row, 10000, 35, 0, false, 0.1);
+      assert.falsy(c._attackWindupUntil, 'outside four cells');
+      s._cellBlocked = () => true;
+      rosterEnemyAttack(s, c, row, 11000, 14, 0, false, 0.1);
+      assert.falsy(c._attackWindupUntil, 'blocked sight');
+      s._cellBlocked = () => false;
+      rosterEnemyAttack(s, c, row, 12000, 14, 0, false, 0.1);
+      rosterEnemyAttack(s, c, row, 12600, 14, 0, true, 0.1);
+      assert.eq(launches.length, 0, 'inactive target cancels the wind-up');
+      const target = foe('slime', 21, 0);
+      target._charmUntil = Date.now() + 10000;
+      rosterEnemyAttack(s, c, row, 17000, 14, 0, false, 0.1);
+      rosterEnemyAttack(s, c, row, 17600, 21, 0, false, 0.1, null, target);
+      assert.eq(launches.length, 0, 'new target gets a fresh wind-up');
+      rosterEnemyAttack(s, c, row, 21000, 21, 0, false, 0.1, null, target);
+      rosterEnemyAttack(s, c, row, 21600, 28, 0, false, 0.1, null, target);
+      assert.eq(launches.length, 1);
+      assert.eq(launches[0][2], 21);
+    } finally { SpiderWebs.launch = original; }
   });
   test('enemy AI: scuttle has a real pause; anchored plant holds firing distance', () => {
     const s = scene(), c = foe('spider'), row = EnemyRoster.get('spider');
@@ -354,6 +455,14 @@
     rosterEnemyMove(s, c, row, rested + 1000, 20, 0, false, false, null, 1);
     assert.eq(c.x, x, 'pauses instead of walking at the player');
     assert.lt(rested + 1000, c._lungeNextT, 'still inside the cooldown');
+  });
+  test('enemy AI: ordinary shore crab approaches and damages the player', () => {
+    const row=EnemyRoster.get('crab'), s=scene(), c=foe('crab',14,0);
+    for (let i=0;i<200;i++) rosterEnemyMove(s,c,row,i*100,0,0,false,false,null,0.1);
+    assert.lt(Math.hypot(c.x,c.y),row.range*s.cellM);
+    rosterEnemyAttack(s,c,row,20000,0,0,false,0.1);
+    rosterEnemyAttack(s,c,row,20400,0,0,false,0.1);
+    assert.lt(s.save.energy,100);
   });
   test('enemy AI: crab returns to its territory and stops attacking beyond it', () => {
     const row=EnemyRoster.get('giant_crab'), s=scene(), c=foe(row.id,7,0);

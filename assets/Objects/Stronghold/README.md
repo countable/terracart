@@ -4,7 +4,11 @@ Eleven wall sprites revised with the built-in OpenAI image tool on 2 October
 2026. The previous wall sheets supplied the stone palette and topology; the
 old approved clipped hedge supplied the elevated viewpoint. The light top
 caps and shaded front masonry now have visible depth instead of reading as
-flat paving. Cardinal connections remain on the game's square grid.
+flat paving. Cardinal connections remain on the game's square grid. The
+illustrated viewpoint is from the south; placement follows the top-down grid,
+as specified in CLAUDE.md's shared design rules. Walls retain legible upright
+height while other props emphasize their top surfaces; preserve these cardinal
+connections when revising the viewpoint.
 
 Prompt: edit the ruined walls to a 45-degree elevated camera, showing broad
 light top caps and darker vertical masonry faces. Preserve muted warm-grey

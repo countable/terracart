@@ -9,6 +9,14 @@ test('butterfly speed: the cap is the row\'s column and the classifier reads it'
   assert.lte(faunaTopMps('butterfly', WorldGen.CELL_M), 6, 'top speed over gait and bolt');
 });
 
+test('shiny animals use a reduced speed bonus when escaping', () => {
+  const animal = { kind: 'butterfly', shiny: true };
+  assert.eq(Combat.shinySpeedMul(animal), 1.5);
+  assert.eq(Combat.shinySpeedMul(animal, true), 1.3);
+  assert.eq(Combat.shinySpeedMul({ kind: 'butterfly' }, true), 1);
+  assert.eq(Combat.shinySpeedMul({ kind: 'goblin', shiny: true }, true), 1.5);
+});
+
 test('butterfly speed: every mover in the loop and the net wheel is held to it', () => {
   const w = SCENE_SRC;
   assert.eq(6 * SHINY_SPEED_MUL, 9, 'a shiny butterfly tops out at 9 m/s');

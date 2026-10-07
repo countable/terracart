@@ -53,7 +53,7 @@ test('low health: a dead or collapsing character cannot open the warning', () =>
   assert.eq(s.modals.length, 1);
 }));
 test('low health: all energy display updates queue it and the modal pass retries it', () => {
-  assert.truthy(/updateEnergyDOM\(\) \{\s*this\._queueLowHealthStory\(\)/.test(SCENE_SRC));
+  assert.truthy(/updateEnergyDOM\(\) \{\s*this\._stopDownedActions\?\.\(\);\s*this\._queueLowHealthStory\(\)/.test(SCENE_SRC));
   assert.truthy(/this\._drainBadgeStories\(\);\s*this\._lowHealthStory\(\)/.test(SCENE_SRC));
 });
 })();

@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><title>Melee animation preview</title>
+<style>body{background:#17231f;color:#e8ecdf;font:16px system-ui;margin:30px}canvas{image-rendering:pixelated;width:960px;max-width:100%}label{margin-right:24px}</style>
+<h1>Melee animations</h1><p>Compact weapon art and single-sweep melee effects, sized to the actual attack range.</p>
+<label>Direction <select id="direction"><option value="0">Right</option><option value="1.570796">Down</option><option value="3.141593">Left</option><option value="-1.570796">Up</option></select></label>
+<label><input type="checkbox" id="pause">Pause at contact</label><canvas width="960" height="420"></canvas>
+<script src="game-loader.js"></script><script>
+(async()=>{
+await loadGame();
+const canvas=document.querySelector('canvas'), ctx=canvas.getContext('2d');
+const cases=[['Bare hands','sword'],['Sword','sword'],['Dagger','dagger'],['Lance','lance'],['Mercenary','sword','mercenary'],['Goblin','sword','goblin'],['Fire elemental','sword','fire_elemental'],['Large elite','sword','goblin',true]];
+const load=async(path)=>{const im=new Image();im.src='../'+path;await im.decode();return im;};
+for(const row of cases){
+ const art=row[2]?SpriteLayout.creatureArt(row[2]):SpriteLayout.PLAYER_ART.farmer;
+ row.art=art;row.body=await load(ASSETS[art.sheet].path);
+ row.reachPx=(row[2]==='mercenary'?Combat.petReachCells({kind:row[2]}):row[2]?EnemyRoster.get(row[2]).range:Combat.meleeReachM(1,row[1]))*CELL_PX;
+ if(row[0]!=='Bare hands'&&!row[2])row.weapon=await load(gearAssetPath('relic',row[1],3));
+}
+const color=n=>'#'+n.toString(16).padStart(6,'0');
+const g={lineStyle(w,c,a){ctx.lineWidth=w;ctx.strokeStyle=color(c);ctx.globalAlpha=a;},fillStyle(c,a){ctx.fillStyle=color(c);ctx.globalAlpha=a;},beginPath(){ctx.beginPath();},arc(...a){ctx.arc(...a);},strokePath(){ctx.stroke();},moveTo(...a){ctx.moveTo(...a);},lineTo(...a){ctx.lineTo(...a);},fillCircle(x,y,r){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();},strokeCircle(x,y,r){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();}};
+function draw(now){
+ctx.globalAlpha=1;ctx.fillStyle='#17231f';ctx.fillRect(0,0,960,420);
+cases.forEach((row,i)=>{
+ const x=120+(i%4)*240,y=95+Math.floor(i/4)*210;ctx.globalAlpha=1;ctx.fillStyle='#dce7cf';ctx.textAlign='center';ctx.font='16px system-ui';ctx.fillText(row[0],x,y+65);
+ ctx.save();ctx.translate(x,y);ctx.scale(3,3);ctx.imageSmoothingEnabled=false;
+ const a=row.art,sz=row[3]?2:1;const fw=a.fw||16,fh=a.fh||16;
+ const d=Number(document.querySelector('#direction').value);const facing=d===0?'right':d<0?'up':d>2?'left':'down';
+ let frame=0;const frames=a.directions?.[facing]||a.directions?.side||a.directions?.down;
+ if(Array.isArray(frames))frame=frames[0];else if(frames)frame=(frames.idle||[0])[0];
+ const cols=Math.floor(row.body.width/fw);ctx.drawImage(row.body,(frame%cols)*fw,Math.floor(frame/cols)*fh,fw,fh,-fw*sz/2,-fh*sz/2,fw*sz,fh*sz);
+ const ms=Render.MELEE_LOOKS[row[1]].ms;const age=document.querySelector('#pause').checked?ms/2:now%1000;
+ const pose=Render.meleePose({startT:0,dir:{x:Math.cos(d),y:Math.sin(d)}},age,row[1],row.reachPx);
+ Render.drawMelee(g,pose,0,0,row[2]?Render.enemyMeleeColor({kind:row[2],shiny:row[3]}):0xe8ecf0);
+ if(pose&&row.weapon){const {handRadius,grip,scale:sc}=Render.meleeWeaponPose(pose);ctx.globalAlpha=pose.alpha;ctx.translate(Math.cos(pose.angle)*handRadius,Math.sin(pose.angle)*handRadius);ctx.rotate(pose.angle+Math.PI/4);ctx.drawImage(row.weapon,0,0,16,16,-16*grip*sc,-16*(1-grip)*sc,16*sc,16*sc);}
+ ctx.restore();
+});requestAnimationFrame(draw);
+}requestAnimationFrame(draw);window.previewReady=true;
+})().catch(e=>{document.body.append(e.stack);throw e});
+</script>

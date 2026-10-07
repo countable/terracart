@@ -187,10 +187,13 @@ test('starter home: unusable naturals are tamed, not supplemented', () => {
   const p = shPlan(objs);
   assert.eq(p.need.tree, 0, 'the hardwoods cover the tree quota once tamed');
   assert.eq(p.need.rock, 0, 'the ore covers the rock quota once tamed');
-  assert.eq(p.downgrade.length, SH_HA.QUOTA.tree + SH_HA.QUOTA.rock, 'every one queued');
+  assert.eq(p.downgrade.length, SH_HA.BARE_HAND_TREE_MIN + SH_HA.QUOTA.rock,
+    'only the opening tree supply is shrunk');
   for (const o of p.downgrade) SH_HA.makeStarterUsable(o);
   const after = shPlan(objs);
   assert.eq(after.downgrade.length, 0, 'and the audit settles after one pass');
+  assert.eq(objs.filter(o => o.kind === 'tree' && o.size === 'large').length,
+    SH_HA.QUOTA.tree - SH_HA.BARE_HAND_TREE_MIN, 'grown trees survive the starter audit');
 });
 
 test('starter home: the rural case — no buildings means synthesized wrecks', () => {
@@ -369,7 +372,7 @@ test('starter home: a rolled synthetic find keeps its slot and its tier', () => 
 
   test('starter home seating: mostly beginner-usable, with the occasional better find', () => {
     // The ring fill rolls rarity like a real deposit (WorldGen.rollSurfaceRockTier
-    // for rocks; the same ~10% share grows a tree a size up), so the home area
+    // for rocks; HomeArea owns the tree size mix), so the home area
     // holds the occasional ore-bearing rock or bigger tree instead of a hundred
     // identical props. The GUARANTEE that survives: plain, bare-hands items stay
     // the strong majority, every rolled rock keeps the deposit's pick pairing,
@@ -383,6 +386,9 @@ test('starter home: a rolled synthetic find keeps its slot and its tier', () => 
     const plainRocks = rocks.filter(o => SH_HA.isStarterRock(o));
     assert.gt(plainTrees.length, trees.length * 0.6, 'bare-hands trees stay the strong majority');
     assert.gt(plainRocks.length, rocks.length * 0.6, 'bare-hands rocks stay the strong majority');
+    for (const size of ['small', 'medium', 'large']) {
+      assert.truthy(trees.some(o => o.size === size), `the home ring includes ${size} trees`);
+    }
     // A quota of 50+50 at a ~10% roll makes an all-plain outcome astronomically
     // unlikely — and the roll is seeded, so this fixture's answer never flakes.
     assert.gt(trees.length + rocks.length - plainTrees.length - plainRocks.length, 0,

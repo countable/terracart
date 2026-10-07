@@ -25,6 +25,7 @@
       for (const type of Object.values(T)) assert.eq(BiomeProfiles.faunaAllows(kind,type),type===ground,kind+' habitat '+type);
     }
     assert.falsy(BiomeProfiles.faunaAllows('butterfly',T.FOREST));
+    assert.falsy(BiomeProfiles.faunaAllows('butterfly',T.ORCHARD));
     assert.truthy(BIOME_FAUNA.butterfly.primary.includes(T.GRASS));
     for (const flower of ['flowers','forgetmenot','marigold','wildrose','starflower'])
       assert.falsy(BiomeProfiles.allows(flower,T.WETLAND),flower+' cannot leak through overlapping wetland polygons');

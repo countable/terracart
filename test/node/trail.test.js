@@ -672,6 +672,82 @@ test('streets: two seconds in the bubble and the stretch in reach comes back', (
   });
 });
 
+test('streets: reach rescans reuse the tile line catalogue and bounds', () => {
+  let farReads = 0;
+  const watched = (x, y, count) => new Proxy({ x, y }, {
+    get(target, key) {
+      if (key === 'x' || key === 'y') count();
+      return target[key];
+    },
+  });
+  const feature = straightWay();
+  feature.geom.push([
+    watched(0, 0, () => { farReads++; }),
+    watched(EXTENT / 2, 0, () => { farReads++; }),
+    watched(EXTENT, 0, () => { farReads++; }),
+  ]);
+  withStreet((clock) => {
+    const s = sweepScene();
+    clock.at(0); s._sweepStreets();
+    const entry = WorldGen.tileCache.get(clock.tileKey);
+    const catalogue = entry._streetReachLines;
+    const firstReads = farReads;
+    assert.eq(catalogue.length, 2, 'the entry catalogues both eligible lines once');
+    assert.gt(firstReads, 0, 'the first scan derives the far line bounds');
+
+    // Force another reach-cell scan. The far line fails the cached bbox, so
+    // neither the catalogue nor its vertices should be touched again.
+    s.playerM.x += CELL_M;
+    clock.at(1); s._sweepStreets();
+    assert.eq(entry._streetReachLines, catalogue, 'the next cell reuses the catalogue object');
+    assert.eq(farReads, firstReads, 'the next cell does not reread far vertices');
+
+    // Sandbox and a tile rebuild replace `layers`. Object identity is the
+    // invalidation epoch, so the new decoded feature derives fresh bounds.
+    let rebuiltReads = 0;
+    const rebuilt = straightWay();
+    rebuilt.geom.push([
+      watched(0, 0, () => { rebuiltReads++; }),
+      watched(EXTENT, 0, () => { rebuiltReads++; }),
+    ]);
+    entry.layers = [{ name: 'transportation', extent: EXTENT, features: [rebuilt] }];
+    s.playerM.x += CELL_M;
+    clock.at(2); s._sweepStreets();
+    assert.truthy(entry._streetReachLines !== catalogue, 'replacement layers rebuild the catalogue');
+    assert.gt(rebuiltReads, 0, 'replacement geometry derives fresh bounds');
+  }, feature);
+});
+
+test('streets: a distant neighbour tile is rejected before its catalogue builds', () => {
+  let reads = 0;
+  const watched = (x, y) => new Proxy({ x, y }, {
+    get(target, key) {
+      if (key === 'x' || key === 'y') reads++;
+      return target[key];
+    },
+  });
+  const neighbourKey = WorldGen.tileKey(1, 0);
+  const neighbour = {
+    cellsPerEdge: N,
+    tileEdgeM: TILE_EDGE_M,
+    layers: [{ name: 'transportation', extent: EXTENT, features: [{
+      id: 88, type: 2, tags: { class: 'minor' },
+      geom: [[watched(0, EXTENT / 2), watched(EXTENT, EXTENT / 2)]],
+    }] }],
+  };
+  WorldGen.tileCache.set(neighbourKey, neighbour);
+  try {
+    withStreet((clock) => {
+      const s = sweepScene();
+      clock.at(0); s._sweepStreets();
+      assert.eq(reads, 0, 'the out-of-reach tile never walks a vertex');
+      assert.eq(neighbour._streetReachLines, undefined, 'nor allocates a line catalogue');
+    });
+  } finally {
+    WorldGen.tileCache.delete(neighbourKey);
+  }
+});
+
 test('streets: a peek drag does not widen the sweep', () => {
   // The camera rule, both directions: a reach test moved onto the anchor would
   // let a peek rebuild three cells further than the arm reaches.
@@ -992,7 +1068,7 @@ test('streets: the sweep is memoised on the reach cell, and the ripen runs every
   // The live pass is NOT in the sweep: it strokes into the container
   // RoadOverlay.draw positions, and the sweep runs earlier in update() — so it
   // hangs off drawRoadGeometry, after the draw.
-  assert.truthy(/drawRoadGeometry\(\) \{\n\s+if \(typeof RoadOverlay === 'undefined'\) return;\n\s+RoadOverlay\.draw\(this\);[\s\S]{0,400}?this\._drawStreetLive\(\);/.test(SCENE_SRC),
+  assert.truthy(/drawRoadGeometry\(\) \{[\s\S]{0,600}?if \(typeof RoadOverlay === 'undefined'\) return;\n\s+RoadOverlay\.draw\(this\);[\s\S]{0,400}?this\._drawStreetLive\(\);/.test(SCENE_SRC),
     'and the live pass runs after the overlay draw, every frame');
   assert.falsy(/_drawStreetLive/.test(body), 'never from the sweep itself');
 });

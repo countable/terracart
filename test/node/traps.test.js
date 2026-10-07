@@ -634,7 +634,7 @@ test('traps: a downed player springs nothing — the whole tick stands down', ()
     assert.truthy(a > 0 && b > a, 'found _tickTraps in app.js');
     return SCENE_SRC.slice(a, b);
   })();
-  assert.truthy(/if \(Combat\.playerDowned\(this\.save\.energy\)\) \{/.test(block),
+  assert.truthy(/if \(Combat\.playerDowned\(this\.save\.energy\)(?: \|\| Conditions\.flying\(this\.save\))?\) \{/.test(block),
     'the tick reads the SAME expression the pursuit gate and the damage guards do');
   // …and it reads it before anything can fire: the gate must sit above the
   // cell lookup, not between the bite and the bleed.

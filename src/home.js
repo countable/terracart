@@ -44,10 +44,32 @@ const HomeArea = {
   // below (via applySoftwood, app.js's per-player overlay) — a new home-area
   // feature should route through it rather than an inline hypot check, so the
   // zone keeps one definition.
-  isNear(x, y, radiusM = HomeArea.NEAR_M) {
-    if (!this.worldM) return false;
-    const dx = x - this.worldM.x, dy = y - this.worldM.y;
+  isNear(x, y, radiusM = HomeArea.NEAR_M, anchor = this.worldM) {
+    if (!anchor) return false;
+    const dx = x - anchor.x, dy = y - anchor.y;
     return dx * dx + dy * dy <= radiusM * radiusM;
+  },
+
+  CHEST_TRAIL_LIMIT: 5,
+
+  // Optional treasure trails share Home's ring with the starter supplies.
+  // Pick by distance and id, so streaming order never reshuffles the trails.
+  chestTrailCandidates(scene, anchor = scene.save.starterCratesAt || this.worldM) {
+    if (!anchor || (scene.depth || 0) !== 0 || !(scene.cellM > 0)) return [];
+    const opened = new Set(scene.save.opened || []), candidates = new Map();
+    const radius = this.RING_MAX_CELLS * scene.cellM;
+    for (const entry of WorldGen.tileCache.values()) {
+      for (const o of entry.objects || []) {
+        if (o.kind !== 'chest' || !o.id || String(o.id).startsWith('chest_start_')
+            || (o.depth || 0) !== 0 || opened.has(o.id)
+            || !this.isNear(o.x, o.y, radius, anchor)
+            || chestTier(o) < 3 || chestLook(o).texKey !== 'chest') continue;
+        candidates.set(o.id, o);
+      }
+    }
+    const distance = o => (o.x - anchor.x) ** 2 + (o.y - anchor.y) ** 2;
+    return [...candidates.values()].sort((a, b) => distance(a) - distance(b)
+      || String(a.id).localeCompare(String(b.id))).slice(0, this.CHEST_TRAIL_LIMIT);
   },
 
   // Trees within NEAR_M of the start are SOFTWOOD (species 'pine'). The early
@@ -133,6 +155,18 @@ const HomeArea = {
   // the first crop matures. The residential flora window (biome_profiles.js) is
   // thin enough that a suburban spawn can have none in reach.
   QUOTA: { tree: 50, rock: 50, wreck: 6, ladder: 1, mushroom: 6 },
+  // Only the opening supply needs to be bare-hand harvestable. Preserve the
+  // remaining natural trees at their grown sizes for later axes.
+  BARE_HAND_TREE_MIN: 10,
+  STARTER_TREE_SIZE_WEIGHTS: { small: 0.7, medium: 0.2, large: 0.1 },
+  starterTreeSize(rng) {
+    let roll = rng();
+    for (const [size, weight] of Object.entries(this.STARTER_TREE_SIZE_WEIGHTS)) {
+      roll -= weight;
+      if (roll < 0) return size;
+    }
+    return 'large';
+  },
   // Of that quota, how many must sit inside the pocket as the visible example:
   // GUARANTEED, since the pocket is deliberately cleared of trees and rocks.
   TOKEN: { tree: 1, rock: 1 },
@@ -205,12 +239,17 @@ const HomeArea = {
       if (this.isStarterTree(o)) return false;
       o.species = this.STARTER_TREE.species;
       o.size = this.STARTER_TREE.size;
+      // The renderer caches resolved art on the record (render.js
+      // _renderAppearance). Evict it here so an in-place downgrade cannot
+      // freeze the old hardwood look until a tile rebuild.
+      delete o._renderAppearance;
       return true;
     }
     if (o.kind === 'mineralrock') {
       if (this.isStarterRock(o)) return false;
       o.yieldTier = this.STARTER_ROCK.yieldTier;
       o.requiredTier = this.STARTER_ROCK.requiredTier;
+      delete o._renderAppearance;
       return true;
     }
     return false;
@@ -242,6 +281,7 @@ const HomeArea = {
     const radius = (opts && opts.radiusCells) || this.RING_MAX_CELLS;
     const have = { tree: 0, rock: 0, wreck: 0, ladder: 0, mushroom: 0 };
     const pocket = { tree: 0, rock: 0 };
+    let bareHandTrees = 0;
     // Tameable-but-currently-unusable naturals, kept with their distance so
     // the nearest can be preferred below.
     const candidates = { tree: [], rock: [] };
@@ -267,6 +307,7 @@ const HomeArea = {
       const kind = isTree ? 'tree' : 'rock';
       if (isTree ? this.isStarterTree(o) : this.isStarterRock(o)) {
         have[kind]++;
+        if (isTree) bareHandTrees++;
         if (d <= this.POCKET_CELLS) pocket[kind]++;
       } else if (o._synthetic) {
         // Seated by an earlier provisioning pass at a deliberately rolled
@@ -285,10 +326,17 @@ const HomeArea = {
       const short = Math.max(0, this.QUOTA[kind] - have[kind]);
       if (!short) continue;
       candidates[kind].sort((a, b) => a.d - b.d);
+      const tameLimit = kind === 'tree'
+        ? Math.max(0, Math.min(this.BARE_HAND_TREE_MIN, this.QUOTA.tree) - bareHandTrees)
+        : short;
+      let tamed = 0;
       for (const c of candidates[kind].slice(0, short)) {
-        downgrade.push(c.o);
         have[kind]++;
-        if (c.d <= this.POCKET_CELLS) pocket[kind]++;
+        if (tamed < tameLimit) {
+          downgrade.push(c.o);
+          tamed++;
+          if (c.d <= this.POCKET_CELLS) pocket[kind]++;
+        }
       }
     }
     // Food already growing in the area counts, like a usable tree. No

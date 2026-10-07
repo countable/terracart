@@ -386,8 +386,9 @@
         return { lix: a.lix + Math.round((rng() - 0.5) * 2 * CAVE_SPAWN_R),
                  liy: a.liy + Math.round((rng() - 0.5) * 2 * CAVE_SPAWN_R) };
       },
-      emit: (L, c) => traps.push(makeTrap(tx, ty, tileEdgeM, N, c.lix, c.liy,
-        WG.cellId(`trap_d${depth}`, tx, ty, c.lix, c.liy))),
+      emit: (L, c) => traps.push({ ...makeTrap(tx, ty, tileEdgeM, N, c.lix, c.liy,
+        WG.cellId(`trap_d${depth}`, tx, ty, c.lix, c.liy)),
+        kind: 'pit_trap', hidden: true, depth }),
     }, WG.cavePassLevel(grid, N, tx, ty, tileEdgeM, depth, new Set(occupiedIdx || [])));
     return traps;
   }

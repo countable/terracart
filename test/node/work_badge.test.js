@@ -1,26 +1,6 @@
-// Regression guard: BARE HANDS WEAR NO TOOL BADGE.
-//
-// The work wheel draws the equipped tool, at its tier, in the middle of the
-// ring (app.js _setWorkProgressIcon picks it, _drawWorkProgress draws it in
-// the canvas at the ring's centre), and its job is to say what you are
-// swinging.
-// Every job the wheel runs can be done with NOTHING in hand — that is the
-// tier-0, 9 s rung of items.js toolDurationMs — so an unowned slot must draw
-// no badge at all.
-//
-// Until Sep 2026 the tier fell back to `|| 1`, i.e. to WOOD, so a bare-handed
-// wheel invented a Wood tool and hung it over the ring. On the CATCH that read
-// as a bug rather than a mistake: the Bug Net's icon is a pale hoop on a short
-// stick, so a bare-handed catch put a tiny white circle inside the wheel,
-// belonging to no item the player owned. startCombat and the hunt wheel had
-// each hand-written the ownership test; the catch, the till, the cave-wall dig,
-// the shrub chop and the whole interactables table had not — so the test lives
-// in the shared helper now, where a new wheel starter cannot forget it.
-//
-// app.js needs Phaser and can't load headlessly, so the helper is pinned as
-// source text (SCENE_SRC, lifted by run.js) and then RUN: the body is small
-// and self-contained, so the test re-evaluates it against a stub scene and
-// checks what it actually does with an empty relics table.
+// Work-tool ownership: animated work uses only the tool and tier owned by the
+// player. A missing tool clears stale art and lets the generic sweep render.
+// Lift the shared lookup helper because the scene requires Phaser to load.
 
 (function () {
 const app = SCENE_SRC;
@@ -87,12 +67,12 @@ test('work badge: every owned wheel tool is drawn at its tier', () => {
   }
 });
 
-test('work badge: drawn in the canvas at the ring centre, not a DOM overlay', () => {
+test('work tool: animated in the canvas at the target wheel, not a DOM overlay', () => {
   const a = app.indexOf('  _drawWorkProgress() {');
   const b = app.indexOf('\n  }\n', a);
   const draw = app.slice(a, b);
-  assert.truthy(/icon\.setPosition\(cx, cy\)/.test(draw),
-    'the tool is placed at the same (cx, cy) the ring is stroked around');
+  assert.truthy(/this\._drawWorkTool\(wp, cx, cy, now\)/.test(draw),
+    'the animation receives the same target centre as the work wheel');
   assert.truthy(!/gameScreenRect\(\)/.test(draw),
     'no second, screen-space conversion that could drift off the ring');
   assert.truthy(!/document\.createElement/.test(helper), 'no DOM badge is built');
@@ -102,8 +82,6 @@ test('work badge: the call sites hand over the slot plainly', () => {
   // The ownership question is answered in the helper, so no call site
   // re-asks it — a second copy is exactly how the catch wheel came to
   // disagree with startCombat.
-  assert.truthy(/this\._setWorkProgressIcon\(Gear\.activeWeapon\(this\.save\) \|\| 'sword'\);/.test(app),
-    "startCombat passes the equipped melee weapon, with the bare-hands sword fallback");
   assert.truthy(!/_setWorkProgressIcon\([^)]*\?[^)]*:/.test(app),
     'no call site in app.js re-tests ownership with a ternary');
   assert.truthy(/const netSlot = 'net';/.test(INTERACT_SRC),

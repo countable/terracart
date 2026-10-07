@@ -177,8 +177,8 @@ class SceneConsumables {
   _useConsumable(id) {
     const row = CONSUMABLE_SPEC[id];
     if (!row) return false;
-    if (row.buff) return this._useTimedBuff(id);
     if (row.tome) return this._readTome(id);
+    if (row.buff) return this._useTimedBuff(id);
     if (CAST_ROWS[id]) return this._castOnFoes(id);
     return typeof this[row.method] === 'function' ? this[row.method]() : false;
   }
@@ -320,7 +320,7 @@ class SceneConsumables {
   // ── The Tomes ─────────────────────────────────────────────────────────────
   // Story books' rarer siblings: READ for the effect of the potion one tier
   // below the tome, never consumed. Every tome but the Wall of Fire is its
-  // row's `tome` column — _readTome gives `mul` of the potion `of`'s effect
+  // row's `tome` column — _readTome gives its own buff or `mul` of `of`'s effect
   // (a timed buff's dose, the heal's energy, the storm's damage) and says
   // `flash`. TWO cooldowns: the SHARED activation lock (TOME_COOLDOWN_MS,
   // save.tomeReadyAt - food's eat-cooldown shape, but one hour and spanning
@@ -352,7 +352,8 @@ class SceneConsumables {
     const t = CONSUMABLE_SPEC[id]?.tome;
     if (!t || !this._selectedConsumable(id) || !this._tomeReady(id)) return false;
     const of = CONSUMABLE_SPEC[t.of];
-    if (of.buff) this._useTimedBuff(t.of, { mul: t.mul, spend: false });
+    if (CONSUMABLE_SPEC[id].buff) this._useTimedBuff(id, { spend: false });
+    else if (of.buff) this._useTimedBuff(t.of, { mul: t.mul, spend: false });
     else if (of.energy) this._restoreEnergy(Math.floor(of.energy * t.mul));
     else if (!this._castOnFoes(t.of, { damage: Math.floor(of.damage * t.mul), spend: false, noun: 'tome' })) return false;
     this._tomeSpent(id);
@@ -493,6 +494,19 @@ class SceneConsumables {
     }
   }
 
+  // Frost follows the caster and reaches every other nearby body, using the
+  // same non-refreshing ten-second debuff as an iceflower.
+  _tickFrostAura() {
+    const now = Date.now();
+    if (Buffs.until('frostAura', this.save, this) <= now) return;
+    const pc = this.playerToWorldCell(), creatures = [], caught = setOf(this.save.caught);
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
+      if (!caught.has(c.id) && !c._surfaceInactive) creatures.push(c);
+    });
+    Combat.applyFrostAura(playerWorldM(this), creatures, this.cellM,
+      CONSUMABLE_SPEC.tome_frost_aura.aura, now);
+  }
+
   // True while a Dragon Powder is active. The buff is a 1-minute in-memory
   // timer (this._dragonUntil) — deliberately NOT persisted to the save, so a
   // refresh ends it. _walkRelics (the tier-8 legs) and interact.js's 2×-damage
@@ -584,15 +598,6 @@ class SceneConsumables {
     wrap.addEventListener('pointerup', done);
     wrap.addEventListener('click', done);
     mount();
-  }
-  // THE HEADS-UP BUZZ: wanderCreatures hands over the nearest hostile taking
-  // an interest this tick; inside SAFETY_FOE_BUZZ_CELLS the phone vibrates,
-  // at most once per SAFETY_FOE_BUZZ_GAP_MS (haptic — the save's switch).
-  _foeHeadsUp(distM, now) {
-    if (!(distM <= SAFETY_FOE_BUZZ_CELLS * this.cellM)) return;
-    if (now - (this._foeBuzzT ?? -Infinity) < SAFETY_FOE_BUZZ_GAP_MS) return;
-    this._foeBuzzT = now;
-    this.haptic(SAFETY_FOE_BUZZ);
   }
   // The resume and dusk reminders. RESUME is stamped by the lifecycle's
   // visible transition (scene_geo.js onVis → _safetyOnResume); DUSK is read
@@ -703,6 +708,7 @@ class SceneConsumables {
   // and the item kept — when none is there, or while downed (no reach). A
   // tome passes its own `damage`, `noun` and `spend: false`.
   _castOnFoes(id, { damage = CONSUMABLE_SPEC[id]?.damage, spend = true, noun } = {}) {
+    if (Conditions.attacksBlocked(this.save)) return false;
     const row = CAST_ROWS[id];
     if (!row || (spend && !this._selectedConsumable(id)) || Combat.playerDowned(this.save.energy)) return false;
     const reach = row.scope === 'reach';
@@ -759,6 +765,7 @@ class SceneConsumables {
   }
 
   canThrowItem(id) {
+    if (Conditions.attacksBlocked(this.save)) return false;
     const sel = getSelectedSlot(this.save);
     return sel?.id === id && (sel.count ?? 0) > 0
       && !Combat.playerDowned(this.save.energy) && !this.isShadowActive()
@@ -809,8 +816,8 @@ class SceneConsumables {
   // nothing is spent). The skin follows from isRiding every frame
   // (SpriteLayout.playerArt), and so does the stick's speed and cost.
   toggleHorseRide() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || (ITEM_BY_ID[sel.id]?.base || sel.id) !== 'horse' || (sel.count ?? 0) <= 0) return false;
+    const horse = Pets.ownedKind(this.save, 'horse');
+    if (!horse || Pets.isDown(horse)) return false;
     this.save.riding = !isRiding(this.save);
     persistSave(this.save);
     if (this.save.riding) this.flash(`Stick ×${HORSE_RIDE.speedMul} speed, ×${HORSE_RIDE.energyMul} ⚡`);
@@ -828,6 +835,10 @@ class SceneConsumables {
     }
     const fromDepth = this.depth || 0;
     const depth = fromDepth + 1;
+    if (typeof DungeonProgression !== 'undefined' && !DungeonProgression.canUseDescent(this.save, fromDepth, depth, 'sapphire')) {
+      this.flashAtPlayer(fromDepth === 1 ? 'Use a rope or repair the elevator to go deeper.' : 'Solve five arena challenges to earn the Level 5 key.');
+      return false;
+    }
     const feet = playerWorldM(this), stair = { x: feet.x, y: feet.y + this.feetOffsetM };
     // A mined entry may still be solid rock below. Open that landing just as
     // rope does, before changeDepth asks the destination tile to render.
@@ -889,6 +900,14 @@ class SceneConsumables {
   useRope(delta) {
     if (!this._selectedConsumable('rope')) return false;
     const target = (this.depth || 0) + delta;
+    if (delta > 0 && typeof DungeonProgression !== 'undefined' && !DungeonProgression.canEnterDepth(this.save, target)) {
+      this.flashAtPlayer('Solve five arena challenges to earn the Level 5 key.');
+      return false;
+    }
+    if (delta > 0 && typeof DungeonProgression !== 'undefined' && !DungeonProgression.ropeCanDescend(this.depth || 0)) {
+      this.flashAtPlayer('No anchor for the rope this deep.');
+      return false;
+    }
     if (target < 0) {
       this.flashAtPlayer('Nowhere to climb up here.');
       return false;
@@ -900,14 +919,22 @@ class SceneConsumables {
     // Synthetic "stair" at the player's own world cell, as the portal does:
     // changeDepth GPS-mirrors the feet onto it, so the move is straight up or
     // down with no sideways step.
-    const feet = playerWorldM(this), anchor = { x: feet.x, y: feet.y + this.feetOffsetM };
+    const feet = playerWorldM(this), anchor = { x: feet.x, y: feet.y + this.feetOffsetM, descentSource: 'rope' };
+    let landingKey, landingWasOpen;
     if (target > 0) {
       const c = this.cellAt(anchor.x, anchor.y);
-      this.dugWallSet.add(`${target}:${cellKeyFromAbsCell(c.cellIX, c.cellIY)}`);
+      landingKey = `${target}:${cellKeyFromAbsCell(c.cellIX, c.cellIY)}`;
+      landingWasOpen = this.dugWallSet.has(landingKey);
+      this.dugWallSet.add(landingKey);
+    }
+    this.changeDepth(delta, anchor);
+    if (this.depth !== target) {
+      if (landingKey && !landingWasOpen) this.dugWallSet.delete(landingKey);
+      return false;
     }
     consumeSelected(this.save);
+    persistSave(this.save);
     this.buildInventoryDOM();
-    this.changeDepth(delta, anchor);
     return true;
   }
   useRopeUp()   { return this.useRope(-1); }
@@ -1007,7 +1034,11 @@ class SceneConsumables {
     let extra = fish ? `\nRegen: ${fish}⚡ over ${shortDuration(Energy.FISH_REGEN_MS)}` : '';
     // Every timed effect a food lends EXTENDS (Buffs.extend / laterOf — the
     // one rule): a second coffee inside the first banks its three minutes.
-    if (id === 'pairy') {
+    if (CONSUMABLE_SPEC[id]?.condition) {
+      const spec = CONSUMABLE_SPEC[id];
+      this._applyCondition(spec.condition, { durationMs: spec.durationMs });
+      extra = `\nConfused: ${shortDuration(spec.durationMs)}`;
+    } else if (id === 'pairy') {
       const target = this.findNearestUnopenedChest();
       if (target) {
         this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
@@ -1117,6 +1148,7 @@ class SceneConsumables {
       } else if (isSpent(target, spentSets(this, this.save))) return null;
       marker.x = target.x;
       marker.y = target.y;
+      marker.label = target.name || target.roleLabel || target.kind || marker.label;
       return target;
     }
     return marker;

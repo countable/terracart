@@ -391,7 +391,7 @@ test('inventoryIconSource: copper_bar frame 0 (not iron_bar-adjacent frame 1)', 
 // ORE_COL_BY_TIER is render-side (not in items.js / not bridged), but its
 // logic is documented in the source comments. We test the documented mapping:
 // T2=copper→col0, T3=iron→col1, T4=gold→col2, T5=platinum→col3,
-// T6=crimson→col5 (col4 skipped), T7=frost→col6.
+// T6=crimson→col5 (col4 skipped), T7=frost→col7 (blue, skipping green col6).
 // These cols map to the same tier ladder as the bar frames in MINERAL_ICON_SHEET.
 
 test('MINERAL_ICON_SHEET bars are consistently ordered copper<iron<gold<platinum<crimson<frost', () => {
@@ -477,8 +477,8 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   const art = SpriteLayout.groveShrineArt({_shrineArt:'shipwreck'});
   assert.eq(art.key, 'shipwreck_shrine');
   assert.eq(art.extentCells, 3);
-  assert.eq(1536 * art.scale, 3 * SpriteLayout.CELL_PX);
-  assert.truthy(1024 * art.scale <= 3 * SpriteLayout.CELL_PX);
+  assert.eq(192 * art.scale, 3 * SpriteLayout.CELL_PX);
+  assert.truthy(128 * art.scale <= 3 * SpriteLayout.CELL_PX);
   assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
   assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
   assert.eq(wildplantSprite({crop:'rubble',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
@@ -536,16 +536,16 @@ test('down ladder uses only the centered bottom half while the up ladder stays w
 });
 
 
-test('crystal deposits use their cluster art at ordinary rock scale and centered seating', () => {
+test('crystal deposits use their quarry sapphire rock art and centered seating', () => {
   const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.mineralrock;
   const crystal={kind:'mineralrock',deposit:'crystal',yieldTier:1};
-  assert.eq(spec.key(crystal),'crystal_cluster');assert.eq(spec.frame(crystal),0);
+  assert.eq(spec.key(crystal),'zone_objects');assert.eq(spec.frame(crystal),59);
   assert.eq(spec.key({yieldTier:6}),'mineralrock');assert.eq(spec.frame({yieldTier:6}),mineralRockFrame(6));
-  assert.eq(spec.scale,1.28);assert.truthy(spec.seat);
-  const b=SpriteLayout.ART_BOUNDS['crystal_cluster:0'];
-  const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale,spec.scale);
-  assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale,0);
-  assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale,0);
+  assert.eq(spec.scale(crystal),1.28*16/24);assert.truthy(spec.seat);
+  const b=SpriteLayout.ART_BOUNDS['zone_objects:59'];
+  const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale(crystal),spec.scale(crystal));
+  assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale(crystal),0);
+  assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale(crystal),0);
 });
 
 
@@ -571,12 +571,12 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
-test('wooden barrels and smashed barrels render at half their former size', () => {
+test('wooden barrels render at half their former size and have no broken art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   for (const smashed of [false, true]) {
     const look = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'barrel',_smashed:smashed});
-    assert.eq(look.texKey, smashed ? 'barrel_smashed' : 'barrel');
-    assert.eq(look.scl, 2 / 3);
+    if (smashed) assert.falsy(look.visible, 'no broken barrel sprite');
+    else { assert.eq(look.texKey, 'barrel'); assert.eq(look.scl, 2 / 3); }
   }
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
@@ -650,6 +650,6 @@ test('quarry broken stone shrinks while mineral shadows stay under every resolve
   assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:65}).scl,1.1);
   assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:1}).scl,1.28);
   assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:4}).scl,1.28);
-  assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,1.28);
+  assert.eq(art.resolveAppearance({kind:'mineralrock',deposit:'crystal'}).scl,CRYSTAL_DEPOSIT.art.scale);
   assert.eq(art.resolveAppearance({kind:'mineralrock',_zoneObjectFrame:59}).scl,4/3);
 });

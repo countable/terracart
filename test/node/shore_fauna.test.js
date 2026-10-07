@@ -13,20 +13,25 @@
 (function () {
 
 // ── The rows ────────────────────────────────────────────────────────────────
-test('shore fauna: the crab is an animal row — art, behaviour, a shell when fed, tamed with a minnow', () => {
+test('shore fauna: the crab is an animal row — art, behaviour, a shell when fed, catchable after a minnow', () => {
   const art = SpriteLayout.creatureArt('crab');
   assert.truthy(art, 'the crab draws');
   assert.eq(art.sheet, 'crab');
   assert.eq(art.fw, 16);
   assert.truthy(SpriteLayout.creatureWanders('crab'), 'it wanders');
   assert.eq(SpriteLayout.creatureProduce('crab').item, 'shell', 'a fed crab gives the beach pickup');
-  assert.truthy(ITEM_BY_ID.crab && ITEM_BY_ID.crab.kind === 'animal', 'caught, it is a Crab in the bag');
-  assert.truthy(ITEM_BY_ID.shiny_crab, 'and a shiny one keeps its own stack');
-  assert.truthy(animalLikesFood('crab', 'minnow'), 'a minnow tames it');
+  assert.truthy(ITEM_BY_ID.crab && ITEM_BY_ID.crab.kind === 'animal', 'a species eligible for the pet roster');
+  assert.truthy(ITEM_BY_ID.shiny_crab, 'shiny variant has catalogue art');
+  assert.truthy(animalLikesFood('crab', 'minnow'), 'a minnow is its favourite');
   assert.truthy(ITEM_EFFECTS.minnow, 'the minnow has its own story hint');
-  assert.falsy(Combat.isEnemyKind('crab'), 'never a foe');
+  assert.truthy(Combat.isEnemyKind('crab'), 'wild crabs attack');
+  assert.falsy(Combat.isEnemy({kind:'crab',id:'pet_crab',pet:true}), 'tamed crabs remain friendly');
+  const save = { released: [] }, crab = {kind:'crab',id:'wild_crab'};
+  assert.truthy(Pets.feedWild(save, crab, 'minnow'));
+  assert.falsy(Combat.isTame(crab), 'feeding alone never bonds');
+  assert.truthy(Pets.canCatch(save, crab));
   assert.falsy(SpriteLayout.isGame('crab'), 'never game');
-  assert.eq(creatureSpawnClass('crab'), 'fauna', 'a slow animal, off its own gait');
+  assert.eq(creatureSpawnClass('crab'), 'enemy', 'a slow shore enemy');
 });
 
 test('shore fauna: the gull is a roster foe on the crow\'s sheet, fast, off the board, thieving food not biting', () => {
@@ -106,7 +111,8 @@ test('shore fauna: crabs on shore sand only, gulls on the beach only, counted of
   const want = (k, lenM) => Math.min(SHORE_FAUNA[k].max, Math.floor(lenM / SHORE_FAUNA[k].perShoreM));
   assert.eq(crabs.length, want('crab', b.shore.shoreM), 'one crab per perShoreM of waterline, capped');
   assert.eq(gulls.length, want('gull', b.shore.shoreM), 'gulls count the beach waterline only');
-  assert.gt(crabs.length, 0);
+  assert.gt(crabs.length, 14, 'ordinary beaches have a common crab population');
+  for (const c of crabs) assert.eq(c.shiny, faunaShiny(c.kind, c.id), 'hostile crabs retain their animal shiny chance');
   assert.gt(gulls.length, 0);
   for (const c of crabs) {
     assert.truthy(shore.has(cellOf(c)), `crab ${c.id} on shore sand`);

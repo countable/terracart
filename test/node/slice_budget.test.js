@@ -9,7 +9,8 @@
 (() => {
   const W = WorldGen;
   // Put the dial back where the game leaves it, whatever a previous test did.
-  const sbReset = (ms = W.RASTER_SLICE_LIVE_MS, adapt = true) => W.setSliceBudgetMs(ms, adapt);
+  const sbReset = (ms = W.RASTER_SLICE_LIVE_MS, adapt = true, frameMs = null) =>
+    W.setSliceBudgetMs(ms, adapt, frameMs);
   // Feed the controller `n` frames of `ms` and report where it settled.
   const sbFeed = (ms, n) => { for (let i = 0; i < n; i++) W.noteSliceFrame(ms); return W.sliceBudgetMs(); };
 
@@ -58,6 +59,28 @@
   test('slice budget: it never creeps past the ceiling', () => {
     sbReset();
     assert.eq(sbFeed(8, 100), W.RASTER_SLICE_LIVE_MS, 'the dial is still the maximum');
+  });
+
+  test('slice budget: a 120 Hz display is not hidden by its first fat slice', () => {
+    // Starting from 12 ms on a 120 Hz display necessarily misses the first
+    // 8.3 ms refresh. Without Phaser's measured cadence as a hint, every
+    // sample then arrives at 16.7 ms and looks like an ordinary 60 Hz frame;
+    // the controller can never discover the refresh it is itself hiding.
+    const VSYNC = 1000 / 120, GAME_MS = 5;
+    sbReset(W.RASTER_SLICE_LIVE_MS, true, VSYNC);
+    let missed = 0, measured = 0;
+    for (let i = 0; i < 400; i++) {
+      const frameMs = Math.ceil((W.sliceBudgetMs() + GAME_MS) / VSYNC) * VSYNC;
+      if (i > 60) { measured++; if (frameMs > VSYNC + 0.01) missed++; }
+      W.noteSliceFrame(frameMs);
+      // Phaser keeps publishing its measured display rate while the game is
+      // live, preventing missed frames from relaxing the learned base to 60 Hz.
+      W.noteSliceFrameTargetMs(VSYNC);
+    }
+    assert.lte(W.sliceBudgetMs(), VSYNC - GAME_MS + 0.1,
+      'it found the sub-8.3ms headroom instead of accepting 16.7ms');
+    assert.lt(missed / measured, 0.05,
+      `steady state rarely drops a 120 Hz refresh (${missed}/${measured})`);
   });
 
   test('slice budget: it settles just under what the device can carry', () => {

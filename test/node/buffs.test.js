@@ -114,7 +114,7 @@
     // `buff` column, so a thrown and a drunk Speed can never disagree on where
     // the deadline lives.
     const ids = Object.keys(PotionEffects.TIMERS);
-    assert.eq(ids.length, 9, 'the nine potions a creature can wear');
+    assert.eq(ids.length, 10, 'the ten potions a creature can wear');
     for (const id of ids) {
       const buff = CONSUMABLE_SPEC[id].buff;
       assert.truthy(Buffs.KINDS[buff], `${id}: a buff row (${buff})`);

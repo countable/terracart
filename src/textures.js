@@ -113,7 +113,7 @@ const WATER_ANIM_MS = 220;
 // picks the phase from the wall clock when it builds the key.
 const BIOME_TEX = {
   0:  { variants: 2, draw: drawGrassTex },        // grass: tufts
-  1:  { variants: 2, patternOpacity: 0.75, draw: drawForestTex },       // forest: dense leaf litter
+  1:  { variants: 2, patternOpacity: 0.75, draw: drawForestTex },       // forest: sparse leaf litter
   2:  { variants: 2, patternOpacity: 0.925, draw: drawSandTex },         // sand: horizontal ripple marks
   // Water animates: `animPhases` pre-baked frames per variant, stepped every
   // `animMs` (see the "Animated biome textures" note above makeBiomeTextures).
@@ -257,10 +257,10 @@ function drawGrassTex(ctx, size, rng) {
 }
 
 function drawForestTex(ctx, size, rng) {
-  // Dense leaf-litter clumps — small dark blobs + a few bright leaf specks.
+  // Sparse leaf-litter clumps — small dark blobs + a few bright leaf specks.
   ctx.clearRect(0, 0, size, size);
-  drawGroundMottle(ctx, size, rng, 0xF047, 14, 1.5, 1.5, 'rgba(15,28,12,0.35)');
-  grain(ctx, size, rng, 10, 'rgba(140,150,105,0.25)');
+  drawGroundMottle(ctx, size, rng, 0xF047, 7, 1.5, 1.5, 'rgba(15,28,12,0.35)');
+  grain(ctx, size, rng, 5, 'rgba(140,150,105,0.25)');
 }
 
 function drawSandTex(ctx, size, rng) {
@@ -354,7 +354,7 @@ function drawFarmlandTex(ctx, size, rng) {
   // gives the bottom/right halves) so borders carry the interior's mud density.
   const edge = seededRand(0xFA47);
   // Mud blobs straddling the edges.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const style = edge() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
     const along = edge() * size;                  // position along the edge
     const across = (edge() - 0.5) * 4;            // small offset across it
@@ -364,7 +364,7 @@ function drawFarmlandTex(ctx, size, rng) {
     wrapArc(ctx, size, x, y, 3 + edge() * 4, style);
   }
   // Grass tufts scattered over the edges.
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 5; i++) {
     const r = edge();
     const style = r < 0.5 ? 'rgba(88,100,58,0.30)'
                 : r < 0.8 ? 'rgba(52,62,38,0.28)'
@@ -377,7 +377,7 @@ function drawFarmlandTex(ctx, size, rng) {
     wrapRect(ctx, size, x, y, 1, edge() < 0.4 ? 2 : 1, style);
   }
   // Edge hoof marks.
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 1; i++) {
     const along = Math.floor(edge() * size);
     const across = Math.floor(edge() * 3) - 1;
     const horiz = edge() < 0.5;
@@ -388,13 +388,13 @@ function drawFarmlandTex(ctx, size, rng) {
 
   // ── Interior pass: per-variant rng, kept clear of the edges ──
   // Soft mud patches — irregular brown blobs, fully contained in the tile.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 2; i++) {
     const r = 3 + rng() * 4;
     const style = rng() < 0.5 ? 'rgba(70,50,25,0.22)' : 'rgba(95,70,35,0.18)';
     dot(ctx, r + rng() * (size - 2 * r), r + rng() * (size - 2 * r), r, style);
   }
   // Grass tufts poking through — green specks, some 2px tall.
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 8; i++) {
     const r = rng();
     ctx.fillStyle = r < 0.5 ? 'rgba(88,100,58,0.30)'
                   : r < 0.8 ? 'rgba(52,62,38,0.28)'
@@ -403,7 +403,7 @@ function drawFarmlandTex(ctx, size, rng) {
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * (size - h + 1)), 1, h);
   }
   // A few dark churned / hoof marks.
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 1; i++) {
     ctx.fillStyle = 'rgba(40,25,12,0.30)';
     ctx.fillRect(Math.floor(rng() * (size - 1)), Math.floor(rng() * size), 2, 1);
   }
@@ -453,6 +453,17 @@ function drawTilledTex(ctx, size, rng) {
   speckle(ctx, size, rng, 8, (rng) => [rng() < 0.5
     ? 'rgba(64,44,22,0.35)'
     : 'rgba(206,190,162,0.22)']);
+  // The far bank exposes two pixels of earth above the lowered bed. Paint
+  // after the furrows so its contact seam stays continuous, within the same
+  // rounded clip: the transparent two-pixel ground gutter is untouched.
+  ctx.fillStyle = '#715333';
+  ctx.fillRect(x0, y0, w, 2);
+  ctx.fillStyle = 'rgba(45,29,15,0.65)';
+  ctx.fillRect(x0, y0 + 2, w, 1);
+  // A restrained near lip catches the light at ground level. No raised slab
+  // face here: this is a shallow depression, with crops anchored as before.
+  ctx.fillStyle = 'rgba(209,181,137,0.28)';
+  ctx.fillRect(x0, y0 + h - 1, w, 1);
   ctx.restore();
 }
 
@@ -639,69 +650,70 @@ function drawRockTex(ctx, size, rng) {
 // ── Cave biome textures ────────────────────────────────────────────────────
 
 function drawCaveWallTex(ctx, size, rng) {
-  // Packed boulder faces — irregular ellipses with shadow outlines and a
-  // highlight sliver on the top-left so the rocks read as three-dimensional
-  // against the near-black base colour (0x241f1b).
+  // Quiet, broad rock planes; the exposed vertical faces carry the detail.
   ctx.clearRect(0, 0, size, size);
-  const step = 7;
-  for (let row = 0; row * step < size + step; row++) {
-    const offset = (row % 2) * 3;
-    for (let col = 0; col * step < size + step; col++) {
-      const cx = col * step + offset + (rng() - 0.5) * 2.5;
-      const cy = row * step + step * 0.5 + (rng() - 0.5) * 2;
-      const rw = 2.5 + rng() * 1.2;
-      const rh = 1.8 + rng() * 1.0;
-      // Faint warm face — catches a tiny glimmer off the cave floor below
-      blob(ctx, cx, cy, rw, rh, 'rgba(200,170,130,0.07)');
-      // Crack / shadow outline around each boulder
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2); ctx.stroke();
-      // Highlight sliver — top-left edge
-      blob(ctx, cx - rw * 0.3, cy - rh * 0.35, rw * 0.45, rh * 0.38, 'rgba(255,220,180,0.13)');
-    }
+  for (let i = 0; i < 4; i++) {
+    const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
+    const w = 8 + Math.floor(rng() * 10), h = 5 + Math.floor(rng() * 7);
+    ctx.fillStyle = i % 2 ? 'rgba(0,0,0,0.08)' : 'rgba(200,175,140,0.035)';
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w - 3, y - 2);
+    ctx.lineTo(x + w, y + h - 3); ctx.lineTo(x + 4, y + h);
+    ctx.lineTo(x - 2, y + 3); ctx.closePath(); ctx.fill();
   }
-  // 1-2 longer crack lines cutting across the face
-  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-  ctx.lineWidth = 1;
-  const cracks = 1 + Math.floor(rng() * 2);
-  for (let c = 0; c < cracks; c++) {
-    let x = rng() * size, y = rng() * size;
-    ctx.beginPath(); ctx.moveTo(x, y);
-    for (let s = 0; s < 3; s++) {
-      x += (rng() - 0.5) * 6; y += (rng() - 0.5) * 6;
-      ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-  }
-  // Rare mineral glint — a single bright pixel
-  if (rng() < 0.45) {
-    ctx.fillStyle = 'rgba(200,240,255,0.45)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+  ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 1;
+  const x = 4 + Math.floor(rng() * (size - 14));
+  const y = 4 + Math.floor(rng() * (size - 14));
+  ctx.beginPath(); ctx.moveTo(x + .5, y + .5);
+  ctx.lineTo(x + 5.5, y + 2.5); ctx.lineTo(x + 8.5, y + 7.5); ctx.stroke();
+  if (rng() < .3) {
+    ctx.fillStyle = 'rgba(200,190,160,0.12)'; ctx.fillRect(x + 2, y + 1, 1, 1);
   }
 }
 
 function drawCaveFloorTex(ctx, size, rng) {
-  // Packed grit and small pebbles over the earthy brown base (0x4a423b).
+  // Worn stone floor: recessed tile joints with quiet grit on the broad faces.
   ctx.clearRect(0, 0, size, size);
+  // A slight neutral lift on the tile face only. The north/west one-pixel
+  // joints retain their existing colour and opacity, including faded breaks.
+  ctx.fillStyle = 'rgba(155,155,155,0.055)';
+  ctx.fillRect(1, 1, size - 1, size - 1);
+  // Each north/west joint has a worn fade, rather than a uniform grid line.
+  for (let side = 0; side < 2; side++) {
+    const gapA = size * (.18 + rng() * .15), gapB = size * (.66 + rng() * .15);
+    for (let i = 0; i < size; i++) {
+      const fade = Math.min(1, Math.max(0, Math.abs(i - gapA) - 3) / 3,
+        Math.max(0, Math.abs(i - gapB) - 3) / 3);
+      ctx.fillStyle = `rgba(0,0,0,${.12 * fade})`;
+      ctx.fillRect(side ? 0 : i, side ? i : 0, 1, 1);
+      ctx.fillStyle = `rgba(0,0,0,${.009 * fade})`;
+      ctx.fillRect(side ? 1 : i, side ? i : 1, 1, 1);
+      ctx.fillStyle = `rgba(215,190,155,${.008 * fade})`;
+      ctx.fillRect(side ? 2 : i, side ? i : 2, 1, 1);
+    }
+  }
   // Fine grit — dark and light specks
-  speckle(ctx, size, rng, 22, (rng) => [rng() < 0.6
-    ? 'rgba(0,0,0,0.28)'
-    : 'rgba(255,215,170,0.13)']);
+  for (let i = 0; i < 22; i++) {
+    const x = Math.floor(rng() * size);
+    const y = Math.floor(rng() * size);
+    ctx.fillStyle = rng() < 0.6
+      ? 'rgba(0,0,0,0.10)'
+      : 'rgba(255,215,170,0.045)';
+    ctx.fillRect(x, y, 1, 1);
+  }
   // Small pebbles (2×1 or 1×2)
   const pebbles = 2 + Math.floor(rng() * 3);
   for (let i = 0; i < pebbles; i++) {
     const x = 1 + Math.floor(rng() * (size - 3));
     const y = 1 + Math.floor(rng() * (size - 3));
     const horiz = rng() < 0.5;
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillStyle = 'rgba(0,0,0,0.14)';
     ctx.fillRect(x, y, horiz ? 2 : 1, horiz ? 1 : 2);
-    ctx.fillStyle = 'rgba(255,210,160,0.18)';
+    ctx.fillStyle = 'rgba(255,210,160,0.065)';
     ctx.fillRect(x, y, 1, 1);
   }
   // Occasional shallow groove
   if (rng() < 0.4) {
-    ctx.strokeStyle = 'rgba(0,0,0,0.22)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)';
     ctx.lineWidth = 1;
     const gx = rng() * size, gy = rng() * size;
     ctx.beginPath();
@@ -1233,7 +1245,143 @@ function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry
   return material === 'tree' || material === 'shrub' ? s.accent.color : null;
 }
 
+// Rubble rows divide the cell exactly. Stones crossing a frame boundary use
+// the same seed in every variant, so arbitrary neighbours join without a cut.
+function drawCaveWallFaceTex(ctx, size, height, variant) {
+  ctx.fillStyle = '#241f1b'; ctx.fillRect(0, 0, size, height);
+  const columns = 6, step = size / columns;
+  for (let row = 0; row < Math.ceil(height / step); row++) {
+    const offset = row % 2 ? step / 2 : 0;
+    for (let col = -1; col <= columns; col++) {
+      const wrapped = ((col % columns) + columns) % columns;
+      const seamStone = wrapped === 0 || (row % 2 && wrapped === columns - 1);
+      const rng = seededRand(937 + row * 193 + wrapped * 71 + (seamStone ? 0 : variant * 131));
+      const cx = col * step + offset, cy = row * step + step / 2;
+      const rw = (2.7 + rng() * .8) * .7, rh = (2 + rng() * .8) * .7;
+      ctx.fillStyle = 'rgba(200,170,130,0.07)';
+      ctx.beginPath(); ctx.ellipse(cx, cy, rw, rh, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,220,180,0.13)';
+      ctx.beginPath(); ctx.ellipse(cx - rw * .3, cy - rh * .35, rw * .45, rh * .38, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+}
+
+// N/E/S/W exposure bits are 1/2/4/8; 16/32 expose a lower side beside
+// a neighbouring front face at a recessed corner. The lower half is the south face;
+// the cap's baked material shading falls off inward from exposed edges.
+// It still passes through the scene's ordinary lighting, like other terrain.
+const CAVE_WALL_EDGE_FRAMES = 64;
+const CAVE_WALL_TOP_LIFT = 3;
+function makeCaveWallEdges(scene, size) {
+  if (scene.textures.exists('cave_wall_edges')) return;
+  const frameHeight = size + CAVE_WALL_TOP_LIFT;
+  const tex = scene.textures.createCanvas('cave_wall_edges', size * CAVE_WALL_EDGE_FRAMES, frameHeight * 4);
+  const ctx = tex.getContext(), top = Math.round(size / 2), height = frameHeight - top;
+  for (let variant = 0; variant < 4; variant++) for (let mask = 0; mask < CAVE_WALL_EDGE_FRAMES; mask++) {
+    ctx.save(); ctx.translate(mask * size, variant * frameHeight);
+    ctx.beginPath(); ctx.rect(0, 0, size, frameHeight); ctx.clip();
+    const capHeight = mask & 4 ? top : frameHeight;
+    // Mask zero is the dark interior, not an empty overlay. End the falloff
+    // within a cell so it joins that interior without a bright tile seam.
+    for (let y = 0; y < capHeight; y++) for (let x = 0; x < size; x++) {
+      const distance = Math.min(mask & 1 ? y : size, mask & 2 ? size - 1 - x : size,
+        mask & 4 ? top - 1 - y : size, mask & 8 ? x : size,
+        mask & 16 ? Math.hypot(x, Math.max(0, top - y)) : size,
+        mask & 32 ? Math.hypot(size - 1 - x, Math.max(0, top - y)) : size);
+      const shade = .23 + .57 * Math.min(1, distance / (size * .38));
+      // Opaque rock covers the ground grid and the tile-local noise underneath.
+      // Only perimeter distance shapes this continuous top surface.
+      const light = 1 - shade;
+      ctx.fillStyle = `rgb(${Math.round(36 * light)},${Math.round(31 * light)},${Math.round(27 * light)})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+    if (mask & 4) {
+      ctx.save(); ctx.translate(0, top);
+      drawCaveWallFaceTex(ctx, size, height, variant);
+      ctx.restore();
+      ctx.fillStyle = 'rgba(0,0,0,0.16)'; ctx.fillRect(0, frameHeight - 4, size, 3);
+      ctx.fillStyle = '#151310'; ctx.fillRect(0, frameHeight - 1, size, 1);
+      if (mask & 8) { ctx.fillStyle = '#302b24'; ctx.fillRect(0, top, 1, height); }
+      if (mask & 2) { ctx.fillStyle = '#171512'; ctx.fillRect(size - 1, top, 1, height); }
+    }
+    // One chipped brown rim wraps the exposed cap, including recessed sides.
+    // Connected cells have no rim along their shared interior boundary.
+    const rim = (side, start, length) => {
+      const vertical = side === 2 || side === 3;
+      const edge = side === 0 ? 0 : side === 1 ? top : side === 2 ? 0 : size - 1;
+      const inward = side === 1 || side === 3 ? -1 : 1;
+      const mark = (at, width, inset, color) => {
+        ctx.fillStyle = color;
+        if (vertical) ctx.fillRect(edge + inward * inset, at, 1, width);
+        else ctx.fillRect(at, edge + inward * inset, width, 1);
+      };
+      // A flat three-pixel ledge grows into the cap, never down the face.
+      mark(start, length, 0, '#5c503f');
+      mark(start, length, 1, '#564a3a');
+      mark(start, length, 2, '#493f32');
+      const rng = seededRand(937 + variant * 131 + side * 71);
+      for (let i = 0; i < 2 && length > 8; i++) {
+        const at = start + 3 + Math.floor(rng() * (length - 7));
+        mark(at, 2, 0, '#30291f'); mark(at, 2, 1, '#564a39');
+      }
+    };
+    if (mask & 8) rim(2, 0, capHeight);
+    else if (mask & 16) rim(2, top, height);
+    if (mask & 2) rim(3, 0, capHeight);
+    else if (mask & 32) rim(3, top, height);
+    if (mask & 1) rim(0, 0, size);
+    if (mask & 4) rim(1, 0, size);
+    ctx.restore();
+    tex.add(variant * CAVE_WALL_EDGE_FRAMES + mask, 0, mask * size, variant * frameHeight, size, frameHeight);
+  }
+  tex.refresh();
+}
+
+// Existing ground-hole hazard, drawn as negative relief: the north/back
+// wall is visible inside the opening, with a bright lip and a deep, dark tail.
+function makeCaveChasmTexture(scene, size) {
+  const KEY = 'cave_chasm';
+  if (scene.textures.exists(KEY)) return;
+  const tex = scene.textures.createCanvas(KEY, size * 16, size);
+  const ctx = tex.getContext();
+  // N/E/S/W bits mark exposed floor edges. Connected cells are black right
+  // through their shared boundary, with no duplicate rim or inner back wall.
+  for (let mask = 0; mask < 16; mask++) {
+    ctx.save(); ctx.translate(mask * size, 0);
+    ctx.beginPath(); ctx.rect(0, 0, size, size); ctx.clip();
+    const left = mask & 8 ? 1 : 0, right = mask & 2 ? size - 1 : size;
+    const north = mask & 1 ? 2 : 0, bottom = mask & 4 ? size - 1 : size;
+    ctx.fillStyle = '#020202'; ctx.fillRect(left, north, right - left, bottom - north);
+    if (mask & 1) {
+      ctx.save(); ctx.beginPath(); ctx.rect(left, north, right - left, 18); ctx.clip();
+      ctx.translate(0, north);
+      drawCaveWallFaceTex(ctx, size, 18, 0);
+      ctx.fillStyle = 'rgba(170,135,90,0.42)'; ctx.fillRect(0, 0, size, 18);
+      const fade = ctx.createLinearGradient(0, 0, 0, size / 2);
+      fade.addColorStop(0, 'rgba(0,0,0,0)');
+      fade.addColorStop(.18, 'rgba(0,0,0,0.52)');
+      fade.addColorStop(.38, 'rgba(0,0,0,0.76)');
+      fade.addColorStop(.65, 'rgba(0,0,0,0.92)');
+      fade.addColorStop(1, '#020202');
+      ctx.fillStyle = fade; ctx.fillRect(0, 0, size, 18); ctx.restore();
+      // A restrained two-pixel top ledge; the other sides are a single
+      // continuous contour, not stacked highlight/shadow bands.
+      ctx.fillStyle = '#514638'; ctx.fillRect(0, 0, size, 2);
+      ctx.fillStyle = '#30291f'; ctx.fillRect(0, 2, size, 1);
+    }
+    if (mask & 8) { ctx.fillStyle = '#443a2e'; ctx.fillRect(0, 0, 1, size); }
+    if (mask & 2) { ctx.fillStyle = '#3c3329'; ctx.fillRect(size - 1, 0, 1, size); }
+    if (mask & 4) { ctx.fillStyle = '#40372b'; ctx.fillRect(0, size - 1, size, 1); }
+    ctx.restore(); tex.add(mask, 0, mask * size, 0, size, size);
+  }
+  tex.refresh();
+}
+
 function makeBiomeTextures(scene, size) {
+  makeCaveChasmTexture(scene, size);
+  makeCaveWallEdges(scene, size);
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     const phases = spec.animPhases || 1;
     for (let v = 0; v < spec.variants; v++) {
@@ -1256,6 +1404,9 @@ function makeBiomeTextures(scene, size) {
 //
 // Coordinate convention: [col, row] with col=x, row=y. (0,0) = top-left.
 const PAD_CELL = 32;
+// Shared with render.js: seat the shrine's south-facing feet farther inside
+// the pedestal's top plane, while the pad itself stays centred on its ground cell.
+const SHRINE_PAD = { sizePx: PAD_CELL, facePx: 6, seatLiftPx: 11 };
 // The pad is drawn a touch larger than its cell so it spills ~10% past the
 // cell boundary into neighbouring cells, reading as a soft oversized base
 // rather than a tile-aligned square.
@@ -1341,6 +1492,41 @@ function makePadShapeTexture(scene, shapeKey) {
   makeRoundPadTexture(scene, key);
 }
 
+// A shrine gets a full-height stone plinth inside its existing one-cell
+// footprint. Its top centre is (16, 13), three pixels above ground centre;
+// render at origin (0.5, 0.5). SHRINE_PAD.seatLiftPx seats its feet on the
+// inner top plane, leaving visible stone in front of the shrine.
+function makeShrinePadTexture(scene) {
+  const key = 'pad_shrine';
+  if (scene.textures.exists(key)) return;
+  const size = SHRINE_PAD.sizePx;
+  const tex = scene.textures.createCanvas(key, size, size);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, size, size);
+  const x = 2, y = 2, w = size - 4, depth = SHRINE_PAD.facePx;
+  const h = size - 4 - depth, radius = 5;
+  // Darker front masonry remains distinct at the renderer's pad opacity.
+  roundRectPath(ctx, x, y + depth, w, h, radius);
+  ctx.fillStyle = '#74766e';
+  ctx.fill();
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.fillStyle = '#aaa7a4';
+  ctx.fill();
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillRect(x, y, w, 1);
+  ctx.fillStyle = 'rgba(74,87,76,0.22)';
+  ctx.fillRect(x, y + h - 1, w, 1);
+  ctx.restore();
+  // One front-face joint reinforces the vertical face without adding steps.
+  ctx.fillStyle = 'rgba(55,68,58,0.28)';
+  ctx.fillRect(size / 2, y + h + 1, 1, depth - 2);
+  tex.refresh();
+}
+
 function makeAllPadShapes(scene) {
   for (const k of Object.keys(PAD_SHAPES)) makePadShapeTexture(scene, k);
+  makeShrinePadTexture(scene);
 }

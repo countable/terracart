@@ -1,0 +1,832 @@
+{
+  "version": 1,
+  "status": "Five enemies integrated; giant-serpent remains a draft.",
+  "projection": "Top-down square-grid placement; artwork tilted toward south roughly45degrees with dominant top planes and foreshortened front/legs",
+  "frameWidth": 32,
+  "frameHeight": 32,
+  "columns": 8,
+  "rows": 4,
+  "sheetWidth": 256,
+  "sheetHeight": 128,
+  "directions": [
+    "north",
+    "east",
+    "south",
+    "west"
+  ],
+  "layout": {
+    "rows": [
+      "north",
+      "east",
+      "south",
+      "west"
+    ],
+    "columns": [
+      "walk 1",
+      "walk 2",
+      "walk 3",
+      "walk 4",
+      "attack anticipation",
+      "attack windup",
+      "attack impact",
+      "attack recovery"
+    ],
+    "frameIndex": "row * 8 + column"
+  },
+  "timingsMs": {
+    "walk": [
+      140,
+      140,
+      140,
+      140
+    ],
+    "attack": [
+      160,
+      160,
+      100,
+      180
+    ]
+  },
+  "playback": {
+    "walk": "loop",
+    "attack": "one-shot in game; repeats in preview"
+  },
+  "rendering": {
+    "filter": "nearest-neighbor",
+    "note": "32\u00d732 source frames may be rendered larger than one game cell. Preview uses a 16px square grid under a 32px sprite; runtime sizing and collision remain game-controlled."
+  },
+  "enemies": [
+    {
+      "id": "bugbear",
+      "name": "Bugbear",
+      "sheet": "bugbear.png",
+      "animations": {
+        "north": {
+          "walk": {
+            "frames": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "east": {
+          "walk": {
+            "frames": [
+              8,
+              9,
+              10,
+              11
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              12,
+              13,
+              14,
+              15
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "south": {
+          "walk": {
+            "frames": [
+              16,
+              17,
+              18,
+              19
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              20,
+              21,
+              22,
+              23
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "west": {
+          "walk": {
+            "frames": [
+              24,
+              25,
+              26,
+              27
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              28,
+              29,
+              30,
+              31
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "troll",
+      "name": "Troll",
+      "sheet": "troll.png",
+      "animations": {
+        "north": {
+          "walk": {
+            "frames": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "east": {
+          "walk": {
+            "frames": [
+              8,
+              9,
+              10,
+              11
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              12,
+              13,
+              14,
+              15
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "south": {
+          "walk": {
+            "frames": [
+              16,
+              17,
+              18,
+              19
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              20,
+              21,
+              22,
+              23
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "west": {
+          "walk": {
+            "frames": [
+              24,
+              25,
+              26,
+              27
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              28,
+              29,
+              30,
+              31
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "giant-bear",
+      "name": "Giant bear",
+      "sheet": "giant-bear.png",
+      "animations": {
+        "north": {
+          "walk": {
+            "frames": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "east": {
+          "walk": {
+            "frames": [
+              8,
+              9,
+              10,
+              11
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              12,
+              13,
+              14,
+              15
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "south": {
+          "walk": {
+            "frames": [
+              16,
+              17,
+              18,
+              19
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              20,
+              21,
+              22,
+              23
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "west": {
+          "walk": {
+            "frames": [
+              24,
+              25,
+              26,
+              27
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              28,
+              29,
+              30,
+              31
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ogre",
+      "name": "Ogre",
+      "sheet": "ogre.png",
+      "animations": {
+        "north": {
+          "walk": {
+            "frames": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "east": {
+          "walk": {
+            "frames": [
+              8,
+              9,
+              10,
+              11
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              12,
+              13,
+              14,
+              15
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "south": {
+          "walk": {
+            "frames": [
+              16,
+              17,
+              18,
+              19
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              20,
+              21,
+              22,
+              23
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "west": {
+          "walk": {
+            "frames": [
+              24,
+              25,
+              26,
+              27
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              28,
+              29,
+              30,
+              31
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "giant-reaper",
+      "name": "Giant reaper",
+      "sheet": "giant-reaper.png",
+      "animations": {
+        "north": {
+          "walk": {
+            "frames": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "east": {
+          "walk": {
+            "frames": [
+              8,
+              9,
+              10,
+              11
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              12,
+              13,
+              14,
+              15
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "south": {
+          "walk": {
+            "frames": [
+              16,
+              17,
+              18,
+              19
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              20,
+              21,
+              22,
+              23
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "west": {
+          "walk": {
+            "frames": [
+              24,
+              25,
+              26,
+              27
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              28,
+              29,
+              30,
+              31
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "giant-serpent",
+      "name": "Giant serpent",
+      "sheet": "giant-serpent.png",
+      "animations": {
+        "north": {
+          "walk": {
+            "frames": [
+              0,
+              1,
+              2,
+              3
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              4,
+              5,
+              6,
+              7
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "east": {
+          "walk": {
+            "frames": [
+              8,
+              9,
+              10,
+              11
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              12,
+              13,
+              14,
+              15
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "south": {
+          "walk": {
+            "frames": [
+              16,
+              17,
+              18,
+              19
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              20,
+              21,
+              22,
+              23
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        },
+        "west": {
+          "walk": {
+            "frames": [
+              24,
+              25,
+              26,
+              27
+            ],
+            "durationMs": [
+              140,
+              140,
+              140,
+              140
+            ]
+          },
+          "attack": {
+            "frames": [
+              28,
+              29,
+              30,
+              31
+            ],
+            "durationMs": [
+              160,
+              160,
+              100,
+              180
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export": {
+    "tool": "Built-in imagegen",
+    "method": "Nearest-neighbor packing with a transparent frame border; detached neighboring-cell fragments excluded",
+    "originals": "<enemy-id>-source.png",
+    "references": [
+      "assets/Enemy/spr_big_monsters_spritesheet.png",
+      "assets/Enemy/Brute/1Fullsheet_Brute.png"
+    ],
+    "validation": "Six 256x128 RGBA sheets; 192 nonempty frames; transparent frame borders"
+  }
+}

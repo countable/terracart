@@ -773,6 +773,27 @@ function spawnNestBushCreature(scene, bush, type) {
   return creature;
 }
 
+// A hive's daily defenders use ordinary enemy seating and combat. Plan the
+// entire swarm first so a refused placement cannot partially spend a visit.
+function planHiveBees(scene, hive) {
+  const out = [], seats = new Set();
+  const day = utcDayKey();
+  for (let i = 0; i < WorldGen.HIVE_SPEC.bees; i++) {
+    const id = `hivebee_${hive.id}_${day}_${i}`;
+    const point = walkableDestination(scene, hive.x, hive.y, 1, {
+      seed: id, cls: creatureSpawnClass('bee'),
+      accept(x, y) {
+        return !seats.has(`${x},${y}`) && !(x === hive.x && y === hive.y);
+      },
+    });
+    if (!point) return [];
+    seats.add(`${point.x},${point.y}`);
+    out.push({ entry: point.entry, creature: WorldGen.makeCreature('bee', point.x, point.y, id,
+      { shiny: false, homeX: hive.x, homeY: hive.y }) });
+  }
+  return out;
+}
+
 // A CAMPFIRE ROUTS A GHOST — Home's mechanism (the ward latch: turned onto
 // an away-from-the-fire angle and run to the sim bubble's edge), not the
 // fire's own ward on other foes (a refused target cell, which held a ghost
@@ -1021,7 +1042,7 @@ function creatureFlightEase(t) {
 // Check the whole segment: a long hop must not skip a burning cell. An
 // escape may cross existing flames only while its starting point is on fire.
 function fireStepAllowed(scene, c, x, y, escaping = false) {
-  if (!scene._groundFireAtWorld) return true;
+  if (!scene._groundFireAtWorld || Conditions.flying(c)) return true;
   const wallNow = Date.now();
   let leavingFire = escaping && GroundFire.active(scene._groundFireAtWorld(c.x, c.y), wallNow);
   const n = Math.max(1, Math.ceil(Math.hypot(x - c.x, y - c.y) / (scene.cellM * 0.2)));
@@ -1165,6 +1186,7 @@ function enemyWalkHazardRate(scene, x, y) {
 function enemyWalkHazardTick(scene, c, now) {
   const previous = c._walkHazardPrevious;
   c._walkHazardPrevious = { x: c.x, y: c.y, now };
+  if (Conditions.flying(c)) { c._walkHazardAccum = 0; return false; }
   if (!previous || !Combat.isEnemy(c) || !scene._walkHazardExposure) return false;
   if (previous.x === c.x && previous.y === c.y) return false;
   const dt = Math.min(0.1, Math.max(0, (now - previous.now) / 1000));
@@ -1189,6 +1211,7 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
   if (!(dmg > 0)) return 0;
   const lost = scene._losePlayerEnergy(dmg, { closeShop: true });
   scene._bankDrain?.('monsters', -lost, { label: '⚔️ monsters' });
+  if (lost > 0 && typeof Pirates !== 'undefined') Pirates.onHit(scene, c);
   if (lost > 0 && condition) scene._applyCondition(condition);
   return lost;
 }
@@ -1207,8 +1230,12 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
 // (scene._cellBlocked), a building's wall and a campfire's ward
 // (fireAverse); a flier (orbit_swoop) crosses low terrain.
 function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, escaping = false } = {}) {
-  if (row && !fireStepAllowed(scene, c, x, y, escaping)) return true;
+  if (typeof EnemySpawns !== 'undefined' && !EnemySpawns.homeFaunaAllows(scene, c, x, y)) return true;
+  if (!fireStepAllowed(scene, c, x, y, escaping)) return true;
+  const trap = Conditions.flying(c) ? null : characterTrapAt(scene, x, y);
+  if (trap && trap !== characterTrapAt(scene, c.x, c.y)) return true;
   const cell = scene.cellAt(x, y);
+  if (!cell.loaded) return true;
   if (row) {
     if (!cell.loaded) return true;
     if (scene._cellBlocked(x, y)) return true;
@@ -1249,16 +1276,19 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
 // The ward's ring is FIRE_REST_R, the ring the fire lights and warms, never
 // a literal of its own. Both movers read this one predicate through
 // creatureStepRefused (test/node/home_ward.test.js).
-function fireAverse(c, row) { return !c.lair && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH; }
-function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false) {
+function fireAverse(c, row) { return !Conditions.flying(c) && !c.lair && (row.cave?.minDepth ?? 1) <= FIRE_WARD_MAX_DEPTH; }
+function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false, allow = null) {
   let dx = x - c.x, dy = y - c.y;
   const distance = Math.hypot(dx, dy);
-  // Sharp plants and spikes are passable. Prefer the body's same short jog
+  // Sharp plants, spikes and visible cave-ins prefer the body's same short jog
   // when it fits; a broad belt has no trivial detour, so keep going through.
-  if (!escaping && distance > 0 && scene._walkHazardExposure?.(c.x, c.y, x, y) > 0) {
+  const collapseExposure = (nx, ny) => globalThis.EnvironmentHazards?.exposure?.(scene, c.x, c.y, nx, ny) || 0;
+  if (!escaping && !Conditions.flying(c) && distance > 0
+      && (scene._walkHazardExposure?.(c.x, c.y, x, y) > 0 || collapseExposure(x, y) > 0)) {
     const open = (ox, oy) => {
       const nx = c.x + ox * scene.cellM, ny = c.y + oy * scene.cellM;
-      return enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0;
+      return (!allow || allow(nx, ny)) && enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0
+        && !(globalThis.EnvironmentHazards?.exposure?.(scene, nx, ny, nx, ny) > 0);
     };
     const jog = committedDetourDir(c, dx / distance, dy / distance, open, now);
     if (jog) { dx = jog.x * distance; dy = jog.y * distance; }
@@ -1268,9 +1298,10 @@ function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = fal
   let clear = true;
   for (let i = 1; i <= n; i++) {
     const nx = sx + dx * i / n, ny = sy + dy * i / n;
-    if (!enemyCanStep(scene, c, row, nx, ny, escaping)) { clear = false; break; }
+    if ((allow && !allow(nx, ny)) || !enemyCanStep(scene, c, row, nx, ny, escaping)) { clear = false; break; }
+    globalThis.EnvironmentHazards?.touch?.(scene, c, c.x, c.y, nx, ny);
     c.x = nx; c.y = ny;
-    if (row.trail && c._laySlimeTrail) enemyLaySlimeTrail(scene, c, row);
+    if (row?.trail && c._laySlimeTrail) enemyLaySlimeTrail(scene, c, row);
   }
   // A blocked sweep can still advance partway. Face only its accepted motion.
   SpriteLayout.updateCreatureFacing(c, c.x - sx, c.y - sy, now);
@@ -1452,6 +1483,9 @@ function enemySplit(scene, c, fromX, fromY, now) {
   const share = (c._splitShare ?? 1) / 2;
   c._hp = hp - half; c._splitShare = share; c._splitRoot = root; c._splitNextT = now + a.cooldownSeconds * 1000;
   c.x = seats[0].x; c.y = seats[0].y;
+  // Another character can split this slime during its own turn. Refresh the
+  // original now; the newborn joins the next pass's body list as before.
+  if (scene._characterSpacingIndex) updateCharacterSpacingIndex(scene._characterSpacingIndex, c);
   const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false });
   for (const key of [...garrisonInherit(), '_lastDamagedT']) if (c[key] != null) twin[key] = c[key];
   twin._hp = half; twin._splitShare = share; twin._splitRoot = root; twin._splitNextT = c._splitNextT;
@@ -1499,8 +1533,17 @@ function enemyAreaContains(c, row, px, py, cellM) {
   return Math.hypot(px - c.x, py - c.y) <= PotionEffects.range(c, row.range) * cellM
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
+// Render time is monotonic even when the combat caller supplies a simulation clock.
+function creatureMeleeSwing(c, targetX, targetY, reachCells) {
+  const dx = targetX - c.x, dy = targetY - c.y;
+  const length = Math.hypot(dx, dy);
+  c._meleeSwing = { startT: performance.now(), reachCells,
+    dir: length > 0 ? { x: dx / length, y: dy / length } : { x: 0, y: 1 } };
+}
+
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
-  if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
+  if (Combat.isPacified(c) || Combat.isPacified(creatureTarget)) return;
+  if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || Combat.isParalyzed(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
   if (creatureTarget && (Combat.isConcealed(creatureTarget)
       || Combat.isCharmed(c) === Combat.isCharmed(creatureTarget))) return;
   if (row.attackType === 'none') return;
@@ -1543,9 +1586,10 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     SpriteLayout.faceCreature(c, px - c.x, py - c.y);
     return;
   }
-  if (row.aura && clear && dist <= row.aura.radiusCells * scene.cellM) {
-    if (npcTarget) { NPC.hit(scene, npcTarget, Date.now(), row.aura.rawDps * Combat.powerMul(c) * dt); return; }
-    if (creatureTarget) {
+  if (row.aura && clear && dist <= auraRadiusCells(row.aura) * scene.cellM) {
+    if (npcTarget) {
+      NPC.hit(scene, npcTarget, Date.now(), row.aura.rawDps * Combat.powerMul(c) * dt);
+    } else if (creatureTarget) {
       scene._damageEnemy(creatureTarget, row.aura.rawDps * Combat.powerMul(c) * dt,
         Combat.isCharmed(c) ? 'ally' : 'enemy', { bypassArmor: true });
     } else {
@@ -1567,29 +1611,37 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     }
     return;
   }
-  if ((!row.dmg && !row.steals) || row.attackType === 'touch') return;
+  if ((!row.dmg && !row.steals && row.attackType !== 'web') || row.attackType === 'touch') return;
   const swoop = row.movement.pattern === 'orbit_swoop';
   const lunging = row.movement.pattern === 'lunge_recover' && now < (c._lungeUntil || 0);
   const shaped = ['area', 'breath', 'blast'].includes(row.attackType);
+  const fixedAim = shaped || row.attackType === 'web';
   const winding = c._attackWindupUntil != null;
   // A `chargeOnly` charger (the boar) has no blow of its own: it hurts only
   // what it runs into mid-charge, once a charge.
-  const eligible = (shaped && winding ? attentive : clear && dist <= attackRange * scene.cellM)
+  const eligible = (fixedAim && winding ? attentive : clear && dist <= attackRange * scene.cellM)
+    && dist >= (row.minRange || 0) * scene.cellM
     && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit)
     && (!row.movement.chargeOnly || lunging);
   // The charge already warned before moving; contact lands once without
   // starting a second melee wind-up that would stop the charge mid-stride.
   const ready = enemyAttackReady(c, lunging ? {...row, windupSeconds: 0} : row, now, eligible);
-  if (shaped && !winding && (c._attackWindupUntil != null || ready)) {
+  if (fixedAim && !winding && (c._attackWindupUntil != null || ready)) {
     c._attackAim = { x: px, y: py, angle: Math.atan2(py - c.y, px - c.x) };
   }
   if (ready || c._attackWindupUntil != null) {
-    const aim = shaped ? c._attackAim : {x: px, y: py};
+    const aim = fixedAim ? c._attackAim : {x: px, y: py};
     SpriteLayout.faceCreature(c, aim.x - c.x, aim.y - c.y);
   }
   if (!ready) return;
   c._attackT0 = now;
   c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
+  if (row.attackType === 'web') {
+    // Commit to the cell aimed at during wind-up; dodging never steers the silk.
+    SpiderWebs.launch(scene, c, c._attackAim.x, c._attackAim.y);
+    return;
+  }
+  if (row.attackType === 'melee') creatureMeleeSwing(c, px, py, attackRange);
   const raw = row.attackType === 'melee' || row.attackType === 'touch'
     ? Combat.meleeBlow(c, row.dmg)
     : row.dmg * Combat.powerMul(c);
@@ -1629,33 +1681,139 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   if (lunging) c._lungeHit = true;
 }
 
-// FOE SPACING: foes may brush against each other, but each keeps about
-// FOE_SPACING_CELLS from the next. The push is a unit-scaled vector away from
-// every live foe nearer than that (stronger the closer it is), or null when
-// the foe has room. It steers the step in rosterEnemyMove, inside the foe's own
-// pace; nothing is ever blocked by it, so a crowd can still squeeze through a
-// gap. Exact overlap breaks the tie off the ids, so two stacked foes part.
-// A swooping flier (enemyBatMove) and a lair guard walking home are not pushed.
+// Shared soft spacing for every mobile body. The scene gathers nearby actors
+// once per sim tick, including the player. An injured/stationary body still
+// occupies space; only its own movement is held. Spacing never teleports or
+// spends more than the mover's usual step budget.
 const FOE_SPACING_CELLS = 0.6;
-function foeSpacingPush(scene, c) {
-  const bodies = scene._foeBodies;
+// Rebuilt for each wander pass. Refresh a body's bucket after its movement,
+// including early-return lanes, so later foes see its new position this tick.
+function buildCharacterSpacingIndex(scene) {
+  const index = { bodies: scene._characterBodies || scene._foeBodies, radius: FOE_SPACING_CELLS * scene.cellM,
+    buckets: new Map(), records: new Map() };
+  for (let order = 0; order < index.bodies.length; order++) {
+    const body = index.bodies[order];
+    index.records.set(body, { body, order, key: null });
+    updateCharacterSpacingIndex(index, body);
+  }
+  return index;
+}
+
+function updateCharacterSpacingIndex(index, body) {
+  const record = index.records.get(body);
+  if (!record) return;
+  const key = Math.floor(body.x / index.radius) + ',' + Math.floor(body.y / index.radius);
+  if (key === record.key) return;
+  if (record.key !== null) {
+    const old = index.buckets.get(record.key);
+    old.delete(record);
+    if (!old.size) index.buckets.delete(record.key);
+  }
+  let bucket = index.buckets.get(key);
+  if (!bucket) index.buckets.set(key, bucket = new Set());
+  bucket.add(record);
+  record.key = key;
+}
+
+function characterSpacingCandidates(index, c) {
+  const bx = Math.floor(c.x / index.radius), by = Math.floor(c.y / index.radius);
+  const nearby = [];
+  for (let y = by - 1; y <= by + 1; y++) {
+    for (let x = bx - 1; x <= bx + 1; x++) {
+      const bucket = index.buckets.get(x + ',' + y);
+      if (bucket) for (const record of bucket) nearby.push(record);
+    }
+  }
+  // Preserve the original summation order, including exact-overlap tie breaks.
+  nearby.sort((a, b) => a.order - b.order);
+  return nearby;
+}
+
+function characterSpacingPush(scene, c) {
+  const bodies = scene._characterBodies || scene._foeBodies;
   if (!bodies || bodies.length < 2) return null;
   const r = FOE_SPACING_CELLS * scene.cellM;
   let x = 0, y = 0;
-  for (const o of bodies) {
-    if (o === c) continue;
+  const index = scene._characterSpacingIndex;
+  const candidates = index && index.bodies === bodies && index.radius === r
+    ? characterSpacingCandidates(index, c) : null;
+  for (const candidate of candidates || bodies) {
+    const o = candidates ? candidate.body : candidate;
+    if (o === c || (o.id && o.id === c.id)) continue;
     const dx = c.x - o.x, dy = c.y - o.y;
     if (Math.abs(dx) >= r || Math.abs(dy) >= r) continue;
     const d = Math.hypot(dx, dy);
     if (d >= r) continue;
     const w = (r - d) / r;
     if (d > 1e-6) { x += dx / d * w; y += dy / d * w; continue; }
-    const a = (strHash31(String(c.id)) - strHash31(String(o.id))) % 628 / 100;
-    x += Math.cos(a) * w; y += Math.sin(a) * w;
+    // One axis for the pair, opposite signs for its two members: hashing a
+    // signed difference gives equal cosine pushes and can preserve a pile.
+    const first = String(c.id) < String(o.id), ids = [String(c.id), String(o.id)].sort();
+    const a = (strHash31(ids.join('|')) >>> 0) / 4294967296 * Math.PI * 2;
+    const sign = first ? 1 : -1;
+    x += Math.cos(a) * w * sign; y += Math.sin(a) * w * sign;
   }
   const len = Math.hypot(x, y);
   if (len < 1e-6) return null;
   return len > 1 ? { x: x / len, y: y / len } : { x, y };
+}
+function foeSpacingPush(scene, c) { return characterSpacingPush(scene, c); }
+
+function characterTrapAt(scene, x, y) {
+  if (typeof Traps === 'undefined' || !scene.originPx || !scene.startWorldM) return null;
+  const p = worldMetersToTileCell(scene, x, y);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(p.tx, p.ty));
+  const trap = Traps.trapAt(entry, p.ix, p.iy);
+  return trap && !Traps.isTrapDisarmed(scene.save || {}, trap) ? trap : null;
+}
+
+// Non-roster movers share the enemy's swept steps and committed hazard detour.
+// `pace` also lets a resting follower gently part from overlapping characters.
+function characterMove(scene, c, x, y, now, { pace = Math.hypot(x - c.x, y - c.y), allow = null } = {}) {
+  if (!(pace > 0) || c.stationary || (typeof Pets !== 'undefined' && Pets.isDown(c))) return false;
+  const push = characterSpacingPush(scene, c);
+  let dx = x - c.x + (push?.x || 0) * pace, dy = y - c.y + (push?.y || 0) * pace;
+  const length = Math.hypot(dx, dy);
+  if (length < 1e-9) return false;
+  const step = Math.min(length, pace), sx = c.x, sy = c.y;
+  dx = dx / length * step; dy = dy / length * step;
+  if (!enemySweep(scene, c, null, sx + dx, sy + dy, now, false, allow)) {
+    const remaining = Math.max(0, step - Math.hypot(c.x - sx, c.y - sy));
+    const side = c._avoidSide ?? ((strHash31(c.id || '') & 1) ? 1 : -1);
+    for (const turn of [side, -side]) {
+      const nx = c.x - dy / step * remaining * turn, ny = c.y + dx / step * remaining * turn;
+      if ((allow && !allow(nx, ny)) || creatureStepRefused(scene, c, nx, ny)) continue;
+      if (enemySweep(scene, c, null, nx, ny, now, false, allow)) { c._avoidSide = turn; break; }
+    }
+  }
+  return Math.hypot(c.x - sx, c.y - sy) > 1e-9;
+}
+
+// Release/rejoin seats are deterministic for the individual, but checked live
+// against terrain, traps and other bodies. A crowded/blocked area waits; it
+// never falls back to stacking everyone on the player's feet.
+function characterFreePoint(scene, c, x, y, bodies = scene._characterBodies || scene._foeBodies || []) {
+  const phase = (strHash31(c.id || '') >>> 0) / 4294967296 * Math.PI * 2;
+  for (const ring of [0.8, 1.3, 2, 3]) {
+    for (let i = 0; i < 12; i++) {
+      const angle = phase + i * Math.PI / 6;
+      const nx = x + Math.cos(angle) * ring * scene.cellM, ny = y + Math.sin(angle) * ring * scene.cellM;
+      const probe = { ...c, x: nx, y: ny };
+      if (characterTrapAt(scene, nx, ny) || creatureStepRefused(scene, probe, nx, ny)
+          || enemyWalkHazardRate(scene, nx, ny) > 0) continue;
+      if (bodies.some(o => o !== c && o.id !== c.id && Math.hypot(nx - o.x, ny - o.y) < FOE_SPACING_CELLS * scene.cellM)) continue;
+      return { x: nx, y: ny };
+    }
+  }
+  return null;
+}
+
+// Discovery gates movement and effects for wild animals as well as enemies.
+function enemyConcealmentTick(scene, c) {
+  if (!c.hidden && !c.stealthy) return false;
+  HiddenObjects.reveal(scene, c);
+  c._discovered = !HiddenObjects.isHidden(scene.save, c);
+  return !c._discovered;
 }
 
 // A camouflaged foe holds its authored seat until the player gets close.
@@ -1745,14 +1903,16 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
     }
   }
   if (expired && typeof persistSave === 'function') persistSave(scene.save);
-  if (!rawDps || Combat.playerDowned(scene.save.energy)) return;
+  if (!rawDps || Combat.playerDowned(scene.save.energy) || Conditions.flying(scene.save, now)) return;
   // One-second packets through the one blow writer (the aura's shape).
   foeBlowLands(scene, null, Combat.playerDamageRate(rawDps * PotionEffects.damageMul(scene.save),
     scene.save.armor, dt, { packetSeconds: 1 }), { mitigated: true });
 }
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
-  if (Combat.isConcealed(c) || Combat.isSleeping(c)) return;
+  if (c._pirateParleyPending) return;
+  if (Combat.isPacified(c)) { inactive = true; creatureTarget = null; }
+  if (Combat.isConcealed(c) || Combat.isSleeping(c) || Combat.isParalyzed(c)) return;
   Combat.healIfRested(c);
   const m = row.meleeWhenCondition && c._attackTargetKey === 'player'
       && Conditions.active(scene.save, row.meleeWhenCondition.id)

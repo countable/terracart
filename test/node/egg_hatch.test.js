@@ -68,7 +68,8 @@ test('egg: remaining distance rounds up and only one stacked egg incubates', () 
   assert.truthy(EggHatch.ready(save));
   assert.truthy(EggHatch.hatch(save, () => 0).ok);
   assert.eq(Inventory.count(save, 'egg'), 2);
-  assert.eq(Inventory.count(save, babyItems()[0]), 1);
+  assert.eq(save.wildAnimals.length, 1);
+  assert.falsy(save.wildAnimals[0].pet);
   assert.eq(save.eggHatchM, 0);
   assert.falsy(EggHatch.ready(save));
   EggHatch.track(save, tracker, eggFix(20, 20000), 20000);
@@ -83,21 +84,18 @@ test('egg: each baby kind can hatch, consuming exactly one egg', () => {
     const result = EggHatch.hatch(save, () => (i + 0.5) / pets.length);
     assert.truthy(result.ok);
     assert.eq(result.petId, petId);
-    assert.eq(Inventory.count(save, petId), 1);
+    assert.eq(Inventory.count(save, petId), 0);
+    assert.eq(result.creature.kind, ITEM_BY_ID[petId].base);
+    assert.truthy(result.creature.raised);
+    assert.falsy(Pets.canCatch(save, result.creature));
     assert.eq(Inventory.count(save, 'egg'), 0);
     assert.eq(save.eggHatchM, 0);
   });
 });
 
-test('egg: unavailable hatches and full pet stacks leave inventory and progress intact', () => {
+test('egg: unavailable hatches leave inventory and progress intact', () => {
   assert.eq(EggHatch.hatch(eggSave()).reason, 'not_ready');
   assert.eq(EggHatch.hatch({ inv: [], eggHatchM: EggHatch.METERS }).reason, 'no_egg');
-  const save = eggSave();
-  save.eggHatchM = EggHatch.METERS;
-  Inventory.add(save, babyItems()[0], Inventory.stackCap(save));
-  const before = JSON.stringify(save);
-  assert.eq(EggHatch.hatch(save, () => 0).reason, 'full');
-  assert.eq(JSON.stringify(save), before);
 });
 
 test('egg: the GPS consumer saves progress and refreshes the selected Hatch action', () => {

@@ -35,6 +35,19 @@ function scene(over) {
 }
 const HALF_M = (11 / 2 + 1) * 5;   // drawObjects' halfM at cellM 5
 
+
+test('lighting: arena ambient illuminates distant boundaries at every hour without changing caves', () => {
+  const arena = scene({ depth: WorldGen.ARENA_DEPTH });
+  const day = Lighting.profile(arena, 1), night = Lighting.profile(arena, 0);
+  assert.eq(day.ambient, night.ambient, 'a separate realm has no surface night cycle');
+  assert.gt(Lighting.lum(day.ambient), .65, 'the full arena floor remains readable outside player reach');
+  assert.gt(ch(day.ambient, 0), ch(day.ambient, 16), 'ambient is gently violet');
+  assert.gt(ch(day.ambient, 16), ch(day.ambient, 8), 'violet retains more red than green');
+  const cave = Lighting.profile(scene({ depth: 3 }), 1);
+  assert.lt(Lighting.lum(cave.ambient), .05, 'Underdark retains ordinary cave darkness');
+  assert.gt(cave.lit, day.lit, 'caves still depend on a strong player torch bubble');
+});
+
 test('lighting: daily sites retain ambient light after the availability pulse is spent', () => {
   const start = RENDER_SRC.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
   const end = RENDER_SRC.indexOf('\n  };', start);
@@ -519,7 +532,7 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   assert.eq(byId.edge.dyPx, byId.near.dyPx, 'every lamp by the same rise — one art, one lantern');
   // The stamp adds it to the anchored screen point, and the still-frame key
   // names it: a light the key does not name is a light that cannot repaint.
-  const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('    const stamp = (L) => {'));
+  const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function paintLight('));
   // (Both through lightCentrePx — the stamp's whole-px centre is the key's.)
   const lc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightCentrePx('));
   assert.truthy(/const c = deltaMToScreen\(scene, L\.dx, L\.dy\);[\s\S]{0,120}y: Math\.round\(c\.y \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
@@ -666,8 +679,9 @@ test('lighting: a blast is stored in WORLD metres and re-anchored every frame, s
   // The stamp reads the entry's radius and colour, so one row serves every size.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  assert.truthy(/ensureKindCookie\(scene, L\.kind, L\.r, colour\)/.test(d)
-    && /: L\.colour;/.test(d),
+  const stamp = L.slice(L.indexOf('  function paintLight('), L.indexOf('  function contributionKey('));
+  assert.truthy(/ensureKindCookie\(scene, L\.kind, L\.r, colour\)/.test(stamp)
+    && /: L\.colour;/.test(stamp),
     'the cookie is baked at the entry\'s own radius and colour');
   assert.truthy(/collectBlasts\(scene, ax, ay, halfM, now\)/.test(d),
     'and draw() collects the live blasts against this frame\'s anchor');
@@ -678,9 +692,13 @@ test('lighting: draw() stamps a light with its own alpha and scale', () => {
   // them null and gets the flicker curve alone.
   const L = LIGHTING_SRC;
   const d = L.slice(L.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  assert.truthy(/\* \(L\.a == null \? 1 : L\.a\)/.test(d), 'a light\'s own alpha multiplies in');
-  assert.truthy(/\* \(L\.s == null \? 1 : L\.s\)/.test(d), 'and its own scale');
-  assert.truthy(/for \(const L of scene\._lights\) stamp\(L\);/.test(d), 'the frame\'s lights are stamped');
+  const stamp = L.slice(L.indexOf('  function paintLight('), L.indexOf('  function contributionKey('));
+  assert.truthy(/\* \(L\.a == null \? 1 : L\.a\)/.test(stamp), 'a light\'s own alpha multiplies in');
+  assert.truthy(/\* \(L\.s == null \? 1 : L\.s\)/.test(stamp), 'and its own scale');
+  assert.truthy(/worldCookieFrames\(scene, W, H, ax, ay, ox, oy, crit, now, pnow\)/.test(d),
+    'steady world cookies enter the padded contribution cache');
+  assert.truthy(/for \(const L of cookies\.excluded\) paintLight\(/.test(d),
+    'only player, flickering, transient or overflow lights use the per-step painter');
   assert.falsy(/_cellLights/.test(d), 'and there is no second list');
 });
 
@@ -832,13 +850,13 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // remembered here.
   // (+ the grove shrine, src/zones.js — a standing light like the torch.)
   // One closure offers them, for the sprite walk and the light walk alike.
-  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
+  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
     'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
   const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
   const cull = body.indexOf('if (!inViewBox(dx, dy, lim)) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
+  assert.truthy(/return isBuilding\(k\) \|\| k === 'temple' \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
     'and the per-tile light list is derived by the same kinds');
   assert.truthy(pred.includes('Macros.visitKindForObject(o)'), 'daily sites join the shared pre-cull predicate');
   assert.truthy(body.includes("o.kind === 'chest' && !offersPreCullLight(o) && poiLit(o, spentIds)"),
@@ -927,8 +945,8 @@ test('lighting: the plateau eases down toward the reach rim, and the step at the
   // draw() fills the reach-cell path with the gradient about the feet, out
   // to the furthest corner a reach cell can put on the plateau.
   const L = LIGHTING_SRC;
-  assert.truthy(/ctx\.fillStyle = plateauFill\(ctx, prof, ps\.x - ox, ps\.y - oy, r0\);/.test(L),
-    'the plateau fill is the gradient, centred on the feet-on-the-fix point');
+  assert.truthy(/m\.fillStyle = plateauFill\(m, prof, ps\.x - ox, ps\.y - oy, r0\);/.test(L),
+    'the cached cell mask is recoloured by a live gradient centred on the feet-on-the-fix point');
   assert.truthy(/const rim = r0 \+ CELL_PX \* Math\.SQRT1_2;/.test(L), 'the rim is the reach radius plus half a cell diagonal');
   assert.truthy(/g\.addColorStop\(t, rgba\(plateauCellColour\(prof, level\), level - prof\.edge\)\);/.test(L),
     'each stop is the cell colour at its level, over the ramp\'s edge');
@@ -978,3 +996,43 @@ test('lighting: the reach area is as bright as noon leaves room for', () => {
 });
 
 })();
+
+test('lighting: reach changes fade across cells without dimming their overlap', () => {
+  const s = { depth: 0, cellM: 7 };
+  const a = { cellIX: 10, cellIY: 20 }, b = { cellIX: 11, cellIY: 20 };
+  const frames = (cell, now) => Lighting.reachFrames(s, cell, 17.5, now);
+  assert.eq(frames(a, 0)[0].weight, 1, 'initial light appears immediately');
+  const start = frames(b, 100);
+  assert.eq(start[0].rp.cellIX, 10, 'crossing starts with the previous visible mask');
+  assert.eq(start[0].weight, 1);
+  const mid = frames(b, 100 + Lighting.REACH_FADE_MS / 2);
+  assert.eq(mid.length, 2);
+  assert.eq(mid[0].weight, 0.5, 'departing cells half lit');
+  assert.eq(mid[1].weight, 0.5, 'arriving cells half lit');
+  assert.eq(mid.reduce((sum, f) => sum + f.weight, 0), 1, 'shared cells keep full light');
+  assert.falsy(Lighting.reachFramesKey(start) === Lighting.reachFramesKey(mid), 'both lightmap caches repaint through the fade');
+  const end = frames(b, 100 + Lighting.REACH_FADE_MS);
+  assert.eq(end.length, 1, 'settled light keeps only the exact current reach mask');
+  assert.eq(end[0].rp.cellIX, 11);
+  assert.eq(end[0].weight, 1);
+  assert.eq(Lighting.reachFramesKey(end), Lighting.reachFramesKey(frames(b, 1000)), 'standing still reuses the cache');
+});
+
+test('lighting: reversing during a reach fade preserves the displayed brightness', () => {
+  const s = { depth: 0, cellM: 7 };
+  const a = { cellIX: 10, cellIY: 20 }, b = { cellIX: 11, cellIY: 20 };
+  Lighting.reachFrames(s, a, 17.5, 0);
+  Lighting.reachFrames(s, b, 17.5, 100);
+  const midTime = 100 + Lighting.REACH_FADE_MS / 2;
+  const before = Lighting.reachFrames(s, b, 17.5, midTime);
+  const reverse = Lighting.reachFrames(s, a, 17.5, midTime);
+  assert.eq(Lighting.reachFramesKey(before), Lighting.reachFramesKey(reverse));
+  const after = Lighting.reachFrames(s, a, 17.5, midTime + Lighting.REACH_FADE_MS / 2);
+  assert.eq(after.find(f => f.rp.cellIX === 10).weight, 0.75);
+  assert.eq(after.find(f => f.rp.cellIX === 11).weight, 0.25);
+  s.depth = 1;
+  const cave = Lighting.reachFrames(s, a, 10.5, midTime + Lighting.REACH_FADE_MS / 2);
+  assert.eq(cave.length, 1, 'changing depth cannot carry old surface cells into cave light');
+  assert.eq(cave[0].weight, 1);
+  assert.eq(cave[0].reachM, 10.5);
+});

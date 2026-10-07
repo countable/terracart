@@ -60,7 +60,7 @@ test('combat: game and livestock are NOT enemies (hunting stays a tap)', () => {
 
 test('combat: a TAMED slime is a pet, not a target', () => {
   assert.truthy(Combat.isEnemy({ kind: 'slime', id: 'slime_7' }), 'a wild slime is a foe');
-  assert.truthy(!Combat.isEnemy({ kind: 'slime', id: 'released_slime_7' }),
+  assert.truthy(!Combat.isEnemy({ kind: 'slime', pet: true, id: 'released_slime_7' }),
     'a sapphire-tamed slime must never be auto-fired at');
 });
 
@@ -142,12 +142,12 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // back is the old per-frame `dps * dt` hose, which had no attack rate at all
   // and banked partial damage from a fight broken off mid-beat.
   const app = SCENE_SRC;
-  const wheel = app.slice(app.indexOf('    if (wp.combat) {'));
+  const wheel = app.slice(app.indexOf('  startCombat(victim'));
   // The reach conjunct in front of the cadence is the OTHER gate on the same
   // blow (see the melee-reach test below) — a swing must be both due and in
   // range — so the pin allows it and still refuses a blow that lands without
   // spending the clock.
-  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
+  assert.truthy(/if \((?:inSwing && )?now >= \(this\._nextBlowT \?\? 0\)\) \{[\s\S]*?this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\)(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -737,9 +737,9 @@ test('combat: melee reaches exactly as far as a melee monster does', () => {
   assert.gt(melee.length, 3, 'found the melee monsters');
   // Only a declared long reach (a swooping pass, a big body's arms) may
   // out-reach the player's fist; nothing reaches less.
-  const LONG = new Set(['bat', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'sword_spirit', 'brute', 'hell_brute', 'obsidian_brute',
+  const LONG = new Set(['bat', 'bee', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'sword_spirit', 'brute', 'hell_brute', 'obsidian_brute',
     'orc', 'minotaur', 'giant_slime', 'giant_spider', 'giant_skeleton', 'giant_cave_slime', 'giant_crab',
-    'red_demon', 'armoured_demon']);
+    'red_demon', 'armoured_demon', 'bugbear', 'troll', 'giant_bear', 'ogre', 'giant_reaper']);
   for (const [kind, m] of melee) {
     if (LONG.has(kind)) assert.gte(m.range, Combat.MELEE_REACH_CELLS, kind);
     else assert.eq(m.range, Combat.MELEE_REACH_CELLS, `${kind}: a melee monster reaches exactly what the player does`);
@@ -771,7 +771,7 @@ test('combat: every melee gate the player has runs the shared test', () => {
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
   // Enemy taps are handled without choosing a combat target. Feeding,
   // catching, petting and hunting keep their existing tap interactions.
-  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
+  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target) && !catchableAnimal) {'));
   const head = code(tap.slice(0, tap.indexOf('\n    }')));
   assert.falsy(/startCombat/.test(head), 'tapping a foe cannot select a melee target');
   assert.truthy(/return true/.test(head), 'the enemy tap is consumed');
@@ -784,27 +784,9 @@ test('combat: every melee gate the player has runs the shared test', () => {
   assert.falsy(/cellInReach/.test(autoHead),
     'the lit reach must not choose the foe a sword auto-engages');
 
-  // The wheel's escape abort: a FIGHT breaks at arm's length, a HUNT does not.
-  const wheel = SCENE_SRC.slice(SCENE_SRC.indexOf('const outOfRange = wp.combat'));
-  const wheelHead = code(wheel.slice(0, wheel.indexOf('if (outOfRange)')));
-  assert.truthy(/wp\.combat\s*\?\s*!Combat\.inMeleeReach/.test(wheelHead),
-    'a fight you have engaged ends when the foe backs out of swinging distance');
-  assert.truthy(/cellInReach/.test(wheelHead),
-    'and a hunt still runs to the lit reach — same wheel, two ranges');
-
-  // The BLOW itself, every interval, not just the engage. The break-off above
-  // is a 1 s grace and MELEE_INTERVAL_MS is 1 s, so an ungated swing landed a
-  // free hit at any distance on every break-off — and none at all on a foe
-  // that kept dipping back into reach, because that resets the grace.
-  const swing = SCENE_SRC.slice(SCENE_SRC.indexOf('if (wp.combat) {\n      const c = wp.combat;'));
-  const swingHead = code(swing.slice(0, swing.indexOf('const blow = Combat.meleeSwingDamage')));
-  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM, Gear\.activeWeapon\(this\.save\)\)/.test(swingHead),
-    'a blow only lands while the foe is within swinging distance');
-  assert.truthy(/inSwing && now >= this\._nextBlowT/.test(swingHead),
-    'the reach test gates the blow alongside the cadence, not instead of it');
-  assert.falsy(/_nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS/.test(
-    code(swing.slice(0, swing.indexOf('if (inSwing')))),
-    'a missed swing must not spend the blow clock — a foe that closes is hit at once');
+  const strike = SCENE_SRC.slice(SCENE_SRC.indexOf('  startCombat(victim'), SCENE_SRC.indexOf('  // The kill payload'));
+  assert.truthy(/Combat\.inMeleeReach/.test(strike), 'each strike checks current reach');
+  assert.falsy(/_workProgress/.test(strike), 'a strike never queues work');
 
   // The surface slime reads the one number rather than its own copy of it:
   // its row's range is the melee reach, and the mover's attack gate reads

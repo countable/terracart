@@ -9,7 +9,6 @@
 //     on the next UTC day;
 //   • every price is derived from items.js PRICES;
 //   • the chapel pays a tier under the chest (+ the churchyard nexus);
-//   • a tap credits a Scouting report aimed at its class;
 //   • the Training Hall's cap (+25%) and its 24 h drill;
 //   • the renderer draws a macro with the stall's numbers.
 (function () {
@@ -199,24 +198,6 @@
     assert.truthy(Macros.serviceUsedToday(save, o.id), 'the service lane holds it');
     assert.truthy(/^The chapel is quiet — \d+[smhd]$/.test(flashes[flashes.length - 1]), `the wait is shortDuration: ${flashes[flashes.length - 1]}`);
   }));
-
-  // ── Quest credit ──────────────────────────────────────────────────────────
-  for (const target of ['library', 'museum', 'place_of_worship']) {
-    test(`macro: a Scouting report on "${target}" is credited by tapping its macro`, () => {
-      const save = {
-        inv: [], opened: [], relics: {},
-        quests: { gen: 1, done: 0, slots: [
-          { id: 'q0', slot: 0, gen: 0, verb: 'poi', event: 'poi', need: 1, have: 0, target, reward: 55 }, null, null,
-        ] },
-      };
-      const scene = makeScene({ presentMacro: () => {}, _macroStory: () => false });
-      const real = globalThis.pickReward;
-      globalThis.pickReward = () => ({ kind: 'item', id: 'wood', qty: 1 });
-      try { runInteractable(makeCtx(scene, save), poi(target)); } finally { globalThis.pickReward = real; }
-      assert.truthy(macroFor(poi(target)), `${target} is a macro`);
-      assert.eq(save.quests.slots[0].have, 1, 'credited on the tap');
-    });
-  }
 
   // ── Stalls: stock and prices ──────────────────────────────────────────────
   test('apothecary: one remedy and the antidote, priced like a stall', () => {
@@ -637,7 +618,7 @@
   test('scholar: the shelf contains every tome once, humblest first, independent of chests', () => {
     const shelf = Macros.scholarShelf();
     const tomes = ITEMS.filter(item => isTome(item.id)).map(item => item.id);
-    assert.eq(shelf.length, 8);
+    assert.eq(shelf.length, 9);
     assert.eq(new Set(shelf).size, shelf.length, 'one of each per cycle');
     for (const id of shelf) assert.truthy(isTome(id), `${id} is a tome`);
     for (const id of tomes) assert.includes(shelf, id);
@@ -722,7 +703,7 @@
     assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'the stall counter prices off the ladder');
     assert.truthy(/const want = 1;/.test(SCENE_SRC), 'and sells a Book one at a time');
-    assert.truthy(/this\.buildShopOffer\(id, ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
+    assert.truthy(/this\.buildShopOffer\(id, units \* ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
       'the themed shop prices off the ladder');
     assert.eq((SCENE_SRC.match(/if \(id === 'book'\) ShopsMath\.bookBought\(this\.save, (?:take|buyQty)\);/g) || []).length, 2,
       'both counters climb the ladder on a sale');

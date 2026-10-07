@@ -332,7 +332,7 @@
     const fair = (id) => qtyFor(id) * priceOf(id) <= TRADER_MAX_OVERPAY * target;
     const held = new Map();
     for (const s of (inv || [])) {
-      if (!s || !priced(s.id) || !((s.count ?? 0) > 0)) continue;
+      if (!s || !priced(s.id) || !isItem(s.id) || !((s.count ?? 0) > 0)) continue;
       held.set(s.id, (held.get(s.id) || 0) + s.count);
     }
     const owned = [...held.keys()];

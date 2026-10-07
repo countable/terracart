@@ -247,7 +247,7 @@ test('ranged weapons: wake only for a foe within the reach plus a cell', () => {
   assert.eq(Combat.SHOT.staff.rangeFromReach, 0, 'magic stops at the vision range itself');
   assert.truthy(Combat.anyEnemyWithin(0, 0, [goblin('in', trig - 1, 0)], trig), 'inside: armed');
   assert.falsy(Combat.anyEnemyWithin(0, 0, [goblin('out', trig + 1, 0)], trig), 'on screen but beyond: silent');
-  assert.truthy(/const rangedArmed = !this\.isShadowActive\(\)\s*\n\s*&& Combat\.anyEnemyWithin\(px, py, enemies, Combat\.rangedTriggerM\(reachCells\(this\), this\.cellM\)\);\s*\n\s*if \(rangedArmed\)/.test(SCENE_SRC),
+  assert.truthy(/const rangedArmed = !Combat\.playerDowned\(this\.save\.energy\) && !Conditions\.attacksBlocked\(this\.save\) && !this\.isShadowActive\(\)\s*\n\s*&& Combat\.anyEnemyWithin\(px, py, enemies, Combat\.rangedTriggerM\(reachCells\(this\), this\.cellM\)\);\s*\n\s*if \(rangedArmed\)/.test(SCENE_SRC),
     'the auto-fire loop is gated on it (and holds its fire under a Shadow Powder)');
 });
 

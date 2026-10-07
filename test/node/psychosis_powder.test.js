@@ -93,7 +93,7 @@ test('psychosis: Combat.applyPsychosis is fear\'s shape — hostile only, drops 
   assert.eq(c._nextChooseT, now, 'turns now rather than finishing a hop at the player');
   assert.truthy(Combat.isEnemy(c), 'still hostile — it is mad, not charmed');
   assert.eq(c._statusPop?.label, Combat.STATUS_LOOKS.psychosis.label, 'announces itself');
-  assert.falsy(Combat.applyPsychosis({ id: 'released_pet', kind: 'slime' }, 10000, now), 'never a pet');
+  assert.falsy(Combat.applyPsychosis({ pet: true, id: 'released_pet', kind: 'slime' }, 10000, now), 'never a pet');
   assert.falsy(Combat.applyPsychosis({ id: 'cow', kind: 'cow' }, 10000, now), 'never game');
   // A cleansing (Antidote thrown, Potion of Time) clears it with the rest.
   PotionEffects.clearDebuffs(c);
@@ -107,7 +107,7 @@ test('psychosis powder: use takes every foe on screen, spends once, and is kept 
     { id: 'offscreen', kind: 'goblin', x: 101, y: 20 },
     { id: 'caught', kind: 'goblin', x: 20, y: 20 },
     { id: 'crow', kind: 'crow', x: 20, y: 20 },
-    { id: 'released_pet', kind: 'slime', x: 20, y: 20 }];
+    { pet: true, id: 'released_pet', kind: 'slime', x: 20, y: 20 }];
   const s = scene(creatures);
   s.save.caught = ['caught'];
   const before = performance.now();

@@ -81,7 +81,7 @@ test('spirit raven: a slime\'s stats, derived — and never an enemy', () => {
   assert.falsy(SpriteLayout.isGame('spirit_raven'), 'not game either — no hunt wheel');
   assert.falsy(SpriteLayout.isPet('spirit_raven'), 'not a pet: summoned, not tamed');
   assert.truthy(SpriteLayout.isSummoned('spirit_raven'), 'summoned');
-  assert.truthy(SpriteLayout.creatureFollows('spirit_raven'), 'it keeps to your side between fights');
+  assert.truthy(Companions.follows({kind:'spirit_raven',_followUntilT:Infinity}), 'it keeps to your side between fights');
   assert.truthy(Combat.isPlayerKill('pet'), 'its kills pay as the player\'s own');
 });
 
@@ -94,13 +94,13 @@ test('spirit raven: it hunts every foe and the pest deer — not game, not the t
   assert.falsy(huntsPrey(R, { kind: 'crow', id: 'crow_3_4_0' }), 'never a wild crow (game, not a dispatched pest)');
   assert.falsy(huntsPrey(R, { kind: 'deer', id: 'deer_3_4_0' }), 'never a deer (game)');
   assert.falsy(huntsPrey(R, { kind: 'chicken', id: 'chicken_3_4_0' }), 'never livestock');
-  assert.falsy(huntsPrey(R, { kind: 'slime', id: 'released_slime_1_2' }), 'never a tamed slime');
+  assert.falsy(huntsPrey(R, { kind: 'slime', pet: true, id: 'released_slime_1_2' }), 'never a tamed slime');
   assert.falsy(huntsPrey(R, { kind: R, id: 'spirit_raven_1_1_1_1' }), 'never another raven');
   // The pets' half of the same predicate is their own row, unchanged.
   assert.truthy(huntsPrey('cat', { kind: 'crow', id: 'crow_1_1_0' }), 'a cat still takes a crow');
   assert.truthy(huntsPrey('dog', { kind: 'deer', id: 'deer_1_1_0' }), 'a dog still takes a deer');
   assert.falsy(huntsPrey('dog', { kind: 'goblin', id: 'mon_goblin_1_1_1_0' }), 'but not a goblin');
-  assert.falsy(huntsPrey('cat', { kind: 'crow', id: 'released_crow_1' }), 'and never a tame crow');
+  assert.falsy(huntsPrey('cat', { kind: 'crow', pet: true, id: 'released_crow_1' }), 'and never a tame crow');
 });
 
 test('spirit raven: the pet lane is the raven\'s lane', () => {

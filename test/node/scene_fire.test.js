@@ -129,4 +129,14 @@ test('scene fire: casting a fireball leaves its launch cell safe in every direct
     }
   }
 });
+test('flight: ground fire cannot ignite airborne creatures or refresh player exposure', () => {
+  const now = Date.now(), s = scene({ _fireExposureAtWorld: () => 'fire', _damageBurningUnit() {} });
+  const c = { kind: 'zombie', id: 'flight-zombie', x: 4, y: 4, flightPotionUntil: now + 60000 };
+  s.save.flightPotionUntil = now + 60000;
+  s._tickUnitFire(c, now);
+  assert.falsy(Combat.burning(c, now)); assert.falsy(s._playerFireExposure());
+  c.flightPotionUntil = 0; s.save.flightPotionUntil = 0;
+  s._tickUnitFire(c, now + 1);
+  assert.truthy(Combat.burning(c, now + 1)); assert.truthy(s._playerFireExposure());
+});
 })();

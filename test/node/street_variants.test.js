@@ -1122,13 +1122,14 @@ test('thorny path: dense deterministic brambles cross their minor road and enclo
 test('snare lane: a deterministic central T3 cave cache surrounded by reserved traps', () => {
   const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'snare', 'Snare Street');
   const line = pts([[10,25],[54,25]]), middle = pts([[32,25]])[0];
-  const build = (lines, blocked = false, occupied = new Set()) => {
+  const build = (lines, blocked = false, occupied = new Set(), major = false) => {
     const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
     const spawnWhy = new Uint16Array(CPE*CPE);
-    if (blocked) spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    if (blocked) spawnWhy.fill(blocked === true ? WorldGen.SPAWN_WHY.RESTRICTED : blocked);
     const roadMask = new Uint8Array(CPE*CPE), roadClass = new Uint8Array(CPE*CPE);
     const grid = new Uint8Array(CPE*CPE).fill(T.PARK);
     for (let x=10; x<=54; x++) { roadMask[25*CPE+x]=1; grid[25*CPE+x]=T.ROAD; }
+    if (major) roadClass.fill(WorldGen.ROAD_CLASS_MAJOR_BAND | WorldGen.ROAD_CLASS_MAJOR_BUFFER);
     const opts = {roadMask, roadClass, spawnWhy, occupied};
     return {result: SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}), opts, grid};
   };
@@ -1142,19 +1143,29 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
   assert.eq(chestLootDepth(chest),1,'the reward picker uses the canonical cave mix');
   assert.eq(chestLootDepth({depth:4}),4,'ordinary underground chests retain their depth');
   assert.eq(cellOf(chest.x,TX),32,'reward halfway along the street');
-  assert.eq(result.traps.length,24,'two complete trap rings around the central reward');
+  assert.gt(result.traps.length,24,'dense cluster spans the road and both verges');
+  for (let x=30; x<=34; x++) {
+    assert.truthy(result.traps.some(t=>t._ix===x && t._iy===25),'no road passage through the cluster');
+  }
+  assert.truthy(result.traps.some(t=>t._iy<25),'traps reach the opposite verge');
+  assert.truthy(result.traps.some(t=>t._iy>25),'traps cover the reward verge');
   const occupied=new Set();
   for(const o of [chest,...result.traps]) {
     const ix=cellOf(o.x,TX),iy=cellOf(o.y,TY),i=iy*CPE+ix;
     assert.falsy(occupied.has(i)); occupied.add(i);
-    assert.truthy(opts.occupied.has(i)); assert.falsy(opts.roadMask[i]);
-    assert.truthy(WorldGen.isSpawnCell(grid,CPE,CPE,ix,iy,{...opts,occupied:new Set()},'fastEnemy'));
+    assert.truthy(opts.occupied.has(i));
+    if(o===chest) assert.falsy(opts.roadMask[i],'reward stays off the road');
+    const gate={...opts,occupied:new Set(),streetObstacleCells:new Set([i]),streetObstacleKind:'snare'};
+    assert.truthy(WorldGen.isSpawnCell(grid,CPE,CPE,ix,iy,gate,opts.roadMask[i]?'streetObstacle':'fastEnemy'));
     if(o!==chest) { assert.eq(o._ix,ix); assert.eq(o._iy,iy); }
   }
   assert.eq(deterministicSnapshot,JSON.stringify(build([[line[1],middle],[middle,line[0]]]).result),
     'reversed, fragmented geometry keeps the cache and traps');
   assert.eq(build([line],true).result.objects.length,0,'restricted ground holds no reward');
   assert.eq(build([line],true).result.traps.length,0);
+  assert.eq(build([line],WorldGen.SPAWN_WHY.PRIVATE).result.traps.length,0,'private land stays excluded');
+  assert.eq(build([line],false,new Set(),true).result.traps.length,0,'major roads and their buffers stay excluded');
+  assert.inRange(Math.abs(cellOf(chest.y,TY)-25),1,2,'cache sits immediately beside its own road');
   assert.eq(build([line],false,new Set(Array.from({length:CPE*CPE},(_,i)=>i))).result.objects.length,0,
     'occupied ground holds no reward');
   const picked=build([line]).result;

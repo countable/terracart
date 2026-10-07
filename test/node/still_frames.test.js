@@ -111,18 +111,19 @@ test('still frames: a view that only BREATHES keys on the slower pulse clock', (
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/const pnow = pulseClock\(wall\);/.test(d), 'draw() reads the breath off the wall clock, on its own grid');
   assert.truthy(/frameKey\(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx\)/.test(d), 'and keys on it');
-  assert.truthy(/flickerAlpha\(row, L\.dx, L\.dy, now, L\.id, pnow\)/.test(d), 'and paints with it');
+  assert.truthy(/flickerAlpha\(row, L\.dx, L\.dy, now, L\.id, pnow\)/.test(LIGHTING_SRC), 'and the shared light painter uses it');
 });
 
 test('still frames: draw() reads the quantised clock and gates before it touches the canvas', () => {
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/const now = lightClock\(wall\);/.test(d) && /const wall = Date\.now\(\);/.test(d), 'the frame clock is the lightmap\'s own, not the wall clock');
-  const gate = d.indexOf('if (key === tex.__lightKey)');
+  const gate = d.indexOf('if (key === tex.__lightKey');
   const paint = d.indexOf('const ctx = tex.context;');
   const refresh = d.indexOf('tex.refresh();');
   assert.truthy(gate > 0 && paint > gate && refresh > paint, 'the gate sits before the first canvas call, the upload last');
   assert.eq((d.match(/tex\.refresh\(\);/g) || []).length, 1, 'one upload per painted step, none on a reused one');
-  assert.truthy(/if \(key === tex\.__lightKey\) \{[\s\S]*?return false;/.test(d), 'a matching key returns without painting');
+  assert.truthy(/if \(key === tex\.__lightKey && !contributionPending\(scene\)\) \{[\s\S]*?return false;/.test(d),
+    'a matching key returns without painting unless a deferred contribution rebuild is due');
   assert.truthy(/tex\.__lightKey = key;/.test(d), 'and a painted key is remembered on the texture itself, so a rebuilt texture starts fresh');
 });
 
@@ -130,16 +131,9 @@ test('still frames: the loop steps on a cap, and the profile can tell the cap fr
   const a = SCENE_SRC;
   assert.truthy(/const FPS_LIMIT_DEFAULT = 30;/.test(a), 'thirty steps a second by default');
   const cfg = a.slice(a.indexOf('new Phaser.Game({'));
-  assert.truthy(/fps: \{ limit: PHASER_FPS_LIMIT \},/.test(cfg), 'the Phaser config carries the cap');
-  // A gate that is an exact multiple of the vsync misses every other frame
-  // as the float falls (a "30" cap measured ~23 steps/s on a 60 Hz phone):
-  // Phaser is handed one fps of slack, and no cap stays no cap.
-  assert.truthy(/const PHASER_FPS_LIMIT = FPS_LIMIT > 0 \? FPS_LIMIT \+ 1 : 0;/.test(a), 'one fps of slack under the vsync multiple');
-  const gateMs = 1000 / (30 + 1);
-  for (const hz of [60, 90, 120]) {
-    const frame = 1000 / hz, per = Math.round(hz / 30);
-    assert.truthy(per * frame >= gateMs && (per - 1) * frame < gateMs, `${hz} Hz: steps on exactly every ${per}th frame`);
-  }
+  assert.truthy(/fps: \{ limit: FPS_LIMIT \},/.test(cfg), 'the Phaser config carries the cap');
+  assert.truthy(/preBoot: \(game\) => installFrameCadence\(game\.loop\)/.test(cfg),
+    'the cadence adapter is installed before Phaser binds its display callback');
   assert.truthy(/urlNumParam\('fps'\)/.test(a) && /urlNumParam\('rscale'\)/.test(a), 'both A/B knobs read off the URL');
   // The profile: still steps apart from walking ones, the lightmap apart
   // from the object scan it runs inside, and the cadence line that says

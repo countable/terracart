@@ -90,9 +90,9 @@
       const look = chestLook(b);
       seen.add(look.texKey);
       assert.eq(tillBlockerLine(b), look.texKey === 'clay_pot' ? 'A clay pot stands here.' : 'A barrel stands here.', 'blocker names the visible object');
-      assert.eq(look.smashedKey, look.texKey + '_smashed', 'broken state matches the intact object');
+      assert.eq(look.smashedKey, look.texKey === 'clay_pot' ? 'clay_pot_smashed' : null, 'only clay pots retain broken art');
       assert.truthy(SpriteLayout.ART_BOUNDS[look.texKey + ':0'], 'intact art seats in its cell');
-      assert.truthy(SpriteLayout.ART_BOUNDS[look.smashedKey + ':0'], 'broken art seats in its cell');
+      if (look.smashedKey) assert.truthy(SpriteLayout.ART_BOUNDS[look.smashedKey + ':0'], 'broken art seats in its cell');
       const reloaded = { ...b, _chestLook: undefined, x: 1234, y: -45, _smashed: true };
       assert.eq(chestLook(reloaded).texKey, look.texKey, 'reload, position and spent overlays keep the pair');
       assert.falsy(restocks(b), 'neither container restocks');
@@ -173,14 +173,13 @@
     const sets = spentSets(null, save);
     assert.truthy(isSpent(b, sets), 'spent while bare');
     assert.falsy(poiLit(b, sets), 'and dark');
-    // The renderer keeps it, smashed — one art per state.
-    assert.truthy(/if \(o\.kind === 'chest' && isBarrel\(o\)\) \{ o\._smashed = spent; return true; \}/.test(RENDER_SRC),
-      'render.js keeps a spent barrel on the draw list');
-    assert.truthy(/\(L\.barrel && o\._smashed\) \? L\.smashedKey : L\.texKey/.test(RENDER_SRC), 'and draws it smashed');
-    const smashedAsset = ASSETS_SRC.match(/barrel_smashed: +\{ kind: 'spritesheet', path: '([^']+)'/);
-    assert.truthy(smashedAsset, 'the smashed art is loaded');
-    const dims = pngDims(smashedAsset[1]);
-    assert.truthy(dims && dims.w > 0 && dims.h > 0, 'the registered smashed art exists');
+    const filterSource = RENDER_SRC.match(/const filteredObj = objList\.filter\(([^]*?)\n  \}\);/)[1];
+    const filter = new Function('isSpent', 'isBarrel', 'chestLook', 'spentIds', `return (${filterSource}\n});`)(isSpent, isBarrel, chestLook, sets);
+    for (const barrelStyle of ['barrel', 'clay_pot']) {
+      const object = { ...b, barrelStyle, _chestLook: undefined };
+      assert.eq(filter({ o: object }), barrelStyle === 'clay_pot', 'collected wooden barrels disappear');
+      assert.truthy(filter({ o: { ...object, id: 'fresh-container', _chestLook: undefined } }), 'fresh containers remain');
+    }
   });
 
   test('breakables: pots and barrels stay smashed after save reload and ninety days', () => {
@@ -262,7 +261,7 @@
     // debug readout's `${steerSpeedMul(…)}` only prints it.
     const calls = SCENE_SRC.match(/(?<!\$\{)steerSpeedMul\([^)]*\)/g) || [];
     assert.eq(calls.length, 3, 'three readers');
-    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
+    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* Conditions\.movementMul\(this\.save\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
     assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(SCENE_SRC),
       'the follow cap, only while the stick is pushed');
     assert.truthy(/const bike = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),

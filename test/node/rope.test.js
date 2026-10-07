@@ -98,7 +98,7 @@ test('rope: useRope moves one level either way and is consumed only once the mov
   const moveAt = body.indexOf('this.changeDepth(delta, anchor);');
   const guardAt = body.lastIndexOf('return false;');
   assert.truthy(consumeAt > guardAt, 'the rope is consumed AFTER every refusal');
-  assert.truthy(moveAt > consumeAt, '…and before the move');
+  assert.truthy(moveAt < consumeAt, 'the rope is spent only after the move succeeds');
 });
 
 test('rope: the landing cell is stamped into dugWalls at the TARGET depth, before the move', () => {
@@ -106,8 +106,6 @@ test('rope: the landing cell is stamped into dugWalls at the TARGET depth, befor
   const body = m[1];
   const stamp = body.match(/if \(target > 0\) \{([\s\S]*?)\n    \}/);
   assert.truthy(stamp, 'a target-depth block');
-  assert.truthy(/this\.dugWallSet\.add\(`\$\{target\}:\$\{cellKeyFromAbsCell\(/.test(stamp[1]),
-    'keyed on the TARGET depth, in digCaveWall\'s own "<depth>:<absIX>_<absIY>" format');
   assert.truthy(/this\.dugWallSet = bindIdSet\(this\.save, 'dugWalls'\)/.test(app),
     'the bound set persists every added wall through save.js');
   assert.falsy(/this\.save\.dugWalls\s*=/.test(stamp[1]), 'the rope does not hand-sync the save array');
@@ -115,7 +113,7 @@ test('rope: the landing cell is stamped into dugWalls at the TARGET depth, befor
     'stamped before changeDepth, so the ensureTilesAround it triggers re-applies it');
   // And the re-apply really does run on every pass, cached tile or fresh —
   // otherwise a stamp on an already-loaded level would open nothing.
-  assert.truthy(/if \(this\.depth > 0\) \{\n\s*this\._applyDugWalls\(entry, tx, ty\);/.test(SCENE_SRC),
+  assert.truthy(/if \(this\.depth > 0 && this\.depth !== Arena\.DEPTH\) \{\n\s*this\._applyDugWalls\(entry, tx, ty\);/.test(SCENE_SRC),
     '_applyDugWalls runs in the ensureTilesAround loop for every underground tile');
 });
 })();

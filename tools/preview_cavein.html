@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cluster cave-in · Dragon Hood</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 system-ui;background:#191b1c;color:#e7e3d9}body{max-width:820px;margin:48px auto;padding:0 24px}h1{font-size:30px;margin-bottom:8px}p{color:#b9b9ae}main{display:flex;gap:32px;flex-wrap:wrap;align-items:start;margin:28px 0}canvas{background:#77756d;image-rendering:pixelated;border-radius:4px}button,a{font:inherit;color:inherit}button{background:#333c36;border:1px solid #73816b;padding:10px 16px;border-radius:5px;cursor:pointer;margin:4px 8px 4px 0}button:disabled{opacity:.5;cursor:default}#cavein-status{min-height:48px}progress{width:100%;accent-color:#bba270}img{image-rendering:pixelated;width:384px;max-width:100%;background:#77756d}small{color:#9c9e94}a{color:#c5d1b8}
+</style>
+<h1>Cluster cave-in</h1>
+<p>In strip mines and L1, stepping onto loose ground starts a cluster collapse. Half-cell cracks spread across each cell, then chunks fall away before the floor opens at five seconds.</p>
+<main>
+<canvas id="cavein-animation" width="192" height="192" aria-label="Quarry crack and floor gap"></canvas>
+<div><button id="cavein-step" disabled>Step on loose ground</button><button id="cavein-reset">Reset</button><p id="cavein-status" role="status">Loading art…</p><progress id="cavein-progress" max="5000" value="0"></progress><p><small>Three crack stages · 24 × 24 px each<br>The hole stays open until you reset this preview.</small></p><a href="../assets/Objects/HazardAnimationsV2/cavein.png" download>Download spritesheet</a></div>
+</main>
+<details><summary>Sprite sheet</summary><p><img src="../assets/Objects/HazardAnimationsV2/cavein.png" alt="Half-cell cracks, full-cell cracks, then fallen chunks"></p></details>
+<script src="../src/util.js"></script>
+<script src="../src/textures.js"></script>
+<script src="../src/environment_hazards.js"></script>
+<script>
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),step=document.querySelector('#cavein-step'),status=document.querySelector('#cavein-status'),progress=document.querySelector('#cavein-progress');
+ctx.imageSmoothingEnabled=false;
+const art=new Image();art.src='../assets/Objects/HazardAnimationsV2/cavein.png';
+let hazard=null,start=null,visit=0;
+const cells=[[0,1],[1,1],[1,2],[2,2]], joined=new Set(cells.map(c=>c.join(',')));
+let gap;
+makeCaveChasmTexture({textures:{exists:()=>false,createCanvas:(key,w,h)=>{gap=document.createElement('canvas');gap.width=w;gap.height=h;return {getContext:()=>gap.getContext('2d'),add:()=>{},refresh:()=>{}}}}},32);
+function draw(){
+  ctx.clearRect(0,0,192,192);if(!hazard)return;
+  const frame=EnvironmentHazards.update(hazard);
+  for(const [x,y] of cells){
+    if(hazard.phase==='open'){
+      let mask=0;for(const [dx,dy,bit] of [[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]])if(!joined.has(`${x+dx},${y+dy}`))mask|=bit;
+      ctx.drawImage(gap,mask*32,0,32,32,x*64,y*64,64,64);
+    }else ctx.drawImage(art,frame*24,0,24,24,x*64,y*64,64,64);
+  }
+}
+function reset(){hazard=null;start=null;step.disabled=false;progress.value=0;status.textContent='Undisturbed ground';draw()}
+art.onload=reset;art.onerror=()=>status.textContent='The sprite sheet could not load.';
+step.onclick=()=>{hazard={type:'cavein',id:`preview-${visit++}`,elapsedMs:0};start=performance.now();step.disabled=true;draw()};
+document.querySelector('#cavein-reset').onclick=reset;
+function tick(now){if(hazard){hazard.elapsedMs=Math.min(EnvironmentHazards.CONFIG.cavein.warningMs,now-start);draw();progress.value=hazard.elapsedMs;status.textContent=hazard.phase==='open'?'Permanent open hole':`${['Half-cell cracks','Full-cell cracks','Chunks falling away'][hazard.frame]} · ${(hazard.elapsedMs/1000).toFixed(1)} / 5.0 seconds`;}requestAnimationFrame(tick)}requestAnimationFrame(tick);
+</script>
+</html>

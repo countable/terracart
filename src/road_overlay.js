@@ -1057,8 +1057,8 @@
   // Feather `layer`'s alpha out across the edge of its own outline. One pass
   // per band WIDTH, since the radius is derived from it. No-op (hard edge
   // kept) where the platform can't blur.
-  function softenEdge(layer, size, ops) {
-    const mask = scratchLayer(size);
+  function softenEdge(layer, size, ops, scratchPool, maskSlot = 1) {
+    const mask = scratchLayer(size, scratchPool, maskSlot);
     if (!mask || !ops.length || !supportsFilter(mask.ctx)) return;
     const byWidth = new Map();
     for (const op of ops) {
@@ -1092,26 +1092,52 @@
   // scene.roadGeomContainer: the dilapidated base and the restored pass over
   // it; they share the recording front-end below and differ only in commit().
   const TEX_KEY = 'roadgeom_overlay';
+  const STAGE_TEX_KEY = 'roadgeom_overlay_stage';
+  const STAGE_RESTORED_TEX_KEY = 'roadgeom_restored_stage';
+  // A 2 ms work budget leaves ~6 ms of a 120 Hz frame for the ordinary
+  // update, Phaser's render and the eventual hidden-texture upload. One canvas
+  // operation can finish just after the deadline, so the extra millisecond of
+  // headroom keeps measured slices below 4 ms instead of merely aiming at it.
+  const ROAD_REBUILD_SLICE_MS = 2;
 
   // A scratch canvas the size of a pass's texture, for patterns that must land
   // on SOME of the network: a pattern fill is a whole-canvas operation, so the
   // strokes to mask against are replayed here, the pattern composited against
   // them, and the layer drawn back onto the real canvas.
-  function scratchLayer(size) {
+  //
+  // A rebuild used to allocate one full-size canvas for every pavement theme,
+  // another for weather and another for each feather mask. Keep two slots on
+  // the pass instead: one layer and one nested mask. Reset every mutable 2D
+  // state because a slot can follow any of those jobs on the next rebuild.
+  function scratchLayer(size, pool, slot = 0) {
     if (typeof document === 'undefined') return null;
-    const c = document.createElement('canvas');
-    c.width = c.height = size;
-    const cx = c.getContext('2d');
-    if (!cx) return null;
+    let layer = pool && pool[slot];
+    const reused = !!layer;
+    if (!layer) {
+      const c = document.createElement('canvas');
+      c.width = c.height = size;
+      const cx = c.getContext('2d');
+      if (!cx) return null;
+      layer = { canvas: c, ctx: cx };
+      if (pool) pool[slot] = layer;
+    } else if (layer.canvas.width !== size || layer.canvas.height !== size) {
+      layer.canvas.width = layer.canvas.height = size;
+    }
+    const cx = layer.ctx;
+    if (cx.setTransform) cx.setTransform(1, 0, 0, 1, 0, 0);
+    cx.globalAlpha = 1;
+    cx.globalCompositeOperation = 'source-over';
+    if (reused && typeof cx.filter === 'string') cx.filter = 'none';
+    if (cx.clearRect) cx.clearRect(0, 0, size, size);
     cx.lineCap = 'round';
     cx.lineJoin = 'round';
-    return { canvas: c, ctx: cx };
+    return layer;
   }
 
   // One replay of a recorded op list. `delta` widens (fringe) or narrows
   // (repair / kerb) every path; the floor keeps a hairline way from vanishing
   // outright. `css` overrides the recorded colour (the kerb's pale pass).
-  function strokeOps(ctx, ops, delta, css) {
+  function* strokeOpsSteps(ctx, ops, delta, css) {
     for (const op of ops) {
       ctx.lineWidth = Math.max(1, op.w + delta);
       ctx.strokeStyle = css || cssOf(op.c);
@@ -1119,8 +1145,11 @@
       ctx.moveTo(op.pts[0], op.pts[1]);
       for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
       ctx.stroke();
+      yield;
     }
   }
+  function drainSteps(it) { for (let n = it.next(); !n.done; n = it.next()) {} }
+  function strokeOps(ctx, ops, delta, css) { drainSteps(strokeOpsSteps(ctx, ops, delta, css)); }
 
   // World-phased pattern fill (shared by stones, edge noise, weathering and
   // setts): translating by the phase pins the tile to the world, and the fill
@@ -1147,7 +1176,7 @@
   // The recording front-end shared by both canvases: a Graphics-shaped object
   // whose strokes are buffered as ops (the passes below need the network more
   // than once) and replayed by commit().
-  function beginCanvasPass(scene, texKey, alpha) {
+  function beginCanvasPass(scene, texKey, alpha, visible = true) {
     if (typeof document === 'undefined' || !scene.textures || !scene.roadGeomContainer) return null;
     const pad = CELL_PX * 2;
     const size = Math.ceil(scene.viewSize + pad * 2);
@@ -1159,10 +1188,11 @@
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     const img = scene.add.image(originX, originY, texKey).setOrigin(0, 0).setAlpha(alpha);
+    if (!visible && img.setVisible) img.setVisible(false);
     scene.roadGeomContainer.add(img);
     const pass = {
       ctx, tex, size, originX, originY, image: img,
-      ops: [], decorOps: [], erases: [], pats: {},
+      ops: [], decorOps: [], erases: [], pats: {}, scratch: [],
       // World origin's position in this canvas — see patternFill.
       phaseX: 0, phaseY: 0,
     };
@@ -1196,38 +1226,42 @@
       },
       texturePhase(x, y) { pass.phaseX = Math.round(x - originX); pass.phaseY = Math.round(y - originY); },
     };
+    pass.target._pass = pass;
     return pass;
   }
 
   // ── The dilapidated pass ─────────────────────────────────────────────────
-  function commitBase(pass) {
+  // The canvas pass is a generator so the live renderer can build a hidden
+  // back-buffer within a time budget. The synchronous wrapper preserves the
+  // direct/headless contract used by tools and tests.
+  function* commitBaseSteps(pass) {
     const { ctx, size } = pass;
-    ctx.clearRect(0, 0, size, size);
+    ctx.clearRect(0, 0, size, size); yield;
     // Fringe pass at true width, then eat random bites out of everything.
-    strokeOps(ctx, pass.ops, 0);
+    yield* strokeOpsSteps(ctx, pass.ops, 0);
     const noise = patternOf(ctx, pass.pats, 'edge', edgeNoiseTile());
     if (noise && pass.ops.length) {
-      patternFill(ctx, pass, noise, 'destination-out', STONE_TILE_PX);
+      patternFill(ctx, pass, noise, 'destination-out', STONE_TILE_PX); yield;
       // Repair the interior: the bites survive only in the outer fringe.
-      strokeOps(ctx, pass.ops, -EDGE_FRINGE_PX);
+      yield* strokeOpsSteps(ctx, pass.ops, -EDGE_FRINGE_PX);
     }
     // source-atop keeps the stones inside the nibbled silhouette; laid BEFORE
     // the track furniture so ties and rails stay untextured.
     const stones = patternOf(ctx, pass.pats, 'stone', stoneTile());
-    if (stones) patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX);
+    if (stones) { patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX); yield; }
     for (const row of global.StreetVariants?.STREET_VARIANTS || []) {
       if (!row.stone?.pattern) continue;
       const ops = pass.ops.filter((op) => op.variant === row.id);
       if (!ops.length) continue;
-      const layer = scratchLayer(size);
+      const layer = scratchLayer(size, pass.scratch, 0);
       if (!layer) continue;
       const tile = document.createElement('canvas'); tile.width = tile.height = STONE_TILE_PX;
       paintPattern(tile.getContext('2d'), STONE_TILE_PX, row.stone.pattern, row.stone.accent);
       const pat = layer.ctx.createPattern(tile, 'repeat');
-      strokeOps(layer.ctx, ops, 0);
+      yield* strokeOpsSteps(layer.ctx, ops, 0);
       if (pat) patternFill(layer.ctx, pass, pat, 'source-in', STONE_TILE_PX);
       ctx.save(); ctx.globalCompositeOperation = 'source-atop';
-      ctx.drawImage(layer.canvas, 0, 0); ctx.restore();
+      ctx.drawImage(layer.canvas, 0, 0); ctx.restore(); yield;
     }
     // Weathering, on the ROADS only (rail is ballast). The road ops alone are
     // replayed on a scratch layer, the tile composited 'source-in' against
@@ -1237,18 +1271,18 @@
     const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR
       && !global.StreetVariants?.VARIANT_BY_ID[op.variant]?.hotRoad);
     if (roadOps.length) {
-      const layer = scratchLayer(size);
+      const layer = scratchLayer(size, pass.scratch, 0);
       const tile = weatherTile();
       if (layer && tile) {
         // The repaired width, so weathering never lands in the nibbled fringe.
-        strokeOps(layer.ctx, roadOps, -EDGE_FRINGE_PX);
+        yield* strokeOpsSteps(layer.ctx, roadOps, -EDGE_FRINGE_PX);
         const pat = layer.ctx.createPattern(tile, 'repeat');
         if (pat) {
           patternFill(layer.ctx, pass, pat, 'source-in', WEATHER_TILE_PX);
           ctx.save();
           ctx.globalCompositeOperation = 'source-atop';
           ctx.drawImage(layer.canvas, 0, 0);
-          ctx.restore();
+          ctx.restore(); yield;
         }
       }
     }
@@ -1259,13 +1293,14 @@
       ctx.beginPath();
       ctx.moveTo(op.pts[0].x, op.pts[0].y);
       for (let i = 1; i < op.pts.length; i++) ctx.lineTo(op.pts[i].x, op.pts[i].y);
-      ctx.stroke();
+      ctx.stroke(); yield;
     }
     ctx.globalAlpha = 1;
     // Applied LAST so the keep-out holes punch through band, gravel, cracks and track.
-    for (const [x, y, w, h] of pass.erases) ctx.clearRect(x, y, w, h);
-    pass.tex.refresh();
+    for (const [x, y, w, h] of pass.erases) { ctx.clearRect(x, y, w, h); yield; }
+    pass.tex.refresh(); yield;
   }
+  function commitBase(pass) { drainSteps(commitBaseSteps(pass)); }
 
   // ── The restored pass ────────────────────────────────────────────────────
   // No edge NIBBLE: a rebuilt street is whole. Its outline is feathered as a
@@ -1273,9 +1308,9 @@
   // Roads and paths are laid as SEPARATE layers because their clean tiles
   // differ and a pattern fill is a whole-canvas operation. Roads go down first
   // so a footpath crossing a street reads on top.
-  function commitRestored(pass) {
+  function* commitRestoredSteps(pass) {
     const { ctx, size } = pass;
-    ctx.clearRect(0, 0, size, size);
+    ctx.clearRect(0, 0, size, size); yield;
     // Palette colours are not identities: a dark hedge road and park path
     // may share black stone but still need their own mortar and pattern.
     const themes = new Map();
@@ -1288,27 +1323,28 @@
       const palette = global.StreetVariants?.VARIANT_BY_ID[variant]?.stone;
       const stoneColor = palette?.restored, pattern = palette?.pattern, accent = palette?.accent;
       if (!ops.length) continue;
-      const layer = scratchLayer(size);
+      const layer = scratchLayer(size, pass.scratch, 0);
       if (!layer) break;
       const lx = layer.ctx;
       const tile = cleanTile(isPath, stoneColor, pattern, accent);
       const pat = tile && lx.createPattern(tile, 'repeat');
-      strokeOps(lx, ops, 0);
+      yield* strokeOpsSteps(lx, ops, 0);
       if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
       // The kerb: wash the band pale, cover all but the outer pixel back up,
       // then re-lay the setts, leaving a hairline light edge.
       lx.save();
       lx.globalCompositeOperation = 'source-atop';
-      strokeOps(lx, ops, 0, `rgba(255,255,255,${KERB_ALPHA})`);
-      strokeOps(lx, ops, -KERB_INSET_PX);
+      yield* strokeOpsSteps(lx, ops, 0, `rgba(255,255,255,${KERB_ALPHA})`);
+      yield* strokeOpsSteps(lx, ops, -KERB_INSET_PX);
       lx.restore();
       if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
-      softenEdge(layer, size, ops);
-      ctx.drawImage(layer.canvas, 0, 0);
+      softenEdge(layer, size, ops, pass.scratch, 1);
+      ctx.drawImage(layer.canvas, 0, 0); yield;
     }
-    for (const [x, y, w, h] of pass.erases) ctx.clearRect(x, y, w, h);
-    pass.tex.refresh();
+    for (const [x, y, w, h] of pass.erases) { ctx.clearRect(x, y, w, h); yield; }
+    pass.tex.refresh(); yield;
   }
+  function commitRestored(pass) { drainSteps(commitRestoredSteps(pass)); }
 
   function canvasTarget(scene) {
     if (scene._roadGeomTarget) return scene._roadGeomTarget;
@@ -1331,6 +1367,104 @@
     return pass.target;
   }
 
+  // Canvas scenes keep one hidden base/restored pair as a back-buffer. A
+  // walking rebuild paints and uploads that pair over several updates while
+  // the old pair remains aligned and visible, then swaps both images together.
+  // The first paint and teleports remain synchronous: there is no retained
+  // padded picture that can cover those frames.
+  function ensureRoadStage(scene) {
+    if (scene._roadStageBasePass && scene._roadStageRestoredPass)
+      return { base: scene._roadStageBasePass, restored: scene._roadStageRestoredPass };
+    const base = beginCanvasPass(scene, STAGE_TEX_KEY, ALPHA, false);
+    const restored = beginCanvasPass(scene, STAGE_RESTORED_TEX_KEY, RESTORED_ALPHA, false);
+    if (!base || !restored) return null;
+    base.target.commit = () => commitBase(base);
+    restored.target.commit = () => commitRestored(restored);
+    scene._roadStageBasePass = base;
+    scene._roadStageRestoredPass = restored;
+    const c = scene.roadGeomContainer;
+    if (scene.roadLiveGfx && c && c.bringToTop) c.bringToTop(scene.roadLiveGfx);
+    return { base, restored };
+  }
+
+  function setPassVisible(pass, visible) {
+    if (pass?.image?.setVisible) pass.image.setVisible(visible);
+    else if (pass?.image) pass.image.visible = visible;
+  }
+
+  function swapRoadStage(scene) {
+    const oldBase = scene._roadGeomTarget?._pass;
+    const oldRestored = scene._roadRestoredTarget?._pass;
+    const newBase = scene._roadStageBasePass;
+    const newRestored = scene._roadStageRestoredPass;
+    if (!oldBase || !oldRestored || !newBase || !newRestored) return false;
+    setPassVisible(oldBase, false); setPassVisible(oldRestored, false);
+    setPassVisible(newBase, true); setPassVisible(newRestored, true);
+    scene._roadGeomTarget = newBase.target;
+    scene._roadRestoredTarget = newRestored.target;
+    scene._roadStageBasePass = oldBase;
+    scene._roadStageRestoredPass = oldRestored;
+    return true;
+  }
+
+  function* roadRebuildSteps(scene, tiles, paint, baseCellIX, baseCellIY, stage) {
+    const proj = overlayProjection(scene, paint.fracX, paint.fracY);
+    yield* rebuildBaseSteps(scene, tiles, proj, baseCellIX, baseCellIY, stage.base.target);
+    yield* rebuildRestoredSteps(scene, tiles, proj, baseCellIX, baseCellIY, stage.restored.target);
+  }
+
+  const roadNow = () => (typeof performance !== 'undefined' && performance.now)
+    ? performance.now() : Date.now();
+  function runRoadSlice(iterator, budgetMs = ROAD_REBUILD_SLICE_MS, now = roadNow) {
+    const t0 = now();
+    let result = { done: false }, steps = 0, ms = 0;
+    do {
+      result = iterator.next(); steps++;
+      ms = now() - t0;
+    } while (!result.done && ms < budgetMs);
+    return { done: result.done, steps, ms };
+  }
+
+  function sameRoadPaintInputs(a, b) {
+    return !!a && !!b && a.key === b.key && a.inputs.length === b.inputs.length
+      && a.inputs.every((old, i) => old[0] === b.inputs[i][0]
+        && old[1] === b.inputs[i][1] && old[2] === b.inputs[i][2]);
+  }
+
+  function startRoadJob(scene, tiles, paint, baseCellIX, baseCellIY) {
+    const stage = ensureRoadStage(scene);
+    if (!stage) return null;
+    const job = { paint, steps: roadRebuildSteps(scene, tiles, paint, baseCellIX, baseCellIY, stage) };
+    scene._roadRebuildJob = job;
+    return job;
+  }
+
+  function advanceRoadJob(scene) {
+    const job = scene._roadRebuildJob;
+    if (!job) return null;
+    const slice = runRoadSlice(job.steps);
+    const B = (typeof window !== 'undefined') ? window.__boot : null;
+    if (B) {
+      B.tick('road overlay rebuild', slice.ms);
+      B.count?.('road overlay rebuild steps', slice.steps);
+    }
+    return slice;
+  }
+
+  function publishRoadJob(scene, frame) {
+    const job = scene._roadRebuildJob;
+    if (!job) return null;
+    const offset = retainedOverlayOffset(scene, job.paint, frame);
+    if (!offset || !swapRoadStage(scene)) {
+      scene._roadRebuildJob = null;
+      return null;
+    }
+    scene._roadGeomFrame = job.paint;
+    scene._roadGeomKey = job.paint.key;
+    scene._roadRebuildJob = null;
+    return offset;
+  }
+
   // Prefer a scene-provided Graphics-shaped object (the headless tests inject
   // one); otherwise build the canvas adapter. The restored pass has no fallback.
   function strokeTarget(scene) {
@@ -1341,7 +1475,10 @@
   }
 
   function invalidate(scene) {
-    if (scene) scene._roadGeomKey = null;
+    if (scene) {
+      scene._roadGeomKey = null;
+      scene._roadRebuildJob = null;
+    }
   }
 
   // The world→screen transform is a pure translation, so the geometry is drawn
@@ -1355,6 +1492,7 @@
     const on = (scene.depth ?? 0) === 0;
     if (container) container.setVisible(on);
     if (!on) {
+      scene._roadRebuildJob = null;
       if (scene._roadGeomKey !== null) {
         g.clear();
         if (g.commit) g.commit();
@@ -1370,18 +1508,74 @@
     // The rebuild key is the snapped anchor cell plus which of the 3×3 tiles
     // have their MVT layers, so a tile that finishes loading (or is rebuilt)
     // repaints even while the player stands still.
-    const { fracX, fracY, baseCellIX, baseCellIY, tiles, ready } =
-      overlayFrame(scene, (entry) => !!entry.layers);
+    const frame = overlayFrame(scene, (entry) => !!entry.layers);
+    const { baseCellIX, baseCellIY, tiles } = frame;
     // The STREETS epoch, bumped by Streets.restore, repaints the restored
     // canvas after a restore and moves only when something changed.
     const epoch = (typeof Streets !== 'undefined' && scene.save) ? Streets.epoch(scene.save) : 0;
-    const key = `${baseCellIX},${baseCellIY},${ready},${epoch}`;
-    if (key !== scene._roadGeomKey) {
-      scene._roadGeomKey = key;
-      timedOverlayRebuild('road overlay rebuild',
-        () => rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY));
+    const previous = scene._roadGeomKey ? scene._roadGeomFrame : null;
+    const paint = overlayPaintFrame(scene, frame, previous, epoch);
+    let offset = paint, handled = false;
+
+    // A tile/epoch change supersedes a half-built back-buffer. Ordinary camera
+    // motion does not: the paint key is unchanged and the new pair can scroll
+    // from its own anchor when it becomes active.
+    let job = scene._roadRebuildJob;
+    if (job && !sameRoadPaintInputs(job.paint, paint)) {
+      scene._roadRebuildJob = null;
+      job = null;
     }
-    if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    if (job) {
+      const retained = retainedOverlayOffset(scene, previous, frame);
+      if (!retained) {
+        // The camera outran both the active pad and the in-flight pad. Drop the
+        // back-buffer; the synchronous teleport path below paints this frame.
+        scene._roadRebuildJob = null;
+      } else {
+        offset = retained;
+        handled = true;
+        if (claimOverlayRebuild(scene, 'road', false)) {
+          const slice = advanceRoadJob(scene);
+          if (slice?.done) {
+            const published = publishRoadJob(scene, frame);
+            if (published) offset = published;
+            else handled = false;
+          }
+        }
+      }
+    }
+
+    if (!handled && paint.rebuild) {
+      // Null = the retained paint cannot follow the anchor (a teleport
+      // outran its pad): spend this update's upload rather than show stale
+      // geometry for a frame.
+      const retained = retainedOverlayOffset(scene, previous, frame);
+      if (claimOverlayRebuild(scene, 'road', !retained)) {
+        const canStage = previous && retained && !scene.roadGeomGfx && !scene.roadRestoredGfx
+          && scene._roadGeomTarget?._pass && scene._roadRestoredTarget?._pass;
+        if (canStage && startRoadJob(scene, tiles, paint, baseCellIX, baseCellIY)) {
+          // The committed pair remains the picture until BOTH hidden textures
+          // are painted and uploaded. Scroll it from its retained anchor.
+          offset = retained;
+          const slice = advanceRoadJob(scene);
+          if (slice?.done) {
+            const published = publishRoadJob(scene, frame);
+            if (published) offset = published;
+          }
+        } else {
+          scene._roadGeomFrame = paint;
+          scene._roadGeomKey = paint.key;
+          timedOverlayRebuild('road overlay rebuild',
+            () => rebuild(scene, tiles, paint.fracX, paint.fracY, baseCellIX, baseCellIY));
+        }
+      } else {
+        // Another overlay took this update's upload. Keep this padded road
+        // paint aligned from ITS old anchor; next frame recomputes from latest
+        // state rather than replaying a stale queued closure.
+        offset = retained;
+      }
+    }
+    if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
   }
 
   // ── Keep-out ─────────────────────────────────────────────────────────────
@@ -1461,7 +1655,7 @@
   // crossing a motorway reads on top. Sorted rather than insertion-ordered so
   // draw order doesn't depend on tile load order; ties break on colour and
   // pavement identity.
-  function strokeBuckets(g, runsByStyle, alpha) {
+  function* strokeBucketsSteps(g, runsByStyle, alpha) {
     const styles = [...runsByStyle.values()]
       .sort((a, b) => (b.widthPx - a.widthPx) || (a.color - b.color)
         || (Number(!!a.isPath) - Number(!!b.isPath)) || String(a.variant || '').localeCompare(String(b.variant || '')));
@@ -1471,16 +1665,17 @@
         g.beginPath();
         g.moveTo(run[0].x, run[0].y);
         for (let i = 1; i < run.length; i++) g.lineTo(run[i].x, run[i].y);
-        g.strokePath();
+        g.strokePath(); yield;
       }
     }
   }
+  function strokeBuckets(g, runsByStyle, alpha) { drainSteps(strokeBucketsSteps(g, runsByStyle, alpha)); }
 
   // Iterate every transportation LINE of every tile in the frame:
   // fn(feature, line, lineIdx, mvtToM, originMx, originMy, tileKey).
   // Lot lanes normally never reach here (WorldGen.isLotLane); the check below
   // is belt and braces for a layer that skipped the rasterizer.
-  function eachTransportLine(tiles, fn) {
+  function* transportLines(tiles) {
     for (const { tx, ty, entry } of tiles) {
       const tileEdgeM = entry.tileEdgeM;
       const originMx = tx * tileEdgeM;
@@ -1496,11 +1691,15 @@
           for (let i = 0; i < f.geom.length; i++) {
             const line = f.geom[i];
             if (!line || line.length < 2) continue;
-            fn(f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi);
+            yield { f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi };
           }
         }
       }
     }
+  }
+  function eachTransportLine(tiles, fn) {
+    for (const r of transportLines(tiles))
+      fn(r.f, r.line, r.i, r.mvtToM, r.originMx, r.originMy, r.tileKey, r.entry, r.fi);
   }
 
   function rebuild(scene, tiles, fracX, fracY, baseCellIX, baseCellIY) {
@@ -1508,15 +1707,14 @@
     // the sub-cell offset) and the padded cull bounds. Both passes share it, so
     // the restored metres land exactly on the band they were restored from.
     const proj = overlayProjection(scene, fracX, fracY);
-    rebuildBase(scene, tiles, proj, baseCellIX, baseCellIY);
-    rebuildRestored(scene, tiles, proj, baseCellIX, baseCellIY);
+    drainSteps(rebuildBaseSteps(scene, tiles, proj, baseCellIX, baseCellIY, strokeTarget(scene)));
+    drainSteps(rebuildRestoredSteps(scene, tiles, proj, baseCellIX, baseCellIY, restoredTarget(scene)));
   }
 
   // ── The dilapidated network ──────────────────────────────────────────────
-  function rebuildBase(scene, tiles, proj, baseCellIX, baseCellIY) {
-    const g = strokeTarget(scene);
+  function* rebuildBaseSteps(scene, tiles, proj, baseCellIX, baseCellIY, g) {
     if (!g) return;
-    g.clear();
+    g.clear(); yield;
     const { projX, projY } = proj;
 
     // Ways are collected into runs of ON-SCREEN segments, bucketed by stroke
@@ -1534,7 +1732,8 @@
       if (isRail) railRuns.push(run);
     };
 
-    eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi) => {
+    for (const r of transportLines(tiles)) {
+      const { f, line, i, mvtToM, originMx, originMy, entry, fi } = r;
       const widthPx = widthPxFor(scene, f.tags);
       const color = colorFor(f.tags);
       const isRail = RAIL_CLASSES.has((f.tags && f.tags.class) || '');
@@ -1549,11 +1748,12 @@
         if (style && StreetVariants.carpetStyleFor(style.variant)) carpets.push({ pts, variant: style.variant,
           halfM: (widthPx / CELL_PX) * scene.cellM / 2 });
       }
-    });
+      yield;
+    }
 
-    strokeBuckets(g, runsByStyle, ALPHA);
+    yield* strokeBucketsSteps(g, runsByStyle, ALPHA);
     // Dress the railways as track, only where the target can draw decor.
-    if (g.decorPath) for (const run of railRuns) emitRailDecor(scene, g, run);
+    if (g.decorPath) for (const run of railRuns) { emitRailDecor(scene, g, run); yield; }
     // Carpet strips either side of the road on the verge cell (so the keep-out
     // trims them like the track), then the row's emblem down each strip.
     if (g.decorPath) for (const { pts, variant, halfM } of carpets) {
@@ -1562,14 +1762,18 @@
         emitRuns(offsetLine(pts, side * off), proj, (run) => {
           emitCarpetStrip(g, run, variant);
         });
+        yield;
       }
     }
-    keepOut(scene, g, baseCellIX, baseCellIY);
+    keepOut(scene, g, baseCellIX, baseCellIY); yield;
     // Anchor the stone pattern to the world, so walking scrolls the texture
     // with the road rather than under it.
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
-    // Upload the finished canvas once, after every way is on it.
-    if (g.commit) g.commit();
+    // Upload the finished hidden canvas once, after every way is on it.
+    if (g.commit) {
+      if (g._pass) yield* commitBaseSteps(g._pass);
+      else { g.commit(); yield; }
+    }
   }
 
   // ── The restored metres ──────────────────────────────────────────────────
@@ -1577,10 +1781,9 @@
   // interval list of metres from the save through Streets. Each interval
   // becomes its own exact sub-polyline, so a restored stretch ends where the
   // dwell ended rather than at the nearest vertex. Rail is skipped.
-  function rebuildRestored(scene, tiles, proj, baseCellIX, baseCellIY) {
-    const g = restoredTarget(scene);
+  function* rebuildRestoredSteps(scene, tiles, proj, baseCellIX, baseCellIY, g) {
     if (!g) return;
-    g.clear();
+    g.clear(); yield;
     const { projX, projY } = proj;
     const S = (typeof Streets !== 'undefined') ? Streets : null;
     if (S && scene.save) {
@@ -1592,27 +1795,34 @@
         if (!bucket) { bucket = { widthPx, color, variant, isPath, runs: [] }; runsByStyle.set(k, bucket); }
         bucket.runs.push(run);
       };
-      eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi) => {
-        if (RAIL_CLASSES.has((f.tags && f.tags.class) || '')) return;
-        const list = S.restoredList(scene.save, tileKey, S.lineKey(f, i));
-        if (!list || !list.length) return;
-        const widthPx = widthPxFor(scene, f.tags);
-        const color = restoredColorFor(f.tags);
-        const styles = global.StreetVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : [{ a: 0, b: Infinity }];
-        for (const style of styles) for (const iv of S.intersect(list, [[style.a, style.b]])) {
-          const hex = global.StreetVariants && StreetVariants.stoneColorFor(style.variant);
-          const tint = hex ? parseInt(hex.slice(1), 16) : color;
-          const sub = S.subLineM(line, mvtToM, iv[0], iv[1]);
-          if (!sub || sub.length < 2) continue;
-          const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
-          emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, style.variant, PATH_CLASSES.has(f.tags?.class)));
+      for (const r of transportLines(tiles)) {
+        const { f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi } = r;
+        if (!RAIL_CLASSES.has((f.tags && f.tags.class) || '')) {
+          const list = S.restoredList(scene.save, tileKey, S.lineKey(f, i));
+          if (list && list.length) {
+            const widthPx = widthPxFor(scene, f.tags);
+            const color = restoredColorFor(f.tags);
+            const styles = global.StreetVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : [{ a: 0, b: Infinity }];
+            for (const style of styles) for (const iv of S.intersect(list, [[style.a, style.b]])) {
+              const hex = global.StreetVariants && StreetVariants.stoneColorFor(style.variant);
+              const tint = hex ? parseInt(hex.slice(1), 16) : color;
+              const sub = S.subLineM(line, mvtToM, iv[0], iv[1]);
+              if (!sub || sub.length < 2) continue;
+              const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
+              emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, style.variant, PATH_CLASSES.has(f.tags?.class)));
+            }
+          }
         }
-      });
-      strokeBuckets(g, runsByStyle, RESTORED_ALPHA);
+        yield;
+      }
+      yield* strokeBucketsSteps(g, runsByStyle, RESTORED_ALPHA);
     }
-    keepOut(scene, g, baseCellIX, baseCellIY);
+    keepOut(scene, g, baseCellIX, baseCellIY); yield;
     if (g.texturePhase) g.texturePhase(projX(0), projY(0));
-    if (g.commit) g.commit();
+    if (g.commit) {
+      if (g._pass) yield* commitRestoredSteps(g._pass);
+      else { g.commit(); yield; }
+    }
   }
 
   // A round cap/join for a stroked polyline that never paints ground the
@@ -1740,5 +1950,6 @@
                          offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
-                         CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
+                         CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,
+                         ROAD_REBUILD_SLICE_MS, runRoadSlice };
 })(window);

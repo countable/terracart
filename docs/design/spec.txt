@@ -1,0 +1,1092 @@
+Dragon Hood  (formerly Mending Lane / TerraCart / Pocket Acres; the neighbourhood is still Mending Lane; storage keys stay `terracart.*`)
+
+A gps driven farming rpg. Inspiration from Pokemon Go and Core keeper/Stardew valley
+
+This is the design spec: what the game does and why. It is NOT the authority on
+numbers or invariants — the code is, and CLAUDE.md's QC rules are. Where this
+file and either of them disagree, this file is the stale one: fix it.
+Numbers, weights, prices, per-tier tables and item lists live in code; each
+section points at its owning file and symbol, in backticks.
+
+Core game loop.
+1. Player should be rewarded for exploring a large area and finding objects which often correspond to real world map POIs.
+2. Economic progression via farming, trading, hunting, exploring.
+3. Safety - only encourage the player to go places that are actually safe to walk (avoid the need to walk on roads, water, private property)
+
+Game objects:
+
+# cells
+The game is made of a grid of cells generated from vector tile data.
+ - Some cells are tillable to replace with tilled soil.
+ - grassland biome cells till in half the time.
+ - roads should never have any interactables on them directly (only walkable
+   paths, or sidewalk beside road). The spawn gate that enforces this is in
+   CLAUDE.md ("Generation, saves and tiles").
+
+# viewport
+ - the player sees a small square viewport centred on them (`util.js`
+   `VIEW_CELLS`). Interaction REACH is a separate, smaller radius — see
+   MOVEMENT & REACH.
+ - only update or consider timers of cells near the player. Offscreen cells
+   keep the timestamp of their last event (a crop keeps its planted time) and
+   catch up when seen.
+
+# interactables
+Each cell may contain one interactable object (excluding fauna). ie, rocks, trees, crops.
+ - timed actions use the WORK WHEEL; a matching tool relic speeds them. Trees
+   and ore rocks also have a required tool tier (see MOVEMENT & REACH).
+ - state changes should have some visual or text indication.
+ - other than house icons and fauna, interactables should fit in a single cell
+   (it should be clear which cell they are "in").
+
+# fauna
+Entities that can typically move around over cells, like pets, enemies, wild animals
+ - crows move in pauses and short straight glides. Ravens (a coin thief) and
+   gulls (a food thief) are the crow's body in other colours; each steals once
+   per bird per UTC day, then is sated and flies off.
+ - SPEED CEILING, shiny speed and the hunted crow's retreat hop: CLAUDE.md
+   ("Generation, saves and tiles"; `creature_ai.js` `WILD_SPEED_CEILING_MPS`,
+   `CROW_DEPART_HOP`).
+ - no fauna may move onto a building footing, or a major (MD/LG) road; minor
+   streets and paths are crossable. None is SEATED on any road: every spawner
+   goes through `WorldGen.isSpawnCell`.
+ - animals simulate only inside a SIM BUBBLE around the player's feet
+   (`creature_ai.js` `CREATURE_SIM_CELLS`), deliberately larger than the
+   viewport so a creature is already moving before it comes into view.
+   Measured from the player, never the camera anchor — a peek drag wakes
+   nothing.
+ - CROP RAIDERS: the deer and the crow (`SpriteLayout.CREATURE_BEHAVIOUR`
+   `raidsCrops`) notice crops they may eat and go for them. Neither touches a
+   potato (`Crops.raiderEats`). The deer bolts from a nearby player, so a
+   field is safe while you stand in it; dogs hunt deer, cats hunt crows,
+   scarecrows turn both.
+ - the slime is a pest that drifts toward the player and leeches energy when
+   adjacent; it can be tamed only with a sapphire (the one secret, hinted only
+   in the Book's closing riddle).
+ - DERELICT LAIRS (`src/lairs.js`, in both modes): an unclaimed structure may
+   hold a garrison. What it holds and how many come only from the building
+   itself — its tier and a world-fixed strength drawn from its own identity —
+   never from Home, the save or tile-load order, so two players at the same
+   ruin meet the same monsters. A wrecked house is squatted by slimes; a fort
+   or castle is held by goblins.
+   Whether a ruin is held at all is drawn from the same stream, so an empty
+   ruin stays empty; a tile-wide cap keeps a dense city from being one
+   garrison per house (`Lairs.OCCUPANCY`, `Lairs.tileThin`). Easy mode wakes
+   only the first few guards of any garrison, the same ones hard meets first
+   (`difficulty.js` `lairGuardMax`).
+   A garrison HOLDS its seat (so the ruin reads as held from across the
+   street), HUNTS when the player comes near, and RETURNS when the player
+   escapes, without biting on the way home. Both rings are measured from the
+   ruin, so the garrison moves as one and the chase is bounded
+   (`Lairs.guardState`). Garrisons are WOKEN around the player, not spawned at
+   tile build (`Lairs.stepResidency`), and are generated, never stored: only
+   killed guards reach the save. Authored groups are rows of `Lairs.GROUPS`
+   (CLAUDE.md "Shared design rules"); the full rationale is the header of
+   `src/lairs.js`.
+ - THE PEST PUMP (hard mode, `difficulty.js` `cropPests`): a planted crop with
+   no wild deer near dispatches one just off-screen on a timer
+   (`creature_ai.js` `PEST_DISPATCH_MS`), so farming on hard is not an
+   unattended income. On easy only the deer and crows a tile spawns raid.
+ - wild deer and crow are GAME; equipped-weapon taps start a hunt using
+   the BUG NET's timed wheel, while fed animals can be caught (see CREATURES).
+ - feed an animal its favourite food (`items.js` `ANIMAL_FOOD`) before
+   catching it. Only catching completes the pet bond.
+ - pets keep individual state while carried, following or staying Home.
+ - pets recover energy gradually; favourite food fills their energy.
+
+# biomes
+Different map polygons rasterize to tiles according to rules
+
+## Residential
+ - Small roads surrounded by housing.
+ - Avoid interactables or fauna on private property: yards and lots with no
+   public frontage are refused by the spawn gate (CLAUDE.md, BEHIND_HOUSE /
+   PRIVATE).
+
+================================================================================
+ONBOARDING (the first session)
+================================================================================
+ - OPENING: two story slides (trailer → wrecked neighbourhood), then the safety
+   splash + "Go to my location". On a brand-new save the first GPS fix triggers
+   a reload to anchor the projection, so nothing shown before it survives.
+ - THE ONE NEIGHBOUR: on a new save the safe area's WARDEN (`npc.js`
+   `STORY_ROLES`, seated by `Starter.placeSafeAreaWarden`) is the only person
+   on screen. The family's plea is what the warden SAYS ON A TAP — never
+   splashed over the map. Everyone else comes back as memories are recovered:
+   the story neighbours at their role's memory threshold, ordinary residents
+   in Home's ring or beside a restored house, off screen, never watched
+   appearing (`NPC.arrivals`, `NPC.tickArrivals`). Zone keepers never left.
+   CLAUDE.md ("Dialogs, feedback and teaching") owns the rule.
+ - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
+   reload), covering movement, reach, the farming loop, energy and home-only
+   selling. Reopenable from ☰ "How to play".
+ - OBJECTIVE CHIP: a HUD chip naming the ONE next thing to do (`quests.js`
+   `STARTER_CHAIN` — open a crate → till → plant → restore a wreck → harvest
+   → sell at Home). Steps auto-advance on gameplay events fired from the sites
+   that perform them (`scene.questEvent`) and each pays a small reward. The
+   chip retires when the ladder finishes or is dismissed (☰ "Show objectives"
+   brings it back). Hard mode has no ladder (`difficulty.js`).
+   The starter ladder is INDEPENDENT of castle quests and citadel garrisons.
+   It never opens a castle.
+ - STARTER COMPASS: a light-green edge arrow (the tutorial's colour) toward
+   the ACTIVE step's own space (`app.js` `_starterGuidanceGoal`): the nearest
+   crate, the plot, the soil, a wreck, the crop, Home. When a step needs
+   something the bag lacks (a seed, the restore price) it points back at the
+   crates. The arrow must never lead away from what the chip asks for.
+ - THE CRATE TRAIL: four supply crates are laid along the walk from spawn to
+   the relic chest, packed into its near part (`starter.js` `TRAIL_SPAN`) so
+   all four are met early. Each stop is in view from the one before. A road
+   near the anchor takes the trail onto its kerb (the chip says "along the
+   road"); otherwise it follows a walkable route that bends round water and
+   buildings. Contents run in the LADDER's order of need, nearest first —
+   seeds before the stone and wood a rebuild needs. Crates seat only on legal
+   ground, never the road band or the trailer's moat.
+ - THE RELIC CHEST: one real treasure chest a screen from spawn, on a cell the
+   anchor can walk to, holding ONE random wooden relic — the only thing in the
+   opening that hands out a TOOL. Derived from the frozen spawn anchor, so a
+   rebuild reproduces it; never a downgrade (`rarity.js`
+   `reconcileRelicOffer`).
+ - NO PESTS AT HOME UNTIL THE FIRST HARVEST (easy mode, `difficulty.js`
+   `pestAmnesty`): until `save.hasHarvested`, no pest is seated near the
+   starting anchor (`PEST_FREE_CELLS`). The opening is the stretch with no
+   weapon and an empty bag; a pest on the tutorial plot interrupts the ladder
+   rather than teaching a fight. A spawn rule, not a cull, baked at tile build.
+
+================================================================================
+CORE
+================================================================================
+ - fullscreen mobile web first (desktop too), a phone-shaped column centred in
+   the browser.
+ - vector map tiles from OpenFreeMap (OpenMapTiles schema, no API key),
+   decoded by hand (`mvt.js`) and cached in IndexedDB; fetched through
+   `fetchTileResponse` (CLAUDE.md).
+ - Phaser 3 renders the world to a canvas. The view centres on a CAMERA ANCHOR
+   — the player plus any peek drag (see INTERACTION MODEL).
+ - graceful network loss: a 'reconnecting' banner; cached tiles still serve,
+   and a service worker (`sw.js`) precaches the app shell.
+ - EXTERNAL MAP DATA IS CACHED AGGRESSIVELY AND NEVER EXPIRES. A cached tile
+   is served forever; age only decides whether to ALSO refresh in the
+   background, and a failed refresh leaves the cached copy as it was. Only the
+   menu's "Reset this game" clears the tile stores.
+ - a tile whose build FAILS is not remembered as failed: the half-built entry
+   is dropped so a later pass retries.
+ - a tile already on screen is never taken away to be rebuilt: the replacement
+   is built alongside and swapped in only when ready; a failed rebuild leaves
+   the original. Nothing reverts to grass mid-play.
+ - in-memory tiles are LRU-capped; an evicted tile rebuilds from cached bytes,
+   and per-tile player state lives in `save.*` so the rebuild reconstructs the
+   same view.
+ - all progress lives in one `save` object persisted to localStorage
+   (`save.js`). Tiles cache separately in IndexedDB.
+
+================================================================================
+MOVEMENT & REACH
+================================================================================
+ - GPS drives the player on mobile; WASD / arrows on desktop. The first key
+   press latches a manual override for the session.
+ - ONE movement model at every depth: a GPS fix (plus any stick offset) sets a
+   TARGET and the body walks toward it — underground mining through whatever
+   blocks it.
+ - a GPS crosshair (`gpsGhost`) marks your REAL position whenever the body has
+   left it, so you can see where you are and walk back.
+ - the MOVEMENT STICK is always on screen and needs no relic (see STICK
+   WALKING under GEAR).
+ - device compass drives a facing arrow; with no compass it falls back to the
+   last move direction.
+ - REACH: you can only interact with cells within your reach radius, measured
+   from the player's FEET, never the camera anchor. The lit area, the cell-tap
+   gate and every object/creature gate read the same test (`coords.js`
+   `reachRadiusM`, `cellInReach`), so "if it's lit, you can tap it". THE LIGHT
+   IS THE AFFORDANCE: no reach outline.
+ - LIGHTING is ONE pass (`src/lighting.js`; sources are rows of
+   `Lighting.KINDS`). CLAUDE.md ("Lighting and streets") owns the rules;
+   `tools/layer_audit.js` pins the layer order.
+ - REACH SIZE (`coords.js` `reachCells`): grows with the wizard's Inner Light
+   rungs (`save.reachUpgrades`), shrinks per cave level. Being tired does NOT
+   shrink reach — the lit range flushes red as energy runs low — but at 0
+   energy there is no reach at all. A Potion of Reach opens the whole view
+   for its duration.
+ - WORK WHEEL: every timed action (chop / mine / fish / pick a worked crop /
+   catch or hunt an animal) shows a progress wheel at the spot. The matching
+   tool's TIER sets the duration on ONE geometric ladder shared by every tool
+   (`items.js` `TOOL_DURATION_MS`, `toolDurationMs`); bare hands are a slower
+   floor below the first rung, so work is always possible. The ladder is
+   geometric so every upgrade reads as an upgrade.
+   TOOL GATES: trees and ore rocks have a required tool tier (tree size and
+   species, ore tier). Exactly one tier short offers a slow, costly grind;
+   further short is refused; an under-tooled target draws faded
+   (`interactables.js` `runInteractable`, `isToolGated`, `SLOW_GRIND_MS`).
+   Fishing is the exception to the ladder (see FISHING). Tapping anywhere
+   cancels a wheel and refunds any pre-charged energy; the launching tap
+   cannot cancel it.
+ - COMBAT shows no wheel — the target wears a HEALTH BAR. Weapon damage rates
+   derive from the same work ladder (see COMBAT).
+
+================================================================================
+ENERGY & FOOD
+================================================================================
+ - energy is the one pool (`save.energy`, written only by `Energy.set`) spent
+   on hard actions and shown as ⚡cur/max with a traffic-light colour.
+ - job costs (`items.js` `ENERGY_COST`, and each interactable's `energy`): the
+   tool jobs cost less with a better matching tool; picking wildplants is
+   free.
+ - ARMOUR does NOT raise max energy — it SOAKS blows (`Combat.mitigate`,
+   `Combat.playerDamage`): each worn piece adds its tier to a pool spent
+   against each hit with diminishing returns, and a hit always lands at least
+   a little. Routing and ordering rules are CLAUDE.md's ("Combat, energy and
+   Home").
+ - max energy rises two ways (`Energy.maxEnergy`): a FIRST-TASTE bonus for
+   every distinct edible ever eaten (`save.eaten`) and the wizard's VIGOUR
+   rungs (`save.vigourUpgrades`).
+ - EAT: a persistent Eat button eats the selected food (`FOOD_ENERGY`). Pets
+   are never edible.
+ - special foods have side effects (a rainberry waters nearby crops, a pairy
+   points at the nearest undiscovered chest, coffee hurries the stick); their
+   timers are rows of `Buffs.KINDS` (CLAUDE.md status row rule).
+ - REST: energy regenerates in a rest context and pauses while you are
+   WORKING (`energy.js`; `app.js` owns the per-frame accrual):
+     * HOME — Home's ring (`HOME_R`) rests you fastest. THE ONLY BUILDING THAT
+       RESTS YOU. Home is a campfire you own: the same ring lights, rests and
+       wards (CLAUDE.md).
+     * CAMPFIRE — a lit fire's ring (`FIRE_REST_R`) rests slowly, anywhere.
+     * OFFLINE — the bar refills pro rata while the tab is closed
+       (`Energy.OFFLINE_FULL_REST_MS`).
+ - EXHAUSTION: hitting 0 energy UNDERGROUND blacks the player out and wakes
+   them on the surface, costing half their coins (never negative); they wake
+   drained and cannot go back down until they rest (`app.js`
+   `_passOutToSurface`). On the surface 0 energy only blocks energy-costing
+   actions — except on hard, where it costs the same half purse.
+
+================================================================================
+WORLD GENERATION
+================================================================================
+ - each MVT tile is rasterized ONCE into a grid of cells (`WorldGen.CELL_M`,
+   one terrain class per cell), then decorated with objects, debris,
+   creatures and treasure. Deterministic per tile, so the same place always
+   generates the same world (identity rules: CLAUDE.md).
+ - terrain cell classes group into three base biomes; each subtype gets its own
+   colour so the world reads varied but cohesive:
+     ROCKY/URBAN: residential, commercial (retail/hospital), industrial, road,
+                  path, building tiers, pier
+     FOREST:      forest, orchard, wetland
+     GRASSLAND:   grass, park, school grounds, sports pitch, playground, golf,
+                  farmland (allotments lumped in)
+   plus water and sand. Roads split into minor / avenue / highway; buildings
+   into house / fort / castle.
+ - building tier comes from footprint area and height; each building places
+   one house/tower sprite anchored on its footprint.
+ - BUILDING FOOTPRINTS NEVER OVERLAP. Each polygon is assigned an exclusive
+   set of cells before anything is painted, decided by how much of each cell
+   each polygon covers, never by paint order — so a building clipped by a tile
+   seam is shaped the same in both tiles. A shed smaller than a cell still
+   gets one.
+ - every tile enforces a minimum building mix so trade and landmarks always
+   exist (every tile with a few buildings has at least one of each tier).
+ - flat colour is drawn first, then tileset terrain with auto-tiled edges.
+ - building polygons → house/tower sprite; forest → trees; orchard → fruit
+   trees; useful POIs → chests; fountains → wells; plus rocks, debris,
+   treasure and creatures. A satextract sidecar (`data/`) adds extra real POIs
+   (trees, fountains, street furniture).
+ - NO SCATTER OBJECT SITS ON (OR BESIDE) A BUILDING: worldgen keeps a one-cell
+   moat around every building cell. The Home trailer is synthetic, so it gets
+   the same moat at runtime (`app.js` `clearHomeTrailerOverlap`); real
+   buildings and ground flora are spared.
+ - spawn gating, precedence and influence zones: CLAUDE.md ("Generation, saves
+   and tiles", "Spawn precedence").
+
+================================================================================
+INTERACTION MODEL
+================================================================================
+ - EVERYTHING is tap-driven. Walking never changes a cell. A tap does EXACTLY
+   ONE thing: handlers are tried in priority order (`interact.js`
+   `TAP_HANDLERS`) and the first that matches consumes the tap.
+ - A TAP IS A POINTER THAT DIDN'T TRAVEL. Dragging PEEKS: the camera slides off
+   the player a little and springs back on release. A pointer that moved taps
+   NOTHING — sliding the map off a tree must not chop it. The peek is a camera
+   offset only: reach, tap gates, fog and tile loading still measure from the
+   player.
+ - TAP TARGETS ARE CELL-BOUNDED: everything except fauna is hit by the one
+   cell it stands in, however tall its art (CLAUDE.md "Coordinates, rendering
+   and performance"). Creatures are tapped by their drawn sprite. A tap on any
+   building cell routes to that building.
+ - the auto-till fallthrough never tills a cell occupied by something, so a
+   near-miss never silently tills under it.
+ - routine actions flash briefly; bigger loot pops are rarity-coloured. Map
+   copy and toast tiers: CLAUDE.md ("Dialogs, feedback and teaching").
+
+================================================================================
+FARMING LOOP
+================================================================================
+ - all farming is tap-driven; tools are implicit (a Hoe only helps).
+     1) tap untilled tillable cell → TILL.
+     2) tap tilled empty cell with a seed selected → PLANT. With no seed
+        selected the tap only says so — soil is NEVER un-tilled by tapping
+        it. (That toggle existed until Aug 2026 and fired on exactly the tap a
+        beginner makes, handing back the plot they had just paid for.)
+     3) tap planted dry cell → WATER.
+     4) a watered stage advances after a hold, even while away
+        (`Crops.STAGE_HOLD_MS`).
+     5) tap mature crop → HARVEST: produce, the plant is gone, a chance of a
+        bonus seed.
+ - any tillable cell (non-water, non-building, unoccupied) can be tilled.
+ - PRODUCE QUALITY IS THE BED'S, AND THE HOE SETS IT. Tilling banks the hoe's
+   tier on the cell; planting spends it onto the crop, and quality raises the
+   bonus-seed chance and the yield at harvest (`Crops.bedQuality`). A tame
+   butterfly pollinating a crop gives it some quality.
+ - WATERING CAN: HOW SOON, not what — a better can has a better chance of
+   springing the crop a whole stage on watering (`Crops.waterJumpChance`).
+ - per-cell state lives in `save.tilled`, `save.tilledQuality`, `save.planted`.
+
+================================================================================
+FORAGING / WILD PICKUPS
+================================================================================
+ - DEBRIS: residential / park / forest / grassland / beach polygons get a
+   stable seeded density of one fitting wild crop (mushrooms in yards, shrubs
+   in parks and forest, shells on beaches, ferns on grassland).
+ - tap a wild plant within reach to pick it. Some need WORK: rubble (stone)
+   via the Pick, shrubs (woody — they yield wood) via the Axe.
+ - SURPRISE TREASURE: some picks have a small chance of a bonus drop.
+ - NEST BUSHES: see EGG HATCHING.
+ - picked state persists in `save.picked` (stable per-cell id).
+
+================================================================================
+MINING
+================================================================================
+ - all mining is via MINERAL ROCKS — clusters on quarry / industrial /
+   residential / scree polygons. A plain rock is open to bare hands and pays
+   stone with a chance of more; an ORE rock pays coal and its tier's bar, the
+   higher ones a gem, and needs a pick near its tier (see the tool gate in
+   MOVEMENT & REACH; drops: `interactables.js` `mineralrock`).
+ - density by zone: residential sparse and low-tier; industrial dense mid-tier;
+   rock landcover dense, reaching the top tiers but weighted low.
+ - broken rocks persist (`save.brokenRocks`).
+ - rubble can be PLACED as a stone "fence" on an empty cell and picked back
+   up.
+
+================================================================================
+CHOPPING
+================================================================================
+ - TREES chop via the Axe work wheel and drop wood. Chopped state persists
+   (`save.chopped`); stumps don't block tilling.
+ - ACORNS: a fell may leave an acorn, a sapling that plants a new timber tree,
+   so a wood you clear is a wood you can replant. The chance is the AXE's only
+   reward besides speed and cheaper swings (`items.js` `acornDropChance`).
+   Planted, it grows a choppable `tree` (not a fruit tree) on the clock
+   (`util.js` `treeGrowthStage`) — one function, so the drawn size, the axe
+   gate and the wood paid all climb together.
+ - TREE SIZE & SPECIES (`util.js`): a tree's drawn size, its wood yield and
+   the axe tier it needs all derive from the tree's own fields (no extra save
+   state), so the visual and gameplay sizes never diverge
+   (`treeAxeReqTier`). Softwood fells a tier easier, hardwood a tier harder;
+   wood tracks size. Shiny trees need a strong axe and pay the shiny bonus.
+ - HOME GROVE: trees near spawn are forced to softwood
+   (`HomeArea.softwoodSpeciesNear`) so the opening wood economy is reliably
+   harvestable bare-handed.
+
+================================================================================
+ORCHARD FRUIT TREES
+================================================================================
+ - orchard landcover spawns fruit trees that bear on a timer; tapping a ripe
+   tree picks the fruit and resets it. Never chopped. Fruit type is seeded
+   from the cell.
+ - a BEARING tree wears its fruit's own icon on the canopy as a separate
+   sprite; the tree's art never changes, so a worked orchard still reads as an
+   orchard and what's ripe reads at a glance.
+
+================================================================================
+EGG HATCHING
+================================================================================
+ - EGGS incubate with real GPS walking while the game is open
+   (`items.js` `EGG_HATCH_METERS`); stick or unreliable travel does not count.
+   Selecting an egg shows Eat and a Hatch action with the distance left. A
+   hatch puts a random BABY PET in the bag (`BABY_KINDS`).
+ - NEST BUSHES: a few shrubs (`SHINY_RATE.nest`, by the bush's id — the same
+   bushes for everyone) wiggle now and then and, chopped, hand over a baby.
+ - Released, a baby is a tame pet that grows up after a while
+   (`SpriteLayout.isBabyPet`). A pet raised from a baby is ALWAYS SHINY and,
+   grown, stronger than its kind (`raisedMul`); shiny and adult bonuses do not
+   stack (CLAUDE.md).
+
+================================================================================
+FISHING
+================================================================================
+ - THE STARTER POND: no spawn promises water, so every save gets a small pond
+   carved a walk from Home (`app.js` `_carveStarterPond`), beside a POI chest
+   when one is in the band, only where the anchor can walk to, never on a road
+   or a plaza. Frozen in `save.starterPondAt` and repainted on every rebuild;
+   its cells are always stocked. Pinned by `starter_pond.test.js`.
+ - FISH LIVE IN SECRET SPOTS (Sep 2026): a water cell holds one fish or none,
+   hashed off the cell (`items.js` `fishSpotStocked`), so every player has the
+   same spots and nothing on screen marks them. Landing a fish empties the
+   spot forever (`save.fishedSpots`). An empty cast may still turn up junk, a
+   slime or treasure (`rollEmptyCast`). A stocked spot always bites: the
+   scarcity is the spots, not the strike.
+ - Cast TIME is locked — bare hands slow, any rod fast, regardless of tier (an
+   exception to the WORK WHEEL ladder: tier-scaled casts made high-tier fishing
+   an unbounded money faucet).
+ - WHICH FISH is fixed per spot (`spotFish`, weighted by `FISH_SPECIES`). A
+   rod at or above the fish's tier always lands it; below, it may get away and
+   stays for the next cast (`fishCatchChance`). Rod tier also cheapens the
+   cast; fishing costs more energy than other tool jobs (`FISH_COST_MULT`).
+   Pinned by `test/node/fishing.test.js`.
+
+================================================================================
+CREATURES
+================================================================================
+ - spawned per tile, seeded, biased to fitting biomes (`BIOME_FAUNA`); only
+   simulated near the player. Domestic, wild and pest kinds; behaviour is a
+   row of `SpriteLayout.CREATURE_BEHAVIOUR`.
+ - Inside the surface Home circle (250 m from the starter anchor), wild
+   animals are limited to chickens and at most one living deer. Owned pets
+   are exempt. This is a per-save presence filter, including animals that
+   wander in; generated identities and positions are preserved.
+ - FEED THEN CATCH: favourite food makes that individual catchable, without
+   bonding it. A catch wheel finishes the bond; a net speeds the wheel. Fed
+   slimes are caught by tapping. Unfed animals cannot be caught.
+ - One owned animal per species, including carried and deployed pets. Release
+   the current individual before catching another. Variants share species.
+ - Plant produce fed to a producer gives its species yield on a per-animal
+   cooldown. Other food on a wild animal is refused.
+ - Unfed GAME (crow / deer) can still be deliberately hunted with an equipped
+   weapon and empty hand. The hunt uses the Bug Net's timed work wheel. Fed
+   game animals follow the ordinary catching rules.
+ - Owned pets open their individual menu on tap. Carrying and setting down
+   preserve identity, colour, growth, energy, bonuses and accessories. Release
+   relinquishes ownership and returns accessories.
+ - Favourite food restores full energy. A pet at zero energy rests upside
+   down for one minute, then returns with one energy; it regenerates slowly.
+ - Eggs and nest discoveries reveal wild babies. They still need favourite
+   food and catching before becoming pets.
+ - SCARECROW: a placeable item that wild crows and deer steer around.
+ - SLIMES are hostile when wild. Sapphire prepares a slime for catching;
+   feeding it alone does not make it a pet.
+
+================================================================================
+COMBAT
+================================================================================
+ - ENEMIES are the things that attack YOU (`Combat.isEnemy`): the surface and
+   cave roster (`enemy_roster.js` `EnemyRoster.ROWS`, built into
+   `Combat.MONSTERS`; previewed by `tools/monster-roster.html`). Crow and deer
+   are game; a tamed slime is a pet and never a target.
+ - HIT POINTS: every enemy has HP; damage from any source drains the one pool,
+   and a foe left alone heals back after a while. HP is in-memory.
+ - ONLY ONE WEAPON FIGHTS AT A TIME (`save.activeWeapon`, `Gear.activeWeapon`).
+   MELEE IS THE DEFAULT and needs no weapon: with no ranged weapon in hand,
+   the hands (or the sword) auto-engage the nearest enemy in reach
+   (`Gear.meleeActive`). A newly obtained or upgraded weapon becomes active;
+   switching is an explicit Equip / Unequip, and the active weapon wears an
+   "E" badge. Melee always follows the closest eligible foe; an auto-engaged
+   fight never swallows taps, roots the character or blocks the walk home.
+ - STATUS EFFECTS are rows of `Conditions.DEFINITIONS` (poison, burning, …):
+   player, foe, HUD chip and tint all derive from the row (CLAUDE.md).
+ - WEAPONS DIFFER IN KIND — reach, cadence, aim and ammunition (`RELIC_DEFS`,
+   `Combat.SHOT`):
+     sword   — melee; drains HP on the combat wheel.
+     dagger / lance — alternate melee slots, chest finds only: the dagger
+               shorter, the lance longer and slower on foot.
+     bow     — an arrow along the COMPASS heading: aiming is turning. It
+               stops in the first foe and at anything solid. Spends wood.
+     staff   — a magic bolt that SEEKS the nearest foe in range, pierces every
+               foe on its line and ignores the world. Spends energy; its range
+               is the player's own reach.
+     musket  — a ball along the compass; each shot spends a coin.
+   Ranged weapons wake only for a foe close to the player's reach (owner, Sep
+   2026: a seeking weapon firing at anything on screen cleared the street at
+   no risk). A slot's cadence is pacing, not a nerf: each shot is priced at
+   its own interval, so the delivered rate holds (`Combat.SHOT`
+   `fireIntervalMs`).
+ - HEALTH IS A BAR, NOT A RING: the engaged foe wears a health bar seated on
+   its crown, recently hurt foes a dimmer one, and damage pops over the foe
+   (CLAUDE.md). The work wheel's ring is for jobs only.
+ - A CLAIMED CASTLE'S TURRETS FIGHT FOR YOU (`Combat.TURRET`, `app.js`
+   `_turretFire`), firing the player's own Wood-tier arrow at a slower rate.
+   The claim gate is the same `isClaimedKey` test that decides the tower's
+   unclaimed palette and its light, so a castle that reads dead never shoots.
+ - DEFEATING AN ENEMY PAYS COINS — every enemy. The bounty is derived from the
+   kind's HP and depth (`Combat.enemyBounty`), so a tougher foe never pays
+   less. Some cave kills also roll treasure. Game pays in feathers and meat.
+ - EVERY route to a dead creature pays the same — the hunt wheel, the combat
+   wheel, a shot, a pet's kill — because they all funnel through
+   `resolveDefeat`.
+
+================================================================================
+CHESTS (POI-driven)
+================================================================================
+ - useful real-world POIs (shops, food, civic, healthcare, parks, sports,
+   culture, street furniture, …) each spawn a chest at the POI, snapped to the
+   grid and deduplicated by name.
+ - tap a chest within reach to open it. Its TIER is its tile's quota seat
+   (`WorldGen.seedChestTiers`; the deeper caps are `loot.js`
+   `chestTierMaxFor`) — the full rule is CLAUDE.md ("Generation, saves and
+   tiles"). What it holds is the POI's chest theme (`chest_themes.js`
+   `ChestThemes`, keyed by POI category) rolled through `rarity.js`
+   `pickReward`. Some opens hand out gear instead (see GEAR).
+ - Chests give ONCE (`save.opened`; CLAUDE.md). An opened chest of any tier
+   VANISHES from the map; its pad and label persist.
+ - chest TIER is shown by recolouring the approved chest sprite in the rarity
+   badge palette; higher tiers glow in their rarity colour while unopened. No
+   floating tier gem.
+ - BAG-FULL: "Take what fits" (chest emptied) or "Leave for later" (the exact
+   roll is remembered in `save.chestHold`, so there is no re-rolling for
+   something better).
+ - every UNOPENED POI BREATHES LIGHT (a `Lighting.KINDS` row), and that light
+   IS the marker: never draw a ring back.
+ - every POI's concrete pad is tinted an electric light blue — the one surface
+   that carries "a place lives here" on its own. Minor POIs get a smaller,
+   dimmer pad; loose supply crates get none.
+ - POI names are RUSTICIFIED for display (`loot.js` `RUSTIC_WORDS`) and
+   tinted the treasure blue; only loose supply crate labels stay plain white.
+
+================================================================================
+BREAKABLE POTS AND BARRELS
+================================================================================
+ - Waste baskets, recycling points and generated breakables choose a stable
+   barrel or clay-pot appearance, and that appearance selects their loot
+   (`loot.js` `BARREL_ART` / `barrelProfile`); each smash gives at most one
+   item and usually nothing. Exclusive finds stay in their own sources.
+ - Both give ONCE (`save.opened`) and stay as broken art; they are not on the
+   crate restock ledger.
+
+================================================================================
+COIN-BURST POIs (ATM / bicycle parking)
+================================================================================
+ - An ATM is a POT OF GOLD: once a UTC day a tap scatters coins on walkable
+   cells nearby, fewer where ATMs are common (`loot.js`
+   `potCoinsFor`). Coins never land on a road or in a yard and stay on the
+   player's side of a major road (CLAUDE.md).
+ - A bike rack (a "Courier's Post" in the world) is not a chest: once a UTC day
+   it lends the movement stick extra pace for a while (`loot.js` `isBikeRack`,
+   `items.js` `BIKE_RACK_SPEED_MUL`).
+ - Both are recurring sites on the one day ledger (`Macros.markToday`) and
+   glow while available (CLAUDE.md).
+
+================================================================================
+TREASURE MARKS (X on the ground)
+================================================================================
+ - claim by tapping the cell the X is drawn on (within reach). Reward via the
+   unified rarity picker — mostly small, sometimes better, rarely rare. Found
+   state persists in `save.foundTreasures`.
+ - sources: the starter crate trail (see ONBOARDING; fixed contents, no rarity
+   roll); a guaranteed X at every parking lot; a few random marks per tile;
+   extra marks beside FOOTPATHS and ON SAND. Residential X's only spawn near a
+   road.
+ - THE BEACH STREAM: sand gets its own stream seated on the sand (a beach is
+   dug), capped per area of sand (`BEACH_X_PER_CELLS`) so a sandpit gets a
+   mark while a shoreline gets the roll.
+ - both bonus streams share ONE walk of the grid, packing cells by grid index.
+   Pinned by `test/node/beach_treasure.test.js`.
+
+================================================================================
+STREET RESTORATION (the road band itself)
+================================================================================
+ - THE ROAD BAND IS DILAPIDATED BY DEFAULT and the player rebuilds it. Wherever
+   a stretch has sat inside the player's lit reach CONTINUOUSLY for a short
+   dwell (`app.js` `PATH_STONE_DWELL_MS`) it turns to clean cobble, forever,
+   saved. Footpaths restore too. Rail and parking aisles never
+   (`WorldGen.isParkingAisle` — an aisle is not a street).
+ - A STRETCH IS METRES, NOT CELLS: an interval of arclength along ONE LINE of
+   one way, keyed by `Streets.lineKey` (never the feature alone — merged
+   multi-lines would weld unrelated streets) and clipped to the tile square
+   (`Streets.tileSpans`) so a way crossing a seam is never paid twice. The
+   terrain grid under-reports roads, so a per-cell rule could never match what
+   the player sees. CLAUDE.md ("Lighting and streets") owns the invariants.
+ - THE SWEEP (`app.js` `_sweepStreets`) scans what is in reach from the
+   player's reach cell (never the camera anchor) and ripens what has been in
+   sight for the whole dwell (`Streets.createSight`). Sight is CONTINUOUS:
+   clipping the bubble in passing restarts the clock. The auto-walk home, a
+   cave and a flat battery bank nothing — that is the game moving the body.
+ - THE SAVE: `save.streets` (restored intervals per tile and line),
+   `save.streetsEpoch` (bumped on any restore; folded into the redraw key so
+   only a restore repaints) and `save.trail` (the prize ladder).
+ - DRAWING: the dilapidated network and the restored stretches are baked
+   canvases; a live layer carries the DWELL PREVIEW (a pale light arriving,
+   not a stain creeping in) and the SHINE down a stretch the moment it comes
+   back (`road_overlay.js`). Feather only the restored band's edge; never blur
+   the drawn layer.
+ - THE LAMPS: A RESTORED STREET LIGHTS ITS OWN WAY — a street lamp every so
+   many metres of rebuilt carriageway (`Streets.lampSpacingM`; independent of
+   the prize ladder, so an ordinary short block still earns one). It is the
+   reason to rebuild a street after dark, and the string of lamps behind you
+   is the map of everything you have restored.
+     * GENERATED, NEVER STORED: placed from the line's own geometry
+       (`Streets.lampsAlong`), lit when covered by restored intervals
+       (`Streets.covers`); nothing new reaches the save.
+     * SPREAD, NOT STAMPED FROM ZERO: evenly across each line with half an
+       interval at each end, so short ways, OSM splits and junctions don't
+       bunch lamps; lamps outside the tile square are dropped.
+     * ART AND LIGHT ON ONE POINT: the lamp is baked art (it must read at
+       noon) and a steady `Lighting.KINDS` source, seated on the verge
+       (`Streets.lampOffsetM`).
+     * AN UNLIT LAMP draws as the old grey pebble cluster, so the lamps to
+       light are visible before they light. Dark lamps throw no light.
+     * ONE LIST, ONE FLAG feeds both art and light, so they can never
+       disagree.
+ - THE BLAST (restoration fanfare) is ONE thing at any size (`app.js`
+   `_blastAt`): a transient light, debris in the thing's material, sparks,
+   and for a street a GATHER of setts pulled back toward the stretch so the
+   moment reads as a REPAIR. One per sweep, at the longest restored piece;
+   also fired when a wreck is restored. Add a call site, never a light row.
+ - ONE LADDER FOR THE WHOLE WORLD: every restored metre anywhere adds to one
+   running total, and prizes land on a rising ladder of goals (`trail.js`;
+   interval algebra in `streets.js`). A metre is a metre wherever it is
+   restored — the old per-path prizes paid the same walk differently depending
+   on how OSM split the ways, and none of that survives.
+ - each sweep pops a small COUNTER on the stretch just rebuilt (`Trail.label`,
+   the one formatter), throttled; the paying sweep reads the goal just
+   completed, full, never the remainder against the next rung.
+ - each prize IS A CHOICE: two different rolls are offered (`Trail.PRIZE_CHOICES`;
+   context `Trail.PRIZE_CONTEXT`) and nothing is granted until one is taken.
+   The kept gift opens as its own reward card. Rolls improve as the walks get
+   longer (`Trail.rollBonusFor`).
+ - A SINGLE EARNED REWARD IS SHOWN AS A CARD (`app.js` `showRewardCard`),
+   framed by its giver; finds on the ground stay toasts.
+ - WHICH CELLS ARE PATH is geometric: a cell is PATH only where at least a full
+   cell width of way runs through it (`worldgen.js` `accumulateLineSpan`,
+   summed over every footpath before painting). The diagonal connectivity
+   elbow is always painted. A run of too few path cells is not a path and
+   dissolves back to its biome (`WorldGen.MIN_PATH_RUN_CELLS`), unless it
+   continues into the neighbour tile.
+
+================================================================================
+WELLS / FOUNTAINS
+================================================================================
+ - OSM fountains become a 'well' object: a water source on dry land with
+   flavour text (produce quality moved to the HOE; see FARMING).
+
+================================================================================
+ECONOMY (buying & selling)
+================================================================================
+ - currency = coins (`save.money`); a new save starts with a small purse
+   (`STARTING_MONEY`; less on hard). Earn by selling, coin pickups, chests,
+   pots of gold, deliveries and enemy bounties.
+ - WRECK-HOUSE RESTORATION: every small house starts as a derelict WRECK with
+   no shop function (the trailer is exempt — Home works from day one).
+   Restoring costs stone, on a ladder that climbs with houses already restored
+   (`items.js` `wreckRestoreQty`); other cards are priced by their rank
+   (`houses.js` `buildCost`). The dialog's quote is exactly what is charged.
+ - WHAT A WRECK BECOMES IS THE PLAYER'S PICK (Oct 2026): cards from ONE table,
+   `Houses.BUILD_OPTIONS`, unlocked by restore count (`STORY_RESTORES`): house,
+   blacksmith, shop, trader, turret, the pet shop, the book shop, the wizard
+   tower and his second tower. Nothing is forced and nothing is read off the OSM address;
+   the Blacksmith card is SUGGESTED while the lane has no smithy, since the
+   wooden tools come from nowhere else. `Houses.restoreAs` freezes the pick
+   and is the ledger's one writer (CLAUDE.md).
+   THE OFFER (`Houses.offerCards`): restored + 1 slots — the House always
+   (and the wizard's tower while offered), then up to `NEW_SLOTS` (3) cards
+   the player has nothing like yet (`Houses.isNewPick`, a NEW pill), then
+   buildable duplicates; each pool a window over the catalogue
+   (`Houses.buildOptions`) that slides one card along per restore. ANY
+   NUMBER of a card may stand. A RANKED card (smithy, shop, trader) is one
+   per rank the ladder has unlocked, stamped in `save.shopTiers`. THE LADDER
+   CLIMBS BY MEMORIES, never by wrecks (`Shops.tierCap`: T2 at five
+   lifetime memories, a rank every `MEMORIES_PER_TIER`, T7 at thirty). A
+   RENOVATION PERMIT (`items.js` `renovation_permit`, a T4 supply) held at a
+   standing smithy, shop or trader raises it ONE rank (`Houses.renovateTo`
+   / `renovate`), only to a rank the ladder has opened and the line still
+   allows; a refusal says why on the map.
+   A SHOP is a THEMED market, one LINE at one rank, from `Shops.LINE_RULES`:
+   seed and supply to T3, the magic shop one per tier to T7, relic to T7;
+   there is no ore shop. The PET SHOP and the BOOK SHOP are one-offs
+   (`shops.js` `SOLO_LINES`): built once per save, outside that table.
+   THE MAGIC HAMMER (`houses.js` `HAMMER_ID`): spent on a restore,
+   the building comes up SHINY and sells at a standing discount for good
+   (`Houses.priceMul` — the one standing discount a building carries); a
+   shiny turret fights harder instead. A plain house takes no hammer
+   (`Houses.hammerTakes`).
+   Smithies and traders read their RANK off the same stamp (`shops.js`
+   `smithTier`, `traderTier`; older houses keep the derivations that raised
+   them): a smithy forges near its own rank; a trader's barter leans to
+   goods of its rank (`Shops.tierAffinity`). Every
+   ranked door wears its rarity badge (`Shops.shopTier`). A TURRET is a lone
+   castle tower on a house lot that fights on the castle turret lane. PLAIN
+   houses run deliveries. All of these BUY/trade — selling is home-only.
+ - FORTS start SEALED; a one-time stack of wood, rising across forts, opens
+   one (`houses.js` `FORT_UNLOCK_WOOD_START`). An open fort runs a SLOT
+   MACHINE (`presentFortSlots`, odds in `ShopsMath`) that costs what it wins
+   on average.
+ - CASTLES open individually. On first conversation, each unguarded castle
+   receives one permanent quest determined by its variant. Bastions ask for
+   three enemies of one type, advancing through enemy types in tier order;
+   Archives always ask for one delivery; Weathered Ruins ask for two animals
+   of one huntable species,
+   cycling through the game-animal list. Assignment order advances each type
+   separately. Counters start at first conversation. One delivery or hunt
+   advances every matching active quest. Earlier actions never count. Claiming never rerolls
+   the job, and there are no shared quest slots or random quest templates.
+   Citadel fights expire 10 minutes after activation, including time away.
+   On expiry their guards despawn and all battle progress resets for a fresh attempt.
+   Citadels offer Fight or Later at their gate. Only choosing Fight activates
+   their guards; walking nearby, reading the dialog, or choosing Later leaves
+   them dormant. The choice survives reloads; clearing the guards opens them. Other castle
+   variants have no guards; house and fort garrisons retain their usual rules.
+   Claiming mans the turrets (COMBAT), lights the castle, and opens a castellan
+   favour (rest or a coin tax) on the Houses.CASTLE_SERVICE_MS timer.
+ - WIZARD TOWER: spends MEMORIES (`save.memories` — see SHINY VARIANTS &
+   DISCOVERY) on rungs of power (`src/wizard.js` `Wizard.TRACKS`). Each visit
+   offers two tracks, seeded so re-opening shows the same pair:
+     * INNER LIGHT — more reach (see MOVEMENT & REACH).
+     * FULL MEASURE — QUANTITY luck (`qtyLuck`).
+     * KEEN EYE — TIER luck (`upgradeLuck`), the tower's exclusive gift.
+     * VIGOUR — the cheap track: more max energy.
+   The THIRD purchase is a one-time CALLING (`Wizard.CLASSES`: Hunter,
+   Runner, Enforcer, Enchanter). What each rung does lives with the module
+   that applies it; printed numbers come from that module, never a copy.
+ - OFFER MODAL: item, cost, Buy/Cancel (greyed if unaffordable). Shops may
+   offer a paid re-roll whose price climbs (`ShopsMath.themedRerollCost`, `smithyRerollCost`).
+ - NO PER-HOUR DEAL CAP (Sep 2026): shops are used continuously. The clock
+   eases the re-roll ladder by one rung per hour bucket, never a reset
+   (`ShopsMath.easedRerolls`), and the trader alone has a short cooldown after
+   a closed barter (`ShopsMath.DEAL_COOLDOWN_MS`) — its goods leave with the
+   deal, so an instant reopen converted any stack into any other for free.
+   The wait is shown with `shortDuration`, or said with `spokenDuration`.
+ - BUY: cash storefronts always price in COINS at a random markup
+   (`ShopsMath.buyPrice`, `items.js` `buyMarkupRange`). BARTER is the TRADER's
+   job alone. Cash purchases hand over ONE unit; the bundle is barter-only, so
+   cash buys can never be resold at a profit. Magical flower seeds are loot
+   finds, never on the seed rotation (`BUY_LIST`).
+ - SELL: only at HOME (the trailer), at one flat rate (`items.js`
+   `trailerSellPrice`; less on hard). NO RELIC BENDS A PRICE (Oct 2026; the
+   Sword and Bow used to): standing discounts come only from the hammer or a
+   carried guild badge.
+ - ROADSIDE STANDS (`loot.js` `produceStandFor`) sell BELOW the listed price —
+   a producer selling its own goods — but A STAND MUST NEVER BE AN ARBITRAGE
+   PUMP: the stand price stays above the sell rate, capped at par
+   (`ShopsMath.standPrice`). The tracking guarantees the invariant, not the
+   margin; rounding always favours the stand. `shops_math.test.js` sweeps
+   every price.
+ - DELIVERIES: a PLAIN house wants a SET of specific produce and pays a premium
+   over selling them one by one (`DELIVERY_BONUS_MULT`). A delivered house is
+   satisfied for the rest of the UTC day. The wanted tier ramps with your
+   lifetime tally (`Delivery.tierCap`): early neighbours ask for potatoes, a
+   veteran courier for coconuts. The first houses walk a fixed opening list.
+================================================================================
+GEAR: RELICS & ARMOR
+================================================================================
+ - SEVEN MATERIAL TIERS for tiered gear, Wood to Frost (`items.js`
+   `MATERIAL_TIERS`); cost and effect climb together. One piece per slot.
+ - GEAR REWARDS from any source: an upgrade auto-equips; a non-upgrade is
+   cashed out. Always shown in a reward modal.
+ - RELIC SLOTS (`items.js` `RELIC_DEFS`):
+     pick / axe — speed their work, cheapen it, and meet the tool gates; the
+              axe also raises the acorn chance (CHOPPING)
+     hoe    — cheaper tilling and the bed's produce QUALITY (FARMING)
+     can    — a chance to spring a crop a stage (FARMING)
+     rod    — cheaper casts and better landing odds (FISHING)
+     bugnet — THE animal tool: speeds the catch and the crow/deer hunt
+     bags   — raises the per-item stack cap (`STACK_CAP_BY_TIER`)
+     sword / dagger / lance / bow / staff / musket — weapons (COMBAT)
+ - RINGS AND AMULETS are untiered UNIQUE RELICS (`items.js` kind
+   `unique_relic`, effects in `UNIQUE_JEWELRY`), carried rather than worn in a
+   tiered slot. Tier luck is the wizard's Keen Eye, not a ring.
+ - ARMOUR SLOTS (helmet / chest / legs / boots, `ARMOR_DEFS`) SOAK blows (see
+   ENERGY & FOOD). Boots also blunt traps and set stick-walking pace and cost.
+ - STICK WALKING: the movement stick is ALWAYS on screen — no relic and no
+   separate mode. It walks the body itself somewhere other than the GPS
+   target; the distance is banked as an offset, so each new fix targets GPS +
+   offset and ground covered by hand survives it. A GPS jump big enough to be
+   a relocation (`app.js` `GPS_SNAP_M`) places the body on the fix outright.
+   Underground the body always mines its way over. Walking WITH the GPS is
+   free — that's you actually walking. Stick walking costs energy per cell and
+   BOOTS set its speed and cost (`items.js` `steerSpeedMul`,
+   `steerEnergyCost`); buffs such as Dragon Powder, the Speed potion, coffee
+   and a bike rack lend it pace (`Buffs.KINDS`). At 0 energy the stick stops;
+   the GPS still moves you.
+   Straying is shaped by a ring around your real position: inside it the
+   stick is nearly free; outside it you pay full price and the character
+   darkens with a pulsing halo. At 0 energy the tint and halo turn red.
+   Let the stick sit idle (`WALK_HOME_IDLE_MS`) and the character WALKS
+   ITSELF HOME, free, easing in; any push restarts the timer. Surface only,
+   never during a work wheel. Past `GPS_SNAP_M` the return is placed, not
+   walked: that distance is travel the player never made on foot.
+   That delay is a DEBOUNCE, not a pause, and it has been wrong in both
+   directions: too long and the character sat frozen after release; too short
+   and players nudging themselves along in short pushes were walked BACK
+   against them. Playtesting settled past the longest natural gap between
+   two deliberate pushes; the ease-in (`WALK_HOME_RAMP_MS`) keeps a generous
+   debounce from being a cliff. The lead-line hint (`WALK_HOME_HINT_IDLE_MS`)
+   must stay LONGER than the delay — it announces a walk, so it can't
+   precede one. `walk_home.test.js` pins both bounds.
+ - TIER GATING of rewards: the only gate on rarer gear is each source's own
+   loot ceiling (`rarity.js`), so a bus-stop chest can't cough up a Frost
+   relic. The old harvest/catch milestone unlocks were REMOVED — a second,
+   invisible lock duplicating the ceiling.
+
+================================================================================
+CRAFTING: THE BLACKSMITH
+================================================================================
+ - STARTER BLACKSMITH: the first smithy offers two wooden tools drawn once per
+   save (`scene_shops.js` `STARTER_SMITH_SLOTS`), paid in wood; once both are owned it
+   becomes a normal forge.
+ - BLACKSMITH FORGE: gear is forged from materials (`Gear.blacksmithRecipe`):
+   tools, weapons and armour from the tier-matched bar (Wood at the bottom),
+   the staff from gems plus a bar. Chest-only weapons are never forged. The
+   smithy offers the lowest rung it can and leans to its own rank
+   (`gear.js` `SMITHY_NEXT_RUNG_BIAS`, `SMITHY_OWN_TIER_BIAS`).
+ - SMELTING (`Gear.smeltingRecipe`): the top bars are smelted from a magical
+   flower plus the bar below; the lower bars come from mining. A stepper
+   batches the smelt.
+
+================================================================================
+CONSUMABLES
+================================================================================
+ - Self-targeted consumables (potions, powders, the sapphire portal)
+   are used via a USE button below the inventory bar while one is selected —
+   the same spot as Eat. Tapping your own cell never uses one. Timed effects
+   are rows of `Buffs.KINDS`.
+ - POTION OF TAMING (`taming_potion`): lures nearby farm animals toward you and
+   is consumed.
+ - BOOK: read on pickup (it never sits in the bag). Each Book is the next page
+   of `PLAY_TIPS` in curriculum order (`save.tipsRead`); after the course, a
+   random tip or a bearing to the nearest unopened chest.
+ - CAMPFIRE: a coal lights a fire on an empty bare cell. A fire lights, rests
+   and wards on one ring (`FIRE_REST_R`), so it doubles as a perimeter ward in
+   the wild; underground it wards only the shallow levels' monsters
+   (`FIRE_WARD_MAX_DEPTH`). It persists (`save.fires`) until tapped out.
+
+================================================================================
+INVENTORY
+================================================================================
+ - an effectively infinite list shown a page at a time with ◀ ▶ paging.
+ - tap a slot to select; selection persists. Tools/relics are equipped gear,
+   not bag items.
+ - per-item STACK CAP rises with the Bag relic (`stackCapForBags`); excess is
+   rejected (`inventory.js`).
+ - starter inventory: empty bag (the crate trail seeds the first items).
+ - ITEMS ALWAYS RENDER AS THEIR GAME-ART SPRITE on every surface. Emoji is
+   reserved for non-item UI (`docs/process/QC_RULES.md` §1).
+
+================================================================================
+ITEMS & RARITY
+================================================================================
+ - every item has a base tier 1..7 (`items.js` `BASE_TIER`) feeding one rarity
+   picker (`rarity.js`) used by chests, treasure and fishing; numbers in
+   `RARITY_TUNING`. Player-facing names are the rarity badges, Basic to Godly
+   (`TIER_BADGE_NAMES`), never "T4".
+ - the catalogue is the `ITEMS` table in `items.js` (prices in `PRICES`;
+   browsable in `tools/items.html`). Kinds: seed, produce (crops, fruit, fish,
+   wild pickups — and the Old Boot), animal, mineral (ores, bars, gems, flint,
+   wood), magic, supply, unique_relic.
+================================================================================
+SHINY VARIANTS & DISCOVERY
+================================================================================
+ - a small fraction of flora, trees, animals, monsters, fish and rocks spawn as
+   a "shiny" variant (`util.js` `SHINY_RATE`). Shiny status is a deterministic
+   hash of the stable id — it survives reloads and rebuilds without storing
+   anything — and the sprite sparkles.
+ - harvesting / catching a shiny pays a headline coin bonus with a fanfare
+   (`app.js` `awardShinyBonus`).
+ - MEMORIES: the FIRST time you find a new kind of thing — a shiny of a kind,
+   an elite of a kind — it is banked in `save.discovered` and a memory comes
+   back (`app.js` `_bankDiscovery`) with a full energy bar. Memories are a
+   save counter shown on the HUD's star chip, spent only at the WIZARD TOWER,
+   and they drive the story (CLAUDE.md).
+
+================================================================================
+UNDERGROUND CAVES (Phase 1)
+================================================================================
+ - cave-rock clusters seed a descending STAIRCASE. Tapping one changes DEPTH
+   (0 = surface). Depth is persisted.
+ - each cave level is the "NEGATIVE" of the level above: walkable cells become
+   cave floor; water, roads and buildings become solid rock. This recurses, so
+   depth N derives deterministically from N-1 (and never from player edits —
+   CLAUDE.md).
+ - staircases mirror at the SAME world point: a level's down-stair is the next
+   level's up-stair, with a fresh down-stair a few cells off.
+ - tiles are cached PER DEPTH. Caves hold mineral rocks and hostile MONSTERS
+   (no surface fauna), each an ENEMY fought on HP and paid with the bounty.
+   Kinds are gated by depth windows so each level down reads as a new
+   population (`enemy_roster.js` rows — `Combat.MONSTERS` is their view;
+   giants and other variants are their own rows). Ranged foes need a CLEAR LINE, like your own bow.
+ - monsters can't be tamed; a defeated one is recorded in `save.caught` so it
+   stays dead across reloads.
+
+================================================================================
+SAVED GAMES (slots)
+================================================================================
+ - multiple named save SLOTS (`save.js`): a registry (`SAVES_KEY`) tracks the
+   slots and the active one; each slot owns its own data key.
+ - switching slots re-points `SAVE_KEY` and re-inits the scene and caches.
+   Slots can be created, renamed and reset; listed newest-played first.
+
+================================================================================
+UI COLOUR LANGUAGE
+================================================================================
+Two colours carry MEANING; everything else is neutral chrome. A player glancing
+at any screen should be able to answer "is this something I press, or something
+I just won?" without reading a word.
+
+ - BLUE-WHITE = TREASURE & POWERUPS — what the WORLD gives the player. Worn
+   by the POI pads, the POI light, the reward ceremony modal, and powerup
+   grants (gear equipped, Inner Light).
+
+ - GOLD / YELLOW = PLAYER CONTROLS — what the PLAYER drives. Worn by buttons,
+   the movement stick, inventory slots and tabs, HUD chrome and dialog frames,
+   and coins (the currency the player spends sits on the control side).
+
+ - EXCEPTIONS, and they are deliberate:
+     * ITEM RARITY colours still colour a reward's NAME — rarity is information
+       the blue-white frame doesn't carry.
+     * ENERGY keeps green → gold → red as it drains; DANGER keeps red. The bar
+       reports and cannot be pressed; it was briefly moved to amber to obey
+       the law strictly and moved back — the traffic-light reading is an idiom
+       players already know.
+     * Ceremonies that are NOT loot reuse the reward modal with their own
+       accent (passing out = orange, restoring a wreck = green) so a
+       construction never reads as treasure.
+
+ - ONE source of truth: the `UI_*` constants in `src/util.js` (canvas and
+   Phaser), mirrored as CSS custom properties in `index.html` (DOM).
+   `UI_CONTROL` names the control role, `UI_TREASURE*` the treasure role. Reach
+   for the ROLE that fits — never add a near-duplicate shade, and change both
+   halves together.
+
+================================================================================
+DIALOGS
+================================================================================
+ - EVERY dialog opens with a KIND HEADER: a hero icon and a one-word category
+   over a hairline rule (a castle says QUEST, a chest TREASURE, a smithy FORGE).
+   Dialogs used to open straight into flavour copy, which reads fine once you
+   know where you are and not at all when you don't.
+ - The label is the CATEGORY; the flavour line carries the specific offer. A
+   caller may override the label for a one-off outcome and keep the icon.
+ - `MODAL_KINDS` (`src/app.js`) is the whole taxonomy; shells are built by
+   `makeModalShell` (CLAUDE.md owns the painting rules). A dialog about a thing
+   on the map passes that thing's sprite; the category glyph is the fallback.
+ - dialogs don't repeat their own name in a title line; the header says it
+   once.
+ - `showOfferModal` renders a TRADE — `get` is what you receive, `cost` what
+   you pay, joined by "for". `cost` is optional; never fill both halves with
+   the same text.
+ - `tools/modal_audit.js` pins all of the above.
+
+FOG OF WAR
+ - Land the player has NEVER WALKED is washed near-black; walking reveals a
+   disc around the player (`Fog.REVEAL_CELLS`), and what is revealed stays
+   revealed, per save, forever.
+ - The disc has a HARD CEILING below the viewport half-width: reveal that far
+   and every cell is revealed the instant it is visible, so the fog would be
+   stored and never once seen. `fog.test.js` pins the bound. (Row/column sweep
+   arms were tried and removed: they cleared ground the player never went
+   near. If the screen edge reads wrong, fix the RAMP, never widen the
+   reveal.)
+ - The wash is PURE BLACK, not the biome-tinted out-of-reach dim: that says
+   "this biome, unlit"; fog says "you don't know". It stacks with the
+   distance falloff — retune the pair together.
+ - The wash is A CONTINUOUS FIELD in a canvas texture, darkening with distance
+   from explored ground (`render.js` `FOG_ALPHA`), with the frontier bent by
+   noise keyed on WORLD position so it reads as weather and the same tongue of
+   fog sits over the same ground every time. The noise tapers to nothing at
+   both ends, so walked ground stays clear and the deep interior stays fully
+   dark. If you are tempted to draw the fog as rects again — at any resolution
+   — that is the bug.
+ - LAYER: the fog is above every world layer, labels included — a label
+   poking through would name a shop the player has never found. The player's
+   own kit stays above it. Surface only.
+ - STORAGE is one BIT per cell, packed per tile and run-coded (`src/fog.js`,
+   `save.fog`) — a Set of cell keys is right for dozens of cells, wrong for
+   thousands. The masks live in fog.js, NOT on the tile cache, which is
+   derived state and would wipe the history on prune or re-rasterise.
+ - COST: the reveal and the rebuild happen on cell crossings; between them
+   the fog layer scrolls. The repaint skips squares whose corners agree, so
+   the work tracks the length of the frontier, not the area of the screen.
+ - The ONBOARDING TRAIL is revealed when it is laid (`fog.js`
+   `_revealStarterTrail`), and this is not optional: the trail is a SIGHTLINE
+   CHAIN, and without it every crate sat under the wash on a fresh save.
+   Deliberately not one blanket radius round the anchor — that would reveal map
+   the trail does not go to. `starter_relic.test.js` drives the real lift.
+ - Fog DEFERS to the UNMAPPED VEIL: a cell whose tile hasn't arrived keeps the
+   loading animation and becomes ordinary fog when the tile lands.
+ - `tools/layer_audit.js` pins the layer and the texture it paints.
+
+TEXTURES
+ - EVERY opened chest VANISHES, crates included — there is no "looted" sprite.
+   An emptied crate read as broken art and is worth less on the map than the
+   clear cell under it. The tap target, pad and label are unaffected.
+ - A texture key nothing creates fails SILENTLY (Phaser substitutes a
+   checkerboard). `tools/shell_audit.js` checks both directions: every literal
+   key `RENDER_SPEC` names is provided, and every texture maker is reachable at
+   boot.
+
+================================================================================
+HUD
+================================================================================
+HOW THE COLOUR LANGUAGE LANDS ON THE HUD (see §UI COLOUR LANGUAGE above)
+ - Every persistent CONTROL carries the control colour. At REST it wears a dim
+   rim (the control colour with the light off, not a new hue); SELECTED lights
+   to full gold with a glow. The resting rim must leave a clear step to the
+   selected state, or an unselected slot reads as lit.
+ - Surfaces that only REPORT give the colour up and wear neutral INK: a bright
+   ink for what you read, a dusty one for what you glance at. The item name
+   used to be gold — the loudest "reach for me" colour on the one thing you
+   cannot touch.
+ - The coin chip keeps gold, per §UI COLOUR LANGUAGE.
+ - The world palette obeys the same law from the other side: no terrain colour
+   is allowed into the yellow band (`COLORS` in `src/app.js`).
+ - Statuses, buffs and timers are ONE status row (CLAUDE.md "Dialogs,
+   feedback and teaching").
+
+CHROME — salvaged field kit
+ - One `--chrome-*` token vocabulary in `index.html` paints every persistent HUD
+   surface as parts of one machine: SALVAGE — warm weathered steel, dusty lit
+   edges, a faint scuff. Controls are RAISED; anything that HOLDS something is
+   SUNK. The tokens are paint only, so adding chrome cannot move an element.
+
+VERTICAL BUDGET (fitGame -> layOutVertically, index.html)
+ - Three bands share the screen height and only the middle one is the game:
+   the top chrome, the map, and the inventory cluster.
+ - Slack is measured and spent in priority order: the walking stick's room
+   first, then a breathing margin under the objective chip. (The game box was
+   once pinned to the top with the HUD at the bottom, so all the slack landed
+   in one unmeasured place and the stick sat on the map on small phones.)
+ - ON A PHONE THE WIDTH WINS: a portrait viewport narrower than the column cap
+   always fills edge to edge; only wider viewports get gutters. Capping the
+   scale by the leftover band as well put black bars down both sides of
+   ordinary iOS Safari sessions whenever the toolbars showed.
+ - What gives instead is the VERTICAL budget: the map slides up under the
+   objective chip (never over the coin/energy row), then at most one ring of
+   cells tucks under the inventory; only a viewport too short for that shrinks
+   the column.
+ - The stick sits in the gap between map and tabs when it fits, otherwise
+   over the map's bottom corner — never the inventory, never the map's centre.
+ - `tools/layout_audit.js` pins these invariants across real device sizes,
+   including the toolbars-showing case.
+
+CLUTTER
+ - The "no GPS — use the stick or WASD to move" line is a lesson, not a status:
+   it retires the moment the player first steers by hand. "waiting for GPS…"
+   is live status and stays until a fix lands.
+ - The pager is only built when a category spans more than one page.
+ - The developer readout sits behind ☰ › Developer. Not styled for production.
+
+================================================================================
+ARCHITECTURE: STANDARDIZED MODULES
+================================================================================
+The source has been progressively factored out of the monolithic app.js so the
+common, repeated logic lives in one declarative or pure place. This is design
+intent, not just cleanup — adding new content should mean editing data/cores,
+not threading another branch through the dispatcher.
+
+ - INTERACTABLE REGISTRY (`interactables.js` `INTERACTABLES`): every
+   tap-driven WORLD OBJECT is one declarative row that separates its concerns
+   — the tool that drives the wheel, whether it is spent, a pure gate that
+   may refuse the tap, the up-front energy (also the cancel refund), and the
+   payout (or a custom flow). One driver (`runInteractable`) walks them.
+   Adding a new interactable = adding a row.
+ - LUCK applies to chest/treasure loot only, read off `save` by `pickReward`
+   (`rarity.js`): TIER luck (`upgradeLuck`) and QUANTITY luck (`qtyLuck`),
+   both wizard rungs. Gather drops are not luck-aware; a declarative gather-luck
+   field that never shipped on was removed rather than left as dead weight.
+ - PURE CORES are extracted for headless testing (no scene, no DOM); the
+   scene keeps thin wrappers that own only side effects: `inventory.js`
+   (stack rules), `energy.js` (max / spend / offline rest), `crops.js`
+   (growth, watering and raider rules — the single owner of
+   `STAGE_HOLD_MS`), `home.js` (`HomeArea`: the canonical "near spawn?" test,
+   loaded before worldgen). The kind tables CLAUDE.md lists ("Shared design
+   rules") follow the same principle.
+
+================================================================================
+NOT IN SCOPE / REJECTED
+================================================================================
+ - fences from OSM barrier data (tiles don't expose it; user opted out)
+ - house interiors
+ - a separate "farm view" scene (caught count in HUD is enough)

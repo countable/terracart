@@ -42,6 +42,21 @@ live Phaser scene, real tile rasterization or rendering belongs there — but it
 needs a browser that isn't always available, so prefer a headless test
 whenever the logic can be reached from here.
 
+## Dungeon progression regressions
+
+The normal command above automatically includes `dungeon_progression.test.js`,
+`dungeon_terrain.test.js`, `arena.test.js`, and `arena_flow.test.js`. They cover
+chest reward eligibility and retries, every elevator route, refused rope travel,
+L2/L3 generation, road-clearance geometry, portal relocation and asynchronous
+loading, all five trial outcomes, one-time key rewards, and interrupted-save
+recovery. Scene flow tests execute the shipped methods with deterministic map
+and persistence fixtures; they do not require GPS or real-time trial waits.
+
+The browser harness additionally runs **arena: portal tap, actual menu buttons,
+trial victory and safe return** in `test/tests.js`. It verifies the real Phaser
+scene, menu actions, masked art, visible boundary, lighting, and return trip.
+Run it through the existing browser harness when changing scene wiring or art.
+
 ## Writing a test
 
 Add a `*.test.js` file here. The runner injects these globals (no imports):

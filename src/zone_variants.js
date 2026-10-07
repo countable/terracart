@@ -5,7 +5,7 @@
   const data = root.ZoneVariantData;
   const rows = data.variants;
   // A row's `zone` column is its ZONE KIND (the data key in
-  // docs/zone-variants.json stays as authored); a row IS a zone variant.
+  // docs/data/zone-variants.json stays as authored); a row IS a zone variant.
   const indexed = new Map(rows.map(row => [row.id, row]));
   const kinds = new Map();
   for (const row of rows) {
@@ -22,6 +22,19 @@
   function identity(anchor) {
     return Number.isFinite(anchor.gx) && Number.isFinite(anchor.gy)
       ? `${anchor.kind}|${anchor.gx}|${anchor.gy}` : `${anchor.kind}|${anchor.key}`;
+  }
+  // Canonical anchor frame shared by surface dressing and underground areas.
+  // Snap in the source tile, never in an observer's clipped coverage bounds.
+  function anchorFrame(anchor, { N, tx, ty }) {
+    const EXT = 4096;
+    const unit = root.WorldGen.CELL_M / (anchor.upm || N * root.WorldGen.CELL_M / EXT);
+    const gx = anchor.originGX == null ? anchor.gx : anchor.originGX;
+    const gy = anchor.originGY == null ? anchor.gy : anchor.originGY;
+    const ownerX = Math.floor(gx / EXT), ownerY = Math.floor(gy / EXT);
+    const originX = ownerX * EXT + (Math.floor((gx - ownerX * EXT) / unit) + 0.5) * unit;
+    const originY = ownerY * EXT + (Math.floor((gy - ownerY * EXT) / unit) + 0.5) * unit;
+    const local = (x, y) => [Math.floor((x - tx * EXT) * N / EXT), Math.floor((y - ty * EXT) * N / EXT)];
+    return { unit, originX, originY, local };
   }
   // Traits describe appearance, not eligibility: unusual combinations remain possible.
   const TRAITS = {
@@ -212,7 +225,12 @@
     if (b.type === 'repeat_motif') {
       const [w, h] = b.repeatCells;
       const material = slotAt(b, mod(u, w), mod(v, h));
-      if (material) return cycle(material, Math.floor(u / w), Math.floor(v / h));
+      if (material) {
+        const resolved = cycle(material, Math.floor(u / w), Math.floor(v / h));
+        const keep = b.materialKeepChance?.[resolved] ?? 1;
+        return keep >= 1 || unitHash(`${anchorKey}|${variant.id}|${u}|${v}|material-keep`) < keep
+          ? resolved : null;
+      }
       const scatter = b.gapScatter;
       return scatter && unitHash(`${anchorKey}|${variant.id}|${u}|${v}|gap`) < scatter.chance
         ? scatter.material : null;
@@ -234,6 +252,6 @@
     });
   }
   root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, findOffsets,
-    identity, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt,
+    identity, anchorFrame, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt,
     traitsFor, affinityMultiplier, geographyTraits, contextFor, selectionWeights };
 })(typeof window !== 'undefined' ? window : globalThis);

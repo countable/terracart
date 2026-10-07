@@ -80,9 +80,9 @@ test('trapper: the hit and the arrow ask the row, never the kind', () => {
   const start = APP.indexOf('  wanderCreatures() {');
   const w = APP.slice(start, APP.indexOf('\n  }\n', start));
   // rosterEnemyAttack (creature_ai.js): a row that lands no blow and steals
-  // nothing lands nothing, and a 'trap' row lays instead — the row, never
+  // nothing lands nothing unless it launches a web; a 'trap' row lays instead — the row, never
   // the kind.
-  assert.truthy(CREATURE_AI_SRC.includes("if ((!row.dmg && !row.steals) || row.attackType === 'touch') return;"),
+  assert.truthy(CREATURE_AI_SRC.includes("if ((!row.dmg && !row.steals && row.attackType !== 'web') || row.attackType === 'touch') return;"),
     'the attack reads the row\'s dmg');
   assert.falsy(/goblin_trapper/.test(w), 'no kind literal in the sim loop');
   assert.falsy(/goblin_trapper/.test(CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function rosterEnemyAttack('))), 'nor in the movers');
@@ -442,7 +442,7 @@ test('magic trap: an ENEMY on the cell is held and hurt as a player kill; the tr
   assert.gte(foe._frozenUntil, before + Combat.fireIntervalMs('staff'), 'chilled one staff beat (the frost slow)');
   assert.eq(scene.save.magicTraps.map((t) => t.id).join(), other.id, 'the sprung trap is spent, the other kept');
   // A tamed slime is a pet, never a target.
-  const pet = { kind: 'slime', id: 'released_slime_1', x: 9.5 * CELL, y: 9.5 * CELL };
+  const pet = { kind: 'slime', pet: true, id: 'released_slime_1', x: 9.5 * CELL, y: 9.5 * CELL };
   const t2 = tickScene([pet], [{ ...other }]);
   t2.run();
   assert.eq(t2.hits.length, 0, 'a pet walks over it');

@@ -1,250 +1,83 @@
-// The castle quest board. Solving the job AT a castle claims it (and is the
-// only thing that unseals it — see app.js _isBuildingSealed).
-// All functions are pure (only read/write save.quests) — no Phaser / DOM deps.
-
-// ── THE CASTLE BOARD ────────────────────────────────────────────────────────
-// THREE SLOTS, always full, refilled from a generator. Every castle is pinned
-// to one slot for life, so a castle always has a job and it is never the job
-// the castle down the road is offering — which is what makes walking to a
-// different one worth doing.
-//
-// This replaced a hand-written chain of three: kill 10 slimes, find a well,
-// bring a sapphire up from depth 3. Ten slimes was most of an evening for the
-// FIRST thing the game asks of you, and when the three were done the board had
-// nothing left to say. Many small jobs beat three big ones: the opener is now
-// three slimes, and the work grows with the number you have finished.
-const QUEST_SLOTS = 3;
-
-// Rank = quests completed. Every size and every reward is derived from it, so
-// the ladder is one number and there is no per-quest tuning to drift.
-//   need   = clamp(ceil(base * (1 + rank * k)), 1, max)
-//   reward = round(need * unit * (1 + rank * 0.15))
-// `unit` is what one of a thing is worth, and it is the only place a template
-// says anything about value: filling a wishlist pays more than a crop does
-// because it costs more. (Sowing, tilling and rebuilding jobs were retired,
-// Sep 2026 — the owner's call; their events still drive the starter ladder.)
-const QUEST_REWARD_RAMP = 0.15;
-
-// The verbs. `event` is the gameplay event that credits one unit (see
-// scene.questEvent and the onKill / onPoiVisit hooks), so
-// adding a verb here is a template plus a call site, not a new subsystem.
-const QUEST_TEMPLATES = [
-  { id: 'kill',    event: 'kill',    base: 1, k: 0.6,  max: 12, unit: 22, weight: 3,
-    title: 'Pest control',
-    body: (q) => `The garrison is paying a bounty. Defeat ${q.need} ${_plural(_enemyName(q.target), q.need)}.` },
-  { id: 'harvest', event: 'harvest', base: 2, k: 0.5,  max: 15, unit: 10, weight: 3,
-    title: 'Fill the stores',
-    body: (q) => `The kitchens are short. Bring in ${q.need} ${_plural('crop', q.need)}.` },
-  // `activates`: the job counts only from the moment a castle board first
-  // SHOWS it (Quests.activate, app.js showQuestBoard) — chests opened on the
-  // way to a castle, before the job was ever read, are not salvage for it.
-  { id: 'chest',   event: 'chest',   base: 2, k: 0.4,  max: 10, unit: 14, weight: 2, activates: true,
-    title: 'Salvage rights',
-    body: (q) => `The storekeeper seeks salvage from ${q.need} unopened ${_plural('chest', q.need)}.` },
-  { id: 'fish',    event: 'fish',    base: 2, k: 0.4,  max: 10, unit: 20, weight: 2,
-    title: 'Fish for the table',
-    body: (q) => `The cooks want fresh fish. Land ${q.need} ${_plural('fish', q.need)}.` },
-  { id: 'sell',    event: 'sell',    base: 1, k: 0.7,  max: 8,  unit: 18, weight: 2,
-    title: 'Trade run',
-    body: (q) => `The castle needs trade moving again. Sell a haul at Home ${q.need === 1 ? 'once' : `${q.need} times`}.` },
-  { id: 'deliver', event: 'deliver', base: 1, k: 0.3,  max: 5,  unit: 30, weight: 2,
-    title: 'Neighbourly',
-    body: (q) => `Fill ${q.need === 1 ? 'a household\'s wishlist' : `${q.need} households' wishlists`}.` },
-  { id: 'poi',     event: 'poi',     base: 1, k: 0,    max: 1,  unit: 55, weight: 1,
-    title: 'Scouting report',
-    body: (q) => `Scouts want eyes on ${_a(q.target)}. Find one and report back.` },
-];
-
-// A single enemy at rank 0 — "pest control starts with just a single of each" —
-// and a different foe each time the verb comes up. The surface slime leads
-// because it is the only one you can meet without going underground. The list
-// is ordered by how deep you must go to meet the kind, and rank r opens the
-// first r + 1 of them (see generate), so the giants — a level or three below
-// their base kinds — only come up on the board once a player has claimed a
-// handful of jobs. A GIANT IS ITS OWN KIND here: "defeat 2 goblins" is not
-// satisfied by a giant goblin, and a giant-goblin job is not by a goblin —
-// the board asks for exactly the foe it names (resolveDefeat credits
-// victim.kind as-is).
-//
-// DERIVED, never listed. `Combat.enemyKinds()` is the surface slime plus the
-// registered MONSTERS table in its own order — shallowest kind first, each
-// giant right after the kind it is a giant of, which is exactly the ordering
-// described above — and `Combat.enemyName` opens the underscores out for the
-// quest body.
-// Hand-typing them here meant a kind added to MONSTERS was a foe everywhere in
-// the game EXCEPT the one board that pays a bounty for it, and there was
-// nothing to notice the omission.
-//
-// It must be read at USE time, not load time: app.js registers the table at
-// scene boot, long after this file's <script> tag has run (see
-// Combat.enemyKinds' own note). Hence a function, and hence no constant.
+// Each castle keeps the quest assigned on its first conversation. Assignment
+// order chooses targets independently; counters begin here and shared actions
+// advance every matching active quest. Completion never creates a job.
 function questEnemies() {
-  if (typeof Combat === 'undefined' || !Combat.enemyKinds) return ['slime'];
-  // Less the kinds whose row keeps them off the board (Combat.onQuestBoard:
-  // the fire slime, a zone-only foe).
-  return Combat.enemyKinds().filter((k) => !Combat.onQuestBoard || Combat.onQuestBoard(k));
+  return Combat.enemyKinds().filter(kind => Combat.onQuestBoard(kind))
+    .sort((a, b) => (Combat.monster(a)?.tier ?? 1) - (Combat.monster(b)?.tier ?? 1));
 }
-// POI classes worth sending somebody to look at. Common enough to exist in a
-// real neighbourhood, distinct enough to be a destination.
-const QUEST_POIS = ['well', 'fountain', 'library', 'museum', 'park', 'place_of_worship', 'playground'];
-// Exposed as a global purely for the headless test bundle (test/node/run.js's
-// BRIDGE re-exports QUEST_TEMPLATES/QUEST_ENEMIES the same way):
-// poi_quest.test.js needs the REAL array, not a hand-copied one that could
-// drift. In the browser this is a no-op duplicate of the lexical binding;
-// only the node vm harness, which reloads each test file in its own
-// vm.runInContext call, needs the property on the shared global.
-if (typeof window !== 'undefined') window.QUEST_POIS = QUEST_POIS;
-// QUEST_ENEMIES is exported the same way and for the same reason, but as an
-// ACCESSOR rather than a value: the list is derived from a table that does not
-// exist yet when this line runs (Combat's is registered at scene boot), so a
-// snapshot taken here would be the surface slime alone for the rest of the
-// session. The setter is a no-op because the harness's bridge assigns the
-// property back onto the global; without one that assignment would throw.
-if (typeof window !== 'undefined' && !('QUEST_ENEMIES' in window)) {
-  Object.defineProperty(window, 'QUEST_ENEMIES', { get: questEnemies, set() {}, configurable: true });
+
+function questAnimals() {
+  return Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter(kind => SpriteLayout.isGame(kind));
 }
-const QUEST_POI_NAMES = {
-  well: 'an old well', fountain: 'a fountain', library: 'a library', museum: 'a museum',
-  park: 'a park', place_of_worship: 'a chapel', playground: 'a playground',
-};
-
-const _plural = (w, n) => (n === 1 || w === 'fish' ? w : (w.endsWith('s') ? w + 'es' : w + 's'));
-const _enemyName = (k) => ((typeof Combat !== 'undefined' && Combat.enemyName) ? Combat.enemyName(k) : k);
-const _a = (k) => QUEST_POI_NAMES[k] || k;
-
-// The opening three, authored rather than rolled. A first impression is worth
-// writing by hand, and this one has to say "these are small" — three slimes,
-// three crops, two chests — before the generator takes over at gen 3. An
-// opener's `need` pins its size (one slime and one crop were over before the
-// player had noticed the board, Sep 2026); the rank ladder is untouched.
-const QUEST_OPENERS = [
-  { t: 'kill', target: 'slime', need: 3 },
-  { t: 'harvest', need: 3 },
-  { t: 'chest' },
-];
 
 const Quests = {
-  _qs(save) {
-    if (!save.quests || !Array.isArray(save.quests.slots)) {
-      save.quests = { slots: [], gen: 0, done: 0 };
+  get(save, key) { return save.quests?.byCastle?.[key] || null; },
+
+  assign(save, key, variant) {
+    const existing = this.get(save, key);
+    if (existing) return existing;
+    const verb = CastleStyles.get(variant).questType;
+    if (!key || !verb) return null;
+    if (!save.quests?.byCastle) save.quests = { byCastle: {}, assigned: {} };
+    const state = save.quests;
+    const order = state.assigned[verb] || 0;
+    const q = { verb, event: verb, need: verb === 'kill' ? 3 : verb === 'hunt' ? 2 : 1,
+      have: 0, claimed: false };
+    if (verb === 'kill') {
+      const enemies = questEnemies();
+      q.target = enemies[Math.min(order, enemies.length - 1)];
+      q.title = 'Pest control';
+      const name = Combat.enemyName(q.target);
+      q.body = `Defeat 3 ${name.endsWith('s') ? name + 'es' : name + 's'}.`;
+      q.reward = 66;
+    } else if (verb === 'hunt') {
+      const animals = questAnimals();
+      q.target = animals[order % animals.length];
+      q.title = 'The hunt';
+      q.body = `Hunt 2 ${q.target === 'deer' ? 'deer' : q.target + 's'}.`;
+      q.reward = 40;
+    } else {
+      q.title = 'Neighbourly';
+      q.body = `Complete ${q.need} ${q.need === 1 ? 'delivery' : 'deliveries'}.`;
+      q.reward = q.need * 30;
     }
-    const q = save.quests;
-    if (typeof q.gen !== 'number') q.gen = 0;
-    if (typeof q.done !== 'number') q.done = 0;
-    // Top the board up. A slot is never left empty: the moment one is claimed
-    // the next job takes its number, which is the whole point of numbering them.
-    while (q.slots.length < QUEST_SLOTS) q.slots.push(null);
-    for (let i = 0; i < QUEST_SLOTS; i++) {
-      // A job whose verb has left the board is rerolled in its slot.
-      if (q.slots[i] && !QUEST_TEMPLATES.some(t => t.id === q.slots[i].verb)) q.slots[i] = null;
-      if (!q.slots[i]) q.slots[i] = this.generate(i, q.gen++, q.done, save.relicSalt || 0);
-    }
+    state.assigned[verb] = order + 1;
+    state.byCastle[key] = q;
     return q;
   },
 
-  // Which slot a castle offers. Deterministic from its stable key, so a castle
-  // keeps its slot for life and two castles side by side rarely share one.
-  slotForCastle(key) {
-    if (!key) return 0;
-    return fnv1a(key) % QUEST_SLOTS;
+  completedCount(save) {
+    return Object.values(save.quests?.byCastle || {}).filter(q => q.claimed).length;
   },
 
-  // THE GENERATOR. Pure and seeded off (salt, slot, gen), so the same board
-  // comes back after a reload — a quest must not re-roll under a player who is
-  // halfway through it — and two saves don't walk the same sequence.
-  generate(slot, gen, rank, salt) {
-    const seed = (((+salt || 0) * 2654435761) ^ (slot * 40503) ^ ((gen + 1) * 2246822519)) >>> 0;
-    let x = seed || 1;
-    const rnd = () => {
-      x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0;
-      return x / 4294967296;
-    };
-    // The authored opening trio, one per slot, before the roll takes over.
-    const opener = gen < QUEST_SLOTS ? QUEST_OPENERS[slot] : null;
-    let tpl;
-    if (opener) tpl = QUEST_TEMPLATES.find(t => t.id === opener.t);
-    if (!tpl) {
-      const bag = [];
-      for (const t of QUEST_TEMPLATES) for (let i = 0; i < t.weight; i++) bag.push(t);
-      tpl = bag[Math.floor(rnd() * bag.length)] || QUEST_TEMPLATES[0];
-    }
-    const need = (opener && opener.need) || clamp(Math.ceil(tpl.base * (1 + rank * tpl.k)), 1, tpl.max);
-    const q = {
-      id: `q${gen}`, slot, gen, verb: tpl.id, event: tpl.event, need, have: 0,
-      ...(tpl.activates ? { active: false } : {}),
-      reward: Math.round(need * tpl.unit * (1 + rank * QUEST_REWARD_RAMP)),
-    };
-    if (tpl.id === 'kill') {
-      const kinds = questEnemies();
-      q.target = (opener && opener.target)
-        || kinds[Math.min(kinds.length - 1,
-             Math.floor(rnd() * (1 + Math.min(rank, kinds.length - 1))))];
-    }
-    if (tpl.id === 'poi') q.target = QUEST_POIS[Math.floor(rnd() * QUEST_POIS.length)];
-    q.title = tpl.title;
-    q.body = tpl.body(q);
+  claim(save, key) {
+    const q = this.get(save, key);
+    if (!q || q.claimed || q.have < q.need) return null;
+    q.claimed = true;
     return q;
   },
 
-  // The whole board — always QUEST_SLOTS long, never a hole in it.
-  board(save) { return this._qs(save).slots.slice(); },
-  slot(save, i) { return this._qs(save).slots[i] || null; },
-  isSlotComplete(save, i) {
-    const q = this.slot(save, i);
-    return !!q && q.have >= q.need;
-  },
-  completedCount(save) { return this._qs(save).done; },
-
-  // Claim slot `i`: pay out and put the NEXT job in that number. Returns the
-  // finished quest (for the toast), or null if it wasn't ready.
-  claim(save, i) {
-    if (!this.isSlotComplete(save, i)) return null;
-    const q = this._qs(save);
-    const done = q.slots[i];
-    q.done++;
-    q.slots[i] = this.generate(i, q.gen++, q.done, save.relicSalt || 0);
-    return done;
-  },
-
-  // One gameplay event, offered to every live slot. All three track at once —
-  // there is no accept step, the same way the starter ladder has none — and the
-  // generator avoids putting one verb in two slots, so double credit is rare by
-  // construction rather than by a rule here.
   onEvent(save, event, detail) {
-    const q = this._qs(save);
-    let any = false;
-    for (const s of q.slots) {
-      if (!s || s.event !== event || s.have >= s.need || s.active === false) continue;
-      if (s.target && detail && detail.target && detail.target !== s.target) continue;
-      if (s.target && (!detail || detail.target == null)) continue;
-      s.have = Math.min(s.need, s.have + 1);
-      any = true;
+    let changed = false;
+    for (const q of Object.values(save.quests?.byCastle || {})) {
+      if (q.claimed || q.event !== event || q.have >= q.need) continue;
+      if (q.target && detail?.target !== q.target) continue;
+      q.have = Math.min(q.need, q.have + 1);
+      changed = true;
     }
-    return any;
+    return changed;
   },
 
-  // A castle board has SHOWN slot `i`'s job: from now on it counts (only an
-  // `activates` template starts inactive). Returns true when it changed.
-  activate(save, i) {
-    const s = this._qs(save).slots[i];
-    if (!s || s.active !== false) return false;
-    s.active = true;
-    return true;
+  onKill(save, kind) {
+    return this.onEvent(save, SpriteLayout.isGame(kind) ? 'hunt' : 'kill', { target: kind });
   },
-
-  // The two hooks the gameplay sites already call, kept so no call site has
-  // to know the board exists.
-  onKill(save, kind) { return this.onEvent(save, 'kill', { target: kind }); },
-  onPoiVisit(save, poiClass) { return this.onEvent(save, 'poi', { target: poiClass }); },
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STARTER CHAIN — the first-session guidance ladder.
 //
-// Deliberately SEPARATE from the castle board above. A castle is unsealed by
-// claiming a quest AT it, which reads save.claimedCastles and nothing here, so
-// adding steps to this ladder can never tighten (or loosen) a castle gate —
-// the two share nothing but this file. This one exists to answer "what do I do now?" for a player
+// Separate from castle quests and citadel battles: tutorial steps never
+// change castle ownership. This answers "what do I do now?" for a player
 // who just watched the intro, and it retires itself once the loop is learned.
 //
 // The steps trace one full pass of the economy — pick up supplies, till, plant,

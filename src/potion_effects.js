@@ -7,7 +7,7 @@
   // so a thrown potion and a drunk one can never disagree about where the
   // deadline lives.
   const TIMERS = Object.fromEntries(['reach_potion', 'speed_potion', 'shielding_potion', 'protection_potion',
-    'giant_potion', 'fire_resistance_potion', 'blight_potion', 'immortal_potion', 'shrinking_potion']
+    'flight_potion', 'giant_potion', 'fire_resistance_potion', 'blight_potion', 'immortal_potion', 'shrinking_potion']
     .map(id => [id, Buffs.KINDS[CONSUMABLE_SPEC[id].buff].save]));
   function active(c, id, now = Date.now()) { return (c?.[TIMERS[id]] || 0) > now; }
   function speedMul(c, now = Date.now()) { return active(c, 'speed_potion', now) ? 2 : 1; }
@@ -209,7 +209,7 @@
       const wards = scene._npcWardContext;
       if (Combat.isEnemy(c) && wards && wardTrip(c, wards.home, wards.castles, wards.radius2)) return false;
       for (const target of opponents(scene, c, units(scene))) {
-        if (Math.hypot(target.x - c.x, target.y - c.y) <= spec.radiusCells * scene.cellM) {
+        if (Math.hypot(target.x - c.x, target.y - c.y) <= auraRadiusCells(spec) * scene.cellM) {
           damage(scene, target, spec.damagePerSecond * seconds, c, true);
         }
       }

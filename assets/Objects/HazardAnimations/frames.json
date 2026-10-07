@@ -1,0 +1,136 @@
+{
+  "status": "art draft; not connected to gameplay",
+  "export": "Nearest-neighbor size export from built-in imagegen originals; alpha preserved.",
+  "sinkhole": {
+    "image": "sinkhole.png",
+    "frameWidth": 48,
+    "frameHeight": 48,
+    "columns": 4,
+    "warning": [
+      0,
+      1,
+      2
+    ],
+    "opening": [
+      3,
+      4
+    ],
+    "open": [
+      5,
+      6
+    ],
+    "closing": [
+      7,
+      8,
+      9
+    ],
+    "closed": [
+      10,
+      11
+    ],
+    "frameDurationsMs": [
+      350,
+      300,
+      250,
+      120,
+      120,
+      220,
+      220,
+      140,
+      140,
+      120,
+      160,
+      650
+    ],
+    "occupant": "Draw the occupant separately. Hide or lower them during frames 5-6, before closing begins. No occupant is baked into the sheet."
+  },
+  "tornado": {
+    "image": "tornado.png",
+    "frameWidth": 48,
+    "frameHeight": 48,
+    "columns": 4,
+    "formation": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "activeLoop": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "formationFrameMs": 180,
+    "activeFrameMs": 110
+  },
+  "ventWarnings": {
+    "image": "vent-warnings.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "columns": 2,
+    "poison": [
+      0,
+      1
+    ],
+    "fire": [
+      2,
+      3
+    ],
+    "paralysis": [
+      4,
+      5
+    ],
+    "frameDurationsMs": [
+      350,
+      250
+    ],
+    "existingActiveSheet": "assets/Objects/Cave/props.png",
+    "existingActiveColumns": 6,
+    "existingActiveFrames": {
+      "poison": [
+        8,
+        9
+      ],
+      "fire": [
+        10,
+        11
+      ],
+      "paralysis": [
+        12,
+        13
+      ]
+    },
+    "base": "Rows 14–23 copied byte-for-byte from the first existing active frame of each vent type; invariant in both warnings and both active phases."
+  },
+  "ventCycle": {
+    "image": "vent-cycle.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "columns": 4,
+    "poison": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "fire": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "paralysis": [
+      8,
+      9,
+      10,
+      11
+    ],
+    "phases": [
+      "warning 1",
+      "warning 2",
+      "active 1",
+      "active 2"
+    ]
+  }
+}

@@ -364,6 +364,10 @@ const SHINY_TINT = 0xffd23a;
 // is chilled (Combat.isChilled, the `frozen` status row; render.js drawCreatures).
 const FROZEN_TINT = 0x9ad8ff;
 
+// Aura reach is measured from its centre; gameplay and the visible disc
+// share this default unless the source declares a different radius.
+function auraRadiusCells(aura) { return aura?.radiusCells ?? 1; }
+
 // === Tree size tiers =========================================================
 // Canopy size and growth stage come from stable record fields. Explicit size
 // classes preserve their harvest rules while selecting the matching artwork.
@@ -448,22 +452,16 @@ function treeWoodMul(o) {
 
 // === Shared look: fonts + palette ==========================================
 // One home for the typefaces and colours the game draws with, so a new call
-// site can't quietly invent a seventh gold or a second monospace stack. The
+// site can't quietly invent a seventh gold or a second font stack. The
 // DOM side mirrors these as CSS custom properties on :root (index.html) —
 // keep the two in sync when either changes.
 //
-// FONTS. Canvas text (Phaser) and DOM text share ONE monospace stack.
-// `ui-monospace` is a distinct generic from bare `monospace`: it resolves to
-// the platform's UI mono (SF Mono on Apple, Cascadia/Consolas on Windows)
-// where bare `monospace` resolves to the browser's default fixed font, often
-// Courier. Mixing the two put two different typefaces a cell apart on Apple
-// devices, so every text style goes through these helpers.
-const FONT_MONO_STACK  = 'ui-monospace, monospace';
-// Map lettering (road names) and the shop plaque. One serif stack, not two —
-// they used to differ by whether Georgia was in the list.
-const FONT_SERIF_STACK = 'ui-serif, Georgia, "Times New Roman", serif';
-// `spec` is everything before the family: 'bold 10px', '700 12px', 'italic 8px'.
-const fontMono  = (spec) => `${spec} ${FONT_MONO_STACK}`;
+// Native system UI fonts keep small labels readable without a font download.
+// Canvas cannot resolve CSS variables; keep this stack in sync with
+// --font-ui in index.html, which owns DOM text.
+const FONT_UI_STACK = 'system-ui, sans-serif';
+// `spec` is everything before the family: 'bold 10px', '700 12px'.
+const fontUI = (spec) => `${spec} ${FONT_UI_STACK}`;
 
 // Combine two packed-RGB tints channel-wise (each channel a 0..1 multiplier),
 // so a dim/red state tint can stack on the player's own colour instead of
@@ -498,7 +496,6 @@ function rgbaOf(c, a) {
 function luminance(c) {
   return (0.299 * ((c >> 16) & 255) + 0.587 * ((c >> 8) & 255) + 0.114 * (c & 255)) / 255;
 }
-const fontSerif = (spec) => `${spec} ${FONT_SERIF_STACK}`;
 
 // PALETTE. Named roles, not shades — reach for the role that fits rather than
 // adding a near-duplicate. The three secondary golds below are genuinely

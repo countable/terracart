@@ -57,11 +57,11 @@ test('level 1: a dozen-odd barrels on free floor cells, off their own stream, po
   const deeper = [];
   WorldGen.caveBarrels(deeper, grid, N, 3, 4, N * WorldGen.CELL_M, 2, new Set());
   assert.eq(deeper.length, 0, 'level 2 has none');
-  // Wired last in the level build (the last row of CAVE_PASSES, after the
-  // torches), so nothing seated moves; loadCaveTile lays the table in order.
+  // Wired after the floor torches and before drill shrines in CAVE_PASSES;
+  // loadCaveTile lays the table in order so earlier finds stay in place.
   const order = WorldGen.CAVE_PASSES.map(r => r.id);
-  assert.eq(order[order.length - 1], 'barrels', 'the last floor pass');
-  assert.eq(order[order.length - 2], 'floorTorches', 'after the floor torches');
+  assert.eq(order[order.length - 2], 'barrels', 'before drill shrines');
+  assert.eq(order[order.length - 3], 'floorTorches', 'after the floor torches');
   assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(WORLDGEN_SRC), 'loadCaveTile runs the table');
 });
 
@@ -74,3 +74,17 @@ test('quarry: the clipped benches read the whole density table, stone and crysta
   assert.truthy(/put\(r, b, 'quarry_barrel'\)/.test(QUARRY_LAYOUT_SRC), 'the abandoned quarry leaves one at a patch corner');
 });
 })();
+
+test('warren stores spend the shared shallow container allocation before ambient barrels', () => {
+  const W = WorldGen, N = 64, grid = new Uint8Array(N * N).fill(W.T.CAVE_FLOOR);
+  for (const depth of [1, 2]) {
+    const budget = W.caveContainerBudget(3, 4, depth);
+    assert.inRange(budget, W.CAVE_BARREL_MIN, W.CAVE_BARREL_MIN + W.CAVE_BARREL_SPAN - 1);
+    const objects = Array.from({length: 3}, (_, n) => W.makeObject('chest', (3*N+n+.5)*W.CELL_M,
+      (4*N+.5)*W.CELL_M, `warren-test-${depth}-${n}`, {barrel:true,caveArea:'warren',depth}));
+    W.caveBarrels(objects, grid, N, 3, 4, N * W.CELL_M, depth, new Set([0,1,2]));
+    assert.eq(objects.length, depth === 1 ? budget : 3,
+      'L1 spends the remainder; L2 only has allocated authored stores');
+  }
+  assert.eq(W.caveContainerBudget(3,4,3), 0);
+});

@@ -144,7 +144,7 @@
               fix('mushroom', 0.04, 0.10, S.MUSH_FOREST)],
     },
     // Occasional beach finds; keep the sand and waterline mostly clear.
-    sand:  { flora: [fix('shell', 0.022, 0.035, S.SHELL), fix('driftwood', 0.0075, 0.0075, 0xd71f700d)] },
+    sand:  { flora: [fix('shell', 0.022, 0.035, S.SHELL), fix('driftwood', 0.006, 0.006, 0xd71f700d)] },
     rocky: { flora: [] },
     farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)] },
     urban: {
@@ -207,14 +207,14 @@
       flora: [fix('longgrass', 0.007, 0.013, S.LONGGRASS),
               fix('flowers', 0.007, 0.015, S.FORGETMENOT)],
     },
-    [T.PITCH]: { flora: [fix('longgrass', 0.003, 0.007, S.LONGGRASS)] },
+    [T.PITCH]: { staticObjects: { noRocks: true }, flora: [fix('longgrass', 0.003, 0.007, S.LONGGRASS)] },
     [T.WETLAND]: { staticObjects: { noRocks: true }, blockedFlora: ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower'],
       flora: [fix('longgrass', 0.15, 0.21, S.WET_LG),
               fix('shrub', 0.035, 0.070, S.WET_SHRUB),
               fix('mushroom', 0.055, 0.105, S.WET_MUSH)],
     },
     [T.GOLF]: { flora: [] },
-    [T.ORCHARD]: { staticObjects: { fruitTreeSpacingM: 15.2 }, blockedFlora: ['marigold'],
+    [T.ORCHARD]: { staticObjects: { fruitTreeSpacingM: 15.2, noRocks: true }, blockedFlora: ['marigold'],
       flora: [fix('longgrass', 0.019, 0.030, S.ORCH_LG)],
     },
   };
@@ -480,7 +480,7 @@
     dog:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT], fallback: ALL_NATURAL },
     deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.RESIDENTIAL], fallback: [T.FOREST, T.RESIDENTIAL], only: [T.FOREST, T.RESIDENTIAL] },
     crow:      { base: 200, range: 0, share: 1.00, primary: [T.PARK], fallback: [T.PARK], only: [T.PARK] },
-    butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.ORCHARD, T.GOLF], fallback: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.ORCHARD, T.GOLF, T.SCHOOL, T.PLAYGROUND], excluded: [T.FOREST] },
+    butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.GOLF], fallback: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.GOLF, T.SCHOOL, T.PLAYGROUND], excluded: [T.FOREST, T.ORCHARD] },
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
     storm_gull: { only: [] }, // Retired guard bird; keep its art/roster available for authored previews.
     // Surface corvid identities are exclusive to their named ground.
@@ -515,7 +515,7 @@
   const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'sea_turtle'];
   const SHORE_FAUNA = {
     metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
-    crab: { perShoreM: 35, max: 14, pier: false, salt: 'shorefauna|crab' },
+    crab: { perShoreM: 20, max: 24, pier: false, salt: 'shorefauna|crab' },
     gull: { perShoreM: 90, max: 6,  pier: false, only: [T.SAND],  salt: 'shorefauna|gull' },
     // The sea turtle: the rabbit's habits on the sand, fewer than the crabs.
     sea_turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },

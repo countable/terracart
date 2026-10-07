@@ -36,7 +36,7 @@
     assert.truthy(Combat.isCharmed(c, wall + 59999)); assert.truthy(Combat.isEnemy(c, wall + 60000));
     assert.falsy(huntsPrey('dog', c)); assert.falsy(huntsPrey('spirit_raven', c));
     c.id = 'pest_slime_0_0'; assert.falsy(huntsPrey('spirit_raven', c), 'a charmed pest is still allied');
-    assert.falsy(Combat.applyCharm(foe('released_pet', 'slime'), wall));
+    assert.falsy(Combat.applyCharm({...foe('released_pet', 'slime'),pet:true}, wall));
     assert.falsy(Combat.applySleep(foe('cow', 'cow'), wall));
     assert.truthy(Combat.isPlayerKill('ally')); assert.falsy(Combat.isPlayerKill('enemy'));
     assert.eq(Combat.shotSource({ _sourceGuard: c }), 'ally');
@@ -49,9 +49,9 @@
     assert.eq(c.x, 0); assert.eq(s.save.energy, 100); assert.eq(s._shots.length, 0);
   }));
   test('flower status: charmed melee hits foes at its normal cadence and enemies retaliate', () => withClock(() => {
-    const ally = foe('ally'), hostile = foe('hostile', 'zombie', 1), s = scene();
+    const ally = foe('ally', 'brute'), hostile = foe('hostile', 'brute', 1), s = scene();
     Combat.applyCharm(ally, wall);
-    const row = EnemyRoster.get('zombie');
+    const row = EnemyRoster.get(ally.kind);
     rosterEnemyAttack(s, ally, row, 10000, hostile.x, 0, false, 0.1, null, hostile);
     rosterEnemyAttack(s, ally, row, 10000 + row.windupSeconds * 1000, hostile.x, 0, false, 0.1, null, hostile);
     assert.eq(s.hits.length, 1); assert.eq(s.hits[0].source, 'ally'); assert.eq(s.hits[0].n, row.dmg);
@@ -62,6 +62,22 @@
     assert.eq(s.hits.length, 2); assert.eq(s.hits[1].source, 'enemy'); assert.eq(s.save.energy, 100);
     rosterEnemyAttack(s, ally, row, 20000, 1, 0, false, 0.1);
     assert.eq(s.save.energy, 100, 'an ally cannot enter the player-damage lane');
+  }));
+  test('flower status: zombie blight follows charm allegiance without hurting the caster side', () => withClock(() => {
+    const ally = foe('ally'), fellow = foe('fellow', 'zombie', 5);
+    const hostile = foe('hostile', 'zombie', 5), s = scene();
+    Combat.applyCharm(ally, wall); Combat.applyCharm(fellow, wall);
+    const row = EnemyRoster.get('zombie');
+    rosterEnemyAttack(s, ally, row, 10000, hostile.x, 0, false, 1, null, hostile);
+    assert.eq(s.hits.length, 1); assert.eq(s.hits[0].c, hostile);
+    assert.eq(s.hits[0].source, 'ally'); assert.eq(s.hits[0].n, row.aura.rawDps);
+    rosterEnemyAttack(s, ally, row, 10000, fellow.x, 0, false, 1, null, fellow);
+    rosterEnemyAttack(s, ally, row, 10000, 5, 0, false, 1);
+    assert.eq(s.hits.length, 1, 'allied blight cannot hurt another ally');
+    assert.eq(s.save.energy, 100, 'allied blight cannot hurt the player');
+    rosterEnemyAttack(s, hostile, row, 10000, ally.x, 0, false, 1, null, ally);
+    assert.eq(s.hits.length, 2); assert.eq(s.hits[1].c, ally);
+    assert.eq(s.hits[1].source, 'enemy'); assert.eq(s.hits[1].n, row.aura.rawDps);
   }));
   test('flower status: charmed archers produce allied projectiles with their source identity', () => withClock(() => {
     const c = foe('archer', 'goblin_archer'), target = foe('target', 'zombie', 14), s = scene();

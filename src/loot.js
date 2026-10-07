@@ -377,7 +377,7 @@ const CLAY_POT_LOOT = [
   { kind: 'seed', w: 0.1, minTier: 1, maxTier: 1 },
 ];
 const BARREL_ART = [
-  { texKey: 'barrel', smashedKey: 'barrel_smashed', name: 'barrel', loot: BARREL_LOOT },
+  { texKey: 'barrel', smashedKey: null, name: 'barrel', loot: BARREL_LOOT },
   { texKey: 'clay_pot', smashedKey: 'clay_pot_smashed', name: 'clay pot', loot: CLAY_POT_LOOT },
 ];
 const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
@@ -813,7 +813,7 @@ function macroFor(o) {
 //            one is a plain chest — the burst is a street thing.
 //   bike   → the bike rack (isBikeRack): a stick-walk speed boost a day
 //   barrel → a bin or recycling point (isBarrel): smashed permanently. The look carries a stable barrel or clay-pot pair;
-//            render.js swaps texKey for smashedKey while it is spent.
+//            spent containers with no smashedKey disappear; others show that broken art.
 //   wagon  → the broken wagon: a bus stop on an OLD TRADE ROAD (a MAJOR way —
 //            StreetVariants.markBanditStops stamps `banditStop`). The same
 //            chest: id, tier, contents and `opened` are untouched; only the

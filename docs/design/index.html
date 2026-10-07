@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Design dashboard</title>
+<style>
+  body { font: 15px/1.6 'Segoe UI', system-ui, sans-serif; margin: 0; background: #faf7f2; color: #26221c; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 32px 28px 64px; }
+  h1 { font-size: 24px; margin: 0 0 18px; }
+  h2 { font-size: 18px; margin-top: 34px; border-bottom: 2px solid #d8cfc0; padding-bottom: 6px; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 8px; }
+  .pending li::marker { color: #b3542f; font-weight: bold; content: "\25B8 "; }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: #efe8d8; padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body><div class="wrap">
+<h1>Design dashboard</h1>
+
+<h2>Pending work</h2>
+<ul class="pending">
+  <li><strong>Floor geometry proposal</strong> - per-floor inputs and the open theme/activity/geometry decisions, each with a default, awaiting confirmation: <a href="floor-geometry-proposal.md">floor-geometry-proposal.md</a> (scan the decisions in <a href="floor-geometry-proposal.html">the HTML sheet</a>).</li>
+  <li><strong>Floor catalog rework</strong> - implement the goblin city at L2, the per-floor themes, and the new ladder, pit, rope and elevator rules. The catalog lives in <a href="floors.md">floors.md</a>; the code still ships the pre-rework depths.</li>
+  <li><strong>Floor design review</strong> - what every floor shares, what differs, the complete inputs checklist for defining a floor declaratively, and the scalability ledger: <a href="floor-design-review.html">floor-design-review.html</a> (kept current; read it before defining or re-tuning a floor).</li>
+</ul>
+
+<h2>Design docs</h2>
+<ul>
+  <li><a href="glossary.md">Game terminology glossary</a> - preferred names, aliases and naming decisions</li>
+  <li><a href="spec.txt">spec.txt</a> - system design and intent</li>
+  <li><a href="story.txt">story.txt</a> - the story bible</li>
+  <li><a href="generation.md">generation.md</a> - world and dungeon generation</li>
+  <li><a href="floors.md">floors.md</a> - the floor catalog (target design)</li>
+  <li><a href="combat.md">combat.md</a> - combat, energy and conditions</li>
+  <li><a href="presentation.md">presentation.md</a> - dialogs, feedback and teaching</li>
+  <li><a href="rendering.md">rendering.md</a> - coordinates, rendering and performance</li>
+  <li><a href="monster-world.md">monster-world.md</a> - creature families, geography and roster design</li>
+  <li><a href="zone-variants.md">zone-variants.md</a> - placement contract and regeneration</li>
+  <li><a href="CHEST_THEMES.md">CHEST_THEMES.md</a> - loot identity by place</li>
+</ul>
+</div></body>
+</html>

@@ -132,11 +132,11 @@ test('Orrin: a remembered question changes a later research welcome', () => {
   assert.includes(talk(save).body, 'I kept your question');
 });
 
-test('Orrin: early mending needs two roofs and acknowledged legacy topics stay complete', () => {
+test('Orrin: acknowledged legacy topics stay complete after Bryn thanks the first roof', () => {
   const save = { restoredHouses: { one: 'plain' }, memoryStory: { wardenMet: true } };
-  assert.includes(MemoryStory.npcDialogue({ save }, { role: 'warden' }), NPC.WARDEN_LINE);
+  assert.eq(MemoryStory.npcDialogue({ save }, { role: 'warden' }), MemoryStory.FIRST_ROOF);
   save.restoredHouses.two = 'plain';
-  assert.includes(MemoryStory.npcDialogue({ save }, { role: 'warden' }), 'Lamplight');
+  assert.eq(MemoryStory.npcDialogue({ save }, { role: 'warden' }), MemoryStory.FIRST_ROOF);
   const legacy = { restoredHouses: { one: 'plain' }, memoryStory: {
     archaeologist: { visits: 2, seen: { introduction: { choice: 'listen' }, mending: { choice: 'listen' } } },
   } };
@@ -153,10 +153,9 @@ test('Orrin: warden reputation follows meeting him and preserves the opening ins
   answer(save);
   const after = MemoryStory.npcDialogue({ save }, c);
   assert.truthy(after.startsWith(before));
-  assert.includes(after, 'crackpot');
-  assert.includes(after, 'worry');
+  assert.includes(after, 'His dragon talk could get someone hurt.');
   save.restoredHouses = {};
-  assert.includes([].concat(MemoryStory.npcDialogue({ save }, c)).join('\n'), NPC.WARDEN_LINE);
+  assert.eq(MemoryStory.npcDialogue({ save }, c), '“Mend a house. We’ll help.”');
 });
 
 })();

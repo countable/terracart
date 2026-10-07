@@ -32,7 +32,10 @@
 //   viewAnchorCell(scene)                    — that point's { tx, ty, cx, cy }
 //   overlayFrame(scene, entryReady)          — a geometry overlay's draw frame
 //   overlayProjection(scene, fracX, fracY)   — …and its cell-snapped projection
-//   timedOverlayRebuild(label, fn)           — one rebuild under the boot profiler
+//   overlayPaintFrame(scene, frame, old, revision) — retain its padded paint
+//   claimOverlayRebuild(scene, owner)         — admit one heavy overlay per update
+//   retainedOverlayOffset(scene, old, frame)  — scroll old paint while one waits
+//   timedOverlayRebuild(label, fn)             — one rebuild under the boot profiler
 //   lonLatToLocalM(scene, lon, lat)          — a GPS fix in playerM's frame
 //   localMToLonLat(scene, mx, my)            — and back out to lon/lat
 //   REACH_CORNER_PX / ReachCorner            — the lit boundary's corner rule
@@ -569,6 +572,72 @@ function overlayProjection(scene, fracX, fracY) {
     minX: scene.viewLeft - PAD, maxX: scene.viewLeft + scene.viewSize + PAD,
     minY: scene.viewTop  - PAD, maxY: scene.viewTop  + scene.viewSize + PAD,
   };
+}
+
+// Retain a painted overlay across cell boundaries. Both canvases and their
+// cull bounds have two cells of padding; stop half a cell short of that edge
+// so filtering and outlines stay covered. World displacement (rather than
+// cell-index subtraction) also handles peek motion and changing row grids.
+// Repainting halfway through a cell separates the overlay work from the
+// terrain's crossing rebuild, and reversing over a boundary reuses the paint.
+function overlayPaintFrame(scene, frame, previous, revision) {
+  const { pc, ready, fracX, fracY } = frame;
+  const key = [pc.tx, pc.ty, ready, revision, scene.cellM,
+    scene.viewLeft, scene.viewTop, scene.viewSize, scene.viewCenterX, scene.viewCenterY].join('|');
+  const anchor = viewAnchorWorldM(scene);
+  const sameInputs = previous && previous.inputs.length === frame.tiles.length
+    && frame.tiles.every(({ entry }, i) => {
+      const old = previous.inputs[i];
+      return old[0] === entry && old[1] === entry.layers && old[2] === entry.buildingShapes;
+    });
+  if (sameInputs && previous.key === key) {
+    const x = (anchor.x - previous.x) / scene.cellM;
+    const y = (anchor.y - previous.y) / scene.cellM;
+    if (Math.abs(x) < 1.5 && Math.abs(y) < 1.5) {
+      return { ...previous, fracX: x, fracY: y, rebuild: false };
+    }
+  }
+  return { key, inputs: frame.tiles.map(({ entry }) => [entry, entry.layers, entry.buildingShapes]),
+    x: anchor.x - fracX * scene.cellM,
+    y: anchor.y - fracY * scene.cellM, fracX, fracY, rebuild: true };
+}
+
+// Road and building paint are the two expensive canvas uploads in the world
+// update. Their padded caches normally rebuild only every few cells, but they
+// exhaust the same pad together and used to put both uploads on one frame.
+// app.js advances `_overlayFrameSeq` once before drawing either overlay; the
+// first claimant owns that update and the other recomputes from latest state on
+// the next one. `force` spends a shared update anyway — only a teleport hands
+// it in (retainedOverlayOffset returned null), where the alternative is a
+// frame of blank world. Direct/headless calls have no sequence and preserve
+// the modules' standalone synchronous contract.
+function claimOverlayRebuild(scene, owner, force) {
+  const seq = scene && scene._overlayFrameSeq;
+  if (!Number.isFinite(seq)) return true;
+  if (scene._overlayRebuildSeq !== seq) {
+    scene._overlayRebuildSeq = seq;
+    scene._overlayRebuildOwner = null;
+  }
+  if (scene._overlayRebuildOwner && !force) return false;
+  scene._overlayRebuildOwner = owner;
+  return true;
+}
+
+// A deferred canvas is still the right picture; it only sits just past the
+// normal 1.5-cell repaint threshold inside a two-cell pad. Scroll that retained
+// paint from its own snapped anchor for the one waiting frame. Using the new
+// frame's fractional offset here would jump old geometry onto the new anchor.
+// A TELEPORT (SPACE/T demo jump, a save preset) breaks that picture: the anchor
+// lands whole tiles away and the retained paint covers only its pad, so seating
+// it would blank the screen behind stale geometry. Hand back null and let the
+// caller force this update's rebuild instead of deferring.
+function retainedOverlayOffset(scene, previous, frame) {
+  if (!previous) return { fracX: frame.fracX, fracY: frame.fracY };
+  const anchor = viewAnchorWorldM(scene);
+  const fracX = (anchor.x - previous.x) / scene.cellM;
+  const fracY = (anchor.y - previous.y) / scene.cellM;
+  if (Math.abs(fracX) > 2 || Math.abs(fracY) > 2) return null;
+  return { fracX, fracY };
 }
 
 // One overlay rebuild, ticked into the boot profiler under `label` when the

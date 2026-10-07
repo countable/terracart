@@ -269,7 +269,7 @@ class SceneGeo {
     nub.textContent = 'GPS';
     nub.style.cssText = `position:absolute;left:29px;top:29px;width:48px;height:48px;
       border-radius:50%;display:grid;place-items:center;pointer-events:none;
-      font:bold 12px ui-monospace,monospace;color:#e4faff;
+      font:bold 12px var(--font-ui);color:#e4faff;
       background:radial-gradient(circle at 40% 30%,#79bac9,#285a70);
       box-shadow:0 3px 6px #0008;`;
     pad.appendChild(nub);
@@ -596,8 +596,14 @@ class SceneGeo {
       // produces a chord; without renormalising the smoothed vector shrinks
       // toward 0 during fast rotation).
       const m = Math.hypot(this._facingSmooth.x, this._facingSmooth.y) || 1;
-      this.facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
-      this.compassDeg = (Math.atan2(this.facing.x, -this.facing.y) * 180 / Math.PI + 360) % 360;
+      const facing = { x: this._facingSmooth.x / m, y: this._facingSmooth.y / m };
+      const heading = (Math.atan2(facing.x, -facing.y) * 180 / Math.PI + 360) % 360;
+      this._deviceCompass = { facing, deg: heading };
+      // Confusion owns the visible compass and walking direction. Continue
+      // sampling the real device so expiry restores its current orientation.
+      if (Conditions.active(this.save, 'confused') || this._confusedLoop) return;
+      this.facing = facing;
+      this.compassDeg = heading;
     };
     window.addEventListener('deviceorientationabsolute', onOrient, true);
     window.addEventListener('deviceorientation', onOrient, true);
@@ -778,6 +784,42 @@ class SceneGeo {
     }
   }
 
+  // The 20 m walk check asks whether the live 3×3 already finished because GPS
+  // jitter can move the body over that threshold without changing its tile. A
+  // ready tile alone is not enough: a rebuild enters the cache before its spawn
+  // pass places the objects and creatures that make it playable. The completed
+  // pass key also includes depth because WorldGen repoints tileCache to one map
+  // per level; returning to another level must settle that level again.
+  _walkTileBlockSettled(cell) {
+    const passKey = `${cell.tx}/${cell.ty}/${this.depth || 0}`;
+    if (this._settledTilePassKey !== passKey) return false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx + dx, cell.ty + dy));
+      if (!entry || entry.status !== 'ready' || !entry._spawned) return false;
+    }
+    return true;
+  }
+
+  async _loadTileEntry(tx, ty) {
+    const kick = this._bootTileKick;
+    if (kick && kick.tx === tx && kick.ty === ty && kick.depth === (this.depth || 0)) {
+      // preload() started this exact centre before Phaser fetched its assets.
+      // Consume it once instead of asking loadTile again. Surface loadTile
+      // already deduplicates through its in-flight cache entry; caves only
+      // enter their cache when complete, so this explicit hand-off also keeps
+      // a saved underground session from building its centre twice.
+      this._bootTileKick = null;
+      let entry = null;
+      try { entry = await kick.promise; } catch (_) { /* retry below */ }
+      const live = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (entry && live === entry) return entry;
+      // A freshly-landed Overpass bin can atomically replace the early surface
+      // entry before create() reaches it. Read that replacement through the
+      // normal cache path rather than spawning the detached old entry.
+    }
+    return WorldGen.loadTile(tx, ty, START_LAT);
+  }
+
   async ensureTilesAround() {
     const cell = this.playerToWorldCell();
     // ONE PASS PER CENTRE AT A TIME. create(), the warmOverpass re-entry, the walk
@@ -798,6 +840,7 @@ class SceneGeo {
   }
 
   async _ensureTilesAroundPass(cell, passSeq) {
+    const passKey = `${cell.tx}/${cell.ty}/${this.depth || 0}`;
     const needed = new Set();
     eachTile3x3(cell.tx, cell.ty, (tx, ty) => needed.add(`${tx}/${ty}`));
     // The tile the player is standing in — the only one they can see or reach
@@ -810,7 +853,7 @@ class SceneGeo {
     // already rasterized without it (cold cache — e.g. right after a save
     // reset) and evicted the stale entry; re-run so the rebuilt tile (now
     // with its real-world trees) loads even if the player is standing still.
-    const warmed = WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
+    const warmed = this.depth === Arena.DEPTH ? null : WorldGen.warmOverpass(cell.tx, cell.ty, START_LAT);
     if (warmed && typeof warmed.then === 'function') {
       warmed.then((evicted) => { if (evicted) this.ensureTilesAround().catch(() => {}); });
     }
@@ -835,7 +878,7 @@ class SceneGeo {
       const [tx, ty] = k.split('/').map(Number);
       let entry = null;
       try {
-        entry = await WorldGen.loadTile(tx, ty, START_LAT);
+        entry = await this._loadTileEntry(tx, ty);
         if (entry.status === 'loading') await entry.promise;
         // A NEIGHBOUR's surface spawn pass runs SLICED (_spawnInTileSliced):
         // 20-70 ms of it used to ride this tile's build unbroken. The centre
@@ -861,7 +904,7 @@ class SceneGeo {
         // neither anchors on them nor lets them refuse a seat (that would
         // reshuffle the cave for everyone else); it CULLS whatever it draws
         // onto one (heldByPlayer). Nothing spawns on a stair cell.
-        if (this.depth > 0) {
+        if (this.depth > 0 && this.depth !== Arena.DEPTH) {
           this._ensureHomeUpStair(entry, tx, ty);
           this._ensureLadderUpStairs(entry, tx, ty);
         }
@@ -869,7 +912,8 @@ class SceneGeo {
         else if (this.depth > 0 && !entry._spawned) this.spawnCaveCreatures(entry, tx, ty, this.depth);
         // Re-open any walls the player has already mined on this level (the
         // home up-staircase is guaranteed above, before the spawn pass).
-        if (this.depth > 0) {
+        this.ensureHomeElevatorObject();
+        if (this.depth > 0 && this.depth !== Arena.DEPTH) {
           this._applyDugWalls(entry, tx, ty);
           // A body placed on a far fix (_placeBodyOnFix) usually lands on a
           // tile that hasn't loaded yet; open the cell under it now if the
@@ -950,7 +994,11 @@ class SceneGeo {
     })().catch(() => {});
     const ringDone = ringWork.then(() => {
       if (this._ringBuild === ringDone) this._ringBuild = null;
-      settle();
+      // Only the complete, current ring earns the walk-check stamp. A centre
+      // tile settles earlier so the player can start, while failed or rebuilt
+      // neighbours remain visible to _walkTileBlockSettled through their own
+      // ready + _spawned state.
+      if (settle()) this._settledTilePassKey = passKey;
     });
     this._ringBuild = ringDone;
   }

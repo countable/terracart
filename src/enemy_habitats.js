@@ -4,7 +4,7 @@
   'use strict';
   const EXT = 4096, REGION = 1024;
   const FAMILIES = {
-    natural: ['slime', 'cave_slime', 'bat', 'spider', 'purple_slime', 'gelatinous_cube'],
+    natural: ['slime', 'cave_slime', 'bat', 'spider', 'purple_slime', 'gelatinous_cube', 'troll'],
     roots: ['plant', 'spider', 'poison_spider', 'dryad', 'bone_plant'],
     warren: ['club_goblin', 'spear_goblin', 'archer_goblin', 'goblin_trapper', 'bomb_goblin', 'orc'],
     crypt: ['zombie', 'skeleton', 'skeleton_soldier', 'necromancer', 'lich', 'bone_plant', 'vampire_bat', 'sword_spirit'],
@@ -27,17 +27,19 @@
     pirate_cove: ['pirate_grunt', 'pirate_gunner', 'pirate_captain'],
     mystic_reef: ['giant_crab', 'jellyfish'],
     orchard: ['farmer_goblin', 'club_goblin'],
-    hedge_garden: ['plant', 'spider'], ancient_grove: ['treant', 'spider'],
-    overgrown: ['plant', 'spider'], ordered_graves: ['zombie', 'skeleton', 'skeleton_soldier'],
-    silent_circle: ['skeleton', 'skeleton_soldier'], overgrown_graves: ['zombie', 'spider', 'skeleton'],
-    broken_masonry: ['club_goblin', 'spear_goblin', 'archer_goblin'],
+    hedge_garden: ['plant', 'spider'], ancient_grove: ['treant', 'spider', 'giant_bear'],
+    overgrown: ['plant', 'spider'], ordered_graves: ['zombie', 'skeleton', 'skeleton_soldier', 'giant_reaper'],
+    stone_garden: ['slime', 'skeleton', 'giant_reaper'],
+    silent_circle: ['skeleton', 'skeleton_soldier', 'giant_reaper'], overgrown_graves: ['zombie', 'spider', 'skeleton', 'giant_reaper'],
+    broken_masonry: ['club_goblin', 'spear_goblin', 'archer_goblin', 'giant_reaper'],
     barricade: ['spear_goblin', 'archer_goblin'],
     hungry_marsh: ['plant', 'slime'], orc_stronghold: ['orc', 'orc_shaman', 'orc_mage'],
   };
+  const CASTLE_FAMILIES = { citadel: ['bugbear'] };
   const SURFACE_FAMILIES = {
     ...BUILDING_FAMILIES,
-    meadow: ['slime', 'plant'], mushroom_grove: ['mushroom_monster', 'spider', 'slime'],
-    formal_garden: ['slime', 'plant'], stone_garden: ['slime', 'skeleton'],
+    meadow: ['slime', 'plant'], mushroom_grove: ['mushroom_monster'],
+    formal_garden: ['slime', 'plant'],
     flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
     seep: ['slime', 'plant', 'golden_slime'], work_yard: ['club_goblin'],
     black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'slime', 'jellyfish'],
@@ -45,6 +47,10 @@
   // One encounter roll per ~84 m square at the usual 7 m cell size.
   // Most are solitary; 25% are pairs and 10% are trios. No per-kind budget.
   const SURFACE_ENCOUNTERS = { blockCells: 12, chance: .6, pairAt: .65, trioAt: .9, tries: 12 };
+  // Grove mushrooms roam individually, scattered across smaller patches.
+  const SURFACE_ENCOUNTER_PROFILES = {
+    mushroom_grove: { ...SURFACE_ENCOUNTERS, blockCells: 6, pairAt: 1, trioAt: 1 },
+  };
   // Avalanche FNV (util.js avalanche32 over fnv1a): nearby spatial keys
   // must not form long same-theme runs.
   function unit(key) { return u01(avalanche32(root.EnemySpawns.hash(key))); }
@@ -84,8 +90,23 @@
     return site?.theme || null;
   }
   function surfaceAt(entry, cx, cy) {
-    const i = cy * entry.cellsPerEdge + cx;
-    return { theme: variantAt(entry, cx, cy), beach: !!entry.scenic?.shore?.mask?.[i] };
+    const WG = root.WorldGen, N = entry.cellsPerEdge, i = cy * N + cx;
+    const grid = entry.baseGrid || entry.grid;
+    let nearMinorRoad = false;
+    // This is a habitat preference, not permission to stand on a road or lot.
+    // The caller's ordinary spawn gate still owns private yards and road bands.
+    if (grid[i] === WG.T.RESIDENTIAL && !WG.inMajorBuffer(entry.roadClass, N, cx, cy)) {
+      const radius = WG.SPAWN_FRONTAGE;
+      for (let y = Math.max(0, cy - radius); y <= Math.min(N - 1, cy + radius) && !nearMinorRoad; y++) {
+        for (let x = Math.max(0, cx - radius); x <= Math.min(N - 1, cx + radius); x++) {
+          if (grid[y * N + x] === WG.T.ROAD && !WG.onMajorBand(entry.roadClass, N, x, y)) {
+            nearMinorRoad = true;
+            break;
+          }
+        }
+      }
+    }
+    return { theme: variantAt(entry, cx, cy), beach: !!entry.scenic?.shore?.mask?.[i], nearMinorRoad };
   }
   function surfaceEncounters(entry, tx, ty, occupied) {
     return root.WorldGen.runSteps(surfaceEncountersSteps(entry, tx, ty, occupied));
@@ -94,14 +115,22 @@
   // between blocks. Failed placement attempts are work too, including on
   // tiles whose coverage never offers a seat.
   function* surfaceEncountersSteps(entry, tx, ty, occupied) {
+    if (!entry.zone?.coverage) return [];
+    const themes = [...new Set((entry.zone.anchors || []).map(a => a.variant))]
+      .filter(theme => SURFACE_ENCOUNTER_PROFILES[theme]);
+    const out = yield* surfaceEncounterProfileSteps(entry, tx, ty, occupied, null);
+    for (const theme of themes) out.push(...yield* surfaceEncounterProfileSteps(entry, tx, ty, occupied, theme));
+    return out;
+  }
+  function* surfaceEncounterProfileSteps(entry, tx, ty, occupied, theme) {
     const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
-    const out = [], cfg = SURFACE_ENCOUNTERS;
+    const out = [], cfg = SURFACE_ENCOUNTER_PROFILES[theme] || SURFACE_ENCOUNTERS;
     const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
       roadClass: entry.roadClass, occupied };
     if (!entry.zone?.coverage) return out;
     for (let by = 0; by < N; by += cfg.blockCells) for (let bx = 0; bx < N; bx += cfg.blockCells) {
       yield 'spawn habitat encounter blocks';
-      const id = WG.cellId('zone_encounter', tx, ty, bx, by);
+      const id = WG.cellId(theme ? `zone_encounter_${theme}` : 'zone_encounter', tx, ty, bx, by);
       if (unit(id + ':present') >= cfg.chance) continue;
       const size = unit(id + ':size'), count = size >= cfg.trioAt ? 3 : size >= cfg.pairAt ? 2 : 1;
       let anchor = null;
@@ -116,6 +145,7 @@
           const slot = entry.zone.coverage[cy * N + cx];
           if (!slot || (anchor && slot !== anchor.slot)) continue;
           const zoneVariant = entry.zone.anchors[slot - 1]?.variant;
+          if ((SURFACE_ENCOUNTER_PROFILES[zoneVariant] ? zoneVariant : null) !== theme) continue;
           const family = SURFACE_FAMILIES[zoneVariant];
           if (!family) continue;
           const kinds = family.filter(kind => {
@@ -129,6 +159,7 @@
           anchor ||= { cx, cy, slot };
           out.push(seatCreature(entry, tx, ty, cx, cy, kind, `${id}_${n}`, (x, y) => ({
             zoneVariant, shiny: false,
+            ...root.EnemySpawns.concealment(kind, `${id}_${n}`, zoneVariant),
             ...(emergesFromGround(kind, zoneVariant)
               ? { emergeFromGround: true, _burrowed: true } : {}),
             _surfaceSpawn: { x, y, tx, ty, cx, cy },
@@ -141,6 +172,8 @@
     return out;
   }
   function buildingKinds(entry, cand) {
+    const castle = cand.tier === 12 && root.CastleStyles?.get(cand.key);
+    if (CASTLE_FAMILIES[castle?.id]) return CASTLE_FAMILIES[castle.id];
     const N = entry.cellsPerEdge, cellM = entry.tileEdgeM / N;
     const cx = Number.isFinite(cand.ix) ? cand.ix : Math.floor(cand.lx / cellM);
     const cy = Number.isFinite(cand.iy) ? cand.iy : Math.floor(cand.ly / cellM);
@@ -202,7 +235,7 @@
       x: (o.x - tx * entry.tileEdgeM) / cellM - .5,
       y: (o.y - ty * entry.tileEdgeM) / cellM - .5,
     }));
-    const opts = { roadMask: null, occupied, pois: [] }, out = [];
+    const opts = { roadMask: null, spawnWhy: entry.spawnWhy, occupied, pois: [] }, out = [];
     const cls = root.creatureSpawnClass?.('red_dragon') || 'enemy';
     for (let by = 0; by < EXT / REGION; by++) for (let bx = 0; bx < EXT / REGION; bx++) {
       const rx = tx * EXT / REGION + bx, ry = ty * EXT / REGION + by;
@@ -234,7 +267,7 @@
     }
     return out;
   }
-  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, HABITAT_TIER,
+  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, HABITAT_TIER,
     unit, caveAt, surfaceAt, surfaceEncounters, surfaceEncountersSteps, variantAt, emergesFromGround, buildingKinds, habitatLairs, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);

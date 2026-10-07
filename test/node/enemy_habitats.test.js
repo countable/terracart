@@ -71,7 +71,7 @@ test('enemy habitats: actual beach spawn pass includes pirates and hostile crabs
   assert.falsy(run(false).some(c => /pirate|giant_crab/.test(c.kind)));
   const sig = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
   assert.eq(sig(run(true, [beach[0].id])), sig(beach.slice(1)), 'defeat removes one seat without rerolling survivors');
-  assert.falsy(Combat.isEnemyKind('crab'), 'the tameable shore crab remains fauna');
+  assert.truthy(Combat.isEnemyKind('crab'), 'the tameable shore crab attacks while wild');
 });
 
 test('enemy habitats: every selected cave theme has an eligible family through deep levels', () => {
@@ -96,15 +96,40 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     grid: new Array(N * N).fill(WorldGen.T.PARK), objects: [],
     zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
   const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+  test('surface encounters: mushroom groves scatter stable solitary mushrooms across the grove', () => {
+    const e = entry('mushroom_grove'), occupied = new Set();
+    const cs = EnemyHabitats.surfaceEncounters(e, 0, 0, occupied);
+    assert.inRange(cs.length, 45, 90, 'mushrooms populate the grove beyond a sparse mixed encounter');
+    assert.eq(signature(cs), signature(EnemyHabitats.surfaceEncounters(e, 0, 0, new Set())));
+    const patches = new Set(), quadrants = new Set();
+    for (const c of cs) {
+      const { cx, cy } = c._surfaceSpawn;
+      assert.eq(c.kind, 'mushroom_monster');
+      assert.falsy(c.lair, 'free roamers, not shrine guards');
+      patches.add(`${Math.floor(cx / 6)},${Math.floor(cy / 6)}`);
+      quadrants.add(`${cx < N / 2},${cy < N / 2}`);
+    }
+    assert.eq(patches.size, cs.length, 'one mushroom per patch, not clustered packs');
+    assert.eq(quadrants.size, 4, 'scattered across the whole grove');
+    assert.eq(occupied.size, cs.length);
+    e.zone.anchors.push({ variant: 'orchard' });
+    for (let y = 0; y < N; y++) for (let x = N / 2; x < N; x++) e.zone.coverage[y * N + x] = 2;
+    const mixed = EnemyHabitats.surfaceEncounters(e, 0, 0, new Set());
+    assert.eq(new Set(mixed.map(c => c.id)).size, mixed.length, 'profiles cannot reuse defeat IDs');
+    for (const c of mixed) {
+      if (c.kind === 'mushroom_monster') assert.lt(c._surfaceSpawn.cx, N / 2, 'mushrooms stay in grove coverage');
+      else assert.gte(c._surfaceSpawn.cx, N / 2, 'ordinary encounters stay outside the grove');
+    }
+  });
   test('surface encounters: Work Yard has no ranged roaming enemies', () => {
     const creatures = EnemyHabitats.surfaceEncounters(entry('work_yard'), 0, 0, new Set());
     assert.gt(creatures.length, 0, 'the calm melee habitat remains populated');
     for (const creature of creatures) assert.eq(EnemyRoster.get(creature.kind).attackType, 'melee');
   });
   test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
-    // Captured from main's unsliced implementation after the zone naming
-    // cleanup: include emergence flags, metadata, seeded seats and identities.
-    const expected = { orchard: 1679667825, ordered_graves: 2413853475, mystic_reef: 837559558 };
+    // Main's zone naming and seat metadata remain intact. Ordered Graves
+    // additionally includes the approved reaper in its species family.
+    const expected = { orchard: 1679667825, ordered_graves: 4215728589, mystic_reef: 837559558 };
     for (const [theme, hash] of Object.entries(expected)) {
       const occupied = new Set();
       const it = EnemyHabitats.surfaceEncountersSteps(entry(theme), 0, 0, occupied);
@@ -148,8 +173,8 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     }
   });
   test('surface encounters: require themed coverage and obey roads, occupied seats, and hard spawn gates', () => {
-    for (const block of ['road', 'occupied', 'restricted', 'coverage']) {
-      const e = entry(), occupied = new Set();
+    for (const theme of ['orchard', 'mushroom_grove']) for (const block of ['road', 'occupied', 'restricted', 'coverage']) {
+      const e = entry(theme), occupied = new Set();
       if (block === 'road') e.roadMask = new Uint8Array(N * N).fill(1);
       if (block === 'occupied') for (let i = 0; i < N * N; i++) occupied.add(i);
       if (block === 'restricted') e.spawnWhy = new Uint32Array(N * N).fill(WorldGen.SPAWN_WHY.RESTRICTED);

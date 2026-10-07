@@ -55,5 +55,5 @@
       "persistenceDescription": "Looted chests and defeated fixed guards stay cleared. Smashed clay pots stay smashed permanently. Foundation stones remain harvestable under the usual rock rules."
     }
   ],
-  "settingsSource": "docs/zone-variants.json:quarryLayouts"
+  "settingsSource": "docs/data/zone-variants.json:quarryLayouts"
 }

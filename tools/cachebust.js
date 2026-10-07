@@ -58,12 +58,15 @@ function versioned(url) {
   return `${file}?v=${hashOf(file)}`;
 }
 
-// index.html with every script URL rewritten to its content hash. Covers both
-// the plain <script src> tags and app.js, which the boot gate injects from the
-// APP_SRC string rather than a tag — the same two places sw.js reads.
+// index.html with every script URL rewritten to its content hash. Covers the
+// plain <script src> tags, the high-priority script preloads, and app.js, which
+// the boot gate injects from APP_SRC rather than a tag. One versioner keeps a
+// preload and the later request on the same cache key.
 function expectedIndex(html = readFile(INDEX)) {
   return html
     .replace(/(<script[^>]+src=["'])([^"']+)(["'])/g,
+      (_, a, url, b) => a + versioned(url) + b)
+    .replace(/(<link(?=[^>]*\brel=["']preload["'])(?=[^>]*\bas=["']script["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
       (_, a, url, b) => a + versioned(url) + b)
     .replace(/(APP_SRC\s*=\s*['"])([^'"]+)(['"])/,
       (_, a, url, b) => a + versioned(url) + b);
@@ -78,17 +81,47 @@ function scriptUrls(html = expectedIndex()) {
   return urls.filter(isOwn);
 }
 
+// Script preloads are fetch hints rather than execution requests, so they stay
+// out of the worker's ordered shell list. They still use the same version rule:
+// a stale hint downloads bytes the later script URL cannot reuse.
+function scriptPreloadUrls(html = expectedIndex()) {
+  const urls = [];
+  for (const m of html.matchAll(/<link(?=[^>]*\brel=["']preload["'])(?=[^>]*\bas=["']script["'])[^>]+\bhref=["']([^"']+)["'][^>]*>/g)) {
+    if (isOwn(m[1])) urls.push(m[1]);
+  }
+  return urls;
+}
+
+// All shipped media, including DOM-only icons and deferred story art. Embed
+// hashes in the worker so media changes also trigger its browser update check.
+function assetHashes() {
+  const out = {};
+  function walk(dir) {
+    for (const entry of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0)) {
+      const rel = `${dir}/${entry.name}`;
+      if (entry.isDirectory()) walk(rel);
+      else if (/\.(png|webp|jpe?g|gif|svg|ico|mp3|ogg|wav|woff2?)$/i.test(rel)) out[rel] = hashOf(rel);
+    }
+  }
+  walk('assets');
+  return out;
+}
+function assetManifestHash() {
+  return crypto.createHash('sha256').update(JSON.stringify(assetHashes())).digest('hex').slice(0, HASH_LEN);
+}
+
 // SHELL_VERSION is derived from that list, so it moves whenever any module's
-// hash moves — and ONLY then. It is the service worker's own cache key: the
-// activate handler deletes every shell cache that isn't this one, so a changed
-// module rebuilds the worker's shell on the same deploy that changes its URL.
+// hash or media bytes move. Unchanged resources retain their individual
+// content-addressed cache keys across these shell generations.
 function expectedShellVersion(urls = scriptUrls()) {
-  const h = crypto.createHash('sha256').update(urls.join('\n')).digest('hex').slice(0, HASH_LEN);
+  const h = crypto.createHash('sha256').update(urls.join('\n') + '\n' + assetManifestHash()).digest('hex').slice(0, HASH_LEN);
   return `shell-${h}`;
 }
 
 function expectedSw(sw = readFile(SW), version = expectedShellVersion()) {
-  return sw.replace(/(const SHELL_VERSION = ')[^']*(')/, `$1${version}$2`);
+  return sw.replace(/(const SHELL_VERSION = ')[^']*(')/, `$1${version}$2`)
+    .replace(/\/\* ASSET_HASHES_START \*\/[\s\S]*?\/\* ASSET_HASHES_END \*\//,
+      '/* ASSET_HASHES_START */\nconst ASSET_HASHES = ' + JSON.stringify(assetHashes(), null, 2) + ';\n/* ASSET_HASHES_END */');
 }
 
 // Every tag whose ?v= disagrees with the file it points at, as { url, want }.
@@ -99,7 +132,8 @@ function expectedSw(sw = readFile(SW), version = expectedShellVersion()) {
 function staleTags() {
   const html = readFile(INDEX);
   const out = [];
-  for (const url of scriptUrls(html)) {
+  const urls = new Set([...scriptUrls(html), ...scriptPreloadUrls(html)]);
+  for (const url of urls) {
     const want = versioned(url);
     if (want !== url) out.push({ url, want });
   }
@@ -112,6 +146,10 @@ function check() {
     problems.push(`${url} → ${want}`);
   }
   const sw = readFile(SW);
+  if (!sw.includes('/* ASSET_HASHES_START */') || !sw.includes('/* ASSET_HASHES_END */')) {
+    problems.push('sw.js is missing generated asset hash markers');
+  }
+  if (sw !== expectedSw(sw)) problems.push('sw.js asset manifest/version needs refresh');
   const want = expectedShellVersion();
   const has = (sw.match(/const SHELL_VERSION = '([^']*)'/) || [])[1];
   if (has !== want) problems.push(`sw.js SHELL_VERSION ${has} → ${want}`);
@@ -189,6 +227,17 @@ const CHECKS = [
     },
   },
   {
+    name: 'cache-bust: boot script preloads share the executed scripts content versions',
+    run() {
+      const urls = scriptPreloadUrls(readFile(INDEX));
+      for (const file of ['vendor/phaser.js', 'src/app.js']) {
+        const url = urls.find((u) => u.split('?')[0] === file);
+        if (!url) throw new Error(`${file} has no boot preload`);
+        if (versioned(url) !== url) throw new Error(`${url} does not match ${versioned(url)}`);
+      }
+    },
+  },
+  {
     // The whole point of the derivation: the number follows the CONTENT. A
     // counter records what somebody remembered instead, which is what drifted.
     // On a scratch file, never a real module — a suite that rewrites src/ can
@@ -209,6 +258,22 @@ const CHECKS = [
       } finally {
         fs.rmSync(abs, { force: true });
       }
+    },
+  },
+  {
+    name: 'cache-bust: changed media changes the worker generation without script edits',
+    run() {
+      const rel = 'assets/.cachebust_probe.png';
+      const abs = path.join(ROOT, rel);
+      try {
+        fs.writeFileSync(abs, 'media bytes one');
+        const first = expectedShellVersion(['script.js?v=12345678']);
+        const hash = assetHashes()[rel];
+        if (!hash) throw new Error('media missing from asset hash map');
+        fs.writeFileSync(abs, 'media bytes two');
+        if (assetHashes()[rel] === hash) throw new Error('changed media retained its hash');
+        if (expectedShellVersion(['script.js?v=12345678']) === first) throw new Error('media change did not update worker');
+      } finally { fs.rmSync(abs, { force: true }); }
     },
   },
   {
@@ -238,7 +303,8 @@ const CHECKS = [
 ];
 
 module.exports = {
-  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, versioned, HASH_LEN,
+  CHECKS, check, write, staleTags, conflictMarkers, expectedShellVersion, scriptUrls, scriptPreloadUrls,
+  versioned, HASH_LEN, assetHashes, assetManifestHash,
 };
 
 if (require.main === module) {

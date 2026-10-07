@@ -230,13 +230,13 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   // (and re-arms, so the first shot flies the instant the shadow lifts), and
   // the ONE lane both swing paths flow through refuses to spin a wheel up.
   const combat = app.match(/\n  _combatTick\(dt\) \{\n([\s\S]*?)\n  \}\n/);
-  assert.truthy(combat && /const rangedArmed = !this\.isShadowActive\(\)\n\s*&& Combat\.anyEnemyWithin/.test(combat[1]),
+  assert.truthy(combat && /const rangedArmed = !Combat\.playerDowned\(this\.save\.energy\) && !Conditions\.attacksBlocked\(this\.save\) && !this\.isShadowActive\(\)\n\s*&& Combat\.anyEnemyWithin/.test(combat[1]),
     'the bow/staff cadence stays quiet under the shadow');
   const sc = app.match(/\n  startCombat\(victim, opts = \{\}\) \{\n([\s\S]*?)\n  \}\n/);
   assert.truthy(sc && /if \(this\.isShadowActive\(\)\) \{/.test(sc[1]), 'no melee wheel spins up while shadowed');
   assert.truthy(sc && /if \(!opts\.auto\) \{[\s\S]*?flash\('The shadows hold your arm\.'/.test(sc[1]),
     'a refused tap is told; the auto-engage stays silent');
-  assert.truthy(sc && sc[1].indexOf('this.hapticReject') < sc[1].indexOf("this._toolActionStory('sword');"),
+  assert.truthy(sc && sc[1].indexOf('if (this.isShadowActive())') < sc[1].indexOf("this._toolActionStory('sword');"),
     'the gate sits before the story hook the wheel spins up with');
 });
 
@@ -292,7 +292,7 @@ test('frost: a chilled creature is SLOWED, never pinned — half pace, half cade
   assert.truthy(Combat.applyFrost(d, 1000));
   assert.eq(d._attackWindupUntil, 7000, 'the wind-up stands');
   assert.eq(d._frozenUntil, until + 5000, 'a shorter chill never cuts a longer one short');
-  assert.falsy(Combat.applyFrost({ id: 'released_slime', kind: 'slime' }, 1000), 'never a pet');
+  assert.falsy(Combat.applyFrost({ id: 'pet_slime', kind: 'slime', pet: true }, 1000), 'never a pet');
   // The roster mover moves a chilled foe at half its pace.
   const s = { cellM: 7, depth: 2, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }), _cellBlocked: () => false,
     _nearAny: () => false, isUnnoticed: () => false, save: { energy: 100 }, placedRockSet: null };

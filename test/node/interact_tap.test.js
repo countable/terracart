@@ -246,16 +246,8 @@ test('flavor handler: the same grass cell without the road band still tills', ()
   assert.falsy(flavor.try(ctx), 'missing underRoad field = tillable as before');
 });
 
-test('release handler: animals cannot be released onto a road-band cell', () => {
-  const release = TAP_HANDLERS.find(h => h.name === 'release');
-  const seen = [];
-  const scene = makeScene({ flash: (msg) => seen.push(msg) });
-  const save = { inv: [{ id: 'chicken', count: 4 }], selSlot: 0, released: [] };
-  const ctx = Object.assign(makeCtx(scene, save), { cwmx: 0, cwmy: 0 });
-  ctx.cell = { type: TERRAIN.GRASS, underRoad: true };
-  assert.truthy(release.try(ctx), 'release consumes the tap');
-  assert.eq(seen[0], "can't release here", 'refused on the road band');
-  assert.eq(save.inv[0].count, 4, 'no animal consumed');
+test('pet placement: animal inventory stacks have no release tap handler', () => {
+  assert.falsy(TAP_HANDLERS.some(h => h.name === 'release'));
 });
 
 test('TAP_HANDLERS: plant precedes till (a tilled cell is planted, not re-tilled)', () => {
@@ -325,11 +317,13 @@ test('till handler: every fresh generated object still blocks its cell', () => {
   }
 });
 
-test('till handler: a spent barrel still blocks because its smashed art stands', () => {
-  const barrel = { kind: 'chest', id: 'spent-barrel', poiClass: 'waste_basket', x: 0, y: 0 };
-  const result = tillAttemptWithObject(barrel, { takenToday: true });
-  assert.eq(result.workStarted, 0, 'the smashed barrel still occupies its cell');
-  assert.eq(result.flashes.length, 1, 'the barrel explains why the hoe was refused');
+test('till handler: collected barrels free their cells while broken clay pots remain', () => {
+  for (const barrelStyle of ['barrel', 'clay_pot']) {
+    const barrel = { kind: 'chest', id: 'spent-barrel', barrel: true, barrelStyle, x: 0, y: 0 };
+    const result = tillAttemptWithObject(barrel, { opened: [barrel.id] });
+    assert.eq(result.workStarted, barrelStyle === 'barrel' ? 1 : 0);
+    assert.eq(result.flashes.length, barrelStyle === 'barrel' ? 0 : 1);
+  }
 });
 
 // ─── 3. work-progress handler behaviour ─────────────────────────────────────
@@ -636,7 +630,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'disarm-trap',
     'building-zone',
     'fire-held',
-    'release',
     'pickup-rock',
     'pickup-scarecrow',
     'place-scarecrow',
@@ -824,6 +817,17 @@ test('creature: a tap on the tile BELOW the foot does NOT grab the creature', ()
     'tap well below the animal falls through to the cell handler');
 });
 
+test('creature: touch padding accepts near misses for animals, NPCs and enemies', () => {
+  for (const [kind, halfW] of [['chicken', 1.5], ['npc', 1.8], ['slime', 2]]) {
+    const span = SpriteLayout.creatureTapSpanPx(kind);
+    const cy = (span.top + span.bottom) / 2 * 7 / 32;
+    assert.eq(runCreatureTap(kind, { x: halfW + 0.7, y: cy }, false), 'far');
+    assert.eq(runCreatureTap(kind, { x: halfW + 1, y: cy }, false), false);
+    assert.eq(runCreatureTap(kind, { x: 0, y: span.top * 7 / 32 - 0.7 }, false), 'far');
+    assert.eq(runCreatureTap(kind, { x: 0, y: span.bottom * 7 / 32 + 1 }, false), 'far');
+  }
+});
+
 test('creature: a tap two cells to the side finds nothing (false)', () => {
   assert.eq(runCreatureTap('chicken', { x: 14, y: 0 }, false), false,
     'far-side tap does not grab the creature');
@@ -874,8 +878,8 @@ test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   // creature table's `game` row, read through SpriteLayout.isGame — beside
   // what a kill of that kind drops (app.js resolveDefeat), so the two halves
   // of "crow and deer are hunted" cannot name different kinds.
-  const hunt = src.slice(src.indexOf("if (!isTame && SpriteLayout.isGame(target.kind)) {"),
-                         src.indexOf('// Catchable animals'));
+  const huntStart = src.indexOf("if (SpriteLayout.isGame(target.kind) && !Pets.fed(save, target)");
+  const hunt = src.slice(huntStart, src.indexOf('const selItem =', huntStart));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
   assert.eq(Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k)).join(),
     'deer,crow', 'and the table still calls exactly the crow and the deer game');
@@ -928,6 +932,27 @@ test('shipwreck shrine: every reserved cell taps the same reward, outside cells 
   } finally { globalThis.WorldGen = original; }
 });
 
+
+test('bush harvest takes five seconds bare-handed and keeps equipped axe speeds', () => {
+  const original = globalThis.WorldGen;
+  const plant = { kind: 'wildplant', crop: 'shrub', id: 'bush_harvest_timing', x: 2.5, y: 2.5 };
+  try {
+    globalThis.WorldGen = { ...original, forEachItem: (layer, cb) => { if (layer === 'wildplants') cb(plant); } };
+    for (const tier of [null, 0, 1, 7]) {
+      let duration, award;
+      const save = { picked: [], energy: 100, relics: tier == null ? {} : { axe: { tier } } };
+      const scene = makeGridScene({ save,
+        startWorkProgress: (x, y, cb, ms) => { award = cb; duration = ms; },
+      });
+      assert.eq(TAP_HANDLERS.find(h => h.name === 'wildplant').try({ scene, save, wm: { x: 2.5, y: 2.5 }, sx: 0, sy: 0 }), true);
+      assert.eq(duration, tier > 0 ? toolDurationMs(save.relics, 'axe') : 5000);
+      if (!(tier > 0)) assert.lt(duration, toolDurationMs(save.relics, 'axe'), 'quicker than regular tree work');
+      assert.eq(scene.invCount('wood'), 0, 'harvest waits for work to finish');
+      award();
+      assert.eq(save.picked.filter(id => id === plant.id).length, 1);
+    }
+  } finally { globalThis.WorldGen = original; }
+});
 
 test('giant mushroom harvest awards wood and mushroom once through axe work', () => {
   const original=globalThis.WorldGen;

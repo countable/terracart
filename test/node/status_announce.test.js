@@ -85,11 +85,11 @@ test('status looks: drawCreatures flicks the body over every state and pops the 
   const body = RENDER_SRC.match(/    const chilled = Combat\.isChilled\(c, Date\.now\(\)\);[\s\S]*?Render\.setShine\(s, [^;]+;/);
   assert.truthy(body, 'live creature tint block exists');
   const paint = new Function('c', 's', 'performance', 'Date', 'Combat', 'Conditions',
-    'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', body[0]);
+    'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', 'pet', body[0]);
   const draw = (c, now, scene) => {
     const sprite = { tint: null, setTint(t) { this.tint = t; }, setTintFill() {} };
     paint(c, sprite, { now: () => now }, { now: () => now }, Combat, Conditions,
-      FROZEN_TINT, SHINY_TINT, null, () => 0x123456, { setShine() {} }, scene);
+      FROZEN_TINT, SHINY_TINT, null, () => 0x123456, { setShine() {} }, scene, !!c.pet);
     return sprite.tint;
   };
   const pops = [];
@@ -165,7 +165,7 @@ test('status announce: the player\'s landings are read off the two tables, first
   const tick = app.match(/\n  _tickConditions\(\) \{([\s\S]*?)\n  \}\n/)[1];
   assert.truthy(/this\._announceStatuses\(\);\s*\n\s*this\._syncStatusRow\(\);/.test(tick), 'every frame, before the row');
   // _applyCondition keeps no flash of its own for the word (poison keeps its lesson).
-  const apply = app.match(/\n  _applyCondition\(id\) \{([\s\S]*?)\n  \}\n/)[1];
+  const apply = app.match(/\n  _applyCondition\(id, options = \{\}\) \{([\s\S]*?)\n  \}\n/)[1];
   assert.falsy(/flashAtPlayer/.test(apply), 'the announcement is the one word');
   assert.truthy(/poisonLearned/.test(apply), 'the Antidote lesson stays');
 });

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Underdark · Living geology</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#100e18;color:#dcd4e8}*{box-sizing:border-box}body{max-width:1220px;margin:auto;padding:36px 28px}header{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:24px}.eyebrow{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#b5a0cc}h1{font-family:Georgia,serif;font-weight:400;font-size:42px;margin:8px 0}p{line-height:1.6;color:#aba2bc;margin:8px 0;font-size:14px}.controls{display:flex;flex-wrap:wrap;align-items:center;gap:16px;padding:15px 0}label,button,select{font-size:13px}label{display:flex;align-items:center;gap:7px}button,select{background:#252031;border:1px solid #544264;border-radius:5px;color:#eee5f6;padding:8px 12px;cursor:pointer}input{accent-color:#ac83c6}.stage{overflow:auto;background:#191521;border:1px solid #3f334c;border-radius:9px}canvas{display:block;width:100%;image-rendering:pixelated;cursor:crosshair}.legend{display:flex;gap:24px;flex-wrap:wrap;padding:14px 0;color:#ad9dbd;font-size:12px}.dot{display:inline-block;width:9px;height:9px;margin-right:8px;border-radius:50%}.notes{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;border-top:1px solid #302639;margin-top:18px;padding-top:20px}h2{font-size:15px;font-weight:500;color:#ded0ec;margin:0 0 9px}.notes p{font-size:13px}.status{min-height:23px;font-size:12px;color:#c6b0dc}footer{margin-top:26px;color:#847a91;font-size:12px}@media(max-width:720px){body{padding:20px 12px}header{display:block}h1{font-size:32px}.notes{grid-template-columns:1fr;gap:12px}}
+</style>
+<header><div><div class="eyebrow">Dragon Hood / Environment study 01</div><h1>Living geology</h1><p>Purple fungal reefs, silk-bound nests and a quiet, lightless floor.</p></div><p>Interactive art prototype<br>32 px cells · square-grid world</p></header>
+<div class="controls">
+<select id="material" aria-label="Material comparison"><option value="fungus">Fungal Underdark</option><option value="rock">Existing cave materials</option></select>
+<label><input id="lighting" type="checkbox" checked>Cave lighting</label>
+<label><input id="grid" type="checkbox">Grid + chunk seam</label>
+<label>Scale <select id="zoom"><option value="fit">Fit</option><option value="1">1× native</option><option value="2">2× detail</option></select></label>
+<button id="reset">Reset digging</button><button id="export">Save scene PNG</button>
+</div>
+<div class="stage"><canvas id="scene" width="1024" height="640" aria-label="Fungal cavern prototype. Click a raised fungal cell to dig it away."></canvas></div>
+<div class="legend"><span><i class="dot" style="background:#78558b"></i>Raised fungus · solid</span><span><i class="dot" style="background:#c2bbc5"></i>Silk · spider nest</span><span><i class="dot" style="background:#80c5c0"></i>Gills · sparse living light</span></div>
+<p class="status" id="status" aria-live="polite">Click a solid cell to dig. Edges reconnect immediately; reset restores the original layout.</p>
+<div class="notes"><section><h2>01 / Connected growth</h2><p>Road footprints become continuous banks with rounded corners, overlapping shelves and a shaded south face. Quiet interiors prevent a checkerboard of mushrooms.</p></section><section><h2>02 / Inhabited shells</h2><p>The upper-left silk chamber is a spider nest. The upper-right brood colony uses swollen chambers and pale sacs. Mouths face the open floor; the nest cores stay solid.</p></section><section><h2>03 / Darkness with structure</h2><p>A broad junction crosses the centre. A narrow mycelium passage remains open below it. Sparse cold gills punctuate the purple, leaving the floor dark and readable.</p></section></div>
+<footer>Visual study only: synthetic geography, illustrative nest dressing and light. Reuses the shipping cave texture painters; no live encounters, saves or terrain rules are changed.</footer>
+<img id="spider-art" src="../../assets/Enemy/Spider/1Fullsheet_Spider.png" hidden alt="">
+<script src="../../src/util.js"></script>
+<script src="../../src/textures.js"></script>
+<script src="prototype.js"></script>
+</html>

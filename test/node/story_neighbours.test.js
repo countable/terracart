@@ -107,7 +107,7 @@
     // The copy convention: an action is <em> on its own line, speech is in
     // curly quotes, and nothing else is markup.
     for (const line of every.split(' \n')) assert.falsy(/<(?!\/?em>)/.test(line), 'only <em> reaches a neighbour line: ' + line);
-    assert.truthy(/<em>[^<\n]+<\/em>\n“/.test(MemoryStory.HOME.body), 'an action on its own line, then the words');
+    assert.truthy(/^“[^<>]+”$/.test(MemoryStory.HOME.body), 'Bryn opens with brief quoted speech');
   });
 
   test('story neighbours: the wanderer is homeless until the first restoration after you meet them', () => {
@@ -217,11 +217,16 @@
 
   test('story neighbours: the warden still opens with the family and the safe area', () => {
     const w = person('warden');
-    const talk = NPC.dialogue(scene({}), w);
+    const sc = scene({});
+    const talk = NPC.dialogue(sc, w);
     assert.truthy(talk.body.includes(NPC.WARDEN_LINE) && talk.body.includes(MemoryStory.HOME.body));
     assert.eq(talk.pages.length, 2, 'the plea, then the safe area: two panels');
     assert.eq(talk.pages[0], MemoryStory.HOME.body);
     assert.truthy(talk.pages[1].endsWith(NPC.WARDEN_LINE), 'the safe-area sentence closes the second');
+    const repeat = NPC.dialogue(sc, w);
+    assert.truthy(!repeat.body.includes(NPC.WARDEN_LINE), 'safety hint is only told on first meeting');
+    sc.save.restoredHouses = { home: 'plain' };
+    assert.eq(NPC.dialogue(sc, w).body, MemoryStory.FIRST_ROOF, 'thanks the player after one restoration');
     assert.eq(JSON.stringify(NPC.warden('npc_warden_1_2')), JSON.stringify(NPC.storyNeighbour('npc_warden_1_2', 'warden')));
   });
 

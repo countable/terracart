@@ -42,7 +42,7 @@
     } finally { Math.random = random; }
   });
 
-  test('quarry rocks: one stone from every pile, with the ordinary flint, bar, glint and sapphire bonuses', () => {
+  test('quarry rocks: one stone from every pile, with the ordinary flint, bar, glint and assigned gem bonuses', () => {
     const random = Math.random, key = WorldGen.tileKey(0, 0), old = WorldGen.tileCache.get(key);
     try {
       WorldGen.tileCache.set(key, { cellsPerEdge: 2, zone: {
@@ -59,7 +59,7 @@
         assert.eq(scene.invCount('rubble'), 1, `quarry pile ${variant}`);
         assert.eq(scene.invCount('flint_shard'), 2, 'ordinary flint plus glint find');
         for (let tier = 2; tier <= 7; tier++) assert.eq(scene.invCount(mineralBarId(tier)), 1, `bar tier ${tier}`);
-        assert.eq(scene.invCount('sapphire'), 1, 'first quarry sapphire still awarded');
+        assert.eq(scene.invCount(GEM_DEPOSITS[quarryGemDeposit('100,200')].item), 1, 'first quarry gem still awarded');
       }
       Math.random = () => .99;
       const scene = makeScene(), save = { relics: {} };

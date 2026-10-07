@@ -119,9 +119,11 @@ class SceneShops {
       };
     };
     const first = fmt(1);
+    let receipt;
     this.showOfferModal({
       kind: kind, kindLabel, art,
       title,
+      receipt: opts.receipt,
       tabs: items.length > 1 ? items.map((it, i) => ({
         label: ITEM_BY_ID[it]?.name || it, active: i === index,
         onSelect: () => this._presentStallOffer(sx, sy, { ...opts, index: i }),
@@ -131,7 +133,7 @@ class SceneShops {
       canAfford: first.canAfford,
       acceptLabel: 'Buy',
       cancelLabel: 'Leave',
-      repeat: () => this._presentStallOffer(sx, sy, opts),
+      repeat: () => this._presentStallOffer(sx, sy, { ...opts, receipt }),
       onCancel: () => this._revealPendingBookReads(),
       onAccept: () => {
         const want = 1;
@@ -145,6 +147,7 @@ class SceneShops {
         addMoney(this.save, -pay);
         if (id === 'book') ShopsMath.bookBought(this.save, take);
         this._settleDeal(null, [`${take}× ${itemName}\n−${pay}`, UI_GOLD, 1, id]);
+        receipt = `Bought ${take}× ${itemName} for ${pay} coins.`;
       },
     });
   }
@@ -237,8 +240,8 @@ class SceneShops {
       this.presentFortUnlockModal(sx, sy, house);
       return;
     }
-    // Castle → sealed until the player solves the job on its quest board
-    // (_isBuildingSealed); the sealed modal IS that board.
+    // Quest castles stay sealed until their job is claimed; citadels open
+    // when their guards are cleared. The sealed modal explains that goal.
     if (house && this._isBuildingSealed && this._isBuildingSealed(house)) {
       this.presentSealedBuildingModal(sx, sy, house);
       return;
@@ -676,14 +679,14 @@ class SceneShops {
     const houses = this.knownDeliveryHouses();
     if (!houses.length) {
       const empty = document.createElement('div');
-      empty.style.cssText = 'opacity:.7;text-align:center;padding:10px 4px;font:12px ui-monospace,monospace;';
+      empty.style.cssText = 'opacity:.7;text-align:center;padding:10px 4px;font:12px var(--font-ui);';
       empty.textContent = 'No delivery requests nearby. Restore a house to start.';
       box.appendChild(empty);
     } else {
       // One row per house: a ghost button (modal_shell mkBtn — the one
       // factory) laid out as a two-line row, its label the HTML below.
       const rowCss = 'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
-        + 'background:#222a;color:#fff;font:12px ui-monospace,monospace;text-align:left;';
+        + 'background:#222a;color:#fff;font:12px var(--font-ui);text-align:left;';
       for (const h of houses) {
         // Icons alone told you nothing: three unlabelled sprites and a
         // distance, so you couldn't tell what a run needed, what it paid, or
@@ -960,7 +963,7 @@ class SceneShops {
     };
   }
 
-  // A THEMED SHOP's visit: one item from its line at its tier (marketTheme),
+  // A THEMED SHOP's visit: its own tier or a batch from one tier below,
   // seeded on the shop's hour like every offer, priced through buildShopOffer
   // (the 1.2–3.0× markup over PRICES, so a shop always asks above list), with a
   // re-roll that starts at $2 and grows ×1.5 (ShopsMath.themedRerollCost). The
@@ -994,7 +997,7 @@ class SceneShops {
   // draws from.
   _themedStockCount(house) {
     const { theme, tier } = this.marketTheme(house);
-    return Shops.themedStock(theme, tier).length;
+    return Shops.themedOfferStock(theme, tier).length;
   }
 
   // The rank badge under an offer — a shop's line tier, a smithy's, a
@@ -1019,9 +1022,12 @@ class SceneShops {
     const item = ITEM_BY_ID[id];
     // The base is the ladder's (ShopsMath.listPrice — the Book climbs with
     // every one bought; everything else is its itemValue).
-    const offer = this.buildShopOffer(id, ShopsMath.listPrice(this.save, id, itemValue(id)), { house });
-    // One unit, as every cash buy — low-tier seeds keep their bulk bonus.
-    const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
+    const { tier } = this.marketTheme(house);
+    const quantityRng = house?.id ? this.shopRng(house, 'theme-quantity') : Math.random;
+    const units = Shops.themedQuantity(id, tier, quantityRng);
+    const offer = this.buildShopOffer(id, units * ShopsMath.listPrice(this.save, id, itemValue(id)), { house });
+    // Lower-tier batches buy multiple units; seed units retain their bonus.
+    const buyQty = units * (1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0));
     this.showOfferModal({
       kind: 'shop',
       title: this.buildingFlavorTitle(house, 'buy'),
@@ -1040,9 +1046,8 @@ class SceneShops {
         if (id === 'book') ShopsMath.bookBought(this.save, buyQty);
         this._settleDeal(recordDeal, [`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, UI_GOLD, 1, id]);
       },
-      // A re-roll can only land on another item of the same stock, so a line
-      // that carries ONE item at this tier (a line with one item at a rank)
-      // has nothing to re-roll to — paying would hand back the same item.
+      // Include lower-tier batch stock when deciding whether another item
+      // is available to re-roll to.
       secondary: this._themedStockCount(house) > 1
         ? this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
             (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
@@ -1261,7 +1266,7 @@ class SceneShops {
       card.style.cssText =
         'display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;'
         + 'border-radius:8px;border:2px solid ' + (o.canAfford ? UI_CONTROL_DIM : '#444') + ';'
-        + 'background:#231d16;color:#fff;font:12px ui-monospace,monospace;cursor:pointer;';
+        + 'background:#231d16;color:#fff;font:12px var(--font-ui);cursor:pointer;';
       const what = o.sub;
       card.innerHTML =
         `<div style="font-size:24px;line-height:1.1">${o.icon}</div>`
@@ -1351,15 +1356,10 @@ class SceneShops {
   traderGivePick(house) {
     if (!house?.id) return null;
     const rng = this.shopRng(house, 'trader');
-    // Same houseSeed produce-vs-buylist coin flip the generic path uses.
-    const houseSeed = this._houseSeed(house);
-    const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
-    // The pool leans to the trader's own tier (Shops.traderTier /
-    // tierAffinity): one draw off the lane either way, so the ask side that
-    // follows reads the same stream it always did.
-    const ids = sellsProduce ? Object.keys(CROP_ROW) : BUY_LIST;
+    // Every non-gear item at this trader's rank can appear on the counter.
     const tier = Shops.traderTier(this.save, house);
-    const giveId = weightedPickBy(ids, (id) => Shops.tierAffinity(Shops.itemTier(id), tier), rng) || ids[0];
+    const ids = Shops.traderStock(tier);
+    const giveId = ids[Math.floor(rng() * ids.length)];
     if (!giveId) return null;
     return { rng, giveId };
   }
@@ -1377,7 +1377,7 @@ class SceneShops {
   // `id` names the swap for ShopsMath.offerKey, so a re-roll moves past it.
   peekTraderGearSwap(house) {
     if (!house?.id) return null;
-    const swap = Gear.traderGearSwap(this.save, this.shopRng(house, 'trader_gear'));
+    const swap = Gear.traderGearSwap(this.save, this.shopRng(house, 'trader_gear'), Shops.traderTier(this.save, house));
     if (!swap) return null;
     const key = (p) => [p.kind, p.slot || p.id, p.tier].join(':');
     return { ...swap, gearSwap: true, id: `swap/${key(swap.give)}/${key(swap.get)}` };
@@ -1409,7 +1409,7 @@ class SceneShops {
       rng, giveId, target,
       inv: this.save.inv,
       prices: itemValues(),
-      isItem: (id) => !!ITEM_BY_ID[id],
+      isItem: (id) => Object.hasOwn(Shops.traderPrices(), id),
       capFor: (id) => Inventory.stackCapFor(this.save, id),
     });
     if (!ask) return null;
@@ -1548,51 +1548,52 @@ class SceneShops {
     });
   }
 
-  // Quest board modal for castles. Shows the active quest's progress; when the
-  // quest is complete the player can claim the reward — which also CLAIMS THIS
-  // CASTLE: the one you solved it at, and no other. A claimed castle never
-  // shows this board again (the seal check below lets it straight through to
-  // its vault), so the next job is always somewhere you haven't been.
+  // A castle keeps the job assigned on its first conversation. Citadels open
+  // through their garrison instead and never enter the quest ledger.
   showQuestBoard(sx, sy, house) {
-    if (typeof Quests === 'undefined') return;
-    // WHICH slot this castle keeps. Every castle is pinned to one for life, so
-    // the job here is never the job at the castle down the road — which is the
-    // reason to walk to a different one.
-    const mine = Quests.slotForCastle(this._castleKey(house) || (house && house.id) || '');
-    const board = Quests.board(this.save);
-    const q = board[mine];
-    if (!q) { this.flash('No work here today.', sx, sy); return; }
-    // Read at its castle: an `activates` job (Salvage rights) counts from here.
-    if (Quests.activate(this.save, mine)) persistSave(this.save);
-    const done = Quests.isSlotComplete(this.save, mine);
+    const key = this._castleKey(house);
+    if (!key || this.isCastleClaimed(house)) return;
+    const style = CastleStyles.get(key);
+    if (style.guards) {
+      this._expireCitadelBattles();
+      this._checkCitadelClaims();
+      if (this.isCastleClaimed(house)) return;
+      this.showOfferModal({
+        kind: 'quest', title: style.name, get: 'Defeat the guards',
+        blurb: `Defeat the guards within ${shortDuration(Houses.CITADEL_BATTLE_MS)}. If time runs out, they withdraw and the fight resets.`,
+        canAfford: true, acceptLabel: 'Fight', cancelLabel: 'Later',
+        onAccept: () => {
+          this._expireCitadelBattles();
+          if (!Houses.startCitadelBattle(this.save, key)) return;
+          persistSave(this.save);
+          this._lastLairT = -Infinity;
+        },
+      });
+      return;
+    }
+    const q = Quests.assign(this.save, key, style.id);
+    if (!q) return;
+    persistSave(this.save);
+    const done = q.have >= q.need;
     this.showOfferModal({
       kind: 'quest',
-      title: done ? 'Quest complete!' : `#${mine + 1} ${q.title}`,
+      title: done ? 'Quest complete!' : q.title,
       get: done ? `Reward: ${this.moneyHTML(q.reward)}` : `${q.have} / ${q.need}`,
       blurb: q.body,
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',
       onAccept: () => {
-        const finished = Quests.claim(this.save, mine);
+        const finished = Quests.claim(this.save, key);
         if (!finished) return;
         if (finished.reward) addMoney(this.save, finished.reward);
-        // THIS castle, and no other. The job was done for the people here, so
-        // this is the vault that opens and the tower that raises a banner; the
-        // next job took its slot number and is somebody else's, at a castle the
-        // player hasn't been to.
         const claimed = this._claimCastle(house);
         persistSave(this.save);
         this.buildInventoryDOM();
         this.flashLoot(`+${finished.reward}`, UI_GOLD, 1, null, this.coinIconEl());
         if (claimed) {
-          // The banner IS the moment, once per castle (the ledger key carries
-          // the castle's own id). A busy screen returns false unmarked, so
-          // the plain flash stays as the fallback and the splash can still
-          // open the next time this castle's claim fires on a clear screen.
-          const splashed = this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {
-            art: 'castle_claim',
-            title: 'The castle is yours',
+          const splashed = this._storySplashOnce('castle:' + key, {
+            art: 'castle_claim', title: 'The castle is yours',
             body: "The vault door grinds open, and your banner rises above the gate. You step inside.",
           });
           if (!splashed) {
@@ -1601,6 +1602,37 @@ class SceneShops {
         }
       },
     });
+  }
+
+  _expireCitadelBattles(now = Date.now()) {
+    const expired = Houses.expireCitadelBattles(this.save, now);
+    if (!expired.length) return;
+    const resetIds = new Set(expired.flatMap(battle => battle.guardIds));
+    // Split and summoned ids extend their original guard's id.
+    this.save.caught = (this.save.caught || []).filter(id =>
+      !resetIds.has(id) && ![...resetIds].some(root => id.startsWith(root + '_')));
+    for (const battle of expired) {
+      Lairs.resetCitadel(WorldGen.tileCache.values(), battle.key, battle.guardIds, this._lairHp);
+    }
+    persistSave(this.save);
+  }
+
+  _claimCitadel(key) {
+    if (!Houses.citadelBattleActive(this.save, key)) return false;
+    if (!Houses.claimCastle(this.save, { castle: key })) return false;
+    persistSave(this.save);
+    this.flashAtPlayer('The citadel is yours.');
+    return true;
+  }
+
+  _checkCitadelClaims() {
+    if ((this.depth || 0) !== 0) return;
+    const pc = this.playerToWorldCell(), ring = [];
+    eachTile3x3(pc.tx, pc.ty, (tx, ty) => {
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (entry) ring.push({ entry, tx, ty });
+    });
+    Lairs.claimClearedCitadels(ring, setOf(this.save.caught), key => this._claimCitadel(key));
   }
 
   // True iff `house` is a fort the player hasn't unsealed yet — see Houses.isFortLocked.

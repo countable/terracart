@@ -49,16 +49,137 @@
 
 const Render = {};
 
+// Shared, short-lived melee art. The event is authored by the damage lane;
+// drawing never changes attack cadence or reach.
+Render.MELEE_LOOKS = {
+  sword: { ms: 260, sweep: Math.PI * 0.75 },
+  dagger: { ms: 180 },
+  lance: { ms: 300 },
+};
+Render.meleePose = function (sw, now, weapon = 'sword', reachPx = Combat.meleeReachM(CELL_PX, weapon)) {
+  // Bare hands and every creature share the mercenary's single sweep.
+  const look = Render.MELEE_LOOKS[weapon] || Render.MELEE_LOOKS.sword;
+  const t = (now - sw.startT) / look.ms;
+  if (t < 0 || t >= 1) return null;
+  const base = Math.atan2(sw.dir.y, sw.dir.x);
+  const advance = Math.sin(Math.PI * t);
+  const angle = base + (look.sweep ? look.sweep * (t - 0.5) : 0);
+  const radius = reachPx * (look.sweep ? 1 : 0.35 + 0.65 * advance);
+  return { t, angle, radius, tail: angle - (look.sweep || 0) * Math.min(t, 0.3),
+    alpha: Math.min(1, (1 - t) / 0.3), weapon, look, reachPx };
+};
+Render.meleeWeaponPose = function (pose) {
+  // Keep the actual 16px icon compact. Its tip meets the reach boundary at
+  // full extension; the grip slides forward instead of stretching the art.
+  const grip = pose.weapon === 'lance' ? 0.25 : 0.3;
+  const scale = Math.min(pose.weapon === 'lance' ? 0.9 : 0.8,
+    pose.reachPx / (16 * Math.SQRT2));
+  const tipLength = (1 - grip) * 16 * Math.SQRT2 * scale;
+  return { grip, scale, handRadius: Math.max(0, pose.radius - tipLength) };
+};
+Render.drawMelee = function (g, pose, x, y, color = 0xe8ecf0) {
+  if (!pose) return;
+  const { angle, radius, alpha, look } = pose;
+  g.lineStyle(2, color, alpha * 0.8);
+  g.beginPath();
+  if (look.sweep) {
+    g.arc(x, y, radius, pose.tail, angle, false);
+  } else {
+    const ux = Math.cos(angle), uy = Math.sin(angle);
+    g.moveTo(x + ux * radius * 0.35, y + uy * radius * 0.35);
+    g.lineTo(x + ux * radius, y + uy * radius);
+  }
+  g.strokePath();
+};
+// Work happens at the target cell, with a brief recovery between strokes.
+Render.WORK_WHEEL = { radius: 7, alpha: 0.5 };
+Render.WORK_LOOKS = {
+  axe: { ms: 360, beatMs: 700, impact: { kind: 'tree', atMs: 180, ms: 360 } }, hoe: { ms: 360, beatMs: 700 },
+  pickaxe: { ms: 360, beatMs: 700, impact: { kind: 'mineralrock', atMs: 180, ms: 300 } }, net: { ms: 440, beatMs: 850 },
+  fishing_rod: { ms: 1100, beatMs: 1400 },
+};
+Render.workToolPose = function (slot, elapsed) {
+  const look = Render.WORK_LOOKS[slot];
+  if (!look || elapsed < 0) return null;
+  const t = (elapsed % look.beatMs) / look.ms;
+  if (t >= 1) return null;
+  if (slot === 'fishing_rod') {
+    const cast = Math.min(1, t / 0.25);
+    const reel = Math.max(0, (t - 0.8) / 0.2);
+    return { rotation: -0.9 + 1.1 * (1 - (1 - cast) ** 3) - reel * 0.55
+        + (t > 0.25 && t < 0.8 ? Math.sin(t * Math.PI * 6) * 0.04 : 0),
+      alpha: Math.min(1, (1 - t) / 0.15), scale: 0.9,
+      x: -10, y: 3, gripX: 0.25, gripY: 0.75,
+      ripple: t > 0.25 && t < 0.8 ? ((t - 0.25) / 0.55) : null };
+  }
+  const strike = 1 - (1 - t) ** 3;
+  return { rotation: -0.9 + 1.7 * strike, alpha: Math.min(1, (1 - t) / 0.2),
+    scale: 0.9, x: -10, y: 3, gripX: 0.25, gripY: 0.75 };
+};
+// Recoil shares the tool's clock and only touches the object being worked.
+Render.workImpactPose = function (wp, object, now) {
+  if (!wp || wp.combat || now < wp.startT || now - wp.startT >= wp.durationMs) return null;
+  const look = Render.WORK_LOOKS[wp.toolSlot], impact = look?.impact;
+  if (!impact || object.kind !== impact.kind || object.x !== wp.worldX || object.y !== wp.worldY) return null;
+  const age = ((now - wp.startT) % look.beatMs) - impact.atMs;
+  if (age < 0 || age >= impact.ms) return null;
+  const t = age / impact.ms, fade = (1 - t) ** 2;
+  return object.kind === 'tree'
+    ? { rotation: Math.sin(t * Math.PI * 2) * 0.07 * fade, x: 0, y: 0 }
+    : { rotation: 0, x: Math.sin(t * Math.PI * 6) * 2 * fade,
+        y: -Math.abs(Math.sin(t * Math.PI * 6)) * 0.6 * fade };
+};
+Render.applyWorkImpact = function (sprite, pose, pivotX, pivotY) {
+  if (!pose) return;
+  // Rotate about the trimmed trunk base, leaving its world seat and depth fixed.
+  const dx = sprite.x - pivotX, dy = sprite.y - pivotY;
+  const cos = Math.cos(pose.rotation), sin = Math.sin(pose.rotation);
+  sprite.setPosition(pivotX + dx * cos - dy * sin + pose.x,
+    pivotY + dx * sin + dy * cos + pose.y).setRotation(pose.rotation);
+};
+Render.drawWorkWheel = function (g, cx, cy, progress) {
+  const p = Math.max(0, Math.min(1, progress));
+  const start = -Math.PI / 2, end = start + Math.PI * 2 * p;
+  // Adjacent sectors avoid making the filled portion more opaque by stacking.
+  const sector = (a, b, color) => {
+    if (b <= a) return;
+    g.fillStyle(color, Render.WORK_WHEEL.alpha);
+    g.beginPath(); g.moveTo(cx, cy);
+    g.arc(cx, cy, Render.WORK_WHEEL.radius, a, b, false);
+    g.closePath(); g.fillPath();
+  };
+  sector(end, start + Math.PI * 2, 0x27332f);
+  sector(start, end, 0xffffff);
+};
+
+Render.enemyMeleeColor = function (c) {
+  const colors = { fire_elemental: 0xff863f, ice_elemental: 0x8de5ff,
+    ghost: 0xb3a0ff, slime: 0x90d970, treant: 0xb4d77a };
+  return c.shiny ? 0xffd36a : colors[SpriteLayout.baseKind(c.kind)] || 0xe8ecf0;
+};
+
 // Flat ground props always precede upright pieces. Within each lane, ground
 // anchors determine occlusion; rank only breaks exact ties, so stepping
 // within one cell can still pass behind a tree.
 Render.sortWorldDepth = function (pieces) {
   pieces.sort((a, b) => Number(!!b.ground) - Number(!!a.ground)
     || (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
+  let changed = false;
   pieces.forEach((piece, depth) => {
+    // Frame items are fresh wrappers. Stamp their target depth, but do not
+    // call that a display-list change; the pooled sprite comparison below in
+    // drawObjects decides whether the real child moved.
     if (piece.it) piece.it._z = depth;
-    if (piece.sprite) piece.sprite.setDepth(depth);
+    if (piece.sprite && (piece.sprite._worldDepthOrder !== depth || piece.sprite.depth !== depth)) {
+      if (piece.sprite.depth !== depth) piece.sprite.setDepth(depth);
+      // Unlike Phaser's default depth (0), this marker is absent on a newly
+      // added child. It catches a one-for-one external pool swap even when the
+      // container length and the replacement's target depth are both unchanged.
+      piece.sprite._worldDepthOrder = depth;
+      changed = true;
+    }
   });
+  return changed;
 };
 
 // Restoration clears the skulls from every tower and keeps the player's
@@ -78,6 +199,7 @@ Render.towerCrownHeight = function (textures, castle) {
 Render.objectGroundOffsetPx = function (appearance, textures) {
   if (!appearance?.visible) return 0;
   if (appearance.foot) return appearance.foot.footFromCentre;
+  if (appearance.spec?.groundAtOrigin) return appearance.dyPx;
   const frame = textures?.getFrame?.(appearance.texKey, appearance.frameVal);
   // Unseated buildings use their rendered base; their centroid is not their
   // ground line. Short props retain their actual art placement as well.
@@ -102,13 +224,13 @@ Render.shopTierBadge = (scene, house, role) => {
   };
 };
 // Market signs identify the line, not the randomly selected stock item.
-// Reuse inventory/gear art so the sign and the goods share their identity.
+// Category symbols come from the inventory tabs; books keep their item icon.
 Render.MARKET_SIGN_ICONS = Object.freeze({
-  seed: { item: 'potato_seed' },
-  supply: { item: 'rope' },
-  potion: { item: 'healing_potion' },
-  relic: { gear: 'sword' },
-  pet: { item: 'rabbit' },
+  seed: { tab: 'seed' },
+  supply: { tab: 'supplies' },
+  potion: { tab: 'magic' },
+  relic: { tab: 'relic' },
+  pet: { tab: 'animal' },
   book: { item: 'book' },
 });
 Render.marketSignTheme = (scene, house, role) => {
@@ -119,8 +241,8 @@ Render.marketSignTheme = (scene, house, role) => {
 Render.marketSignIconHTML = (scene, theme, size) => {
   const icon = Render.MARKET_SIGN_ICONS[theme];
   if (!icon) return '';
-  return icon.gear ? scene.gearIconHTML('relic', icon.gear, 1, size)
-    : scene.renderItemIcon(icon.item, size);
+  if (icon.tab) return `<span style="display:block;font-size:${size}px;line-height:1">${INV_CAT_BY_KEY[icon.tab].sym}</span>`;
+  return scene.iconSpanHTML(icon.item, size);
 };
 const COIN_DROP_PX = 9;
 Render.COIN_DROP_PX = COIN_DROP_PX;
@@ -147,12 +269,25 @@ Render.coinPile = (coin) => {
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
 const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
+// Underground palettes travel through the same ground accent lane as surface
+// zones: fills, rounded seams and border comparisons all see one colour.
+// Cave grit remains an alpha overlay, preserving its existing baked textures.
+Render.UNDERGROUND_GROUND = { underdark: 0x69626c, grove: 0x486653, dwarven_city: 0x8b7760 };
+Render.undergroundGroundColor = (entry, ix, iy, type) => {
+  if (type !== WorldGen.T.CAVE_FLOOR || !entry) return null;
+  if (entry.undergroundBiome === 'underdark') return Render.UNDERGROUND_GROUND.underdark;
+  if (entry.undergroundBiome !== 'deep_stone') return null;
+  const area = entry.undergroundAreas?.[iy * entry.cellsPerEdge + ix];
+  return area === 1 ? Render.UNDERGROUND_GROUND.grove
+    : area === 2 ? Render.UNDERGROUND_GROUND.dwarven_city : null;
+};
+
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
 // Wall faces recover half the pre-recolour contrast against their floors — deep
 // shadow under the lit top surface, but with enough hue to read as the
-// building's own material rather than a generic dark stripe. Houses get a 4px
-// wall; civic slabs (LARGE) keep a thicker 5px one to read at their bigger
+// building's own material rather than a generic dark stripe. Houses get a 7px
+// wall; civic slabs (LARGE) keep a thicker 11px one to read at their bigger
 // footprint scale.
 //
 // Module scope, and exported on Render, because the TILED pass below is not
@@ -161,11 +296,28 @@ const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
 const BUILDING_FACE_COLOR = { 9: 0x613833, 11: 0x625441, 12: 0x5a5e58 };
-const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
+const BUILDING_FACE_PX = { 9: 7, 11: 7, 12: 11 };
 // Building tiers, as a predicate; module scope because the base terrain fill needs it too.
 const isBuildingType = (t) => t === 9 || t === 11 || t === 12;
 Render.BUILDING_FACE_COLOR = BUILDING_FACE_COLOR;
 Render.BUILDING_FACE_PX = BUILDING_FACE_PX;
+
+// Short courses on tiled fronts echo the polygon painter. All marks are local
+// to the face, so fractional camera motion cannot slide its masonry pattern.
+Render.paintMasonryFace = function (g, x, y, width, height, face, cap, seam) {
+  g.fillStyle(face, 1); g.fillRect(x, y, width, height);
+  g.fillStyle(seam, 0.35);
+  for (let row = 3; row < height; row += 3) {
+    g.fillRect(x, y + row, width, 1);
+    for (let col = (row % 6 ? 8 : 0); col < width; col += 16) {
+      g.fillRect(x + col, y + row - 2, 1, 2);
+    }
+  }
+  g.fillStyle(cap, 1); g.fillRect(x, y, width, 1);
+  g.fillStyle(seam, 1); g.fillRect(x, y + height - 1, width, 1);
+};
+
+Render.hasShrineFooting = o => o.kind === 'grove_shrine' && o._shrineArt !== 'shipwreck';
 // The dashed cell grid: a hairline black at 8%, 4 on / 4 off. Faint on
 // purpose — it says "the world is on a lattice" without competing with
 // anything drawn on it. Shared, because the grid is drawn in TWO places: the
@@ -506,6 +658,94 @@ function hidePoolFrom(pool, startIdx) {
   for (let i = startIdx; i < pool.length; i++) pool[i].setVisible(false);
 }
 
+// Pooled sprites remain in Phaser's update list even while invisible.
+// Deactivate the unused tail, then release peak capacity after five seconds.
+// Keep a small reserve for camera movement and spread destruction across steps.
+// Manually managed pools still use hidePoolFrom and only restore visibility.
+function retireSpritePoolFrom(pool, used) {
+  const now = performance.now();
+  for (let i = used; i < pool.length; i++) {
+    const s = pool[i];
+    s.setVisible(false);
+    s.setActive?.(false);
+    if (s._poolIdleSince == null) {
+      s._poolIdleSince = now;
+      Render.setShine(s, false);
+    }
+  }
+  const keep = Math.max(32, used + 16);
+  let destroyed = 0;
+  while (pool.length > keep && destroyed < 32) {
+    const s = pool[pool.length - 1];
+    if (now - s._poolIdleSince < 5000) break;
+    // Phaser destroy removes the object from its container and update list,
+    // and releases its animation state and optional FX pipelines.
+    s.destroy();
+    pool.pop();
+    destroyed++;
+  }
+}
+
+// Pets share one neutral copy per species sheet. Keep alpha, dark eyes and
+// the original shading; remove baked hue once, so an individual's saved tint
+// reads clearly instead of multiplying two competing colours into mud.
+Render.neutralPetPixels = function neutralPetPixels(data) {
+  for (let i = 0; i < data.length; i += 4) {
+    if (!data[i + 3]) continue;
+    const light = Math.max(data[i], data[i + 1], data[i + 2]);
+    data[i] = data[i + 1] = data[i + 2] = light;
+  }
+  return data;
+};
+Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
+  const key = 'pet-neutral-' + sheet;
+  if (scene.textures.exists(key)) return Render.petCanvasTint(scene, kind, key, tint);
+  const source = scene.textures.get(sheet)?.getSourceImage();
+  const art = SpriteLayout.creatureArt(kind);
+  if (!source || !art || typeof document === 'undefined') return sheet;
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width; canvas.height = source.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(source, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  Render.neutralPetPixels(pixels.data);
+  ctx.putImageData(pixels, 0, 0);
+  scene.textures.addSpriteSheet(key, canvas, { frameWidth: art.fw, frameHeight: art.fh });
+  return Render.petCanvasTint(scene, kind, key, tint);
+};
+// Phaser's Canvas renderer ignores sprite tint. Bake each used palette entry
+// once there; WebGL keeps the shared neutral sheet and its cheap vertex tint.
+Render.petCanvasTint = function petCanvasTint(scene, kind, neutral, tint) {
+  if (typeof Phaser === 'undefined' || scene.sys?.game?.renderer?.type !== Phaser.CANVAS
+      || !Number.isFinite(tint) || tint === 0xffffff) return neutral;
+  const key = neutral + '-' + tint.toString(16);
+  if (scene.textures.exists(key)) return key;
+  const source = scene.textures.get(neutral).getSourceImage(), art = SpriteLayout.creatureArt(kind);
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width; canvas.height = source.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(source, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height), data = pixels.data;
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = Math.round(data[i] * ((tint >> 16) & 255) / 255);
+    data[i + 1] = Math.round(data[i + 1] * ((tint >> 8) & 255) / 255);
+    data[i + 2] = Math.round(data[i + 2] * (tint & 255) / 255);
+  }
+  ctx.putImageData(pixels, 0, 0);
+  scene.textures.addSpriteSheet(key, canvas, { frameWidth: art.fw, frameHeight: art.fh });
+  return key;
+};
+Render.petFrame = function petFrame(scene, anim, fallback, now) {
+  const cycle = anim && scene.anims?.get(anim);
+  if (!cycle?.frames?.length) return fallback;
+  return cycle.frames[Math.floor(now * cycle.frameRate / 1000) % cycle.frames.length].textureFrame;
+};
+Render.petDownPose = function petDownPose(s, down) {
+  if (!down) return;
+  const middleY = s.y - (s.originY - 0.5) * s.displayHeight;
+  s.setOrigin(0.5, 0.5).setPosition(s.x, middleY).setRotation(Math.PI);
+};
+
 // Temporary flower effects sit above the health-bar line; the combat helpers
 // own their expiry. This pool is separate from permanent released-pet hearts.
 // The colours are the statuses' own rows (Combat.STATUS_LOOKS) — the ink the
@@ -604,21 +844,45 @@ function resetSlot(s) {
   s.setAlpha(1).setAngle(0).setScale(1).setFlipX(false);
   s.clearTint();
 }
-Render.renderPool = function renderPool(scene, pool, container, list, configure, create) {
-  let i = 0;
+Render.renderPool = function renderPool(scene, pool, container, list, configure, create, reuse) {
+  let i = 0, membershipChanged = false;
   for (const item of list) {
     let s = pool[i];
     if (!s) {
       s = create ? create(scene) : scene.add.sprite(0, 0, 'idle', 0);
       container.add(s);
       pool.push(s);
+      membershipChanged = true;
     }
+    s._poolIdleSince = null;
+    s.setActive?.(true);
     s.setVisible(true);
-    resetSlot(s);
-    configure(s, item);
+    // A still camera can leave a generated prop on the same pool slot with
+    // identical appearance and style. Its caller proves that case here, so the
+    // slot avoids both identity reset and every redundant Phaser setter.
+    if (!reuse?.(s, item)) {
+      resetSlot(s);
+      configure(s, item);
+    }
     i++;
   }
-  hidePoolFrom(pool, i);
+  const beforeRetire = pool.length;
+  retireSpritePoolFrom(pool, i);
+  if (pool.length !== beforeRetire) membershipChanged = true;
+  if (membershipChanged && container === scene.worldContainer) scene._worldDepthMembershipDirty = true;
+};
+
+// Ground discs share their reach with gameplay, regardless of the source's
+// sprite size. The baked circle marks the boundary of each source's effect.
+Render.renderAuras = function renderAuras(scene, pool, list, project) {
+  Render.renderPool(scene, pool, scene.auraContainer, list, (s, item) => {
+    const { x, y } = project(item.dx, item.dy);
+    const diameter = 2 * auraRadiusCells(item.aura) * CELL_PX;
+    setTextureIfDifferent(s, item.aura.texture || 'aura_blight');
+    s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
+      .setPosition(x, y).setAlpha(0.9);
+    if (item.aura.tint != null) s.setTintFill(item.aura.tint);
+  });
 };
 
 // A persistent gold halo makes shinies visible even on fully lit ground,
@@ -664,6 +928,22 @@ Render.canShine = function canShine(scene) {
   return !!(r && typeof Phaser !== 'undefined' && r.type === Phaser.WEBGL && r.pipelines?.FX_PIPELINE);
 };
 
+// Announce only visible, revealed hostiles, once per identity in this scene.
+// A pack shares one banner; a dialog defers it until the world is visible again.
+Render.announceElites = function announceElites(scene, list, project) {
+  if (!scene.flashEliteAppearance || !Number.isFinite(scene.viewSize)) return;
+  const seen = scene._announcedElites ||= new Set();
+  const arrivals = list.filter(({ c, dx, dy }) => {
+    if (!c.id || seen.has(c.id) || !Combat.isElite(c) || !Combat.isEnemy(c) || Combat.isConcealed(c)) return false;
+    const { sx, sy } = project(dx, dy);
+    return sx >= scene.viewLeft && sy >= scene.viewTop
+      && sx <= scene.viewLeft + scene.viewSize && sy <= scene.viewTop + scene.viewSize;
+  });
+  if (arrivals.length && scene.flashEliteAppearance(arrivals.length)) {
+    for (const { c } of arrivals) seen.add(c.id);
+  }
+};
+
 // Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b. Same as
 // BiomeProfiles.mixHex, aliased locally for the per-bordered-edge hot path.
 const mixHex = BiomeProfiles.mixHex;
@@ -691,7 +971,7 @@ const BORDER_DIM = 0.86;
 const BLUR_STEPS = 3;
 const BLUR_W     = 2;                      // px per step
 const BLUR_MIX   = [0.55, 0.32, 0.14];     // toward the neighbour, outermost first
-const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand now use procedural borders
+const BORDER_TRANS_SKIP = new Set([9, 11, 12, 25]); // buildings and cave walls have hard boundaries
 // Surf: the colour a WATER cell paints its biome-seam edge, in place of the
 // darkened own-colour edge every other terrain uses. Pale blue-white rather
 // than pure white so it reads as foam lit by the same flat daylight as the
@@ -740,7 +1020,7 @@ const _WAVE_TABLE = (() => {
 // Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, churchyard, unmapped fog, tar yard
+const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
 // Pure black, NOT the biome's `atmos.dim` that the lightmap's out-of-reach
@@ -1381,7 +1661,114 @@ Render.applyEmergence = function (sprite, creature, now) {
   sprite.y += height * sprite.scaleY * (1 - progress);
 };
 
+// A fine dashed vector over ground, below buildings, objects, lighting and fog.
+Render.drawChestTrails = function drawChestTrails(scene) {
+  let g = scene._chestTrailGfx;
+  g?.clear();
+  if (typeof Starter === 'undefined' || !scene.cobbleContainer) return;
+  const paths = Starter.trailPaths(scene, Date.now());
+  if (!paths.length) return;
+  if (!g) { g = scene._chestTrailGfx = scene.add.graphics(); scene.cobbleContainer.add(g); }
+  const style = Starter.TRAIL_STYLE;
+  g.lineStyle(style.width, style.colour, style.alpha);
+  for (const path of paths) {
+    let along = 0;
+    g.beginPath();
+    for (let i = 1; i < path.points.length; i++) {
+      const a = worldMetersToScreen(scene, path.points[i - 1].x, path.points[i - 1].y);
+      const b = worldMetersToScreen(scene, path.points[i].x, path.points[i].y);
+      const length = Math.hypot(b.x - a.x, b.y - a.y);
+      if (!length) continue;
+      let at = 0;
+      while (at < length) {
+        const phase = along % (style.dash + style.gap), ink = phase < style.dash;
+        const span = Math.min(length - at, (ink ? style.dash : style.dash + style.gap) - phase);
+        if (ink) {
+          g.moveTo(a.x + (b.x - a.x) * at / length, a.y + (b.y - a.y) * at / length);
+          g.lineTo(a.x + (b.x - a.x) * (at + span) / length, a.y + (b.y - a.y) * (at + span) / length);
+        }
+        at += span; along += span;
+        if (span < 1e-8) { along += 1e-7; }
+      }
+    }
+    g.strokePath();
+  }
+};
+
+// Saved webs occupy exactly their target square; the travelling strand uses
+// its fixed launch point, so a moving spider cannot drag an airborne shot.
+// Both layers are reused and cleared every frame, including depth changes.
+Render.drawSpiderWebs = function drawSpiderWebs(scene) {
+  scene._spiderWebGfx?.clear();
+  scene._spiderWebShotGfx?.clear();
+  if (typeof SpiderWebs === 'undefined' || !scene.cobbleContainer) return;
+  const { webs, shots } = SpiderWebs.lists(scene);
+  const half = CELL_PX / 2;
+  const left = scene.viewLeft, top = scene.viewTop;
+  const right = left + scene.viewSize, bottom = top + scene.viewSize;
+  // Square-bound radial anchors, clockwise from the north-west corner.
+  const anchors = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
+  for (const web of webs) {
+    const at = worldMetersToScreen(scene, web.x, web.y);
+    if (at.x + half < left || at.y + half < top || at.x - half > right || at.y - half > bottom) continue;
+    if (!scene._spiderWebGfx) {
+      scene._spiderWebGfx = scene.add.graphics();
+      scene.cobbleContainer.add(scene._spiderWebGfx);
+    }
+    const g = scene._spiderWebGfx;
+    g.fillStyle(0xe0e8ef, 0.1);
+    g.fillRect(at.x - half, at.y - half, CELL_PX, CELL_PX);
+    // Inset by half a stroke so no silk bleeds into neighbouring cells.
+    const radius = half - 1;
+    g.lineStyle(1, 0xe5edf4, 0.8);
+    g.beginPath();
+    for (const [ax, ay] of anchors) {
+      g.moveTo(at.x, at.y);
+      g.lineTo(at.x + ax * radius, at.y + ay * radius);
+    }
+    g.strokePath();
+    g.lineStyle(1, 0xd3e3ee, 0.65);
+    for (const fraction of [0.28, 0.56, 0.84, 1]) {
+      g.beginPath();
+      for (let i = 0; i <= anchors.length; i++) {
+        const a = anchors[i % anchors.length];
+        const x = at.x + a[0] * radius * fraction;
+        const y = at.y + a[1] * radius * fraction;
+        if (!i) { g.moveTo(x, y); continue; }
+        const prev = anchors[i - 1];
+        // A slight inward sag makes the rings read as silk, not a grid.
+        g.lineTo(at.x + (prev[0] + a[0]) * radius * fraction * 0.44,
+          at.y + (prev[1] + a[1]) * radius * fraction * 0.44);
+        g.lineTo(x, y);
+      }
+      g.strokePath();
+    }
+    g.fillStyle(0xf6f8ff, 0.85);
+    g.fillCircle(at.x, at.y, 1.5);
+  }
+  if (!scene.boltContainer) return;
+  for (const shot of shots) {
+    const from = worldMetersToScreen(scene, shot.fromX, shot.fromY);
+    const tip = worldMetersToScreen(scene, shot.x, shot.y);
+    if (Math.max(from.x, tip.x) < left || Math.max(from.y, tip.y) < top
+      || Math.min(from.x, tip.x) > right || Math.min(from.y, tip.y) > bottom) continue;
+    if (!scene._spiderWebShotGfx) {
+      scene._spiderWebShotGfx = scene.add.graphics();
+      scene.boltContainer.add(scene._spiderWebShotGfx);
+    }
+    const g = scene._spiderWebShotGfx;
+    g.lineStyle(3, 0x526678, 0.5);
+    g.lineBetween(from.x, from.y, tip.x, tip.y);
+    g.lineStyle(1, 0xf1f6ff, 0.95);
+    g.lineBetween(from.x, from.y, tip.x, tip.y);
+    g.fillStyle(0xf1f6ff, 1);
+    g.fillCircle(tip.x, tip.y, 2);
+  }
+};
+
 Render.drawCells = function drawCells(scene) {
+  Render.drawChestTrails(scene);
+  Render.drawSpiderWebs(scene);
   const g = scene.cellGfx;
   g.clear();
   scene._groundFireGfx?.clear();
@@ -1562,8 +1949,9 @@ Render.drawCells = function drawCells(scene) {
       // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
       // that's the tile-loading indicator; see the _ringVeil comment above).
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
-      _ringGroundColor[si] = typeof zoneGroundColor === 'function'
-        ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1;
+      _ringGroundColor[si] = Render.undergroundGroundColor(e2, ix2, iy2, types[si])
+        ?? (typeof zoneGroundColor === 'function'
+          ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
@@ -1626,6 +2014,8 @@ Render.drawCells = function drawCells(scene) {
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
   const TRANS_SKIP = BORDER_TRANS_SKIP;
+  const caveEdges = scene._caveEdgePool || (scene._caveEdgePool = []);
+  let caveEdgesUsed = 0;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -2050,6 +2440,36 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
+  // Level-one trial. Re-evaluate the live neighbour ring on each ground draw:
+  // mining and arriving tiles immediately update faces, including tile seams.
+  // Atlas sprites share the ground-decoration layer, beneath actors and lights.
+  if (scene.depth === 1 && scene.cobbleContainer) {
+    const open = (c, r) => T(c, r) !== WorldGen.T.CAVE_WALL && T(c, r) !== UNMAPPED_T;
+    for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
+      if (T(col, row) !== WorldGen.T.CAVE_WALL) continue;
+      let mask = (open(col, row - 1) ? 1 : 0) | (open(col + 1, row) ? 2 : 0)
+        | (open(col, row + 1) ? 4 : 0) | (open(col - 1, row) ? 8 : 0);
+      // A neighbouring south face also exposes the lower half of this cap's
+      // side, even though both data cells are solid rock.
+      if (!(mask & 4)) {
+        if (T(col - 1, row) === WorldGen.T.CAVE_WALL && open(col - 1, row + 1)) mask |= 16;
+        if (T(col + 1, row) === WorldGen.T.CAVE_WALL && open(col + 1, row + 1)) mask |= 32;
+      }
+      // Fully enclosed cells use the dark cap frame as well.
+      let sprite = caveEdges[caveEdgesUsed++];
+      if (!sprite) {
+        sprite = scene.add.image(0, 0, 'cave_wall_edges', 0).setOrigin(0, 0);
+        scene.cobbleContainer.add(sprite); caveEdges.push(sprite);
+      }
+      const variant = (Math.imul(AX(col, row), 31) ^ AY(col, row)) & 3;
+      const at = cellScreenXY(scene, col - half, row - half, fracX, fracY, PHASE(row));
+      setTextureIfDifferent(sprite, 'cave_wall_edges', variant * CAVE_WALL_EDGE_FRAMES + mask);
+      sprite.setPosition(Math.round(at.x), Math.round(at.y) - CAVE_WALL_TOP_LIFT)
+        .setDisplaySize(CELL_PX, CELL_PX + CAVE_WALL_TOP_LIFT).setVisible(true);
+    }
+  }
+  for (let i = caveEdgesUsed; i < caveEdges.length; i++) caveEdges[i].setVisible(false);
+
   // Short broken columns are floor decoration: no object, collision or tap target.
   // Polygon mode draws these same source-ring sites into its floor canvas.
   const columnPool = scene._castleColumnPool || (scene._castleColumnPool = []);
@@ -2175,9 +2595,8 @@ Render.drawCells = function drawCells(scene) {
       }
       // Tier 12 (castle) — STONE RAMPART. The front (south) and back (north)
       // walls carry bold merlons that rise UP from the wall line with clear
-      // crenel gaps, aligned across cells. The side (east/west) walls aren't
-      // toothed — they read as a dashed shadow line hugging the wall edge, its
-      // dashes on the same merlon grid so they line up with the crests.
+      // crenel gaps, aligned across cells. Broad side-wall caps join the
+      // horizontal walks; merlon roofs share their grid.
       // Drawn INSTEAD of the tier-9/12 extrusion + outline below.
       if (type === 12) {
         // Resolve the same owner identity and condition as the tower and
@@ -2191,7 +2610,7 @@ Render.drawCells = function drawCells(scene) {
         const MERLONS = material.rampart.merlons, SPAN = CELL_PX / MERLONS;
         const MW = material.rampart.toothWidth, MOFF = (SPAN - MW) >> 1;
         const TOOTH_H = material.rampart.toothHeight;
-        const CREN = 2;
+        const CAP = material.rampart.topDepth;
         const WALL = material.rampart.wallHeight;
         // Each section sorts at its lowest masonry base in world metres.
         // Towers and actors use the same ordinary ground-depth pass.
@@ -2209,26 +2628,27 @@ Render.drawCells = function drawCells(scene) {
         // share the SPAN grid on every wall so front/back crenellations line up.
         const crestH = (gx, x, baseY, dbgTint) => {
           const body = dbgTint ?? STONE_BODY;
-          gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
+          gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CAP, CELL_PX, CAP);
+          gx.fillStyle(STONE_LITE, 1); gx.fillRect(x, baseY - CAP, CELL_PX, 1);
           gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
             if ((material.rampart.broken && i === 2) || (damage && i === damage.missing)) continue;
             const mx = x + i * SPAN + MOFF;
-            gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
-            gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
-            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
+            gx.fillStyle(STONE_FACE, 1); gx.fillRect(mx, baseY - CAP - TOOTH_H, MW, TOOTH_H);
+            gx.fillStyle(STONE_LITE, 1); gx.fillRect(mx, baseY - CAP - TOOTH_H - 2, MW, 2);
+            gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - CAP - TOOTH_H, 1, TOOTH_H);
           }
         };
         // South boundary projects its stone face beyond the floor.
         if (wallEdge(col, row, 0, 1)) {
           const gw = Render.rampartPiece(scene, northY + cm + WALL * cm / CELL_PX);
-          gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
-          gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
+          Render.paintMasonryFace(gw, sx, sy + CELL_PX, CELL_PX, WALL,
+            _DBG ? 0x30a030 : STONE_FACE, STONE_LITE, STONE_DARK);
           crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
           wallChip(gw, sx, sy + CELL_PX);
         }
         // North boundary rises into the cell above from its own ground line.
-        const SIDE_W = 5;
+        const SIDE_W = CAP;
         if (wallEdge(col, row, 0, -1)) {
           // The lower ground anchor paints in front. This band belongs to THIS
           // cell and rises into the cell above — so it must also cover the FOOT
@@ -2239,8 +2659,8 @@ Render.drawCells = function drawCells(scene) {
           const gb = Render.rampartPiece(scene, northY);
           const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
           const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
-          gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
-          gb.fillRect(sx - extL, sy - WALL, CELL_PX + extL + extR, WALL);
+          Render.paintMasonryFace(gb, sx - extL, sy - WALL, CELL_PX + extL + extR, WALL,
+            _DBG ? 0x3060c0 : STONE_FACE, STONE_LITE, STONE_DARK);
           crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
           wallChip(gb, sx, sy - WALL);
           // SOLID crest-height shoulders over the widened columns — the crest
@@ -2249,21 +2669,22 @@ Render.drawCells = function drawCells(scene) {
           // is what makes the descending band end flush at the band's TOP.
           const shoulder = (x, w) => {
             gb.fillStyle(_DBG ? 0x5080e0 : STONE_BODY, 1);
-            gb.fillRect(x, sy - WALL - TOOTH_H, w, TOOTH_H);
+            gb.fillRect(x, sy - WALL - CAP - 2, w, CAP + 2);
             gb.fillStyle(STONE_LITE, 1);
-            gb.fillRect(x, sy - WALL - TOOTH_H, w, 1);
+            gb.fillRect(x, sy - WALL - CAP - 2, w, 1);
           };
           if (extL) shoulder(sx - extL, extL);
           if (extR) shoulder(sx + CELL_PX, extR);
         }
         // Side bands end at the south ground edge. At corners their tie
         // rank leaves horizontal walls in front of the band.
-        const bandY = sy;
-        const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
+        const bandY = sy - (wallEdge(col, row, 0, -1) ? WALL + CAP : 0);
+        const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - CAP : CELL_PX);
         const sideShade = (x, innerX) => {
           const gb = Render.rampartPiece(scene, northY + (bandBot - sy) * cm / CELL_PX, 0);
           gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
-          gb.fillStyle(_DBG ? 0xe06060 : STONE_SIDE, 1);
+          gb.fillStyle(STONE_LITE, 1); gb.fillRect(x, bandY, 1, bandBot - bandY);
+          gb.fillStyle(_DBG ? 0xe06060 : STONE_LITE, 1);
           // Crenel-grid dashes stay on the cell's own span; skip any dash the
           // shortened bottom would clip so a half-dash can't fray the band end.
           for (let i = 0; i < MERLONS; i++) {
@@ -2288,8 +2709,8 @@ Render.drawCells = function drawCells(scene) {
         const hex = UNCLAIMED(col, row) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined'
           ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.faces[type]))
           : SOUTH_FACE_COLOR[type] || 0x444444;
-        g.fillStyle(hex, 0.95);
-        g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
+        Render.paintMasonryFace(g, sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 7,
+          hex, BiomeProfiles.mixHex(hex, 0xffffff, 0.16), BiomeProfiles.mixHex(0x000000, hex, 0.65));
       }
       // Outer border — fillRect for independent H (4 px) / V (2 px) thickness.
       // Vertical bars start below the top bar so corners are never double-painted
@@ -2641,6 +3062,24 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
 // Art is a per-save view of surviving sections, never a mutation of the
 // generated tile. Include one cell beyond the viewport so off-screen joins
 // stay connected. The existing chunk index keeps this walk local.
+// Resolve chasm neighbours in absolute cells, across tile-cache boundaries.
+Render.chasmArtForObjects = function chasmArtForObjects(scene, holes) {
+  const cells = new Set(), positions = holes.map(o => {
+    const c = worldMetersToAbsCell(scene, o.x, o.y);
+    cells.add(`${c.cellIX}:${c.cellIY}`); return [o, c];
+  });
+  const result = new Map();
+  for (const [o, c] of positions) {
+    let mask = 0;
+    for (const [dx, dy, bit] of [[0,-1,1],[1,0,2],[0,1,4],[-1,0,8]]) {
+      const n = absCellOffset(scene, c.cellIX, c.cellIY, dx, dy);
+      if (!cells.has(`${n.cellIX}:${n.cellIY}`)) mask |= bit;
+    }
+    result.set(o, { _chasmMask: mask });
+  }
+  return result;
+};
+
 Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, spent, x, y, halfM) {
   const result = new Map(), N = entry.cellsPerEdge;
   if (!N || !edge) return result;
@@ -2678,7 +3117,7 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
+  return isBuilding(k) || k === 'temple' || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
     || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
@@ -2782,7 +3221,7 @@ const LABEL_STYLES = {
 function labelFactory(style) {
   const st = LABEL_STYLES[style];
   return (scene) => {
-    const cfg = { font: fontMono(`${st.weight ?? 'bold'} ${st.size || 10}px`.trim()), color: st.color || LABEL_INK };
+    const cfg = { font: fontUI(`${st.weight ?? 'bold'} ${st.size || 10}px`.trim()), color: st.color || LABEL_INK };
     if (st.stroke !== false) { cfg.stroke = LABEL_STROKE; cfg.strokeThickness = LABEL_STROKE_W; }
     if (st.background) cfg.backgroundColor = st.background;
     if (st.padding) cfg.padding = st.padding;
@@ -2824,6 +3263,7 @@ const CRITTER_SHADOW_W = {
 };
 
 Render.drawObjects = function drawObjects(scene) {
+  if (typeof EnemySpawns !== 'undefined') EnemySpawns.refreshHomeFauna(scene, false);
   // Canvas width, for keeping centred labels on screen (see clampTextX in
   // util.js). Computed HERE, not at script top level: VIEW_CELLS / CELL_PX come
   // from app.js, which loads AFTER render.js.
@@ -2912,8 +3352,10 @@ Render.drawObjects = function drawObjects(scene) {
   };
   const pc = scene.playerToWorldCell();
   // Counted inline rather than derived after the loop (one increment per item).
-  // _boot_scanned is every object/creature/wildplant/trap the walk touches across
-  // the 3×3 tiles; _boot_kept is how many survived culling. Objects and wildplants
+  // _boot_scanned is every object/wildplant/trap the walk touches across the
+  // 3×3 tiles plus every creature the pass considers — in the live game the
+  // sim bubble's few dozen seats, the whole ring only for standalone callers;
+  // _boot_kept is how many survived culling. Objects and wildplants
   // come off WorldGen.forEachItemInBox (the per-tile chunk index).
   // THREE BOXES, one per kind of reach, so no walk opens chunks for a reason
   // it does not have:
@@ -2942,7 +3384,7 @@ Render.drawObjects = function drawObjects(scene) {
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
     const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
-    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -2954,11 +3396,30 @@ Render.drawObjects = function drawObjects(scene) {
       if (poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
     }
   };
-  const connectedArt = new Map();
+  const connectedArt = new Map(), chasmObjects = [];
+  // Appearance resolution includes texture lookup and ART_BOUNDS seating. Most
+  // generated props never change those inputs, so Render.resolveObjectAppearance
+  // below stamps their resolved look on the record itself (_renderAppearance,
+  // non-enumerable and scene-owned) and counts only misses. Any in-place
+  // mutation of a stamped record must evict the stamp (see Home.makeStarterUsable).
+  // Animated/stateful kinds bypass the stamp entirely.
+  scene._appearanceResolveCount = 0;
+  // wanderCreatures publishes the live 12-cell sim bubble before this pass.
+  // The viewport corner is about 7.8 cells away and the widest peek adds 3,
+  // still inside the bubble. Direct render tests can skip the sim, so only
+  // those callers collect the old ring-order fallback.
+  const frameCreatures = Array.isArray(scene._activeCreatures) ? scene._activeCreatures : null;
+  const fallbackCreatures = frameCreatures ? null : [];
   let _boot_scanned = 0, _boot_kept = 0, _boot_creatures = 0;
   forEachLoadedTile(pc.tx, pc.ty, (entry, etx, ety) => {
     for (const [o, art] of Render.connectedArtForTile(entry, etx, ety,
         scene.tileEdgeM, spentIds, pWorldX, pWorldY, halfM)) connectedArt.set(o, art);
+    if (scene.depth > 0) {
+      const pad = halfM + scene.cellM;
+      WorldGen.forEachItemInBox(entry, 'objects', pWorldX-pad, pWorldY-pad, pWorldX+pad, pWorldY+pad, o => {
+        if (o.kind === 'ground_hole' && !isSpent(o, spentIds)) chasmObjects.push(o);
+      });
+    }
     if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
       pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, o => {
         objList.push({ o, dx: o.x - pWorldX, dy: o.y - pWorldY });
@@ -2966,6 +3427,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (entry.objects) {
       WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
         _boot_scanned++;
+        if (HiddenObjects.isHidden(scene.save, o)) return;
         const dx = o.x - pWorldX, dy = o.y - pWorldY;
         // Past the sprite box the only thing an object could still do is
         // throw a pre-cull light, and the light walk below offers exactly
@@ -3008,28 +3470,14 @@ Render.drawObjects = function drawObjects(scene) {
       if (LIGHTS && lM > sM && preCullLightList(entry)) {
         WorldGen.forEachItemInBox(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX + lM, pWorldY + lM, (o) => {
           _boot_scanned++;
+          if (HiddenObjects.isHidden(scene.save, o)) return;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (inViewBox(dx, dy, sM)) return;   // the sprite walk's
           offerPreCullLights(o, dx, dy);
         });
       }
     }
-    if (entry.creatures) {
-      _boot_scanned += entry.creatures.length; _boot_creatures += entry.creatures.length;
-      // The viewport cull FIRST — two subtractions against a Set lookup
-      // and a roster walk, over every creature of the ring (creatures
-      // move, so they are not chunk-indexed): only a creature that would
-      // be drawn is asked whether it was caught, or whether a surface
-      // foe is here for this player (its `_surfaceInactive` stamp;
-      // wanderCreatures keeps the rest of the ring's).
-      cullToView(entry.creatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
-        if (caughtSet.has(c.id)) return;
-        if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
-        if (c._surfaceInactive) return;
-        if (!c._burrowed) creatureList.push({ c, dx, dy });
-        _boot_kept++;
-      });
-    }
+    if (!frameCreatures && entry.creatures) fallbackCreatures.push(...entry.creatures);
     // Wild plants render as planted crops at the mature stage (col 4).
     if (entry.wildplants) {
       WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
@@ -3038,6 +3486,7 @@ Render.drawObjects = function drawObjects(scene) {
         // is not on the waterline today or was taken today — one predicate,
         // interactables.js isSpent, the tap asks the same.
         if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
+        if (HiddenObjects.isHidden(scene.save, wp)) return;
         const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
         // A mushroom is a (faint) light as well as a sprite — offered before
         // the cull like a building, with its own radius as the margin. The
@@ -3087,12 +3536,26 @@ Render.drawObjects = function drawObjects(scene) {
       });
     }
   });
+  const consideredCreatures = frameCreatures || fallbackCreatures;
+  _boot_scanned += consideredCreatures.length;
+  _boot_creatures += consideredCreatures.length;
+  // The shared viewport cull runs before caught/surface/visibility checks.
+  // In the live game wanderCreatures has already removed the frozen ring
+  // seats; the fallback preserves standalone render callers.
+  cullToView(consideredCreatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
+    if (caughtSet.has(c.id)) return;
+    if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+    if (c._surfaceInactive) return;
+    if ((c.hidden || c.stealthy) && !c._discovered) return;
+    if (!c._burrowed) creatureList.push({ c, dx, dy });
+    _boot_kept++;
+  });
   // B.count keeps n/sum/worst like B.tick, just printed without 'ms' — the
   // peak answers "how bad does the densest tile get", the average answers
   // "what does a typical frame pay".
   window.__boot?.count?.('drawObjects scanned', _boot_scanned);
-  // …of which creatures: they move, so they are walked flat across the ring
-  // rather than off the chunk index, and they are most of a town's count.
+  // Creatures come from the small live bubble; standalone render callers fall
+  // back to the flat ring because they did not run the simulation first.
   window.__boot?.count?.('drawObjects scanned creatures', _boot_creatures);
   window.__boot?.count?.('drawObjects kept', _boot_kept);
   // Planted crops are tagged with the depth they were sown at (surface = 0 for
@@ -3163,11 +3626,16 @@ Render.drawObjects = function drawObjects(scene) {
   // EVERY opened chest vanishes, crates included (an empty-crate sprite read as
   // broken art); the tap target survives (interactables.js flashes "Picked clean
   // already."; the pad + label persist via objList).
-  // A spent BARREL is not dropped: it stays SMASHED permanently (one art per
-  // state — the chest spec's key reads the flag stamped here, once per frame).
+  // Only containers with broken art remain after collection (clay pots).
+  // Wooden barrels disappear through the ordinary spent-object filter.
+  for (const o of HiddenObjects.saved(scene)) {
+    if (HiddenObjects.isHidden(scene.save, o)) continue;
+    const dx = o.x - pWorldX, dy = o.y - pWorldY;
+    if (Math.abs(dx) <= halfM && Math.abs(dy) <= halfM) objList.push({o, dx, dy});
+  }
   const filteredObj = objList.filter(({ o }) => {
     const spent = isSpent(o, spentIds);
-    if (o.kind === 'chest' && isBarrel(o)) { o._smashed = spent; return true; }
+    if (o.kind === 'chest' && isBarrel(o) && chestLook(o).smashedKey) { o._smashed = spent; return true; }
     return !spent;
   });
   // Merge in placed scarecrows so they go through the same sprite pool +
@@ -3177,11 +3645,17 @@ Render.drawObjects = function drawObjects(scene) {
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
   filteredObj.sort((a, b) => a.dy - b.dy);
+  const hazardState = EnvironmentHazards.lists(scene);
+  const openCaveins = hazardState.caveins.filter(h => h.phase === 'open' && !h.blocked
+    && Math.abs(h.x - pWorldX) <= halfM + scene.cellM && Math.abs(h.y - pWorldY) <= halfM + scene.cellM);
+  for (const [o, art] of Render.chasmArtForObjects(scene, [...chasmObjects, ...openCaveins])) connectedArt.set(o, art);
   const { fruitList } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
-    item._appearance = resolveAppearance(art ? { ...item.o, ...art } : item.o);
+    item._appearanceStable = Render.objectAppearanceIsStable(item.o, art);
+    item._appearance = Render.resolveObjectAppearance(scene, item.o, art);
   }
+  window.__boot?.count?.('object appearances resolved', scene._appearanceResolveCount);
   // Every upright piece shares one continuous ground-Y order. Pixel offsets
   // come from the same seating geometry as the art, converted back to metres.
   const groundY = (it, offsetPx = 0) => pWorldY + it.dy + offsetPx * scene.cellM / CELL_PX;
@@ -3202,7 +3676,22 @@ Render.drawObjects = function drawObjects(scene) {
   }
   scene._updateObstacleStep?.(stepObjects);
   const supports = new Set((scene._obstacleStep?.supports || []).map(o => o._stepSource || o));
+  const whirlwindList = (scene.depth === 0 ? scene._whirlwinds || [] : []).map(h => ({
+    h, dx: h.x - pWorldX, dy: h.y - pWorldY,
+  })).filter(it => Math.abs(it.dx) <= halfM && Math.abs(it.dy) <= halfM);
+  const environmentList = [...hazardState.vents, ...hazardState.sinkholes, ...hazardState.caveins].map(h => ({
+    h, dx: h.x - pWorldX, dy: h.y - pWorldY,
+  })).filter(it => !it.h.blocked && Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
+  const pressureState = PressureTraps.lists(scene);
+  const pressureList = [...pressureState.plates.map(h => ({ h, plate: true })),
+    ...pressureState.traps.map(h => ({ h, plate: false }))].map(it => ({
+      ...it, dx: it.h.x - pWorldX, dy: it.h.y - pWorldY,
+    })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   const zList = [];
+  for (const it of pressureList) zList.push({ it, rank: 2, ground: it.plate, groundY: groundY(it) });
+  for (const it of environmentList) zList.push({ it, rank: 1,
+    ground: it.h.type !== 'vent', groundY: groundY(it) });
+  for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
@@ -3218,7 +3707,19 @@ Render.drawObjects = function drawObjects(scene) {
     groundY: playerGroundY, rank: 3 });
   zList.push(...(scene._uprightPieces || []), ...(scene._buildingUprightPieces || []),
     ...(scene._peerUprightPieces || []));
-  Render.sortWorldDepth(zList);
+  const worldList = scene.worldContainer?.list;
+  const worldChildCountBefore = worldList?.length ?? 0;
+  let worldDepthDirty = Render.sortWorldDepth(zList) || !scene._worldDepthSorted
+    || scene._worldDepthChildCount !== worldChildCountBefore;
+  scene._worldDepthMembershipDirty = false;
+  // Phaser's Container.sort walks every pooled child. Mark the order dirty
+  // only when a visible sprite's assigned depth actually changes; camera
+  // motion changes screen positions but not the world-ground order.
+  const setWorldDepth = (sprite, depth) => {
+    if (sprite.depth === depth) return;
+    sprite.setDepth(depth);
+    worldDepthDirty = true;
+  };
   // Kinds that stand UP off the ground and therefore cast a contact shadow,
   // DERIVED from the table above (`shadow: true` beside `seat: true`). Buildings
   // (house/tower) get the bespoke footprint math below; every flagged row is a
@@ -3232,6 +3733,7 @@ Render.drawObjects = function drawObjects(scene) {
     const shadowList = [];
     for (const item of filteredObj) {
       const k = item.o.kind;
+      if (k === 'temple') continue;
       if (isBuilding(k)) { shadowList.push(item); continue; }
       if (!RENDER_SPEC[k]?.shadow) continue;
       const foot = item._appearance?.foot;
@@ -3292,10 +3794,15 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
+  // Tree/rock alpha is the only saved-state style on a cacheable row. Fold the
+  // two tool tiers once per frame; a gear change invalidates every affected
+  // slot without a per-object key or map lookup.
+  const relics = scene.save.relics || {};
+  const objectStyleRevision = ((relics.axe?.tier || 0) << 4) | (relics.pickaxe?.tier || 0);
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
-    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A shiny tree, or a building raised under the Magic Hammer (Houses.isShinyHouse).
     Render.setShine(s, (isTreeLike(o.kind) && isShiny(o.id, SHINY_RATE.tree))
       || (o.kind === 'house' && Houses.isShinyHouse(scene.save, o)), o.id);
@@ -3317,11 +3824,27 @@ Render.drawObjects = function drawObjects(scene) {
     // rocks).
     // Handed the scene so a hook can read the save (tool tiers).
     if (typeof spec.after === 'function') spec.after(s, o, scene);
+    Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
+      Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
+    s._staticObject = o;
+    s._staticAppearance = appearance;
+    s._staticStyleRevision = objectStyleRevision;
+    s._staticHadWork = !!scene._workProgress;
+  };
+  const reuseStaticObject = (s, item) => {
+    if (!scene._boot_still || !item._appearanceStable || scene._workProgress || s._staticHadWork
+        || s._staticObject !== item.o || s._staticAppearance !== item._appearance
+        || s._staticStyleRevision !== objectStyleRevision) return false;
+    setWorldDepth(s, item._z ?? 0);
+    return true;
   };
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower');
   const nonTowerObj = towerList.length ? filteredObj.filter(({ o }) => o.kind !== 'tower') : filteredObj;
-  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj, configureObject);
-  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList, configureObject);
+  const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
+  Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
+    configureObject, undefined, objectReuse);
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList,
+    configureObject, undefined, objectReuse);
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
   // the inventory, drawn as its own small sprite on the tree's canopy. The
@@ -3336,8 +3859,8 @@ Render.drawObjects = function drawObjects(scene) {
     if (s.frame.name !== item.frame) s.setFrame(item.frame);
     s.setOrigin(0.5, 0.5)
      .setScale(item.scale)
-     .setDepth(item.depth)
      .setPosition(item.x, item.y);
+    setWorldDepth(s, item.depth);
   });
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
@@ -3353,7 +3876,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { x: sx, y: sy } = project(dx, dy);
     const towerH = Render.towerCrownHeight(scene.textures, item.o.castle);
     setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
-    s.setDepth((item._z ?? 0) + 0.1);
+    setWorldDepth(s, (item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
      .setPosition(Math.round(sx), Math.round(sy + CELL_PX * 0.5 - towerH + 2));
   });
@@ -3369,6 +3892,10 @@ Render.drawObjects = function drawObjects(scene) {
   const padList = [];
   for (const item of objList) {
     const { o, dx, dy } = item;
+    if (Render.hasShrineFooting(o)) {
+      padList.push({ o, dx, dy, texKey: 'pad_shrine', shrine: true });
+      continue;
+    }
     if (o.kind !== 'chest') continue;
     // Produce/food stands render their own 80×80 stall structure — a concrete
     // slab poking out from under the stall reads wrong, so they skip the pad.
@@ -3405,9 +3932,14 @@ Render.drawObjects = function drawObjects(scene) {
   // No POI "ping" ring here: a live POI is a LIGHT (kind 'poi' in src/lighting.js),
   // offered to the lightmap from the tile scan above.
   Render.renderPool(scene, scene.padPool, scene.padContainer, padList, (s, item) => {
-    const { o, dx, dy, texKey, shape, mini } = item;
+    const { o, dx, dy, texKey, shape, mini, shrine } = item;
     const { x: sx, y: sy } = project(dx, dy);
     setTextureIfDifferent(s, texKey);
+    if (shrine) {
+      s.setOrigin(0.5, 0.5).setScale(CELL_PX / SHRINE_PAD.sizePx)
+        .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).clearTint();
+      return;
+    }
     // Origin = the chest cell's centre within the pad image, so that the
     // pad's chest cell sits exactly at the chest's ground point (sx, sy).
     const [cc, cr] = shape.chest;
@@ -3631,7 +4163,7 @@ Render.drawObjects = function drawObjects(scene) {
       for (const it of filteredObj) {
         // Every delivery host gets a roof callout: the wishlist of produce icons
         // while hungry, a smiling face once a bundle is delivered; a market
-        // building shows its line's item-icon signboard instead.
+        // building shows its line's inventory-tab symbol instead.
         if (it.wide || it.o.kind !== 'house') continue;
         const market = Render.marketSignTheme(scene, it.o, _houseRole(it.o));
         if (!market && !_houseIsHost(it.o)) continue;
@@ -3793,7 +4325,7 @@ Render.drawObjects = function drawObjects(scene) {
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
-    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
     // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
     // upright, swelling and dying over the beat's show (nestBushPhase, once
@@ -3955,10 +4487,15 @@ Render.drawObjects = function drawObjects(scene) {
   const CREATURE_GROUND_DY = (typeof SpriteLayout !== 'undefined'
     && SpriteLayout.CREATURE_GROUND_DY != null) ? SpriteLayout.CREATURE_GROUND_DY : 2;
 
+  // Pool effects with the visible creatures and seat them beside their body
+  // in the same depth-sorted container. Hidden/offscreen actors leave no trail.
+  scene._creatureMeleePool ||= [];
+  let meleeUsed = 0;
+  for (const effect of scene._creatureMeleePool) effect.setVisible(false).clear();
   Render.renderPool(scene, scene.creaturePool, scene.creaturesContainer, creatureList, (s, item) => {
     const { c, dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
-    s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     if (Render.drawCreatureDisguise(s, c, sx, sy, performance.now())) return;
     // ONE BRANCH FOR EVERY CREATURE: the sheet, frame stepping and float all come
     // from the creature table (SpriteLayout: creatureSheet / anim / frameMs /
@@ -3966,9 +4503,16 @@ Render.drawObjects = function drawObjects(scene) {
     // drift apart.
     const npcArt = c.kind === 'npc' ? SL.npcAppearance(c, performance.now()) : null;
     const appearance = npcArt ? null : creatureAppearance(c, performance.now());
-    const texKey = npcArt ? npcArt.sheet : creatureSheet(c.kind);
+    const pet = Combat.isTame(c) && !npcArt;
+    const down = pet && typeof Pets !== 'undefined' && Pets.isDown(c, Date.now());
+    const baseSheet = npcArt ? npcArt.sheet : creatureSheet(c.kind);
+    const texKey = pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint) : baseSheet;
     const anim = creatureAnim(c.kind);
-    if (npcArt) {
+    if (pet) {
+      s.anims?.stop();
+      const frame = down ? 0 : Render.petFrame(scene, anim, appearance.frame, performance.now());
+      if (s.texture.key !== texKey) s.setTexture(texKey, frame); else s.setFrame(frame);
+    } else if (npcArt) {
       s.anims?.stop();
       if (s.texture.key !== texKey) s.setTexture(texKey, npcArt.frame);
       else s.setFrame(npcArt.frame);
@@ -3983,9 +4527,10 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // How far off the ground the body is drawn: its constant float (a crow
     // perches high, a bat hovers) plus, for a hopping kind, the live bounce.
-    let lift = creatureFloat(c.kind);
+    let lift = down ? 0 : Math.max(creatureFloat(c.kind),
+      Conditions.flying(c) ? CONSUMABLE_SPEC.flight_potion.liftPx : 0);
     const hop = creatureHop(c.kind);
-    if (hop) {
+    if (hop && !down) {
       // Phase-offset per creature off a cached hash of its id, so a pack of
       // slimes doesn't pulse in unison.
       if (c._hopSeed == null) c._hopSeed = strHash31(c.id || '');
@@ -4002,6 +4547,7 @@ Render.drawObjects = function drawObjects(scene) {
     Render.applyEmergence(s, c, performance.now());
     // A resting NPC lies down; every other body stands at the pool's reset.
     if (npcArt && NPC.isDormant(c)) s.setRotation(Math.PI / 2).setOrigin(0.5, 0.5);
+    Render.petDownPose(s, down);
     if (!npcArt) s.setFlipX(appearance.flipX);
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
@@ -4034,7 +4580,7 @@ Render.drawObjects = function drawObjects(scene) {
       c._statusPop = null;
       if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
     }
-    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : pet && Number.isFinite(c.tint) ? c.tint : npcArt ? npcArt.tint : creatureTint(c.kind));
     if (c._supportUntil > performance.now() && !chilled) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !chilled, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
@@ -4043,7 +4589,27 @@ Render.drawObjects = function drawObjects(scene) {
     // Where the body's centre landed — the glow pass below sits on it, so the
     // halo rides the hover and the bob with the sprite.
     item._bodyY = s.y - (s.originY - 0.5) * s.displayHeight;
+    if (c._meleeSwing && !down) {
+      const pose = Render.meleePose(c._meleeSwing, performance.now(), 'sword',
+        c._meleeSwing.reachCells * CELL_PX);
+      if (pose) {
+        let effect = scene._creatureMeleePool[meleeUsed];
+        if (!effect) {
+          effect = scene.add.graphics();
+          scene.creaturesContainer.add(effect);
+          scene._creatureMeleePool.push(effect);
+          worldDepthDirty = true;
+        }
+        meleeUsed++;
+        effect._poolIdleSince = null;
+        effect.setActive(true).setVisible(true);
+        setWorldDepth(effect, (item._z ?? 0) + 0.1);
+        Render.drawMelee(effect, pose, s.x, item._bodyY, Render.enemyMeleeColor(c));
+      } else delete c._meleeSwing;
+    }
   });
+
+  retireSpritePoolFrom(scene._creatureMeleePool, meleeUsed);
 
   // THE GHOST'S GLOW — a non-lighting halo on each glowing kind, on its body
   // centre, in the layer ABOVE the lightmap (app.js ghostGlowContainer), so it
@@ -4061,22 +4627,66 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
 
-  // Use the player's Blight disc: its visible edge is the actual damage
-  // radius. Instance size never changes the aura's reach.
-  if (scene.auraContainer && typeof EnemyRoster !== 'undefined') {
+  // Plants and creatures use the same ground discs and gameplay radii.
+  if (scene.auraContainer) {
     scene.enemyAuraPool ||= [];
-    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura
-      || (typeof PotionEffects !== 'undefined' && PotionEffects.active(it.c, 'blight_potion')));
-    Render.renderPool(scene, scene.enemyAuraPool, scene.auraContainer, auraList, (s, item) => {
+    const auraList = [];
+    for (const item of creatureList) {
       const aura = (typeof PotionEffects !== 'undefined' && PotionEffects.active(item.c, 'blight_potion'))
-        ? CONSUMABLE_SPEC.blight_potion : EnemyRoster.get(item.c.kind).aura;
-      const { x: sx, y: sy } = project(item.dx, item.dy);
-      const diameter = 2 * aura.radiusCells * CELL_PX;
-      setTextureIfDifferent(s, 'aura_blight');
-      s.setOrigin(0.5, 0.5).setDisplaySize(diameter, diameter)
-       .setPosition(sx, sy).setAlpha(0.9);
-    });
+        ? CONSUMABLE_SPEC.blight_potion
+        : (typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(item.c.kind)?.aura : null);
+      if (aura) auraList.push({ ...item, aura });
+    }
+    Render.renderAuras(scene, scene.enemyAuraPool, auraList, project);
+    scene.plantAuraPool ||= [];
+    const plantAuras = [];
+    for (const item of plantedList) {
+      const aura = Crops.effectFor(item.p)?.aura;
+      if (aura) plantAuras.push({ ...item, aura });
+    }
+    Render.renderAuras(scene, scene.plantAuraPool, plantAuras, project);
+    scene.playerAuraPool ||= [];
+    const playerAuras = [];
+    if (Buffs.until('frostAura', scene.save, scene) > Date.now()) {
+      const player = playerWorldM(scene);
+      playerAuras.push({ dx: player.x - pWorldX, dy: player.y - pWorldY,
+        aura: CONSUMABLE_SPEC.tome_frost_aura.aura });
+    }
+    Render.renderAuras(scene, scene.playerAuraPool, playerAuras, project);
   }
+
+  scene._pressureTrapPool ||= [];
+  Render.renderPool(scene, scene._pressureTrapPool, scene.creaturesContainer, pressureList, (s, it) => {
+    const { x: sx, y: sy } = project(it.dx, it.dy);
+    const key = it.plate ? 'cave_mechanisms' : it.h.kind === 'ball' ? 'rolling_ball' : 'sliding_spike_wall';
+    s.anims?.stop();
+    s.setTexture(key, it.h.frame).setOrigin(.5, .5).setDisplaySize(CELL_PX, CELL_PX)
+      .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
+    setWorldDepth(s, it._z);
+  });
+
+  scene._environmentHazardPool ||= [];
+  Render.renderPool(scene, scene._environmentHazardPool, scene.creaturesContainer, environmentList, (s, it) => {
+    const { x: sx, y: sy } = project(it.dx, it.dy), h = it.h;
+    const cfg = EnvironmentHazards.CONFIG[h.type];
+    s.anims?.stop();
+    s.setTexture(h.phase === 'open' && cfg.openTexture || cfg.texture, connectedArt.get(h)?._chasmMask ?? h.frame)
+      .setOrigin(...cfg.renderAnchor).setDisplaySize(cfg.widthCells * CELL_PX, cfg.heightCells * CELL_PX)
+      .setPosition(Math.round(sx), Math.round(sy)).setAlpha(1).setTint(0xffffff);
+    setWorldDepth(s, it._z);
+  });
+
+  // Whirlwinds share ground-anchor depth ordering with actors and trees.
+  scene._whirlwindPool ||= [];
+  Render.renderPool(scene, scene._whirlwindPool, scene.creaturesContainer, whirlwindList, (s, it) => {
+    const { x: sx, y: sy } = project(it.dx, it.dy);
+    s.anims?.stop();
+    const { frameSize, anchor } = Whirlwinds.CONFIG;
+    s.setTexture('whirlwind', it.h.frame).setOrigin(anchor[0] / frameSize, anchor[1] / frameSize)
+      .setDisplaySize(frameSize, frameSize).setPosition(Math.round(sx), Math.round(sy))
+      .setAlpha(1).setTint(0xffffff);
+    setWorldDepth(s, it._z);
+  });
 
   // Contact shadows under creatures. Unlike the sprite, the shadow stays
   // pinned to the CELL — it never rides the hop/hover offset — so a bouncing
@@ -4089,6 +4699,21 @@ Render.drawObjects = function drawObjects(scene) {
       const { x: sx, y: sy } = project(dx, dy);
       const w = (CRITTER_SHADOW_W[baseKind(c.kind)] || 18) * giantMul(c.kind) * creatureInstScale(c);
       seatShadow(s, creatureAirborne(c.kind) ? 'airborne' : 'creature', w, Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY);
+    });
+  }
+
+  // Elite circles stay on the ground through hops and use baked glow even with FX off.
+  Render.announceElites(scene, creatureList, project);
+  if (scene.shadowContainer) {
+    scene.eliteRingPool ||= [];
+    const elites = creatureList.filter(({ c }) => Combat.isElite(c) && !Combat.isConcealed(c));
+    Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, elites, (s, item) => {
+      const { sx, sy } = project(item.dx, item.dy);
+      const size = 36 * giantMul(item.c.kind) * creatureInstScale(item.c);
+      setTextureIfDifferent(s, 'elite_ring');
+      s.setOrigin(0.5, 0.5).setDisplaySize(size, size / 2)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY)
+       .setAlpha(1).setTint(0xffffff);
     });
   }
 
@@ -4188,11 +4813,18 @@ Render.drawObjects = function drawObjects(scene) {
      .setPosition(Math.round(sx), Math.round(yTop + halfH + bob));
   });
 
-  // Apply the screen-row z-order stamped above. Phaser renders a container's
-  // children in list order, so the shared world layer has to be re-sorted by
-  // depth once every sprite has been positioned. StableSort, so pooled slots
-  // that share a depth (all the hidden ones) keep a fixed relative order.
-  if (scene.worldContainer && scene.worldContainer.sort) scene.worldContainer.sort('depth');
+  // Apply screen-row order only when an assigned depth or the pool membership
+  // changed. Phaser renders a container's children in list order, but sorting
+  // hundreds of pooled (including hidden) children on every camera pixel adds
+  // no information while the ground order stands.
+  const worldChildCountAfter = worldList?.length ?? 0;
+  if (worldChildCountAfter !== worldChildCountBefore || scene._worldDepthMembershipDirty) worldDepthDirty = true;
+  if (worldDepthDirty && scene.worldContainer?.sort) {
+    scene.worldContainer.sort('depth');
+    scene._worldDepthSorted = true;
+  }
+  scene._worldDepthChildCount = worldChildCountAfter;
+  window.__boot?.count?.('world depth sorted', worldDepthDirty ? 1 : 0);
 
   // ── The lightmap ──────────────────────────────────────────────────────────
   // Last, once every light is known: the campfires on this depth, the
@@ -4242,7 +4874,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.
-  const WAGON_SCALE = 1.6;
+  const WAGON_SCALE = 1.28;
   // (A function: CELL_PX is app.js's, which loads after this table is built.)
   const WAGON_DY_PX = () => CELL_PX * 0.5 - 1 + WAGON_SCALE;
   // Render-spec callbacks receive the world object, while the object walk
@@ -4312,6 +4944,15 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     houseArtScale(o.area, _houseFrameW(o), _houseRole(o), _pass.scene.cellM, CELL_PX);
 
   const RENDER_SPEC = {
+    // Temples use their entire source polygon; no house sprite covers the runes.
+    temple: { key: null, ground: true },
+    shrine_spirit: {
+      key: 'shrine_spirit',
+      frame: () => { const art = SpriteLayout.SHRINE_SPIRIT_ART; return Math.floor(performance.now() / art.frameMs) % art.frames; },
+      scale: () => SpriteLayout.SHRINE_SPIRIT_ART.scale,
+      origin: [0.5, 0.5], seat: true, seatFrame: 0,
+      after: s => s.setAlpha(SpriteLayout.SHRINE_SPIRIT_ART.alpha),
+    },
     // Water scenery is drawn separately from tappable objects.
     // Connected wall tiles preserve frame alignment, including off-center corners.
     // Seating by trimmed art would move their endpoints away from adjacent cells.
@@ -4355,9 +4996,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
-    staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
-                 ground: (o) => o.dir !== 'up',
-                 frame: (o) => (o.dir === 'up' ? '__BASE' : 'down'),
+    staircase: { key: (o) => o.elevator ? 'progression_tiles' : (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 ground: (o) => !o.elevator && o.dir !== 'up',
+                 frame: (o, scene) => o.elevator ? (Elevators.isRepaired(scene?.save) ? 1 : 0) : (o.dir === 'up' ? '__BASE' : 'down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
     // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
@@ -4381,6 +5022,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // `scale`: the art is sized in CELLS (LAMP_DRAW_CELLS) via setDisplaySize.
     _streetlamp: {
       ground: (o) => !o.lit,
+      // The origin is the painted plinth's ground line. Canvas padding below
+      // it belongs to the glow, not the base used to sort against feet.
+      groundAtOrigin: true,
       // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
       // STREET_LAMP_TEX for the default, one texture per colour otherwise,
       // baked by app.js _ensureStreetLampTex before this pass runs); a dark
@@ -4443,8 +5087,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // same resolver the treasure ceremony asks for its hero icon. An ATM spills
     // collectible coins, so it renders as a "pot of gold"; a cave-level mirror of
     // one is a plain chest. An opened chest never reaches the renderer (filtered
-    // out above); the one exception is the BARREL, which is never dropped: spent,
-    // its barrel or clay pot stands smashed (o._smashed, stamped by the filter).
+    // out above); clay pots retain their broken art (o._smashed, stamped
+    // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects each tier's recoloured chest frame and
               // the produce stand's awning. Procedural pots of gold have no frame.
@@ -4544,7 +5188,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: (o) => o.deposit === 'crystal' ? 'crystal_cluster' : 'mineralrock',
+    mineralrock: { key: (o) => mineralDeposit(o)?.art.sheet || 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
@@ -4560,10 +5204,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               //   ORE   → row 0, the ore-stone per yield tier. The top row is
               //           ore stones in tier order starting at copper — copper
               //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
-              //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
+              //           (T5), crimson 5 (T6), frost blue 7 (T7) —
               //           so the rock you see matches the bar it drops.
               frame: (o) => {
-                if (o.deposit === 'crystal') return 0;
+                const deposit = mineralDeposit(o);
+                if (deposit) return deposit.art.frame;
                 const tier = o.yieldTier || o.requiredTier || 1;
                 // Cave rock and T1 ore both render as a plain rock variant.
                 if (o.caveVariant != null || tier <= 1) {
@@ -4577,7 +5222,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // sits low in the 16px frame). origin (0.5, 0.5)/dyPx below are the
               // no-SpriteLayout fallback; a foot-anchor would shove a flat ground rock ~11 px
               // into the cell above. scale 1.28 draws the 16px frame at ~20px.
-              origin: [0.5, 0.5], scale: 1.28, seat: true, shadow: true,
+              origin: [0.5, 0.5], scale: o => mineralDeposit(o)?.art.scale || 1.28, seat: true, shadow: true,
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
@@ -4588,6 +5233,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
+    ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, ground: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
@@ -4602,6 +5248,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
     // pay a one-off find. Plain grove shrines use the cell-seated votive,
     // giving the daily gift and light (Lighting.KINDS.shrine).
+    hive: { key: 'beehive', frame: 0, origin: [0.5, 0.5], scale: 2, seat: true, shadow: true },
     headstone:    { key: 'zone_objects', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     grove_shrine: {
       key: o => SpriteLayout.groveShrineArt(o).key,
@@ -4661,7 +5308,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const baseScale = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const scl = o.kind === 'mineralrock' && o.zone === 'quarry' ? baseScale * 0.9 : baseScale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
     let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
@@ -4685,6 +5333,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         if (o.kind === 'mineralrock') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2;
       }
     }
+    if (foot && Render.hasShrineFooting(o)) {
+      const lift = SHRINE_PAD.seatLiftPx * CELL_PX / SHRINE_PAD.sizePx;
+      dyPx -= lift;
+      foot.footFromCentre -= lift;
+    }
     const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;
     return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, ground };
   };
@@ -4701,4 +5354,39 @@ Render.objectAppearance = function (scene, houseRoles) {
   _pass.fruitNow = Date.now();
   _pass.fruitList = [];
   return { RENDER_SPEC, resolveAppearance, fruitList: _pass.fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale };
+};
+
+// Generated records in these rows keep their appearance inputs for their
+// lifetime. Cache the resolved texture/frame/seat tuple by object identity, so
+// strolling does not repeat texture lookups and ART_BOUNDS seating for every
+// visible prop. Stateful rows (houses, chests, planted fruit trees, animated
+// fires/torches and connected-art overrides) deliberately resolve every pass.
+// The non-enumerable stamp never enters saves, spreads or deterministic data;
+// its scene token prevents a review scene from reusing another scene's tuple.
+const CACHED_APPEARANCE_KINDS = new Set([
+  'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar',
+  'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
+  'groundstack',
+]);
+Render.objectAppearanceIsStable = function objectAppearanceIsStable(object, art) {
+  return !art && CACHED_APPEARANCE_KINDS.has(object.kind)
+    // Authored planted trees advance through growth frames on the clock.
+    && !(object.kind === 'tree' && object.planted_t);
+};
+Render.resolveObjectAppearance = function resolveObjectAppearance(scene, object, art) {
+  const cacheable = Render.objectAppearanceIsStable(object, art);
+  if (cacheable) {
+    const owner = scene._objectAppearanceOwner || (scene._objectAppearanceOwner = {});
+    const prior = object._renderAppearance;
+    if (prior?.owner === owner) return prior.appearance;
+    scene._appearanceResolveCount = (scene._appearanceResolveCount || 0) + 1;
+    const appearance = resolveAppearance(object);
+    // A texture may be registered lazily. Do not make an early miss permanent.
+    if (appearance?.visible) Object.defineProperty(object, '_renderAppearance', {
+      value: { owner, appearance }, writable: true, configurable: true,
+    });
+    return appearance;
+  }
+  scene._appearanceResolveCount = (scene._appearanceResolveCount || 0) + 1;
+  return resolveAppearance(art ? { ...object, ...art } : object);
 };

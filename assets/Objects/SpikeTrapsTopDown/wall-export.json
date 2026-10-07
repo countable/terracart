@@ -1,0 +1,62 @@
+{
+  "method": "Nearest-neighbor extraction of four complete source objects; beam centers share anchor [12,12]; longest dimension 22 pixels.",
+  "source": "spike-wall-source.png",
+  "frames": [
+    {
+      "frame": 0,
+      "bounds": [
+        73,
+        281,
+        708,
+        470
+      ],
+      "scale": 0.03459119496855346,
+      "beamCenter": [
+        391,
+        410
+      ]
+    },
+    {
+      "frame": 1,
+      "bounds": [
+        904,
+        60,
+        1104,
+        623
+      ],
+      "scale": 0.03900709219858156,
+      "beamCenter": [
+        960,
+        342
+      ]
+    },
+    {
+      "frame": 2,
+      "bounds": [
+        73,
+        882,
+        708,
+        1094
+      ],
+      "scale": 0.03459119496855346,
+      "beamCenter": [
+        391,
+        940
+      ]
+    },
+    {
+      "frame": 3,
+      "bounds": [
+        893,
+        651,
+        1092,
+        1211
+      ],
+      "scale": 0.0392156862745098,
+      "beamCenter": [
+        1040,
+        932
+      ]
+    }
+  ]
+}

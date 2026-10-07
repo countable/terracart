@@ -1,0 +1,13 @@
+{
+  "tool": "Built-in imagegen",
+  "references": [
+    "assets/Enemy/spr_big_monsters_spritesheet.png",
+    "assets/Enemy/Brute/1Fullsheet_Brute.png",
+    "assets/Enemy/LargeAttack/large-enemies-32.png"
+  ],
+  "referenceRoles": [
+    "Game style, palette and pixel density",
+    "Game gait, outline and animation style",
+    "Earlier character designs only"
+  ]
+}

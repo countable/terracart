@@ -96,9 +96,9 @@ function mosaicCuts(stem) {
 const sceneArtUrl = (stem) => stem.startsWith('data:image/') ? stem : `assets/art/${stem}.webp`;
 const MODAL_KINDS = {
   quest:    { icon: '🏰', label: 'Quest', art: 'kind_quest' },   // castle quest board
-  treasure: { icon: '💎', label: 'Treasure', art: 'kind_treasure' },   // chests, boxes, loot ceremonies
-  supplies: { icon: '🧰', label: 'Supplies', art: 'kind_supplies' },   // the starter crates' handout — see below
-  trail:    { icon: '🗺️', label: 'Trail', art: 'kind_trail' },   // road/trail completion rewards
+  treasure: { delayInput: true, icon: '💎', label: 'Treasure', art: 'kind_treasure' },   // chests, boxes, loot ceremonies
+  supplies: { delayInput: true, icon: '🧰', label: 'Supplies', art: 'kind_supplies' },   // the starter crates' handout — see below
+  trail:    { delayInput: true, icon: '🗺️', label: 'Trail', art: 'kind_trail' },   // road/trail completion rewards
   shop:     { coinIcon: true, label: 'Shop', art: 'kind_shop' },   // buying and selling for money — glyph is the coin asset (header reads `coinIcon`)
   trade:    { icon: '🤝', label: 'Trade', art: 'kind_trade' },   // goods-for-goods barter
   // The smithy's CATEGORY is 'Smithy', never 'Forge': Forge is one of its two
@@ -114,17 +114,17 @@ const MODAL_KINDS = {
   slots:    { icon: '🎰', label: 'Slots', art: 'kind_slots' },   // a fort's slot machine (presentFortSlots)
   farm:     { icon: '🌾', label: 'Farm', art: 'kind_farm' },   // scarecrows, feeding fauna
   energy:   { icon: '⚡', label: 'Energy', art: 'kind_energy' },   // the energy explainer
-  rest:     { icon: '😵', label: 'Exhausted', art: 'kind_rest' },   // passing out underground
+  rest:     { delayInput: true, icon: '😵', label: 'Exhausted', art: 'kind_rest' },   // passing out underground
   use:      { icon: '🎒', label: 'Use', art: 'kind_use' },   // confirming a consumable from the bag
   fire:     { icon: '🔥', label: 'Campfire', art: 'kind_fire' },   // burning a held item (presentBurnConfirm)
   note:     { icon: '📜', label: 'Note', art: 'kind_note' },   // generic message dialog
   menu:     { icon: '☰', label: 'Menu', art: 'kind_menu' },   // the ☰ menu (_openMenuDialog)
   // A story splash (_storySplashOnce, a badge, a book): always carries its own
   // painting, so the row has no default one.
-  story:    { icon: '📜', label: 'Story' },
+  story:    { delayInput: true, icon: '📜', label: 'Story' },
 };
 
-// How long a freshly opened dialog ignores taps before its buttons fade in
+// How long a story or event ignores taps before its buttons fade in
 // (makeModalShell's arming second), and that fade (index.html modal-btn-in).
 const MODAL_ARM_MS = 1000;
 const MODAL_UNVEIL_MS = 500;
@@ -140,9 +140,9 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, story = false, art, centerBody = false, fullscreen = false } = {}) {
+    kind, kindLabel, kindIcon, story = false, art, centerBody = false, fullscreen = false, delayInput } = {}) {
     // A dialog swapping itself in place (a pager turn, a tab) is the same
-    // dialog already armed; anything else opens on THE ARMING SECOND below.
+    // dialog already armed; a fresh story or event gets the arming second.
     const swapping = !!document.getElementById(id);
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
@@ -171,7 +171,8 @@ class SceneModals {
     // registered first so it beats the backdrop close and the chest's
     // tap-anywhere; then .modal-arming lifts and .modal-unveil fades its
     // buttons in (index.html). Capture phase, so no caller's listener runs first.
-    if (!swapping) {
+    // Paintings also appear on shops and buildings; art is not an input gate.
+    if (!swapping && (delayInput ?? kRow?.delayInput)) {
       const armedUntil = Date.now() + MODAL_ARM_MS;
       wrap.classList.add('modal-arming');
       wrap.addEventListener('click', (e) => {
@@ -203,7 +204,7 @@ class SceneModals {
       ? 'position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;' +
         'background:#1a1612;color:#fff;border:0;border-radius:0;' +
         'padding:max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));' +
-        'font:13px ui-monospace,monospace;overflow-y:auto;overscroll-behavior:contain;' +
+        'font:13px var(--font-ui);overflow-y:auto;overscroll-behavior:contain;' +
         (textAlign ? `text-align:${textAlign};` : '') + boxExtra
       :
       // Seated on the map square, in #game's own (game px) space; the wrap
@@ -213,7 +214,7 @@ class SceneModals {
       `box-sizing:border-box;display:flex;flex-direction:column;` +
       `background:#1a1612;color:#fff;` +
       `border:2px solid ${frameBorder};border-radius:10px;padding:14px 16px;` +
-      `font:13px ui-monospace,monospace;` +
+      `font:13px var(--font-ui);` +
       // Content that outgrows the square scrolls INSIDE it — the box never
       // grows to fit. (Stats & Relics is the long one.)
       `overflow-y:auto;overscroll-behavior:contain;` +
@@ -320,7 +321,7 @@ class SceneModals {
         'position:absolute;top:10px;left:10px;z-index:1;padding:3px 8px;border-radius:4px;' +
         'display:flex;align-items:center;gap:6px;' +
         `background:rgba(20,16,12,.72);border:1px solid ${borderColor}8c;` +
-        'font:700 10px ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;' +
+        'font:700 10px var(--font-ui);letter-spacing:.14em;text-transform:uppercase;' +
         `color:${borderColor};`;
       kindNode.textContent = kindLabel ?? k.label;
     } else if (k) {
@@ -352,7 +353,7 @@ class SceneModals {
       }
       const lbl = document.createElement('span');
       lbl.style.cssText =
-        'font:700 11px ui-monospace,monospace;letter-spacing:.14em;' +
+        'font:700 11px var(--font-ui);letter-spacing:.14em;' +
         `text-transform:uppercase;color:${borderColor};`;
       lbl.textContent = kindLabel ?? k.label;
       kindNode.appendChild(ico);
@@ -438,7 +439,7 @@ class SceneModals {
       const b = document.createElement('button');
       b.innerHTML = label;
       b.style.cssText =
-        `padding:8px 14px;border-radius:6px;font:700 13px ui-monospace,monospace;cursor:pointer;` +
+        `padding:8px 14px;border-radius:6px;font:700 13px var(--font-ui);cursor:pointer;` +
         'transition:transform 60ms,box-shadow 60ms,background-color 120ms;' +
         (primary ? `color:#1a1612;border:0;` : GHOST) +
         (o.css || '');
@@ -634,7 +635,7 @@ class SceneModals {
   //                 small ‹ › arrows flank the `get` line with an "i / n"
   //                 under it (paging is not an action, so no extra button).
   //                 `showIndex: false` drops the "i / n" line and keeps the arrows.
-  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested?, cost?, canAfford? }]
+  //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested?, cost?, canAfford?, disabled? }]
   //                 — the offer is ONE OF several things (what a wreck is
   //                 restored as). Laid out as cards between the headline and
   //                 the cost; a tap SELECTS a card (outlined, its `info` on
@@ -648,7 +649,7 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, fullscreen });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -660,7 +661,7 @@ class SceneModals {
       tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:8px;';
       for (const t of tabs) {
         const tb = mkBtn(t.label, { variant: 'ghost', css:
-          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px ui-monospace,monospace;border-bottom:none;'
+          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px var(--font-ui);border-bottom:none;'
           + (t.active
               ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
               : 'color:#999;') });
@@ -684,7 +685,7 @@ class SceneModals {
     // guess; `costLabel` REPLACES the "for" row rather than stacking on it.
     const mkCaption = (text) => {
       const c = document.createElement('div');
-      c.style.cssText = 'font:700 10px ui-monospace,monospace;letter-spacing:.12em;'
+      c.style.cssText = 'font:700 10px var(--font-ui);letter-spacing:.12em;'
         + 'text-transform:uppercase;opacity:.6;margin:6px 0 2px';
       c.textContent = text;
       return c;
@@ -698,7 +699,7 @@ class SceneModals {
       pageRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;';
       const mkArrow = (glyph, aria, fn) => {
         const b = mkBtn(glyph, { variant: 'ghost', css:
-          'flex:none;width:32px;height:32px;border-radius:50%;line-height:1;font:700 18px ui-monospace,monospace;' });
+          'flex:none;width:32px;height:32px;border-radius:50%;line-height:1;font:700 18px var(--font-ui);' });
         b.setAttribute('aria-label', aria);
         b.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); fn(); });
         return b;
@@ -710,7 +711,7 @@ class SceneModals {
       box.appendChild(pageRow);
       if (pager.showIndex !== false) {
         const pageNo = document.createElement('div');
-        pageNo.style.cssText = 'font:700 10px ui-monospace,monospace;opacity:.55;margin-bottom:2px';
+        pageNo.style.cssText = 'font:700 10px var(--font-ui);opacity:.55;margin-bottom:2px';
         pageNo.textContent = `${pager.index + 1} / ${pager.count}`;
         box.appendChild(pageNo);
       }
@@ -767,17 +768,18 @@ class SceneModals {
       };
       for (const c of choices) {
         const b = mkBtn((c.iconHTML ? `<div style="font-size:0;margin-bottom:2px">${c.iconHTML}</div>` : '') + c.label,
-          { variant: 'ghost', css: (fullscreen
-            ? 'padding:12px 6px 10px;font:700 13px ui-monospace,monospace;'
-            : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px ui-monospace,monospace;')
+          { variant: 'ghost', disabled: !!c.disabled, css: (fullscreen
+            ? 'padding:12px 6px 10px;font:700 13px var(--font-ui);'
+            : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px var(--font-ui);')
             + 'border-radius:7px;' });
-        b.addEventListener('click', (e) => { e.stopPropagation(); selected = c; paint(); });
+        b.addEventListener('click', (e) => { e.stopPropagation(); if (c.disabled) return; selected = c; paint(); });
         cardRow.appendChild(b);
         cards.push({ c, b });
       }
       box.appendChild(cardRow);
       if (!priced) box.appendChild(infoLine);
       selected = choices.length === 1 ? choices[0] : (choices.find((c) => c.key === choice) || null);
+      if (selected?.disabled) selected = null;
       paint();
     }
     // `cost` is what the player PAYS, the second half of "you get X FOR y";
@@ -823,12 +825,12 @@ class SceneModals {
       stepRow.style.cssText =
         'display:flex;gap:10px;justify-content:center;align-items:center;margin:2px 0 10px;';
       const mkStep = (label) => mkBtn(label, { variant: 'ghost', css:
-        'width:44px;height:44px;border-radius:6px;font:700 20px ui-monospace,monospace;line-height:1;' });
+        'width:44px;height:44px;border-radius:6px;font:700 20px var(--font-ui);line-height:1;' });
       const minusBtn = mkStep('−');
       const plusBtn  = mkStep('+');
       const countSpan = document.createElement('span');
       countSpan.style.cssText =
-        'min-width:72px;text-align:center;font:700 14px ui-monospace,monospace;color:#fff';
+        'min-width:72px;text-align:center;font:700 14px var(--font-ui);color:#fff';
       stepRow.appendChild(minusBtn);
       stepRow.appendChild(countSpan);
       stepRow.appendChild(plusBtn);
@@ -860,6 +862,15 @@ class SceneModals {
     }
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
+    // A repeating counter covers canvas loot toasts. Keep its last completed
+    // transaction visible beside the controls in the refreshed dialog.
+    if (receipt) {
+      const status = document.createElement('div');
+      status.setAttribute('role', 'status');
+      status.style.cssText = `color:${UI_GOLD};font-size:12px;margin:6px 0;`;
+      status.textContent = `✓ ${receipt}`;
+      box.appendChild(status);
+    }
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled || !!(secondary.withChoice && hasChoices && !selected)) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
@@ -877,6 +888,7 @@ class SceneModals {
     if (hasChoices) {
       syncAccept = () => {
         const armed = liveCanAfford && !disabledReason && !!selected;
+        accept.innerHTML = selected?.acceptLabel || acceptLabel;
         accept._setEnabled(armed);
         if (sec && secondary.withChoice) {
           sec._setEnabled(armed && !secondary.disabled && (!secondary.takes || !!secondary.takes(selected.key)));
@@ -975,8 +987,8 @@ class SceneModals {
       iconHTML: this.iconSpanHTML ? this.iconSpanHTML(babyId, 36) : '',
       name: item.name,
       sub: hatched
-        ? `The shell falls away, and a hungry baby blinks up at you. Set it down, find its favourite food and feed it ${SpriteLayout.PET_BABY.feeds} times to raise it to adulthood in ${spokenDuration(SpriteLayout.PET_BABY.growMs)}.`
-        : `You find a baby curled in the leaves. Set it down, find its favourite food and feed it ${SpriteLayout.PET_BABY.feeds} times to raise it to adulthood in ${spokenDuration(SpriteLayout.PET_BABY.growMs)}.`,
+        ? `The shell falls away, and a hungry baby blinks up at you. Give it its favourite food, then catch it to make it your pet. Feed it ${SpriteLayout.PET_BABY.feeds} times to raise it to adulthood in ${spokenDuration(SpriteLayout.PET_BABY.growMs)}.`
+        : `You find a baby curled in the leaves. Give it its favourite food, then catch it to make it your pet. Feed it ${SpriteLayout.PET_BABY.feeds} times to raise it to adulthood in ${spokenDuration(SpriteLayout.PET_BABY.growMs)}.`,
       color: UI_TREASURE,
       tier: item.baseTier || 0,
     });
@@ -986,7 +998,7 @@ class SceneModals {
     confirmLabel = 'Take', pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, centerBody: true,
-      kind, kindLabel: header, kindIcon,
+      kind, kindLabel: header, kindIcon, delayInput: true,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
@@ -1057,7 +1069,7 @@ class SceneModals {
       let take = null;
       // The card buttons: a primary word in the ceremony's accent (the shell's
       // raised control), the rest ghosts. A card row's buttons share the row.
-      const cardCss = 'position:relative;border-radius:7px;font:700 12px ui-monospace,monospace;' +
+      const cardCss = 'position:relative;border-radius:7px;font:700 12px var(--font-ui);' +
         (cards ? 'flex:1 1 0;min-width:0;padding:12px 4px 9px;' : 'padding:9px 14px;');
       for (const a of actions) {
         const b = mkBtn(a.label, a.primary ? { accent, css: cardCss } : { variant: 'ghost', css: cardCss });
@@ -1079,7 +1091,7 @@ class SceneModals {
         // The one button that pays: the shell's primary in the ceremony's
         // accent, dead until a card is selected.
         take = mkBtn(confirmLabel, { accent, css:
-          'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px ui-monospace,monospace;' });
+          'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px var(--font-ui);' });
         take._setEnabled(false);
         take.addEventListener('click', (e) => {
           e.stopPropagation();

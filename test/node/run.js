@@ -96,21 +96,22 @@ const FILES = [
   'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
-  'traps.js',
+  'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'pressure_traps.js', 'spider_webs.js',
+  'gas.js', 'mushroom_gas.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
-  'worldgen.js', 'save.js',
+  'dungeon_progression.js', 'elevators.js', 'arena.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
   'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
-  'interactables.js', 'houses.js',
+  'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'houses.js',
   // The starter-area placers. They read the scene they are handed plus app.js's
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
   // Fight maths (pure; combat.test.js registers a synthetic monster table).
-  'ground_fire.js', 'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
+  'ground_fire.js', 'combat.js', 'pirates.js', 'pets.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure, so wizard.test.js drives the shipping rules.
-  'wizard.js', 'dragon_story.js', 'memory_story.js', 'story_encounters.js',
+  'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js',
   'interact.js',
   // The Book curriculum loads after the mechanic owners whose values it teaches.
   'play_tips.js',
@@ -119,7 +120,7 @@ const FILES = [
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
   'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
-  'castle_styles.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox.js',
@@ -128,6 +129,7 @@ const FILES = [
   // The lightmap: only draw() touches Phaser, and no test calls it.
   'lighting.js', 'obstacle_step.js',
   'render.js',
+  'gas_render.js',
   // The modal shell: its methods are DOM work nobody runs here, but its top
   // level must load with no app.js in scope (as in the page).
   'modal_shell.js',
@@ -142,7 +144,9 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters, ObstacleStep,
+  Arena,
+  GasRender,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
@@ -168,7 +172,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
-  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, mineralDeposit, mineralRockFrame, mineralBarId,
+  CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
   // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
   PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
   // Baby pets and the nest bush — pet_baby.test.js.
@@ -180,9 +184,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
-  // Pocketing a tame pet and the carried raised row — pet_pickup.test.js.
-  pickUpPet, petPickupItemId, carriedRaisedRow,
-  Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
+  Quests, questEnemies, questAnimals, STARTER_CHAIN,
 });`;
 try {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/map-review-gameplay.js'), 'utf8'), ctx,
@@ -208,6 +210,7 @@ ctx.NON_TILLABLE_CODES = [...ctx.NON_TILLABLE];
 // declarations (right-hand side as written: one is derived, some are tables),
 // in declaration order so a derived one sees what it derives from.
 ctx.STARTER_JS_SRC = readSrc('starter.js');
+ctx.TEMPLES_SRC = readSrc('temples.js');
 ctx.CREATURE_AI_SRC = readSrc('creature_ai.js');
 {
   // The creature-AI consts and helpers moved to creature_ai.js; look in both.
@@ -703,6 +706,15 @@ Object.assign(ctx, {
     process.exit(2);
   }
   const kindEnd = src.indexOf('\n  }\n', kindAt + kindHead.length);
+  // The walk-only settled predicate is lifted too: tile_retry.test.js runs its
+  // real nine cache lookups across marker, depth, ready and spawn changes.
+  const settledHead = '  _walkTileBlockSettled(cell) {\n';
+  const settledAt = src.indexOf(settledHead);
+  if (settledAt < 0) {
+    console.error('Could not find _walkTileBlockSettled in src/scene_geo.js — update run.js');
+    process.exit(2);
+  }
+  const settledEnd = src.indexOf('\n  }\n', settledAt + settledHead.length);
   // The call sites matter: the banner must be the CENTRE tile's verdict
   // alone, and a permanent answer must arm no retry.
   for (const [re, what] of [
@@ -710,11 +722,16 @@ Object.assign(ctx, {
     [/if \(kind !== 'permanent'\) anyRetry = true;/, 'skip the retry on a permanent failure'],
     [/if \(kind === 'failed' && k === centreKey\) \{ centreFailed = true; centreWhy = e\.message; \}/, 'banner only on the centre tile'],
     [/this\.showBanner\(centreFailed, centreWhy\);/, 'show the banner from centreFailed'],
+    [/if \(settle\(\)\) this\._settledTilePassKey = passKey;/, 'stamp only a complete current ring'],
   ]) {
     if (!re.test(src)) {
       console.error(`ensureTilesAround no longer appears to ${what} — update run.js`);
       process.exit(2);
     }
+  }
+  if (!/if \(!this\._walkTileBlockSettled\(tileCell\)\)/.test(SCENE_SRC)) {
+    console.error('the 20 m walk check no longer consults _walkTileBlockSettled — update run.js');
+    process.exit(2);
   }
   vm.runInContext(
     'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
@@ -722,7 +739,9 @@ Object.assign(ctx, {
     + 'globalThis.scheduleTileRetry = function (anyFailed) {\n'
     + src.slice(bodyStart, end) + '\n};\n'
     + 'globalThis.tileFailureKind = function (err, entry) {\n'
-    + src.slice(kindAt + kindHead.length, kindEnd) + '\n};',
+    + src.slice(kindAt + kindHead.length, kindEnd) + '\n};\n'
+    + 'globalThis.walkTileBlockSettled = function (cell) {\n'
+    + src.slice(settledAt + settledHead.length, settledEnd) + '\n};',
     ctx, { filename: 'scheduleTileRetry.js' });
 }
 
@@ -1219,6 +1238,7 @@ ctx.webpDims = (rel) => {
 // index.html MEASURES the screen (the CSS scale app.js sizes the canvas from is
 // published by its fitGame); canvas_scale.test.js pins the two halves together.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+ctx.PHASER_SRC = fs.readFileSync(path.join(ROOT, 'vendor/phaser.js'), 'utf8');
 // The browser harness page: harness_scripts.test.js pins its script list against
 // index.html's (a missing module once took the whole browser suite dark).
 ctx.HARNESS_HTML_SRC = fs.readFileSync(path.join(ROOT, 'test/harness.html'), 'utf8');
@@ -1244,10 +1264,11 @@ ctx.RENDER_SRC = readSrc('render.js');
 ctx.TILLED_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
   vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
-    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR };',
+    + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD };',
     c, { filename: 'textures.js#tilled' });
   return c.__x;
 })();
+ctx.SHRINE_PAD = ctx.TILLED_TEX.SHRINE_PAD;
 // textures.js as TEXT: traps.test.js pins that both trap textures are baked one cell square off TRAP_PX.
 ctx.TEXTURES_SRC = readSrc('textures.js');
 // The trap art, in its own context like TILLED_TEX; these makers take a SCENE,
@@ -1406,7 +1427,7 @@ for (const f of testFiles) {
 
 // The editable table and the shipped browser module must always agree.
 ctx.__tests.push({ name: 'zone variants: generated browser data matches the canonical table', fn: () => {
-  const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/zone-variants.json'), 'utf8'));
+  const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/data/zone-variants.json'), 'utf8'));
   if (JSON.stringify(ctx.ZoneVariantData) !== JSON.stringify(expected)) {
     throw new Error('Zone data is stale; run node tools/zone_variant_data.js --write');
   }
@@ -1478,6 +1499,12 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
 {
   const shell = require('../../tools/shell_audit.js');
   for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+}
+
+// Cache lifecycle checks use the real worker with isolated network and storage.
+{
+  const worker = require('../../tools/service_worker_checks.js');
+  for (const c of worker.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
 }
 
 // ── Cache-bust audit (tools/cachebust.js) ─────────────────────────────────

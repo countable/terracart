@@ -262,6 +262,16 @@
         }
       }
     }
+    // SCHOOL GROUND IS ITS OWN GROUND: a zone's field circle or park
+    // polygon may overlap a campus, but it claims nothing there. Zeroing
+    // coverage on T.SCHOOL keeps the school's paint (and the class-look
+    // check behind the kindergarten spawn refusal) intact, and keeps a
+    // campus building — the school castle — out of the temple footprint
+    // claim, which reads this coverage.
+    if (grid) for (let i = 0; i < coverage.length; i++) {
+      if (i % (N * 16) === 0) yield 'zone coverage school ground';
+      if (coverage[i] && sourceLand(i) === WG.T.SCHOOL) coverage[i] = 0;
+    }
     // A settled outdoor POI may phase its pattern only when all its possible
     // coverage is local. Across seams the source point remains canonical:
     // neighbouring tiles cannot know this tile's chest relocation.
@@ -321,11 +331,7 @@
           }
           continue;
         }
-        // The declared zone replaces generic lot zoning as well as its look.
-        // Keep source-site restrictions, terrain and road reasons intact; only
-        // frontage/back-yard inferences stop applying to this painted ground.
-        // Do this even when an earlier halo already painted the winning code.
-        if (spawnWhy) spawnWhy[i] &= ~(WG.SPAWN_WHY.PRIVATE | WG.SPAWN_WHY.BEHIND_HOUSE);
+        // Styling a nexus never grants spawn access; retain every source reason.
         if (here === code) continue;
         if (!under[i] && !present[i]) under[i] = here;
         present[i] = 1;
@@ -435,10 +441,8 @@
         }
       }
     }
-    // As with ordinary zone painting, quarry ownership replaces inferred
-    // frontage/back-yard rules, never actual terrain or protected-site gates.
-    const why = spawnWhy && spawnWhy.map(bits => bits & ~(WG.SPAWN_WHY.PRIVATE | WG.SPAWN_WHY.BEHIND_HOUSE));
-    const opts = { roadMask, spawnWhy: why };
+    // Quarry ownership uses the same exclusions as every other nexus.
+    const opts = { roadMask, spawnWhy };
     const eligible = i => !field?.coverage?.[i] && !field?.idx?.[i]
       && !WG.isRoadTerrain(grid[i]) && !WG.isBuildingTerrain(grid[i])
       && grid[i] !== WG.T.PATH && grid[i] !== WG.T.PIER && grid[i] !== WG.T.SAND

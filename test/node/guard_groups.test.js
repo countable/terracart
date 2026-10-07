@@ -55,7 +55,7 @@
   const HOME = { x: -5000, y: 0 };
   const CENTRE = { x: 20 * CELL_M, y: 20 * CELL_M };
   function step(entry, at) {
-    return Lairs.stepResidency([{ entry, tx: 0, ty: 0 }], { cellM: CELL_M, tileEdgeM: TILE_M, playerM: at,
+    return Lairs.stepResidency([{ entry, tx: 0, ty: 0 }], { cellM: CELL_M, tileEdgeM: TILE_M, playerM: at, isCitadelActive: () => true,
       homeM: HOME, isClaimed: () => false, caughtSet: new Set() });
   }
   const guardsOf = (entry) => entry.creatures.filter((c) => c.lair);

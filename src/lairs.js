@@ -365,7 +365,7 @@
   // its leash and ruin, its notice ring, its home, and the per-player
   // overlays that hide it (the quiet home, the amnesty, the surface spawn's
   // night rule) — so a hidden summoner never leaves its minions standing.
-  const GARRISON_INHERIT = ['lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells',
+  const GARRISON_INHERIT = ['castle', 'lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells',
     'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting'];
   // The share of HELD structures of each tier that take a group at all (the
   // rest roll the plain garrison). A castle is where the interesting fight
@@ -855,7 +855,7 @@
     const end = Math.min(shapes.length, idx.next + (limit > 0 ? limit : shapes.length));
     for (let si = idx.next; si < end; si++) {
       const sh = shapes[si];
-      if (!sh || !TIER_GUARDS[sh.tier]) continue;
+      if (!sh || sh.kind === 'temple' || sh.templeZone || !TIER_GUARDS[sh.tier]) continue;
       const ring = sh.ring;
       if (!ring || ring.length < 6) continue;
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -954,6 +954,10 @@
   //   tries (seatPolar, two draws each).
   // NOTHING about the player — Home, save, frame — reaches a draw. Home is
   // applied after the fact, per player (the safe area, EnemySpawns.homeAllows).
+  function isCitadel(cand) {
+    return cand.tier === 12 && root.CastleStyles?.get(cand.key).guards === true;
+  }
+
   function garrisonFor(entry, cand, opts) {
     const WG = root.WorldGen;
     const o = opts || {};
@@ -966,6 +970,13 @@
     // random number and move the guards that follow it.
     if (cand.tier === 12 && typeof CastleStyles !== 'undefined'
       && !CastleStyles.get(cand.key).guards) return [];
+    // Keep the actual, reachable garrison, including already defeated members.
+    // Empty/blocked keeps can open only after this generation pass has run.
+    const citadelIds = isCitadel(cand) ? [] : null;
+    if (citadelIds) {
+      entry._citadelGuards ||= new Map();
+      entry._citadelGuards.set(cand.key, citadelIds);
+    }
     const genGrid = entry.baseGrid || entry.grid;
     const genObjects = entry.genObjects || entry.objects || [];
     if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
@@ -1106,6 +1117,7 @@
       }
       if (!seat) continue;                    // ringed by water / road / building
       if (liveBlocks(seat.ix, seat.iy)) continue; // player overlay: drop, never reroll
+      if (citadelIds) citadelIds.push(id);
       // Already killed. The draws above ran anyway — see the note below.
       if (caught && caught.has(id)) continue;
       // WG.makeCreature is the tile stream's one shape (worldgen.js) — reached
@@ -1135,6 +1147,7 @@
         // and it needs three more facts about the ruin to give one — the seat
         // to come home to, and the centre and radius both rings are measured
         // from (see LAIR_AGGRO_CELLS).
+        ...(citadelIds ? { castle: cand.key } : {}),
         immobile: true, lair: cand.sid, lairX: cand.wx, lairY: cand.wy,
         lairR: seatR, seatX: seat.x, seatY: seat.y,
         // Inside the footprint (the keep's knot, or a group member placed
@@ -1153,6 +1166,7 @@
       if (hpMemo && hpMemo.has(id)) g._hp = hpMemo.get(id);
       out.push(g);
     }
+    if (citadelIds) o.onCitadelGenerated?.(cand.key, citadelIds);
     return out;
   }
 
@@ -1232,6 +1246,44 @@
   //          wake waits for Home's anchor — no tier or garrison reads it),
   //          isClaimed(key), caughtSet, hpMemo (Map id → hp, session-only),
   //          liveMax (test override)
+  // Unknown garrisons never qualify. A generated empty keep has nobody left
+  // to defeat, so it opens too; this also covers blocked or already cleared seats.
+  function claimClearedCitadels(ring, caughtSet, onClear) {
+    if (typeof onClear !== 'function') return;
+    for (const tile of ring || []) {
+      for (const [key, ids] of tile.entry?._citadelGuards || []) {
+        if (!ids.every(id => caughtSet?.has(id))) continue;
+        // Split offspring and summoned escorts can occupy a neighbouring
+        // tile. Defeating the original body alone must not open its keep.
+        const livingGuard = (ring || []).some(other => (other.entry?.creatures || [])
+          .some(c => (c.castle === key || (c._splitRoot && ids.includes(c._splitRoot)))
+            && !caughtSet?.has(c.id)));
+        if (!livingGuard) onClear(key);
+      }
+    }
+  }
+
+  // Remove every cached body, including split/summoned guards in other tiles.
+  // Stable guard identities can then be reused by a completely fresh attempt.
+  function resetCitadel(entries, key, ids, hpMemo) {
+    const guardIds = new Set(ids);
+    for (const entry of entries) {
+      for (const c of entry.creatures || []) {
+        if (c.castle === key || guardIds.has(c.id) || guardIds.has(c._splitRoot)) {
+          entry._lairResident?.delete(c.lair);
+          hpMemo?.delete(c.id);
+        }
+      }
+      if (entry.creatures) entry.creatures = entry.creatures.filter(c =>
+        c.castle !== key && !guardIds.has(c.id) && !guardIds.has(c._splitRoot));
+      for (const bucket of entry._lairIndex?.buckets.values() || []) {
+        for (const cand of bucket) if (cand.key === key) entry._lairResident?.delete(cand.sid);
+      }
+      entry._citadelGuards?.delete(key);
+    }
+    for (const id of guardIds) hpMemo?.delete(id);
+  }
+
   function stepResidency(ring, opts) {
     const o = opts || {};
     const cellM = o.cellM, tileEdgeM = o.tileEdgeM, p = o.playerM;
@@ -1303,6 +1355,8 @@
       for (const sid of slept) if (!kept.has(sid)) resident.delete(sid);
     }
 
+    claimClearedCitadels(ring, caught, o.onCitadelCleared);
+
     // ── Wake, nearest ruin first ────────────────────────────────────────
     // Gather the candidates in range across the ring, then take them in order
     // of distance so the cap, when it binds, refuses the FURTHEST — the ones
@@ -1342,9 +1396,17 @@
             // The structure's own key, built HERE rather than in the index:
             // only the few candidates that reach the wake ring ever need it,
             // and the index runs over every building on the tile.
-            if (!buildings && !ALWAYS_AWAKE_TIERS.has(cand.tier)) continue;
+            if (isCitadel(cand) && !o.isCitadelActive?.(cand.key)) continue;
+            if (!buildings && !ALWAYS_AWAKE_TIERS.has(cand.tier) && !isCitadel(cand)) continue;
             if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
-            if (resident.has(cand.sid)) continue;
+            if (resident.has(cand.sid)) {
+              // Rebuilds carry live creatures but not the generation manifest.
+              // Recover it before treating a carried garrison as complete.
+              if (isCitadel(cand) && !entry._citadelGuards?.has(cand.key)) {
+                garrisonFor(entry, cand, o);
+              }
+              continue;
+            }
             // A structure the player has taken back is not derelict any more —
             // the same isClaimedKey test the derelict wash reads, so what is
             // lit as yours is what holds no monsters.
@@ -1368,6 +1430,7 @@
       live += guards.length;
       report.woken += guards.length;
     }
+    claimClearedCitadels(ring, caught, o.onCitadelCleared);
     report.live = live;
     return report;
   }
@@ -1406,7 +1469,7 @@
     GROUPS, GROUP_RATE, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,
     hashKey, ringBox,
     bucketKey,
-    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency,
+    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency, claimClearedCitadels, resetCitadel,
     assertRingsClear,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

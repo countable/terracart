@@ -114,8 +114,8 @@ test('ore tiers: one table owns the frame, dropped bar and item tier', () => {
   const rows = Object.entries(MINERAL_TIERS).map(([tier, row]) => [Number(tier), row]);
   assert.eq(rows.map(([tier]) => tier).join(','), '2,3,4,5,6,7',
     'every ore-bearing tier has one identity row');
-  assert.eq(rows.map(([, row]) => row.rockFrame).join(','), '0,1,2,3,5,6',
-    'the table records that ore-art column 4 is intentionally unused');
+  assert.eq(rows.map(([, row]) => row.rockFrame).join(','), '0,1,2,3,5,7',
+    'the table records that frost uses blue column 7, skipping green column 6');
   assert.truthy(/return mineralRockFrame\(tier\);/.test(RENDER_SRC),
     'render asks the table helper instead of owning a frame array');
   assert.truthy(/const primaryBar = mineralBarId\(t\)/.test(INTERACTABLES_SRC),

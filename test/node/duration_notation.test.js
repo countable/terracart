@@ -136,7 +136,7 @@ test('each timed readout that lost its hand-rolled ladder gained the helper', ()
   // One assertion per file that owns a countdown the player reads.
   const needs = {
     'interactables.js': 1,   // shared fruit state covers growth and regrowth
-    'interact.js': 3,        // produce cooldown, pet boost, crop stage wait
+    'interact.js': 2,        // crop stage waits; pet management no longer grants a timed petting boost
     'render.js': 1,          // crop stage badge (the shop's busy plaque is gone: no shop is ever busy)
     'app.js': 6,             // day gates, dragon, move pad, castle favour …
   };

@@ -1,5 +1,5 @@
 (function () {
-  const uniques = () => ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id));
+  const uniques = () => ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id) && !item.progressionOnly);
   const held = ids => ({ inv: ids.map(id => ({ id, count: 1 })), relics: {}, armor: {} });
   const quality = { tier: 7, bracket: 5, jackpotApplied: 0 };
 
@@ -15,7 +15,7 @@
 
   test('unique relic rewards: every held item is excluded before highest/lower tier selection', () => {
     const items = uniques().sort((a, b) => a.baseTier - b.baseTier);
-    assert.eq(items.length, 15, 'fifteen treasure finds; tomes belong to the scholar');
+    assert.eq(items.length, 18, 'eighteen treasure finds; tomes belong to the scholar');
     const available = [items[0], items[items.length - 1]];
     const save = held(items.filter(item => !available.includes(item)).map(item => item.id));
     const opts = { save, theme: 'culture' };

@@ -95,7 +95,7 @@
       if (guard === 'castle') scene._castleWardPoints = () => [{ x: 0, y: 0 }];
       if (guard === 'shadow') scene.isShadowActive = () => true;
       if (guard === 'downed') scene.save.energy = 0;
-      if (guard === 'released') plant.id = 'released_plant';
+      if (guard === 'released') { plant.id = 'released_plant'; plant.pet=true; }
       const energy = scene.save.energy;
       for (let i = 0; i < 32; i++) tick(scene);
       assert.eq(scene.save.energy, energy, guard + ' prevents damage');

@@ -275,7 +275,7 @@
     const barrels = out.objects.filter(o => o.barrel);
     assert.gt(barrels.length, 0);
     assert.truthy(barrels.every(o => o.barrelStyle === 'barrel' && barrelProfile(o).texKey === 'barrel'), 'abandoned quarries contain barrels, never pots');
-    assert.eq(finds(out).filter(o => o.quarryCrate).length, 2, 'the separate Iron-pick crates remain');
+    assert.falsy(out.objects.some(o => o.fixedLoot?.slot === 'pickaxe'), 'no quarry pickaxe rewards');
   });
   function pirateShrine() {
     const ctx = context('pirate_cove'), a = ctx.field.anchors[0], cell = WorldGen.CELL_M;
@@ -742,13 +742,14 @@
     assert.eq(kinds('broken_depot'), 'bat,bat,bat,bat,bat');
     assert.eq(kinds('seep'), 'split_slime');
     assert.eq(kinds('work_yard'), 'split_slime,split_slime');
-    assert.eq(kinds('mystic_reef'), 'giant_crab');
+    assert.eq(kinds('mystic_reef'), ['giant_crab', ...Array(8).fill('crab')].join());
+    assert.eq(kinds('shellwater_strand'), Array(8).fill('crab').join());
     assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
     const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
     assert.truthy(plant.stationary);
     const ghost = ZoneDressing.dress(context('silent_circle')).guards;
     assert.eq(ghost.length, 1); assert.eq(ghost[0].kind, 'ghost'); assert.eq(ghost[0].proximityCells, 4);
-    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'shellwater_strand', 'black_ring']) assert.eq(kinds(id), '');
+    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'black_ring']) assert.eq(kinds(id), '');
     for (const id of ['ordered_graves', 'overgrown_graves']) {
       assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
     }

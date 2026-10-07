@@ -135,6 +135,43 @@
   });
 })();
 
+// The walk check is the only caller allowed to skip a complete block. Boot,
+// retry and Overpass re-entry still call ensureTilesAround directly, while this
+// predicate proves that all nine entries belong to the last settled centre and
+// have finished both building and spawning.
+test('walk tile check: skips only the settled ready and spawned 3x3 at this depth', () => {
+  const before = new Map(WorldGen.tileCache);
+  const cell = { tx: 41, ty: 73 };
+  const scene = { depth: 0, _settledTilePassKey: '41/73/0' };
+  try {
+    WorldGen.tileCache.clear();
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      WorldGen.tileCache.set(WorldGen.tileKey(cell.tx + dx, cell.ty + dy), {
+        status: 'ready', _spawned: true,
+      });
+    }
+    assert.truthy(walkTileBlockSettled.call(scene, cell), 'complete live block skips the pass');
+
+    scene.depth = 1;
+    assert.falsy(walkTileBlockSettled.call(scene, cell), 'another depth must settle its own cache');
+    scene.depth = 0;
+
+    const centre = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    centre.status = 'loading';
+    assert.falsy(walkTileBlockSettled.call(scene, cell), 'a loading rebuild keeps the pass live');
+    centre.status = 'ready';
+    centre._spawned = false;
+    assert.falsy(walkTileBlockSettled.call(scene, cell), 'an unspawned rebuild keeps the pass live');
+    centre._spawned = true;
+
+    WorldGen.tileCache.delete(WorldGen.tileKey(cell.tx + 1, cell.ty + 1));
+    assert.falsy(walkTileBlockSettled.call(scene, cell), 'an evicted neighbour keeps recovery live');
+  } finally {
+    WorldGen.tileCache.clear();
+    for (const [key, entry] of before) WorldGen.tileCache.set(key, entry);
+  }
+});
+
 // ── WHICH failure was it, and who hears about it ──────────────────────────
 //
 // "We keep hitting 'watering_can't reach the map'" — on a map that was loading fine.

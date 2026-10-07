@@ -209,6 +209,8 @@ class SceneCreate {
     // Underground depth: 0 = surface, 1,2,… = cave levels below. Persisted in
     // the save so a reload underground stays underground. Point WorldGen at the
     // matching tile cache before any tiles load.
+    // An interrupted trial returns to its surface portal; completed wins persist.
+    this._recoverArenaRun();
     this.depth = this.save.depth || 0;
     WorldGen.setDepth(this.depth);
     if (this.depth > 0) this.cameras.main.setBackgroundColor('#0a0a12');
@@ -292,6 +294,10 @@ class SceneCreate {
     // that same texture for inventory, shop offers and pickup toasts.
     window.ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16);
     window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 10, 16, 16);
+    for (const kind of ['slime', 'cave_slime', 'purple_slime', 'fire_slime']) {
+      const art = SpriteLayout.creatureArt(kind);
+      window.ITEM_DATA_URLS[kind] = bakeSheetFrame(art.sheet, 0, 32, 32);
+    }
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
     // Cat + dog use the 32×32 RPG-style sheets (the older 16×16 Icons/Pets
@@ -513,6 +519,8 @@ class SceneCreate {
     this.creaturesContainer = this.worldContainer;
     // Castle walls, turrets and flags participate in the world foot sort.
     this.towerContainer = this.worldContainer;
+    // Cell gas veils standing objects, then shares their lighting and fog.
+    this.gasGfx = this.add.graphics();
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
@@ -678,12 +686,7 @@ class SceneCreate {
     // sits below the rampart back wall + objects.)
     this.letterPool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
-      // The serif face is the cartographic cue (street names on a paper map),
-      // but the family has to be PINNED: a bare `serif` resolves to whatever
-      // the platform picked — Times on iOS/macOS, Liberation/DejaVu Serif on
-      // Linux, Cambria on Windows — so the one label in the game that should
-      // look like a map label rendered differently on every device, at
-      // different widths. Same stack the shop-ready plaque already pins.
+      // Street names share the native UI face used by other small labels.
       // Alpha 0.88, not the old 0.72: at three-quarter alpha the dark ink
       // washed toward its own pale halo and the street name read as a smudge
       // rather than as lettering. Still short of full opacity so it stays
@@ -692,7 +695,7 @@ class SceneCreate {
         // 11px, up one from 10: at dpr 3 on a phone the street name was
         // legible but not comfortably so, and a map label the player has to
         // squint at is doing half its job.
-        font: fontSerif('bold 11px'), color: UI_SHADOW,
+        font: fontUI('bold 11px'), color: UI_SHADOW,
         stroke: '#d8cdb4', strokeThickness: 3,
       }).setOrigin(0.5, 0.5).setAlpha(0.88).setDepth(0).setVisible(false);
       this.letterContainer.add(t);
@@ -733,6 +736,16 @@ class SceneCreate {
       sg.generateTexture('bldg_shadow', 64, 32);
       sg.destroy();
     }
+    // Baked gold keeps the elite foot ring visible without the optional FX pipeline.
+    if (!this.textures.exists('elite_ring')) {
+      const g = this.make.graphics({ x: 0, y: 0, add: false });
+      for (const [width, alpha] of [[10, 0.08], [7, 0.15], [4, 0.3], [2, 0.95]]) {
+        g.lineStyle(width, SHINY_TINT, alpha);
+        g.strokeEllipse(32, 16, 50, 18);
+      }
+      g.generateTexture('elite_ring', 64, 32);
+      g.destroy();
+    }
     // Soft round halos — a glow that fades from the centre out, baked once and
     // reused for every pulsing aura: the player's warning auras (out of energy,
     // strayed far from the GPS) and the slow breath that marks a POI. Baked in
@@ -754,20 +767,17 @@ class SceneCreate {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
-    // The Potion of Blight's aura. A canvas radial gradient rather than
-    // stacked fillCircles: the aura is BLIGHT_R_CELLS across the ground, big
-    // enough that ring steps would show, and it has to read as one smooth
-    // disc. Faint in the middle (you can still see what you're standing on),
-    // densest just inside the rim, then falling to nothing AT the rim — the
-    // texture's edge is the damage radius (see _tickBlightAura).
     // The ghost's glow (SpriteLayout.GHOST_GLOW): a soft disc in GHOST_TINT,
     // opaque at the centre and gone at the rim; the renderer scales it to the
     // row's px and fades it to the row's alpha.
     const t = SpriteLayout.GHOST_TINT, rgb = `${(t >> 16) & 255}, ${(t >> 8) & 255}, ${t & 255}`;
     this._ensureCanvasTex('ghost_glow', 64, (ctx, S) => paintRadialDisc(ctx, S,
       [[0, `rgba(${rgb}, 1)`], [0.4, `rgba(${rgb}, 0.45)`], [1, `rgba(${rgb}, 0)`]]));
-    this._ensureCanvasTex('aura_blight', 128, (ctx, S) => paintRadialDisc(ctx, S,
-      [[0, 'rgba(120, 10, 60, 0.12)'], [0.55, 'rgba(170, 20, 70, 0.26)'], [0.85, 'rgba(210, 40, 90, 0.42)'], [1, 'rgba(210, 40, 90, 0)']]));
+    // Every influence circle shares its baked fill and boundary; the drawn
+    // outer edge is the gameplay radius. Baking also preserves colour in Canvas.
+    for (const [key, color] of [['aura_blight', 0xd2285a], ['aura_frost', FROZEN_TINT]]) {
+      this._ensureCanvasTex(key, 128, (ctx, S) => paintAuraDisc(ctx, S, color));
+    }
     // GPS crosshair — the marker at your REAL (GPS) position (see gpsGhost
     // below). An open ring with four ticks crossing it, deliberately NOT a
     // filled disc: a small gold disc IS a coin in this game, and the map is
@@ -878,6 +888,7 @@ class SceneCreate {
     this.auraContainer.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
+    this.gasGfx.setMask(mask);
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
@@ -889,10 +900,11 @@ class SceneCreate {
 
     // Work-progress wheel — drawn above all world objects, not masked.
     this._workProgressGfx = this.add.graphics().setDepth(95);
-    // The tool in the middle of the ring — one image, re-textured per wheel by
-    // _setWorkProgressIcon and placed by _drawWorkProgress. Hidden between wheels.
+    this._workToolGfx = this.add.graphics().setDepth(96);
+    this._wateringEffects = [];
+    // One reusable image swings the owned tool beside the target cell.
     this._workProgressIcon = this.add.image(0, 0, '__WHITE')
-      .setDepth(95.5).setAlpha(WORK_TOOL_ALPHA).setVisible(false);
+      .setDepth(97).setAlpha(WORK_TOOL_ALPHA).setVisible(false);
     this._workProgressToolKey = null;
     this._workProgress = null;
 
@@ -958,7 +970,7 @@ class SceneCreate {
     // starts on, the callings, the bicycle) authors all four directions.
     // Dragon transform — single non-directional flap, mirrored by heading in
     // _playDirected (the art faces right at rest). Used for both idle and fly.
-    this._createAnim('dragon-fly', 'dragon', 0, 7, 10);
+    // Dragon Powder's optional sheet builds its animation when loaded.
     for (const art of Object.values(SpriteLayout.PLAYER_ART)) {
       if (!this.textures.exists(art.sheet)) continue;
       for (const [dir, states] of Object.entries(art.directions)) {
@@ -1123,7 +1135,7 @@ class SceneCreate {
     this.enemyHealthGfx = this.add.graphics().setDepth(94).setMask(mask);
     // Sword-swing slash — a short arc drawn near the player, toward whatever
     // it's engaged with, on the same beat the melee wheel's damage numbers
-    // pop (see SWORD_SWING_MS / _drawSwordSwing). Depth 11: same tier as the
+    // pop (see Render.MELEE_LOOKS / _drawSwordSwing). Depth 11: same tier as the
     // facing arrow, above the body (10).
     this.swordSwingGfx = this.add.graphics().setDepth(11);
     this.playerWorldContainer.add(this.swordSwingGfx);
@@ -1215,6 +1227,7 @@ class SceneCreate {
       if (wasDrag) return;             // dragged the map; nothing was tapped
       const up = this._gamePt(p);
       if (typeof Multiplayer !== 'undefined' && Multiplayer.consumeTap(this, up.x, up.y)) return;
+      if (this._tapEdgeDot(up.x, up.y)) return;
       this._resetWalkHome();           // a tap on the world is interacting
       this.handleWorldTap(up.x, up.y);
     };
@@ -1327,8 +1340,12 @@ class SceneCreate {
         // No launch card here: the STAY SAFE message is the loading screen
         // itself (index.html #safety), already read and acknowledged.
         // The map is the player's now, so responsiveness beats throughput:
-        // tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
-        WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS);
+        // Tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
+        // Phaser counts every display frame even when FPS_LIMIT skips game
+        // steps, so actualFps is the refresh interval the slice must fit.
+        const displayFps = this.game?.loop?.actualFps;
+        WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS, true,
+          displayFps > 0 ? 1000 / displayFps : 16.7);
       });
 
     // Network status

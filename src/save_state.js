@@ -9,9 +9,9 @@
   // picked —, the placed things, the rolling ledgers and the per-building
   // stamps). A field already holding the right shape is left alone.
   const SAVE_DEFAULTS = Object.freeze({
-    caught: [], released: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
+    caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
     magicTraps: [], donated: [],
-    petBoost: {}, lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
+    animalFeeds: {}, lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
     trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
     castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
   });
@@ -27,6 +27,10 @@
   function normalize(save) {
     let needsPersist = false;
     defaults(save);
+    if (typeof ITEM_BY_ID !== 'undefined' && Array.isArray(save.inv) && save.inv.some(row => ITEM_BY_ID[row.id]?.kind === 'animal')) {
+      save.inv = save.inv.filter(row => ITEM_BY_ID[row.id]?.kind !== 'animal');
+    }
+    save.released = save.released.filter(row => row?.pet === true && typeof row.id === 'string');
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
     if (typeof Shrines !== 'undefined') Shrines.normalize(save);
     const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)
@@ -89,6 +93,7 @@
     // Restored-houses / forts default to empty objects.
     if (!save.restoredHouses || typeof save.restoredHouses !== 'object') save.restoredHouses = {};
     if (!save.unlockedForts || typeof save.unlockedForts !== 'object') save.unlockedForts = {};
+    if (!save.temples || typeof save.temples !== 'object' || Array.isArray(save.temples)) save.temples = {};
     // Soft cap on unbounded history fields so a heavy player can't balloon the
     // save past the localStorage quota and silently break writes. `placedRocks`
     // is deliberately EXEMPT: unlike the others (which just re-arm a respawn —

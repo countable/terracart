@@ -5,9 +5,8 @@
 // This is NOT the shop pricing/scheduling engine (shops_math.js ShopsMath) nor
 // the OSM-address → role lookup (shops.js Shops.shopType) — this module is
 // "what IS this building, and has the player made it theirs", the layer those
-// two sit on top of. It is also not quest/quest-board logic (quests.js) — a
-// castle's seal defers to the quest board (Scene.showQuestBoard) rather than
-// deciding anything about quests itself.
+// two sit on top of. Castle quests and citadel garrisons record claims here;
+// this module reads ownership without deciding quest or combat progress.
 //
 // Depends on globals from interactables.js (isCastle), shops.js (Shops),
 // and items.js (wreckRestoreQty) - all resolved
@@ -129,7 +128,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
   // THE RENOVATION PERMIT (items.js renovation_permit, a T4 supply): spent
   // on a standing ranked building (a smithy, a shop, a trader — never a
-  // one-off shop, a House, a turret or the tower), it climbs ONE rank, if
+  // one-off shop, a House, a turret or the tower), it climbs to the next allowed rank, if
   // that rank is actually open to the player: under the memory ladder
   // (Shops.tierCap) and, for a shop, still buildable on its line
   // (Shops.lineBuildable — Seed and Supply end at T3, one Magic Shop a
@@ -142,7 +141,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (!role || !buildOption(role)?.ranked) return { tier: null, why: 'unranked' };
     if (role === 'market' && Shops.isSoloShop(save, house.id)) return { tier: null, why: 'unranked' };
     const now = Shops.shopTier(save, house, role);
-    const next = now + 1;
+    const theme = role === 'market' ? Shops.lineFor(save, house).theme : null;
+    const allowed = Shops.LINE_RULES[theme]?.tiers;
+    const next = allowed ? allowed.find(tier => tier > now) : now + 1;
+    if (next == null) return { tier: null, why: 'line' };
     if (next > Shops.SHOP_TIER_MAX) return { tier: null, why: 'top' };
     if (next > Shops.tierCap(save)) return { tier: null, why: 'memories', need: Shops.tierUnlockMemories(next) };
     if (role === 'market' && !Shops.lineBuildable(save, Shops.lineFor(save, house).theme, next)) return { tier: null, why: 'line' };
@@ -458,23 +460,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return (house && house.castle) || null;
   }
 
-  // True iff `house` is a castle still sealed: a castle opens by solving the
-  // job on ITS quest board and nothing else. (Until Sep 2026 a lifetime
-  // delivery tally of 2..5 also unsealed it, left behind when the quest board
-  // replaced that gate — so five deliveries opened every castle in the world
-  // and the board was skipped. Reaching a delivery count is a quest VERB now,
-  // quests.js 'deliver', never a gate of its own.)
+  // Quest castles open on their assigned job; citadels open when their
+  // generated garrison is cleared. Both record the same permanent claim.
   function isBuildingSealed(save, house) {
-    if (!house || !isCastle(house)) return false;
-    // Claimed outright — the player solved a quest at THIS castle, so it is
-    // theirs for good and the quest board never comes back here.
-    if (isCastleClaimed(save, house)) return false;
-    // PER CASTLE, now that the board never runs dry. This was global — finish
-    // the three-quest chain and every castle in the world opened at once —
-    // which was the only thing it could be while there were exactly three
-    // quests. With a generator behind the board there is always a job at every
-    // castle, so each one is earned where it stands.
-    return true;
+    return !!house && isCastle(house) && !isCastleClaimed(save, house);
   }
 
   // IS THE BUILDING UNDER THIS CELL THE PLAYER'S? One predicate over every way
@@ -495,10 +484,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return false;
   }
 
-  // Has the player solved a quest AT this castle? Claiming is per castle and
-  // permanent: the vault opens, the banner goes up, and the quest board never
-  // comes back here — the next job is somewhere else, which is what makes the
-  // map worth walking.
+  // Claims belong to this footprint, whether earned by a quest or a battle.
   function isCastleClaimed(save, house) {
     const key = castleKey(house);
     // PRESENCE, not truthiness: the value is the last hearth draw and a castle
@@ -511,9 +497,35 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   function claimCastle(save, house) {
     const key = castleKey(house);
     if (!key) return false;
+    save.claimedCastles ||= {};
     if (save.claimedCastles[key] != null) return false;
     save.claimedCastles[key] = 0;
     return true;
+  }
+
+  // The wall clock keeps the deadline running while the player is away.
+  const CITADEL_BATTLE_MS = 10 * 60 * 1000;
+  function citadelBattleActive(save, key, now = Date.now()) {
+    const battle = save.citadelBattles?.[key];
+    return Number.isFinite(battle?.startedAt) && now < battle.startedAt + CITADEL_BATTLE_MS;
+  }
+  function startCitadelBattle(save, key, now = Date.now()) {
+    if (!key || !CastleStyles.get(key).guards || isCastleClaimed(save, { castle: key })
+        || save.citadelBattles?.[key]) return false;
+    (save.citadelBattles ||= {})[key] = { startedAt: now, guardIds: [] };
+    return true;
+  }
+  function expireCitadelBattles(save, now = Date.now()) {
+    const expired = [];
+    for (const [key, battle] of Object.entries(save.citadelBattles || {})) {
+      if (isCastleClaimed(save, { castle: key })) {
+        delete save.citadelBattles[key];
+      } else if (!citadelBattleActive(save, key, now)) {
+        expired.push({ key, guardIds: battle.guardIds || [] });
+        delete save.citadelBattles[key];
+      }
+    }
+    return expired;
   }
 
   // The castle's favour, gated to once per castle per CASTLE_SERVICE_MS —
@@ -550,7 +562,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     guildRole,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
-    castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle,
+    castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle, citadelBattleActive, startCitadelBattle, expireCitadelBattles, CITADEL_BATTLE_MS,
     CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

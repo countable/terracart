@@ -1,0 +1,770 @@
+{
+  "frameWidth": 24,
+  "frameHeight": 24,
+  "status": "approved-for-placement",
+  "provenance": {
+    "tool": "OpenAI image generation",
+    "approved": "2026-10-03",
+    "assembly": "Lossless cell copies from the approved 24px sheets; no redrawing.",
+    "excluded": [
+      {
+        "source": "selected",
+        "frames": [
+          15,
+          23
+        ],
+        "reason": "Replaced by transparent cage and neutral plate up/down states"
+      }
+    ]
+  },
+  "sources": {
+    "selected": {
+      "path": "source/selected.png",
+      "columns": 6
+    },
+    "supplement": {
+      "path": "source/supplement.png",
+      "columns": 4
+    }
+  },
+  "sheets": {
+    "cave_props": {
+      "columns": 6,
+      "rows": 5,
+      "entries": [
+        {
+          "id": "ground_hole",
+          "name": "Empty ground hole",
+          "frames": [
+            0
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "stalagmites",
+          "name": "Triple stalagmites",
+          "frames": [
+            1
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "roots",
+          "name": "Cave root mass",
+          "frames": [
+            2
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Root cave"
+          ]
+        },
+        {
+          "id": "gong",
+          "name": "Goblin gong",
+          "frames": [
+            3
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Goblin warren"
+          ]
+        },
+        {
+          "id": "cookpot",
+          "name": "Goblin cookpot",
+          "frames": [
+            4
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Goblin warren"
+          ]
+        },
+        {
+          "id": "lookout",
+          "name": "Short lookout",
+          "frames": [
+            5
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Goblin warren"
+          ]
+        },
+        {
+          "id": "drill",
+          "name": "Goblin drill",
+          "frames": [
+            6
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Goblin warren"
+          ]
+        },
+        {
+          "id": "skeletal_hand",
+          "name": "Skeletal hand",
+          "frames": [
+            7
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Boneyard"
+          ]
+        },
+        {
+          "id": "poison_vent",
+          "name": "Poison vent",
+          "frames": [
+            8,
+            9
+          ],
+          "category": "Hazards",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Flow 1",
+            "Flow 2"
+          ]
+        },
+        {
+          "id": "fire_vent",
+          "name": "Fire vent",
+          "frames": [
+            10,
+            11
+          ],
+          "category": "Hazards",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Flow 1",
+            "Flow 2"
+          ]
+        },
+        {
+          "id": "paralysis_vent",
+          "name": "Paralysis vent",
+          "frames": [
+            12,
+            13
+          ],
+          "category": "Hazards",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Flow 1",
+            "Flow 2"
+          ]
+        },
+        {
+          "id": "cage",
+          "name": "Hollow jail cage",
+          "frames": [
+            14
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Jail"
+          ]
+        },
+        {
+          "id": "elevator",
+          "name": "Rusty elevator",
+          "frames": [
+            15
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Jail"
+          ]
+        },
+        {
+          "id": "hive",
+          "name": "Forest hive concept",
+          "frames": [
+            16
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Forest"
+          ]
+        },
+        {
+          "id": "pit",
+          "name": "Open spike pit",
+          "frames": [
+            17
+          ],
+          "category": "Hazards",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "rune_cyan",
+          "name": "Cyan rune circle",
+          "frames": [
+            18
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "rune_violet",
+          "name": "Violet rune circle",
+          "frames": [
+            19
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "rune_red",
+          "name": "Red rune circle",
+          "frames": [
+            20
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "rune_gold",
+          "name": "Gold rune circle",
+          "frames": [
+            21
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "spring",
+          "name": "Gentle rock spring",
+          "frames": [
+            22,
+            23
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Healing spring nexus"
+          ],
+          "stateLabels": [
+            "Flow 1",
+            "Flow 2"
+          ]
+        },
+        {
+          "id": "ruby_rock",
+          "name": "Ruby rock",
+          "frames": [
+            24
+          ],
+          "category": "Stone & minerals",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "emerald_rock",
+          "name": "Emerald rock",
+          "frames": [
+            25
+          ],
+          "category": "Stone & minerals",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "diamond_rock",
+          "name": "Diamond rock",
+          "frames": [
+            26
+          ],
+          "category": "Stone & minerals",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "amethyst_rock",
+          "name": "Amethyst rock",
+          "frames": [
+            27
+          ],
+          "category": "Stone & minerals",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "topaz_rock",
+          "name": "Topaz rock",
+          "frames": [
+            28
+          ],
+          "category": "Stone & minerals",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "quartz_rock",
+          "name": "Rose quartz rock",
+          "frames": [
+            29
+          ],
+          "category": "Stone & minerals",
+          "zones": [
+            "Caves"
+          ]
+        }
+      ],
+      "cells": [
+        {
+          "frame": 0,
+          "id": "ground_hole",
+          "source": "selected",
+          "sourceFrame": 0
+        },
+        {
+          "frame": 1,
+          "id": "stalagmites",
+          "source": "selected",
+          "sourceFrame": 1
+        },
+        {
+          "frame": 2,
+          "id": "roots",
+          "source": "supplement",
+          "sourceFrame": 2
+        },
+        {
+          "frame": 3,
+          "id": "gong",
+          "source": "selected",
+          "sourceFrame": 4
+        },
+        {
+          "frame": 4,
+          "id": "cookpot",
+          "source": "selected",
+          "sourceFrame": 5
+        },
+        {
+          "frame": 5,
+          "id": "lookout",
+          "source": "selected",
+          "sourceFrame": 6
+        },
+        {
+          "frame": 6,
+          "id": "drill",
+          "source": "selected",
+          "sourceFrame": 7
+        },
+        {
+          "frame": 7,
+          "id": "skeletal_hand",
+          "source": "selected",
+          "sourceFrame": 8
+        },
+        {
+          "frame": 8,
+          "id": "poison_vent",
+          "source": "selected",
+          "sourceFrame": 9
+        },
+        {
+          "frame": 9,
+          "id": "poison_vent",
+          "source": "selected",
+          "sourceFrame": 10
+        },
+        {
+          "frame": 10,
+          "id": "fire_vent",
+          "source": "selected",
+          "sourceFrame": 11
+        },
+        {
+          "frame": 11,
+          "id": "fire_vent",
+          "source": "selected",
+          "sourceFrame": 12
+        },
+        {
+          "frame": 12,
+          "id": "paralysis_vent",
+          "source": "selected",
+          "sourceFrame": 13
+        },
+        {
+          "frame": 13,
+          "id": "paralysis_vent",
+          "source": "selected",
+          "sourceFrame": 14
+        },
+        {
+          "frame": 14,
+          "id": "cage",
+          "source": "supplement",
+          "sourceFrame": 3
+        },
+        {
+          "frame": 15,
+          "id": "elevator",
+          "source": "selected",
+          "sourceFrame": 16
+        },
+        {
+          "frame": 16,
+          "id": "hive",
+          "source": "selected",
+          "sourceFrame": 17
+        },
+        {
+          "frame": 17,
+          "id": "pit",
+          "source": "selected",
+          "sourceFrame": 22
+        },
+        {
+          "frame": 18,
+          "id": "rune_cyan",
+          "source": "selected",
+          "sourceFrame": 18
+        },
+        {
+          "frame": 19,
+          "id": "rune_violet",
+          "source": "selected",
+          "sourceFrame": 19
+        },
+        {
+          "frame": 20,
+          "id": "rune_red",
+          "source": "selected",
+          "sourceFrame": 20
+        },
+        {
+          "frame": 21,
+          "id": "rune_gold",
+          "source": "selected",
+          "sourceFrame": 21
+        },
+        {
+          "frame": 22,
+          "id": "spring",
+          "source": "supplement",
+          "sourceFrame": 4
+        },
+        {
+          "frame": 23,
+          "id": "spring",
+          "source": "supplement",
+          "sourceFrame": 5
+        },
+        {
+          "frame": 24,
+          "id": "ruby_rock",
+          "source": "supplement",
+          "sourceFrame": 6
+        },
+        {
+          "frame": 25,
+          "id": "emerald_rock",
+          "source": "supplement",
+          "sourceFrame": 7
+        },
+        {
+          "frame": 26,
+          "id": "diamond_rock",
+          "source": "supplement",
+          "sourceFrame": 8
+        },
+        {
+          "frame": 27,
+          "id": "amethyst_rock",
+          "source": "supplement",
+          "sourceFrame": 9
+        },
+        {
+          "frame": 28,
+          "id": "topaz_rock",
+          "source": "supplement",
+          "sourceFrame": 10
+        },
+        {
+          "frame": 29,
+          "id": "quartz_rock",
+          "source": "supplement",
+          "sourceFrame": 11
+        }
+      ]
+    },
+    "cave_mechanisms": {
+      "columns": 4,
+      "rows": 4,
+      "entries": [
+        {
+          "id": "switch",
+          "name": "Lever switch",
+          "frames": [
+            0,
+            1
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Up",
+            "Down"
+          ]
+        },
+        {
+          "id": "plate_main",
+          "name": "Main pressure plate",
+          "frames": [
+            2,
+            3
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Up",
+            "Down"
+          ]
+        },
+        {
+          "id": "weight_cyan",
+          "name": "Cyan puzzle weight",
+          "frames": [
+            4
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "plate_cyan",
+          "name": "Cyan pressure plate",
+          "frames": [
+            5,
+            6
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Up",
+            "Down"
+          ]
+        },
+        {
+          "id": "weight_violet",
+          "name": "Violet puzzle weight",
+          "frames": [
+            7
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "plate_violet",
+          "name": "Violet pressure plate",
+          "frames": [
+            8,
+            9
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Up",
+            "Down"
+          ]
+        },
+        {
+          "id": "weight_amber",
+          "name": "Amber puzzle weight",
+          "frames": [
+            10
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "plate_amber",
+          "name": "Amber pressure plate",
+          "frames": [
+            11,
+            12
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Up",
+            "Down"
+          ]
+        },
+        {
+          "id": "weight_green",
+          "name": "Green puzzle weight",
+          "frames": [
+            13
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ]
+        },
+        {
+          "id": "plate_green",
+          "name": "Green pressure plate",
+          "frames": [
+            14,
+            15
+          ],
+          "category": "Objects & props",
+          "zones": [
+            "Caves"
+          ],
+          "stateLabels": [
+            "Up",
+            "Down"
+          ]
+        }
+      ],
+      "cells": [
+        {
+          "frame": 0,
+          "id": "switch",
+          "source": "selected",
+          "sourceFrame": 2
+        },
+        {
+          "frame": 1,
+          "id": "switch",
+          "source": "selected",
+          "sourceFrame": 3
+        },
+        {
+          "frame": 2,
+          "id": "plate_main",
+          "source": "supplement",
+          "sourceFrame": 0
+        },
+        {
+          "frame": 3,
+          "id": "plate_main",
+          "source": "supplement",
+          "sourceFrame": 1
+        },
+        {
+          "frame": 4,
+          "id": "weight_cyan",
+          "source": "selected",
+          "sourceFrame": 24
+        },
+        {
+          "frame": 5,
+          "id": "plate_cyan",
+          "source": "selected",
+          "sourceFrame": 25
+        },
+        {
+          "frame": 6,
+          "id": "plate_cyan",
+          "source": "selected",
+          "sourceFrame": 26
+        },
+        {
+          "frame": 7,
+          "id": "weight_violet",
+          "source": "selected",
+          "sourceFrame": 27
+        },
+        {
+          "frame": 8,
+          "id": "plate_violet",
+          "source": "selected",
+          "sourceFrame": 28
+        },
+        {
+          "frame": 9,
+          "id": "plate_violet",
+          "source": "selected",
+          "sourceFrame": 29
+        },
+        {
+          "frame": 10,
+          "id": "weight_amber",
+          "source": "selected",
+          "sourceFrame": 30
+        },
+        {
+          "frame": 11,
+          "id": "plate_amber",
+          "source": "selected",
+          "sourceFrame": 31
+        },
+        {
+          "frame": 12,
+          "id": "plate_amber",
+          "source": "selected",
+          "sourceFrame": 32
+        },
+        {
+          "frame": 13,
+          "id": "weight_green",
+          "source": "selected",
+          "sourceFrame": 33
+        },
+        {
+          "frame": 14,
+          "id": "plate_green",
+          "source": "selected",
+          "sourceFrame": 34
+        },
+        {
+          "frame": 15,
+          "id": "plate_green",
+          "source": "selected",
+          "sourceFrame": 35
+        }
+      ]
+    }
+  }
+}

@@ -5,10 +5,10 @@
 (function () {
 const h = (id) => ({ kind: 'house', tier: 9, id });
 
-test('shop lines: the one table — Seed and Supply to T3, Magic one per tier to T7, Relic to T7, no Ore', () => {
+test('shop lines: the one table — Seed and Supply to T3, Magic odd tiers to T7, Relic even tiers to T6, no Ore', () => {
   assert.eq(Shops.THEMES.join(), 'seed,supply,potion,relic');
   assert.eq(JSON.stringify(Shops.LINE_RULES), JSON.stringify({
-    seed: { maxTier: 3 }, supply: { maxTier: 3 }, potion: { maxTier: 7, perTier: 1 }, relic: { maxTier: 7 },
+    seed: { maxTier: 3 }, supply: { maxTier: 3 }, potion: { maxTier: 7, tiers: [1, 3, 5, 7], perTier: 1 }, relic: { maxTier: 6, tiers: [2, 4, 6] },
   }));
   assert.eq(Shops.THEMES.join(), Object.keys(Shops.LINE_RULES).join(), 'THEMES is the table\'s keys');
   for (const k of ['ore']) {
@@ -17,15 +17,15 @@ test('shop lines: the one table — Seed and Supply to T3, Magic one per tier to
   const save = SaveState.defaults({ restoredHouses: {} });
   assert.truthy(Shops.lineBuildable(save, 'seed', 3)); assert.falsy(Shops.lineBuildable(save, 'seed', 4), 'Seed stops at T3');
   assert.truthy(Shops.lineBuildable(save, 'supply', 3)); assert.falsy(Shops.lineBuildable(save, 'supply', 4));
-  assert.truthy(Shops.lineBuildable(save, 'relic', 7)); assert.falsy(Shops.lineBuildable(save, 'relic', 8));
+  assert.truthy(Shops.lineBuildable(save, 'relic', 6)); assert.falsy(Shops.lineBuildable(save, 'relic', 8));
   assert.falsy(Shops.lineBuildable(save, 'ore', 1) || Shops.lineBuildable(save, 'pet', 1) || Shops.lineBuildable(save, 'book', 1), 'not lines of the table');
   assert.falsy(Shops.lineBuildable(save, 'seed', 0));
   // Magic: one per tier.
-  const magic = { restoredHouses: { a: 'market', b: 'market' }, shopLines: { a: 'potion', b: 'seed' }, shopTiers: { a: 2, b: 2 } };
-  assert.falsy(Shops.lineBuildable(magic, 'potion', 2), 'a T2 Magic Shop stands');
-  assert.truthy(Shops.lineBuildable(magic, 'potion', 1) && Shops.lineBuildable(magic, 'potion', 3), 'other ranks still open');
+  const magic = { restoredHouses: { a: 'market', b: 'market' }, shopLines: { a: 'potion', b: 'seed' }, shopTiers: { a: 3, b: 2 } };
+  assert.falsy(Shops.lineBuildable(magic, 'potion', 3), 'a T3 Magic Shop stands');
+  assert.truthy(Shops.lineBuildable(magic, 'potion', 1) && Shops.lineBuildable(magic, 'potion', 5), 'other ranks still open');
   assert.truthy(Shops.lineBuildable(magic, 'seed', 2), 'a second T2 Seed Shop may stand');
-  assert.eq(Shops.lineCount(magic, 'potion', 2), 1); assert.eq(Shops.lineCount(magic, 'seed', 1), 0);
+  assert.eq(Shops.lineCount(magic, 'potion', 3), 1); assert.eq(Shops.lineCount(magic, 'seed', 1), 0);
 });
 
 test('shop lines: the pick stamps line and rank; duplicates stand at one rank; legacy markets keep their derivations', () => {
@@ -46,7 +46,9 @@ test('shop lines: the pick stamps line and rank; duplicates stand at one rank; l
   assert.eq(Shops.lineCount(save, 'seed', 1), 2); assert.eq(Shops.lineCount(save, 'seed', 2), 1);
   assert.eq(Houses.restoreAs(save, h('p1'), 'market:potion:1').theme, 'potion');
   assert.eq(Houses.restoreAs(save, h('p2'), 'market:potion:1'), null, 'the Magic Shop is one per tier');
-  assert.eq(Houses.restoreAs(save, h('p2'), 'market:potion:2').tier, 2, 'the next rank is open');
+  assert.eq(Houses.restoreAs(save, h('p2'), 'market:potion:2'), null, 'Magic skips even tiers');
+  for (let i = 0; i < 5; i++) save.discovered['more' + i] = 1;
+  assert.eq(Houses.restoreAs(save, h('p2'), 'market:potion:3').tier, 3, 'the next allowed rank opens at ten memories');
   // Legacy: a market with a stored line but no stored rank takes one past
   // the markets before it on that line; one with no line keeps the cycle.
   const old = { restoredHouses: { m1: 'market', m2: 'market', s: 'market', m3: 'market' }, shopLines: { s: 'seed' } };
@@ -93,3 +95,12 @@ test('pet shop: a one-off card from the 12th restore, a market plus its stamp, o
   assert.eq(Shops.lineFor(old, h('m')).theme, 'pet', 'an old Pet Shop still sells pets');
 });
 })();
+
+test('shop lines: restoration cards respect every allowed magic and relic rank', () => {
+  const save = { restoredHouses: { a: 'plain', b: 'blacksmith' }, discovered: Object.fromEntries(Array.from({ length: 30 }, (_, i) => ['m' + i, 1])) };
+  for (const [theme, tiers] of [['relic', [2, 4, 6]], ['potion', [1, 3, 5, 7]]]) {
+    for (let tier = 1; tier <= 7; tier++) assert.eq(Shops.lineBuildable(save, theme, tier), tiers.includes(tier));
+    const cards = Houses.buildOptions(save, { kind: 'house', tier: 9, id: 'new' }).filter(card => card.theme === theme);
+    assert.eq(cards.map(card => card.tier).join(), tiers.join());
+  }
+});

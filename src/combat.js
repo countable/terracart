@@ -345,15 +345,17 @@
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
   const SHINY_SPEED_MUL = 1.5;
   function shinyMul(c) { return c?.shiny ? ELITE_MUL : 1; }
-  function shinySpeedMul(c) { return c?.shiny ? SHINY_SPEED_MUL : 1; }
+  function shinySpeedMul(c, escaping = false) {
+    return c?.shiny ? (escaping && !isEnemyKind(c.kind) ? 1.3 : SHINY_SPEED_MUL) : 1;
+  }
   // THE ONE PACE MULTIPLIER, at every site a creature's speed is read (the
   // roster mover's step, a bat's leg, a ghost's glide, the crow's flights,
   // the fire escape, the animals' hop): a shiny's 1.5 (above the ceiling,
   // never capped) × a thrown Speed potion's 2 (PotionEffects.speedMul) × the
   // frost's slow (STATUS_LOOKS.frozen.slow while it holds). A crow a Speed
   // potion lands on flies faster, like everything else.
-  function paceMul(c, now) {
-    return shinySpeedMul(c) * (root.PotionEffects ? root.PotionEffects.speedMul(c) : 1) * slowMul(c, now);
+  function paceMul(c, now, escaping = false) {
+    return shinySpeedMul(c, escaping) * (root.PotionEffects ? root.PotionEffects.speedMul(c) : 1) * slowMul(c, now);
   }
   // Raised adults retain their double strength, without stacking that same
   // shiny identity twice. Shiny babies also receive the universal bonus.
@@ -376,7 +378,7 @@
   // Rounded (a softened pool is a fraction of the kind's), never below 1;
   // at power 1 or 2 it is exactly the integer it always was.
   function maxHp(c) {
-    const base = Math.max(1, Math.round(creatureMaxHp(c.kind) * powerMul(c)));
+    const base = Math.max(1, Math.round(creatureMaxHp(c.kind) * powerMul(c) + (isTame(c) && root.Pets ? root.Pets.stats(c).maxHp : 0)));
     return root.PotionEffects ? Math.max(1, Math.ceil((base + root.PotionEffects.maxHpBonus(c))
       * root.PotionEffects.maxHpMul(c))) : base;
   }
@@ -531,11 +533,13 @@
   // status landing on anybody looks the same.
   const STATUS_FLASH_MS = 400;
   const STATUS_LOOKS = Object.freeze({
+    paralysis: Object.freeze({ label: Conditions.DEFINITIONS.paralysis.label, color: Conditions.DEFINITIONS.paralysis.ink,
+      field: '_paralysisUntil', clock: 'wall', cancels: true }),
     sleep:     Object.freeze({ label: 'Sleep',     color: '#bcdfff', field: '_sleepUntil',      clock: 'wall', cancels: true }),
     charm:     Object.freeze({ label: 'Charm',     color: '#ff91b8', field: '_charmUntil',      clock: 'wall', cancels: true, ally: true }),
     // The ice the body wears while it holds (util.js FROZEN_TINT). A SLOW:
     // half pace, half cadence, never pinned in place.
-    frozen:    Object.freeze({ label: 'Chilled',   color: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), field: '_frozenUntil', clock: 'wall', cancels: false, slow: 0.5 }),
+    frozen:    Object.freeze({ label: 'Chilled',   color: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), field: '_frozenUntil', clock: 'wall', cancels: false, slow: Conditions.DEFINITIONS.frozen.moveSpeedMul }),
     fear:      Object.freeze({ label: 'Fear',      color: '#c77dff', field: '_fearUntilT',      clock: 'perf', cancels: true, turnsNow: true }),
     psychosis: Object.freeze({ label: 'Psychosis', color: '#c6ff4d', field: '_psychosisUntilT', clock: 'perf', cancels: true, turnsNow: true }),
   });
@@ -578,6 +582,11 @@
   function applyStatus(c, id, durationMs, now) {
     const row = STATUS_LOOKS[id];
     if (!row || !flowerTarget(c)) return false;
+    return landStatus(c, id, durationMs, now);
+  }
+  // Shared landing path for targeted magic and indiscriminate environmental auras.
+  function landStatus(c, id, durationMs, now) {
+    const row = STATUS_LOOKS[id];
     const t = statusNow(row, now);
     c[row.field] = Math.max(c[row.field] || 0, t + durationMs);
     if (row.cancels) cancelCreatureAction(c);
@@ -593,12 +602,25 @@
     return mul;
   }
   function isSleeping(c, now = Date.now()) { return hasStatus(c, 'sleep', now); }
+  function isParalyzed(c, now = Date.now()) { return hasStatus(c, 'paralysis', now); }
+  // Webs catch any body, including pets, neighbours and concealed creatures.
+  function paralyze(c, durationMs, now = Date.now()) {
+    if (!c || !Number.isFinite(durationMs) || durationMs <= 0) return false;
+    return landStatus(c, 'paralysis', durationMs, now);
+  }
   function isCharmed(c, now = Date.now()) { return hasStatus(c, 'charm', now); }
+  // Paid passage and an open negotiation are neutral, never allied.
+  function isPacified(c, now = Date.now()) {
+    return !!monster(c?.kind)?.pirate
+      && (!!c._pirateParleyPending || (c._piratePeaceUntil || 0) > now);
+  }
   function isBurrowed(c) { return !!c?._burrowed; }
   function isDisguised(c) {
     return !!c && !c._disguiseRevealed && !!root.EnemyRoster?.get(c.kind)?.disguise;
   }
-  function isConcealed(c) { return isBurrowed(c) || isDisguised(c); }
+  function isConcealed(c) {
+    return !!((c?.hidden || c?.stealthy) && !c._discovered) || isBurrowed(c) || isDisguised(c);
+  }
   // What a status may land on: a HOSTILE instance whether or not it is
   // charmed right now (isEnemy, with the charm's clock pushed past every
   // charm) — a sleep or a fresh charm reaches a charmed foe too; never a pet,
@@ -640,26 +662,35 @@
   function applyFear(c, durationMs, now) { return applyStatus(c, 'fear', durationMs, now); }
   function isChilled(c, now = Date.now()) { return hasStatus(c, 'frozen', now); }
   function applyFrost(c, durationMs, now) { return applyStatus(c, 'frozen', durationMs, now); }
+  // An ice aura reaches every body. Overlapping auras never refresh an active
+  // chill, including a longer one already applied by frost powder.
+  function applyAuraFrost(c, now = Date.now()) {
+    if (!c || isChilled(c, now)) return false;
+    return landStatus(c, 'frozen', Conditions.DEFINITIONS.frozen.durationMs, now);
+  }
+
+  // Shared by iceflowers and the frost tome. The caller supplies the player
+  // only when that source can chill them; the source itself is always spared.
+  function applyFrostAura(source, creatures, cellM, spec, now = Date.now(), save, player) {
+    const radius = auraRadiusCells(spec) * cellM;
+    const within = c => c !== source && Math.hypot(c.x - source.x, c.y - source.y) <= radius;
+    for (const c of creatures) if (within(c)) applyAuraFrost(c, now);
+    if (save && player && within(player)) Conditions.apply(save, 'frozen', now);
+  }
 
   // ── YOURS, not the world's ───────────────────────────────────────────────
-  // A TAME creature: one the player released (save.released — pickUpPet /
-  // release mint its id with TAME_ID_PREFIX). THE one test; a tame slime is
-  // a pet whatever its species. An ALLY is a tame creature or a SUMMONED
-  // one (SpriteLayout.isSummoned — the raven, the bones, the wraith, the
-  // mercenary): it hunts for the player, is never a target, and goes where
-  // it likes (the kerb and the yards are the wild things' rules).
-  const TAME_ID_PREFIX = 'released_';
-  function isTame(c) { return !!c && typeof c.id === 'string' && c.id.startsWith(TAME_ID_PREFIX); }
+  // Ownership is explicit individual state, never inferred from an id prefix.
+  function isTame(c) { return c?.pet === true; }
   function isAlly(c) { return isTame(c) || (!!c && SpriteLayout.isSummoned(c.kind)); }
 
-  // A hostile INSTANCE. A slime tamed with a sapphire (isTame) is a pet: it
+  // A hostile INSTANCE. A fed and captured slime (isTame) is a pet: it
   // must never be shot at, auto-engaged, or counted as "an enemy is on
   // screen" for the auto-fire gate. A rose's temporary ally gets the same
   // targeting exclusion while its charm lasts; buried creatures are likewise
   // unavailable until they surface. Their species remains unchanged.
   function isEnemy(c, now = Date.now()) {
-    if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now)) return false;
-    if (isTame(c)) return false;
+    if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now) || isPacified(c, now)) return false;
+    if (isTame(c) || c.favouriteFed) return false;
     return isEnemyKind(c.kind);
   }
 
@@ -679,7 +710,8 @@
   }
   function petBite(kind) {
     const model = SUMMONED_AS[kind];
-    return model ? enemyBlow(model) : PET_BITE;
+    const base = model ? enemyBlow(model) : PET_BITE;
+    return base * (SpriteLayout.CREATURE_BEHAVIOUR[kind]?.biteMul ?? 1);
   }
   // THE MELEE FORMULA — what ONE contact blow of `c` carries, before the
   // defender's shield, armour and mode: its `baseDmg` (the row's dmg, a pet's
@@ -694,7 +726,13 @@
   // THIS pet's blow: its kind's bite through the melee formula (a raised
   // pet's double). The fight in scene_creatures.js reads this, never petBite
   // alone.
-  function petBlow(c) { return meleeBlow(c, petBite(c.kind)); }
+  function petBlow(c) { return meleeBlow(c, petBite(c.kind) + (isTame(c) && root.Pets ? root.Pets.stats(c).attack : 0)); }
+  // Armed allies share the player weapon reach; other pets keep their bite range.
+  function petReachCells(c) {
+    const weapon = root.SpriteLayout?.CREATURE_BEHAVIOUR[c.kind]?.meleeWeapon;
+    const base = weapon ? meleeReachM(1, weapon) : 1.5;
+    return root.PotionEffects ? root.PotionEffects.range(c, base) : base;
+  }
 
   // Current HP, lazily seeded from the kind's max the first time anything hits
   // it. Creatures are re-spawned from tile data on every reload, so `_hp` is
@@ -710,6 +748,7 @@
   // step chain) off the one damage stamp.
   const REST_HEAL_MS = 20 * 60 * 1000;
   function healIfRested(c, wall = Date.now()) {
+    if (isTame(c)) return false;
     if (!c._lastDamagedT || wall - c._lastDamagedT < REST_HEAL_MS) return false;
     c._hp = maxHp(c);
     c._lastDamagedT = null;
@@ -720,9 +759,9 @@
   // bypassArmor after computing a packet rate, avoiding a per-frame hit floor.
   function damageDealt(c, amount, options = {}) {
     const before = hp(c);
-    if (isConcealed(c)) return 0;
+    if (isConcealed(c) || (root.Pets && root.Pets.isDown(c))) return 0;
     const raw = Math.max(0, amount) * (root.PotionEffects ? root.PotionEffects.damageMul(c) : 1);
-    const hit = options.bypassArmor ? raw : mitigate(raw, monster(c.kind)?.armor || 0);
+    const hit = options.bypassArmor ? raw : mitigate(raw, (monster(c.kind)?.armor || 0) + (isTame(c) && root.Pets ? root.Pets.stats(c).armor : 0));
     if (hit > 0 && before > 0) c._sleepUntil = 0;
     c._hp = Math.max(0, before - hit);
     return before - c._hp;
@@ -1564,15 +1603,15 @@
   const api = {
     MONSTERS,
     registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
-    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, meleeBlow,
+    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow, meleeBlow, petReachCells,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    FLOWER_STATUS_MS, isSleeping, isCharmed, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
+    FLOWER_STATUS_MS, isSleeping, isParalyzed, paralyze, isCharmed, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
-    isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, cancelCreatureAction,
-    TAME_ID_PREFIX, isTame, isAlly,
+    isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, applyFrostAura, cancelCreatureAction,
+    isTame, isAlly,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction,
     ENVIRONMENT_SOURCES, isEnvironmentSource,
     canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,

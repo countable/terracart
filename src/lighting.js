@@ -59,7 +59,8 @@
 //
 // The player's PLATEAU is painted per reach cell with cellInReach's own
 // maths, so the sharp edge of the lit area IS the staircase the tap gate
-// accepts. Only the falloff outside it is a circle. That edge is the WHOLE
+// accepts once its brief cell-change crossfade settles. Only the falloff
+// outside it is a circle. That edge is the WHOLE
 // affordance (no outline is stroked over it; if the boundary stops reading,
 // widen the step at its edge). Inside the staircase the plateau is the
 // player's own lamp, full at the feet and easing down PLATEAU_FALL of the way
@@ -157,6 +158,7 @@
     // derelict wash uses (scene.isClaimedKey), so a house lights the frame its
     // wash lifts.
     building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.95, flicker: 0 },
+    temple:   { radiusCells: 4, colour: 0x65dfff, peak: 0.95, flicker: 0.035 },
     // A placed campfire (burned from a coal). Breathes.
     ground_fire: { radiusCells: 1.5, colour: 0xff852b, peak: 0.75, flicker: 0.12 },
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
@@ -629,6 +631,13 @@
   // draw() passes the frame's real value.
   function profile(scene, daylightIn, nowIn) {
     const depth = scene.depth ?? 0;
+    // This realm has no sun or cave darkness. Its violet sky lights the entire
+    // square, while a small player glow still marks interaction reach. Keep
+    // the arena sentinel out of the ordinary depth-based cave darkening.
+    if (depth === WorldGen.ARENA_DEPTH) {
+      return { depth, dimA: 0.18, dimColour: 0x8e75c0, farA: 0.18,
+        ambient: 0xc3b6e6, edge: 0.02, lit: 0.08, litColour: 0xffffff, night: 0 };
+    }
     // render.js declares Render as a top-level const, so it is reachable by
     // bare name in every scope loaded after it (the browser and the node
     // bundle alike), never as a window property.
@@ -701,6 +710,7 @@
     if (o.kind === 'tower') {
       return (scene.isClaimedKey && scene.isClaimedKey(o.castle)) ? 'building' : null;
     }
+    if (o.kind === 'temple') return window.Temples?.isActive(scene.save, o) ? 'temple' : null;
     if (o.kind === '_fire') return 'fire';
     if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';
@@ -1169,6 +1179,14 @@
   // and on the Canvas fallback. The per-frame upload is one 352px RGBA
   // texture — the same shape the fog pays per cell crossing.
   const KIND_STOPS = 8;
+  // The expensive reach-cell path lives on a transparent canvas wider than
+  // the viewport. Walking
+  // crops that cache by the camera's whole-pixel displacement; the player's
+  // ramp stays in the viewport canvas, centred on the body. Two cells of
+  // paint with a 1.5-cell validity limit leaves half a cell for filtering and
+  // cookie edges, matching the road overlay's padded-cache margin.
+  const LIGHT_CACHE_PAD_CELLS = 2;
+  const LIGHT_CACHE_LIMIT_CELLS = 1.5;
 
   // ── The lightmap's own clock, and the still-frame gate ─────────────────
   // draw() keys each step on every input the paint depends
@@ -1227,31 +1245,50 @@
   // The plateau's placement in whole px: the anchor's cell, the rounded
   // origin of the drawn grid, and — for a row whose tile row has a different
   // grid (coords.js viewBand) — that row's column shift and its own rounded
-  // origin. Exactly what the per-cell path in paintStaticLayer rounds to, so
+  // origin. Exactly what the per-cell path in reachCellsPath rounds to, so
   // the plateau is a function of this string (and the reach cell).
-  function plateauPxKey(scene, pc) {
+  function plateauPlacement(scene, pc) {
     const half = (VIEW_CELLS - 1) / 2;
     const fracX = pc.cx - Math.floor(pc.cx);
     const fracY = pc.cy - Math.floor(pc.cy);
     const x0 = (ph) => cellScreenXY(scene, -1 - half, 0, fracX, 0, ph).x;   // coords.js — drawCells' own slot
-    const y0 = cellScreenXY(scene, 0, -1 - half, 0, fracY).y;
-    let k = `${Math.floor(pc.cx)},${Math.floor(pc.cy)},${x0(0)},${y0}`;
-    const baseCellIY = viewAnchorAbsCell(scene, pc).cellIY;
+    const y = cellScreenXY(scene, 0, -1 - half, 0, fracY).y;
+    let bands = '';
+    const base = viewAnchorAbsCell(scene, pc);
     for (let r = -2; r <= VIEW_CELLS + 1; r++) {
-      const b = viewBand(scene, pc, baseCellIY + (r - half));
-      if (b.dX || b.phaseX) k += `|${r}:${b.dX}:${x0(b.phaseX)}`;
+      const b = viewBand(scene, pc, base.cellIY + (r - half));
+      if (b.dX || b.phaseX) bands += `|${r}:${b.dX}:${x0(b.phaseX) - x0(0)}`;
     }
-    return k;
+    const off = -1 - half;
+    const screenX = x0(0);
+    return {
+      screenX, screenY: y,
+      // The screen coordinate of a fixed absolute grid origin. Unlike a slot
+      // coordinate this stays continuous when the anchor crosses a cell, so
+      // the prior reach mask can crop through the crossing and fade out.
+      x: screenX - (base.cellIX + off) * CELL_PX,
+      y: y - (base.cellIY + off) * CELL_PX,
+      // Absolute anchor-cell identity is deliberately absent. A row-grid
+      // shape change rebuilds; an ordinary cell crossing only crops.
+      structure: bands,
+      bands,
+    };
   }
-  // The STATIC half of the key: every number the ambient floor, the player's
-  // ramp and the reach plateau read — none of the lights and no clock. It is
-  // frameKey's own prefix (frameKey builds on it), so the two can never
-  // disagree about what the static layer depends on. draw() keeps that layer
-  // baked while this holds (paintStaticLayer). `pcPx` is the plateau's
+  function plateauPxKey(scene, pc) {
+    const p = plateauPlacement(scene, pc);
+    return `${Math.floor(pc.cx)},${Math.floor(pc.cy)},${p.screenX},${p.screenY}${p.bands}`;
+  }
+  // The non-light prefix of the full-frame key: every number the ambient
+  // floor, player ramp and reach plateau read. frameKey builds on it, so the
+  // still gate cannot omit a paint input. The base bake below uses the narrower
+  // baseFrameKey because the plateau lives in its padded cache. `pcPx` is the plateau's
   // whole-px placement (plateauPxKey); left out, the anchor's raw fraction.
-  function staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx) {
-    let k = `${ps.x},${ps.y},${ox},${oy},${r0},${rMax},${reachM}`
+  function baseFrameKey(ps, ox, oy, prof, r0, rMax) {
+    return `${ps.x},${ps.y},${ox},${oy},${r0},${rMax}`
       + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
+  }
+  function staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx) {
+    let k = baseFrameKey(ps, ox, oy, prof, r0, rMax) + `|${reachM}`;
     if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pcPx != null ? pcPx : `${pc.cx},${pc.cy}`}`;
     return k;
   }
@@ -1465,27 +1502,55 @@
     ctx.closePath();
   }
 
-  // The static layer (see draw()): the ambient floor, then — added — the
-  // player's ramp and the reach plateau, painted onto `ctx` (the lightmap
-  // itself, or the baked copy's canvas).
-  function paintStaticLayer(ctx, W, H, scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0) {
+  // Reach remains discrete for taps. Its picture eases between the old and new
+  // cell masks, so cells entering/leaving the light do not flash on a crossing.
+  // Keep the current mixture when interrupted (including turning back), rather
+  // than restarting from a fully lit old mask. Weights always sum to one, so
+  // overlapping cells retain their brightness under additive blending.
+  const REACH_FADE_MS = 240;
+  function reachFrames(scene, rp, reachM, now) {
+    if (!rp) { scene._lightReachFade = null; return []; }
+    const key = `${rp.cellIX}|${rp.cellIY}|${reachM}`;
+    const space = `${scene.depth ?? 0}|${scene.cellM}`;
+    const target = { key, rp: { cellIX: rp.cellIX, cellIY: rp.cellIY }, reachM, weight: 1 };
+    let st = scene._lightReachFade;
+    if (!st || st.space !== space) {
+      scene._lightReachFade = { space, target, from: [], at: now };
+      return [target];
+    }
+    const t = clamp01((now - st.at) / REACH_FADE_MS);
+    const ease = t * t * (3 - 2 * t);
+    const frames = st.from.length && t < 1
+      ? st.from.map(f => ({ ...f, weight: f.weight * (1 - ease) })) : [];
+    const existing = frames.find(f => f.key === st.target.key);
+    const weight = frames.length ? ease : 1;
+    if (existing) existing.weight += weight;
+    else frames.push({ ...st.target, weight });
+    if (st.target.key !== key) {
+      st = scene._lightReachFade = { space, target, from: frames.filter(f => f.weight > 0), at: now };
+    } else if (t >= 1) st.from = [];
+    return frames;
+  }
+  function reachFramesKey(frames) {
+    return frames.map(f => `${f.key}:${f.weight}`).join(';');
+  }
+
+  // The screen-attached base layer: ambient plus the player's ramp. The ramp
+  // follows the body, so it cannot move with a world-anchored cache. It is
+  // cheap (one fill + one baked-cookie draw) and its own bake survives a walk
+  // because the player's feet remain at the camera centre.
+  function paintStaticLayer(ctx, W, H, scene, prof, player, ps, ox, oy) {
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
     ctx.fillStyle = cssOf(prof.ambient);
     ctx.fillRect(0, 0, W, H);
     ctx.globalCompositeOperation = 'lighter';
     ctx.imageSmoothingEnabled = true;
-
-    // The ramp, centred on the player's feet.
     const D = player.S * PLAYER_COOKIE_SCALE;
     ctx.drawImage(player.canvas, ps.x - ox - D / 2, ps.y - oy - D / 2, D, D);
+  }
 
-    // The plateau: every cell in reach, by the SAME test the tap gate uses —
-    // cellInReach's expressions, hoisted once per frame the way drawCells
-    // hoists its own (reachRadiusM and playerReachCell are constant for the
-    // frame; 169 calls of the allocating helper is churn for nothing). This
-    // edge is the affordance now, so it has to be exactly that test.
-    if (plateau) {
+  function reachCellsPath(ctx, scene, ox, oy, rp, pc, reachM) {
       const reachM2 = reachM * reachM;
       const fracX = pc.cx - Math.floor(pc.cx);
       const fracY = pc.cy - Math.floor(pc.cy);
@@ -1513,7 +1578,6 @@
         const ddy = d.dy * scene.cellM;
         return ddx * ddx + ddy * ddy <= reachM2;
       };
-      ctx.fillStyle = plateauFill(ctx, prof, ps.x - ox, ps.y - oy, r0);
       // ONE path, ONE fill: the cells abut on integer px so the union fills
       // seamlessly, and under 'lighter' a single fill adds the plateau once
       // (a fillet a second cell repeated would not double up either).
@@ -1529,9 +1593,232 @@
             inReach(col - 1, row - 1), inReach(col + 1, row - 1), inReach(col - 1, row + 1), inReach(col + 1, row + 1));
         }
       }
-      ctx.fill();
+  }
+  function paintReachMask(ctx, scene, ox, oy, rp, pc, reachM) {
+    ctx.fillStyle = '#fff';
+    reachCellsPath(ctx, scene, ox, oy, rp, pc, reachM);
+    ctx.fill();
+  }
+
+  function paintLight(ctx, scene, L, crit, now, pnow, ox, oy) {
+    const row = KINDS[L.kind];
+    const colour = crit ? mixColour(L.colour == null ? row.colour : L.colour, LOW_ENERGY_TINT, crit.mix)
+                        : L.colour;
+    const ck = ensureKindCookie(scene, L.kind, L.r, colour);
+    const a = flickerAlpha(row, L.dx, L.dy, now, L.id, pnow) * (L.a == null ? 1 : L.a)
+      * (crit ? crit.a : 1);
+    const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
+    const d = 2 * ck.R * sc;
+    const c = lightCentrePx(scene, L);
+    let left = clamp01(a) * (L.g == null ? 1 : L.g);
+    while (left > 0.001) {
+      ctx.globalAlpha = clamp01(left);
+      ctx.drawImage(ck.canvas, c.x - ox - d / 2, c.y - oy - d / 2, d, d);
+      left -= 1;
     }
   }
+
+  // Stable world cookies share the padded-cache lane. Flickering, breathing,
+  // transient and player-attached lights stay as individual stamps because
+  // their shape/point changes independently of the camera.
+  function cacheableWorldLight(L) {
+    const row = KINDS[L.kind];
+    return L.kind !== 'handtorch' && L.kind !== 'bolt' && L.kind !== 'blast'
+      && row && !row.flicker && !row.pulse && L.a == null && L.s == null;
+  }
+  function cookiePhase(scene, L, ax, ay) {
+    const k = CELL_PX / scene.cellM;
+    const frac = (v) => Math.round(((v - Math.floor(v)) + 1) % 1 * 1e6);
+    return `${frac((ax + L.dx) * k)},${frac((ay + L.dy) * k + (L.dyPx || 0))}`;
+  }
+  function cookieGroupKey(scene, lights, ax, ay, crit) {
+    const k = CELL_PX / scene.cellM;
+    let out = `${scene.cellM}|${crit ? `${crit.mix},${crit.a}` : '-'}`;
+    for (const L of lights) {
+      const x = Math.round((ax + L.dx) * k * 1e6);
+      const y = Math.round(((ay + L.dy) * k + (L.dyPx || 0)) * 1e6);
+      out += `|${L.kind},${L.id},${x},${y},${L.dyPx},${L.r},${L.colour},${L.g}`;
+    }
+    return out;
+  }
+
+  // Cache up to three exact whole-pixel phase groups. Lights in one group
+  // cross every rounding boundary together, so one integer crop keeps each
+  // glow locked to its sprite. Smaller extra groups remain in `excluded` and
+  // take the old one-cookie stamp path instead of consuming an unbounded set
+  // of mobile canvases.
+  function worldCookieFrames(scene, W, H, ax, ay, ox, oy, crit, now, pnow) {
+    const pad = LIGHT_CACHE_PAD_CELLS * CELL_PX;
+    const limit = LIGHT_CACHE_LIMIT_CELLS * CELL_PX;
+    const groups = new Map(), excluded = [];
+    for (const L of scene._lights) {
+      if (!cacheableWorldLight(L)) { excluded.push(L); continue; }
+      const phase = cookiePhase(scene, L, ax, ay);
+      let g = groups.get(phase);
+      if (!g) groups.set(phase, g = { phase, lights: [] });
+      g.lights.push(L);
+    }
+    const selected = [...groups.values()].sort((a, b) => b.lights.length - a.lights.length).slice(0, 3);
+    const kept = new Set(selected.map(g => g.phase));
+    for (const g of groups.values()) if (!kept.has(g.phase)) excluded.push(...g.lights);
+    const st = scene._lightCookieContribution
+      || (scene._lightCookieContribution = { entries: [], rebuilds: 0, serial: 0 });
+    const items = [];
+    let rebuilt = false, cached = 0;
+    for (const g of selected) {
+      const key = cookieGroupKey(scene, g.lights, ax, ay, crit);
+      let entry = st.entries.find(e => e.key === key);
+      const centres = g.lights.map(L => lightCentrePx(scene, L));
+      let qx = 0, qy = 0, reusable = !!entry && entry.centres.length === centres.length
+        && entry.canvas.width === W + 2 * pad && entry.canvas.height === H + 2 * pad;
+      if (reusable && centres.length) {
+        qx = entry.centres[0].x - centres[0].x + ox - entry.ox;
+        qy = entry.centres[0].y - centres[0].y + oy - entry.oy;
+        if (Math.abs(qx) >= limit || Math.abs(qy) >= limit) reusable = false;
+        for (let i = 1; reusable && i < centres.length; i++) {
+          if (entry.centres[i].x - centres[i].x + ox - entry.ox !== qx
+              || entry.centres[i].y - centres[i].y + oy - entry.oy !== qy) reusable = false;
+        }
+      }
+      if (!reusable) {
+        if (!entry) {
+          if (st.entries.length < 3) {
+            entry = { canvas: document.createElement('canvas') };
+            st.entries.push(entry);
+          } else entry = st.entries.reduce((a, b) => a.used < b.used ? a : b);
+        }
+        if (entry.canvas.width !== W + 2 * pad) entry.canvas.width = W + 2 * pad;
+        if (entry.canvas.height !== H + 2 * pad) entry.canvas.height = H + 2 * pad;
+        const ctx = entry.canvas.getContext('2d');
+        ctx.clearRect(0, 0, entry.canvas.width, entry.canvas.height);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.imageSmoothingEnabled = true;
+        for (const L of g.lights) paintLight(ctx, scene, L, crit, now, pnow, ox - pad, oy - pad);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+        entry.key = key;
+        entry.centres = centres;
+        entry.ox = ox; entry.oy = oy;
+        qx = qy = 0;
+        st.rebuilds++;
+        rebuilt = true;
+      }
+      entry.used = ++st.serial;
+      items.push({ canvas: entry.canvas, sx: pad + qx, sy: pad + qy });
+      cached += g.lights.length;
+    }
+    return { items, excluded, rebuilt, cached };
+  }
+
+  // Everything that changes one reach mask except its blend weight and common
+  // screen translation. Fade weights change every step for 240 ms; keeping a
+  // canvas per old/new mask lets the main lightmap blend two cached crops
+  // instead of walking 169 cells again on each fade step.
+  function contributionKey(scene, frame, placement) {
+    return `${scene.cellM}|${frame.key}|${placement.structure}`;
+  }
+
+  // Build or crop each padded reach mask. These canvases never become Phaser
+  // textures: viewport crops are added to the existing lightmap before its
+  // sole refresh, preserving one-pass MULTIPLY and the Canvas fallback.
+  function contributionFrames(scene, W, H, ox, oy, plateau, pc, frames) {
+    const items = [];
+    if (!plateau) {
+      for (const e of scene._lightContribution?.entries || []) e.pending = false;
+      return { items, rebuilt: false, deferred: false };
+    }
+    const pad = LIGHT_CACHE_PAD_CELLS * CELL_PX;
+    const limit = LIGHT_CACHE_LIMIT_CELLS * CELL_PX;
+    const placement = plateauPlacement(scene, pc);
+    const st = scene._lightContribution || (scene._lightContribution = { entries: [], rebuilds: 0, serial: 0 });
+    let rebuilt = false, deferred = false;
+    for (const frame of frames) {
+      if (frame.weight <= 0) continue;
+      const key = contributionKey(scene, frame, placement);
+      let entry = st.entries.find(e => e.key === key);
+      let qx = entry ? entry.placement.x - placement.x + ox - entry.ox : 0;
+      let qy = entry ? entry.placement.y - placement.y + oy - entry.oy : 0;
+      const sized = !!entry && entry.canvas.width === W + 2 * pad && entry.canvas.height === H + 2 * pad;
+      const insideLimit = sized && Math.abs(qx) < limit && Math.abs(qy) < limit;
+      const insidePaint = sized && Math.abs(qx) < pad && Math.abs(qy) < pad;
+      let reusable = insideLimit && !entry.pending;
+      // drawCells owns crossing detection. When the ordinary 1.5-cell rebuild
+      // threshold lands on that already-heavy frame, use the remaining half-
+      // cell of painted pad once and rebuild on the next ordinary frame. The
+      // physical 2-cell edge is absolute: never crop outside it.
+      if (sized && scene._boot_crossing && insidePaint && (!insideLimit || entry.pending)) {
+        entry.pending = true;
+        reusable = true;
+        deferred = true;
+      }
+      if (entry && entry.pending && !scene._boot_crossing) reusable = false;
+      if (!reusable) {
+        if (!entry) {
+          if (st.entries.length < 4) {
+            entry = { canvas: document.createElement('canvas') };
+            st.entries.push(entry);
+          } else {
+            entry = st.entries.reduce((a, b) => a.used < b.used ? a : b);
+          }
+        }
+        if (entry.canvas.width !== W + 2 * pad) entry.canvas.width = W + 2 * pad;
+        if (entry.canvas.height !== H + 2 * pad) entry.canvas.height = H + 2 * pad;
+        const ctx = entry.canvas.getContext('2d');
+        ctx.clearRect(0, 0, entry.canvas.width, entry.canvas.height);
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 1;
+        ctx.imageSmoothingEnabled = true;
+        paintReachMask(ctx, scene, ox - pad, oy - pad, frame.rp, pc, frame.reachM);
+        ctx.globalCompositeOperation = 'source-over';
+        entry.key = key;
+        entry.placement = placement;
+        entry.ox = ox; entry.oy = oy;
+        entry.pending = false;
+        qx = qy = 0;
+        st.rebuilds++;
+        rebuilt = true;
+      }
+      entry.used = ++st.serial;
+      items.push({ canvas: entry.canvas, sx: pad + qx, sy: pad + qy, weight: frame.weight });
+    }
+    // A mask that left the fade before repayment needs no rebuild; do not let
+    // its stale pending bit bypass the still gate forever.
+    if (!scene._boot_crossing) for (const e of st.entries) e.pending = false;
+    return { items, rebuilt, deferred };
+  }
+  function contributionPending(scene) {
+    return !!scene._lightContribution?.entries?.some(e => e.pending);
+  }
+
+  // Combine the cached CELL SHAPES at their live fade weights, then colour
+  // that mask with a fresh radial gradient centred on the player's current
+  // feet. Geometry follows the world; brightness follows the body. This small
+  // viewport scratch replaces the 169-cell path walk on ordinary steps.
+  function paintReachContribution(ctx, scene, contribution, prof, ps, ox, oy, r0, W, H) {
+    if (!contribution.items.length) return;
+    let c = scene._lightReachComposite;
+    if (!c) c = scene._lightReachComposite = document.createElement('canvas');
+    if (c.width !== W) c.width = W;
+    if (c.height !== H) c.height = H;
+    const m = c.getContext('2d');
+    m.clearRect(0, 0, W, H);
+    m.globalCompositeOperation = 'lighter';
+    m.imageSmoothingEnabled = false;
+    for (const item of contribution.items) {
+      m.globalAlpha = item.weight;
+      m.drawImage(item.canvas, item.sx, item.sy, W, H, 0, 0, W, H);
+    }
+    m.globalAlpha = 1;
+    m.globalCompositeOperation = 'source-in';
+    m.fillStyle = plateauFill(m, prof, ps.x - ox, ps.y - oy, r0);
+    m.fillRect(0, 0, W, H);
+    m.globalCompositeOperation = 'source-over';
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(c, 0, 0);
+  }
+
   // One exact copy of the baked static layer onto the lightmap. The layer is
   // opaque (its floor is), so source-over replaces every pixel outright.
   function blitStatic(ctx, canvas) {
@@ -1590,9 +1877,14 @@
     const rp = plateau ? playerReachCell(scene) : null;
     const pc = plateau ? viewAnchorCell(scene) : null;
     const pcPx = plateau ? plateauPxKey(scene, pc) : null;
+    const frames = reachFrames(scene, rp, reachM, wall);
+    const fadeKey = reachFramesKey(frames);
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx);
-    if (key === tex.__lightKey) {
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx) + '|' + fadeKey;
+    // A crossing may have borrowed the cache's last half-cell of physical
+    // pad. Even if every visual key holds, the next ordinary frame must pay
+    // back that deferred rebuild before the still gate can return.
+    if (key === tex.__lightKey && !contributionPending(scene)) {
       scene._boot_lightMs = 0;
       if (B) B.count('lightmap painted', 0);
       return false;
@@ -1602,18 +1894,11 @@
     const ctx = tex.context;
     const W = tex.width, H = tex.height;
 
-    // THE STATIC LAYER — the ambient floor, the ramp and the plateau. On a
-    // walk it moves every step and is painted straight onto the lightmap, as
-    // it always was. Standing still, the lightmap still repaints whenever a
-    // light animates (a POI's breath, a fire's flicker) — and the plateau's
-    // per-cell path was most of each of those paints while its picture had
-    // not changed at all. So once the static inputs (staticFrameKey) hold
-    // across two paints the layer is baked into its own canvas, and every
-    // paint after that — until they move — starts from ONE copy of it. The
-    // floor is opaque, so the copy is exact: the same pixels the direct
-    // paint would have left for the lights to add onto.
-    const sk = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx);
-    const args = [scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0];
+    // THE SCREEN-ATTACHED BASE — ambient plus player ramp. It remains still
+    // while the camera follows the walking body, so its bake survives the
+    // walk. The more expensive world contribution below crops independently.
+    const sk = baseFrameKey(ps, ox, oy, prof, r0, rMax);
+    const args = [scene, prof, player, ps, ox, oy];
     let st = scene._lightStatic;
     if (st && st.key === sk && st.canvas.width === W && st.canvas.height === H) {
       blitStatic(ctx, st.canvas);
@@ -1630,45 +1915,41 @@
       paintStaticLayer(ctx, W, H, ...args);
     }
     tex.__lightStaticKey = sk;
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.imageSmoothingEnabled = true;
 
-    // The lights: the objects' — drawObjects' scan, plus the fires and the
-    // blasts. A light may carry its own alpha / scale multipliers (`a`, `s` — a blast drives both off its own
-    // clock) on top of the row's flicker, its own radius / colour (`r`,
-    // `colour` — a blast is sized to the thing it went off on), and a `dyPx`:
-    // a draw-space lift off its own point, for a source that burns up in the
-    // air over the ground it stands on (a street lamp's lantern).
-    const stamp = (L) => {
-      const row = KINDS[L.kind];
-      const colour = crit ? mixColour(L.colour == null ? row.colour : L.colour, LOW_ENERGY_TINT, crit.mix)
-                          : L.colour;
-      const ck = ensureKindCookie(scene, L.kind, L.r, colour);
-      const a = flickerAlpha(row, L.dx, L.dy, now, L.id, pnow) * (L.a == null ? 1 : L.a)
-        * (crit ? crit.a : 1);
-      const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
-      const d = 2 * ck.R * sc;
-      // Centred on the whole px frameKey names (WHOLE PIXELS, above).
-      const c = lightCentrePx(scene, L);
-      // A steady GAIN `g` (a living lamp) scales the stamp; past 1 it is
-      // stamped again — the composite is 'lighter', so two stamps ADD, which
-      // is the only way over the cookie's own alpha ceiling.
-      let left = clamp01(a) * (L.g == null ? 1 : L.g);
-      while (left > 0.001) {
-        ctx.globalAlpha = clamp01(left);
-        ctx.drawImage(ck.canvas, c.x - ox - d / 2, c.y - oy - d / 2, d, d);
-        left -= 1;
-      }
-    };
-    for (const L of scene._lights) stamp(L);
+    // THE WORLD-ATTACHED CONTRIBUTION — plateau plus every non-player light.
+    // Rebuild at state/pad/rounding changes; otherwise copy one viewport crop.
+    const contribution = contributionFrames(scene, W, H, ox, oy, plateau, pc, frames);
+    paintReachContribution(ctx, scene, contribution, prof, ps, ox, oy, r0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+    const cookies = worldCookieFrames(scene, W, H, ax, ay, ox, oy, crit, now, pnow);
+    for (const item of cookies.items) ctx.drawImage(item.canvas, item.sx, item.sy, W, H, 0, 0, W, H);
+    ctx.imageSmoothingEnabled = true;
+    // Only independently flickering/transient/player lights and small overflow
+    // phase groups take the per-step stamp path. Stable world cookies move as
+    // exact whole-pixel crops above.
+    for (const L of cookies.excluded) paintLight(ctx, scene, L, crit, now, pnow, ox, oy);
+    scene._boot_lightExcludedStamps = cookies.excluded.length;
+    scene._boot_lightWorldStamps = cookies.excluded.reduce((n, L) => n + (L.kind === 'handtorch' ? 0 : 1), 0);
+    scene._boot_lightCachedCookies = cookies.cached;
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+    const uploadT0 = B ? performance.now() : 0;
     tex.refresh();
+    if (B) B.tick('lighting upload', performance.now() - uploadT0);
     if (B) {
       const dt = performance.now() - t0;
       scene._boot_lightMs = dt;
       B.tick('lighting', dt);
       B.count('lightmap painted', 1);
+      B.count('light contribution painted', contribution.rebuilt ? 1 : 0);
+      B.count('light contribution deferred', contribution.deferred ? 1 : 0);
+      B.count('light contribution rebuilt @crossing',
+        scene._boot_crossing && contribution.rebuilt ? 1 : 0);
+      B.count('light cookie cache painted', cookies.rebuilt ? 1 : 0);
+      B.count('light cookies stamped', cookies.excluded.length);
+      B.count('light cookies cached', cookies.cached);
     }
     return true;
   }
@@ -1683,7 +1964,7 @@
     profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
-    flickerAlpha, plateauCellPath, draw,
-    LIGHT_TICK_MS, lightClock, staticFrameKey, lightCentrePx, plateauPxKey, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
+    flickerAlpha, plateauCellPath, REACH_FADE_MS, reachFrames, reachFramesKey, draw,
+    LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, plateauPxKey, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);

@@ -1,0 +1,72 @@
+{
+  "generator": "Built-in image_gen",
+  "date": "2026-10-04",
+  "export": "512x652 WebP, 128-color palette; dialog quiet zone below the upper subject band.",
+  "paintings": [
+    {
+      "id": "underground_spring_cave",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-e6366a27-d4c5-4365-9cc8-1a607cbb2b3a.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. A clear subterranean spring pool ringed by damp pale mushrooms and dark stones, open dry banks."
+    },
+    {
+      "id": "underground_goblin_warrens",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-f657a363-f7a6-4c00-84b2-5007a4d68de0.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. Low crude stone rooms and narrow open doorways, barrel stacks, a distant small goblin shadow."
+    },
+    {
+      "id": "underground_mushroom_cavern",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-16cd7be5-87f4-41f3-a7e9-aa950885150d.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. Dense pale ivory and muted purple underground mushroom beds, a clear winding walking lane, moist cave walls."
+    },
+    {
+      "id": "underground_gemstone_cavern",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-179f90b3-5e69-4296-ad75-99ddc6f50a67.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. An open cave chamber with restrained pale rose quartz crystals embedded in rough rock, no blue or green gems."
+    },
+    {
+      "id": "underground_mine_tunnels",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-88f52883-daf2-4c2f-a16e-4639ab9fc8bb.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. Rough hand-worked mine tunnels with metal ore pockets, broken quarry stone, abandoned mining tools, no buildings."
+    },
+    {
+      "id": "underground_root_passage",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-e8db6bf9-26b9-439c-b9a8-140e3fe56b4a.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. Thick tree roots hanging into an earthy cave corridor, small pale mushroom pockets along a clear path."
+    },
+    {
+      "id": "underground_seep_passage",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-d4d40982-fed2-4939-8fcd-2f544be6e0be.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. A narrow shallow stream through a rocky cave corridor with dry banks on both sides and a few pale mushrooms."
+    },
+    {
+      "id": "underground_miners_way",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-7899dd89-c1ba-4a74-952f-1cf25b67c562.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. A small wooden ore cart parked beside a clear mining path, metal ore seams and broken worked stone along its verges."
+    },
+    {
+      "id": "underground_warren_run",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-a47f703e-ba60-4f6a-af7b-ff1f5aee70fc.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. A narrow low cave passage lined with crude stone walls, tiny open side doorways and supply alcoves."
+    },
+    {
+      "id": "underground_gemstone_path",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-cf9175a9-8eff-4f15-ad5a-f35b74541ae1.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. A narrow cave passage lined with small rose quartz crystal seams among broken rock, subtle pink glimmer."
+    },
+    {
+      "id": "underground_sm_road_passage",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-676bc493-7792-4c6e-8c78-63156e2c64f6.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. A broad rough underground passage with a few stalagmites, a small inert stone vent and separate dark floor openings."
+    },
+    {
+      "id": "underground_depth2_rock_scatter",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-8c5b9c51-7a0b-4d4a-837c-310b598c0578.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. Sparse small rose quartz and violet amethyst clusters scattered among ordinary cave rocks, no other gems."
+    },
+    {
+      "id": "underground_bone_gallery",
+      "source": "/home/claude/.codex/generated_images/01a105df-5005-75a2-af8a-991ee75463db/exec-669566f5-6005-4433-a2f6-6cf9ba578162.png",
+      "prompt": "Detailed 16-bit pixel art storybook illustration for Dragon Hood, a medieval village rebuilding RPG, crisp SNES pixel clusters and visible dithering, restrained brown rock, cream highlights, subtle amber torchlight and cool subterranean shadows. PORTRAIT 11:14 frame, subject large across TOP 40 percent ONLY, lower 60 percent completely empty dark quiet cave ground with no objects or fine detail, for overlaid dialog copy. No text, letters, UI, watermark, or modern machinery. A cave passage with clustered pale dry animal bones and skulls and an ominous bulky creature shadow deep beyond. No gore."
+    }
+  ]
+}

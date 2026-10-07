@@ -530,6 +530,17 @@ test('shop source: no NEW unseeded randomness creeps into the offer path', () =>
     assert.eq(only.askId, 'gem', 'no fairer item exists, so the dear one is the fallback');
   });
 
+  test('traderAsk: ineligible gear is excluded from owned and wishlist payments', () => {
+    for (const roll of [0, 0.99]) {
+      const ask = ShopsMath.traderAsk(base({
+        rng: () => roll, inv: [{ id: 'gear', count: 10 }],
+        prices: { gear: 54, carrot: 10 }, isItem: id => id !== 'gear',
+      }));
+      assert.eq(ask.askId, 'carrot');
+      assert.eq(ask.askQty, 6);
+    }
+  });
+
   test('traderAsk: never asks for the item it gives', () => {
     for (let i = 0; i < 200; i++) {
       const a = ShopsMath.traderAsk(base({ rng: seeded(i), giveId: 'carrot' }));

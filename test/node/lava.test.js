@@ -33,11 +33,12 @@ test('lava: level 5 turns BUILDING rock to lava — not road or water rock, and 
     for (let d = 1; d <= 6; d++) lv[d] = await WorldGen.loadTile.atDepth(d, tx, ty, lat);
     for (const i of [HOUSE, SHOP, CIVIC]) {
       assert.eq(lv[5].grid[i], T.CAVE_LAVA, `building cell ${i} is lava on level 5`);
-      for (const d of [1, 2, 3, 4, 6]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `and rock on level ${d}`);
+      for (const d of [1, 2, 4, 6]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `and rock on level ${d}`);
     }
     for (const i of [ROAD, POND]) {
-      for (let d = 1; d <= 6; d++) assert.eq(lv[d].grid[i], T.CAVE_WALL, `road/water cell ${i} is rock on level ${d}`);
+      for (const d of [1, 2, 4, 5, 6]) assert.eq(lv[d].grid[i], T.CAVE_WALL, `road/water cell ${i} is rock on level ${d}`);
     }
+    assert.truthy([...lv[3].grid].every(t => t === T.CAVE_FLOOR), 'Underdark has no walls');
     let lava = 0;
     for (let i = 0; i < n * n; i++) if (lv[5].grid[i] === T.CAVE_LAVA) lava++;
     assert.eq(lava, 3, 'exactly the three building cells');
@@ -133,7 +134,7 @@ test('lava: surface vents respect enemy immunity, pets and the shared burn coold
     _damageEnemy: (c, damage, source) => { hurt.push({c, damage, source}); return false; }};
   const mortal = {kind: 'skeleton'};
   lavaTick(scene, {kind: 'red_demon'}, 1000);
-  lavaTick(scene, {kind: 'slime', id: 'released_slime_1'}, 1000);
+  lavaTick(scene, {kind: 'slime', pet: true, id: 'released_slime_1'}, 1000);
   lavaTick(scene, {kind: 'skeleton', fireResistancePotionUntil: Date.now() + 180000}, 1000);
   lavaTick(scene, mortal, 1000); lavaTick(scene, mortal, 1100);
   assert.eq(hurt.length, 1); assert.eq(hurt[0].source, 'lava');

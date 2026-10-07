@@ -67,13 +67,9 @@
     const initialOccupied = new Set(occ);
     const position = (ix, iy) => [cx(ix), cy(iy)];
     const states = (field.anchors || []).map((a, ai) => {
-      const variant = V.pick(a), unit = WG.CELL_M / (a.upm || N * WG.CELL_M / EXT);
-      const gx = a.originGX == null ? a.gx : a.originGX, gy = a.originGY == null ? a.gy : a.originGY;
-      const ownerX = Math.floor(gx / EXT), ownerY = Math.floor(gy / EXT);
-      const originX = ownerX * EXT + (Math.floor((gx - ownerX * EXT) / unit) + 0.5) * unit;
-      const originY = ownerY * EXT + (Math.floor((gy - ownerY * EXT) / unit) + 0.5) * unit;
+      const variant = V.pick(a);
+      const { unit, originX, originY, local } = V.anchorFrame(a, { N, tx, ty });
       const chest = a.owned && !a.parkShore && !a.generated && !variant.generated ? chests.get(`${a.lx},${a.ly}`) : null;
-      const local = (x, y) => [Math.floor((x - tx * EXT) * N / EXT), Math.floor((y - ty * EXT) * N / EXT)];
       let poi = local(originX, originY);
       if (chest) poi = [Math.floor((chest.x - ox) / step), Math.floor((chest.y - oy) / step)];
       const source = local(a.gx, a.gy);
@@ -165,6 +161,16 @@
         if (m.deposit) extra.deposit = m.deposit;
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
+        if (m.kind === 'mineralrock' && m.deposit && s.a.kind === 'quarry') {
+          extra.quarryId = `${s.a.gx},${s.a.gy}`;
+          extra.deposit = quarryGemDeposit(extra.quarryId);
+          // The site's old sapphire-only frame override cannot repaint a
+          // newly assigned gem; the deposit registry owns its appearance.
+          delete extra._zoneObjectFrame;
+          const gem = GEM_DEPOSITS[extra.deposit];
+          extra.yieldTier = gem.yieldTier;
+          extra.requiredTier = gem.requiredTier;
+        }
         if (m.rockVariant) extra.rockVariant = root.SpriteLayout ? root.SpriteLayout[m.rockVariant] : 3;
         record = WG.makeObject(m.kind, x, y, id, extra); out.objects.push(record);
         if (m.kind === 'tar' || m.kind === 'stakes') out.slowCells.set(i, m.kind);
@@ -216,10 +222,8 @@
       s.clear.add(wreck.originalIndex);
       out.reservedCells = out.reservedCells || new Set();
       for (const i of wreck.reserved) { occ.add(i); s.clear.add(i); out.reservedCells.add(i); }
-      // One ordinary, one-time chest sits inside the hull beside its daily POI.
-      // The wreck art faces a fixed direction, regardless of the shoreline.
-      // Seat near the back of the front cell, inside the open hull, while
-      // retaining a separate occupied cell from the daily shrine.
+      // One ordinary, one-time chest sits inside the open hull beside its
+      // daily site and keeps a separately occupied cell.
       const ix = s.poi[0], iy = s.poi[1] + 1, [x, y] = position(ix, iy - 0.45);
       out.objects.push(WG.makeObject('chest', x, y, `wreck_chest_${s.a.gx}_${s.a.gy}`,
         { tierSeed: WRECK_CHEST_TIER, zoneKind: s.a.kind, zoneVariant: s.variant.id,

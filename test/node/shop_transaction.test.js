@@ -13,6 +13,7 @@
     const scene = {
       save: { money: 20, inv: [], relics: {}, selSlot: -1 },
       addToInv, _finishInventoryChange: finish, _settleDeal: settle,
+      marketTheme: () => ({ tier: 1 }), shopRng: () => () => 0,
       _shopBagSpaceReason: method('_shopBagSpaceReason'),
       invDisplayEntriesForCat() { return this.save.inv.map((entry, idx) => ({ entry, idx })); },
       buildInventoryDOM() {
@@ -40,6 +41,7 @@
     const scene = {
       save: { money: 20, inv: [{ id: 'potato', count: 9 }], relics: {}, selSlot: -1 },
       addToInv, _finishInventoryChange: finish, _settleDeal: settle,
+      marketTheme: () => ({ tier: 1 }), shopRng: () => () => 0,
       _shopBagSpaceReason: method('_shopBagSpaceReason'),
       invRoomFor(id) { return Inventory.roomFor(this.save, id); },
       buildShopOffer() {

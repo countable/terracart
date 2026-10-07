@@ -39,28 +39,22 @@
     // name, with a name to print.
     // (Less a row that says `board: false` — the zone-only fire slime.)
     for (const kind of Object.keys(MONSTERS)) {
-      if (!Combat.onQuestBoard(kind)) { assert.falsy(QUEST_ENEMIES.includes(kind), kind + ' is kept off the board'); continue; }
-      assert.includes(QUEST_ENEMIES, kind, kind + ' is a quest target');
+      if (!Combat.onQuestBoard(kind)) { assert.falsy(questEnemies().includes(kind), kind + ' is kept off the board'); continue; }
+      assert.includes(questEnemies(), kind, kind + ' is a quest target');
     }
     for (const kind of giantKinds) {
-      assert.falsy(QUEST_ENEMIES.includes(kind), kind + ' remains compatible but no new quest requests it');
+      assert.falsy(questEnemies().includes(kind), kind + ' remains compatible but no new quest requests it');
       assert.truthy(Combat.monster(kind), 'saved discoveries and kills still resolve');
     }
-    for (let g = 0; g < 200; g++) {
-      const q = Quests.generate(g % QUEST_SLOTS, g + 3, 100, 11);
-      if (q.verb === 'kill') {
-        assert.falsy(EnemyRoster.get(q.target)?.retired, 'new quests never require a retired enemy');
-        assert.falsy(/undefined/.test(q.body), 'the enemy has a name');
-      }
-    }
-    // Rank 0 still opens with the surface slime only.
-    for (let g = 3; g < 40; g++) {
-      const q = Quests.generate(g % QUEST_SLOTS, g, 0, 11);
-      if (q.verb === 'kill') assert.eq(q.target, 'slime', 'rank 0 asks for the surface slime');
+    const assigned = {};
+    for (let g = 0; g < questEnemies().length; g++) {
+      const q = Quests.assign(assigned, `castle-${g}`, 'bastion');
+      assert.falsy(EnemyRoster.get(q.target)?.retired, 'new quests never require a retired enemy');
+      assert.falsy(/undefined/.test(q.body), 'the enemy has a name');
     }
     // No cross-credit either way.
-    const save = { quests: { slots: [], gen: 0, done: 0 }, relicSalt: 1 };
-    const q = Quests.board(save)[0];
+    const save = {};
+    const q = Quests.assign(save, 'first', 'bastion');
     q.verb = 'kill'; q.event = 'kill'; q.target = 'goblin'; q.need = 2; q.have = 0;
     assert.falsy(Quests.onKill(save, 'giant_goblin'), 'a giant goblin is not a goblin');
     assert.eq(q.have, 0, 'no credit');
@@ -86,7 +80,7 @@
       'a giant goblin draws the goblin sheet');
     assert.eq(SpriteLayout.creatureFrames('giant_goblin'), SpriteLayout.creatureFrames('goblin'),
       'and runs the same cycle');
-    assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(render),
+    assert.truthy(/const baseSheet = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(render),
       'render.js picks the sheet from the table');
     assert.truthy(/CRITTER_SHADOW_W\[baseKind\(c\.kind\)\] \|\| 18\) \* giantMul\(c\.kind\)/.test(render),
       'the shadow follows the giant scale');
@@ -107,6 +101,6 @@
       assert.eq(s.top, anchor - (a.foot * a.fh - a.minY) * a.scale - hop, kind + ' tap top = art crown (+ hop)');
       assert.eq(s.bottom, anchor + (a.maxY - a.foot * a.fh) * a.scale, kind + ' tap bottom = art bottom row');
     }
-    assert.truthy(/const halfW = \(HALF_W\[bk\] \?\? 2\.0\) \* gMul;/.test(interact), 'and so is its half-width');
+    assert.truthy(/const halfW = \(HALF_W\[bk\] \?\? 2\.0\) \* gMul \+ TAP_PAD_M;/.test(interact), 'and so is its half-width');
   });
 })();

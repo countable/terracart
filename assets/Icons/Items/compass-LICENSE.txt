@@ -1,0 +1,7 @@
+Compass.png (compass.png)
+Unmodified item_compass.png from 16x16 RPG Items (DB32).
+Author: ARoachIFoundOnMyPillow
+License: CC0 1.0
+Source: https://opengameart.org/content/16x16-rpg-items-db32
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Copied from docs/art/proposal-art/round2/grass_rare_item_compass.png.

@@ -74,6 +74,21 @@ test('tilled bed: the pad is opaque soil and the furrows are clipped to it', () 
   assert.truthy(restoreAt > clipAt, 'the clip is restored');
 });
 
+test('tilled bed: shallow far wall and near lip stay inside the bed clip', () => {
+  const { ctx, ops } = recorder();
+  T.drawTilledTex(ctx, SIZE, T.seededRand(7919));
+  const clipAt = ops.findIndex(([k]) => k === 'clip');
+  const restoreAt = ops.findIndex(([k]) => k === 'restore');
+  const wallAt = ops.findIndex(([k, ink]) => k === 'set:fillStyle' && ink === '#715333');
+  assert.truthy(wallAt > clipAt && wallAt < restoreAt, 'far wall uses the bed clip');
+  assert.eq(JSON.stringify(ops[wallAt + 1]), JSON.stringify(['fillRect', 2, 2, 28, 2]),
+    'exposed far soil face is two logical pixels deep');
+  assert.eq(JSON.stringify(ops[wallAt + 3]), JSON.stringify(['fillRect', 2, 4, 28, 1]),
+    'contact seam follows the far face');
+  assert.eq(JSON.stringify(ops[wallAt + 5]), JSON.stringify(['fillRect', 2, 29, 28, 1]),
+    'near lip stays inside the original bed footprint');
+});
+
 test('tilled bed: render.js paints no soil fill and no rounded path for a tilled cell', () => {
   const src = RENDER_SRC;
   assert.truthy(!/TILLED_COLOR/.test(src), 'render.js no longer reaches for TILLED_COLOR');

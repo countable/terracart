@@ -60,12 +60,13 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
   assert.falsy(Shops.themedStock('potion', 6).includes('elixir'), 'Elixir waits for T7');
   assert.truthy(Shops.themedStock('potion', 7).includes('elixir'), 'T7 magic shop stocks Elixir');
   assert.falsy(Shops.THEME_POOL.potion().includes('orb'), 'Orb is reward-only');
-  // A pet shop stocks every pet across its rounds.
+  // Pet shops sell accessories; ownership always starts with food and catching.
   const pets = new Set();
   for (let tier = 1; tier <= 7; tier++) for (const id of Shops.themedStock('pet', tier)) pets.add(id);
-  for (const id of ['chicken', 'cow', 'cat', 'dog', 'deer', 'rabbit', 'crow', 'butterfly']) {
+  for (const id of ['pet_collar', 'pet_guard_collar', 'pet_fang_charm', 'pet_rest_charm']) {
     assert.truthy(pets.has(id), 'the pet shop sells ' + id);
   }
+  for (const id of pets) assert.falsy(ITEM_BY_ID[id].kind === 'animal', 'no live pet sales');
   // The magical flower seeds stay find-only.
   for (let tier = 1; tier <= 7; tier++) {
     for (const id of Shops.themedStock('seed', tier)) assert.truthy(BUY_LIST.includes(id), id + ' is a shop seed');
@@ -75,10 +76,10 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
 
 test('themed shops: the pick is off the caller\'s seeded rng', () => {
   const seq = (v) => () => v;
-  const stock = Shops.themedStock('potion', 4);
+  const stock = Shops.themedStock('supply', 1);
   assert.gt(stock.length, 1, 'a tier with a choice');
-  assert.eq(Shops.pickThemed('potion', 4, seq(0)), stock[0]);
-  assert.eq(Shops.pickThemed('potion', 4, seq(0.9999)), stock[stock.length - 1]);
+  assert.eq(Shops.pickThemed('supply', 1, seq(0)), stock[0]);
+  assert.eq(Shops.pickThemed('supply', 1, seq(0.9999)), stock[stock.length - 1]);
 });
 
 test('themed shops: the re-roll is $2, then ×1.5 rounded down — cheaper than the smith', () => {
@@ -128,7 +129,7 @@ test('themed shops: the wiring — the tap, the stock, the price and the re-roll
   assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(app), 'one resolver (lineFor — the bookshop override, then the cycle)');
   assert.truthy(/const rng = house\?\.id \? this\.shopRng\(house, 'theme'\) : Math\.random;/.test(app),
     'the stock holds for the hour on its own lane');
-  assert.truthy(/this\.buildShopOffer\(id, ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(app),
+  assert.truthy(/this\.buildShopOffer\(id, units \* ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(app),
     'priced by the shared markup off the list price (only the Book climbs)');
   assert.truthy(/\{ cost: ShopsMath\.themedRerollCost, peek: \(\) => this\.themedShopPick\(house\), current: id \}/.test(app),
     'the cheap re-roll moves the item on');
@@ -146,7 +147,7 @@ test('themed shops: no re-roll where the tier stocks one item', () => {
   const app = SCENE_SRC;
   assert.truthy(/secondary: this\._themedStockCount\(house\) > 1\s*\?\s*this\._makeRerollSecondary/.test(app),
     'the themed item offers its re-roll only when the stock has another item');
-  assert.truthy(/_themedStockCount\(house\) \{[\s\S]{0,200}?Shops\.themedStock\(theme, tier\)\.length/.test(app),
+  assert.truthy(/_themedStockCount\(house\) \{[\s\S]{0,200}?Shops\.themedOfferStock\(theme, tier\)\.length/.test(app),
     'counted off the same stock the pick draws from');
 });
 
@@ -172,4 +173,20 @@ test('themed shops: Potion of Taming and magic traps fill tier 3 supplies; drago
   assert.truthy(Shops.themedStock('potion', 4).includes('dragon_powder'));
   assert.falsy(Shops.themedStock('potion', 3).includes('dragon_powder'));
   assert.falsy(Shops.THEME_POOL.supply().includes('dragon_powder'));
+});
+test('themed shops: lower-tier batches share the shelf and quantities remain seeded', () => {
+  for (const theme of ['seed', 'supply', 'potion']) {
+    for (let tier = 2; tier <= 7; tier++) {
+      const lower = Shops.batchStock(theme, tier);
+      if (!lower.length) continue;
+      const id = Shops.pickThemed(theme, tier, () => 0);
+      assert.eq(Shops.itemTier(id), tier - 1);
+      assert.eq(Shops.themedQuantity(id, tier, () => 0), 2);
+      assert.eq(Shops.themedQuantity(id, tier, () => 0.999), 4);
+      assert.truthy(Shops.themedOfferStock(theme, tier).includes(id));
+      const current = Shops.pickThemed(theme, tier, () => 0.999);
+      assert.truthy(Shops.themedStock(theme, tier).includes(current));
+    }
+  }
+  assert.eq(Shops.themedQuantity('torch', 1, () => 0), 1);
 });

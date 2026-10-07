@@ -225,7 +225,7 @@ test('the literal spellings are gone from the readers', () => {
     // and the gate post. + the scenic viewpoint's scope.)
     const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well',
                       '_scarecrow', '_fire', 'torch', 'waystone', 'stakes',
-                      'headstone', 'grove_shrine', 'infoboard', 'gatepost', 'vista_scope'];
+                      'headstone', 'grove_shrine', 'hive', 'infoboard', 'gatepost', 'vista_scope'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);
     for (const k of ['house', 'tower', 'groundstack', 'staircase']) {
       assert.falsy(flagged.has(k), `${k} does not`);

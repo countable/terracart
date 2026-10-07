@@ -87,7 +87,7 @@ test('floor torches: rolled LAST, so no level already walked rearranges', () => 
   const start = src.indexOf('async function loadCaveTile(');
   const body = src.slice(start, src.indexOf('\n  }\n', start));
   assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(body), 'loadCaveTile lays the table (CAVE_PASSES) in order');
-  assert.truthy(/const level = cavePassLevel\(grid, N, x, y, tileEdgeM, depth, occupied, \{ objects, wildplants \}\);/.test(body),
+  assert.truthy(/const level = cavePassLevel\(grid, N, x, y, tileEdgeM, depth, ambientOccupied, \{ objects, wildplants \}\);/.test(body),
     'into the level\'s wildplants');
   const order = WorldGen.CAVE_PASSES.map(r => r.id);
   const at = order.indexOf('floorTorches');
