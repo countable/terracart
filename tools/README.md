@@ -45,10 +45,18 @@ Serve the repository with `python3 -m http.server 8000`, then open a page under
 | Pages | Purpose |
 | --- | --- |
 | `map-review.html`, `map-distribution.html`, `building-poly-preview.html` | World placement, zone distribution and building geometry. |
+| `floor-viewer.html` | Synthetic region through live surface coverage, nexus dressing and cave generation. |
 | `world-art.html`, `enemy-preview.html`, `monster-roster.html`, `poi-preview.html` | World objects, creature art and points of interest. |
 | `items.html`, `balancing.html`, `treasure-balancing.html` | Item catalog, economy and treasure comparisons. |
 | `foliage_audit.html`, `map_art_dashboard.html`, `sandbox_art_comparison.html` | Art-review surfaces. |
 | `compass-test.html` | Compass behavior. |
+
+In `floor-viewer.html`, the variant buttons wrap through the selected floor’s
+nexus catalog and rebuild the region with that choice. Natural selection uses
+the normal seeded picks. Surface choices apply to the matching nexus kind;
+cave choices come from that floor’s profile. Floors without authored nexus
+variants disable the buttons. Proposed mode uses the displayed source floor’s
+catalog. Placement still obeys the live spawn gates and available space.
 
 Adjacent JavaScript and CSS files support these pages. Shared helpers include
 `game-loader.js`, `balance-common.js`, `sortable-tables.js` and the catalog data

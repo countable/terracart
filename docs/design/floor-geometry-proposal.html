@@ -19,7 +19,8 @@
   code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: #efe8d8; padding: 0 4px; border-radius: 3px; }
   .pid { font-weight: bold; white-space: nowrap; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
   .f1 { background: #e8f0e4; } .f2 { background: #f4ead8; } .f3 { background: #e4ecf0; } .f4 { background: #ece4f0; }
-  .f5 { background: #e6e6ec; } .f6 { background: #f3e2dd; } .f78 { background: #f0e8d4; }
+  .f5 { background: #e6e6ec; } .f6 { background: #f3e2dd; } .f78 { background: #f0e8d4; } .f0 { background: #eef3e8; }
+  .na { color: #9a917e; } .na::before { content: "\2013"; } .na::after { content: " N/A"; font-size: 10.5px; letter-spacing: .03em; }
   .floorcell { font-weight: bold; white-space: nowrap; }
   .yes { color: #4c6b34; font-weight: bold; }
   .pick { color: #a05a2c; font-weight: bold; }
@@ -79,46 +80,63 @@ Every row below needs one word from you ("yes", or your edit). Defaults are chos
 </table>
 
 <h2>The floor x input grid</h2>
-<p class="muted">Which surface evidence each floor recognizes, and where it is still open. <b>&#10003;</b> decided and shipped &middot; <b>T</b> decided, ships with the rework &middot; <b>P#</b> open proposal &middot; <b>&mdash;</b> not recognized (or wall by default).</p>
+<p class="muted"><b>&#10003;</b> decided and shipped &middot; <b>T</b> decided, ships with the rework &middot; <b>P#</b> open proposal &middot; <span class="na"></span> not using that mechanism on this floor (say the word and one becomes a proposal).</p>
+<details><summary>What each column means</summary><div class="body">
+<table>
+<tbody>
+<tr><td style="width:160px"><b>Landcover</b></td><td>The land-use grid each tile paints from OSM - grass, forest, park, grove, playground, pitch, commercial, farmland, sand, water, road, buildings - dressed through per-zone scatter/fill definitions. This is the "terrain paint"; same thing as landcover. It applies on every floor the same way; the per-floor entries below are that floor's terrain overrides and exceptions.</td></tr>
+<tr><td><b>Roads</b></td><td>Drawn carriageway bands by class (the road mask, Streets) - distinct from the painted road cells.</td></tr>
+<tr><td><b>Buildings</b></td><td>Footprint polygons - sprites, moats and lairs above; walls, ruins or lava below.</td></tr>
+<tr><td><b>Nexus anchors</b></td><td>The zone system's anchor points (groves, quarries) where authored cave areas claim ground.</td></tr>
+<tr><td><b>POIs</b></td><td>Mapped places - the chests that mirror down, and the torch seats.</td></tr>
+<tr><td><b>Road variants</b></td><td>StreetVariants corridors - authored cross-sections like thorny paths and barricade roads; surface-only today.</td></tr>
+<tr><td><b>Paths &amp; streets</b></td><td>OSM footpaths and minor streets - the lines the street mirror projects underground as themed routes (floors 1-2).</td></tr>
+<tr><td><b>Spawn gate</b></td><td>The rules deciding where anything may spawn - inherited farmland/golf exclusions, the road mask, land-access classes. Every floor re-derives it from immutable surface evidence.</td></tr>
+<tr><td><b>Water</b></td><td>Pools, lakes and river paint.</td></tr>
+<tr><td><b>Authored areas</b></td><td>cave_areas DEPTH_WEIGHTS room complexes - spring, goblin warrens, mushroom, gemstone, mine tunnels.</td></tr>
+<tr><td><b>Habitat regions</b></td><td>Per-depth foe regions (EnemyHabitats) - each region rolls a theme that picks foe families; floor 8 seats roosts on them.</td></tr>
+<tr><td><b>Above-floor objects</b></td><td>What the floor inherits from the one above: stairs, ground holes, mirrored caches, quarry seams.</td></tr>
+</tbody>
+</table>
+</div></details>
 <table>
 <thead><tr>
-  <th>Floor</th><th>Terrain paint</th><th>Roads</th><th>Buildings</th><th>Nexus anchors</th><th>POIs</th><th>Road variants</th><th>Transp. lines</th><th>Spawn gate</th><th>Water</th><th>Authored areas</th><th>Above-floor objects</th>
+  <th>Floor</th><th>Landcover</th><th>Roads</th><th>Buildings</th><th>Nexus anchors</th><th>POIs</th><th>Road variants</th><th>Paths &amp; streets</th><th>Spawn gate</th><th>Water</th><th>Authored areas</th><th>Habitat regions</th><th>Above-floor objects</th>
 </tr></thead>
 <tbody>
-<tr><td class="floorcell f1">1 - caves</td><td>&#10003; above</td><td>&#10003; mirror</td><td>&mdash;</td><td>&#10003; areas</td><td>&#10003; chests + torches</td><td>&mdash;</td><td>&#10003; routes</td><td>&#10003;</td><td>&mdash;</td><td>&#10003; warrens etc.</td><td>&#10003; holes, quarry</td></tr>
-<tr><td class="floorcell f2">2 - goblin city</td><td>T city mode</td><td>T open streets</td><td>T only walls</td><td>P2 clearings</td><td>P4 in clearings</td><td>P2 clearings</td><td>&#10003; + P1 corridors</td><td>&#10003;</td><td>P3</td><td>P1 full-floor warrens</td><td>&#10003; landings</td></tr>
-<tr><td class="floorcell f3">3 - deep stone</td><td>&#10003; clearings (shifts to 3)</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; settlements</td><td>&#10003; chests</td><td>P7 tunnels</td><td>&mdash;</td><td>&#10003; npc gate</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; stairs, mirrors</td></tr>
-<tr><td class="floorcell f4">4 - fungal</td><td>&#10003; open + P9 beds</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; portal stone, T6</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
-<tr><td class="floorcell f5">5 - dead city</td><td>&#10003; surface mirror</td><td>P13 pavement</td><td>P12 ruins</td><td>&mdash;</td><td>P13 graves, P14 hatch</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
-<tr><td class="floorcell f6">6 - lava</td><td>&#10003; above + lava</td><td>&mdash;</td><td>&#10003; become lava</td><td>&mdash;</td><td>&#10003; chests</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>P16</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
-<tr><td class="floorcell f78">7 - hunting grounds</td><td>&#10003; above mirror</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; T7 chests</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
-<tr><td class="floorcell f78">8 - roosts</td><td>&#10003; above mirror</td><td>&mdash;</td><td>&mdash;</td><td>P18 roost seats</td><td>&#10003; + P18 hoards</td><td>&mdash;</td><td>&mdash;</td><td>&#10003;</td><td>&mdash;</td><td>&mdash;</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f0">0 - surface</td><td>&#10003; per zone scatter/fill definitions</td><td>&#10003; bands, lamps, restore</td><td>&#10003; sprites, lairs</td><td>&#10003; zone dressing</td><td>&#10003; the layer itself</td><td>&#10003; the only home</td><td>&#10003; streets, trails</td><td>&#10003; the full gate</td><td>&#10003;</td><td class="na"></td><td class="na"></td><td class="na"></td></tr>
+<tr><td class="floorcell f1">1 - caves</td><td>&#10003; above</td><td>&#10003; mirror</td><td class="na"></td><td>&#10003; areas</td><td>&#10003; chests + torches</td><td class="na"></td><td>&#10003; routes</td><td>&#10003;</td><td class="na"></td><td>&#10003; warrens etc.</td><td>&#10003; foe themes</td><td>&#10003; holes, quarry</td></tr>
+<tr><td class="floorcell f2">2 - goblin city</td><td>T city mode</td><td>T open streets</td><td>T only walls</td><td>P2 clearings</td><td>P4 in clearings</td><td>P2 clearings</td><td>&#10003; + P1 corridors</td><td>&#10003;</td><td>P3</td><td>P1 full-floor warrens</td><td>&#10003; foe themes</td><td>&#10003; landings</td></tr>
+<tr><td class="floorcell f3">3 - deep stone</td><td>&#10003; clearings + settlements (shifts to 3)</td><td>P7 tunnels</td><td class="na"></td><td class="na"></td><td>&#10003; chests</td><td class="na"></td><td class="na"></td><td>&#10003; npc gate</td><td class="na"></td><td class="na"></td><td>&#10003; foe themes</td><td>&#10003; stairs, mirrors</td></tr>
+<tr><td class="floorcell f4">4 - fungal</td><td>&#10003; open + P9 beds</td><td class="na"></td><td class="na"></td><td class="na"></td><td>&#10003; portal stone, T6</td><td class="na"></td><td class="na"></td><td>&#10003;</td><td class="na"></td><td class="na"></td><td>&#10003; foe themes</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f5">5 - dead city</td><td>&#10003; surface mirror</td><td>P13 pavement</td><td>P12 ruins</td><td class="na"></td><td>P13 graves, P14 hatch</td><td class="na"></td><td class="na"></td><td>&#10003;</td><td class="na"></td><td class="na"></td><td>&#10003; foe themes</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f6">6 - lava</td><td>&#10003; above + lava</td><td class="na"></td><td>&#10003; become lava</td><td class="na"></td><td>&#10003; chests</td><td class="na"></td><td class="na"></td><td>&#10003;</td><td>P16</td><td class="na"></td><td>&#10003; foe themes</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f78">7 - hunting grounds</td><td>&#10003; above mirror</td><td class="na"></td><td class="na"></td><td class="na"></td><td>&#10003; T7 chests</td><td class="na"></td><td class="na"></td><td>&#10003;</td><td class="na"></td><td class="na"></td><td>&#10003; foe themes</td><td>&#10003; mirrors</td></tr>
+<tr><td class="floorcell f78">8 - roosts</td><td>&#10003; above mirror</td><td class="na"></td><td class="na"></td><td class="na"></td><td>&#10003; + P18 hoards</td><td class="na"></td><td class="na"></td><td>&#10003;</td><td class="na"></td><td class="na"></td><td>&#10003; + P18 roost seats</td><td>&#10003; mirrors</td></tr>
 </tbody>
 </table>
 
-<h2>Floor notes</h2>
-<details open><summary>Floor 1 - natural caves (decided; nothing to confirm)</summary><div class="body">
-Recognizes terrain paint (negative mirror), roads (street mirror + gate), nexus anchors (spring / goblin warren / mushroom / gemstone areas at groves, mine tunnels at quarries), POIs (chest mirrors, torch seats), transportation lines (themed routes), the spawn gate, and above-floor objects (holes fall to floor 2, quarry seams stamp down). Everything shipped.
-</div></details>
-<details><summary>Floor 2 - goblin city (P1-P4)</summary><div class="body">
-Buildings are the only walls; roads stay open. Warren rooms exist today as anchor-local nexus areas (goblin weight 45 at depth 2, budget 16); P1 extends them to full-floor coverage with the street mirror as the corridor net. Theme and foes decided (floors.md): the warren family, city window 2-3.
-</div></details>
-<details><summary>Floor 3 - deep stone (P6-P8)</summary><div class="body">
-The clearings mode ships today at depth 2 and shifts to 3 with the rework: park / grove / playground / pitch / commercial ground opens and seeds Deep groves and Dwarven cities. Digging is the way around (P6); about half the roads clear as tunnels (P7); the down shaft to floor 4 is dug open at a soft-stratum seam (P8).
-</div></details>
-<details><summary>Floor 4 - fungal Underdark (P9-P11)</summary><div class="body">
-Open mode (shipped at depth 3 today, shifts to 4). The portal stone waits here (T4+ chest a kilometre out), chest tiers first reach T6, crypt ghosts appear. Fungal beds follow the surface woods (P9), spore vents (P10), mushroom monsters join at window 4-5 (P11).
-</div></details>
-<details><summary>Floor 5 - haunted dead city (P12-P15)</summary><div class="body">
-The surface-mirror mode (shipped at depth 4 today, shifts to 5): the city above repeated in ruin. Entry through the arena hatches only (P14 seats them); gravestone caches and cracked pavement (P13); ruins stay solid-walled for now (P12); the haunt is constant (P15).
-</div></details>
-<details><summary>Floor 6 - lava stratum (P16-P17)</summary><div class="body">
-The above mirror plus lava under surface buildings (shipped at depth 5 today, shifts to 6). Infernals enter, fire elementals appear only here. Water stays wall by default (P16); heat drains unless you stand near a cool crystal (P17).
-</div></details>
-<details><summary>Floors 7-8 - dragon layer (P18-P19)</summary><div class="body">
-Above-mirror recursion (the default profile row). First T7 chests and ghost growth at 7; ore reaches T7 at 8. The wizard-tower key gates 6 to 7. One roost per habitat region on 8 (P18); 7 reads as hunting grounds (P19).
-</div></details>
+<h2>Artistic setting and player experience</h2>
 
+<p class="muted">Draft for editing - what each floor should feel like and what it rewards. Mechanics live in the tables above; these notes own mood, tension and incentives.</p>
+
+<details><summary>Surface - the Mending Lane town</summary><div class="body"><p><b>Setting.</b> The Breaking's aftermath: overgrown streets, roofless houses, restoration scaffolds. Soft daylight; lamps returning street by street as the town heals.</p><p><b>Experience.</b> The peaceful baseline. Home's ring is safe, risk grows with distance, and combat stays optional. The pull is restoration - delivery wishlists, build cards, neighbours returning - with light foraging and shopping between.</p></div></details>
+
+<details><summary>Floor 1 - natural caves</summary><div class="body"><p><b>Setting.</b> Wet stone and dripping water; sconce light and the first torch in your hand. The mirror tunnels each have a mood - roots, seep, miners' marks, bone galleries.</p><p><b>Experience.</b> The friendly dark: the only floor where campfires keep monsters off, and a torch waits at the foot of every ladder. Spring caves and mushroom rings are the calm; bone galleries are the first real fright. Players learn light, first ore, and that pits are shortcuts with consequences.</p></div></details>
+
+<details><summary>Floor 2 - goblin city</summary><div class="body"><p><b>Setting.</b> A lamplit town under rock: carved facades, doors in the walls, stolen goods stacked in the warrens. The streets are open to the stone sky.</p><p><b>Experience.</b> A hostile civic maze with a rhythm of risk: streets are the watched arteries, warrens are the reward. Route choice is the play - dash the open road or clear the rooms for their caches. The elevator stop is the strategic prize; taking it holds the gate to everything below.</p></div></details>
+
+<details><summary>Floor 3 - deep stone</summary><div class="body"><p><b>Setting.</b> Black stone, dwarven lamps, pale groves glowing in the clearings, old worked faces where someone mined before you.</p><p><b>Experience.</b> Effort is the currency: every metre beyond a clearing is paid for in energy, so there are no casual dashes - preparation, food and a marked way out. Clearings are the rest stops, with residents, shrines and trade. Players who read the town above move smarter; ghosts keep the dark honest.</p></div></details>
+
+<details><summary>Floor 4 - fungal Underdark</summary><div class="body"><p><b>Setting.</b> One vast cavern under fungal light: blue-green glow, drifting spores, canopies you can walk beneath. The fungi are the torches; it is bright, by cave standards.</p><p><b>Experience.</b> Visibility cuts both ways - you see far, and are seen. The floor invites the long walk: the portal stone waits a kilometre out in a good chest, so exploration is the quest itself. Fungal beds are the calm forage; crypt pockets and vents spike the middle.</p></div></details>
+
+<details><summary>Floor 5 - the haunted dead city</summary><div class="body"><p><b>Setting.</b> Your own city, repeated in ruin and silence: cracked pavement, gravestones where the shops stood, cold ghost-light in familiar windows.</p><p><b>Experience.</b> Earned, not stumbled into - the trials hand it to you, and it plays on memory: you know these streets from above, which is an advantage and an unease at once. The haunt never relents, so the pattern is controlled clears and treasure search, not wandering. Gravestone caches and ghost bounties pay for the nerve.</p></div></details>
+
+<details><summary>Floor 6 - the lava stratum</summary><div class="body"><p><b>Setting.</b> Black rock and moving lava under the old footprints; ember light, heat shimmer, no place for a camp.</p><p><b>Experience.</b> The floor is the enemy: heat taxes every stop and fires refuse to light, so runs are short and purposeful. Cool crystals become the rest stops players fight over. Infernals pay well - the efficient-run floor for geared players.</p></div></details>
+
+<details><summary>Floor 7 - the dragon hunting grounds</summary><div class="body"><p><b>Setting.</b> Ash drifts and old bones; scale-glint in the dark. The wizard's hunters walk here too - this is where his lessons were meant to land.</p><p><b>Experience.</b> Apex-predator country: patrols punish wandering, and peace is what you carve, not what you find. The intended loop is hunt-craft: gear at the tower, track, engage, retreat. Dragon-kin bounties and the rungs toward floor 8 are the pull.</p></div></details>
+
+<details><summary>Floor 8 - the roosts</summary><div class="body"><p><b>Setting.</b> Vast lairs lit by hoard-glow: egg clutches, heaped treasure, a perched silhouette visible from across the cavern.</p><p><b>Experience.</b> The heist floor. The hoard is in sight, guarded, and stealable - greed against the sleeping thing, with an escape route you planned on the way in. The game's highest stakes: T7 hoards, deep ore, and the dragon story's stage.</p></div></details>
 <div class="foot">
 Source of truth: <a href="floor-geometry-proposal.md">floor-geometry-proposal.md</a> (full text per proposal) &middot; target catalog: <a href="floors.md">floors.md</a> &middot; inputs checklist: <a href="floor-design-review.html">floor-design-review.html</a>. Confirm rows by ID; defaults are chosen so "all yes" is coherent.
 </div>
