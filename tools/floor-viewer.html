@@ -237,33 +237,44 @@
         ctx.drawImage(assets.textures.get('biome' + type + '_' + (Math.abs(h) % spec.variants)).getSourceImage(),
           offX + x * s, offY + y * s, s + .5, s + .5);
     }
-    // Roads, at their real widths, from the surface layer (surface view only).
+    // Roads, at their real widths and tier colours, from the surface layer
+    // (surface view only). Stroked straight from the drawn geometry so the
+    // width tiers read plainly: primary 15 m, secondary 9 m, minor 5.5 m,
+    // footway 2 m (roadWidthM + the large-road scale).
     if (floor === 0) {
       ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       const roads = entry.layers.find(l => l.name === 'transportation');
-      for (const [fi, f] of (roads?.features || []).entries()) {
-        if (f.type !== 2 || W.isLotLane(f.tags) || W.classifyLine('transportation', f.tags) == null) continue;
+      const mvtToM = R.EDGE / (roads?.extent || 4096);
+      const TIER = { primary: '#9aa0ab', secondary: '#7c7d81', minor: '#5a5751', service: '#5a5751',
+        pedestrian: '#8b8272', track: '#a5947c', footway: '#b3a284', path: '#b3a284' };
+      const streets = [];
+      for (const f of (roads?.features || [])) {
+        if (f.type !== 2) continue;
         const width = W.roadOverlayWidthM(f.tags); if (!width) continue;
-        const mvtToM = R.EDGE / (roads.extent || 4096), isPath = W.PATH_CLASSES.has(f.tags?.class);
-        const [li, line] = [0, f.geom[0]];
-        for (const style of StreetVariants.lineStyles(entry, f, fi, li, mvtToM)) {
-          const pts = Streets.subLineM(line, mvtToM, style.a, style.b);
-          ctx.strokeStyle = isPath ? '#a5947c' : '#56524e';
-          ctx.lineWidth = Math.max(1.5, width / R.EDGE * (R.N * s));
+        const isPath = W.PATH_CLASSES.has(f.tags?.class);
+        if (!isPath && W.classifyLine('transportation', f.tags) == null) continue;
+        const stroke = line2D => {
+          ctx.strokeStyle = TIER[f.tags?.class] || (isPath ? '#b3a284' : '#5a5751');
+          ctx.lineWidth = Math.max(2, width / R.EDGE * (R.N * s));
           ctx.beginPath();
-          pts.forEach((p, i2) => { const x = offX + p.x / mvtToM / R.EDGE * R.N * s, y = offY + p.y / mvtToM / R.EDGE * R.N * s;
-            ctx[i2 ? 'lineTo' : 'moveTo'](x, y); });
+          line2D.forEach((p, i2) => {
+            const x = offX + p.x * mvtToM / R.EDGE * R.N * s, y = offY + p.y * mvtToM / R.EDGE * R.N * s;
+            ctx[i2 ? 'lineTo' : 'moveTo'](x, y);
+          });
           ctx.stroke();
-        }
+        };
+        stroke(f.geom[0]);
+        if (!isPath) streets.push(f.geom[0]);
       }
       // Variant highlight: the indexed street corridor.
-      const streets = (roads?.features || []).filter(f => f.type === 2 && !W.PATH_CLASSES.has(f.tags?.class));
       const chosen = streets[variantIndex % Math.max(1, streets.length)];
       if (chosen) {
-        ctx.strokeStyle = '#c7743f'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
+        ctx.strokeStyle = '#e08a4f'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]);
         ctx.beginPath();
-        chosen.geom[0].forEach((p, i2) => { const x = offX + p.x / (roads.extent || 4096) / R.EDGE * R.N * s,
-          y = offY + p.y / (roads.extent || 4096) / R.EDGE * R.N * s; ctx[i2 ? 'lineTo' : 'moveTo'](x, y); });
+        chosen.forEach((p, i2) => {
+          const x = offX + p.x * mvtToM / R.EDGE * R.N * s, y = offY + p.y * mvtToM / R.EDGE * R.N * s;
+          ctx[i2 ? 'lineTo' : 'moveTo'](x, y);
+        });
         ctx.stroke(); ctx.setLineDash([]);
       }
     }
