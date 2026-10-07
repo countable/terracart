@@ -1,6 +1,6 @@
 // The representative fake region for the floor viewer (and its smoke test):
-// one 64x64 tile of MVT-shaped layers - grass base, forest,
-// farmland, a residential grid with houses and a pitch, a commercial block,
+// one 50x50 tile of MVT-shaped layers - grass base, forest,
+// a parking lot, church, a residential grid with houses and a pitch, a commercial block,
 // streets of every size, a southeast lake with a 5-cell beach (partly
 // park-backed), a separate top-right park, and one nexus anchor of each kind
 // (grove, quarry, beach, tar pit, old stones).
@@ -8,7 +8,7 @@
 (function (root) {
   'use strict';
   const E = 4096;                       // MVT extent space
-  const N = 64;                         // cells per edge
+  const N = 50;                         // cells per edge
   const CELL = E / N;                   // extent units per cell
   const lat = 47.62;                    // a mid-latitude row for cave loading
   const EDGE = Math.round(N * 7);       // tile edge in metres (7 m cells)
@@ -24,17 +24,17 @@
   function makeLayers() {
     const landcover = [], landuse = [], transportation = [], building = [], poi = [], water = [];
 
-    // West strip, top to bottom: forest, farmland, pitch, quarry
+    // Reuse the west strip: forest, parking-lot quarry, pitch, then church.
     landcover.push(poly({ class: 'wood' }, [cellRect(1, 1, 8, 7)]));
-    landuse.push(poly({ class: 'farmland' }, [cellRect(1, 9, 9, 8)]));
+    landuse.push(poly({ class: 'parking' }, [cellRect(1, 9, 13, 11)]));
     landuse.push(poly({ class: 'pitch' }, [cellRect(1, 25, 9, 7)]));
-    landuse.push(poly({ class: 'quarry' }, [cellRect(1, 38, 8, 8)]));
-    poi.push(point({ class: 'fuel', subclass: 'fuel' }, 11, 18));   // tar pit, on the farmland edge
-    // Quarry nexuses come from parking aisles, not quarry landuse alone.
-    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[5, 42], [18, 42], [18, 56], [5, 56], [5, 42]]));
-    for (const y of [46, 50, 54])
-      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[5, y], [18, y]]));
-    poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 54, 53));
+    poi.push(point({ class: 'fuel', subclass: 'fuel' }, 12, 24));
+    // Parking aisles are the live quarry-nexus source.
+    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 10], [12, 10], [12, 18], [4, 18], [4, 10]]));
+    for (const y of [13, 16])
+      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [12, y]]));
+    building.push(poly({ building: 'church' }, [cellRect(3, 40, 3, 3)]));
+    poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 41));
 
     // North band: commercial block, then the separate top-right park
     landuse.push(poly({ class: 'commercial' }, [cellRect(15, 1, 13, 6)]));
@@ -42,9 +42,9 @@
     building.push(poly({ building: 'retail' }, [cellRect(23, 2, 4, 4)]));
     poi.push(point({ class: 'shop' }, 18, 3));
     poi.push(point({ class: 'shop' }, 25, 4));
-    // Leave a full spring-cave footprint clear beneath this grove.
-    landuse.push(poly({ class: 'park' }, [cellRect(40, 3, 23, 24)]));
-    poi.push(point({ class: 'park', subclass: 'park', name: 'Hilltop Park' }, 54, 12));
+    // Compact park; oversized cave layouts report their placement limits.
+    landuse.push(poly({ class: 'park' }, [cellRect(36, 1, 13, 8)]));
+    poi.push(point({ class: 'park', subclass: 'park', name: 'Hilltop Park' }, 42, 4));
 
     // Residential belt between the west strip and the primary road, with a
     // house grid that leaves the minor streets clear

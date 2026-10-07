@@ -315,10 +315,109 @@ def story_panel(row, helpers):
             f'<figcaption>{html.escape(story["body"])}</figcaption></figure>')
 
 
+def _maze_passages(layout):
+    """Match the layout lab's Mulberry32 DFS and dead-end braiding exactly."""
+    mask = 0xffffffff
+    state = layout['seed'] + 47291
+    def random():
+        nonlocal state
+        state = (state + 0x6D2B79F5) & mask
+        t = ((state ^ (state >> 15)) * (state | 1)) & mask
+        t ^= (t + (((t ^ (t >> 7)) * (t | 61)) & mask)) & mask
+        return ((t ^ (t >> 14)) & mask) / 4294967296
+    width, height = layout['extentCells']
+    step = layout['mazeStep']
+    cols, rows = (width-3)//step+1, (height-3)//step+1
+    total = cols*rows
+    def coord(i):
+        return (1+(i%cols)*step, 1+(i//cols)*step)
+    def neighbors(i):
+        x,y = i%cols,i//cols
+        return ([i-1] if x else []) + ([i+1] if x<cols-1 else []) + ([i-cols] if y else []) + ([i+cols] if y<rows-1 else [])
+    cells, links, degree = set(), set(), [0]*total
+    def join(a,b):
+        x,y = coord(a)
+        tx,ty = coord(b)
+        cells.add((x,y))
+        while (x,y)!=(tx,ty):
+            x += (tx>x)-(tx<x)
+            y += (ty>y)-(ty<y)
+            cells.add((x,y))
+        links.add(tuple(sorted((a,b))))
+        degree[a]+=1
+        degree[b]+=1
+    start = int(random()*total)
+    seen, stack = {start}, [start]
+    cells.add(coord(start))
+    while stack:
+        a = stack[-1]
+        options = [b for b in neighbors(a) if b not in seen]
+        if not options:
+            stack.pop()
+            continue
+        b = options[int(random()*len(options))]
+        seen.add(b)
+        join(a,b)
+        stack.append(b)
+    for a in range(total):
+        if degree[a]!=1 or random()>=layout['loops']/100:
+            continue
+        options = [b for b in neighbors(a) if tuple(sorted((a,b))) not in links]
+        if options:
+            join(a,options[int(random()*len(options))])
+    return cells
+
+
+def _maze_card(row, data, helpers):
+    layout = row['layout']
+    width,height = layout['extentCells']
+    passages = _maze_passages(layout)
+    fx,fy = row['focus']['at']
+    reserved = {(x,y) for y in range(fy-1,fy+2) for x in range(fx-1,fx+2)}
+    rocks = passages - reserved
+    available = [(x,y) for y in range(2,height-2) for x in range(2,width-2)
+                 if (x,y) not in rocks and abs(x-fx)+abs(y-fy)>4]
+    seats = []
+    for target in [(5,5),(width-6,5),(5,height-6),(width-6,height-6),(fx,5),(fx,height-6)]:
+        seat = min((p for p in available if p not in seats),key=lambda p:(abs(p[0]-target[0])+abs(p[1]-target[1]),p[1],p[0]))
+        seats.append(seat)
+    views = []
+    for depth, reward in [(1,'shrine'),(2,'treasure')]:
+        prefix = f'underground-dungeon-maze-ground-{depth}'
+        svg = (f'<svg role="img" aria-label="Dungeon Maze floor {depth}: mineable cave walls, monsters and {reward}" viewBox="0 0 {width*10} {height*10}">'
+               + helpers['ground_pattern']('CAVE_FLOOR',prefix,10)
+               + f'<rect width="100%" height="100%" fill="url(#{prefix})"/>'
+                + helpers['ground_pattern']('CAVE_WALL',prefix+'-wall',10)
+               + '<g class="background">' + ''.join(f'<rect class="maze-rock-wall" data-maze-terrain="CAVE_WALL" x="{x*10}" y="{y*10}" width="10" height="10" fill="url(#{prefix}-wall)"><title>Mineable cave rock wall</title></rect>' for x,y in sorted(rocks,key=lambda p:(p[1],p[0]))) + '</g>')
+        kinds = row['encounterByDepth'][str(depth)]
+        for i,(x,y) in enumerate(seats):
+            svg += helpers['creature_at'](kinds[i%len(kinds)],(x+.5)*10,(y+.5)*10,10,f'Floor {depth} encounter in an open interior cell')
+        if reward == 'shrine':
+            shrine = helpers['art_registry']()['shrineKinds'][row['focus']['shrineKind']]
+            art = {'sheet':shrine['art'],'frames':[0]} if shrine.get('art') in helpers['art_registry']()['assets'] else {'sheet':'shrines','frames':[shrine['frame']]}
+        else:
+            art = {'sheet':'chest','frames':[0]}
+        svg += '<g class="poi-layer"><title>Grove focus · '+('shrine' if reward=='shrine' else 'T3 treasure')+' · one reward alternative</title>'
+        svg += helpers['art_image'](art,f'class="sprite-cell" x="{fx*10}" y="{fy*10}" width="10" height="10"')
+        svg += f'<rect class="geometry-cell" x="{fx*10+1}" y="{fy*10+1}" width="8" height="8" fill="#e6c779"/></g></svg>'
+        views.append('<figure>'+svg+f'<figcaption>Floor {depth} · '+('shrine example' if reward=='shrine' else 'T3 treasure example')+'</figcaption></figure>')
+    settings = 'types=configured&gx=34&gy=33&count=429&structure=100&distortion=0&variation=34&grouping=100&a=tree&b=none&c=none&d=none&e=none&points=false&guides=false&selection=density&inverted=false&clusterSize=true&decimation=0&mazeStep=3&loops=77&seed=2718&layouts=maze_braid&focus=maze_braid'
+    details = [('Source region',row['source']),('Depth','Proposed for cave levels 1 and 2.'),
+               ('Pattern',f'34 × 33 cells · spacing 3 · loops 77% · seed 2718. {len(rocks)} mineable cave-wall terrain cells after reserving a 3 × 3 focus clearing. Cave rock wall occupies the reference’s tree cells; the complementary spaces remain open. Mining can connect enclosed spaces.'),
+               ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters'])]
+    dl = ''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
+    return (f'<article id="underground-{row["id"]}"><header><small>Underground park nexus · draft · braided maze</small><h2>{row["name"]}</h2></header>'
+            + '<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">'+''.join(views)+'</div><p>Either reward alternative can occur on either floor. Cave-wall fill uses the linked maze; the grove focus is reserved first.</p>'
+            + f'<p>{html.escape(row["atmosphere"])}</p><p><a href="layout-lab.html#{html.escape(settings,quote=True)}">Open the source maze in Layout Lab</a></p><dl>{dl}</dl></article>')
+
+
 def underground_section(helpers, out):
     data = json.loads(SOURCE.read_text())
     cards = {'nexus': [], 'path': []}
     for row in data['previewRows']:
+        if row.get('layout', {}).get('type') == 'maze_braid':
+            cards[row['kind']].append(_maze_card(row,data,helpers))
+            continue
         if row.get('layout',{}).get('type') == 'concentric_rings':
             cards[row['kind']].append(_spring_card(row,data,helpers).replace('</header>', '</header>' + story_panel(row, helpers), 1))
             continue

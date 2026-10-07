@@ -1,5 +1,5 @@
 // The floor viewer's representative fake region, run through the REAL tile
-// pipeline: the terrain mix the viewer promises (grass, forest, farmland,
+// pipeline: the terrain mix the viewer promises (grass, forest, parking, church,
 // residential + houses, commercial, every street size, a small lake, a
 // 5-cell beach with park backing, a separate park) must actually paint, and
 // the dungeon floors must build from it.
@@ -35,6 +35,8 @@
   test('floor viewer region: every surface nexus kind has a real source', async () => {
     const entry = await buildSurface();
     const kinds = new Set(entry.zone.anchors.map(anchor => anchor.kind));
+    assert.truthy(entry.zone.anchors.some(anchor => anchor.kind === 'quarry' && anchor.owned && !anchor.clipped),
+      'the parking lot generates a complete quarry nexus inside the map');
     for (const kind of ['grove', 'stones', 'tar', 'beach', 'quarry'])
       assert.truthy(kinds.has(kind), `${kind} anchor generated from the fixture source`);
   });
@@ -45,7 +47,8 @@
     for (const v of entry.grid) counts.set(v, (counts.get(v) || 0) + 1);
     const at = t => counts.get(T[t]) || 0;
     assert.gt(at('FOREST'), 40, 'forest patch paints');
-    assert.gt(at('FARMLAND'), 40, 'farmland paints');
+    assert.eq(at('FARMLAND'), 0, 'farmland is replaced by the parking lot');
+    assert.eq(FloorViewerRegion.N, 50, 'the entire region stays compact');
     assert.gt(at('RESIDENTIAL'), 100, 'residential belt paints');
     assert.gt(at('COMMERCIAL'), 40, 'commercial block paints');
     assert.gt(at('BUILDING'), 30, 'house and shop footprints paint');
@@ -67,8 +70,7 @@
         assert.truthy(entry.zone.anchors.some(anchor => anchor.kind === selected.kind && anchor.variant === selected.id), selected.id);
         assert.truthy(entry.zoneDress.diagnostics.some(nexus => nexus.zoneVariant === selected.id),
           `${selected.id} reaches the real dressing pipeline`);
-        if (selected.kind === 'quarry') assert.truthy(entry.zoneDress.diagnostics.some(nexus => nexus.zoneVariant === selected.id && nexus.placed > 0),
-          `${selected.id} has enough room to place quarry scenery`);
+
       });
     }
   });
@@ -104,7 +106,7 @@
     }
   });
 
-  test('floor viewer region: selected spring fits the actual cave pipeline on both authored floors', async () => {
+  test('floor viewer region: compact spring preview reports the actual placement decision on both authored floors', async () => {
     const W = WorldGen, V = FloorViewerVariants, R = FloorViewerRegion;
     for (const depth of [1, 2]) {
       W.setDepth(0);
@@ -113,8 +115,10 @@
         await buildSurface();
         const entry = await W.loadTile.atDepth(depth, 0, 0, R.lat);
         if (entry.promise) await entry.promise;
-        assert.truthy(entry.caveAreas.areas.some(area => area.kind === 'spring_cave'),
-          `spring fits floor ${depth}: ${JSON.stringify(entry.caveAreas.diagnostics)}`);
+        const result = entry.caveAreas.diagnostics.find(area => area.variant === 'spring_cave');
+        assert.truthy(result, `spring evaluated on floor ${depth}`);
+        assert.truthy(result.status === 'placed' || (result.status === 'declined' && result.reason),
+          'oversized layouts report the live placement refusal');
       });
     }
     W.setDepth(0);

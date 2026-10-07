@@ -2968,6 +2968,52 @@
       "shrineChance": 0.5,
       "shrineKind": "wayfarer_post",
       "artNote": "Accepted bone-pile art is shipped as bone_cache; runtime clusters and one-time rewards are implemented."
+    },
+    {
+      "id": "dungeon_maze",
+      "name": "Dungeon Maze",
+      "kind": "nexus",
+      "source": "Park / grove nexus beneath the surface POI.",
+      "depths": [
+        1,
+        2
+      ],
+      "layout": {
+        "type": "maze_braid",
+        "extentCells": [
+          34,
+          33
+        ],
+        "mazeStep": 3,
+        "loops": 77,
+        "seed": 2718,
+        "fill": "CAVE_WALL"
+      },
+      "atmosphere": "A braided maze of mineable cave rock walls. Open spaces wind between the walls, and mining can create new routes.",
+      "poi": "At the grove focus, place either the usual shrine or one T3 treasure, never both. Reserve the focus and its approach before cave-wall fill; reuse the existing POI identity.",
+      "connection": "Fit entrances to existing cave routes; preserve stairs and protected ground.",
+      "monsters": "Place floor-appropriate monsters in open interior cells, clear of the grove focus and its approach. Preview: bats on floor 1, bats and spiders on floor 2; reuse the existing encounter allocation.",
+      "focus": {
+        "at": [
+          17,
+          16
+        ],
+        "alternatives": [
+          "shrine",
+          "treasure"
+        ],
+        "treasureTier": 3,
+        "shrineKind": "ember_altar"
+      },
+      "encounterByDepth": {
+        "1": [
+          "bat"
+        ],
+        "2": [
+          "bat",
+          "spider"
+        ]
+      }
     }
   ],
   "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews.",
