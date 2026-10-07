@@ -4236,6 +4236,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // 24px frame at half their former size, including the smashed frame.
   const SMALL_POI_SCALE = 1.3;
   const BARREL_SCALE = 2 / 3;
+  // Clay pots (and their smashed frame, the same look) drew at 4/3 and read a
+  // fifth too large beside the barrels; 20% off that, per the Oct 2026 pass.
+  const CLAY_POT_SCALE = (4 / 3) * 0.8;
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
   // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
   // scale. Its one blank bottom row seats the wheels above the anchor edge.
@@ -4464,11 +4467,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // its scale. Crates (box, 16×16) sit at CRATE_SCALE (16 × 0.8 = ~13px) so a
               // crate reads as a small prop; the gold chest uses CHEST_SCALE (~22px wide).
               // The stall and the pot of gold are structures, not chests; the pot is a
-              // further 20% smaller. Wooden barrels fill 16px; clay pots keep their size.
+              // further 20% smaller. Wooden barrels fill 16px; clay pots draw at CLAY_POT_SCALE.
               // The shared spec also sizes the map-review artwork.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : 4 / 3) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
+                                : (L.barrel ? (L.texKey === 'barrel' ? BARREL_SCALE : CLAY_POT_SCALE) : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5 centres the
               // FRAME box, but market_stand.png's opaque pixels are x:[12,80] in the 80px
               // frame. -3.24 (= 6px frame offset × 0.54 scale) centres the art; +3 on top per

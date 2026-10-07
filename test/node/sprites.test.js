@@ -578,7 +578,11 @@ test('wooden barrels and smashed barrels render at half their former size', () =
     assert.eq(look.texKey, smashed ? 'barrel_smashed' : 'barrel');
     assert.eq(look.scl, 2 / 3);
   }
-  assert.eq(art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot'}).scl, 4 / 3);
+  for (const smashed of [false, true]) {
+    const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
+    assert.eq(pot.texKey, smashed ? 'clay_pot_smashed' : 'clay_pot');
+    assert.eq(pot.scl, (4 / 3) * 0.8, 'clay pots, whole or smashed, a fifth smaller than their old 4/3');
+  }
 });
 
 test('stronghold walls keep their tile frame alignment instead of centering corner art', () => {
@@ -622,7 +626,7 @@ test('selected zone appearances keep mineral interactions and global art separat
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
-  assert.eq(art.resolveAppearance(pot).scl*24,32);
+  assert.eq(art.resolveAppearance(pot).scl*24,32*0.8,'the pot draws a fifth under its old 32px');
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
 
