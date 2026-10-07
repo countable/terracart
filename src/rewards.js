@@ -38,7 +38,13 @@
       };
     }
     if (reward.kind === 'gold' && reward.slot) {
-      return { ...gearCard(scene, reward.gearKind || 'relic', reward.slot, reward.tier, iconPx), sub: BEATEN_GEAR, color: '#aaa' };
+      // A beaten piece pays in coin: the COINS lead the card (it is what the
+      // player got), the piece they stood in for is the small print — a card
+      // headed by a Wood Staff read as a second staff.
+      const piece = gearCard(scene, reward.gearKind || 'relic', reward.slot, reward.tier, iconPx);
+      return { iconHTML: scene.coinIconHTML ? scene.coinIconHTML(Math.round(iconPx * 0.75)) : '',
+        name: `+${reward.amount || 0}`, color: UI_GOLD, tier: piece.tier,
+        sub: `${piece.name} · ${BEATEN_GEAR}` };
     }
     if (reward.kind === 'gold') {
       return {

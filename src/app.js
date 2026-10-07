@@ -2998,6 +2998,7 @@ class MapScene extends Phaser.Scene {
     // effects. Each ticker skips work unless its selected item needs a change.
     this._tickEatButton();
     this._tickThrowButton();
+    this._tickConsumableButton();
     let vx = 0, vy = 0;
     let speedMul = 1;
     // Keyboard movement (WASD / arrow keys) is a manual takeover — any
@@ -10058,6 +10059,16 @@ class MapScene extends Phaser.Scene {
   // element that only exists while food is selected) so it climbs smoothly;
   // the full rebuild runs only when the whole-second reading changes — which
   // includes the tick the wait ends on, and that is what un-greys the button.
+  // A tome's Read button counts its wait down (the row's `label`, off
+  // _tomeWait); the button is rebuilt only when that readout moves, so the
+  // text changes on the whole second and nothing is written in between.
+  _tickConsumableButton() {
+    const btn = document.getElementById('consumable-btn');
+    const cfg = btn && CONSUMABLE_SPEC[btn.dataset.id];
+    if (!cfg || !(cfg.cooldownMs > 0) || !cfg.label) { this._tomeCdShown = null; return; }
+    const shown = cfg.label(this, cfg);
+    if (shown !== this._tomeCdShown) { this._tomeCdShown = shown; this.syncConsumableButton(); }
+  }
   _tickEatButton() {
     const btn = document.getElementById('eat-btn');
     if (!btn) { this._eatCdShown = null; return; }

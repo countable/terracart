@@ -1453,6 +1453,15 @@ for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
   row.disabled = scene => !scene.canThrowItem(id);
   row.label = scene => scene.throwActionLabel();
 }
+// The tomes' button (a `cooldownMs` row read with the Read verb): a tap reads
+// it outright, no confirm (owner, Oct 2026); while either tome lock holds
+// (scene._tomeWait) the button greys and counts the wait down in place.
+for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
+  if (!(row.cooldownMs > 0 && row.verb === 'Read')) continue;
+  row.immediate = true;
+  row.disabled = scene => !!scene._tomeWait?.(id);
+  row.label = scene => { const w = scene._tomeWait?.(id); return w ? `Read · ${shortDuration(w.ms)}` : 'Read'; };
+}
 
 // Compatibility names keep existing consumers concise while the table remains
 // the only numeric owner.

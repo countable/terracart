@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d0500686" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=88528acc" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2047,9 +2047,26 @@
       if (!scene) return;
       showDebugSearch(scene, {
         id: 'item-cheats-modal', title: 'Item cheats', subject: 'items',
-        hint: 'Tap an item to obtain one.', catalog: Object.values(ITEM_BY_ID),
+        hint: 'Tap an item to obtain one.',
+        catalog: [
+          ...Object.values(ITEM_BY_ID),
+          // Relics and armour: every slot at every tier it comes in. A cheat
+          // sets the slot outright (downgrades included), as the wood button does.
+          ...[['relic', RELIC_DEFS], ['armor', ARMOR_DEFS]].flatMap(([kind, defs]) =>
+            Object.keys(defs).flatMap(slot => (defs[slot].tiers || MATERIAL_TIERS.map(t => t.tier))
+              .map(tier => ({ id: `${kind}:${slot}:${tier}`, gear: { kind, slot, tier },
+                name: `${gearName(kind, slot, tier)} (${kind === 'armor' ? 'armour' : 'relic'})` })))),
+        ],
         onClose: () => scene._revealPendingBookReads(),
         obtain: item => {
+          if (item.gear) {
+            const { kind, slot, tier } = item.gear;
+            const table = kind === 'armor' ? (scene.save.armor ||= {}) : (scene.save.relics ||= {});
+            table[slot] = { tier };
+            scene.markRelicsDirty?.(); scene.updateRelicRow?.(); scene.buildInventoryDOM?.();
+            persistSave(scene.save);
+            return `Equipped ${item.name}`;
+          }
           const got = scene.addToInv(item.id, 1, false, { notWild: true, deferBookRead: true });
           // Books are read on closing the picker rather than stacking dialogs.
           persistSave(scene.save);
@@ -2837,7 +2854,7 @@
   <script src="src/castle_styles.js?v=ea3cd17d"></script>
   <script src="src/textures.js?v=9beaed13"></script>
   <script src="src/save.js?v=b103250b"></script>
-  <script src="src/items.js?v=4eb7979c"></script>
+  <script src="src/items.js?v=c2564172"></script>
   <script src="src/inventory.js?v=26134d06"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=5e3e8427"></script>
@@ -2847,7 +2864,7 @@
   <script src="src/delivery.js?v=66bf194d"></script>
   <script src="src/save_state.js?v=c7afaf6e"></script>
   <script src="src/gear.js?v=a5181537"></script>
-  <script src="src/rewards.js?v=28bc8c13"></script>
+  <script src="src/rewards.js?v=bb4617ed"></script>
   <script src="src/shops_math.js?v=70451937"></script>
   <script src="src/shops.js?v=c27bc73f"></script>
   <script src="src/egg_hatch.js?v=31bee6f8"></script>
@@ -2967,7 +2984,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=d0500686';
+      const APP_SRC = 'src/app.js?v=88528acc';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
