@@ -142,12 +142,13 @@ test('egg: hatches a baby, never an adult', () => {
   assert.includes(SCENE_SRC, "this.showBabyFound(result.petId, 'egg')");
 });
 
-test('nest: a found baby remains wild until fed and caught', () => {
+test('nest: a found baby remains wild until caught with its favourite', () => {
   const save = { picked: [], energy: 100, relics: {}, inv: [] };
   chopBush(firstNestBush(true), bushScene(save), save);
   const baby = save.wildAnimals[0];
   assert.truthy(baby.raised); assert.truthy(baby.shiny);
-  assert.falsy(Combat.isTame(baby)); assert.falsy(Pets.canCatch(save, baby));
+  assert.falsy(Combat.isTame(baby)); assert.falsy(baby.pet); assert.eq(Pets.list(save).length, 0);
+  assert.truthy(Pets.canCatch(save, baby), 'wild: giving its favourite starts the catch');
 });
 
 test('baby pet: adulthood requires seven days AND seven favourite meals', () => {
@@ -193,7 +194,6 @@ test('raised pet: shiny babies and grown adults double HP and bite without stack
 test('reload: a bonded baby retains its individual birth and meals', () => {
   const save = { inv: [], caught: [], released: [] };
   const baby = { id: 'found_baby', kind: 'dog', raised: true, born: Date.now() - DAY_MS };
-  Pets.feedWild(save, baby, 'meat');
   const pet = Pets.bond(save, baby);
   const restored = Pets.get(JSON.parse(JSON.stringify(save)), pet.id);
   assert.eq(restored.born, baby.born);

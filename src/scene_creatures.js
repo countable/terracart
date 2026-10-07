@@ -628,7 +628,7 @@ class SceneCreatures {
       }));
     }
     for (const c of creatures) {
-      if (Pets.eligible(c.kind)) { c.tint = Pets.tintFor(c); if (Pets.fed(this.save,c)) c.favouriteFed = true; }
+      if (Pets.eligible(c.kind)) c.tint = Pets.tintFor(c);
     }
     yield 'spawn habitats';
     // AHEAD OF THE FLAG: the two heavy, pure pieces of the stretch after
@@ -2782,7 +2782,7 @@ class SceneCreatures {
     if (!row) return false;
     persistSave(this.save);
     const invId = c.shiny && ITEM_BY_ID[`shiny_${c.kind}`] ? `shiny_${c.kind}` : c.kind;
-    this.flashLoot(`${ITEM_BY_ID[invId]?.name || c.kind} joined you`, c.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
+    this.flashLoot(`${itemName(invId)} joined you`, c.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
     if (c.shiny) this.awardShinyBonus(c.kind,sx,sy);
     PetStories.queue(this,c.kind);
     this.selectInvCat('animal');

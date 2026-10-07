@@ -765,7 +765,7 @@ class SceneConsumables {
   }
 
   canThrowItem(id) {
-    if (Conditions.attacksBlocked(this.save)) return false;
+    if (Conditions.attacksBlocked(this.save) || this._workProgress?.flee) return false;   // no throw mid-catch
     const sel = getSelectedSlot(this.save);
     return sel?.id === id && (sel.count ?? 0) > 0
       && !Combat.playerDowned(this.save.energy) && !this.isShadowActive()

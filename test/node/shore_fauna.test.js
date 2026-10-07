@@ -13,7 +13,7 @@
 (function () {
 
 // ── The rows ────────────────────────────────────────────────────────────────
-test('shore fauna: the crab is an animal row — art, behaviour, a shell when fed, catchable after a minnow', () => {
+test('shore fauna: the crab is an animal row — art, behaviour, a shell when fed, caught with a minnow', () => {
   const art = SpriteLayout.creatureArt('crab');
   assert.truthy(art, 'the crab draws');
   assert.eq(art.sheet, 'crab');
@@ -27,8 +27,8 @@ test('shore fauna: the crab is an animal row — art, behaviour, a shell when fe
   assert.truthy(Combat.isEnemyKind('crab'), 'wild crabs attack');
   assert.falsy(Combat.isEnemy({kind:'crab',id:'pet_crab',pet:true}), 'tamed crabs remain friendly');
   const save = { released: [] }, crab = {kind:'crab',id:'wild_crab'};
-  assert.truthy(Pets.feedWild(save, crab, 'minnow'));
-  assert.falsy(Combat.isTame(crab), 'feeding alone never bonds');
+  assert.truthy(Pets.likes(crab, 'minnow'), 'giving it a minnow starts the catch');
+  assert.falsy(Combat.isTame(crab), 'a wild crab is not tame');
   assert.truthy(Pets.canCatch(save, crab));
   assert.falsy(SpriteLayout.isGame('crab'), 'never game');
   assert.eq(creatureSpawnClass('crab'), 'enemy', 'a slow shore enemy');
