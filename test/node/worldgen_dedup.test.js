@@ -42,7 +42,7 @@ function layersFor(dx) {
 const buildA = () => WorldGen.rasterizeTile(layersFor(0), CPE, TXA, TY, EDGE_M);
 const buildB = () => WorldGen.rasterizeTile(layersFor(-EXTENT), CPE, TXB, TY, EDGE_M);
 const houses = (r) => r.objects.filter((o) => o.kind === 'house');
-const chests = (r) => r.objects.filter((o) => o.kind === 'chest');
+const chests = (r) => r.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp);
 // Every ownerKey stamped on a building cell of this tile.
 const cellKeys = (r) => {
   const out = new Set();

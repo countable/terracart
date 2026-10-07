@@ -955,6 +955,71 @@
     result.shortfall = need;
     return result;
   }
+  // ── THE LOW-TIER QUOTA (Oct 2026): a tile below LOW_TIER_CHEST_QUOTA
+  // tier-1 chests (POI crates, top-ups, dead-end and ambient crates alike)
+  // tops up with AMBIENT CRATES — one-time tier-1 supply crates (`crate`, no
+  // poiClass) on 'reward' cells anywhere in the tile, lowest cell hash first,
+  // until it reaches the quota. Runs after topUpChestsSteps, so variant
+  // footprints fill first. Counting its own crates keeps a repeat pass a
+  // no-op. The tile's shortfall before the crates (`deficit`) is kept on the
+  // entry (lowTierDeficit): spawnInTile tops up X marks from it
+  // (scene_creatures.js X_TOP_UP).
+  const LOW_TIER_CHEST_QUOTA = 200;
+  function* topUpAmbientCratesSteps({ objects, dressings = [], grid, N, tx, ty, tileEdgeM, spawnOpts }) {
+    let count = 0;
+    for (const list of [objects, ...dressings.map(d => d?.objects || [])]) {
+      for (let j = 0; j < list.length; j++) {
+        if ((j & 255) === 0) yield 'ambient crate census';
+        const o = list[j];
+        if (o.kind !== 'chest' || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
+        if (!o.crate) {
+          const look = chestLook(o);
+          if (look.stand || look.coin || look.bike || look.barrel || look.macro) continue;
+        }
+        if (chestTier(o) === 1) count++;
+      }
+    }
+    const deficit = Math.max(0, LOW_TIER_CHEST_QUOTA - count);
+    const result = { before: count, deficit, added: 0 };
+    if (!deficit) return result;
+    // The best `deficit` seats by (score, i), kept in a bounded max-heap so a
+    // large tile never sorts every eligible cell in one block.
+    const worse = (a, b) => a.score > b.score || (a.score === b.score && a.i > b.i);
+    const heap = [];
+    const sift = (k) => {
+      for (;;) {
+        const l = 2 * k + 1, r = l + 1;
+        let m = k;
+        if (l < heap.length && worse(heap[l], heap[m])) m = l;
+        if (r < heap.length && worse(heap[r], heap[m])) m = r;
+        if (m === k) return;
+        [heap[k], heap[m]] = [heap[m], heap[k]]; k = m;
+      }
+    };
+    for (let i = 0; i < N * N; i++) {
+      if ((i & 1023) === 0) yield 'ambient crate seats';
+      const ix = i % N, iy = (i - ix) / N;
+      if (!isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward')) continue;
+      const seat = { i, ix, iy, score: (cellHash(tx, ty, ix, iy) ^ 0x2c1b3d5) >>> 0 };
+      if (heap.length < deficit) {
+        heap.push(seat);
+        for (let k = heap.length - 1; k > 0;) {
+          const p = (k - 1) >> 1;
+          if (!worse(heap[k], heap[p])) break;
+          [heap[k], heap[p]] = [heap[p], heap[k]]; k = p;
+        }
+      } else if (worse(heap[0], seat)) { heap[0] = seat; sift(0); }
+    }
+    const seats = heap.sort((a, b) => a.score - b.score || a.i - b.i);
+    for (const { i, ix, iy } of seats) {
+      objects.push(makeObject('chest', (tx + (ix + 0.5) / N) * tileEdgeM,
+        (ty + (iy + 0.5) / N) * tileEdgeM, cellId('crate_ambient', tx, ty, ix, iy),
+        { crate: true, tierSeed: 1, chestTopUp: true, ambientCrate: true }));
+      spawnOpts.occupied.add(i);
+      result.added++;
+    }
+    return result;
+  }
   // Nudge a cell onto the nearest one that passes isSpawnCell, searching
   // outward in Chebyshev rings up to `maxR`. Returns null when the whole
   // neighbourhood is unusable, so the caller can drop the item instead.
@@ -6349,9 +6414,11 @@
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);
+    const topUpOpts = dressOpts({ occupied: new Set([...dressOcc, ...lampReservations]) });
     const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
-      zone, streetDress, grid, N: w, tx, ty, tileEdgeM,
-      spawnOpts: dressOpts({ occupied: new Set([...dressOcc, ...lampReservations]) }) });
+      zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
+    chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
+      grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
@@ -6558,7 +6625,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -6616,6 +6683,9 @@
       // rebuild like the zone field.
       entry.scenic = scenic || null;
       entry.scenicDress = scenicDress || null;
+      // The low-tier quota's shortfall (topUpAmbientCratesSteps): spawnInTile's
+      // X-mark top-up reads it.
+      entry.lowTierDeficit = chestTopUp?.ambient?.deficit || 0;
       // Source building polygons (tile-local metres) for building_overlay.js —
       // the polygonal counterpart of entry.layers' road linework.
       entry.buildingShapes = buildingShapes || [];
@@ -8011,6 +8081,9 @@
     let _oi = 0;
     for (const o of occupancySource) {
       if (((_oi++) & 1023) === 1023) yield 'cave entrance occupancy';
+      // An ambient crate (the low-tier quota) never moves a mine mouth: it
+      // yields its cell instead (dropped below once the mouths are placed).
+      if (o.ambientCrate) continue;
       const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
       if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
       objCells.add(liy * N + lix);
@@ -8140,6 +8213,16 @@
     // cell, deterministically, rather than leave the tile without a way down.)
     if (placed === 0) {
       if (!(caveRocks.length && placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]))) yield* placeRandomWalkable();
+    }
+    if (placedCells.length && entry.objects) {
+      const mouths = new Set(placedCells.map(([lix, liy]) => liy * N + lix));
+      // In place: callers hold this array by reference.
+      let w = 0;
+      for (const o of entry.objects) {
+        const at = o.ambientCrate ? cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N) : null;
+        if (!at || !mouths.has(at.liy * N + at.lix)) entry.objects[w++] = o;
+      }
+      entry.objects.length = w;
     }
   }
 
@@ -9158,7 +9241,7 @@
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
-    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
     ARENA_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,

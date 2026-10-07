@@ -170,7 +170,7 @@
         { type: 1, tags: { class: 'cafe', name: 'Corner Café' }, geom: pt(50, 50) },
       ] },
     ]);
-    assert.eq(r.objects.filter((o) => o.kind === 'chest').map((o) => o.name).join(), 'Corner Café', 'the station café is quiet');
+    assert.eq(r.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp).map((o) => o.name).join(), 'Corner Café', 'the station café is quiet');
     assert.eq(r.objects.filter((o) => o.kind === 'gatepost').length, 0, 'no foe rises at a level crossing');
   });
 

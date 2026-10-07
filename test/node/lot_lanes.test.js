@@ -188,7 +188,9 @@ test('lot lanes: quarry ground and dressing preserve original cave entrances', (
   const after = build().r;
   const source = result => result.zone?.caveSource || result.caveSource || result;
   assert.eq(Array.from(source(after).grid).join(','), Array.from(source(before).grid).join(','), 'new rocky paint is excluded from cave substrate');
-  assert.eq(source(after).objects.map(o=>o.id).join(','), source(before).objects.map(o=>o.id).join(','), 'new quarry dressing does not replace original cave occupancy');
+  // Ambient crates (the low-tier quota) seat on the finished ground; they are no cave occupancy.
+  const caveIds = result => source(result).objects.filter(o=>!o.ambientCrate).map(o=>o.id).join(',');
+  assert.eq(caveIds(after), caveIds(before), 'new quarry dressing does not replace original cave occupancy');
   const entrances = result => {
     const entry = {...result, objects:result.objects.slice(), cellsPerEdge:CPE, tileEdgeM:TILE_EDGE_M};
     WorldGen.maybePlaceCaveEntrance(entry,0,0,TILE_EDGE_M,result.objects,result.wildplants);

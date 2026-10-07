@@ -65,6 +65,16 @@ access or tile lifecycle mechanics.
   now only feeds restock days and the pots of gold. Breakable pots and
   barrels select their loot by stable appearance (`barrelProfile`), not
   density.
+- THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
+  tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
+  after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest
+  cell hash first. Its shortfall (`entry.lowTierDeficit`) also lays extra X
+  marks in proportion (scene_creatures.js `X_TOP_UP_MAX`), drawn off the cell
+  hash so the tile's rng stream never shifts. Mine mouths ignore ambient
+  crates and drop any they land on.
+- Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
+  lead to unopened T2+ chests in Home's ring; the chest at a trail's end rolls
+  `CHEST_TRAIL_TIER_BONUS` tier higher, within its depth cap.
 - A Small road's end inside the tile that meets no other vehicle way (a
   cul-de-sac) holds one tier-1 supply crate (`o.crate`, no `poiClass`, so it
   gives once): `StreetVariants.dress`, seated like an end piece, capped per

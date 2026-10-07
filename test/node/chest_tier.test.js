@@ -116,7 +116,7 @@
     for (let i = 0; i < 6; i++) feats.push({ type: 1, tags: { class: 'bus' }, geom: pt(4 + i * 3, 10) });
     feats.push({ type: 1, tags: { class: 'florist', name: 'Bloom' }, geom: pt(30, 30) });
     const r = WorldGen.rasterizeTile([{ name: 'poi', features: feats }], CPE, 0, 0, EDGE);
-    const chests = r.objects.filter((o) => o.kind === 'chest');
+    const chests = r.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp);
     const bus = chests.filter((o) => o.poiClass === 'bus');
     assert.gt(bus.length, 1, 'bus stops survive the build');
     for (const o of chests) {
@@ -341,7 +341,7 @@
       const o = chest('park', n);
       assert.eq(chestLook(o).frame, chestTier(o) - 1, 'the chest frame follows the reward tier');
     }
-    assert.truthy(/chestTier\(o\) : 2\);/.test(INTERACTABLES_SRC), 'interactables.js rolls at chestTier(o)');
+    assert.truthy(/chestTier\(o\) : 2\) \+ \(trailEnd/.test(INTERACTABLES_SRC), 'interactables.js rolls at chestTier(o)');
     for (const src of [RENDER_SRC, INTERACTABLES_SRC, SCENE_SRC]) {
       assert.falsy(/chestRollTier|CHEST_TIER_HOME_RINGS_M|chestTierHomeDrop/.test(src), 'no Home ring reader survives');
     }

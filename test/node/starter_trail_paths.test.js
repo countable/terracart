@@ -32,12 +32,12 @@
     assert.truthy(route.every(pass));
   });
 
-  test('chest trails: live masks, opening, caching and five-path total are respected', () => {
+  test('chest trails: live masks, opening, caching and the CHEST_TRAIL_LIMIT total are respected', () => {
     const prior = [...WorldGen.tileCache];
     WorldGen.tileCache.clear();
     const N = 64, m = 7, at = (x, y) => ({ x: (x + 0.5) * m, y: (y + 0.5) * m });
     const starter = { id: 'chest_start_test', kind: 'chest', crate: true, ...at(35, 32) };
-    const others = Array.from({ length: 5 }, (_, i) => ({ id: 'treasure' + i, kind: 'chest', tierSeed: 3, ...at(30 + i, 37) }));
+    const others = Array.from({ length: HomeArea.CHEST_TRAIL_LIMIT }, (_, i) => ({ id: 'treasure' + i, kind: 'chest', tierSeed: 3, ...at(30 + i, 37) }));
     const entry = { grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS), cellsPerEdge: N, objects: [starter, ...others], spawnWhy: new Uint16Array(N * N) };
     WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
     let scans = 0;
@@ -46,7 +46,7 @@
       save: { starterCratesAt: at(32, 32), opened: [] }, _nearestStarterCrate() { scans++; return this.save.opened.includes(starter.id) ? null : starter; } };
     try {
       const paths = Starter.trailPaths(scene, 0);
-      assert.eq(paths.length, 5, 'five total, including starter');
+      assert.eq(paths.length, HomeArea.CHEST_TRAIL_LIMIT, 'the limit in total, including starter');
       assert.eq(paths[0].id, starter.id);
       assert.truthy(Starter.trailPaths(scene, 10) === paths, 'same-cell frames reuse actual routes');
       assert.eq(scans, 1);
