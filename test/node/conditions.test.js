@@ -215,12 +215,13 @@
 
 // Burn clocks are shared by the player and all units.
 (function () {
-  test('burning: five seconds of brief contact expire without damage below ten seconds', () => {
+  test('burning: five seconds of brief contact cost a pip a second, then expire', () => {
     const save = { energy: 50 };
     assert.truthy(Conditions.apply(save, 'burning'));
     const result = Conditions.tick(save, 5000);
     assert.eq(result.ticks, 5);
-    assert.eq(result.lost, 0);
+    assert.eq(result.lost, 5, 'fire on the body never burns for nothing (burnTickLoss floors at energyLoss)');
+    assert.eq(save.energy, 45);
     assert.truthy(result.expired);
     assert.falsy(Conditions.active(save, 'burning'));
   });
@@ -251,7 +252,9 @@
     assert.eq(whole.remainingMs, stepped.remainingMs);
     const decay = Conditions.advanceBurn(whole, 60000);
     assert.eq(decay.remainingMs, 0);
-    assert.eq(decay.damage, 150);
+    // 60 s of decay: floor(remaining s / 10) a second sums to 150, plus one
+    // pip for each of the last ten seconds, which the floor at energyLoss keeps.
+    assert.eq(decay.damage, 160);
     assert.eq(state.remainingMs, 5000, 'pure clock does not mutate input');
   });
   test('burning: normalization preserves accumulated duration and clamps at sixty seconds', () => {

@@ -15,8 +15,9 @@
   //   burning — fire on the body (owner, Oct 2026): a lit Torch's melee blow
   //             (foes), a campfire stood in or lava, foe and player alike —
   //             gains 5 s per second of exposure, up to 60 s; counts down
-  //             away from fire. Each second costs floor(remaining seconds / 10)
-  //             (burnTickLoss).
+  //             away from fire. Each second costs floor(remaining seconds / 10),
+  //             never under energyLoss: fire on the body always burns at
+  //             least 1 a second (owner, Oct 2026) (burnTickLoss).
   //   poison  — a purple slime or spider's bite: 1 energy every 2 s for a minute; an
   //             Antidote or Elixir draws it out.
   //   pinned  — a sprung trap's jaw (app.js _tickTraps): the body holds still
@@ -158,7 +159,8 @@
   // What the next burn tick costs with this much time left (per intervalMs):
   // the charge advanceBurn levies, and what the HUD chip prints — one formula.
   function burnTickLoss(remainingMs) {
-    return DEFINITIONS.burning.energyLoss * Math.floor(Math.max(0, remainingMs || 0) / 10000);
+    const def = DEFINITIONS.burning;
+    return def.energyLoss * Math.max(1, Math.floor(Math.max(0, remainingMs || 0) / 10000));
   }
   function tick(save, elapsedMs, options = {}) {
     if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return { ticks: 0, lost: 0, expired: false };

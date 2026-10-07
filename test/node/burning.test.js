@@ -159,3 +159,16 @@ test('look: both bodies wear the row\'s tint, and the HUD chips come off the tab
   assert.falsy(/'condition-poison'/.test(hud), 'no row named by hand');
 });
 })();
+
+test('burning: every second of fire costs at least one pip, however little burn is left', () => {
+  // The curve is floor(remaining s / 10) a second; under ten seconds that
+  // floored to nothing, so a fresh 5 s burn and a burn's last ten seconds
+  // were free. The row's energyLoss is the floor of every tick.
+  const def = Conditions.DEFINITIONS.burning;
+  assert.eq(Conditions.burnTickLoss(3000), def.energyLoss, 'three seconds left still burns');
+  assert.eq(Conditions.burnTickLoss(def.durationMs), def.energyLoss, 'a fresh default burn burns');
+  assert.eq(Conditions.burnTickLoss(25000), 2 * def.energyLoss, 'the ladder above ten seconds is unchanged');
+  const r = Conditions.advanceBurn({ remainingMs: def.durationMs }, 5000, false);
+  assert.eq(r.ticks, 5); assert.eq(r.damage, 5 * def.energyLoss, 'five seconds of a default burn cost five pips');
+  assert.eq(r.remainingMs, 0, 'and it has burned out');
+});
