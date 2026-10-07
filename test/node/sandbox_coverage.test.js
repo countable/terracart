@@ -264,3 +264,13 @@ test('sandbox coverage: authored fixtures stay within their scene and tile bound
   assert.truthy(entry.objects.some(o => o.kind === 'stronghold_wall'));
   assert.truthy(entry.objects.some(o => o._sandboxProbe === 'daily-crate' && restocks(o)));
 });
+
+test('sandbox coverage: old stones includes an owned temple footprint for the reaper trial', () => {
+  const {entry} = Sandbox.buildForTest({cellsPerEdge:128, tx:3, ty:4});
+  const temple = entry.objects.find(o => o._sandboxTemple);
+  assert.eq(temple.kind, 'temple'); assert.eq(temple.templeKind, 'stones');
+  assert.eq(temple.templeAnchor.kind, 'stones');
+  const shape = entry.buildingShapes.find(s => s.key === temple.id);
+  assert.eq(shape.templeZone, temple.templeZone);
+  assert.truthy(entry.ownerKeys.includes(temple.id));
+});

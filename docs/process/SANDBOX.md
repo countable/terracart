@@ -23,6 +23,11 @@ Names are case-insensitive; unknown names return to the player plaza.
 These links visit the sandbox's representative biomes, not every procedural
 variant shown by the dashboards. Unsupported biomes have no jump link.
 
+The Old Stones destination (`?sandbox=true&sandboxZone=stones`) includes an
+awakened temple. Tap its marble footprint to enter the giant-reaper challenge
+on floor +1. Walk off the platform to return to the ground, then enter again
+to verify the fresh challenge; rewards remain limited to one per temple.
+
 ## Why scenes and vector roads
 
 A real residential polygon is a scene, not a colour swatch. A road passes

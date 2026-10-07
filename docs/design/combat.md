@@ -6,6 +6,16 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Giant reapers belong exclusively to the awakened Old Stones temple challenge,
+  never ambient churchyard or building encounters. Visiting the awakened temple
+  opens a seven-cell marble platform on floor +1 and pauses the surface. Its
+  reaper uses the shared roster's health, damage and attack interval; player
+  attacks use equipped gear and incoming damage uses armour mitigation.
+  The floor ends at the platform edge. Walking beyond it returns to the surface
+  without a reward; entering again starts a fresh trial. Grove temple platforms
+  share this fall behavior. Awakening remains permanent and winning grants the
+  temple gift only once, even after re-entry or reload.
+
 - Confusing mushroom gas refreshes the shared `confused` condition to five
   seconds on contact, preserving any longer confusion already active. Gas
   spreads to cardinal neighbours once per foreground second; rock, masonry and

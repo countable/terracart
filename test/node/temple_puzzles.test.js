@@ -119,3 +119,15 @@
     assert.eq(s.status,'won');
   });
 })();
+
+test('temple puzzles: leaving any moving platform falls instead of blocking, and re-entry resets', () => {
+  for (const kind of ['blocks', 'duel', 'tower', 'path']) {
+    const original = TemplePuzzles.create({kind, size:7}, {enemyHp:65});
+    original.player.x = 0; original.player.y = 0; original.revealRemaining = 0;
+    const fallen = TemplePuzzles.move(original, -1, 0);
+    assert.eq(fallen.status, 'fallen', kind);
+    assert.eq(original.status, 'playing');
+    assert.eq(TemplePuzzles.tick(fallen, 10).status, 'fallen');
+    assert.eq(TemplePuzzles.create({kind, size:7}).status, 'playing');
+  }
+});
