@@ -47,8 +47,8 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - SPEED CEILING, shiny speed and the hunted crow's retreat hop: CLAUDE.md
    ("Generation, saves and tiles"; `creature_ai.js` `WILD_SPEED_CEILING_MPS`,
    `CROW_DEPART_HOP`).
- - no fauna may move onto a building footing, or a major (MD/LG) road; minor
-   streets and paths are crossable. None is SEATED on any road: every spawner
+ - no fauna may move onto a building footing, or a Major or Medium road; Small
+   roads and paths are crossable. None is SEATED on any road: every spawner
    goes through `WorldGen.isSpawnCell`.
  - animals simulate only inside a SIM BUBBLE around the player's feet
    (`creature_ai.js` `CREATURE_SIM_CELLS`), deliberately larger than the
@@ -94,8 +94,8 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - pets keep individual state while carried, following or staying Home.
  - pets recover energy gradually; favourite food fills their energy.
 
-# biomes
-Different map polygons rasterize to tiles according to rules
+# Terrain and landcover
+Source landcover and landuse polygons rasterize to terrain cells according to rules
 
 ## Residential
  - Small roads surrounded by housing.
@@ -115,7 +115,7 @@ ONBOARDING (the first session)
    splashed over the map. Everyone else comes back as memories are recovered:
    the story neighbours at their role's memory threshold, ordinary residents
    in Home's ring or beside a restored house, off screen, never watched
-   appearing (`NPC.arrivals`, `NPC.tickArrivals`). Zone keepers never left.
+   appearing (`NPC.arrivals`, `NPC.tickArrivals`). Nexus keepers never left.
    CLAUDE.md ("Dialogs, feedback and teaching") owns the rule.
  - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
    reload), covering movement, reach, the farming loop, energy and home-only
@@ -133,7 +133,7 @@ ONBOARDING (the first session)
    crate, the plot, the soil, a wreck, the crop, Home. When a step needs
    something the bag lacks (a seed, the restore price) it points back at the
    crates. The arrow must never lead away from what the chip asks for.
- - THE CRATE TRAIL: four supply crates are laid along the walk from spawn to
+ - THE STARTER TRAIL: four supply crates are laid along the walk from spawn to
    the relic chest, packed into its near part (`starter.js` `TRAIL_SPAN`) so
    all four are met early. Each stop is in view from the one before. A road
    near the anchor takes the trail onto its kerb (the chip says "along the
@@ -202,8 +202,8 @@ MOVEMENT & REACH
    `Lighting.KINDS`). CLAUDE.md ("Lighting and streets") owns the rules;
    `tools/layer_audit.js` pins the layer order.
  - REACH SIZE (`coords.js` `reachCells`): grows with the wizard's Inner Light
-   rungs (`save.reachUpgrades`), shrinks per cave level. Being tired does NOT
-   shrink reach — the lit range flushes red as energy runs low — but at 0
+   rungs (`save.reachUpgrades`), shrinks with underground depth. Being tired does NOT
+   shrink reach — the interaction reach display flushes red as energy runs low — but at 0
    energy there is no reach at all. A Potion of Reach opens the whole view
    for its duration.
  - WORK WHEEL: every timed action (chop / mine / fish / pick a worked crop /
@@ -271,7 +271,7 @@ WORLD GENERATION
      FOREST:      forest, orchard, wetland
      GRASSLAND:   grass, park, school grounds, sports pitch, playground, golf,
                   farmland (allotments lumped in)
-   plus water and sand. Roads split into minor / avenue / highway; buildings
+   plus water and sand. Road terrain splits into Small / Medium / Major and Path; buildings
    into house / fort / castle.
  - building tier comes from footprint area and height; each building places
    one house/tower sprite anchored on its footprint.
@@ -553,7 +553,7 @@ COIN-BURST POIs (ATM / bicycle parking)
  - An ATM is a POT OF GOLD: once a UTC day a tap scatters coins on walkable
    cells nearby, fewer where ATMs are common (`loot.js`
    `potCoinsFor`). Coins never land on a road or in a yard and stay on the
-   player's side of a major road (CLAUDE.md).
+   player's side of a Major or Medium road (CLAUDE.md).
  - A bike rack (a "Courier's Post" in the world) is not a chest: once a UTC day
    it lends the movement stick extra pace for a while (`loot.js` `isBikeRack`,
    `items.js` `BIKE_RACK_SPEED_MUL`).
@@ -566,7 +566,7 @@ TREASURE MARKS (X on the ground)
  - claim by tapping the cell the X is drawn on (within reach). Reward via the
    unified rarity picker — mostly small, sometimes better, rarely rare. Found
    state persists in `save.foundTreasures`.
- - sources: the starter crate trail (see ONBOARDING; fixed contents, no rarity
+ - sources: the starter trail (see ONBOARDING; fixed contents, no rarity
    roll); a guaranteed X at every parking lot; a few random marks per tile;
    extra marks beside FOOTPATHS and ON SAND. Residential X's only spawn near a
    road.
@@ -644,7 +644,7 @@ STREET RESTORATION (the road band itself)
    cell width of way runs through it (`worldgen.js` `accumulateLineSpan`,
    summed over every footpath before painting). The diagonal connectivity
    elbow is always painted. A run of too few path cells is not a path and
-   dissolves back to its biome (`WorldGen.MIN_PATH_RUN_CELLS`), unless it
+   dissolves back to its underlying terrain (`WorldGen.MIN_PATH_RUN_CELLS`), unless it
    continues into the neighbour tile.
 
 ================================================================================
@@ -851,7 +851,7 @@ INVENTORY
    not bag items.
  - per-item STACK CAP rises with the Bag relic (`stackCapForBags`); excess is
    rejected (`inventory.js`).
- - starter inventory: empty bag (the crate trail seeds the first items).
+ - starter inventory: empty bag (the starter trail seeds the first items).
  - ITEMS ALWAYS RENDER AS THEIR GAME-ART SPRITE on every surface. Emoji is
    reserved for non-item UI (`docs/process/QC_RULES.md` §1).
 
@@ -886,7 +886,7 @@ UNDERGROUND CAVES (Phase 1)
 ================================================================================
  - cave-rock clusters seed a descending STAIRCASE. Tapping one changes DEPTH
    (0 = surface). Depth is persisted.
- - each cave level is the "NEGATIVE" of the level above: walkable cells become
+ - each underground floor is the "NEGATIVE" of the floor above: walkable cells become
    cave floor; water, roads and buildings become solid rock. This recurses, so
    depth N derives deterministically from N-1 (and never from player edits —
    CLAUDE.md).
@@ -989,7 +989,7 @@ FOG OF WAR
  - COST: the reveal and the rebuild happen on cell crossings; between them
    the fog layer scrolls. The repaint skips squares whose corners agree, so
    the work tracks the length of the frontier, not the area of the screen.
- - The ONBOARDING TRAIL is revealed when it is laid (`fog.js`
+ - The STARTER TRAIL is revealed when it is laid (`fog.js`
    `_revealStarterTrail`), and this is not optional: the trail is a SIGHTLINE
    CHAIN, and without it every crate sat under the wash on a fresh save.
    Deliberately not one blanket radius round the anchor — that would reveal map

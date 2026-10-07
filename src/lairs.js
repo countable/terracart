@@ -285,7 +285,7 @@
   //                     back wall from two — so the one runs out at you and
   //                     the rest come once you are committed);
   //   `proximityCells`  a GHOST's dormancy (creature_ai.js ghostTick — the
-  //                     zone variants' memorial-guard lane): it hovers on its
+  //                     Nexus variants' memorial-guard lane): it hovers on its
   //                     seat until you are this close, then the whole burst
   //                     rushes at once and burns, touches or fades (its
   //                     lifetime starts at the wake, not at the tile load);

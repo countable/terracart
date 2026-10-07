@@ -178,7 +178,7 @@
       yield* compactSteps(list, (o) => {
         const idx = cell(o);
         // Scenic landmarks and tide pools retain their seats, but ordinary
-        // greenway verge grass yields to the zone just like road dressing.
+        // greenway verge grass yields to the Nexus just like road dressing.
         const street = streetList || (scenicLists.includes(list) && !!o._street);
         if (!((street || isGeneralAmbientRecord(o)) && idx >= 0 && coverage[idx])) return false;
         record(idx, street);
@@ -296,7 +296,7 @@
       extra);
   }
   // THE DRESSING FRAME: what every dressSteps pass (zones, scenic, streets,
-  // the zone layouts, the reef) derives from its ctx before laying a piece —
+  // the Nexus layouts, the reef) derives from its ctx before laying a piece —
   // the tile frame, the occupancy it claims into (ctx.spawnOpts.occupied,
   // created if absent — it GROWS: each piece claims its cell so later passes
   // and later pieces see it), and the chest each owned POI minted (by its
@@ -411,7 +411,7 @@
     // It is a new REASON in the residential lanes, not a new lane — every
     // "is this someone's lot?" test reads isLotTerrain, never the two codes.
     WASTELAND: 27,
-    // INFLUENCE ZONES (src/zones.js) — the HALO a zone anchor paints over the
+    // INFLUENCE ZONES (src/zones.js) — the HALO a Nexus anchor paints over the
     // lot and commercial ground around it (RESIDENTIAL / COMMERCIAL /
     // WASTELAND only; Zones.haloSteps, the end of rasterizeTileSteps). Each
     // is a REASON in an existing family, not a new lane:
@@ -563,7 +563,7 @@
   //                   Orchard edges remain open unless mapped farmland
   //                   underneath them carries the FARMLAND reason.
   //   TYPED SUPPRESSION — refuse only the classes whose row names them:
-  //     KERB          a major way's band touches the cell, or its kerb buffer
+  //     KERB          a Major-and-Medium road's band touches the cell, or its kerb buffer
   //                   — refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
   //                   creature_ai.js creatureSpawnClass, off BRISK_WALK_MPS)
   //     SENSITIVE     round a sensitive POI, real cemetery land, a church on
@@ -592,7 +592,7 @@
   //   'reward'    a find the player WALKS TO on purpose (src/scenic.js: a
   //               viewpoint's scope, a vista chest, the tide line) — the
   //               attractor row + KERB: never a reason to step to the kerb
-  //               of a major road (the safety rule)
+  //               of a road in the Major-and-Medium road group (the safety rule)
   // A creature's class is never typed at the call site: creature_ai.js
   // creatureSpawnClass(kind) derives fauna / enemy and fast / slow from the
   // kind's own speed data.
@@ -848,7 +848,7 @@
   // first, so no single class can own a tier. Vista chests stand outside the
   // budget entirely (a grail keeps its Scenic tier). A NEXUS chest can WIN a
   // tier but never CONSUMES a seat — its +1 lands on top of the seed — and
-  // neither vista nor nexus chests count toward the density scaling. A sparse
+  // neither vista nor Nexus chests count toward the density scaling. A sparse
   // tile fills from the TOP and leaves the lower quotas empty: higher tiers
   // matter more than completeness. Runs at the end of the rasterize steps
   // (zones and scenic stamped already) and again when a settled tile restamps
@@ -1223,7 +1223,7 @@
     if (layer === 'building') return T.BUILDING;
     return null;
   }
-  // The big ways — motorway / trunk / primary, exactly the ROAD_LG tier — are
+  // Major roads — motorway / trunk / primary, exactly the ROAD_LG tier — are
   // drawn half again as wide as their measured carriageway so the trunk
   // network stays legible at map scale. See road_overlay.js. Declared here
   // (ahead of classifyLine) so both the classifier and the width scaling
@@ -2072,28 +2072,28 @@
   }
   // ── The road's CLASS, per cell ────────────────────────────────────────────
   // Beside the mask, one byte of bits saying which ROAD this is ground of. Only
-  // the MAJOR ways (ROAD_MD + ROAD_LG, the old trade roads — see
+  // the Major-and-Medium road group (ROAD_MD + ROAD_LG, the old trade roads — see
   // src/street_variants.js) are recorded, because that is the question the
   // spawners ask: the kerb buffer (ROAD_CLASS_MAJOR_BUFFER), the wagon bus stops and
   // the dogs.
-  //   ROAD_CLASS_MAJOR_BAND  a major way's drawn band covers ANY of the cell.
+  //   ROAD_CLASS_MAJOR_BAND  a Major-and-Medium road's drawn band covers ANY of the cell.
   //   ROAD_CLASS_MAJOR_VERGE the cell is NOT road ground (roadMask 0) and is
-  //                          either touched by a major band (under half
-  //                          covered) or 8-adjacent to a masked cell a major
-  //                          band touches: the major road's verge.
-  // Derived from the SAME stamp the mask is (majorCover is the major ways'
+  //                          either touched by a Major-and-Medium road band (under half
+  //                          covered) or 8-adjacent to a masked cell a Major-and-Medium road
+  //                          band touches: the Major-and-Medium road group's verge.
+  // Derived from the SAME stamp the mask is (majorCover is the Major-and-Medium roads'
   // own copy of roadCover), so a narrow band that masks no cell at all at
   // ROAD_MASK_MIN_COVER still has a verge — the cells it paints a lick of.
   const ROAD_CLASS_MAJOR_BAND = 1;
   const ROAD_CLASS_MAJOR_VERGE = 2;
-  //   ROAD_CLASS_BANDIT_VERGE a major-verge cell on an old trade road's
+  //   ROAD_CLASS_BANDIT_VERGE a Major-and-Medium road verge cell on an Old Trade Road's
   //                          stretch — the look only since Sep 2026 (no trap
   //                          reads it: snares keep off every road).
   //                          Stamped after the street index is built
   //                          (StreetVariants.stampBanditStretchesSteps).
   const ROAD_CLASS_BANDIT_VERGE = 4;
   //   ROAD_CLASS_MAJOR_BUFFER the KERB BUFFER: within MAJOR_BUFFER_CELLS of a
-  //                          major band (the band's own cells included) —
+  //                          Major-and-Medium road band (the band's own cells included) —
   //                          stamped off the same lines, widened, so it is
   //                          seam-safe the way the band is. THE SAFETY RULE
   //                          (owner, Sep 2026): no FAST mover (foe or animal
@@ -3049,7 +3049,7 @@
 
   // ── Polygon geometry, once ───────────────────────────────────────────────
   // Even-odd over every ring of a feature (holes subtract). One spelling of
-  // the ray test for the whole game: the flora scatter, the zone coverage and
+  // the ray test for the whole game: the flora scatter, the Nexus coverage and
   // the scenic index all read it (an edge is taken a = ring[j], b = ring[i]).
   function pointInRings(rings, x, y) {
     let inside = false;
@@ -3278,13 +3278,13 @@
   const SX_NOT_A_PLACE = new Set(['traffic_signals', 'crossing', 'stop', 'fence', 'powerline', 'carport']);
   // ── THE SENSITIVE-PLACE TABLE (Sep 2026) — the ONE answer to "may this
   // real place become game content?". A place of grief or of another faith's
-  // prayer MINTS NOTHING: no chest, no macro stall, no zone anchor (zones.js
+  // prayer MINTS NOTHING: no chest, no macro stall, no Nexus anchor (zones.js
   // anchorOf asks this first), no enemy, no hoard — like SX_NOT_A_PLACE, but
   // for the opposite reason: not too trivial to be a place, too serious to be
   // a prize. Players of location games were sent to Holocaust sites and onto
   // Stolpersteine; this is the line that stops ours. Every reader of a POI
   // (the MVT poi pass, the sidecar / Overpass bin, a bin cached before this
-  // table, the zone anchors) asks isSensitivePoi — never its own list.
+  // table, the Nexus anchors) asks isSensitivePoi — never its own list.
   //   classes  — an MVT poi `class` / sidecar `kind` that is sensitive whole
   //   osm      — an OSM tag (Overpass / sidecar `tags`) whose presence, or
   //              listed value, marks the point: every memorial=* (the
@@ -3763,7 +3763,7 @@
       }
     }
     // Farmland and golf courses remain private across their source footprints.
-    // A POI pad, road, orchard or nexus repaint cannot reopen this ground.
+    // A POI pad, road, orchard or Nexus repaint cannot reopen this ground.
     for (const name of ['landcover', 'landuse']) for (const f of feats(name)) {
       if (f.type !== 3 || !f.geom || !f.tags) continue;
       const terrain = classifyPolygon(name, f.tags);
@@ -3919,7 +3919,7 @@
     };
     // ── FIELDS: only the outer band of the source footprint is open.
     // Keep a final-terrain fallback for synthetic field cells, but never let
-    // roads, POI pads or later nexus paint punch new edges through an orchard.
+    // roads, POI pads or later Nexus paint punch new edges through an orchard.
     const FE = FARM_EDGE_CELLS;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       if (FARM_TYPES.has(grid[y * w + x])) fieldSource[(y + M) * E + x + M] = 1;
@@ -4152,10 +4152,10 @@
     // layer loop, before anything reads it.
     const roadMask = new Uint8Array(w * h);
     const roadCover = new Uint16Array(w * h);
-    // The same coverage, for the MAJOR ways only, and the per-cell road CLASS
+    // The same coverage, for the Major-and-Medium road group only, and the per-cell road CLASS
     // resolved from it beside the mask (resolveRoadClassSteps).
     const majorCover = new Uint16Array(w * h);
-    // The major ways' band once more, widened by MAJOR_BUFFER_CELLS each side
+    // The Major-and-Medium road group's band once more, widened by MAJOR_BUFFER_CELLS each side
     // — the KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER) no fast mover spawns in.
     const majorBufCover = new Uint16Array(w * h);
     const roadClass = new Uint8Array(w * h);
@@ -5357,7 +5357,7 @@
         // Nexus geography is ready before building quotas. Classify every
         // overlapping footprint now, so temples never take a house/fort slot
         // or enter the castle turret pass. Chest relocation changes dressing
-        // origins only; the final zone pass still owns terrain and dressing.
+        // origins only; the final Nexus pass still owns terrain and dressing.
         let templeField = null;
         if (typeof Zones !== 'undefined' && typeof ZoneCoverage !== 'undefined') {
           templeField = yield* Zones.fieldSteps(layersByName.poi, tx, ty, w);
@@ -5392,7 +5392,7 @@
             }
             const field = templeFields.get(fieldKey);
             const a = field?.anchors[field.coverage?.[(y - dy * h) * w + x - dx * w] - 1];
-            // Only NEXUS zones raise a temple (Zones.ZONE_KINDS `temple`):
+            // Only Temple-bearing Nexus kinds raise a temple (Zones.ZONE_KINDS `temple`):
             // the grove (a generated marine grove counts), the old stones and
             // the tar yard. The shore and the quarry never claim a building.
             if (a && Zones.ZONE_KINDS[a.kind]?.temple) candidates.set(String(a.key ?? Zones.anchorKey(a.gx, a.gy)), a);
@@ -5610,7 +5610,7 @@
     // QUIET LAND (QUIET_LAND): military, railway, reserve and cemetery cells
     // host nothing. Stamped here, beside the road mask, so every cull and
     // spawner below reads it (the mineralrock cleanup, the gates and boards,
-    // the street and zone dressing) — and carried on the entry for the ones
+    // the Road Variant and Nexus dressing) — and carried on the entry for the ones
     // outside the build (spawnInTile's _spawnOpts.quiet, the stair pass).
     const quietMask = new Uint8Array(w * h);
     yield* stampQuietLandSteps(layers, quietMask, w, h, mvtToCell, grid);
@@ -5651,7 +5651,7 @@
     // Replace polygon grass on final GRASS cells, so overlapping mapped
     // polygons and the unclassified fallback get the same single fill pass.
     // Other plants stay first in the occupancy queue; landmarks, special
-    // zone/street areas and the shared spawn gate still own their cells.
+    // Nexus/Road Variant areas and the shared spawn gate still own their cells.
     let grassKeep = 0;
     for (let i = 0; i < wildplants.length; i++) {
       if ((i & 63) === 0) yield 'grass polygon cleanup';
@@ -6027,7 +6027,7 @@
     }
 
     // Public industrial salvage, independently seeded on empty ground.
-    // These are ordinary ambient barrels; street/nexus replacement removes
+    // These are ordinary ambient barrels; Road Variant/Nexus replacement removes
     // them together with rubble, and private land never gains a POI anchor.
     for (let i = 0; i < grid.length; i++) {
       if ((i & 1023) === 0) yield 'industrial salvage';
@@ -6162,7 +6162,7 @@
     stampPoiDensity(deduped);
     // Caves retain the old generated occupancy and rock identities while the
     // surface gives the special street its whole corridor, even empty cells.
-    // Capture after ordinary dedupe, before either street or zone replacement.
+    // Capture after ordinary dedupe, before either Road Variant or Nexus replacement.
     const caveSource = { grid: grid.slice(), objects: deduped.slice(),
       wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
     // Surface shrines change POI kind, theme and sometimes position in place.
@@ -6181,8 +6181,8 @@
     // now hold; spawnInTile lays it (dropping any piece whose cell something
     // placed after this pass took — the cave stair) before its other draws.
     let streetDress = null;
-    // The occupancy both dressings claim into (street first, then the zones'
-    // nexus), built once: every cell the tile's own objects and wild plants
+    // The occupancy both dressings claim into (street first, then the Nexus's
+    // focal layout), built once: every cell the tile's own objects and wild plants
     // hold. Built lazily so a tile with neither dressing pays nothing.
     let dressOcc = null, dressPois = null;
     // The dressings' spawn options — one shape, built per pass (a pass that
@@ -6198,14 +6198,14 @@
         dressPois.push({ ix: Math.floor((o.x - tileOriginMx) / cellWidthM), iy: Math.floor((o.y - tileOriginMy) / cellWidthM) });
       }
     };
-    // Build the zone field and final terrain before scenic measurements.
+    // Build the influence-zone field and final terrain before scenic measurements.
     // Its dressing waits until scenic landmarks and street pieces have claimed
-    // their cells; zone coverage then clears street pieces throughout its area.
+    // their cells; Nexus coverage then clears street pieces throughout its area.
     // THE PARK FRINGE (Zones.fringeSteps) runs right after the halo, on the
     // ground the halo left: every park polygon collected above spills a
     // ragged band of GROVE (CHURCHYARD round a cemetery) over the lot /
     // commercial ground at its edge, and the dressing smatters its
-    // character's filler a little further out. A tile with parks but no zone
+    // character's filler a little further out. A tile with parks but no Nexus
     // still gets a (stub) field, so the land's class (`under`) reaches the
     // trap ground the same way.
     let zone = null, zoneDress = null, fringe = null;
@@ -6343,7 +6343,7 @@
       yield* ReefLayout.dressSteps({ field: zone, zoneDress, tx, ty, N: w, tileEdgeM, grid,
         spawnOpts: dressOpts() });
     }
-    // Hives are basic forest props; every nexus reserves its entire coverage.
+    // Hives are basic forest props; every Nexus reserves its entire coverage.
     deduped.push(...spawnForestHives(grid, w, h, tx, ty, tileEdgeM,
       { ...dressOpts(), zoneCoverage: zone?.coverage }));
     // Tier seeds last: zones and scenic have stamped their nexus/vista
@@ -6607,7 +6607,7 @@
       entry.streetDress = streetDress || null;
       entry.caveSource = caveSource;
       // The influence-zone field (src/zones.js — per-cell winner anchor and
-      // strength; the story, the ghosts' dusk gate) and the nexus pieces
+      // strength; the story, the ghosts' dusk gate) and the Nexus focal-layout pieces
       // spawnInTile lays. Pure MVT like the index, re-derived by a rebuild.
       entry.zone = zone || null;
       entry.zoneDress = zoneDress || null;
@@ -8921,7 +8921,7 @@
     // Every cave placement pass shares these reservations, including mirrors,
     // torches, gem seams and rewards. Keep the actual terrain walkable.
     for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i]) occupied.add(i);
-    // Reuse the pure nexus planner as a reservation prepass: generic D2
+    // Reuse the pure Nexus focal-layout planner as a reservation prepass: generic D2
     // settlements must not consume its shrine/cache/encounter space first.
     // Final planning below sees the surviving, tiered mirrored caches.
     const proposedAreas = global.CaveAreas.plan({ surface, grid, N, tx: x, ty: y, tileEdgeM, depth,

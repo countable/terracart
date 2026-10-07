@@ -107,12 +107,12 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   entry or replacement `layers` array invalidates the geometry, so a cell move
   rejects distant lines without walking their vertices.
   Feather only the restored band's edge, with a hard-edge fallback.
-- Generate lamps from `Streets.lampSpacingM()` (independent of trail goals).
+- Generate lamps from `Streets.lampSpacingM()` (independent of restoration ladder goals).
   One list and `lit` flag feed art and lighting. Derive verge offset from road
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
-- Trail rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
+- Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
 

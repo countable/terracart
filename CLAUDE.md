@@ -103,7 +103,7 @@ One line each; the linked purpose doc owns the detail.
   `WorldGen.isSpawnCell` with `SPAWN_CLASS_BLOCKS` — never a check at a
   spawner ([generation](docs/design/generation.md)).
 - The road is never a refuge or a lure: the kerb buffer ends chases and
-  excludes fast movers; nothing urgent sits across a major road
+  excludes fast movers; nothing urgent sits across the Major-and-Medium road group
   ([generation](docs/design/generation.md)).
 - `Energy.set` is the only runtime energy writer; all incoming damage routes
   through `Combat.playerDamage` and armour ([combat](docs/design/combat.md)).

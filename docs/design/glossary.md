@@ -3,136 +3,154 @@
 ## Purpose
 
 Use one vocabulary for game design, comments and documentation. This glossary
-records the preferred names, the other names in the repository, and the places
-where those names describe different concepts. It does not rename APIs or change
-mechanics.
+separates naming ambiguities, valid subconcepts and redundant synonyms. It does
+not rename APIs or change mechanics.
 
 ## Scope
 
 This covers shared world-generation, layout, progression and interaction concepts
-found in maintained source and design docs. It is not an item, creature or story
-character catalogue; those belong to their owning tables and the story bible.
-Evidence links point to representative definitions and uses, not every occurrence.
+in maintained source and design docs. It is not an exhaustive item, creature or
+story-character catalogue. Evidence links show representative definitions and uses.
 
-**Finding:** terminology is not yet consistent. The largest issues are the scope
-of **Nexus**, the overlap between **Landcover**, biome and basic zone, and the two
-meanings that **Major road** would have under the requested road naming scheme.
+**These terms are approved for design prose, comments and documentation.**
+The owning source and docs continue to define behavior. Runtime identifiers,
+data keys and mechanics retain their existing meanings.
 
-Status meanings:
+- **Ambiguous use:** a name has competing meanings; the column defines the terms for each meaning.
+- **Subconcepts:** valid narrower concepts or components to keep. Related concepts at the same level are identified as such rather than treated as synonyms.
+- **Synonyms:** wording to replace in design prose only when it means the same concept. This does not remove story language, map tags, API names or data keys.
+- **Technical names:** backticked identifiers remain intact. No listed identifier is a rename target in this cleanup.
 
-- **Preferred:** use this term in design prose; technical identifiers may differ.
-- **Nonconformance:** wording names the same concept differently or leaves its scope unclear.
-- **Technical name:** an API, data key or source-map term with a valid separate role.
-- **Open:** the repository supports multiple meanings; the proposed distinction needs a design decision.
-
-Use title case for glossary labels and UI category headings. Ordinary prose may
-use lowercase common nouns (a nexus, landcover, a road variant); capitalization
-alone is not a semantic error. Preserve proper names such as Home and Dragon Hood.
+Grouped rows keep related concepts together within each table. Title case is
+appropriate for category headings; lowercase common nouns in prose are fine.
+Preserve proper names such as Home and Dragon Hood.
 
 ## World and object placement
 
-| Preferred term | Meaning | Other names and conformance | Evidence |
-| --- | --- | --- | --- |
-| **Nexus** (scope open) | A special place with an anchor, authored objects and a chosen variant. This is the requested design term, but its exact extent is unresolved. | Three meanings coexist: a compact arrangement at a POI; the whole owned zone coverage; and just the temple-bearing kinds. Calling every influence zone a Nexus would broaden the last meaning. | [Local pattern](../../src/zones.js#L75); [whole coverage](generation.md#spawn-precedence); [temple-bearing kinds](../../src/zones.js#L175). |
-| **Influence zone** | An anchor's surrounding field, with a kind, strength and terrain influence. | `Zones`, `ZONE_KINDS`, zone and special zone are established names. **Open:** whether Nexus replaces this design label or names a feature within it. “Zone” alone also appears for ordinary landcover, so qualify it. | [Zone model](../../src/zones.js#L2); [variant contract](zone-variants.md). |
-| **Nexus variant** (proposed label) | The selected authored configuration for one special place: background, materials, POI arrangement, finds, guards and atmosphere. | Current contract says **zone variant**, with `ZoneVariants`, `anchor.variant`, `zoneVariant` and the JSON `zone` key. These are established technical names. A prose rename depends on the Nexus scope decision. | [Zone variants](zone-variants.md); [data-key explanation](../../src/zone_variants.js#L7). |
-| **Landcover** | The ordinary ground category and its ambient object population, such as grass, forest or rock, before special-place and road-variant ownership. This is the requested design label. | **Nonconformance in design labels:** basic zone, basic tile and general zone/biome fill obscure this role. **Technical distinctions:** the literal map layers `landcover` and `landuse` are separate inputs; a terrain code is the final cell paint; a biome profile defines behavior. Keep those distinctions in implementation prose. | [General fill precedence](generation.md#spawn-precedence); [basic-zone data scope](../data/basic-zone-signatures.json); [biome registry](../../src/biome_profiles.js#L1); [map classification](../../src/worldgen.js#L1171). |
-| **Terrain** | The ground type recorded in each grid cell, including roads, buildings and cave walls as well as natural ground. | Terrain and biome are paired loosely in `BiomeProfiles`. Terrain is broader than Landcover; replacing every occurrence would lose information. | [Terrain enum](../../src/worldgen.js#L353); [profile enum](../../src/biome_profiles.js#L21). |
-| **Biome profile** | The registry of a ground type's flora, static objects, fauna and atmosphere. | Biome, per-biome feel and `BiomeProfiles` are valid names for this mechanism. It supplies Landcover behavior, but is not itself a map polygon or a Nexus. | [Registry definition](../../src/biome_profiles.js#L1). |
-| **Road Variant** | The theme and authored dressing assigned to an eligible road; the shared table also supplies scenic path looks. | **Nonconformance in design prose:** street variant, street theme and special road when they mean the selected variant. `StreetVariants` and `STREET_VARIANTS` remain valid technical names. Scenic path themes have a separate selection mechanism. | [Road choice](zone-variants.md#choosing-a-variant); [street module](../../src/street_variants.js#L2); [path themes](../../src/scenic.js#L20). |
-| **Layout** | The spatial arrangement of objects in discrete game cells. | Pattern, motif, composition and arrangement are related but narrower: a motif can repeat; a composition can remain fixed; a POI arrangement occupies slots beside the POI. A variant includes more than its layout. **Open:** the reusable allowed-layout catalogue discussed in design is not yet a declared shared runtime taxonomy. | [Integer-cell interpreter](../../src/zone_variants.js#L1); [placement contract](zone-variants.md#placement-contract). |
-| **Object set** (proposed label) | The selected object types available to a layout. | `materials`, flora, static objects and filler are existing mechanisms with different roles. Do not rename them all to object set until a shared schema exists. | [Variant materials](../data/zone-variants.json); [biome accessors](../../src/biome_profiles.js#L15). |
-| **Anchor** | The stable geographic identity and origin used to choose and place a special feature. | POI point is one anchor source, not its definition: generated quarries use parking-lane geometry. The blanket comment “An anchor is a POI POINT” is too narrow. | [POI-only wording](../../src/zones.js#L23); [generated quarry anchors](zone-variants.md#generated-quarries). |
-| **Coverage** | The full area owned by a feature, including intentionally empty cells. | Influence footprint, associated park and placement fringe are components of the coverage union. Occupancy is different: actual objects and access requirements can block cells inside coverage. | [Coverage union](zone-variants.md#coverage-union); [precedence](generation.md#spawn-precedence). |
-| **Halo / fringe** | A halo applies a zone's surrounding terrain influence; a fringe extends an ordinary park beyond its polygon. | These are related geometry mechanisms, not interchangeable names for a Nexus. A park fringe can exist without any anchor or Nexus reward. | [Halo and fringe definitions](../../src/zones.js#L39). |
-| **Ambient fill** | Ordinary procedural objects outside higher-priority authored ownership. | General fill, biome scatter, ordinary scatter and procedural dressing are understandable aliases; use ambient fill when discussing the common placement role. “Dressing” also includes authored content, so is broader. | [Precedence](generation.md#spawn-precedence); [ownership](zone-variants.md#placement-contract). |
-| **Cell / tile / footprint** | A cell is one allowed ground location; a tile is a map-data chunk containing cells; a footprint is the set of cells occupied by an object or feature. | These are distinct units. “Tile” in basic tile previews is ambiguous when it means a terrain category rather than a map chunk. Sprite pixels and visible bounds do not define interaction cells. | [Generation coordinates](generation.md#generation-saves-and-tiles); [footprint reservation](generation.md#spawn-precedence); [render seating](rendering.md). |
-| **Scenic path / viewpoint / vista chest** | A scenic path is an eligible off-road route with a scenic classification. A viewpoint is a mapped landmark. A vista chest is a reward tied to the scenic system. | These are related, not aliases. `Scenic` explicitly distinguishes itself from a zone; a viewpoint has no zone field or terrain paint. | [Scenic definitions](../../src/scenic.js#L8); [zone distinction](../../src/scenic.js#L68). |
+| Term | Meaning | Usage distinctions | Subconcepts (valid) | Synonyms to replace in this meaning | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| *Special places: identity, selection and focal objects* | | | | | |
+| **Nexus** | A complete anchored special place, including its authored objects and owned area. | Use **Nexus** for the whole place; **Nexus focal layout** for its central arrangement; **Temple-bearing Nexus** for the temple-capable subset. This broadens the narrow temple-only use. | Nexus variants; focal layouts; coverage; temple-bearing subset. | Special zone / zone only when naming the whole special place. | [Local pattern](../../src/zones.js#L75); [whole coverage](generation.md#spawn-precedence); [temple-bearing kinds](../../src/zones.js#L175). |
+| **Nexus focal layout** | Compact arrangement around a Nexus POI. | Replace the compact-pattern sense of bare “nexus” with this term. | Rings, crosses, symmetric beds and POI arrangements. | None beyond the ambiguous bare “nexus” use. | [Local pattern](../../src/zones.js#L75); [whole coverage](generation.md#spawn-precedence); [temple-bearing kinds](../../src/zones.js#L175). |
+| **Temple-bearing Nexus** | Subset of special places permitted to claim a temple building. | Replace the temple-only sense of bare “Nexus” with this explicit subset name. | Grove, Old Stones and Tar Yard under the current flags. | None beyond the ambiguous bare “Nexus” use. | [Local pattern](../../src/zones.js#L75); [whole coverage](generation.md#spawn-precedence); [temple-bearing kinds](../../src/zones.js#L175). |
+| **Nexus variant** | One selected authored configuration of a Nexus; technical owner `ZoneVariants`. | Reserve **variant** for the complete configuration and **layout** for its spatial arrangement. | Background, materials, POI arrangement, finds, guards, atmosphere. | Zone variant. | [Nexus variants](zone-variants.md); [data-key explanation](../../src/zone_variants.js#L7). |
+| **Anchor** | Stable geographic identity and origin used to select and place a special feature. | “An anchor is a POI POINT” is too narrow. Use **POI anchor** and **generated-site anchor** for the two sources. | POI anchors; generated quarry-site anchors. | None. | [POI-only wording](../../src/zones.js#L23); [generated quarry anchors](zone-variants.md#generated-quarries). |
+| *Special places: area geometry* | | | | | |
+| **Influence zone** | The distance/strength field around an anchor, rather than the whole authored place. | Reserve this term for the field; use **Nexus** for the place and **coverage** for its full ownership union. `Zones`/`ZONE_KINDS` stay technical names. | Influence footprint; per-cell strength. | Bare zone when the field is meant. | [Zone model](../../src/zones.js#L2); [variant contract](zone-variants.md). |
+| **Coverage** | Full area owned by a feature, including deliberately empty cells. | Use **coverage** for ownership and **occupancy** for actual space taken by objects/access requirements. | Influence footprint; associated park; placement fringe. | None. | [Coverage union](zone-variants.md#coverage-union); [precedence](generation.md#spawn-precedence). |
+| **Occupancy** | Cells unavailable because objects or access requirements occupy them. | Keep separate from coverage: an empty owned cell is still covered. | Object footprints; reserved access cells. | None. | [Coverage union](zone-variants.md#coverage-union); [precedence](generation.md#spawn-precedence). |
+| **Halo** | Terrain influence applied around an anchored place. | Use **halo** for anchored influence and **park fringe** for a park polygon extension. | Halo terrain repaint. | None. | [Halo and fringe definitions](../../src/zones.js#L39). |
+| **Park fringe** | Extension of a park polygon beyond its mapped boundary. | A fringe can exist without a Nexus. Qualify bare fringe as **park fringe** when several boundaries are discussed. | Placement fringe; fringe fill. | None. | [Halo and fringe definitions](../../src/zones.js#L39). |
+| *Ordinary ground and populations* | | | | | |
+| **Landcover** | Ordinary ground category and its ambient population, such as grass, forest or rock. | Use **source landcover layer** / **source landuse layer** for map inputs; **terrain** for final cell paint; **biome profile** for population/behavior rules. | Grass, forest and rock categories; associated ambient object populations. | Basic zone; basic tile when naming the ground category, not a map-data tile. | [Ambient fill precedence](generation.md#spawn-precedence); [basic-zone data scope](../data/basic-zone-signatures.json); [biome registry](../../src/biome_profiles.js#L1); [map classification](../../src/worldgen.js#L1171). |
+| **Source landcover layer** | The literal `landcover` map-data input layer. | Qualify it as **source landcover layer** when contrasting it with the broader game-design Landcover concept. | Source polygons and class/subclass tags. | None; preserve `landcover`. | [Ambient fill precedence](generation.md#spawn-precedence); [basic-zone data scope](../data/basic-zone-signatures.json); [biome registry](../../src/biome_profiles.js#L1); [map classification](../../src/worldgen.js#L1171). |
+| **Source landuse layer** | The separate literal `landuse` map-data input layer. | Do not collapse it into the source landcover layer merely because both contribute ground. | Source land-use polygons and tags. | None; preserve `landuse`. | [Ambient fill precedence](generation.md#spawn-precedence); [basic-zone data scope](../data/basic-zone-signatures.json); [biome registry](../../src/biome_profiles.js#L1); [map classification](../../src/worldgen.js#L1171). |
+| **Terrain** | Final ground type recorded in a cell, including roads, buildings and cave walls. | Use **terrain type** for a grid code and **biome profile** for the behavior registry; avoid bare biome when either could be meant. | Natural ground; roads; paths; buildings; cave terrain. | None. | [Terrain enum](../../src/worldgen.js#L353); [profile enum](../../src/biome_profiles.js#L21). |
+| **Biome profile** | Registry of a ground type’s flora, static objects, fauna and atmosphere. | Qualify bare biome as **biome profile** when referring to registry behavior. `BiomeProfiles` remains the API. | Flora rules; fauna rules; object rules; atmosphere. | Per-biome feel when used as the registry’s formal name. | [Registry definition](../../src/biome_profiles.js#L1). |
+| **Ambient fill** | Ordinary procedural objects outside higher-priority authored ownership. | Use **ambient fill** for the generic placement role; **authored dressing** for variant-owned objects. Dressing alone includes both. | Ordinary flora; scattered rocks; generic scenery. | General fill; general zone/biome fill; ordinary scatter or biome scatter when naming this role rather than its distribution algorithm. | [Precedence](generation.md#spawn-precedence); [ownership](zone-variants.md#placement-contract). |
+| *Reusable object arrangements and spatial units* | | | | | |
+| **Layout** | Spatial arrangement of objects in discrete game cells. | Reserve **layout** for geometry and **variant** for geometry plus content/atmosphere. The proposed allowed-layout catalogue is not yet a shared runtime schema. | Repeating motif; fixed composition; POI arrangement. | Pattern / arrangement only when used as an unqualified name for the same reusable layout. | [Integer-cell interpreter](../../src/zone_variants.js#L1); [placement contract](zone-variants.md#placement-contract). |
+| **Object set** | Name for the allowed object types supplied to a layout. | Distinguish **object set** (types) from **placed objects** (instances). Existing material/flora/static-object tables need an explicit mapping before schema changes. | Material choices; flora choices; static-object choices. | None. | [Variant materials](../data/zone-variants.json); [biome accessors](../../src/biome_profiles.js#L15). |
+| **Cell** | One allowed discrete ground location in the game grid. | Use **cell** for placement coordinates and **map tile** for a source-data chunk. | Local cell coordinates; absolute cell coordinates. | Tile when it incorrectly means one game-grid location. | [Generation coordinates](generation.md#generation-saves-and-tiles); [footprint reservation](generation.md#spawn-precedence); [render seating](rendering.md). |
+| **Map tile** | Source-data chunk containing many game cells. | Use **Landcover preview** for a ground-category sample currently called a basic tile preview. | Tile-local grid; buffered source geometry. | None. | [Generation coordinates](generation.md#generation-saves-and-tiles); [footprint reservation](generation.md#spawn-precedence); [render seating](rendering.md). |
+| **Footprint** | Set of cells occupied by an object or feature. | Qualify **object footprint** versus **influence footprint**; neither means visible sprite bounds. | Single-cell and multi-cell object footprints. | None. | [Generation coordinates](generation.md#generation-saves-and-tiles); [footprint reservation](generation.md#spawn-precedence); [render seating](rendering.md). |
 
 ## Roads and paths
 
-The requested design labels are **Major road**, **Medium road**, **Small road**
-and **Path**. The terrain model has four corresponding categories, but the
-current word **major** also means the union of its two larger categories in road
-safety and variant selection. A global search-and-replace would change meaning.
+The requested four terrain labels are kept below. The new aggregate label makes
+the existing MD/LG safety group explicit without silently changing its membership.
 
-| Requested label | Terrain and map classes | Current names and required distinction |
-| --- | --- | --- |
-| **Major road** (proposed single-tier label) | `T.ROAD_LG`: motorway, trunk, primary. | Called **large road**, `lg_road`, `LARGE_ROAD_CLASSES`, or “big ways.” **Open:** adopt Major for this tier only after naming the combined safety/variant group explicitly. |
-| **Medium road** | `T.ROAD_MD`: secondary, tertiary. | Medium road and `md_road` map directly. This tier is also currently a **major** road for safety and variant selection. |
-| **Small road** | `T.ROAD`: minor, service, street, plus the classifier's fallback. | Small road and `sm_road` map to the terrain tier. **Minor street** in variant selection is narrower: only minor/street classes, excluding service ways. |
-| **Path** | `T.PATH`: path, footway, track, pedestrian, cycleway, steps. | Footpath and walking path are common prose aliases. Map class `path` is narrower than the whole game category. Scenic eligibility and variant eligibility do not include every `T.PATH` class. |
-
-Evidence: [terrain enum](../../src/worldgen.js#L362),
-[classification](../../src/worldgen.js#L1226),
-[variant size selection](../../src/street_variants.js#L443),
-[large and medium wording](../process/SANDBOX.md#L107),
-[sm/md/lg reference data](../data/underground-zone-variants.draft.json).
-
-For new explanatory prose, spell out **Major and Medium roads** when referring
-to the combined group under the proposed labels. Existing `ROAD_CLASS_MAJOR_*`,
-`inMajorBuffer`, `size: 'major'` and `sizeOfTags()` continue to mean **ROAD_LG +
-ROAD_MD**. Retaining these technical names requires explicit comments; changing
-them would be a separate refactor.
-
-Other road concepts:
-
-| Term | Meaning and naming guidance | Evidence |
-| --- | --- | --- |
-| **Road band** | The actual drawn carriageway width. Terrain cells, road mask and geometric band are related representations, not synonyms. | [Road mask](generation.md#generation-saves-and-tiles). |
-| **Kerb buffer** | Safety area around the combined MD/LG road band. Kerb, verge and buffer sometimes appear together, but a verge is a placement location and need not equal the safety mask. | [Safety bits](../../src/worldgen.js#L2075); [safety rule](generation.md#generation-saves-and-tiles). |
-| **Street** | A named route within a parish for variant identity; restoration measures pieces of source geometry. Neither meaning is a road-size tier. | [Variant identity](../../src/street_variants.js#L4); [restoration geometry](../../src/streets.js#L18). |
-| **Old Trade Road** | Narrative/thematic name for the existing major-group road treatment. `bandit`, `BANDIT_STORY` and bandit-verge keys are retained technical names; they are not an additional road tier. | [Declared old internal name](../../src/street_variants.js#L14). |
-| **Thorny Path** | Proper name of a Road Variant whose `size` is `minor`. Its title does not make its substrate a `T.PATH`; explain this when listing variant eligibility. | [Variant row](../../src/street_variants.js#L320). |
-| **Pier** | Separate ground category `T.PIER` for a walkway over water; some scenic logic treats it as a walking route. It is not `T.PATH` terrain. | [Classifier](../../src/worldgen.js#L1250); [scenic routes](../../src/scenic.js#L8). |
+| Term | Meaning | Usage distinctions | Subconcepts (valid) | Synonyms to replace in this meaning | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| *Terrain tiers and eligibility groups* | | | | | |
+| **Major road** | Proposed single-tier label for `T.ROAD_LG`: motorway, trunk, primary. | Current “major” also includes Medium roads. Use **Major-and-Medium road group** for that aggregate. | Motorway, trunk and primary source classes. | Large road; big ways when naming this tier. Keep `lg_road` and `LARGE_ROAD_CLASSES`.  | [Terrain and tags](../../src/worldgen.js#L1226); [variant groups](../../src/street_variants.js#L443); [reference names](../data/underground-zone-variants.draft.json). |
+| **Medium road** | `T.ROAD_MD`: secondary and tertiary source classes. | This tier currently belongs to the internal `major` group. Name that aggregate explicitly. | Secondary and tertiary source classes. | None; keep `md_road`. | [Terrain and tags](../../src/worldgen.js#L1226); [variant groups](../../src/street_variants.js#L443); [reference names](../data/underground-zone-variants.draft.json). |
+| **Major-and-Medium road group** | Explicit name for `ROAD_LG + ROAD_MD` in safety and variant selection. | Use this row instead of bare **major** for the combined group. Existing `ROAD_CLASS_MAJOR_*`, `inMajorBuffer` and `size: major` retain their current meaning. | Major roads; Medium roads. | Major roads when it denotes the aggregate rather than the single tier. | [Terrain and tags](../../src/worldgen.js#L1226); [variant groups](../../src/street_variants.js#L443); [reference names](../data/underground-zone-variants.draft.json). |
+| **Small road** | `T.ROAD`: minor, street and service classes, plus classifier fallback. | Distinguish all Small road terrain from **Variant-eligible Small roads**, which exclude service ways. | Residential streets; service ways. | Minor road when it means the entire Small tier. Keep `sm_road` and source class `minor`. | [Terrain and tags](../../src/worldgen.js#L1226); [variant groups](../../src/street_variants.js#L443); [reference names](../data/underground-zone-variants.draft.json). |
+| **Variant-eligible Small roads** | Name for Small roads selected by the minor/street source classes. | Use this name for the narrow `size: minor` group; it does not include every Small road cell. | Minor/street source classes. | Minor streets when used as the formal eligibility-group label. | [Terrain and tags](../../src/worldgen.js#L1226); [variant groups](../../src/street_variants.js#L443); [reference names](../data/underground-zone-variants.draft.json). |
+| **Path** | `T.PATH`: path, footway, track, pedestrian, cycleway and steps. | Use **Path terrain** for the whole class; **scenic path** for the narrower classified route. Source class `path` is only one member. | Footways; tracks; pedestrian ways; cycleways; steps. | Walking path / footpath when naming the entire terrain category, not a specific source type. | [Terrain and tags](../../src/worldgen.js#L1226); [variant groups](../../src/street_variants.js#L443); [reference names](../data/underground-zone-variants.draft.json). |
+| **Pier** | Separate `T.PIER` terrain: walkway over water. | A pier may participate in scenic walking routes but is not Path terrain. | Pier walkway segments. | None. | [Classifier](../../src/worldgen.js#L1250); [scenic routes](../../src/scenic.js#L8). |
+| *Route identity, appearance and rewards* | | | | | |
+| **Street** | Named route within a parish for variant identity. | Use **street identity** for this grouping and **restoration segment** for the source geometry measured by restoration. | Named route fragments; canonical unnamed groups where implemented. | None. | [Variant identity](../../src/street_variants.js#L4); [restoration geometry](../../src/streets.js#L18). |
+| **Restoration segment** | Proposed explanatory name for a measured piece of source route geometry. | Separates geometry used to restore metres from the whole street identity. | Restored intervals within a segment. | None; street piece is existing technical prose. | [Variant identity](../../src/street_variants.js#L4); [restoration geometry](../../src/streets.js#L18). |
+| **Road Variant** | Authored theme assigned to an eligible road, implemented by `StreetVariants`. | Use **scenic path theme** for path looks selected by `Scenic`, rather than implying they use the same road rarity roll. | Minor/major eligibility groups; background, obstacles and atmosphere. | Street variant; street theme / special road when naming the selected variant. | [Road choice](zone-variants.md#choosing-a-variant); [street module](../../src/street_variants.js#L2); [path themes](../../src/scenic.js#L20). |
+| **Scenic path** | Off-road route meeting the scenic classification rules. | Keep separate from generic Path terrain and from a Nexus. | Coastal, park and greenway scenic routes. | None. | [Scenic definitions](../../src/scenic.js#L8); [zone distinction](../../src/scenic.js#L68). |
+| **Scenic path theme** | Scenic route looks read from path-sized `STREET_VARIANTS` rows. | Separates scenic-class selection from randomized Road Variant selection. | Promenade; greenway; parkpath themes. | None. | [Road choice](zone-variants.md#choosing-a-variant); [street module](../../src/street_variants.js#L2); [path themes](../../src/scenic.js#L20). |
+| **Viewpoint** | Mapped scenic landmark with its own reward and scope. | Use **viewpoint** for the place and **vista chest** for its chest; a viewpoint has no zone field. | Scope; rest spot; viewpoint reward. | None. | [Scenic definitions](../../src/scenic.js#L8); [zone distinction](../../src/scenic.js#L68). |
+| **Vista chest** | One-time reward owned by the scenic system. | Distinguish the chest from a viewpoint or scenic stretch that owns it. | Viewpoint reward; scenic-stretch reward. | None. | [Scenic definitions](../../src/scenic.js#L8); [zone distinction](../../src/scenic.js#L68). |
+| **Old Trade Road** | Narrative/thematic treatment of the existing combined MD/LG road group. | Treat as a named road treatment, never a fourth vehicle-road size. | Associated wagon-stop look; lamp/story treatment. | Bandit road when naming this treatment in design prose; preserve internal `bandit` keys. | [Declared old internal name](../../src/street_variants.js#L14). |
+| **Thorny Path** | Proper name of a Road Variant assigned to variant-eligible Small roads. | Show **Road Variant: Thorny Path (Small road)** in eligibility lists; its title does not imply Path terrain. | Declared bramble/obstacle arrangement. | None; retain the proper name. | [Variant row](../../src/street_variants.js#L320). |
+| *Road geometry and safety* | | | | | |
+| **Road band** | Actual drawn carriageway width. | Distinguish the geometric **road band**, cell **road mask**, and final **road terrain**. | Road-band segments. | None. | [Road mask](generation.md#generation-saves-and-tiles). |
+| **Kerb buffer** | Safety area around the Major-and-Medium road group. | Use **kerb buffer** for the safety mask and **verge** for a roadside placement location. | Band-adjacent safety cells. | Bare kerb / buffer when the full safety region is meant. | [Safety bits](../../src/worldgen.js#L2075); [safety rule](generation.md#generation-saves-and-tiles). |
+| **Verge** | Roadside location used for placement. | A verge is not necessarily identical to the kerb safety buffer; qualify the relevant geometry. | Variant-object seats; reward seats. | None. | [Safety bits](../../src/worldgen.js#L2075); [safety rule](generation.md#generation-saves-and-tiles). |
 
 ## Special-place families
 
-These names are layers of identity, not interchangeable labels. Keep the family,
-terrain and individual variant separate when defining allowed layouts.
+Keep family identity, painted ground and place components separate. These family
+rows use Nexus for the whole place.
 
-| Design family | Other names / keys | Distinction | Evidence |
-| --- | --- | --- | --- |
-| **Grove** | Sacred Grove, `grove`, `T.GROVE` | A grove anchor is distinct from ordinary park landcover and from the terrain it paints. | [Family row](../../src/zones.js#L188). |
-| **Old Stones** | Churchyard, `stones`, `T.CHURCHYARD` | Old Stones names the special-place family; churchyard names its ground. Real cemeteries are quiet land and do not mint this authored zone. | [Family row](../../src/zones.js#L194); [sensitive places](../../src/zones.js#L17). |
-| **Tar Yard** | `tar`, `T.TAR_YARD`, fuel-station anchor | Tar hazards are objects within the place, not its coverage. | [Family row](../../src/zones.js#L199); [geometry versus density](zone-variants.md#placement-contract). |
-| **Shore** | Beach family, `beach` | The zone family differs from ordinary sand landcover and from the scenic shoreline system. Beach is a valid data key; using it for all three without qualification is ambiguous. | [Family row](../../src/zones.js#L184); [beach contract](zone-variants.md#beach-family); [scenic beaches](../../src/scenic.js#L37). |
-| **Quarry** | `quarry`, quarry site, parking-lane site | The family can select crater, abandoned quarry, strip mine or stronghold configurations. Ordinary rock terrain is not automatically a quarry. | [Generated quarries](zone-variants.md#generated-quarries). |
-| **Temple / shrine / keeper** | Temple-bearing Nexus, `grove_shrine`, zone keeper | A temple is a building/room feature; a shrine is a daily interactable; a keeper is an NPC role. These are components of a place, not aliases for Nexus. | [Temple and keeper flags](../../src/zones.js#L171); [shrine contract](zone-variants.md#placement-contract). |
+| Term | Meaning | Usage distinctions | Subconcepts (valid) | Synonyms to replace in this meaning | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| *Families* | | | | | |
+| **Grove** | Special-place family keyed by `grove`. | Use **Grove Nexus**, **park Landcover** and **grove terrain** when contrasting the place, underlying ordinary ground and paint. | Grove variants; focal layout; temple when eligible. | None; Sacred Grove is a valid display/story name. | [Family row](../../src/zones.js#L188). |
+| **Old Stones** | Special-place family keyed by `stones`. | Use **Old Stones Nexus** for the place and **churchyard terrain** for its paint. Real cemetery land is a different, quiet category. | Old Stones variants; churchyard terrain; authored graves. | Churchyard when naming the Nexus family. | [Family row](../../src/zones.js#L194); [sensitive places](../../src/zones.js#L17). |
+| **Tar Yard** | Special-place family keyed by `tar`. | Use **Tar Yard Nexus** for the place and **tar pool** for a hazard; hazard cells do not define ownership coverage. | Tar pools; focal layout; eligible temple. | None. | [Family row](../../src/zones.js#L199); [geometry versus density](zone-variants.md#placement-contract). |
+| **Shore** | Special-place family keyed by `beach`. | Use **Shore Nexus**, **sand Landcover** and **scenic shoreline** for the three different meanings of beach. | Shore variants; authored shore rewards. | Beach family when naming this Nexus category; keep `beach` data keys. | [Family row](../../src/zones.js#L184); [beach contract](zone-variants.md#beach-family); [scenic beaches](../../src/scenic.js#L37). |
+| **Quarry** | Special-place family with generated site coverage. | Use **Quarry Nexus** for the special place and **rock Landcover** for ordinary rocky ground. | Crater; abandoned quarry; strip mine; stronghold variants. | Parking-lane site when used as the place’s category rather than its generation source. | [Generated quarries](zone-variants.md#generated-quarries). |
+| *Place components* | | | | | |
+| **Temple** | Building or room feature associated with eligible Nexuses. | Keep **temple** for the structure and **Temple-bearing Nexus** for the containing place/subset. | Temple rooms; upper floors. | None. | [Temple and keeper flags](../../src/zones.js#L171); [shrine contract](zone-variants.md#placement-contract). |
+| **Shrine** | Daily interactable that can grant gifts or boons. | Keep **shrine** distinct from the containing temple or Nexus. | Shrine kinds; daily gift; boon. | None. | [Temple and keeper flags](../../src/zones.js#L171); [shrine contract](zone-variants.md#placement-contract). |
+| **Keeper** | NPC role tending a special place. | Use **Nexus keeper** when the owning place matters; “keeper” names a resident, not the place. | Family-specific keeper dialogue. | Zone keeper. | [Temple and keeper flags](../../src/zones.js#L171); [shrine contract](zone-variants.md#placement-contract). |
 
 ## Progression and interactions
 
-| Preferred term | Meaning | Aliases, narrower concepts and nonconformances | Evidence |
-| --- | --- | --- | --- |
-| **Dragon Hood** | Game title. | TerraCart, Pocket Acres and Mending Lane are former titles. **Nonconformance:** using them for the current game. `terracart.*` storage keys remain required technical names; Mending Lane remains the starting neighbourhood. | [Title history](spec.txt#L1); [root policy](../../CLAUDE.md#purpose). |
-| **The Hood / the Breaking** | The protagonist's story name / the world-changing event. | Survivor describes the protagonist's apparent role. The night the roofs fell is an in-world name for the Breaking, not a terminology error. Story names and unresolved canon belong to the story bible. | [Story premise and world](story.txt#L15). |
-| **Home** | The player's home location and its rest, light and ward context. | Spawn/start location and trailer are associated references, not universal synonyms for every Home mechanic. `HomeArea` and `homeWorldPos()` are technical owners. | [Home rules](combat.md); [home context](spec.txt#L1083). |
-| **Energy** | The player's spendable pool for jobs and incoming damage; pets also have their own energy. | Health/HP is appropriate for enemy combat health. Calling the player's resource HP would obscure the shared energy mechanic; “health bar” in foe UI is intentional. | [Energy and damage](combat.md); [energy definition](spec.txt#L228); [foe health](spec.txt#L498). |
-| **Reach** | The player's current interaction range. | Lit reach/range connects the same range to its visual display. Viewport, sight and projectile range are distinct concepts. | [Reach rules](spec.txt#L206); [rendering](rendering.md). |
-| **Work wheel** | The timed-action interface for jobs. | Working/job describes the action state. Combat has its own timing and health display rather than a work wheel. | [Interaction rules](spec.txt#L220); [job energy](combat.md). |
-| **Restoration** | Repairing the world through building restoration or road-band restoration. | Mending is valid story language. A fort is unsealed; a castle is claimed: these are different actions, not merely renamed wreck restoration. | [Building roles](../../src/houses.js#L1); [fort unlocking](../../src/houses.js#L21); [street restoration](spec.txt#L580). |
-| **Restoration ladder** | The shared progression that banks restored street/path metres and awards prizes. | `Trail` is its technical module. **Ambiguity:** onboarding trail/crate trail refers to starting placements, not this prize ladder. | [Ladder](../../src/trail.js#L2); [starter trail](spec.txt#L137). |
-| **Living lamps** | Restored route lamps that provide the recurring re-walk credit. | Lamp light is a visual/source mechanism; first-time restoration credit and scenic bonuses are separate reward rules. | [Lamp credit distinction](../../src/scenic.js#L14); [street lamps](spec.txt#L606). |
-| **Memory** | A discovery-triggered story progression event. | Discovery is the recorded first find that triggers it; `save.discovered` is the technical ledger. Memory is not a general synonym for every reward or restoration. | [Memories](spec.txt#L878). |
-| **Chest / crate** | A chest gives once; an eligible crate restocks. | Cache and hoard describe authored finds/themes and should be qualified by their actual interaction or reward mechanism. Pots/barrels can use chest reward ledgers without becoming crates. | [Rewards and restocking](generation.md#generation-saves-and-tiles). |
-| **Relic** | Equipment or a special tool/reward in the relic system. | Gear, tool and weapon are broader or role-specific descriptions. Relic chest names the starter reward source, not every chest containing equipment. | [Tools and equipment](spec.txt#L850); [starter relic chest](spec.txt#L144). |
-| **Lair / garrison / guard / encounter** | A lair is an occupied derelict structure; its garrison is the authored enemy group. A guard protects a feature. An encounter is a separate themed spawn mechanism. | Foe, enemy and monster are ordinary aliases at the creature level. Replacing all four group/placement terms with encounter would erase ownership and budget differences. | [Lairs](../../src/lairs.js#L2); [finite guards versus encounters](zone-variants.md#placement-contract). |
-| **Pet / companion / fauna** | A pet is an individually owned animal; a companion can be a timed follower; fauna are ordinary world animals. | Tamed, carried and deployed describe lifecycle states, not interchangeable ownership systems. `save.released` also stores pet records, so its name alone does not imply unowned. | [Pet and follower ownership](combat.md). |
-| **Condition / buff / boon** | Conditions model status effects; buffs model timed benefits; shrine boons are place-granted benefits. | Status effect/status chip can describe their presentation. Shared presentation does not mean the underlying registries or durations are interchangeable. | [Status and buff rules](combat.md); [shrine story](story.txt#L45). |
-| **Floor / depth / level** | Floor names a playable vertical layer; depth is its underground index. | Cave level and dungeon floor are valid aliases in context. Level is ambiguous with other progression; tower floors are aboveground and need an explicit direction. | [Floor catalogue](floors.md); [surface-owned geometry](generation.md#generation-saves-and-tiles). |
-| **Spawn gate / spawn class** | The shared placement permission mechanism and the category of object asking for a cell. | `minor` is a spawn class for scenery/flora as well as a road-group word elsewhere. These are independent meanings; qualify the term. | [Spawn gate and classes](generation.md#generation-saves-and-tiles). |
+| Term | Meaning | Usage distinctions | Subconcepts (valid) | Synonyms to replace in this meaning | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| *World identity and player context* | | | | | |
+| **Dragon Hood** | Current game title. | Use **Mending Lane** for the starting neighbourhood; preserve `terracart.*` storage keys. | None; the neighbourhood is a setting within the game. | TerraCart; Pocket Acres; Mending Lane when used as the current game title. | [Title history](spec.txt#L1); [root policy](../../CLAUDE.md#purpose). |
+| **The Hood** | Protagonist’s story name. | Survivor can describe the apparent role; it is not a second canonical character name. | None identified. | None; descriptive story language is valid. | [Story premise and world](story.txt#L15). |
+| **The Breaking** | World-changing story event. | None identified. | None identified. | None; “the night the roofs fell” is an intentional in-world expression. | [Story premise and world](story.txt#L15). |
+| **Home** | Player’s home location and its rest, light and ward context. | Use **starting location** for initial spawn and **Home** for the ongoing home mechanic; a trailer is a physical representation. | Home light; Home rest; Home ward. | None; keep `HomeArea` and `homeWorldPos()`. | [Home rules](combat.md); [home context](spec.txt#L1083). |
+| **Floor** | Playable vertical layer. | Use **underground floor** or **tower floor** to make direction explicit; **depth** is the underground index. | Underground floors; tower floors. | Cave level / dungeon level when naming a floor in shared design tables. | [Floor catalogue](floors.md); [surface-owned geometry](generation.md#generation-saves-and-tiles). |
+| **Depth** | Index indicating how far underground a floor lies. | Reserve **depth** for underground position; use the specific progression name for other uses of “level.” | Depth-dependent content rules. | Level when it means underground depth. | [Floor catalogue](floors.md); [surface-owned geometry](generation.md#generation-saves-and-tiles). |
+| *Player resources and actions* | | | | | |
+| **Energy** | Player resource spent on jobs and reduced by incoming damage; pets have their own energy. | Use **enemy health** for foe HP, **player energy** and **pet energy** for their respective pools. | Player energy; pet energy. | None evidenced as a redundant pool name; enemy HP is valid. | [Energy and damage](combat.md); [energy definition](spec.txt#L228); [foe health](spec.txt#L498). |
+| **Enemy health** | Foe’s combat-health pool and associated bar. | Use this explicit term when contrasting with player/pet energy. | Current and maximum enemy HP; health bar display. | None; HP is a legitimate technical abbreviation. | [Energy and damage](combat.md); [energy definition](spec.txt#L228); [foe health](spec.txt#L498). |
+| **Reach** | Current player interaction range. | Use **interaction reach**, **sight range** and **projectile range** when several ranges appear together. | Lit reach display. | Lit range when it means interaction reach rather than lighting. | [Reach rules](spec.txt#L206); [rendering](rendering.md). |
+| **Work wheel** | Timed-action interface for jobs. | Use **job** for the action and **work wheel** for its interface. | Timed work progress display. | None. | [Interaction rules](spec.txt#L220); [job energy](combat.md). |
+| **Condition** | Status effect represented by `Conditions.DEFINITIONS`. | Use **condition**, **buff** or **shrine boon** for mechanics; **status chip** for shared UI presentation. | Poison; burning; paralysis and other defined conditions. | None; status effect is a valid umbrella phrase. | [Status and buff rules](combat.md); [shrine story](story.txt#L45). |
+| **Buff** | Timed benefit represented in `Buffs.KINDS`. | Keep separate from the condition registry; shared status-row display does not merge them. | Timed movement and consumable benefits. | None. | [Status and buff rules](combat.md); [shrine story](story.txt#L45). |
+| **Shrine boon** | Benefit lent by a shrine. | Name the source as **shrine boon**; document separately which effect mechanism implements it. | Shrine-specific granted benefits. | Bare boon where its source would otherwise be ambiguous. | [Status and buff rules](combat.md); [shrine story](story.txt#L45). |
+| *Restoration, discoveries and rewards* | | | | | |
+| **Restoration** | Repairing buildings or road bands. | Use **building restoration** / **road restoration**; preserve **fort unsealing** and **castle claiming** as distinct actions. | Building restoration; road restoration. | None; street restoration is the established mechanism name and mending is valid story language. | [Building roles](../../src/houses.js#L1); [fort unlocking](../../src/houses.js#L21); [street restoration](spec.txt#L580). |
+| **Restoration ladder** | Shared progression banking restored road/path metres for prizes; technical owner `Trail`. | Use **restoration ladder** for prize progression and **starter trail** for onboarding placements. | Prize goals; banked restoration metres. | Trail when used as the ladder’s standalone design name; retain the API. | [Ladder](../../src/trail.js#L2); [starter trail](spec.txt#L137). |
+| **Starter trail** | Onboarding sequence and nearby starting placements. | Distinguish this physical/tutorial sequence from `Trail` restoration progression. | Starter crates; starter relic reward. | Onboarding trail / crate trail as competing formal labels for the same starter sequence; descriptive uses remain valid. | [Ladder](../../src/trail.js#L2); [starter trail](spec.txt#L137). |
+| **Living lamps** | Restored route lamps providing recurring re-walk credit. | Use **lamp credit** for the recurring reward and **lamp light** for its visual/light-source role. | Path lamps; street lamps. | None. | [Lamp credit distinction](../../src/scenic.js#L14); [street lamps](spec.txt#L606). |
+| **Memory** | Discovery-triggered story progression event. | Use **discovery** for the recorded first find; **memory** for its story result. | Story memories. | None. | [Memories](spec.txt#L878). |
+| **Discovery** | Recorded first find that can trigger a memory; stored in `save.discovered`. | Do not use memory for both the trigger record and the resulting story event. | First shiny-kind finds; first elite-kind finds. | None. | [Memories](spec.txt#L878). |
+| **Chest** | One-time chest reward interaction. | Use **crate** for a restocking container. Qualify cache/hoard by its actual interaction, e.g. **hoard chest** or **finite find**. | Vista chest; Nexus chest; starter relic chest. | None: cache/hoard may describe distinct content rather than an alias. | [Rewards and restocking](generation.md#generation-saves-and-tiles). |
+| **Crate** | Container eligible for restocking. | Use **restocking crate** when its recurrence is the distinction; pots/barrels sharing ledgers do not automatically become crates. | Restock schedules. | None. | [Rewards and restocking](generation.md#generation-saves-and-tiles). |
+| **Relic** | Equipment or special tool/reward in the relic system. | Use **starter relic chest** for that reward source; relic does not name the container. | Tool relics; weapon relics; bag relics. | None; gear/tool/weapon describe broader or role-specific categories. | [Tools and equipment](spec.txt#L850); [starter relic chest](spec.txt#L144). |
+| *Creatures, ownership and placement* | | | | | |
+| **Lair** | Occupied derelict structure. | Use **lair** for the occupied place and **garrison** for its authored enemy group. | Building lairs. | None. | [Lairs](../../src/lairs.js#L2); [finite guards versus encounters](zone-variants.md#placement-contract). |
+| **Garrison** | Authored group of enemies attached to a structure or feature. | Distinguish group membership from an individual **guard** and from encounter spawning. | Authored group compositions. | None. | [Lairs](../../src/lairs.js#L2); [finite guards versus encounters](zone-variants.md#placement-contract). |
+| **Guard** | Creature protecting an authored feature or reward. | Use **finite guard** where the budget/lifecycle differs from generic encounters. | Nexus guards; road-variant guards. | None. | [Lairs](../../src/lairs.js#L2); [finite guards versus encounters](zone-variants.md#placement-contract). |
+| **Encounter** | Themed encounter-spawn mechanism. | Use **themed encounter** for its specific runtime system rather than calling every guard or lair an encounter in budget rules. | Surface encounter families. | None. | [Lairs](../../src/lairs.js#L2); [finite guards versus encounters](zone-variants.md#placement-contract). |
+| **Pet** | Individually owned animal record. | Use **pet state** for carried/deployed/released status; `save.released` does not by itself mean unowned. | Carried pets; deployed pets; pet growth and recovery. | None. | [Pet and follower ownership](combat.md). |
+| **Companion** | Follower managed by the companion lifecycle, including timed contracts. | Use **timed companion** where duration/contract distinguishes it from a pet. Shared combat behavior does not imply shared ownership. | Timed follower kinds. | None. | [Pet and follower ownership](combat.md). |
+| **Fauna** | Ordinary world animals. | Use **wild fauna** for ambient animals and **pet** after ownership is established. | Ambient species; habitat preferences. | None; animal remains ordinary language. | [Pet and follower ownership](combat.md). |
+| **Spawn gate** | Shared cell-placement permission mechanism. | Use **spawn gate** for the permission check and **spawn class** for the category requesting access. | Reason bits; class-specific blocks. | None. | [Spawn gate and classes](generation.md#generation-saves-and-tiles). |
+| **Spawn class** | Category of object asking the spawn gate for access. | Use **minor spawn class** for `minor` scenery/flora; **Variant-eligible Small roads** for the unrelated road group. | Enemy, fauna, headstone, attractor and minor spawn classes. | None; retain class keys. | [Spawn gate and classes](generation.md#generation-saves-and-tiles). |
 
 ## Cleanup boundaries
 
-1. Resolve whether Nexus names the complete special place, its focal composition,
-   or a subset of place families. Then align the zone contract, module headers
-   and review labels with that scope.
-2. Adopt the requested four road labels in design/UI text and explicitly name
-   the combined MD/LG safety and variant group. Preserve map tags and runtime
-   values until a separate tested refactor changes them.
-3. Use Landcover for ordinary ground/object-set design, while retaining terrain,
-   biome profile, `landcover` and `landuse` where their technical distinction matters.
-4. Prefer Road Variant over street variant in design prose. Retain proper names,
-   such as Thorny Path, and document their actual eligible road category.
-5. Extend this glossary when a shared concept is coined. Keep item/creature names,
-   numeric tuning and detailed mechanics in their owning catalogues and docs.
+1. Use Nexus for the whole place, Nexus focal layout for its central arrangement,
+   and Temple-bearing Nexus for the subset permitted to claim a temple.
+2. Use Major, Medium, Small and Path for the four road tiers. Name the
+   Major-and-Medium road group and Variant-eligible Small roads explicitly;
+   preserve their safety and variant memberships.
+3. Replace synonyms only in the meanings stated in each row. Keep source-map
+   tags, runtime identifiers, proper names and valid subconcepts.
+4. Keep this glossary about shared vocabulary. Detailed mechanics, numeric tuning,
+   item/creature catalogues and story canon stay in their owning sources.

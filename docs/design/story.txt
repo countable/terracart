@@ -44,7 +44,7 @@ The game is the mending. The story is what you remember while you mend.
   deepest levels a player can reach, and the hunts for them are the game's
   very late endgame (see ACT 3).
 - SHRINES, GROVES, THE OLD STONES, THE SHORE: the sacred places predate the
-  Breaking and were spared by it. Their keepers (the zone keepers, npc.js)
+  Breaking and were spared by it. Their keepers (the Nexus keepers, npc.js)
   are the only people who never left. The boons the shrines lend are the
   world's own small leftover magic, not a dragon's.
 - THE ROADS AND LAMPS: the one thing the Breaking did not touch. The
@@ -495,7 +495,7 @@ ACT 2b — THE SECOND TOWER (restoration 52+, memories 21–30)
   needs two.
 
 ACT 3 — THE FIRE BELOW (after memory 30; the hunts are very late game)
-  The player goes down for their fire (cave level 9, the existing DragonStory
+  The player goes down for their fire (underground depth 9, the existing DragonStory
   reward) and keeps going. Below are Ayo's hidden dragons, one colour at a
   time, each bound in her keeping; the HUNTS are the capture of each, alive
   (the net and the catch wheel are the tools; a dragon that dies is a colour
@@ -583,7 +583,7 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
   deep down who has seen the white one.
 - THE NIGHT'S GHOSTS, THE LAIRS, THE DEEP DEMONS: the world's own creeps,
   incidental; some of them Tim's, never announced.
-- THE RED DRAGON on cave level 9+: a wild dragon of this world, not family.
+- THE RED DRAGON at underground depth 9+: a wild dragon of this world, not family.
 - THE NET AND THE CATCH WHEEL: the hunts' tools. Alive, or lost.
 - SHRINE BOONS: the world's own small magic answering the Hood's.
 - THE KERB RULE (the road is never a refuge for monsters, always for the
