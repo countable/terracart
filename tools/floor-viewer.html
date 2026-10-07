@@ -191,12 +191,16 @@
         if (o.kind === 'npc') {
           const npc = SpriteLayout.npcAppearance(o, 0);
           look = { visible: true, texKey: npc.sheet, frameVal: npc.frame,
-            scl: SpriteLayout.creatureScale('npc', SpriteLayout.creatureInstScale(o)), scaleYMul: 1,
+            scl: SpriteLayout.creatureScale('npc', 1), scaleYMul: 1,
             origin: [.5, SpriteLayout.creatureArt('npc').foot], dxPx: 0, dyPx: 0, tint: npc.tint };
         } else {
           const art2 = SpriteLayout.creatureArt(o.kind);
           if (art2) look = { visible: true, texKey: art2.sheet, frameVal: 0,
-            scl: SpriteLayout.creatureScale(o.kind, SpriteLayout.creatureInstScale(o)),
+            // inst = 1: the viewer normalizes per-INSTANCE size variety (child
+            // roles, elites, pets) to the kind's base scale - geometry review,
+            // not population flavor. The game draws the variety via
+            // creatureInstScale; per-KIND sizes (deer vs chicken) stay real.
+            scl: SpriteLayout.creatureScale(o.kind, 1),
             scaleYMul: 1, origin: [.5, art2.foot], dxPx: 0, dyPx: -(art2.float || 0),
             tint: SpriteLayout.creatureTint(o.kind), alpha: SpriteLayout.creatureAlpha(o.kind) };
         }
