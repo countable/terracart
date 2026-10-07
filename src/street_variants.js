@@ -206,9 +206,9 @@
 
   // ── The rows ─────────────────────────────────────────────────────────────
   // `lampGlow` is the colour its lamps shed (lampGlowFor — light and art read
-  // the one value); `attracts` { species: p } is the FAUNA ATTRACTOR column
-  // (scene_creatures.js _seatFaunaOnFavouriteGround): each of the tile's own
-  // spawns of that species moves onto this street's verge with probability p.
+  // the one value); `attracts` { species: [min, max] } is the FAUNA ATTRACTOR column
+  // (scene_creatures.js _seatFaunaOnFavouriteGround): a seeded small quota of
+  // the nearest existing animals moves onto this street family's eligible verge.
   // `share` is the neutral-name probability for a key of that size. Minor
   // selection stays at 40%; name nudges redistribute ordinary themes inside that
   // fixed budget, while Golden Road remains 2% of all Variant-eligible Small road keys.
@@ -223,7 +223,7 @@
       // repeating mark; `emblemInk` is its colour.
       carpet: '#1f4a2c', emblem: 'crown', emblemInk: '#7b803b',
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
-      lampGlow: '#ffffff', attracts: { rabbit: 0.5 },
+      lampGlow: '#ffffff', attracts: { rabbit: [2, 5] },
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Hedges line the road, with gaps at the garden gates. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
@@ -231,14 +231,14 @@
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
-      lampGlow: '#9be08a', attracts: { rabbit: 0.5, butterfly: 0.5 },
+      lampGlow: '#9be08a', attracts: { rabbit: [2, 5], butterfly: [2, 5] },
       story: 'street_overgrown', title: 'Gone to seed',
       body: 'Saplings crowd the verge beneath tall maples. You push past branches reaching into the street.',
       flash: 'The green is taking it back.' },
     { id: 'orchard', terrain: 'ORCHARD', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
       stone: { weathered: '#78604e', restored: '#ab8659' }, lampDensity: 0.5,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
-      lampGlow: '#ffa6c9', attracts: { deer: 0.5 },
+      lampGlow: '#ffa6c9', attracts: { deer: [2, 5] },
       story: 'street_orchard', title: 'Orchard Lane',
       body: 'Apples hang from the old orchard trees.',
       flash: 'Old trees, still fruiting.' },
@@ -247,7 +247,7 @@
       // The diamond marks the ancient religion; hedged lanes bear the ruling crown.
       carpet: '#64517d', emblem: 'diamond', emblemInk: '#c5b4d5',
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
-      lampGlow: '#f2eee0', attracts: { crow: 0.1 },
+      lampGlow: '#f2eee0', attracts: { crow: [2, 5] },
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
       flash: 'A waystone, worn smooth.' },
@@ -290,7 +290,7 @@
     { id: 'toadstool', terrain: 'WETLAND', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#6d412c', restored: '#ad4e2e', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
-      lampGlow: '#ff8c2a', attracts: { butterfly: 0.5 },
+      lampGlow: '#ff8c2a', attracts: { butterfly: [2, 5] },
       story: 'street_toadstool', title: 'Toadstool Lane',
       body: 'Red toadstools crowd the verge, and the air smells of damp earth. You step around their spotted caps.',
       flash: 'Toadstools. They glow at dusk.' },
@@ -304,13 +304,13 @@
     // restored (app.js _ripenStreets), the `flash` on later walks.
     { id: 'promenade', terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#92743e', restored: '#d6ad58' },
-      lampGlow: '#ffd16a', attracts: { metal_slime: 1 },
+      lampGlow: '#ffd16a', attracts: { metal_slime: [2, 5] },
       story: 'street_scenic', title: 'The promenade',
       body: 'The path runs along the water. You listen to it lapping against the shore as you walk.',
       flash: 'The promenade. Walk it slow.' },
     { id: 'greenway', terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#4f6c49', restored: '#76966a' },
-      lampGlow: '#a8e07a', attracts: { butterfly: 0.5 },
+      lampGlow: '#a8e07a', attracts: { butterfly: [2, 5] },
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },

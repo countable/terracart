@@ -347,7 +347,8 @@ test('zone variants: fauna affinities and material classes match their runtime l
   assert.eq(V.materials.trap.collection, 'traps');
   for (const row of V.rows) {
     for (const slot of [...row.poi.slots, ...(row.poi.whenInsideBuilding?.slots || [])]) assert.truthy(V.materials[slot.material]);
-    for (const value of Object.values(row.attracts)) assert.truthy(value > 0 && value <= 1);
+    for (const range of Object.values(row.attracts)) assert.truthy(Array.isArray(range)
+      && range.length === 2 && range.every(n => Number.isInteger(n) && n >= 0) && range[0] <= range[1]);
     for (const material of Object.keys(count(row, -30, -30, 60, 60, 'materials'))) assert.truthy(V.materials[material]);
   }
 });

@@ -193,8 +193,16 @@ access or tile lifecycle mechanics.
   shared with egg hatching) nothing restores, pays or taps and foes ignore the
   player via `unnoticed`. Where a species prefers to stand
   is an `attracts` column (road variant rows, `Zones.ZONE_KINDS`,
-  `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
-  spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
+  `BIOME_ATTRACTS`, scenic themes and `Streets.PATH_LAMP_ATTRACTS`) read by
+  `_seatFaunaOnFavouriteGround`. Each species declares an integer count range,
+  currently `[2, 5]`: a seeded quota draws the nearest existing positioned
+  animals by distance to actual eligible ground, with stable creature IDs
+  breaking ties. Animals already on that ground count toward the quota.
+  Each Nexus has its own quota; road families, scenic themes, walking-path
+  lamp cells and terrain codes each use their tile-wide union. Relocation
+  still respects habitat and the spawn gate, retains the original seat if no
+  eligible destination exists, and never creates or recovers missing fauna.
+  SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
   hazard joins that map, never a new movement gate. Top speeds are BASE
   numbers: ordinary wild gait, bolt, glide and flee speeds stay within

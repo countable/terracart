@@ -406,8 +406,8 @@
   // What pulls a species to a walking path's lamps — the `attracts` column
   // of the ground those lamps stand on (scene_creatures.js
   // _seatFaunaOnFavouriteGround, cells beside each path lamp). The owner
-  // moved the cats here from Lantern Row (Sep 2026).
-  const PATH_LAMP_ATTRACTS = { cat: 0.5 };
+  // draws only a seeded small quota of the nearest existing cats.
+  const PATH_LAMP_ATTRACTS = { cat: [2, 5] };
 
   function lampFade(lastMs, now) {
     if (!Number.isFinite(lastMs)) return 1;

@@ -31,6 +31,7 @@
   .region-label { position: absolute; transform: translate(-50%, -50%);
     color: #fff; font: 600 11px/1.2 system-ui, sans-serif; white-space: pre; text-align: center;
     text-shadow: 0 1px 2px #000, 0 2px 4px #000; }
+  .poi-label { color: #ffe4aa; }
   canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; }
 </style></head>
 <body>
@@ -50,7 +51,7 @@
 <div id="tag"></div>
 <div id="status">Loading game modules&hellip;</div>
 <canvas id="cv"></canvas>
-<div id="regionLabels" aria-label="Map region labels"></div>
+<div id="regionLabels" aria-label="Map region and POI labels"></div>
 <script src="game-loader.js"></script>
 <script src="floor-viewer-region.js?v=fc016e6e"></script>
 <script src="floor-viewer-variants.js?v=86892632"></script>
@@ -375,15 +376,37 @@
         y: home.y / WorldGen.CELL_M + 1 });
       const labels = depth === 0 ? surfaceLabels : areas.length ? areas
         : surfaceLabels.map(label => ({ ...label, text: 'Below ' + label.text }));
+      // Read the drawn objects, not the original map points: placement can
+      // move a POI away from buildings, and cave mirrors have their own seats.
+      const mappedPois = new Map((entries[0].objects || []).filter(o => o._poiAt).map(o => [o.id, o]));
+      const poiKinds = { place_of_worship: 'Church', fuel: 'Fuel station', shop: 'Shop', park: 'Park', beach: 'Beach' };
+      for (const { o } of list) {
+        const source = o._poiAt ? o : mappedPois.get(o.caveOf);
+        if (!source && o.kind !== 'temple') continue;
+        const name = o.kind === 'temple' ? 'Old Stones temple'
+          : source.name || source.poiName || poiKinds[source.poiClass] || source.poiClass.replace(/_/g, ' ');
+        labels.push({ text: 'POI · ' + name, x: o.x / W.CELL_M,
+          y: o.y / W.CELL_M - .9, poi: true, objectId: o.id });
+      }
+      const occupiedLabels = [];
       for (const label of labels) {
         if (label.x < 0 || label.y < 0 || label.x >= R.WIDTH || label.y >= R.HEIGHT) continue;
         const el = document.createElement('span');
-        el.className = 'region-label'; el.textContent = label.text;
+        el.className = 'region-label' + (label.poi ? ' poi-label' : ''); el.textContent = label.text;
+        if (label.objectId) el.dataset.objectId = label.objectId;
         el.style.left = (offX + label.x * s) + 'px';
         el.style.top = (offY + label.y * s) + 'px';
         labelLayer.appendChild(el);
         const halfWidth = el.getBoundingClientRect().width / 2;
         el.style.left = Math.max(halfWidth + 4, Math.min(Wpx - halfWidth - 4, offX + label.x * s)) + 'px';
+        // Keep compact POI captions legible beside region names and each other.
+        if (label.poi) for (let attempt = 0; attempt < 8; attempt++) {
+          const box = el.getBoundingClientRect();
+          if (!occupiedLabels.some(b => box.left < b.right + 3 && box.right + 3 > b.left
+              && box.top < b.bottom + 3 && box.bottom + 3 > b.top)) break;
+          el.style.top = (parseFloat(el.style.top) - 15) + 'px';
+        }
+        occupiedLabels.push(el.getBoundingClientRect());
       }
     }
     const extra = mode === 'proposed' && floor === 2

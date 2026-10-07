@@ -166,9 +166,9 @@
   // `code` is the Uint8 kind code and the rarity rank (ties go to the higher).
   // `terrain` names the WorldGen.T code the halo paints. `story` is the
   // _storySplashOnce key and default painting stem; `art` overrides the painting.
-  // `attracts` { species: p }: the FAUNA ATTRACTOR column (scene_creatures.js
-  // _seatFaunaOnFavouriteGround) — each of the tile's own spawns of that
-  // species moves onto the Nexus's ground with probability p. Not an add.
+  // `attracts` { species: [min, max] }: the FAUNA ATTRACTOR column (scene_creatures.js
+  // _seatFaunaOnFavouriteGround) — each Nexus draws a seeded small quota of
+  // the nearest existing animals onto its eligible ground. Never adds animals.
   // `keeper`: what the Nexus keeper (the NPC role — npc.js, one guaranteed
   // per Nexus kind with residents) says, rotating by day: the Nexus's story in
   // the voice of the one who tends it. The splash `body` is the narrator's;
@@ -187,7 +187,7 @@
       keeper: ['<em>Brushes salt off the shrine step.</em>\n“This shrine was here before the Breaking, and the sea never noticed the Breaking at all. I sweep the salt off each morning.”',
         '“The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.”'] },
     grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove', temple: true,
-      attracts: { deer: 0.5, butterfly: 0.5 },
+      attracts: { deer: [2, 5], butterfly: [2, 5] },
       body: 'Trees crowd around an old stone shrine. You approach along its carefully cleared steps.',
       flash: 'A sacred grove. Hush.',
       keeper: ['<em>Glances up at the leaning trunks.</em>\n“The trees leaned in to hide this shrine the night the roofs fell. They have not straightened since. I keep the stone swept and the lantern lit.”',

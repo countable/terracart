@@ -109,11 +109,15 @@ Expanding coverage never multiplies the per-anchor find or guard budget.
 - **Encounters.** Themed surface encounters are rows of
   `EnemyHabitats.SURFACE_FAMILIES` rolled by `SURFACE_ENCOUNTERS`
   (`src/enemy_habitats.js`), separate from finite guards and ambient enemies.
-- **Fauna.** A variant's `attracts` column relocates the tile's existing fauna
-  onto its coverage (`_seatFaunaOnFavouriteGround`, `src/scene_creatures.js`);
-  it never adds spawns. The variant column replaces the Nexus kind's
-  affinity; an empty column means no pull. Fauna may share interactable
-  cells but keep their terrain and road limits.
+- **Fauna.** A variant's `attracts` column maps species to integer count
+  ranges, currently `[2, 5]`. Each Nexus gets a seeded quota and draws the
+  nearest existing positioned animals by distance to its actual eligible
+  ground (`_seatFaunaOnFavouriteGround`, `src/scene_creatures.js`); stable
+  creature IDs break ties, and animals already there count toward the quota.
+  It never adds spawns or recovers missing animals. The variant column
+  replaces the Nexus kind's affinity; an empty column means no pull.
+  Fauna may share interactable cells but keep their habitat, spawn-gate and
+  road limits; a refused destination leaves the original seat intact.
 
 ## Generated quarries
 
