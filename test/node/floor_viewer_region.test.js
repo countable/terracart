@@ -32,6 +32,19 @@
     return entry;
   }
 
+  test('floor viewer region: source geometry and labels fit the visible rectangle', async () => {
+    const R = FloorViewerRegion;
+    for (const layer of R.makeLayers()) for (const feature of layer.features)
+      for (const ring of feature.geom) for (const point of ring) {
+        assert.truthy(point.x >= 0 && point.x <= R.WIDTH * R.CELL, 'source x is visible');
+        assert.truthy(point.y >= 0 && point.y <= R.HEIGHT * R.CELL, 'source y is visible');
+      }
+    for (const label of R.labels) {
+      assert.truthy(label.x >= 0 && label.x < R.WIDTH, `${label.text} x is visible`);
+      assert.truthy(label.y >= 0 && label.y < R.HEIGHT, `${label.text} y is visible`);
+    }
+  });
+
   test('floor viewer region: every surface nexus kind has a real source', async () => {
     const entry = await buildSurface();
     const kinds = new Set(entry.zone.anchors.map(anchor => anchor.kind));
@@ -47,13 +60,14 @@
     for (const v of entry.grid) counts.set(v, (counts.get(v) || 0) + 1);
     const at = t => counts.get(T[t]) || 0;
     assert.gt(at('FOREST'), 40, 'forest patch paints');
-    assert.eq(entry.grid[25 * FloorViewerRegion.N + 45], T.FOREST, 'forest sits below the eastern grove');
+    assert.eq(entry.grid[15 * FloorViewerRegion.N + 55], T.FOREST, 'forest sits below the eastern grove');
     const lot = entry.grid[12 * FloorViewerRegion.N + 7];
     assert.truthy(lot === T.COMMERCIAL || lot === T.ROCK, 'parking lot is paved or quarry ground, not bare dirt');
     assert.eq(entry.grid[3 * FloorViewerRegion.N + 5], T.COMMERCIAL, 'commercial fills the former northwest forest');
-    assert.eq(entry.grid[22 * FloorViewerRegion.N + 2], T.RESIDENTIAL, 'residential fills the west side above the medium road');
+    assert.eq(entry.grid[21 * FloorViewerRegion.N + 25], T.RESIDENTIAL, 'residential fills the west side above the medium road');
     assert.eq(at('FARMLAND'), 0, 'farmland is replaced by the parking lot');
-    assert.eq(FloorViewerRegion.N, 50, 'the entire region stays compact');
+    assert.eq(FloorViewerRegion.WIDTH, 60, 'the viewport is sixty cells wide');
+    assert.eq(FloorViewerRegion.HEIGHT, 35, 'the viewport is thirty-five cells high');
     assert.gt(at('RESIDENTIAL'), 100, 'residential belt paints');
     assert.gt(at('COMMERCIAL'), 40, 'commercial block paints');
     assert.gt(at('BUILDING'), 30, 'house and shop footprints paint');
@@ -86,17 +100,17 @@
     // The primary road is wide enough to paint more cells per length than a residential street.
     const isRoad = v => v === T.ROAD || v === T.ROAD_MD || v === T.ROAD_LG;
     let lg = 0, minor = 0;
-    for (let y = 0; y < N; y++) if (isRoad(entry.grid[y * N + 35]) || isRoad(entry.grid[y * N + 36])) lg++;
+    for (let y = 0; y < N; y++) if (isRoad(entry.grid[y * N + 39]) || isRoad(entry.grid[y * N + 40])) lg++;
     for (let y = 0; y < N; y++) if (isRoad(entry.grid[y * N + 22])) minor++;
     assert.gt(lg, minor, 'the primary paints a wider band than a residential street');
     // Beach: the north strip above the lake (rows ly-5..ly-1 at the lake's x range) is SAND, row ly-6 is not.
-    const lx = 38, ly = 40;
+    const lx = 48, ly = 27;
     for (let dy = 1; dy <= 5; dy++) {
       const i = (ly - dy) * N + (lx + 4);
       assert.eq(entry.grid[i], T.SAND, `beach row ${dy} cells above the lake is sand`);
     }
     assert.truthy(entry.grid[(ly - 6) * N + (lx + 4)] !== T.SAND, 'the beach is exactly 5 cells wide');
-    assert.eq(entry.grid[37 * N + 29], T.PARK, 'a park backs part of the beach');
+    assert.eq(entry.grid[19 * N + 46], T.PARK, 'a park backs part of the beach');
   });
 
   test('floor viewer region: dungeon floors derive from the fake tile', async () => {

@@ -57,6 +57,10 @@ the normal seeded picks. Surface choices apply to the matching nexus kind;
 cave choices come from that floor’s profile. Floors without authored nexus
 variants disable the buttons. Proposed mode uses the displayed source floor’s
 catalog. Placement still obeys the live spawn gates and available space.
+The visible region is 60×35 square cells, backed by the generator’s square tile;
+all authored sites lie inside that window. Labels are shown above the canvas
+and can be toggled. Cave floors without visible authored areas label the
+surface geography as “Below…” instead.
 
 Adjacent JavaScript and CSS files support these pages. Shared helpers include
 `game-loader.js`, `balance-common.js`, `sortable-tables.js` and the catalog data
