@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dragon Hood - floor viewer</title>
+<title>Dragon Hood - 60×35 floor viewer</title>
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: #14181a; color: #e8e4da;
@@ -27,11 +27,15 @@
   #tag b { color: #9fb8a4; }
   #status { position: fixed; top: 64px; right: 16px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
     border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #c9b98a; max-width: 300px; }
+  #regionLabels { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+  .region-label { position: absolute; transform: translate(-50%, -50%); padding: 3px 7px;
+    border: 1px solid #9fb8a4; border-radius: 4px; background: #14181aeb;
+    color: #fff; font: 600 14px/1.2 system-ui, sans-serif; white-space: nowrap; }
   canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; }
 </style></head>
 <body>
 <div id="bar">
-  <h1>FLOOR VIEWER</h1>
+  <h1>FLOOR VIEWER · 60×35</h1>
   <div><label>Floor</label><div class="seg" id="floorSeg"></div></div>
   <div><label>View</label><div class="seg" id="modeSeg">
     <button data-mode="current" class="on">Current code</button>
@@ -46,9 +50,10 @@
 <div id="tag"></div>
 <div id="status">Loading game modules&hellip;</div>
 <canvas id="cv"></canvas>
+<div id="regionLabels" aria-label="Map region labels"></div>
 <script src="game-loader.js"></script>
-<script src="floor-viewer-region.js"></script>
-<script src="floor-viewer-variants.js"></script>
+<script src="floor-viewer-region.js?v=b1e937fc"></script>
+<script src="floor-viewer-variants.js?v=065bb821"></script>
 <script>
 (() => {
   'use strict';
@@ -276,13 +281,16 @@
     if (!entry) return;
     const list = sprites[floor === 0 ? 0 : depth] || [];
     const Wpx = cv.width = innerWidth, Hpx = cv.height = innerHeight;
-    const top = document.getElementById('bar').getBoundingClientRect().bottom + 12;
-    const s = Math.max(1, Math.floor(Math.min((Wpx - 24) / R.N, (Hpx - top - 12) / R.N)));
-    const offX = Math.floor((Wpx - R.N * s) / 2), offY = top + Math.floor((Hpx - top - R.N * s) / 2);
+    const barBottom = document.getElementById('bar').getBoundingClientRect().bottom;
+    for (const id of ['tag', 'status']) document.getElementById(id).style.top = (barBottom + 8) + 'px';
+    const top = barBottom + 64;
+    const s = Math.max(1, Math.floor(Math.min((Wpx - 24) / R.WIDTH, (Hpx - top - 12) / R.HEIGHT)));
+    const offX = Math.floor((Wpx - R.WIDTH * s) / 2), offY = top + Math.floor((Hpx - top - R.HEIGHT * s) / 2);
     ctx.fillStyle = '#14181a'; ctx.fillRect(0, 0, Wpx, Hpx);
     ctx.imageSmoothingEnabled = false;
+    ctx.save(); ctx.beginPath(); ctx.rect(offX, offY, R.WIDTH * s, R.HEIGHT * s); ctx.clip();
     // Ground: base colour + the game's baked biome texture per cell.
-    for (let y = 0; y < R.N; y++) for (let x = 0; x < R.N; x++) {
+    for (let y = 0; y < R.HEIGHT; y++) for (let x = 0; x < R.WIDTH; x++) {
       const i = y * R.N + x, type = entry.grid[i];
       const h = ((x) * 2246822519) ^ ((y) * 3266489917);
       let color;
@@ -338,24 +346,29 @@
         at.x + p.dxPx * scale - w * p.origin[0], at.y + p.dyPx * scale - h * p.origin[1], w, h);
       ctx.globalAlpha = 1;
     }
+    ctx.restore();
+    const labelLayer = document.getElementById('regionLabels');
+    labelLayer.replaceChildren();
+    labelLayer.hidden = !showLabels;
     if (showLabels) {
-      const labels = depth === 0 ? R.labels : (entry.caveAreas?.areas || []).map(area => ({
-        text: area.kind.replace(/_/g, ' '), x: area.x / R.EDGE * R.N, y: area.y / R.EDGE * R.N
-      }));
-      ctx.save();
-      ctx.font = '600 12px system-ui, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const areas = [...(entry.caveAreas?.areas || []), ...(entry.undergroundClearings || [])]
+        .map(area => ({ text: area.name || area.kind.replace(/_/g, ' '),
+          x: area.x / R.EDGE * R.N, y: area.y / R.EDGE * R.N }))
+        .filter(label => label.x >= 0 && label.y >= 0 && label.x < R.WIDTH && label.y < R.HEIGHT);
+      // Floors without authored areas still identify the surface geography
+      // above them, explicitly labelled so it is not mistaken for cave terrain.
+      const labels = depth === 0 ? R.labels : areas.length ? areas
+        : R.labels.map(label => ({ ...label, text: 'Below ' + label.text }));
       for (const label of labels) {
-        const width = ctx.measureText(label.text).width + 14;
-        const x = Math.max(width / 2 + 4, Math.min(Wpx - width / 2 - 4, offX + label.x * s));
-        const y = offY + label.y * s;
-        ctx.fillStyle = '#14181ade';
-        ctx.fillRect(x - width / 2, y - 11, width, 22);
-        ctx.strokeStyle = '#9fb8a480'; ctx.lineWidth = 1;
-        ctx.strokeRect(x - width / 2, y - 11, width, 22);
-        ctx.fillStyle = '#f0eee6'; ctx.fillText(label.text, x, y);
+        if (label.x < 0 || label.y < 0 || label.x >= R.WIDTH || label.y >= R.HEIGHT) continue;
+        const el = document.createElement('span');
+        el.className = 'region-label'; el.textContent = label.text;
+        el.style.left = (offX + label.x * s) + 'px';
+        el.style.top = (offY + label.y * s) + 'px';
+        labelLayer.appendChild(el);
+        const halfWidth = el.getBoundingClientRect().width / 2;
+        el.style.left = Math.max(halfWidth + 4, Math.min(Wpx - halfWidth - 4, offX + label.x * s)) + 'px';
       }
-      ctx.restore();
     }
     const extra = mode === 'proposed' && floor === 2
       ? '<br>Proposed floor 2 (goblin city) has no generator yet - the sketch lives in the geometry sheet.' : '';
@@ -402,6 +415,7 @@
     document.querySelectorAll('#floorSeg button, #modeSeg button').forEach(b => { b.disabled = building; });
     document.getElementById('creatureToggle').disabled = building;
     document.getElementById('labelToggle').disabled = building;
+    document.getElementById('regionLabels').hidden = building || !showLabels;
     const depth = displayDepth(), options = FloorViewerVariants.options(depth);
     const selected = FloorViewerVariants.select(depth, variantIndex);
     for (const id of ['vMinus', 'vPlus']) document.getElementById(id).disabled = building || options.length < 2;
