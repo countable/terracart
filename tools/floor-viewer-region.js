@@ -1,16 +1,16 @@
 // The representative fake region for the floor viewer (and its smoke test):
-// one 50x50 tile of MVT-shaped layers, packed tight - grass base, forest,
+// one 64x64 tile of MVT-shaped layers - grass base, forest,
 // farmland, a residential grid with houses and a pitch, a commercial block,
-// streets of every size, a lake in the corner with a 5-cell beach (partly
+// streets of every size, a southeast lake with a 5-cell beach (partly
 // park-backed), a separate top-right park, and one nexus anchor of each kind
-// (grove, quarry, beach, tar pit).
+// (grove, quarry, beach, tar pit, old stones).
 // Pure data: consumed by tools/floor-viewer.html and test/node/floor_viewer_region.test.js.
 (function (root) {
   'use strict';
   const E = 4096;                       // MVT extent space
-  const N = 50;                         // cells per edge
+  const N = 64;                         // cells per edge
   const CELL = E / N;                   // extent units per cell
-  const lat = 47.62;                    // a mid-latitude row (EDGE derives from it)
+  const lat = 47.62;                    // a mid-latitude row for cave loading
   const EDGE = Math.round(N * 7);       // tile edge in metres (7 m cells)
 
   const cellRect = (cx, cy, w, h) => [
@@ -30,6 +30,11 @@
     landuse.push(poly({ class: 'pitch' }, [cellRect(1, 25, 9, 7)]));
     landuse.push(poly({ class: 'quarry' }, [cellRect(1, 38, 8, 8)]));
     poi.push(point({ class: 'fuel', subclass: 'fuel' }, 11, 18));   // tar pit, on the farmland edge
+    // Quarry nexuses come from parking aisles, not quarry landuse alone.
+    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[5, 42], [18, 42], [18, 56], [5, 56], [5, 42]]));
+    for (const y of [46, 50, 54])
+      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[5, y], [18, y]]));
+    poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 54, 53));
 
     // North band: commercial block, then the separate top-right park
     landuse.push(poly({ class: 'commercial' }, [cellRect(15, 1, 13, 6)]));
@@ -37,8 +42,9 @@
     building.push(poly({ building: 'retail' }, [cellRect(23, 2, 4, 4)]));
     poi.push(point({ class: 'shop' }, 18, 3));
     poi.push(point({ class: 'shop' }, 25, 4));
-    landuse.push(poly({ class: 'park' }, [cellRect(36, 1, 13, 8)]));
-    poi.push(point({ class: 'park', subclass: 'park', name: 'Hilltop Park' }, 42, 4));
+    // Leave a full spring-cave footprint clear beneath this grove.
+    landuse.push(poly({ class: 'park' }, [cellRect(40, 3, 23, 24)]));
+    poi.push(point({ class: 'park', subclass: 'park', name: 'Hilltop Park' }, 54, 12));
 
     // Residential belt between the west strip and the primary road, with a
     // house grid that leaves the minor streets clear
@@ -46,7 +52,7 @@
     for (const by of [9, 18, 25]) for (const bx of [16, 27])
       building.push(poly({ building: 'house' }, [cellRect(bx, by, 4, 3)]));
 
-    // Corner lake, water to both edges, with the 5-cell beach on its north
+    // Small southeast lake, with the 5-cell beach on its north
     // and west, and a park backing the west half of the north beach
     const lx = 38, ly = 40;
     water.push(poly({ natural: 'water' }, [cellRect(lx, ly, 50 - lx, 50 - ly)]));
@@ -58,12 +64,12 @@
     poi.push(point({ class: 'beach', name: 'Lakeside Strand' }, lx + 4, ly - 2));
 
     // Streets of every size; widths come from the classes
-    transportation.push(line({ class: 'primary' }, [[35, 0], [35, 49]]));       // LG, full height
-    transportation.push(line({ class: 'secondary' }, [[0, 33], [49, 33]]));     // MD, full width
+    transportation.push(line({ class: 'primary' }, [[35, 0], [35, 49]]));       // LG, town height
+    transportation.push(line({ class: 'secondary' }, [[0, 33], [49, 33]]));     // MD, town width
     transportation.push(line({ class: 'minor' }, [[22, 8], [22, 30]]));         // minor streets
     transportation.push(line({ class: 'minor' }, [[15, 16], [34, 16]]));
-    transportation.push(line({ class: 'service' }, [[36, 9], [48, 9]]));        // service lane into the park
-    transportation.push(line({ class: 'footway' }, [[44, 9], [44, 34]]));       // path down to the beach
+    transportation.push(line({ class: 'service' }, [[36, 3], [43, 3]]));        // service lane into the park
+    transportation.push(line({ class: 'footway' }, [[40, 3], [40, 30]]));       // path down to the beach
 
     return [
       { name: 'water', extent: E, features: water },
