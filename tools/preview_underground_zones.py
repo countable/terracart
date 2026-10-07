@@ -384,10 +384,11 @@ def _maze_card(row, data, helpers):
     views = []
     for depth, reward in [(1,'shrine'),(2,'treasure')]:
         prefix = f'underground-dungeon-maze-ground-{depth}'
-        svg = (f'<svg role="img" aria-label="Dungeon Maze floor {depth}: mineable rock, monsters and {reward}" viewBox="0 0 {width*10} {height*10}">'
+        svg = (f'<svg role="img" aria-label="Dungeon Maze floor {depth}: mineable cave walls, monsters and {reward}" viewBox="0 0 {width*10} {height*10}">'
                + helpers['ground_pattern']('CAVE_FLOOR',prefix,10)
                + f'<rect width="100%" height="100%" fill="url(#{prefix})"/>'
-               + '<g class="background">' + ''.join(_image('rock',x*10,y*10,10,data['previewMaterials'],helpers) for x,y in sorted(rocks,key=lambda p:(p[1],p[0]))) + '</g>')
+                + helpers['ground_pattern']('CAVE_WALL',prefix+'-wall',10)
+               + '<g class="background">' + ''.join(f'<rect class="maze-rock-wall" data-terrain="CAVE_WALL" x="{x*10}" y="{y*10}" width="10" height="10" fill="url(#{prefix}-wall)"><title>Mineable cave rock wall</title></rect>' for x,y in sorted(rocks,key=lambda p:(p[1],p[0]))) + '</g>')
         kinds = row['encounterByDepth'][str(depth)]
         for i,(x,y) in enumerate(seats):
             svg += helpers['creature_at'](kinds[i%len(kinds)],(x+.5)*10,(y+.5)*10,10,f'Floor {depth} encounter in an open interior cell')
@@ -402,11 +403,11 @@ def _maze_card(row, data, helpers):
         views.append('<figure>'+svg+f'<figcaption>Floor {depth} · '+('shrine example' if reward=='shrine' else 'T3 treasure example')+'</figcaption></figure>')
     settings = 'types=configured&gx=34&gy=33&count=429&structure=100&distortion=0&variation=34&grouping=100&a=tree&b=none&c=none&d=none&e=none&points=false&guides=false&selection=density&inverted=false&clusterSize=true&decimation=0&mazeStep=3&loops=77&seed=2718&layouts=maze_braid&focus=maze_braid'
     details = [('Source region',row['source']),('Depth','Proposed for cave levels 1 and 2.'),
-               ('Pattern',f'34 × 33 cells · spacing 3 · loops 77% · seed 2718. {len(rocks)} ordinary mineable rock cells after reserving a 3 × 3 focus clearing. Rock occupies the reference’s tree cells; the complementary spaces remain open. Mining can connect enclosed spaces.'),
+               ('Pattern',f'34 × 33 cells · spacing 3 · loops 77% · seed 2718. {len(rocks)} mineable cave-wall terrain cells after reserving a 3 × 3 focus clearing. Cave rock wall occupies the reference’s tree cells; the complementary spaces remain open. Mining can connect enclosed spaces.'),
                ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters'])]
     dl = ''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
     return (f'<article id="underground-{row["id"]}"><header><small>Underground park nexus · draft · braided maze</small><h2>{row["name"]}</h2></header>'
-            + '<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">'+''.join(views)+'</div><p>Either reward alternative can occur on either floor. Rock fill uses the linked maze; the grove focus is reserved first.</p>'
+            + '<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">'+''.join(views)+'</div><p>Either reward alternative can occur on either floor. Cave-wall fill uses the linked maze; the grove focus is reserved first.</p>'
             + f'<p>{html.escape(row["atmosphere"])}</p><p><a href="layout-lab.html#{html.escape(settings,quote=True)}">Open the source maze in Layout Lab</a></p><dl>{dl}</dl></article>')
 
 

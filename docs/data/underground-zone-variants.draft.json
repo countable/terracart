@@ -2987,10 +2987,10 @@
         "mazeStep": 3,
         "loops": 77,
         "seed": 2718,
-        "fill": "rock"
+        "fill": "CAVE_WALL"
       },
-      "atmosphere": "A braided maze of ordinary mineable rock. Open spaces wind between the rock lines, and mining can create new routes.",
-      "poi": "At the grove focus, place either the usual shrine or one T3 treasure, never both. Reserve the focus and its approach before rock fill; reuse the existing POI identity.",
+      "atmosphere": "A braided maze of mineable cave rock walls. Open spaces wind between the walls, and mining can create new routes.",
+      "poi": "At the grove focus, place either the usual shrine or one T3 treasure, never both. Reserve the focus and its approach before cave-wall fill; reuse the existing POI identity.",
       "connection": "Fit entrances to existing cave routes; preserve stairs and protected ground.",
       "monsters": "Place floor-appropriate monsters in open interior cells, clear of the grove focus and its approach. Preview: bats on floor 1, bats and spiders on floor 2; reuse the existing encounter allocation.",
       "focus": {
