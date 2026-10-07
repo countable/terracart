@@ -24,12 +24,20 @@
   function makeLayers() {
     const landcover = [], landuse = [], transportation = [], building = [], poi = [], water = [];
 
-    // Reuse the west strip: forest, parking-lot quarry, pitch, then church.
-    landcover.push(poly({ class: 'wood' }, [cellRect(1, 1, 8, 7)]));
-    landuse.push(poly({ class: 'parking' }, [cellRect(1, 9, 13, 11)]));
+    // Urban zoning fills the quadrant bounded by the major and medium roads.
+    // Nexus sources remain inside the urban background.
+    landuse.push(poly({ class: 'commercial' }, [cellRect(0, 0, 35, 8)]));
+    landuse.push(poly({ class: 'residential' }, [cellRect(0, 8, 35, 25)]));
+    // Forest occupies the eastern grass below the grove and above the beach.
+    landcover.push(poly({ class: 'wood' }, [cellRect(37, 12, 13, 21)]));
+    // Paved commercial parking: a bare landuse=parking tag falls through to
+    // wasteland. The parking POI and aisles supply the real lot identity.
+    landuse.push(poly({ class: 'commercial', amenity: 'parking' }, [cellRect(1, 9, 13, 11)]));
+    poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 14));
+    // West-side parking-lot quarry, pitch and church.
     landuse.push(poly({ class: 'pitch' }, [cellRect(1, 25, 9, 7)]));
     poi.push(point({ class: 'fuel', subclass: 'fuel' }, 12, 24));
-    // Parking aisles are the live quarry-nexus source.
+    // Parking aisles generate the quarry without a separate dirt-ground polygon.
     transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 10], [12, 10], [12, 18], [4, 18], [4, 10]]));
     for (const y of [13, 16])
       transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [12, y]]));
@@ -37,7 +45,6 @@
     poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 41));
 
     // North band: commercial block, then the separate top-right park
-    landuse.push(poly({ class: 'commercial' }, [cellRect(15, 1, 13, 6)]));
     building.push(poly({ building: 'retail' }, [cellRect(17, 2, 4, 4)]));
     building.push(poly({ building: 'retail' }, [cellRect(23, 2, 4, 4)]));
     poi.push(point({ class: 'shop' }, 18, 3));
@@ -46,9 +53,7 @@
     landuse.push(poly({ class: 'park' }, [cellRect(36, 1, 13, 8)]));
     poi.push(point({ class: 'park', subclass: 'park', name: 'Hilltop Park' }, 42, 4));
 
-    // Residential belt between the west strip and the primary road, with a
-    // house grid that leaves the minor streets clear
-    landuse.push(poly({ class: 'residential' }, [cellRect(15, 8, 17, 22)]));
+    // The house grid leaves the minor streets and nexus sites clear.
     for (const by of [9, 18, 25]) for (const bx of [16, 27])
       building.push(poly({ building: 'house' }, [cellRect(bx, by, 4, 3)]));
 
@@ -81,5 +86,20 @@
     ];
   }
 
-  root.FloorViewerRegion = { E, N, CELL, EDGE, lat, makeLayers };
+  // Label seats in the same cell frame as the source geometry.
+  const labels = [
+    { text: 'Commercial', x: 16, y: 1 },
+    { text: 'Residential', x: 25, y: 22 },
+    { text: 'Parking lot · Quarry nexus', x: 7.5, y: 12 },
+    { text: 'Tar Yard nexus', x: 12, y: 24 },
+    { text: 'Sports pitch', x: 5, y: 28 },
+    { text: 'Church · Old Stones nexus', x: 7, y: 41 },
+    { text: 'Park · Grove nexus', x: 43, y: 4 },
+    { text: 'Forest', x: 44, y: 22 },
+    { text: 'Grassland', x: 23, y: 43 },
+    { text: 'Park', x: 29.5, y: 36.5 },
+    { text: 'Beach nexus', x: 43, y: 37 },
+    { text: 'Lake', x: 44, y: 45 }
+  ];
+  root.FloorViewerRegion = { E, N, CELL, EDGE, lat, makeLayers, labels };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
