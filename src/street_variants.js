@@ -188,6 +188,14 @@
   // A few lone snares scattered down the rest of the lane, on the band or its
   // first verge cell: the lowest-hash eligible cells, kept apart from the
   // cluster and from each other so they read as strays, not a second nest.
+  // THE ROAD'S END: a Small road whose end inside the tile meets no other
+  // vehicle way (a cul-de-sac, a dead end) holds one humble supply crate — a
+  // tier-1 chest, opened once (no poiClass, so it never restocks). An end
+  // within DEAD_END_JOIN_CELLS of another way's segment is a junction. At most
+  // DEAD_END_CRATES_PER_TILE, lowest hash of the end's global point first.
+  const DEAD_END_CRATE_TIER = 1;
+  const DEAD_END_CRATES_PER_TILE = 12;
+  const DEAD_END_JOIN_CELLS = 1;
   const SNARE_STRAYS = 4;
   const SNARE_STRAY_GAP_CELLS = 3;
 
@@ -857,9 +865,12 @@
       const vote = nameVote(tn);
       yield 'street names';
       let n = 0;
+      // Every vehicle way's geometry, for the dead-end test (dress).
+      out.vehicleLines = [];
       for (let fi = 0; fi < tr.features.length; fi++) {
         const f = tr.features[fi];
         if (f.type !== 2 || !f.geom) continue;
+        if (isVehicleTags(f.tags)) for (const line of f.geom) if (line && line.length >= 2) out.vehicleLines.push(line);
         const size = sizeOfTags(f.tags);
         if (!size) continue;
         for (let li = 0; li < f.geom.length; li++) {
@@ -1709,6 +1720,58 @@
           lx: (h.ix + 0.5) * frameCellM, ly: (h.iy + 0.5) * frameCellM });
       }
     }
+    // THE DEAD-END CRATES (DEAD_END_CRATE_TIER): seated like an end piece
+    // (seat — a minor cell within END_SEAT_CELLS), after the waystones and
+    // barricades have taken theirs; a Pilgrim's Way or barricade street's
+    // ends are already dressed. Needs the index's vehicleLines: without them
+    // (a hand-built index) no end can be told from a junction.
+    if (idx.vehicleLines) {
+      yield 'dead-end crates';
+      const lines = idx.vehicleLines.map(L => {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const p of L) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+        return { L, x0, y0, x1, y1 };
+      });
+      const pad = DEAD_END_JOIN_CELLS * CELL_M / gM;
+      // Does any vehicle way other than the end's own last segment (p–q) come
+      // within DEAD_END_JOIN_CELLS of the end p?
+      const joined = (p, q) => {
+        for (const { L, x0, y0, x1, y1 } of lines) {
+          if (p.x < x0 - pad || p.x > x1 + pad || p.y < y0 - pad || p.y > y1 + pad) continue;
+          for (let i = 1; i < L.length; i++) {
+            const a = L[i - 1], b = L[i];
+            if ((a.x === p.x && a.y === p.y && b.x === q.x && b.y === q.y)
+              || (b.x === p.x && b.y === p.y && a.x === q.x && a.y === q.y)) continue;
+            const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+            const t = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+            if (Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t) * gM < DEAD_END_JOIN_CELLS * CELL_M) return true;
+          }
+        }
+        return false;
+      };
+      const ends = [], seenEnds = new Set();
+      for (const rec of idx.lines) {
+        if (rec.size !== 'minor' || rec.variant === 'pilgrim' || rec.variant === 'barricade') continue;
+        const L = rec.line;
+        for (const [p, q] of [[L[0], L[1]], [L[L.length - 1], L[L.length - 2]]]) {
+          if (!(p.x >= 0 && p.y >= 0 && p.x < ext && p.y < ext)) continue;
+          const gk = `${tx * ext + p.x},${ty * ext + p.y}`;
+          if (seenEnds.has(gk) || joined(p, q)) continue;
+          seenEnds.add(gk);
+          ends.push({ p, u: hash01('dead-end|' + gk) });
+        }
+      }
+      ends.sort((a, b) => a.u - b.u);
+      let crates = 0;
+      for (const { p } of ends) {
+        if (crates >= DEAD_END_CRATES_PER_TILE) break;
+        const c = seat(p.x, p.y);
+        if (!c) continue;
+        claim(c.ix, c.iy); crates++;
+        res.objects.push(WG.makeObject('chest', cx(c.ix), cy(c.iy),
+          WG.cellId('crate_end', tx, ty, c.ix, c.iy), { crate: true, tierSeed: DEAD_END_CRATE_TIER }));
+      }
+    }
     // THE STRAY SNARES: per snare street, every cell whose centre lies on the
     // band or within its first verge cell is a candidate — a pure distance to
     // the street's pieces, so fragmenting or reversing the geometry keeps them.
@@ -1876,7 +1939,7 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,

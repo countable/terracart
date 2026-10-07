@@ -89,6 +89,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   lore (docs/design/story.txt, ACT STRUCTURE). Memory and restoration are independent
   progress tracks; required events join them through prerequisites and world
   context. A painted panel can carry either layer. Lore never blocks canon.
+- A street variant tells its story once, on the feet's first entry
+  (`_tickStreetFeet`). After that its map line (`StreetVariants` row `flash`)
+  pops when a street of that kind enters the lit reach (`_tickStreetSight`,
+  on its nearest lit cell) or the feet step onto it, on one per-story
+  `STREET_FLASH_GAP_MS` clock.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.

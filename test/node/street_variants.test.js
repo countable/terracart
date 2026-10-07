@@ -780,6 +780,35 @@ test('slow: the feet cell is read off playerToWorldCell, and the first contact f
   }
 });
 
+test('street sight: a told variant entering the lit radius pops its map line once, at its nearest lit cell', () => {
+  const start = SCENE_SRC.indexOf('\n  _tickStreetSight() {');
+  const body = SCENE_SRC.slice(SCENE_SRC.indexOf('{', start) + 1, SCENE_SRC.indexOf('\n  }\n', start));
+  const tick = new Function('reachRadiusM', 'playerReachCell', 'cellInReach', 'absCellToTile', 'WorldGen', 'StreetVariants', 'STREET_FLASH_GAP_MS', body);
+  const row = SV.VARIANT_BY_ID.snare, N = 32, marks = new Uint8Array(N * N);
+  const entry = { _spawned: true, streetMarks: marks };
+  const WG = { tileKey: () => 'k', tileCache: new Map([['k', entry]]) };
+  const scene = { cellM: 7, save: { storySeen: {} }, at: { cellIX: 10, cellIY: 10 }, pops: [],
+    flashAtCell(text, ix, iy) { this.pops.push({ text, ix, iy }); } };
+  const reach = 2.5 * 7 + 1;
+  const inReach = (sc, ix, iy) => Math.hypot(ix - sc.at.cellIX, iy - sc.at.cellIY) * 7 <= reach;
+  const toTile = (sc, ix, iy, o) => Object.assign(o, { tx: 0, ty: 0, ix, iy, n: N });
+  const run = () => tick.call(scene, () => reach, (sc) => sc.at, inReach, toTile, WG, SV, 60000);
+  for (let x = 0; x < N; x++) marks[14 * N + x] = row.code;   // a snare street along row 14
+  run(); assert.eq(scene.pops.length, 0, 'out of reach');
+  scene.at = { cellIX: 10, cellIY: 12 }; run();
+  assert.eq(scene.pops.length, 0, 'an untold variant waits for the feet\'s story');
+  scene.save.storySeen[row.story] = 1; scene.at = { cellIX: 10, cellIY: 10 }; run();
+  scene.at = { cellIX: 10, cellIY: 12 }; run();
+  assert.eq(scene.pops.length, 1, 'a told one pops as it comes into the light');
+  assert.eq(scene.pops[0].text, row.flash);
+  assert.eq(scene.pops[0].ix, 10); assert.eq(scene.pops[0].iy, 14);
+  scene.at = { cellIX: 11, cellIY: 12 }; run();
+  assert.eq(scene.pops.length, 1, 'walking along it in the light does not repeat');
+  scene.at = { cellIX: 11, cellIY: 10 }; run(); scene.at = { cellIX: 11, cellIY: 12 }; run();
+  assert.eq(scene.pops.length, 1, 'back within the street gap stays quiet');
+  assert.truthy(/this\._tickStreetSight\(\)/.test(SCENE_SRC.slice(SCENE_SRC.indexOf('\n  _tickStreetFeet() {'))), 'read on every feet-cell change');
+});
+
 // ── One end piece per street per tile (Sep 2026) ───────────────────────────
 // A major road arrives cut into many short lines. The ends are pooled by street key and ONE seats per (street, tile): the end
 // whose hash endPick is lowest and that seats. Same for Pilgrim's waystones.
@@ -1135,9 +1164,10 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
     return {result: SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}), opts, grid};
   };
   const {result,opts,grid} = build([line]);
-  assert.eq(result.objects.length,1);
+  const caches = r => r.objects.filter(o=>o._street==='snare');
+  assert.eq(caches(result).length,1);
   const deterministicSnapshot = JSON.stringify(result);
-  const chest=result.objects[0];
+  const chest=caches(result)[0];
   assert.eq(chest.kind,'chest'); assert.eq(chestTier(chest),3);
   assert.eq(chestLook(chest).texKey,'chest'); assert.falsy(restocks(chest));
   assert.falsy(chest.depth,'the cache remains a surface object');
@@ -1166,15 +1196,38 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
   }
   assert.eq(deterministicSnapshot,JSON.stringify(build([[line[1],middle],[middle,line[0]]]).result),
     'reversed, fragmented geometry keeps the cache and traps');
-  assert.eq(build([line],true).result.objects.length,0,'restricted ground holds no reward');
+  assert.eq(caches(build([line],true).result).length,0,'restricted ground holds no reward');
   assert.eq(build([line],true).result.traps.length,0);
   assert.eq(build([line],WorldGen.SPAWN_WHY.PRIVATE).result.traps.length,0,'private land stays excluded');
   assert.eq(build([line],false,new Set(),true).result.traps.length,0,'major roads and their buffers stay excluded');
   assert.inRange(Math.abs(cellOf(chest.y,TY)-25),1,2,'cache sits immediately beside its own road');
-  assert.eq(build([line],false,new Set(Array.from({length:CPE*CPE},(_,i)=>i))).result.objects.length,0,
+  assert.eq(caches(build([line],false,new Set(Array.from({length:CPE*CPE},(_,i)=>i))).result).length,0,
     'occupied ground holds no reward');
   const picked=build([line]).result;
   assert.eq(JSON.stringify(result.traps),JSON.stringify(picked.traps),'reload uses stable trap identities');
+});
+
+test('dead ends: each unjoined Small-road end in the tile holds one tier-1 supply crate, opened once', () => {
+  const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === null, 'Quiet Close');
+  const dress = (lines) => {
+    const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
+    const roadMask = new Uint8Array(CPE*CPE), grid = new Uint8Array(CPE*CPE).fill(T.PARK);
+    const opts = {roadMask, roadClass: new Uint8Array(CPE*CPE), spawnWhy: new Uint16Array(CPE*CPE), occupied: new Set()};
+    return SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}).objects.filter(o=>/^crate_end/.test(o.id));
+  };
+  const lone = dress([pts([[10,25],[40,25]])]);
+  assert.eq(lone.length,2,'both ends of a lone close');
+  for (const c of lone) {
+    assert.truthy(c.kind==='chest' && c.crate,'a supply crate');
+    assert.eq(chestTier(c),SV.DEAD_END_CRATE_TIER); assert.eq(SV.DEAD_END_CRATE_TIER,1);
+    assert.falsy(restocks(c),'opened once: no POI class, no restock');
+  }
+  assert.truthy(lone.some(c=>Math.abs(cellOf(c.x,TX)-10)<=4) && lone.some(c=>Math.abs(cellOf(c.x,TX)-40)<=4),'seated at the ends');
+  const tee = dress([pts([[10,25],[40,25]]), pts([[25,10],[25,25]])]);
+  assert.eq(tee.length,3,'a T: the stem\'s junction end holds none, its far end does');
+  assert.falsy(tee.some(c=>Math.abs(cellOf(c.x,TX)-25)<=1 && Math.abs(cellOf(c.y,TY)-25)<=1),'no crate at the junction');
+  assert.eq(dress([pts([[10,25],[CPE,25]])]).length,1,'an end clipped at the tile edge is not a dead end');
+  assert.eq(JSON.stringify(dress([pts([[40,25],[10,25]])])),JSON.stringify(lone),'reversed geometry keeps the crates');
 });
 
 test('barricade scenery adds stakes and barriers without multiplying guards', () => {
