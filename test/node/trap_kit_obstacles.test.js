@@ -56,7 +56,7 @@
     const piece = { kind: 'stakes', id: 'spikes', x: 2.5, y: 2.5 };
     const entry = { _spawned: true, cellsPerEdge: 32, objects: [piece], slowCells: new Map([[0, 'stakes']]) };
     const scene = { save: { picked: [] }, depth: 0, startWorldM: { x: 0, y: 0 }, cellM: 5,
-      tileEdgeM: 160, playerToWorldCell: () => ({ tx: 0, ty: 0, cx: 0, cy: 0 }), flash() {} };
+      tileEdgeM: 160, playerToWorldCell: () => ({ tx: 0, ty: 0, cx: 0, cy: 0 }), flash() {}, _tickStreetSight() {} };
     try {
       globalThis.WorldGen = { ...world, tileCache: new Map([[world.tileKey(0, 0), entry]]) };
       tick.call(scene); assert.eq(scene._slowHere, 'stakes');

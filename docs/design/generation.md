@@ -65,6 +65,11 @@ access or tile lifecycle mechanics.
   now only feeds restock days and the pots of gold. Breakable pots and
   barrels select their loot by stable appearance (`barrelProfile`), not
   density.
+- A Small road's end inside the tile that meets no other vehicle way (a
+  cul-de-sac) holds one tier-1 supply crate (`o.crate`, no `poiClass`, so it
+  gives once): `StreetVariants.dress`, seated like an end piece, capped per
+  tile, lowest hash of the end's global point first. Ends clipped at the tile
+  edge are not dead ends.
 - Chests give ONCE (`save.opened`), including smashed pots and barrels. Crates
   (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
   to 7 for a class crowding its tile); pots of gold, bike racks, chapels and

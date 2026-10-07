@@ -1885,6 +1885,7 @@ class MapScene extends Phaser.Scene {
     if ((this.depth || 0) !== 0 || typeof StreetVariants === 'undefined' || !this.startWorldM) {
       this._slowHere = null;
       this._streetStoryHere = null;
+      this._streetSightCodes = null;
       return;
     }
     const pc = this.playerToWorldCell();
@@ -1894,6 +1895,7 @@ class MapScene extends Phaser.Scene {
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     if (!entry || !entry._spawned) { this._slowHere = null; return; }   // retry next frame
     this._streetFeetKey = key;
+    this._tickStreetSight();
     const N = entry.cellsPerEdge;
     if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return;
     const i = liy * N + lix;
@@ -1957,6 +1959,43 @@ class MapScene extends Phaser.Scene {
     if (now - (last[row.story] || -Infinity) < STREET_FLASH_GAP_MS) return;
     last[row.story] = now;
     say(row.flash);
+  }
+
+  // ── A KNOWN STREET COMES INTO THE LIGHT ──────────────────────────────────
+  // Once a variant's story has been told (the feet's first entry, above), a
+  // street of that kind entering the reach — the lit radius — pops its map
+  // line on the nearest lit cell of it. Edge-triggered per variant code (it
+  // must leave the reach to pop again), and on the same per-story
+  // STREET_FLASH_GAP_MS clock as the feet's line, so stepping onto it after
+  // does not repeat it. Read off the tiles' street marks, one per lit cell.
+  _tickStreetSight() {
+    const reachM = reachRadiusM(this);
+    if (!(reachM > 0)) { this._streetSightCodes = null; return; }
+    const p = playerReachCell(this), r = Math.ceil(reachM / this.cellM);
+    const nearest = new Map(), t = {};
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const ix = p.cellIX + dx, iy = p.cellIY + dy;
+      if (!cellInReach(this, ix, iy)) continue;
+      absCellToTile(this, ix, iy, t);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
+      const code = entry && entry._spawned && entry.streetMarks ? entry.streetMarks[t.iy * t.n + t.ix] : 0;
+      if (!code) continue;
+      const d2 = dx * dx + dy * dy, best = nearest.get(code);
+      if (!best || d2 < best.d2) nearest.set(code, { ix, iy, d2 });
+    }
+    const prev = this._streetSightCodes;
+    this._streetSightCodes = new Set(nearest.keys());
+    if (!prev) return;   // the first look after a load or a descent is not an arrival
+    const last = (this._streetFlashAt = this._streetFlashAt || {});
+    const now = performance.now();
+    for (const [code, at] of nearest) {
+      if (prev.has(code)) continue;
+      const row = StreetVariants.variantByCode(code);
+      if (!row || !row.flash || !(this.save.storySeen && this.save.storySeen[row.story])) continue;
+      if (now - (last[row.story] || -Infinity) < STREET_FLASH_GAP_MS) continue;
+      last[row.story] = now;
+      this.flashAtCell(row.flash, at.ix, at.iy);
+    }
   }
 
   // ── What holds the BODY back from the fix ─────────────────────────────────
