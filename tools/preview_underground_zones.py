@@ -388,7 +388,7 @@ def _maze_card(row, data, helpers):
                + helpers['ground_pattern']('CAVE_FLOOR',prefix,10)
                + f'<rect width="100%" height="100%" fill="url(#{prefix})"/>'
                 + helpers['ground_pattern']('CAVE_WALL',prefix+'-wall',10)
-               + '<g class="background">' + ''.join(f'<rect class="maze-rock-wall" data-terrain="CAVE_WALL" x="{x*10}" y="{y*10}" width="10" height="10" fill="url(#{prefix}-wall)"><title>Mineable cave rock wall</title></rect>' for x,y in sorted(rocks,key=lambda p:(p[1],p[0]))) + '</g>')
+               + '<g class="background">' + ''.join(f'<rect class="maze-rock-wall" data-maze-terrain="CAVE_WALL" x="{x*10}" y="{y*10}" width="10" height="10" fill="url(#{prefix}-wall)"><title>Mineable cave rock wall</title></rect>' for x,y in sorted(rocks,key=lambda p:(p[1],p[0]))) + '</g>')
         kinds = row['encounterByDepth'][str(depth)]
         for i,(x,y) in enumerate(seats):
             svg += helpers['creature_at'](kinds[i%len(kinds)],(x+.5)*10,(y+.5)*10,10,f'Floor {depth} encounter in an open interior cell')
