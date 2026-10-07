@@ -11,8 +11,8 @@ sinkhole and fall seals on floors 2, 3, 4 and 6 read one owning table
 (`DungeonProgression.ROPE_SEALED_FLOORS`), and `WorldGen.FLOOR_PROFILES` owns
 every floor-scoped cave rule (terrain mode, biome label, lava, street mirror,
 fall landings, chest source, quarry provenance, pressure traps, authored cave
-areas, arrival stories and the infernal entry key). Authored warren, mushroom and
-gemstone areas already land on floors 1-2 around grove and quarry anchors
+areas, arrival stories and the infernal entry key). Authored warren, mushroom, gemstone and
+dungeon-maze areas already land on floors 1-2 around grove and quarry anchors
 (`WorldGen.floorProfile(depth).caveAreas`); the goblin city extends them to full-floor
 coverage. Still pending: the elevator rework (repair from floor 1, the descent
 module), the terrain shift (deep stone at 3, fungal Underdark at 4, haunted

@@ -8789,17 +8789,17 @@
   //   caveAreas    authored grove selection, carving and garrison settings
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
-    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern']
+    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze']
       .map((id, i) => Object.freeze({ id, weight: weights[i] }))),
     carveWalls, goblins, spearGoblins
   });
   const FLOOR_PROFILES = Object.freeze([
     Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null,
-      pressureTraps: true, caveAreas: caveAreaProfile([35, 30, 30, 5], false, 12, false),
+      pressureTraps: true, caveAreas: caveAreaProfile([35, 30, 30, 5, 15], false, 12, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 2, arrivalStory: 'dungeon_stone', entryKey: null,
-      pressureTraps: false, caveAreas: caveAreaProfile([20, 45, 25, 10], true, 16, true),
+      pressureTraps: false, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 3, arrivalStory: 'dungeon_underdark', entryKey: null,

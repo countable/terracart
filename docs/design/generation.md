@@ -26,6 +26,18 @@ access or tile lifecycle mechanics.
   floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
+  Dungeon mazes on floors 1–2 repeat the reviewed 34 × 33 braided wall mask
+  (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
+  coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
+  tile seams, routes, landmark approaches and the focus stay open; shortest
+  wall-cutting paths connect each eligible component. Protected islands are
+  never carved, and components with no existing floor access are skipped.
+  Small and thin footprints keep fewer walls rather than stretching the maze.
+  Only the focus-owning tile places its seeded Ember shrine or T3 chest; an
+  existing mirrored POI chest is replaced with the same identity. Cell-addressed
+  encounters use `EnemySpawns.caveKind` for the current floor and the ordinary
+  defeat ledger. Player mining applies afterward through the normal dug-cell
+  overlay, so returning does not restore excavated maze walls.
 
 - Zone geometry is surface-owned and level-independent: zones, anchors,
   coverage and the road mask are computed once on the surface, frozen in its

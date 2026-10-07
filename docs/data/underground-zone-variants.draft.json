@@ -47,14 +47,15 @@
         "spring_cave",
         "goblin_warrens",
         "mushroom_cavern",
-        "gemstone_cavern"
+        "gemstone_cavern",
+        "dungeon_maze"
       ],
       "quarry": [
         "mine_tunnels"
       ],
       "seep": []
     },
-    "nexusMappingPolicy": "The four grove variants apply only beneath grove nexuses. Quarry regions always use Mine Tunnels; seep regions receive none of these nexus variants.",
+    "nexusMappingPolicy": "The five grove variants apply only beneath grove nexuses. Quarry regions always use Mine Tunnels; seep regions receive none of these nexus variants.",
     "streetTerrain": [
       "sm_road"
     ]
@@ -408,6 +409,20 @@
       "layout": "Fit ore pockets around existing walkable cave routes and stairs within quarry coverage. House and md_road/lg_road footprints stay rock walls; eligible sm_road streets may connect deposits.",
       "interaction": "Mine a simple ore-rich deposit using existing floor-tier ore and mining rules.",
       "reward": "Mine finite ore deposits appropriate to the floor tier; preview shows depth 2 copper. The quarry anchor owns one depth-qualified deposit budget. No added shrine, temple, cache or surface quarry first-rock reward."
+    },
+    {
+      "id": "dungeon_maze",
+      "name": "Dungeon Maze",
+      "source": "grove",
+      "surfaceNexusKind": "grove",
+      "depths": [
+        1,
+        2
+      ],
+      "layout": "Fits the eligible nexus footprint in game. Preserve boundary, tile-seam, route and landmark access; open connecting passages through the wall mask when clipping separates floor cells. Thin areas retain fewer walls. Protected ground is never carved.",
+      "reward": "At the grove focus, place either the usual shrine or one T3 treasure, never both. Reserve the focus and its approach before cave-wall fill; reuse the existing POI identity.",
+      "encounters": "Uses the current floor enemy roster in open interior cells and the persistent defeat ledger. The two previews illustrate floor-appropriate examples; actual kinds and seats are seeded per world cell.",
+      "status": "runtime"
     }
   ],
   "routeVariants": [
@@ -560,13 +575,15 @@
         "spring_cave": 35,
         "goblin_warrens": 30,
         "mushroom_cavern": 30,
-        "gemstone_cavern": 5
+        "gemstone_cavern": 5,
+        "dungeon_maze": 15
       },
       "2": {
         "spring_cave": 20,
         "goblin_warrens": 45,
         "mushroom_cavern": 25,
-        "gemstone_cavern": 10
+        "gemstone_cavern": 10,
+        "dungeon_maze": 15
       }
     },
     "quarryNexusVariant": "mine_tunnels",
@@ -2991,8 +3008,8 @@
       },
       "atmosphere": "A braided maze of mineable cave rock walls. Open spaces wind between the walls, and mining can create new routes.",
       "poi": "At the grove focus, place either the usual shrine or one T3 treasure, never both. Reserve the focus and its approach before cave-wall fill; reuse the existing POI identity.",
-      "connection": "Fit entrances to existing cave routes; preserve stairs and protected ground.",
-      "monsters": "Place floor-appropriate monsters in open interior cells, clear of the grove focus and its approach. Preview: bats on floor 1, bats and spiders on floor 2; reuse the existing encounter allocation.",
+      "connection": "Fits the eligible nexus footprint in game. Preserve boundary, tile-seam, route and landmark access; open connecting passages through the wall mask when clipping separates floor cells. Thin areas retain fewer walls. Protected ground is never carved.",
+      "monsters": "Uses the current floor enemy roster in open interior cells and the persistent defeat ledger. The two previews illustrate floor-appropriate examples; actual kinds and seats are seeded per world cell.",
       "focus": {
         "at": [
           17,
@@ -3013,7 +3030,9 @@
           "bat",
           "spider"
         ]
-      }
+      },
+      "status": "runtime",
+      "runtimeNote": "In game on floors 1 and 2. These previews show the reference wall pattern; live generation clips it to the nexus, reserves existing landmarks and connects separated corridors."
     }
   ],
   "previewNote": "Design-only layouts. Registered game art supplies rocks, gems, walls, shrines, stalagmites, holes and pit traps. Compact inactive poison vent is a new proposal asset; spring source remains an archived candidate. Minecart uses labeled handcart placeholder. Hidden pits are shown revealed only in annotated design previews.",
@@ -3130,11 +3149,12 @@
       "goblin_warrens",
       "mushroom_cavern",
       "gemstone_cavern",
-      "mine_tunnels"
+      "mine_tunnels",
+      "dungeon_maze"
     ],
-    "geometry": "Canonical source anchors and shared surface spawn gates. Layouts fit a radius-8.4-cell region; clipped tile-edge layouts fall back to ordinary caves. D2 chambers need existing floor access; Mine Tunnels only dress existing floor, including eligible projected small streets.",
+    "geometry": "Canonical source anchors and shared surface spawn gates. Layouts fit a radius-8.4-cell region; clipped tile-edge layouts fall back to ordinary caves. D2 chambers need existing floor access; Mine Tunnels only dress existing floor, including eligible projected small streets. Dungeon Maze instead clips a repeating 34x33 wall mask to full eligible coverage, opens boundary lanes and connects floor components; no size or tile-edge rejection.",
     "encounters": "Finite region/depth-qualified seats; caught IDs remain defeated. Spring skeletons use shared hidden discovery at Euclidean distance <= one cell. Ambient enemy depth rules are unchanged.",
-    "budgets": "Runtime BUDGETS owns counts scaled to usable ground or fitted rooms. Warrens consume the shared seeded 12\u201319-container shallow-floor allocation: L1 ambient barrels use its remainder; L2 has authored stores only. Shrine visits grant existing boons without a treasure gift. Existing mirrored caches retain their identity and tier.",
+    "budgets": "Runtime BUDGETS owns counts scaled to usable ground or fitted rooms. Warrens consume the shared seeded 12\u201319-container shallow-floor allocation: L1 ambient barrels use its remainder; L2 has authored stores only. Shrine visits grant existing boons without a treasure gift. Existing mirrored caches retain their identity and tier. Dungeon Maze has one Ember shrine or T3 chest at its owned focus and cell-addressed floor-roster encounters.",
     "gemCatalog": "Use current GEM_DEPOSITS tiers: Quartz 1, Topaz 2, Amethyst 3. D1 Quartz; D2 Quartz/Topaz. Deposits pay the pictured item using the existing mining ledger.",
     "limitations": "Unsafe or undersized layouts decline without partial changes. Preview is a generated placement schematic, not an in-game screenshot."
   }

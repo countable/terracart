@@ -402,13 +402,13 @@ def _maze_card(row, data, helpers):
         svg += f'<rect class="geometry-cell" x="{fx*10+1}" y="{fy*10+1}" width="8" height="8" fill="#e6c779"/></g></svg>'
         views.append('<figure>'+svg+f'<figcaption>Floor {depth} · '+('shrine example' if reward=='shrine' else 'T3 treasure example')+'</figcaption></figure>')
     settings = 'types=configured&gx=34&gy=33&count=429&structure=100&distortion=0&variation=34&grouping=100&a=tree&b=none&c=none&d=none&e=none&points=false&guides=false&selection=density&inverted=false&clusterSize=true&decimation=0&mazeStep=3&loops=77&seed=2718&layouts=maze_braid&focus=maze_braid'
-    details = [('Source region',row['source']),('Depth','Proposed for cave levels 1 and 2.'),
+    details = [('Source region',row['source']),('Depth','Cave levels 1 and 2.'),
                ('Pattern',f'34 × 33 cells · spacing 3 · loops 77% · seed 2718. {len(rocks)} mineable cave-wall terrain cells after reserving a 3 × 3 focus clearing. Cave rock wall occupies the reference’s tree cells; the complementary spaces remain open. Mining can connect enclosed spaces.'),
                ('POI / rewards',row['poi']),('Connection',row['connection']),('Monsters',row['monsters'])]
     dl = ''.join(f'<dt>{html.escape(k)}</dt><dd>{html.escape(v)}</dd>' for k,v in details)
-    return (f'<article id="underground-{row["id"]}"><header><small>Underground park nexus · draft · braided maze</small><h2>{row["name"]}</h2></header>'
+    return (f'<article id="underground-{row["id"]}"><header><small>Underground park nexus · {"in game" if row.get("status") == "runtime" else "draft"} · braided maze</small><h2>{row["name"]}</h2></header>'
             + '<div class="visual underground-depths" style="grid-template-columns:1fr 1fr">'+''.join(views)+'</div><p>Either reward alternative can occur on either floor. Cave-wall fill uses the linked maze; the grove focus is reserved first.</p>'
-            + f'<p>{html.escape(row["atmosphere"])}</p><p><a href="layout-lab.html#{html.escape(settings,quote=True)}">Open the source maze in Layout Lab</a></p><dl>{dl}</dl></article>')
+            + f'<p>{html.escape(row.get("runtimeNote", ""))}</p><p>{html.escape(row["atmosphere"])}</p><p><a href="layout-lab.html#{html.escape(settings,quote=True)}">Open the source maze in Layout Lab</a></p><dl>{dl}</dl></article>')
 
 
 def underground_section(helpers, out):
