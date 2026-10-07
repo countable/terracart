@@ -126,7 +126,9 @@
   const END_SEAT_CELLS = 4;
 
   // ── Dressing density (generation metres along the way) ───────────────────
-  const HEDGE_GATE_EVERY_CELLS = 6; // aligned garden gates on both verges
+  // The hedge encounter's seat samples, every so many cells along the lane
+  // (seated one cell BEHIND the kerb row, so the hedges stay unbroken).
+  const HEDGE_GATE_EVERY_CELLS = 6;
   // ── How much of a street wears its theme ────────────────────────────────
   // Complete short streets wear their theme end to end. Longer or clipped
   // streets keep the middle sectionShare of each tile-aligned patch, measured
@@ -173,7 +175,10 @@
   // The hedged lane's carpet: centred on the first verge cell (where the
   // hedges stand, so it shows at every garden gate), this many cells wide.
   const CARPET_WIDTH_CELLS = 0.6;
-  const TERRAIN_VERGE_CELLS = 1.5;
+  // A variant's claim reaches this far past its road band (areaSteps) and
+  // its ground paint runs out to it (paintTerrainSteps): 2 cells from the
+  // road, the owner's figure (Oct 2026).
+  const TERRAIN_VERGE_CELLS = 2;
   const THORNY_SHRINE_RADIUS_CELLS = 2;
   const THORNY_VERGE_MAX_CELLS = 4;
   const THORNY_CLUSTER_DENSITY = 0.6;
@@ -346,8 +351,7 @@
   //   retry    the other side when the chosen one has no free cell (the
   //            burned row's torches: a torch every so often, whichever side);
   //   start    the first k to try (the toadstool giant's set-back seat);
-  //   skip     a sample that lays nothing (the hedgerow's gate stations, the
-  //            toadstool's breathing gap);
+  //   skip     a sample that lays nothing (the toadstool's breathing gap);
   //   draw     per-sample draws off the row's `stream`, taken BEFORE the
   //            covers test so an uncovered sample spends them too (the burned
   //            row's side and tar rolls — the stream is pinned);
@@ -357,8 +361,9 @@
   // walked in order; what is not a verge walk (the snare cache, the thorny
   // thickets, the barricade's cross-sections, the guards) stays in dressSteps.
   const VERGE_ROWS = {
-    hedgerow: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1,
-      skip: (at) => Math.floor(at.s / root.WorldGen.CELL_M) % HEDGE_GATE_EVERY_CELLS === HEDGE_GATE_EVERY_CELLS - 1,
+    // FULLY HEDGED: half-cell samples so a diagonal lane's kerb cells are all
+    // reached (a claimed cell is simply skipped), no gate stations.
+    hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', walk: 1,
       emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant('shrub', D.cx(c.ix), D.cy(c.iy),
         D.WG.cellId('hedge', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _streetArt: 'clipped' })) }],
     overgrown: [{ step: OVERGROWN_STEP_M, max: OVERGROWN_MAX, side: () => 1,
@@ -1096,8 +1101,10 @@
             const i = y * N + x, here = original[i];
             if (zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i]) continue;
             // Road/terrain spawn exclusions remain unchanged; only land-access
-            // exclusions prevent this visual ground paint.
-            if ((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND) continue;
+            // exclusions prevent this visual ground paint — except RESIDENTIAL
+            // land cover, which the variant's claim blocks out to its verge
+            // (the lane owns its two cells; a yard's lawn does not run onto it).
+            if (((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND) && here !== WG.T.RESIDENTIAL) continue;
             if ((!WG.isWalkable(here) && !WG.isCobbleTerrain(here))
                 || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
             const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
@@ -1438,15 +1445,16 @@
       // keep their draws; guards share the existing lair persistence lane.
       if (['hedgerow', 'overgrown', 'orchard', 'toadstool'].includes(v)) {
         const sid = `street_habitat_${tx}_${ty}_${v}_${rec.key}`;
-        // A hedge encounter uses a regular gate gap, keeping both clipped
-        // rows aligned instead of removing an extra hedge for its anchor.
+        // A hedge encounter sits one cell BEHIND the kerb row (verge k = 2),
+        // so the clipped rows stay unbroken; its samples pace by the old gate
+        // spacing.
         const step = v === 'hedgerow' ? CELL_M * HEDGE_GATE_EVERY_CELLS : BURNED_GUARD_STEP_M;
         const start = v === 'hedgerow' ? step - CELL_M / 2 : step / 2;
         if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, step, start, (s, x, y, nx, ny) => {
           if (habitatSeats.has(sid)) return false;
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
-            const candidate = verge(rec, x, y, nx, ny, side);
+            const candidate = verge(rec, x, y, nx, ny, side, v === 'hedgerow' ? 2 : 1);
             const c = candidate && foeSeat(candidate.ix, candidate.iy);
             if (!c) continue;
             claim(c.ix, c.iy); habitatSeats.add(sid);
@@ -1805,7 +1813,7 @@
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
-    HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
+    HEDGE_GATE_EVERY_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,

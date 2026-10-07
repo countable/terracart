@@ -255,7 +255,7 @@ test('dressing: clipped bushes line the hedgerow, off the band and off anything 
   assert.eq(wildplantOutput('barricade'), 'wood', 'and a barricade is broken up the same way');
 });
 
-test('hedgerow: aligned regular gates and fixed verge rows stay tidy around obstacles', () => {
+test('hedgerow: fully hedged on both verges, no gaps, and tidy around obstacles', () => {
   const rec = {variant:'hedgerow', key:'manicured', halfW:4, line:pts([[5,30],[47,30]])};
   const grid = new Uint8Array(CPE * CPE).fill(T.GRASS);
   const draw = (occupied = new Set(), spawnWhy = new Uint16Array(CPE * CPE)) => SV.dress({
@@ -265,12 +265,12 @@ test('hedgerow: aligned regular gates and fixed verge rows stay tidy around obst
   const rows = draw();
   const north = rows.filter(p => cellOf(p.y,TY) < 30).map(p => cellOf(p.x,TX));
   const south = rows.filter(p => cellOf(p.y,TY) > 30).map(p => cellOf(p.x,TX));
-  assert.eq(north.join(','),south.join(','),'garden gates line up across the road');
+  assert.eq(north.join(','),south.join(','),'the two rows match across the road');
   assert.eq(new Set(rows.map(p => cellOf(p.y,TY))).size,2,'one fixed row on each side');
-  const gaps = [];
-  for (let x = north[0]; x < north[north.length-1]; x++) if (!north.includes(x)) gaps.push(x);
-  assert.gt(gaps.length,4,'several regular gates');
-  for (let i=1;i<gaps.length;i++) assert.eq(gaps[i]-gaps[i-1],SV.HEDGE_GATE_EVERY_CELLS);
+  const sorted = north.slice().sort((a,b)=>a-b);
+  assert.eq(new Set(sorted).size, sorted.length, 'one hedge per kerb cell');
+  assert.eq(sorted.length, sorted[sorted.length-1]-sorted[0]+1, 'no gaps: every kerb cell along the lane is hedged');
+  assert.gt(sorted.length, 30, 'the whole covered length');
   const target=rows[2], ix=cellOf(target.x,TX),iy=cellOf(target.y,TY),idx=iy*CPE+ix;
   const expected=rows.filter(p=>p.id!==target.id).map(p=>p.id).join(',');
   assert.eq(draw(new Set([idx])).map(p=>p.id).join(','),expected,'an obstacle removes only its slot');
@@ -1306,6 +1306,25 @@ function paintVerge(ctx) {
   while (!result.done) result = it.next();
   return result.value;
 }
+test('street ground: the claim reaches two cells and paints over residential land cover there', () => {
+  // Hedgerow terrain over a lane on row 6 with no band of its own (halfW 0):
+  // rows 4 and 8 sit exactly two cells out, row 3 three. Residential lot
+  // cells carry the gate's PRIVATE reason (land access), which used to keep
+  // every land-excluded cell's own paint; the lane now owns its two cells.
+  const f = vergeFixture('hedgerow');
+  f.index.dressingLines[0].halfW = 0;
+  const N = f.N, W = WorldGen.SPAWN_WHY;
+  for (const y of [3, 4, 5]) for (let x = 1; x < 11; x++) { f.grid[y*N+x] = T.RESIDENTIAL; f.spawnWhy[y*N+x] = W.PRIVATE; }
+  f.grid[8*N+5] = T.GRASS; f.spawnWhy[8*N+5] = W.RESTRICTED;      // restricted ground keeps its paint
+  const painted = paintVerge(f), park = T.PARK;
+  assert.eq(f.grid[5*N+5], park, 'a residential kerb cell takes the lane\'s ground');
+  assert.eq(f.grid[4*N+5], park, 'two cells out too (TERRAIN_VERGE_CELLS = 2)');
+  assert.eq(f.grid[3*N+5], T.RESIDENTIAL, 'three cells out the lot keeps its lawn');
+  assert.eq(f.grid[8*N+5], T.GRASS, 'other land-access exclusions still block the paint');
+  assert.truthy(painted[4*N+5] && !painted[3*N+5]);
+  assert.eq(SV.TERRAIN_VERGE_CELLS, 2);
+});
+
 function vergeFixture(variant = 'overgrown') {
   const N = 12;
   const grid = new Uint8Array(N*N).fill(T.GRASS);

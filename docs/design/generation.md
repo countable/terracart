@@ -245,8 +245,12 @@ Higher-priority placements and their access space take precedence in this order:
    are ambient fill, not landmarks merely because they came from OSM.
 4. Nexus variants, including their deliberately empty layout cells.
 5. Road variants, across their defined corridor and verge, including
-   deliberately empty gaps. Nexus variants override road variants where they
-   overlap; the physical road and its safety restrictions remain intact.
+   deliberately empty gaps. The claim reaches two cells past the road band
+   (`StreetVariants.TERRAIN_VERGE_CELLS`): inside it the variant's ground
+   replaces residential land cover and ambient yard fill, while buildings,
+   piers and other land-access exclusions keep their paint. Nexus variants
+   override road variants where they overlap; the physical road and its
+   safety restrictions remain intact.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
 
 - Hard terrain, land-access, road-safety and accessibility rules are prerequisites,

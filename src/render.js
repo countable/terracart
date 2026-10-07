@@ -120,11 +120,15 @@ Render.workToolPose = function (slot, elapsed) {
 Render.workImpactPose = function (wp, object, now) {
   if (!wp || wp.combat || now < wp.startT || now - wp.startT >= wp.durationMs) return null;
   const look = Render.WORK_LOOKS[wp.toolSlot], impact = look?.impact;
-  if (!impact || object.kind !== impact.kind || object.x !== wp.worldX || object.y !== wp.worldY) return null;
+  // The axe's impact lands on a tree OR a logged bush (a timber wildplant
+  // under the same wheel): the bush sways like the tree, about its foot.
+  if (!impact || !object) return null;
+  const kindOk = object.kind === impact.kind || (impact.kind === 'tree' && object.kind === 'wildplant');
+  if (!kindOk || object.x !== wp.worldX || object.y !== wp.worldY) return null;
   const age = ((now - wp.startT) % look.beatMs) - impact.atMs;
   if (age < 0 || age >= impact.ms) return null;
   const t = age / impact.ms, fade = (1 - t) ** 2;
-  return object.kind === 'tree'
+  return (object.kind === 'tree' || object.kind === 'wildplant')
     ? { rotation: Math.sin(t * Math.PI * 2) * 0.07 * fade, x: 0, y: 0 }
     : { rotation: 0, x: Math.sin(t * Math.PI * 6) * 2 * fade,
         y: -Math.abs(Math.sin(t * Math.PI * 6)) * 0.6 * fade };
@@ -4398,6 +4402,10 @@ Render.drawObjects = function drawObjects(scene) {
     const box = ov?.seat && SpriteLayout.ART_BOUNDS[`${ov.sheet}:${wildplantFrame(p)}`];
     const placement = box ? SpriteLayout.seatInCell(box, 0.5, oy, cropScl, cropScl) : {dxPx:0, dyPx:0};
     s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx - plantedYOffset);
+    // A bush being logged sways about its foot, as a tree under the axe does
+    // (the pool reset its rotation before this configure).
+    Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, p, performance.now()),
+      s.x, s.y + (1 - oy) * s.displayHeight);
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
