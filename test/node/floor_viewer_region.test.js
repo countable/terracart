@@ -1,7 +1,7 @@
 // The floor viewer's representative fake region, run through the REAL tile
 // pipeline: the terrain mix the viewer promises (grass, forest, parking, church,
 // residential + houses, commercial, every street size, a small lake, a
-// 5-cell beach with park backing, a separate park) must actually paint, and
+// 5-cell beach, a separate grove) must actually paint, and
 // the dungeon floors must build from it.
 (() => {
   const test = (name, fn) => globalThis.test(name, async () => {
@@ -18,6 +18,7 @@
   });
   async function buildSurface() {
     const R = globalThis.FloorViewerRegion, W = globalThis.WorldGen;
+    return R.withNexusSizes(async () => {
     const pump = gen => { let r; do { r = gen.next(); } while (!r.done); return r.value; };
     const layers = R.makeLayers();
     const r = pump(W.rasterizeTileSteps(layers, R.N, 0, 0, R.EDGE));
@@ -30,6 +31,7 @@
     W.stampPoiDensity(entry.objects);
     W.tileCacheFor(0).set(W.tileKey(0, 0), entry);
     return entry;
+    });
   }
 
   test('floor viewer region: source geometry and labels fit the visible rectangle', async () => {
@@ -43,6 +45,33 @@
       assert.truthy(label.x >= 0 && label.x < R.WIDTH, `${label.text} x is visible`);
       assert.truthy(label.y >= 0 && label.y < R.HEIGHT, `${label.text} y is visible`);
     }
+  });
+
+  test('floor viewer region: residential covers a fifth and smaller zones leave open grass', async () => {
+    const R = FloorViewerRegion;
+    const uses = R.makeLayers().find(layer => layer.name === 'landuse').features;
+    const area = feature => {
+      const ring = feature.geom[0];
+      return (ring[1].x - ring[0].x) * (ring[2].y - ring[1].y) / (R.CELL * R.CELL);
+    };
+    assert.eq(Math.round(area(uses.find(f => f.tags.class === 'residential'))), 414,
+      'the contiguous residential block occupies roughly one fifth of 2100 cells');
+    assert.eq(Math.round(area(uses.find(f => f.tags.amenity === 'parking'))), 99, 'parking footprint shrinks about thirty percent');
+    assert.eq(uses.filter(f => f.tags.class === 'park').length, 1, 'only the grove park remains');
+    assert.falsy(R.labels.some(label => label.text === 'Park'), 'the removed park has no label');
+  });
+
+  test('floor viewer region: compact nexus radii restore after a failed build', async () => {
+    const grove = Zones.ZONE_KINDS.grove.R, stones = Zones.ZONE_KINDS.stones.R;
+    try {
+      await FloorViewerRegion.withNexusSizes(async () => {
+        assert.eq(Zones.ZONE_KINDS.grove.R, grove * Math.sqrt(.7));
+        assert.eq(Zones.ZONE_KINDS.stones.R, stones * Math.sqrt(.85));
+        throw new Error('fixture build failed');
+      });
+    } catch (error) { assert.eq(error.message, 'fixture build failed'); }
+    assert.eq(Zones.ZONE_KINDS.grove.R, grove);
+    assert.eq(Zones.ZONE_KINDS.stones.R, stones);
   });
 
   test('floor viewer region: every surface nexus kind has a real source', async () => {
@@ -70,9 +99,9 @@
     assert.eq(FloorViewerRegion.HEIGHT, 35, 'the viewport is thirty-five cells high');
     assert.gt(at('RESIDENTIAL'), 100, 'residential belt paints');
     assert.gt(at('COMMERCIAL'), 40, 'commercial block paints');
-    assert.gt(at('BUILDING'), 30, 'house and shop footprints paint');
+    assert.gt(at('BUILDING'), 20, 'house and shop footprints paint');
     assert.gt(at('GROVE'), 100, 'the park and its grove halo paint');
-    assert.gt(at('PARK') + at('GROVE'), 130, 'the two parks paint');
+    assert.gt(at('PARK') + at('GROVE'), 100, 'the grove paints');
     assert.gt(at('SAND'), 60, 'the beach paints');
     assert.gt(at('WATER'), 60, 'the lake paints');
     assert.gt(at('PITCH'), 20, 'the pitch paints');
@@ -83,13 +112,23 @@
 
   test('floor viewer region: each surface variant reaches real dressing', async () => {
     const V = FloorViewerVariants;
-    for (let i = 1; i < V.options(0).length; i++) {
-      await V.withSelection(0, i, async selected => {
+    for (let i = 1; i <= Math.max(...V.families(0).map(family => family.rows.length)); i++) {
+      await V.withSelection(0, i, async selection => {
         const entry = await buildSurface();
-        assert.truthy(entry.zone.anchors.some(anchor => anchor.kind === selected.kind && anchor.variant === selected.id), selected.id);
-        assert.truthy(entry.zoneDress.diagnostics.some(nexus => nexus.zoneVariant === selected.id),
-          `${selected.id} reaches the real dressing pipeline`);
-
+        for (const selected of selection.nexuses) {
+          assert.truthy(entry.zone.anchors.some(anchor => anchor.kind === selected.kind && anchor.variant === selected.id), selected.id);
+          assert.truthy(entry.zoneDress.diagnostics.some(nexus => nexus.zoneVariant === selected.id),
+            `${selected.id} reaches the real dressing pipeline`);
+        }
+        for (const road of selection.roads.filter(row => row.kind !== 'path')) {
+          const records = entry.streetIndex.lines.filter(row => row.size === road.kind);
+          assert.gt(records.length, 0, `${road.kind} roads present`);
+          assert.truthy(records.every(row => row.selectedVariant === road.id), `${road.id} reaches real street generation`);
+        }
+        const path = selection.roads.find(row => row.kind === 'path');
+        const intervals = [...entry.scenic.lines.values()].flat();
+        assert.gt(intervals.length, 0, 'scenic path intervals present');
+        assert.truthy(intervals.every(interval => Scenic.KIND_ROW[interval[2]] === path.id), `${path.id} reaches real scenic generation`);
       });
     }
   });
@@ -110,7 +149,7 @@
       assert.eq(entry.grid[i], T.SAND, `beach row ${dy} cells above the lake is sand`);
     }
     assert.truthy(entry.grid[(ly - 6) * N + (lx + 4)] !== T.SAND, 'the beach is exactly 5 cells wide');
-    assert.eq(entry.grid[19 * N + 46], T.PARK, 'a park backs part of the beach');
+    assert.truthy(entry.grid[20 * N + 46] !== T.PARK, 'the former beach-side park is removed');
   });
 
   test('floor viewer region: dungeon floors derive from the fake tile', async () => {
@@ -130,7 +169,7 @@
     for (const depth of [1, 2]) {
       W.setDepth(0);
       for (let d = 0; d <= depth; d++) W.tileCacheFor(d).clear();
-      await V.withSelection(depth, V.options(depth).findIndex(row => row.id === 'spring_cave'), async () => {
+      await V.withSelection(depth, 1, async () => {
         await buildSurface();
         const entry = await W.loadTile.atDepth(depth, 0, 0, R.lat);
         if (entry.promise) await entry.promise;

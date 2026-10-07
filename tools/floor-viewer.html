@@ -52,8 +52,8 @@
 <canvas id="cv"></canvas>
 <div id="regionLabels" aria-label="Map region labels"></div>
 <script src="game-loader.js"></script>
-<script src="floor-viewer-region.js?v=ee65ed83"></script>
-<script src="floor-viewer-variants.js?v=065bb821"></script>
+<script src="floor-viewer-region.js?v=79473bd5"></script>
+<script src="floor-viewer-variants.js?v=86892632"></script>
 <script>
 (() => {
   'use strict';
@@ -78,7 +78,7 @@
     updateControls();
     const W = WorldGen, R = FloorViewerRegion, depth = displayDepth();
     try {
-      await FloorViewerVariants.withSelection(depth, variantIndex, async () => {
+      await R.withNexusSizes(() => FloorViewerVariants.withSelection(depth, variantIndex, async () => {
         for (let d = 0; d <= 8; d++) W.tileCacheFor(d).clear();
         W.setDepth(0);
         const built = {};
@@ -94,14 +94,18 @@
         W.tileCache.set(W.tileKey(0, 0), entry);
         built[0] = entry;
 
-        const home = { x: R.EDGE / 2, y: R.EDGE / 2 };
+        const home = { x: R.HOME.x * W.CELL_M, y: R.HOME.y * W.CELL_M };
         HomeArea.setOrigin(home.x, home.y);
         const scene = Object.create(MapScene.prototype);
         Object.assign(scene, { tileEdgeM: R.EDGE, depth: 0, save: {}, startWorldM: home,
-          playerM: { x: home.x, y: home.y }, mPerPx: R.EDGE / W.TILE_PX,
+          _sandboxMode: true, playerM: { x: 0, y: 0 }, mPerPx: R.EDGE / W.TILE_PX,
           originPx: { x: home.x / (R.EDGE / W.TILE_PX), y: home.y / (R.EDGE / W.TILE_PX) },
           cellM: W.CELL_M, cellsForRow: () => R.N, cellsPerTile: R.N, cellPx: 32,
           feetOffsetM: 0, peekM: { x: 0, y: 0 }, _popEnergy() {}, _cropRaidable: [], flash() {}, flashLoot() {} });
+        // Adopt the nearest visible house through the game’s Home rules.
+        scene.ensureStarterShopId();
+        entry.viewerSave = scene.save;
+        entry.viewerHome = entry.objects.find(o => o.id === scene.save.starterShopId);
         status('Dressing the surface&hellip;');
         await W.runStepsSliced(() => scene.spawnInTileSteps(entry, 0, 0));
         for (let d = 1; d <= depth; d++) {
@@ -118,7 +122,7 @@
         for (const key of Object.keys(entries)) { delete entries[key]; delete sprites[key]; }
         Object.assign(entries, built);
         for (const [d, e] of Object.entries(entries)) sprites[d] = prepareSprites(e, +d);
-      });
+      }));
       status('Ready - pick a floor or nexus variant.');
     } catch (e) {
       console.error(e);
@@ -192,7 +196,7 @@
   // ── Sprite appearance: the game's own resolution, on our canvas textures ──
   function prepareSprites(entry, depth) {
     if (!entry) return [];
-    const scene = { save: {}, depth, textures: assets.textures, cellM: WorldGen.CELL_M };
+    const scene = { save: entry.viewerSave || {}, depth, textures: assets.textures, cellM: WorldGen.CELL_M };
     const roles = new WeakMap();
     for (const o of entry.objects || []) if (o.kind === 'house') { try { roles.set(o, Houses.displayRole(scene.save, o)); } catch (_) {} }
     const { resolveAppearance } = Render.objectAppearance(scene, roles);
@@ -366,6 +370,9 @@
         }).filter(Boolean))];
         return { ...label, text: label.text + (names.length ? '\n' + names.join(', ') : '') };
       });
+      const home = entries[0].viewerHome;
+      if (home) surfaceLabels.push({ text: "Player’s Home", x: home.x / WorldGen.CELL_M,
+        y: home.y / WorldGen.CELL_M + 1 });
       const labels = depth === 0 ? surfaceLabels : areas.length ? areas
         : surfaceLabels.map(label => ({ ...label, text: 'Below ' + label.text }));
       for (const label of labels) {
@@ -382,19 +389,20 @@
     const extra = mode === 'proposed' && floor === 2
       ? '<br>Proposed floor 2 (goblin city) has no generator yet - the sketch lives in the geometry sheet.' : '';
     const selected = FloorViewerVariants.select(depth, variantIndex);
-    let placement = '';
-    if (selected?.id && depth === 0) {
-      const records = (entry.zoneDress?.diagnostics || []).filter(r => r.zoneVariant === selected.id);
-      const count = records.reduce((sum, r) => sum + r.placed, 0);
-      placement = `<br>Placed ${count} zone pieces through the live generator.`;
-    } else if (selected?.id) {
-      const records = (entry.caveAreas?.diagnostics || []).filter(r => r.variant === selected.id);
-      const placed = records.filter(r => r.status === 'placed').length;
-      const reasons = [...new Set(records.filter(r => r.status !== 'placed').map(r => (r.reason || 'unavailable').replace(/_/g, ' ')))];
-      placement = `<br>Placed ${placed} areas` + (reasons.length ? ` · unavailable: ${reasons.join(', ')}` : '') + '.';
-    }
-    tag('<b>' + FLOOR_NAMES[floor] + '</b> - ' + (mode === 'current' ? 'current code' : 'proposed = the shift: floor ' + floor + ' shows the pipeline\u2019s floor ' + depth)
-      + '<br>Nexus variant: <b>' + (FloorViewerVariants.select(depth, variantIndex)?.label || 'No nexus variants on this floor') + '</b>' + placement + extra);
+    const nexusNames = selected?.nexuses.map(row => `${row.kind}: ${row.label}`).join(' · ');
+    const roadKinds = { minor: 'Small roads', major: 'Major / medium roads', path: 'Paths' };
+    const roadNames = selected?.roads.map(row => `${roadKinds[row.kind]}: ${row.label}`).join(' · ');
+    const diagnostics = depth === 0 ? entry.zoneDress?.diagnostics || [] : entry.caveAreas?.diagnostics || [];
+    const placement = selected?.id ? selected.nexuses.map(row => {
+      const records = diagnostics.filter(record => (record.zoneVariant || record.variant) === row.id);
+      const placed = records.reduce((sum, record) => sum + (depth === 0 ? record.placed : Number(record.status === 'placed')), 0);
+      const reasons = [...new Set(records.filter(record => record.status === 'declined').map(record => record.reason.replace(/_/g, ' ')))];
+      return `${row.label}: ${placed}${reasons.length ? ` (${reasons.join(', ')})` : ''}`;
+    }).join(' · ') : '';
+    tag('<b>' + FLOOR_NAMES[floor] + '</b> - ' + (mode === 'current' ? 'current code' : 'proposed = the shift: floor ' + floor + ' shows the pipeline’s floor ' + depth)
+      + '<br>Nexuses: <b>' + (nexusNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
+      + '<br>Roads: <b>' + (roadNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
+      + (placement ? '<br>Placed: ' + placement : '') + extra);
   }
 
   // ── Controls ──────────────────────────────────────────────────────────────
@@ -425,11 +433,11 @@
     document.getElementById('creatureToggle').disabled = building;
     document.getElementById('labelToggle').disabled = building;
     document.getElementById('regionLabels').hidden = building || !showLabels;
-    const depth = displayDepth(), options = FloorViewerVariants.options(depth);
+    const depth = displayDepth(), count = FloorViewerVariants.count(depth);
     const selected = FloorViewerVariants.select(depth, variantIndex);
-    for (const id of ['vMinus', 'vPlus']) document.getElementById(id).disabled = building || options.length < 2;
+    for (const id of ['vMinus', 'vPlus']) document.getElementById(id).disabled = building || count < 2;
     document.getElementById('variantName').textContent = selected
-      ? `${variantIndex + 1}/${options.length} · ${selected.label}` : 'No nexus variants on this floor';
+      ? `${variantIndex}/${count - 1} · ${selected.label}` : 'No variants on this floor';
   }
   function changeFloor() {
     variantIndex = variantIndices.get(displayDepth()) || 0;
@@ -437,7 +445,7 @@
   }
   function stepVariant(delta) {
     if (building) return;
-    const count = FloorViewerVariants.options(displayDepth()).length;
+    const count = FloorViewerVariants.count(displayDepth());
     if (count < 2) return;
     variantIndex = (variantIndex + delta + count) % count;
     variantIndices.set(displayDepth(), variantIndex);

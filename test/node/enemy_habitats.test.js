@@ -127,9 +127,9 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     for (const creature of creatures) assert.eq(EnemyRoster.get(creature.kind).attackType, 'melee');
   });
   test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
-    // Main's zone naming and seat metadata remain intact. Ordered Graves
-    // additionally includes the approved reaper in its species family.
-    const expected = { orchard: 1679667825, ordered_graves: 4215728589, mystic_reef: 837559558 };
+    // Zone naming and seat metadata remain intact; churchyard reapers are
+    // reserved for awakened temple challenges.
+    const expected = { orchard: 1679667825, ordered_graves: 2150613461, mystic_reef: 837559558 };
     for (const [theme, hash] of Object.entries(expected)) {
       const occupied = new Set();
       const it = EnemyHabitats.surfaceEncountersSteps(entry(theme), 0, 0, occupied);

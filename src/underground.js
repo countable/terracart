@@ -211,5 +211,5 @@
       }
     }
   }
-  root.Underground = { project, decorate, gem, surfaceData, allowed, segmentKey };
+  root.Underground = { THEMES, STREET_THEMES: [...THEMES, 'bone_gallery'], project, decorate, gem, surfaceData, allowed, segmentKey };
 })(typeof window !== 'undefined' ? window : globalThis);

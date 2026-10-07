@@ -593,7 +593,7 @@
       if (leadsSomewhere) { context.destination = (context.destination || 0) + total; total *= 2; }
       for (const trait of Object.keys(context)) context[trait] /= total;
       const first = records[0];
-      const variant = variantFor(first.affinityKey, first.name, first.size, context);
+      const variant = root.StreetVariants.variantFor(first.affinityKey, first.name, first.size, context);
       for (const rec of records) {
         rec.affinityContext = context;
         rec.selectedVariant = variant;
@@ -859,7 +859,7 @@
           const rec = { fi, li, line, tags: f.tags, size };
           const name = lineName(line, vote);
           const key = name ? streetKey(name, tx, ty) : anonKey(tx, ty, line);
-          const variant = variantFor(key, name, size);
+          const variant = root.StreetVariants.variantFor(key, name, size);
           rec.name = name;
           rec.key = key;
           rec.variant = variant;
@@ -912,7 +912,7 @@
         const canonical = canonicalPaths(records.map(rec => rec.line));
         const source = records.slice().sort((a, b) => a.key.localeCompare(b.key))[0];
         const key = source.name ? source.key : canonical.map(line => anonKey(tx, ty, line)).join(';');
-        const selected = variantFor(key, source.name, source.size);
+        const selected = root.StreetVariants.variantFor(key, source.name, source.size);
         const prototype = { ...source, key, variant: selected, halfW: Math.max(...records.map(r => r.halfW)) };
         const limits = sectionLimits(selected);
         const bounded = group.clipped || group.metres > limits.maxM;
