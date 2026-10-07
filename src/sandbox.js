@@ -1391,7 +1391,6 @@
     scene.tilledSet.clear();
     save.released = [];
     save.wildAnimals = [];
-    save.animalFeeds = {};
     save.restoredHouses = save.restoredHouses || {};
     const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
 
@@ -1482,7 +1481,6 @@
       const { cellIX, cellIY } = sceneCell('PADDOCK', dx, dy);
       const { x, y } = cellCenter(cellIX, cellIY);
       const animal = { x, y, kind, id: `sandbox_${kind}_${i}`, tx: centreTX, ty: centreTY };
-      Pets.feedWild(save, animal, kind === 'chicken' ? 'potato_seed' : ANIMAL_FOOD[kind][0]);
       const row = Pets.bond(save, animal, { carried: false });
       Object.assign(row, { stayHome: true, petHomeX: x, petHomeY: y });
     });

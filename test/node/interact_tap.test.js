@@ -878,7 +878,7 @@ test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
   // creature table's `game` row, read through SpriteLayout.isGame — beside
   // what a kill of that kind drops (app.js resolveDefeat), so the two halves
   // of "crow and deer are hunted" cannot name different kinds.
-  const huntStart = src.indexOf("if (SpriteLayout.isGame(target.kind) && !Pets.fed(save, target)");
+  const huntStart = src.indexOf("if (SpriteLayout.isGame(target.kind) && !sel && Gear.activeWeapon(save)) {");
   const hunt = src.slice(huntStart, src.indexOf('const selItem =', huntStart));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
   assert.eq(Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k)).join(),

@@ -133,7 +133,9 @@
 // The surface slime is 10: it is the FIRST enemy, often met with no sword at
 // all. The bounty is derived from this number (enemyBounty below), and
 // BASELINE_HP below is a fixed anchor, not a reading of this table.
-  const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10 };
+  // The cow and horse are twice the default 10: twice the netting
+  // (a catch's difficulty is current HP × 2 — Pets.catchMs).
+  const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10, cow: 20, horse: 20 };
   // A SUMMONED ally borrows a kind's stats rather than carrying its own: the
   // spirit raven (the Scroll of the Raven) is "equal to a slime", so
   // its pool is the surface slime's here and its bite is the slime's below
@@ -690,7 +692,8 @@
   // unavailable until they surface. Their species remains unchanged.
   function isEnemy(c, now = Date.now()) {
     if (!c || c._surfaceInactive || isConcealed(c) || isCharmed(c, now) || isPacified(c, now)) return false;
-    if (isTame(c) || c.favouriteFed) return false;
+    // Mid-catch (startCatchProgress): a truce — no shot, pet or blast takes it.
+    if (isTame(c) || c._beingCaught) return false;
     return isEnemyKind(c.kind);
   }
 

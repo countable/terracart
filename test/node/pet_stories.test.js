@@ -27,11 +27,8 @@
     finally { PetStoryArt.forKind = oldArt; document.body = oldBody; }
   }
 
-  test('pet stories: feeding and hatching do not queue a bonded-pet story', () => {
+  test('pet stories: hatching does not queue a bonded-pet story', () => {
     const s = scene();
-    const wild = { id: 'dog_wild', kind: 'dog' };
-    Pets.feedWild(s.save, wild, 'meat');
-    assert.falsy(s.save.petStoriesPending);
     s.save.inv = [{id: 'egg', count: 1}]; s.save.eggHatchM = EggHatch.METERS;
     EggHatch.hatch(s.save, () => 0);
     assert.falsy(s.save.petStoriesPending);

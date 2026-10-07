@@ -87,7 +87,9 @@ test('egg: each baby kind can hatch, consuming exactly one egg', () => {
     assert.eq(Inventory.count(save, petId), 0);
     assert.eq(result.creature.kind, ITEM_BY_ID[petId].base);
     assert.truthy(result.creature.raised);
-    assert.falsy(Pets.canCatch(save, result.creature));
+    // Hatched WILD: not yet a pet, caught like any other by giving it its favourite.
+    assert.falsy(result.creature.pet); assert.eq(Pets.list(save).length, 0);
+    assert.truthy(Pets.canCatch(save, result.creature), 'a wild baby is caught with its favourite');
     assert.eq(Inventory.count(save, 'egg'), 0);
     assert.eq(save.eggHatchM, 0);
   });

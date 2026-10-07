@@ -3639,7 +3639,9 @@ class MapScene extends Phaser.Scene {
     // The Shadow Powder is a truce, not a flank: while it hides the player,
     // the cadence holds its fire too. The else-branch re-arms, so the first
     // arrow flies the instant the shadow lifts.
+    // A CATCH attempt (a fleeing wheel) is no time to fight: no auto-fire.
     const rangedArmed = !Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
+      && !this._workProgress?.flee
       && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
@@ -5006,7 +5008,11 @@ class MapScene extends Phaser.Scene {
       // Shiny animals use their reduced escape bonus while being caught.
       const isButterfly = c.kind === 'butterfly';
       const shinyFast = Combat.shinySpeedMul(c, true);
-      const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, SpriteLayout.creatureMaxMps(c.kind)) * shinyFast;
+      // An ENEMY flees no faster than its own roster walk (a rooted plant,
+      // speed 0, cannot run at all); an animal, its CREATURE_BEHAVIOUR top.
+      const roster = EnemyRoster.get(c.kind);
+      const top = roster ? (roster.movement?.speedMetersPerSecond ?? 0) : SpriteLayout.creatureMaxMps(c.kind);
+      const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, top) * shinyFast;
       // Moss also conceals the catch: fauna and pets do not flee the net.
       if (!Shrines.leverActive(this.save, 'hidden')) {
         const nx = c.x + (dx / dist) * FLEE_MPS * dt;
@@ -8701,8 +8707,21 @@ class MapScene extends Phaser.Scene {
   // same function works inside text (modal cost) and as a standalone tile
   // (inventory slot). Returns either an HTMLElement (style='block') or an
   // HTML string (style='inline') — the caller picks based on context.
+  // A creature with no item row (a caught ENEMY) gets its icon baked once,
+  // lazily, off the sheet the map draws it from: its down-facing idle frame.
+  _bakeCreatureIcon(kind) {
+    const art = SpriteLayout.creatureArt(kind);
+    if (!art || !art.fw || !this.textures?.exists(art.sheet)) return;
+    const src = this.textures.get(art.sheet).getSourceImage();
+    const frame = art.directions?.down?.idle?.[0] ?? 0, cols = Math.max(1, Math.floor(src.width / art.fw));
+    const c = document.createElement('canvas');
+    c.width = art.fw; c.height = art.fh;
+    c.getContext('2d').drawImage(src, (frame % cols) * art.fw, Math.floor(frame / cols) * art.fh, art.fw, art.fh, 0, 0, art.fw, art.fh);
+    (window.ITEM_DATA_URLS ||= {})[kind] = c.toDataURL();
+  }
   renderItemIcon(itemId, sizePx, style = 'inline') {
     const item = ITEM_BY_ID[itemId];
+    if (!item && !window.ITEM_DATA_URLS?.[itemId]) this._bakeCreatureIcon(itemId);
     // Shiny variants (shiny_chicken, …) have no sprite of their own — they
     // reuse the base animal's icon, recoloured with the warm filter applied
     // below. Fall back to `item.base` only when there's no dedicated bake.

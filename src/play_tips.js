@@ -89,7 +89,7 @@ const PLAY_TIPS = [
   "Listen before entering the ruined walls. A garrison may be waiting. Silence is cheaper than a funeral.",
   "In the harsher world, find it first. Then learn to make it.",
   "Retreat far enough from a ruin and its guards abandon the chase. A living soldier can return. Strike true, when you can.",
-  "I offered the animal its favourite food. It stayed there, waiting for me. Such a small beginning for a friendship.",
+  "I offered the animal its favourite food. It snatched the morsel and bolted, and I followed close enough to keep talking until it stopped running. Such a small beginning for a friendship.",
   "Fed the chicken. Found an egg beneath her this morning. She regards the whole affair as her own achievement.",
   "A gentle stroke, a little more milk. The tame cow has better manners than half my former colleagues.",
   "Stroke the tame cat and it will follow for a while. I try not to take its eventual departure personally.",
@@ -154,6 +154,12 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.raven_scroll,
   ITEM_GUIDE_TIPS.bones_scroll,
   ITEM_GUIDE_TIPS.wraith_scroll,
+  // Appended (Oct 2026): taking a foe alive with the gem it covets
+  // (items.js favouriteItems; interact.js's catch). One fact a page.
+  "Every creature under the stone covets a gem, and it knows its own worth. A common thing will sit for a scrap of quartz. The great ones want a stone you would hesitate to part with.",
+  "Taking one alive? Then you are not fighting it. Blade down. Stay close while it runs. And keep an eye on its friends; they have not agreed to anything.",
+  "A creature at the end of a long quarrel is easier to persuade. Mine had lost most of its temper, and a good deal of its strength, before it took the stone and stayed.",
+  "Offered the brute a ruby. It handed it straight back, unimpressed. Nothing lost but my pride, which was never insured.",
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -397,6 +403,10 @@ const PLAY_TIP_VOLUMES = [
   "wizard",
   "wizard",
   "wizard",
+  "miner",
+  "brann",
+  "scholar",
+  "ledger",
 ];
 
 // Narrator observations sit outside the quoted excerpt.
@@ -444,7 +454,8 @@ const PLAY_TIP_ASIDES = {
   "125": "The margins are crowded with unanswered questions.",
   "127": "A circle has been pressed into the paper.",
   "128": "A faded petal is tucked against the spine.",
-  "133": "A black feather marks the passage."
+  "133": "A black feather marks the passage.",
+  "146": "A smear of blue chalk marks the margin."
 };
 
 // The pages a save has read so far, in reading order — the course walks

@@ -144,11 +144,11 @@ test('course: a page read heads on its volume line, with no title row over it', 
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 146, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS.length, 150, 'new guides append after the existing saved bookmarks');
   assert.truthy(/Joined the book club/.test(PLAY_TIPS[141]), 'the published book club page keeps its bookmark');
   assert.eq(PLAY_TIPS[142], ITEM_GUIDE_TIPS.thunder_scroll);
   assert.eq(PLAY_TIPS[143], ITEM_GUIDE_TIPS.raven_scroll);
-  const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
+  const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/, 146:/covets a gem/, 147:/alive/, 148:/quarrel/, 149:/handed it straight back/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
 

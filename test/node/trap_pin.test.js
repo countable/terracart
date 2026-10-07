@@ -246,7 +246,7 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
   hook('till', "onDone: () => {\n      scene.tilledSet.add(cellKey);", 'the till wheel');
   hook('dig', 'scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);',
        'the pick wheel');
-  hook('catch', 'scene.startCatchProgress(victim, catchMs,', 'the catch wheel');
+  hook('catch', 'scene.startCatchProgress(victim, Pets.catchMs(save, victim),', 'the catch wheel');
   // The melee story hooks startCombat in app.js - the ONE lane both the
   // tapped swing (interact.js) and the sword auto-engage (_combatTick) flow
   // through. NOT the hunt wheel: that one is the bug net's, and a shipped

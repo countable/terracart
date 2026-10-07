@@ -11,7 +11,7 @@
   const SAVE_DEFAULTS = Object.freeze({
     caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], fires: [], scarecrows: [], fruittrees: [],
     magicTraps: [], donated: [],
-    animalFeeds: {}, lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
+    lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},
     trainingDrills: {}, training: {}, quarryMined: {}, npcRestUntil: {}, boonUntil: {},
     castleServiceClaimed: {}, claimedCastles: {}, shinyHouses: {}, shopLines: {}, shopTiers: {}, dragonStory: {}, tilledQuality: {},
   });
