@@ -318,7 +318,9 @@ def validate(d):
     affinities = [v for v in d['variants'] if v.get('attracts')]
     for v in affinities:
         assert set(v['attracts']) <= art_registry()['creatures'].keys()
-        assert all(0 < chance <= 1 for chance in v['attracts'].values())
+        assert all(isinstance(quota, list) and len(quota) == 2
+                   and all(isinstance(n, int) and n >= 0 for n in quota)
+                   and quota[0] <= quota[1] for quota in v['attracts'].values())
     for v in d['variants']:
         b = v['background']
         origin = b['poiOrigin']['cell']
@@ -615,7 +617,7 @@ def street_section(streets):
         props = len(v['objects'])
         mix = collections.Counter(o.get('crop', o['kind']) for o in v['objects'])
         inventory = ', '.join(f'{n} {kind}' for kind, n in mix.items()) or 'No extra verge props'
-        fauna = ', '.join(f'{kind} {chance*100:g}%' for kind, chance in v.get('attracts', {}).items()) or 'No street affinity'
+        fauna = ', '.join(f'nearest {quota[0]}–{quota[1]} {kind}' for kind, quota in v.get('attracts', {}).items()) or 'No street affinity'
         selection = 'Geography-selected path' if v['size'] == 'path' else f"{v['size']} street · {v['share']*100:g}% base share"
         tiers = sorted(set(o.get('tier',o['kind']) for o in v['lairs']))
         monsters = '; '.join(' or '.join(k.replace('_',' ') for k in art_registry()['lairs']['kinds'].get(t,[])) + f' · {art_registry()["lairs"]["counts"].get(t,1)} guard per eligible anchor' for t in tiers) or 'No variant-specific enemies'
@@ -1058,7 +1060,7 @@ def render(d, out):
             mix += '; hazards: ' + ', '.join(f'{n*100:g}% {m}' for m,n in hazards.items())
         coverage_label = 'interactables + ' + f'{sum(hazards.values())*100:g}% hazards' if hazards else ('expected' if b['type']=='seeded_scatter' or b.get('gapScatter') else 'nominal')
         mode = {'concentric_rings':'Three concentric rings · POI at common center', 'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':f'Lines every {b.get("spacingCells")} cells · repeat to zone edge', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern'}[b['type']]
-        fauna = ', '.join(f'{kind} {chance*100:g}%' for kind,chance in v.get('attracts',{}).items()) or 'No zone affinity'
+        fauna = ', '.join(f'nearest {quota[0]}–{quota[1]} {kind}' for kind,quota in v.get('attracts',{}).items()) or 'No zone affinity'
         guard = v['guards']
         kinds = guard.get('kinds') or guard.get('choices') or [guard.get('kind', 'guard')]
         guard_text = 'None'

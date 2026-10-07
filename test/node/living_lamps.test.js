@@ -247,23 +247,22 @@ test('living lamps: the frame list carries each lamp\'s brightness', () => {
 });
 
 test('living lamps: cats move beside WALKING-PATH lamps (the attracts lane)', () => {
-  assert.eq(Streets.PATH_LAMP_ATTRACTS.cat, 0.5, 'half the tile\'s cats, as the other attractors');
+  assert.eq(JSON.stringify(Streets.PATH_LAMP_ATTRACTS.cat), '[2,5]', 'a small quota of nearby cats');
   assert.falsy(StreetVariants.STREET_VARIANTS.some((r) => r.attracts && r.attracts.cat), 'no longer Lantern Row');
   const grid = new Array(N * N).fill(WorldGen.T.GRASS);
   const run = (cls) => {
     const entry = mkEntry(cls);
     const sc = Object.assign(new SceneCreatures(), { tileEdgeM: TILE_EDGE_M, cellM: CELL_M,
       _streetLampsForTile: LP._streetLampsForTile });
-    const cats = Array.from({ length: 60 }, (_, i) => ({ id: `cat_${i}`, kind: 'cat', x: -100, y: -100 }));
+    const cats = Array.from({ length: 60 }, (_, i) => ({ id: `cat_${i}`, kind: 'cat', x: (N - 2) * CELL_M, y: (i % N + .5) * CELL_M }));
     const moved = sc._seatFaunaOnFavouriteGround(entry, 0, 0, N, CELL_M, grid,
       { occupied: new Set() }, cats, null, [], new Set());
     return { entry, sc, cats, moved };
   };
   const p = run('footway');
-  assert.gt(p.moved.cat || 0, 10, 'about half the cats move');
-  assert.lt(p.moved.cat || 0, 50, '…not all of them');
+  assert.inRange(p.moved.cat || 0, 2, 5, 'only the nearest small quota of cats moves');
   const lampCells = p.sc._pathLampCells(p.entry, 0, 0, N);
-  for (const c of p.cats.filter((c) => c.x >= 0)) {
+  for (const c of p.cats.filter((c, i) => c.x !== (N - 2) * CELL_M || c.y !== (i % N + .5) * CELL_M)) {
     assert.truthy(lampCells.has(Math.floor(c.y / CELL_M) * N + Math.floor(c.x / CELL_M)), 'seated beside a path lamp');
   }
   const r = run('minor');

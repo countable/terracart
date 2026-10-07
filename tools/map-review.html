@@ -551,7 +551,7 @@ function selectZone(id, focus) {
   lines.push(Object.entries(z.sources).map(([s, n]) => `<span style="color:${ZoneReview.SOURCES[s].color}">${esc(ZoneReview.SOURCES[s].label)}: ${n}</span>`).join('<br>'));
   if (Object.keys(z.fauna).length) lines.push('Fauna here: ' + Object.entries(z.fauna).map(([s,n]) => `${n} ${esc(s)}`).join(', '));
   const affinity = Object.entries(z.variant?.attracts || {});
-  lines.push('Variant fauna attraction: ' + (affinity.length ? affinity.map(([s,p]) => `${esc(s)} ${Math.round(p*100)}%`).join(', ') + ' of existing tile fauna; no population cap.' : 'none.'));
+  lines.push('Variant fauna attraction: ' + (affinity.length ? affinity.map(([s,range]) => `nearest ${range[0]}–${range[1]} ${esc(s)}`).join(', ') + '; existing animals on the ground count toward the quota.' : 'none.'));
   if (z.shortfalls.length) lines.push('Unplaced: ' + esc(z.shortfalls.join(', ')));
   lines.push('<small>Counts cover the loaded part of this zone. Fauna counts are separate from layout coverage.</small>');
   $('zoneDetails').innerHTML = lines.join('<p></p>');

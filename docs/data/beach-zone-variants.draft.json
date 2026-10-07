@@ -525,7 +525,10 @@
         "placement": "opposite_flanks_of_find; existing_enemy_gate; omit_if_blocked"
       },
       "attracts": {
-        "crow": 0.35
+        "crow": [
+          2,
+          5
+        ]
       },
       "atmosphere": "Open driftwood ribs repeat every 8 \u00d7 8 cells. One actual broken ship lies on dry sand as the daily shrine, fitted within a 3 \u00d7 3-cell extent. The gold ore and its two slime guards remain separate finite finds."
     },
@@ -681,7 +684,10 @@
         "mode": "none"
       },
       "attracts": {
-        "butterfly": 0.35
+        "butterfly": [
+          2,
+          5
+        ]
       },
       "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 \u00d7 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation."
     }
