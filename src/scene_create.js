@@ -736,14 +736,39 @@ class SceneCreate {
       sg.generateTexture('bldg_shadow', 64, 32);
       sg.destroy();
     }
-    // Baked gold keeps the elite foot ring visible without the optional FX pipeline.
+    // THE ELITE'S RUNE CIRCLE (render.js lays it flat under the feet): baked
+    // top-down in gold — so it shows without the optional FX pipeline — as an
+    // outer and an inner ring with a band of runes between, each stroke laid
+    // over a dark under-stroke so it reads on sand and snow as well as grass.
     if (!this.textures.exists('elite_ring')) {
+      const S = 96, C = S / 2, R1 = 44, R2 = 31, RM = (R1 + R2) / 2;
       const g = this.make.graphics({ x: 0, y: 0, add: false });
-      for (const [width, alpha] of [[10, 0.08], [7, 0.15], [4, 0.3], [2, 0.95]]) {
-        g.lineStyle(width, SHINY_TINT, alpha);
-        g.strokeEllipse(32, 16, 50, 18);
-      }
-      g.generateTexture('elite_ring', 64, 32);
+      // A rune: a few strokes in the band's local frame (u along the ring,
+      // v outward), four shapes in turn around the circle.
+      const RUNES = [
+        [[0, -4, 0, 4], [0, -1, 3, -4]],
+        [[-3, 4, 0, -4], [0, -4, 3, 4]],
+        [[0, -4, 3, 0], [3, 0, 0, 4], [0, 4, -3, 0], [-3, 0, 0, -4]],
+        [[0, -4, 0, 4], [-3, 0, 3, 0], [-3, -3, -3, 3]],
+      ];
+      const N = 12;
+      const draw = (width, color, alpha) => {
+        g.lineStyle(width, color, alpha);
+        g.strokeCircle(C, C, R1);
+        g.strokeCircle(C, C, R2);
+        for (let i = 0; i < N; i++) {
+          const a = (i / N) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+          const at = (u, v) => [C + ca * (RM + v) - sa * u, C + sa * (RM + v) + ca * u];
+          for (const [u0, v0, u1, v1] of RUNES[i % RUNES.length]) {
+            const [x0, y0] = at(u0, v0), [x1, y1] = at(u1, v1);
+            g.lineBetween(x0, y0, x1, y1);
+          }
+        }
+      };
+      draw(6, 0x000000, 0.5);           // the under-stroke
+      draw(5, SHINY_TINT, 0.18);        // a soft gold glow
+      draw(2, SHINY_TINT, 1);           // the runes themselves
+      g.generateTexture('elite_ring', S, S);
       g.destroy();
     }
     // Soft round halos — a glow that fades from the centre out, baked once and

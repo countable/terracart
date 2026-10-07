@@ -157,9 +157,8 @@ const PLAY_TIPS = [
   // Appended (Oct 2026): taking a foe alive with the gem it covets
   // (items.js favouriteItems; interact.js's catch). One fact a page.
   "Every creature under the stone covets a gem, and it knows its own worth. A common thing will sit for a scrap of quartz. The great ones want a stone you would hesitate to part with.",
-  "Taking one alive? Then you are not fighting it. Blade down. Stay close while it runs. And keep an eye on its friends; they have not agreed to anything.",
+  "Want one alive? Hold out the gem it wants, then put your weapon away. It will run. Keep close until it gives up. Its friends will not stop fighting, so mind them.",
   "A creature at the end of a long quarrel is easier to persuade. Mine had lost most of its temper, and a good deal of its strength, before it took the stone and stayed.",
-  "Offered the brute a ruby. It handed it straight back, unimpressed. Nothing lost but my pride, which was never insured.",
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -406,7 +405,6 @@ const PLAY_TIP_VOLUMES = [
   "miner",
   "brann",
   "scholar",
-  "ledger",
 ];
 
 // Narrator observations sit outside the quoted excerpt.
