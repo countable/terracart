@@ -71,6 +71,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
   `_flashPlayerHit` when it lands, independently of popup throttling.
+- A repeat offer (an offer with `repeat`: a stall counter, the smelter,
+  Home Sell / Craft) reopens over the map, hiding its own toasts. The
+  confirmation lives in the dialog: an explicit `receipt` line, or else
+  the `flashLoot` / `flash` toasts its accept raised, captured by
+  `showOfferModal` and reprinted as the reopened dialog's status line.
+  Never add a second confirmation surface for a repeat offer.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;

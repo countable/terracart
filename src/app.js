@@ -7101,6 +7101,7 @@ class MapScene extends Phaser.Scene {
   // Small status message, placed where the player tapped so it stays attached
   // to the thing they touched. `color` is optional — omit for the default ink.
   flash(text, x, y, color) {
+    this._offerToastLog?.push({ text, color });   // a repeat offer reprints it (showOfferModal)
     this._toast(text, { tier: 'note', x, y, color });
   }
 
@@ -7303,6 +7304,7 @@ class MapScene extends Phaser.Scene {
   // (pick / axe / armor), whose art comes from gearIconHTML rather than the
   // ITEM_BY_ID-only renderItemIcon that the `itemId` path uses.
   flashLoot(text, color = UI_GOLD, dwellMul = 1, itemId = null, iconEl = null) {
+    this._offerToastLog?.push({ text, color, itemId, loot: true });   // reprinted in a repeat offer's dialog
     // Loot icon = DOM overlay using the same CSS-background renderer the
     // inventory uses. Going through scene.add.image(sheet) would demand
     // every icon sheet be preloaded into Phaser textures (egg / milk /

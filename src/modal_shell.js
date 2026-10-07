@@ -650,6 +650,10 @@ class SceneModals {
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
   showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, fullscreen = false, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+    // What the last accept of a REPEAT offer said (its flashLoot / flash
+    // toasts, captured by the accept below): those draw on the map behind
+    // this dialog, so the dialog that reopens prints them as its receipt.
+    const offerToasts = this._offerToasts; this._offerToasts = null;
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { onClose: repeat ? undefined : onCancel || (() => {}), kind, kindLabel, kindIcon, art, fullscreen });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -870,6 +874,17 @@ class SceneModals {
       status.style.cssText = `color:${UI_GOLD};font-size:12px;margin:6px 0;`;
       status.textContent = `✓ ${receipt}`;
       box.appendChild(status);
+    } else if (offerToasts?.length) {
+      // A loot toast reads as it did on the map (its icon, its text, ✓); a
+      // note (a refusal: "Need 2 more Iron", a full bag) reads plain.
+      const esc = (t) => String(t).replace(/\n/g, ' ').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+      const status = document.createElement('div');
+      status.setAttribute('role', 'status');
+      status.style.cssText = `color:${UI_GOLD};font-size:12px;margin:6px 0;`;
+      status.innerHTML = offerToasts.map(t => t.loot
+        ? `✓ ${t.itemId && this.iconSpanHTML ? this.iconSpanHTML(t.itemId, 16) + ' ' : ''}${esc(t.text)}`
+        : `<span style="color:#ddd">${esc(t.text)}</span>`).join('<br>');
+      box.appendChild(status);
     }
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled || !!(secondary.withChoice && hasChoices && !selected)) : null;
@@ -882,8 +897,10 @@ class SceneModals {
       if (hasChoices && !selected) return;
       accepted = true;
       wrap.remove();
-      onAccept(quantity ? qty : hasChoices ? selected.key : undefined);
-      if (repeat) repeat();
+      if (repeat) this._offerToastLog = [];
+      try { onAccept(quantity ? qty : hasChoices ? selected.key : undefined); }
+      finally { if (repeat) { this._offerToasts = this._offerToastLog; this._offerToastLog = null; } }
+      if (repeat) { repeat(); this._offerToasts = null; }
     });
     if (hasChoices) {
       syncAccept = () => {
