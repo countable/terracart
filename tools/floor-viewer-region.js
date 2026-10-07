@@ -1,6 +1,6 @@
 // The representative fake region for the floor viewer (and its smoke test):
 // one 60x35 viewport of MVT-shaped layers - grass base, forest,
-// a parking lot, church, a residential grid with houses and a pitch, a commercial block,
+// a parking lot, church, a residential grid with houses, a commercial block,
 // streets of every size, a southeast lake with a 5-cell beach,
 // a separate top-right grove, and one nexus anchor of each kind
 // (grove, quarry, beach, tar pit, old stones).
@@ -45,17 +45,15 @@
     landuse.push(poly({ class: 'residential' }, [cellRect(15, 6, 23, 18)]));
     // Forest occupies the eastern grass below the grove and above the beach.
     landcover.push(poly({ class: 'wood' }, [cellRect(45, 10, 14, 9)]));
-    // Paved commercial parking: a bare landuse=parking tag falls through to
-    // wasteland. The parking POI and aisles supply the real lot identity.
-    landuse.push(poly({ class: 'commercial', amenity: 'parking' }, [cellRect(2, 12, 11, 9)]));
-    poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 16));
-    // West-side parking-lot quarry, southern pitch and church.
-    landuse.push(poly({ class: 'pitch' }, [cellRect(18, 28, 7, 6)]));
-    poi.push(point({ class: 'fuel', subclass: 'fuel' }, 31, 17));
+    // The parking POI and aisles define the lot without commercial zoning,
+    // which would let nearby private POIs cut diagonally through its coverage.
+    poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 15));
+    // The southern tar yard replaces the sports pitch.
+    poi.push(point({ class: 'fuel', subclass: 'fuel' }, 21, 30));
     // Parking aisles generate the quarry without a separate dirt-ground polygon.
-    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 13], [11, 13], [11, 20], [4, 20], [4, 13]]));
-    for (const y of [15, 18])
-      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [11, y]]));
+    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[2, 8], [12, 8], [12, 21], [2, 21], [2, 8]]));
+    for (const y of [12, 15, 18])
+      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[2, y], [12, y]]));
     building.push(poly({ building: 'church' }, [cellRect(3, 28, 3, 2.5)]));
     poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 29));
 
@@ -107,9 +105,8 @@
   const labels = [
     { text: 'Commercial', x: 16, y: 1 },
     { text: 'Residential', x: 25, y: 13 },
-    { text: 'Parking lot · Quarry nexus', nexusKind: 'quarry', x: 7.5, y: 16 },
-    { text: 'Tar Yard nexus', nexusKind: 'tar', x: 32, y: 18 },
-    { text: 'Sports pitch', x: 21, y: 30 },
+    { text: 'Parking lot · Quarry nexus', nexusKind: 'quarry', x: 7.5, y: 15 },
+    { text: 'Tar Yard nexus', nexusKind: 'tar', x: 21.5, y: 30.5 },
     { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 30 },
     { text: 'Park · Grove nexus', nexusKind: 'grove', x: 51, y: 4 },
     { text: 'Forest', x: 55, y: 15 },
