@@ -135,16 +135,16 @@
     }
     const key = zoneKey(o);
     const record = (save.temples ||= {})[key] ||= { active: true, rewardClaimed: false };
-    if (o.templeKind === 'grove' || o.templeAnchor?.kind === 'grove') {
+    if (['grove', 'stones'].includes(o.templeKind || o.templeAnchor?.kind)) {
       if (!coverage(o, root.WorldGen.tileCache, scene.tileEdgeM).complete) {
         scene.showMessageModal?.({ title: 'The upper temple', kind: 'story',
-          body: 'Explore the whole park before entering its upper temple.' });
+          body: 'Explore the temple’s surroundings before entering its upper floor.' });
         return true;
       }
       const plan = root.TempleLayout.plan(o, root.WorldGen.tileCache, scene.tileEdgeM);
       if (!plan) {
         scene.showMessageModal?.({ title: 'The upper temple', kind: 'story',
-          body: 'There is no clear space for a trial at this grove’s nexus. Explore the surrounding park to reveal any unseen ground.' });
+          body: 'There is no clear space for a trial at this nexus. Explore the temple’s surroundings to reveal any unseen ground.' });
         return true;
       }
       root.TempleScene.enter(scene, o, plan);

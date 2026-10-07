@@ -10,6 +10,16 @@ stick moves the GPS fix; the ordinary stick still moves the character relative
 to it. First movement takes over from device GPS for this session. Hiding the
 stick keeps the simulated fix; reload to restore device GPS in normal play.
 
+## Floor viewer
+
+`tools/floor-viewer.html` builds its compact region through the live generation
+pipeline. Variant index 0 uses natural selection. Each later index advances
+all Nexus kinds and road groups together; each group wraps through its own
+variant rows. The index completes a shared cycle before returning to natural
+selection. Surface paths cycle scenic themes, and cave paths and small roads
+cycle their underground themes. Placement rules still decide whether a layout
+fits; the viewer reports declined placements.
+
 ## Jump links
 
 Use `index.html?sandbox=true&sandboxZone=forest` to start at a named destination.
@@ -22,6 +32,11 @@ Existing `sandboxScene=FOREST` or `sandboxScene=PRACTICE` links still work.
 Names are case-insensitive; unknown names return to the player plaza.
 These links visit the sandbox's representative biomes, not every procedural
 variant shown by the dashboards. Unsupported biomes have no jump link.
+
+The Old Stones destination (`?sandbox=true&sandboxZone=stones`) includes an
+awakened temple. Tap its marble footprint to enter the giant-reaper challenge
+on floor +1. Walk off the platform to return to the ground, then enter again
+to verify the fresh challenge; rewards remain limited to one per temple.
 
 ## Why scenes and vector roads
 

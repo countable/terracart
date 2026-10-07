@@ -403,12 +403,14 @@
     ],
     paint(p) {
       for (const z of this.zoneStrips) p.rect(0, z.y, this.w, z.h, z.terrain);
+      p.rect(3, 8, 4, 3, T.BUILDING_LARGE);
     },
     populate(s) {
       s.object('grove_shrine', 5, 3, { name: 'Sandbox Grove Shrine' });
       // The ten shrine kinds (src/shrines.js), down the east edge.
       Shrines.KIND_IDS.forEach((k, i) => s.object('grove_shrine', 10, 2 * i, { shrineKind: k }));
       s.object('infoboard', 1, 9, { name: 'Sandbox History Board' });
+      s.house(5, 10, 0, T.BUILDING_LARGE, { _sandboxTemple: true });
       s.creature('copper_plant', 8, 1, 1);
       s.creature('goblin', 1, 5, 1); s.creature('goblin_archer', 9, 5, 1);
       s.creature('zombie', 5, 9, 1); s.creature('skeleton', 2, 12, 1); s.creature('ghost', 8, 12, 1);
@@ -1050,6 +1052,13 @@
     });
     const field = { anchors, idx, coverage: idx, s: strength, reach: anchors, allAnchors: anchors, under };
     entry.zone = field;
+    for (const temple of entry.objects.filter(o => o._sandboxTemple)) {
+      const anchor = anchors.find(a => a.kind === 'stones');
+      Object.assign(temple, { kind: 'temple', templeKind: anchor.kind,
+        templeZone: anchor.key, templeAnchor: { ...anchor }, name: 'Awakened Old Stones Temple' });
+      Object.assign(entry.buildingShapes.find(s => s.key === temple.id), {
+        kind: 'temple', templeZone: anchor.key, templeKind: anchor.kind });
+    }
     const dressing = ZoneDressing.dress({ field, tx: c.tx, ty: c.ty, N, tileEdgeM: c.tileEdgeM,
       grid: entry.grid, chests: entry.objects, spawnOpts });
     entry.zoneDress = dressing;
@@ -1267,6 +1276,10 @@
     // cell-bounded like every non-fauna target) so the tester can verify
     // treasure-tap loot without hunting for one.
     const centreEntry = WorldGen.tileCache.get(WorldGen.tileKey(centreTX, centreTY));
+    for (const temple of centreEntry?.objects || []) if (temple._sandboxTemple) {
+      const record = (scene.save.temples ||= {})[temple.templeZone] ||= {};
+      record.active = true;
+    }
     if (centreEntry && !centreEntry.treasure) {
       centreEntry.treasure = {
         id: `sandbox_treasure_${centreTX}_${centreTY}`,

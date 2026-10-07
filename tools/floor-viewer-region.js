@@ -1,10 +1,10 @@
 // The representative fake region for the floor viewer (and its smoke test):
 // one 60x35 viewport of MVT-shaped layers - grass base, forest,
 // a parking lot, church, a residential grid with houses and a pitch, a commercial block,
-// streets of every size, a southeast lake with a 5-cell beach (partly
-// park-backed), a separate top-right park, and one nexus anchor of each kind
+// streets of every size, a southeast lake with a 5-cell beach,
+// a separate top-right grove, and one nexus anchor of each kind
 // (grove, quarry, beach, tar pit, old stones).
-// Pure data: consumed by tools/floor-viewer.html and test/node/floor_viewer_region.test.js.
+// Consumed by tools/floor-viewer.html and test/node/floor_viewer_region.test.js.
 (function (root) {
   'use strict';
   const E = 4096;                       // MVT extent space
@@ -12,7 +12,21 @@
   const N = Math.max(WIDTH, HEIGHT);     // square backing tile required by WorldGen
   const CELL = E / N;                   // extent units per cell
   const lat = 47.62;                    // a mid-latitude row for cave loading
+  const HOME = { x: 25.5, y: 12.5 };     // player start in the residential grid
   const EDGE = Math.round(N * 7);       // tile edge in metres (7 m cells)
+
+  // Radius scales preserve the requested area reductions. Scope them to this
+  // fixture so its compact preview never changes the live game's nexus sizes.
+  async function withNexusSizes(build) {
+    const sizes = { grove: Math.sqrt(.7), stones: Math.sqrt(.85) };
+    const originals = Object.fromEntries(Object.keys(sizes).map(kind => [kind, root.Zones.ZONE_KINDS[kind].R]));
+    try {
+      for (const [kind, scale] of Object.entries(sizes)) root.Zones.ZONE_KINDS[kind].R *= scale;
+      return await build();
+    } finally {
+      for (const [kind, radius] of Object.entries(originals)) root.Zones.ZONE_KINDS[kind].R = radius;
+    }
+  }
 
   const cellRect = (cx, cy, w, h) => [
     [cx * CELL, cy * CELL], [(cx + w) * CELL, cy * CELL],
@@ -27,58 +41,59 @@
 
     // Urban zoning fills the quadrant bounded by the major and medium roads.
     // Nexus sources remain inside the urban background.
-    landuse.push(poly({ class: 'commercial' }, [cellRect(0, 0, 39, 8)]));
-    landuse.push(poly({ class: 'residential' }, [cellRect(0, 8, 39, 16)]));
+    landuse.push(poly({ class: 'commercial' }, [cellRect(0, 0, 36, 6)]));
+    landuse.push(poly({ class: 'residential' }, [cellRect(15, 6, 23, 18)]));
     // Forest occupies the eastern grass below the grove and above the beach.
-    landcover.push(poly({ class: 'wood' }, [cellRect(43, 10, 17, 7)]));
-    landcover.push(poly({ class: 'wood' }, [cellRect(49, 17, 11, 5)]));
+    landcover.push(poly({ class: 'wood' }, [cellRect(45, 10, 14, 9)]));
     // Paved commercial parking: a bare landuse=parking tag falls through to
     // wasteland. The parking POI and aisles supply the real lot identity.
-    landuse.push(poly({ class: 'commercial', amenity: 'parking' }, [cellRect(1, 9, 13, 11)]));
-    poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 14));
+    landuse.push(poly({ class: 'commercial', amenity: 'parking' }, [cellRect(2, 12, 11, 9)]));
+    poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 16));
     // West-side parking-lot quarry, southern pitch and church.
-    landuse.push(poly({ class: 'pitch' }, [cellRect(17, 27, 9, 7)]));
+    landuse.push(poly({ class: 'pitch' }, [cellRect(18, 28, 7, 6)]));
     poi.push(point({ class: 'fuel', subclass: 'fuel' }, 31, 17));
     // Parking aisles generate the quarry without a separate dirt-ground polygon.
-    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 10], [12, 10], [12, 18], [4, 18], [4, 10]]));
-    for (const y of [13, 16])
-      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [12, y]]));
-    building.push(poly({ building: 'church' }, [cellRect(3, 28, 3, 3)]));
+    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 13], [11, 13], [11, 20], [4, 20], [4, 13]]));
+    for (const y of [15, 18])
+      transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [11, y]]));
+    building.push(poly({ building: 'church' }, [cellRect(3, 28, 3, 2.5)]));
     poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 29));
 
-    // North band: commercial block, then the separate top-right park
-    building.push(poly({ building: 'retail' }, [cellRect(17, 2, 4, 4)]));
-    building.push(poly({ building: 'retail' }, [cellRect(23, 2, 4, 4)]));
+    // North band: commercial block, then the separate top-right grove.
+    building.push(poly({ building: 'retail' }, [cellRect(17, 1, 4, 3)]));
+    building.push(poly({ building: 'retail' }, [cellRect(23, 1, 4, 3)]));
     poi.push(point({ class: 'shop' }, 18, 3));
-    poi.push(point({ class: 'shop' }, 25, 4));
+    poi.push(point({ class: 'shop' }, 25, 2));
     // Compact park; oversized cave layouts report their placement limits.
-    landuse.push(poly({ class: 'park' }, [cellRect(43, 1, 16, 8)]));
+    landuse.push(poly({ class: 'park', name: 'Hilltop Park' }, [cellRect(44, 1, 14, 6.5)]));
     poi.push(point({ class: 'park', subclass: 'park', name: 'Hilltop Park' }, 51, 4));
 
     // The house grid leaves the minor streets and nexus sites clear.
-    for (const by of [9, 19]) for (const bx of [16, 27])
-      building.push(poly({ building: 'house' }, [cellRect(bx, by, 4, 3)]));
+    for (const by of [7, 12, 19]) for (const bx of [16, 27, 33])
+      building.push(poly({ building: 'house' }, [cellRect(bx, by, 3, 2)]));
 
     // Small southeast lake, with the 5-cell beach on its north
-    // and west, and a park backing the west half of the north beach
+    // and west. The former beach-side park is now open grass.
     const lx = 48, ly = 27;
     water.push(poly({ natural: 'water' }, [cellRect(lx, ly, WIDTH - lx, HEIGHT - ly)]));
     landcover.push(poly({ class: 'sand' }, [
       cellRect(lx - 5, ly - 5, WIDTH - lx + 5, 5),   // north strip, 5 cells wide
       cellRect(lx - 5, ly, 5, HEIGHT - ly),           // west strip, 5 cells wide
     ]));
-    landuse.push(poly({ class: 'park' }, [cellRect(43, 17, 6, 5)]));  // backs the west half of the north beach
     poi.push(point({ class: 'beach', name: 'Lakeside Strand' }, lx + 4, ly - 2));
 
     // Streets of every size; widths come from the classes
     transportation.push(line({ class: 'primary' }, [[39, 0], [39, HEIGHT - 1]]));       // LG, town height
     transportation.push(line({ class: 'secondary' }, [[0, 24], [42, 24]]));     // MD, town to beach
-    transportation.push(line({ class: 'minor' }, [[22, 8], [22, 23]]));         // minor streets
+    transportation.push(line({ class: 'minor' }, [[22, 6], [22, 23]]));         // minor streets
     transportation.push(line({ class: 'minor' }, [[15, 16], [38, 16]]));
+    transportation.push(line({ class: 'minor' }, [[31, 6], [31, 23]]));
+    transportation.push(line({ class: 'minor' }, [[15, 10], [38, 10]]));
     transportation.push(line({ class: 'service' }, [[40, 3], [52, 3]]));        // service lane into the park
     transportation.push(line({ class: 'footway' }, [[50, 3], [50, 20]]));       // path down to the beach
 
     return [
+      { name: 'park', extent: E, features: landuse.filter(f => f.tags.class === 'park') },
       { name: 'water', extent: E, features: water },
       { name: 'landcover', extent: E, features: landcover },
       { name: 'landuse', extent: E, features: landuse },
@@ -92,16 +107,15 @@
   const labels = [
     { text: 'Commercial', x: 16, y: 1 },
     { text: 'Residential', x: 25, y: 13 },
-    { text: 'Parking lot · Quarry nexus', x: 7.5, y: 12 },
-    { text: 'Tar Yard nexus', x: 32, y: 18 },
+    { text: 'Parking lot · Quarry nexus', nexusKind: 'quarry', x: 7.5, y: 16 },
+    { text: 'Tar Yard nexus', nexusKind: 'tar', x: 32, y: 18 },
     { text: 'Sports pitch', x: 21, y: 30 },
-    { text: 'Church · Old Stones nexus', x: 8, y: 30 },
-    { text: 'Park · Grove nexus', x: 51, y: 4 },
+    { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 30 },
+    { text: 'Park · Grove nexus', nexusKind: 'grove', x: 51, y: 4 },
     { text: 'Forest', x: 55, y: 15 },
     { text: 'Grassland', x: 32, y: 30 },
-    { text: 'Park', x: 46, y: 19 },
-    { text: 'Beach nexus', x: 53, y: 23 },
+    { text: 'Beach nexus', nexusKind: 'beach', x: 53, y: 23 },
     { text: 'Lake', x: 54, y: 31 }
   ];
-  root.FloorViewerRegion = { E, WIDTH, HEIGHT, N, CELL, EDGE, lat, makeLayers, labels };
+  root.FloorViewerRegion = { E, WIDTH, HEIGHT, N, CELL, EDGE, HOME, lat, makeLayers, labels, withNexusSizes };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

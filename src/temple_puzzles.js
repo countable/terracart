@@ -46,7 +46,7 @@
       s.pointA = { ...s.path[0] }; s.pointB = { ...s.path[s.path.length - 1] };
       s.player.x = s.pointA.x; s.player.y = s.pointA.y;
       s.pathIndex = 0; s.revealRemaining = 3; s.phase = 'reveal';
-    } else if (kind === 'duel') s.enemies = [enemy('elite', size - 2, 1, 100, true)];
+    } else if (kind === 'duel') s.enemies = [enemy(plan.enemyKind || 'elite', size - 2, 1, 100, !plan.enemyKind)];
     else {
       s.player.x = c; s.player.y = c; s.center = { x: c, y: c };
       s.centerHp = 100; s.spawned = 0; s.defeated = 0; s.totalDrones = 12; s.spawnClock = 0;
@@ -59,7 +59,7 @@
     else if ((s.kind === 'blocks' && s.blocks.every(b => s.plates.some(p => same(b, p) && b.color === p.color)))
       || (s.kind === 'duel' && !s.enemies.length)
       || (s.kind === 'ballista' && s.defeated >= s.totalDrones)) {
-      s.status = 'won'; s.event = 'Grove trial complete.';
+      s.status = 'won'; s.event = 'Temple trial complete.';
     }
     return s;
   }
@@ -70,7 +70,11 @@
     if (s.status !== 'playing' || Math.abs(dx) + Math.abs(dy) !== 1 || !Number.isInteger(dx) || !Number.isInteger(dy)
       || s.kind === 'ballista' || (s.kind === 'path' && s.revealRemaining > 0)) return s;
     const to = { x: s.player.x + dx, y: s.player.y + dy };
-    if (!inside(s, to) || occupied(s.walls, to) || occupied(s.enemies, to)) return s;
+    if (!inside(s, to)) {
+      s.status = 'fallen'; s.event = 'You fall back to the ground. Enter the temple to try again.';
+      return s;
+    }
+    if (occupied(s.walls, to) || occupied(s.enemies, to)) return s;
     const block = s.blocks.find(b => same(b, to));
     if (block) {
       const next = { x: block.x + dx, y: block.y + dy };
@@ -84,7 +88,7 @@
         return s;
       }
       s.pathIndex++;
-      if (s.pathIndex === s.path.length - 1) { s.status = 'won'; s.event = 'Grove trial complete.'; }
+      if (s.pathIndex === s.path.length - 1) { s.status = 'won'; s.event = 'Temple trial complete.'; }
     }
     s.player.x = to.x; s.player.y = to.y;
     if (s.kind === 'tower' && same(s.player, s.ladder)) {
@@ -158,7 +162,9 @@
         }
       }
       s.stepClock += .1;
-      if (s.stepClock + 1e-9 >= 1) { s.stepClock -= 1; enemyStep(s); }
+      if (s.stepClock + 1e-9 >= (s.config.enemyStepSeconds ?? 1)) {
+        s.stepClock -= s.config.enemyStepSeconds ?? 1; enemyStep(s);
+      }
       finish(s);
     }
     return s;

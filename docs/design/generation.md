@@ -263,6 +263,10 @@ Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 
 ## Spawn precedence
 
+Commercial default ground uses the shared hedge lattice for bushes and pot
+pillars. Connection tuning belongs to `HEDGE_WALL_PCT` in `worldgen.js`; it
+changes whole wall segments while preserving pillar spacing and open interiors.
+
 Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and

@@ -1044,7 +1044,7 @@
   //   interior   (neither coord %P==0)            never a hedge (open path)
   // Pillars and sparse whole wall segments leave broad open passages.
   const HEDGE_LATTICE_P = 3;   // lattice period (cells between pillars)
-  const HEDGE_WALL_PCT = 15;   // whole wall segments, with open plaza aisles
+  const HEDGE_WALL_PCT = 23;   // whole wall segments, with open plaza aisles
   function hedgeWallOn(sx, sy, k, salt) {
     const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
     return (hsh % 100) < HEDGE_WALL_PCT;
