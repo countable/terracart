@@ -86,7 +86,7 @@ wizard role.
 | pilgrim | Abbey Walk | waystone end piece |
 | golden | Coin Row | persistent verge coins |
 | thorny | Thorny Way | brambles and a narrow road corridor |
-| snare | Iron Lane | a snare chest ringed by iron teeth |
+| snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
 | barricade | Fort Road | barricades, stakes and guard lair |
 | plain minor | Market Close / Maple Street | ordinary street comparison |
 | plain major | Old Trade Road | old-trade-road lamps and wagon stop |

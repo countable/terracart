@@ -1120,6 +1120,7 @@ test('thorny path: dense deterministic brambles cross their minor road and enclo
 });
 
 test('snare lane: a deterministic central T3 cave cache surrounded by reserved traps', () => {
+  const SV_SNARE_CLUSTER_REACH = 4;   // the cluster's radius plus its cross-section spread
   const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'snare', 'Snare Street');
   const line = pts([[10,25],[54,25]]), middle = pts([[32,25]])[0];
   const build = (lines, blocked = false, occupied = new Set(), major = false) => {
@@ -1149,6 +1150,10 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
   }
   assert.truthy(result.traps.some(t=>t._iy<25),'traps reach the opposite verge');
   assert.truthy(result.traps.some(t=>t._iy>25),'traps cover the reward verge');
+  const strays=result.traps.filter(t=>Math.abs(t._ix-32)>SV_SNARE_CLUSTER_REACH);
+  assert.inRange(strays.length,1,4,'a few lone snares down the lane, off the cluster');
+  assert.truthy(strays.every(t=>Math.abs(t._iy-25)<=1),'strays sit on the band or its first verge cell');
+  assert.truthy(strays.every(a=>strays.every(b=>a===b||Math.max(Math.abs(a._ix-b._ix),Math.abs(a._iy-b._iy))>=3)),'strays keep apart');
   const occupied=new Set();
   for(const o of [chest,...result.traps]) {
     const ix=cellOf(o.x,TX),iy=cellOf(o.y,TY),i=iy*CPE+ix;

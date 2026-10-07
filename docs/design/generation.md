@@ -128,7 +128,7 @@ access or tile lifecycle mechanics.
   reason bit plus its column in the table, never a separate check at a
   spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
-  of its own road band. Thorny Path and snare clusters cross variant-eligible Small roads only; removable
+  of its own road band. Thorny Path and snare clusters (and a Snare Lane's few lone stray snares, declared one band cell at a time) cross variant-eligible Small roads only; removable
   barricade/spike lines also cross their own Major or Medium road band
   and kerb buffer. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary

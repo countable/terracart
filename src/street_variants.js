@@ -185,6 +185,11 @@
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
+  // A few lone snares scattered down the rest of the lane, on the band or its
+  // first verge cell: the lowest-hash eligible cells, kept apart from the
+  // cluster and from each other so they read as strays, not a second nest.
+  const SNARE_STRAYS = 4;
+  const SNARE_STRAY_GAP_CELLS = 3;
 
   // What a burned row's verge holds — the two props that SLOW the body
   // (app.js _bodyHold). One table both sides read: dressing lays these kinds,
@@ -317,7 +322,7 @@
       body: 'Green coins lie scattered in the grass on both sides of the road. You spot more with every step.',
       flash: 'The verges glitter with coins.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
-      stone: { weathered: '#594a3f', restored: '#493b2e' }, lampDensity: 1,
+      stone: { weathered: '#594a3f', restored: '#2a221b' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
       flash: 'Iron teeth around a chest.' },
@@ -1426,6 +1431,8 @@
     // Pilgrim's Way / barricade street key → every owned piece end in the
     // square (tile-local MVT points), in line order.
     const streetEnds = new Map(), habitatSeats = new Set(), snareSeats = new Set();
+    // Snare street key → its pieces here and its cluster cells, for the strays.
+    const snareStreets = new Map();
     // Street key → its dressed pieces here, for the street shrines.
     const shrineStreets = new Map(), thornyShrines = new Set();
     for (const rec of (idx.dressingLines || idx.lines)) {
@@ -1464,6 +1471,10 @@
           }
         });
       }
+      if (v === 'snare') {
+        if (!snareStreets.has(rec.key)) snareStreets.set(rec.key, { recs: [], cluster: [] });
+        snareStreets.get(rec.key).recs.push(rec);
+      }
       if (v === 'snare' && !snareSeats.has(rec.key)) {
         // Keep the reward on a verge, but span the Small road with the traps:
         // the road must not form a clear bypass through the encounter.
@@ -1490,6 +1501,7 @@
             claim(ix, iy);
             for (const trap of traps) claim(trap._ix, trap._iy);
             res.traps.push(...traps);
+            snareStreets.get(rec.key).cluster.push([ix, iy], ...traps.map(t => [t._ix, t._iy]));
             res.objects.push(WG.makeObject('chest', cx(ix), cy(iy),
               WG.cellId('chest_snare', tx, ty, ix, iy), { _street: v, name: 'Snare cache' }));
             snareSeats.add(rec.key);
@@ -1695,6 +1707,55 @@
       if (guarded) {
         res.lairs.push({ tier: 'cafe', sid: `cafe:${hp.gk}`,
           lx: (h.ix + 0.5) * frameCellM, ly: (h.iy + 0.5) * frameCellM });
+      }
+    }
+    // THE STRAY SNARES: per snare street, every cell whose centre lies on the
+    // band or within its first verge cell is a candidate — a pure distance to
+    // the street's pieces, so fragmenting or reversing the geometry keeps them.
+    // Band cells pass the street-obstacle gate, verge cells the cluster's
+    // fast-foe gate; then lowest cell hash first, spaced from the cluster.
+    for (const [key, { recs, cluster }] of snareStreets) {
+      yield 'snare strays';
+      const near = new Map();
+      for (const rec of recs) {
+        const L = rec.line.map(p => ({ x: p.x * gM, y: p.y * gM }));
+        const reach = rec.halfW + CELL_M * 1.5;
+        const xs = L.map(p => p.x), ys = L.map(p => p.y);
+        const x0 = Math.max(0, cellOfM(Math.min(...xs) - reach)), x1 = Math.min(N - 1, cellOfM(Math.max(...xs) + reach));
+        const y0 = Math.max(0, cellOfM(Math.min(...ys) - reach)), y1 = Math.min(N - 1, cellOfM(Math.max(...ys) + reach));
+        for (let iy = y0; iy <= y1; iy++) for (let ix = x0; ix <= x1; ix++) {
+          const px = (ix + 0.5) * CELL_M, py = (iy + 0.5) * CELL_M;
+          let d = Infinity;
+          for (let i = 1; i < L.length; i++) {
+            const a = L[i - 1], b = L[i], dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+            const t = len2 > 0 ? Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / len2)) : 0;
+            d = Math.min(d, Math.hypot(px - a.x - dx * t, py - a.y - dy * t));
+          }
+          if (d > reach) continue;
+          const i = iy * N + ix, road = d <= rec.halfW;
+          near.set(i, (near.get(i) || false) || road);
+        }
+      }
+      const cands = [];
+      for (const [i, road] of near) {
+        const ix = i % N, iy = (i - ix) / N;
+        // Snares keep off every Major-and-Medium road and its kerb buffer.
+        if (rc && (rc[i] & (WG.ROAD_CLASS_MAJOR_BAND | WG.ROAD_CLASS_MAJOR_BUFFER))) continue;
+        const ok = road
+          ? WG.isSpawnCell(grid, N, N, ix, iy, { ...spawnOpts, roadClass: rc,
+            streetObstacleCells: new Set([i]), streetObstacleKind: 'snare' }, 'streetObstacle')
+          : foeOk(ix, iy);
+        if (ok) cands.push({ ix, iy, u: hash01(WG.cellId('snare_stray', tx, ty, ix, iy) + '|' + key) });
+      }
+      cands.sort((a, b) => a.u - b.u);
+      const kept = cluster.slice();
+      let strays = 0;
+      for (const { ix, iy } of cands) {
+        if (strays >= SNARE_STRAYS) break;
+        if (kept.some(([kx, ky]) => Math.max(Math.abs(kx - ix), Math.abs(ky - iy)) < SNARE_STRAY_GAP_CELLS)) continue;
+        claim(ix, iy); kept.push([ix, iy]); strays++;
+        res.traps.push({ id: WG.cellId('trap_snare', tx, ty, ix, iy),
+          x: cx(ix), y: cy(iy), _ix: ix, _iy: iy, _street: 'snare' });
       }
     }
     if (marked) res.marks = marks;

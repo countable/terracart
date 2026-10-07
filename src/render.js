@@ -4286,7 +4286,8 @@ Render.drawObjects = function drawObjects(scene) {
     }
     if (c._lungeWindupUntil > now) {
       const length = row.movement.lungeSpeedMetersPerSecond * row.movement.lungeSeconds / scene.cellM * CELL_PX;
-      g.lineStyle(2, 0xffdb72, 0.85);
+      // Fainter than the attack outlines: a long lane, not a blow landing.
+      g.lineStyle(2, 0xffdb72, 0.4);
       g.beginPath(); g.moveTo(p.x, p.y);
       g.lineTo(p.x + Math.cos(c._lungeAngle) * length, p.y + Math.sin(c._lungeAngle) * length);
       g.strokePath();
