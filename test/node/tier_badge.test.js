@@ -6,7 +6,7 @@
 const app = SCENE_SRC;
 
 test('tier badge: seven words on the seven ores, dark ink on the pale ones', () => {
-  const words = ['basic', 'common', 'uncommon', 'rare', 'epic', 'legendary', 'godly'];
+  const words = ['basic', 'common', 'uncommon', 'rare', 'epic', 'legend', 'godly'];
   words.forEach((w, i) => {
     const html = tierBadgeHTML(i + 1);
     // Epic is the one cheat: Platinum is near white, so its chip is a
