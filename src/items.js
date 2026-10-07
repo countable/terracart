@@ -1970,7 +1970,7 @@ const TIER_BY_NUM = Object.fromEntries(MATERIAL_TIERS.map(t => [t.tier, t]));
 // the ladder's own colours for the chips; itemTierOf reads an item's
 // baseTier (the rarity ladder's, 1..7) and gear passes its own tier.
 const TIER_BADGE_NAMES = {
-  1: 'basic', 2: 'common', 3: 'uncommon', 4: 'rare', 5: 'epic', 6: 'legendary', 7: 'godly',
+  1: 'basic', 2: 'common', 3: 'uncommon', 4: 'rare', 5: 'epic', 6: 'legend', 7: 'godly',
 };
 // The one cheat (owner, Sep 2026): Platinum is near white, and "epic" wants a
 // little purple — rarity displays wear this lavender-platinum; the material

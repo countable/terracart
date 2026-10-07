@@ -7,7 +7,7 @@
     "uncommon": "Proposed intermittent secondary encounter.",
     "rare": "Proposed exceptional encounter worth noticing.",
     "thresholds": "Qualitative design bands, not measured numeric thresholds. Static occupied-cell percentages, per-tile fauna counts, per-shore-metre seats and per-interaction loot probabilities have different denominators and cannot share an honest universal cutoff. Existing frequencies are stated where known; no numbers are changed by these labels.",
-    "notItemQuality": "Item rarity remains the existing seven-tier Basic/Common/Uncommon/Rare/Epic/Legendary/Godly ladder. Creature combat tier is a third, separate scale."
+    "notItemQuality": "Item rarity remains the existing seven-tier Basic/Common/Uncommon/Rare/Epic/Legend/Godly ladder. Creature combat tier is a third, separate scale."
   },
   "statusLegend": {
     "existing_exclusive": "Candidate already has an exclusive ordinary basic habitat or a stated exclusive context; the proposed encounter-frequency band is not automatically implemented.",
@@ -953,7 +953,7 @@
           "itemQuality": {
             "itemId": "crimson_bar",
             "baseTier": 6,
-            "badge": "Legendary",
+            "badge": "Legend",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
           "condition": null,
@@ -1094,7 +1094,7 @@
             "badge": "Uncommon",
             "source": "src/items.js BASE_TIER; independent of encounter label"
           },
-          "condition": "Shiny butterfly item quality is base3+3=6 (Legendary), not the proposed encounter label.",
+          "condition": "Shiny butterfly item quality is base3+3=6 (Legend), not the proposed encounter label.",
           "newItemAlternative": {
             "id": "proposal:playground_rare_item_book_purple_square",
             "label": "Story puzzle book",
