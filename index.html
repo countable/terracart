@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d0500686" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=10dc7df1" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2047,9 +2047,26 @@
       if (!scene) return;
       showDebugSearch(scene, {
         id: 'item-cheats-modal', title: 'Item cheats', subject: 'items',
-        hint: 'Tap an item to obtain one.', catalog: Object.values(ITEM_BY_ID),
+        hint: 'Tap an item to obtain one.',
+        catalog: [
+          ...Object.values(ITEM_BY_ID),
+          // Relics and armour: every slot at every tier it comes in. A cheat
+          // sets the slot outright (downgrades included), as the wood button does.
+          ...[['relic', RELIC_DEFS], ['armor', ARMOR_DEFS]].flatMap(([kind, defs]) =>
+            Object.keys(defs).flatMap(slot => (defs[slot].tiers || MATERIAL_TIERS.map(t => t.tier))
+              .map(tier => ({ id: `${kind}:${slot}:${tier}`, gear: { kind, slot, tier },
+                name: `${gearName(kind, slot, tier)} (${kind === 'armor' ? 'armour' : 'relic'})` })))),
+        ],
         onClose: () => scene._revealPendingBookReads(),
         obtain: item => {
+          if (item.gear) {
+            const { kind, slot, tier } = item.gear;
+            const table = kind === 'armor' ? (scene.save.armor ||= {}) : (scene.save.relics ||= {});
+            table[slot] = { tier };
+            scene.markRelicsDirty?.(); scene.updateRelicRow?.(); scene.buildInventoryDOM?.();
+            persistSave(scene.save);
+            return `Equipped ${item.name}`;
+          }
           const got = scene.addToInv(item.id, 1, false, { notWild: true, deferBookRead: true });
           // Books are read on closing the picker rather than stacking dialogs.
           persistSave(scene.save);
@@ -2791,7 +2808,7 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=919b21d0"></script>
-  <script src="src/enemy_roster.js?v=bff1efdc"></script>
+  <script src="src/enemy_roster.js?v=79778a2d"></script>
 
   <script src="src/enemy_spawns.js?v=b4316486"></script>
   <script src="src/enemy_habitats.js?v=6f3b8044"></script>
@@ -2800,7 +2817,7 @@
   <script src="src/particles.js?v=4527614a"></script>
   <script src="src/trail.js?v=a7990ee1"></script>
   <script src="src/streets.js?v=714e8cfc"></script>
-  <script src="src/street_variants.js?v=791204a3"></script>
+  <script src="src/street_variants.js?v=807ec4c2"></script>
   <script src="src/scenic.js?v=707ac716"></script>
   <script src="src/zones.js?v=b388c928"></script>
   <script src="src/zone_variant_data.js?v=75f8a80e"></script>
@@ -2811,9 +2828,9 @@
   <script src="src/quarry_layout.js?v=29b76e5d"></script>
   <script src="src/zone_dressing.js?v=90611269"></script>
   <script src="src/reef_layout.js?v=5ac55392"></script>
-  <script src="src/sprite_layout.js?v=2176985a"></script>
+  <script src="src/sprite_layout.js?v=69409318"></script>
   <script src="src/placed_floor.js?v=d2b70405"></script>
-  <script src="src/home.js?v=2a2401ea"></script>
+  <script src="src/home.js?v=0339a4bd"></script>
   <script src="src/coords.js?v=9f69f77e"></script>
   <script src="src/fog.js?v=e5c1de4f"></script>
   <script src="src/biome_profiles.js?v=13cb418e"></script>
@@ -2830,14 +2847,14 @@
   <script src="src/elevators.js?v=e02a2b01"></script>
   <script src="src/arena.js?v=e1e49ed1"></script>
   <script src="src/cave_hazards.js?v=49709923"></script>
-  <script src="src/cave_areas.js?v=5f50aaef"></script>
+  <script src="src/cave_areas.js?v=bf066b0a"></script>
   <script src="src/underground.js?v=8bb23dd9"></script>
   <script src="src/underground_stories.js?v=deb09860"></script>
-  <script src="src/worldgen.js?v=a124ec67"></script>
+  <script src="src/worldgen.js?v=85b515ba"></script>
   <script src="src/castle_styles.js?v=ea3cd17d"></script>
   <script src="src/textures.js?v=9beaed13"></script>
   <script src="src/save.js?v=b103250b"></script>
-  <script src="src/items.js?v=4eb7979c"></script>
+  <script src="src/items.js?v=fc4491c2"></script>
   <script src="src/inventory.js?v=26134d06"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=5e3e8427"></script>
@@ -2845,9 +2862,9 @@
   <script src="src/potion_effects.js?v=3f369de0"></script>
   <script src="src/crops.js?v=fbc9ff13"></script>
   <script src="src/delivery.js?v=66bf194d"></script>
-  <script src="src/save_state.js?v=c7afaf6e"></script>
+  <script src="src/save_state.js?v=eaec21d7"></script>
   <script src="src/gear.js?v=a5181537"></script>
-  <script src="src/rewards.js?v=28bc8c13"></script>
+  <script src="src/rewards.js?v=bb4617ed"></script>
   <script src="src/shops_math.js?v=70451937"></script>
   <script src="src/shops.js?v=c27bc73f"></script>
   <script src="src/egg_hatch.js?v=31bee6f8"></script>
@@ -2861,15 +2878,15 @@
   <script src="src/temple_layout.js?v=61401107"></script>
   <script src="src/temple_scene.js?v=353696ab"></script>
   <script src="src/temples.js?v=14e4fcc6"></script>
-  <script src="src/interactables.js?v=3f7a1663"></script>
+  <script src="src/interactables.js?v=8cf8777d"></script>
   <script src="src/houses.js?v=f35a77a2"></script>
   <script src="src/obstacle_step.js?v=783f40dc"></script>
   <script src="src/spawn_ownership.js?v=d56c6afa"></script>
-  <script src="src/starter.js?v=f7f80753"></script>
+  <script src="src/starter.js?v=5b419afd"></script>
   <script src="src/ground_fire.js?v=5db34ead"></script>
-  <script src="src/combat.js?v=659ffd2c"></script>
+  <script src="src/combat.js?v=6c530b16"></script>
   <script src="src/pirates.js?v=07b1386a"></script>
-  <script src="src/pets.js?v=02b62ae4"></script>
+  <script src="src/pets.js?v=c1ed57f9"></script>
   <script src="src/companions.js?v=a9ca22bf"></script>
   <script src="src/creature_ai.js?v=357e8044"></script>
 
@@ -2879,10 +2896,10 @@
   <script src="src/pet_story_art.js?v=4bf942ec"></script>
   <script src="src/pet_stories.js?v=4c078df6"></script>
   <script src="src/story_encounters.js?v=1b05c924"></script>
-  <script src="src/interact.js?v=1a6bfa4a"></script>
-  <script src="src/play_tips.js?v=81e0ab73"></script>
+  <script src="src/interact.js?v=79ef5a29"></script>
+  <script src="src/play_tips.js?v=f34a2b50"></script>
   <script src="src/lighting.js?v=bc8da246"></script>
-  <script src="src/render.js?v=ce241e46"></script>
+  <script src="src/render.js?v=579b2c9b"></script>
   <script src="src/gas_render.js?v=01e03ad7"></script>
   <script src="src/multiplayer.js?v=6f03c1cd"></script>
   <script src="src/road_overlay.js?v=f66e6df1"></script>
@@ -2890,20 +2907,20 @@
   <script src="src/building_overlay.js?v=9c31fc55"></script>
   <script src="src/assets.js?v=3f0bf4a0"></script>
   <script src="src/sandbox_destinations.js?v=0c811c95"></script>
-  <script src="src/sandbox.js?v=edff1747"></script>
+  <script src="src/sandbox.js?v=51561288"></script>
   <script src="src/testtools.js?v=39e80bd1"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=1b4241c5"></script>
-  <script src="src/modal_shell.js?v=657722d2"></script>
+  <script src="src/modal_shell.js?v=7819b4ae"></script>
   <script src="src/scene_geo.js?v=0caad962"></script>
   <script src="src/npc.js?v=78ac31ba"></script>
-  <script src="src/scene_creatures.js?v=7e402c80"></script>
+  <script src="src/scene_creatures.js?v=12749bec"></script>
   <script src="src/scene_fire.js?v=0dfbecec"></script>
   <script src="src/scene_shops.js?v=70c6bffa"></script>
-  <script src="src/scene_create.js?v=b4eb23df"></script>
+  <script src="src/scene_create.js?v=154adcf7"></script>
   <script src="src/scene_elevators.js?v=db4a70c9"></script>
   <script src="src/scene_arena.js?v=76449b61"></script>
-  <script src="src/scene_consumables.js?v=2a3382b6"></script>
+  <script src="src/scene_consumables.js?v=a680443f"></script>
   <script src="src/scene_pets.js?v=817c1e2f"></script>
   <script src="src/scene_venues.js?v=25f4a500"></script>
   <script src="src/scene_streets.js?v=b9269b37"></script>
@@ -2967,7 +2984,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=d0500686';
+      const APP_SRC = 'src/app.js?v=10dc7df1';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -26,6 +26,18 @@ access or tile lifecycle mechanics.
   floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
+  Dungeon mazes on floors 1–2 repeat the reviewed 34 × 33 braided wall mask
+  (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
+  coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
+  tile seams, routes, landmark approaches and the focus stay open; shortest
+  wall-cutting paths connect each eligible component. Protected islands are
+  never carved, and components with no existing floor access are skipped.
+  Small and thin footprints keep fewer walls rather than stretching the maze.
+  Only the focus-owning tile places its seeded Ember shrine or T3 chest; an
+  existing mirrored POI chest is replaced with the same identity. Cell-addressed
+  encounters use `EnemySpawns.caveKind` for the current floor and the ordinary
+  defeat ledger. Player mining applies afterward through the normal dug-cell
+  overlay, so returning does not restore excavated maze walls.
 
 - Zone geometry is surface-owned and level-independent: zones, anchors,
   coverage and the road mask are computed once on the surface, frozen in its
@@ -65,6 +77,23 @@ access or tile lifecycle mechanics.
   now only feeds restock days and the pots of gold. Breakable pots and
   barrels select their loot by stable appearance (`barrelProfile`), not
   density.
+- THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
+  tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
+  after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest
+  cell hash first. Its shortfall (`entry.lowTierDeficit`) also lays extra X
+  marks in proportion (scene_creatures.js `X_TOP_UP_MAX`), drawn off the cell
+  hash so the tile's rng stream never shifts. Mine mouths ignore ambient
+  crates and drop any they land on.
+- Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
+  lead to the nearest unopened T2+ surface chests within
+  `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the surface (only the
+  starter crate's guide stays inside Home's ring); the chest at a trail's end
+  rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within its depth cap.
+- A Small road's end inside the tile that meets no other vehicle way (a
+  cul-de-sac) holds one tier-1 supply crate (`o.crate`, no `poiClass`, so it
+  gives once): `StreetVariants.dress`, seated like an end piece, capped per
+  tile, lowest hash of the end's global point first. Ends clipped at the tile
+  edge are not dead ends.
 - Chests give ONCE (`save.opened`), including smashed pots and barrels. Crates
   (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
   to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
@@ -128,7 +157,7 @@ access or tile lifecycle mechanics.
   reason bit plus its column in the table, never a separate check at a
   spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
-  of its own road band. Thorny Path and snare clusters cross variant-eligible Small roads only; removable
+  of its own road band. Thorny Path and snare clusters (and a Snare Lane's few lone stray snares, declared one band cell at a time) cross variant-eligible Small roads only; removable
   barricade/spike lines also cross their own Major or Medium road band
   and kerb buffer. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary
@@ -245,8 +274,12 @@ Higher-priority placements and their access space take precedence in this order:
    are ambient fill, not landmarks merely because they came from OSM.
 4. Nexus variants, including their deliberately empty layout cells.
 5. Road variants, across their defined corridor and verge, including
-   deliberately empty gaps. Nexus variants override road variants where they
-   overlap; the physical road and its safety restrictions remain intact.
+   deliberately empty gaps. The claim reaches two cells past the road band
+   (`StreetVariants.TERRAIN_VERGE_CELLS`): inside it the variant's ground
+   replaces residential land cover and ambient yard fill, while buildings,
+   piers and other land-access exclusions keep their paint. Nexus variants
+   override road variants where they overlap; the physical road and its
+   safety restrictions remain intact.
 6. Ambient fill: ordinary plants, rocks and generic scattered content.
 
 - Hard terrain, land-access, road-safety and accessibility rules are prerequisites,

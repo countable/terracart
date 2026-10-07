@@ -57,6 +57,13 @@ const FIRE_WARD_MAX_DEPTH = 1;
 // shoreline, up to Scenic.BEACH_X_MAX, on its own stream. Read by spawnInTile's beach block; pinned by
 // test/node/beach_treasure.test.js.
 const BEACH_X_PER_CELLS = 20;
+// THE LOW-TIER QUOTA'S X MARKS: a tile short of WorldGen.LOW_TIER_CHEST_QUOTA
+// tier-1 chests (entry.lowTierDeficit, topUpAmbientCratesSteps) also lays
+// extra X marks — X_TOP_UP_MAX on a tile with none, in proportion to its
+// shortfall. Cells are drawn off WorldGen.cellHash (never the tile's rng
+// stream, so no later draw moves), up to X_TOP_UP_TRIES per mark.
+const X_TOP_UP_MAX = 24;
+const X_TOP_UP_TRIES = 8;
 // How many favourite-ground cells an attracted animal tries before it keeps
 // its drawn seat (see _seatFaunaOnFavouriteGround).
 const FAUNA_ATTRACT_TRIES = 12;
@@ -621,7 +628,7 @@ class SceneCreatures {
       }));
     }
     for (const c of creatures) {
-      if (Pets.eligible(c.kind)) { c.tint = Pets.tintFor(c); if (Pets.fed(this.save,c)) c.favouriteFed = true; }
+      if (Pets.eligible(c.kind)) c.tint = Pets.tintFor(c);
     }
     yield 'spawn habitats';
     // AHEAD OF THE FLAG: the two heavy, pure pieces of the stretch after
@@ -817,6 +824,21 @@ class SceneCreatures {
         entry.extraTreasures.push({ x: wmx, y: wmy, id: WorldGen.cellId('treasure_x', tx, ty, cx, cy) });
         placed = true;
       }
+    }
+
+    // The low-tier quota's X marks (X_TOP_UP_MAX), skipped in test mode for
+    // the same reason as the scatter above.
+    const xTopUp = testMode ? 0 : Math.ceil(X_TOP_UP_MAX
+      * Math.min(1, (entry.lowTierDeficit || 0) / WorldGen.LOW_TIER_CHEST_QUOTA));
+    for (let k = 0, laid = 0; laid < xTopUp && k < xTopUp * X_TOP_UP_TRIES; k++) {
+      const i = (WorldGen.cellHash(tx, ty, k, 0x7a0b) >>> 0) % (N * N);
+      const cx = i % N, cy = (i - cx) / N;
+      if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, ambientSpawnOpts, 'minor')) continue;
+      const id = WorldGen.cellId('treasure_quota', tx, ty, cx, cy);
+      if (entry.extraTreasures.some(t => t.id === id)) continue;
+      const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
+      entry.extraTreasures.push({ x: wmx, y: wmy, id });
+      laid++;
     }
 
     // Bonus X marks alongside pedestrian paths (terrain 8). Walkers drop
@@ -2760,7 +2782,7 @@ class SceneCreatures {
     if (!row) return false;
     persistSave(this.save);
     const invId = c.shiny && ITEM_BY_ID[`shiny_${c.kind}`] ? `shiny_${c.kind}` : c.kind;
-    this.flashLoot(`${ITEM_BY_ID[invId]?.name || c.kind} joined you`, c.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
+    this.flashLoot(`${itemName(invId)} joined you`, c.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
     if (c.shiny) this.awardShinyBonus(c.kind,sx,sy);
     PetStories.queue(this,c.kind);
     this.selectInvCat('animal');

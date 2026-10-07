@@ -71,6 +71,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
   `_flashPlayerHit` when it lands, independently of popup throttling.
+- A repeat offer (an offer with `repeat`: a stall counter, the smelter,
+  Home Sell / Craft) reopens over the map, hiding its own toasts. The
+  confirmation lives in the dialog: an explicit `receipt` line, or else
+  the `flashLoot` / `flash` toasts its accept raised, captured by
+  `showOfferModal` and reprinted as the reopened dialog's status line.
+  Never add a second confirmation surface for a repeat offer.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;
@@ -83,6 +89,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   lore (docs/design/story.txt, ACT STRUCTURE). Memory and restoration are independent
   progress tracks; required events join them through prerequisites and world
   context. A painted panel can carry either layer. Lore never blocks canon.
+- A street variant tells its story once, on the feet's first entry
+  (`_tickStreetFeet`). After that its map line (`StreetVariants` row `flash`)
+  pops when a street of that kind enters the lit reach (`_tickStreetSight`,
+  on its nearest lit cell) or the feet step onto it, on one per-story
+  `STREET_FLASH_GAP_MS` clock.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.

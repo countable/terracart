@@ -1885,6 +1885,7 @@ class MapScene extends Phaser.Scene {
     if ((this.depth || 0) !== 0 || typeof StreetVariants === 'undefined' || !this.startWorldM) {
       this._slowHere = null;
       this._streetStoryHere = null;
+      this._streetSightCodes = null;
       return;
     }
     const pc = this.playerToWorldCell();
@@ -1894,6 +1895,7 @@ class MapScene extends Phaser.Scene {
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     if (!entry || !entry._spawned) { this._slowHere = null; return; }   // retry next frame
     this._streetFeetKey = key;
+    this._tickStreetSight();
     const N = entry.cellsPerEdge;
     if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return;
     const i = liy * N + lix;
@@ -1957,6 +1959,43 @@ class MapScene extends Phaser.Scene {
     if (now - (last[row.story] || -Infinity) < STREET_FLASH_GAP_MS) return;
     last[row.story] = now;
     say(row.flash);
+  }
+
+  // ── A KNOWN STREET COMES INTO THE LIGHT ──────────────────────────────────
+  // Once a variant's story has been told (the feet's first entry, above), a
+  // street of that kind entering the reach — the lit radius — pops its map
+  // line on the nearest lit cell of it. Edge-triggered per variant code (it
+  // must leave the reach to pop again), and on the same per-story
+  // STREET_FLASH_GAP_MS clock as the feet's line, so stepping onto it after
+  // does not repeat it. Read off the tiles' street marks, one per lit cell.
+  _tickStreetSight() {
+    const reachM = reachRadiusM(this);
+    if (!(reachM > 0)) { this._streetSightCodes = null; return; }
+    const p = playerReachCell(this), r = Math.ceil(reachM / this.cellM);
+    const nearest = new Map(), t = {};
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      const ix = p.cellIX + dx, iy = p.cellIY + dy;
+      if (!cellInReach(this, ix, iy)) continue;
+      absCellToTile(this, ix, iy, t);
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(t.tx, t.ty));
+      const code = entry && entry._spawned && entry.streetMarks ? entry.streetMarks[t.iy * t.n + t.ix] : 0;
+      if (!code) continue;
+      const d2 = dx * dx + dy * dy, best = nearest.get(code);
+      if (!best || d2 < best.d2) nearest.set(code, { ix, iy, d2 });
+    }
+    const prev = this._streetSightCodes;
+    this._streetSightCodes = new Set(nearest.keys());
+    if (!prev) return;   // the first look after a load or a descent is not an arrival
+    const last = (this._streetFlashAt = this._streetFlashAt || {});
+    const now = performance.now();
+    for (const [code, at] of nearest) {
+      if (prev.has(code)) continue;
+      const row = StreetVariants.variantByCode(code);
+      if (!row || !row.flash || !(this.save.storySeen && this.save.storySeen[row.story])) continue;
+      if (now - (last[row.story] || -Infinity) < STREET_FLASH_GAP_MS) continue;
+      last[row.story] = now;
+      this.flashAtCell(row.flash, at.ix, at.iy);
+    }
   }
 
   // ── What holds the BODY back from the fix ─────────────────────────────────
@@ -2998,6 +3037,7 @@ class MapScene extends Phaser.Scene {
     // effects. Each ticker skips work unless its selected item needs a change.
     this._tickEatButton();
     this._tickThrowButton();
+    this._tickConsumableButton();
     let vx = 0, vy = 0;
     let speedMul = 1;
     // Keyboard movement (WASD / arrow keys) is a manual takeover — any
@@ -3638,7 +3678,9 @@ class MapScene extends Phaser.Scene {
     // The Shadow Powder is a truce, not a flank: while it hides the player,
     // the cadence holds its fire too. The else-branch re-arms, so the first
     // arrow flies the instant the shadow lifts.
+    // A CATCH attempt (a fleeing wheel) is no time to fight: no auto-fire.
     const rangedArmed = !Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
+      && !this._workProgress?.flee
       && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
@@ -5005,7 +5047,11 @@ class MapScene extends Phaser.Scene {
       // Shiny animals use their reduced escape bonus while being caught.
       const isButterfly = c.kind === 'butterfly';
       const shinyFast = Combat.shinySpeedMul(c, true);
-      const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, SpriteLayout.creatureMaxMps(c.kind)) * shinyFast;
+      // An ENEMY flees no faster than its own roster walk (a rooted plant,
+      // speed 0, cannot run at all); an animal, its CREATURE_BEHAVIOUR top.
+      const roster = EnemyRoster.get(c.kind);
+      const top = roster ? (roster.movement?.speedMetersPerSecond ?? 0) : SpriteLayout.creatureMaxMps(c.kind);
+      const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, top) * shinyFast;
       // Moss also conceals the catch: fauna and pets do not flee the net.
       if (!Shrines.leverActive(this.save, 'hidden')) {
         const nx = c.x + (dx / dist) * FLEE_MPS * dt;
@@ -7100,6 +7146,7 @@ class MapScene extends Phaser.Scene {
   // Small status message, placed where the player tapped so it stays attached
   // to the thing they touched. `color` is optional — omit for the default ink.
   flash(text, x, y, color) {
+    this._offerToastLog?.push({ text, color });   // a repeat offer reprints it (showOfferModal)
     this._toast(text, { tier: 'note', x, y, color });
   }
 
@@ -7302,6 +7349,7 @@ class MapScene extends Phaser.Scene {
   // (pick / axe / armor), whose art comes from gearIconHTML rather than the
   // ITEM_BY_ID-only renderItemIcon that the `itemId` path uses.
   flashLoot(text, color = UI_GOLD, dwellMul = 1, itemId = null, iconEl = null) {
+    this._offerToastLog?.push({ text, color, itemId, loot: true });   // reprinted in a repeat offer's dialog
     // Loot icon = DOM overlay using the same CSS-background renderer the
     // inventory uses. Going through scene.add.image(sheet) would demand
     // every icon sheet be preloaded into Phaser textures (egg / milk /
@@ -8698,8 +8746,21 @@ class MapScene extends Phaser.Scene {
   // same function works inside text (modal cost) and as a standalone tile
   // (inventory slot). Returns either an HTMLElement (style='block') or an
   // HTML string (style='inline') — the caller picks based on context.
+  // A creature with no item row (a caught ENEMY) gets its icon baked once,
+  // lazily, off the sheet the map draws it from: its down-facing idle frame.
+  _bakeCreatureIcon(kind) {
+    const art = SpriteLayout.creatureArt(kind);
+    if (!art || !art.fw || !this.textures?.exists(art.sheet)) return;
+    const src = this.textures.get(art.sheet).getSourceImage();
+    const frame = art.directions?.down?.idle?.[0] ?? 0, cols = Math.max(1, Math.floor(src.width / art.fw));
+    const c = document.createElement('canvas');
+    c.width = art.fw; c.height = art.fh;
+    c.getContext('2d').drawImage(src, (frame % cols) * art.fw, Math.floor(frame / cols) * art.fh, art.fw, art.fh, 0, 0, art.fw, art.fh);
+    (window.ITEM_DATA_URLS ||= {})[kind] = c.toDataURL();
+  }
   renderItemIcon(itemId, sizePx, style = 'inline') {
     const item = ITEM_BY_ID[itemId];
+    if (!item && !window.ITEM_DATA_URLS?.[itemId]) this._bakeCreatureIcon(itemId);
     // Shiny variants (shiny_chicken, …) have no sprite of their own — they
     // reuse the base animal's icon, recoloured with the warm filter applied
     // below. Fall back to `item.base` only when there's no dedicated bake.
@@ -10058,6 +10119,16 @@ class MapScene extends Phaser.Scene {
   // element that only exists while food is selected) so it climbs smoothly;
   // the full rebuild runs only when the whole-second reading changes — which
   // includes the tick the wait ends on, and that is what un-greys the button.
+  // A tome's Read button counts its wait down (the row's `label`, off
+  // _tomeWait); the button is rebuilt only when that readout moves, so the
+  // text changes on the whole second and nothing is written in between.
+  _tickConsumableButton() {
+    const btn = document.getElementById('consumable-btn');
+    const cfg = btn && CONSUMABLE_SPEC[btn.dataset.id];
+    if (!cfg || !(cfg.cooldownMs > 0) || !cfg.label) { this._tomeCdShown = null; return; }
+    const shown = cfg.label(this, cfg);
+    if (shown !== this._tomeCdShown) { this._tomeCdShown = shown; this.syncConsumableButton(); }
+  }
   _tickEatButton() {
     const btn = document.getElementById('eat-btn');
     if (!btn) { this._eatCdShown = null; return; }

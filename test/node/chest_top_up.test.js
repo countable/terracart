@@ -96,4 +96,33 @@
       assert.eq(chestTier(o), o.tierSeed); assert.eq(chestLootDepth(o), 0);
     }
   });
+  test('ambient crates: a tile under the low-tier quota fills to it with one-time tier-1 crates', () => {
+    const big = 24, Q = W.LOW_TIER_CHEST_QUOTA;
+    assert.eq(Q, 200);
+    const ctx = (t1) => ({ objects: Array.from({ length: t1 }, (_, i) => chest(1, i)),
+      grid: new Uint8Array(big * big).fill(W.T.GRASS), N: big, tx: 3, ty: 9, tileEdgeM: 168,
+      spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(big * big), roadMask: new Uint8Array(big * big) } });
+    const go = (c) => { const it = W.topUpAmbientCratesSteps(c); let r; do { r = it.next(); } while (!r.done); return r.value; };
+    const c = ctx(50), r = go(c), crates = c.objects.filter(o => o.ambientCrate);
+    assert.eq(r.before, 50); assert.eq(r.deficit, Q - 50); assert.eq(crates.length, Q - 50);
+    for (const o of crates) {
+      assert.truthy(o.crate && chestTier(o) === 1, 'a tier-1 crate');
+      assert.falsy(restocks(o), 'opened once');
+      assert.truthy(/^crate_ambient_3_9_/.test(o.id));
+    }
+    assert.eq(new Set(crates.map(o => o.id)).size, crates.length, 'one per cell');
+    assert.eq(go(c).added, 0, 'a repeat pass counts its own crates and adds nothing');
+    const d = ctx(50); d.objects.reverse(); go(d);
+    assert.eq(d.objects.filter(o => o.ambientCrate).map(o => o.id).join(), crates.map(o => o.id).join(), 'stable seats');
+    const full = ctx(Q); assert.eq(go(full).added, 0, 'at quota: nothing');
+    const blocked = ctx(0); blocked.spawnOpts.spawnWhy.fill(W.SPAWN_WHY.RESTRICTED);
+    assert.eq(go(blocked).added, 0, 'only spawnable ground');
+    assert.eq(go(ctx(0)).deficit, Q, 'the deficit is kept for the X-mark top-up');
+  });
+  test('ambient crates: the X-mark top-up reads the deficit, off the cell hash, never the rng stream', () => {
+    const src = SCENE_CREATURES_SRC;
+    assert.truthy(/entry\.lowTierDeficit = chestTopUp\?\.ambient\?\.deficit/.test(WORLDGEN_SRC), 'stored on the entry');
+    assert.truthy(/X_TOP_UP_MAX\s*\*\s*Math\.min\(1, \(entry\.lowTierDeficit \|\| 0\) \/ WorldGen\.LOW_TIER_CHEST_QUOTA\)/.test(src), 'in proportion to the shortfall');
+    assert.truthy(/WorldGen\.cellHash\(tx, ty, k, 0x7a0b\)/.test(src), 'hash-drawn cells');
+  });
 })();

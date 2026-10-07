@@ -24,8 +24,8 @@
       assert.eq(row.streetMirror, depth === 1 || depth === 2);
     }
     const first = WorldGen.floorProfile(1).caveAreas, second = WorldGen.floorProfile(2).caveAreas;
-    assert.eq(first.weights.map(r => r.weight).join(','), '35,30,30,5');
-    assert.eq(second.weights.map(r => r.weight).join(','), '20,45,25,10');
+    assert.eq(first.weights.map(r => r.weight).join(','), '35,30,30,5,15');
+    assert.eq(second.weights.map(r => r.weight).join(','), '20,45,25,10,15');
     assert.eq(first.carveWalls, false);
     assert.eq(second.carveWalls, true);
     assert.eq(first.goblins, 12);

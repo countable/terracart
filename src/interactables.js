@@ -653,8 +653,13 @@ const INTERACTABLES = {
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
       const held = held0;
+      // A chest at a treasure trail's end (HomeArea.isTrailChest) rolls
+      // CHEST_TRAIL_TIER_BONUS tiers higher, within its depth's cap.
+      const trailEnd = !chapel && !held0 && typeof HomeArea !== 'undefined' && HomeArea.isTrailChest?.(scene, o);
       const chestT = chapel ? Macros.chapelRollTier(o)
-        : ((typeof chestTier === 'function') ? chestTier(o) : 2);
+        : Math.min(typeof chestTierMaxFor === 'function' ? chestTierMaxFor(o.depth) : 7,
+          ((typeof chestTier === 'function') ? chestTier(o) : 2) + (trailEnd ? HomeArea.CHEST_TRAIL_TIER_BONUS : 0));
+      if (trailEnd) dress.sub = 'The trail’s end holds a richer find.';
       const theme = chestThemeFor(o);
       let result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }

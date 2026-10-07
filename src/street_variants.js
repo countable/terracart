@@ -126,7 +126,9 @@
   const END_SEAT_CELLS = 4;
 
   // ── Dressing density (generation metres along the way) ───────────────────
-  const HEDGE_GATE_EVERY_CELLS = 6; // aligned garden gates on both verges
+  // The hedge encounter's seat samples, every so many cells along the lane
+  // (seated one cell BEHIND the kerb row, so the hedges stay unbroken).
+  const HEDGE_GATE_EVERY_CELLS = 6;
   // ── How much of a street wears its theme ────────────────────────────────
   // Complete short streets wear their theme end to end. Longer or clipped
   // streets keep the middle sectionShare of each tile-aligned patch, measured
@@ -173,13 +175,29 @@
   // The hedged lane's carpet: centred on the first verge cell (where the
   // hedges stand, so it shows at every garden gate), this many cells wide.
   const CARPET_WIDTH_CELLS = 0.6;
-  const TERRAIN_VERGE_CELLS = 1.5;
+  // A variant's claim reaches this far past its road band (areaSteps) and
+  // its ground paint runs out to it (paintTerrainSteps): 2 cells from the
+  // road, the owner's figure (Oct 2026).
+  const TERRAIN_VERGE_CELLS = 2;
   const THORNY_SHRINE_RADIUS_CELLS = 2;
   const THORNY_VERGE_MAX_CELLS = 4;
   const THORNY_CLUSTER_DENSITY = 0.6;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
+  // A few lone snares scattered down the rest of the lane, on the band or its
+  // first verge cell: the lowest-hash eligible cells, kept apart from the
+  // cluster and from each other so they read as strays, not a second nest.
+  // THE ROAD'S END: a Small road whose end inside the tile meets no other
+  // vehicle way (a cul-de-sac, a dead end) holds one humble supply crate — a
+  // tier-1 chest, opened once (no poiClass, so it never restocks). An end
+  // within DEAD_END_JOIN_CELLS of another way's segment is a junction. At most
+  // DEAD_END_CRATES_PER_TILE, lowest hash of the end's global point first.
+  const DEAD_END_CRATE_TIER = 1;
+  const DEAD_END_CRATES_PER_TILE = 12;
+  const DEAD_END_JOIN_CELLS = 1;
+  const SNARE_STRAYS = 4;
+  const SNARE_STRAY_GAP_CELLS = 3;
 
   // What a burned row's verge holds — the two props that SLOW the body
   // (app.js _bodyHold). One table both sides read: dressing lays these kinds,
@@ -312,7 +330,7 @@
       body: 'Green coins lie scattered in the grass on both sides of the road. You spot more with every step.',
       flash: 'The verges glitter with coins.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
-      stone: { weathered: '#594a3f', restored: '#493b2e' }, lampDensity: 1,
+      stone: { weathered: '#594a3f', restored: '#2a221b' }, lampDensity: 1,
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'A chest sits beside the lane, surrounded by iron traps. Open jaws stretch across the road and both verges.',
       flash: 'Iron teeth around a chest.' },
@@ -346,8 +364,7 @@
   //   retry    the other side when the chosen one has no free cell (the
   //            burned row's torches: a torch every so often, whichever side);
   //   start    the first k to try (the toadstool giant's set-back seat);
-  //   skip     a sample that lays nothing (the hedgerow's gate stations, the
-  //            toadstool's breathing gap);
+  //   skip     a sample that lays nothing (the toadstool's breathing gap);
   //   draw     per-sample draws off the row's `stream`, taken BEFORE the
   //            covers test so an uncovered sample spends them too (the burned
   //            row's side and tar rolls — the stream is pinned);
@@ -357,8 +374,9 @@
   // walked in order; what is not a verge walk (the snare cache, the thorny
   // thickets, the barricade's cross-sections, the guards) stays in dressSteps.
   const VERGE_ROWS = {
-    hedgerow: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1,
-      skip: (at) => Math.floor(at.s / root.WorldGen.CELL_M) % HEDGE_GATE_EVERY_CELLS === HEDGE_GATE_EVERY_CELLS - 1,
+    // FULLY HEDGED: half-cell samples so a diagonal lane's kerb cells are all
+    // reached (a claimed cell is simply skipped), no gate stations.
+    hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', walk: 1,
       emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant('shrub', D.cx(c.ix), D.cy(c.iy),
         D.WG.cellId('hedge', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _streetArt: 'clipped' })) }],
     overgrown: [{ step: OVERGROWN_STEP_M, max: OVERGROWN_MAX, side: () => 1,
@@ -847,9 +865,12 @@
       const vote = nameVote(tn);
       yield 'street names';
       let n = 0;
+      // Every vehicle way's geometry, for the dead-end test (dress).
+      out.vehicleLines = [];
       for (let fi = 0; fi < tr.features.length; fi++) {
         const f = tr.features[fi];
         if (f.type !== 2 || !f.geom) continue;
+        if (isVehicleTags(f.tags)) for (const line of f.geom) if (line && line.length >= 2) out.vehicleLines.push(line);
         const size = sizeOfTags(f.tags);
         if (!size) continue;
         for (let li = 0; li < f.geom.length; li++) {
@@ -1096,8 +1117,10 @@
             const i = y * N + x, here = original[i];
             if (zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i]) continue;
             // Road/terrain spawn exclusions remain unchanged; only land-access
-            // exclusions prevent this visual ground paint.
-            if ((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND) continue;
+            // exclusions prevent this visual ground paint — except RESIDENTIAL
+            // land cover, which the variant's claim blocks out to its verge
+            // (the lane owns its two cells; a yard's lawn does not run onto it).
+            if (((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND) && here !== WG.T.RESIDENTIAL) continue;
             if ((!WG.isWalkable(here) && !WG.isCobbleTerrain(here))
                 || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
             const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
@@ -1419,6 +1442,8 @@
     // Pilgrim's Way / barricade street key → every owned piece end in the
     // square (tile-local MVT points), in line order.
     const streetEnds = new Map(), habitatSeats = new Set(), snareSeats = new Set();
+    // Snare street key → its pieces here and its cluster cells, for the strays.
+    const snareStreets = new Map();
     // Street key → its dressed pieces here, for the street shrines.
     const shrineStreets = new Map(), thornyShrines = new Set();
     for (const rec of (idx.dressingLines || idx.lines)) {
@@ -1438,15 +1463,16 @@
       // keep their draws; guards share the existing lair persistence lane.
       if (['hedgerow', 'overgrown', 'orchard', 'toadstool'].includes(v)) {
         const sid = `street_habitat_${tx}_${ty}_${v}_${rec.key}`;
-        // A hedge encounter uses a regular gate gap, keeping both clipped
-        // rows aligned instead of removing an extra hedge for its anchor.
+        // A hedge encounter sits one cell BEHIND the kerb row (verge k = 2),
+        // so the clipped rows stay unbroken; its samples pace by the old gate
+        // spacing.
         const step = v === 'hedgerow' ? CELL_M * HEDGE_GATE_EVERY_CELLS : BURNED_GUARD_STEP_M;
         const start = v === 'hedgerow' ? step - CELL_M / 2 : step / 2;
         if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, step, start, (s, x, y, nx, ny) => {
           if (habitatSeats.has(sid)) return false;
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
-            const candidate = verge(rec, x, y, nx, ny, side);
+            const candidate = verge(rec, x, y, nx, ny, side, v === 'hedgerow' ? 2 : 1);
             const c = candidate && foeSeat(candidate.ix, candidate.iy);
             if (!c) continue;
             claim(c.ix, c.iy); habitatSeats.add(sid);
@@ -1455,6 +1481,10 @@
             break;
           }
         });
+      }
+      if (v === 'snare') {
+        if (!snareStreets.has(rec.key)) snareStreets.set(rec.key, { recs: [], cluster: [] });
+        snareStreets.get(rec.key).recs.push(rec);
       }
       if (v === 'snare' && !snareSeats.has(rec.key)) {
         // Keep the reward on a verge, but span the Small road with the traps:
@@ -1482,6 +1512,7 @@
             claim(ix, iy);
             for (const trap of traps) claim(trap._ix, trap._iy);
             res.traps.push(...traps);
+            snareStreets.get(rec.key).cluster.push([ix, iy], ...traps.map(t => [t._ix, t._iy]));
             res.objects.push(WG.makeObject('chest', cx(ix), cy(iy),
               WG.cellId('chest_snare', tx, ty, ix, iy), { _street: v, name: 'Snare cache' }));
             snareSeats.add(rec.key);
@@ -1689,6 +1720,107 @@
           lx: (h.ix + 0.5) * frameCellM, ly: (h.iy + 0.5) * frameCellM });
       }
     }
+    // THE DEAD-END CRATES (DEAD_END_CRATE_TIER): seated like an end piece
+    // (seat — a minor cell within END_SEAT_CELLS), after the waystones and
+    // barricades have taken theirs; a Pilgrim's Way or barricade street's
+    // ends are already dressed. Needs the index's vehicleLines: without them
+    // (a hand-built index) no end can be told from a junction.
+    if (idx.vehicleLines) {
+      yield 'dead-end crates';
+      const lines = idx.vehicleLines.map(L => {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const p of L) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+        return { L, x0, y0, x1, y1 };
+      });
+      const pad = DEAD_END_JOIN_CELLS * CELL_M / gM;
+      // Does any vehicle way other than the end's own last segment (p–q) come
+      // within DEAD_END_JOIN_CELLS of the end p?
+      const joined = (p, q) => {
+        for (const { L, x0, y0, x1, y1 } of lines) {
+          if (p.x < x0 - pad || p.x > x1 + pad || p.y < y0 - pad || p.y > y1 + pad) continue;
+          for (let i = 1; i < L.length; i++) {
+            const a = L[i - 1], b = L[i];
+            if ((a.x === p.x && a.y === p.y && b.x === q.x && b.y === q.y)
+              || (b.x === p.x && b.y === p.y && a.x === q.x && a.y === q.y)) continue;
+            const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+            const t = len2 > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2)) : 0;
+            if (Math.hypot(p.x - a.x - dx * t, p.y - a.y - dy * t) * gM < DEAD_END_JOIN_CELLS * CELL_M) return true;
+          }
+        }
+        return false;
+      };
+      const ends = [], seenEnds = new Set();
+      for (const rec of idx.lines) {
+        if (rec.size !== 'minor' || rec.variant === 'pilgrim' || rec.variant === 'barricade') continue;
+        const L = rec.line;
+        for (const [p, q] of [[L[0], L[1]], [L[L.length - 1], L[L.length - 2]]]) {
+          if (!(p.x >= 0 && p.y >= 0 && p.x < ext && p.y < ext)) continue;
+          const gk = `${tx * ext + p.x},${ty * ext + p.y}`;
+          if (seenEnds.has(gk) || joined(p, q)) continue;
+          seenEnds.add(gk);
+          ends.push({ p, u: hash01('dead-end|' + gk) });
+        }
+      }
+      ends.sort((a, b) => a.u - b.u);
+      let crates = 0;
+      for (const { p } of ends) {
+        if (crates >= DEAD_END_CRATES_PER_TILE) break;
+        const c = seat(p.x, p.y);
+        if (!c) continue;
+        claim(c.ix, c.iy); crates++;
+        res.objects.push(WG.makeObject('chest', cx(c.ix), cy(c.iy),
+          WG.cellId('crate_end', tx, ty, c.ix, c.iy), { crate: true, tierSeed: DEAD_END_CRATE_TIER }));
+      }
+    }
+    // THE STRAY SNARES: per snare street, every cell whose centre lies on the
+    // band or within its first verge cell is a candidate — a pure distance to
+    // the street's pieces, so fragmenting or reversing the geometry keeps them.
+    // Band cells pass the street-obstacle gate, verge cells the cluster's
+    // fast-foe gate; then lowest cell hash first, spaced from the cluster.
+    for (const [key, { recs, cluster }] of snareStreets) {
+      yield 'snare strays';
+      const near = new Map();
+      for (const rec of recs) {
+        const L = rec.line.map(p => ({ x: p.x * gM, y: p.y * gM }));
+        const reach = rec.halfW + CELL_M * 1.5;
+        const xs = L.map(p => p.x), ys = L.map(p => p.y);
+        const x0 = Math.max(0, cellOfM(Math.min(...xs) - reach)), x1 = Math.min(N - 1, cellOfM(Math.max(...xs) + reach));
+        const y0 = Math.max(0, cellOfM(Math.min(...ys) - reach)), y1 = Math.min(N - 1, cellOfM(Math.max(...ys) + reach));
+        for (let iy = y0; iy <= y1; iy++) for (let ix = x0; ix <= x1; ix++) {
+          const px = (ix + 0.5) * CELL_M, py = (iy + 0.5) * CELL_M;
+          let d = Infinity;
+          for (let i = 1; i < L.length; i++) {
+            const a = L[i - 1], b = L[i], dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy;
+            const t = len2 > 0 ? Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / len2)) : 0;
+            d = Math.min(d, Math.hypot(px - a.x - dx * t, py - a.y - dy * t));
+          }
+          if (d > reach) continue;
+          const i = iy * N + ix, road = d <= rec.halfW;
+          near.set(i, (near.get(i) || false) || road);
+        }
+      }
+      const cands = [];
+      for (const [i, road] of near) {
+        const ix = i % N, iy = (i - ix) / N;
+        // Snares keep off every Major-and-Medium road and its kerb buffer.
+        if (rc && (rc[i] & (WG.ROAD_CLASS_MAJOR_BAND | WG.ROAD_CLASS_MAJOR_BUFFER))) continue;
+        const ok = road
+          ? WG.isSpawnCell(grid, N, N, ix, iy, { ...spawnOpts, roadClass: rc,
+            streetObstacleCells: new Set([i]), streetObstacleKind: 'snare' }, 'streetObstacle')
+          : foeOk(ix, iy);
+        if (ok) cands.push({ ix, iy, u: hash01(WG.cellId('snare_stray', tx, ty, ix, iy) + '|' + key) });
+      }
+      cands.sort((a, b) => a.u - b.u);
+      const kept = cluster.slice();
+      let strays = 0;
+      for (const { ix, iy } of cands) {
+        if (strays >= SNARE_STRAYS) break;
+        if (kept.some(([kx, ky]) => Math.max(Math.abs(kx - ix), Math.abs(ky - iy)) < SNARE_STRAY_GAP_CELLS)) continue;
+        claim(ix, iy); kept.push([ix, iy]); strays++;
+        res.traps.push({ id: WG.cellId('trap_snare', tx, ty, ix, iy),
+          x: cx(ix), y: cy(iy), _ix: ix, _iy: iy, _street: 'snare' });
+      }
+    }
     if (marked) res.marks = marks;
     return res;
   }
@@ -1805,9 +1937,9 @@
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
-    HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
+    HEDGE_GATE_EVERY_CELLS, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,

@@ -81,8 +81,14 @@ mechanics.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
-  carried animals. Favourite feeding prepares one wild animal; catching it
-  completes the bond. Only one pet per species, including baby/shiny variants.
+  carried animals. Every animal and enemy has a FAVOURITE (`favouriteItems`,
+  items.js: an animal's `ANIMAL_FOOD`, else an enemy's roster-tier gem from
+  `GEM_DEPOSITS`, never typed per row). Giving a wild one its favourite starts
+  a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
+  while it flees for the edge of reach; no attack runs and it is no one's
+  enemy until the attempt ends. A refused item is never consumed. Story foes
+  are not catchable (`Pets.catchable`). Only one pet per species, including
+  baby/shiny variants. Hunting game (deer, crows) with an empty hand is apart.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
   Pet shops sell accessories. Eggs hatch wild babies that use the same gate.

@@ -623,17 +623,17 @@
   const CREATURE_BEHAVIOUR = {
     npc:           { wanders: true },
     chicken:       { wanders: true, produce: { item: 'egg',  verb: 'laid' } },
-    // A cow takes twice the netting (catchMul) — the one catch worth a whole
-    // bar of energy when eaten, for 3 to net (economy audit, 2026-09-27).
-    cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' }, catchMul: 2 },
+    // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
+    // catch's difficulty is current HP × 2, Pets.catchMs).
+    cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' } },
     // The shore crab is the chicken's row on the beach: tamed with its
     // favourite (items.js ANIMAL_FOOD.crab) or netted; a fed one gives a SHELL.
     // Seated only on shore sand (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
     crab:          { animal: true, wanders: true, concealment: 'stealthy', produce: { item: 'shell', verb: 'shed' } },
-    // The horse is the cow's row without the milk: twice the netting, tamed
-    // with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag it is
-    // a mount (items.js HORSE_RIDE).
-    horse:         { wanders: true, catchMul: 2 },
+    // The horse is the cow's row without the milk: twice the netting (its HP),
+    // tamed with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag
+    // it is a mount (items.js HORSE_RIDE).
+    horse:         { wanders: true },
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
@@ -739,7 +739,6 @@
   function creatureProduce(kind) { return creatureBehaviour(kind)?.produce || null; }
   // How much longer than the net's own time this kind takes to catch — 1 for
   // everything but the rows that say otherwise (interact.js catch).
-  function creatureCatchMul(kind) { return creatureBehaviour(kind)?.catchMul || 1; }
   // Is this kind SUMMONED — a temporary ally conjured by a potion (the spirit
   // raven)? It hunts for the player without being tame, and is never a tap
   // target.
@@ -1031,7 +1030,7 @@
     NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
-    creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
+    creaturePrey, creatureDrop, creatureProduce, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,

@@ -1046,7 +1046,10 @@ for (const it of ITEMS) {
 }
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // An item's display name, or its bare id when the catalog has no row for it.
-function itemName(id) { return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name || id; }
+function itemName(id) {
+  return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name
+    || (typeof EnemyRoster !== 'undefined' && EnemyRoster.get(id)?.name) || id;   // a caught enemy's name
+}
 
 // Shop: tap a house with a selected item to sell it, or with an empty selection
 // to buy the next seed in BUY_LIST. Prices are tuned to how easy each item is
@@ -1452,6 +1455,15 @@ for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
   row.usable = scene => scene.canThrowItem(id);
   row.disabled = scene => !scene.canThrowItem(id);
   row.label = scene => scene.throwActionLabel();
+}
+// The tomes' button (a `cooldownMs` row read with the Read verb): a tap reads
+// it outright, no confirm (owner, Oct 2026); while either tome lock holds
+// (scene._tomeWait) the button greys and counts the wait down in place.
+for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
+  if (!(row.cooldownMs > 0 && row.verb === 'Read')) continue;
+  row.immediate = true;
+  row.disabled = scene => !!scene._tomeWait?.(id);
+  row.label = scene => { const w = scene._tomeWait?.(id); return w ? `Read · ${shortDuration(w.ms)}` : 'Read'; };
 }
 
 // Compatibility names keep existing consumers concise while the table remains
@@ -1924,15 +1936,36 @@ const ANIMAL_FOOD = {
   purple_slime: ['sapphire'],
   fire_slime: ['sapphire'],
 };
+// THE FAVOURITE: the one item an entity accepts (owner, Oct 2026). Offered
+// to a wild one, it starts a catch attempt (interact.js); offered to a pet,
+// it feeds it. An animal's is its ANIMAL_FOOD row; every ENEMY's defaults to
+// the gem of its roster tier (GEM_DEPOSITS: quartz 1 … diamond 7), never
+// typed per row. An ANIMAL_FOOD row on an enemy kind (the slimes' sapphire)
+// overrides the default.
+function gemForTier(tier) {
+  const t = Math.max(1, Math.min(7, Math.round(tier) || 1));
+  return Object.keys(_GEM_DEPOSITS).find(id => _GEM_DEPOSITS[id].yieldTier === t);
+}
+// The explicit row, if any: the kind's own, else its roster base's (a slime
+// variant shares the slimes' sapphire). Null means the default applies.
+function favouriteOverride(kind) {
+  if (Object.hasOwn(ANIMAL_FOOD, kind)) return ANIMAL_FOOD[kind];
+  const base = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(kind)?.variantOf : null;
+  return base && Object.hasOwn(ANIMAL_FOOD, base) ? ANIMAL_FOOD[base] : null;
+}
+function favouriteItems(kind) {
+  const own = favouriteOverride(kind);
+  if (own) return own;
+  const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(kind) : null;
+  return row ? [gemForTier(row.tier)] : [];
+}
 function animalLikesFood(kind, foodId) {
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
   // felt arbitrary. Other species keep their explicit list.
   if (kind === 'chicken' && typeof foodId === 'string' && foodId.endsWith('_seed')) {
     return true;
   }
-  const list = ANIMAL_FOOD[kind];
-  if (!list) return false;
-  return list.includes(foodId);
+  return favouriteItems(kind).includes(foodId);
 }
 
 // === Relics / armor catalogs ===
@@ -1961,7 +1994,7 @@ const TIER_BY_NUM = Object.fromEntries(MATERIAL_TIERS.map(t => [t.tier, t]));
 // the ladder's own colours for the chips; itemTierOf reads an item's
 // baseTier (the rarity ladder's, 1..7) and gear passes its own tier.
 const TIER_BADGE_NAMES = {
-  1: 'basic', 2: 'common', 3: 'uncommon', 4: 'rare', 5: 'epic', 6: 'legendary', 7: 'godly',
+  1: 'basic', 2: 'common', 3: 'uncommon', 4: 'rare', 5: 'epic', 6: 'legend', 7: 'godly',
 };
 // The one cheat (owner, Sep 2026): Platinum is near white, and "epic" wants a
 // little purple — rarity displays wear this lavender-platinum; the material

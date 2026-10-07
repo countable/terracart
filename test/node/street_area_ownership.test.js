@@ -52,14 +52,16 @@
     for (let x = 2; x < N - 2; x++) {
       for (let d = -1; d <= 1; d++) assert.truthy(at(diagonal, x, x + d), `diagonal verge ${x},${x + d}`);
     }
-    // Its centreline never enters this tile, but its band still owns rows 0-1.
+    // Its centreline never enters this tile, but its band still owns rows
+    // 0-2: the claim reaches TERRAIN_VERGE_CELLS (two cells) past the band.
     const outside = StreetVariants.area(index(
       { x: p(0, 0).x, y: -0.4 * E / N },
       { x: p(N - 1, 0).x, y: -0.4 * E / N }), N);
     for (let x = 2; x < N - 2; x++) {
       assert.truthy(at(outside, x, 0));
       assert.truthy(at(outside, x, 1));
-      assert.falsy(at(outside, x, 2));
+      assert.truthy(at(outside, x, 2));
+      assert.falsy(at(outside, x, 3));
     }
   });
 

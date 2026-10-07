@@ -280,7 +280,7 @@
 
   test('gate: no chest — two posts either side of a spawn point', () => {
     const r = build([{ type: 1, tags: { class: 'gate' }, geom: pt(20, 20) }]);
-    assert.eq(r.objects.filter((o) => o.kind === 'chest').length, 0, 'a gate is no chest');
+    assert.eq(r.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp).length, 0, 'a gate is no chest');
     const posts = r.objects.filter((o) => o.kind === 'gatepost');
     assert.eq(posts.length, 2, 'two posts');
     const cells = posts.map(cellOf);
@@ -369,14 +369,14 @@
       { kind: 'chest', lix: 20, liy: 20, poiClass: 'bus', id: 'sxc_3' },
     ] };
     WorldGen.injectTileBin(entry, old, 0, 0);
-    assert.eq(entry.objects.filter((o) => o.kind === 'chest').map((o) => o.poiClass).join(','), 'bus', 'only the bus stop');
+    assert.eq(entry.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp).map((o) => o.poiClass).join(','), 'bus', 'only the bus stop');
     assert.eq(entry.objects.filter((o) => o.kind === 'gatepost').length, 2, 'the gate stands as its posts');
   });
 
   // ── Notice boards ────────────────────────────────────────────────────────
   test('notice board: an information POI is a board, not a chest, and reads one page once', () => {
     const r = build([{ type: 1, tags: { class: 'information' }, geom: pt(12, 12) }]);
-    assert.eq(r.objects.filter((o) => o.kind === 'chest').length, 0, 'no chest');
+    assert.eq(r.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp).length, 0, 'no chest');
     const boards = r.objects.filter((o) => o.kind === 'infoboard');
     assert.eq(boards.length, 1, 'one board');
     assert.eq(boards[0].id, 'info_0_0_12_12', 'id off the tile and cell');

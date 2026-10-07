@@ -96,3 +96,21 @@
     assert.eq(tree.x, 80); assert.eq(tree.y, 45, 'original seat restored');
   });
 })();
+
+// A logged bush (a timber wildplant under the axe) sways like a tree: the
+// same recoil about its foot, never the rock's sideways jolt.
+(function () {
+  test('work impact: a bush being logged sways like a tree', () => {
+    const wp = { toolSlot: 'axe', worldX: 20, worldY: 30, startT: 1000, durationMs: 4000 };
+    const hit = Render.WORK_LOOKS.axe.impact, time = wp.startT + hit.atMs + hit.ms / 4;
+    const bush = { kind: 'wildplant', crop: 'shrub', x: 20, y: 30 };
+    const tree = { kind: 'tree', x: 20, y: 30 };
+    const a = Render.workImpactPose(wp, bush, time), b = Render.workImpactPose(wp, tree, time);
+    assert.truthy(a && a.rotation, 'the bush recoils');
+    assert.eq(a.rotation, b.rotation, 'the same sway as the tree'); assert.eq(a.x, 0); assert.eq(a.y, 0);
+    assert.eq(Render.workImpactPose(wp, { kind: 'wildplant', crop: 'shrub', x: 21, y: 30 }, time), null, 'only the bush under the wheel');
+    assert.eq(Render.workImpactPose({ ...wp, toolSlot: 'pickaxe' }, bush, time), null, 'the pick does not shake a bush');
+    assert.truthy(/Render\.applyWorkImpact\(s, Render\.workImpactPose\(scene\._workProgress, p, performance\.now\(\)\),\s*s\.x, s\.y \+ \(1 - oy\) \* s\.displayHeight\)/.test(RENDER_SRC),
+      'the wildplant pass applies it about the foot');
+  });
+})();
