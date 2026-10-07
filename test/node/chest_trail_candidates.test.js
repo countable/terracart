@@ -15,7 +15,7 @@
       chest('good', 10), chest('higher', 20, { tierSeed: 5 }),
       chest('low', 3, { tierSeed: 1 }), chest('two', 2, { tierSeed: 2 }), chest('opened', 4),
       chest('chest_start_relic', 5), chest('crate', 6, { crate: true }),
-      chest('far', (HomeArea.RING_MAX_CELLS + 1) * 7),
+      chest('far', (HomeArea.CHEST_TRAIL_RADIUS_CELLS + 1) * 7),
       chest('deep', 7, { depth: 1 }), chest('wagon', 8, { banditStop: true }),
     ], () => {
       assert.eq(HomeArea.chestTrailCandidates(scene, anchor).map(o => o.id).join(), 'two,good,higher');
@@ -38,8 +38,8 @@
     });
   });
   test('chest trails: the chest at a trail\'s end rolls a tier higher, within its cap', () => {
-    const scene = { save: { starterCratesAt: { x: 0, y: 0 } }, cellM: 7, depth: 0 };
-    withChests([chest('end', 10), chest('far', (HomeArea.RING_MAX_CELLS + 1) * 7)], () => {
+    const scene = { save: {}, cellM: 7, depth: 0, startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 } };
+    withChests([chest('end', 10), chest('far', (HomeArea.CHEST_TRAIL_RADIUS_CELLS + 1) * 7)], () => {
       assert.truthy(HomeArea.isTrailChest(scene, { id: 'end' }));
       assert.falsy(HomeArea.isTrailChest(scene, { id: 'far' }));
     });

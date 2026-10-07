@@ -73,8 +73,10 @@ access or tile lifecycle mechanics.
   hash so the tile's rng stream never shifts. Mine mouths ignore ambient
   crates and drop any they land on.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
-  lead to unopened T2+ chests in Home's ring; the chest at a trail's end rolls
-  `CHEST_TRAIL_TIER_BONUS` tier higher, within its depth cap.
+  lead to the nearest unopened T2+ surface chests within
+  `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the surface (only the
+  starter crate's guide stays inside Home's ring); the chest at a trail's end
+  rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within its depth cap.
 - A Small road's end inside the tile that meets no other vehicle way (a
   cul-de-sac) holds one tier-1 supply crate (`o.crate`, no `poiClass`, so it
   gives once): `StreetVariants.dress`, seated like an end piece, capped per

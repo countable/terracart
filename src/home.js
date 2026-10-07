@@ -55,13 +55,18 @@ const HomeArea = {
   // end adds to its roll (interactables.js chest open: isTrailChest).
   CHEST_TRAIL_MIN_TIER: 2,
   CHEST_TRAIL_TIER_BONUS: 1,
+  // How far from the PLAYER (cells) a chest may lie and still get a trail.
+  // Until Oct 2026 trails only led to chests inside Home's ring, which almost
+  // never held a T2+ chest, so few players ever saw one.
+  CHEST_TRAIL_RADIUS_CELLS: 24,
 
-  // Optional treasure trails share Home's ring with the starter supplies.
-  // Pick by distance and id, so streaming order never reshuffles the trails.
-  chestTrailCandidates(scene, anchor = scene.save.starterCratesAt || this.worldM) {
-    if (!anchor || (scene.depth || 0) !== 0 || !(scene.cellM > 0)) return [];
+  // Optional treasure trails lead to the nearest unopened T2+ surface chests
+  // around the player, anywhere on the surface. Pick by distance and id, so
+  // streaming order never reshuffles the trails.
+  chestTrailCandidates(scene, anchor = scene.startWorldM && scene.playerM ? playerWorldM(scene) : null) {
+    if (!anchor || !Number.isFinite(anchor.x) || (scene.depth || 0) !== 0 || !(scene.cellM > 0)) return [];
     const opened = new Set(scene.save.opened || []), candidates = new Map();
-    const radius = this.RING_MAX_CELLS * scene.cellM;
+    const radius = this.CHEST_TRAIL_RADIUS_CELLS * scene.cellM;
     for (const entry of WorldGen.tileCache.values()) {
       for (const o of entry.objects || []) {
         if (o.kind !== 'chest' || !o.id || String(o.id).startsWith('chest_start_')
