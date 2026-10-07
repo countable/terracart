@@ -56,7 +56,8 @@
     };
     assert.eq(Math.round(area(uses.find(f => f.tags.class === 'residential'))), 414,
       'the contiguous residential block occupies roughly one fifth of 2100 cells');
-    assert.eq(Math.round(area(uses.find(f => f.tags.amenity === 'parking'))), 99, 'parking footprint shrinks about thirty percent');
+    assert.falsy(uses.some(f => f.tags.class === 'commercial' && f.geom[0][0].y >= 6 * R.CELL),
+      'commercial zoning stays above the parking lot');
     assert.eq(uses.filter(f => f.tags.class === 'park').length, 1, 'only the grove park remains');
     assert.falsy(R.labels.some(label => label.text === 'Park'), 'the removed park has no label');
   });
@@ -77,8 +78,8 @@
   test('floor viewer region: every surface nexus kind has a real source', async () => {
     const entry = await buildSurface();
     const kinds = new Set(entry.zone.anchors.map(anchor => anchor.kind));
-    assert.truthy(entry.zone.anchors.some(anchor => anchor.kind === 'quarry' && anchor.owned && !anchor.clipped),
-      'the parking lot generates a complete quarry nexus inside the map');
+    assert.truthy(entry.zone.anchors.some(anchor => anchor.kind === 'quarry' && anchor.generated === 'parking_lanes'),
+      'the parking aisles generate a quarry nexus');
     for (const kind of ['grove', 'stones', 'tar', 'beach', 'quarry'])
       assert.truthy(kinds.has(kind), `${kind} anchor generated from the fixture source`);
   });
@@ -91,7 +92,13 @@
     assert.gt(at('FOREST'), 40, 'forest patch paints');
     assert.eq(entry.grid[15 * FloorViewerRegion.N + 55], T.FOREST, 'forest sits below the eastern grove');
     const lot = entry.grid[12 * FloorViewerRegion.N + 7];
-    assert.truthy(lot === T.COMMERCIAL || lot === T.ROCK, 'parking lot is paved or quarry ground, not bare dirt');
+    assert.eq(lot, T.ROCK, 'parking lot becomes quarry ground');
+    for (let y = 6; y < 24; y++) for (let x = 0; x < 15; x++) {
+      const i = y * FloorViewerRegion.N + x;
+      assert.falsy(entry.grid[i] === T.COMMERCIAL, 'commercial ground never splits the parking lot');
+      if (entry.roadMask[i] || WorldGen.isRoadTerrain(entry.grid[i])) continue;
+      assert.truthy(entry.zone.coverage[i], 'the whole parking lot has nexus coverage');
+    }
     assert.eq(entry.grid[3 * FloorViewerRegion.N + 5], T.COMMERCIAL, 'commercial fills the former northwest forest');
     assert.eq(entry.grid[21 * FloorViewerRegion.N + 25], T.RESIDENTIAL, 'residential fills the west side above the medium road');
     assert.eq(at('FARMLAND'), 0, 'farmland is replaced by the parking lot');
@@ -104,7 +111,9 @@
     assert.gt(at('PARK') + at('GROVE'), 100, 'the grove paints');
     assert.gt(at('SAND'), 60, 'the beach paints');
     assert.gt(at('WATER'), 60, 'the lake paints');
-    assert.gt(at('PITCH'), 20, 'the pitch paints');
+    assert.eq(at('PITCH'), 0, 'the sports pitch is replaced by the tar yard');
+    assert.truthy(entry.zone.anchors.some(a => a.kind === 'tar' && a.gy / FloorViewerRegion.CELL > 24),
+      'the tar yard sits below the medium road');
     assert.gt(at('ROAD') + at('ROAD_MD') + at('ROAD_LG'), 50, 'streets paint in all three tiers');
     // The lake stays small: well under an eighth of the tile.
     assert.lt(at('WATER'), entry.grid.length / 8, 'the corner lake stays compact');
