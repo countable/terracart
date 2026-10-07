@@ -227,7 +227,8 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
   const authoredStairs = new Set(on.zoneDress.objects.filter(o => o.kind === 'staircase' && o.zoneLayer === 'entrance'));
   for (const o of authoredStairs) assert.eq(on.objects.filter(p => p === o).length, 1, 'each authored shaft joins the generated layer exactly once');
   const templeSeats = new Set(on.objects.filter(o => o.kind === 'temple').map(o => `${o.x}|${o.y}`));
-  const ordinary = o => !['house', 'tower', 'temple'].includes(o.kind) && !templeSeats.has(`${o.x}|${o.y}`);
+  // Ambient crates (the low-tier quota) seat on the finished ground, so they follow the zone by design.
+  const ordinary = o => !['house', 'tower', 'temple'].includes(o.kind) && !o.ambientCrate && !templeSeats.has(`${o.x}|${o.y}`);
   assert.eq(sig(on.objects.filter(o => !authoredStairs.has(o) && ordinary(o))),
     sig(off.objects.filter(o => keep(o) && ordinary(o))), 'preserved non-building objects keep ids and positions');
   assert.eq(sig(on.wildplants), sig(off.wildplants.filter(keep)), 'preserved wild plants keep ids and positions');
@@ -743,7 +744,7 @@ test('park flora: a clump is several times as full as the open lawn, in every sc
   for (const ch of ['meadow', 'wooded', 'common']) {
     const { r, N, edge } = syntheticPark(ch);
     const occ = new Set();
-    for (const o of [...r.objects, ...r.wildplants]) {
+    for (const o of [...r.objects.filter(o => !o.ambientCrate), ...r.wildplants]) {
       occ.add(Math.floor((o.y - TILE_TY * edge) / (edge / N)) * N + Math.floor((o.x - TILE_TX * edge) / (edge / N)));
     }
     let inN = 0, inOcc = 0, outN = 0, outOcc = 0;

@@ -7,25 +7,34 @@
   const get = (save, value) => list(save).find(r => r.id === (typeof value === 'string' ? value : value?.id));
   const species = kind => String(kind || '').replace(/^shiny_/, '').replace(/^baby_/, '');
   const ownedKind = (save, kind) => list(save).find(r => species(r.kind) === species(kind));
+  // The ANIMAL species (per-individual tint, the farm rows). Enemies are not
+  // animals, but they are catchable below.
   const eligible = kind => ITEM_BY_ID[species(kind)]?.kind === 'animal' || Object.hasOwn(ANIMAL_FOOD,species(kind));
-  const fed = (save, c) => !!(get(save, c)?.favouriteFed || save.animalFeeds?.[c.id]);
-  const canCatch = (save, c) => !!c && eligible(c.kind) && !c.pet && fed(save, c) && !ownedKind(save, c.kind);
+  // What a wild one can be caught as a pet: an animal, or any ENEMY — except
+  // a story's own foe (a story-encounter archer, a roster row with a
+  // storyReward), whose defeat moves the story on.
+  const catchable = c => {
+    if (!c || c.storyEncounter) return false;
+    const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(species(c.kind)) : null;
+    return row ? !row.storyReward : eligible(c.kind);
+  };
+  // Does it accept this item? Its favourite (items.js favouriteItems).
+  const likes = (c, itemId) => !!c && !!itemId && animalLikesFood(species(c.kind), itemId);
+  // GIVING the favourite starts the catch; nothing is prepared beforehand.
+  const canCatch = (save, c) => catchable(c) && !c.pet && !ownedKind(save, c.kind);
+  // THE CATCH'S DIFFICULTY is the creature's CURRENT HP times two, worn down
+  // at the net's tool rate (Combat.dpsForDurationMs of its toolDurationMs —
+  // the rate a weapon of that tier deals damage). A hurt foe, a better net:
+  // a shorter catch. Shiny and elite pools are doubled in their HP already.
+  function catchMs(save, c) {
+    const difficulty = 2 * Combat.hp(c);
+    return difficulty / Combat.dpsForDurationMs(toolDurationMs(save?.relics, 'net')) * 1000;
+  }
   function tintFor(c) {
     if (Number.isFinite(c.tint)) return c.tint;
     let h = 2166136261;
     for (const ch of String(c.id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
     return TINTS[(h >>> 0) % TINTS.length];
-  }
-  function feedWild(save, c, food) {
-    if (!c || c.pet || ownedKind(save,c.kind) || !eligible(c.kind) || !animalLikesFood(species(c.kind), food)) return false;
-    (save.animalFeeds ||= {})[c.id] = true;
-    c.favouriteFed = true;
-    c._chaseTarget = null;
-    c._hp = Combat.maxHp(c);
-    c.favouriteFeeds = (c.favouriteFeeds || 0) + 1;
-    const row = save.wildAnimals?.find(r => r.id === c.id);
-    if (row) Object.assign(row, { favouriteFeeds:c.favouriteFeeds, hp:c._hp, favouriteFed:true });
-    return true;
   }
   function stats(c, now = Date.now()) {
     const result = { maxHp:0, armor:0, attack:0, regen:0 };
@@ -37,7 +46,7 @@
   function bond(save, c, options = {}) {
     if (!canCatch(save, c)) return false;
     const sourceId = c.id, id = sourceId.startsWith('pet_') ? sourceId : `pet_${sourceId}`;
-    const row = { id, sourceId:c.sourceId || sourceId, kind:species(c.kind), pet:true, favouriteFed:true, carried:options.carried !== false,
+    const row = { id, sourceId:c.sourceId || sourceId, kind:species(c.kind), pet:true, carried:options.carried !== false,
       x:c.x, y:c.y, tx:c.tx, ty:c.ty, stayHome:false, shiny:!!c.shiny, tint:tintFor(c),
       raised:!!c.raised, born:c.born, favouriteFeeds:c.favouriteFeeds || 1,
       hp:Combat.hp(c), lastDamagedAt:c._lastDamagedT || null, recoverUntil:0, regenAt:Date.now(),
@@ -51,11 +60,10 @@
     if (sourceId !== id && !(save.caught ||= []).includes(sourceId)) save.caught.push(sourceId);
     removeLive(sourceId);
     save.wildAnimals = (save.wildAnimals || []).filter(r => r.id !== sourceId);
-    delete (save.animalFeeds ||= {})[sourceId];
     return row;
   }
   function sync(row, c) {
-    Object.assign(c, {pet:true, favouriteFed:true, tint:row.tint, accessories:row.accessories, bonuses:row.bonuses,
+    Object.assign(c, {pet:true, tint:row.tint, accessories:row.accessories, bonuses:row.bonuses,
       effects:row.effects, raised:row.raised, born:row.born, shiny:row.shiny, favouriteFeeds:row.favouriteFeeds,
       recoverUntil:row.recoverUntil, regenAt:row.regenAt, _hp:row.hp,
       _lastDamagedT:row.lastDamagedAt ?? null, carried:row.carried});
@@ -105,8 +113,7 @@
     if (Object.entries(counts).some(([item,n]) => Inventory.roomFor(save,item) < n)) return false;
     for (const item of items) Inventory.add(save,item,1);
     save.released = save.released.filter(r => r !== row);
-    (save.wildAnimals ||= []).push({...row, pet:false, carried:false, favouriteFed:false, accessories:{}});
-    delete (save.animalFeeds ||= {})[row.id];
+    (save.wildAnimals ||= []).push({...row, pet:false, carried:false, accessories:{}});
     save.caught = (save.caught || []).filter(value => value !== row.id);
     removeLive(row.id); return true;
   }
@@ -152,6 +159,6 @@
     }
     return changed;
   }
-  root.Pets = { RECOVERY_MS, REGEN_MS, COMBAT_REST_MS, TINTS, list,get,species,ownedKind,eligible,fed,canCatch,tintFor,
-    feedWild,bond,carry,deploy,equip,unequip,release,feed,tick,stats,isDown,knockedOut,sync };
+  root.Pets = { RECOVERY_MS, REGEN_MS, COMBAT_REST_MS, TINTS, list,get,species,ownedKind,eligible,catchable,likes,canCatch,catchMs,tintFor,
+    bond,carry,deploy,equip,unequip,release,feed,tick,stats,isDown,knockedOut,sync };
 })(typeof window !== 'undefined' ? window : globalThis);

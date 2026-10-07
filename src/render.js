@@ -120,11 +120,15 @@ Render.workToolPose = function (slot, elapsed) {
 Render.workImpactPose = function (wp, object, now) {
   if (!wp || wp.combat || now < wp.startT || now - wp.startT >= wp.durationMs) return null;
   const look = Render.WORK_LOOKS[wp.toolSlot], impact = look?.impact;
-  if (!impact || object.kind !== impact.kind || object.x !== wp.worldX || object.y !== wp.worldY) return null;
+  // The axe's impact lands on a tree OR a logged bush (a timber wildplant
+  // under the same wheel): the bush sways like the tree, about its foot.
+  if (!impact || !object) return null;
+  const kindOk = object.kind === impact.kind || (impact.kind === 'tree' && object.kind === 'wildplant');
+  if (!kindOk || object.x !== wp.worldX || object.y !== wp.worldY) return null;
   const age = ((now - wp.startT) % look.beatMs) - impact.atMs;
   if (age < 0 || age >= impact.ms) return null;
   const t = age / impact.ms, fade = (1 - t) ** 2;
-  return object.kind === 'tree'
+  return (object.kind === 'tree' || object.kind === 'wildplant')
     ? { rotation: Math.sin(t * Math.PI * 2) * 0.07 * fade, x: 0, y: 0 }
     : { rotation: 0, x: Math.sin(t * Math.PI * 6) * 2 * fade,
         y: -Math.abs(Math.sin(t * Math.PI * 6)) * 0.6 * fade };
@@ -935,7 +939,7 @@ Render.announceElites = function announceElites(scene, list, project) {
   const seen = scene._announcedElites ||= new Set();
   const arrivals = list.filter(({ c, dx, dy }) => {
     if (!c.id || seen.has(c.id) || !Combat.isElite(c) || !Combat.isEnemy(c) || Combat.isConcealed(c)) return false;
-    const { sx, sy } = project(dx, dy);
+    const { x: sx, y: sy } = project(dx, dy);   // drawObjects' project is coords.js deltaMToScreen: {x, y}
     return sx >= scene.viewLeft && sy >= scene.viewTop
       && sx <= scene.viewLeft + scene.viewSize && sy <= scene.viewTop + scene.viewSize;
   });
@@ -3257,6 +3261,8 @@ function seatShadow(s, look, w, x, y, h = w * SHADOW_LOOK[look].aspect) {
 // Contact-shadow width under a creature, per kind (px at scale 1). Per-kind
 // rather than measured, because creature sheets animate (a measured shadow
 // would pulse frame to frame).
+// The elite rune circle's width at a kind's ordinary size (px).
+const ELITE_RING_PX = 46;
 const CRITTER_SHADOW_W = {
   cow: 30, horse: 26, deer: 26, dog: 22, boar: 20, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14, sea_turtle: 16,
   butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
@@ -4282,7 +4288,8 @@ Render.drawObjects = function drawObjects(scene) {
     }
     if (c._lungeWindupUntil > now) {
       const length = row.movement.lungeSpeedMetersPerSecond * row.movement.lungeSeconds / scene.cellM * CELL_PX;
-      g.lineStyle(2, 0xffdb72, 0.85);
+      // Fainter than the attack outlines: a long lane, not a blow landing.
+      g.lineStyle(2, 0xffdb72, 0.4);
       g.beginPath(); g.moveTo(p.x, p.y);
       g.lineTo(p.x + Math.cos(c._lungeAngle) * length, p.y + Math.sin(c._lungeAngle) * length);
       g.strokePath();
@@ -4398,6 +4405,10 @@ Render.drawObjects = function drawObjects(scene) {
     const box = ov?.seat && SpriteLayout.ART_BOUNDS[`${ov.sheet}:${wildplantFrame(p)}`];
     const placement = box ? SpriteLayout.seatInCell(box, 0.5, oy, cropScl, cropScl) : {dxPx:0, dyPx:0};
     s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx - plantedYOffset);
+    // A bush being logged sways about its foot, as a tree under the axe does
+    // (the pool reset its rotation before this configure).
+    Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, p, performance.now()),
+      s.x, s.y + (1 - oy) * s.displayHeight);
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
@@ -4702,18 +4713,22 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
-  // Elite circles stay on the ground through hops and use baked glow even with FX off.
+  // THE ELITE'S RUNE CIRCLE: a baked ring of runes flat on the ground under
+  // its feet (the cell, never the hop), pulsing gently, under every renderer.
   Render.announceElites(scene, creatureList, project);
   if (scene.shadowContainer) {
     scene.eliteRingPool ||= [];
     const elites = creatureList.filter(({ c }) => Combat.isElite(c) && !Combat.isConcealed(c));
+    const pulseNow = performance.now();
     Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, elites, (s, item) => {
-      const { sx, sy } = project(item.dx, item.dy);
-      const size = 36 * giantMul(item.c.kind) * creatureInstScale(item.c);
+      const { x: sx, y: sy } = project(item.dx, item.dy);
+      const size = ELITE_RING_PX * giantMul(item.c.kind) * creatureInstScale(item.c);
       setTextureIfDifferent(s, 'elite_ring');
+      // The baked circle is drawn top-down; halving its height lays it flat on
+      // the ground in the map's tilted view.
       s.setOrigin(0.5, 0.5).setDisplaySize(size, size / 2)
        .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY)
-       .setAlpha(1).setTint(0xffffff);
+       .setAlpha(0.8 + 0.2 * Math.sin(pulseNow / 450 + (strHash31(item.c.id || '') % 7)));
     });
   }
 

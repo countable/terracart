@@ -245,6 +245,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'purseShort', 'bagFullFor',        // the counters' two refusals, measured in economy_owners.test.js
     'Macros',                          // Macros.waitLine — every recurring row's prefix, measured below
     'row',                             // a page stone's `read` line, measured below
+    'itemName', 'fav', 'Pets', 'foeName', // the creature tap's name / favourite / offer lines, measured below
   ]);
   const seen = new Set();
   for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -473,4 +474,35 @@ test('map copy: every wildplant reward bundle fits the harvest toast', () => {
   }
   assert.eq(wildplantHarvestLine('giant_mushroom'),'+1 Wood · +1 Mushroom');
   assert.truthy(INTERACT_SRC.includes('scene.flashLoot(wildplantHarvestLine(wp.crop)'), 'harvest uses the measured formatter');
+});
+
+// THE CREATURE TAP'S NAMED LINES (interact.js, the 'creature' handler): a foe
+// tapped without its favourite flashes its name, and — when it is catchable
+// on its default tier gem — "Name\nLoves Gem" (two lines, each on its own
+// budget); a charmed one flashes only its name; a wild animal tapped
+// empty-handed flashes "Offer <food> to catch it" ('a seed' for the chicken)
+// or "Release this species first". Measured over the REAL roster and
+// ANIMAL_FOOD, against the shipping templates.
+test('map copy: every creature-tap name, favourite and offer line fits', () => {
+  assert.truthy(INTERACT_SRC.includes('scene.flash(fav ? `${foeName(target.kind)}\\nLoves ${itemName(fav)}` : foeName(target.kind), sx, sy);'),
+    'the foe line is the shape measured here');
+  assert.truthy(INTERACT_SRC.includes("`Offer ${food} to catch it`"), 'the offer line is the shape measured here');
+  let foes = 0, offers = 0;
+  for (const kind of Combat.enemyKinds()) {
+    const fav = favouriteItems(Pets.species(kind))[0];
+    const lines = [EnemyRoster.get(kind)?.name || itemName(kind), ...(fav ? [`Loves ${itemName(fav)}`] : [])];
+    for (const line of lines) assert.lte([...line].length, MAP_MSG_MAX, `${kind}: ${line}`);
+    foes++;
+  }
+  const animals = new Set([...Object.keys(ANIMAL_FOOD),
+    ...ITEMS.filter((i) => i.kind === 'animal').map((i) => Pets.species(i.id))]);
+  for (const kind of animals) {
+    if (!Pets.catchable({ kind, id: 'copy' })) continue;
+    const food = kind === 'chicken' ? 'a seed' : itemName(favouriteItems(kind)[0] || 'favourite food');
+    const line = `Offer ${food} to catch it`;
+    assert.lte([...line].length, MAP_MSG_MAX, `${kind}: ${line}`);
+    offers++;
+  }
+  assert.gt(foes, 10, 'the roster was measured'); assert.gt(offers, 5, 'and the animals');
+  assert.lte([...'Release this species first'].length, MAP_MSG_MAX);
 });

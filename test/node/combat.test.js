@@ -769,9 +769,9 @@ test('combat: every melee gate the player has runs the shared test', () => {
   // Comments are stripped first: these files EXPLAIN the change ("this used to
   // be cellInReach"), and a prose mention is not a call site.
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
-  // Enemy taps are handled without choosing a combat target. Feeding,
-  // catching, petting and hunting keep their existing tap interactions.
-  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target) && !catchableAnimal) {'));
+  // Enemy taps are handled without choosing a combat target. Giving a
+  // favourite (the catch), petting and hunting keep their own tap branches.
+  const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
   const head = code(tap.slice(0, tap.indexOf('\n    }')));
   assert.falsy(/startCombat/.test(head), 'tapping a foe cannot select a melee target');
   assert.truthy(/return true/.test(head), 'the enemy tap is consumed');

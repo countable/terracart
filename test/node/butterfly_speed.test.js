@@ -26,7 +26,10 @@ test('butterfly speed: every mover in the loop and the net wheel is held to it',
     'the wander glide stretches to the cap');
   assert.truthy(/c\._hopMs = Math\.max\(hurryMs, hurryM \/ maxMps \* 1000\);/.test(w),
     'the struck-prey shove is held to it too');
-  assert.truthy(/FLEE_MPS = Math\.min\(isButterfly \? 5\.4 : 2, SpriteLayout\.creatureMaxMps\(c\.kind\)\) \* shinyFast;/.test(SCENE_SRC),
+  // An animal's top is its row's cap; an ENEMY's is its roster walk.
+  assert.truthy(/const top = roster \? \(roster\.movement\?\.speedMetersPerSecond \?\? 0\) : SpriteLayout\.creatureMaxMps\(c\.kind\);/.test(SCENE_SRC),
+    'the net wheel\'s flee reads the animal\'s cap (or an enemy\'s roster speed)');
+  assert.truthy(/FLEE_MPS = Math\.min\(isButterfly \? 5\.4 : 2, top\) \* shinyFast;/.test(SCENE_SRC),
     'the net wheel\'s flee: capped, then quickened for a shiny');
 });
 })();

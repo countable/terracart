@@ -109,3 +109,19 @@
     assert.eq(ChestThemes.themes.vista.weights.protectiveGear, 45, 'armour is the equipment lane');
   });
 })();
+
+// A tome is read at a tap — no confirm — and its Read button wears the wait.
+test('tomes: read outright from the button, which counts the lock down', () => {
+  const tomes = Object.entries(CONSUMABLE_SPEC).filter(([, r]) => r.cooldownMs > 0 && r.verb === 'Read');
+  assert.gte(tomes.length, 8);
+  const resting = { _tomeWait: () => ({ ms: 5 * 60 * 1000, line: 'The tomes rest' }) };
+  const ready = { _tomeWait: () => null };
+  for (const [id, row] of tomes) {
+    assert.eq(row.immediate, true, `${id}: no confirm dialog`);
+    assert.eq(row.label(ready, row), 'Read', `${id}: plain Read when free`);
+    assert.eq(row.label(resting, row), 'Read · 5m', `${id}: the wait on the button`);
+    assert.truthy(row.disabled(resting, row) && !row.disabled(ready, row), `${id}: greyed while it rests`);
+  }
+  assert.truthy(/this\._tickEatButton\(\);\s*this\._tickThrowButton\(\);\s*this\._tickConsumableButton\(\);/.test(SCENE_SRC),
+    'the countdown ticks beside the eat and throw buttons');
+});

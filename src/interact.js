@@ -515,12 +515,6 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg 
   return true;
 }
 
-// Catch wheel speed-up over the shared tool ladder (toolDurationMs) — 25%
-// quicker to land chicken/cow/cat/dog/rabbit/butterfly than the bare net
-// tier would otherwise take. Scoped to the catch wheel only: hunting
-// (crow/deer) and every other toolDurationMs user (mining, tilling, combat)
-// are unaffected.
-const CATCH_SPEED_MUL = 0.75;
 
 // Is this tapped cell one of the starter pond's four? save.starterPondAt is
 // the pond's top-left cell centre; the pond is 2x2 on its own tile's grid.
@@ -706,55 +700,75 @@ const TAP_HANDLERS = [
     if (Pirates.isPirate(target) && Pirates.present(scene, target)) return true;
 
     const isTame = Combat.isTame(target);
-    const catchableAnimal = ITEM_BY_ID[target.kind]?.kind === 'animal' || !!ANIMAL_FOOD[target.kind];
     const sel = getSelectedSlot(save);
-    const likes = sel && animalLikesFood(target.kind, sel.id);
-    const producerMeal = sel?.count > 0 && ITEM_BY_ID[sel.id]?.crop
-      && ITEM_BY_ID[sel.id]?.kind === 'produce' && !!SpriteLayout.creatureProduce(target.kind);
+    const held = sel && (sel.count ?? 0) > 0 ? sel.id : null;
+    // ITS FAVOURITE (items.js favouriteItems: an animal's food, an enemy's
+    // tier gem): what it accepts. Anything else is refused and KEPT.
+    const likes = !!held && Pets.likes(target, held);
+    const producerMeal = held && ITEM_BY_ID[held]?.crop
+      && ITEM_BY_ID[held]?.kind === 'produce' && !!SpriteLayout.creatureProduce(target.kind);
     if (isTame && (likes || !producerMeal)) {
-      if (likes && sel.count > 0) {
-        const food = sel.id;
+      if (likes) {
+        const food = held;
         confirmFeed(scene, food, target.kind, () => {
-          const held = getSelectedSlot(save);
-          if (held?.id !== food || !(held.count > 0) || !Pets.feed(save, target, food)) return;
+          const now = getSelectedSlot(save);
+          if (now?.id !== food || !(now.count > 0) || !Pets.feed(save, target, food)) return;
           consumeSelected(save);
           scene.buildInventoryDOM();
-          scene.flashLoot('Favourite food: full energy', '#a7ffb0', 1, food);
+          scene.flashLoot('Favourite food: full energy', UI_GREEN, 1, food);
           persistSave(save);
         });
       } else scene.presentPetMenu(target.id);
       return true;
     }
-    if (catchableAnimal && likes && sel.count > 0) {
+    // THE CATCH (owner, Oct 2026): GIVING a wild animal or an enemy its
+    // favourite starts the attempt — nothing is prepared beforehand. The
+    // favourite is given (spent) as the wheel starts; the difficulty is the
+    // creature's current HP times two (Pets.catchMs); it bolts for the edge
+    // of your reach the whole time (startCatchProgress' flee) and the
+    // attempt fails if it gets out. While it runs you do not fight
+    // (app.js: no auto-fire, no throw) and it is nobody's enemy
+    // (Combat.isEnemy: _beingCaught), so nothing else finishes it first.
+    if (!isTame && likes && Pets.catchable(target)) {
       if (Pets.ownedKind(save, target.kind)) {
-        scene.flash('Release this species first', sx, sy);
+        scene.flash('Release this species first', sx, sy);   // refused: the item is kept
         return true;
       }
-      const food = sel.id;
-      confirmFeed(scene, food, target.kind, () => {
-        const held = getSelectedSlot(save);
-        if (held?.id !== food || !(held.count > 0) || Pets.ownedKind(save, target.kind)
-          || !Pets.feedWild(save, target, food)) return;
-        consumeSelected(save);
-        scene.buildInventoryDOM();
-        scene.flashLoot('Fed — ready to catch', '#a7ffb0', 1, food);
-        persistSave(save);
-      });
+      const catchCost = effectiveCatchCost(save.relics);
+      if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
+      const victim = target;
+      consumeSelected(save);
+      scene.buildInventoryDOM();
+      persistSave(save);
+      // The chicken has its own first-attempt story; other catches use the
+      // net story. After the spend, so an unaffordable attempt tells neither.
+      scene._catchStory?.(victim);
+      scene.startCatchProgress(victim, Pets.catchMs(save, victim), () => {
+        if (Pets.canCatch(save, victim) && !(save.caught || []).includes(victim.id)) scene.catchCreature(victim, sx, sy);
+      }, () => {
+        // On the cell the creature escaped FROM (where it stands now).
+        scene.flashAtWorld('🏃 it got away', victim.x, victim.y);
+      }, 'net', catchCost);
       return true;
     }
 
     // A rose befriends an enemy temporarily; it does not make it catchable.
+    // A foe goes by its roster name ("Green Slime"), not its pet item's.
+    const foeName = (k) => EnemyRoster.get(k)?.name || itemName(k);
     if (Combat.isCharmed(target)) {
-      const name = Combat.monster(target.kind)?.name || itemName(target.kind);
-      scene.flash(name, sx, sy);
+      scene.flash(foeName(target.kind), sx, sy);
       return true;
     }
 
     // Enemy taps do not choose a melee target. The combat tick continuously
-    // selects the closest foe in weapon reach; feeding/taming above still works.
-    if (Combat.isEnemy(target) && !catchableAnimal) {
-      const name = Combat.monster(target.kind)?.name || itemName(target.kind);
-      scene.flash(name, sx, sy);
+    // selects the closest foe in weapon reach. A tap names the foe and what
+    // it would take to catch it; any other item held is refused and kept.
+    if (Combat.isEnemy(target)) {
+      // The default tier gem is named; an explicit favourite on an enemy kind
+      // (the slimes' sapphire) stays the Book's riddle, so the tap names only the foe.
+      const sp = Pets.species(target.kind);
+      const fav = Pets.catchable(target) && !favouriteOverride(sp) ? favouriteItems(sp)[0] : null;
+      scene.flash(fav ? `${foeName(target.kind)}\nLoves ${itemName(fav)}` : foeName(target.kind), sx, sy);
       return true;
     }
 
@@ -762,8 +776,7 @@ const TAP_HANDLERS = [
     // the one creature table, so what may be hunted is written beside what
     // that kill drops instead of in a set of its own here. A pet of any kind
     // opens its individual menu above.
-    if (SpriteLayout.isGame(target.kind) && !Pets.fed(save, target)
-      && !sel && Gear.activeWeapon(save)) {
+    if (SpriteLayout.isGame(target.kind) && !sel && Gear.activeWeapon(save)) {
       const r = save.relics || {};
       // ONE TOOL TAKES ANIMALS: the BUG NET. Weapons fight ENEMIES
       // (combat.js); the net takes GAME and livestock alike, on the same slot
@@ -853,55 +866,21 @@ const TAP_HANDLERS = [
         return true;
       }
     }
-    // 3. Any other food → yuck. Wasted bite. Confirm first so a stray tap
-    // doesn't silently burn a food item the animal won't even accept.
-    if (sel && isEdible && (sel.count ?? 0) > 0) {
-      const yuckId = sel.id;
-      const doYuck = () => {
-        consumeSelected(save);
-        scene.buildInventoryDOM();
-        scene.flashLoot(`🤢 Spits it out.`, '#ff8a7a', 1, yuckId);
-        persistSave(save);
-      };
-      confirmFeed(scene, yuckId, target.kind, doYuck);
+    // Any other food: refused, and KEPT (an entity that will not take an item
+    // never costs it).
+    if (held && isEdible) {
+      scene.flash('🤢 Not its favourite', sx, sy);
       return true;
     }
     if (isTame) { scene.presentPetMenu(target.id); return true; }
-    // The food requirement and species slot are checked before any energy or work.
-    if (!Pets.canCatch(save, target)) {
-      const food = target.kind === 'chicken' ? 'a seed' : itemName(ANIMAL_FOOD[target.kind]?.[0] || 'favourite food');
-      const msg = Pets.ownedKind(save, target.kind)
-        ? 'Release this species first' : `Feed ${food} first`;
-      scene.flash(msg, sx, sy);
-      return true;
+    // A wild one without its favourite in hand: say what it wants.
+    if (Pets.catchable(target)) {
+      const sp = Pets.species(target.kind);
+      // A foe kind's explicit favourite (the slimes' sapphire) is never named.
+      if (EnemyRoster.get(sp) && favouriteOverride(sp)) { scene.flash(foeName(target.kind), sx, sy); return true; }
+      const food = target.kind === 'chicken' ? 'a seed' : itemName(favouriteItems(sp)[0] || 'favourite food');
+      scene.flash(Pets.ownedKind(save, target.kind) ? 'Release this species first' : `Offer ${food} to catch it`, sx, sy);
     }
-    // Fed slimes are picked up by a tap; other animals use the net work wheel.
-    if (SpriteLayout.baseKind(target.kind) === 'slime') {
-      scene.catchCreature(target, sx, sy);
-      return true;
-    }
-    let catchMs = toolDurationMs(save.relics, 'net') * CATCH_SPEED_MUL;
-    // Rare shiny fauna have DOUBLE HP — the catch wheel runs twice as long, so
-    // a shiny animal (which also flees at SHINY_SPEED_MUL, app.js) is much harder to net: it
-    // has more time to slip out of reach and escape. Plain kinds are unchanged.
-    if (target.shiny) catchMs *= 2;
-    // …and a kind's own row may ask for longer still (a cow: twice).
-    catchMs *= SpriteLayout.creatureCatchMul(target.kind);
-    // Catching costs energy (refunded if the player cancels the wheel; not
-    // refunded if the animal escapes the player's reach — the attempt was made).
-    const catchCost = effectiveCatchCost(save.relics);
-    if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
-    const victim = target;
-    // The chicken has its own first-attempt story; other catches use the net
-    // story. After the spend, so an unaffordable attempt tells neither.
-    scene._catchStory?.(victim);
-    scene.startCatchProgress(victim, catchMs, () => {
-      if (Pets.canCatch(save, victim)) scene.catchCreature(victim, sx, sy);
-    }, () => {
-      // On the cell the animal escaped FROM (where it stands now), not the
-      // viewport centre.
-      scene.flashAtWorld('🏃 it got away', victim.x, victim.y);
-    }, 'net', catchCost);
     return true;
   }},
 

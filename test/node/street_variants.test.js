@@ -255,7 +255,7 @@ test('dressing: clipped bushes line the hedgerow, off the band and off anything 
   assert.eq(wildplantOutput('barricade'), 'wood', 'and a barricade is broken up the same way');
 });
 
-test('hedgerow: aligned regular gates and fixed verge rows stay tidy around obstacles', () => {
+test('hedgerow: fully hedged on both verges, no gaps, and tidy around obstacles', () => {
   const rec = {variant:'hedgerow', key:'manicured', halfW:4, line:pts([[5,30],[47,30]])};
   const grid = new Uint8Array(CPE * CPE).fill(T.GRASS);
   const draw = (occupied = new Set(), spawnWhy = new Uint16Array(CPE * CPE)) => SV.dress({
@@ -265,12 +265,12 @@ test('hedgerow: aligned regular gates and fixed verge rows stay tidy around obst
   const rows = draw();
   const north = rows.filter(p => cellOf(p.y,TY) < 30).map(p => cellOf(p.x,TX));
   const south = rows.filter(p => cellOf(p.y,TY) > 30).map(p => cellOf(p.x,TX));
-  assert.eq(north.join(','),south.join(','),'garden gates line up across the road');
+  assert.eq(north.join(','),south.join(','),'the two rows match across the road');
   assert.eq(new Set(rows.map(p => cellOf(p.y,TY))).size,2,'one fixed row on each side');
-  const gaps = [];
-  for (let x = north[0]; x < north[north.length-1]; x++) if (!north.includes(x)) gaps.push(x);
-  assert.gt(gaps.length,4,'several regular gates');
-  for (let i=1;i<gaps.length;i++) assert.eq(gaps[i]-gaps[i-1],SV.HEDGE_GATE_EVERY_CELLS);
+  const sorted = north.slice().sort((a,b)=>a-b);
+  assert.eq(new Set(sorted).size, sorted.length, 'one hedge per kerb cell');
+  assert.eq(sorted.length, sorted[sorted.length-1]-sorted[0]+1, 'no gaps: every kerb cell along the lane is hedged');
+  assert.gt(sorted.length, 30, 'the whole covered length');
   const target=rows[2], ix=cellOf(target.x,TX),iy=cellOf(target.y,TY),idx=iy*CPE+ix;
   const expected=rows.filter(p=>p.id!==target.id).map(p=>p.id).join(',');
   assert.eq(draw(new Set([idx])).map(p=>p.id).join(','),expected,'an obstacle removes only its slot');
@@ -780,6 +780,35 @@ test('slow: the feet cell is read off playerToWorldCell, and the first contact f
   }
 });
 
+test('street sight: a told variant entering the lit radius pops its map line once, at its nearest lit cell', () => {
+  const start = SCENE_SRC.indexOf('\n  _tickStreetSight() {');
+  const body = SCENE_SRC.slice(SCENE_SRC.indexOf('{', start) + 1, SCENE_SRC.indexOf('\n  }\n', start));
+  const tick = new Function('reachRadiusM', 'playerReachCell', 'cellInReach', 'absCellToTile', 'WorldGen', 'StreetVariants', 'STREET_FLASH_GAP_MS', body);
+  const row = SV.VARIANT_BY_ID.snare, N = 32, marks = new Uint8Array(N * N);
+  const entry = { _spawned: true, streetMarks: marks };
+  const WG = { tileKey: () => 'k', tileCache: new Map([['k', entry]]) };
+  const scene = { cellM: 7, save: { storySeen: {} }, at: { cellIX: 10, cellIY: 10 }, pops: [],
+    flashAtCell(text, ix, iy) { this.pops.push({ text, ix, iy }); } };
+  const reach = 2.5 * 7 + 1;
+  const inReach = (sc, ix, iy) => Math.hypot(ix - sc.at.cellIX, iy - sc.at.cellIY) * 7 <= reach;
+  const toTile = (sc, ix, iy, o) => Object.assign(o, { tx: 0, ty: 0, ix, iy, n: N });
+  const run = () => tick.call(scene, () => reach, (sc) => sc.at, inReach, toTile, WG, SV, 60000);
+  for (let x = 0; x < N; x++) marks[14 * N + x] = row.code;   // a snare street along row 14
+  run(); assert.eq(scene.pops.length, 0, 'out of reach');
+  scene.at = { cellIX: 10, cellIY: 12 }; run();
+  assert.eq(scene.pops.length, 0, 'an untold variant waits for the feet\'s story');
+  scene.save.storySeen[row.story] = 1; scene.at = { cellIX: 10, cellIY: 10 }; run();
+  scene.at = { cellIX: 10, cellIY: 12 }; run();
+  assert.eq(scene.pops.length, 1, 'a told one pops as it comes into the light');
+  assert.eq(scene.pops[0].text, row.flash);
+  assert.eq(scene.pops[0].ix, 10); assert.eq(scene.pops[0].iy, 14);
+  scene.at = { cellIX: 11, cellIY: 12 }; run();
+  assert.eq(scene.pops.length, 1, 'walking along it in the light does not repeat');
+  scene.at = { cellIX: 11, cellIY: 10 }; run(); scene.at = { cellIX: 11, cellIY: 12 }; run();
+  assert.eq(scene.pops.length, 1, 'back within the street gap stays quiet');
+  assert.truthy(/this\._tickStreetSight\(\)/.test(SCENE_SRC.slice(SCENE_SRC.indexOf('\n  _tickStreetFeet() {'))), 'read on every feet-cell change');
+});
+
 // ── One end piece per street per tile (Sep 2026) ───────────────────────────
 // A major road arrives cut into many short lines. The ends are pooled by street key and ONE seats per (street, tile): the end
 // whose hash endPick is lowest and that seats. Same for Pilgrim's waystones.
@@ -1120,6 +1149,7 @@ test('thorny path: dense deterministic brambles cross their minor road and enclo
 });
 
 test('snare lane: a deterministic central T3 cave cache surrounded by reserved traps', () => {
+  const SV_SNARE_CLUSTER_REACH = 4;   // the cluster's radius plus its cross-section spread
   const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'snare', 'Snare Street');
   const line = pts([[10,25],[54,25]]), middle = pts([[32,25]])[0];
   const build = (lines, blocked = false, occupied = new Set(), major = false) => {
@@ -1134,9 +1164,10 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
     return {result: SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}), opts, grid};
   };
   const {result,opts,grid} = build([line]);
-  assert.eq(result.objects.length,1);
+  const caches = r => r.objects.filter(o=>o._street==='snare');
+  assert.eq(caches(result).length,1);
   const deterministicSnapshot = JSON.stringify(result);
-  const chest=result.objects[0];
+  const chest=caches(result)[0];
   assert.eq(chest.kind,'chest'); assert.eq(chestTier(chest),3);
   assert.eq(chestLook(chest).texKey,'chest'); assert.falsy(restocks(chest));
   assert.falsy(chest.depth,'the cache remains a surface object');
@@ -1149,6 +1180,10 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
   }
   assert.truthy(result.traps.some(t=>t._iy<25),'traps reach the opposite verge');
   assert.truthy(result.traps.some(t=>t._iy>25),'traps cover the reward verge');
+  const strays=result.traps.filter(t=>Math.abs(t._ix-32)>SV_SNARE_CLUSTER_REACH);
+  assert.inRange(strays.length,1,4,'a few lone snares down the lane, off the cluster');
+  assert.truthy(strays.every(t=>Math.abs(t._iy-25)<=1),'strays sit on the band or its first verge cell');
+  assert.truthy(strays.every(a=>strays.every(b=>a===b||Math.max(Math.abs(a._ix-b._ix),Math.abs(a._iy-b._iy))>=3)),'strays keep apart');
   const occupied=new Set();
   for(const o of [chest,...result.traps]) {
     const ix=cellOf(o.x,TX),iy=cellOf(o.y,TY),i=iy*CPE+ix;
@@ -1161,15 +1196,38 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
   }
   assert.eq(deterministicSnapshot,JSON.stringify(build([[line[1],middle],[middle,line[0]]]).result),
     'reversed, fragmented geometry keeps the cache and traps');
-  assert.eq(build([line],true).result.objects.length,0,'restricted ground holds no reward');
+  assert.eq(caches(build([line],true).result).length,0,'restricted ground holds no reward');
   assert.eq(build([line],true).result.traps.length,0);
   assert.eq(build([line],WorldGen.SPAWN_WHY.PRIVATE).result.traps.length,0,'private land stays excluded');
   assert.eq(build([line],false,new Set(),true).result.traps.length,0,'major roads and their buffers stay excluded');
   assert.inRange(Math.abs(cellOf(chest.y,TY)-25),1,2,'cache sits immediately beside its own road');
-  assert.eq(build([line],false,new Set(Array.from({length:CPE*CPE},(_,i)=>i))).result.objects.length,0,
+  assert.eq(caches(build([line],false,new Set(Array.from({length:CPE*CPE},(_,i)=>i))).result).length,0,
     'occupied ground holds no reward');
   const picked=build([line]).result;
   assert.eq(JSON.stringify(result.traps),JSON.stringify(picked.traps),'reload uses stable trap identities');
+});
+
+test('dead ends: each unjoined Small-road end in the tile holds one tier-1 supply crate, opened once', () => {
+  const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === null, 'Quiet Close');
+  const dress = (lines) => {
+    const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
+    const roadMask = new Uint8Array(CPE*CPE), grid = new Uint8Array(CPE*CPE).fill(T.PARK);
+    const opts = {roadMask, roadClass: new Uint8Array(CPE*CPE), spawnWhy: new Uint16Array(CPE*CPE), occupied: new Set()};
+    return SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}).objects.filter(o=>/^crate_end/.test(o.id));
+  };
+  const lone = dress([pts([[10,25],[40,25]])]);
+  assert.eq(lone.length,2,'both ends of a lone close');
+  for (const c of lone) {
+    assert.truthy(c.kind==='chest' && c.crate,'a supply crate');
+    assert.eq(chestTier(c),SV.DEAD_END_CRATE_TIER); assert.eq(SV.DEAD_END_CRATE_TIER,1);
+    assert.falsy(restocks(c),'opened once: no POI class, no restock');
+  }
+  assert.truthy(lone.some(c=>Math.abs(cellOf(c.x,TX)-10)<=4) && lone.some(c=>Math.abs(cellOf(c.x,TX)-40)<=4),'seated at the ends');
+  const tee = dress([pts([[10,25],[40,25]]), pts([[25,10],[25,25]])]);
+  assert.eq(tee.length,3,'a T: the stem\'s junction end holds none, its far end does');
+  assert.falsy(tee.some(c=>Math.abs(cellOf(c.x,TX)-25)<=1 && Math.abs(cellOf(c.y,TY)-25)<=1),'no crate at the junction');
+  assert.eq(dress([pts([[10,25],[CPE,25]])]).length,1,'an end clipped at the tile edge is not a dead end');
+  assert.eq(JSON.stringify(dress([pts([[40,25],[10,25]])])),JSON.stringify(lone),'reversed geometry keeps the crates');
 });
 
 test('barricade scenery adds stakes and barriers without multiplying guards', () => {
@@ -1306,6 +1364,25 @@ function paintVerge(ctx) {
   while (!result.done) result = it.next();
   return result.value;
 }
+test('street ground: the claim reaches two cells and paints over residential land cover there', () => {
+  // Hedgerow terrain over a lane on row 6 with no band of its own (halfW 0):
+  // rows 4 and 8 sit exactly two cells out, row 3 three. Residential lot
+  // cells carry the gate's PRIVATE reason (land access), which used to keep
+  // every land-excluded cell's own paint; the lane now owns its two cells.
+  const f = vergeFixture('hedgerow');
+  f.index.dressingLines[0].halfW = 0;
+  const N = f.N, W = WorldGen.SPAWN_WHY;
+  for (const y of [3, 4, 5]) for (let x = 1; x < 11; x++) { f.grid[y*N+x] = T.RESIDENTIAL; f.spawnWhy[y*N+x] = W.PRIVATE; }
+  f.grid[8*N+5] = T.GRASS; f.spawnWhy[8*N+5] = W.RESTRICTED;      // restricted ground keeps its paint
+  const painted = paintVerge(f), park = T.PARK;
+  assert.eq(f.grid[5*N+5], park, 'a residential kerb cell takes the lane\'s ground');
+  assert.eq(f.grid[4*N+5], park, 'two cells out too (TERRAIN_VERGE_CELLS = 2)');
+  assert.eq(f.grid[3*N+5], T.RESIDENTIAL, 'three cells out the lot keeps its lawn');
+  assert.eq(f.grid[8*N+5], T.GRASS, 'other land-access exclusions still block the paint');
+  assert.truthy(painted[4*N+5] && !painted[3*N+5]);
+  assert.eq(SV.TERRAIN_VERGE_CELLS, 2);
+});
+
 function vergeFixture(variant = 'overgrown') {
   const N = 12;
   const grid = new Uint8Array(N*N).fill(T.GRASS);

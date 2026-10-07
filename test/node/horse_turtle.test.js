@@ -42,7 +42,8 @@ test('horse: a T4 mount with a premium sale value and no milk', () => {
   assert.eq(BIOME_FAUNA.horse.base + BIOME_FAUNA.horse.range, 5, 'five a tile');
   assert.eq(FAUNA_ORDER[FAUNA_ORDER.length - 1], 'horse', 'appended last: no older seat moves');
   assert.eq(SpriteLayout.creatureProduce('horse'), null, 'no produce');
-  assert.eq(SpriteLayout.creatureCatchMul('horse'), SpriteLayout.creatureCatchMul('cow'));
+  assert.eq(Pets.catchMs({ relics: {} }, { kind: 'horse' }), Pets.catchMs({ relics: {} }, { kind: 'cow' }),
+    'the cow\'s netting: the same HP, so the same catch');
   assert.eq(ANIMAL_FOOD.horse.join(), ANIMAL_FOOD.cow.join(), 'the cow\'s favourite');
 });
 
