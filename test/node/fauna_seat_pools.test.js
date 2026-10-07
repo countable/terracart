@@ -18,6 +18,20 @@
   const seats = f => JSON.stringify(f.creatures.slice().sort((a, b) => a.id.localeCompare(b.id)));
   const landed = f => f.creatures.filter(c => Number.isFinite(c.x) && Number.isFinite(c.y)
     && f.cells.has(Math.floor(c.y / f.cellM) * f.N + Math.floor((c.x - f.tx * f.scene.tileEdgeM) / f.cellM)));
+  test('fauna attraction: overlapping grounds count the same residents toward both quotas', () => {
+    const lane = StreetVariants.VARIANT_BY_ID.toadstool;
+    const path = StreetVariants.VARIANT_BY_ID.greenway;
+    const previousLane = lane.attracts.butterfly, previousPath = path.attracts.butterfly;
+    try {
+      lane.attracts.butterfly = [3, 3]; path.attracts.butterfly = [3, 3];
+      const f = fixture();
+      f.entry.scenic = { attractionCells: { greenway: f.cells } };
+      assert.eq(run(f).butterfly, 3, 'overlap does not double the arrivals');
+      assert.eq(landed(f).length, 3, 'residents satisfy both attractions');
+    } finally {
+      lane.attracts.butterfly = previousLane; path.attracts.butterfly = previousPath;
+    }
+  });
   test('fauna attraction: a mushroom lane draws only the nearest two to five existing butterflies', () => {
     const f = fixture(), result = run(f), arrivals = landed(f);
     assert.truthy(arrivals.length >= 2 && arrivals.length <= 5, 'small bounded quota');

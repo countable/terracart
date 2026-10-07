@@ -1122,8 +1122,9 @@ class SceneCreatures {
           }
           return { index, distance };
         };
-        const candidates = creatures.filter(c => c.kind === sp && !claimed.has(c)
-          && Number.isFinite(c.x) && Number.isFinite(c.y)).map(c => ({ c,
+        const candidates = creatures.filter(c => c.kind === sp
+          && Number.isFinite(c.x) && Number.isFinite(c.y)
+          && (!claimed.has(c) || ground.has(indexOf(c)))).map(c => ({ c,
             distance: ground.has(indexOf(c)) ? 0 : nearest(c, false).distance }));
         candidates.sort((a, b) => a.distance - b.distance
           || (String(a.c.id) < String(b.c.id) ? -1 : String(a.c.id) > String(b.c.id) ? 1 : 0));
