@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d861b8e3" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=a52de32d" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -570,6 +570,15 @@
       text-shadow: 0 1px 0 #000;
     }
     #menu summary::-webkit-details-marker { display: none; }
+    /* Floor depth, under the ☰ button: reads "Depth N" underground and is
+       empty (hidden) at ground level, so the surface shows nothing extra. */
+    #depth-tag {
+      position: fixed; top: calc(8px + var(--hud-chip-h) + 4px + env(safe-area-inset-top, 0px));
+      left: calc(var(--phone-left, 0px) + 10px); z-index: 8;
+      font: 700 11px var(--font-ui); color: var(--gold-dark); text-shadow: 0 1px 0 #000;
+      letter-spacing: 0.02em; pointer-events: none;
+    }
+    #depth-tag:empty, body.modal-open #depth-tag, body.booting #depth-tag { display: none; }
     /* Tiny corner tag on the ☰ button naming the save's game mode (difficulty.js)
        — the same gold/ember pair the how-to card's mode CTAs wear, so a glance
        at the menu answers "which game is this" without opening it. Hidden until
@@ -1186,6 +1195,9 @@
           </div>
         </div>
       </details>
+  <!-- The floor under the ☰ button: "Depth N" underground, blank at ground
+       level (app.js updateHUD). -->
+  <div id="depth-tag" aria-live="polite"></div>
       <button class="danger" id="reset-save" style="border-top:1px solid #333;margin-top:2px;padding-top:8px;">Reset this game</button>
     </div>
   </details>
@@ -2955,7 +2967,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=d861b8e3';
+      const APP_SRC = 'src/app.js?v=a52de32d';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

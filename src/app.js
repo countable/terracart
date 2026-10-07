@@ -7827,6 +7827,12 @@ class MapScene extends Phaser.Scene {
     // actually changed. Money and energy move a few times a minute at most,
     // but an unguarded textContent/style assignment still costs a style
     // invalidation on each of the ~60 frames a second in between.
+    // The floor under the ☰ button (#depth-tag): "Depth N" underground, blank
+    // at ground level (its CSS hides it when empty).
+    this._paintIfChanged('_depthDOM', this.depth | 0, () => {
+      const tag = document.getElementById('depth-tag');
+      if (tag) tag.textContent = this.depth > 0 ? `Depth ${this.depth | 0}` : '';
+    });
     // Money badge always shown.
     if (this.moneyEl) {
       const money = `${this.save.money ?? 0}`;
