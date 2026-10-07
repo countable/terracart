@@ -28,9 +28,9 @@
   #status { position: fixed; top: 64px; right: 16px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
     border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #c9b98a; max-width: 300px; }
   #regionLabels { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
-  .region-label { position: absolute; transform: translate(-50%, -50%); padding: 3px 7px;
-    border: 1px solid #9fb8a4; border-radius: 4px; background: #14181aeb;
-    color: #fff; font: 600 14px/1.2 system-ui, sans-serif; white-space: nowrap; }
+  .region-label { position: absolute; transform: translate(-50%, -50%);
+    color: #fff; font: 600 11px/1.2 system-ui, sans-serif; white-space: pre; text-align: center;
+    text-shadow: 0 1px 2px #000, 0 2px 4px #000; }
   canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; }
 </style></head>
 <body>
@@ -52,7 +52,7 @@
 <canvas id="cv"></canvas>
 <div id="regionLabels" aria-label="Map region labels"></div>
 <script src="game-loader.js"></script>
-<script src="floor-viewer-region.js?v=b1e937fc"></script>
+<script src="floor-viewer-region.js?v=ee65ed83"></script>
 <script src="floor-viewer-variants.js?v=065bb821"></script>
 <script>
 (() => {
@@ -357,8 +357,17 @@
         .filter(label => label.x >= 0 && label.y >= 0 && label.x < R.WIDTH && label.y < R.HEIGHT);
       // Floors without authored areas still identify the surface geography
       // above them, explicitly labelled so it is not mistaken for cave terrain.
-      const labels = depth === 0 ? R.labels : areas.length ? areas
-        : R.labels.map(label => ({ ...label, text: 'Below ' + label.text }));
+      const surfaceLabels = R.labels.map(label => {
+        if (!label.nexusKind) return label;
+        const anchors = entries[0].zone?.anchors.filter(a => a.kind === label.nexusKind) || [];
+        const names = [...new Set(anchors.map(a => {
+          const variant = ZoneVariants.byId(a.variant) || ZoneVariants.pick(a);
+          return variant?.name || variant?.id.replace(/[_-]/g, ' ');
+        }).filter(Boolean))];
+        return { ...label, text: label.text + (names.length ? '\n' + names.join(', ') : '') };
+      });
+      const labels = depth === 0 ? surfaceLabels : areas.length ? areas
+        : surfaceLabels.map(label => ({ ...label, text: 'Below ' + label.text }));
       for (const label of labels) {
         if (label.x < 0 || label.y < 0 || label.x >= R.WIDTH || label.y >= R.HEIGHT) continue;
         const el = document.createElement('span');

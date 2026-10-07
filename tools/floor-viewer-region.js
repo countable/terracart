@@ -92,15 +92,15 @@
   const labels = [
     { text: 'Commercial', x: 16, y: 1 },
     { text: 'Residential', x: 25, y: 13 },
-    { text: 'Parking lot · Quarry nexus', x: 7.5, y: 12 },
-    { text: 'Tar Yard nexus', x: 32, y: 18 },
+    { text: 'Parking lot · Quarry nexus', nexusKind: 'quarry', x: 7.5, y: 12 },
+    { text: 'Tar Yard nexus', nexusKind: 'tar', x: 32, y: 18 },
     { text: 'Sports pitch', x: 21, y: 30 },
-    { text: 'Church · Old Stones nexus', x: 8, y: 30 },
-    { text: 'Park · Grove nexus', x: 51, y: 4 },
+    { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 30 },
+    { text: 'Park · Grove nexus', nexusKind: 'grove', x: 51, y: 4 },
     { text: 'Forest', x: 55, y: 15 },
     { text: 'Grassland', x: 32, y: 30 },
     { text: 'Park', x: 46, y: 19 },
-    { text: 'Beach nexus', x: 53, y: 23 },
+    { text: 'Beach nexus', nexusKind: 'beach', x: 53, y: 23 },
     { text: 'Lake', x: 54, y: 31 }
   ];
   root.FloorViewerRegion = { E, WIDTH, HEIGHT, N, CELL, EDGE, lat, makeLayers, labels };
