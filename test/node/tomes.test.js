@@ -3,23 +3,23 @@
 // Nine permanent books are scholar prizes. A tome's spell is HALF its
 // potion's (items.js TOME_MUL, the row's `tome.mul`: half duration, half
 // damage or restore); its
-// cooldown is its OWN (CONSUMABLE_SPEC cooldownMs, power-scaled: 2 h / 8 h /
-// 24 h), and only Gear.spellSlots tomes rest at once (one, plus the worn
-// amulet's tier). Home refreshes them; the enchanter halves them; nothing is
-// ever consumed.
+// cooldown is its OWN (CONSUMABLE_SPEC cooldownMs, an hour by default —
+// TOME_COOLDOWN_MS), and a tome may be read while at most the worn amulet's
+// tier of tomes rest (Gear.spellSlots = 1 + tier). Nowhere waives the rest,
+// Home included; the enchanter halves it; nothing is ever consumed.
 (function () {
   const APP = globalThis.SCENE_SRC || '';
 
   const ROSTER = [
-    ['tome_reach', 'Tome of Reach', 3, 160, 2 * 3600e3],
-    ['tome_speed', 'Tome of Speed', 3, 160, 2 * 3600e3],
-    ['tome_shielding', 'Tome of Shielding', 3, 160, 2 * 3600e3],
-    ['tome_healing', 'Tome of Healing', 3, 160, 2 * 3600e3],
-    ['tome_raven', 'Tome of the Raven', 4, 400, 8 * 3600e3],
-    ['tome_blight', 'Tome of Blight', 4, 400, 8 * 3600e3],
-    ['tome_fire_wall', 'Wall of Fire Tome', 4, 400, 8 * 3600e3],
-    ['tome_thunder', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
-    ['tome_frost_aura', 'Tome of Frost Aura', 6, 2400, 24 * 3600e3],
+    ['tome_reach', 'Tome of Reach', 3, 160, 3600e3],
+    ['tome_speed', 'Tome of Speed', 3, 160, 3600e3],
+    ['tome_shielding', 'Tome of Shielding', 3, 160, 3600e3],
+    ['tome_healing', 'Tome of Healing', 3, 160, 3600e3],
+    ['tome_raven', 'Tome of the Raven', 4, 400, 3600e3],
+    ['tome_blight', 'Tome of Blight', 4, 400, 3600e3],
+    ['tome_fire_wall', 'Wall of Fire Tome', 4, 400, 3600e3],
+    ['tome_thunder', 'Tome of Thunder', 5, 1000, 3600e3],
+    ['tome_frost_aura', 'Tome of Frost Aura', 6, 2400, 3600e3],
   ];
 
   test('tomes: nine registered, named, unique, tiered, priced, framed', () => {
@@ -32,7 +32,7 @@
       assert.eq(PRICES[id], price, `${id}: price`);
 
       assert.truthy(MINERAL_ICON_SHEET[id]?.sheet === 'icon_book', `${id}: a Books.png frame`);
-      assert.eq(CONSUMABLE_SPEC[id].cooldownMs, cd, `${id}: power-scaled own cooldown`);
+      assert.eq(CONSUMABLE_SPEC[id].cooldownMs, cd, `${id}: the one-hour default cooldown`);
       assert.truthy(ITEM_EFFECTS[id], `${id}: a description`);
     }
   });
@@ -47,7 +47,7 @@
 
   test('tomes: the own cooldown, the spell slots, and nothing consumed', () => {
     for (const [, , , , cd] of ROSTER.slice(0, 3)) {
-      assert.eq(cd, 2 * 3600e3, 'the T3 ladder rung');
+      assert.eq(cd, TOME_COOLDOWN_MS, 'one hour');
     }
     // Every tome but the Wall of Fire is read by ONE method, _readTome, off
     // its row's `tome` column; the firewall keeps its own geometry spell.
@@ -67,21 +67,21 @@
       const t = CONSUMABLE_SPEC[id].tome;
       assert.truthy(t && (CONSUMABLE_SPEC[t.of] || CONSUMABLE_SPEC[id].buff) && typeof t.flash === 'string', `${id}: a tome column (of, flash)`);
     }
-    assert.falsy(/TOME_COOLDOWN_MS|tomeReadyAt/.test(APP), 'no shared hour lock: spell slots are the one limit across tomes');
+    assert.falsy(/tomeReadyAt/.test(APP), 'no shared lock: spell slots are the one limit across tomes');
     assert.truthy(/tomeMagicCd \|\|= \{\}\)\[id\] = now \+ \(CONSUMABLE_SPEC\[id\]\?\.cooldownMs \|\| 0\) \* mul/.test(APP),
       'the own cooldown stamps the spec length');
     assert.truthy(/this\.flashAtPlayer\(Macros\.waitLine\(wait\.line, wait\.ms\)\)/.test(APP), 'refusals show their wait, on the player');
     assert.truthy(/tomeUsable\(id\) \{ return !this\._tomeWait\(id\); \}/.test(APP), 'the button greys on the same wait');
-    assert.truthy(/isRestingAtHome\(x, y\)\) return null;/.test(APP), 'Home refreshes both');
+    assert.falsy(/isRestingAtHome/.test(SCENE_SRC.match(/\n  _tomeWait\(id\) \{\n([\s\S]*?)\n  \}\n/)[1]), 'Home waives nothing');
     assert.truthy(/noun: 'tome'/.test(read[1]), 'the storm tome refuses an empty screen with "tome kept"');
   });
 
   test('tomes: spell slots — one bare, plus the amulet\'s tier, the soonest to wake named', () => {
     const body = SCENE_SRC.match(/\n  _tomeWait\(id\) \{\n([\s\S]*?)\n  \}\n/)[1];
-    const wait = new Function('playerWorldM', 'Gear', 'id', body);
+    const wait = new Function('Gear', 'id', body);
     const T0 = Date.now(), H = 3600e3;
-    const scene = (relics, cd, home = false) => ({ save: { relics, tomeMagicCd: cd }, isRestingAtHome: () => home });
-    const ask = (s, id) => wait.call(s, () => ({ x: 0, y: 0 }), Gear, id);
+    const scene = (relics, cd) => ({ save: { relics, tomeMagicCd: cd } });
+    const ask = (s, id) => wait.call(s, Gear, id);
     assert.eq(Gear.spellSlots({}), 1, 'bare: one slot');
     for (let t = 1; t <= 7; t++) assert.eq(Gear.spellSlots({ relics: { amulet: { tier: t } } }), 1 + t, `T${t} amulet: ${1 + t} slots`);
     assert.eq(ask(scene({}, {}), 'tome_reach'), null, 'nothing resting: readable');
@@ -93,7 +93,7 @@
     assert.eq(ask(amulet, 'tome_reach'), null, 'a T2 amulet: three slots, two taken');
     amulet.save.tomeMagicCd.tome_blight = T0 + 3 * H;
     assert.inRange(ask(amulet, 'tome_reach').ms, H - 1000, H, 'all three taken: the soonest to wake');
-    assert.eq(ask(scene({}, { tome_speed: T0 + H }, true), 'tome_reach'), null, 'Home refreshes every tome');
+    assert.eq(TOME_COOLDOWN_MS, H, 'the default rest is one hour');
   });
 
   test('tomes: a tome\'s spell is HALF its potion\'s', () => {

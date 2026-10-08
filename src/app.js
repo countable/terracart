@@ -936,8 +936,9 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
 // gameplay, item copy and the Drink / Use button. A TIMED consumable's length
 // is read off its row at the use (_useTimedBuff) — no alias of it lives here.
-// Each tome's own magic cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to
-// the spell's power; how many may rest at once is Gear.spellSlots (the amulet).
+// Each tome's own cooldown is CONSUMABLE_SPEC[id].cooldownMs (an hour unless
+// its row says otherwise — items.js TOME_COOLDOWN_MS); how many may rest at
+// once is Gear.spellSlots (the amulet).
 // A tome's spell is HALF its potion's (items.js TOME_MUL, the row's `tome`).
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
 // The Scroll of Thunder's flash (CAST_ROWS.thunder_scroll) — long enough to

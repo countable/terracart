@@ -33,7 +33,7 @@
       }
       assert.falsy(s.save.groundFire[GroundFire.key(2, 31, 31)], 'player cell stays clear');
       assert.eq(s.save.inv[0].count, 1, 'the tome is reusable');
-      assert.inRange(s.save.tomeMagicCd.tome_fire_wall - Date.now(), 8 * 3600e3 - 1000, 8 * 3600e3);
+      assert.inRange(s.save.tomeMagicCd.tome_fire_wall - Date.now(), 3600e3 - 1000, 3600e3);
       assert.falsy(s.readTomeFirewall(), 'second reading waits for cooldown');
     }
   });

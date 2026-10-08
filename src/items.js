@@ -1223,43 +1223,43 @@ const CONSUMABLE_SPEC = {
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
   tome_reach: { verb: 'Read', title: 'Read the Tome of Reach?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_reach'),
+    usable: scene => scene.tomeUsable('tome_reach'),
     tome: { of: 'reach_potion', mul: TOME_MUL, flash: '✨ The sight tome opens' },
     get: 'The far edge of the world leans closer with every page.' },
   tome_raven: { verb: 'Read', title: 'Read the Tome of the Raven?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_raven'),
+    usable: scene => scene.tomeUsable('tome_raven'),
     tome: { of: 'raven_scroll', mul: TOME_MUL, flash: '✨ A raven leaves the page' },
     get: 'A raven of smoke and starlight waits between the lines.' },
   tome_thunder: { verb: 'Read', title: 'Read the Tome of Thunder?',
-    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_thunder'),
+    usable: scene => scene.tomeUsable('tome_thunder'),
     tome: { of: 'thunder_scroll', mul: TOME_MUL, flash: '⚡ The storm tome speaks' },
     get: 'Storm writings. The sky leans in to listen.' },
   tome_speed: { verb: 'Read', title: 'Read the Tome of Speed?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_speed'),
+    usable: scene => scene.tomeUsable('tome_speed'),
     tome: { of: 'speed_potion', mul: TOME_MUL, flash: '✨ The speed tome opens' },
     get: 'Every line quickens. The road unwinds faster beneath you.' },
   tome_shielding: { verb: 'Read', title: 'Read the Tome of Shielding?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_shielding'),
+    usable: scene => scene.tomeUsable('tome_shielding'),
     tome: { of: 'shielding_potion', mul: TOME_MUL, flash: '✨ The shield tome opens' },
     get: 'The words settle around you like layered plates.' },
   tome_healing: { verb: 'Read', title: 'Read the Tome of Healing?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_healing'),
+    usable: scene => scene.tomeUsable('tome_healing'),
     tome: { of: 'healing_potion', mul: TOME_MUL, flash: '✨ The healing tome opens' },
     get: 'A warmth gathers where the page is worn softest.' },
   tome_blight: { verb: 'Read', title: 'Read the Tome of Blight?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_blight'),
+    usable: scene => scene.tomeUsable('tome_blight'),
     tome: { of: 'blight_potion', mul: TOME_MUL, flash: '✨ The blight tome opens' },
     get: 'The margin ink crawls. What it touches sickens.' },
   // An aura-only tome has its own timed buff; no corresponding potion.
   tome_frost_aura: { verb: 'Read', title: 'Read the Tome of Frost Aura?',
-    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_frost_aura'),
+    usable: scene => scene.tomeUsable('tome_frost_aura'),
     buff: 'frostAura', durationMs: _CONSUMABLE_MINUTE_MS * TOME_MUL,
     aura: { texture: 'aura_frost' },
     tome: { flash: '❄ Cold gathers around you' },
     get: 'Cold spills from the pages, sparing the hands that hold them.' },
   tome_fire_wall: { lengthCells: 5,
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_fire_wall'),
+    usable: scene => scene.tomeUsable('tome_fire_wall'),
     get: 'A wall of flame rises across the ground ahead.' },
   // THE SUGAR POTION (T2, two berries at Home): an ANIMAL it reaches stays
   // put for durationMs — the `calm` status (Combat.calm): it does not bolt
@@ -1469,9 +1469,16 @@ for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
   row.disabled = scene => !scene.canThrowItem(id);
   row.label = scene => scene.throwActionLabel();
 }
+// Every tome rests TOME_COOLDOWN_MS after a reading (owner, Oct 2026) unless
+// its row names its own `cooldownMs`; how many may rest at once is
+// Gear.spellSlots (the amulet).
+const TOME_COOLDOWN_MS = 60 * 60 * 1000;
+for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
+  if (id.startsWith('tome_')) row.cooldownMs ??= TOME_COOLDOWN_MS;
+}
 // The tomes' button (a `cooldownMs` row read with the Read verb): a tap reads
-// it outright, no confirm (owner, Oct 2026); while either tome lock holds
-// (scene._tomeWait) the button greys and counts the wait down in place.
+// it outright, no confirm (owner, Oct 2026); while its rest or full spell
+// slots hold (scene._tomeWait) the button greys and counts the wait down in place.
 for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
   if (!(row.cooldownMs > 0 && row.verb === 'Read')) continue;
   row.immediate = true;
