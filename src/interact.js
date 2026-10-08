@@ -561,6 +561,7 @@ const TAP_HANDLERS = [
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
       if (!treasureExposed(tr, scene, save) || found.has(tr.id)
+          || (typeof HiddenObjects !== 'undefined' && HiddenObjects.treasureHidden(save, tr))
           || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr))) return false;
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';

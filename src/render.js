@@ -3028,6 +3028,8 @@ Render.drawCells = function drawCells(scene) {
   else g.lineStyle(2, 0x2a1d10, 0.55);
   const drawX = (tr) => {
     if (!treasureExposed(tr, scene) || found.has(tr.id)) return;
+    // Buried until the feet stand beside it (HiddenObjects.tick).
+    if (HiddenObjects.treasureHidden(scene.save, tr)) return;
     if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
     const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
     if (!inViewBox(dx, dy, halfM)) return;

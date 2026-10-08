@@ -26,6 +26,17 @@
     HiddenObjects.reveal(s, rebuilt);
     assert.truthy(rebuilt._discovered);
   });
+  test('discovery: an X mark is neither drawn nor dug until the feet stand beside it', () => {
+    const s = scene(), far = { id: 'x_far', x: 88 + 2 * 16, y: 88 };
+    assert.truthy(HiddenObjects.treasureHidden(s.save, far), 'two cells off: still buried');
+    assert.falsy(HiddenObjects.reveal(s, { ...far, kind: 'treasure' }));
+    assert.truthy(HiddenObjects.reveal(s, { id: 'x_near', x: 88 + 16, y: 88 + 16, kind: 'treasure' }), 'a neighbouring cell finds it');
+    assert.falsy(HiddenObjects.treasureHidden(s.save, { id: 'x_near' }), 'and it stays found');
+    s.save.brokenRocks = ['rock_1'];
+    assert.falsy(HiddenObjects.treasureHidden(s.save, { id: 'x_covered', coverRockId: 'rock_1' }), 'a mined cover lays it bare');
+    assert.truthy(/HiddenObjects\.treasureHidden\(scene\.save, tr\)\) return;/.test(RENDER_SRC), 'the drawer asks');
+    assert.truthy(/HiddenObjects\.treasureHidden\(save, tr\)/.test(INTERACT_SRC), 'and so does the dig');
+  });
   test('discovery: hidden enemies cannot be targeted or damaged before awakening', () => {
     const c = object(2, 0, { kind: 'skeleton' });
     assert.truthy(Combat.isConcealed(c));
