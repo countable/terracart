@@ -135,7 +135,7 @@ function extraFacts(x){const b=x.behaviour,f=[];
   if(b.summoned){const id=x.id==='spirit_raven'?'raven_scroll':Object.keys(CONSUMABLE_SPEC).find(id=>CONSUMABLE_SPEC[id].summonKind===x.id);f.push(id?`Summoned by the ${esc(ITEM_BY_ID[id].name)} for ${shortDuration(CONSUMABLE_SPEC[id].durationMs)}. Follows its summoner; never a tap target.`:'A hired ally. Follows its employer; never a tap target.');}
   if(summoners[x.id])f.push(`Raised as a minion by ${summoners[x.id].join(', ')}.`);
   if(ANIMAL_FOOD[x.id])f.push(ANIMAL_FOOD[x.id].length?`Tamed with ${ANIMAL_FOOD[x.id].map(id=>ITEM_BY_ID[id]?.name||id).join(', ')}.`:'Tamed with any seed.');
-  if(isCatchable(x.id))f.push(`Caught with the bug net${SpriteLayout.creatureCatchMul(x.id)>1?` (×${SpriteLayout.creatureCatchMul(x.id)} net time)`:''}.`);
+  if(isCatchable(x.id))f.push('Caught with the bug net. Catch time scales with current HP and the net’s tool rate.');
   if(b.game)f.push('Game: hunted with the bug net, never auto-targeted.');
   if(b.produce)f.push(`Fed while tame, it gives ${ITEM_BY_ID[b.produce.item]?.name||b.produce.item}.`);
   if(b.follows&&!b.summoned)f.push('Follows the player for a while after petting.');

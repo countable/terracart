@@ -13,6 +13,7 @@ scripts, imports and documentation continue to work. The game has no build step.
 | `npm run assets:inventory` | Report runtime-reference evidence and unused-image candidates; never deletes files. |
 | `npm run assets:inventory -- --json` | Machine-readable inventory including file sizes and Git status. |
 | `npm run test:browser` | Run the browser harness against a local server on port 7731. |
+| `npm run test:viewers -- http://localhost:8000` | Smoke-test the main live design viewers and floor viewer against a running server. |
 | `npm run test:browser:docker` | Build the browser-test container and run its server and harness. |
 | `npm run test:relay` | Run the relay's own test suite. |
 
@@ -28,6 +29,15 @@ An inventory candidate may still be a generator input. Follow
   and its Chromium installation (`python3 -m playwright install chromium`).
   Start `python3 -m http.server 7731` separately before running it. The Docker
   wrapper provides these dependencies and starts its own server.
+- The browser harness also checks startup of the eight live design viewers:
+  monsters, world art, chests, map distribution, treasure, items, map review
+  and floors. Each must render its content without JavaScript or console
+  errors. Optional tile-fetch fallbacks and generated review snapshots are
+  outside this startup check; chests must render sources and reward tables,
+  without waiting for the four-city background report. Run
+  `npm run test:viewers -- http://localhost:8765` to check the artifact server
+  too, including stale mounts. Set `PW_CHROMIUM` for a custom Chromium path
+  when running the standalone viewer checks.
 - Both browser-harness routes use MVT fixtures under `test/fixtures/`.
   `sh test/fetch_fixtures.sh` fetches them from OpenFreeMap when needed and
   requires network access; it rewrites the fixture files.
