@@ -1786,7 +1786,7 @@ const ITEM_EFFECTS = {
   diamond: 'A sliver of winter waits for a jeweller’s hand.',
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
   syrup: 'Sweet amber syrup clings to the lip of the jar.',
-  taming_potion: 'Every creature’s favourite. Its sweet scent draws curious noses through the grass.',
+  taming_potion: 'Every creature’s favourite. Thrown, it charms a foe for a minute.',
   book: 'An elder’s faded words wait beneath the worn cover.',
   tome_reach: 'Page by page, the horizon walks closer.',
   tome_raven: 'Somewhere in the ink, wings shift.',
