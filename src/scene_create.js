@@ -736,41 +736,61 @@ class SceneCreate {
       sg.generateTexture('bldg_shadow', 64, 32);
       sg.destroy();
     }
-    // THE ELITE'S RUNE CIRCLE (render.js lays it flat under the feet): baked
-    // top-down in gold — so it shows without the optional FX pipeline — as an
-    // outer and an inner ring with a band of runes between, each stroke laid
-    // over a dark under-stroke so it reads on sand and snow as well as grass.
-    if (!this.textures.exists('elite_ring')) {
-      const S = 96, C = S / 2, R1 = 44, R2 = 31, RM = (R1 + R2) / 2;
-      const g = this.make.graphics({ x: 0, y: 0, add: false });
-      // A rune: a few strokes in the band's local frame (u along the ring,
-      // v outward), four shapes in turn around the circle.
-      const RUNES = [
-        [[0, -4, 0, 4], [0, -1, 3, -4]],
-        [[-3, 4, 0, -4], [0, -4, 3, 4]],
-        [[0, -4, 3, 0], [3, 0, 0, 4], [0, 4, -3, 0], [-3, 0, 0, -4]],
-        [[0, -4, 0, 4], [-3, 0, 3, 0], [-3, -3, -3, 3]],
-      ];
-      const N = 12;
-      const draw = (width, color, alpha) => {
-        g.lineStyle(width, color, alpha);
-        g.strokeCircle(C, C, R1);
-        g.strokeCircle(C, C, R2);
-        for (let i = 0; i < N; i++) {
-          const a = (i / N) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
-          const at = (u, v) => [C + ca * (RM + v) - sa * u, C + sa * (RM + v) + ca * u];
-          for (const [u0, v0, u1, v1] of RUNES[i % RUNES.length]) {
-            const [x0, y0] = at(u0, v0), [x1, y1] = at(u1, v1);
-            g.lineBetween(x0, y0, x1, y1);
+    // THE ELITE'S RUNE CIRCLE (render.js lays it flat under the feet and
+    // tints it the rank's colour): two bands baked top-down in white, each
+    // stroke over a dark under-stroke so it reads on sand and snow as well as
+    // grass — an outer pair of rings with a band of runes between, and an
+    // inner ring of ticks that turns the other way. Each is a rotation strip,
+    // one frame per ELITE_RING_STEP_DEG over the turn after which it repeats
+    // (the runes' four shapes come round every 120°, the eight ticks every
+    // 45°), so the circle turns on the ground rather than tilting.
+    const bakeRingBand = (key, periodDeg, path) => {
+      const S = 96, n = Math.round(periodDeg / ELITE_RING_STEP_DEG), cols = Math.min(n, 8);
+      bakeCanvas(this, key, cols * S, Math.ceil(n / cols) * S, (ctx, tex) => {
+        ctx.lineCap = 'round';
+        for (let f = 0; f < n; f++) {
+          const x = (f % cols) * S, y = Math.floor(f / cols) * S;
+          ctx.save();
+          ctx.translate(x + S / 2, y + S / 2);
+          ctx.rotate(f * ELITE_RING_STEP_DEG * Math.PI / 180);
+          for (const [width, colour, alpha] of [[6, '#000', 0.5], [5, '#fff', 0.18], [2, '#fff', 1]]) {
+            ctx.globalAlpha = alpha; ctx.strokeStyle = colour; ctx.lineWidth = width;
+            ctx.beginPath(); path(ctx); ctx.stroke();
           }
+          ctx.restore();
+          tex.add(f, 0, x, y, S, S);
         }
-      };
-      draw(6, 0x000000, 0.5);           // the under-stroke
-      draw(5, SHINY_TINT, 0.18);        // a soft gold glow
-      draw(2, SHINY_TINT, 1);           // the runes themselves
-      g.generateTexture('elite_ring', S, S);
-      g.destroy();
-    }
+      });
+    };
+    const ring = (ctx, r) => { ctx.moveTo(r, 0); ctx.arc(0, 0, r, 0, Math.PI * 2); };
+    // A rune: a few strokes in the band's local frame (u along the ring,
+    // v outward), four shapes in turn around the circle.
+    const RUNES = [
+      [[0, -4, 0, 4], [0, -1, 3, -4]],
+      [[-3, 4, 0, -4], [0, -4, 3, 4]],
+      [[0, -4, 3, 0], [3, 0, 0, 4], [0, 4, -3, 0], [-3, 0, 0, -4]],
+      [[0, -4, 0, 4], [-3, 0, 3, 0], [-3, -3, -3, 3]],
+    ];
+    bakeRingBand('elite_ring', 120, ctx => {
+      const R1 = 44, R2 = 31, RM = (R1 + R2) / 2, N = 12;
+      ring(ctx, R1); ring(ctx, R2);
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+        const at = (u, v) => [ca * (RM + v) - sa * u, sa * (RM + v) + ca * u];
+        for (const [u0, v0, u1, v1] of RUNES[i % RUNES.length]) {
+          ctx.moveTo(...at(u0, v0)); ctx.lineTo(...at(u1, v1));
+        }
+      }
+    });
+    bakeRingBand('elite_ring_inner', 45, ctx => {
+      const R = 22, N = 8;
+      ring(ctx, R);
+      for (let i = 0; i < N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        ctx.moveTo(Math.cos(a) * (R - 4), Math.sin(a) * (R - 4));
+        ctx.lineTo(Math.cos(a) * (R + 4), Math.sin(a) * (R + 4));
+      }
+    });
     // Soft round halos — a glow that fades from the centre out, baked once and
     // reused for every pulsing aura: the player's warning auras (out of energy,
     // strayed far from the GPS) and the slow breath that marks a POI. Baked in

@@ -85,7 +85,10 @@
     const concealment = extra?.pet === true ? null
       : behaviour?.concealment || (extra?.shiny && typeof ITEM_BY_ID !== 'undefined'
         && ITEM_BY_ID[kind]?.kind === 'animal' ? 'hidden' : null);
-    return { kind, x, y, id, ...(concealment ? { [concealment]: true } : {}), ...extra };
+    // A shiny foe's elite rank (Combat.ELITE_RANKS) is rolled here, off its
+    // id, so every spawner's elites share one roll.
+    const rank = extra?.shiny && !extra.eliteRank && typeof Combat !== 'undefined' ? Combat.rollEliteRank(kind, id) : null;
+    return { kind, x, y, id, ...(concealment ? { [concealment]: true } : {}), ...(rank ? { eliteRank: rank } : {}), ...extra };
   }
   function makeObject(kind, x, y, id, extra) {
     return { kind, x, y, id, ...extra };

@@ -28,7 +28,7 @@
     // Reading {sx, sy} off it placed every ring (and judged every arrival) at
     // NaN: the elite was unmarked. No pass may read it that way.
     assert.falsy(/const \{ sx, sy \} = project\(/.test(RENDER_SRC), 'no pass reads {sx, sy} off project');
-    assert.truthy(/setTextureIfDifferent\(s, 'elite_ring'\);/.test(RENDER_SRC), 'the ring pass draws the baked rune circle');
-    assert.truthy(/textures\.exists\('elite_ring'\)[\s\S]{0,1600}?generateTexture\('elite_ring', S, S\)/.test(SCENE_SRC), 'baked once, top-down, at boot');
+    assert.truthy(/item\.band === 'outer' \? 'elite_ring' : 'elite_ring_inner'/.test(RENDER_SRC), 'the ring pass draws the baked rune circle');
+    assert.truthy(/bakeRingBand = \(key, periodDeg, path\) => \{[\s\S]{0,400}?bakeCanvas\(this, key,/.test(SCENE_SRC), 'baked once, top-down, at boot');
   });
 })();

@@ -30,6 +30,15 @@ mechanics.
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
   combat lane. Persist contract expiry and any durable health state, not live
   map instances. Test reload, tile replacement and expiry when adding a kind.
+- An elite has a rank, a row of `Combat.ELITE_RANKS`: a plain elite (2×
+  HP and damage, 1.5× pace, white circle), possessed (3×, 1.4× an elite's
+  pace, red) and ascendant (4×, blue, summons a plain copy of its basic form
+  every 5 s into fixed slots through the shared `enemySummon`, replacing the
+  row's own support ability). The rank is rolled off the creature's id when
+  `WorldGen.makeCreature` makes a shiny foe, so every player meets the same
+  one; bounty follows `powerMul`. Possessed and ascendant bend the space
+  around them (rendering.md). A new rank is a row, never a branch
+  (`test/node/elite_ranks.test.js`).
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
   Game animals (crow/deer) are not enemies or projectile targets; released

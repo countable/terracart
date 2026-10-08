@@ -4787,7 +4787,7 @@ class MapScene extends Phaser.Scene {
           grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
             Combat.ELITE_TREASURE_CONTEXT,
             { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth),
-              ceremony: { kind: 'treasure', header: 'Elite slain',
+              ceremony: { kind: 'treasure', header: `${Combat.eliteRank(victim).label} slain`,
                           sub: `The ${name} falls. What it guarded is yours.` } });
         }
       } else if (Combat.isMonster(victim.kind) && Combat.spawnsUnderground(victim.kind)
@@ -7466,11 +7466,11 @@ class MapScene extends Phaser.Scene {
     } catch (_) {}
   }
 
-  flashEliteAppearance(count) {
+  flashEliteAppearance(count, label = 'Elite') {
     if (!this.add || this._dialogOpen()) return false;
     const now = performance.now();
     if (now < (this._eliteFanfareUntil || 0)) return false;
-    const banner = this._toast(count > 1 ? 'ELITES APPROACH' : 'ELITE APPROACHES',
+    const banner = this._toast(count > 1 ? 'ELITES APPROACH' : `${label.toUpperCase()} APPROACHES`,
       { tier: 'fanfare', color: UI_GOLD_DEEP, bg: '#350f1b' });
     this._burstAt('eliteArrival', banner.x, banner.y);
     this._eliteFanfareUntil = now + 3200;

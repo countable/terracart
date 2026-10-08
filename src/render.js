@@ -703,7 +703,7 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
 };
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
-  if (scene.textures.exists(key)) return Render.petCanvasTint(scene, kind, key, tint);
+  if (scene.textures.exists(key)) return Render.canvasTint(scene, key, tint);
   const source = scene.textures.get(sheet)?.getSourceImage();
   const art = SpriteLayout.creatureArt(kind);
   if (!source || !art || typeof document === 'undefined') return sheet;
@@ -715,26 +715,57 @@ Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   Render.neutralPetPixels(pixels.data);
   ctx.putImageData(pixels, 0, 0);
   scene.textures.addSpriteSheet(key, canvas, { frameWidth: art.fw, frameHeight: art.fh });
-  return Render.petCanvasTint(scene, kind, key, tint);
+  return Render.canvasTint(scene, key, tint);
 };
-// Phaser's Canvas renderer ignores sprite tint. Bake each used palette entry
-// once there; WebGL keeps the shared neutral sheet and its cheap vertex tint.
-Render.petCanvasTint = function petCanvasTint(scene, kind, neutral, tint) {
+// Phaser's Canvas renderer ignores sprite tint. Bake each used tint of a
+// texture once there, frames and all (a pet's palette, an elite's ring);
+// WebGL keeps the shared neutral texture and its cheap vertex tint.
+Render.canvasTint = function canvasTint(scene, neutral, tint) {
   if (typeof Phaser === 'undefined' || scene.sys?.game?.renderer?.type !== Phaser.CANVAS
       || !Number.isFinite(tint) || tint === 0xffffff) return neutral;
   const key = neutral + '-' + tint.toString(16);
+  const src = scene.textures.get(neutral), source = src.getSourceImage();
+  bakeCanvas(scene, key, source.width, source.height, (ctx, tex) => {
+    ctx.drawImage(source, 0, 0);
+    const pixels = ctx.getImageData(0, 0, source.width, source.height), data = pixels.data;
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.round(data[i] * ((tint >> 16) & 255) / 255);
+      data[i + 1] = Math.round(data[i + 1] * ((tint >> 8) & 255) / 255);
+      data[i + 2] = Math.round(data[i + 2] * (tint & 255) / 255);
+    }
+    ctx.putImageData(pixels, 0, 0);
+    for (const name of src.getFrameNames()) {
+      const f = src.get(name);
+      tex.add(name, 0, f.cutX, f.cutY, f.cutWidth, f.cutHeight);
+    }
+  });
+  return key;
+};
+// AN ELITE'S OWN COLOURS, VIVID: its sheet with the saturation and the
+// brightness raised (ELITE_VIVID), baked once per sheet the first time an
+// elite wearing it is drawn — every renderer, no FX needed.
+const ELITE_VIVID = { saturate: 1.6, brightness: 1.12 };
+function vividPixels(data) {
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+    for (let ch = 0; ch < 3; ch++) {
+      const v = (gray + (data[i + ch] - gray) * ELITE_VIVID.saturate) * ELITE_VIVID.brightness;
+      data[i + ch] = Math.max(0, Math.min(255, Math.round(v)));
+    }
+  }
+}
+Render.vividTexture = function vividTexture(scene, kind, sheet) {
+  const key = 'elite-vivid-' + sheet;
   if (scene.textures.exists(key)) return key;
-  const source = scene.textures.get(neutral).getSourceImage(), art = SpriteLayout.creatureArt(kind);
+  const source = scene.textures.get(sheet)?.getSourceImage();
+  const art = SpriteLayout.creatureArt(kind);
+  if (!source || !art || typeof document === 'undefined') return sheet;
   const canvas = document.createElement('canvas');
   canvas.width = source.width; canvas.height = source.height;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(source, 0, 0);
-  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height), data = pixels.data;
-  for (let i = 0; i < data.length; i += 4) {
-    data[i] = Math.round(data[i] * ((tint >> 16) & 255) / 255);
-    data[i + 1] = Math.round(data[i + 1] * ((tint >> 8) & 255) / 255);
-    data[i + 2] = Math.round(data[i + 2] * (tint & 255) / 255);
-  }
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  vividPixels(pixels.data);
   ctx.putImageData(pixels, 0, 0);
   scene.textures.addSpriteSheet(key, canvas, { frameWidth: art.fw, frameHeight: art.fh });
   return key;
@@ -900,16 +931,19 @@ const SHINE_SPEED = 0.35;       // sweeps per second, roughly — a slow glint, 
 const SHINE_LINE_W = 0.35;      // the band's width, as a fraction of the sprite
 const SHINE_GRADIENT = 3;       // how soft the band's edges are
 const SHINY_GLOW_PADDING = 12; // texture pixels reserved around the silhouette
-Render.setShine = function setShine(s, on, id) {
+// A shiny wears the gold glow and the sweep; an elite (glow false) the sweep
+// alone over its baked vivid sheet (Render.vividTexture), so the rune circle
+// and the creature's own art read clearly.
+Render.setShine = function setShine(s, on, id, glow = true) {
   const fx = s && s.preFX;
   if (!fx) return false;
-  if (on) {
-    if (!Render.canShine(s.scene)) return false;
-    if (!s._shinyGlowFx) {
+  if (on && Render.canShine(s.scene)) {
+    if (glow && !s._shinyGlowFx) {
       s._shinyGlowPadding = fx.padding;
       fx.setPadding(Math.max(fx.padding, SHINY_GLOW_PADDING));
       s._shinyGlowFx = fx.addGlow(SHINY_TINT, 4, 0.5, false);
     }
+    if (!glow && s._shinyGlowFx) dropShinyGlow(s, fx);
     if (!s._shineFx) s._shineFx = fx.addShine(SHINE_SPEED, SHINE_LINE_W, SHINE_GRADIENT, false);
     return true;
   }
@@ -917,19 +951,106 @@ Render.setShine = function setShine(s, on, id) {
     fx.remove(s._shineFx);
     s._shineFx = null;
   }
-  if (s._shinyGlowFx) {
-    fx.remove(s._shinyGlowFx);
-    s._shinyGlowFx = null;
-    fx.setPadding(s._shinyGlowPadding);
-    s._shinyGlowPadding = null;
-  }
+  if (s._shinyGlowFx) dropShinyGlow(s, fx);
   return false;
 };
+function dropShinyGlow(s, fx) {
+  fx.remove(s._shinyGlowFx);
+  s._shinyGlowFx = null;
+  fx.setPadding(s._shinyGlowPadding);
+  s._shinyGlowPadding = null;
+}
 // Disabled pre-FX uses the same light and spark cues as Canvas. A WebGL
 // renderer alone does not imply that its optional FX pipeline was allocated.
 Render.canShine = function canShine(scene) {
   const r = scene && scene.sys && scene.sys.game && scene.sys.game.renderer;
   return !!(r && typeof Phaser !== 'undefined' && r.type === Phaser.WEBGL && r.pipelines?.FX_PIPELINE);
+};
+
+// ── SPACE BENDS AROUND A POSSESSED OR ASCENDANT ELITE ──────────────────────
+// A rank with `warp` (Combat.ELITE_RANKS) ripples and swirls the picture in a
+// flattened disc around it: one camera post pass, attached only while such
+// an elite is on screen so it costs nothing otherwise. It needs the device's
+// graphics-FX opt-in (Render.canShine), like the shine: without it the rune
+// circle's colour alone tells the rank. Up to ELITE_WARP.max discs, the
+// first as drawObjects lists them (a crowd of warped elites is rare). Radius
+// and pull are logical px at scale 1.
+const ELITE_WARP = { max: 4, radiusPx: 40, pullPx: 2.5 };
+const ELITE_WARP_FRAG = `
+precision mediump float;
+uniform sampler2D uMainSampler;
+uniform vec2 uResolution;
+uniform float uTime;
+uniform vec4 uWarp[${ELITE_WARP.max}];
+varying vec2 outTexCoord;
+void main() {
+  vec2 p = outTexCoord * uResolution;
+  vec2 off = vec2(0.0);
+  for (int i = 0; i < ${ELITE_WARP.max}; i++) {
+    vec4 w = uWarp[i];
+    if (w.z <= 0.0) continue;
+    vec2 d = p - w.xy;
+    d.y *= 2.0;
+    float r = length(d) / w.z;
+    if (r < 1.0 && r > 0.0001) {
+      float fall = (1.0 - r) * (1.0 - r) * smoothstep(0.0, 0.25, r);
+      vec2 dir = d / (r * w.z);
+      float ph = uTime + float(i) * 1.7;
+      off += dir * sin(r * 14.0 - ph * 3.0) * fall * w.w;
+      off += vec2(-dir.y, dir.x * 0.5) * sin(ph * 1.3) * fall * w.w * 0.8;
+    }
+  }
+  gl_FragColor = texture2D(uMainSampler, (p + off) / uResolution);
+}`;
+let EliteWarpPipeline = null;
+function eliteWarpPipeline(scene) {
+  const renderer = scene.sys?.game?.renderer;
+  const Base = typeof Phaser !== 'undefined' && Phaser.Renderer?.WebGL?.Pipelines?.PostFXPipeline;
+  if (!Base || !renderer?.pipelines || renderer.type !== Phaser.WEBGL) return false;
+  if (!EliteWarpPipeline) {
+    EliteWarpPipeline = class extends Base {
+      constructor(game) {
+        super({ game, name: 'EliteWarp', fragShader: ELITE_WARP_FRAG });
+        this.discs = new Float32Array(ELITE_WARP.max * 4);
+      }
+      onPreRender() {
+        this.set1f('uTime', this.game.loop.time / 1000);
+        this.set4fv('uWarp', this.discs);
+      }
+      onDraw(target) {
+        this.set2f('uResolution', target.width, target.height);
+        this.bindAndDraw(target);
+      }
+    };
+  }
+  if (!renderer.pipelines.getPostPipeline?.('EliteWarp')) renderer.pipelines.addPostPipeline('EliteWarp', EliteWarpPipeline);
+  return true;
+}
+// `discs` are { x, y, scale } in the scene's logical px (drawObjects'
+// projection, before the camera's zoom).
+Render.setEliteWarp = function setEliteWarp(scene, discs) {
+  const cam = scene.cameras?.main;
+  if (!cam || typeof cam.setPostPipeline !== 'function') return;
+  const attached = () => {
+    const p = cam.getPostPipeline('EliteWarp');
+    return Array.isArray(p) ? p[0] : p;
+  };
+  if (!discs.length) {
+    if (attached()) cam.removePostPipeline('EliteWarp');
+    return;
+  }
+  if (!attached()) {
+    if (!Render.canShine(scene) || !eliteWarpPipeline(scene)) return;
+    cam.setPostPipeline('EliteWarp');
+  }
+  const pipe = attached();
+  if (!pipe?.discs) return;
+  pipe.discs.fill(0);
+  const z = cam.zoom || 1;
+  discs.slice(0, ELITE_WARP.max).forEach((d, i) => {
+    // Post passes sample bottom-up: flip y into the target's frame.
+    pipe.discs.set([d.x * z, cam.height - d.y * z, ELITE_WARP.radiusPx * d.scale * z, ELITE_WARP.pullPx * z], i * 4);
+  });
 };
 
 // Announce only visible, revealed hostiles, once per identity in this scene.
@@ -943,7 +1064,8 @@ Render.announceElites = function announceElites(scene, list, project) {
     return sx >= scene.viewLeft && sy >= scene.viewTop
       && sx <= scene.viewLeft + scene.viewSize && sy <= scene.viewTop + scene.viewSize;
   });
-  if (arrivals.length && scene.flashEliteAppearance(arrivals.length)) {
+  // A lone arrival is named by its rank (Combat.ELITE_RANKS label).
+  if (arrivals.length && scene.flashEliteAppearance(arrivals.length, Combat.eliteRank(arrivals[0].c).label)) {
     for (const { c } of arrivals) seen.add(c.id);
   }
 };
@@ -3243,11 +3365,14 @@ function labelFactory(style) {
 // is flatter — it rides the hop, so a squatter ellipse reads as the ground
 // under it — and fainter still when airborne, the standard "how high is it"
 // cue. A wild plant's ellipse is sized off its own art (wildplantShadow).
+// `dy` lifts the ellipse off the ground point: a creature's feet stand on
+// the ellipse's middle rather than its top edge (the elite's rune circle
+// shares the creature look's centre).
 const SHADOW_LOOK = {
   prop:     { aspect: 0.42, alpha: 0.45 },
   building: { aspect: 0.42, alpha: 0.5 },
-  creature: { aspect: 0.34, alpha: 0.32 },
-  airborne: { aspect: 0.34, alpha: 0.20 },
+  creature: { aspect: 0.34, alpha: 0.32, dy: -3 },
+  airborne: { aspect: 0.34, alpha: 0.20, dy: -3 },
   plant:    { alpha: 0.55 },
 };
 // Seat the pooled shadow sprite `s` as a `look` ellipse `w` px wide, centred
@@ -3255,14 +3380,18 @@ const SHADOW_LOOK = {
 // look without an aspect (the plant's, measured off its art).
 function seatShadow(s, look, w, x, y, h = w * SHADOW_LOOK[look].aspect) {
   setTextureIfDifferent(s, 'bldg_shadow');
-  s.setOrigin(0.5, 0.5).setDisplaySize(w, h).setPosition(x, y).setAlpha(SHADOW_LOOK[look].alpha);
+  s.setOrigin(0.5, 0.5).setDisplaySize(w, h).setPosition(x, y + (SHADOW_LOOK[look].dy || 0)).setAlpha(SHADOW_LOOK[look].alpha);
 }
 
 // Contact-shadow width under a creature, per kind (px at scale 1). Per-kind
 // rather than measured, because creature sheets animate (a measured shadow
 // would pulse frame to frame).
-// The elite rune circle's width at a kind's ordinary size (px).
-const ELITE_RING_PX = 46;
+// The elite rune circle's width at a kind's ordinary size (px), and how fast
+// its two bands turn (degrees per second; the inner one against the outer).
+// The bakes (scene_create.js) step ELITE_RING_STEP_DEG per frame.
+const ELITE_RING_PX = 48;
+const ELITE_RING_STEP_DEG = 3;
+const ELITE_RING_SPIN = { outer: 360 / 14, inner: -1.6 * 360 / 14 };
 const CRITTER_SHADOW_W = {
   cow: 30, horse: 26, deer: 26, dog: 22, boar: 20, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14, sea_turtle: 16,
   butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
@@ -4516,10 +4645,14 @@ Render.drawObjects = function drawObjects(scene) {
     const appearance = npcArt ? null : creatureAppearance(c, performance.now());
     const pet = Combat.isTame(c) && !npcArt;
     const down = pet && typeof Pets !== 'undefined' && Pets.isDown(c, Date.now());
+    const vivid = !pet && !npcArt && Combat.isElite(c);
     const baseSheet = npcArt ? npcArt.sheet : creatureSheet(c.kind);
-    const texKey = pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint) : baseSheet;
+    const texKey = pet ? Render.petTexture(scene, c.kind, baseSheet, c.tint)
+      : vivid ? Render.vividTexture(scene, c.kind, baseSheet) : baseSheet;
     const anim = creatureAnim(c.kind);
-    if (pet) {
+    // A baked sheet (a pet's neutral one, an elite's vivid one) is not the
+    // sheet Phaser's anims name, so its frame is stepped here.
+    if (pet || (vivid && texKey !== baseSheet)) {
       s.anims?.stop();
       const frame = down ? 0 : Render.petFrame(scene, anim, appearance.frame, performance.now());
       if (s.texture.key !== texKey) s.setTexture(texKey, frame); else s.setFrame(frame);
@@ -4560,8 +4693,9 @@ Render.drawObjects = function drawObjects(scene) {
     if (npcArt && NPC.isDormant(c)) s.setRotation(Math.PI / 2).setOrigin(0.5, 0.5);
     Render.petDownPose(s, down);
     if (!npcArt) s.setFlipX(appearance.flipX);
-    // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
-    // sheen. Pooled sprites keep their last tint, so set an explicit colour
+    // Rare shiny animals wear the warm sheen; an ELITE monster (the same
+    // flag) keeps its own colours, made vivid (Render.vividTexture), so you
+    // still see what it is. Pooled sprites keep their last tint, so set an explicit colour
     // every frame (white for the common, plain case). A foe the Frost Powder
     // chilled (Combat.isChilled — the `frozen` status row, a SLOW) wears ice
     // over either. The plain case is the KIND'S OWN tint, not a blanket
@@ -4591,9 +4725,9 @@ Render.drawObjects = function drawObjects(scene) {
       c._statusPop = null;
       if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
     }
-    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : pet && Number.isFinite(c.tint) ? c.tint : npcArt ? npcArt.tint : creatureTint(c.kind));
+    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny && !vivid ? SHINY_TINT : pet && Number.isFinite(c.tint) ? c.tint : npcArt ? npcArt.tint : creatureTint(c.kind));
     if (c._supportUntil > performance.now() && !chilled) s.setTintFill(0x8cefa0);
-    Render.setShine(s, !!c.shiny && !chilled, c.id);
+    Render.setShine(s, !!c.shiny && !chilled, c.id, !vivid);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.
     s.setAlpha(creatureAlpha(c.kind));
@@ -4713,23 +4847,37 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
-  // THE ELITE'S RUNE CIRCLE: a baked ring of runes flat on the ground under
-  // its feet (the cell, never the hop), pulsing gently, under every renderer.
+  // THE ELITE'S RUNE CIRCLE: two baked bands of runes flat on the ground
+  // under its feet (the cell, never the hop), turning against each other and
+  // pulsing gently, under every renderer. Baked white and tinted the rank's
+  // colour (Combat.ELITE_RANKS ring). The bakes are rotation strips: a sprite
+  // rotated after it is squashed would tilt the ellipse instead of turning
+  // the circle on the ground.
   Render.announceElites(scene, creatureList, project);
   if (scene.shadowContainer) {
     scene.eliteRingPool ||= [];
     const elites = creatureList.filter(({ c }) => Combat.isElite(c) && !Combat.isConcealed(c));
     const pulseNow = performance.now();
-    Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, elites, (s, item) => {
+    const bands = elites.flatMap(item => ['outer', 'inner'].map(band => ({ ...item, band })));
+    Render.renderPool(scene, scene.eliteRingPool, scene.shadowContainer, bands, (s, item) => {
       const { x: sx, y: sy } = project(item.dx, item.dy);
       const size = ELITE_RING_PX * giantMul(item.c.kind) * creatureInstScale(item.c);
-      setTextureIfDifferent(s, 'elite_ring');
+      const key = item.band === 'outer' ? 'elite_ring' : 'elite_ring_inner';
+      const frames = Math.max(1, (scene.textures?.get?.(key)?.frameTotal ?? 2) - 1);
+      const turn = ((pulseNow / 1000) * ELITE_RING_SPIN[item.band]) / ELITE_RING_STEP_DEG;
+      const ring = Combat.eliteRank(item.c).ring;
+      s.setTexture(Render.canvasTint(scene, key, ring), ((Math.floor(turn) % frames) + frames) % frames);
       // The baked circle is drawn top-down; halving its height lays it flat on
       // the ground in the map's tilted view.
       s.setOrigin(0.5, 0.5).setDisplaySize(size, size / 2)
-       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY)
+       .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY + SHADOW_LOOK.creature.dy)
+       .setTint(ring)
        .setAlpha(0.8 + 0.2 * Math.sin(pulseNow / 450 + (strHash31(item.c.id || '') % 7)));
     });
+    Render.setEliteWarp(scene, elites.filter(({ c }) => Combat.eliteRank(c).warp).map(({ dx, dy, c }) => {
+      const { x, y } = project(dx, dy);
+      return { x, y: y + CREATURE_GROUND_DY - 6 * creatureInstScale(c), scale: giantMul(c.kind) * creatureInstScale(c) };
+    }));
   }
 
   // Renderer-AGNOSTIC shiny markers. The gold setTint() above is a WebGL multiply
