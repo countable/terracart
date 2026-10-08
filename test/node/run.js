@@ -83,7 +83,7 @@ vm.createContext(ctx);
 const FILES = [
   // The game-mode table — first, because items.js / combat.js / energy.js
   // read Difficulty.get() at call time and app.js pins it at boot.
-  'enemy_roster.js', 'enemy_spawns.js', 'enemy_habitats.js', 'difficulty.js',
+  'enemy_roster.js', 'enemy_spawns.js', 'creature_spawns.js', 'enemy_habitats.js', 'difficulty.js',
   'sprite_layout.js',
   'mvt.js', 'util.js', 'particles.js', 'trail.js',
   // Street restoration's arithmetic (pure); beside trail.js, whose ladder it feeds.

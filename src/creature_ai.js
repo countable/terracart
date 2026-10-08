@@ -364,6 +364,7 @@ function creatureSpawnClass(kind) {
   if (Combat.isEnemy(c)) return fast ? 'fastEnemy' : 'enemy';
   return fast ? 'fastFauna' : 'fauna';
 }
+globalThis.creatureSpawnClass = creatureSpawnClass;
 
 // ── SAME SIDE: nothing time-sensitive across a major road ────────────────────
 // A timed or place-bound reward seated near the player (a pot of gold's coin

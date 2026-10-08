@@ -186,9 +186,11 @@ access or tile lifecycle mechanics.
   and keeps RESTRICTED. The military/railway rows of QUIET_LAND get the same
   paint check (`stampQuietLandSteps`'s optional `grid` arg); cemetery and the
   boundary/park aboriginal_lands rows do not (no own paint to compare, or
-  never ours to reopen on a data coincidence). Every spawner calls
+  never ours to reopen on a data coincidence). Every static spawner calls
   `WorldGen.isSpawnCell(grid, w, h, cx, cy, opts, cls)` with `_spawnOpts`
-  (`spawnWhy`, `roadMask`, `occupied`) AND its class (the source sweep in
+  (`spawnWhy`, `roadMask`, `occupied`) AND its class. Creature generators call
+  `CreatureSpawns.isSpawnCell` or `gateAt` with the kind; the wrapper derives
+  the class and delegates to that same gate (the source sweep in
   `test/node/spawn_class.test.js`): `minor` (flora, rocks, scenery — hard
   reasons only), `headstone`, `cave`, `fauna` / `fastFauna`, `npc`,
   `attractor`, `enemy` / `fastEnemy`. A creature's class is DERIVED

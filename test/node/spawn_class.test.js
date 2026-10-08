@@ -558,7 +558,11 @@ test('spawn gate: every isSpawnCell / relocateToSpawnCell call in src/ passes a 
         if (/\/\/.*$/.test(src.slice(lineStart, m.index))) continue;   // inside a trailing comment
         const args = callArgs(src, m.index + name.length);
         calls++;
-        if (args.length !== argN || !CLASS_ARG.test(args[argN - 1])) bad.push(`${file}: ${lineText.trim()}`);
+        // CreatureSpawns accepts a creature kind because the wrapper derives
+        // its class before it delegates to WorldGen's one gate.
+        const creatureWrapper = /CreatureSpawns\.$/.test(src.slice(Math.max(0, m.index - 40), m.index));
+        const namesClass = CLASS_ARG.test(args[argN - 1]) || (creatureWrapper && args[argN - 1] === 'kind');
+        if (args.length !== argN || !namesClass) bad.push(`${file}: ${lineText.trim()}`);
       }
     }
   }
