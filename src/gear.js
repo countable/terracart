@@ -201,25 +201,21 @@
   }
 
   // Forge recipe for a gear piece. Tools use the tier-matched bar (T1 = plain
-  // wood — items.js barForTier); the staff's emerald setting uses a geometric
-  // gem ramp (1,2,4,…,32 from T2..T7) plus one bar. At the Frost tier every
-  // staff is cut around DIAMONDS instead of emerald at Frost (JEWELRY_FROST_TIER). Returns null when uncraftable.
-  const JEWELRY_FROST_TIER = 7;
-  const JEWELRY_FROST_GEM = 'diamond';
+  // wood — items.js barForTier); the staff is set with the gem OF ITS TIER
+  // (items.js gemForTier: topaz T2 … emerald T6, diamond T7) on a geometric
+  // ramp (1,2,4,…,32 from T2..T7) plus one bar. Returns null when uncraftable.
+  const JEWELRY_SLOTS = new Set(['staff']);
   function blacksmithRecipe(kind, slot, tier) {
     if (!tier) return null;
     if (kind === 'relic' && !RELIC_DEFS[slot]) return null;
     if (kind === 'relic' && RELIC_DEFS[slot].chestOnly) return null;
     if (kind === 'armor' && !ARMOR_DEFS[slot]) return null;
-    const JEWELRY_GEM = { staff: 'emerald' };
     const bar = barForTier(tier);
     if (!bar) return null;
-    if (JEWELRY_GEM[slot]) {
+    if (JEWELRY_SLOTS.has(slot)) {
       if (tier < 2) return null;   // no wooden jewelry
-      const gemQty = Math.pow(2, tier - 2);
-      const gem = (tier >= JEWELRY_FROST_TIER) ? JEWELRY_FROST_GEM : JEWELRY_GEM[slot];
       return [
-        { id: gem, qty: gemQty },
+        { id: gemForTier(tier), qty: Math.pow(2, tier - 2) },
         { id: bar, qty: 1 },
       ];
     }

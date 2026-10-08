@@ -113,7 +113,7 @@ function xorRng(seed) {
 
 test('roadside chest: every tier stays with supplies, minerals and cash', () => {
   assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
-  const supplyIds = new Set(['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'taming_potion', 'blank_scroll']);
+  const supplyIds = new Set(['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'sugar_potion', 'blank_scroll']);
   for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
     let supplies = 0, torches = 0;

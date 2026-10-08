@@ -1,8 +1,8 @@
 // THE PEOPLE COME BACK AS THE PAST DOES. A tile's residents are drawn in
 // full (NPC.spawn — the same people for every player) but none is about on
 // a new save: the warden by the trailer is the one neighbour on screen. They
-// return RETURN_PER_MEMORY per recovered memory, and linger inside Home's
-// ring or within LINGER_CELLS of a restored house — a tile with neither gets
+// return RETURN_PER_MEMORY per recovered memory, and wait just outside Home's
+// ring (beyond a stroll of it) or linger within LINGER_CELLS of a restored house — a tile with neither gets
 // nobody back. Keepers never left. Nobody is watched arriving. And the
 // family's plea (MemoryStory.HOME) is the warden's on a tap, never a splash.
 (function () {
@@ -44,12 +44,17 @@
     assert.eq(NPC.RETURN_PER_MEMORY, 2);
     assert.eq(e.creatures.length, back.length, 'seated on the tile');
     for (const c of back) {
-      const nearHome = s.inHomeRing(c.x, c.y), nearMended = cheb(c, MENDED) <= NPC.LINGER_CELLS;
-      assert.truthy(nearHome || nearMended, `${c.id} lingers by Home or the mended house`);
+      const nearMended = cheb(c, MENDED) <= NPC.LINGER_CELLS;
+      // Home's waiters stand outside the ring, beyond a stroll of it, and no further than LINGER_CELLS past that.
+      const fromHome = Math.hypot(c.x - HOME.x, c.y - HOME.y) / CELL_M;
+      const byHome = c._homeAnchor === '' && fromHome > 4 + NPC.WANDER_CELLS && fromHome <= 4 + NPC.WANDER_CELLS + NPC.LINGER_CELLS;
+      assert.truthy(byHome || nearMended, `${c.id} waits off Home's doorstep or lingers by the mended house`);
+      assert.falsy(s.inHomeRing(c.x, c.y), `${c.id} is not on Home's doorstep`);
       assert.gt(cheb(c, WRECK), NPC.LINGER_CELLS, 'nobody goes back to a wreck');
       assert.eq(c.homeX, c.x); assert.eq(c.homeY, c.y);
       assert.truthy(c.name && c.role, 'the same person the draw named');
     }
+    assert.truthy(back.some(c => c._homeAnchor === ''), 'some wait by Home');
     assert.eq(new Set(back.map(c => Math.floor(c.x / CELL_M) + ',' + Math.floor(c.y / CELL_M))).size, back.length, 'one to a cell');
     // Idempotent, and more come as the ledger grows — the earlier ones stay put.
     assert.eq(NPC.arrivals(s, e, 0, 0).length, 0);

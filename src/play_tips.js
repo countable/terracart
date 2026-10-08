@@ -144,7 +144,7 @@ const PLAY_TIPS = [
   // Appended (Oct 2026): the spear, made at Home from a stone and a branch
   // (items.js HOME_RECIPES) — every craftable has its page in the Book.
   ITEM_GUIDE_TIPS.throwing_spear,
-  ITEM_GUIDE_TIPS.taming_potion,
+  ITEM_GUIDE_TIPS.sugar_potion,
   ITEM_GUIDE_TIPS.fireball_scroll,
   ITEM_GUIDE_TIPS.fear_scroll,
   ITEM_GUIDE_TIPS.treasure_map,

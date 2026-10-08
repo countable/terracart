@@ -36,7 +36,7 @@ test('consumable confirmations: outcomes stay brief and enigmatic', () => {
 
 test('consumables: one action row names every button method', () => {
   const ids = [
-    'portal_stone', 'orb', 'egg', 'book', 'taming_potion', 'reach_potion', 'antidote', 'elixir',
+    'portal_stone', 'orb', 'egg', 'book', 'sugar_potion', 'reach_potion', 'antidote', 'elixir',
     'healing_potion', 'speed_potion', 'shielding_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll',
     'giant_potion', 'fire_resistance_potion', 'flight_potion', 'protection_potion', 'time_potion', 'immortal_potion', 'shrinking_potion',
     'thunder_scroll', 'blight_potion', 'revival_potion',

@@ -183,8 +183,11 @@ class SceneConsumables {
     return typeof this[row.method] === 'function' ? this[row.method]() : false;
   }
 
-  useHoney() {
-    if (!this._selectedConsumable('taming_potion')) return false;
+  // Set out the Sugar Potion: every animal within radiusM is drawn toward you
+  // and calmed (Combat.calm — it will not run for the row's duration).
+  useSugar() {
+    if (!this._selectedConsumable('sugar_potion')) return false;
+    const spec = CONSUMABLE_SPEC.sugar_potion;
     const { x: pWX, y: pWY } = playerWorldM(this);
     let lured = 0;
     for (const entry of WorldGen.tileCache.values()) {
@@ -193,7 +196,7 @@ class SceneConsumables {
         if (this.save.caught.includes(c.id)) continue;
         if (!SpriteLayout.creatureProduce(c.kind)) continue;
         const d = Math.hypot(c.x - pWX, c.y - pWY);
-        if (d > CONSUMABLE_SPEC.taming_potion.radiusM) continue;
+        if (d > spec.radiusM) continue;
         // Re-anchor the wander home toward the player. The wanderer's next
         // step picks a direction biased back toward _homeX/_homeY when it
         // drifts beyond ~3 cells, so this pulls them in over a few ticks.
@@ -202,12 +205,13 @@ class SceneConsumables {
         c._homeX = pWX + Math.cos(ang) * r;
         c._homeY = pWY + Math.sin(ang) * r;
         c._nextChooseT = 0;   // force a fresh step now
+        Combat.calm(c, spec.durationMs);
         lured++;
       }
     }
     return this._finishConsumable(
-      '🍯 You set out the Potion of Taming',
-      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you.' : 'The potion gleams in the quiet. Nothing stirs nearby.',
+      '🍯 You set out the Sugar Potion',
+      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you, and stay.' : 'The potion gleams in the quiet. Nothing stirs nearby.',
     );
   }
 

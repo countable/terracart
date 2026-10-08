@@ -413,11 +413,12 @@ const MINERAL_ICON_SHEET = {
   // 7_Pickup_Items_16x16 (renamed Pickup_Items.png in Objects/). Frame =
   // 6 * 14 + 4 = 88.
   old_boot:       { sheet: 'pickup',         frame: 88 },
-  // Consumables — honey is a single 16×16 jar (Icons/Items/Honey.png, an
-  // amber fill of the potion pack's empty flask); books are a 240×64
+  // Consumables — the Sugar Potion is a single 16×16 jar (Icons/Items/Honey.png,
+  // an amber fill of the potion pack's empty flask); books are a 240×64
   // multi-frame sheet, frame 0 the basic variant.
   syrup: { sheet: 'icon_potions', frame: 0 },
-  taming_potion:      { sheet: 'icon_taming_potion',  frame: 0 },
+  sugar_potion:       { sheet: 'icon_sugar_potion',  frame: 0 },
+  taming_potion:      { sheet: 'icon_potions', frame: 29 },   // the blue conical flask
   book:       { sheet: 'icon_book',   frame: 0 },
   tome_reach: { sheet: 'icon_book',   frame: 2 },
   tome_raven: { sheet: 'icon_book',   frame: 8 },
@@ -664,7 +665,7 @@ const BASE_TIER = {
   dog: 5,
   // Consumables
   antidote: 1, elixir: 7,
-  syrup: 2, taming_potion: 3, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
+  syrup: 2, sugar_potion: 2, taming_potion: 7, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
@@ -832,6 +833,7 @@ const ITEMS = [
   // Potion of Taming (legacy save id honey): set it out to lure wandering chickens + cows within 30m toward
   //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
+  { id: 'sugar_potion', name: 'Sugar Potion', kind: 'supply', potion: true },
   { id: 'taming_potion', name: 'Potion of Taming', kind: 'supply', potion: true },
   // dropWeight 3: a Book is THE documentation (see play_tips.js), so it is
   // the one consumable that has to turn up often enough to be read. At an even
@@ -1259,10 +1261,21 @@ const CONSUMABLE_SPEC = {
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
     cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_fire_wall'),
     get: 'A wall of flame rises across the ground ahead.' },
-  taming_potion: {
-    radiusM: 30,
-    verb: 'Use', method: 'useHoney', title: 'Set out the Potion of Taming?',
+  // THE SUGAR POTION (T2, two berries at Home): an ANIMAL it reaches stays
+  // put for durationMs — the `calm` status (Combat.calm): it does not bolt
+  // from you, flee a blow or run from the net. Offered (tap the animal),
+  // thrown, or set out (every animal within radiusM, drawn toward you).
+  sugar_potion: {
+    radiusM: 30, durationMs: 2 * 60 * 1000,
+    verb: 'Use', method: 'useSugar', title: 'Set out the Sugar Potion?',
     get: 'Sweetness draws curious noses through the grass.',
+  },
+  // THE POTION OF TAMING (T7): every creature's favourite (UNIVERSAL_FAVOURITE
+  // — offered, it starts the catch), and thrown it charms a foe for a minute.
+  // No use of its own: it is given or thrown.
+  taming_potion: {
+    get durationMs() { return Combat.FLOWER_STATUS_MS; },
+    get: 'A creature’s whole heart turns toward you.',
   },
   reach_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'reach',
@@ -1538,7 +1551,8 @@ const PRICES = {
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,
-  taming_potion: 12,
+  sugar_potion: 8,     // T2 — two berries at Home
+  taming_potion: 400,  // T7 — every creature's favourite, and a thrown charm
   book:  20,
   tome_reach: 90,   // T3 — a reach potion's sight, once a day, forever
   tome_raven: 170,  // T4 — a T2 raven's wings, once a day, forever
@@ -1699,7 +1713,7 @@ const ITEM_GUIDE_TIPS = {
   trap_disarm_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
   throwing_spear: 'I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
-  taming_potion: 'I simmered the berries into a potion and left a little by the gate. The hens followed its scent home.',
+  sugar_potion: 'I simmered the berries into a potion and left a little by the gate. The hens followed its scent home.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
@@ -1786,6 +1800,7 @@ const ITEM_EFFECTS = {
   diamond: 'A sliver of winter waits for a jeweller’s hand.',
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
   syrup: 'Sweet amber syrup clings to the lip of the jar.',
+  sugar_potion: 'Offered or thrown, it keeps an animal from running for two minutes.',
   taming_potion: 'Every creature’s favourite. Thrown, it charms a foe for a minute.',
   book: 'An elder’s faded words wait beneath the worn cover.',
   tome_reach: 'Page by page, the horizon walks closer.',
@@ -2609,7 +2624,7 @@ const HOME_RECIPES = [
   { id: 'rope',      cost: [{ id: 'longgrass', qty: 5 }] },
   // Four stones knock a snare's jaw shut for good.
   { id: 'trap_disarm_kit',  cost: [{ id: 'rubble', qty: 4 }] },
-  { id: 'taming_potion',     cost: [{ id: 'berry', qty: 2 }] }, // Potion of Taming; keep the saved item id
+  { id: 'sugar_potion',      cost: [{ id: 'berry', qty: 2 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
     id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
   })),

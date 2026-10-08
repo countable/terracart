@@ -107,8 +107,12 @@ mechanics.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
   carried animals. Every animal and enemy has a FAVOURITE (`favouriteItems`,
   items.js: an animal's `ANIMAL_FOOD`, else an enemy's roster-tier gem from
-  `GEM_DEPOSITS`, never typed per row); the Potion of Taming is every one's
-  favourite too (`UNIVERSAL_FAVOURITE`, read in `animalLikesFood`). Giving a wild one its favourite starts
+  `GEM_DEPOSITS`, never typed per row); the Potion of Taming (T7, loot only;
+  thrown, a minute of charm) is every one's favourite too
+  (`UNIVERSAL_FAVOURITE`, read in `animalLikesFood`). The Sugar Potion (T2,
+  two berries at Home) is the cheap half: offered, thrown or set out, it lands
+  the `calm` status (`Combat.calm`, animals only) and the animal does not
+  bolt, flee a blow or run from the net while it holds. Giving a wild one its favourite starts
   a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes

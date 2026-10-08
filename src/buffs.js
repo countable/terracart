@@ -65,7 +65,7 @@
     bike:    { name: 'Bike',    color: '#a8f0b0', stroke: '#103a18', save: 'bikeUntil' },
     field_scope: { name: 'Telescope', color: '#ffd166', stroke: '#4a3a00',
       read: save => Number(save?.telescopeCompass?.until) || 0 },
-    wayfarer: { name: 'Wayfarer', color: '#4d9dff', stroke: '#102a40',
+    wayfarer: { name: 'Directions', color: '#4d9dff', stroke: '#102a40',
       read: save => Number(save?.wayfarerCompass?.until) || 0 },
     compass: { name: 'Compass', color: '#67e8f9', stroke: '#2a1040',
       read: (save, scene) => Number(scene?.pairyCompass?.until) || 0 },

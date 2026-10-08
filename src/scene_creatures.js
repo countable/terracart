@@ -2075,7 +2075,7 @@ class SceneCreatures {
       // net-catch arms (`flee.escapes` over _escapingUntil, set in
       // _drawWorkProgress — the butterfly's, and only ever stamped on one).
       // A charging deer does not bolt — it comes at you (gameCharge).
-      const bolting = !!bolt && !gameCharge && (
+      const bolting = !!bolt && !gameCharge && !Combat.isCalm(c) && (
         (bolt.cells != null && ddx * ddx + ddy * ddy <= (bolt.cells * this.cellM) ** 2)
         || (!!bolt.escapes && !!(c._escapingUntil && now < c._escapingUntil)));
       // The charge runs at the kind's own flee stride and beat: one pace for
@@ -2153,6 +2153,8 @@ class SceneCreatures {
         // ceiling; the FLEE multipliers on top would stack a run on a run),
         // else at the FLEE pace anything else in a hurry runs. The hop glides
         // over the same beat it is chosen on (_hopMs).
+        // A calmed animal (the Sugar Potion) takes the blow and stays.
+        if (c._fleeUntilT > now && Combat.isCalm(c)) c._fleeUntilT = 0;
         if (c._fleeUntilT && c._fleeUntilT > now) {
           const base = hurry ? { m: stepM / FLEE_STRIDE_MUL, ms: stepMs / FLEE_BEAT_MUL } : { m: stepM, ms: stepMs };
           const hurryM = bolt ? STEP_M * (bolt.stepCells ?? 1) : base.m * FLEE_STRIDE_MUL;
@@ -2451,7 +2453,7 @@ class SceneCreatures {
     // Never `return` early here: c.x/c.y are ONLY written in this function, so a
     // return would freeze the crow while a pet keeps hitting it
     // (test/node/crow_flee.test.js).
-    const fleeing = c._fleeUntilT && c._fleeUntilT > now;
+    const fleeing = c._fleeUntilT > now && !Combat.isCalm(c);
     if (fleeing) {
       // A crow being mauled doesn't finish casing the crop first — abandon
       // any in-progress landing so recovering later starts clean.
