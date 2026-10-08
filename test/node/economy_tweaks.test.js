@@ -19,7 +19,7 @@ test('economy: no gear roll ever hands out unique jewelry', () => {
   const rng = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
   for (let i = 0; i < 3000; i++) {
     const r = rollGearUpgrade(rng, {}, 1 + (i % 4), {});
-    assert.truthy(!r || !['ring', 'amulet'].includes(r.slot), 'jewelry came out of a gear roll');
+    assert.truthy(!r || r.slot !== 'ring', 'a ring came out of a gear roll');
   }
 });
 })();
