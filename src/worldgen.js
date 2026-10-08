@@ -109,26 +109,6 @@
           ^ Math.imul(ix | 0, 83492791) ^ Math.imul(iy | 0, 0x27D4EB2F));
   }
 
-  // Rooted park enemies have their own per-cell stream. Filtering one blocked
-  // cell never shifts another candidate, and no fauna/treasure RNG is consumed.
-  const PARK_PLANT_CELL_CHANCE = 1 / 192;
-  const PARK_PLANT_SALT = 0x50a17;
-  function spawnParkPlants(grid, w, h, tx, ty, tileEdgeM, opts = {}) {
-    const plants = [];
-    for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
-      if (grid[cy * w + cx] !== T.PARK) continue;
-      const rng = makeRng(cellHash(tx, ty, cx, cy) ^ PARK_PLANT_SALT);
-      if (rng() >= PARK_PLANT_CELL_CHANCE) continue;
-      // A biting plant is a foe: the enemy class (OPEN cells only).
-      if (!isSpawnCell(grid, w, h, cx, cy, opts, 'enemy')) continue;
-      plants.push(makeCreature('plant',
-        tx * tileEdgeM + (cx + 0.5) * tileEdgeM / w,
-        ty * tileEdgeM + (cy + 0.5) * tileEdgeM / h,
-        cellId('plant', tx, ty, cx, cy)));
-    }
-    return plants;
-  }
-
   const HIVE_SPEC = { cellChance: 1 / 192, syrup: 3, bees: 3 };
   function spawnForestHives(grid, w, h, tx, ty, tileEdgeM, opts = {}) {
     const out = [];
@@ -555,7 +535,7 @@
   //                   NEAREST_POI_MAX_M counts as private) — lifted by a POI
   //                   within SPAWN_FRONTAGE (opts.pois: a chest is a public
   //                   place)
-  //     FARMLAND      mapped farmland, including its edges and any later paint
+  //     FARMLAND      legacy whole-field exclusion bit (no longer stamped)
   //     GOLF          private golf grounds, including all later overlays
   //     PIER_ACCESS   pier footprint without affirmative public access tags
   //     FARM_INTERIOR orchard / farmland further than FARM_EDGE_CELLS from
@@ -577,8 +557,7 @@
   // university grounds, plus the school-hours timing — are both dropped: the
   // owner reviewed the table and decided a house's yard is covered by
   // PRIVATE/BEHIND_HOUSE already and a school field is ordinary public ground.
-  // KINDERGARTEN stays hard. Farmland is fully excluded; orchard edges
-  // retain their existing access rule.)
+  // KINDERGARTEN stays hard. Orchard and farmland outer rims are open.)
   // The spawn's class — isSpawnCell's 7th argument, required of every caller
   // (test/node/spawn_class.test.js sweeps the source) — is a ROW of
   // SPAWN_CLASS_BLOCKS: which typed reasons it refuses (hard ones always).
@@ -610,7 +589,7 @@
   // What this is NOT: a movement rule. A fast foe's leash at the kerb reads
   // roadClass (inMajorBuffer) because it is about where a chase may GO.
   // Bit values kept stable across the Sep 2026 drop of HOUSE (512), SCHOOL
-  // (2048). The former FARM bit now blocks all mapped FARMLAND.
+  // (2048). Retain the legacy FARMLAND bit for older cached masks.
   const SPAWN_WHY = {
     TERRAIN: 1, ROAD: 2, RESTRICTED: 4, QUIET: 8, KINDERGARTEN: 16,
     SENSITIVE_SITE: 32, BEHIND_HOUSE: 64, PRIVATE: 128, FARM_INTERIOR: 256,
@@ -623,13 +602,13 @@
     | W_.PIER_ACCESS | W_.JUNCTION;
   // Geographic exclusions survive every dungeon floor. Terrain, roads and
   // frontage are evaluated separately for the floor on which a spawn sits.
-  const SPAWN_WHY_ALL_FLOORS = W_.FARMLAND | W_.GOLF;
+  const SPAWN_WHY_ALL_FLOORS = W_.FARM_INTERIOR | W_.GOLF;
   function floorSpawnWhy(surface) {
     const source = surface.zone?.caveSource || surface.caveSource || surface;
     const grid = source.baseGrid || source.grid;
     const why = source.spawnWhy || surface.spawnWhy;
     return Uint32Array.from(grid, (terrain, i) => ((why?.[i] || 0) & SPAWN_WHY_ALL_FLOORS)
-      | (terrain === T.FARMLAND ? W_.FARMLAND : terrain === T.GOLF ? W_.GOLF : 0));
+      | (terrain === T.GOLF ? W_.GOLF : 0));
   }
   const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE | W_.JUNCTION_SOFT;
   // Hard access reasons that place-bound producers obey even when they own
@@ -684,7 +663,7 @@
   function isSpawnCell(grid, w, h, cx, cy, opts, cls) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
     const here = grid[cy * w + cx];
-    if (here === T.FARMLAND || here === T.GOLF) return false;
+    if (here === T.GOLF) return false;
     if (here === T.PIER && !(opts && opts.spawnWhy)) return false;
     // Only authored thorny/barricade/snare cross-sections may occupy their own
     // road band. Declared seats never relax any other spawn class.
@@ -3784,7 +3763,7 @@
   function commercialPoiField(layers, w, mvtToCell, mvtToM, grid) {
     return runSteps(commercialPoiFieldSteps(layers, w, mvtToCell, mvtToM, grid));
   }
-  // ORCHARDS: only the EDGE hosts — a cell within
+  // ORCHARDS AND FARMLAND: only the EDGE hosts — a cell within
   // FARM_EDGE_CELLS (Chebyshev) of the source field footprint boundary is open
   // (every class may spawn there, same as any other open ground, since the
   // typed FARM reason was dropped Sep 2026); deeper in is the hard
@@ -3951,7 +3930,7 @@
           fieldSource[y * E + x] = 1;
         }, M);
       }
-      const why = terrain === T.FARMLAND ? W_.FARMLAND : terrain === T.GOLF ? W_.GOLF : 0;
+      const why = terrain === T.GOLF ? W_.GOLF : 0;
       if (!why) continue;
       yield 'spawn gate private grounds';
       yield* forEachPolygonCellSteps(w, h, f.geom, mvtToCell, (x, y) => { land[y * w + x] |= why; });
@@ -4131,7 +4110,7 @@
     // ── The reasons, per cell (every one that applies — the classes decide).
     // BEHIND_HOUSE is about somebody's LOT: it never touches public ground (a
     // park-family polygon's cell, whatever paint won it, or any ground that
-    // is not lot / field). Orchard edges remain open; all farmland is refused.
+    // is not lot / field). Orchard and farmland edges remain open.
     for (let y = 0; y < h; y++) {
       if ((y & 15) === 15) yield 'spawn gate classify';
       for (let x = 0; x < w; x++) {
@@ -4152,7 +4131,6 @@
         if (lot && !front[i]) v |= W_.PRIVATE;
         // Commercial ground: the nearest POI decides (COMMERCIAL_GROUND).
         if (COMMERCIAL_GROUND.has(t) && (!comField || comField.kind[i] !== POI_PUBLIC)) v |= W_.PRIVATE;
-        if (t === T.FARMLAND) v |= W_.FARMLAND;
         if (t === T.GOLF) v |= W_.GOLF;
         if (t === T.PIER && !publicPier[i]) v |= W_.PIER_ACCESS;
         if (fieldSource[(y + M) * E + x + M] && !farmEdge[i]) v |= W_.FARM_INTERIOR;
@@ -4425,7 +4403,7 @@
     // `patch` (optional): the biome's FLORA_PATCH row — the density is scaled
     // per candidate by the plane noise at its global point (clumps, not a
     // blanket). Still one draw per candidate: the stream never moves.
-    function* spawnDebrisSteps(rings, crop, polyKey, dMin, dMax, patch) {
+    function* spawnDebrisSteps(rings, crop, polyKey, dMin, dMax, patch, stageCount, floraTerrain) {
       const prng = makeRng(polyKey);
       const density = dMin + prng() * (dMax - dMin);
       const gx0 = tx * TILE_EXTENT, gy0 = ty * TILE_EXTENT;
@@ -4455,8 +4433,11 @@
             : density;
           if (prng() < d) {
             // Stash local ix/iy on the wp so the post-pass filter can read grid[] directly.
+            const stage = stageCount ? Math.floor(makeRng((cellHash(tx, ty, localIX, localIY) ^ polyKey) >>> 0)() * stageCount) : undefined;
             wildplants.push(makeWildplant(crop, cx, cy,
-              cellId('wp', tx, ty, localIX, localIY), { _ix: localIX, _iy: localIY }));
+              cellId('wp', tx, ty, localIX, localIY), { _ix: localIX, _iy: localIY,
+                ...(stageCount ? { stage } : {}),
+                ...(floraTerrain != null ? { _floraTerrain: floraTerrain } : {}) }));
           }
         }
       }
@@ -4936,7 +4917,7 @@
             // formal / common) — the same scatter over a variant profile.
             const isCemetery = f.tags.class === 'cemetery';
             const parkChar = t === T.PARK ? parkCharacterFor(f.geom, c0, isCemetery) : null;
-            if (parkChar) parkPolys.push({ rings: f.geom, character: parkChar, cemetery: isCemetery });
+            if (parkChar) parkPolys.push({ rings: f.geom, character: parkChar, cemetery: isCemetery, id: f.id || null, name: f.tags.name, tags: f.tags });
             const floraPatch = BiomeProfiles.patch(t, parkChar);
             for (const fl of BiomeProfiles.flora(t, parkChar)) {
               if (fl.pattern === 'grassfill') continue; // final-grid pass includes unmapped ground
@@ -4950,7 +4931,8 @@
                 const density = Math.max(fl.dMin, ((seed % 1000) / 1000) * fl.dMax);
                 yield* spawnDebrisSteps(f.geom, fl.crop, seed, density, density, floraPatch);
               } else {
-                yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax, floraPatch);
+                yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax, floraPatch, fl.stageCount,
+                  fl.sourceTerrainOnly ? t : undefined);
               }
             }
             // The character's own furniture: a wooded park's trees, a formal
@@ -5945,7 +5927,7 @@
         // Quiet land, private grounds and unverified piers host nothing — not even a POI chest
         // (a farm shop or kiosk): the mask's whole promise is that
         // nothing there asks to be walked to.
-        if (quietMask[iy * w + ix] || (spawnWhy[iy * w + ix] & (W_.FARMLAND | W_.GOLF | W_.PIER_ACCESS))) return true;
+        if (quietMask[iy * w + ix] || (spawnWhy[iy * w + ix] & (W_.FARM_INTERIOR | W_.GOLF | W_.PIER_ACCESS))) return true;
         // Blanket cull: nothing but a POI chest may sit on a road tier or a
         // building footprint. A chest is a real-world destination deliberately
         // placed at its coordinates — and a POI inside a building is allowed
@@ -6200,7 +6182,7 @@
       const t = grid[wp._iy * w + wp._ix];
       const cellKey = `${wp._ix}_${wp._iy}`;
       const grows = wp._yard ? BiomeProfiles.yardAllows(wp.crop, t) : BiomeProfiles.allows(wp.crop, t);
-      if (grows && !occupiedCells.has(cellKey)) {
+      if (grows && (wp._floraTerrain == null || wp._floraTerrain === t) && !occupiedCells.has(cellKey)) {
         occupiedCells.add(cellKey);
         wp._biome = t;
         // Reed silhouettes identify the one-cell wetland margin. Only art
@@ -6222,7 +6204,7 @@
             { barrel: true, barrelStyle: 'clay_pot', _biome: t }));
           continue;
         }
-        delete wp._ix; delete wp._iy; delete wp._yard;
+        delete wp._ix; delete wp._iy; delete wp._yard; delete wp._floraTerrain;
         filtered.push(wp);
       }
     }
@@ -6555,7 +6537,7 @@
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
-    return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -6807,6 +6789,7 @@
       entry.roadClass = roadClass;
       entry.streetIndex = streetIndex || null;
       entry.streetArea = streetArea || null;
+      entry.streetAreaVariants = streetArea?.variants || null;
       entry.streetDress = streetDress || null;
       entry.caveSource = caveSource;
       // The influence-zone field (src/zones.js — per-cell winner anchor and
@@ -9460,7 +9443,7 @@
     // sandbox.js as well as this file — one shape per stream, reachable from
     // all of them.
     makeWildplant, makeCreature, makeObject,
-    spawnParkPlants, PARK_PLANT_CELL_CHANCE, spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
+    spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
     clearStreetAmbientSteps, variantOwnerAt, getTileBin,
   };
 })(window);

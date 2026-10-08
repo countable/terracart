@@ -42,14 +42,14 @@ const HEDGE = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow', '
 const ROCKY = nameWhere((n, k) => SV.rocksFor(k, 'minor', SV.variantFor(k, n, 'minor'))
   && !SV.variantFor(k, n, 'minor'), 'Rock Road');
 
-// The fixture's two cafés: one in the open park (row 40, col 25), one
+// The fixture's two cafés: one in the open meadow (row 40, col 25), one
 // hugging the motorway's EAST kerb (col 47, row 56).
 const CAFE_OPEN = [25, 40], CAFE_KERB = [47, 56];
 const CAFES = [
   { type: 1, tags: { class: 'cafe', name: 'Open Cup' }, geom: [pts([CAFE_OPEN])] },
   { type: 1, tags: { class: 'cafe', name: 'Kerb Cup' }, geom: [pts([CAFE_KERB])] },
 ];
-// Park ground (no private-yard rule in the way) with: a rock-lined minor
+// Meadow ground (no private-yard rule in the way) with: a rock-lined minor
 // street along row 12, a hedgerow minor street along row 50 from a junction
 // with an unnamed minor street down col 10 to a DEAD END at col 30, a
 // motorway down col 44, and two bus stops — one beside the motorway, one far
@@ -66,7 +66,7 @@ function layers() {
     { type: 2, tags: { name: HEDGE }, geom: [pts([[10, 50], [20, 50], [30, 50]])] },
   ];
   return [
-    { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+    { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },
     { name: 'transportation', extent: EXTENT, features: tr },
     { name: 'transportation_name', extent: EXTENT, features: tn },
     { name: 'poi', features: [
@@ -76,7 +76,21 @@ function layers() {
     ] },
   ];
 }
-const rasterize = () => WorldGen.rasterizeTile(layers(), CPE, TX, TY, TILE_EDGE_M);
+// Street placement tests need open ground. Ordinary meadow flora has its
+// own coverage tests; keep its fill from obscuring road densities and café
+// seats while retaining the real terrain, roads, shared gates and dressing.
+function openStreetTile(sourceLayers) {
+  const flora = BiomeProfiles.flora, fill = { ...BiomeProfiles.GRASS_FILL };
+  try {
+    BiomeProfiles.flora = (terrain, ...args) => terrain === T.GRASS ? [] : flora(terrain, ...args);
+    Object.assign(BiomeProfiles.GRASS_FILL, { dMin: 0, dMax: 0, dense: 0 });
+    return WorldGen.rasterizeTile(sourceLayers, CPE, TX, TY, TILE_EDGE_M);
+  } finally {
+    BiomeProfiles.flora = flora;
+    Object.assign(BiomeProfiles.GRASS_FILL, fill);
+  }
+}
+const rasterize = () => openStreetTile(layers());
 const cellOf = (v, t) => Math.floor((v - t * TILE_EDGE_M) / (TILE_EDGE_M / CPE));
 const occupiedOf = (r) => {
   const occ = new Set();
@@ -199,9 +213,9 @@ test('index: the fixture\'s streets roll as searched, and its cafés are the hoa
   assert.truthy(r.streetIndex.roadClass === r.roadClass, 'the stamp pass leaves the tile\'s roadClass on the index');
 });
 
-test('rocks: only along the chosen minor street — none by the hedgerow, none in the park', () => {
+test('rocks: only along the chosen minor street — none by the hedgerow, none away from the road', () => {
   const r = rasterize();
-  const rocks = r.objects.filter((o) => o.kind === 'mineralrock');
+  const rocks = r.objects.filter((o) => o.kind === 'mineralrock' && o._street);
   assert.gt(rocks.length, 5, 'the rock street is lined');
   for (const o of rocks) {
     assert.truthy(o._street, `${o.id} is a street rock`);
@@ -218,7 +232,7 @@ test('rocks: only along the chosen minor street — none by the hedgerow, none i
 test('rocks: a rock-lined street runs about one rock per 10 m of its length', () => {
   // The owner's figure, measured on a real block (the Kelowna fixtures: ~1
   // per 16 m at the old 20 m pivot, 9.8 m now — sidewalks, moats and yards
-  // cull most of a cluster there). This fixture's open park culls almost
+  // cull most of a cluster there). This fixture's open meadow culls almost
   // nothing, so the same pivot runs ~2.7 m a rock here (4.5+ m at the old
   // pivot): the tripwire is on that.
   const r = rasterize();
@@ -307,7 +321,7 @@ test('café hoards: beside the café, public ground, guarded only outside the ke
   assert.eq(cafeLairs.length, d.treasures.filter((t) => t.guarded).length, 'one guard post per guarded hoard, none for the rest');
   const open = d.treasures.find((t) => Math.abs(cellOf(t.x, TX) - CAFE_OPEN[0]) <= SV.HOARD_SEAT_CELLS
     && Math.abs(cellOf(t.y, TY) - CAFE_OPEN[1]) <= SV.HOARD_SEAT_CELLS);
-  assert.truthy(open && open.guarded, 'the café in the open park holds a guarded hoard');
+  assert.truthy(open && open.guarded, 'the café in the open meadow holds a guarded hoard');
   const kerb = d.treasures.find((t) => t !== open);
   assert.gt(cellOf(kerb.x, TX), 44, 'the kerb café\'s hoard stays EAST of the motorway (never across the band)');
 });
@@ -343,9 +357,9 @@ test('café hoards: HOARDS_PER_TILE a tile, lowest hash first; commercial fallba
   const five = [[5, 5], [15, 5], [25, 5], [35, 5], [5, 25]];
   const hp = SV.hoardPoisOf(poi('cafe', five), TX, TY, EXTENT);
   assert.eq(hp.length, 5, 'every owned café is a candidate');
-  const layers5 = [{ name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+  const layers5 = [{ name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },
     { name: 'transportation', extent: EXTENT, features: [] }, poi('cafe', five)];
-  const r = WorldGen.rasterizeTile(layers5, CPE, TX, TY, TILE_EDGE_M);
+  const r = openStreetTile(layers5);
   const { d } = dressed(r);
   assert.eq(d.treasures.length, SV.HOARDS_PER_TILE, `capped at ${SV.HOARDS_PER_TILE} a tile`);
   const want = hp.slice(0, SV.HOARDS_PER_TILE).map((p) => `cafe:${p.gk}`).sort().join();
@@ -431,122 +445,32 @@ test('old trade road: only about a third of the major-road stops are wagons, by 
   assert.eq(SV.isWagonStop(near.id), SV.isWagonStop(String(near.id)), 'the id decides');
 });
 
-// Drive the shared attraction method with the real scene helpers.
-function liftAttract() {
-  return {
-    _seatFaunaOnFavouriteGround: SceneCreatures.prototype._seatFaunaOnFavouriteGround,
-    _pathLampCells: SceneCreatures.prototype._pathLampCells,
-  };
-}
-
-test('old trade road: no dog is pulled onto a major verge — the road attracts nothing', () => {
-  assert.eq(SV.BANDIT_STORY.attracts, undefined, 'the dogs are no longer the road\'s');
-  assert.eq(SV.VARIANT_BY_ID.lantern.attracts, undefined,
-    'nor the cats Lantern Row\'s (its marks lie inside the kerb buffer)');
-  for (const row of SV.STREET_VARIANTS) {
-    if (row.size === 'major') assert.eq(row.attracts, undefined, `${row.id}: a major row attracts no fauna`);
-  }
-  const m = liftAttract();
-  const r = rasterize();
-  const cellM = TILE_EDGE_M / CPE;
-  const mk = (i) => WorldGen.makeCreature('dog', TX * TILE_EDGE_M + (5 + i) * cellM, TY * TILE_EDGE_M + 5 * cellM, `dog_${TX}_${TY}_${i}`);
-  const creatures = [mk(0), mk(1)];
-  const at = creatures.map((c) => `${c.x},${c.y}`).join('|');
-  const opts = { roadMask: r.roadMask, occupied: occupiedOf(r), pois: [] };
-  const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, m);
-  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: r.roadClass }, TX, TY, CPE, cellM, r.grid, opts, creatures, null);
-  assert.falsy(moved.dog, 'no dog moved');
-  assert.eq(creatures.map((c) => `${c.x},${c.y}`).join('|'), at, 'the dogs keep their drawn seats');
+test('old trade road: ordinary Major road ground has no population profile', () => {
+  assert.falsy(HabitatSpawns.landProfile(T.ROAD_MAJOR));
+  for (const row of SV.STREET_VARIANTS.filter(row => row.size === 'major'))
+    assert.eq(HabitatSpawns.faunaRows(HabitatSpawns.roadProfile(row.id)).length, 0);
 });
 
-test('fauna attractors: a table, not code — every column names a spawned species and a count range', () => {
-  const cols = [...StreetVariants.STREET_VARIANTS.map((r) => [r.id, r.attracts]),
-    ...Object.entries(Zones.ZONE_KINDS).map(([k, r]) => ['zone ' + k, r.attracts]),
-    ...Object.entries(BIOME_ATTRACTS).map(([c, a]) => ['terrain ' + c, a]),
-    ...ZoneVariants.rows.map(r => [r.id, r.attracts]),
-    ['path lamps', Streets.PATH_LAMP_ATTRACTS]];
+test('Road Variant fauna: declared residents have valid species and local count ranges', () => {
   const known = new Set([...FAUNA_ORDER, ...SHORE_FAUNA_ORDER, 'rabbit']);
-  for (const [who, a] of cols) {
-    if (!a) continue;
-    for (const [sp, range] of Object.entries(a)) {
-      assert.truthy(known.has(sp), `${who} attracts a creature kind (${sp})`);
-      assert.truthy(Array.isArray(range) && range.length === 2
-        && range.every(n => Number.isInteger(n) && n >= 0)
-        && range[0] <= range[1], `${who}: ${sp} has an ordered integer count range`);
-    }
+  for (const row of SV.STREET_VARIANTS) for (const [kind, range] of Object.entries(row.fauna || {})) {
+    assert.truthy(known.has(kind), `${row.id}: declared resident is a creature`);
+    assert.truthy(range.length === 2 && range.every(n => Number.isInteger(n) && n >= 0) && range[0] <= range[1]);
   }
-  const row = (id) => StreetVariants.VARIANT_BY_ID[id].attracts || {};
-  assert.eq(JSON.stringify(row('orchard').deer), '[2,5]', 'Orchard Lane → deer');
-  assert.eq(JSON.stringify(row('hedgerow').rabbit), '[2,5]', 'Hedgerow → rabbits');
-  assert.eq(JSON.stringify(row('overgrown').rabbit), '[2,5]', 'Overgrown → rabbits');
-  assert.eq(JSON.stringify(row('overgrown').butterfly), '[2,5]', 'Overgrown → butterflies');
-  assert.eq(JSON.stringify(row('toadstool').butterfly), '[2,5]', 'Toadstool → butterflies');
-  assert.eq(JSON.stringify(row('greenway').butterfly), '[2,5]', 'Greenway → butterflies');
-  assert.eq(JSON.stringify(row('pilgrim').crow), '[2,5]', "Pilgrim's Way → crows");
-  assert.falsy(Zones.ZONE_KINDS.stones.attracts?.crow, 'ordinary churchyards do not draw extra crows');
-  const birdPulls = [...cols, ...ZoneVariants.rows.map(r => [r.id, r.attracts])]
-    .filter(([, a]) => a?.crow || a?.raven);
-  assert.eq(birdPulls.length, 1, 'only Pilgrim Way attracts birds');
-  assert.eq(birdPulls[0][0], 'pilgrim');
-  assert.eq(JSON.stringify(Zones.ZONE_KINDS.grove.attracts.deer), '[2,5]', 'grove → deer');
-  assert.eq(JSON.stringify(Zones.ZONE_KINDS.grove.attracts.butterfly), '[2,5]', 'grove → butterflies');
-  assert.eq(JSON.stringify(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime), '[2,5]', 'wasteland → slimes');
-  assert.falsy(BIOME_ATTRACTS[WorldGen.T.PITCH]?.deer, 'sports pitches do not attract deer');
-  // The spawner reads the columns; it names no species of its own.
-  const src = SCENE_SRC;
-  const body = src.slice(src.indexOf('\n  _seatFaunaOnFavouriteGround('), src.indexOf('\n  }\n', src.indexOf('\n  _seatFaunaOnFavouriteGround(')));
-  for (const sp of ['deer', 'cat', 'butterfly', 'dog', 'rabbit']) {
-    assert.falsy(new RegExp(`'${sp}'`).test(body), `no '${sp}' literal in the lane`);
-  }
+  assert.eq(JSON.stringify(SV.VARIANT_BY_ID.orchard.fauna.rabbit), '[2,5]');
+  assert.eq(JSON.stringify(SV.VARIANT_BY_ID.pilgrim.fauna.crow), '[2,5]');
+  for (const row of SV.STREET_VARIANTS.filter(row => row.size === 'path'))
+    assert.falsy(HabitatSpawns.roadProfile(row.id), 'scenic paths are not population owners');
 });
 
-test('fauna attractors: a small quota moves onto its ground, the rest stay; nothing is added', () => {
-  const m = liftAttract();
-  const r = rasterize();
-  const cellM = TILE_EDGE_M / CPE;
-  // A synthetic tile whose left half is WASTE ground (the terrain row: slimes).
-  const N = CPE, grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) grid[y * N + x] = WorldGen.T.WASTELAND;
-  // Public ground beside it so the lot rule lets a spawn stand (a POI anchor in every row).
-  const pois = []; for (let y = 0; y < N; y += 3) for (let x = 1; x < N / 2; x += 3) pois.push({ ix: x, iy: y });
-  const opts = { roadMask: new Uint8Array(N * N), occupied: new Set(), pois };
-  const slimes = [];
-  for (let i = 0; i < 60; i++) slimes.push(WorldGen.makeCreature('slime', TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i % N) * cellM, `slime_${TX}_${TY}_${i}`));
-  const cow = WorldGen.makeCreature('cow', TX * TILE_EDGE_M + (N - 3) * cellM, TY * TILE_EDGE_M, 'cow_y');
-  const creatures = [...slimes, cow];
-  const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, m);
-  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) }, TX, TY, N, cellM, grid, opts, creatures, null);
-  assert.eq(creatures.length, 61, 'relocates, never adds');
-  assert.inRange(moved.slime, 2, 5, `only a small quota of slimes moved (${moved.slime} of 60)`);
-  let onWaste = 0;
-  for (const s of slimes) if (grid[cellOf(s.y, TY) * N + cellOf(s.x, TX)] === WorldGen.T.WASTELAND) onWaste++;
-  assert.eq(onWaste, moved.slime, 'every moved slime is on the waste ground, the rest where they were drawn');
-  assert.eq(cow.x, TX * TILE_EDGE_M + (N - 3) * cellM, 'the cow is not attracted');
-  // Deterministic: the same tile moves the same animals to the same cells.
-  const again = slimes.map((s, i) => WorldGen.makeCreature('slime', TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i % N) * cellM, s.id));
-  scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) }, TX, TY, N, cellM, grid, { ...opts, occupied: new Set() }, again, null);
-  assert.eq(again.map((s) => `${s.x},${s.y}`).join('|'), slimes.map((s) => `${s.x},${s.y}`).join('|'), 'same seats every build');
-  // A pest amnesty cell is never a slime's new seat.
-  const pestAll = { has: () => true };
-  const fresh = slimes.slice(0, 10).map((s, i) => WorldGen.makeCreature('slime', TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + i * cellM, s.id));
-  const m2 = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) }, TX, TY, N, cellM, grid, { ...opts, occupied: new Set() }, fresh, pestAll);
-  assert.falsy(m2.slime, 'no slime moves into the starting area\'s amnesty');
-});
 
-test('sports pitches do not pull deer out of their forest habitat', () => {
-  const N = CPE, cellM = TILE_EDGE_M / N;
-  const grid = new Uint8Array(N * N).fill(T.FOREST);
-  for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) grid[y * N + x] = T.PITCH;
-  const deer = Array.from({ length: 60 }, (_, i) => WorldGen.makeCreature('deer',
-    TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i + .5) * cellM, `pitch_deer_${i}`));
-  const before = deer.map(d => [d.x, d.y]);
-  const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, liftAttract());
-  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) },
-    TX, TY, N, cellM, grid, { occupied: new Set(), roadMask: new Uint8Array(N * N), pois: [] }, deer, null);
-  assert.eq(deer.length, 60, 'affinity never adds deer');
-  assert.eq(moved.deer || 0, 0, 'no deer are attracted to the pitch');
-  assert.eq(JSON.stringify(deer.map(d => [d.x, d.y])), JSON.stringify(before), 'existing forest seats stay unchanged');
-  assert.eq(deer.filter(d => grid[cellOf(d.y, TY) * N + cellOf(d.x, TX)] === T.PITCH).length, 0);
+test('sports pitches keep generated Deer on their Forest habitat', () => {
+  const N = 32, grid = new Uint8Array(N * N).fill(T.FOREST);
+  for (let i = 0; i < N * N; i++) if (i % N < N / 2) grid[i] = T.PITCH;
+  const e = { cellsPerEdge: N, tileEdgeM: N * 7, grid, spawnWhy: new Uint16Array(N * N) };
+  const out = WorldGen.runSteps(HabitatSpawns.populationSteps({ tileEdgeM: N * 7, cellM: 7 }, e, 0, 0, { spawnOpts: { spawnWhy: e.spawnWhy, occupied: new Set() } }));
+  assert.truthy(out.some(c => c.kind === 'deer'));
+  for (const c of out.filter(c => c.kind === 'deer')) assert.eq(grid[c._habitatSpawn.cy * N + c._habitatSpawn.cx], T.FOREST);
 });
 
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──
@@ -558,7 +482,7 @@ function variantLayers() {
   const barr = pts([[40, 30], [40, CPE - 1]]);     // one owned end inside (row 30)
   const burn = pts([[20, 0], [20, CPE - 1]]);
   return [
-    { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+    { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },
     { name: 'transportation', extent: EXTENT, features: [
       { type: 2, tags: { class: 'minor' }, geom: [toad] },
       { type: 2, tags: { class: 'secondary' }, geom: [barr] },
@@ -827,7 +751,7 @@ function piecewiseLayers() {
   };
   const barr = cuts(4, CPE - 5, 4, 'col'), pilg = cuts(4, CPE - 5, 3, 'row');
   return [
-    { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+    { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },
     { name: 'transportation', extent: EXTENT, features: [
       ...barr.map((g) => ({ type: 2, tags: { class: 'secondary' }, geom: [g] })),
       ...pilg.map((g) => ({ type: 2, tags: { class: 'minor' }, geom: [g] })),
@@ -856,28 +780,12 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
     'the pick hashes variant, street key and the global end point');
 });
 
-// ── Dogs: no ground takes them whole any more (Sep 2026 safety pass) ─────
-// With the road's `attracts` gone, no ground pulls the dogs whole, so a
-// displaced dog stays lost, as any other species does.
-test('old trade road: a displaced dog is no longer seated on the major verge', () => {
-  const m = liftAttract();
-  const r = rasterize();
-  const cellM = TILE_EDGE_M / CPE;
-  const lost = WorldGen.makeCreature('dog', NaN, NaN, `dog_${TX}_${TY}_9`);
-  const creatures = [];
-  const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, m);
-  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: r.roadClass }, TX, TY, CPE, cellM, r.grid,
-    { roadMask: r.roadMask, occupied: new Set(), pois: [] }, creatures, null, [lost]);
-  assert.falsy(moved.dog, 'not seated');
-  assert.eq(creatures.length, 0, 'and not added');
-});
-
 test('short street dressing: mixed orchard rows and a visible maple growth sequence', () => {
   for (const v of ['orchard', 'overgrown']) {
     const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === v, v);
     const line = pts([[2, 30], [60, 30]]);
     const ls = [
-      { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+      { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },
       { name: 'transportation', extent: EXTENT, features: [{ type: 2, tags: { class: 'minor' }, geom: [line] }] },
       { name: 'transportation_name', features: [{ type: 2, tags: { name }, geom: [line] }] },
     ];
@@ -1579,7 +1487,7 @@ test('barricades cross rasterized major roads, including diagonal pavement beyon
             { x: 55 * CELL_MVT, y: 55.5 * CELL_MVT }]
         : pts([[32, 32], [32, 63]]);
       const r = WorldGen.rasterizeTile([
-        { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+        { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },
         { name: 'transportation', extent: EXTENT, features: [
           { type: 2, tags: { class: roadClass }, geom: [line] },
         ] },

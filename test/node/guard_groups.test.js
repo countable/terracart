@@ -92,12 +92,13 @@
   };
 
   // ── The table ────────────────────────────────────────────────────────────
-  test('guard groups: the owner\'s nine compositions are all in the table', () => {
+  test('guard groups: the authored compositions are all in the table', () => {
     const G = Lairs.GROUPS;
     const has = (name, kinds) => {
       assert.truthy(G[name], `${name} is a group`);
       assert.eq(G[name].members.map((m) => m.kind).join(), kinds, `${name}'s members`);
     };
+    has('grunt_gang', 'goblin_runt');
     has('horde', 'goblin_runt');                 // a horde of 15 weak goblins
     assert.eq(Lairs.memberCount(G.horde.members[0], 12), 15, 'fifteen of them');
     has('decoy', 'goblin,orc');                  // a decoy goblin with fast orcs behind
@@ -148,6 +149,7 @@
       assert.gt(g.tiers.length, 0, `${name}: holds somewhere`);
       for (const tier of g.tiers) assert.truthy(Lairs.TIERS.includes(tier) || Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, tier), `${name}: tier ${tier} is a building or a habitat tier`);
       for (const tier of g.tiers) if (typeof tier === 'string') assert.eq(Lairs.TIER_GROUP[tier], name, `${name}: a habitat tier always takes its group`);
+      if (g.chance != null) assert.inRange(g.chance, 0, 1, `${name}: fixed share is a probability`);
       assert.inRange(g.minT || 0, 0, 0.9, `${name}: minT leaves strong ruins something to take`);
       for (const m of g.members) {
         assert.truthy(Combat.isEnemy({ kind: m.kind, id: `x_${m.kind}` }), `${name}: ${m.kind} is a registered enemy`);
@@ -158,6 +160,12 @@
         if (m.elite) assert.truthy(Combat.monster(m.kind).eliteEligible, `${name}: ${m.kind} can be an elite`);
         if (m.kind === 'ghost') assert.gt(m.proximityCells, 0, `${name}: a ghost member is dormant until approached`);
         if (m.place === 'cloud') assert.truthy(Lairs.flies(m.kind), `${name}: only a flier hangs in a cloud`);
+        if (m.nRange) {
+          assert.eq(m.nRange.length, 2);
+          assert.truthy(m.nRange.every(Number.isInteger), `${name}: inclusive integer count bounds`);
+          assert.inRange(m.nRange[0], 1, m.nRange[1]);
+          assert.lte(m.nRange[1], Lairs.LAIR_LIVE_MAX / 2);
+        }
         for (const tier of g.tiers) assert.gt(Lairs.memberCount(m, tier), 0, `${name}: ${m.kind} has a count at tier ${tier}`);
       }
       for (const tier of g.tiers) {
@@ -186,10 +194,11 @@
         Lairs.groupFor(tier, t, () => { draws++; return 0.5; }, true);
         assert.eq(draws, 1, `tier ${tier}, t=${t}: one draw`);
       }
-      const rate = Lairs.GROUP_RATE[tier];
-      assert.eq(Lairs.groupFor(tier, 1, () => rate, true), null, 'at the rate: the plain garrison');
-      assert.eq(Lairs.groupFor(tier, 1, () => 0.999, true), null, 'past it: plain');
       const rows = Lairs.groupRows(tier, 1, true);
+      const fixedShare = rows.reduce((sum, name) => sum + (Lairs.GROUPS[name].chance || 0), 0);
+      const rate = fixedShare + (1 - fixedShare) * Lairs.GROUP_RATE[tier];
+      assert.eq(Lairs.groupFor(tier, 1, () => rate + 1e-12, true), null, 'at the rate: the plain garrison');
+      assert.eq(Lairs.groupFor(tier, 1, () => 0.999, true), null, 'past it: plain');
       assert.eq(Lairs.groupFor(tier, 1, () => 0, true), rows[0], 'the first number takes the first row');
       assert.eq(Lairs.groupFor(tier, 1, () => rate * 0.999, true), rows[rows.length - 1], 'the last takes the last');
       // Every eligible row is reachable, and nothing else is.

@@ -3472,6 +3472,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (entry.objects) {
       WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
         _boot_scanned++;
+        if (o.kind === 'pressure_plate') return; // PressureTraps owns its ground sprite.
         if (HiddenObjects.isHidden(scene.save, o)
             || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
         const dx = o.x - pWorldX, dy = o.y - pWorldY;
@@ -3546,8 +3547,8 @@ Render.drawObjects = function drawObjects(scene) {
         // tint below reads it); _ix/_iy only survive on the wildplants the
         // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
         // the id is what the per-cell variant hash actually keys off.
-        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
-                                _cave: wp._cave, _biome: wp._biome, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy, ...connectedArt.get(wp) }, dx, dy });
+        plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: wp.stage ?? MAX_GROWTH_STAGE, wildId: wp.id, gasEmitter: wp.gasEmitter,
+                                _cave: wp._cave, _biome: wp._biome, _terrainScale: wp._terrainScale, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy, ...connectedArt.get(wp) }, dx, dy });
         _boot_kept++;
       });
     }
@@ -3592,7 +3593,7 @@ Render.drawObjects = function drawObjects(scene) {
   // seats; the fallback preserves standalone render callers.
   cullToView(consideredCreatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
     if (caughtSet.has(c.id)) return;
-    if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+    if (typeof EnemySpawns !== 'undefined' && EnemySpawns.isSurfaceResident(c)) EnemySpawns.surfaceActive(scene, c);
     if (c._surfaceInactive) return;
     if ((c.hidden || c.stealthy) && !c._discovered) return;
     if (!c._burrowed) creatureList.push({ c, dx, dy });
@@ -4453,7 +4454,7 @@ Render.drawObjects = function drawObjects(scene) {
     // pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
     // than the shared crop art.
     const isPlantedCrop = p.wildId == null && !p._placedRock;
-    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * (isPlantedCrop ? 0.8 : 1);
+    const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * (isPlantedCrop ? 0.8 : (p._terrainScale ?? 1));
     const plantedYOffset = isPlantedCrop ? 3 : 0;
     // Tall authored plants follow the same cell-foot rule as trees and props.
     const box = ov?.seat && SpriteLayout.ART_BOUNDS[`${ov.sheet}:${wildplantFrame(p)}`];

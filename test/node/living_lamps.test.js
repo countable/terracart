@@ -7,7 +7,7 @@
 //     banked through app.js _bankStreetMetres (the restore sweep's own lane);
 //   · walking paths lay lamps at LAMP_PATH_SPACING_M, each worth the street gap;
 //   · the save is a DELTA map, pruned at the fade and capped;
-//   · the cats sit by walking-path lamps (the `attracts` lane).
+//   · walking-path lamps provide no fauna population.
 //
 // The app.js passes are the SHIPPING methods lifted by run.js
 // (__trailCounter: the sweep + _visitStreetLamps / _markLampsRestored /
@@ -246,28 +246,13 @@ test('living lamps: the frame list carries each lamp\'s brightness', () => {
     'the one list carries `bright`, read by collectLamps');
 });
 
-test('living lamps: cats move beside WALKING-PATH lamps (the attracts lane)', () => {
-  assert.eq(JSON.stringify(Streets.PATH_LAMP_ATTRACTS.cat), '[2,5]', 'a small quota of nearby cats');
-  assert.falsy(StreetVariants.STREET_VARIANTS.some((r) => r.attracts && r.attracts.cat), 'no longer Lantern Row');
-  const grid = new Array(N * N).fill(WorldGen.T.GRASS);
-  const run = (cls) => {
-    const entry = mkEntry(cls);
-    const sc = Object.assign(new SceneCreatures(), { tileEdgeM: TILE_EDGE_M, cellM: CELL_M,
-      _streetLampsForTile: LP._streetLampsForTile });
-    const cats = Array.from({ length: 60 }, (_, i) => ({ id: `cat_${i}`, kind: 'cat', x: (N - 2) * CELL_M, y: (i % N + .5) * CELL_M }));
-    const moved = sc._seatFaunaOnFavouriteGround(entry, 0, 0, N, CELL_M, grid,
-      { occupied: new Set() }, cats, null, [], new Set());
-    return { entry, sc, cats, moved };
-  };
-  const p = run('footway');
-  assert.inRange(p.moved.cat || 0, 2, 5, 'only the nearest small quota of cats moves');
-  const lampCells = p.sc._pathLampCells(p.entry, 0, 0, N);
-  for (const c of p.cats.filter((c, i) => c.x !== (N - 2) * CELL_M || c.y !== (i % N + .5) * CELL_M)) {
-    assert.truthy(lampCells.has(Math.floor(c.y / CELL_M) * N + Math.floor(c.x / CELL_M)), 'seated beside a path lamp');
-  }
-  const r = run('minor');
-  assert.eq(r.moved.cat || 0, 0, 'a street\'s lamps pull no cats');
-  assert.truthy(/creatureSpawnClass\(sp\)/.test(SCENE_SRC), 'seats judged by the species\' own spawn class');
+test('living lamps: ordinary walking-path lamps do not change habitat populations', () => {
+  const grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
+  const generate = entry => WorldGen.runSteps(HabitatSpawns.populationSteps(
+    { tileEdgeM: TILE_EDGE_M, cellM: CELL_M }, { ...entry, grid, cellsPerEdge: N, tileEdgeM: TILE_EDGE_M }, 0, 0,
+    { spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(N * N) } }
+  )).map(c => `${c.id}:${c.kind}@${c.x},${c.y}`).join('|');
+  assert.eq(generate(mkEntry('footway')), generate(mkEntry('minor')));
 });
 })();
 

@@ -453,6 +453,31 @@ test('Mushroom Grove giant caps fit centered inside the cell and have distinct r
   assert.truthy(RENDER_SRC.includes('const box = ov?.seat && SpriteLayout.ART_BOUNDS'));
 });
 
+test('gas mushrooms retain distinct small and giant art through the normal wildplant render view', () => {
+  const projection = RENDER_SRC.match(/plantedList\.push\(\{ p: \{ x: wp\.x[\s\S]*?\}, dx, dy \}\);/);
+  assert.truthy(projection, 'exercise the live wildplant-to-crop view');
+  const project = new Function('wp', 'plantedList', 'connectedArt', 'MAX_GROWTH_STAGE', 'dx', 'dy', projection[0]);
+  for (const [crop, sheet] of [['mushroom', 'gas_mushroom_small'], ['giant_mushroom', 'gas_mushroom_large']]) {
+    const ordinary = { crop }, emitter = { crop, gasEmitter: true, id: `gas_${crop}`, x: 3, y: 4, _terrainScale: .95 };
+    const originalArt = wildplantSprite(ordinary), before = JSON.stringify(wildplantRewards(crop)), views = [];
+    project(emitter, views, new Map(), MAX_GROWTH_STAGE, 3, 4);
+    const p = views[0].p, art = wildplantSprite(p);
+    assert.eq(p.gasEmitter, true); assert.eq(p._terrainScale, emitter._terrainScale);
+    assert.eq(art.sheet, sheet); assert.eq(wildplantFrame(p), 0);
+    assert.eq(wildplantFrame({ ...p, _cave: true }), 0, 'gas art cannot select a base cave atlas frame');
+    assert.eq(art.scale, originalArt.scale); assert.eq(art.seat, originalArt.seat);
+    assert.eq(wildplantSprite(ordinary), originalArt, 'ordinary crop appearance is unchanged');
+    assert.eq(JSON.stringify(wildplantRewards(p.crop)), before, 'appearance does not create a new harvest');
+    assert.eq(inventoryIconSource(p.crop).sheet, inventoryIconSource(crop).sheet);
+  }
+  for (const crop of ['mushroom', 'giant_mushroom']) {
+    const legacy = { crop, gasEmitter: true, _zoneObjectFrame: 40 };
+    assert.eq(wildplantSprite(legacy).sheet, 'gas_mushroom_large', 'legacy giant cap preserves its size');
+    assert.eq(wildplantFrame(legacy), 0);
+  }
+  assert.eq(wildplantSprite({ crop: 'shrub', gasEmitter: true }), CROP_SPRITE.shrub, 'flag does not recolor unrelated plants');
+});
+
 test('legacy bush crowns use small trees and retired species use maple art and scale', () => {
   const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.tree;
   for (const species of ['maple', 'pine', 'birch', 'mahogany']) {

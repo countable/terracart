@@ -275,7 +275,7 @@ test('street lamps: rasterized road decorations cannot occupy future lamp footpr
     const layers = mkLayers();
     const road = layers[0].features[0];
     road.tags.class = 'minor';
-    layers.push({name:'landuse', extent:EXTENT, features:[{type:3, tags:{class:'park'},
+    layers.push({name:'landcover', extent:EXTENT, features:[{type:3, tags:{class:'meadow'},
       geom:[[{x:0,y:0},{x:EXTENT,y:0},{x:EXTENT,y:EXTENT},{x:0,y:EXTENT}]]}]});
     layers.push({name:'transportation_name', extent:EXTENT, features:[
       {type:2, tags:{name:`Hedge Lane ${sample}`}, geom:road.geom}

@@ -138,6 +138,8 @@ function wildplantVariantHash(p) {
 // Mushroom Grove and Mushroom Lane can select the approved red mushroom
 // atlas frame; ordinary surface and cave mushrooms retain their base art.
 const WILDPLANT_CONTEXT_ART = {
+  gas_mushroom_small: { crop: 'mushroom', sheet: 'gas_mushroom_small', custom: true, frame: 0, scale: CROP_SPRITE.mushroom.scale },
+  gas_mushroom_large: { crop: 'giant_mushroom', sheet: 'gas_mushroom_large', custom: true, frame: 0, scale: CROP_SPRITE.giant_mushroom.scale, seat: CROP_SPRITE.giant_mushroom.seat },
   zone_rock_stone_garden: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 64, scale: 4 / 3 },
   zone_rock_broken_masonry: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 65, scale: 1.1 },
   zone_rock_flint_field: { crop: 'rubble', sheet: 'zone_objects', custom: true, frame: 66, scale: 4 / 3 },
@@ -152,6 +154,12 @@ const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  if (p?.gasEmitter) {
+    const gasArt = p.crop === 'giant_mushroom' || (p.crop === 'mushroom' && p._zoneObjectFrame === 40)
+      ? WILDPLANT_CONTEXT_ART.gas_mushroom_large
+      : p.crop === 'mushroom' ? WILDPLANT_CONTEXT_ART.gas_mushroom_small : null;
+    if (gasArt) return gasArt;
+  }
   if (p && !p._cave && p._zoneObjectFrame === 40 && ['mushroom', 'giant_mushroom'].includes(p.crop))
     return { custom: true, sheet: 'zone_objects', frame: 40, scale: 4 / 3 };
   const base = CROP_SPRITE[p && p.crop];

@@ -45,6 +45,34 @@ function tick(s, atMs) {
   finally { WorldGen.forEachItemNear = realNear; performance.now = realNow; }
 }
 
+test('steady state: habitat-only residents suppress at dusk and return at dawn during real simulation', () => {
+  const key = WorldGen.tileKey(0, 0), previous = WorldGen.tileCache.get(key), daylight = Lighting.daylight;
+  const roadClass = new Uint8Array(4); roadClass[0] = WorldGen.ROAD_CLASS_MAJOR_BUFFER;
+  const bodies = ['crow', 'metal_slime'].map(kind => WorldGen.makeCreature(kind, CELL, CELL, `traffic_${kind}`, {
+    immobile: true, _habitatSpawn: { tx: 0, ty: 0, cx: 0, cy: 0, x: CELL, y: CELL },
+  }));
+  const entry = { cellsPerEdge: 2, grid: new Uint8Array(4).fill(WorldGen.T.GRASS), roadClass, creatures: bodies };
+  WorldGen.tileCache.set(key, entry);
+  const s = scene(bodies); s.tileEdgeM = CELL * 2; s._nextGhostT = Infinity;
+  s._starterTrailAnchor = () => ({ x: -1e6, y: 0 });
+  try {
+    for (const c of bodies) {
+      assert.falsy(c._surfaceSpawn);
+      if (c.kind === 'metal_slime') assert.falsy(EnemySpawns.homeFaunaSubject(c));
+    }
+    Lighting.daylight = () => 1; tick(s, 1e6);
+    for (const c of bodies) assert.falsy(c._surfaceInactive);
+    Lighting.daylight = () => .1; tick(s, 1e6 + 100);
+    for (const c of bodies) { assert.truthy(c._surfaceInactive); assert.truthy(c._busyRoadInactive); }
+    Lighting.daylight = () => 1; tick(s, 1e6 + 200);
+    for (const c of bodies) { assert.falsy(c._surfaceInactive); assert.falsy(c._busyRoadInactive); }
+    assert.eq(entry.creatures.length, 2, 'suppression keeps the original identities');
+  } finally {
+    Lighting.daylight = daylight;
+    if (previous) WorldGen.tileCache.set(key, previous); else WorldGen.tileCache.delete(key);
+  }
+});
+
 test('steady state: a surface foe outside the sim bubble is re-asked once a SURFACE_RECHECK_MS, one inside every tick', () => {
   const at = { x: 0, y: 0, tx: 0, ty: 0, cx: 0, cy: 0 };
   const farM = (CREATURE_SIM_CELLS + 5) * CELL;

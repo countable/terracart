@@ -4,6 +4,15 @@
   'use strict';
   const EXT = 4096;
   const WRECK_CHEST_TIER = 3;
+  // A finite Nexus garrison is a focus rule whose group/count lives in the
+  // variant table. Coverage and authored targets supply its geometry.
+  function focusRule(variant) {
+    const guards = variant.guards;
+    if (!guards || !['guard_find', 'guard_poi'].includes(guards.mode)) return null;
+    return { id: `nexus_focus_${variant.id}`, scope: 'focus', focus: guards.mode,
+      groups: { [variant.id]: guards }, frequency: { count: guards.count },
+      lifecycle: { ownerOnly: true, persistent: true, modeCap: false } };
+  }
   // Claim hulls before scenic rewards and street dressing can spend their sand.
   // Direct/sandbox callers use the same reservation pass during dressing.
   function* reserveWrecksSteps(ctx) {
@@ -182,7 +191,7 @@
       const [rx, ry] = V.rotate(dx, dy, s.rotation);
       return [Math.floor((s.originX + rx * s.unit - tx * EXT) * N / EXT), Math.floor((s.originY + ry * s.unit - ty * EXT) * N / EXT)];
     };
-    const motifAt = (s, ix, iy) => {
+    const motifAt = (s, ix, iy, details = false) => {
       // Generated footprints may merge or acquire a different centre as lane
       // geometry changes. Their scatter belongs to the geographic tile/cell.
       if (s.fittedBackground) return s.fittedBackground.get(iy * N + ix) || null;
@@ -192,7 +201,9 @@
       const dx = Math.round((tx * EXT + (ix + 0.5) * EXT / N - s.originX) / s.unit);
       const dy = Math.round((ty * EXT + (iy + 0.5) * EXT / N - s.originY) / s.unit);
       const [u, v] = V.inverseRotate(dx, dy, s.rotation), p = V.poiOrigin(s.variant);
-      return V.sample(s.variant, u + p[0], v + p[1], s.a.key);
+      if (details === 'footpath') return V.footpathAt(s.variant, u + p[0], v + p[1], s.a.key);
+      return details ? V.placement(s.variant, u + p[0], v + p[1])
+        : V.sample(s.variant, u + p[0], v + p[1], s.a.key);
     };
     // Distance then cell order provides deterministic union-wide fallbacks.
     // Finite rewards belong only to the tile owning the original anchor.
@@ -205,6 +216,26 @@
         if (d < distance && allowed(s, x, y, material)) { distance = d; best = [x, y]; }
       }
       return best;
+    }
+    // A park polygon without a mapped point owns the same ordinary POI
+    // lane: reserve its centred place before finds/guards, then let the
+    // existing grove conversion give it the variant's shrine and daily boon.
+    for (const s of states) {
+      if (!s.a.polygonAnchor || !s.a.owned || s.chest) continue;
+      let seat = null, bestDistance = Infinity;
+      for (const i of s.cells) {
+        const ix = i % N, iy = Math.floor(i / N), d = (ix - s.poi[0]) ** 2 + (iy - s.poi[1]) ** 2;
+        if (d >= bestDistance || !WG.isSpawnCell(grid, N, N, ix, iy, opts, 'attractor')) continue;
+        seat = [ix, iy]; bestDistance = d;
+      }
+      if (!seat) { s.rec.shortfalls.push('shrine:park-centre'); continue; }
+      s.poi = seat;
+      const [x, y] = position(...seat);
+      s.chest = WG.makeObject('chest', x, y, WG.cellId('zpsh', tx, ty, seat[0], seat[1]),
+        { poiClass: 'park', poiName: s.a.name, zoneAnchor: s.a.key,
+          _poiAt: `${s.a.lx},${s.a.ly}`, _ix: seat[0], _iy: seat[1] });
+      occ.add(seat[1] * N + seat[0]);
+      out.objects.push(s.chest);
     }
     const wrecks = ctx.wreckReservations || (yield* reserveWrecksSteps(ctx));
     for (const s of states) {
@@ -257,8 +288,7 @@
       for (const [layer, entries] of [['find',plan.finds], ['guard',plan.guards]]) {
         for (let n = 0; n < entries.length; n++) {
           const {i, material} = entries[n];
-          const seat = layer === 'find' ? yield* findSeat(s, i % N, Math.floor(i / N), material)
-            : [i % N, Math.floor(i / N)];
+          const seat = yield* findSeat(s, i % N, Math.floor(i / N), material);
           const record = seat && place(s, seat[0], seat[1], material, layer,
             `zq_${s.variant.id}_${s.a.gx}_${s.a.gy}_${layer}_${n}`);
           if (record) {
@@ -300,34 +330,51 @@
         }
         if (seat) s.findCells.push(seat);
       }
-      if (a.owned && ['guard_find', 'guard_poi'].includes(v.guards.mode)) {
-        for (let n = 0; n < v.guards.count; n++) {
-          const target = v.guards.mode === 'guard_poi' ? s.poi : s.findCells[n % s.findCells.length], off = v.guards.offsetCells[n % v.guards.offsetCells.length];
-          const [dx, dy] = V.rotate(off[0], off[1], s.rotation);
-          const choices = v.guards.choices;
-          const kind = choices ? choices[fnv1a(`zone-guard|${V.identity(a)}|${n}`) % choices.length]
-            : (v.guards.kinds || [v.guards.kind])[n % (v.guards.kinds || [v.guards.kind]).length];
-          const cls = typeof root.creatureSpawnClass === 'function' ? root.creatureSpawnClass(kind) : 'enemy';
-          if (!target) { s.rec.shortfalls.push(`guard:${n}`); continue; }
-          const desiredX = target[0] + dx, desiredY = target[1] + dy;
-          // Keep the declared seat when possible. A blocked seat can move at
-          // most two cells, still beside its find and inside eligible coverage.
-          // Distance then row/column order makes the fallback replay identically.
-          let ix = -1, iy = -1, bestDistance = Infinity;
-          for (let sy = -2; sy <= 2; sy++) for (let sx = -2; sx <= 2; sx++) {
-            const distance = sx * sx + sy * sy, x = desiredX + sx, y = desiredY + sy;
-            if (distance > 4 || distance >= bestDistance || !owns(s, x, y)
-                || (root.BiomeProfiles && !root.BiomeProfiles.faunaAllows(kind, grid[y * N + x]))
-                || !WG.isSpawnCell(grid, N, N, x, y, opts, cls)) continue;
-            ix = x; iy = y; bestDistance = distance;
-          }
-          if (ix < 0) { s.rec.shortfalls.push(`guard:${n}`); continue; }
-          const [x, y] = position(ix, iy), [homeX, homeY] = position(target[0], target[1]);
-          out.guards.push({ kind, id: `zg_${a.kind}_${a.gx}_${a.gy}_${n}`, x, y, homeX, homeY,
-            zoneKind: a.kind, zoneVariant: v.id, stationary: kind === 'plant',
-            ...(v.guards.proximityCells ? { proximityCells: v.guards.proximityCells } : {}), _ix: ix, _iy: iy });
-          occ.add(iy * N + ix); s.rec.guardsPlaced++;
-        }
+      const rule = focusRule(v);
+      if (a.owned && rule) {
+        yield* root.CreatureSpawns.generateSteps(rule, {
+          count: v.guards.count,
+          member: n => {
+            const choices = v.guards.choices;
+            const kind = choices ? choices[fnv1a(`zone-guard|${V.identity(a)}|${n}`) % choices.length]
+              : (v.guards.kinds || [v.guards.kind])[n % (v.guards.kinds || [v.guards.kind]).length];
+            const target = v.guards.mode === 'guard_poi' ? s.poi : s.findCells[n % s.findCells.length];
+            const off = v.guards.offsetCells[n % v.guards.offsetCells.length];
+            const [dx, dy] = V.rotate(off[0], off[1], s.rotation);
+            return { kind, target, dx, dy };
+          },
+          seat: function* (member, n) {
+            const { kind, target, dx, dy } = member;
+            if (!target) { s.rec.shortfalls.push(`guard:${n}`); return null; }
+            const desiredX = target[0] + dx, desiredY = target[1] + dy;
+            // Safety removes seats, not requests. The feature provider finds
+            // the nearest legal seat while the shared engine retains ordinal
+            // identities, counts, creature classes and placement lifecycle.
+            let ix = -1, iy = -1, bestDistance = Infinity;
+            for (let k = 0; k < s.cells.length; k++) {
+              if ((k & 255) === 0) yield 'zone guard fallback';
+              const at = s.cells[k], x = at % N, y = Math.floor(at / N);
+              const distance = (x - desiredX) ** 2 + (y - desiredY) ** 2;
+              if (distance >= bestDistance || !owns(s, x, y)
+                  || ctx.tideSeats?.has(at)
+                  || (root.BiomeProfiles && !root.BiomeProfiles.faunaAllows(kind, grid[at]))
+                  || !root.CreatureSpawns.isSpawnCell(grid, N, N, x, y, opts, kind)) continue;
+              ix = x; iy = y; bestDistance = distance;
+            }
+            if (ix < 0) { s.rec.shortfalls.push(`guard:${n}`); return null; }
+            return { ix, iy };
+          },
+          create: (member, seat, n) => {
+            const { kind, target } = member, { ix, iy } = seat;
+            const [x, y] = position(ix, iy), [homeX, homeY] = position(target[0], target[1]);
+            return { kind, id: `zg_${a.kind}_${a.gx}_${a.gy}_${n}`, x, y, homeX, homeY,
+              zoneKind: a.kind, zoneVariant: v.id, stationary: kind === 'plant',
+              ...(v.guards.proximityCells ? { proximityCells: v.guards.proximityCells } : {}), _ix: ix, _iy: iy };
+          },
+          onPlaced: record => {
+            out.guards.push(record); occ.add(record._iy * N + record._ix); s.rec.guardsPlaced++;
+          },
+        });
       }
       if (s.chest) {
         s.chest.zoneVariant = v.id; delete s.chest._chestLook;
@@ -581,6 +628,8 @@
           const canBury = material === 'stone' && s.variant.buriedTreasureChance > 0
             && allowed(s, ix, iy, 'treasure_x');
           const o = place(s, ix, iy, material, 'background');
+          if (o && s.variant.background.type === 'procedural_layout')
+            o._terrainScale = motifAt(s, ix, iy, true).scale;
           background[o ? 'placed' : 'blocked']++;
           if (o && canBury && fnv1a(`${o.id}|buried-treasure`) / 4294967296 < s.variant.buriedTreasureChance) {
             out.treasures.push({ id: `${o.id}_treasure`, x: o.x, y: o.y,
@@ -600,6 +649,24 @@
           out.wildplants.push(WG.makeWildplant(character && character.filler || 'longgrass', x, y, WG.cellId('wpf', tx, ty, ix, iy), { fringe: true }));
           occ.add(i); ground.fill++;
         }
+      }
+    }
+    // Ground plates occupy the empty seams between clusters, after every
+    // shrine, route and ordinary object has claimed its protected cell.
+    for (const s of states) {
+      if (!s.variant.footpaths) continue;
+      const cls = typeof root.creatureSpawnClass === 'function' ? root.creatureSpawnClass('ghost') : 'fastEnemy';
+      for (const i of s.cells) {
+        if ((i & 255) === 0) yield 'grove pressure paths';
+        const ix = i % N, iy = Math.floor(i / N);
+        if (!owns(s, ix, iy) || s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i)
+            || occ.has(i) || ctx.tideSeats?.has(i) || !motifAt(s, ix, iy, 'footpath')
+            || !WG.isSpawnCell(grid, N, N, ix, iy, opts, cls)) continue;
+        const [x, y] = position(ix, iy);
+        out.objects.push(WG.makeObject('pressure_plate', x, y, WG.cellId('grove_plate', tx, ty, ix, iy),
+          { zoneKind: s.a.kind, zoneVariant: s.variant.id, zoneLayer: 'footpath',
+            effect: s.variant.footpaths.effect, depth: 0, _ix: ix, _iy: iy }));
+        occ.add(i);
       }
     }
     stampHedges(out.wildplants, N);
@@ -672,5 +739,5 @@
     }
   }
   function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
-  root.ZoneDressing = { dressSteps, dress, reserveWrecksSteps, WRECK_CHEST_TIER, stampHedges, hedgeGroup };
+  root.ZoneDressing = { focusRule, dressSteps, dress, reserveWrecksSteps, WRECK_CHEST_TIER, stampHedges, hedgeGroup };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

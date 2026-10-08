@@ -116,63 +116,8 @@
     assert.eq(report.slept, 1);
   });
 
-  test('zone runtime: authored variants attract existing fauna across union coverage', () => {
-    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 9);
-    const N = 32, grid = new Array(N * N).fill(WorldGen.T.GRASS);
-    const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
-    for (const row of ZoneVariants.rows) {
-      const species = new Set(['deer', 'crow', 'butterfly', ...Object.keys(row.attracts)]);
-      const creatures = [];
-      for (const sp of species) for (let n = 0; n < 40; n++) creatures.push({ id: `${sp}_${n}`, kind: sp, x: -100, y: -100 });
-      const coverage = new Uint16Array(N * N).fill(1);
-      const entry = { zone: { idx: null, coverage,
-        anchors: [{ kind: row.zone, variant: row.id }] } };
-      const count = creatures.length;
-      const moved = scene._seatFaunaOnFavouriteGround(entry, 0, 0, N, 10, grid,
-        { occupied: new Set() }, creatures, null, [], new Set());
-      assert.eq(creatures.length, count, `${row.id} cannot add animals`);
-      for (const sp of species) {
-        if (row.attracts[sp] && BiomeProfiles.faunaAllows(sp, grid[0]))
-          assert.gt(moved[sp] || 0, 0, `${row.id}: ${sp} reaches eligible fringe-only coverage`);
-        else assert.eq(moved[sp] || 0, 0, `${row.id}: ${sp} cannot bypass its habitat or inherit zone-kind affinity`);
-      }
-    }
-  });
 
-  test('zone runtime: a neutral Pirate Cove cannot pull crows through absent street attractors', () => {
-    const N = 64, grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
-    const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 7 });
-    const run = marks => {
-      const creatures = Array.from({length:1000}, (_,i) => ({kind:'crow', id:`crow_${i}`, x:-1, y:-1}));
-      const entry = { streetMarks:marks, zone:{coverage:new Uint16Array(N*N).fill(1),
-        anchors:[{kind:'beach',variant:'pirate_cove'}]} };
-      const moved = scene._seatFaunaOnFavouriteGround(entry,0,0,N,7,grid,
-        {spawnWhy:new Uint16Array(N*N)},creatures,null,[],new Set());
-      return {moved:moved.crow || 0, creatures};
-    };
-    const baseline = run(null);
-    assert.eq(baseline.moved,0,'Pirate Cove leaves naturally spawned birds in place');
-    for (const marks of [new Uint8Array(N*N), new Uint8Array(N*N).fill(StreetVariants.STREET_VARIANTS.find(r=>r.id==='hedgerow').code)]) {
-      assert.eq(JSON.stringify(run(marks)),JSON.stringify(baseline),'empty or unrelated street marks cannot alter crow draws or seats');
-    }
-    const pilgrim = new Uint8Array(N*N).fill(StreetVariants.STREET_VARIANTS.find(r=>r.id==='pilgrim').code);
-    const present = run(pilgrim);
-    assert.eq(present.moved,0,'a street crossing a nexus cannot introduce unlisted fauna');
-  });
 
-  test('zone runtime: quiet grave variants leave natural birds in place without an extra gathering', () => {
-    for (const variant of ['silent_circle', 'ordered_graves', 'overgrown_graves', undefined]) {
-      const N=32, grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
-      const scene=Object.assign(new SceneCreatures(),{tileEdgeM:N*7});
-      const creatures=Array.from({length:100},(_,i)=>({kind:i % 2 ? 'crow' : 'raven',id:`quiet_bird_${i}`,x:3.5,y:3.5}));
-      const original=JSON.stringify(creatures);
-      const entry={zone:{coverage:new Uint16Array(N*N).fill(1),anchors:[{kind:'stones',variant}]}};
-      const moved=scene._seatFaunaOnFavouriteGround(entry,0,0,N,7,grid,{spawnWhy:new Uint16Array(N*N)},creatures,null,[],new Set());
-      assert.eq(moved.crow||0,0);
-      assert.eq(moved.raven||0,0);
-      assert.eq(JSON.stringify(creatures),original,'naturally spawned birds are neither moved nor removed');
-    }
-  });
   test('fauna overlap: static interactables permit animals while blocking enemies and traps', () => {
     const N = 32, scene = Object.assign(new SceneCreatures(), {
       tileEdgeM: N * 10, save: { caught: [] }, startWorldM: { x: -5000, y: 0 },
@@ -192,19 +137,16 @@
     assert.eq(entry._spawnOpts.occupied.size, N * N, 'animals do not alter static occupancy');
   });
 
-  test('fauna overlap: attraction shares interactable cells but retains road and private gates', () => {
-    const N = 16, grid = new Array(N * N).fill(WorldGen.T.GRASS);
-    const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
-    const entry = { zone: { coverage: new Uint16Array(N * N).fill(1),
-      anchors: [{ kind: 'stones', variant: 'overgrown_graves' }] } };
-    const opts = { occupied: new Set(Array.from({ length: N * N }, (_, i) => i)),
-      spawnWhy: new Uint16Array(N * N) };
+  test('fauna overlap: habitat populations share interactables but retain road and private gates', () => {
+    const N = 16, grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
+    const e = { cellsPerEdge: N, tileEdgeM: N * 10, grid, zone: { coverage: new Uint16Array(N * N).fill(1), anchors: [{ kind: 'stones', variant: 'overgrown_graves', key: 'fauna_overlap' }] } };
+    const opts = { occupied: new Set(Array.from({ length: N * N }, (_, i) => i)), spawnWhy: new Uint16Array(N * N) };
     for (let i = 0; i < N * N / 2; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.ROAD;
     for (let i = N * N / 2; i < N * N * 3 / 4; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.PRIVATE;
-    const creatures = Array.from({ length: 100 }, (_, i) => ({ kind: 'butterfly', id: `butterfly_${i}`, x: -10, y: -10 }));
-    const moved = scene._seatFaunaOnFavouriteGround(entry, 0, 0, N, 10, grid, opts, creatures, null, [], new Set());
-    assert.gt(moved.butterfly, 0);
-    for (const c of creatures.filter(c => c.x >= 0)) assert.eq(opts.spawnWhy[Math.floor(c.y / 10) * N + Math.floor(c.x / 10)], 0);
+    const out = WorldGen.runSteps(HabitatSpawns.populationSteps({ tileEdgeM: N * 10, cellM: 10 }, e, 0, 0, { spawnOpts: opts }));
+    assert.gt(out.length, 0);
+    for (const c of out) assert.eq(opts.spawnWhy[c._habitatSpawn.cy * N + c._habitatSpawn.cx], 0);
+    assert.eq(e.habitatPopulation.totals.fauna.shortfall, 0);
   });
 
   test('fauna overlap: live scenery keeps animals; flooded ground and scenery still remove foes and traps', () => {

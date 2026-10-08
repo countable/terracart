@@ -32,29 +32,10 @@
     for (const item of weighted) { n -= item.weight; if (n < 0) return item.row; }
     return weighted[weighted.length - 1].row;
   }
-  function biomeName(type) {
-    return Object.keys(root.WorldGen.T).find(key => root.WorldGen.T[key] === type);
-  }
+  // Public pool query delegates to the same habitat selector as generation.
   function surfaceRows(type, context) {
-    const biome = typeof type === 'string' ? type : biomeName(type);
-    const eligible = rows().filter(row => !row.retired && row.surface && row.tier <= 3 && row.attackType !== 'touch' && row.surface.biomes.includes(biome))
-      .filter(row => !['pirate_grunt', 'pirate_gunner', 'pirate_captain', 'giant_crab', 'jellyfish'].includes(row.id) || context?.beach)
-      .filter(row => !row.surface.nearMinorRoad || context?.nearMinorRoad);
-    const replaced = new Set(eligible.filter(row => row.variantType === 'Tint').map(row => row.variantOf));
-    return eligible.filter(row => !replaced.has(row.id));
-  }
-  function surfaceKind(type, id, context) {
-    let eligible = surfaceRows(type, context);
-    if (context?.beach) {
-      // Ordinary beaches: mostly resident crabs/slimes, occasional visitors.
-      const visitors = ['pirate_grunt', 'pirate_gunner'];
-      const pirate = roll(id + ':visitor') < .12;
-      eligible = eligible.filter(row => pirate ? visitors.includes(row.id) : ['giant_crab', 'slime', 'jellyfish'].includes(row.id));
-    }
-    const weights = root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
-    const tiers = [...new Set(eligible.map(row => row.tier))];
-    const tier = pick(tiers.map(tier => ({ row: tier, weight: weights[tier] || 0 })), roll(id + ':tier'));
-    return pick(eligible.filter(row => row.tier === tier).map(row => ({ row, weight: row.surface.weight })), roll(id + ':kind'))?.id || null;
+    const profile = context?.beach ? root.HabitatSpawns.shoreProfile(type) : root.HabitatSpawns.landProfile(type);
+    return root.HabitatSpawns.enemyRows(profile, type, context);
   }
   // ── THE SAFE AREA: ONLY WEAK FOES LIVE NEAR HOME ─────────────────────────
   // A surface foe too strong for its distance from Home is simply NOT THERE
@@ -155,7 +136,7 @@
       caughtLength: caughtArray.length, entries, arrays: entries.map(e => e.creatures),
       lengths: entries.map(e => e.creatures?.length || 0), deer };
     for (const c of bodies) {
-      if (homeFaunaSubject(c) || c._homeFaunaInactive) surfaceActive(scene, c);
+      if (homeFaunaSubject(c) || c._homeFaunaInactive || (c._habitatSpawn && !c._surfaceSpawn)) surfaceActive(scene, c);
     }
     return scene._homeFaunaDeerId;
   }
@@ -190,6 +171,22 @@
   //     anchor with the tier bands (lairs.test.js pins why). Measured from the RUIN
   //     (lairX/lairY), so a guard that chases you in does not blink out.
   // Stamps `_surfaceInactive`, which the draw, the AI and Combat.isEnemy read.
+  // Traffic at dusk suppresses generated ambient residents at their fixed
+  // seats. It spends no replacement budget and never moves them elsewhere.
+  function busyRoadAllows(scene, creature) {
+    const at = creature?._habitatSpawn || creature?._surfaceSpawn;
+    if (!at || (scene?.depth || 0) > 0 || creature.lair || creature.summoned
+        || root.Combat?.isTame(creature)) return true;
+    if (!root.Lighting || root.Lighting.daylight(scene, Date.now()) >= SURFACE_NIGHT_DAYLIGHT) return true;
+    const WG = root.WorldGen, entry = WG.tileCache.get(WG.tileKey(at.tx, at.ty));
+    if (entry?.cellsPerEdge && entry.roadClass)
+      return !WG.inMajorBuffer(entry.roadClass, entry.cellsPerEdge, at.cx, at.cy);
+    const cell = scene?.cellAt?.(at.x, at.y);
+    return !cell || !(cell.roadClass & WG.ROAD_CLASS_MAJOR_BUFFER);
+  }
+  function isSurfaceResident(creature) {
+    return !!(creature?._surfaceSpawn || creature?._habitatSpawn || creature?.lair);
+  }
   function surfaceActive(scene, creature) {
     if (!creature) return true;
     // Remove only this overlay's stamp before recomputing other policies.
@@ -199,10 +196,21 @@
       delete creature._surfaceInactiveBeforeHomeFauna;
       delete creature._homeFaunaInactive;
     }
+    if (creature._busyRoadInactive) {
+      creature._surfaceInactive = creature._surfaceInactiveBeforeBusyRoad;
+      delete creature._surfaceInactiveBeforeBusyRoad;
+      delete creature._busyRoadInactive;
+    }
     const active = surfaceEnemyActive(scene, creature);
     if (!homeFaunaAllows(scene, creature)) {
       creature._surfaceInactiveBeforeHomeFauna = creature._surfaceInactive;
       creature._homeFaunaInactive = true;
+      creature._surfaceInactive = true;
+      return false;
+    }
+    if (!busyRoadAllows(scene, creature)) {
+      creature._surfaceInactiveBeforeBusyRoad = creature._surfaceInactive;
+      creature._busyRoadInactive = true;
       creature._surfaceInactive = true;
       return false;
     }
@@ -281,7 +289,7 @@
     return { pack, cells };
   }
   const caveContextAt = (entry, tx, ty, cx, cy, depth) => root.EnemyHabitats.caveAt(entry, tx, ty, cx, cy, depth);
-  const api = { CONCEALMENT, concealment, HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
+  const api = { CONCEALMENT, concealment, HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceActive, busyRoadAllows, isSurfaceResident, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
   root.EnemySpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

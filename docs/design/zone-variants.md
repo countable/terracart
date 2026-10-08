@@ -25,9 +25,14 @@ Regenerate it after editing the JSON with
   winner per cell; generated quarry sites.
 - `ZoneVariants` (`src/zone_variants.js`): variant choice (`pick`), traits
   and motif sampling.
+- `TerrainLayouts` (`src/terrain.js`): promoted procedural geometry, material
+  shares and size variation, shared by live dressing and the layout lab.
 - `ZoneDressing` (`src/zone_dressing.js`): materials, POI arrangement, finite
   finds, connections (`connectionSteps`, reading the row's
   `connection.shape`) and guards, all through the shared spawn gate.
+- `PressureTraps` (`src/pressure_traps.js`): authored `footpaths` become visible
+  ground plates; Sacred Grove uses broken grid seams and a saved one-shot ghost
+  trigger after ordinary scenery and protected routes have claimed their cells.
 - `QuarryLayout` (`src/quarry_layout.js`): quarry modules and their budgets.
 
 ## Choosing a variant
@@ -87,6 +92,10 @@ Expanding coverage never multiplies the per-anchor find or guard budget.
   target. Density is measured from the declared geometry before obstacles;
   never thin a continuous line to meet a number. Hazards (tar, traps) are not
   coverage.
+- **Procedural layouts.** A `procedural_layout` background stores generator
+  settings and material shares; Mushroom Grove repeats its Hilbert composition
+  in the canonical POI frame, with giant and small mushrooms sharing the seats
+  equally before spawn exclusions and finite POI dressing.
 - **Blocked cells.** Compact beds stay whole or move whole; continuous lines
   are clipped only by the coverage edge, reserved POI space and ineligible or
   occupied cells. Never fill gaps with random scatter.
@@ -109,15 +118,13 @@ Expanding coverage never multiplies the per-anchor find or guard budget.
 - **Encounters.** Themed surface encounters are rows of
   `EnemyHabitats.SURFACE_FAMILIES` rolled by `SURFACE_ENCOUNTERS`
   (`src/enemy_habitats.js`), separate from finite guards and ambient enemies.
-- **Fauna.** A variant's `attracts` column maps species to integer count
-  ranges, currently `[2, 5]`. Each Nexus gets a seeded quota and draws the
-  nearest existing positioned animals by distance to its actual eligible
-  ground (`_seatFaunaOnFavouriteGround`, `src/scene_creatures.js`); stable
-  creature IDs break ties, and animals already there count toward the quota.
-  It never adds spawns or recovers missing animals. The variant column
-  replaces the Nexus kind's affinity; an empty column means no pull.
-  Fauna may share interactable cells but keep their habitat, spawn-gate and
-  road limits; a refused destination leaves the original seat intact.
+- **Fauna.** `HabitatSpawns` declares each variant's local inhabitants and
+  budget. They generate directly inside the owning coverage, before safety
+  chooses legal seats. Matching authored animals satisfy matching requested
+  slots. Beach/Marine Meadow owners use the shared native shoreline budgets.
+  No attraction pass borrows animals from the rest of the tile. Fauna may
+  share static interactable ground, while generated inhabitants reserve unique
+  seats before player captures or visibility filters.
 
 ## Generated quarries
 
@@ -164,7 +171,9 @@ a composition shortfall.
   `python3 tools/preview_zone_variants.py docs/data/zone-variants.json <out>` and
   `python3 tools/preview_beach_variants.py <out>`. The generator validates
   densities over full cycles, POI positions, grid continuity and find counts;
-  its coverage diagram is schematic.
+  its coverage diagram is schematic. Main Nexus previews show two thirds of
+  the original cell width around the POI (or quarry center), keeping the
+  seven-metre cell scale and the POI close-ups unchanged.
 - The map review (`tools/map-review.html`, `tools/map-review-zones.js`) shows
   variant labels, each Nexus's coverage union, live placements and what occupancy or
   the gate removed; `?quarryClusters=1` (with `removedLanes=1`) colours quarry

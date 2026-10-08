@@ -187,7 +187,6 @@
       keeper: ['<em>Brushes salt off the shrine step.</em>\n“This shrine was here before the Breaking, and the sea never noticed the Breaking at all. I sweep the salt off each morning.”',
         '“The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.”'] },
     grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove', temple: true,
-      attracts: { deer: [2, 5], butterfly: [2, 5] },
       body: 'Trees crowd around an old stone shrine. You approach along its carefully cleared steps.',
       flash: 'A sacred grove. Hush.',
       keeper: ['<em>Glances up at the leaning trunks.</em>\n“The trees leaned in to hide this shrine the night the roofs fell. They have not straightened since. I keep the stone swept and the lantern lit.”',

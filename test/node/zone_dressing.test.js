@@ -13,13 +13,28 @@
   }
   const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
   const finds = out => all(out).filter(o => o.zoneLayer === 'find');
-  test('Sacred Grove: ordinary harmless bushes and trees without authored enemies', () => {
+  test('Sacred Grove: harmless clusters with broken ghost pressure footpaths', () => {
     const out = ZoneDressing.dress(context('sacred_grove'));
     const bushes = out.wildplants.filter(o => o.crop === 'shrub');
     assert.gt(bushes.length, 100);
     assert.truthy(bushes.every(o => wildplantSprite(o) === CROP_SPRITE.shrub));
     assert.truthy(bushes.every(o => walkHazardDamageRate(o) === 0));
     assert.gt(out.objects.filter(o => o.kind === 'tree').length, 0);
+    const plates = out.objects.filter(o => o.kind === 'pressure_plate');
+    assert.gt(plates.length, 100);
+    assert.truthy(plates.every(o => o.effect === 'ghost' && o.zoneLayer === 'footpath'));
+    const occupied = new Set(all(out).filter(o => o.kind !== 'pressure_plate').map(o => `${o.x},${o.y}`));
+    assert.truthy(plates.every(o => !occupied.has(`${o.x},${o.y}`)), 'empty cluster seams only');
+    assert.eq(JSON.stringify(plates), JSON.stringify(ZoneDressing.dress(context('sacred_grove')).objects.filter(o => o.kind === 'pressure_plate')));
+    const blocked = context('sacred_grove'); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o.kind === 'pressure_plate').length, 0);
+    const row = ZoneVariants.byId('sacred_grove');
+    let gaps = 0, present = 0;
+    for (let x = -36; x < 36; x++) {
+      if (ZoneVariants.footpathAt(row, x, 0, 112)) present++; else gaps++;
+      assert.falsy(ZoneVariants.footpathAt(row, 1, 1, 112));
+    }
+    assert.gt(present, 30); assert.gt(gaps, 3);
     assert.eq(out.guards.length, 0);
     assert.eq(out.traps.length, 0);
     assert.falsy(all(out).some(o => o.kind === 'plant' || o._plantArt === 'bramble'));
@@ -94,7 +109,7 @@
     const pots = out.objects.filter(o => o.kind === 'chest' && o.barrelStyle === 'clay_pot');
     assert.eq(pots.length, 2, 'two regular pots flank the POI');
     assert.truthy(pots.every(o => o._zoneObjectFrame == null), 'regular pot art');
-    assert.eq(Object.keys(row.attracts).length, 0, 'no crow or raven attraction');
+    assert.falsy(HabitatSpawns.faunaRows(HabitatSpawns.variantProfile(row.id, row.zone)).some(r => ['crow', 'raven'].includes(r.kind)), 'quiet grave habitat has no extra bird population');
     assert.eq(row.background.materialDensity.grave, 4 / 36);
     assert.eq(row.background.materialDensity.grass, 4 / 36);
   });
@@ -411,6 +426,15 @@
   });
   test('zone dressing: Mushroom Grove giant mushrooms have distinct rewards and preserve placement identities', () => {
     const grove = ZoneDressing.dress(context('mushroom_grove'));
+    const background = grove.wildplants.filter(o => o.zoneLayer === 'background');
+    assert.eq(new Set(background.map(o => o.crop)).size, 2, 'both crop sizes reach live background dressing');
+    for (const o of background) {
+      const point = ZoneVariants.placement(ZoneVariants.byId('mushroom_grove'), o._ix - 16, o._iy - 16);
+      assert.eq(o.crop, point.material);
+      assert.eq(o._terrainScale, point.scale, 'canonical layout size survives materialization');
+      assert.inRange(o._terrainScale, .8775, 1.1225);
+    }
+    assert.gt(new Set(background.map(o => o._terrainScale)).size, 1);
     const giants = grove.wildplants.filter(o => o.crop === 'giant_mushroom');
     assert.gt(giants.length, 0);
     for (const o of giants) {
@@ -554,7 +578,7 @@
     assert.eq(JSON.stringify(out.guards), JSON.stringify(repeat.guards));
     assert.eq(out.diagnostics[0].guardsPlaced, 1); assert.eq(out.diagnostics[0].shortfalls.length, 0);
   });
-  test('zone dressing: guards report a shortfall when the nearby spawn gate has no eligible seat', () => {
+  test('zone dressing: guards leave excluded nearby ground but retain the same owner budget', () => {
     const ctx = context('mushroom_grove'), pristine = ZoneDressing.dress(context('mushroom_grove'));
     const guard = pristine.guards[0], find = finds(pristine)[0];
     for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
@@ -564,8 +588,16 @@
       ctx.spawnOpts.spawnWhy[y * ctx.N + x] = WorldGen.SPAWN_WHY.SENSITIVE;
     }
     const out = ZoneDressing.dress(ctx);
-    assert.eq(finds(out).length, 1); assert.eq(out.guards.length, 0);
-    assert.eq(out.diagnostics[0].guardsPlaced, 0); assert.includes(out.diagnostics[0].shortfalls, 'guard:0');
+    assert.eq(finds(out).length, 1); assert.eq(out.guards.length, 1);
+    assert.eq(out.guards[0].id, guard.id);
+    assert.eq(out.guards[0].homeX, guard.homeX); assert.eq(out.guards[0].homeY, guard.homeY);
+    assert.gt(Math.hypot(out.guards[0]._ix - guard._ix, out.guards[0]._iy - guard._iy), 2);
+    assert.eq(out.diagnostics[0].guardsPlaced, 1); assert.eq(out.diagnostics[0].shortfalls.length, 0);
+    const exhausted = context('mushroom_grove');
+    exhausted.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
+    const empty = ZoneDressing.dress(exhausted);
+    assert.eq(empty.guards.length, 0);
+    assert.includes(empty.diagnostics[0].shortfalls, 'guard:0');
   });
   test('zone dressing: buffered anchors cannot mint another finite reward or guard', () => {
     for (const id of ['black_ring', 'ancient_grove', 'seep']) {

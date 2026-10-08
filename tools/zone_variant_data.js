@@ -6,9 +6,10 @@ const path = require('path');
 const root = path.resolve(__dirname, '..');
 const source = path.join(root, 'docs/data/zone-variants.json');
 const target = path.join(root, 'src/zone_variant_data.js');
+require('../src/terrain.js');
 const data = JSON.parse(fs.readFileSync(source, 'utf8'));
 const ids = new Set();
-const types = new Set(['seeded_scatter', 'repeat_motif', 'line_grid', 'bounded_line_grid', 'concentric_rings']);
+const types = new Set(['seeded_scatter', 'repeat_motif', 'line_grid', 'bounded_line_grid', 'concentric_rings', 'procedural_layout']);
 function fail(message) { throw new Error(`zone variants: ${message}`); }
 function material(value) {
   if (value && Array.isArray(value.cycle)) return value.cycle.forEach(material);
@@ -17,15 +18,28 @@ function material(value) {
 for (const row of data.variants) {
   if (ids.has(row.id)) fail(`duplicate id ${row.id}`);
   ids.add(row.id);
-  for (const [species, range] of Object.entries(row.attracts || {})) {
-    if (!Array.isArray(range) || range.length !== 2
-        || !range.every(n => Number.isInteger(n) && n >= 0)
-        || range[0] > range[1]) fail(`fauna count range ${row.id}/${species}`);
-  }
   if (!['grove', 'stones', 'tar', 'beach', 'quarry'].includes(row.zone)) fail(`unknown zone ${row.zone}`);
   if (!(row.weight > 0)) fail(`invalid weight ${row.id}`);
+  if (row.footpaths && (!Number.isInteger(row.footpaths.spacingCells) || row.footpaths.spacingCells < 2
+      || !(row.footpaths.gapChance >= 0 && row.footpaths.gapChance < 1)
+      || row.footpaths.effect !== 'ghost')) fail(`footpaths ${row.id}`);
   const b = row.background;
   if (!types.has(b.type)) fail(`unknown layout ${b.type}`);
+  if (b.type === 'procedural_layout') {
+    if (typeof b.repeat !== 'boolean' || !Array.isArray(b.materials) || !b.materials.length) fail(`procedural layout ${row.id}`);
+    for (const slot of b.materials) {
+      material(slot.material);
+      if (!(slot.share >= 0 && Number.isFinite(slot.share))) fail(`material share ${row.id}`);
+    }
+    const points = globalThis.TerrainLayouts.generate(b.generator);
+    const assigned = globalThis.TerrainLayouts.assign(points, b.generator, b.materials);
+    const area = b.generator.width * b.generator.height;
+    if (Math.abs(points.length / area - b.nominalDensity) > 1e-12) fail(`procedural density ${row.id}`);
+    for (const slot of b.materials) {
+      const density = assigned.filter(p => p.material === slot.material).length / area;
+      if (Math.abs(density - b.materialDensity[slot.material]) > 1e-12) fail(`procedural material density ${row.id}/${slot.material}`);
+    }
+  }
   if (b.rows) {
     const r = b.rows;
     if (b.type !== 'seeded_scatter' || !['horizontal', 'vertical'].includes(r.axis)

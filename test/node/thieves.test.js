@@ -237,8 +237,9 @@ test('thieves: the theft is ONE lane — the hit site and the scene writer (sour
   assert.truthy(/buildInventoryDOM\(\)/.test(food), 'the bar rebuilt');
   assert.falsy(/energy|Energy\.|addMoney/.test(food.replace(/\/\/.*$/gm, '')), 'no energy and no coins in the food writer');
   const w = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  wanderCreatures() {'));
-  assert.truthy(/const sated = !isTame && !!Combat\.theftKind\(c\.kind\) && Combat\.theftSated\(this\.save, c\);/.test(w),
-    'sated is read once per creature, only for a thief');
+  assert.truthy(/const sated = !isTame && \(\(!!Combat\.theftKind\(c\.kind\) && Combat\.theftSated\(this\.save, c\)\)/.test(w)
+    && /\|\| Combat\.raidSpent\(this\.save, c\)\)/.test(w),
+    'daily snatches and permanent damaging raids both stand down on the existing rout lane');
   assert.truthy(/const routed = warded \|\| wanderOff \|\| sated \|\| frightened \|\| psychotic;/.test(w), 'a sated thief flies off on the rout lane');
 });
 

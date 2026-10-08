@@ -302,6 +302,17 @@
     const l = save && save.thefts;
     return !!(l && c && l.day === theftDay(now) && Array.isArray(l.ids) && l.ids.indexOf(c.id) >= 0);
   }
+  // A damaging hit-and-run encounter spends its one raid permanently.
+  // Daily bird thefts retain their separate daily ledger and behavior.
+  function raidSpent(save, c) {
+    if (!c || !monster(c.kind)?.hitAndRun) return false;
+    return !!c._raidSpent || !!save?.enemyRaids?.includes(c.id);
+  }
+  function bankRaid(save, c) {
+    const ids = save.enemyRaids ||= [];
+    if (!ids.includes(c.id)) ids.push(c.id);
+    c._raidSpent = true;
+  }
   function incomingTheft(save, c, now = Date.now()) {
     const what = save && c ? theftKind(c.kind) : null;
     if (!what) return null;
@@ -1624,7 +1635,7 @@
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
-    theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
+    theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft, raidSpent, bankRaid,
     MELEE_REACH_CELLS, MELEE_WEAPONS, meleeIntervalMs, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,

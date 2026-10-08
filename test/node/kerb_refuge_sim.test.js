@@ -66,6 +66,7 @@ function mkScene(entry, creature, feet) {
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     _trapperLay() { this._laid++; },
+    _losePlayerCoins(n) { const taken = Math.min(this.save.money, n); addMoney(this.save, -taken); return taken; },
     // A THIEF'S snatch (the raven's coins, the gull's food —
     // Combat.incomingTheft) banked the way app.js _losePlayerToThief banks
     // it: off the purse or out of the bag, the thief sated.
@@ -103,7 +104,7 @@ const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._webLaunches 
 // Every hostile the SURFACE can hold, off the tables that seat them (never a
 // hand list — a kind added to the roster or a lair ladder is audited here the
 // moment it exists): every EnemyRoster row with a `surface` habitat (the wild
-// encounter budget, the park plants, the night's ghost), every kind on a
+// encounter budget, authored zone enemies, the night's ghost), every kind on a
 // Lairs.KIND_ORDER ladder (ruins, gates, cafés, barricades, the burned row's
 // fire slime), the wild slime, every hostile the fauna spawner seats (the
 // raven) — plus a hunted deer while it is angry, as a free foe, a lair guard
@@ -159,8 +160,8 @@ test('kerb: the harness bites — every mobile hostile attacks a player in open 
   for (const spec of foes()) {
     const row = EnemyRoster.get(spec.label);
     // Circling trail-makers and buried ambushers do not chase a still target.
-    // Their contact/ground hazards have separate behavioral tests.
-    if (row?.attackType === 'none' || ['orbit_trail', 'burrow'].includes(row?.movement.pattern)) continue;
+    // Their contact/ground hazards and aquatic movement have separate tests.
+    if (row?.attackType === 'none' || row?.movement.waterOnly || ['orbit_trail', 'burrow'].includes(row?.movement.pattern)) continue;
     const separation = Math.max(1, (row?.minRange || 0) + 1);
     const r = walk(spec, at(10, OPEN_ROW + separation), () => at(10, OPEN_ROW), 30);
     assert.gt(attacks(r.scene), 0, `${spec.label}: attacked a player standing in the open`);
@@ -277,12 +278,13 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   // or foe is seated at its own class (creatureSpawnClass — a fast one
   // refuses the kerb), a lair point an 'attractor'.
   assert.truthy(/spawnWhy: entry\.spawnWhy,/.test(spawn), 'the shared spawn options carry the gate');
-  assert.truthy(/const spClass = creatureSpawnClass\(kindStr\);/.test(spawn), 'the class comes from each creature kind');
-  assert.truthy(/if \(!WorldGen\.isSpawnCell\(genGrid, N, N, cx, cy, seatOpts, spClass\)\) return;/.test(spawn), 'fast fauna and foes are dropped from the buffer');
-  assert.truthy(/const faunaSpawnOpts = \{ \.\.\._spawnOpts, occupied: null \};/.test(spawn), 'fauna overlap retains every ground and kerb restriction');
+  const habitat = ALL_SRC['habitat_spawns.js'];
+  assert.truthy(/const classOf = kind => root\.creatureSpawnClass\(kind\);/.test(habitat), 'the population class comes from each creature kind');
+  assert.truthy(/if \(!WG\.isSpawnCell\(grid, N, N, cx, cy, seatOpts, cls\)\) continue;/.test(habitat), 'each legal seat uses the creature class and its kerb exclusions');
+  assert.truthy(/occupied: extraOccupied \|\| \(fauna \? null : occupied\)/.test(habitat), 'fauna overlap retains the shared ground and kerb options');
   assert.truthy(/&& isFastMover\(c, scene\.cellM\)\) return true;/.test(CREATURE_AI_SRC), 'only a FAST mover is kept out of the buffer');
   assert.truthy(/relocateToSpawnCell\(genGrid, N, N, ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor'\)/.test(spawn), 'and every lair candidate');
-  assert.falsy(/BANDIT_STORY\.attracts/.test(SCENE_SRC), 'no animal is pulled onto a major verge');
+  assert.falsy(HabitatSpawns.landProfile(WorldGen.T.ROAD_MAJOR), 'ordinary Major roads supply no population');
 });
 
 test('kerb: isSpawnCell(…, \'fastEnemy\') (any foe — the fast row) is the spawn rule minus the buffer', () => {

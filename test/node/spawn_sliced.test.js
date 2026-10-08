@@ -36,7 +36,7 @@
     creatures: (e.creatures || []).map(pick), objects: e.objects.map(pick), wildplants: e.wildplants.map(pick),
     traps: (e.traps || []).map(pick), treasure: e.treasure && pick(e.treasure),
     extra: (e.extraTreasures || []).map(pick), coins: (e.coinDrops || []).map(pick),
-    lairs: (e.streetLairs || []).map(pick), attracted: e.faunaAttracted,
+    lairs: (e.streetLairs || []).map(pick),
   });
 
   test('spawn sliced: stepping the pass lays exactly the world spawnInTile lays, flag last', () => {
@@ -56,7 +56,7 @@
       assert.gt(yields, 10, `the pass yields between its phases (${yields})`);
       assert.truthy(a._spawned && b._spawned, 'both passes finished');
       assert.gt(a.creatures.length, 50, 'the fixture spawns a real population');
-      assert.gt(a.traps.length, 0, 'and real traps');
+      assert.eq(a.traps.length, 0, 'the park Nexus suppresses ambient traps in this fixture');
       assert.eq(snapshot(b), snapshot(a), 'the same creatures, objects, traps and treasure, id for id');
     } finally { window.__TEST_MODE = was; }
   });

@@ -14,6 +14,7 @@ import io
 import json
 import math
 import pathlib
+import re
 import subprocess
 import sys
 
@@ -84,6 +85,10 @@ def material_art(material):
     if material.get('barrelStyle'):
         return {'sheet': material['barrelStyle'], 'frames': [0]}
     kind = material['kind']
+    if kind == 'wildplant' and material.get('gasEmitter') and material.get('crop') in r['gasMushrooms']:
+        crop = 'giant_mushroom' if material.get('_zoneObjectFrame') == 40 else material['crop']
+        art = r['gasMushrooms'][crop]
+        return {'sheet': art['sheet'], 'frames': [art['frame']]}
     if material.get('_zoneObjectFrame') is not None:
         return {'sheet': 'zone_objects', 'frames': [material['_zoneObjectFrame']]}
     if kind == 'grove_shrine' and material.get('shrineKind'):
@@ -261,8 +266,26 @@ def hash_unit(variant, x, y, lane):
     return int.from_bytes(digest[:4], 'big') / 2**32
 
 
+@functools.lru_cache(maxsize=64)
+def procedural_cells(settings):
+    helper = pathlib.Path(__file__).with_name('preview_terrain_layout.js')
+    points = json.loads(subprocess.check_output(['node', str(helper)], input=settings, text=True))
+    return {(p['cx'], p['cy']): p for p in points}
+
+
+def procedural_at(background, x, y):
+    generator = background['generator']
+    if background.get('repeat'):
+        x, y = x % generator['width'], y % generator['height']
+    settings = json.dumps({'generator': generator, 'materials': background['materials']}, sort_keys=True)
+    return procedural_cells(settings).get((x, y))
+
+
 def background_at(v, x, y):
     b = v['background']
+    if b['type'] == 'procedural_layout':
+        point = procedural_at(b, x, y)
+        return point['material'] if point else None
     if b['type'] == 'seeded_scatter':
         density = b['nominalDensity']
         rows = b.get('rows')
@@ -305,7 +328,9 @@ def background_at(v, x, y):
     w, h = b['repeatCells']
     for slot in b['slots']:
         if slot['at'] == [x % w, y % h]:
-            return cycle(slot['material'], x // w, y // h)
+            material = cycle(slot['material'], x // w, y // h)
+            keep = b.get('materialKeepChance', {}).get(material, 1)
+            return material if keep >= 1 or hash_unit(v['id'], x, y, 'material-keep') < keep else None
     scatter = b.get('gapScatter')
     if scatter and hash_unit(v['id'], x, y, 'gap') < scatter['chance']:
         return scatter['material']
@@ -315,12 +340,6 @@ def background_at(v, x, y):
 def validate(d):
     ids = [v['id'] for v in d['variants']]
     assert len(ids) == len(set(ids))
-    affinities = [v for v in d['variants'] if v.get('attracts')]
-    for v in affinities:
-        assert set(v['attracts']) <= art_registry()['creatures'].keys()
-        assert all(isinstance(quota, list) and len(quota) == 2
-                   and all(isinstance(n, int) and n >= 0 for n in quota)
-                   and quota[0] <= quota[1] for quota in v['attracts'].values())
     for v in d['variants']:
         b = v['background']
         origin = b['poiOrigin']['cell']
@@ -359,18 +378,30 @@ def validate(d):
             assert all(background_at(v, px+dx, py+dy) for dx,dy in [(0,-step//2),(step//2,0),(0,step//2),(-step//2,0)])
             assert all(background_at(v, px+s['at'][0], py+s['at'][1]) is None for s in v['poi']['slots']), 'POI decoration stays inside its room'
         # Derive coverage over a full four-cycle tile for deterministic motifs.
-        if b['type'] != 'seeded_scatter':
+        if b['type'] == 'procedural_layout':
+            generator = b['generator']
+            width, height = generator['width'], generator['height']
+            assert all(isinstance(n, int) and n >= 4 for n in (width, height))
+            assert all(slot['material'] in d['materials'] and slot['share'] >= 0 for slot in b['materials'])
+            counted = collections.Counter(background_at(v, x, y) for x in range(width) for y in range(height))
+            for material, density in b['materialDensity'].items():
+                assert abs(counted[material] / (width * height) - density) < 1e-9, (v['id'], material)
+        elif b['type'] != 'seeded_scatter':
             period = (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['plots'][0] + 1 if b['type']=='bounded_line_grid' else b.get('spacingCells', math.lcm(*b.get('repeatCells', [10]))) * 4)
-            fixed = {**v, 'background': {k: value for k, value in b.items() if k != 'gapScatter'}}
+            fixed = {**v, 'background': {k: value for k, value in b.items() if k not in ('gapScatter', 'materialKeepChance')}}
             if b['type'] == 'line_grid' and b.get('plotCenters'):
                 fixed['background']['plotCenters'] = {**b['plotCenters'], 'excludePoiPlot': False}
             counted = collections.Counter(background_at(fixed, x, y) for x in range(period) for y in range(period))
             scatter = b.get('gapScatter')
             for material, density in {**b['materialDensity'], **b.get('hazardDensity',{})}.items():
-                expected = counted[material] / period**2
+                expected = counted[material] / period**2 * b.get('materialKeepChance', {}).get(material, 1)
                 if scatter and material == scatter['material']:
                     expected += counted[None] / period**2 * scatter['chance']
                 assert abs(expected - density) < 1e-9, (v['id'], material)
+
+
+def treasure_mark(cx, cy):
+    return f'<g class="treasure-mark"><circle cx="{cx}" cy="{cy}" r="4" fill="#c7b28a" opacity=".35"/><path d="M {cx-2.5} {cy-2.5} L {cx+2.5} {cy+2.5} M {cx+2.5} {cy-2.5} L {cx-2.5} {cy+2.5}" stroke="#2a1d10" stroke-width="1.1"><title>Extra buried treasure · one-off find</title></path></g>'
 
 
 def light_guide(x, y, radius, color):
@@ -390,14 +421,29 @@ def ground_pattern(terrain_name, prefix, unit):
             f'<image data-ground-type="{tile["type"]}" width="{unit}" height="{unit}"/></pattern></defs>')
 
 
+def nexus_preview(svg, focus=None):
+    """Show two thirds of the original cell span without rescaling the layout."""
+    match = re.search(r'viewBox="([^"]+)"', svg)
+    x, y, width, height = map(float, match.group(1).split())
+    cropped_w, cropped_h = [max(1, round(span / 10 * 2 / 3)) * 10 for span in (width, height)]
+    cx, cy = focus or (x + width / 2, y + height / 2)
+    left = max(x, min(cx - cropped_w / 2, x + width - cropped_w))
+    top = max(y, min(cy - cropped_h / 2, y + height - cropped_h))
+    svg = svg[:match.start()] + f'viewBox="{left:g} {top:g} {cropped_w:g} {cropped_h:g}"' + svg[match.end():]
+    # Percent-sized backgrounds otherwise shrink relative to the cropped view.
+    return svg.replace('width="100%" height="100%"', f'width="{width:g}" height="{height:g}"')
+
+
 def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None):
     b = v['background']
     side = 9 if detail else (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['previewPlots'][0] + 1 if b['type'] in ('line_grid', 'bounded_line_grid') else 25)
+    if not detail and b['type'] == 'procedural_layout':
+        side = max(b['generator']['width'], b['generator']['height'])
     if sample_cells is not None:
         side = sample_cells
     unit = 10
     center = side // 2
-    aligned = b['type'] in ('line_grid','bounded_line_grid','concentric_rings')
+    aligned = b['type'] in ('line_grid','bounded_line_grid','concentric_rings','procedural_layout')
     poi_x, poi_y = b['poiOrigin']['cell']
     draw_x, draw_y = ([poi_x,poi_y] if aligned and not detail else [center,center])
     shipwreck = v['id'] == 'pirate_cove'
@@ -441,7 +487,23 @@ def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None):
                     color = definition['color']
                     gap = 0 if b['type'] in ('line_grid','bounded_line_grid') and (gx % b['spacingCells'] == 0 or gy % b['spacingCells'] == 0) else 1
                     parts.append(f'<rect class="geometry-cell" x="{x*unit+gap}" y="{y*unit+gap}" width="{unit-2*gap}" height="{unit-2*gap}" fill="{color}"><title>{material}</title></rect>')
-                    parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2, definition))
+                    scale = procedural_at(b, gx, gy)['scale'] if b['type'] == 'procedural_layout' else 1
+                    size = (unit - 2) * scale
+                    parts.append(sprite_cell(art_prefix, material, x*unit+unit/2-size/2, y*unit+unit/2-size/2, size, definition))
+        parts.append('</g>')
+    if v.get('footpaths'):
+        config = v['footpaths']
+        parts.append('<g class="background pressure-footpaths">')
+        protected = {(draw_x, draw_y), *((draw_x+s['at'][0], draw_y+s['at'][1]) for s in slots)}
+        for y in range(side):
+            for x in range(side):
+                gx, gy = x + poi_x - draw_x, y + poi_y - draw_y
+                if (x,y) in protected or background_at(v, gx, gy): continue
+                if gx % config['spacingCells'] and gy % config['spacingCells']: continue
+                if hash_unit(v['id'], gx, gy, 'footpath') < config['gapChance']: continue
+                parts.append('<g><title>Pressure plate · raises one ghost and stays depressed</title>' +
+                    art_image({'sheet': 'cave_mechanisms', 'frames': [2]},
+                        f'class="sprite-cell" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"') + '</g>')
         parts.append('</g>')
     # Finite dressing has its own budget in the runtime row, outside the motif.
     if not detail and v.get('decorations'):
@@ -454,7 +516,10 @@ def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None):
             material = decoration['material']
             for _ in range(min(decoration['count'], len(seats))):
                 x, y = seats.pop()
-                parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
+                if material == 'treasure_x':
+                    parts.append(treasure_mark(x*unit+unit/2, y*unit+unit/2))
+                else:
+                    parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
         parts.append('</g>')
     cx, cy = draw_x * unit + unit / 2, draw_y * unit + unit / 2
     parts.append('<g class="poi-layer">')
@@ -506,7 +571,8 @@ def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None):
         kind = kinds[n%len(kinds)]
         parts.append(creature_at(kind,(x+dx)*unit+5,(y+dy)*unit+5,unit,kind.replace('_',' ')+' · declared guard offset; representative choice'))
     parts.append('</svg>')
-    return ''.join(parts)
+    svg = ''.join(parts)
+    return nexus_preview(svg, (cx, cy)) if not detail and sample_cells is None else svg
 
 
 STREET_COLORS = {
@@ -617,7 +683,7 @@ def street_section(streets):
         props = len(v['objects'])
         mix = collections.Counter(o.get('crop', o['kind']) for o in v['objects'])
         inventory = ', '.join(f'{n} {kind}' for kind, n in mix.items()) or 'No extra verge props'
-        fauna = ', '.join(f'nearest {quota[0]}–{quota[1]} {kind}' for kind, quota in v.get('attracts', {}).items()) or 'No street affinity'
+        fauna = 'Local inhabitants from habitat profiles'
         selection = 'Geography-selected path' if v['size'] == 'path' else f"{v['size']} street · {v['share']*100:g}% base share"
         tiers = sorted(set(o.get('tier',o['kind']) for o in v['lairs']))
         monsters = '; '.join(' or '.join(k.replace('_',' ') for k in art_registry()['lairs']['kinds'].get(t,[])) + f' · {art_registry()["lairs"]["counts"].get(t,1)} guard per eligible anchor' for t in tiers) or 'No variant-specific enemies'
@@ -682,8 +748,7 @@ def quarry_card(v, d):
         if o.get('coverRockId'): continue  # Still hidden beneath its intact rock.
         material = o['material']; x,y = o['cell']
         if material == 'treasure_x':
-            cx,cy = x*unit+5,y*unit+5
-            parts.append(f'<g class="treasure-mark"><circle cx="{cx}" cy="{cy}" r="4" fill="#c7b28a" opacity=".35"/><path d="M {cx-2.5} {cy-2.5} L {cx+2.5} {cy+2.5} M {cx+2.5} {cy-2.5} L {cx-2.5} {cy+2.5}" stroke="#2a1d10" stroke-width="1.1"><title>Extra buried treasure · one-off find</title></path></g>')
+            parts.append(treasure_mark(x*unit+5, y*unit+5))
         else:
             parts.append(art_image(material_art(o), f'class="sprite-cell" x="{x*unit+1}" y="{y*unit+1}" width="{unit-2}" height="{unit-2}"'))
     parts.append('</svg>')
@@ -724,7 +789,7 @@ def quarry_card(v, d):
     shortfalls = [reason for row in fixture['diagnostics'] for reason in row.get('shortfalls', [])]
     if shortfalls:
         note += '<p>Placement shortfalls: ' + html.escape(', '.join(shortfalls)) + '</p>'
-    return f'''<article id="{v['id']}"><p data-sandbox="{v['zone']}"></p><header><small>{status}</small><h2>{html.escape(v['name'])}</h2></header><p>{html.escape(v['atmosphere'])}</p><figure>{''.join(parts)}<figcaption>Shared footprint · one cell = 7 m · variant forced for comparison</figcaption></figure><div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 0;font-size:12px">{''.join(legend)}</div>{story}<dl>{metadata}</dl><details><summary>What is shown in this sample</summary><p>{actual}</p><p><a href="{v['id']}.json">Generated objects and placement diagnostics</a></p><p>All placements fit the same generated parking-lane coverage. Positions, hazards, finite finds and guards come directly from the shipping world generator. Variant selection is overridden to compare all four layouts; this footprint need not qualify for each variant in live play. Optional dashed lines show the removed source lanes.</p>{note}</details></article>'''
+    return f'''<article id="{v['id']}"><p data-sandbox="{v['zone']}"></p><header><small>{status}</small><h2>{html.escape(v['name'])}</h2></header><p>{html.escape(v['atmosphere'])}</p><figure>{nexus_preview(''.join(parts))}<figcaption>Central footprint view · one cell = 7 m · variant forced for comparison</figcaption></figure><div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 0;font-size:12px">{''.join(legend)}</div>{story}<dl>{metadata}</dl><details><summary>What is shown in this sample</summary><p>{actual}</p><p><a href="{v['id']}.json">Generated objects and placement diagnostics</a></p><p>All placements fit the same generated parking-lane coverage. Positions, hazards, finite finds and guards come directly from the shipping world generator. Variant selection is overridden to compare all four layouts; this footprint need not qualify for each variant in live play. Optional dashed lines show the removed source lanes.</p>{note}</details></article>'''
 
 
 def quarry_draft_section(d):
@@ -1059,8 +1124,8 @@ def render(d, out):
         if hazards:
             mix += '; hazards: ' + ', '.join(f'{n*100:g}% {m}' for m,n in hazards.items())
         coverage_label = 'interactables + ' + f'{sum(hazards.values())*100:g}% hazards' if hazards else ('expected' if b['type']=='seeded_scatter' or b.get('gapScatter') else 'nominal')
-        mode = {'concentric_rings':'Three concentric rings · POI at common center', 'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':f'Lines every {b.get("spacingCells")} cells · repeat to zone edge', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern'}[b['type']]
-        fauna = ', '.join(f'nearest {quota[0]}–{quota[1]} {kind}' for kind,quota in v.get('attracts',{}).items()) or 'No zone affinity'
+        mode = {'concentric_rings':'Three concentric rings · POI at common center', 'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':f'Lines every {b.get("spacingCells")} cells · repeat to zone edge', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern', 'procedural_layout':'Shared procedural layout · repeat to zone edge'}[b['type']]
+        fauna = 'Local inhabitants from habitat profiles'
         guard = v['guards']
         kinds = guard.get('kinds') or guard.get('choices') or [guard.get('kind', 'guard')]
         guard_text = 'None'
@@ -1071,6 +1136,8 @@ def render(d, out):
         elif guard['mode'] != 'none':
             guard_text = 'Ghosts on tombstone interaction'
         if guard.get('headstoneGhostChance'): guard_text += f'; {guard["headstoneGhostChance"]*100:g}% ghost chance on headstone interaction'
+        if v.get('footpaths', {}).get('effect') == 'ghost':
+            guard_text = ('' if guard_text == 'None' else guard_text + '; ') + 'One ghost per pressure plate; stays depressed after triggering'
         hazard = {**b.get('materialDensity', {}), **b.get('hazardDensity', {})}.get('carnivorous_plant', 0)
         if hazard and guard_text == 'None': guard_text = 'No finite guards'
         if hazard: guard_text += f'; static carnivorous plants on {hazard*100:.2f}% of motif cells'

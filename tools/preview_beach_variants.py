@@ -93,7 +93,7 @@ def render(out):
         b, finds, guards = v['background'], v['finds'], v['guards']
         mix = ', '.join(f'{100*n:.2f}% {k}' for k,n in b['materialDensity'].items())
         guard = 'none' if guards['mode']=='none' else f'{guards["count"]} {guards["kind"]} at the find'
-        fauna = ', '.join(f'nearest {quota[0]}–{quota[1]} {k}' for k,quota in v['attracts'].items()) or 'no affinity'
+        fauna = 'Native shoreline fauna supplied by the owning habitat'
         size=' × '.join(map(str,b['repeatCells']))
         cards.append(f'''<article id="{v['id']}"><small>BEACH · DRAFT</small><h2>{html.escape(v['name'])}</h2>
 <p><b>{size}-cell repeat · {b['nominalDensity']*100:.2f}% background fill</b><br>{mix}</p>

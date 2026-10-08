@@ -35,15 +35,14 @@ const ring = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMv
 const line = (cells) => cells.map(([cx, cy]) => ({ x: cellToMvt(cx), y: cellToMvt(cy) }));
 const wholeTile = () => ring([[0, 0], [CPE - 1, 0], [CPE - 1, CPE - 1], [0, CPE - 1]]);
 
-// Parkland on the tile's LEFT (cols 0..24 — so the private-yard frontage rule
-// isn't what's under test, and the park has an EDGE at col 24), plain grass on
-// the right, crossed by a motorway down col 32 and an ordinary street along
-// row 10, with three footpaths: one along row 50 inside the park, one down
+// Public grass (parks become authored Grove Nexus areas), crossed by a
+// motorway down col 32 and an ordinary street along row 10,
+// with three footpaths: one along row 50 in the left field, one down
 // col 50 in the open grass, and one down col 36 hard by the motorway's kerb.
 function roadyLayers() {
   return [
     { name: 'landuse', features: [
-      { type: 3, tags: { class: 'park' }, geom: [ring([[0, 0], [24, 0], [24, CPE - 1], [0, CPE - 1]])] },
+      { type: 3, tags: { class: 'grass' }, geom: [ring([[0, 0], [24, 0], [24, CPE - 1], [0, CPE - 1]])] },
     ] },
     { name: 'transportation', features: [
       { type: 2, tags: { class: 'motorway' }, geom: [line([[32, 0], [32, CPE - 1]])] },
@@ -125,7 +124,7 @@ test('traps: opts.occupied keeps a trap off a cell an object already holds', () 
   const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
   assert.eq(traps.length, 0, 'every trap-ground cell was claimed, so nothing could seat');
   // Free every other claimed cell: traps come back, only on freed cells.
-  for (const idx of [...occupied]) if (idx % 2 === 0) occupied.delete(idx);
+  [...occupied].forEach((idx, n) => { if (n % 2 === 0) occupied.delete(idx); });
   const partial = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, opts);
   assert.gt(partial.length, 0, 'freeing half the ground lets traps back in');
   for (const tp of partial) {
@@ -134,7 +133,7 @@ test('traps: opts.occupied keeps a trap off a cell an object already holds', () 
   }
 });
 
-test('traps: BESIDE the path, never on it — or on a park\'s edge', () => {
+test('traps: BESIDE the path, never on it', () => {
   const r = rasterize(roadyLayers());
   const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 25);
   let path = 0, park = 0;
@@ -155,14 +154,22 @@ test('traps: BESIDE the path, never on it — or on a park\'s edge', () => {
     else { park++; assert.eq(r.grid[i], T.PARK, `${tp.id} is park`); assert.truthy(besideOther, `${tp.id} is on the park's edge`); }
   }
   assert.gt(path, 0, 'the footpaths carry traps');
-  assert.gt(park, 0, 'and so does the park\'s edge');
+  assert.eq(park, 0, 'generic grass fixture has only path trap ground');
   // The predicate itself: the open park interior and plain grass are not
   // trap ground; the footpath cell never is.
   assert.eq(kindAt(r, 12, 30), 0, 'the park interior');
   assert.eq(kindAt(r, 58, 5), 0, 'open grass');
   for (let y = 22; y < 58; y++) if (r.grid[y * CPE + 50] === T.PATH) assert.eq(kindAt(r, 50, y), 0, 'the path cell itself');
   assert.eq(kindAt(r, 51, 40), 1, 'beside the grass footpath');
-  assert.eq(kindAt(r, 24, 40) || kindAt(r, 23, 40), 2, 'the park\'s east edge');
+  assert.eq(kindAt(r, 24, 40) || kindAt(r, 23, 40), 0, 'ordinary grass edge is not trap ground');
+});
+
+test('traps: raw park ground predicate keeps its edge rule before Nexus conversion', () => {
+  const N = 8, grid = new Uint8Array(N * N).fill(T.GRASS);
+  for (let y = 0; y < N; y++) for (let x = 0; x < 4; x++) grid[y * N + x] = T.PARK;
+  assert.eq(Traps.trapGroundKind(grid,null,N,N,3,4),2,'raw park edge');
+  assert.eq(Traps.trapGroundKind(grid,null,N,N,2,4),0,'raw park interior');
+  assert.eq(Traps.trapGroundKind(grid,null,N,N,4,4),0,'outside the park');
 });
 
 test('traps: a footpath hard by a major road carries none — the kerb buffer and the road clearance win', () => {
@@ -243,7 +250,7 @@ test('traps: the trap-ground sample is uniform over the whole ground, and bounde
   }
   // Uniform, not "the first K cells in scan order": the reservoir must reach
   // the bottom of the tile, which a plain head-of-list take never would.
-  assert.gt(Math.max(...smp.park.cells.map((i) => (i / CPE) | 0)), CPE / 2,
+  assert.gt(Math.max(...smp.path.cells.map((i) => (i / CPE) | 0)), CPE / 2,
     'the sample reaches past halfway down the tile');
 });
 
@@ -800,4 +807,3 @@ test('traps: every tile rolls its own danger — a fact of the place, mean 1', (
   assert.gt(hi / lo, 4, 'and a real spread: the worst tile several times the calmest');
   assert.lte(Math.abs((Traps.DANGER_MIN + Traps.DANGER_MAX) / 2 - 1), 1e-9, 'the band is centred on 1');
 });
-

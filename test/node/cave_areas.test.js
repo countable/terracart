@@ -100,7 +100,7 @@
       f => { f.spawnWhy[(f.cy + 5) * N + f.cx + 5] = W.SPAWN_WHY.GOLF; },
       f => { f.grid[(f.cy + 5) * N + f.cx + 5] = T.CAVE_WALL; },
       f => { f.surface.zone.coverage[(f.cy + 5) * N + f.cx + 5] = 2; },
-      f => { f.surface.baseGrid[(f.cy + 5) * N + f.cx + 5] = T.FARMLAND; },
+      f => { f.surface.baseGrid[(f.cy + 5) * N + f.cx + 5] = T.GOLF; },
     ];
     for (const damage of cases) {
       const f = fixture(); damage(f); const p = CaveAreas.plan(f);
