@@ -1786,7 +1786,7 @@ const ITEM_EFFECTS = {
   diamond: 'A sliver of winter waits for a jeweller’s hand.',
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
   syrup: 'Sweet amber syrup clings to the lip of the jar.',
-  taming_potion: 'Its sweet scent draws curious noses through the grass.',
+  taming_potion: 'Every creature’s favourite. Its sweet scent draws curious noses through the grass.',
   book: 'An elder’s faded words wait beneath the worn cover.',
   tome_reach: 'Page by page, the horizon walks closer.',
   tome_raven: 'Somewhere in the ink, wings shift.',
@@ -1959,7 +1959,12 @@ function favouriteItems(kind) {
   const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(kind) : null;
   return row ? [gemForTier(row.tier)] : [];
 }
+// THE UNIVERSAL FAVOURITE: every creature that has a favourite also takes
+// the Potion of Taming — offered to a wild one it starts the catch, offered
+// to a pet it feeds it. favouriteItems keeps naming the kind's own favourite.
+const UNIVERSAL_FAVOURITE = 'taming_potion';
 function animalLikesFood(kind, foodId) {
+  if (foodId === UNIVERSAL_FAVOURITE && (kind === 'chicken' || favouriteItems(kind).length)) return true;
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
   // felt arbitrary. Other species keep their explicit list.
   if (kind === 'chicken' && typeof foodId === 'string' && foodId.endsWith('_seed')) {
