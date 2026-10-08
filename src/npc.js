@@ -408,7 +408,9 @@ const NPC = (() => {
   }
   // A completed conversation makes a Home-anchored neighbour eligible for a
   // roof. Pending records survive until a free restored house is loaded; an
-  // assigned record owns that house even while its tile is unloaded.
+  // assigned record owns that house even while its tile is unloaded. The move
+  // itself waits until both the speaker and the new seat are off screen (the
+  // arrivals rule), so nobody vanishes from in front of the player mid-talk.
   function meetHomeNeighbour(scene, c) {
     if ((scene.depth || 0) !== 0 || c?.kind !== 'npc' || c._homeAnchor !== '' || isDormant(c)) return false;
     const homes = scene.save.npcHomes ||= {};
@@ -417,11 +419,11 @@ const NPC = (() => {
         x: c.homeX ?? c.x, y: c.homeY ?? c.y };
       Save.persist(scene.save);
     }
-    houseNeighbours(scene, { offscreen: offscreenAt(scene), immediateId: c.id });
+    houseNeighbours(scene, { offscreen: offscreenAt(scene) });
     return true;
   }
 
-  function houseNeighbours(scene, { offscreen, immediateId } = {}) {
+  function houseNeighbours(scene, { offscreen } = {}) {
     const homes = scene.save?.npcHomes;
     if ((scene.depth || 0) !== 0 || !homes || !Object.keys(homes).length) return 0;
     const tiles = [], houses = new Map(), live = new Map();
@@ -454,8 +456,7 @@ const NPC = (() => {
     };
     for (const [id, record] of Object.entries(homes)) {
       const current = live.get(id);
-      const unseen = id !== immediateId && offscreen;
-      if (current && (isDormant(current.c) || (unseen && !unseen(current.c.x, current.c.y)))) continue;
+      if (current && (isDormant(current.c) || (offscreen && !offscreen(current.c.x, current.c.y)))) continue;
       // An already settled live neighbour keeps its wandering position.
       if (record.houseId && current?.c._homeAnchor === record.houseId) continue;
       const candidates = record.houseId ? [houses.get(record.houseId)].filter(Boolean)
@@ -464,7 +465,7 @@ const NPC = (() => {
           || a.key.localeCompare(b.key));
       for (const house of candidates) {
         const seat = seatAt(id, record, house);
-        if (!seat || (unseen && !unseen(seat.x, seat.y))) continue;
+        if (!seat || (offscreen && !offscreen(seat.x, seat.y))) continue;
         if (record.houseId !== house.key || record.x !== seat.x || record.y !== seat.y) dirty = true;
         Object.assign(record, { houseId: house.key, x: seat.x, y: seat.y });
         claimed.add(house.key);
