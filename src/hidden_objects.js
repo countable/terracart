@@ -13,12 +13,10 @@
     return !!mode(object) && !save?.hiddenDiscoveries?.[object.id];
   }
   // An X mark's records carry no kind; this is the one question the drawer
-  // and the dig ask. It stays hidden until tick() finds the feet beside it —
-  // or until the rock that covered it is mined away, which lays it bare.
+  // and the dig ask. Like every hidden thing it waits for tick(): the feet on
+  // a neighbouring cell, or the vision disc with Perception.
   function treasureHidden(save, treasure) {
-    if (!treasure) return false;
-    if (treasure.coverRockId && setOf(save?.brokenRocks).has(treasure.coverRockId)) return false;
-    return isHidden(save, { id: treasure.id, kind: 'treasure' });
+    return !!treasure && isHidden(save, { id: treasure.id, kind: 'treasure' });
   }
   function cellDelta(scene, object) {
     const player = worldMetersToAbsCell(scene,
