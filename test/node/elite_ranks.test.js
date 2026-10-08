@@ -35,6 +35,30 @@
       'an explicit rank wins');
   });
 
+  test('elite ranks: possessed and ascendant are each 5% of elites', () => {
+    assert.eq(R.possessed.share, 0.05);
+    assert.eq(R.ascendant.share, 0.05);
+  });
+
+  test('elite placement: never within the clear radius of a generated staircase', () => {
+    const cellM = 7, R_M = EnemySpawns.ELITE_STAIR_CLEAR_CELLS * cellM;
+    let id = null;
+    for (let i = 0; i < 2000 && !id; i++) if (isShiny(`st_${i}`, SHINY_RATE.monster)) id = `st_${i}`;
+    const stair = { kind: 'staircase', dir: 'up', x: 0, y: 0 };
+    const entry = (objects) => ({ objects });
+    assert.truthy(EnemySpawns.rollsElite(entry([]), 'goblin', id, 0, 0, cellM), 'a shiny roll with no stair is an elite');
+    assert.falsy(EnemySpawns.rollsElite(entry([stair]), 'goblin', id, R_M - 1, 0, cellM), 'inside the radius: plain');
+    assert.truthy(EnemySpawns.rollsElite(entry([stair]), 'goblin', id, R_M + 1, 0, cellM), 'outside it: elite');
+    assert.truthy(EnemySpawns.rollsElite(entry([{ ...stair, _synthetic: true }]), 'goblin', id, 0, 0, cellM),
+      'a player\'s own stair never changes the shared world');
+    assert.truthy(EnemySpawns.rollsElite({ genObjects: [], objects: [stair] }, 'goblin', id, 0, 0, cellM),
+      'a cave reads its generated layer');
+    assert.falsy(EnemySpawns.rollsElite(entry([]), 'crab', id, 0, 0, cellM), 'an ineligible kind never is');
+    for (const [file, src] of [['scene_creatures.js', DURATION_SOURCES['scene_creatures.js']], ['lairs.js', ENERGY_WRITE_SOURCES['lairs.js']]]) {
+      assert.falsy(/isShiny\([^)]*SHINY_RATE\.monster\)/.test(src), `${file} asks EnemySpawns.rollsElite, not the raw roll`);
+    }
+  });
+
   test('elite ranks: an ascendant summons plain copies of its basic form, one every 5 s', () => {
     const row = EnemyRoster.get('goblin');
     const plain = { kind: 'goblin', id: 'p', shiny: true, eliteRank: 'possessed' };

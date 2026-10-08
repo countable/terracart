@@ -352,8 +352,8 @@
   // same one. An unstamped shiny is a plain elite.
   const ELITE_RANKS = {
     elite:     { label: 'Elite', power: 2, pace: 1.5, ring: 0xffffff },
-    possessed: { label: 'Possessed elite', power: 3, pace: 1.5 * 1.4, ring: 0xff3b2e, warp: true, share: 0.25 },
-    ascendant: { label: 'Ascendant elite', power: 4, pace: 1.5, ring: 0x4aa8ff, warp: true, share: 0.1,
+    possessed: { label: 'Possessed elite', power: 3, pace: 1.5 * 1.4, ring: 0xff3b2e, warp: true, share: 0.05 },
+    ascendant: { label: 'Ascendant elite', power: 4, pace: 1.5, ring: 0x4aa8ff, warp: true, share: 0.05,
       ability: { type: 'summon', maxMinions: 6, intervalSeconds: 5, windupSeconds: 0.6 } },
   };
   const ELITE_MUL = ELITE_RANKS.elite.power;

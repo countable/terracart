@@ -100,8 +100,8 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const app = SCENE_SRC;
   assert.inRange(SHINY_RATE.monster, 0.001, 0.5, 'monsters have a shiny rate');
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
-  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemyRoster\.get\(kind\)\.eliteEligible && isShiny\(id, SHINY_RATE\.monster\), habitat: habitat\.theme \}\)\)/.test(spawn),
-    'spawnCaveCreatures stamps shiny off the stable id at the monster rate');
+  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemySpawns\.rollsElite\(entry, kind, id, wmx, wmy, cellSizeM\), habitat: habitat\.theme \}\)\)/.test(spawn),
+    'spawnCaveCreatures stamps shiny off the stable id at the monster rate (EnemySpawns.rollsElite)');
   // The melee formula is typed ONCE (Combat.meleeBlow: the row's dmg × powerMul
   // — elite × lair — plus the Giant bonus, times the Shrinking multiplier).
   assert.truthy(/\? Combat\.meleeBlow\(c, row\.dmg\)\s*: row\.dmg \* Combat\.powerMul\(c\);/.test(CREATURE_AI_SRC),

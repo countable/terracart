@@ -44,7 +44,8 @@ mechanics.
   HP and damage, 1.5× pace, white circle), possessed (3×, 1.4× an elite's
   pace, red) and ascendant (4×, blue, summons a plain copy of its basic form
   every 5 s into fixed slots through the shared `enemySummon`, replacing the
-  row's own support ability). The rank is rolled off the creature's id when
+  row's own support ability); possessed and ascendant are each 5% of
+  elites. The rank is rolled off the creature's id when
   `WorldGen.makeCreature` makes a shiny foe, so every player meets the same
   one; bounty follows `powerMul`. Possessed and ascendant bend the space
   around them (rendering.md). A new rank is a row, never a branch

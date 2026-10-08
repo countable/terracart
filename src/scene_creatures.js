@@ -575,7 +575,7 @@ class SceneCreatures {
       if (!kind) continue;
       const row = EnemyRoster.get(kind);
       const replacement = WorldGen.makeCreature(kind, creature.x, creature.y, id, {
-        shiny: row.eliteEligible && isShiny(id, SHINY_RATE.monster),
+        shiny: EnemySpawns.rollsElite(entry, kind, id, creature.x, creature.y, cellM),
         _surfaceSpawn: { x: creature.x, y: creature.y, tx, ty, cx, cy },
       });
       EnemySpawns.surfaceActive(this, replacement);
@@ -1404,12 +1404,12 @@ class SceneCreatures {
         if (heldByPlayer.has(cy * N + cx)) break;   // on the player's own stair
         const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
         // ~5% spawn as ELITES — the shiny variant, stamped off the stable id
-        // like a shiny animal so it survives reloads. The same `shiny` flag
-        // the renderer already tints and sparkles; combat.js reads it as
-        // double HP and damage (Combat.isElite), and resolveDefeat pays the
+        // like a shiny animal so it survives reloads, and never by the stairs
+        // (EnemySpawns.rollsElite). combat.js reads the flag as the rank's HP
+        // and damage (Combat.isElite), and resolveDefeat pays the
         // memory-or-treasure it promises.
         creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
-          { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster), habitat: habitat.theme }));
+          { shiny: EnemySpawns.rollsElite(entry, kind, id, wmx, wmy, cellSizeM), habitat: habitat.theme }));
         monsterSeats.add(id);
         break;
       }
@@ -1461,7 +1461,7 @@ class SceneCreatures {
           if (heldByPlayer.has(cy * N + cx)) break;
           const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
           creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
-            { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster), habitat: habitat.theme }));
+            { shiny: EnemySpawns.rollsElite(entry, kind, id, wmx, wmy, cellSizeM), habitat: habitat.theme }));
           monsterSeats.add(id);
           break;
         }

@@ -1133,9 +1133,11 @@
       // undefined in the browser.
       // A GROUP's `elite` member is stamped shiny outright (the kind must be
       // eliteEligible — guard_groups.test.js pins the table); every other
-      // guard rolls the world's rate.
+      // guard rolls the world's rate, away from the stairs
+      // (EnemySpawns.rollsElite).
       const eligible = !!(C && C.monster(kind)?.eliteEligible);
-      const shiny = eligible && (spec.elite === true || root.isShiny(id, SHINY_RATE.monster));
+      const shiny = eligible && (spec.elite === true
+        || root.EnemySpawns.rollsElite(entry, kind, id, seat.x, seat.y, cellM));
       const g = WG.makeCreature(kind, seat.x, seat.y, id, {
         shiny,
         ...(root.EnemyHabitats?.emergesFromGround(kind,

@@ -280,8 +280,22 @@
     }
     return { pack, cells };
   }
+  // AN ELITE, OR NOT: an eligible kind at the world's elite rate (off the
+  // stable id), never within ELITE_STAIR_CLEAR_CELLS of one of the tile's
+  // GENERATED staircases, so whoever comes up or down a stair meets the
+  // level's plain foes first. Generated stairs only (a player's own home
+  // stair is theirs alone), so every player meets the same elites, and no
+  // extra draw: a seat by the stairs keeps its foe, plain. The one predicate
+  // every spawner that rolls elites asks (a GROUP's authored elite aside).
+  const ELITE_STAIR_CLEAR_CELLS = 8;
+  function rollsElite(entry, kind, id, x, y, cellM) {
+    if (!root.EnemyRoster.get(kind)?.eliteEligible || !isShiny(id, SHINY_RATE.monster)) return false;
+    const clearM = ELITE_STAIR_CLEAR_CELLS * cellM;
+    return !(entry.genObjects || entry.objects || []).some(o => o.kind === 'staircase' && !o._synthetic
+      && Math.hypot(o.x - x, o.y - y) <= clearM);
+  }
   const caveContextAt = (entry, tx, ty, cx, cy, depth) => root.EnemyHabitats.caveAt(entry, tx, ty, cx, cy, depth);
-  const api = { CONCEALMENT, concealment, HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
+  const api = { CONCEALMENT, concealment, HOME_FAUNA_RADIUS_M, homeFaunaSubject, homeFaunaAllows, refreshHomeFauna, caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, homeEligible, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats, ELITE_STAIR_CLEAR_CELLS, rollsElite };
   root.EnemySpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
