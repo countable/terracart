@@ -124,4 +124,14 @@
     assert.eq(Quests.claim(restored, 'a'), null);
     assert.eq(Quests.assign(restored, 'next', 'archive').need, 1);
   });
+  test('castle quests: each type has a title and one sentence of flavour naming its target', () => {
+    const save = {};
+    for (const variant of ['bastion', 'archive', 'ruin']) {
+      const q = Quests.assign(save, variant, variant), text = Quests.flavour(q);
+      assert.truthy(q.title, `${variant} has a title`);
+      assert.eq((text.match(/[.!?](\s|$)/g) || []).length, 1, `${variant} flavour is one sentence: ${text}`);
+      assert.falsy(/undefined/.test(text));
+      if (q.target) assert.truthy(text.includes(q.verb === 'hunt' ? q.target : Combat.enemyName(q.target)), 'names its target');
+    }
+  });
 })();

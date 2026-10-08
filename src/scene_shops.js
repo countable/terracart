@@ -1576,9 +1576,12 @@ class SceneShops {
     const done = q.have >= q.need;
     this.showOfferModal({
       kind: 'quest',
-      title: done ? 'Quest complete!' : q.title,
-      get: done ? `Reward: ${this.moneyHTML(q.reward)}` : `${q.have} / ${q.need}`,
-      blurb: q.body,
+      // The castle as caption, the quest's name as the bold headline, then
+      // its one-sentence flavour over the objective and progress.
+      title: done ? 'Quest complete!' : style.name,
+      get: q.title,
+      blurb: `<em>${Quests.flavour(q)}</em><div style="margin-top:6px;opacity:1">${q.body} `
+        + (done ? `Reward: ${this.moneyHTML(q.reward)}` : `<b>${q.have} / ${q.need}</b>`) + '</div>',
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',

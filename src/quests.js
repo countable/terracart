@@ -6,6 +6,13 @@ function questEnemies() {
     .sort((a, b) => (Combat.monster(a)?.tier ?? 1) - (Combat.monster(b)?.tier ?? 1));
 }
 
+// "3 Slimes" / "2 deer": the counted target, shared by objective and flavour.
+function questPlural(q) {
+  if (q.verb === 'hunt') return q.target === 'deer' ? 'deer' : q.target + 's';
+  const name = Combat.enemyName(q.target);
+  return name.endsWith('s') ? name + 'es' : name + 's';
+}
+
 function questAnimals() {
   return Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter(kind => SpriteLayout.isGame(kind));
 }
@@ -27,14 +34,13 @@ const Quests = {
       const enemies = questEnemies();
       q.target = enemies[Math.min(order, enemies.length - 1)];
       q.title = 'Pest control';
-      const name = Combat.enemyName(q.target);
-      q.body = `Defeat 3 ${name.endsWith('s') ? name + 'es' : name + 's'}.`;
+      q.body = `Defeat 3 ${questPlural(q)}.`;
       q.reward = 66;
     } else if (verb === 'hunt') {
       const animals = questAnimals();
       q.target = animals[order % animals.length];
       q.title = 'The hunt';
-      q.body = `Hunt 2 ${q.target === 'deer' ? 'deer' : q.target + 's'}.`;
+      q.body = `Hunt 2 ${questPlural(q)}.`;
       q.reward = 40;
     } else {
       q.title = 'Neighbourly';
@@ -44,6 +50,15 @@ const Quests = {
     state.assigned[verb] = order + 1;
     state.byCastle[key] = q;
     return q;
+  },
+
+  // One sentence of colour under the quest's bold title, by verb. Derived
+  // when shown, not saved, so quests assigned before it read the same.
+  flavour(q) {
+    if (!q) return '';
+    if (q.verb === 'kill') return `${questPlural(q)} keep testing the bastion's walls, and the thin garrison would sleep easier with fewer of them about.`;
+    if (q.verb === 'hunt') return `The ruin's cooks have promised the lane a proper supper, and the ${questPlural(q)} for it will not catch themselves.`;
+    return "The archive keeps the town's letters moving, and this week it is a courier short.";
   },
 
   completedCount(save) {
