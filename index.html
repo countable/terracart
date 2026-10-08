@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=79bc5319" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=83f4a9e3" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2868,7 +2868,7 @@
   <script src="src/shops_math.js?v=70451937"></script>
   <script src="src/shops.js?v=71499e32"></script>
   <script src="src/egg_hatch.js?v=31bee6f8"></script>
-  <script src="src/chest_themes.js?v=76f43d9b"></script>
+  <script src="src/chest_themes.js?v=3d71c937"></script>
   <script src="src/rarity.js?v=03e2e57c"></script>
   <script src="src/loot.js?v=771677dc"></script>
   <script src="src/macros.js?v=8beb2743"></script>
@@ -2879,7 +2879,7 @@
   <script src="src/temple_scene.js?v=25204804"></script>
   <script src="src/temples.js?v=c2f2aae2"></script>
   <script src="src/interactables.js?v=8cf8777d"></script>
-  <script src="src/houses.js?v=f35a77a2"></script>
+  <script src="src/houses.js?v=ba0eda6f"></script>
   <script src="src/obstacle_step.js?v=783f40dc"></script>
   <script src="src/spawn_ownership.js?v=d56c6afa"></script>
   <script src="src/starter.js?v=5b419afd"></script>
@@ -2912,9 +2912,9 @@
   <script src="src/testtools.js?v=39e80bd1"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=1b4241c5"></script>
-  <script src="src/modal_shell.js?v=7819b4ae"></script>
+  <script src="src/modal_shell.js?v=0f73c5b6"></script>
   <script src="src/scene_geo.js?v=0caad962"></script>
-  <script src="src/npc.js?v=f7ed0e0d"></script>
+  <script src="src/npc.js?v=9008cf6b"></script>
   <script src="src/scene_creatures.js?v=0da06b09"></script>
   <script src="src/scene_fire.js?v=0dfbecec"></script>
   <script src="src/scene_shops.js?v=f3d57f61"></script>
@@ -2985,7 +2985,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=79bc5319';
+      const APP_SRC = 'src/app.js?v=83f4a9e3';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
