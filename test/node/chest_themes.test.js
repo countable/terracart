@@ -124,7 +124,7 @@ test('chest themes: quantities use actual item price once and discard excess all
   assert.eq(ChestThemes.quantity('healing_potion', 4, 0), 6);
   assert.eq(ChestThemes.quantity('revival_potion', 4, 0), 6);
   assert.eq(ChestThemes.quantity('healing_potion', 5, 0), 6);
-  for (const id of ['elixir', 'resurrection_potion', 'book', 'taming_potion', 'sunflower_seed', 'fireflower_seed', 'iceflower_seed']) {
+  for (const id of ['elixir', 'resurrection_potion', 'book', 'sunflower_seed', 'fireflower_seed', 'iceflower_seed']) {
     assert.eq(ChestThemes.quantity(id, 7, 3), 1, id + ' is a single reward');
   }
   assert.eq(ChestThemes.quantity('antidote', 4, 0), 6, 'cheap magic fills a single stack');

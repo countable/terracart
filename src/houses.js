@@ -235,7 +235,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // shiny creature does) and fly as light (Combat.SHINY_ARROW_COLOR, the
   // bolt lane in lighting.js collectBolts). A plain HOUSE takes no hammer at
   // all (hammerTakes): it sells nothing and shoots nothing, so there would
-  // be nothing for the shine to do — the dialog's With Hammer button sits
+  // be nothing for the shine to do — the dialog's Hammer button sits
   // disabled on that card, and restoreAs will not stamp it.
   const HAMMER_ID = 'magic_hammer';
   const HAMMER_PRICE_MUL = 0.8;

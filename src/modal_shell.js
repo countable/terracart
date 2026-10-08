@@ -697,7 +697,7 @@ class SceneModals {
     if (getLabel) box.appendChild(mkCaption(getLabel));
     const getDiv = document.createElement('div');
     getDiv.style.cssText = 'font-size:16px;font-weight:700;margin:2px 0;color:#ffe066';
-    getDiv.innerHTML = get;
+    getDiv.innerHTML = get ?? '';
     if (pager && pager.count > 1) {
       const pageRow = document.createElement('div');
       pageRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;';
@@ -719,7 +719,8 @@ class SceneModals {
         pageNo.textContent = `${pager.index + 1} / ${pager.count}`;
         box.appendChild(pageNo);
       }
-    } else {
+    } else if (get != null && get !== '') {
+      // No headline (the wreck's pick): the cards start at the top.
       box.appendChild(getDiv);
     }
     if (blurb) {

@@ -8626,7 +8626,7 @@ class MapScene extends Phaser.Scene {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
-      return this.worldIconHTML(texKey, 36, frame);
+      return this.worldIconHTML(texKey, 30, frame);
     };
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
     // ONE STEP: every offered card is a row of the same list - the House, a
@@ -8638,10 +8638,13 @@ class MapScene extends Phaser.Scene {
       const c = costFor(row);
       return {
         key: row.key,
-        label: labelFor(row, null) + (row.tier ? ' ' + tierBadgeHTML(row.tier, 11) : '')
-          + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
-          + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
-        info: row.blurb,
+        // Name, then the rank and NEW on one line, then the price: compact,
+        // so six cards and the Restore row fit the dialog without a scroll.
+        label: labelFor(row, null)
+          + ((row.tier || Houses.isNewPick(this.save, row))
+            ? `<div style="line-height:1.15;margin-top:2px">${row.tier ? tierBadgeHTML(row.tier, 9, 4) : ''}`
+              + `${Houses.isNewPick(this.save, row) ? newBadgeHTML(8) : ''}</div>` : '')
+          + `<div style="margin-top:3px;font-size:11px">${costLine(c)}</div>`,
         iconHTML: iconFor(row),
         cost: costLine(c),
         canAfford: affords(c),
@@ -8720,16 +8723,19 @@ class MapScene extends Phaser.Scene {
         }
       });
     };
+    // No title, no pitch and no per-card blurb: the Build painting says what
+    // this is, and the dialog's height goes to the cards — six of them and
+    // the Restore row above the fold on a phone. The Restored! card tells
+    // what the pick does.
     this.showOfferModal({
       kind: 'build',
-      title: 'Restore this wreck',
-      get: 'Choose what it becomes…',
       choices,
+      pickHint: 'Pick one',
       canAfford: true,
       acceptLabel: 'Restore',
       cancelLabel: 'Later',
       secondary: hasHammer
-        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
+        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
             takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
             onClick: (key) => restore(key, true) }
         : undefined,

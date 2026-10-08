@@ -21,7 +21,7 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   assert.falsy(/fullscreen: true/.test(src), 'no longer fullscreen');
   assert.truthy(/const costFor = \(row\) => Houses\.buildCost\(this\.save, house, row, order\);/.test(src), 'each card is priced by Houses.buildCost');
   assert.truthy(/cost: costLine\(c\),\n\s+canAfford: affords\(c\),/.test(src), 'a card carries its own cost line');
-  assert.truthy(/iconHTML: iconFor\(row\),/.test(src) && /this\.worldIconHTML\(texKey, 36, frame\)/.test(src), 'a card shows the building it raises');
+  assert.truthy(/iconHTML: iconFor\(row\),/.test(src) && /this\.worldIconHTML\(texKey, 30, frame\)/.test(src), 'a card shows the building it raises');
   assert.truthy(/const picked = options\.find\(\(r\) => r\.key === key\);\n\s+const cost = picked \? costFor\(picked\) : null;/.test(src), 'the charge is the picked card\'s');
   // The picture is baked from the texture's own frame on demand.
   assert.truthy(/_worldIconUrl\(texKey, frame = 0\) \{[\s\S]{0,900}?drawImage\(src, fr\.cutX, fr\.cutY, fr\.width, fr\.height/.test(SCENE_SRC), 'a world icon is cut from the frame\'s rect');
@@ -62,7 +62,9 @@ test('build choice: every offered card restores in one step, each with its own p
   const cost = Houses.buildCost(scene.save, house, smith);
   assert.truthy(smithCard.label.includes(`${cost.qty}\u00d7`), 'its own price rides the card');
   assert.truthy(smithCard.label.includes('quality-1'), 'a ranked card wears its tier badge');
-  assert.truthy(smithCard.info.includes('forge'), 'the pick line carries the row blurb');
+  assert.eq(smithCard.info, undefined, 'no blurb on the card: six cards and the Restore row fit without a scroll');
+  assert.eq(modal.title, undefined, 'no title');
+  assert.eq(modal.get, undefined, 'and no pitch line');
   assert.truthy(smithCard.suggested, 'the T1 smithy card is suggested while the lane has none');
   assert.truthy(modal.secondary.takes('blacksmith:1'), 'a smithy card takes the hammer');
   assert.falsy(modal.secondary.takes('plain'), 'the House card refuses it');
