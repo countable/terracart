@@ -673,7 +673,9 @@ const NPC = (() => {
     // (MemoryStory.showPages — the wizard's lane), the same portrait throughout.
     const say = () => {
       if (talk.target && !isDormant(c)) {
-        scene.save.wayfarerCompass = { ...talk.target, until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
+        // The rim label names who gave the directions (Wayfinder, Fieldwalker…).
+        scene.save.wayfarerCompass = { ...talk.target, source: c.roleLabel || LABELS[c.culture || 'village'][c.role],
+          until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
         persistSave(scene.save);
       }
       MemoryStory.showPages(scene, talk.pages, { title: talk.title, art: portrait(scene, c), kind: 'note',

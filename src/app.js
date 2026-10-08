@@ -1000,7 +1000,8 @@ const MARKERS = [
   // The Pairy marks its chest in cyan until opened or its food effect expires.
   { key: 'pairyCompass', store: 'scene', color: 0x45e5ff, source: 'Pairy', label: 'Chest', shape: 'dot', clearWhen: _markClaimed },
   { key: 'telescopeCompass', store: 'save', color: 0xffd24a, source: 'Telescope', label: 'Find', shape: 'dot', tracked: true },
-  { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, source: 'Wayfarer', label: 'Find', shape: 'dot', tracked: true },
+  // A neighbour's directions (npc.js interact); the mark names its speaker.
+  { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, source: 'Directions', label: 'Find', shape: 'dot', tracked: true },
   // A map keeps its original level and expires by wall clock, including reloads.
   { key: 'treasureCompass', store: 'save', color: 0xff5555, source: 'Map', label: 'Treasure', shape: 'dot', clearWhen: _markClaimed },
   // The delivery waypoint — a solid WHITE arrow at the house the player picked
@@ -2771,7 +2772,7 @@ class MapScene extends Phaser.Scene {
     const raw = target.name || target.roleLabel || marker.label || target.kind || row.label;
     const name = String(raw).replace(/_/g, ' ');
     const destination = name.charAt(0).toUpperCase() + name.slice(1);
-    text.setText(row.source + '\n' + (destination.length > 16 ? destination.slice(0, 15) + '…' : destination));
+    text.setText((marker.source || row.source) + '\n' + (destination.length > 16 ? destination.slice(0, 15) + '…' : destination));
     const { left, right, top, bottom } = point;
     let x = point.x <= (left + right) / 2 ? point.x + 8 : point.x - text.width - 8;
     let y = point.y - text.height / 2;

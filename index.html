@@ -13,7 +13,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=fcc36e26" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=79bc5319" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2823,7 +2823,7 @@
   <script src="src/zone_variant_data.js?v=ca6cc74e"></script>
   <script src="src/zone_variants.js?v=3122a83d"></script>
   <script src="src/shrines.js?v=f44dfa11"></script>
-  <script src="src/buffs.js?v=3a18c06d"></script>
+  <script src="src/buffs.js?v=a6f30c6a"></script>
   <script src="src/zone_coverage.js?v=aa26e7ef"></script>
   <script src="src/quarry_layout.js?v=29b76e5d"></script>
   <script src="src/zone_dressing.js?v=90611269"></script>
@@ -2914,7 +2914,7 @@
   <script src="src/art_thumbs.js?v=1b4241c5"></script>
   <script src="src/modal_shell.js?v=7819b4ae"></script>
   <script src="src/scene_geo.js?v=0caad962"></script>
-  <script src="src/npc.js?v=78ac31ba"></script>
+  <script src="src/npc.js?v=bb8d55c0"></script>
   <script src="src/scene_creatures.js?v=0da06b09"></script>
   <script src="src/scene_fire.js?v=0dfbecec"></script>
   <script src="src/scene_shops.js?v=70c6bffa"></script>
@@ -2985,7 +2985,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=fcc36e26';
+      const APP_SRC = 'src/app.js?v=79bc5319';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
