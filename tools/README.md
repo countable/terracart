@@ -71,8 +71,12 @@ The seed field and New seed button rebuild the region with different review
 rolls; Reset restores seed 0, the original generation. The URL retains the
 seed for sharing and reloading, and floor/variant changes keep it. This viewer
 explicitly builds building garrisons, which gameplay normally wakes near the
-player. It shows generated creature seats before the game's per-player Home protection
-and daylight filters, so nearby enemies are not a preview of Home safety.
+player. The preview-only Home safety slider defaults to 50 m, draws a ring
+around the labelled Home, and hides enemies seated inside it on the surface.
+Set it to 0 to inspect every generated seat; caves are unaffected. It redraws
+without rerolling and keeps its radius in the `safetyM` URL parameter. This
+simple preview filter does not simulate the game's tier bands, Easy-mode
+quiet Home, or daylight rules.
 The visible region is 60×35 square cells, backed by the generator’s square tile;
 all authored sites lie inside that window. Labels are shown above the canvas
 and can be toggled. Cave floors without visible authored areas label the
