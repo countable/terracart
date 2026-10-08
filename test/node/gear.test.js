@@ -114,12 +114,12 @@ test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', (
   assert.eq(JSON.stringify(iron), JSON.stringify([{ id: 'iron_bar', qty: 5 }]), 'T3 pick = 5 iron');
   assert.eq(Gear.blacksmithRecipe('relic', 'ring', 3), null, 'unique rings are not forged');
   assert.eq(Gear.blacksmithRecipe('relic', 'amulet', 3), null, 'unique amulets are not forged');
-  // The staff is set with the gem of its own tier, on the 2^(tier-2) ramp.
+  // The staff is set with the gem of its own tier, one per tier.
   const gems = { 2: 'topaz', 3: 'amethyst', 4: 'sapphire', 5: 'ruby', 6: 'emerald', 7: 'diamond' };
   for (const [t, gem] of Object.entries(gems)) {
     const r = Gear.blacksmithRecipe('relic', 'staff', Number(t));
     assert.eq(r[0].id, gem, `T${t} staff wants ${gem}`);
-    assert.eq(r[0].qty, Math.pow(2, t - 2), `T${t} ramp`);
+    assert.eq(r[0].qty, Number(t), `T${t} takes ${t} gems`);
     assert.eq(r[1].id, barForTier(Number(t)), 'plus the tier bar');
   }
   assert.eq(Gear.blacksmithRecipe('relic', 'staff', 1), null, 'no wooden staff');
