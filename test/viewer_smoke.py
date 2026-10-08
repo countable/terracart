@@ -20,6 +20,27 @@ VIEWERS = {
 }
 
 
+async def check_floor_seed(page):
+    async def population():
+        await page.wait_for_function("!document.querySelector('#newSeed').disabled && document.querySelector('#status').textContent.startsWith('Ready')", timeout=60_000)
+        return await page.evaluate("JSON.stringify(WorldGen.tileCacheFor(0).get(WorldGen.tileKey(0, 0)).creatures.map(c => [c.kind, c.x, c.y]))")
+
+    original = await population()
+    await page.locator('#newSeed').click()
+    changed = await population()
+    seed = await page.locator('#seed').input_value()
+    assert seed != '0' and changed != original, 'New seed must change the population'
+    await page.reload(wait_until='domcontentloaded')
+    assert await population() == changed, 'A shared seed must reproduce its population'
+    assert await page.locator('#seed').input_value() == seed
+    await page.locator('#seed').fill('1')
+    await page.locator('#seed').press('Tab')
+    await population()
+    assert await page.evaluate("WorldGen.tileCacheFor(0).get(WorldGen.tileKey(0, 0)).creatures.some(c => c.kind === 'goblin_runt' && c.lair)"), 'Seed 1 must include the building garrison pass'
+    await page.locator('#resetSeed').click()
+    assert await population() == original, 'Reset must restore the original population'
+
+
 async def check_viewers(browser, base_url):
     failures = 0
     for path, ready in VIEWERS.items():
@@ -49,6 +70,8 @@ async def check_viewers(browser, base_url):
             else:
                 status = await page.locator('#status, #count, #wStatus').all_text_contents()
                 raise AssertionError(f"Viewer did not become ready: {status}")
+            if path == 'floor-viewer.html':
+                await check_floor_seed(page)
             # Rendering schedules image loads and canvas work after boot.
             await page.wait_for_timeout(300)
             if errors:

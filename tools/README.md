@@ -67,6 +67,12 @@ the normal seeded picks. Surface choices apply to the matching nexus kind;
 cave choices come from that floor’s profile. Floors without authored nexus
 variants disable the buttons. Proposed mode uses the displayed source floor’s
 catalog. Placement still obeys the live spawn gates and available space.
+The seed field and New seed button rebuild the region with different review
+rolls; Reset restores seed 0, the original generation. The URL retains the
+seed for sharing and reloading, and floor/variant changes keep it. This viewer
+explicitly builds building garrisons, which gameplay normally wakes near the
+player. It shows generated creature seats before the game's per-player Home protection
+and daylight filters, so nearby enemies are not a preview of Home safety.
 The visible region is 60×35 square cells, backed by the generator’s square tile;
 all authored sites lie inside that window. Labels are shown above the canvas
 and can be toggled. Cave floors without visible authored areas label the

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8"><meta name="artifact-review" content="disabled">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dragon Hood - 60×35 floor viewer</title>
 <style>
@@ -37,6 +37,10 @@
 <body>
 <div id="bar">
   <h1>FLOOR VIEWER · 60×35</h1>
+  <div><label for="seed">Seed</label><div class="seg">
+    <input id="seed" type="number" min="0" max="4294967295" step="1" value="0" style="width:110px">
+    <button id="newSeed">New seed</button><button id="resetSeed">Reset</button>
+  </div></div>
   <div><label>Floor</label><div class="seg" id="floorSeg"></div></div>
   <div><label>View</label><div class="seg" id="modeSeg">
     <button data-mode="current" class="on">Current code</button>
@@ -63,6 +67,9 @@
     5: 'Floor 5 - plain mirror + lava (target: the haunted dead city)', 6: 'Floor 6 - plain mirror (target: the lava stratum)',
     7: 'Floor 7 - plain mirror (target: dragon hunting grounds)', 8: 'Floor 8 - plain mirror (target: the roosts)' };
   let floor = 0, mode = 'current', variantIndex = 0, showCreatures = true, showLabels = true;
+  const seedInput = document.getElementById('seed');
+  let seed = Number(new URLSearchParams(location.search).get('seed')) >>> 0;
+  seedInput.value = seed;
   const entries = {};   // depth -> built tile entry (real pipeline)
   const sprites = {};   // depth -> [{o, appearance, fruit}]
   let assets = null, building = true;
@@ -79,7 +86,7 @@
     updateControls();
     const W = WorldGen, R = FloorViewerRegion, depth = displayDepth();
     try {
-      await R.withNexusSizes(() => FloorViewerVariants.withSelection(depth, variantIndex, async () => {
+      await R.withSeed(seed, () => R.withNexusSizes(() => FloorViewerVariants.withSelection(depth, variantIndex, async () => {
         for (let d = 0; d <= 8; d++) W.tileCacheFor(d).clear();
         W.setDepth(0);
         const built = {};
@@ -109,6 +116,14 @@
         entry.viewerHome = entry.objects.find(o => o.id === scene.save.starterShopId);
         status('Dressing the surface&hellip;');
         await W.runStepsSliced(() => scene.spawnInTileSteps(entry, 0, 0));
+        // Runtime wakes building guards near the player in its update loop;
+        // this static viewer must explicitly generate those same garrisons.
+        const lairs = Lairs.buildIndex(entry, 0, 0, R.EDGE / R.N, R.EDGE);
+        for (const bucket of lairs.buckets.values()) for (const candidate of bucket) {
+          entry.creatures.push(...Lairs.garrisonFor(entry, candidate, {
+            tileEdgeM: R.EDGE,
+          }));
+        }
         for (let d = 1; d <= depth; d++) {
           status(`Building floor ${d}&hellip;`);
           W.setDepth(d);
@@ -123,8 +138,8 @@
         for (const key of Object.keys(entries)) { delete entries[key]; delete sprites[key]; }
         Object.assign(entries, built);
         for (const [d, e] of Object.entries(entries)) sprites[d] = prepareSprites(e, +d);
-      }));
-      status('Ready - pick a floor or nexus variant.');
+      })));
+      status(`Ready - seed ${seed}. Pick a floor or nexus variant.`);
     } catch (e) {
       console.error(e);
       document.getElementById('status').textContent = 'Error: ' + e.message;
@@ -429,6 +444,24 @@
   }
 
   // ── Controls ──────────────────────────────────────────────────────────────
+  function changeSeed(value) {
+    if (building) return;
+    seed = Number(value) >>> 0;
+    seedInput.value = seed;
+    const url = new URL(location.href);
+    url.searchParams.set('seed', seed);
+    history.replaceState(null, '', url);
+    rebuild();
+  }
+  seedInput.onchange = () => {
+    if (seedInput.value !== '' && seedInput.checkValidity()) changeSeed(seedInput.value);
+    else seedInput.value = seed;
+  };
+  document.getElementById('newSeed').onclick = () => {
+    const next = crypto.getRandomValues(new Uint32Array(1))[0];
+    changeSeed(next === seed ? (seed + 1) >>> 0 : next);
+  };
+  document.getElementById('resetSeed').onclick = () => changeSeed(0);
   const floorSeg = document.getElementById('floorSeg');
   for (const f of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
     const b = document.createElement('button'); b.textContent = f === 0 ? 'S' : String(f);
@@ -452,6 +485,7 @@
     draw();
   };
   function updateControls() {
+    for (const id of ['seed', 'newSeed', 'resetSeed']) document.getElementById(id).disabled = building;
     document.querySelectorAll('#floorSeg button, #modeSeg button').forEach(b => { b.disabled = building; });
     document.getElementById('creatureToggle').disabled = building;
     document.getElementById('labelToggle').disabled = building;
