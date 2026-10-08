@@ -79,8 +79,9 @@ access or tile lifecycle mechanics.
   density.
 - An X mark is hidden (`HiddenObjects.treasureHidden`) until the feet stand
   on a neighbouring cell (`HiddenObjects.tick` records it in
-  `save.hiddenDiscoveries`), or its covering rock is mined; until then it is
-  neither drawn nor diggable. The Treasure Map's dot is apart.
+  `save.hiddenDiscoveries`), or within the vision disc with Perception; until
+  then it is neither drawn nor diggable. A covering rock adds no rule of its
+  own. The Treasure Map's dot is apart.
 - THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
   tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
   after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest
