@@ -725,6 +725,15 @@ const TAP_HANDLERS = [
       } else scene.presentPetMenu(target.id);
       return true;
     }
+    // THE SUGAR POTION, offered: a wild animal takes it and stays put (the
+    // `calm` status — Combat.calm refuses a foe, and the potion is kept).
+    if (!isTame && held === 'sugar_potion' && Combat.calm(target, CONSUMABLE_SPEC.sugar_potion.durationMs)) {
+      consumeSelected(save);
+      scene.buildInventoryDOM();
+      persistSave(save);
+      scene.flash('Calm — it will not run', sx, sy);
+      return true;
+    }
     // THE CATCH (owner, Oct 2026): GIVING a wild animal or an enemy its
     // favourite starts the attempt — nothing is prepared beforehand. The
     // favourite is given (spent) as the wheel starts; the difficulty is the

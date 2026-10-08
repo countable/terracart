@@ -5,7 +5,8 @@
 
   test('Thrown potions: every potion has a recipient effect, including Taming', () => {
     for (const item of ITEMS.filter(item => item.potion)) {
-      const s = scene(), c = creature();
+      // The Sugar Potion calms an ANIMAL; every other potion is tried on a foe.
+      const s = scene(), c = creature(item.id === 'sugar_potion' ? 'chicken' : 'slime');
       if (item.id === 'revival_potion' || item.id === 'resurrection_potion') c._hp = 0;
       assert.truthy(PotionEffects.apply(s, c, item.id), item.id);
     }

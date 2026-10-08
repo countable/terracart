@@ -23,7 +23,7 @@ const ASSETS = {
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
   icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },
-  icon_taming_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
+  icon_sugar_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
   orrin_idle: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_idle.png', frameWidth: 48, frameHeight: 48 },
   orrin_walk: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_0_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_idle.png', frameWidth: 48, frameHeight: 48 },

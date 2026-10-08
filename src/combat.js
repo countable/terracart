@@ -572,6 +572,8 @@
     frozen:    Object.freeze({ label: 'Chilled',   color: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), field: '_frozenUntil', clock: 'wall', cancels: false, slow: Conditions.DEFINITIONS.frozen.moveSpeedMul }),
     fear:      Object.freeze({ label: 'Fear',      color: '#c77dff', field: '_fearUntilT',      clock: 'perf', cancels: true, turnsNow: true }),
     psychosis: Object.freeze({ label: 'Psychosis', color: '#c6ff4d', field: '_psychosisUntilT', clock: 'perf', cancels: true, turnsNow: true }),
+    // The Sugar Potion's: an ANIMAL that holds it does not run (Combat.calm).
+    calm:      Object.freeze({ label: 'Calm',      color: '#ffd59a', field: '_calmUntil',       clock: 'wall', cancels: false }),
   });
   function statusNow(row, now) {
     return now != null ? now : row.clock === 'wall' ? Date.now() : performance.now();
@@ -639,6 +641,14 @@
     return landStatus(c, 'paralysis', durationMs, now);
   }
   function isCharmed(c, now = Date.now()) { return hasStatus(c, 'charm', now); }
+  // CALM (the Sugar Potion): an animal — never a foe or a neighbour — stays
+  // put for `durationMs`: no bolt when you close on it, no flight from a
+  // blow, no run from the net. Every escape lane reads isCalm.
+  function calm(c, durationMs, now = Date.now()) {
+    if (!c || c.kind === 'npc' || isEnemyKind(c.kind) || !Number.isFinite(durationMs)) return false;
+    return landStatus(c, 'calm', durationMs, now);
+  }
+  function isCalm(c, now = Date.now()) { return hasStatus(c, 'calm', now); }
   // Paid passage and an open negotiation are neutral, never allied.
   function isPacified(c, now = Date.now()) {
     return !!monster(c?.kind)?.pirate
@@ -1639,7 +1649,7 @@
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    FLOWER_STATUS_MS, isSleeping, isParalyzed, paralyze, isCharmed, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
+    FLOWER_STATUS_MS, isSleeping, isParalyzed, paralyze, isCharmed, calm, isCalm, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
     isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, applyFrostAura, cancelCreatureAction,
     isTame, isAlly,

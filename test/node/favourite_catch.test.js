@@ -118,6 +118,34 @@ test('favourite: thrown, the Potion of Taming charms a foe for a minute instead'
   assert.falsy(Pets.ownedKind(scene.save, 'goblin'), 'a charm is not a catch');
 });
 
+test('sugar: the T2 Sugar Potion calms an animal — offered or thrown — and a foe refuses it', () => {
+  assert.eq(ITEM_BY_ID.sugar_potion.baseTier, 2);
+  assert.eq(ITEM_BY_ID.taming_potion.baseTier, 7);
+  assert.gte(PRICES.taming_potion, 150, 'the Potion of Taming is worth a T7 price');
+  assert.falsy(animalLikesFood('chicken', 'sugar_potion') && animalLikesFood('goblin', 'sugar_potion'),
+    'sugar is not the universal favourite');
+  const ms = CONSUMABLE_SPEC.sugar_potion.durationMs;
+  const save = newSave(), deer = { kind: 'deer', id: 'sugar_deer', x: 2.5, y: 2.5 };
+  const rec = tapCreature(deer, save, 'sugar_potion');
+  assert.eq(rec.catches.length, 0, 'offering sugar starts no catch');
+  assert.eq(Inventory.count(save, 'sugar_potion'), 0, 'the potion is given');
+  assert.truthy(Combat.isCalm(deer), 'and the deer is calm');
+  assert.falsy(Combat.isCalm(deer, Date.now() + ms + 1000), 'for the row\'s duration');
+  const g = foe('goblin');
+  tapCreature(g, save, 'sugar_potion');
+  assert.eq(Inventory.count(save, 'sugar_potion'), 1, 'a foe refuses it and it is kept');
+  assert.falsy(Combat.isCalm(g));
+  const scene = { save: { energy: 100, caught: [] }, cellM: 10, startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 } };
+  const hen = { kind: 'chicken', id: 'sugar_hen', x: 0, y: 0 };
+  assert.truthy(PotionEffects.apply(scene, hen, 'sugar_potion'), 'thrown, it lands on an animal');
+  assert.truthy(Combat.isCalm(hen));
+  assert.falsy(PotionEffects.apply(scene, foe('goblin'), 'sugar_potion'), 'and does nothing to a foe');
+  // Every escape lane reads the one predicate.
+  assert.truthy(/const bolting = !!bolt && !gameCharge && !Combat\.isCalm\(c\)/.test(SCENE_SRC), 'no bolt');
+  assert.truthy(/c\._fleeUntilT > now && Combat\.isCalm\(c\)\) c\._fleeUntilT = 0;/.test(SCENE_SRC), 'no flight from a blow');
+  assert.truthy(/!Shrines\.leverActive\(this\.save, 'hidden'\) && !Combat\.isCalm\(c\)/.test(SCENE_SRC), 'no run from the net');
+});
+
 test('favourite: a wrong gem is refused and kept, and the tap names what it loves', () => {
   const save = newSave(), g = foe('goblin');
   const rec = tapCreature(g, save, 'quartz');

@@ -65,7 +65,7 @@
     const state = {};
     for (const field of Object.values(TIMERS)) if (c[field] > now) state[field] = c[field];
     if (c._charmUntil > now) state._charmUntil = c._charmUntil;
-    if (c._potionTamingUntil > now) state._potionTamingUntil = c._potionTamingUntil;
+    if (c._calmUntil > now) state._calmUntil = c._calmUntil;
     const ledger = scene.save.potionEffects ||= {};
     if (Object.keys(state).length) ledger[c.id] = state;
     else delete ledger[c.id];
@@ -81,7 +81,7 @@
     if (!state) return;
     // Capacity buffs must not seed a rebuilt creature with their enlarged pool.
     Combat.hp(c);
-    for (const field of [...Object.values(TIMERS), '_charmUntil', '_potionTamingUntil']) {
+    for (const field of [...Object.values(TIMERS), '_charmUntil', '_calmUntil']) {
       if (Number.isFinite(state[field]) && state[field] > now) c[field] = state[field];
     }
     c._hp = Math.min(c._hp, Combat.maxHp(c));
@@ -99,7 +99,6 @@
     for (const field of Object.values(TIMERS)) c[field] = 0;
     clearDebuffs(c);
     for (const row of Object.values(Combat.STATUS_LOOKS)) c[row.field] = 0;
-    c._potionTamingUntil = 0;
     for (const field of ['_attackNextT', '_attackWindupUntil', '_attackUntil', '_abilityNextT',
       '_abilityWindupUntil', '_reloadUntil', '_lungeNextT', '_lungeUntil', '_lungeWindupUntil',
       '_lungeRecoverUntil', '_nextChooseT', '_nextStealT', '_nextShotT', '_npcRestUntil', '_throwReadyAt', '_tomeReadyAt',
@@ -144,14 +143,9 @@
       c._hp = Math.max(1, Math.round(Combat.maxHp(c) * spec.energyFrac));
       clearDebuffs(c); wake(scene, c);
     } else if (id === 'taming_potion') {
-      c._potionTamingUntil = now + (spec.durationMs || 60000);
-      if (Combat.isEnemyKind(c.kind)) Combat.applyCharm(c, now);
-      if (scene.startWorldM && scene.playerM) {
-        const feet = playerWorldM(scene);
-        c._homeX = c.homeX = feet.x;
-        c._homeY = c.homeY = feet.y;
-      }
-      c._nextChooseT = 0;
+      if (!Combat.applyCharm(c, now)) return false;   // a foe's minute of charm
+    } else if (id === 'sugar_potion') {
+      if (!Combat.calm(c, spec.durationMs, now)) return false;   // an animal stays put
     } else if (id === 'time_potion') {
       clearTime(scene, c);
       return true;
