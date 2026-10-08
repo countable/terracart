@@ -431,15 +431,12 @@ test('old trade road: only about a third of the major-road stops are wagons, by 
   assert.eq(SV.isWagonStop(near.id), SV.isWagonStop(String(near.id)), 'the id decides');
 });
 
-// The FAUNA ATTRACTOR lane (scene_creatures.js _seatFaunaOnFavouriteGround),
-// lifted from the source and driven for real.
+// Drive the shared attraction method with the real scene helpers.
 function liftAttract() {
-  const src = SCENE_SRC;
-  const a = src.indexOf('\n  _seatFaunaOnFavouriteGround(');
-  const b = src.indexOf('\n  }\n', a);
-  assert.truthy(a > 0 && b > a, 'found _seatFaunaOnFavouriteGround');
-  const tries = +src.match(/const FAUNA_ATTRACT_TRIES = (\d+);/)[1];
-  return new Function('FAUNA_ATTRACT_TRIES', `return {\n${src.slice(a + 1, b + 4)}\n};`)(tries);
+  return {
+    _seatFaunaOnFavouriteGround: SceneCreatures.prototype._seatFaunaOnFavouriteGround,
+    _pathLampCells: SceneCreatures.prototype._pathLampCells,
+  };
 }
 
 test('old trade road: no dog is pulled onto a major verge — the road attracts nothing', () => {
@@ -462,34 +459,38 @@ test('old trade road: no dog is pulled onto a major verge — the road attracts 
   assert.eq(creatures.map((c) => `${c.x},${c.y}`).join('|'), at, 'the dogs keep their drawn seats');
 });
 
-test('fauna attractors: a table, not code — every column names a spawned species and a share', () => {
+test('fauna attractors: a table, not code — every column names a spawned species and a count range', () => {
   const cols = [...StreetVariants.STREET_VARIANTS.map((r) => [r.id, r.attracts]),
     ...Object.entries(Zones.ZONE_KINDS).map(([k, r]) => ['zone ' + k, r.attracts]),
-    ...Object.entries(BIOME_ATTRACTS).map(([c, a]) => ['terrain ' + c, a])];
+    ...Object.entries(BIOME_ATTRACTS).map(([c, a]) => ['terrain ' + c, a]),
+    ...ZoneVariants.rows.map(r => [r.id, r.attracts]),
+    ['path lamps', Streets.PATH_LAMP_ATTRACTS]];
   const known = new Set([...FAUNA_ORDER, ...SHORE_FAUNA_ORDER, 'rabbit']);
   for (const [who, a] of cols) {
     if (!a) continue;
-    for (const [sp, p] of Object.entries(a)) {
+    for (const [sp, range] of Object.entries(a)) {
       assert.truthy(known.has(sp), `${who} attracts a creature kind (${sp})`);
-      assert.truthy(p > 0 && p <= 1, `${who}: ${sp} at p ${p}`);
+      assert.truthy(Array.isArray(range) && range.length === 2
+        && range.every(n => Number.isInteger(n) && n >= 0)
+        && range[0] <= range[1], `${who}: ${sp} has an ordered integer count range`);
     }
   }
   const row = (id) => StreetVariants.VARIANT_BY_ID[id].attracts || {};
-  assert.eq(row('orchard').deer, 0.5, 'Orchard Lane → deer');
-  assert.eq(row('hedgerow').rabbit, 0.5, 'Hedgerow → rabbits');
-  assert.eq(row('overgrown').rabbit, 0.5, 'Overgrown → rabbits');
-  assert.eq(row('overgrown').butterfly, 0.5, 'Overgrown → butterflies');
-  assert.eq(row('toadstool').butterfly, 0.5, 'Toadstool → butterflies');
-  assert.eq(row('greenway').butterfly, 0.5, 'Greenway → butterflies');
-  assert.eq(row('pilgrim').crow, 0.1, "Pilgrim's Way → crows");
+  assert.eq(JSON.stringify(row('orchard').deer), '[2,5]', 'Orchard Lane → deer');
+  assert.eq(JSON.stringify(row('hedgerow').rabbit), '[2,5]', 'Hedgerow → rabbits');
+  assert.eq(JSON.stringify(row('overgrown').rabbit), '[2,5]', 'Overgrown → rabbits');
+  assert.eq(JSON.stringify(row('overgrown').butterfly), '[2,5]', 'Overgrown → butterflies');
+  assert.eq(JSON.stringify(row('toadstool').butterfly), '[2,5]', 'Toadstool → butterflies');
+  assert.eq(JSON.stringify(row('greenway').butterfly), '[2,5]', 'Greenway → butterflies');
+  assert.eq(JSON.stringify(row('pilgrim').crow), '[2,5]', "Pilgrim's Way → crows");
   assert.falsy(Zones.ZONE_KINDS.stones.attracts?.crow, 'ordinary churchyards do not draw extra crows');
   const birdPulls = [...cols, ...ZoneVariants.rows.map(r => [r.id, r.attracts])]
     .filter(([, a]) => a?.crow || a?.raven);
   assert.eq(birdPulls.length, 1, 'only Pilgrim Way attracts birds');
   assert.eq(birdPulls[0][0], 'pilgrim');
-  assert.eq(Zones.ZONE_KINDS.grove.attracts.deer, 0.5, 'grove → deer');
-  assert.eq(Zones.ZONE_KINDS.grove.attracts.butterfly, 0.5, 'grove → butterflies');
-  assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
+  assert.eq(JSON.stringify(Zones.ZONE_KINDS.grove.attracts.deer), '[2,5]', 'grove → deer');
+  assert.eq(JSON.stringify(Zones.ZONE_KINDS.grove.attracts.butterfly), '[2,5]', 'grove → butterflies');
+  assert.eq(JSON.stringify(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime), '[2,5]', 'wasteland → slimes');
   assert.falsy(BIOME_ATTRACTS[WorldGen.T.PITCH]?.deer, 'sports pitches do not attract deer');
   // The spawner reads the columns; it names no species of its own.
   const src = SCENE_SRC;
@@ -499,7 +500,7 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   }
 });
 
-test('fauna attractors: half of a species moves onto its ground, the rest stay; nothing is added', () => {
+test('fauna attractors: a small quota moves onto its ground, the rest stay; nothing is added', () => {
   const m = liftAttract();
   const r = rasterize();
   const cellM = TILE_EDGE_M / CPE;
@@ -516,13 +517,13 @@ test('fauna attractors: half of a species moves onto its ground, the rest stay; 
   const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, m);
   const moved = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) }, TX, TY, N, cellM, grid, opts, creatures, null);
   assert.eq(creatures.length, 61, 'relocates, never adds');
-  assert.inRange(moved.slime, 18, 42, `about half the slimes moved (${moved.slime} of 60)`);
+  assert.inRange(moved.slime, 2, 5, `only a small quota of slimes moved (${moved.slime} of 60)`);
   let onWaste = 0;
   for (const s of slimes) if (grid[cellOf(s.y, TY) * N + cellOf(s.x, TX)] === WorldGen.T.WASTELAND) onWaste++;
   assert.eq(onWaste, moved.slime, 'every moved slime is on the waste ground, the rest where they were drawn');
   assert.eq(cow.x, TX * TILE_EDGE_M + (N - 3) * cellM, 'the cow is not attracted');
   // Deterministic: the same tile moves the same animals to the same cells.
-  const again = slimes.map((s) => WorldGen.makeCreature('slime', TX * TILE_EDGE_M + (N - 2) * cellM, s.y, s.id));
+  const again = slimes.map((s, i) => WorldGen.makeCreature('slime', TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i % N) * cellM, s.id));
   scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) }, TX, TY, N, cellM, grid, { ...opts, occupied: new Set() }, again, null);
   assert.eq(again.map((s) => `${s.x},${s.y}`).join('|'), slimes.map((s) => `${s.x},${s.y}`).join('|'), 'same seats every build');
   // A pest amnesty cell is never a slime's new seat.

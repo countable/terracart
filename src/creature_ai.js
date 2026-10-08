@@ -136,6 +136,9 @@ const PEST_DISPATCH_MS = 60 * 60 * 1000;
 //     standing on the pavement beside it does — nothing more — so the road is
 //     never a refuge (test/node/kerb_refuge_sim.test.js runs it for every
 //     hostile kind).
+// Junctions use the same refused-cell lane. Every non-allied creature refuses
+// an MD/LG junction's full exclusion zone. A fast mover refuses to enter a
+// Small-road junction's one-cell suppression buffer from outside it.
 // What this is NOT: `unnoticed`. A Shadow Powder / an empty bar / a passenger's
 // speed hide you from what would notice you, anywhere; the kerb is a place a
 // chase gives up at, and only for as long as you stand in it.
@@ -149,6 +152,7 @@ function roadClassBitsAt(scene, x, y) {
   return t && t.entry.roadClass ? t.entry.roadClass[t.i] | 0 : 0;
 }
 function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
+function inSoftJunctionAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_JUNCTION_SOFT); }
 
 // ── THE ROADSIDE RUN: a retreat in a residential area runs along the street ──
 // Every retreat in wanderCreatures is an AWAY angle — a bolting animal away
@@ -1251,7 +1255,10 @@ function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, e
   if (!Combat.isAlly(c)) {
     const road = roadClassBitsAt(scene, x, y);
     if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return true;
+    if (road & WorldGen.ROAD_CLASS_JUNCTION_EXCLUDE) return true;
     if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
+        && isFastMover(c, scene.cellM)) return true;
+    if ((road & WorldGen.ROAD_CLASS_JUNCTION_SOFT) && !inSoftJunctionAt(scene, c.x, c.y)
         && isFastMover(c, scene.cellM)) return true;
     if (retreating && !c.lair && yardReasonAt(scene, x, y) && !yardReasonAt(scene, c.x, c.y)) return true;
   }

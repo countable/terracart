@@ -247,7 +247,7 @@
   function cap(id) {
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
-    if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap'].includes(id)) return 1;
+    if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap', 'taming_potion'].includes(id)) return 1;
     if (item.kind === 'animal' || item.plants === 'fruittree'
       || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;

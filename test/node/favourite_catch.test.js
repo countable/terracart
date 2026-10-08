@@ -95,6 +95,29 @@ test('favourite: an enemy given its gem starts the catch — the gem spent, the 
   assert.truthy(Pets.ownedKind(save, 'goblin'), 'a goblin pet');
 });
 
+test('favourite: the Potion of Taming is every creature\'s favourite — it starts any catch, and feeds a pet', () => {
+  for (const row of EnemyRoster.ROWS.filter(r => !r.retired)) assert.truthy(animalLikesFood(row.id, 'taming_potion'), row.id);
+  for (const kind of ['chicken', 'cow', 'cat', 'dog', 'crab']) assert.truthy(animalLikesFood(kind, 'taming_potion'), kind);
+  assert.falsy(animalLikesFood('npc', 'taming_potion'), 'a kind with no favourite takes none');
+  assert.eq(favouriteItems('goblin').join(), 'amethyst', 'the tap still names the kind\'s own favourite');
+  const save = newSave(), g = foe('goblin');
+  const rec = tapCreature(g, save, 'taming_potion');
+  assert.eq(rec.catches.length, 1, 'the wheel starts');
+  assert.eq(Inventory.count(save, 'taming_potion'), 0, 'the potion is given');
+  rec.catches[0].done();
+  assert.truthy(Pets.ownedKind(save, 'goblin'));
+});
+
+test('favourite: thrown, the Potion of Taming charms a foe for a minute instead', () => {
+  const scene = { save: { energy: 100, caught: [] }, cellM: 10, startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 } };
+  const now = Date.now(), g = foe('goblin', { _hp: 30 });
+  assert.truthy(PotionEffects.apply(scene, g, 'taming_potion', now));
+  assert.truthy(Combat.isCharmed(g, now + 59000), 'charmed for the minute');
+  assert.falsy(Combat.isCharmed(g, now + 61000), 'and then it wears off');
+  assert.falsy(Combat.isEnemy(g), 'no one\'s enemy while charmed');
+  assert.falsy(Pets.ownedKind(scene.save, 'goblin'), 'a charm is not a catch');
+});
+
 test('favourite: a wrong gem is refused and kept, and the tap names what it loves', () => {
   const save = newSave(), g = foe('goblin');
   const rec = tapCreature(g, save, 'quartz');

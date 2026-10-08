@@ -58,14 +58,15 @@ test('large enemies: ogres require residential minor-road frontage and remain ou
   }
 });
 
-test('large enemies: old-stones encounters include reapers and retain the common spawn gate', () => {
+test('large enemies: churchyard reapers stay in temples and ambient encounters retain the spawn gate', () => {
   const N = 64;
   for (const theme of ['stone_garden', 'ordered_graves', 'overgrown_graves', 'broken_masonry', 'silent_circle', 'ancient_grove']) {
     const e = { cellsPerEdge: N, tileEdgeM: 448, grid: new Array(N * N).fill(WorldGen.T.PARK),
       zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } };
-    const kind = theme === 'ancient_grove' ? 'giant_bear' : 'giant_reaper';
     const generated = EnemyHabitats.surfaceEncounters(e, 0, 0, new Set());
-    assert.truthy(generated.some(c => c.kind === kind), theme + ' generates its large resident');
+    assert.gt(generated.length, 0, theme + ' retains ambient encounters');
+    assert.falsy(generated.some(c => c.kind === 'giant_reaper'), theme + ' reserves reapers for temples');
+    if (theme === 'ancient_grove') assert.truthy(generated.some(c => c.kind === 'giant_bear'));
     assert.eq(JSON.stringify(generated), JSON.stringify(EnemyHabitats.surfaceEncounters(e, 0, 0, new Set())));
     e.spawnWhy = new Uint32Array(N * N).fill(WorldGen.SPAWN_WHY.PRIVATE);
     assert.eq(EnemyHabitats.surfaceEncounters(e, 0, 0, new Set()).length, 0, 'private land remains refused');

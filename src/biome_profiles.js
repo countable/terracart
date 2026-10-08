@@ -521,13 +521,13 @@
     sea_turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
   };
 
-  // The FAUNA ATTRACTOR column for GROUND (terrain code → { species: p }):
-  // each of a tile's own spawns of the species moves onto this ground with
-  // probability p (scene_creatures.js _seatFaunaOnFavouriteGround — the same
+  // The FAUNA ATTRACTOR column for GROUND (terrain → { species: [min, max] }):
+  // a seeded small quota of the nearest existing animals moves onto this
+  // ground (scene_creatures.js _seatFaunaOnFavouriteGround — the same
   // lane the street variants' and zones' `attracts` rows feed). The LAND's
   // class: waste ground a zone halo repainted still counts.
   const BIOME_ATTRACTS = {
-    [T.WASTELAND]: { slime: 0.5 },
+    [T.WASTELAND]: { slime: [2, 5] },
   };
 
   // The accessors. The raw tables reach app.js as the bare globals below

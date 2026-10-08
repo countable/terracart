@@ -463,7 +463,7 @@
         if (!S.covers(spans, mid)) { cur = null; continue; }
         const u = mid - acc;
         const x = ax + ux * u, y = ay + uy * u;
-        const kind = classify(geo, x, y, greenway);
+        const kind = root.Scenic.classify(geo, x, y, greenway);
         if (!kind) { cur = null; continue; }
         if (each) each(kind, mid, x, y, uy, -ux, step);
         if (cur && cur[2] === kind && Math.abs(cur[1] - a) < 1e-6) cur[1] = b;

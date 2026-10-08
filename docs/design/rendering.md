@@ -70,6 +70,14 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   and sorts the shared world container only when membership or assigned depth
   changes; tool/work transitions invalidate reuse, while connected, clock-driven
   and saved-state art stays live.
+- `RoadSafety` paints every visible `ROAD_CLASS_MAJOR_BUFFER` cell with its
+  muted red ground wash after dark. The wash sits above road surfaces and below
+  road names, buildings and world sprites. Its key includes the camera cell,
+  row-band phase, night state and visible road bits, so a crossing, sunset or
+  newly loaded tile rebuilds it while sub-cell motion only scrolls it.
+  `drawObjects` hides generated objects, plants, placed crops, fires, scarecrows,
+  treasure marks and coin drops in that zone. The tap pass reads the same
+  `RoadSafety` predicate, so hidden interactions cannot remain active.
 - A cell-crossing rebuild never reads pixels back: no `getImageData`, no
   per-piece `textures.createCanvas` (Phaser reads the canvas back on
   creation). Bake short-lived canvas pieces into shared atlas pages

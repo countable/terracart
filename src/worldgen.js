@@ -537,8 +537,8 @@
   }
   // ── THE SPAWN GATE (Sep 2026): entry.spawnWhy + the spawn's CLASS ─────────
   // One per-tile mask (stampSpawnWhySteps, beside roadMask, in the sliced
-  // build) records WHY each cell is refused — a Uint16 of reason bits, never
-  // a single verdict — and every spawner names what it is seating. Two kinds
+  // build) records WHY each cell is refused - a Uint32 of reason bits, never
+  // a single verdict - and every spawner names what it is seating. Two kinds
   // of reason:
   //   HARD (SPAWN_WHY_HARD) — refuse EVERY class:
   //     TERRAIN       water / building / road tier on the terrain grid
@@ -565,10 +565,14 @@
   //                   any other ground: nothing grows or stands in a field.
   //                   Orchard edges remain open unless mapped farmland
   //                   underneath them carries the FARMLAND reason.
-  //   TYPED SUPPRESSION — refuse only the classes whose row names them:
+  //     JUNCTION      an MD/LG road junction's overlapping bands plus its
+  //                   two-cell safety buffer
+  //   TYPED SUPPRESSION - refuse only the classes whose row names them:
   //     KERB          a Major-and-Medium road's band touches the cell, or its kerb buffer
-  //                   — refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
+  //                   - refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
   //                   creature_ai.js creatureSpawnClass, off BRISK_WALK_MPS)
+  //     JUNCTION_SOFT a Small-road junction's overlapping bands plus one cell;
+  //                   fast movers and player-facing hazards refuse it
   //     SENSITIVE     round a sensitive POI, real cemetery land, a church on
   //                   cemetery land (churchyardBufferM)
   // (Superseded Sep 2026: the typed HOUSE reason — a 40 m buffer round every
@@ -589,9 +593,12 @@
   //   'fastFauna' an animal that out-runs a brisk walk (deer, rabbits, …)
   //   'npc'       villagers — fauna's row (a field's interior is hard for all)
   //   'attractor' hoards, lair points, events (coin bursts), grove shrines
-  //   'enemy'     anything hostile seated at a walk: slow foes and guards,
-  //               traps, park plants
-  //   'fastEnemy' a foe that out-runs a brisk walk — the enemy row + KERB
+  //   'enemy'     anything hostile seated at a walk: slow foes, guards and
+  //               park plants
+  //   'hazard'    a trap seated for the player - SENSITIVE, KERB and the
+  //               Small-road junction buffer
+  //   'fastEnemy' a foe that out-runs a brisk walk - the enemy row + KERB
+  //               and the Small-road junction buffer
   //   'reward'    a find the player WALKS TO on purpose (src/scenic.js: a
   //               viewpoint's scope, a vista chest, the tide line) — the
   //               attractor row + KERB: never a reason to step to the kerb
@@ -611,10 +618,12 @@
     TERRAIN: 1, ROAD: 2, RESTRICTED: 4, QUIET: 8, KINDERGARTEN: 16,
     SENSITIVE_SITE: 32, BEHIND_HOUSE: 64, PRIVATE: 128, FARM_INTERIOR: 256,
     KERB: 1024, SENSITIVE: 4096, FARMLAND: 8192, GOLF: 16384, PIER_ACCESS: 32768,
+    JUNCTION: 65536, JUNCTION_SOFT: 131072,
   };
   const W_ = SPAWN_WHY;
   const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
-    | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR | W_.FARMLAND | W_.GOLF | W_.PIER_ACCESS;
+    | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR | W_.FARMLAND | W_.GOLF
+    | W_.PIER_ACCESS | W_.JUNCTION;
   // Geographic exclusions survive every dungeon floor. Terrain, roads and
   // frontage are evaluated separately for the floor on which a spawn sits.
   const SPAWN_WHY_ALL_FLOORS = W_.FARMLAND | W_.GOLF;
@@ -622,11 +631,12 @@
     const source = surface.zone?.caveSource || surface.caveSource || surface;
     const grid = source.baseGrid || source.grid;
     const why = source.spawnWhy || surface.spawnWhy;
-    return Uint16Array.from(grid, (terrain, i) => ((why?.[i] || 0) & SPAWN_WHY_ALL_FLOORS)
+    return Uint32Array.from(grid, (terrain, i) => ((why?.[i] || 0) & SPAWN_WHY_ALL_FLOORS)
       | (terrain === T.FARMLAND ? W_.FARMLAND : terrain === T.GOLF ? W_.GOLF : 0));
   }
-  const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE;
-  // The hard reasons that are about the LAND (not terrain, not the band).
+  const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE | W_.JUNCTION_SOFT;
+  // Hard access reasons that place-bound producers obey even when they own
+  // their terrain or road band. This includes the junction exclusion zone.
   const SPAWN_WHY_LAND = SPAWN_WHY_HARD & ~(W_.TERRAIN | W_.ROAD);
   // THE ONE TABLE: what each spawn class refuses beyond the hard reasons.
   const SPAWN_CLASS_BLOCKS = {
@@ -634,11 +644,12 @@
     headstone: W_.SENSITIVE,
     cave: W_.SENSITIVE,
     fauna: W_.SENSITIVE,
-    fastFauna: W_.SENSITIVE | W_.KERB,
+    fastFauna: W_.SENSITIVE | W_.KERB | W_.JUNCTION_SOFT,
     npc: W_.SENSITIVE,
     attractor: W_.SENSITIVE,
     enemy: W_.SENSITIVE,
-    fastEnemy: W_.SENSITIVE | W_.KERB,
+    hazard: W_.SENSITIVE | W_.KERB | W_.JUNCTION_SOFT,
+    fastEnemy: W_.SENSITIVE | W_.KERB | W_.JUNCTION_SOFT,
     reward: W_.SENSITIVE | W_.KERB,
     streetObstacle: 0, // declared static cross-sections only; default gate stays hard
   };
@@ -708,11 +719,14 @@
       return poiWithin(opts.pois, cx, cy, SPAWN_FRONTAGE);
     }
     // ── No mask (a synthetic grid, a caller outside a built tile): the same
-    // rules read from their parts — quiet land, the lot frontage and, for a
-    // class that refuses KERB, the kerb buffer.
+    // rules read from their parts - quiet land, lot frontage, road junctions
+    // and, for a class that refuses KERB, the kerb buffer.
     const quiet = opts && opts.quiet;
     if (quiet && quiet[cy * w + cx]) return false;         // quiet land (QUIET_LAND)
+    const roadBits = opts?.roadClass?.[cy * w + cx] || 0;
+    if (roadBits & ROAD_CLASS_JUNCTION_EXCLUDE) return false;
     if ((spawnBlocks(cls) & W_.KERB) && inMajorBuffer(opts && opts.roadClass, w, cx, cy)) return false;
+    if ((spawnBlocks(cls) & W_.JUNCTION_SOFT) && (roadBits & ROAD_CLASS_JUNCTION_SOFT)) return false;
     if (!isLotTerrain(here)) return true;         // public / open ground — always ok
     const frontage = (opts && opts.frontage != null) ? opts.frontage : SPAWN_FRONTAGE;
     for (let dy = -frontage; dy <= frontage; dy++) {
@@ -958,6 +972,71 @@
     result.shortfall = need;
     return result;
   }
+  // ── THE LOW-TIER QUOTA (Oct 2026): a tile below LOW_TIER_CHEST_QUOTA
+  // tier-1 chests (POI crates, top-ups, dead-end and ambient crates alike)
+  // tops up with AMBIENT CRATES — one-time tier-1 supply crates (`crate`, no
+  // poiClass) on 'reward' cells anywhere in the tile, lowest cell hash first,
+  // until it reaches the quota. Runs after topUpChestsSteps, so variant
+  // footprints fill first. Counting its own crates keeps a repeat pass a
+  // no-op. The tile's shortfall before the crates (`deficit`) is kept on the
+  // entry (lowTierDeficit): spawnInTile tops up X marks from it
+  // (scene_creatures.js X_TOP_UP).
+  const LOW_TIER_CHEST_QUOTA = 200;
+  function* topUpAmbientCratesSteps({ objects, dressings = [], grid, N, tx, ty, tileEdgeM, spawnOpts }) {
+    let count = 0;
+    for (const list of [objects, ...dressings.map(d => d?.objects || [])]) {
+      for (let j = 0; j < list.length; j++) {
+        if ((j & 255) === 0) yield 'ambient crate census';
+        const o = list[j];
+        if (o.kind !== 'chest' || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
+        if (!o.crate) {
+          const look = chestLook(o);
+          if (look.stand || look.coin || look.bike || look.barrel || look.macro) continue;
+        }
+        if (chestTier(o) === 1) count++;
+      }
+    }
+    const deficit = Math.max(0, LOW_TIER_CHEST_QUOTA - count);
+    const result = { before: count, deficit, added: 0 };
+    if (!deficit) return result;
+    // The best `deficit` seats by (score, i), kept in a bounded max-heap so a
+    // large tile never sorts every eligible cell in one block.
+    const worse = (a, b) => a.score > b.score || (a.score === b.score && a.i > b.i);
+    const heap = [];
+    const sift = (k) => {
+      for (;;) {
+        const l = 2 * k + 1, r = l + 1;
+        let m = k;
+        if (l < heap.length && worse(heap[l], heap[m])) m = l;
+        if (r < heap.length && worse(heap[r], heap[m])) m = r;
+        if (m === k) return;
+        [heap[k], heap[m]] = [heap[m], heap[k]]; k = m;
+      }
+    };
+    for (let i = 0; i < N * N; i++) {
+      if ((i & 1023) === 0) yield 'ambient crate seats';
+      const ix = i % N, iy = (i - ix) / N;
+      if (!isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward')) continue;
+      const seat = { i, ix, iy, score: (cellHash(tx, ty, ix, iy) ^ 0x2c1b3d5) >>> 0 };
+      if (heap.length < deficit) {
+        heap.push(seat);
+        for (let k = heap.length - 1; k > 0;) {
+          const p = (k - 1) >> 1;
+          if (!worse(heap[k], heap[p])) break;
+          [heap[k], heap[p]] = [heap[p], heap[k]]; k = p;
+        }
+      } else if (worse(heap[0], seat)) { heap[0] = seat; sift(0); }
+    }
+    const seats = heap.sort((a, b) => a.score - b.score || a.i - b.i);
+    for (const { i, ix, iy } of seats) {
+      objects.push(makeObject('chest', (tx + (ix + 0.5) / N) * tileEdgeM,
+        (ty + (iy + 0.5) / N) * tileEdgeM, cellId('crate_ambient', tx, ty, ix, iy),
+        { crate: true, tierSeed: 1, chestTopUp: true, ambientCrate: true }));
+      spawnOpts.occupied.add(i);
+      result.added++;
+    }
+    return result;
+  }
   // Nudge a cell onto the nearest one that passes isSpawnCell, searching
   // outward in Chebyshev rings up to `maxR`. Returns null when the whole
   // neighbourhood is unusable, so the caller can drop the item instead.
@@ -982,7 +1061,7 @@
   //   interior   (neither coord %P==0)            never a hedge (open path)
   // Pillars and sparse whole wall segments leave broad open passages.
   const HEDGE_LATTICE_P = 3;   // lattice period (cells between pillars)
-  const HEDGE_WALL_PCT = 15;   // whole wall segments, with open plaza aisles
+  const HEDGE_WALL_PCT = 23;   // whole wall segments, with open plaza aisles
   function hedgeWallOn(sx, sy, k, salt) {
     const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
     return (hsh % 100) < HEDGE_WALL_PCT;
@@ -2110,16 +2189,28 @@
   //                          spawn veto for pickups or scenery (X marks,
   //                          rocks, chests keep isSpawnCell).
   const ROAD_CLASS_MAJOR_BUFFER = 8;
+  // Junction zones share roadClass because both spawning and moving creatures
+  // need the same geometry. A junction involving an MD/LG road excludes every
+  // spawn and non-allied creature. A Small-road junction suppresses fast
+  // movers and player-facing hazards.
+  const ROAD_CLASS_JUNCTION_EXCLUDE = 16;
+  const ROAD_CLASS_JUNCTION_SOFT = 32;
+  // The runtime road warning reads the same half-covered definition as
+  // roadMask, but only for the Major-and-Medium group.
+  const ROAD_CLASS_MAJOR_ROAD = 64;
   // About one base reach radius (coords.js reachCells: 2.5 cells) past the
-  // band's edge — the ring a player standing on the kerb can act inside.
+  // band's edge - the ring a player standing on the kerb can act inside.
   const MAJOR_BUFFER_CELLS = 2.5;
   function* resolveRoadClassSteps(majorCover, mask, out, w, h, bufCover) {
     for (let cy = 0; cy < h; cy++) {
       if ((cy & 63) === 63) yield 'road class bands';
       const row = cy * w;
       for (let cx = 0; cx < w; cx++) {
-        if (majorCover[row + cx]) out[row + cx] |= ROAD_CLASS_MAJOR_BAND | ROAD_CLASS_MAJOR_BUFFER;
-        else if (bufCover && bufCover[row + cx]) out[row + cx] |= ROAD_CLASS_MAJOR_BUFFER;
+        const i = row + cx;
+        if (majorCover[i]) {
+          out[i] |= ROAD_CLASS_MAJOR_BAND | ROAD_CLASS_MAJOR_BUFFER;
+          if (popcount16(majorCover[i]) >= ROAD_MASK_MIN_BITS) out[i] |= ROAD_CLASS_MAJOR_ROAD;
+        } else if (bufCover && bufCover[i]) out[i] |= ROAD_CLASS_MAJOR_BUFFER;
       }
     }
     for (let cy = 0; cy < h; cy++) {
@@ -2129,6 +2220,94 @@
         if (mask[i]) continue;
         const verge = !!majorCover[i] || anyNeighbour8(w, h, cx, cy, (nx, ny, j) => mask[j] && majorCover[j]);
         if (verge) out[i] |= ROAD_CLASS_MAJOR_VERGE;
+      }
+    }
+  }
+
+  // Return the road meeting point when two finite segments cross or come
+  // within JUNCTION_SNAP_CELLS. The near case uses the midpoint of the closest
+  // pair, so two separately clipped ways still stamp one deterministic area.
+  const JUNCTION_SNAP_CELLS = 0.5;
+  function roadJunctionPoint(a, b) {
+    const arx = a.bx - a.ax, ary = a.by - a.ay;
+    const brx = b.bx - b.ax, bry = b.by - b.ay;
+    const qx = b.ax - a.ax, qy = b.ay - a.ay;
+    const den = arx * bry - ary * brx;
+    if (Math.abs(den) > 1e-9) {
+      const t = (qx * bry - qy * brx) / den;
+      const u = (qx * ary - qy * arx) / den;
+      if (t >= -1e-9 && t <= 1 + 1e-9 && u >= -1e-9 && u <= 1 + 1e-9) {
+        return { x: a.ax + t * arx, y: a.ay + t * ary };
+      }
+    }
+    let bestD2 = Infinity, best = null;
+    const endpointAgainst = (px, py, c) => {
+      const dx = c.bx - c.ax, dy = c.by - c.ay, len2 = dx * dx + dy * dy;
+      let t = len2 ? ((px - c.ax) * dx + (py - c.ay) * dy) / len2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const qpx = c.ax + t * dx, qpy = c.ay + t * dy;
+      const ddx = px - qpx, ddy = py - qpy, d2 = ddx * ddx + ddy * ddy;
+      if (d2 < bestD2) {
+        bestD2 = d2;
+        best = { x: (px + qpx) / 2, y: (py + qpy) / 2 };
+      }
+    };
+    endpointAgainst(a.ax, a.ay, b);
+    endpointAgainst(a.bx, a.by, b);
+    endpointAgainst(b.ax, b.ay, a);
+    endpointAgainst(b.bx, b.by, a);
+    return bestD2 < JUNCTION_SNAP_CELLS * JUNCTION_SNAP_CELLS ? best : null;
+  }
+
+  // The segment index makes this O(nearby), not O(all roads squared). Each
+  // candidate pair is visited once when the later segment enters the index.
+  // Lines in the MVT buffer participate, so junction disks cross tile seams.
+  function* stampRoadJunctionsSteps(segments, out, w, h) {
+    const buckets = new Map();
+    const bucketKey = (x, y) => `${x},${y}`;
+    let checked = 0;
+    const stampDisk = (p, radius, bit) => {
+      const r2 = radius * radius;
+      const x0 = Math.max(0, Math.floor(p.x - radius - 0.5));
+      const x1 = Math.min(w - 1, Math.ceil(p.x + radius - 0.5));
+      const y0 = Math.max(0, Math.floor(p.y - radius - 0.5));
+      const y1 = Math.min(h - 1, Math.ceil(p.y + radius - 0.5));
+      for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) {
+        const dx = cx + 0.5 - p.x, dy = cy + 0.5 - p.y;
+        if (dx * dx + dy * dy > r2) continue;
+        const i = cy * w + cx;
+        if (bit === ROAD_CLASS_JUNCTION_EXCLUDE) {
+          out[i] = (out[i] | bit) & ~ROAD_CLASS_JUNCTION_SOFT;
+        } else if (!(out[i] & ROAD_CLASS_JUNCTION_EXCLUDE)) out[i] |= bit;
+      }
+    };
+    for (let si = 0; si < segments.length; si++) {
+      if ((si & 127) === 127) yield 'road junction index';
+      const s = segments[si];
+      const x0 = Math.floor(Math.min(s.ax, s.bx) - JUNCTION_SNAP_CELLS);
+      const x1 = Math.floor(Math.max(s.ax, s.bx) + JUNCTION_SNAP_CELLS);
+      const y0 = Math.floor(Math.min(s.ay, s.by) - JUNCTION_SNAP_CELLS);
+      const y1 = Math.floor(Math.max(s.ay, s.by) + JUNCTION_SNAP_CELLS);
+      const candidates = new Set();
+      for (let by = y0; by <= y1; by++) for (let bx = x0; bx <= x1; bx++) {
+        const found = buckets.get(bucketKey(bx, by));
+        if (found) for (const other of found) candidates.add(other);
+      }
+      for (const other of candidates) {
+        if (other.way === s.way) continue;
+        if ((++checked & 1023) === 0) yield 'road junction pairs';
+        const p = roadJunctionPoint(other, s);
+        if (!p) continue;
+        const major = other.major || s.major;
+        const buffer = major ? 2 : 1;
+        const radius = Math.hypot(other.width, s.width) / 2 + buffer;
+        stampDisk(p, radius, major ? ROAD_CLASS_JUNCTION_EXCLUDE : ROAD_CLASS_JUNCTION_SOFT);
+      }
+      for (let by = y0; by <= y1; by++) for (let bx = x0; bx <= x1; bx++) {
+        const key = bucketKey(bx, by);
+        let found = buckets.get(key);
+        if (!found) buckets.set(key, found = []);
+        found.push(s);
       }
     }
   }
@@ -3713,11 +3892,11 @@
     }
   }
   // ctx: { layers, grid, w, h, mvtToCell, mvtToM, roadMask, roadClass,
-  // quietMask }. Returns the Uint16Array of reason bits (SPAWN_WHY).
+  // quietMask }. Returns the Uint32Array of reason bits (SPAWN_WHY).
   function* stampSpawnWhySteps(ctx) {
     const { layers, grid, w, h, mvtToCell, mvtToM, roadMask, roadClass, quietMask } = ctx;
     const NN = w * h;
-    const mask = new Uint16Array(NN);
+    const mask = new Uint32Array(NN);
     const byName = {};
     for (const L of layers || []) if (L && L.name) byName[L.name] = L;
     const feats = (n) => (byName[n] && byName[n].features) || [];
@@ -3982,6 +4161,8 @@
         if (fieldSource[(y + M) * E + x + M] && !farmEdge[i]) v |= W_.FARM_INTERIOR;
         const e = (y + M) * E + (x + M);
         if (roadClass && (roadClass[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_MAJOR_BAND))) v |= W_.KERB;
+        if (roadClass && (roadClass[i] & ROAD_CLASS_JUNCTION_EXCLUDE)) v |= W_.JUNCTION;
+        if (roadClass && (roadClass[i] & ROAD_CLASS_JUNCTION_SOFT)) v |= W_.JUNCTION_SOFT;
         if (sensD[e] <= sensR || churchD[e] <= churchR) v |= W_.SENSITIVE;
         mask[i] = v;
       }
@@ -4162,6 +4343,9 @@
     // — the KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER) no fast mover spawns in.
     const majorBufCover = new Uint16Array(w * h);
     const roadClass = new Uint8Array(w * h);
+    // Vehicle-road segments wait until every way has been seen, then the
+    // junction pass stamps one shared area for spawning and movement.
+    const junctionSegments = [];
     // Per-cell length of PATH geometry, in cell widths — see accumulateLineSpan.
     // Reduced to the pathCross mask below once every way has been walked.
     const pathSpan = new Float32Array(w * h);
@@ -5040,6 +5224,22 @@
             // move with the save's home latitude.
             const widthCells = roadOverlayWidthM(f.tags) / CELL_M;
             for (const line of f.geom) yield* stampCoverLineSteps(roadCover, w, h, line, widthCells, mvtToCell);
+            // A bridge, tunnel or causeway crosses another line at a different
+            // level, so it contributes a band but no ground-level junction.
+            const brunnel = f.tags?.brunnel;
+            const gradeSeparated = brunnel === 'bridge' || brunnel === 'tunnel' || brunnel === 'causeway'
+              || f.tags?.bridge === 'yes' || f.tags?.tunnel === 'yes';
+            const vehicleRoad = t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG;
+            if (vehicleRoad && !gradeSeparated) {
+              const major = t === T.ROAD_MD || t === T.ROAD_LG;
+              for (const line of f.geom) for (let si = 1; si < line.length; si++) {
+                const a = line[si - 1], b = line[si];
+                const ax = a.x * mvtToCell, ay = a.y * mvtToCell;
+                const bx = b.x * mvtToCell, by = b.y * mvtToCell;
+                if (ax === bx && ay === by) continue;
+                junctionSegments.push({ way: line, ax, ay, bx, by, width: widthCells, major });
+              }
+            }
             // The MAJOR ways (the old trade roads) stamp the same band a second
             // time into their own cover, in this same pass — the one lane
             // roadClass is resolved from (see ROAD_CLASS_MAJOR_BAND).
@@ -5610,6 +5810,7 @@
     // (ROAD_MASK_MIN_COVER). Nothing above reads roadMask; everything below does.
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
     yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h, majorBufCover);
+    yield* stampRoadJunctionsSteps(junctionSegments, roadClass, w, h);
     // QUIET LAND (QUIET_LAND): military, railway, reserve and cemetery cells
     // host nothing. Stamped here, beside the road mask, so every cull and
     // spawner below reads it (the mineralrock cleanup, the gates and boards,
@@ -6352,9 +6553,11 @@
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);
+    const topUpOpts = dressOpts({ occupied: new Set([...dressOcc, ...lampReservations]) });
     const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
-      zone, streetDress, grid, N: w, tx, ty, tileEdgeM,
-      spawnOpts: dressOpts({ occupied: new Set([...dressOcc, ...lampReservations]) }) });
+      zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
+    chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
+      grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
@@ -6561,7 +6764,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -6619,6 +6822,9 @@
       // rebuild like the zone field.
       entry.scenic = scenic || null;
       entry.scenicDress = scenicDress || null;
+      // The low-tier quota's shortfall (topUpAmbientCratesSteps): spawnInTile's
+      // X-mark top-up reads it.
+      entry.lowTierDeficit = chestTopUp?.ambient?.deficit || 0;
       // Source building polygons (tile-local metres) for building_overlay.js —
       // the polygonal counterpart of entry.layers' road linework.
       entry.buildingShapes = buildingShapes || [];
@@ -8014,6 +8220,9 @@
     let _oi = 0;
     for (const o of occupancySource) {
       if (((_oi++) & 1023) === 1023) yield 'cave entrance occupancy';
+      // An ambient crate (the low-tier quota) never moves a mine mouth: it
+      // yields its cell instead (dropped below once the mouths are placed).
+      if (o.ambientCrate) continue;
       const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
       if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
       objCells.add(liy * N + lix);
@@ -8143,6 +8352,16 @@
     // cell, deterministically, rather than leave the tile without a way down.)
     if (placed === 0) {
       if (!(caveRocks.length && placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]))) yield* placeRandomWalkable();
+    }
+    if (placedCells.length && entry.objects) {
+      const mouths = new Set(placedCells.map(([lix, liy]) => liy * N + lix));
+      // In place: callers hold this array by reference.
+      let w = 0;
+      for (const o of entry.objects) {
+        const at = o.ambientCrate ? cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N) : null;
+        if (!at || !mouths.has(at.liy * N + at.lix)) entry.objects[w++] = o;
+      }
+      entry.objects.length = w;
     }
   }
 
@@ -8709,17 +8928,17 @@
   //   caveAreas    authored grove selection, carving and garrison settings
   //   streetGems   gemstone region and ordinary deposit probabilities
   const caveAreaProfile = (weights, carveWalls, goblins, spearGoblins) => Object.freeze({
-    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern']
+    weights: Object.freeze(['spring_cave', 'goblin_warrens', 'mushroom_cavern', 'gemstone_cavern', 'dungeon_maze']
       .map((id, i) => Object.freeze({ id, weight: weights[i] }))),
     carveWalls, goblins, spearGoblins
   });
   const FLOOR_PROFILES = Object.freeze([
     Object.freeze({ depth: 1, arrivalStory: 'cave', entryKey: null,
-      pressureTraps: true, caveAreas: caveAreaProfile([35, 30, 30, 5], false, 12, false),
+      pressureTraps: true, caveAreas: caveAreaProfile([35, 30, 30, 5, 15], false, 12, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'above', streetMirror: true,
       fallLandings: false, chestSource: 'above', quarryProvenance: true, lava: false }),
     Object.freeze({ depth: 2, arrivalStory: 'dungeon_stone', entryKey: null,
-      pressureTraps: false, caveAreas: caveAreaProfile([20, 45, 25, 10], true, 16, true),
+      pressureTraps: false, caveAreas: caveAreaProfile([20, 45, 25, 10, 15], true, 16, true),
       streetGems: Object.freeze({ region: .10, ordinary: .08 }), biome: 'deep_stone', terrain: 'clearings', streetMirror: true,
       fallLandings: true, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 3, arrivalStory: 'dungeon_underdark', entryKey: null,
@@ -9161,7 +9380,7 @@
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
-    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
     ARENA_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
@@ -9210,7 +9429,8 @@
     // overlay strokes with this and rasterizeTile stamps roadMask with it, so
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
-    ROAD_CLASS_MAJOR_BUFFER, MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
+    ROAD_CLASS_MAJOR_BUFFER, ROAD_CLASS_JUNCTION_EXCLUDE, ROAD_CLASS_JUNCTION_SOFT, ROAD_CLASS_MAJOR_ROAD,
+    MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
     // instead of hand-copying the list. (The large tier needs no such export:

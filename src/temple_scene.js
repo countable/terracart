@@ -1,4 +1,4 @@
-// The upper grove is an isolated scene: surface simulation is paused until exit.
+// The upper temple is an isolated scene: surface simulation is paused until exit.
 (function (root) {
   'use strict';
   const KEY = 'grove-temple';
@@ -54,7 +54,7 @@
     this.statusText = this.add.text(0, 0, '', { fontFamily: FONT_UI_STACK, fontSize: '14px', color: '#f6e1a7', align: 'center', lineSpacing: 5 }).setOrigin(.5, 0);
     const button = (label, callback) => this.add.text(0, 0, label, { fontFamily: FONT_UI_STACK, fontSize: '15px', color: '#ffffff', backgroundColor: '#345454', padding: { x: 18, y: 12 } })
       .setOrigin(.5).setInteractive({ useHandCursor: true }).on('pointerdown', (_p, _x, _y, event) => { event?.stopPropagation(); callback(); });
-    this.exitButton = button('Return to park', () => this.leave());
+    this.exitButton = button('Return to ground', () => this.leave());
     this.retryButton = button('Retry trial', () => this.restartTrial());
     this.aim = { ...(this.source.facing || { x: 0, y: -1 }) };
     this.keys = this.input.keyboard?.addKeys('UP,DOWN,LEFT,RIGHT,Q,E,ESC');
@@ -84,11 +84,14 @@
   function restartTrial() {
     if (this.rewarded) return;
     const combat = root.Combat, save = this.source.save;
-    const foe = combat.monster('cave_slime');
+    const enemyKind = this.plan.enemyKind || 'cave_slime';
+    const elite = this.plan.kind === 'duel' && !this.plan.enemyKind;
+    const foe = combat.monster(enemyKind);
     this.state = root.TemplePuzzles.create(this.plan, {
       playerHp: Math.max(1, save.energy ?? 100),
-      enemyHp: combat.maxHp({ kind: 'cave_slime', shiny: this.plan.kind === 'duel' }),
-      enemyDamage: combat.playerDamage(foe.dmg * (this.plan.kind === 'duel' ? combat.ELITE_MUL : 1), save.armor, 1, save.mode),
+      enemyHp: combat.maxHp({ kind: enemyKind, shiny: elite }),
+      enemyDamage: combat.playerDamage(foe.dmg * (elite ? combat.ELITE_MUL : 1), save.armor, 1, save.mode),
+      enemyStepSeconds: this.plan.enemyKind ? foe.damageIntervalSeconds : 1,
       shotSpeed: combat.SHOT.bow.speedCps, shotRange: combat.SHOT.bow.rangeCells,
       shotInterval: this.plan.kind === 'ballista' ? combat.fireIntervalMs('bow') / 1000 : .01,
     });
@@ -103,6 +106,11 @@
     this.playerM = { x: this.plan.x + (next.player.x + .5) * this.cellM,
       y: this.plan.y + (next.player.y + .5) * this.cellM };
     if (next.event) this.message = next.event;
+    if (next.status === 'fallen') {
+      this.leave();
+      this.source.flash?.(next.event);
+      return;
+    }
     if (next.status === 'won' && !this.rewarded) {
       this.rewarded = true;
       root.Temples.complete(this.source, this.temple);
@@ -118,6 +126,7 @@
       const dy = dx ? 0 : k.DOWN.isDown ? 1 : k.UP.isDown ? -1 : 0;
       if (dx || dy) { this.accept(root.TemplePuzzles.move(this.state, dx, dy)); this.moveClock = .17; }
     }
+    if (this.state.status === 'fallen') return;
     if (this.source.compassDeg != null) this.aim = { ...this.source.facing };
     else if (k && (k.Q.isDown || k.E.isDown)) {
       const angle = Math.atan2(this.aim.y, this.aim.x) + dt * (k.E.isDown ? 1 : -1) * 2;
@@ -159,7 +168,10 @@
     this.th = this.tw * .5;
     this.ox = w / 2;
     this.oy = top + Math.max(165, (h - (s.size - 1) * this.tw) / 2);
-    this.title.setPosition(w / 2, top + 52).setFontSize(w < 380 ? 21 : 25).setText(TITLES[s.kind]);
+    this.title.setPosition(w / 2, top + 52).setFontSize(w < 380 ? 21 : 25).setText(this.plan.enemyKind === 'giant_reaper' ? 'The churchyard reaper' : TITLES[s.kind]);
+    this.help.setText(this.plan.enemyKind === 'giant_reaper'
+      ? 'Defeat the giant reaper. Move next to it to attack automatically. Beyond the marble is missing floor: stepping off returns you to the ground and resets the trial.'
+      : HELP[s.kind]);
     this.help.setPosition(w / 2, top + 88).setWordWrapWidth(Math.min(w - 32, 620));
     this.exitButton.setPosition(w * .31, this.visibleBottom - 34);
     this.retryButton.setPosition(w * .75, this.visibleBottom - 34).setVisible(!this.rewarded);
@@ -199,9 +211,9 @@
     if (s.center) diamond(s.center.x, s.center.y, 0x96d6d2, 2);
     for (const e of s.enemies) {
       const p = this.point(e.x, e.y, 8), r = this.tw * .3;
-      const art = root.SpriteLayout?.CREATURE_ART[s.kind === 'ballista' ? 'bee' : 'cave_slime'];
+      const art = root.SpriteLayout?.CREATURE_ART[s.kind === 'ballista' ? 'bee' : (this.plan.enemyKind || 'cave_slime')];
       const tint = e.frost > 0 ? 0x8edaf5 : e.elite ? 0xffe3a0 : (art?.tint || 0xffffff);
-      if (!actor(p.x, p.y, art?.sheet, 0, tint, this.tw * 1.15)) {
+      if (!actor(p.x, p.y, art?.sheet, art?.directions?.down?.idle?.[0] ?? 0, tint, this.tw * 1.15)) {
         g.fillStyle(tint); g.fillCircle(p.x, p.y, r);
       }
       if (e.elite) label(p.x, p.y - r - 9, '♛', '#f4d487');
@@ -224,12 +236,12 @@
       g.lineStyle(5, 0xb88850); g.lineBetween(p.x, p.y, b.x, b.y);
       g.lineStyle(1, 0x99e2ee, .65); const c = this.point(s.player.x + this.aim.x / len * 4, s.player.y + this.aim.y / len * 4, 9); g.lineBetween(b.x, b.y, c.x, c.y);
     }
-    let progress = 'Grove Nexus · Floor +1';
+    let progress = `${this.plan.enemyKind === 'giant_reaper' ? 'Old Stones' : 'Grove'} Nexus · Floor +1`;
     if (s.kind === 'tower') progress += ` · Ascent ${s.round}/3 · Health ${Math.ceil(s.player.hp)}`;
     if (s.kind === 'duel') progress += ` · Health ${Math.ceil(s.player.hp)}`;
     if (s.kind === 'path') progress += s.revealRemaining > 0 ? ` · Memorize: ${Math.ceil(s.revealRemaining)}s` : ' · Follow the hidden route';
     if (s.kind === 'ballista') progress += `\nHeart ${s.centerHp}/100 · Drones ${s.defeated}/${s.totalDrones}`;
-    if (s.status !== 'playing') progress = s.status === 'won' ? 'Trial complete · The grove’s gift is yours.\nReturn to the park when ready.' : 'Trial failed · Retry to begin again.';
+    if (s.status !== 'playing') progress = s.status === 'won' ? 'Trial complete · The temple’s gift is yours.\nReturn to the ground when ready.' : 'Trial failed · Retry to begin again.';
     this.statusText.setPosition(w / 2, this.visibleBottom - 117).setWordWrapWidth(w - 24).setText(progress);
     for (let i = labelCount; i < this.labelPool.length; i++) this.labelPool[i].setVisible(false);
     for (let i = actorCount; i < this.actorPool.length; i++) this.actorPool[i].setVisible(false);

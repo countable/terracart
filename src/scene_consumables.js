@@ -555,9 +555,9 @@ class SceneConsumables {
 
   // ── THE SAFETY CARD ──────────────────────────────────────────────────────
   // A FULL-SCREEN card, bold, dismissed only by a tap. The REMINDERS: a short
-  // one on RESUME after SAFETY_RESUME_GAP_MS in the background, and a short
-  // one at DUSK (the sun crossing SAFETY_DUSK_DAYLIGHT, once a UTC day). The
-  // long opening message is the loading screen itself (index.html #safety —
+  // one on RESUME after SAFETY_RESUME_GAP_MS in the background, one at DUSK
+  // (the sun crossing SAFETY_DUSK_DAYLIGHT), and the road warning. Each timed
+  // reminder uses its own UTC-day ledger. The long opening message is the loading screen itself (index.html #safety —
   // owner, Sep 2026: a card over the freshly loaded map got tapped away
   // unread; on the loading screen it is what there is to read). Every
   // version says the one thing the game most needs you to do: reach what is
@@ -566,7 +566,9 @@ class SceneConsumables {
   // other dialog and .game-modal keeps movement pads hidden underneath.
   _showSafetyCard(which) {
     if (window.__TEST_MODE || typeof document === 'undefined') return;
-    const card = SAFETY_CARDS[which];
+    const card = SAFETY_CARDS[which]
+      || (typeof RoadSafety !== 'undefined' && which === RoadSafety.ROAD_WARNING.card
+        ? RoadSafety.ROAD_WARNING : null);
     const host = document.getElementById('game');
     if (!card || !host) return;
     const { wrap, box, mount } = this.makeModalShell('safety-card', {

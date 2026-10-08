@@ -17,6 +17,11 @@ function material(value) {
 for (const row of data.variants) {
   if (ids.has(row.id)) fail(`duplicate id ${row.id}`);
   ids.add(row.id);
+  for (const [species, range] of Object.entries(row.attracts || {})) {
+    if (!Array.isArray(range) || range.length !== 2
+        || !range.every(n => Number.isInteger(n) && n >= 0)
+        || range[0] > range[1]) fail(`fauna count range ${row.id}/${species}`);
+  }
   if (!['grove', 'stones', 'tar', 'beach', 'quarry'].includes(row.zone)) fail(`unknown zone ${row.zone}`);
   if (!(row.weight > 0)) fail(`invalid weight ${row.id}`);
   const b = row.background;

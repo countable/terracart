@@ -812,7 +812,7 @@
         geom: [[{ x: -64, y: -64 }, { x: 4160, y: -64 }, { x: 4160, y: 4160 }, { x: -64, y: 4160 }, { x: -64, y: -64 }]] }] },
       { name: 'poi', features: [{ type: 1, tags: { class: 'school', name: 'Test School' }, geom: [[{ x: 2048, y: 2048 }]] }] },
     ], 64, 0, 0, 640);
-    const chests = r.objects.filter((o) => o.kind === 'chest');
+    const chests = r.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp);
     assert.eq(chests.length, 1, 'one booth');
     const booth = chests[0];
     assert.eq(macroFor(booth).kind, 'scholar', 'the school is the scholar\'s booth');

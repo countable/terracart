@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dragon Hood - 60×35 floor viewer</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #14181a; color: #e8e4da;
+    font: 14px/1.4 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+  #bar { position: fixed; inset: 0 0 auto 0; display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
+    padding: 10px 16px; background: #1b2124e6; border-bottom: 1px solid #3a4146; z-index: 2; }
+  #bar h1 { font-size: 14px; margin: 0 4px 0 0; letter-spacing: .04em; color: #9fb8a4; }
+  .seg { display: flex; border: 1px solid #3a4146; border-radius: 7px; overflow: hidden; }
+  .seg button { font: inherit; border: 0; background: #22292d; color: #cfc9bc; padding: 5px 11px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid #3a4146; }
+  .seg button.on { background: #4c6b4a; color: #fff; }
+  .seg button.proposed.on { background: #7a5a3a; }
+  .variant { display: flex; align-items: center; gap: 7px; }
+  .variant button { font: inherit; width: 26px; height: 26px; border-radius: 6px; border: 1px solid #3a4146;
+    background: #22292d; color: #cfc9bc; cursor: pointer; }
+  button:disabled { opacity: .45; cursor: default; }
+  .variant button:hover { border-color: #9fb8a4; }
+  .variant button.on { background: #4c6b4a; color: #fff; }
+  #variantName { min-width: 170px; color: #c9b98a; }
+  label { color: #98a09a; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+  #tag { position: fixed; top: 64px; left: 16px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
+    border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #cfc9bc; max-width: 320px; }
+  #tag b { color: #9fb8a4; }
+  #status { position: fixed; top: 64px; right: 16px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
+    border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #c9b98a; max-width: 300px; }
+  #regionLabels { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+  .region-label { position: absolute; transform: translate(-50%, -50%);
+    color: #fff; font: 600 11px/1.2 system-ui, sans-serif; white-space: pre; text-align: center;
+    text-shadow: 0 1px 2px #000, 0 2px 4px #000; }
+  .poi-label { color: #ffe4aa; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; image-rendering: pixelated; }
+</style></head>
+<body>
+<div id="bar">
+  <h1>FLOOR VIEWER · 60×35</h1>
+  <div><label>Floor</label><div class="seg" id="floorSeg"></div></div>
+  <div><label>View</label><div class="seg" id="modeSeg">
+    <button data-mode="current" class="on">Current code</button>
+    <button data-mode="proposed" class="proposed">Proposed design</button>
+  </div></div>
+  <div class="variant"><div><label>Creatures</label></div><button id="creatureToggle" class="on" style="width:auto;padding:0 10px;">shown</button></div>
+  <div class="variant"><div><label>Labels</label></div><button id="labelToggle" class="on" aria-pressed="true" style="width:auto;padding:0 10px;">shown</button></div>
+  <div class="variant"><div><label>Variant index</label></div>
+    <button id="vMinus">&minus;</button><span id="variantName">0</span><button id="vPlus">+</button>
+  </div>
+</div>
+<div id="tag"></div>
+<div id="status">Loading game modules&hellip;</div>
+<canvas id="cv"></canvas>
+<div id="regionLabels" aria-label="Map region and POI labels"></div>
+<script src="game-loader.js"></script>
+<script src="floor-viewer-region.js?v=fc016e6e"></script>
+<script src="floor-viewer-variants.js?v=86892632"></script>
+<script>
+(() => {
+  'use strict';
+  const FLOOR_NAMES = { 0: 'Surface - the town', 1: 'Floor 1 - natural caves', 2: 'Floor 2 - deep stone (city design pending)',
+    3: 'Floor 3 - the open Underdark (target: deep stone)', 4: 'Floor 4 - surface mirror (target: fungal Underdark)',
+    5: 'Floor 5 - plain mirror + lava (target: the haunted dead city)', 6: 'Floor 6 - plain mirror (target: the lava stratum)',
+    7: 'Floor 7 - plain mirror (target: dragon hunting grounds)', 8: 'Floor 8 - plain mirror (target: the roosts)' };
+  let floor = 0, mode = 'current', variantIndex = 0, showCreatures = true, showLabels = true;
+  const entries = {};   // depth -> built tile entry (real pipeline)
+  const sprites = {};   // depth -> [{o, appearance, fruit}]
+  let assets = null, building = true;
+  const variantIndices = new Map();
+  const displayDepth = () => Math.max(0, floor - (mode === 'proposed' && floor >= 3 ? 1 : 0));
+
+  const status = t => document.getElementById('status').innerHTML = t;
+  const tag = t => document.getElementById('tag').innerHTML = t;
+
+  // Rebuild from source layers so old dressing and cached cave tiles cannot
+  // survive a variant change. The real generators still own every placement.
+  async function rebuild() {
+    building = true;
+    updateControls();
+    const W = WorldGen, R = FloorViewerRegion, depth = displayDepth();
+    try {
+      await R.withNexusSizes(() => FloorViewerVariants.withSelection(depth, variantIndex, async () => {
+        for (let d = 0; d <= 8; d++) W.tileCacheFor(d).clear();
+        W.setDepth(0);
+        const built = {};
+        status('Building the surface&hellip;');
+        const layers = R.makeLayers();
+        const r = await W.runStepsSliced(() => W.rasterizeTileSteps(layers, R.N, 0, 0, R.EDGE));
+        const entry = Object.assign({ tx: 0, ty: 0, cellsPerEdge: R.N, tileEdgeM: R.EDGE, layers,
+          status: 'ready', depth: 0 }, r);
+        entry.objects = r.objects.slice();
+        await W.runStepsSliced(() => W.maybePlaceCaveEntranceSteps(entry, 0, 0, R.EDGE, r.objects, r.wildplants));
+        entry.baseGrid = entry.grid.slice(); entry.genObjects = entry.objects.slice();
+        W.stampPoiDensity(entry.objects);
+        W.tileCache.set(W.tileKey(0, 0), entry);
+        built[0] = entry;
+
+        const home = { x: R.HOME.x * W.CELL_M, y: R.HOME.y * W.CELL_M };
+        HomeArea.setOrigin(home.x, home.y);
+        const scene = Object.create(MapScene.prototype);
+        Object.assign(scene, { tileEdgeM: R.EDGE, depth: 0, save: {}, startWorldM: home,
+          _sandboxMode: true, playerM: { x: 0, y: 0 }, mPerPx: R.EDGE / W.TILE_PX,
+          originPx: { x: home.x / (R.EDGE / W.TILE_PX), y: home.y / (R.EDGE / W.TILE_PX) },
+          cellM: W.CELL_M, cellsForRow: () => R.N, cellsPerTile: R.N, cellPx: 32,
+          feetOffsetM: 0, peekM: { x: 0, y: 0 }, _popEnergy() {}, _cropRaidable: [], flash() {}, flashLoot() {} });
+        // Adopt the nearest visible house through the game’s Home rules.
+        scene.ensureStarterShopId();
+        entry.viewerSave = scene.save;
+        entry.viewerHome = entry.objects.find(o => o.id === scene.save.starterShopId);
+        status('Dressing the surface&hellip;');
+        await W.runStepsSliced(() => scene.spawnInTileSteps(entry, 0, 0));
+        for (let d = 1; d <= depth; d++) {
+          status(`Building floor ${d}&hellip;`);
+          W.setDepth(d);
+          const e = await W.loadTile.atDepth(d, 0, 0, R.lat);
+          if (e.promise) await e.promise;
+          if (e.status !== 'ready') throw new Error(`Floor ${d} did not build`);
+          Object.assign(e, { tx: 0, ty: 0 });
+          scene.depth = d;
+          scene.spawnCaveCreatures(e, 0, 0, d);
+          built[d] = e;
+        }
+        for (const key of Object.keys(entries)) { delete entries[key]; delete sprites[key]; }
+        Object.assign(entries, built);
+        for (const [d, e] of Object.entries(entries)) sprites[d] = prepareSprites(e, +d);
+      }));
+      status('Ready - pick a floor or nexus variant.');
+    } catch (e) {
+      console.error(e);
+      document.getElementById('status').textContent = 'Error: ' + e.message;
+    } finally {
+      W.setDepth(0);
+      building = false;
+      updateControls();
+      draw();
+    }
+  }
+  (async () => {
+    await loadGame();
+    status('Loading game art&hellip;');
+    assets = await loadAssets();
+    await rebuild();
+  })().catch(e => { console.error(e); document.getElementById('status').textContent = 'Error: ' + e.message; });
+
+  // ── Assets: the shipped sheets on plain canvases (map-review's loader) ───
+  let assetsPromise = null;
+  function loadAssets() {
+    if (assetsPromise) return assetsPromise;
+    assetsPromise = (async () => {
+      const entriesMap = new Map();
+      const store = {
+        exists: key => entriesMap.has(key), get: key => entriesMap.get(key),
+        remove: key => entriesMap.delete(key),
+        addImage(key, source) { return add(key, source); },
+        addSpriteSheet(key, source, spec) { return add(key, source, spec); },
+        createCanvas(key, w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return add(key, c); },
+      };
+      function add(key, source, spec) {
+        const frames = new Map();
+        const t = {
+          getSourceImage: () => source, getContext: () => source.getContext('2d'), refresh() {},
+          add(name, index, x, y, width, height) { frames.set(String(name), { x, y, width, height }); },
+          remove(name) { frames.delete(String(name)); },
+          get: name => frames.get(String(name ?? '__BASE')) || frames.get('0') || frames.get('__BASE'),
+        };
+        t.add('__BASE', 0, 0, 0, source.width, source.height);
+        if (spec) {
+          let n = 0;
+          for (let y = 0; y + spec.frameHeight <= source.height; y += spec.frameHeight)
+            for (let x = 0; x + spec.frameWidth <= source.width; x += spec.frameWidth)
+              t.add(n++, 0, x, y, spec.frameWidth, spec.frameHeight);
+        }
+        entriesMap.set(key, t); return t;
+      }
+      const scene = { textures: store, _createAnim() {}, isDragonActive: () => false };
+      const failures = [];
+      await Promise.all(Object.entries(ASSETS).map(async ([key, spec]) => {
+        if (!['image', 'spritesheet'].includes(spec.kind)) return;
+        try {
+          const img = new Image(); img.src = '../' + spec.path; await img.decode();
+          if (spec.kind === 'spritesheet') store.addSpriteSheet(key, img, spec); else store.addImage(key, img);
+          if (spec.onLoad) spec.onLoad(scene);
+        } catch (error) { failures.push(key); console.warn('asset', key, error); }
+      }));
+      try { makeTowerTexture(scene); makePotOfGoldTexture(scene); makeTrapTextures(scene); } catch (e) { console.warn(e); }
+      try {
+        for (const [type, spec] of Object.entries(BIOME_TEX)) for (let v = 0; v < spec.variants; v++) {
+          const t = store.createCanvas('biome' + type + '_' + v, 32, 32);
+          drawBiomeTexture(t.getContext(), 32, +type, v, 0);
+        }
+      } catch (e) { console.warn(e); }
+      return { textures: store, failures };
+    })();
+    return assetsPromise;
+  }
+
+  // ── Sprite appearance: the game's own resolution, on our canvas textures ──
+  function prepareSprites(entry, depth) {
+    if (!entry) return [];
+    const scene = { save: entry.viewerSave || {}, depth, textures: assets.textures, cellM: WorldGen.CELL_M };
+    const roles = new WeakMap();
+    for (const o of entry.objects || []) if (o.kind === 'house') { try { roles.set(o, Houses.displayRole(scene.save, o)); } catch (_) {} }
+    const { resolveAppearance } = Render.objectAppearance(scene, roles);
+    const edge = FloorViewerRegion.EDGE;
+    const connected = Render.connectedArtForTile(entry, 0, 0, edge, spentSets(scene, scene.save), edge / 2, edge / 2, edge / 2);
+    const out = [];
+    const push = (o, look, cat) => { if (look?.visible) out.push({ o, appearance: look, cat }); };
+    const objects = [...(entry.objects || []), ...(entry.reefCorals || []),
+      ...(entry.traps || []).map(o => ({ ...o, kind: 'trap' }))];
+    for (const o of objects) {
+      const art = connected.has(o) ? { ...o, ...connected.get(o) } : o;
+      let look;
+      try { look = o.kind === 'trap' ? { visible: true, texKey: 'trap_hidden', scl: 1, scaleYMul: 1, origin: [.5, .5], dxPx: 0, dyPx: 0 }
+        : resolveAppearance(art); } catch (_) { continue; }
+      if (look?.visible && look.texKey !== 'trap_hidden') { try { look.tint = Render.spriteTint(art, scene, look.texKey); } catch (_) {} }
+      push(o, look);
+    }
+    for (const o of entry.wildplants || []) {
+      const art = connected.has(o) ? { ...o, ...connected.get(o) } : o;
+      const spec = wildplantSprite(art), stage = Math.min(MAX_GROWTH_STAGE, o.stage ?? MAX_GROWTH_STAGE);
+      const custom = spec?.custom, spring = spec?.sheet === 'springcrops';
+      push(o, { visible: true, texKey: custom ? spec.sheet : spring ? 'springcrops' : 'crops',
+        frameVal: custom ? wildplantFrame(art) : spring ? spec.row * SPRING_CROPS_COLS + stage : (CROP_ROW[o.crop] ?? 1) * CROPS_SHEET_COLS + stage,
+        scl: spec?.scale ?? 2, scaleYMul: 1, tint: BiomeProfiles.tint(o._biome, o.crop) || 0xffffff, origin: [.5, .5], dxPx: 0, dyPx: 0 });
+    }
+    for (const o of entry.creatures || []) {
+      // NPCs have no roster row: they draw through npcAppearance (villager
+      // sheets with their own tint), exactly as map-review does. Everything
+      // else uses the roster's art (whose scale already folds in artScale).
+      let look = null;
+      try {
+        if (o.kind === 'npc') {
+          const npc = SpriteLayout.npcAppearance(o, 0);
+          look = { visible: true, texKey: npc.sheet, frameVal: npc.frame,
+            scl: SpriteLayout.creatureScale('npc', 1), scaleYMul: 1,
+            origin: [.5, SpriteLayout.creatureArt('npc').foot], dxPx: 0, dyPx: 0, tint: npc.tint };
+        } else {
+          const art2 = SpriteLayout.creatureArt(o.kind);
+          if (art2) look = { visible: true, texKey: art2.sheet, frameVal: 0,
+            // inst = 1: the viewer normalizes per-INSTANCE size variety (child
+            // roles, elites, pets) to the kind's base scale - geometry review,
+            // not population flavor. The game draws the variety via
+            // creatureInstScale; per-KIND sizes (deer vs chicken) stay real.
+            scl: SpriteLayout.creatureScale(o.kind, 1),
+            scaleYMul: 1, origin: [.5, art2.foot], dxPx: 0, dyPx: -(art2.float || 0),
+            tint: SpriteLayout.creatureTint(o.kind), alpha: SpriteLayout.creatureAlpha(o.kind) };
+        }
+      } catch (_) { continue; }
+      push(o, look, 'creature');
+    }
+    out.sort((a, b) => a.o.y - b.o.y || a.o.x - b.o.x);
+    return out;
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+  const frameCache = new WeakMap();
+  function tintedFrame(texture, frame, tint) {
+    // Frame identity includes both the sheet and crop rectangle. Stringifying
+    // textures collapsed every sheet to [object Object], repainting props as NPCs.
+    let variants = frameCache.get(frame);
+    if (!variants) frameCache.set(frame, variants = new Map());
+    tint ??= 0xffffff;
+    if (variants.has(tint)) return variants.get(tint);
+    const canvas = document.createElement('canvas'); canvas.width = frame.width; canvas.height = frame.height;
+    const g = canvas.getContext('2d'), source = texture.getSourceImage();
+    const draw = () => g.drawImage(source, frame.x, frame.y, frame.width, frame.height, 0, 0, frame.width, frame.height);
+    draw();
+    if (tint !== 0xffffff) {
+      g.globalCompositeOperation = 'multiply';
+      g.fillStyle = '#' + tint.toString(16).padStart(6, '0'); g.fillRect(0, 0, frame.width, frame.height);
+      g.globalCompositeOperation = 'destination-in'; draw();
+    }
+    variants.set(tint, canvas); return canvas;
+  }
+
+  function draw() {
+    if (!assets || building) return;
+    const W = WorldGen, R = FloorViewerRegion, T = W.T;
+    // Proposed = the shift: floor F shows the real pipeline's floor F-1 (the
+    // goblin city has no generator yet, so proposed 2 stays the current 2
+    // with a sketch note). Floor 1 is identical in both.
+    const shift = mode === 'proposed' && floor >= 3 ? 1 : 0;
+    const depth = Math.max(0, floor - shift);
+    const entry = entries[floor === 0 ? 0 : depth];
+    if (!entry) return;
+    const list = sprites[floor === 0 ? 0 : depth] || [];
+    const Wpx = cv.width = innerWidth, Hpx = cv.height = innerHeight;
+    const barBottom = document.getElementById('bar').getBoundingClientRect().bottom;
+    for (const id of ['tag', 'status']) document.getElementById(id).style.top = (barBottom + 8) + 'px';
+    const top = barBottom + 64;
+    const s = Math.max(1, Math.floor(Math.min((Wpx - 24) / R.WIDTH, (Hpx - top - 12) / R.HEIGHT)));
+    const offX = Math.floor((Wpx - R.WIDTH * s) / 2), offY = top + Math.floor((Hpx - top - R.HEIGHT * s) / 2);
+    ctx.fillStyle = '#14181a'; ctx.fillRect(0, 0, Wpx, Hpx);
+    ctx.imageSmoothingEnabled = false;
+    ctx.save(); ctx.beginPath(); ctx.rect(offX, offY, R.WIDTH * s, R.HEIGHT * s); ctx.clip();
+    // Ground: base colour + the game's baked biome texture per cell.
+    for (let y = 0; y < R.HEIGHT; y++) for (let x = 0; x < R.WIDTH; x++) {
+      const i = y * R.N + x, type = entry.grid[i];
+      const h = ((x) * 2246822519) ^ ((y) * 3266489917);
+      let color;
+      if (type === T.CAVE_FLOOR) color = '#8f8574';
+      else if (type === T.CAVE_WALL) color = '#38352f';
+      else if (type === T.CAVE_LAVA) color = '#c8501e';
+      else color = '#' + (COLORS[type] ?? 0x71845b).toString(16).padStart(6, '0');
+      ctx.fillStyle = color; ctx.fillRect(offX + x * s, offY + y * s, s + .5, s + .5);
+      const spec = BIOME_TEX[type];
+      if (spec && s >= 8 && !(type === T.CAVE_FLOOR || type === T.CAVE_WALL || type === T.CAVE_LAVA))
+        ctx.drawImage(assets.textures.get('biome' + type + '_' + (Math.abs(h) % spec.variants)).getSourceImage(),
+          offX + x * s, offY + y * s, s + .5, s + .5);
+    }
+    // Roads, at their real widths and tier colours, from the surface layer
+    // (surface view only). Stroked straight from the drawn geometry so the
+    // width tiers read plainly: primary 15 m, secondary 9 m, minor 5.5 m,
+    // footway 2 m (roadWidthM + the large-road scale).
+    if (floor === 0) {
+      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+      const roads = entry.layers.find(l => l.name === 'transportation');
+      const mvtToM = R.EDGE / (roads?.extent || 4096);
+      const TIER = { primary: '#9aa0ab', secondary: '#7c7d81', minor: '#5a5751', service: '#5a5751',
+        pedestrian: '#8b8272', track: '#a5947c', footway: '#b3a284', path: '#b3a284' };
+      for (const f of (roads?.features || [])) {
+        if (f.type !== 2 || W.isLotLane(f.tags)) continue;
+        const width = W.roadOverlayWidthM(f.tags); if (!width) continue;
+        const isPath = W.PATH_CLASSES.has(f.tags?.class);
+        if (!isPath && W.classifyLine('transportation', f.tags) == null) continue;
+        const stroke = line2D => {
+          ctx.strokeStyle = TIER[f.tags?.class] || (isPath ? '#b3a284' : '#5a5751');
+          ctx.lineWidth = Math.max(2, width / R.EDGE * (R.N * s));
+          ctx.beginPath();
+          line2D.forEach((p, i2) => {
+            const x = offX + p.x * mvtToM / R.EDGE * R.N * s, y = offY + p.y * mvtToM / R.EDGE * R.N * s;
+            ctx[i2 ? 'lineTo' : 'moveTo'](x, y);
+          });
+          ctx.stroke();
+        };
+        stroke(f.geom[0]);
+      }
+    }
+    // Sprites: the game's appearances, the game's scale rule (cell px / 32).
+    const scale = s / 32;
+    for (const { o, appearance: p, cat } of list) {
+      if (!showCreatures && cat === 'creature') continue;
+      const at = { x: offX + o.x / R.EDGE * R.N * s, y: offY + o.y / R.EDGE * R.N * s };
+      if (at.x < -40 || at.y < -40 || at.x > Wpx + 40 || at.y > Hpx + 40) continue;
+      const t = assets.textures.get(p.texKey), f = t && t.get(p.frameVal);
+      if (!f) { ctx.fillStyle = '#ffd86a'; ctx.fillRect(at.x - 1, at.y - 1, 3, 3); continue; }
+      const w = (p.displayWidth ?? f.width * p.scl) * scale, h = (p.displayHeight ?? f.height * p.scl * p.scaleYMul) * scale;
+      ctx.globalAlpha = p.alpha ?? 1;
+      ctx.drawImage(tintedFrame(t, f, p.tint), 0, 0, f.width, f.height,
+        at.x + p.dxPx * scale - w * p.origin[0], at.y + p.dyPx * scale - h * p.origin[1], w, h);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    const labelLayer = document.getElementById('regionLabels');
+    labelLayer.replaceChildren();
+    labelLayer.hidden = !showLabels;
+    if (showLabels) {
+      const areas = [...(entry.caveAreas?.areas || []), ...(entry.undergroundClearings || [])]
+        .map(area => ({ text: area.name || area.kind.replace(/_/g, ' '),
+          x: area.x / R.EDGE * R.N, y: area.y / R.EDGE * R.N }))
+        .filter(label => label.x >= 0 && label.y >= 0 && label.x < R.WIDTH && label.y < R.HEIGHT);
+      // Floors without authored areas still identify the surface geography
+      // above them, explicitly labelled so it is not mistaken for cave terrain.
+      const surfaceLabels = R.labels.map(label => {
+        if (!label.nexusKind) return label;
+        const anchors = entries[0].zone?.anchors.filter(a => a.kind === label.nexusKind) || [];
+        const names = [...new Set(anchors.map(a => {
+          const variant = ZoneVariants.byId(a.variant) || ZoneVariants.pick(a);
+          return variant?.name || variant?.id.replace(/[_-]/g, ' ');
+        }).filter(Boolean))];
+        return { ...label, text: label.text + (names.length ? '\n' + names.join(', ') : '') };
+      });
+      const home = entries[0].viewerHome;
+      if (home) surfaceLabels.push({ text: "Player’s Home", x: home.x / WorldGen.CELL_M,
+        y: home.y / WorldGen.CELL_M + 1 });
+      const labels = depth === 0 ? surfaceLabels : areas.length ? areas
+        : surfaceLabels.map(label => ({ ...label, text: 'Below ' + label.text }));
+      // Read the drawn objects, not the original map points: placement can
+      // move a POI away from buildings, and cave mirrors have their own seats.
+      const mappedPois = new Map((entries[0].objects || []).filter(o => o._poiAt).map(o => [o.id, o]));
+      const poiKinds = { place_of_worship: 'Church', fuel: 'Fuel station', shop: 'Shop', park: 'Park', beach: 'Beach' };
+      for (const { o } of list) {
+        const source = o._poiAt ? o : mappedPois.get(o.caveOf);
+        if (!source && o.kind !== 'temple') continue;
+        const name = o.kind === 'temple' ? 'Old Stones temple'
+          : source.name || source.poiName || poiKinds[source.poiClass] || source.poiClass.replace(/_/g, ' ');
+        labels.push({ text: 'POI · ' + name, x: o.x / W.CELL_M,
+          y: o.y / W.CELL_M - .9, poi: true, objectId: o.id });
+      }
+      const occupiedLabels = [];
+      for (const label of labels) {
+        if (label.x < 0 || label.y < 0 || label.x >= R.WIDTH || label.y >= R.HEIGHT) continue;
+        const el = document.createElement('span');
+        el.className = 'region-label' + (label.poi ? ' poi-label' : ''); el.textContent = label.text;
+        if (label.objectId) el.dataset.objectId = label.objectId;
+        el.style.left = (offX + label.x * s) + 'px';
+        el.style.top = (offY + label.y * s) + 'px';
+        labelLayer.appendChild(el);
+        const halfWidth = el.getBoundingClientRect().width / 2;
+        el.style.left = Math.max(halfWidth + 4, Math.min(Wpx - halfWidth - 4, offX + label.x * s)) + 'px';
+        // Keep compact POI captions legible beside region names and each other.
+        if (label.poi) for (let attempt = 0; attempt < 8; attempt++) {
+          const box = el.getBoundingClientRect();
+          if (!occupiedLabels.some(b => box.left < b.right + 3 && box.right + 3 > b.left
+              && box.top < b.bottom + 3 && box.bottom + 3 > b.top)) break;
+          el.style.top = (parseFloat(el.style.top) - 15) + 'px';
+        }
+        occupiedLabels.push(el.getBoundingClientRect());
+      }
+    }
+    const extra = mode === 'proposed' && floor === 2
+      ? '<br>Proposed floor 2 (goblin city) has no generator yet - the sketch lives in the geometry sheet.' : '';
+    const selected = FloorViewerVariants.select(depth, variantIndex);
+    const nexusNames = selected?.nexuses.map(row => `${row.kind}: ${row.label}`).join(' · ');
+    const roadKinds = { minor: 'Small roads', major: 'Major / medium roads', path: 'Paths' };
+    const roadNames = selected?.roads.map(row => `${roadKinds[row.kind]}: ${row.label}`).join(' · ');
+    const diagnostics = depth === 0 ? entry.zoneDress?.diagnostics || [] : entry.caveAreas?.diagnostics || [];
+    const placement = selected?.id ? selected.nexuses.map(row => {
+      const records = diagnostics.filter(record => (record.zoneVariant || record.variant) === row.id);
+      const placed = records.reduce((sum, record) => sum + (depth === 0 ? record.placed : Number(record.status === 'placed')), 0);
+      const reasons = [...new Set(records.filter(record => record.status === 'declined').map(record => record.reason.replace(/_/g, ' ')))];
+      return `${row.label}: ${placed}${reasons.length ? ` (${reasons.join(', ')})` : ''}`;
+    }).join(' · ') : '';
+    tag('<b>' + FLOOR_NAMES[floor] + '</b> - ' + (mode === 'current' ? 'current code' : 'proposed = the shift: floor ' + floor + ' shows the pipeline’s floor ' + depth)
+      + '<br>Nexuses: <b>' + (nexusNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
+      + '<br>Roads: <b>' + (roadNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
+      + (placement ? '<br>Placed: ' + placement : '') + extra);
+  }
+
+  // ── Controls ──────────────────────────────────────────────────────────────
+  const floorSeg = document.getElementById('floorSeg');
+  for (const f of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
+    const b = document.createElement('button'); b.textContent = f === 0 ? 'S' : String(f);
+    b.onclick = () => { floor = f; [...floorSeg.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); changeFloor(); };
+    if (f === 0) b.classList.add('on');
+    floorSeg.appendChild(b);
+  }
+  document.querySelectorAll('#modeSeg button').forEach(b => b.onclick = () => {
+    mode = b.dataset.mode;
+    document.querySelectorAll('#modeSeg button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on'); changeFloor();
+  });
+  const ct = document.getElementById('creatureToggle');
+  ct.onclick = () => { showCreatures = !showCreatures; ct.classList.toggle('on', showCreatures); ct.textContent = showCreatures ? 'shown' : 'hidden'; draw(); };
+  const lt = document.getElementById('labelToggle');
+  lt.onclick = () => {
+    showLabels = !showLabels;
+    lt.classList.toggle('on', showLabels);
+    lt.setAttribute('aria-pressed', String(showLabels));
+    lt.textContent = showLabels ? 'shown' : 'hidden';
+    draw();
+  };
+  function updateControls() {
+    document.querySelectorAll('#floorSeg button, #modeSeg button').forEach(b => { b.disabled = building; });
+    document.getElementById('creatureToggle').disabled = building;
+    document.getElementById('labelToggle').disabled = building;
+    document.getElementById('regionLabels').hidden = building || !showLabels;
+    const depth = displayDepth(), count = FloorViewerVariants.count(depth);
+    const selected = FloorViewerVariants.select(depth, variantIndex);
+    for (const id of ['vMinus', 'vPlus']) document.getElementById(id).disabled = building || count < 2;
+    document.getElementById('variantName').textContent = selected
+      ? `${variantIndex}/${count - 1} · ${selected.label}` : 'No variants on this floor';
+  }
+  function changeFloor() {
+    variantIndex = variantIndices.get(displayDepth()) || 0;
+    rebuild();
+  }
+  function stepVariant(delta) {
+    if (building) return;
+    const count = FloorViewerVariants.count(displayDepth());
+    if (count < 2) return;
+    variantIndex = (variantIndex + delta + count) % count;
+    variantIndices.set(displayDepth(), variantIndex);
+    rebuild();
+  }
+  document.getElementById('vMinus').onclick = () => stepVariant(-1);
+  document.getElementById('vPlus').onclick = () => stepVariant(1);
+  // Module loading is asynchronous; do not let controls race the initial build.
+  document.querySelectorAll('#bar button').forEach(b => { b.disabled = true; });
+  addEventListener('resize', draw);
+})();
+</script>
+</body></html>

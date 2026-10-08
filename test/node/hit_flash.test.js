@@ -28,7 +28,7 @@ test('hit flash: every drain on the body flinches at the instant it lands, with 
   assert.eq(scene.save.energy, 95);
   assert.eq(hits.join(','), '2,3', 'fractional incoming damage flashes exactly the banked pips');
   const sites = app.match(/this\._losePlayerEnergy\(/g) || [];
-  assert.eq(sites.length, 3, 'standing on a sprung trap, standing in lava, walking through thorns or spikes (the arrow lands through foeBlowLands)');
+  assert.eq(sites.length, 4, 'standing on a sprung trap, a night road, lava, or thorns and spikes (the arrow lands through foeBlowLands)');
   // Every foe's CONTACT — its melee and aura, a slime trail, a ghost's touch,
   // a hunted deer's butt, a thrown Blight — lands through the one writer in
   // creature_ai.js (foeBlowLands), which banks it through the same method.

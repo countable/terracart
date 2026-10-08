@@ -6,6 +6,16 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Giant reapers belong exclusively to the awakened Old Stones temple challenge,
+  never ambient churchyard or building encounters. Visiting the awakened temple
+  opens a seven-cell marble platform on floor +1 and pauses the surface. Its
+  reaper uses the shared roster's health, damage and attack interval; player
+  attacks use equipped gear and incoming damage uses armour mitigation.
+  The floor ends at the platform edge. Walking beyond it returns to the surface
+  without a reward; entering again starts a fresh trial. Grove temple platforms
+  share this fall behavior. Awakening remains permanent and winning grants the
+  temple gift only once, even after re-entry or reload.
+
 - Confusing mushroom gas refreshes the shared `confused` condition to five
   seconds on contact, preserving any longer confusion already active. Gas
   spreads to cardinal neighbours once per foreground second; rock, masonry and
@@ -49,6 +59,10 @@ mechanics.
   blows rather than increasing maximum energy.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
+  `RoadSafety.DRAIN_PER_SECOND` drains a surface player whose feet remain in
+  the night-time MD/LG kerb buffer. `RoadSafety.drainPips` drops a partial pip
+  on exit; app.js spends each whole pip through `_losePlayerEnergy` and the
+  shared drain roll-up.
 - A TIMED CONSUMABLE is a `CONSUMABLE_SPEC` row with `buff` (its `Buffs.KINDS`
   row) and `used` (its dialog): app.js `_useTimedBuff` is its one user,
   `Buffs.extend` its one writer (a second dose is banked on the first's end,
@@ -92,7 +106,8 @@ mechanics.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
   carried animals. Every animal and enemy has a FAVOURITE (`favouriteItems`,
   items.js: an animal's `ANIMAL_FOOD`, else an enemy's roster-tier gem from
-  `GEM_DEPOSITS`, never typed per row). Giving a wild one its favourite starts
+  `GEM_DEPOSITS`, never typed per row); the Potion of Taming is every one's
+  favourite too (`UNIVERSAL_FAVOURITE`, read in `animalLikesFood`). Giving a wild one its favourite starts
   a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes

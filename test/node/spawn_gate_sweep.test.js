@@ -118,7 +118,7 @@
     assert.truthy(/function canLay\(entry, lix, liy\)/.test(src), 'canLay exists');
     const body = src.slice(src.indexOf('function canLay('), src.indexOf('function canLay(') + 1500);
     assert.falsy(/entry\.roadMask && entry\.roadMask\[i\]/.test(body), 'no separate raw roadMask check left in canLay');
-    assert.truthy(/if \(!WG\.isSpawnCell\(entry\.grid, N, N, lix, liy, WG\.spawnOptsOf\(entry\), 'enemy'\)\) return false;/.test(body),
+    assert.truthy(/if \(!WG\.isSpawnCell\(entry\.grid, N, N, lix, liy, WG\.spawnOptsOf\(entry\), 'hazard'\)\) return false;/.test(body),
       'canLay asks isSpawnCell unconditionally (mask or no mask), through the entry\'s full options');
   });
 

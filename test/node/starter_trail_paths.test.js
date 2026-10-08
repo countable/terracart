@@ -32,12 +32,12 @@
     assert.truthy(route.every(pass));
   });
 
-  test('chest trails: live masks, opening, caching and five-path total are respected', () => {
+  test('chest trails: live masks, opening, caching and the CHEST_TRAIL_LIMIT total are respected', () => {
     const prior = [...WorldGen.tileCache];
     WorldGen.tileCache.clear();
     const N = 64, m = 7, at = (x, y) => ({ x: (x + 0.5) * m, y: (y + 0.5) * m });
     const starter = { id: 'chest_start_test', kind: 'chest', crate: true, ...at(35, 32) };
-    const others = Array.from({ length: 5 }, (_, i) => ({ id: 'treasure' + i, kind: 'chest', tierSeed: 3, ...at(30 + i, 37) }));
+    const others = Array.from({ length: HomeArea.CHEST_TRAIL_LIMIT }, (_, i) => ({ id: 'treasure' + i, kind: 'chest', tierSeed: 3, ...at(30 + i, 37) }));
     const entry = { grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS), cellsPerEdge: N, objects: [starter, ...others], spawnWhy: new Uint16Array(N * N) };
     WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
     let scans = 0;
@@ -46,7 +46,7 @@
       save: { starterCratesAt: at(32, 32), opened: [] }, _nearestStarterCrate() { scans++; return this.save.opened.includes(starter.id) ? null : starter; } };
     try {
       const paths = Starter.trailPaths(scene, 0);
-      assert.eq(paths.length, 5, 'five total, including starter');
+      assert.eq(paths.length, HomeArea.CHEST_TRAIL_LIMIT, 'the limit in total, including starter');
       assert.eq(paths[0].id, starter.id);
       assert.truthy(Starter.trailPaths(scene, 10) === paths, 'same-cell frames reuse actual routes');
       assert.eq(scans, 1);
@@ -62,6 +62,27 @@
       assert.falsy(suppressed.some(p => p.id === starter.id), 'no player route starts on suppressed ground');
       scene.depth = 1;
       assert.eq(Starter.trailPaths(scene, 1200).length, 0);
+    } finally {
+      WorldGen.tileCache.clear();
+      for (const [k, e] of prior) WorldGen.tileCache.set(k, e);
+    }
+  });
+  test('chest trails: treasure trails follow the player away from Home', () => {
+    const prior = [...WorldGen.tileCache];
+    WorldGen.tileCache.clear();
+    const N = 64, m = 7, at = (x, y) => ({ x: (x + 0.5) * m, y: (y + 0.5) * m });
+    const chest = { id: 'faraway', kind: 'chest', tierSeed: 2, ...at(40, 40) };
+    const entry = { grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS), cellsPerEdge: N, objects: [chest], spawnWhy: new Uint16Array(N * N) };
+    WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+    const scene = { depth: 0, cellM: m, cellsPerTile: N, tileEdgeM: N * m, mPerPx: N * m / WorldGen.TILE_PX,
+      originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, playerM: at(36, 36),
+      save: { starterCratesAt: at(2000, 2000), opened: [] }, _nearestStarterCrate() { throw new Error('no starter guide outside the ring'); } };
+    try {
+      const paths = Starter.trailPaths(scene, 0);
+      assert.eq(paths.map(p => p.id).join(), 'faraway', 'a T2 chest near the player, far from Home');
+      assert.truthy(HomeArea.isTrailChest(scene, chest), 'and it is a trail end for the bonus');
+      scene.playerM = at(40 + HomeArea.CHEST_TRAIL_RADIUS_CELLS + 4, 40);
+      assert.eq(Starter.trailPaths(scene, 2000).length, 0, 'out of the player\'s trail radius');
     } finally {
       WorldGen.tileCache.clear();
       for (const [k, e] of prior) WorldGen.tileCache.set(k, e);

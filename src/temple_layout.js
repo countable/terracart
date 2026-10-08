@@ -9,13 +9,21 @@
   }
   function plan(temple, cache, tileEdgeM) {
     const anchor = temple.templeAnchor, key = root.Temples.zoneKey(temple);
-    if (anchor?.kind !== 'grove' || !Number.isFinite(anchor.gx) || !Number.isFinite(anchor.gy)) return null;
+    if (!['grove', 'stones'].includes(anchor?.kind) || !Number.isFinite(anchor.gx) || !Number.isFinite(anchor.gy)) return null;
     const tx = Math.floor(anchor.gx / 4096), ty = Math.floor(anchor.gy / 4096);
     const entry = cache.get(root.WorldGen.tileKey(tx, ty));
     if (entry?.status !== 'ready' || !entry.cellsPerEdge) return null;
     const N = entry.cellsPerEdge, cellM = tileEdgeM / N;
     const cx = tx * tileEdgeM + (Math.floor((anchor.gx / 4096 - tx) * N) + .5) * cellM;
     const cy = ty * tileEdgeM + (Math.floor((anchor.gy / 4096 - ty) * N) + .5) * cellM;
+    // The church challenge is raised above its temple, with void outside the
+    // platform. Surface graves and the temple building do not block this floor.
+    if (anchor.kind === 'stones') {
+      const size = 7;
+      return { kind: 'duel', enemyKind: 'giant_reaper', size, cellM,
+        x: cx - size * cellM / 2, y: cy - size * cellM / 2,
+        seed: hash(key), zoneKey: key };
+    }
     // Inspect every underlying cell, including finer cells across a tile-row
     // seam. A missing tile cannot establish that a room is clear.
     function fits(x, y, size) {

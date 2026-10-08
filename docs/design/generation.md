@@ -26,6 +26,18 @@ access or tile lifecycle mechanics.
   floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
+  Dungeon mazes on floors 1–2 repeat the reviewed 34 × 33 braided wall mask
+  (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
+  coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
+  tile seams, routes, landmark approaches and the focus stay open; shortest
+  wall-cutting paths connect each eligible component. Protected islands are
+  never carved, and components with no existing floor access are skipped.
+  Small and thin footprints keep fewer walls rather than stretching the maze.
+  Only the focus-owning tile places its seeded Ember shrine or T3 chest; an
+  existing mirrored POI chest is replaced with the same identity. Cell-addressed
+  encounters use `EnemySpawns.caveKind` for the current floor and the ordinary
+  defeat ledger. Player mining applies afterward through the normal dug-cell
+  overlay, so returning does not restore excavated maze walls.
 
 - Zone geometry is surface-owned and level-independent: zones, anchors,
   coverage and the road mask are computed once on the surface, frozen in its
@@ -65,6 +77,18 @@ access or tile lifecycle mechanics.
   now only feeds restock days and the pots of gold. Breakable pots and
   barrels select their loot by stable appearance (`barrelProfile`), not
   density.
+- THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
+  tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
+  after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest
+  cell hash first. Its shortfall (`entry.lowTierDeficit`) also lays extra X
+  marks in proportion (scene_creatures.js `X_TOP_UP_MAX`), drawn off the cell
+  hash so the tile's rng stream never shifts. Mine mouths ignore ambient
+  crates and drop any they land on.
+- Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
+  lead to the nearest unopened T2+ surface chests within
+  `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the surface (only the
+  starter crate's guide stays inside Home's ring); the chest at a trail's end
+  rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within its depth cap.
 - A Small road's end inside the tile that meets no other vehicle way (a
   cul-de-sac) holds one tier-1 supply crate (`o.crate`, no `poiClass`, so it
   gives once): `StreetVariants.dress`, seated like an end piece, capped per
@@ -95,8 +119,10 @@ access or tile lifecycle mechanics.
 - THE SPAWN GATE is `entry.spawnWhy` (`WorldGen.stampSpawnWhySteps`, beside
   the road mask in the sliced build): per cell, the REASONS it is refused
   (`WorldGen.SPAWN_WHY` bits), never a single verdict. HARD reasons refuse
-  every spawn: TERRAIN, ROAD (the roadMask only — ≥ half the cell under the
-  band; road proximity is KERB, never hard), RESTRICTED land, QUIET land,
+  every spawn: TERRAIN, ROAD (the roadMask only - at least half the cell under
+  the band; road proximity is KERB, never hard), JUNCTION (an intersection
+  involving an MD/LG road, including the overlapping bands and a 2-cell
+  buffer), RESTRICTED land, QUIET land,
   KINDERGARTEN grounds, a SENSITIVE_SITE point, BEHIND_HOUSE, PRIVATE (a
   lot with no public frontage; OR — Sep 2026, the Voronoi rule — exterior
   COMMERCIAL / INDUSTRIAL ground whose NEAREST POI, over the tile's whole poi
@@ -107,7 +133,8 @@ access or tile lifecycle mechanics.
   `FARM_EDGE_CELLS` of other ground — the EDGE band itself carries no reason
   at all: every class may spawn there). TYPED reasons refuse only the classes
   whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: KERB
-  (fast movers only), SENSITIVE. (Sep 2026, owner's call: the typed HOUSE
+  (fast movers only), JUNCTION_SOFT (fast movers and hazards), SENSITIVE.
+  (Sep 2026, owner's call: the typed HOUSE
   reason — a 40 m house buffer on lot land — and the typed SCHOOL reason —
   school / college grounds, plus its school-hours timing — are both dropped
   entirely; KINDERGARTEN stays hard. FARM was inverted the same day: the
@@ -127,7 +154,9 @@ access or tile lifecycle mechanics.
   (`spawnWhy`, `roadMask`, `occupied`) AND its class (the source sweep in
   `test/node/spawn_class.test.js`): `minor` (flora, rocks, scenery — hard
   reasons only), `headstone`, `cave`, `fauna` / `fastFauna`, `npc`,
-  `attractor`, `enemy` / `fastEnemy`. A creature's class is DERIVED
+  `attractor`, `enemy` / `fastEnemy`, and `hazard` (surface traps). Fast
+  movers and hazards refuse JUNCTION_SOFT, the overlapping bands and 1-cell
+  buffer at a Small-road junction. A creature's class is DERIVED
   (creature_ai.js `creatureSpawnClass`: fast = top speed over
   `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
   reason bit plus its column in the table, never a separate check at a
@@ -148,7 +177,14 @@ access or tile lifecycle mechanics.
   (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
-- The road is never a refuge and never a lure. The Major-and-Medium road group carries a kerb
+- The road is never a refuge and never a lure. `roadClass` derives all safety
+  geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
+  only when that group covers at least half of it, which gives runtime warnings
+  the same threshold as `roadMask`. `ROAD_CLASS_JUNCTION_EXCLUDE` marks every
+  MD/LG-involved junction's overlap plus 2 cells: every spawn and every
+  non-allied creature refuses it. `ROAD_CLASS_JUNCTION_SOFT` marks a Small-road
+  junction plus 1 cell: fast movers and hazards refuse it. Bridge, tunnel and
+  causeway crossings do not create ground-level junctions. The Major-and-Medium road group carries a kerb
   buffer (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
   mover (foe or animal over `BRISK_WALK_MPS` — `isFastMover`; the wild
   slime's charge is under it) spawns in or enters the buffer, and a player standing in
@@ -157,8 +193,16 @@ access or tile lifecycle mechanics.
   shared with egg hatching) nothing restores, pays or taps and foes ignore the
   player via `unnoticed`. Where a species prefers to stand
   is an `attracts` column (road variant rows, `Zones.ZONE_KINDS`,
-  `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
-  spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
+  `BIOME_ATTRACTS`, scenic themes and `Streets.PATH_LAMP_ATTRACTS`) read by
+  `_seatFaunaOnFavouriteGround`. Each species declares an integer count range,
+  currently `[2, 5]`: a seeded quota draws the nearest existing positioned
+  animals by distance to actual eligible ground, with stable creature IDs
+  breaking ties. Animals already on that ground count toward the quota.
+  Each Nexus has its own quota; road families, scenic themes, walking-path
+  lamp cells and terrain codes each use their tile-wide union. Relocation
+  still respects habitat and the spawn gate, retains the original seat if no
+  eligible destination exists, and never creates or recovers missing fauna.
+  SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
   hazard joins that map, never a new movement gate. Top speeds are BASE
   numbers: ordinary wild gait, bolt, glide and flee speeds stay within
@@ -234,11 +278,15 @@ access or tile lifecycle mechanics.
   A profile's worst-block label identifies the block ending at that yield.
 
 Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
-`spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
+`road_junctions`, `spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
 `chest_tier`, `daily_crates`, `density_pois`, `spawn_class`, `guard_groups`
 (`test/node/*.test.js`).
 
 ## Spawn precedence
+
+Commercial default ground uses the shared hedge lattice for bushes and pot
+pillars. Connection tuning belongs to `HEDGE_WALL_PCT` in `worldgen.js`; it
+changes whole wall segments while preserving pillar spacing and open interiors.
 
 Higher-priority placements and their access space take precedence in this order:
 

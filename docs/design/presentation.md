@@ -11,6 +11,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   art, while the existing story ledger owns one-time delivery.
 
 - Feedback is visual; there is no vibration setting or device vibration.
+- `RoadSafety` owns the two location warnings. The first night entry into the
+  MD/LG kerb buffer shows `road:night` once per save through the story ledger.
+  Standing on a majority-covered MD/LG road cell shows the dismissable road
+  safety card once per UTC day through `safety:roadstand`. Both use the shared
+  `safety_phone` painting and direct safety copy.
 - Developer → Item cheats searches the full item catalog by name. Each tap
   grants one through the inventory path, preserving bag limits and saving it.
   Books are read after closing the picker. Switching teleport cities enables

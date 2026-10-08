@@ -448,6 +448,11 @@ class SceneCreate {
     // castle tucks behind the back wall instead of its letters poking over it.
     // (Pool populated further down, after the decoration pool.)
     this.letterContainer = this.add.container(0, 0);
+    // Night road danger is ground colour over the road and kerb buffer. It
+    // shares the letter layer so road names remain above it, while buildings,
+    // objects and the lightmap still cover it in their ordinary order.
+    this.roadSafetyGfx = this.add.graphics();
+    this.letterContainer.add(this.roadSafetyGfx);
     // POLYGONAL building footprints (building_overlay.js) — the source OSM
     // rings the rasterizer turned into building cells, filled at their true
     // shape with the tier's floor, wall and rampart. While the mode is on

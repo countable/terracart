@@ -12,6 +12,7 @@ when a file moves.
 | process/SANDBOX.md | sandbox test world manual |
 | design/glossary.md | approved terminology, distinctions and cleanup boundaries |
 | design/spec.txt | game design spec |
+| design/safety.txt | research behind road-safety zones, warnings and interaction rules |
 | design/story.txt | story bible (wins over copy in src/) |
 | design/monster-world.md | encounter design |
 | design/zone-variants.md | Nexus placement contract |

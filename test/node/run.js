@@ -127,7 +127,7 @@ const FILES = [
   // render.js reads no globals at load time (see the CANVAS_W comment in
   // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
   // The lightmap: only draw() touches Phaser, and no test calls it.
-  'lighting.js', 'obstacle_step.js',
+  'lighting.js', 'safety.js', 'obstacle_step.js',
   'render.js',
   'gas_render.js',
   // The modal shell: its methods are DOM work nobody runs here, but its top
@@ -189,6 +189,12 @@ const BRIDGE = `;Object.assign(globalThis, {
 try {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/map-review-gameplay.js'), 'utf8'), ctx,
     { filename: 'map-review-gameplay.js' });
+  // The floor viewer's fake region: loaded here so its regression test runs
+  // the same data the browser page loads.
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/floor-viewer-region.js'), 'utf8'), ctx,
+    { filename: 'floor-viewer-region.js' });
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/floor-viewer-variants.js'), 'utf8'), ctx,
+    { filename: 'floor-viewer-variants.js' });
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
     { filename: 'src-bundle.js' });
 } catch (e) {
