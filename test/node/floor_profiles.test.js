@@ -16,6 +16,22 @@
     assert.eq(WorldGen.floorProfile(5).lava, true);
   });
 
+  test('floor profiles: authored caves and pressure traps retain their shipped floors', () => {
+    for (const depth of [0, 1, 2, 3, 4, 5, 6, 8, 40]) {
+      const row = WorldGen.floorProfile(depth);
+      assert.eq(row.pressureTraps, depth === 1);
+      assert.eq(!!row.caveAreas, depth === 1 || depth === 2);
+      assert.eq(row.streetMirror, depth === 1 || depth === 2);
+    }
+    const first = WorldGen.floorProfile(1).caveAreas, second = WorldGen.floorProfile(2).caveAreas;
+    assert.eq(first.weights.map(r => r.weight).join(','), '35,30,30,5,15');
+    assert.eq(second.weights.map(r => r.weight).join(','), '20,45,25,10,15');
+    assert.eq(first.carveWalls, false);
+    assert.eq(second.carveWalls, true);
+    assert.eq(first.goblins, 12);
+    assert.eq(second.goblins, 16);
+  });
+
   test('floor profiles: depths past the table inherit the default mirror', () => {
     for (const depth of [6, 7, 8, 12, 40]) {
       const row = WorldGen.floorProfile(depth);
@@ -24,6 +40,9 @@
       assert.falsy(row.lava);
       assert.falsy(row.streetMirror);
       assert.falsy(row.fallLandings);
+      assert.falsy(row.pressureTraps);
+      assert.eq(row.caveAreas, null);
+      assert.eq(row.streetGems, null);
       assert.eq(row.chestSource, 'above');
     }
   });

@@ -56,6 +56,26 @@
     assert.eq(mass(s), 0, 'harvested source stops and outdoor gas disperses');
   }));
 
+  test('mushroom gas: one outdoor puff reaches five cells and naturally dissipates within five seconds', () => fixture(s => {
+    MushroomGas.emit(s, 8, 8);
+    const footprint = new Set(['8,8', '7,8', '9,8', '8,7', '8,9']);
+    const sizes = [];
+    for (let second = 0; second < 10; second++) {
+      for (let frame = 0; frame < 10; frame++) {
+        Conditions.tick(s.save, 100);
+        MushroomGas.tick(s, .1);
+        for (const key of MushroomGas.state(s).gas.cells.keys()) {
+          assert.truthy(footprint.has(key), 'thin gas disappears before reaching a second ring');
+        }
+      }
+      sizes.push(MushroomGas.cells(s).length);
+      if (second === 0) assert.truthy(Conditions.active(s.save, 'confused'));
+    }
+    assert.eq(sizes.slice(0, 5).join(), '5,5,5,1,0');
+    assert.eq(mass(s), 0);
+    assert.falsy(Conditions.active(s.save, 'confused'), 'single-puff confusion ends within ten seconds');
+  }));
+
   test('mushroom gas: contact refreshes five seconds without shortening stronger confusion', () => fixture(s => {
     MushroomGas.emit(s, 8, 8);
     const st = MushroomGas.state(s);

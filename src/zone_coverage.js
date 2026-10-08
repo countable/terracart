@@ -129,11 +129,74 @@
       }
     }
   }
+  // Missing park points use the source polygon's area centre. A concave
+  // outline or hole can put that centre outside: choose the nearest interior
+  // scanline interval instead, using source coordinates for stable ordering.
+  function parkCentre(rings) {
+    const box = root.WorldGen.bboxOf(rings);
+    let area = 0, sx = 0, sy = 0;
+    for (const ring of rings) {
+      let a = 0, x = 0, y = 0;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const p = ring[j], q = ring[i], cross = p.x * q.y - q.x * p.y;
+        a += cross; x += (p.x + q.x) * cross; y += (p.y + q.y) * cross;
+      }
+      if (a) {
+        const probe = ring[0], depth = rings.filter(other => other !== ring
+          && contains([other], probe.x, probe.y)).length;
+        const weight = Math.abs(a) * (depth % 2 ? -1 : 1);
+        area += weight; sx += x / (3 * a) * weight; sy += y / (3 * a) * weight;
+      }
+    }
+    const centre = { x: area ? sx / area : (box.minX + box.maxX) / 2,
+      y: area ? sy / area : (box.minY + box.maxY) / 2 };
+    const snap = point => {
+      if (!point) return null;
+      const rounded = { x: Math.round(point.x), y: Math.round(point.y) };
+      return contains(rings, rounded.x, rounded.y) ? rounded : point;
+    };
+    if (contains(rings, centre.x, centre.y)) return snap(centre);
+    const ys = [...new Set(rings.flat().map(p => p.y))].sort((a, b) => a - b);
+    let best = null, distance = Infinity;
+    for (let n = 1; n < ys.length; n++) {
+      const y = (ys[n - 1] + ys[n]) / 2, crossings = root.WorldGen.rowCrossings(rings, y);
+      for (let k = 0; k + 1 < crossings.length; k += 2) {
+        const x = (crossings[k] + crossings[k + 1]) / 2, d = (x - centre.x) ** 2 + (y - centre.y) ** 2;
+        if (d < distance) { distance = d; best = { x, y }; }
+      }
+    }
+    return snap(best);
+  }
+  function parkAnchor(park, tx, ty, N) {
+    const Z = root.Zones, V = root.ZoneVariants, point = parkCentre(park.rings);
+    if (!point) return null;
+    const clipped = park.rings.some(ring => ring.some((p, i) => {
+      const q = ring[(i + 1) % ring.length];
+      return p.x === q.x && (p.x === -64 || p.x === EXT + 64)
+        || p.y === q.y && (p.y === -64 || p.y === EXT + 64);
+    }));
+    const gx = tx * EXT + point.x, gy = ty * EXT + point.y;
+    const a = Z.resolveAnchors([{ kind: 'grove', gx, gy, lx: point.x, ly: point.y,
+      name: park.name || 'Grove', polygonAnchor: true, clipped,
+      owned: !clipped && point.x >= 0 && point.y >= 0 && point.x < EXT && point.y < EXT,
+      geographicTraits: V.geographyTraits(park.tags || {}) }], { ty, N })[0];
+    // Clipped copies cannot tell us the complete park's centre. They still
+    // share source-id appearance and a world-grid phase, but mint no finite
+    // shrine/find/guard budget until an unclipped owner footprint is known.
+    if (park.id != null) {
+      const sourceKey = fnv1a(`park-source|${park.id}`);
+      a.key = sourceKey;
+      a.character = root.BiomeProfiles.parkCharacterAt(sourceKey & 65535, sourceKey >>> 16);
+      a.variant = V.pick({ ...a, gx: sourceKey & 65535, gy: sourceKey >>> 16 }).id;
+      a.rotation = sourceKey % 4;
+    }
+    return a;
+  }
   function* buildSteps({ field, poiLayer, parks, beachLayer, waterLayer, tx, ty, N, chests, tileEdgeM, grid }) {
     const Z = root.Zones, V = root.ZoneVariants, WG = root.WorldGen;
     const all = field && field.allAnchors || Z.resolveAnchors(Z.collectAnchors(poiLayer, tx, ty), { ty, N });
-    if (!field && !all.length) return null;
-    const f = field || { anchors: [], idx: null, s: null, reach: [] };
+    if (!field && !all.length && !(parks || []).some(p => !p.cemetery && !WG.isSensitivePoi(p.tags || {}))) return null;
+    const f = field || { anchors: [], idx: null, s: null, reach: [], allAnchors: all };
     const coverage = new Uint16Array(N * N);
     if (f.idx) coverage.set(f.idx);
     const key = a => `${a.kind}|${a.gx}|${a.gy}`;
@@ -154,8 +217,8 @@
       if (a && (a.kind === 'beach' || (a.kind === 'grove' && sourceLand(i) === WG.T.SAND))) coverage[i] = 0;
     }
     const unit = EXT / N, margin = Z.FRINGE_FILL_M / (N * WG.CELL_M / EXT);
-    // Polygon evidence refines coverage, never the canonical park anchor.
-    // Companions retain the existing POI identity; geometry never mints a POI.
+    // Real park points retain their identity. An eligible unlabelled park
+    // receives a centred grove anchor from its buffered source geometry.
     const shore = new Uint8Array(N * N);
     const beaches = (beachLayer?.features || []).filter(feature =>
       feature.type === 3 && feature.geom && Z.anchorOf(feature.tags)?.kind === 'beach');
@@ -179,8 +242,12 @@
       return companions.get(key(a));
     };
     const associated = [];
-    for (const park of parks || []) {
-      if (park.cemetery) continue;
+    const orderedParks = (parks || []).slice().sort((a, b) => {
+      const x = WG.bboxOf(a.rings), y = WG.bboxOf(b.rings);
+      return x.minY - y.minY || x.minX - y.minX || x.maxY - y.maxY || x.maxX - y.maxX;
+    });
+    for (const park of orderedParks) {
+      if (park.cemetery || WG.isSensitivePoi(park.tags || {})) continue;
       const inPark = a => {
         const x = a.gx - tx * EXT, y = a.gy - ty * EXT;
         if (contains(park.rings, x, y)) return true;
@@ -205,7 +272,12 @@
       };
       const beachAnchor = sorted.find(a => a.kind === 'beach' && inPark(a));
       let a = sorted.find(a => a.kind === 'grove' && inPark(a)) || beachAnchor;
-      if (!a) continue;
+      if (!a) {
+        a = parkAnchor(park, tx, ty, N);
+        if (!a) continue;
+        a.variant = V.pick(a).id; all.push(a); sorted.push(a);
+        if (f.reach && !a.clipped) f.reach.push(a);
+      }
       const coastal = yield* adjoinsBeachSteps(park, beaches, margin);
       if (coastal) {
         if (a.kind === 'beach') {
@@ -278,6 +350,7 @@
     const chestAt = new Map((chests || []).filter(c => c.kind === 'chest' && c._poiAt).map(c => [c._poiAt, c]));
     for (const a of new Set([...all, ...f.anchors])) {
       delete a.originGX; delete a.originGY;
+      if (a.polygonAnchor && a.clipped) { a.originGX = 0; a.originGY = 0; }
       if (a.parkShore || !a.owned || !(tileEdgeM > 0) || !grid) continue;
       const chest = chestAt.get(`${a.lx},${a.ly}`);
       if (!chest) continue;
@@ -306,6 +379,10 @@
     const WG = root.WorldGen, T = WG.T, coverage = field.coverage;
     const codes = field.anchors.map(a => T[root.ZoneVariants.pick(a)?.ground] ?? root.Zones.terrainOf(a.kind));
     const zoneGround = new Set(root.Zones.zoneTerrains());
+    const W = WG.SPAWN_WHY;
+    const protectedLand = W.QUIET | W.RESTRICTED | W.KINDERGARTEN
+      | W.SENSITIVE_SITE | W.SENSITIVE | W.GOLF | W.PIER_ACCESS
+      | W.FARM_INTERIOR | W.FARMLAND;
     const under = field.under || (field.under = new Uint8Array(N * N));
     const present = under.present || (under.present = new Uint8Array(N * N));
     let painted = 0;
@@ -322,6 +399,12 @@
           continue;
         }
         if (code == null) continue;
+        // A park union cannot repaint protected source ground into public
+        // Nexus scenery. Earlier halo/fringe paint is undone from its ledger.
+        if (spawnWhy && (spawnWhy[i] & protectedLand)) {
+          if (zoneGround.has(here)) grid[i] = root.Zones.landAt(grid, under, i);
+          continue;
+        }
         if (WG.isRoadTerrain(here) || WG.isBuildingTerrain(here) || !WG.isWalkable(here) || here === T.PIER || here === T.SAND) continue;
         if (here === T.PATH) {
           const key = `${x}_${y}`;
@@ -562,5 +645,5 @@
     return result;
   }
 
-  root.ZoneCoverage = { orientBeachesSteps, buildSteps, paintSteps, quarrySteps, QUARRY_BUFFER_M };
+  root.ZoneCoverage = { parkCentre, orientBeachesSteps, buildSteps, paintSteps, quarrySteps, QUARRY_BUFFER_M };
 })(typeof window !== 'undefined' ? window : globalThis);

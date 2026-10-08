@@ -38,6 +38,8 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
+    'gas_mushroom_small:0': { fw: 16, fh: 16, minX: 3, minY: 4, maxX: 13, maxY: 15 },
+    'gas_mushroom_large:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
     'bone_cache:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 14 },
     'cave_props:0': { fw: 24, fh: 24, minX: 3, minY: 8, maxX: 24, maxY: 24 },
     'cave_props:1': { fw: 24, fh: 24, minX: 3, minY: 2, maxX: 24, maxY: 24 },

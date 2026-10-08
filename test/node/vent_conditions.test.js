@@ -5,7 +5,7 @@
     return SCENE_SRC.slice(start + 1, SCENE_SRC.indexOf('\n  }\n', start) + 4);
   }
   const methods = new Function('return ({' + [
-    '_bodyHold() {', '_stopDownedActions() {', 'startCombat(victim, opts = {}) {', '_drawWorkProgress() {',
+    '_bodyHold() {', '_stopDownedActions() {', 'startCombat(victim, opts = {}) {', '_meleeTarget(enemies, px, py) {', '_drawWorkProgress() {',
     'canThrowItem(id) {', 'readTomeFirewall() {', 'useExplosiveFlask() {',
   ].map(lift).join(',') + '});')();
   test('vent conditions: exact burn, poison and paralysis durations survive normalization and expire', () => {
@@ -82,10 +82,10 @@
   test('vent paralysis: actual ranged gate and dragon breath stop while prior shots remain intact', () => {
     const expr = SCENE_SRC.match(/const rangedArmed = ([\s\S]*?);/)[1];
     const gate = new Function('px', 'py', 'enemies', 'reachCells', 'return ' + expr);
-    const enemy = { kind: 'slime', x: 0, y: 0 };
+    const enemy = { kind: 'slime', x: 7, y: 0 };
     const oldShot = { id: 'already-flying' };
     const s = { save: { energy: 100, dragonStory: { fireBreath: true } }, cellM: 7,
-      _shots: [oldShot], isShadowActive: () => false };
+      _shots: [oldShot], isShadowActive: () => false, _meleeTarget: methods._meleeTarget };
     assert.truthy(gate.call(s, 0, 0, [enemy], () => 2));
     Conditions.apply(s.save, 'paralysis');
     assert.falsy(gate.call(s, 0, 0, [enemy], () => 2));

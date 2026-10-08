@@ -1,17 +1,17 @@
 // ─────────────────────────────────────────────────────────────────────────
-// StreetVariants — what a STREET is, and what it wears.
+// StreetVariants — street identity and Road Variants.
 //
-// A street is a NAME inside a PARISH (streetKey). Every tile can compute it
+// A street identity is a NAME inside a PARISH (streetKey). Every tile can compute it
 // from its own layers (the name comes off `transportation_name` by vertex
 // vote, nameVote/lineName) and it is the same on both sides of a seam, so
 // deterministic rolls give each eligible street ONE variant end to end.
 // Named fragments are pooled; connected unnamed fragments share a canonical
 // local key. Roads crossing a tile edge have unknown full length and use
 // compact patches, as do roads longer than 500 m. Their context stays neutral;
-// local complete roads read final zone coverage without fetching neighbours.
+// local complete roads read final Nexus coverage without fetching neighbours.
 //
-// TWO SIZES, off WorldGen.classifyLine's tiers:
-//   MAJOR — ROAD_MD + ROAD_LG (tertiary / secondary and up): the OLD TRADE
+// TWO ELIGIBILITY GROUPS, off WorldGen.classifyLine's tiers:
+//   Major-and-Medium road group (`major`) — ROAD_MD + ROAD_LG (tertiary / secondary and up): the OLD TRADE
 //           ROADS (internally still "bandit": BANDIT_STORY, banditStop). The
 //           theme is a LOOK only — its story, its torch-orange lamps and the
 //           broken wagon a third of its bus stops wear (WAGON_STOP_SHARE,
@@ -20,15 +20,15 @@
 //           onto its verge, no traps on its stretches (traps.js reads footpaths
 //           and park edges now). The stretches are still stamped
 //           (ROAD_CLASS_BANDIT_VERGE) but no spawner reads them for a foe.
-//   MINOR — ROAD with class minor/street (residential streets). Service ways
+//   Variant-eligible Small roads (`minor`) — ROAD with class minor/street (residential streets). Service ways
 //           (driveways, alleys, parking) are neither — they stay plain.
-//   Footpaths are neither.
+//   Path terrain belongs to neither group.
 //
 // THE KERB BUFFER (WorldGen.ROAD_CLASS_MAJOR_BUFFER, ~one reach radius round
-// every MAJOR band): the few foes the variants still seat — a barricade's
+// every Major-and-Medium road band): the few foes the variants still seat — a barricade's
 // goblin, a burned row's fire slime, a café hoard's giant — are seated BACK
 // beyond it (foeSeat: the nearest cell outside it, reached without crossing a
-// major band) or not at all. Never a player's reason to step toward the road.
+// Major-and-Medium road band) or not at all. Never a player's reason to step toward the road.
 //
 // THE CAFÉ HOARDS: a buried hoard (and usually its giant-goblin guard) beside
 // a coffee shop — HOARDS_PER_TILE of the tile's own café points, lowest hash
@@ -39,7 +39,7 @@
 // (variantFor) first rolls rarity, then chooses a weighted row. A
 // name word (row.words) multiplies its choice weight by NAME_NUDGE, so "Cherry
 // Lane" is likelier an orchard — the street sign foreshadows the street.
-// Separately, ROCK_STREET_SHARE of minor streets are lined with rock clusters
+// Separately, ROCK_STREET_SHARE of Variant-eligible Small roads are lined with rock clusters
 // (rocksFor — worldgen's street rock pass reads it), never a hedgerow.
 //
 // NOTHING IS STORED. A variant is a pure function of its key and mapped context; what the
@@ -49,7 +49,7 @@
 // so dressing never moves another spawner's stream.
 //
 // What this is NOT: the restoration arithmetic (streets.js), the road mask
-// (worldgen.js roadMask / roadClass — the MAJOR band and verge are stamped
+// (worldgen.js roadMask / roadClass — the Major-and-Medium road band and verge are stamped
 // there, in the same pass as the mask, and read here), nor the drawing.
 //
 // Pure: no Phaser, no DOM. Reads WorldGen / Streets / fnv1a at CALL time, so
@@ -73,10 +73,10 @@
   // Every verge piece searches OUTWARD from the band's edge, k = 1..this
   // cells, and takes the first cell that passes the shared spawn rule.
   const VERGE_MAX_CELLS = 3;
-  // A bus stop is on a MAJOR road when a major band touches a cell within
+  // A bus stop is on a MAJOR road when a Major-and-Medium road band touches a cell within
   // this many cells (Chebyshev) of its own.
   const BUS_STOP_MAJOR_CELLS = 2;
-  // Only this share of the stops on a major road wear the broken wagon; the
+  // Only this share of the stops on a road in the Major-and-Medium road group wear the broken wagon; the
   // rest stay ordinary bus-stop chests. Decided per stop off a hash of the
   // chest's own id (its POI cell — generated, the same for every player),
   // never a draw. A LOOK only: no guard (the owner, Sep 2026 — no wagon
@@ -88,12 +88,12 @@
   // giant) takes the nearest cell within this many cells of its natural spot
   // that takes an 'enemy' spawn (the spawn gate: OPEN ground — outside the
   // kerb buffer ROAD_CLASS_MAJOR_BUFFER and every other buffer) and is
-  // reached by a straight walk crossing no MAJOR band cell — so it stays on
+  // reached by a straight walk crossing no Major-and-Medium road band cell — so it stays on
   // its own side of the road. None → the foe is dropped.
   const FOE_SEAT_BACK_CELLS = 4;
 
   // ── Bandit stretches ─────────────────────────────────────────────────────
-  // The bandits do not work a major road end to end: each MAJOR street is cut
+  // The bandits do not work a road in the Major-and-Medium road group end to end: each street in the Major-and-Medium road group is cut
   // into STRETCHES and BANDIT_STRETCH_SHARE of them are theirs, stamped as
   // the roadClass bit WorldGen.ROAD_CLASS_BANDIT_VERGE. Until Sep 2026 the
   // surface traps sat on those verges; they read footpaths and park edges now
@@ -188,12 +188,12 @@
 
   // ── The rows ─────────────────────────────────────────────────────────────
   // `lampGlow` is the colour its lamps shed (lampGlowFor — light and art read
-  // the one value); `attracts` { species: [min, max] } is the FAUNA ATTRACTOR column
-  // (scene_creatures.js _seatFaunaOnFavouriteGround): a seeded small quota of
-  // the nearest existing animals moves onto this street family's eligible verge.
+  // the one value); `fauna` { species: [min, max] } supplies the local
+  // resident budget and mixture read by HabitatSpawns. Plain scenic paths
+  // have no population profile.
   // `share` is the neutral-name probability for a key of that size. Minor
   // selection stays at 40%; name nudges redistribute ordinary themes inside that
-  // fixed budget, while Golden Road remains 2% of all minor keys.
+  // fixed budget, while Golden Road remains 2% of all Variant-eligible Small road keys.
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
@@ -205,7 +205,7 @@
       // repeating mark; `emblemInk` is its colour.
       carpet: '#1f4a2c', emblem: 'crown', emblemInk: '#7b803b',
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
-      lampGlow: '#ffffff', attracts: { rabbit: [2, 5] },
+      lampGlow: '#ffffff', fauna: { rabbit: [2, 5] },
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Hedges line the road, with gaps at the garden gates. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
@@ -213,14 +213,14 @@
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
-      lampGlow: '#9be08a', attracts: { rabbit: [2, 5], butterfly: [2, 5] },
+      lampGlow: '#9be08a', fauna: { rabbit: [2, 5], butterfly: [2, 5] },
       story: 'street_overgrown', title: 'Gone to seed',
       body: 'Saplings crowd the verge beneath tall maples. You push past branches reaching into the street.',
       flash: 'The green is taking it back.' },
     { id: 'orchard', terrain: 'ORCHARD', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
       stone: { weathered: '#78604e', restored: '#ab8659' }, lampDensity: 0.5,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
-      lampGlow: '#ffa6c9', attracts: { deer: [2, 5] },
+      lampGlow: '#ffa6c9', fauna: { rabbit: [2, 5] },
       story: 'street_orchard', title: 'Orchard Lane',
       body: 'Apples hang from the old orchard trees.',
       flash: 'Old trees, still fruiting.' },
@@ -229,16 +229,16 @@
       // The diamond marks the ancient religion; hedged lanes bear the ruling crown.
       carpet: '#64517d', emblem: 'diamond', emblemInk: '#c5b4d5',
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
-      lampGlow: '#f2eee0', attracts: { crow: [2, 5] },
+      lampGlow: '#f2eee0', fauna: { crow: [2, 5] },
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
       flash: 'A waystone, worn smooth.' },
-    // Lantern Row takes Burned Row's former major-road weight. Burned Row
-    // now joins the minor pool; its overall themed-street budget stays fixed.
+    // Lantern Row takes Burned Row's former Major-and-Medium road-group weight. Burned Row
+    // now joins the Variant-eligible Small road pool; its overall themed-street budget stays fixed.
     { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal', 'destination'], size: 'major', share: 0.12, rung: 'common',
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
-      // No `attracts`: its marks lie on the major band + verge, all inside
+      // No `fauna`: its marks lie on the Major-and-Medium road band + verge, all inside
       // the kerb buffer — the road is never a lure, and the spawn gate
       // (WorldGen.isSpawnCell(…, creatureSpawnClass(kind))) keeps every fast
       // animal out of it.
@@ -272,7 +272,7 @@
     { id: 'toadstool', terrain: 'WETLAND', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#6d412c', restored: '#ad4e2e', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
-      lampGlow: '#ff8c2a', attracts: { butterfly: [2, 5] },
+      lampGlow: '#ff8c2a', fauna: { butterfly: [2, 5] },
       story: 'street_toadstool', title: 'Toadstool Lane',
       body: 'Red toadstools crowd the verge, and the air smells of damp earth. You step around their spotted caps.',
       flash: 'Toadstools. They glow at dusk.' },
@@ -286,13 +286,13 @@
     // restored (app.js _ripenStreets), the `flash` on later walks.
     { id: 'promenade', terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#92743e', restored: '#d6ad58' },
-      lampGlow: '#ffd16a', attracts: { metal_slime: [2, 5] },
+      lampGlow: '#ffd16a',
       story: 'street_scenic', title: 'The promenade',
       body: 'The path runs along the water. You listen to it lapping against the shore as you walk.',
       flash: 'The promenade. Walk it slow.' },
     { id: 'greenway', terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#4f6c49', restored: '#76966a' },
-      lampGlow: '#a8e07a', attracts: { butterfly: [2, 5] },
+      lampGlow: '#a8e07a',
       story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: "Branches hang low over the path. You duck beneath them as leaves brush your hood.",
       flash: 'A greenway. The green holds.' },
@@ -413,17 +413,17 @@
   // The OLD TRADE ROAD (internally "bandit"): every MAJOR road, variant or
   // not. Not a row of the table (it dresses nothing of its own — the wagon
   // look is loot.js chestLook's); its story is here beside the others. A LOOK
-  // and a story only: no `attracts` (the dogs no longer work major verges —
+  // and a story only: no `fauna` (the dogs no longer work Major-and-Medium road verges —
   // the owner's safety pass, Sep 2026), no foe, no trap.
   const BANDIT_STORY = {
     story: 'street_bandit', title: 'Old trade road',
     body: 'Deep wheel ruts run past the remains of broken wagons. You follow the old trade road.',
     flash: 'Old trade road. Wheel ruts.',
-    // Unthemed major road: torch orange.
+    // Unthemed road in the Major-and-Medium road group: torch orange.
     lampGlow: '#ff8c2a',
   };
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
-  // plain major cell (resolved from roadClass by the caller).
+  // plain Major-and-Medium road cell (resolved from roadClass by the caller).
   function variantByCode(code) { return STREET_VARIANTS[code - 1] || null; }
 
   // ── Names and keys ──────────────────────────────────────────────────────
@@ -499,7 +499,7 @@
   }
 
   // Preserve the original rock substrate used to derive existing caves.
-  // Surface rocks are reconciled against the final theme after zone coverage.
+  // Surface rocks are reconciled against the final theme after Nexus coverage.
   function substrateVariantFor(key, name, size) {
     let cumulative = 0;
     const roll = hash01('street|' + key);
@@ -514,7 +514,7 @@
   }
 
   const AFFINITY_SAMPLE_M = 20;
-  // Final coverage is the same ownership field as zone art and lamp tint.
+  // Final coverage is the same ownership field as Nexus art and lamp tint.
   // Eligible roads are wholly inside this tile; never consult loaded neighbours.
   // Canonical, unique segments make reversal and duplicate features immaterial.
   function* applyAffinitiesSteps(index, zone, N, mvtToM, geography = {}) {
@@ -1012,6 +1012,9 @@
   // the geometry; sample spacing or a missed loop endpoint cannot make holes.
   function* areaSteps(index, N) {
     const area = new Uint8Array(N * N);
+    const variants = new Uint8Array(N * N);
+    Object.defineProperty(area, 'variants', { value: variants });
+    const distances = new Float64Array(N * N).fill(Infinity), identities = [];
     const WG = root.WorldGen;
     if (!index || !WG || !(N > 0)) return area;
     const ext = index.extent || 4096;
@@ -1035,7 +1038,14 @@
         const r2 = radius * radius;
         for (let iy = top; iy <= bottom; iy++) for (let ix = left; ix <= right; ix++) {
           if ((++candidates & 511) === 0) yield 'street area cells';
-          if (segmentCellD2(ax, ay, bx, by, ix, iy) <= r2) area[iy * N + ix] = 1;
+          const distance = segmentCellD2(ax, ay, bx, by, ix, iy), i = iy * N + ix;
+          if (distance > r2) continue;
+          area[i] = 1;
+          const identity = String(rec.key || rec.variant);
+          if (distance < distances[i] || (distance === distances[i] && identity < identities[i])) {
+            distances[i] = distance; identities[i] = identity;
+            variants[i] = VARIANT_BY_ID[rec.variant]?.code || 0;
+          }
         }
       }
     }
@@ -1150,9 +1160,9 @@
   // For every MAJOR line piece in the tile, walk its arclength (buffer
   // included), and wherever the WAY is on a bandit stretch mark the cells
   // across the band out to its verge (halfW + BANDIT_STAMP_OUT_CELLS). A
-  // major-VERGE cell (WorldGen.ROAD_CLASS_MAJOR_VERGE) under a mark gains
+  // Major-and-Medium road verge cell (WorldGen.ROAD_CLASS_MAJOR_VERGE) under a mark gains
   // ROAD_CLASS_BANDIT_VERGE. Generation cells throughout (gM = N·CELL_M/ext),
-  // never frame metres. A generator: one yield per major line.
+  // never frame metres. A generator: one yield per Major-and-Medium road line.
   const BANDIT_STAMP_OUT_CELLS = 2;
   function* stampBanditStretchesSteps(index, roadClass, N, tx, ty) {
     const WG = root.WorldGen, S = root.Streets;
@@ -1194,12 +1204,12 @@
 
   // ── Bandit stops (the old trade road's wagons — a LOOK) ─────────────────
   // Stamp `banditStop` on the bus-stop chests within BUS_STOP_MAJOR_CELLS of
-  // a MAJOR band (roadClass bit 1) that isWagonStop picks (WAGON_STOP_SHARE).
+  // a Major-and-Medium road band (roadClass bit 1) that isWagonStop picks (WAGON_STOP_SHARE).
   // The chest itself is untouched otherwise: same id, tier, contents and
   // `opened` semantics; loot.js chestLook reads the flag to wear the wagon.
   // Its memoised look is dropped so a stop drawn before this pass re-resolves.
   // NO GUARD (the owner, Sep 2026: no wagon goblins at all — a stop is on the
-  // kerb of a major road by definition). Returns the lair candidates it adds
+  // kerb of a road in the Major-and-Medium road group by definition). Returns the lair candidates it adds
   // — always NONE now; kept an (empty) array so a caller that still iterates
   // it (scene_creatures.js spawnInTile) needs no change.
   function isWagonStop(id) { return !!id && hash01('wagon|' + id) < WAGON_STOP_SHARE; }
@@ -1228,7 +1238,7 @@
   // search order is a constant. Read at call time (worldgen.js loads after).
   const backOffsets = () => root.WorldGen.discOffsets(FOE_SEAT_BACK_CELLS);
   const hoardOffsets = () => root.WorldGen.discOffsets(HOARD_SEAT_CELLS);
-  // Does the straight walk from cell (x0, y0) to (x1, y1) touch a MAJOR band
+  // Does the straight walk from cell (x0, y0) to (x1, y1) touch a Major-and-Medium road band
   // cell? Sampled four times a cell, so a band a cell wide is never stepped
   // over. The "same side of the road" test: a seat reached without crossing
   // the band is on the side it started. The START cell is not asked: the
@@ -1249,7 +1259,7 @@
     return false;
   }
   // The first cell of `offsets` round (ix, iy) that passes `ok` and is
-  // reached without crossing a major band, or null.
+  // reached without crossing a Major-and-Medium road band, or null.
   function nearestSeat(ix, iy, N, roadClass, offsets, ok) {
     for (const o of offsets) {
       const x = ix + o.dx, y = iy + o.dy;
@@ -1303,7 +1313,7 @@
     const foeOpts = rc && !spawnOpts.roadClass ? Object.assign({}, spawnOpts, { roadClass: rc }) : spawnOpts;
     const foeOk = (ix, iy) => WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'fastEnemy');
     // Seat a foe BACK: its natural cell if it is a foe cell, else the nearest
-    // within FOE_SEAT_BACK_CELLS on the same side of any major band — or null
+    // within FOE_SEAT_BACK_CELLS on the same side of any Major-and-Medium road band — or null
     // (the foe is dropped).
     const foeSeat = (ix, iy) => nearestSeat(ix, iy, N, rc, backOffsets(), foeOk);
     const cellOfM = (m) => Math.floor(m / CELL_M);
@@ -1457,9 +1467,9 @@
         });
       }
       if (v === 'snare' && !snareSeats.has(rec.key)) {
-        // Keep the reward on a verge, but span the minor road with the traps:
+        // Keep the reward on a verge, but span the Small road with the traps:
         // the road must not form a clear bypass through the encounter.
-        // Cross-sections retain land, occupancy and major-road exclusions.
+        // Cross-sections retain land, occupancy and Major-and-Medium road exclusions.
         const length = S.lineLengthM(rec.line, gM);
         sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
@@ -1577,7 +1587,7 @@
           });
         }
         // ONE PER STREET PER TILE: the ends are pooled by street key and
-        // seated after this loop (see `streetEnds` below) — a major road cut
+        // seated after this loop (see `streetEnds` below) — a road in the Major-and-Medium road group cut
         // into many short pieces stood a barricade at every cut.
         let arr = streetEnds.get(v + '|' + rec.key);
         if (!arr) streetEnds.set(v + '|' + rec.key, arr = { v, key: rec.key, ends: [] });
@@ -1596,7 +1606,7 @@
     // and that seats (the next lowest if not). Ends are tile-owned, so no two
     // tiles seat the same street's piece at one end, and the choice is a pure
     // function of the tile's bytes. (Until Sep 2026 every piece end stood one:
-    // a major road cut into many short lines stood 220 goblins over Seattle's
+    // a road in the Major-and-Medium road group cut into many short lines stood 220 goblins over Seattle's
     // nine tiles.)
     for (const grp of streetEnds.values()) {
       yield 'street end pieces';
@@ -1635,7 +1645,7 @@
     // canonical street identity so fragments and adjacent tiles agree.
     // Hash order gives competing streets stable priority for safe seats.
     // A shrine stands back from the road on an ATTRACTOR cell, on the same
-    // side of every major band. Unsafe streets simply receive no shrine.
+    // side of every Major-and-Medium road band. Unsafe streets simply receive no shrine.
     const shrineKeys = [...shrineStreets.keys()].sort((a, b) => hash01('shrine|' + a) - hash01('shrine|' + b));
     for (const key of shrineKeys) {
       if (!streetShrineChosen(key)) continue;
@@ -1662,7 +1672,7 @@
 
     // THE CAFÉ HOARDS: the index's hoard POIs in hash order, the first
     // HOARDS_PER_TILE that seat. A hoard lies BESIDE its POI on public ground
-    // within HOARD_SEAT_CELLS, on the POI's side of any major band
+    // within HOARD_SEAT_CELLS, on the POI's side of any Major-and-Medium road band
     // (nearestSeat). A hoard is an ATTRACTOR (the spawn gate: every hard
     // reason plus the sensitive buffer — the kerb does not refuse it). GUARDED
     // when the hoard's own cell is a foe cell: a lair candidate on it
@@ -1760,8 +1770,8 @@
   }
 
   // THE LAMP'S GLOW: a street's lamps shed its variant's colour (the row's
-  // `lampGlow`), an unthemed MAJOR road the bandit road's torch orange, and
-  // anything else (a plain minor street, a service way, a footpath) null —
+  // `lampGlow`), an unthemed road in the Major-and-Medium road group the Old Trade Road's torch orange, and
+  // anything else (a plain Small road, a service way, a footpath) null —
   // the caller's default, util.js UI_LAMP_GLOW. `rec` is a street-index line
   // record ({ size, variant }) or null. One value per lamp, read by both the
   // light and the baked art.

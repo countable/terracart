@@ -35,12 +35,12 @@
 // reproduces it is `15000 / toolDurationMs` — see `dpsForDurationMs`. That is
 // the MELEE rung; everything below derives from it.
 //
-// ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (app.js) picks which
-// of sword/bow/staff auto-engages or auto-fires; the other owned weapons sit
-// inert — no auto-engage, no auto-fire — until the player switches to them
-// (the Equip button under the Relics inventory tab, or obtaining/forging a
-// MELEE NEEDS NO WEAPON: with no bow or staff equipped the hands auto-engage
-// exactly as a sword does, on the tier-0 rung (Gear.meleeActive). Only one
+// The selected ranged weapon fires outside close combat. A foe in melee
+// reach gives the selected melee weapon, or an owned sword/bare hands,
+// priority while retaining the ranged selection and its cadence. The live
+// engagement pauses ranged fire between strikes as well as during a swing.
+// MELEE NEEDS NO WEAPON: bare hands auto-engage on the tier-0 rung
+// (Gear.meleeWeapon). Only one
 // weapon is in play, so ranged slots do not split a share. SHOT_DMG_MUL is a
 // difference in KIND: the bow (an arrow) delivers its tier's full
 // melee-equivalent rate; the staff (a piercing, seeking bolt) delivers 4/15 of
@@ -299,6 +299,17 @@
   function theftSated(save, c, now = Date.now()) {
     const l = save && save.thefts;
     return !!(l && c && l.day === theftDay(now) && Array.isArray(l.ids) && l.ids.indexOf(c.id) >= 0);
+  }
+  // A damaging hit-and-run encounter spends its one raid permanently.
+  // Daily bird thefts retain their separate daily ledger and behavior.
+  function raidSpent(save, c) {
+    if (!c || !monster(c.kind)?.hitAndRun) return false;
+    return !!c._raidSpent || !!save?.enemyRaids?.includes(c.id);
+  }
+  function bankRaid(save, c) {
+    const ids = save.enemyRaids ||= [];
+    if (!ids.includes(c.id)) ids.push(c.id);
+    c._raidSpent = true;
   }
   function incomingTheft(save, c, now = Date.now()) {
     const what = save && c ? theftKind(c.kind) : null;
@@ -1621,7 +1632,7 @@
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
-    theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
+    theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft, raidSpent, bankRaid,
     MELEE_REACH_CELLS, MELEE_WEAPONS, meleeIntervalMs, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,

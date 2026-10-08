@@ -265,6 +265,51 @@ test('sandbox coverage: authored fixtures stay within their scene and tile bound
   assert.truthy(entry.objects.some(o => o._sandboxProbe === 'daily-crate' && restocks(o)));
 });
 
+test('sandbox coverage: hazard yard uses live web, vent, plate and fall records', () => {
+  const built = Sandbox.buildForTest({ cellsPerEdge: 128 });
+  const yard = Sandbox.layoutForTest.scenes.find(s => s.name === 'HAZARDS');
+  const entry = built.entry, key = WorldGen.tileKey(0, 0), previous = WorldGen.tileCache.get(key);
+  const origin = { cellIX: built.originIX + yard.lx, cellIY: built.originIY + yard.ly };
+  const scene = { depth: 0, cellM: built.cellM, cellsPerTile: 128,
+    mPerPx: entry.tileEdgeM / WorldGen.TILE_PX, originPx: { x: 0, y: 0 },
+    startWorldM: { x: 0, y: 0 },
+    save: { energy: 100 },
+    cellAt(x, y) {
+      const ix = Math.floor(x / this.cellM), iy = Math.floor(y / this.cellM);
+      return { tx: 0, ty: 0, ix, iy, cellIX: ix, cellIY: iy, loaded: true,
+        type: entry.grid[iy * 128 + ix] };
+    },
+  };
+  WorldGen.tileCache.set(key, entry);
+  try {
+    const surface = Sandbox.seedHazardState(scene, origin);
+    assert.truthy(entry.creatures.some(c => c._sandboxProbe === 'web-spider'));
+    assert.eq(surface.find(h => h._sandboxProbe === 'sinkhole').phase, 'warning');
+    assert.eq(surface.find(h => h._sandboxProbe === 'ground-web').depth, 0);
+    Sandbox.seedHazardState(scene, origin);
+    assert.eq(SpiderWebs.lists(scene).webs.length, 1, 'reset replaces the authored web');
+    scene.depth = 1;
+    entry.grid.fill(WorldGen.T.CAVE_FLOOR);
+    const litAt = Date.now();
+    const cave = Sandbox.seedHazardState(scene, origin);
+    assert.gte(Buffs.until('torch', scene.save, scene), litAt + CONSUMABLE_SPEC.torch.durationMs,
+      'cave arrival lights the normal torch for its full shared duration');
+    assert.eq(EnvironmentHazards.lists(scene).vents.length, Object.keys(EnvironmentHazards.VENTS).length);
+    assert.eq(EnvironmentHazards.lists(scene).caveins.length, 2);
+    for (const kind of ['ball', 'wall']) {
+      const trap = cave.find(h => h._sandboxProbe === 'pressure-' + kind);
+      const plate = cave.find(h => h._sandboxProbe === 'plate-' + kind);
+      assert.eq(trap.state, 'parked');
+      assert.eq(plate.trapId, trap.id);
+      assert.eq(PressureTraps.clearSegment(scene, trap, plate).x, plate.x,
+        'pressure lanes reach their plates through the shared ground gate');
+    }
+    assert.eq(SpiderWebs.lists(scene).webs.length, 0, 'surface silk does not follow into cave');
+  } finally {
+    if (previous) WorldGen.tileCache.set(key, previous); else WorldGen.tileCache.delete(key);
+  }
+});
+
 test('sandbox coverage: old stones includes an owned temple footprint for the reaper trial', () => {
   const {entry} = Sandbox.buildForTest({cellsPerEdge:128, tx:3, ty:4});
   const temple = entry.objects.find(o => o._sandboxTemple);

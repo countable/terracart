@@ -10,11 +10,11 @@ when a file moves.
 | ../README.md | setup and source map |
 | process/QC_RULES.md | art and asset checklist |
 | process/SANDBOX.md | sandbox test world manual |
-| design/glossary.md | preferred terminology, aliases and unresolved naming scopes |
+| design/glossary.md | approved terminology, distinctions and cleanup boundaries |
 | design/spec.txt | game design spec |
 | design/story.txt | story bible (wins over copy in src/) |
 | design/monster-world.md | encounter design |
-| design/zone-variants.md | zone placement contract |
+| design/zone-variants.md | Nexus placement contract |
 | design/CHEST_THEMES.md | themed loot invariants |
 | design/generation.md | world generation, saves, spawn gate, precedence |
 | design/rendering.md | projection, seating, performance, lighting, streets |
@@ -26,8 +26,8 @@ when a file moves.
 | art/ART_SOURCES.md | external art archive rules |
 | art/ASSET_INVENTORY.md | asset inventory tool guide |
 | data/zone-variants.json | implemented variant spec; tools read this path |
-| data/basic-zone-density-proposals.json | basic zone density targets |
-| data/basic-zone-signatures.json | basic zone signatures |
+| data/basic-zone-density-proposals.json | landcover density targets |
+| data/basic-zone-signatures.json | landcover signatures |
 | data/beach-zone-variants.draft.json | superseded beach snapshot (rows live in zone-variants.json); kept as preview input and art provenance |
 | data/underground-zone-variants.draft.json | underground preview tool input |
 | reports/zone-economy.md | generated report; regenerate before trusting |

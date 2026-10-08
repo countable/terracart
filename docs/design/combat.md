@@ -6,6 +6,13 @@ mechanics.
 
 ## Combat, energy and Home
 
+- A Residential Thief uses the roster's `hitAndRun` contract: after a landed
+  player blow, take up to the configured coin amount through the normal purse
+  writer, toast the amount actually taken, and record the generated enemy ID
+  in `save.enemyRaids`. It flees thereafter, including after reloads. An empty
+  purse still spends the one hit; a warded, downed or fully prevented blow
+  does not. The ordinary damage/armour path remains the only damage writer.
+
 - Giant reapers belong exclusively to the awakened Old Stones temple challenge,
   never ambient churchyard or building encounters. Visiting the awakened temple
   opens a seven-cell marble platform on floor +1 and pauses the surface. Its
@@ -17,7 +24,11 @@ mechanics.
   temple gift only once, even after re-entry or reload.
 
 - Confusing mushroom gas refreshes the shared `confused` condition to five
-  seconds on contact, preserving any longer confusion already active. Gas
+  seconds on contact, preserving any longer confusion already active. A single
+  outdoor puff carries 0.3 mass: natural diffusion and the thin-gas threshold
+  limit it to the source and four neighbours, dissipating in about five seconds
+  (at most about ten seconds of confusion from that puff). Overlapping or repeated
+  puffs can extend exposure; sources can puff again after eight seconds. Gas
   spreads to cardinal neighbours once per foreground second; rock, masonry and
   intact stronghold walls block it. Thin gas disappears only when its connected
   region reaches open terrain beyond the loaded area; sealed rooms conserve it.
@@ -30,6 +41,8 @@ mechanics.
   that fixed cell, then spreads over it. Coming closer than two cells cancels
   a pending shot. It replaces their bite and poison.
 - `SpiderWebs` owns the silk flight, cell contact and 24-hour ground lifetime.
+  Flight advances by at most 100 ms per frame, preserving its dodge window
+  after a stall; saved ground webs still expire in wall time.
   Entering a web paralyzes any body (player, enemy, pet or neighbour) for six
   seconds through the shared paralysis status. Standing there does not refresh
   the hold; leaving and entering again does. Webs are not consumed by contact.
@@ -81,6 +94,11 @@ mechanics.
 - Melee strikes resolve individually in the combat tick, using the shared scene
   cooldown and a fresh reach/allegiance check each time. They never enter the
   work queue or hold movement. Ordinary work retains priority over auto-melee.
+  A live hostile in melee reach pauses automatic fire from the selected ranged
+  weapon throughout close combat, including between swings. Close attacks use
+  the selected melee weapon, or an owned sword/bare hands while a ranged weapon
+  stays selected. Ranged fire resumes when melee reach clears; paused fire spends
+  no ammunition or energy, and already launched shots keep flying.
 - Death cancels current work without completion or refund, clears the swing and
   staff charge, and blocks new melee and ranged attacks. Revival does not resume
   the cancelled job. Already launched projectiles continue their flight.

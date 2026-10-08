@@ -6,6 +6,10 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Dungeon arrival splashes select their story ID through
+  `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
+  art, while the existing story ledger owns one-time delivery.
+
 - Feedback is visual; there is no vibration setting or device vibration.
 - Developer → Item cheats searches the full item catalog by name. Each tap
   grants one through the inventory path, preserving bag limits and saving it.

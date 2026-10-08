@@ -62,8 +62,7 @@
       enemyHpMul: 1,            // compatibility; shared HP and bounty
       enemyDmgMul: 1,           // over the surface slime's leech and every monster hit
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
-      slimeCountMul: 1,         // over BIOME_FAUNA.slime's per-tile count
-      crowCountMul: 0.5,        // over BIOME_FAUNA.crow's per-tile count — half
+      crowCountMul: 0.5,        // visibility share of generated habitat Crows
                                  // as many wild crows on easy (a quieter sky,
                                  // fewer birds casing your field)
       // ── Traps ──
@@ -116,8 +115,7 @@
       enemyHpMul: 1,            // shared enemy stats across players
       enemyDmgMul: 1,           // damage penalty belongs to the recipient
       monsterCountMul: 1,       // shared enemy population
-      slimeCountMul: 1,         // shared enemy population
-      crowCountMul: 1,          // the base 200/tile — easy is the one that's cut
+      crowCountMul: 1,          // all generated habitat Crows are visible
       trapCountMul: 25,         // hard means it — 100 read as a minefield; halved twice (Sep 2026).
                                  // Per tile it spreads 0.3..1.7x around this (Traps.tileDanger)
       trapBiteMul: 1,           // receiving-player penalty is applied after armour

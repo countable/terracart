@@ -3,7 +3,7 @@
   'use strict';
   const CONFIG = Object.freeze({ lifetimeMs: 24 * 60 * 60 * 1000,
     get paralysisMs() { return root.Conditions.DEFINITIONS.paralysis.maxDurationMs; },
-    speedCellsPerSecond: 5 });
+    speedCellsPerSecond: 5, maxStepSeconds: .1 });
   const cellKey = (depth, cellIX, cellIY) => `${depth}:${cellIX}:${cellIY}`;
   function runtime(scene) {
     if (!scene._spiderWebRuntime || scene._spiderWebRuntime.save !== scene.save) {
@@ -116,6 +116,9 @@
   }
   function tick(scene, dt, now = Date.now()) {
     if (!scene.save || !scene.startWorldM || !scene.playerM || !Number.isFinite(dt) || dt <= 0) return;
+    // Preserve the dodge window after a stalled frame, as the other ground
+    // hazards do. Saved ground-web expiry still uses the wall clock below.
+    dt = Math.min(CONFIG.maxStepSeconds, dt);
     const state = runtime(scene);
     state.shots = state.shots.filter(shot => {
       const distance = Math.hypot(shot.targetX - shot.fromX, shot.targetY - shot.fromY);

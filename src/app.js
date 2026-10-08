@@ -569,11 +569,9 @@ const TOAST_TIER = {
 // Slot draw order within each gear tab (owned slots only are rendered).
 const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
 const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
-// Only the active weapon auto-engages or auto-fires in _combatTick;
-// the others sit inert until switched to (the Equip button under the Relics
-// tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
-// Melee needs no weapon at all: bare hands auto-engage like a sword whenever
-// no ranged weapon is equipped (Gear.meleeActive).
+// The selected ranged weapon fires outside melee reach. Close combat uses
+// the selected melee weapon, or the owned sword / bare hands as a fallback.
+// This temporary pause preserves the Equip choice for when the foe retreats.
 const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
@@ -3626,9 +3624,8 @@ class MapScene extends Phaser.Scene {
     // is resolved by Combat.shotHeading, so this loop never has to know.
     // Firing is gated on an enemy being on screen — otherwise every walk
     // across town would be trailing arrows.
-    // Only the ACTIVE weapon fires (save.activeWeapon) — an owned-but-inactive
-    // bow or staff sits quiet, exactly like an owned-but-inactive sword doesn't
-    // auto-engage below.
+    // Only the selected ranged weapon fires, and close melee engagement holds
+    // that fire between swings as well as during the sword animation.
     // The staff's next bolt CHARGES by the hand between shots (_drawShots):
     // 0 → 1 over its beat, read off the same clock that fires it. Null (no
     // orb) while nothing is on screen to shoot at or the staff isn't in hand.
@@ -3638,7 +3635,8 @@ class MapScene extends Phaser.Scene {
     // The Shadow Powder is a truce, not a flank: while it hides the player,
     // the cadence holds its fire too. The else-branch re-arms, so the first
     // arrow flies the instant the shadow lifts.
-    const rangedArmed = !Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
+    const rangedArmed = !this._meleeTarget(enemies, px, py)
+      && !Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && !this.isShadowActive()
       && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
@@ -3729,7 +3727,7 @@ class MapScene extends Phaser.Scene {
           if (slot !== 'musket') this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');
         }
       }
-    } else {
+    } else if (!this._meleeTarget(enemies, px, py)) {
       // Nothing to shoot at — re-arm, so the next foe to walk on screen is shot
       // at almost immediately instead of waiting out a cadence that has been
       // ticking away in an empty street.
@@ -3805,21 +3803,10 @@ class MapScene extends Phaser.Scene {
     this._drawShots();
 
     // ── Melee: auto-engage ─────────────────────────────────────────────────
-    // With no ranged weapon in hand you never have to tap the slime that is
-    // already chewing on you: the nearest enemy IN REACH is picked up on its
-    // own. That is the sword's lane AND bare hands'. An equipped bow or staff
-    // turns it off — Gear.meleeActive — see the WEAPON_SLOTS note above.
-    if (!Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && !this._workProgress) {
-      let best = null, bestD2 = Infinity;
-      for (const c of enemies) {
-        // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
-        // swings as far as a monster bites and no further.
-        if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save))) continue;
-        const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
-        if (d2 < bestD2) { bestD2 = d2; best = c; }
-      }
-      if (best) this.startCombat(best, { auto: true });
-    }
+    // The same live target check pauses ranged fire throughout close combat,
+    // including between swings. Recheck after launched shots resolve kills.
+    const best = this._meleeTarget(enemies, px, py);
+    if (best) this.startCombat(best, { auto: true });
 
     this._drawEnemyHealth(enemies);
   }
@@ -4651,6 +4638,20 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
+  _meleeTarget(enemies, px, py) {
+    if (Combat.playerDowned(this.save.energy) || Conditions.attacksBlocked(this.save)
+        || this.isShadowActive() || this._workProgress) return null;
+    const weapon = Gear.meleeWeapon(this.save);
+    let best = null, bestD2 = Infinity;
+    for (const c of enemies) {
+      if (!Combat.isEnemy(c) || Combat.isCharmed(c) || c._surfaceInactive || this.save.caught?.includes(c.id)) continue;
+      if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, weapon)) continue;
+      const d2 = (c.x - px) ** 2 + (c.y - py) ** 2;
+      if (d2 < bestD2) { bestD2 = d2; best = c; }
+    }
+    return best;
+  }
+
   // One strike, never a work item. The scene clock survives target changes;
   // every attempt checks the live position and allegiance before spending it.
   startCombat(victim, opts = {}) {
@@ -4662,23 +4663,23 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     }
-    if (!Combat.isEnemy(victim) || !Gear.meleeActive(this.save)
+    if (!Combat.isEnemy(victim) || Combat.isCharmed(victim)
         || this.save.caught?.includes(victim.id)) return false;
     const c = victim;
     const now = performance.now();
     const { x: px, y: py } = playerWorldM(this);
-    const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
+    const weapon = Gear.meleeWeapon(this.save);
+    const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, weapon);
     if (inSwing && now >= (this._nextBlowT ?? 0)) {
       this._toolActionStory('sword');
-      this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save), isRiding(this.save)) * Combat.playerAttackIntervalMul(this.save);
-      const weapon = Gear.activeWeapon(this.save);
+      this._nextBlowT = now + Combat.meleeIntervalMs(weapon, isRiding(this.save)) * Combat.playerAttackIntervalMul(this.save);
       const equipped = this.save.relics?.[weapon];
       const dx = c.x - px, dy = c.y - py;
       const d = Math.hypot(dx, dy);
       this._swing = { startT: now, dir: d ? { x: dx / d, y: dy / d } : { x: 0, y: 1 },
         weapon: equipped ? weapon : 'sword', reachCells: Combat.meleeReachM(1, weapon),
         texture: equipped ? this._toolTexture(weapon, equipped.tier) : null };
-      const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
+      const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, weapon, isRiding(this.save))
         + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
       if (this._damageEnemy(c, blow)) return true;
       // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
@@ -6540,7 +6541,7 @@ class MapScene extends Phaser.Scene {
     const source = stair.elevator ? 'elevator' : stair.descentSource || 'stairs';
     const caveFall = !!options.fall;
     if (!caveFall && !DungeonProgression.canUseDescent(this.save, this.depth || 0, target, source)) {
-      const message = target >= 5 ? 'Complete five arena trials to unlock the fifth depth.' : 'Use a rope or repair the elevator to go deeper.';
+      const message = WorldGen.floorProfile(target).entryKey ? 'Complete five arena trials to unlock the fifth depth.' : 'Use a rope or repair the elevator to go deeper.';
       if (this.flashAtPlayer) this.flashAtPlayer(message); else this.flash?.(message);
       return false;
     }
@@ -6583,9 +6584,10 @@ class MapScene extends Phaser.Scene {
     // down (stairs, rope, the sapphire portal) comes through here, and a busy
     // screen returns false unmarked (the story ledger), so the next descent
     // asks again.
-    if (delta > 0 && !caveFall && target === 2) {
+    const arrivalStory = WorldGen.floorProfile(target).arrivalStory;
+    if (delta > 0 && !caveFall && arrivalStory === 'dungeon_stone') {
       this._storySplashOnce('dungeon_stone', { art: 'progression_elevator', title: 'Beneath the roots', body: 'Your pick strikes solid stone. Dwarven lamps and pale groves glimmer beyond the passages you dig.' });
-    } else if (delta > 0 && target === 3) {
+    } else if (delta > 0 && arrivalStory === 'dungeon_underdark') {
       this._storySplashOnce('dungeon_underdark', { art: 'progression_portal', title: 'The Underdark', body: 'The walls fall away into a barren cavern. Your footsteps carry across the open waste.' });
     } else if (delta > 0 && !caveFall) {
       this._storySplashOnce('cave', {

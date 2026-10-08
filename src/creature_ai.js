@@ -461,7 +461,7 @@ function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).t
 // never reaches them either (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
 // A churchyard's headstone can still raise a ghost when TAPPED (raiseGhostAt);
-// the night itself is the same everywhere.
+// ambient haunting is declared by the owning habitat profile.
 // Is this a time and place ghosts rise? One predicate the pump reads: the
 // surface after dark, or a haunted cave level at any hour.
 function ghostsHaunt(depth, day, habitat) {
@@ -531,7 +531,17 @@ function ghostSurfaceEligible(scene, x, y, cell) {
   if (!home || !Number.isFinite(home.x) || !Number.isFinite(home.y)) return false;
   const distance = Math.hypot(x - home.x, y - home.y);
   if (distance < habitat.minDistance || (habitat.maxDistance != null && distance >= habitat.maxDistance)) return false;
-  return habitat.biomes.some(name => WorldGen.T[name] === cell.type);
+  const tx = Math.floor(x / scene.tileEdgeM), ty = Math.floor(y / scene.tileEdgeM);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+  let profile;
+  if (entry?.cellsPerEdge && (entry.baseGrid || entry.grid)) {
+    const cm = scene.tileEdgeM / entry.cellsPerEdge;
+    const cx = Math.floor((x - tx * scene.tileEdgeM) / cm);
+    const cy = Math.floor((y - ty * scene.tileEdgeM) / cm);
+    profile = HabitatSpawns.resolve(entry, cy * entry.cellsPerEdge + cx)?.profile;
+    if (!CreatureSpawns.gateAt(scene, x, y, 'ghost')) return false;
+  } else profile = HabitatSpawns.landProfile(cell.type);
+  return !!profile?.haunting;
 }
 // THE NIGHT PUMP — seats a group of ghosts in the dark about the player, once
 // every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, a
@@ -540,6 +550,22 @@ function ghostSurfaceEligible(scene, x, y, cell) {
 // or the stairs down to a haunted level — never at once.
 // `wardPts` / `wardR2` are wanderCreatures' Home + claimed-castle wards: a
 // ghost never rises inside a ring that would only rout it.
+// Triggered encounters share frequency and placement with habitat spawns;
+// their trigger, identity and behavior remain owned by these event handlers.
+const CreatureSpawnEvents = {
+  ghost(depth) {
+    const profile = EnemyRoster.ghostProfile(depth);
+    return { id: 'ghost_pump', source: 'event', kind: 'ghost',
+      frequency: { unit: 'event', count: [profile.groupMin, profile.groupMax] } };
+  },
+  headstone: { id: 'headstone_ghost', source: 'event', kind: 'ghost', frequency: { unit: 'event', count: 1 } },
+  fishedSlime: { id: 'fished_slime', source: 'event', kind: 'slime', frequency: { unit: 'event', count: 1 } },
+  nest: { id: 'nest_bush', source: 'event', frequency: { unit: 'event', count: 1 } },
+  hive() { return { id: 'hive_bees', source: 'event', kind: 'bee', frequency: { unit: 'event', count: WorldGen.HIVE_SPEC.bees } }; },
+  summon(ability) { return { id: 'enemy_summon_slots', source: 'event', kind: ability.kind,
+    frequency: { unit: 'event', count: ability.maxMinions } }; },
+};
+globalThis.CreatureSpawnEvents = CreatureSpawnEvents;
 function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {
   const depth = scene.depth || 0;
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
@@ -568,7 +594,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   });
   const profile = EnemyRoster.ghostProfile(depth);
   const want = Math.min(profile.nearMax - near,
-    profile.groupMin + Math.floor(Math.random() * (profile.groupMax - profile.groupMin + 1)));
+    CreatureSpawns.frequencyCount(CreatureSpawnEvents.ghost(depth).frequency, Math.random));
   const R = PEST_SPAWN_CELLS * scene.cellM;
   const base = Math.random() * Math.PI * 2;
   let made = 0;
@@ -583,8 +609,8 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
       const tile = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
       if (habitatAt(tile, tx, ty, x, y) !== 'crypt') continue;
     }
-    // A ghost is a FAST foe: never risen in a major road's kerb buffer.
-    if (inKerbAt(scene, x, y)) continue;
+    // The shared gate includes the ghost's fast suppression on every floor.
+    if (!CreatureSpawns.gateAt(scene, x, y, 'ghost')) continue;
     if (wardTrip({ x, y }, homePos, castleWards, wardR2)) continue;
     if (Lighting.brightnessAt(scene, x, y) > GHOST_SPAWN_DARK) continue;
     const ghost = makeGhost(x, y, now, pcW.tx, pcW.ty, made);
@@ -614,8 +640,9 @@ function raiseGhostAt(scene, x, y, now, tag) {
   const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
   if (!entry || !entry.creatures) return null;
-  // Never in a major road's kerb buffer (a ghost is a fast foe — see THE KERB).
-  if (inKerbAt(scene, x, y)) return null;
+  // The authored headstone/plate owns this occupied cell; geographical
+  // exclusions and the ghost's fast suppression still apply.
+  if (!CreatureSpawns.gateAt(scene, x, y, 'ghost', { occupied: null })) return null;
   const caught = new Set((scene.save && scene.save.caught) || []);
   let near = 0;
   WorldGen.forEachItemNear('creatures', tx, ty, (c) => {
@@ -623,9 +650,12 @@ function raiseGhostAt(scene, x, y, now, tag) {
   });
   const nearMax = EnemyRoster.ghostProfile(scene.depth || 0)?.nearMax ?? 0;
   if (near >= nearMax) return null;
-  const g = makeGhost(x, y, now, tx, ty, tag);
-  entry.creatures.push(g);
-  return g;
+  const generated = WorldGen.runSteps(CreatureSpawns.generateSteps(CreatureSpawnEvents.headstone, {
+    member: () => ({ kind: 'ghost' }), seat: () => ({ x, y }),
+    create: () => makeGhost(x, y, now, tx, ty, tag),
+    onPlaced: ghost => entry.creatures.push(ghost),
+  }));
+  return generated[0] || null;
 }
 // ── THE FISHED SLIME ─────────────────────────────────────────────────────────
 // Now and then a cast hooks a wild slime instead of a fish (items.js
@@ -646,16 +676,16 @@ function raiseGhostAt(scene, x, y, now, tag) {
 function fishedSlimeSpawn(scene, now, px, py, pcW) {
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
   if (!entry || !entry.creatures) return null;
-  const seat = ringSeat(px, py, scene.cellM, Math.floor(Math.random() * 8) * Math.PI / 4, (x, y) => {
-    const cell = scene.cellAt(x, y);
-    return cell.loaded && WorldGen.isWalkable(cell.type);
-  });
-  if (!seat) return null;
-  const c = WorldGen.makeCreature('slime', seat.x, seat.y,
-    `fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
-    { _lastDamagedT: Date.now() });
-  entry.creatures.push(c);
-  return c;
+  const generated = WorldGen.runSteps(CreatureSpawns.generateSteps(CreatureSpawnEvents.fishedSlime, {
+    member: () => ({ kind: 'slime' }),
+    seat: () => ringSeat(px, py, scene.cellM, Math.floor(Math.random() * 8) * Math.PI / 4,
+      (x, y) => CreatureSpawns.gateAt(scene, x, y, 'slime')),
+    create: (member, seat) => WorldGen.makeCreature('slime', seat.x, seat.y,
+      `fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
+      { _lastDamagedT: Date.now() }),
+    onPlaced: slime => entry.creatures.push(slime),
+  }));
+  return generated[0] || null;
 }
 // THE RING SEAT: the first of the eight compass points `r` metres about
 // (cx, cy), from angle `base` clockwise, that `ok(x, y)` takes — the fished
@@ -726,7 +756,8 @@ function walkableDestination(scene, px, py, dist, opts) {
       if (!(N > 0)) continue;
       const cm = edge / N;
       const ix = Math.floor((wx - tx * edge) / cm), iy = Math.floor((wy - ty * edge) / cm);
-      if (!WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts, cls)) continue;
+      if (o.kind ? !CreatureSpawns.gateAt(scene, wx, wy, o.kind)
+        : !WorldGen.isSpawnCell(entry.grid, N, N, ix, iy, entry._spawnOpts, cls)) continue;
       if (WorldGen.privateVetoAt(tx, ty, ix, iy)) continue;
       const x = tx * edge + (ix + 0.5) * cm, y = ty * edge + (iy + 0.5) * cm;
       if (!sameSideAs(scene, x, y, px, py)) continue;
@@ -739,21 +770,29 @@ function walkableDestination(scene, px, py, dist, opts) {
 // A harvested shaking bush releases an ordinary creature beside its old seat.
 // Placement uses the existing deterministic spawn/road/private-ground gate.
 function spawnNestBushCreature(scene, bush, type) {
-  const terrain = scene.cellAt(bush.x, bush.y).type;
-  const fauna = Object.keys(BIOME_FAUNA).filter(kind => !Combat.isEnemyKind(kind));
-  const primary = fauna.filter(kind => BIOME_FAUNA[kind].primary.includes(terrain));
-  const pool = primary.length ? primary : fauna.filter(kind => BIOME_FAUNA[kind].fallback.includes(terrain));
-  const kind = type === 'slime' ? 'slime' : pool[fnv1a(`${bush.id}|nest-fauna`) % pool.length];
+  const habitatAt = (x, y) => {
+    const tx = Math.floor(x / scene.tileEdgeM), ty = Math.floor(y / scene.tileEdgeM);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry?.cellsPerEdge) return null;
+    const cm = scene.tileEdgeM / entry.cellsPerEdge;
+    const cx = Math.floor((x - tx * scene.tileEdgeM) / cm);
+    const cy = Math.floor((y - ty * scene.tileEdgeM) / cm);
+    return HabitatSpawns.resolve(entry, cy * entry.cellsPerEdge + cx);
+  };
+  const habitat = habitatAt(bush.x, bush.y);
+  const kind = type === 'slime' ? 'slime' : HabitatSpawns.pickFauna(habitat?.profile, `${bush.id}|nest-fauna`);
   if (!kind) return null;
   const id = `nest_${bush.id}`;
   if ((scene.save.caught || []).includes(id)) return null;
   const enemy = Combat.isEnemyKind(kind);
   const home = scene.homeWorldPos?.(), castles = scene._castleWardPoints?.() || [];
   const point = walkableDestination(scene, bush.x, bush.y, 1, {
-    seed: id, cls: creatureSpawnClass(kind),
+    seed: id, kind, cls: creatureSpawnClass(kind),
     accept(x, y) {
       const t = scene.cellAt(x, y).type;
-      if (!enemy) return BIOME_FAUNA[kind].primary.includes(t) || BIOME_FAUNA[kind].fallback.includes(t);
+      const targetHabitat = habitatAt(x, y);
+      if (habitat && targetHabitat?.key !== habitat.key) return false;
+      if (!enemy) return HabitatSpawns.allows(kind, t, habitat?.profile);
       const tx = Math.floor(x / scene.tileEdgeM), ty = Math.floor(y / scene.tileEdgeM);
       const n = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty)).cellsPerEdge;
       const cm = scene.tileEdgeM / n;
@@ -767,10 +806,13 @@ function spawnNestBushCreature(scene, bush, type) {
   if (!point) return null;
   const creatures = point.entry.creatures || (point.entry.creatures = []);
   if (creatures.some(c => c.id === id)) return null;
-  const creature = WorldGen.makeCreature(kind, point.x, point.y, id, { shiny: false,
-    ...(enemy ? { _surfaceSpawn: { x: point.x, y: point.y, tx: point.tx, ty: point.ty, cx: point.ix, cy: point.iy } } : {}) });
-  creatures.push(creature);
-  return creature;
+  const generated = WorldGen.runSteps(CreatureSpawns.generateSteps(CreatureSpawnEvents.nest, {
+    member: () => ({ kind, id }), seat: () => point,
+    create: () => WorldGen.makeCreature(kind, point.x, point.y, id, { shiny: false,
+      ...(enemy ? { _surfaceSpawn: { x: point.x, y: point.y, tx: point.tx, ty: point.ty, cx: point.ix, cy: point.iy } } : {}) }),
+    onPlaced: creature => creatures.push(creature),
+  }));
+  return generated[0] || null;
 }
 
 // A hive's daily defenders use ordinary enemy seating and combat. Plan the
@@ -778,10 +820,11 @@ function spawnNestBushCreature(scene, bush, type) {
 function planHiveBees(scene, hive) {
   const out = [], seats = new Set();
   const day = utcDayKey();
-  for (let i = 0; i < WorldGen.HIVE_SPEC.bees; i++) {
+  const count = CreatureSpawns.frequencyCount(CreatureSpawnEvents.hive().frequency, Math.random);
+  for (let i = 0; i < count; i++) {
     const id = `hivebee_${hive.id}_${day}_${i}`;
     const point = walkableDestination(scene, hive.x, hive.y, 1, {
-      seed: id, cls: creatureSpawnClass('bee'),
+      seed: id, kind: 'bee', cls: creatureSpawnClass('bee'),
       accept(x, y) {
         return !seats.has(`${x},${y}`) && !(x === hive.x && y === hive.y);
       },
@@ -1212,6 +1255,13 @@ function foeBlowLands(scene, c, raw, { condition = null, mitigated = false } = {
   const lost = scene._losePlayerEnergy(dmg, { closeShop: true });
   scene._bankDrain?.('monsters', -lost, { label: '⚔️ monsters' });
   if (lost > 0 && typeof Pirates !== 'undefined') Pirates.onHit(scene, c);
+  const raid = c && Combat.monster(c.kind)?.hitAndRun;
+  if (lost > 0 && raid && !Combat.raidSpent(scene.save, c)) {
+    Combat.bankRaid(scene.save, c);
+    const taken = scene._losePlayerCoins(raid.coins, null);
+    scene._toast?.(`${Combat.monster(c.kind).name} stole ${taken} coins!`, { tier: 'note' });
+    if (typeof persistSave === 'function') persistSave(scene.save);
+  }
   if (lost > 0 && condition) scene._applyCondition(condition);
   return lost;
 }
@@ -1247,7 +1297,16 @@ function creatureStepRefused(scene, c, x, y, { row = null, retreating = false, e
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, x, y);
     if (scene.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) return true;
   }
-  if (cell.loaded && row?.movement.pattern !== 'orbit_swoop' && !ownFloor && Combat.faunaBlocksCell(cell.type)) return true;
+  if (row?.movement.waterOnly) {
+    if (cell.type !== WorldGen.T.WATER) return true;
+    if (row.movement.shoreOnly) {
+      const typeAt = (cx, cy) => {
+        const neighbour = scene.cellAt(x + cx * scene.cellM, y + cy * scene.cellM);
+        return neighbour.loaded ? neighbour.type : null;
+      };
+      if (!EnemyHabitats.shoreWater(typeAt, 0, 0)) return true;
+    }
+  } else if (cell.loaded && row?.movement.pattern !== 'orbit_swoop' && !ownFloor && Combat.faunaBlocksCell(cell.type)) return true;
   if (!Combat.isAlly(c)) {
     const road = roadClassBitsAt(scene, x, y);
     if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return true;
@@ -1400,7 +1459,8 @@ function enemySummon(scene, c, ability) {
   const caught = new Set(scene.save.caught || []);
   const existing = new Set();
   WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, other => existing.add(other.id));
-  for (let slot = 0; slot < ability.maxMinions; slot++) {
+  const slots = CreatureSpawns.frequencyCount(CreatureSpawnEvents.summon(ability).frequency, Math.random);
+  for (let slot = 0; slot < slots; slot++) {
     const id = `${c.id}_summon_${slot}`;
     if (caught.has(id) || existing.has(id)) continue;
     let destination = null;
@@ -1408,10 +1468,9 @@ function enemySummon(scene, c, ability) {
       const cell = worldMetersToTileCell(scene, x, y);
       destination = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
       if (!destination?.creatures || !enemyCanStep(scene, c, row, x, y)) return false;
-      const n = destination.cellsPerEdge;
       const grid = destination.baseGrid || destination.grid;
       const opts = destination._spawnOpts;
-      if (!grid || !opts || !WorldGen.isSpawnCell(grid, n, n, cell.ix, cell.iy, opts, creatureSpawnClass(kind))) return false;
+      if (!grid || !opts || !CreatureSpawns.gateAt(scene, x, y, kind)) return false;
       return !destination.creatures.some(other => !caught.has(other.id)
           && Math.hypot(other.x - x, other.y - y) < scene.cellM * 0.7);
     });
@@ -1542,7 +1601,7 @@ function creatureMeleeSwing(c, targetX, targetY, reachCells) {
 }
 
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
-  if (Combat.isPacified(c) || Combat.isPacified(creatureTarget)) return;
+  if (Combat.raidSpent(scene.save, c) || Combat.isPacified(c) || Combat.isPacified(creatureTarget)) return;
   if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || Combat.isParalyzed(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
   if (creatureTarget && (Combat.isConcealed(creatureTarget)
       || Combat.isCharmed(c) === Combat.isCharmed(creatureTarget))) return;
@@ -1911,6 +1970,7 @@ function enemySlimeTrailTick(scene, px, py, dt, now = Date.now()) {
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
   if (c._pirateParleyPending) return;
+  if (Combat.raidSpent(scene.save, c)) { routed = true; creatureTarget = null; }
   if (Combat.isPacified(c)) { inactive = true; creatureTarget = null; }
   if (Combat.isConcealed(c) || Combat.isSleeping(c) || Combat.isParalyzed(c)) return;
   Combat.healIfRested(c);

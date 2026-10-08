@@ -55,23 +55,95 @@
   });
 })();
 
-test('enemy habitats: actual beach spawn pass includes pirates and hostile crabs, never inland sand', () => {
+test('enemy habitats: beach candidates become crabs and water-edge jellyfish, never pirates', () => {
   const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
   const generate = spawnPassFn(body + '\nreturn creatures;');
   const run = (beach, caught = []) => {
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: 640, save: { caught },
       startWorldM: { x: -5000, y: 0 }, _pestFreeZone: () => null });
-    const entry = { cellsPerEdge: 64, tileEdgeM: 640, grid: new Array(4096).fill(WorldGen.T.SAND), objects: [],
-      scenic: beach ? { shore: { mask: new Uint8Array(4096).fill(1) } } : null };
+    const N = 64, grid = new Array(N * N), mask = new Uint8Array(N * N);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      grid[y * N + x] = x % 4 === 0 ? WorldGen.T.WATER : WorldGen.T.SAND;
+      mask[y * N + x] = grid[y * N + x] === WorldGen.T.SAND ? 1 : 0;
+    }
+    const entry = { cellsPerEdge: N, tileEdgeM: 640, grid, objects: [],
+      scenic: beach ? { shore: { mask } } : null };
     return generate.call(scene, entry, 0, 0).filter(c => c._surfaceSpawn);
   };
   const beach = run(true);
   assert.truthy(beach.some(c => c.kind === 'giant_crab'));
-  assert.truthy(beach.some(c => c.kind === 'pirate_grunt' || c.kind === 'pirate_gunner'));
-  assert.falsy(run(false).some(c => /pirate|giant_crab/.test(c.kind)));
+  assert.truthy(beach.some(c => c.kind === 'jellyfish'));
+  assert.eq(new Set(beach.map(c => `${c.x},${c.y}`)).size, beach.length, 'every destination is distinct');
+  for (const c of beach) {
+    assert.includes(['giant_crab', 'jellyfish'], c.kind);
+    assert.eq(c._surfaceSpawn.cx % 4 === 0, c.kind === 'jellyfish', 'jellyfish live in water; crabs live on sand');
+  }
+  assert.falsy(run(false).some(c => /pirate|giant_crab|jellyfish/.test(c.kind)));
   const sig = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
   assert.eq(sig(run(true, [beach[0].id])), sig(beach.slice(1)), 'defeat removes one seat without rerolling survivors');
   assert.truthy(Combat.isEnemyKind('crab'), 'the tameable shore crab attacks while wild');
+});
+
+test('enemy habitats: reef and shellwater Nexus jellyfish occupy shore water', () => {
+  const N = 64;
+  for (const variant of ['mystic_reef', 'shellwater_strand']) {
+    const grid = new Array(N * N);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) grid[y * N + x] = x % 4 === 0 ? WorldGen.T.WATER : WorldGen.T.SAND;
+    const entry = { cellsPerEdge: N, tileEdgeM: N * 7, grid,
+      spawnWhy: Uint16Array.from(grid, t => t === WorldGen.T.WATER ? WorldGen.SPAWN_WHY.TERRAIN : 0),
+      zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant }] } };
+    const creatures = EnemyHabitats.surfaceEncounters(entry, 0, 0, new Set());
+    assert.truthy(creatures.some(c => c.kind === 'jellyfish'));
+    for (const c of creatures) {
+      assert.includes(['giant_crab', 'jellyfish'], c.kind);
+      const at = c._surfaceSpawn;
+      assert.eq(grid[at.cy * N + at.cx] === WorldGen.T.WATER, c.kind === 'jellyfish');
+    }
+  }
+});
+
+test('enemy habitats: water seats retain every shared spawn exclusion', () => {
+  const N = 12, grid = new Array(N * N).fill(WorldGen.T.SAND);
+  for (let y = 0; y < N; y++) grid[y * N + 6] = WorldGen.T.WATER;
+  const e = { cellsPerEdge: N, grid };
+  const why = Uint16Array.from(grid, t => t === WorldGen.T.WATER ? WorldGen.SPAWN_WHY.TERRAIN : 0);
+  const opts = { spawnWhy: why, occupied: new Set() };
+  const seat = EnemyHabitats.surfaceSeat(e, 5, 5, 'jellyfish', opts);
+  assert.eq(seat.cx, 6);
+  for (const block of [WorldGen.SPAWN_WHY.RESTRICTED, WorldGen.SPAWN_WHY.PRIVATE, WorldGen.SPAWN_WHY.KERB,
+      WorldGen.SPAWN_WHY.FARM_INTERIOR, WorldGen.SPAWN_WHY.QUIET, WorldGen.SPAWN_WHY.SENSITIVE]) {
+    why.fill(WorldGen.SPAWN_WHY.TERRAIN | block);
+    // Jellyfish are slow: KERB follows their existing enemy class policy.
+    if (block === WorldGen.SPAWN_WHY.KERB) continue;
+    assert.eq(EnemyHabitats.surfaceSeat(e, 5, 5, 'jellyfish', opts), null, 'water preserves reason ' + block);
+  }
+  why.fill(WorldGen.SPAWN_WHY.TERRAIN);
+  opts.occupied = new Set(Array.from({ length: N * N }, (_, i) => i));
+  assert.eq(EnemyHabitats.surfaceSeat(e, 5, 5, 'jellyfish', opts), null);
+  opts.occupied.clear(); opts.roadMask = new Uint8Array(N * N).fill(1);
+  assert.eq(EnemyHabitats.surfaceSeat(e, 5, 5, 'jellyfish', opts), null);
+});
+
+test('enemy habitats: jellyfish swim along the water edge and refuse land and open water', () => {
+  const c = { kind: 'jellyfish', x: 0, y: 0 }, row = EnemyRoster.get(c.kind);
+  const scene = { cellM: 7, _cellBlocked: () => false,
+    cellAt: (x, y) => ({ loaded: true, type: x < 0 ? WorldGen.T.SAND : WorldGen.T.WATER }) };
+  assert.truthy(enemyCanStep(scene, c, row, 0, 0));
+  assert.falsy(enemyCanStep(scene, c, row, -7, 0), 'cannot walk onto the beach');
+  assert.falsy(enemyCanStep(scene, c, row, 14, 0), 'cannot swim away from the edge');
+  scene.cellAt = () => ({ loaded: false, type: WorldGen.T.WATER });
+  assert.falsy(enemyCanStep(scene, c, row, 0, 0));
+});
+
+test('enemy habitats: live repaint removes stranded jellyfish and preserves water seats', () => {
+  const N = 4, grid = new Array(N * N).fill(WorldGen.T.WATER);
+  const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
+  const creatures = [{ kind: 'jellyfish', x: 5, y: 5 }, { kind: 'jellyfish', x: 15, y: 5 }];
+  const entry = { grid: grid.slice(), objects: [] };
+  entry.grid[0] = WorldGen.T.SAND;
+  scene._cullOffLiveGround(entry, 0, 0, N, 10, grid, [], creatures);
+  assert.eq(creatures.length, 1);
+  assert.eq(creatures[0].x, 15);
 });
 
 test('enemy habitats: every selected cave theme has an eligible family through deep levels', () => {
@@ -126,19 +198,25 @@ test('enemy habitats: every selected cave theme has an eligible family through d
     assert.gt(creatures.length, 0, 'the calm melee habitat remains populated');
     for (const creature of creatures) assert.eq(EnemyRoster.get(creature.kind).attackType, 'melee');
   });
-  test('surface encounters: slices preserve complete pre-slicing records and reserved seats', () => {
-    // Zone naming and seat metadata remain intact; churchyard reapers are
-    // reserved for awakened temple challenges.
-    const expected = { orchard: 1679667825, ordered_graves: 2150613461, mystic_reef: 837559558 };
-    for (const [theme, hash] of Object.entries(expected)) {
-      const occupied = new Set();
-      const it = EnemyHabitats.surfaceEncountersSteps(entry(theme), 0, 0, occupied);
+  test('surface encounters: slices preserve complete records and reserved seats', () => {
+    for (const theme of ['orchard', 'ordered_graves', 'mystic_reef']) {
+      const fixture = () => {
+        const e = entry(theme);
+        if (theme === 'mystic_reef') for (let y = 0; y < N; y++) for (let x = 0; x < N; x++)
+          e.grid[y * N + x] = x % 4 === 0 ? WorldGen.T.WATER : WorldGen.T.SAND;
+        return e;
+      };
+      const occupied = new Set(), directOccupied = new Set();
+      const it = EnemyHabitats.surfaceEncountersSteps(fixture(), 0, 0, occupied);
       let r = it.next(), yields = 0;
       while (!r.done) { yields++; r = it.next(); }
       assert.eq(yields, Math.ceil(N / EnemyHabitats.SURFACE_ENCOUNTERS.blockCells) ** 2);
-      assert.eq(fnv1a(JSON.stringify(r.value)), hash, theme + ' keeps every generated field');
-      assert.eq(fnv1a(JSON.stringify([...occupied])), 1042003491, theme + ' keeps reservation order');
-      assert.eq(JSON.stringify(r.value), JSON.stringify(EnemyHabitats.surfaceEncounters(entry(theme), 0, 0, new Set())));
+      assert.gt(r.value.length, 0, theme + ' fixture exercises actual encounters');
+      const direct = EnemyHabitats.surfaceEncounters(fixture(), 0, 0, directOccupied);
+      assert.eq(JSON.stringify(r.value), JSON.stringify(direct), theme + ' keeps every generated field');
+      assert.eq(JSON.stringify([...occupied]), JSON.stringify([...directOccupied]), theme + ' keeps reservation order');
+      assert.eq(occupied.size, r.value.length);
+      if (theme === 'mystic_reef') assert.truthy(r.value.some(c => c.kind === 'jellyfish'));
     }
   });
   test('surface encounters: empty coverage still yields between unsuccessful block searches', () => {
@@ -182,6 +260,35 @@ test('enemy habitats: every selected cave theme has an eligible family through d
       assert.eq(EnemyHabitats.surfaceEncounters(e, 0, 0, occupied).length, 0, block);
     }
   });
+  test('surface encounters: excluded ground relocates a Nexus budget without changing identities', () => {
+    const full = entry(), before = EnemyHabitats.surfaceEncounters(full, 0, 0, new Set());
+    const excluded = entry();
+    excluded.spawnWhy = new Uint32Array(N * N);
+    // Leave ample capacity in a quarter of the same owning Nexus.
+    for (let i = 0; i < N * N; i++) if (i % N < 48)
+      excluded.spawnWhy[i] = WorldGen.SPAWN_WHY.RESTRICTED;
+    const after = EnemyHabitats.surfaceEncounters(excluded, 0, 0, new Set());
+    assert.eq(after.map(c => c.id + ':' + c.kind).join('|'), before.map(c => c.id + ':' + c.kind).join('|'));
+    for (const c of after) assert.gte(c._surfaceSpawn.cx, 48);
+    assert.eq(new Set(after.map(c => `${c.x},${c.y}`)).size, after.length);
+    assert.eq(signature(after), signature(EnemyHabitats.surfaceEncounters(excluded, 0, 0, new Set())));
+  });
+  test('surface encounters: exhausted owners cannot borrow a neighbouring Nexus seats', () => {
+    const e = entry();
+    e.zone.anchors.push({ variant: 'orchard' });
+    e.spawnWhy = new Uint32Array(N * N);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (x >= 36) e.zone.coverage[y * N + x] = 2;
+      else e.spawnWhy[y * N + x] = WorldGen.SPAWN_WHY.RESTRICTED;
+    }
+    const out = EnemyHabitats.surfaceEncounters(e, 0, 0, new Set());
+    assert.gt(out.length, 0);
+    for (const c of out) {
+      assert.gte(c._surfaceSpawn.cx, 36);
+      const blockX = Number(c.id.split('_').at(-3));
+      assert.gte(blockX, 36, 'a wholly blocked first-owner block produces no second-owner animal');
+    }
+  });
   test('surface encounters: actual spawn pass preserves defeat identities and Home protections', () => {
     const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
     const generate = spawnPassFn(body + '\nreturn creatures;');
@@ -210,10 +317,10 @@ test('enemy habitats: every selected cave theme has an eligible family through d
   });
 })();
 
-test('new monsters: jellyfish stay on beaches and graveyard zombies start buried', () => {
+test('new monsters: jellyfish use shoreline candidates and graveyard zombies start buried', () => {
   assert.falsy(EnemySpawns.surfaceRows('SAND').some(r => r.id === 'jellyfish'));
   assert.truthy(EnemySpawns.surfaceRows('SAND', { beach: true }).some(r => r.id === 'jellyfish'));
-  const kinds = new Set(Array.from({ length: 1000 }, (_, i) => EnemySpawns.surfaceKind('SAND', `jellyfish_beach_${i}`, { beach: true })));
+  const kinds = new Set(Array.from({ length: 1000 }, (_, i) => HabitatSpawns.enemyKind(HabitatSpawns.shoreProfile('SAND'), `jellyfish_beach_${i}`, 'SAND', { beach: true })));
   assert.truthy(kinds.has('jellyfish'));
   for (const variant of ['ordered_graves', 'overgrown_graves']) {
     const N = 64;

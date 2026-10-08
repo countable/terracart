@@ -93,8 +93,8 @@ const FILES = [
   // Scenic paths, beaches and viewpoints. Pure, after street_variants.js like the page.
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
-  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
-  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
+  'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
+  'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'pressure_traps.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js',
@@ -848,7 +848,7 @@ Object.assign(ctx, {
 // pest_amnesty.test.js pins it against source text handed over here.
 {
   const src = readSrc('scene_creatures.js');
-  const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+(?:continue|return);/);
+  const guard = src.match(/if \(\(kindStr === [^\n]+pestFree[^\n]+(?:continue|return(?: false)?);/);
   if (!guard) {
     console.error('Could not find the pest-free spawner guard in src/scene_creatures.js — update run.js');
     process.exit(2);
@@ -1023,12 +1023,6 @@ Object.assign(ctx, {
   // (new Function + .call(stub, …), as spawn_rebuild.test.js does).
   ctx.WILD_CROW_TICK_SRC = grabBetween(
     '  _wildCrowTick(c, now, px, py) {\n', '\n  }\n', '_wildCrowTick');
-
-  // FINDING 2 / FINDING 3(b) — the fauna-spawn tryPlace closure (spawnInTile),
-  // lifted alone: it is the one piece the findings touch (the roadMask gate,
-  // the caughtSet lookup) and its closed-over names are cheap to stub.
-  ctx.TRY_PLACE_SRC = grabBetween(
-    '    const tryPlace = (classesOK, idx, kindStr) => {\n', '\n    };\n', 'the tryPlace closure');
 
   // FINDING 3(b), other half — spawnCaveCreatures runs whole via
   // SPAWN_CAVE_SRC, lifted above.

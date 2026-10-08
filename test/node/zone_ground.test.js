@@ -164,57 +164,46 @@ function distToRect(N, ix, iy, x0, y0, x1, y1) {
   return Math.hypot(dx, dy) * gM;
 }
 
-test('park fringe: a ragged band ≤ 20 m of GROVE over lot ground, the land kept in `under`', () => {
+test('park fringe: the Nexus owns source park ground and its placement fringe, retaining underlay', () => {
   const [x0, y0, x1, y1] = [1500, 1500, 2500, 2300];
   const { r, N } = fringeTile(TX, TY, rect(x0, y0, x1, y1), 'park');
-  const CELL = WorldGen.CELL_M;
-  const hi = Z.FRINGE_M * (1 + Z.FRINGE_JITTER), lo = Z.FRINGE_M * (1 - Z.FRINGE_JITTER);
-  assert.lte(hi, 20.0001, 'the band never reaches past 20 m (the ~23 m landcover buffer)');
-  let band = 0, inner = 0, innerPainted = 0;
+  const baseline = fringeTile(TX, TY, null, 'park').r.grid;
+  let outside = 0, inside = 0;
   for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
-    const i = iy * N + ix;
-    if (r.grid[i] === T.PARK) continue;
+    const i = iy * N + ix, slot = r.zone.coverage[i];
     const d = distToRect(N, ix, iy, x0, y0, x1, y1);
-    if (r.grid[i] === T.GROVE) {
-      band++;
-      assert.lte(d, hi + CELL, `cell ${ix},${iy} painted at ${d.toFixed(1)} m`);
-      assert.eq(r.zone.under[i], T.RESIDENTIAL, 'the land it painted over');
-    } else {
-      assert.eq(r.grid[i], T.RESIDENTIAL, 'nothing else changes');
-    }
-    if (d > 0 && d <= lo - CELL) { inner++; if (r.grid[i] === T.GROVE) innerPainted++; }
+    if (!slot) { assert.eq(r.grid[i], T.RESIDENTIAL, 'outside the union stays residential'); continue; }
+    const a = r.zone.anchors[slot - 1];
+    assert.eq(a.kind, 'grove'); assert.truthy(a.polygonAnchor);
+    assert.eq(r.grid[i], T[ZoneVariants.pick(a).ground] ?? Z.terrainOf(a.kind), 'Nexus variant owns visible ground');
+    assert.lte(d, Z.FRINGE_FILL_M + WorldGen.CELL_M, 'coverage stays within its placement fringe');
+    // The source park polygon supplies coverage even where this fixture's
+    // later residential layer wins the terrain. Preserve that original land,
+    // measured independently without the park/Nexus source polygon.
+    assert.eq(Z.landAt(r.grid, r.zone.under, i), baseline[i], 'Nexus underlay retains the actual source terrain');
+    if (d > WorldGen.CELL_M) outside++;
+    else if (d === 0) inside++;
   }
-  assert.gt(band, 40, `the band painted (${band} cells)`);
-  assert.eq(innerPainted, inner, 'everything well inside the band is painted');
-  assert.falsy(Z.at({ zone: r.zone, cellsPerEdge: N }, Math.floor(1450 * N / EXT), Math.floor(2000 * N / EXT)),
-    'the fringe is ground, not a zone');
-  // A cemetery's fringe is churchyard.
+  assert.gt(outside, 40, 'Nexus coverage extends beyond the park');
+  assert.gt(inside, 40, 'entire source park is covered');
+  // A cemetery retains its separately authored churchyard fringe.
   const c = fringeTile(TX, TY, rect(x0, y0, x1, y1), 'cemetery');
-  let yard = 0;
-  for (let i = 0; i < N * N; i++) if (c.r.grid[i] === T.CHURCHYARD) yard++;
-  assert.gt(yard, 40, 'a cemetery spills churchyard');
+  assert.gt(c.r.grid.filter(t => t === T.CHURCHYARD).length, 40, 'cemetery spills churchyard');
+  assert.falsy(c.r.zone?.anchors.some(a => a.polygonAnchor), 'cemetery mints no park Nexus');
 });
 
-test('park fringe: the smattering — the character\'s filler, on the spawn rule, out to FRINGE_FILL_M', () => {
-  const [x0, y0, x1, y1] = [1200, 1200, 2800, 2800];
-  const { r, N, edge } = fringeTile(TX, TY, rect(x0, y0, x1, y1), 'park');
-  const ch = BP.parkCharacterAt(TX * EXT + 2000, TY * EXT + 2000);
-  const fill = r.zoneDress.wildplants.filter((w) => w.fringe);
-  assert.gt(fill.length, 3, `a few (${fill.length})`);
-  let ring = 0;
-  for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
-    const d = distToRect(N, ix, iy, x0, y0, x1, y1);
-    if (d > 0 && d <= Z.FRINGE_FILL_M) ring++;
-  }
-  assert.lt(fill.length / ring, Z.FRINGE_FILL_P, 'a LIGHT smattering');
-  for (const w of fill) {
-    const ix = Math.floor((w.x - TX * edge) / (edge / N)), iy = Math.floor((w.y - TY * edge) / (edge / N));
-    const d = distToRect(N, ix, iy, x0, y0, x1, y1);
-    assert.gt(d, 0, `${w.id} outside the park`);
-    assert.lte(d, Z.FRINGE_FILL_M + WorldGen.CELL_M, `${w.id} within reach (${d.toFixed(1)} m)`);
-    assert.eq(w.crop, BP.PARK_CHARACTERS[ch].filler, `${w.id}: the ${ch} park's filler`);
-    assert.eq(r.roadMask[iy * N + ix], 0, 'off the road');
-    assert.truthy(/^wpf_/.test(w.id), 'a tile + cell id');
+test('park fringe: the Nexus pattern replaces legacy filler throughout its coverage', () => {
+  const { r, N, edge } = fringeTile(TX, TY, rect(1200, 1200, 2800, 2800), 'park');
+  const all = [...r.zoneDress.objects, ...r.zoneDress.wildplants];
+  assert.gt(all.filter(o => o.zoneLayer === 'background').length, 3, 'the declared pattern dresses the park');
+  for (const o of all) {
+    const ix = Math.floor((o.x - TX * edge) / (edge / N)), iy = Math.floor((o.y - TY * edge) / (edge / N));
+    const a = r.zone.anchors[r.zone.coverage[iy * N + ix] - 1];
+    assert.truthy(a, `${o.id}: Nexus owns its seat`);
+    assert.eq(o.zoneVariant, a.variant, `${o.id}: its owning pattern`);
+    assert.falsy(o.fringe, 'legacy ambient fringe filler yields to Nexus');
+    assert.truthy(WorldGen.isSpawnCell(r.grid, N, N, ix, iy,
+      { roadMask: r.roadMask, spawnWhy: r.spawnWhy }, o.kind === 'grove_shrine' ? 'attractor' : 'minor'));
   }
 });
 

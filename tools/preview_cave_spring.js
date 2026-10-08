@@ -6,7 +6,7 @@ const vm = require('vm');
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['util', 'zone_variant_data', 'zone_variants', 'worldgen', 'cave_areas']) {
+for (const name of ['util', 'zone_variant_data', 'terrain', 'zone_variants', 'worldgen', 'cave_areas']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../src', name + '.js'), 'utf8'), ctx, { filename: name + '.js' });
 }
 const { WorldGen: W, ZoneVariants: V, CaveAreas: C } = ctx;

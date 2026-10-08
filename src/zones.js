@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Zones — INFLUENCE ZONES (ZONE_KINDS): the Quarry, the shore (beach), the
+// Zones — Nexus places and their influence zones (ZONE_KINDS): the Quarry, the Shore, the
 // Sacred Grove, the Old Stones, the Tar Yard.
 //
 // A few kinds of place stamp their character on the ground around them:
@@ -14,13 +14,14 @@
 // Unnamed parks (no POI) and charging stations are no anchor. Named park-layer
 // labels (including nature reserves) enter through WorldGen.parkPoiLayer.
 // Nor is anything SENSITIVE (WorldGen.isSensitivePoi — the one table): a
-// REAL cemetery is quiet green space (no stones zone, no headstones, no
+// REAL cemetery is quiet green space (no Old Stones Nexus, no headstones, no
 // hoards, no ghosts; its cells are quiet land, WorldGen.QUIET_LAND), and a
 // synagogue, mosque, temple or any place of worship whose faith the tile does
-// not name mints nothing at all — no zone, no rocks, no chest.
+// not name mints nothing at all — no Nexus, no rocks, no chest.
 //
 // ── THE ANCHOR AND ITS RADIUS (seam-safe by construction) ─────────────────
-// An anchor is a POI POINT. The OpenFreeMap poi layer carries a 1024-unit
+// A POI anchor uses a mapped point; a generated-site anchor uses site geometry.
+// For POI anchors, the OpenFreeMap poi layer carries a 1024-unit
 // buffer (POI_BUFFER_UNITS — ~370-410 m at play latitudes), and every copy of
 // a point in a neighbour's buffer is bit-identical to the owner's, so every
 // tile that can see an anchor computes the same numbers for it:
@@ -36,7 +37,7 @@
 // The window fits inside the buffer, so q (and R) are the same from every
 // tile: the design sweep measured 490 anchor×tile evaluations, 0 mismatches.
 //
-// ── THE FIELD AND THE HALO (a ZONE WRITES TERRAIN) ───────────────────────
+// ── THE INFLUENCE ZONE AND THE HALO (a Nexus writes terrain) ───────────────────────
 // A cell c belongs to an anchor when d(c) ≤ edge(c) = R·(1 + EDGE_JITTER·
 // (2·noise(c) − 1)): a RAGGED disc. noise is 2-octave value noise over the
 // cell centre in GLOBAL MVT units (tile·4096 + local) — continuous across
@@ -45,13 +46,13 @@
 // (quantised to a byte), then the rarer kind, then the smaller key — so no
 // visiting order can change a cell.
 // Inside the winner's disc the HALO repaints ONLY lot and commercial ground
-// (RESIDENTIAL, COMMERCIAL, WASTELAND — HALO_OVER) to the zone's own terrain
+// (RESIDENTIAL, COMMERCIAL, WASTELAND — HALO_OVER) to the Nexus's own terrain
 // (T.GROVE / T.CHURCHYARD / T.TAR_YARD). Everything else — parks, roads,
 // buildings, water, forest — keeps its code. The halo runs at the END of
 // rasterizeTileSteps (after the mineralrock cleanup, the occupancy pass and
 // the street dressing), so no older stream or cull sees a different grid;
 // what moves is only what reads the grid later (spawnInTile's fauna, traps,
-// X marks) — accepted by the owner for the cells a zone repaints.
+// X marks) — accepted by the owner for the cells a Nexus repaints.
 //
 // ── THE PARK FRINGE (a park spills past its border) ──────────────────────
 // Around EVERY park polygon (named or not; worldgen collects them as it
@@ -61,19 +62,19 @@
 // ONLY the halo's own set (RESIDENTIAL / COMMERCIAL / WASTELAND, recorded in
 // fld.under like the halo) out to FRINGE_M·(1 ± FRINGE_JITTER) metres of the
 // polygon's edge (≤ 20 m), bent by valueNoise2 at the cell's GLOBAL point.
-// Seam-safe: the landcover / landuse layers carry a ~64-unit (~23 m) buffer,
+// Seam-safe: the source landcover / source landuse layers carry a ~64-unit (~23 m) buffer,
 // so a park across a seam is in view for the whole band (fringeSteps
 // rasterizes the parks into a grid padded past the square). Past the band,
 // out to FRINGE_FILL_M, a LIGHT smattering of the character's `filler`
 // (long grass for a meadow / common, shrubs for a wooded / formal park) —
 // per cell off a hash of the global cell, on the spawn rule (dressSteps).
 // The fill's outer ~7 m can see past the buffer's reach at a seam and stop
-// short there: accepted, it is a light scatter. It runs AFTER the zone halo
-// (a zone's own ground keeps its code) and is terrain + filler only: no
-// anchor, no story, no nexus. What it is NOT: a zone (Zones.at stays null).
+// short there: accepted, it is a light scatter. It runs AFTER the Nexus halo
+// (a Nexus's own ground keeps its code) and is terrain + filler only: no
+// anchor, no story, no Nexus. It has no influence zone (Zones.at stays null).
 //
-// ── THE NEXUS ────────────────────────────────────────────────────────────
-// Each anchor arranges a PATTERN of interactables around its POI, one of
+// ── THE NEXUS FOCAL LAYOUT ────────────────────────────────────────────────────────────
+// Each anchor arranges a focal layout of interactables around its POI, one of
 // 1-3 per kind picked by the anchor's nexusPattern (a hash of its global point):
 //   grove   rings of wild roses / a ring of trees / roses inside trees, or a
 //           SYMMETRIC figure about the POI cell (compass roses, mirrored
@@ -113,7 +114,7 @@
 // anchor-grid cell centre is taken to a GLOBAL MVT point and then into the
 // observing tile's grid (nexusPieceCell — a north/south seam may change N).
 // EVERY tile whose square a piece lands in lays it (field.reach: the anchors
-// whose pattern box touches the square, whether or not their zone won a
+// whose focal-layout box touches the square, whether or not their influence zone won a
 // cell here), and only that tile — nothing is laid twice. The draws are one
 // stream per anchor (key ^ SALT_NEXUS: the species, then one per piece, laid
 // or not — nexusPlan), replayed alike by every tile, so a piece has the same
@@ -156,7 +157,7 @@
   const EDGE_JITTER = 0.25;
   // The noise lattice, in MVT units (~37 m at play latitudes), and its octave.
   const NOISE_UNITS = 96;
-  // The zone's CORE (the story trigger): s at or above this.
+  // The influence zone's CORE (the story trigger): s at or above this.
   const CORE_S = 0.5;
   // The most anchors one tile's field indexes (Uint8 slots, 0 = none).
   const MAX_FIELD_ANCHORS = 255;
@@ -165,14 +166,11 @@
   // `code` is the Uint8 kind code and the rarity rank (ties go to the higher).
   // `terrain` names the WorldGen.T code the halo paints. `story` is the
   // _storySplashOnce key and default painting stem; `art` overrides the painting.
-  // `attracts` { species: [min, max] }: the FAUNA ATTRACTOR column (scene_creatures.js
-  // _seatFaunaOnFavouriteGround) — each Nexus draws a seeded small quota of
-  // the nearest existing animals onto its eligible ground. Never adds animals.
-  // `keeper`: what the zone's KEEPER (the NPC role — npc.js, one guaranteed
-  // per zone kind with residents) says, rotating by day: the zone's story in
+  // `keeper`: what the Nexus keeper (the NPC role — npc.js, one guaranteed
+  // per Nexus kind with residents) says, rotating by day: the Nexus's story in
   // the voice of the one who tends it. The splash `body` is the narrator's;
   // this column is the resident's. Tar has no residents (NPC.cultureFor).
-  // `temple: true` marks the NEXUS kinds that raise their zone's temple by
+  // `temple: true` marks Temple-bearing Nexus kinds that raise their temple by
   // claiming a building (worldgen's footprint classification): the grove (a
   // generated marine grove counts - it is a grove), the old stones and the
   // tar yard. The shore and the quarry never claim a building.
@@ -186,7 +184,6 @@
       keeper: ['<em>Brushes salt off the shrine step.</em>\n“This shrine was here before the Breaking, and the sea never noticed the Breaking at all. I sweep the salt off each morning.”',
         '“The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.”'] },
     grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove', temple: true,
-      attracts: { deer: [2, 5], butterfly: [2, 5] },
       body: 'Trees crowd around an old stone shrine. You approach along its carefully cleared steps.',
       flash: 'A sacred grove. Hush.',
       keeper: ['<em>Glances up at the leaning trunks.</em>\n“The trees leaned in to hide this shrine the night the roofs fell. They have not straightened since. I keep the stone swept and the lantern lit.”',
@@ -206,7 +203,7 @@
   const R_MAX_M = Math.max(...Object.values(ZONE_KINDS).map((k) => k.R));
   const R_EDGE_MAX_M = R_MAX_M * (1 + EDGE_JITTER);
 
-  // ── The nexus patterns (nexusPattern) ─────────────────────────────────
+  // ── The Nexus focal layouts (nexusPattern) ─────────────────────────────────
   // Picked per anchor off its own key. A church's one pattern, 'graves', lays
   // no pattern pieces: its headstones are the per-cell GRAVE rule
   // (groundSteps). (Other faiths' rock squares / rings are gone with their
@@ -259,7 +256,7 @@
   const HEADSTONE_TIER = 1;
   // THE GRAVES (every stones anchor): the grave-row lattice over GLOBAL cells
   // (tile·N + local) — every GRAVE_ROW-th row, every GRAVE_COL-th column —
-  // and the chance a lattice cell holds a stone, × the zone strength s there.
+  // and the chance a lattice cell holds a stone, × the influence-zone strength s there.
   const GRAVE_ROW = 2, GRAVE_COL = 2;
   const HEADSTONE_P = 0.9;
   // The churchyard's plain rocks (every place of worship): chance per halo
@@ -449,10 +446,10 @@
     if (!all.length) return null;
     const cellU = EXT / N;
     const ox = tx * EXT, oy = ty * EXT;
-    // THE NEXUS REACH: every anchor whose pattern box can put a piece in this
+    // THE FOCAL LAYOUT REACH: every anchor whose pattern box can put a piece in this
     // square — decided off the ANCHOR's own grid (nexusCentre), not off the
     // field, since a pattern cell may lie past the ragged edge or on a cell
-    // another zone won. dressSteps walks this list, not `anchors`.
+    // another influence zone won. dressSteps walks this list, not `anchors`.
     const reach = [];
     const PR = nexusReachCells();
     for (let k = 0; k < all.length; k++) {
@@ -504,7 +501,7 @@
   }
   function field(poiLayer, tx, ty, N) { return root.WorldGen.runSteps(fieldSteps(poiLayer, tx, ty, N)); }
 
-  // ── The halo: lot + commercial ground under a zone takes its terrain ──────
+  // ── The halo: lot + commercial ground under a Nexus takes its terrain ──────
   let _haloOver = null;
   function haloOver() {
     if (!_haloOver) {
@@ -519,7 +516,7 @@
     return under && (under[i] || (under.present && under.present[i])) ? under[i] : grid[i];
   }
   function terrainOf(kind) { return root.WorldGen.T[ZONE_KINDS[kind].terrain]; }
-  // Every zone terrain code (the enumerations elsewhere ask this).
+  // Every Nexus terrain code (the enumerations elsewhere ask this).
   function zoneTerrains() { return Object.keys(ZONE_KINDS).map(terrainOf); }
   // Records what it painted over in fld.under (0 = untouched): the LAND's
   // class, for the one reader that is about the land and not its look —
@@ -541,7 +538,7 @@
         n++;
       }
     }
-    // A footpath through the halo draws the zone's ground under its pebbles.
+    // A footpath through the halo draws the Nexus's ground under its pebbles.
     if (pathUnder) {
       let k = 0;
       for (const key in pathUnder) {
@@ -559,13 +556,13 @@
 
   // ── The park fringe (a generator — the end of rasterizeTileSteps) ─────────
   // ctx: { parks: [{ rings (tile-local MVT, buffer included), character,
-  //        cemetery }], grid (final, zone halo already painted), N, tx, ty,
-  //        field (the zone field or null), pathUnder }
+  //        cemetery }], grid (final, Nexus halo already painted), N, tx, ty,
+  //        field (the influence-zone field or null), pathUnder }
   // Rasterizes every park into a grid PADDED past the square (so a park in a
   // neighbour's buffer is seen), runs a two-pass distance transform carrying
   // the nearest park's label, then repaints the ragged band. Returns
   //   { field (ctx.field, or a stub { anchors: [], idx: null, s: null,
-  //     reach: [], under } when the tile has no zone), edgeM (Float32Array
+  //     reach: [], under } when the tile has no Nexus), edgeM (Float32Array
   //     N·N: metres from the nearest park's edge, 0 inside, Infinity past
   //     FRINGE_FILL_M), park (Uint16Array N·N: 1 + index into parks),
   //     parks, painted } — or null when there are no parks. edgeM / park are
@@ -674,7 +671,7 @@
       }
     }
     // A footpath through the band draws the band's ground under its pebbles
-    // (the zone's own ground keeps the halo's answer).
+    // (the Nexus's own ground keeps the halo's answer).
     const pathUnder = ctx.pathUnder;
     if (pathUnder && painted) {
       let k = 0;
@@ -766,7 +763,7 @@
     return P;
   }
 
-  // ── Where a nexus sits: the ANCHOR's own POI cell, in the ANCHOR's grid ──
+  // ── Where a Nexus focal layout sits: the ANCHOR's own POI cell, in the ANCHOR's grid ──
   // A pure function of the anchor (every tile that sees it in its poi buffer
   // gets the same answer) — never of the chest, which worldgen may slide off
   // the point (offsetForPlacement) where only the owner can see it.
@@ -816,7 +813,7 @@
     return { species, pieces };
   }
 
-  // ── The nexus dressing (a generator, the end of rasterizeTileSteps) ──────
+  // ── The Nexus focal-layout dressing (a generator, the end of rasterizeTileSteps) ──────
   // ctx: { field, tx, ty, N, tileEdgeM, grid (the finished, haloed grid),
   //        chests (the tile's deduped objects), spawnOpts { roadMask,
   //        occupied (GROWS — each piece claims its cell), pois } }
@@ -826,7 +823,7 @@
   // or not) and lays ONLY the pieces whose cell is in this square; the chest
   // stamp and the grove shrine stay the OWNER's (a.owned — they belong to the
   // chest). `lairs` stays in the result for its readers, and stays EMPTY: a
-  // zone holds no garrison (the tar yard's fire slimes are gone, Sep 2026).
+  // Nexus holds no garrison (the tar yard's fire slimes are gone, Sep 2026).
   function* dressSteps(ctx) {
     const WG = root.WorldGen;
     const res = { objects: [], wildplants: [], lairs: [], slowCells: new Map(), nexus: [] };
@@ -867,7 +864,7 @@
         delete chest._chestLook;
       }
       const rec = { zoneKind: a.kind, nexusPattern: a.nexusPattern, chestId: chest ? chest.id : null, pieces: 0 };
-      // The tile's own occupancy before this nexus — what "already full" reads.
+      // The tile's own occupancy before this Nexus focal layout — what "already full" reads.
       const base = a.kind === 'grove' ? new Set(occ) : null;
       const crowded = (ix, iy) => {
         if (!base) return false;
@@ -993,7 +990,7 @@
     return null;
   }
 
-  // ── The zone GROUND: per-cell rules over the square (after the nexus) ─────
+  // ── The Nexus GROUND: per-cell rules over the square (after the focal layout) ─────
   // One pass over the tile's cells, each rule off its own per-cell hash of
   // the GLOBAL cell (cellU01, own salt) — no rng, seam-safe by construction
   // (every cell belongs to one tile), each piece on the spawn rule (roadMask

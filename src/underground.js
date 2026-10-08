@@ -99,7 +99,8 @@
   }
   function decorate(plan, grid, objects, wildplants, occupied) {
     const W = root.WorldGen, { N, tx, ty, tileEdgeM, depth, data } = plan, cellM = tileEdgeM / N;
-    if (!root.WorldGen.floorProfile?.(depth)?.streetMirror) return;
+    const profile = W.floorProfile(depth);
+    if (!profile.streetMirror) return;
     const index = o => Math.floor((o.y - ty * tileEdgeM) / cellM) * N + Math.floor((o.x - tx * tileEdgeM) / cellM);
     const keyAt = i => `${tx}/${ty}/${i % N}/${Math.floor(i / N)}/${depth}`;
     const reserved = new Set(plan.lane), approaches = new Set();
@@ -119,7 +120,7 @@
     const gemstoneRegion = i => {
       const anchor = data.zone?.anchors?.[(coverage?.[i] || 0) - 1];
       if (!anchor || anchor.kind !== 'grove') return false;
-      return roll(`underground/${anchor.key ?? `${anchor.gx},${anchor.gy}`}/${depth}/gemstone`) < (depth === 1 ? .05 : .10);
+      return roll(`underground/${anchor.key ?? `${anchor.gx},${anchor.gy}`}/${depth}/gemstone`) < (profile.streetGems?.region || 0);
     };
     for (const o of objects) {
       if (o.kind !== 'mineralrock' || o.caveArea) continue;
@@ -127,7 +128,7 @@
       if (!allowed(data, i, street) || reserved.has(i)) continue;
       const key = keyAt(i), themed = route?.theme === 'gemstone_path' || gemstoneRegion(i);
       const bonus = street || data.grid[i] === W.T.SAND || data.grid[i] === W.T.COMMERCIAL;
-      const ordinary = depth === 2 && !coverage?.[i] && roll(`${key}/gem`) < .08 * (bonus ? 2 : 1);
+      const ordinary = !coverage?.[i] && roll(`${key}/gem`) < (profile.streetGems?.ordinary || 0) * (bonus ? 2 : 1);
       if ((themed && roll(`${key}/pocket`) < .6) || ordinary) {
         const deposit = gem(depth, `${key}/gem-kind`);
         if (deposit) { delete o.caveVariant; Object.assign(o, deposit, { depth }); }

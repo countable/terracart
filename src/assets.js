@@ -202,6 +202,8 @@ const ASSETS = {
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
   zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
+  gas_mushroom_small: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-small.png', frameWidth: 16, frameHeight: 16 },
+  gas_mushroom_large: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-large.png', frameWidth: 24, frameHeight: 24 },
   zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
   beach_palms: { kind: 'spritesheet', path: 'assets/Objects/Beach/palms.png', frameWidth: 16, frameHeight: 16 },
   zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Approved/approved_clipped_hedge.png', frameWidth: 16, frameHeight: 16 },

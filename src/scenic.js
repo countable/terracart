@@ -24,7 +24,7 @@
 //                 square, scenic kind) holding VISTA_STRETCH_MIN_M or more of
 //                 that kind — seated on the path's verge as a 'reward' (the
 //                 spawn gate: open ground, off the road, out of the kerb
-//                 buffer), on the path's own side of any major band.
+//                 buffer), on the path's own side of any Major-and-Medium road band.
 //   VIEWPOINTS    a poi `attraction / viewpoint` point (OMT tourism=viewpoint).
 //                 Its own POI chest is the grail (VISTA_CHEST_TIER.grail, T5,
 //                 one-time — loot.js chestBaseTier reads the `vista` stamp),
@@ -57,15 +57,15 @@
 // read the same stretches.
 //
 // SAFETY: nothing pays for standing on a verge or a road. A path sample within
-// SIDEWALK_M of any vehicle way, or BUSY_VERGE_M of a MAJOR one (the kerb's
-// own MAJOR tier — StreetVariants.sizeOfTags — tertiary and up), is not
+// SIDEWALK_M of any vehicle way, or BUSY_VERGE_M of the Major-and-Medium road group (the kerb buffer's
+// internal `major` group — StreetVariants.sizeOfTags — tertiary and up), is not
 // scenic whatever its name, so pavements, crossings and arterial side-paths
 // drop out. Every reward piece is seated through WorldGen.isSpawnCell (the
-// road mask, the occupancy, the kerb buffer) and on its own side of a major
+// road mask, the occupancy, the kerb buffer) and on its own side of a Major-and-Medium road
 // band (StreetVariants.nearestSeat). The multiplier rides the sweep, which
 // already refuses a passenger (isTooFast).
 //
-// What this is NOT: a ladder (Trail), a lamp list (app.js), a zone (Zones —
+// What this is NOT: a restoration ladder (Trail), a lamp list (app.js), a Nexus (Zones —
 // a viewpoint paints no terrain and has no field), or a crate (it restocks
 // nothing: the tide line is the day's, the chests are one-time).
 //
@@ -82,7 +82,7 @@
   const SCENIC_MUL = { shore: 2.0, greenway: 1.75, park: 1.75 };
   // Which kind wins a sample several apply to: the richest first.
   const KIND_ORDER = ['shore', 'greenway', 'park'];
-  // The StreetVariants row each kind wears (the look: lamp glow + story).
+  // The scenic path theme row each kind wears (lamp glow + story).
   const KIND_ROW = { shore: 'promenade', greenway: 'greenway', park: 'parkpath' };
   // How near water a path point must be to be SHORE (cells of the tile's own
   // grid), and the ceiling in MVT units that keeps it inside the ~64-unit
@@ -187,7 +187,7 @@
     return !!(SV && SV.isVehicleTags(t));
   }
   // …and a MAJOR one: the kerb's own tier (StreetVariants.sizeOfTags — one
-  // table with the kerb buffer and the bandit road).
+  // table with the kerb buffer and the Old Trade Road).
   function isBusyWay(tags) {
     const SV = root.StreetVariants;
     return isVehicleWay(tags) && !!SV && SV.sizeOfTags(tags) === 'major';
@@ -546,8 +546,8 @@
   // A SAND cell within SCENIC_SHORE_CELLS of water is shore sand (1); within
   // WATERLINE_CELLS it is the waterline (2). Returns { mask, cells, waterline,
   // shoreM } or null when the tile has no shore sand. One yield per 16 rows.
-  // SAND is the LAND's class (Zones.landAt over the zone paint's `under`
-  // ledger): a zone's coverage repaints a beach's look but it is still the
+  // SAND is the LAND's class (Zones.landAt over the Nexus paint's `under`
+  // ledger): a Nexus's coverage repaints a beach's look but it is still the
   // beach (measured on Vancouver's Kits / English Bay: three quarters of the
   // dry sand wears a grove's ground).
   function* shoreSandSteps(geo, grid, under) {
@@ -622,7 +622,7 @@
   // it (it is generated).
   // `keepGeo` (tests, tools): also hand back the geometry indices as `_geo`
   // (classify() reads them) — the game drops them with the build. `under`:
-  // the zone paint's land ledger (entry.zone.under), so a beach a zone
+  // the Nexus paint's land ledger (entry.zone.under), so a beach a Nexus
   // repainted is still shore sand.
   function* buildSteps(L, tx, ty, N, grid, keepGeo, under) {
     const geo = yield* geoSteps(L, tx, ty, N);
@@ -654,11 +654,11 @@
     const { cellM: frameCellM, ox, oy, chestAt, cx, cy, claim, inTile: inSq } = WG.dressFrame(ctx);
     // Scenic rewards are finds the player walks to: the spawn gate's
     // 'reward' class (the attractor row + the kerb buffer — never a reason to
-    // step to the kerb of a major road), off the road mask and whatever the
+    // step to the kerb of a road in the Major-and-Medium road group), off the road mask and whatever the
     // tile already put there.
     const rewardOk = (ix, iy) => inSq(ix, iy) && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
     // Mapped viewpoints keep landmark priority. Procedural scenic rewards
-    // yield the full nexus area, including cells its layout leaves empty.
+    // yield the full Nexus coverage, including cells its layout leaves empty.
     const zoneCoverage = ctx.zone && (ctx.zone.coverage || ctx.zone.idx);
     const ambientRewardOk = (ix, iy) => !zoneCoverage?.[iy * N + ix] && rewardOk(ix, iy);
     const rc = spawnOpts.roadClass || null;
@@ -740,7 +740,7 @@
     // MESSAGE BOTTLES: before the tide pool, so a bottle's cell is claimed
     // and never doubles as a tide seat.
     const sh = sc.shore;
-    // A nexus owns even its empty cells. Ordinary beach rewards must not
+    // A Nexus owns even its empty cells. Ordinary beach rewards must not
     // reserve its waterline before the authored layout gets a chance to seat.
     if (sh && sh.waterline.length) {
       yield 'scenic bottles';

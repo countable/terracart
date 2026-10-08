@@ -103,7 +103,10 @@
     withClock(setNow => {
       const match = SCENE_SRC.match(/const blow = ([\s\S]*?);\n/);
       assert.truthy(match, 'melee damage expression');
-      const blow = new Function('return ' + match[1]);
+      const strike = SCENE_SRC.slice(SCENE_SRC.indexOf('  startCombat(victim'));
+      const weapon = strike.match(/const weapon = Gear\.meleeWeapon\(this\.save\);/);
+      assert.truthy(weapon, 'melee formula uses the actual selected or fallback melee weapon');
+      const blow = new Function(weapon[0] + '\nreturn ' + match[1]);
       const scene = { save: { relics: {}, training: { melee: 2 }, giantPotionUntil: T0 + 240_000 },
         _attackMul: () => 2, _attackFlat: lift('_attackFlat') };
       const baseline = blow.call(scene);

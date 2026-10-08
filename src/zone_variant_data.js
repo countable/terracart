@@ -53,19 +53,6 @@
     "densityPriority": "recognizable_geometry_before_density; density_is_measured_not_a_15_percent_cap; do_not_thin_structured_lines",
     "trapPlacement": "surface_trap_records_go_to_entry.traps; enemy_spawn_gate_and_Traps.isTrapGround; no_fallback_to_forbidden_ground",
     "finiteFindCounts": "explicit_per_variant_count; black_ring_has_two_rare_gold_ore_rocks; other_counts_as_declared",
-    "faunaAffinities": {
-      "column": "attracts",
-      "semantics": "per_species_seeded_integer_count_range; attract_nearest_existing_positioned_fauna_to_each_eligible_owner",
-      "spawnAdditional": false,
-      "coverage": "eligible_cells_owned_by_each_nexus_independently; shared_union_for_street_family_scenic_theme_path_lamps_and_terrain",
-      "zoneKindDefaults": "replace_not_merge; empty_attracts_means_no_zone_affinity",
-      "otherAttractors": "same_bounded_nearest_selection_for_street_terrain_scenic_and_path_lamp_preferences",
-      "eligibility": "existing_finite_positioned_fauna; habitat_spawn_gate_occupied_cells_and_pest_amnesty",
-      "fallback": "retain_original_seat_if_no_eligible_destination",
-      "guards": "independent_finite_guard_budget",
-      "assignedVariants": 8,
-      "selection": "distance_to_actual_eligible_ground; stable_creature_id_ties; existing_on_ground_animals_count_toward_quota"
-    },
     "poiAdjacency": "outdoor_POI_uses_immediate_neighbors; building_POI_retains_frontage_pattern",
     "patternCoordinates": {
       "origin": "settled_poi",
@@ -89,7 +76,8 @@
         6
       ],
       "shapePolicy": "rectangular_or_square; each_axis_at_most_8; prefer_at_most_6; smaller_motifs_welcome"
-    }
+    },
+    "faunaPopulations": "HabitatSpawns_profiles_supply_local_fauna; no_relocation_or_borrowed_source_population"
   },
   "materials": {
     "grass": {
@@ -1200,17 +1188,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 31.5% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions.",
-      "attracts": {
-        "rabbit": [
-          2,
-          5
-        ],
-        "butterfly": [
-          2,
-          5
-        ]
-      }
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, ordinary bushes occupy 31.5% of cells; no grass or ordinary flowers. Three marigolds remain as special finds. Coverage is measured before placement exclusions."
     },
     {
       "id": "marine_meadow",
@@ -1334,20 +1312,6 @@
         "mode": "none"
       },
       "atmosphere": "A grassy beach park with open walking space, low shrubs, washed-up shells, driftwood and barrels. The adjoining sand keeps its own beach nexus.",
-      "attracts": {
-        "rabbit": [
-          2,
-          5
-        ],
-        "butterfly": [
-          2,
-          5
-        ],
-        "crab": [
-          2,
-          5
-        ]
-      },
       "materialLooks": {
         "shrub": "palm"
       }
@@ -1358,76 +1322,51 @@
       "name": "Mushroom Grove",
       "weight": 1,
       "background": {
-        "repeatCells": [
-          6,
-          6
-        ],
-        "slots": [
+        "type": "procedural_layout",
+        "repeat": true,
+        "generator": {
+          "layout": "hilbert",
+          "width": 33,
+          "height": 33,
+          "seed": 2718,
+          "order": 4,
+          "skip": [
+            40,
+            0,
+            0
+          ],
+          "bias": 0,
+          "side": 2,
+          "inverted": true,
+          "selection": "density",
+          "affinity": 51,
+          "variation": 35,
+          "clusterSize": false
+        },
+        "materials": [
           {
-            "at": [
-              0,
-              0
-            ],
-            "material": "mushroom"
+            "material": "giant_mushroom",
+            "share": 50
           },
           {
-            "at": [
-              1,
-              0
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              3,
-              3
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              4,
-              3
-            ],
-            "material": "mushroom"
-          },
-          {
-            "at": [
-              2,
-              2
-            ],
-            "material": "giant_mushroom"
-          },
-          {
-            "at": [
-              5,
-              5
-            ],
-            "material": "giant_mushroom"
-          },
-          {
-            "at": [
-              5,
-              1
-            ],
-            "material": "giant_mushroom"
+            "material": "mushroom",
+            "share": 50
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.19444444444444445,
+        "nominalDensity": 0.24885215794306703,
         "materialDensity": {
-          "mushroom": 0.1111111111111111,
-          "giant_mushroom": 0.08333333333333333
+          "giant_mushroom": 0.1248852157943067,
+          "mushroom": 0.12396694214876033
         },
-        "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            3,
-            2
+            16,
+            16
           ],
-          "role": "clearing_between_mushroom_pairs"
+          "role": "hilbert_grove_center"
         }
       },
       "poi": {
@@ -1589,13 +1528,7 @@
           "spider"
         ]
       },
-      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower. Chop a giant mushroom for both wood and a mushroom.",
-      "attracts": {
-        "butterfly": [
-          2,
-          5
-        ]
-      },
+      "atmosphere": "Giant woody mushrooms and small red caps share a filled Hilbert grove around the shrine and its luminous flower.",
       "materialFrames": {
         "giant_mushroom": [
           40
@@ -1826,13 +1759,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Regular apple rows alternate with medium maple rows, with open aisles leading to three finite gemfruit finds.",
-      "attracts": {
-        "deer": [
-          2,
-          5
-        ]
-      }
+      "atmosphere": "Regular apple rows alternate with medium maple rows, with open aisles leading to three finite gemfruit finds."
     },
     {
       "id": "formal_garden",
@@ -2207,7 +2134,6 @@
         "mode": "none"
       },
       "atmosphere": "Compact square flower beds step along short straight shrub rows; pale wildflowers dominate, with occasional whole orange beds.",
-      "attracts": {},
       "materialLooks": {
         "shrub": "clipped"
       },
@@ -2425,13 +2351,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Sixteen garden rooms form a clear 4 \u00d7 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms. A stationary carnivorous plant replaces one hedge seat in each repeated garden plot.",
-      "attracts": {
-        "rabbit": [
-          2,
-          5
-        ]
-      }
+      "atmosphere": "Sixteen garden rooms form a clear 4 × 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms. A stationary carnivorous plant replaces one hedge seat in each repeated garden plot."
     },
     {
       "id": "ancient_grove",
@@ -2804,12 +2724,6 @@
         "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Rounded tree-centered clusters repeat six cells apart, with brambles covering half the background cells and light grass in the gaps. Stone markers lead to the guarded starflower. A bramble beside each central tree twitches, hiding a treant that wakes when approached.",
-      "attracts": {
-        "deer": [
-          2,
-          5
-        ]
-      },
       "materialLooks": {
         "shrub": "bramble"
       }
@@ -3165,12 +3079,11 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Old trees shelter soft bushes and patches of grass. Stone markers lead from the quiet shrine to a starflower.",
-      "attracts": {
-        "deer": [
-          2,
-          5
-        ]
+      "atmosphere": "Old trees shelter soft bushes and grass, with broken pressure-plate footpaths between clusters that awaken a ghost once underfoot.",
+      "footpaths": {
+        "spacingCells": 6,
+        "gapChance": 0.22,
+        "effect": "ghost"
       }
     },
     {
@@ -4310,7 +4223,6 @@
         "mode": "none"
       },
       "atmosphere": "Three concentric stone rings surround the POI, with softer grass rings between. Every fifth stone is iron, creating a regular metallic rhythm through the circles.",
-      "attracts": {},
       "materialReplacements": {
         "stone": "grave_pillar"
       },
@@ -4570,7 +4482,6 @@
         "headstoneGhostChance": 0.3333333333333333
       },
       "atmosphere": "Close rows of matching graves stand among long grass, with clay pots beside the central aisle.",
-      "attracts": {},
       "materialFrames": {
         "grave": [
           4
@@ -4825,13 +4736,7 @@
         "fallback": "omit_guard_keep_find",
         "headstoneGhostChance": 0.3333333333333333
       },
-      "atmosphere": "Three weathered grave markers mingle with grass and shrubs in each 6 \u00d7 6-cell patch, with open aisles through the overgrowth.",
-      "attracts": {
-        "butterfly": [
-          2,
-          5
-        ]
-      },
+      "atmosphere": "Three weathered grave markers mingle with grass and shrubs in each 6 × 6-cell patch, with open aisles through the overgrowth.",
       "materialFrames": {
         "grave": [
           4,
@@ -5125,7 +5030,6 @@
         "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Old clay pots stand in a simple checkerboard across the ruined yard, with occasional broken masonry among them. A club goblin watches over a platinum-bearing stone.",
-      "attracts": {},
       "materialLooks": {
         "rubble": "zone_rock_broken_masonry"
       }
@@ -5451,7 +5355,6 @@
         "proximityCells": 4
       },
       "atmosphere": "Touching circles of small stone pillars, purportedly graves, form a continuous quiet lattice, with one off-axis grass entrance per circle and a single starflower find.",
-      "attracts": {},
       "materialFrames": {
         "grave": [
           1
@@ -5954,7 +5857,6 @@
         "mode": "none"
       },
       "atmosphere": "A radius-two flint circle surrounds the POI, edged with a continuous rubble rim. Rubble scatters at 15% outside; three gemfruit finds remain.",
-      "attracts": {},
       "materialLooks": {
         "rubble": "zone_rock_flint_field"
       }
@@ -6212,7 +6114,6 @@
         "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Repeated rubble piles are threaded with traps. An offset line leads toward two finds; the broken order suggests an ambush. Bats roost around the depot and swoop toward visitors.",
-      "attracts": {},
       "decorations": [
         {
           "material": "handcart",
@@ -6527,7 +6428,6 @@
         "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent. A splitting slime lurks beside the rare find.",
-      "attracts": {},
       "materialLooks": {
         "rubble": "zone_rock_seep"
       }
@@ -6739,7 +6639,6 @@
         "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Copper-rock rows and rubble columns enclose twenty-five plots, with one ground spike at each grid corner. The POI sits in the central room; a crimson-bearing rock marks the far end of its lane. Two goblins watch over the valuable ore.",
-      "attracts": {},
       "decorations": [
         {
           "material": "handcart",
@@ -7083,7 +6982,6 @@
         "mode": "none"
       },
       "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
-      "attracts": {},
       "materialLooks": {
         "rubble": "zone_rock_black_ring"
       }
@@ -7274,8 +7172,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "attracts": {},
-      "atmosphere": "Compact stone crescents, shell inlays and a pale wildflower center repeat every 6 \u00d7 6 cells. The single starflower remains the rare luminous find.",
+      "atmosphere": "Compact stone crescents, shell inlays and a pale wildflower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find.",
       "reef": {
         "landOre": {
           "count": 3,
@@ -7468,8 +7365,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "attracts": {},
-      "atmosphere": "Scattered driftwood and shell fragments surround one shipwreck shrine. Its 3 \u00d7 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. The shipwreck offers pirate mercenaries for hire. A pirate grunt and gunner patrol beside it. If the full wreck cannot fit on dry sand, the accessible small hiring shrine remains. Four buried treasure spots wait nearby, hidden until discovered.",
+      "atmosphere": "Scattered driftwood and shell fragments surround one shipwreck shrine. Its 3 × 3-cell dry-sand footprint and approach are reserved before scenic, street and zone placements. The shipwreck offers pirate mercenaries for hire. A pirate grunt and gunner patrol beside it. If the full wreck cannot fit on dry sand, the accessible small hiring shrine remains. Four buried treasure spots wait nearby, hidden until discovered.",
       "decorations": [
         {
           "material": "barrel",
@@ -7656,13 +7552,7 @@
       "guards": {
         "mode": "none"
       },
-      "attracts": {
-        "butterfly": [
-          2,
-          5
-        ]
-      },
-      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 \u00d7 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation.",
+      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 × 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation.",
       "materialFrames": {
         "stone": [
           34
@@ -7739,7 +7629,6 @@
         "mode": "none"
       },
       "atmosphere": "A central lava pool surrounds a dry island bearing an Ember altar.",
-      "attracts": {},
       "quarryLayout": "crater",
       "affinities": [
         "ruined"
@@ -7797,7 +7686,6 @@
         "mode": "none"
       },
       "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Loose stone, copper ore and barrels lie where the last shift dropped them. Nothing here has been worked since the fire.",
-      "attracts": {},
       "quarryLayout": "abandoned",
       "entrances": {
         "count": 3,
@@ -7872,7 +7760,6 @@
         ]
       },
       "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Wurms tunnel through the loose earth beneath the open cuts.",
-      "attracts": {},
       "quarryLayout": "strip_mine",
       "affinities": [
         "ruined"
@@ -7948,7 +7835,6 @@
         "count": 3
       },
       "atmosphere": "Ruined foundations shelter chests, goblins and scattered clay pots.",
-      "attracts": {},
       "quarryLayout": "stronghold",
       "affinities": [
         "ruined"

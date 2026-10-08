@@ -13,9 +13,10 @@
       objects, wildplants, roadClass: new Uint8Array(N * N),
       streetArea: new Uint8Array(N * N).fill(reserved ? 1 : 0),
       streetDress: { objects: [], wildplants: [], lairs: [], treasures: [hoard],
-        marks: new Uint8Array(N * N).fill(reserved ? 1 : 0) },
+        marks: new Uint8Array(N * N).fill(reserved ? StreetVariants.VARIANT_BY_ID.pilgrim.code : 0) },
       ...dressing,
     };
+    entry.streetMarks = entry.streetDress.marks;
     const prior = window.__TEST_MODE;
     window.__TEST_MODE = false;
     try { scene.spawnInTile(entry, 0, 0); } finally { window.__TEST_MODE = prior; }
@@ -25,7 +26,9 @@
   test('variant priority: empty road corridor excludes runtime generic rewards and enemies, retaining its hoard and fauna', () => {
     const { entry, hoard, N } = fixture(true);
     assert.eq(entry._ambientSpawnOpts.occupied.size, N * N);
-    assert.eq(entry._spawnOpts.occupied.size, 1, 'road area is not a hard block for story or authored placements');
+    assert.eq(entry._spawnOpts.occupied.size, 1 + entry._spawnOpts.creatureCells.size, 'only the hoard and generated creature seats reserve ground');
+    assert.lt(entry._spawnOpts.occupied.size, N * N, 'unused variant ground remains open for story and authored placements');
+    assert.gte(entry._spawnOpts.creatureCells.size, entry.creatures.filter(c => c._habitatSpawn).length, 'generated reservations include every visible inhabitant');
     assert.eq(entry.traps.length, 0);
     assert.eq(entry.treasure, null);
     assert.eq(entry.extraTreasures.length, 1);
@@ -134,7 +137,7 @@
     coverage[20 * 64 + 20] = 1;
     const zone = { id: 'zone_piece', kind: 'tree', x: 315, y: 205, _footprintCells: { width: 3, height: 1 } };
     const { entry } = fixture(true, WorldGen.T.PARK, [], [], {
-      coinDrops: [first, second], zone: { coverage }, zoneDress: { objects: [zone], wildplants: [] },
+      coinDrops: [first, second], zone: { coverage, anchors: [{ key: 'zone_coin_override', kind: 'stones', variant: 'silent_circle', gx: 20, gy: 20 }] }, zoneDress: { objects: [zone], wildplants: [] },
       streetDress: coinDress([first, second]),
     });
     assert.eq(entry.coinDrops.length, 0, 'both new and carried road coins yield to the zone');

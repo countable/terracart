@@ -54,7 +54,7 @@
     assert.eq(h.enemyHpMul, 1); assert.eq(h.enemyDmgMul, 1);
     assert.eq(h.incomingDamageMul, 2.5);
     assert.eq(h.derelictLairs, e.derelictLairs);
-    assert.eq(h.monsterCountMul, 1); assert.eq(h.slimeCountMul, 1);
+    assert.eq(h.monsterCountMul, 1);
     assert.gt(h.trapCountMul, e.trapCountMul, 'the verge is denser with traps too');
     assert.gt(h.crowCountMul, e.crowCountMul, 'and more wild crows to begin with');
     assert.eq(h.trapBiteMul, e.trapBiteMul, 'trap penalty applies at the player');

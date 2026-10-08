@@ -738,24 +738,15 @@ function syntheticPark(want) {
   }
   throw new Error('no ' + want + ' rectangle');
 }
-test('park flora: a clump is several times as full as the open lawn, in every scattered character', () => {
-  const P = BiomeProfiles.FLORA_PATCH;
+test('park flora: every scattered park character becomes a Grove Nexus', () => {
   for (const ch of ['meadow', 'wooded', 'common']) {
-    const { r, N, edge } = syntheticPark(ch);
-    const occ = new Set();
-    for (const o of [...r.objects, ...r.wildplants]) {
-      occ.add(Math.floor((o.y - TILE_TY * edge) / (edge / N)) * N + Math.floor((o.x - TILE_TX * edge) / (edge / N)));
-    }
-    let inN = 0, inOcc = 0, outN = 0, outOcc = 0;
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const i = y * N + x;
-      if (r.grid[i] !== T.PARK) continue;
-      const clump = BiomeProfiles.patchMul(P, TILE_TX * EXT + (x + 0.5) * EXT / N, TILE_TY * EXT + (y + 0.5) * EXT / N) === P.dense;
-      if (clump) { inN++; if (occ.has(i)) inOcc++; } else { outN++; if (occ.has(i)) outOcc++; }
-    }
-    assert.gt(inN, 500, `${ch}: park cells in clumps`); assert.gt(outN, 500, `${ch}: and outside`);
-    assert.gt(inOcc / inN, 4 * (outOcc / outN), `${ch} clumped: ${(100 * inOcc / inN).toFixed(1)}% vs ${(100 * outOcc / outN).toFixed(1)}%`);
-    assert.lt(inOcc / inN, 0.35, `${ch}: dense, not packed`);
+    const { r } = syntheticPark(ch);
+    assert.eq(r.grid.filter(t => t === T.PARK).length, 0, `${ch}: no plain park spawning ground`);
+    const a = r.zone.anchors.find(a => a.polygonAnchor);
+    assert.truthy(a, `${ch}: polygon owns a centred Nexus`);
+    assert.eq(a.character, ch);
+    assert.gt(r.zone.coverage.filter(Boolean).length, 500, `${ch}: source footprint covered`);
+    assert.eq(r.zoneDress.objects.filter(o => o.kind === 'grove_shrine' && o.id.startsWith('zpsh_')).length, 1);
   }
 });
 

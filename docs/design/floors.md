@@ -10,9 +10,10 @@ T3, so T4 keeps the bar honest), the arena trials' key opens floor 5, the rope,
 sinkhole and fall seals on floors 2, 3, 4 and 6 read one owning table
 (`DungeonProgression.ROPE_SEALED_FLOORS`), and `WorldGen.FLOOR_PROFILES` owns
 every floor-scoped cave rule (terrain mode, biome label, lava, street mirror,
-fall landings, chest source, quarry provenance). Authored warren, mushroom and
-gemstone areas already land on floors 1-2 around grove and quarry anchors
-(`cave_areas.js` `DEPTH_WEIGHTS`); the goblin city extends them to full-floor
+fall landings, chest source, quarry provenance, pressure traps, authored cave
+areas, arrival stories and the infernal entry key). Authored warren, mushroom, gemstone and
+dungeon-maze areas already land on floors 1-2 around grove and quarry anchors
+(`WorldGen.floorProfile(depth).caveAreas`); the goblin city extends them to full-floor
 coverage. Still pending: the elevator rework (repair from floor 1, the descent
 module), the terrain shift (deep stone at 3, fungal Underdark at 4, haunted
 city at 5, lava at 6, with biome labels and arrival stories), the dragon layer

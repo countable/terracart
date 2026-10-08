@@ -1,11 +1,11 @@
-// Pure interpretation of the shared zone table. Coordinates are integer game
+// Pure interpretation of the shared Nexus variant table. Coordinates are integer game
 // cells, phased from the settled POI; nothing here depends on tile load order.
 (function (root) {
   'use strict';
   const data = root.ZoneVariantData;
   const rows = data.variants;
-  // A row's `zone` column is its ZONE KIND (the data key in
-  // docs/data/zone-variants.json stays as authored); a row IS a zone variant.
+  // A row's `zone` column is its Nexus kind (the data key in
+  // docs/data/zone-variants.json stays as authored); a row IS a Nexus variant.
   const indexed = new Map(rows.map(row => [row.id, row]));
   const kinds = new Map();
   for (const row of rows) {
@@ -136,9 +136,9 @@
     }
     return candidates.length ? candidates[candidates.length - 1].row : null;
   }
-  // An explicit zone lamp tint wins over the street theme. Read the same
+  // An explicit Nexus lamp tint wins over the Road Variant. Read the same
   // coverage winner as the dressing, including associated park ground.
-  // Untinted zones leave the street's own palette intact.
+  // Untinted Nexuses leave the street's own palette intact.
   function lampGlowAt(entry, ix, iy) {
     const field = entry && entry.zone, n = entry && entry.cellsPerEdge;
     const coverage = field && (field.coverage || field.idx);
@@ -183,8 +183,32 @@
   // FNV result (util.js avalanche32) so its low-bit structure never shows up
   // as rows in a scatter.
   function unitHash(key) { return u01(avalanche32(fnv1a(key))); }
+  // Promoted layouts are generated once in pattern coordinates, then sampled
+  // through the same canonical frame and spawn gates as declarative motifs.
+  const terrainPlans = new WeakMap();
+  function placement(variant, u, v) {
+    const b = variant.background;
+    if (b.type !== 'procedural_layout') return null;
+    const config = b.generator, key = JSON.stringify([config, b.materials]);
+    let plan = terrainPlans.get(b);
+    if (!plan || plan.key !== key) {
+      const points = root.TerrainLayouts.generate(config);
+      const assigned = root.TerrainLayouts.assign(points, config, b.materials);
+      plan = { key, cells: new Map(assigned.map(p => [p.cy * config.width + p.cx, p])) };
+      terrainPlans.set(b, plan);
+    }
+    if (b.repeat) { u = mod(u, config.width); v = mod(v, config.height); }
+    if (u < 0 || v < 0 || u >= config.width || v >= config.height) return null;
+    return plan.cells.get(v * config.width + u) || null;
+  }
+  function footpathAt(variant, u, v, anchorKey) {
+    const config = variant.footpaths;
+    return !!config && (mod(u, config.spacingCells) === 0 || mod(v, config.spacingCells) === 0)
+      && unitHash(`${anchorKey}|${variant.id}|${u}|${v}|footpath`) >= config.gapChance;
+  }
   function sample(variant, u, v, anchorKey) {
     const b = variant.background;
+    if (b.type === 'procedural_layout') return placement(variant, u, v)?.material || null;
     if (b.type === 'seeded_scatter') {
       const seed = `${anchorKey}|${variant.id}|${u}|${v}`;
       // Row geometry controls available seats; conditional occupancy keeps
@@ -251,7 +275,7 @@
       return { id: target.id, material: target.material || variant.finds.material, dx: xy[0], dy: xy[1] };
     });
   }
-  root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, findOffsets,
+  root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, placement, footpathAt, findOffsets,
     identity, anchorFrame, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt,
     traitsFor, affinityMultiplier, geographyTraits, contextFor, selectionWeights };
 })(typeof window !== 'undefined' ? window : globalThis);

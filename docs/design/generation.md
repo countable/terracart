@@ -4,6 +4,58 @@ Detail doc for world generation, saves and placement precedence. The root
 `CLAUDE.md` owns the overview; read this before changing generation, spawn
 access or tile lifecycle mechanics.
 
+## Habitat populations
+
+- `src/habitat_spawns.js` owns fauna mixtures, landcover/variant resolution and
+  population budgets. Nexus coverage wins, then a declared Road Variant,
+  then ordinary landcover. `streetAreaVariants` records the winning variant
+  across its entire corridor, including furniture gaps. Plain roads/paths
+  have no profile. Residential, Grass and the Nexus variants collectively
+  provide core inhabitants; uncommon landcovers supply travel variety.
+- Ordinary surface fauna and enemy requests use separate tile budgets,
+  apportioned by raw habitat coverage. Safety restrictions never enter the
+  count calculation. Compute legal species seats through `isSpawnCell` and
+  exhaust that pool within the same habitat. Forbidden ground is missing map
+  area, not a roll that thins the population. A species with no sufficient
+  legal space reports a placement shortfall without switching habitat/species.
+- All generated creatures reserve their seats before captures, defeats, Home,
+  daylight, amnesty and mode overlays. Stable habitat slots choose species;
+  legal-seat changes cannot change their identities or species. Fauna may share
+  static interactable cells, but generated inhabitants do not share each
+  other's seats. `entry.habitatPopulation` separates requested, placed and
+  shortfall counts; matching authored Nexus fauna satisfies matching slots.
+- Crows have explicit Grove/declared Road Variant populations; Rabbits have
+  ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
+  to Forest/Residential, and Butterfly exclusion from Forest/Orchard remain
+  species placement limits.
+- Shore length is a specialized habitat budget. Ordinary and declared Beach/
+  Marine Meadow owners partition raw shoreline; safety only removes destinations.
+  Beach owners supply native Crabs/Turtles and count authored inhabitants before
+  filling remaining slots. `entry.shorePopulation` records placement shortfalls.
+- The former species-first draw stream is replayed only to preserve unrelated
+  tile treasure RNG and map old cell-based enemy defeats to new stable habitat
+  identities. Historical fauna counts are compatibility inputs, not current
+  population tuning. New captures keep the existing species/tile/ordinal ID
+  scheme; saved filtering never releases a generated seat to another creature.
+- Nexus roamers, finite guards, optional Wetland/Rock sites and authored building
+  encounters retain their explicit budgets. Mobile guards exhaust legal seats
+  within their feature before reporting a shortfall. Rooted pattern inhabitants
+  and core/roof formations retain their exact authored layout seats.
+- Triggered bush fauna and ambient haunting consult the owning habitat. Headstone
+  ghosts, starter/story creatures, crop pests, saved pets and summons remain
+  feature/progression/player-driven exceptions; all placement still uses the
+  shared gate. Hazards such as vents and whirlwinds retain their own system.
+
+- Cave ambient enemies use stable request IDs: packs end in `pack_<ordinal>`
+  and roamers in `roam_<blockX>_<blockY>`, after the depth/tile prefix. Their
+  identities and species remain fixed when safety relocates their seats. A
+  raw-floor compatibility pass assigns historical cell aliases before safety;
+  each alias belongs to one request, so old defeats neither resurrect relocated
+  foes nor suppress multiple enemies. Rabbit identities remain ordinal-based.
+- Rendering and simulation use `EnemySpawns.isSurfaceResident`, including
+  habitat-only residents without ordinary roster metadata. Evening suppression
+  is reevaluated after dusk and dawn, including specialized Metal Slimes.
+
 ## Generation, saves and tiles
 
 - Spider webs save their absolute cell, world position, depth and wall-clock
@@ -15,7 +67,12 @@ access or tile lifecycle mechanics.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
 
-- Farmland and golf-course no-spawn exclusions apply at every dungeon depth.
+- Farm and orchard interiors, and entire golf courses, exclude spawns at every dungeon depth.
+  Fields keep an eligible outer rim of `WorldGen.FARM_EDGE_CELLS` cells,
+  measured from the source footprint; roads, POIs and later paint cannot create
+  interior edges. Farmland rims scatter static T1–T2 wild crops at seeded growth
+  stages, directly on the ground, through the ordinary wildplant lane. They have
+  no dirt bed or watering interaction.
   `WorldGen.SPAWN_WHY_ALL_FLOORS` owns the inherited reasons; `floorSpawnWhy`
   derives them from immutable surface evidence. Preserve that mask through cave
   generation and runtime spawns; repainting or digging never grants spawn access.
@@ -26,6 +83,18 @@ access or tile lifecycle mechanics.
   floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
+  Dungeon mazes on floors 1–2 repeat the reviewed 34 × 33 braided wall mask
+  (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
+  coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
+  tile seams, routes, landmark approaches and the focus stay open; shortest
+  wall-cutting paths connect each eligible component. Protected islands are
+  never carved, and components with no existing floor access are skipped.
+  Small and thin footprints keep fewer walls rather than stretching the maze.
+  Only the focus-owning tile places its seeded Ember shrine or T3 chest; an
+  existing mirrored POI chest is replaced with the same identity. Cell-addressed
+  encounters use `EnemySpawns.caveKind` for the current floor and the ordinary
+  defeat ledger. Player mining applies afterward through the normal dug-cell
+  overlay, so returning does not restore excavated maze walls.
 
 - Zone geometry is surface-owned and level-independent: zones, anchors,
   coverage and the road mask are computed once on the surface, frozen in its
@@ -40,6 +109,11 @@ access or tile lifecycle mechanics.
 
 - A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
   one owning table keyed by floor, never a depth literal at a call site.
+  `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
+  probabilities, authored cave-area weights/carving/garrisons, pressure traps,
+  arrival story IDs and entry keys. Keep story copy in the presentation module;
+  choose its story through the profile. Depths beyond the explicit rows inherit
+  the default profile, including the infernal entry key.
   `DungeonProgression.ROPE_SEALED_FLOORS` is the pattern (the rope, the
   sinkhole minting and the fall check all read it); lighting already derives
   its per-floor ambience from depth (`Lighting.profile`, `litDim`).
@@ -51,10 +125,10 @@ access or tile lifecycle mechanics.
   each tile seeds ~1 T5, 5 T4, 11 T3, 18 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
   round-robin across chest categories; everything else is T1. Vista chests
-  are fixed T5 outside the budget; a zone nexus can win a seat without
-  spending one (+1 on top). Each cave level re-seats its own pyramid over
+  are fixed T5 outside the budget; a Nexus chest can win a seat without
+  spending one (+1 on top). Each underground floor re-seats its own pyramid over
   its mirrors (the rank rides down), and the cap CLIMBS underground
-  (`loot.js chestTierMaxFor`: T6 from level 3, T7 from 6) while the depth
+  (`loot.js chestTierMaxFor`: T6 from depth 3, T7 from 6) while the depth
   bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
   the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
   now only feeds restock days and the pots of gold. Breakable pots and
@@ -123,8 +197,9 @@ access or tile lifecycle mechanics.
   reason bit plus its column in the table, never a separate check at a
   spawner. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
   narrow exception: `streetObstacle` may occupy explicitly declared cells
-  of its own road band. Thorny paths and snare clusters cross minor roads only; removable
-  barricade/spike lines also cross their own major band and kerb. All keep
+  of its own road band. Thorny Path and snare clusters cross variant-eligible Small roads only; removable
+  barricade/spike lines also cross their own Major or Medium road band
+  and kerb buffer. All keep
   private, quiet, restricted, water/building and occupancy exclusions. Ordinary
   spawn classes cannot use that declaration to cross a road.
   POI chests are the place itself (`landRefused` —
@@ -134,27 +209,27 @@ access or tile lifecycle mechanics.
   `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coins never land on road cells
   or in yards, and every timed reward (coin bursts, bounty packs,
   `findWalkableDestination`) stays on the player's SIDE of any MD/LG road
-  (`sameSideField`, creature_ai.js) — nothing urgent across a major road.
+  (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
-- The road is never a refuge and never a lure. MD/LG roads carry a KERB
-  BUFFER (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
+- The road is never a refuge and never a lure. The Major-and-Medium road group carries a kerb
+  buffer (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
   mover (foe or animal over `BRISK_WALK_MPS` — `isFastMover`; the wild
   slime's charge is under it) spawns in or enters the buffer, and a player standing in
   it is left alone — the pavement ends a chase, the street adds nothing
   (`test/node/kerb_refuge_sim.test.js`). Above a run (`util.js` speed helper,
   shared with egg hatching) nothing restores, pays or taps and foes ignore the
-  player via `unnoticed`. Where a species prefers to stand
-  is an `attracts` column (street variant rows, `Zones.ZONE_KINDS`,
-  `BIOME_ATTRACTS`, scenic themes and `Streets.PATH_LAMP_ATTRACTS`) read by
-  `_seatFaunaOnFavouriteGround`. Each species declares an integer count range,
-  currently `[2, 5]`: a seeded quota draws the nearest existing positioned
-  animals by distance to actual eligible ground, with stable creature IDs
-  breaking ties. Animals already on that ground count toward the quota.
-  Each Nexus has its own quota; street families, scenic themes, walking-path
-  lamp cells and terrain codes each use their tile-wide union. Relocation
-  still respects habitat and the spawn gate, retains the original seat if no
-  eligible destination exists, and never creates or recovers missing fauna.
+  player via `unnoticed`. Population selection belongs to the winning
+  landcover/Nexus/Road Variant profile in `HabitatSpawns`; plain roads,
+  ordinary paths, scenic verges and path lamps add no population or species
+  preference. Roads remain geometry and access evidence for the shared gate.
+  Road Variant `fauna` declarations supply local inhabitants. There is no
+  post-placement attraction or borrowed source population.
+  Evening Major/Medium traffic is a reversible presence overlay on generated
+  ambient residents at their original seats (`EnemySpawns.busyRoadAllows`,
+  using the existing surface-night threshold). It hides without relocation
+  or replacement. Owned pets, summons, story residents and finite guards keep
+  their separate lifecycle rules.
   SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
   hazard joins that map, never a new movement gate. Top speeds are BASE
@@ -174,7 +249,12 @@ access or tile lifecycle mechanics.
   (`yardReasonAt` — the gate's BEHIND_HOUSE / PRIVATE) it is not already in.
   A new retreat reason takes that bend, never its own steering
   (`test/node/roadside_run.test.js`).
-- Mushroom groves use the themed surface encounter lane to scatter individual
+- Promoted procedural backgrounds use `TerrainLayouts` (`src/terrain.js`) in
+  both game and layout lab; `ZoneVariants.placement` caches the configured plan
+  and samples it in the canonical POI frame, preserving empty-area reservations,
+  spawn gates and per-cell identities through ordinary `ZoneDressing`.
+- Mushroom groves use a Hilbert background of giant and small mushrooms;
+  the themed surface encounter lane scatters individual
   mushroom monsters across six-cell patches, with a seeded 60% presence roll
   per patch. Seats stay within grove coverage and obey the shared spawn gate,
   occupied cells, defeat ledger and Home protections; they are not shrine guards.
@@ -182,22 +262,35 @@ access or tile lifecycle mechanics.
   mushrooms using stable plant IDs and the enemy spawn gate. Approaching one
   reveals it and releases a burst; remaining nearby permits another burst after
   eight foreground seconds. Picking or burning the plant stops its emission.
-- Influence zones: `ZoneCoverage` owns the union of influence and the
-  associated park footprint plus fringe. Its ground and declarative layout
-  (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
-  procedural dressing; roads and buildings remain visible. Nexus painting and
+- Nexus coverage: `ZoneCoverage` owns the union of the influence footprint and the
+  associated park footprint plus park fringe. Its ground and declarative layout
+  (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and
+  ambient fill; roads and buildings remain visible. Nexus painting and
   quarry coverage preserve all spawn exclusions, including PRIVATE and
   BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
   Gas-station influence uses the tar row’s own minimum and maximum radii.
   Cave generation retains the original ground,
   objects and spawn reasons so surface dressing cannot reroll entrances.
   A park's POI becomes its daily grove shrine in place, preserving its name
-  and id. Other nexus chests keep `zoneNexus` and its tier bonus. No decorative
+  and id. An eligible park polygon without a mapped POI receives a centred
+  synthetic Grove anchor and the same Nexus coverage; concave outlines and
+  holes use the nearest interior centre fallback. Clipped polygons retain
+  coverage and their source-seeded theme, but cannot invent a whole-park
+  centre or duplicate finite shrine/find/guard budgets. Ordinary PARK enemy
+  definitions and the separate biting-plant scatter are removed; Grove
+  variants own their inhabitants. Other Nexus chests keep `zoneNexus` and its tier bonus. No decorative
   props: every standing piece is interactable or a hazard, one art per
   interactable. Repeating backgrounds can thin selected materials with a
   deterministic `materialKeepChance`; fixed shrine slots and other materials
-  retain their positions. Zone mechanics use existing lanes (tar slow, lair tier,
+  retain their positions. Nexus mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
+- Sacred Grove keeps its six-cell shrub/tree clusters, with visible pressure
+  plates along the empty grid seams and deterministic breaks; shrine cells,
+  authored routes and existing occupancy stay clear, and plates use the ghost
+  spawn gate. `PressureTraps` raises one ordinary ghost on a grounded player
+  step and stores the stable plate id in `save.pressedPlates`; its depressed
+  frame survives reloads and tile regeneration without another summon. Flight
+  does not press plates, and a refused ghost spawn leaves a plate unspent.
 - Strip mines and L1 use `EnvironmentHazards` for hidden cave-in clusters of
   2–5 connected cells scattered across general eligible ground. Their seeds are
   cell-based and materialized on first contact. Any grounded entity (player,
@@ -248,32 +341,34 @@ Higher-priority placements and their access space take precedence in this order:
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
-   are general fill, not landmarks merely because they came from OSM.
-4. Special zone variants, including their deliberately empty pattern cells.
-5. Special road variants, across their defined corridor and verge, including
-   deliberately empty gaps. Zone variants override road variants where they
+   are ambient fill, not landmarks merely because they came from OSM.
+4. Nexus variants, including their deliberately empty layout cells.
+5. Road variants, across their defined corridor and verge, including
+   deliberately empty gaps. Nexus variants override road variants where they
    overlap; the physical road and its safety restrictions remain intact.
-6. General zone/biome fill: ordinary plants, rocks and generic scattered content.
+6. Ambient fill: ordinary plants, rocks and generic scattered content.
 
 - Hard terrain, land-access, road-safety and accessibility rules are prerequisites,
   separate from priority. Higher priority does not bypass them. Any authored
   terrain-carving exception must be explicit and confined to its existing rule.
-- Resolve area ownership before general fill. All lower-priority producers,
+- Resolve area ownership before ambient fill. All lower-priority producers,
   including later scenic, Overpass and runtime passes, respect the same full-area
   reservation. Protecting only occupied object cells is insufficient: a variant's
   empty lanes belong to it too. A higher-priority object can occupy a variant
-  area; its presence does not release that area to general fill.
+  area; its presence does not release that area to ambient fill.
 - Area ownership and object occupancy are separate. Inside the winning area,
   objects still obey collision and access rules. Reserve a large object's entire
   declared footprint (a 3 × 3 shipwreck is one interaction), not just its anchor.
 - Authored guards, finite finds, shrine gifts and tide pickups belong to their
   declared feature and retain their own budgets and placement rules. Generic
   traps, treasure and rooted enemies respect variant exclusions; a variant's
-  own content does not use the general-fill veto. Fauna retain their intentional
+  own content does not use the ambient-fill veto. Fauna retain their intentional
   ability to share interactable cells and their terrain/road restrictions.
   Nexus coverage also excludes ordinary beach bottles, tide reservations and
-  generic fauna. Within it, only the variant's declared fauna and `attracts`
-  row can add or attract animals; underlying shore/terrain rules do not apply.
+  generic fauna. Within it, `HabitatSpawns` supplies the variant's declared
+  fauna, including native shore species on declared Beach/Marine Meadow owners;
+  arrangement stays within the winning owner. Underlying landcover does not
+  supply an additional population.
 - Resolve equal-priority generated claims using stable world-space feature keys
   and buffered geometry, never iteration order, tile-load order or save state.
   Apply saved-player changes as overlays without rerolling the generated world.

@@ -24,6 +24,18 @@
   const snapshot = p => JSON.stringify({ areas: p.areas, reserved: [...p.reserved],
     terrain: [...p.terrain], objects: p.objects, wildplants: p.wildplants });
 
+  test('cave areas: a relocated profile enables authored springs on another floor', () => {
+    const f = fixture(), original = W.floorProfile;
+    const spring = { ...original(1).caveAreas, weights: [{ id: 'spring_cave', weight: 1 }] };
+    W.floorProfile = depth => ({ ...original(depth), caveAreas: depth === 4 ? spring : null });
+    try {
+      assert.eq(CaveAreas.select(f.surface.zone.anchors[0], 1), null);
+      assert.eq(CaveAreas.plan(f).areas.length, 0);
+      f.depth = 4;
+      assert.eq(CaveAreas.select(f.surface.zone.anchors[0], 4), 'spring_cave');
+      assert.eq(CaveAreas.plan(f).areas.length, 1, 'generation follows the profile');
+    } finally { W.floorProfile = original; }
+  });
   test('cave areas: anchor origin is identical across neighbouring observers', () => {
     const f = fixture(), a = f.surface.zone.anchors[0];
     for (const anchor of [a, { ...a, originGX: a.gx - 71.2, originGY: a.gy + 17.3 }]) {
@@ -88,7 +100,7 @@
       f => { f.spawnWhy[(f.cy + 5) * N + f.cx + 5] = W.SPAWN_WHY.GOLF; },
       f => { f.grid[(f.cy + 5) * N + f.cx + 5] = T.CAVE_WALL; },
       f => { f.surface.zone.coverage[(f.cy + 5) * N + f.cx + 5] = 2; },
-      f => { f.surface.baseGrid[(f.cy + 5) * N + f.cx + 5] = T.FARMLAND; },
+      f => { f.surface.baseGrid[(f.cy + 5) * N + f.cx + 5] = T.GOLF; },
     ];
     for (const damage of cases) {
       const f = fixture(); damage(f); const p = CaveAreas.plan(f);

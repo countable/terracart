@@ -6,21 +6,14 @@
     id: 'spring_cave', extentCells: 25, poolRadius: 3, sourceRadius: 0.65,
     mushroomRadius: 5, stoneRadius: 8, ringHalfWidth: 0.4, approachHalfWidth: 0.6
   });
-  const GROVE_WEIGHTS = Object.freeze([
-    { id: 'spring_cave', weight: 35 }, { id: 'goblin_warrens', weight: 30 },
-    { id: 'mushroom_cavern', weight: 30 }, { id: 'gemstone_cavern', weight: 5 }
-  ]);
-  const DEPTH_WEIGHTS = { 1: GROVE_WEIGHTS, 2: [
-    { id: 'spring_cave', weight: 20 }, { id: 'goblin_warrens', weight: 45 },
-    { id: 'mushroom_cavern', weight: 25 }, { id: 'gemstone_cavern', weight: 10 }
-  ] };
   const BUDGETS = Object.freeze({ referenceCells: 625, referenceRooms: 25,
-    goblins: { 1: 12, 2: 16 }, mushrooms: 8, harvest: 32, gems: 16, ore: 24 });
+    mushrooms: 8, harvest: 32, gems: 16, ore: 24 });
   function select(anchor, depth) {
-    if (!DEPTH_WEIGHTS[depth]) return null;
+    const profile = root.WorldGen.floorProfile(depth).caveAreas;
+    if (!profile) return null;
     if (anchor.kind === 'quarry') return 'mine_tunnels';
     if (anchor.kind !== 'grove') return null;
-    const weights = DEPTH_WEIGHTS[depth];
+    const weights = profile.weights;
     let ticket = fnv1a(`cave-area|${root.ZoneVariants.identity(anchor)}|${depth}`) / 4294967296 * weights.reduce((sum, row) => sum + row.weight, 0);
     for (const row of weights) {
       ticket -= row.weight;
@@ -40,11 +33,12 @@
     return null;
   }
   function plan(ctx) {
-    const out = { reserved: new Set(), areas: [], diagnostics: [], terrain: new Map(), objects: [], wildplants: [], moves: [], encounters: [] };
+    const out = { reserved: new Set(), areas: [], diagnostics: [], terrain: new Map(), objects: [], wildplants: [], moves: [], replacements: [], encounters: [] };
     const WG = root.WorldGen, V = root.ZoneVariants;
     const { surface, grid, N, tx, ty, tileEdgeM, depth } = ctx;
     const field = surface && surface.zone, coverage = field && (field.coverage || field.idx);
-    if (!DEPTH_WEIGHTS[depth] || !coverage || !V || !WG) return out;
+    const profile = WG?.floorProfile(depth).caveAreas;
+    if (!profile || !coverage || !V || !WG) return out;
     const source = field.caveSource || surface.caveSource || surface;
     const sourceGrid = source.baseGrid || source.grid;
     if (!sourceGrid) return out;
@@ -69,6 +63,7 @@
     for (const s of anchors) {
       const a = V.anchorFrame(s.anchor, { N, tx, ty });
       const variant = select(s.anchor, depth);
+      if (variant === 'dungeon_maze') { planMaze(ctx, out, s, a, frame, sourceGrid, sourceOpts); continue; }
       if (variant !== SPRING.id) { planNexus(ctx, out, s, a, frame, sourceGrid, sourceOpts); continue; }
       const radius = SPRING.stoneRadius + SPRING.ringHalfWidth;
       const half = Math.ceil(radius);
@@ -85,14 +80,14 @@
         if (!frame.inTile(ix, iy)) { reason = 'tile_boundary'; break; }
         const i = iy * N + ix;
         if (coverage[i] !== s.index + 1 || out.reserved.has(i)) { reason = 'ownership'; break; }
-        if ((grid[i] !== WG.T.CAVE_FLOOR && !(depth === 2 && grid[i] === WG.T.CAVE_WALL)) ||
+        if ((grid[i] !== WG.T.CAVE_FLOOR && !(profile.carveWalls && grid[i] === WG.T.CAVE_WALL)) ||
             !WG.isSpawnCell(sourceGrid, N, N, ix, iy, sourceOpts, 'minor') ||
             !WG.isSpawnCell(sourceGrid, N, N, ix, iy, caveOpts, 'minor')) { reason = 'blocked_ground'; break; }
         const material = materialAt(u, v);
         cells.push({ i, ix, iy, u, v, material });
       }
       if (reason) { diagnostic.reason = reason; continue; }
-      if (depth === 2 && !cells.some(c => grid[c.i] === WG.T.CAVE_FLOOR)) {
+      if (profile.carveWalls && !cells.some(c => grid[c.i] === WG.T.CAVE_FLOOR)) {
         diagnostic.reason = 'no_floor_access'; continue;
       }
       const byCell = new Map(cells.map(c => [c.i, c]));
@@ -175,6 +170,7 @@
   // Mine regions claim only the existing floor: ore does not dig its own access.
   function planNexus(ctx, out, state, anchor, frame, sourceGrid, sourceOpts) {
     const W = root.WorldGen, { N, tx, ty, depth, grid, surface } = ctx;
+    const profile = W.floorProfile(depth).caveAreas;
     const kind = select(state.anchor, depth), mine = kind === 'mine_tunnels';
     const coverage = surface.zone.coverage || surface.zone.idx;
     const id = `cave_area|${state.key}|${depth}`;
@@ -191,7 +187,7 @@
       if (!frame.inTile(ix, iy)) { diagnostic.reason = 'tile_boundary'; return; }
       const i = iy * N + ix;
       if (coverage[i] !== state.index + 1 || out.reserved.has(i)) continue;
-      if (grid[i] !== W.T.CAVE_FLOOR && (mine || depth !== 2 || grid[i] !== W.T.CAVE_WALL)) continue;
+      if (grid[i] !== W.T.CAVE_FLOOR && (mine || !profile.carveWalls || grid[i] !== W.T.CAVE_WALL)) continue;
       const projectedStreet = mine && ctx.routeStreetCells?.has(i);
       if (projectedStreet) {
         // The route prepass already proved this is an eligible small street;
@@ -276,11 +272,11 @@
       const roomLane = new Set(usable.filter(c => rooms.some(r =>
         (c.u === r.u && c.v >= r.top && c.v <= r.bottom) ||
         (c.v === r.v && c.u >= r.left && c.u <= r.right))).map(c => c.i));
-      const budget=Math.max(1,Math.round(rooms.length * BUDGETS.goblins[depth]/BUDGETS.referenceRooms));
+      const budget=Math.max(1,Math.round(rooms.length * profile.goblins/BUDGETS.referenceRooms));
       for(const room of order(rooms.map((r,i)=>({...r,i})), 'rooms').slice(0,budget)) {
         const c=usable.filter(c=>c.u>room.left&&c.u<room.right&&c.v>room.top&&c.v<room.bottom&&free(c))
           .sort((a,b)=>Math.hypot(a.u-room.u,a.v-room.v)-Math.hypot(b.u-room.u,b.v-room.v))[0];
-        if(c) {seats.push({...c,kind:depth===2 && seats.length%2 ? 'spear_goblin':'club_goblin'}); used.add(c.i);}
+        if(c) {seats.push({...c,kind:profile.spearGoblins && seats.length%2 ? 'spear_goblin':'club_goblin'}); used.add(c.i);}
       }
       for(const c of usable) {
         if(!free(c)||court(c)||roomLane.has(c.i)) continue;
@@ -317,7 +313,182 @@
     addEncounters(ctx,out,area,usable,dry,seats);
     diagnostic.status='placed';
   }
+  const MAZE = Object.freeze({ width: 34, height: 33, step: 3, loops: .77, seed: 2718,
+    enemySpacing: 12, shrineKind: 'ember_altar', treasureTier: 3 });
+  // The reviewed layout-lab braid, phased from the canonical grove focus.
+  // Repeat its open border on large footprints rather than stretching cells.
+  const mazeMask = (() => {
+    let seed = MAZE.seed + 47291;
+    const random = () => {
+      seed += 0x6D2B79F5;
+      let t = seed; t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+    const cols = Math.floor((MAZE.width - 3) / MAZE.step) + 1;
+    const rows = Math.floor((MAZE.height - 3) / MAZE.step) + 1;
+    const mask = new Set(), links = new Set(), degree = new Uint8Array(cols * rows);
+    const coord = i => [1 + i % cols * MAZE.step, 1 + Math.floor(i / cols) * MAZE.step];
+    const edge = (a,b) => `${Math.min(a,b)}:${Math.max(a,b)}`;
+    const neighbors = i => {
+      const x = i % cols, y = Math.floor(i / cols), out = [];
+      if (x) out.push(i-1); if (x < cols-1) out.push(i+1);
+      if (y) out.push(i-cols); if (y < rows-1) out.push(i+cols);
+      return out;
+    };
+    const add = (x,y) => mask.add(y * MAZE.width + x);
+    const join = (a,b) => {
+      let [x,y] = coord(a); const [tx,ty] = coord(b); add(x,y);
+      while (x !== tx || y !== ty) {
+        x += Math.sign(tx-x); y += Math.sign(ty-y); add(x,y);
+      }
+      links.add(edge(a,b)); degree[a]++; degree[b]++;
+    };
+    const start = Math.floor(random() * cols * rows), seen = new Set([start]), stack = [start];
+    add(...coord(start));
+    while (stack.length) {
+      const a = stack[stack.length-1], choices = neighbors(a).filter(b => !seen.has(b));
+      if (!choices.length) { stack.pop(); continue; }
+      const b = choices[Math.floor(random()*choices.length)]; seen.add(b); join(a,b); stack.push(b);
+    }
+    for (let a=0; a<degree.length; a++) {
+      if (degree[a] !== 1 || random() >= MAZE.loops) continue;
+      const choices = neighbors(a).filter(b => !links.has(edge(a,b)));
+      if (choices.length) join(a,choices[Math.floor(random()*choices.length)]);
+    }
+    return mask;
+  })();
+  function mazeWallAt(u,v) {
+    const mod = (n,m) => ((n % m) + m) % m;
+    return mazeMask.has(mod(v + Math.floor(MAZE.height/2), MAZE.height) * MAZE.width
+      + mod(u + Math.floor(MAZE.width/2), MAZE.width));
+  }
+  function planMaze(ctx, out, state, anchor, frame, sourceGrid, sourceOpts) {
+    const W = root.WorldGen, { N, tx, ty, depth, grid, surface } = ctx;
+    const profile = W.floorProfile(depth).caveAreas;
+    const coverage = surface.zone.coverage || surface.zone.idx;
+    const source = root.Underground?.surfaceData(surface);
+    const id = `cave_area|${state.key}|${depth}`;
+    const diagnostic = { anchorKey: state.key, variant: 'dungeon_maze', status: 'declined', reason: null };
+    out.diagnostics.push(diagnostic);
+    const cells = new Map();
+    for (let i=0; i<coverage.length; i++) {
+      if (coverage[i] !== state.index+1 || out.reserved.has(i)) continue;
+      const ix=i%N, iy=Math.floor(i/N);
+      if (grid[i] !== W.T.CAVE_FLOOR && !(profile.carveWalls && grid[i] === W.T.CAVE_WALL)) continue;
+      if (!W.isSpawnCell(sourceGrid,N,N,ix,iy,sourceOpts,'minor') ||
+          !W.isSpawnCell(sourceGrid,N,N,ix,iy,{spawnWhy:ctx.spawnWhy},'minor') ||
+          (source && !root.Underground.allowed(source,i))) continue;
+      const u = Math.round((tx*4096+(ix+.5)*4096/N-anchor.originX)/anchor.unit);
+      const v = Math.round((ty*4096+(iy+.5)*4096/N-anchor.originY)/anchor.unit);
+      cells.set(i,{i,ix,iy,u,v});
+    }
+    const neighbors = i => {
+      const x=i%N, y=Math.floor(i/N), list=[];
+      if (x) list.push(i-1); if (x<N-1) list.push(i+1);
+      if (y) list.push(i-N); if (y<N-1) list.push(i+N);
+      return list.filter(j=>cells.has(j));
+    };
+    const [fx,fy] = anchor.local(anchor.originX,anchor.originY), focus = fy*N+fx;
+    const ownFocus = state.anchor.owned && frame.inTile(fx,fy) && cells.has(focus);
+    const sourcePoi = ownFocus && (surface.genObjects || surface.objects || []).find(o =>
+      ['chest','grove_shrine'].includes(o.kind) && o._poiAt === `${state.anchor.lx},${state.anchor.ly}`);
+    const mirror = sourcePoi && (ctx.objects || []).find(o => o.kind==='chest' && o.caveOf===sourcePoi.id);
+    const mirrorCell = mirror && frame.cellOf(mirror.x,mirror.y);
+    const dry = new Set([...(ctx.occupied || []), ...(ctx.routeLane || [])]);
+    if (mirrorCell) dry.delete(mirrorCell.iy*N+mirrorCell.ix);
+    for (const object of ctx.objects || []) {
+      if (object === mirror) continue;
+      const p = frame.cellOf(object.x,object.y);
+      for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++)
+        if (frame.inTile(p.ix+dx,p.iy+dy)) dry.add((p.iy+dy)*N+p.ix+dx);
+    }
+    const focusFree = ownFocus && !dry.has(focus)
+      && W.isSpawnCell(sourceGrid,N,N,fx,fy,sourceOpts,'attractor')
+      && W.isSpawnCell(sourceGrid,N,N,fx,fy,{spawnWhy:ctx.spawnWhy},'attractor');
+    // Even a replaced mirror keeps its old approach open. If the focus is
+    // blocked, the retained mirror must never be buried by the wall mask.
+    if (mirrorCell) for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++)
+      if (frame.inTile(mirrorCell.ix+dx,mirrorCell.iy+dy)) dry.add((mirrorCell.iy+dy)*N+mirrorCell.ix+dx);
+    for (const c of cells.values()) if (Math.abs(c.u)<=1 && Math.abs(c.v)<=1) dry.add(c.i);
+    const walls = new Set([...cells.values()].filter(c => mazeWallAt(c.u,c.v) && !dry.has(c.i)
+      // Keep one open cell along every clipped boundary and tile seam.
+      && neighbors(c.i).length===4).map(c=>c.i));
+    const remaining = new Set(cells.keys()), reserved = new Set();
+    while (remaining.size) {
+      const first=remaining.values().next().value, component=[first]; remaining.delete(first);
+      for (let k=0;k<component.length;k++) for (const j of neighbors(component[k]))
+        if (remaining.delete(j)) component.push(j);
+      const access=component.filter(i=>grid[i]===W.T.CAVE_FLOOR);
+      if (!access.length) continue;
+      const start=component.includes(focus) ? focus : access[0];
+      walls.delete(start);
+      // A 0/1 shortest-path tree connects every originally open cell while
+      // cutting the fewest walls on each route. Never tunnel outside eligibility.
+      const distance=new Map([[start,0]]), parent=new Map(), buckets=[[start]];
+      for (let cost=0;cost<buckets.length;cost++) {
+        const bucket=buckets[cost] || [];
+        for (let k=0;k<bucket.length;k++) {
+          const i=bucket[k]; if (distance.get(i)!==cost) continue;
+          for (const j of neighbors(i)) {
+            const next=cost+(walls.has(j)?1:0);
+            if (next >= (distance.get(j) ?? Infinity)) continue;
+            distance.set(j,next); parent.set(j,i);
+            (buckets[next] || (buckets[next]=[])).push(j);
+          }
+        }
+      }
+      const connected=new Set([start]);
+      for (const target of component.filter(i=>!walls.has(i))) {
+        let i=target;
+        while (!connected.has(i)) { connected.add(i); walls.delete(i); i=parent.get(i); }
+      }
+      for (const i of component) {
+        reserved.add(i); out.reserved.add(i);
+        out.terrain.set(i,walls.has(i)?W.T.CAVE_WALL:W.T.CAVE_FLOOR);
+      }
+    }
+    if (!reserved.size) { diagnostic.reason='no_floor_access'; return; }
+    const area={id,kind:'dungeon_maze',anchorKey:state.key,depth,ix:fx,iy:fy,
+      ...frame.centre(fx,fy),reserved};
+    out.areas.push(area);
+    if (focusFree && reserved.has(focus)) {
+      const shrine = fnv1a(`${id}|focus`) % 2 === 0;
+      const extra={_ix:fx,_iy:fy,_cave:true,caveArea:id,depth,
+        ...(mirror ? {caveOf:mirror.caveOf,poiClass:mirror.poiClass,poiDensity:mirror.poiDensity,
+          rank:mirror.rank,name:mirror.name} : {}),
+        ...(shrine ? {shrineKind:MAZE.shrineKind} : {tierSeed:MAZE.treasureTier-chestTierDepthBonus(depth)})};
+      const p=frame.centre(fx,fy);
+      const reward=W.makeObject(shrine?'grove_shrine':'chest',p.x,p.y,mirror?.id || `${id}|focus`,extra);
+      if (mirror) out.replacements.push({object:mirror,replacement:reward,from:mirrorCell.iy*N+mirrorCell.ix,to:focus});
+      else out.objects.push(reward);
+      area.focusId=reward.id;
+    } else if (ownFocus) diagnostic.focusShortfall='occupied';
+    // Cell-addressed seats have one identity across observers; larger regions
+    // get more encounters without a second budget at every clipped fragment.
+    for (const i of reserved) {
+      const c=cells.get(i);
+      if (walls.has(i) || dry.has(i) || Math.hypot(c.u,c.v)<4) continue;
+      const roll=avalanche32(fnv1a(`${id}|enemy|${c.u},${c.v}`))/4294967296;
+      if (roll >= 1/(MAZE.enemySpacing*MAZE.enemySpacing)) continue;
+      const kind=root.EnemySpawns.caveKind(depth,roll*MAZE.enemySpacing*MAZE.enemySpacing);
+      if (!kind) continue;
+      const spClass=creatureSpawnClass(kind);
+      if (!W.isSpawnCell(sourceGrid,N,N,c.ix,c.iy,sourceOpts,spClass) ||
+          !W.isSpawnCell(sourceGrid,N,N,c.ix,c.iy,{spawnWhy:ctx.spawnWhy},spClass)) continue;
+      out.encounters.push({kind,...frame.centre(c.ix,c.iy),
+        id:`${id}|enemy|${c.u},${c.v}`,_ix:c.ix,_iy:c.iy,caveArea:id,depth});
+    }
+    diagnostic.status='placed';
+  }
+
   function apply(plan, grid, objects, wildplants, occupied) {
+    for (const change of plan.replacements || []) {
+      const index = objects.indexOf(change.object);
+      if (index < 0) continue;
+      objects[index] = change.replacement;
+      occupied.delete(change.from); occupied.add(change.to);
+    }
     for (const move of plan.moves) {
       Object.assign(move.object, { x: move.x, y: move.y, _ix: move.ix, _iy: move.iy });
       occupied.delete(move.from);
@@ -332,5 +503,5 @@
     for (const o of plan.objects.concat(plan.wildplants)) occupied.add(o._iy * N + o._ix);
     return plan;
   }
-  root.CaveAreas = { SPRING, GROVE_WEIGHTS, DEPTH_WEIGHTS, BUDGETS, select, materialAt, plan, apply };
+  root.CaveAreas = { SPRING, BUDGETS, MAZE, select, materialAt, mazeWallAt, plan, apply };
 })(typeof window !== 'undefined' ? window : globalThis);

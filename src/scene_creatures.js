@@ -390,15 +390,6 @@ class SceneCreatures {
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
     const pestFree = this._pestFreeZone(tx, ty);
-    // DISPLACED, NOT LOST: an animal every one of whose 12 draws failed, at
-    // least one of them only because something GENERATED already stood on
-    // the cell (the street dressing, the nexus — opts.occupied), is kept
-    // aside here instead of dropped; the attractor lane below seats it on its
-    // favourite ground if its species has one it always takes (a p = 1
-    // column — none today: the dogs' major-verge pull was removed, Sep 2026,
-    // as it seated animals beside fast traffic). No extra draws: the shared stream is
-    // untouched, only the verdict on a spent attempt is remembered.
-    const unseated = [];
     // Animals can share interactable cells. Enemies still reserve their seats
     // before save-specific filtering, including the rooted park enemies.
     const ambientOccupied = new Set(_occupiedIdx);
@@ -410,181 +401,32 @@ class SceneCreatures {
     // story placements and fauna retain the ordinary placement options.
     const ambientSpawnOpts = { ..._spawnOpts, occupied: ambientOccupied };
     entry._ambientSpawnOpts = ambientSpawnOpts;
-    const enemyGroundSeats = new Set(ambientOccupied);
     const faunaSpawnOpts = { ..._spawnOpts, occupied: null };
-    const tryPlace = (classesOK, idx, kindStr) => {
-      const spClass = creatureSpawnClass(kindStr);
-      const fauna = spClass === 'fauna' || spClass === 'fastFauna';
-      const seatOpts = fauna ? faunaSpawnOpts : _spawnOpts;
-      let displaced = false;
-      for (let attempt = 0; attempt < 12; attempt++) {
-        const cx = Math.floor(rng() * N);
-        const cy = Math.floor(rng() * N);
-        const t = genGrid[cy * N + cx];
-        if (classesOK.has(t) && BiomeProfiles.faunaAllows(kindStr, t)) {
-          // Route EVERY candidate cell through the shared spawn rule, not just
-          // RESIDENTIAL ones. isSpawnCell checks opts.roadMask FIRST — before
-          // its residential-frontage logic — so gating the call on `t === 5`
-          // made the mask unreachable for non-residential ground, so a cow
-          // or crow could spawn on asphalt (a motorway's band covers a cell
-          // either side of the cells it paints).
-          // This does NOT impose the frontage rule on non-residential terrain:
-          // isSpawnCell returns true right after the walkable+roadMask checks
-          // for any cell that isn't lot land (WorldGen.isLotTerrain), so grass
-          // etc. only ever pays the (cheap) roadMask lookup, never the
-          // frontage scan. See CLAUDE.md's road-mask invariant / FINDING 2 /
-          // test/node/fauna_spawn.test.js.
-          // The draw loop re-rolls on ground nothing may take (a MINOR
-          // spawn's refusal — INVALID); SUPPRESSED ground is judged below.
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, seatOpts, 'minor')) {
-            if (!fauna && !displaced && _spawnOpts.occupied && _spawnOpts.occupied.has(cy * N + cx)
-                && WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { roadMask: _spawnOpts.roadMask, pois: _spawnOpts.pois,
-                  spawnWhy: _spawnOpts.spawnWhy, quiet: _spawnOpts.quiet }, 'minor')) displaced = true;
-            continue;
-          }
-          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-          const id = `${kindStr}_${tx}_${ty}_${idx}`;
-          if (!fauna) enemyGroundSeats.add(cy * N + cx);
-          // Nexus layouts own empty ground as well as occupied seats.
-          // Row-authored attraction and fauna decorations are separate passes.
-          if ((entry.zone?.coverage || entry.zone?.idx)?.[cy * N + cx]) return;
-          // AN ANIMAL (or a wild slime) IS SEATED BY ITS OWN CLASS (the spawn
-          // gate, creatureSpawnClass): every class keeps off the hard reasons
-          // and sensitive ground; a FAST one (animal or foe) off the kerb
-          // too. DROPPED after the draw, like the
-          // pest amnesty below, never re-rolled: the stream stays the same
-          // for every later spawn, and the mask is generated, so every player
-          // loses the same animals.
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, seatOpts, spClass)) return;
-          // The pest amnesty DROPS a slime, a crow or a raven that lands in the zone —
-          // after the cell was drawn exactly as it would be for anyone else.
-          // Never re-roll: extra draws would reshuffle every later spawn on
-          // this tile for this one player (per-player state may hide a thing,
-          // never move the others).
-          if ((kindStr === 'crow' || kindStr === 'raven') && pestFree && pestFree.has(cx, cy)) return;
-          // ~5% of wild animals spawn as the rare shiny variant — stamped at
-          // spawn off the stable id so it survives reloads and rides along
-          // through tame/release/re-catch. The slime exception (an energy pest
-          // with no catch payout never goes shiny) lives in faunaShiny, so the
-          // doorstep greeter below obeys it through the same call.
-          if (kindStr !== 'slime') {
-            if (Combat.isEnemyKind(kindStr)) rememberTempleEnemy({ kind: kindStr, x: wmx, y: wmy, id });
-            if (caughtSet.has(id)) return;
-          }
-          creatures.push(WorldGen.makeCreature(kindStr, wmx, wmy, id,
-            { shiny: faunaShiny(kindStr, id) }));
-          return;
-        }
-      }
-      if (displaced) {
-        const id = `${kindStr}_${tx}_${ty}_${idx}`;
-        if (!caughtSet.has(id)) unseated.push(WorldGen.makeCreature(kindStr, NaN, NaN, id, { shiny: faunaShiny(kindStr, id) }));
-      }
-    };
-    // Biome-biased fauna spawn — each species' primary (dominant) biome set,
-    // wider fallback set, count and primary-share come from the central registry
-    // (BIOME_FAUNA in src/biome_profiles.js). ~`share` of a species' count goes
-    // to its primary biomes, the rest to the fallback set, so animals read
-    // correct (cows in fields, butterflies in parks, pets in the suburbs) while
-    // still scattering everywhere — and extending the sets to the newly-wired
-    // biomes is what finally puts fauna in wetland / commercial / industrial
-    // zones. Iteration order (FAUNA_ORDER) and per-species id scheme are
-    // unchanged so seeds reproduce. Slimes never go shiny (see tryPlace).
-    for (const sp of FAUNA_ORDER) {
-      const cfg = BIOME_FAUNA[sp];
-      if (!cfg) continue;
-      let n = cfg.base + (cfg.range ? Math.floor(rng() * cfg.range) : 0);
-      // Hard mode doubles the surface slimes (Difficulty.slimeCountMul); the
-      // extra ids just count on past the easy ones, so seeds still reproduce.
-      if (sp === 'slime') n = Math.round(n * Difficulty.get().slimeCountMul);
-      // Easy mode halves the wild crow count (Difficulty.crowCountMul); the
-      // dropped ids just count off short, so seeds still reproduce.
-      // Draw the same crow candidates in both modes; thin only after placement.
-      const emittedCrowN = sp === 'crow' ? Math.round(n * Difficulty.get().crowCountMul) : n;
-      const enemyTerrain = sp === 'slime' ? Object.values(WorldGen.T).filter(t => EnemySpawns.surfaceRows(t, { beach: true }).length) : null;
-      const primary  = new Set(enemyTerrain || cfg.primary);
-      const fallback = new Set(enemyTerrain || cfg.fallback || cfg.primary);
-      const primN = Math.round(n * (cfg.share ?? 0.8));
-      for (let i = 0; i < primN; i++) tryPlace(primary,  i, sp);
-      for (let i = primN; i < n; i++) tryPlace(fallback, i, sp);
-      if (sp === 'crow' && emittedCrowN < n) {
-        for (let j = creatures.length - 1; j >= 0; j--) {
-          if (creatures[j].kind === 'crow' && Number(creatures[j].id.split('_').at(-1)) >= emittedCrowN) creatures.splice(j, 1);
-        }
-      }
-      yield 'spawn fauna';
-    }
-    // Independent park stream; only static pieces and enemy seats reserve
-    // ground. An animal cannot prevent an interactable or rooted enemy spawn.
-    const parkPlants = WorldGen.spawnParkPlants(genGrid, N, N, tx, ty, this.tileEdgeM,
-      { ..._spawnOpts, occupied: enemyGroundSeats });
-    yield 'spawn park plants';
-    const plantCells = new Set();
-    for (const plant of parkPlants) {
-      const cx = Math.floor((plant.x - tx * this.tileEdgeM) / cellM);
-      const cy = Math.floor((plant.y - ty * this.tileEdgeM) / cellM);
-      plantCells.add(cy * N + cx);
-      if (pestFree && pestFree.has(cx, cy)) continue;
-      // (A biting plant is a foe: spawnParkPlants seats it as an 'enemy'.)
-      // Keep the park stream's stable seat and id; habitat is a per-player
-      // overlay just as it is for the ordinary surface encounter budget.
-      plant._surfaceSpawn = { x: plant.x, y: plant.y, tx, ty, cx, cy };
-      EnemySpawns.surfaceActive(this, plant);
-      rememberTempleEnemy(plant);
-      if (caughtSet.has(plant.id)) continue;
-      creatures.push(plant);
-    }
-    // FAUNA ATTRACTORS. A species' favourite ground pulls the tile's OWN
-    // spawns of it (never adds): deer the
-    // orchard lanes and groves, cats the walking-path lamps, crows the churchyards… —
-    // rows of the `attracts` column (see _seatFaunaOnFavouriteGround). The
-    // draw above is taken exactly as before (same count, same ids, same
-    // stream for every species after it); the new seats come off each
-    // species' OWN stream. A tile without the ground keeps its animals.
-    // Run after generated park plants reserve their drawn seats (the same for
-    // every save), and pass every generated plant cell (caught or not) so no
-    // animal is pulled onto a plant.
-    entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree, unseated, plantCells);
-    yield 'spawn fauna attractors';
-    // Replace the existing enemy budget, without adding a population per kind.
-    // Identity depends on the candidate cell, never species or this player's Home.
+    const legacyEnemies = yield* this._replayLegacyCreatureDraws(entry, tx, ty, N, cellM, genGrid, _spawnOpts, rng);
+    const guardCells = WorldGen.occupiedIndexSet(WorldGen.tileFrame(entry, tx, ty, this.tileEdgeM), zoneGuards);
     entry._spawnOpts = _spawnOpts;
     MushroomGas.prepare(entry, tx, ty);
-    const enemySeats = new Set();
-    let enemyWrite = 0;
-    for (const creature of creatures) {
-      if (creature.kind !== 'slime') { creatures[enemyWrite++] = creature; continue; }
-      const cx = Math.floor((creature.x - tx * this.tileEdgeM) / cellM);
-      const cy = Math.floor((creature.y - ty * this.tileEdgeM) / cellM);
-      const id = EnemySpawns.surfaceId(tx, ty, cx, cy);
-      if (enemySeats.has(id)) continue;
-      // Drop generic enemies in authored zone/road areas after the draw,
-      // preserving every subsequent RNG draw and each variant's own guards.
-      if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;
-      // (The seat was an 'enemy' spawn already — tryPlace / the attractor
-      // lane — so whatever kind the roster puts on it stands on OPEN ground.)
-      enemySeats.add(id);
-      const kind = EnemySpawns.surfaceKind(genGrid[cy * N + cx], id, EnemyHabitats.surfaceAt(entry, cx, cy));
-      if (!kind) continue;
-      const row = EnemyRoster.get(kind);
-      const replacement = WorldGen.makeCreature(kind, creature.x, creature.y, id, {
-        shiny: row.eliteEligible && isShiny(id, SHINY_RATE.monster),
-        _surfaceSpawn: { x: creature.x, y: creature.y, tx, ty, cx, cy },
-      });
-      EnemySpawns.surfaceActive(this, replacement);
-      rememberTempleEnemy(replacement);
-      if (caughtSet.has(id)) continue;
-      creatures[enemyWrite++] = replacement;
+    const population = yield* HabitatSpawns.populationSteps(this, entry, tx, ty,
+      { N, cellM, grid: genGrid, spawnOpts: _spawnOpts, guardCells, legacyEnemies, authoredCreatures: zoneGuards });
+    for (const creature of population) {
+      if (creature._surfaceSpawn) {
+        const row = EnemyRoster.get(creature.kind);
+        creature.shiny = !!row?.eliteEligible && isShiny(creature.id, SHINY_RATE.monster);
+      }
+      EnemySpawns.surfaceActive(this, creature);
+      rememberTempleEnemy(creature);
+      if (!this._habitatPopulationVisible(creature, caughtSet, pestFree)) continue;
+      creatures.push(creature);
     }
-    creatures.length = enemyWrite;
-    yield 'spawn habitat roster';
+    yield 'spawn habitat populations';
     // Themed roamers have their own small-group budget. Reserve all generated
     // seats before filtering defeats, so caught enemies never reroll a group.
-    const themedOccupied = new Set([..._occupiedIdx, ...plantCells]);
+    const themedOccupied = new Set(_occupiedIdx);
     const themedEnemies = yield* EnemyHabitats.surfaceEncountersSteps(entry, tx, ty, themedOccupied);
     for (const c of themedEnemies) {
       const at = c._surfaceSpawn;
       _spawnOpts.occupied.add(at.cy * N + at.cx);
+      _spawnOpts.creatureCells?.add(at.cy * N + at.cx);
       EnemySpawns.surfaceActive(this, c);
       rememberTempleEnemy(c);
       if (caughtSet.has(c.id)) continue;
@@ -954,16 +796,52 @@ class SceneCreatures {
     // shore sand, gulls on the shore and the piers (the
     // shore and pier cells come out of the bonus-X block's one grid pass). Each species on its OWN
     // stream (its `salt`), so no other draw moves; its count follows the
-    // waterline; each seat is the kind's own spawn class (creatureSpawnClass)
-    // through the shared gate, and its id is the seat cell. See spawnShoreFauna.
-    const shoreFauna = this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
-      faunaSpawnOpts, _spawnOpts, caughtSet, entry.zone && (entry.zone.coverage || entry.zone.idx));
-    Object.assign(entry.faunaAttracted, this._seatFaunaOnFavouriteGround(entry, tx, ty, N,
-      cellM, genGrid, _spawnOpts, shoreFauna, pestFree, null, plantCells));
+    // waterline; each seat uses the shared gate and its creature class.
+    // IDs come from raw shore draws, before safety relocates eligible seats.
+    this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
+      faunaSpawnOpts, _spawnOpts, caughtSet, entry.zone && (entry.zone.coverage || entry.zone.idx), entry, zoneGuards);
+
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
     EnemySpawns.refreshHomeFauna(this);
+  }
+
+  // Keep unrelated tile RNG and existing enemy-defeat aliases stable while
+  // replacing the historical fauna pass. This replay emits no live creatures.
+  *_replayLegacyCreatureDraws(entry, tx, ty, N, cellM, grid, spawnOpts, rng) {
+    const aliases = [], faunaOpts = { ...spawnOpts, occupied: null };
+    for (const kind of FAUNA_ORDER) {
+      const row = BIOME_FAUNA[kind];
+      if (!row) continue;
+      const count = row.base + (row.range ? Math.floor(rng() * row.range) : 0);
+      const primaryCount = Math.round(count * (row.share ?? .8));
+      const enemyTerrain = kind === 'slime' ? LEGACY_ENEMY_TERRAINS : null;
+      const primary = new Set(enemyTerrain || row.primary), fallback = new Set(enemyTerrain || row.fallback || row.primary);
+      const spClass = creatureSpawnClass(kind);
+      const opts = spClass === 'fauna' || spClass === 'fastFauna' ? faunaOpts : spawnOpts;
+      for (let n = 0; n < count; n++) {
+        const ground = n < primaryCount ? primary : fallback;
+        for (let attempt = 0; attempt < 12; attempt++) {
+          const cx = Math.floor(rng() * N), cy = Math.floor(rng() * N), index = cy * N + cx;
+          if (!ground.has(grid[index]) || !BiomeProfiles.faunaAllows(kind, grid[index])) continue;
+          if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, 'minor')) continue;
+          if ((entry.zone?.coverage || entry.zone?.idx)?.[index]) break;
+          if (!WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, spClass)) break;
+          if (kind === 'slime') aliases.push({ id: EnemySpawns.surfaceId(tx, ty, cx, cy), key: HabitatSpawns.resolve(entry, index).key });
+          break;
+        }
+      }
+      yield 'spawn compatibility draws';
+    }
+    return aliases;
+  }
+
+  _habitatPopulationVisible(creature, caughtSet, pestFree) {
+    if (caughtSet.has(creature.id) || creature._legacyDefeatIds?.some(id => caughtSet.has(id))) return false;
+    const kindStr = creature.kind, at = creature._habitatSpawn;
+    if ((kindStr === 'crow' || kindStr === 'raven') && pestFree && pestFree.has(at.cx, at.cy)) return false;
+    return kindStr !== 'crow' || EnemySpawns.roll(creature.id + ':mode') < Difficulty.get().crowCountMul;
   }
 
   // THE SHORE FAUNA pass (see the call in spawnInTile). Pure in the tile:
@@ -972,206 +850,101 @@ class SceneCreatures {
   //   count   floor((waterline m + pier m) / perShoreM), capped at `max` —
   //           in GENERATION metres (WorldGen.CELL_M per cell), never the
   //           save's frame (CLAUDE.md "Every player sees the SAME world")
-  //   seats   drawn from the shore cells (+ pier cells where `pier`), on the
-  //           species' own stream; a seat the spawn gate refuses for the
-  //           kind's class is spent, not re-rolled past the attempt budget
-  //   ids     WorldGen.cellId(kind, tx, ty, cx, cy) — position, so a caught
-  //           crab / felled gull stays gone (save.caught)
-  spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid, faunaOpts, foeOpts, caughtSet, zoneCoverage) {
+  //   seats   exhaust legal shore cells inside the same owner; safety
+  //           changes seats, not population budgets or species identities.
+  //   ids     raw canonical cell draws (ordinary) or stable owner ordinals
+  //           (Nexus), reserved before saved captures are filtered.
+  spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid, faunaOpts, foeOpts, caughtSet, zoneCoverage, habitatEntry = null, authoredCreatures = []) {
     const out = [];
     if (typeof SHORE_FAUNA === 'undefined') return out;
-    const shoreCells = ((shore && shore.cells) || []).filter(i => !zoneCoverage?.[i]);
-    pierCells = pierCells.filter(i => !zoneCoverage?.[i]);
-    const shoreM = (shore && shore.shoreM) || 0;
-    for (const kind of SHORE_FAUNA_ORDER) {
-      const row = SHORE_FAUNA[kind];
-      const pool = row.pier && pierCells.length ? shoreCells.concat(pierCells) : shoreCells;
-      if (!pool.length) continue;
-      const lenM = shoreM + (row.pier ? pierCells.length * WorldGen.CELL_M : 0);
-      const want = Math.max(0, Math.min(row.max, Math.floor(lenM / row.perShoreM)));
-      if (!want) continue;
-      const spClass = creatureSpawnClass(kind);
-      const fauna = spClass === 'fauna' || spClass === 'fastFauna';
-      const opts = fauna ? faunaOpts : foeOpts;
-      const srng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}`));
-      const taken = new Set();
-      let placed = 0;
-      for (let attempt = 0; attempt < want * 8 && placed < want; attempt++) {
-        const cell = pool[Math.floor(srng() * pool.length)];
-        if (taken.has(cell) || !BiomeProfiles.faunaAllows(kind, genGrid[cell])) continue;
-        const cx = cell % N, cy = Math.floor(cell / N);
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, 'minor')) continue;
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, spClass)) continue;
-        taken.add(cell);
-        placed++;
-        const id = WorldGen.cellId(kind, tx, ty, cx, cy);
-        if (caughtSet.has(id)) continue;
-        const seat = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
-        const c = WorldGen.makeCreature(kind, seat.x, seat.y, id, { shiny: fauna || ITEM_BY_ID[kind]?.kind === 'animal' ? faunaShiny(kind, id) : false });
-        creatures.push(c);
-        out.push(c);
-      }
+    const allShore = shore?.cells || [], groups = new Map();
+    const reserved = foeOpts.creatureCells || new Set();
+    for (const c of [...creatures, ...authoredCreatures]) {
+      const cx = Math.floor((c.x - tx * this.tileEdgeM) / cellM), cy = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
+      if (cx >= 0 && cy >= 0 && cx < N && cy < N) reserved.add(cy * N + cx);
     }
-    return out;
-  }
 
-  // Each attraction has a small count range, not a share of the tile's
-  // population. Pull its nearest existing animals; residents already on its
-  // ground count toward the quota. Nexus owners have separate budgets, while
-  // road families, scenic themes, path lamps and land types use their local
-  // ground union. Neither displaced candidates nor extra animals are added.
-  _seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, spawnOpts, creatures, pestFree, unseated, blocked) {
-    const moved = {};
-    if (!creatures?.length) return moved;
-    const SV = typeof StreetVariants !== 'undefined' ? StreetVariants : null;
-    const BA = typeof BIOME_ATTRACTS !== 'undefined' ? BIOME_ATTRACTS : null;
-    const field = entry.zone, coverage = field?.anchors && (field.coverage || field.idx);
-    const sites = [], streets = new Map(), owners = new Map(), lands = new Map();
-    const tileKey = tx + ',' + ty;
-    const addSite = (key, attracts) => {
-      if (!attracts || !Object.keys(attracts).length) return null;
-      const site = { key: key + '|' + tileKey, attracts, cells: [] };
-      sites.push(site); return site;
+    const getGroup = i => {
+      const owner = habitatEntry ? HabitatSpawns.resolve(habitatEntry, i) : null;
+      const areaOwner = habitatEntry ? WorldGen.variantOwnerAt(habitatEntry, i) : null;
+      if ((areaOwner || zoneCoverage?.[i]) && !(owner?.profile?.owner === 'zone' && owner.profile.shoreFauna)) return null;
+      // Road variants and unrelated Nexus variants own their empty shore too.
+      if (owner?.profile?.owner === 'road' || (owner?.profile?.owner === 'zone' && !owner.profile.shoreFauna)) return null;
+      const key = owner?.profile?.owner === 'zone' ? owner.key : 'shore:ordinary';
+      if (!groups.has(key)) groups.set(key, { key, owner, shore: [], pier: [] });
+      return groups.get(key);
     };
-    if (entry.streetMarks && SV) for (const row of SV.STREET_VARIANTS) {
-      const site = addSite('street|' + row.id, row.attracts);
-      if (site) streets.set(row.code, site);
-    }
-    const scenic = [];
-    if (SV) for (const [kind, cells] of Object.entries(entry.scenic?.attractionCells || {})) {
-      const row = SV.VARIANT_BY_ID[Scenic.KIND_ROW[kind]];
-      const site = addSite('scenic|' + kind, row?.attracts);
-      if (site) scenic.push({ site, cells });
-    }
-    const lampCells = this._pathLampCells?.(entry, tx, ty, N);
-    const lamps = lampCells?.size && typeof Streets !== 'undefined'
-      ? addSite('path-lamps', Streets.PATH_LAMP_ATTRACTS) : null;
-    if (coverage) for (let owner = 1; owner <= field.anchors.length; owner++) {
-      const a = field.anchors[owner - 1];
-      const row = a.variant ? ZoneVariants.byId(a.variant) : Zones.ZONE_KINDS[a.kind];
-      const identity = a.key || [a.kind, a.variant, a.gx, a.gy].join('|');
-      const site = addSite('nexus|' + identity, row?.attracts);
-      if (site) {
-        site.needsCellKey = !a.key && !Number.isFinite(a.gx);
-        owners.set(owner, site);
-      }
-    }
-    if (BA) for (const [code, attracts] of Object.entries(BA)) {
-      const site = addSite('land|' + code, attracts);
-      if (site) lands.set(+code, site);
-    }
-    // One grid scan assigns cells to their owning grounds. A nexus replaces
-    // every underlying attraction, including when its affinity is empty.
-    for (let i = 0; i < N * N; i++) {
-      if (coverage?.[i]) { owners.get(coverage[i])?.cells.push(i); continue; }
-      streets.get(entry.streetMarks?.[i])?.cells.push(i);
-      for (const ground of scenic) if (ground.cells.has(i)) ground.site.cells.push(i);
-      if (lamps && lampCells.has(i)) lamps.cells.push(i);
-      const land = field?.under && (field.under[i] || field.under.present?.[i]) ? field.under[i] : genGrid[i];
-      lands.get(land)?.cells.push(i);
-    }
-    const ox = tx * this.tileEdgeM, oy = ty * this.tileEdgeM;
-    const indexOf = c => {
-      const x = Math.floor((c.x - ox) / cellM), y = Math.floor((c.y - oy) / cellM);
-      return x >= 0 && y >= 0 && x < N && y < N ? y * N + x : -1;
-    };
-    const held = new Map();
-    for (const c of creatures) if (Number.isFinite(c.x) && Number.isFinite(c.y)) {
-      const i = indexOf(c); if (i >= 0) held.set(i, (held.get(i) || 0) + 1);
-    }
-    const claimed = new Set(), shoreMask = entry.scenic?.shore?.mask, birdLandings = new Set();
-    const reserveBird = i => {
-      const x = i % N, y = Math.floor(i / N);
-      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-        if (x + dx >= 0 && y + dy >= 0 && x + dx < N && y + dy < N) birdLandings.add((y + dy) * N + x + dx);
-      }
-    };
-    if (shoreMask) for (const c of creatures) if (c.kind === 'crow' || c.kind === 'raven') {
-      const i = indexOf(c); if (i >= 0 && shoreMask[i]) reserveBird(i);
-    }
-    for (const site of sites) if (site.needsCellKey && site.cells.length) site.key += '|cell:' + site.cells[0];
-    sites.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
-    for (const site of sites) {
-      if (!site.cells.length) continue;
-      for (const sp of Object.keys(site.attracts).sort()) {
-        const range = site.attracts[sp];
-        if (!Array.isArray(range) || range.length !== 2 || range[1] <= 0) continue;
-        const quota = range[0] + fnv1a('fauna-attract|' + site.key + '|' + sp) % (range[1] - range[0] + 1);
-        if (!quota) continue;
-        const spClass = creatureSpawnClass(sp);
-        const opts = spClass === 'fauna' || spClass === 'fastFauna' ? { ...spawnOpts, occupied: null } : spawnOpts;
-        const pest = sp === 'slime' || sp === 'crow' || sp === 'raven' ? pestFree : null;
-        const shoreBird = shoreMask && (sp === 'crow' || sp === 'raven');
-        const allowed = i => {
-          const x = i % N, y = Math.floor(i / N);
-          return !blocked?.has(i) && BiomeProfiles.faunaAllows(sp, genGrid[i])
-            && !pest?.has(x, y) && WorldGen.isSpawnCell(genGrid, N, N, x, y, opts, spClass);
-        };
-        const pool = site.cells.filter(allowed);
-        if (!pool.length) continue;
-        const ground = new Set(pool);
-        const nearest = (c, freeOnly) => {
-          const current = indexOf(c);
-          let index = -1, distance = Infinity;
-          for (const i of pool) {
-            if (freeOnly && ((held.get(i) || 0) > (i === current ? 1 : 0)
-              || (shoreBird && shoreMask[i] && (spawnOpts.occupied?.has(i) || birdLandings.has(i))))) continue;
-            const x = ox + (i % N + .5) * cellM, y = oy + (Math.floor(i / N) + .5) * cellM;
-            const d = (c.x - x) ** 2 + (c.y - y) ** 2;
-            if (d < distance) { distance = d; index = i; }
+    for (const i of allShore) getGroup(i)?.shore.push(i);
+    for (const i of pierCells) getGroup(i)?.pier.push(i);
+    const rawWaterline = shore?.waterline;
+    const diagnostics = [];
+    for (const group of [...groups.values()].sort((a, b) => a.key.localeCompare(b.key))) {
+      const native = group.owner?.profile?.owner === 'zone';
+      const kinds = native ? group.owner.profile.shoreFauna.map(row => row.kind) : SHORE_FAUNA_ORDER;
+      const ground = new Set(group.shore);
+      const shoreM = rawWaterline ? rawWaterline.filter(i => ground.has(i)).length * WorldGen.CELL_M
+        : (shore?.shoreM || 0) * group.shore.length / Math.max(1, allShore.length);
+      for (const kind of kinds) {
+        const row = SHORE_FAUNA[kind];
+        if (!row) continue;
+        const rawPool = row.pier ? group.shore.concat(group.pier) : group.shore;
+        if (!rawPool.length) continue;
+        const lenM = shoreM + (row.pier ? group.pier.length * WorldGen.CELL_M : 0);
+        const requested = Math.max(0, Math.min(row.max, Math.floor(lenM / row.perShoreM)));
+        const authored = native ? authoredCreatures.filter(c => {
+          if (c.kind !== kind) return false;
+          const cx = Math.floor((c.x - tx * this.tileEdgeM) / cellM), cy = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
+          return HabitatSpawns.resolve(habitatEntry, cy * N + cx).key === group.key;
+        }).length : 0;
+        const want = Math.max(0, requested - authored);
+        const spClass = creatureSpawnClass(kind);
+        const fauna = spClass === 'fauna' || spClass === 'fastFauna';
+        const opts = fauna ? faunaOpts : foeOpts;
+        const canonicalPool = rawPool.filter(i => HabitatSpawns.allows(kind, genGrid[i], group.owner?.profile));
+        const pool = canonicalPool.filter(i => {
+          const cx = i % N, cy = Math.floor(i / N);
+          return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, spClass);
+        });
+        const srng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}${native ? '|' + group.key : ''}`));
+        const taken = new Set();
+        let placed = 0;
+        for (let n = 0; n < want && taken.size < canonicalPool.length; n++) {
+          const start = Math.floor(srng() * canonicalPool.length);
+          let canonical = null;
+          for (let at = 0; at < canonicalPool.length; at++) {
+            const candidate = canonicalPool[(start + at) % canonicalPool.length];
+            if (!taken.has(candidate)) { canonical = candidate; break; }
           }
-          return { index, distance };
-        };
-        const candidates = creatures.filter(c => c.kind === sp
-          && Number.isFinite(c.x) && Number.isFinite(c.y)
-          && (!claimed.has(c) || ground.has(indexOf(c)))).map(c => ({ c,
-            distance: ground.has(indexOf(c)) ? 0 : nearest(c, false).distance }));
-        candidates.sort((a, b) => a.distance - b.distance
-          || (String(a.c.id) < String(b.c.id) ? -1 : String(a.c.id) > String(b.c.id) ? 1 : 0));
-        let attracted = 0;
-        for (const { c } of candidates) {
-          if (attracted >= quota) break;
-          const current = indexOf(c);
-          if (ground.has(current)) { claimed.add(c); attracted++; continue; }
-          const { index } = nearest(c, true);
-          if (index < 0) continue;
-          if (current >= 0) {
-            const count = (held.get(current) || 0) - 1;
-            if (count > 0) held.set(current, count); else held.delete(current);
+          if (canonical == null) break;
+          taken.add(canonical);
+          // Identity uses this species' own draw. Other inhabitants can move
+          // its seat within the same shore owner without changing that ID.
+          const canonicalX = canonical % N, canonicalY = Math.floor(canonical / N);
+          const id = native ? `shore_habitat_${kind}_${tx}_${ty}_${encodeURIComponent(group.key)}_${n}` : WorldGen.cellId(kind, tx, ty, canonicalX, canonicalY);
+          let cell = null;
+          const canonicalSeat = pool.indexOf(canonical);
+          const seatStart = canonicalSeat >= 0 ? canonicalSeat : Math.floor(EnemySpawns.roll(id + ':seat') * pool.length);
+          for (let at = 0; at < pool.length; at++) {
+            const candidate = pool[(seatStart + at) % pool.length];
+            if (!reserved.has(candidate)) { cell = candidate; break; }
           }
-          held.set(index, (held.get(index) || 0) + 1);
-          Object.assign(c, tileCellCentre(this.tileEdgeM, tx, ty, cellM, index % N, Math.floor(index / N)));
-          if (shoreBird && shoreMask[index]) reserveBird(index);
-          claimed.add(c); attracted++; moved[sp] = (moved[sp] || 0) + 1;
+          if (cell == null) continue;
+          reserved.add(cell); placed++;
+          const cx = cell % N, cy = Math.floor(cell / N);
+          const seat = tileCellCentre(this.tileEdgeM, tx, ty, cellM, cx, cy);
+          const point = { key: native ? group.key : `land:${genGrid[cell]}:shore`, profile: group.owner?.profile?.id || 'shore', tx, ty, cx, cy, sourceCx: canonicalX, sourceCy: canonicalY, ...seat };
+          const c = WorldGen.makeCreature(kind, seat.x, seat.y, id, {
+            shiny: fauna || ITEM_BY_ID[kind]?.kind === 'animal' ? faunaShiny(kind, id) : false,
+            _habitatSpawn: point, ...(native ? { zoneVariant: group.owner.profile.id } : {}),
+          });
+          EnemySpawns.surfaceActive(this, c);
+          if (caughtSet.has(id)) continue;
+          creatures.push(c); out.push(c);
         }
+        diagnostics.push({ key: group.key, kind, requested, authored, placed, shortfall: Math.max(0, want - placed) });
       }
     }
-    return moved;
-  }
-
-  // The flat cell indices (cy*N+cx, this tile's own grid) BESIDE each lamp a
-  // WALKING PATH stands — the lamp's own cell and its eight neighbours — for
-  // the fauna attractor lane above. The lamps are app.js's generated
-  // geometry (_streetLampsForTile, tile-cached, flagged `path`); a scene
-  // without that pass (a headless stub) has no lamp ground. The spawn gate
-  // (isSpawnCell, the species' own class) still judges every seat, so a
-  // cell on the band is never taken.
-  _pathLampCells(entry, tx, ty, N) {
-    if (!this._streetLampsForTile || !entry || !entry.layers || !(entry.tileEdgeM > 0)) return null;
-    const lamps = this._streetLampsForTile(tx, ty, entry);
-    const out = new Set();
-    const cellM = entry.tileEdgeM / N;
-    const ox = tx * entry.tileEdgeM, oy = ty * entry.tileEdgeM;
-    for (const L of lamps) {
-      if (!L.path) continue;
-      const cx = Math.floor((L.x - ox) / cellM), cy = Math.floor((L.y - oy) / cellM);
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          const x = cx + dx, y = cy + dy;
-          if (x >= 0 && y >= 0 && x < N && y < N) out.add(y * N + x);
-        }
-      }
-    }
+    if (habitatEntry) habitatEntry.shorePopulation = diagnostics;
     return out;
   }
 
@@ -1211,7 +984,9 @@ class SceneCreatures {
       if (i < 0) return false;
       if (!allowOverlap && held.has(i)
           && !(t.coverRockId && held.get(i) === t.coverRockId)) return true;
-      return repainted && grid[i] !== genGrid[i] && !WorldGen.isWalkable(grid[i]);
+      const waterOnly = EnemyRoster.get(t.kind)?.movement.waterOnly;
+      return repainted && grid[i] !== genGrid[i]
+        && (waterOnly ? grid[i] !== WorldGen.T.WATER : !WorldGen.isWalkable(grid[i]));
     };
     if (!held.size && !repainted) return;
     const keep = (arr, faunaOverlap = false) => {
@@ -1350,11 +1125,11 @@ class SceneCreatures {
       if (!caughtSet.has(dragon.id) && !heldByPlayer.has(cy * N + cx)) creatures.push(dragon);
     }
     const SPAWN_R = 25; // cells — fills 2–3 screens worth around each entry point
-    const randCell = () => {
-      const a = anchors[Math.floor(rng() * anchors.length)];
+    const randCell = (draw = rng) => {
+      const a = anchors[Math.floor(draw() * anchors.length)];
       return {
-        cx: a.lix + Math.round((rng() - 0.5) * 2 * SPAWN_R),
-        cy: a.liy + Math.round((rng() - 0.5) * 2 * SPAWN_R),
+        cx: a.lix + Math.round((draw() - 0.5) * 2 * SPAWN_R),
+        cy: a.liy + Math.round((draw() - 0.5) * 2 * SPAWN_R),
       };
     };
     // TOTAL population is fixed regardless of how many up-staircases the tile has:
@@ -1362,89 +1137,207 @@ class SceneCreatures {
     // at today's depths.
     // Both modes share this population; Hard applies only at the recipient.
     const count = Math.min(160, Math.round((50 + depth * 10) * Difficulty.get().monsterCountMul));
-    for (let i = 0; i < count; i++) {
-      const kindRoll = rng();
-      for (let attempt = 0; attempt < 20; attempt++) {
-        const { cx, cy } = randCell();
-        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-        if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
-        // Don't SEAT a monster on a staircase or inside a rock sprite — see
-        // the occupiedIdx comment above. This is a rejected attempt, not an
-        // extra rng() draw: randCell() already made its 3 calls for this
-        // attempt, so the draw sequence every existing cave level was seeded
-        // with is untouched.
-        if (occupiedIdx.has(cy * N + cx)) continue;
-        const habitat = EnemySpawns.caveContextAt(entry, tx, ty, cx, cy, depth);
-        const kind = EnemySpawns.caveKind(depth, kindRoll, habitat);
-        if (!kind) continue;
-        const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
-        if (caughtSet.has(id) || legacyDefeats.pack.has(i) || legacyDefeats.cells.has(`${cx}_${cy}`) || monsterSeats.has(id)) break;   // already defeated — stays dead
-        if (heldByPlayer.has(cy * N + cx)) break;   // on the player's own stair
-        const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
-        // ~5% spawn as ELITES — the shiny variant, stamped off the stable id
-        // like a shiny animal so it survives reloads. The same `shiny` flag
-        // the renderer already tints and sparkles; combat.js reads it as
-        // double HP and damage (Combat.isElite), and resolveDefeat pays the
-        // memory-or-treasure it promises.
-        creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
-          { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster), habitat: habitat.theme }));
-        monsterSeats.add(id);
-        break;
-      }
+    // Safety and generated occupancy remove seats without reducing these
+    // budgets. Keep ordinary random draws first; exhausted searches use all
+    // legal ground inside the same geographic cave pocket. Generated seats
+    // are reserved before saved defeats/live edits filter the visible bodies.
+    let creatureCells = new Set(occupiedIdx), canonicalPass = false;
+    const canonicalAliases = new Map(), aliasOwners = new Map();
+    // Compatibility identities use a parallel population on raw floor. Safety
+    // holes change actual seats, never which old defeat belongs to a request.
+    const canonicalOccupied = new Set([...occupiedIdx].filter(i =>
+      !(entry.spawnWhy?.[i] & WorldGen.SPAWN_WHY_ALL_FLOORS)));
+    for (const o of [...genObjects, ...genWildplants]) {
+      const cx = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
+      const cy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
+      if (cx >= 0 && cy >= 0 && cx < N && cy < N) canonicalOccupied.add(cy * N + cx);
     }
-    // Rabbits: anchored like the pack, not multiplied by anchor count.
-    const rabbitN = 10 + Math.floor(rng() * 8);
-    const spClass = creatureSpawnClass('rabbit');
-    for (let i = 0; i < rabbitN; i++) {
-      for (let attempt = 0; attempt < 20; attempt++) {
-        const { cx, cy } = randCell();
-        if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-        if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
-        if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;
-        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { spawnWhy: entry.spawnWhy }, spClass)) continue;
-        // Cave rabbits share interactable cells, like surface fauna.
-        const id = `rabbit_${depth}_${tx}_${ty}_${i}`;
-        if (caughtSet.has(id)) break;   // already caught — stays gone
+    for (const i of entry.undergroundReserved || []) canonicalOccupied.add(i);
+    const caveContexts = new Map();
+    const contextAt = (cx, cy) => {
+      const at = cy * N + cx;
+      if (!caveContexts.has(at)) caveContexts.set(at, EnemySpawns.caveContextAt(entry, tx, ty, cx, cy, depth));
+      return caveContexts.get(at);
+    };
+    const rawFloor = (cx, cy) => cx >= 0 && cy >= 0 && cx < N && cy < N
+      && genGrid[cy * N + cx] === WorldGen.T.CAVE_FLOOR
+      && !WorldGen.variantOwnerAt(entry, cy * N + cx);
+    const legalSeat = (cx, cy, kind) => rawFloor(cx, cy)
+      && (canonicalPass ? !creatureCells.has(cy * N + cx)
+        : WorldGen.isSpawnCell(genGrid, N, N, cx, cy,
+          { ...entry._spawnOpts, occupied: creatureCells }, creatureSpawnClass(kind)));
+    const nearEntrance = (cx, cy) => anchors.some(a => Math.abs(cx - a.lix) <= SPAWN_R && Math.abs(cy - a.liy) <= SPAWN_R);
+    let floors;
+    const floorCells = () => {
+      if (!floors) {
+        floors = [];
+        for (let cy = 0; cy < N; cy++) for (let cx = 0; cx < N; cx++)
+          if (rawFloor(cx, cy)) floors.push({ cx, cy });
+      }
+      return floors;
+    };
+    const rawAreaPools = new Map(), eligibleClassPools = new Map(), eligibleAreaPools = new Map();
+    const rawArea = (key, within) => {
+      if (rawAreaPools.has(key)) return rawAreaPools.get(key);
+      let cells;
+      if (key.startsWith('block:')) {
+        const [, bx, by] = key.split(':').map(Number);
+        cells = [];
+        for (let cy = by; cy < Math.min(N, by + 12); cy++)
+          for (let cx = bx; cx < Math.min(N, bx + 12); cx++)
+            if (rawFloor(cx, cy)) cells.push({ cx, cy });
+      } else cells = key === 'all' ? floorCells() : floorCells().filter(p => within(p.cx, p.cy));
+      rawAreaPools.set(key, cells); return cells;
+    };
+    const eligibleClass = kind => {
+      const cls = creatureSpawnClass(kind), key = `${canonicalPass}:${cls}`;
+      if (eligibleClassPools.has(key)) return eligibleClassPools.get(key);
+      const cells = new Set(), habitats = new Map();
+      for (const p of floorCells()) {
+        if (!legalSeat(p.cx, p.cy, kind)) continue;
+        const index = p.cy * N + p.cx, habitat = contextAt(p.cx, p.cy).id;
+        cells.add(index);
+        if (!habitats.has(habitat)) habitats.set(habitat, []);
+        habitats.get(habitat).push(p);
+      }
+      const pool = { key, cells, habitats };
+      eligibleClassPools.set(key, pool); return pool;
+    };
+    const fallbackSeat = (key, habitat, kindFor, within, areaKey) => {
+      const cells = rawArea(areaKey, within);
+      if (!cells.length) return null;
+      const start = fnv1a(key) % cells.length;
+      // Resolve the requested habitat and species on raw floor, independently
+      // of the cached legal ground. Empty safety pools cost one scan per class.
+      habitat ||= contextAt(cells[start].cx, cells[start].cy);
+      const kind = kindFor(habitat);
+      if (!kind) return null;
+      const available = eligibleClass(kind);
+      if (!available.cells.size) return null;
+      const cacheKey = `${available.key}:${areaKey}:${habitat.id}`;
+      if (!eligibleAreaPools.has(cacheKey)) {
+        const pool = areaKey === 'all' ? available.habitats.get(habitat.id) || []
+          : cells.filter(p => available.cells.has(p.cy * N + p.cx)
+            && contextAt(p.cx, p.cy).id === habitat.id);
+        eligibleAreaPools.set(cacheKey, pool);
+      }
+      const pool = eligibleAreaPools.get(cacheKey);
+      // Preserve the original cyclic raw-cell search order, even though only
+      // legal seats remain in the cached pool. Reservations never free seats.
+      const origin = cells[start].cy * N + cells[start].cx;
+      let lo = 0, hi = pool.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1, index = pool[mid].cy * N + pool[mid].cx;
+        if (index < origin) lo = mid + 1; else hi = mid;
+      }
+      for (let k = 0; k < pool.length; k++) {
+        const p = pool[(lo + k) % pool.length];
+        if (!legalSeat(p.cx, p.cy, kind)) continue;
+        return { ...p, kind, habitat };
+      }
+      return null;
+    };
+    const addEnemy = (seat, legacyPackIndex, id) => {
+      const { cx, cy, kind, habitat } = seat, at = cy * N + cx;
+      const cellId = EnemySpawns.caveId(depth, tx, ty, cx, cy);
+      creatureCells.add(at);
+      if (canonicalPass) {
+        canonicalAliases.set(id, cellId); aliasOwners.set(cellId, id);
+        return;
+      }
+      monsterSeats.add(id);
+      const aliases = [], canonical = canonicalAliases.get(id);
+      if (canonical) aliases.push(canonical);
+      // Honour older saves on the current geometry as well, without allowing
+      // one historical cell defeat to consume two population requests.
+      if (!aliasOwners.has(cellId)) aliasOwners.set(cellId, id);
+      if (aliasOwners.get(cellId) === id && !aliases.includes(cellId)) aliases.push(cellId);
+      if (caughtSet.has(id) || aliases.some(alias => caughtSet.has(alias))
+          || (legacyPackIndex != null && legacyDefeats.pack.has(legacyPackIndex))
+          || aliases.some(alias => legacyDefeats.cells.has(alias.split('_').slice(-2).join('_')))
+          || heldByPlayer.has(at)) return;
+      const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
+      creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
+        { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster), habitat: habitat.theme,
+          ...(aliases.length ? { _legacyDefeatIds: aliases } : {}) }));
+    };
+    const populate = () => {
+      for (let i = 0; i < count; i++) {
+        const draw = WorldGen.makeRng(fnv1a(`cave_pack_${depth}_${tx}_${ty}_${i}:draw`));
+        const kindRoll = draw();
+        let seat = null, habitat = null;
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const { cx, cy } = randCell(draw);
+          if (!rawFloor(cx, cy)) continue;
+          const candidateHabitat = contextAt(cx, cy);
+          habitat ||= candidateHabitat;
+          if (candidateHabitat.id !== habitat.id) continue;
+          const kind = EnemySpawns.caveKind(depth, kindRoll, habitat);
+          if (!kind || !legalSeat(cx, cy, kind)) continue;
+          seat = { cx, cy, kind, habitat }; break;
+        }
+        seat ||= fallbackSeat(`cave_pack_${depth}_${tx}_${ty}_${i}`, habitat,
+          h => EnemySpawns.caveKind(depth, kindRoll, h), nearEntrance, 'entrance');
+        if (seat) addEnemy(seat, i, `enemy_cave_${depth}_${tx}_${ty}_pack_${i}`);
+      }
+      // Rabbits share the entrance bounds but stay outside authored cave areas.
+      const rabbitN = 10 + Math.floor(hash01(`cave_rabbits_${depth}_${tx}_${ty}:count`) * 8);
+      for (let i = 0; i < rabbitN; i++) {
+        const draw = WorldGen.makeRng(fnv1a(`rabbit_${depth}_${tx}_${ty}_${i}:draw`));
+        let seat = null, habitat = null;
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const { cx, cy } = randCell(draw);
+          if (!rawFloor(cx, cy)) continue;
+          const candidateHabitat = contextAt(cx, cy);
+          habitat ||= candidateHabitat;
+          if (candidateHabitat.id !== habitat.id || !legalSeat(cx, cy, 'rabbit')) continue;
+          seat = { cx, cy }; break;
+        }
+        seat ||= fallbackSeat(`rabbit_${depth}_${tx}_${ty}_${i}`, habitat, () => 'rabbit', nearEntrance, 'entrance');
+        if (!seat) continue;
+        const { cx, cy } = seat, at = cy * N + cx, id = `rabbit_${depth}_${tx}_${ty}_${i}`;
+        creatureCells.add(at);
+        if (canonicalPass || caughtSet.has(id) || heldByPlayer.has(at)) continue;
         const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
         creatures.push(WorldGen.makeCreature('rabbit', wmx, wmy, id));
-        break;
       }
-    }
-    // ROAMERS: the rest of the level. The pack above crowds the stair mouths,
-    // SPAWN_R cells out — a small corner of a ~229-cell tile — so a player who
-    // walked off from the stair, or came down a rope or a portal somewhere
-    // else, met nothing at all ("no slimes underground"). One chance per
-    // ROAM_PIVOT-cell square across the whole floor, scaled by the mode's
-    // monsterCountMul like the pack. Off its OWN stream, so every draw the
-    // pack, the rabbits and the coins make keeps the number it had. Ids are
-    // POSITIONAL (the seat cell), so save.caught keeps a roamer dead.
-    const ROAM_PIVOT = 12, ROAM_TRIES = 6;
-    const roamP = Math.min(0.6, 0.4 * Difficulty.get().monsterCountMul);
-    const roamRng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x5bd1e995) >>> 0);
-    for (let py = 0; py < N; py += ROAM_PIVOT) {
-      for (let px = 0; px < N; px += ROAM_PIVOT) {
-        if (roamRng() >= roamP) continue;
-        const kindRoll = roamRng();
-        for (let attempt = 0; attempt < ROAM_TRIES; attempt++) {
-          const cx = px + Math.floor(roamRng() * ROAM_PIVOT);
-          const cy = py + Math.floor(roamRng() * ROAM_PIVOT);
-          if (cx >= N || cy >= N) continue;
-          if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
-          if (occupiedIdx.has(cy * N + cx)) continue;
-          const habitat = EnemySpawns.caveContextAt(entry, tx, ty, cx, cy, depth);
-        const kind = EnemySpawns.caveKind(depth, kindRoll, habitat);
-        if (!kind) continue;
-        const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
-          if (caughtSet.has(id) || legacyDefeats.cells.has(`${cx}_${cy}`) || monsterSeats.has(id)) break;
-          if (heldByPlayer.has(cy * N + cx)) break;
-          const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
-          creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
-            { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster), habitat: habitat.theme }));
-          monsterSeats.add(id);
-          break;
+      // Roamers retain their own stream and one request per present floor block.
+      const ROAM_PIVOT = 12, ROAM_TRIES = 6;
+      const roamP = Math.min(0.6, 0.4 * Difficulty.get().monsterCountMul);
+      for (let py = 0; py < N; py += ROAM_PIVOT) {
+        for (let px = 0; px < N; px += ROAM_PIVOT) {
+          const draw = WorldGen.makeRng(fnv1a(`cave_roam_${depth}_${tx}_${ty}_${px}_${py}:draw`));
+          if (draw() >= roamP) continue;
+          const kindRoll = draw();
+          let seat = null, habitat = null;
+          for (let attempt = 0; attempt < ROAM_TRIES; attempt++) {
+            const cx = px + Math.floor(draw() * ROAM_PIVOT);
+            const cy = py + Math.floor(draw() * ROAM_PIVOT);
+            if (!rawFloor(cx, cy)) continue;
+            const candidateHabitat = contextAt(cx, cy);
+            habitat ||= candidateHabitat;
+            if (candidateHabitat.id !== habitat.id) continue;
+            const kind = EnemySpawns.caveKind(depth, kindRoll, habitat);
+            if (!kind || !legalSeat(cx, cy, kind)) continue;
+            seat = { cx, cy, kind, habitat }; break;
+          }
+          const inBlock = (cx, cy) => cx >= px && cy >= py && cx < px + ROAM_PIVOT && cy < py + ROAM_PIVOT;
+          seat ||= fallbackSeat(`cave_roam_${depth}_${tx}_${ty}_${px}_${py}`, habitat,
+            h => EnemySpawns.caveKind(depth, kindRoll, h), inBlock, `block:${px}:${py}`);
+          if (!seat && habitat) seat = fallbackSeat(`cave_roam_${depth}_${tx}_${ty}_${px}_${py}:pocket`, habitat,
+            h => EnemySpawns.caveKind(depth, kindRoll, h), () => true, 'all');
+          if (seat) addEnemy(seat, null, `enemy_cave_${depth}_${tx}_${ty}_roam_${px}_${py}`);
         }
       }
-    }
+    };
+    canonicalPass = true; creatureCells = canonicalOccupied;
+    populate();
+    canonicalPass = false; creatureCells = new Set(occupiedIdx);
+    // Minor is the permissive placement class: if it has no floor seat,
+    // every actual creature request is a shortfall. Keep the identity pass
+    // above, but avoid searching the same wholly excluded cave repeatedly.
+    if (floorCells().some(p => WorldGen.isSpawnCell(genGrid, N, N, p.cx, p.cy,
+      { ...entry._spawnOpts, occupied: creatureCells }, 'minor'))) populate();
     // Loose coins on the cave floor: a handful per level tile, scattered the
     // same way as the fauna (around the entrances, so the ~2-cell torch bubble
     // actually meets them) and picked up with the same tap as a coin-burst
@@ -1679,8 +1572,10 @@ class SceneCreatures {
             const SPAWN_R = PEST_SPAWN_CELLS * this.cellM;
             const seat = ringSeat(px, py, SPAWN_R, Math.random() * Math.PI * 2, (sx, sy) => {
               const dest = this.cellAt(sx, sy);
-              return dest.loaded && !Combat.faunaBlocksCell(dest.type) && !WorldGen.isRoadTerrain(dest.type)
-                && BiomeProfiles.faunaAllows('deer', dest.type);
+              if (!dest.loaded || !BiomeProfiles.faunaAllows('deer', dest.type)) return false;
+              const tile = WorldGen.tileCache.get(WorldGen.tileKey(dest.tx, dest.ty));
+              if (!tile?.grid) return false;
+              return WorldGen.isSpawnCell(tile.grid, tile.cellsPerEdge, tile.cellsPerEdge, dest.ix, dest.iy, WorldGen.spawnOptsOf(tile, { occupied: null }), creatureSpawnClass('deer'));
             });
             if (seat) {
               entry.creatures.push(WorldGen.makeCreature('deer', seat.x, seat.y,
@@ -1739,7 +1634,7 @@ class SceneCreatures {
         }
         // Frozen surface seats still re-evaluate their player/time gate on its
         // existing slow clock. This is the only work the far ring needs.
-        if ((c._surfaceSpawn || c.lair)
+        if (EnemySpawns.isSurfaceResident(c)
             && (c._surfaceAskedT == null || now - c._surfaceAskedT >= SURFACE_RECHECK_MS)) {
           c._surfaceAskedT = now;
           EnemySpawns.surfaceActive(this, c);
@@ -1795,7 +1690,7 @@ class SceneCreatures {
       // SURFACE_RECHECK_MS instead: its answer moves with the sun, Home and
       // the pest amnesty, all minutes-slow, so the stamp a far reader
       // (a magic trap, a hint) sees is never more than that stale.
-      if (c._surfaceSpawn || c.lair) {
+      if (EnemySpawns.isSurfaceResident(c)) {
         if (!far || c._surfaceAskedT == null || now - c._surfaceAskedT >= SURFACE_RECHECK_MS) {
           c._surfaceAskedT = now;
           if (!EnemySpawns.surfaceActive(this, c)) return;
@@ -1913,7 +1808,8 @@ class SceneCreatures {
       // reason in the rout lane (the away-from-the-player angle at the flee
       // pace), and one more reason to stand down below. Asked only of a kind
       // that steals, so the per-creature cost elsewhere is one table read.
-      const sated = !isTame && !!Combat.theftKind(c.kind) && Combat.theftSated(this.save, c);
+      const sated = !isTame && ((!!Combat.theftKind(c.kind) && Combat.theftSated(this.save, c))
+        || Combat.raidSpent(this.save, c));
       const frightened = enemy && Combat.isFrightened(c, now);
       // MAD (the Powder of Psychosis — Combat.isPsychotic): the rout lane
       // once more — the flee pace, no blow, no target — but with a RANDOM

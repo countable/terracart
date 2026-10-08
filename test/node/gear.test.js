@@ -300,8 +300,8 @@ test('unequipWeapon: during the wand boon it clears the boon choice, not the sav
 
 test('source: melee auto-engage needs no sword, and a slot tap no longer switches weapons', () => {
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
-  const i = SCENE_SRC.indexOf('Gear.meleeActive(this.save) &&');
-  assert.truthy(i > 0, '_combatTick gates auto-engage on Gear.meleeActive');
+  const i = SCENE_SRC.indexOf('_meleeTarget(enemies, px, py) {');
+  assert.truthy(i > 0, '_combatTick chooses a live melee engagement');
   const gate = code(SCENE_SRC.slice(i, SCENE_SRC.indexOf('\n', i)));
   assert.falsy(/relics\.sword/.test(gate), 'an owned sword is not a precondition');
   // The ONE place the active weapon changes by hand is the Equip button; the

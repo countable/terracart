@@ -23,10 +23,10 @@
   const rect = (x0, y0, x1, y1) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }, { x: x0, y: y0 }];
   const cellRect = (c0, r0, c1, r1) => [rect(c0 * CELL, r0 * CELL, c1 * CELL, r1 * CELL)];
   const cellOf = (o) => Math.floor(o.y / CM) * CPE + Math.floor(o.x / CM);
-  // A park tile (public ground: every cell may host a spawn) plus the layers
+  // A grass tile (public ground: every cell may host a spawn) plus the layers
   // given, rasterized on the synthetic 64-cell grid.
   const build = (extra) => W.rasterizeTile([
-    { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'park' }, geom: [rect(-64, -64, 4160, 4160)] }] },
+    { name: 'landcover', features: [{ type: 3, tags: { class: 'grass' }, geom: [rect(-64, -64, 4160, 4160)] }] },
     ...extra,
   ], CPE, 0, 0, EDGE);
 
@@ -143,7 +143,7 @@
     assert.eq(at(40, 8), 1, 'cemetery');
     assert.eq(at(25, 45), 1, 'reserve land (boundary aboriginal_lands)');
     assert.eq(at(8, 45), 0, 'brownfield is ordinary waste ground');
-    assert.eq(at(60, 60), 0, 'the park is not quiet');
+    assert.eq(at(60, 60), 0, 'public grass is not quiet');
     assert.eq(r.grid[8 * CPE + 8], T.WASTELAND, 'military keeps the scrub look');
     assert.eq(r.grid[8 * CPE + 25], T.WASTELAND, 'railway land too');
     // The shared rule refuses a quiet cell and nothing else changes.

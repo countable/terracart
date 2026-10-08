@@ -47,15 +47,17 @@
     return save.boonWeapon?.until === save.boonUntil.wand ? save.boonWeapon.slot : 'staff';
   }
 
-  // MELEE IS THE DEFAULT (owner, Oct 2026). The hands fight on their own the
-  // way a sword does: app.js _combatTick auto-engages the nearest foe in
-  // arm's reach whenever no RANGED weapon is in hand — a sword if owned, bare
-  // hands on the tier-0 rung if not. Only an EQUIPPED bow or staff
-  // (activeWeapon in Combat.RANGED_SLOTS) turns that off, and equipping one
-  // is an explicit act: the Equip button under the Relics tab
-  // (syncEquipButton), never a side effect of highlighting the slot.
+  // Selected weapon mode. Close-range engagement may temporarily use the
+  // sword / bare hands without changing this selection (meleeWeapon below).
   function meleeActive(save, now = Date.now()) {
     return !Combat.RANGED_SLOTS.includes(activeWeapon(save, now));
+  }
+
+  // Close combat keeps the chosen melee weapon, or falls back to the owned
+  // sword / bare hands while a ranged weapon remains selected for later.
+  function meleeWeapon(save, now = Date.now()) {
+    if (meleeActive(save, now)) return activeWeapon(save, now);
+    return effectiveRelics(save, now).sword ? 'sword' : null;
   }
 
   function selectWeapon(save, slot, now = Date.now()) {
@@ -326,7 +328,7 @@
     if (save.activeWeapon === piece.slot) unequipWeapon(save);
   }
 
-  root.Gear = { hasPerception, hasCompass, coinMagnetCells, effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
+  root.Gear = { hasPerception, hasCompass, coinMagnetCells, effectiveRelics, activeWeapon, meleeActive, meleeWeapon, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
                 TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

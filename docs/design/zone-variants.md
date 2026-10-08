@@ -1,13 +1,19 @@
-# Zone variants
+<a id="zone-variants"></a>
 
-An influence zone's kind is a row of `Zones.ZONE_KINDS` (`src/zones.js`):
-`quarry`, `beach`, `grove`, `stones` (the old stones / churchyard) and `tar`
-(the tar yard). Each anchor of a kind resolves to one zone VARIANT
+# Nexus variants
+
+A Nexus is an anchored special place; its kind is a row of `Zones.ZONE_KINDS` (`src/zones.js`):
+`quarry`, `beach`, `grove`, `stones` (Old Stones) and `tar`
+(Tar Yard). Each POI or generated-site anchor resolves to one Nexus variant
 (`anchor.variant`; placed objects carry it as `zoneVariant`). The variant rows
 are declarative data in [zone-variants.json](../data/zone-variants.json): background
 motif, materials, POI arrangement, finite finds, guards, connection shape,
 fauna pull and atmosphere. That file owns every count, density, offset,
 weight and material; this file states the rules the data and runtime keep.
+
+The Nexus focal layout is the central arrangement within that whole place.
+A Temple-bearing Nexus is the subset allowed to claim a temple building:
+Grove, Old Stones and Tar Yard under the current `Zones.ZONE_KINDS` flags.
 
 The game and map review load the table through `src/zone_variant_data.js`.
 Regenerate it after editing the JSON with
@@ -19,9 +25,14 @@ Regenerate it after editing the JSON with
   winner per cell; generated quarry sites.
 - `ZoneVariants` (`src/zone_variants.js`): variant choice (`pick`), traits
   and motif sampling.
+- `TerrainLayouts` (`src/terrain.js`): promoted procedural geometry, material
+  shares and size variation, shared by live dressing and the layout lab.
 - `ZoneDressing` (`src/zone_dressing.js`): materials, POI arrangement, finite
   finds, connections (`connectionSteps`, reading the row's
   `connection.shape`) and guards, all through the shared spawn gate.
+- `PressureTraps` (`src/pressure_traps.js`): authored `footpaths` become visible
+  ground plates; Sacred Grove uses broken grid seams and a saved one-shot ghost
+  trigger after ordinary scenery and protected routes have claimed their cells.
 - `QuarryLayout` (`src/quarry_layout.js`): quarry modules and their budgets.
 
 ## Choosing a variant
@@ -35,8 +46,8 @@ and every eligible variant keeps a nonzero chance. Context is the anchor's own
 geographic POI tags, falling back to its park character; it never infers a
 parent from a neighbouring tile's clipped polygon.
 
-Special roads roll rarity independently of theme. Street names and the
-surrounding zone variants adjust only the conditional theme weights: once
+Road variants roll rarity independently of theme. Street names and the
+surrounding Nexus variants adjust only the conditional theme weights: once
 coverage is final, each eligible road samples its own segments
 (`StreetVariants.AFFINITY_SAMPLE_M`), weights the covering variants' traits by
 length and picks one theme for all its fragments. Roads clipped at a tile
@@ -47,12 +58,12 @@ stored street index without rerolling.
 
 Coverage is the union of the ragged influence footprint, the park polygon
 that contains the anchor, and that park's placement fringe (`FRINGE_FILL_M`).
-A zone without an associated park uses its influence footprint alone. Parks
+A Nexus without an associated park uses its influence footprint alone. Parks
 associate through the source polygon containing the anchor, never mere
 proximity. Overlaps resolve once per global cell by the existing influence
 strength / kind / key order; fringe-only ties by stable anchor key. Then the
 shared spawn gate applies: cemeteries and other quiet or restricted land stay
-excluded, and unnamed parks keep their fringe without gaining zone rewards.
+excluded, and unnamed parks keep their park fringe without gaining Nexus rewards.
 
 The variant frame runs continuously over the union. Fixed compositions
 intersect their footprint with it; they never stretch or repeat to fill it.
@@ -60,18 +71,18 @@ Expanding coverage never multiplies the per-anchor find or guard budget.
 
 ## Placement contract
 
-- **Ownership.** Variant coverage replaces procedural biome scatter and
-  street dressing, including their empty lanes (CLAUDE.md, "Spawn
+- **Ownership.** Variant coverage replaces ambient fill and
+  road-variant dressing, including their empty lanes (CLAUDE.md, "Spawn
   precedence"). Mapped POIs, buildings and authored features stay occupied.
   Generic rooted plants, traps and treasure stay outside coverage; authored
   finds and traps keep their own budgets.
-- **Ground.** Zone ground styling overrides ordinary zoning across the union;
+- **Ground.** Nexus terrain styling overrides ordinary terrain paint across the union;
   roads, paths, piers, water and buildings keep their footprint, and source
   land's spawn reasons and trap rules stay authoritative.
 - **Frame.** The world-to-pattern mapping is phased from the settled POI
   (`background.poiOrigin.cell`) and oriented toward the POI's accessible
   approach, quantised to a quarter turn, with a stable anchor fallback. Every
-  tile resolves the same frame, so a zone never restarts its phase at a seam.
+  tile resolves the same frame, so a Nexus never restarts its phase at a seam.
 - **Motifs.** Repeating motifs stay small enough to read at a glance; choose
   dimensions for the pattern, not a padded square. Seeded scatter is used
   only where a row declares it, keyed by anchor, variant and global cell, so
@@ -81,10 +92,14 @@ Expanding coverage never multiplies the per-anchor find or guard budget.
   target. Density is measured from the declared geometry before obstacles;
   never thin a continuous line to meet a number. Hazards (tar, traps) are not
   coverage.
+- **Procedural layouts.** A `procedural_layout` background stores generator
+  settings and material shares; Mushroom Grove repeats its Hilbert composition
+  in the canonical POI frame, with giant and small mushrooms sharing the seats
+  equally before spawn exclusions and finite POI dressing.
 - **Blocked cells.** Compact beds stay whole or move whole; continuous lines
   are clipped only by the coverage edge, reserved POI space and ineligible or
   occupied cells. Never fill gaps with random scatter.
-- **POI arrangement.** It touches the settled chest and replaces only the
+- **Nexus focal layout.** The POI arrangement touches the settled chest and replaces only the
   slots it occupies; blocked slots are omitted, not pushed outward. A POI
   inside a building uses the row's `whenInsideBuilding` arrangement beside the
   settled frontage.
@@ -98,27 +113,25 @@ Expanding coverage never multiplies the per-anchor find or guard budget.
   `Traps.isTrapGround`.
 - **Shrines.** The grove shrine stays the one daily interactable per POI. A
   variant named in a `Shrines.SHRINE_KINDS` row's `zones` makes that shrine
-  its kind; churchyard and tar-yard shrines stand on the first free ring cell
+  its kind; Old Stones and Tar Yard shrines stand on the first free ring cell
   within `Zones.SHRINE_SEAT_R`.
 - **Encounters.** Themed surface encounters are rows of
   `EnemyHabitats.SURFACE_FAMILIES` rolled by `SURFACE_ENCOUNTERS`
   (`src/enemy_habitats.js`), separate from finite guards and ambient enemies.
-- **Fauna.** A variant's `attracts` column maps species to integer count
-  ranges, currently `[2, 5]`. Each Nexus gets a seeded quota and draws the
-  nearest existing positioned animals by distance to its actual eligible
-  ground (`_seatFaunaOnFavouriteGround`, `src/scene_creatures.js`); stable
-  creature IDs break ties, and animals already there count toward the quota.
-  It never adds spawns or recovers missing animals. The variant column
-  replaces the Nexus kind's affinity; an empty column means no pull.
-  Fauna may share interactable cells but keep their habitat, spawn-gate and
-  road limits; a refused destination leaves the original seat intact.
+- **Fauna.** `HabitatSpawns` declares each variant's local inhabitants and
+  budget. They generate directly inside the owning coverage, before safety
+  chooses legal seats. Matching authored animals satisfy matching requested
+  slots. Beach/Marine Meadow owners use the shared native shoreline budgets.
+  No attraction pass borrows animals from the rest of the tile. Fauna may
+  share static interactable ground, while generated inhabitants reserve unique
+  seats before player captures or visibility filters.
 
 ## Generated quarries
 
 Parking-lane geometry becomes quarry coverage instead of visible road; the
-lanes stay out of pavement, street variants, lamps and restoration, while real
+lanes stay out of pavement, road variants, lamps and restoration, while real
 access roads remain roads. Parking geometry is removed before road masks and
-nexus fitting; the filter also recognises tightly constrained unlabelled
+Nexus focal-layout fitting; the filter also recognises tightly constrained unlabelled
 service-road patterns (`src/worldgen.js`, lot lanes) but keeps driveways,
 alleys and the access road. Lane buffers merge into sites through eligible
 ground only; roads, paths and water divide sites; holes stay holes.
@@ -132,15 +145,17 @@ cell-addressed strip-mine scatter with no finite finds, guards or partial
 crater, labelled as an edge site. Mined, opened, dug and defeated things use
 the existing progress ledgers and never refill.
 
-## Beach family
+<a id="beach-family"></a>
 
-The beach rows are live. Shoreline orientation derives from buffered mapped
-water at the canonical anchor, with a reported deterministic fallback. Zone
+## Shore family
+
+The Shore Nexus rows (`beach`) are live. Shoreline orientation derives from buffered mapped
+water at the canonical anchor, with a reported deterministic fallback. Nexus
 placement reserves the daily tide-pool seats, including seats empty today.
 
 - The shipwreck is one interaction; reserve its whole footprint, never just the anchor cell.
 - If an authored footprint cannot fit, take the deterministic fallback or report the shortfall; never spill into higher-priority space.
-- Beach rewards come from the variant rows; nothing double-dips the grove shrine or tide seats.
+- Shore Nexus rewards come from the variant rows; nothing double-dips the grove shrine or tide seats.
 
 ## Building-aware fitting
 
@@ -156,9 +171,11 @@ a composition shortfall.
   `python3 tools/preview_zone_variants.py docs/data/zone-variants.json <out>` and
   `python3 tools/preview_beach_variants.py <out>`. The generator validates
   densities over full cycles, POI positions, grid continuity and find counts;
-  its coverage diagram is schematic.
+  its coverage diagram is schematic. Main Nexus previews show two thirds of
+  the original cell width around the POI (or quarry center), keeping the
+  seven-metre cell scale and the POI close-ups unchanged.
 - The map review (`tools/map-review.html`, `tools/map-review-zones.js`) shows
-  variant labels, each zone's union, live placements and what occupancy or
+  variant labels, each Nexus's coverage union, live placements and what occupancy or
   the gate removed; `?quarryClusters=1` (with `removedLanes=1`) colours quarry
   ownership. These are read-only views of the game's own generation.
 

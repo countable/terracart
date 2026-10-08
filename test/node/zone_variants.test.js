@@ -204,20 +204,23 @@ test('zone variants: seeded scatter has declared mix without dependence on trave
     assert.gt(differences, 100, 'different anchors produce different scatter');
   }
 });
-test('zone variants: Mushroom Grove avoids wide empty strips at every repeated phase', () => {
-  const row = V.byId('mushroom_grove');
-  assert.eq(row.background.repeatCells.join(','), '6,6');
-  for (let x = -6; x < 6; x++) {
-    assert.gt(Object.values(count(row, x, -6, 1, 6, 'a')).reduce((sum, n) => sum + n, 0), 0);
+test('zone variants: Mushroom Grove repeats the promoted Hilbert layout across signed coordinates', () => {
+  const row = V.byId('mushroom_grove'), b = row.background, config = b.generator;
+  assert.eq(b.type, 'procedural_layout');
+  assert.eq(config.width, 33); assert.eq(config.height, 33);
+  const generated = TerrainLayouts.assign(TerrainLayouts.generate(config), config, b.materials);
+  const expected = new Map(generated.map(p => [`${p.cx},${p.cy}`, p]));
+  const counts = count(row, 0, 0, 33, 33, 'a');
+  assert.eq(counts.giant_mushroom, 136); assert.eq(counts.mushroom, 135);
+  assert.eq(Object.keys(counts).length, 2, 'only giant and small mushrooms');
+  for (let y = 0; y < 33; y++) for (let x = 0; x < 33; x++) {
+    const point = expected.get(`${x},${y}`), material = point?.material || null;
+    assert.eq(V.sample(row, x, y, 'a'), material, 'same cells and types as the shared generator');
+    for (const [dx, dy] of [[-33, 33], [33, -66]]) {
+      assert.eq(V.sample(row, x + dx, y + dy, 'other-anchor'), material, 'canonical phase wraps independently of observer');
+      assert.eq(V.placement(row, x + dx, y + dy)?.scale, point?.scale, 'size follows the repeated seat');
+    }
   }
-  for (let y = -6; y < 6; y++) {
-    assert.gt(Object.values(count(row, -6, y, 6, 2, 'a')).reduce((sum, n) => sum + n, 0), 0);
-  }
-  assert.eq(V.sample(row, 0, 0, 'a'), 'mushroom');
-  assert.eq(V.sample(row, 1, 0, 'a'), 'mushroom');
-  assert.eq(V.sample(row, 3, 3, 'a'), 'mushroom');
-  assert.eq(V.sample(row, 4, 3, 'a'), 'mushroom');
-  assert.eq(count(row, -6, -6, 12, 12, 'a').grass || 0, 0, 'grove background has no grass');
 });
 test('zone variants: Ancient Grove keeps rounded clusters and scatters grass only between them', () => {
   const row = V.byId('ancient_grove'), b = row.background;
@@ -339,16 +342,12 @@ test('zone variants: finite finds keep exact budgets and pick requirements', () 
   assert.eq(workFind.dx, 0);
   assert.eq(workFind.dy, 8);
 });
-test('zone variants: fauna affinities and material classes match their runtime lanes', () => {
-  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 9);
-  assert.eq(Object.keys(V.byId('silent_circle').attracts).length, 0, 'quiet grave pillars do not pull extra crows');
+test('zone variants: material classes match their runtime lanes', () => {
   assert.eq(V.materials.grave.spawnClass, 'headstone');
   assert.eq(ZoneVariantData.materials.grave.spawnClass, 'enemy', 'runtime adapts without mutating reviewed source');
   assert.eq(V.materials.trap.collection, 'traps');
   for (const row of V.rows) {
     for (const slot of [...row.poi.slots, ...(row.poi.whenInsideBuilding?.slots || [])]) assert.truthy(V.materials[slot.material]);
-    for (const range of Object.values(row.attracts)) assert.truthy(Array.isArray(range)
-      && range.length === 2 && range.every(n => Number.isInteger(n) && n >= 0) && range[0] <= range[1]);
     for (const material of Object.keys(count(row, -30, -30, 60, 60, 'materials'))) assert.truthy(V.materials[material]);
   }
 });

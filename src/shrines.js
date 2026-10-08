@@ -3,7 +3,7 @@
 //
 // A shrine kind is a row of SHRINE_KINDS: its frame on the generated sheet
 // (assets/Objects/Generated/shrines.png, SpriteLayout.shrineKindArt), its
-// light colour (Lighting.KINDS `shrine_<id>`), the zone variants and street
+// light colour (Lighting.KINDS `shrine_<id>`), the Nexus variants and Road
 // variants it stands in, and the ONE lever its boon pulls for durationMs.
 //
 // Every shrine is still a `grove_shrine` object — the daily shrine: one

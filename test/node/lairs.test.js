@@ -561,6 +561,30 @@
     assert.eq(Lairs.KIND_ORDER.street_overgrown.join(), 'plant', 'an overgrown street is held by plants');
   });
 
+  test('lairs: an excluded ring keeps its guards on the remaining legal seats', () => {
+    const shape = mkPlainShape(9, CENTRE.x, CENTRE.y, 4 * CELL_M);
+    const cand = [...Lairs.buildIndex({ buildingShapes: [shape] }, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
+    const wake = e => Lairs.garrisonFor(e, cand, { tileEdgeM: TILE_M, homeM: HOME });
+    const pristine = wake(mkEntry([shape]));
+    assert.gt(pristine.length, 0);
+    const e = mkEntry([shape]);
+    const reasons = new Uint16Array(N * N).fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    e._spawnOpts.spawnWhy = reasons;
+    // A small legal arc inside the declared building ring, deliberately
+    // away from the ordinary polar seats. Exhaustive fallback must find it.
+    const cells = [-1, 0, 1].map(dy => (cand.iy + dy) * N + cand.ix + 4);
+    for (const cell of cells) reasons[cell] = 0;
+    const out = wake(e);
+    assert.eq(out.length, pristine.length);
+    assert.eq(out[0].id, pristine[0].id);
+    for (const g of out) {
+      const cell = Math.floor(g.y / CELL_M) * N + Math.floor(g.x / CELL_M);
+      assert.truthy(cells.includes(cell));
+    }
+    assert.eq(JSON.stringify(out), JSON.stringify(wake(e)));
+    for (const cell of cells) reasons[cell] = WorldGen.SPAWN_WHY.RESTRICTED;
+    assert.eq(wake(e).length, 0);
+  });
   // ── The kerb buffer (Sep 2026 safety pass) ───────────────────────────────
   test('lairs: no guard of any lair seats inside the major roads\' kerb buffer (WorldGen.isSpawnCell at the guard\'s spawn class)', () => {
     const castle = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);

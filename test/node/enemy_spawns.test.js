@@ -6,12 +6,27 @@
         assert.lte(row.tier, 3);
         assert.truthy(row.surface.biomes.includes(biome));
         assert.falsy(row.attackType === 'touch', 'ghosts use their separate haunt budget');
-        if (row.variantType === 'Tint') assert.falsy(pool.some(other => other.id === row.variantOf));
+        if (row.variantType === 'Tint' && row.surface.replaceBase !== false) assert.falsy(pool.some(other => other.id === row.variantOf));
       }
     }
     assert.falsy(EnemySpawns.surfaceRows('ORCHARD').some(row => ['copper_plant', 'bat', 'spider'].includes(row.id)));
-    assert.truthy(EnemySpawns.surfaceRows('ORCHARD').some(row => row.id === 'plant'));
+    assert.eq(EnemySpawns.surfaceRows('ORCHARD').map(row => row.id).join(','), 'farmer_goblin');
     assert.falsy(EnemySpawns.surfaceRows('WETLAND').some(row => row.id === 'marsh_zombie'));
+  });
+  test('enemy spawns: ordinary landcover keeps its authored enemy families', () => {
+    const pool = biome => EnemySpawns.surfaceRows(biome).map(row => row.id).sort().join(',');
+    assert.eq(pool('FOREST'), 'bat,boar,giant_bear,plant,spider');
+    assert.eq(pool('ROCK'), 'bat,skeleton,skeleton_soldier');
+    assert.eq(pool('COMMERCIAL'), 'club_goblin,goblin,goblin_archer,sword_spirit');
+    assert.eq(pool('INDUSTRIAL'), 'ash_zombie,marsh_zombie,zombie');
+    assert.eq(pool('FARMLAND'), 'farmer_goblin');
+    assert.eq(pool('PARK'), '', 'parks receive their enemies from their Nexus variant');
+    assert.eq(pool('RESIDENTIAL'), 'ogre,thief,zombie');
+    assert.eq(pool('RESIDENTIAL'), EnemySpawns.surfaceRows('RESIDENTIAL', { nearMinorRoad: true }).map(row => row.id).sort().join(','), 'ordinary road proximity does not choose species');
+    for (const kind of ['marsh_zombie', 'ash_zombie']) {
+      assert.eq(EnemyRoster.get(kind).surface.time, 'night');
+      assert.falsy(EnemySpawns.caveRows(3).some(row => row.id === kind), 'restored industrial variants do not expand cave pools');
+    }
   });
   test('enemy spawns: real surface draws share identities across modes and honour saved defeats', () => {
     const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
@@ -124,15 +139,13 @@
   });
 })();
 
-test('enemy spawns: a biome seat on zone ground (park, place of worship, tar yard) is cancelled', () => {
-  const src = SCENE_SRC;
-  const loop = src.slice(src.indexOf('const enemySeats = new Set();'), src.indexOf('creatures.length = enemyWrite;'));
-  assert.truthy(loop.length > 0, 'found the seat → roster loop');
-  const cancel = loop.indexOf('if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;');
-  assert.gt(cancel, 0, 'zone-owned ground cancels the seat');
-  assert.lt(cancel, loop.indexOf('EnemySpawns.surfaceKind('), 'before any kind is chosen for it');
-  assert.eq(WorldGen.variantOwnerAt({ zone: { coverage: [1] }, streetArea: [1] }, 0), 'zone', 'the shared owner gives zones precedence over roads');
-  assert.eq(Object.keys(Zones.ZONE_KINDS).sort().join(), 'beach,grove,quarry,stones,tar', 'mapped zones and generated parking-lane quarries');
+test('enemy spawns: Nexus ownership replaces ordinary landcover before species selection', () => {
+  const entry = { cellsPerEdge: 1, grid: [WorldGen.T.GRASS], zone: { coverage: [1],
+    anchors: [{ kind: 'grove', variant: 'mushroom_grove', key: 'grove_test' }] }, streetArea: [1] };
+  const owner = HabitatSpawns.resolve(entry, 0);
+  assert.eq(owner.zoneSlot, 1);
+  assert.truthy(HabitatSpawns.enemyRows(owner.profile, owner.type).some(row => row.id === 'mushroom_monster'));
+  assert.falsy(HabitatSpawns.enemyRows(owner.profile, owner.type).some(row => row.id === 'slime'));
 });
 
 test('enemy spawns: mini vampire bats are retired from enemy and spawn tables', () => {
@@ -142,4 +155,44 @@ test('enemy spawns: mini vampire bats are retired from enemy and spawn tables', 
     assert.falsy(EnemySpawns.caveRows(depth).some(row => row.id === 'mini_vampire_bat'));
   }
   assert.truthy(EnemyRoster.get('vampire_bat'), 'regular vampire bats remain');
+});
+
+test('enemy spawns: evening busy-road suppression hides fixed fauna and enemy seats reversibly', () => {
+  const daylight = Lighting.daylight, key = WorldGen.tileKey(321, 654), previous = WorldGen.tileCache.get(key);
+  const roadClass = new Uint8Array(4); roadClass[0] = WorldGen.ROAD_CLASS_MAJOR_BUFFER;
+  WorldGen.tileCache.set(key, { cellsPerEdge: 2, roadClass });
+  const scene = { depth: 0, save: {}, startWorldM: { x: -5000, y: 0 }, _pestFreeZone: () => null };
+  try {
+    for (const [kind, metadata] of [['rabbit', '_habitatSpawn'], ['slime', '_surfaceSpawn']]) {
+      const c = { id: `busy_${kind}`, kind, x: 5000, y: 5000,
+        [metadata]: { tx: 321, ty: 654, cx: 0, cy: 0, x: 0, y: 0 } };
+      Lighting.daylight = () => 1;
+      assert.truthy(EnemySpawns.surfaceActive(scene, c));
+      Lighting.daylight = () => .1;
+      assert.falsy(EnemySpawns.surfaceActive(scene, c), 'evening suppresses the original seat even after movement');
+      assert.truthy(c._busyRoadInactive);
+      assert.eq(c.x, 5000); assert.eq(c.y, 5000, 'suppression does not relocate inhabitants');
+      Lighting.daylight = () => 1;
+      assert.truthy(EnemySpawns.surfaceActive(scene, c), 'daylight restores the same candidate');
+      assert.falsy(c._busyRoadInactive);
+      if (metadata === '_habitatSpawn') {
+        c._surfaceInactive = true;
+        Lighting.daylight = () => .1; EnemySpawns.surfaceActive(scene, c);
+        Lighting.daylight = () => 1;
+        assert.falsy(EnemySpawns.surfaceActive(scene, c), 'an unrelated fauna inactive reason survives the overlay');
+      }
+    }
+    Lighting.daylight = () => .1;
+    for (const extra of [{ pet: true }, { lair: 'guard' }, { summoned: true }]) {
+      const c = { kind: 'rabbit', _habitatSpawn: { tx: 321, ty: 654, cx: 0, cy: 0 }, ...extra };
+      assert.truthy(EnemySpawns.busyRoadAllows(scene, c));
+    }
+    assert.truthy(EnemySpawns.busyRoadAllows({ ...scene, depth: 1 }, {
+      kind: 'rabbit', _habitatSpawn: { tx: 321, ty: 654, cx: 0, cy: 0 } }));
+    assert.truthy(EnemySpawns.busyRoadAllows(scene, {
+      kind: 'rabbit', _habitatSpawn: { tx: 321, ty: 654, cx: 1, cy: 0 } }), 'ordinary free ground stays active in evening');
+  } finally {
+    Lighting.daylight = daylight;
+    if (previous) WorldGen.tileCache.set(key, previous); else WorldGen.tileCache.delete(key);
+  }
 });

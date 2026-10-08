@@ -179,6 +179,39 @@
     }
     WorldGen.makeRng = () => () => 0;
   }
+  test('environment hazards: destroyed crater fire vents repeat warnings and burn only during eruption', () => fixture((s, entries) => {
+    quarry(s, entries, 'quarry-crater'); EnvironmentHazards.observe(s);
+    const state = EnvironmentHazards.lists(s), h = state.vents[0];
+    assert.eq(state.vents.length, 1); assert.eq(h.kind, 'fire');
+    assert.eq(h.phase, 'inactive'); assert.eq(state.sinkholes.length, 0);
+    const first = JSON.stringify(state.vents);
+    s._environmentHazards = new Map(); EnvironmentHazards.observe(s);
+    assert.eq(JSON.stringify(EnvironmentHazards.lists(s).vents), first, 'placement repeats from the same cell seed');
+    const vent = EnvironmentHazards.lists(s).vents[0];
+    WorldGen.makeRng = () => () => .99; s.playerM = {x:vent.x,y:vent.y};
+    advance(s, 5000); assert.eq(vent.phase, 'warning'); assert.eq(s.save.energy, 100);
+    advance(s, 2900); assert.eq(s.save.energy, 100);
+    advance(s, 100); assert.eq(vent.phase, 'active'); assert.lt(s.save.energy, 100);
+    assert.eq(s.save.conditions.burning.remainingMs, 6000);
+    advance(s, 3000); assert.eq(vent.phase, 'inactive');
+  }));
+  test('environment hazards: crater vents respect dry ground, zone coverage and shared exclusions', () => fixture((s, entries) => {
+    quarry(s, entries, 'quarry-crater');
+    const h = EnvironmentHazards.create(s,'vent',{cellIX:3,cellIY:3},'crater-vent',()=>.5,'fire');
+    assert.truthy(EnvironmentHazards.eligible(s,h));
+    for (const reason of ['FARM_INTERIOR','QUIET','RESTRICTED']) {
+      entries[0]._spawnOpts.spawnWhy[27] = WorldGen.SPAWN_WHY[reason];
+      assert.falsy(EnvironmentHazards.eligible(s,h), reason);
+    }
+    entries[0]._spawnOpts.spawnWhy.fill(0); entries[0].grid[27] = WorldGen.T.CAVE_LAVA;
+    assert.falsy(EnvironmentHazards.eligible(s,h), 'central lava pool has no cyclic vents');
+    entries[0].grid[27] = WorldGen.T.ROCK; entries[0].zone.coverage[27] = 0;
+    assert.falsy(EnvironmentHazards.eligible(s,h), 'vent cannot escape crater coverage');
+    for (const variant of ['quarry-abandoned','quarry-stronghold','quarry-strip-mine']) {
+      s._environmentHazards = new Map(); quarry(s, entries, variant); EnvironmentHazards.observe(s);
+      assert.eq(EnvironmentHazards.lists(s).vents.length,0,variant);
+    }
+  }));
   test('environment hazards: stepped strip-mine cluster cells become permanent pits after exactly five foreground seconds', () => fixture((s, entries) => {
     quarry(s, entries);
     assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'hidden until stepped on');

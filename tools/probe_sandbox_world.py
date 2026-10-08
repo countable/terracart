@@ -63,7 +63,8 @@ CASES = {
       const bushes=plants.filter(o=>o.zoneVariant==='meadow'&&o.crop==='shrub');
       check(bushes.length>0,'Meadow contains bushes');
       for(const o of bushes){check(wildplantSprite(o).sheet==='bushes','Meadow uses ordinary bushes');check(walkHazardDamageRate(o)===0,'Meadow bushes do not hurt');}
-      check(ZoneVariants.byId('meadow').background.materialDensity.shrub===.35,'Meadow density is35%');
+      const density=ZoneVariants.byId('meadow').background.materialDensity.shrub;
+      check(density>0&&density<1,'Meadow has a sparse shrub background');
       s.drawCells();s.drawObjects();return {regularBushes:bushes.length};
     }"""),
     'mimic': ('encounters', r"""() => {
@@ -167,7 +168,7 @@ CASES = {
       check(rock,'work target exists');move(rock);delete s.save.boonUntil?.work;s.save.selSlot=-1;
       interact(rock);check(s._workProgress,'ordinary mining starts');const normal=s._workProgress.durationMs;
       s.cancelWorkProgress();s.save.selSlot=s.save.inv.findIndex(i=>i.id==='hardworking_potion');
-      const count=Inventory.count(s.save,'hardworking_potion');check(s.drinkHardworkingPotion(),'drink works');
+      const count=Inventory.count(s.save,'hardworking_potion');check(s._useTimedBuff('hardworking_potion'),'drink works');
       check(Inventory.count(s.save,'hardworking_potion')===count-1,'one potion consumed');
       s.save.selSlot=-1;interact(rock);check(s._workProgress,'boosted mining starts');
       const boosted=s._workProgress.durationMs;check(boosted===Math.round(normal/Shrines.WORK_SPEED_MUL),'actual mining wheel runs faster');

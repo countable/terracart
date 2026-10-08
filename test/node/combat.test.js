@@ -147,7 +147,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // blow (see the melee-reach test below) — a swing must be both due and in
   // range — so the pin allows it and still refuses a blow that lands without
   // spending the clock.
-  assert.truthy(/if \((?:inSwing && )?now >= \(this\._nextBlowT \?\? 0\)\) \{[\s\S]*?this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\), isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
+  assert.truthy(/if \((?:inSwing && )?now >= \(this\._nextBlowT \?\? 0\)\) \{[\s\S]*?this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(weapon, isRiding\(this\.save\)\) \* Combat\.playerAttackIntervalMul\(this\.save\);/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\)(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -777,9 +777,9 @@ test('combat: every melee gate the player has runs the shared test', () => {
   assert.truthy(/return true/.test(head), 'the enemy tap is consumed');
 
   // Melee auto-engage (app.js _combatTick) — was cellInReach.
-  const auto = SCENE_SRC.slice(SCENE_SRC.indexOf('Gear.meleeActive(this.save) &&'));
-  const autoHead = code(auto.slice(0, auto.indexOf('startCombat(best')));
-  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM, Gear\.activeWeapon\(this\.save\)\)/.test(autoHead),
+  const auto = SCENE_SRC.slice(SCENE_SRC.indexOf('_meleeTarget(enemies, px, py) {'));
+  const autoHead = code(auto.slice(0, auto.indexOf('return best;')));
+  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM, weapon\)/.test(autoHead),
     'a sword picks up only what it can actually reach');
   assert.falsy(/cellInReach/.test(autoHead),
     'the lit reach must not choose the foe a sword auto-engages');

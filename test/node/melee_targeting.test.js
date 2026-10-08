@@ -7,7 +7,7 @@
     return SCENE_SRC.slice(start + 1, SCENE_SRC.indexOf('\n  }\n', start) + 4);
   }
   const methods = new Function('performance', 'return ({' + [
-    'startCombat(victim, opts = {}) {', '_busyWheel() {',
+    'startCombat(victim, opts = {}) {', '_meleeTarget(enemies, px, py) {', '_busyWheel() {',
     '_stopDownedActions() {', 'cancelWorkProgress() {', '_drawWorkProgress() {',
     'startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {',
     '_consumeFoodEffects(id, featherRevive = false, now = Date.now()) {',
@@ -15,6 +15,11 @@
   const start = SCENE_SRC.indexOf('    // ── Melee: auto-engage');
   const end = SCENE_SRC.indexOf('    this._drawEnemyHealth(enemies);', start);
   const tick = new Function('enemies', 'px', 'py', SCENE_SRC.slice(start, end));
+  const rangedStart = SCENE_SRC.indexOf('    this._staffCharge = null;', SCENE_SRC.indexOf('    // ── Bow / staff:'));
+  const rangedEnd = SCENE_SRC.indexOf('    // ── Castle turrets:', rangedStart);
+  const rangedTick = new Function('enemies','px','py','now','relics','activeWeapon','dmgMul','reachCells','shotTierColour',
+    SCENE_SRC.slice(rangedStart,rangedEnd));
+  const fire = (s,enemies) => rangedTick.call(s,enemies,0,0,now,Gear.effectiveRelics(s.save),Gear.activeWeapon(s.save),1,()=>3,()=> '#fff');
   function scene() {
     now = 1000;
     return Object.assign({
@@ -22,6 +27,9 @@
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 }, hits: [],
       isShadowActive: () => false, isTorchActive: () => false,
       _toolActionStory() {}, _toolTexture: () => null,
+      _nextShotT: {}, _shots: [], facing: {x:1,y:0},
+      spendEnergy(n) { Energy.set(this.save,this.save.energy-n); return true; },
+      _clampSelSlot() {},
       _attackMul: () => 1, _attackFlat: () => 0,
       _damageEnemy(c, damage) { this.hits.push({ c, damage }); return false; },
       _drawSwordSwing() {}, _drawWatering() {},
@@ -65,7 +73,7 @@
     assert.eq(s.hits.length, 2);
   });
 
-  test('melee: ordinary work and equipped ranged weapons retain priority', () => {
+  test('melee: ordinary work retains priority and a selected bow falls back to the sword', () => {
     const s = scene(), job = { durationMs: 1000 };
     s._workProgress = job;
     tick.call(s, [foe('a', 1)], 0, 0);
@@ -75,7 +83,9 @@
     s.save.relics.bow = { tier: 3 };
     s.save.activeWeapon = 'bow';
     tick.call(s, [foe('a', 1)], 0, 0);
-    assert.eq(s.hits.length, 0);
+    assert.eq(s.hits.length, 1);
+    assert.eq(s._swing.weapon, 'sword');
+    assert.eq(s.save.activeWeapon, 'bow', 'temporary melee does not change the ranged selection');
   });
 
   test('death: cancels overdue work without completion or refund, releases catch, clears attacks', () => {
@@ -105,9 +115,42 @@
     const armed = new Function('px', 'py', 'enemies', 'reachCells',
       SCENE_SRC.slice(a, b) + 'return rangedArmed;');
     const s = scene(), enemy = foe('near', 0);
+    assert.falsy(armed.call(s, 0, 0, [enemy], () => 2), 'close melee engagement pauses ranged');
+    enemy.x = 12;
     assert.truthy(armed.call(s, 0, 0, [enemy], () => 2));
     Energy.set(s.save, 0);
     assert.falsy(armed.call(s, 0, 0, [enemy], () => 2));
+  });
+
+  test('combat: chosen bow and staff pause throughout close combat and resume without changing selection', () => {
+    for (const slot of ['bow','staff']) {
+      const s = scene(), enemy = foe('near',3);
+      s.save.relics[slot] = {tier:3}; s.save.activeWeapon = slot;
+      Inventory.add(s.save,'wood',3); s._nextShotT[slot] = now;
+      fire(s,[enemy]); tick.call(s,[enemy],0,0);
+      assert.eq(s._shots.length,0); assert.eq(s.hits.length,1);
+      assert.eq(s.save.activeWeapon,slot); assert.eq(s._staffCharge,null);
+      const energy = s.save.energy, ammo = Inventory.count(s.save,'wood');
+      now += 100; fire(s,[enemy]); tick.call(s,[enemy],0,0);
+      assert.eq(s.hits.length,1,'between sword swings'); assert.eq(s._shots.length,0);
+      assert.eq(s.save.energy,energy); assert.eq(Inventory.count(s.save,'wood'),ammo);
+      enemy.x = 12; fire(s,[enemy]);
+      assert.eq(s._shots.length,1,'ready ranged cadence resumes as soon as melee reach clears');
+      assert.eq(s.save.activeWeapon,slot);
+    }
+  });
+
+  test('combat: bare hands also engage near foes, while empty or charmed encounters do not pause ranged', () => {
+    const s = scene(); s.save.relics = {staff:{tier:2}}; s.save.activeWeapon = 'staff';
+    s._nextShotT.staff = now; const enemy = foe('close',2);
+    fire(s,[enemy]); tick.call(s,[enemy],0,0);
+    assert.eq(s._shots.length,0); assert.eq(s.hits.length,1); assert.eq(s._swing.texture,null);
+    assert.eq(s._meleeTarget([],0,0),null);
+    Combat.applyStatus(enemy,'charm',10000,Date.now());
+    assert.eq(s._meleeTarget([enemy],0,0),null);
+    s.save.caught = ['close']; enemy._charmUntil = 0;
+    assert.eq(s._meleeTarget([enemy],0,0),null);
+    assert.eq(s._meleeTarget([{id:'pet',kind:'cat',x:0,y:0}],0,0),null);
   });
 
   test('mushroom food: raw mushroom confuses for three seconds and preserves longer confusion', () => {
