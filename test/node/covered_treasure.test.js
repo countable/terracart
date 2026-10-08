@@ -73,6 +73,8 @@
       const reloaded=JSON.parse(JSON.stringify(save));
       assert.truthy(treasureExposed(mark,{save:reloaded}),'reload preserves exposure');
       assert.truthy(treasureExposed({id:'ordinary'},scene),'ordinary X remains exposed');
+      assert.eq(handler.try(ctx),false,'exposed but not yet found: still hidden');assert.eq(rolls,0);
+      (save.hiddenDiscoveries ||= {})[mark.id]=true;   // the feet stood beside it (HiddenObjects.tick)
       assert.eq(handler.try(ctx),true);assert.eq(rolls,1);
       assert.eq(handler.try(ctx),false);assert.eq(rolls,1);
       assert.truthy(RENDER_SRC.includes('if (!treasureExposed(tr, scene) || found.has(tr.id)) return;'),'render uses the same exposure gate');

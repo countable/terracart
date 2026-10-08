@@ -1566,8 +1566,16 @@ function enemySplit(scene, c, fromX, fromY, now) {
 // breaks it (the damage stamp); a healer with nobody wounded looks again in
 // a second rather than spending its beat. True while the ability holds the
 // foe (its tell, or the instant it lands).
+// The support ability this foe uses: its elite rank's when it has one (an
+// ascendant summons copies of its basic form — Combat.ELITE_RANKS), else the
+// row's. Built once per creature so the cadence reads a stable object.
+function supportAbility(c, row) {
+  const own = Combat.eliteRank(c)?.ability;
+  if (!own) return row.ability;
+  return c._rankAbility ||= { ...own, kind: row.variantOf || c.kind };
+}
 function enemySupportTick(scene, c, row, now, eligible) {
-  const a = row.ability;
+  const a = supportAbility(c, row);
   if (!a) return false;
   const winding = c._abilityWindupUntil != null;
   if (winding && c._lastDamagedT !== c._abilityDamageStamp) eligible = false;

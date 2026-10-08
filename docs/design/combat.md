@@ -51,6 +51,16 @@ mechanics.
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
   combat lane. Persist contract expiry and any durable health state, not live
   map instances. Test reload, tile replacement and expiry when adding a kind.
+- An elite has a rank, a row of `Combat.ELITE_RANKS`: a plain elite (2×
+  HP and damage, 1.5× pace, white circle), possessed (3×, 1.4× an elite's
+  pace, red) and ascendant (4×, blue, summons a plain copy of its basic form
+  every 5 s into fixed slots through the shared `enemySummon`, replacing the
+  row's own support ability); possessed and ascendant are each 5% of
+  elites. The rank is rolled off the creature's id when
+  `WorldGen.makeCreature` makes a shiny foe, so every player meets the same
+  one; bounty follows `powerMul`. Possessed and ascendant bend the space
+  around them (rendering.md). A new rank is a row, never a branch
+  (`test/node/elite_ranks.test.js`).
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
   Game animals (crow/deer) are not enemies or projectile targets; released
@@ -72,6 +82,12 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- SPELL SLOTS: each tome rests on its own `cooldownMs` (`save.tomeMagicCd`;
+  `TOME_COOLDOWN_MS`, one hour, unless its row names another), and a tome may
+  be read while at most the worn amulet's tier of tomes rest (`Gear.spellSlots`
+  = 1 + tier). `_tomeWait` is the one gate; nowhere waives it, Home included.
+  The amulet is forged like the staff: its tier's gem (`gemForTier`) × tier,
+  plus one bar.
 - Potion of Flight lasts one minute, timed by the Flight buff. `Conditions.flying`
   skips harmful floor contact (including holes, flames and traps), while gases,
   attacks and existing conditions still affect the flyer. A second dose adds a minute.
@@ -113,7 +129,12 @@ mechanics.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
   carried animals. Every animal and enemy has a FAVOURITE (`favouriteItems`,
   items.js: an animal's `ANIMAL_FOOD`, else an enemy's roster-tier gem from
-  `GEM_DEPOSITS`, never typed per row). Giving a wild one its favourite starts
+  `GEM_DEPOSITS`, never typed per row); the Potion of Taming (T7, loot only;
+  thrown, a minute of charm) is every one's favourite too
+  (`UNIVERSAL_FAVOURITE`, read in `animalLikesFood`). The Sugar Potion (T2,
+  two berries at Home) is the cheap half: offered, thrown or set out, it lands
+  the `calm` status (`Combat.calm`, animals only) and the animal does not
+  bolt, flee a blow or run from the net while it holds. Giving a wild one its favourite starts
   a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes

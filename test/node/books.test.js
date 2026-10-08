@@ -391,7 +391,7 @@ test('mechanics: vendors never offer unique jewelry as gear', () => {
   const rng = bookRng(0x21C0);
   for (let i = 0; i < 2000; i++) {
     const offer = Gear.buildRelicOffer(save, rng);
-    assert.truthy(!offer || !['ring', 'amulet'].includes(offer.slot), 'no jewelry gear slot remains');
+    assert.truthy(!offer || offer.slot !== 'ring', 'no ring gear slot remains (the amulet is tiered gear again)');
   }
 });
 

@@ -309,15 +309,15 @@ const NPC = (() => {
   // RETURN as memories are recovered, RETURN_PER_MEMORY of the tile's draw
   // order per memory (returnedCount), and a returning resident does not go
   // back to its old seat: it lingers where there is something to come back
-  // to — inside Home's ring (scene.inHomeRing, the quiet ground the warden
-  // explains) or within LINGER_CELLS of a RESTORED house (the restoration
+  // to — just outside Home's ring until a roof is found for them
+  // (homeWaitBand) or within LINGER_CELLS of a RESTORED house (the restoration
   // ledger, save.restoredHouses). On a tile with neither, nobody returns.
   // A named zone's KEEPER never left (stayers: the first keeper the draw
   // seats on each zone kind — the one seatKeepers guarantees — keeps its
   // seat and its story: "the fire took the roofs, not the stone"); the
   // wizard tower's shrine neighbours arrive with its restoration (shrineResidents).
   // Arrivals are seated only OFF SCREEN
-  // (tickArrivals), so a neighbour is found on the doorstep, never seen to
+  // (tickArrivals), so a neighbour is found waiting, never seen to
   // appear on it. The seat is drawn on the resident's own stream
   // (`<id>:return`), so a given ledger seats a given person on one cell.
   const RETURN_PER_MEMORY = 2;
@@ -347,20 +347,39 @@ const NPC = (() => {
     anchors.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     return anchors;
   }
+  // WAITING FOR A ROOF: a neighbour anchored on Home (no restored house of
+  // its own yet — meetHomeNeighbour / houseNeighbours assign one) waits
+  // OUTSIDE Home's ring, pinned far enough off that its stroll (WANDER_CELLS)
+  // never carries it onto the doorstep, and within LINGER_CELLS beyond that.
+  // The band is read off scene.inHomeRing, the ring's one owner: a seat
+  // holds when stepping WANDER_CELLS toward Home stays out of the ring and
+  // stepping WANDER_CELLS + LINGER_CELLS lands in it.
+  function homeWaitBand(scene, home, cellM) {
+    let ringCells = 0;
+    while (ringCells < 64 && scene.inHomeRing(home.x + (ringCells + 1) * cellM, home.y)) ringCells++;
+    const toward = (x, y, cells) => {
+      const d = Math.hypot(home.x - x, home.y - y) || 1, k = Math.min(1, cells * cellM / d);
+      return scene.inHomeRing(x + (home.x - x) * k, y + (home.y - y) * k);
+    };
+    return { reach: ringCells + WANDER_CELLS + LINGER_CELLS + 1,
+      holds: (x, y) => !toward(x, y, WANDER_CELLS) && toward(x, y, WANDER_CELLS + LINGER_CELLS) };
+  }
   function lingerSeat(scene, entry, tx, ty, r, anchors, occupied, spawnOpts) {
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
     const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
     const rng = WorldGen.makeRng(fnv1a(`${r.id}:return`));
     const a = anchors[Math.floor(rng() * anchors.length)];
     const ax = Math.floor((a.x - tx0) / cellM), ay = Math.floor((a.y - ty0) / cellM);
+    const ring = a.home && scene.inHomeRing ? homeWaitBand(scene, a, cellM) : null;
+    const reach = ring ? ring.reach : LINGER_CELLS;
     const cells = [];
-    for (let cy = ay - LINGER_CELLS; cy <= ay + LINGER_CELLS; cy++) {
-      for (let cx = ax - LINGER_CELLS; cx <= ax + LINGER_CELLS; cx++) {
+    for (let cy = ay - reach; cy <= ay + reach; cy++) {
+      for (let cx = ax - reach; cx <= ax + reach; cx++) {
         if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === ax && cy === ay) || occupied.has(cx + ',' + cy)) continue;
         if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
         if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'npc')) continue;
         const x = tx0 + (cx + 0.5) * cellM, y = ty0 + (cy + 0.5) * cellM;
-        if (a.home && scene.inHomeRing && !scene.inHomeRing(x, y)) continue;
+        if (ring && !ring.holds(x, y)) continue;
         cells.push({ x, y, cx, cy, anchorKey: a.key });
       }
     }
@@ -408,7 +427,9 @@ const NPC = (() => {
   }
   // A completed conversation makes a Home-anchored neighbour eligible for a
   // roof. Pending records survive until a free restored house is loaded; an
-  // assigned record owns that house even while its tile is unloaded.
+  // assigned record owns that house even while its tile is unloaded. The move
+  // itself waits until both the speaker and the new seat are off screen (the
+  // arrivals rule), so nobody vanishes from in front of the player mid-talk.
   function meetHomeNeighbour(scene, c) {
     if ((scene.depth || 0) !== 0 || c?.kind !== 'npc' || c._homeAnchor !== '' || isDormant(c)) return false;
     const homes = scene.save.npcHomes ||= {};
@@ -417,11 +438,11 @@ const NPC = (() => {
         x: c.homeX ?? c.x, y: c.homeY ?? c.y };
       Save.persist(scene.save);
     }
-    houseNeighbours(scene, { offscreen: offscreenAt(scene), immediateId: c.id });
+    houseNeighbours(scene, { offscreen: offscreenAt(scene) });
     return true;
   }
 
-  function houseNeighbours(scene, { offscreen, immediateId } = {}) {
+  function houseNeighbours(scene, { offscreen } = {}) {
     const homes = scene.save?.npcHomes;
     if ((scene.depth || 0) !== 0 || !homes || !Object.keys(homes).length) return 0;
     const tiles = [], houses = new Map(), live = new Map();
@@ -454,8 +475,7 @@ const NPC = (() => {
     };
     for (const [id, record] of Object.entries(homes)) {
       const current = live.get(id);
-      const unseen = id !== immediateId && offscreen;
-      if (current && (isDormant(current.c) || (unseen && !unseen(current.c.x, current.c.y)))) continue;
+      if (current && (isDormant(current.c) || (offscreen && !offscreen(current.c.x, current.c.y)))) continue;
       // An already settled live neighbour keeps its wandering position.
       if (record.houseId && current?.c._homeAnchor === record.houseId) continue;
       const candidates = record.houseId ? [houses.get(record.houseId)].filter(Boolean)
@@ -464,7 +484,7 @@ const NPC = (() => {
           || a.key.localeCompare(b.key));
       for (const house of candidates) {
         const seat = seatAt(id, record, house);
-        if (!seat || (unseen && !unseen(seat.x, seat.y))) continue;
+        if (!seat || (offscreen && !offscreen(seat.x, seat.y))) continue;
         if (record.houseId !== house.key || record.x !== seat.x || record.y !== seat.y) dirty = true;
         Object.assign(record, { houseId: house.key, x: seat.x, y: seat.y });
         claimed.add(house.key);
@@ -673,7 +693,9 @@ const NPC = (() => {
     // (MemoryStory.showPages — the wizard's lane), the same portrait throughout.
     const say = () => {
       if (talk.target && !isDormant(c)) {
-        scene.save.wayfarerCompass = { ...talk.target, until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
+        // The rim label names who gave the directions (Wayfinder, Fieldwalker…).
+        scene.save.wayfarerCompass = { ...talk.target, source: c.roleLabel || LABELS[c.culture || 'village'][c.role],
+          until: Date.now() + Scenic.TELESCOPE_DURATION_MS };
         persistSave(scene.save);
       }
       MemoryStory.showPages(scene, talk.pages, { title: talk.title, art: portrait(scene, c), kind: 'note',

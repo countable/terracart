@@ -113,18 +113,16 @@ test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', (
   const iron = Gear.blacksmithRecipe('relic', 'pickaxe', 3);
   assert.eq(JSON.stringify(iron), JSON.stringify([{ id: 'iron_bar', qty: 5 }]), 'T3 pick = 5 iron');
   assert.eq(Gear.blacksmithRecipe('relic', 'ring', 3), null, 'unique rings are not forged');
-  assert.eq(Gear.blacksmithRecipe('relic', 'amulet', 3), null, 'unique amulets are not forged');
-  // Below the Frost tier every slot keeps its own gem, up to 16 at T6.
-  const staffT6 = Gear.blacksmithRecipe('relic', 'staff', 6);
-  assert.eq(staffT6[0].id, 'emerald', 'T6 staff still wants emeralds');
-  assert.eq(staffT6[0].qty, 16, '2^(6-2)=16');
-  // At T7 every jewelry slot is cut around diamonds instead — same quantity.
-  for (const slot of ['staff']) {
-    const t7 = Gear.blacksmithRecipe('relic', slot, 7);
-    assert.eq(t7[0].id, 'diamond', `T7 ${slot} wants diamonds`);
-    assert.eq(t7[0].qty, 32, '2^(7-2)=32 — the ramp is unchanged');
-    assert.eq(t7[1].id, 'frost_bar', 'plus the frost bar');
+  assert.eq(JSON.stringify(Gear.blacksmithRecipe('relic', 'amulet', 3)), JSON.stringify([{ id: 'amethyst', qty: 3 }, { id: 'iron_bar', qty: 1 }]), 'the tiered amulet forges like the staff');
+  // The staff is set with the gem of its own tier, one per tier.
+  const gems = { 2: 'topaz', 3: 'amethyst', 4: 'sapphire', 5: 'ruby', 6: 'emerald', 7: 'diamond' };
+  for (const [t, gem] of Object.entries(gems)) {
+    const r = Gear.blacksmithRecipe('relic', 'staff', Number(t));
+    assert.eq(r[0].id, gem, `T${t} staff wants ${gem}`);
+    assert.eq(r[0].qty, Number(t), `T${t} takes ${t} gems`);
+    assert.eq(r[1].id, barForTier(Number(t)), 'plus the tier bar');
   }
+  assert.eq(Gear.blacksmithRecipe('relic', 'staff', 1), null, 'no wooden staff');
 });
 
 test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
@@ -157,7 +155,7 @@ test('blacksmith offers: the next rung per slot, every tier past it divided down
     'missing wood pieces outweigh a finer upgrade for a kitted slot');
   // Every tier stays in the pool: bias, not a cut.
   assert.eq([...new Set(W.filter(x=>x.c.slot==='axe').map(x=>x.c.tier))].join(','),'1,2,3,4,5,6,7');
-  assert.falsy(W.find(x=>['ring','amulet'].includes(x.c.slot)),'unique jewelry is not tiered gear');
+  assert.falsy(W.find(x=>x.c.slot==='ring'),'rings are unique jewelry, not tiered gear');
   // The ordinary curve is untouched: a relic/armour split, no rank.
   const O=Gear.relicOfferWeights(save);
   const relicShare=O.filter(x=>x.c.kind==='relic').reduce((a,x)=>a+x.w,0);

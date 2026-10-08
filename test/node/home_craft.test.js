@@ -39,14 +39,15 @@ function scene(inv) {
 const last = (s) => s.modals[s.modals.length - 1];
 const craft = (s) => { const m = last(s); m.onAccept(); m.repeat(); };
 
-test('home craft: recipes include the starter Spear and Potion of Taming from two berries', () => {
+test('home craft: recipes include the starter Spear and the Sugar Potion from two berries', () => {
   const by = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r.cost]));
   assert.eq(JSON.stringify(by.throwing_spear), JSON.stringify([{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }]), 'throwing_spear');
   assert.falsy(by.torch, 'the torch is bought or found, never crafted (Oct 2026)');
   assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
   assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 5 }]), 'rope from five long grass');
   assert.eq(JSON.stringify(by.trap_disarm_kit), JSON.stringify([{ id: 'rubble', qty: 4 }]), 'a disarm kit from four stones');
-  assert.eq(JSON.stringify(by.taming_potion), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Potion of Taming from two berries');
+  assert.eq(JSON.stringify(by.sugar_potion), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Sugar Potion from two berries');
+  assert.falsy(by.taming_potion, 'the T7 Potion of Taming is found, never crafted');
   assert.truthy(/wall/.test(ITEM_EFFECTS.rubble), 'stone hints at rebuilding');
   assert.truthy(/twist/.test(ITEM_EFFECTS.longgrass), 'grass hints at binding');
   for (const r of HOME_RECIPES) {
@@ -180,25 +181,25 @@ test('home craft: every mode starts with only Spear and hides undiscovered recip
   } finally { Difficulty.setMode(was); }
 });
 
-test('home craft: learned Potion of Taming consumes two berries per jar, rechecks ingredients and persists its unlock', () => {
+test('home craft: learned Sugar Potion consumes two berries per jar, rechecks ingredients and persists its unlock', () => {
   const s = scene([['berry', 5]]);
-  s.save.foundWild = { taming_potion: 1 };
-  s.presentHomeCraft(0, 0, 'taming_potion');
+  s.save.foundWild = { sugar_potion: 1 };
+  s.presentHomeCraft(0, 0, 'sugar_potion');
   const m = last(s);
   assert.eq(m.quantity, undefined);
   craft(s);
   assert.truthy(last(s).canAfford, 'another jar is available after the first tap');
   craft(s);
   assert.falsy(last(s).canAfford, 'the recipe stays open when ingredients run out');
-  assert.includes(last(s).get, itemName('taming_potion'), 'repeat preserves the current recipe');
+  assert.includes(last(s).get, itemName('sugar_potion'), 'repeat preserves the current recipe');
   assert.eq(Inventory.count(s.save, 'berry'), 1);
-  assert.eq(Inventory.count(s.save, 'taming_potion'), 2);
+  assert.eq(Inventory.count(s.save, 'sugar_potion'), 2);
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'berry'), 1, 'stale offer cannot spend missing ingredients');
-  assert.eq(Inventory.count(s.save, 'taming_potion'), 2);
-  Inventory.remove(s.save, 'taming_potion', 2);
-  s.presentHomeCraft(0, 0, 'taming_potion');
-  assert.includes(last(s).get, itemName('taming_potion'), 'learned recipe survives spending the item');
+  assert.eq(Inventory.count(s.save, 'sugar_potion'), 2);
+  Inventory.remove(s.save, 'sugar_potion', 2);
+  s.presentHomeCraft(0, 0, 'sugar_potion');
+  assert.includes(last(s).get, itemName('sugar_potion'), 'learned recipe survives spending the item');
   assert.falsy(last(s).canAfford, 'ingredient shortages remain visible once learned');
 });
 

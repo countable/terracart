@@ -96,12 +96,12 @@ test('diamond: the T7 mineralrock lists the diamond FIRST — it is the Frost ro
 });
 
 // ── Gear ────────────────────────────────────────────────────────────────────
-test('diamond: the T7 staff recipe is cut around diamonds — the ramp and the bar unchanged', () => {
+test('diamond: the T7 staff recipe is cut around seven diamonds and a frost bar', () => {
   for (const slot of ['staff']) {
     const r = Gear.blacksmithRecipe('relic', slot, 7);
     assert.truthy(Array.isArray(r) && r.length === 2, `${slot} T7 has a gem line and a bar line`);
     assert.eq(r[0].id, 'diamond', `${slot} T7 wants diamonds`);
-    assert.eq(r[0].qty, 32, `${slot} T7 keeps the 2^(7-2) quantity`);
+    assert.eq(r[0].qty, 7, `${slot} T7 takes one gem per tier`);
     assert.eq(r[1].id, 'frost_bar', `${slot} T7 plus one frost bar`);
     assert.eq(r[1].qty, 1, 'one bar');
     // Every ingredient resolves in the catalogue — the smithy modal names
@@ -111,14 +111,12 @@ test('diamond: the T7 staff recipe is cut around diamonds — the ramp and the b
       assert.truthy(inventoryIconSource(line.id), `${line.id} has an icon source`);
     }
   }
-  // Below T7 each slot keeps its own gem — the diamond is the Frost rung only.
-  const own = { staff: 'emerald' };
-  for (const [slot, gem] of Object.entries(own)) {
-    for (let t = 2; t <= 6; t++) {
-      const r = Gear.blacksmithRecipe('relic', slot, t);
-      assert.eq(r[0].id, gem, `${slot} T${t} still wants ${gem}`);
-      assert.eq(r[0].qty, Math.pow(2, t - 2), `${slot} T${t} ramp`);
-    }
+  // Below T7 the staff is set with its own tier's gem — the diamond is the Frost rung only.
+  for (let t = 2; t <= 6; t++) {
+    const r = Gear.blacksmithRecipe('relic', 'staff', t);
+    assert.eq(r[0].id, gemForTier(t), `staff T${t} wants its tier's gem`);
+    assert.truthy(r[0].id !== 'diamond', `staff T${t} is not cut around diamonds`);
+    assert.eq(r[0].qty, t, `staff T${t} takes ${t} gems`);
   }
   // Tools never ask for a gem.
   const pick = Gear.blacksmithRecipe('relic', 'pickaxe', 7);

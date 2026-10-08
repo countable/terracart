@@ -32,9 +32,9 @@
     } };
     const point = { x: 347, y: 443, left: 5, right: 347, top: 101, bottom: 443 };
     s._drawEdgeDotLabel(row('telescopeCompass'), { name: 'Bryn' }, {}, point);
-    s._drawEdgeDotLabel(row('wayfarerCompass'), { roleLabel: 'Keeper' }, {}, point);
+    s._drawEdgeDotLabel(row('wayfarerCompass'), { roleLabel: 'Keeper' }, { source: 'Wayfinder' }, point);
     assert.eq(s._edgeDotLabels.telescopeCompass.text, 'Telescope\nBryn');
-    assert.eq(s._edgeDotLabels.wayfarerCompass.text, 'Wayfarer\nKeeper');
+    assert.eq(s._edgeDotLabels.wayfarerCompass.text, 'Wayfinder\nKeeper', 'a neighbour\'s mark names its speaker, not the Wayfarer\'s post');
     const [a, b] = s._edgeDotLabelBounds;
     assert.truthy(a.right <= point.right && a.bottom <= point.bottom);
     assert.truthy(b.bottom <= a.top && b.top >= point.top);

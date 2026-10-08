@@ -1102,10 +1102,9 @@ class SceneShops {
   //     ramping to 6 / 7 so nothing high-tier got cheaper. T2..T4 bars are
   //     mined; T5..T7 bars (platinum / crimson / frost) are SMELTED from
   //     their flowers, so the flower bond is implicit through the bar req.
-  //   • Jewelry slot (staff) - geometric gem cost
-  //     (1, 2, 4, 8, 16 from T2..T6) of the slot-specific gem:
-  //       staff -> emerald
-  //     plus 1 of the tier-matched bar. Every T7 slot uses 32 diamonds.
+  //   • Jewelry slot (staff) - one gem per tier (2 at T2 … 7 at T7)
+  //     of the gem matching its tier (items.js gemForTier: topaz,
+  //     amethyst, sapphire, ruby, emerald, diamond), plus 1 tier-matched bar.
   // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
   // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
   // Forge + smelt recipes live in gear.js and the present* shop modals call
@@ -1577,9 +1576,12 @@ class SceneShops {
     const done = q.have >= q.need;
     this.showOfferModal({
       kind: 'quest',
-      title: done ? 'Quest complete!' : q.title,
-      get: done ? `Reward: ${this.moneyHTML(q.reward)}` : `${q.have} / ${q.need}`,
-      blurb: q.body,
+      // The castle as caption, the quest's name as the bold headline, then
+      // its one-sentence flavour over the objective and progress.
+      title: done ? 'Quest complete!' : style.name,
+      get: q.title,
+      blurb: `<em>${Quests.flavour(q)}</em><div style="margin-top:6px;opacity:1">${q.body} `
+        + (done ? `Reward: ${this.moneyHTML(q.reward)}` : `<b>${q.have} / ${q.need}</b>`) + '</div>',
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',

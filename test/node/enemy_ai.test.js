@@ -121,7 +121,7 @@
     const body = RENDER_SRC.match(/    const chilled = Combat\.isChilled\(c, Date\.now\(\)\);[\s\S]*?Render\.setShine\(s, [^;]+;/);
     assert.truthy(body, 'live creature tint block exists');
     const paint = new Function('c', 's', 'performance', 'Date', 'Combat', 'Conditions',
-      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', 'pet', body[0]);
+      'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', 'pet', 'vivid', body[0]);
     const renderTint = (c, now) => {
       const sprite = { tint: null, fill: false,
         setTint(tint) { this.tint = tint; this.fill = false; },
@@ -130,7 +130,7 @@
         { burning: () => !!c.burning, statusFlashTint: () => null, poisoned: () => !!c.poisoned,
           isChilled: (x, t) => x._frozenUntil != null && t < x._frozenUntil },
         { conditionTintOn: () => true, DEFINITIONS: { burning: { tint: 0xff5500 }, poison: { tint: 0x9fdc8c } } },
-        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {}, !!c.pet);
+        0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {}, !!c.pet, !!c.vivid);
       return sprite;
     };
     for (const windup of ['_attackWindupUntil', '_lungeWindupUntil', '_abilityWindupUntil']) {
@@ -140,7 +140,9 @@
         assert.eq(normal.tint, 0x123456, `${windup} keeps its palette`);
         assert.eq(renderTint({ ...c, pet: true, tint: 0xc5ddf2 }, now).tint, 0xc5ddf2, 'a pet keeps its saved individual palette');
         assert.falsy(normal.fill, 'no attack tint fill');
-        assert.eq(renderTint({ ...c, shiny: true }, now).tint, 0xffd23a, 'elite sheen remains');
+        assert.eq(renderTint({ ...c, shiny: true }, now).tint, 0xffd23a, 'a shiny without a vivid sheet keeps the sheen');
+        assert.eq(renderTint({ ...c, shiny: true, vivid: true }, now).tint, 0x123456, 'an elite wears its own (vivid) palette, not gold');
+        assert.eq(renderTint({ ...c, shiny: true, vivid: true, burning: true }, now).tint, 0xff5500, 'a status still shows on an elite');
         assert.eq(renderTint({ ...c, burning: true }, now).tint, 0xff5500, 'burning remains visible');
         assert.eq(renderTint({ ...c, _frozenUntil: 2000 }, now).tint, 0x99ccff, 'ice remains visible');
         assert.eq(renderTint({ ...c, _supportUntil: 2000 }, now).tint, 0x8cefa0, 'support remains visible');

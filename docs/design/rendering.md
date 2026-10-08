@@ -44,6 +44,20 @@ rendering, lighting or street mechanics. Camera and art geometry live in
 - Revealed gas-emitting mushrooms use separate small and giant context art;
   the renderer carries `gasEmitter` into the crop view without changing crop
   identity, harvest rewards or inventory icons.
+- A creature's contact shadow centres 3 px above its ground point
+  (`SHADOW_LOOK.creature.dy`), so its feet stand on the ellipse's middle; the
+  elite's rune circle shares that centre.
+- An elite (`Combat.isElite`) keeps its own colours, baked vivid once per
+  sheet (`Render.vividTexture`), under every renderer; the gold tint is for
+  shiny animals. Its twin rune circle is two white rotation strips
+  (`elite_ring`, `elite_ring_inner`, baked at boot) turning against each
+  other and tinted the rank's `ring` colour — `Render.canvasTint` bakes the
+  tinted copy under Canvas, which ignores sprite tint. A sprite rotated after
+  being squashed tilts the ellipse, so a turning ground decal is a strip.
+  The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
+  camera post pass attached only while one is on screen) need the device's
+  graphics-FX opt-in (`Render.canShine`).
+>>>>>>> origin/main
 - Centre work wheels in the target cell, including net captures. Use a small,
   solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART` helpers,
   not fixed pixel offsets. Work tools animate at the target cell.

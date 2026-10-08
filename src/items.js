@@ -421,11 +421,12 @@ const MINERAL_ICON_SHEET = {
   // 7_Pickup_Items_16x16 (renamed Pickup_Items.png in Objects/). Frame =
   // 6 * 14 + 4 = 88.
   old_boot:       { sheet: 'pickup',         frame: 88 },
-  // Consumables — honey is a single 16×16 jar (Icons/Items/Honey.png, an
-  // amber fill of the potion pack's empty flask); books are a 240×64
+  // Consumables — the Sugar Potion is a single 16×16 jar (Icons/Items/Honey.png,
+  // an amber fill of the potion pack's empty flask); books are a 240×64
   // multi-frame sheet, frame 0 the basic variant.
   syrup: { sheet: 'icon_potions', frame: 0 },
-  taming_potion:      { sheet: 'icon_taming_potion',  frame: 0 },
+  sugar_potion:       { sheet: 'icon_sugar_potion',  frame: 0 },
+  taming_potion:      { sheet: 'icon_potions', frame: 29 },   // the blue conical flask
   book:       { sheet: 'icon_book',   frame: 0 },
   tome_reach: { sheet: 'icon_book',   frame: 2 },
   tome_raven: { sheet: 'icon_book',   frame: 8 },
@@ -672,7 +673,7 @@ const BASE_TIER = {
   dog: 5,
   // Consumables
   antidote: 1, elixir: 7,
-  syrup: 2, taming_potion: 3, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
+  syrup: 2, sugar_potion: 2, taming_potion: 7, book: 1, reach_potion: 4, healing_potion: 2, speed_potion: 2, shielding_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_scroll: 2,
@@ -840,6 +841,7 @@ const ITEMS = [
   // Potion of Taming (legacy save id honey): set it out to lure wandering chickens + cows within 30m toward
   //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
+  { id: 'sugar_potion', name: 'Sugar Potion', kind: 'supply', potion: true },
   { id: 'taming_potion', name: 'Potion of Taming', kind: 'supply', potion: true },
   // dropWeight 3: a Book is THE documentation (see play_tips.js), so it is
   // the one consumable that has to turn up often enough to be read. At an even
@@ -1229,48 +1231,59 @@ const CONSUMABLE_SPEC = {
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
   tome_reach: { verb: 'Read', title: 'Read the Tome of Reach?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_reach'),
+    usable: scene => scene.tomeUsable('tome_reach'),
     tome: { of: 'reach_potion', mul: TOME_MUL, flash: '✨ The sight tome opens' },
     get: 'The far edge of the world leans closer with every page.' },
   tome_raven: { verb: 'Read', title: 'Read the Tome of the Raven?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_raven'),
+    usable: scene => scene.tomeUsable('tome_raven'),
     tome: { of: 'raven_scroll', mul: TOME_MUL, flash: '✨ A raven leaves the page' },
     get: 'A raven of smoke and starlight waits between the lines.' },
   tome_thunder: { verb: 'Read', title: 'Read the Tome of Thunder?',
-    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_thunder'),
+    usable: scene => scene.tomeUsable('tome_thunder'),
     tome: { of: 'thunder_scroll', mul: TOME_MUL, flash: '⚡ The storm tome speaks' },
     get: 'Storm writings. The sky leans in to listen.' },
   tome_speed: { verb: 'Read', title: 'Read the Tome of Speed?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_speed'),
+    usable: scene => scene.tomeUsable('tome_speed'),
     tome: { of: 'speed_potion', mul: TOME_MUL, flash: '✨ The speed tome opens' },
     get: 'Every line quickens. The road unwinds faster beneath you.' },
   tome_shielding: { verb: 'Read', title: 'Read the Tome of Shielding?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_shielding'),
+    usable: scene => scene.tomeUsable('tome_shielding'),
     tome: { of: 'shielding_potion', mul: TOME_MUL, flash: '✨ The shield tome opens' },
     get: 'The words settle around you like layered plates.' },
   tome_healing: { verb: 'Read', title: 'Read the Tome of Healing?',
-    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_healing'),
+    usable: scene => scene.tomeUsable('tome_healing'),
     tome: { of: 'healing_potion', mul: TOME_MUL, flash: '✨ The healing tome opens' },
     get: 'A warmth gathers where the page is worn softest.' },
   tome_blight: { verb: 'Read', title: 'Read the Tome of Blight?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_blight'),
+    usable: scene => scene.tomeUsable('tome_blight'),
     tome: { of: 'blight_potion', mul: TOME_MUL, flash: '✨ The blight tome opens' },
     get: 'The margin ink crawls. What it touches sickens.' },
   // An aura-only tome has its own timed buff; no corresponding potion.
   tome_frost_aura: { verb: 'Read', title: 'Read the Tome of Frost Aura?',
-    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_frost_aura'),
+    usable: scene => scene.tomeUsable('tome_frost_aura'),
     buff: 'frostAura', durationMs: _CONSUMABLE_MINUTE_MS * TOME_MUL,
     aura: { texture: 'aura_frost' },
     tome: { flash: '❄ Cold gathers around you' },
     get: 'Cold spills from the pages, sparing the hands that hold them.' },
   tome_fire_wall: { lengthCells: 5,
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
-    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_fire_wall'),
+    usable: scene => scene.tomeUsable('tome_fire_wall'),
     get: 'A wall of flame rises across the ground ahead.' },
-  taming_potion: {
-    radiusM: 30,
-    verb: 'Use', method: 'useHoney', title: 'Set out the Potion of Taming?',
+  // THE SUGAR POTION (T2, two berries at Home): an ANIMAL it reaches stays
+  // put for durationMs — the `calm` status (Combat.calm): it does not bolt
+  // from you, flee a blow or run from the net. Offered (tap the animal),
+  // thrown, or set out (every animal within radiusM, drawn toward you).
+  sugar_potion: {
+    radiusM: 30, durationMs: 2 * 60 * 1000,
+    verb: 'Use', method: 'useSugar', title: 'Set out the Sugar Potion?',
     get: 'Sweetness draws curious noses through the grass.',
+  },
+  // THE POTION OF TAMING (T7): every creature's favourite (UNIVERSAL_FAVOURITE
+  // — offered, it starts the catch), and thrown it charms a foe for a minute.
+  // No use of its own: it is given or thrown.
+  taming_potion: {
+    get durationMs() { return Combat.FLOWER_STATUS_MS; },
+    get: 'A creature’s whole heart turns toward you.',
   },
   reach_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, buff: 'reach',
@@ -1464,9 +1477,16 @@ for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
   row.disabled = scene => !scene.canThrowItem(id);
   row.label = scene => scene.throwActionLabel();
 }
+// Every tome rests TOME_COOLDOWN_MS after a reading (owner, Oct 2026) unless
+// its row names its own `cooldownMs`; how many may rest at once is
+// Gear.spellSlots (the amulet).
+const TOME_COOLDOWN_MS = 60 * 60 * 1000;
+for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
+  if (id.startsWith('tome_')) row.cooldownMs ??= TOME_COOLDOWN_MS;
+}
 // The tomes' button (a `cooldownMs` row read with the Read verb): a tap reads
-// it outright, no confirm (owner, Oct 2026); while either tome lock holds
-// (scene._tomeWait) the button greys and counts the wait down in place.
+// it outright, no confirm (owner, Oct 2026); while its rest or full spell
+// slots hold (scene._tomeWait) the button greys and counts the wait down in place.
 for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
   if (!(row.cooldownMs > 0 && row.verb === 'Read')) continue;
   row.immediate = true;
@@ -1546,7 +1566,8 @@ const PRICES = {
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,
-  taming_potion: 12,
+  sugar_potion: 8,     // T2 — two berries at Home
+  taming_potion: 400,  // T7 — every creature's favourite, and a thrown charm
   book:  20,
   tome_reach: 90,   // T3 — a reach potion's sight, once a day, forever
   tome_raven: 170,  // T4 — a T2 raven's wings, once a day, forever
@@ -1707,7 +1728,7 @@ const ITEM_GUIDE_TIPS = {
   trap_disarm_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
   throwing_spear: 'I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
-  taming_potion: 'I simmered the berries into a potion and left a little by the gate. The hens followed its scent home.',
+  sugar_potion: 'I simmered the berries into a potion and left a little by the gate. The hens followed its scent home.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
@@ -1794,7 +1815,8 @@ const ITEM_EFFECTS = {
   diamond: 'A sliver of winter waits for a jeweller’s hand.',
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
   syrup: 'Sweet amber syrup clings to the lip of the jar.',
-  taming_potion: 'Its sweet scent draws curious noses through the grass.',
+  sugar_potion: 'Offered or thrown, it keeps an animal from running for two minutes.',
+  taming_potion: 'Every creature’s favourite. Thrown, it charms a foe for a minute.',
   book: 'An elder’s faded words wait beneath the worn cover.',
   tome_reach: 'Page by page, the horizon walks closer.',
   tome_raven: 'Somewhere in the ink, wings shift.',
@@ -1967,7 +1989,12 @@ function favouriteItems(kind) {
   const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(kind) : null;
   return row ? [gemForTier(row.tier)] : [];
 }
+// THE UNIVERSAL FAVOURITE: every creature that has a favourite also takes
+// the Potion of Taming — offered to a wild one it starts the catch, offered
+// to a pet it feeds it. favouriteItems keeps naming the kind's own favourite.
+const UNIVERSAL_FAVOURITE = 'taming_potion';
 function animalLikesFood(kind, foodId) {
+  if (foodId === UNIVERSAL_FAVOURITE && (kind === 'chicken' || favouriteItems(kind).length)) return true;
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
   // felt arbitrary. Other species keep their explicit list.
   if (kind === 'chicken' && typeof foodId === 'string' && foodId.endsWith('_seed')) {
@@ -2048,7 +2075,13 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'Its pointed head finds the seams in stone.' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'Its keen edge bites deep into timber.' },
-  // Ring and amulet names belong to unique carried jewelry; this table contains tools only.
+  // The AMULET — the one worn jewelry slot: each tier is one more SPELL
+  // SLOT, a tome that may rest on its own cooldown at once (Gear.spellSlots:
+  // 1 + tier). Forged like the staff (gear.js blacksmithRecipe). Its art is
+  // one frame of the Extras amulet sheet per tier (AMULET_FRAME_BY_TIER); the
+  // named Amulets of Regeneration / Vigour are carried unique jewelry, not this.
+  amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
+             effectKey: 'spellSlots',    blurb: 'Its charm keeps one more spell close at hand.' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
@@ -2170,13 +2203,20 @@ function gearPrice(kind, slot, tier) {
 for (const item of ITEMS.filter(i => i.kind === 'unique_relic')) {
   PRICES[item.id] = gearPrice('relic', 'sword', item.baseTier);
 }
+// The tiered amulet's frame on the 6×4 Extras amulet sheet, by the gem
+// colour of its tier (quartz pink … diamond pale). Frames 0-3 are the pet
+// collars and 10 / 17 the unique amulets (INVENTORY_ICON_SHEET).
+const AMULET_FRAME_BY_TIER = Object.freeze({ 1: 14, 2: 6, 3: 13, 4: 12, 5: 8, 6: 18, 7: 7 });
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
   if (def.tiers) {
     return def.tiers.includes(tier) ? `assets/Icons/AltWeapons/${tier}/${def.icon}` : null;
   }
-  // Bags live under Extras; tools and armor are per-tier.
+  // Bags and the amulet live under Extras; tools and armor are per-tier.
+  if (kind === 'relic' && slot === 'amulet') {
+    return AMULET_FRAME_BY_TIER[tier] != null ? `assets/Icons/RPG icons/Extras/${def.icon}` : null;
+  }
   if (kind === 'relic' && slot === 'bag') {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }
@@ -2612,7 +2652,7 @@ const HOME_RECIPES = [
   { id: 'rope',      cost: [{ id: 'longgrass', qty: 5 }] },
   // Four stones knock a snare's jaw shut for good.
   { id: 'trap_disarm_kit',  cost: [{ id: 'rubble', qty: 4 }] },
-  { id: 'taming_potion',     cost: [{ id: 'berry', qty: 2 }] }, // Potion of Taming; keep the saved item id
+  { id: 'sugar_potion',      cost: [{ id: 'berry', qty: 2 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
     id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
   })),

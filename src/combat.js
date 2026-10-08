@@ -351,15 +351,43 @@
   // A SHINY cave monster is an elite: one multiplier over the kind's HP and
   // damage together. Elite eligibility owns monster reward rolls; shiny
   // power applies to every creature, including fauna and coin-stealing ravens.
-  const ELITE_MUL = 2;
+  //   An elite has a RANK, one row each: `label` its name in the banner and
+  // the kill card, `power` over the kind's HP and
+  // damage (and so its bounty, through powerMul), `pace` over its speed,
+  // `ring` the colour of the rune circle under it (render.js), `warp` bends
+  // the space around it (Render.setEliteWarp), and `ability` is a support
+  // ability that replaces the row's own (creature_ai.js supportAbility; a
+  // summon's kind is the elite's basic form). `share` is the fraction of
+  // elites that roll the rank, off the creature's stable id at spawn
+  // (WorldGen.makeCreature stamps `eliteRank`), so every player meets the
+  // same one. An unstamped shiny is a plain elite.
+  const ELITE_RANKS = {
+    elite:     { label: 'Elite', power: 2, pace: 1.5, ring: 0xffffff },
+    possessed: { label: 'Possessed elite', power: 3, pace: 1.5 * 1.4, ring: 0xff3b2e, warp: true, share: 0.05 },
+    ascendant: { label: 'Ascendant elite', power: 4, pace: 1.5, ring: 0x4aa8ff, warp: true, share: 0.05,
+      ability: { type: 'summon', maxMinions: 6, intervalSeconds: 5, windupSeconds: 0.6 } },
+  };
+  const ELITE_MUL = ELITE_RANKS.elite.power;
   function isElite(c) {
     return !!c && !!c.shiny && isEnemyKind(c.kind) && monster(c.kind)?.eliteEligible !== false;
   }
-  function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
-  const SHINY_SPEED_MUL = 1.5;
-  function shinyMul(c) { return c?.shiny ? ELITE_MUL : 1; }
+  // The rank a new shiny of `kind` with this id is born with (null when it
+  // cannot be an elite). Shares are cumulative from the rarest rank down.
+  function rollEliteRank(kind, id) {
+    if (!isEnemyKind(kind) || monster(kind)?.eliteEligible === false) return null;
+    let u = hash01(`${id}|rank`);
+    for (const key of ['ascendant', 'possessed']) {
+      if (u < ELITE_RANKS[key].share) return key;
+      u -= ELITE_RANKS[key].share;
+    }
+    return 'elite';
+  }
+  function eliteRank(c) { return isElite(c) ? ELITE_RANKS[c.eliteRank] || ELITE_RANKS.elite : null; }
+  function eliteMul(c) { return eliteRank(c)?.power ?? 1; }
+  const SHINY_SPEED_MUL = ELITE_RANKS.elite.pace;
+  function shinyMul(c) { return c?.shiny ? eliteRank(c)?.power ?? ELITE_MUL : 1; }
   function shinySpeedMul(c, escaping = false) {
-    return c?.shiny ? (escaping && !isEnemyKind(c.kind) ? 1.3 : SHINY_SPEED_MUL) : 1;
+    return c?.shiny ? (escaping && !isEnemyKind(c.kind) ? 1.3 : eliteRank(c)?.pace ?? SHINY_SPEED_MUL) : 1;
   }
   // THE ONE PACE MULTIPLIER, at every site a creature's speed is read (the
   // roster mover's step, a bat's leg, a ghost's glide, the crow's flights,
@@ -555,6 +583,8 @@
     frozen:    Object.freeze({ label: 'Chilled',   color: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), field: '_frozenUntil', clock: 'wall', cancels: false, slow: Conditions.DEFINITIONS.frozen.moveSpeedMul }),
     fear:      Object.freeze({ label: 'Fear',      color: '#c77dff', field: '_fearUntilT',      clock: 'perf', cancels: true, turnsNow: true }),
     psychosis: Object.freeze({ label: 'Psychosis', color: '#c6ff4d', field: '_psychosisUntilT', clock: 'perf', cancels: true, turnsNow: true }),
+    // The Sugar Potion's: an ANIMAL that holds it does not run (Combat.calm).
+    calm:      Object.freeze({ label: 'Calm',      color: '#ffd59a', field: '_calmUntil',       clock: 'wall', cancels: false }),
   });
   function statusNow(row, now) {
     return now != null ? now : row.clock === 'wall' ? Date.now() : performance.now();
@@ -622,6 +652,14 @@
     return landStatus(c, 'paralysis', durationMs, now);
   }
   function isCharmed(c, now = Date.now()) { return hasStatus(c, 'charm', now); }
+  // CALM (the Sugar Potion): an animal — never a foe or a neighbour — stays
+  // put for `durationMs`: no bolt when you close on it, no flight from a
+  // blow, no run from the net. Every escape lane reads isCalm.
+  function calm(c, durationMs, now = Date.now()) {
+    if (!c || c.kind === 'npc' || isEnemyKind(c.kind) || !Number.isFinite(durationMs)) return false;
+    return landStatus(c, 'calm', durationMs, now);
+  }
+  function isCalm(c, now = Date.now()) { return hasStatus(c, 'calm', now); }
   // Paid passage and an open negotiation are neutral, never allied.
   function isPacified(c, now = Date.now()) {
     return !!monster(c?.kind)?.pirate
@@ -1622,14 +1660,14 @@
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
-    FLOWER_STATUS_MS, isSleeping, isParalyzed, paralyze, isCharmed, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
+    FLOWER_STATUS_MS, isSleeping, isParalyzed, paralyze, isCharmed, calm, isCalm, isPacified, isBurrowed, isDisguised, isConcealed, applySleep, applyCharm,
     STATUS_FLASH_MS, STATUS_LOOKS, statusLook, flagStatus, statusFlashTint, hasStatus, applyStatus, slowMul, paceMul,
     isPsychotic, applyPsychosis, isFrightened, applyFear, isChilled, applyFrost, applyAuraFrost, applyFrostAura, cancelCreatureAction,
     isTame, isAlly,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, REST_HEAL_MS, healIfRested, damage, damageDealt, hpFraction,
     ENVIRONMENT_SOURCES, isEnvironmentSource,
     canBurn, burning, ignite, burnTick, poisoned, poison, poisonTick,
-    ELITE_MUL, isElite, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
+    ELITE_RANKS, ELITE_MUL, isElite, rollEliteRank, eliteRank, eliteMul, SHINY_SPEED_MUL, shinyMul, shinySpeedMul, ghostSizeMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, playerAttackIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,

@@ -76,7 +76,7 @@ test('elite: the treasure pool is biased to relics and pays a real reward', () =
     if (r.kind === 'relic') {
       relics++;
       assert.lte(r.tier, ctx.relicCap - 1, 'relic tier under the cap');
-      assert.falsy(['ring', 'amulet'].includes(r.slot), 'elite drops contain no retired jewelry gear');
+      assert.falsy(r.slot === 'ring', 'elite drops contain no retired ring gear');
     }
   }
   assert.gt(relics, 0, 'the sample reaches the relic branch');
@@ -100,8 +100,8 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const app = SCENE_SRC;
   assert.inRange(SHINY_RATE.monster, 0.001, 0.5, 'monsters have a shiny rate');
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
-  assert.truthy(/shiny: EnemyRoster\.get\(kind\)\.eliteEligible && isShiny\(id, SHINY_RATE\.monster\), habitat: habitat\.theme/.test(spawn),
-    'spawnCaveCreatures stamps shiny off the stable id at the monster rate');
+  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemySpawns\.rollsElite\(entry, kind, id, wmx, wmy, cellSizeM\), habitat: habitat\.theme,/.test(spawn),
+    'spawnCaveCreatures stamps shiny off the stable id at the monster rate (EnemySpawns.rollsElite)');
   // The melee formula is typed ONCE (Combat.meleeBlow: the row's dmg × powerMul
   // — elite × lair — plus the Giant bonus, times the Shrinking multiplier).
   assert.truthy(/\? Combat\.meleeBlow\(c, row\.dmg\)\s*: row\.dmg \* Combat\.powerMul\(c\);/.test(CREATURE_AI_SRC),
@@ -124,7 +124,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
     'the bounty is paid at the power multiplier (elite × lair), by a split slime\'s share');
   assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(kill),
     'an elite kill banks the kind\'s memory the first time');
-  assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\),\s*ceremony: \{ kind: 'treasure', header: 'Elite slain',/.test(kill),
+  assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\),\s*ceremony: \{ kind: 'treasure', header: `\$\{Combat\.eliteRank\(victim\)\.label\} slain`,/.test(kill),
     'and rolls the elite treasure at the commensurate tier after that, shown as a card');
   // The relic-capable roll has somewhere to land: grantTreasureRoll equips a
   // relic / armor reward and cashes out a beaten one.

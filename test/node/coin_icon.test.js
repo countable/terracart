@@ -80,7 +80,7 @@ test('coin icon: money amounts in HTML go through moneyHTML', () => {
   assert.truthy(/cost: this\.moneyHTML\(price\),/.test(app), 'a buy cost line wears the coin');
   assert.truthy(/get: this\.moneyHTML\(`\+\$\{unitPrice\}`\),/.test(app),
     'a sell get line wears the coin');
-  assert.truthy(/get: done \? `Reward: \$\{this\.moneyHTML\(q\.reward\)\}`/.test(app),
+  assert.truthy(/done \? `Reward: \$\{this\.moneyHTML\(q\.reward\)\}`/.test(app),
     'the quest-board reward line wears the coin');
   assert.truthy(/iconHTML: this\.coinIconHTML \? this\.coinIconHTML\(48\) : '',/.test(app),
     'a money reward card wears the 48px coin');

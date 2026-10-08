@@ -12,6 +12,12 @@
   function isHidden(save, object) {
     return !!mode(object) && !save?.hiddenDiscoveries?.[object.id];
   }
+  // An X mark's records carry no kind; this is the one question the drawer
+  // and the dig ask. Like every hidden thing it waits for tick(): the feet on
+  // a neighbouring cell, or the vision disc with Perception.
+  function treasureHidden(save, treasure) {
+    return !!treasure && isHidden(save, { id: treasure.id, kind: 'treasure' });
+  }
   function cellDelta(scene, object) {
     const player = worldMetersToAbsCell(scene,
       scene.startWorldM.x + scene.playerM.x, scene.startWorldM.y + scene.playerM.y);
@@ -140,5 +146,5 @@
     persistSave(scene.save);
     return object;
   }
-  root.HiddenObjects = { KINDS, mode, isHidden, adjacent, inVision, reveal, saved, tick, ensureSpirit };
+  root.HiddenObjects = { KINDS, mode, isHidden, treasureHidden, adjacent, inVision, reveal, saved, tick, ensureSpirit };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -134,6 +134,11 @@ access or tile lifecycle mechanics.
   now only feeds restock days and the pots of gold. Breakable pots and
   barrels select their loot by stable appearance (`barrelProfile`), not
   density.
+- An X mark is hidden (`HiddenObjects.treasureHidden`) until the feet stand
+  on a neighbouring cell (`HiddenObjects.tick` records it in
+  `save.hiddenDiscoveries`), or within the vision disc with Perception; until
+  then it is neither drawn nor diggable. A covering rock adds no rule of its
+  own. The Treasure Map's dot is apart.
 - THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
   tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
   after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest
@@ -280,7 +285,13 @@ access or tile lifecycle mechanics.
   Shiny creatures move at 1.5 times ordinary speed; escaping animals use
   1.3 instead. Apply the multiplier after the base pace, never cap it.
   Shiny HP and attack are doubled through `Combat.powerMul`; raised pets
-  do not stack their shiny and adult strength bonuses.
+  do not stack their shiny and adult strength bonuses. A shiny foe's elite
+  rank (`Combat.ELITE_RANKS`, combat.md) replaces both factors with its row's.
+  Whether a foe is an elite is `EnemySpawns.rollsElite`: the eligible kind,
+  the id's shiny roll, and never within `ELITE_STAIR_CLEAR_CELLS` of a
+  generated staircase (a seat by the stairs keeps its foe, plain; no extra
+  draw). Every spawner that rolls elites asks it; a group's authored elite
+  is the exception.
   A RETREAT among houses
   (a bolt, Home's rout, wandering off, a pet's shove) runs the ROADSIDE:
   `roadsideRunAngle` (creature_ai.js) bends the away angle along the nearest

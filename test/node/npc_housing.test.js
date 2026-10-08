@@ -54,6 +54,23 @@
     assert.truthy(MemoryStory.wandererHoused(s.save, c), 'actual housing updates Tilly even without a later restoration');
   }));
 
+  test('NPC housing: a neighbour in view is not moved by the conversation, only once off screen', () => withWorld((s, origin, destination) => {
+    const c = person(); origin.creatures.push(c);
+    const h = house('later_move'); restore(s, destination, h);
+    // A viewport centred on the speaker; the destination tile is beyond it.
+    Object.assign(s, { viewSize: 20, mPerPx: 1, startWorldM: { x: 0, y: 0 }, playerM: { x: c.x, y: c.y } });
+    const pin = [c.x, c.y].join(',');
+    NPC.meetHomeNeighbour(s, c);
+    assert.truthy(s.save.npcHomes[c.id], 'the meeting is recorded');
+    assert.falsy(s.save.npcHomes[c.id].houseId, 'no roof claimed while the speaker is watched');
+    assert.truthy(origin.creatures.includes(c)); assert.eq([c.x, c.y].join(','), pin, 'the speaker stays put');
+    s.playerM = { x: c.x - 200, y: c.y + 200 };
+    s._npcArrivalsNext = 0;
+    NPC.tickArrivals(s);
+    assert.eq(s.save.npcHomes[c.id].houseId, h.id, 'moves once out of sight');
+    assert.truthy(destination.creatures.includes(c));
+  }));
+
   test('NPC housing: one house has one assignment and a prior conversation waits for another roof', () => withWorld((s, origin, destination) => {
     const first = person(), second = person('npc_warden_0_0', 'warden');
     origin.creatures.push(first, second);

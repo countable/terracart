@@ -160,14 +160,15 @@ test('themed shops: three market digits and one blacksmith digit on small houses
   assert.eq(Houses.houseShopRole({ restoredHouses: { old: 'plain' } }, { kind: 'house', id: 'old', tier: WorldGen.T.BUILDING, address: 24 }), null, 'existing frozen roles stay put');
 });
 
-test('themed shops: Potion of Taming and magic traps fill tier 3 supplies; dragon powder stays tier 4 Magic', () => {
-  assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'magic_trap,taming_potion');
+test('themed shops: magic traps fill tier 3 supplies, the Sugar Potion tier 2; dragon powder stays tier 4 Magic', () => {
+  assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'magic_trap');
   assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'javelin,renovation_permit', 'T4 has its own supply stock');
-  for (const id of ['taming_potion', 'magic_trap']) {
-    assert.eq(ITEM_BY_ID[id].baseTier, 3);
-    assert.eq(ITEM_BY_ID[id].kind, 'supply');
-    assert.falsy(Shops.themedStock('supply', 2).includes(id), 'no early supply stock');
-  }
+  assert.eq(ITEM_BY_ID.magic_trap.baseTier, 3);
+  assert.falsy(Shops.themedStock('supply', 2).includes('magic_trap'), 'no early magic trap');
+  assert.eq(ITEM_BY_ID.sugar_potion.baseTier, 2);
+  assert.truthy(Shops.themedStock('supply', 2).includes('sugar_potion'), 'the Sugar Potion is a cheap early supply');
+  assert.eq(ITEM_BY_ID.taming_potion.baseTier, 7);
+  assert.falsy(Shops.THEME_POOL.supply().includes('taming_potion'), 'the Potion of Taming is never stocked');
   assert.eq(ITEM_BY_ID.dragon_powder.baseTier, 4);
   assert.eq(ITEM_BY_ID.dragon_powder.kind, 'magic');
   assert.truthy(Shops.themedStock('potion', 4).includes('dragon_powder'));

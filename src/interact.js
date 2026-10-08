@@ -561,6 +561,7 @@ const TAP_HANDLERS = [
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
       if (!treasureExposed(tr, scene, save) || found.has(tr.id)
+          || (typeof HiddenObjects !== 'undefined' && HiddenObjects.treasureHidden(save, tr))
           || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr))) return false;
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
@@ -722,6 +723,15 @@ const TAP_HANDLERS = [
           persistSave(save);
         });
       } else scene.presentPetMenu(target.id);
+      return true;
+    }
+    // THE SUGAR POTION, offered: a wild animal takes it and stays put (the
+    // `calm` status — Combat.calm refuses a foe, and the potion is kept).
+    if (!isTame && held === 'sugar_potion' && Combat.calm(target, CONSUMABLE_SPEC.sugar_potion.durationMs)) {
+      consumeSelected(save);
+      scene.buildInventoryDOM();
+      persistSave(save);
+      scene.flash('Calm — it will not run', sx, sy);
       return true;
     }
     // THE CATCH (owner, Oct 2026): GIVING a wild animal or an enemy its

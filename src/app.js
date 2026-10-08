@@ -567,7 +567,7 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
+const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'amulet', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
 const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
@@ -936,11 +936,10 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
 // gameplay, item copy and the Drink / Use button. A TIMED consumable's length
 // is read off its row at the use (_useTimedBuff) — no alias of it lives here.
-// The SHARED tome-button lock: reading any tome locks every tome's button
-// for an hour (food's eat lock is Energy's 10 s). Each tome's own magic
-// cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to the spell's power.
+// Each tome's own cooldown is CONSUMABLE_SPEC[id].cooldownMs (an hour unless
+// its row says otherwise — items.js TOME_COOLDOWN_MS); how many may rest at
+// once is Gear.spellSlots (the amulet).
 // A tome's spell is HALF its potion's (items.js TOME_MUL, the row's `tome`).
-const TOME_COOLDOWN_MS = 60 * 60 * 1000;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
 // The Scroll of Thunder's flash (CAST_ROWS.thunder_scroll) — long enough to
 // read as lightning, short enough not to blind the next tap. Its damage is
@@ -1000,7 +999,8 @@ const MARKERS = [
   // The Pairy marks its chest in cyan until opened or its food effect expires.
   { key: 'pairyCompass', store: 'scene', color: 0x45e5ff, source: 'Pairy', label: 'Chest', shape: 'dot', clearWhen: _markClaimed },
   { key: 'telescopeCompass', store: 'save', color: 0xffd24a, source: 'Telescope', label: 'Find', shape: 'dot', tracked: true },
-  { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, source: 'Wayfarer', label: 'Find', shape: 'dot', tracked: true },
+  // A neighbour's directions (npc.js interact); the mark names its speaker.
+  { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, source: 'Directions', label: 'Find', shape: 'dot', tracked: true },
   // A map keeps its original level and expires by wall clock, including reloads.
   { key: 'treasureCompass', store: 'save', color: 0xff5555, source: 'Map', label: 'Treasure', shape: 'dot', clearWhen: _markClaimed },
   // The delivery waypoint — a solid WHITE arrow at the house the player picked
@@ -1543,7 +1543,7 @@ const ICON_SHEETS = {
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_bones_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_taming_potion:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
+  icon_sugar_potion:     { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_magic_hammer: { url: 'assets/Icons/Items/MagicHammer.png',             cols: 1,  srcW: 16,  srcH: 16 },
   icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
@@ -2771,7 +2771,7 @@ class MapScene extends Phaser.Scene {
     const raw = target.name || target.roleLabel || marker.label || target.kind || row.label;
     const name = String(raw).replace(/_/g, ' ');
     const destination = name.charAt(0).toUpperCase() + name.slice(1);
-    text.setText(row.source + '\n' + (destination.length > 16 ? destination.slice(0, 15) + '…' : destination));
+    text.setText((marker.source || row.source) + '\n' + (destination.length > 16 ? destination.slice(0, 15) + '…' : destination));
     const { left, right, top, bottom } = point;
     let x = point.x <= (left + right) / 2 ? point.x + 8 : point.x - text.width - 8;
     let y = point.y - text.height / 2;
@@ -4816,7 +4816,7 @@ class MapScene extends Phaser.Scene {
           grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
             Combat.ELITE_TREASURE_CONTEXT,
             { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth),
-              ceremony: { kind: 'treasure', header: 'Elite slain',
+              ceremony: { kind: 'treasure', header: `${Combat.eliteRank(victim).label} slain`,
                           sub: `The ${name} falls. What it guarded is yours.` } });
         }
       } else if (Combat.isMonster(victim.kind) && Combat.spawnsUnderground(victim.kind)
@@ -5081,8 +5081,9 @@ class MapScene extends Phaser.Scene {
       const roster = EnemyRoster.get(c.kind);
       const top = roster ? (roster.movement?.speedMetersPerSecond ?? 0) : SpriteLayout.creatureMaxMps(c.kind);
       const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, top) * shinyFast;
-      // Moss also conceals the catch: fauna and pets do not flee the net.
-      if (!Shrines.leverActive(this.save, 'hidden')) {
+      // Moss also conceals the catch: fauna and pets do not flee the net; nor
+      // does an animal the Sugar Potion calmed (Combat.isCalm).
+      if (!Shrines.leverActive(this.save, 'hidden') && !Combat.isCalm(c)) {
         const nx = c.x + (dx / dist) * FLEE_MPS * dt;
         const ny = c.y + (dy / dist) * FLEE_MPS * dt;
         if (EnemySpawns.homeFaunaAllows(this, c, nx, ny)) {
@@ -7495,11 +7496,11 @@ class MapScene extends Phaser.Scene {
     } catch (_) {}
   }
 
-  flashEliteAppearance(count) {
+  flashEliteAppearance(count, label = 'Elite') {
     if (!this.add || this._dialogOpen()) return false;
     const now = performance.now();
     if (now < (this._eliteFanfareUntil || 0)) return false;
-    const banner = this._toast(count > 1 ? 'ELITES APPROACH' : 'ELITE APPROACHES',
+    const banner = this._toast(count > 1 ? 'ELITES APPROACH' : `${label.toUpperCase()} APPROACHES`,
       { tier: 'fanfare', color: UI_GOLD_DEEP, bg: '#350f1b' });
     this._burstAt('eliteArrival', banner.x, banner.y);
     this._eliteFanfareUntil = now + 3200;
@@ -8625,7 +8626,7 @@ class MapScene extends Phaser.Scene {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
-      return this.worldIconHTML(texKey, 36, frame);
+      return this.worldIconHTML(texKey, 30, frame);
     };
     const hasHammer = Inventory.count(this.save, Houses.HAMMER_ID) > 0;
     // ONE STEP: every offered card is a row of the same list - the House, a
@@ -8637,10 +8638,13 @@ class MapScene extends Phaser.Scene {
       const c = costFor(row);
       return {
         key: row.key,
-        label: labelFor(row, null) + (row.tier ? ' ' + tierBadgeHTML(row.tier, 11) : '')
-          + (Houses.isNewPick(this.save, row) ? newBadgeHTML() : '')
-          + `<div style="margin-top:6px;font-size:11px">${costLine(c)}</div>`,
-        info: row.blurb,
+        // Name, then the rank and NEW on one line, then the price: compact,
+        // so six cards and the Restore row fit the dialog without a scroll.
+        label: labelFor(row, null)
+          + ((row.tier || Houses.isNewPick(this.save, row))
+            ? `<div style="line-height:1.15;margin-top:2px">${row.tier ? tierBadgeHTML(row.tier, 9, 4) : ''}`
+              + `${Houses.isNewPick(this.save, row) ? newBadgeHTML(8) : ''}</div>` : '')
+          + `<div style="margin-top:3px;font-size:11px">${costLine(c)}</div>`,
         iconHTML: iconFor(row),
         cost: costLine(c),
         canAfford: affords(c),
@@ -8719,16 +8723,19 @@ class MapScene extends Phaser.Scene {
         }
       });
     };
+    // No title, no pitch and no per-card blurb: the Build painting says what
+    // this is, and the dialog's height goes to the cards — six of them and
+    // the Restore row above the fold on a phone. The Restored! card tells
+    // what the pick does.
     this.showOfferModal({
       kind: 'build',
-      title: 'Restore this wreck',
-      get: 'Choose what it becomes…',
       choices,
+      pickHint: 'Pick one',
       canAfford: true,
       acceptLabel: 'Restore',
       cancelLabel: 'Later',
       secondary: hasHammer
-        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} With Hammer`, withChoice: true,
+        ? { label: `${this.iconSpanHTML(Houses.HAMMER_ID)} Hammer`, withChoice: true,
             takes: (key) => Houses.hammerTakes(options.find((r) => r.key === key)),
             onClick: (key) => restore(key, true) }
         : undefined,
@@ -9405,11 +9412,14 @@ class MapScene extends Phaser.Scene {
     // frame to show so we never squish a multi-frame strip into one cell or
     // crop a single-frame icon:
     //   bags        — 7×1 strip (one bag per tier), frame = tier-1
+    //   amulet      — 6×4 sheet, frame = AMULET_FRAME_BY_TIER[tier]
     //   bug net     — single 16×16 icon
     //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
     let sheetCols, sheetRows, frame;
     if (kind === 'relic' && slot === 'bag') {
       sheetCols = 7; sheetRows = 1; frame = tier - 1;
+    } else if (kind === 'relic' && slot === 'amulet') {
+      sheetCols = 6; sheetRows = 4; frame = AMULET_FRAME_BY_TIER[tier];
     } else if (kind === 'relic' && slot === 'net') {
       sheetCols = 1; sheetRows = 1; frame = 0;
     } else {

@@ -271,9 +271,8 @@ test('enchanter: tome cooldowns stamp at half length', () => {
   // calling's whole edge is half-length cooldowns, stamped in _tomeSpent.
   const src = lift('_tomeSpent(id) {', '_tomeSpent');
   assert.truthy(/Wizard\.isClass\(this\.save, 'enchanter'\)\) \? 0\.5 : 1/.test(src),
-    '_tomeSpent halves both cooldowns for an enchanter');
-  assert.truthy(/tomeReadyAt = now \+ TOME_COOLDOWN_MS \* mul/.test(src), 'the shared lock scales');
-  assert.truthy(/cooldownMs \|\| 0\) \* mul/.test(src), 'and the own magic scales');
+    '_tomeSpent halves the cooldown for an enchanter');
+  assert.truthy(/cooldownMs \|\| 0\) \* mul/.test(src), 'the own magic scales');
   assert.falsy(/channelPotion/.test(app), 'the potion channel is gone');
 
 });
