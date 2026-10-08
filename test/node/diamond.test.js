@@ -111,14 +111,12 @@ test('diamond: the T7 staff recipe is cut around diamonds — the ramp and the b
       assert.truthy(inventoryIconSource(line.id), `${line.id} has an icon source`);
     }
   }
-  // Below T7 each slot keeps its own gem — the diamond is the Frost rung only.
-  const own = { staff: 'emerald' };
-  for (const [slot, gem] of Object.entries(own)) {
-    for (let t = 2; t <= 6; t++) {
-      const r = Gear.blacksmithRecipe('relic', slot, t);
-      assert.eq(r[0].id, gem, `${slot} T${t} still wants ${gem}`);
-      assert.eq(r[0].qty, Math.pow(2, t - 2), `${slot} T${t} ramp`);
-    }
+  // Below T7 the staff is set with its own tier's gem — the diamond is the Frost rung only.
+  for (let t = 2; t <= 6; t++) {
+    const r = Gear.blacksmithRecipe('relic', 'staff', t);
+    assert.eq(r[0].id, gemForTier(t), `staff T${t} wants its tier's gem`);
+    assert.truthy(r[0].id !== 'diamond', `staff T${t} is not cut around diamonds`);
+    assert.eq(r[0].qty, Math.pow(2, t - 2), `staff T${t} ramp`);
   }
   // Tools never ask for a gem.
   const pick = Gear.blacksmithRecipe('relic', 'pickaxe', 7);

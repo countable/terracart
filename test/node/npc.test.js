@@ -260,6 +260,7 @@
       NPC.interact(s, c, 0, 0);
       assert.eq(shown, 1);
       assert.eq(s.save.wayfarerCompass.depth, 0);
+      assert.eq(s.save.wayfarerCompass.source, c.roleLabel || 'Wayfinder', 'the mark names its speaker');
       assert.inRange(s.save.wayfarerCompass.until - before, Scenic.TELESCOPE_DURATION_MS, Scenic.TELESCOPE_DURATION_MS + 1000);
       delete s.save.wayfarerCompass;
       s._dialogOpen = () => true;

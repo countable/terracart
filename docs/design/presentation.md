@@ -129,7 +129,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   `NPC.tickArrivals`) and speak through `MemoryStory.npcDialogue` by act; a
   new story voice is a role there, not a new placer or dialog path. Ordinary
   residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:
-  they return with memories to Home's ring or a restored house, off screen;
+  they return with memories to a restored house, off screen, or — until one
+  is assigned them — wait just outside Home's ring, beyond a stroll of the door
+  (`homeWaitBand`);
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,

@@ -1102,10 +1102,9 @@ class SceneShops {
   //     ramping to 6 / 7 so nothing high-tier got cheaper. T2..T4 bars are
   //     mined; T5..T7 bars (platinum / crimson / frost) are SMELTED from
   //     their flowers, so the flower bond is implicit through the bar req.
-  //   • Jewelry slot (staff) - geometric gem cost
-  //     (1, 2, 4, 8, 16 from T2..T6) of the slot-specific gem:
-  //       staff -> emerald
-  //     plus 1 of the tier-matched bar. Every T7 slot uses 32 diamonds.
+  //   • Jewelry slot (staff) - geometric gem cost (1, 2, 4, …, 32 from
+  //     T2..T7) of the gem matching its tier (items.js gemForTier: topaz,
+  //     amethyst, sapphire, ruby, emerald, diamond), plus 1 tier-matched bar.
   // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
   // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
   // Forge + smelt recipes live in gear.js and the present* shop modals call

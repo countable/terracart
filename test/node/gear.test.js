@@ -114,17 +114,15 @@ test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', (
   assert.eq(JSON.stringify(iron), JSON.stringify([{ id: 'iron_bar', qty: 5 }]), 'T3 pick = 5 iron');
   assert.eq(Gear.blacksmithRecipe('relic', 'ring', 3), null, 'unique rings are not forged');
   assert.eq(Gear.blacksmithRecipe('relic', 'amulet', 3), null, 'unique amulets are not forged');
-  // Below the Frost tier every slot keeps its own gem, up to 16 at T6.
-  const staffT6 = Gear.blacksmithRecipe('relic', 'staff', 6);
-  assert.eq(staffT6[0].id, 'emerald', 'T6 staff still wants emeralds');
-  assert.eq(staffT6[0].qty, 16, '2^(6-2)=16');
-  // At T7 every jewelry slot is cut around diamonds instead — same quantity.
-  for (const slot of ['staff']) {
-    const t7 = Gear.blacksmithRecipe('relic', slot, 7);
-    assert.eq(t7[0].id, 'diamond', `T7 ${slot} wants diamonds`);
-    assert.eq(t7[0].qty, 32, '2^(7-2)=32 — the ramp is unchanged');
-    assert.eq(t7[1].id, 'frost_bar', 'plus the frost bar');
+  // The staff is set with the gem of its own tier, on the 2^(tier-2) ramp.
+  const gems = { 2: 'topaz', 3: 'amethyst', 4: 'sapphire', 5: 'ruby', 6: 'emerald', 7: 'diamond' };
+  for (const [t, gem] of Object.entries(gems)) {
+    const r = Gear.blacksmithRecipe('relic', 'staff', Number(t));
+    assert.eq(r[0].id, gem, `T${t} staff wants ${gem}`);
+    assert.eq(r[0].qty, Math.pow(2, t - 2), `T${t} ramp`);
+    assert.eq(r[1].id, barForTier(Number(t)), 'plus the tier bar');
   }
+  assert.eq(Gear.blacksmithRecipe('relic', 'staff', 1), null, 'no wooden staff');
 });
 
 test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
