@@ -3,10 +3,10 @@
 // Nine permanent books are scholar prizes. A tome's spell is HALF its
 // potion's (items.js TOME_MUL, the row's `tome.mul`: half duration, half
 // damage or restore); its
-// cooldowns are the SHARED 1 h activation lock (TOME_COOLDOWN_MS, every tome
-// locked by reading any one) plus its OWN magic cooldown (CONSUMABLE_SPEC
-// cooldownMs, power-scaled: 2 h / 8 h / 24 h). Home refreshes both; the
-// enchanter halves both; nothing is ever consumed.
+// cooldown is its OWN (CONSUMABLE_SPEC cooldownMs, power-scaled: 2 h / 8 h /
+// 24 h), and only Gear.spellSlots tomes rest at once (one, plus the worn
+// amulet's tier). Home refreshes them; the enchanter halves them; nothing is
+// ever consumed.
 (function () {
   const APP = globalThis.SCENE_SRC || '';
 
@@ -45,7 +45,7 @@
     }
   });
 
-  test('tomes: the shared hour lock, the own cooldown, and nothing consumed', () => {
+  test('tomes: the own cooldown, the spell slots, and nothing consumed', () => {
     for (const [, , , , cd] of ROSTER.slice(0, 3)) {
       assert.eq(cd, 2 * 3600e3, 'the T3 ladder rung');
     }
@@ -67,14 +67,33 @@
       const t = CONSUMABLE_SPEC[id].tome;
       assert.truthy(t && (CONSUMABLE_SPEC[t.of] || CONSUMABLE_SPEC[id].buff) && typeof t.flash === 'string', `${id}: a tome column (of, flash)`);
     }
-    assert.truthy(/const TOME_COOLDOWN_MS = 60 \* 60 \* 1000;/.test(APP), 'the shared lock is one hour');
-    assert.truthy(/save\.tomeReadyAt = now \+ TOME_COOLDOWN_MS \* mul/.test(APP), 'stamped once per read, all tomes');
+    assert.falsy(/TOME_COOLDOWN_MS|tomeReadyAt/.test(APP), 'no shared hour lock: spell slots are the one limit across tomes');
     assert.truthy(/tomeMagicCd \|\|= \{\}\)\[id\] = now \+ \(CONSUMABLE_SPEC\[id\]\?\.cooldownMs \|\| 0\) \* mul/.test(APP),
       'the own cooldown stamps the spec length');
     assert.truthy(/this\.flashAtPlayer\(Macros\.waitLine\(wait\.line, wait\.ms\)\)/.test(APP), 'refusals show their wait, on the player');
     assert.truthy(/tomeUsable\(id\) \{ return !this\._tomeWait\(id\); \}/.test(APP), 'the button greys on the same wait');
     assert.truthy(/isRestingAtHome\(x, y\)\) return null;/.test(APP), 'Home refreshes both');
     assert.truthy(/noun: 'tome'/.test(read[1]), 'the storm tome refuses an empty screen with "tome kept"');
+  });
+
+  test('tomes: spell slots — one bare, plus the amulet\'s tier, the soonest to wake named', () => {
+    const body = SCENE_SRC.match(/\n  _tomeWait\(id\) \{\n([\s\S]*?)\n  \}\n/)[1];
+    const wait = new Function('playerWorldM', 'Gear', 'id', body);
+    const T0 = Date.now(), H = 3600e3;
+    const scene = (relics, cd, home = false) => ({ save: { relics, tomeMagicCd: cd }, isRestingAtHome: () => home });
+    const ask = (s, id) => wait.call(s, () => ({ x: 0, y: 0 }), Gear, id);
+    assert.eq(Gear.spellSlots({}), 1, 'bare: one slot');
+    for (let t = 1; t <= 7; t++) assert.eq(Gear.spellSlots({ relics: { amulet: { tier: t } } }), 1 + t, `T${t} amulet: ${1 + t} slots`);
+    assert.eq(ask(scene({}, {}), 'tome_reach'), null, 'nothing resting: readable');
+    const one = scene({}, { tome_speed: T0 + 2 * H, tome_healing: T0 - 1 });
+    assert.eq(ask(one, 'tome_reach').line, 'Spell slots full', 'bare, one tome resting: the slot is taken');
+    assert.inRange(ask(one, 'tome_reach').ms, 2 * H - 1000, 2 * H, 'the wait is that tome waking');
+    assert.eq(ask(one, 'tome_speed').line, 'This tome rests', 'a resting tome names its own rest first');
+    const amulet = scene({ amulet: { tier: 2 } }, { tome_speed: T0 + 2 * H, tome_raven: T0 + H });
+    assert.eq(ask(amulet, 'tome_reach'), null, 'a T2 amulet: three slots, two taken');
+    amulet.save.tomeMagicCd.tome_blight = T0 + 3 * H;
+    assert.inRange(ask(amulet, 'tome_reach').ms, H - 1000, H, 'all three taken: the soonest to wake');
+    assert.eq(ask(scene({}, { tome_speed: T0 + H }, true), 'tome_reach'), null, 'Home refreshes every tome');
   });
 
   test('tomes: a tome\'s spell is HALF its potion\'s', () => {

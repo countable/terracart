@@ -17,9 +17,9 @@
     assert.eq(inventoryIconSource('coin_ring').frame, 7);
   });
 
-  test('unique jewelry: carried unique relics replace tiered ring and amulet gear', () => {
+  test('unique jewelry: carried unique relics replace tiered ring gear', () => {
     assert.falsy(RELIC_DEFS.ring, 'ring is not a tiered gear slot');
-    assert.falsy(RELIC_DEFS.amulet, 'amulet is not a tiered gear slot');
+    assert.eq(RELIC_DEFS.amulet.effectKey, 'spellSlots', 'the tiered amulet is the spell-slot slot, apart from the unique amulets');
     for (const id of ids) {
       const item = ITEM_BY_ID[id];
       assert.truthy(item && item.kind === 'unique_relic' && item.uniqueJewelry, id + ' is a carried unique relic');

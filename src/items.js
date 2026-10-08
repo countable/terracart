@@ -2060,7 +2060,13 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'Its pointed head finds the seams in stone.' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'Its keen edge bites deep into timber.' },
-  // Ring and amulet names belong to unique carried jewelry; this table contains tools only.
+  // The AMULET — the one worn jewelry slot: each tier is one more SPELL
+  // SLOT, a tome that may rest on its own cooldown at once (Gear.spellSlots:
+  // 1 + tier). Forged like the staff (gear.js blacksmithRecipe). Its art is
+  // one frame of the Extras amulet sheet per tier (AMULET_FRAME_BY_TIER); the
+  // named Amulets of Regeneration / Vigour are carried unique jewelry, not this.
+  amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
+             effectKey: 'spellSlots',    blurb: 'Its charm keeps one more spell close at hand.' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
@@ -2182,13 +2188,20 @@ function gearPrice(kind, slot, tier) {
 for (const item of ITEMS.filter(i => i.kind === 'unique_relic')) {
   PRICES[item.id] = gearPrice('relic', 'sword', item.baseTier);
 }
+// The tiered amulet's frame on the 6×4 Extras amulet sheet, by the gem
+// colour of its tier (quartz pink … diamond pale). Frames 0-3 are the pet
+// collars and 10 / 17 the unique amulets (INVENTORY_ICON_SHEET).
+const AMULET_FRAME_BY_TIER = Object.freeze({ 1: 14, 2: 6, 3: 13, 4: 12, 5: 8, 6: 18, 7: 7 });
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
   if (def.tiers) {
     return def.tiers.includes(tier) ? `assets/Icons/AltWeapons/${tier}/${def.icon}` : null;
   }
-  // Bags live under Extras; tools and armor are per-tier.
+  // Bags and the amulet live under Extras; tools and armor are per-tier.
+  if (kind === 'relic' && slot === 'amulet') {
+    return AMULET_FRAME_BY_TIER[tier] != null ? `assets/Icons/RPG icons/Extras/${def.icon}` : null;
+  }
   if (kind === 'relic' && slot === 'bag') {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }

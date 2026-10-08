@@ -567,7 +567,7 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
+const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'amulet', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
 const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
@@ -936,11 +936,9 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
 // gameplay, item copy and the Drink / Use button. A TIMED consumable's length
 // is read off its row at the use (_useTimedBuff) — no alias of it lives here.
-// The SHARED tome-button lock: reading any tome locks every tome's button
-// for an hour (food's eat lock is Energy's 10 s). Each tome's own magic
-// cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to the spell's power.
+// Each tome's own magic cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to
+// the spell's power; how many may rest at once is Gear.spellSlots (the amulet).
 // A tome's spell is HALF its potion's (items.js TOME_MUL, the row's `tome`).
-const TOME_COOLDOWN_MS = 60 * 60 * 1000;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
 // The Scroll of Thunder's flash (CAST_ROWS.thunder_scroll) — long enough to
 // read as lightning, short enough not to blind the next tap. Its damage is
@@ -9413,11 +9411,14 @@ class MapScene extends Phaser.Scene {
     // frame to show so we never squish a multi-frame strip into one cell or
     // crop a single-frame icon:
     //   bags        — 7×1 strip (one bag per tier), frame = tier-1
+    //   amulet      — 6×4 sheet, frame = AMULET_FRAME_BY_TIER[tier]
     //   bug net     — single 16×16 icon
     //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
     let sheetCols, sheetRows, frame;
     if (kind === 'relic' && slot === 'bag') {
       sheetCols = 7; sheetRows = 1; frame = tier - 1;
+    } else if (kind === 'relic' && slot === 'amulet') {
+      sheetCols = 6; sheetRows = 4; frame = AMULET_FRAME_BY_TIER[tier];
     } else if (kind === 'relic' && slot === 'net') {
       sheetCols = 1; sheetRows = 1; frame = 0;
     } else {

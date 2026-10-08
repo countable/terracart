@@ -42,6 +42,12 @@
     if (!Shrines.leverActive(save, 'wand', now) || (relics.staff?.tier || 0) >= Shrines.WAND_TIER) return relics;
     return { ...relics, staff: { tier: Shrines.WAND_TIER, temporary: true } };
   }
+  // SPELL SLOTS: how many tomes may rest on their own cooldown at once — one
+  // bare, plus the worn amulet's tier (owner, Oct 2026). The one limit across
+  // tomes (scene_consumables.js _tomeWait); each tome keeps its own cooldown.
+  function spellSlots(save, now = Date.now()) {
+    return 1 + (effectiveRelics(save, now).amulet?.tier || 0);
+  }
   function activeWeapon(save, now = Date.now()) {
     if (!Shrines.leverActive(save, 'wand', now)) return save?.activeWeapon;
     return save.boonWeapon?.until === save.boonUntil.wand ? save.boonWeapon.slot : 'staff';
@@ -201,10 +207,11 @@
   }
 
   // Forge recipe for a gear piece. Tools use the tier-matched bar (T1 = plain
-  // wood — items.js barForTier); the staff is set with the gem OF ITS TIER
-  // (items.js gemForTier: topaz T2 … emerald T6, diamond T7), one gem per
-  // tier (2 at T2 … 7 at T7), plus one bar. Returns null when uncraftable.
-  const JEWELRY_SLOTS = new Set(['staff']);
+  // wood — items.js barForTier); the staff is set with the gem OF ITS TIER,
+  // and so is the amulet (items.js gemForTier: topaz T2 … emerald T6,
+  // diamond T7), one gem per tier (2 at T2 … 7 at T7), plus one bar.
+  // Returns null when uncraftable.
+  const JEWELRY_SLOTS = new Set(['staff', 'amulet']);
   function blacksmithRecipe(kind, slot, tier) {
     if (!tier) return null;
     if (kind === 'relic' && !RELIC_DEFS[slot]) return null;
@@ -322,7 +329,7 @@
     if (save.activeWeapon === piece.slot) unequipWeapon(save);
   }
 
-  root.Gear = { hasPerception, hasCompass, coinMagnetCells, effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
+  root.Gear = { hasPerception, hasCompass, coinMagnetCells, effectiveRelics, spellSlots, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, gearTier, canUpgrade, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS,
                 TRADER_GEAR_CHANCE, uniqueRelics, traderGearSwap, traderSwapValid, surrenderPiece };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

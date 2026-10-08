@@ -71,6 +71,11 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
+- SPELL SLOTS: each tome rests on its own `cooldownMs` (`save.tomeMagicCd`),
+  and at most `Gear.spellSlots` tomes rest at once — one bare, plus the worn
+  amulet's tier. `_tomeWait` is the one gate; Home's ring refreshes every tome.
+  The amulet is forged like the staff: its tier's gem (`gemForTier`) × tier,
+  plus one bar.
 - Potion of Flight lasts one minute, timed by the Flight buff. `Conditions.flying`
   skips harmful floor contact (including holes, flames and traps), while gases,
   attacks and existing conditions still affect the flyer. A second dose adds a minute.

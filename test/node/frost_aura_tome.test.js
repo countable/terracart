@@ -14,7 +14,7 @@
     assert.eq(Macros.scholarNext(save).id, ID);
     assert.truthy(CONSUMABLE_SPEC[ID].usable({ tomeUsable: id => id === ID }));
   });
-  test('frost tome: reading uses the shared cooldown and buff path without consuming the book', () => {
+  test('frost tome: reading uses its own cooldown and the buff path without consuming the book', () => {
     const old = Date.now; Date.now = () => T0;
     try {
       const s = { save: { inv: [{ id: ID, count: 1 }], selSlot: 0 },
@@ -22,11 +22,10 @@
         _selectedConsumable(id) { return this.selected && id === ID; },
         _tomeReady() { return this.ready; }, flashAtPlayer() {},
         _spendScroll() { throw new Error('a tome cannot be consumed'); } };
-      const deps = { TIMED_BUFF_HOOKS: {}, persistSave: () => s.saved++, TOME_COOLDOWN_MS: 3600000 };
+      const deps = { TIMED_BUFF_HOOKS: {}, persistSave: () => s.saved++ };
       for (const name of ['_useConsumable', '_useTimedBuff', '_readTome', '_tomeSpent']) s[name] = lift(name, deps);
       assert.truthy(s._useConsumable(ID));
       assert.eq(Buffs.until('frostAura', s.save, s), T0 + 30000);
-      assert.eq(s.save.tomeReadyAt, T0 + 3600000);
       assert.eq(s.save.tomeMagicCd[ID], T0 + CONSUMABLE_SPEC[ID].cooldownMs);
       assert.eq(s.save.inv[0].count, 1);
       assert.eq(s.saved, 1);
