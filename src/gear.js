@@ -202,8 +202,8 @@
 
   // Forge recipe for a gear piece. Tools use the tier-matched bar (T1 = plain
   // wood — items.js barForTier); the staff is set with the gem OF ITS TIER
-  // (items.js gemForTier: topaz T2 … emerald T6, diamond T7) on a geometric
-  // ramp (1,2,4,…,32 from T2..T7) plus one bar. Returns null when uncraftable.
+  // (items.js gemForTier: topaz T2 … emerald T6, diamond T7), one gem per
+  // tier (2 at T2 … 7 at T7), plus one bar. Returns null when uncraftable.
   const JEWELRY_SLOTS = new Set(['staff']);
   function blacksmithRecipe(kind, slot, tier) {
     if (!tier) return null;
@@ -215,7 +215,7 @@
     if (JEWELRY_SLOTS.has(slot)) {
       if (tier < 2) return null;   // no wooden jewelry
       return [
-        { id: gemForTier(tier), qty: Math.pow(2, tier - 2) },
+        { id: gemForTier(tier), qty: tier },
         { id: bar, qty: 1 },
       ];
     }
