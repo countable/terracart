@@ -4786,11 +4786,16 @@ class MapScene extends Phaser.Scene {
     // An own-side kill is announced to nearby players, whose copies die with
     // it whatever HP they show (Multiplayer.reportKill; a no-op offline).
     if (typeof Multiplayer !== 'undefined') Multiplayer.reportKill(this, victim, source);
-    // A PEER'S KILL (Combat.isPeerHit) is marked dead and nothing more: no
-    // coin, drop, elite roll or ledger credit — the killer's client paid
-    // those. The one place to pay an assist, should one ever be wanted.
-    if (Combat.isPeerHit(source)) { persistSave(save); return; }
-    const mine = Combat.isPlayerKill(source);
+    // A PEER'S KILL (Combat.isPeerHit) is marked dead and nothing more —
+    // the killer's client paid the coin and the rest — UNLESS this client's
+    // own side helped (Multiplayer.assisted: an own-side blow within
+    // ASSIST_MS). An assist spawns the kill's loot here too (coin, drop,
+    // elite / treasure roll) but never its ledger credit: KILL_LEDGERS below
+    // are told only of this client's own kills.
+    const peer = Combat.isPeerHit(source);
+    const assist = peer && typeof Multiplayer !== 'undefined' && Multiplayer.assisted(victim);
+    if (peer && !assist) { persistSave(save); return; }
+    const mine = Combat.isPlayerKill(source) || assist;
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
     // bounty instead — which is Combat's question, asked just below.
@@ -4815,7 +4820,7 @@ class MapScene extends Phaser.Scene {
       if (coins > 0) this._dropBountyCoin(victim, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
-      if (mine) this.flashAtWorld(`⚔️ ${name} slain`, victim.x, victim.y);
+      if (mine) this.flashAtWorld(assist ? `🤝 ${name} slain — assist` : `⚔️ ${name} slain`, victim.x, victim.y);
       if (!mine) {
         // A turret's (or any non-player) kill: the coin is the whole payout.
       } else if (elite) {
@@ -4850,7 +4855,7 @@ class MapScene extends Phaser.Scene {
     // Who is told (KILL_LEDGERS): Maud's archer, the fire-breath demon, the
     // castle's board, the guild bounty — each judging the credit by
     // Macros.slainByPlayer (the wage above was paid either way).
-    for (const tell of KILL_LEDGERS) tell(this, victim, source);
+    if (!peer) for (const tell of KILL_LEDGERS) tell(this, victim, source);
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
     // feather), so there's no live shiny animal to keep, but the shiny find

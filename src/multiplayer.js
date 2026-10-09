@@ -347,7 +347,16 @@ const Multiplayer = (function () {
     if (kill) frame.k = 1;
     return frame;
   }
+  // AN ASSIST (owner, Oct 2026): a peer's kill of a foe this client's own
+  // side damaged within ASSIST_MS pays this client the kill's loot too
+  // (resolveDefeat) — never its ledger credit. Stamped on every own-side
+  // blow, online or not, so a reconnect mid-fight still counts.
+  const ASSIST_MS = 60000;
+  function assisted(c, now = Date.now()) {
+    return Number.isFinite(c?._ownHitAt) && now - c._ownHitAt <= ASSIST_MS;
+  }
   function reportHit(scene, c, dealt, source) {
+    if (dealt > 0 && c && Combat.isSharedHit(source)) c._ownHitAt = Date.now();
     if (S.status !== 'online' || !(dealt > 0) || !Combat.isSharedHit(source) || !shareable(c)) return false;
     let h = S.hits.get(c.id);
     if (!h) S.hits.set(c.id, h = { c, f: 0, d: scene.depth || 0 });
@@ -767,7 +776,7 @@ const Multiplayer = (function () {
     return true;
   }
 
-  return { start, stop, tick, consumeTap, setName, reportHit, reportKill, applyHit,
+  return { start, stop, tick, assisted, ASSIST_MS, consumeTap, setName, reportHit, reportKill, applyHit,
            HIT_FLUSH_MS, HIT_MAX_PER_S, SEEN_MS, SEEN_MAX_IDS, DEAD_JITTER_MAX_MS, DEAD_HEARD_MS,
            cleanName, pickColor, toWorldPx, fromWorldPx, describeAt, edgeDot,
            COLORS, NAME_MAX, PEER_NEAR_M, PEER_DOT_INSET };

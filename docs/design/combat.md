@@ -162,9 +162,11 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
 - A received hit is source `Combat.PEER_SOURCE`: it goes through
   `_damageEnemy` with `exact` damage (no armour or potion shield twice), shows
   its number, never splits a slime and is never sent on. A peer's kill goes
-  through `resolveDefeat`, which marks it in `save.caught` and pays nothing:
-  no coin, drop, elite roll or ledger credit. The peer-kill early return in
-  `resolveDefeat` is the one place to add an assist reward.
+  through `resolveDefeat`, which marks it in `save.caught` and pays nothing,
+  unless this client's own side hit it within `Multiplayer.ASSIST_MS`
+  (`Multiplayer.assisted`): an assist spawns the kill's loot here too (coin,
+  drop, elite or treasure roll) but no ledger credit — `KILL_LEDGERS` hear
+  only of own kills, so `Macros.slainByPlayer` stays false.
 - Only world-shared creatures take part (`EnemySpawns.isSharedId`): a positive
   mark stamped where world-derived creatures are made. Clock-, random- or
   serial-minted creatures (ghosts, fished slimes, pest deer, guild foes, dev

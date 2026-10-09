@@ -238,6 +238,29 @@ test('multiplayer hits: a kill frame kills a full-HP copy, pays nothing, and sen
   });
 });
 
+test('multiplayer hits: a peer kill of a foe this side hit recently spawns the loot as an assist, never the credit', () => {
+  withTile((entry) => {
+    const { scene, paid } = harness();
+    online(scene);
+    withRelay(scene, ({ recv }) => {
+      const c = foe(entry, { id: 'enemy_mp_assist' });
+      scene._damageEnemy(c, 1, 'player');
+      assert.truthy(Multiplayer.assisted(c), 'an own-side blow stamps the assist');
+      recv({ t: 'hit', id: 2, eid: c.id, f: 0, left: 0, d: 0, k: 1 });
+      assert.includes(scene.save.caught, c.id);
+      assert.eq((entry.coinDrops || []).length, 1, 'the assist spawns the bounty coin here too');
+      assert.eq(paid.quests, 0, 'no ledger is told of an assist');
+      assert.falsy(Macros.slainByPlayer(scene.save, c.id, Combat.PEER_SOURCE), 'no story or quest credit');
+      // A blow older than the window is no assist.
+      const old = foe(entry, { id: 'enemy_mp_stale' });
+      old._ownHitAt = Date.now() - Multiplayer.ASSIST_MS - 1;
+      recv({ t: 'hit', id: 2, eid: old.id, f: 0, left: 0, d: 0, k: 1 });
+      assert.includes(scene.save.caught, old.id);
+      assert.eq((entry.coinDrops || []).length, 1, 'a stale hit pays nothing');
+    });
+  });
+});
+
 test('multiplayer hits: offline, nothing is sent or applied', () => {
   withTile((entry) => {
     const { scene } = harness();
