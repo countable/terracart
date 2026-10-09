@@ -1561,7 +1561,6 @@ class SceneCreatures {
     // was a CROW until Sep 2026. Wild crows raid fields again, from their
     // own tick, but the pump sends only deer.)
     EnemySpawns.refreshHomeFauna(this);
-    this._lastPestT = this._lastPestT || 0;
     // Only crops a deer actually eats (not potato) justify spawning a pest —
     // and only on HARD (Difficulty.get().cropPests). The pump is not a
     // difficulty KNOB, it is a mode difference: a deer that finds your field
@@ -1569,15 +1568,21 @@ class SceneCreatures {
     // income, and on easy the tile spawner's own deer are the whole deer
     // threat — meet one by walking into it, not by having one dispatched to
     // you.
-    // Timer gate first: the planted-crop scan is O(planted) and has no
-    // business running on the frames between pest windows.
+    // THE HOUR IS THE SAVE'S (save.pestDispatchAt, wall clock): it survives
+    // a reload, so a short session still meets its deer — on the page clock
+    // the first window opened only after an hour without a reload, which on
+    // a phone was never. Only a DISPATCH stamps it; a window that finds a
+    // deer already near, or no seat, re-asks every PEST_RECHECK_MS (also the
+    // throttle that keeps the O(planted) scan off ordinary frames).
     // SURFACE ONLY: underground WorldGen.tileCache is the cave level's map
     // (see the prune's depth gate above), so a pest minted here landed in
     // the dungeon — a deer with no crop to walk at, in a cave.
-    if ((this.depth || 0) === 0 && now - this._lastPestT > PEST_DISPATCH_MS) {
+    const wallNow = Date.now();
+    if ((this.depth || 0) === 0 && wallNow - (this.save.pestDispatchAt || 0) > PEST_DISPATCH_MS
+      && now - (this._pestCheckT ?? -Infinity) > PEST_RECHECK_MS) {
+      this._pestCheckT = now;
       const hasRaidableCrop = this.save.planted && this.save.planted.some((p) => this._cropRaidable(p));
       if (hasRaidableCrop && Difficulty.get().cropPests) {
-        this._lastPestT = now;
         // Count nearby wild (non-released, not-yet-caught) deer.
         let wildDeer = 0;
         WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
@@ -1609,6 +1614,8 @@ class SceneCreatures {
               entry.creatures.push(WorldGen.makeCreature('deer', seat.x, seat.y,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
               EnemySpawns.refreshHomeFauna(this);
+              this.save.pestDispatchAt = wallNow;
+              if (typeof persistSave === 'function') persistSave(this.save);
             }
           }
         }

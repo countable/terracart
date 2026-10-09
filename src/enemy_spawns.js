@@ -81,6 +81,9 @@
   }
   // The first Home circle admits chickens and one wild deer. This is a
   // per-player overlay: generated identities, positions and RNG stay intact.
+  // A deer the hard-mode pump DISPATCHED at the garden (`pest_deer_` ids,
+  // scene_creatures.js) takes the slot over any other: it was sent for the
+  // crops, and hiding it left Home's garden with no raider at all.
   const HOME_FAUNA_RADIUS_M = root.EnemyRoster.SURFACE_TIERS[0].maxDistance;
   function homeFaunaAnchor(scene) {
     return (scene?.depth || 0) === 0 ? homeAnchor(scene) : null;
@@ -123,14 +126,15 @@
       return scene._homeFaunaDeerId || null;
     }
     const caught = new Set(caughtArray), bodies = [];
-    let deer = null, retained = null;
+    let deer = null, retained = null, pest = null;
     for (const entry of entries) for (const c of entry.creatures || []) {
       bodies.push(c);
       if (!liveHomeDeer(scene, c, anchor, caught)) continue;
       if (c.id === scene._homeFaunaDeerId) retained = c;
+      if (String(c.id).startsWith('pest_deer_') && (!pest || String(c.id) < String(pest.id))) pest = c;
       if (!deer || String(c.id) < String(deer.id)) deer = c;
     }
-    deer = retained || deer;
+    deer = (retained && String(retained.id).startsWith('pest_deer_') ? retained : pest) || retained || deer;
     scene._homeFaunaDeerId = deer?.id || null;
     scene._homeFaunaState = { x: anchor?.x, y: anchor?.y, caught: caughtArray,
       caughtLength: caughtArray.length, entries, arrays: entries.map(e => e.creatures),

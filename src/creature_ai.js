@@ -109,10 +109,12 @@ const SURFACE_RECHECK_MS = 1000;
 // rise on the same ring.
 const PEST_SPAWN_CELLS = 10;
 // How often that pump may dispatch one (owner, Oct 2026: "just once per
-// hour"; it was every 90 s). Timed on the page clock, so it is an hour of
-// play since the last window (or since the game opened), not a wall-clock
-// schedule that survives a reload.
+// hour"; it was every 90 s). Wall clock, kept in the save (pestDispatchAt):
+// on the page clock a reload restarted the hour, and garden deer never came.
 const PEST_DISPATCH_MS = 60 * 60 * 1000;
+// How often a due pump re-asks while it cannot dispatch (a deer already near,
+// no crop, no legal seat).
+const PEST_RECHECK_MS = 30 * 1000;
 // ── THE KERB: the major roads' buffer, and who may come near it ─────────────
 // SAFETY (owner, Sep 2026): there must never be a need, or an advantage, to
 // step onto a busy road to get away from something. The worldgen stamps a

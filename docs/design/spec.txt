@@ -85,9 +85,11 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    (CLAUDE.md "Shared design rules"); the full rationale is the header of
    `src/lairs.js`.
  - THE PEST PUMP (hard mode, `difficulty.js` `cropPests`): a planted crop with
-   no wild deer near dispatches one just off-screen on a timer
-   (`creature_ai.js` `PEST_DISPATCH_MS`), so farming on hard is not an
-   unattended income. On easy only the deer and crows a tile spawns raid.
+   no wild deer near dispatches one just off-screen at most once an hour of
+   wall time (`creature_ai.js` `PEST_DISPATCH_MS`, kept in the save as
+   `pestDispatchAt`, so a reload does not restart it), so farming on hard is
+   not an unattended income. Near Home, where only one wild deer is admitted
+   (`EnemySpawns.refreshHomeFauna`), the dispatched deer takes that slot. On easy only the deer and crows a tile spawns raid.
  - wild deer and crow are GAME; equipped-weapon taps start a hunt using
    the BUG NET's timed wheel, while fed animals can be caught (see CREATURES).
  - feed an animal its favourite food (`items.js` `ANIMAL_FOOD`) before

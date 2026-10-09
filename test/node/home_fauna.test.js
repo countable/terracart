@@ -58,6 +58,18 @@
     });
   });
 
+  test('home fauna: a deer dispatched at the garden takes the one slot from a resident', () => {
+    const incumbent = animal('deer', 'a-deer', 80), pest = animal('deer', 'pest_deer_0_0_1000_7', 40);
+    fixture([[incumbent]], scene => {
+      assert.eq(EnemySpawns.refreshHomeFauna(scene), incumbent.id);
+      WorldGen.tileCache.get('0,0').creatures.push(pest);
+      assert.eq(EnemySpawns.refreshHomeFauna(scene), pest.id, 'the pump\'s deer is the one Home admits');
+      assert.truthy(active(scene, pest)); assert.falsy(active(scene, incumbent), 'still one deer');
+      scene.save.caught.push(pest.id);
+      assert.eq(EnemySpawns.refreshHomeFauna(scene), incumbent.id, 'the resident returns once the pest is gone');
+    });
+  });
+
   test('home fauna: caught and dead deer cannot occupy the single live deer slot', () => {
     const caught = animal('deer', 'a-caught'), dead = animal('deer', 'b-dead', 0, 0, { _hp: 0 });
     const live = animal('deer', 'c-live', 0, 0, { _hp: 1 });
