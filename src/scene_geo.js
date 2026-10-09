@@ -213,14 +213,14 @@ class SceneGeo {
       this._eggHatchTracker = null;
       return;
     }
-    const result = EggHatch.track(this.save, this._eggHatchTracker, {
+    const result = EggHatch.trackAll(this.save, this._eggHatchTracker, {
       lat: pos.coords.latitude, lon: pos.coords.longitude,
       accuracy: pos.coords.accuracy, timestamp: pos.timestamp,
     });
     this._eggHatchTracker = result.tracker;
     if (result.changed) {
       persistSave(this.save);
-      if (this.save.inv?.[this.save.selSlot]?.id === 'egg') this.syncConsumableButton();
+      if (EggHatch.isEgg(this.save.inv?.[this.save.selSlot]?.id)) this.syncConsumableButton();
     }
   }
 

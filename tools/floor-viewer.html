@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8"><meta name="artifact-review" content="disabled">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Dragon Hood - 60×35 floor viewer</title>
 <style>
@@ -37,6 +37,14 @@
 <body>
 <div id="bar">
   <h1>FLOOR VIEWER · 60×35</h1>
+  <div><label for="seed">Seed</label><div class="seg">
+    <input id="seed" type="number" min="0" max="4294967295" step="1" value="0" style="width:110px">
+    <button id="newSeed">New seed</button><button id="resetSeed">Reset</button>
+  </div></div>
+  <div><label for="safetyRadius">Home safety · preview only</label><div class="seg" style="align-items:center;padding:4px 8px;gap:8px">
+    <input id="safetyRadius" type="range" min="0" max="350" step="10" value="50">
+    <output id="safetyValue" for="safetyRadius">50 m</output>
+  </div></div>
   <div><label>Floor</label><div class="seg" id="floorSeg"></div></div>
   <div><label>View</label><div class="seg" id="modeSeg">
     <button data-mode="current" class="on">Current code</button>
@@ -63,6 +71,14 @@
     5: 'Floor 5 - plain mirror + lava (target: the haunted dead city)', 6: 'Floor 6 - plain mirror (target: the lava stratum)',
     7: 'Floor 7 - plain mirror (target: dragon hunting grounds)', 8: 'Floor 8 - plain mirror (target: the roosts)' };
   let floor = 0, mode = 'current', variantIndex = 0, showCreatures = true, showLabels = true;
+  const seedInput = document.getElementById('seed');
+  let seed = Number(new URLSearchParams(location.search).get('seed')) >>> 0;
+  seedInput.value = seed;
+  const safetyInput = document.getElementById('safetyRadius');
+  const requestedRadius = new URLSearchParams(location.search).get('safetyM');
+  let safetyRadius = requestedRadius !== null && Number.isFinite(Number(requestedRadius))
+    ? Math.max(0, Math.min(350, Math.round(Number(requestedRadius) / 10) * 10)) : 50;
+  safetyInput.value = safetyRadius;
   const entries = {};   // depth -> built tile entry (real pipeline)
   const sprites = {};   // depth -> [{o, appearance, fruit}]
   let assets = null, building = true;
@@ -79,7 +95,7 @@
     updateControls();
     const W = WorldGen, R = FloorViewerRegion, depth = displayDepth();
     try {
-      await R.withNexusSizes(() => FloorViewerVariants.withSelection(depth, variantIndex, async () => {
+      await R.withSeed(seed, () => R.withNexusSizes(() => FloorViewerVariants.withSelection(depth, variantIndex, async () => {
         for (let d = 0; d <= 8; d++) W.tileCacheFor(d).clear();
         W.setDepth(0);
         const built = {};
@@ -109,6 +125,14 @@
         entry.viewerHome = entry.objects.find(o => o.id === scene.save.starterShopId);
         status('Dressing the surface&hellip;');
         await W.runStepsSliced(() => scene.spawnInTileSteps(entry, 0, 0));
+        // Runtime wakes building guards near the player in its update loop;
+        // this static viewer must explicitly generate those same garrisons.
+        const lairs = Lairs.buildIndex(entry, 0, 0, R.EDGE / R.N, R.EDGE);
+        for (const bucket of lairs.buckets.values()) for (const candidate of bucket) {
+          entry.creatures.push(...Lairs.garrisonFor(entry, candidate, {
+            tileEdgeM: R.EDGE,
+          }));
+        }
         for (let d = 1; d <= depth; d++) {
           status(`Building floor ${d}&hellip;`);
           W.setDepth(d);
@@ -123,8 +147,8 @@
         for (const key of Object.keys(entries)) { delete entries[key]; delete sprites[key]; }
         Object.assign(entries, built);
         for (const [d, e] of Object.entries(entries)) sprites[d] = prepareSprites(e, +d);
-      }));
-      status('Ready - pick a floor or nexus variant.');
+      })));
+      status(`Ready - seed ${seed}. Pick a floor or nexus variant.`);
     } catch (e) {
       console.error(e);
       document.getElementById('status').textContent = 'Error: ' + e.message;
@@ -285,6 +309,11 @@
     const entry = entries[floor === 0 ? 0 : depth];
     if (!entry) return;
     const list = sprites[floor === 0 ? 0 : depth] || [];
+    const home = entries[0]?.viewerHome;
+    const hiddenByHome = o => depth === 0 && home && safetyRadius > 0
+      && Combat.isEnemyKind(o.kind) && !Combat.isTame(o)
+      && Math.hypot(o.x - home.x, o.y - home.y) < safetyRadius;
+    const hiddenEnemies = (entry.creatures || []).filter(hiddenByHome).length;
     const Wpx = cv.width = innerWidth, Hpx = cv.height = innerHeight;
     const barBottom = document.getElementById('bar').getBoundingClientRect().bottom;
     for (const id of ['tag', 'status']) document.getElementById(id).style.top = (barBottom + 8) + 'px';
@@ -341,6 +370,7 @@
     const scale = s / 32;
     for (const { o, appearance: p, cat } of list) {
       if (!showCreatures && cat === 'creature') continue;
+      if (cat === 'creature' && hiddenByHome(o)) continue;
       const at = { x: offX + o.x / R.EDGE * R.N * s, y: offY + o.y / R.EDGE * R.N * s };
       if (at.x < -40 || at.y < -40 || at.x > Wpx + 40 || at.y > Hpx + 40) continue;
       const t = assets.textures.get(p.texKey), f = t && t.get(p.frameVal);
@@ -350,6 +380,17 @@
       ctx.drawImage(tintedFrame(t, f, p.tint), 0, 0, f.width, f.height,
         at.x + p.dxPx * scale - w * p.origin[0], at.y + p.dyPx * scale - h * p.origin[1], w, h);
       ctx.globalAlpha = 1;
+    }
+    // The same metre radius and Home position drive the filter and its ring.
+    if (depth === 0 && home && safetyRadius > 0) {
+      const x = offX + home.x / R.EDGE * R.N * s;
+      const y = offY + home.y / R.EDGE * R.N * s;
+      const radius = safetyRadius / R.EDGE * R.N * s;
+      ctx.save();
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#a9e9bc18'; ctx.fill();
+      ctx.strokeStyle = '#a9e9bc'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.stroke();
+      ctx.restore();
     }
     ctx.restore();
     const labelLayer = document.getElementById('regionLabels');
@@ -423,12 +464,39 @@
       return `${row.label}: ${placed}${reasons.length ? ` (${reasons.join(', ')})` : ''}`;
     }).join(' · ') : '';
     tag('<b>' + FLOOR_NAMES[floor] + '</b> - ' + (mode === 'current' ? 'current code' : 'proposed = the shift: floor ' + floor + ' shows the pipeline’s floor ' + depth)
+      + (depth === 0 ? `<br>Home safety: <b>${safetyRadius ? safetyRadius + ' m' : 'off'}</b> · ${hiddenEnemies} enemies hidden (preview)` : '')
       + '<br>Nexuses: <b>' + (nexusNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + '<br>Roads: <b>' + (roadNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + (placement ? '<br>Placed: ' + placement : '') + extra);
   }
 
   // ── Controls ──────────────────────────────────────────────────────────────
+  safetyInput.oninput = () => {
+    safetyRadius = Number(safetyInput.value);
+    document.getElementById('safetyValue').textContent = safetyRadius ? `${safetyRadius} m` : 'Off';
+    const url = new URL(location.href);
+    url.searchParams.set('safetyM', safetyRadius);
+    history.replaceState(null, '', url);
+    draw();
+  };
+  function changeSeed(value) {
+    if (building) return;
+    seed = Number(value) >>> 0;
+    seedInput.value = seed;
+    const url = new URL(location.href);
+    url.searchParams.set('seed', seed);
+    history.replaceState(null, '', url);
+    rebuild();
+  }
+  seedInput.onchange = () => {
+    if (seedInput.value !== '' && seedInput.checkValidity()) changeSeed(seedInput.value);
+    else seedInput.value = seed;
+  };
+  document.getElementById('newSeed').onclick = () => {
+    const next = crypto.getRandomValues(new Uint32Array(1))[0];
+    changeSeed(next === seed ? (seed + 1) >>> 0 : next);
+  };
+  document.getElementById('resetSeed').onclick = () => changeSeed(0);
   const floorSeg = document.getElementById('floorSeg');
   for (const f of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
     const b = document.createElement('button'); b.textContent = f === 0 ? 'S' : String(f);
@@ -452,6 +520,9 @@
     draw();
   };
   function updateControls() {
+    safetyInput.disabled = building || displayDepth() !== 0;
+    document.getElementById('safetyValue').textContent = safetyRadius ? `${safetyRadius} m` : 'Off';
+    for (const id of ['seed', 'newSeed', 'resetSeed']) document.getElementById(id).disabled = building;
     document.querySelectorAll('#floorSeg button, #modeSeg button').forEach(b => { b.disabled = building; });
     document.getElementById('creatureToggle').disabled = building;
     document.getElementById('labelToggle').disabled = building;

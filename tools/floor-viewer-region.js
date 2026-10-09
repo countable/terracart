@@ -15,6 +15,21 @@
   const HOME = { x: 25.5, y: 12.5 };     // player start in the residential grid
   const EDGE = Math.round(N * 7);       // tile edge in metres (7 m cells)
 
+  // Review-only: salt both coordinate RNG streams and stable habitat hashes.
+  // Seed zero preserves the shipping generators' original draws. Restore the
+  // shared hooks even on failure so another build cannot inherit this seed.
+  async function withSeed(seed, build) {
+    const originalHash = root.fnv1a;
+    seed >>>= 0;
+    root.WorldGen.setReviewSalt(seed);
+    if (seed) root.fnv1a = value => originalHash(`floor-viewer:${seed}|${value}`);
+    try { return await build(); }
+    finally {
+      root.fnv1a = originalHash;
+      root.WorldGen.setReviewSalt(0);
+    }
+  }
+
   // Radius scales preserve the requested area reductions. Scope them to this
   // fixture so its compact preview never changes the live game's nexus sizes.
   async function withNexusSizes(build) {
@@ -114,5 +129,5 @@
     { text: 'Beach nexus', nexusKind: 'beach', x: 53, y: 23 },
     { text: 'Lake', x: 54, y: 31 }
   ];
-  root.FloorViewerRegion = { E, WIDTH, HEIGHT, N, CELL, EDGE, HOME, lat, makeLayers, labels, withNexusSizes };
+  root.FloorViewerRegion = { E, WIDTH, HEIGHT, N, CELL, EDGE, HOME, lat, makeLayers, labels, withNexusSizes, withSeed };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

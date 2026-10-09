@@ -309,6 +309,7 @@ class SceneCreate {
     // catching a deer would show 🦌 emoji instead of the deer sprite.
     window.ITEM_DATA_URLS.deer      = bakeSheetFrame('deer',      0, 32, 32);
     window.ITEM_DATA_URLS.rabbit    = bakeSheetFrame('rabbit',    0, 16, 16);
+    window.ITEM_DATA_URLS.green_dragon = bakeSheetFrame('green_dragon', 0, 32, 32);
     window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
     window.ITEM_DATA_URLS.crab      = bakeSheetFrame('crab',      0, 16, 16);

@@ -152,6 +152,11 @@ mechanics.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
   Pet shops sell accessories. Eggs hatch wild babies that use the same gate.
+  Feeding a shiny chicken yields a separate Shiny Egg stack. After 500 m of
+  real GPS walking, it hatches a non-shiny green dragon baby; its favourite
+  food is meat. Regular eggs still hatch shiny domestic babies. Each egg type
+  incubates one egg at a time, with independent saved distance and GPS sessions;
+  hatching or losing one type never spends the other's progress.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
