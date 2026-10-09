@@ -21,8 +21,8 @@
   });
   test('basic habitats: corvids stay exclusive and butterflies leave forest for grass', () => {
     const T=WorldGen.T;
-    for (const [kind,ground] of [['crow',T.PARK],['raven',T.RESIDENTIAL],['gull',T.SAND]]) {
-      for (const type of Object.values(T)) assert.eq(BiomeProfiles.faunaAllows(kind,type),type===ground,kind+' habitat '+type);
+    for (const [kind,ground] of [['crow',[T.PARK,T.GRASS]],['raven',[T.RESIDENTIAL]],['gull',[T.SAND]]]) {
+      for (const type of Object.values(T)) assert.eq(BiomeProfiles.faunaAllows(kind,type),ground.includes(type),kind+' habitat '+type);
     }
     assert.falsy(BiomeProfiles.faunaAllows('butterfly',T.FOREST));
     assert.falsy(BiomeProfiles.faunaAllows('butterfly',T.ORCHARD));
