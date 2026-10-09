@@ -18,7 +18,8 @@ test('smithy: the modal category is Smithy, so Forge names only the action', () 
   // Neither offer carries a flavour title: the chip and the tab say it. Both
   // present through the one recipe counter (scene_shops.js
   // _presentRecipeOffer), whose default kind is the smithy's.
-  assert.truthy(/_presentRecipeOffer\(sx, sy, \{ recipe, produce, refuse, canAfford = true, \.\.\.modal \}\) \{[\s\S]{0,700}?kind: 'forge',\n      costLabel: 'You give',\n      \.\.\.modal,/.test(app),
+  const counter = app.match(/\n  _presentRecipeOffer\([^\n]*\) \{[\s\S]*?\n  \}/)?.[0];
+  assert.truthy(counter && /kind: 'forge',\n      costLabel: 'You give',\n      \.\.\.modal,/.test(counter),
     'the recipe counter keys forge');
   assert.truthy(/this\._presentRecipeOffer\(sx, sy, \{\n      recipe: recipeFor\(target\),\n      cancelLabel: 'Leave',\n      get: smithyPreviewHTML\(/.test(app), 'the smelt offer rides it, untitled');
   assert.truthy(/this\._presentRecipeOffer\(sx, sy, \{\n      recipe,\n      cancelLabel: 'Later',\n      get: smithyPreviewHTML\(iconHtml, name\),/.test(app), 'the forge offer rides it, untitled');
