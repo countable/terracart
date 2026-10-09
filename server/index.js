@@ -2,11 +2,11 @@
 //
 // One tiny WebSocket server that lets players SEE each other. It holds no game
 // state: every client keeps its own save, and the server only fans out
-// "where I am" messages, plus five enemy frames (hit, seen, dead, battle,
-// aggro) so nearby players' copies of the same deterministic enemy take the
-// same damage, die together, fight the same castle battle and chase the same
-// player. What it does own is the roster — it assigns ids, pins each
-// socket's name + colour from its hello, and tells everyone when a player
+// "where I am" messages, plus six enemy frames (hit, seen, dead, battle,
+// aggro, group) so nearby players' copies of the same deterministic enemy take the
+// same damage, die together, agree on encounter sizes, fight the same castle
+// battle and chase the same player. What it does own is the roster — it assigns
+// ids, pins each socket's name + colour from its hello, and tells everyone when a player
 // arrives or leaves — so a client can never impersonate another.
 //
 // Wire protocol (JSON text frames, one object per frame):
@@ -18,7 +18,8 @@
 //     { t:'seen', ids:[id...], d }                    these enemies are alive here │ ≤ MAX_ENEMY_FRAMES_PER_S
 //     { t:'dead', ids:[id...], d }                    these enemies are dead (reply)│ together; extras
 //     { t:'battle', key, startedAt, d }               my castle battle is on       │ dropped, not fatal
-//     { t:'aggro', eid, pid, d }                      enemy `eid` is after player `pid` ┘
+//     { t:'aggro', eid, pid, d }                      enemy `eid` is after player `pid` │
+//     { t:'group', groups:[{id,p}...], d }            encounter party-size high-water marks ┘
 //   server → client
 //     { t:'welcome', id, peers:[<peer>...] }          reply to hello; peers = everyone else
 //     { t:'join',  ...<peer> }                        someone new said hello
@@ -29,6 +30,7 @@
 //     { t:'dead',  id, ids, d }                       a peer knows these enemies are dead (within INTEREST_PX)
 //     { t:'battle', id, key, startedAt, d }           a peer's castle battle (within INTEREST_PX)
 //     { t:'aggro', id, eid, pid, d }                  a peer's copy of `eid` targets `pid` (within INTEREST_PX)
+//     { t:'group', id, groups, d }                   a peer's encounter sizes (within INTEREST_PX)
 //     { t:'leave', id }                               a peer's socket closed
 //     { t:'error', reason }                           then the socket is closed
 //   <peer> = { id, name, color, x, y, fx, fy, m, d, e, g, v }
@@ -55,7 +57,10 @@
 // `battle` names a castle (CASTLE_KEY_RE — src/houses.js CASTLE_KEY_RE) and
 // the epoch-ms its battle started; receivers adopt or merge it (the earlier
 // start wins). `aggro` says the sender's copy of enemy `eid` chose player
-// `pid` (a relay id) as its target.
+// `pid` (a relay id) as its target. `group` carries 1..MAX_IDS encounter IDs
+// (the same charset) and integer party sizes 2..MAX_GROUP_PARTY. Receivers
+// merge each encounter's size upward; the relay stores no encounter state.
+// Depth is carried unchanged, as for other enemy frames; clients filter it.
 //
 // Run: node index.js            (PORT env, default 8787)
 // Test: node test.js
@@ -79,16 +84,17 @@ const PING_GAP_MS = 2000;
 // Inbound frames per second per socket before we cut it off — the client
 // sends at ≤ 10 Hz plus a 5 s heartbeat, so 30 is generous.
 const MAX_MSGS_PER_S = 30;
-// Enemy frames (hit, seen, dead, battle, aggro) are a share of that budget,
-// capped on their own: a client batches its damage per enemy and sends ≤ 12
-// hits, 1 seen, ≤ 2 dead replies, ≤ 1 battle and ≤ 4 aggro frames a second
-// (src/multiplayer.js), so frames past this cap are dropped silently rather
+// Enemy frames (hit, seen, dead, battle, aggro, group) share that budget.
+// The client reserves at most 12 frames for batched damage and coordinates
+// its other channels within the remaining allowance (src/multiplayer.js).
+// Frames past this cap are dropped silently rather
 // than closing the socket. 8 Hz positions + 20 stays inside MAX_MSGS_PER_S.
 const MAX_ENEMY_FRAMES_PER_S = 20;
 const ENEMY_ID_RE = /^[A-Za-z0-9_:.%-]{1,96}$/;   // src/enemy_spawns.js SHARED_ID_RE
 const MAX_IDS = 32;
-// A full seen/dead batch can contain 32 × 96-character IDs (over 3 KiB
-// including JSON). Keep the transport bound above that legal protocol size.
+const MAX_GROUP_PARTY = 32;
+// A full group batch can contain 32 × 96-character IDs plus party sizes
+// (under 4 KiB including JSON). Keep room for the largest legal batch.
 const MAX_PAYLOAD_BYTES = 4096;
 const CASTLE_KEY_RE = /^b_-?\d{1,9}_-?\d{1,9}$/;    // src/houses.js CASTLE_KEY_RE
 const MAX_FLAGS = 255;        // presence `g`: a byte of targeting flags
@@ -181,10 +187,21 @@ function cleanIds(msg) {
   return { ids, d };
 }
 
+// Reject a malformed group batch in full: never relay a partial agreement.
+function cleanGroups(msg) {
+  const { groups, d } = msg;
+  if (!Array.isArray(groups) || groups.length < 1 || groups.length > MAX_IDS) return null;
+  if (!Number.isInteger(d) || d < 0) return null;
+  if (!groups.every(g => g && typeof g === 'object' && !Array.isArray(g) &&
+      typeof g.id === 'string' && ENEMY_ID_RE.test(g.id) &&
+      Number.isInteger(g.p) && g.p >= 2 && g.p <= MAX_GROUP_PARTY)) return null;
+  return { groups: groups.map(({ id, p }) => ({ id, p })), d };
+}
+
 // The enemy frames: one shared budget, each with its own cleaner.
 // A Map, not an object literal: `constructor` or `__proto__` is no frame type.
 const ENEMY_FRAMES = new Map([['hit', cleanHit], ['seen', cleanIds], ['dead', cleanIds],
-                              ['battle', cleanBattle], ['aggro', cleanAggro]]);
+                              ['battle', cleanBattle], ['aggro', cleanAggro], ['group', cleanGroups]]);
 
 function createRelay(server) {
   const wss = new WebSocketServer({ server, maxPayload: MAX_PAYLOAD_BYTES });
@@ -306,6 +323,6 @@ if (require.main === module) {
 }
 
 // What server/test.js drives; nothing else requires this module.
-module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanEnergy, cleanSmallInt,
-                   INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_FLAGS, MAX_VISION_CUT,
+module.exports = { createServer, cleanName, cleanLabel, cleanHit, cleanIds, cleanBattle, cleanAggro, cleanGroups, cleanEnergy, cleanSmallInt,
+                   INTEREST_PX, MAX_MSGS_PER_S, MAX_ENEMY_FRAMES_PER_S, MAX_IDS, MAX_GROUP_PARTY, MAX_FLAGS, MAX_VISION_CUT,
                    sendFrame, checkSlowConsumer, POSITION_BUFFER_BYTES, MAX_OUTBOUND_BYTES, SLOW_PING_LIMIT };

@@ -318,8 +318,10 @@ access or tile lifecycle mechanics.
 - A party meets bigger groups. Zone encounter groups
   (`EnemyHabitats.surfaceEncounterProfileSteps`) record how to make member
   `n` (kind, seat, body); `EnemyHabitats.scaleEncounters` grows them on each
-  device to P, the local player plus near peers on this depth
-  (`Multiplayer.partyCount`; P = 1 offline, which changes nothing). A group
+  device to P, the highest party size observed for that encounter. Each device
+  proposes the local player plus near peers on this depth (`Multiplayer.partyCount`),
+  capped at 32; `group` frames merge proposals by maximum, so asymmetric peer
+  rosters eventually agree. Offline P = 1 introduces no extras. A group
   of c ≥ 2 grows to c × (1 + 0.5 × (P − 1)), its fraction rounded up when
   `unit(`${id}:mp:${P}`)` falls under it; a single draws per extra player k
   on `unit(`${id}:mp:${k}`)`: under 0.5 it becomes the world's elite (shiny
@@ -328,7 +330,15 @@ access or tile lifecycle mechanics.
   own rule against the tile's finished generated occupancy plus the group's
   own extras (never other groups', whose extras arrive in any order), pass the
   spawn gate, are shared-marked and stay dead once caught. The count is sticky
-  upward while the tile's entry lives; a rebuild starts from the solo world.
+  upward while the tile's entry lives. A rebuilt tile starts from the solo
+  world, then reapplies any remembered or newly received encounter count.
+  Only completed spawn passes may grow. Loaded encounters announce up to 32
+  counts per second within the shared enemy-frame budget, oldest announcement
+  first, retrying after ten seconds and on joins/reconnects. Received counts
+  for unloaded encounters are bounded to 2,048 records and expire after five
+  minutes without refresh; lower or duplicate reports never shrink a live
+  encounter. Counts are keyed by encounter ID, surface only. Old clients ignore
+  the new frames and retain their previous local scaling until refreshed.
   Garrisons (authored sizes), cave packs and roamers (two-pass canonical cave
   seating) and per-device mints do not scale
   (`test/node/multiplayer_shared.test.js`).
