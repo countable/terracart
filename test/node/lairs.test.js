@@ -1594,7 +1594,9 @@
     assert.lt(state, leech, 'the state is resolved before anything reads standDown');
     // `!unnoticed`, optionally AND further reasons to stand down (the kerb
     // turn of the Sep 2026 safety pass) — never a lane that drops unnoticed.
-    assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed(?: && [^)]+)?\)/.test(body),
+    // A shared guard after another player (Multiplayer.enemyTarget's peer
+    // body) measures from THAT player, noticed — their device judges them.
+    assert.truthy(/Lairs\.guardState\(c, peerTarget \|\| \{ x: px, y: py \}, this\.cellM,\s*!!peerTarget \|\| \(!unnoticed(?: && [^)]+)?\)\)/.test(body),
       'measured from the FEET, and told whether the player is worth noticing at all');
     assert.truthy(/c\._hunting = lairState === 'hunt';/.test(body),
       'the hysteresis is stored back on the creature');

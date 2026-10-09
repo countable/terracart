@@ -1617,7 +1617,24 @@ function creatureMeleeSwing(c, targetX, targetY, reachCells) {
     dir: length > 0 ? { x: dx / length, y: dy / length } : { x: 0, y: 1 } };
 }
 
+// A FOE AFTER ANOTHER PLAYER (Multiplayer.enemyTarget's peer body, in the
+// npcTarget lane): this device's copy faces the peer's spot and, in reach,
+// swings a melee kind's blow at its row's beat — and that is all. No damage,
+// condition, theft, shot, web, trap or blast happens here: the peer's own
+// device runs the same foe at them and applies its blows there, to them.
+function peerFeint(scene, c, row, now, tx, ty) {
+  if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || Combat.isParalyzed(c)
+      || row.attackType === 'none') return false;
+  const reach = PotionEffects.range(c, row.range);
+  if (Math.hypot(tx - c.x, ty - c.y) > reach * scene.cellM) return false;
+  SpriteLayout.faceCreature(c, tx - c.x, ty - c.y);
+  if (row.attackType !== 'melee' || now < (c._peerFeintT || 0)) return false;
+  c._peerFeintT = now + (row.damageIntervalSeconds || 1) * 1000;
+  creatureMeleeSwing(c, tx, ty, reach);
+  return true;
+}
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
+  if (npcTarget?.peer) { if (!inactive) peerFeint(scene, c, row, now, px, py); return; }
   if (Combat.raidSpent(scene.save, c) || Combat.isPacified(c) || Combat.isPacified(creatureTarget)) return;
   if (Combat.isConcealed(c) || c._emergeUntil > now || Combat.isSleeping(c) || Combat.isParalyzed(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
   if (creatureTarget && (Combat.isConcealed(creatureTarget)

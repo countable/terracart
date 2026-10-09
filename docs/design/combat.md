@@ -170,8 +170,52 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
 - Only world-shared creatures take part (`EnemySpawns.isSharedId`): a positive
   mark stamped where world-derived creatures are made. Clock-, random- or
   serial-minted creatures (ghosts, fished slimes, pest deer, guild foes, dev
-  spawns, story encounters, split-slime halves) stay local. Citadel guards are
-  excluded because their defeat expires with the battle.
+  spawns, story encounters, split-slime halves) stay local. A citadel guard is
+  shared only while the asking save's battle for its castle is live
+  (`isSharedId(c, save)`), because its defeat expires with the battle.
 - Late arrivals learn deaths through `seen` → `dead`. Each newly loaded shared
   enemy is announced once per connection. A peer whose `save.caught` holds it
   answers everyone near after a jitter, unless another peer already answered.
+- Castle battles are shared. A live battle is broadcast as `battle` (castle
+  key and start) at once and every `Multiplayer.BATTLE_MS`; a nearby save
+  with no battle there and the castle unclaimed adopts the SAME start
+  (`Houses.adoptCitadelBattle`; the key must pass `Houses.isCitadelKey`), and
+  two starts merge to the earlier. One start means one deadline, so every
+  participant's `_expireCitadelBattles` undoes the guards' deaths at the same
+  wall-clock instant. A guard's hit, kill or `dead` answer moves only between
+  players whose last battle frames name the same start
+  (`Multiplayer.battleShared`), which also keeps a save that has claimed the
+  castle (and so kept its guards dead) from killing another player's guards.
+- The claim stays per save: `resolveDefeat` asks `_checkCitadelClaims` for
+  every fallen garrison guard, a peer's kill included, so each participant who
+  sees every guard down during its live battle claims the castle in its own
+  save. The claim is a fact about the castle, not kill credit: no
+  `KILL_LEDGERS` row hears of a peer's kill.
+- Shared targeting: every device simulates every enemy, so a shared foe picks
+  the same player on all of them (`Multiplayer.enemyTarget`). Candidates are
+  the local player and nearby peers at the same depth, inside the foe's sight
+  (its row's `visionCells`, capped at the sim bubble, less the player's
+  published gear cut `v`) and with no `TARGET_FLAGS` bit set (downed, hidden —
+  the scene's `isUnnoticed` lane, in the kerb buffer, inside Home's or a
+  claimed castle's ward ring, by a campfire). The nearest wins; candidates
+  within `TARGET_TIE_CELLS` of it tie and the lowest relay id takes it
+  (`pickTarget`). A held target stays until it stops being a candidate (with
+  `TARGET_KEEP_CELLS` of sight slack) or another is nearer by more than
+  `TARGET_STICKY_CELLS`. Offline, alone, or for an unshared foe the rule
+  returns null and today's single-player logic runs unchanged.
+- A pick or switch is announced as `aggro` (≤ `AGGRO_MAX_PER_S`); receivers
+  adopt it, and hold it until that player stops being a candidate. Two
+  announcements for one foe inside `AGGRO_TIE_MS` resolve to the lower pid;
+  later ones replace earlier ones.
+- A foe whose target is a peer rides the `npcTarget` lane with a peer body:
+  it stalks the peer's last fix, a garrison measures `guardState` from the
+  peer, and the local kerb does not turn it. `rosterEnemyAttack` hands a peer
+  body to `peerFeint` before anything else, so the copy only faces and swings:
+  no damage, condition, theft, shot, web, trap or blast happens on this
+  device. The peer's own device runs the same foe at them through
+  `Combat.playerDamage` as ever. Copies are not position-synced.
+- Presence frames publish `e` (energy over `Energy.maxEnergy`), `g`
+  (`TARGET_FLAGS`) and `v`. A peer below full energy wears the enemy health
+  bar (`_drawEnemyHealthBar`) under its name tag; at full it shows none.
+
+Tests: `multiplayer_hits`, `multiplayer_shared`, `server/test.js`.

@@ -282,14 +282,20 @@
   // Math.random or a per-device serial (ghosts, the fished slime, pest deer,
   // guild bounty foes, dev spawns, story encounters, a split slime's halves,
   // whose `${root}_s${n}` counts per device) is never marked, so never shared.
-  // A CITADEL guard (`castle`) is excluded too: its defeat expires with the
-  // battle that killed it (_expireCitadelBattles), so another player's kill
-  // must not become a permanent death in this save.
+  // A CITADEL guard (`castle`) is shared only while `save` holds that
+  // castle's battle live (Houses.citadelBattleActive): its defeat expires
+  // with the battle (_expireCitadelBattles), and battles are shared with one
+  // start (Houses.adoptCitadelBattle), so every participant's save undoes the
+  // same deaths at the same instant. Without a save, or after the battle, a
+  // guard is never shared — another player's kill must not become a
+  // permanent death here. multiplayer.js also checks the SENDER fights the
+  // same battle (its `battle` frames) before it lets a hit or a death land.
   // SHARED_ID_RE is the wire's id charset (mirrored in server/index.js).
   const SHARED_ID_RE = /^[A-Za-z0-9_:.%-]{1,96}$/;
   function markShared(c, on = true) { if (c && on) c._sharedId = true; return c; }
-  function isSharedId(c) {
-    return !!c && c._sharedId === true && !c.castle && typeof c.id === 'string' && SHARED_ID_RE.test(c.id);
+  function isSharedId(c, save = null) {
+    if (!c || c._sharedId !== true || typeof c.id !== 'string' || !SHARED_ID_RE.test(c.id)) return false;
+    return !c.castle || (!!save && !!root.Houses?.citadelBattleActive(save, c.castle));
   }
   // Legacy IDs encode ordinal seats (pack) or cells (roamers). Match either
   // suffix without tying a persistent defeat to the newly selected species.

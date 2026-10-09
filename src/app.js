@@ -1025,7 +1025,6 @@ const KILL_LEDGERS = [
     if (Quests.onKill(s.save, v.kind)) s.flashAtPlayer('Castle quest progress.');
   },
   (s, v) => { if (v.bounty) s._guildBountyDefeat(v); },
-  (s, v) => { if (v.lair) s._checkCitadelClaims?.(); },
 ];
 // The day-ledger ids (Macros.markToday / usedToday) of the guild bounty out
 // today and the dusk safety card — a UTC day each, in the one ledger.
@@ -4786,6 +4785,12 @@ class MapScene extends Phaser.Scene {
     // An own-side kill is announced to nearby players, whose copies die with
     // it whatever HP they show (Multiplayer.reportKill; a no-op offline).
     if (typeof Multiplayer !== 'undefined') Multiplayer.reportKill(this, victim, source);
+    // A GARRISON GUARD DOWN may open its citadel (_checkCitadelClaims: every
+    // guard of a live battle defeated) — whoever felled it. In a shared battle
+    // a peer's kill counts too: the claim is a fact about the castle in THIS
+    // save, earned by being in the battle that cleared it, not a kill
+    // credited to anyone, so it sits here and not among KILL_LEDGERS.
+    if (victim.lair) this._checkCitadelClaims?.();
     // A PEER'S KILL (Combat.isPeerHit) is marked dead and nothing more —
     // the killer's client paid the coin and the rest — UNLESS this client's
     // own side helped (Multiplayer.assisted: an own-side blow within
