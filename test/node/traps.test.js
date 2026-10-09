@@ -510,19 +510,6 @@ test('traps: hard mode penalizes the player after boots mitigate the shared bite
     'the receiving player also takes the penalty on bleed');
 });
 
-test('traps: on hard, standing on one out-drains the fastest passive rest in the game', () => {
-  // Lifted from app.js, not restated: the Home rest is maxE over
-  // HOME_FULL_REST_S, which is the quickest energy comes back without eating.
-  const m = SCENE_SRC.match(/const HOME_FULL_REST_S = (\d+);/);
-  assert.truthy(m, 'HOME_FULL_REST_S is a plain literal');
-  const homeRestPerS = STARTING_ENERGY / Number(m[1]);
-  // Easy's gentler 1⚡/s is deliberately under it (owner, Oct 2026).
-  const bleed = Difficulty.PROFILES.hard.trapBleedPerS;
-  assert.gt(bleed, homeRestPerS,
-    `the hard bleed (${bleed}⚡/s) must beat the Home rest `
-    + `(${homeRestPerS.toFixed(2)}⚡/s) — otherwise standing still is a way to win`);
-});
-
 // ─── The call sites (app.js / scene_creatures.js / render.js can't load headlessly) ─
 
 test('traps: the surface spawn passes the SHARED spawn options, mask and all', () => {

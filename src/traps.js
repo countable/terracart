@@ -47,10 +47,7 @@
   // Stepping on a hidden one is a BITE: a tenth of a full bar (STARTING_ENERGY
   // is 100) in one go, the same order as a bare-handed rock break. Standing on
   // the sprung one is a bleed the player is meant to walk out of, at the
-  // mode's rate (Difficulty trapBleedPerS — standEnergyPerS): on hard three a
-  // second, faster than any passive rest can refill (Home is 2⚡/s), so waiting
-  // it out is never the answer; on easy a gentler one a second (owner, Oct
-  // 2026), since the jaw's pin already holds the player for a while.
+  // mode's rate (Difficulty trapBleedPerS — standEnergyPerS).
   const STEP_ENERGY = 10;
   function standEnergyPerS() {
     return root.Difficulty?.get?.().trapBleedPerS ?? 1;
