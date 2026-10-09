@@ -28,7 +28,7 @@ test('stall dialog: every booth kind names its presenter in KIND_DIALOG, shelf c
     if (kind === 'chapel') { assert.eq(row.present, undefined, 'the chapel names no presenter'); continue; }
     assert.truthy(/^_present[A-Z]\w+$/.test(row.present), `${kind}: a scene presenter (${row.present})`);
     if (row.present === '_presentStallOffer') {
-      assert.truthy(Array.isArray(row.stock(stub)) && row.stock(stub).every((id) => ITEM_BY_ID[id]), `${kind}: stock(o) is item ids`);
+      assert.truthy(Array.isArray(row.stock(stub)) && row.stock(stub).every((id) => ITEM_BY_ID[id] || (kind === 'sundries' && Macros.isSundriesGear(id))), `${kind}: stock(o) is item ids or sundries gear`);
       assert.truthy(typeof row.title === 'string' && row.title.endsWith(':'), `${kind}: a shelf title`);
     } else {
       assert.eq(row.stock, undefined, `${kind}: no shelf`);

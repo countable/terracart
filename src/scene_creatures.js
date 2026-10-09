@@ -818,6 +818,7 @@ class SceneCreatures {
     }
     // Saved plantings win against generated static scenery after shared RNG draws.
     if (savedPlantings.length) SpawnOwnership.reconcileEntry(this, entry, savedPlantings);
+    PlacedFloor.restoreBarricades(this, entry, tx, ty, 0);
     // THE SHORE'S OWN FAUNA (biome_profiles.js SHORE_FAUNA): crabs on the
     // shore sand, gulls on the shore and the piers (the
     // shore and pier cells come out of the bonus-X block's one grid pass). Each species on its OWN
@@ -1049,6 +1050,7 @@ class SceneCreatures {
   // defeated monster (recorded in save.caught) stays dead across reloads, just
   // like surface fauna.
   spawnCaveCreatures(entry, tx, ty, depth) {
+    PlacedFloor.restoreBarricades(this, entry, tx, ty, depth);
     const rng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x85ebca77) >>> 0);
     const N = entry.cellsPerEdge;
     const creatures = [];

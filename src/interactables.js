@@ -1271,11 +1271,13 @@ function runWildplantTimber(ctx, plant) {
     energy: (save) => tree.energy(save, timber),
     complete: ({ scene, save, sx, sy }, o) => {
       save.picked = [...(save.picked || []), o.id];
-      const wood = randInt(2, 3) * treeWoodMul(timber);
+      const salvage = o.playerOwned && o.crop === 'barricade'
+        ? HOME_RECIPES.find(recipe => recipe.id === 'barricade').cost.find(cost => cost.id === 'wood').qty : null;
+      const wood = salvage ?? randInt(2, 3) * treeWoodMul(timber);
       scene.addToInv('wood', wood);
       persistSave(save);
       scene.flashLoot(`+${wood} ${itemName('wood')}`, undefined, 1, 'wood');
-      if (isShiny(o.id, SHINY_RATE.flora)) scene.awardShinyBonus('wood', sx, sy);
+      if (!o.playerOwned && isShiny(o.id, SHINY_RATE.flora)) scene.awardShinyBonus('wood', sx, sy);
     },
   });
 }

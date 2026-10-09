@@ -46,6 +46,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   row. Ambient site light persists after a visit; the availability pulse does not.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
+- Home crafting uses a direct picker of learned recipes. Show each ingredient's
+  held and required quantities, its shortfall in text, and a visible reason
+  when Craft is disabled. Keep the chosen recipe after crafting and refresh
+  counts and the existing receipt. Recipe selection never spends ingredients;
+  acceptance still rechecks unlocks, bag room, and ingredients before spending.
 - Dialogs use `makeModalShell` with a kind, which supplies a scene painting.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
@@ -149,6 +154,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   is assigned them — wait just outside Home's ring, beyond a stroll of the door
   (`homeWaitBand`);
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
+  The stranger (Ayo in human form) is such a role, flagged `transient` so a
+  talk never houses her; the lane's gossip about her is one extra page per
+  neighbour per round (`MemoryStory.STRANGER_RUMOURS`, recorded in
+  `save.memoryStory.strangerRumours`), not a line of its own.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
-`item_descriptions`, `books`, `story_neighbours`, `buffs`.
+`item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.

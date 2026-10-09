@@ -84,6 +84,31 @@ test('home craft: crafting spends the wood and hands over the item', () => {
   assert.eq(Inventory.count(s.save, 'throwing_spear'), 2, 'two spears');
 });
 
+test('home craft: tier-2 barricades cost exactly three wood after discovery', () => {
+  assert.eq(ITEM_BY_ID.barricade.baseTier, 2);
+  assert.includes(ITEMS_BY_CLASS_TIER.supply[2], 'barricade');
+  assert.falsy(ITEMS_BY_CLASS_TIER.supply[1].includes('barricade'));
+  for (const group of ['supplies', 'field']) {
+    assert.includes(ChestThemes.resolve(group, 2).ids, 'barricade');
+    assert.falsy(ChestThemes.resolve(group, 1).ids.includes('barricade'));
+  }
+  assert.includes(Shops.themedStock('supply', 2), 'barricade');
+  assert.falsy(Shops.themedStock('supply', 1).includes('barricade'));
+  assert.truthy(homeRecipeLocked({}, 'barricade'));
+  const s = scene([['wood', 5]]);
+  s.save.foundWild = { barricade: 1 };
+  s.presentHomeCraft(0, 0, 'barricade');
+  assert.truthy(last(s).canAfford);
+  last(s).onAccept();
+  assert.eq(Inventory.count(s.save, 'wood'), 2);
+  assert.eq(Inventory.count(s.save, 'barricade'), 1);
+  s.presentHomeCraft(0, 0, 'barricade');
+  assert.falsy(last(s).canAfford);
+  last(s).onAccept();
+  assert.eq(Inventory.count(s.save, 'wood'), 2);
+  assert.eq(Inventory.count(s.save, 'barricade'), 1);
+});
+
 test('home craft: bag room disables Craft and is rechecked before ingredients are spent', () => {
   const s = scene([['wood', 5], ['rubble', 5], ['throwing_spear', 8]]);
   s.presentHomeCraft(0, 0, 'throwing_spear');
@@ -97,6 +122,7 @@ test('home craft: bag room disables Craft and is rechecked before ingredients ar
   s.presentHomeCraft(0, 0, 'throwing_spear');
   m = last(s);
   assert.falsy(m.canAfford, 'a full output stack disables Craft');
+  assert.eq(m.disabledReason, bagFullFor('throwing_spear'), 'the disabled button explains the full output stack');
   assert.eq(m.quantity, undefined, 'no quantity stepper when nothing fits');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'the full-bag recheck preserves ingredients');
@@ -110,6 +136,7 @@ test('home craft: short on wood, the page says so and nothing changes hands', ()
   s.presentHomeCraft(0, 0, 'scarecrow');
   const m = last(s);
   assert.falsy(m.canAfford, 'the Craft button is off');
+  assert.eq(m.disabledReason, 'Missing ingredients', 'the refusal is visible without tapping a disabled button');
   assert.eq(m.quantity, undefined, 'no stepper with nothing to make');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 2, 'the wood stays');
@@ -130,6 +157,61 @@ test('home craft: opens on something the bag can make, and the pager walks the r
   assert.falsy(last(s).canAfford, 'and the scarecrow page shows it cannot be made yet');
   last(s).pager.onPrev();
   assert.truthy(last(s).canAfford, '‹ goes back to the spear');
+});
+
+test('home craft: recipe picker jumps directly among learned recipes without changing the bag', () => {
+  const s = scene([['wood', 6], ['blank_scroll', 2], ['fear_scroll', 1]]);
+  s.save.foundWild = { scarecrow: 1, fear_scroll: 1 };
+  s.save.usedScrolls = ['fireball_scroll'];
+  const before = JSON.stringify(s.save);
+  s.presentHomeCraft(0, 0);
+  const options = last(s).pager.options;
+  assert.eq(options.map(o => o.label).join('|'),
+    ['throwing_spear', 'scarecrow', 'fireball_scroll'].map(itemName).join('|'),
+    'picker shows known recipes only: possession and a wild scroll find do not teach the scroll');
+  options.find(o => o.label === itemName('fireball_scroll')).onSelect();
+  assert.includes(last(s).get, itemName('fireball_scroll'), 'a nonadjacent recipe can be selected directly');
+  assert.eq(last(s).pager.index, 2, 'the picker follows the selected recipe');
+  last(s).pager.options.find(o => o.label === itemName('scarecrow')).onSelect();
+  assert.includes(last(s).get, itemName('scarecrow'));
+  assert.eq(JSON.stringify(s.save), before, 'browsing never consumes ingredients or teaches recipes');
+});
+
+test('home craft: ingredient and output counts refresh after each craft, including exhaustion', () => {
+  const s = scene([['wood', 5], ['scarecrow', 1]]);
+  s.save.foundWild = { scarecrow: 1 };
+  s.iconSpanHTML = id => `<i data-item="${id}"></i>`;
+  const text = html => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  s.presentHomeCraft(0, 0, 'scarecrow');
+  let m = last(s);
+  assert.includes(m.cost, 'recipe-ingredients');
+  assert.truthy(/Have\s*\/\s*Need/.test(text(m.cost)), 'counts are labelled so their order is clear');
+  assert.truthy(/5\s*\/\s*3/.test(text(m.cost)), 'five held, three required');
+  assert.eq(m.pager.caption, 'Makes 1 · In bag: 1');
+  assert.includes(m.pager.iconHTML, 'data-item="scarecrow"', 'the selected output has its own icon');
+  assert.falsy(m.title, 'the recipe does not repeat the Craft tab heading');
+  assert.falsy(m.getLabel, 'the output caption is not duplicated');
+  assert.falsy(m.disabledReason);
+  craft(s);
+  m = last(s);
+  assert.includes(m.get, itemName('scarecrow'), 'exhaustion keeps the selected recipe open');
+  assert.eq(m.pager.caption, 'Makes 1 · In bag: 2');
+  assert.truthy(/2\s*\/\s*3/.test(text(m.cost)), 'the reopened counter reads the updated bag');
+  assert.includes(text(m.cost), 'Need 1 more', 'the exact shortage is visible beside its ingredient');
+  assert.eq(m.disabledReason, 'Missing ingredients');
+  assert.falsy(m.canAfford);
+});
+
+test('home craft: full output stack takes precedence when ingredients are also missing', () => {
+  const s = scene([['throwing_spear', 9]]);
+  s.presentHomeCraft(0, 0, 'throwing_spear');
+  const m = last(s);
+  assert.falsy(m.canAfford);
+  assert.eq(m.disabledReason, bagFullFor('throwing_spear'), 'the caller\'s bag-room refusal is retained');
+  assert.includes(m.cost, 'Need 1 more', 'ingredient shortages remain visible too');
+  const before = JSON.stringify(s.save);
+  m.onAccept();
+  assert.eq(JSON.stringify(s.save), before, 'the stale disabled offer cannot mutate the bag');
 });
 
 test('home craft: the Sell and Craft pages are tabs of one panel', () => {
