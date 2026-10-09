@@ -24,8 +24,9 @@ access or tile lifecycle mechanics.
   static interactable cells, but generated inhabitants do not share each
   other's seats. `entry.habitatPopulation` separates requested, placed and
   shortfall counts; matching authored Nexus fauna satisfies matching slots.
-- Crows have explicit Grove/declared Road Variant populations; Rabbits have
-  ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
+- Crows are the open country's corvid: Grass landcover, Grove Nexus and
+  declared Road Variant populations; Ravens are the houses' (Residential).
+  Rabbits have ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
   to Forest/Residential, and Butterfly exclusion from Forest/Orchard remain
   species placement limits.
 - Shore length is a specialized habitat budget. Ordinary and declared Beach/

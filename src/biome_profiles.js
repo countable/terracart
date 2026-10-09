@@ -482,7 +482,7 @@
     cat:       { base: 6,  range: 8,  share: 0.80, primary: [T.RESIDENTIAL, T.COMMERCIAL], fallback: ALL_NATURAL.filter(t => t !== T.WASTELAND), excluded: [T.WASTELAND] },
     dog:       { base: 6,  range: 8,  share: 0.80, primary: [...LOT], fallback: ALL_NATURAL },
     deer:      { base: 8,  range: 6,  share: 1.00, primary: [T.FOREST, T.RESIDENTIAL], fallback: [T.FOREST, T.RESIDENTIAL], only: [T.FOREST, T.RESIDENTIAL] },
-    crow:      { base: 200, range: 0, share: 1.00, primary: [T.PARK], fallback: [T.PARK], only: [T.PARK] },
+    crow:      { base: 200, range: 0, share: 1.00, primary: [T.PARK], fallback: [T.PARK], only: [T.PARK, T.GRASS] },
     butterfly: { base: 40, range: 20, share: 1.00, primary: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.GOLF], fallback: [T.PARK, T.GROVE, T.GRASS, T.WETLAND, T.GOLF, T.SCHOOL, T.PLAYGROUND], excluded: [T.FOREST, T.ORCHARD] },
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
     storm_gull: { only: [] }, // Retired guard bird; keep its art/roster available for authored previews.

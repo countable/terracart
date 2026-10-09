@@ -51,9 +51,14 @@
     assert.gt(baseline.length, 0);
     const removed = baseline.find(c => !Combat.monster(c.kind)) || baseline[0];
     assert.eq(signature(generate(fixture(), [removed.id])), signature(baseline.filter(c => c.id !== removed.id)));
-    assert.eq(signature(generate(fixture(), [], 'hard')), signature(baseline));
-    assert.eq(signature(generate(fixture(), [], 'easy', { has: () => true })), signature(baseline),
-      'personal amnesty is a visibility overlay rather than a population reroll');
+    // Grass has crows, and easy shows only Difficulty crowCountMul of them:
+    // a visibility overlay, so hard shows a superset of the same seats.
+    const hard = generate(fixture(), [], 'hard'), notCrow = cs => cs.filter(c => c.kind !== 'crow');
+    assert.eq(signature(notCrow(hard)), signature(notCrow(baseline)));
+    const hardSeats = new Set(hard.map(c => `${c.id}:${c.kind}@${c.x},${c.y}`));
+    assert.truthy(baseline.every(c => hardSeats.has(`${c.id}:${c.kind}@${c.x},${c.y}`)), 'easy crows are a subset of hard crows');
+    assert.eq(signature(notCrow(generate(fixture(), [], 'easy', { has: () => true }))), signature(notCrow(baseline)),
+      'personal amnesty is a visibility overlay rather than a population reroll (it hides crows, the crop raiders)');
   });
   test('habitat populations: safety holes relocate seats without thinning habitat quotas', () => {
     const plain = fixture(), holes = fixture();

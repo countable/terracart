@@ -55,11 +55,13 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    viewport so a creature is already moving before it comes into view.
    Measured from the player, never the camera anchor — a peek drag wakes
    nothing.
- - CROP RAIDERS: the deer and the crow (`SpriteLayout.CREATURE_BEHAVIOUR`
-   `raidsCrops`) notice crops they may eat and go for them. Neither touches a
+ - CROP RAIDERS: the deer, the crow and the raven (`SpriteLayout.CREATURE_BEHAVIOUR`
+   `raidsCrops`) notice crops they may eat and go for them. None touches a
    potato (`Crops.raiderEats`). The deer bolts from a nearby player, so a
-   field is safe while you stand in it; dogs hunt deer, cats hunt crows,
-   scarecrows turn both.
+   field is safe while you stand in it; a raven cases a field only while it
+   is not after the player (it comes for your coins instead). Crows keep the
+   open grass and groves, ravens the houses. Dogs hunt deer, cats hunt crows,
+   scarecrows turn all three.
  - the slime is a pest that drifts toward the player and leeches energy when
    adjacent; it can be tamed only with a sapphire (the one secret, hinted only
    in the Book's closing riddle).
