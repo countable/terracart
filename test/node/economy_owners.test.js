@@ -146,7 +146,7 @@ test('economy: CONSUMABLE_SPEC names each timed buff\'s Buffs row, each tome\'s 
   }
   for (const id of ['speed_potion', 'protection_potion', 'shielding_potion', 'immortal_potion', 'fire_resistance_potion',
     'shrinking_potion', 'giant_potion', 'blight_potion', 'reach_potion', 'shadow_powder', 'dragon_powder', 'torch',
-    'hardworking_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll']) {
+    'hardworking_potion', 'grip_potion', 'raven_scroll', 'bones_scroll', 'wraith_scroll']) {
     const row = CONSUMABLE_SPEC[id];
     assert.truthy(row.buff && row.used && row.used.title && row.used.body, `${id}: buff and the dialog it closes on`);
     const body = typeof row.used.body === 'function' ? row.used.body({ isTorchActive: () => false }, row) : row.used.body;
@@ -155,6 +155,7 @@ test('economy: CONSUMABLE_SPEC names each timed buff\'s Buffs row, each tome\'s 
     if (/\d/.test(body)) assert.truthy(body.includes(shortDuration(row.durationMs)), `${id}: a numeric wait is the row's`);
   }
   assert.eq(CONSUMABLE_SPEC.hardworking_potion.buff, 'work', 'the idol\'s lever row');
+  assert.eq(CONSUMABLE_SPEC.grip_potion.buff, 'melee', 'the rust totem\'s lever row');
   for (const id of ['coffee', 'dawnfruit', 'miracle_lettuce', 'pairy']) assert.truthy(CONSUMABLE_SPEC[id].buff, `${id}: the eat lane\'s buffs too`);
   const tomes = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.tome?.of);
   assert.eq(tomes.length, 7, 'seven tomes mirror potions; standalone aura and firewall spells own their effect');

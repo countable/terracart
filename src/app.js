@@ -1550,6 +1550,7 @@ const ICON_SHEETS = {
   icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_bones_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_grip_potion: { url: 'assets/Icons/Items/GripPotion.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_sugar_potion:     { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_magic_hammer: { url: 'assets/Icons/Items/MagicHammer.png',             cols: 1,  srcW: 16,  srcH: 16 },
