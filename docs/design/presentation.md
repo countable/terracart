@@ -10,6 +10,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
   art, while the existing story ledger owns one-time delivery.
 
+- A story dialog pauses the fight: while one is open (`_storyDialogOpen` —
+  kinds `story`, `note`, `memory`, and the `#story` / `#howto` overlays) the
+  player takes no damage (`Conditions.setDialogShield`, read through
+  `damageImmune`) and hostiles hold still. Shops, trades and other dialogs
+  do not pause; a foe's blow still closes a shop.
 - Feedback is visual; there is no vibration setting or device vibration.
 - `RoadSafety` owns the two location warnings. The first night entry into the
   MD/LG kerb buffer shows `road:night` once per save through the story ledger.

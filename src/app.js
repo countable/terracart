@@ -334,6 +334,10 @@ const GPS_SNAP_M = 200;
 // after the condition ends. Walking pace never closes the gap on a player
 // who is walking, so an open-ended recovery left the body off the GPS for good.
 const CONFUSED_RECOVER_MS = 6000;
+// The dialogs that pause the fight (_storyDialogOpen): modal_shell kinds, and
+// the static index.html overlays that carry no kind.
+const STORY_DIALOG_KINDS = new Set(['story', 'note', 'memory']);
+const STORY_DIALOG_IDS = new Set(['story', 'howto']);
 // The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
 // the player never walked, so it earns a transition rather than the world
 // just resetting under them mid-frame: a small burst where they're standing,
@@ -2992,6 +2996,11 @@ class MapScene extends Phaser.Scene {
         setTimeout(() => { this._prewarmModalIcons(); this._prewarmFx(); }, 4000);
       }
     }
+    // THE STORY PAUSE: while a story dialog is up the player takes no damage
+    // (Conditions.setDialogShield) and pursuing foes hold still
+    // (wanderCreatures). Read once per frame, before any damage lane.
+    this._storyPause = this._storyDialogOpen();
+    Conditions.setDialogShield(this.save, this._storyPause);
     // Keep body.modal-open honest. The MutationObserver in
     // _installModalPadGate misses an overlay that is REMOVED from the document
     // (the story and safety cards are), and a latched class hides the entire
@@ -7556,6 +7565,15 @@ class MapScene extends Phaser.Scene {
   // Is a dialog up right now? Read off the DOM, not body.modal-open: that
   // class is synced by a MutationObserver AFTER the tap's handler, and the
   // fanfare fires in the same handler that just mounted the dialog.
+  // Is a STORY dialog up — a talk, a letter, a story moment, a memory, or
+  // the opening story / how-to overlays? Shops, trades and the like are not:
+  // a foe's blow still closes a shop (_closeShopOnHit).
+  _storyDialogOpen() {
+    if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return false;
+    return [...document.querySelectorAll('.game-modal')].some((el) => el.isConnected
+      && (STORY_DIALOG_KINDS.has(el.dataset?.kind) || STORY_DIALOG_IDS.has(el.id))
+      && el.style.display !== 'none' && el.getClientRects().length > 0);
+  }
   _dialogOpen() {
     if (typeof document === 'undefined') return false;
     // Headless (no DOM query): the mirrored class is all there is to read.
