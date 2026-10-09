@@ -123,7 +123,7 @@ const CHECKS = [
     assert.equal(await (await w.event('fetch', 'src/legacy.js?v=11111111')).text(), 'legacy bytes');
     assert.equal(w.calls.length, 2, 'migration still uses the existing bytes');
   } },
-  { name: 'worker: offline install preserves caches and HTML/script fallbacks without stale images', async run() {
+  { name: 'worker: offline install preserves HTML and exact scripts without substituting stale resources', async run() {
     const caches = storage(async () => { throw Error('offline'); }); const old = await caches.open('shell-old');
     await old.put('index.html', new Response('offline HTML'));
     await old.put('src/a.js?v=11111111', new Response('offline script'));
@@ -133,9 +133,31 @@ const CHECKS = [
     await w.event('install'); await w.event('activate');
     assert((await caches.keys()).includes('shell-old'));
     assert.equal(await (await w.event('fetch', 'index.html?offline=1')).text(), 'offline HTML');
-    assert.equal(await (await w.event('fetch', 'src/a.js?v=22222222')).text(), 'offline script');
+    assert.equal(await (await w.event('fetch', 'src/a.js?v=11111111')).text(), 'offline script');
+    assert.equal((await w.event('fetch', 'src/a.js?v=22222222')).status, 504);
     assert.equal((await w.event('fetch', 'assets/test.png')).status, 504);
     assert(await resource.match('assets/test.png?v=aaaaaaaa'));
+  } },
+  { name: 'worker: failed new scripts never load another version from either cache', async run() {
+    for (const cacheName of ['terracart-resources-v1', 'shell-old']) {
+      for (const failure of ['offline', 'unavailable']) {
+        const caches = storage();
+        const cache = await caches.open(cacheName);
+        await cache.put('src/a.js?v=11111111', new Response('old incompatible script'));
+        const w = worker(caches, 'shell-new', 'aaaaaaaa', () => {
+          if (failure === 'offline') throw Error('network changed');
+          return new Response('temporarily unavailable', { status: 503 });
+        });
+        const missing = await w.event('fetch', 'src/a.js?v=22222222');
+        assert.equal(missing.status, failure === 'offline' ? 504 : 503, cacheName);
+        assert.notEqual(await missing.text(), 'old incompatible script');
+        const exact = await w.event('fetch', 'src/a.js?v=11111111');
+        assert.equal(await exact.text(), 'old incompatible script', 'exact versions remain available offline');
+        assert.deepEqual(w.calls, [origin + 'src/a.js?v=22222222'], 'exact cached version needs no network');
+        const resources = await caches.open('terracart-resources-v1');
+        assert.equal(await resources.match('src/a.js?v=22222222'), undefined, 'failed version is not cached');
+      }
+    }
   } },
 ];
 module.exports = { CHECKS };

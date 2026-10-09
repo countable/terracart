@@ -965,8 +965,10 @@ const Multiplayer = (function () {
       p.spr.setPosition(p.dx, p.dy + scene.playerFeetNudgeY).setVisible(true);
       // Use the eased feet position, not the latest network fix: depth must
       // change when the visible body crosses a trunk, including during peeks.
+      const feet = screenToWorldMeters(scene, p.dx, p.dy);
       scene._peerUprightPieces.push({
-        sprite: p.spr, groundY: screenToWorldMeters(scene, p.dx, p.dy).y, rank: 3,
+        sprite: p.spr, groundY: feet.y, rank: 3,
+        wallSeat: { x: feet.x, halfW: scene.cellM / 2 },   // judged against angled walls like the player (Render.seatAgainstWalls)
       });
       p.sh.setPosition(p.dx, p.dy - 1).setVisible(true);
       p.lbl.setPosition(p.dx, p.dy + scene.playerFeetNudgeY - 23).setVisible(true);

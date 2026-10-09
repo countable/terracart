@@ -116,4 +116,15 @@
     Conditions.cure(s.save,'confused');s._confusedRecover=true;
     place.call(s);assert.eq(s.playerM.x,0);
   });
+  test('confused: recovery ends CONFUSED_RECOVER_MS after the condition, so GPS following resumes', () => {
+    const expire=new Function('CONFUSED_RECOVER_MS','now',lift('_expireConfusedRecover','now'));
+    const ms=Number(SCENE_SRC.match(/const CONFUSED_RECOVER_MS = (\d+);/)[1]);
+    const s=body();Conditions.apply(s.save,'confused');s._confusedRecover=true;
+    expire.call(s,ms,1000);assert.truthy(s._confusedRecover,'held while still confused');
+    Conditions.cure(s.save,'confused');
+    expire.call(s,ms,2000);assert.truthy(s._confusedRecover,'the walk back starts');
+    expire.call(s,ms,2000+ms-1);assert.truthy(s._confusedRecover);
+    expire.call(s,ms,2000+ms);assert.falsy(s._confusedRecover,'then normal following, ramp and snap, takes over');
+    assert.truthy(/this\._expireConfusedRecover\?\.\(performance\.now\(\)\);/.test(SCENE_SRC),'run every movement frame');
+  });
 })();

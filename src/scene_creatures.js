@@ -1747,6 +1747,9 @@ class SceneCreatures {
       // Read ONCE per creature per tick: is it a hostile right now, and how
       // far off (metres from the feet) — every lane below asks both.
       const enemy = Combat.isEnemy(c);
+      // THE STORY PAUSE (app.js _storyPause): a hostile holds still and
+      // strikes nothing while a story dialog is up — its hazards above still tick.
+      if (enemy && this._storyPause) { c._moving = false; Combat.cancelCreatureAction(c); return; }
       const distM = Math.sqrt(ddx * ddx + ddy * ddy);
       // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
       // raven, conjured by a scroll — yours without being tame). One flag

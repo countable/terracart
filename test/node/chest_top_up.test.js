@@ -119,6 +119,23 @@
     assert.eq(go(blocked).added, 0, 'only spawnable ground');
     assert.eq(go(ctx(0)).deficit, Q, 'the deficit is kept for the X-mark top-up');
   });
+  test('ambient crates: in a low-POI tile they lie thicker along the walking paths', () => {
+    const N = 120, R = W.AMBIENT_CRATE_PATH_CELLS;
+    assert.eq(W.AMBIENT_CRATE_PATH_BIAS, 4);
+    const grid = new Uint8Array(N * N).fill(W.T.GRASS);
+    for (const col of [20, 60, 100]) for (let y = 0; y < N; y++) grid[y * N + col] = W.T.PATH;
+    const c = { objects: [], grid, N, tx: 5, ty: 2, tileEdgeM: N * 7,
+      spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(N * N), roadMask: new Uint8Array(N * N) } };
+    const it = W.topUpAmbientCratesSteps(c); let r; do { r = it.next(); } while (!r.done);
+    const crates = c.objects.filter(o => o.ambientCrate);
+    assert.eq(crates.length, W.LOW_TIER_CHEST_QUOTA, 'the count is the quota, unchanged');
+    const near = crates.filter(o => {
+      const ix = Math.floor(o.x / 7) % N;
+      return [20, 60, 100].some(col => Math.abs(ix - col) <= R);
+    }).length;
+    const share = 3 * (2 * R + 1) / N;   // the path band's share of the ground
+    assert.gt(near / crates.length, share * 2.5, `crates favour the path band (${near}/${crates.length}, ground share ${share.toFixed(2)})`);
+  });
   test('ambient crates: the X-mark top-up reads the deficit, off the cell hash, never the rng stream', () => {
     const src = SCENE_CREATURES_SRC;
     assert.truthy(/entry\.lowTierDeficit = chestTopUp\?\.ambient\?\.deficit/.test(WORLDGEN_SRC), 'stored on the entry');

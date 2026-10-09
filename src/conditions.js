@@ -77,8 +77,17 @@
     const value = save.fireDamageRemainder;
     return Number.isFinite(value) && value >= 0 && value < 1 ? value : 0;
   }
+  // THE STORY SHIELD (owner, Oct 2026): while a story dialog is open
+  // (app.js _storyDialogOpen) the player takes no damage of any kind. Session
+  // state keyed by the save object itself, never written into it, and never
+  // a creature's — this is the one immunity every damage site already asks.
+  const dialogShielded = new WeakSet();
+  function setDialogShield(save, on) {
+    if (!save || typeof save !== 'object') return;
+    if (on) dialogShielded.add(save); else dialogShielded.delete(save);
+  }
   function damageImmune(save, now = Date.now()) {
-    return (save.immortalPotionUntil || 0) > now;
+    return dialogShielded.has(save) || (save.immortalPotionUntil || 0) > now;
   }
   function flying(save, now = Date.now()) {
     // Natural flyers carry the same flight permanently through their kind's
@@ -224,5 +233,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

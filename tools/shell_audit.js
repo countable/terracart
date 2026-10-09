@@ -65,24 +65,10 @@ const CHECKS = [
       }
     },
   },
-  {
-    name: 'shell: both a failed script AND a failed page fall back to a cached build',
-    run() {
-      const sw = read('sw.js');
-      // Two independent fallbacks, one per branch of the fetch handler: the
-      // page itself (network-first) and the versioned modules. Counting them
-      // is crude, but it catches losing EITHER — and losing the script one is
-      // what half-boots the app on a hiccuped deploy.
-      const n = (sw.match(/ignoreSearch:\s*true/g) || []).length;
-      if (n < 2) {
-        throw new Error(`sw.js has ${n} version-agnostic cache fallback(s), expected `
-          + '2 (one for HTML, one for scripts) — without the script one a hiccuped '
-          + 'request during a deploy drops a module and half-boots the app');
-      }
-    },
-  },
 ];
 
+// Offline HTML fallback and exact-version script caching are exercised against
+// the real worker in service_worker_checks.js, also wired into the node suite.
 // Note: WHICH BUILD of each module the page and the worker agree on is the
 // same concern one step finer, and tools/cachebust.js owns it — a module whose
 // bytes changed while its ?v= stood still keeps its old URL, so the HTTP cache

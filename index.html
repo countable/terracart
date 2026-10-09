@@ -8,12 +8,80 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#111" />
+  <script>
+    // Boot recovery stays inline: it must work even when no dependency arrives.
+    (function () {
+      const KEY = 'terracart.bootRetries', LIMIT = 2;
+      let failed = false, complete = false, timer = null, panel = null;
+      function retry(manual) {
+        if (manual) { try { sessionStorage.removeItem(KEY); } catch (_) {} }
+        location.reload();
+      }
+      function fail(automatic = true) {
+        if (failed || complete) return;
+        failed = true;
+        function show() {
+          panel = document.createElement('div');
+          panel.id = 'boot-recovery';
+          panel.setAttribute('role', 'alert');
+          panel.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#17251f;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:28px;text-align:center;font:18px system-ui';
+          const message = document.createElement('p');
+          const button = document.createElement('button');
+          button.textContent = 'Try again';
+          button.style.cssText = 'font:inherit;padding:12px 24px;cursor:pointer';
+          button.onclick = () => { clearTimeout(timer); retry(true); };
+          panel.append(message, button);
+          document.body.appendChild(panel);
+          let attempts = LIMIT;
+          try {
+            const stored = Number(sessionStorage.getItem(KEY) || 0);
+            if (Number.isInteger(stored) && stored >= 0) attempts = stored;
+            // Persist before scheduling, so a failed storage write cannot loop.
+            if (automatic && attempts < LIMIT) sessionStorage.setItem(KEY, String(attempts + 1));
+          } catch (_) { attempts = LIMIT; }
+          function schedule() {
+            if (timer !== null) return;
+            if (navigator.onLine === false) {
+              message.textContent = 'Connection lost. Waiting to reconnect…';
+              return;
+            }
+            if (automatic && attempts < LIMIT) {
+              message.textContent = 'Download interrupted. Trying again…';
+              timer = setTimeout(() => {
+                timer = null;
+                if (navigator.onLine === false) schedule();
+                else retry(false);
+              }, 1000 * (attempts + 1));
+            } else {
+              message.textContent = "Couldn't load the game. Check your connection and try again.";
+            }
+          }
+          window.addEventListener('online', schedule);
+          schedule();
+        }
+        if (document.body) show();
+        else window.addEventListener('DOMContentLoaded', show, { once: true });
+      }
+      window.__bootRecovery = {
+        get failed() { return failed; },
+        fail,
+        ready() { if (!failed) { complete = true; try { sessionStorage.removeItem(KEY); } catch (_) {} } }
+      };
+      window.addEventListener('error', event => {
+        const script = event.target;
+        // app.js has its own bounded retries. Runtime errors are diagnostic,
+        // not network failures; only SCRIPT resource errors trigger recovery.
+        if (script?.tagName === 'SCRIPT' && script.src && !script.dataset.bootApp) fail();
+      }, true);
+    })();
+    // End boot recovery.
+  </script>
   <!-- Fetch the parser's two largest scripts before the classic-script chain
        reaches them. app.js still waits behind the first-location boot gate;
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=36cc0c08" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d68fe637" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2836,7 +2904,7 @@
   <script src="src/coords.js?v=9f69f77e"></script>
   <script src="src/fog.js?v=e5c1de4f"></script>
   <script src="src/biome_profiles.js?v=e53f1a41"></script>
-  <script src="src/habitat_spawns.js?v=24529d22"></script>
+  <script src="src/habitat_spawns.js?v=f075756c"></script>
   <script src="src/traps.js?v=eda49121"></script>
   <script src="src/whirlwinds.js?v=64367d97"></script>
   <script src="src/hazard_falls.js?v=6197325b"></script>
@@ -2853,14 +2921,14 @@
   <script src="src/cave_areas.js?v=bf066b0a"></script>
   <script src="src/underground.js?v=cb4e7d5b"></script>
   <script src="src/underground_stories.js?v=deb09860"></script>
-  <script src="src/worldgen.js?v=17a1f0fc"></script>
+  <script src="src/worldgen.js?v=4beac316"></script>
   <script src="src/castle_styles.js?v=ea3cd17d"></script>
   <script src="src/textures.js?v=9beaed13"></script>
   <script src="src/save.js?v=b103250b"></script>
-  <script src="src/items.js?v=01332e76"></script>
+  <script src="src/items.js?v=7eee8fbc"></script>
   <script src="src/inventory.js?v=26134d06"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
-  <script src="src/conditions.js?v=5e3e8427"></script>
+  <script src="src/conditions.js?v=17e004a9"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=cec6c482"></script>
   <script src="src/crops.js?v=fbc9ff13"></script>
@@ -2872,7 +2940,7 @@
   <script src="src/shops.js?v=71499e32"></script>
   <script src="src/egg_hatch.js?v=31bee6f8"></script>
   <script src="src/chest_themes.js?v=3d71c937"></script>
-  <script src="src/rarity.js?v=03e2e57c"></script>
+  <script src="src/rarity.js?v=7019fc7c"></script>
   <script src="src/loot.js?v=771677dc"></script>
   <script src="src/macros.js?v=8beb2743"></script>
   <script src="src/quests.js?v=e0c5a12a"></script>
@@ -2903,12 +2971,12 @@
   <script src="src/play_tips.js?v=0996076e"></script>
   <script src="src/lighting.js?v=bc8da246"></script>
   <script src="src/safety.js?v=f101b236"></script>
-  <script src="src/render.js?v=c2aa38e9"></script>
+  <script src="src/render.js?v=85a12836"></script>
   <script src="src/gas_render.js?v=5e124492"></script>
-  <script src="src/multiplayer.js?v=b82b1377"></script>
+  <script src="src/multiplayer.js?v=a5cb9579"></script>
   <script src="src/road_overlay.js?v=f66e6df1"></script>
   <script src="src/temple_art.js?v=e92e8263"></script>
-  <script src="src/building_overlay.js?v=9c31fc55"></script>
+  <script src="src/building_overlay.js?v=f6797ced"></script>
   <script src="src/assets.js?v=9673f3e9"></script>
   <script src="src/sandbox_destinations.js?v=0c811c95"></script>
   <script src="src/sandbox.js?v=0a89786a"></script>
@@ -2918,7 +2986,7 @@
   <script src="src/modal_shell.js?v=0f73c5b6"></script>
   <script src="src/scene_geo.js?v=0caad962"></script>
   <script src="src/npc.js?v=9008cf6b"></script>
-  <script src="src/scene_creatures.js?v=45b9bbe0"></script>
+  <script src="src/scene_creatures.js?v=21705ba4"></script>
   <script src="src/scene_fire.js?v=0dfbecec"></script>
   <script src="src/scene_shops.js?v=3fcad383"></script>
   <script src="src/scene_create.js?v=ff48a725"></script>
@@ -2947,7 +3015,7 @@
       const cap = document.getElementById('bootload-cap');
       let gone = false, watchdog = null, held = false;
       function vanish() {
-        if (gone) return;
+        if (gone || window.__bootRecovery.failed) return;
         // The safety question is part of this view: never fade it out from
         // under an unanswered CTA. The dismiss handler releases the hold.
         if (document.getElementById('safety')) { held = true; return; }
@@ -2958,8 +3026,16 @@
       }
       function arm() { clearTimeout(watchdog); watchdog = setTimeout(vanish, 30000); }
       window.__bootSafetyAnswered = function () { if (held) vanish(); };
+      // app.js never arrived, retries included (boot gate below). Fading out
+      // would leave only the HTML menu over an empty page, so stay up and
+      // say so; a tap reloads.
+      window.__bootFailed = function () {
+        clearTimeout(watchdog);
+        window.__bootRecovery.fail(false);
+      };
       window.__bootStatus = function (frac, label) {
-        if (gone) return;
+        if (frac >= 1) window.__bootRecovery.ready();
+        if (gone || window.__bootRecovery.failed) return;
         el.classList.remove('indet');
         if (typeof frac === 'number') {
           fill.style.width = Math.max(6, Math.min(100, frac * 100)) + '%';
@@ -2988,7 +3064,8 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=36cc0c08';
+      if (window.__bootRecovery.failed) return;
+      const APP_SRC = 'src/app.js?v=d68fe637';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
@@ -2997,14 +3074,34 @@
 
       let booted = false;
       function bootApp() {
-        if (booted) return;
+        if (booted || window.__bootRecovery.failed) return;
         booted = true;
         document.getElementById('locating')?.remove();
         window.__flushPendingHowTo?.();
-        const endLoad = window.__boot?.begin('app.js load + parse');
+        loadApp(0);
+      }
+      // A failed app.js request used to be final: the overlay sat until its
+      // watchdog, then faded onto the bare menu. Retry with an extra query,
+      // which the service worker sends to the network instead of its cache
+      // key (sw.js resourceKey), and probe the network with a HEAD (workers
+      // never see one) so the profile tells a server failure from a cache
+      // or preload one.
+      const APP_RETRIES = 2;
+      function loadApp(attempt) {
+        const endLoad = window.__boot?.begin(attempt ? 'app.js load + parse (retry ' + attempt + ')' : 'app.js load + parse');
         const el = document.createElement('script');
-        el.onerror = () => endLoad?.('FAILED');
-        el.src = APP_SRC;
+        el.dataset.bootApp = 'true';
+        const src = attempt ? APP_SRC + '&retry=' + attempt + '.' + Date.now() : APP_SRC;
+        el.onerror = () => {
+          endLoad?.('FAILED');
+          el.remove();
+          fetch(src, { method: 'HEAD', cache: 'no-store' })
+            .then(r => window.__boot?.mark('app.js network probe: HTTP ' + r.status))
+            .catch(e => window.__boot?.mark('app.js network probe: ' + (e && e.message || 'failed')));
+          if (attempt < APP_RETRIES) setTimeout(() => loadApp(attempt + 1), 800 * (attempt + 1));
+          else window.__bootFailed?.();
+        };
+        el.src = src;
         // app.js defines window.TELEPORT_PRESETS; the ☰ menu's teleport
         // section was built before it loaded, so build it again now.
         el.onload = () => { endLoad?.(); try { window.__buildTeleportMenu?.(); } catch (_) {} };

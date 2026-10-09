@@ -772,6 +772,15 @@
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
           // Lowest visible masonry, excluding transparent frame padding.
           groundY: (masonryBaseY - projY(0)) * scene.cellM / CELL_PX,
+          // The whole edge's BASE LINE and this piece's x-span, in world m
+          // (Render.seatAgainstWalls): the edge shifted down by this piece's
+          // own foot offset, so it meets groundY at the piece's low end.
+          base: (() => {
+            const k = scene.cellM / CELL_PX, off = masonryBaseY - Math.max(p.y, q.y);
+            return { x0: (a.x - projX(0)) * k, y0: (a.y + off - projY(0)) * k,
+              x1: (b.x - projX(0)) * k, y1: (b.y + off - projY(0)) * k,
+              wx0: wx * k, wx1: (wx + w) * k };
+          })(),
         };
         scene._buildingUprightCache.set(cacheKey, piece);
         seen.add(cacheKey);

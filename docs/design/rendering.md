@@ -27,7 +27,11 @@ rendering, lighting or street mechanics. Camera and art geometry live in
   Add sprite appearances to `RENDER_SPEC`; ground surfaces stay underneath.
   Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
   renderers. Polygon corners use bounded bevel joins; depth seating follows
-  the rendered masonry base, including the lift on angled edges.
+  the rendered masonry base, including the lift on angled edges. Each angled
+  wall piece also carries its edge's base line (`base`), and players, booths
+  and Home (`wallSeat` rows) are judged against it at their own x
+  (`Render.seatAgainstWalls`): in front of the wall where they stand, they
+  draw over every piece they overlap; behind it, under every one.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.

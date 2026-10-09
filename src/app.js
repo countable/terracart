@@ -329,6 +329,15 @@ const PEEK_RETURN_MS = 90;
 // Underground is exempt: down there the body mines its way to the target no
 // matter how far, and a snap would drop the player inside solid rock.
 const GPS_SNAP_M = 200;
+// After confusion the body walks itself back to the GPS at walking pace, with
+// no catch-up ramp and no snap (_confusedRecover) — for at most this long
+// after the condition ends. Walking pace never closes the gap on a player
+// who is walking, so an open-ended recovery left the body off the GPS for good.
+const CONFUSED_RECOVER_MS = 6000;
+// The dialogs that pause the fight (_storyDialogOpen): modal_shell kinds, and
+// the static index.html overlays that carry no kind.
+const STORY_DIALOG_KINDS = new Set(['story', 'note', 'memory']);
+const STORY_DIALOG_IDS = new Set(['story', 'howto']);
 // The SNAP's own cut — a placement past GPS_SNAP_M moves the body somewhere
 // the player never walked, so it earns a transition rather than the world
 // just resetting under them mid-frame: a small burst where they're standing,
@@ -2987,6 +2996,11 @@ class MapScene extends Phaser.Scene {
         setTimeout(() => { this._prewarmModalIcons(); this._prewarmFx(); }, 4000);
       }
     }
+    // THE STORY PAUSE: while a story dialog is up the player takes no damage
+    // (Conditions.setDialogShield) and pursuing foes hold still
+    // (wanderCreatures). Read once per frame, before any damage lane.
+    this._storyPause = this._storyDialogOpen();
+    Conditions.setDialogShield(this.save, this._storyPause);
     // Keep body.modal-open honest. The MutationObserver in
     // _installModalPadGate misses an overlay that is REMOVED from the document
     // (the story and safety cards are), and a latched class hides the entire
@@ -3113,6 +3127,7 @@ class MapScene extends Phaser.Scene {
     // second reason — a cap on the follow step rather than a hold.
     const bodyHold = this._bodyHold();
     if (this._confusedLoop && !Conditions.active(this.save, 'confused')) this._endConfusedWalk();
+    this._expireConfusedRecover?.(performance.now());
     if (bodyHold.pinned) {
       // Held still, but sharp ground continues hurting.
       const { x, y } = playerWorldM(this);
@@ -5947,6 +5962,15 @@ class MapScene extends Phaser.Scene {
   // about: cheap steering close to home, a darkening character further out, and
   // the walk back when you let go. Measured body-to-fix when there's a fix; with
   // no GPS at all the accumulated stick offset is the only notion of "away".
+  // Is the player's REAL position (the GPS fix) near Home — the shared
+  // near-home test (HomeArea.isNear, NEAR_M) about the live Home? True with
+  // no fix to ask, so a desktop or sandbox session keeps the body's answer.
+  _gpsNearHome() {
+    if (!this.gpsM || !this.startWorldM) return true;
+    const home = this.homeWorldPos?.();
+    if (!home) return false;
+    return HomeArea.isNear(this.startWorldM.x + this.gpsM.x, this.startWorldM.y + this.gpsM.y, HomeArea.NEAR_M, home);
+  }
   _gpsAwayM() {
     if (this.gpsM) {
       return Math.hypot(this.playerM.x - this.gpsM.x, this.playerM.y - this.gpsM.y);
@@ -6466,6 +6490,13 @@ class MapScene extends Phaser.Scene {
     this._playDirected(this.player, 'walk', this.facing.x, this.facing.y);
   }
 
+  // Recovery's clock starts when the condition ends (CONFUSED_RECOVER_MS),
+  // whether or not the body ever took a confused step.
+  _expireConfusedRecover(now) {
+    if (!this._confusedRecover || Conditions.active(this.save, 'confused')) { this._confusedRecoverUntil = null; return; }
+    this._confusedRecoverUntil ??= now + CONFUSED_RECOVER_MS;
+    if (now >= this._confusedRecoverUntil) { this._confusedRecover = false; this._confusedRecoverUntil = null; }
+  }
   _endConfusedWalk() {
     // Sensor samples continue smoothing privately during confusion. Restore
     // their latest heading, or the pre-effect fallback on devices without one.
@@ -7543,6 +7574,15 @@ class MapScene extends Phaser.Scene {
   // Is a dialog up right now? Read off the DOM, not body.modal-open: that
   // class is synced by a MutationObserver AFTER the tap's handler, and the
   // fanfare fires in the same handler that just mounted the dialog.
+  // Is a STORY dialog up — a talk, a letter, a story moment, a memory, or
+  // the opening story / how-to overlays? Shops, trades and the like are not:
+  // a foe's blow still closes a shop (_closeShopOnHit).
+  _storyDialogOpen() {
+    if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return false;
+    return [...document.querySelectorAll('.game-modal')].some((el) => el.isConnected
+      && (STORY_DIALOG_KINDS.has(el.dataset?.kind) || STORY_DIALOG_IDS.has(el.id))
+      && el.style.display !== 'none' && el.getClientRects().length > 0);
+  }
   _dialogOpen() {
     if (typeof document === 'undefined') return false;
     // Headless (no DOM query): the mirrored class is all there is to read.
@@ -7819,10 +7859,16 @@ class MapScene extends Phaser.Scene {
   // under 'revive'; a busy screen leaves it unmarked for the next revival,
   // the _storySplashOnce rule. It tells no numbers: the energy the revival
   // gave is the on-screen pop's (_splashEnergyGain), not the story's.
+  // It tells of being carried HOME, so it waits for a revival the player is
+  // really at Home for: the stick can walk the body into Home's ring while the
+  // phone is elsewhere, so the GPS fix must be near Home too (HomeArea.isNear).
+  // Without a fix (desktop, sandbox) the body's word is all there is. Left
+  // unmarked, the next revival at Home asks again.
   _reviveStoryboard() {
     const seen = this.save.storySeen = this.save.storySeen || {};
     if (seen.revive) return;
     if (this._dialogOpen()) return;
+    if (!this._gpsNearHome()) return;
     seen.revive = 1;
     persistSave(this.save);
     const PANELS = [
