@@ -201,13 +201,13 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   // IF NOT WARDED. The roster mover is handed the two gates: `inactive`
   // (`unnoticed` — a Shadow Powder, or a bar run to zero — or `standDown`,
   // the one read for "this foe is not attacking you right now": Home's ward,
-  // a wander-off, the kerb, a sated thief, a lair guard that has not noticed
-  // you) and `routed`; a tame slime (released_) never reaches it at all.
+  // a wander-off, the kerb, a sated thief, an unprovoked grove resident, a
+  // lair guard that has not noticed you) and `routed`; a tame slime (released_) never reaches it at all.
   assert.truthy(/const rosterRow = !isTame \? EnemyRoster\.get\(c\.kind\) : null;/.test(app), 'a tame slime is a pet, not a foe');
   assert.truthy(/rosterEnemyMove\(this, c, rosterRow, now, npcTarget\?\.x \?\? px, npcTarget\?\.y \?\? py,\s*\(npcTarget \? NPC\.isDormant\(npcTarget\) : unnoticed\) \|\| standDown,\s*routed \|\| \(kerbTurn && !c\.lair\), lairState, enemyDt\);/.test(app),
     'the mover is told unnoticed, standDown and routed');
-  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\| sated \|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
-    'and standDown is still built from Home\'s ward, the wander-off, the kerb (creature_ai.js THE KERB), a sated thief (Combat.theftSated) and the lair state');
+  assert.truthy(/const standDown = frightened \|\| psychotic \|\| warded \|\| wanderOff \|\| kerbTurn \|\| sated \|\| unprovoked\s*\|\| \(!!lairState && lairState !== 'hunt'\);/.test(app),
+    'and standDown is still built from Home\'s ward, the wander-off, the kerb (creature_ai.js THE KERB), a sated thief (Combat.theftSated), an unprovoked grove resident (EnemyHabitats.unprovoked) and the lair state');
   // Home's ward is checked EARLIER in the mover's chain, so a warded slime is
   // walking out whether or not it has been hit; a mover that sees nothing
   // (`!sees` — inactive) idles rather than charging.

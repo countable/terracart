@@ -36,6 +36,13 @@ mechanics.
   preserve gas. Fields and emitter cooldowns are session-local, separated by
   depth and paused while that depth is inactive.
 
+- Mushroom Grove residents are provoked-only (`EnemyHabitats.PROVOKED_ONLY`):
+  until provoked they count among `standDown` in `wanderCreatures` — no chase,
+  puff or blow, at the player or a neighbour. A player-side or peer blow
+  provokes the one struck; picking or starting to chop one of the grove's own
+  mushrooms provokes every resident seated in that same zone anchor. The flag
+  is session state, so a reload calms the grove. Cave mushrooms stay hostile.
+
 - Spiders use the roster's `web` attack from two to four cells away, after a visible
   wind-up, aimed at the cell occupied when aiming began. The silk travels to
   that fixed cell, then spreads over it. Coming closer than two cells cancels
