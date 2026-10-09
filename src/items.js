@@ -688,12 +688,12 @@ const BASE_TIER = {
   revival_potion: 3, resurrection_potion: 5,
   // Thunder: a screen-wide strike that also breaks a fight up — T4.
   thunder_scroll: 4,
-  // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
-  // it: three minutes of not being hunted is a way to WALK AWAY from a fight, the
-  // same shape as the reach/speed/shield potions it now shares a tier with.
+  // Growth Powder is a T1 farm utility, there from the first harvest. Shadow
+  // is T2: three minutes of not being hunted is a way to WALK AWAY from a fight,
+  // the same shape as the reach/speed/shield potions it shares a tier with.
   // Frost is the T3 fight-changer before the T4 dragon — it is the one that turns
   // a fight you are already in.
-  growth_powder: 2, shadow_powder: 2, frost_powder: 3, sleep_powder: 3,
+  growth_powder: 1, shadow_powder: 2, frost_powder: 3, sleep_powder: 3,
   // Psychosis is the T1 powder — ten seconds of foes running every which
   // way, the weak cousin of Fear (T3): the first Magic shop sells it beside
   // the Antidote, so the first cave trip has one trick to get clear with.
@@ -1641,7 +1641,7 @@ const PRICES = {
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_scroll: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
-  growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
+  growth_powder: 60,   // T1 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach chilled (slowed) for 30 s
