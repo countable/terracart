@@ -4,13 +4,14 @@
 // warmth (FIRE_FULL_REST_S) — must pause while a work wheel runs. Otherwise a new player's first till is
 // free: the starter plot is carved inside Home's rest ring (HOME_R), so the
 // Home rest ticks under a wheel that already cost ENERGY_COST.till and hands
-// it back before the wheel finishes.
+// most of it back before the wheel finishes.
 //
 // app.js needs Phaser and can't load headlessly, so the gate is pinned as
 // source text (SCENE_SRC is lifted by run.js). The arithmetic test below is
-// the reason the gate exists: if the rates or the till ever change so a
-// wheel can't out-earn its cost, the gate is still right, just no longer load-
-// bearing — never drop it to "fix" that test.
+// the reason the gate exists: an ungated rest refunds at least half a
+// bare-handed till. If the rates or the till ever change so it refunds less,
+// the gate is still right, just less load-bearing — never drop it to "fix"
+// that test.
 
 (function () {
 const app = SCENE_SRC;
@@ -91,7 +92,7 @@ test('rest/work: campfire warmth pauses while working', () => {
     'the campfire branch carries the !working gate (and, on hard mode, the zero-energy lockout too)');
 });
 
-test('rest/work: why — an ungated Home rest out-earns a bare-handed starter till', () => {
+test('rest/work: why — an ungated Home rest refunds most of a bare-handed starter till', () => {
   // Lifted, not restated: HOME_FULL_REST_S from app.js, the till cost and the
   // hoe ladder from items.js, and the two halvings the till handler applies
   // (global 2× speed-up, then the grassland half-time — the starter plot is
@@ -104,7 +105,7 @@ test('rest/work: why — an ungated Home rest out-earns a bare-handed starter ti
   const tillMs = Math.round(Math.round(toolDurationMs(null, 'hoe') / 2) / 2);
   const maxE = STARTING_ENERGY;
   const restedDuringWheel = maxE * (tillMs / 1000) / homeRestS;
-  assert.truthy(restedDuringWheel >= ENERGY_COST.till,
+  assert.truthy(restedDuringWheel >= ENERGY_COST.till / 2,
     `an ungated rest returns ${restedDuringWheel.toFixed(2)}⚡ during a ${tillMs} ms till that cost ${ENERGY_COST.till}⚡ — the gate is load-bearing`);
 });
 

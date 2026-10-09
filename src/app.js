@@ -8634,7 +8634,7 @@ class MapScene extends Phaser.Scene {
   // Callers (interact.js handlers) refuse the action when this returns false.
   // `cell` ({ ix, iy }, absolute) is the cell the price is shown on; without
   // it the cell under the tap (sx, sy) is used — every interact.js handler
-  // hands the tap through, so a till pops its "−2⚡" on the plot it tilled. A
+  // hands the tap through, so a till pops its "−N⚡" on the plot it tilled. A
   // spend with neither (the staff's per-bolt cost) is silent, exactly as its
   // "too tired" is: an auto-firing weapon must not spam the map.
   spendEnergy(cost, sx, sy, cell = null) {
