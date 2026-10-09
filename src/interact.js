@@ -47,7 +47,8 @@ function consumeSelected(save, n = 1) {
   sel.count -= n;
   if (sel.count > 0) return;
   save.inv.splice(save.selSlot, 1);
-  if (sel.id === 'egg' && Inventory.count(save, 'egg') === 0) save.eggHatchM = 0;
+  const egg = EGG_HATCH_SPEC[sel.id];
+  if (egg && Inventory.count(save, sel.id) === 0) save[egg.progress] = 0;
   save.selSlot = -1;
 }
 
@@ -848,7 +849,7 @@ const TAP_HANDLERS = [
       // are one row of the creature table (`produce`) — so "is this a
       // producer" above, the item here and the verb below can't disagree.
       const produce = SpriteLayout.creatureProduce(target.kind);
-      const yieldId = produce ? produce.item : null;
+      const yieldId = produce ? (target.shiny && produce.shinyItem || produce.item) : null;
       if (yieldId) {
         const now = Date.now();
         const lastT = Ledger.until(save.lastProduce, target.id) || target._lastProduceT || 0;

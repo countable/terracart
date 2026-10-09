@@ -10267,7 +10267,7 @@ class MapScene extends Phaser.Scene {
   hatchEgg() {
     const selectedId = this.save.inv?.[this.save.selSlot]?.id;
     const at = playerWorldM(this), cell = this.playerToWorldCell();
-    const result = EggHatch.hatch(this.save, Math.random, { ...at, tx: cell.tx, ty: cell.ty, depth: this.depth || 0 });
+    const result = EggHatch.hatch(this.save, Math.random, { ...at, tx: cell.tx, ty: cell.ty, depth: this.depth || 0 }, selectedId);
     if (!result.ok) {
       if (result.reason === 'full') this.flash('Make room for a pet first.');
       return false;
@@ -10325,7 +10325,7 @@ class MapScene extends Phaser.Scene {
       button.style.opacity = button.disabled ? '0.55' : '1';
       button.style.cursor = button.disabled ? 'default' : 'pointer';
       // Eggs keep Eat and Hatch available without overlapping the controls.
-      button.style.bottom = sel.id === 'egg'
+      button.style.bottom = EggHatch.isEgg(sel.id)
         ? 'calc(46px + env(safe-area-inset-bottom, 0px))'
         : 'calc(4px + env(safe-area-inset-bottom, 0px))';
     };
