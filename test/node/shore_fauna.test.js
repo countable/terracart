@@ -192,11 +192,14 @@ function nativeBeach() {
       { key: 'native_beach', kind: 'beach', variant: 'shellwater_strand', gx: 10, gy: 10 }] } };
   return b;
 }
-test('shore fauna: Beach Nexus supplies native Crabs and Sea Turtles without ordinary shoreline duplication', () => {
+// A beach zone claims most of a real beach (any OSM natural=beach), so its
+// native list must carry the gull or real beaches have none.
+test('shore fauna: Beach Nexus supplies native Crabs, Sea Turtles and Gulls without ordinary shoreline duplication', () => {
   const b = nativeBeach(), creatures = seat(b);
   assert.truthy(creatures.some(c => c.kind === 'sea_turtle'));
   assert.truthy(creatures.some(c => c.kind === 'crab'));
-  assert.truthy(creatures.every(c => ['crab', 'sea_turtle'].includes(c.kind)));
+  assert.truthy(creatures.some(c => c.kind === 'gull'));
+  assert.truthy(creatures.every(c => ['crab', 'sea_turtle', 'gull'].includes(c.kind)));
   assert.truthy(creatures.every(c => c.id.startsWith('shore_habitat_') && c.zoneVariant === 'shellwater_strand'));
   assert.truthy(b.entry.shorePopulation.every(row => row.key.startsWith('zone:')));
 });

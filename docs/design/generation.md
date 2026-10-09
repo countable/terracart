@@ -30,7 +30,7 @@ access or tile lifecycle mechanics.
   species placement limits.
 - Shore length is a specialized habitat budget. Ordinary and declared Beach/
   Marine Meadow owners partition raw shoreline; safety only removes destinations.
-  Beach owners supply native Crabs/Turtles and count authored inhabitants before
+  Beach owners supply native Crabs/Turtles/Gulls and count authored inhabitants before
   filling remaining slots. `entry.shorePopulation` records placement shortfalls.
 - The former species-first draw stream is replayed only to preserve unrelated
   tile treasure RNG and map old cell-based enemy defeats to new stable habitat
