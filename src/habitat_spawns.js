@@ -5,7 +5,7 @@
   const FAUNA_PER_TILE = 160, ENEMIES_PER_TILE = 50;
   const LAND_FAUNA = {
     GRASS: { chicken: 5, cow: 4, butterfly: 4, rabbit: 3, crow: 2, horse: .4 },
-    RESIDENTIAL: { cat: 4, dog: 4, chicken: 3, deer: 2, raven: 2, cow: .5 },
+    RESIDENTIAL: { cat: 4, dog: 4, chicken: 3, deer: 2, cow: .5, raven: .5 },
     FOREST: { deer: 6, rabbit: 3, dog: 1 },
     FARMLAND: { chicken: 6, cow: 5, rabbit: 2, horse: 1 },
     WASTELAND: { dog: 5, rabbit: 2, chicken: 1 },

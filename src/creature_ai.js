@@ -935,7 +935,7 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
 // How long a departing crow keeps flying away (_crowDepart): [base, spread]
 // ms, so ~2.5–4 minutes — once the player starts hunting it.
 const CROW_DEPART_MS = [150000, 90000];
-// How far a CROP RAIDER (the deer, the crow or the raven — SpriteLayout `raidsCrops`) notices a
+// How far a CROP RAIDER (the deer or the crow — SpriteLayout `raidsCrops`) notices a
 // planted crop it may eat, in cells (wanderCreatures raidStep): the on-screen
 // sim range, so it spots a field from across the viewport but not from the
 // next street. It does not teleport in — every step is its own gait's — so a

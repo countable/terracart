@@ -661,11 +661,8 @@
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
     // These birds also have hostile roster movement, but remain wild animals.
-    // The raven is also the houses' crop raider: while it is not after the
-    // player it cases a field on the crow's rhythm (scene_creatures.js
-    // _foeCasesCrop → _wildCrowTick).
     gull:          { animal: true },
-    raven:         { animal: true, raidsCrops: true, avoids: ['scarecrow'] },
+    raven:         { animal: true },
     crow:          { wanders: true, game: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
     // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
