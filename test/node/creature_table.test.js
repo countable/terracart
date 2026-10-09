@@ -125,8 +125,8 @@ test('creature table: animal interaction timing has one owner beside behaviour',
     'honey asks the producer predicate instead of naming chicken and cow again');
 });
 
-test('creature table: a scarecrow turns back the crop raiders — crow, deer and raven — and nothing else', () => {
-  assert.eq(ctKinds((k) => CT_SL.creatureAvoids(k, 'scarecrow')), 'crow,deer,raven');
+test('creature table: a scarecrow turns back the crow and the deer, and nothing else', () => {
+  assert.eq(ctKinds((k) => CT_SL.creatureAvoids(k, 'scarecrow')), 'crow,deer');
   assert.falsy(CT_SL.creatureAvoids('slime', 'scarecrow'),
     'a scarecrow is no answer to a slime — that is what a campfire is for');
   assert.falsy(CT_SL.creatureAvoids('crow', 'fire'),

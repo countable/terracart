@@ -75,7 +75,7 @@ function mkScene(entry, creature, feet) {
       if (taken > 0) Combat.bankTheft(this.save, c);
       return taken;
     },
-    updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {}, _foeCasesCrop: () => false,
+    updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   };
   scene.creatures = [creature];
   return scene;
