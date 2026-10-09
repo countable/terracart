@@ -4,6 +4,21 @@
 // 5-cell beach, a separate grove) must actually paint, and
 // the dungeon floors must build from it.
 (() => {
+  globalThis.test('floor viewer seed: failed builds restore shared hash and RNG hooks', async () => {
+    const originalHash = globalThis.fnv1a;
+    const originalRoll = WorldGen.makeRng(123)();
+    let failed = false;
+    try {
+      await FloorViewerRegion.withSeed(42, async () => {
+        assert.truthy(globalThis.fnv1a('habitat') !== originalHash('habitat'));
+        assert.truthy(WorldGen.makeRng(123)() !== originalRoll);
+        throw new Error('failed build');
+      });
+    } catch (error) { failed = error.message === 'failed build'; }
+    assert.truthy(failed);
+    assert.eq(globalThis.fnv1a, originalHash);
+    assert.eq(WorldGen.makeRng(123)(), originalRoll);
+  });
   const test = (name, fn) => globalThis.test(name, async () => {
     const W = WorldGen;
     const cached = Array.from({ length: 9 }, (_, d) => [...W.tileCacheFor(d)]);

@@ -819,6 +819,9 @@ const ITEMS = [
   // longgrass for an egg / milk. Repeatable until either you run out of
   // longgrass or the animal is caught.
   { id: 'egg',  name: 'Egg',  kind: 'produce' },
+  { id: 'shiny_egg', name: 'Shiny Egg', kind: 'produce', base: 'egg', shiny: true, baseTier: Math.min(7, BASE_TIER.egg + SHINY_TIER_UP) },
+  { id: 'green_dragon', name: 'Green Dragon', kind: 'animal', baseTier: 7 },
+  { id: 'baby_green_dragon', name: 'Baby Green Dragon', kind: 'animal', base: 'green_dragon', baby: true, baseTier: 7 },
   { id: 'milk', name: 'Milk', kind: 'produce' },
   // Wild-only produce — grows in grasslands, picked as debris. Not plantable.
   // Display name 'Long grass'; id stays 'longgrass' for save / loot-table
@@ -1229,6 +1232,13 @@ const CONSUMABLE_SPEC = {
     disabled: scene => !EggHatch.ready(scene.save),
     usable: scene => EggHatch.ready(scene.save),
   },
+  shiny_egg: {
+    verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the shiny egg?',
+    get: 'A green dragon baby stirs inside the shell.',
+    label: scene => EggHatch.ready(scene.save, 'shiny_egg') ? 'Hatch' : `Hatch · ${EggHatch.remaining(scene.save, 'shiny_egg')} m left`,
+    disabled: scene => !EggHatch.ready(scene.save, 'shiny_egg'),
+    usable: scene => EggHatch.ready(scene.save, 'shiny_egg'),
+  },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
   tome_reach: { verb: 'Read', title: 'Read the Tome of Reach?',
     usable: scene => scene.tomeUsable('tome_reach'),
@@ -1562,6 +1572,9 @@ const PRICES = {
 
   // ── Animal produce (longgrass-feeding output) ────────────
   egg:  4,
+  shiny_egg: 40,
+  baby_green_dragon: 360,
+  green_dragon: 120,
   milk: 18,
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
@@ -1748,6 +1761,10 @@ const ITEM_GUIDE_TIPS = {
 // physical detail or sensation; keep effect lists and exact numbers out.
 
 const EGG_HATCH_METERS = 500;
+const EGG_HATCH_SPEC = Object.freeze({
+  egg: { progress: 'eggHatchM', session: 'eggHatchSession', shiny: true },
+  shiny_egg: { progress: 'shinyEggHatchM', session: 'shinyEggHatchSession', babies: ['baby_green_dragon'], shiny: false },
+});
 
 const ITEM_EFFECTS = {
   pet_collar: 'A broad, soft collar for a companion with a long road ahead.',
@@ -1765,6 +1782,8 @@ const ITEM_EFFECTS = {
   smiths_guild_badge: 'Smiths nod at the little hammer and go easier on your ore.',
   marketeers_guild_badge: 'Shopkeepers see the coin on it and knock a little off.',
   traders_guild_badge: 'Traders spot the crossed arrows and ask a little less.',
+  shiny_egg: 'A warm gleam hides a tiny green dragon.',
+  baby_green_dragon: 'Small green wings unfold from a shining shell.',
   egg: 'A tiny heartbeat keeps time with your footsteps.',
   ...Object.fromEntries(BABY_KINDS.map(k => [babyItemId(k),
     'Too small to be left in the bag for long. Set it down on soft ground and let it grow.'])),
@@ -1948,6 +1967,7 @@ const ANIMAL_FOOD = {
   // so the array can stay empty. (Was ['rainberry'] before seeds replaced
   // berries as the canonical feed.)
   chicken: [],
+  green_dragon: ['meat'],
   rabbit: ['cress'],
   deer: ['apple'],
   crow: ['potato_seed'],

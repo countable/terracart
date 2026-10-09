@@ -138,7 +138,7 @@ function mkScene(creature, feet, save) {
       return taken;
     },
     _trapperLay() { this._laid++; },
-    updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {}, _foeCasesCrop: () => false,
+    updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   };
   scene.creatures = [creature];
   return scene;

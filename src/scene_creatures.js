@@ -1965,13 +1965,6 @@ class SceneCreatures {
       // the kerb turn, a garrison's hunt and walk home (`lairState`). What
       // follows below is the animals' and the pets' step chain.
       if (rosterRow) {
-        // A CROP-RAIDING FOE (the raven) not after the player flies the crow's
-        // raid instead (_foeCasesCrop).
-        if (!routed && !lairState && !npcTarget && !isTame && SpriteLayout.creatureBehaviour(c.kind)?.raidsCrops
-          && this._foeCasesCrop(c, now, distM, unnoticed)) {
-          this._wildCrowTick(c, now, px, py);
-          return;
-        }
         rosterEnemyMove(this, c, rosterRow, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
           (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || standDown,
           routed || (kerbTurn && !c.lair), lairState, enemyDt);
@@ -2372,29 +2365,6 @@ class SceneCreatures {
     if (reason === 'hunted') return;
     c._perchUntilT = now;
     c._flightUntilT = null;
-  }
-
-  // Does a hostile CROP RAIDER (a roster foe whose behaviour row says
-  // `raidsCrops` — the raven) fly the crow's raid this tick rather than its
-  // roster mover? Only while it is not after the player (unnoticed, or out
-  // of its sight) and has a field to work: one it is already counting down
-  // on, a raidable crop within RAID_NOTICE_CELLS, or the retreat after a
-  // meal. A player who walks up turns it back into the thief — the window
-  // to scare it off the crop.
-  _foeCasesCrop(c, now, distM, unnoticed) {
-    if (!SpriteLayout.creatureBehaviour(c.kind)?.raidsCrops) return false;
-    if (c._departUntilT && now < c._departUntilT) return true;
-    if (!unnoticed && Combat.seesPlayer(c.kind, distM, this.cellM, this.save)) return false;
-    if (c._destroyCropRef && c._destroyCyclesLeft > 0) return true;
-    if (!this.save.planted?.length) return false;
-    const R = RAID_NOTICE_CELLS * this.cellM;
-    let found = false;
-    Crops.forEachInBox(this.save, this.depth || 0, c.x - R, c.y - R, c.x + R, c.y + R, (p) => {
-      if (found || !this._cropRaidable(p)) return;
-      const ddx = p.x - c.x, ddy = p.y - c.y;
-      if (ddx * ddx + ddy * ddy <= R * R) found = true;
-    });
-    return found;
   }
 
   _wildCrowTick(c, now, px, py) {

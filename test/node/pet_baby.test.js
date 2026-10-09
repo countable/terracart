@@ -285,3 +285,20 @@ test('baby feeding: a cancelled confirmation or missing meal grants no progress'
     assert.eq(pet.favouriteFeeds, 0, 'a stale confirmation cannot count an absent meal');
   } finally { window.__TEST_MODE = testMode; }
 });
+
+test('chicken feeding: shiny chickens lay separate shiny eggs on the same cooldown', () => {
+  for (const shiny of [false, true]) {
+    const pet = { kind: 'chicken', id: `pet_egg_${shiny}`, pet: true, shiny, x: 2.5, y: 2.5 };
+    const save = { caught: [], released: [{ ...pet }] };
+    const drops = [];
+    const overrides = { addToInv: (id, n) => drops.push([id, n]) };
+    assert.truthy(feedBaby(pet, save, 'apple', overrides));
+    assert.eq(drops.length, 1);
+    assert.eq(drops[0][0], shiny ? 'shiny_egg' : 'egg');
+    assert.eq(drops[0][1], 1);
+    assert.eq(Inventory.count(save, 'apple'), 0);
+    feedBaby(pet, save, 'apple', overrides);
+    assert.eq(drops.length, 1);
+    assert.eq(Inventory.count(save, 'apple'), 1);
+  }
+});

@@ -435,6 +435,14 @@
     dog:           { sheet: 'dog',       anim: 'dog-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
     deer:          { sheet: 'deer',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
     rabbit:        { sheet: 'rabbit',    fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
+    // The shiny egg's peaceful hatchling shares the dragon poses, with its
+    // own green palette. Baby growth supplies the instance's half scale.
+    green_dragon:  { sheet: 'green_dragon', frameMs: 180, fw: 32, fh: 32, scale: 1.0, foot: 28 / 32, float: 0, minY: 2, maxY: 28,
+                     directions: {
+                       down: { idle: [0], move: [1, 2, 3] },
+                       up: { idle: [4], move: [5, 6, 7] },
+                       left: { idle: [8], move: [9, 10, 11] },
+                       right: { idle: [12], move: [13, 14, 15] } } },
     // The shore crab: 'Crab.png' is 3 cols x 4 rows of 16px frames (front,
     // back, right, left); the front row's three frames are its scuttle cycle,
     // stepped at the common creature beat.
@@ -624,7 +632,7 @@
   });
   const CREATURE_BEHAVIOUR = {
     npc:           { wanders: true },
-    chicken:       { wanders: true, produce: { item: 'egg',  verb: 'laid' } },
+    chicken:       { wanders: true, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
     // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
     // catch's difficulty is current HP × 2, Pets.catchMs).
     cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' } },
@@ -636,6 +644,7 @@
     // tamed with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag
     // it is a mount (items.js HORSE_RIDE).
     horse:         { wanders: true },
+    green_dragon:  { animal: true, wanders: true, follows: true },
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
@@ -661,11 +670,8 @@
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
     // These birds also have hostile roster movement, but remain wild animals.
-    // The raven is also the houses' crop raider: while it is not after the
-    // player it cases a field on the crow's rhythm (scene_creatures.js
-    // _foeCasesCrop → _wildCrowTick).
     gull:          { animal: true },
-    raven:         { animal: true, raidsCrops: true, avoids: ['scarecrow'] },
+    raven:         { animal: true },
     crow:          { wanders: true, game: true, drop: 'crow_feather', raidsCrops: true, avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
     // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
