@@ -2958,6 +2958,18 @@
       }
       function arm() { clearTimeout(watchdog); watchdog = setTimeout(vanish, 30000); }
       window.__bootSafetyAnswered = function () { if (held) vanish(); };
+      // app.js never arrived, retries included (boot gate below). Fading out
+      // would leave only the HTML menu over an empty page, so stay up and
+      // say so; a tap reloads.
+      window.__bootFailed = function () {
+        if (gone) return;
+        clearTimeout(watchdog);
+        el.classList.remove('indet');
+        cap.textContent = "Couldn't load the game. Tap to try again.";
+        el.style.pointerEvents = 'auto';
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => location.reload());
+      };
       window.__bootStatus = function (frac, label) {
         if (gone) return;
         el.classList.remove('indet');
@@ -3001,10 +3013,29 @@
         booted = true;
         document.getElementById('locating')?.remove();
         window.__flushPendingHowTo?.();
-        const endLoad = window.__boot?.begin('app.js load + parse');
+        loadApp(0);
+      }
+      // A failed app.js request used to be final: the overlay sat until its
+      // watchdog, then faded onto the bare menu. Retry with an extra query,
+      // which the service worker sends to the network instead of its cache
+      // key (sw.js resourceKey), and probe the network with a HEAD (workers
+      // never see one) so the profile tells a server failure from a cache
+      // or preload one.
+      const APP_RETRIES = 2;
+      function loadApp(attempt) {
+        const endLoad = window.__boot?.begin(attempt ? 'app.js load + parse (retry ' + attempt + ')' : 'app.js load + parse');
         const el = document.createElement('script');
-        el.onerror = () => endLoad?.('FAILED');
-        el.src = APP_SRC;
+        const src = attempt ? APP_SRC + '&retry=' + attempt + '.' + Date.now() : APP_SRC;
+        el.onerror = () => {
+          endLoad?.('FAILED');
+          el.remove();
+          fetch(src, { method: 'HEAD', cache: 'no-store' })
+            .then(r => window.__boot?.mark('app.js network probe: HTTP ' + r.status))
+            .catch(e => window.__boot?.mark('app.js network probe: ' + (e && e.message || 'failed')));
+          if (attempt < APP_RETRIES) setTimeout(() => loadApp(attempt + 1), 800 * (attempt + 1));
+          else window.__bootFailed?.();
+        };
+        el.src = src;
         // app.js defines window.TELEPORT_PRESETS; the ☰ menu's teleport
         // section was built before it loaded, so build it again now.
         el.onload = () => { endLoad?.(); try { window.__buildTeleportMenu?.(); } catch (_) {} };
