@@ -201,7 +201,7 @@ test('favourite: a hunt (deer, empty hand, weapon active) starts the hunt wheel,
 });
 })();
 
-test('favourite: a sea turtle favours a shell', () => {
-  assert.eq(JSON.stringify(favouriteOverride('sea_turtle')), JSON.stringify(['shell']));
+test('favourite: a shore crab favours a shell', () => {
+  assert.eq(JSON.stringify(favouriteOverride('crab')), JSON.stringify(['shell']));
   assert.truthy(ITEM_BY_ID.shell, 'the shell is a real item');
 });

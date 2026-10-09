@@ -142,7 +142,9 @@ access or tile lifecycle mechanics.
 - THE LOW-TIER QUOTA: a tile below `WorldGen.LOW_TIER_CHEST_QUOTA` (200)
   tier-1 chests tops up with ambient crates (`topUpAmbientCratesSteps`,
   after the variant top-up): one-time tier-1 crates on 'reward' cells, lowest
-  cell hash first. Its shortfall (`entry.lowTierDeficit`) also lays extra X
+  cell hash first, with a cell within `AMBIENT_CRATE_PATH_CELLS` of a
+  footpath scoring `AMBIENT_CRATE_PATH_BIAS` times better, so a low-POI town's
+  crates line its walking paths. Its shortfall (`entry.lowTierDeficit`) also lays extra X
   marks in proportion (scene_creatures.js `X_TOP_UP_MAX`), drawn off the cell
   hash so the tile's rng stream never shifts. Mine mouths ignore ambient
   crates and drop any they land on.

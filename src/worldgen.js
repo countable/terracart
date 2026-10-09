@@ -961,6 +961,33 @@
   // entry (lowTierDeficit): spawnInTile tops up X marks from it
   // (scene_creatures.js X_TOP_UP).
   const LOW_TIER_CHEST_QUOTA = 200;
+  // ALONG THE WALKING PATHS (owner, Oct 2026): a seat within
+  // AMBIENT_CRATE_PATH_CELLS of a footpath (T.PATH) is AMBIENT_CRATE_PATH_BIAS
+  // times likelier to win — its hash score is divided by the bias before the
+  // lowest-score draw, so the count is unchanged and only where they lie moves
+  // toward the paths a walker actually takes.
+  const AMBIENT_CRATE_PATH_CELLS = 2;
+  const AMBIENT_CRATE_PATH_BIAS = 4;
+  // Cells within `r` (Chebyshev) of a footpath, as a 0/1 mask: two separable
+  // passes, rows then columns, so it costs O(N² · r) and never a 2-D scan.
+  function* nearPathMaskSteps(grid, N, r) {
+    const rows = new Uint8Array(N * N), out = new Uint8Array(N * N);
+    for (let y = 0; y < N; y++) {
+      if ((y & 31) === 0) yield 'ambient crate path mask';
+      let last = -Infinity;
+      for (let x = 0; x < N; x++) if (grid[y * N + x] === T.PATH) last = x; else if (x - last <= r) rows[y * N + x] = 1;
+      last = Infinity;
+      for (let x = N - 1; x >= 0; x--) if (grid[y * N + x] === T.PATH) { last = x; rows[y * N + x] = 1; } else if (last - x <= r) rows[y * N + x] = 1;
+    }
+    for (let x = 0; x < N; x++) {
+      if ((x & 31) === 0) yield 'ambient crate path mask';
+      for (let y = 0; y < N; y++) {
+        if (!rows[y * N + x]) continue;
+        for (let d = -r; d <= r; d++) { const yy = y + d; if (yy >= 0 && yy < N) out[yy * N + x] = 1; }
+      }
+    }
+    return out;
+  }
   function* topUpAmbientCratesSteps({ objects, dressings = [], grid, N, tx, ty, tileEdgeM, spawnOpts }) {
     let count = 0;
     for (const list of [objects, ...dressings.map(d => d?.objects || [])]) {
@@ -992,11 +1019,13 @@
         [heap[k], heap[m]] = [heap[m], heap[k]]; k = m;
       }
     };
+    const nearPath = yield* nearPathMaskSteps(grid, N, AMBIENT_CRATE_PATH_CELLS);
     for (let i = 0; i < N * N; i++) {
       if ((i & 1023) === 0) yield 'ambient crate seats';
       const ix = i % N, iy = (i - ix) / N;
       if (!isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward')) continue;
-      const seat = { i, ix, iy, score: (cellHash(tx, ty, ix, iy) ^ 0x2c1b3d5) >>> 0 };
+      const raw = (cellHash(tx, ty, ix, iy) ^ 0x2c1b3d5) >>> 0;
+      const seat = { i, ix, iy, score: nearPath[i] ? Math.floor(raw / AMBIENT_CRATE_PATH_BIAS) : raw };
       if (heap.length < deficit) {
         heap.push(seat);
         for (let k = heap.length - 1; k > 0;) {
@@ -9363,7 +9392,7 @@
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
-    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, topUpAmbientCratesSteps, LOW_TIER_CHEST_QUOTA, AMBIENT_CRATE_PATH_CELLS, AMBIENT_CRATE_PATH_BIAS, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
     ARENA_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,

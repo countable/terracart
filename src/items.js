@@ -1951,15 +1951,15 @@ const ANIMAL_FOOD = {
   deer: ['apple'],
   crow: ['potato_seed'],
   butterfly: ['flowers'],
-  sea_turtle: ['shell'],  // a beach animal's favourite is a beach find (owner, Oct 2026)
+  sea_turtle: ['cress'],
   cow:     ['pairy'],      // pears to munch
   horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt a deer with the bug net
-  // A shore crab is tamed with the smallest fish. (Fed plant produce once
+  // A shore crab favours a shell (owner, Oct 2026). (Fed plant produce once
   // tame, it sheds a shell — its CREATURE_BEHAVIOUR `produce` row.)
-  crab:    ['minnow'],
+  crab:    ['shell'],
   // Slimes accept sapphire before they can be caught.
   slime:   ['sapphire'],
   cave_slime: ['sapphire'],
