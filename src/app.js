@@ -4404,7 +4404,7 @@ class MapScene extends Phaser.Scene {
       if (s.projectile === 'confusion_puff') {
         const phase = (s.travelledM || 0) * 3;
         const size = CELL_PX * 0.75;
-        // A travelling puff of the same translucent lilac gas as the ground cloud.
+        // A travelling puff of the same yellow confusion gas as the ground cloud.
         GasRender.paintCell(g, hx - size / 2, hy - size / 2, size, 2, 0, phase);
         continue;
       }

@@ -2,8 +2,10 @@
 // under lighting and exploration fog. No textures or pixel readbacks per frame.
 const GasRender = (() => {
   const FADE_MS = 320;
-  const COLOR = 0xa68ac9;
-  const HIGHLIGHT = 0xd5b8e6;
+  // Confusion gas is YELLOW (owner, Oct 2026): the old lilac all but vanished
+  // over grass. The mushroom monster's travelling puff paints through here too.
+  const COLOR = 0xe6cf3a;
+  const HIGHLIGHT = 0xfff4a8;
 
   // Phaser Graphics-compatible painter, also usable by the art preview adapter.
   // Stepped shoulders and sparse highlights keep a cell cloud from looking like
@@ -11,7 +13,7 @@ const GasRender = (() => {
   function paintCell(g, x, y, size, density, seed = 0, phase = 0) {
     // Square-root response keeps the spreading fringe visible: a .25-density
     // neighbour reads as a veil, while the source remains translucent.
-    const alpha = Math.min(0.42, Math.sqrt(Math.max(0, density)) * 0.48);
+    const alpha = Math.min(0.62, Math.sqrt(Math.max(0, density)) * 0.7);
     if (alpha < 0.001) return;
     const unit = size / 16;
     const wobble = Math.sin(phase + seed * 0.73);
