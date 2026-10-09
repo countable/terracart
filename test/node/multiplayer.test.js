@@ -36,7 +36,7 @@ test('peer roster batches the near count and shares feet-based world ordering', 
   sc.save = { multiplayer: true, playerName: 'Ada', playerColor: 0x9fd8ff };
   sc.add = {
     container() { return { setDepth() { return this; }, add() {} }; },
-    graphics() { return { clear() {} }; },
+    graphics() { return { clear() {}, fillStyle() { return this; }, fillCircle() { return this; } }; },
   };
   try {
     Multiplayer.start(sc);

@@ -87,6 +87,9 @@ const MAX_MSGS_PER_S = 30;
 const MAX_ENEMY_FRAMES_PER_S = 20;
 const ENEMY_ID_RE = /^[A-Za-z0-9_:.%-]{1,96}$/;   // src/enemy_spawns.js SHARED_ID_RE
 const MAX_IDS = 32;
+// A full seen/dead batch can contain 32 × 96-character IDs (over 3 KiB
+// including JSON). Keep the transport bound above that legal protocol size.
+const MAX_PAYLOAD_BYTES = 4096;
 const CASTLE_KEY_RE = /^b_-?\d{1,9}_-?\d{1,9}$/;    // src/houses.js CASTLE_KEY_RE
 const MAX_FLAGS = 255;        // presence `g`: a byte of targeting flags
 const MAX_VISION_CUT = 15;    // presence `v`: cells off an enemy's sight
@@ -184,7 +187,7 @@ const ENEMY_FRAMES = new Map([['hit', cleanHit], ['seen', cleanIds], ['dead', cl
                               ['battle', cleanBattle], ['aggro', cleanAggro]]);
 
 function createRelay(server) {
-  const wss = new WebSocketServer({ server, maxPayload: 1024 });
+  const wss = new WebSocketServer({ server, maxPayload: MAX_PAYLOAD_BYTES });
   const clients = new Map();   // id → { ws, id, name, color, x, y, fx, fy, m, d, e, g, v, lastPingAt }
                                // (the liveness flag + frame budget live on ws itself: ws.alive / ws.budget)
   let nextId = 1;

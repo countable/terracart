@@ -265,6 +265,38 @@ test('seen and dead relay to nearby peers with the sender id, never echoed; malf
   } finally { await s.close(); }
 });
 
+test('full seen/dead batches with maximum-length IDs survive the transport limit', async () => {
+  const s = await boot();
+  try {
+    const a = await hello(s.url, 'Ada');
+    const b = await hello(s.url, 'Bob');
+    await a.next();
+    const ids = Array.from({ length: MAX_IDS }, (_, i) => `enemy_${i}_`.padEnd(96, 'x'));
+    const d = Number.MAX_SAFE_INTEGER;
+    a.send({ t: 'seen', ids, d });
+    assert.deepStrictEqual(await b.next(), { t: 'seen', id: a.welcome.id, ids, d });
+    b.send({ t: 'dead', ids, d });
+    assert.deepStrictEqual(await a.next(), { t: 'dead', id: b.welcome.id, ids, d });
+    a.ws.close(); b.ws.close();
+  } finally { await s.close(); }
+});
+
+test('frames beyond the bounded transport limit still close only the sending socket', async () => {
+  const s = await boot();
+  try {
+    const a = await hello(s.url, 'Ada');
+    const b = await hello(s.url, 'Bob');
+    await a.next();
+    a.send({ t: 'seen', ids: ['x'.repeat(8192)], d: 0 });
+    assert.strictEqual(await a.closed, 1009);
+    assert.deepStrictEqual(await b.next(), { t: 'leave', id: a.welcome.id });
+    assert.strictEqual(b.ws.readyState, WebSocket.OPEN);
+    const response = await fetch(s.url.replace('ws:', 'http:'));
+    assert.deepStrictEqual(await response.json(), { ok: true, online: 1 });
+    b.ws.close();
+  } finally { await s.close(); }
+});
+
 test('hits relay to nearby peers with the sender id, never echoed; malformed hits are dropped, not fatal', async () => {
   const s = await boot();
   try {

@@ -170,12 +170,28 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
 - Only world-shared creatures take part (`EnemySpawns.isSharedId`): a positive
   mark stamped where world-derived creatures are made. Clock-, random- or
   serial-minted creatures (ghosts, fished slimes, pest deer, guild foes, dev
-  spawns, story encounters, split-slime halves) stay local. A citadel guard is
-  shared only while the asking save's battle for its castle is live
+  spawns and story encounters) stay local. Splitting species stay local in
+  full, including the original body, which represents just one private half
+  after splitting. A citadel guard is shared only while the asking save's
+  battle for its castle is live
   (`isSharedId(c, save)`), because its defeat expires with the battle.
-- Late arrivals learn deaths through `seen` → `dead`. Each newly loaded shared
-  enemy is announced once per connection. A peer whose `save.caught` holds it
-  answers everyone near after a jitter, unless another peer already answered.
+- Late arrivals learn deaths through `seen` → `dead`. Loaded shared enemies,
+  including hidden garrisons, are announced in batches of 32 at most once a
+  second and retried after ten seconds. Oldest announcements go first, so
+  large groups finish and already connected players meeting later reconcile.
+  Changing depth resets the scan. A peer whose `save.caught` holds an ID
+  answers everyone near after a jitter; duplicate suppression includes depth.
+- A hit received before its tile loads or while another depth is active waits
+  up to 30 seconds; an authoritative death waits up to five minutes. The
+  connection keeps at most 512 deferred enemy records. On loading, the shared
+  creature predicate is checked before applying anything; private and tame
+  bodies are never affected. Repeated scans recover deaths after these limits.
+- Damage and kill frames share a rolling 12-frame-per-second client budget.
+  Burst kills take priority and queue until sent. All enemy channels, including
+  battle and targeting announcements, also share a rolling 20-frame budget.
+  The relay allows 20 enemy frames per second, 32 IDs per seen/dead frame,
+  and a bounded 4096-byte payload, enough for a full batch of its longest
+  legal IDs.
 - Castle battles are shared. A live battle is broadcast as `battle` (castle
   key and start) at once and every `Multiplayer.BATTLE_MS`; a nearby save
   with no battle there and the castle unclaimed adopts the SAME start
@@ -220,8 +236,11 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
 
 - Zone encounter groups grow with the near players on each device
   (`EnemyHabitats.scaleEncounters`; rule and stickiness in
-  [generation](generation.md)). Extras are ordinary shared foes. Devices that
-  briefly disagree on P simply lack the other's extras for a moment, and hits
-  or deaths for an id a device has not made yet are dropped.
+  [generation](generation.md)). Extras are ordinary shared foes. Groups
+  scale only after a tile finishes its sliced spawn and publishes its base
+  population. Devices with different local party counts can lack each other's
+  extras; sticky counts can preserve that difference after players leave.
+  Hits or deaths for an ID a device has not made yet wait in the bounded
+  deferred queue until that device creates the extra or the record expires.
 
 Tests: `multiplayer_hits`, `multiplayer_shared`, `server/test.js`.

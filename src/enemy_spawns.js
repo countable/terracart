@@ -295,6 +295,8 @@
   function markShared(c, on = true) { if (c && on) c._sharedId = true; return c; }
   function isSharedId(c, save = null) {
     if (!c || c._sharedId !== true || typeof c.id !== 'string' || !SHARED_ID_RE.test(c.id)) return false;
+    // The original body becomes one private half; exclude the entire species.
+    if (root.EnemyRoster.get(c.kind)?.ability?.type === 'split') return false;
     return !c.castle || (!!save && !!root.Houses?.citadelBattleActive(save, c.castle));
   }
   // Legacy IDs encode ordinal seats (pack) or cells (roamers). Match either

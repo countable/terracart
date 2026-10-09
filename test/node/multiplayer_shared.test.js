@@ -105,10 +105,10 @@ let clock = 1e13;
 // A relay that records what the client sends, welcomed as `myId` with `peers`.
 function withRelay(scene, fn, { myId = 1, peers = [] } = {}) {
   const oldDocument = globalThis.document, oldWebSocket = globalThis.WebSocket;
-  const sent = [];
+  const sent = [], sentTimes = [];
   class FakeWebSocket {
     constructor() { this.readyState = 1; FakeWebSocket.last = this; }
-    send(s) { sent.push(JSON.parse(s)); }
+    send(s) { sent.push(JSON.parse(s)); sentTimes.push(clock); }
     close() {}
   }
   globalThis.WebSocket = FakeWebSocket;
@@ -121,7 +121,7 @@ function withRelay(scene, fn, { myId = 1, peers = [] } = {}) {
   const bars = [];
   scene.add = {
     container() { return { setDepth() { return this; }, add() {}, setMask() { return this; } }; },
-    graphics() { return { clear() {} }; },
+    graphics() { return { clear() {}, fillStyle() { return this; }, fillCircle() { return this; } }; },
     image: phaserStub, sprite: phaserStub, text: phaserStub,
   };
   scene.shadowContainer = { add() {} }; scene.worldContainer = { add() {} };
@@ -134,7 +134,7 @@ function withRelay(scene, fn, { myId = 1, peers = [] } = {}) {
     FakeWebSocket.last.onmessage({ data: JSON.stringify({ t: 'welcome', id: myId, peers }) });
     const recv = (msg) => FakeWebSocket.last.onmessage({ data: JSON.stringify(msg) });
     const of = (t) => sent.filter((m) => m.t === t);
-    return fn({ sent, recv, of, bars });
+    return fn({ sent, sentTimes, recv, of, bars });
   } finally {
     Multiplayer.stop(scene);
     performance.now = realNow;
@@ -713,6 +713,7 @@ const sig = (cs) => cs.map((c) => `${c.id}:${c.kind}:${c.x},${c.y}:${!!c.shiny}`
 function built(tx = 0, ty = 0) {
   const e = orchard();
   e.creatures = EnemyHabitats.surfaceEncounters(e, tx, ty, new Set());
+  e._spawned = true;
   return e;
 }
 
@@ -855,4 +856,125 @@ test('party groups: the client counts near players on this depth and grows the g
     if (had) WorldGen.tileCache.set(key, had); else WorldGen.tileCache.delete(key);
   }
 });
+test('party groups: deaths received before a boundary peer grows the group apply to its new extras', () => {
+  const key = WorldGen.tileKey(TX, TY), had = WorldGen.tileCache.get(key);
+  const e = built(TX, TY), remote = built(TX, TY);
+  const extras = EnemyHabitats.scaleEncounters(remote, 2, new Set()).added;
+  assert.gt(extras.length, 1);
+  WorldGen.tileCache.set(key, e);
+  try {
+    const { scene } = harness();
+    const at = { x: TX * PEDGE + 100, y: TY * PEDGE + 100 };
+    online(scene, at);
+    withRelay(scene, ({ recv, of }) => {
+      flush(scene, Multiplayer.PARTY_SCAN_MS);
+      assert.falsy(e.creatures.some(c => c.id === extras[0].id), 'peer just outside near radius leaves the extra unmade');
+      recv({ t: 'dead', id: 2, ids: [extras[0].id], d: 0 });
+      recv({ t: 'hit', id: 2, eid: extras[1].id, f: 0.25, d: 0 });
+      recv({ t: 'p', ...peer(2, at.x + Multiplayer.PEER_NEAR_M, at.y) });
+      flush(scene, Multiplayer.PARTY_SCAN_MS);
+      const dead = e.creatures.find(c => c.id === extras[0].id);
+      const hit = e.creatures.find(c => c.id === extras[1].id);
+      assert.truthy(dead && hit, 'the boundary peer grows the same IDs');
+      assert.includes(scene.save.caught, dead.id, 'deferred death applies in the growth tick');
+      assert.inRange(Combat.hpFraction(hit), 0.7499, 0.7501);
+      assert.falsy(of('seen').some(m => m.ids.includes(dead.id)), 'dead extra is never announced alive');
+      const count = e.creatures.length;
+      recv({ t: 'p', ...peer(2, at.x + Multiplayer.PEER_NEAR_M + 1, at.y) });
+      flush(scene, Multiplayer.PARTY_SCAN_MS);
+      recv({ t: 'p', ...peer(2, at.x + Multiplayer.PEER_NEAR_M, at.y) });
+      flush(scene, Multiplayer.PARTY_SCAN_MS);
+      assert.eq(e.creatures.length, count, 'edge jitter neither removes nor duplicates extras');
+      assert.inRange(Combat.hpFraction(hit), 0.7499, 0.7501, 'damage is replayed once');
+    }, { peers: [peer(2, at.x + Multiplayer.PEER_NEAR_M + 1, at.y)] });
+  } finally {
+    if (had) WorldGen.tileCache.set(key, had); else WorldGen.tileCache.delete(key);
+  }
+});
+
+test('multiplayer castle deferral: a queued old battle kill cannot defeat a new battle guard', () => {
+  withTile(entry => {
+    const { scene } = harness(); online(scene);
+    const startedAt = Date.now() - 2000;
+    withRelay(scene, ({ recv }) => {
+      recv({ t: 'battle', id: 2, key: KEY, startedAt, d: 0 });
+      recv({ t: 'hit', id: 2, eid: 'enemy_mp_old_battle', f: 0, k: 1, d: 0 });
+      // Restart both participants before this device loads the guard.
+      scene.save.citadelBattles[KEY].startedAt = startedAt + 1000;
+      recv({ t: 'battle', id: 2, key: KEY, startedAt: startedAt + 1000, d: 0 });
+      const c = foe(entry, { id: 'enemy_mp_old_battle', castle: KEY });
+      flush(scene);
+      assert.eq(Combat.hpFraction(c), 1);
+      assert.falsy(scene.save.caught.includes(c.id));
+    });
+  });
+});
+
+test('multiplayer traffic: hits, scans, deaths, battles and targeting share one rolling enemy budget', () => {
+  withTile(entry => {
+    const { scene } = harness(); online(scene, SPOT);
+    const startedAt = Date.now();
+    scene.save.citadelBattles = {};
+    for (let i = 1; i < 200 && Object.keys(scene.save.citadelBattles).length < 24; i++) {
+      const key = `b_${1462600 + i}_823800`;
+      if (CastleStyles.get(key).guards) scene.save.citadelBattles[key] = { startedAt, guardIds: [] };
+    }
+    withRelay(scene, ({ sent, sentTimes, of, recv }) => {
+      for (let i = 0; i < 24; i++) scene.resolveDefeat(foe(entry, { id: `enemy_mp_mixed_${i}` }), 'player');
+      for (let i = 0; i < 8; i++) {
+        const c = foe(entry, { id: `enemy_mp_target_${i}`, x: SPOT.x + 20 });
+        Multiplayer.enemyTarget(scene, c, SPOT.x, SPOT.y);
+      }
+      recv({ t: 'seen', id: 2, ids: ['enemy_mp_mixed_0'], d: 0 });
+      Multiplayer.tick(scene);
+      const enemy = () => sent.filter(m => ['hit', 'seen', 'dead', 'battle', 'aggro'].includes(m.t));
+      assert.lte(enemy().length, 20, 'hit and battle timers share one cap');
+      const first = enemy().length;
+      clock += 999;
+      Multiplayer.tick(scene);
+      assert.eq(enemy().length, first, 'a different timer cannot bypass the rolling cap');
+      flush(scene, 1);
+      assert.lte(enemy().length - first, 20);
+      flush(scene, 1000); flush(scene, 1000);
+      assert.eq(of('hit').length, 24, 'every queued kill is sent');
+      assert.eq(new Set(of('battle').map(m => m.key)).size, 24, 'every pending battle is sent');
+      for (const type of ['hit', 'seen', 'dead', 'battle', 'aggro']) assert.gt(of(type).length, 0, `${type} is exercised`);
+      const times = sentTimes.filter((_, i) => ['hit', 'seen', 'dead', 'battle', 'aggro'].includes(sent[i].t));
+      for (const at of times) assert.lte(times.filter(t => t >= at && t < at + 1000).length, 20, 'every rolling second fits');
+    }, { peers: [peer(2, SPOT.x + 20, SPOT.y)] });
+  });
+});
+
+test('party groups: a neighbour tile finishes its sliced spawn before scaling can publish extras', () => {
+  const key = WorldGen.tileKey(TX, TY), had = WorldGen.tileCache.get(key), e = orchard();
+  WorldGen.tileCache.set(key, e);
+  try {
+    const { scene } = harness(), at = { x: TX * PEDGE + 100, y: TY * PEDGE + 100 };
+    online(scene, at);
+    withRelay(scene, ({ recv }) => {
+      const spawn = EnemyHabitats.surfaceEncountersSteps(e, TX, TY, new Set());
+      let step, yieldedWithGroups = 0;
+      while (!(step = spawn.next()).done) {
+        if (!EnemyHabitats.groupsOf(e).length) continue;
+        yieldedWithGroups++;
+        clock += Multiplayer.PARTY_SCAN_MS;
+        recv({ t: 'p', ...peer(2, at.x + 20, at.y) });
+        Multiplayer.scaleParty(scene, clock);
+        assert.eq(e.creatures, undefined, 'the partially spawned tile must not publish an extras-only array');
+        assert.truthy(EnemyHabitats.groupsOf(e).every(g => g.players === 1 && !g.elite), 'no upgrade consumed before its base exists');
+      }
+      assert.gt(yieldedWithGroups, 0, 'the real generator yields after group records appear');
+      // The scene publishes the generated population only in its final slice.
+      e.creatures = step.value; e._spawned = true;
+      const baseIds = e.creatures.map(c => c.id);
+      clock += Multiplayer.PARTY_SCAN_MS;
+      Multiplayer.scaleParty(scene, clock);
+      assert.gt(e.creatures.length, baseIds.length, 'completed tile then gains the party extras');
+      for (const id of baseIds) assert.truthy(e.creatures.some(c => c.id === id), 'every base member survives publication');
+    }, { peers: [peer(2, at.x + 20, at.y)] });
+  } finally {
+    if (had) WorldGen.tileCache.set(key, had); else WorldGen.tileCache.delete(key);
+  }
+});
+
 })();
